@@ -1,0 +1,343 @@
+.home-page {
+  // 跳過鏈接（可訪問性）
+  .skip-link {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: #ff8c42;
+    color: #fff;
+    padding: 8px 16px;
+    text-decoration: none;
+    z-index: 1000;
+    border-radius: 4px;
+    transition: top 0.3s;
+
+    &:focus {
+      top: 0;
+    }
+  }
+
+  .hero-section {
+    background: linear-gradient(135deg, #ff8c42 0%, #5b9bd5 100%);
+    padding: 80px 24px;
+    color: #fff;
+    position: relative;
+    overflow: hidden;
+
+    // 背景動畫
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.1) 0%, transparent 50%);
+      animation: float 20s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% {
+        transform: translateY(0) translateX(0);
+      }
+      50% {
+        transform: translateY(-20px) translateX(20px);
+      }
+    }
+
+    .hero-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 48px;
+      position: relative;
+      z-index: 1;
+
+      .hero-image {
+        flex: 1;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .hero-text {
+        flex: 1;
+
+        .hero-title {
+          font-size: 48px;
+          font-weight: bold;
+          margin-bottom: 24px;
+          line-height: 1.2;
+          animation: fadeInUp 0.8s ease-out;
+        }
+
+        .hero-subtitle {
+          font-size: 20px;
+          margin-bottom: 32px;
+          opacity: 0.9;
+          animation: fadeInUp 0.8s ease-out 0.2s both;
+        }
+
+        .hero-actions {
+          display: flex;
+          gap: 16px;
+          animation: fadeInUp 0.8s ease-out 0.4s both;
+
+          .primary-button {
+            height: 56px;
+            font-size: 18px;
+            padding: 0 40px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+
+            &::before {
+              content: '';
+              position: absolute;
+              top: 50%;
+              left: 50%;
+              width: 0;
+              height: 0;
+              border-radius: 50%;
+              background: rgba(255, 255, 255, 0.3);
+              transform: translate(-50%, -50%);
+              transition: width 0.6s, height 0.6s;
+            }
+
+            &:hover {
+              transform: translateY(-2px);
+              box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+
+              &::before {
+                width: 300px;
+                height: 300px;
+              }
+            }
+
+            &:active {
+              transform: translateY(0);
+            }
+
+            // 焦點樣式（可訪問性）
+            &:focus-visible {
+              outline: 3px solid rgba(255, 255, 255, 0.8);
+              outline-offset: 2px;
+            }
+          }
+
+          button:not(.primary-button) {
+            transition: all 0.3s;
+
+            &:hover {
+              transform: translateY(-2px);
+            }
+
+            &:focus-visible {
+              outline: 3px solid rgba(255, 255, 255, 0.8);
+              outline-offset: 2px;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  .features-section,
+  .process-section {
+    padding: 80px 24px;
+    background: #fafafa;
+    position: relative;
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .section-title {
+      text-align: center;
+      font-size: 32px;
+      font-weight: bold;
+      margin-bottom: 48px;
+      color: #262626;
+      position: relative;
+
+      &::after {
+        content: '';
+        position: absolute;
+        bottom: -16px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 60px;
+        height: 4px;
+        background: linear-gradient(90deg, #ff8c42, #5b9bd5);
+        border-radius: 2px;
+      }
+    }
+
+    .feature-card {
+      text-align: center;
+      height: 100%;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      cursor: pointer;
+      border: 2px solid transparent;
+
+      &:hover,
+      &:focus {
+        transform: translateY(-8px) scale(1.02);
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
+        border-color: #ff8c42;
+      }
+
+      &:focus-visible {
+        outline: 3px solid #ff8c42;
+        outline-offset: 2px;
+      }
+
+      .feature-icon {
+        font-size: 64px;
+        color: #ff8c42;
+        margin-bottom: 16px;
+        transition: transform 0.3s;
+      }
+
+      &:hover .feature-icon {
+        transform: scale(1.1) rotate(5deg);
+      }
+
+      h3 {
+        font-size: 20px;
+        font-weight: bold;
+        margin-bottom: 8px;
+        color: #262626;
+        transition: color 0.3s;
+      }
+
+      &:hover h3 {
+        color: #ff8c42;
+      }
+
+      p {
+        color: #595959;
+        font-size: 14px;
+        line-height: 1.6;
+      }
+    }
+
+    .process-step {
+      text-align: center;
+      transition: transform 0.3s;
+
+      &:hover {
+        transform: translateY(-4px);
+      }
+
+      .step-number {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #ff8c42, #ffa366);
+        color: #fff;
+        font-size: 32px;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 16px;
+        transition: all 0.3s;
+        box-shadow: 0 4px 12px rgba(255, 140, 66, 0.3);
+      }
+
+      &:hover .step-number {
+        transform: scale(1.1) rotate(360deg);
+        box-shadow: 0 6px 20px rgba(255, 140, 66, 0.5);
+      }
+
+      h3 {
+        font-size: 18px;
+        font-weight: bold;
+        margin-bottom: 8px;
+        color: #262626;
+      }
+
+      p {
+        color: #595959;
+        font-size: 14px;
+        line-height: 1.6;
+      }
+    }
+  }
+
+  // 淡入動畫
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  // 響應式設計
+  @media (max-width: 1024px) {
+    .hero-section .hero-content {
+      gap: 32px;
+    }
+
+    .features-section,
+    .process-section {
+      padding: 60px 24px;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .hero-section {
+      padding: 40px 16px;
+
+      .hero-content {
+        flex-direction: column;
+        gap: 24px;
+
+        .hero-text .hero-title {
+          font-size: 32px;
+        }
+
+        .hero-text .hero-subtitle {
+          font-size: 16px;
+        }
+
+        .hero-actions {
+          flex-direction: column;
+          width: 100%;
+
+          button {
+            width: 100%;
+          }
+        }
+      }
+    }
+
+    .features-section,
+    .process-section {
+      padding: 40px 16px;
+
+      .section-title {
+        font-size: 24px;
+        margin-bottom: 32px;
+      }
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+

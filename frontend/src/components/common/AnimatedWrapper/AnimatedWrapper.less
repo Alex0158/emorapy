@@ -1,0 +1,40 @@
+.animated-wrapper {
+  opacity: 0;
+
+  &--fade {
+    &.animated-wrapper {
+      opacity: 1;
+    }
+  }
+
+  &--slide {
+    &.animated-wrapper {
+      opacity: 1;
+      transform: translateY(0) translateX(0);
+    }
+  }
+
+  &--scale {
+    &.animated-wrapper {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  &--up {
+    transform: translateY(20px);
+  }
+
+  &--down {
+    transform: translateY(-20px);
+  }
+
+  &--left {
+    transform: translateX(20px);
+  }
+
+  &--right {
+    transform: translateX(-20px);
+  }
+}
+

@@ -1,0 +1,109 @@
+.case-list-page {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 24px;
+
+    .header-left {
+      .ant-typography {
+        margin-bottom: 8px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      flex-direction: column;
+      gap: 16px;
+    }
+  }
+
+  .filters-section {
+    margin-bottom: 24px;
+    padding: 16px;
+    background: #fafafa;
+    border-radius: 8px;
+
+    @media (max-width: 768px) {
+      .ant-space {
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+
+        .ant-select,
+        .ant-input-search {
+          width: 100% !important;
+        }
+      }
+    }
+  }
+
+  .case-card {
+    height: 100%;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 2px solid transparent;
+    cursor: pointer;
+
+    &:hover,
+    &:focus {
+      transform: translateY(-8px);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
+      border-color: rgba(255, 140, 66, 0.3);
+    }
+
+    &:focus-visible {
+      outline: 3px solid #ff8c42;
+      outline-offset: 2px;
+    }
+
+    .case-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 16px;
+
+      .case-title {
+        flex: 1;
+        margin: 0;
+        margin-right: 16px;
+      }
+    }
+
+    .case-card-body {
+      margin-bottom: 16px;
+    }
+
+    .case-progress {
+      margin-bottom: 16px;
+      padding: 8px;
+      background: #fff7e6;
+      border-radius: 4px;
+    }
+
+    .case-card-footer {
+      display: flex;
+      justify-content: flex-end;
+    }
+  }
+
+  .pagination-wrapper {
+    margin-top: 24px;
+    text-align: center;
+    padding: 24px 0;
+  }
+
+  // 減少動畫（可訪問性）
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+

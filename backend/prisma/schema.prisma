@@ -1,0 +1,486 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ENUM 定義
+enum Gender {
+  male
+  female
+  other
+  private
+}
+
+enum RelationshipStatus {
+  single
+  dating
+  married
+}
+
+enum Language {
+  zh
+  en
+}
+
+enum Privacy {
+  public
+  partner_only
+  private
+}
+
+enum PairingStatus {
+  pending
+  active
+  cancelled
+  temp
+}
+
+enum PairingType {
+  normal
+  quick
+}
+
+enum CaseStatus {
+  draft
+  submitted
+  in_progress
+  judgment_failed
+  completed
+  cancelled
+}
+
+enum CaseMode {
+  remote
+  collaborative
+  quick
+}
+
+enum FileType {
+  image
+  video
+  doc
+}
+
+enum PlanType {
+  activity
+  communication
+  intimacy
+  gift
+  service
+}
+
+enum Difficulty {
+  easy
+  medium
+  hard
+}
+
+enum ExecutionAction {
+  confirm
+  checkin
+  complete
+  skip
+}
+
+enum ExecutionStatus {
+  pending
+  in_progress
+  completed
+  skipped
+  failed
+}
+
+enum VerificationType {
+  register
+  reset_password
+  verify_email
+}
+
+enum ContentType {
+  article
+  case_sample
+  quiz
+  tip
+}
+
+enum NotificationChannel {
+  email
+  push
+}
+
+enum NotificationStatus {
+  pending
+  sent
+  failed
+}
+
+// 模型定義
+model User {
+  id                   String              @id @default(uuid())
+  email                String              @unique
+  password_hash        String
+  nickname             String?
+  avatar_url           String?
+  avatar_mime          String?
+  gender               Gender?
+  age                  Int?
+  relationship_status  RelationshipStatus  @default(single)
+  language             Language            @default(zh)
+  timezone             String?
+  notification_enabled Boolean             @default(true)
+  privacy_level        Privacy             @default(private)
+  last_login_at        DateTime?
+  is_active            Boolean             @default(true)
+  email_verified       Boolean             @default(false)
+  deleted_at           DateTime?
+  created_by           String?
+  updated_by           String?
+  created_at           DateTime            @default(now())
+  updated_at           DateTime            @updatedAt
+
+  profile              UserProfile?
+  cases_as_plaintiff   Case[]              @relation("PlaintiffCases")
+  cases_as_defendant   Case[]              @relation("DefendantCases")
+  evidences            Evidence[]
+  execution_records    ExecutionRecord[]
+  pairings_as_user1    Pairing[]           @relation("User1Pairings")
+  pairings_as_user2    Pairing[]           @relation("User2Pairings")
+  notifications        Notification[]
+
+  @@index([is_active])
+  @@index([email_verified])
+  @@map("users")
+}
+
+model UserProfile {
+  id                        String   @id @default(uuid())
+  user_id                   String   @unique
+  education_level           String?
+  major_field               String?
+  university                String?
+  ethnicity                 String?
+  cultural_identity         String[]
+  upbringing_environment    String?
+  religion                  String?
+  religious_practice_level  String?
+  family_structure          String?
+  parents_relationship      String?
+  family_economic_status    String?
+  mbti_type                 String?
+  big_five_personality      Json?
+  communication_style       String?
+  occupation                String?
+  interests                 String[]
+  core_values               String[]
+  profile_visibility        Privacy  @default(private)
+  created_at                DateTime @default(now())
+  updated_at                DateTime @updatedAt
+
+  user                      User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
+}
+
+model Pairing {
+  id             String         @id @default(uuid())
+  user1_id       String?
+  user2_id       String?
+  invite_code    String?        @unique @db.VarChar(6)
+  status         PairingStatus  @default(pending)
+  pairing_type   PairingType    @default(normal)
+  session_id     String?        @db.VarChar(100)
+  created_at     DateTime       @default(now())
+  confirmed_at   DateTime?
+  cancelled_at   DateTime?
+  expires_at     DateTime?
+  deleted_at     DateTime?
+  created_by     String?
+  updated_by     String?
+
+  cases          Case[]
+  user1          User?          @relation("User1Pairings", fields: [user1_id], references: [id])
+  user2          User?          @relation("User2Pairings", fields: [user2_id], references: [id])
+  quick_sessions QuickSession[]
+  relationship_profile RelationshipProfile?
+
+  @@index([user1_id])
+  @@index([user2_id])
+  @@index([status])
+  @@index([expires_at])
+  @@index([session_id])
+  @@index([pairing_type])
+  @@map("pairings")
+}
+
+model RelationshipProfile {
+  id                               String   @id @default(uuid())
+  pairing_id                       String   @unique
+  relationship_duration_days       Int?
+  relationship_stage               String?
+  milestones                       Json?
+  user1_location                   String?
+  user2_location                   String?
+  is_long_distance                 Boolean  @default(false)
+  distance_km                      Int?
+  meeting_frequency                String?
+  user1_bottom_lines               String[]
+  user2_bottom_lines               String[]
+  common_bottom_lines              String[]
+  historical_red_flags             Json?
+  user1_preferences                Json?
+  user2_preferences                Json?
+  common_preferences               Json?
+  dislikes                         Json?
+  communication_frequency          String?
+  preferred_communication_methods  String[]
+  conflict_communication_style     String?
+  relationship_strengths           String[]
+  relationship_challenges          String[]
+  historical_case_types            Json?
+  historical_responsibility_trends Json?
+  reconciliation_plan_execution_rate Float?
+  relationship_improvement_trend   String?
+  completion_percentage            Int       @default(0)
+  last_updated_at                  DateTime  @default(now())
+  created_at                       DateTime  @default(now())
+
+  pairing                          Pairing   @relation(fields: [pairing_id], references: [id], onDelete: Cascade)
+
+  @@map("relationship_profiles")
+}
+
+model Case {
+  id                  String         @id @default(uuid())
+  pairing_id          String
+  title               String         @db.VarChar(200)
+  type                String         @db.VarChar(50)
+  sub_type            String?        @db.VarChar(50)
+  plaintiff_id        String?
+  defendant_id        String?
+  plaintiff_statement String
+  defendant_statement String?
+  status              CaseStatus     @default(draft)
+  mode                CaseMode       @default(remote)
+  session_id          String?        @db.VarChar(100)
+  created_at          DateTime       @default(now())
+  updated_at          DateTime       @updatedAt
+  submitted_at        DateTime?
+  completed_at        DateTime?
+  deleted_at          DateTime?
+  created_by          String?
+  updated_by          String?
+
+  defendant           User?          @relation("DefendantCases", fields: [defendant_id], references: [id])
+  pairing             Pairing        @relation(fields: [pairing_id], references: [id])
+  plaintiff           User?          @relation("PlaintiffCases", fields: [plaintiff_id], references: [id])
+  evidences           Evidence[]
+  judgment            Judgment?
+  quick_sessions      QuickSession[]
+  case_content_links  CaseContentLink[]
+
+  @@index([pairing_id])
+  @@index([plaintiff_id])
+  @@index([defendant_id])
+  @@index([status])
+  @@index([type])
+  @@index([created_at])
+  @@index([submitted_at])
+  @@index([mode])
+  @@map("cases")
+}
+
+model Evidence {
+  id          String   @id @default(uuid())
+  case_id     String
+  user_id     String?
+  file_url    String   @db.VarChar(500)
+  mime_type   String?
+  file_type   FileType
+  file_size   Int
+  checksum    String?
+  description String?
+  created_at  DateTime @default(now())
+
+  case        Case     @relation(fields: [case_id], references: [id], onDelete: Cascade)
+  user        User?    @relation(fields: [user_id], references: [id])
+
+  @@index([case_id])
+  @@index([user_id])
+  @@index([file_type])
+  @@map("evidences")
+}
+
+model Judgment {
+  id                   String               @id @default(uuid())
+  case_id              String               @unique
+  judgment_content     String
+  summary              String?
+  plaintiff_ratio      Float
+  defendant_ratio      Float
+  ai_model             String               @default("gpt-3.5-turbo") @db.VarChar(50)
+  prompt_version       String               @default("v1.0") @db.VarChar(20)
+  user1_acceptance     Boolean?
+  user2_acceptance     Boolean?
+  user1_rating         Int?
+  user2_rating         Int?
+  created_at           DateTime             @default(now())
+  updated_at           DateTime             @updatedAt
+
+  case                 Case                 @relation(fields: [case_id], references: [id], onDelete: Cascade)
+  reconciliation_plans ReconciliationPlan[]
+
+  @@index([case_id])
+  @@index([created_at])
+  @@index([user1_acceptance])
+  @@index([user2_acceptance])
+  @@map("judgments")
+}
+
+model ReconciliationPlan {
+  id                 String            @id @default(uuid())
+  judgment_id        String
+  plan_content       String
+  plan_type          PlanType
+  difficulty_level   Difficulty
+  estimated_duration Int?
+  time_cost          Int
+  money_cost         Int
+  emotion_cost       Int
+  skill_requirement  Int
+  user1_selected     Boolean           @default(false)
+  user2_selected     Boolean           @default(false)
+  created_at         DateTime          @default(now())
+
+  execution_records  ExecutionRecord[]
+  judgment           Judgment          @relation(fields: [judgment_id], references: [id], onDelete: Cascade)
+
+  @@index([judgment_id])
+  @@index([difficulty_level])
+  @@index([plan_type])
+  @@map("reconciliation_plans")
+}
+
+model ExecutionRecord {
+  id                     String             @id @default(uuid())
+  reconciliation_plan_id String
+  user_id                String
+  action                 ExecutionAction
+  status                 ExecutionStatus    @default(pending)
+  notes                  String?
+  photos_urls            String[]
+  created_at             DateTime           @default(now())
+  updated_at             DateTime           @updatedAt
+
+  reconciliation_plan    ReconciliationPlan @relation(fields: [reconciliation_plan_id], references: [id], onDelete: Cascade)
+  user                   User               @relation(fields: [user_id], references: [id])
+
+  @@index([reconciliation_plan_id])
+  @@index([user_id])
+  @@index([status])
+  @@index([action])
+  @@map("execution_records")
+}
+
+model QuickSession {
+  id               String   @id @db.VarChar(100)
+  pairing_id       String?
+  case_id          String?
+  session_data     Json?
+  created_at       DateTime @default(now())
+  expires_at       DateTime
+  last_accessed_at DateTime @default(now())
+
+  case             Case?    @relation(fields: [case_id], references: [id], onDelete: SetNull)
+  pairing          Pairing? @relation(fields: [pairing_id], references: [id], onDelete: SetNull)
+
+  @@index([expires_at])
+  @@index([pairing_id])
+  @@index([case_id])
+  @@map("quick_sessions")
+}
+
+model EmailVerification {
+  id         String            @id @default(uuid())
+  email      String            @db.VarChar(255)
+  code       String            @db.VarChar(6)
+  type       VerificationType  @db.VarChar(20)
+  expires_at DateTime
+  used       Boolean           @default(false)
+  created_at DateTime          @default(now())
+
+  @@index([email])
+  @@index([code])
+  @@index([expires_at])
+  @@index([type])
+  @@map("email_verifications")
+}
+
+model ContentItem {
+  id          String       @id @default(uuid())
+  title       String       @db.VarChar(200)
+  content     String
+  content_type ContentType
+  tags        String[]
+  language    Language     @default(en)
+  is_active   Boolean      @default(true)
+  created_at  DateTime     @default(now())
+  updated_at  DateTime     @updatedAt
+
+  case_links  CaseContentLink[]
+
+  @@index([content_type])
+  @@index([is_active])
+  @@map("content_items")
+}
+
+model CaseContentLink {
+  case_id    String
+  content_id String
+  relation   String    @default("recommend") @db.VarChar(30)
+  created_at DateTime  @default(now())
+
+  case       Case      @relation(fields: [case_id], references: [id], onDelete: Cascade)
+  content    ContentItem @relation(fields: [content_id], references: [id], onDelete: Cascade)
+
+  @@id([case_id, content_id, relation])
+  @@index([relation])
+  @@map("case_content_links")
+}
+
+model Notification {
+  id            String               @id @default(uuid())
+  user_id       String
+  channel       NotificationChannel
+  template_code String               @db.VarChar(50)
+  payload       Json?
+  dedup_key     String?              @db.VarChar(100)
+  sent_at       DateTime?
+  status        NotificationStatus   @default(pending)
+  error_message String?
+  created_at    DateTime             @default(now())
+
+  user          User                 @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([status])
+  @@unique([dedup_key, template_code])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id          BigInt   @id @default(autoincrement())
+  actor_id    String?
+  actor_type  String?  @db.VarChar(20)
+  entity_type String?  @db.VarChar(50)
+  entity_id   String?
+  action      String?  @db.VarChar(50)
+  detail      Json?
+  created_at  DateTime @default(now())
+
+  @@index([entity_type, entity_id, created_at])
+  @@map("audit_logs")
+}

@@ -1,0 +1,20 @@
+# Railway 部署配置
+# 用於自動化後端部署
+
+[build]
+builder = "nixpacks"
+buildCommand = "npm ci && npm run build"
+
+[deploy]
+startCommand = "npm start"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+
+# 環境變量將在Railway Dashboard中配置
+# 必需變量：
+# - DATABASE_URL
+# - JWT_SECRET
+# - OPENAI_API_KEY
+# - FRONTEND_URL
+# - ALLOWED_ORIGINS
+

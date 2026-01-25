@@ -1,0 +1,32 @@
+.bear-judge {
+  display: inline-block;
+  text-align: center;
+  user-select: none;
+
+  &.animated {
+    animation: gentle-bounce 2s ease-in-out infinite;
+  }
+
+  &.small {
+    line-height: 1;
+  }
+
+  &.medium {
+    line-height: 1;
+  }
+
+  &.large {
+    line-height: 1;
+  }
+}
+
+@keyframes gentle-bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+

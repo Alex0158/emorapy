@@ -1,0 +1,78 @@
+/**
+ * 打印樣式
+ */
+
+@media print {
+  * {
+    background: transparent !important;
+    color: black !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  body {
+    font-size: 12pt;
+    line-height: 1.5;
+  }
+
+  // 隱藏不需要打印的元素
+  .no-print,
+  .ant-btn,
+  .ant-menu,
+  .ant-header,
+  .ant-footer,
+  .back-to-top,
+  .judgment-actions {
+    display: none !important;
+  }
+
+  // 頁面設置
+  @page {
+    margin: 2cm;
+    size: A4;
+  }
+
+  // 分頁控制
+  .page-break {
+    page-break-before: always;
+  }
+
+  .no-break {
+    page-break-inside: avoid;
+  }
+
+  // 鏈接顯示URL
+  a[href]:after {
+    content: ' (' attr(href) ')';
+  }
+
+  // 圖片優化
+  img {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  // 標題樣式
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    page-break-after: avoid;
+    page-break-inside: avoid;
+  }
+
+  // 列表優化
+  ul,
+  ol {
+    page-break-inside: avoid;
+  }
+
+  // 表格優化
+  table {
+    page-break-inside: avoid;
+    border-collapse: collapse;
+  }
+}
+

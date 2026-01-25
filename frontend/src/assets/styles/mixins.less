@@ -1,0 +1,101 @@
+/**
+ * Less混入函數
+ */
+
+// 響應式混入
+.mobile-only() {
+  @media (max-width: @breakpoint-mobile - 1px) {
+    display: block;
+  }
+  @media (min-width: @breakpoint-mobile) {
+    display: none;
+  }
+}
+
+.desktop-only() {
+  @media (max-width: @breakpoint-mobile - 1px) {
+    display: none;
+  }
+  @media (min-width: @breakpoint-mobile) {
+    display: block;
+  }
+}
+
+// 文本截斷
+.text-ellipsis() {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.text-ellipsis-multi(@lines: 2) {
+  display: -webkit-box;
+  -webkit-line-clamp: @lines;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// Flex布局
+.flex-center() {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flex-between() {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+// 清除浮動
+.clearfix() {
+  &::after {
+    content: '';
+    display: table;
+    clear: both;
+  }
+}
+
+// 過渡動畫
+.transition(@property: all, @duration: 0.3s, @timing: ease) {
+  transition: @property @duration @timing;
+}
+
+// 卡片樣式
+.card() {
+  background: @color-white;
+  border-radius: @border-radius-md;
+  box-shadow: @shadow-medium;
+  padding: @spacing-lg;
+}
+
+// 按鈕樣式
+.button-primary() {
+  background: @color-primary;
+  color: @color-white;
+  border: none;
+  border-radius: @border-radius-md;
+  font-weight: @font-weight-medium;
+  .transition();
+
+  &:hover {
+    background: darken(@color-primary, 10%);
+    transform: translateY(-2px);
+    box-shadow: @shadow-large;
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    background: #f5f5f5;
+    color: @color-text-tertiary;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+}
+

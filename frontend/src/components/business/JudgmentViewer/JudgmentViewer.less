@@ -1,0 +1,79 @@
+.judgment-viewer {
+  .judgment-actions {
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    justify-content: flex-end;
+
+    .ant-btn {
+      &.playing {
+        color: #ff8c42;
+      }
+    }
+  }
+
+  .judgment-content {
+    font-size: 16px;
+    line-height: 1.8;
+    color: #262626;
+
+    .judgment-paragraph {
+      margin: 16px 0;
+      text-align: justify;
+    }
+
+    .judgment-list {
+      margin: 16px 0;
+      padding-left: 24px;
+
+      .judgment-list-item {
+        margin: 8px 0;
+        line-height: 1.8;
+      }
+    }
+
+    .judgment-strong {
+      color: #ff8c42;
+      font-weight: 600;
+    }
+
+    .judgment-blockquote {
+      margin: 16px 0;
+      padding: 16px 24px;
+      background: #f5f5f5;
+      border-left: 4px solid #ff8c42;
+      border-radius: 4px;
+      font-style: italic;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4 {
+      margin-top: 32px;
+      margin-bottom: 16px;
+      color: #262626;
+    }
+
+    h2 {
+      border-bottom: 2px solid #ff8c42;
+      padding-bottom: 8px;
+    }
+  }
+}
+
+// 打印樣式
+@media print {
+  .judgment-viewer {
+    .judgment-actions {
+      display: none;
+    }
+
+    .judgment-content {
+      font-size: 14px;
+      line-height: 1.6;
+    }
+  }
+}
+

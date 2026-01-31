@@ -55,6 +55,12 @@ describe('ValidationUtils', () => {
     it('應拋出無效 URL 錯誤', () => {
       expect(() => ValidationUtils.validateEvidenceUrls(['not-a-url'])).toThrow(/格式無效/);
     });
+
+    it('應拋出證據URL格式錯誤（空或非字串）', () => {
+      expect(() => ValidationUtils.validateEvidenceUrls([''])).toThrow(/證據URL\[0\]格式錯誤/);
+      expect(() => ValidationUtils.validateEvidenceUrls(['https://valid.com/1.jpg', ''])).toThrow(/證據URL\[1\]格式錯誤/);
+      expect(() => ValidationUtils.validateEvidenceUrls([123 as unknown as string])).toThrow(/格式錯誤/);
+    });
   });
 
   describe('validateUUID', () => {

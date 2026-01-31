@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { judgmentService } from '../services/judgment.service';
 import { Errors } from '../utils/errors';
+import { getAuthUserId, getAuthUserIdOptional } from '../utils/request';
 
 export class JudgmentController {
   /**
@@ -9,7 +10,7 @@ export class JudgmentController {
   async generateJudgment(req: Request, res: Response, next: NextFunction) {
     try {
       const caseId = req.params.id;
-      const userId = (req as any).user?.id;
+      const userId = getAuthUserIdOptional(req);
       const sessionId = (req.query.session_id as string) || (req.headers['x-session-id'] as string);
       const judgment = await judgmentService.generateJudgment(caseId, { userId, sessionId });
 
@@ -41,7 +42,7 @@ export class JudgmentController {
         throw Errors.NOT_FOUND('判決不存在');
       }
 
-      const userId = (req as any).user?.id;
+      const userId = getAuthUserIdOptional(req);
       const sessionId = (req.query.session_id as string) || 
                         (req.headers['x-session-id'] as string);
 
@@ -77,7 +78,7 @@ export class JudgmentController {
   async acceptJudgment(req: Request, res: Response, next: NextFunction) {
     try {
       const judgmentId = req.params.id;
-      const userId = (req as any).user!.id;
+      const userId = getAuthUserId(req);
       const { accepted, rating } = req.body;
 
       const judgment = await judgmentService.acceptJudgment(

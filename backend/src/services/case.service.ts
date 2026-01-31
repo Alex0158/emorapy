@@ -7,6 +7,7 @@ import { pairingService } from './pairing.service';
 import { ValidationUtils } from '../utils/validation';
 import { validateSessionId } from '../utils/session';
 import { fileService } from './file.service';
+import { normalizeJudgment } from '../utils/judgment';
 
 export interface QuickCaseDto {
   plaintiff_statement: string;
@@ -26,27 +27,6 @@ export interface CreateCaseDto {
 
 export class CaseService {
   /**
-   * 將判決標準化為向後兼容的格式，補充 responsibility_ratio
-   */
-  private normalizeJudgment(judgment: any) {
-    if (!judgment) return judgment;
-    if (
-      judgment.plaintiff_ratio !== undefined &&
-      judgment.defendant_ratio !== undefined &&
-      (judgment as any).responsibility_ratio === undefined
-    ) {
-      return {
-        ...judgment,
-        responsibility_ratio: {
-          plaintiff: Number(judgment.plaintiff_ratio),
-          defendant: Number(judgment.defendant_ratio),
-        },
-      };
-    }
-    return judgment;
-  }
-
-  /**
    * 創建快速體驗案件
    */
   async createQuickCase(
@@ -63,7 +43,7 @@ export class CaseService {
       finalSessionId = newSession.session_id;
     } else {
       // 驗證Session是否存在且未過期
-      let session = await sessionService.getSession(sessionId);
+      const session = await sessionService.getSession(sessionId);
       
       if (!session) {
         // Session不存在或已過期，創建新的
@@ -349,9 +329,9 @@ export class CaseService {
       prisma.case.count({ where }),
     ]);
 
-    const normalized = cases.map(c => ({
+    const normalized = cases.map((c: any) => ({
       ...c,
-      judgment: this.normalizeJudgment((c as any).judgment),
+      judgment: normalizeJudgment((c as any).judgment),
     }));
 
     return {
@@ -521,7 +501,7 @@ export class CaseService {
     }
 
     // 簽名媒體URL
-    case_.evidences = case_.evidences.map(e => ({
+    case_.evidences = case_.evidences.map((e: any) => ({
       ...e,
       file_url: fileService.signUrl(e.file_url),
     }));
@@ -534,7 +514,7 @@ export class CaseService {
         user2: signAvatar((case_ as any).pairing.user2),
       };
     }
-    case_.judgment = this.normalizeJudgment((case_ as any).judgment);
+    case_.judgment = normalizeJudgment((case_ as any).judgment);
 
     // 快速體驗模式：驗證Session ID
     if (case_.mode === 'quick') {
@@ -586,11 +566,11 @@ export class CaseService {
     });
 
     if (case_) {
-      case_.evidences = case_.evidences.map(e => ({
+      case_.evidences = case_.evidences.map((e: any) => ({
         ...e,
         file_url: fileService.signUrl(e.file_url),
       }));
-      case_.judgment = this.normalizeJudgment((case_ as any).judgment);
+      case_.judgment = normalizeJudgment((case_ as any).judgment);
     }
 
     return case_;

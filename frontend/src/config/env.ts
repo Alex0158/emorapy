@@ -2,6 +2,8 @@
  * 環境變量配置
  */
 
+import { logger } from '@/utils/logger';
+
 interface EnvConfig {
   apiBaseURL: string;
   appTitle: string;
@@ -43,7 +45,7 @@ function validateEnvConfig(): void {
   if (isDevelopment) {
     // 開發環境檢查是否配置了生產環境的 URL
     if (apiBaseURL.includes('https://') && !apiBaseURL.includes('localhost')) {
-      console.warn('警告: 開發環境檢測到生產環境 API URL，請確認配置正確');
+      logger.warn('警告: 開發環境檢測到生產環境 API URL，請確認配置正確');
     }
   }
 }
@@ -53,10 +55,7 @@ if (typeof window !== 'undefined') {
   try {
     validateEnvConfig();
   } catch (error) {
-    // 在開發環境顯示詳細錯誤
-    if (import.meta.env.DEV) {
-      console.error('環境變量驗證失敗:', error);
-    }
+    logger.error('環境變量驗證失敗', error);
     // 生產環境直接拋出錯誤（不輸出到控制台）
     if (import.meta.env.PROD) {
       throw error;

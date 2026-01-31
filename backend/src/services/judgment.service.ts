@@ -1,11 +1,12 @@
 import prisma from '../config/database';
+import { normalizeJudgment } from '../utils/judgment';
 import { Errors } from '../utils/errors';
 import logger from '../config/logger';
 import { aiService } from './ai.service';
 import { sessionService } from './session.service';
 import { lockService } from '../utils/lock';
 import { isResponsibilityRatio } from '../types/ai.types';
-import { LOCK_TTL, AI_TIMEOUT } from '../utils/constants';
+import { AI_TIMEOUT } from '../utils/constants';
 import { cacheService, CacheService } from '../utils/cache';
 
 /**
@@ -23,27 +24,6 @@ import { cacheService, CacheService } from '../utils/cache';
  * - 唯一約束作為最後防線
  */
 export class JudgmentService {
-  /**
-   * 向後兼容：為判決補充 responsibility_ratio 字段
-   */
-  private normalizeJudgment(judgment: any) {
-    if (!judgment) return judgment;
-    if (
-      judgment.plaintiff_ratio !== undefined &&
-      judgment.defendant_ratio !== undefined &&
-      (judgment as any).responsibility_ratio === undefined
-    ) {
-      return {
-        ...judgment,
-        responsibility_ratio: {
-          plaintiff: Number(judgment.plaintiff_ratio),
-          defendant: Number(judgment.defendant_ratio),
-        },
-      };
-    }
-    return judgment;
-  }
-
   /**
    * 生成判決（帶並發控制和事務處理）
    * 
@@ -262,7 +242,7 @@ export class JudgmentService {
 
         logger.info('Judgment generated', { caseId, judgmentId: judgment.id });
 
-        return this.normalizeJudgment(judgment as any);
+        return normalizeJudgment(judgment as any);
       },
       120 // 鎖定時間：120秒（足夠AI生成判決）
     ).catch(async (err) => {
@@ -343,7 +323,7 @@ export class JudgmentService {
       return null;
     }
 
-    return this.normalizeJudgment(judgment as any);
+    return normalizeJudgment(judgment as any);
   }
 
   /**

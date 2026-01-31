@@ -2,6 +2,8 @@
  * 前端重試工具函數
  */
 
+import { logger } from './logger';
+
 /**
  * 延遲函數
  */
@@ -59,10 +61,7 @@ export async function requestWithRetry<T>(
         maxDelay
       );
 
-      // 僅在開發環境輸出重試警告
-      if (import.meta.env.DEV) {
-      console.warn(`請求失敗，${delay}ms後重試 (${attempt + 1}/${maxRetries})`, error);
-      }
+      logger.warn(`請求失敗，${delay}ms後重試 (${attempt + 1}/${maxRetries})`, error);
 
       await sleep(delay);
     }

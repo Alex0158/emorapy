@@ -407,7 +407,7 @@ model EmailVerification {
   id         String            @id @default(uuid())
   email      String            @db.VarChar(255)
   code       String            @db.VarChar(6)
-  type       VerificationType  @db.VarChar(20)
+  type       VerificationType
   expires_at DateTime
   used       Boolean           @default(false)
   created_at DateTime          @default(now())

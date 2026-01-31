@@ -3,6 +3,7 @@ import { caseService } from '../services/case.service';
 import { judgmentService } from '../services/judgment.service';
 import logger from '../config/logger';
 import { Errors } from '../utils/errors';
+import { getAuthUserId, getAuthUserIdOptional } from '../utils/request';
 
 export class CaseController {
   /**
@@ -46,7 +47,7 @@ export class CaseController {
    */
   async createCase(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = (req as any).user!.id;
+      const userId = getAuthUserId(req);
       const case_ = await caseService.createCase(userId, req.body);
 
       // 異步觸發判決生成
@@ -70,7 +71,7 @@ export class CaseController {
   async getCaseById(req: Request, res: Response, next: NextFunction) {
     try {
       const caseId = req.params.id;
-      const userId = (req as any).user?.id;
+      const userId = getAuthUserIdOptional(req);
       const sessionId = (req.query.session_id as string) || 
                         (req.headers['x-session-id'] as string);
 
@@ -125,7 +126,7 @@ export class CaseController {
   async getJudgmentByCaseId(req: Request, res: Response, next: NextFunction) {
     try {
       const caseId = req.params.id;
-      const userId = (req as any).user?.id;
+      const userId = getAuthUserIdOptional(req);
       const sessionId = (req.query.session_id as string) || 
                         (req.headers['x-session-id'] as string);
 
@@ -160,7 +161,7 @@ export class CaseController {
    */
   async getCaseList(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = (req as any).user!.id;
+      const userId = getAuthUserId(req);
       const params = {
         status: req.query.status as string,
         type: req.query.type as string,
@@ -188,7 +189,7 @@ export class CaseController {
   async submitCase(req: Request, res: Response, next: NextFunction) {
     try {
       const caseId = req.params.id;
-      const userId = (req as any).user!.id;
+      const userId = getAuthUserId(req);
 
       const case_ = await caseService.submitCase(caseId, userId);
 
@@ -213,7 +214,7 @@ export class CaseController {
   async updateCase(req: Request, res: Response, next: NextFunction) {
     try {
       const caseId = req.params.id;
-      const userId = (req as any).user!.id;
+      const userId = getAuthUserId(req);
 
       const case_ = await caseService.updateCase(caseId, userId, req.body);
 

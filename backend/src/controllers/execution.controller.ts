@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { executionService } from '../services/execution.service';
-import { Errors } from '../utils/errors';
+import { getAuthUserId } from '../utils/request';
 
 export class ExecutionController {
   /**
@@ -8,7 +8,7 @@ export class ExecutionController {
    */
   async confirmExecution(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = (req as any).user!.id;
+      const userId = getAuthUserId(req);
       const { plan_id } = req.body;
 
       const execution = await executionService.confirmExecution(userId, plan_id);
@@ -28,7 +28,7 @@ export class ExecutionController {
    */
   async checkin(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = (req as any).user!.id;
+      const userId = getAuthUserId(req);
 
       const execution = await executionService.checkin(userId, req.body);
 
@@ -47,12 +47,8 @@ export class ExecutionController {
    */
   async getExecutionStatus(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = (req as any).user!.id;
-      const planId = req.query.plan_id as string;
-
-      if (!planId) {
-        throw Errors.VALIDATION_ERROR('plan_id是必需的');
-      }
+      const userId = getAuthUserId(req);
+      const planId = req.query.plan_id as string; // 已由 executionStatusQuerySchema 驗證
 
       const status = await executionService.getExecutionStatus(userId, planId);
 
@@ -70,7 +66,7 @@ export class ExecutionController {
    */
   async getAllExecutionStatuses(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = (req as any).user!.id;
+      const userId = getAuthUserId(req);
 
       const statuses = await executionService.getAllExecutionStatuses(userId);
 

@@ -90,7 +90,19 @@ backend/
 ## 🧪 測試
 
 ```bash
-npm test
+# 單元測試
+npm run test:unit
+
+# 集成測試
+npm run test:integration
+
+# 覆蓋率
+npm run test:coverage
+```
+
+若遇到 `jest: command not found` 或 `ts-jest not found`，請執行：
+```bash
+rm -rf node_modules && npm install
 ```
 
 ## 📝 開發規範

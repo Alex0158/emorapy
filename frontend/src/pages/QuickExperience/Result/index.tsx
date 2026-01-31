@@ -4,41 +4,31 @@
 
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { Typography, Spin, Alert, message, Button, Space } from 'antd';
 import {
-  Card,
-  Typography,
-  Button,
-  Space,
-  Collapse,
-  Spin,
-  Alert,
-  message,
-  Upload,
-} from 'antd';
-import {
-  QuestionCircleOutlined,
-  LockOutlined,
-  UploadOutlined,
-  ExclamationCircleOutlined,
 } from '@ant-design/icons';
 import { useJudgmentStore } from '@/store/judgmentStore';
 import { getJudgmentByCaseId } from '@/services/api/judgment';
 import { getCase, uploadEvidence } from '@/services/api/case';
 import type { Judgment } from '@/types/judgment';
-import BearJudge from '@/components/business/BearJudge';
-import ResponsibilityRatio from '@/components/business/ResponsibilityRatio';
-import JudgmentViewer from '@/components/business/JudgmentViewer';
 import Skeleton from '@/components/common/Skeleton';
-import AnimatedWrapper from '@/components/common/AnimatedWrapper';
 import { usePolling } from '@/hooks/usePolling';
 import { POLLING_INTERVAL } from '@/utils/constants';
 import { useSessionStore } from '@/store/sessionStore';
 import { sessionStorage } from '@/utils/storage';
 import SEO from '@/components/common/SEO';
+import { logger } from '@/utils/logger';
+import { t } from '@/utils/i18n';
 import './Result.less';
+import ResultHeader from './components/ResultHeader';
+import SummarySection from './components/SummarySection';
+import ResponsibilitySection from './components/ResponsibilitySection';
+import JudgmentSection from './components/JudgmentSection';
+import EvidenceUploadSection from './components/EvidenceUploadSection';
+import ActionsSection from './components/ActionsSection';
+import RegisterPromptSection from './components/RegisterPromptSection';
 
-const { Title, Text } = Typography;
-const { Panel } = Collapse;
+const { Text } = Typography;
 
 const QuickExperienceResult = () => {
   const { id } = useParams<{ id: string }>();
@@ -58,7 +48,7 @@ const QuickExperienceResult = () => {
   // 獲取判決（支持輪詢）
   const fetchJudgment = async (): Promise<Judgment | null> => {
     if (!id) {
-      message.error('案件ID不存在');
+      message.error(t('message.caseIdMissing'));
       navigate('/quick-experience/create');
       return null;
     }
@@ -99,9 +89,7 @@ const QuickExperienceResult = () => {
       }
 
       // 其他錯誤：提示並停止輪詢（避免無意義輪詢）
-      if (import.meta.env.DEV) {
-        console.error('Failed to fetch judgment:', error);
-      }
+      logger.error('Failed to fetch judgment', error);
       setJudgmentErrorCode(error.code || 'UNKNOWN');
       setJudgmentError(error.message || '獲取判決失敗，請稍後重試');
       return null;
@@ -148,9 +136,7 @@ const QuickExperienceResult = () => {
       
       return case_;
     } catch (error) {
-      if (import.meta.env.DEV) {
-        console.error('Failed to fetch case:', error);
-      }
+      logger.error('Failed to fetch case', error);
       return null;
     }
   };
@@ -185,7 +171,7 @@ const QuickExperienceResult = () => {
     try {
       const { generateJudgment } = await import('@/services/api/judgment');
       await generateJudgment(id);
-      message.success('已重新提交判決生成請求，請稍候...');
+      message.success(t('message.judgmentRegenSuccess'));
       // 重新開始輪詢
       startPolling();
     } catch (error: any) {
@@ -197,13 +183,13 @@ const QuickExperienceResult = () => {
   // 處理證據上傳
   const handleEvidenceUpload = async (fileList: File[]) => {
     if (!id) {
-      message.error('案件ID不存在');
+      message.error(t('message.caseIdMissing'));
       return;
     }
 
     const filesToUpload = fileList.filter((file) => file instanceof File);
     if (filesToUpload.length === 0) {
-      message.warning('請選擇要上傳的文件');
+      message.warning(t('message.selectFile'));
       return;
     }
 
@@ -221,7 +207,7 @@ const QuickExperienceResult = () => {
       }
 
       await uploadEvidence(id, filesToUpload, sessionIdToUse);
-      message.success('證據上傳成功');
+      message.success(t('message.evidenceUploadSuccess'));
       setEvidenceUploadStatus('success');
       
       // 清除待上傳標記
@@ -400,202 +386,32 @@ const QuickExperienceResult = () => {
           跳過到判決內容
         </a>
 
-        {/* 判決結果標題區域 */}
-        <AnimatedWrapper animation="fade" delay={100}>
-          <section className="result-header" aria-labelledby="result-title">
-            <BearJudge size="large" animated />
-            <Title level={1} id="result-title" className="result-title">
-              判決結果
-            </Title>
-            <Text className="result-subtitle">基於AI分析的公正判決</Text>
-          </section>
-        </AnimatedWrapper>
+        <ResultHeader />
 
-        {/* 判決摘要卡片 */}
-        <AnimatedWrapper animation="slide" direction="up" delay={200} trigger="intersection">
-          <section className="summary-section" aria-labelledby="summary-title">
-            <div className="container">
-              <Collapse defaultActiveKey={['summary']}>
-                <Panel header={<span id="summary-title">判決摘要</span>} key="summary">
-                  <div className="summary-content">
-                    {judgment.summary && (
-                      <div className="summary-item" role="article">
-                        <QuestionCircleOutlined className="summary-icon" aria-hidden="true" />
-                        <Text className="summary-text">{judgment.summary}</Text>
-                      </div>
-                    )}
-                  </div>
-                </Panel>
-              </Collapse>
-            </div>
-          </section>
-        </AnimatedWrapper>
+        <SummarySection summary={judgment.summary} />
 
-        {/* 責任分比例展示 */}
-        <AnimatedWrapper animation="scale" delay={300} trigger="intersection">
-          <section className="responsibility-section" aria-labelledby="responsibility-title">
-            <div className="container">
-              <Card className="responsibility-card">
-                <Title level={3} id="responsibility-title" className="section-title">
-                  責任分比例
-                </Title>
-                <ResponsibilityRatio
-                  ratio={responsibilityRatioMemo}
-                  showLabels={true}
-                  size="large"
-                />
-              </Card>
-            </div>
-          </section>
-        </AnimatedWrapper>
+        <ResponsibilitySection ratio={responsibilityRatioMemo} />
 
-        {/* 完整判決書區域 */}
-        <AnimatedWrapper animation="fade" delay={400} trigger="intersection">
-          <section id="judgment-section" className="judgment-section" aria-labelledby="judgment-title">
-            <div className="container">
-              <JudgmentViewer
-                content={judgment.judgment_content}
-                title="完整判決書"
-                onShare={() => {
-                  message.info('分享功能開發中');
-                }}
-                onFavorite={() => {
-                  message.info('收藏功能需要註冊後使用');
-                }}
-                showActions={true}
-              />
-            </div>
-          </section>
-        </AnimatedWrapper>
+        <JudgmentSection content={judgment.judgment_content} />
 
         {/* 證據上傳狀態 */}
-        {evidenceUploadStatus && evidenceUploadStatus !== 'success' && id && (
-          <AnimatedWrapper animation="slide" direction="up" delay={450} trigger="intersection">
-            <section className="evidence-upload-section" aria-labelledby="evidence-upload-title">
-              <div className="container">
-                <Card>
-                  <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      {evidenceUploadStatus === 'failed' ? (
-                        <ExclamationCircleOutlined style={{ color: '#ff4d4f', fontSize: 20 }} />
-                      ) : (
-                        <UploadOutlined style={{ color: '#faad14', fontSize: 20 }} />
-                      )}
-                      <Title level={4} id="evidence-upload-title" style={{ margin: 0 }}>
-                        證據上傳狀態
-                      </Title>
-                    </div>
-                    {evidenceUploadStatus === 'failed' && (
-                      <Alert
-                        message="證據上傳失敗"
-                        description="案件已創建，但證據上傳失敗。您可以在此重新上傳證據。"
-                        type="warning"
-                        showIcon
-                      />
-                    )}
-                    {evidenceUploadStatus === 'pending' && (
-                      <Alert
-                        message="證據待上傳"
-                        description="您有未上傳的證據文件，請在此上傳。"
-                        type="info"
-                        showIcon
-                      />
-                    )}
-                    <Upload
-                      multiple
-                      beforeUpload={() => false} // 阻止自動上傳
-                      onChange={(info) => {
-                        const fileList = info.fileList.map((file) => file.originFileObj).filter(Boolean) as File[];
-                        if (fileList.length > 0) {
-                          handleEvidenceUpload(fileList);
-                        }
-                      }}
-                      accept="image/*,video/*"
-                      disabled={isUploading}
-                    >
-                      <Button
-                        type="primary"
-                        icon={<UploadOutlined />}
-                        loading={isUploading}
-                        disabled={isUploading}
-                      >
-                        {isUploading ? '上傳中...' : '重新上傳證據'}
-                      </Button>
-                    </Upload>
-                  </Space>
-                </Card>
-              </div>
-            </section>
-          </AnimatedWrapper>
-        )}
+        <EvidenceUploadSection
+          status={evidenceUploadStatus}
+          caseId={id as string}
+          isUploading={isUploading}
+          onUploadFiles={handleEvidenceUpload}
+        />
 
-        {/* 操作區域 */}
-        <AnimatedWrapper animation="slide" direction="up" delay={500} trigger="intersection">
-          <section className="actions-section" aria-labelledby="actions-title">
-            <div className="container">
-              <Space direction="vertical" size="large" style={{ width: '100%' }}>
-                {/* 主要操作 */}
-                <div className="primary-actions" role="group" aria-label="主要操作">
-                  <Button
-                    type="primary"
-                    size="large"
-                    icon={<LockOutlined />}
-                    disabled
-                    onClick={() => navigate('/auth/register')}
-                    aria-label="生成和好方案，需要註冊"
-                    aria-describedby="register-prompt"
-                  >
-                    生成和好方案（需註冊）
-                  </Button>
-                  <Button
-                    size="large"
-                    icon={<LockOutlined />}
-                    disabled
-                    aria-label="保存記錄，需要註冊"
-                    aria-describedby="register-prompt"
-                  >
-                    保存記錄（需註冊）
-                  </Button>
-                </div>
-              </Space>
-            </div>
-          </section>
-        </AnimatedWrapper>
+        <ActionsSection
+          onRegister={() => navigate('/auth/register')}
+          onBackToCreate={() => navigate('/quick-experience/create')}
+        />
 
-        {/* 註冊引導 */}
-        {showRegisterPrompt && (
-          <AnimatedWrapper animation="slide" direction="up" delay={600} trigger="intersection">
-            <section className="register-prompt-section" aria-labelledby="register-prompt">
-              <div className="container">
-                <Alert
-                  id="register-prompt"
-                  message="想要保存記錄和獲得更多功能？"
-                  description="註冊後可查看歷史判決、生成和好方案、執行追蹤"
-                  type="info"
-                  action={
-                    <Space>
-                      <Button
-                        type="primary"
-                        onClick={() => navigate('/auth/register')}
-                        aria-label="立即註冊"
-                      >
-                        立即註冊
-                      </Button>
-                      <Button
-                        onClick={() => setShowRegisterPrompt(false)}
-                        aria-label="稍後再說"
-                      >
-                        稍後再說
-                      </Button>
-                    </Space>
-                  }
-                  closable
-                  onClose={() => setShowRegisterPrompt(false)}
-                />
-              </div>
-            </section>
-          </AnimatedWrapper>
-        )}
+        <RegisterPromptSection
+          show={showRegisterPrompt}
+          onRegister={() => navigate('/auth/register')}
+          onClose={() => setShowRegisterPrompt(false)}
+        />
       </div>
     </>
   );

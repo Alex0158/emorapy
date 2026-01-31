@@ -84,6 +84,8 @@ const mockPrismaClient: any = {
 
 jest.mock('@prisma/client', () => ({
   PrismaClient: jest.fn(() => mockPrismaClient),
+  NotificationChannel: { email: 'email', push: 'push' },
+  NotificationStatus: { pending: 'pending', sent: 'sent', failed: 'failed' },
 }));
 
 import app from '../../src/app';

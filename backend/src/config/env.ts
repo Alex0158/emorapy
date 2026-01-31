@@ -1,10 +1,9 @@
 // 加載環境變量
 // 優先級：系統環境變量 > .env 文件
-// 在生產環境，通常使用系統環境變量，.env 文件主要用於開發環境
+// 生產環境應使用系統環境變量（Railway、Vercel等平台提供）
 try {
-  // 只在開發環境或未設置 NODE_ENV 時加載 .env 文件
-  // 生產環境應使用系統環境變量（Railway、Vercel等平台提供）
   if (!process.env.NODE_ENV || process.env.NODE_ENV === 'development') {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires -- 必須在其它 import 前加載
     require('dotenv').config();
   }
 } catch {
@@ -142,8 +141,9 @@ function validateEnvVars(): void {
   const isDevelopment = process.env.NODE_ENV === 'development';
 
   // 動態導入 logger 以避免循環依賴（logger 依賴 env）
-  let logger: any;
+  let logger: { warn: (msg: string) => void };
   try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires -- 動態導入避免循環依賴
     logger = require('./logger').default;
   } catch {
     // 如果 logger 尚未初始化，使用 console（僅在極少數情況下）

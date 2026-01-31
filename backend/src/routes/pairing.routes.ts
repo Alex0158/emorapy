@@ -4,6 +4,7 @@ import { authenticate } from '../middleware/auth';
 import { validate } from '../middleware/validator';
 import { createPairingSchema, joinPairingSchema } from '../utils/validation';
 import { generalLimiter } from '../middleware/rateLimiter';
+import { getAuthUserId } from '../utils/request';
 
 const router = Router();
 
@@ -19,7 +20,7 @@ router.post(
   validate(createPairingSchema),
   async (req, res, next) => {
     try {
-      const userId = (req as any).user!.id;
+      const userId = getAuthUserId(req);
       const pairing = await pairingService.createPairing(userId);
 
       res.json({
@@ -45,7 +46,7 @@ router.post(
   validate(joinPairingSchema),
   async (req, res, next) => {
     try {
-      const userId = (req as any).user!.id;
+      const userId = getAuthUserId(req);
       const pairing = await pairingService.joinPairing(userId, req.body.invite_code);
 
       res.json({
@@ -70,7 +71,7 @@ router.get(
   authenticate,
   async (req, res, next) => {
     try {
-      const userId = (req as any).user!.id;
+      const userId = getAuthUserId(req);
       const pairing = await pairingService.getPairingStatus(userId);
 
       res.json({
@@ -94,7 +95,7 @@ router.post(
   authenticate,
   async (req, res, next) => {
     try {
-      const userId = (req as any).user!.id;
+      const userId = getAuthUserId(req);
       const pairing = await pairingService.cancelPairing(userId);
 
       res.json({

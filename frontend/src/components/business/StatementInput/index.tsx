@@ -6,7 +6,7 @@ import { Input, Typography, Tooltip } from 'antd';
 import { QuestionCircleOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import { useState, useEffect } from 'react';
 import { validateStatement } from '@/utils/validate';
-import { MAX_STATEMENT_LENGTH } from '@/utils/constants';
+import { MAX_STATEMENT_LENGTH, MIN_STATEMENT_LENGTH } from '@/utils/constants';
 import { formatWordCount } from '@/utils/format';
 import './StatementInput.less';
 

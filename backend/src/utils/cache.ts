@@ -3,6 +3,7 @@
  * 支持Redis（生產環境）和內存緩存（開發環境）降級
  */
 
+import crypto from 'crypto';
 import logger from '../config/logger';
 import { env } from '../config/env';
 import { CACHE_CONFIG } from './constants';
@@ -240,7 +241,6 @@ export class CacheService {
    * 使用crypto模塊確保哈希安全性和唯一性
    */
   static generateHashKey(prefix: string, content: string): string {
-    const crypto = require('crypto');
     const hash = crypto.createHash('sha256').update(content).digest('hex');
     // 使用前16個字符足夠唯一（可根據需要調整）
     return `${prefix}:${hash.substring(0, 16)}`;

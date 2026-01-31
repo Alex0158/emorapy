@@ -2,7 +2,11 @@ import { Router } from 'express';
 import { executionController } from '../controllers/execution.controller';
 import { authenticate } from '../middleware/auth';
 import { validate } from '../middleware/validator';
-import { confirmExecutionSchema, checkinSchema } from '../utils/validation';
+import {
+  confirmExecutionSchema,
+  checkinSchema,
+  executionStatusQuerySchema,
+} from '../utils/validation';
 import { generalLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
@@ -42,6 +46,7 @@ router.get(
   '/status',
   generalLimiter,
   authenticate,
+  validate(executionStatusQuerySchema),
   executionController.getExecutionStatus.bind(executionController)
 );
 

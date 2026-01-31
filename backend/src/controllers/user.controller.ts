@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import prisma from '../config/database';
 import { Errors } from '../utils/errors';
+import { getAuthUserId } from '../utils/request';
 import { fileService, upload } from '../services/file.service';
 import path from 'path';
 import fs from 'fs/promises';
@@ -12,7 +13,7 @@ export class UserController {
    */
   async getProfile(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = (req as any).user!.id;
+      const userId = getAuthUserId(req);
 
       const user = await prisma.user.findUnique({
         where: { id: userId },
@@ -55,7 +56,7 @@ export class UserController {
    */
   async updateProfile(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = (req as any).user!.id;
+      const userId = getAuthUserId(req);
       const allowedFields = [
         'nickname',
         'gender',
@@ -149,7 +150,7 @@ export const uploadAvatar = [
   upload.single('avatar'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userId = (req as any).user!.id;
+      const userId = getAuthUserId(req);
       const file = req.file as Express.Multer.File | undefined;
       if (!file) {
         throw Errors.VALIDATION_ERROR('缺少頭像文件');

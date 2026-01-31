@@ -2,7 +2,12 @@
  * Session 工具測試（快速體驗模式）
  */
 
-import { generateSessionId, validateSessionId } from '../../../src/utils/session';
+import {
+  generateSessionId,
+  validateSessionId,
+  generateVerificationCode,
+  generateInviteCode,
+} from '../../../src/utils/session';
 
 describe('Session Utils', () => {
   describe('generateSessionId', () => {
@@ -31,6 +36,28 @@ describe('Session Utils', () => {
       expect(validateSessionId('guest__abc')).toBe(false);
       expect(validateSessionId('xxx_1704067200000_a1b2c3d4')).toBe(false);
       expect(validateSessionId('guest_1704067200000_')).toBe(false);
+    });
+
+    it('應拒絕 null 或非字符串', () => {
+      expect(validateSessionId(null as any)).toBe(false);
+      expect(validateSessionId(123 as any)).toBe(false);
+    });
+  });
+
+  describe('generateVerificationCode', () => {
+    it('應生成6位數字', () => {
+      const code = generateVerificationCode();
+      expect(code).toMatch(/^\d{6}$/);
+      expect(parseInt(code, 10)).toBeGreaterThanOrEqual(100000);
+      expect(parseInt(code, 10)).toBeLessThanOrEqual(999999);
+    });
+  });
+
+  describe('generateInviteCode', () => {
+    it('應生成6位字母數字', () => {
+      const code = generateInviteCode();
+      expect(code).toMatch(/^[A-Z0-9]{6}$/);
+      expect(code).toHaveLength(6);
     });
   });
 });

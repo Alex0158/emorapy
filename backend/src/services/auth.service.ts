@@ -1,6 +1,6 @@
 import prisma from '../config/database';
 import { hashPassword, comparePassword, validatePasswordStrength } from '../utils/password';
-import { generateToken, UserPayload } from '../utils/jwt';
+import { generateToken } from '../utils/jwt';
 import { generateVerificationCode } from '../utils/session';
 import { Errors } from '../utils/errors';
 import logger from '../config/logger';

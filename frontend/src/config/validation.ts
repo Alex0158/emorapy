@@ -23,11 +23,7 @@ export function validateEnvConfig(): void {
   }
 
   if (errors.length > 0) {
-    logger.error('Environment validation failed', { errors });
-    // 僅在開發環境輸出到 console
-    if (import.meta.env.DEV) {
-      console.error('環境變量驗證失敗:', errors.join(', '));
-    }
+    logger.error('環境變量驗證失敗', errors.join(', '));
   } else {
     logger.info('Environment validation passed');
   }

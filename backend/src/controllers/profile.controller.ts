@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { profileService } from '../services/profile.service';
 import { Errors } from '../utils/errors';
+import { getAuthUserId } from '../utils/request';
 
 const USER_PROFILE_FIELDS = new Set([
   'education_level',
@@ -68,7 +69,7 @@ const sanitizePayload = (body: any, allowed: Set<string>) => {
 export class ProfileController {
   async getUserProfile(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = (req as any).user!.id;
+      const userId = getAuthUserId(req);
       const profile = await profileService.getUserProfile(userId);
       res.json({ success: true, data: { profile } });
     } catch (error) {
@@ -78,7 +79,7 @@ export class ProfileController {
 
   async upsertUserProfile(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = (req as any).user!.id;
+      const userId = getAuthUserId(req);
       const payload = sanitizePayload(req.body, USER_PROFILE_FIELDS);
       const profile = await profileService.upsertUserProfile(userId, payload);
       res.json({ success: true, data: { profile }, message: '個人背景已更新' });
@@ -89,7 +90,7 @@ export class ProfileController {
 
   async getRelationshipProfile(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = (req as any).user!.id;
+      const userId = getAuthUserId(req);
       const pairingId = req.params.pairingId;
       const profile = await profileService.getRelationshipProfile(pairingId, userId);
       res.json({ success: true, data: { profile } });
@@ -100,7 +101,7 @@ export class ProfileController {
 
   async upsertRelationshipProfile(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = (req as any).user!.id;
+      const userId = getAuthUserId(req);
       const pairingId = req.params.pairingId;
       const payload = sanitizePayload(req.body, RELATIONSHIP_PROFILE_FIELDS);
       const profile = await profileService.upsertRelationshipProfile(pairingId, userId, payload);

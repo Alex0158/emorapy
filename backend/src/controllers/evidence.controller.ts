@@ -4,6 +4,7 @@ import { Errors } from '../utils/errors';
 import { fileService, upload } from '../services/file.service';
 import logger from '../config/logger';
 import { sessionService } from '../services/session.service';
+import { getAuthUserIdOptional } from '../utils/request';
 
 export class EvidenceController {
   /**
@@ -15,7 +16,7 @@ export class EvidenceController {
       try {
         const caseId = req.params.id;
         const files = req.files as Express.Multer.File[];
-        const userId = (req as any).user?.id;
+        const userId = getAuthUserIdOptional(req);
         const sessionId = (req.query.session_id as string) || 
                           (req.headers['x-session-id'] as string);
 
@@ -118,7 +119,7 @@ export const evidenceController = new EvidenceController();
 export const deleteEvidence = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const evidenceId = req.params.evidenceId;
-    const userId = (req as any).user?.id;
+    const userId = getAuthUserIdOptional(req);
     const sessionId = (req.query.session_id as string) || (req.headers['x-session-id'] as string);
 
     const evidence = await prisma.evidence.findUnique({

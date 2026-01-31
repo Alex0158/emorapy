@@ -32,7 +32,7 @@ export const generalLimiter = rateLimit({
   // 開發環境：不需要此配置
   validate: isProduction ? { trustProxy: false } : undefined,
   // 開發環境跳過限流（方便調試）
-  skip: (req: Request, res: Response) => isDevelopment && process.env.SKIP_RATE_LIMIT === 'true',
+  skip: (_req: Request, _res: Response) => isDevelopment && process.env.SKIP_RATE_LIMIT === 'true',
 });
 
 // 認證接口限流
@@ -50,7 +50,7 @@ export const authLimiter = rateLimit({
   },
   skipSuccessfulRequests: true, // 成功請求不計入限流
   validate: isProduction ? { trustProxy: false } : undefined,
-  skip: (req: Request, res: Response) => isDevelopment && process.env.SKIP_RATE_LIMIT === 'true',
+  skip: (_req: Request, _res: Response) => isDevelopment && process.env.SKIP_RATE_LIMIT === 'true',
 });
 
 // 註冊接口限流
@@ -67,7 +67,7 @@ export const registerLimiter = rateLimit({
     },
   },
   validate: isProduction ? { trustProxy: false } : undefined,
-  skip: (req: Request, res: Response) => isDevelopment && process.env.SKIP_RATE_LIMIT === 'true',
+  skip: (_req: Request, _res: Response) => isDevelopment && process.env.SKIP_RATE_LIMIT === 'true',
 });
 
 // 驗證碼接口限流（每郵箱每5分鐘1次）
@@ -87,7 +87,7 @@ export const verificationCodeLimiter = rateLimit({
     },
   },
   validate: isProduction ? { trustProxy: false } : undefined,
-  skip: (req: Request, res: Response) => isDevelopment && process.env.SKIP_RATE_LIMIT === 'true',
+  skip: (_req: Request, _res: Response) => isDevelopment && process.env.SKIP_RATE_LIMIT === 'true',
 });
 
 // AI接口限流
@@ -97,9 +97,8 @@ export const aiLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1小時
   max: aiLimitConfig.max,
   keyGenerator: (req: Request) => {
-    // 根據用戶ID或IP限流
-    const userId = (req as any).user?.id;
-    return userId || req.ip;
+    const userId = req.user?.id;
+    return userId ?? req.ip ?? 'anonymous';
   },
   message: {
     success: false,
@@ -110,7 +109,7 @@ export const aiLimiter = rateLimit({
   },
   skipSuccessfulRequests: false, // AI請求都計入限流
   validate: isProduction ? { trustProxy: false } : undefined,
-  skip: (req: Request, res: Response) => isDevelopment && process.env.SKIP_RATE_LIMIT === 'true',
+  skip: (_req: Request, _res: Response) => isDevelopment && process.env.SKIP_RATE_LIMIT === 'true',
 });
 
 // 文件上傳限流
@@ -120,9 +119,9 @@ export const uploadLimiter = rateLimit({
   windowMs: 60 * 1000, // 1分鐘
   max: uploadLimitConfig.max,
   keyGenerator: (req: Request) => {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const sessionId = req.headers['x-session-id'] as string;
-    return userId || sessionId || req.ip;
+    return userId ?? sessionId ?? req.ip ?? 'anonymous';
   },
   message: {
     success: false,
@@ -132,7 +131,7 @@ export const uploadLimiter = rateLimit({
     },
   },
   validate: isProduction ? { trustProxy: false } : undefined,
-  skip: (req: Request, res: Response) => isDevelopment && process.env.SKIP_RATE_LIMIT === 'true',
+  skip: (_req: Request, _res: Response) => isDevelopment && process.env.SKIP_RATE_LIMIT === 'true',
 });
 
 // 文件下載/訪問限流（保護 /uploads）
@@ -149,5 +148,5 @@ export const downloadLimiter = rateLimit({
     },
   },
   validate: isProduction ? { trustProxy: false } : undefined,
-  skip: (req: Request, res: Response) => isDevelopment && process.env.SKIP_RATE_LIMIT === 'true',
+  skip: (_req: Request, _res: Response) => isDevelopment && process.env.SKIP_RATE_LIMIT === 'true',
 });

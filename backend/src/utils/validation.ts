@@ -217,6 +217,12 @@ export const confirmExecutionSchema = {
   }),
 };
 
+export const executionStatusQuerySchema = {
+  query: Joi.object({
+    plan_id: Joi.string().pattern(uuidPattern).required(),
+  }),
+};
+
 export const checkinSchema = {
   body: Joi.object({
     plan_id: Joi.string().pattern(uuidPattern).required(),
@@ -249,6 +255,18 @@ export const generateReconciliationPlansSchema = {
 
 export const selectPlanSchema = {
   body: Joi.object({}).optional(),
+};
+
+export const pairingIdParamSchema = {
+  params: Joi.object({
+    pairingId: Joi.string().pattern(uuidPattern).required(),
+  }),
+};
+
+export const caseIdParamSchema = {
+  params: Joi.object({
+    caseId: Joi.string().pattern(uuidPattern).required(),
+  }),
 };
 
 export const updateProfileSchema = {

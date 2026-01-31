@@ -3,6 +3,7 @@
  */
 
 import { SESSION_STORAGE_KEY } from './constants';
+import { logger } from './logger';
 
 /**
  * Session ID管理（快速體驗模式）
@@ -42,9 +43,7 @@ export const localStore = {
     try {
       localStorage.setItem(key, JSON.stringify(value));
     } catch (error) {
-      if (import.meta.env.DEV) {
-        console.error('Failed to save to localStorage:', error);
-      }
+      logger.error('Failed to save to localStorage', error);
     }
   },
 

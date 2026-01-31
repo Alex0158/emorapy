@@ -3,6 +3,7 @@
  */
 
 import { useState } from 'react';
+import { logger } from '@/utils/logger';
 
 export const useLocalStorage = <T>(key: string, initialValue: T) => {
   // 從localStorage讀取初始值
@@ -11,9 +12,7 @@ export const useLocalStorage = <T>(key: string, initialValue: T) => {
       const item = window.localStorage.getItem(key);
       return item ? JSON.parse(item) : initialValue;
     } catch (error) {
-      if (import.meta.env.DEV) {
-        console.error(`Error reading localStorage key "${key}":`, error);
-      }
+      logger.error(`Error reading localStorage key "${key}"`, error);
       return initialValue;
     }
   });
@@ -26,9 +25,7 @@ export const useLocalStorage = <T>(key: string, initialValue: T) => {
       setStoredValue(valueToStore);
       window.localStorage.setItem(key, JSON.stringify(valueToStore));
     } catch (error) {
-      if (import.meta.env.DEV) {
-        console.error(`Error setting localStorage key "${key}":`, error);
-      }
+      logger.error(`Error setting localStorage key "${key}"`, error);
     }
   };
 

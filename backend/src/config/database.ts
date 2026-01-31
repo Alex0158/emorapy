@@ -124,8 +124,7 @@ async function initializeDatabase() {
     const retryInterval = env.DB_RETRY_INTERVAL || 3000;
     
     let retries = maxRetries;
-    let lastError: any = null;
-    
+
     while (retries > 0) {
       try {
         // 設置連接超時（可配置）
@@ -141,14 +140,12 @@ async function initializeDatabase() {
         
         logger.info('數據庫連接成功並驗證通過');
         return; // 連接成功，退出函數
-      } catch (connectError: any) {
-        lastError = connectError;
+      } catch (connectError: unknown) {
         retries--;
-        
-        // 詳細錯誤信息
-        const errorCode = connectError.code || connectError.errorCode || 'UNKNOWN';
-        const errorName = connectError.name || 'UnknownError';
-        const errorMessage = connectError.message || connectError.toString();
+        const err = connectError as { code?: string; errorCode?: string; name?: string; message?: string };
+        const errorCode = err.code || err.errorCode || 'UNKNOWN';
+        const errorName = err.name || 'UnknownError';
+        const errorMessage = err.message || String(connectError);
         
         if (retries > 0) {
           // 根據環境調整日誌級別

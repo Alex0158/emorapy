@@ -2,22 +2,22 @@ import { Request, Response, NextFunction } from 'express';
 import { AppError } from '../utils/errors';
 import logger from '../config/logger';
 import { env } from '../config/env';
+import { getRequestId, getAuthUserIdOptional, getSessionId } from '../utils/request';
 
 export const errorHandler = (
   err: Error | AppError,
   req: Request,
   res: Response,
-  next: NextFunction
+  _next: NextFunction
 ): void => {
-  // 記錄詳細錯誤（用於內部調試，不返回給客戶端）
   logger.error('Error occurred', {
-    request_id: (req as any).requestId,
+    request_id: getRequestId(req),
     error: err.message,
-    stack: env.NODE_ENV === 'development' ? err.stack : undefined, // 生產環境不記錄堆棧
+    stack: env.NODE_ENV === 'development' ? err.stack : undefined,
     url: req.url,
     method: req.method,
-    userId: (req as any).user?.id,
-    sessionId: (req as any).sessionId,
+    userId: getAuthUserIdOptional(req),
+    sessionId: getSessionId(req),
   });
   
   // 處理自定義錯誤

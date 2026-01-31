@@ -1,10 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
 import logger from '../config/logger';
 import { env } from '../config/env';
+import { getRequestId, getAuthUserIdOptional, getSessionId } from '../utils/request';
 
 export const requestLogger = (req: Request, res: Response, next: NextFunction): void => {
   const start = Date.now();
-  const requestId = (req as any).requestId || 'unknown';
+  const requestId = getRequestId(req);
   const isDevelopment = env.NODE_ENV === 'development';
   
   res.on('finish', () => {
@@ -25,16 +26,13 @@ export const requestLogger = (req: Request, res: Response, next: NextFunction): 
     if (isDevelopment) {
       logData.ip = req.ip;
       logData.userAgent = req.get('user-agent');
-      logData.userId = (req as any).user?.id;
-      logData.sessionId = (req as any).sessionId;
+      logData.userId = getAuthUserIdOptional(req);
+      logData.sessionId = getSessionId(req);
     } else {
-      // 生產環境：僅記錄用戶ID和Session ID（不記錄IP和userAgent）
-      if ((req as any).user?.id) {
-        logData.userId = (req as any).user?.id;
-      }
-      if ((req as any).sessionId) {
-        logData.sessionId = (req as any).sessionId;
-      }
+      const uid = getAuthUserIdOptional(req);
+      const sid = getSessionId(req);
+      if (uid) logData.userId = uid;
+      if (sid) logData.sessionId = sid;
     }
     
     // 根據狀態碼和環境決定是否記錄

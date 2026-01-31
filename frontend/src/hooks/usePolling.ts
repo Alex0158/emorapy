@@ -3,6 +3,7 @@
  */
 
 import { useRef, useEffect, useState, useCallback } from 'react';
+import { logger } from '@/utils/logger';
 
 type PollingFunction<T> = () => Promise<T | null>;
 
@@ -76,18 +77,14 @@ export const usePolling = <T>(
       // 檢查是否超過最大次數
       if (attemptCountRef.current >= maxAttempts) {
         stopPolling();
-        if (import.meta.env.DEV) {
-          console.warn(`輪詢已達到最大次數（${maxAttempts}次）`);
-        }
+        logger.warn(`輪詢已達到最大次數（${maxAttempts}次）`);
         return;
       }
 
       // 檢查是否超過最大時長
       if (startTimeRef.current && Date.now() - startTimeRef.current >= maxDuration) {
         stopPolling();
-        if (import.meta.env.DEV) {
-          console.warn(`輪詢已超過最大時長（${Math.floor(maxDuration / 1000)}秒）`);
-        }
+        logger.warn(`輪詢已超過最大時長（${Math.floor(maxDuration / 1000)}秒）`);
         return;
       }
 
@@ -111,9 +108,7 @@ export const usePolling = <T>(
         // 安排下次輪詢
         timerRef.current = setTimeout(poll, currentIntervalRef.current);
       } catch (error) {
-        if (import.meta.env.DEV) {
-          console.error('Polling error:', error);
-        }
+        logger.error('Polling error', error);
         
         // 錯誤時也使用指數退避
         if (exponentialBackoff) {

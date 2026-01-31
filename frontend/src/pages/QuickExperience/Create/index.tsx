@@ -213,7 +213,7 @@ const QuickExperienceCreate = () => {
       // 創建案件（快速體驗模式）
       const result = await createQuickCase({
         plaintiff_statement: plaintiffStatement.trim(),
-        defendant_statement: defendantStatement.trim() || undefined,
+        defendant_statement: defendantStatement.trim() || '',
         evidence_urls: [], // 證據將在案件創建後上傳
       });
 

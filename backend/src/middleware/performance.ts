@@ -5,6 +5,7 @@
 import { Request, Response, NextFunction } from 'express';
 import logger from '../config/logger';
 import { env } from '../config/env';
+import { getRequestId } from '../utils/request';
 
 interface PerformanceMetrics {
   method: string;
@@ -15,7 +16,6 @@ interface PerformanceMetrics {
 }
 
 const isDevelopment = env.NODE_ENV === 'development';
-const isProduction = env.NODE_ENV === 'production';
 
 /**
  * 性能監控中間件
@@ -56,14 +56,14 @@ export const performanceMonitor = (
       logger.warn('Slow request detected', {
         ...metrics,
         ...(memoryDelta && { memory: memoryDelta }),
-        requestId: (req as any).requestId,
+        requestId: getRequestId(req),
       });
     } else if (isDevelopment) {
       // 開發環境記錄所有請求
       logger.debug('Request completed', {
         ...metrics,
         ...(memoryDelta && { memory: memoryDelta }),
-        requestId: (req as any).requestId,
+        requestId: getRequestId(req),
       });
     }
     // 生產環境不記錄正常請求的性能指標
@@ -73,7 +73,7 @@ export const performanceMonitor = (
       logger.warn('Request error', {
         ...metrics,
         ...(memoryDelta && { memory: memoryDelta }),
-        requestId: (req as any).requestId,
+        requestId: getRequestId(req),
       });
     }
   });

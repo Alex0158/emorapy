@@ -2,6 +2,8 @@
  * 緩存工具函數
  */
 
+import { logger } from './logger';
+
 interface CacheItem<T> {
   value: T;
   expiry: number;
@@ -59,9 +61,7 @@ export const sessionCache = {
     try {
       sessionStorage.setItem(key, JSON.stringify(value));
     } catch (error) {
-      if (import.meta.env.DEV) {
-        console.error('SessionStorage set error:', error);
-      }
+      logger.error('SessionStorage set error', error);
     }
   },
 
@@ -70,9 +70,7 @@ export const sessionCache = {
       const item = sessionStorage.getItem(key);
       return item ? JSON.parse(item) : null;
     } catch (error) {
-      if (import.meta.env.DEV) {
-        console.error('SessionStorage get error:', error);
-      }
+      logger.error('SessionStorage get error', error);
       return null;
     }
   },
@@ -81,9 +79,7 @@ export const sessionCache = {
     try {
       sessionStorage.removeItem(key);
     } catch (error) {
-      if (import.meta.env.DEV) {
-        console.error('SessionStorage remove error:', error);
-      }
+      logger.error('SessionStorage remove error', error);
     }
   },
 
@@ -91,9 +87,7 @@ export const sessionCache = {
     try {
       sessionStorage.clear();
     } catch (error) {
-      if (import.meta.env.DEV) {
-        console.error('SessionStorage clear error:', error);
-      }
+      logger.error('SessionStorage clear error', error);
     }
   },
 };

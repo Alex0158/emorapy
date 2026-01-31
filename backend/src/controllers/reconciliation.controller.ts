@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { reconciliationService } from '../services/reconciliation.service';
+import { getAuthUserId, getAuthUserIdOptional } from '../utils/request';
 
 export class ReconciliationController {
   /**
@@ -9,7 +10,7 @@ export class ReconciliationController {
     try {
       const judgmentId = req.params.id;
       const preferences = req.body.preferences;
-      const userId = (req as any).user!.id;
+      const userId = getAuthUserId(req);
 
       const plans = await reconciliationService.generatePlans(judgmentId, preferences, userId);
 
@@ -51,7 +52,7 @@ export class ReconciliationController {
   async getPlanById(req: Request, res: Response, next: NextFunction) {
     try {
       const planId = req.params.id;
-      const userId = (req as any).user?.id;
+      const userId = getAuthUserIdOptional(req);
 
       const plan = await reconciliationService.getPlanById(planId, userId);
 
@@ -70,7 +71,7 @@ export class ReconciliationController {
   async selectPlan(req: Request, res: Response, next: NextFunction) {
     try {
       const planId = req.params.id;
-      const userId = (req as any).user!.id;
+      const userId = getAuthUserId(req);
 
       const plan = await reconciliationService.selectPlan(planId, userId);
 

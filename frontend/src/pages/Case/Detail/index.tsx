@@ -27,6 +27,7 @@ import ProtectedRoute from '@/components/common/ProtectedRoute';
 import SEO from '@/components/common/SEO';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
 import { formatDateTime } from '@/utils/formatDate';
+import { logger } from '@/utils/logger';
 import './Detail.less';
 
 const { Title, Text, Paragraph } = Typography;
@@ -72,10 +73,7 @@ const CaseDetail = () => {
         setTimeout(() => navigate('/login'), 1500);
       } else {
         message.error(errorMessage);
-        // 記錄錯誤到日誌（僅開發環境）
-        if (import.meta.env.DEV) {
-          console.error('Failed to fetch case:', error);
-        }
+        logger.error('Failed to fetch case', error);
       }
     } finally {
       setLoading(false);
@@ -103,10 +101,7 @@ const CaseDetail = () => {
         message.error('您沒有權限提交此案件');
       } else {
         message.error(errorMessage);
-        // 記錄錯誤（僅開發環境）
-        if (import.meta.env.DEV) {
-          console.error('Failed to submit case:', error);
-        }
+        logger.error('Failed to submit case', error);
       }
     } finally {
       setSubmitting(false);

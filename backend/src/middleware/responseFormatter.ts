@@ -8,7 +8,7 @@ import { Request, Response, NextFunction } from 'express';
 export const responseFormatter = (req: Request, res: Response, next: NextFunction): void => {
   // 使用已有的 requestId（由 requestId 中間件生成）
   // 如果沒有 requestId（理論上不應該發生），使用空字符串
-  const requestId = (req as any).requestId || '';
+  const requestId = req.requestId ?? '';
 
   // 保存原始的json方法
   const originalJson = res.json.bind(res);

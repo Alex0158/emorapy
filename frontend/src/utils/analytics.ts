@@ -2,6 +2,8 @@
  * 分析追蹤工具（簡化版）
  */
 
+import { logger } from './logger';
+
 /**
  * 追蹤頁面瀏覽
  */
@@ -11,9 +13,8 @@ export const trackPageView = (path: string): void => {
       page_path: path,
     });
   }
-  // 僅在開發環境輸出
   if (import.meta.env.DEV) {
-  console.log(`[Analytics] Page View: ${path}`);
+    logger.info(`[Analytics] Page View: ${path}`);
   }
 };
 
@@ -33,9 +34,8 @@ export const trackEvent = (
       value: value,
     });
   }
-  // 僅在開發環境輸出
   if (import.meta.env.DEV) {
-  console.log(`[Analytics] Event: ${category}/${action}`, { label, value });
+    logger.info(`[Analytics] Event: ${category}/${action}`, { label, value });
   }
 };
 
@@ -44,9 +44,8 @@ export const trackEvent = (
  */
 export const trackUserAction = (action: string, details?: Record<string, any>): void => {
   trackEvent('User Action', action, undefined, undefined);
-  // 僅在開發環境輸出
   if (import.meta.env.DEV && details) {
-    console.log('[Analytics] Details:', details);
+    logger.debug('[Analytics] Details', details);
   }
 };
 

@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { verifyToken, UserPayload } from '../utils/jwt';
+import { verifyToken } from '../utils/jwt';
 import { Errors } from '../utils/errors';
 import prisma from '../config/database';
 import { validateSessionId } from '../utils/session';
@@ -8,16 +8,9 @@ import jwt from 'jsonwebtoken';
 import { env } from '../config/env';
 import logger from '../config/logger';
 import path from 'path';
+import crypto from 'crypto';
 import fs from 'fs/promises';
-
-declare global {
-  namespace Express {
-    interface Request {
-      user?: UserPayload;
-      sessionId?: string;
-    }
-  }
-}
+import { getRequestId } from '../utils/request';
 
 /**
  * JWT認證中間件（必需認證）
@@ -89,14 +82,14 @@ export const optionalAuthenticate = async (
       } catch (error) {
         logger.warn('Optional auth token invalid', {
           reason: (error as Error).message,
-          requestId: (req as any).requestId,
+          requestId: getRequestId(req),
           ip: req.ip,
         });
       }
     }
     next();
   } catch (error) {
-    logger.warn('Optional auth failed', { error, requestId: (req as any).requestId });
+    logger.warn('Optional auth failed', { error, requestId: getRequestId(req) });
     next();
   }
 };
@@ -191,7 +184,7 @@ export const authorizeMedia = async (
     }
 
     // 如果已經通過 authenticate/optionalAuthenticate，直接放行
-    if ((req as any).user?.id) {
+    if (req.user?.id) {
       return next();
     }
 
@@ -201,7 +194,7 @@ export const authorizeMedia = async (
     if (sessionId && validateSessionId(sessionId)) {
       const session = await sessionService.getSession(sessionId);
       if (session) {
-        (req as any).sessionId = sessionId;
+        req.sessionId = sessionId;
         return next();
       }
     }
@@ -216,7 +209,7 @@ export const authorizeMedia = async (
           const p = req.path.startsWith('/') ? req.path.slice(1) : req.path;
           try { return decodeURIComponent(p); } catch { return p; }
         })();
-        const hash = require('crypto').createHash('sha256').update(payload.f || '').digest('hex');
+        const hash = crypto.createHash('sha256').update(payload.f || '').digest('hex');
 
         if (payload?.f && payload.h === hash && requestedPath.endsWith(payload.f)) {
           // 如有 size/mtime，進一步驗證
@@ -234,7 +227,7 @@ export const authorizeMedia = async (
               if (payload.ch) {
                 try {
                   const fileBuf = await fs.readFile(path.join(uploadPath, path.basename(payload.f)));
-                  const contentHash = require('crypto').createHash('sha256').update(fileBuf).digest('hex');
+                  const contentHash = crypto.createHash('sha256').update(fileBuf).digest('hex');
                   if (contentHash !== payload.ch) {
                     throw Errors.UNAUTHORIZED('簽名已失效');
                   }
@@ -247,7 +240,7 @@ export const authorizeMedia = async (
             }
           }
           if (env.NODE_ENV !== 'production') {
-            logger.info('Media access authorized', { file: payload.f, requestId: (req as any).requestId });
+            logger.info('Media access authorized', { file: payload.f, requestId: getRequestId(req) });
           }
           return next();
         }
@@ -259,7 +252,7 @@ export const authorizeMedia = async (
     logger.warn('Media access denied', {
       file: req.path,
       ip: req.ip,
-      requestId: (req as any).requestId,
+      requestId: getRequestId(req),
     });
     throw Errors.UNAUTHORIZED('未授權的資源訪問');
   } catch (error) {

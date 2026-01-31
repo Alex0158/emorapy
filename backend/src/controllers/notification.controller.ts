@@ -2,13 +2,14 @@ import { Request, Response, NextFunction } from 'express';
 import { notificationService } from '../services/notification.service';
 import { NotificationStatus, NotificationChannel } from '@prisma/client';
 import { Errors } from '../utils/errors';
+import { getAuthUserId } from '../utils/request';
 
 const ALLOWED_CHANNELS = new Set(Object.values(NotificationChannel));
 
 export class NotificationController {
   async list(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = (req as any).user!.id;
+      const userId = getAuthUserId(req);
       const status = req.query.status as NotificationStatus | undefined;
       const notifications = await notificationService.list(userId, status);
       res.json({ success: true, data: { notifications } });
@@ -19,7 +20,7 @@ export class NotificationController {
 
   async create(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = (req as any).user!.id;
+      const userId = getAuthUserId(req);
       const { channel, template_code, payload, dedup_key } = req.body;
       if (!channel || !ALLOWED_CHANNELS.has(channel)) {
         throw Errors.VALIDATION_ERROR('channel 必須為 email 或 push');

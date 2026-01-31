@@ -27,6 +27,7 @@ import SEO from '@/components/common/SEO';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
 import { usePolling } from '@/hooks/usePolling';
 import { POLLING_INTERVAL } from '@/utils/constants';
+import { logger } from '@/utils/logger';
 import './Review.less';
 
 const { Title, Text, Paragraph } = Typography;
@@ -69,10 +70,7 @@ const CaseReview = () => {
       if (error.code === 'JUDGMENT_NOT_FOUND' || error.code === 'HTTP_404') {
         return false; // 繼續輪詢
       }
-      // 記錄錯誤（僅開發環境輸出到console）
-      if (import.meta.env.DEV) {
-      console.error('Failed to fetch judgment:', error);
-      }
+      logger.error('Failed to fetch judgment', error);
       return false;
     }
   };

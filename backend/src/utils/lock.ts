@@ -22,16 +22,10 @@
  * ```
  */
 
-import prisma from '../config/database';
 import logger from '../config/logger';
 import { env } from '../config/env';
 import { Errors } from './errors';
 import Redis from 'ioredis';
-
-interface LockEntry {
-  key: string;
-  expiresAt: Date;
-}
 
 /**
  * 簡單的內存鎖（單實例有效）

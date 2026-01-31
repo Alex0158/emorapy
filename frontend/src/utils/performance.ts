@@ -2,6 +2,8 @@
  * 性能監控工具
  */
 
+import { logger } from './logger';
+
 /**
  * 測量函數執行時間
  */
@@ -15,9 +17,8 @@ export const measurePerformance = <T extends (...args: any[]) => any>(
     const end = performance.now();
     const duration = end - start;
 
-    // 僅在開發環境輸出性能日誌
     if (label && import.meta.env.DEV) {
-      console.log(`[Performance] ${label}: ${duration.toFixed(2)}ms`);
+      logger.debug(`[Performance] ${label}: ${duration.toFixed(2)}ms`);
     }
 
     return result;
@@ -33,7 +34,7 @@ export const logPageLoadTime = (): void => {
       const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
       if (navigation && import.meta.env.DEV) {
         const loadTime = navigation.loadEventEnd - navigation.fetchStart;
-        console.log(`[Performance] Page Load Time: ${loadTime.toFixed(2)}ms`);
+        logger.debug(`[Performance] Page Load Time: ${loadTime.toFixed(2)}ms`);
       }
     });
   }
@@ -48,8 +49,7 @@ export const logResourceTiming = (): void => {
     resources.forEach((resource) => {
       const duration = resource.duration;
       if (duration > 1000 && import.meta.env.DEV) {
-        // 只記錄超過1秒的資源（僅開發環境）
-        console.warn(`[Performance] Slow Resource: ${resource.name} (${duration.toFixed(2)}ms)`);
+        logger.warn(`[Performance] Slow Resource: ${resource.name} (${duration.toFixed(2)}ms)`);
       }
     });
   }

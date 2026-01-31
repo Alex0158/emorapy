@@ -1,6 +1,8 @@
 import { Request } from 'express';
 import multer from 'multer';
 import path from 'path';
+import crypto from 'crypto';
+import { statSync, readFileSync } from 'fs';
 import { Errors } from '../utils/errors';
 import { env } from '../config/env';
 import logger from '../config/logger';
@@ -37,8 +39,6 @@ const storage = multer.diskStorage({
       return cb(new Error('不支持的文件類型'), '');
     }
 
-    // 清理文件名，移除危險字符
-    const safeName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
     const uniqueName = `${Date.now()}-${Math.round(Math.random() * 1E9)}${ext}`;
     cb(null, uniqueName);
   },
@@ -219,25 +219,25 @@ export class FileService {
     try {
       const parsed = new URL(url, env.FILE_BASE_URL);
       const filename = parsed.pathname.replace(/^\/+/, '');
-      const hash = require('crypto').createHash('sha256').update(filename).digest('hex');
+      const hash = crypto.createHash('sha256').update(filename).digest('hex');
 
       // 嘗試加入文件大小與mtime（如可用），增強防重放
       let size: number | undefined;
       let mtime: number | undefined;
       let contentHash: string | undefined;
       // 加入隨機 nonce（每次簽名不同，減少重放窗口）
-      const nonce = require('crypto').randomBytes(8).toString('hex');
+      const nonce = crypto.randomBytes(8).toString('hex');
       const uploadPath = path.isAbsolute(env.UPLOAD_DIR)
         ? env.UPLOAD_DIR
         : path.join(process.cwd(), env.UPLOAD_DIR);
       const fullPath = path.join(uploadPath, path.basename(filename));
       try {
-        const stat = require('fs').statSync(fullPath);
+        const stat = statSync(fullPath);
         size = stat.size;
         mtime = stat.mtimeMs;
         // 內容哈希，防同名同大小重放（文件上限5MB，計算開銷可接受）
-        const buf = require('fs').readFileSync(fullPath);
-        contentHash = require('crypto').createHash('sha256').update(buf).digest('hex');
+        const buf = readFileSync(fullPath);
+        contentHash = crypto.createHash('sha256').update(buf).digest('hex');
       } catch {
         // 忽略，可能是 CDN 或文件已不在本機
       }

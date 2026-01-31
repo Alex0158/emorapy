@@ -119,7 +119,7 @@ export class SessionService {
       }
 
       const result = await prisma.quickSession.deleteMany({
-        where: { id: { in: expiredIds.map(s => s.id) } },
+        where: { id: { in: expiredIds.map((s: { id: string }) => s.id) } },
       });
 
       if (result.count > 0) {

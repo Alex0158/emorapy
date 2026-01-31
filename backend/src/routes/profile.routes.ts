@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { authenticate } from '../middleware/auth';
+import { validate } from '../middleware/validator';
+import { pairingIdParamSchema } from '../utils/validation';
 import { profileController } from '../controllers/profile.controller';
 
 const router = Router();
@@ -12,12 +14,14 @@ router.put('/profile/me', authenticate, profileController.upsertUserProfile.bind
 router.get(
   '/profile/relationship/:pairingId',
   authenticate,
+  validate(pairingIdParamSchema),
   profileController.getRelationshipProfile.bind(profileController)
 );
 
 router.put(
   '/profile/relationship/:pairingId',
   authenticate,
+  validate(pairingIdParamSchema),
   profileController.upsertRelationshipProfile.bind(profileController)
 );
 

@@ -28,7 +28,7 @@ export function downloadText(content: string, filename: string, mimeType: string
 /**
  * 下載JSON
  */
-export function downloadJSON(data: any, filename: string = 'data.json'): void {
+export function downloadJSON(data: unknown, filename: string = 'data.json'): void {
   downloadText(JSON.stringify(data, null, 2), filename, 'application/json');
 }
 

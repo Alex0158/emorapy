@@ -13,7 +13,7 @@ interface CacheItem<T> {
  * 內存緩存類
  */
 class MemoryCache {
-  private cache = new Map<string, CacheItem<any>>();
+  private cache = new Map<string, CacheItem<unknown>>();
 
   set<T>(key: string, value: T, ttl: number = 0): void {
     const expiry = ttl > 0 ? Date.now() + ttl : Infinity;

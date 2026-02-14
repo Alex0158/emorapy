@@ -7,7 +7,7 @@ import { logger } from './logger';
 /**
  * 測量函數執行時間
  */
-export const measurePerformance = <T extends (...args: any[]) => any>(
+export const measurePerformance = <T extends (...args: unknown[]) => unknown>(
   fn: T,
   label?: string
 ): T => {
@@ -83,7 +83,7 @@ export const getWebVitals = (): {
         });
       });
       fcpObserver.observe({ entryTypes: ['paint'] });
-    } catch (e) {
+    } catch {
       // 忽略錯誤
     }
 
@@ -92,10 +92,11 @@ export const getWebVitals = (): {
       const lcpObserver = new PerformanceObserver((list) => {
         const entries = list.getEntries();
         const lastEntry = entries[entries.length - 1];
-        vitals.lcp = Math.round((lastEntry as any).renderTime || (lastEntry as any).loadTime);
+        type LCPEntry = { renderTime?: number; loadTime?: number };
+        vitals.lcp = Math.round((lastEntry as LCPEntry).renderTime ?? (lastEntry as LCPEntry).loadTime ?? 0);
       });
       lcpObserver.observe({ entryTypes: ['largest-contentful-paint'] });
-    } catch (e) {
+    } catch {
       // 忽略錯誤
     }
   }

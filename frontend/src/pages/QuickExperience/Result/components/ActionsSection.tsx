@@ -14,7 +14,7 @@ type Props = {
 const ActionsSection = ({ onRegister, onBackToCreate }: Props) => {
   return (
     <AnimatedWrapper animation="slide" direction="up" delay={500} trigger="intersection">
-      <section className="actions-section" aria-label="後續操作">
+      <section className="actions-section" aria-label={t('result.ariaActions')}>
         <div className="container">
           <div className="primary-actions">
             <Button type="primary" size="large" onClick={onRegister} aria-label={t('register.action.now')}>

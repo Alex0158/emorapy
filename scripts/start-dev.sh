@@ -32,7 +32,7 @@ cd ..
 
 echo ""
 echo "✅ 開發環境已啟動！"
-echo "📊 後端: http://localhost:3000"
+echo "📊 後端: http://localhost:3001"
 echo "🌐 前端: http://localhost:5173"
 echo ""
 echo "📝 日誌文件:"
@@ -46,4 +46,3 @@ trap "kill $BACKEND_PID $FRONTEND_PID; exit" INT TERM
 
 # 保持運行
 wait
-

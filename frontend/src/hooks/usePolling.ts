@@ -60,8 +60,8 @@ export const usePolling = <T>(
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
-      setIsPolling(false);
     }
+    setIsPolling(false);
   }, []);
 
   const startPolling = useCallback(() => {
@@ -129,6 +129,7 @@ export const usePolling = <T>(
 
     setIsPolling(true);
     poll(); // 立即執行第一次
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- baseInterval 等由 startPolling 閉包讀取即可
   }, [baseInterval, maxAttempts, maxDuration, exponentialBackoff, initialInterval, maxInterval, stopPolling]);
 
   useEffect(() => {

@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { Button } from 'antd';
 import { ArrowUpOutlined } from '@ant-design/icons';
 import { throttle } from '@/utils/helpers';
+import { t } from '@/utils/i18n';
 import './BackToTop.less';
 
 const BackToTop = () => {
@@ -37,7 +38,7 @@ const BackToTop = () => {
       icon={<ArrowUpOutlined />}
       className="back-to-top"
       onClick={scrollToTop}
-      aria-label="返回頂部"
+      aria-label={t('common.backToTop')}
     />
   );
 };

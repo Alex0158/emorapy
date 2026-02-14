@@ -2,6 +2,7 @@
  * Request 輔助函數
  * 統一從 Express Request 提取認證、追蹤相關資料，消除 (req as any) 重複
  */
+/// <reference path="../types/express.d.ts" />
 import type { Request } from 'express';
 
 export function getAuthUserId(req: Request): string {

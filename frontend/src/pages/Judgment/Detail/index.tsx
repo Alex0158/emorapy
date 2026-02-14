@@ -30,6 +30,7 @@ import JudgmentViewer from '@/components/business/JudgmentViewer';
 import ResponsibilityRatio from '@/components/business/ResponsibilityRatio';
 import SEO from '@/components/common/SEO';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
+import { t } from '@/utils/i18n';
 import './Detail.less';
 
 const { Title, Text } = Typography;
@@ -49,6 +50,7 @@ const JudgmentDetail = () => {
     if (id) {
       fetchJudgment();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 僅在 id 變化時拉取
   }, [id]);
 
   const fetchJudgment = async () => {
@@ -59,8 +61,9 @@ const JudgmentDetail = () => {
       if (judgmentData.user1_rating) {
         setRating(judgmentData.user1_rating);
       }
-    } catch (error: any) {
-      message.error(error.message || '獲取判決詳情失敗');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : t('message.getJudgmentDetailFail');
+      message.error(msg);
     } finally {
       setLoading(false);
     }
@@ -71,11 +74,12 @@ const JudgmentDetail = () => {
     setAccepting(true);
     try {
       await acceptJudgment(id, { accepted: true, rating: rating || undefined });
-      message.success('已接受判決');
+      message.success(t('message.acceptJudgmentSuccess'));
       setShowAcceptModal(false);
       fetchJudgment(); // 刷新數據
-    } catch (error: any) {
-      message.error(error.message || '操作失敗');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : t('message.operationFail');
+      message.error(msg);
     } finally {
       setAccepting(false);
     }
@@ -86,11 +90,12 @@ const JudgmentDetail = () => {
     setAccepting(true);
     try {
       await acceptJudgment(id, { accepted: false });
-      message.success('已拒絕判決');
+      message.success(t('message.rejectJudgmentSuccess'));
       setShowRejectModal(false);
-      fetchJudgment(); // 刷新數據
-    } catch (error: any) {
-      message.error(error.message || '操作失敗');
+      fetchJudgment();
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : t('message.operationFail');
+      message.error(msg);
     } finally {
       setAccepting(false);
     }
@@ -101,19 +106,32 @@ const JudgmentDetail = () => {
     setGenerating(true);
     try {
       await generatePlans(id);
-      message.success('和好方案已生成');
+      message.success(t('message.generatePlansSuccess'));
       navigate(`/reconciliation/${id}`);
-    } catch (error: any) {
-      message.error(error.message || '生成和好方案失敗');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : t('message.generatePlansFail');
+      message.error(msg);
     } finally {
       setGenerating(false);
     }
   };
 
+  const responsibilityRatio = useMemo(
+    () =>
+      judgment
+        ? (judgment.responsibility_ratio ?? {
+            plaintiff: judgment.plaintiff_ratio,
+            defendant: judgment.defendant_ratio,
+          })
+        : { plaintiff: 0, defendant: 0 },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 已用 judgment 的欄位作為 deps
+    [judgment?.plaintiff_ratio, judgment?.defendant_ratio, judgment?.responsibility_ratio]
+  );
+
   if (loading) {
     return (
       <div className="judgment-detail-page">
-        <Spin size="large" tip="加載中..." />
+        <Spin size="large" tip={t('common.loading')} />
       </div>
     );
   }
@@ -121,7 +139,7 @@ const JudgmentDetail = () => {
   if (!judgment) {
     return (
       <div className="judgment-detail-page">
-        <Alert message="判決不存在" type="error" />
+        <Alert message={t('message.judgmentNotFound')} type="error" />
       </div>
     );
   }
@@ -129,18 +147,18 @@ const JudgmentDetail = () => {
   return (
     <ProtectedRoute>
       <SEO
-        title="判決詳情 - 熊媽媽法庭"
-        description="查看完整的AI判決結果"
+        title={t('judgmentDetail.pageTitle')}
+        description={t('judgmentDetail.description')}
       />
-      <div className="judgment-detail-page" role="main" aria-label="判決詳情頁面">
+      <div className="judgment-detail-page" role="main" aria-label={t('judgmentDetail.pageLabel')}>
         <AnimatedWrapper animation="fade" delay={100}>
-          <div className="page-header" role="navigation" aria-label="頁面操作">
+          <div className="page-header" role="navigation" aria-label={t('judgmentDetail.actionsLabel')}>
             <Button
               icon={<ArrowLeftOutlined />}
               onClick={() => navigate(-1)}
-              aria-label="返回上一頁"
+              aria-label={t('judgmentDetail.backAria')}
             >
-              返回
+              {t('judgmentDetail.back')}
             </Button>
           </div>
         </AnimatedWrapper>
@@ -149,26 +167,19 @@ const JudgmentDetail = () => {
           <div className="judgment-header" aria-labelledby="judgment-title">
             <BearJudge size="large" animated />
             <Title level={2} id="judgment-title">
-              判決結果
+              {t('result.title')}
             </Title>
-            <Text type="secondary">基於AI分析的公正判決</Text>
+            <Text type="secondary">{t('result.subtitle')}</Text>
           </div>
         </AnimatedWrapper>
 
         <AnimatedWrapper animation="scale" delay={300} trigger="intersection">
           <Card className="responsibility-card" role="article" aria-labelledby="responsibility-title">
             <Title level={3} id="responsibility-title">
-              責任分比例
+              {t('responsibility.title')}
             </Title>
             <ResponsibilityRatio
-              ratio={useMemo(
-                () =>
-                  judgment.responsibility_ratio ?? {
-                    plaintiff: judgment.plaintiff_ratio,
-                    defendant: judgment.defendant_ratio,
-                  },
-                [judgment.plaintiff_ratio, judgment.defendant_ratio, judgment.responsibility_ratio]
-              )}
+              ratio={responsibilityRatio}
               showLabels={true}
               size="large"
             />
@@ -179,7 +190,7 @@ const JudgmentDetail = () => {
           <Card className="judgment-content-card" role="article" aria-labelledby="judgment-content-title">
             <JudgmentViewer
               content={judgment.judgment_content}
-              title="判決書"
+              title={t('judgmentDetail.docTitle')}
               showActions={true}
             />
           </Card>
@@ -188,52 +199,52 @@ const JudgmentDetail = () => {
         <AnimatedWrapper animation="slide" direction="up" delay={500} trigger="intersection">
           <Card className="action-card" role="article" aria-labelledby="feedback-title">
             <Title level={4} id="feedback-title">
-              您的反饋
+              {t('judgmentDetail.feedbackTitle')}
             </Title>
             <Space direction="vertical" size="large" style={{ width: '100%' }}>
-              <div role="group" aria-label="評分">
-                <Text>評分（可選）：</Text>
+              <div role="group" aria-label={t('judgmentDetail.ratingAria')}>
+                <Text>{t('judgmentDetail.ratingLabel')}</Text>
                 <Rate
                   value={rating}
                   onChange={setRating}
                   style={{ marginLeft: 8 }}
-                  aria-label="判決評分"
+                  aria-label={t('judgmentDetail.ratingAria')}
                 />
               </div>
 
-              <Space role="group" aria-label="判決操作">
+              <Space role="group" aria-label={t('judgmentDetail.actionsGroupLabel')}>
                 <Button
                   type="primary"
                   icon={<CheckCircleOutlined />}
                   onClick={() => setShowAcceptModal(true)}
                   disabled={judgment.user1_acceptance !== undefined}
-                  aria-label="接受判決"
+                  aria-label={t('judgmentDetail.acceptAria')}
                 >
-                  接受判決
+                  {t('judgmentDetail.accept')}
                 </Button>
                 <Button
                   danger
                   icon={<CloseCircleOutlined />}
                   onClick={() => setShowRejectModal(true)}
                   disabled={judgment.user1_acceptance !== undefined}
-                  aria-label="拒絕判決"
+                  aria-label={t('judgmentDetail.rejectAria')}
                 >
-                  拒絕判決
+                  {t('judgmentDetail.reject')}
                 </Button>
                 <Button
                   type="default"
                   icon={<HeartOutlined />}
                   onClick={handleGeneratePlans}
                   loading={generating}
-                  aria-label="生成和好方案"
+                  aria-label={t('judgmentDetail.generatePlansAria')}
                 >
-                  生成和好方案
+                  {t('judgmentDetail.generatePlans')}
                 </Button>
               </Space>
 
             {judgment.user1_acceptance !== undefined && (
               <Alert
-                message={judgment.user1_acceptance ? '您已接受此判決' : '您已拒絕此判決'}
+                message={judgment.user1_acceptance ? t('judgmentDetail.acceptedAlert') : t('judgmentDetail.rejectedAlert')}
                 type={judgment.user1_acceptance ? 'success' : 'warning'}
                 showIcon
                 role="status"
@@ -245,24 +256,24 @@ const JudgmentDetail = () => {
         </AnimatedWrapper>
 
         <Modal
-          title="接受判決"
+          title={t('judgmentDetail.acceptModalTitle')}
           open={showAcceptModal}
           onOk={handleAccept}
           onCancel={() => setShowAcceptModal(false)}
           confirmLoading={accepting}
         >
-          <p>確定要接受此判決嗎？</p>
-          {rating > 0 && <p>您的評分：{rating} 星</p>}
+          <p>{t('judgmentDetail.acceptModalConfirm')}</p>
+          {rating > 0 && <p>{t('judgmentDetail.acceptModalRating').replace('{rating}', String(rating))}</p>}
         </Modal>
 
         <Modal
-          title="拒絕判決"
+          title={t('judgmentDetail.rejectModalTitle')}
           open={showRejectModal}
           onOk={handleReject}
           onCancel={() => setShowRejectModal(false)}
           confirmLoading={accepting}
         >
-          <p>確定要拒絕此判決嗎？您可以申請重新審理。</p>
+          <p>{t('judgmentDetail.rejectModalConfirm')}</p>
         </Modal>
       </div>
     </ProtectedRoute>

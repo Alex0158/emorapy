@@ -36,6 +36,7 @@ export const useAsync = <T, E = Error>(
 
   useEffect(() => {
     if (immediate) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- immediate 模式需在 mount 時執行
       execute();
     }
   }, [immediate, execute]);

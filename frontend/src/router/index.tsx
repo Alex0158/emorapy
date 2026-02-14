@@ -1,6 +1,7 @@
 /**
- * 路由配置
+ * 路由配置（本檔同時導出 router 與 LazyWrapper 組件，故關閉 only-export-components）
  */
+/* eslint-disable react-refresh/only-export-components */
 
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { lazy, Suspense } from 'react';

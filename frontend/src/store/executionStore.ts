@@ -4,6 +4,7 @@
 
 import { create } from 'zustand';
 import type { ExecutionStatus } from '@/services/api/execution';
+import { getErrorMessage } from '@/utils/apiError';
 import { confirmExecution, checkin, getExecutionStatus } from '@/services/api/execution';
 
 interface ExecutionState {
@@ -29,8 +30,8 @@ export const useExecutionStore = create<ExecutionState>((set) => ({
     try {
       await confirmExecution(planId);
       set({ isLoading: false });
-    } catch (error: any) {
-      set({ error: error.message || '確認執行失敗', isLoading: false });
+    } catch (error: unknown) {
+      set({ error: getErrorMessage(error, 'message.confirmExecutionFail'), isLoading: false });
       throw error;
     }
   },
@@ -40,8 +41,8 @@ export const useExecutionStore = create<ExecutionState>((set) => ({
     try {
       await checkin(data);
       set({ isLoading: false });
-    } catch (error: any) {
-      set({ error: error.message || '打卡失敗', isLoading: false });
+    } catch (error: unknown) {
+      set({ error: getErrorMessage(error, 'message.checkinFail'), isLoading: false });
       throw error;
     }
   },
@@ -52,8 +53,8 @@ export const useExecutionStore = create<ExecutionState>((set) => ({
       const status = await getExecutionStatus(planId);
       set({ currentExecution: status, isLoading: false });
       return status;
-    } catch (error: any) {
-      set({ error: error.message || '獲取執行狀態失敗', isLoading: false });
+    } catch (error: unknown) {
+      set({ error: getErrorMessage(error, 'message.getExecutionStatusFail'), isLoading: false });
       throw error;
     }
   },

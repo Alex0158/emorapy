@@ -28,6 +28,13 @@ import ProtectedRoute from '@/components/common/ProtectedRoute';
 import BearJudge from '@/components/business/BearJudge';
 import SEO from '@/components/common/SEO';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
+import {
+  getDifficultyText,
+  getDifficultyTagColor,
+  getPlanTypeText,
+  getPlanTypeTagColor,
+} from '@/utils/statusTags';
+import { t } from '@/utils/i18n';
 import './List.less';
 
 const { Title, Text, Paragraph } = Typography;
@@ -46,26 +53,31 @@ const ReconciliationList = () => {
     if (judgmentId) {
       fetchPlans();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 僅在篩選/ judgmentId 變化時拉取
   }, [judgmentId, difficultyFilter, typeFilter]);
 
   const fetchPlans = async () => {
     setLoading(true);
     try {
-      const filters: any = {};
+      const filters: {
+        difficulty?: 'easy' | 'medium' | 'hard';
+        type?: 'activity' | 'communication' | 'intimacy';
+      } = {};
       if (difficultyFilter !== 'all') {
-        filters.difficulty = difficultyFilter;
+        filters.difficulty = difficultyFilter as 'easy' | 'medium' | 'hard';
       }
       if (typeFilter !== 'all') {
-        filters.type = typeFilter;
+        filters.type = typeFilter as 'activity' | 'communication' | 'intimacy';
       }
       const plansData = await getPlans(judgmentId!, filters);
       setPlans(plansData);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { code?: string; message?: string };
       // 如果是404或方案不存在，可能是尚未生成，不顯示錯誤
-      if (error.code === 'NOT_FOUND' || error.code === 'HTTP_404') {
+      if (err.code === 'NOT_FOUND' || err.code === 'HTTP_404') {
         setPlans([]);
       } else {
-        message.error(error.message || '獲取和好方案失敗');
+        message.error(err.message ?? t('message.getPlansFail'));
       }
     } finally {
       setLoading(false);
@@ -77,10 +89,11 @@ const ReconciliationList = () => {
     setGenerating(true);
     try {
       const generatedPlans = await generatePlans(judgmentId);
-      message.success(`已生成 ${generatedPlans.length} 個和好方案`);
+      message.success(t('message.generatePlansSuccessCount').replace('{count}', String(generatedPlans.length)));
       setPlans(generatedPlans);
-    } catch (error: any) {
-      message.error(error.message || '生成和好方案失敗');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : t('message.generatePlansFail');
+      message.error(msg);
     } finally {
       setGenerating(false);
     }
@@ -89,86 +102,67 @@ const ReconciliationList = () => {
   const handleSelectPlan = async (planId: string) => {
     try {
       await selectPlan(planId);
-      message.success('方案已選擇');
+      message.success(t('message.selectPlanSuccess'));
       navigate(`/reconciliation/${judgmentId}/${planId}`);
-    } catch (error: any) {
-      message.error(error.message || '選擇方案失敗');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : t('message.selectPlanFail');
+      message.error(msg);
     }
-  };
-
-  const getDifficultyTag = (difficulty: string) => {
-    const map: Record<string, { color: string; text: string }> = {
-      easy: { color: 'success', text: '簡單' },
-      medium: { color: 'warning', text: '中等' },
-      hard: { color: 'error', text: '困難' },
-    };
-    const config = map[difficulty] || { color: 'default', text: difficulty };
-    return <Tag color={config.color}>{config.text}</Tag>;
-  };
-
-  const getTypeTag = (type: string) => {
-    const map: Record<string, { color: string; text: string }> = {
-      activity: { color: 'blue', text: '活動' },
-      communication: { color: 'purple', text: '溝通' },
-      intimacy: { color: 'pink', text: '親密' },
-    };
-    const config = map[type] || { color: 'default', text: type };
-    return <Tag color={config.color}>{config.text}</Tag>;
   };
 
   return (
     <ProtectedRoute>
       <SEO
-        title="和好方案 - 熊媽媽法庭"
-        description="選擇適合你們的和好方案"
+        title={t('reconList.title')}
+        description={t('reconList.description')}
       />
-      <div className="reconciliation-list-page" role="main" aria-label="和好方案列表頁面">
+      <div className="reconciliation-list-page" role="main" aria-label={t('reconList.pageLabel')}>
         <AnimatedWrapper animation="fade" delay={100}>
           <div className="page-header" aria-labelledby="reconciliation-title">
             <BearJudge size="medium" animated />
             <Title level={2} id="reconciliation-title">
-              和好方案
+              {t('reconList.heading')}
             </Title>
-            <Paragraph type="secondary">選擇適合你們的方案，促進關係修復</Paragraph>
+            <Paragraph type="secondary">{t('reconList.subtitle')}</Paragraph>
           </div>
         </AnimatedWrapper>
 
         <AnimatedWrapper animation="slide" direction="down" delay={200} trigger="intersection">
-          <div className="filters-section" role="group" aria-label="篩選">
+          <div className="filters-section" role="group" aria-label={t('reconList.filtersLabel')}>
             <Space wrap>
               <Select
                 value={difficultyFilter}
                 onChange={setDifficultyFilter}
                 style={{ width: 120 }}
-                aria-label="篩選難度"
+                aria-label={t('reconList.ariaDifficultyFilter')}
               >
-                <Option value="all">全部難度</Option>
-                <Option value="easy">簡單</Option>
-                <Option value="medium">中等</Option>
-                <Option value="hard">困難</Option>
+                <Option value="all">{t('reconList.difficultyAll')}</Option>
+                <Option value="easy">{t('reconList.difficultyEasy')}</Option>
+                <Option value="medium">{t('reconList.difficultyMedium')}</Option>
+                <Option value="hard">{t('reconList.difficultyHard')}</Option>
               </Select>
 
               <Select
                 value={typeFilter}
                 onChange={setTypeFilter}
                 style={{ width: 120 }}
-                aria-label="篩選類型"
+                aria-label={t('reconList.ariaTypeFilter')}
               >
-                <Option value="all">全部類型</Option>
-                <Option value="activity">活動</Option>
-                <Option value="communication">溝通</Option>
-                <Option value="intimacy">親密</Option>
+                <Option value="all">{t('reconList.typeAll')}</Option>
+                <Option value="activity">{t('reconList.typeActivity')}</Option>
+                <Option value="communication">{t('reconList.typeCommunication')}</Option>
+                <Option value="intimacy">{t('reconList.typeIntimacy')}</Option>
               </Select>
             </Space>
           </div>
         </AnimatedWrapper>
 
-        <Spin spinning={loading || generating} tip={generating ? '正在生成和好方案...' : '加載中...'}>
+        <Spin spinning={loading || generating} tip={generating ? t('reconList.generating') : t('common.loading')}>
           {plans.length === 0 ? (
             <AnimatedWrapper animation="fade" delay={300}>
-              <Empty 
-                description="暫無和好方案" 
-                aria-label="空狀態：暫無和好方案"
+              <Empty
+                description={t('reconList.empty')}
+                aria-label={t('reconList.empty')}
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
               >
                 <Button
@@ -178,81 +172,84 @@ const ReconciliationList = () => {
                   loading={generating}
                   size="large"
                 >
-                  生成和好方案
+                  {t('reconList.generatePlans')}
                 </Button>
               </Empty>
             </AnimatedWrapper>
           ) : (
             <AnimatedWrapper animation="fade" delay={300} trigger="intersection">
-              <Row gutter={[24, 24]} role="list" aria-label="和好方案列表">
-                {plans.map((plan, index) => (
-                  <Col xs={24} sm={12} key={plan.id}>
-                    <AnimatedWrapper
-                      animation="slide"
-                      direction="up"
-                      delay={index * 50}
-                      trigger="intersection"
-                    >
-                      <Card
-                        className="plan-card"
-                        hoverable
-                        role="article"
-                        aria-labelledby={`plan-title-${plan.id}`}
-                        tabIndex={0}
-                        extra={
-                          (plan.user1_selected || plan.user2_selected) && (
-                            <Tag color="success" icon={<CheckCircleOutlined />} aria-label="已選擇">
-                              已選擇
-                            </Tag>
-                          )
-                        }
+              <Row gutter={[24, 24]} role="list" aria-label={t('reconList.heading')}>
+                {plans.map((plan, index) => {
+                  const planTitle = plan.plan_content.split('\n')[0];
+                  return (
+                    <Col xs={24} sm={12} key={plan.id}>
+                      <AnimatedWrapper
+                        animation="slide"
+                        direction="up"
+                        delay={index * 50}
+                        trigger="intersection"
                       >
-                        <div className="plan-header">
-                          <Title level={4} id={`plan-title-${plan.id}`}>
-                            {plan.plan_content.split('\n')[0]}
-                          </Title>
-                          <Space>
-                            {getTypeTag(plan.plan_type)}
-                            {getDifficultyTag(plan.difficulty_level)}
-                          </Space>
-                        </div>
+                        <Card
+                          className="plan-card"
+                          hoverable
+                          role="article"
+                          aria-labelledby={`plan-title-${plan.id}`}
+                          tabIndex={0}
+                          extra={
+                            (plan.user1_selected || plan.user2_selected) && (
+                              <Tag color="success" icon={<CheckCircleOutlined />} aria-label={t('reconList.selected')}>
+                                {t('reconList.selected')}
+                              </Tag>
+                            )
+                          }
+                        >
+                          <div className="plan-header">
+                            <Title level={4} id={`plan-title-${plan.id}`}>
+                              {planTitle}
+                            </Title>
+                            <Space>
+                              <Tag color={getPlanTypeTagColor(plan.plan_type)}>{getPlanTypeText(plan.plan_type)}</Tag>
+                              <Tag color={getDifficultyTagColor(plan.difficulty_level)}>{getDifficultyText(plan.difficulty_level)}</Tag>
+                            </Space>
+                          </div>
 
-                        <div className="plan-body">
-                          <Paragraph ellipsis={{ rows: 3 }}>
-                            {plan.plan_content}
-                          </Paragraph>
+                          <div className="plan-body">
+                            <Paragraph ellipsis={{ rows: 3 }}>
+                              {plan.plan_content}
+                            </Paragraph>
 
-                          <Space>
-                            <Text type="secondary">
-                              <ClockCircleOutlined /> {plan.estimated_duration || '未定'} 天
-                            </Text>
-                          </Space>
-                        </div>
+                            <Space>
+                              <Text type="secondary">
+                                <ClockCircleOutlined /> {plan.estimated_duration != null ? t('reconList.estimatedDays').replace('{days}', String(plan.estimated_duration)) : `${t('reconList.estimatedTbd')} 天`}
+                              </Text>
+                            </Space>
+                          </div>
 
-                        <div className="plan-footer" role="group" aria-label="方案操作">
-                          <Space>
-                            <Button
-                              type="default"
-                              onClick={() => navigate(`/reconciliation/${judgmentId}/${plan.id}`)}
-                              aria-label={`查看方案 ${plan.plan_content.split('\n')[0]} 的詳情`}
-                            >
-                              查看詳情
-                            </Button>
-                            <Button
-                              type="primary"
-                              icon={<HeartOutlined />}
-                              onClick={() => handleSelectPlan(plan.id)}
-                              disabled={plan.user1_selected || plan.user2_selected}
-                              aria-label={plan.user1_selected || plan.user2_selected ? '方案已選擇' : '選擇此方案'}
-                            >
-                              選擇方案
-                            </Button>
-                          </Space>
-                        </div>
-                      </Card>
-                    </AnimatedWrapper>
-                  </Col>
-                ))}
+                          <div className="plan-footer" role="group" aria-label={t('reconList.ariaPlanActions')}>
+                            <Space>
+                              <Button
+                                type="default"
+                                onClick={() => navigate(`/reconciliation/${judgmentId}/${plan.id}`)}
+                                aria-label={t('reconList.viewDetailAria').replace('{title}', planTitle)}
+                              >
+                                {t('reconList.viewDetail')}
+                              </Button>
+                              <Button
+                                type="primary"
+                                icon={<HeartOutlined />}
+                                onClick={() => handleSelectPlan(plan.id)}
+                                disabled={plan.user1_selected || plan.user2_selected}
+                                aria-label={plan.user1_selected || plan.user2_selected ? t('reconList.planSelectedAria') : t('reconList.selectPlanAria')}
+                              >
+                                {t('reconList.selectPlan')}
+                              </Button>
+                            </Space>
+                          </div>
+                        </Card>
+                      </AnimatedWrapper>
+                    </Col>
+                  );
+                })}
               </Row>
             </AnimatedWrapper>
           )}

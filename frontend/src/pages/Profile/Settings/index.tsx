@@ -9,6 +9,7 @@ import SEO from '@/components/common/SEO';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
 import { getProfile, updateProfile } from '@/services/api/user';
 import { useAuthStore } from '@/store/authStore';
+import { t } from '@/utils/i18n';
 import './Settings.less';
 
 const { Title } = Typography;
@@ -27,8 +28,9 @@ const ProfileSettings = () => {
         form.setFieldsValue({
           notification_enabled: profile.notification_enabled ?? true,
         });
-      } catch (error: any) {
-        message.error(error.message || '獲取設置失敗');
+      } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : t('message.getProfileFail');
+        message.error(msg);
       } finally {
         setLoading(false);
       }
@@ -36,16 +38,17 @@ const ProfileSettings = () => {
     init();
   }, [form, updateUser]);
 
-  const handleSubmit = async (values: any) => {
+  const handleSubmit = async (values: { notification_enabled?: boolean }) => {
     try {
       setLoading(true);
       const updated = await updateProfile({
         notification_enabled: values.notification_enabled,
       });
       updateUser(updated);
-      message.success('設置已保存');
-    } catch (error: any) {
-      message.error(error.message || '保存失敗');
+      message.success(t('message.saveSuccess'));
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : t('message.saveFail');
+      message.error(msg);
     } finally {
       setLoading(false);
     }
@@ -55,7 +58,7 @@ const ProfileSettings = () => {
     return (
       <ProtectedRoute>
         <div className="profile-settings-page">
-          <Spin tip="加載中..." />
+          <Spin tip={t('common.loading')} />
         </div>
       </ProtectedRoute>
     );
@@ -64,16 +67,16 @@ const ProfileSettings = () => {
   return (
     <ProtectedRoute>
       <SEO
-        title="設置 - 熊媽媽法庭"
-        description="賬號設置和偏好設置"
+        title={t('settings.title')}
+        description={t('settings.description')}
       />
-      <div className="profile-settings-page" role="main" aria-label="設置頁面">
+      <div className="profile-settings-page" role="main" aria-label={t('settings.pageLabel')}>
         <AnimatedWrapper animation="fade" delay={100}>
-          <Title level={2} id="settings-title">設置</Title>
+          <Title level={2} id="settings-title">{t('settings.heading')}</Title>
         </AnimatedWrapper>
 
         <AnimatedWrapper animation="slide" direction="up" delay={200} trigger="intersection">
-          <Card title="通知設置" role="article" aria-labelledby="settings-title">
+          <Card title={t('settings.notification')} role="article" aria-labelledby="settings-title">
           <Form
             form={form}
             layout="vertical"
@@ -84,7 +87,7 @@ const ProfileSettings = () => {
           >
             <Form.Item
               name="notification_enabled"
-              label="啟用通知"
+              label={t('settings.enableNotification')}
               valuePropName="checked"
             >
               <Switch />
@@ -92,7 +95,7 @@ const ProfileSettings = () => {
 
             <Form.Item>
               <Button type="primary" htmlType="submit">
-                保存設置
+                {t('settings.save')}
               </Button>
             </Form.Item>
           </Form>

@@ -42,6 +42,7 @@ export const useKeyboardNavigation = (
         window.removeEventListener('keydown', handleKeyDown);
       };
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleKeyDown 故意不進 deps，避免每次重綁
   }, [enabled, onEnter, onEscape, onArrowUp, onArrowDown]);
 };
 

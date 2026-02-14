@@ -47,6 +47,7 @@ const StatementInput = ({
     const trimmed = value.trim();
     if (allowEmpty && trimmed.length === 0) {
       const result = { valid: true, message: undefined };
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 由 props 推導衍生狀態
       setValidation(result);
       onValidationChange?.(result.valid);
       return;

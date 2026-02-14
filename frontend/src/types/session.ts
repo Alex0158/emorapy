@@ -11,7 +11,7 @@ export interface SessionData {
   id: string;
   pairing_id?: string;
   case_id?: string;
-  session_data?: any;
+  session_data?: unknown;
   created_at: string;
   expires_at: string;
   last_accessed_at: string;

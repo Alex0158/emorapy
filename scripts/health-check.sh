@@ -10,7 +10,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 # 默認配置
-API_URL="${API_URL:-http://localhost:3000}"
+API_URL="${API_URL:-http://localhost:3001}"
 HEALTH_ENDPOINT="${HEALTH_ENDPOINT:-/health}"
 
 echo "🏥 健康檢查 - 熊媽媽法庭"
@@ -79,4 +79,3 @@ fi
 echo ""
 echo "================================"
 echo "健康檢查完成"
-

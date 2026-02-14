@@ -16,7 +16,7 @@ export interface RetryOptions {
   initialDelay?: number;
   maxDelay?: number;
   backoffMultiplier?: number;
-  shouldRetry?: (error: any) => boolean;
+  shouldRetry?: (error: unknown) => boolean;
 }
 
 /**
@@ -31,9 +31,10 @@ export async function requestWithRetry<T>(
     initialDelay = 1000,
     maxDelay = 10000,
     backoffMultiplier = 2,
-    shouldRetry = (error: any) => {
+    shouldRetry = (error: unknown) => {
       // 默認：只對網絡錯誤重試
-      return error.code === 'NETWORK_ERROR' || !error.response;
+      const err = error as { code?: string; response?: unknown };
+      return err.code === 'NETWORK_ERROR' || !err.response;
     },
   } = options;
 
@@ -42,8 +43,8 @@ export async function requestWithRetry<T>(
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       return await requestFn();
-    } catch (error: any) {
-      lastError = error;
+    } catch (error: unknown) {
+      lastError = error instanceof Error ? error : new Error(String(error));
 
       // 檢查是否應該重試
       if (!shouldRetry(error)) {

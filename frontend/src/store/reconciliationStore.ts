@@ -3,16 +3,22 @@
  */
 
 import { create } from 'zustand';
-import type { ReconciliationPlan } from '@/services/api/reconciliation';
+import { getErrorMessage } from '@/utils/apiError';
+import type { ReconciliationPlan, PlanPreferences } from '@/services/api/reconciliation';
 import { getPlans, selectPlan, generatePlans } from '@/services/api/reconciliation';
+
+export type PlanFilters = {
+  difficulty?: 'easy' | 'medium' | 'hard';
+  type?: 'activity' | 'communication' | 'intimacy';
+};
 
 interface ReconciliationState {
   plans: ReconciliationPlan[];
   selectedPlan: ReconciliationPlan | null;
   isLoading: boolean;
   error: string | null;
-  getPlans: (judgmentId: string, filters?: any) => Promise<ReconciliationPlan[]>;
-  generatePlans: (judgmentId: string, preferences?: any) => Promise<ReconciliationPlan[]>;
+  getPlans: (judgmentId: string, filters?: PlanFilters) => Promise<ReconciliationPlan[]>;
+  generatePlans: (judgmentId: string, preferences?: PlanPreferences) => Promise<ReconciliationPlan[]>;
   selectPlan: (planId: string) => Promise<void>;
   setSelectedPlan: (plan: ReconciliationPlan | null) => void;
   clearError: () => void;
@@ -24,26 +30,26 @@ export const useReconciliationStore = create<ReconciliationState>((set) => ({
   isLoading: false,
   error: null,
 
-  getPlans: async (judgmentId: string, filters?: any) => {
+  getPlans: async (judgmentId: string, filters?: PlanFilters) => {
     set({ isLoading: true, error: null });
     try {
       const plans = await getPlans(judgmentId, filters);
       set({ plans, isLoading: false });
       return plans;
-    } catch (error: any) {
-      set({ error: error.message || '獲取和好方案失敗', isLoading: false });
+    } catch (error: unknown) {
+      set({ error: getErrorMessage(error, 'message.getPlansFail'), isLoading: false });
       throw error;
     }
   },
 
-  generatePlans: async (judgmentId: string, preferences?: any) => {
+  generatePlans: async (judgmentId: string, preferences?: PlanPreferences) => {
     set({ isLoading: true, error: null });
     try {
       const plans = await generatePlans(judgmentId, preferences);
       set({ plans, isLoading: false });
       return plans;
-    } catch (error: any) {
-      set({ error: error.message || '生成和好方案失敗', isLoading: false });
+    } catch (error: unknown) {
+      set({ error: getErrorMessage(error, 'message.generatePlansFail'), isLoading: false });
       throw error;
     }
   },
@@ -53,8 +59,8 @@ export const useReconciliationStore = create<ReconciliationState>((set) => ({
     try {
       const plan = await selectPlan(planId);
       set({ selectedPlan: plan, isLoading: false });
-    } catch (error: any) {
-      set({ error: error.message || '選擇方案失敗', isLoading: false });
+    } catch (error: unknown) {
+      set({ error: getErrorMessage(error, 'message.selectPlanFail'), isLoading: false });
       throw error;
     }
   },

@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback } from 'react';
 import * as sessionApi from '@/services/api/session';
 import { sessionStorage } from '@/utils/storage';
 import { message } from 'antd';
+import { t } from '@/utils/i18n';
 
 /**
  * 使用Session管理
@@ -32,8 +33,8 @@ export function useSession() {
       sessionStorage.set(session.session_id);
       setSessionId(session.session_id);
       return session.session_id;
-    } catch (error: any) {
-      message.error('創建Session失敗，請刷新頁面重試');
+    } catch (error: unknown) {
+      message.error(t('message.sessionCreateFail'));
       throw error;
     } finally {
       setLoading(false);

@@ -3,6 +3,7 @@
  */
 
 import { create } from 'zustand';
+import { getErrorMessage } from '@/utils/apiError';
 import type { Case, QuickCaseDto } from '@/types/case';
 import { createQuickCase as createQuickCaseApi, submitCase, getCase } from '@/services/api/case';
 
@@ -29,11 +30,8 @@ export const useCaseStore = create<CaseState>((set, get) => ({
       const result = await createQuickCaseApi(data);
       set({ currentCase: result.case, isLoading: false });
       return result;
-    } catch (error: any) {
-      set({
-        error: error.message || '創建案件失敗',
-        isLoading: false,
-      });
+    } catch (error: unknown) {
+      set({ error: getErrorMessage(error, 'message.createCaseFail'), isLoading: false });
       throw error;
     }
   },
@@ -53,11 +51,8 @@ export const useCaseStore = create<CaseState>((set, get) => ({
       } else {
         set({ isLoading: false });
       }
-    } catch (error: any) {
-      set({
-        error: error.message || '提交案件失敗',
-        isLoading: false,
-      });
+    } catch (error: unknown) {
+      set({ error: getErrorMessage(error, 'message.submitCaseFail'), isLoading: false });
       throw error;
     }
   },
@@ -69,11 +64,8 @@ export const useCaseStore = create<CaseState>((set, get) => ({
       const case_ = await getCase(id);
       set({ currentCase: case_, isLoading: false });
       return case_;
-    } catch (error: any) {
-      set({
-        error: error.message || '獲取案件失敗',
-        isLoading: false,
-      });
+    } catch (error: unknown) {
+      set({ error: getErrorMessage(error, 'message.getCaseFail'), isLoading: false });
       throw error;
     }
   },

@@ -25,6 +25,7 @@ import type { ExecutionStatus } from '@/services/api/execution';
 import ProtectedRoute from '@/components/common/ProtectedRoute';
 import SEO from '@/components/common/SEO';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
+import { t } from '@/utils/i18n';
 import './CheckIn.less';
 
 const { Title, Text } = Typography;
@@ -43,6 +44,7 @@ const ExecutionCheckIn = () => {
     if (planId) {
       fetchExecution();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 僅在 planId 變化時拉取
   }, [planId]);
 
   const fetchExecution = async () => {
@@ -50,20 +52,22 @@ const ExecutionCheckIn = () => {
     try {
       const executionData = await getExecutionStatus(planId!);
       setExecution(executionData);
-    } catch (error: any) {
-      message.error(error.message || '獲取執行狀態失敗');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : t('message.getExecutionStatusFail');
+      message.error(msg);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = async (values: any) => {
+  type CheckInFormValues = { notes?: string; photos?: { fileList?: Array<{ originFileObj?: File }> } };
+  const handleSubmit = async (values: CheckInFormValues) => {
     if (!planId) return;
     setSubmitting(true);
     try {
       // 如果有照片文件，先上傳獲取URL
       let photoUrls: string[] = [];
-      const photoFiles = values.photos?.fileList?.filter((file: any) => file.originFileObj) || [];
+      const photoFiles = values.photos?.fileList?.filter((file) => file.originFileObj) || [];
       
       if (photoFiles.length > 0) {
         setUploadingPhotos(true);
@@ -71,15 +75,15 @@ const ExecutionCheckIn = () => {
           // 通過planId獲取plan詳情（包含caseId）
           const { getPlanById } = await import('@/services/api/reconciliation');
           const plan = await getPlanById(planId);
-          if (plan && (plan as any).judgment && (plan as any).judgment.case_id) {
-            const caseId = (plan as any).judgment.case_id;
+          if (plan?.judgment?.case_id) {
+            const caseId = plan.judgment.case_id;
             // 上傳照片
-            const files = photoFiles.map((file: any) => file.originFileObj as File);
+            const files = photoFiles.map((file) => file.originFileObj as File);
             const evidences = await uploadEvidence(caseId, files);
             photoUrls = evidences.map(e => e.file_url);
           }
-        } catch (uploadError: any) {
-          message.warning('照片上傳失敗，但可以繼續提交打卡');
+        } catch {
+          message.warning(t('message.photoUploadFailContinue'));
         } finally {
           setUploadingPhotos(false);
         }
@@ -90,11 +94,12 @@ const ExecutionCheckIn = () => {
         notes: values.notes,
         photos: photoUrls,
       });
-      message.success('打卡成功！');
+      message.success(t('message.checkinSuccess'));
       form.resetFields();
       fetchExecution();
-    } catch (error: any) {
-      message.error(error.message || '打卡失敗');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : t('message.checkinFail');
+      message.error(msg);
     } finally {
       setSubmitting(false);
     }
@@ -103,7 +108,7 @@ const ExecutionCheckIn = () => {
   if (loading) {
     return (
       <div className="execution-checkin-page">
-        <Spin size="large" tip="加載中..." />
+        <Spin size="large" tip={t('common.loading')} />
       </div>
     );
   }
@@ -111,21 +116,21 @@ const ExecutionCheckIn = () => {
   return (
     <ProtectedRoute>
       <SEO
-        title="執行打卡 - 熊媽媽法庭"
-        description="記錄和好方案的執行情況"
+        title={t('execCheckIn.title')}
+        description={t('execCheckIn.description')}
       />
-      <div className="execution-checkin-page" role="main" aria-label="執行打卡頁面">
+      <div className="execution-checkin-page" role="main" aria-label={t('execCheckIn.pageLabel')}>
         <AnimatedWrapper animation="fade" delay={100}>
           <div className="page-header" aria-labelledby="checkin-title">
             <Button
               icon={<ArrowLeftOutlined />}
               onClick={() => navigate(-1)}
-              aria-label="返回上一頁"
+              aria-label={t('execCheckIn.backAria')}
             >
-              返回
+              {t('execCheckIn.back')}
             </Button>
             <Title level={2} id="checkin-title">
-              執行打卡
+              {t('execCheckIn.heading')}
             </Title>
           </div>
         </AnimatedWrapper>
@@ -134,8 +139,8 @@ const ExecutionCheckIn = () => {
           <AnimatedWrapper animation="slide" direction="down" delay={200} trigger="intersection">
             <Card style={{ marginBottom: 24 }} role="status" aria-live="polite">
               <Space direction="vertical">
-                <Text strong>執行進度：{execution.progress}%</Text>
-                <Text type="secondary">已記錄 {execution.records.length} 次打卡</Text>
+                <Text strong>{t('execCheckIn.progressLabel').replace('{percent}', String(execution.progress))}</Text>
+                <Text type="secondary">{t('execCheckIn.recordsCount').replace('{count}', String(execution.records.length))}</Text>
               </Space>
             </Card>
           </AnimatedWrapper>
@@ -147,16 +152,16 @@ const ExecutionCheckIn = () => {
               form={form}
               layout="vertical"
               onFinish={handleSubmit}
-              aria-label="執行打卡表單"
+              aria-label={t('execCheckIn.formLabel')}
             >
             <Form.Item
               name="notes"
-              label="執行感受"
-              rules={[{ required: true, message: '請填寫執行感受' }]}
+              label={t('execCheckIn.notesLabel')}
+              rules={[{ required: true, message: t('execCheckIn.notesRequired') }]}
             >
               <TextArea
                 rows={6}
-                placeholder="請描述您執行方案的情況、感受和收穫..."
+                placeholder={t('execCheckIn.notesPlaceholder')}
                 maxLength={1000}
                 showCount
               />
@@ -164,7 +169,7 @@ const ExecutionCheckIn = () => {
 
             <Form.Item
               name="photos"
-              label="上傳照片（可選）"
+              label={t('execCheckIn.photosLabel')}
             >
               <Upload
                 listType="picture-card"
@@ -173,7 +178,7 @@ const ExecutionCheckIn = () => {
               >
                 <div>
                   <UploadOutlined />
-                  <div style={{ marginTop: 8 }}>上傳</div>
+                  <div style={{ marginTop: 8 }}>{t('execCheckIn.uploadBtn')}</div>
                 </div>
               </Upload>
             </Form.Item>
@@ -186,7 +191,7 @@ const ExecutionCheckIn = () => {
                 block
                 loading={submitting || uploadingPhotos}
               >
-                {uploadingPhotos ? '正在上傳照片...' : '提交打卡'}
+                {uploadingPhotos ? t('execCheckIn.uploadingPhotos') : t('execCheckIn.submit')}
               </Button>
             </Form.Item>
           </Form>
@@ -195,7 +200,7 @@ const ExecutionCheckIn = () => {
 
         {execution && execution.records.length > 0 && (
           <AnimatedWrapper animation="slide" direction="up" delay={400} trigger="intersection">
-            <Card title="歷史記錄" style={{ marginTop: 24 }}>
+            <Card title={t('execCheckIn.historyTitle')} style={{ marginTop: 24 }}>
             <Space direction="vertical" style={{ width: '100%' }}>
               {execution.records.map((record) => (
                 <Card key={record.id} size="small">

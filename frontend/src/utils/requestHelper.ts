@@ -28,7 +28,7 @@ export function clearSessionId(): void {
 /**
  * 構建查詢參數
  */
-export function buildQueryString(params: Record<string, any>): string {
+export function buildQueryString(params: Record<string, unknown>): string {
   const searchParams = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined && value !== null) {
@@ -41,7 +41,7 @@ export function buildQueryString(params: Record<string, any>): string {
 /**
  * 添加Session ID到查詢參數
  */
-export function addSessionToParams(params: Record<string, any> = {}): Record<string, any> {
+export function addSessionToParams(params: Record<string, unknown> = {}): Record<string, unknown> {
   const sessionId = getSessionId();
   if (sessionId) {
     return { ...params, session_id: sessionId };

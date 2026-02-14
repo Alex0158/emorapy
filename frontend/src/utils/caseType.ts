@@ -19,6 +19,16 @@ export const CASE_TYPES: CaseType[] = [
   '其他衝突',
 ];
 
+/** 案件類型 → caseList i18n key（用於篩選、表單選項） */
+export const CASE_TYPE_I18N_KEYS: Record<CaseType, string> = {
+  '生活習慣衝突': 'caseList.typeLife',
+  '消費決策衝突': 'caseList.typeConsumption',
+  '社交關係衝突': 'caseList.typeSocial',
+  '價值觀衝突': 'caseList.typeValues',
+  '情感需求衝突': 'caseList.typeEmotion',
+  '其他衝突': 'caseList.typeOther',
+};
+
 /**
  * 獲取案件類型標籤顏色
  */

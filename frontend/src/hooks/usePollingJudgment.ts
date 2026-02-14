@@ -32,6 +32,7 @@ export function usePollingJudgment({
       return;
     }
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 輪詢開始前設 loading
     setLoading(true);
 
     // 創建輪詢
@@ -40,9 +41,10 @@ export function usePollingJudgment({
         try {
           const result = await judgmentApi.getJudgmentByCaseId(caseId);
           return result;
-        } catch (error: any) {
+        } catch (error: unknown) {
+          const err = error as { code?: string };
           // 如果判決尚未生成（404），繼續輪詢
-          if (error.code === 'NOT_FOUND' || error.code === 'HTTP_404') {
+          if (err.code === 'NOT_FOUND' || err.code === 'HTTP_404') {
             return null;
           }
           throw error;

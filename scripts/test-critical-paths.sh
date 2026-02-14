@@ -12,7 +12,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 # 配置
-API_URL="${API_URL:-http://localhost:3000/api/v1}"
+API_URL="${API_URL:-http://localhost:3001/api/v1}"
 FRONTEND_URL="${FRONTEND_URL:-http://localhost:5173}"
 # 從 API_URL 推導後端基底 URL（去掉 /api/v1）
 BASE_URL="${API_URL%/api/v1}"
@@ -126,7 +126,7 @@ if [ -n "$CASE_ID" ]; then
   JUDGMENT_FOUND=false
   for i in {1..36}; do
     sleep 5
-    JUDGMENT_RESPONSE=$(curl -s "$API_URL/judgments/case/$CASE_ID" || echo "")
+    JUDGMENT_RESPONSE=$(curl -s "$API_URL/cases/$CASE_ID/judgment" || echo "")
     
     if echo "$JUDGMENT_RESPONSE" | grep -q '"id"'; then
       echo -e "${GREEN}✅ 判決生成成功（等待了 $((i*5)) 秒）${NC}"
@@ -139,7 +139,7 @@ if [ -n "$CASE_ID" ]; then
   done
   
   if [ "$JUDGMENT_FOUND" = false ]; then
-    echo -e "${YELLOW}⚠️  判決未在60秒內生成（可能需要更長時間或AI服務異常）${NC}"
+    echo -e "${YELLOW}⚠️  判決未在180秒內生成（可能需要更長時間或AI服務異常）${NC}"
     ((FAILED++))
   fi
   echo ""

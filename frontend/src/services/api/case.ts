@@ -29,9 +29,14 @@ export const createCase = async (data: CreateCaseDto): Promise<Case> => {
 
 /**
  * 獲取案件詳情
+ * @param id 案件ID
+ * @param sessionId 可選，快速體驗時指定案件對應的 Session（用於多案件回訪）
  */
-export const getCase = async (id: string): Promise<Case> => {
-  const response = await request.get<ApiResponse<{ case: Case }>>(`/cases/${id}`);
+export const getCase = async (id: string, sessionId?: string): Promise<Case> => {
+  const config = sessionId
+    ? { headers: { 'X-Session-Id': sessionId } as Record<string, string>, params: { session_id: sessionId } }
+    : undefined;
+  const response = await request.get<ApiResponse<{ case: Case }>>(`/cases/${id}`, config);
   return (response.data as ApiResponse<{ case: Case }>).data.case;
 };
 
@@ -44,8 +49,9 @@ export const getCaseBySessionId = async (sessionId: string): Promise<Case | null
       params: { session_id: sessionId },
     });
     return (response.data as ApiResponse<{ case: Case }>).data.case;
-  } catch (error: any) {
-    if (error.code === 'NOT_FOUND' || error.code === 'HTTP_404') {
+  } catch (error: unknown) {
+    const err = error as { code?: string };
+    if (err.code === 'NOT_FOUND' || err.code === 'HTTP_404') {
       return null;
     }
     throw error;
@@ -120,7 +126,7 @@ export const uploadEvidence = async (
     formData.append('files', file);
   });
 
-  const config: any = {
+  const config: { headers: { 'Content-Type': string }; params?: { session_id: string } } = {
     headers: {
       'Content-Type': 'multipart/form-data',
     },
@@ -147,7 +153,7 @@ export const deleteEvidence = async (
   evidenceId: string,
   sessionId?: string
 ): Promise<void> => {
-  const config: any = {};
+  const config: { params?: { session_id: string } } = {};
   if (sessionId) {
     config.params = { session_id: sessionId };
   }

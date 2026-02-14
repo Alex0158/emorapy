@@ -3,6 +3,7 @@
  */
 
 import { create } from 'zustand';
+import { getErrorMessage } from '@/utils/apiError';
 import type { Judgment } from '@/types/judgment';
 import { generateJudgment, getJudgment, getJudgmentByCaseId } from '@/services/api/judgment';
 
@@ -29,11 +30,8 @@ export const useJudgmentStore = create<JudgmentState>((set) => ({
       const judgment = await generateJudgment(caseId);
       set({ currentJudgment: judgment, isLoading: false });
       return judgment;
-    } catch (error: any) {
-      set({
-        error: error.message || '生成判決失敗',
-        isLoading: false,
-      });
+    } catch (error: unknown) {
+      set({ error: getErrorMessage(error, 'message.generateJudgmentFail'), isLoading: false });
       throw error;
     }
   },
@@ -45,11 +43,8 @@ export const useJudgmentStore = create<JudgmentState>((set) => ({
       const judgment = await getJudgment(id);
       set({ currentJudgment: judgment, isLoading: false });
       return judgment;
-    } catch (error: any) {
-      set({
-        error: error.message || '獲取判決失敗',
-        isLoading: false,
-      });
+    } catch (error: unknown) {
+      set({ error: getErrorMessage(error, 'message.getJudgmentFail'), isLoading: false });
       throw error;
     }
   },
@@ -61,11 +56,8 @@ export const useJudgmentStore = create<JudgmentState>((set) => ({
       const judgment = await getJudgmentByCaseId(caseId);
       set({ currentJudgment: judgment, isLoading: false });
       return judgment;
-    } catch (error: any) {
-      set({
-        error: error.message || '獲取判決失敗',
-        isLoading: false,
-      });
+    } catch (error: unknown) {
+      set({ error: getErrorMessage(error, 'message.getJudgmentFail'), isLoading: false });
       return null;
     }
   },

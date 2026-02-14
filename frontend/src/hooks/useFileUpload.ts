@@ -5,6 +5,7 @@
 import { useState, useCallback } from 'react';
 import { message } from 'antd';
 import { validateFiles, getFilePreviewUrl } from '@/utils/fileValidation';
+import { t } from '@/utils/i18n';
 
 export interface FileUploadItem {
   file: File;
@@ -34,7 +35,7 @@ export function useFileUpload(maxCount: number = 3) {
 
       // 檢查總數限制
       if (files.length + newFiles.length > maxCount) {
-        message.error(`最多只能上傳${maxCount}個文件`);
+        message.error(t('fileUpload.countLimit').replace('{count}', String(maxCount)));
         return;
       }
 

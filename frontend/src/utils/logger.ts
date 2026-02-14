@@ -7,7 +7,7 @@ type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 interface LogEntry {
   level: LogLevel;
   message: string;
-  data?: any;
+  data?: unknown;
   timestamp: string;
 }
 
@@ -15,7 +15,7 @@ class Logger {
   private logs: LogEntry[] = [];
   private maxLogs = 100;
 
-  private formatMessage(level: LogLevel, message: string, data?: any): LogEntry {
+  private formatMessage(level: LogLevel, message: string, data?: unknown): LogEntry {
     return {
       level,
       message,
@@ -31,7 +31,7 @@ class Logger {
     }
   }
 
-  debug(message: string, data?: any): void {
+  debug(message: string, data?: unknown): void {
     const entry = this.formatMessage('debug', message, data);
     this.addLog(entry);
     if (import.meta.env.DEV) {
@@ -39,7 +39,7 @@ class Logger {
     }
   }
 
-  info(message: string, data?: any): void {
+  info(message: string, data?: unknown): void {
     const entry = this.formatMessage('info', message, data);
     this.addLog(entry);
     // 生產環境不輸出到console，應發送到日誌服務
@@ -52,7 +52,7 @@ class Logger {
     }
   }
 
-  warn(message: string, data?: any): void {
+  warn(message: string, data?: unknown): void {
     const entry = this.formatMessage('warn', message, data);
     this.addLog(entry);
     // 生產環境只記錄警告，不輸出到console
@@ -65,7 +65,7 @@ class Logger {
     }
   }
 
-  error(message: string, error?: Error | any): void {
+  error(message: string, error?: Error | unknown): void {
     const entry = this.formatMessage('error', message, error);
     this.addLog(entry);
     // 錯誤始終輸出到console以便調試，生產環境應發送到日誌服務

@@ -69,7 +69,7 @@ cp .env.example .env  # 配置環境變量
 npm run dev
 ```
 
-詳細說明請查看 [快速開始指南](./QUICK_START.md)
+詳細說明請查看 [快速開始指南](./docs/QUICK_START.md)
 
 ## 📁 項目結構
 
@@ -85,11 +85,11 @@ CJ/
 
 ## 📚 文檔
 
-- [快速開始](./QUICK_START.md) - 5分鐘快速啟動指南
-- [項目完成總結](./項目完成總結.md) - 完整功能列表
-- [前後端集成指南](./INTEGRATION.md) - 接口對接說明
+- [快速開始](./docs/QUICK_START.md) - 5分鐘快速啟動指南
+- [功能特性清單](./docs/功能特性清單.md) - 完整功能/特性清單（多層級）
+- [前後端集成指南](./docs/INTEGRATION.md) - 接口對接說明
 - [後端開發指南](./backend/DEVELOPMENT.md) - 後端開發文檔
-- [前端開發指南](./frontend/README.md) - 前端開發文檔
+- [前端開發指南](./docs/frontend/README.md) - 前端開發文檔
 - [後端API文檔](./backend/API.md) - API接口文檔
 - [本地 Docker 開發指引](./Docker-DEV-Guide.md) - 端口/DB/啟停說明
 
@@ -151,7 +151,7 @@ CJ/
    - 檢查CORS配置
    - 查看瀏覽器控制台
 
-詳細問題排查請查看 [集成指南](./INTEGRATION.md)
+詳細問題排查請查看 [集成指南](./docs/INTEGRATION.md)
 
 ## 📝 開發規範
 
@@ -167,7 +167,7 @@ CJ/
 - 後端：✅ 完成
 - 前端：✅ 完成
 - 文檔：✅ 完成
-- 測試：⏳ 待完善
+- 測試：後端單元測試已達覆蓋門檻；前端單元測試已補齊（執行 `./scripts/run-all-unit-tests.sh` 跑後端＋前端；若前端未安裝依賴則執行 `./scripts/fix-frontend-deps.sh` 後再跑）
 
 ## 📞 支持
 

@@ -6,6 +6,7 @@ import { Layout, Menu, Button, Dropdown, Avatar, Space } from 'antd';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { HomeOutlined, LoginOutlined, UserOutlined, LogoutOutlined, SettingOutlined } from '@ant-design/icons';
 import { useAuthStore } from '@/store/authStore';
+import { t } from '@/utils/i18n';
 import './Header.less';
 
 const { Header: AntHeader } = Layout;
@@ -19,11 +20,11 @@ const Header = () => {
     {
       key: '/',
       icon: <HomeOutlined />,
-      label: <Link to="/">首頁</Link>,
+      label: <Link to="/">{t('nav.home')}</Link>,
     },
     {
       key: '/quick-experience/create',
-      label: <Link to="/quick-experience/create">快速體驗</Link>,
+      label: <Link to="/quick-experience/create">{t('nav.quickExperience')}</Link>,
     },
   ];
 
@@ -31,13 +32,13 @@ const Header = () => {
     {
       key: 'profile',
       icon: <UserOutlined />,
-      label: '個人資料',
+      label: t('nav.profile'),
       onClick: () => navigate('/profile/index'),
     },
     {
       key: 'settings',
       icon: <SettingOutlined />,
-      label: '設置',
+      label: t('nav.settings'),
       onClick: () => navigate('/profile/settings'),
     },
     {
@@ -46,7 +47,7 @@ const Header = () => {
     {
       key: 'logout',
       icon: <LogoutOutlined />,
-      label: '登出',
+      label: t('nav.logout'),
       onClick: () => {
         logout();
         navigate('/');
@@ -58,7 +59,7 @@ const Header = () => {
     <AntHeader className="app-header">
       <div className="header-content">
         <Link to="/" className="logo">
-          <span className="logo-text">🐻 熊媽媽法庭</span>
+          <span className="logo-text">🐻 {t('nav.logo')}</span>
         </Link>
 
         <Menu
@@ -83,10 +84,10 @@ const Header = () => {
           ) : (
             <>
               <Button type="link" icon={<LoginOutlined />}>
-                <Link to="/auth/login">登錄</Link>
+                <Link to="/auth/login">{t('nav.login')}</Link>
               </Button>
               <Button type="primary">
-                <Link to="/auth/register">註冊</Link>
+                <Link to="/auth/register">{t('nav.register')}</Link>
               </Button>
             </>
           )}

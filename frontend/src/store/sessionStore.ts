@@ -3,6 +3,7 @@
  */
 
 import { create } from 'zustand';
+import { getErrorMessage } from '@/utils/apiError';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { Session } from '@/types/session';
 import { createSession, refreshSession } from '@/services/api/session';
@@ -45,11 +46,9 @@ export const useSessionStore = create<SessionState>()(
           sessionStorage.set(session.session_id);
           set({ session, isLoading: false });
           return session;
-        } catch (error: any) {
-          set({
-            error: error.message || '創建Session失敗',
-            isLoading: false,
-          });
+        } catch (error: unknown) {
+          const msg = error instanceof Error ? error.message : '創建Session失敗';
+          set({ error: msg, isLoading: false });
           return null;
         }
       },
@@ -70,8 +69,9 @@ export const useSessionStore = create<SessionState>()(
           sessionStorage.set(session.session_id);
           set({ session, error: null });
           return session;
-        } catch (error: any) {
-          set({ error: error.message || '刷新Session失敗' });
+        } catch (error: unknown) {
+          const msg = getErrorMessage(error, 'message.refreshSessionFail');
+          set({ error: msg });
           return null;
         }
       },

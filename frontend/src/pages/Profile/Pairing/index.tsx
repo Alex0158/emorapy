@@ -21,8 +21,10 @@ import {
 import { createPairing, joinPairing, getPairingStatus, cancelPairing } from '@/services/api/pairing';
 import type { Pairing } from '@/services/api/pairing';
 import ProtectedRoute from '@/components/common/ProtectedRoute';
+import ConfirmModal from '@/components/common/ConfirmModal';
 import SEO from '@/components/common/SEO';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
+import { t } from '@/utils/i18n';
 import './Pairing.less';
 
 const { Title, Text, Paragraph } = Typography;
@@ -33,6 +35,7 @@ const ProfilePairing = () => {
   const [inviteCode, setInviteCode] = useState('');
   const [joining, setJoining] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
 
   useEffect(() => {
     fetchPairingStatus();
@@ -43,7 +46,7 @@ const ProfilePairing = () => {
     try {
       const pairingData = await getPairingStatus();
       setPairing(pairingData);
-    } catch (error) {
+    } catch {
       setPairing(null);
     } finally {
       setLoading(false);
@@ -55,9 +58,10 @@ const ProfilePairing = () => {
     try {
       const newPairing = await createPairing();
       setPairing(newPairing);
-      message.success('配對邀請已創建');
-    } catch (error: any) {
-      message.error(error.message || '創建配對失敗');
+      message.success(t('message.createPairingSuccess'));
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : t('message.createPairingFail');
+      message.error(msg);
     } finally {
       setLoading(false);
     }
@@ -65,17 +69,18 @@ const ProfilePairing = () => {
 
   const handleJoinPairing = async () => {
     if (!inviteCode.trim()) {
-      message.warning('請輸入邀請碼');
+      message.warning(t('message.enterInviteCode'));
       return;
     }
     setJoining(true);
     try {
       const joinedPairing = await joinPairing(inviteCode.trim());
       setPairing(joinedPairing);
-      message.success('配對成功！');
+      message.success(t('message.joinPairingSuccess'));
       setInviteCode('');
-    } catch (error: any) {
-      message.error(error.message || '加入配對失敗');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : t('message.joinPairingFail');
+      message.error(msg);
     } finally {
       setJoining(false);
     }
@@ -84,18 +89,20 @@ const ProfilePairing = () => {
   const handleCopyCode = () => {
     if (pairing?.invite_code) {
       navigator.clipboard.writeText(pairing.invite_code);
-      message.success('邀請碼已複製');
+      message.success(t('message.copyInviteSuccess'));
     }
   };
 
   const handleCancelPairing = async () => {
+    setConfirmCancelOpen(false);
     setCancelling(true);
     try {
       const cancelled = await cancelPairing();
       setPairing(cancelled);
-      message.success('配對已解除');
-    } catch (error: any) {
-      message.error(error.message || '解除配對失敗');
+      message.success(t('message.cancelPairingSuccess'));
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : t('message.cancelPairingFail');
+      message.error(msg);
     } finally {
       setCancelling(false);
     }
@@ -104,7 +111,7 @@ const ProfilePairing = () => {
   if (loading) {
     return (
       <div className="profile-pairing-page">
-        <Spin size="large" tip="加載中..." />
+        <Spin size="large" tip={t('common.loading')} />
       </div>
     );
   }
@@ -112,13 +119,13 @@ const ProfilePairing = () => {
   return (
     <ProtectedRoute>
       <SEO
-        title="配對管理 - 熊媽媽法庭"
-        description="管理您的配對關係"
+        title={t('pairing.title')}
+        description={t('pairing.description')}
       />
-      <div className="profile-pairing-page" role="main" aria-label="配對管理頁面">
+      <div className="profile-pairing-page" role="main" aria-label={t('pairing.pageLabel')}>
         <AnimatedWrapper animation="fade" delay={100}>
           <Title level={2} id="pairing-title">
-            配對管理
+            {t('pairing.heading')}
           </Title>
         </AnimatedWrapper>
 
@@ -126,19 +133,29 @@ const ProfilePairing = () => {
           <AnimatedWrapper animation="slide" direction="up" delay={200} trigger="intersection">
             <Card role="article" aria-labelledby="pairing-title">
             <Alert
-              message="配對成功"
-              description="您已成功配對，可以開始創建案件了。"
+              message={t('pairing.pairedTitle')}
+              description={t('pairing.pairedDesc')}
               type="success"
               showIcon
             />
             <Space direction="vertical" style={{ marginTop: 24, width: '100%' }}>
-              <Text strong>配對信息：</Text>
-              <Text>配對ID：{pairing.id}</Text>
-              {pairing.user1 && <Text>用戶1：{pairing.user1.nickname || pairing.user1.id}</Text>}
-              {pairing.user2 && <Text>用戶2：{pairing.user2.nickname || pairing.user2.id}</Text>}
-              <Button danger onClick={handleCancelPairing} loading={cancelling}>
-                解除配對
+              <Text strong>{t('pairing.pairingInfo')}</Text>
+              <Text>{t('pairing.pairingId')}{pairing.id}</Text>
+              {pairing.user1 && <Text>{t('pairing.user1')}{pairing.user1.nickname || pairing.user1.id}</Text>}
+              {pairing.user2 && <Text>{t('pairing.user2')}{pairing.user2.nickname || pairing.user2.id}</Text>}
+              <Button danger onClick={() => setConfirmCancelOpen(true)} loading={cancelling}>
+                {t('pairing.cancelPairing')}
               </Button>
+              <ConfirmModal
+                open={confirmCancelOpen}
+                onCancel={() => setConfirmCancelOpen(false)}
+                onConfirm={handleCancelPairing}
+                title={t('pairing.confirmCancelTitle')}
+                type="danger"
+                confirmText={t('pairing.cancelPairing')}
+              >
+                {t('pairing.confirmCancelDesc')}
+              </ConfirmModal>
             </Space>
           </Card>
           </AnimatedWrapper>
@@ -146,13 +163,13 @@ const ProfilePairing = () => {
           <AnimatedWrapper animation="slide" direction="up" delay={200} trigger="intersection">
             <Card>
             <Alert
-              message="等待配對"
-              description="已創建配對邀請，等待對方加入。"
+              message={t('pairing.pendingTitle')}
+              description={t('pairing.pendingDesc')}
               type="info"
               showIcon
             />
             <Space direction="vertical" style={{ marginTop: 24, width: '100%' }}>
-              <Text strong>邀請碼：</Text>
+              <Text strong>{t('pairing.inviteCode')}</Text>
               <Space>
                 <Input
                   value={pairing.invite_code}
@@ -160,11 +177,11 @@ const ProfilePairing = () => {
                   style={{ width: 200, fontFamily: 'monospace', fontSize: 18, textAlign: 'center' }}
                 />
                 <Button icon={<CopyOutlined />} onClick={handleCopyCode}>
-                  複製
+                  {t('pairing.copy')}
                 </Button>
               </Space>
               <Paragraph type="secondary">
-                請將此邀請碼分享給您的伴侶，讓對方在配對頁面輸入此邀請碼即可完成配對。
+                {t('pairing.inviteHint')}
               </Paragraph>
             </Space>
           </Card>
@@ -174,9 +191,9 @@ const ProfilePairing = () => {
             <Card>
             <Space direction="vertical" size="large" style={{ width: '100%' }}>
               <div>
-                <Title level={4}>創建配對邀請</Title>
+                <Title level={4}>{t('pairing.createTitle')}</Title>
                 <Paragraph>
-                  創建配對邀請，生成邀請碼分享給您的伴侶。
+                  {t('pairing.createDesc')}
                 </Paragraph>
                 <Button
                   type="primary"
@@ -184,18 +201,18 @@ const ProfilePairing = () => {
                   onClick={handleCreatePairing}
                   loading={loading}
                 >
-                  創建配對邀請
+                  {t('pairing.createButton')}
                 </Button>
               </div>
 
               <div style={{ borderTop: '1px solid #d9d9d9', paddingTop: 24 }}>
-                <Title level={4}>加入配對</Title>
+                <Title level={4}>{t('pairing.joinTitle')}</Title>
                 <Paragraph>
-                  如果您收到了邀請碼，請在此輸入以加入配對。
+                  {t('pairing.joinDesc')}
                 </Paragraph>
                 <Space>
                   <Input
-                    placeholder="請輸入6位邀請碼"
+                    placeholder={t('pairing.joinPlaceholder')}
                     value={inviteCode}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInviteCode(e.target.value.toUpperCase())}
                     maxLength={6}
@@ -207,7 +224,7 @@ const ProfilePairing = () => {
                     onClick={handleJoinPairing}
                     loading={joining}
                   >
-                    加入配對
+                    {t('pairing.joinButton')}
                   </Button>
                 </Space>
               </div>

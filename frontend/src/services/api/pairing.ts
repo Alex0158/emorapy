@@ -52,8 +52,9 @@ export const getPairingStatus = async (): Promise<Pairing | null> => {
   try {
     const response = await request.get<ApiResponse<{ pairing: Pairing }>>('/pairing/status');
     return (response.data as ApiResponse<{ pairing: Pairing }>).data.pairing;
-  } catch (error: any) {
-    if (error.code === 'NOT_FOUND' || error.code === 'HTTP_404') {
+  } catch (error: unknown) {
+    const err = error as { code?: string };
+    if (err.code === 'NOT_FOUND' || err.code === 'HTTP_404') {
       return null;
     }
     throw error;

@@ -27,6 +27,7 @@ import SEO from '@/components/common/SEO';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
 import { usePolling } from '@/hooks/usePolling';
 import { POLLING_INTERVAL } from '@/utils/constants';
+import { t } from '@/utils/i18n';
 import { logger } from '@/utils/logger';
 import './Review.less';
 
@@ -43,6 +44,7 @@ const CaseReview = () => {
     if (id) {
       fetchCase();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 僅在 id 變化時拉取
   }, [id]);
 
   const fetchCase = async () => {
@@ -50,8 +52,9 @@ const CaseReview = () => {
     try {
       const caseData = await getCase(id!);
       setCase_(caseData);
-    } catch (error: any) {
-      message.error(error.message || '獲取案件詳情失敗');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : t('common.getCaseFail');
+      message.error(msg);
     } finally {
       setLoading(false);
     }
@@ -66,8 +69,9 @@ const CaseReview = () => {
         return true; // 停止輪詢
       }
       return false; // 繼續輪詢
-    } catch (error: any) {
-      if (error.code === 'JUDGMENT_NOT_FOUND' || error.code === 'HTTP_404') {
+    } catch (error: unknown) {
+      const err = error as { code?: string };
+      if (err.code === 'JUDGMENT_NOT_FOUND' || err.code === 'HTTP_404') {
         return false; // 繼續輪詢
       }
       logger.error('Failed to fetch judgment', error);
@@ -94,7 +98,7 @@ const CaseReview = () => {
   if (loading) {
     return (
       <div className="case-review-page">
-        <Spin size="large" tip="加載中..." />
+        <Spin size="large" tip={t('common.loading')} />
       </div>
     );
   }
@@ -102,7 +106,7 @@ const CaseReview = () => {
   if (!case_) {
     return (
       <div className="case-review-page">
-        <Alert message="案件不存在" type="error" />
+        <Alert message={t('common.caseNotFound')} type="error" />
       </div>
     );
   }
@@ -112,13 +116,13 @@ const CaseReview = () => {
       <div className="case-review-page">
         <Card>
           <Alert
-            message="判決已生成"
-            description="AI已經完成判決分析，請查看判決結果。"
+            message={t('review.judgmentReady')}
+            description={t('review.judgmentReadyDesc')}
             type="success"
             showIcon
             action={
               <Button type="primary" onClick={() => navigate(`/judgment/${judgment.id}`)}>
-                查看判決
+                {t('review.viewJudgment')}
               </Button>
             }
           />
@@ -130,19 +134,19 @@ const CaseReview = () => {
   return (
     <ProtectedRoute>
       <SEO
-        title="審理中 - 熊媽媽法庭"
-        description="AI正在分析案件，請稍候..."
+        title={t('review.title')}
+        description={t('review.description')}
       />
-      <div className="case-review-page" role="main" aria-label="審理中頁面">
+      <div className="case-review-page" role="main" aria-label={t('review.pageLabel')}>
         <AnimatedWrapper animation="fade" delay={100}>
           <div className="review-header" aria-labelledby="review-title">
             <BearJudge size="large" animated />
             <Title level={2} id="review-title">
-              AI正在審理中
+              {t('review.aiReviewing')}
             </Title>
             <Paragraph type="secondary">
-            我們正在認真分析您的案件，請稍候...
-          </Paragraph>
+              {t('review.analyzingHint')}
+            </Paragraph>
           </div>
         </AnimatedWrapper>
 
@@ -159,19 +163,19 @@ const CaseReview = () => {
                 }}
               />
               <Text type="secondary" style={{ display: 'block', marginTop: 16, textAlign: 'center' }}>
-                {isPolling ? 'AI正在分析案件並生成判決...' : '判決生成完成'}
+                {isPolling ? t('review.aiAnalyzing') : t('review.done')}
               </Text>
             </div>
 
             <Alert
-              message="預計等待時間"
-              description="AI分析通常需要30-60秒，請耐心等待。判決生成後會自動跳轉。"
+              message={t('review.etaTitle')}
+              description={t('review.etaDesc')}
               type="info"
               showIcon
             />
 
             <div className="case-info">
-              <Text strong>案件標題：</Text>
+              <Text strong>{t('review.caseTitle')}：</Text>
               <Text>{case_.title}</Text>
             </div>
           </Space>

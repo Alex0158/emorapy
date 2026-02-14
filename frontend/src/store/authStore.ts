@@ -90,7 +90,7 @@ export const useAuthStore = create<AuthState>()(
               token,
               isAuthenticated: true,
             });
-          } catch (error) {
+          } catch {
             // Token無效，清除
             localStorage.removeItem('token');
             set({

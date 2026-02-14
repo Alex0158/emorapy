@@ -2,9 +2,11 @@
  * 確認彈窗組件
  */
 
+import type { MouseEvent } from 'react';
 import { Modal } from 'antd';
 import { ExclamationCircleOutlined } from '@ant-design/icons';
 import type { ModalProps } from 'antd/es/modal';
+import { t } from '@/utils/i18n';
 
 interface ConfirmModalProps extends Omit<ModalProps, 'onOk'> {
   onConfirm: () => void | Promise<void>;
@@ -15,14 +17,14 @@ interface ConfirmModalProps extends Omit<ModalProps, 'onOk'> {
 
 const ConfirmModal = ({
   onConfirm,
-  confirmText = '確認',
-  cancelText = '取消',
+  confirmText = t('common.confirm'),
+  cancelText = t('common.cancel'),
   type = 'warning',
   ...props
 }: ConfirmModalProps) => {
   const handleConfirm = async () => {
     await onConfirm();
-    props.onCancel?.(undefined as any);
+    props.onCancel?.(undefined as unknown as MouseEvent<HTMLButtonElement>);
   };
 
   return (

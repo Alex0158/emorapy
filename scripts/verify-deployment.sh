@@ -13,7 +13,7 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 # 配置
-BACKEND_URL="${BACKEND_URL:-http://localhost:3000}"
+BACKEND_URL="${BACKEND_URL:-http://localhost:3001}"
 FRONTEND_URL="${FRONTEND_URL:-http://localhost:5173}"
 
 echo "🔍 部署驗證 - 熊媽媽法庭"

@@ -2,10 +2,10 @@
  * 輪詢工具函數
  */
 
-export interface PollingOptions {
+export interface PollingOptions<T = unknown> {
   interval?: number;
   maxAttempts?: number;
-  onSuccess?: (data: any) => boolean; // 返回true表示停止輪詢
+  onSuccess?: (data: T) => boolean; // 返回true表示停止輪詢
   onError?: (error: Error) => boolean; // 返回true表示停止輪詢
 }
 
@@ -14,7 +14,7 @@ export interface PollingOptions {
  */
 export function createPolling<T>(
   fetchFn: () => Promise<T>,
-  options: PollingOptions = {}
+  options: PollingOptions<T> = {}
 ) {
   const {
     interval = 5000,
@@ -46,11 +46,17 @@ export function createPolling<T>(
         return data;
       }
 
-      // 如果沒有停止條件，繼續輪詢
-      if (!isStopped) {
-        timeoutId = setTimeout(() => {
-          poll();
-        }, interval);
+      // 如果沒有停止條件，等待後繼續輪詢（start 的 promise 會等待）
+      if (!isStopped && attempts < maxAttempts) {
+        await new Promise<void>((resolve) => {
+          timeoutId = setTimeout(resolve, interval);
+        });
+        return poll();
+      }
+
+      // 達到 maxAttempts 且 onSuccess 未返回 true 時拋錯
+      if (attempts >= maxAttempts) {
+        throw new Error('Max polling attempts reached');
       }
 
       return data;
@@ -63,10 +69,11 @@ export function createPolling<T>(
       }
 
       // 繼續輪詢
-      if (!isStopped) {
-        timeoutId = setTimeout(() => {
-          poll();
-        }, interval);
+      if (!isStopped && attempts < maxAttempts) {
+        await new Promise<void>((resolve) => {
+          timeoutId = setTimeout(resolve, interval);
+        });
+        return poll();
       }
 
       throw err;

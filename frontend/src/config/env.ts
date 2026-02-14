@@ -25,7 +25,7 @@ function validateEnvConfig(): void {
   const isDevelopment = import.meta.env.DEV;
 
   // 驗證 API Base URL
-  const apiBaseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api/v1';
+  const apiBaseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api/v1';
   
   if (isProduction) {
     // 生產環境必須配置 API URL
@@ -64,7 +64,7 @@ if (typeof window !== 'undefined') {
 }
 
 export const env: EnvConfig = {
-  apiBaseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api/v1',
+  apiBaseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api/v1',
   appTitle: import.meta.env.VITE_APP_TITLE || '熊媽媽法庭',
   appDescription: import.meta.env.VITE_APP_DESCRIPTION || '大愛、包容、保護、呵護，為您的關係提供公正溫暖的判決。',
   isDevelopment: import.meta.env.DEV,
@@ -72,4 +72,3 @@ export const env: EnvConfig = {
   gaTrackingId: import.meta.env.VITE_GA_TRACKING_ID,
   sentryDSN: import.meta.env.VITE_SENTRY_DSN,
 };
-

@@ -29,6 +29,7 @@ const GuideTooltip = ({
     if (showOnce) {
       const hasSeen = localStore.get<boolean>(storageKey);
       if (!hasSeen) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- 由 storage 推導初始可見性
         setVisible(true);
       }
     } else {

@@ -3,6 +3,7 @@
  */
 
 import { message } from 'antd';
+import { t } from '@/utils/i18n';
 
 /**
  * 複製文本到剪貼板
@@ -11,7 +12,7 @@ export async function copyToClipboard(text: string): Promise<boolean> {
   try {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       await navigator.clipboard.writeText(text);
-      message.success('已複製到剪貼板');
+      message.success(t('common.copied'));
       return true;
     } else {
       // 降級方案
@@ -23,17 +24,17 @@ export async function copyToClipboard(text: string): Promise<boolean> {
       textArea.select();
       const success = document.execCommand('copy');
       document.body.removeChild(textArea);
-      
+
       if (success) {
-        message.success('已複製到剪貼板');
+        message.success(t('common.copied'));
         return true;
       } else {
-        message.error('複製失敗');
+        message.error(t('common.copyFail'));
         return false;
       }
     }
-  } catch (error) {
-    message.error('複製失敗');
+  } catch {
+    message.error(t('common.copyFail'));
     return false;
   }
 }

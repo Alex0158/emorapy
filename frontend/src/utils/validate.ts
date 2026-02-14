@@ -3,6 +3,7 @@
  */
 
 import { MIN_STATEMENT_LENGTH, MAX_STATEMENT_LENGTH } from './constants';
+import { t } from '@/utils/i18n';
 
 /**
  * 驗證郵箱格式
@@ -25,14 +26,14 @@ export const validateStatement = (
   if (length < min) {
     return {
       valid: false,
-      message: `陳述長度至少需要${min}字，當前${length}字`,
+      message: t('validation.statementMin').replace('{min}', String(min)).replace('{length}', String(length)),
     };
   }
 
   if (length > max) {
     return {
       valid: false,
-      message: `陳述長度不能超過${max}字，當前${length}字`,
+      message: t('validation.statementMax').replace('{max}', String(max)).replace('{length}', String(length)),
     };
   }
 
@@ -46,21 +47,21 @@ export const validatePassword = (password: string): { valid: boolean; message?: 
   if (password.length < 8) {
     return {
       valid: false,
-      message: '密碼長度至少需要8位',
+      message: t('validation.passwordMin'),
     };
   }
 
   if (!/[a-zA-Z]/.test(password)) {
     return {
       valid: false,
-      message: '密碼必須包含至少一個字母',
+      message: t('validation.passwordLetter'),
     };
   }
 
   if (!/[0-9]/.test(password)) {
     return {
       valid: false,
-      message: '密碼必須包含至少一個數字',
+      message: t('validation.passwordNumber'),
     };
   }
 

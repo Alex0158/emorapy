@@ -7,13 +7,14 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 /**
  * 防抖Hook
  */
-export const useDebounce = <T extends (...args: any[]) => any>(
+export const useDebounce = <T extends (...args: unknown[]) => unknown>(
   callback: T,
   delay: number
 ): T => {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const debouncedCallback = useCallback(
+    // eslint-disable-next-line react-hooks/use-memo -- 需 cast 為 T 以保持簽名一致
     ((...args: Parameters<T>) => {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
@@ -39,13 +40,14 @@ export const useDebounce = <T extends (...args: any[]) => any>(
 /**
  * 節流Hook
  */
-export const useThrottle = <T extends (...args: any[]) => any>(
+export const useThrottle = <T extends (...args: unknown[]) => unknown>(
   callback: T,
   delay: number
 ): T => {
   const lastRunRef = useRef<number>(0);
 
   const throttledCallback = useCallback(
+    // eslint-disable-next-line react-hooks/use-memo -- 需 cast 為 T 以保持簽名一致
     ((...args: Parameters<T>) => {
       const now = Date.now();
       if (now - lastRunRef.current >= delay) {

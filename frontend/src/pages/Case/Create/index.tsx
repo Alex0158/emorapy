@@ -25,10 +25,13 @@ import { createCase } from '@/services/api/case';
 import { validateStatement } from '@/utils/validate';
 import BearJudge from '@/components/business/BearJudge';
 import StatementInput from '@/components/business/StatementInput';
+import type { UploadFile } from 'antd/es/upload/interface';
 import FileUpload from '@/components/business/FileUpload';
 import ProtectedRoute from '@/components/common/ProtectedRoute';
 import SEO from '@/components/common/SEO';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
+import { t } from '@/utils/i18n';
+import { CASE_TYPES, CASE_TYPE_I18N_KEYS } from '@/utils/caseType';
 import './Create.less';
 
 const { Title, Text, Paragraph } = Typography;
@@ -42,7 +45,7 @@ const CaseCreate = () => {
   const [pairingStatus, setPairingStatus] = useState<'pending' | 'active' | null>(null);
   const [plaintiffStatement, setPlaintiffStatement] = useState('');
   const [defendantStatement, setDefendantStatement] = useState('');
-  const [evidenceFiles, setEvidenceFiles] = useState<any[]>([]);
+  const [evidenceFiles, setEvidenceFiles] = useState<UploadFile[]>([]);
   const [mode, setMode] = useState<'remote' | 'collaborative'>('remote');
 
   // 檢查配對狀態
@@ -56,7 +59,7 @@ const CaseCreate = () => {
         } else {
           setPairingStatus('pending');
         }
-      } catch (error) {
+      } catch {
         setPairingStatus('pending');
       }
     };
@@ -68,23 +71,24 @@ const CaseCreate = () => {
   const defendantValid = validateStatement(defendantStatement).valid;
   const canSubmit = plaintiffValid && defendantValid && pairingStatus === 'active';
 
-  const handleSubmit = async (values: any) => {
+  type CreateCaseFormValues = { title?: string; type?: string; sub_type?: string };
+  const handleSubmit = async (values: CreateCaseFormValues) => {
     if (!pairingId) {
-      message.error('請先完成配對');
+      message.error(t('message.pairingRequired'));
       navigate('/profile/pairing');
       return;
     }
 
     if (!canSubmit) {
-      message.warning('請完成雙方陳述後再提交');
+      message.warning(t('message.completeBothStatements'));
       return;
     }
 
     try {
       const caseData = {
         pairing_id: pairingId,
-        title: values.title || '未命名案件',
-        type: values.type || '其他',
+        title: values.title || t('message.untitledCase'),
+        type: values.type || '其他衝突',
         sub_type: values.sub_type,
         plaintiff_statement: plaintiffStatement,
         defendant_statement: defendantStatement,
@@ -92,27 +96,29 @@ const CaseCreate = () => {
       };
 
       const newCase = await createCase(caseData);
-      message.success('案件創建成功！');
+      message.success(t('message.createCaseSuccess'));
 
       // 如果有證據文件，上傳證據
-      const filesToUpload = evidenceFiles
-        .filter((f: any) => f.originFileObj)
-        .map((f: any) => f.originFileObj as File);
+      const filesToUpload: File[] = evidenceFiles
+        .filter((f): f is UploadFile<File> & { originFileObj: File } => Boolean(f.originFileObj))
+        .map((f) => f.originFileObj);
 
       if (filesToUpload.length > 0) {
         try {
           const { uploadEvidence } = await import('@/services/api/case');
           await uploadEvidence(newCase.id, filesToUpload);
-          message.success('證據上傳成功');
-        } catch (uploadError: any) {
+          message.success(t('message.evidenceUploadSuccess'));
+        } catch (uploadError: unknown) {
           // 證據上傳失敗不阻止流程，只提示
-          message.warning(uploadError.message || '證據上傳失敗，但案件已創建');
+          const msg = uploadError instanceof Error ? uploadError.message : t('message.evidenceUploadFailCaseCreated');
+          message.warning(msg);
         }
       }
 
       navigate(`/case/${newCase.id}`);
-    } catch (error: any) {
-      message.error(error.message || '創建案件失敗');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : t('message.createCaseFail');
+      message.error(msg);
     }
   };
 
@@ -122,13 +128,13 @@ const CaseCreate = () => {
         <div className="case-create-page">
           <Card>
             <Alert
-              message="需要配對"
-              description="創建案件需要先完成配對。請先與您的伴侶完成配對。"
+              message={t('caseCreate.pairingRequired')}
+              description={t('caseCreate.pairingDesc')}
               type="warning"
               showIcon
               action={
                 <Button type="primary" onClick={() => navigate('/profile/pairing')}>
-                  前往配對
+                  {t('caseCreate.goPairing')}
                 </Button>
               }
             />
@@ -141,16 +147,16 @@ const CaseCreate = () => {
   return (
     <ProtectedRoute>
       <SEO
-        title="創建案件 - 熊媽媽法庭"
-        description="創建新案件，開始您的審理流程"
-        keywords="創建案件,案件提交"
+        title={t('caseCreate.title')}
+        description={t('caseCreate.description')}
+        keywords={t('caseCreate.keywords')}
       />
-      <div className="case-create-page" role="main" aria-label="創建案件頁面">
+      <div className="case-create-page" role="main" aria-label={t('caseCreate.pageLabel')}>
         <AnimatedWrapper animation="fade" delay={100}>
           <div className="page-header" aria-labelledby="create-title">
             <BearJudge size="medium" animated />
-            <Title level={2} id="create-title">創建新案件</Title>
-            <Paragraph type="secondary">請詳細填寫案件信息，我們會公正、溫暖地幫助你們解決問題。</Paragraph>
+            <Title level={2} id="create-title">{t('caseCreate.heading')}</Title>
+            <Paragraph type="secondary">{t('caseCreate.subtitle')}</Paragraph>
           </div>
         </AnimatedWrapper>
 
@@ -159,71 +165,70 @@ const CaseCreate = () => {
           layout="vertical"
           onFinish={handleSubmit}
           className="case-create-form"
-          aria-label="創建案件表單"
+          aria-label={t('caseCreate.formLabel')}
         >
           <AnimatedWrapper animation="slide" direction="up" delay={200} trigger="intersection">
-            <Card title="基本信息" className="form-section">
+            <Card title={t('caseCreate.basicInfo')} className="form-section">
             <Form.Item
               name="title"
-              label="案件標題"
-              rules={[{ required: true, message: '請輸入案件標題' }]}
+              label={t('caseCreate.caseTitle')}
+              rules={[{ required: true, message: t('caseCreate.caseTitleRequired') }]}
             >
-              <Input placeholder="請簡要描述案件（如：關於家務分工的爭議）" maxLength={200} />
+              <Input placeholder={t('caseCreate.caseTitlePlaceholder')} maxLength={200} />
             </Form.Item>
 
             <Form.Item
               name="type"
-              label="案件類型"
-              rules={[{ required: true, message: '請選擇案件類型' }]}
+              label={t('caseCreate.caseType')}
+              rules={[{ required: true, message: t('caseCreate.caseTypeRequired') }]}
             >
-              <Select placeholder="請選擇案件類型（AI也會自動識別）">
-                <Option value="生活習慣">生活習慣</Option>
-                <Option value="消費決策">消費決策</Option>
-                <Option value="社交關係">社交關係</Option>
-                <Option value="價值觀">價值觀</Option>
-                <Option value="情感需求">情感需求</Option>
-                <Option value="其他">其他</Option>
+              <Select placeholder={t('caseCreate.caseTypePlaceholder')}>
+                {CASE_TYPES.map((type) => (
+                  <Option key={type} value={type}>
+                    {t(CASE_TYPE_I18N_KEYS[type])}
+                  </Option>
+                ))}
               </Select>
             </Form.Item>
 
-            <Form.Item name="sub_type" label="子類型（可選）">
-              <Input placeholder="如：家務分工、作息時間等" />
+            <Form.Item name="sub_type" label={t('caseCreate.subType')}>
+              <Input placeholder={t('caseCreate.subTypePlaceholder')} />
             </Form.Item>
 
             <Form.Item
               name="mode"
-              label="審理模式"
+              label={t('caseCreate.mode')}
               initialValue="remote"
             >
               <Radio.Group value={mode} onChange={(e) => setMode(e.target.value)}>
-                <Radio value="remote">遠程審理模式（異地戀模式）</Radio>
-                <Radio value="collaborative">協同審理模式（面對面模式）</Radio>
+                <Radio value="remote">{t('caseCreate.modeRemoteLabel')}</Radio>
+                <Radio value="collaborative">{t('caseCreate.modeCollaborativeLabel')}</Radio>
               </Radio.Group>
               <Text type="secondary" style={{ display: 'block', marginTop: 8 }}>
-                <InfoCircleOutlined /> 遠程模式：各自獨立操作；協同模式：同一介面實時同步
+                <InfoCircleOutlined /> {t('caseCreate.modeHint')}
               </Text>
             </Form.Item>
             </Card>
           </AnimatedWrapper>
 
           <AnimatedWrapper animation="slide" direction="up" delay={250} trigger="intersection">
-            <Card title="雙方陳述" className="form-section">
+            <Card title={t('caseCreate.statements')} className="form-section">
             <div className="statements-section">
               <div className="statement-item">
-                <Title level={4}>原告陳述</Title>
+                <Title level={4}>{t('caseDetail.plaintiffStatement')}</Title>
                 <StatementInput
                   value={plaintiffStatement}
                   onChange={setPlaintiffStatement}
-                  placeholder="請詳細描述發生了什麼事，你的感受，以及你希望對方怎麼做..."
+                  placeholder={t('caseCreate.plaintiffPlaceholder')}
                 />
               </div>
 
               <div className="statement-item">
-                <Title level={4}>被告陳述</Title>
+                <Title level={4}>{t('caseDetail.defendantStatement')}</Title>
                 <StatementInput
                   value={defendantStatement}
                   onChange={setDefendantStatement}
-                  placeholder="請詳細描述你的觀點和感受..."
+                  placeholder={t('caseCreate.defendantPlaceholder')}
                 />
               </div>
             </div>
@@ -232,9 +237,9 @@ const CaseCreate = () => {
 
           <AnimatedWrapper animation="slide" direction="up" delay={300} trigger="intersection">
             <Card
-              title="證據上傳（可選）"
+              title={t('caseCreate.evidenceTitle')}
               className="form-section"
-              extra={<Text type="secondary">最多3張圖片或1個視頻，單個文件不超過5MB</Text>}
+              extra={<Text type="secondary">{t('caseCreate.evidenceExtra')}</Text>}
             >
             <FileUpload
               value={evidenceFiles}
@@ -255,10 +260,10 @@ const CaseCreate = () => {
                 loading={isLoading}
                 disabled={!canSubmit}
               >
-                {isLoading ? '創建中...' : '創建案件'}
+                {isLoading ? t('caseCreate.creating') : t('caseCreate.submitBtn')}
               </Button>
               <Text type="secondary" style={{ textAlign: 'center', display: 'block' }}>
-                創建後，您可以選擇提交案件開始審理流程
+                {t('caseCreate.submitHint')}
               </Text>
             </Space>
             </div>

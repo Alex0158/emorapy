@@ -15,7 +15,7 @@ import Skeleton from '@/components/common/Skeleton';
 import { usePolling } from '@/hooks/usePolling';
 import { POLLING_INTERVAL } from '@/utils/constants';
 import { useSessionStore } from '@/store/sessionStore';
-import { sessionStorage } from '@/utils/storage';
+import { sessionStorage, caseSessionMap } from '@/utils/storage';
 import SEO from '@/components/common/SEO';
 import { logger } from '@/utils/logger';
 import { t } from '@/utils/i18n';
@@ -45,6 +45,11 @@ const QuickExperienceResult = () => {
   const { session, refreshSession } = useSessionStore();
   const pollingEverStartedRef = useRef(false);
 
+  // 案件對應的 Session ID（支援多案件回訪，避免 session 覆寫導致舊案件無法訪問）
+  const caseSessionId = id
+    ? caseSessionMap.get(id) || sessionStorage.get() || session?.session_id
+    : null;
+
   // 獲取判決（支持輪詢）
   const fetchJudgment = async (): Promise<Judgment | null> => {
     if (!id) {
@@ -54,47 +59,61 @@ const QuickExperienceResult = () => {
     }
 
     try {
-      const judgmentData = await getJudgmentByCaseId(id);
+      const judgmentData = await getJudgmentByCaseId(id, caseSessionId ?? undefined);
       if (judgmentData) {
         setJudgment(judgmentData);
         return judgmentData;
       }
       return null;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { code?: string; message?: string };
       // 判決尚未生成：視為正常pending，繼續輪詢（不輸出錯誤）
-      if (error.code === 'JUDGMENT_PENDING' || error.code === 'HTTP_404' || error.code === 'JUDGMENT_NOT_FOUND') {
+      if (err.code === 'JUDGMENT_PENDING' || err.code === 'HTTP_404' || err.code === 'JUDGMENT_NOT_FOUND') {
         return null;
       }
       // 判決生成失敗：停止輪詢並顯示重試
-      if (error.code === 'JUDGMENT_FAILED') {
+      if (err.code === 'JUDGMENT_FAILED') {
         setJudgmentErrorCode('JUDGMENT_FAILED');
-        setJudgmentError(error.message || '判決生成失敗，請點擊重試');
+        setJudgmentError(err.message ?? t('message.judgmentRetryHint'));
         return null;
       }
 
       // Session 過期/缺失：提示重新開始（不應導向登入）
       if (
-        error.code === 'SESSION_EXPIRED' ||
-        error.code === 'SESSION_ID_REQUIRED' ||
-        error.code === 'INVALID_SESSION_ID'
+        err.code === 'SESSION_EXPIRED' ||
+        err.code === 'SESSION_ID_REQUIRED' ||
+        err.code === 'INVALID_SESSION_ID'
       ) {
         try {
           await refreshSession(true);
         } catch {
           // 靜默失敗，仍提示用戶重新開始
         }
-        setJudgmentErrorCode(error.code);
-        setJudgmentError(error.message || '快速體驗Session已過期，請重新開始');
+        setJudgmentErrorCode(err.code ?? '');
+        setJudgmentError(err.message ?? t('error.session.expiredHint'));
         return null;
       }
 
       // 其他錯誤：提示並停止輪詢（避免無意義輪詢）
       logger.error('Failed to fetch judgment', error);
-      setJudgmentErrorCode(error.code || 'UNKNOWN');
-      setJudgmentError(error.message || '獲取判決失敗，請稍後重試');
+      setJudgmentErrorCode(err.code ?? 'UNKNOWN');
+      setJudgmentError(err.message ?? t('message.getJudgmentFail'));
       return null;
     }
   };
+
+  // 責任比例（須在 early return 前調用 useMemo，符合 rules-of-hooks）
+  const responsibilityRatioMemo = useMemo(
+    () =>
+      judgment
+        ? (judgment.responsibility_ratio ?? {
+            plaintiff: judgment.plaintiff_ratio,
+            defendant: judgment.defendant_ratio,
+          })
+        : { plaintiff: 0, defendant: 0 },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 已用 judgment 欄位作為 deps
+    [judgment?.plaintiff_ratio, judgment?.defendant_ratio, judgment?.responsibility_ratio]
+  );
 
   // 輪詢判決狀態（如果判決尚未生成）
   // 注意：必須在任何引用 startPolling/stopPolling 的 useEffect 之前聲明，避免 TDZ（ReferenceError）
@@ -116,10 +135,19 @@ const QuickExperienceResult = () => {
     if (!id) return null;
     
     try {
-      const case_ = await getCase(id);
-      
+      const case_ = await getCase(id, caseSessionId ?? undefined);
+      const status = case_.status;
+      setCaseStatus(status);
+
+      const canUploadEvidence = ['draft', 'submitted', 'in_progress'].includes(status);
+      if (!canUploadEvidence) {
+        setEvidenceUploadStatus(null);
+        localStorage.removeItem(`pending_evidence_${id}`);
+        return case_;
+      }
+
       // 檢查證據上傳狀態
-      const evidences = (case_ as any).evidences;
+      const evidences = case_.evidences;
       if (evidences && Array.isArray(evidences) && evidences.length > 0) {
         setEvidenceUploadStatus('success');
       } else {
@@ -149,7 +177,7 @@ const QuickExperienceResult = () => {
         setCaseStatus(case_.status);
         if (case_.status === 'judgment_failed') {
           setJudgmentErrorCode('JUDGMENT_FAILED');
-          setJudgmentError('判決生成失敗，請點擊重試');
+          setJudgmentError(t('message.judgmentRetryHint'));
           stopPolling(); // 停止輪詢
         }
       }
@@ -158,6 +186,7 @@ const QuickExperienceResult = () => {
     if (id) {
       checkCaseStatus();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 僅在 id/stopPolling 變化時跑，fetchCase 不進 deps
   }, [id, stopPolling]);
 
   // 重試生成判決
@@ -170,13 +199,14 @@ const QuickExperienceResult = () => {
     
     try {
       const { generateJudgment } = await import('@/services/api/judgment');
-      await generateJudgment(id);
+      await generateJudgment(id, caseSessionId ?? undefined);
       message.success(t('message.judgmentRegenSuccess'));
       // 重新開始輪詢
       startPolling();
-    } catch (error: any) {
-      message.error(error.message || '重試失敗，請稍後再試');
-      setJudgmentError(error.message || '重試失敗，請稍後再試');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : t('message.retryFail');
+      message.error(msg);
+      setJudgmentError(msg);
     }
   };
 
@@ -197,10 +227,10 @@ const QuickExperienceResult = () => {
     setEvidenceUploadStatus('pending');
 
     try {
-      // 優先使用 localStorage 的 sessionId（避免刷新後 store 尚未恢復）
-      const sessionIdToUse = sessionStorage.get() || session?.session_id;
+      // 優先使用案件對應的 sessionId（支援多案件回訪），其次 localStorage，最後 store
+      const sessionIdToUse = caseSessionId || sessionStorage.get() || session?.session_id;
       if (!sessionIdToUse) {
-        message.error('Session ID缺失，無法上傳證據');
+        message.error(t('message.sessionIdMissing'));
         setEvidenceUploadStatus('failed');
         setIsUploading(false);
         return;
@@ -215,8 +245,9 @@ const QuickExperienceResult = () => {
       
       // 重新獲取案件數據
       await fetchCase();
-    } catch (error: any) {
-      message.error(error.message || '證據上傳失敗');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : t('message.evidenceUploadFail');
+      message.error(msg);
       setEvidenceUploadStatus('failed');
       
       // 保存待上傳標記
@@ -229,6 +260,7 @@ const QuickExperienceResult = () => {
   // 初始獲取
   useEffect(() => {
     fetchJudgment();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 僅在 id 變化時拉取
   }, [id]);
 
   useEffect(() => {
@@ -253,9 +285,9 @@ const QuickExperienceResult = () => {
   if (error && !judgment) {
     return (
       <div className="error-container">
-        <Alert message="獲取判決失敗" description={error} type="error" showIcon />
+        <Alert message={t('error.fetch.title')} description={error} type="error" showIcon />
         <Button type="primary" onClick={() => navigate('/quick-experience/create')}>
-          返回創建頁面
+          {t('error.back')}
         </Button>
       </div>
     );
@@ -273,25 +305,25 @@ const QuickExperienceResult = () => {
     return (
       <div className="error-container">
         <Alert
-          message={isSessionExpired ? 'Session 已過期' : isJudgmentFailed ? '判決生成失敗' : '獲取判決失敗'}
+          message={isSessionExpired ? t('error.session.title') : isJudgmentFailed ? t('error.judgment.title') : t('error.fetch.title')}
           description={
             judgmentError ||
             (isSessionExpired
-              ? '快速體驗Session已過期，請重新開始'
+              ? t('error.session.expiredHint')
               : isJudgmentFailed
-                ? 'AI服務暫時不可用，請稍後重試'
-                : '請稍後再試或點擊重試')
+                ? t('message.judgmentUnavailable')
+                : t('message.retryOrLater'))
           }
           type="error"
           showIcon
           action={
             isSessionExpired ? (
               <Button type="primary" onClick={() => navigate('/quick-experience/create')}>
-                重新開始
+                {t('result.restart')}
               </Button>
             ) : isJudgmentFailed ? (
               <Button type="primary" onClick={handleRetryJudgment}>
-                重試
+                {t('error.retry')}
               </Button>
             ) : (
               <Button
@@ -303,7 +335,7 @@ const QuickExperienceResult = () => {
                   startPolling();
                 }}
               >
-                重試
+                {t('error.retry')}
               </Button>
             )
           }
@@ -313,7 +345,7 @@ const QuickExperienceResult = () => {
           onClick={() => navigate('/quick-experience/create')}
           style={{ marginTop: 16 }}
         >
-          返回創建頁面
+          {t('error.back')}
         </Button>
       </div>
     );
@@ -325,8 +357,8 @@ const QuickExperienceResult = () => {
       <div className="loading-container">
         {isTimeout ? (
           <Alert
-            message="判決生成時間較長"
-            description="已暫停自動輪詢，您可以選擇繼續等待，或重新提交生成請求。"
+            message={t('pending.long.message')}
+            description={t('pending.long.desc')}
             type="warning"
             showIcon
             action={
@@ -338,22 +370,22 @@ const QuickExperienceResult = () => {
                     startPolling();
                   }}
                 >
-                  繼續等待
+                  {t('pending.long.action.wait')}
                 </Button>
                 <Button type="default" onClick={handleRetryJudgment}>
-                  重新生成
+                  {t('pending.long.action.regen')}
                 </Button>
                 <Button type="link" onClick={() => navigate('/quick-experience/create')}>
-                  返回創建頁
+                  {t('pending.long.action.back')}
                 </Button>
               </Space>
             }
           />
         ) : (
           <>
-            <Spin size="large" tip="判決正在生成中，請稍候..." />
+            <Spin size="large" tip={t('pending.tip')} />
             <Text type="secondary" style={{ marginTop: 16, display: 'block' }}>
-              預計等待時間：30-60秒
+              {t('pending.eta')}
             </Text>
           </>
         )}
@@ -361,29 +393,17 @@ const QuickExperienceResult = () => {
     );
   }
 
-  const responsibility_ratio =
-    judgment.responsibility_ratio ?? {
-      plaintiff: judgment.plaintiff_ratio,
-      defendant: judgment.defendant_ratio,
-    };
-
-  // 使用useMemo優化計算
-  const responsibilityRatioMemo = useMemo(
-    () => responsibility_ratio,
-    [responsibility_ratio.plaintiff, responsibility_ratio.defendant]
-  );
-
   return (
     <>
       <SEO
-        title="判決結果 - 快速體驗"
-        description={`責任分比例：角色A ${responsibility_ratio.plaintiff}%，角色B ${responsibility_ratio.defendant}%`}
-        keywords="判決結果,責任分比例,AI判決"
+        title={t('result.title')}
+        description={`${t('responsibility.title')}：角色A ${responsibilityRatioMemo.plaintiff}%，角色B ${responsibilityRatioMemo.defendant}%`}
+        keywords={t('result.keywords')}
       />
-      <div className="quick-experience-result" role="main" aria-label="判決結果頁面">
+      <div className="quick-experience-result" role="main" aria-label={t('result.title')}>
         {/* 跳過鏈接（可訪問性） */}
         <a href="#judgment-section" className="skip-link">
-          跳過到判決內容
+          {t('result.skipToJudgment')}
         </a>
 
         <ResultHeader />

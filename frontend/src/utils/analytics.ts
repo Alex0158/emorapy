@@ -4,12 +4,18 @@
 
 import { logger } from './logger';
 
+declare global {
+  interface Window {
+    gtag?: (command: string, ...args: unknown[]) => void;
+  }
+}
+
 /**
  * 追蹤頁面瀏覽
  */
 export const trackPageView = (path: string): void => {
-  if (typeof window !== 'undefined' && (window as any).gtag) {
-    (window as any).gtag('config', 'GA_MEASUREMENT_ID', {
+  if (typeof window !== 'undefined' && window.gtag) {
+    window.gtag('config', 'GA_MEASUREMENT_ID', {
       page_path: path,
     });
   }
@@ -27,8 +33,8 @@ export const trackEvent = (
   label?: string,
   value?: number
 ): void => {
-  if (typeof window !== 'undefined' && (window as any).gtag) {
-    (window as any).gtag('event', action, {
+  if (typeof window !== 'undefined' && window.gtag) {
+    window.gtag('event', action, {
       event_category: category,
       event_label: label,
       value: value,
@@ -42,7 +48,7 @@ export const trackEvent = (
 /**
  * 追蹤用戶操作
  */
-export const trackUserAction = (action: string, details?: Record<string, any>): void => {
+export const trackUserAction = (action: string, details?: Record<string, unknown>): void => {
   trackEvent('User Action', action, undefined, undefined);
   if (import.meta.env.DEV && details) {
     logger.debug('[Analytics] Details', details);

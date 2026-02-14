@@ -29,6 +29,7 @@ import BearJudge from '@/components/business/BearJudge';
 import PublicRoute from '@/components/common/PublicRoute';
 import SEO from '@/components/common/SEO';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
+import { t } from '@/utils/i18n';
 import './Register.less';
 
 const { Title, Text } = Typography;
@@ -46,7 +47,7 @@ const Register = () => {
   const handleSendCode = async () => {
     const emailValue = form.getFieldValue('email');
     if (!emailValue) {
-      message.error('請先輸入郵箱地址');
+      message.error(t('message.emailFirst'));
       return;
     }
 
@@ -54,7 +55,7 @@ const Register = () => {
       await sendVerificationCode(emailValue, 'register');
       setEmail(emailValue);
       setCountdown(300); // 5分鐘倒計時
-      message.success('驗證碼已發送到您的郵箱，請查收');
+      message.success(t('message.codeSent'));
       setCurrentStep(1);
 
       // 倒計時
@@ -67,15 +68,16 @@ const Register = () => {
           return prev - 1;
         });
       }, 1000);
-    } catch (error: any) {
-      message.error(error.message || '發送驗證碼失敗');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : t('message.sendCodeFail');
+      message.error(msg);
     }
   };
 
   // 重新發送驗證碼
   const handleResendCode = () => {
     if (countdown > 0) {
-      message.warning(`請等待 ${countdown} 秒後再試`);
+      message.warning(t('message.waitCountdown').replace('{count}', String(countdown)));
       return;
     }
     handleSendCode();
@@ -99,40 +101,42 @@ const Register = () => {
   const handleVerifyCode = async () => {
     const code = verificationCode.join('');
     if (code.length !== 6) {
-      message.error('請輸入完整的6位驗證碼');
+      message.error(t('message.codeFull'));
       return;
     }
 
     try {
       const verified = await verifyEmail(email, code, 'register');
       if (verified) {
-        message.success('驗證成功！');
+        message.success(t('message.verifySuccess'));
         setCurrentStep(2);
       } else {
-        message.error('驗證碼錯誤，請重新輸入');
+        message.error(t('message.codeError'));
         setVerificationCode(['', '', '', '', '', '']);
       }
-    } catch (error: any) {
-      message.error(error.message || '驗證失敗');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : t('message.verifyFail');
+      message.error(msg);
     }
   };
 
   // 提交註冊
   const handleSubmit = async (values: { password: string; confirmPassword: string; nickname?: string }) => {
     if (values.password !== values.confirmPassword) {
-      message.error('兩次輸入的密碼不一致');
+      message.error(t('message.passwordMismatch'));
       return;
     }
 
     try {
       await register(email, values.password, values.nickname);
-      message.success('註冊成功！');
+      message.success(t('message.registerSuccess'));
       setCurrentStep(3);
       setTimeout(() => {
         navigate('/profile/pairing');
       }, 3000);
-    } catch (error: any) {
-      message.error(error.message || '註冊失敗');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : t('message.registerFail');
+      message.error(msg);
     }
   };
 
@@ -145,20 +149,20 @@ const Register = () => {
   return (
     <PublicRoute>
       <SEO
-        title="註冊 - 熊媽媽法庭"
-        description="加入熊媽媽法庭，開始你的溫暖之旅"
-        keywords="註冊,用戶註冊"
+        title={t('auth.register.title')}
+        description={t('auth.register.description')}
+        keywords={t('auth.register.keywords')}
       />
-      <div className="auth-page register-page" role="main" aria-label="註冊頁面">
+      <div className="auth-page register-page" role="main" aria-label={t('auth.register.pageLabel')}>
         <AnimatedWrapper animation="scale" delay={100}>
           <Card className="auth-card">
           <div className="auth-header">
             <BearJudge size="medium" animated />
             <Title level={2} className="auth-title">
-              加入熊媽媽法庭
+              {t('auth.register.welcome')}
             </Title>
             <Text type="secondary" className="auth-subtitle">
-              開始你的溫暖之旅
+              {t('auth.register.subtitle')}
             </Text>
           </div>
 
@@ -166,10 +170,10 @@ const Register = () => {
             current={currentStep}
             className="register-steps"
             items={[
-              { title: '填寫郵箱' },
-              { title: '驗證碼驗證' },
-              { title: '設置密碼' },
-              { title: '完成註冊' },
+              { title: t('auth.register.stepEmail') },
+              { title: t('auth.register.stepVerify') },
+              { title: t('auth.register.stepPassword') },
+              { title: t('auth.register.stepDone') },
             ]}
           />
 
@@ -184,30 +188,30 @@ const Register = () => {
             >
               <Form.Item
                 name="email"
-                label="郵箱地址"
+                label={t('auth.register.email')}
                 rules={[
-                  { required: true, message: '請輸入郵箱地址' },
-                  { type: 'email', message: '請輸入有效的郵箱地址' },
+                  { required: true, message: t('auth.register.emailRequired') },
+                  { type: 'email', message: t('auth.register.emailInvalid') },
                 ]}
               >
                 <Input
                   prefix={<MailOutlined />}
-                  placeholder="請輸入郵箱地址"
+                  placeholder={t('auth.register.emailPlaceholder')}
                   autoComplete="email"
                 />
               </Form.Item>
 
-              <Form.Item name="nickname" label="暱稱（可選）">
+              <Form.Item name="nickname" label={t('auth.register.nickname')}>
                 <Input
                   prefix={<UserOutlined />}
-                  placeholder="請輸入暱稱（2-20字符）"
+                  placeholder={t('auth.register.nicknamePlaceholder')}
                   maxLength={20}
                 />
               </Form.Item>
 
               <Form.Item>
                 <Button type="primary" htmlType="submit" block loading={isLoading} className="auth-submit-button">
-                  發送驗證碼
+                  {t('auth.register.sendCode')}
                 </Button>
               </Form.Item>
             </Form>
@@ -216,7 +220,7 @@ const Register = () => {
           {currentStep === 1 && (
             <div className="verification-step">
               <div className="verification-info">
-                <Text>驗證碼已發送到：</Text>
+                <Text>{t('auth.register.codeSentTo')}</Text>
                 <Text strong>{email}</Text>
               </div>
 
@@ -242,7 +246,7 @@ const Register = () => {
 
               <div className="countdown-info">
                 <Text type="secondary">
-                  驗證碼有效期：5分鐘，還剩 {formatCountdown(countdown)}
+                  {t('auth.register.codeExpiry')} {formatCountdown(countdown)}
                 </Text>
               </div>
 
@@ -252,7 +256,7 @@ const Register = () => {
                 disabled={countdown > 0}
                 className="resend-code-link"
               >
-                沒有收到？重新發送
+                {t('auth.register.resendCode')}
               </Button>
 
               <Button
@@ -263,7 +267,7 @@ const Register = () => {
                 className="auth-submit-button"
                 style={{ marginTop: 16 }}
               >
-                驗證並繼續
+                {t('auth.register.verifyAndContinue')}
               </Button>
             </div>
           )}
@@ -278,19 +282,19 @@ const Register = () => {
             >
               <Form.Item
                 name="password"
-                label="設置密碼"
+                label={t('auth.register.setPassword')}
                 rules={[
-                  { required: true, message: '請輸入密碼' },
-                  { min: 8, message: '密碼至少8位' },
+                  { required: true, message: t('auth.login.passwordRequired') },
+                  { min: 8, message: t('auth.register.passwordMin') },
                   {
                     pattern: /^(?=.*[A-Za-z])(?=.*\d)/,
-                    message: '密碼必須包含字母和數字',
+                    message: t('auth.register.passwordPattern'),
                   },
                 ]}
               >
                 <Input.Password
                   prefix={<LockOutlined />}
-                  placeholder="請輸入密碼（至少8位，包含字母和數字）"
+                  placeholder={t('auth.register.passwordPlaceholder')}
                   iconRender={(visible) => (visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />)}
                   autoComplete="new-password"
                 />
@@ -298,23 +302,23 @@ const Register = () => {
 
               <Form.Item
                 name="confirmPassword"
-                label="確認密碼"
+                label={t('auth.register.confirmPassword')}
                 dependencies={['password']}
                 rules={[
-                  { required: true, message: '請再次輸入密碼' },
+                  { required: true, message: t('auth.register.confirmRequired') },
                   ({ getFieldValue }) => ({
                     validator(_, value) {
                       if (!value || getFieldValue('password') === value) {
                         return Promise.resolve();
                       }
-                      return Promise.reject(new Error('兩次輸入的密碼不一致'));
+                      return Promise.reject(new Error(t('message.passwordMismatch')));
                     },
                   }),
                 ]}
               >
                 <Input.Password
                   prefix={<LockOutlined />}
-                  placeholder="請再次輸入密碼"
+                  placeholder={t('auth.register.confirmPlaceholder')}
                   iconRender={(visible) => (visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />)}
                   autoComplete="new-password"
                 />
@@ -322,7 +326,7 @@ const Register = () => {
 
               <Form.Item>
                 <Button type="primary" htmlType="submit" block loading={isLoading} className="auth-submit-button">
-                  完成註冊
+                  {t('auth.register.finishRegister')}
                 </Button>
               </Form.Item>
             </Form>
@@ -331,22 +335,22 @@ const Register = () => {
           {currentStep === 3 && (
             <div className="success-step">
               <CheckCircleOutlined className="success-icon" />
-              <Title level={3}>註冊成功！</Title>
-              <Text type="secondary">歡迎加入熊媽媽法庭</Text>
+              <Title level={3}>{t('auth.register.successTitle')}</Title>
+              <Text type="secondary">{t('auth.register.welcomeText')}</Text>
               <Text type="secondary" style={{ display: 'block', marginTop: 8 }}>
-                現在你可以使用完整功能了
+                {t('auth.register.readyToUse')}
               </Text>
               <Space style={{ marginTop: 24 }}>
                 <Button type="primary" onClick={() => navigate('/profile/pairing')}>
-                  開始配對
+                  {t('auth.register.startPairing')}
                 </Button>
-                <Button onClick={() => navigate('/')}>稍後再說</Button>
+                <Button onClick={() => navigate('/')}>{t('register.action.later')}</Button>
               </Space>
             </div>
           )}
 
           <div className="auth-divider">
-            <Text type="secondary">已有帳號？</Text>
+            <Text type="secondary">{t('auth.register.hasAccount')}</Text>
           </div>
 
           <Button
@@ -355,7 +359,7 @@ const Register = () => {
             onClick={() => navigate('/auth/login')}
             className="auth-switch-link"
           >
-            立即登錄
+            {t('auth.register.loginNow')}
           </Button>
         </Card>
         </AnimatedWrapper>

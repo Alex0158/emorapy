@@ -8,6 +8,7 @@ import {
   ALLOWED_IMAGE_TYPES,
   ALLOWED_VIDEO_TYPES,
 } from './constants';
+import { t } from '@/utils/i18n';
 
 export interface FileValidationResult {
   valid: boolean;
@@ -24,7 +25,7 @@ export function validateFileType(file: File): FileValidationResult {
   if (!isImage && !isVideo) {
     return {
       valid: false,
-      error: '不支持的文件類型，只支持JPG、PNG、GIF、MP4格式',
+      error: t('fileUpload.formatNotAllowed'),
     };
   }
 
@@ -38,7 +39,7 @@ export function validateFileSize(file: File): FileValidationResult {
   if (file.size > MAX_FILE_SIZE) {
     return {
       valid: false,
-      error: `文件大小不能超過${MAX_FILE_SIZE / 1024 / 1024}MB`,
+      error: t('fileUpload.sizeLimit').replace('{size}', `${MAX_FILE_SIZE / 1024 / 1024}MB`),
     };
   }
 
@@ -54,7 +55,7 @@ export function validateFileCount(files: File[], existingCount: number = 0): Fil
   if (totalCount > MAX_IMAGE_COUNT) {
     return {
       valid: false,
-      error: `最多只能上傳${MAX_IMAGE_COUNT}張圖片`,
+      error: t('fileUpload.countLimit').replace('{count}', String(MAX_IMAGE_COUNT)),
     };
   }
 
@@ -100,10 +101,10 @@ export function getFilePreviewUrl(file: File): Promise<string> {
       if (e.target?.result) {
         resolve(e.target.result as string);
       } else {
-        reject(new Error('無法讀取文件'));
+        reject(new Error(t('fileValidation.readFail')));
       }
     };
-    reader.onerror = () => reject(new Error('文件讀取失敗'));
+    reader.onerror = () => reject(new Error(t('fileValidation.readFail')));
     reader.readAsDataURL(file);
   });
 }

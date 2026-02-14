@@ -74,9 +74,9 @@ echo ✅ 開發服務器已啟動
 echo ============================================================
 echo.
 echo 📋 服務信息:
-echo    🔹 後端: http://localhost:3000
+echo    🔹 後端: http://localhost:3001
 echo    🔹 前端: http://localhost:5173
-echo    🔹 健康檢查: http://localhost:3000/api/v1/health
+echo    🔹 健康檢查: http://localhost:3001/health
 echo.
 echo 💡 提示:
 echo    - 在瀏覽器中打開 http://localhost:5173 查看前端
@@ -91,6 +91,5 @@ start http://localhost:5173
 
 echo ⏳ 服務運行中，關閉此窗口即可停止所有服務...
 pause
-
 
 

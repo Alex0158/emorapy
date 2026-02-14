@@ -9,7 +9,6 @@ import {
   Button,
   Typography,
   Space,
-  Tag,
   Input,
   Select,
   Pagination,
@@ -25,12 +24,15 @@ import {
   EyeOutlined,
 } from '@ant-design/icons';
 import { getCaseList } from '@/services/api/case';
-import type { Case, CaseStatus } from '@/types/case';
+import type { Case } from '@/types/case';
 import ProtectedRoute from '@/components/common/ProtectedRoute';
 import SEO from '@/components/common/SEO';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
 import { useDebounce } from '@/hooks/usePerformance';
 import { formatDate } from '@/utils/formatDate';
+import { getCaseStatusTag, getCaseTypeTag } from '@/utils/statusTags';
+import { CASE_TYPES, CASE_TYPE_I18N_KEYS } from '@/utils/caseType';
+import { t } from '@/utils/i18n';
 import './List.less';
 
 const { Title, Text } = Typography;
@@ -58,7 +60,15 @@ const CaseList = () => {
   const fetchCases = async () => {
     setLoading(true);
     try {
-      const params: any = {
+      const params: {
+        page: number;
+        page_size: number;
+        status?: string;
+        type?: string;
+        search?: string;
+        sort_by?: string;
+        sort_order?: 'asc' | 'desc';
+      } = {
         page: pagination.page,
         page_size: pagination.page_size,
       };
@@ -88,8 +98,9 @@ const CaseList = () => {
       const response = await getCaseList(params);
       setCases(response.cases);
       setPagination(response.pagination);
-    } catch (error: any) {
-      message.error(error.message || '獲取案件列表失敗');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : t('message.getCaseListFail');
+      message.error(msg);
     } finally {
       setLoading(false);
     }
@@ -97,6 +108,7 @@ const CaseList = () => {
 
   useEffect(() => {
     fetchCases();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 依篩選/分頁變化拉取，fetchCases 不進 deps
   }, [pagination.page, statusFilter, typeFilter, sortBy]);
 
   // 搜索處理（使用防抖Hook）
@@ -107,7 +119,7 @@ const CaseList = () => {
       } else {
         setPagination((prev) => ({ ...prev, page: 1 }));
       }
-    }, [pagination.page]),
+    }, [pagination.page]), // eslint-disable-line react-hooks/exhaustive-deps -- fetchCases 不進 deps 避免重跑
     500
   );
 
@@ -116,23 +128,6 @@ const CaseList = () => {
       debouncedSearch();
     }
   }, [searchText, debouncedSearch]);
-
-  const getStatusTag = (status: CaseStatus) => {
-    const statusMap = {
-      draft: { color: 'default', text: '草稿' },
-      submitted: { color: 'processing', text: '已提交' },
-      in_progress: { color: 'warning', text: '審理中' },
-      completed: { color: 'success', text: '已完成' },
-      cancelled: { color: 'error', text: '已取消' },
-      judgment_failed: { color: 'error', text: '判決失敗' },
-    };
-    const config = statusMap[status];
-    return <Tag color={config.color}>{config.text}</Tag>;
-  };
-
-  const getTypeTag = (type: string) => {
-    return <Tag color="orange">{type}</Tag>;
-  };
 
   // 使用useMemo優化案件列表渲染
   const caseCards = useMemo(
@@ -163,8 +158,8 @@ const CaseList = () => {
                     {case_.title}
                   </Title>
                   <Space>
-                    {getStatusTag(case_.status)}
-                    {getTypeTag(case_.type)}
+                    {getCaseStatusTag(case_.status)}
+                    {getCaseTypeTag(case_.type)}
                   </Space>
                 </div>
                 <div className="case-card-content">
@@ -180,9 +175,9 @@ const CaseList = () => {
                       e.stopPropagation();
                       navigate(`/case/${case_.id}`);
                     }}
-                    aria-label={`查看案件 ${case_.title} 的詳情`}
+                    aria-label={t('caseList.viewDetailAria').replace('{title}', case_.title)}
                   >
-                    查看詳情
+                    {t('caseList.viewDetail')}
                   </Button>
                 </div>
             </Card>
@@ -195,19 +190,19 @@ const CaseList = () => {
   return (
     <ProtectedRoute>
       <SEO
-        title="我的案件 - 熊媽媽法庭"
-        description="查看和管理您的所有案件"
-        keywords="案件列表,我的案件"
+        title={t('caseList.title')}
+        description={t('caseList.description')}
+        keywords={t('caseList.keywords')}
       />
-      <div className="case-list-page" role="main" aria-label="案件列表頁面">
+      <div className="case-list-page" role="main" aria-label={t('caseList.pageLabel')}>
         <AnimatedWrapper animation="fade" delay={100}>
           <div className="page-header" aria-labelledby="page-title">
             <div className="header-left">
               <Title level={2} id="page-title">
-                我的案件
+                {t('caseList.heading')}
               </Title>
               <Text type="secondary" aria-live="polite">
-                共 {pagination.total} 個案件
+                {t('caseList.totalCount').replace('{count}', String(pagination.total))}
               </Text>
             </div>
             <Button
@@ -215,89 +210,89 @@ const CaseList = () => {
               icon={<PlusOutlined />}
               onClick={() => navigate('/case/create')}
               size="large"
-              aria-label="創建新案件"
+              aria-label={t('caseList.createNew')}
             >
-              創建新案件
+              {t('caseList.createNew')}
             </Button>
           </div>
         </AnimatedWrapper>
 
         <AnimatedWrapper animation="slide" direction="down" delay={200} trigger="intersection">
-          <div className="filters-section" role="group" aria-label="篩選和搜索">
+          <div className="filters-section" role="group" aria-label={t('caseList.filtersLabel')}>
             <Space wrap>
               <Select
                 value={statusFilter}
                 onChange={setStatusFilter}
                 style={{ width: 120 }}
-                aria-label="篩選案件狀態"
+                aria-label={t('caseList.ariaStatusFilter')}
               >
-                <Option value="all">全部狀態</Option>
-                <Option value="draft">草稿</Option>
-                <Option value="submitted">已提交</Option>
-                <Option value="in_progress">審理中</Option>
-                <Option value="completed">已完成</Option>
-                <Option value="cancelled">已取消</Option>
+                <Option value="all">{t('caseList.statusAll')}</Option>
+                <Option value="draft">{t('caseList.statusDraft')}</Option>
+                <Option value="submitted">{t('caseList.statusSubmitted')}</Option>
+                <Option value="in_progress">{t('caseList.statusInProgress')}</Option>
+                <Option value="completed">{t('caseList.statusCompleted')}</Option>
+                <Option value="judgment_failed">{t('caseList.statusJudgmentFailed')}</Option>
+                <Option value="cancelled">{t('caseList.statusCancelled')}</Option>
               </Select>
 
               <Select
                 value={typeFilter}
                 onChange={setTypeFilter}
                 style={{ width: 150 }}
-                aria-label="篩選案件類型"
+                aria-label={t('caseList.ariaTypeFilter')}
               >
-                <Option value="all">全部類型</Option>
-                <Option value="生活習慣">生活習慣</Option>
-                <Option value="消費決策">消費決策</Option>
-                <Option value="社交關係">社交關係</Option>
-                <Option value="價值觀">價值觀</Option>
-                <Option value="情感需求">情感需求</Option>
-                <Option value="其他">其他</Option>
+                <Option value="all">{t('caseList.typeAll')}</Option>
+                {CASE_TYPES.map((type) => (
+                  <Option key={type} value={type}>
+                    {t(CASE_TYPE_I18N_KEYS[type])}
+                  </Option>
+                ))}
               </Select>
 
               <Select
                 value={sortBy}
                 onChange={setSortBy}
                 style={{ width: 120 }}
-                aria-label="排序方式"
+                aria-label={t('caseList.ariaSort')}
               >
-                <Option value="latest">最新</Option>
-                <Option value="oldest">最舊</Option>
-                <Option value="status">狀態</Option>
+                <Option value="latest">{t('caseList.sortLatest')}</Option>
+                <Option value="oldest">{t('caseList.sortOldest')}</Option>
+                <Option value="status">{t('caseList.sortStatus')}</Option>
               </Select>
 
               <Search
-                placeholder="搜索案件標題或內容"
+                placeholder={t('caseList.searchPlaceholder')}
                 allowClear
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
                 style={{ width: 300 }}
                 onSearch={() => fetchCases()}
-                aria-label="搜索案件"
+                aria-label={t('caseList.ariaSearch')}
               />
             </Space>
           </div>
         </AnimatedWrapper>
 
-        <Spin spinning={loading} tip="加載中...">
+        <Spin spinning={loading} tip={t('common.loading')}>
           {cases.length === 0 ? (
             <AnimatedWrapper animation="fade" delay={300}>
               <Empty
-                description="還沒有案件"
+                description={t('caseList.empty')}
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
-                aria-label="空狀態：還沒有案件"
+                aria-label={t('caseList.empty')}
               >
                 <Button
                   type="primary"
                   onClick={() => navigate('/case/create')}
-                  aria-label="創建第一個案件"
+                  aria-label={t('caseList.createFirst')}
                 >
-                  創建第一個案件
+                  {t('caseList.createFirst')}
                 </Button>
               </Empty>
             </AnimatedWrapper>
           ) : (
             <AnimatedWrapper animation="fade" delay={300} trigger="intersection">
-              <Row gutter={[24, 24]} role="list" aria-label="案件列表">
+              <Row gutter={[24, 24]} role="list" aria-label={t('caseList.ariaList')}>
                 {caseCards}
               </Row>
             </AnimatedWrapper>
@@ -306,14 +301,14 @@ const CaseList = () => {
 
         {cases.length > 0 && (
           <AnimatedWrapper animation="fade" delay={400} trigger="intersection">
-            <div className="pagination-wrapper" role="navigation" aria-label="分頁導航">
+            <div className="pagination-wrapper" role="navigation" aria-label={t('caseList.ariaPagination')}>
               <Pagination
                 current={pagination.page}
                 total={pagination.total}
                 pageSize={pagination.page_size}
                 showSizeChanger
                 showQuickJumper
-                showTotal={(total) => `共 ${total} 條`}
+                showTotal={(total) => t('caseList.paginationTotal').replace('{total}', String(total))}
                 onChange={(page, pageSize) => {
                   setPagination((prev) => ({
                     ...prev,
@@ -321,7 +316,7 @@ const CaseList = () => {
                     page_size: pageSize,
                   }));
                 }}
-                aria-label="案件分頁"
+                aria-label={t('caseList.ariaPaginationNav')}
               />
             </div>
           </AnimatedWrapper>

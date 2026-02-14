@@ -5,6 +5,7 @@
 import { Result, Button } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { HomeOutlined } from '@ant-design/icons';
+import { t } from '@/utils/i18n';
 
 const NotFound = () => {
   const navigate = useNavigate();
@@ -12,11 +13,11 @@ const NotFound = () => {
   return (
     <Result
       status="404"
-      title="404"
-      subTitle="抱歉，您訪問的頁面不存在。"
+      title={t('notFound.title')}
+      subTitle={t('notFound.subTitle')}
       extra={
         <Button type="primary" icon={<HomeOutlined />} onClick={() => navigate('/')}>
-          返回首頁
+          {t('notFound.backHome')}
         </Button>
       }
     />

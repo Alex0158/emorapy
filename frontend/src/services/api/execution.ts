@@ -17,11 +17,19 @@ export interface ExecutionRecord {
   updated_at: string;
 }
 
+export interface PlanSummary {
+  title: string;
+  plan_type: string;
+  difficulty_level: string;
+  estimated_duration?: number;
+}
+
 export interface ExecutionStatus {
   plan_id: string;
   status: string;
   records: ExecutionRecord[];
   progress: number;
+  plan_summary?: PlanSummary;
 }
 
 export interface CheckinDto {

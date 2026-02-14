@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { message } from 'antd';
+import { t } from '@/utils/i18n';
 
 /**
  * 使用認證狀態
@@ -23,7 +24,7 @@ export function useAuth() {
 
   const handleLogout = () => {
     logout();
-    message.success('已退出登錄');
+    message.success(t('common.logoutSuccess'));
     navigate('/');
   };
 

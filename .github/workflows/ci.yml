@@ -1,0 +1,79 @@
+# CI：Lint、單元測試、構建，維持七大原則/DevSecOps 審計合規
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+        timeout-minutes: 2
+
+      - name: Unit tests
+        run: npm run test:unit
+        env:
+          NODE_ENV: test
+          SKIP_DB_INIT: 'true'
+          JWT_SECRET: test-secret-min-16-chars
+          OPENAI_API_KEY: sk-dev-test-placeholder
+          DATABASE_URL: file:./test.db
+
+      - name: Build
+        run: npm run build
+
+      - name: Audit (report only)
+        run: npm audit --audit-level=high || true
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+        timeout-minutes: 2
+
+      - name: Unit tests
+        run: npm run test:run
+
+      - name: Build
+        run: npm run build
+
+      - name: Audit (report only)
+        run: npm audit --audit-level=high || true

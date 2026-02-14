@@ -15,7 +15,7 @@ interface UseApiOptions {
 /**
  * 通用API調用Hook
  */
-export function useApi<T, P extends any[] = any[]>(
+export function useApi<T, P extends unknown[] = unknown[]>(
   apiFunction: (...args: P) => Promise<T>,
   options: UseApiOptions = {}
 ) {

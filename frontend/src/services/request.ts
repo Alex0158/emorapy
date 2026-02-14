@@ -5,6 +5,7 @@
 import axios from 'axios';
 import type { AxiosInstance, AxiosResponse, AxiosError, AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios';
 import { message } from 'antd';
+import { t } from '@/utils/i18n';
 import type { ApiResponse, ApiError } from '@/types/common';
 import { env } from '@/config/env';
 import { sessionStorage } from '@/utils/storage';
@@ -15,6 +16,12 @@ interface ExtendedAxiosRequestConfig extends InternalAxiosRequestConfig {
   metadata?: {
     requestId?: string;
   };
+}
+
+// 後端錯誤響應體（success: false 時）
+interface ApiErrorResponseBody {
+  success: false;
+  error?: ApiError;
 }
 
 // 創建axios實例
@@ -81,7 +88,7 @@ const addCancelToken = (config: InternalAxiosRequestConfig): void => {
 /**
  * 帶重試的請求方法（用於關鍵操作）
  */
-export const requestWithRetryWrapper = async <T = any>(
+export const requestWithRetryWrapper = async <T = unknown>(
   config: AxiosRequestConfig
 ): Promise<AxiosResponse<T>> => {
   return requestWithRetry(
@@ -89,12 +96,14 @@ export const requestWithRetryWrapper = async <T = any>(
     {
       maxRetries: 3,
       initialDelay: 1000,
-      shouldRetry: (error: any) => {
+      shouldRetry: (error: unknown) => {
         // 只對網絡錯誤和5xx錯誤重試
-        if (error.code === 'NETWORK_ERROR' || !error.response) {
+        const err = error as { code?: string; response?: { status?: number } };
+        if (err.code === 'NETWORK_ERROR' || !err.response) {
           return true;
         }
-        if (error.response?.status >= 500) {
+        const status = err.response?.status;
+        if (status !== undefined && status >= 500) {
           return true;
         }
         return false;
@@ -141,7 +150,7 @@ request.interceptors.request.use(
 request.interceptors.response.use(
   (response: AxiosResponse<ApiResponse>) => {
     // 請求完成後清理取消控制器
-    const requestId = (response.config as any).metadata?.requestId;
+    const requestId = (response.config as ExtendedAxiosRequestConfig).metadata?.requestId;
     if (requestId) {
       cancelTokenMap.delete(requestId);
     }
@@ -154,10 +163,12 @@ request.interceptors.response.use(
         return response;
       }
       // 如果失敗，轉換為錯誤
+      const errBody = data as ApiErrorResponseBody;
+      const err = errBody.error;
       return Promise.reject({
-        code: (data as any).error?.code || 'API_ERROR',
-        message: (data as any).error?.message || '請求失敗',
-        details: (data as any).error?.details,
+        code: err?.code || 'API_ERROR',
+        message: err?.message || t('common.requestFail'),
+        details: err?.details,
       });
     }
 
@@ -169,7 +180,7 @@ request.interceptors.response.use(
   },
   async (error: AxiosError<ApiError>) => {
     // 請求完成後清理取消控制器
-    const requestId = (error.config as any)?.metadata?.requestId;
+    const requestId = (error.config as ExtendedAxiosRequestConfig | undefined)?.metadata?.requestId;
     if (requestId) {
       cancelTokenMap.delete(requestId);
     }
@@ -178,7 +189,7 @@ request.interceptors.response.use(
     if (axios.isCancel(error) || error.name === 'AbortError' || error.code === 'ERR_CANCELED') {
       return Promise.reject({
         code: 'REQUEST_CANCELED',
-        message: '請求已取消',
+        message: t('common.requestCanceled'),
         isCanceled: true,
       });
     }
@@ -190,7 +201,9 @@ request.interceptors.response.use(
       const { status, data } = response;
       
       // 後端統一返回格式：{ success: false, error: { code, message, details } }
-      const errorData = (data as any)?.error || data;
+      const errBody = data as unknown as ApiErrorResponseBody | undefined;
+      type ErrorLike = { code?: string; message?: string; details?: unknown };
+      const errorData: ErrorLike = (errBody?.error as ErrorLike) ?? (typeof data === 'object' && data !== null ? (data as ErrorLike) : {});
 
       switch (status) {
         case 401: {
@@ -204,12 +217,12 @@ request.interceptors.response.use(
               useSessionStore.getState().clearSession();
               const refreshed = await useSessionStore.getState().refreshSession(true);
               if (refreshed) {
-                message.warning(errorData?.message || '快速體驗 Session 已過期，已自動換發新 Session，請重新發起操作/重新開始流程');
+                message.warning(errorData?.message || t('common.sessionExpiredRefreshed'));
               } else {
-                message.error(errorData?.message || '快速體驗 Session 已過期，請重新開始');
+                message.error(errorData?.message || t('error.session.expiredHint'));
               }
             } catch {
-              message.error(errorData?.message || '快速體驗 Session 已過期，請重新開始');
+              message.error(errorData?.message || t('error.session.expiredHint'));
             }
             break;
           }
@@ -230,33 +243,33 @@ request.interceptors.response.use(
           if (window.location.pathname !== '/auth/login') {
             window.location.href = '/auth/login';
           }
-          message.error(errorData?.message || '登錄已過期，請重新登錄');
+          message.error(errorData?.message || t('common.unauthorized'));
           break;
         }
 
         case 403:
-          message.error(errorData?.message || '無權限訪問此資源');
+          message.error(errorData?.message || t('common.forbidden'));
           break;
 
         case 404:
-          message.error(errorData?.message || '資源不存在');
+          message.error(errorData?.message || t('common.notFound'));
           break;
 
         case 422:
-          message.error(errorData?.message || '請求參數錯誤');
+          message.error(errorData?.message || t('common.validationError'));
           break;
 
         case 429:
           if ((response.config?.url || '').includes('/uploads')) {
-            message.error(errorData?.message || '文件訪問過於頻繁，請稍後再試');
+            message.error(errorData?.message || t('common.fileRateLimit'));
           } else {
-            message.error(errorData?.message || '請求過於頻繁，請稍後再試');
+            message.error(errorData?.message || t('common.rateLimit'));
           }
           break;
 
         case 500:
         default:
-          message.error(errorData?.message || '服務器錯誤，請稍後再試');
+          message.error(errorData?.message || t('common.serverError'));
       }
 
       return Promise.reject({
@@ -268,15 +281,15 @@ request.interceptors.response.use(
 
     // 網絡錯誤
     if (error.request) {
-      message.error('網絡連接失敗，請檢查網絡連接');
+      message.error(t('common.networkError'));
       return Promise.reject({
         code: 'NETWORK_ERROR',
-        message: '網絡連接失敗',
+        message: t('common.networkError'),
       });
     }
 
     // 其他錯誤
-    message.error('發生未知錯誤');
+    message.error(t('common.unknownError'));
     return Promise.reject({
       code: 'UNKNOWN_ERROR',
       message: error.message,

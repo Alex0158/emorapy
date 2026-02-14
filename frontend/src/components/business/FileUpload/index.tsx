@@ -6,6 +6,7 @@ import { Upload, message, Progress, Typography } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import type { UploadFile, UploadProps } from 'antd/es/upload/interface';
 import { useState, useCallback } from 'react';
+import ConfirmModal from '@/components/common/ConfirmModal';
 import {
   MAX_FILE_SIZE,
   MAX_IMAGE_COUNT,
@@ -14,6 +15,7 @@ import {
 } from '@/utils/constants';
 import { formatFileSize } from '@/utils/format';
 import { uploadEvidence, deleteEvidence, getCase } from '@/services/api/case';
+import { t } from '@/utils/i18n';
 import './FileUpload.less';
 
 const { Text } = Typography;
@@ -27,6 +29,7 @@ interface FileUploadProps {
   caseId?: string; // 案件ID，如果提供則實際上傳文件
   sessionId?: string; // Session ID（快速體驗模式）
   onUploadComplete?: (evidences: Array<{ id: string; file_url: string; file_type: string }>) => void; // 上傳完成回調
+  confirmBeforeRemove?: boolean; // 刪除證據前是否二次確認，默認 true（caseId 時）
 }
 
 const FileUpload = ({
@@ -38,35 +41,38 @@ const FileUpload = ({
   caseId,
   sessionId,
   onUploadComplete,
+  confirmBeforeRemove = !!caseId,
 }: FileUploadProps) => {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
+  const [pendingRemoveFile, setPendingRemoveFile] = useState<UploadFile | null>(null);
 
   // 簽名 URL 過期時重新獲取
   const refreshEvidenceUrls = useCallback(async (): Promise<UploadFile[] | null> => {
     if (!caseId) return null;
     try {
       const caseData = await getCase(caseId);
-      const evidences = (caseData as any)?.evidences;
+      const evidences = caseData.evidences;
       if (!Array.isArray(evidences) || evidences.length === 0) {
         return null;
       }
       const urlMap = new Map<string, string>();
-      evidences.forEach((e: any) => {
+      evidences.forEach((e: { id?: string; file_url?: string }) => {
         if (e?.id && e?.file_url) {
           urlMap.set(e.id, e.file_url);
         }
       });
 
+      type ItemWithResponse = { response?: { id?: string }; uid: string };
       const updated = value.map((item) => {
-        const evidenceId = (item as any)?.response?.id || item.uid;
+        const evidenceId = (item as ItemWithResponse)?.response?.id || item.uid;
         const newUrl = urlMap.get(evidenceId);
         return newUrl ? { ...item, url: newUrl } : item;
       });
       onChange?.(updated);
       return updated;
-    } catch (err) {
-      message.warning('文件鏈接可能已過期，刷新簽名失敗，請重新上傳或稍後重試');
+    } catch {
+      message.warning(t('fileUpload.linkExpiredRefresh'));
       return null;
     }
   }, [caseId, value, onChange]);
@@ -97,9 +103,10 @@ const FileUpload = ({
         const updatedFileList = [...value, ...newFileList];
         onChange?.(updatedFileList);
         onUploadComplete?.(evidences);
-        message.success(`成功上傳 ${files.length} 個文件`);
-      } catch (error: any) {
-        message.error(error.message || '文件上傳失敗');
+        message.success(t('fileUpload.uploadSuccessCount').replace('{count}', String(files.length)));
+      } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : t('fileUpload.uploadFail');
+        message.error(msg);
         throw error;
       } finally {
         setUploading(false);
@@ -114,19 +121,19 @@ const FileUpload = ({
     const isVideo = ALLOWED_VIDEO_TYPES.includes(file.type);
 
     if (!isImage && !isVideo) {
-      message.error('只支持 JPG、PNG、GIF 圖片或 MP4 視頻格式');
+      message.error(t('fileUpload.formatNotAllowed'));
       return Upload.LIST_IGNORE;
     }
 
     // 檢查文件大小
     if (file.size > MAX_FILE_SIZE) {
-      message.error(`文件大小不能超過 ${formatFileSize(MAX_FILE_SIZE)}`);
+      message.error(t('fileUpload.sizeLimit').replace('{size}', formatFileSize(MAX_FILE_SIZE)));
       return Upload.LIST_IGNORE;
     }
 
     // 檢查文件數量
     if (value.length >= maxCount) {
-      message.error(`最多只能上傳 ${maxCount} 個文件`);
+      message.error(t('fileUpload.countLimit').replace('{count}', String(maxCount)));
       return Upload.LIST_IGNORE;
     }
 
@@ -159,7 +166,7 @@ const FileUpload = ({
           delete newProgress[file.uid];
           return newProgress;
         });
-      } catch (error) {
+      } catch {
         // 上傳失敗，從列表中移除
         const newFileList = fileList.filter((item) => item.uid !== file.uid);
         onChange?.(newFileList);
@@ -194,21 +201,42 @@ const FileUpload = ({
     onChange?.(fileList);
   };
 
-  const handleRemove = async (file: UploadFile) => {
-    if (caseId) {
-      const evidenceId = (file as any)?.response?.id || file.uid;
-      if (evidenceId) {
-        try {
-          await deleteEvidence(caseId, evidenceId, sessionId);
-        } catch (err: any) {
-          message.error(err?.message || '刪除證據失敗，請稍後再試');
-          return false;
+  const performRemove = useCallback(
+    async (file: UploadFile) => {
+      if (caseId) {
+        type FileWithResponse = { response?: { id?: string }; uid: string };
+        const evidenceId = (file as FileWithResponse)?.response?.id || file.uid;
+        if (evidenceId) {
+          try {
+            await deleteEvidence(caseId, evidenceId, sessionId);
+          } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : t('fileUpload.deleteEvidenceFail');
+            message.error(msg);
+            return false;
+          }
         }
       }
+      const newFileList = value.filter((item) => item.uid !== file.uid);
+      onChange?.(newFileList);
+      return true;
+    },
+    [caseId, sessionId, value, onChange]
+  );
+
+  const handleRemove = (file: UploadFile) => {
+    if (confirmBeforeRemove && caseId) {
+      setPendingRemoveFile(file);
+      return false;
     }
-    const newFileList = value.filter((item) => item.uid !== file.uid);
-    onChange?.(newFileList);
-    return true;
+    void performRemove(file);
+    return false; // 由 performRemove 透過 onChange 更新列表
+  };
+
+  const handleConfirmRemove = async () => {
+    if (!pendingRemoveFile) return;
+    const file = pendingRemoveFile;
+    setPendingRemoveFile(null);
+    await performRemove(file);
   };
 
   const handlePreview = async (file: UploadFile) => {
@@ -232,16 +260,17 @@ const FileUpload = ({
 
     // 簽名失效時嘗試重新換簽
     const refreshedList = await refreshEvidenceUrls();
+    type ItemWithResponse = { response?: { id?: string }; uid: string };
     const refreshedUrl = refreshedList?.find(
       (item) =>
-        ((item as any)?.response?.id || item.uid) === ((file as any)?.response?.id || file.uid)
+        ((item as ItemWithResponse)?.response?.id || item.uid) === ((file as ItemWithResponse)?.response?.id || file.uid)
     )?.url;
     if (refreshedUrl && refreshedUrl !== targetUrl) {
       window.open(refreshedUrl, '_blank');
       return;
     }
 
-    message.error('文件鏈接已失效，請重新上傳或稍後再試');
+    message.error(t('fileUpload.linkInvalid'));
   };
 
   return (
@@ -261,7 +290,7 @@ const FileUpload = ({
         {value.length < maxCount && (
           <div className="upload-button">
             <UploadOutlined />
-            <div style={{ marginTop: 8 }}>上傳</div>
+            <div style={{ marginTop: 8 }}>{t('fileUpload.uploadBtn')}</div>
           </div>
         )}
       </Upload>
@@ -279,10 +308,21 @@ const FileUpload = ({
       {value.length > 0 && (
         <div className="file-list-info">
           <Text type="secondary">
-            已上傳 {value.length} / {maxCount} 個文件
+            {t('fileUpload.uploadedCount').replace('{current}', String(value.length)).replace('{max}', String(maxCount))}
           </Text>
         </div>
       )}
+
+      <ConfirmModal
+        open={!!pendingRemoveFile}
+        onCancel={() => setPendingRemoveFile(null)}
+        onConfirm={handleConfirmRemove}
+        title={t('fileUpload.confirmRemoveTitle')}
+        type="danger"
+        confirmText={t('common.confirm')}
+      >
+        {t('fileUpload.confirmRemoveDesc')}
+      </ConfirmModal>
     </div>
   );
 };

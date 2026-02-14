@@ -20,9 +20,10 @@ import {
 } from '@ant-design/icons';
 import { useSessionStore } from '@/store/sessionStore';
 import { useCaseStore } from '@/store/caseStore';
+import { getCaseBySessionId } from '@/services/api/case';
 import { validateStatement } from '@/utils/validate';
 import { MAX_IMAGE_COUNT, MIN_DEFENDANT_LENGTH } from '@/utils/constants';
-import { localStore, sessionStorage } from '@/utils/storage';
+import { localStore, sessionStorage, caseSessionMap } from '@/utils/storage';
 import BearJudge from '@/components/business/BearJudge';
 import StatementInput from '@/components/business/StatementInput';
 import FileUpload from '@/components/business/FileUpload';
@@ -31,7 +32,9 @@ import GuideTooltip from '@/components/common/GuideTooltip';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
 import { useWindowSize } from '@/hooks/useWindowSize';
 import { useKeyboardNavigation } from '@/hooks/useAccessibility';
+import type { UploadFile } from 'antd/es/upload/interface';
 import SEO from '@/components/common/SEO';
+import { t } from '@/utils/i18n';
 import './Create.less';
 
 const { Title, Text } = Typography;
@@ -47,7 +50,7 @@ interface CaseDraft {
 
 const QuickExperienceCreate = () => {
   const navigate = useNavigate();
-  const { session, createSession, checkSessionExpiry, setSession } = useSessionStore();
+  const { session, createSession, setSession } = useSessionStore();
   const { createQuickCase, isLoading } = useCaseStore();
 
   const { width } = useWindowSize();
@@ -57,10 +60,11 @@ const QuickExperienceCreate = () => {
   );
   const [plaintiffStatement, setPlaintiffStatement] = useState('');
   const [defendantStatement, setDefendantStatement] = useState('');
-  const [evidenceFiles, setEvidenceFiles] = useState<any[]>([]);
+  const [evidenceFiles, setEvidenceFiles] = useState<UploadFile[]>([]);
   const [showRegisterPrompt, setShowRegisterPrompt] = useState(true);
   const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | null>(null);
   const [isGeneratingDefendant, setIsGeneratingDefendant] = useState(false);
+  const [recoveredCase, setRecoveredCase] = useState<{ id: string; status: string } | null>(null);
 
   // 根據屏幕寬度自動切換布局
   useEffect(() => {
@@ -69,13 +73,27 @@ const QuickExperienceCreate = () => {
 
   // 初始化Session
   useEffect(() => {
-    // 僅在創建頁主動處理 Session（避免結果頁背景刷新覆蓋舊 session_id）
-    if (!session || (checkSessionExpiry && checkSessionExpiry())) {
+    // 僅在創建頁主動處理 Session（避免覆蓋舊 session_id）
+    const existingSessionId = sessionStorage.get() || session?.session_id;
+    if (!existingSessionId) {
       createSession().catch(() => {
         // Session創建失敗，靜默處理（用戶仍可繼續使用）
       });
     }
-  }, [session, createSession, checkSessionExpiry]);
+  }, [session, createSession]);
+
+  // 刷新找回案件：若有 sessionId 且後端有對應案件，提示「繼續查看」
+  useEffect(() => {
+    const sessionId = sessionStorage.get() || session?.session_id;
+    if (!sessionId) return;
+    getCaseBySessionId(sessionId)
+      .then((case_) => {
+        if (case_ && ['submitted', 'in_progress', 'completed', 'judgment_failed'].includes(case_.status)) {
+          setRecoveredCase({ id: case_.id, status: case_.status });
+        }
+      })
+      .catch(() => {});
+  }, [session?.session_id]);
 
   // 自動保存草稿
   useEffect(() => {
@@ -84,7 +102,7 @@ const QuickExperienceCreate = () => {
         const draft: CaseDraft = {
           plaintiffStatement,
           defendantStatement,
-          evidenceUrls: evidenceFiles.map((f: any) => f.url || '').filter(Boolean),
+          evidenceUrls: evidenceFiles.map((f: { url?: string }) => f.url || '').filter(Boolean),
         };
         localStore.set(DRAFT_STORAGE_KEY, draft);
         setAutoSaveStatus('saved');
@@ -130,20 +148,20 @@ const QuickExperienceCreate = () => {
     () => [
       {
         key: 'ctrl+s',
-        description: '保存草稿',
+        description: t('message.shortcutSaveDraft'),
         action: () => {
           const draft: CaseDraft = {
             plaintiffStatement,
             defendantStatement,
-            evidenceUrls: evidenceFiles.map((f: any) => f.url || '').filter(Boolean),
+            evidenceUrls: evidenceFiles.map((f: { url?: string }) => f.url || '').filter(Boolean),
           };
           localStore.set(DRAFT_STORAGE_KEY, draft);
-          message.success('草稿已保存');
+          message.success(t('message.draftSaved'));
         },
       },
       {
         key: 'ctrl+enter',
-        description: '提交案件',
+        description: t('message.shortcutSubmit'),
         action: () => {
           if (canSubmit) {
             handleSubmit();
@@ -151,15 +169,16 @@ const QuickExperienceCreate = () => {
         },
       },
     ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleSubmit 不進 deps 避免重建表單配置
     [plaintiffStatement, defendantStatement, evidenceFiles, canSubmit]
   );
 
   // 模板 & 代寫
   const templates = useMemo(
     () => [
-      '最近在家務分工上常有爭執，我覺得自己付出較多，希望能有更公平的安排並共同制定分工表。',
-      '對方經常遲到讓我覺得不被重視，我希望我們能提前溝通並盡量準時，若會晚到也能告知。',
-      '在花錢方式上意見不同，我希望能一起討論預算並尊重彼此的消費觀，不要臨時決策大筆支出。',
+      t('quickCreate.template1'),
+      t('quickCreate.template2'),
+      t('quickCreate.template3'),
     ],
     []
   );
@@ -171,17 +190,17 @@ const QuickExperienceCreate = () => {
 
   const handleAutoGenerateDefendant = () => {
     if (!plaintiffStatement.trim()) {
-      message.info('請先填寫角色A的陳述');
+      message.info(t('message.fillPlaintiffFirst'));
       return;
     }
     setIsGeneratingDefendant(true);
     const source = plaintiffStatement.slice(0, 120);
-    const draft = `我理解這件事讓你不舒服。從我的角度：${source}。我願意調整，也希望我們能找到折衷方案，減少摩擦。`;
+    const draft = t('quickCreate.defendantDraftTemplate').replace('{source}', source);
     setTimeout(() => {
       setDefendantStatement(draft);
       setIsGeneratingDefendant(false);
-      message.success('已為角色B生成草稿，可直接提交或自行修改');
-    }, 300); // 微延遲讓用戶感知動作
+      message.success(t('message.defendantDraftDone'));
+    }, 300);
   };
 
   // 鍵盤導航支持
@@ -200,16 +219,15 @@ const QuickExperienceCreate = () => {
   // 處理提交
   const handleSubmit = async () => {
     if (!canSubmit) {
-      message.warning('請先完成角色A陳述（至少30字）');
-      return;
-    }
-
-    if (!session) {
-      message.error('Session未初始化，請刷新頁面重試');
+      message.warning(t('message.completePlaintiff'));
       return;
     }
 
     try {
+      if (!sessionStorage.get() && !session?.session_id) {
+        await createSession().catch(() => {});
+      }
+
       // 創建案件（快速體驗模式）
       const result = await createQuickCase({
         plaintiff_statement: plaintiffStatement.trim(),
@@ -217,9 +235,10 @@ const QuickExperienceCreate = () => {
         evidence_urls: [], // 證據將在案件創建後上傳
       });
 
-      // 如果返回了session_id，更新Session
+      // 如果返回了session_id，更新Session 並保存 caseId->sessionId 映射（支援多案件回訪）
       if (result.session_id) {
         sessionStorage.set(result.session_id);
+        caseSessionMap.set(result.case.id, result.session_id);
         // 同步 Session Store（後端回傳 expires_at，避免 24h/7d 延長不一致）
         if (result.session_expires_at) {
           setSession({
@@ -231,27 +250,28 @@ const QuickExperienceCreate = () => {
 
       // 如果有證據文件，上傳證據
       const filesToUpload = evidenceFiles
-        .filter((f: any) => f.originFileObj)
-        .map((f: any) => f.originFileObj as File);
+        .filter((f): f is UploadFile & { originFileObj: File } => Boolean(f?.originFileObj))
+        .map((f) => f.originFileObj);
 
       if (filesToUpload.length > 0) {
         try {
           const { uploadEvidence } = await import('@/services/api/case');
           // 優先使用返回的session_id，否則使用store中的session
-          const sessionIdToUse = result.session_id || session?.session_id;
+          const sessionIdToUse = result.session_id || sessionStorage.get() || session?.session_id;
           
           if (!sessionIdToUse) {
-            message.warning('Session ID缺失，證據上傳失敗');
+            message.warning(t('message.sessionIdMissing'));
             return;
           }
           
-          await uploadEvidence(result.case.id, filesToUpload, sessionIdToUse);
-          message.success('證據上傳成功');
-        } catch (uploadError: any) {
+          await uploadEvidence(result.case.id, filesToUpload as File[], sessionIdToUse);
+          message.success(t('message.evidenceUploadSuccess'));
+        } catch (uploadError: unknown) {
           // 證據上傳失敗不阻止流程，只提示
           // 標記結果頁可補傳證據
           localStorage.setItem(`pending_evidence_${result.case.id}`, 'true');
-          message.warning(uploadError.message || '證據上傳失敗，但案件已創建');
+          const msg = uploadError instanceof Error ? uploadError.message : t('message.evidenceUploadFailCaseCreated');
+          message.warning(msg);
         }
       }
 
@@ -260,8 +280,9 @@ const QuickExperienceCreate = () => {
 
       // 跳轉到判決結果頁面（使用案件ID）
       navigate(`/quick-experience/result/${result.case.id}`);
-    } catch (error: any) {
-      message.error(error.message || '提交失敗，請稍後再試');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : t('message.submitFail');
+      message.error(msg);
     }
   };
 
@@ -269,31 +290,50 @@ const QuickExperienceCreate = () => {
   return (
     <>
       <SEO
-        title="快速體驗 - 創建案件"
-        description="填寫雙方陳述，立即獲得AI判決"
-        keywords="快速體驗,創建案件,AI判決"
+        title={t('quickCreate.title')}
+        description={t('quickCreate.description')}
+        keywords={t('quickCreate.keywords')}
       />
-      <div className="quick-experience-create" role="main" aria-label="快速體驗創建案件頁面">
-        {/* 跳過鏈接（可訪問性） */}
+      <div className="quick-experience-create" role="main" aria-label={t('quickCreate.pageLabel')}>
         <a href="#input-section" className="skip-link">
-          跳過到輸入區域
+          {t('quickCreate.skipToInput')}
         </a>
 
-        {/* 引導區域 */}
+        {recoveredCase && (
+          <Alert
+            message={t('quickCreate.recoveredCase.title')}
+            description={t('quickCreate.recoveredCase.desc')}
+            type="info"
+            showIcon
+            action={
+              <Space>
+                <Button size="small" type="primary" onClick={() => navigate(`/quick-experience/result/${recoveredCase.id}`)}>
+                  {t('quickCreate.recoveredCase.continue')}
+                </Button>
+                <Button size="small" onClick={() => setRecoveredCase(null)}>
+                  {t('quickCreate.recoveredCase.startNew')}
+                </Button>
+              </Space>
+            }
+            closable
+            onClose={() => setRecoveredCase(null)}
+            style={{ marginBottom: 16 }}
+          />
+        )}
+
         <AnimatedWrapper animation="fade" delay={100}>
           <section className="guide-section" aria-labelledby="guide-title">
             <BearJudge size="medium" animated />
             <Title level={2} id="guide-title" className="guide-title">
-              請雙方分別填寫陳述
+              {t('quickCreate.guide.title')}
             </Title>
-            <Text className="guide-subtitle">我們會公正、溫暖地幫助你們解決問題</Text>
+            <Text className="guide-subtitle">{t('quickCreate.guide.subtitle')}</Text>
           </section>
         </AnimatedWrapper>
 
-      {/* 自動保存提示 */}
       {autoSaveStatus === 'saved' && (
         <Alert
-          message="已自動保存"
+          message={t('quickCreate.autoSaved')}
           type="success"
           showIcon
           closable
@@ -306,20 +346,20 @@ const QuickExperienceCreate = () => {
           <section id="input-section" className="input-section" aria-labelledby="input-section-title">
             <div className="container">
               {/* 布局選擇器 */}
-              <div className="layout-selector" role="group" aria-label="布局選擇">
+              <div className="layout-selector" role="group" aria-label={t('quickCreate.ariaLayoutSelect')}>
                 <Tabs
                   activeKey={layoutMode}
                   onChange={(key) => setLayoutMode(key as 'horizontal' | 'vertical')}
                   items={[
-                    { key: 'horizontal', label: '左右分屏' },
-                    { key: 'vertical', label: '上下分屏' },
+                    { key: 'horizontal', label: t('quickCreate.layout.horizontal') },
+                    { key: 'vertical', label: t('quickCreate.layout.vertical') },
                   ]}
-                  aria-label="選擇布局模式"
+                  aria-label={t('quickCreate.ariaLayoutMode')}
                 />
               </div>
 
               {/* 輸入區域 */}
-              <div className={`input-area ${layoutMode}`} role="group" aria-label="雙方陳述輸入區域">
+              <div className={`input-area ${layoutMode}`} role="group" aria-label={t('quickCreate.ariaInputArea')}>
                 {/* 角色A輸入區 */}
                 <AnimatedWrapper animation="fade" delay={300} trigger="intersection">
                   <Card
@@ -330,17 +370,17 @@ const QuickExperienceCreate = () => {
                   >
                 <div className="card-header">
                   <span className="role-badge role-a" aria-hidden="true">
-                    角色A
+                    {t('quickCreate.roleA')}
                   </span>
                   <Title level={4} id="plaintiff-title" className="card-title">
-                    角色A的陳述（必填，≥30字）
+                    {t('quickCreate.plaintiffTitle')}
                   </Title>
                 </div>
 
                     <StatementInput
                       value={plaintiffStatement}
                       onChange={setPlaintiffStatement}
-                      label="角色A的陳述"
+                      label={t('quickCreate.plaintiffLabel')}
                       role="plaintiff"
                       showGuide={true}
                       minLength={30}
@@ -349,9 +389,9 @@ const QuickExperienceCreate = () => {
                       }}
                     />
                     <Space size="small" wrap style={{ marginTop: 8 }}>
-                      {templates.map((t, idx) => (
-                        <Button key={idx} size="small" onClick={() => applyTemplate(t, 'plaintiff')}>
-                          套用模板{idx + 1}
+                      {templates.map((tmpl, idx) => (
+                        <Button key={idx} size="small" onClick={() => applyTemplate(tmpl, 'plaintiff')}>
+                          {t('quickCreate.applyTemplateN').replace('{n}', String(idx + 1))}
                         </Button>
                       ))}
                     </Space>
@@ -373,17 +413,17 @@ const QuickExperienceCreate = () => {
                   >
                 <div className="card-header">
                   <span className="role-badge role-b" aria-hidden="true">
-                    角色B
+                    {t('quickCreate.roleB')}
                   </span>
                   <Title level={4} id="defendant-title" className="card-title">
-                    角色B的陳述（可選，留空或自動代寫）
+                    {t('quickCreate.defendantTitle')}
                   </Title>
                 </div>
 
                     <StatementInput
                       value={defendantStatement}
                       onChange={setDefendantStatement}
-                      label="角色B的陳述"
+                      label={t('quickCreate.defendantLabel')}
                       role="defendant"
                       showGuide={true}
                       allowEmpty
@@ -394,14 +434,14 @@ const QuickExperienceCreate = () => {
                     />
                 <Space size="small" wrap style={{ marginTop: 8 }}>
                   <Button size="small" onClick={() => applyTemplate(templates[0], 'defendant')}>
-                    套用模板
+                    {t('quickCreate.applyTemplate')}
                   </Button>
                   <Button size="small" loading={isGeneratingDefendant} onClick={handleAutoGenerateDefendant}>
-                    自動代寫
+                    {t('quickCreate.autoWrite')}
                   </Button>
                 </Space>
                 <Text type="secondary" style={{ display: 'block', marginTop: 4, fontSize: 12 }}>
-                  提示：可留空；若填寫，至少 {MIN_DEFENDANT_LENGTH} 字更好
+                  {t('quickCreate.defendantHint').replace('{min}', String(MIN_DEFENDANT_LENGTH))}
                 </Text>
               </Card>
             </AnimatedWrapper>
@@ -414,9 +454,9 @@ const QuickExperienceCreate = () => {
       <section className="evidence-section">
         <div className="container">
           <Collapse defaultActiveKey={[]}>
-            <Panel header="上傳證據（可選）" key="evidence">
+            <Panel header={t('quickCreate.evidenceHeader')} key="evidence">
               <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
-                最多3張圖片或1個視頻，單個文件不超過5MB
+                {t('quickCreate.evidenceHint')}
               </Text>
               <FileUpload
                 value={evidenceFiles}
@@ -436,18 +476,18 @@ const QuickExperienceCreate = () => {
               message={
                 <Space>
                   <LockOutlined />
-                  <span>註冊後可保存記錄</span>
+                  <span>{t('quickCreate.registerMessage')}</span>
                 </Space>
               }
-              description="註冊後可查看歷史判決、生成和好方案、執行追蹤"
+              description={t('register.prompt.desc')}
               type="info"
               action={
                 <Space>
                   <Button size="small" onClick={() => navigate('/auth/register')}>
-                    立即註冊
+                    {t('register.action.now')}
                   </Button>
                   <Button size="small" type="text" onClick={() => setShowRegisterPrompt(false)}>
-                    關閉
+                    {t('quickCreate.close')}
                   </Button>
                 </Space>
               }
@@ -468,13 +508,13 @@ const QuickExperienceCreate = () => {
               {canSubmit && (
                 <div className="progress-display" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
                   <Progress percent={progress} status="success" />
-                  <Text>已完成 {progress}%</Text>
+                  <Text>{t('quickCreate.progressDone').replace('{percent}', String(progress))}</Text>
                 </div>
               )}
 
               <div className="submit-actions">
                 <GuideTooltip
-                  content="提示：按 Ctrl+Enter 可快速提交案件，按 Ctrl+K 查看所有快捷鍵"
+                  content={t('quickCreate.submitHint')}
                   storageKey="quick_submit_guide"
                   placement="top"
                 >
@@ -485,22 +525,22 @@ const QuickExperienceCreate = () => {
                     disabled={!canSubmit}
                     onClick={handleSubmit}
                     className="submit-button"
-                    aria-label={canSubmit ? '提交案件' : '請完成雙方陳述後再提交'}
+                    aria-label={canSubmit ? t('quickCreate.submitAriaReady') : t('quickCreate.submitAriaDisabled')}
                     aria-describedby="submit-hints"
                   >
-                    {isLoading ? 'AI正在分析中...' : '提交案件'}
+                    {isLoading ? t('quickCreate.submitting') : t('quickCreate.submit')}
                   </Button>
                 </GuideTooltip>
 
                 <div id="submit-hints" className="submit-hints">
-                  <Text type="secondary">提交後，AI將自動分析並生成判決</Text>
+                  <Text type="secondary">{t('quickCreate.afterSubmit')}</Text>
                   <br />
                   <Text type="secondary" style={{ fontSize: 12 }}>
-                    預計等待：60-120秒；若超時請稍後返回結果頁查看
+                    {t('quickCreate.eta')}
                   </Text>
                   <br />
                   <Text type="secondary" style={{ fontSize: 12 }}>
-                    快速體驗不會長期保存，註冊可保存並解鎖和好方案
+                    {t('quickCreate.quickNote')}
                   </Text>
                 </div>
               </div>

@@ -11,6 +11,7 @@ export const usePrevious = <T>(value: T): T | undefined => {
     ref.current = value;
   }, [value]);
 
+  // eslint-disable-next-line react-hooks/refs -- usePrevious 刻意回傳上一幀值，需讀取 ref.current
   return ref.current;
 };
 

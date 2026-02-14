@@ -5,7 +5,7 @@
 /**
  * 構建查詢字符串
  */
-export function buildQueryString(params: Record<string, any>): string {
+export function buildQueryString(params: Record<string, string | number | boolean | undefined>): string {
   const searchParams = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== '') {
@@ -37,7 +37,7 @@ export function getQueryParams(): Record<string, string> {
 /**
  * 更新URL查詢參數（不刷新頁面）
  */
-export function updateQueryParams(params: Record<string, any>, replace: boolean = false): void {
+export function updateQueryParams(params: Record<string, string | number | boolean | undefined>, replace: boolean = false): void {
   const currentParams = getQueryParams();
   const newParams = { ...currentParams, ...params };
   const queryString = buildQueryString(newParams);

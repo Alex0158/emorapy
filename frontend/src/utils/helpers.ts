@@ -12,7 +12,7 @@ export const delay = (ms: number): Promise<void> => {
 /**
  * 防抖函數
  */
-export const debounce = <T extends (...args: any[]) => any>(
+export const debounce = <T extends (...args: unknown[]) => unknown>(
   func: T,
   wait: number
 ): ((...args: Parameters<T>) => void) => {
@@ -34,7 +34,7 @@ export const debounce = <T extends (...args: any[]) => any>(
 /**
  * 節流函數
  */
-export const throttle = <T extends (...args: any[]) => any>(
+export const throttle = <T extends (...args: unknown[]) => unknown>(
   func: T,
   limit: number
 ): ((...args: Parameters<T>) => void) => {
@@ -59,11 +59,11 @@ export const deepClone = <T>(obj: T): T => {
   if (obj instanceof Date) return new Date(obj.getTime()) as unknown as T;
   if (obj instanceof Array) return obj.map((item) => deepClone(item)) as unknown as T;
   if (typeof obj === 'object') {
-    const copy: any = {};
+    const copy: Record<string, unknown> = {};
     Object.keys(obj).forEach((key) => {
-      copy[key] = deepClone((obj as any)[key]);
+      copy[key] = deepClone((obj as Record<string, unknown>)[key]);
     });
-    return copy;
+    return copy as T;
   }
   return obj;
 };
@@ -119,7 +119,7 @@ export const copyToClipboard = async (text: string): Promise<boolean> => {
   try {
     await navigator.clipboard.writeText(text);
     return true;
-  } catch (err) {
+  } catch {
     // 降級方案
     const textArea = document.createElement('textarea');
     textArea.value = text;
@@ -131,7 +131,7 @@ export const copyToClipboard = async (text: string): Promise<boolean> => {
       document.execCommand('copy');
       document.body.removeChild(textArea);
       return true;
-    } catch (err) {
+    } catch {
       document.body.removeChild(textArea);
       return false;
     }

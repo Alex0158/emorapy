@@ -4,12 +4,13 @@
 
 import { message } from 'antd';
 import type { ApiError } from '@/types/common';
+import { t } from '@/utils/i18n';
 
 /**
  * 處理API錯誤
  */
 export const handleApiError = (error: ApiError | Error | unknown): void => {
-  let errorMessage = '發生未知錯誤，請稍後再試';
+  let errorMessage = t('common.unknownError');
 
   if (error && typeof error === 'object') {
     if ('message' in error && typeof error.message === 'string') {
@@ -17,13 +18,18 @@ export const handleApiError = (error: ApiError | Error | unknown): void => {
     } else if ('code' in error && typeof error.code === 'string') {
       // 根據錯誤碼顯示對應的錯誤信息
       const errorCodeMap: Record<string, string> = {
-        NETWORK_ERROR: '網絡連接失敗，請檢查網絡連接',
-        UNAUTHORIZED: '登錄已過期，請重新登錄',
-        FORBIDDEN: '無權限訪問此資源',
-        NOT_FOUND: '資源不存在',
-        VALIDATION_ERROR: '請求參數錯誤',
-        RATE_LIMIT: '請求過於頻繁，請稍後再試',
-        SERVER_ERROR: '服務器錯誤，請稍後再試',
+        NETWORK_ERROR: t('common.networkError'),
+        UNAUTHORIZED: t('common.unauthorized'),
+        TOKEN_EXPIRED: t('common.unauthorized'),
+        EMAIL_NOT_VERIFIED: t('message.emailNotVerified'),
+        FORBIDDEN: t('common.forbidden'),
+        NOT_FOUND: t('common.notFound'),
+        VALIDATION_ERROR: t('common.validationError'),
+        RATE_LIMIT: t('common.rateLimit'),
+        RATE_LIMIT_EXCEEDED: t('common.rateLimit'),
+        SERVER_ERROR: t('common.serverError'),
+        INTERNAL_ERROR: t('common.serverError'),
+        AI_SERVICE_ERROR: t('message.judgmentUnavailable'),
       };
 
       errorMessage = errorCodeMap[error.code] || errorMessage;
@@ -47,13 +53,13 @@ export const handleValidationError = (errors: Record<string, string[]>): void =>
  * 處理網絡錯誤
  */
 export const handleNetworkError = (): void => {
-  message.error('網絡連接失敗，請檢查網絡連接後重試');
+  message.error(t('common.networkError'));
 };
 
 /**
  * 處理超時錯誤
  */
 export const handleTimeoutError = (): void => {
-  message.error('請求超時，請稍後再試');
+  message.error(t('common.timeoutError'));
 };
 

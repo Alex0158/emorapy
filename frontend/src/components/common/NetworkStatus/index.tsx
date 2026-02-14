@@ -5,6 +5,7 @@
 import { useEffect, useState } from 'react';
 import { Alert } from 'antd';
 import { DisconnectOutlined } from '@ant-design/icons';
+import { t } from '@/utils/i18n';
 import './NetworkStatus.less';
 
 const NetworkStatus = () => {
@@ -42,8 +43,8 @@ const NetworkStatus = () => {
   return (
     <div className="network-status">
       <Alert
-        message="網絡連接已斷開"
-        description="請檢查您的網絡連接，應用程序將在連接恢復後自動刷新。"
+        message={t('networkStatus.offline')}
+        description={t('networkStatus.offlineDesc')}
         type="warning"
         icon={<DisconnectOutlined />}
         showIcon

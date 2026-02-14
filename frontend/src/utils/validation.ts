@@ -3,6 +3,7 @@
  */
 
 import { MIN_STATEMENT_LENGTH, MAX_STATEMENT_LENGTH } from './constants';
+import { t } from '@/utils/i18n';
 
 /**
  * 驗證郵箱格式
@@ -20,15 +21,15 @@ export function validatePassword(password: string): {
   message?: string;
 } {
   if (password.length < 8) {
-    return { valid: false, message: '密碼長度至少8位' };
+    return { valid: false, message: t('validation.passwordMinAlt') };
   }
 
   if (!/[a-zA-Z]/.test(password)) {
-    return { valid: false, message: '密碼必須包含字母' };
+    return { valid: false, message: t('validation.passwordLetterAlt') };
   }
 
   if (!/[0-9]/.test(password)) {
-    return { valid: false, message: '密碼必須包含數字' };
+    return { valid: false, message: t('validation.passwordNumberAlt') };
   }
 
   return { valid: true };
@@ -46,14 +47,14 @@ export function validateStatement(statement: string): {
   if (trimmed.length < MIN_STATEMENT_LENGTH) {
     return {
       valid: false,
-      message: `陳述長度必須至少${MIN_STATEMENT_LENGTH}字`,
+      message: t('validation.statementMinShort').replace('{min}', String(MIN_STATEMENT_LENGTH)),
     };
   }
 
   if (trimmed.length > MAX_STATEMENT_LENGTH) {
     return {
       valid: false,
-      message: `陳述長度不能超過${MAX_STATEMENT_LENGTH}字`,
+      message: t('validation.statementMaxShort').replace('{max}', String(MAX_STATEMENT_LENGTH)),
     };
   }
 

@@ -14,6 +14,7 @@ import ReactMarkdown from 'react-markdown';
 import { useState } from 'react';
 import { copyToClipboard } from '@/utils/helpers';
 import { message } from 'antd';
+import { t } from '@/utils/i18n';
 import './JudgmentViewer.less';
 
 const { Title } = Typography;
@@ -28,7 +29,7 @@ interface JudgmentViewerProps {
 
 const JudgmentViewer = ({
   content,
-  title = '判決書',
+  title = t('judgmentDetail.docTitle'),
   onShare,
   onFavorite,
   showActions = true,
@@ -38,9 +39,9 @@ const JudgmentViewer = ({
   const handleCopy = async () => {
     const success = await copyToClipboard(content);
     if (success) {
-      message.success('已複製到剪貼板');
+      message.success(t('common.copied'));
     } else {
-      message.error('複製失敗');
+      message.error(t('common.copyFail'));
     }
   };
 
@@ -63,14 +64,14 @@ const JudgmentViewer = ({
         utterance.onend = () => setIsPlaying(false);
         utterance.onerror = () => {
           setIsPlaying(false);
-          message.error('語音播放失敗');
+          message.error(t('message.voicePlayFail'));
         };
 
         window.speechSynthesis.speak(utterance);
         setIsPlaying(true);
       }
     } else {
-      message.warning('您的瀏覽器不支持語音播放');
+      message.warning(t('message.voiceNotSupported'));
     }
   };
 
@@ -79,27 +80,28 @@ const JudgmentViewer = ({
       {showActions && (
         <div className="judgment-actions">
           <Space>
-            <Tooltip title="語音播放">
+            <Tooltip title={t('judgmentViewer.voicePlay')}>
               <Button
                 type="text"
                 icon={<SoundOutlined />}
                 onClick={handleVoicePlay}
                 className={isPlaying ? 'playing' : ''}
+                aria-label={isPlaying ? t('judgmentViewer.playing') : t('judgmentViewer.play')}
               >
-                {isPlaying ? '停止' : '播放'}
+                {isPlaying ? t('judgmentViewer.playing') : t('judgmentViewer.play')}
               </Button>
             </Tooltip>
-            <Tooltip title="複製內容">
-              <Button type="text" icon={<CopyOutlined />} onClick={handleCopy} />
+            <Tooltip title={t('judgmentViewer.copy')}>
+              <Button type="text" icon={<CopyOutlined />} onClick={handleCopy} aria-label={t('judgmentViewer.copy')} />
             </Tooltip>
-            <Tooltip title="分享">
-              <Button type="text" icon={<ShareAltOutlined />} onClick={onShare} />
+            <Tooltip title={t('judgmentViewer.share')}>
+              <Button type="text" icon={<ShareAltOutlined />} onClick={onShare} aria-label={t('judgmentViewer.share')} />
             </Tooltip>
-            <Tooltip title="收藏">
-              <Button type="text" icon={<StarOutlined />} onClick={onFavorite} />
+            <Tooltip title={t('judgmentViewer.favorite')}>
+              <Button type="text" icon={<StarOutlined />} onClick={onFavorite} aria-label={t('judgmentViewer.favorite')} />
             </Tooltip>
-            <Tooltip title="打印">
-              <Button type="text" icon={<PrinterOutlined />} onClick={handlePrint} />
+            <Tooltip title={t('judgmentViewer.print')}>
+              <Button type="text" icon={<PrinterOutlined />} onClick={handlePrint} aria-label={t('judgmentViewer.print')} />
             </Tooltip>
           </Space>
         </div>

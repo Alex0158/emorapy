@@ -26,6 +26,7 @@ import BearJudge from '@/components/business/BearJudge';
 import PublicRoute from '@/components/common/PublicRoute';
 import SEO from '@/components/common/SEO';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
+import { t } from '@/utils/i18n';
 import './ForgotPassword.less';
 
 const { Title, Text } = Typography;
@@ -46,7 +47,7 @@ const ForgotPassword = () => {
       await resetPassword(values.email);
       setEmail(values.email);
       setCountdown(300); // 5分鐘倒計時
-      message.success('重置密碼郵件已發送到您的郵箱，請查收');
+      message.success(t('message.resetEmailSent'));
       setCurrentStep(1);
 
       // 倒計時
@@ -59,8 +60,9 @@ const ForgotPassword = () => {
           return prev - 1;
         });
       }, 1000);
-    } catch (error: any) {
-      message.error(error.message || '發送重置郵件失敗');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : t('message.sendResetFail');
+      message.error(msg);
     } finally {
       setLoading(false);
     }
@@ -69,7 +71,7 @@ const ForgotPassword = () => {
   // 重新發送驗證碼
   const handleResendCode = () => {
     if (countdown > 0) {
-      message.warning(`請等待 ${countdown} 秒後再試`);
+      message.warning(t('message.waitCountdown').replace('{count}', String(countdown)));
       return;
     }
     handleSendResetEmail({ email });
@@ -92,26 +94,27 @@ const ForgotPassword = () => {
   // 驗證驗證碼並設置新密碼
   const handleResetPassword = async (values: { password: string; confirmPassword: string }) => {
     if (values.password !== values.confirmPassword) {
-      message.error('兩次輸入的密碼不一致');
+      message.error(t('message.passwordMismatch'));
       return;
     }
 
     const code = verificationCode.join('');
     if (code.length !== 6) {
-      message.error('請輸入完整的6位驗證碼');
+      message.error(t('message.codeFull'));
       return;
     }
 
     try {
       setLoading(true);
       await confirmResetPassword(email, code, values.password);
-      message.success('密碼重置成功！');
+      message.success(t('message.resetSuccess'));
       setCurrentStep(2);
       setTimeout(() => {
         navigate('/auth/login');
       }, 2000);
-    } catch (error: any) {
-      message.error(error.message || '重置密碼失敗');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : t('message.resetFail');
+      message.error(msg);
     } finally {
       setLoading(false);
     }
@@ -126,20 +129,20 @@ const ForgotPassword = () => {
   return (
     <PublicRoute>
       <SEO
-        title="忘記密碼 - 熊媽媽法庭"
-        description="重置您的帳號密碼"
-        keywords="忘記密碼,重置密碼"
+        title={t('auth.forgot.title')}
+        description={t('auth.forgot.description')}
+        keywords={t('auth.forgot.keywords')}
       />
-      <div className="auth-page forgot-password-page" role="main" aria-label="忘記密碼頁面">
+      <div className="auth-page forgot-password-page" role="main" aria-label={t('auth.forgot.pageLabel')}>
         <AnimatedWrapper animation="scale" delay={100}>
           <Card className="auth-card">
             <div className="auth-header" aria-labelledby="forgot-title">
               <BearJudge size="medium" animated />
               <Title level={2} id="forgot-title" className="auth-title">
-                忘記密碼
+                {t('auth.forgot.heading')}
               </Title>
               <Text type="secondary" className="auth-subtitle">
-                重置您的帳號密碼
+                {t('auth.forgot.subtitle')}
               </Text>
             </div>
 
@@ -147,11 +150,11 @@ const ForgotPassword = () => {
               current={currentStep}
               className="reset-steps"
               items={[
-                { title: '輸入郵箱' },
-                { title: '驗證碼驗證' },
-                { title: '設置新密碼' },
+                { title: t('auth.forgot.stepEmail') },
+                { title: t('auth.forgot.stepVerify') },
+                { title: t('auth.forgot.stepPassword') },
               ]}
-              aria-label="重置密碼步驟"
+              aria-label={t('auth.forgot.stepsLabel')}
             />
 
           {currentStep === 0 && (
@@ -165,22 +168,22 @@ const ForgotPassword = () => {
             >
               <Form.Item
                 name="email"
-                label="郵箱地址"
+                label={t('auth.login.email')}
                 rules={[
-                  { required: true, message: '請輸入郵箱地址' },
-                  { type: 'email', message: '請輸入有效的郵箱地址' },
+                  { required: true, message: t('auth.login.emailRequired') },
+                  { type: 'email', message: t('auth.login.emailInvalid') },
                 ]}
               >
                 <Input
                   prefix={<MailOutlined />}
-                  placeholder="請輸入註冊時使用的郵箱地址"
+                  placeholder={t('auth.forgot.emailPlaceholder')}
                   autoComplete="email"
                 />
               </Form.Item>
 
               <Form.Item>
                 <Button type="primary" htmlType="submit" block loading={loading} className="auth-submit-button">
-                  發送重置郵件
+                  {t('auth.forgot.sendResetEmail')}
                 </Button>
               </Form.Item>
             </Form>
@@ -189,7 +192,7 @@ const ForgotPassword = () => {
           {currentStep === 1 && (
             <div className="verification-step">
               <div className="verification-info">
-                <Text>驗證碼已發送到：</Text>
+                <Text>{t('auth.register.codeSentTo')}</Text>
                 <Text strong>{email}</Text>
               </div>
 
@@ -215,7 +218,7 @@ const ForgotPassword = () => {
 
               <div className="countdown-info">
                 <Text type="secondary">
-                  驗證碼有效期：5分鐘，還剩 {formatCountdown(countdown)}
+                  {t('auth.register.codeExpiry')} {formatCountdown(countdown)}
                 </Text>
               </div>
 
@@ -225,7 +228,7 @@ const ForgotPassword = () => {
                 disabled={countdown > 0}
                 className="resend-code-link"
               >
-                沒有收到？重新發送
+                {t('auth.register.resendCode')}
               </Button>
 
               <Button
@@ -236,7 +239,7 @@ const ForgotPassword = () => {
                 className="auth-submit-button"
                 style={{ marginTop: 16 }}
               >
-                驗證並繼續
+                {t('auth.register.verifyAndContinue')}
               </Button>
             </div>
           )}
@@ -251,19 +254,19 @@ const ForgotPassword = () => {
             >
               <Form.Item
                 name="password"
-                label="新密碼"
+                label={t('auth.forgot.newPassword')}
                 rules={[
-                  { required: true, message: '請輸入新密碼' },
-                  { min: 8, message: '密碼至少8位' },
+                  { required: true, message: t('auth.forgot.newPasswordRequired') },
+                  { min: 8, message: t('auth.register.passwordMin') },
                   {
                     pattern: /^(?=.*[A-Za-z])(?=.*\d)/,
-                    message: '密碼必須包含字母和數字',
+                    message: t('auth.register.passwordPattern'),
                   },
                 ]}
               >
                 <Input.Password
                   prefix={<LockOutlined />}
-                  placeholder="請輸入新密碼（至少8位，包含字母和數字）"
+                  placeholder={t('auth.forgot.newPasswordPlaceholder')}
                   iconRender={(visible) => (visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />)}
                   autoComplete="new-password"
                 />
@@ -271,23 +274,23 @@ const ForgotPassword = () => {
 
               <Form.Item
                 name="confirmPassword"
-                label="確認新密碼"
+                label={t('auth.forgot.confirmNewPassword')}
                 dependencies={['password']}
                 rules={[
-                  { required: true, message: '請再次輸入新密碼' },
+                  { required: true, message: t('auth.forgot.confirmNewRequired') },
                   ({ getFieldValue }) => ({
                     validator(_, value) {
                       if (!value || getFieldValue('password') === value) {
                         return Promise.resolve();
                       }
-                      return Promise.reject(new Error('兩次輸入的密碼不一致'));
+                      return Promise.reject(new Error(t('message.passwordMismatch')));
                     },
                   }),
                 ]}
               >
                 <Input.Password
                   prefix={<LockOutlined />}
-                  placeholder="請再次輸入新密碼"
+                  placeholder={t('auth.forgot.confirmNewPlaceholder')}
                   iconRender={(visible) => (visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />)}
                   autoComplete="new-password"
                 />
@@ -295,7 +298,7 @@ const ForgotPassword = () => {
 
               <Form.Item>
                 <Button type="primary" htmlType="submit" block loading={loading} className="auth-submit-button">
-                  重置密碼
+                  {t('auth.forgot.resetButton')}
                 </Button>
               </Form.Item>
             </Form>
@@ -304,13 +307,13 @@ const ForgotPassword = () => {
           {currentStep === 2 && (
             <div className="success-step">
               <CheckCircleOutlined className="success-icon" />
-              <Title level={4}>密碼重置成功！</Title>
-              <Text type="secondary">正在跳轉到登錄頁面...</Text>
+              <Title level={4}>{t('auth.forgot.successTitle')}</Title>
+              <Text type="secondary">{t('auth.forgot.redirecting')}</Text>
             </div>
           )}
 
           <div className="auth-divider">
-            <Text type="secondary">記起密碼了？</Text>
+            <Text type="secondary">{t('auth.forgot.rememberPassword')}</Text>
           </div>
 
           <Button
@@ -319,7 +322,7 @@ const ForgotPassword = () => {
             onClick={() => navigate('/auth/login')}
             className="auth-switch-link"
           >
-            返回登錄
+            {t('auth.forgot.backToLogin')}
           </Button>
         </Card>
         </AnimatedWrapper>

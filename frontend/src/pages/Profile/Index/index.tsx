@@ -26,6 +26,7 @@ import { formatFileSize } from '@/utils/format';
 import ProtectedRoute from '@/components/common/ProtectedRoute';
 import SEO from '@/components/common/SEO';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
+import { t } from '@/utils/i18n';
 import './Index.less';
 
 const { Title, Text } = Typography;
@@ -39,6 +40,7 @@ const ProfileIndex = () => {
 
   useEffect(() => {
     fetchProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 僅 mount 時拉取一次
   }, []);
 
   const fetchProfile = async () => {
@@ -47,21 +49,23 @@ const ProfileIndex = () => {
       const profile = await getProfile();
       form.setFieldsValue(profile);
       updateUser(profile);
-    } catch (error: any) {
-      message.error(error.message || '獲取個人資料失敗');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : t('message.getProfileIndexFail');
+      message.error(msg);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = async (values: any) => {
+  const handleSubmit = async (values: Parameters<typeof updateProfile>[0]) => {
     setSaving(true);
     try {
       const updatedUser = await updateProfile(values);
       updateUser(updatedUser);
-      message.success('個人資料更新成功');
-    } catch (error: any) {
-      message.error(error.message || '更新失敗');
+      message.success(t('message.profileUpdateSuccess'));
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : t('message.updateFail');
+      message.error(msg);
     } finally {
       setSaving(false);
     }
@@ -70,7 +74,7 @@ const ProfileIndex = () => {
   if (loading) {
     return (
       <div className="profile-index-page">
-        <Spin size="large" tip="加載中..." />
+        <Spin size="large" tip={t('common.loading')} />
       </div>
     );
   }
@@ -78,13 +82,13 @@ const ProfileIndex = () => {
   return (
     <ProtectedRoute>
       <SEO
-        title="個人資料 - 熊媽媽法庭"
-        description="查看和編輯您的個人資料"
+        title={t('profileIndex.title')}
+        description={t('profileIndex.description')}
       />
-      <div className="profile-index-page" role="main" aria-label="個人資料頁面">
+      <div className="profile-index-page" role="main" aria-label={t('profileIndex.pageLabel')}>
         <AnimatedWrapper animation="fade" delay={100}>
           <Title level={2} id="profile-title">
-            個人資料
+            {t('profileIndex.heading')}
           </Title>
         </AnimatedWrapper>
 
@@ -94,9 +98,9 @@ const ProfileIndex = () => {
               form={form}
               layout="vertical"
               onFinish={handleSubmit}
-              aria-label="個人資料表單"
+              aria-label={t('profileIndex.formLabel')}
             >
-            <Form.Item label="頭像">
+            <Form.Item label={t('profileIndex.avatarLabel')}>
               <Space>
                 <Avatar
                   src={user?.avatar_url}
@@ -109,11 +113,11 @@ const ProfileIndex = () => {
                   showUploadList={false}
                   beforeUpload={async (file) => {
                     if (!file.type.startsWith('image/')) {
-                      message.error('僅支持圖片作為頭像，請重新選擇');
+                      message.error(t('message.avatarOnlyImage'));
                       return Upload.LIST_IGNORE;
                     }
                     if (file.size > MAX_FILE_SIZE) {
-                      message.error(`頭像大小不能超過 ${formatFileSize(MAX_FILE_SIZE)}`);
+                      message.error(t('message.avatarSizeLimit').replace('{size}', formatFileSize(MAX_FILE_SIZE)));
                       return Upload.LIST_IGNORE;
                     }
                     setUploading(true);
@@ -129,37 +133,37 @@ const ProfileIndex = () => {
                       });
                       const json = await resp.json();
                       if (!resp.ok || !json.success) {
-                        throw new Error(json.error?.message || '頭像上傳失敗');
+                        throw new Error(json.error?.message || t('message.avatarUploadFail'));
                       }
                       updateUser(json.data.user);
-                      message.success('頭像更新成功');
-                    } catch (err: any) {
-                      message.error(err.message || '頭像上傳失敗');
+                      message.success(t('message.avatarSuccess'));
+                    } catch (err: unknown) {
+                      const msg = err instanceof Error ? err.message : t('message.avatarUploadFail');
+                      message.error(msg);
                     } finally {
                       setUploading(false);
                     }
-                    // 阻止 Upload 默認上傳
                     return false;
                   }}
                 >
-                  <Button icon={<UploadOutlined />} loading={uploading}>上傳頭像</Button>
+                  <Button icon={<UploadOutlined />} loading={uploading}>{t('profileIndex.uploadAvatar')}</Button>
                 </Upload>
                 <Text type="secondary" style={{ display: 'block' }}>
-                  僅支持直接上傳本站/內建存儲的圖片，不支持外鏈 URL；若鏈接失效請重新上傳。
+                  {t('profileIndex.avatarHint')}
                 </Text>
               </Space>
             </Form.Item>
 
             <Form.Item
               name="nickname"
-              label="暱稱"
+              label={t('profileIndex.nicknameLabel')}
             >
-              <Input placeholder="請輸入暱稱" maxLength={20} />
+              <Input placeholder={t('profileIndex.nicknamePlaceholder')} maxLength={20} />
             </Form.Item>
 
             <Form.Item
               name="email"
-              label="郵箱"
+              label={t('profileIndex.emailLabel')}
             >
               <Input disabled />
             </Form.Item>
@@ -169,9 +173,9 @@ const ProfileIndex = () => {
                 type="primary"
                 htmlType="submit"
                 loading={saving}
-                aria-label="保存個人資料"
+                aria-label={t('profileIndex.saveAria')}
               >
-                保存
+                {t('profileIndex.save')}
               </Button>
             </Form.Item>
           </Form>

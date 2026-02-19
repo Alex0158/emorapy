@@ -21,9 +21,21 @@ type Step = {
 const AUTO_PLAY_MS = 8500;
 
 const sceneVariants = {
-  initial: { opacity: 0, y: 15, scale: 0.96 },
-  animate: { opacity: 1, y: 0, scale: 1 },
-  exit: { opacity: 0, y: -15, scale: 0.96 }
+  initial: { opacity: 0, rotateX: 20, y: 20, scale: 0.95 },
+  animate: { opacity: 1, rotateX: 0, y: 0, scale: 1 },
+  exit: { opacity: 0, rotateX: -20, y: -20, scale: 0.95 }
+};
+
+const orbColors = [
+  ['rgba(59, 130, 246, 0.15)', 'rgba(255, 140, 66, 0.1)', 'rgba(16, 185, 129, 0.1)'], // Step 0
+  ['rgba(16, 185, 129, 0.15)', 'rgba(59, 130, 246, 0.1)', 'rgba(255, 140, 66, 0.1)'], // Step 1
+  ['rgba(139, 92, 246, 0.2)', 'rgba(6, 182, 212, 0.15)', 'rgba(236, 72, 153, 0.15)'], // Step 2 (Tech)
+  ['rgba(245, 158, 11, 0.15)', 'rgba(252, 211, 77, 0.15)', 'rgba(251, 113, 133, 0.1)'], // Step 3 (Warm)
+  ['rgba(16, 185, 129, 0.2)', 'rgba(52, 211, 153, 0.15)', 'rgba(110, 231, 183, 0.15)'], // Step 4 (Success)
+];
+
+const getTimeForStep = (step: number) => {
+  return ['09:41', '09:43', '09:48', '09:55', '10:02'][step] || '09:41';
 };
 
 const TypingIndicator = () => (
@@ -76,7 +88,18 @@ const TypewriterText = ({
       }}
     >
       {characters.map((char, index) => (
-        <motion.span key={index} variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}>
+        <motion.span 
+          key={index} 
+          variants={{ 
+            hidden: { opacity: 0, filter: 'blur(4px)' }, 
+            visible: { 
+              opacity: 1, 
+              filter: 'blur(0px)',
+              textShadow: ['0 0 10px rgba(255,140,66,0.6)', '0 0 0px transparent'],
+              transition: { textShadow: { duration: 1 } }
+            } 
+          }}
+        >
           {char}
         </motion.span>
       ))}
@@ -156,7 +179,6 @@ const AnimatedNumber = ({ value }: { value: number }) => {
       const elapsed = currentTime - startTime;
       const p = Math.min(elapsed / duration, 1);
       
-      // easeOutQuart
       const easeProgress = 1 - Math.pow(1 - p, 4);
       const currentVal = Math.floor(easeProgress * value);
       
@@ -191,28 +213,24 @@ const PhoneSimulator = ({
   const isA = role === 'A';
   const roleName = isA ? '用戶 A' : '用戶 B';
   
-  // Decide if this phone is the "active" focus for the current step
   const isActiveRole = 
     (activeStep === 0 && isA) || 
     (activeStep === 1 && !isA) || 
     (activeStep >= 2);
 
-  // Dynamic parallax rotations
   const defaultRotateX = isA ? 4 : 2;
   const defaultRotateY = isA ? 6 : -6;
 
   const dynamicRotateX = useTransform(mouseY, [-0.5, 0.5], [12 + defaultRotateX, -12 + defaultRotateX]);
   const dynamicRotateY = useTransform(mouseX, [-0.5, 0.5], [-12 + defaultRotateY, 12 + defaultRotateY]);
 
-  // Is typing state to highlight inputs
   const [isTypingPhase, setIsTypingPhase] = useState(true);
   useEffect(() => {
     setIsTypingPhase(true);
-    const timer = setTimeout(() => setIsTypingPhase(false), 2500); // Input finishes typing around 2.5s
+    const timer = setTimeout(() => setIsTypingPhase(false), 2500); 
     return () => clearTimeout(timer);
   }, [activeStep]);
 
-  // Button Morphing Logic
   const buttonState = progress < 75 ? 'idle' : progress < 92 ? 'loading' : 'success';
 
   return (
@@ -233,7 +251,7 @@ const PhoneSimulator = ({
         </div>
         <div className="phone-screen">
           <div className="screen-topbar">
-            <span className="time">9:41</span>
+            <span className="time">{getTimeForStep(activeStep)}</span>
             <div className="right-icons">
               <div className="signal-icon"></div>
               <div className="wifi-icon"></div>
@@ -692,7 +710,7 @@ const PhoneSimulator = ({
                               <div className="task-checkbox"><CheckCircleFilled /></div>
                               <div className="task-content">
                                 <strong>分擔責任</strong>
-                                <span>主動認領並固定負責至少一項家務</span>
+                                <span>主惹認領並固定負責至少一項家務</span>
                               </div>
                             </motion.li>
                           </>
@@ -777,8 +795,6 @@ const FlowSimulation = () => {
 
   const handleMouseLeave = () => {
     setIsHovered(false);
-    mouseX.set(0);
-    mouseY.set(0);
   };
 
   useEffect(() => {
@@ -787,6 +803,7 @@ const FlowSimulation = () => {
 
     let mounted = true;
     let startTime = Date.now();
+    let idleStartTime = Date.now();
     let animationFrameId: number;
     
     if (isHovered) {
@@ -798,6 +815,12 @@ const FlowSimulation = () => {
       if (!mounted) return;
       
       const now = Date.now();
+      
+      // Idle breathing for parallax
+      const idleElapsed = now - idleStartTime;
+      mouseX.set(Math.sin(idleElapsed / 2500) * 0.12);
+      mouseY.set(Math.cos(idleElapsed / 2000) * 0.08);
+
       const elapsed = now - startTime;
       const currentProgress = Math.min((elapsed / AUTO_PLAY_MS) * 100, 100);
       
@@ -818,7 +841,7 @@ const FlowSimulation = () => {
       mounted = false;
       cancelAnimationFrame(animationFrameId);
     };
-  }, [steps.length, isHovered, activeStep]);
+  }, [steps.length, isHovered, activeStep, mouseX, mouseY]);
 
   const getStreamDirectionClass = (step: number) => {
     if (step === 0) return 'flow-a-to-b';
@@ -847,10 +870,10 @@ const FlowSimulation = () => {
       </svg>
       <div className="bg-grid"></div>
       
-      {/* 裝飾性環境懸浮球 */}
-      <div className="ambient-orb orb-1"></div>
-      <div className="ambient-orb orb-2"></div>
-      <div className="ambient-orb orb-3"></div>
+      {/* 裝飾性環境懸浮球, 動態顏色 */}
+      <motion.div className="ambient-orb orb-1" animate={{ background: orbColors[activeStep][0] }} transition={{ duration: 2 }} />
+      <motion.div className="ambient-orb orb-2" animate={{ background: orbColors[activeStep][1] }} transition={{ duration: 2 }} />
+      <motion.div className="ambient-orb orb-3" animate={{ background: orbColors[activeStep][2] }} transition={{ duration: 2 }} />
       
       <div className="container">
         <motion.div
@@ -871,10 +894,19 @@ const FlowSimulation = () => {
           {/* 左側步驟列表 */}
           <div className="flow-demo-steps-container">
             <ol className="flow-demo-steps">
+              <div className="steps-progress-bg"></div>
+              <div className="steps-progress-line">
+                <motion.div 
+                  className="steps-progress-fill" 
+                  animate={{ height: `${(activeStep / (steps.length - 1)) * 100}%` }} 
+                  transition={{ duration: 0.8, type: 'spring' }}
+                />
+              </div>
+              
               {steps.map((step, index) => {
                 const isActive = index === activeStep;
                 const isCompleted = index < activeStep;
-                const circumference = 2 * Math.PI * 24; // ~150.8
+                const circumference = 2 * Math.PI * 24;
 
                 return (
                   <motion.li

@@ -6,7 +6,7 @@
  * 設置頁面標題
  */
 export const setPageTitle = (title: string): void => {
-  document.title = `${title} - 熊媽媽法庭`;
+  document.title = `${title} - 關係修復室`;
 };
 
 /**

@@ -131,12 +131,6 @@ request.interceptors.request.use(
     const sessionId = sessionStorage.get();
     if (sessionId && !config.headers['X-Session-Id']) {
       config.headers['X-Session-Id'] = sessionId;
-      // 同時添加到查詢參數（後端可能從查詢參數讀取）
-      if (config.params) {
-        config.params.session_id = sessionId;
-      } else {
-        config.params = { session_id: sessionId };
-      }
     }
 
     return config;
@@ -206,6 +200,27 @@ request.interceptors.response.use(
       const errorData: ErrorLike = (errBody?.error as ErrorLike) ?? (typeof data === 'object' && data !== null ? (data as ErrorLike) : {});
 
       switch (status) {
+        case 400: {
+          const code = errorData?.code;
+          if (code === 'SESSION_ID_REQUIRED' || code === 'INVALID_SESSION_ID') {
+            try {
+              const { useSessionStore } = await import('@/store/sessionStore');
+              useSessionStore.getState().clearSession();
+              const refreshed = await useSessionStore.getState().refreshSession(true);
+              if (refreshed) {
+                message.warning(errorData?.message || t('common.sessionExpiredRefreshed'));
+              } else {
+                message.error(errorData?.message || t('error.session.expiredHint'));
+              }
+            } catch {
+              message.error(errorData?.message || t('error.session.expiredHint'));
+            }
+            break;
+          }
+          message.error(errorData?.message || t('common.validationError'));
+          break;
+        }
+
         case 401: {
           const code = errorData?.code;
 
@@ -230,16 +245,12 @@ request.interceptors.response.use(
           // 未認證（完整模式），清除token並跳轉到登錄頁
           localStorage.removeItem('token');
           // 使用useAuthStore清除狀態（如果可用）
-          try {
-            // 動態導入避免循環依賴
-            import('@/store/authStore').then(({ useAuthStore }) => {
-              useAuthStore.getState().logout();
-            }).catch(() => {
-              // Store可能未初始化，忽略
-            });
-          } catch {
-            // 忽略錯誤
-          }
+          // 動態導入避免循環依賴
+          import('@/store/authStore').then(({ useAuthStore }) => {
+            useAuthStore.getState().logout();
+          }).catch(() => {
+            // Store可能未初始化，忽略
+          });
           if (window.location.pathname !== '/auth/login') {
             window.location.href = '/auth/login';
           }

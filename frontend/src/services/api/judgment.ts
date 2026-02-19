@@ -16,7 +16,7 @@ export const generateJudgment = async (
   sessionId?: string
 ): Promise<Judgment> => {
   const config = sessionId
-    ? { headers: { 'X-Session-Id': sessionId } as Record<string, string>, params: { session_id: sessionId } }
+    ? { headers: { 'X-Session-Id': sessionId } as Record<string, string> }
     : undefined;
   const response = await request.post<ApiResponse<{ judgment: Judgment }>>(
     `/judgments/generate/${caseId}`,
@@ -45,7 +45,7 @@ export const getJudgmentByCaseId = async (
 ): Promise<Judgment | null> => {
   try {
     const config = sessionId
-      ? { headers: { 'X-Session-Id': sessionId } as Record<string, string>, params: { session_id: sessionId } }
+      ? { headers: { 'X-Session-Id': sessionId } as Record<string, string> }
       : undefined;
     const response = await request.get<ApiResponse<{ judgment: Judgment }>>(
       `/cases/${caseId}/judgment`,

@@ -24,19 +24,19 @@ export const MAX_VIDEO_COUNT = 1;
 export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif'];
 export const ALLOWED_VIDEO_TYPES = ['video/mp4'];
 
-// 顏色定義（品牌色）
+// 顏色定義（現代溫暖 SaaS 風格 - 友善、清晰、令人安心）
 export const COLORS = {
-  primary: '#FF8C42', // 溫暖橘
-  secondary: '#5B9BD5', // 柔和藍
-  success: '#52C41A',
-  warning: '#FAAD14',
-  error: '#FF4D4F',
-  textPrimary: '#262626',
-  textSecondary: '#595959',
-  textTertiary: '#8C8C8C',
-  border: '#D9D9D9',
-  background: '#FAFAFA',
-  white: '#FFFFFF',
+  primary: '#FF8E5E', // 溫暖的珊瑚橘 (Role A) - 帶來鼓勵與活力
+  secondary: '#5BB1D2', // 柔和的天空藍 (Role B) - 帶來平靜與理性
+  success: '#4ADE80', // 現代感亮綠色
+  warning: '#FBBF24', // 現代感溫暖黃
+  error: '#F87171', // 柔和的警示紅
+  textPrimary: '#1E293B', //  Slate 800 - 清晰但不刺眼的深色
+  textSecondary: '#64748B', // Slate 500 - 友善的輔助文字色
+  textTertiary: '#94A3B8', // Slate 400
+  border: '#E2E8F0', // Slate 200 - 乾淨柔和的邊框
+  background: '#F8FAFC', // Slate 50 - 極淡的冷白背景，讓純白卡片更突出
+  white: '#FFFFFF', // 純白卡片
 } as const;
 
 // 間距定義

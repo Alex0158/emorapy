@@ -1,7 +1,21 @@
 .bear-judge {
-  display: inline-block;
-  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   user-select: none;
+  width: 1em;
+  height: 1em;
+  border-radius: 50%;
+  text-align: center;
+  line-height: 1;
+  background: linear-gradient(160deg, #fff8f3 0%, #ffeede 100%);
+  border: 1px solid rgba(255, 140, 66, 0.18);
+  box-shadow: 0 8px 20px rgba(255, 140, 66, 0.16);
+
+  .bear-judge__icon {
+    font-size: 0.52em;
+    line-height: 1;
+  }
 
   &.animated {
     animation: gentle-bounce 2s ease-in-out infinite;
@@ -17,6 +31,15 @@
 
   &.large {
     line-height: 1;
+  }
+
+  &.appearance-bear {
+    background: linear-gradient(160deg, #fff7ef 0%, #ffe2c7 100%);
+  }
+
+  &.appearance-balance {
+    background: linear-gradient(160deg, #f5f8ff 0%, #e8efff 100%);
+    border-color: rgba(24, 144, 255, 0.2);
   }
 }
 

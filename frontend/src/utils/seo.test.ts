@@ -10,9 +10,9 @@ describe('seo', () => {
   });
 
   describe('setPageTitle', () => {
-    it('應設置 document.title 為「標題 - 熊媽媽法庭」', () => {
+    it('應設置 document.title 為「標題 - 關係修復室」', () => {
       setPageTitle('執行儀表板');
-      expect(document.title).toBe('執行儀表板 - 熊媽媽法庭');
+      expect(document.title).toBe('執行儀表板 - 關係修復室');
     });
   });
 
@@ -28,7 +28,7 @@ describe('seo', () => {
   describe('initSEO', () => {
     it('應設置 title、description 與 og:title、og:type', () => {
       initSEO({ title: '首頁', description: '首頁描述' });
-      expect(document.title).toBe('首頁 - 熊媽媽法庭');
+      expect(document.title).toBe('首頁 - 關係修復室');
       const desc = document.querySelector('meta[name="description"]') as HTMLMetaElement;
       expect(desc?.content).toBe('首頁描述');
       const ogTitle = document.querySelector('meta[property="og:title"]') as HTMLMetaElement;

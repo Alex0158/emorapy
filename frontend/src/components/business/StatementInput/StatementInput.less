@@ -1,43 +1,50 @@
 .statement-input-wrapper {
   position: relative;
+  width: 100%;
 
   .statement-label {
     margin-bottom: 12px;
-    font-size: 18px;
-    font-weight: bold;
+    font-size: 16px;
+    font-weight: 700;
+    color: #1E293B; /* Slate 800 */
   }
 
+  /* 引導問題 - 卡片式呈現 */
   .guide-questions {
-    background: #f5f5f5;
-    padding: 16px;
-    border-radius: 8px;
-    margin-bottom: 16px;
+    background: #F8FAFC; /* Slate 50 */
+    border: 1px solid transparent;
+    border-radius: 12px;
+    padding: 0 20px;
+    margin-bottom: 0;
     opacity: 0;
     max-height: 0;
     overflow: hidden;
-    transition: all 0.3s ease;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: translateY(-10px);
 
     &.visible {
       opacity: 1;
       max-height: 200px;
-      margin-bottom: 16px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
+      border-color: #E2E8F0;
+      transform: translateY(0);
     }
 
     .guide-item {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
       margin-bottom: 8px;
       font-size: 14px;
-      color: #595959;
+      color: #475569; /* Slate 600 */
+      font-weight: 500;
 
-      &:last-child {
-        margin-bottom: 0;
-      }
+      &:last-child { margin-bottom: 0; }
 
       .guide-icon {
-        color: #ff8c42;
-        font-size: 14px;
+        color: #FF8E5E; /* Primary Coral */
+        font-size: 16px;
       }
     }
   }
@@ -46,58 +53,65 @@
     position: relative;
 
     .statement-textarea {
-      min-height: 200px;
+      min-height: 240px !important;
       font-size: 16px;
-      line-height: 1.5;
-      transition: all 0.3s ease;
+      line-height: 1.6;
+      padding: 20px;
+      border-radius: 16px;
+      border: 2px solid #E2E8F0 !important;
+      background: #FFFFFF;
+      color: #1E293B;
+      transition: all 0.2s ease;
+      resize: vertical;
+      box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.02) !important;
+
+      &::placeholder {
+        color: #94A3B8; /* Slate 400 */
+        font-weight: 400;
+      }
+
+      &:hover {
+        border-color: #CBD5E1 !important; /* Slate 300 */
+      }
 
       &:focus {
-        border-color: #ff8c42;
-        box-shadow: 0 0 0 2px rgba(255, 140, 66, 0.2);
+        background: #FFFFFF;
+        border-color: #FF8E5E !important; /* Primary */
+        box-shadow: 0 0 0 4px rgba(255, 142, 94, 0.15) !important;
+        outline: none;
       }
     }
 
     .validation-status {
       position: absolute;
-      top: 12px;
-      right: 12px;
+      top: 16px;
+      right: 16px;
       z-index: 1;
 
       .status-icon {
-        font-size: 20px;
+        font-size: 24px;
+        background: #fff;
+        border-radius: 50%;
+        padding: 2px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 
-        &.valid {
-          color: #52c41a;
-        }
-
-        &.invalid {
-          color: #ff4d4f;
-        }
+        &.valid { color: #4ADE80; } /* Modern Green */
+        &.invalid { color: #F87171; } /* Modern Red */
       }
     }
   }
 
   .word-count {
-    margin-top: 8px;
-    font-size: 12px;
+    margin-top: 10px;
+    font-size: 13px;
     text-align: right;
+    font-weight: 600;
     transition: color 0.3s ease;
 
-    &.success {
-      color: #52c41a;
-    }
-
-    &.warning {
-      color: #faad14;
-    }
-
-    &.error {
-      color: #ff4d4f;
-    }
-
-    &.default {
-      color: #8c8c8c;
-    }
+    &.success { color: #4ADE80; }
+    &.warning { color: #FBBF24; }
+    &.error { color: #F87171; }
+    &.default { color: #94A3B8; }
   }
 
   &.focused {
@@ -107,4 +121,3 @@
     }
   }
 }
-

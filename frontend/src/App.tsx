@@ -50,9 +50,9 @@ function App() {
 
     // 初始化全局SEO
     initSEO({
-      title: '熊媽媽法庭',
-      description: '大愛、包容、保護、呵護，為您的關係提供公正溫暖的判決。',
-      keywords: '情侶衝突,關係修復,AI判決,和好方案,熊媽媽法庭',
+      title: '關係修復室',
+      description: '幫你釐清爭點、重建對話、推進修復。',
+      keywords: '伴侶衝突,關係修復,衝突溝通,AI調解,關係修復室',
       image: `${window.location.origin}/images/bear-judge/mother-bear-judge-large.png`,
       url: window.location.origin,
     });

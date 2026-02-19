@@ -3,8 +3,9 @@ import { ExclamationCircleOutlined, UploadOutlined } from '@ant-design/icons';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
 import { MAX_IMAGE_COUNT } from '@/utils/constants';
 import { t } from '@/utils/i18n';
+import { useState } from 'react';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 
 type Props = {
   status: 'success' | 'failed' | 'pending' | null;
@@ -14,6 +15,8 @@ type Props = {
 };
 
 const EvidenceUploadSection = ({ status, caseId, isUploading, onUploadFiles }: Props) => {
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+
   if (!caseId || !status || status === 'success') return null;
 
   return (
@@ -54,15 +57,36 @@ const EvidenceUploadSection = ({ status, caseId, isUploading, onUploadFiles }: P
                 beforeUpload={() => false}
                 onChange={(info) => {
                   const fileList = info.fileList.map((f) => f.originFileObj).filter(Boolean) as File[];
-                  if (fileList.length > 0) onUploadFiles(fileList);
+                  setSelectedFiles(fileList);
                 }}
                 accept="image/*,video/*"
                 disabled={isUploading}
               >
-                <Button type="primary" icon={<UploadOutlined />} loading={isUploading} disabled={isUploading}>
-                  {isUploading ? t('evidence.action.uploading') : t('evidence.action.reupload')}
+                <Button icon={<UploadOutlined />} disabled={isUploading}>
+                  {t('evidence.action.reupload')}
                 </Button>
               </Upload>
+              {selectedFiles.length > 0 && (
+                <Space>
+                  <Text type="secondary">{`已選擇 ${selectedFiles.length} 個文件`}</Text>
+                  <Button
+                    type="primary"
+                    loading={isUploading}
+                    disabled={isUploading}
+                    onClick={() => {
+                      if (selectedFiles.length > 0) {
+                        onUploadFiles(selectedFiles);
+                        setSelectedFiles([]);
+                      }
+                    }}
+                  >
+                    {isUploading ? t('evidence.action.uploading') : '上傳已選檔案'}
+                  </Button>
+                  <Button disabled={isUploading} onClick={() => setSelectedFiles([])}>
+                    清空
+                  </Button>
+                </Space>
+              )}
             </Space>
           </Card>
         </div>

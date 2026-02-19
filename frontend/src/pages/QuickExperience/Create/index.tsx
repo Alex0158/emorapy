@@ -2,7 +2,7 @@
  * 快速體驗 - 創建案件頁面（優化版）
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Card,
@@ -64,6 +64,7 @@ const QuickExperienceCreate = () => {
   const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | null>(null);
   const [isGeneratingDefendant, setIsGeneratingDefendant] = useState(false);
   const [recoveredCase, setRecoveredCase] = useState<{ id: string; status: string } | null>(null);
+  const submitLockRef = useRef(false);
 
   // 根據屏幕寬度自動切換布局
   useEffect(() => {
@@ -218,11 +219,15 @@ const QuickExperienceCreate = () => {
 
   // 處理提交
   const handleSubmit = async () => {
+    if (submitLockRef.current) {
+      return;
+    }
     if (!canSubmit) {
       message.warning(t('message.completePlaintiff'));
       return;
     }
 
+    submitLockRef.current = true;
     try {
       if (!sessionStorage.get() && !session?.session_id) {
         await createSession().catch(() => {});
@@ -283,6 +288,8 @@ const QuickExperienceCreate = () => {
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : t('message.submitFail');
       message.error(msg);
+    } finally {
+      submitLockRef.current = false;
     }
   };
 
@@ -368,7 +375,7 @@ const QuickExperienceCreate = () => {
                     aria-labelledby="plaintiff-title"
                     tabIndex={0}
                   >
-                <div className="card-header">
+                <div className="card-header" style={{ marginBottom: 12 }}>
                   <span className="role-badge role-a" aria-hidden="true">
                     {t('quickCreate.roleA')}
                   </span>
@@ -376,11 +383,13 @@ const QuickExperienceCreate = () => {
                     {t('quickCreate.plaintiffTitle')}
                   </Title>
                 </div>
+                <Text type="secondary" style={{ display: 'block', marginBottom: 20, fontSize: 14, color: '#64748B' }}>
+                  請具體描述事件與感受（至少需要30字）
+                </Text>
 
                     <StatementInput
                       value={plaintiffStatement}
                       onChange={setPlaintiffStatement}
-                      label={t('quickCreate.plaintiffLabel')}
                       role="plaintiff"
                       showGuide={true}
                       minLength={30}
@@ -411,7 +420,7 @@ const QuickExperienceCreate = () => {
                     aria-labelledby="defendant-title"
                     tabIndex={0}
                   >
-                <div className="card-header">
+                <div className="card-header" style={{ marginBottom: 12 }}>
                   <span className="role-badge role-b" aria-hidden="true">
                     {t('quickCreate.roleB')}
                   </span>
@@ -419,11 +428,13 @@ const QuickExperienceCreate = () => {
                     {t('quickCreate.defendantTitle')}
                   </Title>
                 </div>
+                <Text type="secondary" style={{ display: 'block', marginBottom: 20, fontSize: 14, color: '#64748B' }}>
+                  可選填。若不知如何開口，可點擊下方「自動代寫」
+                </Text>
 
                     <StatementInput
                       value={defendantStatement}
                       onChange={setDefendantStatement}
-                      label={t('quickCreate.defendantLabel')}
                       role="defendant"
                       showGuide={true}
                       allowEmpty

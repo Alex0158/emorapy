@@ -69,7 +69,7 @@ describe('Login', () => {
         <Login />
       </MemoryRouter>
     );
-    expect(screen.getByRole('button', { name: /登錄|登录/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /登\s*錄|登录/ })).toBeInTheDocument();
   });
 
   it('應有登錄頁面 role 與 aria-label', () => {

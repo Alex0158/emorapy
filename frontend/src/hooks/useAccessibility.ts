@@ -14,11 +14,19 @@ export const useKeyboardNavigation = (
   onArrowDown?: () => void,
   enabled = true
 ) => {
-  const handleKeyDown = (e: KeyboardEvent) => {
-    if (!enabled) return;
+  const isEditableTarget = (target: EventTarget | null): boolean => {
+    if (!(target instanceof HTMLElement)) return false;
+    const tag = target.tagName.toLowerCase();
+    return tag === 'input' || tag === 'textarea' || target.isContentEditable;
+  };
 
+  const handleKeyDown = (e: KeyboardEvent) => {
     switch (e.key) {
       case 'Enter':
+        // 保留輸入控件中的原生 Enter 行為；Ctrl/Cmd+Enter 交給快捷鍵系統處理
+        if (e.ctrlKey || e.metaKey || isEditableTarget(e.target)) {
+          return;
+        }
         onEnter?.();
         break;
       case 'Escape':

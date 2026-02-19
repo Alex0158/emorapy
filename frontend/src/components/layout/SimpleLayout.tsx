@@ -16,7 +16,7 @@ const SimpleLayout = () => {
       <ScrollToTop />
       <Header className="simple-header">
         <Link to="/" className="logo-link">
-          <span className="logo-text">🐻 熊媽媽法庭</span>
+          <span className="logo-text">關係修復室</span>
         </Link>
       </Header>
       <Content className="simple-content">

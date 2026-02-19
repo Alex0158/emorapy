@@ -49,6 +49,7 @@ export const usePolling = <T>(
   const attemptCountRef = useRef(0);
   const startTimeRef = useRef<number | null>(null);
   const currentIntervalRef = useRef(initialInterval);
+  const isActiveRef = useRef(false);
 
   // Update refs if fn or condition changes
   useEffect(() => {
@@ -57,6 +58,7 @@ export const usePolling = <T>(
   }, [fn, condition]);
 
   const stopPolling = useCallback(() => {
+    isActiveRef.current = false;
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
@@ -65,15 +67,19 @@ export const usePolling = <T>(
   }, []);
 
   const startPolling = useCallback(() => {
-    if (timerRef.current) {
-      stopPolling();
+    if (isActiveRef.current) {
+      return;
     }
+    isActiveRef.current = true;
 
     attemptCountRef.current = 0;
     startTimeRef.current = Date.now();
     currentIntervalRef.current = initialInterval;
 
     const poll = async () => {
+      if (!isActiveRef.current) {
+        return;
+      }
       // 檢查是否超過最大次數
       if (attemptCountRef.current >= maxAttempts) {
         stopPolling();
@@ -91,6 +97,9 @@ export const usePolling = <T>(
       try {
         attemptCountRef.current++;
         const data = await fnRef.current();
+        if (!isActiveRef.current) {
+          return;
+        }
         
         if (conditionRef.current(data)) {
           stopPolling();
@@ -106,7 +115,9 @@ export const usePolling = <T>(
         }
 
         // 安排下次輪詢
-        timerRef.current = setTimeout(poll, currentIntervalRef.current);
+        if (isActiveRef.current) {
+          timerRef.current = setTimeout(poll, currentIntervalRef.current);
+        }
       } catch (error) {
         logger.error('Polling error', error);
         
@@ -119,7 +130,7 @@ export const usePolling = <T>(
         }
         
         // 繼續輪詢（除非達到限制）
-        if (attemptCountRef.current < maxAttempts) {
+        if (isActiveRef.current && attemptCountRef.current < maxAttempts) {
           timerRef.current = setTimeout(poll, currentIntervalRef.current);
         } else {
           stopPolling();

@@ -32,12 +32,12 @@ export function useSession() {
       const session = await sessionApi.createSession();
       sessionStorage.set(session.session_id);
       setSessionId(session.session_id);
+      setLoading(false);
       return session.session_id;
     } catch (error: unknown) {
       message.error(t('message.sessionCreateFail'));
-      throw error;
-    } finally {
       setLoading(false);
+      throw error;
     }
   }, []);
 

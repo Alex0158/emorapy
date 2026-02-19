@@ -6,10 +6,14 @@ import { useSessionStore } from './sessionStore';
 
 const mockCreateSession = vi.fn();
 const mockRefreshSession = vi.fn();
+const mockGetErrorMessage = vi.fn((_e: unknown, fallback: string) => fallback);
 
 vi.mock('@/services/api/session', () => ({
   createSession: (...args: unknown[]) => mockCreateSession(...args),
   refreshSession: (...args: unknown[]) => mockRefreshSession(...args),
+}));
+vi.mock('@/utils/apiError', () => ({
+  getErrorMessage: (...args: unknown[]) => mockGetErrorMessage(...args),
 }));
 
 const mockSessionStorageGet = vi.fn();
@@ -73,6 +77,26 @@ describe('sessionStore', () => {
     expect(useSessionStore.getState().isLoading).toBe(false);
   });
 
+  it('createSession 拋出非 Error 時應使用默認錯誤訊息', async () => {
+    mockCreateSession.mockRejectedValue('boom');
+    const result = await useSessionStore.getState().createSession();
+    expect(result).toBeNull();
+    expect(useSessionStore.getState().error).toBe('創建Session失敗');
+  });
+
+  it('createSession 在有效舊 session 存在時應直接返回舊值', async () => {
+    useSessionStore.setState({
+      session: {
+        session_id: 's-old',
+        expires_at: new Date(Date.now() + 20 * 60 * 1000).toISOString(),
+      },
+    });
+    mockSessionStorageGet.mockReturnValue('s-old');
+    const result = await useSessionStore.getState().createSession();
+    expect(result).toEqual(useSessionStore.getState().session);
+    expect(mockCreateSession).not.toHaveBeenCalled();
+  });
+
   it('refreshSession 成功應設 session', async () => {
     mockRefreshSession.mockResolvedValue(mockSession);
     const result = await useSessionStore.getState().refreshSession();
@@ -80,8 +104,51 @@ describe('sessionStore', () => {
     expect(useSessionStore.getState().session).toEqual(mockSession);
   });
 
+  it('refreshSession 有效且非 force 時應直接返回現有 session', async () => {
+    const existing = {
+      session_id: 's-existing',
+      expires_at: new Date(Date.now() + 20 * 60 * 1000).toISOString(),
+    };
+    useSessionStore.setState({ session: existing });
+    mockSessionStorageGet.mockReturnValue('s-existing');
+    const result = await useSessionStore.getState().refreshSession();
+    expect(result).toEqual(existing);
+    expect(mockRefreshSession).not.toHaveBeenCalled();
+  });
+
+  it('refreshSession force=true 應忽略快取並調用 API', async () => {
+    const existing = {
+      session_id: 's-existing',
+      expires_at: new Date(Date.now() + 20 * 60 * 1000).toISOString(),
+    };
+    useSessionStore.setState({ session: existing });
+    mockSessionStorageGet.mockReturnValue('s-existing');
+    mockRefreshSession.mockResolvedValue(mockSession);
+    const result = await useSessionStore.getState().refreshSession(true);
+    expect(result).toEqual(mockSession);
+    expect(mockRefreshSession).toHaveBeenCalled();
+  });
+
+  it('refreshSession 失敗應設 error 並返回 null', async () => {
+    mockRefreshSession.mockRejectedValue(new Error('refresh failed'));
+    mockGetErrorMessage.mockReturnValueOnce('message.refreshSessionFail');
+    const result = await useSessionStore.getState().refreshSession();
+    expect(result).toBeNull();
+    expect(useSessionStore.getState().error).toBe('message.refreshSessionFail');
+  });
+
   it('checkSessionExpiry 無 session 應返回 false', () => {
     useSessionStore.setState({ session: null });
+    expect(useSessionStore.getState().checkSessionExpiry()).toBe(false);
+  });
+
+  it('checkSessionExpiry 無 expires_at 應返回 false', () => {
+    useSessionStore.setState({
+      session: {
+        session_id: 'x',
+        expires_at: '' as unknown as string,
+      },
+    });
     expect(useSessionStore.getState().checkSessionExpiry()).toBe(false);
   });
 

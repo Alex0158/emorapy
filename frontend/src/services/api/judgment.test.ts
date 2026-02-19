@@ -42,6 +42,16 @@ describe('judgment API', () => {
       expect(mockPost).toHaveBeenCalledWith('/judgments/generate/c1', undefined, undefined);
       expect(result).toEqual(mockJudgment);
     });
+
+    it('有 sessionId 時應帶入 X-Session-Id header', async () => {
+      mockPost.mockResolvedValue({ data: { data: { judgment: mockJudgment } } });
+      await generateJudgment('c1', 's-1');
+      expect(mockPost).toHaveBeenCalledWith(
+        '/judgments/generate/c1',
+        undefined,
+        { headers: { 'X-Session-Id': 's-1' } }
+      );
+    });
   });
 
   describe('getJudgment', () => {
@@ -59,6 +69,14 @@ describe('judgment API', () => {
       const result = await getJudgmentByCaseId('c1');
       expect(mockGet).toHaveBeenCalledWith('/cases/c1/judgment', undefined);
       expect(result).toEqual(mockJudgment);
+    });
+
+    it('有 sessionId 時應帶入 X-Session-Id header', async () => {
+      mockGet.mockResolvedValue({ data: { data: { judgment: mockJudgment } } });
+      await getJudgmentByCaseId('c1', 's-2');
+      expect(mockGet).toHaveBeenCalledWith('/cases/c1/judgment', {
+        headers: { 'X-Session-Id': 's-2' },
+      });
     });
 
     it('JUDGMENT_PENDING / JUDGMENT_NOT_FOUND / HTTP_404 時應返回 null', async () => {

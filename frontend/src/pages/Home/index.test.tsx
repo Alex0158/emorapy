@@ -40,19 +40,19 @@ describe('Home', () => {
       </MemoryRouter>
     );
     expect(
-      screen.getByText('即使在法庭，我也會保護和呵護你們兩位')
+      screen.getByText('把衝突變成可解的問題')
     ).toBeInTheDocument();
-    expect(screen.getByText('溫暖、公正、專業的情侶衝突解決平台')).toBeInTheDocument();
+    expect(screen.getByText('中立梳理爭點，提供可執行的修復方案')).toBeInTheDocument();
   });
 
-  it('應顯示立即開始與了解更多按鈕', () => {
+  it('應顯示快速體驗與保存紀錄按鈕', () => {
     render(
       <MemoryRouter>
         <Home />
       </MemoryRouter>
     );
-    expect(screen.getByRole('button', { name: /立即開始/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /了解更多/ })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /立即開始快速體驗/ }).length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: /註冊保存完整紀錄/ })).toBeInTheDocument();
   });
 
   it('點擊立即開始應導航至 /quick-experience/create', async () => {
@@ -61,28 +61,31 @@ describe('Home', () => {
         <Home />
       </MemoryRouter>
     );
-    await userEvent.click(screen.getByRole('button', { name: /立即開始/ }));
+    const quickStartButtons = screen.getAllByRole('button', { name: /立即開始快速體驗/ });
+    await userEvent.click(quickStartButtons[0]);
     expect(mockNavigate).toHaveBeenCalledWith('/quick-experience/create');
   });
 
-  it('點擊了解更多應導航至 /auth/register', async () => {
+  it('點擊保存紀錄按鈕應導航至 /auth/register', async () => {
     render(
       <MemoryRouter>
         <Home />
       </MemoryRouter>
     );
-    await userEvent.click(screen.getByRole('button', { name: /了解更多/ }));
+    await userEvent.click(screen.getByRole('button', { name: /註冊保存完整紀錄/ }));
     expect(mockNavigate).toHaveBeenCalledWith('/auth/register');
   });
 
-  it('應顯示核心功能與使用流程區塊', () => {
+  it('應顯示價值與流程區塊', () => {
     render(
       <MemoryRouter>
         <Home />
       </MemoryRouter>
     );
-    expect(screen.getByText('核心功能')).toBeInTheDocument();
-    expect(screen.getByText('使用流程')).toBeInTheDocument();
+    expect(screen.getByText('模擬實際使用流程')).toBeInTheDocument();
+    expect(screen.getByText('輸入雙方陳述')).toBeInTheDocument();
+    expect(screen.getByText('你會得到的幫助')).toBeInTheDocument();
+    expect(screen.getByText('四步走出惡性循環')).toBeInTheDocument();
   });
 
   it('應顯示跳過到主要內容連結', () => {

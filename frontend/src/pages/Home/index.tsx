@@ -9,6 +9,7 @@ import { RocketOutlined, HeartOutlined, BulbOutlined, CheckCircleOutlined } from
 import BearJudge from '@/components/business/BearJudge';
 import SEO from '@/components/common/SEO';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
+import FlowSimulation from './components/FlowSimulation';
 import { t } from '@/utils/i18n';
 import './Home.less';
 
@@ -83,7 +84,9 @@ const Home = () => {
           </div>
         </section>
 
-        <section id="main-content" className="features-section" aria-labelledby="features-title">
+        <FlowSimulation />
+
+        <section className="features-section" aria-labelledby="features-title">
           <div className="container">
             <AnimatedWrapper animation="fade" trigger="intersection" duration={400}>
               <h2 id="features-title" className="section-title">

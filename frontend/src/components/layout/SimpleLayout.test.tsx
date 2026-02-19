@@ -23,7 +23,7 @@ describe('SimpleLayout', () => {
         <SimpleLayout />
       </MemoryRouter>
     );
-    expect(screen.getByText(/熊媽媽法庭/)).toBeInTheDocument();
+    expect(screen.getByText(/關係修復室/)).toBeInTheDocument();
     expect(screen.getByTestId('outlet')).toBeInTheDocument();
   });
 });

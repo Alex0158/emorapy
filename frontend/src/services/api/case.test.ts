@@ -79,18 +79,34 @@ describe('case API', () => {
       expect(mockGet).toHaveBeenCalledWith('/cases/c1', undefined);
       expect(result).toEqual(mockCase);
     });
+
+    it('有 sessionId 時應帶入 X-Session-Id header', async () => {
+      mockGet.mockResolvedValue({ data: { data: { case: mockCase } } });
+      await getCase('c1', 's-session');
+      expect(mockGet).toHaveBeenCalledWith('/cases/c1', {
+        headers: { 'X-Session-Id': 's-session' },
+      });
+    });
   });
 
   describe('getCaseBySessionId', () => {
     it('成功時應返回 case', async () => {
       mockGet.mockResolvedValue({ data: { data: { case: mockCase } } });
       const result = await getCaseBySessionId('s1');
-      expect(mockGet).toHaveBeenCalledWith('/cases/by-session', { params: { session_id: 's1' } });
+      expect(mockGet).toHaveBeenCalledWith('/cases/by-session', {
+        headers: { 'X-Session-Id': 's1' },
+      });
       expect(result).toEqual(mockCase);
     });
 
     it('NOT_FOUND 或 HTTP_404 時應返回 null', async () => {
       mockGet.mockRejectedValue({ code: 'NOT_FOUND' });
+      const result = await getCaseBySessionId('s1');
+      expect(result).toBeNull();
+    });
+
+    it('HTTP_404 時也應返回 null', async () => {
+      mockGet.mockRejectedValue({ code: 'HTTP_404' });
       const result = await getCaseBySessionId('s1');
       expect(result).toBeNull();
     });
@@ -149,14 +165,16 @@ describe('case API', () => {
       expect(result).toEqual(evidences);
     });
 
-    it('有 sessionId 時應傳 params', async () => {
+    it('有 sessionId 時應傳 header', async () => {
       const files = [new File(['x'], 'b.jpg', { type: 'image/jpeg' })];
       mockPost.mockResolvedValue({ data: { data: { evidences: [] } } });
       await uploadEvidence('c1', files, 's1');
       expect(mockPost).toHaveBeenCalledWith(
         '/cases/c1/evidence',
         expect.any(FormData),
-        expect.objectContaining({ params: { session_id: 's1' } })
+        expect.objectContaining({
+          headers: expect.objectContaining({ 'X-Session-Id': 's1' }),
+        })
       );
     });
   });
@@ -168,10 +186,18 @@ describe('case API', () => {
       expect(mockDelete).toHaveBeenCalledWith('/cases/c1/evidence/e1', {});
     });
 
-    it('有 sessionId 時應傳 params', async () => {
+    it('有 sessionId 時應傳 header', async () => {
       mockDelete.mockResolvedValue({ data: {} });
       await deleteEvidence('c1', 'e1', 's1');
-      expect(mockDelete).toHaveBeenCalledWith('/cases/c1/evidence/e1', { params: { session_id: 's1' } });
+      expect(mockDelete).toHaveBeenCalledWith('/cases/c1/evidence/e1', {
+        headers: { 'X-Session-Id': 's1' },
+      });
+    });
+
+    it('無 sessionId 時應傳空 config', async () => {
+      mockDelete.mockResolvedValue({ data: {} });
+      await deleteEvidence('c1', 'e2', undefined);
+      expect(mockDelete).toHaveBeenCalledWith('/cases/c1/evidence/e2', {});
     });
   });
 });

@@ -9,6 +9,7 @@ const mockCreateSession = vi.fn();
 const mockGet = vi.fn();
 const mockSet = vi.fn();
 const mockRemove = vi.fn();
+const mockMessageError = vi.fn();
 vi.mock('@/services/api/session', () => ({
   createSession: (...args: unknown[]) => mockCreateSession(...args),
 }));
@@ -20,7 +21,7 @@ vi.mock('@/utils/storage', () => ({
   },
 }));
 vi.mock('antd', () => ({
-  message: { error: vi.fn() },
+  message: { error: (...args: unknown[]) => mockMessageError(...args) },
 }));
 
 describe('useSession', () => {
@@ -52,6 +53,19 @@ describe('useSession', () => {
     expect(id).toBe('s2');
     expect(result.current.sessionId).toBe('s2');
     expect(mockSet).toHaveBeenCalledWith('s2');
+  });
+
+  it('createSession 失敗時應提示錯誤並拋出', async () => {
+    mockGet.mockReturnValue(null);
+    mockCreateSession.mockRejectedValueOnce(new Error('api-failed'));
+    const { result } = renderHook(() => useSession());
+    await expect(
+      act(async () => {
+        await result.current.createSession();
+      })
+    ).rejects.toThrow('api-failed');
+    expect(mockMessageError).toHaveBeenCalledWith(expect.stringContaining('創建Session失敗'));
+    expect(result.current.loading).toBe(false);
   });
 
   it('getOrCreateSession 有 sessionId 時應直接返回', async () => {

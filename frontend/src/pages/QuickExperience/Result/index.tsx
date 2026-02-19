@@ -43,7 +43,7 @@ const QuickExperienceResult = () => {
   const [judgmentFailureReason, setJudgmentFailureReason] = useState<string | null>(null);
   const [evidenceUploadStatus, setEvidenceUploadStatus] = useState<'success' | 'failed' | 'pending' | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const { session, refreshSession } = useSessionStore();
+  const { session } = useSessionStore();
   const pollingEverStartedRef = useRef(false);
   const stopPollingRef = useRef<(() => void) | null>(null);
 
@@ -87,12 +87,7 @@ const QuickExperienceResult = () => {
         err.code === 'SESSION_ID_REQUIRED' ||
         err.code === 'INVALID_SESSION_ID'
       ) {
-        try {
-          await refreshSession(true);
-        } catch {
-          // 靜默失敗，仍提示用戶重新開始
-        }
-        setJudgmentErrorCode(err.code ?? '');
+        setJudgmentErrorCode(err.code as string);
         setJudgmentError(err.message ?? t('error.session.expiredHint'));
         return null;
       }
@@ -136,10 +131,10 @@ const QuickExperienceResult = () => {
 
   // 獲取案件狀態
   const fetchCase = async () => {
-    if (!id) return null;
-    
+    const caseId = id as string;
+
     try {
-      const case_ = await getCase(id, caseSessionId ?? undefined);
+      const case_ = await getCase(caseId, caseSessionId ?? undefined);
       const status = case_.status;
       setCaseStatus(status);
       if (status === 'judgment_failed' && case_.judgment_failure_reason) {
@@ -149,7 +144,7 @@ const QuickExperienceResult = () => {
       const canUploadEvidence = ['draft', 'submitted', 'in_progress'].includes(status);
       if (!canUploadEvidence) {
         setEvidenceUploadStatus(null);
-        localStorage.removeItem(`pending_evidence_${id}`);
+        localStorage.removeItem(`pending_evidence_${caseId}`);
         return case_;
       }
 
@@ -159,7 +154,7 @@ const QuickExperienceResult = () => {
         setEvidenceUploadStatus('success');
       } else {
         // 檢查是否有待上傳的證據（從localStorage）
-        const pendingEvidence = localStorage.getItem(`pending_evidence_${id}`);
+        const pendingEvidence = localStorage.getItem(`pending_evidence_${caseId}`);
         if (pendingEvidence) {
           setEvidenceUploadStatus('pending');
         } else {
@@ -172,8 +167,8 @@ const QuickExperienceResult = () => {
       return case_;
     } catch (error) {
       const err = error as { code?: string };
-      if (id && (err?.code === 'NOT_FOUND' || err?.code === 'HTTP_404')) {
-        caseSessionMap.remove(id);
+      if (err?.code === 'NOT_FOUND' || err?.code === 'HTTP_404') {
+        caseSessionMap.remove(caseId);
         message.warning(t('message.caseNotFoundOrExpired'));
         navigate('/quick-experience/create', { replace: true });
         return null;
@@ -205,8 +200,8 @@ const QuickExperienceResult = () => {
 
   // 重試生成判決
   const handleRetryJudgment = async () => {
-    if (!id) return;
-    
+    const caseId = id as string;
+
     setJudgmentError(null);
     setJudgmentErrorCode(null);
     setJudgmentFailureReason(null);
@@ -214,7 +209,7 @@ const QuickExperienceResult = () => {
     
     try {
       const { generateJudgment } = await import('@/services/api/judgment');
-      await generateJudgment(id, caseSessionId ?? undefined);
+      await generateJudgment(caseId, caseSessionId ?? undefined);
       message.success(t('message.judgmentRegenSuccess'));
       // 重新開始輪詢
       startPolling();
@@ -227,10 +222,7 @@ const QuickExperienceResult = () => {
 
   // 處理證據上傳
   const handleEvidenceUpload = async (fileList: File[]) => {
-    if (!id) {
-      message.error(t('message.caseIdMissing'));
-      return;
-    }
+    const caseId = id as string;
 
     const filesToUpload = fileList.filter((file) => file instanceof File);
     if (filesToUpload.length === 0) {
@@ -251,12 +243,12 @@ const QuickExperienceResult = () => {
         return;
       }
 
-      await uploadEvidence(id, filesToUpload, sessionIdToUse);
+      await uploadEvidence(caseId, filesToUpload, sessionIdToUse);
       message.success(t('message.evidenceUploadSuccess'));
       setEvidenceUploadStatus('success');
       
       // 清除待上傳標記
-      localStorage.removeItem(`pending_evidence_${id}`);
+      localStorage.removeItem(`pending_evidence_${caseId}`);
       
       // 重新獲取案件數據
       await fetchCase();
@@ -266,7 +258,7 @@ const QuickExperienceResult = () => {
       setEvidenceUploadStatus('failed');
       
       // 保存待上傳標記
-      localStorage.setItem(`pending_evidence_${id}`, 'true');
+      localStorage.setItem(`pending_evidence_${caseId}`, 'true');
     } finally {
       setIsUploading(false);
     }
@@ -309,7 +301,7 @@ const QuickExperienceResult = () => {
   }
 
   // 顯示判決生成失敗錯誤
-  if (judgmentError || caseStatus === 'judgment_failed') {
+  if (judgmentError !== null || caseStatus === 'judgment_failed') {
     const isSessionExpired =
       judgmentErrorCode === 'SESSION_EXPIRED' ||
       judgmentErrorCode === 'SESSION_ID_REQUIRED' ||
@@ -324,12 +316,13 @@ const QuickExperienceResult = () => {
           description={
             isJudgmentFailed && judgmentFailureReason
               ? `${t('error.judgment.failureReasonPrefix')}${judgmentFailureReason}`
-              : judgmentError ||
-                (isSessionExpired
+              : judgmentError && judgmentError.trim().length > 0
+                ? judgmentError
+                : isSessionExpired
                   ? t('error.session.expiredHint')
                   : isJudgmentFailed
                     ? t('message.judgmentUnavailable')
-                    : t('message.retryOrLater'))
+                    : t('message.retryOrLater')
           }
           type="error"
           showIcon

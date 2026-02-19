@@ -42,14 +42,14 @@ describe('Register', () => {
     vi.clearAllMocks();
   });
 
-  it('應顯示加入熊媽媽法庭與開始你的溫暖之旅', () => {
+  it('應顯示加入關係修復室與開始你們的修復之旅', () => {
     render(
       <MemoryRouter>
         <Register />
       </MemoryRouter>
     );
-    expect(screen.getByText('加入熊媽媽法庭')).toBeInTheDocument();
-    expect(screen.getByText('開始你的溫暖之旅')).toBeInTheDocument();
+    expect(screen.getByText('加入關係修復室')).toBeInTheDocument();
+    expect(screen.getByText('開始你們的修復之旅')).toBeInTheDocument();
   });
 
   it('應有郵箱輸入框', () => {

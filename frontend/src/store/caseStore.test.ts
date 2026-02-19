@@ -76,4 +76,35 @@ describe('caseStore', () => {
     expect(result).toEqual(mockCase);
     expect(useCaseStore.getState().currentCase).toEqual(mockCase);
   });
+
+  it('submitCase 成功且 currentCase 匹配時應更新狀態為 submitted', async () => {
+    useCaseStore.setState({ currentCase: mockCase });
+    mockSubmitCase.mockResolvedValue(undefined);
+    await useCaseStore.getState().submitCase('c1');
+    expect(useCaseStore.getState().currentCase?.status).toBe('submitted');
+    expect(useCaseStore.getState().error).toBeNull();
+    expect(useCaseStore.getState().isLoading).toBe(false);
+  });
+
+  it('submitCase 成功但 currentCase 不匹配時僅應關閉 loading', async () => {
+    useCaseStore.setState({ currentCase: { ...mockCase, id: 'other' } });
+    mockSubmitCase.mockResolvedValue(undefined);
+    await useCaseStore.getState().submitCase('c1');
+    expect(useCaseStore.getState().currentCase?.id).toBe('other');
+    expect(useCaseStore.getState().isLoading).toBe(false);
+  });
+
+  it('submitCase 失敗時應設 error 並拋出', async () => {
+    mockSubmitCase.mockRejectedValueOnce(new Error('submit failed'));
+    await expect(useCaseStore.getState().submitCase('c1')).rejects.toThrow('submit failed');
+    expect(useCaseStore.getState().error).toBe('submit failed');
+    expect(useCaseStore.getState().isLoading).toBe(false);
+  });
+
+  it('getCase 失敗時應設 error 並拋出', async () => {
+    mockGetCase.mockRejectedValueOnce(new Error('get failed'));
+    await expect(useCaseStore.getState().getCase('c1')).rejects.toThrow('get failed');
+    expect(useCaseStore.getState().error).toBe('get failed');
+    expect(useCaseStore.getState().isLoading).toBe(false);
+  });
 });

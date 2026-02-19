@@ -34,7 +34,7 @@ export const createCase = async (data: CreateCaseDto): Promise<Case> => {
  */
 export const getCase = async (id: string, sessionId?: string): Promise<Case> => {
   const config = sessionId
-    ? { headers: { 'X-Session-Id': sessionId } as Record<string, string>, params: { session_id: sessionId } }
+    ? { headers: { 'X-Session-Id': sessionId } as Record<string, string> }
     : undefined;
   const response = await request.get<ApiResponse<{ case: Case }>>(`/cases/${id}`, config);
   return (response.data as ApiResponse<{ case: Case }>).data.case;
@@ -46,7 +46,7 @@ export const getCase = async (id: string, sessionId?: string): Promise<Case> => 
 export const getCaseBySessionId = async (sessionId: string): Promise<Case | null> => {
   try {
     const response = await request.get<ApiResponse<{ case: Case }>>('/cases/by-session', {
-      params: { session_id: sessionId },
+      headers: { 'X-Session-Id': sessionId },
     });
     return (response.data as ApiResponse<{ case: Case }>).data.case;
   } catch (error: unknown) {
@@ -126,15 +126,15 @@ export const uploadEvidence = async (
     formData.append('files', file);
   });
 
-  const config: { headers: { 'Content-Type': string }; params?: { session_id: string } } = {
+  const config: { headers: { 'Content-Type': string; 'X-Session-Id'?: string } } = {
     headers: {
       'Content-Type': 'multipart/form-data',
     },
   };
 
-  // 如果提供了sessionId，添加到查询参数（request拦截器也会自动添加，但这里明确传递）
+  // 顯式傳遞案件對應 session，避免被全局 session 覆蓋
   if (sessionId) {
-    config.params = { session_id: sessionId };
+    config.headers['X-Session-Id'] = sessionId;
   }
 
   const response = await request.post<ApiResponse<{ evidences: Array<{ id: string; file_url: string; file_type: string }> }>>(
@@ -153,9 +153,9 @@ export const deleteEvidence = async (
   evidenceId: string,
   sessionId?: string
 ): Promise<void> => {
-  const config: { params?: { session_id: string } } = {};
+  const config: { headers?: { 'X-Session-Id': string } } = {};
   if (sessionId) {
-    config.params = { session_id: sessionId };
+    config.headers = { 'X-Session-Id': sessionId };
   }
   await request.delete<ApiResponse>(`/cases/${caseId}/evidence/${evidenceId}`, config);
 };

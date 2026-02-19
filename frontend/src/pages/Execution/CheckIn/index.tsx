@@ -108,7 +108,7 @@ const ExecutionCheckIn = () => {
   if (loading) {
     return (
       <div className="execution-checkin-page">
-        <Spin size="large" tip={t('common.loading')} />
+        <Spin size="large" description={t('common.loading')} />
       </div>
     );
   }

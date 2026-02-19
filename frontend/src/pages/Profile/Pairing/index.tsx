@@ -111,7 +111,7 @@ const ProfilePairing = () => {
   if (loading) {
     return (
       <div className="profile-pairing-page">
-        <Spin size="large" tip={t('common.loading')} />
+        <Spin size="large" description={t('common.loading')} />
       </div>
     );
   }

@@ -16,6 +16,7 @@ export interface Case {
   plaintiff_statement: string;
   defendant_statement?: string;
   status: CaseStatus;
+  judgment_failure_reason?: string; // 判決生成失敗時後端寫入的原因
   mode: CaseMode;
   session_id?: string; // 快速體驗模式
   evidences?: Evidence[];

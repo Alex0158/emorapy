@@ -38,7 +38,6 @@ import { t } from '@/utils/i18n';
 import './Create.less';
 
 const { Title, Text } = Typography;
-const { Panel } = Collapse;
 
 const DRAFT_STORAGE_KEY = 'quick_case_draft';
 
@@ -83,6 +82,7 @@ const QuickExperienceCreate = () => {
   }, [session, createSession]);
 
   // 刷新找回案件：若有 sessionId 且後端有對應案件，提示「繼續查看」
+  // 404 時 getCaseBySessionId 已 return null 不拋錯；401 由 request 攔截器統一 clearSession + refreshSession，此處僅靜默吞錯
   useEffect(() => {
     const sessionId = sessionStorage.get() || session?.session_id;
     if (!sessionId) return;
@@ -301,7 +301,7 @@ const QuickExperienceCreate = () => {
 
         {recoveredCase && (
           <Alert
-            message={t('quickCreate.recoveredCase.title')}
+            title={t('quickCreate.recoveredCase.title')}
             description={t('quickCreate.recoveredCase.desc')}
             type="info"
             showIcon
@@ -333,7 +333,7 @@ const QuickExperienceCreate = () => {
 
       {autoSaveStatus === 'saved' && (
         <Alert
-          message={t('quickCreate.autoSaved')}
+          title={t('quickCreate.autoSaved')}
           type="success"
           showIcon
           closable
@@ -453,18 +453,27 @@ const QuickExperienceCreate = () => {
       {/* 證據上傳區域（可選） */}
       <section className="evidence-section">
         <div className="container">
-          <Collapse defaultActiveKey={[]}>
-            <Panel header={t('quickCreate.evidenceHeader')} key="evidence">
-              <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
-                {t('quickCreate.evidenceHint')}
-              </Text>
-              <FileUpload
-                value={evidenceFiles}
-                onChange={setEvidenceFiles}
-                maxCount={MAX_IMAGE_COUNT}
-              />
-            </Panel>
-          </Collapse>
+          <Collapse
+            defaultActiveKey={[]}
+            items={[
+              {
+                key: 'evidence',
+                label: t('quickCreate.evidenceHeader'),
+                children: (
+                  <>
+                    <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
+                      {t('quickCreate.evidenceHint')}
+                    </Text>
+                    <FileUpload
+                      value={evidenceFiles}
+                      onChange={setEvidenceFiles}
+                      maxCount={MAX_IMAGE_COUNT}
+                    />
+                  </>
+                ),
+              },
+            ]}
+          />
         </div>
       </section>
 
@@ -473,7 +482,7 @@ const QuickExperienceCreate = () => {
         <section className="register-prompt-section">
           <div className="container">
             <Alert
-              message={
+              title={
                 <Space>
                   <LockOutlined />
                   <span>{t('quickCreate.registerMessage')}</span>

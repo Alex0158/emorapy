@@ -104,7 +104,7 @@ const ReconciliationDetail = () => {
   if (loading) {
     return (
       <div className="reconciliation-detail-page">
-        <Spin size="large" tip={t('common.loading')} />
+        <Spin size="large" description={t('common.loading')} />
       </div>
     );
   }
@@ -112,7 +112,7 @@ const ReconciliationDetail = () => {
   if (!plan) {
     return (
       <div className="reconciliation-detail-page">
-        <Alert message={t('message.planNotFound')} type="error" />
+        <Alert title={t('message.planNotFound')} type="error" />
       </div>
     );
   }

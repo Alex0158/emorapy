@@ -251,9 +251,31 @@ request.interceptors.response.use(
           message.error(errorData?.message || t('common.forbidden'));
           break;
 
-        case 404:
+        case 404: {
+          const url = (response.config?.url ?? '') as string;
+          const params = response.config?.params as { session_id?: string } | undefined;
+          const hasSession = !!(params?.session_id ?? response.config?.headers?.['X-Session-Id']);
+          if (url.includes('by-session')) {
+            // 快速體驗「找回案件」無案件時 404 屬正常，不彈窗
+            break;
+          }
+          if (url.includes('/cases/') && hasSession) {
+            // 快速體驗 GET /cases/:id 404（案件不存在或已過期），由結果頁處理，不全局彈窗
+            break;
+          }
           message.error(errorData?.message || t('common.notFound'));
           break;
+        }
+
+        case 409: {
+          const url = (response.config?.url ?? '') as string;
+          if (url.includes('/judgment') && errorData?.code === 'JUDGMENT_FAILED') {
+            // 快速體驗結果頁會自行顯示重試，不全局彈窗
+            break;
+          }
+          message.error(errorData?.message || t('common.conflict'));
+          break;
+        }
 
         case 422:
           message.error(errorData?.message || t('common.validationError'));

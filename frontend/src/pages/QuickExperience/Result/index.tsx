@@ -40,10 +40,12 @@ const QuickExperienceResult = () => {
   const [judgmentError, setJudgmentError] = useState<string | null>(null);
   const [judgmentErrorCode, setJudgmentErrorCode] = useState<string | null>(null);
   const [caseStatus, setCaseStatus] = useState<string | null>(null);
+  const [judgmentFailureReason, setJudgmentFailureReason] = useState<string | null>(null);
   const [evidenceUploadStatus, setEvidenceUploadStatus] = useState<'success' | 'failed' | 'pending' | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const { session, refreshSession } = useSessionStore();
   const pollingEverStartedRef = useRef(false);
+  const stopPollingRef = useRef<(() => void) | null>(null);
 
   // 案件對應的 Session ID（支援多案件回訪，避免 session 覆寫導致舊案件無法訪問）
   const caseSessionId = id
@@ -71,10 +73,11 @@ const QuickExperienceResult = () => {
       if (err.code === 'JUDGMENT_PENDING' || err.code === 'HTTP_404' || err.code === 'JUDGMENT_NOT_FOUND') {
         return null;
       }
-      // 判決生成失敗：停止輪詢並顯示重試
+      // 判決生成失敗：立即停止輪詢並顯示重試（避免重複 409）
       if (err.code === 'JUDGMENT_FAILED') {
         setJudgmentErrorCode('JUDGMENT_FAILED');
         setJudgmentError(err.message ?? t('message.judgmentRetryHint'));
+        stopPollingRef.current?.();
         return null;
       }
 
@@ -129,6 +132,7 @@ const QuickExperienceResult = () => {
       maxInterval: 30 * 1000, // 最大30秒
     }
   );
+  stopPollingRef.current = stopPolling;
 
   // 獲取案件狀態
   const fetchCase = async () => {
@@ -138,6 +142,9 @@ const QuickExperienceResult = () => {
       const case_ = await getCase(id, caseSessionId ?? undefined);
       const status = case_.status;
       setCaseStatus(status);
+      if (status === 'judgment_failed' && case_.judgment_failure_reason) {
+        setJudgmentFailureReason(case_.judgment_failure_reason);
+      }
 
       const canUploadEvidence = ['draft', 'submitted', 'in_progress'].includes(status);
       if (!canUploadEvidence) {
@@ -164,6 +171,13 @@ const QuickExperienceResult = () => {
       
       return case_;
     } catch (error) {
+      const err = error as { code?: string };
+      if (id && (err?.code === 'NOT_FOUND' || err?.code === 'HTTP_404')) {
+        caseSessionMap.remove(id);
+        message.warning(t('message.caseNotFoundOrExpired'));
+        navigate('/quick-experience/create', { replace: true });
+        return null;
+      }
       logger.error('Failed to fetch case', error);
       return null;
     }
@@ -195,6 +209,7 @@ const QuickExperienceResult = () => {
     
     setJudgmentError(null);
     setJudgmentErrorCode(null);
+    setJudgmentFailureReason(null);
     setJudgment(null);
     
     try {
@@ -285,7 +300,7 @@ const QuickExperienceResult = () => {
   if (error && !judgment) {
     return (
       <div className="error-container">
-        <Alert message={t('error.fetch.title')} description={error} type="error" showIcon />
+        <Alert title={t('error.fetch.title')} description={error} type="error" showIcon />
         <Button type="primary" onClick={() => navigate('/quick-experience/create')}>
           {t('error.back')}
         </Button>
@@ -305,14 +320,16 @@ const QuickExperienceResult = () => {
     return (
       <div className="error-container">
         <Alert
-          message={isSessionExpired ? t('error.session.title') : isJudgmentFailed ? t('error.judgment.title') : t('error.fetch.title')}
+          title={isSessionExpired ? t('error.session.title') : isJudgmentFailed ? t('error.judgment.title') : t('error.fetch.title')}
           description={
-            judgmentError ||
-            (isSessionExpired
-              ? t('error.session.expiredHint')
-              : isJudgmentFailed
-                ? t('message.judgmentUnavailable')
-                : t('message.retryOrLater'))
+            isJudgmentFailed && judgmentFailureReason
+              ? `${t('error.judgment.failureReasonPrefix')}${judgmentFailureReason}`
+              : judgmentError ||
+                (isSessionExpired
+                  ? t('error.session.expiredHint')
+                  : isJudgmentFailed
+                    ? t('message.judgmentUnavailable')
+                    : t('message.retryOrLater'))
           }
           type="error"
           showIcon
@@ -357,7 +374,7 @@ const QuickExperienceResult = () => {
       <div className="loading-container">
         {isTimeout ? (
           <Alert
-            message={t('pending.long.message')}
+            title={t('pending.long.message')}
             description={t('pending.long.desc')}
             type="warning"
             showIcon
@@ -383,7 +400,7 @@ const QuickExperienceResult = () => {
           />
         ) : (
           <>
-            <Spin size="large" tip={t('pending.tip')} />
+            <Spin size="large" description={t('pending.tip')} />
             <Text type="secondary" style={{ marginTop: 16, display: 'block' }}>
               {t('pending.eta')}
             </Text>

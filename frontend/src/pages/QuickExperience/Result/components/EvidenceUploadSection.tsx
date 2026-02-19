@@ -34,7 +34,7 @@ const EvidenceUploadSection = ({ status, caseId, isUploading, onUploadFiles }: P
               </div>
               {status === 'failed' && (
                 <Alert
-                  message={t('evidence.failed')}
+                  title={t('evidence.failed')}
                   description={t('evidence.failed.desc')}
                   type="warning"
                   showIcon
@@ -42,7 +42,7 @@ const EvidenceUploadSection = ({ status, caseId, isUploading, onUploadFiles }: P
               )}
               {status === 'pending' && (
                 <Alert
-                  message={t('evidence.pending')}
+                  title={t('evidence.pending')}
                   description={t('evidence.pending.desc')}
                   type="info"
                   showIcon

@@ -131,7 +131,7 @@ const JudgmentDetail = () => {
   if (loading) {
     return (
       <div className="judgment-detail-page">
-        <Spin size="large" tip={t('common.loading')} />
+        <Spin size="large" description={t('common.loading')} />
       </div>
     );
   }
@@ -139,7 +139,7 @@ const JudgmentDetail = () => {
   if (!judgment) {
     return (
       <div className="judgment-detail-page">
-        <Alert message={t('message.judgmentNotFound')} type="error" />
+        <Alert title={t('message.judgmentNotFound')} type="error" />
       </div>
     );
   }

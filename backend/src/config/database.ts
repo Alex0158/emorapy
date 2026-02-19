@@ -85,7 +85,7 @@ async function initializeDatabase() {
           stdio: 'pipe',
           env: { ...process.env },
           cwd: process.cwd(),
-          timeout: 30000 // 30秒超時
+          timeout: 60000 // 60秒超時（本機首次或慢速環境）
         });
         logger.info('數據庫遷移完成');
       } catch (migrationError: any) {

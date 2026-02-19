@@ -138,32 +138,46 @@ export class JudgmentService {
           aiUsed = true;
         } catch (error: any) {
           logger.error('AI service error', { caseId, error: error.message || error });
-          
-          // 設置案件狀態為判決生成失敗
+
+          const msg = String(error?.message || error || '');
+          let failureReason = 'AI 服務暫時不可用，請稍後重試';
+          if (msg.includes('超時') || msg.includes('timeout')) {
+            failureReason = 'AI 服務響應超時，請稍後再試';
+          } else if (msg.includes('認證') || error?.status === 401) {
+            failureReason = 'AI 服務認證失敗（請檢查 OPENAI_API_KEY）';
+          } else if (msg.includes('過於頻繁') || error?.status === 429) {
+            failureReason = 'AI 請求過於頻繁，請稍後再試';
+          } else if (msg.includes('已達上限')) {
+            failureReason = '今日 AI 調用已達上限';
+          } else if (msg.includes('空內容')) {
+            failureReason = 'AI 返回內容異常，請重試';
+          }
+          const reasonToStore = failureReason.slice(0, 500);
+
           try {
             await prisma.case.update({
               where: { id: caseId },
               data: {
                 status: 'judgment_failed',
+                judgment_failure_reason: reasonToStore,
                 updated_at: new Date(),
               },
             });
-            logger.info('Case status set to judgment_failed', { caseId });
+            logger.info('Case status set to judgment_failed', { caseId, reason: reasonToStore });
           } catch (updateError: any) {
             logger.error('Failed to update case status to judgment_failed', {
               caseId,
               error: updateError,
             });
           }
-          
-          // 記錄失敗原因
+
           logger.error('Judgment generation failed', {
             caseId,
             error: error.message || error,
             status: 'judgment_failed',
           });
-          
-          if (error.message === 'AI服務響應超時') {
+
+          if (msg.includes('超時') || msg.includes('timeout')) {
             throw Errors.AI_SERVICE_ERROR('AI服務響應超時，請稍後再試');
           }
           throw Errors.AI_SERVICE_ERROR('AI服務暫時不可用，請稍後重試');

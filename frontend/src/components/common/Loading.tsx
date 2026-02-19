@@ -9,7 +9,7 @@ import './Loading.less';
 const Loading = () => {
   return (
     <div className="loading-container">
-      <Spin size="large" tip={t('common.loading')} />
+      <Spin size="large" description={t('common.loading')} />
     </div>
   );
 };

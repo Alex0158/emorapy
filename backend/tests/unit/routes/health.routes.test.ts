@@ -1,0 +1,202 @@
+/**
+ * routes/health.routes 單元測試
+ */
+import { describe, it, expect, jest, beforeEach } from '@jest/globals';
+import express from 'express';
+import request from 'supertest';
+
+const mockPrismaQueryRaw = jest.fn();
+const mockLogger = {
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  debug: jest.fn(),
+};
+const mockEnvRef = { current: { NODE_ENV: 'test' as string } };
+const mockJobsStartedRef = { current: true };
+
+jest.mock('../../../src/config/database', () => ({
+  __esModule: true,
+  default: { $queryRaw: (...args: unknown[]) => mockPrismaQueryRaw(...args) },
+}));
+jest.mock('../../../src/config/logger', () => ({
+  __esModule: true,
+  default: mockLogger,
+}));
+jest.mock('../../../src/config/env', () => ({
+  get env() {
+    return mockEnvRef.current;
+  },
+}));
+jest.mock('../../../src/jobs/cleanup.job', () => ({
+  get jobsStarted() {
+    return mockJobsStartedRef.current;
+  },
+}));
+
+import healthRouter from '../../../src/routes/health.routes';
+
+function createApp() {
+  const app = express();
+  app.use(express.json());
+  app.use('/', healthRouter);
+  return app;
+}
+
+describe('routes/health.routes', () => {
+  const origEnv = process.env;
+
+  beforeEach(() => {
+    mockPrismaQueryRaw.mockReset();
+    mockLogger.info.mockClear();
+    mockLogger.warn.mockClear();
+    mockEnvRef.current = { NODE_ENV: 'test' };
+    mockJobsStartedRef.current = true;
+    process.env = { ...origEnv };
+    process.env.DATABASE_URL = 'postgres://test';
+    process.env.JWT_SECRET = 'secret';
+    process.env.OPENAI_API_KEY = 'key';
+    process.env.SKIP_DB_INIT = 'true';
+  });
+
+  describe('GET /health', () => {
+    it('測試環境且 SKIP_DB_INIT 時應跳過 DB 檢查', async () => {
+      const app = createApp();
+      const res = await request(app).get('/health');
+      expect(res.status).toBe(200);
+      expect(res.body.checks.database).toEqual({
+        status: 'skipped',
+        message: 'DB check skipped in test mode',
+      });
+      expect(res.body.status).toBe('healthy');
+      expect(mockPrismaQueryRaw).not.toHaveBeenCalled();
+    });
+
+    it('SKIP_DB_INIT=false 時應執行 DB 檢查', async () => {
+      process.env.SKIP_DB_INIT = 'false';
+      (mockPrismaQueryRaw as unknown as jest.Mock).mockResolvedValue(undefined as never);
+      const app = createApp();
+      const res = await request(app).get('/health');
+      expect(res.status).toBe(200);
+      expect(res.body.checks.database.status).toBe('healthy');
+      expect(res.body.checks.database.responseTime).toBeDefined();
+      expect(mockPrismaQueryRaw).toHaveBeenCalled();
+    });
+
+    it('DB 檢查失敗時應標記為 degraded', async () => {
+      process.env.SKIP_DB_INIT = 'false';
+      (mockPrismaQueryRaw as unknown as jest.Mock).mockRejectedValue(new Error('Connection refused') as never);
+      const app = createApp();
+      const res = await request(app).get('/health');
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('degraded');
+      expect(res.body.checks.database).toEqual({
+        status: 'unhealthy',
+        message: 'Connection refused',
+      });
+    });
+
+    it('缺少環境變量時 environment 應為 unhealthy', async () => {
+      delete process.env.JWT_SECRET;
+      const app = createApp();
+      const res = await request(app).get('/health');
+      expect(res.status).toBe(200);
+      expect(res.body.checks.environment.status).toBe('unhealthy');
+      expect(res.body.checks.environment.message).toContain('JWT_SECRET');
+    });
+
+    it('cron 未啟動且非 test 時應標記 degraded', async () => {
+      mockEnvRef.current = { NODE_ENV: 'production' };
+      mockJobsStartedRef.current = false;
+      const app = createApp();
+      const res = await request(app).get('/health');
+      expect(res.status).toBe(200);
+      expect(res.body.checks.cron.status).toBe('unhealthy');
+      expect(res.body.status).toBe('degraded');
+    });
+
+    it('應返回 timestamp、uptime、checks、responseTime、version', async () => {
+      const app = createApp();
+      const res = await request(app).get('/health');
+      expect(res.body).toHaveProperty('timestamp');
+      expect(res.body).toHaveProperty('uptime');
+      expect(res.body).toHaveProperty('checks');
+      expect(res.body).toHaveProperty('responseTime');
+      expect(res.body).toHaveProperty('version');
+    });
+
+    it('degraded 時應記錄 logger.warn', async () => {
+      process.env.SKIP_DB_INIT = 'false';
+      (mockPrismaQueryRaw as unknown as jest.Mock).mockRejectedValue(new Error('DB error') as never);
+      const app = createApp();
+      await request(app).get('/health');
+      expect(mockLogger.warn).toHaveBeenCalledWith('Health check degraded', expect.any(Object));
+    });
+
+    it('degraded 且 development 時 logger.warn 應帶完整 checks 對象', async () => {
+      process.env.SKIP_DB_INIT = 'false';
+      mockEnvRef.current = { NODE_ENV: 'development' };
+      (mockPrismaQueryRaw as unknown as jest.Mock).mockRejectedValue(new Error('DB error') as never);
+      const app = createApp();
+      await request(app).get('/health');
+      expect(mockLogger.warn).toHaveBeenCalledWith('Health check degraded', {
+        checks: expect.objectContaining({
+          database: expect.any(Object),
+          environment: expect.any(Object),
+          cron: expect.any(Object),
+        }),
+      });
+    });
+
+    it('development 且 healthy 時應記錄 logger.info', async () => {
+      mockEnvRef.current = { NODE_ENV: 'development' };
+      const app = createApp();
+      await request(app).get('/health');
+      expect(mockLogger.info).toHaveBeenCalledWith('Health check passed', expect.objectContaining({
+        responseTime: expect.any(Number),
+        checks: expect.any(Object),
+      }));
+    });
+
+    it('非 development 且 healthy 且 responseTime > 1000 時應記錄 logger.warn (slow)', async () => {
+      mockEnvRef.current = { NODE_ENV: 'production' };
+      const dateNowSpy = jest.spyOn(Date, 'now').mockReturnValueOnce(0).mockReturnValue(1001);
+      const app = createApp();
+      await request(app).get('/health');
+      expect(mockLogger.warn).toHaveBeenCalledWith('Health check passed but slow', {
+        responseTime: 1001,
+      });
+      dateNowSpy.mockRestore();
+    });
+  });
+
+  describe('GET /health/ready', () => {
+    it('DB 正常時應返回 200 ready', async () => {
+      (mockPrismaQueryRaw as unknown as jest.Mock).mockResolvedValue(undefined as never);
+      const app = createApp();
+      const res = await request(app).get('/health/ready');
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ status: 'ready' });
+    });
+
+    it('DB 失敗時應返回 503 not ready', async () => {
+      (mockPrismaQueryRaw as unknown as jest.Mock).mockRejectedValue(new Error('Connection failed') as never);
+      const app = createApp();
+      const res = await request(app).get('/health/ready');
+      expect(res.status).toBe(503);
+      expect(res.body).toEqual({
+        status: 'not ready',
+        error: 'Connection failed',
+      });
+    });
+  });
+
+  describe('GET /health/live', () => {
+    it('應返回 200 alive', async () => {
+      const app = createApp();
+      const res = await request(app).get('/health/live');
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ status: 'alive' });
+    });
+  });
+});

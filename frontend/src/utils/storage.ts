@@ -53,6 +53,19 @@ export const caseSessionMap = {
       logger.error('Failed to save case-session mapping', error);
     }
   },
+
+  /** 移除單一案件映射（案件不存在或 404 時清理，避免重複請求報錯） */
+  remove: (caseId: string): void => {
+    try {
+      const raw = localStorage.getItem(CASE_SESSION_MAP_KEY);
+      if (!raw) return;
+      const map = JSON.parse(raw) as Record<string, string>;
+      delete map[caseId];
+      localStorage.setItem(CASE_SESSION_MAP_KEY, JSON.stringify(map));
+    } catch {
+      // ignore
+    }
+  },
 };
 
 /**

@@ -64,7 +64,7 @@ const GuideTooltip = ({
         </div>
       }
       placement={placement}
-      overlayClassName="guide-tooltip-overlay"
+      classNames={{ root: 'guide-tooltip-overlay' }}
     >
       {children}
     </Tooltip>

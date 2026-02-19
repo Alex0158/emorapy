@@ -64,7 +64,7 @@ const ExecutionDashboard = () => {
     return (
       <ProtectedRoute>
         <div className="execution-dashboard-page">
-          <Spin size="large" tip={t('common.loading')} style={{ padding: 48, display: 'block', textAlign: 'center' }} />
+          <Spin size="large" description={t('common.loading')} style={{ padding: 48, display: 'block', textAlign: 'center' }} />
         </div>
       </ProtectedRoute>
     );

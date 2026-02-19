@@ -116,7 +116,7 @@ const CaseDetail = () => {
   if (loading) {
     return (
       <div className="case-detail-page">
-        <Spin size="large" tip={t('common.loading')} />
+        <Spin size="large" description={t('common.loading')} />
       </div>
     );
   }
@@ -124,7 +124,7 @@ const CaseDetail = () => {
   if (!case_) {
     return (
       <div className="case-detail-page">
-        <Alert message={t('common.caseNotFound')} type="error" />
+        <Alert title={t('common.caseNotFound')} type="error" />
       </div>
     );
   }

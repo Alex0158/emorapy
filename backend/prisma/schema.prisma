@@ -264,6 +264,7 @@ model Case {
   plaintiff_statement String
   defendant_statement String?
   status              CaseStatus     @default(draft)
+  judgment_failure_reason String?    @db.VarChar(500)
   mode                CaseMode       @default(remote)
   session_id          String?        @db.VarChar(100)
   created_at          DateTime       @default(now())

@@ -273,7 +273,7 @@ const CaseList = () => {
           </div>
         </AnimatedWrapper>
 
-        <Spin spinning={loading} tip={t('common.loading')}>
+        <Spin spinning={loading} description={t('common.loading')}>
           {cases.length === 0 ? (
             <AnimatedWrapper animation="fade" delay={300}>
               <Empty

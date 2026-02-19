@@ -157,7 +157,7 @@ const ReconciliationList = () => {
           </div>
         </AnimatedWrapper>
 
-        <Spin spinning={loading || generating} tip={generating ? t('reconList.generating') : t('common.loading')}>
+        <Spin spinning={loading || generating} description={generating ? t('reconList.generating') : t('common.loading')}>
           {plans.length === 0 ? (
             <AnimatedWrapper animation="fade" delay={300}>
               <Empty

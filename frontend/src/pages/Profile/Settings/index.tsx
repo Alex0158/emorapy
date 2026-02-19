@@ -58,7 +58,7 @@ const ProfileSettings = () => {
     return (
       <ProtectedRoute>
         <div className="profile-settings-page">
-          <Spin tip={t('common.loading')} />
+          <Spin description={t('common.loading')} />
         </div>
       </ProtectedRoute>
     );

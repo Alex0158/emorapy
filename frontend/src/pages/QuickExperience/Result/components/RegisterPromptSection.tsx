@@ -16,7 +16,7 @@ const RegisterPromptSection = ({ show, onRegister, onClose }: Props) => {
         <div className="container">
           <Alert
             id="register-prompt"
-            message={t('register.prompt.title')}
+            title={t('register.prompt.title')}
             description={t('register.prompt.desc')}
             type="info"
             action={

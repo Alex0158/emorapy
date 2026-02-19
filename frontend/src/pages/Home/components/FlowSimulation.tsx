@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useSpring, useTransform, MotionValue } from 'framer-motion';
 import {
   CheckCircleFilled,
   FileTextOutlined,
@@ -8,6 +8,7 @@ import {
   SolutionOutlined,
   SyncOutlined,
   SendOutlined,
+  LockOutlined,
 } from '@ant-design/icons';
 import './FlowSimulation.less';
 
@@ -17,21 +18,52 @@ type Step = {
   icon: React.ReactNode;
 };
 
-// 放慢播放速度，讓用戶有足夠時間閱讀與欣賞打字特效
-const AUTO_PLAY_MS = 8000;
+const AUTO_PLAY_MS = 8500;
+
+const sceneVariants = {
+  initial: { opacity: 0, y: 15, scale: 0.96 },
+  animate: { opacity: 1, y: 0, scale: 1 },
+  exit: { opacity: 0, y: -15, scale: 0.96 }
+};
+
+const TypingIndicator = () => (
+  <motion.div 
+    className="typing-indicator"
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    exit={{ opacity: 0 }}
+  >
+    <motion.span animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0 }} className="dot" />
+    <motion.span animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0.2 }} className="dot" />
+    <motion.span animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0.4 }} className="dot" />
+  </motion.div>
+);
 
 const TypewriterText = ({ 
   text, 
-  delay = 0, 
+  typingDelay = 1.0, 
   speed = 0.04, 
   className = '' 
 }: { 
   text: string; 
-  delay?: number; 
+  typingDelay?: number; 
   speed?: number; 
   className?: string 
 }) => {
+  const [isTyping, setIsTyping] = useState(true);
+  
+  useEffect(() => {
+    setIsTyping(true);
+    const timer = setTimeout(() => setIsTyping(false), typingDelay * 1000);
+    return () => clearTimeout(timer);
+  }, [typingDelay, text]);
+
   const characters = text.split('');
+  
+  if (isTyping) {
+    return <TypingIndicator />;
+  }
+
   return (
     <motion.span
       className={className}
@@ -39,25 +71,19 @@ const TypewriterText = ({
       animate="visible"
       variants={{
         visible: {
-          transition: { staggerChildren: speed, delayChildren: delay }
+          transition: { staggerChildren: speed }
         }
       }}
     >
       {characters.map((char, index) => (
-        <motion.span
-          key={index}
-          variants={{
-            hidden: { opacity: 0 },
-            visible: { opacity: 1 }
-          }}
-        >
+        <motion.span key={index} variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}>
           {char}
         </motion.span>
       ))}
       <motion.span
         initial={{ opacity: 0 }}
         animate={{ opacity: [0, 1, 0] }}
-        transition={{ repeat: Infinity, duration: 0.8, delay: delay + characters.length * speed }}
+        transition={{ repeat: Infinity, duration: 0.8, delay: characters.length * speed }}
         className="typing-cursor"
       >
         |
@@ -66,14 +92,142 @@ const TypewriterText = ({
   );
 };
 
-const PhoneSimulator = ({ role, activeStep }: { role: 'A' | 'B'; activeStep: number }) => {
+const FloatingParticles = () => (
+  <div className="particles-container">
+    {[...Array(15)].map((_, i) => (
+      <motion.div 
+        key={i} 
+        className="particle"
+        initial={{ 
+          y: '100%', 
+          x: `${Math.random() * 100}%`,
+          opacity: 0,
+          scale: Math.random() * 0.5 + 0.5
+        }}
+        animate={{ 
+          y: '-20%', 
+          opacity: [0, 1, 0] 
+        }}
+        transition={{ 
+          duration: Math.random() * 2 + 2, 
+          repeat: Infinity, 
+          delay: Math.random() * 2,
+          ease: "linear"
+        }}
+      />
+    ))}
+  </div>
+);
+
+const FloatingEmojis = () => (
+  <div className="floating-emojis">
+    {['🎉', '✨', '❤️', '🤝', '🙌'].map((emoji, i) => (
+      <motion.div
+        key={i}
+        className="floating-emoji"
+        initial={{ y: 0, opacity: 0, x: 0 }}
+        animate={{ 
+          y: -100 - Math.random() * 60, 
+          opacity: [0, 1, 0],
+          x: Math.random() * 60 - 30,
+          rotate: Math.random() * 90 - 45,
+          scale: Math.random() * 0.5 + 0.8
+        }}
+        transition={{ 
+          duration: 2.5 + Math.random(), 
+          repeat: Infinity, 
+          delay: i * 0.4 
+        }}
+      >
+        {emoji}
+      </motion.div>
+    ))}
+  </div>
+);
+
+const AnimatedNumber = ({ value }: { value: number }) => {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    const duration = 1200;
+    const startTime = performance.now();
+
+    const animate = (currentTime: number) => {
+      const elapsed = currentTime - startTime;
+      const p = Math.min(elapsed / duration, 1);
+      
+      // easeOutQuart
+      const easeProgress = 1 - Math.pow(1 - p, 4);
+      const currentVal = Math.floor(easeProgress * value);
+      
+      setCount(currentVal);
+
+      if (p < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        setCount(value);
+      }
+    };
+
+    requestAnimationFrame(animate);
+  }, [value]);
+
+  return <span>{count}%</span>;
+};
+
+const PhoneSimulator = ({ 
+  role, 
+  activeStep, 
+  mouseX, 
+  mouseY,
+  progress
+}: { 
+  role: 'A' | 'B'; 
+  activeStep: number;
+  mouseX: MotionValue<number>;
+  mouseY: MotionValue<number>;
+  progress: number;
+}) => {
   const isA = role === 'A';
   const roleName = isA ? '用戶 A' : '用戶 B';
+  
+  // Decide if this phone is the "active" focus for the current step
+  const isActiveRole = 
+    (activeStep === 0 && isA) || 
+    (activeStep === 1 && !isA) || 
+    (activeStep >= 2);
+
+  // Dynamic parallax rotations
+  const defaultRotateX = isA ? 4 : 2;
+  const defaultRotateY = isA ? 6 : -6;
+
+  const dynamicRotateX = useTransform(mouseY, [-0.5, 0.5], [12 + defaultRotateX, -12 + defaultRotateX]);
+  const dynamicRotateY = useTransform(mouseX, [-0.5, 0.5], [-12 + defaultRotateY, 12 + defaultRotateY]);
+
+  // Is typing state to highlight inputs
+  const [isTypingPhase, setIsTypingPhase] = useState(true);
+  useEffect(() => {
+    setIsTypingPhase(true);
+    const timer = setTimeout(() => setIsTypingPhase(false), 2500); // Input finishes typing around 2.5s
+    return () => clearTimeout(timer);
+  }, [activeStep]);
+
+  // Button Morphing Logic
+  const buttonState = progress < 75 ? 'idle' : progress < 92 ? 'loading' : 'success';
 
   return (
-    <div className={`phone-mockup role-${role.toLowerCase()}`}>
+    <motion.div 
+      className={`phone-mockup role-${role.toLowerCase()} ${isActiveRole ? 'is-active-phone' : ''}`}
+      style={{ rotateX: dynamicRotateX, rotateY: dynamicRotateY }}
+      animate={{ 
+        scale: isActiveRole ? 1 : 0.94,
+        opacity: isActiveRole ? 1 : 0.7,
+        filter: isActiveRole ? 'grayscale(0%)' : 'grayscale(20%)'
+      }}
+      transition={{ duration: 0.5, type: 'spring', bounce: 0.3 }}
+    >
       <div className="phone-frame">
-        <div className="phone-notch">
+        <div className={`phone-notch ${activeStep === 2 || (activeStep === 0 && !isA) ? 'notch-expanded' : ''}`}>
           <div className="camera-lens"></div>
           <div className="speaker"></div>
         </div>
@@ -88,53 +242,88 @@ const PhoneSimulator = ({ role, activeStep }: { role: 'A' | 'B'; activeStep: num
           </div>
 
           <div className="screen-content">
+            {activeStep === 2 && (
+              <div className="screen-scanner-wrapper">
+                <div className="screen-scanner"></div>
+              </div>
+            )}
+            
             <AnimatePresence mode="wait">
               {activeStep === 0 && (
                 <motion.div
                   key="step0"
                   className="scene"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.3 }}
+                  variants={sceneVariants}
+                  initial="initial" animate="animate" exit="exit"
+                  transition={{ duration: 0.4 }}
                 >
                   {isA ? (
                     <div className="scene-form">
-                      <div className="app-header glass">發起溝通案件</div>
+                      <div className="app-header glass">
+                        <div className="header-avatar a">A</div>
+                        發起溝通案件
+                      </div>
                       <div className="form-scroll-area">
                         <div className="form-group">
                           <label>事件主題 <span className="label-tag">僅對方可見</span></label>
-                          <div className="fake-input">
-                            <TypewriterText text="家務分配不均" delay={0.5} />
+                          <div className={`fake-input ${isTypingPhase ? 'is-typing' : ''}`}>
+                            <TypewriterText text="家務分配不均" typingDelay={0.5} speed={0.06} />
                           </div>
                         </div>
                         <div className="form-group">
                           <label>我的感受與觀點 <span className="label-tag secret">AI 將保密處理</span></label>
-                          <div className="fake-textarea">
+                          <div className={`fake-textarea ${isTypingPhase ? 'is-typing' : ''}`}>
                             <TypewriterText 
                               text="我覺得家務分配不平衡，累積很多委屈，你總是忽視我的付出。" 
-                              delay={1.5} 
+                              typingDelay={1.5} 
                               speed={0.05}
+                              className="multiline"
                             />
                           </div>
                         </div>
                       </div>
                       <div className="scene-actions glass-bottom">
                         <motion.button 
-                          className="btn-primary"
+                          layout
+                          className={`btn-primary ${buttonState === 'success' ? 'is-success' : ''}`}
                           initial={{ scale: 0.95, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          transition={{ delay: 4.5, type: 'spring' }}
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
+                          animate={{ 
+                            scale: 1, opacity: 1,
+                            width: buttonState === 'idle' ? '100%' : '48px',
+                            borderRadius: buttonState === 'idle' ? '14px' : '24px',
+                            padding: buttonState === 'idle' ? '14px' : '0',
+                            margin: buttonState === 'idle' ? '0' : '0 auto',
+                          }}
+                          transition={{ layout: { type: 'spring', bounce: 0.3, duration: 0.6 } }}
+                          whileHover={buttonState === 'idle' ? { scale: 1.02 } : {}}
+                          whileTap={buttonState === 'idle' ? { scale: 0.98 } : {}}
                         >
-                          發送溝通邀請 <SendOutlined />
+                          <AnimatePresence mode="wait">
+                            {buttonState === 'idle' && (
+                              <motion.span key="idle" className="btn-content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, display: 'none' }}>
+                                發送溝通邀請 <SendOutlined />
+                              </motion.span>
+                            )}
+                            {buttonState === 'loading' && (
+                              <motion.span key="loading" className="btn-content" initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0, display: 'none' }}>
+                                <SyncOutlined spin />
+                              </motion.span>
+                            )}
+                            {buttonState === 'success' && (
+                              <motion.span key="success" className="btn-content" initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
+                                <CheckCircleFilled />
+                              </motion.span>
+                            )}
+                          </AnimatePresence>
                         </motion.button>
                       </div>
                     </div>
                   ) : (
                     <div className="scene-home wallpaper-bg">
-                      <div className="app-header glass">首頁</div>
+                      <div className="app-header glass">
+                        <div className="header-avatar b">B</div>
+                        首頁
+                      </div>
                       <div className="home-empty-state glass-card">
                         <div className="empty-icon">☕️</div>
                         <p>目前沒有進行中的溝通</p>
@@ -143,7 +332,7 @@ const PhoneSimulator = ({ role, activeStep }: { role: 'A' | 'B'; activeStep: num
                         className="notification-card glass-card pop-in"
                         initial={{ y: -60, opacity: 0, scale: 0.9 }}
                         animate={{ y: 0, opacity: 1, scale: 1 }}
-                        transition={{ delay: 5.0, type: 'spring', bounce: 0.6 }}
+                        transition={{ delay: 5.5, type: 'spring', bounce: 0.6 }}
                       >
                         <div className="notif-header">
                           <div className="notif-brand">
@@ -167,38 +356,52 @@ const PhoneSimulator = ({ role, activeStep }: { role: 'A' | 'B'; activeStep: num
                 <motion.div
                   key="step1"
                   className="scene"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.3 }}
+                  variants={sceneVariants}
+                  initial="initial" animate="animate" exit="exit"
+                  transition={{ duration: 0.4 }}
                 >
                   {isA ? (
                     <div className="scene-waiting gradient-bg">
-                      <div className="app-header glass">案件狀態</div>
+                      <div className="app-header glass">
+                        <div className="header-avatar a">A</div>
+                        案件狀態
+                      </div>
                       <div className="waiting-content">
                         <motion.div
-                          className="radar-animation"
+                          className="radar-animation mini"
                           animate={{ rotate: 360 }}
                           transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
                         >
                           <div className="radar-scanner"></div>
                         </motion.div>
-                        <h4 className="waiting-title">已發送邀請</h4>
-                        <p className="waiting-subtitle">正在等待 用戶 B 填寫他的視角與感受...</p>
+                        <h4 className="waiting-title">等待對方回覆</h4>
+                        
                         <motion.div 
-                          className="waiting-hint glass-card"
+                          className="skeleton-box glass-card"
                           initial={{ y: 20, opacity: 0 }}
                           animate={{ y: 0, opacity: 1 }}
                           transition={{ delay: 0.5 }}
                         >
-                          <div className="hint-icon">🔒</div>
-                          <div>這段時間，對方只能看到事件主題，無法看到你的具體陳述。</div>
+                          <div className="skel-header">
+                            <span className="pulse-dot-blue"></span> 對方正在輸入視角...
+                          </div>
+                          <div className="skel-body">
+                            <motion.div className="skel-line" style={{ width: '90%' }} animate={{ opacity: [0.4, 0.8, 0.4] }} transition={{ repeat: Infinity, duration: 1.5 }} />
+                            <motion.div className="skel-line" style={{ width: '75%' }} animate={{ opacity: [0.4, 0.8, 0.4] }} transition={{ repeat: Infinity, duration: 1.5, delay: 0.2 }} />
+                            <motion.div className="skel-line" style={{ width: '85%' }} animate={{ opacity: [0.4, 0.8, 0.4] }} transition={{ repeat: Infinity, duration: 1.5, delay: 0.4 }} />
+                          </div>
+                          <div className="skel-lock">
+                            <LockOutlined /> 內容已加密，雙方提交後解鎖
+                          </div>
                         </motion.div>
                       </div>
                     </div>
                   ) : (
                     <div className="scene-form">
-                      <div className="app-header glass">回覆案件</div>
+                      <div className="app-header glass">
+                        <div className="header-avatar b">B</div>
+                        回覆案件
+                      </div>
                       <div className="form-scroll-area">
                         <motion.div 
                           className="info-box glass-card theme-blue"
@@ -213,25 +416,49 @@ const PhoneSimulator = ({ role, activeStep }: { role: 'A' | 'B'; activeStep: num
                         </motion.div>
                         <div className="form-group mt-4">
                           <label>我的感受與觀點 <span className="label-tag secret">AI 將保密處理</span></label>
-                          <div className="fake-textarea">
+                          <div className={`fake-textarea theme-blue ${isTypingPhase ? 'is-typing' : ''}`}>
                             <TypewriterText 
                               text="我以為你只是偶爾抱怨，沒意識到你真的很在意，我工作也很累。" 
-                              delay={1.0} 
+                              typingDelay={1.5} 
                               speed={0.05}
+                              className="multiline"
                             />
                           </div>
                         </div>
                       </div>
                       <div className="scene-actions glass-bottom">
                         <motion.button 
-                          className="btn-primary"
+                          layout
+                          className={`btn-primary theme-blue ${buttonState === 'success' ? 'is-success' : ''}`}
                           initial={{ scale: 0.95, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          transition={{ delay: 3.5, type: 'spring' }}
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
+                          animate={{ 
+                            scale: 1, opacity: 1,
+                            width: buttonState === 'idle' ? '100%' : '48px',
+                            borderRadius: buttonState === 'idle' ? '14px' : '24px',
+                            padding: buttonState === 'idle' ? '14px' : '0',
+                            margin: buttonState === 'idle' ? '0' : '0 auto',
+                          }}
+                          transition={{ layout: { type: 'spring', bounce: 0.3, duration: 0.6 }, delay: 5.0 }}
+                          whileHover={buttonState === 'idle' ? { scale: 1.02 } : {}}
+                          whileTap={buttonState === 'idle' ? { scale: 0.98 } : {}}
                         >
-                          提交我的視角 <SendOutlined />
+                          <AnimatePresence mode="wait">
+                            {buttonState === 'idle' && (
+                              <motion.span key="idle" className="btn-content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, display: 'none' }}>
+                                提交我的視角 <SendOutlined />
+                              </motion.span>
+                            )}
+                            {buttonState === 'loading' && (
+                              <motion.span key="loading" className="btn-content" initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0, display: 'none' }}>
+                                <SyncOutlined spin />
+                              </motion.span>
+                            )}
+                            {buttonState === 'success' && (
+                              <motion.span key="success" className="btn-content" initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
+                                <CheckCircleFilled />
+                              </motion.span>
+                            )}
+                          </AnimatePresence>
                         </motion.button>
                       </div>
                     </div>
@@ -243,24 +470,28 @@ const PhoneSimulator = ({ role, activeStep }: { role: 'A' | 'B'; activeStep: num
                 <motion.div
                   key="step2"
                   className="scene scene-analyzing deep-space-bg"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
+                  variants={sceneVariants}
+                  initial="initial" animate="animate" exit="exit"
+                  transition={{ duration: 0.4 }}
                 >
-                  <div className="app-header dark-glass">AI 心理師分析中</div>
+                  <FloatingParticles />
+                  <div className="app-header dark-glass">
+                    <div className={`header-avatar ${isA ? 'a' : 'b'}`}>{role}</div>
+                    AI 心理師分析中
+                  </div>
                   <div className="analyzing-content">
                     <div className="ai-brain-container">
                       <motion.div 
                         className="ai-brain-core"
                         animate={{ 
-                          scale: [1, 1.2, 1],
+                          scale: [1, 1.15, 1],
                           boxShadow: [
-                            "0 0 20px rgba(255,140,66,0.3)",
-                            "0 0 60px rgba(255,140,66,0.6)",
-                            "0 0 20px rgba(255,140,66,0.3)"
+                            "0 0 20px rgba(255,140,66,0.4)",
+                            "0 0 50px rgba(255,140,66,0.8)",
+                            "0 0 20px rgba(255,140,66,0.4)"
                           ]
                         }}
-                        transition={{ duration: 2, repeat: Infinity }}
+                        transition={{ duration: 1.5, repeat: Infinity }}
                       />
                       <div className="orbit orbit-1"></div>
                       <div className="orbit orbit-2"></div>
@@ -279,7 +510,7 @@ const PhoneSimulator = ({ role, activeStep }: { role: 'A' | 'B'; activeStep: num
                       <motion.div
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 2.0 }}
+                        transition={{ delay: 2.5 }}
                         className="analyzing-row dark-glass-card"
                       >
                         <SyncOutlined spin className="spin-icon" /> 交叉比對認知落差與盲點...
@@ -287,7 +518,7 @@ const PhoneSimulator = ({ role, activeStep }: { role: 'A' | 'B'; activeStep: num
                       <motion.div
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 3.5 }}
+                        transition={{ delay: 4.5 }}
                         className="analyzing-row dark-glass-card"
                       >
                         <SyncOutlined spin className="spin-icon" /> 正在生成雙方專屬開解方案...
@@ -298,7 +529,7 @@ const PhoneSimulator = ({ role, activeStep }: { role: 'A' | 'B'; activeStep: num
                       className="ai-safety-badge glow"
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 4.5 }}
+                      transition={{ delay: 5.5 }}
                     >
                       <CheckCircleFilled /> AI 僅提取觀點，保護雙方隱私
                     </motion.div>
@@ -310,11 +541,14 @@ const PhoneSimulator = ({ role, activeStep }: { role: 'A' | 'B'; activeStep: num
                 <motion.div
                   key="step3"
                   className="scene scene-counseling soft-bg"
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0 }}
+                  variants={sceneVariants}
+                  initial="initial" animate="animate" exit="exit"
+                  transition={{ duration: 0.4 }}
                 >
-                  <div className="app-header glass">個別開解</div>
+                  <div className="app-header glass">
+                    <div className={`header-avatar ${isA ? 'a' : 'b'}`}>{role}</div>
+                    個別開解
+                  </div>
                   <div className="counseling-scroll-area">
                     <motion.div 
                       className="counseling-card glass-card"
@@ -332,13 +566,13 @@ const PhoneSimulator = ({ role, activeStep }: { role: 'A' | 'B'; activeStep: num
                         {isA ? (
                           <TypewriterText 
                             text="我理解你的委屈，你確實承擔了許多日常家務。但對方可能並非故意忽視，而是雙方對於『整潔標準』與『分工默契』的期待沒有對齊。"
-                            delay={0.8}
+                            typingDelay={0.8}
                             speed={0.03}
                           />
                         ) : (
                           <TypewriterText 
                             text="對方比你想像中更需要支持。當 A 開始抱怨時，往往是因為家務壓力已經累積到了臨界點，而非針對你個人的指責。"
-                            delay={0.8}
+                            typingDelay={0.8}
                             speed={0.03}
                           />
                         )}
@@ -349,7 +583,7 @@ const PhoneSimulator = ({ role, activeStep }: { role: 'A' | 'B'; activeStep: num
                       className="ratio-container glass-card"
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 3.5 }}
+                      transition={{ delay: 4.5 }}
                     >
                       <h4 className="ratio-title">責任與認知比例</h4>
                       <div className="ratio-row">
@@ -359,9 +593,9 @@ const PhoneSimulator = ({ role, activeStep }: { role: 'A' | 'B'; activeStep: num
                             className="ratio-bar-fill fill-me gradient-bar"
                             initial={{ width: 0 }}
                             animate={{ width: isA ? '40%' : '60%' }}
-                            transition={{ delay: 4.0, duration: 1.2, type: "spring", bounce: 0.3 }}
+                            transition={{ delay: 5.0, duration: 1.2, type: "spring", bounce: 0.3 }}
                           >
-                            <span className="ratio-value">{isA ? '40%' : '60%'}</span>
+                            <span className="ratio-value"><AnimatedNumber value={isA ? 40 : 60} /></span>
                           </motion.div>
                         </div>
                       </div>
@@ -372,9 +606,9 @@ const PhoneSimulator = ({ role, activeStep }: { role: 'A' | 'B'; activeStep: num
                             className="ratio-bar-fill fill-other solid-bar"
                             initial={{ width: 0 }}
                             animate={{ width: isA ? '60%' : '40%' }}
-                            transition={{ delay: 4.2, duration: 1.2, type: "spring", bounce: 0.3 }}
+                            transition={{ delay: 5.2, duration: 1.2, type: "spring", bounce: 0.3 }}
                           >
-                            <span className="ratio-value">{isA ? '60%' : '40%'}</span>
+                            <span className="ratio-value"><AnimatedNumber value={isA ? 60 : 40} /></span>
                           </motion.div>
                         </div>
                       </div>
@@ -387,11 +621,15 @@ const PhoneSimulator = ({ role, activeStep }: { role: 'A' | 'B'; activeStep: num
                 <motion.div
                   key="step4"
                   className="scene scene-plan success-bg"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
+                  variants={sceneVariants}
+                  initial="initial" animate="animate" exit="exit"
+                  transition={{ duration: 0.4 }}
                 >
-                  <div className="app-header glass">和好方案</div>
+                  <FloatingEmojis />
+                  <div className="app-header glass">
+                    <div className={`header-avatar ${isA ? 'a' : 'b'}`}>{role}</div>
+                    和好方案
+                  </div>
                   <div className="plan-scroll-area">
                     <motion.div 
                       className="plan-card glass-card"
@@ -410,7 +648,7 @@ const PhoneSimulator = ({ role, activeStep }: { role: 'A' | 'B'; activeStep: num
                               className="task-item"
                               initial={{ opacity: 0, x: -20 }}
                               animate={{ opacity: 1, x: 0 }}
-                              transition={{ delay: 0.6, type: "spring" }}
+                              transition={{ delay: 0.8, type: "spring" }}
                             >
                               <div className="task-checkbox"><CheckCircleFilled /></div>
                               <div className="task-content">
@@ -422,7 +660,7 @@ const PhoneSimulator = ({ role, activeStep }: { role: 'A' | 'B'; activeStep: num
                               className="task-item"
                               initial={{ opacity: 0, x: -20 }}
                               animate={{ opacity: 1, x: 0 }}
-                              transition={{ delay: 1.2, type: "spring" }}
+                              transition={{ delay: 1.5, type: "spring" }}
                             >
                               <div className="task-checkbox"><CheckCircleFilled /></div>
                               <div className="task-content">
@@ -437,7 +675,7 @@ const PhoneSimulator = ({ role, activeStep }: { role: 'A' | 'B'; activeStep: num
                               className="task-item"
                               initial={{ opacity: 0, x: -20 }}
                               animate={{ opacity: 1, x: 0 }}
-                              transition={{ delay: 0.6, type: "spring" }}
+                              transition={{ delay: 0.8, type: "spring" }}
                             >
                               <div className="task-checkbox"><CheckCircleFilled /></div>
                               <div className="task-content">
@@ -449,7 +687,7 @@ const PhoneSimulator = ({ role, activeStep }: { role: 'A' | 'B'; activeStep: num
                               className="task-item"
                               initial={{ opacity: 0, x: -20 }}
                               animate={{ opacity: 1, x: 0 }}
-                              transition={{ delay: 1.2, type: "spring" }}
+                              transition={{ delay: 1.5, type: "spring" }}
                             >
                               <div className="task-checkbox"><CheckCircleFilled /></div>
                               <div className="task-content">
@@ -466,7 +704,7 @@ const PhoneSimulator = ({ role, activeStep }: { role: 'A' | 'B'; activeStep: num
                       className="plan-footer glass-card highlight"
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 2.5, type: "spring" }}
+                      transition={{ delay: 3.0, type: "spring" }}
                     >
                       <div className="footer-icon wave">🎉</div>
                       <div className="footer-text">
@@ -485,7 +723,7 @@ const PhoneSimulator = ({ role, activeStep }: { role: 'A' | 'B'; activeStep: num
         <span className={`role-badge ${isA ? 'a' : 'b'}`}>{role}</span>
         {roleName}的設備
       </div>
-    </div>
+    </motion.div>
   );
 };
 
@@ -524,6 +762,24 @@ const FlowSimulation = () => {
   const [activeStep, setActiveStep] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
   const [progress, setProgress] = useState(0);
+
+  // Mouse tracking for parallax
+  const mouseX = useSpring(0, { stiffness: 70, damping: 20 });
+  const mouseY = useSpring(0, { stiffness: 70, damping: 20 });
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width - 0.5; // -0.5 to 0.5
+    const y = (e.clientY - rect.top) / rect.height - 0.5; // -0.5 to 0.5
+    mouseX.set(x);
+    mouseY.set(y);
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+    mouseX.set(0);
+    mouseY.set(0);
+  };
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -564,16 +820,37 @@ const FlowSimulation = () => {
     };
   }, [steps.length, isHovered, activeStep]);
 
+  const getStreamDirectionClass = (step: number) => {
+    if (step === 0) return 'flow-a-to-b';
+    if (step === 1) return 'flow-b-to-a';
+    if (step === 2) return 'flow-both-to-center';
+    return 'flow-center-to-both';
+  };
+
   return (
     <section 
       id="main-content" 
       className="flow-demo-section-v3" 
       aria-labelledby="flow-demo-title"
+      onMouseMove={handleMouseMove}
       onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseLeave={handleMouseLeave}
     >
-      {/* 科技感背景網格 */}
+      {/* 科技感背景網格與漸層 SVG 定義 */}
+      <svg width="0" height="0" className="svg-defs">
+        <defs>
+          <linearGradient id="ring-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#ff8c42" />
+            <stop offset="100%" stopColor="#ff6b6b" />
+          </linearGradient>
+        </defs>
+      </svg>
       <div className="bg-grid"></div>
+      
+      {/* 裝飾性環境懸浮球 */}
+      <div className="ambient-orb orb-1"></div>
+      <div className="ambient-orb orb-2"></div>
+      <div className="ambient-orb orb-3"></div>
       
       <div className="container">
         <motion.div
@@ -597,6 +874,8 @@ const FlowSimulation = () => {
               {steps.map((step, index) => {
                 const isActive = index === activeStep;
                 const isCompleted = index < activeStep;
+                const circumference = 2 * Math.PI * 24; // ~150.8
+
                 return (
                   <motion.li
                     key={step.title}
@@ -604,6 +883,7 @@ const FlowSimulation = () => {
                     animate={{
                       x: isActive ? 10 : 0,
                       opacity: isActive || isCompleted ? 1 : 0.5,
+                      scale: isActive ? 1.02 : 1
                     }}
                     transition={{ duration: 0.4, type: "spring" }}
                     onClick={() => {
@@ -613,15 +893,20 @@ const FlowSimulation = () => {
                   >
                     <div className="step-content">
                       <div className="step-icon-wrapper">
-                        {isActive && (
-                          <motion.div
-                            layoutId="active-step-glow"
-                            className="step-active-glow"
-                            initial={false}
-                            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                          />
+                        {isActive && !isHovered && (
+                          <svg className="step-progress-ring" viewBox="0 0 52 52">
+                            <circle className="ring-bg" cx="26" cy="26" r="24" />
+                            <circle 
+                              className="ring-fill" 
+                              cx="26" cy="26" r="24" 
+                              style={{ 
+                                strokeDasharray: circumference,
+                                strokeDashoffset: circumference - (progress / 100) * circumference
+                              }}
+                            />
+                          </svg>
                         )}
-                        <span className="step-icon" aria-hidden="true">
+                        <span className={`step-icon ${isActive ? 'is-active' : ''}`} aria-hidden="true">
                           {isCompleted ? <CheckCircleFilled /> : step.icon}
                         </span>
                       </div>
@@ -630,34 +915,47 @@ const FlowSimulation = () => {
                         <span>{step.subtitle}</span>
                       </div>
                     </div>
-                    {/* 活躍狀態的進度條 */}
-                    {isActive && !isHovered && (
-                      <div className="step-progress-bar">
-                        <motion.div 
-                          className="progress-fill"
-                          style={{ width: `${progress}%` }}
-                        />
-                      </div>
-                    )}
                   </motion.li>
                 );
               })}
             </ol>
             <div className="interactive-hint">
               <span className="pulse-dot"></span>
-              您可以點擊步驟自由切換，或懸停暫停播放
+              您可以滑動滑鼠體驗3D視角，或點擊步驟自由切換
             </div>
           </div>
 
           {/* 右側雙手機模擬器 */}
           <div className="flow-demo-devices-wrapper">
-            <PhoneSimulator role="A" activeStep={activeStep} />
-            <div className="devices-divider">
-              <div className="divider-line"></div>
-              <div className="divider-icon"><SyncOutlined /></div>
-              <div className="divider-line"></div>
+            <PhoneSimulator role="A" activeStep={activeStep} mouseX={mouseX} mouseY={mouseY} progress={progress} />
+            
+            <div className={`devices-divider ${getStreamDirectionClass(activeStep)}`}>
+              <div className="stream-line left">
+                <div className="stream-particle"></div>
+              </div>
+              <motion.div 
+                className="divider-icon"
+                animate={{ 
+                  scale: activeStep === 2 ? 1.2 : 1,
+                  boxShadow: activeStep === 2 ? '0 0 20px rgba(255,140,66,0.6)' : '0 4px 10px rgba(0,0,0,0.05)'
+                }}
+              >
+                {activeStep === 2 ? (
+                  <motion.div 
+                    className="ai-core-mini" 
+                    animate={{ scale: [1, 1.3, 1] }} 
+                    transition={{ duration: 1.5, repeat: Infinity }} 
+                  />
+                ) : (
+                  <SyncOutlined />
+                )}
+              </motion.div>
+              <div className="stream-line right">
+                <div className="stream-particle"></div>
+              </div>
             </div>
-            <PhoneSimulator role="B" activeStep={activeStep} />
+
+            <PhoneSimulator role="B" activeStep={activeStep} mouseX={mouseX} mouseY={mouseY} progress={progress} />
 
             {/* 裝飾性背景光暈 */}
             <div className="device-glow-primary"></div>

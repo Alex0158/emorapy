@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState, useRef } from 'react';
-import { motion, AnimatePresence, useSpring, useTransform, MotionValue } from 'framer-motion';
+import React, { useEffect, useMemo, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   CheckCircleFilled,
   FileTextOutlined,
@@ -436,15 +436,11 @@ const AIBrainCore = React.memo(() => (
 
 const PhoneSimulator = ({ 
   role, 
-  activeStep, 
-  mouseX, 
-  mouseY,
+  activeStep,
   progress
 }: { 
   role: 'A' | 'B'; 
   activeStep: number;
-  mouseX: MotionValue<number>;
-  mouseY: MotionValue<number>;
   progress: number;
 }) => {
   const isA = role === 'A';
@@ -454,12 +450,6 @@ const PhoneSimulator = ({
     (activeStep === 0 && isA) || 
     (activeStep === 1 && !isA) || 
     (activeStep >= 2);
-
-  const defaultRotateX = isA ? 4 : 2;
-  const defaultRotateY = isA ? 6 : -6;
-
-  const dynamicRotateX = useTransform(mouseY, [-0.5, 0.5], [20 + defaultRotateX, -20 + defaultRotateX]);
-  const dynamicRotateY = useTransform(mouseX, [-0.5, 0.5], [-20 + defaultRotateY, 20 + defaultRotateY]);
 
   const [isTypingPhase, setIsTypingPhase] = useState(true);
   useEffect(() => {
@@ -476,14 +466,15 @@ const PhoneSimulator = ({
   return (
     <motion.div 
       className={`phone-mockup role-${role.toLowerCase()} ${isActiveRole ? 'is-active-phone' : ''}`}
-      style={{ rotateX: dynamicRotateX, rotateY: dynamicRotateY }}
       animate={{ 
         scale: isActiveRole ? 1 : 0.94,
         opacity: isActiveRole ? 1 : 0.7,
         filter: isActiveRole ? 'grayscale(0%)' : 'grayscale(20%)',
-        x: isShaking ? [-4, 4, -4, 4, 0] : 0
+        x: isShaking ? [-4, 4, -4, 4, 0] : 0,
+        y: isActiveRole ? [0, -5, 0] : 0 // subtle floating effect instead of mouse tracking
       }}
       transition={{ 
+        y: { duration: 4, repeat: Infinity, ease: 'easeInOut' },
         duration: isShaking ? 0.3 : 0.5, 
         type: isShaking ? 'tween' : 'spring', 
         bounce: 0.3 
@@ -1019,42 +1010,7 @@ const FlowSimulation = () => {
   );
 
   const [activeStep, setActiveStep] = useState(0);
-  const [isHovered, setIsHovered] = useState(false);
-  const isHoveredRef = useRef(false);
-  const idleStartTimeRef = useRef<number | null>(null);
-  if (idleStartTimeRef.current === null) {
-    // eslint-disable-next-line react-hooks/purity
-    idleStartTimeRef.current = Date.now();
-  }
   const [progress, setProgress] = useState(0);
-
-  // Mouse tracking for parallax
-  const mouseX = useSpring(0, { stiffness: 120, damping: 20 });
-  const mouseY = useSpring(0, { stiffness: 120, damping: 20 });
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isHoveredRef.current) {
-      setIsHovered(true);
-      isHoveredRef.current = true;
-    }
-    const x = (e.clientX / window.innerWidth) - 0.5; // -0.5 to 0.5
-    const y = (e.clientY / window.innerHeight) - 0.5; // -0.5 to 0.5
-    mouseX.set(x * 1.5);
-    mouseY.set(y * 1.5);
-  };
-
-  const handleMouseEnter = () => {
-    setIsHovered(true);
-    isHoveredRef.current = true;
-  };
-
-  const handleMouseLeave = () => {
-    setIsHovered(false);
-    isHoveredRef.current = false;
-    idleStartTimeRef.current = Date.now();
-    mouseX.set(0);
-    mouseY.set(0);
-  };
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1072,14 +1028,7 @@ const FlowSimulation = () => {
       const delta = Math.min(now - lastFrameTime, 100);
       lastFrameTime = now;
       
-      if (!isHoveredRef.current) {
-        accumulatedTime += delta;
-        
-        // Idle breathing for parallax
-        const idleElapsed = now - (idleStartTimeRef.current || now);
-        mouseX.set(Math.sin(idleElapsed / 2500) * 0.12);
-        mouseY.set(Math.cos(idleElapsed / 2000) * 0.08);
-      }
+      accumulatedTime += delta;
 
       const currentProgress = Math.min((accumulatedTime / AUTO_PLAY_MS) * 100, 100);
       setProgress(currentProgress);
@@ -1098,7 +1047,7 @@ const FlowSimulation = () => {
       mounted = false;
       cancelAnimationFrame(animationFrameId);
     };
-  }, [steps.length, activeStep, mouseX, mouseY]);
+  }, [steps.length, activeStep]);
 
   const getStreamDirectionClass = (step: number) => {
     if (step === 0) return 'flow-a-to-b';
@@ -1112,9 +1061,6 @@ const FlowSimulation = () => {
       id="main-content" 
       className="flow-demo-section-v3" 
       aria-labelledby="flow-demo-title"
-      onMouseMove={handleMouseMove}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
     >
       {/* 科技感背景網格與漸層 SVG 定義 */}
       <svg width="0" height="0" className="svg-defs">
@@ -1182,7 +1128,7 @@ const FlowSimulation = () => {
                   >
                     <div className="step-content">
                       <div className="step-icon-wrapper">
-                        {isActive && !isHovered && (
+                        {isActive && (
                           <svg className="step-progress-ring" viewBox="0 0 52 52">
                             <circle className="ring-bg" cx="26" cy="26" r="24" />
                             <circle 
@@ -1209,14 +1155,13 @@ const FlowSimulation = () => {
               })}
             </ol>
             <div className="interactive-hint">
-              <span className="pulse-dot"></span>
-              您可以滑動滑鼠體驗3D視角，或點擊步驟自由切換
+              您可以點擊步驟自由切換
             </div>
           </div>
 
           {/* 右側雙手機模擬器 */}
           <div className="flow-demo-devices-wrapper">
-            <PhoneSimulator role="A" activeStep={activeStep} mouseX={mouseX} mouseY={mouseY} progress={progress} />
+            <PhoneSimulator role="A" activeStep={activeStep} progress={progress} />
             
             <div className={`devices-divider ${getStreamDirectionClass(activeStep)}`}>
               <div className="stream-line left">
@@ -1244,7 +1189,7 @@ const FlowSimulation = () => {
               </div>
             </div>
 
-            <PhoneSimulator role="B" activeStep={activeStep} mouseX={mouseX} mouseY={mouseY} progress={progress} />
+            <PhoneSimulator role="B" activeStep={activeStep} progress={progress} />
 
             {/* 裝飾性背景光暈 */}
             <div className="device-glow-primary"></div>

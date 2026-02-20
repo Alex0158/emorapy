@@ -8,10 +8,14 @@ import QuickExperienceCreate from './index';
 
 vi.mock('framer-motion', () => ({
   motion: {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     section: ({ children, ...props }: any) => <section {...props}>{children}</section>,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     span: ({ children, ...props }: any) => <span {...props}>{children}</span>,
   },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   AnimatePresence: ({ children }: any) => <>{children}</>,
 }));
 

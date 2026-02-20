@@ -23,9 +23,19 @@ describe('markdown', () => {
       expect(extractResponsibilityRatio(content)).toEqual({ plaintiff: 60, defendant: 40 });
     });
 
+    it('應解析 原告：X% 調整空間 與 被告：Y% 調整空間 且總和為 100', () => {
+      const content = '- 原告：55% 調整空間\n- 被告：45% 調整空間';
+      expect(extractResponsibilityRatio(content)).toEqual({ plaintiff: 55, defendant: 45 });
+    });
+
     it('支援冒號 原告: 與 被告:', () => {
       const content = '原告: 50% 責任 被告: 50% 責任';
       expect(extractResponsibilityRatio(content)).toEqual({ plaintiff: 50, defendant: 50 });
+    });
+
+    it('支援冒號搭配調整空間', () => {
+      const content = '原告: 60% 調整空間\n被告: 40% 調整空間';
+      expect(extractResponsibilityRatio(content)).toEqual({ plaintiff: 60, defendant: 40 });
     });
 
     it('總和不為 100 應返回 null', () => {

@@ -339,11 +339,20 @@ export class FileService {
    */
   async deleteFile(filename: string): Promise<void> {
     try {
-      const filePath = path.join(env.UPLOAD_DIR, filename);
+      const safeName = path.basename(filename);
+      if (!safeName || safeName === '.' || safeName === '..') {
+        logger.warn('Rejected deleteFile with invalid filename', { filename });
+        return;
+      }
+      const uploadDir = path.resolve(env.UPLOAD_DIR);
+      const filePath = path.resolve(uploadDir, safeName);
+      if (!filePath.startsWith(uploadDir + path.sep) && filePath !== uploadDir) {
+        logger.warn('Path traversal attempt blocked in deleteFile', { filename, resolved: filePath });
+        return;
+      }
       await fs.unlink(filePath);
     } catch (error) {
       logger.error('Failed to delete file', { filename, error });
-      // 不拋出錯誤，因為文件可能已經不存在
     }
   }
 }

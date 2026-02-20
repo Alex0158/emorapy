@@ -24,6 +24,10 @@ export class EmailService {
   /**
    * 發送驗證碼郵件
    */
+  private sanitizeEmail(email: string): string {
+    return email.replace(/[\r\n\x00-\x1f]/g, '');
+  }
+
   async sendVerificationCode(
     email: string,
     code: string,
@@ -33,6 +37,8 @@ export class EmailService {
       logger.warn('郵件服務未配置，跳過發送', { email, code, type });
       return;
     }
+
+    email = this.sanitizeEmail(email);
 
     const subjectMap = {
       register: '歡迎註冊熊媽媽法庭 - 請驗證您的郵箱',
@@ -94,9 +100,10 @@ export class EmailService {
       `;
       for (const u of users) {
         if (!u.email) continue;
+        const safeEmail = this.sanitizeEmail(u.email);
         await this.transporter.sendMail({
           from: `"熊媽媽法庭" <${env.SMTP_USER}>`,
-          to: u.email,
+          to: safeEmail,
           subject,
           html,
         });
@@ -123,16 +130,17 @@ export class EmailService {
         select: { email: true, nickname: true },
       });
       if (!user?.email) return;
+      const safeEmail = this.sanitizeEmail(user.email);
       const subject = '判決完成通知 - 熊媽媽法庭';
       const html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #333;">判決已生成</h2>
-          <p style="font-size: 16px; color: #666;">您提交的案件（ID: ${caseId}）判決已生成，請登錄查看詳細內容。</p>
+          <p style="font-size: 16px; color: #666;">您提交的案件判決已生成，請登錄查看詳細內容。</p>
         </div>
       `;
       await this.transporter.sendMail({
         from: `"熊媽媽法庭" <${env.SMTP_USER}>`,
-        to: user.email,
+        to: safeEmail,
         subject,
         html,
       });

@@ -3,7 +3,7 @@ import { pairingService } from '../services/pairing.service';
 import { authenticate } from '../middleware/auth';
 import { validate } from '../middleware/validator';
 import { createPairingSchema, joinPairingSchema } from '../utils/validation';
-import { generalLimiter } from '../middleware/rateLimiter';
+import { generalLimiter, pairingJoinLimiter } from '../middleware/rateLimiter';
 import { getAuthUserId } from '../utils/request';
 
 const router = Router();
@@ -41,7 +41,7 @@ router.post(
  */
 router.post(
   '/join',
-  generalLimiter,
+  pairingJoinLimiter,
   authenticate,
   validate(joinPairingSchema),
   async (req, res, next) => {

@@ -5,8 +5,9 @@
 import { RouterProvider } from 'react-router-dom';
 import { ConfigProvider } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
+import enUS from 'antd/locale/en_US';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Suspense, useEffect } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { router } from './router';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import Loading from './components/common/Loading';
@@ -15,6 +16,7 @@ import NetworkStatus from './components/common/NetworkStatus';
 import { logPageLoadTime } from './utils/performance';
 import { initSEO } from './utils/seo';
 import { useAuthStore } from './store/authStore';
+import { getLocale, onLocaleChange, t } from './utils/i18n';
 import './App.less';
 
 // 配置Ant Design主題
@@ -43,6 +45,9 @@ const queryClient = new QueryClient({
 
 function App() {
   const { checkAuth } = useAuthStore();
+  const [locale, setLocale] = useState(getLocale());
+
+  useEffect(() => onLocaleChange(() => setLocale(getLocale())), []);
 
   useEffect(() => {
     // 記錄頁面加載時間
@@ -50,24 +55,26 @@ function App() {
 
     // 初始化全局SEO
     initSEO({
-      title: '關係修復室',
-      description: '幫你釐清爭點、重建對話、推進修復。',
-      keywords: '伴侶衝突,關係修復,衝突溝通,AI調解,關係修復室',
+      title: t('nav.logo'),
+      description: t('home.description'),
+      keywords: t('home.keywords'),
       image: `${window.location.origin}/images/bear-judge/mother-bear-judge-large.png`,
       url: window.location.origin,
     });
 
     // 檢查認證狀態
     checkAuth();
-  }, [checkAuth]);
+  }, [checkAuth, locale]);
+
+  const antdLocale = useMemo(() => (locale === 'en-US' ? enUS : zhCN), [locale]);
 
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <ConfigProvider theme={theme} locale={zhCN}>
+        <ConfigProvider theme={theme} locale={antdLocale}>
           <NetworkStatus />
           <Suspense fallback={<Loading />}>
-            <RouterProvider router={router} />
+            <RouterProvider key={locale} router={router} />
           </Suspense>
           <BackToTop />
         </ConfigProvider>

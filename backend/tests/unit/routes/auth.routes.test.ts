@@ -33,6 +33,9 @@ jest.mock('../../../src/middleware/rateLimiter', () => ({
   registerLimiter: (_req: unknown, _res: unknown, next: () => void) => next(),
   authLimiter: (_req: unknown, _res: unknown, next: () => void) => next(),
   verificationCodeLimiter: (_req: unknown, _res: unknown, next: () => void) => next(),
+  verifyCodeLimiter: (_req: unknown, _res: unknown, next: () => void) => next(),
+  resetPasswordLimiter: (_req: unknown, _res: unknown, next: () => void) => next(),
+  resetConfirmLimiter: (_req: unknown, _res: unknown, next: () => void) => next(),
 }));
 
 import authRouter from '../../../src/routes/auth.routes';

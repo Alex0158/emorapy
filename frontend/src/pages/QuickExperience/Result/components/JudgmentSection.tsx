@@ -22,10 +22,10 @@ const JudgmentSection = ({ content }: Props) => {
               content={content}
               title={undefined}
               onShare={() => {
-                message.info('分享功能開發中');
+                message.info(t('message.shareComingSoon'));
               }}
               onFavorite={() => {
-                message.info('收藏功能需要註冊後使用');
+                message.info(t('message.favoriteNeedRegister'));
               }}
               showActions={true}
             />

@@ -6,6 +6,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import Home from './index';
+import { setLocale } from '@/utils/i18n';
 
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {
@@ -31,6 +32,7 @@ vi.mock('@/components/business/BearJudge', () => ({
 describe('Home', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    setLocale('zh-TW');
   });
 
   it('應顯示 Hero 標題', () => {
@@ -96,5 +98,16 @@ describe('Home', () => {
       </MemoryRouter>
     );
     expect(screen.getByText('跳過到主要內容')).toBeInTheDocument();
+  });
+
+  it('en-US 下應顯示英文版流程模擬器', () => {
+    setLocale('en-US');
+    render(
+      <MemoryRouter>
+        <Home />
+      </MemoryRouter>
+    );
+    expect(screen.queryByText('模擬實際使用流程')).not.toBeInTheDocument();
+    expect(screen.getByText('See the Flow in Action')).toBeInTheDocument();
   });
 });

@@ -318,6 +318,80 @@ describe('AIService (non-useMock)', () => {
     });
   });
 
+  describe('generateJudgment', () => {
+    it('應優先採用結構化責任分輸出（confidence=1）', async () => {
+      const analysis = {
+        severity: 'moderate',
+        personA: { primaryFeelings: '委屈', unmetNeeds: '被理解', communicationPattern: '追逐型' },
+        personB: { primaryFeelings: '壓力', unmetNeeds: '被體諒', communicationPattern: '迴避型' },
+        interactionCycle: '追逐-沉默',
+        triggerPattern: '家務分工',
+        coreIssue: '被重視需求',
+        relationshipStrengths: '仍願意溝通',
+        gottmanFlags: [],
+        safetyFlags: [],
+        suggestedApproach: '先同理後協調',
+      };
+      (cacheGetMock as any).mockResolvedValueOnce(null);
+      (openaiCreateMock as any)
+        .mockResolvedValueOnce({ choices: [{ message: { content: JSON.stringify(analysis) } }] })
+        .mockResolvedValueOnce({
+          choices: [{ message: { content: '### 各自可以調整的方向\n**調整比重**：\n- 原告：70% 調整空間\n- 被告：30% 調整空間' } }],
+        })
+        .mockResolvedValueOnce({
+          choices: [{ message: { content: '{"plaintiff":40,"defendant":60,"confidence":1}' } }],
+        })
+        .mockResolvedValueOnce({
+          choices: [{ message: { content: '摘要內容' } }],
+        });
+
+      const result = await service.generateJudgment(
+        '生活習慣衝突',
+        '我覺得家務分配一直很不平均。',
+        '我最近工作很忙。'
+      );
+
+      expect(result.responsibilityRatio).toEqual({ plaintiff: 40, defendant: 60 });
+      expect(result.summary).toBe('摘要內容');
+    });
+
+    it('結構化評估失敗時應回退為文案抽取+規則校準', async () => {
+      const analysis = {
+        severity: 'moderate',
+        personA: { primaryFeelings: '失落', unmetNeeds: '被看見', communicationPattern: '' },
+        personB: { primaryFeelings: '壓力', unmetNeeds: '被理解', communicationPattern: '' },
+        interactionCycle: '反覆誤解',
+        triggerPattern: '家務安排',
+        coreIssue: '需求未對齊',
+        relationshipStrengths: '願意對話',
+        gottmanFlags: [],
+        safetyFlags: [],
+        suggestedApproach: '先澄清需求',
+      };
+      (cacheGetMock as any).mockResolvedValueOnce(null);
+      (openaiCreateMock as any)
+        .mockResolvedValueOnce({ choices: [{ message: { content: JSON.stringify(analysis) } }] })
+        .mockResolvedValueOnce({
+          choices: [{ message: { content: '### 各自可以調整的方向\n**調整比重**：\n- 原告：70% 調整空間\n- 被告：30% 調整空間' } }],
+        })
+        .mockResolvedValueOnce({
+          choices: [{ message: { content: 'not-json' } }],
+        })
+        .mockResolvedValueOnce({
+          choices: [{ message: { content: '摘要內容' } }],
+        });
+
+      const result = await service.generateJudgment(
+        '生活習慣衝突',
+        '我們最近在家務安排上一直有摩擦。',
+        '我最近也在調整，但還沒找到節奏。'
+      );
+
+      // 回退路徑：70/30（抽取） 與 50/50（規則）按 0.55 混合，約為 61/39
+      expect(result.responsibilityRatio).toEqual({ plaintiff: 61, defendant: 39 });
+    });
+  });
+
   describe('generateSummary', () => {
     it('應調用 generateText 並返回 trim 後摘要', async () => {
       (openaiCreateMock as any)

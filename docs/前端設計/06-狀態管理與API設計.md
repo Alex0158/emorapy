@@ -51,8 +51,9 @@ interface AuthState {
 **token**：
 - **類型**：`string | null`
 - **用途**：存儲JWT Token
-- **存儲**：localStorage（如果選擇記住我）或內存
-- **過期時間**：7天（記住我）或會話結束
+- **存儲**：`localStorage`（勾選「記住我」）或 `sessionStorage`（未勾選，關閉瀏覽器即失效）
+- **過期時間**：24小時（後端 JWT 配置）；前端依據儲存位置控制會話持續性
+- **注意**：Zustand persist 只持久化 `user`，不持久化 `token`，避免 rememberMe 語義被繞過。App 啟動時透過 `onRehydrateStorage` 從對應 Storage 重新讀取 token。
 
 **user**：
 - **類型**：`User | null`

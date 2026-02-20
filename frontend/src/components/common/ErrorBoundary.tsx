@@ -27,7 +27,11 @@ class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    logger.error('Error caught by boundary', { error, errorInfo });
+    logger.error('Error caught by boundary', {
+      name: error?.name,
+      message: error?.message,
+      componentStack: errorInfo?.componentStack,
+    });
     // 生產環境發送到錯誤追蹤服務
     if (import.meta.env.PROD && import.meta.env.VITE_SENTRY_DSN) {
       // import * as Sentry from '@sentry/react';

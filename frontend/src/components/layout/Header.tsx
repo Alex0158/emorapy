@@ -2,11 +2,12 @@
  * 頂部導航欄
  */
 
-import { Layout, Menu, Button, Dropdown, Avatar, Space } from 'antd';
+import { Layout, Menu, Button, Dropdown, Avatar, Space, Select } from 'antd';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { HomeOutlined, LoginOutlined, UserOutlined, LogoutOutlined, SettingOutlined } from '@ant-design/icons';
+import { HomeOutlined, LoginOutlined, UserOutlined, LogoutOutlined, SettingOutlined, GlobalOutlined } from '@ant-design/icons';
+import { useCallback, useEffect, useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
-import { t } from '@/utils/i18n';
+import { t, getLocale, onLocaleChange, setLocale, type Locale } from '@/utils/i18n';
 import './Header.less';
 
 const { Header: AntHeader } = Layout;
@@ -15,6 +16,15 @@ const Header = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { isAuthenticated, user, logout } = useAuthStore();
+  const [locale, setLocalLocale] = useState<Locale>(getLocale());
+
+  useEffect(() => onLocaleChange(() => setLocalLocale(getLocale())), []);
+
+  const handleLocaleChange = useCallback((value: Locale) => {
+    // 先更新本地 state，避免 UI 因重渲染時序看起來像「沒切換」
+    setLocalLocale(value);
+    setLocale(value);
+  }, []);
 
   const menuItems = [
     {
@@ -70,6 +80,18 @@ const Header = () => {
         />
 
         <div className="header-actions">
+          <Select
+            value={locale}
+            onChange={handleLocaleChange}
+            size="small"
+            className="locale-select"
+            suffixIcon={<GlobalOutlined />}
+            getPopupContainer={(triggerNode) => triggerNode.parentElement ?? document.body}
+            options={[
+              { value: 'zh-TW', label: '繁體中文' },
+              { value: 'en-US', label: 'English' },
+            ]}
+          />
           {isAuthenticated ? (
             <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
               <Space className="user-info" style={{ cursor: 'pointer' }}>

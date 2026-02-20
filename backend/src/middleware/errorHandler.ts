@@ -4,6 +4,7 @@ import logger from '../config/logger';
 import { env } from '../config/env';
 import { getRequestId, getAuthUserIdOptional, getSessionId } from '../utils/request';
 import crypto from 'crypto';
+import { translateBackendMessage, translateErrorByCode } from '../i18n';
 
 const maskSessionId = (sessionId?: string): string | undefined => {
   if (!sessionId) return undefined;
@@ -16,6 +17,8 @@ export const errorHandler = (
   res: Response,
   _next: NextFunction
 ): void => {
+  const locale = req.locale ?? 'zh-TW';
+
   logger.error('Error occurred', {
     request_id: getRequestId(req),
     error: err.message,
@@ -28,12 +31,11 @@ export const errorHandler = (
   
   // 處理自定義錯誤
   if (err instanceof AppError) {
-    // 自定義錯誤已經包含用戶友好的消息
     res.status(err.statusCode).json({
       success: false,
       error: {
         code: err.code,
-        message: err.message,
+        message: translateErrorByCode(locale, err.code, err.message),
         // 生產環境不返回details，開發環境返回
         details: env.NODE_ENV === 'development' ? err.details : undefined,
       },
@@ -51,8 +53,8 @@ export const errorHandler = (
         error: {
           code: 'CONFLICT',
           message: env.NODE_ENV === 'production' 
-            ? '資源已存在' 
-            : `唯一約束違規: ${dbError.meta?.target?.join(', ') || '未知字段'}`,
+            ? translateBackendMessage(locale, '資源已存在')
+            : translateBackendMessage(locale, `唯一約束違規: ${dbError.meta?.target?.join(', ') || '未知字段'}`),
         },
       });
       return;
@@ -63,7 +65,7 @@ export const errorHandler = (
         success: false,
         error: {
           code: 'NOT_FOUND',
-          message: '資源不存在',
+          message: translateErrorByCode(locale, 'NOT_FOUND', '資源不存在'),
         },
       });
       return;
@@ -76,8 +78,8 @@ export const errorHandler = (
     error: {
       code: 'INTERNAL_ERROR',
       message: env.NODE_ENV === 'production' 
-        ? '服務器內部錯誤，請稍後再試' 
-        : err.message,
+        ? translateBackendMessage(locale, '服務器內部錯誤，請稍後再試')
+        : translateBackendMessage(locale, err.message),
     },
   });
 };

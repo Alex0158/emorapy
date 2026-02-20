@@ -6,6 +6,9 @@ import { Errors } from '../utils/errors';
 import logger from '../config/logger';
 import { emailService } from './email.service';
 
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 分鐘
+
 export interface RegisterDto {
   email: string;
   password: string;
@@ -22,12 +25,10 @@ export class AuthService {
    * 用戶註冊
    */
   async register(data: RegisterDto): Promise<{ user: any; token: string }> {
-    // 1. 驗證郵箱格式
     if (!this.isValidEmail(data.email)) {
       throw Errors.INVALID_EMAIL();
     }
 
-    // 2. 檢查郵箱是否已存在
     const existingUser = await prisma.user.findUnique({
       where: { email: data.email },
     });
@@ -36,16 +37,13 @@ export class AuthService {
       throw Errors.EMAIL_EXISTS();
     }
 
-    // 3. 驗證密碼強度
     const passwordValidation = validatePasswordStrength(data.password);
     if (!passwordValidation.valid) {
       throw Errors.WEAK_PASSWORD(passwordValidation.message);
     }
 
-    // 4. 加密密碼
     const passwordHash = await hashPassword(data.password);
 
-    // 5. 創建用戶
     const user = await prisma.user.create({
       data: {
         email: data.email,
@@ -62,13 +60,11 @@ export class AuthService {
       },
     });
 
-    // 6. 發送驗證郵件（異步，不阻塞）
     this.sendVerificationCode(data.email, 'register').catch(err => {
       logger.error('Failed to send verification email', { email: data.email, error: err });
     });
 
-    // 7. 生成Token
-    const token = generateToken({ id: user.id, email: user.email });
+    const token = generateToken({ id: user.id, email: user.email, token_version: 0 });
 
     logger.info('User registered', { userId: user.id, email: user.email });
 
@@ -76,10 +72,9 @@ export class AuthService {
   }
 
   /**
-   * 用戶登錄
+   * 用戶登錄（含帳號鎖定保護）
    */
   async login(data: LoginDto): Promise<{ user: any; token: string; expires_in: number }> {
-    // 1. 查找用戶
     const user = await prisma.user.findUnique({
       where: { email: data.email },
     });
@@ -88,31 +83,66 @@ export class AuthService {
       throw Errors.INVALID_CREDENTIALS();
     }
 
-    // 2. 驗證密碼
+    // 檢查帳號是否被鎖定
+    if (user.locked_until && user.locked_until > new Date()) {
+      const remainingMs = user.locked_until.getTime() - Date.now();
+      const remainingMin = Math.ceil(remainingMs / 60000);
+      throw Errors.RATE_LIMIT_EXCEEDED(`帳號已被暫時鎖定，請${remainingMin}分鐘後再試`);
+    }
+
+    // 鎖定已到期：先重置失敗計數
+    if (user.locked_until && user.locked_until <= new Date()) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { login_failed_attempts: 0, locked_until: null },
+      }).catch(() => {});
+      user.login_failed_attempts = 0;
+    }
+
     const isValid = await comparePassword(data.password, user.password_hash);
     if (!isValid) {
+      const updated = await prisma.user.update({
+        where: { id: user.id },
+        data: { login_failed_attempts: { increment: 1 } },
+        select: { login_failed_attempts: true },
+      });
+
+      if (updated.login_failed_attempts >= MAX_LOGIN_ATTEMPTS) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { locked_until: new Date(Date.now() + LOCKOUT_DURATION_MS) },
+        }).catch(() => {});
+        logger.warn('Account locked due to failed attempts', {
+          email: data.email,
+          attempts: updated.login_failed_attempts,
+        });
+      }
+
       throw Errors.INVALID_CREDENTIALS();
     }
 
-    // 3. 檢查帳號狀態
     if (!user.is_active) {
       throw Errors.UNAUTHORIZED('帳號未激活');
     }
-    // 3.1 必須完成郵箱驗證
     if (!user.email_verified) {
       throw Errors.UNAUTHORIZED('請先完成郵箱驗證');
     }
 
-    // 4. 更新最後登錄時間
+    // 登入成功：重置失敗計數和鎖定狀態
     await prisma.user.update({
       where: { id: user.id },
-      data: { last_login_at: new Date() },
-    }).catch(() => {
-      // 更新失敗不影響登錄
-    });
+      data: {
+        last_login_at: new Date(),
+        login_failed_attempts: 0,
+        locked_until: null,
+      },
+    }).catch(() => {});
 
-    // 5. 生成Token
-    const token = generateToken({ id: user.id, email: user.email });
+    const token = generateToken({
+      id: user.id,
+      email: user.email,
+      token_version: user.token_version,
+    });
 
     logger.info('User logged in', { userId: user.id, email: user.email });
 
@@ -125,7 +155,7 @@ export class AuthService {
         email_verified: user.email_verified,
       },
       token,
-      expires_in: 7 * 24 * 60 * 60, // 7天（秒）
+      expires_in: 24 * 60 * 60, // 24小時（秒）
     };
   }
 
@@ -133,7 +163,6 @@ export class AuthService {
    * 發送驗證碼
    */
   async sendVerificationCode(email: string, type: 'register' | 'reset_password' | 'verify_email'): Promise<void> {
-    // 1. 檢查發送頻率（每5分鐘一次）
     const recentCode = await prisma.emailVerification.findFirst({
       where: {
         email,
@@ -149,10 +178,8 @@ export class AuthService {
       throw Errors.RATE_LIMIT_EXCEEDED('請稍後再試');
     }
 
-    // 2. 生成6位驗證碼
     const code = generateVerificationCode();
 
-    // 3. 保存驗證碼（5分鐘過期）
     await prisma.emailVerification.create({
       data: {
         email,
@@ -162,41 +189,71 @@ export class AuthService {
       },
     });
 
-    // 4. 發送郵件
     await emailService.sendVerificationCode(email, code, type);
 
     logger.info('Verification code sent', { email, type });
   }
 
   /**
-   * 驗證郵件驗證碼
+   * 驗證郵件驗證碼（含失敗次數追蹤，超過 5 次自動作廢）
    */
   async verifyEmail(email: string, code: string, type: 'register' | 'reset_password' | 'verify_email' = 'verify_email'): Promise<boolean> {
-    const verification = await prisma.emailVerification.findFirst({
-      where: {
-        email,
-        code,
-        type,
-        used: false,
-      },
+    // 找到最新一筆未使用的驗證碼
+    const latestVerification = await prisma.emailVerification.findFirst({
+      where: { email, type, used: false },
       orderBy: { created_at: 'desc' },
     });
 
-    if (!verification) {
+    if (!latestVerification) {
       throw Errors.INVALID_CODE();
     }
 
-    if (verification.expires_at < new Date()) {
+    if (latestVerification.expires_at < new Date()) {
       throw Errors.CODE_EXPIRED();
     }
 
-    // 標記為已使用
+    // 統計該驗證碼建立後的失敗嘗試次數（同 email+type 的錯誤紀錄）
+    const failedAttempts = await prisma.emailVerification.count({
+      where: {
+        email,
+        type,
+        used: true,
+        created_at: { gte: latestVerification.created_at },
+        code: { not: latestVerification.code },
+      },
+    });
+
+    if (failedAttempts >= 5) {
+      // 超過 5 次錯誤嘗試，作廢此驗證碼
+      await prisma.emailVerification.update({
+        where: { id: latestVerification.id },
+        data: { used: true },
+      });
+      logger.warn('Verification code invalidated due to too many failed attempts', { email, type });
+      throw Errors.INVALID_CODE();
+    }
+
+    // 驗證碼不匹配
+    if (latestVerification.code !== code) {
+      // 建立一筆「失敗嘗試」紀錄（復用 EmailVerification，標記為 used）
+      await prisma.emailVerification.create({
+        data: {
+          email,
+          code,
+          type,
+          expires_at: latestVerification.expires_at,
+          used: true,
+        },
+      });
+      throw Errors.INVALID_CODE();
+    }
+
+    // 驗證成功
     await prisma.emailVerification.update({
-      where: { id: verification.id },
+      where: { id: latestVerification.id },
       data: { used: true },
     });
 
-    // 更新用戶郵箱驗證狀態
     await prisma.user.update({
       where: { email },
       data: { email_verified: true },
@@ -208,71 +265,98 @@ export class AuthService {
   }
 
   /**
-   * 重置密碼
+   * 重置密碼（不洩漏用戶是否存在）
    */
   async resetPassword(email: string): Promise<void> {
-    // 檢查用戶是否存在
     const user = await prisma.user.findUnique({
       where: { email },
     });
 
     if (!user) {
-      // 為了安全，不告訴用戶郵箱是否存在
       return;
     }
 
-    // 發送重置密碼驗證碼
     await this.sendVerificationCode(email, 'reset_password');
   }
 
   /**
-   * 確認重置密碼
+   * 確認重置密碼（成功後使所有現有 Token 失效）
    */
   async confirmResetPassword(email: string, code: string, newPassword: string): Promise<void> {
-    // 1. 驗證驗證碼
-    const verification = await prisma.emailVerification.findFirst({
-      where: {
-        email,
-        code,
-        type: 'reset_password',
-        used: false,
-      },
+    const latestVerification = await prisma.emailVerification.findFirst({
+      where: { email, type: 'reset_password', used: false },
       orderBy: { created_at: 'desc' },
     });
 
-    if (!verification) {
+    if (!latestVerification) {
       throw Errors.INVALID_CODE();
     }
 
-    if (verification.expires_at < new Date()) {
+    if (latestVerification.expires_at < new Date()) {
       throw Errors.CODE_EXPIRED();
     }
 
-    // 2. 驗證密碼強度
+    // 失敗次數追蹤
+    const failedAttempts = await prisma.emailVerification.count({
+      where: {
+        email,
+        type: 'reset_password',
+        used: true,
+        created_at: { gte: latestVerification.created_at },
+        code: { not: latestVerification.code },
+      },
+    });
+
+    if (failedAttempts >= 5) {
+      await prisma.emailVerification.update({
+        where: { id: latestVerification.id },
+        data: { used: true },
+      });
+      logger.warn('Reset code invalidated due to too many failed attempts', { email });
+      throw Errors.INVALID_CODE();
+    }
+
+    if (latestVerification.code !== code) {
+      await prisma.emailVerification.create({
+        data: {
+          email,
+          code,
+          type: 'reset_password',
+          expires_at: latestVerification.expires_at,
+          used: true,
+        },
+      });
+      throw Errors.INVALID_CODE();
+    }
+
+    const verification = latestVerification;
+
     const passwordValidation = validatePasswordStrength(newPassword);
     if (!passwordValidation.valid) {
       throw Errors.WEAK_PASSWORD(passwordValidation.message);
     }
 
-    // 3. 更新密碼
     const passwordHash = await hashPassword(newPassword);
+
+    // 更新密碼 + 遞增 token_version（使所有現有 JWT 失效）+ 重置鎖定狀態
     await prisma.user.update({
       where: { email },
-      data: { password_hash: passwordHash },
+      data: {
+        password_hash: passwordHash,
+        token_version: { increment: 1 },
+        login_failed_attempts: 0,
+        locked_until: null,
+      },
     });
 
-    // 4. 標記驗證碼為已使用
     await prisma.emailVerification.update({
       where: { id: verification.id },
       data: { used: true },
     });
 
-    logger.info('Password reset', { email });
+    logger.info('Password reset (all sessions invalidated)', { email });
   }
 
-  /**
-   * 驗證郵箱格式
-   */
   private isValidEmail(email: string): boolean {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);

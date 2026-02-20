@@ -19,9 +19,8 @@ export function extractResponsibilityRatio(content: string): {
   plaintiff: number;
   defendant: number;
 } | null {
-  // 匹配格式：原告：[X]% 責任 或 原告: [X]% 責任
-  const plaintiffMatch = content.match(/原告[：:]\s*(\d+)%\s*責任/);
-  const defendantMatch = content.match(/被告[：:]\s*(\d+)%\s*責任/);
+  const plaintiffMatch = content.match(/原告[：:]\s*(\d+)%\s*(?:調整空間|責任)/);
+  const defendantMatch = content.match(/被告[：:]\s*(\d+)%\s*(?:調整空間|責任)/);
 
   if (plaintiffMatch && defendantMatch) {
     const plaintiff = parseInt(plaintiffMatch[1], 10);

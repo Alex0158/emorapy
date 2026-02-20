@@ -13,6 +13,9 @@ import {
   registerLimiter,
   authLimiter,
   verificationCodeLimiter,
+  verifyCodeLimiter,
+  resetPasswordLimiter,
+  resetConfirmLimiter,
 } from '../middleware/rateLimiter';
 
 const router = Router();
@@ -60,6 +63,7 @@ router.post(
  */
 router.post(
   '/verify-email',
+  verifyCodeLimiter,
   validate(verifyEmailSchema),
   authController.verifyEmail.bind(authController)
 );
@@ -71,6 +75,7 @@ router.post(
  */
 router.post(
   '/reset-password',
+  resetPasswordLimiter,
   validate(resetPasswordSchema),
   authController.resetPassword.bind(authController)
 );
@@ -82,6 +87,7 @@ router.post(
  */
 router.post(
   '/reset-password-confirm',
+  resetConfirmLimiter,
   validate(confirmResetPasswordSchema),
   authController.confirmResetPassword.bind(authController)
 );

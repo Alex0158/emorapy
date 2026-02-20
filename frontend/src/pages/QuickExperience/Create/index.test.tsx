@@ -76,17 +76,15 @@ vi.mock('react-router-dom', async (importOriginal) => {
 });
 
 vi.mock('antd', () => {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const React = require('react');
   return {
-    Card: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    Card: ({ children }: { children: unknown }) => <div>{children}</div>,
     Button: ({
       children,
       onClick,
       disabled,
       'aria-label': ariaLabel,
     }: {
-      children: React.ReactNode;
+      children: unknown;
       onClick?: () => void;
       disabled?: boolean;
       'aria-label'?: string;
@@ -96,7 +94,7 @@ vi.mock('antd', () => {
       </button>
     ),
     Progress: ({ percent }: { percent: number }) => <div data-testid="progress">{percent}</div>,
-    Space: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    Space: ({ children }: { children: unknown }) => <div>{children}</div>,
     Typography: {
       Title: ({ children }: { children: React.ReactNode }) => <h2>{children}</h2>,
       Text: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,

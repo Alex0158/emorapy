@@ -202,16 +202,27 @@ export class JudgmentService {
             throw Errors.VALIDATION_ERROR('無效的責任分比例格式');
           }
 
+          // AI 輸出清洗：限制長度、移除潛在 HTML/script
+          const sanitizeAIOutput = (text: string, maxLen: number): string => {
+            return text
+              .replace(/<script[\s\S]*?<\/script>/gi, '')
+              .replace(/<iframe[\s\S]*?<\/iframe>/gi, '')
+              .replace(/on\w+="[^"]*"/gi, '')
+              .slice(0, maxLen);
+          };
+          const safeContent = sanitizeAIOutput(judgmentContent, 50000);
+          const safeSummary = sanitizeAIOutput(summary, 2000);
+
           try {
           const newJudgment = await tx.judgment.create({
             data: {
               case_id: caseId,
-              judgment_content: judgmentContent,
-              summary,
+              judgment_content: safeContent,
+              summary: safeSummary,
               plaintiff_ratio: responsibilityRatio.plaintiff,
               defendant_ratio: responsibilityRatio.defendant,
               ai_model: 'gpt-3.5-turbo',
-              prompt_version: 'v2.0',
+              prompt_version: 'v3.0',
             },
           });
 

@@ -32,14 +32,19 @@ export const authenticate = async (
     // 2. 驗證Token
     const decoded = verifyToken(token);
     
-    // 3. 檢查用戶是否存在且激活
+    // 3. 檢查用戶是否存在且激活，並驗證 token_version
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
-      select: { id: true, email: true, is_active: true },
+      select: { id: true, email: true, is_active: true, token_version: true },
     });
     
     if (!user || !user.is_active) {
       throw Errors.UNAUTHORIZED('用戶不存在或未激活');
+    }
+
+    // 密碼變更後 token_version 會遞增，舊 Token 自動失效
+    if (decoded.token_version !== undefined && decoded.token_version !== user.token_version) {
+      throw Errors.UNAUTHORIZED('Token已失效，請重新登入');
     }
     
     // 4. 將用戶信息附加到請求對象
@@ -70,10 +75,11 @@ export const optionalAuthenticate = async (
         const decoded = verifyToken(token);
         const user = await prisma.user.findUnique({
           where: { id: decoded.id },
-          select: { id: true, email: true, is_active: true },
+          select: { id: true, email: true, is_active: true, token_version: true },
         });
         
-        if (user && user.is_active) {
+        const versionOk = decoded.token_version === undefined || decoded.token_version === user?.token_version;
+        if (user && user.is_active && versionOk) {
           req.user = {
             id: user.id,
             email: user.email,
@@ -190,7 +196,7 @@ export const authorizeMedia = async (
     const token = (req.query.token as string) || undefined;
     if (token) {
       try {
-        const payload = jwt.verify(token, env.JWT_SECRET) as any;
+        const payload = jwt.verify(token, env.JWT_SECRET, { algorithms: ['HS256'] }) as any;
         const requestedPath = (() => {
           const p = req.path.startsWith('/') ? req.path.slice(1) : req.path;
           try { return decodeURIComponent(p); } catch { return p; }

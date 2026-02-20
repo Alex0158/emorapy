@@ -52,19 +52,17 @@ vi.mock('react-router-dom', async (importOriginal) => {
   };
 });
 vi.mock('antd', () => {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const React = require('react');
   return {
-    Typography: { Text: ({ children }: { children: React.ReactNode }) => <span>{children}</span> },
+    Typography: { Text: ({ children }: { children: unknown }) => <span>{children}</span> },
     Spin: ({ description }: { description?: string }) => <div>{description || 'spin'}</div>,
     Alert: ({
       message,
       description,
       action,
     }: {
-      message: React.ReactNode;
-      description?: React.ReactNode;
-      action?: React.ReactNode;
+      message: unknown;
+      description?: unknown;
+      action?: unknown;
     }) => (
       <div>
         <div>{message}</div>

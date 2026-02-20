@@ -89,7 +89,9 @@ const EvidenceUploadSection = ({ status, caseId, isUploading, onUploadFiles }: P
               {selectedFiles.length > 0 && (
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
                   <Space style={{ marginTop: 8 }}>
-                    <Text style={{ color: '#94A3B8' }}>{`已選擇 ${selectedFiles.length} 個文件`}</Text>
+                    <Text style={{ color: '#94A3B8' }}>
+                      {t('evidence.selectedCount').replace('{count}', String(selectedFiles.length))}
+                    </Text>
                     <button
                       className="action-button primary"
                       disabled={isUploading}
@@ -101,7 +103,7 @@ const EvidenceUploadSection = ({ status, caseId, isUploading, onUploadFiles }: P
                       }}
                       style={{ height: 40, borderRadius: 20, padding: '0 24px', fontSize: 14, cursor: isUploading ? 'not-allowed' : 'pointer' }}
                     >
-                      {isUploading ? t('evidence.action.uploading') : '上傳已選檔案'}
+                      {isUploading ? t('evidence.action.uploading') : t('evidence.action.uploadSelected')}
                     </button>
                     <button 
                       className="action-button secondary" 
@@ -109,7 +111,7 @@ const EvidenceUploadSection = ({ status, caseId, isUploading, onUploadFiles }: P
                       onClick={() => setSelectedFiles([])}
                       style={{ height: 40, borderRadius: 20, padding: '0 24px', fontSize: 14, cursor: isUploading ? 'not-allowed' : 'pointer', background: 'transparent' }}
                     >
-                      清空
+                      {t('common.clear')}
                     </button>
                   </Space>
                 </motion.div>

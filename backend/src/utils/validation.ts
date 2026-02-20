@@ -133,10 +133,22 @@ export class ValidationUtils {
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Auth Schemas
+const passwordRule = Joi.string()
+  .min(8)
+  .max(128)
+  .pattern(/[a-zA-Z]/, 'letter')
+  .pattern(/[0-9]/, 'digit')
+  .required()
+  .messages({
+    'string.min': '密碼長度至少8位',
+    'string.max': '密碼長度不能超過128位',
+    'string.pattern.name': '密碼必須包含字母和數字',
+  });
+
 export const registerSchema = {
   body: Joi.object({
     email: Joi.string().email().required(),
-    password: Joi.string().min(8).required(),
+    password: passwordRule,
     nickname: Joi.string().min(2).max(50).optional(),
   }),
 };
@@ -173,7 +185,7 @@ export const confirmResetPasswordSchema = {
   body: Joi.object({
     email: Joi.string().email().required(),
     code: Joi.string().length(6).required(),
-    new_password: Joi.string().min(8).required(),
+    new_password: passwordRule,
   }),
 };
 

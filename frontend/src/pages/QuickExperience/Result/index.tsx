@@ -288,7 +288,11 @@ const QuickExperienceResult = () => {
 
   return (
     <>
-      <SEO title={t('result.title')} description={`${t('responsibility.title')}：角色A ${responsibilityRatioMemo.plaintiff}%，角色B ${responsibilityRatioMemo.defendant}%`} keywords={t('result.keywords')} />
+      <SEO
+        title={t('result.title')}
+        description={`${t('responsibility.title')}: ${t('quickCreate.roleA')} ${responsibilityRatioMemo.plaintiff}%, ${t('quickCreate.roleB')} ${responsibilityRatioMemo.defendant}%`}
+        keywords={t('result.keywords')}
+      />
       <div className="quick-experience-result">
         <a href="#judgment-section" className="skip-link">{t('result.skipToJudgment')}</a>
         

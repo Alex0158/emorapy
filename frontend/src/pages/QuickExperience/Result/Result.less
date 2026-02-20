@@ -220,9 +220,21 @@
         gap: 20px;
         align-items: flex-start;
         padding: 0 32px 32px;
+        background: rgba(15, 23, 42, 0.62) !important;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: 16px;
+        margin: 0 24px 24px;
         
         .summary-icon { color: @color-secondary; font-size: 28px; filter: drop-shadow(0 0 8px rgba(14,165,233,0.5)); }
         .summary-text { font-size: 16px; line-height: 1.8; color: #E2E8F0 !important; font-weight: 400; letter-spacing: 0.3px; }
+      }
+
+      .summary-content {
+        background: transparent !important;
+      }
+
+      .summary-item .ant-typography.summary-text {
+        color: #E2E8F0 !important;
       }
     }
   }

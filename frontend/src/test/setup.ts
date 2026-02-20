@@ -45,19 +45,27 @@ Object.defineProperty(window, 'scrollTo', {
   writable: true,
 });
 
+// 測試預設語言固定為 zh-TW，避免受執行環境 navigator.language 影響
+window.localStorage.setItem('mbc_locale', 'zh-TW');
+
 if (typeof globalThis.ResizeObserver !== 'function') {
-  globalThis.ResizeObserver = vi.fn().mockImplementation(() => ({
-    observe: vi.fn(),
-    unobserve: vi.fn(),
-    disconnect: vi.fn(),
-  })) as unknown as typeof ResizeObserver;
+  class ResizeObserverMock implements ResizeObserver {
+    observe = vi.fn();
+    unobserve = vi.fn();
+    disconnect = vi.fn();
+  }
+  globalThis.ResizeObserver = ResizeObserverMock as unknown as typeof ResizeObserver;
 }
 
 if (typeof globalThis.IntersectionObserver !== 'function') {
-  globalThis.IntersectionObserver = vi.fn().mockImplementation(() => ({
-    observe: vi.fn(),
-    unobserve: vi.fn(),
-    disconnect: vi.fn(),
-    takeRecords: vi.fn(),
-  })) as unknown as typeof IntersectionObserver;
+  class IntersectionObserverMock implements IntersectionObserver {
+    root = null;
+    rootMargin = '';
+    thresholds = [0];
+    observe = vi.fn();
+    unobserve = vi.fn();
+    disconnect = vi.fn();
+    takeRecords = vi.fn().mockReturnValue([]);
+  }
+  globalThis.IntersectionObserver = IntersectionObserverMock as unknown as typeof IntersectionObserver;
 }

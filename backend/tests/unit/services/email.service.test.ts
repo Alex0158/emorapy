@@ -217,7 +217,7 @@ describe('EmailService', () => {
         expect.objectContaining({
           to: 'u@x.com',
           subject: expect.stringContaining('判決'),
-          html: expect.stringContaining('case-1'),
+          html: expect.stringContaining('判決已生成'),
         })
       );
     });

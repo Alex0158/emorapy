@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { translateBackendMessage } from '../i18n';
 
 /**
  * 響應格式化中間件
@@ -15,6 +16,16 @@ export const responseFormatter = (req: Request, res: Response, next: NextFunctio
 
   // 重寫json方法，統一響應格式
   res.json = function (data: any) {
+    const locale = req.locale ?? 'zh-TW';
+
+    if (data && typeof data === 'object' && data.error?.message && typeof data.error.message === 'string') {
+      data.error.message = translateBackendMessage(locale, data.error.message);
+    }
+
+    if (data && typeof data === 'object' && data.message && typeof data.message === 'string') {
+      data.message = translateBackendMessage(locale, data.message);
+    }
+
     // 如果已經是格式化後的響應，直接返回
     if (data && typeof data === 'object' && 'success' in data) {
       // 添加meta信息

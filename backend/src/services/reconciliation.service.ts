@@ -4,6 +4,27 @@ import logger from '../config/logger';
 import { aiService, ReconciliationPlan } from './ai.service';
 import { isReconciliationPlanContent } from '../types/ai.types';
 
+function sanitizePlanStrings<T>(obj: T): T {
+  if (typeof obj === 'string') {
+    return obj
+      .replace(/<script[\s\S]*?<\/script>/gi, '')
+      .replace(/<iframe[\s\S]*?<\/iframe>/gi, '')
+      .replace(/on\w+="[^"]*"/gi, '')
+      .slice(0, 10000) as unknown as T;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(sanitizePlanStrings) as unknown as T;
+  }
+  if (obj && typeof obj === 'object') {
+    const result: any = {};
+    for (const [k, v] of Object.entries(obj)) {
+      result[k] = sanitizePlanStrings(v);
+    }
+    return result;
+  }
+  return obj;
+}
+
 export interface PlanPreferences {
   difficulty?: 'easy' | 'medium' | 'hard';
   duration?: number;
@@ -93,10 +114,11 @@ export class ReconciliationService {
           throw Errors.VALIDATION_ERROR('無效的和好方案格式');
         }
 
+        const safePlan = sanitizePlanStrings(plan);
         const saved = await tx.reconciliationPlan.create({
           data: {
             judgment_id: judgmentId,
-            plan_content: JSON.stringify(plan), // 將完整方案內容存儲為JSON
+            plan_content: JSON.stringify(safePlan),
             plan_type: plan.plan_type,
             difficulty_level: plan.difficulty_level || 'medium',
             estimated_duration: plan.estimated_duration || 7,
@@ -117,12 +139,26 @@ export class ReconciliationService {
   }
 
   /**
-   * 獲取和好方案列表
+   * 獲取和好方案列表（含權限校驗）
    */
-  async getPlansByJudgmentId(judgmentId: string, filters?: {
+  async getPlansByJudgmentId(judgmentId: string, userId: string, filters?: {
     difficulty?: 'easy' | 'medium' | 'hard';
     type?: 'activity' | 'communication' | 'intimacy' | 'gift' | 'service';
   }) {
+    const judgment = await prisma.judgment.findUnique({
+      where: { id: judgmentId },
+      include: { case: { select: { plaintiff_id: true, defendant_id: true, session_id: true } } },
+    });
+
+    if (!judgment) {
+      throw Errors.NOT_FOUND('判決不存在');
+    }
+
+    const c = judgment.case;
+    if (c.plaintiff_id !== userId && c.defendant_id !== userId) {
+      throw Errors.FORBIDDEN('無權限查看此判決的和好方案');
+    }
+
     const where: any = { judgment_id: judgmentId };
 
     if (filters) {

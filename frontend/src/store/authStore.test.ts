@@ -28,6 +28,7 @@ describe('authStore', () => {
       isLoading: false,
     });
     localStorage.clear();
+    sessionStorage.clear();
   });
 
   it('logout 應清除 token 並設 user 為 null', () => {
@@ -38,16 +39,27 @@ describe('authStore', () => {
     expect(useAuthStore.getState().token).toBeNull();
     expect(useAuthStore.getState().isAuthenticated).toBe(false);
     expect(localStorage.getItem('token')).toBeNull();
+    expect(sessionStorage.getItem('token')).toBeNull();
   });
 
-  it('login 成功應設 user、token、isAuthenticated', async () => {
+  it('login 成功（不勾 rememberMe）應存到 sessionStorage', async () => {
     mockLogin.mockResolvedValue({ user: mockUser, token: 't1' });
     await useAuthStore.getState().login('u@example.com', 'pass');
     expect(useAuthStore.getState().user).toEqual(mockUser);
     expect(useAuthStore.getState().token).toBe('t1');
     expect(useAuthStore.getState().isAuthenticated).toBe(true);
     expect(useAuthStore.getState().isLoading).toBe(false);
+    expect(sessionStorage.getItem('token')).toBe('t1');
+    expect(localStorage.getItem('token')).toBeNull();
+  });
+
+  it('login 成功（勾 rememberMe）應存到 localStorage 並清除 sessionStorage', async () => {
+    sessionStorage.setItem('token', 'old');
+    mockLogin.mockResolvedValue({ user: mockUser, token: 't1' });
+    await useAuthStore.getState().login('u@example.com', 'pass', true);
+    expect(useAuthStore.getState().token).toBe('t1');
     expect(localStorage.getItem('token')).toBe('t1');
+    expect(sessionStorage.getItem('token')).toBeNull();
   });
 
   it('login 失敗應拋錯並設 isLoading 為 false', async () => {
@@ -58,11 +70,14 @@ describe('authStore', () => {
     expect(useAuthStore.getState().isLoading).toBe(false);
   });
 
-  it('register 成功應設 user、token', async () => {
+  it('register 成功應設 user、token 並存入 localStorage、清除 sessionStorage', async () => {
+    sessionStorage.setItem('token', 'stale');
     mockRegister.mockResolvedValue({ user: mockUser, token: 't2' });
     await useAuthStore.getState().register('u@example.com', 'pass', 'Nick');
     expect(useAuthStore.getState().user).toEqual(mockUser);
     expect(useAuthStore.getState().token).toBe('t2');
+    expect(localStorage.getItem('token')).toBe('t2');
+    expect(sessionStorage.getItem('token')).toBeNull();
   });
 
   it('updateUser 有 currentUser 時應合併更新', () => {
@@ -85,10 +100,14 @@ describe('authStore', () => {
     expect(useAuthStore.getState().isAuthenticated).toBe(true);
   });
 
-  it('checkAuth 無 token 時不調用 getProfile', async () => {
+  it('checkAuth 無 token 時不調用 getProfile 並清除殘留狀態', async () => {
+    useAuthStore.setState({ user: mockUser, isAuthenticated: true });
     localStorage.clear();
+    sessionStorage.clear();
     await useAuthStore.getState().checkAuth();
     expect(mockGetProfile).not.toHaveBeenCalled();
+    expect(useAuthStore.getState().user).toBeNull();
+    expect(useAuthStore.getState().isAuthenticated).toBe(false);
   });
 
   it('checkAuth getProfile 失敗應清除 token 與 user', async () => {

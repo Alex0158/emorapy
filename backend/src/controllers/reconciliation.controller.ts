@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { reconciliationService } from '../services/reconciliation.service';
-import { getAuthUserId, getAuthUserIdOptional } from '../utils/request';
+import { getAuthUserId } from '../utils/request';
 
 export class ReconciliationController {
   /**
@@ -30,12 +30,13 @@ export class ReconciliationController {
   async getPlans(req: Request, res: Response, next: NextFunction) {
     try {
       const judgmentId = req.params.id;
+      const userId = getAuthUserId(req);
       const filters = {
         difficulty: req.query.difficulty as 'easy' | 'medium' | 'hard' | undefined,
         type: req.query.type as 'activity' | 'communication' | 'intimacy' | undefined,
       };
 
-      const plans = await reconciliationService.getPlansByJudgmentId(judgmentId, filters);
+      const plans = await reconciliationService.getPlansByJudgmentId(judgmentId, userId, filters);
 
       res.json({
         success: true,
@@ -52,7 +53,7 @@ export class ReconciliationController {
   async getPlanById(req: Request, res: Response, next: NextFunction) {
     try {
       const planId = req.params.id;
-      const userId = getAuthUserIdOptional(req);
+      const userId = getAuthUserId(req);
 
       const plan = await reconciliationService.getPlanById(planId, userId);
 

@@ -171,6 +171,12 @@ export class CaseService {
    * 創建案件（完整模式）
    */
   async createCase(userId: string, data: CreateCaseDto) {
+    return lockService.withLock(`case:create:${data.pairing_id}`, async () => {
+      return this._createCaseInner(userId, data);
+    });
+  }
+
+  private async _createCaseInner(userId: string, data: CreateCaseDto) {
     // 1. 驗證配對關係
     const pairing = await prisma.pairing.findUnique({
       where: { id: data.pairing_id },
@@ -274,15 +280,18 @@ export class CaseService {
       search?: string;
     } = {}
   ) {
+    const ALLOWED_SORT_FIELDS = ['created_at', 'updated_at', 'submitted_at', 'title', 'status'];
     const {
       status,
       type,
       page = 1,
       page_size = 10,
-      sort_by = 'created_at',
-      sort_order = 'desc',
+      sort_by: rawSortBy = 'created_at',
+      sort_order: rawSortOrder = 'desc',
       search,
     } = params;
+    const sort_by = ALLOWED_SORT_FIELDS.includes(rawSortBy) ? rawSortBy : 'created_at';
+    const sort_order = rawSortOrder === 'asc' ? 'asc' : 'desc';
 
     const where: any = {
       OR: [

@@ -3,16 +3,18 @@ import { authenticate } from '../middleware/auth';
 import { validate } from '../middleware/validator';
 import { pairingIdParamSchema } from '../utils/validation';
 import { profileController } from '../controllers/profile.controller';
+import { generalLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
 
 // 個人背景
-router.get('/profile/me', authenticate, profileController.getUserProfile.bind(profileController));
-router.put('/profile/me', authenticate, profileController.upsertUserProfile.bind(profileController));
+router.get('/profile/me', generalLimiter, authenticate, profileController.getUserProfile.bind(profileController));
+router.put('/profile/me', generalLimiter, authenticate, profileController.upsertUserProfile.bind(profileController));
 
 // 關係檔案（需配對成員）
 router.get(
   '/profile/relationship/:pairingId',
+  generalLimiter,
   authenticate,
   validate(pairingIdParamSchema),
   profileController.getRelationshipProfile.bind(profileController)
@@ -20,6 +22,7 @@ router.get(
 
 router.put(
   '/profile/relationship/:pairingId',
+  generalLimiter,
   authenticate,
   validate(pairingIdParamSchema),
   profileController.upsertRelationshipProfile.bind(profileController)

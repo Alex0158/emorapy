@@ -3,6 +3,7 @@
  * 供認證、日誌等中間件使用
  */
 import type { UserPayload } from '../utils/jwt';
+import type { BackendLocale } from '../i18n';
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -11,6 +12,7 @@ declare global {
       user?: UserPayload;
       sessionId?: string;
       requestId?: string;
+      locale?: BackendLocale;
     }
   }
 }

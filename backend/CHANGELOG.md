@@ -1,5 +1,44 @@
 # 更新日誌
 
+## [1.1.0] - 2026-02-20
+
+### 安全加固
+- ✅ 帳戶鎖定機制（login_failed_attempts / locked_until）
+- ✅ Token 版本化（token_version），密碼重設時立即失效所有現有 session
+- ✅ JWT 明確指定 HS256 算法，防止算法混淆攻擊
+- ✅ JWT_SECRET 生產環境強制 ≥ 32 字元並檢查熵值
+- ✅ JWT_EXPIRES_IN 從 7 天縮短至 24 小時
+- ✅ Prompt Injection 防禦（fenceUserInput + SYSTEM_PROMPT 指令）
+- ✅ AI 輸出消毒（sanitizeAIOutput / sanitizePlanStrings）
+- ✅ 電子郵件 CRLF 注入防護（sanitizeEmail）
+- ✅ 檔案刪除路徑穿越防護（path.basename + path.resolve）
+- ✅ Reconciliation 資源所有權驗證
+- ✅ Execution checkin 輸入消毒（notes / photos_urls）
+- ✅ 案件查詢 sort_by 白名單驗證
+- ✅ 新增專用限流器：verifyCodeLimiter、resetPasswordLimiter、resetConfirmLimiter、pairingJoinLimiter
+- ✅ 登入失敗計數使用 Prisma atomic increment 防止 race condition
+- ✅ lockService.withLock 防止案件重複建立
+- ✅ 驗證碼使用 crypto.randomInt，邀請碼使用 crypto.randomBytes
+- ✅ Helmet 生產環境 CSP 配置
+- ✅ CORS 生產環境嚴格化
+- ✅ JSON 解析錯誤處理
+
+### 國際化（i18n）
+- ✅ 後端 i18n 核心模組（BackendLocale / translateBackendMessage / translateErrorByCode）
+- ✅ localeMiddleware 從 X-Locale / Accept-Language 偵測語言
+- ✅ 錯誤處理中間件支援多語言錯誤訊息
+- ✅ 中英文雙語錯誤碼對照（zhTWByCode / enUSByCode / directEnUSMap）
+- ✅ directEnUSMap 擴展：新增驗證碼/重設密碼/配對限流、分散式鎖、Session 相關英文翻譯
+
+### 資料庫變更
+- ✅ User 模型新增 login_failed_attempts、locked_until、token_version 欄位
+
+### 測試
+- ✅ 821 個後端 Jest 測試全部通過
+- ✅ 涵蓋帳戶鎖定、token 版本化、限流器、資源授權等新功能
+
+---
+
 ## [1.0.0] - 2024-01-XX
 
 ### 新增功能
@@ -74,10 +113,10 @@
 
 ### 後續計劃
 
-- [ ] 單元測試和集成測試
+- [x] 單元測試和集成測試（821 個測試通過）
 - [ ] 性能優化（緩存策略）
 - [ ] Redis集成（Session緩存）
 - [ ] WebSocket支持（實時通知）
 - [ ] 更多AI模型支持
-- [ ] 國際化支持
+- [x] 國際化支持（zh-TW / en-US 雙語）
 

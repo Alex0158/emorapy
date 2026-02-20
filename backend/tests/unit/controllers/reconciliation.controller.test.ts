@@ -21,8 +21,8 @@ jest.mock('../../../src/services/reconciliation.service', () => ({
   reconciliationService: {
     generatePlans: (id: string, prefs: unknown, userId: string) =>
       mockGeneratePlans(id, prefs, userId),
-    getPlansByJudgmentId: (id: string, filters: unknown) =>
-      mockGetPlansByJudgmentId(id, filters),
+    getPlansByJudgmentId: (id: string, userId: string, filters: unknown) =>
+      mockGetPlansByJudgmentId(id, userId, filters),
     getPlanById: (id: string, userId?: string) => mockGetPlanById(id, userId),
     selectPlan: (id: string, userId: string) => mockSelectPlan(id, userId),
   },
@@ -87,7 +87,7 @@ describe('ReconciliationController', () => {
 
       await controller.getPlans(req as Request, res as Response, next);
 
-      expect(mockGetPlansByJudgmentId).toHaveBeenCalledWith('judge-1', {
+      expect(mockGetPlansByJudgmentId).toHaveBeenCalledWith('judge-1', 'u1', {
         difficulty: 'easy',
         type: 'activity',
       });
@@ -112,7 +112,7 @@ describe('ReconciliationController', () => {
 
       await controller.getPlanById(req as Request, res as Response, next);
 
-      expect(mockGetAuthUserIdOptional).toHaveBeenCalledWith(req);
+      expect(mockGetAuthUserId).toHaveBeenCalledWith(req);
       expect(mockGetPlanById).toHaveBeenCalledWith('plan-1', 'u1');
       expect(res.json).toHaveBeenCalledWith({ success: true, data: { plan } });
     });

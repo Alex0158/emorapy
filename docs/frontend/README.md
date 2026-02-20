@@ -143,14 +143,11 @@ frontend/
 ### 代碼風格
 
 - 使用 TypeScript 嚴格模式
-- 遵循 ESLint 規則
-- 使用 Prettier 格式化
+- 使用 Biome 進行 lint 和格式化
 
 ```bash
 # 檢查代碼
 npm run lint
-
-# 格式化代碼（需要配置prettier腳本）
 ```
 
 ### 組件規範
@@ -190,13 +187,22 @@ npm run build
 生產環境需要設置：
 - `VITE_API_BASE_URL`: 生產環境API地址
 
+## 🌐 國際化（i18n）
+
+- 支援繁體中文（zh-TW）和英文（en-US）
+- 翻譯檔案位於 `src/assets/i18n/`，zh-TW 與 en-US 共 634 個 key 完全對應
+- 使用 `t('key')` 函式取得翻譯文字
+- 語言偵測：優先讀取 localStorage，否則使用 navigator.language
+- 切換語言後透過 `RouterProvider key={locale}` 強制重新渲染
+
 ## 📝 開發注意事項
 
 1. **API對接**: 確保後端服務運行在配置的地址
-2. **Session管理**: 快速體驗模式使用localStorage存儲Session ID
-3. **Token管理**: 認證Token存儲在localStorage
-4. **錯誤處理**: 統一使用錯誤處理中間件
+2. **Session管理**: 快速體驗模式使用 sessionStorage 存儲 Session ID
+3. **Token管理**: 勾選「記住我」時存入 `localStorage`，否則存入 `sessionStorage`（關閉瀏覽器即失效）。Zustand persist 僅持久化 `user`，不持久化 `token`，避免 rememberMe 語義被繞過
+4. **錯誤處理**: 統一使用 `getErrorMessage()` 從 `@/utils/apiError` 提取錯誤訊息；避免使用 `error instanceof Error`（request interceptor 拋出的是普通物件，非 Error 實例）
 5. **類型安全**: 所有API調用都有類型定義
+6. **安全**: ErrorBoundary 在生產環境隱藏具體錯誤訊息；Login 頁面驗證 redirect 路徑防止 open redirect
 
 ## 🐛 常見問題
 

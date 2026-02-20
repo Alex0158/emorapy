@@ -22,6 +22,7 @@ const prismaMock: any = {
     findFirst: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
+    count: jest.fn(),
   },
 };
 
@@ -173,9 +174,13 @@ describe('AuthService', () => {
         password_hash: 'hash',
         is_active: true,
         email_verified: true,
+        login_failed_attempts: 0,
+        locked_until: null,
+        token_version: 0,
       });
       // @ts-expect-error mock 在 jest.mock 後推斷為 never
       mockComparePassword.mockResolvedValue(false);
+      prismaMock.user.update.mockResolvedValue({});
 
       await expect(service.login({
         email: 'a@b.com',
@@ -190,6 +195,9 @@ describe('AuthService', () => {
         password_hash: 'hash',
         is_active: false,
         email_verified: true,
+        login_failed_attempts: 0,
+        locked_until: null,
+        token_version: 0,
       });
       // @ts-expect-error mock 在 jest.mock 後推斷為 never
       mockComparePassword.mockResolvedValue(true);
@@ -207,6 +215,9 @@ describe('AuthService', () => {
         password_hash: 'hash',
         is_active: true,
         email_verified: false,
+        login_failed_attempts: 0,
+        locked_until: null,
+        token_version: 0,
       });
       // @ts-expect-error mock 在 jest.mock 後推斷為 never
       mockComparePassword.mockResolvedValue(true);
@@ -226,6 +237,9 @@ describe('AuthService', () => {
         avatar_url: null,
         is_active: true,
         email_verified: true,
+        login_failed_attempts: 0,
+        locked_until: null,
+        token_version: 0,
       });
       // @ts-expect-error mock 在 jest.mock 後推斷為 never
       mockComparePassword.mockResolvedValue(true);
@@ -239,7 +253,7 @@ describe('AuthService', () => {
 
       expect(result.user.email).toBe('a@b.com');
       expect(result.token).toBe('jwt-token');
-      expect(result.expires_in).toBe(7 * 24 * 60 * 60);
+      expect(result.expires_in).toBe(24 * 60 * 60);
     });
 
     it('登錄成功但更新 last_login_at 失敗時仍應返回 user 與 token', async () => {
@@ -251,6 +265,9 @@ describe('AuthService', () => {
         avatar_url: null,
         is_active: true,
         email_verified: true,
+        login_failed_attempts: 0,
+        locked_until: null,
+        token_version: 0,
       });
       (mockComparePassword as jest.Mock).mockResolvedValue(true as never);
       prismaMock.user.update.mockRejectedValue(new Error('db update failed'));
@@ -296,7 +313,7 @@ describe('AuthService', () => {
   });
 
   describe('verifyEmail', () => {
-    it('驗證碼無效應拋出 INVALID_CODE', async () => {
+    it('無可用驗證碼應拋出 INVALID_CODE', async () => {
       prismaMock.emailVerification.findFirst.mockResolvedValue(null);
 
       await expect(service.verifyEmail('a@b.com', '000000', 'verify_email'))
@@ -306,6 +323,7 @@ describe('AuthService', () => {
     it('驗證碼已過期應拋出 CODE_EXPIRED', async () => {
       prismaMock.emailVerification.findFirst.mockResolvedValue({
         id: 'v1',
+        code: '123456',
         expires_at: new Date(Date.now() - 1000),
         used: false,
       });
@@ -314,12 +332,31 @@ describe('AuthService', () => {
         .rejects.toMatchObject({ code: 'CODE_EXPIRED' });
     });
 
+    it('驗證碼不匹配應拋出 INVALID_CODE 並記錄失敗嘗試', async () => {
+      prismaMock.emailVerification.findFirst.mockResolvedValue({
+        id: 'v1',
+        code: '123456',
+        expires_at: new Date(Date.now() + 60000),
+        created_at: new Date(),
+        used: false,
+      });
+      prismaMock.emailVerification.count.mockResolvedValue(0);
+      prismaMock.emailVerification.create.mockResolvedValue({});
+
+      await expect(service.verifyEmail('a@b.com', '999999', 'verify_email'))
+        .rejects.toMatchObject({ code: 'INVALID_CODE' });
+      expect(prismaMock.emailVerification.create).toHaveBeenCalled();
+    });
+
     it('驗證成功應標記已使用並更新用戶', async () => {
       prismaMock.emailVerification.findFirst.mockResolvedValue({
         id: 'v1',
+        code: '123456',
         expires_at: new Date(Date.now() + 60000),
+        created_at: new Date(),
         used: false,
       });
+      prismaMock.emailVerification.count.mockResolvedValue(0);
       prismaMock.emailVerification.update.mockResolvedValue({});
       prismaMock.user.update.mockResolvedValue({});
 
@@ -370,21 +407,43 @@ describe('AuthService', () => {
     it('新密碼強度不足應拋出 WEAK_PASSWORD', async () => {
       prismaMock.emailVerification.findFirst.mockResolvedValue({
         id: 'v1',
+        code: '123456',
         expires_at: new Date(Date.now() + 60000),
+        created_at: new Date(),
         used: false,
       });
+      prismaMock.emailVerification.count.mockResolvedValue(0);
       mockValidatePasswordStrength.mockReturnValue({ valid: false, message: '弱' });
 
       await expect(service.confirmResetPassword('a@b.com', '123456', 'weak'))
         .rejects.toMatchObject({ code: 'WEAK_PASSWORD' });
     });
 
-    it('成功應更新密碼並標記驗證碼已使用', async () => {
+    it('驗證碼不匹配應拋出 INVALID_CODE 並記錄失敗嘗試', async () => {
       prismaMock.emailVerification.findFirst.mockResolvedValue({
         id: 'v1',
+        code: '123456',
         expires_at: new Date(Date.now() + 60000),
+        created_at: new Date(),
         used: false,
       });
+      prismaMock.emailVerification.count.mockResolvedValue(0);
+      prismaMock.emailVerification.create.mockResolvedValue({});
+
+      await expect(service.confirmResetPassword('a@b.com', '999999', 'NewPass1!'))
+        .rejects.toMatchObject({ code: 'INVALID_CODE' });
+      expect(prismaMock.emailVerification.create).toHaveBeenCalled();
+    });
+
+    it('成功應更新密碼、遞增 token_version 並標記驗證碼已使用', async () => {
+      prismaMock.emailVerification.findFirst.mockResolvedValue({
+        id: 'v1',
+        code: '123456',
+        expires_at: new Date(Date.now() + 60000),
+        created_at: new Date(),
+        used: false,
+      });
+      prismaMock.emailVerification.count.mockResolvedValue(0);
       mockValidatePasswordStrength.mockReturnValue({ valid: true });
       // @ts-expect-error mock 在 jest.mock 後推斷為 never
       mockHashPassword.mockResolvedValue('newHash');
@@ -396,7 +455,12 @@ describe('AuthService', () => {
       expect(mockHashPassword).toHaveBeenCalledWith('NewPass1!');
       expect(prismaMock.user.update).toHaveBeenCalledWith({
         where: { email: 'a@b.com' },
-        data: { password_hash: 'newHash' },
+        data: {
+          password_hash: 'newHash',
+          token_version: { increment: 1 },
+          login_failed_attempts: 0,
+          locked_until: null,
+        },
       });
       expect(prismaMock.emailVerification.update).toHaveBeenCalledWith({
         where: { id: 'v1' },

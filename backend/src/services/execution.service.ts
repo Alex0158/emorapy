@@ -114,15 +114,26 @@ export class ExecutionService {
       throw Errors.FORBIDDEN('請先選擇並確認此方案後再打卡');
     }
 
-    // 4. 創建打卡記錄
+    // 4. 創建打卡記錄（清理用戶輸入）
+    const safeNotes = data.notes
+      ? data.notes
+          .replace(/<script[\s\S]*?<\/script>/gi, '')
+          .replace(/<iframe[\s\S]*?<\/iframe>/gi, '')
+          .slice(0, 2000)
+      : undefined;
+
+    const safePhotos = (data.photos || [])
+      .filter(url => /^https?:\/\//i.test(url))
+      .slice(0, 20);
+
     const execution = await prisma.executionRecord.create({
       data: {
         reconciliation_plan_id: data.plan_id,
         user_id: userId,
         action: 'checkin',
         status: 'in_progress',
-        notes: data.notes,
-        photos_urls: data.photos || [],
+        notes: safeNotes,
+        photos_urls: safePhotos,
       },
     });
 

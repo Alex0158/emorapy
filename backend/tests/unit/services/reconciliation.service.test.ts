@@ -213,10 +213,14 @@ describe('ReconciliationService', () => {
 
   describe('getPlansByJudgmentId', () => {
     it('應按條件查詢並返回列表', async () => {
+      prismaMock.judgment.findUnique.mockResolvedValue({
+        id: 'judge-1',
+        case: { plaintiff_id: 'u1', defendant_id: 'u2', session_id: null },
+      });
       const plans = [{ id: 'plan-1', judgment_id: 'judge-1', difficulty_level: 'easy' }];
       prismaMock.reconciliationPlan.findMany.mockResolvedValue(plans);
 
-      const result = await service.getPlansByJudgmentId('judge-1', {
+      const result = await service.getPlansByJudgmentId('judge-1', 'u1', {
         difficulty: 'easy',
         type: 'activity',
       });
@@ -225,6 +229,17 @@ describe('ReconciliationService', () => {
       expect(prismaMock.reconciliationPlan.findMany).toHaveBeenCalledWith({
         where: { judgment_id: 'judge-1', difficulty_level: 'easy', plan_type: 'activity' },
         orderBy: { created_at: 'desc' },
+      });
+    });
+
+    it('非當事人應被拒絕', async () => {
+      prismaMock.judgment.findUnique.mockResolvedValue({
+        id: 'judge-1',
+        case: { plaintiff_id: 'u1', defendant_id: 'u2', session_id: null },
+      });
+
+      await expect(service.getPlansByJudgmentId('judge-1', 'u999')).rejects.toMatchObject({
+        code: 'FORBIDDEN',
       });
     });
   });

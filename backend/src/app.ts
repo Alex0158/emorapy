@@ -11,6 +11,8 @@ import { responseFormatter } from './middleware/responseFormatter';
 import { requestId } from './middleware/requestId';
 import { performanceMonitor } from './middleware/performance';
 import { authorizeMedia } from './middleware/auth';
+import { localeMiddleware } from './middleware/locale';
+import { translateBackendMessage, translateErrorByCode } from './i18n';
 
 // 導入路由
 import healthRoutes from './routes/health.routes';
@@ -59,19 +61,25 @@ const helmetConfig = env.NODE_ENV === 'production'
 
 app.use(helmet(helmetConfig));
 
-// CORS配置
+// CORS配置（生產環境嚴格限制 origin）
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || env.ALLOWED_ORIGINS.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('不允許的來源'));
+    // 開發環境允許無 origin（Postman / curl 等工具）
+    if (!origin && env.NODE_ENV !== 'production') {
+      return callback(null, true);
     }
+    if (origin && env.ALLOWED_ORIGINS.includes(origin)) {
+      return callback(null, true);
+    }
+    callback(new Error('不允許的來源'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Session-Id'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Session-Id', 'X-Locale'],
 }));
+
+// 語言偵測（Accept-Language）
+app.use(localeMiddleware);
 
 // 壓縮響應
 app.use(compression());
@@ -87,7 +95,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
       success: false,
       error: {
         code: 'INVALID_JSON',
-        message: '無效的JSON請求體',
+        message: translateErrorByCode(req.locale ?? 'zh-TW', 'INVALID_JSON', '無效的JSON請求體'),
       },
     });
   }
@@ -114,7 +122,10 @@ app.use('/uploads', (req, res, next) => {
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     return res.status(405).json({
       success: false,
-      error: { code: 'METHOD_NOT_ALLOWED', message: '僅支持 GET/HEAD 訪問文件' },
+      error: {
+        code: 'METHOD_NOT_ALLOWED',
+        message: translateErrorByCode(req.locale ?? 'zh-TW', 'METHOD_NOT_ALLOWED', '僅支持 GET/HEAD 訪問文件'),
+      },
     });
   }
   return downloadLimiter(req, res, (err: any) => {
@@ -148,7 +159,7 @@ app.use((req, res) => {
     success: false,
     error: {
       code: 'NOT_FOUND',
-      message: '接口不存在',
+      message: translateBackendMessage(req.locale ?? 'zh-TW', '接口不存在'),
     },
   });
 });

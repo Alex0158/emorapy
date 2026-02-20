@@ -96,7 +96,7 @@ function getEnvConfig(): EnvConfig {
     DATABASE_URL: process.env.DATABASE_URL!,
     
     JWT_SECRET: process.env.JWT_SECRET!,
-    JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
+    JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '24h',
     
     OPENAI_API_KEY: process.env.OPENAI_API_KEY!,
     OPENAI_MODEL: process.env.OPENAI_MODEL || 'gpt-3.5-turbo',
@@ -167,19 +167,21 @@ function validateEnvVars(): void {
 
   // 驗證JWT_SECRET強度
   if (process.env.JWT_SECRET) {
-    const length = process.env.JWT_SECRET.length;
-    if (length < 32) {
-      const message = `警告: JWT_SECRET長度建議至少32字符，當前長度: ${length}`;
-      if (isProduction && length < 16) {
-        throw new Error('生產環境JWT_SECRET長度必須至少16字符');
+    const secret = process.env.JWT_SECRET;
+    const length = secret.length;
+    if (isProduction) {
+      if (length < 32) {
+        throw new Error(`生產環境JWT_SECRET長度必須至少32字符，當前長度: ${length}`);
       }
-      if (isDevelopment) {
-        logger.warn(message);
+      if (secret.includes('your-super-secret') || secret.includes('changeme') || secret.includes('secret')) {
+        throw new Error('生產環境不能使用默認JWT_SECRET，請設置強隨機密鑰');
       }
-    }
-    // 生產環境檢查是否為默認值
-    if (isProduction && process.env.JWT_SECRET.includes('your-super-secret')) {
-      throw new Error('生產環境不能使用默認JWT_SECRET，請設置強隨機密鑰');
+      // 檢查低熵值（全相同字元）
+      if (new Set(secret).size < 8) {
+        throw new Error('JWT_SECRET 熵值過低，請使用包含多種字元的隨機字串');
+      }
+    } else if (length < 32) {
+      logger.warn(`警告: JWT_SECRET長度建議至少32字符，當前長度: ${length}`);
     }
   }
 

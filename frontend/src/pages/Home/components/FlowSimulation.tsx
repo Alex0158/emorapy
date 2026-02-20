@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   CheckCircleFilled,
@@ -1011,6 +1011,18 @@ const FlowSimulation = () => {
 
   const [activeStep, setActiveStep] = useState(0);
   const [progress, setProgress] = useState(0);
+  const [isHovered, setIsHovered] = useState(false);
+  const isHoveredRef = useRef(false);
+
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+    isHoveredRef.current = true;
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+    isHoveredRef.current = false;
+  };
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1028,7 +1040,9 @@ const FlowSimulation = () => {
       const delta = Math.min(now - lastFrameTime, 100);
       lastFrameTime = now;
       
-      accumulatedTime += delta;
+      if (!isHoveredRef.current) {
+        accumulatedTime += delta;
+      }
 
       const currentProgress = Math.min((accumulatedTime / AUTO_PLAY_MS) * 100, 100);
       setProgress(currentProgress);
@@ -1061,6 +1075,8 @@ const FlowSimulation = () => {
       id="main-content" 
       className="flow-demo-section-v3" 
       aria-labelledby="flow-demo-title"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       {/* 科技感背景網格與漸層 SVG 定義 */}
       <svg width="0" height="0" className="svg-defs">
@@ -1128,7 +1144,7 @@ const FlowSimulation = () => {
                   >
                     <div className="step-content">
                       <div className="step-icon-wrapper">
-                        {isActive && (
+                        {isActive && !isHovered && (
                           <svg className="step-progress-ring" viewBox="0 0 52 52">
                             <circle className="ring-bg" cx="26" cy="26" r="24" />
                             <circle 
@@ -1155,7 +1171,11 @@ const FlowSimulation = () => {
               })}
             </ol>
             <div className="interactive-hint">
-              您可以點擊步驟自由切換
+              {isHovered ? (
+                <><span className="pulse-dot"></span> 輪播已暫停，您可以安心閱讀</>
+              ) : (
+                '您可以點擊步驟自由切換'
+              )}
             </div>
           </div>
 

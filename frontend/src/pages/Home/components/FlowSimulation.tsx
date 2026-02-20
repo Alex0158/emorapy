@@ -190,7 +190,7 @@ const TypewriterText = ({
   };
 
   return (
-    <span className={className}>
+    <span className={`typing-text ${className}`.trim()}>
       {displayedChars.map((char, index) => {
         const isHigh = getIsHighlighted(index);
         return (
@@ -403,7 +403,7 @@ const PhoneSimulator = ({
   const [isTypingPhase, setIsTypingPhase] = useState(true);
   useEffect(() => {
     setIsTypingPhase(true);
-    const timer = setTimeout(() => setIsTypingPhase(false), 2500); 
+    const timer = setTimeout(() => setIsTypingPhase(false), 4500); 
     return () => clearTimeout(timer);
   }, [activeStep]);
 

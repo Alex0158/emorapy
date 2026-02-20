@@ -4,7 +4,7 @@
 
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Typography, Alert, message, Space } from 'antd';
+import { Typography, Alert, message, Space, Button } from 'antd';
 import { motion } from 'framer-motion';
 import { LockOutlined, RetweetOutlined } from '@ant-design/icons';
 import { useJudgmentStore } from '@/store/judgmentStore';
@@ -232,7 +232,7 @@ const QuickExperienceResult = () => {
 
   if (error && !judgment) return (
     <div className="error-container">
-      <Alert title={t('error.fetch.title')} description={error} type="error" showIcon />
+      <Alert message={t('error.fetch.title')} description={error} type="error" showIcon />
       <button className="action-button primary" onClick={() => navigate('/quick-experience/create')} style={{marginTop: 24}}>
         {t('error.back')}
       </button>
@@ -245,14 +245,14 @@ const QuickExperienceResult = () => {
     return (
       <div className="error-container">
         <Alert
-          title={isSessionExpired ? t('error.session.title') : isJudgmentFailed ? t('error.judgment.title') : t('error.fetch.title')}
+          message={isSessionExpired ? t('error.session.title') : isJudgmentFailed ? t('error.judgment.title') : t('error.fetch.title')}
           description={isJudgmentFailed && judgmentFailureReason ? `${t('error.judgment.failureReasonPrefix')}${judgmentFailureReason}` : judgmentError || (isSessionExpired ? t('error.session.expiredHint') : t('message.retryOrLater'))}
           type="error"
           showIcon
           action={
-            isSessionExpired ? <button className="action-button primary" onClick={() => navigate('/quick-experience/create')}>{t('result.restart')}</button>
-            : isJudgmentFailed ? <button className="action-button primary" onClick={handleRetryJudgment}>{t('error.retry')}</button>
-            : <button className="action-button primary" onClick={() => { setJudgmentError(null); setJudgmentErrorCode(null); pollingEverStartedRef.current = true; startPolling(); }}>{t('error.retry')}</button>
+            isSessionExpired ? <Button type="primary" onClick={() => navigate('/quick-experience/create')}>{t('result.restart')}</Button>
+            : isJudgmentFailed ? <Button type="primary" onClick={handleRetryJudgment}>{t('error.retry')}</Button>
+            : <Button type="primary" onClick={() => { setJudgmentError(null); setJudgmentErrorCode(null); pollingEverStartedRef.current = true; startPolling(); }}>{t('error.retry')}</Button>
           }
         />
         <button className="action-button secondary" onClick={() => navigate('/quick-experience/create')} style={{marginTop: 24}}>
@@ -268,14 +268,14 @@ const QuickExperienceResult = () => {
       <div className="loading-container">
         {isTimeout ? (
           <Alert
-            title={t('pending.long.message')}
+            message={t('pending.long.message')}
             description={t('pending.long.desc')}
             type="warning"
             showIcon
             action={
               <Space>
-                <button className="action-button primary" onClick={() => { pollingEverStartedRef.current = true; startPolling(); }}>{t('pending.long.action.wait')}</button>
-                <button className="action-button secondary" onClick={handleRetryJudgment}>{t('pending.long.action.regen')}</button>
+                <Button type="primary" onClick={() => { pollingEverStartedRef.current = true; startPolling(); }}>{t('pending.long.action.wait')}</Button>
+                <Button onClick={handleRetryJudgment}>{t('pending.long.action.regen')}</Button>
               </Space>
             }
           />

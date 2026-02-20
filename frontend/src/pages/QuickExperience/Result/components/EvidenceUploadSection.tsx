@@ -39,7 +39,7 @@ const EvidenceUploadSection = ({ status, caseId, isUploading, onUploadFiles }: P
               
               {status === 'failed' && (
                 <Alert
-                  description={t('evidence.failed.desc')}
+                  description={<span style={{ color: '#FDE68A' }}>{t('evidence.failed.desc')}</span>}
                   type="warning"
                   showIcon
                   style={{
@@ -53,7 +53,7 @@ const EvidenceUploadSection = ({ status, caseId, isUploading, onUploadFiles }: P
               
               {status === 'pending' && (
                 <Alert
-                  description={t('evidence.pending.desc')}
+                  description={<span style={{ color: '#BAE6FD' }}>{t('evidence.pending.desc')}</span>}
                   type="info"
                   showIcon
                   style={{

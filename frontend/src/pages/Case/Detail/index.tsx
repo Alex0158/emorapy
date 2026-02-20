@@ -124,7 +124,7 @@ const CaseDetail = () => {
   if (!case_) {
     return (
       <div className="case-detail-page">
-        <Alert title={t('common.caseNotFound')} type="error" />
+        <Alert message={t('common.caseNotFound')} type="error" />
       </div>
     );
   }

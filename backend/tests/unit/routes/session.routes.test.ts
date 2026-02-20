@@ -6,10 +6,13 @@ import express from 'express';
 import request from 'supertest';
 
 const mockCreateSession = jest.fn();
+const mockRefreshSession = jest.fn();
 jest.mock('../../../src/controllers/session.controller', () => ({
   sessionController: {
     createSession: (req: unknown, res: unknown, next: unknown) =>
       mockCreateSession(req, res, next),
+    refreshSession: (req: unknown, res: unknown, next: unknown) =>
+      mockRefreshSession(req, res, next),
   },
 }));
 jest.mock('../../../src/middleware/rateLimiter', () => ({
@@ -32,6 +35,10 @@ describe('session.routes', () => {
     mockCreateSession.mockImplementation((_req: any, res: any) => {
       res.status(201).json({ success: true, data: { session_id: 's1', expires_at: new Date().toISOString() } });
     });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    mockRefreshSession.mockImplementation((_req: any, res: any) => {
+      res.status(200).json({ success: true, data: { session_id: 's2', expires_at: new Date().toISOString() } });
+    });
   });
 
   describe('POST /quick', () => {
@@ -46,11 +53,11 @@ describe('session.routes', () => {
   });
 
   describe('POST /refresh', () => {
-    it('應調用 createSession 並返回 201', async () => {
+    it('應調用 refreshSession 並返回 200', async () => {
       const app = createApp();
       const res = await request(app).post('/refresh').send({});
-      expect(res.status).toBe(201);
-      expect(mockCreateSession).toHaveBeenCalled();
+      expect(res.status).toBe(200);
+      expect(mockRefreshSession).toHaveBeenCalled();
     });
   });
 });

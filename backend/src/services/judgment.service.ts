@@ -73,9 +73,7 @@ export class JudgmentService {
         // 權限校驗：完整模式需當事人；快速體驗需匹配 Session
         if (case_.mode === 'quick') {
           if (!options?.sessionId || case_.session_id !== options.sessionId) {
-            if (process.env.NODE_ENV !== 'test') {
-              throw Errors.FORBIDDEN('無權限生成判決');
-            }
+            throw Errors.FORBIDDEN('無權限生成判決');
           }
         } else {
           const uid = options?.userId;
@@ -114,34 +112,32 @@ export class JudgmentService {
         let judgmentContent: string;
         let responsibilityRatio: { plaintiff: number; defendant: number };
         let summary: string;
+        let timedOut = false;
+        const abortController = new AbortController();
+        const timeoutHandle = setTimeout(() => {
+          timedOut = true;
+          abortController.abort();
+        }, AI_TIMEOUT.JUDGMENT_GENERATION);
 
         try {
-          // 設置超時，防止AI服務響應過慢導致鎖長期持有
-          const timeoutPromise = new Promise<never>((_, reject) => {
-            setTimeout(() => {
-              reject(new Error('AI服務響應超時'));
-            }, AI_TIMEOUT.JUDGMENT_GENERATION);
-          });
-
-          const response = await Promise.race([
-            aiService.generateJudgment(
+          const response = await aiService.generateJudgment(
             case_.type,
             case_.plaintiff_statement,
-            case_.defendant_statement || ''
-            ),
-            timeoutPromise,
-          ]);
+            case_.defendant_statement || '',
+            { signal: abortController.signal }
+          );
 
           judgmentContent = response.content;
           responsibilityRatio = response.responsibilityRatio;
           summary = response.summary;
           aiUsed = true;
         } catch (error: any) {
-          logger.error('AI service error', { caseId, error: error.message || error });
+          const normalizedError = error?.message || error || '';
+          logger.error('AI service error', { caseId, error: normalizedError });
 
-          const msg = String(error?.message || error || '');
+          const msg = String(normalizedError);
           let failureReason = 'AI 服務暫時不可用，請稍後重試';
-          if (msg.includes('超時') || msg.includes('timeout')) {
+          if (timedOut || msg.includes('超時') || msg.includes('timeout') || msg.includes('AbortError') || msg.includes('aborted')) {
             failureReason = 'AI 服務響應超時，請稍後再試';
           } else if (msg.includes('認證') || error?.status === 401) {
             failureReason = 'AI 服務認證失敗（請檢查 OPENAI_API_KEY）';
@@ -173,14 +169,16 @@ export class JudgmentService {
 
           logger.error('Judgment generation failed', {
             caseId,
-            error: error.message || error,
+            error: normalizedError,
             status: 'judgment_failed',
           });
 
-          if (msg.includes('超時') || msg.includes('timeout')) {
+          if (timedOut || msg.includes('超時') || msg.includes('timeout') || msg.includes('AbortError') || msg.includes('aborted')) {
             throw Errors.AI_SERVICE_ERROR('AI服務響應超時，請稍後再試');
           }
           throw Errors.AI_SERVICE_ERROR('AI服務暫時不可用，請稍後重試');
+        } finally {
+          clearTimeout(timeoutHandle);
         }
 
         // 4-6. 使用事務確保數據一致性
@@ -213,7 +211,7 @@ export class JudgmentService {
               plaintiff_ratio: responsibilityRatio.plaintiff,
               defendant_ratio: responsibilityRatio.defendant,
               ai_model: 'gpt-3.5-turbo',
-              prompt_version: 'v1.0',
+              prompt_version: 'v2.0',
             },
           });
 
@@ -248,7 +246,6 @@ export class JudgmentService {
         if (case_.mode === 'quick' && case_.session_id) {
           sessionService.markSessionCompleted(case_.session_id).catch(err => {
             logger.warn('Failed to mark session completed', {
-              sessionId: case_.session_id,
               error: err,
             });
           });

@@ -19,6 +19,7 @@ export function useSession() {
   useEffect(() => {
     const stored = sessionStorage.get();
     if (stored) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSessionId(stored);
     }
   }, []);

@@ -121,7 +121,7 @@ const QuickExperienceCreate = () => {
   const progress = calculateProgress();
   const canSubmit = validateStatement(plaintiffStatement).valid;
 
-  const shortcuts = useMemo(() => [
+  const shortcuts = [
     {
       key: 'ctrl+s',
       description: t('message.shortcutSaveDraft'),
@@ -142,7 +142,7 @@ const QuickExperienceCreate = () => {
         if (canSubmit) handleSubmit();
       },
     },
-  ], [plaintiffStatement, defendantStatement, evidenceFiles, canSubmit]);
+  ];
 
   const templates = useMemo(() => [
     t('quickCreate.template1'),
@@ -210,7 +210,7 @@ const QuickExperienceCreate = () => {
           if (sessionIdToUse) {
             await uploadEvidence(result.case.id, filesToUpload as File[], sessionIdToUse);
           }
-        } catch (uploadError: unknown) {
+        } catch {
           localStorage.setItem(`pending_evidence_${result.case.id}`, 'true');
         }
       }
@@ -235,7 +235,7 @@ const QuickExperienceCreate = () => {
           {recoveredCase && (
             <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="container" style={{ paddingTop: 24 }}>
               <Alert
-                title={t('quickCreate.recoveredCase.title')}
+                message={t('quickCreate.recoveredCase.title')}
                 description={t('quickCreate.recoveredCase.desc')}
                 type="info"
                 showIcon
@@ -269,7 +269,7 @@ const QuickExperienceCreate = () => {
         <AnimatePresence>
           {autoSaveStatus === 'saved' && (
             <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="container">
-              <Alert title={t('quickCreate.autoSaved')} type="success" showIcon closable style={{ marginBottom: 24, borderRadius: 16 }} />
+              <Alert message={t('quickCreate.autoSaved')} type="success" showIcon closable style={{ marginBottom: 24, borderRadius: 16 }} />
             </motion.div>
           )}
         </AnimatePresence>
@@ -407,7 +407,7 @@ const QuickExperienceCreate = () => {
             >
               <div className="container">
                 <Alert
-                  title={<Space><LockOutlined /><span>{t('quickCreate.registerMessage')}</span></Space>}
+                  message={<Space><LockOutlined /><span>{t('quickCreate.registerMessage')}</span></Space>}
                   description={t('register.prompt.desc')}
                   type="info"
                   action={

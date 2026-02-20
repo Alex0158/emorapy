@@ -2,6 +2,12 @@ import { Request, Response, NextFunction } from 'express';
 import logger from '../config/logger';
 import { env } from '../config/env';
 import { getRequestId, getAuthUserIdOptional, getSessionId } from '../utils/request';
+import crypto from 'crypto';
+
+const maskSessionId = (sessionId?: string): string | undefined => {
+  if (!sessionId) return undefined;
+  return crypto.createHash('sha256').update(sessionId).digest('hex').slice(0, 12);
+};
 
 export const requestLogger = (req: Request, res: Response, next: NextFunction): void => {
   const start = Date.now();
@@ -27,10 +33,11 @@ export const requestLogger = (req: Request, res: Response, next: NextFunction): 
       logData.ip = req.ip;
       logData.userAgent = req.get('user-agent');
       logData.userId = getAuthUserIdOptional(req);
-      logData.sessionId = getSessionId(req);
+      const sid = maskSessionId(getSessionId(req));
+      if (sid) logData.sessionId = sid;
     } else {
       const uid = getAuthUserIdOptional(req);
-      const sid = getSessionId(req);
+      const sid = maskSessionId(getSessionId(req));
       if (uid) logData.userId = uid;
       if (sid) logData.sessionId = sid;
     }

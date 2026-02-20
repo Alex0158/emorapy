@@ -40,9 +40,9 @@ jest.mock('../../../src/controllers/evidence.controller', () => ({
   evidenceController: {
     uploadEvidence: (req: unknown, res: unknown, next: unknown) =>
       mockUploadEvidence(req, res, next),
-    deleteEvidence: (req: unknown, res: unknown, next: unknown) =>
-      mockDeleteEvidence(req, res, next),
   },
+  deleteEvidence: (req: unknown, res: unknown, next: unknown) =>
+    mockDeleteEvidence(req, res, next),
 }));
 jest.mock('../../../src/middleware/auth', () => ({
   authenticate: (_req: unknown, _res: unknown, next: () => void) => next(),

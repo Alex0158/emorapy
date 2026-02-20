@@ -63,6 +63,7 @@ vi.mock('react-router-dom', async (importOriginal) => {
 });
 
 vi.mock('antd', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const React = require('react');
   return {
     Card: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,

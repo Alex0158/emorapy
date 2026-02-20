@@ -65,6 +65,16 @@ jest.mock('../../../src/services/judgment.service', () => ({
 jest.mock('../../../src/utils/request', () => ({
   getAuthUserId: (req: Request) => mockGetAuthUserId(req),
   getAuthUserIdOptional: (req: Request) => mockGetAuthUserIdOptional(req),
+  getSessionIdFromSources: (req: Request) => {
+    const headerSessionId = req.headers?.['x-session-id'] as string | undefined;
+    const querySessionId = req.query?.session_id as string | undefined;
+    return {
+      sessionId: headerSessionId || querySessionId,
+      headerSessionId,
+      querySessionId,
+      hasConflict: !!headerSessionId && !!querySessionId && headerSessionId !== querySessionId,
+    };
+  },
 }));
 
 describe('CaseController', () => {
@@ -75,7 +85,7 @@ describe('CaseController', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    controller = new CaseController(caseService, judgmentService);
+    controller = new CaseController();
     req = { body: {}, params: {}, query: {}, headers: {} };
     res = {
       json: jest.fn().mockReturnThis(),
@@ -88,6 +98,18 @@ describe('CaseController', () => {
   });
 
   describe('createQuickCase', () => {
+    it('header/query session 衝突時應 next(INVALID_SESSION_ID)', async () => {
+      req.body = { description: 'desc' };
+      req.headers = { 'x-session-id': 's1' };
+      req.query = { session_id: 's2' };
+
+      await controller.createQuickCase(req as Request, res as Response, next);
+
+      expect(mockCreateQuickCase).not.toHaveBeenCalled();
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
+      expect(((next as jest.Mock).mock.calls[0][0] as any).code).toBe('INVALID_SESSION_ID');
+    });
+
     it('成功應從 header/query 取 sessionId 並返回 201', async () => {
       req.body = { description: 'desc' };
       req.headers = { 'x-session-id': 's1' };
@@ -204,6 +226,18 @@ describe('CaseController', () => {
   });
 
   describe('getCaseById', () => {
+    it('header/query session 衝突時應 next(INVALID_SESSION_ID)', async () => {
+      req.params = { id: 'c1' };
+      req.headers = { 'x-session-id': 's1' };
+      req.query = { session_id: 's2' };
+
+      await controller.getCaseById(req as Request, res as Response, next);
+
+      expect(mockGetCaseById).not.toHaveBeenCalled();
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
+      expect(((next as jest.Mock).mock.calls[0][0] as any).code).toBe('INVALID_SESSION_ID');
+    });
+
     it('成功應返回 case', async () => {
       req.params = { id: 'c1' };
       req.query = { session_id: 's1' };
@@ -228,6 +262,17 @@ describe('CaseController', () => {
   });
 
   describe('getCaseBySessionId', () => {
+    it('header/query session 衝突時應 next(INVALID_SESSION_ID)', async () => {
+      req.headers = { 'x-session-id': 's1' };
+      req.query = { session_id: 's2' };
+
+      await controller.getCaseBySessionId(req as Request, res as Response, next);
+
+      expect(mockGetCaseBySessionId).not.toHaveBeenCalled();
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
+      expect(((next as jest.Mock).mock.calls[0][0] as any).code).toBe('INVALID_SESSION_ID');
+    });
+
     it('成功應返回 case', async () => {
       req.query = { session_id: 's1' };
       const case_ = { id: 'c1' };
@@ -264,6 +309,18 @@ describe('CaseController', () => {
   });
 
   describe('getJudgmentByCaseId', () => {
+    it('header/query session 衝突時應 next(INVALID_SESSION_ID)', async () => {
+      req.params = { id: 'c1' };
+      req.headers = { 'x-session-id': 's1' };
+      req.query = { session_id: 's2' };
+
+      await controller.getJudgmentByCaseId(req as Request, res as Response, next);
+
+      expect(mockGetJudgmentByCaseId).not.toHaveBeenCalled();
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
+      expect(((next as jest.Mock).mock.calls[0][0] as any).code).toBe('INVALID_SESSION_ID');
+    });
+
     it('有判決時應返回 data.judgment', async () => {
       req.params = { id: 'c1' };
       req.query = { session_id: 's1' };
@@ -361,6 +418,15 @@ describe('CaseController', () => {
       await Promise.resolve();
       await Promise.resolve();
       expect(logger.error).toHaveBeenCalledWith('Failed to generate judgment', { caseId: 'c1', error: expect.any(Error) });
+    });
+
+    it('submitCase 拋錯時應 next(error)', async () => {
+      req.params = { id: 'c1' };
+      mockSubmitCase.mockRejectedValueOnce(new Error('submit failed'));
+
+      await controller.submitCase(req as Request, res as Response, next);
+
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
     });
   });
 

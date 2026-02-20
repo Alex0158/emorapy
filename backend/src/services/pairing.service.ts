@@ -3,6 +3,7 @@ import { generateInviteCode } from '../utils/session';
 import { Errors } from '../utils/errors';
 import logger from '../config/logger';
 import { fileService } from './file.service';
+import { lockService } from '../utils/lock';
 
 export class PairingService {
   /**
@@ -196,49 +197,46 @@ export class PairingService {
    * 創建臨時配對（快速體驗模式）
    */
   async createTempPairing(sessionId: string) {
-    // 檢查是否已有臨時配對
-    const existingPairing = await prisma.pairing.findFirst({
-      where: {
-        session_id: sessionId,
-        pairing_type: 'quick',
-      },
-    });
+    return lockService.withLock(`pairing:quick:${sessionId}`, async () => {
+      const existingPairing = await prisma.pairing.findFirst({
+        where: {
+          session_id: sessionId,
+          pairing_type: 'quick',
+        },
+      });
 
-    if (existingPairing) {
-      return existingPairing;
-    }
+      if (existingPairing) {
+        return existingPairing;
+      }
 
-    // 限制單日最大臨時配對數（防止表膨脹）
-    const todayStart = new Date();
-    todayStart.setUTCHours(0, 0, 0, 0);
-    const dailyCount = await prisma.pairing.count({
-      where: {
-        pairing_type: 'quick',
-        created_at: { gte: todayStart },
-      },
-    });
-    const DAILY_LIMIT = 5000;
-    if (dailyCount >= DAILY_LIMIT) {
-      throw Errors.RATE_LIMIT_EXCEEDED('臨時配對數量達到上限，請稍後重試');
-    }
-    if (dailyCount > DAILY_LIMIT * 0.8) {
-      logger.warn('Temp pairing nearing daily limit', { dailyCount, limit: DAILY_LIMIT });
-    }
+      const todayStart = new Date();
+      todayStart.setUTCHours(0, 0, 0, 0);
+      const dailyCount = await prisma.pairing.count({
+        where: {
+          pairing_type: 'quick',
+          created_at: { gte: todayStart },
+        },
+      });
+      const DAILY_LIMIT = 5000;
+      if (dailyCount >= DAILY_LIMIT) {
+        throw Errors.RATE_LIMIT_EXCEEDED('臨時配對數量達到上限，請稍後重試');
+      }
+      if (dailyCount > DAILY_LIMIT * 0.8) {
+        logger.warn('Temp pairing nearing daily limit', { dailyCount, limit: DAILY_LIMIT });
+      }
 
-    // 創建臨時配對
-    const tempPairing = await prisma.pairing.create({
-      data: {
-        user1_id: null,
-        user2_id: null,
-        invite_code: null,
-        status: 'temp',
-        pairing_type: 'quick',
-        session_id: sessionId,
-        expires_at: null, // 快速體驗模式不過期
-      },
-    });
-
-    return tempPairing;
+      return prisma.pairing.create({
+        data: {
+          user1_id: null,
+          user2_id: null,
+          invite_code: null,
+          status: 'temp',
+          pairing_type: 'quick',
+          session_id: sessionId,
+          expires_at: null,
+        },
+      });
+    }, 20);
   }
 
   /**

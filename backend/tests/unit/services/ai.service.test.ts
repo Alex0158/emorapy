@@ -78,6 +78,23 @@ describe('AIService (useMock)', () => {
     });
   });
 
+  describe('analyzeEmotionalDynamics', () => {
+    it('useMock 時應返回預設的情感分析結構', async () => {
+      const result = await service.analyzeEmotionalDynamics('陳述A', '陳述B');
+      expect(result).toHaveProperty('severity');
+      expect(result).toHaveProperty('personA');
+      expect(result).toHaveProperty('personB');
+      expect(result).toHaveProperty('interactionCycle');
+      expect(result).toHaveProperty('coreIssue');
+      expect(result).toHaveProperty('gottmanFlags');
+      expect(result).toHaveProperty('suggestedApproach');
+      expect(result.personA).toHaveProperty('primaryFeelings');
+      expect(result.personA).toHaveProperty('unmetNeeds');
+      expect(result.personA).toHaveProperty('communicationPattern');
+      expect(['mild', 'moderate', 'serious']).toContain(result.severity);
+    });
+  });
+
   describe('generateJudgment', () => {
     it('useMock 時應返回固定判決結構', async () => {
       const result = await service.generateJudgment(
@@ -89,17 +106,18 @@ describe('AIService (useMock)', () => {
       expect(result).toHaveProperty('content');
       expect(result).toHaveProperty('responsibilityRatio');
       expect(result).toHaveProperty('summary');
-      expect(result.responsibilityRatio).toEqual({ plaintiff: 60, defendant: 40 });
-      expect(result.content).toContain('判決');
-      expect(result.summary).toContain('60%');
+      expect(result.responsibilityRatio).toEqual({ plaintiff: 55, defendant: 45 });
+      expect(result.content).toContain('聽見你們');
+      expect(result.content).toContain('生日晚餐');
+      expect(result.summary).toContain('遲到');
     });
   });
 
   describe('generateSummary', () => {
     it('useMock 時應返回固定摘要', async () => {
       const result = await service.generateSummary('判決書內容...');
-      expect(result).toContain('生活習慣衝突');
-      expect(result).toContain('溫暖');
+      expect(result).toContain('愛的語言');
+      expect(result).toContain('安全感');
     });
   });
 
@@ -254,6 +272,49 @@ describe('AIService (non-useMock)', () => {
         '其他衝突',
         7 * 24 * 60 * 60
       );
+    });
+  });
+
+  describe('analyzeEmotionalDynamics', () => {
+    it('緩存命中時應直接返回分析結果', async () => {
+      const cachedAnalysis = { severity: 'mild', personA: { primaryFeelings: 'x', unmetNeeds: 'y', communicationPattern: 'z' }, personB: { primaryFeelings: 'a', unmetNeeds: 'b', communicationPattern: 'c' }, interactionCycle: 'cycle', coreIssue: 'issue', gottmanFlags: [], suggestedApproach: 'approach' };
+      (cacheGetMock as any).mockResolvedValueOnce(cachedAnalysis);
+      const result = await service.analyzeEmotionalDynamics('A', 'B');
+      expect(result).toEqual(cachedAnalysis);
+      expect(openaiCreateMock).not.toHaveBeenCalled();
+    });
+
+    it('緩存未命中時應調用 AI 並緩存結果', async () => {
+      const analysis = { severity: 'moderate', personA: { primaryFeelings: '委屈', unmetNeeds: '被理解', communicationPattern: '追逐者' }, personB: { primaryFeelings: '壓力', unmetNeeds: '空間', communicationPattern: '迴避者' }, interactionCycle: '追逐-迴避', coreIssue: '安全感', gottmanFlags: [], suggestedApproach: '先建立安全感' };
+      (cacheGetMock as any).mockResolvedValueOnce(null);
+      (openaiCreateMock as any).mockResolvedValueOnce({
+        choices: [{ message: { content: JSON.stringify(analysis) } }],
+      });
+      const result = await service.analyzeEmotionalDynamics('陳述A', '陳述B');
+      expect(result.severity).toBe('moderate');
+      expect(result.personA.primaryFeelings).toBe('委屈');
+      expect(cacheSetMock).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ severity: 'moderate' }),
+        24 * 60 * 60
+      );
+    });
+
+    it('AI 返回無效 JSON 時應返回預設分析', async () => {
+      (cacheGetMock as any).mockResolvedValueOnce(null);
+      (openaiCreateMock as any).mockResolvedValueOnce({
+        choices: [{ message: { content: '這不是 JSON' } }],
+      });
+      const result = await service.analyzeEmotionalDynamics('A', 'B');
+      expect(result.severity).toBe('moderate');
+      expect(mockLogger.warn).toHaveBeenCalledWith('Emotional analysis failed, using default', expect.any(Object));
+    });
+
+    it('AI 拋錯時應返回預設分析', async () => {
+      (cacheGetMock as any).mockResolvedValueOnce(null);
+      (retryWithBackoffMock as any).mockRejectedValueOnce(new Error('API error'));
+      const result = await service.analyzeEmotionalDynamics('A', 'B');
+      expect(result.severity).toBe('moderate');
     });
   });
 

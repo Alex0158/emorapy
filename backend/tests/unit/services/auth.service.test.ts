@@ -200,7 +200,7 @@ describe('AuthService', () => {
       })).rejects.toMatchObject({ code: 'UNAUTHORIZED', message: expect.stringContaining('激活') });
     });
 
-    it('未完成郵箱驗證應拋出 EMAIL_NOT_VERIFIED', async () => {
+    it('未完成郵箱驗證應拋出 UNAUTHORIZED', async () => {
       prismaMock.user.findUnique.mockResolvedValue({
         id: 'u1',
         email: 'a@b.com',
@@ -214,7 +214,7 @@ describe('AuthService', () => {
       await expect(service.login({
         email: 'a@b.com',
         password: 'pass',
-      })).rejects.toMatchObject({ code: 'EMAIL_NOT_VERIFIED', message: expect.stringContaining('郵箱驗證') });
+      })).rejects.toMatchObject({ code: 'UNAUTHORIZED', message: expect.stringContaining('郵箱驗證') });
     });
 
     it('登錄成功應返回 user、token、expires_in', async () => {

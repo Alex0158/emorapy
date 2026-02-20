@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { judgmentService } from '../services/judgment.service';
 import { Errors } from '../utils/errors';
-import { getAuthUserId, getAuthUserIdOptional } from '../utils/request';
+import { getAuthUserId, getAuthUserIdOptional, getSessionIdFromSources } from '../utils/request';
 
 export class JudgmentController {
   /**
@@ -11,7 +11,10 @@ export class JudgmentController {
     try {
       const caseId = req.params.id;
       const userId = getAuthUserIdOptional(req);
-      const sessionId = (req.query.session_id as string) || (req.headers['x-session-id'] as string);
+      const { sessionId, hasConflict } = getSessionIdFromSources(req);
+      if (hasConflict) {
+        throw Errors.INVALID_SESSION_ID('Header 與 Query 的 Session ID 不一致');
+      }
       const judgment = await judgmentService.generateJudgment(caseId, { userId, sessionId });
 
       res.json({
@@ -43,8 +46,10 @@ export class JudgmentController {
       }
 
       const userId = getAuthUserIdOptional(req);
-      const sessionId = (req.query.session_id as string) || 
-                        (req.headers['x-session-id'] as string);
+      const { sessionId, hasConflict } = getSessionIdFromSources(req);
+      if (hasConflict) {
+        throw Errors.INVALID_SESSION_ID('Header 與 Query 的 Session ID 不一致');
+      }
 
       const result = await judgmentService.getJudgmentByCaseId(
         judgment.case_id,

@@ -127,6 +127,54 @@
     &:hover { box-shadow: @shadow-hover; border-color: rgba(255,255,255,0.2); }
   }
 
+  /* 共用按鈕類 */
+  .action-button {
+    height: 64px;
+    border-radius: 32px;
+    padding: 0 40px;
+    font-size: 18px;
+    font-weight: 700;
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    outline: none;
+
+    &.primary {
+      background: linear-gradient(135deg, @color-primary, #FF5722);
+      border: none;
+      color: #fff;
+      box-shadow: 0 8px 24px rgba(255, 112, 67, 0.3);
+      
+      &:hover:not(:disabled) {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 32px rgba(255, 112, 67, 0.5);
+        background: linear-gradient(135deg, #FF8A65, #FF5722);
+      }
+    }
+
+    &.secondary {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #fff;
+      backdrop-filter: blur(10px);
+      
+      &:hover:not(:disabled) {
+        border-color: rgba(255, 255, 255, 0.4);
+        background: rgba(255, 255, 255, 0.1);
+        transform: translateY(-4px);
+      }
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none !important;
+      box-shadow: none !important;
+    }
+  }
+
   /* 摘要區域 */
   .summary-section {
     padding: 0 0 40px;
@@ -190,16 +238,38 @@
         letter-spacing: -0.5px;
       }
 
-      /* 覆蓋 ResponsiblityRatio 元件內聯樣式適應深色模式 */
-      .responsibility-ratio-wrapper {
-        .ratio-bar {
-          background: rgba(0,0,0,0.3) !important;
-          border: 1px solid rgba(255,255,255,0.1) !important;
+      /* 覆蓋 ResponsiblityRatio 元件適應深色模式 */
+      .responsibility-ratio {
+        .pie-chart .pie-segment {
+          box-shadow: 0 0 30px rgba(14, 165, 233, 0.2);
+          .pie-center {
+            background: #0F172A; /* 深色背景 */
+            box-shadow: inset 0 4px 12px rgba(0,0,0,0.5);
+            .pie-label .label-item {
+              color: #F8FAFC;
+              .label-dot { box-shadow: 0 0 10px rgba(255,255,255,0.2); }
+            }
+          }
         }
-        .plaintiff-fill { background: linear-gradient(90deg, #FF7043, #FF9E80) !important; box-shadow: 0 0 15px rgba(255,112,67,0.5) !important; }
-        .defendant-fill { background: linear-gradient(90deg, #0EA5E9, #38BDF8) !important; box-shadow: 0 0 15px rgba(14,165,233,0.5) !important; }
-        .ratio-label { color: #fff !important; font-weight: 600 !important; }
-        .ratio-value { color: #fff !important; font-weight: 800 !important; text-shadow: 0 2px 4px rgba(0,0,0,0.5) !important; }
+        
+        .progress-bar .progress-container {
+          background: rgba(0, 0, 0, 0.4);
+          border: 1px solid rgba(255,255,255,0.1);
+          box-shadow: inset 0 4px 8px rgba(0,0,0,0.3);
+          height: 32px;
+          border-radius: 16px;
+          .progress-segment {
+            box-shadow: 0 0 10px rgba(0,0,0,0.3);
+            .progress-label { font-size: 14px; font-weight: 800; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+          }
+        }
+
+        .responsibility-labels .label-item {
+          background: rgba(255, 255, 255, 0.05);
+          border-color: rgba(255, 255, 255, 0.1);
+          backdrop-filter: blur(10px);
+          .ant-typography { color: #F8FAFC; }
+        }
       }
     }
   }
@@ -262,46 +332,6 @@
       justify-content: center;
       gap: 24px;
       flex-wrap: wrap;
-
-      .action-button {
-        height: 64px;
-        border-radius: 32px;
-        padding: 0 40px;
-        font-size: 18px;
-        font-weight: 700;
-        transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        outline: none;
-
-        &.primary {
-          background: linear-gradient(135deg, @color-primary, #FF5722);
-          border: none;
-          color: #fff;
-          box-shadow: 0 8px 24px rgba(255, 112, 67, 0.3);
-          
-          &:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 12px 32px rgba(255, 112, 67, 0.5);
-            background: linear-gradient(135deg, #FF8A65, #FF5722);
-          }
-        }
-
-        &.secondary {
-          background: rgba(255, 255, 255, 0.05);
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          color: #fff;
-          backdrop-filter: blur(10px);
-          
-          &:hover {
-            border-color: rgba(255, 255, 255, 0.4);
-            background: rgba(255, 255, 255, 0.1);
-            transform: translateY(-4px);
-          }
-        }
-      }
     }
   }
 

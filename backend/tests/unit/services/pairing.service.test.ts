@@ -78,6 +78,18 @@ describe('PairingService', () => {
         }),
       });
     });
+
+    it('連續 10 次都無法生成唯一邀請碼時應拋 INTERNAL_ERROR', async () => {
+      prismaMock.pairing.findFirst.mockResolvedValue(null);
+      mockGenerateInviteCode.mockReturnValue('ABC123');
+      prismaMock.pairing.findUnique.mockResolvedValue({ id: 'existing', invite_code: 'ABC123' });
+
+      await expect(service.createPairing('u1')).rejects.toMatchObject({
+        code: 'INTERNAL_ERROR',
+      });
+      expect(prismaMock.pairing.findUnique).toHaveBeenCalledTimes(10);
+      expect(prismaMock.pairing.create).not.toHaveBeenCalled();
+    });
   });
 
   describe('joinPairing', () => {
@@ -170,6 +182,30 @@ describe('PairingService', () => {
           status: 'active',
         }),
       });
+    });
+
+    it('成功加入時若 user1/user2 有 avatar_url 應在回傳中簽名', async () => {
+      const pairing = {
+        id: 'p1',
+        invite_code: 'ABC123',
+        expires_at: new Date(Date.now() + 3600000),
+        status: 'pending',
+        user1_id: 'u1',
+        user2_id: null,
+        user1: { avatar_url: '/u1.jpg' },
+        user2: { avatar_url: '/u2.jpg' },
+      };
+      prismaMock.pairing.findUnique.mockResolvedValue(pairing);
+      prismaMock.pairing.update.mockResolvedValue({
+        ...pairing,
+        user2_id: 'u2',
+        status: 'active',
+      });
+
+      const result = await service.joinPairing('u2', 'ABC123');
+
+      expect(result.user1.avatar_url).toBe('signed:/u1.jpg');
+      expect(result.user2.avatar_url).toBe('signed:/u2.jpg');
     });
   });
 

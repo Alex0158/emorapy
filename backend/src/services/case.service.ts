@@ -8,6 +8,7 @@ import { ValidationUtils } from '../utils/validation';
 import { validateSessionId } from '../utils/session';
 import { fileService } from './file.service';
 import { normalizeJudgment } from '../utils/judgment';
+import { lockService } from '../utils/lock';
 
 export interface QuickCaseDto {
   plaintiff_statement: string;
@@ -56,19 +57,6 @@ export class CaseService {
       }
     }
 
-    // 確保Session存在（最終驗證）
-    let session = await sessionService.getSession(finalSessionId);
-    if (session?.case_id) {
-      // 同一 Session 已有案件，為避免唯一約束衝突，為本次體驗分配新 Session
-      const newSession = await sessionService.createSession();
-      finalSessionId = newSession.session_id;
-      session = await sessionService.getSession(finalSessionId);
-    }
-
-    if (!session) {
-      throw Errors.INTERNAL_ERROR('Session創建失敗');
-    }
-
     // 2-4. 使用統一驗證工具
     const plaintiffStatement = ValidationUtils.validateStatement(
       data.plaintiff_statement,
@@ -100,70 +88,83 @@ export class CaseService {
       caseType = '其他衝突'; // 默認類型
     }
 
-    // 6. 創建臨時配對（用於快速體驗）
-    const tempPairing = await pairingService.createTempPairing(finalSessionId);
-
-    // 7. 生成案件標題（帶錯誤處理）
-    let title: string;
-    try {
-      title = this.generateTitle(data.plaintiff_statement);
-    } catch (error) {
-      logger.warn('Failed to generate title', { error });
-      title = '案件-' + new Date().toLocaleDateString(); // 默認標題
-    }
-
-    // 8-10. 使用事務確保數據一致性
-    const case_ = await prisma.$transaction(async (tx: any) => {
-      // 8. 創建案件記錄
-      const newCase = await tx.case.create({
-        data: {
-          pairing_id: tempPairing.id,
-          title,
-          type: caseType,
-          plaintiff_id: null, // 快速體驗模式，無真實用戶
-          defendant_id: null, // 快速體驗模式，無真實用戶
-          plaintiff_statement: plaintiffStatement,
-          defendant_statement: defendantStatement,
-          status: 'submitted',
-          mode: 'quick', // 標記為快速體驗模式
-          session_id: finalSessionId, // 關聯Session ID
-          submitted_at: new Date(),
-        },
-      });
-
-      // 9. 保存證據（如有，在事務中處理）
-      if (data.evidence_urls && data.evidence_urls.length > 0) {
-        await tx.evidence.createMany({
-          data: data.evidence_urls.map(url => ({
-            case_id: newCase.id,
-            file_url: url,
-            file_type: 'image',
-            file_size: 0, // 快速體驗模式，無法獲取文件大小
-            user_id: null, // 快速體驗模式，無真實用戶
-          })),
-        });
+    return lockService.withLock(`quick-case:create:${finalSessionId}`, async () => {
+      // 確保Session存在（最終驗證）
+      let sessionIdToUse = finalSessionId;
+      let session = await sessionService.getSession(sessionIdToUse);
+      if (session?.case_id) {
+        // 同一 Session 已有案件，為本次體驗分配新 Session，避免競態下共用同一 session
+        const newSession = await sessionService.createSession();
+        sessionIdToUse = newSession.session_id;
+        session = await sessionService.getSession(sessionIdToUse);
       }
 
-      // 10. 更新Session，關聯案件ID和配對ID
-      await tx.quickSession.update({
-        where: { id: finalSessionId },
-        data: { 
-          case_id: newCase.id,
-          pairing_id: tempPairing.id,
-        },
+      if (!session) {
+        throw Errors.INTERNAL_ERROR('Session創建失敗');
+      }
+
+      const existingTempPairing = await pairingService.getPairingBySessionId(sessionIdToUse);
+      const tempPairing = existingTempPairing || await pairingService.createTempPairing(sessionIdToUse);
+      const pairingCreatedNow = !existingTempPairing;
+
+      // 7. 生成案件標題（帶錯誤處理）
+      let title: string;
+      try {
+        title = this.generateTitle(data.plaintiff_statement);
+      } catch (error) {
+        logger.warn('Failed to generate title', { error });
+        title = '案件-' + new Date().toLocaleDateString(); // 默認標題
+      }
+
+      // 8-10. 使用事務確保數據一致性
+      const case_ = await prisma.$transaction(async (tx: any) => {
+        const newCase = await tx.case.create({
+          data: {
+            pairing_id: tempPairing.id,
+            title,
+            type: caseType,
+            plaintiff_id: null,
+            defendant_id: null,
+            plaintiff_statement: plaintiffStatement,
+            defendant_statement: defendantStatement,
+            status: 'submitted',
+            mode: 'quick',
+            session_id: sessionIdToUse,
+            submitted_at: new Date(),
+          },
+        });
+
+        if (data.evidence_urls && data.evidence_urls.length > 0) {
+          await tx.evidence.createMany({
+            data: data.evidence_urls.map(url => ({
+              case_id: newCase.id,
+              file_url: url,
+              file_type: 'image',
+              file_size: 0,
+              user_id: null,
+            })),
+          });
+        }
+
+        await tx.quickSession.update({
+          where: { id: sessionIdToUse },
+          data: {
+            case_id: newCase.id,
+            pairing_id: tempPairing.id,
+          },
+        });
+
+        return newCase;
+      }).catch(async (error: any) => {
+        if (pairingCreatedNow) {
+          await prisma.pairing.delete({ where: { id: tempPairing.id } }).catch(() => {});
+        }
+        logger.error('Failed to create case in transaction', { error });
+        throw Errors.INTERNAL_ERROR('案件創建失敗，請稍後再試');
       });
 
-      return newCase;
-    }).catch((error: any) => {
-      logger.error('Failed to create case in transaction', { error, sessionId: finalSessionId });
-      throw Errors.INTERNAL_ERROR('案件創建失敗，請稍後再試');
-    });
-
-    // 11. 異步觸發AI判決生成（不阻塞響應）
-    // 注意：判決生成在controller層處理，避免循環依賴
-    // 這裡只返回案件，判決生成由controller異步觸發
-
-    return { case: case_, sessionId: finalSessionId, sessionExpiresAt: session.expires_at };
+      return { case: case_, sessionId: sessionIdToUse, sessionExpiresAt: session.expires_at };
+    }, 30);
   }
 
   /**
@@ -500,7 +501,28 @@ export class CaseService {
       throw Errors.NOT_FOUND('案件不存在');
     }
 
-    // 簽名媒體URL
+    // 快速體驗模式：驗證Session ID
+    if (case_.mode === 'quick') {
+      if (!sessionId || case_.session_id !== sessionId) {
+        throw Errors.FORBIDDEN('無權限訪問此案件');
+      }
+      // 追加：驗證Session是否存在且未過期（保持有效期規則一致）
+      const session = await sessionService.getSession(sessionId);
+      if (!session) {
+        throw Errors.SESSION_EXPIRED();
+      }
+    } else {
+      // 完整模式：驗證用戶權限
+      if (!userId) {
+        throw Errors.UNAUTHORIZED('需要認證');
+      }
+
+      if (case_.plaintiff_id !== userId && case_.defendant_id !== userId) {
+        throw Errors.FORBIDDEN('無權限訪問此案件');
+      }
+    }
+
+    // 權限校驗通過後再簽名媒體URL，避免未授權請求消耗簽名/I/O成本
     case_.evidences = case_.evidences.map((e: any) => ({
       ...e,
       file_url: fileService.signUrl(e.file_url),
@@ -515,28 +537,6 @@ export class CaseService {
       };
     }
     case_.judgment = normalizeJudgment((case_ as any).judgment);
-
-    // 快速體驗模式：驗證Session ID
-    if (case_.mode === 'quick') {
-      if (!sessionId || case_.session_id !== sessionId) {
-        throw Errors.FORBIDDEN('無權限訪問此案件');
-      }
-      // 追加：驗證Session是否存在且未過期（保持有效期規則一致）
-      const session = await sessionService.getSession(sessionId);
-      if (!session) {
-        throw Errors.SESSION_EXPIRED();
-      }
-      return case_;
-    }
-
-    // 完整模式：驗證用戶權限
-    if (!userId) {
-      throw Errors.UNAUTHORIZED('需要認證');
-    }
-
-    if (case_.plaintiff_id !== userId && case_.defendant_id !== userId) {
-      throw Errors.FORBIDDEN('無權限訪問此案件');
-    }
 
     return case_;
   }

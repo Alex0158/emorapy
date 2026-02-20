@@ -7,6 +7,7 @@ const mockGenerateSessionId = jest.fn();
 const mockValidateSessionId = jest.fn();
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const prismaMock: any = {
+  $transaction: jest.fn(),
   quickSession: {
     create: jest.fn(),
     findUnique: jest.fn(),
@@ -14,6 +15,12 @@ const prismaMock: any = {
     update: jest.fn(),
     delete: jest.fn(),
     deleteMany: jest.fn(),
+  },
+  case: {
+    update: jest.fn(),
+  },
+  pairing: {
+    update: jest.fn(),
   },
 };
 
@@ -38,6 +45,16 @@ describe('SessionService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: any) => Promise<unknown>) =>
+      fn({
+        quickSession: {
+          create: prismaMock.quickSession.create,
+          delete: prismaMock.quickSession.delete,
+        },
+        case: { update: prismaMock.case.update },
+        pairing: { update: prismaMock.pairing.update },
+      })
+    );
     service = new SessionService();
   });
 
@@ -130,6 +147,110 @@ describe('SessionService', () => {
     });
   });
 
+  describe('refreshSession', () => {
+    it('未提供 currentSessionId 時應創建新 Session', async () => {
+      const sessionId = 'guest_1700000000000_newsession';
+      mockGenerateSessionId.mockReturnValue(sessionId);
+      prismaMock.quickSession.create.mockResolvedValue({ id: sessionId, expires_at: new Date() });
+
+      const result = await service.refreshSession();
+      expect(result.session_id).toBe(sessionId);
+      expect(prismaMock.quickSession.create).toHaveBeenCalled();
+    });
+
+    it('currentSessionId 格式無效時應回退創建新 Session', async () => {
+      const sessionId = 'guest_1700000000000_newsession';
+      mockValidateSessionId.mockReturnValue(false);
+      mockGenerateSessionId.mockReturnValue(sessionId);
+      prismaMock.quickSession.create.mockResolvedValue({ id: sessionId, expires_at: new Date() });
+
+      const result = await service.refreshSession('bad-session');
+      expect(result.session_id).toBe(sessionId);
+      expect(prismaMock.quickSession.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('舊 Session 不存在或已過期時應回退創建新 Session', async () => {
+      const sessionId = 'guest_1700000000000_newsession';
+      mockValidateSessionId.mockReturnValue(true);
+      prismaMock.quickSession.findUnique.mockResolvedValueOnce(null);
+      mockGenerateSessionId.mockReturnValue(sessionId);
+      prismaMock.quickSession.create.mockResolvedValue({ id: sessionId, expires_at: new Date() });
+
+      const result = await service.refreshSession('guest_1700000000000_old');
+      expect(result.session_id).toBe(sessionId);
+    });
+
+    it('有效舊 Session 應旋轉為新 Session', async () => {
+      const oldId = 'guest_1700000000000_old';
+      const newId = 'guest_1700000000000_new';
+      mockValidateSessionId.mockReturnValue(true);
+      mockGenerateSessionId.mockReturnValue(newId);
+      prismaMock.quickSession.findUnique.mockResolvedValue({
+        id: oldId,
+        expires_at: new Date(Date.now() + 60_000),
+        case_id: null,
+        pairing_id: null,
+        session_data: null,
+      });
+      prismaMock.quickSession.create.mockResolvedValue({});
+      prismaMock.quickSession.delete.mockResolvedValue({});
+
+      const result = await service.refreshSession(oldId);
+      expect(result.session_id).toBe(newId);
+      expect(prismaMock.quickSession.create).toHaveBeenCalled();
+      expect(prismaMock.quickSession.delete).toHaveBeenCalledWith({ where: { id: oldId } });
+    });
+
+    it('旋轉時 case/pairing 關聯更新失敗應被吞掉並仍成功', async () => {
+      const oldId = 'guest_1700000000000_old';
+      const newId = 'guest_1700000000000_new';
+      mockValidateSessionId.mockReturnValue(true);
+      mockGenerateSessionId.mockReturnValue(newId);
+      prismaMock.quickSession.findUnique.mockResolvedValue({
+        id: oldId,
+        expires_at: new Date(Date.now() + 60_000),
+        case_id: 'case-1',
+        pairing_id: 'pair-1',
+        session_data: { foo: 'bar' },
+      });
+      prismaMock.case.update.mockRejectedValueOnce(new Error('case update fail'));
+      prismaMock.pairing.update.mockRejectedValueOnce(new Error('pairing update fail'));
+      prismaMock.quickSession.create.mockResolvedValue({});
+      prismaMock.quickSession.delete.mockResolvedValue({});
+
+      const result = await service.refreshSession(oldId);
+      expect(result.session_id).toBe(newId);
+      expect(prismaMock.case.update).toHaveBeenCalledWith({
+        where: { id: 'case-1' },
+        data: { session_id: newId },
+      });
+      expect(prismaMock.pairing.update).toHaveBeenCalledWith({
+        where: { id: 'pair-1' },
+        data: { session_id: newId },
+      });
+    });
+
+    it('旋轉事務失敗時應拋出 INTERNAL_ERROR', async () => {
+      const oldId = 'guest_1700000000000_old';
+      const newId = 'guest_1700000000000_new';
+      mockValidateSessionId.mockReturnValue(true);
+      mockGenerateSessionId.mockReturnValue(newId);
+      prismaMock.quickSession.findUnique.mockResolvedValue({
+        id: oldId,
+        expires_at: new Date(Date.now() + 60_000),
+        case_id: null,
+        pairing_id: null,
+        session_data: null,
+      });
+      prismaMock.$transaction.mockRejectedValueOnce(new Error('tx fail'));
+
+      await expect(service.refreshSession(oldId)).rejects.toMatchObject({
+        code: 'INTERNAL_ERROR',
+        message: expect.stringContaining('Session'),
+      });
+    });
+  });
+
   describe('addCaseToSession', () => {
     it('應調用 quickSession.update', async () => {
       prismaMock.quickSession.update.mockResolvedValue({});
@@ -192,6 +313,18 @@ describe('SessionService', () => {
   });
 
   describe('cleanupExpiredSessions', () => {
+    it('未傳 limit 時應使用默認 1000', async () => {
+      prismaMock.quickSession.findMany.mockResolvedValue([]);
+
+      const count = await service.cleanupExpiredSessions();
+      expect(count).toBe(0);
+      expect(prismaMock.quickSession.findMany).toHaveBeenCalledWith({
+        where: { expires_at: { lt: expect.any(Date) } },
+        select: { id: true },
+        take: 1000,
+      });
+    });
+
     it('無過期 Session 應返回 0', async () => {
       prismaMock.quickSession.findMany.mockResolvedValue([]);
 

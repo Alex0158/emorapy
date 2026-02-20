@@ -54,7 +54,7 @@ describe('UserController', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    controller = new UserController(fileService);
+    controller = new UserController();
     req = { body: {}, params: {}, query: {} };
     res = { json: jest.fn().mockReturnThis() } as unknown as Response;
     next = jest.fn();

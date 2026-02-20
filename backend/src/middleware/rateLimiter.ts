@@ -1,6 +1,7 @@
 import rateLimit from 'express-rate-limit';
 import { Request, Response } from 'express';
 import { env } from '../config/env';
+import { getSessionIdFromSources } from '../utils/request';
 
 // 根據環境調整限流配置
 const isDevelopment = env.NODE_ENV === 'development';
@@ -8,7 +9,7 @@ const isProduction = env.NODE_ENV === 'production';
 
 // 開發環境：更寬鬆的限流（方便調試）
 // 生產環境：嚴格的限流（安全）
-const getRateLimitConfig = (productionMax: number, developmentMultiplier: number = 10) => {
+const getRateLimitConfig = (productionMax: number, developmentMultiplier: number) => {
   const max = isDevelopment ? productionMax * developmentMultiplier : productionMax;
   return { max };
 };
@@ -120,7 +121,7 @@ export const uploadLimiter = rateLimit({
   max: uploadLimitConfig.max,
   keyGenerator: (req: Request) => {
     const userId = req.user?.id;
-    const sessionId = req.headers['x-session-id'] as string;
+    const { sessionId } = getSessionIdFromSources(req);
     return userId ?? sessionId ?? req.ip ?? 'anonymous';
   },
   message: {

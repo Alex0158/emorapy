@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import type { Request, Response, NextFunction } from 'express';
+import crypto from 'crypto';
 import { AppError } from '../../../src/utils/errors';
 
 const mockLogger = { error: jest.fn() };
@@ -23,6 +24,8 @@ jest.mock('../../../src/utils/request', () => ({
 }));
 
 const mockEnvRef = { current: { NODE_ENV: 'development' as string } };
+const hashSessionId = (sid: string) =>
+  crypto.createHash('sha256').update(sid).digest('hex').slice(0, 12);
 
 function createMockReq(): Partial<Request> {
   return { url: '/api/test', method: 'GET' };
@@ -198,7 +201,7 @@ describe('middleware/errorHandler', () => {
 
     expect(mockLogger.error).toHaveBeenCalledWith('Error occurred', expect.objectContaining({
       userId: 'user-123',
-      sessionId: 'session-456',
+      sessionId: hashSessionId('session-456'),
     }));
   });
 });

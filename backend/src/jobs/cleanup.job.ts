@@ -174,6 +174,7 @@ export const stopJobs = () => {
   cleanupExpiredSessions.stop();
   cleanupExpiredVerifications.stop();
   resetAIDailyCount.stop();
+  cleanupOrphanUploads.stop();
   cleanupTempPairings.stop();
   jobsStarted = false;
   logger.info('Scheduled jobs stopped');

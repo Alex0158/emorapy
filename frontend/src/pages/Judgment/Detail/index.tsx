@@ -139,7 +139,7 @@ const JudgmentDetail = () => {
   if (!judgment) {
     return (
       <div className="judgment-detail-page">
-        <Alert title={t('message.judgmentNotFound')} type="error" />
+        <Alert message={t('message.judgmentNotFound')} type="error" />
       </div>
     );
   }

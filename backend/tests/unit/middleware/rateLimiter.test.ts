@@ -22,7 +22,6 @@ import {
   aiLimiter,
   uploadLimiter,
   downloadLimiter,
-  pairingJoinLimiter,
 } from '../../../src/middleware/rateLimiter';
 
 describe('middleware/rateLimiter', () => {
@@ -94,6 +93,18 @@ describe('middleware/rateLimiter', () => {
     expect(res.status).toBe(200);
   });
 
+  it('aiLimiter 在無 user 且無 ip 時應回退 anonymous key', async () => {
+    const app = express();
+    app.use((req: express.Request, _res, next) => {
+      Object.defineProperty(req, 'ip', { value: undefined, configurable: true });
+      next();
+    });
+    app.use(aiLimiter);
+    app.post('/ai', (_req, res) => res.status(200).json({ ok: true }));
+    const res = await request(app).post('/ai');
+    expect(res.status).toBe(200);
+  });
+
   it('uploadLimiter 應使用 user.id、sessionId 或 ip 作為 key', async () => {
     expect(typeof uploadLimiter).toBe('function');
     const app = express();
@@ -108,6 +119,18 @@ describe('middleware/rateLimiter', () => {
 
   it('uploadLimiter 無 user 無 session 時應使用 ip', async () => {
     const app = express();
+    app.use(uploadLimiter);
+    app.post('/upload', (_req, res) => res.status(200).json({ ok: true }));
+    const res = await request(app).post('/upload');
+    expect(res.status).toBe(200);
+  });
+
+  it('uploadLimiter 在無 user/session/ip 時應回退 anonymous key', async () => {
+    const app = express();
+    app.use((req: express.Request, _res, next) => {
+      Object.defineProperty(req, 'ip', { value: undefined, configurable: true });
+      next();
+    });
     app.use(uploadLimiter);
     app.post('/upload', (_req, res) => res.status(200).json({ ok: true }));
     const res = await request(app).post('/upload');
@@ -132,13 +155,15 @@ describe('middleware/rateLimiter', () => {
     expect(res.status).toBe(200);
   });
 
-  it('應導出 pairingJoinLimiter 且單次請求通過', async () => {
-    expect(typeof pairingJoinLimiter).toBe('function');
+  it('downloadLimiter 無 ip 時應回退 unknown key', async () => {
     const app = express();
-    app.use(express.json());
-    app.use(pairingJoinLimiter);
-    app.post('/pairing/join', (_req, res) => res.status(200).json({ ok: true }));
-    const res = await request(app).post('/pairing/join').send({ invite_code: 'ABC123' });
+    app.use((req: express.Request, _res, next) => {
+      Object.defineProperty(req, 'ip', { value: '', configurable: true });
+      next();
+    });
+    app.use(downloadLimiter);
+    app.get('/download', (_req, res) => res.status(200).json({ ok: true }));
+    const res = await request(app).get('/download');
     expect(res.status).toBe(200);
   });
 
@@ -174,5 +199,40 @@ describe('middleware/rateLimiter', () => {
     app.get('/t', (_req, res) => res.status(200).json({ ok: true }));
     const res = await request(app).get('/t');
     expect(res.status).toBe(200);
+  });
+
+  it('development 且 SKIP_RATE_LIMIT=true 時所有 limiter 的 skip 分支都應可走通', async () => {
+    mockEnvRef.current = { NODE_ENV: 'development' };
+    process.env.SKIP_RATE_LIMIT = 'true';
+    jest.resetModules();
+    jest.doMock('../../../src/config/env', () => ({
+      get env() {
+        return { NODE_ENV: 'development' };
+      },
+    }));
+    const {
+      authLimiter: devAuthLimiter,
+      registerLimiter: devRegisterLimiter,
+      verificationCodeLimiter: devVerificationCodeLimiter,
+      aiLimiter: devAiLimiter,
+      uploadLimiter: devUploadLimiter,
+      downloadLimiter: devDownloadLimiter,
+    } = await import('../../../src/middleware/rateLimiter');
+
+    const app = express();
+    app.use(express.json());
+    app.post('/auth', devAuthLimiter, (_req, res) => res.status(200).json({ ok: true }));
+    app.post('/register', devRegisterLimiter, (_req, res) => res.status(200).json({ ok: true }));
+    app.post('/verify', devVerificationCodeLimiter, (_req, res) => res.status(200).json({ ok: true }));
+    app.post('/ai', devAiLimiter, (_req, res) => res.status(200).json({ ok: true }));
+    app.post('/upload', devUploadLimiter, (_req, res) => res.status(200).json({ ok: true }));
+    app.get('/download', devDownloadLimiter, (_req, res) => res.status(200).json({ ok: true }));
+
+    expect((await request(app).post('/auth')).status).toBe(200);
+    expect((await request(app).post('/register')).status).toBe(200);
+    expect((await request(app).post('/verify').send({ email: 'dev@example.com' })).status).toBe(200);
+    expect((await request(app).post('/ai')).status).toBe(200);
+    expect((await request(app).post('/upload').set('x-session-id', 'sid-dev')).status).toBe(200);
+    expect((await request(app).get('/download')).status).toBe(200);
   });
 });

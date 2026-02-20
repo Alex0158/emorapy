@@ -9,12 +9,15 @@ import logger from '../../../src/config/logger';
 
 const mockVerifyToken = jest.fn();
 const mockFindUniqueUser = jest.fn();
+const mockFindFirstEvidence = jest.fn();
 const mockQuickSessionUpdate = jest.fn();
 // @ts-expect-error Prisma update 返回類型在 mock 中推斷為 never
 mockQuickSessionUpdate.mockResolvedValue(undefined);
 const mockValidateSessionId = jest.fn();
 const mockGetSession = jest.fn();
 const mockGetRequestId = jest.fn();
+const mockFsStat = jest.fn();
+const mockFsReadFile = jest.fn();
 
 jest.mock('../../../src/utils/jwt', () => ({
   verifyToken: (t: string) => mockVerifyToken(t),
@@ -23,6 +26,7 @@ jest.mock('../../../src/config/database', () => ({
   __esModule: true,
   default: {
     user: { findUnique: (...args: unknown[]) => mockFindUniqueUser(...args) },
+    evidence: { findFirst: (...args: unknown[]) => mockFindFirstEvidence(...args) },
     quickSession: {
       update: (...args: unknown[]) => mockQuickSessionUpdate(...args),
     },
@@ -59,10 +63,29 @@ jest.mock('../../../src/config/logger', () => ({
 }));
 jest.mock('../../../src/utils/request', () => ({
   getRequestId: (req: Request) => mockGetRequestId(req),
+  getSessionIdFromSources: (req: Request) => {
+    const headerSessionId = (req.headers?.['x-session-id'] as string | undefined);
+    const querySessionId = (req.query?.session_id as string | undefined);
+    return {
+      sessionId: headerSessionId || querySessionId,
+      headerSessionId,
+      querySessionId,
+      hasConflict: !!headerSessionId && !!querySessionId && headerSessionId !== querySessionId,
+    };
+  },
 }));
 jest.mock('jsonwebtoken', () => ({
   __esModule: true,
   default: { verify: jest.fn() },
+}));
+jest.mock('fs/promises', () => ({
+  __esModule: true,
+  default: {
+    stat: (...args: unknown[]) => mockFsStat(...args),
+    readFile: (...args: unknown[]) => mockFsReadFile(...args),
+  },
+  stat: (...args: unknown[]) => mockFsStat(...args),
+  readFile: (...args: unknown[]) => mockFsReadFile(...args),
 }));
 
 function createReq(overrides: Partial<Request> = {}): Request {
@@ -87,9 +110,14 @@ describe('middleware/auth', () => {
     jest.clearAllMocks();
     next = jest.fn();
     mockGetRequestId.mockReturnValue('req-1');
+    mockFindFirstEvidence.mockResolvedValue({ id: 'e1' } as never);
     // @ts-expect-error Prisma update mock 返回類型推斷為 never
     mockQuickSessionUpdate.mockResolvedValue(undefined);
     mockEnvRef.current = { NODE_ENV: 'test', JWT_SECRET: 'test-secret', UPLOAD_DIR: 'uploads' };
+    mockFsStat.mockReset();
+    mockFsReadFile.mockReset();
+    (mockFsStat as any).mockResolvedValue({ size: 100, mtimeMs: 1000 });
+    (mockFsReadFile as any).mockResolvedValue(Buffer.from('file-content'));
   });
 
   describe('authenticate', () => {
@@ -237,6 +265,13 @@ describe('middleware/auth', () => {
       expect((next.mock.calls[0][0] as unknown as { code: string }).code).toBe('INVALID_SESSION_ID');
     });
 
+    it('header/query session_id 不一致應 next(INVALID_SESSION_ID)', async () => {
+      const req = createReq({ query: { session_id: 's1' }, headers: { 'x-session-id': 's2' } });
+      await validateSession(req, createRes(), next);
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
+      expect((next.mock.calls[0][0] as unknown as { code: string }).code).toBe('INVALID_SESSION_ID');
+    });
+
     it('Session 不存在或過期應 next(SESSION_EXPIRED)', async () => {
       const req = createReq({ query: { session_id: 's1' }, headers: {} });
       mockValidateSessionId.mockReturnValue(true);
@@ -259,8 +294,8 @@ describe('middleware/auth', () => {
   });
 
   describe('authorizeMedia', () => {
-    it('已認證用戶 (req.user) 應直接 next()', async () => {
-      const req = createReq({ user: { id: 'u1', email: 'u@x.com' } });
+    it('已認證用戶且文件屬於其可訪問案件應 next()', async () => {
+      const req = createReq({ user: { id: 'u1', email: 'u@x.com' }, path: '/foo.jpg' });
       await authorizeMedia(req, createRes(), next);
       expect(next).toHaveBeenCalledWith();
     });
@@ -280,6 +315,15 @@ describe('middleware/auth', () => {
       expect(logger.warn).toHaveBeenCalledWith('Media access blocked by IP blacklist', { ip: '127.0.0.1', file: '/uploads/x' });
       expect(next).toHaveBeenCalledWith(expect.any(Error));
       expect((next.mock.calls[0][0] as unknown as { code: string }).code).toBe('FORBIDDEN');
+      process.env.BLACKLIST_IPS = orig;
+    });
+
+    it('BLACKLIST_IPS 設置但 req.ip 缺失時不應誤拒絕（覆蓋 req.ip || 空字串）', async () => {
+      const orig = process.env.BLACKLIST_IPS;
+      process.env.BLACKLIST_IPS = '127.0.0.1';
+      const req = createReq({ ip: undefined as unknown as string, path: '/uploads/x', headers: {}, query: {} });
+      await authorizeMedia(req, createRes(), next);
+      expect((next.mock.calls[0][0] as unknown as { code?: string })?.code).not.toBe('FORBIDDEN');
       process.env.BLACKLIST_IPS = orig;
     });
 
@@ -320,9 +364,10 @@ describe('middleware/auth', () => {
     });
 
     it('有效 session_id 應設置 req.sessionId 並 next()', async () => {
-      const req = createReq({ query: { session_id: 'guest_12345678901' }, headers: {} });
+      const req = createReq({ query: { session_id: 'guest_12345678901' }, path: '/foo.jpg', headers: {} });
       mockValidateSessionId.mockReturnValue(true);
       mockGetSession.mockResolvedValue({ id: 'guest_12345678901', expires_at: new Date(Date.now() + 3600000) } as never);
+      mockFindFirstEvidence.mockResolvedValueOnce({ id: 'e1' } as never);
       await authorizeMedia(req, createRes(), next);
       expect(req.sessionId).toBe('guest_12345678901');
       expect(next).toHaveBeenCalledWith();
@@ -363,6 +408,58 @@ describe('middleware/auth', () => {
       expect(next).toHaveBeenCalledWith();
     });
 
+    it('token payload.f 缺失時應走後續授權並拒絕（覆蓋 payload.f || 空字串）', async () => {
+      const jwt = require('jsonwebtoken').default;
+      (jwt.verify as jest.Mock).mockReturnValue({ h: 'x' });
+      const req = createReq({ query: { token: 'signed-token' }, path: '/uploads/foo.jpg', headers: {} });
+      await authorizeMedia(req, createRes(), next);
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
+      expect((next.mock.calls[0][0] as unknown as { code: string }).code).toBe('UNAUTHORIZED');
+    });
+
+    it('token 驗證時 UPLOAD_DIR 為絕對路徑也應可通過（覆蓋 path.isAbsolute 分支）', async () => {
+      const crypto = require('crypto');
+      const payloadFile = 'foo.jpg';
+      const hash = crypto.createHash('sha256').update(payloadFile).digest('hex');
+      const contentHash = crypto.createHash('sha256').update(Buffer.from('file-content')).digest('hex');
+      const jwt = require('jsonwebtoken').default;
+      const prevUploadDir = mockEnvRef.current.UPLOAD_DIR;
+      mockEnvRef.current.UPLOAD_DIR = '/tmp/uploads';
+      (jwt.verify as jest.Mock).mockReturnValue({
+        f: payloadFile,
+        h: hash,
+        s: 100,
+        m: 1000,
+        ch: contentHash,
+      });
+      const req = createReq({ query: { token: 'signed-token' }, path: '/uploads/foo.jpg', headers: {} });
+      await authorizeMedia(req, createRes(), next);
+      expect(next).toHaveBeenCalledWith();
+      mockEnvRef.current.UPLOAD_DIR = prevUploadDir;
+    });
+
+    it('token 路徑無前導 "/" 也可匹配授權（覆蓋 req.path.startsWith 分支）', async () => {
+      const crypto = require('crypto');
+      const payloadFile = 'foo.jpg';
+      const hash = crypto.createHash('sha256').update(payloadFile).digest('hex');
+      const jwt = require('jsonwebtoken').default;
+      (jwt.verify as jest.Mock).mockReturnValue({ f: payloadFile, h: hash });
+      const req = createReq({ query: { token: 'signed-token' }, path: 'foo.jpg', headers: {} });
+      await authorizeMedia(req, createRes(), next);
+      expect(next).toHaveBeenCalledWith();
+    });
+
+    it('token 路徑解碼失敗時應回退原始路徑（覆蓋 decode catch return p）', async () => {
+      const crypto = require('crypto');
+      const payloadFile = '%E0%A4%A';
+      const hash = crypto.createHash('sha256').update(payloadFile).digest('hex');
+      const jwt = require('jsonwebtoken').default;
+      (jwt.verify as jest.Mock).mockReturnValue({ f: payloadFile, h: hash });
+      const req = createReq({ query: { token: 'signed-token' }, path: '%E0%A4%A', headers: {} });
+      await authorizeMedia(req, createRes(), next);
+      expect(next).toHaveBeenCalledWith();
+    });
+
     it('有效 token 且在 /uploads mount 下（baseUrl+path 與 payload.f 對齊）應 next()', async () => {
       // 模擬 app.use("/uploads", authorizeMedia)：req.baseUrl='/uploads', req.path='/1234.jpg'
       // signUrl 產生的 payload.f 為 'uploads/1234.jpg'
@@ -389,6 +486,79 @@ describe('middleware/auth', () => {
       const req = createReq({ query: { token: 'bad-token' }, path: '/uploads/foo.jpg', headers: {} });
       await authorizeMedia(req, createRes(), next);
       expect(logger.warn).toHaveBeenCalledWith('Media access denied', expect.objectContaining({ file: '/uploads/foo.jpg', ip: '127.0.0.1', requestId: 'req-1' }));
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
+      expect((next.mock.calls[0][0] as unknown as { code: string }).code).toBe('UNAUTHORIZED');
+    });
+
+    it('token 帶 s/m 時若文件信息不匹配應拒絕', async () => {
+      const crypto = require('crypto');
+      const payloadFile = 'foo.jpg';
+      const hash = crypto.createHash('sha256').update(payloadFile).digest('hex');
+      const jwt = require('jsonwebtoken').default;
+      (jwt.verify as jest.Mock).mockReturnValue({ f: payloadFile, h: hash, s: 999, m: 9999 });
+      (mockFsStat as any).mockResolvedValueOnce({ size: 1, mtimeMs: 1 });
+      const req = createReq({ query: { token: 'signed-token' }, path: '/uploads/foo.jpg', headers: {} });
+      await authorizeMedia(req, createRes(), next);
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
+      expect((next.mock.calls[0][0] as unknown as { code: string }).code).toBe('UNAUTHORIZED');
+    });
+
+    it('token 帶 ch 時若讀檔失敗應拒絕', async () => {
+      const crypto = require('crypto');
+      const payloadFile = 'foo.jpg';
+      const hash = crypto.createHash('sha256').update(payloadFile).digest('hex');
+      const jwt = require('jsonwebtoken').default;
+      (jwt.verify as jest.Mock).mockReturnValue({
+        f: payloadFile,
+        h: hash,
+        s: 100,
+        m: 1000,
+        ch: 'expected-content-hash',
+      });
+      (mockFsReadFile as any).mockRejectedValueOnce(new Error('read failed'));
+      const req = createReq({ query: { token: 'signed-token' }, path: '/uploads/foo.jpg', headers: {} });
+      await authorizeMedia(req, createRes(), next);
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
+      expect((next.mock.calls[0][0] as unknown as { code: string }).code).toBe('UNAUTHORIZED');
+    });
+
+    it('token 帶 ch 時若內容哈希不匹配應拒絕', async () => {
+      const crypto = require('crypto');
+      const payloadFile = 'foo.jpg';
+      const hash = crypto.createHash('sha256').update(payloadFile).digest('hex');
+      const jwt = require('jsonwebtoken').default;
+      (jwt.verify as jest.Mock).mockReturnValue({
+        f: payloadFile,
+        h: hash,
+        s: 100,
+        m: 1000,
+        ch: 'expected-content-hash',
+      });
+      (mockFsReadFile as any).mockResolvedValueOnce(Buffer.from('mismatched-content'));
+      const req = createReq({ query: { token: 'signed-token' }, path: '/uploads/foo.jpg', headers: {} });
+      await authorizeMedia(req, createRes(), next);
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
+      expect((next.mock.calls[0][0] as unknown as { code: string }).code).toBe('UNAUTHORIZED');
+    });
+
+    it('header/query session_id 衝突時應回 INVALID_SESSION_ID', async () => {
+      const req = createReq({
+        headers: { 'x-session-id': 'guest_header_1' },
+        query: { session_id: 'guest_query_2' },
+        path: '/foo.jpg',
+      });
+      await authorizeMedia(req, createRes(), next);
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
+      expect((next.mock.calls[0][0] as unknown as { code: string }).code).toBe('INVALID_SESSION_ID');
+    });
+
+    it('無 token 時 path 非 "/" 前綴且 decode 失敗也應安全拒絕（覆蓋解碼 fallback 分支）', async () => {
+      const req = createReq({
+        path: '%E0%A4%A',
+        headers: {},
+        query: {},
+      });
+      await authorizeMedia(req, createRes(), next);
       expect(next).toHaveBeenCalledWith(expect.any(Error));
       expect((next.mock.calls[0][0] as unknown as { code: string }).code).toBe('UNAUTHORIZED');
     });

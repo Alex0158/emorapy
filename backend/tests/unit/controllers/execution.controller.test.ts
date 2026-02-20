@@ -39,7 +39,7 @@ describe('ExecutionController', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    controller = new ExecutionController(executionService);
+    controller = new ExecutionController();
     req = { body: {}, params: {}, query: {} };
     res = { json: jest.fn().mockReturnThis() } as unknown as Response;
     next = jest.fn();

@@ -14,6 +14,7 @@ export interface GenerateOptions {
   frequencyPenalty?: number;
   presencePenalty?: number;
   systemPrompt?: string;
+  signal?: AbortSignal;
 }
 
 export interface JudgmentResponse {
@@ -21,6 +22,48 @@ export interface JudgmentResponse {
   responsibilityRatio: { plaintiff: number; defendant: number };
   summary: string;
 }
+
+export interface EmotionalAnalysis {
+  severity: 'mild' | 'moderate' | 'serious';
+  personA: {
+    primaryFeelings: string;
+    unmetNeeds: string;
+    communicationPattern: string;
+  };
+  personB: {
+    primaryFeelings: string;
+    unmetNeeds: string;
+    communicationPattern: string;
+  };
+  interactionCycle: string;
+  triggerPattern: string;
+  coreIssue: string;
+  relationshipStrengths: string;
+  gottmanFlags: string[];
+  safetyFlags: string[];
+  suggestedApproach: string;
+}
+
+export const DEFAULT_EMOTIONAL_ANALYSIS: EmotionalAnalysis = {
+  severity: 'moderate',
+  personA: {
+    primaryFeelings: '失望、被忽視、心寒',
+    unmetNeeds: '被重視、被放在心上、知道自己在對方的生活中是重要的',
+    communicationPattern: '追逐型：在感覺被忽略時會用反覆提起事件、質問和翻舊帳的方式來尋求確認，但這讓對方感受到的是攻擊而非求助',
+  },
+  personB: {
+    primaryFeelings: '疲憊、委屈、被誤解',
+    unmetNeeds: '被體諒、自己的努力被看見、不被當成壞人',
+    communicationPattern: '迴避型：面對指責時傾向沉默或敷衍帶過，認為「少說少錯」，但這種退縮在 A 看來是不在乎',
+  },
+  interactionCycle: 'A 感覺不被重視時會追問和翻舊帳，B 覺得怎麼解釋都沒用就選擇沉默，A 看到沉默後更確信 B 不在乎因而更用力追問——形成「追問-沉默-更追問」的負向循環',
+  triggerPattern: '當 A 精心準備的事情（例如晚餐、約會、紀念日）被 B 因為工作而遲到或忘記時，會立刻觸發整個循環',
+  coreIssue: '表面是「遲到」和「工作太忙」的問題，深層是「在你心裡，我到底排第幾」的優先順序問題',
+  relationshipStrengths: 'A 願意花心思準備驚喜說明她仍然渴望經營這段關係；B 努力工作的動力中有一部分是為了這個家。兩人都還願意把心裡話說出來，而不是直接放棄',
+  gottmanFlags: ['批評'],
+  safetyFlags: [],
+  suggestedApproach: '先肯定 A 的失望是真實的，同時也讓 B 的努力被看見。然後引導雙方看到：A 的翻舊帳是因為之前的傷沒有被處理過；B 的沉默不是不在乎，是不知道怎麼回應才對。最後教他們如何在「觸發瞬間」做不同的選擇',
+};
 
 export interface ReconciliationPlan {
   title: string;
@@ -41,6 +84,34 @@ export class AIService {
   private cache: CacheService = cacheService;
   private useMock = env.AI_MOCK || env.OPENAI_API_KEY.includes('sk-dev-') || env.OPENAI_API_KEY.includes('your-openai-api-key');
 
+  private static readonly SYSTEM_PROMPT = `你是一位資深的關係諮詢師。你有 20 年伴侶溝通輔導經驗，受過非暴力溝通（NVC）、情緒聚焦治療（EFT）、Gottman 伴侶治療法和敘事治療（Narrative Therapy）的訓練。
+
+你的核心信念：
+- 衝突不是敵人，它是關係發出的訊號，說明有某個需求沒有被看見。
+- 你從不站在任何一方，你站在「這段關係」這一邊。
+- 你的目標不是判定誰對誰錯，而是幫助雙方看見彼此的感受和需求。
+- 兩個人的感受都是真實的、都值得被理解——即使他們對同一件事有完全不同的體驗。
+- 你說話的方式像一個值得信賴的朋友，不像權威、不像老師、不像法官。
+- 你會先確認雙方的情緒被聽見，再去探討行為層面的調整。
+- 你相信每對伴侶都已經擁有解決問題的資源——你的角色是幫助他們看見自己的力量，而不只是指出問題。
+
+你的溝通風格：
+- 使用「我注意到…」「看起來…」「也許…」等邀請式語言，而非「你應該…」「你的問題是…」等指令式語言。
+- 不貼標籤（不說「你太敏感」「你不夠體貼」），而是描述具體的行為和感受。
+- 永遠先肯定雙方願意面對問題的勇氣和這段關係中仍在運作的東西，再進入分析。
+- 把建議框架為「邀請」而非「要求」。
+
+你的文化敏感度：
+- 你的來訪者使用繁體中文，可能來自台灣、香港、澳門等華語文化圈。
+- 你理解「面子」文化——直接要求某人道歉可能帶來更大的心理壓力，間接的修復方式可能更有效。
+- 你理解原生家庭在華語文化中的分量——婆媳、翁婿、姑嫂關係的衝突背後往往牽涉孝道和忠誠的拉扯。
+- 你理解含蓄的情感表達不等於「迴避」——有些人用行動（默默做事、煮飯、接送）表達愛，而非用語言。
+- 你不會假設所有人都習慣直接表達情感，而是會尊重每個人的表達節奏。
+
+你理解身心連結：
+- 衝突時，人的自律神經系統會啟動戰鬥（攻擊）、逃跑（迴避）或僵住（沉默）反應——這不是「性格缺陷」，而是身體的保護機制。
+- 你會在適當時候引導來訪者注意身體感受（胸口緊、呼吸淺、肩膀僵），因為身體常常比頭腦更早察覺問題。`;
+
   /**
    * 生成文本（通用方法，帶重試機制）
    */
@@ -57,9 +128,14 @@ export class AIService {
     // 使用指數退避重試機制
     return await retryWithBackoff(
       async () => {
+        if (options.signal?.aborted) {
+          throw new Error('AI request aborted');
+        }
         const abortController = new AbortController();
         const timeoutMs = 45000;
         const timeout = setTimeout(() => abortController.abort(), timeoutMs);
+        const onExternalAbort = () => abortController.abort();
+        options.signal?.addEventListener('abort', onExternalAbort, { once: true });
 
         const response = await openai.chat.completions.create(
           {
@@ -81,8 +157,10 @@ export class AIService {
             presence_penalty: options.presencePenalty ?? AI_CONFIG.presencePenalty,
           },
           { signal: abortController.signal as any }
-        );
-        clearTimeout(timeout);
+        ).finally(() => {
+          clearTimeout(timeout);
+          options.signal?.removeEventListener('abort', onExternalAbort);
+        });
 
         const content = response.choices[0]?.message?.content;
         if (!content) {
@@ -97,6 +175,10 @@ export class AIService {
         maxDelay: 10000,
         backoffMultiplier: 2,
         shouldRetry: (error: any) => {
+          const msg = String(error?.message || '');
+          if (error?.name === 'AbortError' || msg.includes('aborted')) {
+            return false;
+          }
           // 4xx錯誤不重試（認證失敗、限額超標等）
           if (error.status >= 400 && error.status < 500) {
             return false;
@@ -169,26 +251,26 @@ export class AIService {
       return cached;
     }
 
-    const prompt = `請分析以下兩個陳述，判斷案件類型。
+    const prompt = `請閱讀以下兩段陳述，判斷這段關係中的核心議題屬於哪個類別。
 
-案件類型包括：
-1. 生活習慣衝突（如：作息時間、飲食習慣、衛生習慣等）
-2. 消費決策衝突（如：購物決策、理財方式、消費觀念等）
-3. 社交關係衝突（如：朋友關係、家庭關係、社交活動等）
-4. 價值觀衝突（如：人生觀、價值觀、信仰等）
-5. 情感需求衝突（如：陪伴需求、情感表達、親密需求等）
+類別：
+1. 生活習慣衝突（如：作息時間、飲食習慣、衛生習慣、家務分工等）
+2. 消費決策衝突（如：購物決策、理財方式、消費觀念、儲蓄計畫等）
+3. 社交關係衝突（如：朋友關係、原生家庭、社交活動、邊界感等）
+4. 價值觀衝突（如：人生規劃、教育理念、信仰差異、優先順序等）
+5. 情感需求衝突（如：陪伴需求、情感表達、親密需求、安全感等）
 6. 其他衝突
 
-原告陳述：${plaintiffStatement}
-被告陳述：${defendantStatement}
+一方的描述：${plaintiffStatement}
+另一方的描述：${defendantStatement}
 
-請只返回案件類型名稱（如：生活習慣衝突），不要返回其他內容。`;
+請只返回類別名稱（如：生活習慣衝突），不要返回其他內容。`;
 
     try {
       const response = await this.generateText(prompt, {
         maxTokens: 10,
         temperature: 0.3, // 低溫度，更確定性
-        systemPrompt: '你是一個專業的衝突分析師。',
+        systemPrompt: '你是一位擅長伴侶溝通的關係諮詢師，正在快速識別衝突議題的核心類別。',
       });
 
       // 清理響應，提取案件類型
@@ -217,33 +299,196 @@ export class AIService {
   }
 
   /**
+   * 深度情感動態分析（帶緩存）
+   *
+   * 在生成回應之前，先從 NVC / Gottman / EFT 框架做一輪結構化分析。
+   * 結果會緩存 24 小時，以便和好方案生成時複用。
+   */
+  async analyzeEmotionalDynamics(
+    plaintiffStatement: string,
+    defendantStatement: string,
+    signal?: AbortSignal
+  ): Promise<EmotionalAnalysis> {
+    if (this.useMock) {
+      return DEFAULT_EMOTIONAL_ANALYSIS;
+    }
+
+    const cacheKey = CacheService.generateHashKey(
+      'emotionalAnalysis',
+      plaintiffStatement + defendantStatement
+    );
+
+    const cached = await this.cache.get<EmotionalAnalysis>(cacheKey);
+    if (cached) {
+      logger.debug('Emotional analysis cache hit', { cacheKey });
+      return cached;
+    }
+
+    const prompt = `你是一位資深的伴侶關係治療師，正在對一對伴侶的衝突進行初步的情感動態分析。
+請仔細閱讀以下兩段陳述，運用專業框架進行深度分析。
+
+角色 A 的描述：
+「${plaintiffStatement}」
+
+角色 B 的描述：
+「${defendantStatement || '（對方選擇暫時不發言）'}」
+
+分析框架：
+1. NVC（非暴力溝通）：區分觀察與評判，識別感受與需求
+2. Gottman 四騎士：檢測是否存在批評（Criticism）、蔑視（Contempt）、防禦（Defensiveness）、石牆（Stonewalling）
+3. EFT（情緒聚焦治療）：識別追逐-迴避循環、依附模式
+4. 敘事治療：找到關係中仍然在運作的「例外時刻」和優勢
+5. 安全評估：辨別正常衝突 vs. 可能存在的有害模式
+
+severity 評估標準：
+- mild：日常摩擦，雙方語氣相對平和，沒有人身攻擊
+- moderate：累積的不滿，有指責或失望語氣，但雙方仍願意表達
+- serious：強烈情緒（憤怒、絕望、心灰意冷），存在人身攻擊、冷暴力、或一方已表達想放棄
+
+文化語境注意：
+- 來訪者使用繁體中文，注意華語文化中的含蓄表達、面子議題、原生家庭壓力
+- 「沉默」不一定是迴避——可能是文化中的正常情感處理方式
+- 注意辨別「文化性的間接表達」和「心理性的迴避模式」
+
+請以嚴格的 JSON 格式返回（不要包含 markdown 標記或任何其他文字）：
+{
+  "severity": "mild 或 moderate 或 serious",
+  "personA": {
+    "primaryFeelings": "角色 A 可能正在經歷的 2-3 種核心情緒（用逗號分隔）",
+    "unmetNeeds": "角色 A 未被滿足的核心需求（用逗號分隔）",
+    "communicationPattern": "角色 A 的溝通模式描述（一句話）"
+  },
+  "personB": {
+    "primaryFeelings": "角色 B 可能正在經歷的 2-3 種核心情緒",
+    "unmetNeeds": "角色 B 未被滿足的核心需求",
+    "communicationPattern": "角色 B 的溝通模式描述"
+  },
+  "interactionCycle": "描述他們之間的互動循環（例如 'A 越…，B 越…；B 越…，A 越…'）",
+  "triggerPattern": "什麼情境或事件通常會啟動這個循環？具體到可觀察的時刻（例如：'當 A 發訊息沒被回覆超過一小時'或'當家務沒有按預期完成的時候'）",
+  "coreIssue": "一句話概括表面衝突底下的真正議題",
+  "relationshipStrengths": "從陳述中找到這段關係仍在運作的東西——他們做對了什麼、為什麼還沒放棄、有什麼潛在的優勢（即使微小）",
+  "gottmanFlags": ["如果檢測到四騎士中的任何一個，列出來；沒有則空陣列"],
+  "safetyFlags": ["如果檢測到以下任何模式，列出來：持續貶低人格、控制行為、威脅、孤立社交、經濟控制、身體威脅、嚴重的權力不對等。沒有則空陣列。這些不是道德判斷——而是評估是否需要調整介入策略"],
+  "suggestedApproach": "建議的介入方向（說明應該先處理什麼、再處理什麼）"
+}`;
+
+    try {
+      const raw = await this.generateText(prompt, {
+        maxTokens: 800,
+        temperature: 0.3,
+        systemPrompt: '你是一位受過 NVC、EFT、Gottman 訓練的資深伴侶治療師。你正在進行專業的情感動態評估。請只返回 JSON。',
+        signal,
+      });
+
+      let analysis: EmotionalAnalysis;
+      try {
+        analysis = JSON.parse(raw);
+      } catch {
+        const jsonMatch = raw.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          analysis = JSON.parse(jsonMatch[0]);
+        } else {
+          throw new Error('Unable to parse emotional analysis JSON');
+        }
+      }
+
+      if (!analysis.severity || !analysis.personA || !analysis.personB) {
+        throw new Error('Incomplete emotional analysis response');
+      }
+
+      analysis.triggerPattern = analysis.triggerPattern || '';
+      analysis.relationshipStrengths = analysis.relationshipStrengths || '';
+      analysis.safetyFlags = analysis.safetyFlags || [];
+      analysis.gottmanFlags = analysis.gottmanFlags || [];
+
+      await this.cache.set(cacheKey, analysis, 24 * 60 * 60);
+      return analysis;
+    } catch (error) {
+      logger.warn('Emotional analysis failed, using default', { error });
+      return DEFAULT_EMOTIONAL_ANALYSIS;
+    }
+  }
+
+  /**
    * 生成判決書
    */
   async generateJudgment(
     caseType: string,
     plaintiffStatement: string,
-    defendantStatement: string
+    defendantStatement: string,
+    options?: { signal?: AbortSignal }
   ): Promise<JudgmentResponse> {
     if (this.useMock) {
-      const content = '## ⚖️ 判決結果\n\n**責任分比例**：\n- 原告：60% 責任\n- 被告：40% 責任\n\n### 問題分析\n\n經過分析，這是一個生活習慣相關的衝突。請在尊重彼此的前提下制定可執行的分工與溝通規則。\n\n### 具體建議\n\n1. 共同制定家務分工表\n2. 每週一次檢視與調整\n3. 約定遲到與溝通規則\n4. 為對方留出彈性與理解\n\n### 關係修復建議\n\n安排固定的高品質相處時間，練習傾聽與共情，逐步修復摩擦帶來的情緒。';
-      const responsibilityRatio = { plaintiff: 60, defendant: 40 };
-      const summary = '建議透過溝通與分工機制改善生活習慣衝突，原告60%、被告40%。';
+      const content = `## 我聽見你們了
+
+謝謝你們願意把這些寫下來。我知道這些話裡面有很多是積壓了很久的，光是願意說出口，就已經是在為這段關係做一件很勇敢的事。
+
+### 你們之間發生了什麼
+
+角色 A，看起來那頓生日晚餐對你來說不只是一頓飯。你花了整個下午準備——選餐廳、訂位、換衣服、想像他走進來時驚喜的表情。但等來的是一個小時的空座位、一通沒打來的電話、和最後他推門進來時那句輕描淡寫的「不好意思，開會」。也許讓你最心寒的不是遲到本身，而是你覺得：**我精心準備了這一切，你卻連提前五分鐘告訴我一聲都做不到。** 那種感覺大概不是「生氣」兩個字能概括的——更像是一種孤獨，一種「我在這段關係裡到底重不重要」的恐懼。而且這不是第一次了。上個月的紀念日、上上次約好的電影、每一次你興沖沖地準備好、他卻「臨時有事」的時候，那些傷一層層疊上來，變成了今天爆發的導火線。
+
+角色 B，我猜你看到 A 的這些話時，第一反應可能是委屈——「我每天工作到這麼晚，還不是為了我們？那天的會議是老闆臨時叫的，我能怎麼辦？」你可能覺得不管自己怎麼努力，回到家迎接你的永遠是抱怨和指責。你不是不在乎那頓生日晚餐——也許你當時也很焦急，但你不敢打電話，因為你知道一打過去就會吵起來，然後你連剩下的會議都開不完。所以你選擇了先把眼前的事處理完再說。**你的沉默不是冷漠——是一種「我先把能控制的事情做好」的應對方式。** 但你可能不知道的是，在你開會的那一個小時裡，A 是一個人坐在餐廳，每隔幾分鐘看一次手機，從期待到焦慮到失望到心寒。
+
+我注意到你們之間有一個反覆出現的模式：當 A 精心準備了什麼東西卻沒有得到她期待的回應時——無論是一頓晚餐、一個紀念日、還是一句「你今天穿得很好看」——她心裡那個「我是不是不夠重要」的開關就會被打開。她會開始追問、翻舊帳、想要得到一個確認。而 B 面對這些追問時，會覺得「我怎麼解釋你都不信」，於是選擇沉默或敷衍。但 A 把這個沉默讀成了「你果然不在乎」，於是追得更用力——直到兩個人都筋疲力盡。
+
+### 你們做對了什麼
+
+有一件事讓我印象很深：角色 A 生日那天還是精心準備了晚餐——即使上一次已經被放鴿子過。這代表你心裡仍然相信「我們可以有美好的時刻」，你還沒有停止為這段關係投入心力。角色 B，你開完會還是去了——雖然遲到了，但你沒有乾脆說「算了不去了」。你到的那一刻，其實也是一種在乎。你們現在坐在這裡把話說開，而不是冷戰或假裝沒事，這本身就已經是很多伴侶做不到的事。
+
+### 各自可以調整的方向
+
+**調整比重**：
+- 原告：55% 調整空間
+- 被告：45% 調整空間
+
+這個 55:45 非常接近，因為你們的處境其實是對稱的——你們都在用自己的方式付出，只是對方沒有接收到。角色 A 有稍多一點的調整空間，是因為「翻舊帳」這個模式會讓 B 很難安全地參與對話——當 B 覺得不管道不道歉都會被拿以前的事再打一次，他就會更傾向於關閉。所以如果 A 能學會把「這一次的事」和「以前的事」分開處理，B 就更有可能願意把門打開。
+
+### 可以直接用的對話
+
+**角色 A 可以試著這樣對角色 B 說：**
+> 「我想跟你聊聊生日那天的事，但我先說——我不是要翻舊帳，也不是要你道歉。那天你遲到的時候，我一個人坐在餐廳裡，心裡其實不是生氣，是害怕。我怕我在你心裡沒那麼重要。我知道你工作忙，我也不想每次都為這種事吵。但我真的很需要知道——在你要遲到的時候，你可以打個電話告訴我一聲嗎？哪怕就一句『我晚一點到，但我一定會來』就夠了。」
+
+**角色 B 可以試著這樣對角色 A 說：**
+> 「那天的事我一直想跟你說但不知道怎麼開口。老實說，那天開會的時候我真的有看手機，看到時間越來越晚，心裡其實很急。但我不敢打給你，因為我怕你在電話那頭生氣然後我會更焦慮。我知道這樣做很不對——你一個人在餐廳等了那麼久，一定很難受。以後遇到這種情況，我答應你：不管會不會被罵，我都先打一通電話。因為讓你知道我在路上，比什麼都重要。」
+
+### 具體可以嘗試的事
+
+1. **身體先行**：下次角色 A 感覺「又來了」的瞬間——那種胸口一緊、想要追問的衝動——先暫停，把手放在胸口，做 3 次深呼吸。問自己：「我現在感覺到的是什麼？我真正需要的是什麼？」這不是壓抑，是給自己一個選擇：要用老方法（追問翻舊帳）還是試試新方法。
+2. **建立「5 分鐘規則」**：從今天起，如果有任何一方會遲到超過 15 分鐘，必須在前 5 分鐘打一通電話或發一條訊息。這不是「報備」，而是「讓對方知道你心裡有他/她」。
+3. **學會修復嘗試**：約定一個你們自己的暗號——可以是一個 emoji、一個手勢、或一句話。當任何一方覺得對話開始往「追問-沉默」的循環走的時候，就使用暗號，代表「我想暫停，但我不是要離開，我只是需要一點時間。」角色 B 要特別練習的是：當 A 發出暗號時，**回應它**——哪怕只是說一句「好，我聽到了，我們等一下再聊。」
+4. **分開處理舊帳和新帳**：角色 A 可以試試看準備一個「想聊的事」的清單——把之前累積的那些傷分開來，一次只聊一件事。不是因為其他的事不重要，而是當五件事混在一起的時候，B 會覺得無從應對。一次一件，慢慢來。
+5. **看見隱形的付出**：角色 A 可以試著注意 B 那些「不會說出來的在乎」——加班是為了什麼？遲到了但還是來了，代表什麼？角色 B 可以試著把那些在乎**說出來**——不需要什麼浪漫的話，「今天的菜是你喜歡的，我特地早點去買的」這種就夠了。
+6. **每週 20 分鐘的安全時間**：選一天，坐下來，一人說 10 分鐘。規則：聽的人只能回應「嗯」「我聽到了」「謝謝你告訴我」，不解釋、不反駁、不給建議。如果覺得 20 分鐘太長，5 分鐘也是一個開始。
+
+### 寫給你們的話
+
+角色 A，你為那頓晚餐付出的心思是真實的，你的失望也是真實的。角色 B，你趕去餐廳的那份急迫也是真實的，你不知道該怎麼辦的無措也是真實的。你們的感受沒有一個是「錯的」——只是你們還沒找到一種方式，讓這些感受可以安全地被對方接住。但你們今天在這裡把這些話說出來了，這就是在練習「讓對方接住我」的第一步。`;
+      const responsibilityRatio = { plaintiff: 55, defendant: 45 };
+      const summary = '這次衝突的核心不是「遲到」，而是「我在你心裡到底重不重要」。角色 A 精心準備的生日晚餐被遲到打破，觸發了長期累積的「不被重視」的傷；角色 B 不是不在乎，而是不知道怎麼在工作壓力和伴侶需求之間找到平衡。好消息是：A 還願意準備驚喜，B 遲到了還是來了——你們都還在為這段關係努力。建議從「5 分鐘通知規則」和每次只聊一件事開始，慢慢重建信任。';
       return { content, responsibilityRatio, summary };
     }
-    const prompt = this.buildJudgmentPrompt(caseType, plaintiffStatement, defendantStatement);
+
+    // Phase 0：深度情感動態分析（低溫度、結構化）
+    const analysis = await this.analyzeEmotionalDynamics(
+      plaintiffStatement,
+      defendantStatement,
+      options?.signal
+    );
+
+    // Phase 1：基於分析結果生成個性化回應（高溫度、富表達）
+    const prompt = this.buildJudgmentPrompt(caseType, plaintiffStatement, defendantStatement, analysis);
 
     try {
       const content = await this.generateText(prompt, {
-        maxTokens: 2000,
-        temperature: 0.7,
-        systemPrompt: '你是一位溫暖、公正的母熊法官。',
+        maxTokens: 3000,
+        temperature: 0.78,
+        presencePenalty: 0.3,
+        systemPrompt: AIService.SYSTEM_PROMPT,
+        signal: options?.signal,
       });
 
-      // 提取責任分比例
       const responsibilityRatio = this.extractResponsibilityRatio(content);
-
-      // 生成摘要
-      const summary = await this.generateSummary(content);
+      const summary = await this.generateSummary(content, options?.signal);
 
       return {
         content,
@@ -262,56 +507,157 @@ export class AIService {
   private buildJudgmentPrompt(
     caseType: string,
     plaintiffStatement: string,
-    defendantStatement: string
+    defendantStatement: string,
+    analysis: EmotionalAnalysis
   ): string {
-    return `角色設定：
-你是一位溫暖、公正的母熊法官，你的使命是保護和呵護每一對情侶。
-即使是在法庭，你也會用大愛、包容、保護的方式幫助他們解決衝突。
+    const severityGuide = {
+      mild: '這是一個相對輕微的日常摩擦。語氣可以輕鬆一些，帶一點幽默感也沒關係。重點放在具體的解決方案上。',
+      moderate: '這是一個有一定累積的衝突。語氣要認真但溫暖，先充分確認情緒，再進入建議。不要急著「解決問題」。',
+      serious: '這是一個嚴重的情感困境。語氣必須非常溫柔和謹慎。先花大量篇幅做情緒確認，讓雙方感覺被深度理解。建議要格外小心，避免加重任何一方的負擔。如果有安全隱憂，要溫和地建議尋求專業協助。',
+    };
 
-任務：
-基於以下案件信息，生成一份溫暖、公正、實用的判決書。
+    const gottmanWarnings = analysis.gottmanFlags.length > 0
+      ? `\n⚠️ 檢測到的互動危險信號：${analysis.gottmanFlags.join('、')}。在回應中需要溫和地點出這些模式（不用「四騎士」這個術語），幫助他們意識到但不要讓他們覺得被批評。用「我注意到在描述中有一些…」的方式提及。`
+      : '';
 
-案件信息：
-- 案件類型：${caseType}
-- 原告陳述：${plaintiffStatement}
-- 被告陳述：${defendantStatement || '暫無'}
+    const safetyWarnings = analysis.safetyFlags.length > 0
+      ? `\n🚨 安全注意事項：檢測到 ${analysis.safetyFlags.join('、')}。這改變了你的介入策略：
+- 不要把這當作「雙方各有責任」的衝突來處理
+- 不要要求弱勢方「調整自己」或「更好地溝通」——這會加重受害者的負擔
+- 在「寫給你們的話」段落中，溫和地提及：「如果在關係中經常感到害怕、不安全或不被允許做自己，這可能需要專業的一對一支持。」
+- 提供求助資源提示（如：「可以撥打各地的家庭暴力諮詢專線獲得免費、保密的支持。」）`
+      : '';
 
-判決書要求：
-1. 問題分析（200-300字）：
-   - 識別核心問題
-   - 分析雙方立場
-   - 理解雙方需求
+    return `你正在為一對伴侶提供關係溝通輔導。你已經完成了深度的情感動態分析，現在要把你的理解轉化為一份溫暖的、讓雙方都覺得「被深度理解」的回應。
 
-2. 判決結果（100-200字）：
-   - 明確判決（支持原告/支持被告/雙方各承擔責任）
-   - **責任分比例**（必須）：
-     - 以百分比形式明確雙方責任（如：原告60%，被告40%）
-     - 說明責任分配的理由
-   - 簡要說明理由
-   - 強調理解和包容
+## 你的分析結果（不要直接展示給用戶，用來指導你的回應）
 
-3. 具體建議（300-500字）：
-   - 提供3-5條具體行動建議
-   - 每條建議要可執行
-   - 建議要溫暖、實用
+衝突議題類別：${caseType}
+嚴重程度：${analysis.severity}
 
-4. 關係修復建議（200-300字）：
-   - 如何修復關係
-   - 如何重建信任
-   - 如何預防類似衝突
+角色 A 的情感世界：
+- 核心感受：${analysis.personA.primaryFeelings}
+- 未被滿足的需求：${analysis.personA.unmetNeeds}
+- 溝通模式：${analysis.personA.communicationPattern}
 
-語言風格：
-- 溫暖、親和
-- 專業但不冷漠
-- 鼓勵而非指責
-- 體現「保護和呵護」的理念
+角色 B 的情感世界：
+- 核心感受：${analysis.personB.primaryFeelings}
+- 未被滿足的需求：${analysis.personB.unmetNeeds}
+- 溝通模式：${analysis.personB.communicationPattern}
 
-輸出格式：Markdown格式，必須包含責任分比例，格式如下：
-## ⚖️ 判決結果
-**責任分比例**：
-- 原告：[X]% 責任
-- 被告：[Y]% 責任
-...`;
+互動循環：${analysis.interactionCycle}
+循環觸發點：${analysis.triggerPattern}
+深層議題：${analysis.coreIssue}
+關係中仍在運作的東西：${analysis.relationshipStrengths}
+介入方向：${analysis.suggestedApproach}
+${gottmanWarnings}
+${safetyWarnings}
+
+## 用戶的原始描述
+
+角色 A：「${plaintiffStatement}」
+角色 B：「${defendantStatement || '（對方選擇暫時不發言）'}」
+
+## 嚴重程度指導
+
+${severityGuide[analysis.severity]}
+
+## 回應結構（請嚴格按此結構）
+
+---
+
+## 我聽見你們了
+
+（30-50字。肯定勇氣。語氣像回覆朋友的傾訴，不像報告的開頭。）
+
+### 你們之間發生了什麼
+
+（300-400字。這是最關鍵的部分——讓每個人讀了都覺得「天啊，他完全理解我」。
+
+用你的分析結果來寫，但語氣必須是溫暖的敘事，不是冰冷的分析報告。具體要求：
+
+1. **先對角色 A 說話**（100-150字）：
+   用「角色 A」稱呼。描述他/她可能正在感受什麼、為什麼會那樣感受。
+   關鍵技巧：命名「看不見的情緒」——不只是他/她說出來的（生氣、不滿），更要說出他/她沒說出來但可能在感受的（孤獨、害怕不被在乎、失望）。
+   用「看起來…」「也許你…」的語氣。
+   文化敏感提示：如果陳述中有間接表達或含蓄暗示，要讀懂那些「沒有直說的話」。
+
+2. **再對角色 B 說話**（100-150字）：
+   同樣地理解角色 B。即使 B 沒有發言，也要基於分析推測他/她可能的感受和處境。
+   關鍵技巧：幫 B 說出他/她可能想說但不知道怎麼說的話。
+   如果 B 的溝通模式是用行動而非語言表達在乎，要明確點出來：「也許你一直在用行動表達在乎——只是這份在乎沒有被看見。」
+
+3. **描述互動循環和觸發點**（50-100字）：
+   用一段話把他們的互動模式講出來，包括什麼情境通常會啟動這個循環。
+   重點是讓他們看到：「啊，原來我們不是在互相傷害，而是卡在一個循環裡了——而且我們現在知道它是什麼時候被觸發的。」
+   用「我注意到你們之間有一個模式…」開頭。）
+
+### 你們做對了什麼
+
+（60-100字。這一段來自敘事治療——在分析問題之前，先肯定他們已經在做的好事。
+從分析中的「關係優勢」出發，具體地指出：他們來到這裡本身就是一種勇氣、他們陳述中透露出的某些在乎的細節、他們還沒有放棄的事實。
+這不是空洞的鼓勵，而是具體的觀察：「我注意到即使在這麼難受的情況下，你們還是___。這說明了___。」）
+
+### 各自可以調整的方向
+
+**調整比重**：
+- 原告：[X]% 調整空間
+- 被告：[Y]% 調整空間
+
+（80-120字解釋。框架：「調整空間」＝「率先做出改變的能力和主動性」。比重更高的一方是「更有能力打破僵局的人」——這是肯定，不是指責。基於你對他們溝通模式的分析來解釋為什麼這樣分配。）
+
+### 可以直接用的對話
+
+（這一段是整個回應中最有實際價值的部分。請基於分析中識別到的感受和需求，為雙方各寫一段「可以直接說出口」的對話範本。
+
+**角色 A 可以試著這樣對角色 B 說：**
+> 「…」
+必須包含：（1）明確表示不是在指責、（2）具體說出那個事件和自己的感受、（3）說出自己真正需要的是什麼、（4）邀請對方回應。
+用 NVC 的「觀察→感受→需求→請求」結構，但語氣要自然，不像在背課文。
+
+**角色 B 可以試著這樣對角色 A 說：**
+> 「…」
+必須包含：（1）承認對方的感受是真實的、（2）坦誠自己當時的處境或感受、（3）提出一個小小的承諾或改變、（4）邀請對方一起想辦法。
+
+每段對話 50-80 字，用引號括起來。語氣要像真正的人在說話，不像書面語。）
+
+### 具體可以嘗試的事
+
+（350-500字。5-6 個建議，難度從低到高：
+
+1. **身體先行**（身心覺察）：在發生衝突的瞬間，先暫停，注意自己身體的訊號——胸口是不是變緊了？肩膀是不是繃起來了？呼吸是不是變淺了？如果有，先做 3 次深呼吸，讓身體回到「安全模式」再開口。這不是壓抑情緒，而是給自己一個選擇的空間。
+
+2. **今天就能做的事**：零門檻。可以是把上面的對話範本唸給對方聽，或發一條訊息。也可以做一個小小的「修復嘗試」——在氣氛僵硬的時候，主動說一句「欸，我覺得我們又卡住了，要不要重來？」或者更簡單地，倒一杯水給對方。
+
+3. **學會「修復嘗試」**：Gottman 的研究發現，幸福的伴侶不是不吵架，而是會在衝突中和衝突後做出小小的修復動作。可以約定一個簡單的「修復暗號」——比如一個手勢、一句特定的話（像「暫停，我愛你」或比一個心），當任何一方使用暗號時，代表「我不是在攻擊你，我只是不知道怎麼辦了」。同樣重要的是：當對方發出修復嘗試時，試著接住它，即使你還在生氣。
+
+4. **知道觸發點**：根據分析，你們的循環通常在特定的情境下會被啟動。下次當類似情境出現時，可以試著對對方說：「我覺得我們的那個循環好像快啟動了，我需要暫停一下。」光是能辨認出它，就已經是打破循環的第一步。
+
+5. **持續練習的事**：改變溝通句式——用「我覺得___，我需要___」代替「你總是___，你從不___」。前者在說自己，後者在攻擊對方。
+
+6. **共同建立的習慣**：每週的「安全對話時間」——30 分鐘，輪流說，對方只能回應「嗯，我聽到了」，不反駁、不解釋、不給建議。
+
+${analysis.severity === 'serious' ? '7. **可以尋求的支持**：如果你們發現這些嘗試很困難，或者一方經常感到害怕或不安全，尋求專業的伴侶諮商不是「認輸」——而是「認真」。一位好的伴侶諮商師可以在安全的環境中幫助你們練習這些對話。' : ''}
+
+每個建議要具體到可以立即執行，框架為「你可以試試看…」語氣。）
+
+### 寫給你們的話
+
+（80-120字結語。溫暖真誠，肯定他們具體做對了什麼——不是空洞的「加油」。語氣像一封信的結尾。）
+
+---
+
+語氣規範：
+- 絕不使用法律術語（判決、裁定、審理、案件）。「原告」「被告」僅在調整比重格式行中保留供系統解析。
+- 絕不使用指責語言（你的問題是、你不應該、你太）
+- 絕不使用冰冷報告語言（經過分析、基於事實、綜合考量）
+- 正文中用「你們」或「角色 A / 角色 B」
+- 全篇使用邀請式表達
+
+輸出格式：Markdown，必須包含：
+**調整比重**：
+- 原告：[X]% 調整空間
+- 被告：[Y]% 調整空間`;
   }
 
   /**
@@ -320,8 +666,7 @@ export class AIService {
   private extractResponsibilityRatio(
     content: string
   ): { plaintiff: number; defendant: number } {
-    // 使用正則表達式提取
-    const regex = /原告[：:]\s*(\d+)%\s*責任|被告[：:]\s*(\d+)%\s*責任/g;
+    const regex = /原告[：:]\s*(\d+)%\s*(?:調整空間|責任)|被告[：:]\s*(\d+)%\s*(?:調整空間|責任)/g;
     const matches = Array.from(content.matchAll(regex));
 
     let plaintiffRatio = 50; // 默認
@@ -349,20 +694,24 @@ export class AIService {
   /**
    * 生成摘要
    */
-  async generateSummary(content: string): Promise<string> {
+  async generateSummary(content: string, signal?: AbortSignal): Promise<string> {
     if (this.useMock) {
-      return '這是一份針對生活習慣衝突的溫暖判決摘要，提供具體建議與修復方向。';
+      return '一方用準備驚喜來表達愛，另一方用努力工作來表達愛——但這兩種愛的語言沒有被翻譯成對方能懂的。核心不是遲到，而是「我重不重要」的安全感。建議先建立「遲到時也能感到被在乎」的溝通機制，再慢慢處理過去累積的傷。';
     }
-    const prompt = `請為以下判決書生成一個簡短的摘要（50-100字）：
+    const prompt = `以下是一份關係溝通輔導的回應。請用 50-100 字寫一段溫暖的摘要，重點放在：這對伴侶之間的核心議題是什麼、建議的方向是什麼。
 
+語氣要溫暖、有希望感，像在給朋友概括一次有收穫的對話。不要使用「判決」「裁定」「案件」等法律用語。
+
+原文：
 ${content}
 
-請只返回摘要內容，不要返回其他內容。`;
+請只返回摘要內容。`;
 
     try {
       const summary = await this.generateText(prompt, {
         maxTokens: 150,
         temperature: 0.5,
+        signal,
       });
       return summary.trim();
     } catch (error) {
@@ -382,30 +731,30 @@ ${content}
     if (this.useMock) {
       return [
         {
-          title: '一起做晚餐',
-          description: '共同準備並享用一頓晚餐，透過合作增進溝通與理解。',
-          steps: ['討論菜單', '購買食材', '分工做飯', '一起享用'],
-          expected_effect: '增進交流、建立共同目標',
-          time_cost: 2,
-          money_cost: 2,
-          emotion_cost: 1,
-          skill_requirement: 2,
-          plan_type: 'activity',
-          estimated_duration: 1,
-          difficulty_level: 'easy',
-        },
-        {
-          title: '傾聽練習',
-          description: '輪流說話與傾聽，練習複述對方重點，提升理解與共情。',
-          steps: ['選擇安靜環境', '一方說話另一方傾聽', '傾聽者複述理解內容', '角色互換'],
-          expected_effect: '改善溝通技巧，減少誤解',
+          title: '建立「我在路上」的安全訊號',
+          description: '從今天開始，如果有任何一方會比約定時間晚超過 15 分鐘，就發一條訊息：「我會晚一點到，但我一定會來。」這不是報備，而是讓對方知道——你心裡有他/她。對角色 B 來說，這只是一條訊息的事；對角色 A 來說，這條訊息代表的是「你沒有被忘記」。',
+          steps: ['兩人坐下來，約定一個合理的「通知時間」（建議：預計遲到 15 分鐘以上就通知）', '選擇通知方式：打電話、發訊息、或發一個專屬 emoji 都可以', '角色 B 先練習：今天就找一個機會主動發「我在想你」或「我等下就到」', '如果做到了，角色 A 回一個正面回應（哪怕只是一個愛心）'],
+          expected_effect: '角色 A 不再需要在等待中焦慮猜測；角色 B 會發現「報平安」其實很簡單，而且 A 的反應會讓他也覺得暖暖的',
           time_cost: 1,
           money_cost: 1,
-          emotion_cost: 3,
-          skill_requirement: 3,
-          plan_type: 'communication',
+          emotion_cost: 1,
+          skill_requirement: 1,
+          plan_type: 'communication' as const,
           estimated_duration: 1,
-          difficulty_level: 'medium',
+          difficulty_level: 'easy' as const,
+        },
+        {
+          title: '一起重做那頓生日晚餐',
+          description: '找一個週末，兩個人一起去買菜、一起下廚，重做那頓被遲到打斷的生日晚餐。這次不用訂餐廳、不用盛裝打扮——穿著睡衣在家裡、邊煮邊聊，反而更真實。重點不是吃什麼，而是一起創造一個新的記憶去覆蓋那個讓兩個人都不舒服的舊記憶。',
+          steps: ['角色 B 主動提議時間和菜色（這次由 B 來準備，讓 A 感受到「被放在心上」）', '一起去市場或超市採購——買菜的路上自然就會聊天', '下廚時分工合作，允許搞砸和大笑', '吃飯的時候，一人說一件「我最喜歡我們在一起的某個瞬間」'],
+          expected_effect: '用一次愉快的共同經歷修復那頓晚餐留下的遺憾，同時讓角色 B 有機會用行動表達「你對我很重要」',
+          time_cost: 3,
+          money_cost: 2,
+          emotion_cost: 2,
+          skill_requirement: 2,
+          plan_type: 'activity' as const,
+          estimated_duration: 1,
+          difficulty_level: 'easy' as const,
         },
       ];
     }
@@ -418,8 +767,8 @@ ${content}
     try {
       const content = await this.generateText(prompt, {
         maxTokens: 3000,
-        temperature: 0.8, // 更高的創造性
-        systemPrompt: '你是一位溫暖的母熊法官，專門設計和好方案。',
+        temperature: 0.8,
+        systemPrompt: AIService.SYSTEM_PROMPT,
       });
 
       // 解析JSON響應
@@ -456,48 +805,58 @@ ${content}
     responsibilityRatio: { plaintiff: number; defendant: number },
     judgmentSummary: string
   ): string {
-    return `角色設定：
-你是一位溫暖的母熊法官，專門為情侶設計和好方案。
+    return `你正在為一對伴侶設計具體的關係修復行動方案。你的設計應該讓他們讀了以後覺得「我好想試試看」，而不是覺得「又要做功課了」。
 
-任務：
-基於以下判決信息，生成3-5個和好方案，幫助雙方修復關係。
+背景資訊：
+- 衝突議題類別：${caseType}
+- 雙方調整空間：角色 A 佔 ${responsibilityRatio.plaintiff}%，角色 B 佔 ${responsibilityRatio.defendant}%
+- 溝通回應摘要：${judgmentSummary}
 
-判決信息：
-- 案件類型：${caseType}
-- 責任分比例：原告${responsibilityRatio.plaintiff}%，被告${responsibilityRatio.defendant}%
-- 判決摘要：${judgmentSummary}
+請設計 3-5 個行動方案。
 
-方案要求：
-1. 每個方案包含：
-   - 方案標題
-   - 方案描述（100-200字）
-   - 執行步驟（3-5步）
-   - 預期效果
-   - 難度評估（時間成本1-5、金錢成本1-5、情感成本1-5、技能要求1-5）
+## 心理學設計原則（必須遵守）
 
-2. 方案類型多樣化：
-   - 日常活動（一起做飯、看電影等）
-   - 溝通練習（傾聽練習、共情練習等）
-   - 親密互動（擁抱、約會等）
-   - 禮物/驚喜（小禮物、手寫卡片等）
-   - 服務/幫忙（分擔家務、代辦事項等）
+1. **漸進式暴露**：從最安全、最不需要「勇氣」的方案開始，逐漸增加情感深度。第一個方案的門檻必須低到「今天就能做，做了也不會丟臉」。
 
-3. 根據案件類型推薦：
-   - 生活習慣衝突 → 習慣養成活動
-   - 價值觀衝突 → 理解尊重活動
-   - 情感需求衝突 → 親密互動活動
+2. **雙向互惠**：每個方案都是「兩個人一起做」的事。絕不能是「一方道歉，另一方接受」——這會加深不平等感。
 
-4. 難度分級：
-   - 簡單（總分4-8）：1-2天可完成
-   - 中等（總分9-12）：3-7天可完成
-   - 困難（總分13-20）：1-4週可完成
+3. **內建安全機制**：每個方案都要有「如果感覺不舒服就可以暫停」的退出機制。這讓參與者有安全感。
 
-輸出格式：JSON數組，每個方案包含：
+4. **連結到核心需求**：每個方案的 expected_effect 要連結到雙方的深層需求（被看見、被理解、安全感、歸屬感等），不只是表面的「改善關係」。
+
+5. **對話腳本嵌入**：在步驟中包含可以直接說出口的話，降低「不知道說什麼」的障礙。
+
+6. **針對衝突類別的特定設計**：
+   - 生活習慣衝突 → 「共同創造新規則」而非「一方遷就另一方」
+   - 消費決策衝突 → 「一起探索優先順序」而非「誰對誰錯」
+   - 社交關係衝突 → 「畫邊界地圖」——互相了解哪些是不可退讓的
+   - 價值觀衝突 → 「分享童年故事」——理解價值觀的來源，不是改變它
+   - 情感需求衝突 → 「愛的語言測試」——發現彼此不同的表達方式
+
+方案類型（至少涵蓋 3 種不同類型）：
+- activity：日常活動（門檻最低，先重建「在一起是快樂的」感覺）
+- communication：溝通練習（傾聽、分享感受、每日check-in）
+- intimacy：親密互動（非性的身體接觸、寫信、深度對話）
+- gift：心意表達（小禮物、手寫卡片、為對方做一件小事）
+- service：行動支持（主動分擔壓力、預見對方的需要）
+
+難度評估：
+- 時間成本（1-5）、金錢成本（1-5）、情感成本（1-5）、技能要求（1-5）
+- 簡單（總分4-8）、中等（總分9-12）、困難（總分13-20）
+
+## 語氣要求
+
+方案的標題要像朋友的建議（「試試看這個？」），不像治療師的處方。
+描述用「你們可以…」「也許…」的邀請式語氣。
+expected_effect 用「你們可能會發現…」「也許會感覺到…」而非「效果是…」「可以達到…」。
+步驟中的對話範本要自然，像真人在說話。
+
+輸出格式：純 JSON 陣列（不要包含 markdown 標記），每個方案：
 {
-  "title": "方案標題",
-  "description": "方案描述",
-  "steps": ["步驟1", "步驟2", ...],
-  "expected_effect": "預期效果",
+  "title": "方案標題（溫暖、有吸引力、像朋友在說話）",
+  "description": "方案描述（100-200字，語氣像在跟朋友推薦一件他們會喜歡的事）",
+  "steps": ["步驟1（包含具體的話可以說）", "步驟2", ...],
+  "expected_effect": "你們可能會發現…（連結到深層需求）",
   "time_cost": 1-5,
   "money_cost": 1-5,
   "emotion_cost": 1-5,

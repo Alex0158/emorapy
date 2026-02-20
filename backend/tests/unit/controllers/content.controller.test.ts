@@ -31,7 +31,7 @@ describe('ContentController', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    controller = new ContentController(contentService);
+    controller = new ContentController();
     req = { body: {}, params: {}, query: {} };
     res = { json: jest.fn().mockReturnThis() } as unknown as Response;
     next = jest.fn();

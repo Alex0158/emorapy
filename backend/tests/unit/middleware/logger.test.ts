@@ -3,11 +3,14 @@
  */
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import type { Request, Response, NextFunction } from 'express';
+import crypto from 'crypto';
 
 const mockGetRequestId = jest.fn();
 const mockGetAuthUserIdOptional = jest.fn();
 const mockGetSessionId = jest.fn();
 const mockEnvRef = { current: { NODE_ENV: 'development' as string } };
+const hashSessionId = (sid: string) =>
+  crypto.createHash('sha256').update(sid).digest('hex').slice(0, 12);
 
 jest.mock('../../../src/config/logger', () => ({
   __esModule: true,
@@ -92,7 +95,7 @@ describe('middleware/logger (requestLogger)', () => {
       ip: '127.0.0.1',
       userAgent: 'Mozilla/1.0',
       userId: 'user-1',
-      sessionId: 'session-1',
+      sessionId: hashSessionId('session-1'),
     }));
   });
 
@@ -161,6 +164,9 @@ describe('middleware/logger (requestLogger)', () => {
     const next = jest.fn();
     requestLogger(req, res, next);
     res.emitFinish();
-    expect(mockLogger.warn).toHaveBeenCalledWith('HTTP Request', expect.objectContaining({ sessionId: 'session-1' }));
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      'HTTP Request',
+      expect.objectContaining({ sessionId: hashSessionId('session-1') })
+    );
   });
 });

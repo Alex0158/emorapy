@@ -2,6 +2,10 @@ import prisma from '../config/database';
 import { generateSessionId, validateSessionId } from '../utils/session';
 import { Errors } from '../utils/errors';
 import logger from '../config/logger';
+import crypto from 'crypto';
+
+const maskSessionId = (sessionId: string): string =>
+  crypto.createHash('sha256').update(sessionId).digest('hex').slice(0, 12);
 
 export class SessionService {
   /**
@@ -19,11 +23,84 @@ export class SessionService {
         },
       });
 
-      logger.info('Session created', { sessionId });
+      logger.info('Session created', { sessionId: maskSessionId(sessionId) });
       return { session_id: sessionId, expires_at: expiresAt };
     } catch (error) {
       logger.error('Failed to create session', { error });
       throw Errors.INTERNAL_ERROR('Session創建失敗');
+    }
+  }
+
+  /**
+   * 刷新Session：
+   * - 若提供有效舊Session，原子旋轉（新建->遷移關聯->刪除舊）
+   * - 若舊Session缺失/過期，創建新Session
+   */
+  async refreshSession(currentSessionId?: string): Promise<{ session_id: string; expires_at: Date }> {
+    if (!currentSessionId) {
+      return this.createSession();
+    }
+
+    if (!validateSessionId(currentSessionId)) {
+      return this.createSession();
+    }
+
+    const currentSession = await prisma.quickSession.findUnique({
+      where: { id: currentSessionId },
+    });
+
+    if (!currentSession || currentSession.expires_at < new Date()) {
+      return this.createSession();
+    }
+
+    const newSessionId = generateSessionId();
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    try {
+      await prisma.$transaction(async (tx) => {
+        await tx.quickSession.create({
+          data: {
+            id: newSessionId,
+            expires_at: expiresAt,
+            pairing_id: currentSession.pairing_id,
+            case_id: currentSession.case_id,
+            ...(currentSession.session_data !== null
+              ? { session_data: currentSession.session_data as any }
+              : {}),
+          },
+        });
+
+        if (currentSession.case_id) {
+          await tx.case.update({
+            where: { id: currentSession.case_id },
+            data: { session_id: newSessionId },
+          }).catch(() => {});
+        }
+
+        if (currentSession.pairing_id) {
+          await tx.pairing.update({
+            where: { id: currentSession.pairing_id },
+            data: { session_id: newSessionId },
+          }).catch(() => {});
+        }
+
+        await tx.quickSession.delete({
+          where: { id: currentSessionId },
+        }).catch(() => {});
+      });
+
+      logger.info('Session rotated', {
+        oldSessionId: maskSessionId(currentSessionId),
+        newSessionId: maskSessionId(newSessionId),
+      });
+
+      return { session_id: newSessionId, expires_at: expiresAt };
+    } catch (error) {
+      logger.error('Failed to rotate session', {
+        oldSessionId: maskSessionId(currentSessionId),
+        error,
+      });
+      throw Errors.INTERNAL_ERROR('Session刷新失敗');
     }
   }
 
@@ -65,7 +142,7 @@ export class SessionService {
         data: { case_id: caseId },
       });
     } catch (error) {
-      logger.error('Failed to add case to session', { sessionId, caseId, error });
+      logger.error('Failed to add case to session', { sessionId: maskSessionId(sessionId), caseId, error });
       throw Errors.INTERNAL_ERROR('Session更新失敗');
     }
   }
@@ -80,7 +157,7 @@ export class SessionService {
         data: { pairing_id: pairingId },
       });
     } catch (error) {
-      logger.error('Failed to add pairing to session', { sessionId, pairingId, error });
+      logger.error('Failed to add pairing to session', { sessionId: maskSessionId(sessionId), pairingId, error });
       throw Errors.INTERNAL_ERROR('Session更新失敗');
     }
   }
@@ -97,7 +174,7 @@ export class SessionService {
         data: { expires_at: expiresAt },
       });
     } catch (error) {
-      logger.error('Failed to mark session completed', { sessionId, error });
+      logger.error('Failed to mark session completed', { sessionId: maskSessionId(sessionId), error });
       // 不拋出錯誤，因為這不是關鍵操作
     }
   }

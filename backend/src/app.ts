@@ -6,7 +6,7 @@ import path from 'path';
 import { env } from './config/env';
 import { errorHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/logger';
-import { generalLimiter, downloadLimiter } from './middleware/rateLimiter';
+import { downloadLimiter } from './middleware/rateLimiter';
 import { responseFormatter } from './middleware/responseFormatter';
 import { requestId } from './middleware/requestId';
 import { performanceMonitor } from './middleware/performance';
@@ -105,9 +105,6 @@ app.use(requestLogger);
 
 // 響應格式化
 app.use(responseFormatter);
-
-// 通用限流
-app.use(generalLimiter);
 
 // 靜態文件服務（上傳文件）- 需要認證或有效 Session；僅允許 GET/HEAD
 const uploadPath = path.isAbsolute(env.UPLOAD_DIR)

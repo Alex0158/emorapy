@@ -40,7 +40,7 @@ describe('ReconciliationController', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    controller = new ReconciliationController(reconciliationService);
+    controller = new ReconciliationController();
     req = { body: {}, params: {}, query: {} };
     res = { json: jest.fn().mockReturnThis() } as unknown as Response;
     next = jest.fn();

@@ -32,6 +32,16 @@ jest.mock('../../../src/services/judgment.service', () => ({
 jest.mock('../../../src/utils/request', () => ({
   getAuthUserId: (req: Request) => mockGetAuthUserId(req),
   getAuthUserIdOptional: (req: Request) => mockGetAuthUserIdOptional(req),
+  getSessionIdFromSources: (req: Request) => {
+    const headerSessionId = req.headers?.['x-session-id'] as string | undefined;
+    const querySessionId = req.query?.session_id as string | undefined;
+    return {
+      sessionId: headerSessionId || querySessionId,
+      headerSessionId,
+      querySessionId,
+      hasConflict: !!headerSessionId && !!querySessionId && headerSessionId !== querySessionId,
+    };
+  },
 }));
 jest.mock('../../../src/config/database', () => ({
   __esModule: true,
@@ -46,7 +56,7 @@ describe('JudgmentController', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    controller = new JudgmentController(judgmentService);
+    controller = new JudgmentController();
     req = { body: {}, params: {}, query: {}, headers: {} };
     res = { json: jest.fn().mockReturnThis(), status: jest.fn().mockReturnThis() } as unknown as Response;
     next = jest.fn();
@@ -55,6 +65,18 @@ describe('JudgmentController', () => {
   });
 
   describe('generateJudgment', () => {
+    it('header/query session 衝突時應 next(INVALID_SESSION_ID)', async () => {
+      req.params = { id: 'case-1' };
+      req.headers = { 'x-session-id': 's1' };
+      req.query = { session_id: 's2' };
+
+      await controller.generateJudgment(req as Request, res as Response, next);
+
+      expect(mockGenerateJudgment).not.toHaveBeenCalled();
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
+      expect(((next as jest.Mock).mock.calls[0][0] as any).code).toBe('INVALID_SESSION_ID');
+    });
+
     it('成功應調用 judgmentService.generateJudgment 並返回 JSON', async () => {
       req.params = { id: 'case-1' };
       req.query = { session_id: 's1' };
@@ -100,6 +122,23 @@ describe('JudgmentController', () => {
   });
 
   describe('getJudgmentById', () => {
+    it('header/query session 衝突時應 next(INVALID_SESSION_ID)', async () => {
+      req.params = { id: 'judge-1' };
+      req.headers = { 'x-session-id': 's1' };
+      req.query = { session_id: 's2' };
+      prismaMock.judgment.findUnique.mockResolvedValue({
+        id: 'judge-1',
+        case_id: 'case-1',
+        case: {},
+      });
+
+      await controller.getJudgmentById(req as Request, res as Response, next);
+
+      expect(mockGetJudgmentByCaseId).not.toHaveBeenCalled();
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
+      expect(((next as jest.Mock).mock.calls[0][0] as any).code).toBe('INVALID_SESSION_ID');
+    });
+
     it('判決不存在應 next(NOT_FOUND)', async () => {
       req.params = { id: 'judge-1' };
       prismaMock.judgment.findUnique.mockResolvedValue(null);

@@ -39,7 +39,7 @@ describe('AuthController', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    controller = new AuthController(authService);
+    controller = new AuthController();
     req = { body: {} };
     res = {
       status: jest.fn().mockReturnThis(),

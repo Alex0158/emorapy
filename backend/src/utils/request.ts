@@ -23,3 +23,28 @@ export function getRequestId(req: Request): string {
 export function getSessionId(req: Request): string | undefined {
   return req.sessionId;
 }
+
+function normalizeSessionHeaderValue(value: string | string[] | undefined): string | undefined {
+  if (Array.isArray(value)) {
+    return value[0];
+  }
+  return value;
+}
+
+export function getSessionIdFromSources(req: Request): {
+  sessionId?: string;
+  headerSessionId?: string;
+  querySessionId?: string;
+  hasConflict: boolean;
+} {
+  const headerSessionId = normalizeSessionHeaderValue(req.headers['x-session-id'] as string | string[] | undefined);
+  const querySessionId = typeof req.query.session_id === 'string' ? req.query.session_id : undefined;
+  const hasConflict = !!headerSessionId && !!querySessionId && headerSessionId !== querySessionId;
+
+  return {
+    sessionId: headerSessionId || querySessionId,
+    headerSessionId,
+    querySessionId,
+    hasConflict,
+  };
+}

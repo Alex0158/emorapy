@@ -3,7 +3,7 @@ import { caseService } from '../services/case.service';
 import { judgmentService } from '../services/judgment.service';
 import logger from '../config/logger';
 import { Errors } from '../utils/errors';
-import { getAuthUserId, getAuthUserIdOptional } from '../utils/request';
+import { getAuthUserId, getAuthUserIdOptional, getSessionIdFromSources } from '../utils/request';
 
 export class CaseController {
   /**
@@ -11,13 +11,13 @@ export class CaseController {
    */
   async createQuickCase(req: Request, res: Response, next: NextFunction) {
     try {
-      // 只提取Session ID，不創建（由服務層統一處理）
-      const sessionId = (req.headers['x-session-id'] as string) || 
-                        (req.query.session_id as string) ||
-                        null; // 允許為null，由服務層處理
+      const { sessionId, hasConflict } = getSessionIdFromSources(req);
+      if (hasConflict) {
+        throw Errors.INVALID_SESSION_ID('Header 與 Query 的 Session ID 不一致');
+      }
 
       // 傳遞給服務層，服務層會統一處理Session創建和驗證
-      const result = await caseService.createQuickCase(req.body, sessionId);
+      const result = await caseService.createQuickCase(req.body, sessionId ?? null);
       
       const case_ = result.case;
       const finalSessionId = result.sessionId; // 服務層返回的最終Session ID
@@ -72,8 +72,10 @@ export class CaseController {
     try {
       const caseId = req.params.id;
       const userId = getAuthUserIdOptional(req);
-      const sessionId = (req.query.session_id as string) || 
-                        (req.headers['x-session-id'] as string);
+      const { sessionId, hasConflict } = getSessionIdFromSources(req);
+      if (hasConflict) {
+        throw Errors.INVALID_SESSION_ID('Header 與 Query 的 Session ID 不一致');
+      }
 
       const case_ = await caseService.getCaseById(caseId, userId, sessionId);
 
@@ -91,8 +93,10 @@ export class CaseController {
    */
   async getCaseBySessionId(req: Request, res: Response, next: NextFunction) {
     try {
-      const sessionId = (req.query.session_id as string) || 
-                        (req.headers['x-session-id'] as string);
+      const { sessionId, hasConflict } = getSessionIdFromSources(req);
+      if (hasConflict) {
+        throw Errors.INVALID_SESSION_ID('Header 與 Query 的 Session ID 不一致');
+      }
 
       if (!sessionId) {
         throw Errors.SESSION_ID_REQUIRED();
@@ -127,8 +131,10 @@ export class CaseController {
     try {
       const caseId = req.params.id;
       const userId = getAuthUserIdOptional(req);
-      const sessionId = (req.query.session_id as string) || 
-                        (req.headers['x-session-id'] as string);
+      const { sessionId, hasConflict } = getSessionIdFromSources(req);
+      if (hasConflict) {
+        throw Errors.INVALID_SESSION_ID('Header 與 Query 的 Session ID 不一致');
+      }
 
       const judgment = await judgmentService.getJudgmentByCaseId(
         caseId,

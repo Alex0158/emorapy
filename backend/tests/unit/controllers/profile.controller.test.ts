@@ -38,7 +38,7 @@ describe('ProfileController', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    controller = new ProfileController(profileService);
+    controller = new ProfileController();
     req = { body: {}, params: {} };
     res = { json: jest.fn().mockReturnThis() } as unknown as Response;
     next = jest.fn();

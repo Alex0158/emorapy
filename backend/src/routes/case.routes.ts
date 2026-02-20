@@ -90,8 +90,8 @@ router.get(
  */
 router.post(
   '/:id/evidence',
-  uploadLimiter,
   optionalAuthenticate,
+  uploadLimiter,
   validateUuidParam,
   validate(uuidParamSchema),
   evidenceController.uploadEvidence

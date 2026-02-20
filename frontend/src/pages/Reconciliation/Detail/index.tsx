@@ -112,7 +112,7 @@ const ReconciliationDetail = () => {
   if (!plan) {
     return (
       <div className="reconciliation-detail-page">
-        <Alert title={t('message.planNotFound')} type="error" />
+        <Alert message={t('message.planNotFound')} type="error" />
       </div>
     );
   }

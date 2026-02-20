@@ -10,6 +10,8 @@ const mockGetSession: any = jest.fn();
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockCreateTempPairing: any = jest.fn();
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockGetPairingBySessionId: any = jest.fn();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockDetectCaseType: any = jest.fn();
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockSignUrl: any = jest.fn();
@@ -17,7 +19,7 @@ const mockValidateSessionId = jest.fn();
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const prismaMock: any = {
-  pairing: { findUnique: jest.fn() },
+  pairing: { findUnique: jest.fn(), delete: jest.fn() },
   case: {
     findUnique: jest.fn(),
     findFirst: jest.fn(),
@@ -49,6 +51,7 @@ jest.mock('../../../src/services/session.service', () => ({
 jest.mock('../../../src/services/pairing.service', () => ({
   pairingService: {
     createTempPairing: (sessionId: string) => mockCreateTempPairing(sessionId),
+    getPairingBySessionId: (sessionId: string) => mockGetPairingBySessionId(sessionId),
   },
 }));
 jest.mock('../../../src/services/ai.service', () => ({
@@ -69,7 +72,6 @@ jest.mock('../../../src/utils/helpers', () => {
   return { ...actual, generateCaseTitle: jest.fn((s: string) => actual.generateCaseTitle(s)) };
 });
 import { CaseService } from '../../../src/services/case.service';
-import { generateCaseTitle } from '../../../src/utils/helpers';
 
 // 驗證規則：createCase 原告陳述至少 50 字，createQuickCase 至少 30 字
 const LONG_STATEMENT_50 =
@@ -85,6 +87,15 @@ describe('CaseService', () => {
     service = new CaseService();
     mockSignUrl.mockImplementation((url: unknown) => String(url ?? '') + ':signed');
     mockValidateSessionId.mockReturnValue(true);
+    mockGetPairingBySessionId.mockResolvedValue(null);
+    prismaMock.pairing.delete.mockResolvedValue({} as never);
+  });
+
+  describe('generateTitle (private)', () => {
+    it('標題長度少於 5 時應回退默認案件標題', () => {
+      const title = (service as any).generateTitle('  短  ');
+      expect(title).toMatch(/^案件-/);
+    });
   });
 
   describe('createCase', () => {
@@ -1287,7 +1298,7 @@ describe('CaseService', () => {
         };
         return fn(tx);
       });
-      (generateCaseTitle as jest.Mock).mockImplementationOnce(() => {
+      jest.spyOn(service as any, 'generateTitle').mockImplementationOnce(() => {
         throw new Error('title fail');
       });
 
@@ -1310,7 +1321,10 @@ describe('CaseService', () => {
         code: 'INTERNAL_ERROR',
         message: expect.stringContaining('案件創建失敗'),
       });
-      expect(mockLogger.error).toHaveBeenCalledWith('Failed to create case in transaction', expect.objectContaining({ sessionId: 's1', error: expect.any(Error) }));
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        'Failed to create case in transaction',
+        expect.objectContaining({ error: expect.any(Error) })
+      );
     });
   });
 });

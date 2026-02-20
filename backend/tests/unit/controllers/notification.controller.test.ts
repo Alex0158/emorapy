@@ -30,7 +30,7 @@ describe('NotificationController', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    controller = new NotificationController(notificationService);
+    controller = new NotificationController();
     req = { body: {}, params: {}, query: {} };
     res = { json: jest.fn().mockReturnThis(), status: jest.fn().mockReturnThis() } as unknown as Response;
     next = jest.fn();

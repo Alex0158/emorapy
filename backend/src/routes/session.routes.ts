@@ -16,6 +16,6 @@ router.post('/quick', generalLimiter, sessionController.createSession.bind(sessi
  * @desc    創建/刷新Session（便於前端過期自動續期）
  * @access  Public
  */
-router.post('/refresh', generalLimiter, sessionController.createSession.bind(sessionController));
+router.post('/refresh', generalLimiter, sessionController.refreshSession.bind(sessionController));
 
 export default router;

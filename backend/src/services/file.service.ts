@@ -145,6 +145,22 @@ async function validateFileSignature(filePath: string, expectedMimeType: string)
  */
 export class FileService {
   /**
+   * 只對本域 uploads 路徑簽名，避免把 token 帶到第三方域名
+   */
+  private shouldSignUrl(url: string): boolean {
+    try {
+      const parsed = new URL(url, env.FILE_BASE_URL);
+      const base = new URL(env.FILE_BASE_URL);
+      const isAbsolute = /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(url);
+      const sameOrigin = !isAbsolute || parsed.origin === base.origin;
+      const normalizedPath = parsed.pathname.replace(/^\/+/, '');
+      return sameOrigin && normalizedPath.startsWith('uploads/');
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * 驗證文件（包括魔數驗證）
    */
   async validateFile(file: Express.Multer.File): Promise<void> {
@@ -217,8 +233,12 @@ export class FileService {
       return url;
     }
     try {
+      if (!this.shouldSignUrl(url)) {
+        return url;
+      }
+
       const parsed = new URL(url, env.FILE_BASE_URL);
-      const filename = parsed.pathname.replace(/^\/+/, '');
+      const filename = path.basename(parsed.pathname);
       const hash = crypto.createHash('sha256').update(filename).digest('hex');
 
       // 嘗試加入文件大小與mtime（如可用），增強防重放

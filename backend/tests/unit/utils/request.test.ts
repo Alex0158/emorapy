@@ -7,6 +7,7 @@ import {
   getAuthUserIdOptional,
   getRequestId,
   getSessionId,
+  getSessionIdFromSources,
 } from '../../../src/utils/request';
 import type { Request } from 'express';
 
@@ -69,6 +70,39 @@ describe('utils/request', () => {
     it('應在 sessionId 為 undefined 時返回 undefined', () => {
       const req = mockReq();
       expect(getSessionId(req)).toBeUndefined();
+    });
+  });
+
+  describe('getSessionIdFromSources', () => {
+    it('應優先返回 header 中的 sessionId', () => {
+      const req = {
+        headers: { 'x-session-id': 'header-sid' },
+        query: { session_id: 'query-sid' },
+      } as unknown as Request;
+      const result = getSessionIdFromSources(req);
+      expect(result.sessionId).toBe('header-sid');
+      expect(result.hasConflict).toBe(true);
+    });
+
+    it('header 為 string[] 時應取第一個值', () => {
+      const req = {
+        headers: { 'x-session-id': ['sid-1', 'sid-2'] },
+        query: {},
+      } as unknown as Request;
+      const result = getSessionIdFromSources(req);
+      expect(result.headerSessionId).toBe('sid-1');
+      expect(result.sessionId).toBe('sid-1');
+      expect(result.hasConflict).toBe(false);
+    });
+
+    it('僅 query 提供時應返回 query sessionId', () => {
+      const req = {
+        headers: {},
+        query: { session_id: 'query-only' },
+      } as unknown as Request;
+      const result = getSessionIdFromSources(req);
+      expect(result.sessionId).toBe('query-only');
+      expect(result.hasConflict).toBe(false);
     });
   });
 });

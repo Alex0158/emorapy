@@ -49,10 +49,14 @@ export class ValidationUtils {
         throw Errors.VALIDATION_ERROR(`證據URL[${index}]格式錯誤`);
       }
 
+      let parsed: URL;
       try {
-        new URL(url);
+        parsed = new URL(url);
       } catch {
         throw Errors.VALIDATION_ERROR(`證據URL[${index}]格式無效`);
+      }
+      if (parsed.protocol !== 'https:') {
+        throw Errors.VALIDATION_ERROR(`證據URL[${index}]僅支持 HTTPS`);
       }
     });
   }
@@ -179,7 +183,7 @@ export const quickCaseSchema = {
     // 使用下劃線命名，與數據庫和服務層保持一致
     plaintiff_statement: Joi.string().min(30).max(2000).required(),
     defendant_statement: Joi.string().min(10).max(2000).optional().allow(null, ''),
-    evidence_urls: Joi.array().items(Joi.string().uri()).max(3).optional(),
+    evidence_urls: Joi.array().items(Joi.string().uri({ scheme: ['https'] })).max(3).optional(),
   }),
 };
 
@@ -188,7 +192,7 @@ export const createCaseSchema = {
     // 使用下劃線命名，與數據庫和服務層保持一致
     plaintiff_statement: Joi.string().min(30).max(2000).required(),
     defendant_statement: Joi.string().min(10).max(2000).optional().allow(null, ''),
-    evidence_urls: Joi.array().items(Joi.string().uri()).max(3).optional(),
+    evidence_urls: Joi.array().items(Joi.string().uri({ scheme: ['https'] })).max(3).optional(),
     pairing_id: Joi.string().pattern(uuidPattern).required(),
     title: Joi.string().max(200).optional(),
     type: Joi.string().max(50).optional(),

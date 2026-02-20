@@ -174,6 +174,7 @@ const QuickExperienceResult = () => {
         stopPolling();
       }
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, stopPolling]);
 
   const handleRetryJudgment = async () => {
@@ -219,6 +220,7 @@ const QuickExperienceResult = () => {
     }
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchJudgment(); }, [id]);
   useEffect(() => {
     if (!judgment && id && !judgmentError && caseStatus !== 'judgment_failed') {

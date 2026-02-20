@@ -3,6 +3,12 @@ import { AppError } from '../utils/errors';
 import logger from '../config/logger';
 import { env } from '../config/env';
 import { getRequestId, getAuthUserIdOptional, getSessionId } from '../utils/request';
+import crypto from 'crypto';
+
+const maskSessionId = (sessionId?: string): string | undefined => {
+  if (!sessionId) return undefined;
+  return crypto.createHash('sha256').update(sessionId).digest('hex').slice(0, 12);
+};
 
 export const errorHandler = (
   err: Error | AppError,
@@ -17,7 +23,7 @@ export const errorHandler = (
     url: req.url,
     method: req.method,
     userId: getAuthUserIdOptional(req),
-    sessionId: getSessionId(req),
+    sessionId: maskSessionId(getSessionId(req)),
   });
   
   // 處理自定義錯誤

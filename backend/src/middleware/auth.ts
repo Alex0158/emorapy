@@ -10,7 +10,7 @@ import logger from '../config/logger';
 import path from 'path';
 import crypto from 'crypto';
 import fs from 'fs/promises';
-import { getRequestId } from '../utils/request';
+import { getRequestId, getSessionIdFromSources } from '../utils/request';
 
 /**
  * JWT認證中間件（必需認證）
@@ -103,8 +103,11 @@ export const validateSession = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const sessionId = (req.query.session_id as string) || 
-                      (req.headers['x-session-id'] as string);
+    const { sessionId, hasConflict } = getSessionIdFromSources(req);
+
+    if (hasConflict) {
+      throw Errors.INVALID_SESSION_ID('Header 與 Query 的 Session ID 不一致');
+    }
     
     if (!sessionId) {
       throw Errors.SESSION_ID_REQUIRED();
@@ -183,42 +186,27 @@ export const authorizeMedia = async (
       return next();
     }
 
-    // 如果已經通過 authenticate/optionalAuthenticate，直接放行
-    if (req.user?.id) {
-      return next();
-    }
-
-    // 嘗試 Session 驗證（快速體驗）
-    const sessionId = (req.query.session_id as string) ||
-                      (req.headers['x-session-id'] as string);
-    if (sessionId && validateSessionId(sessionId)) {
-      const session = await sessionService.getSession(sessionId);
-      if (session) {
-        req.sessionId = sessionId;
-        return next();
-      }
-    }
-
     // 嘗試簽名token（文件URL簽名）
     const token = (req.query.token as string) || undefined;
     if (token) {
       try {
         const payload = jwt.verify(token, env.JWT_SECRET) as any;
-        // 簽名內容為相對路徑（如 uploads/foo.jpg），需與請求路徑匹配
         const requestedPath = (() => {
           const p = req.path.startsWith('/') ? req.path.slice(1) : req.path;
           try { return decodeURIComponent(p); } catch { return p; }
         })();
+        const requestedFile = path.basename(requestedPath);
         const hash = crypto.createHash('sha256').update(payload.f || '').digest('hex');
+        const tokenFile = typeof payload?.f === 'string' ? path.basename(payload.f) : '';
 
-        if (payload?.f && payload.h === hash && requestedPath.endsWith(payload.f)) {
+        if (tokenFile && payload.h === hash && requestedFile === tokenFile) {
           // 如有 size/mtime，進一步驗證
           if (payload.s || payload.m) {
             try {
               const uploadPath = path.isAbsolute(env.UPLOAD_DIR)
                 ? env.UPLOAD_DIR
                 : path.join(process.cwd(), env.UPLOAD_DIR);
-              const stat = await fs.stat(path.join(uploadPath, path.basename(payload.f)));
+              const stat = await fs.stat(path.join(uploadPath, tokenFile));
               if ((payload.s && stat.size !== payload.s) ||
                   (payload.m && Math.abs(stat.mtimeMs - payload.m) > 1)) {
                 throw Errors.UNAUTHORIZED('簽名已失效');
@@ -226,7 +214,7 @@ export const authorizeMedia = async (
               // 驗證內容哈希（如存在），防止同名同尺寸重放
               if (payload.ch) {
                 try {
-                  const fileBuf = await fs.readFile(path.join(uploadPath, path.basename(payload.f)));
+                  const fileBuf = await fs.readFile(path.join(uploadPath, tokenFile));
                   const contentHash = crypto.createHash('sha256').update(fileBuf).digest('hex');
                   if (contentHash !== payload.ch) {
                     throw Errors.UNAUTHORIZED('簽名已失效');
@@ -246,6 +234,57 @@ export const authorizeMedia = async (
         }
       } catch {
         // ignore and fall through
+      }
+    }
+
+    const requestedPath = (() => {
+      const p = req.path.startsWith('/') ? req.path.slice(1) : req.path;
+      try { return decodeURIComponent(p); } catch { return p; }
+    })();
+    const requestedFile = path.basename(requestedPath);
+    if (!requestedFile) {
+      throw Errors.UNAUTHORIZED('未授權的資源訪問');
+    }
+
+    // 若同時攜帶兩種來源且值不一致，直接拒絕
+    const { sessionId, hasConflict } = getSessionIdFromSources(req);
+    if (hasConflict) {
+      throw Errors.INVALID_SESSION_ID('Header 與 Query 的 Session ID 不一致');
+    }
+
+    // 嘗試 Session 驗證（快速體驗）+ 文件歸屬校驗
+    if (sessionId && validateSessionId(sessionId)) {
+      const session = await sessionService.getSession(sessionId);
+      if (session) {
+        const evidence = await prisma.evidence.findFirst({
+          where: {
+            file_url: { contains: requestedFile },
+            case: { mode: 'quick', session_id: sessionId },
+          },
+          select: { id: true },
+        });
+        if (evidence) {
+          req.sessionId = sessionId;
+          return next();
+        }
+      }
+    }
+
+    // 已登入用戶：需要校驗文件是否屬於其可訪問案件
+    if (req.user?.id) {
+      const evidence = await prisma.evidence.findFirst({
+        where: {
+          file_url: { contains: requestedFile },
+          OR: [
+            { user_id: req.user.id },
+            { case: { plaintiff_id: req.user.id } },
+            { case: { defendant_id: req.user.id } },
+          ],
+        },
+        select: { id: true },
+      });
+      if (evidence) {
+        return next();
       }
     }
 

@@ -56,14 +56,13 @@ const DecryptedText = React.memo(({ text, delay = 0 }: { text: string, delay?: n
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&*';
   
   useEffect(() => {
-    let timeout: ReturnType<typeof setTimeout>;
     let animationFrame: number;
     let isCancelled = false;
     
-    timeout = setTimeout(() => {
+    const timeout = setTimeout(() => {
       if (isCancelled) return;
-      let currentArr = Array(text.length).fill('');
-      let settled = Array(text.length).fill(false);
+      const currentArr = Array(text.length).fill('');
+      const settled = Array(text.length).fill(false);
       
       let frameCount = 0;
       const update = () => {
@@ -104,13 +103,13 @@ const DecryptedText = React.memo(({ text, delay = 0 }: { text: string, delay?: n
 });
 
 const AudioVisualizer = React.memo(() => {
-  const bars = useMemo(() => {
+  const [bars] = useState(() => {
     return [...Array(36)].map((_, i) => ({
       rotate: i * 10,
       targetHeight: 15 + Math.random() * 30,
       duration: 0.5 + Math.random() * 0.5
     }));
-  }, []);
+  });
 
   return (
     <div className="audio-visualizer">
@@ -145,6 +144,7 @@ const TypewriterText = React.memo(({
   const [isTyping, setIsTyping] = useState(true);
   
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsTyping(true);
     setDisplayedChars([]);
     
@@ -234,14 +234,14 @@ const TypewriterText = React.memo(({
 });
 
 const FloatingParticles = React.memo(() => {
-  const particles = useMemo(() => {
+  const [particles] = useState(() => {
     return [...Array(15)].map(() => ({
       x: `${Math.random() * 100}%`,
       scale: Math.random() * 0.5 + 0.5,
       duration: Math.random() * 2 + 2,
       delay: Math.random() * 2
     }));
-  }, []);
+  });
 
   return (
     <div className="particles-container">
@@ -272,7 +272,7 @@ const FloatingParticles = React.memo(() => {
 });
 
 const FloatingEmojis = React.memo(() => {
-  const emojis = useMemo(() => {
+  const [emojis] = useState(() => {
     return ['🎉', '✨', '❤️', '🤝', '🙌'].map((emoji, i) => ({
       emoji,
       targetY: -100 - Math.random() * 60,
@@ -282,7 +282,7 @@ const FloatingEmojis = React.memo(() => {
       duration: 2.5 + Math.random(),
       delay: i * 0.4
     }));
-  }, []);
+  });
 
   return (
     <div className="floating-emojis">
@@ -463,6 +463,7 @@ const PhoneSimulator = ({
 
   const [isTypingPhase, setIsTypingPhase] = useState(true);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsTypingPhase(true);
     const timer = setTimeout(() => setIsTypingPhase(false), 4500); 
     return () => clearTimeout(timer);
@@ -1020,7 +1021,11 @@ const FlowSimulation = () => {
   const [activeStep, setActiveStep] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
   const isHoveredRef = useRef(false);
-  const idleStartTimeRef = useRef(Date.now());
+  const idleStartTimeRef = useRef<number | null>(null);
+  if (idleStartTimeRef.current === null) {
+    // eslint-disable-next-line react-hooks/purity
+    idleStartTimeRef.current = Date.now();
+  }
   const [progress, setProgress] = useState(0);
 
   // Mouse tracking for parallax
@@ -1071,7 +1076,7 @@ const FlowSimulation = () => {
         accumulatedTime += delta;
         
         // Idle breathing for parallax
-        const idleElapsed = now - idleStartTimeRef.current;
+        const idleElapsed = now - (idleStartTimeRef.current || now);
         mouseX.set(Math.sin(idleElapsed / 2500) * 0.12);
         mouseY.set(Math.cos(idleElapsed / 2000) * 0.08);
       }

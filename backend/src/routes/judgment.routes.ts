@@ -14,8 +14,8 @@ const router = Router();
  */
 router.post(
   '/generate/:id',
-  aiLimiter,
   optionalAuthenticate,
+  aiLimiter,
   validate(uuidParamSchema),
   judgmentController.generateJudgment.bind(judgmentController)
 );

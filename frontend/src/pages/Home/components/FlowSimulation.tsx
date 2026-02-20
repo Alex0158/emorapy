@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { motion, AnimatePresence, useSpring, useTransform, MotionValue } from 'framer-motion';
 import {
   CheckCircleFilled,
@@ -56,7 +56,7 @@ const DecryptedText = ({ text, delay = 0 }: { text: string, delay?: number }) =>
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&*';
   
   useEffect(() => {
-    let timeout: any;
+    let timeout: ReturnType<typeof setTimeout>;
     let animationFrame: number;
     let isCancelled = false;
     
@@ -889,7 +889,7 @@ const PhoneSimulator = ({
                               <div className="task-checkbox"><CheckCircleFilled /></div>
                               <div className="task-content">
                                 <strong>分擔責任</strong>
-                                <span>主惹認領並固定負責至少一項家務</span>
+                                <span>主動認領並固定負責至少一項家務</span>
                               </div>
                             </motion.li>
                           </>
@@ -958,6 +958,7 @@ const FlowSimulation = () => {
 
   const [activeStep, setActiveStep] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
+  const isHoveredRef = useRef(false);
   const [progress, setProgress] = useState(0);
 
   // Mouse tracking for parallax
@@ -972,8 +973,16 @@ const FlowSimulation = () => {
     mouseY.set(y);
   };
 
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+    isHoveredRef.current = true;
+  };
+
   const handleMouseLeave = () => {
     setIsHovered(false);
+    isHoveredRef.current = false;
+    mouseX.set(0);
+    mouseY.set(0);
   };
 
   useEffect(() => {
@@ -981,34 +990,33 @@ const FlowSimulation = () => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
     let mounted = true;
-    let startTime = Date.now();
+    let lastFrameTime = Date.now();
+    let accumulatedTime = 0;
     let idleStartTime = Date.now();
     let animationFrameId: number;
-    
-    if (isHovered) {
-      setProgress(0);
-      return;
-    }
 
     const animateProgress = () => {
       if (!mounted) return;
       
       const now = Date.now();
+      const delta = now - lastFrameTime;
+      lastFrameTime = now;
       
-      // Idle breathing for parallax
-      const idleElapsed = now - idleStartTime;
-      mouseX.set(Math.sin(idleElapsed / 2500) * 0.12);
-      mouseY.set(Math.cos(idleElapsed / 2000) * 0.08);
+      if (!isHoveredRef.current) {
+        accumulatedTime += delta;
+        
+        // Idle breathing for parallax
+        const idleElapsed = now - idleStartTime;
+        mouseX.set(Math.sin(idleElapsed / 2500) * 0.12);
+        mouseY.set(Math.cos(idleElapsed / 2000) * 0.08);
+      }
 
-      const elapsed = now - startTime;
-      const currentProgress = Math.min((elapsed / AUTO_PLAY_MS) * 100, 100);
-      
+      const currentProgress = Math.min((accumulatedTime / AUTO_PLAY_MS) * 100, 100);
       setProgress(currentProgress);
 
-      if (elapsed >= AUTO_PLAY_MS) {
+      if (accumulatedTime >= AUTO_PLAY_MS) {
         setActiveStep(prev => (prev + 1) % steps.length);
-        startTime = Date.now();
-        setProgress(0);
+        accumulatedTime = 0;
       }
       
       animationFrameId = requestAnimationFrame(animateProgress);
@@ -1020,7 +1028,7 @@ const FlowSimulation = () => {
       mounted = false;
       cancelAnimationFrame(animationFrameId);
     };
-  }, [steps.length, isHovered, activeStep, mouseX, mouseY]);
+  }, [steps.length, activeStep, mouseX, mouseY]);
 
   const getStreamDirectionClass = (step: number) => {
     if (step === 0) return 'flow-a-to-b';
@@ -1035,7 +1043,7 @@ const FlowSimulation = () => {
       className="flow-demo-section-v3" 
       aria-labelledby="flow-demo-title"
       onMouseMove={handleMouseMove}
-      onMouseEnter={() => setIsHovered(true)}
+      onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
       {/* 科技感背景網格與漸層 SVG 定義 */}

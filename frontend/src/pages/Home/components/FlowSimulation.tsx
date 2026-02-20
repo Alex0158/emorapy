@@ -62,56 +62,73 @@ const TypewriterText = ({
   speed?: number; 
   className?: string 
 }) => {
+  const [displayedChars, setDisplayedChars] = useState<string[]>([]);
   const [isTyping, setIsTyping] = useState(true);
   
   useEffect(() => {
     setIsTyping(true);
-    const timer = setTimeout(() => setIsTyping(false), typingDelay * 1000);
-    return () => clearTimeout(timer);
-  }, [typingDelay, text]);
+    setDisplayedChars([]);
+    
+    let isCancelled = false;
+    
+    const runTyping = async () => {
+      await new Promise(r => setTimeout(r, typingDelay * 1000));
+      if (isCancelled) return;
+      setIsTyping(false);
 
-  const characters = text.split('');
-  
+      const chars = Array.from(text);
+      let currentChars: string[] = [];
+
+      for (let i = 0; i < chars.length; i++) {
+        if (isCancelled) return;
+        
+        const char = chars[i];
+        if (char === '\b') {
+          await new Promise(r => setTimeout(r, speed * 1000 * 6));
+          currentChars = currentChars.slice(0, -1);
+          setDisplayedChars([...currentChars]);
+          await new Promise(r => setTimeout(r, speed * 1000 * 4));
+        } else {
+          currentChars.push(char);
+          setDisplayedChars([...currentChars]);
+          const variableSpeed = speed * 1000 * (0.3 + Math.random() * 1.5);
+          await new Promise(r => setTimeout(r, variableSpeed));
+        }
+      }
+    };
+    
+    runTyping();
+    return () => { isCancelled = true; };
+  }, [typingDelay, text, speed]);
+
   if (isTyping) {
     return <TypingIndicator />;
   }
 
   return (
-    <motion.span
-      className={className}
-      initial="hidden"
-      animate="visible"
-      variants={{
-        visible: {
-          transition: { staggerChildren: speed }
-        }
-      }}
-    >
-      {characters.map((char, index) => (
+    <span className={className}>
+      {displayedChars.map((char, index) => (
         <motion.span 
-          key={index} 
-          variants={{ 
-            hidden: { opacity: 0, filter: 'blur(4px)' }, 
-            visible: { 
-              opacity: 1, 
-              filter: 'blur(0px)',
-              textShadow: ['0 0 10px rgba(255,140,66,0.6)', '0 0 0px transparent'],
-              transition: { textShadow: { duration: 1 } }
-            } 
+          key={`${index}-${char}`} 
+          initial={{ opacity: 0, filter: 'blur(2px)', color: '#ff8c42' }}
+          animate={{ 
+            opacity: 1, 
+            filter: 'blur(0px)',
+            color: 'inherit'
           }}
+          transition={{ duration: 0.1 }}
         >
           {char}
         </motion.span>
       ))}
       <motion.span
-        initial={{ opacity: 0 }}
         animate={{ opacity: [0, 1, 0] }}
-        transition={{ repeat: Infinity, duration: 0.8, delay: characters.length * speed }}
+        transition={{ repeat: Infinity, duration: 0.8 }}
         className="typing-cursor"
       >
         |
       </motion.span>
-    </motion.span>
+    </span>
   );
 };
 
@@ -167,6 +184,69 @@ const FloatingEmojis = () => (
     ))}
   </div>
 );
+
+const FloatingKeywords = () => {
+  const words = ['家務', '委屈', '期待', '壓力', '溝通', '理解'];
+  return (
+    <div className="floating-keywords">
+      {words.map((word, i) => {
+        const angle = (i / words.length) * Math.PI * 2;
+        const radius = 90;
+        const startX = Math.cos(angle) * radius;
+        const startY = Math.sin(angle) * radius;
+        
+        return (
+          <motion.div
+            key={i}
+            className="keyword-bubble"
+            initial={{ x: startX, y: startY, opacity: 0, scale: 0 }}
+            animate={{ 
+              x: [startX, startX * 0.4, 0], 
+              y: [startY, startY * 0.4, 0], 
+              opacity: [0, 1, 0],
+              scale: [0, 1, 0.5]
+            }}
+            transition={{ 
+              duration: 2.5, 
+              repeat: Infinity, 
+              delay: i * 0.7,
+              ease: "easeInOut"
+            }}
+          >
+            {word}
+          </motion.div>
+        );
+      })}
+    </div>
+  );
+};
+
+const GhostFinger = ({ progress, triggerProgress, theme = 'orange' }: { progress: number, triggerProgress: number, theme?: 'orange' | 'blue' }) => {
+  const isActive = progress > triggerProgress - 10 && progress < triggerProgress + 3;
+  const isPressing = progress >= triggerProgress - 1 && progress < triggerProgress + 2;
+
+  return (
+    <AnimatePresence>
+      {isActive && (
+        <motion.div
+          className={`ghost-finger theme-${theme}`}
+          initial={{ opacity: 0, x: 20, y: 30, scale: 1.2 }}
+          animate={{ 
+            opacity: isPressing ? 0.8 : 0.5, 
+            x: 0, 
+            y: 0, 
+            scale: isPressing ? 0.8 : 1 
+          }}
+          exit={{ opacity: 0, scale: 1.1 }}
+          transition={{ duration: 0.2 }}
+        >
+          <div className="finger-ring" />
+          <div className="finger-core" />
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+};
 
 const AnimatedNumber = ({ value }: { value: number }) => {
   const [count, setCount] = useState(0);
@@ -233,6 +313,8 @@ const PhoneSimulator = ({
 
   const buttonState = progress < 75 ? 'idle' : progress < 92 ? 'loading' : 'success';
 
+  const isShaking = activeStep === 0 && !isA && progress > 64 && progress < 66;
+
   return (
     <motion.div 
       className={`phone-mockup role-${role.toLowerCase()} ${isActiveRole ? 'is-active-phone' : ''}`}
@@ -240,9 +322,14 @@ const PhoneSimulator = ({
       animate={{ 
         scale: isActiveRole ? 1 : 0.94,
         opacity: isActiveRole ? 1 : 0.7,
-        filter: isActiveRole ? 'grayscale(0%)' : 'grayscale(20%)'
+        filter: isActiveRole ? 'grayscale(0%)' : 'grayscale(20%)',
+        x: isShaking ? [-4, 4, -4, 4, 0] : 0
       }}
-      transition={{ duration: 0.5, type: 'spring', bounce: 0.3 }}
+      transition={{ 
+        duration: isShaking ? 0.3 : 0.5, 
+        type: isShaking ? 'tween' : 'spring', 
+        bounce: 0.3 
+      }}
     >
       <div className="phone-frame">
         <div className={`phone-notch ${activeStep === 2 || (activeStep === 0 && !isA) ? 'notch-expanded' : ''}`}>
@@ -292,7 +379,7 @@ const PhoneSimulator = ({
                           <label>我的感受與觀點 <span className="label-tag secret">AI 將保密處理</span></label>
                           <div className={`fake-textarea ${isTypingPhase ? 'is-typing' : ''}`}>
                             <TypewriterText 
-                              text="我覺得家務分配不平衡，累積很多委屈，你總是忽視我的付出。" 
+                              text="我覺得家務分配不鈞\b均，累積很多委屈，你總是忽視我的付出。" 
                               typingDelay={1.5} 
                               speed={0.05}
                               className="multiline"
@@ -301,6 +388,7 @@ const PhoneSimulator = ({
                         </div>
                       </div>
                       <div className="scene-actions glass-bottom">
+                        <GhostFinger progress={progress} triggerProgress={75} />
                         <motion.button 
                           layout
                           className={`btn-primary ${buttonState === 'success' ? 'is-success' : ''}`}
@@ -436,7 +524,7 @@ const PhoneSimulator = ({
                           <label>我的感受與觀點 <span className="label-tag secret">AI 將保密處理</span></label>
                           <div className={`fake-textarea theme-blue ${isTypingPhase ? 'is-typing' : ''}`}>
                             <TypewriterText 
-                              text="我以為你只是偶爾抱怨，沒意識到你真的很在意，我工作也很累。" 
+                              text="我以為你只是在發牢騷\b\b\b偶爾抱怨，沒意識到你真的很在意，我工作也很累。" 
                               typingDelay={1.5} 
                               speed={0.05}
                               className="multiline"
@@ -445,6 +533,7 @@ const PhoneSimulator = ({
                         </div>
                       </div>
                       <div className="scene-actions glass-bottom">
+                        <GhostFinger progress={progress} triggerProgress={75} theme="blue" />
                         <motion.button 
                           layout
                           className={`btn-primary theme-blue ${buttonState === 'success' ? 'is-success' : ''}`}
@@ -499,6 +588,7 @@ const PhoneSimulator = ({
                   </div>
                   <div className="analyzing-content">
                     <div className="ai-brain-container">
+                      <FloatingKeywords />
                       <motion.div 
                         className="ai-brain-core"
                         animate={{ 

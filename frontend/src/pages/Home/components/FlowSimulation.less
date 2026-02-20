@@ -1455,4 +1455,78 @@
 
   @keyframes spin { 100% { transform: rotate(360deg); } }
   @keyframes spin-reverse { 100% { transform: rotate(-360deg); } }
+
+  .scene-actions {
+    position: relative;
+  }
+
+  .ghost-finger {
+    position: absolute;
+    right: 20%;
+    top: 50%;
+    margin-top: -20px;
+    width: 40px; height: 40px;
+    pointer-events: none;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    .finger-ring {
+      position: absolute;
+      width: 32px; height: 32px;
+      background: rgba(255, 140, 66, 0.2);
+      border: 2px solid rgba(255, 140, 66, 0.6);
+      border-radius: 50%;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      animation: finger-pulse 1.5s infinite;
+    }
+    
+    .finger-core {
+      position: absolute;
+      width: 12px; height: 12px;
+      background: rgba(255, 140, 66, 0.9);
+      border-radius: 50%;
+    }
+  }
+
+  @keyframes finger-pulse {
+    0% { transform: scale(0.8); opacity: 0.8; }
+    100% { transform: scale(1.5); opacity: 0; }
+  }
+
+  .theme-blue.ghost-finger {
+    .finger-ring {
+      background: rgba(59, 130, 246, 0.2);
+      border-color: rgba(59, 130, 246, 0.6);
+    }
+    .finger-core {
+      background: rgba(59, 130, 246, 0.9);
+    }
+  }
+
+  .floating-keywords {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 0; height: 0;
+    z-index: 15;
+    pointer-events: none;
+
+    .keyword-bubble {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      background: rgba(255,255,255,0.15);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.3);
+      padding: 4px 10px;
+      border-radius: 12px;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    }
+  }
 }

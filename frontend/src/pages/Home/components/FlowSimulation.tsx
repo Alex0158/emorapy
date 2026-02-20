@@ -409,7 +409,7 @@ const PhoneSimulator = ({
 
   const buttonState = progress < 75 ? 'idle' : progress < 92 ? 'loading' : 'success';
 
-  const isShaking = activeStep === 0 && !isA && progress > 64 && progress < 66;
+  const isShaking = activeStep === 0 && !isA && progress > 64 && progress < 68;
 
   return (
     <motion.div 
@@ -1009,7 +1009,8 @@ const FlowSimulation = () => {
       if (!mounted) return;
       
       const now = Date.now();
-      const delta = now - lastFrameTime;
+      // Cap delta at 100ms to prevent huge jumps when the tab is backgrounded
+      const delta = Math.min(now - lastFrameTime, 100);
       lastFrameTime = now;
       
       if (!isHoveredRef.current) {

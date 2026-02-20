@@ -58,16 +58,16 @@ vi.mock('antd', () => {
     Typography: { Text: ({ children }: { children: React.ReactNode }) => <span>{children}</span> },
     Spin: ({ description }: { description?: string }) => <div>{description || 'spin'}</div>,
     Alert: ({
-      title,
+      message,
       description,
       action,
     }: {
-      title: React.ReactNode;
+      message: React.ReactNode;
       description?: React.ReactNode;
       action?: React.ReactNode;
     }) => (
       <div>
-        <div>{title}</div>
+        <div>{message}</div>
         <div>{description}</div>
         <div>{action}</div>
       </div>
@@ -218,11 +218,11 @@ describe('QuickExperienceResult', () => {
     expect(screen.getByText('SummarySection')).toBeInTheDocument();
   });
 
-  it('isLoading 且尚無判決時應顯示 skeleton', async () => {
+  it('isLoading 且尚無判決時應顯示分析中動畫', async () => {
     mockUseJudgmentStore.isLoading = true;
     mockGetJudgmentByCaseId.mockResolvedValueOnce(null);
     renderWithRoute('/quick-experience/result/case-1');
-    expect(await screen.findByText('skeleton')).toBeInTheDocument();
+    expect(await screen.findByText(/AI 心理師深度分析中/)).toBeInTheDocument();
   });
 
   it('store error 且尚無判決時應顯示錯誤並可返回創建頁', async () => {
@@ -384,7 +384,7 @@ describe('QuickExperienceResult', () => {
     });
   });
 
-  it('JUDGMENT_FAILED 且空 message/無 failure reason 時應顯示 judgmentUnavailable', async () => {
+  it('JUDGMENT_FAILED 且空 message/無 failure reason 時應顯示 retryOrLater', async () => {
     mockGetCase.mockResolvedValueOnce({
       id: 'case-1',
       status: 'completed',
@@ -393,7 +393,7 @@ describe('QuickExperienceResult', () => {
     });
     mockGetJudgmentByCaseId.mockRejectedValueOnce({ code: 'JUDGMENT_FAILED', message: '' });
     renderWithRoute('/quick-experience/result/case-1');
-    expect(await screen.findByText('message.judgmentUnavailable')).toBeInTheDocument();
+    expect(await screen.findByText('message.retryOrLater')).toBeInTheDocument();
   });
 
   it('JUDGMENT_FAILED 缺少 message 時應顯示 judgmentRetryHint fallback', async () => {
@@ -426,10 +426,6 @@ describe('QuickExperienceResult', () => {
     await waitFor(() => {
       expect(mockGenerateJudgment).toHaveBeenCalledWith('case-1', 'session-case-1');
     });
-
-    const backBtn = screen.getByText('pending.long.action.back');
-    fireEvent.click(backBtn);
-    expect(mockNavigate).toHaveBeenCalledWith('/quick-experience/create');
   });
 
   it('證據上傳缺少 sessionId 時應報錯且不調 uploadEvidence', async () => {
@@ -544,11 +540,11 @@ describe('QuickExperienceResult', () => {
     expect(await screen.findByText('ResponsibilitySection')).toBeInTheDocument();
   });
 
-  it('ActionsSection 的按鈕應可導向註冊與返回創建頁', async () => {
+  it('主要按鈕應可導向註冊與返回創建頁', async () => {
     renderWithRoute('/quick-experience/result/case-1');
-    fireEvent.click(await screen.findByText('go-register'));
+    fireEvent.click(await screen.findByText(/register\.action\.now/));
     expect(mockNavigate).toHaveBeenCalledWith('/auth/register');
-    fireEvent.click(screen.getByText('go-create'));
+    fireEvent.click(screen.getByText(/quickCreate\.recoveredCase\.startNew/));
     expect(mockNavigate).toHaveBeenCalledWith('/quick-experience/create');
   });
 

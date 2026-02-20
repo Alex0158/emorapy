@@ -83,9 +83,10 @@ describe('Home', () => {
       </MemoryRouter>
     );
     expect(screen.getByText('模擬實際使用流程')).toBeInTheDocument();
-    expect(screen.getByText('輸入雙方陳述')).toBeInTheDocument();
-    expect(screen.getByText('你會得到的幫助')).toBeInTheDocument();
-    expect(screen.getByText('四步走出惡性循環')).toBeInTheDocument();
+    expect(screen.getByText('發起溝通')).toBeInTheDocument();
+    expect(screen.getByText('雙向聆聽')).toBeInTheDocument();
+    expect(screen.getByText('心理師分析')).toBeInTheDocument();
+    expect(screen.getByText('個別開解')).toBeInTheDocument();
   });
 
   it('應顯示跳過到主要內容連結', () => {

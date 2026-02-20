@@ -52,3 +52,12 @@ if (typeof globalThis.ResizeObserver !== 'function') {
     disconnect: vi.fn(),
   })) as unknown as typeof ResizeObserver;
 }
+
+if (typeof globalThis.IntersectionObserver !== 'function') {
+  globalThis.IntersectionObserver = vi.fn().mockImplementation(() => ({
+    observe: vi.fn(),
+    unobserve: vi.fn(),
+    disconnect: vi.fn(),
+    takeRecords: vi.fn(),
+  })) as unknown as typeof IntersectionObserver;
+}

@@ -72,11 +72,11 @@ describe('constants', () => {
 
   describe('COLORS', () => {
     it('應包含品牌色與語義色', () => {
-      expect(COLORS.primary).toBe('#FF8C42');
-      expect(COLORS.secondary).toBe('#5B9BD5');
-      expect(COLORS.success).toBe('#52C41A');
-      expect(COLORS.warning).toBe('#FAAD14');
-      expect(COLORS.error).toBe('#FF4D4F');
+      expect(COLORS.primary).toBe('#FF8E5E');
+      expect(COLORS.secondary).toBe('#5BB1D2');
+      expect(COLORS.success).toBe('#4ADE80');
+      expect(COLORS.warning).toBe('#FBBF24');
+      expect(COLORS.error).toBe('#F87171');
     });
   });
 

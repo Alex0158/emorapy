@@ -35,6 +35,6 @@ describe('Header', () => {
         <Header />
       </MemoryRouter>
     );
-    expect(screen.getByText('登入')).toBeInTheDocument();
+    expect(screen.getByText('登錄')).toBeInTheDocument();
   });
 });

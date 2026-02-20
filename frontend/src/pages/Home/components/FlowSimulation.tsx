@@ -38,7 +38,7 @@ const getTimeForStep = (step: number) => {
   return ['09:41', '09:43', '09:48', '09:55', '10:02'][step] || '09:41';
 };
 
-const TypingIndicator = () => (
+const TypingIndicator = React.memo(() => (
   <motion.div 
     className="typing-indicator"
     initial={{ opacity: 0 }}
@@ -49,9 +49,9 @@ const TypingIndicator = () => (
     <motion.span animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0.2 }} className="dot" />
     <motion.span animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0.4 }} className="dot" />
   </motion.div>
-);
+));
 
-const DecryptedText = ({ text, delay = 0 }: { text: string, delay?: number }) => {
+const DecryptedText = React.memo(({ text, delay = 0 }: { text: string, delay?: number }) => {
   const [displayText, setDisplayedText] = useState('');
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&*';
   
@@ -71,16 +71,21 @@ const DecryptedText = ({ text, delay = 0 }: { text: string, delay?: number }) =>
         frameCount++;
         let allSettled = true;
         
-        for (let i=0; i<text.length; i++) {
-          if (!settled[i]) {
-            allSettled = false;
-            if (frameCount % 3 === 0 && Math.random() < 0.15) {
-              settled[i] = true;
+        if (frameCount % 4 === 0) {
+          for (let i=0; i<text.length; i++) {
+            if (!settled[i]) {
+              allSettled = false;
+              if (Math.random() < 0.2) {
+                settled[i] = true;
+              }
+              currentArr[i] = settled[i] ? text[i] : chars[Math.floor(Math.random() * chars.length)];
             }
-            currentArr[i] = settled[i] ? text[i] : chars[Math.floor(Math.random() * chars.length)];
           }
+          setDisplayedText(currentArr.join(''));
+        } else {
+          allSettled = settled.every(s => s);
         }
-        setDisplayedText(currentArr.join(''));
+        
         if (!allSettled) {
           animationFrame = requestAnimationFrame(update);
         }
@@ -95,14 +100,14 @@ const DecryptedText = ({ text, delay = 0 }: { text: string, delay?: number }) =>
     };
   }, [text, delay]);
   
-  return <span>{displayText || '...'}</span>;
-};
+  return <span style={{ fontFamily: 'monospace', letterSpacing: '0.5px' }}>{displayText || '...'}</span>;
+});
 
-const AudioVisualizer = () => {
+const AudioVisualizer = React.memo(() => {
   const bars = useMemo(() => {
     return [...Array(36)].map((_, i) => ({
       rotate: i * 10,
-      targetHeight: `${15 + Math.random() * 30}px`,
+      targetHeight: 15 + Math.random() * 30,
       duration: 0.5 + Math.random() * 0.5
     }));
   }, []);
@@ -113,17 +118,17 @@ const AudioVisualizer = () => {
         <div key={i} style={{ position: 'absolute', transform: `rotate(${bar.rotate}deg)` }}>
           <motion.div
             className="bar"
-            animate={{ height: ['10px', bar.targetHeight, '10px'] }}
+            style={{ y: -50, height: bar.targetHeight }}
+            animate={{ scaleY: [0.3, 1, 0.3] }}
             transition={{ repeat: Infinity, duration: bar.duration, ease: "easeInOut" }}
-            style={{ y: -50 }}
           />
         </div>
       ))}
     </div>
   );
-};
+});
 
-const TypewriterText = ({ 
+const TypewriterText = React.memo(({ 
   text, 
   typingDelay = 1.0, 
   speed = 0.04, 
@@ -226,9 +231,9 @@ const TypewriterText = ({
       </motion.span>
     </span>
   );
-};
+});
 
-const FloatingParticles = () => {
+const FloatingParticles = React.memo(() => {
   const particles = useMemo(() => {
     return [...Array(15)].map(() => ({
       x: `${Math.random() * 100}%`,
@@ -264,9 +269,9 @@ const FloatingParticles = () => {
       ))}
     </div>
   );
-};
+});
 
-const FloatingEmojis = () => {
+const FloatingEmojis = React.memo(() => {
   const emojis = useMemo(() => {
     return ['🎉', '✨', '❤️', '🤝', '🙌'].map((emoji, i) => ({
       emoji,
@@ -304,9 +309,9 @@ const FloatingEmojis = () => {
       ))}
     </div>
   );
-};
+});
 
-const FloatingKeywords = () => {
+const FloatingKeywords = React.memo(() => {
   const keywords = useMemo(() => {
     const words = ['家務', '委屈', '期待', '壓力', '溝通', '理解'];
     return words.map((word, i) => {
@@ -348,7 +353,7 @@ const FloatingKeywords = () => {
       ))}
     </div>
   );
-};
+});
 
 const GhostFinger = ({ progress, triggerProgress, theme = 'orange' }: { progress: number, triggerProgress: number, theme?: 'orange' | 'blue' }) => {
   const isActive = progress > triggerProgress - 10 && progress < triggerProgress + 3;
@@ -413,6 +418,21 @@ const AnimatedNumber = ({ value }: { value: number }) => {
 
   return <span>{count}%</span>;
 };
+
+const AIBrainCore = React.memo(() => (
+  <motion.div 
+    className="ai-brain-core"
+    animate={{ 
+      scale: [1, 1.15, 1],
+      boxShadow: [
+        "0 0 20px rgba(255,140,66,0.4)",
+        "0 0 50px rgba(255,140,66,0.8)",
+        "0 0 20px rgba(255,140,66,0.4)"
+      ]
+    }}
+    transition={{ duration: 1.5, repeat: Infinity }}
+  />
+));
 
 const PhoneSimulator = ({ 
   role, 
@@ -730,18 +750,7 @@ const PhoneSimulator = ({
                     <div className="ai-brain-container">
                       <FloatingKeywords />
                       <AudioVisualizer />
-                      <motion.div 
-                        className="ai-brain-core"
-                        animate={{ 
-                          scale: [1, 1.15, 1],
-                          boxShadow: [
-                            "0 0 20px rgba(255,140,66,0.4)",
-                            "0 0 50px rgba(255,140,66,0.8)",
-                            "0 0 20px rgba(255,140,66,0.4)"
-                          ]
-                        }}
-                        transition={{ duration: 1.5, repeat: Infinity }}
-                      />
+                      <AIBrainCore />
                       <div className="orbit orbit-1"></div>
                       <div className="orbit orbit-2"></div>
                       <div className="orbit orbit-3"></div>

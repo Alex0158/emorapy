@@ -1,11 +1,11 @@
 /**
- * 快速體驗 - 創建案件頁面（優化版）
+ * 快速體驗 - 創建案件頁面（極致美學版）
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Card,
   Button,
   Progress,
   Space,
@@ -15,9 +15,7 @@ import {
   message,
   Alert,
 } from 'antd';
-import {
-  LockOutlined,
-} from '@ant-design/icons';
+import { LockOutlined } from '@ant-design/icons';
 import { useSessionStore } from '@/store/sessionStore';
 import { useCaseStore } from '@/store/caseStore';
 import { getCaseBySessionId } from '@/services/api/case';
@@ -29,7 +27,6 @@ import StatementInput from '@/components/business/StatementInput';
 import FileUpload from '@/components/business/FileUpload';
 import KeyboardShortcuts from '@/components/common/KeyboardShortcuts';
 import GuideTooltip from '@/components/common/GuideTooltip';
-import AnimatedWrapper from '@/components/common/AnimatedWrapper';
 import { useWindowSize } from '@/hooks/useWindowSize';
 import { useKeyboardNavigation } from '@/hooks/useAccessibility';
 import type { UploadFile } from 'antd/es/upload/interface';
@@ -38,7 +35,6 @@ import { t } from '@/utils/i18n';
 import './Create.less';
 
 const { Title, Text } = Typography;
-
 const DRAFT_STORAGE_KEY = 'quick_case_draft';
 
 interface CaseDraft {
@@ -53,9 +49,8 @@ const QuickExperienceCreate = () => {
   const { createQuickCase, isLoading } = useCaseStore();
 
   const { width } = useWindowSize();
-  // 布局模式：'horizontal' | 'vertical'（根據屏幕寬度自動切換）
   const [layoutMode, setLayoutMode] = useState<'horizontal' | 'vertical'>(
-    width >= 768 ? 'horizontal' : 'vertical'
+    width >= 1024 ? 'horizontal' : 'vertical'
   );
   const [plaintiffStatement, setPlaintiffStatement] = useState('');
   const [defendantStatement, setDefendantStatement] = useState('');
@@ -66,24 +61,17 @@ const QuickExperienceCreate = () => {
   const [recoveredCase, setRecoveredCase] = useState<{ id: string; status: string } | null>(null);
   const submitLockRef = useRef(false);
 
-  // 根據屏幕寬度自動切換布局
   useEffect(() => {
-    setLayoutMode(width >= 768 ? 'horizontal' : 'vertical');
+    setLayoutMode(width >= 1024 ? 'horizontal' : 'vertical');
   }, [width]);
 
-  // 初始化Session
   useEffect(() => {
-    // 僅在創建頁主動處理 Session（避免覆蓋舊 session_id）
     const existingSessionId = sessionStorage.get() || session?.session_id;
     if (!existingSessionId) {
-      createSession().catch(() => {
-        // Session創建失敗，靜默處理（用戶仍可繼續使用）
-      });
+      createSession().catch(() => {});
     }
   }, [session, createSession]);
 
-  // 刷新找回案件：若有 sessionId 且後端有對應案件，提示「繼續查看」
-  // 404 時 getCaseBySessionId 已 return null 不拋錯；401 由 request 攔截器統一 clearSession + refreshSession，此處僅靜默吞錯
   useEffect(() => {
     const sessionId = sessionStorage.get() || session?.session_id;
     if (!sessionId) return;
@@ -96,7 +84,6 @@ const QuickExperienceCreate = () => {
       .catch(() => {});
   }, [session?.session_id]);
 
-  // 自動保存草稿
   useEffect(() => {
     const timer = setInterval(() => {
       if (plaintiffStatement || defendantStatement) {
@@ -109,80 +96,59 @@ const QuickExperienceCreate = () => {
         setAutoSaveStatus('saved');
         setTimeout(() => setAutoSaveStatus(null), 3000);
       }
-    }, 30000); // 每30秒保存一次
-
-    return () => {
-      clearInterval(timer);
-    };
+    }, 30000);
+    return () => clearInterval(timer);
   }, [plaintiffStatement, defendantStatement, evidenceFiles]);
 
-  // 恢復草稿
   useEffect(() => {
     const draft = localStore.get<CaseDraft>(DRAFT_STORAGE_KEY);
     if (draft) {
       setPlaintiffStatement(draft.plaintiffStatement || '');
       setDefendantStatement(draft.defendantStatement || '');
-      // 證據文件需要重新上傳，不恢復
     }
   }, []);
 
-  // 計算完成度
   const calculateProgress = useCallback(() => {
     let progress = 0;
     const plaintiffValid = validateStatement(plaintiffStatement).valid;
     const defendantLen = defendantStatement.trim().length;
-    const defendantValid = defendantLen === 0
-      ? true
-      : defendantLen >= MIN_DEFENDANT_LENGTH;
-
+    const defendantValid = defendantLen === 0 ? true : defendantLen >= MIN_DEFENDANT_LENGTH;
     if (plaintiffValid) progress += 70;
     if (defendantValid) progress += 30;
-
     return Math.min(progress, 100);
   }, [plaintiffStatement, defendantStatement]);
 
   const progress = calculateProgress();
   const canSubmit = validateStatement(plaintiffStatement).valid;
 
-  // 鍵盤快捷鍵（使用useMemo優化）
-  const shortcuts = useMemo(
-    () => [
-      {
-        key: 'ctrl+s',
-        description: t('message.shortcutSaveDraft'),
-        action: () => {
-          const draft: CaseDraft = {
-            plaintiffStatement,
-            defendantStatement,
-            evidenceUrls: evidenceFiles.map((f: { url?: string }) => f.url || '').filter(Boolean),
-          };
-          localStore.set(DRAFT_STORAGE_KEY, draft);
-          message.success(t('message.draftSaved'));
-        },
+  const shortcuts = useMemo(() => [
+    {
+      key: 'ctrl+s',
+      description: t('message.shortcutSaveDraft'),
+      action: () => {
+        const draft: CaseDraft = {
+          plaintiffStatement,
+          defendantStatement,
+          evidenceUrls: evidenceFiles.map((f: { url?: string }) => f.url || '').filter(Boolean),
+        };
+        localStore.set(DRAFT_STORAGE_KEY, draft);
+        message.success(t('message.draftSaved'));
       },
-      {
-        key: 'ctrl+enter',
-        description: t('message.shortcutSubmit'),
-        action: () => {
-          if (canSubmit) {
-            handleSubmit();
-          }
-        },
+    },
+    {
+      key: 'ctrl+enter',
+      description: t('message.shortcutSubmit'),
+      action: () => {
+        if (canSubmit) handleSubmit();
       },
-    ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleSubmit 不進 deps 避免重建表單配置
-    [plaintiffStatement, defendantStatement, evidenceFiles, canSubmit]
-  );
+    },
+  ], [plaintiffStatement, defendantStatement, evidenceFiles, canSubmit]);
 
-  // 模板 & 代寫
-  const templates = useMemo(
-    () => [
-      t('quickCreate.template1'),
-      t('quickCreate.template2'),
-      t('quickCreate.template3'),
-    ],
-    []
-  );
+  const templates = useMemo(() => [
+    t('quickCreate.template1'),
+    t('quickCreate.template2'),
+    t('quickCreate.template3'),
+  ], []);
 
   const applyTemplate = (text: string, target: 'plaintiff' | 'defendant') => {
     if (target === 'plaintiff') setPlaintiffStatement(text);
@@ -201,27 +167,13 @@ const QuickExperienceCreate = () => {
       setDefendantStatement(draft);
       setIsGeneratingDefendant(false);
       message.success(t('message.defendantDraftDone'));
-    }, 300);
+    }, 600);
   };
 
-  // 鍵盤導航支持
-  useKeyboardNavigation(
-    () => {
-      if (canSubmit) {
-        handleSubmit();
-      }
-    },
-    undefined,
-    undefined,
-    undefined,
-    canSubmit
-  );
+  useKeyboardNavigation(() => { if (canSubmit) handleSubmit(); }, undefined, undefined, undefined, canSubmit);
 
-  // 處理提交
   const handleSubmit = async () => {
-    if (submitLockRef.current) {
-      return;
-    }
+    if (submitLockRef.current) return;
     if (!canSubmit) {
       message.warning(t('message.completePlaintiff'));
       return;
@@ -233,27 +185,20 @@ const QuickExperienceCreate = () => {
         await createSession().catch(() => {});
       }
 
-      // 創建案件（快速體驗模式）
       const result = await createQuickCase({
         plaintiff_statement: plaintiffStatement.trim(),
         defendant_statement: defendantStatement.trim() || '',
-        evidence_urls: [], // 證據將在案件創建後上傳
+        evidence_urls: [],
       });
 
-      // 如果返回了session_id，更新Session 並保存 caseId->sessionId 映射（支援多案件回訪）
       if (result.session_id) {
         sessionStorage.set(result.session_id);
         caseSessionMap.set(result.case.id, result.session_id);
-        // 同步 Session Store（後端回傳 expires_at，避免 24h/7d 延長不一致）
         if (result.session_expires_at) {
-          setSession({
-            session_id: result.session_id,
-            expires_at: result.session_expires_at,
-          });
+          setSession({ session_id: result.session_id, expires_at: result.session_expires_at });
         }
       }
 
-      // 如果有證據文件，上傳證據
       const filesToUpload = evidenceFiles
         .filter((f): f is UploadFile & { originFileObj: File } => Boolean(f?.originFileObj))
         .map((f) => f.originFileObj);
@@ -261,312 +206,269 @@ const QuickExperienceCreate = () => {
       if (filesToUpload.length > 0) {
         try {
           const { uploadEvidence } = await import('@/services/api/case');
-          // 優先使用返回的session_id，否則使用store中的session
           const sessionIdToUse = result.session_id || sessionStorage.get() || session?.session_id;
-          
-          if (!sessionIdToUse) {
-            message.warning(t('message.sessionIdMissing'));
-            return;
+          if (sessionIdToUse) {
+            await uploadEvidence(result.case.id, filesToUpload as File[], sessionIdToUse);
           }
-          
-          await uploadEvidence(result.case.id, filesToUpload as File[], sessionIdToUse);
-          message.success(t('message.evidenceUploadSuccess'));
         } catch (uploadError: unknown) {
-          // 證據上傳失敗不阻止流程，只提示
-          // 標記結果頁可補傳證據
           localStorage.setItem(`pending_evidence_${result.case.id}`, 'true');
-          const msg = uploadError instanceof Error ? uploadError.message : t('message.evidenceUploadFailCaseCreated');
-          message.warning(msg);
         }
       }
 
-      // 清除草稿
       localStore.remove(DRAFT_STORAGE_KEY);
-
-      // 跳轉到判決結果頁面（使用案件ID）
       navigate(`/quick-experience/result/${result.case.id}`);
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : t('message.submitFail');
-      message.error(msg);
+      message.error(error instanceof Error ? error.message : t('message.submitFail'));
     } finally {
       submitLockRef.current = false;
     }
   };
 
-
   return (
     <>
-      <SEO
-        title={t('quickCreate.title')}
-        description={t('quickCreate.description')}
-        keywords={t('quickCreate.keywords')}
-      />
-      <div className="quick-experience-create" role="main" aria-label={t('quickCreate.pageLabel')}>
-        <a href="#input-section" className="skip-link">
-          {t('quickCreate.skipToInput')}
-        </a>
+      <SEO title={t('quickCreate.title')} description={t('quickCreate.description')} keywords={t('quickCreate.keywords')} />
+      
+      <div className="quick-experience-create">
+        <a href="#input-section" className="skip-link">{t('quickCreate.skipToInput')}</a>
 
-        {recoveredCase && (
-          <Alert
-            title={t('quickCreate.recoveredCase.title')}
-            description={t('quickCreate.recoveredCase.desc')}
-            type="info"
-            showIcon
-            action={
-              <Space>
-                <Button size="small" type="primary" onClick={() => navigate(`/quick-experience/result/${recoveredCase.id}`)}>
-                  {t('quickCreate.recoveredCase.continue')}
-                </Button>
-                <Button size="small" onClick={() => setRecoveredCase(null)}>
-                  {t('quickCreate.recoveredCase.startNew')}
-                </Button>
-              </Space>
-            }
-            closable
-            onClose={() => setRecoveredCase(null)}
-            style={{ marginBottom: 16 }}
-          />
-        )}
+        <AnimatePresence>
+          {recoveredCase && (
+            <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="container" style={{ paddingTop: 24 }}>
+              <Alert
+                title={t('quickCreate.recoveredCase.title')}
+                description={t('quickCreate.recoveredCase.desc')}
+                type="info"
+                showIcon
+                action={
+                  <Space>
+                    <Button size="small" type="primary" onClick={() => navigate(`/quick-experience/result/${recoveredCase.id}`)}>{t('quickCreate.recoveredCase.continue')}</Button>
+                    <Button size="small" onClick={() => setRecoveredCase(null)}>{t('quickCreate.recoveredCase.startNew')}</Button>
+                  </Space>
+                }
+                closable
+                onClose={() => setRecoveredCase(null)}
+                style={{ borderRadius: 16, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        <AnimatedWrapper animation="fade" delay={100}>
-          <section className="guide-section" aria-labelledby="guide-title">
+        <motion.section 
+          className="guide-section"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
+        >
+          <div className="container">
             <BearJudge size="medium" animated />
-            <Title level={2} id="guide-title" className="guide-title">
-              {t('quickCreate.guide.title')}
-            </Title>
+            <Title level={1} className="guide-title">{t('quickCreate.guide.title')}</Title>
             <Text className="guide-subtitle">{t('quickCreate.guide.subtitle')}</Text>
-          </section>
-        </AnimatedWrapper>
+          </div>
+        </motion.section>
 
-      {autoSaveStatus === 'saved' && (
-        <Alert
-          title={t('quickCreate.autoSaved')}
-          type="success"
-          showIcon
-          closable
-          style={{ margin: '16px auto', maxWidth: 1200 }}
-        />
-      )}
+        <AnimatePresence>
+          {autoSaveStatus === 'saved' && (
+            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="container">
+              <Alert title={t('quickCreate.autoSaved')} type="success" showIcon closable style={{ marginBottom: 24, borderRadius: 16 }} />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        {/* 單人雙角色輸入區域 */}
-        <AnimatedWrapper animation="slide" direction="up" delay={200} trigger="intersection">
-          <section id="input-section" className="input-section" aria-labelledby="input-section-title">
-            <div className="container">
-              {/* 布局選擇器 */}
-              <div className="layout-selector" role="group" aria-label={t('quickCreate.ariaLayoutSelect')}>
-                <Tabs
-                  activeKey={layoutMode}
-                  onChange={(key) => setLayoutMode(key as 'horizontal' | 'vertical')}
-                  items={[
-                    { key: 'horizontal', label: t('quickCreate.layout.horizontal') },
-                    { key: 'vertical', label: t('quickCreate.layout.vertical') },
-                  ]}
-                  aria-label={t('quickCreate.ariaLayoutMode')}
+        <section id="input-section" className="input-section">
+          <div className="container">
+            <motion.div 
+              className="layout-selector"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.4 }}
+            >
+              <Tabs
+                activeKey={layoutMode}
+                onChange={(key) => setLayoutMode(key as 'horizontal' | 'vertical')}
+                items={[
+                  { key: 'horizontal', label: t('quickCreate.layout.horizontal') },
+                  { key: 'vertical', label: t('quickCreate.layout.vertical') },
+                ]}
+              />
+            </motion.div>
+
+            <div className={`input-area ${layoutMode}`}>
+              <motion.div 
+                className="statement-card plaintiff-card"
+                initial={{ opacity: 0, x: -30 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6, delay: 0.2 }}
+              >
+                <div className="card-header">
+                  <span className="role-badge role-a">{t('quickCreate.roleA')}</span>
+                  <h3 className="card-title">{t('quickCreate.plaintiffTitle')}</h3>
+                </div>
+                <Text type="secondary" style={{ display: 'block', marginBottom: 24, fontSize: 15, lineHeight: 1.6 }}>
+                  請具體描述事件與感受（至少需要30字），AI 將以此為基礎進行深度剖析。
+                </Text>
+                <StatementInput
+                  value={plaintiffStatement}
+                  onChange={setPlaintiffStatement}
+                  role="plaintiff"
+                  showGuide={true}
+                  minLength={30}
                 />
-              </div>
+                <Space size="middle" wrap style={{ marginTop: 16 }}>
+                  {templates.map((tmpl, idx) => (
+                    <Button key={idx} onClick={() => applyTemplate(tmpl, 'plaintiff')}>
+                      {t('quickCreate.applyTemplateN').replace('{n}', String(idx + 1))}
+                    </Button>
+                  ))}
+                </Space>
+              </motion.div>
 
-              {/* 輸入區域 */}
-              <div className={`input-area ${layoutMode}`} role="group" aria-label={t('quickCreate.ariaInputArea')}>
-                {/* 角色A輸入區 */}
-                <AnimatedWrapper animation="fade" delay={300} trigger="intersection">
-                  <Card
-                    className="statement-card plaintiff-card"
-                    role="article"
-                    aria-labelledby="plaintiff-title"
-                    tabIndex={0}
-                  >
-                <div className="card-header" style={{ marginBottom: 12 }}>
-                  <span className="role-badge role-a" aria-hidden="true">
-                    {t('quickCreate.roleA')}
-                  </span>
-                  <Title level={4} id="plaintiff-title" className="card-title">
-                    {t('quickCreate.plaintiffTitle')}
-                  </Title>
+              <motion.div 
+                className="divider"
+                initial={{ opacity: 0, scale: 0 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.6, delay: 0.4 }}
+              >
+                <BearJudge size="small" animated />
+              </motion.div>
+
+              <motion.div 
+                className="statement-card defendant-card"
+                initial={{ opacity: 0, x: 30 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6, delay: 0.3 }}
+              >
+                <div className="card-header">
+                  <span className="role-badge role-b">{t('quickCreate.roleB')}</span>
+                  <h3 className="card-title">{t('quickCreate.defendantTitle')}</h3>
                 </div>
-                <Text type="secondary" style={{ display: 'block', marginBottom: 20, fontSize: 14, color: '#64748B' }}>
-                  請具體描述事件與感受（至少需要30字）
+                <Text type="secondary" style={{ display: 'block', marginBottom: 24, fontSize: 15, lineHeight: 1.6 }}>
+                  可選填。這是盲寫模式，請安心寫下真實感受。若不知如何開口，可使用自動代寫。
                 </Text>
-
-                    <StatementInput
-                      value={plaintiffStatement}
-                      onChange={setPlaintiffStatement}
-                      role="plaintiff"
-                      showGuide={true}
-                      minLength={30}
-                      onValidationChange={() => {
-                        // 驗證狀態變化處理
-                      }}
-                    />
-                    <Space size="small" wrap style={{ marginTop: 8 }}>
-                      {templates.map((tmpl, idx) => (
-                        <Button key={idx} size="small" onClick={() => applyTemplate(tmpl, 'plaintiff')}>
-                          {t('quickCreate.applyTemplateN').replace('{n}', String(idx + 1))}
-                        </Button>
-                      ))}
-                    </Space>
-                  </Card>
-                </AnimatedWrapper>
-
-                {/* 中間分隔區域 */}
-                <div className="divider" aria-hidden="true">
-                  <BearJudge size="small" animated />
-                </div>
-
-                {/* 角色B輸入區 */}
-                <AnimatedWrapper animation="fade" delay={400} trigger="intersection">
-                  <Card
-                    className="statement-card defendant-card"
-                    role="article"
-                    aria-labelledby="defendant-title"
-                    tabIndex={0}
-                  >
-                <div className="card-header" style={{ marginBottom: 12 }}>
-                  <span className="role-badge role-b" aria-hidden="true">
-                    {t('quickCreate.roleB')}
-                  </span>
-                  <Title level={4} id="defendant-title" className="card-title">
-                    {t('quickCreate.defendantTitle')}
-                  </Title>
-                </div>
-                <Text type="secondary" style={{ display: 'block', marginBottom: 20, fontSize: 14, color: '#64748B' }}>
-                  可選填。若不知如何開口，可點擊下方「自動代寫」
-                </Text>
-
-                    <StatementInput
-                      value={defendantStatement}
-                      onChange={setDefendantStatement}
-                      role="defendant"
-                      showGuide={true}
-                      allowEmpty
-                      minLength={MIN_DEFENDANT_LENGTH}
-                      onValidationChange={() => {
-                        // 驗證狀態變化處理
-                      }}
-                    />
-                <Space size="small" wrap style={{ marginTop: 8 }}>
-                  <Button size="small" onClick={() => applyTemplate(templates[0], 'defendant')}>
+                <StatementInput
+                  value={defendantStatement}
+                  onChange={setDefendantStatement}
+                  role="defendant"
+                  showGuide={true}
+                  allowEmpty
+                  minLength={MIN_DEFENDANT_LENGTH}
+                />
+                <Space size="middle" wrap style={{ marginTop: 16 }}>
+                  <Button onClick={() => applyTemplate(templates[0], 'defendant')}>
                     {t('quickCreate.applyTemplate')}
                   </Button>
-                  <Button size="small" loading={isGeneratingDefendant} onClick={handleAutoGenerateDefendant}>
-                    {t('quickCreate.autoWrite')}
+                  <Button type="primary" ghost loading={isGeneratingDefendant} onClick={handleAutoGenerateDefendant} style={{ border: 'none', background: 'rgba(14, 165, 233, 0.1)', color: '#0284C7' }}>
+                    ✨ {t('quickCreate.autoWrite')}
                   </Button>
                 </Space>
-                <Text type="secondary" style={{ display: 'block', marginTop: 4, fontSize: 12 }}>
+                <Text type="secondary" style={{ display: 'block', marginTop: 12, fontSize: 13 }}>
                   {t('quickCreate.defendantHint').replace('{min}', String(MIN_DEFENDANT_LENGTH))}
                 </Text>
-              </Card>
-            </AnimatedWrapper>
-              </div>
+              </motion.div>
             </div>
-          </section>
-        </AnimatedWrapper>
-
-      {/* 證據上傳區域（可選） */}
-      <section className="evidence-section">
-        <div className="container">
-          <Collapse
-            defaultActiveKey={[]}
-            items={[
-              {
-                key: 'evidence',
-                label: t('quickCreate.evidenceHeader'),
-                children: (
-                  <>
-                    <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
-                      {t('quickCreate.evidenceHint')}
-                    </Text>
-                    <FileUpload
-                      value={evidenceFiles}
-                      onChange={setEvidenceFiles}
-                      maxCount={MAX_IMAGE_COUNT}
-                    />
-                  </>
-                ),
-              },
-            ]}
-          />
-        </div>
-      </section>
-
-      {/* 註冊引導區域 */}
-      {showRegisterPrompt && (
-        <section className="register-prompt-section">
-          <div className="container">
-            <Alert
-              title={
-                <Space>
-                  <LockOutlined />
-                  <span>{t('quickCreate.registerMessage')}</span>
-                </Space>
-              }
-              description={t('register.prompt.desc')}
-              type="info"
-              action={
-                <Space>
-                  <Button size="small" onClick={() => navigate('/auth/register')}>
-                    {t('register.action.now')}
-                  </Button>
-                  <Button size="small" type="text" onClick={() => setShowRegisterPrompt(false)}>
-                    {t('quickCreate.close')}
-                  </Button>
-                </Space>
-              }
-              closable
-              onClose={() => setShowRegisterPrompt(false)}
-            />
           </div>
         </section>
-      )}
 
-      {/* 鍵盤快捷鍵支持 */}
-      <KeyboardShortcuts shortcuts={shortcuts} showHelp={true} />
+        <motion.section 
+          className="evidence-section"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-100px" }}
+          transition={{ duration: 0.6 }}
+        >
+          <div className="container">
+            <Collapse
+              defaultActiveKey={[]}
+              expandIconPosition="end"
+              items={[
+                {
+                  key: 'evidence',
+                  label: t('quickCreate.evidenceHeader'),
+                  children: (
+                    <>
+                      <Text type="secondary" style={{ display: 'block', marginBottom: 24, fontSize: 15 }}>
+                        {t('quickCreate.evidenceHint')}
+                      </Text>
+                      <FileUpload value={evidenceFiles} onChange={setEvidenceFiles} maxCount={MAX_IMAGE_COUNT} />
+                    </>
+                  ),
+                },
+              ]}
+            />
+          </div>
+        </motion.section>
 
-        {/* 提交區域 */}
-        <AnimatedWrapper animation="slide" direction="up" delay={500} trigger="intersection">
-          <section className="submit-section" aria-labelledby="submit-section-title">
-            <div className="container">
+        <AnimatePresence>
+          {showRegisterPrompt && (
+            <motion.section 
+              className="register-prompt-section"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+            >
+              <div className="container">
+                <Alert
+                  title={<Space><LockOutlined /><span>{t('quickCreate.registerMessage')}</span></Space>}
+                  description={t('register.prompt.desc')}
+                  type="info"
+                  action={
+                    <Space>
+                      <Button type="primary" onClick={() => navigate('/auth/register')}>{t('register.action.now')}</Button>
+                      <Button type="text" onClick={() => setShowRegisterPrompt(false)}>{t('quickCreate.close')}</Button>
+                    </Space>
+                  }
+                  closable
+                  onClose={() => setShowRegisterPrompt(false)}
+                />
+              </div>
+            </motion.section>
+          )}
+        </AnimatePresence>
+
+        <KeyboardShortcuts shortcuts={shortcuts} showHelp={true} />
+
+        <motion.section 
+          className="submit-section"
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8 }}
+        >
+          <div className="container">
+            <AnimatePresence>
               {canSubmit && (
-                <div className="progress-display" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
-                  <Progress percent={progress} status="success" />
-                  <Text>{t('quickCreate.progressDone').replace('{percent}', String(progress))}</Text>
-                </div>
-              )}
-
-              <div className="submit-actions">
-                <GuideTooltip
-                  content={t('quickCreate.submitHint')}
-                  storageKey="quick_submit_guide"
-                  placement="top"
+                <motion.div 
+                  className="progress-display"
+                  initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.9, y: -20 }}
                 >
-                  <Button
-                    type="primary"
-                    size="large"
-                    loading={isLoading}
-                    disabled={!canSubmit}
-                    onClick={handleSubmit}
-                    className="submit-button"
-                    aria-label={canSubmit ? t('quickCreate.submitAriaReady') : t('quickCreate.submitAriaDisabled')}
-                    aria-describedby="submit-hints"
-                  >
-                    {isLoading ? t('quickCreate.submitting') : t('quickCreate.submit')}
-                  </Button>
-                </GuideTooltip>
+                  <Progress percent={progress} status="active" strokeColor={{ '0%': '#34D399', '100%': '#10B981' }} />
+                  <Text>{t('quickCreate.progressDone').replace('{percent}', String(progress))}</Text>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-                <div id="submit-hints" className="submit-hints">
-                  <Text type="secondary">{t('quickCreate.afterSubmit')}</Text>
-                  <br />
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    {t('quickCreate.eta')}
-                  </Text>
-                  <br />
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    {t('quickCreate.quickNote')}
-                  </Text>
-                </div>
+            <div className="submit-actions">
+              <GuideTooltip content={t('quickCreate.submitHint')} storageKey="quick_submit_guide" placement="top">
+                <button
+                  className="submit-button"
+                  disabled={!canSubmit || isLoading}
+                  onClick={handleSubmit}
+                  aria-label={canSubmit ? t('quickCreate.submitAriaReady') : t('quickCreate.submitAriaDisabled')}
+                >
+                  {isLoading ? t('quickCreate.submitting') : t('quickCreate.submit')}
+                </button>
+              </GuideTooltip>
+              <div className="submit-hints">
+                <Text>{t('quickCreate.afterSubmit')}</Text>
+                <br />
+                <Text style={{ fontSize: 13, opacity: 0.8 }}>{t('quickCreate.eta')}</Text>
+                <br />
+                <Text style={{ fontSize: 13, opacity: 0.8 }}>{t('quickCreate.quickNote')}</Text>
               </div>
             </div>
-          </section>
-        </AnimatedWrapper>
+          </div>
+        </motion.section>
       </div>
     </>
   );

@@ -1,4 +1,4 @@
-import { Alert, Button, Space } from 'antd';
+import { Alert, Space } from 'antd';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
 import { t } from '@/utils/i18n';
 
@@ -13,7 +13,7 @@ const RegisterPromptSection = ({ show, onRegister, onClose }: Props) => {
   return (
     <AnimatedWrapper animation="slide" direction="up" delay={600} trigger="intersection">
       <section className="register-prompt-section" aria-labelledby="register-prompt">
-        <div className="container">
+        <div className="container" style={{ maxWidth: 800 }}>
           <Alert
             id="register-prompt"
             title={t('register.prompt.title')}
@@ -21,12 +21,12 @@ const RegisterPromptSection = ({ show, onRegister, onClose }: Props) => {
             type="info"
             action={
               <Space>
-                <Button type="primary" onClick={onRegister} aria-label={t('register.action.now')}>
+                <button className="action-button primary" style={{ height: 40, padding: '0 24px', borderRadius: 20, fontSize: 14 }} onClick={onRegister} aria-label={t('register.action.now')}>
                   {t('register.action.now')}
-                </Button>
-                <Button onClick={onClose} aria-label={t('register.action.later')}>
+                </button>
+                <button className="action-button secondary" style={{ height: 40, padding: '0 24px', borderRadius: 20, fontSize: 14, background: 'transparent', border: 'none' }} onClick={onClose} aria-label={t('register.action.later')}>
                   {t('register.action.later')}
-                </Button>
+                </button>
               </Space>
             }
             closable

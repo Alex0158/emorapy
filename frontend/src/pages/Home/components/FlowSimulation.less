@@ -512,18 +512,19 @@
 
   .glass-light-sweep {
     position: absolute;
-    top: 0; left: -100%; width: 50%; height: 100%;
+    top: 0; left: 0; width: 50%; height: 100%;
     background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0) 100%);
-    transform: skewX(-20deg);
+    transform: skewX(-20deg) translateX(-300%);
     z-index: 40;
     pointer-events: none;
     animation: sweep-light 6s infinite;
+    will-change: transform;
   }
 
   @keyframes sweep-light {
-    0% { left: -100%; }
-    15% { left: 200%; }
-    100% { left: 200%; }
+    0% { transform: skewX(-20deg) translateX(-300%); }
+    15% { transform: skewX(-20deg) translateX(400%); }
+    100% { transform: skewX(-20deg) translateX(400%); }
   }
 
   .phone-notch {
@@ -1245,15 +1246,17 @@
       height: 4px;
       background: rgba(52, 211, 153, 0.8);
       box-shadow: 0 0 20px 8px rgba(52, 211, 153, 0.3);
+      transform: translateY(-10px);
       animation: scan-sweep 3s ease-in-out infinite alternate;
+      will-change: transform, opacity;
     }
   }
 
   @keyframes scan-sweep {
-    0% { top: -10%; opacity: 0; }
+    0% { transform: translateY(-10px); opacity: 0; }
     10% { opacity: 1; }
     90% { opacity: 1; }
-    100% { top: 110%; opacity: 0; }
+    100% { transform: translateY(580px); opacity: 0; }
   }
 
   /* Scene 3: Counseling */

@@ -397,8 +397,8 @@ const PhoneSimulator = ({
   const defaultRotateX = isA ? 4 : 2;
   const defaultRotateY = isA ? 6 : -6;
 
-  const dynamicRotateX = useTransform(mouseY, [-0.5, 0.5], [12 + defaultRotateX, -12 + defaultRotateX]);
-  const dynamicRotateY = useTransform(mouseX, [-0.5, 0.5], [-12 + defaultRotateY, 12 + defaultRotateY]);
+  const dynamicRotateX = useTransform(mouseY, [-0.5, 0.5], [20 + defaultRotateX, -20 + defaultRotateX]);
+  const dynamicRotateY = useTransform(mouseX, [-0.5, 0.5], [-20 + defaultRotateY, 20 + defaultRotateY]);
 
   const [isTypingPhase, setIsTypingPhase] = useState(true);
   useEffect(() => {
@@ -970,18 +970,22 @@ const FlowSimulation = () => {
   const [activeStep, setActiveStep] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
   const isHoveredRef = useRef(false);
+  const idleStartTimeRef = useRef(Date.now());
   const [progress, setProgress] = useState(0);
 
   // Mouse tracking for parallax
-  const mouseX = useSpring(0, { stiffness: 70, damping: 20 });
-  const mouseY = useSpring(0, { stiffness: 70, damping: 20 });
+  const mouseX = useSpring(0, { stiffness: 120, damping: 20 });
+  const mouseY = useSpring(0, { stiffness: 120, damping: 20 });
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width - 0.5; // -0.5 to 0.5
-    const y = (e.clientY - rect.top) / rect.height - 0.5; // -0.5 to 0.5
-    mouseX.set(x);
-    mouseY.set(y);
+    if (!isHoveredRef.current) {
+      setIsHovered(true);
+      isHoveredRef.current = true;
+    }
+    const x = (e.clientX / window.innerWidth) - 0.5; // -0.5 to 0.5
+    const y = (e.clientY / window.innerHeight) - 0.5; // -0.5 to 0.5
+    mouseX.set(x * 1.5);
+    mouseY.set(y * 1.5);
   };
 
   const handleMouseEnter = () => {
@@ -992,6 +996,7 @@ const FlowSimulation = () => {
   const handleMouseLeave = () => {
     setIsHovered(false);
     isHoveredRef.current = false;
+    idleStartTimeRef.current = Date.now();
     mouseX.set(0);
     mouseY.set(0);
   };
@@ -1002,7 +1007,6 @@ const FlowSimulation = () => {
     let mounted = true;
     let lastFrameTime = Date.now();
     let accumulatedTime = 0;
-    let idleStartTime = Date.now();
     let animationFrameId: number;
 
     const animateProgress = () => {
@@ -1017,7 +1021,7 @@ const FlowSimulation = () => {
         accumulatedTime += delta;
         
         // Idle breathing for parallax
-        const idleElapsed = now - idleStartTime;
+        const idleElapsed = now - idleStartTimeRef.current;
         mouseX.set(Math.sin(idleElapsed / 2500) * 0.12);
         mouseY.set(Math.cos(idleElapsed / 2000) * 0.08);
       }

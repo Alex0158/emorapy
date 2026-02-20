@@ -102,13 +102,14 @@ const AudioVisualizer = () => {
   return (
     <div className="audio-visualizer">
       {[...Array(36)].map((_, i) => (
-        <motion.div
-          key={i}
-          className="bar"
-          animate={{ height: ['10px', `${20 + Math.random() * 40}px`, '10px'] }}
-          transition={{ repeat: Infinity, duration: 0.5 + Math.random() * 0.5 }}
-          style={{ transform: `rotate(${i * 10}deg) translateY(-40px)` }}
-        />
+        <div key={i} style={{ position: 'absolute', transform: `rotate(${i * 10}deg)` }}>
+          <motion.div
+            className="bar"
+            animate={{ height: ['10px', `${15 + Math.random() * 30}px`, '10px'] }}
+            transition={{ repeat: Infinity, duration: 0.5 + Math.random() * 0.5, ease: "easeInOut" }}
+            style={{ y: -50 }}
+          />
+        </div>
       ))}
     </div>
   );
@@ -150,9 +151,11 @@ const TypewriterText = ({
         const char = chars[i];
         if (char === '\b') {
           await new Promise(r => setTimeout(r, speed * 1000 * 6));
+          if (isCancelled) return;
           currentChars = currentChars.slice(0, -1);
           setDisplayedChars([...currentChars]);
           await new Promise(r => setTimeout(r, speed * 1000 * 4));
+          if (isCancelled) return;
         } else {
           currentChars.push(char);
           setDisplayedChars([...currentChars]);
@@ -282,7 +285,7 @@ const FloatingKeywords = () => {
         
         return (
           <motion.div
-            key={i}
+            key={word}
             className="keyword-bubble"
             initial={{ x: startX, y: startY, opacity: 0, scale: 0 }}
             animate={{ 
@@ -337,10 +340,13 @@ const AnimatedNumber = ({ value }: { value: number }) => {
   const [count, setCount] = useState(0);
 
   useEffect(() => {
+    let animationFrameId: number;
+    let isCancelled = false;
     const duration = 1200;
     const startTime = performance.now();
 
     const animate = (currentTime: number) => {
+      if (isCancelled) return;
       const elapsed = currentTime - startTime;
       const p = Math.min(elapsed / duration, 1);
       
@@ -350,13 +356,18 @@ const AnimatedNumber = ({ value }: { value: number }) => {
       setCount(currentVal);
 
       if (p < 1) {
-        requestAnimationFrame(animate);
+        animationFrameId = requestAnimationFrame(animate);
       } else {
         setCount(value);
       }
     };
 
-    requestAnimationFrame(animate);
+    animationFrameId = requestAnimationFrame(animate);
+    
+    return () => {
+      isCancelled = true;
+      cancelAnimationFrame(animationFrameId);
+    };
   }, [value]);
 
   return <span>{count}%</span>;
@@ -987,7 +998,6 @@ const FlowSimulation = () => {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
     let mounted = true;
     let lastFrameTime = Date.now();

@@ -186,14 +186,14 @@
       .ant-collapse-header {
         padding: 24px 32px !important;
         align-items: center !important;
-        .ant-collapse-header-text { font-size: 20px; font-weight: 700; color: #fff; }
-        .ant-collapse-expand-icon { color: @color-secondary; font-size: 16px; padding-inline-end: 12px !important; }
+        .ant-collapse-header-text { font-size: 20px; font-weight: 700; color: #F8FAFC !important; }
+        .ant-collapse-expand-icon { color: @color-secondary !important; font-size: 16px; padding-inline-end: 12px !important; }
       }
 
       .ant-collapse-content {
-        border-top: 1px solid @color-glass-border;
-        background: transparent;
-        color: @color-text-primary;
+        border-top: 1px solid @color-glass-border !important;
+        background: transparent !important;
+        color: @color-text-primary !important;
         
         .ant-collapse-content-box { padding: 0 !important; }
       }
@@ -301,12 +301,14 @@
           border-bottom: 1px solid @color-glass-border !important; 
           color: #fff !important; 
           padding: 0 0 16px 0 !important;
-          .ant-card-head-title { font-size: 24px; font-weight: 700; }
+          .ant-card-head-title { font-size: 24px; font-weight: 700; color: #F8FAFC !important; }
         }
         .ant-card-body { padding: 24px 0 0 0 !important; }
         
         .judgment-actions { 
           margin-bottom: 24px;
+          background: transparent !important;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
           .ant-btn { color: @color-secondary !important; &:hover { color: @color-primary !important; background: rgba(255,255,255,0.05) !important; } }
         }
         
@@ -315,9 +317,17 @@
           line-height: 1.8 !important; 
           font-size: 16px;
           h1, h2, h3, h4 { color: #fff !important; margin-top: 1.5em; margin-bottom: 0.75em; font-weight: 700; }
+          h2 { border-bottom-color: @color-primary !important; }
           strong { color: #FF9E80 !important; font-weight: 600; }
+          .judgment-strong {
+            color: #fff !important;
+            background: linear-gradient(120deg, rgba(255, 112, 67, 0.3) 0%, rgba(255, 112, 67, 0.3) 100%) !important;
+            background-repeat: no-repeat !important;
+            background-size: 100% 30% !important;
+            background-position: 0 80% !important;
+          }
           .judgment-list { padding-left: 24px; }
-          .judgment-blockquote { border-left: 4px solid @color-secondary; padding-left: 16px; color: #94A3B8; background: rgba(255,255,255,0.02); padding: 12px 16px; border-radius: 0 8px 8px 0; }
+          .judgment-blockquote { border-left: 4px solid @color-secondary !important; padding-left: 16px; color: #94A3B8 !important; background: rgba(255,255,255,0.02) !important; padding: 12px 16px; border-radius: 0 8px 8px 0; }
         }
       }
     }
@@ -342,16 +352,23 @@
     .ant-alert {
       border-radius: @radius-2xl;
       border: 1px solid rgba(14, 165, 233, 0.3);
-      background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.9));
+      background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.9)) !important;
       backdrop-filter: blur(20px);
       padding: 32px;
       box-shadow: 0 0 40px rgba(14, 165, 233, 0.15);
       
-      .ant-alert-message { color: #38BDF8; font-weight: 800; font-size: 20px; margin-bottom: 12px; }
-      .ant-alert-description { color: #BAE6FD; font-size: 16px; line-height: 1.6; }
-      .ant-alert-icon { color: #0EA5E9; font-size: 28px; top: 32px; }
+      .ant-alert-message { color: #38BDF8 !important; font-weight: 800; font-size: 20px; margin-bottom: 12px; }
+      .ant-alert-description { color: #BAE6FD !important; font-size: 16px; line-height: 1.6; }
+      .ant-alert-icon { color: #0EA5E9 !important; font-size: 28px; top: 32px; }
       
-      .ant-btn-text { color: #7DD3FC; font-weight: 600; font-size: 15px; &:hover { background: rgba(14, 165, 233, 0.15); } }
+      .ant-alert-close-icon .anticon {
+        color: #F8FAFC !important;
+        opacity: 0.6;
+        transition: opacity 0.2s;
+        &:hover { opacity: 1; }
+      }
+
+      .ant-btn-text { color: #7DD3FC !important; font-weight: 600; font-size: 15px; &:hover { background: rgba(14, 165, 233, 0.15) !important; } }
     }
   }
 

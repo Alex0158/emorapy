@@ -51,16 +51,81 @@ const TypingIndicator = () => (
   </motion.div>
 );
 
+const DecryptedText = ({ text, delay = 0 }: { text: string, delay?: number }) => {
+  const [displayText, setDisplayedText] = useState('');
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&*';
+  
+  useEffect(() => {
+    let timeout: any;
+    let animationFrame: number;
+    let isCancelled = false;
+    
+    timeout = setTimeout(() => {
+      if (isCancelled) return;
+      let currentArr = Array(text.length).fill('');
+      let settled = Array(text.length).fill(false);
+      
+      let frameCount = 0;
+      const update = () => {
+        if (isCancelled) return;
+        frameCount++;
+        let allSettled = true;
+        
+        for (let i=0; i<text.length; i++) {
+          if (!settled[i]) {
+            allSettled = false;
+            if (frameCount % 3 === 0 && Math.random() < 0.15) {
+              settled[i] = true;
+            }
+            currentArr[i] = settled[i] ? text[i] : chars[Math.floor(Math.random() * chars.length)];
+          }
+        }
+        setDisplayedText(currentArr.join(''));
+        if (!allSettled) {
+          animationFrame = requestAnimationFrame(update);
+        }
+      };
+      animationFrame = requestAnimationFrame(update);
+    }, delay * 1000);
+    
+    return () => {
+      isCancelled = true;
+      clearTimeout(timeout);
+      cancelAnimationFrame(animationFrame);
+    };
+  }, [text, delay]);
+  
+  return <span>{displayText || '...'}</span>;
+};
+
+const AudioVisualizer = () => {
+  return (
+    <div className="audio-visualizer">
+      {[...Array(36)].map((_, i) => (
+        <motion.div
+          key={i}
+          className="bar"
+          animate={{ height: ['10px', `${20 + Math.random() * 40}px`, '10px'] }}
+          transition={{ repeat: Infinity, duration: 0.5 + Math.random() * 0.5 }}
+          style={{ transform: `rotate(${i * 10}deg) translateY(-40px)` }}
+        />
+      ))}
+    </div>
+  );
+};
+
 const TypewriterText = ({ 
   text, 
   typingDelay = 1.0, 
   speed = 0.04, 
-  className = '' 
+  className = '',
+  highlightWords = []
 }: { 
   text: string; 
   typingDelay?: number; 
   speed?: number; 
-  className?: string 
+  className?: string;
+  highlightWords?: string[];
 }) => {
   const [displayedChars, setDisplayedChars] = useState<string[]>([]);
   const [isTyping, setIsTyping] = useState(true);
@@ -105,22 +170,42 @@ const TypewriterText = ({
     return <TypingIndicator />;
   }
 
+  const fullTextStr = displayedChars.join('');
+  const getIsHighlighted = (index: number) => {
+    if (!highlightWords.length) return false;
+    let isHighlighted = false;
+    highlightWords.forEach(word => {
+      let startIndex = fullTextStr.indexOf(word);
+      while (startIndex !== -1) {
+        if (index >= startIndex && index < startIndex + word.length) {
+          isHighlighted = true;
+        }
+        startIndex = fullTextStr.indexOf(word, startIndex + 1);
+      }
+    });
+    return isHighlighted;
+  };
+
   return (
     <span className={className}>
-      {displayedChars.map((char, index) => (
+      {displayedChars.map((char, index) => {
+        const isHigh = getIsHighlighted(index);
+        return (
         <motion.span 
           key={`${index}-${char}`} 
           initial={{ opacity: 0, filter: 'blur(2px)', color: '#ff8c42' }}
           animate={{ 
             opacity: 1, 
             filter: 'blur(0px)',
-            color: 'inherit'
+            color: isHigh ? '#ef4444' : 'inherit',
+            textShadow: isHigh ? '0 0 8px rgba(239,68,68,0.5)' : 'none',
+            fontWeight: isHigh ? 800 : 'normal'
           }}
           transition={{ duration: 0.1 }}
         >
           {char}
         </motion.span>
-      ))}
+      )})}
       <motion.span
         animate={{ opacity: [0, 1, 0] }}
         transition={{ repeat: Infinity, duration: 0.8 }}
@@ -332,6 +417,7 @@ const PhoneSimulator = ({
       }}
     >
       <div className="phone-frame">
+        <div className="glass-light-sweep" />
         <div className={`phone-notch ${activeStep === 2 || (activeStep === 0 && !isA) ? 'notch-expanded' : ''}`}>
           <div className="camera-lens"></div>
           <div className="speaker"></div>
@@ -365,7 +451,7 @@ const PhoneSimulator = ({
                   {isA ? (
                     <div className="scene-form">
                       <div className="app-header glass">
-                        <div className="header-avatar a">A</div>
+                        <div className="header-avatar a angry-pulse">A</div>
                         發起溝通案件
                       </div>
                       <div className="form-scroll-area">
@@ -383,6 +469,7 @@ const PhoneSimulator = ({
                               typingDelay={1.5} 
                               speed={0.05}
                               className="multiline"
+                              highlightWords={['委屈', '總是', '忽視']}
                             />
                           </div>
                         </div>
@@ -505,7 +592,7 @@ const PhoneSimulator = ({
                   ) : (
                     <div className="scene-form">
                       <div className="app-header glass">
-                        <div className="header-avatar b">B</div>
+                        <div className="header-avatar b angry-pulse-blue">B</div>
                         回覆案件
                       </div>
                       <div className="form-scroll-area">
@@ -528,6 +615,7 @@ const PhoneSimulator = ({
                               typingDelay={1.5} 
                               speed={0.05}
                               className="multiline"
+                              highlightWords={['牢騷', '抱怨', '在意', '累']}
                             />
                           </div>
                         </div>
@@ -589,6 +677,7 @@ const PhoneSimulator = ({
                   <div className="analyzing-content">
                     <div className="ai-brain-container">
                       <FloatingKeywords />
+                      <AudioVisualizer />
                       <motion.div 
                         className="ai-brain-core"
                         animate={{ 
@@ -613,7 +702,7 @@ const PhoneSimulator = ({
                         transition={{ delay: 0.5 }}
                         className="analyzing-row dark-glass-card"
                       >
-                        <SyncOutlined spin className="spin-icon" /> 正在匯整雙方私密陳述...
+                        <SyncOutlined spin className="spin-icon" /> <DecryptedText text="正在匯整雙方私密陳述..." delay={0.5} />
                       </motion.div>
                       <motion.div
                         initial={{ opacity: 0, x: -20 }}
@@ -621,7 +710,7 @@ const PhoneSimulator = ({
                         transition={{ delay: 2.5 }}
                         className="analyzing-row dark-glass-card"
                       >
-                        <SyncOutlined spin className="spin-icon" /> 交叉比對認知落差與盲點...
+                        <SyncOutlined spin className="spin-icon" /> <DecryptedText text="交叉比對認知落差與盲點..." delay={2.5} />
                       </motion.div>
                       <motion.div
                         initial={{ opacity: 0, x: -20 }}
@@ -629,7 +718,7 @@ const PhoneSimulator = ({
                         transition={{ delay: 4.5 }}
                         className="analyzing-row dark-glass-card"
                       >
-                        <SyncOutlined spin className="spin-icon" /> 正在生成雙方專屬開解方案...
+                        <SyncOutlined spin className="spin-icon" /> <DecryptedText text="正在生成雙方專屬開解方案..." delay={4.5} />
                       </motion.div>
                     </div>
                     

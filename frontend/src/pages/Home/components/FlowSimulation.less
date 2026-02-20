@@ -510,6 +510,22 @@
     }
   }
 
+  .glass-light-sweep {
+    position: absolute;
+    top: 0; left: -100%; width: 50%; height: 100%;
+    background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0) 100%);
+    transform: skewX(-20deg);
+    z-index: 40;
+    pointer-events: none;
+    animation: sweep-light 6s infinite;
+  }
+
+  @keyframes sweep-light {
+    0% { left: -100%; }
+    15% { left: 200%; }
+    100% { left: 200%; }
+  }
+
   .phone-notch {
     position: absolute;
     top: 4px;
@@ -666,7 +682,27 @@
       color: #fff;
       &.a { background: linear-gradient(135deg, @color-primary, #ff6b6b); }
       &.b { background: linear-gradient(135deg, #3b82f6, #06b6d4); }
+      
+      &.angry-pulse {
+        animation: angry-pulse 1s infinite;
+        background: #ef4444 !important;
+      }
+      &.angry-pulse-blue {
+        animation: angry-pulse-blue 1s infinite;
+        background: #3b82f6 !important;
+      }
     }
+  }
+
+  @keyframes angry-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
+    70% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+  }
+  @keyframes angry-pulse-blue {
+    0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5); }
+    70% { box-shadow: 0 0 0 8px rgba(59, 130, 246, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
   }
 
   .glass-card {
@@ -1127,6 +1163,23 @@
       display: flex;
       align-items: center;
       justify-content: center;
+
+      .audio-visualizer {
+        position: absolute;
+        top: 50%; left: 50%;
+        width: 0; height: 0;
+        z-index: 5;
+        
+        .bar {
+          position: absolute;
+          bottom: 0; left: -1.5px;
+          width: 3px;
+          background: rgba(255, 140, 66, 0.6);
+          border-radius: 2px;
+          transform-origin: bottom center;
+          box-shadow: 0 0 8px rgba(255, 140, 66, 0.4);
+        }
+      }
 
       .ai-brain-core {
         width: 40px; height: 40px;

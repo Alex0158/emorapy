@@ -99,14 +99,22 @@ const DecryptedText = ({ text, delay = 0 }: { text: string, delay?: number }) =>
 };
 
 const AudioVisualizer = () => {
+  const bars = useMemo(() => {
+    return [...Array(36)].map((_, i) => ({
+      rotate: i * 10,
+      targetHeight: `${15 + Math.random() * 30}px`,
+      duration: 0.5 + Math.random() * 0.5
+    }));
+  }, []);
+
   return (
     <div className="audio-visualizer">
-      {[...Array(36)].map((_, i) => (
-        <div key={i} style={{ position: 'absolute', transform: `rotate(${i * 10}deg)` }}>
+      {bars.map((bar, i) => (
+        <div key={i} style={{ position: 'absolute', transform: `rotate(${bar.rotate}deg)` }}>
           <motion.div
             className="bar"
-            animate={{ height: ['10px', `${15 + Math.random() * 30}px`, '10px'] }}
-            transition={{ repeat: Infinity, duration: 0.5 + Math.random() * 0.5, ease: "easeInOut" }}
+            animate={{ height: ['10px', bar.targetHeight, '10px'] }}
+            transition={{ repeat: Infinity, duration: bar.duration, ease: "easeInOut" }}
             style={{ y: -50 }}
           />
         </div>
@@ -220,91 +228,124 @@ const TypewriterText = ({
   );
 };
 
-const FloatingParticles = () => (
-  <div className="particles-container">
-    {[...Array(15)].map((_, i) => (
-      <motion.div 
-        key={i} 
-        className="particle"
-        initial={{ 
-          y: '100%', 
-          x: `${Math.random() * 100}%`,
-          opacity: 0,
-          scale: Math.random() * 0.5 + 0.5
-        }}
-        animate={{ 
-          y: '-20%', 
-          opacity: [0, 1, 0] 
-        }}
-        transition={{ 
-          duration: Math.random() * 2 + 2, 
-          repeat: Infinity, 
-          delay: Math.random() * 2,
-          ease: "linear"
-        }}
-      />
-    ))}
-  </div>
-);
+const FloatingParticles = () => {
+  const particles = useMemo(() => {
+    return [...Array(15)].map(() => ({
+      x: `${Math.random() * 100}%`,
+      scale: Math.random() * 0.5 + 0.5,
+      duration: Math.random() * 2 + 2,
+      delay: Math.random() * 2
+    }));
+  }, []);
 
-const FloatingEmojis = () => (
-  <div className="floating-emojis">
-    {['🎉', '✨', '❤️', '🤝', '🙌'].map((emoji, i) => (
-      <motion.div
-        key={i}
-        className="floating-emoji"
-        initial={{ y: 0, opacity: 0, x: 0 }}
-        animate={{ 
-          y: -100 - Math.random() * 60, 
-          opacity: [0, 1, 0],
-          x: Math.random() * 60 - 30,
-          rotate: Math.random() * 90 - 45,
-          scale: Math.random() * 0.5 + 0.8
-        }}
-        transition={{ 
-          duration: 2.5 + Math.random(), 
-          repeat: Infinity, 
-          delay: i * 0.4 
-        }}
-      >
-        {emoji}
-      </motion.div>
-    ))}
-  </div>
-);
+  return (
+    <div className="particles-container">
+      {particles.map((p, i) => (
+        <motion.div 
+          key={i} 
+          className="particle"
+          initial={{ 
+            y: '100%', 
+            x: p.x,
+            opacity: 0,
+            scale: p.scale
+          }}
+          animate={{ 
+            y: '-20%', 
+            opacity: [0, 1, 0] 
+          }}
+          transition={{ 
+            duration: p.duration, 
+            repeat: Infinity, 
+            delay: p.delay,
+            ease: "linear"
+          }}
+        />
+      ))}
+    </div>
+  );
+};
+
+const FloatingEmojis = () => {
+  const emojis = useMemo(() => {
+    return ['🎉', '✨', '❤️', '🤝', '🙌'].map((emoji, i) => ({
+      emoji,
+      targetY: -100 - Math.random() * 60,
+      targetX: Math.random() * 60 - 30,
+      rotate: Math.random() * 90 - 45,
+      scale: Math.random() * 0.5 + 0.8,
+      duration: 2.5 + Math.random(),
+      delay: i * 0.4
+    }));
+  }, []);
+
+  return (
+    <div className="floating-emojis">
+      {emojis.map((item, i) => (
+        <motion.div
+          key={i}
+          className="floating-emoji"
+          initial={{ y: 0, opacity: 0, x: 0 }}
+          animate={{ 
+            y: item.targetY, 
+            opacity: [0, 1, 0],
+            x: item.targetX,
+            rotate: item.rotate,
+            scale: item.scale
+          }}
+          transition={{ 
+            duration: item.duration, 
+            repeat: Infinity, 
+            delay: item.delay 
+          }}
+        >
+          {item.emoji}
+        </motion.div>
+      ))}
+    </div>
+  );
+};
 
 const FloatingKeywords = () => {
-  const words = ['家務', '委屈', '期待', '壓力', '溝通', '理解'];
+  const keywords = useMemo(() => {
+    const words = ['家務', '委屈', '期待', '壓力', '溝通', '理解'];
+    return words.map((word, i) => {
+      const angle = (i / words.length) * Math.PI * 2;
+      const radius = 90;
+      const startX = Math.cos(angle) * radius;
+      const startY = Math.sin(angle) * radius;
+      return {
+        word,
+        startX,
+        startY,
+        delay: i * 0.7
+      };
+    });
+  }, []);
+
   return (
     <div className="floating-keywords">
-      {words.map((word, i) => {
-        const angle = (i / words.length) * Math.PI * 2;
-        const radius = 90;
-        const startX = Math.cos(angle) * radius;
-        const startY = Math.sin(angle) * radius;
-        
-        return (
-          <motion.div
-            key={word}
-            className="keyword-bubble"
-            initial={{ x: startX, y: startY, opacity: 0, scale: 0 }}
-            animate={{ 
-              x: [startX, startX * 0.4, 0], 
-              y: [startY, startY * 0.4, 0], 
-              opacity: [0, 1, 0],
-              scale: [0, 1, 0.5]
-            }}
-            transition={{ 
-              duration: 2.5, 
-              repeat: Infinity, 
-              delay: i * 0.7,
-              ease: "easeInOut"
-            }}
-          >
-            {word}
-          </motion.div>
-        );
-      })}
+      {keywords.map((kw) => (
+        <motion.div
+          key={kw.word}
+          className="keyword-bubble"
+          initial={{ x: kw.startX, y: kw.startY, opacity: 0, scale: 0 }}
+          animate={{ 
+            x: [kw.startX, kw.startX * 0.4, 0], 
+            y: [kw.startY, kw.startY * 0.4, 0], 
+            opacity: [0, 1, 0],
+            scale: [0, 1, 0.5]
+          }}
+          transition={{ 
+            duration: 2.5, 
+            repeat: Infinity, 
+            delay: kw.delay,
+            ease: "easeInOut"
+          }}
+        >
+          {kw.word}
+        </motion.div>
+      ))}
     </div>
   );
 };

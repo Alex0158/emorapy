@@ -69,4 +69,22 @@ describe('executionStore', () => {
     expect(result).toEqual(mockStatus);
     expect(useExecutionStore.getState().currentExecution).toEqual(mockStatus);
   });
+
+  it('checkin 成功應清除 loading', async () => {
+    mockCheckin.mockResolvedValue(undefined);
+    const data = { plan_id: 'p1', notes: '已完成' };
+    await useExecutionStore.getState().checkin(data);
+    expect(mockCheckin).toHaveBeenCalledWith(data);
+    expect(useExecutionStore.getState().isLoading).toBe(false);
+    expect(useExecutionStore.getState().error).toBeNull();
+  });
+
+  it('checkin 失敗應設 error 並拋出', async () => {
+    mockCheckin.mockRejectedValue(new Error('打卡失敗'));
+    await expect(
+      useExecutionStore.getState().checkin({ plan_id: 'p1' })
+    ).rejects.toThrow('打卡失敗');
+    expect(useExecutionStore.getState().error).toBe('打卡失敗');
+    expect(useExecutionStore.getState().isLoading).toBe(false);
+  });
 });

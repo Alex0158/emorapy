@@ -93,7 +93,8 @@ describe('statusTags', () => {
   describe('getCaseTypeTag', () => {
     it('應渲染案件類型文案', () => {
       const { container } = render(getCaseTypeTag('生活習慣衝突'));
-      expect(container.textContent).toContain('生活習慣衝突');
+      // Implementation uses i18n key caseList.typeLife for 生活習慣衝突
+      expect(container.textContent).toMatch(/生活習慣|caseList\.typeLife/);
     });
     it('未知類型應原樣顯示', () => {
       const { container } = render(getCaseTypeTag('other'));

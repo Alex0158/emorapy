@@ -54,12 +54,31 @@ describe('NotificationController', () => {
     });
 
     it('有 status query 時應傳入 list', async () => {
-      req.query = { status: 'read' };
+      req.query = { status: 'sent' };
       mockList.mockResolvedValue([]);
 
       await controller.list(req as Request, res as Response, next);
 
-      expect(mockList).toHaveBeenCalledWith('u1', 'read');
+      expect(mockList).toHaveBeenCalledWith('u1', 'sent');
+    });
+
+    it('status 無效時應拋出 VALIDATION_ERROR', async () => {
+      req.query = { status: 'invalid_status' };
+
+      await controller.list(req as Request, res as Response, next);
+
+      expect(mockList).not.toHaveBeenCalled();
+      expect(next).toHaveBeenCalledWith(
+        expect.objectContaining({ code: 'VALIDATION_ERROR' })
+      );
+    });
+
+    it('list 拋錯時應 next(error)', async () => {
+      mockList.mockRejectedValue(new Error('db error'));
+
+      await controller.list(req as Request, res as Response, next);
+
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
     });
   });
 
@@ -122,10 +141,11 @@ describe('NotificationController', () => {
       });
     });
 
-    it('list 拋錯時應 next(error)', async () => {
-      mockList.mockRejectedValue(new Error('db error'));
+    it('create 拋錯時應 next(error)', async () => {
+      req.body = { channel: 'email', template_code: 't1' };
+      mockCreate.mockRejectedValue(new Error('db error'));
 
-      await controller.list(req as Request, res as Response, next);
+      await controller.create(req as Request, res as Response, next);
 
       expect(next).toHaveBeenCalledWith(expect.any(Error));
     });

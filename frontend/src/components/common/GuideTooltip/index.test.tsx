@@ -29,13 +29,27 @@ describe('GuideTooltip', () => {
     expect(screen.getByRole('button', { name: '觸發' })).toBeInTheDocument();
   });
 
-  it('showOnce 且未看過時應顯示提示', () => {
+  it('showOnce 且未看過時應查詢 storage 並顯示 Tooltip', () => {
     mockGet.mockReturnValue(null);
     render(
       <GuideTooltip content="首次提示" storageKey="g1" showOnce>
         <span>子</span>
       </GuideTooltip>
     );
+    expect(mockGet).toHaveBeenCalledWith('g1');
     expect(screen.getByText('子')).toBeInTheDocument();
+    expect(screen.getByText('首次提示')).toBeInTheDocument();
+  });
+
+  it('showOnce 且已看過時不應顯示 Tooltip', () => {
+    mockGet.mockReturnValue(true);
+    render(
+      <GuideTooltip content="已讀提示" storageKey="g2" showOnce>
+        <span>子</span>
+      </GuideTooltip>
+    );
+    expect(mockGet).toHaveBeenCalledWith('g2');
+    expect(screen.getByText('子')).toBeInTheDocument();
+    expect(screen.queryByText('已讀提示')).not.toBeInTheDocument();
   });
 });

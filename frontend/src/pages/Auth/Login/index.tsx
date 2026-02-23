@@ -22,7 +22,6 @@ import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import BearJudge from "@/components/business/BearJudge";
 import AnimatedWrapper from "@/components/common/AnimatedWrapper";
-import PublicRoute from "@/components/common/PublicRoute";
 import SEO from "@/components/common/SEO";
 import { sendVerificationCode } from "@/services/api/auth";
 import { useAuthStore } from "@/store/authStore";
@@ -42,10 +41,16 @@ const Login = () => {
 	const [form] = Form.useForm();
 	const [rememberMe, setRememberMe] = useState(false);
 
+	const VALID_REDIRECT_PREFIXES = [
+		"/case", "/judgment", "/reconciliation", "/execution",
+		"/profile", "/interview", "/quick-experience",
+	];
 	const state = location.state as LocationState | null;
-	const rawFrom = state?.from?.pathname || "/";
-	const from =
-		rawFrom.startsWith("/") && !rawFrom.startsWith("//") ? rawFrom : "/";
+	const rawFrom = state?.from?.pathname || "/case/list";
+	const isValidRedirect =
+		rawFrom === "/" ||
+		VALID_REDIRECT_PREFIXES.some((prefix) => rawFrom.startsWith(prefix));
+	const from = isValidRedirect ? rawFrom : "/case/list";
 
 	const handleSubmit = async (values: { email: string; password: string }) => {
 		try {
@@ -58,9 +63,7 @@ const Login = () => {
 					? (error as { code?: string; message?: string })
 					: null;
 			const code = err?.code;
-			const msg =
-				err?.message ??
-				(error instanceof Error ? error.message : t("message.loginFail"));
+			const msg = err?.message ?? t("message.loginFail");
 			const msgStr = typeof msg === "string" ? msg : t("message.loginFail");
 			const looksLikeEmailNotVerified =
 				code === "EMAIL_NOT_VERIFIED" ||
@@ -80,7 +83,7 @@ const Login = () => {
 	};
 
 	return (
-		<PublicRoute>
+		<>
 			<SEO
 				title={t("auth.login.title")}
 				description={t("auth.login.description")}
@@ -193,7 +196,7 @@ const Login = () => {
 					</Card>
 				</AnimatedWrapper>
 			</div>
-		</PublicRoute>
+		</>
 	);
 };
 

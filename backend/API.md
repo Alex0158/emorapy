@@ -2,7 +2,7 @@
 
 ## 基礎信息
 
-- **Base URL**: `http://localhost:3000/api/v1`
+- **Base URL**: `http://localhost:3001/api/v1`
 - **認證方式**: JWT Token (Bearer Token)
 - **響應格式**: JSON
 
@@ -127,7 +127,14 @@ Authorization: Bearer <token>
 }
 ```
 
-### 3. 獲取案件詳情
+### 3. 案件列表
+**GET** `/cases`
+
+**查詢參數**：`status`、`type`、`page`、`page_size`（默認 10）、`sort_by`（默認 created_at）、`sort_order`（默認 desc）、`search`
+
+**響應**：`{ cases: [...], pagination: { page, page_size, total, total_pages } }`
+
+### 4. 獲取案件詳情
 **GET** `/cases/:id`
 
 **查詢參數**（快速體驗模式）:
@@ -135,7 +142,25 @@ Authorization: Bearer <token>
 ?session_id=guest_1704067200_abc123
 ```
 
-### 4. 上傳證據
+### 5. 更新案件
+**PUT** `/cases/:id`
+
+**請求體**（所有欄位可選）：
+```json
+{
+  "title": "...",
+  "plaintiff_statement": "...",
+  "defendant_statement": "..."
+}
+```
+> 僅 draft / submitted / in_progress 狀態可更新。原告可更新 title + plaintiff_statement，被告可更新 defendant_statement。
+
+### 6. 提交案件
+**POST** `/cases/:id/submit`
+
+> 將案件從 draft 推進到 submitted。僅案件所有者（原告）可提交。
+
+### 7. 上傳證據
 **POST** `/cases/:id/evidence`
 
 **Content-Type**: `multipart/form-data`
@@ -143,7 +168,7 @@ Authorization: Bearer <token>
 **表單數據**:
 - `files`: 文件（最多3個）
 
-### 5. 刪除證據
+### 8. 刪除證據
 **DELETE** `/cases/:id/evidence/:evidenceId`
 
 > 權限：完整模式需當事人；快速體驗需 session_id/頭部 X-Session-Id。
@@ -231,6 +256,13 @@ Authorization: Bearer <token>
 
 > 提示：系統會根據打卡進度自動計算進度並在達到預期天數時標記完成。
 
+### 4. 執行總覽
+**GET** `/execution/dashboard`
+
+**響應**：`{ executions: [{ plan_id, plan_title, status, progress, last_checkin_at }] }`
+
+> 獲取當前用戶所有方案的執行狀態彙總，用於 Dashboard 頁面。
+
 ---
 
 ## 個人/關係檔案
@@ -292,6 +324,16 @@ Authorization: Bearer <token>
 | `VALIDATION_ERROR` | 400 | 驗證失敗 |
 | `RATE_LIMIT_EXCEEDED` | 429 | 請求過於頻繁 |
 | `AI_SERVICE_ERROR` | 503 | AI服務錯誤 |
+| `CONSENT_REQUIRED` | 403 | 用戶未同意知情同意（v2.0） |
+| `SESSION_NOT_FOUND` | 404 | 訪談 session 不存在（v2.0） |
+| `SESSION_NOT_OWNED` | 403 | session 不屬於當前用戶（v2.0） |
+| `SESSION_COMPLETED` | 409 | session 已結束（含 completed/abandoned）（v2.0） |
+| `MAX_TURNS_REACHED` | **422** | 已達最大 turn 數（⚠️ 代碼返回 422 非 409）（v2.0） |
+| `CONCURRENT_REQUEST` | 409 | session 正在處理中（v2.0） |
+| `TURN_TOO_FAST` | 429 | turn 間隔不足 3 秒（v2.0） |
+| `RATE_LIMIT_EXCEEDED` | 429 | 開始訪談頻率超限。⚠️ 代碼統一使用 `RATE_LIMIT_EXCEEDED`（設計中的 `START_RATE_LIMIT` 未被使用）。雙層：①中間件每用戶每小時 3 次；②業務邏輯每天 5 個 substantive session（v2.0） |
+| `AI_CALL_FAILED` | SSE error | AI 調用失敗（SSE 流內推送）（v2.0） |
+| _(無專用碼)_ | **200** | polling `GET /:id` 始終返回 200。⚠️ 設計曾規劃 `PROCESSING_NOT_DONE` (202) / `PROCESSING_FAILED` (500)，代碼統一 200 + session 對象，前端從 `status` 判斷（v2.0） |
 
 ## 限流規則
 
@@ -299,4 +341,44 @@ Authorization: Bearer <token>
 - 註冊接口：每小時5次
 - 驗證碼接口：每郵箱每5分鐘1次
 - AI接口：每小時10次
+- 訪談 start：雙層限流——①中間件每用戶每小時 3 次（`INTERVIEW_START_RATE_LIMIT`，防濫用）；②業務邏輯每用戶每天 5 個 substantive session（`INTERVIEW_DAILY_SESSION_LIMIT`，僅計 ≥ 3 輪）
+- 訪談 respond：每 session 25 輪上限（`INTERVIEW_MAX_TURNS`），每輪間隔 ≥ 3 秒
 - 其他接口：每分鐘100次
+
+---
+
+## 🧠 心理畫像與 AI 訪談（v2.0 新增）
+
+> 詳細 API 規格見 `docs/後端設計/03-API設計.md`
+> 技術方案見 `UPGRADE_PLAN_PERSONALIZED_JUDGMENT.md`（v10）
+> 路由參數使用 `:id`（非 `:sessionId`），與源碼對齊。
+
+### 訪談
+
+| 方法 | 端點 | 說明 |
+|------|------|------|
+| POST | `/interview/start` | 開始訪談（需 consent）。響應 201，返回完整 session 對象（`id`, `status`, `trigger`, `turns[]`, `created_at`），非 session_id + first_message + consent_required。使用 requireConsent 中間件。 |
+| POST | `/interview/:id/respond` | 提交回答。請求體用 `message`（非 `response`）。SSE 非逐字流式（完整文本單次 token 事件）。 |
+| POST | `/interview/:id/skip` | 跳過問題（SSE 同 respond） |
+| POST | `/interview/:id/end` | 結束訪談。響應僅 `{ success, message }`，無 data.processing。 |
+| GET | `/interview/:id` | 獲取訪談詳情 / polling。取代原 result 與 history 兩端點，返回完整 session（turns、status、feedback_card、richness_score）。 |
+| GET | `/interview/resume` | 檢查未完成訪談 |
+| POST | `/interview/:id/retry` | 重試失敗的處理（僅 processing_failed 狀態） |
+
+### 心理畫像
+
+| 方法 | 端點 | 說明 |
+|------|------|------|
+| GET | `/psych-profile` | 畫像概覽。返回 `consent_given`, `consent_at`, `richness_score`, `narratives[]`, `insights[]`（非 feedback_summary / has_data / last_interview_at）。 |
+| GET | `/psych-profile/feedback` | 洞察反饋歷史。返回 `history[]`，每項含 `session_id`, `feedback_card`, `domains_touched`（非 observations[]）。 |
+| DELETE | `/psych-profile` | 清除畫像（遺忘權）。響應 `{ success, message }`（非 data.deleted）。 |
+| POST | `/psych-profile/consent` | 記錄知情同意。響應 `{ success, message }`（非 data.consent_given / consent_at）。 |
+
+### SSE 響應格式
+
+`POST /interview/:id/respond` 和 `/skip` 返回 SSE 事件流（當前為非逐字流式，單次推送完整文本）：
+- `event: token` — 文本，data: `{ "text": "AI 完整回應文本" }`
+- `event: metadata` — AI 元數據，data: `{ "intent": "...", "target_domains": [...], "should_end": false, "safety_flag": false }`
+- `event: safety_alert` — 安全警報，data: `{ "message": "...", "resources": [...] }`
+- `event: complete` — 本輪完成，data: `{ "session_id": "uuid", "status": "in_progress" }`（非 turn_order / domains_touched_so_far）
+- `event: error` — 錯誤，data: `{ "code": "AI_CALL_FAILED", "message": "..." }`

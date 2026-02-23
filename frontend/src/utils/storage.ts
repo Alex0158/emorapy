@@ -52,19 +52,19 @@ const compactCaseSessionMap = (map: Record<string, CaseSessionEntry>): Record<st
  */
 export const sessionStorage = {
   get: (): string | null => {
-    return localStorage.getItem(SESSION_STORAGE_KEY);
+    try { return localStorage.getItem(SESSION_STORAGE_KEY); } catch { return null; }
   },
 
   set: (sessionId: string): void => {
-    localStorage.setItem(SESSION_STORAGE_KEY, sessionId);
+    try { localStorage.setItem(SESSION_STORAGE_KEY, sessionId); } catch { /* noop */ }
   },
 
   remove: (): void => {
-    localStorage.removeItem(SESSION_STORAGE_KEY);
+    try { localStorage.removeItem(SESSION_STORAGE_KEY); } catch { /* noop */ }
   },
 
   exists: (): boolean => {
-    return !!localStorage.getItem(SESSION_STORAGE_KEY);
+    try { return !!localStorage.getItem(SESSION_STORAGE_KEY); } catch { return false; }
   },
 };
 
@@ -126,11 +126,11 @@ export const localStore = {
   },
 
   remove: (key: string): void => {
-    localStorage.removeItem(key);
+    try { localStorage.removeItem(key); } catch { /* noop */ }
   },
 
   clear: (): void => {
-    localStorage.clear();
+    try { localStorage.clear(); } catch { /* noop */ }
   },
 };
 

@@ -1,5 +1,58 @@
 # 更新日誌
 
+## [2.0.0] - 2026-02-20（個人化判決系統）
+
+### 新增功能
+- 🧠 **心理畫像系統**：AI 訪談 → 異步管線 → 洞察提取 → 判決注入
+- **5 個新資料表**：InterviewSession、InterviewTurn、ProfileNarrative、ProfileInsight、ProfileSnapshot
+- **4 個新 ENUM**：PsychDomain（8 域）、InterviewStatus、InterviewTrigger、InsightType
+- **Users 表擴展**：psych_consent_given、psych_consent_at
+
+### 新增 API（11 個端點）
+- `POST /interview/start` — 開始 AI 訪談
+- `POST /interview/:sessionId/respond` — 提交回答（SSE 流式）
+- `POST /interview/:sessionId/skip` — 跳過問題（SSE 流式）
+- `POST /interview/:sessionId/end` — 結束訪談（觸發異步管線）
+- `GET /interview/:sessionId/result` — 獲取結果（polling）
+- `GET /interview/resume` — 檢查未完成訪談
+- `GET /interview/:sessionId/history` — 載入對話歷史
+- `GET /psych-profile` — 畫像概覽
+- `GET /psych-profile/feedback` — 洞察反饋
+- `DELETE /psych-profile` — 清除畫像（遺忘權）
+- `POST /psych-profile/consent` — 記錄知情同意
+
+### 新增後端服務（6 個）
+- InterviewService、AsyncPipelineService、NarrativeService
+- InsightExtractionService、ProfileSnapshotService、ProfileRichnessCalculator
+
+### 新增 AI Prompt（6 個）
+- 訪談追問（GPT-4o-mini）、域分類、敘事摘要+完整度、洞察提取、反饋卡片、判決注入（GPT-4o）
+
+### 安全機制
+- Session mutex lock（Redis / DB advisory lock）
+- SSE 分隔符注入防護（三層防禦）
+- 知情同意機制（ConsentGuard）
+- 安全偵測（safety_flag → 暫停 + 危機資源）
+- 訪談專用限流器（start 3/hr、turn 3s interval、session 25 turns hard limit）
+
+### 前端設計新增
+- 6 個訪談組件（ChatBubble、InterviewInput、RichnessRing、FeedbackCard、ConsentModal、SafetyAlert）
+- InterviewStore / PsychProfileStore（Zustand + SSE）
+- sseRequest 工具
+- 訪談路由（/interview/:sessionId、/interview/:sessionId/result）
+- 4 種觸發點引導（onboarding、pre_case、post_judgment、organic）
+
+### 行為與約定
+- `processing_failed` 可通過 `POST /interview/:id/retry` 重試，依賴 `pipeline_step` 欄位從失敗步驟恢復（⚠️ `POST /end` 僅接受 `in_progress`，不可用於重試）
+- `endSession` 非冪等：僅接受 `in_progress` → `processing`，對已 processing/completed 的 session 返回 409
+- `abandoned` 僅針對 `in_progress`，`processing`/`completed`/`processing_failed` 的 session 不受 start 影響
+- respond 的 session mutex 在 turn 持久化 + SSE 流關閉後釋放
+- SSE `complete` 事件含 `turn_order` + `domains_touched_so_far`
+- 洞察提取的 `insight_type` 必須為 InsightType 枚舉值（trait/pattern/belief/trigger/strength/risk/cultural/developmental）
+- 判決寫入 DB 的 `ai_model` 從 `AI_CONFIG.model`（環境變量）讀取，不再硬編碼
+
+---
+
 ## [1.1.0] - 2026-02-20
 
 ### 安全加固
@@ -86,7 +139,7 @@
 
 ### 技術棧
 
-- **運行時**: Node.js 18+
+- **運行時**: Node.js 20+
 - **語言**: TypeScript 5.3+
 - **框架**: Express.js 4.18+
 - **ORM**: Prisma 5.7+

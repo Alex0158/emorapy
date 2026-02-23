@@ -34,7 +34,6 @@ export class JudgmentController {
     try {
       const judgmentId = req.params.id;
       
-      // 通過判決ID獲取判決，然後獲取對應的案件ID
       const prisma = (await import('../config/database')).default;
       const judgment = await prisma.judgment.findUnique({
         where: { id: judgmentId },
@@ -51,11 +50,20 @@ export class JudgmentController {
         throw Errors.INVALID_SESSION_ID('Header 與 Query 的 Session ID 不一致');
       }
 
-      const result = await judgmentService.getJudgmentByCaseId(
-        judgment.case_id,
-        userId,
-        sessionId
-      );
+      let result;
+      try {
+        result = await judgmentService.getJudgmentByCaseId(
+          judgment.case_id,
+          userId,
+          sessionId
+        );
+      } catch (accessErr: unknown) {
+        const code = (accessErr as { code?: string })?.code;
+        if (code === 'FORBIDDEN') {
+          throw Errors.NOT_FOUND('判決不存在');
+        }
+        throw accessErr;
+      }
 
       if (!result) {
         res.status(202).json({

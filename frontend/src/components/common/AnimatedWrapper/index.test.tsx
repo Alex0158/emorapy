@@ -11,12 +11,13 @@ describe('AnimatedWrapper', () => {
     expect(screen.getByText('內容')).toBeInTheDocument();
   });
 
-  it('應支援 animation 與 direction', () => {
-    render(
+  it('應支援 animation 與 direction 且不崩潰', () => {
+    const { container } = render(
       <AnimatedWrapper animation="slide" direction="right">
         x
       </AnimatedWrapper>
     );
     expect(screen.getByText('x')).toBeInTheDocument();
+    expect(container.querySelector('.animated-wrapper')).toBeInTheDocument();
   });
 });

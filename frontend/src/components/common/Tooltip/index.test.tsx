@@ -15,21 +15,13 @@ describe('Tooltip', () => {
     expect(screen.getByRole('button', { name: '懸停' })).toBeInTheDocument();
   });
 
-  it('應傳遞 title 給 AntTooltip', () => {
-    render(
-      <Tooltip title="自定義提示">
+  it('傳入 title 與各種 props 時不應拋錯', () => {
+    const { unmount } = render(
+      <Tooltip title="自定義提示" placement="top" color="blue">
         <span>觸發</span>
       </Tooltip>
     );
     expect(screen.getByText('觸發')).toBeInTheDocument();
-  });
-
-  it('應支援 placement 等 props', () => {
-    render(
-      <Tooltip title="T" placement="top">
-        <span>內容</span>
-      </Tooltip>
-    );
-    expect(screen.getByText('內容')).toBeInTheDocument();
+    unmount();
   });
 });

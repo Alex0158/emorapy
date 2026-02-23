@@ -23,6 +23,9 @@ vi.mock('@/utils/storage', () => ({
 vi.mock('antd', () => ({
   message: { error: (...args: unknown[]) => mockMessageError(...args) },
 }));
+vi.mock('@/utils/i18n', () => ({
+  t: (key: string) => key,
+}));
 
 describe('useSession', () => {
   beforeEach(() => {
@@ -64,7 +67,7 @@ describe('useSession', () => {
         await result.current.createSession();
       })
     ).rejects.toThrow('api-failed');
-    expect(mockMessageError).toHaveBeenCalledWith(expect.stringContaining('創建Session失敗'));
+    expect(mockMessageError).toHaveBeenCalledWith('message.sessionCreateFail');
     expect(result.current.loading).toBe(false);
   });
 

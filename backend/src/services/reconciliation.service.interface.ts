@@ -26,7 +26,7 @@ export interface IReconciliationService {
     filters?: GetPlansFilters
   ): Promise<unknown>;
 
-  getPlanById(planId: string, userId?: string): Promise<unknown>;
+  getPlanById(planId: string, userId: string): Promise<unknown>;
 
   selectPlan(planId: string, userId: string): Promise<unknown>;
 }

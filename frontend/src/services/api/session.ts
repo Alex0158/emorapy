@@ -13,7 +13,10 @@ export const createSession = async (): Promise<Session> => {
   const response = await request.post<ApiResponse<{ session_id: string; expires_at: string }>>(
     '/sessions/quick'
   );
-  const data = (response.data as ApiResponse<{ session_id: string; expires_at: string }>).data;
+  const data = (response.data as ApiResponse<{ session_id: string; expires_at: string }>)?.data;
+  if (!data?.session_id || !data?.expires_at) {
+    throw new Error('Invalid session response from server');
+  }
   return {
     session_id: data.session_id,
     expires_at: data.expires_at,
@@ -28,7 +31,10 @@ export const refreshSession = async (): Promise<Session> => {
   const response = await request.post<ApiResponse<{ session_id: string; expires_at: string }>>(
     '/sessions/refresh'
   );
-  const data = (response.data as ApiResponse<{ session_id: string; expires_at: string }>).data;
+  const data = (response.data as ApiResponse<{ session_id: string; expires_at: string }>)?.data;
+  if (!data?.session_id || !data?.expires_at) {
+    throw new Error('Invalid session response from server');
+  }
   return {
     session_id: data.session_id,
     expires_at: data.expires_at,

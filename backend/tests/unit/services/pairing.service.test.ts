@@ -12,6 +12,7 @@ const prismaMock: any = {
     findUnique: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn(),
     count: jest.fn(),
   },
 };
@@ -30,6 +31,10 @@ jest.mock('../../../src/utils/session', () => ({
 }));
 jest.mock('../../../src/services/file.service', () => ({
   fileService: { signUrl: (url: string) => `signed:${url}` },
+  signAvatar: <T extends { avatar_url?: string | null }>(user: T | null | undefined): T | null | undefined => {
+    if (!user?.avatar_url) return user;
+    return { ...user, avatar_url: `signed:${user.avatar_url}` };
+  },
 }));
 
 import { PairingService } from '../../../src/services/pairing.service';
@@ -164,23 +169,46 @@ describe('PairingService', () => {
         user1: { avatar_url: null },
         user2: null,
       };
-      prismaMock.pairing.findUnique.mockResolvedValue(pairing);
-      prismaMock.pairing.update.mockResolvedValue({
-        ...pairing,
-        user2_id: 'u2',
-        status: 'active',
-        user2: { avatar_url: null },
-      });
+      prismaMock.pairing.findUnique
+        .mockResolvedValueOnce(pairing)
+        .mockResolvedValueOnce({
+          ...pairing,
+          user2_id: 'u2',
+          status: 'active',
+          user1: { avatar_url: null },
+          user2: { avatar_url: null },
+        });
+      prismaMock.pairing.updateMany.mockResolvedValue({ count: 1 });
 
       const result = await service.joinPairing('u2', 'ABC123');
 
       expect(result.status).toBe('active');
-      expect(prismaMock.pairing.update).toHaveBeenCalledWith({
-        where: { id: 'p1' },
+      expect(prismaMock.pairing.updateMany).toHaveBeenCalledWith({
+        where: { id: 'p1', status: 'pending' },
         data: expect.objectContaining({
           user2_id: 'u2',
           status: 'active',
         }),
+      });
+    });
+
+    it('並發加入時 updateMany count=0 應拋出已使用錯誤', async () => {
+      const pairing = {
+        id: 'p1',
+        invite_code: 'ABC123',
+        expires_at: new Date(Date.now() + 3600000),
+        status: 'pending',
+        user1_id: 'u1',
+        user2_id: null,
+        user1: { avatar_url: null },
+        user2: null,
+      };
+      prismaMock.pairing.findUnique.mockResolvedValue(pairing);
+      prismaMock.pairing.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.joinPairing('u2', 'ABC123')).rejects.toMatchObject({
+        code: 'INVALID_CODE',
+        message: expect.stringContaining('已使用'),
       });
     });
 
@@ -195,17 +223,21 @@ describe('PairingService', () => {
         user1: { avatar_url: '/u1.jpg' },
         user2: { avatar_url: '/u2.jpg' },
       };
-      prismaMock.pairing.findUnique.mockResolvedValue(pairing);
-      prismaMock.pairing.update.mockResolvedValue({
-        ...pairing,
-        user2_id: 'u2',
-        status: 'active',
-      });
+      prismaMock.pairing.findUnique
+        .mockResolvedValueOnce(pairing)
+        .mockResolvedValueOnce({
+          ...pairing,
+          user2_id: 'u2',
+          status: 'active',
+          user1: { avatar_url: '/u1.jpg' },
+          user2: { avatar_url: '/u2.jpg' },
+        });
+      prismaMock.pairing.updateMany.mockResolvedValue({ count: 1 });
 
       const result = await service.joinPairing('u2', 'ABC123');
 
-      expect(result.user1.avatar_url).toBe('signed:/u1.jpg');
-      expect(result.user2.avatar_url).toBe('signed:/u2.jpg');
+      expect(result.user1!.avatar_url).toBe('signed:/u1.jpg');
+      expect(result.user2!.avatar_url).toBe('signed:/u2.jpg');
     });
   });
 

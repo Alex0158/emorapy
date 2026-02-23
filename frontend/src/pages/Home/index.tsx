@@ -5,19 +5,21 @@
 import { useMemo } from 'react';
 import { Button } from 'antd';
 import { useNavigate } from 'react-router-dom';
-import { RocketOutlined, HeartOutlined, BulbOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { RocketOutlined, HeartOutlined, BulbOutlined, CheckCircleOutlined, FileTextOutlined, TeamOutlined } from '@ant-design/icons';
 import BearJudge from '@/components/business/BearJudge';
 import SEO from '@/components/common/SEO';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
 import FlowSimulation from './components/FlowSimulation';
+import { useAuthStore } from '@/store/authStore';
 import { t } from '@/utils/i18n';
 import './Home.less';
 
 const Home = () => {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuthStore();
 
   const handleQuickStart = () => {
-    navigate('/quick-experience/create');
+    navigate(isAuthenticated ? '/case/create' : '/quick-experience/create');
   };
 
   const features = useMemo(
@@ -61,21 +63,32 @@ const Home = () => {
                 <Button
                   type="primary"
                   size="large"
-                  icon={<RocketOutlined />}
+                  icon={isAuthenticated ? <FileTextOutlined /> : <RocketOutlined />}
                   onClick={handleQuickStart}
                   className="primary-button"
-                  aria-label={t('home.hero.quickStartAria')}
+                  aria-label={isAuthenticated ? t('home.hero.createCaseAria') : t('home.hero.quickStartAria')}
                 >
-                  {t('home.hero.quickStart')}
+                  {isAuthenticated ? t('home.hero.createCase') : t('home.hero.quickStart')}
                 </Button>
                 <Button
                   size="large"
-                  onClick={() => navigate('/auth/register')}
+                  onClick={() => navigate(isAuthenticated ? '/case/list' : '/auth/register')}
                   className="hero-btn-secondary"
-                  aria-label={t('home.hero.learnMoreAria')}
+                  aria-label={isAuthenticated ? t('home.hero.viewCasesAria') : t('home.hero.learnMoreAria')}
                 >
-                  {t('home.hero.learnMore')}
+                  {isAuthenticated ? t('home.hero.viewCases') : t('home.hero.learnMore')}
                 </Button>
+                {!isAuthenticated && (
+                  <Button
+                    size="large"
+                    icon={<TeamOutlined />}
+                    onClick={() => navigate('/quick-experience/collaborative')}
+                    className="hero-btn-secondary"
+                    style={{ marginLeft: 8 }}
+                  >
+                    {t('home.collaborativeMode')}
+                  </Button>
+                )}
               </div>
             </AnimatedWrapper>
             <AnimatedWrapper animation="fade" delay={250} duration={400} className="hero-image">
@@ -158,18 +171,18 @@ const Home = () => {
         <section className="cta-section" aria-labelledby="cta-title">
           <div className="cta-inner">
             <h2 id="cta-title" className="cta-title">
-              {t('home.cta.title')}
+              {isAuthenticated ? t('home.cta.titleAuth') : t('home.cta.title')}
             </h2>
-            <p className="cta-desc">{t('home.cta.desc')}</p>
+            <p className="cta-desc">{isAuthenticated ? t('home.cta.descAuth') : t('home.cta.desc')}</p>
             <Button
               type="primary"
               size="large"
-              icon={<RocketOutlined />}
+              icon={isAuthenticated ? <FileTextOutlined /> : <RocketOutlined />}
               onClick={handleQuickStart}
               className="cta-button"
-              aria-label={t('home.hero.quickStartAria')}
+              aria-label={isAuthenticated ? t('home.hero.createCaseAria') : t('home.hero.quickStartAria')}
             >
-              {t('home.cta.button')}
+              {isAuthenticated ? t('home.hero.createCase') : t('home.cta.button')}
             </Button>
           </div>
         </section>

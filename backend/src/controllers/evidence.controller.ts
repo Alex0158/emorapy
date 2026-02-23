@@ -6,6 +6,7 @@ import logger from '../config/logger';
 import { sessionService } from '../services/session.service';
 import { getAuthUserIdOptional, getSessionIdFromSources } from '../utils/request';
 import { lockService } from '../utils/lock';
+import { LOCK_TTL, EVIDENCE_UPLOAD_ALLOWED_STATUSES, CASE_MODE } from '../utils/constants';
 
 export class EvidenceController {
   private preAuthorizeUpload = async (req: Request, _res: Response, next: NextFunction) => {
@@ -26,7 +27,7 @@ export class EvidenceController {
         throw Errors.NOT_FOUND('案件不存在');
       }
 
-      if (case_.mode === 'quick') {
+      if (case_.mode === CASE_MODE.QUICK) {
         if (!sessionId || case_.session_id !== sessionId) {
           throw Errors.FORBIDDEN('無權限上傳證據');
         }
@@ -43,7 +44,7 @@ export class EvidenceController {
         }
       }
 
-      if (!['draft', 'submitted', 'in_progress'].includes(case_.status)) {
+      if (!(EVIDENCE_UPLOAD_ALLOWED_STATUSES as readonly string[]).includes(case_.status)) {
         throw Errors.CASE_NOT_EDITABLE('案件狀態不允許上傳證據');
       }
 
@@ -77,9 +78,7 @@ export class EvidenceController {
 
         const processedFiles: Array<{ filename: string; size: number; mimetype: string }> = [];
         for (const file of files) {
-          // 使用異步文件驗證（包括魔數驗證）
           await fileService.validateFile(file);
-          // 媒體處理（壓縮/轉碼）
           let processed = { filename: file.filename, size: file.size, mimetype: file.mimetype };
           if (file.mimetype.startsWith('image/')) {
             processed = await fileService.processImage(file);
@@ -98,7 +97,7 @@ export class EvidenceController {
           if (!latestCase) {
             throw Errors.NOT_FOUND('案件不存在');
           }
-          if (!['draft', 'submitted', 'in_progress'].includes(latestCase.status)) {
+          if (!(EVIDENCE_UPLOAD_ALLOWED_STATUSES as readonly string[]).includes(latestCase.status)) {
             throw Errors.CASE_NOT_EDITABLE('案件狀態不允許上傳證據');
           }
 
@@ -125,7 +124,7 @@ export class EvidenceController {
             }
             return created;
           });
-        }, 30);
+        }, LOCK_TTL.EVIDENCE_UPLOAD);
 
         const signedEvidences = evidences.map((evidence) => ({
           ...evidence,
@@ -181,7 +180,7 @@ export const deleteEvidence = async (req: Request, res: Response, next: NextFunc
     const case_ = evidence.case;
 
     // 快速體驗：驗證 session
-    if (case_.mode === 'quick') {
+    if (case_.mode === CASE_MODE.QUICK) {
       if (!sessionId || case_.session_id !== sessionId) {
         throw Errors.FORBIDDEN('無權限刪除此證據');
       }

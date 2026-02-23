@@ -2,7 +2,7 @@
 
 **項目名稱**：熊媽媽法庭（Mother Bear Court）  
 **設計階段**：MVP開發階段  
-**文檔版本**：v2.1
+**文檔版本**：v3.0
 
 ---
 
@@ -829,6 +829,8 @@ interface ApiError {
 - **重試按鈕**：顯示在錯誤提示中
 - **重試邏輯**：重新發送請求
 
+訪談與心理畫像相關錯誤碼（如 `CONSENT_REQUIRED`、`CONCURRENT_REQUEST`、`MAX_TURNS_REACHED` 等）見 [07-交互流程](./07-交互流程與用戶體驗設計.md) § 錯誤處理 及 [03-API設計](../後端設計/03-API設計.md) §訪談與心理畫像錯誤碼。
+
 ### 錯誤恢復建議
 
 **網絡錯誤**：
@@ -997,6 +999,136 @@ axios.interceptors.response.use(
 
 ---
 
-**文檔版本**：v2.1  
+## 🧠 心理畫像狀態管理與 API（v3.0 新增）
+
+> 設計依據：`UPGRADE_PLAN_PERSONALIZED_JUDGMENT.md` v10
+
+### InterviewStore（Zustand）
+
+> **實現對齊**：以下接口與 `frontend/src/store/interviewStore.ts` 實際代碼完全一致。
+
+```typescript
+interface InterviewState {
+  // 核心狀態
+  currentSession: InterviewSession | null;  // 完整 session 對象（含 id、status、trigger 等）
+  turns: InterviewTurn[];
+  streamingText: string;         // SSE 回應文本 buffer（對應設計中的 pendingMessage）
+  isStreaming: boolean;          // SSE 進行中（對應設計中的 isInputDisabled）
+  loading: boolean;              // startSession / endSession / getSession 期間
+  error: string | null;
+  errorCode: string | null;      // v2.0 具體錯誤碼（CONCURRENT_REQUEST, TURN_TOO_FAST 等）
+  safetyAlert: { message: string; severity?: string } | null;  // safety_alert SSE 事件
+  abortController: AbortController | null;
+  shouldEnd: boolean;            // AI metadata.should_end 標記
+
+  // Actions
+  startSession: (trigger?: string) => Promise<InterviewSession>;   // 返回完整 session
+  checkResume: () => Promise<{ has_pending: boolean; session_id?: string; last_ai_message?: string; turn_count?: number; has_failed?: boolean; failed_session_id?: string }>;
+  respond: (sessionId: string, message: string) => Promise<void>;  // SSE（sseRequest 直接調用）
+  skipTurn: (sessionId: string) => Promise<void>;                  // SSE（sseRequest 直接調用）
+  endSession: (sessionId: string) => Promise<void>;
+  getSession: (sessionId: string) => Promise<void>;                // 合併了原 getResult + loadHistory
+  retryFailed: (sessionId: string) => Promise<void>;
+  cancelStream: () => void;
+  dismissSafetyAlert: () => void;  // 清除 safetyAlert state
+  reset: () => void;
+}
+```
+
+> **`trigger` 用途**：反饋卡片上的主按鈕文案根據 `currentSession.trigger` 切換——`pre_case` → [繼續提交案件]、`post_judgment` → [查看判決]、`onboarding` → [回到首頁]、`organic` → [繼續聊聊]。
+>
+> **設計名稱映射**：`sessionId` → `currentSession.id`、`status` → `currentSession.status`、`feedbackCard` → `currentSession.feedback_card`、`pendingMessage` → `streamingText`、`isInputDisabled` → `isStreaming`。不在 Store 中的屬性（`consentRequired`、`richnessScore`）由 PsychProfileStore 提供。
+
+**SSE 處理邏輯**（`respond` / `skipTurn` action；與 [03-核心頁面詳細設計](03-核心頁面詳細設計.md) §4.5 和 [後端 03-API設計](../後端設計/03-API設計.md) §SSE 對齊）：
+
+1. **前置校驗**（由頁面組件負責）：`text.trim()` 為空 → 不發送；超過 2000 字 → 不發送
+2. 建立 `AbortController` → 調用 `sseRequest('/interview/${sessionId}/respond', { message })` 直接處理 SSE（不經過 `interviewApi`）
+3. 立即 `isStreaming = true`、`streamingText = ''`、`error = null`
+4. 收到 `onToken` callback → 追加文本到 `streamingText`
+5. 收到 `onMetadata` callback → 暫存 turn_order、intent、target_domains、should_end
+6. 收到 `onSafetyAlert` callback → ✅ 寫入 `safetyAlert` state（InterviewChat 渲染 SafetyAlert 組件；severity=critical 時顯示危機熱線）
+7. 收到 `onError` callback → 設置 `error`
+8. 收到 `onComplete` callback → **將 `streamingText` 構建為 `InterviewTurn` 加入 `turns`**（附加 turn_order 和 metadata）→ 清空 `streamingText` → `isStreaming = false` → 更新 `shouldEnd`
+9. 頁面組件偵測 `shouldEnd === true` → 自動調 `endSession()` → 導向結果頁
+10. **SSE 中斷**：AbortError 被過濾；其他錯誤設 `error` → 用戶可手動「重新整理」→ 調 `getSession()` 恢復
+
+**Polling 策略**（由頁面組件驅動，非 Store action）：
+- `endSession()` 後 `currentSession.status` 更新為 `processing`
+- 頁面每 3 秒調 `getSession(sessionId)`（`GET /interview/:id`）
+- `status === 'completed'` → 從 session 讀取 `feedback_card`、`richness_score` → 跳轉結果頁
+- `status === 'processing'` → 繼續輪詢
+- `status === 'processing_failed'` → 顯示「分析遇到問題」+ 重試按鈕（`retryFailed`）
+- **60 秒仍為 processing** → 顯示「處理較慢，請稍候」非阻塞提示（不中斷 polling）
+- ⚠️ **責任劃分**：由訪談結果頁（`pages/Interview/Result`）負責 polling `getSession`。
+
+### PsychProfileStore（Zustand）
+
+> **實現對齊**：以下接口與 `frontend/src/store/psychProfileStore.ts` 實際代碼完全一致。
+
+```typescript
+interface PsychProfileState {
+  profile: PsychProfile | null;              // 完整畫像（含 consent_given、richness_score、narratives、insights）
+  feedbackHistory: FeedbackHistoryItem[];    // 訪談反饋歷史列表
+  loading: boolean;
+  error: string | null;
+  consentLoading: boolean;                   // giveConsent 專用 loading
+
+  fetchProfile: () => Promise<void>;
+  fetchFeedbackHistory: () => Promise<void>;
+  giveConsent: () => Promise<void>;          // 不傳 body；拒絕 = 關閉彈窗不調 API
+  deleteAllData: () => Promise<void>;        // 刪除後重置 profile + feedbackHistory
+  reset: () => void;
+}
+```
+
+> **數據來源釐清**：`fetchProfile`（`GET /psych-profile`）返回 `consent_given`、`consent_at`、`richness_score`、`narratives[]`（含 `ai_summary`、`domain`、`completeness`）、`insights[]`。前端從 `profile.narratives` 中衍生域完整度和語義標籤。`fetchFeedbackHistory`（`GET /psych-profile/feedback`）返回 `history[]`（每條含 `session_id`、`feedback_card`、`domains_touched`、`created_at`），存入 `feedbackHistory` 供 FeedbackCard 組件消費。
+>
+> **設計名稱映射**：`richnessScore` → `profile.richness_score`、`consentGiven` → `profile.consent_given`、`domainCompleteness` → 從 `profile.narratives` 衍生、`richnessLabel` → 由頁面組件根據 `richness_score` 計算。
+
+### API 端點（前端 service 層）
+
+> **實現對齊**：以下端點已與後端 [03-API設計](../後端設計/03-API設計.md) v2.1 對齊。路由使用 `:id`（非 `:sessionId`）。
+
+> **實現對齊**：以下 API 與 `frontend/src/services/api/interview.ts` 和 `psychProfile.ts` 實際代碼完全一致。
+
+```typescript
+// services/api/interview.ts
+export const interviewApi = {
+  startSession: (trigger: string = 'organic') =>
+    request.post('/interview/start', { trigger }),
+  checkResume: () => request.get('/interview/resume'),
+  getSession: (sessionId: string) => request.get(`/interview/${sessionId}`),
+  endSession: (sessionId: string) => request.post(`/interview/${sessionId}/end`),
+  retryFailed: (sessionId: string) => request.post(`/interview/${sessionId}/retry`),
+};
+// 注意：respond 和 skip 由 Store 直接調用 sseRequest，不在此 API 層
+
+// services/api/psychProfile.ts
+export const psychProfileApi = {
+  getProfile: () => request.get('/psych-profile'),
+  getFeedbackHistory: () => request.get('/psych-profile/feedback'),
+  giveConsent: () => request.post('/psych-profile/consent'),
+  deleteAllData: () => request.delete('/psych-profile'),
+};
+```
+
+**API 實現說明**：
+- `respond` / `skip` 由 InterviewStore 直接調用 `sseRequest('/interview/${sessionId}/respond', { message })` 處理 SSE，不經過 `interviewApi`
+- `startSession` 返回完整 session 對象（含 `id`、`status`、`trigger`、`turns[]`）
+- `getSession`（`GET /:id`）合併了原 `getResult` 和 `getHistory`——返回完整 session 含 turns、status、feedback_card
+- `retryFailed`（`POST /:id/retry`）用於重試 `processing_failed` 的 session
+- `giveConsent` 不傳 body；`deleteAllData` 清除所有畫像數據並重置 consent
+
+**SSE 請求工具**（`sseRequest` 函數）：
+- 使用 `fetch` + `ReadableStream`（非 EventSource，因需 POST + Bearer token）
+- 接受 callback 配置：`onToken`、`onMetadata`、`onSafetyAlert`、`onComplete`、`onError`
+- 支持 `AbortController` 取消請求
+- **注意**：後端當前發送完整回應文本（非逐字流式），前端可選擇模擬打字效果或一次性展示
+
+> 與後端 [03-API設計](../後端設計/03-API設計.md) §心理畫像與 AI 訪談 API 對齊。`getSession` 響應中的 `partial_success` 由頁面組件讀取，作為 route state 傳遞給結果頁。
+
+---
+
+**文檔版本**：v3.0  
 **創建日期**：2024年  
-**最後更新**：2026-02（Store 列表與實現對齊說明）
+**最後更新**：2026-02-21（v3.1：InterviewStore 補充 errorCode/safetyAlert/dismissSafetyAlert；onSafetyAlert 改為 store 寫入；checkResume 補充 has_failed/failed_session_id）

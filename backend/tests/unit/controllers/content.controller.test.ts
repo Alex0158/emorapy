@@ -1,5 +1,5 @@
 /**
- * ContentController 單元測試（mock contentService、Errors）
+ * ContentController 單元測試（mock contentService、caseService、Errors）
  */
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import type { Request, Response, NextFunction } from 'express';
@@ -12,6 +12,8 @@ const mockListContent: any = jest.fn();
 const mockGetRecommendations: any = jest.fn();
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockLinkContent: any = jest.fn();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockGetCaseById: any = jest.fn();
 
 jest.mock('../../../src/services/content.service', () => ({
   contentService: {
@@ -20,6 +22,13 @@ jest.mock('../../../src/services/content.service', () => ({
       mockGetRecommendations(caseId, relation),
     linkContent: (caseId: string, contentId: string, relation: string) =>
       mockLinkContent(caseId, contentId, relation),
+  },
+}));
+
+jest.mock('../../../src/services/case.service', () => ({
+  caseService: {
+    getCaseById: (caseId: string, userId?: string | null, sessionId?: string | null) =>
+      mockGetCaseById(caseId, userId, sessionId),
   },
 }));
 
@@ -32,9 +41,16 @@ describe('ContentController', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     controller = new ContentController();
-    req = { body: {}, params: {}, query: {} };
+    req = {
+      body: {},
+      params: {},
+      query: {},
+      headers: {},
+      user: { id: 'u1', email: 'u1@test.com' },
+    };
     res = { json: jest.fn().mockReturnThis() } as unknown as Response;
     next = jest.fn();
+    mockGetCaseById.mockResolvedValue({ id: 'c1', plaintiff_id: 'u1' });
   });
 
   describe('list', () => {
@@ -87,6 +103,7 @@ describe('ContentController', () => {
 
       await controller.recommendations(req as Request, res as Response, next);
 
+      expect(mockGetCaseById).toHaveBeenCalledWith('c1', 'u1', undefined);
       expect(mockGetRecommendations).toHaveBeenCalledWith('c1', 'similar');
       expect(res.json).toHaveBeenCalledWith({ success: true, data: { items } });
     });
@@ -110,6 +127,7 @@ describe('ContentController', () => {
 
       await controller.link(req as Request, res as Response, next);
 
+      expect(mockGetCaseById).toHaveBeenCalledWith('c1', 'u1', undefined);
       expect(mockLinkContent).toHaveBeenCalledWith('c1', 'ct1', 'recommend');
       expect(res.json).toHaveBeenCalledWith({
         success: true,

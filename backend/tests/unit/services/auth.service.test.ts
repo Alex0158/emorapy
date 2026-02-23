@@ -13,6 +13,7 @@ const mockSendVerificationCode = jest.fn();
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const prismaMock: any = {
+  $transaction: jest.fn(),
   user: {
     findUnique: jest.fn(),
     create: jest.fn(),
@@ -22,6 +23,7 @@ const prismaMock: any = {
     findFirst: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn(),
     count: jest.fn(),
   },
 };
@@ -60,6 +62,17 @@ describe('AuthService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: any) => Promise<unknown>) => {
+      const tx = {
+        emailVerification: {
+          updateMany: prismaMock.emailVerification.updateMany,
+        },
+        user: {
+          update: prismaMock.user.update,
+        },
+      };
+      return fn(tx);
+    });
     service = new AuthService();
   });
 
@@ -447,12 +460,17 @@ describe('AuthService', () => {
       mockValidatePasswordStrength.mockReturnValue({ valid: true });
       // @ts-expect-error mock 在 jest.mock 後推斷為 never
       mockHashPassword.mockResolvedValue('newHash');
+      prismaMock.emailVerification.updateMany.mockResolvedValue({ count: 1 });
       prismaMock.user.update.mockResolvedValue({});
-      prismaMock.emailVerification.update.mockResolvedValue({});
 
       await service.confirmResetPassword('a@b.com', '123456', 'NewPass1!');
 
       expect(mockHashPassword).toHaveBeenCalledWith('NewPass1!');
+      expect(prismaMock.$transaction).toHaveBeenCalled();
+      expect(prismaMock.emailVerification.updateMany).toHaveBeenCalledWith({
+        where: { id: 'v1', used: false },
+        data: { used: true },
+      });
       expect(prismaMock.user.update).toHaveBeenCalledWith({
         where: { email: 'a@b.com' },
         data: {
@@ -461,10 +479,6 @@ describe('AuthService', () => {
           login_failed_attempts: 0,
           locked_until: null,
         },
-      });
-      expect(prismaMock.emailVerification.update).toHaveBeenCalledWith({
-        where: { id: 'v1' },
-        data: { used: true },
       });
     });
   });

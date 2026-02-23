@@ -18,6 +18,8 @@ interface CaseState {
   clearError: () => void;
 }
 
+let _reqSeq = 0;
+
 export const useCaseStore = create<CaseState>((set, get) => ({
   currentCase: null,
   isLoading: false,
@@ -37,20 +39,12 @@ export const useCaseStore = create<CaseState>((set, get) => ({
   },
 
   submitCase: async (id: string) => {
+    if (get().isLoading) return;
     set({ isLoading: true, error: null });
 
     try {
-      await submitCase(id);
-      // 更新案件狀態
-      const currentCase = get().currentCase;
-      if (currentCase && currentCase.id === id) {
-        set({
-          currentCase: { ...currentCase, status: 'submitted' },
-          isLoading: false,
-        });
-      } else {
-        set({ isLoading: false });
-      }
+      const updatedCase = await submitCase(id);
+      set({ currentCase: updatedCase, isLoading: false });
     } catch (error: unknown) {
       set({ error: getErrorMessage(error, 'message.submitCaseFail'), isLoading: false });
       throw error;
@@ -58,13 +52,16 @@ export const useCaseStore = create<CaseState>((set, get) => ({
   },
 
   getCase: async (id: string) => {
+    const seq = ++_reqSeq;
     set({ isLoading: true, error: null });
 
     try {
       const case_ = await getCase(id);
+      if (seq !== _reqSeq) return case_;
       set({ currentCase: case_, isLoading: false });
       return case_;
     } catch (error: unknown) {
+      if (seq !== _reqSeq) throw error;
       set({ error: getErrorMessage(error, 'message.getCaseFail'), isLoading: false });
       throw error;
     }

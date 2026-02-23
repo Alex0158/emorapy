@@ -59,6 +59,15 @@ interface EnvConfig {
   
   // 鎖配置
   LOCK_CLEANUP_INTERVAL_MS: number;
+
+  // v2.0 心理畫像與 AI 訪談配置
+  OPENAI_INTERVIEW_MODEL: string;
+  OPENAI_ANALYSIS_MODEL: string;
+  INTERVIEW_MAX_TURNS: number;
+  INTERVIEW_SOFT_TARGET: number;
+  INTERVIEW_TURN_INTERVAL_MS: number;
+  INTERVIEW_START_RATE_LIMIT: number;
+  INTERVIEW_DAILY_SESSION_LIMIT: number;
 }
 
 function getEnvConfig(): EnvConfig {
@@ -130,6 +139,15 @@ function getEnvConfig(): EnvConfig {
     
     // 鎖配置
     LOCK_CLEANUP_INTERVAL_MS: parseInt(process.env.LOCK_CLEANUP_INTERVAL_MS || '60000', 10), // 1分鐘
+
+    // v2.0 心理畫像與 AI 訪談配置
+    OPENAI_INTERVIEW_MODEL: process.env.OPENAI_INTERVIEW_MODEL || 'gpt-4o-mini',
+    OPENAI_ANALYSIS_MODEL: process.env.OPENAI_ANALYSIS_MODEL || 'gpt-4o',
+    INTERVIEW_MAX_TURNS: parseInt(process.env.INTERVIEW_MAX_TURNS || '25', 10),
+    INTERVIEW_SOFT_TARGET: parseInt(process.env.INTERVIEW_SOFT_TARGET || '15', 10),
+    INTERVIEW_TURN_INTERVAL_MS: parseInt(process.env.INTERVIEW_TURN_INTERVAL_MS || '3000', 10),
+    INTERVIEW_START_RATE_LIMIT: parseInt(process.env.INTERVIEW_START_RATE_LIMIT || '3', 10),
+    INTERVIEW_DAILY_SESSION_LIMIT: parseInt(process.env.INTERVIEW_DAILY_SESSION_LIMIT || '5', 10),
   };
 }
 

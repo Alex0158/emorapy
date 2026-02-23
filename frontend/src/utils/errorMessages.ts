@@ -21,6 +21,7 @@ export const ERROR_MESSAGES: Record<string, string> = {
   SESSION_ID_REQUIRED: 'Session ID是必需的',
   INVALID_SESSION_ID: '無效的Session ID',
   SESSION_EXPIRED: 'Session已過期，請重新開始',
+  SESSION_COMPLETED: '此訪談已結束，請查看結果',
 
   // 資源錯誤
   NOT_FOUND: '資源不存在',
@@ -38,9 +39,20 @@ export const ERROR_MESSAGES: Record<string, string> = {
   INVALID_FILE_TYPE: '不支持的文件類型',
   TOO_MANY_FILES: '已達到文件數量上限',
 
+  // 訪談錯誤
+  CONCURRENT_REQUEST: '有另一個請求正在處理中，請稍候',
+  AI_CALL_FAILED: 'AI 回覆失敗，請稍後重試',
+  TURN_TOO_FAST: '發送過快，請稍後再試',
+  START_RATE_LIMIT: '開始訪談過於頻繁，請稍後再試',
+  PROCESSING_NOT_DONE: '訪談結果尚在處理中',
+  PROCESSING_FAILED: '訪談結果處理失敗',
+  MAX_TURNS_REACHED: '已達對話上限',
+
   // 系統錯誤
   INTERNAL_ERROR: '服務器內部錯誤',
+  DATABASE_ERROR: '資料庫錯誤，請稍後再試',
   AI_SERVICE_ERROR: 'AI服務暫時不可用',
+  EXTERNAL_SERVICE_ERROR: '外部服務暫時不可用',
   NETWORK_ERROR: '網絡連接失敗',
   RATE_LIMIT_EXCEEDED: '請求過於頻繁，請稍後再試',
 

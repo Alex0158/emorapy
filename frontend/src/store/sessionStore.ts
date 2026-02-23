@@ -9,6 +9,10 @@ import type { Session } from '@/types/session';
 import { createSession, refreshSession } from '@/services/api/session';
 import { sessionStorage } from '@/utils/storage';
 
+const SESSION_EXPIRY_BUFFER_MS = 5 * 60 * 1000;
+
+let _inflight: { create?: Promise<Session | null>; refresh?: Promise<Session | null> } = {};
+
 interface SessionState {
   session: Session | null;
   isLoading: boolean;
@@ -28,52 +32,65 @@ export const useSessionStore = create<SessionState>()(
       error: null,
 
       createSession: async () => {
-        // 如果當前Session仍有效（距離過期>5分鐘），直接使用，避免覆蓋導致舊案件權限丟失
+        if (_inflight.create) return _inflight.create;
+
         const current = get().session;
         const currentId = sessionStorage.get();
         if (current && currentId && current.session_id === currentId) {
           const expiresAt = new Date(current.expires_at).getTime();
-          if (Number.isFinite(expiresAt) && expiresAt - Date.now() > 5 * 60 * 1000) {
+          if (Number.isFinite(expiresAt) && expiresAt - Date.now() > SESSION_EXPIRY_BUFFER_MS) {
             return current;
           }
         }
 
-        // 創建新Session
         set({ isLoading: true, error: null });
 
-        try {
-          const session = await createSession();
-          sessionStorage.set(session.session_id);
-          set({ session, isLoading: false });
-          return session;
-        } catch (error: unknown) {
-          const msg = error instanceof Error ? error.message : '創建Session失敗';
-          set({ error: msg, isLoading: false });
-          return null;
-        }
+        _inflight.create = (async () => {
+          try {
+            const session = await createSession();
+            sessionStorage.set(session.session_id);
+            set({ session, isLoading: false });
+            return session;
+          } catch (error: unknown) {
+            const msg = getErrorMessage(error, 'message.createSessionFail');
+            set({ error: msg, isLoading: false });
+            return null;
+          } finally {
+            _inflight.create = undefined;
+          }
+        })();
+
+        return _inflight.create;
       },
 
       refreshSession: async (force = false) => {
+        if (_inflight.refresh) return _inflight.refresh;
+
         const current = get().session;
         const currentId = sessionStorage.get();
         if (!force && current && currentId && current.session_id === currentId) {
           const expiresAt = new Date(current.expires_at).getTime();
-          // 若距離過期 > 5 分鐘且非強制，直接返回
-          if (Number.isFinite(expiresAt) && expiresAt - Date.now() > 5 * 60 * 1000) {
+          if (Number.isFinite(expiresAt) && expiresAt - Date.now() > SESSION_EXPIRY_BUFFER_MS) {
             return current;
           }
         }
 
-        try {
-          const session = await refreshSession();
-          sessionStorage.set(session.session_id);
-          set({ session, error: null });
-          return session;
-        } catch (error: unknown) {
-          const msg = getErrorMessage(error, 'message.refreshSessionFail');
-          set({ error: msg });
-          return null;
-        }
+        _inflight.refresh = (async () => {
+          try {
+            const session = await refreshSession();
+            sessionStorage.set(session.session_id);
+            set({ session, error: null });
+            return session;
+          } catch (error: unknown) {
+            const msg = getErrorMessage(error, 'message.refreshSessionFail');
+            set({ error: msg });
+            return null;
+          } finally {
+            _inflight.refresh = undefined;
+          }
+        })();
+
+        return _inflight.refresh;
       },
 
       setSession: (session) => {
@@ -97,7 +114,7 @@ export const useSessionStore = create<SessionState>()(
         const now = new Date();
         
         // 提前5分鐘認為過期
-        return expiresAt.getTime() - now.getTime() <= 5 * 60 * 1000;
+        return expiresAt.getTime() - now.getTime() <= SESSION_EXPIRY_BUFFER_MS;
       },
 
       clearSession: () => {

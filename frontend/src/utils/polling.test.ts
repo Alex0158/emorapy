@@ -34,8 +34,9 @@ describe('polling', () => {
       maxAttempts: 2,
     });
     const p = start();
+    const rejectPromise = expect(p).rejects.toThrow('Max polling attempts reached');
     await vi.runAllTimersAsync();
-    await expect(p).rejects.toThrow('Max polling attempts reached');
+    await rejectPromise;
     expect(fetchFn).toHaveBeenCalledTimes(2);
     stop();
   });

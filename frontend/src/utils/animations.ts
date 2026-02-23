@@ -146,19 +146,22 @@ export const staggerIn = (
   elements: NodeListOf<HTMLElement> | HTMLElement[],
   delay = 100,
   duration = 300
-): void => {
+): (() => void) => {
+  const timerIds: ReturnType<typeof setTimeout>[] = [];
   Array.from(elements).forEach((element, index) => {
     element.style.opacity = '0';
     element.style.transform = 'translateY(20px)';
     element.style.transition = `opacity ${duration}ms ease, transform ${duration}ms ease`;
 
-    setTimeout(() => {
+    const id = setTimeout(() => {
       requestAnimationFrame(() => {
         element.style.opacity = '1';
         element.style.transform = 'translateY(0)';
       });
     }, index * delay);
+    timerIds.push(id);
   });
+  return () => { timerIds.forEach(id => clearTimeout(id)); };
 };
 
 /**
@@ -168,15 +171,16 @@ export const animateProgress = (
   element: HTMLElement,
   targetValue: number,
   duration = 1000
-): void => {
+): (() => void) => {
+  let cancelled = false;
   const startValue = 0;
   const startTime = performance.now();
 
   const animate = (currentTime: number) => {
+    if (cancelled) return;
     const elapsed = currentTime - startTime;
     const progress = Math.min(elapsed / duration, 1);
 
-    // 使用ease-out緩動函數
     const eased = 1 - Math.pow(1 - progress, 3);
     const currentValue = startValue + (targetValue - startValue) * eased;
 
@@ -190,6 +194,7 @@ export const animateProgress = (
   };
 
   requestAnimationFrame(animate);
+  return () => { cancelled = true; };
 };
 
 /**
@@ -200,15 +205,16 @@ export const animateNumber = (
   targetValue: number,
   duration = 1000,
   formatter?: (value: number) => string
-): void => {
+): (() => void) => {
+  let cancelled = false;
   const startValue = 0;
   const startTime = performance.now();
 
   const animate = (currentTime: number) => {
+    if (cancelled) return;
     const elapsed = currentTime - startTime;
     const progress = Math.min(elapsed / duration, 1);
 
-    // 使用ease-out緩動函數
     const eased = 1 - Math.pow(1 - progress, 3);
     const currentValue = Math.floor(startValue + (targetValue - startValue) * eased);
 
@@ -222,6 +228,7 @@ export const animateNumber = (
   };
 
   requestAnimationFrame(animate);
+  return () => { cancelled = true; };
 };
 
 /**
@@ -248,17 +255,18 @@ export const scrollToElement = (
   element: HTMLElement,
   offset = 0,
   duration = 500
-): void => {
+): (() => void) => {
+  let cancelled = false;
   const startPosition = window.pageYOffset;
   const targetPosition = element.offsetTop - offset;
   const distance = targetPosition - startPosition;
   const startTime = performance.now();
 
   const animate = (currentTime: number) => {
+    if (cancelled) return;
     const elapsed = currentTime - startTime;
     const progress = Math.min(elapsed / duration, 1);
 
-    // 使用ease-in-out緩動函數
     const eased = progress < 0.5
       ? 2 * progress * progress
       : 1 - Math.pow(-2 * progress + 2, 2) / 2;
@@ -271,4 +279,5 @@ export const scrollToElement = (
   };
 
   requestAnimationFrame(animate);
+  return () => { cancelled = true; };
 };

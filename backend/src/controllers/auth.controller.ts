@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { authService } from '../services/auth.service';
+import { Errors } from '../utils/errors';
 
 export class AuthController {
   /**
@@ -112,6 +113,28 @@ export class AuthController {
         success: true,
         data: {},
         message: '密碼重置成功',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+  /**
+   * 關聯快速體驗案件
+   */
+  async claimSession(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return next(Errors.UNAUTHORIZED('需要認證'));
+      }
+
+      const { session_id } = req.body;
+      const result = await authService.claimSession(userId, session_id);
+
+      res.json({
+        success: true,
+        data: result,
+        message: result.case_id ? '案件已關聯到您的帳號' : '無可關聯的案件',
       });
     } catch (error) {
       next(error);

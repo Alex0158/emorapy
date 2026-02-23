@@ -2,7 +2,8 @@
  * 執行打卡頁面
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useMountedRef } from '@/hooks/useMountedRef';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Card,
@@ -14,6 +15,7 @@ import {
   Upload,
   message,
   Spin,
+  Alert,
 } from 'antd';
 import {
   UploadOutlined,
@@ -40,10 +42,15 @@ const ExecutionCheckIn = () => {
   const [submitting, setSubmitting] = useState(false);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
 
+  const mountedRef = useMountedRef();
+  const staleRef = useRef(false);
   useEffect(() => {
+    staleRef.current = false;
+    setExecution(null);
     if (planId) {
       fetchExecution();
     }
+    return () => { staleRef.current = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 僅在 planId 變化時拉取
   }, [planId]);
 
@@ -51,41 +58,41 @@ const ExecutionCheckIn = () => {
     setLoading(true);
     try {
       const executionData = await getExecutionStatus(planId!);
+      if (staleRef.current) return;
       setExecution(executionData);
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : t('message.getExecutionStatusFail');
+      if (staleRef.current) return;
+      const msg = (error as { message?: string })?.message || t('message.getExecutionStatusFail');
       message.error(msg);
+      setExecution(null);
     } finally {
-      setLoading(false);
+      if (!staleRef.current) setLoading(false);
     }
   };
 
   type CheckInFormValues = { notes?: string; photos?: { fileList?: Array<{ originFileObj?: File }> } };
   const handleSubmit = async (values: CheckInFormValues) => {
-    if (!planId) return;
+    if (!planId || submitting) return;
     setSubmitting(true);
     try {
-      // 如果有照片文件，先上傳獲取URL
       let photoUrls: string[] = [];
       const photoFiles = values.photos?.fileList?.filter((file) => file.originFileObj) || [];
       
       if (photoFiles.length > 0) {
         setUploadingPhotos(true);
         try {
-          // 通過planId獲取plan詳情（包含caseId）
           const { getPlanById } = await import('@/services/api/reconciliation');
           const plan = await getPlanById(planId);
           if (plan?.judgment?.case_id) {
             const caseId = plan.judgment.case_id;
-            // 上傳照片
             const files = photoFiles.map((file) => file.originFileObj as File);
             const evidences = await uploadEvidence(caseId, files);
             photoUrls = evidences.map(e => e.file_url);
           }
         } catch {
-          message.warning(t('message.photoUploadFailContinue'));
+          if (mountedRef.current) message.warning(t('message.photoUploadFailContinue'));
         } finally {
-          setUploadingPhotos(false);
+          if (mountedRef.current) setUploadingPhotos(false);
         }
       }
 
@@ -94,14 +101,16 @@ const ExecutionCheckIn = () => {
         notes: values.notes,
         photos: photoUrls,
       });
+      if (!mountedRef.current) return;
       message.success(t('message.checkinSuccess'));
       form.resetFields();
       fetchExecution();
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : t('message.checkinFail');
+      if (!mountedRef.current) return;
+      const msg = (error as { message?: string })?.message || t('message.checkinFail');
       message.error(msg);
     } finally {
-      setSubmitting(false);
+      if (mountedRef.current) setSubmitting(false);
     }
   };
 
@@ -109,6 +118,20 @@ const ExecutionCheckIn = () => {
     return (
       <div className="execution-checkin-page">
         <Spin size="large" description={t('common.loading')} />
+      </div>
+    );
+  }
+
+  if (!execution) {
+    return (
+      <div className="execution-checkin-page">
+        <Alert
+          type="warning"
+          message={t('execCheckIn.notFound')}
+          action={
+            <Button onClick={() => navigate('/execution/dashboard')}>{t('common.back')}</Button>
+          }
+        />
       </div>
     );
   }
@@ -136,7 +159,7 @@ const ExecutionCheckIn = () => {
         </AnimatedWrapper>
 
         {execution && (
-          <AnimatedWrapper animation="slide" direction="down" delay={200} trigger="intersection">
+          <AnimatedWrapper animation="slide" direction="down" delay={200}>
             <Card style={{ marginBottom: 24 }} role="status" aria-live="polite">
               <Space direction="vertical">
                 <Text strong>{t('execCheckIn.progressLabel').replace('{percent}', String(execution.progress))}</Text>
@@ -199,12 +222,12 @@ const ExecutionCheckIn = () => {
         </AnimatedWrapper>
 
         {execution && execution.records.length > 0 && (
-          <AnimatedWrapper animation="slide" direction="up" delay={400} trigger="intersection">
+          <AnimatedWrapper animation="slide" direction="up" delay={400}>
             <Card title={t('execCheckIn.historyTitle')} style={{ marginTop: 24 }}>
             <Space direction="vertical" style={{ width: '100%' }}>
               {execution.records.map((record) => (
                 <Card key={record.id} size="small">
-                  <Text>{record.notes}</Text>
+                  {record.notes && <Text>{record.notes}</Text>}
                   <Text type="secondary" style={{ display: 'block', marginTop: 8 }}>
                     {new Date(record.created_at).toLocaleString()}
                   </Text>

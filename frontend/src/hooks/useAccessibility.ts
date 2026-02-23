@@ -3,6 +3,7 @@
  */
 
 import { useEffect, useRef } from 'react';
+import { t } from '@/utils/i18n';
 
 /**
  * 鍵盤導航Hook
@@ -118,7 +119,7 @@ export const useFocusTrap = (enabled = true) => {
 /**
  * 跳過鏈接Hook（用於可訪問性）
  */
-export const useSkipLink = (targetId: string, label = '跳過到主要內容') => {
+export const useSkipLink = (targetId: string, label = t('home.skipToContent')) => {
   const handleSkip = (e: React.MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
     const target = document.getElementById(targetId);

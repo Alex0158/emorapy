@@ -118,6 +118,44 @@ enum NotificationStatus {
   failed
 }
 
+// v2.0: 心理畫像系統 ENUM
+enum PsychDomain {
+  attachment
+  family_origin
+  life_events
+  belief_values
+  cultural_background
+  education_cognition
+  personality
+  relationship_history
+}
+
+enum InterviewStatus {
+  in_progress
+  processing
+  completed
+  processing_failed
+  abandoned
+}
+
+enum InterviewTrigger {
+  organic
+  pre_case
+  post_judgment
+  onboarding
+}
+
+enum InsightType {
+  trait
+  pattern
+  belief
+  trigger
+  strength
+  risk
+  cultural
+  developmental
+}
+
 // 模型定義
 model User {
   id                   String              @id @default(uuid())
@@ -154,30 +192,56 @@ model User {
   pairings_as_user2    Pairing[]           @relation("User2Pairings")
   notifications        Notification[]
 
+  // v2.0: 心理畫像
+  psych_consent_given  Boolean             @default(false)
+  psych_consent_at     DateTime?
+  interview_sessions   InterviewSession[]
+  profile_narratives   ProfileNarrative[]
+  profile_insights     ProfileInsight[]
+  profile_snapshots    ProfileSnapshot[]
+
   @@index([is_active])
   @@index([email_verified])
   @@map("users")
 }
 
+/// v2.0: 下列個人資料欄位已被 ProfileNarrative / ProfileInsight 系統取代（按心理領域分析）。
+/// 保留欄位以維持向後相容；新功能應透過 ProfileInsight 取得資料。
 model UserProfile {
   id                        String   @id @default(uuid())
   user_id                   String   @unique
+  /// @deprecated → ProfileInsight domain: education_cognition
   education_level           String?
+  /// @deprecated → ProfileInsight domain: education_cognition
   major_field               String?
+  /// @deprecated → ProfileInsight domain: education_cognition
   university                String?
+  /// @deprecated → ProfileInsight domain: cultural_background
   ethnicity                 String?
+  /// @deprecated → ProfileInsight domain: cultural_background
   cultural_identity         String[]
+  /// @deprecated → ProfileInsight domain: family_origin
   upbringing_environment    String?
+  /// @deprecated → ProfileInsight domain: belief_values
   religion                  String?
+  /// @deprecated → ProfileInsight domain: belief_values
   religious_practice_level  String?
+  /// @deprecated → ProfileInsight domain: family_origin
   family_structure          String?
+  /// @deprecated → ProfileInsight domain: family_origin
   parents_relationship      String?
+  /// @deprecated → ProfileInsight domain: family_origin
   family_economic_status    String?
+  /// @deprecated → ProfileInsight domain: personality
   mbti_type                 String?
+  /// @deprecated → ProfileInsight domain: personality
   big_five_personality      Json?
+  /// @deprecated → ProfileInsight domain: personality
   communication_style       String?
   occupation                String?
+  /// @deprecated → ProfileInsight domain: personality, belief_values
   interests                 String[]
+  /// @deprecated → ProfileInsight domain: belief_values
   core_values               String[]
   profile_visibility        Privacy  @default(private)
   created_at                DateTime @default(now())
@@ -285,6 +349,7 @@ model Case {
   judgment            Judgment?
   quick_sessions      QuickSession[]
   case_content_links  CaseContentLink[]
+  profile_snapshots   ProfileSnapshot[]
 
   @@index([pairing_id])
   @@index([plaintiff_id])
@@ -294,6 +359,7 @@ model Case {
   @@index([created_at])
   @@index([submitted_at])
   @@index([mode])
+  @@index([status, mode, created_at])
   @@map("cases")
 }
 
@@ -325,6 +391,7 @@ model Judgment {
   summary              String?
   plaintiff_ratio      Float
   defendant_ratio      Float
+  emotional_analysis   Json?
   ai_model             String               @default("gpt-3.5-turbo") @db.VarChar(50)
   prompt_version       String               @default("v1.0") @db.VarChar(20)
   user1_acceptance     Boolean?
@@ -416,10 +483,9 @@ model EmailVerification {
   used       Boolean           @default(false)
   created_at DateTime          @default(now())
 
-  @@index([email])
+  @@index([email, type, used])
   @@index([code])
   @@index([expires_at])
-  @@index([type])
   @@map("email_verifications")
 }
 
@@ -487,4 +553,120 @@ model AuditLog {
 
   @@index([entity_type, entity_id, created_at])
   @@map("audit_logs")
+}
+
+// v2.0: 心理畫像系統模型
+
+model InterviewSession {
+  id               String           @id @default(uuid())
+  user_id          String
+  status           InterviewStatus  @default(in_progress)
+  trigger          InterviewTrigger @default(organic)
+  ai_model_used    String?          @db.VarChar(50)
+  total_user_words Int              @default(0)
+  total_ai_words   Int              @default(0)
+  domains_touched  PsychDomain[]    @default([])
+  collected_facts  String[]         @default([])
+  feedback_card    String?
+  pipeline_step    Int              @default(0)
+  started_at       DateTime?
+  ended_at         DateTime?
+  created_at       DateTime         @default(now())
+  updated_at       DateTime         @updatedAt
+
+  user             User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  turns            InterviewTurn[]
+
+  // 每用戶僅 1 個 in_progress：需在遷移中以 raw SQL 建立部分唯一索引
+  // CREATE UNIQUE INDEX ux_interview_sessions_user_in_progress ON interview_sessions(user_id) WHERE status = 'in_progress';
+  @@index([user_id, status])
+  @@index([user_id, created_at])
+  @@index([status, updated_at])
+  @@map("interview_sessions")
+}
+
+model InterviewTurn {
+  id                 String        @id @default(uuid())
+  session_id         String
+  turn_order         Int
+  ai_message         String
+  ai_intent          String?
+  ai_target_domains  PsychDomain[]   @default([])
+  extracted_facts    String[]        @default([])
+  user_response      String?
+  skipped            Boolean       @default(false)
+  safety_flag        Boolean       @default(false)
+  safety_detail      String?
+  response_word_count Int?
+  created_at         DateTime      @default(now())
+
+  session            InterviewSession @relation(fields: [session_id], references: [id], onDelete: Cascade)
+
+  @@unique([session_id, turn_order], name: "ux_interview_turns_session_order")
+  @@map("interview_turns")
+}
+
+model ProfileNarrative {
+  id              String      @id @default(uuid())
+  user_id         String
+  domain          PsychDomain
+  raw_narrative   String
+  ai_summary      String?
+  word_count      Int         @default(0)
+  // CHECK (completeness BETWEEN 0 AND 1) — 需在遷移中以 raw SQL 建立
+  completeness    Float       @default(0)
+  source_sessions String[]    @default([])
+  is_latest       Boolean     @default(true)
+  created_at      DateTime    @default(now())
+  updated_at      DateTime    @updatedAt
+
+  user            User        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  insights        ProfileInsight[]
+
+  @@index([user_id, domain, is_latest])
+  // 每用戶每域僅 1 個 is_latest=true：需在遷移中以 raw SQL 建立部分唯一索引
+  // CREATE UNIQUE INDEX ux_profile_narratives_user_domain_latest ON profile_narratives(user_id, domain) WHERE is_latest = true;
+  @@map("profile_narratives")
+}
+
+model ProfileInsight {
+  id            String      @id @default(uuid())
+  user_id       String
+  narrative_id  String?
+  domain        PsychDomain
+  insight_type  InsightType
+  key           String      @db.VarChar(100)
+  value         String
+  // CHECK (confidence BETWEEN 0 AND 1) — 需在遷移中以 raw SQL 建立
+  confidence    Float       @default(0.5)
+  evidence      String?
+  clinical_note String?
+  is_active     Boolean     @default(true)
+  created_at    DateTime    @default(now())
+  updated_at    DateTime    @updatedAt
+
+  user          User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  narrative     ProfileNarrative? @relation(fields: [narrative_id], references: [id], onDelete: SetNull)
+
+  @@index([user_id, domain, is_active])
+  @@index([user_id, key, is_active])
+  @@index([user_id, is_active, confidence])
+  @@map("profile_insights")
+}
+
+model ProfileSnapshot {
+  id              String   @id @default(uuid())
+  user_id         String
+  case_id         String
+  snapshot_data   Json
+  // CHECK (richness_score BETWEEN 0 AND 1) — 需在遷移中以 raw SQL 建立
+  richness_score  Float    @default(0)
+  created_at      DateTime @default(now())
+
+  user            User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  case            Case     @relation(fields: [case_id], references: [id], onDelete: Restrict)
+
+  @@unique([case_id, user_id])
+  @@index([user_id])
+  @@map("profile_snapshots")
 }

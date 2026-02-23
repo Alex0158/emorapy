@@ -2,8 +2,10 @@
 
 **項目名稱**：熊媽媽法庭（Mother Bear Court）  
 **品牌定位**：大愛、包容、保護、呵護  
-**文檔版本**：v1.0  
-**最後更新**：2024年
+**文檔版本**：v2.0  
+**最後更新**：2026-02-20
+
+**v2.0 個人化判決升級**：新增心理畫像服務群（Interview、AsyncPipeline、Narrative、InsightExtraction、ProfileSnapshot、ProfileRichnessService 等）、訪談/畫像相關路由與 API、session 互斥鎖與知情同意機制、SSE 流式與異步管線等。詳見各子文檔與測試策略。
 
 ---
 
@@ -55,6 +57,7 @@
    - 定時任務
    - Session管理（快速體驗模式）
    - 日誌服務
+   - **v2.0 新增**：訪談併發鎖服務（session mutex lock）
 
 11. **[測試策略](./10-測試策略.md)**
     - 單元測試
@@ -96,7 +99,7 @@
 - **數據庫**：PostgreSQL（Supabase免費版）
 - **ORM**：Prisma（推薦）或原生SQL
 - **認證**：JWT
-- **AI服務**：OpenAI API（GPT-3.5-turbo）
+- **AI服務**：OpenAI API（GPT-4o-mini 對話 + GPT-4o 分析）
 - **文件存儲**：本地 UPLOAD_DIR + 簽名 URL（見 07-其他服務、.env.example）
 - **郵件服務**：SendGrid（免費額度）
 
@@ -128,6 +131,7 @@
 
 - **v1.0** (2024年)：初始版本，包含完整的後端設計
 - **v1.1** (2026-02)：與代碼校對，各子文檔已補充實現對齊（見 [00-項目總覽](../00-項目總覽.md) 變更記錄）
+- **v2.0** (2026-02-20)：個人化判決系統——新增心理畫像服務群（6 個服務）、11 個訪談/畫像 API、6 個 AI Prompt、5 個新表、訪談安全機制（知情同意、限流、session 互斥、安全偵測）。詳見 `UPGRADE_PLAN_PERSONALIZED_JUDGMENT.md` v10。
 
 ---
 

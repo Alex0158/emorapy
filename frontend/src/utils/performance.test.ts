@@ -43,7 +43,7 @@ describe('performance', () => {
         writable: true,
       });
       logPageLoadTime();
-      expect(addEventListener).toHaveBeenCalledWith('load', expect.any(Function));
+      expect(addEventListener).toHaveBeenCalledWith('load', expect.any(Function), { once: true });
     });
   });
 
@@ -60,10 +60,13 @@ describe('performance', () => {
   });
 
   describe('getWebVitals', () => {
-    it('應返回包含 fcp、lcp、fid、cls 的物件', () => {
-      const result = getWebVitals();
-      expect(result).toBeDefined();
-      expect(typeof result).toBe('object');
+    it('應返回 vitals 物件和 disconnect 函數', () => {
+      const { vitals, disconnect } = getWebVitals();
+      expect(vitals).toBeDefined();
+      expect(typeof vitals).toBe('object');
+      expect(vitals).toEqual({});
+      expect(typeof disconnect).toBe('function');
+      disconnect();
     });
   });
 });

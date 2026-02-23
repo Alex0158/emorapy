@@ -108,6 +108,14 @@ frontend/
 - ✅ 和好方案生成和選擇
 - ✅ 執行追蹤
 
+### 🧠 個人化判決系統（v2.0）
+- 📋 AI 引導訪談對話頁面（`/interview/:id`，iMessage 風格）
+- 📋 知情同意機制（頁面 mount 時檢查 + `ConsentModal` 彈窗 + 後端 `requireConsent` 中間件；⚠️ 無獨立 ConsentGuard 組件）
+- 📋 訪談結果反饋頁（`/interview/:id`，session 完成後展示洞察卡片）
+- 📋 「我的故事」卡片（個人頁面，豐富度進度環）
+- 📋 畫像數據清除（設定頁面，遺忘權）
+- 📋 4 種觸發入口：主動進入 / 建案前 / 判決後 / 首次登入
+
 ## 📚 API服務
 
 所有API服務位於 `src/services/api/`：
@@ -120,6 +128,13 @@ frontend/
 - `judgment.ts`: 判決相關
 - `reconciliation.ts`: 和好方案相關
 - `execution.ts`: 執行相關
+- `interview.ts`: 訪談相關（v2.0，含 SSE）
+- `psychProfile.ts`: 心理畫像相關（v2.0）
+
+### v2.0 新增 SSE 通訊
+
+`sseRequest.ts`：基於 `fetch` + `ReadableStream` 的 SSE 請求工具，支援 POST + Bearer token，
+用於訪談 `/respond` 和 `/skip` 的流式回應。
 
 ## 🔐 狀態管理
 
@@ -129,6 +144,8 @@ frontend/
 - `caseStore.ts`: 案件狀態
 - `judgmentStore.ts`: 判決狀態
 - `sessionStore.ts`: Session狀態
+- `interviewStore.ts`: 訪談狀態（v2.0，管理 session、turns、SSE、feedback）
+- `psychProfileStore.ts`: 心理畫像狀態（v2.0，管理 consent、richness、overview）
 
 ## 🎨 樣式
 

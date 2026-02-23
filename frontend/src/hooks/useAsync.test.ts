@@ -84,4 +84,33 @@ describe('useAsync', () => {
       await Promise.resolve();
     });
   });
+
+  it('execute 引用應在 asyncFunction 改變後保持穩定', () => {
+    const fn1 = vi.fn().mockResolvedValue(1);
+    const fn2 = vi.fn().mockResolvedValue(2);
+    const { result, rerender } = renderHook(
+      ({ fn }) => useAsync(fn),
+      { initialProps: { fn: fn1 } }
+    );
+    const prevExecute = result.current.execute;
+    rerender({ fn: fn2 });
+    expect(result.current.execute).toBe(prevExecute);
+  });
+
+  it('rerender 後 execute 應調用最新的 asyncFunction', async () => {
+    const fn1 = vi.fn().mockResolvedValue('first');
+    const fn2 = vi.fn().mockResolvedValue('second');
+    const { result, rerender } = renderHook(
+      ({ fn }) => useAsync(fn),
+      { initialProps: { fn: fn1 } }
+    );
+    rerender({ fn: fn2 });
+    let resolved: string | undefined;
+    await act(async () => {
+      resolved = await result.current.execute();
+    });
+    expect(resolved).toBe('second');
+    expect(fn2).toHaveBeenCalled();
+    expect(fn1).not.toHaveBeenCalled();
+  });
 });

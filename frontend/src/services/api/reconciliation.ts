@@ -38,7 +38,9 @@ export const generatePlans = async (
     `/judgments/${judgmentId}/reconciliation-plans`,
     { preferences }
   );
-  return (response.data as ApiResponse<{ plans: ReconciliationPlan[] }>).data.plans;
+  const result = (response.data as ApiResponse<{ plans: ReconciliationPlan[] }>)?.data?.plans;
+  if (!result) throw new Error('Invalid reconciliation response from server');
+  return result;
 };
 
 /**
@@ -63,7 +65,7 @@ export const getPlans = async (
   const url = `/judgments/${judgmentId}/reconciliation-plans${queryString ? `?${queryString}` : ''}`;
 
   const response = await request.get<ApiResponse<{ plans: ReconciliationPlan[] }>>(url);
-  return (response.data as ApiResponse<{ plans: ReconciliationPlan[] }>).data.plans;
+  return (response.data as ApiResponse<{ plans: ReconciliationPlan[] }>)?.data?.plans ?? [];
 };
 
 /**
@@ -73,7 +75,9 @@ export const getPlanById = async (planId: string): Promise<ReconciliationPlan & 
   const response = await request.get<ApiResponse<{ plan: ReconciliationPlan & { judgment: { case_id: string } } }>>(
     `/reconciliation-plans/${planId}`
   );
-  return (response.data as ApiResponse<{ plan: ReconciliationPlan & { judgment: { case_id: string } } }>).data.plan;
+  const result = (response.data as ApiResponse<{ plan: ReconciliationPlan & { judgment: { case_id: string } } }>)?.data?.plan;
+  if (!result) throw new Error('Invalid plan response from server');
+  return result;
 };
 
 /**
@@ -83,6 +87,8 @@ export const selectPlan = async (planId: string): Promise<ReconciliationPlan> =>
   const response = await request.post<ApiResponse<{ plan: ReconciliationPlan }>>(
     `/reconciliation-plans/${planId}/select`
   );
-  return (response.data as ApiResponse<{ plan: ReconciliationPlan }>).data.plan;
+  const result = (response.data as ApiResponse<{ plan: ReconciliationPlan }>)?.data?.plan;
+  if (!result) throw new Error('Invalid plan response from server');
+  return result;
 };
 

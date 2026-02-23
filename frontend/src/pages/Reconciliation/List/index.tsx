@@ -2,7 +2,7 @@
  * 和好方案列表頁面
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Card,
@@ -21,6 +21,7 @@ import {
   ClockCircleOutlined,
   HeartOutlined,
   CheckCircleOutlined,
+  ArrowLeftOutlined,
 } from '@ant-design/icons';
 import { getPlans, selectPlan, generatePlans } from '@/services/api/reconciliation';
 import type { ReconciliationPlan } from '@/services/api/reconciliation';
@@ -35,6 +36,7 @@ import {
   getPlanTypeTagColor,
 } from '@/utils/statusTags';
 import { t } from '@/utils/i18n';
+import { safeParsePlanContent } from '@/utils/planContent';
 import './List.less';
 
 const { Title, Text, Paragraph } = Typography;
@@ -49,10 +51,14 @@ const ReconciliationList = () => {
   const [difficultyFilter, setDifficultyFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
 
+  const staleRef = useRef(false);
   useEffect(() => {
+    staleRef.current = false;
+    setPlans([]);
     if (judgmentId) {
       fetchPlans();
     }
+    return () => { staleRef.current = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 僅在篩選/ judgmentId 變化時拉取
   }, [judgmentId, difficultyFilter, typeFilter]);
 
@@ -70,29 +76,30 @@ const ReconciliationList = () => {
         filters.type = typeFilter as 'activity' | 'communication' | 'intimacy';
       }
       const plansData = await getPlans(judgmentId!, filters);
+      if (staleRef.current) return;
       setPlans(plansData);
     } catch (error: unknown) {
+      if (staleRef.current) return;
       const err = error as { code?: string; message?: string };
-      // 如果是404或方案不存在，可能是尚未生成，不顯示錯誤
       if (err.code === 'NOT_FOUND' || err.code === 'HTTP_404') {
         setPlans([]);
       } else {
         message.error(err.message ?? t('message.getPlansFail'));
       }
     } finally {
-      setLoading(false);
+      if (!staleRef.current) setLoading(false);
     }
   };
 
   const handleGeneratePlans = async () => {
-    if (!judgmentId) return;
+    if (!judgmentId || generating) return;
     setGenerating(true);
     try {
       const generatedPlans = await generatePlans(judgmentId);
       message.success(t('message.generatePlansSuccessCount').replace('{count}', String(generatedPlans.length)));
       setPlans(generatedPlans);
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : t('message.generatePlansFail');
+      const msg = (error as { message?: string })?.message || t('message.generatePlansFail');
       message.error(msg);
     } finally {
       setGenerating(false);
@@ -100,12 +107,13 @@ const ReconciliationList = () => {
   };
 
   const handleSelectPlan = async (planId: string) => {
+    if (!judgmentId) return;
     try {
       await selectPlan(planId);
       message.success(t('message.selectPlanSuccess'));
       navigate(`/reconciliation/${judgmentId}/${planId}`);
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : t('message.selectPlanFail');
+      const msg = (error as { message?: string })?.message || t('message.selectPlanFail');
       message.error(msg);
     }
   };
@@ -177,17 +185,17 @@ const ReconciliationList = () => {
               </Empty>
             </AnimatedWrapper>
           ) : (
-            <AnimatedWrapper animation="fade" delay={300} trigger="intersection">
+            <AnimatedWrapper animation="fade" delay={300}>
               <Row gutter={[24, 24]} role="list" aria-label={t('reconList.heading')}>
                 {plans.map((plan, index) => {
-                  const planTitle = plan.plan_content.split('\n')[0];
+                  const parsed = safeParsePlanContent(plan.plan_content);
+                  const planTitle = parsed.title;
                   return (
                     <Col xs={24} sm={12} key={plan.id}>
                       <AnimatedWrapper
                         animation="slide"
                         direction="up"
                         delay={index * 50}
-                        trigger="intersection"
                       >
                         <Card
                           className="plan-card"
@@ -215,12 +223,12 @@ const ReconciliationList = () => {
 
                           <div className="plan-body">
                             <Paragraph ellipsis={{ rows: 3 }}>
-                              {plan.plan_content}
+                              {parsed.description}
                             </Paragraph>
 
                             <Space>
                               <Text type="secondary">
-                                <ClockCircleOutlined /> {plan.estimated_duration != null ? t('reconList.estimatedDays').replace('{days}', String(plan.estimated_duration)) : `${t('reconList.estimatedTbd')} 天`}
+                                <ClockCircleOutlined /> {plan.estimated_duration != null ? t('reconList.estimatedDays').replace('{days}', String(plan.estimated_duration)) : t('reconList.estimatedTbd')}
                               </Text>
                             </Space>
                           </div>

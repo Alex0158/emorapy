@@ -45,12 +45,15 @@ describe('useAnimation', () => {
       expect(result.current.isVisible).toBe(true);
     });
 
-    it('應支持 direction 參數', () => {
-      const { result } = renderHook(() => useSlideIn('right', 300, 0));
-      act(() => {
-        vi.advanceTimersByTime(0);
-      });
-      expect(result.current.ref).toHaveProperty('current');
+    it('不同 direction 參數不應拋錯', () => {
+      for (const dir of ['up', 'down', 'left', 'right'] as const) {
+        const { result } = renderHook(() => useSlideIn(dir, 300, 0));
+        act(() => {
+          vi.advanceTimersByTime(0);
+        });
+        expect(result.current.ref).toHaveProperty('current');
+        expect(result.current.isVisible).toBe(true);
+      }
     });
   });
 

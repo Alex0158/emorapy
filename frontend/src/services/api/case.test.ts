@@ -12,6 +12,7 @@ import {
   updateCase,
   uploadEvidence,
   deleteEvidence,
+  createCollaborativeCase,
 } from './case';
 
 const mockGet = vi.fn();
@@ -136,9 +137,10 @@ describe('case API', () => {
 
   describe('submitCase', () => {
     it('應 POST /cases/:id/submit', async () => {
-      mockPost.mockResolvedValue({ data: {} });
-      await submitCase('c1');
+      mockPost.mockResolvedValue({ data: { data: { case: mockCase } } });
+      const result = await submitCase('c1');
       expect(mockPost).toHaveBeenCalledWith('/cases/c1/submit');
+      expect(result).toEqual(mockCase);
     });
   });
 
@@ -157,11 +159,7 @@ describe('case API', () => {
       const evidences = [{ id: 'e1', file_url: 'https://example.com/a.jpg', file_type: 'image' }];
       mockPost.mockResolvedValue({ data: { data: { evidences } } });
       const result = await uploadEvidence('c1', files);
-      expect(mockPost).toHaveBeenCalledWith(
-        '/cases/c1/evidence',
-        expect.any(FormData),
-        expect.objectContaining({ headers: { 'Content-Type': 'multipart/form-data' } })
-      );
+      expect(mockPost).toHaveBeenCalledWith('/cases/c1/evidence', expect.any(FormData), expect.any(Object));
       expect(result).toEqual(evidences);
     });
 
@@ -198,6 +196,39 @@ describe('case API', () => {
       mockDelete.mockResolvedValue({ data: {} });
       await deleteEvidence('c1', 'e2', undefined);
       expect(mockDelete).toHaveBeenCalledWith('/cases/c1/evidence/e2', {});
+    });
+  });
+
+  describe('createCollaborativeCase', () => {
+    const collabResponse = {
+      case: mockCase,
+      session_id: 'cs1',
+      session_expires_at: '2026-12-31T00:00:00Z',
+      phase: 'a_done' as const,
+    };
+
+    it('應 POST /cases/collaborative 並返回結果', async () => {
+      mockPost.mockResolvedValue({ data: { data: collabResponse } });
+      const result = await createCollaborativeCase({ plaintiff_statement: '原告陳述' });
+      expect(mockPost).toHaveBeenCalledWith('/cases/collaborative', { plaintiff_statement: '原告陳述' }, undefined);
+      expect(result.case).toEqual(mockCase);
+      expect(result.session_id).toBe('cs1');
+      expect(result.phase).toBe('a_done');
+    });
+
+    it('有 sessionId 時應帶入 X-Session-Id header', async () => {
+      mockPost.mockResolvedValue({ data: { data: collabResponse } });
+      await createCollaborativeCase({ case_id: 'c1', defendant_statement: '被告陳述' }, 'existing-session');
+      expect(mockPost).toHaveBeenCalledWith(
+        '/cases/collaborative',
+        { case_id: 'c1', defendant_statement: '被告陳述' },
+        { headers: { 'X-Session-Id': 'existing-session' } },
+      );
+    });
+
+    it('回傳無 case 時應拋出錯誤', async () => {
+      mockPost.mockResolvedValue({ data: { data: { session_id: 'x' } } });
+      await expect(createCollaborativeCase({ plaintiff_statement: 'test' })).rejects.toThrow('Invalid collaborative case response');
     });
   });
 });

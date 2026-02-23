@@ -79,18 +79,19 @@ describe('caseStore', () => {
 
   it('submitCase 成功且 currentCase 匹配時應更新狀態為 submitted', async () => {
     useCaseStore.setState({ currentCase: mockCase });
-    mockSubmitCase.mockResolvedValue(undefined);
+    mockSubmitCase.mockResolvedValue({ ...mockCase, id: 'c1', status: 'submitted' });
     await useCaseStore.getState().submitCase('c1');
     expect(useCaseStore.getState().currentCase?.status).toBe('submitted');
     expect(useCaseStore.getState().error).toBeNull();
     expect(useCaseStore.getState().isLoading).toBe(false);
   });
 
-  it('submitCase 成功但 currentCase 不匹配時僅應關閉 loading', async () => {
+  it('submitCase 成功但 currentCase 不匹配時仍應以 API 結果覆蓋 currentCase', async () => {
     useCaseStore.setState({ currentCase: { ...mockCase, id: 'other' } });
-    mockSubmitCase.mockResolvedValue(undefined);
+    const submittedCase = { ...mockCase, id: 'c1', status: 'submitted' };
+    mockSubmitCase.mockResolvedValue(submittedCase);
     await useCaseStore.getState().submitCase('c1');
-    expect(useCaseStore.getState().currentCase?.id).toBe('other');
+    expect(useCaseStore.getState().currentCase).toEqual(submittedCase);
     expect(useCaseStore.getState().isLoading).toBe(false);
   });
 
@@ -106,5 +107,11 @@ describe('caseStore', () => {
     await expect(useCaseStore.getState().getCase('c1')).rejects.toThrow('get failed');
     expect(useCaseStore.getState().error).toBe('get failed');
     expect(useCaseStore.getState().isLoading).toBe(false);
+  });
+
+  it('submitCase 在 isLoading=true 時應直接返回不呼叫 API', async () => {
+    useCaseStore.setState({ isLoading: true });
+    await useCaseStore.getState().submitCase('c1');
+    expect(mockSubmitCase).not.toHaveBeenCalled();
   });
 });

@@ -50,8 +50,9 @@ describe('retry', () => {
   it('耗盡 maxRetries 應拋出最後錯誤', async () => {
     const fn = vi.fn().mockRejectedValue(new Error('net'));
     const p = requestWithRetry(fn, { maxRetries: 2, initialDelay: 10 });
+    const rejectPromise = expect(p).rejects.toThrow('net');
     await vi.advanceTimersByTimeAsync(50);
-    await expect(p).rejects.toThrow('net');
+    await rejectPromise;
     expect(fn).toHaveBeenCalledTimes(2);
   });
 
@@ -62,8 +63,23 @@ describe('retry', () => {
       initialDelay: 10,
       shouldRetry: (e: unknown) => (e as { code?: string }).code === 'NETWORK_ERROR',
     });
+    const rejectPromise = expect(p).rejects.toBeDefined();
     await vi.runAllTimersAsync();
-    await expect(p).rejects.toBeDefined();
+    await rejectPromise;
     expect(fn).toHaveBeenCalledTimes(2);
+  });
+
+  it('signal 被 abort 時應中斷重試', async () => {
+    const controller = new AbortController();
+    const fn = vi.fn().mockRejectedValue(new Error('net'));
+    const p = requestWithRetry(fn, {
+      maxRetries: 5,
+      initialDelay: 1000,
+      signal: controller.signal,
+    });
+    await vi.advanceTimersByTimeAsync(500);
+    controller.abort();
+    await expect(p).rejects.toThrow();
+    expect(fn.mock.calls.length).toBeLessThan(5);
   });
 });

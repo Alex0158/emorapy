@@ -3,6 +3,7 @@
  */
 
 import type { CSSProperties } from 'react';
+import { t } from '@/utils/i18n';
 import './BearJudge.less';
 
 interface BearJudgeProps {
@@ -33,10 +34,10 @@ const BearJudge = ({
     balance: '⚖️',
   } as const;
   const ariaMap = {
-    neutral: '中立調解圖示',
-    bear: '熊形象圖示',
-    balance: '平衡判斷圖示',
-  } as const;
+    neutral: t('bearJudge.aria.neutral'),
+    bear: t('bearJudge.aria.bear'),
+    balance: t('bearJudge.aria.balance'),
+  };
 
   return (
     <div

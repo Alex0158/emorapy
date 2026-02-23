@@ -3,7 +3,9 @@
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useMountedRef } from '@/hooks/useMountedRef';
 import { useNavigate } from 'react-router-dom';
+import { logger } from '@/utils/logger';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Button,
@@ -15,7 +17,7 @@ import {
   message,
   Alert,
 } from 'antd';
-import { LockOutlined } from '@ant-design/icons';
+import { LockOutlined, TeamOutlined } from '@ant-design/icons';
 import { useSessionStore } from '@/store/sessionStore';
 import { useCaseStore } from '@/store/caseStore';
 import { getCaseBySessionId } from '@/services/api/case';
@@ -60,6 +62,8 @@ const QuickExperienceCreate = () => {
   const [isGeneratingDefendant, setIsGeneratingDefendant] = useState(false);
   const [recoveredCase, setRecoveredCase] = useState<{ id: string; status: string } | null>(null);
   const submitLockRef = useRef(false);
+  const mountedRef = useMountedRef();
+  const autoGenTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
     setLayoutMode(width >= 1024 ? 'horizontal' : 'vertical');
@@ -68,23 +72,27 @@ const QuickExperienceCreate = () => {
   useEffect(() => {
     const existingSessionId = sessionStorage.get() || session?.session_id;
     if (!existingSessionId) {
-      createSession().catch(() => {});
+      createSession().catch((e: unknown) => { logger.warn('Failed to create session', e); });
     }
   }, [session, createSession]);
 
   useEffect(() => {
+    let stale = false;
     const sessionId = sessionStorage.get() || session?.session_id;
     if (!sessionId) return;
     getCaseBySessionId(sessionId)
       .then((case_) => {
+        if (stale) return;
         if (case_ && ['submitted', 'in_progress', 'completed', 'judgment_failed'].includes(case_.status)) {
           setRecoveredCase({ id: case_.id, status: case_.status });
         }
       })
-      .catch(() => {});
+      .catch((e: unknown) => { logger.warn('Failed to check case recovery', e); });
+    return () => { stale = true; };
   }, [session?.session_id]);
 
   useEffect(() => {
+    let hideTimeout: ReturnType<typeof setTimeout>;
     const timer = setInterval(() => {
       if (plaintiffStatement || defendantStatement) {
         const draft: CaseDraft = {
@@ -94,10 +102,13 @@ const QuickExperienceCreate = () => {
         };
         localStore.set(DRAFT_STORAGE_KEY, draft);
         setAutoSaveStatus('saved');
-        setTimeout(() => setAutoSaveStatus(null), 3000);
+        hideTimeout = setTimeout(() => setAutoSaveStatus(null), 3000);
       }
     }, 30000);
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(timer);
+      clearTimeout(hideTimeout);
+    };
   }, [plaintiffStatement, defendantStatement, evidenceFiles]);
 
   useEffect(() => {
@@ -163,12 +174,18 @@ const QuickExperienceCreate = () => {
     setIsGeneratingDefendant(true);
     const source = plaintiffStatement.slice(0, 120);
     const draft = t('quickCreate.defendantDraftTemplate').replace('{source}', source);
-    setTimeout(() => {
+    clearTimeout(autoGenTimeoutRef.current);
+    autoGenTimeoutRef.current = setTimeout(() => {
+      if (!mountedRef.current) return;
       setDefendantStatement(draft);
       setIsGeneratingDefendant(false);
       message.success(t('message.defendantDraftDone'));
     }, 600);
   };
+
+  useEffect(() => {
+    return () => { clearTimeout(autoGenTimeoutRef.current); };
+  }, []);
 
   useKeyboardNavigation(() => { if (canSubmit) handleSubmit(); }, undefined, undefined, undefined, canSubmit);
 
@@ -182,7 +199,7 @@ const QuickExperienceCreate = () => {
     submitLockRef.current = true;
     try {
       if (!sessionStorage.get() && !session?.session_id) {
-        await createSession().catch(() => {});
+        await createSession().catch((e: unknown) => { logger.warn('Failed to create session before submit', e); });
       }
 
       const result = await createQuickCase({
@@ -190,6 +207,10 @@ const QuickExperienceCreate = () => {
         defendant_statement: defendantStatement.trim() || '',
         evidence_urls: [],
       });
+
+      if (!result?.case?.id) {
+        throw new Error(t('message.submitFail'));
+      }
 
       if (result.session_id) {
         sessionStorage.set(result.session_id);
@@ -211,14 +232,14 @@ const QuickExperienceCreate = () => {
             await uploadEvidence(result.case.id, filesToUpload as File[], sessionIdToUse);
           }
         } catch {
-          localStorage.setItem(`pending_evidence_${result.case.id}`, 'true');
+          try { localStorage.setItem(`pending_evidence_${result.case.id}`, 'true'); } catch { /* noop */ }
         }
       }
 
       localStore.remove(DRAFT_STORAGE_KEY);
-      navigate(`/quick-experience/result/${result.case.id}`);
+      if (mountedRef.current) navigate(`/quick-experience/result/${result.case.id}`);
     } catch (error: unknown) {
-      message.error(error instanceof Error ? error.message : t('message.submitFail'));
+      if (mountedRef.current) message.error((error as { message?: string })?.message || t('message.submitFail'));
     } finally {
       submitLockRef.current = false;
     }
@@ -263,6 +284,16 @@ const QuickExperienceCreate = () => {
             <BearJudge size="medium" animated />
             <Title level={1} className="guide-title">{t('quickCreate.guide.title')}</Title>
             <Text className="guide-subtitle">{t('quickCreate.guide.subtitle')}</Text>
+            <div style={{ marginTop: 16 }}>
+              <Button
+                type="link"
+                icon={<TeamOutlined />}
+                onClick={() => navigate('/quick-experience/collaborative')}
+                style={{ color: '#FBBF24', fontSize: 14 }}
+              >
+                {t('quickCreate.collaborativeHint')}
+              </Button>
+            </div>
           </div>
         </motion.section>
 
@@ -304,7 +335,7 @@ const QuickExperienceCreate = () => {
                   <h3 className="card-title">{t('quickCreate.plaintiffTitle')}</h3>
                 </div>
                 <Text type="secondary" style={{ display: 'block', marginBottom: 24, fontSize: 15, lineHeight: 1.6 }}>
-                  請具體描述事件與感受（至少需要30字），AI 將以此為基礎進行深度剖析。
+                  {t('quickCreate.plaintiffHint')}
                 </Text>
                 <StatementInput
                   value={plaintiffStatement}
@@ -342,7 +373,7 @@ const QuickExperienceCreate = () => {
                   <h3 className="card-title">{t('quickCreate.defendantTitle')}</h3>
                 </div>
                 <Text type="secondary" style={{ display: 'block', marginBottom: 24, fontSize: 15, lineHeight: 1.6 }}>
-                  可選填。這是盲寫模式，請安心寫下真實感受。若不知如何開口，可使用自動代寫。
+                  {t('quickCreate.defendantHint')}
                 </Text>
                 <StatementInput
                   value={defendantStatement}
@@ -361,7 +392,7 @@ const QuickExperienceCreate = () => {
                   </Button>
                 </Space>
                 <Text type="secondary" style={{ display: 'block', marginTop: 12, fontSize: 13 }}>
-                  {t('quickCreate.defendantHint').replace('{min}', String(MIN_DEFENDANT_LENGTH))}
+                  {t('quickCreate.defendantMinHint').replace('{min}', String(MIN_DEFENDANT_LENGTH))}
                 </Text>
               </motion.div>
             </div>

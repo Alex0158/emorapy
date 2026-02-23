@@ -53,12 +53,12 @@ const RELATIONSHIP_PROFILE_FIELDS = new Set([
   'completion_percentage',
 ]);
 
-const sanitizePayload = (body: any, allowed: Set<string>) => {
+const sanitizePayload = (body: unknown, allowed: Set<string>): Record<string, unknown> => {
   if (typeof body !== 'object' || body === null) {
     throw Errors.VALIDATION_ERROR('請求體必須為 JSON 對象');
   }
-  const sanitized: any = {};
-  Object.entries(body).forEach(([key, value]) => {
+  const sanitized: Record<string, unknown> = {};
+  Object.entries(body as Record<string, unknown>).forEach(([key, value]) => {
     if (allowed.has(key)) {
       sanitized[key] = value;
     }

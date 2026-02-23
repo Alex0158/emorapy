@@ -3,7 +3,7 @@ import { caseController } from '../controllers/case.controller';
 import { evidenceController, deleteEvidence } from '../controllers/evidence.controller';
 import { authenticate, optionalAuthenticate, validateSession } from '../middleware/auth';
 import { validate } from '../middleware/validator';
-import { quickCaseSchema, createCaseSchema, uuidParamSchema, uuidEvidenceParamSchema } from '../utils/validation';
+import { quickCaseSchema, createCaseSchema, collaborativeCaseSchema, updateCaseSchema, uuidParamSchema, uuidEvidenceParamSchema } from '../utils/validation';
 import { generalLimiter, uploadLimiter } from '../middleware/rateLimiter';
 
 /**
@@ -55,6 +55,19 @@ router.post(
   optionalAuthenticate,
   validate(quickCaseSchema),
   caseController.createQuickCase.bind(caseController)
+);
+
+/**
+ * @route   POST /api/v1/cases/collaborative
+ * @desc    創建/更新協作聽證案件（同設備雙人輪流陳述）
+ * @access  Public (可選認證)
+ */
+router.post(
+  '/collaborative',
+  generalLimiter,
+  optionalAuthenticate,
+  validate(collaborativeCaseSchema),
+  caseController.createCollaborativeCase.bind(caseController)
 );
 
 /**
@@ -150,6 +163,7 @@ router.put(
   authenticate,
   validateUuidParam,
   validate(uuidParamSchema),
+  validate(updateCaseSchema),
   caseController.updateCase.bind(caseController)
 );
 

@@ -2,7 +2,7 @@
  * 確認彈窗組件
  */
 
-import type { MouseEvent } from 'react';
+import React, { type MouseEvent } from 'react';
 import { Modal } from 'antd';
 import { ExclamationCircleOutlined } from '@ant-design/icons';
 import type { ModalProps } from 'antd/es/modal';
@@ -22,15 +22,24 @@ const ConfirmModal = ({
   type = 'warning',
   ...props
 }: ConfirmModalProps) => {
+  const [confirming, setConfirming] = React.useState(false);
+
   const handleConfirm = async () => {
-    await onConfirm();
-    props.onCancel?.(undefined as unknown as MouseEvent<HTMLButtonElement>);
+    if (confirming) return;
+    setConfirming(true);
+    try {
+      await onConfirm();
+      props.onCancel?.(undefined as unknown as MouseEvent<HTMLButtonElement>);
+    } finally {
+      setConfirming(false);
+    }
   };
 
   return (
     <Modal
       {...props}
       onOk={handleConfirm}
+      confirmLoading={confirming}
       okText={confirmText}
       cancelText={cancelText}
       okButtonProps={{

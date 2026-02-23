@@ -6,6 +6,5 @@ import { generalLimiter } from '../middleware/rateLimiter';
 const router = Router();
 
 router.get('/notifications', generalLimiter, authenticate, notificationController.list.bind(notificationController));
-router.post('/notifications', generalLimiter, authenticate, notificationController.create.bind(notificationController));
 
 export default router;

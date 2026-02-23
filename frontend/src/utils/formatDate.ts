@@ -5,9 +5,13 @@
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/zh-cn';
+import { t, getLocale } from '@/utils/i18n';
 
 dayjs.extend(relativeTime);
-dayjs.locale('zh-cn');
+
+function dayjsLocale(): string {
+  return getLocale().startsWith('zh') ? 'zh-cn' : 'en';
+}
 
 /**
  * 格式化日期時間
@@ -34,24 +38,22 @@ export function formatTime(date: string | Date, format: string = 'HH:mm:ss'): st
  * 相對時間（如：2小時前）
  */
 export function formatRelativeTime(date: string | Date): string {
-  return dayjs(date).fromNow();
+  return dayjs(date).locale(dayjsLocale()).fromNow();
 }
 
 /**
  * 格式化持續時間（如：3天）
  */
 export function formatDuration(days: number): string {
-  if (days === 1) {
-    return '1天';
-  }
+  if (!Number.isFinite(days) || days < 0) return t('common.unknown');
   if (days < 7) {
-    return `${days}天`;
+    return t('duration.days').replace('{n}', String(days || 1));
   }
   if (days < 30) {
     const weeks = Math.floor(days / 7);
-    return `${weeks}週`;
+    return t('duration.weeks').replace('{n}', String(weeks));
   }
   const months = Math.floor(days / 30);
-  return `${months}個月`;
+  return t('duration.months').replace('{n}', String(months));
 }
 

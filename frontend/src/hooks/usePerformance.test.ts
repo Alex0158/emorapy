@@ -40,6 +40,32 @@ describe('usePerformance', () => {
       });
       expect(fn).toHaveBeenCalledTimes(1);
     });
+
+    it('callback 變化後應調用最新的 callback', () => {
+      const fn1 = vi.fn();
+      const fn2 = vi.fn();
+      const { result, rerender } = renderHook(
+        ({ cb }) => useDebounce(cb, 300),
+        { initialProps: { cb: fn1 } }
+      );
+      act(() => { result.current(); });
+      rerender({ cb: fn2 });
+      act(() => { vi.advanceTimersByTime(300); });
+      expect(fn1).not.toHaveBeenCalled();
+      expect(fn2).toHaveBeenCalledTimes(1);
+    });
+
+    it('debounced 函數在 callback 變化時引用應保持穩定', () => {
+      const fn1 = vi.fn();
+      const fn2 = vi.fn();
+      const { result, rerender } = renderHook(
+        ({ cb }) => useDebounce(cb, 300),
+        { initialProps: { cb: fn1 } }
+      );
+      const prevRef = result.current;
+      rerender({ cb: fn2 });
+      expect(result.current).toBe(prevRef);
+    });
   });
 
   describe('useThrottle', () => {
@@ -92,8 +118,17 @@ describe('usePerformance', () => {
       const { result } = renderHook(() =>
         useVirtualList(items, 50, 200)
       );
-      expect(result.current.visibleItems.length).toBeGreaterThan(0);
-      expect(result.current.visibleItems.length).toBeLessThanOrEqual(items.length);
+      expect(result.current.visibleItems).toEqual([0, 1, 2, 3, 4]);
+      expect(result.current.offsetY).toBe(0);
+
+      act(() => {
+        result.current.handleScroll({
+          currentTarget: { scrollTop: 300 },
+        } as unknown as React.UIEvent<HTMLDivElement>);
+      });
+
+      expect(result.current.visibleItems).toEqual([6, 7, 8, 9, 10]);
+      expect(result.current.offsetY).toBe(300);
     });
   });
 });

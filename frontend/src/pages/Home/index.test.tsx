@@ -28,11 +28,16 @@ vi.mock('@/components/common/AnimatedWrapper', () => ({
 vi.mock('@/components/business/BearJudge', () => ({
   default: () => <div data-testid="bear-judge">BearJudge</div>,
 }));
+const mockUseAuthStore = vi.fn();
+vi.mock('@/store/authStore', () => ({
+  useAuthStore: (...args: unknown[]) => mockUseAuthStore(...args),
+}));
 
 describe('Home', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     setLocale('zh-TW');
+    mockUseAuthStore.mockReturnValue({ isAuthenticated: false });
   });
 
   it('應顯示 Hero 標題', () => {
@@ -109,5 +114,21 @@ describe('Home', () => {
     );
     expect(screen.queryByText('模擬實際使用流程')).not.toBeInTheDocument();
     expect(screen.getByText('See the Flow in Action')).toBeInTheDocument();
+  });
+
+  it('已登入時主按鈕應導航至 /case/create 且不顯示協同模式按鈕', async () => {
+    mockUseAuthStore.mockReturnValue({ isAuthenticated: true });
+    render(
+      <MemoryRouter>
+        <Home />
+      </MemoryRouter>
+    );
+    const buttons = screen.getAllByRole('button');
+    const primaryBtn = buttons.find(btn => btn.getAttribute('aria-label')?.includes('建立'));
+    expect(primaryBtn).toBeDefined();
+    if (primaryBtn) {
+      await userEvent.click(primaryBtn);
+      expect(mockNavigate).toHaveBeenCalledWith('/case/create');
+    }
   });
 });

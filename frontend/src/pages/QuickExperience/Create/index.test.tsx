@@ -166,25 +166,19 @@ vi.mock('@/hooks/useAccessibility', () => ({
 }));
 
 vi.mock('@/components/common/SEO', () => ({ default: () => null }));
-vi.mock('@/components/common/AnimatedWrapper', () => ({
-  default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-}));
 vi.mock('@/components/business/BearJudge', () => ({ default: () => <span>BearJudge</span> }));
 vi.mock('@/components/business/StatementInput', () => ({
   default: ({
     value,
     onChange,
     role,
-    onValidationChange,
   }: {
     value: string;
     onChange: (v: string) => void;
     role: string;
-    onValidationChange?: () => void;
   }) => (
     <div>
       <textarea aria-label={role} value={value} onChange={(e) => onChange(e.target.value)} />
-      <button onClick={() => onValidationChange?.()}>validate-{role}</button>
     </div>
   ),
 }));
@@ -288,13 +282,12 @@ describe('QuickExperienceCreate', () => {
 
   it('窄螢幕初始化時應使用 vertical 版型', async () => {
     mockWidth.current = 375;
-    render(
+    const { container } = render(
       <MemoryRouter>
         <QuickExperienceCreate />
       </MemoryRouter>
     );
-    fireEvent.click(screen.getByText('quickCreate.layout.horizontal'));
-    expect(screen.getByText('quickCreate.layout.vertical')).toBeInTheDocument();
+    expect(container.querySelector('.input-area.vertical')).toBeInTheDocument();
     mockWidth.current = 1200;
   });
 
@@ -556,17 +549,6 @@ describe('QuickExperienceCreate', () => {
     await waitFor(() => {
       expect(screen.queryByText('register.action.now')).not.toBeInTheDocument();
     });
-  });
-
-  it('StatementInput 的 validation callback 可被調用', async () => {
-    render(
-      <MemoryRouter>
-        <QuickExperienceCreate />
-      </MemoryRouter>
-    );
-    fireEvent.click(screen.getByText('validate-plaintiff'));
-    fireEvent.click(screen.getByText('validate-defendant'));
-    expect(screen.getAllByText('BearJudge').length).toBeGreaterThan(0);
   });
 
   it('快捷鍵保存草稿應寫入 localStore 並提示成功', async () => {

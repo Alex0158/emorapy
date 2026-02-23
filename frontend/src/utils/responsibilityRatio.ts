@@ -3,12 +3,13 @@
  */
 
 import type { ResponsibilityRatio } from '@/types/common';
+import { t } from '@/utils/i18n';
 
 /**
  * 格式化責任分比例顯示
  */
 export function formatResponsibilityRatio(ratio: ResponsibilityRatio): string {
-  return `原告 ${ratio.plaintiff}% : 被告 ${ratio.defendant}%`;
+  return t('ratio.format', { plaintiff: ratio.plaintiff, defendant: ratio.defendant });
 }
 
 /**

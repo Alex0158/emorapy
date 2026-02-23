@@ -26,6 +26,16 @@ export function usePollingJudgment({
   const [judgment, setJudgment] = useState<Judgment | null>(null);
   const [loading, setLoading] = useState(false);
   const pollingRef = useRef<ReturnType<typeof createPolling> | null>(null);
+  const mountedRef = useRef(true);
+  const onSuccessRef = useRef(onSuccess);
+  const onErrorRef = useRef(onError);
+  onSuccessRef.current = onSuccess;
+  onErrorRef.current = onError;
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   useEffect(() => {
     if (!enabled || !caseId) {
@@ -35,7 +45,6 @@ export function usePollingJudgment({
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 輪詢開始前設 loading
     setLoading(true);
 
-    // 創建輪詢
     const polling = createPolling(
       async () => {
         try {
@@ -43,7 +52,6 @@ export function usePollingJudgment({
           return result;
         } catch (error: unknown) {
           const err = error as { code?: string };
-          // 如果判決尚未生成（404），繼續輪詢
           if (err.code === 'NOT_FOUND' || err.code === 'HTTP_404') {
             return null;
           }
@@ -51,46 +59,41 @@ export function usePollingJudgment({
         }
       },
       {
-        interval: 5000, // 5秒輪詢一次
-        maxAttempts: 60, // 最多5分鐘
+        interval: 5000,
+        maxAttempts: 60,
         onSuccess: (data) => {
-          // 如果獲取到判決，停止輪詢
           if (data) {
-            setJudgment(data);
-            setLoading(false);
-            if (onSuccess) {
-              onSuccess(data);
+            if (mountedRef.current) {
+              setJudgment(data);
+              setLoading(false);
             }
-            return true; // 停止輪詢
+            onSuccessRef.current?.(data);
+            return true;
           }
-          return false; // 繼續輪詢
+          return false;
         },
         onError: (error) => {
-          setLoading(false);
-          if (onError) {
-            onError(error);
+          if (mountedRef.current) {
+            setLoading(false);
           }
-          return true; // 停止輪詢
+          onErrorRef.current?.(error);
+          return true;
         },
       }
     );
 
     pollingRef.current = polling;
 
-    // 開始輪詢
     polling.start().catch((error) => {
-      if (onError) {
-        onError(error);
-      }
+      onErrorRef.current?.(error);
     });
 
-    // 清理函數
     return () => {
       if (pollingRef.current) {
         pollingRef.current.stop();
       }
     };
-  }, [caseId, enabled, onSuccess, onError]);
+  }, [caseId, enabled]);
 
   return {
     judgment,

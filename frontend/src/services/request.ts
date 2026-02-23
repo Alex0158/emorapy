@@ -124,8 +124,8 @@ request.interceptors.request.use(
 		addCancelToken(config);
 
 		// 添加認證Token（如果存在）
-		const token =
-			localStorage.getItem("token") || window.sessionStorage.getItem("token");
+		let token: string | null = null;
+		try { token = localStorage.getItem("token") || window.sessionStorage.getItem("token"); } catch { /* noop */ }
 		if (token) {
 			config.headers.Authorization = `Bearer ${token}`;
 		}
@@ -338,12 +338,20 @@ request.interceptors.response.use(
 					message.error(errorData?.message || t("common.validationError"));
 					break;
 
+				case 413:
+					message.error(errorData?.message || t("common.fileTooLarge"));
+					break;
+
 				case 429:
 					if ((response.config?.url || "").includes("/uploads")) {
 						message.error(errorData?.message || t("common.fileRateLimit"));
 					} else {
 						message.error(errorData?.message || t("common.rateLimit"));
 					}
+					break;
+
+				case 503:
+					message.error(errorData?.message || t("common.serviceUnavailable"));
 					break;
 
 				case 500:

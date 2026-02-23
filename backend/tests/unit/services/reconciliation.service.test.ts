@@ -45,9 +45,23 @@ jest.mock('../../../src/services/ai.service', () => ({
   aiService: {
     generateReconciliationPlans: (...args: unknown[]) => mockGenerateReconciliationPlans(...args),
   },
+  SAFETY_SIGNAL_REGEX: /安全|危險/,
+  IPV_SIGNAL_REGEX: /控制|威脅|暴力/,
+  CRISIS_SIGNAL_REGEX: /自傷|自殺/,
 }));
 jest.mock('../../../src/types/ai.types', () => ({
   isReconciliationPlanContent: (obj: unknown) => mockIsReconciliationPlanContent(obj),
+}));
+
+const mockLoadCaseContext = jest.fn();
+const mockFormatForReconciliationPlans = jest.fn();
+const mockFormatDiagnosticContext = jest.fn();
+jest.mock('../../../src/services/case-context.service', () => ({
+  caseContextService: {
+    loadCaseContext: (...args: unknown[]) => mockLoadCaseContext(...args),
+    formatForReconciliationPlans: (...args: unknown[]) => mockFormatForReconciliationPlans(...args),
+    formatDiagnosticContext: (...args: unknown[]) => mockFormatDiagnosticContext(...args),
+  },
 }));
 
 import { ReconciliationService } from '../../../src/services/reconciliation.service';
@@ -170,8 +184,115 @@ describe('ReconciliationService', () => {
       expect(mockGenerateReconciliationPlans).toHaveBeenCalledWith(
         '其他',
         { plaintiff: 50, defendant: 50 },
-        's'
+        's',
+        undefined,
+        undefined,
+        undefined
       );
+    });
+
+    it('非 QUICK 模式且有 emotional_analysis 時應傳遞 diagnosticContext 給 AI', async () => {
+      const emotionalAnalysis = {
+        severity: 'moderate',
+        interactionCycle: '追-逃循環',
+        coreIssue: '核心議題',
+        personA: { readinessStage: '準備期' },
+        personB: { readinessStage: '沉思期' },
+      };
+      prismaMock.judgment.findUnique.mockResolvedValue({
+        id: 'judge-1',
+        case: { id: 'case-1', type: '情感需求衝突', mode: 'remote', plaintiff_id: 'u1', defendant_id: 'u2' },
+        plaintiff_ratio: 55,
+        defendant_ratio: 45,
+        summary: '摘要',
+        emotional_analysis: emotionalAnalysis,
+        judgment_content: '判決內容',
+      });
+      prismaMock.reconciliationPlan.findMany.mockResolvedValue([]);
+      // @ts-expect-error mock 泛型推斷為 never
+      mockLoadCaseContext.mockResolvedValue({
+        userA: { label: '角色A', communicationHint: '偏感性', attachmentHint: null, keyInsights: [], culturalHint: null },
+        userB: null,
+        relationship: null,
+      });
+      mockFormatForReconciliationPlans.mockReturnValue('角色A：溝通偏好：偏感性');
+      mockFormatDiagnosticContext.mockReturnValue('互動循環模式：追-逃循環\n\n核心議題：核心議題');
+      // @ts-expect-error mock 泛型推斷為 never
+      mockGenerateReconciliationPlans.mockResolvedValue([validPlanContent]);
+      prismaMock.$transaction = jest.fn(async (fn: (tx: any) => any) => {
+        const tx = {
+          // @ts-expect-error mock 泛型推斷為 never
+          reconciliationPlan: { create: jest.fn().mockResolvedValue({ id: 'plan-1' }) },
+        };
+        return fn(tx);
+      });
+
+      await service.generatePlans('judge-1');
+
+      expect(mockFormatDiagnosticContext).toHaveBeenCalledWith(emotionalAnalysis);
+      expect(mockGenerateReconciliationPlans).toHaveBeenCalledWith(
+        '情感需求衝突',
+        { plaintiff: 55, defendant: 45 },
+        '摘要',
+        '角色A：溝通偏好：偏感性',
+        undefined,
+        '互動循環模式：追-逃循環\n\n核心議題：核心議題'
+      );
+    });
+
+    it('QUICK 模式不應載入診斷上下文', async () => {
+      prismaMock.judgment.findUnique.mockResolvedValue({
+        id: 'judge-1',
+        case: { id: 'case-1', type: '其他', mode: 'quick', plaintiff_id: 'u1', defendant_id: 'u2' },
+        plaintiff_ratio: 50,
+        defendant_ratio: 50,
+        summary: 's',
+        emotional_analysis: { interactionCycle: '追-逃' },
+        judgment_content: '',
+      });
+      prismaMock.reconciliationPlan.findMany.mockResolvedValue([]);
+      // @ts-expect-error mock 泛型推斷為 never
+      mockGenerateReconciliationPlans.mockResolvedValue([validPlanContent]);
+      prismaMock.$transaction = jest.fn(async (fn: (tx: any) => any) => {
+        const tx = {
+          // @ts-expect-error mock 泛型推斷為 never
+          reconciliationPlan: { create: jest.fn().mockResolvedValue({ id: 'plan-1' }) },
+        };
+        return fn(tx);
+      });
+
+      await service.generatePlans('judge-1');
+
+      expect(mockFormatDiagnosticContext).not.toHaveBeenCalled();
+      expect(mockLoadCaseContext).not.toHaveBeenCalled();
+    });
+
+    it('emotional_analysis 為 null 時不應呼叫 formatDiagnosticContext', async () => {
+      prismaMock.judgment.findUnique.mockResolvedValue({
+        id: 'judge-1',
+        case: { id: 'case-1', type: '其他', mode: 'remote', plaintiff_id: 'u1', defendant_id: 'u2' },
+        plaintiff_ratio: 50,
+        defendant_ratio: 50,
+        summary: 's',
+        emotional_analysis: null,
+        judgment_content: '',
+      });
+      prismaMock.reconciliationPlan.findMany.mockResolvedValue([]);
+      // @ts-expect-error mock 泛型推斷為 never
+      mockLoadCaseContext.mockResolvedValue(null);
+      // @ts-expect-error mock 泛型推斷為 never
+      mockGenerateReconciliationPlans.mockResolvedValue([validPlanContent]);
+      prismaMock.$transaction = jest.fn(async (fn: (tx: any) => any) => {
+        const tx = {
+          // @ts-expect-error mock 泛型推斷為 never
+          reconciliationPlan: { create: jest.fn().mockResolvedValue({ id: 'plan-1' }) },
+        };
+        return fn(tx);
+      });
+
+      await service.generatePlans('judge-1');
+
+      expect(mockFormatDiagnosticContext).not.toHaveBeenCalled();
     });
 
     it('傳入 preferences 時應按 difficulty 與 types 過濾方案', async () => {
@@ -248,7 +369,7 @@ describe('ReconciliationService', () => {
     it('方案不存在應拋出 NOT_FOUND', async () => {
       prismaMock.reconciliationPlan.findUnique.mockResolvedValue(null);
 
-      await expect(service.getPlanById('plan-1')).rejects.toMatchObject({
+      await expect(service.getPlanById('plan-1', 'u1')).rejects.toMatchObject({
         code: 'NOT_FOUND',
         message: expect.stringContaining('和好方案'),
       });

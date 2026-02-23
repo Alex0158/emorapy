@@ -2,7 +2,7 @@
  * 文件上傳Hook
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { message } from 'antd';
 import { validateFiles, getFilePreviewUrl } from '@/utils/fileValidation';
 import { t } from '@/utils/i18n';
@@ -14,44 +14,42 @@ export interface FileUploadItem {
   error?: string;
 }
 
-/**
- * 使用文件上傳
- */
 export function useFileUpload(maxCount: number = 3) {
   const [files, setFiles] = useState<FileUploadItem[]>([]);
   const [uploading, setUploading] = useState(false);
+  const addingRef = useRef(false);
 
-  /**
-   * 添加文件
-   */
   const addFiles = useCallback(
     async (newFiles: File[]) => {
-      // 驗證文件
-      const validation = validateFiles(newFiles, files.length);
-      if (!validation.valid) {
-        message.error(validation.error);
-        return;
+      if (addingRef.current) return;
+      addingRef.current = true;
+      try {
+        const currentCount = files.length;
+        const validation = validateFiles(newFiles, currentCount);
+        if (!validation.valid) {
+          message.error(validation.error);
+          return;
+        }
+
+        if (currentCount + newFiles.length > maxCount) {
+          message.error(t('fileUpload.countLimit').replace('{count}', String(maxCount)));
+          return;
+        }
+
+        const newItems: FileUploadItem[] = await Promise.all(
+          newFiles.map(async (file) => {
+            const preview = file.type.startsWith('image/') ? await getFilePreviewUrl(file) : undefined;
+            return { file, preview, uploading: false };
+          })
+        );
+
+        setFiles((prev) => {
+          if (prev.length + newItems.length > maxCount) return prev;
+          return [...prev, ...newItems];
+        });
+      } finally {
+        addingRef.current = false;
       }
-
-      // 檢查總數限制
-      if (files.length + newFiles.length > maxCount) {
-        message.error(t('fileUpload.countLimit').replace('{count}', String(maxCount)));
-        return;
-      }
-
-      // 生成預覽
-      const newItems: FileUploadItem[] = await Promise.all(
-        newFiles.map(async (file) => {
-          const preview = file.type.startsWith('image/') ? await getFilePreviewUrl(file) : undefined;
-          return {
-            file,
-            preview,
-            uploading: false,
-          };
-        })
-      );
-
-      setFiles((prev) => [...prev, ...newItems]);
     },
     [files, maxCount]
   );

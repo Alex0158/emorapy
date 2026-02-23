@@ -1,4 +1,5 @@
 import prisma from '../config/database';
+import { Prisma } from '@prisma/client';
 import { Errors } from '../utils/errors';
 
 export class ContentService {
@@ -9,12 +10,12 @@ export class ContentService {
     is_active?: boolean;
     limit?: number;
   }) {
-    const where: any = {};
-    if (options.type) where.content_type = options.type;
+    const where: Prisma.ContentItemWhereInput = {};
+    if (options.type) where.content_type = options.type as Prisma.ContentItemWhereInput['content_type'];
     if (options.tags && options.tags.length > 0) {
       where.tags = { hasSome: options.tags };
     }
-    if (options.language) where.language = options.language;
+    if (options.language) where.language = options.language as Prisma.ContentItemWhereInput['language'];
     if (options.is_active !== undefined) where.is_active = options.is_active;
     return prisma.contentItem.findMany({
       where,

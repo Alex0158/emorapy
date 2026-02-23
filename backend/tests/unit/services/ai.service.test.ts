@@ -106,10 +106,20 @@ describe('AIService (useMock)', () => {
       expect(result).toHaveProperty('content');
       expect(result).toHaveProperty('responsibilityRatio');
       expect(result).toHaveProperty('summary');
+      expect(result).toHaveProperty('emotionalAnalysis');
       expect(result.responsibilityRatio).toEqual({ plaintiff: 55, defendant: 45 });
       expect(result.content).toContain('聽見你們');
       expect(result.content).toContain('生日晚餐');
       expect(result.summary).toContain('遲到');
+
+      const ea = result.emotionalAnalysis!;
+      expect(ea.severity).toBe('moderate');
+      expect(ea.interactionCycle).toContain('追-逃');
+      expect(ea.personA.readinessStage).toBe('準備期');
+      expect(ea.personB.readinessStage).toBe('沉思期');
+      expect(ea.coreIssue).toBeTruthy();
+      expect(ea.gottmanFlags).toContain('批評（翻舊帳模式）');
+      expect(ea.suggestedApproach).toBeTruthy();
     });
   });
 
@@ -307,7 +317,7 @@ describe('AIService (non-useMock)', () => {
       });
       const result = await service.analyzeEmotionalDynamics('A', 'B');
       expect(result.severity).toBe('moderate');
-      expect(mockLogger.warn).toHaveBeenCalledWith('Emotional analysis failed, using default', expect.any(Object));
+      expect(mockLogger.warn).toHaveBeenCalledWith('Emotional analysis failed, using generic fallback', expect.any(Object));
     });
 
     it('AI 拋錯時應返回預設分析', async () => {

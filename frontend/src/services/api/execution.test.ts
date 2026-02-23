@@ -54,7 +54,7 @@ describe('execution API', () => {
       };
       mockGet.mockResolvedValue({ data: { data: status } });
       const result = await getExecutionStatus('p1');
-      expect(mockGet).toHaveBeenCalledWith('/execution/status?plan_id=p1');
+      expect(mockGet).toHaveBeenCalledWith('/execution/status', { params: { plan_id: 'p1' } });
       expect(result).toEqual(status);
     });
   });

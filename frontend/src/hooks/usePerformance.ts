@@ -13,6 +13,9 @@ export const useDebounce = <T extends (...args: unknown[]) => unknown>(
 ): T => {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
+  const callbackRef = useRef(callback);
+  callbackRef.current = callback;
+
   const debouncedCallback = useCallback(
     // eslint-disable-next-line react-hooks/use-memo -- 需 cast 為 T 以保持簽名一致
     ((...args: Parameters<T>) => {
@@ -20,10 +23,10 @@ export const useDebounce = <T extends (...args: unknown[]) => unknown>(
         clearTimeout(timeoutRef.current);
       }
       timeoutRef.current = setTimeout(() => {
-        callback(...args);
+        callbackRef.current(...args);
       }, delay);
     }) as T,
-    [callback, delay]
+    [delay]
   );
 
   useEffect(() => {
@@ -32,7 +35,7 @@ export const useDebounce = <T extends (...args: unknown[]) => unknown>(
         clearTimeout(timeoutRef.current);
       }
     };
-  }, []);
+  }, [delay]);
 
   return debouncedCallback;
 };
@@ -45,17 +48,19 @@ export const useThrottle = <T extends (...args: unknown[]) => unknown>(
   delay: number
 ): T => {
   const lastRunRef = useRef<number>(0);
+  const callbackRef = useRef(callback);
+  callbackRef.current = callback;
 
   const throttledCallback = useCallback(
     // eslint-disable-next-line react-hooks/use-memo -- 需 cast 為 T 以保持簽名一致
     ((...args: Parameters<T>) => {
       const now = Date.now();
       if (now - lastRunRef.current >= delay) {
-        callback(...args);
+        callbackRef.current(...args);
         lastRunRef.current = now;
       }
     }) as T,
-    [callback, delay]
+    [delay]
   );
 
   return throttledCallback;
@@ -67,6 +72,8 @@ export const useThrottle = <T extends (...args: unknown[]) => unknown>(
 export const useLazyLoad = (options: IntersectionObserverInit = {}) => {
   const [isLoaded, setIsLoaded] = useState(false);
   const elementRef = useRef<HTMLElement>(null);
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
 
   useEffect(() => {
     const element = elementRef.current;
@@ -81,7 +88,7 @@ export const useLazyLoad = (options: IntersectionObserverInit = {}) => {
       },
       {
         threshold: 0.1,
-        ...options,
+        ...optionsRef.current,
       }
     );
 
@@ -90,7 +97,7 @@ export const useLazyLoad = (options: IntersectionObserverInit = {}) => {
     return () => {
       observer.disconnect();
     };
-  }, [options]);
+  }, []);
 
   return { ref: elementRef, isLoaded };
 };

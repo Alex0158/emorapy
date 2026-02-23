@@ -1,15 +1,20 @@
 /**
  * 責任分比例工具單元測試
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import {
   formatResponsibilityRatio,
   getResponsibilityColor,
   getResponsibilityLevel,
 } from './responsibilityRatio';
+import { setLocale } from './i18n';
 
 describe('responsibilityRatio', () => {
   describe('formatResponsibilityRatio', () => {
+    beforeEach(() => {
+      setLocale('zh-TW');
+    });
+
     it('應格式化為 "原告 X% : 被告 Y%"', () => {
       expect(formatResponsibilityRatio({ plaintiff: 60, defendant: 40 })).toBe(
         '原告 60% : 被告 40%'

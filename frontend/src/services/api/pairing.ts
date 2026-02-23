@@ -32,7 +32,9 @@ export interface Pairing {
  */
 export const createPairing = async (): Promise<Pairing> => {
   const response = await request.post<ApiResponse<{ pairing: Pairing }>>('/pairing/create');
-  return (response.data as ApiResponse<{ pairing: Pairing }>).data.pairing;
+  const result = (response.data as ApiResponse<{ pairing: Pairing }>)?.data?.pairing;
+  if (!result) throw new Error('Invalid pairing response from server');
+  return result;
 };
 
 /**
@@ -42,7 +44,9 @@ export const joinPairing = async (inviteCode: string): Promise<Pairing> => {
   const response = await request.post<ApiResponse<{ pairing: Pairing }>>('/pairing/join', {
     invite_code: inviteCode,
   });
-  return (response.data as ApiResponse<{ pairing: Pairing }>).data.pairing;
+  const result = (response.data as ApiResponse<{ pairing: Pairing }>)?.data?.pairing;
+  if (!result) throw new Error('Invalid pairing response from server');
+  return result;
 };
 
 /**
@@ -51,7 +55,7 @@ export const joinPairing = async (inviteCode: string): Promise<Pairing> => {
 export const getPairingStatus = async (): Promise<Pairing | null> => {
   try {
     const response = await request.get<ApiResponse<{ pairing: Pairing }>>('/pairing/status');
-    return (response.data as ApiResponse<{ pairing: Pairing }>).data.pairing;
+    return (response.data as ApiResponse<{ pairing: Pairing }>)?.data?.pairing ?? null;
   } catch (error: unknown) {
     const err = error as { code?: string };
     if (err.code === 'NOT_FOUND' || err.code === 'HTTP_404') {
@@ -66,5 +70,7 @@ export const getPairingStatus = async (): Promise<Pairing | null> => {
  */
 export const cancelPairing = async (): Promise<Pairing> => {
   const response = await request.post<ApiResponse<{ pairing: Pairing }>>('/pairing/cancel');
-  return (response.data as ApiResponse<{ pairing: Pairing }>).data.pairing;
+  const result = (response.data as ApiResponse<{ pairing: Pairing }>)?.data?.pairing;
+  if (!result) throw new Error('Invalid pairing response from server');
+  return result;
 };

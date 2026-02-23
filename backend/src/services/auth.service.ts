@@ -4,6 +4,7 @@ import { generateToken } from '../utils/jwt';
 import { generateVerificationCode } from '../utils/session';
 import { Errors } from '../utils/errors';
 import logger from '../config/logger';
+import { CASE_MODE } from '../utils/constants';
 import { emailService } from './email.service';
 
 const MAX_LOGIN_ATTEMPTS = 5;
@@ -24,7 +25,7 @@ export class AuthService {
   /**
    * 用戶註冊
    */
-  async register(data: RegisterDto): Promise<{ user: any; token: string }> {
+  async register(data: RegisterDto) {
     if (!this.isValidEmail(data.email)) {
       throw Errors.INVALID_EMAIL();
     }
@@ -74,7 +75,7 @@ export class AuthService {
   /**
    * 用戶登錄（含帳號鎖定保護）
    */
-  async login(data: LoginDto): Promise<{ user: any; token: string; expires_in: number }> {
+  async login(data: LoginDto) {
     const user = await prisma.user.findUnique({
       where: { email: data.email },
     });
@@ -95,7 +96,7 @@ export class AuthService {
       await prisma.user.update({
         where: { id: user.id },
         data: { login_failed_attempts: 0, locked_until: null },
-      }).catch(() => {});
+      }).catch((e) => { logger.warn('Failed to reset expired lockout', { userId: user.id, error: e }); });
       user.login_failed_attempts = 0;
     }
 
@@ -103,15 +104,16 @@ export class AuthService {
     if (!isValid) {
       const updated = await prisma.user.update({
         where: { id: user.id },
-        data: { login_failed_attempts: { increment: 1 } },
+        data: {
+          login_failed_attempts: { increment: 1 },
+          ...(user.login_failed_attempts + 1 >= MAX_LOGIN_ATTEMPTS
+            ? { locked_until: new Date(Date.now() + LOCKOUT_DURATION_MS) }
+            : {}),
+        },
         select: { login_failed_attempts: true },
       });
 
       if (updated.login_failed_attempts >= MAX_LOGIN_ATTEMPTS) {
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { locked_until: new Date(Date.now() + LOCKOUT_DURATION_MS) },
-        }).catch(() => {});
         logger.warn('Account locked due to failed attempts', {
           email: data.email,
           attempts: updated.login_failed_attempts,
@@ -136,7 +138,7 @@ export class AuthService {
         login_failed_attempts: 0,
         locked_until: null,
       },
-    }).catch(() => {});
+    }).catch((e) => { logger.warn('Failed to update login success state', { userId: user.id, error: e }); });
 
     const token = generateToken({
       id: user.id,
@@ -338,23 +340,65 @@ export class AuthService {
 
     const passwordHash = await hashPassword(newPassword);
 
-    // 更新密碼 + 遞增 token_version（使所有現有 JWT 失效）+ 重置鎖定狀態
-    await prisma.user.update({
-      where: { email },
-      data: {
-        password_hash: passwordHash,
-        token_version: { increment: 1 },
-        login_failed_attempts: 0,
-        locked_until: null,
-      },
-    });
-
-    await prisma.emailVerification.update({
-      where: { id: verification.id },
-      data: { used: true },
+    await prisma.$transaction(async (tx) => {
+      const consumed = await tx.emailVerification.updateMany({
+        where: { id: verification.id, used: false },
+        data: { used: true },
+      });
+      if (consumed.count === 0) {
+        throw Errors.INVALID_CODE();
+      }
+      await tx.user.update({
+        where: { email },
+        data: {
+          password_hash: passwordHash,
+          token_version: { increment: 1 },
+          login_failed_attempts: 0,
+          locked_until: null,
+        },
+      });
     });
 
     logger.info('Password reset (all sessions invalidated)', { email });
+  }
+
+  /**
+   * 關聯快速體驗案件到已註冊用戶
+   * 將 quick 模式案件轉為 remote 模式，建立正式配對
+   */
+  async claimSession(userId: string, sessionId: string): Promise<{ case_id: string | null }> {
+    const session = await prisma.quickSession.findUnique({
+      where: { id: sessionId },
+    });
+
+    if (!session || !session.case_id) {
+      return { case_id: null };
+    }
+
+    const quickCase = await prisma.case.findUnique({
+      where: { id: session.case_id },
+    });
+
+    if (!quickCase || quickCase.mode !== CASE_MODE.QUICK) {
+      return { case_id: null };
+    }
+
+    if (quickCase.plaintiff_id) {
+      return { case_id: quickCase.id };
+    }
+
+    const { count } = await prisma.case.updateMany({
+      where: { id: quickCase.id, plaintiff_id: null },
+      data: { plaintiff_id: userId },
+    });
+
+    if (count === 0) {
+      return { case_id: quickCase.id };
+    }
+
+    logger.info('Quick case claimed by user', { userId, caseId: quickCase.id });
+
+    return { case_id: quickCase.id };
   }
 
   private isValidEmail(email: string): boolean {

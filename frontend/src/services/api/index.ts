@@ -10,4 +10,5 @@ export * from './case';
 export * from './judgment';
 export * from './reconciliation';
 export * from './execution';
-
+export * from './interview';
+export * from './psychProfile';

@@ -5,7 +5,7 @@ import logger from './logger';
 export const openai = new OpenAI({
   apiKey: env.OPENAI_API_KEY,
   maxRetries: 3,
-  timeout: 60000, // 60秒超時
+  timeout: 60000,
 });
 
 export const AI_CONFIG = {
@@ -17,7 +17,24 @@ export const AI_CONFIG = {
   presencePenalty: 0,
 };
 
-// 驗證OpenAI配置
+export const INTERVIEW_AI_CONFIG = {
+  model: env.OPENAI_INTERVIEW_MODEL,
+  maxTokens: 800,
+  temperature: 0.8,
+  topP: 0.95,
+  frequencyPenalty: 0.1,
+  presencePenalty: 0.2,
+};
+
+export const ANALYSIS_AI_CONFIG = {
+  model: env.OPENAI_ANALYSIS_MODEL,
+  maxTokens: 4000,
+  temperature: 0.3,
+  topP: 1,
+  frequencyPenalty: 0,
+  presencePenalty: 0,
+};
+
 if (!env.OPENAI_API_KEY) {
   logger.warn('OpenAI API Key未配置，AI功能將無法使用');
 }

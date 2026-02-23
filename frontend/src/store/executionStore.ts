@@ -19,6 +19,8 @@ interface ExecutionState {
   clearError: () => void;
 }
 
+let _reqSeq = 0;
+
 export const useExecutionStore = create<ExecutionState>((set) => ({
   executions: [],
   currentExecution: null,
@@ -48,12 +50,15 @@ export const useExecutionStore = create<ExecutionState>((set) => ({
   },
 
   getExecutionStatus: async (planId: string) => {
+    const seq = ++_reqSeq;
     set({ isLoading: true, error: null });
     try {
       const status = await getExecutionStatus(planId);
+      if (seq !== _reqSeq) return status;
       set({ currentExecution: status, isLoading: false });
       return status;
     } catch (error: unknown) {
+      if (seq !== _reqSeq) throw error;
       set({ error: getErrorMessage(error, 'message.getExecutionStatusFail'), isLoading: false });
       throw error;
     }

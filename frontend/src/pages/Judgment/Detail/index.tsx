@@ -2,8 +2,9 @@
  * 判決詳情頁面（優化版）
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { logger } from '@/utils/logger';
 import {
   Card,
   Button,
@@ -23,17 +24,22 @@ import {
 } from '@ant-design/icons';
 import { getJudgment, acceptJudgment } from '@/services/api/judgment';
 import { generatePlans } from '@/services/api/reconciliation';
+import { psychProfileApi } from '@/services/api/psychProfile';
+import { useInterviewTrigger } from '@/hooks/useInterviewTrigger';
 import type { Judgment } from '@/types/judgment';
 import ProtectedRoute from '@/components/common/ProtectedRoute';
 import BearJudge from '@/components/business/BearJudge';
 import JudgmentViewer from '@/components/business/JudgmentViewer';
 import ResponsibilityRatio from '@/components/business/ResponsibilityRatio';
+import ConsentModal from '@/components/business/Interview/ConsentModal';
 import SEO from '@/components/common/SEO';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
 import { t } from '@/utils/i18n';
 import './Detail.less';
 
 const { Title, Text } = Typography;
+
+const POST_JUDGMENT_RICHNESS_THRESHOLD = 0.5;
 
 const JudgmentDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -46,31 +52,75 @@ const JudgmentDetail = () => {
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
 
+  const [showPostJudgmentCard, setShowPostJudgmentCard] = useState(false);
+  const dismissedPostJudgmentRef = useRef(false);
+  const {
+    triggerInterview: handlePostJudgmentChat,
+    consentOpen,
+    setConsentOpen,
+    setProfileConsent,
+    handleConsent,
+    consentLoading,
+  } = useInterviewTrigger('post_judgment');
+
+  const staleRef = useRef(false);
   useEffect(() => {
+    staleRef.current = false;
+    setJudgment(null);
+    setRating(0);
     if (id) {
       fetchJudgment();
     }
+    return () => { staleRef.current = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 僅在 id 變化時拉取
   }, [id]);
 
+  useEffect(() => {
+    if (!judgment) return;
+    if (judgment.user1_acceptance === false) {
+      setShowPostJudgmentCard(false);
+      return;
+    }
+    if (dismissedPostJudgmentRef.current) return;
+
+    let cancelled = false;
+    psychProfileApi.getProfile()
+      .then((res) => {
+        if (cancelled) return;
+        const profile = res.data?.data;
+        if (!profile) return;
+        setProfileConsent(!!profile.consent_given);
+        const richness = profile.richness_score ?? 0;
+        if (richness < POST_JUDGMENT_RICHNESS_THRESHOLD) {
+          setShowPostJudgmentCard(true);
+        }
+      })
+      .catch((e: unknown) => { logger.warn('Failed to fetch profile for post-judgment card', e); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setProfileConsent is stable from hook
+  }, [judgment, setProfileConsent]);
+
   const fetchJudgment = async () => {
+    if (!id) return;
     setLoading(true);
     try {
-      const judgmentData = await getJudgment(id!);
+      const judgmentData = await getJudgment(id);
+      if (staleRef.current) return;
       setJudgment(judgmentData);
       if (judgmentData.user1_rating) {
         setRating(judgmentData.user1_rating);
       }
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : t('message.getJudgmentDetailFail');
+      if (staleRef.current) return;
+      const msg = (error as { message?: string })?.message || t('message.getJudgmentDetailFail');
       message.error(msg);
     } finally {
-      setLoading(false);
+      if (!staleRef.current) setLoading(false);
     }
   };
 
   const handleAccept = async () => {
-    if (!id) return;
+    if (!id || accepting) return;
     setAccepting(true);
     try {
       await acceptJudgment(id, { accepted: true, rating: rating || undefined });
@@ -78,7 +128,7 @@ const JudgmentDetail = () => {
       setShowAcceptModal(false);
       fetchJudgment(); // 刷新數據
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : t('message.operationFail');
+      const msg = (error as { message?: string })?.message || t('message.operationFail');
       message.error(msg);
     } finally {
       setAccepting(false);
@@ -86,7 +136,7 @@ const JudgmentDetail = () => {
   };
 
   const handleReject = async () => {
-    if (!id) return;
+    if (!id || accepting) return;
     setAccepting(true);
     try {
       await acceptJudgment(id, { accepted: false });
@@ -94,7 +144,7 @@ const JudgmentDetail = () => {
       setShowRejectModal(false);
       fetchJudgment();
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : t('message.operationFail');
+      const msg = (error as { message?: string })?.message || t('message.operationFail');
       message.error(msg);
     } finally {
       setAccepting(false);
@@ -109,7 +159,7 @@ const JudgmentDetail = () => {
       message.success(t('message.generatePlansSuccess'));
       navigate(`/reconciliation/${id}`);
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : t('message.generatePlansFail');
+      const msg = (error as { message?: string })?.message || t('message.generatePlansFail');
       message.error(msg);
     } finally {
       setGenerating(false);
@@ -139,7 +189,20 @@ const JudgmentDetail = () => {
   if (!judgment) {
     return (
       <div className="judgment-detail-page">
-        <Alert message={t('message.judgmentNotFound')} type="error" />
+        <Alert
+          message={t('message.judgmentNotFound')}
+          type="error"
+          action={
+            <Space>
+              <Button size="small" onClick={() => navigate(-1)}>
+                {t('judgmentDetail.back')}
+              </Button>
+              <Button size="small" type="primary" onClick={() => id && fetchJudgment()}>
+                {t('common.retry')}
+              </Button>
+            </Space>
+          }
+        />
       </div>
     );
   }
@@ -275,6 +338,33 @@ const JudgmentDetail = () => {
         >
           <p>{t('judgmentDetail.rejectModalConfirm')}</p>
         </Modal>
+
+        {showPostJudgmentCard && (
+          <AnimatedWrapper animation="slide" direction="up" delay={600}>
+            <Card className="post-judgment-trigger-card" style={{ marginTop: 16 }}>
+              <Space direction="vertical" size="middle" style={{ width: '100%', textAlign: 'center' }}>
+                <HeartOutlined style={{ fontSize: 32, color: '#eb2f96' }} />
+                <Title level={4} style={{ margin: 0 }}>{t('trigger.postJudgmentTitle')}</Title>
+                <Text type="secondary">{t('trigger.postJudgmentDesc')}</Text>
+                <Space>
+                  <Button type="primary" onClick={handlePostJudgmentChat}>
+                    {t('trigger.postJudgmentOk')}
+                  </Button>
+                  <Button onClick={() => { dismissedPostJudgmentRef.current = true; setShowPostJudgmentCard(false); }}>
+                    {t('trigger.postJudgmentSkip')}
+                  </Button>
+                </Space>
+              </Space>
+            </Card>
+          </AnimatedWrapper>
+        )}
+
+        <ConsentModal
+          open={consentOpen}
+          onConsent={handleConsent}
+          onCancel={() => setConsentOpen(false)}
+          loading={consentLoading}
+        />
       </div>
     </ProtectedRoute>
   );

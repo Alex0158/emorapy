@@ -16,6 +16,7 @@ import PublicRoute from '@/components/common/PublicRoute';
 const Home = lazy(() => import('@/pages/Home'));
 const QuickExperienceCreate = lazy(() => import('@/pages/QuickExperience/Create'));
 const QuickExperienceResult = lazy(() => import('@/pages/QuickExperience/Result'));
+const CollaborativeCreate = lazy(() => import('@/pages/QuickExperience/Collaborative'));
 const Login = lazy(() => import('@/pages/Auth/Login'));
 const Register = lazy(() => import('@/pages/Auth/Register'));
 const ForgotPassword = lazy(() => import('@/pages/Auth/ForgotPassword'));
@@ -31,6 +32,9 @@ const ExecutionCheckIn = lazy(() => import('@/pages/Execution/CheckIn'));
 const ProfileIndex = lazy(() => import('@/pages/Profile/Index'));
 const ProfileSettings = lazy(() => import('@/pages/Profile/Settings'));
 const ProfilePairing = lazy(() => import('@/pages/Profile/Pairing'));
+const ProfileMyStory = lazy(() => import('@/pages/Profile/MyStory'));
+const InterviewChat = lazy(() => import('@/pages/Interview/Chat'));
+const InterviewResult = lazy(() => import('@/pages/Interview/Result'));
 const NotFound = lazy(() => import('@/pages/NotFound'));
 
 // 路由懶加載包裝器
@@ -171,6 +175,36 @@ export const router = createBrowserRouter([
           </LazyWrapper>
         ),
       },
+      {
+        path: 'profile/my-story',
+        element: (
+          <LazyWrapper>
+            <ProtectedRoute>
+              <ProfileMyStory />
+            </ProtectedRoute>
+          </LazyWrapper>
+        ),
+      },
+      {
+        path: 'interview/:sessionId',
+        element: (
+          <LazyWrapper>
+            <ProtectedRoute>
+              <InterviewChat />
+            </ProtectedRoute>
+          </LazyWrapper>
+        ),
+      },
+      {
+        path: 'interview/:sessionId/result',
+        element: (
+          <LazyWrapper>
+            <ProtectedRoute>
+              <InterviewResult />
+            </ProtectedRoute>
+          </LazyWrapper>
+        ),
+      },
     ],
   },
   {
@@ -197,12 +231,24 @@ export const router = createBrowserRouter([
           </LazyWrapper>
         ),
       },
+      {
+        path: 'collaborative',
+        element: (
+          <LazyWrapper>
+            <CollaborativeCreate />
+          </LazyWrapper>
+        ),
+      },
     ],
   },
   {
     path: '/auth',
     element: <AuthLayout />,
     children: [
+      {
+        index: true,
+        element: <Navigate to="/auth/login" replace />,
+      },
       {
         path: 'login',
         element: (

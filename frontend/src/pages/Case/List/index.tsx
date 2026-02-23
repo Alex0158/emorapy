@@ -2,7 +2,7 @@
  * 案件列表頁面
  */
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Card,
@@ -25,7 +25,6 @@ import {
 } from '@ant-design/icons';
 import { getCaseList } from '@/services/api/case';
 import type { Case } from '@/types/case';
-import ProtectedRoute from '@/components/common/ProtectedRoute';
 import SEO from '@/components/common/SEO';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
 import { useDebounce } from '@/hooks/usePerformance';
@@ -55,8 +54,10 @@ const CaseList = () => {
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('latest');
   const [searchText, setSearchText] = useState('');
+  const [fetchKey, setFetchKey] = useState(0);
 
-  // 獲取案件列表
+  const staleRef = useRef(false);
+
   const fetchCases = async () => {
     setLoading(true);
     try {
@@ -83,7 +84,6 @@ const CaseList = () => {
         params.search = searchText;
       }
 
-      // 排序
       if (sortBy === 'latest') {
         params.sort_by = 'created_at';
         params.sort_order = 'desc';
@@ -96,37 +96,48 @@ const CaseList = () => {
       }
 
       const response = await getCaseList(params);
-      setCases(response.cases);
-      setPagination(response.pagination);
+      if (staleRef.current) return;
+      setCases(response.cases ?? []);
+      setPagination(response.pagination ?? { page: 1, page_size: 10, total: 0, total_pages: 0 });
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : t('message.getCaseListFail');
-      message.error(msg);
+      if (staleRef.current) return;
+      const err = error as { message?: string };
+      message.error(err?.message || t('message.getCaseListFail'));
     } finally {
-      setLoading(false);
+      if (!staleRef.current) setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchCases();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- 依篩選/分頁變化拉取，fetchCases 不進 deps
-  }, [pagination.page, statusFilter, typeFilter, sortBy]);
+  const handleFilterChange = useCallback((setter: (v: string) => void) => (value: string) => {
+    setter(value);
+    setPagination((prev) => ({ ...prev, page: 1 }));
+  }, []);
 
-  // 搜索處理（使用防抖Hook）
+  useEffect(() => {
+    staleRef.current = false;
+    fetchCases();
+    return () => { staleRef.current = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 依篩選/分頁/fetchKey 變化拉取
+  }, [pagination.page, pagination.page_size, statusFilter, typeFilter, sortBy, fetchKey]);
+
+  const isInitialMount = useRef(true);
   const debouncedSearch = useDebounce(
     useCallback(() => {
       if (pagination.page === 1) {
-        fetchCases();
+        setFetchKey((k) => k + 1);
       } else {
         setPagination((prev) => ({ ...prev, page: 1 }));
       }
-    }, [pagination.page]), // eslint-disable-line react-hooks/exhaustive-deps -- fetchCases 不進 deps 避免重跑
+    }, [pagination.page]),
     500
   );
 
   useEffect(() => {
-    if (searchText !== undefined) {
-      debouncedSearch();
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
     }
+    debouncedSearch();
   }, [searchText, debouncedSearch]);
 
   // 使用useMemo優化案件列表渲染
@@ -138,7 +149,6 @@ const CaseList = () => {
             animation="slide"
             direction="up"
             delay={index * 50}
-            trigger="intersection"
           >
             <Card
               className="case-card"
@@ -188,7 +198,7 @@ const CaseList = () => {
   );
 
   return (
-    <ProtectedRoute>
+    <>
       <SEO
         title={t('caseList.title')}
         description={t('caseList.description')}
@@ -222,7 +232,7 @@ const CaseList = () => {
             <Space wrap>
               <Select
                 value={statusFilter}
-                onChange={setStatusFilter}
+                onChange={handleFilterChange(setStatusFilter)}
                 style={{ width: 120 }}
                 aria-label={t('caseList.ariaStatusFilter')}
               >
@@ -237,7 +247,7 @@ const CaseList = () => {
 
               <Select
                 value={typeFilter}
-                onChange={setTypeFilter}
+                onChange={handleFilterChange(setTypeFilter)}
                 style={{ width: 150 }}
                 aria-label={t('caseList.ariaTypeFilter')}
               >
@@ -251,7 +261,7 @@ const CaseList = () => {
 
               <Select
                 value={sortBy}
-                onChange={setSortBy}
+                onChange={handleFilterChange(setSortBy)}
                 style={{ width: 120 }}
                 aria-label={t('caseList.ariaSort')}
               >
@@ -291,7 +301,7 @@ const CaseList = () => {
               </Empty>
             </AnimatedWrapper>
           ) : (
-            <AnimatedWrapper animation="fade" delay={300} trigger="intersection">
+            <AnimatedWrapper animation="fade" delay={300}>
               <Row gutter={[24, 24]} role="list" aria-label={t('caseList.ariaList')}>
                 {caseCards}
               </Row>
@@ -300,7 +310,7 @@ const CaseList = () => {
         </Spin>
 
         {cases.length > 0 && (
-          <AnimatedWrapper animation="fade" delay={400} trigger="intersection">
+          <AnimatedWrapper animation="fade" delay={400}>
             <div className="pagination-wrapper" role="navigation" aria-label={t('caseList.ariaPagination')}>
               <Pagination
                 current={pagination.page}
@@ -322,7 +332,7 @@ const CaseList = () => {
           </AnimatedWrapper>
         )}
       </div>
-    </ProtectedRoute>
+    </>
   );
 };
 

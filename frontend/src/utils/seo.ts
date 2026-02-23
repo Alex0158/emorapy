@@ -2,11 +2,13 @@
  * SEO工具函數
  */
 
+import { t } from '@/utils/i18n';
+
 /**
  * 設置頁面標題
  */
 export const setPageTitle = (title: string): void => {
-  document.title = `${title} - 關係修復室`;
+  document.title = `${title} - ${t('common.siteName')}`;
 };
 
 /**

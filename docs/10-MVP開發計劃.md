@@ -930,9 +930,13 @@ GET /api/v1/cases/:id
   Headers: { Authorization: Bearer <token> }
   Response: { case }
 
-PUT /api/v1/cases/:id/statement
+PUT /api/v1/cases/:id
   Headers: { Authorization: Bearer <token> }
-  Request: { statement }
+  Request: { title?, plaintiff_statement?, defendant_statement? }
+  Response: { case }
+
+POST /api/v1/cases/:id/submit
+  Headers: { Authorization: Bearer <token> }
   Response: { case }
 
 POST /api/v1/cases/:id/evidence
@@ -987,6 +991,59 @@ POST /api/v1/execution/checkin
 GET /api/v1/execution/status
   Headers: { Authorization: Bearer <token> }
   Response: { status }
+
+GET /api/v1/execution/dashboard
+  Headers: { Authorization: Bearer <token> }
+  Response: { dashboard }
+```
+
+**訪談與心理畫像相關（v2.0 新增）**：
+```
+POST /api/v1/interview/start
+  Headers: { Authorization: Bearer <token> }
+  Request: { trigger: 'pre_case' | 'post_judgment' | 'organic' | 'onboarding', context_case_id? }
+  Response: { session（含 turns[]） }
+
+POST /api/v1/interview/:id/respond
+  Headers: { Authorization: Bearer <token> }
+  Request: { message }
+  Response: SSE 流式（token/metadata/safety_alert/complete 事件）
+
+POST /api/v1/interview/:id/skip
+  Headers: { Authorization: Bearer <token> }
+  Response: SSE 流式（同 respond）
+
+POST /api/v1/interview/:id/end
+  Headers: { Authorization: Bearer <token> }
+  Response: { session }
+
+GET /api/v1/interview/:id
+  Headers: { Authorization: Bearer <token> }
+  Response: { session（含 turns[]、feedback_card、richness_score） }
+
+GET /api/v1/interview/resume
+  Headers: { Authorization: Bearer <token> }
+  Response: { has_pending, session_id, last_ai_message, turn_count, has_failed?, failed_session_id? }（始終 200，has_pending: false 代表無進行中 session）
+
+POST /api/v1/interview/:id/retry
+  Headers: { Authorization: Bearer <token> }
+  Response: { session }
+
+GET /api/v1/psych-profile
+  Headers: { Authorization: Bearer <token> }
+  Response: { narratives[], insights[] }
+
+GET /api/v1/psych-profile/feedback
+  Headers: { Authorization: Bearer <token> }
+  Response: { history[] }
+
+DELETE /api/v1/psych-profile
+  Headers: { Authorization: Bearer <token> }
+  Response: { success, message }
+
+POST /api/v1/psych-profile/consent
+  Headers: { Authorization: Bearer <token> }
+  Response: { success, message }
 ```
 
 **錯誤處理規範**：
@@ -1133,7 +1190,77 @@ GET /api/v1/execution/status
 
 ---
 
-**文檔版本**：v1.0  
+## 🧠 第三階段：個人化判決系統（v2.0 新增）
+
+> 完整技術方案：`UPGRADE_PLAN_PERSONALIZED_JUDGMENT.md` v10
+
+### 概述
+
+在 MVP 核心流程穩定後，進入個人化判決系統開發。此階段讓用戶通過 AI 對話提供個人深層資訊，系統自動分析並注入判決流程。
+
+### 開發優先級
+
+**P0（核心功能，2-3 週）**：
+1. Prisma Schema 擴展（5 表：`InterviewSession`、`InterviewTurn`、`ProfileNarrative`、`ProfileInsight`、`ProfileSnapshot`；4 ENUM：`InterviewStatus`、`TriggerType`、`PsychDomain`、`InsightType`）+ 現有 UserProfile 資料遷移（見下方遷移計劃）
+2. 6 後端服務：`InterviewService`（SSE 流式）、`AsyncPipelineService`（5 步管線）、`NarrativeService`（域級摘要）、`InsightExtractionService`（結構化洞察）、`ProfileSnapshotService`（判決前快照）、`ProfileRichnessService`（8 域加權計算）+ `DomainClassificationService`（域分類，由 NarrativeService 調用）
+3. 基本訪談 UI — 前端組件：`InterviewChat`（頁面）、`ChatBubble`（iMessage 風格氣泡）、`InterviewInput`（自由文字輸入）
+4. 知情同意機制 — `ConsentModal`（彈窗）、頁面 mount 時檢查 `psych_consent_given`（⚠️ 無獨立 ConsentGuard 路由守衛組件，後端 `requireConsent` 為最終防線）
+5. AsyncPipelineService 5 步管線：①NARRATIVE_EXTRACTION（域分類 AI gpt-4o-mini + 按域歸類）→ ②NARRATIVE_SUMMARY（每域 AI 摘要 gpt-4o）→ ③INSIGHT_EXTRACTION（批次 AI gpt-4o）→ ④RICHNESS_CALCULATION（純計算）→ ⑤FEEDBACK_GENERATION（AI 反饋卡片 gpt-4o）
+6. JudgmentService 注入邏輯升級
+7. 安全偵測（safety_flag）— 安全合規必備，不可延後
+8. processing_failed 可通過 `POST /interview/:id/retry` 從失敗步驟恢復（`POST /end` 僅接受 in_progress，不可用於重試）— 核心可恢復性
+9. 前端狀態管理：`InterviewStore`（Zustand，SSE 串流管理）、`PsychProfileStore`（Zustand，畫像 + 同意狀態）；Hooks：`useInterview`、`usePsychProfile`
+
+**P1（體驗完善，1-2 週）**：
+1. 訪談結果 polling + `FeedbackCard`（反饋卡片 UI）+ `RichnessRing`（豐富度環形視覺化）
+2. 「我的故事」頁面（`/profile/my-story`）：RichnessRing + 8 域卡片 + 動態 CTA + 一鍵清除
+3. 4 種觸發點引導（organic/pre_case/post_judgment/onboarding）
+4. 併發控制（session mutex lock）
+
+**P2（安全與合規，1 週）**：
+1. 遺忘權（DELETE /psych-profile）
+2. SSE 分隔符注入防護（三層防禦）
+3. Rate Limiting（訪談專用限流器：中間件每小時 3 次 + 業務每天 5 個 substantive session）
+4. SSE 斷線恢復
+5. 訪談 session 過期清理定時任務（in_progress 超 24h → abandoned）
+
+### UserProfile 資料遷移計劃
+
+> 詳細設計見 `UPGRADE_PLAN_PERSONALIZED_JUDGMENT.md` §4.4.4
+
+**Phase 1（與 Prisma Schema 擴展同步進行）**：
+1. 遷移腳本自動將現有 `UserProfile` 的 `mbti_type`、`religion`、`communication_style` 等欄位轉為 `ProfileInsight` 記錄：
+   - `mbti_type = "INFP"` → `ProfileInsight { domain: personality, insight_type: trait, key: "mbti_type", value: "INFP", confidence: 0.3 }`
+   - `religion = "佛教"` → `ProfileInsight { domain: belief_values, insight_type: belief, key: "religion", value: "佛教", confidence: 0.3 }`
+   - `communication_style = "迴避型"` → `ProfileInsight { domain: personality, insight_type: pattern, key: "communication_style", value: "迴避型", confidence: 0.3 }`
+2. `confidence: 0.3`（低於正常 AI 提取的 0.5+），標記為用戶自填數據
+3. 現有 `UserProfile` 表欄位保留不動，不刪除不修改
+4. 前端設置頁的 MBTI/宗教/溝通風格欄位改為**唯讀**，顯示「透過『我的故事』更新這些資訊」
+
+**Phase 2（v2.0 穩定後）**：
+1. 前端完全移除唯讀欄位 UI
+2. 所有讀取改為從 `ProfileInsight` 讀取
+3. `UserProfile` 的遺留欄位標記 `@deprecated`
+
+### 成本估算
+
+| 項目 | 估算 |
+|------|------|
+| AI 費用 | ~$0.01/session（14 次 AI call，批次優化） |
+| 每月 1000 session | ~$10/月 AI 費用 |
+| 存儲增量 | ~5KB/session（Prisma + JSON） |
+
+### 技術風險
+
+| 風險 | 緩解措施 |
+|------|---------|
+| SSE 不穩定 | 後端繼續完成 AI call + 前端重連 + history 載入 |
+| AI 產出品質 | 批次處理 + 部分成功策略 + processing_failed 狀態 |
+| 併發衝突 | session mutex + transaction + turn_order 計算 |
+
+---
+
+**文檔版本**：v2.0  
 **創建日期**：2024年  
-**最後更新**：2024年  
+**最後更新**：2026-02-20（v2.0：第三階段個人化判決系統開發計劃）  
 **適用對象**：單人開發者、低成本初創

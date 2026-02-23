@@ -36,7 +36,7 @@ export const responseFormatter = (req: Request, res: Response, next: NextFunctio
       data.meta.timestamp = new Date().toISOString();
       // 將內部 data.status 透出到頂層方便調試/監控
       if (!('status' in data) && data.data && typeof data.data === 'object' && 'status' in data.data) {
-        (data as any).status = (data as any).data.status;
+        (data as Record<string, unknown>).status = (data.data as Record<string, unknown>).status;
       }
       return originalJson(data);
     }
@@ -45,7 +45,7 @@ export const responseFormatter = (req: Request, res: Response, next: NextFunctio
     const formattedResponse = {
       success: true,
       data,
-      ...(data && typeof data === 'object' && 'status' in data ? { status: (data as any).status } : {}),
+      ...(data && typeof data === 'object' && 'status' in data ? { status: (data as Record<string, unknown>).status } : {}),
       meta: {
         request_id: requestId,
         timestamp: new Date().toISOString(),

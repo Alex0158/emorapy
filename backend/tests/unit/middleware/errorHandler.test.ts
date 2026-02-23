@@ -28,7 +28,7 @@ const hashSessionId = (sid: string) =>
   crypto.createHash('sha256').update(sid).digest('hex').slice(0, 12);
 
 function createMockReq(): Partial<Request> {
-  return { url: '/api/test', method: 'GET' };
+  return { url: '/api/test', method: 'GET', locale: 'zh-TW' as Request['locale'] };
 }
 
 function createMockRes(): Response {
@@ -104,8 +104,8 @@ describe('middleware/errorHandler', () => {
     expect(res.json).toHaveBeenCalledWith({
       success: false,
       error: {
-        code: 'CONFLICT',
-        message: expect.stringContaining('唯一約束違規'),
+        code: 'EMAIL_EXISTS',
+        message: '該郵箱已被註冊',
       },
     });
   });
@@ -120,7 +120,7 @@ describe('middleware/errorHandler', () => {
 
     expect(res.json).toHaveBeenCalledWith({
       success: false,
-      error: { code: 'CONFLICT', message: '資源已存在' },
+      error: { code: 'EMAIL_EXISTS', message: '該郵箱已被註冊' },
     });
   });
 

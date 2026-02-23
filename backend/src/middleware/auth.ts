@@ -11,6 +11,7 @@ import path from 'path';
 import crypto from 'crypto';
 import fs from 'fs/promises';
 import { getRequestId, getSessionIdFromSources } from '../utils/request';
+import { CASE_MODE } from '../utils/constants';
 
 /**
  * JWT認證中間件（必需認證）
@@ -43,7 +44,7 @@ export const authenticate = async (
     }
 
     // 密碼變更後 token_version 會遞增，舊 Token 自動失效
-    if (decoded.token_version !== undefined && decoded.token_version !== user.token_version) {
+    if ((decoded.token_version ?? 0) !== user.token_version) {
       throw Errors.UNAUTHORIZED('Token已失效，請重新登入');
     }
     
@@ -78,7 +79,7 @@ export const optionalAuthenticate = async (
           select: { id: true, email: true, is_active: true, token_version: true },
         });
         
-        const versionOk = decoded.token_version === undefined || decoded.token_version === user?.token_version;
+        const versionOk = (decoded.token_version ?? 0) === user?.token_version;
         if (user && user.is_active && versionOk) {
           req.user = {
             id: user.id,
@@ -135,8 +136,8 @@ export const validateSession = async (
     await prisma.quickSession.update({
       where: { id: sessionId },
       data: { last_accessed_at: new Date() },
-    }).catch(() => {
-      // 更新失敗不影響請求
+    }).catch((e) => {
+      logger.debug('Failed to update session last_accessed_at', { sessionId, error: e });
     });
     
     // 將Session ID附加到請求對象
@@ -196,7 +197,9 @@ export const authorizeMedia = async (
     const token = (req.query.token as string) || undefined;
     if (token) {
       try {
-        const payload = jwt.verify(token, env.JWT_SECRET, { algorithms: ['HS256'] }) as any;
+        const payload = jwt.verify(token, env.JWT_SECRET, { algorithms: ['HS256'] }) as {
+          f?: string; h?: string; s?: number; m?: number; ch?: string;
+        };
         const requestedPath = (() => {
           const p = req.path.startsWith('/') ? req.path.slice(1) : req.path;
           try { return decodeURIComponent(p); } catch { return p; }
@@ -265,7 +268,7 @@ export const authorizeMedia = async (
         const evidence = await prisma.evidence.findFirst({
           where: {
             file_url: { contains: requestedFile },
-            case: { mode: 'quick', session_id: sessionId },
+            case: { mode: CASE_MODE.QUICK, session_id: sessionId },
           },
           select: { id: true },
         });

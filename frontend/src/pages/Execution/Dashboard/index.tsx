@@ -2,9 +2,10 @@
  * 執行儀表板 - 展示所有執行中/已完成的方案與進度
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  Alert,
   Card,
   Button,
   Typography,
@@ -38,23 +39,32 @@ const ExecutionDashboard = () => {
   const navigate = useNavigate();
   const [executions, setExecutions] = useState<ExecutionStatus[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const staleRef = useRef(false);
 
   const fetchExecutions = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const data = await getAllExecutionStatuses();
+      if (staleRef.current) return;
       setExecutions(data);
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : t('message.getExecutionStatusFail');
+      if (staleRef.current) return;
+      const msg = (error as { message?: string })?.message || t('message.getExecutionStatusFail');
       message.error(msg);
+      setLoadError(msg);
       setExecutions([]);
     } finally {
-      setLoading(false);
+      if (!staleRef.current) setLoading(false);
     }
   };
 
   useEffect(() => {
+    staleRef.current = false;
     fetchExecutions();
+    return () => { staleRef.current = true; };
   }, []);
 
   const inProgress = executions.filter((e) => e.status === 'in_progress' || e.status === 'pending');
@@ -81,8 +91,18 @@ const ExecutionDashboard = () => {
           </div>
         </AnimatedWrapper>
 
-        {executions.length === 0 ? (
-          <AnimatedWrapper animation="slide" direction="up" delay={200} trigger="intersection">
+        {loadError ? (
+          <AnimatedWrapper animation="slide" direction="up" delay={200}>
+            <Alert
+              type="error"
+              showIcon
+              message={loadError}
+              action={<Button size="small" onClick={fetchExecutions}>{t('common.retry')}</Button>}
+              style={{ marginTop: 16 }}
+            />
+          </AnimatedWrapper>
+        ) : executions.length === 0 ? (
+          <AnimatedWrapper animation="slide" direction="up" delay={200}>
             <Card>
               <Empty
                 description={t('execDashboard.empty')}
@@ -100,7 +120,7 @@ const ExecutionDashboard = () => {
         ) : (
           <>
             {inProgress.length > 0 && (
-              <AnimatedWrapper animation="slide" direction="up" delay={200} trigger="intersection">
+              <AnimatedWrapper animation="slide" direction="up" delay={200}>
                 <Title level={4} style={{ marginTop: 24, marginBottom: 12 }}>
                   {t('execDashboard.inProgress')}
                 </Title>
@@ -151,7 +171,7 @@ const ExecutionDashboard = () => {
             )}
 
             {completed.length > 0 && (
-              <AnimatedWrapper animation="slide" direction="up" delay={300} trigger="intersection">
+              <AnimatedWrapper animation="slide" direction="up" delay={300}>
                 <Title level={4} style={{ marginTop: 24, marginBottom: 12 }}>
                   {t('execDashboard.completed')}
                 </Title>

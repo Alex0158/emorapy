@@ -6,6 +6,7 @@ import { Outlet } from 'react-router-dom';
 import { Layout } from 'antd';
 import { Link } from 'react-router-dom';
 import ScrollToTop from '@/components/common/ScrollToTop';
+import { t } from '@/utils/i18n';
 import './SimpleLayout.less';
 
 const { Header, Content } = Layout;
@@ -16,7 +17,7 @@ const SimpleLayout = () => {
       <ScrollToTop />
       <Header className="simple-header">
         <Link to="/" className="logo-link">
-          <span className="logo-text">關係修復室</span>
+          <span className="logo-text">{t('nav.logo')}</span>
         </Link>
       </Header>
       <Content className="simple-content">

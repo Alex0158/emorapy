@@ -3,7 +3,10 @@
 **項目名稱**：熊媽媽法庭（Mother Bear Court）  
 **品牌定位**：大愛、包容、保護、呵護  
 **設計階段**：MVP開發階段  
-**文檔版本**：v1.0
+**文檔版本**：v3.0  
+**最後更新**：2026-02-20
+
+**v2.0 個人化判決升級（前端對應 v3.0）**：新增 InterviewStore、PsychProfileStore；訪談與畫像相關路由、知情同意機制（頁面級檢查，無獨立 ConsentGuard 組件）；訪談頁與 6 個專用組件（ChatBubble、InterviewInput、RichnessRing、FeedbackCard、ConsentModal、SafetyAlert）；SSE 流式與輪詢集成、4 種訪談觸發點。詳見本目錄 v3.0 小節與接口一覽表。
 
 ---
 
@@ -412,8 +415,20 @@ frontend/
 
 ---
 
-**文檔版本**：v2.1  
+### v3.0 個人化判決系統（2026-02-20）
+
+- ✅ 新增 AI 訪談對話頁面設計（iMessage 風格 + SSE 流式）
+- ✅ 新增洞察反饋卡片和「我的故事」卡片設計
+- ✅ 新增 6 個訪談專用組件（ChatBubble、InterviewInput、RichnessRing、FeedbackCard、ConsentModal、SafetyAlert）
+- ✅ 新增 InterviewStore 和 PsychProfileStore（SSE 處理邏輯）
+- ✅ 新增訪談路由、知情同意檢查（頁面級）、觸發點跳轉邏輯
+- ✅ 新增完整訪談交互流程設計（4 種觸發、對話 UX、錯誤處理）
+- ✅ 新增 11 個前端 API 端點定義
+
+---
+
+**文檔版本**：v3.0  
 **創建日期**：2024年  
-**最後更新**：2026-02（與代碼校對：各子文檔已補充實現對齊，技術棧見 01-整體架構）  
-**設計狀態**：✅ 設計完成並與實現對齊
+**最後更新**：2026-02-20（v3.0：個人化判決系統前端設計，對應後端 v2.0 升級）  
+**設計狀態**：✅ 設計完成
 

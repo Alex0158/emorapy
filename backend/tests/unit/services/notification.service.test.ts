@@ -9,12 +9,20 @@ const prismaMock: any = {
   notification: {
     findMany: jest.fn(),
     create: jest.fn(),
+    update: jest.fn(),
+  },
+  user: {
+    findUnique: jest.fn(),
   },
 };
 
 jest.mock('../../../src/config/database', () => ({
   __esModule: true,
   default: prismaMock,
+}));
+jest.mock('../../../src/config/logger', () => ({
+  __esModule: true,
+  default: { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() },
 }));
 
 import { NotificationService } from '../../../src/services/notification.service';
@@ -115,6 +123,110 @@ describe('NotificationService', () => {
           status: NotificationStatus.pending,
         }),
       });
+    });
+  });
+
+  describe('markAsSent', () => {
+    it('應更新狀態為 sent 並設定 sent_at', async () => {
+      prismaMock.notification.update.mockResolvedValue({ id: 'n1', status: NotificationStatus.sent });
+
+      await service.markAsSent('n1');
+
+      expect(prismaMock.notification.update).toHaveBeenCalledWith({
+        where: { id: 'n1' },
+        data: { status: NotificationStatus.sent, sent_at: expect.any(Date) },
+      });
+    });
+  });
+
+  describe('markFailed', () => {
+    it('應更新狀態為 failed 並寫入錯誤訊息', async () => {
+      prismaMock.notification.update.mockResolvedValue({ id: 'n1', status: NotificationStatus.failed });
+
+      await service.markFailed('n1', 'SMTP timeout');
+
+      expect(prismaMock.notification.update).toHaveBeenCalledWith({
+        where: { id: 'n1' },
+        data: { status: NotificationStatus.failed, error_message: 'SMTP timeout' },
+      });
+    });
+  });
+
+  describe('getPending', () => {
+    it('應查詢 pending 通知並 include user 偏好', async () => {
+      prismaMock.notification.findMany.mockResolvedValue([]);
+
+      await service.getPending(10);
+
+      expect(prismaMock.notification.findMany).toHaveBeenCalledWith({
+        where: { status: NotificationStatus.pending },
+        orderBy: { created_at: 'asc' },
+        take: 10,
+        include: { user: { select: { email: true, notification_enabled: true } } },
+      });
+    });
+
+    it('預設 limit 為 50', async () => {
+      prismaMock.notification.findMany.mockResolvedValue([]);
+
+      await service.getPending();
+
+      expect(prismaMock.notification.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ take: 50 })
+      );
+    });
+  });
+
+  describe('isNotificationEnabled', () => {
+    it('用戶啟用通知時應返回 true', async () => {
+      prismaMock.user.findUnique.mockResolvedValue({ notification_enabled: true });
+
+      const result = await service.isNotificationEnabled('u1');
+
+      expect(result).toBe(true);
+    });
+
+    it('用戶停用通知時應返回 false', async () => {
+      prismaMock.user.findUnique.mockResolvedValue({ notification_enabled: false });
+
+      const result = await service.isNotificationEnabled('u1');
+
+      expect(result).toBe(false);
+    });
+
+    it('用戶不存在時應返回 false', async () => {
+      prismaMock.user.findUnique.mockResolvedValue(null);
+
+      const result = await service.isNotificationEnabled('nonexistent');
+
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('createIfEnabled', () => {
+    it('用戶啟用通知時應建立通知', async () => {
+      prismaMock.user.findUnique.mockResolvedValue({ notification_enabled: true });
+      prismaMock.notification.create.mockResolvedValue({ id: 'n1' });
+
+      const result = await service.createIfEnabled('u1', {
+        template_code: 'T1',
+        channel: NotificationChannel.email,
+      });
+
+      expect(result).toEqual({ id: 'n1' });
+      expect(prismaMock.notification.create).toHaveBeenCalled();
+    });
+
+    it('用戶停用通知時應跳過並返回 null', async () => {
+      prismaMock.user.findUnique.mockResolvedValue({ notification_enabled: false });
+
+      const result = await service.createIfEnabled('u1', {
+        template_code: 'T1',
+        channel: NotificationChannel.email,
+      });
+
+      expect(result).toBeNull();
+      expect(prismaMock.notification.create).not.toHaveBeenCalled();
     });
   });
 });

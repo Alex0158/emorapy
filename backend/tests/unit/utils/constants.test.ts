@@ -8,7 +8,7 @@ import {
   CASE_TYPES,
   PAIRING_STATUS,
   LOCK_TTL,
-  SESSION_CONFIG,
+  SESSION_EXPIRY,
   CACHE_CONFIG,
   LIMITS,
 } from '../../../src/utils/constants';
@@ -38,9 +38,10 @@ describe('Constants', () => {
     expect(LOCK_TTL.DEFAULT).toBe(60);
   });
 
-  it('SESSION_CONFIG 應包含過期時間', () => {
-    expect(SESSION_CONFIG.EXPIRE_MINUTES).toBe(5);
-    expect(SESSION_CONFIG.EXPIRE_MS).toBe(5 * 60 * 1000);
+  it('SESSION_EXPIRY 應包含過期時間', () => {
+    expect(SESSION_EXPIRY.DEFAULT_MS).toBe(24 * 60 * 60 * 1000);
+    expect(SESSION_EXPIRY.COMPLETED_MS).toBe(7 * 24 * 60 * 60 * 1000);
+    expect(SESSION_EXPIRY.CLEANUP_BATCH).toBe(1000);
   });
 
   it('CACHE_CONFIG 應包含大小和間隔', () => {

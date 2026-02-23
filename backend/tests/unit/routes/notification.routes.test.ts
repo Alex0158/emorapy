@@ -31,14 +31,8 @@ describe('notification.routes', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sendJson = (res: any, body: unknown) => {
-      res.status(200).json(body);
-    };
-    mockList.mockImplementation((_req: unknown, res: unknown) =>
-      sendJson(res, { success: true, data: { items: [] } })
-    );
-    mockCreate.mockImplementation((_req: unknown, res: unknown) =>
-      sendJson(res, { success: true, data: {} })
+    mockList.mockImplementation((_req: unknown, res: any) =>
+      res.status(200).json({ success: true, data: { items: [] } })
     );
   });
 
@@ -52,11 +46,14 @@ describe('notification.routes', () => {
   });
 
   describe('POST /notifications', () => {
-    it('應調用 create 並返回 200', async () => {
+    it('POST 路由未註冊，應返回 404', async () => {
       const app = createApp();
-      const res = await request(app).post('/notifications').send({});
-      expect(res.status).toBe(200);
-      expect(mockCreate).toHaveBeenCalled();
+      const res = await request(app).post('/notifications').send({
+        channel: 'email',
+        template_code: 'test_tpl',
+      });
+      expect(res.status).toBe(404);
+      expect(mockCreate).not.toHaveBeenCalled();
     });
   });
 });

@@ -5,6 +5,25 @@
 export type CaseStatus = 'draft' | 'submitted' | 'in_progress' | 'completed' | 'cancelled' | 'judgment_failed';
 export type CaseMode = 'remote' | 'collaborative' | 'quick';
 
+export interface CaseJudgmentSummary {
+  id: string;
+  summary?: string;
+  plaintiff_ratio?: number;
+  defendant_ratio?: number;
+}
+
+export interface CasePairingUser {
+  id: string;
+  nickname?: string;
+  avatar_url?: string;
+}
+
+export interface CasePairing {
+  id: string;
+  user1?: CasePairingUser;
+  user2?: CasePairingUser;
+}
+
 export interface Case {
   id: string;
   pairing_id: string;
@@ -16,10 +35,12 @@ export interface Case {
   plaintiff_statement: string;
   defendant_statement?: string;
   status: CaseStatus;
-  judgment_failure_reason?: string; // 判決生成失敗時後端寫入的原因
+  judgment_failure_reason?: string;
   mode: CaseMode;
-  session_id?: string; // 快速體驗模式
+  session_id?: string;
   evidences?: Evidence[];
+  judgment?: CaseJudgmentSummary | null;
+  pairing?: CasePairing | null;
   created_at: string;
   updated_at: string;
   submitted_at?: string;
@@ -27,13 +48,18 @@ export interface Case {
 }
 
 export interface CreateCaseDto {
-  pairing_id?: string; // 完整模式需要
+  pairing_id: string;
   title?: string;
-  type?: string;
-  sub_type?: string;
   plaintiff_statement: string;
-  defendant_statement: string;
+  defendant_statement?: string;
   evidence_urls?: string[];
+  mode?: 'remote' | 'collaborative';
+}
+
+export interface UpdateCaseDto {
+  title?: string;
+  plaintiff_statement?: string;
+  defendant_statement?: string;
 }
 
 export interface QuickCaseDto {

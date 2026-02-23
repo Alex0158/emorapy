@@ -30,6 +30,7 @@ cp .env.example .env
 # - DATABASE_URL
 # - JWT_SECRET
 # - OPENAI_API_KEY
+# v2.0 訪談功能可選配置：OPENAI_INTERVIEW_MODEL、OPENAI_ANALYSIS_MODEL、INTERVIEW_MAX_TURNS、INTERVIEW_SOFT_TARGET 等，詳見 docs/ENVIRONMENT.md
 
 # 生成Prisma Client
 npm run prisma:generate
@@ -81,10 +82,13 @@ npm run dev
 1. 註冊帳號
 2. 創建配對（生成邀請碼）
 3. 對方使用邀請碼加入
-4. 創建案件
-5. 查看判決
-6. 生成和好方案
-7. 執行追蹤
+4. **（可選）完成「我的故事」訪談**：在配對頁面或個人中心的「我的故事」卡片，花 5-10 分鐘和 AI 聊聊你的背景故事，讓判決更貼合你（需知情同意，可隨時跳過或中途離開）
+5. 創建案件
+6. 查看判決（若已完成訪談，判決將根據你的心理畫像進行個人化）
+7. 生成和好方案
+8. 執行追蹤
+
+> 💡 **v2.0 個人化判決**：訪談完全可選。不參與訪談也能獲得完整的標準判決。訪談入口有 4 個時機：註冊配對後、案件提交前、判決結果頁、個人中心「我的故事」。詳見 [02-產品設計 § 個人化判決系統](02-產品設計.md)。
 
 ## 🔧 一鍵啟動腳本
 

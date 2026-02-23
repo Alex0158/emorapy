@@ -3,7 +3,6 @@
  */
 
 import {
-	CheckCircleOutlined,
 	EyeInvisibleOutlined,
 	EyeTwoTone,
 	LockOutlined,
@@ -16,7 +15,6 @@ import {
 	Form,
 	Input,
 	message,
-	Space,
 	Steps,
 	Typography,
 } from "antd";
@@ -24,7 +22,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import BearJudge from "@/components/business/BearJudge";
 import AnimatedWrapper from "@/components/common/AnimatedWrapper";
-import PublicRoute from "@/components/common/PublicRoute";
 import SEO from "@/components/common/SEO";
 import { sendVerificationCode, verifyEmail } from "@/services/api/auth";
 import { useAuthStore } from "@/store/authStore";
@@ -47,14 +44,13 @@ const Register = () => {
 		Array(CODE_LENGTH).fill(""),
 	);
 	const [countdown, setCountdown] = useState(0);
+	const [sendingCode, setSendingCode] = useState(false);
 	const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-	const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const codeInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
 	useEffect(() => {
 		return () => {
 			if (timerRef.current) clearInterval(timerRef.current);
-			if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
 		};
 	}, []);
 
@@ -79,6 +75,7 @@ const Register = () => {
 			return;
 		}
 
+		setSendingCode(true);
 		try {
 			await sendVerificationCode(emailValue, "register");
 			if (!email) {
@@ -90,6 +87,8 @@ const Register = () => {
 			setCurrentStep(1);
 		} catch (error: unknown) {
 			message.error(getErrorMessage(error, "message.sendCodeFail"));
+		} finally {
+			setSendingCode(false);
 		}
 	};
 
@@ -139,6 +138,7 @@ const Register = () => {
 		codeInputRefs.current[focusIndex]?.focus();
 	};
 
+	const [verifying, setVerifying] = useState(false);
 	const handleVerifyCode = async () => {
 		const code = verificationCode.join("");
 		if (code.length !== CODE_LENGTH) {
@@ -146,6 +146,7 @@ const Register = () => {
 			return;
 		}
 
+		setVerifying(true);
 		try {
 			const verified = await verifyEmail(email, code, "register");
 			if (verified) {
@@ -158,6 +159,8 @@ const Register = () => {
 			}
 		} catch (error: unknown) {
 			message.error(getErrorMessage(error, "message.verifyFail"));
+		} finally {
+			setVerifying(false);
 		}
 	};
 
@@ -173,10 +176,7 @@ const Register = () => {
 		try {
 			await register(email, values.password, nickname || undefined);
 			message.success(t("message.registerSuccess"));
-			setCurrentStep(3);
-			redirectTimerRef.current = setTimeout(() => {
-				navigate("/profile/pairing");
-			}, 3000);
+			navigate("/profile/pairing", { replace: true });
 		} catch (error: unknown) {
 			message.error(getErrorMessage(error, "message.registerFail"));
 		}
@@ -189,7 +189,7 @@ const Register = () => {
 	};
 
 	return (
-		<PublicRoute>
+		<>
 			<SEO
 				title={t("auth.register.title")}
 				description={t("auth.register.description")}
@@ -219,7 +219,6 @@ const Register = () => {
 								{ title: t("auth.register.stepEmail") },
 								{ title: t("auth.register.stepVerify") },
 								{ title: t("auth.register.stepPassword") },
-								{ title: t("auth.register.stepDone") },
 							]}
 						/>
 
@@ -259,15 +258,15 @@ const Register = () => {
 								</Form.Item>
 
 								<Form.Item>
-									<Button
-										type="primary"
-										htmlType="submit"
-										block
-										loading={isLoading}
-										className="auth-submit-button"
-									>
-										{t("auth.register.sendCode")}
-									</Button>
+								<Button
+									type="primary"
+									htmlType="submit"
+									block
+									loading={sendingCode}
+									className="auth-submit-button"
+								>
+									{t("auth.register.sendCode")}
+								</Button>
 								</Form.Item>
 							</Form>
 						)}
@@ -321,6 +320,7 @@ const Register = () => {
 									block
 									onClick={handleVerifyCode}
 									disabled={verificationCode.join("").length !== CODE_LENGTH}
+									loading={verifying}
 									className="auth-submit-button"
 									style={{ marginTop: 16 }}
 								>
@@ -346,6 +346,7 @@ const Register = () => {
 											message: t("auth.login.passwordRequired"),
 										},
 										{ min: 8, message: t("auth.register.passwordMin") },
+										{ max: 128, message: t("auth.register.passwordMax") },
 										{
 											pattern: /^(?=.*[A-Za-z])(?=.*\d)/,
 											message: t("auth.register.passwordPattern"),
@@ -355,6 +356,7 @@ const Register = () => {
 									<Input.Password
 										prefix={<LockOutlined />}
 										placeholder={t("auth.register.passwordPlaceholder")}
+										maxLength={128}
 										iconRender={(visible) =>
 											visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />
 										}
@@ -407,41 +409,6 @@ const Register = () => {
 							</Form>
 						)}
 
-						{currentStep === 3 && (
-							<div className="success-step">
-								<CheckCircleOutlined className="success-icon" />
-								<Title level={3}>{t("auth.register.successTitle")}</Title>
-								<Text type="secondary">{t("auth.register.welcomeText")}</Text>
-								<Text
-									type="secondary"
-									style={{ display: "block", marginTop: 8 }}
-								>
-									{t("auth.register.readyToUse")}
-								</Text>
-								<Space style={{ marginTop: 24 }}>
-									<Button
-										type="primary"
-										onClick={() => {
-											if (redirectTimerRef.current)
-												clearTimeout(redirectTimerRef.current);
-											navigate("/profile/pairing");
-										}}
-									>
-										{t("auth.register.startPairing")}
-									</Button>
-									<Button
-										onClick={() => {
-											if (redirectTimerRef.current)
-												clearTimeout(redirectTimerRef.current);
-											navigate("/");
-										}}
-									>
-										{t("register.action.later")}
-									</Button>
-								</Space>
-							</div>
-						)}
-
 						<div className="auth-divider">
 							<Text type="secondary">{t("auth.register.hasAccount")}</Text>
 						</div>
@@ -457,7 +424,7 @@ const Register = () => {
 					</Card>
 				</AnimatedWrapper>
 			</div>
-		</PublicRoute>
+		</>
 	);
 };
 

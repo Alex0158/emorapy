@@ -166,8 +166,8 @@ describe('middleware/auth', () => {
 
     it('驗證通過應設置 req.user 並 next()', async () => {
       const req = createReq({ headers: { authorization: 'Bearer ok' } });
-      mockVerifyToken.mockReturnValue({ id: 'user-1', email: 'u@x.com' });
-      mockFindUniqueUser.mockResolvedValue({ id: 'user-1', email: 'u@x.com', is_active: true } as never);
+      mockVerifyToken.mockReturnValue({ id: 'user-1', email: 'u@x.com', token_version: 0 });
+      mockFindUniqueUser.mockResolvedValue({ id: 'user-1', email: 'u@x.com', is_active: true, token_version: 0 } as never);
       await authenticate(req, createRes(), next);
       expect(req.user).toEqual({ id: 'user-1', email: 'u@x.com' });
       expect(next).toHaveBeenCalledWith();
@@ -184,8 +184,8 @@ describe('middleware/auth', () => {
 
     it('有效 Token 且用戶存在應設置 req.user', async () => {
       const req = createReq({ headers: { authorization: 'Bearer ok' } });
-      mockVerifyToken.mockReturnValue({ id: 'user-1', email: 'u@x.com' });
-      mockFindUniqueUser.mockResolvedValue({ id: 'user-1', email: 'u@x.com', is_active: true } as never);
+      mockVerifyToken.mockReturnValue({ id: 'user-1', email: 'u@x.com', token_version: 0 });
+      mockFindUniqueUser.mockResolvedValue({ id: 'user-1', email: 'u@x.com', is_active: true, token_version: 0 } as never);
       await optionalAuthenticate(req, createRes(), next);
       expect(req.user).toEqual({ id: 'user-1', email: 'u@x.com' });
       expect(next).toHaveBeenCalledWith();

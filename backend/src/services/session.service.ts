@@ -1,8 +1,10 @@
 import prisma from '../config/database';
+import { Prisma } from '@prisma/client';
 import { generateSessionId, validateSessionId } from '../utils/session';
 import { Errors } from '../utils/errors';
 import logger from '../config/logger';
 import crypto from 'crypto';
+import { SESSION_EXPIRY } from '../utils/constants';
 
 const maskSessionId = (sessionId: string): string =>
   crypto.createHash('sha256').update(sessionId).digest('hex').slice(0, 12);
@@ -13,7 +15,7 @@ export class SessionService {
    */
   async createSession(): Promise<{ session_id: string; expires_at: Date }> {
     const sessionId = generateSessionId();
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24小時
+    const expiresAt = new Date(Date.now() + SESSION_EXPIRY.DEFAULT_MS);
 
     try {
       await prisma.quickSession.create({
@@ -37,11 +39,7 @@ export class SessionService {
    * - 若舊Session缺失/過期，創建新Session
    */
   async refreshSession(currentSessionId?: string): Promise<{ session_id: string; expires_at: Date }> {
-    if (!currentSessionId) {
-      return this.createSession();
-    }
-
-    if (!validateSessionId(currentSessionId)) {
+    if (!currentSessionId || !validateSessionId(currentSessionId)) {
       return this.createSession();
     }
 
@@ -49,12 +47,12 @@ export class SessionService {
       where: { id: currentSessionId },
     });
 
-    if (!currentSession || currentSession.expires_at < new Date()) {
+    if (!currentSession) {
       return this.createSession();
     }
 
     const newSessionId = generateSessionId();
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + SESSION_EXPIRY.DEFAULT_MS);
 
     try {
       await prisma.$transaction(async (tx) => {
@@ -65,33 +63,35 @@ export class SessionService {
             pairing_id: currentSession.pairing_id,
             case_id: currentSession.case_id,
             ...(currentSession.session_data !== null
-              ? { session_data: currentSession.session_data as any }
+              ? { session_data: currentSession.session_data as Prisma.InputJsonValue }
               : {}),
           },
         });
 
         if (currentSession.case_id) {
-          await tx.case.update({
-            where: { id: currentSession.case_id },
+          await tx.case.updateMany({
+            where: { id: currentSession.case_id, session_id: currentSessionId },
             data: { session_id: newSessionId },
-          }).catch(() => {});
+          });
         }
 
         if (currentSession.pairing_id) {
-          await tx.pairing.update({
-            where: { id: currentSession.pairing_id },
+          await tx.pairing.updateMany({
+            where: { id: currentSession.pairing_id, session_id: currentSessionId },
             data: { session_id: newSessionId },
-          }).catch(() => {});
+          });
         }
 
-        await tx.quickSession.delete({
+        await tx.quickSession.deleteMany({
           where: { id: currentSessionId },
-        }).catch(() => {});
+        });
       });
 
       logger.info('Session rotated', {
         oldSessionId: maskSessionId(currentSessionId),
         newSessionId: maskSessionId(newSessionId),
+        hadCase: !!currentSession.case_id,
+        wasExpired: currentSession.expires_at < new Date(),
       });
 
       return { session_id: newSessionId, expires_at: expiresAt };
@@ -123,8 +123,8 @@ export class SessionService {
     // 檢查是否過期
     if (session.expires_at < new Date()) {
       // 異步刪除過期Session
-      prisma.quickSession.delete({ where: { id: sessionId } }).catch(() => {
-        // 忽略刪除錯誤
+      prisma.quickSession.delete({ where: { id: sessionId } }).catch((e) => {
+        logger.debug('Failed to delete expired session', { sessionId, error: e });
       });
       return null;
     }
@@ -168,7 +168,7 @@ export class SessionService {
   async markSessionCompleted(sessionId: string): Promise<void> {
     try {
       // 已完成案件的Session延長到7天
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      const expiresAt = new Date(Date.now() + SESSION_EXPIRY.COMPLETED_MS);
       await prisma.quickSession.update({
         where: { id: sessionId },
         data: { expires_at: expiresAt },
@@ -182,7 +182,7 @@ export class SessionService {
   /**
    * 清理過期Session（定時任務，優化版）
    */
-  async cleanupExpiredSessions(limit: number = 1000): Promise<number> {
+  async cleanupExpiredSessions(limit: number = SESSION_EXPIRY.CLEANUP_BATCH): Promise<number> {
     try {
       // Prisma deleteMany 不支持 take；採用「先查後刪」的限額批次策略
       const expiredIds = await prisma.quickSession.findMany({

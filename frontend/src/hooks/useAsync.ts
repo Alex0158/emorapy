@@ -2,7 +2,7 @@
  * 異步操作Hook
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 
 interface UseAsyncOptions {
   immediate?: boolean;
@@ -17,29 +17,40 @@ export const useAsync = <T, E = Error>(
   const [value, setValue] = useState<T | null>(null);
   const [error, setError] = useState<E | null>(null);
 
+  const asyncFnRef = useRef(asyncFunction);
+  asyncFnRef.current = asyncFunction;
+  const cancelledRef = useRef(false);
+
   const execute = useCallback(async () => {
+    cancelledRef.current = false;
     setStatus('pending');
     setValue(null);
     setError(null);
 
     try {
-      const response = await asyncFunction();
+      const response = await asyncFnRef.current();
+      if (cancelledRef.current) return response;
       setValue(response);
       setStatus('success');
       return response;
     } catch (err) {
+      if (cancelledRef.current) throw err;
       setError(err as E);
       setStatus('error');
       throw err;
     }
-  }, [asyncFunction]);
+  }, []);
 
   useEffect(() => {
     if (immediate) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- immediate 模式需在 mount 時執行
+      cancelledRef.current = false;
       execute();
     }
-  }, [immediate, execute]);
+    return () => {
+      cancelledRef.current = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [immediate]);
 
   return { execute, status, value, error };
 };

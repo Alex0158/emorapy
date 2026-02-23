@@ -2,7 +2,7 @@
  * 配對管理頁面
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Card,
   Button,
@@ -24,7 +24,11 @@ import ProtectedRoute from '@/components/common/ProtectedRoute';
 import ConfirmModal from '@/components/common/ConfirmModal';
 import SEO from '@/components/common/SEO';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
+import ConsentModal from '@/components/business/Interview/ConsentModal';
+import { usePsychProfileStore } from '@/store/psychProfileStore';
+import { useInterviewStore } from '@/store/interviewStore';
 import { t } from '@/utils/i18n';
+import { useNavigate } from 'react-router-dom';
 import './Pairing.less';
 
 const { Title, Text, Paragraph } = Typography;
@@ -36,34 +40,48 @@ const ProfilePairing = () => {
   const [joining, setJoining] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
+  const [consentOpen, setConsentOpen] = useState(false);
+  const navigate = useNavigate();
+  const { profile, fetchProfile: fetchPsychProfile, giveConsent, consentLoading } = usePsychProfileStore();
+  const { startSession, checkResume } = useInterviewStore();
+
+  const staleRef = useRef(false);
 
   useEffect(() => {
+    staleRef.current = false;
     fetchPairingStatus();
+    fetchPsychProfile();
+    return () => { staleRef.current = true; };
   }, []);
 
   const fetchPairingStatus = async () => {
     setLoading(true);
     try {
       const pairingData = await getPairingStatus();
+      if (staleRef.current) return;
       setPairing(pairingData);
-    } catch {
+    } catch (error: unknown) {
+      if (staleRef.current) return;
+      const msg = (error as { message?: string })?.message || t('message.getPairingFail');
+      message.error(msg);
       setPairing(null);
     } finally {
-      setLoading(false);
+      if (!staleRef.current) setLoading(false);
     }
   };
 
+  const [creating, setCreating] = useState(false);
   const handleCreatePairing = async () => {
-    setLoading(true);
+    setCreating(true);
     try {
       const newPairing = await createPairing();
       setPairing(newPairing);
       message.success(t('message.createPairingSuccess'));
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : t('message.createPairingFail');
+      const msg = (error as { message?: string })?.message || t('message.createPairingFail');
       message.error(msg);
     } finally {
-      setLoading(false);
+      setCreating(false);
     }
   };
 
@@ -79,7 +97,7 @@ const ProfilePairing = () => {
       message.success(t('message.joinPairingSuccess'));
       setInviteCode('');
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : t('message.joinPairingFail');
+      const msg = (error as { message?: string })?.message || t('message.joinPairingFail');
       message.error(msg);
     } finally {
       setJoining(false);
@@ -101,7 +119,7 @@ const ProfilePairing = () => {
       setPairing(cancelled);
       message.success(t('message.cancelPairingSuccess'));
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : t('message.cancelPairingFail');
+      const msg = (error as { message?: string })?.message || t('message.cancelPairingFail');
       message.error(msg);
     } finally {
       setCancelling(false);
@@ -116,6 +134,38 @@ const ProfilePairing = () => {
     );
   }
 
+  const startInterviewFlow = async () => {
+    const resumeData = await checkResume();
+    if (resumeData.has_pending && resumeData.session_id) {
+      navigate(`/interview/${resumeData.session_id}`);
+      return;
+    }
+    const session = await startSession('onboarding');
+    navigate(`/interview/${session.id}`);
+  };
+
+  const handleTriggerAClick = async () => {
+    if (!profile?.consent_given) {
+      setConsentOpen(true);
+      return;
+    }
+    try {
+      await startInterviewFlow();
+    } catch {
+      message.error(t('interview.startFail'));
+    }
+  };
+
+  const handleConsent = async () => {
+    try {
+      await giveConsent();
+      setConsentOpen(false);
+      await startInterviewFlow();
+    } catch {
+      message.error(t('interview.startFail'));
+    }
+  };
+
   return (
     <ProtectedRoute>
       <SEO
@@ -123,6 +173,31 @@ const ProfilePairing = () => {
         description={t('pairing.description')}
       />
       <div className="profile-pairing-page" role="main" aria-label={t('pairing.pageLabel')}>
+        {!profile?.consent_given && (
+          <AnimatedWrapper animation="fade" delay={50}>
+            <Alert
+              message={t('trigger.bannerTitle')}
+              description={t('trigger.bannerDesc')}
+              type="info"
+              showIcon
+              action={
+                <Button size="small" type="primary" onClick={handleTriggerAClick}>
+                  {t('trigger.bannerOk')}
+                </Button>
+              }
+              closable
+              style={{ marginBottom: 16 }}
+            />
+          </AnimatedWrapper>
+        )}
+
+        <ConsentModal
+          open={consentOpen}
+          onConsent={handleConsent}
+          onCancel={() => setConsentOpen(false)}
+          loading={consentLoading}
+        />
+
         <AnimatedWrapper animation="fade" delay={100}>
           <Title level={2} id="pairing-title">
             {t('pairing.heading')}
@@ -130,7 +205,7 @@ const ProfilePairing = () => {
         </AnimatedWrapper>
 
         {pairing && pairing.status === 'active' ? (
-          <AnimatedWrapper animation="slide" direction="up" delay={200} trigger="intersection">
+          <AnimatedWrapper animation="slide" direction="up" delay={200}>
             <Card role="article" aria-labelledby="pairing-title">
             <Alert
               message={t('pairing.pairedTitle')}
@@ -160,7 +235,7 @@ const ProfilePairing = () => {
           </Card>
           </AnimatedWrapper>
         ) : pairing && pairing.status === 'pending' ? (
-          <AnimatedWrapper animation="slide" direction="up" delay={200} trigger="intersection">
+          <AnimatedWrapper animation="slide" direction="up" delay={200}>
             <Card>
             <Alert
               message={t('pairing.pendingTitle')}
@@ -187,7 +262,7 @@ const ProfilePairing = () => {
           </Card>
           </AnimatedWrapper>
         ) : (
-          <AnimatedWrapper animation="slide" direction="up" delay={200} trigger="intersection">
+          <AnimatedWrapper animation="slide" direction="up" delay={200}>
             <Card>
             <Space direction="vertical" size="large" style={{ width: '100%' }}>
               <div>
@@ -199,7 +274,7 @@ const ProfilePairing = () => {
                   type="primary"
                   icon={<UserAddOutlined />}
                   onClick={handleCreatePairing}
-                  loading={loading}
+                  loading={creating}
                 >
                   {t('pairing.createButton')}
                 </Button>

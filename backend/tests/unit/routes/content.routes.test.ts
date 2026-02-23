@@ -19,9 +19,13 @@ jest.mock('../../../src/controllers/content.controller', () => ({
 }));
 jest.mock('../../../src/middleware/auth', () => ({
   authenticate: (_req: unknown, _res: unknown, next: () => void) => next(),
+  optionalAuthenticate: (_req: unknown, _res: unknown, next: () => void) => next(),
 }));
 jest.mock('../../../src/middleware/validator', () => ({
   validate: () => (_req: unknown, _res: unknown, next: () => void) => next(),
+}));
+jest.mock('../../../src/middleware/rateLimiter', () => ({
+  generalLimiter: (_req: unknown, _res: unknown, next: () => void) => next(),
 }));
 
 import contentRouter from '../../../src/routes/content.routes';

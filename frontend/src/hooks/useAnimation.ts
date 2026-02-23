@@ -23,11 +23,12 @@ export const useFadeIn = (duration = 300, delay = 0) => {
     if (isVisible && elementRef.current) {
       elementRef.current.style.opacity = '0';
       elementRef.current.style.transition = `opacity ${duration}ms ease`;
-      requestAnimationFrame(() => {
+      const rafId = requestAnimationFrame(() => {
         if (elementRef.current) {
           elementRef.current.style.opacity = '1';
         }
       });
+      return () => cancelAnimationFrame(rafId);
     }
   }, [isVisible, duration]);
 
@@ -69,12 +70,13 @@ export const useSlideIn = (
       element.style.opacity = '0';
       element.style.transition = `transform ${duration}ms ease, opacity ${duration}ms ease`;
 
-      requestAnimationFrame(() => {
+      const rafId = requestAnimationFrame(() => {
         if (element) {
           element.style.transform = to;
           element.style.opacity = '1';
         }
       });
+      return () => cancelAnimationFrame(rafId);
     }
   }, [isVisible, direction, duration]);
 
@@ -82,17 +84,29 @@ export const useSlideIn = (
 };
 
 /**
- * 交際動畫Hook（當元素進入視口時觸發動畫）
+ * 交叉觀察動畫Hook（當元素進入視口時觸發動畫）
+ *
+ * 對已在視口內的元素使用同步檢測 + requestAnimationFrame 立即觸發，
+ * 避免異步載入的條件渲染元素因 IntersectionObserver 時序問題導致不觸發。
  */
 export const useIntersectionAnimation = (
   options: IntersectionObserverInit = {}
 ) => {
   const [isVisible, setIsVisible] = useState(false);
   const elementRef = useRef<HTMLDivElement>(null);
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
 
   useEffect(() => {
     const element = elementRef.current;
     if (!element) return;
+
+    const rect = element.getBoundingClientRect();
+    const viewportH = window.innerHeight || document.documentElement.clientHeight;
+    if (rect.top < viewportH && rect.bottom > 0) {
+      const rafId = requestAnimationFrame(() => setIsVisible(true));
+      return () => cancelAnimationFrame(rafId);
+    }
 
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -103,7 +117,7 @@ export const useIntersectionAnimation = (
       },
       {
         threshold: 0.1,
-        ...options,
+        ...optionsRef.current,
       }
     );
 
@@ -112,7 +126,7 @@ export const useIntersectionAnimation = (
     return () => {
       observer.disconnect();
     };
-  }, [options]);
+  }, []);
 
   return { ref: elementRef, isVisible };
 };

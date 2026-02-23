@@ -16,4 +16,14 @@ export interface INotificationService {
   list(userId: string, status?: NotificationStatus): Promise<unknown[]>;
 
   create(userId: string, data: CreateNotificationData): Promise<unknown>;
+
+  createIfEnabled(userId: string, data: CreateNotificationData): Promise<unknown | null>;
+
+  markAsSent(id: string): Promise<unknown>;
+
+  markFailed(id: string, errorMessage: string): Promise<unknown>;
+
+  getPending(limit?: number): Promise<unknown[]>;
+
+  isNotificationEnabled(userId: string): Promise<boolean>;
 }

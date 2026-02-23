@@ -31,6 +31,15 @@ const zhTWByCode: Record<string, string> = {
   RATE_LIMIT_EXCEEDED: '請求過於頻繁，請稍後再試',
   INVALID_JSON: '無效的JSON請求體',
   METHOD_NOT_ALLOWED: '僅支持 GET/HEAD 訪問文件',
+  CONSENT_REQUIRED: '需要心理畫像同意',
+  CONCURRENT_REQUEST: '已有進行中的請求',
+  AI_CALL_FAILED: 'AI 調用失敗',
+  MAX_TURNS_REACHED: '已達最大對話輪數',
+  TURN_TOO_FAST: '回覆過快，請稍候',
+  START_RATE_LIMIT: '開始訪談過於頻繁',
+  PROCESSING_NOT_DONE: '處理尚未完成',
+  PROCESSING_FAILED: '處理失敗',
+  SESSION_COMPLETED: '此訪談已結束，不可繼續',
 };
 
 const enUSByCode: Record<string, string> = {
@@ -64,6 +73,15 @@ const enUSByCode: Record<string, string> = {
   RATE_LIMIT_EXCEEDED: 'Too many requests, please try again later',
   INVALID_JSON: 'Invalid JSON request body',
   METHOD_NOT_ALLOWED: 'Only GET/HEAD is allowed for file access',
+  CONSENT_REQUIRED: 'Psychological profile consent is required',
+  CONCURRENT_REQUEST: 'A request is already in progress',
+  AI_CALL_FAILED: 'AI call failed',
+  MAX_TURNS_REACHED: 'Maximum conversation turns reached',
+  TURN_TOO_FAST: 'Replying too fast, please wait',
+  START_RATE_LIMIT: 'Starting interviews too frequently',
+  PROCESSING_NOT_DONE: 'Processing is not yet complete',
+  PROCESSING_FAILED: 'Processing failed',
+  SESSION_COMPLETED: 'This interview has ended and cannot continue',
 };
 
 const directEnUSMap: Record<string, string> = {

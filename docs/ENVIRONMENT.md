@@ -46,9 +46,9 @@
 
 | 變量名 | 說明 | 默認值 |
 |--------|------|--------|
-| `PORT` | 服務器端口 | `3001` |
+| `PORT` | 服務器端口 | `3001`（`.env.example`）。⚠️ `env.ts` 代碼 fallback 為 `3000`，但運行時由 `.env` 覆蓋 |
 | `NODE_ENV` | 運行環境 | `development` |
-| `JWT_EXPIRES_IN` | JWT 過期時間 | `7d` |
+| `JWT_EXPIRES_IN` | JWT 過期時間 | `7d`（`.env.example`）。⚠️ `env.ts` 代碼 fallback 為 `24h`，但運行時由 `.env` 覆蓋 |
 | `OPENAI_MODEL` | OpenAI 模型 | `gpt-3.5-turbo` |
 | `OPENAI_MAX_TOKENS` | 最大 Token 數 | `2000` |
 | `OPENAI_DAILY_LIMIT` | 每日調用限制 | `1000` |
@@ -62,7 +62,22 @@
 | `ALLOWED_ORIGINS` | 允許的 CORS 來源 | `http://localhost:5173` |
 | `FILE_BASE_URL` | 文件訪問基礎 URL（返回上傳文件可訪問地址） | `http://localhost:3001` |
 
-詳細說明請參考 `backend/.env.example`。後端另有可選變量（如 `REDIS_URL`、`ENABLE_SCHEDULED_JOBS`、`DB_CONNECT_TIMEOUT` 等），見 .env.example 註釋。
+#### v2.0 新增（心理畫像系統）
+
+| 變量名 | 說明 | 默認值 |
+|--------|------|--------|
+| `OPENAI_INTERVIEW_MODEL` | 訪談對話模型 | `gpt-4o-mini` |
+| `OPENAI_ANALYSIS_MODEL` | 分析/提取模型 | `gpt-4o` |
+| `INTERVIEW_MAX_TURNS` | 訪談最大 turn 數（硬限） | `25` |
+| `INTERVIEW_SOFT_TARGET` | AI 建議結束的 turn 數 | `15` |
+| `INTERVIEW_TURN_INTERVAL_MS` | turn 最小間隔（毫秒） | `3000` |
+| `INTERVIEW_START_RATE_LIMIT` | start 端點每用戶每小時最多請求數（express-rate-limit 中間件，防濫用，不計 turn 數） | `3` |
+| `INTERVIEW_DAILY_SESSION_LIMIT` | 每用戶每天最多 substantive session 數（業務邏輯，僅計 ≥ 3 輪的 session） | `5` |
+| `REDIS_URL` | Redis URL（用於 session mutex） | - |
+
+> 若不配置 `REDIS_URL`，mutex lock 會 fallback 到 PostgreSQL advisory lock。
+
+詳細說明請參考 `backend/.env.example`。後端另有可選變量（如 `AI_MOCK`、`ENABLE_SCHEDULED_JOBS`、`DB_CONNECT_TIMEOUT`、`DB_RETRY_INTERVAL` 等），這些僅在 `backend/src/config/env.ts` 中定義默認值，未列入 `.env.example`。
 
 ### 前端環境變量
 
@@ -369,3 +384,8 @@ openssl rand -base64 32
 - [後端開發指南](./backend/DEVELOPMENT.md)
 - [前端開發指南](./frontend/README.md)
 - [發佈流程指引](./發佈流程指引.md)、[後端部署與運維](後端設計/11-部署和運維.md)
+
+---
+
+**文檔版本**：v2.0  
+**最後更新**：2026-02-21（v2.0：新增 `INTERVIEW_START_RATE_LIMIT`、修正 `INTERVIEW_MAX_TURNS` 默認值 25、v2.0 環境變量完整覆蓋）

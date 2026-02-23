@@ -46,7 +46,16 @@ describe('usePollingJudgment', () => {
   });
 
   it('enabled 且 caseId 存在時應調用 createPolling 並 start', () => {
-    mockGetJudgmentByCaseId.mockResolvedValue({ id: 'j1', result: '判決內容' });
+    mockGetJudgmentByCaseId.mockResolvedValue({
+      id: 'j1',
+      case_id: 'c1',
+      judgment_content: '判決內容',
+      plaintiff_ratio: 60,
+      defendant_ratio: 40,
+      ai_model: 'gpt-4',
+      created_at: '2025-01-01T00:00:00Z',
+      updated_at: '2025-01-01T00:00:00Z',
+    });
     const { result } = renderHook(() =>
       usePollingJudgment({ caseId: 'c1', enabled: true })
     );
@@ -55,7 +64,16 @@ describe('usePollingJudgment', () => {
   });
 
   it('輪詢成功取得判決時應更新 judgment 並停止 loading', async () => {
-    const judgment = { id: 'j1', result: '判決內容' };
+    const judgment = {
+      id: 'j1',
+      case_id: 'c1',
+      judgment_content: '判決內容',
+      plaintiff_ratio: 60,
+      defendant_ratio: 40,
+      ai_model: 'gpt-4',
+      created_at: '2025-01-01T00:00:00Z',
+      updated_at: '2025-01-01T00:00:00Z',
+    };
     mockGetJudgmentByCaseId.mockResolvedValue(judgment);
     const onSuccess = vi.fn();
     const { result } = renderHook(() =>

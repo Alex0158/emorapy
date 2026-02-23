@@ -42,7 +42,7 @@ docker build -t mother-bear-court-backend .
 **運行容器**:
 
 ```bash
-docker run -p 3000:3000 \
+docker run -p 3001:3001 \
   -e DATABASE_URL=postgresql://... \
   -e JWT_SECRET=... \
   -e OPENAI_API_KEY=... \
@@ -53,7 +53,7 @@ docker run -p 3000:3000 \
 
 **步驟**:
 
-1. 在服務器上安裝 Node.js 18+
+1. 在服務器上安裝 Node.js 20+
 2. 克隆項目
 3. 安裝依賴: `npm ci --production`
 4. 設置環境變量
@@ -74,7 +74,7 @@ pm2 startup
 
 ```env
 NODE_ENV=production
-PORT=3000
+PORT=3001
 DATABASE_URL=postgresql://...
 JWT_SECRET=your-secret-key
 JWT_EXPIRES_IN=7d
@@ -189,4 +189,73 @@ npx prisma migrate deploy
 4. 運行數據庫遷移
 5. 驗證功能
 6. 監控錯誤
+
+---
+
+## 🧠 v2.0 部署注意事項（個人化判決系統）
+
+### 新增環境變量
+
+v2.0 訪談系統需要以下可選環境變量（均有預設值，不配不影響既有功能）：
+
+| 變量 | 預設值 | 說明 |
+|------|--------|------|
+| `OPENAI_INTERVIEW_MODEL` | `gpt-4o-mini` | 訪談對話模型 |
+| `OPENAI_ANALYSIS_MODEL` | `gpt-4o` | 敘事提取/洞察分析模型 |
+| `INTERVIEW_MAX_TURNS` | `25` | 單次訪談最大輪數（硬限） |
+| `INTERVIEW_SOFT_TARGET` | `15` | AI 軟目標輪數 |
+| `INTERVIEW_TURN_INTERVAL_MS` | `3000` | 輪次最小間隔（毫秒） |
+| `INTERVIEW_START_RATE_LIMIT` | `3` | start 每用戶每小時上限（express-rate-limit，防濫用，不計 turn 數） |
+| `INTERVIEW_DAILY_SESSION_LIMIT` | `5` | 每用戶每天最多 session 數 |
+| `REDIS_URL` | — | 併發鎖用 Redis（可選，無則 fallback 到 DB advisory lock） |
+
+在 Railway / Render / Docker 中增加上述環境變量即可。詳見 `docs/ENVIRONMENT.md`。
+
+### 數據庫遷移
+
+v2.0 包含 **4 個新 ENUM + 5 張新表**，部署前必須執行：
+
+```bash
+npx prisma migrate deploy
+```
+
+遷移後需額外執行以下 SQL（Prisma DSL 不支援部分唯一索引和 CHECK 約束）：
+
+```sql
+-- 1. 部分唯一索引：每用戶僅 1 個 in_progress session
+CREATE UNIQUE INDEX ux_interview_sessions_user_in_progress
+  ON interview_sessions(user_id) WHERE status = 'in_progress';
+
+-- 2. 部分唯一索引：每用戶每域僅 1 個 is_latest 敘事
+CREATE UNIQUE INDEX ux_profile_narratives_user_domain_latest
+  ON profile_narratives(user_id, domain) WHERE is_latest = true;
+
+-- 3-5. CHECK 約束
+ALTER TABLE profile_narratives ADD CONSTRAINT chk_completeness CHECK (completeness BETWEEN 0 AND 1);
+ALTER TABLE profile_insights ADD CONSTRAINT chk_confidence CHECK (confidence BETWEEN 0 AND 1);
+ALTER TABLE profile_snapshots ADD CONSTRAINT chk_richness_score CHECK (richness_score BETWEEN 0 AND 1);
+```
+
+### Nginx / 反向代理 SSE 配置
+
+訪談 `/respond` 和 `/skip` 端點使用 SSE（Server-Sent Events）長連線。
+若使用 Nginx 反向代理，需為訪談端點關閉緩衝、延長超時：
+
+```nginx
+location /api/v1/interview/ {
+    proxy_buffering off;
+    proxy_read_timeout 120s;
+    proxy_set_header Connection '';
+    chunked_transfer_encoding off;
+}
+```
+
+Railway 和 Render 原生支援 SSE，無需額外配置。
+
+### 監控要點
+
+- **AsyncPipelineService 失敗率**：`processing_failed` 狀態的 session 數量
+- **SSE 超時率**：`/respond` 請求超過 30 秒未完成的比例
+- **AI 調用費用**：每日 GPT-4o-mini / GPT-4o 的 token 消耗
+- **併發鎖衝突率**：`CONCURRENT_REQUEST` 錯誤的頻率
 

@@ -11,7 +11,9 @@ import type { User } from './auth';
  */
 export const getProfile = async (): Promise<User> => {
   const response = await request.get<ApiResponse<{ user: User }>>('/user/profile');
-  return (response.data as ApiResponse<{ user: User }>).data.user;
+  const result = (response.data as ApiResponse<{ user: User }>)?.data?.user;
+  if (!result) throw new Error('Invalid profile response from server');
+  return result;
 };
 
 /**
@@ -19,6 +21,8 @@ export const getProfile = async (): Promise<User> => {
  */
 export const updateProfile = async (data: Partial<User>): Promise<User> => {
   const response = await request.put<ApiResponse<{ user: User }>>('/user/profile', data);
-  return (response.data as ApiResponse<{ user: User }>).data.user;
+  const result = (response.data as ApiResponse<{ user: User }>)?.data?.user;
+  if (!result) throw new Error('Invalid profile response from server');
+  return result;
 };
 

@@ -1,8 +1,11 @@
 import prisma from '../config/database';
+import { Prisma } from '@prisma/client';
 import { Errors } from '../utils/errors';
 import logger from '../config/logger';
-import { aiService, ReconciliationPlan } from './ai.service';
+import { CASE_MODE } from '../utils/constants';
+import { aiService, ReconciliationPlan, SAFETY_SIGNAL_REGEX, IPV_SIGNAL_REGEX, CRISIS_SIGNAL_REGEX } from './ai.service';
 import { isReconciliationPlanContent } from '../types/ai.types';
+import { caseContextService } from './case-context.service';
 
 function sanitizePlanStrings<T>(obj: T): T {
   if (typeof obj === 'string') {
@@ -16,11 +19,11 @@ function sanitizePlanStrings<T>(obj: T): T {
     return obj.map(sanitizePlanStrings) as unknown as T;
   }
   if (obj && typeof obj === 'object') {
-    const result: any = {};
+    const result: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(obj)) {
       result[k] = sanitizePlanStrings(v);
     }
-    return result;
+    return result as T;
   }
   return obj;
 }
@@ -59,8 +62,7 @@ export class ReconciliationService {
 
     // 權限校驗：僅案件當事人可生成方案
     if (userId) {
-      const { case: caseInfo } = judgment as any;
-      if (caseInfo?.plaintiff_id !== userId && caseInfo?.defendant_id !== userId) {
+      if (judgment.case.plaintiff_id !== userId && judgment.case.defendant_id !== userId) {
         throw Errors.FORBIDDEN('無權限生成和好方案');
       }
     }
@@ -74,16 +76,62 @@ export class ReconciliationService {
       return existingPlans;
     }
 
+    // 2.5 載入個性化背景（用戶心理畫像 + 關係資料）
+    let personalizationContext: string | undefined;
+    let diagnosticContext: string | undefined;
+    const caseRecord = judgment.case;
+    if (caseRecord.mode !== CASE_MODE.QUICK) {
+      try {
+        const caseCtx = await caseContextService.loadCaseContext(caseRecord.id);
+        if (caseCtx) {
+          personalizationContext = caseContextService.formatForReconciliationPlans(caseCtx) || undefined;
+        }
+      } catch (err) {
+        logger.warn('Failed to load case context for reconciliation', { judgmentId, error: err });
+      }
+
+      if (judgment.emotional_analysis && typeof judgment.emotional_analysis === 'object') {
+        try {
+          diagnosticContext = caseContextService.formatDiagnosticContext(
+            judgment.emotional_analysis as Record<string, unknown>
+          ) || undefined;
+        } catch (err) {
+          logger.warn('Failed to format diagnostic context for reconciliation', { judgmentId, error: err });
+        }
+      }
+    }
+
+    // 2.6 從判決內容中提取安全標記，區分 IPV 與自傷/自殺以適配不同介入策略
+    let safetyContext: string | undefined;
+    if (judgment.judgment_content) {
+      const content = judgment.judgment_content;
+      const hasIPV = IPV_SIGNAL_REGEX.test(content);
+      const hasCrisis = CRISIS_SIGNAL_REGEX.test(content);
+
+      if (hasIPV && hasCrisis) {
+        safetyContext = '本案件同時偵測到親密暴力信號（控制、威脅或權力不對等模式）和自傷/自殺風險信號。請嚴格遵守下方「安全優先原則」中的兩個分支：針對親密暴力部分設計個人安全規劃，針對自傷風險部分優先設計危機支持方案並提供具體求助資源。生命安全是最高優先。';
+      } else if (hasCrisis) {
+        safetyContext = '本案件偵測到自傷/自殺風險信號。請嚴格遵守下方「安全優先原則」中的「自傷/自殺風險信號」分支：第一個方案必須是個人危機支持（含具體求助熱線），其餘方案應避免增加心理壓力，但可包含低壓力的社交連結活動（社交連結是重要的保護因子）。生命安全是最高優先。';
+      } else if (hasIPV) {
+        safetyContext = '本案件偵測到親密暴力相關信號（可能涉及控制、威脅或權力不對等模式）。請嚴格遵守下方「安全優先原則」中的「親密暴力信號」分支：不要設計需要雙方共同進行的方案，改為設計個人安全規劃和自我照顧方案。';
+      } else if (SAFETY_SIGNAL_REGEX.test(content)) {
+        safetyContext = '本案件的溝通回應中提及了安全相關議題。請格外留意下方「安全優先原則」，根據具體情況選擇適當的介入策略。';
+      }
+    }
+
     // 3. 調用AI生成方案
     let plans: ReconciliationPlan[];
     try {
       plans = await aiService.generateReconciliationPlans(
         judgment.case.type,
         {
-          plaintiff: (judgment as any).plaintiff_ratio ?? 0,
-          defendant: (judgment as any).defendant_ratio ?? 0,
+          plaintiff: judgment.plaintiff_ratio ?? 0,
+          defendant: judgment.defendant_ratio ?? 0,
         },
-        judgment.summary || ''
+        judgment.summary || '',
+        personalizationContext,
+        safetyContext,
+        diagnosticContext
       );
     } catch (error) {
       logger.error('Failed to generate reconciliation plans', { judgmentId, error });
@@ -159,7 +207,7 @@ export class ReconciliationService {
       throw Errors.FORBIDDEN('無權限查看此判決的和好方案');
     }
 
-    const where: any = { judgment_id: judgmentId };
+    const where: Prisma.ReconciliationPlanWhereInput = { judgment_id: judgmentId };
 
     if (filters) {
       if (filters.difficulty) {
@@ -181,7 +229,7 @@ export class ReconciliationService {
   /**
    * 獲取和好方案詳情（包含judgment和case信息）
    */
-  async getPlanById(planId: string, userId?: string) {
+  async getPlanById(planId: string, userId: string) {
     const plan = await prisma.reconciliationPlan.findUnique({
       where: { id: planId },
       include: {
@@ -197,15 +245,13 @@ export class ReconciliationService {
       throw Errors.NOT_FOUND('和好方案不存在');
     }
 
-    // 如果有userId，驗證權限
-    if (userId) {
-      const case_ = plan.judgment.case;
-      if (case_.plaintiff_id !== userId && case_.defendant_id !== userId) {
-        throw Errors.FORBIDDEN('無權限查看此方案');
-      }
+    const case_ = plan.judgment.case;
+    if (case_.plaintiff_id !== userId && case_.defendant_id !== userId) {
+      throw Errors.FORBIDDEN('無權限查看此方案');
     }
 
-    return plan;
+    const { emotional_analysis: _ea, ...safeJudgment } = plan.judgment;
+    return { ...plan, judgment: safeJudgment };
   }
 
   /**

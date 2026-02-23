@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 import { Modal, Typography, Tag, Space } from 'antd';
 import { QuestionCircleOutlined } from '@ant-design/icons';
 import { useState } from 'react';
+import { t } from '@/utils/i18n';
 import './KeyboardShortcuts.less';
 
 const { Title, Text } = Typography;
@@ -77,7 +78,7 @@ const KeyboardShortcuts = ({ shortcuts, showHelp = true }: KeyboardShortcutsProp
           title={
             <Space>
               <QuestionCircleOutlined />
-              <span>鍵盤快捷鍵</span>
+              <span>{t('keyboard.title')}</span>
             </Space>
           }
           open={helpVisible}
@@ -86,7 +87,7 @@ const KeyboardShortcuts = ({ shortcuts, showHelp = true }: KeyboardShortcutsProp
           width={600}
         >
           <div className="keyboard-shortcuts-help">
-            <Title level={4}>通用快捷鍵</Title>
+            <Title level={4}>{t('keyboard.generalTitle')}</Title>
             <div className="shortcut-list">
               {shortcuts.map((shortcut, index) => (
                 <div key={index} className="shortcut-item">
@@ -96,7 +97,7 @@ const KeyboardShortcuts = ({ shortcuts, showHelp = true }: KeyboardShortcutsProp
               ))}
             </div>
             <div className="shortcut-hint">
-              <Text type="secondary">按 ⌘ + K 可隨時查看此幫助</Text>
+              <Text type="secondary">{t('keyboard.helpHint')}</Text>
             </div>
           </div>
         </Modal>

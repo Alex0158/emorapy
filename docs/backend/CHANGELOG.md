@@ -1,5 +1,20 @@
 # 更新日誌
 
+## [2.0.0] - 2026-02-20（個人化判決系統 v2.0）
+
+詳細變更記錄見後端目錄 `backend/CHANGELOG.md`。摘要：
+- 新增心理畫像系統（5 表 4 ENUM、11 API、6 個 AI Prompt、6 個服務）
+- 新增 SSE 流式通信、session mutex、知情同意、安全偵測、遺忘權
+- 前端新增 6 個組件、2 個 Store、4 種觸發點
+- processing_failed 可經 `POST /:id/retry` 重試（依賴 pipeline_step 欄位從失敗步驟恢復）。⚠️ `endSession`（`POST /:id/end`）為**非冪等**——僅接受 `in_progress` 狀態的 session，其他狀態會拋出錯誤
+- abandoned 僅針對 in_progress，processing/completed 不受影響
+- respond mutex 在 turn 持久化 + SSE 關閉後釋放
+- SSE complete 事件含 domains_touched_so_far
+- insight_type 校驗為 InsightType 枚舉值
+- judgment.service.ts ai_model 改為從環境變量讀取
+
+---
+
 ## [1.1.0] - 2026-02-20
 
 ### 安全加固
@@ -86,7 +101,7 @@
 
 ### 技術棧
 
-- **運行時**: Node.js 18+
+- **運行時**: Node.js 20+
 - **語言**: TypeScript 5.3+
 - **框架**: Express.js 4.18+
 - **ORM**: Prisma 5.7+

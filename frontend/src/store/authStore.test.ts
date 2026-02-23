@@ -6,14 +6,30 @@ import { useAuthStore } from './authStore';
 
 const mockLogin = vi.fn();
 const mockRegister = vi.fn();
+const mockClaimSession = vi.fn();
 const mockGetProfile = vi.fn();
+const mockCancelAllRequests = vi.fn();
 
 vi.mock('@/services/api/auth', () => ({
   login: (...args: unknown[]) => mockLogin(...args),
   register: (...args: unknown[]) => mockRegister(...args),
+  claimSession: (...args: unknown[]) => mockClaimSession(...args),
 }));
 vi.mock('@/services/api/user', () => ({
   getProfile: (...args: unknown[]) => mockGetProfile(...args),
+}));
+vi.mock('@/services/request', () => ({
+  cancelAllRequests: (...args: unknown[]) => mockCancelAllRequests(...args),
+  default: { post: vi.fn(), get: vi.fn(), put: vi.fn(), delete: vi.fn(), interceptors: { request: { use: vi.fn() }, response: { use: vi.fn() } } },
+}));
+
+let mockSessionStorageValue: string | null = null;
+vi.mock('@/utils/storage', () => ({
+  sessionStorage: {
+    get: () => mockSessionStorageValue,
+    set: vi.fn(),
+    remove: vi.fn(),
+  },
 }));
 
 const mockUser = { id: 'u1', email: 'u@example.com', nickname: 'User' };
@@ -21,6 +37,7 @@ const mockUser = { id: 'u1', email: 'u@example.com', nickname: 'User' };
 describe('authStore', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockSessionStorageValue = null;
     useAuthStore.setState({
       user: null,
       token: null,
@@ -31,7 +48,7 @@ describe('authStore', () => {
     sessionStorage.clear();
   });
 
-  it('logout 應清除 token 並設 user 為 null', () => {
+  it('logout 應清除 token、user 並呼叫 cancelAllRequests', () => {
     useAuthStore.setState({ user: mockUser, token: 't1', isAuthenticated: true });
     localStorage.setItem('token', 't1');
     useAuthStore.getState().logout();
@@ -40,6 +57,7 @@ describe('authStore', () => {
     expect(useAuthStore.getState().isAuthenticated).toBe(false);
     expect(localStorage.getItem('token')).toBeNull();
     expect(sessionStorage.getItem('token')).toBeNull();
+    expect(mockCancelAllRequests).toHaveBeenCalled();
   });
 
   it('login 成功（不勾 rememberMe）應存到 sessionStorage', async () => {
@@ -117,5 +135,21 @@ describe('authStore', () => {
     expect(useAuthStore.getState().user).toBeNull();
     expect(useAuthStore.getState().isAuthenticated).toBe(false);
     expect(localStorage.getItem('token')).toBeNull();
+  });
+
+  it('login 成功時若有 quickSessionId 應呼叫 claimSession', async () => {
+    mockSessionStorageValue = 'qs1';
+    mockLogin.mockResolvedValue({ user: mockUser, token: 't1' });
+    mockClaimSession.mockResolvedValue(undefined);
+    await useAuthStore.getState().login('u@example.com', 'pass');
+    expect(mockClaimSession).toHaveBeenCalledWith('qs1');
+  });
+
+  it('register 成功時若有 quickSessionId 應呼叫 claimSession', async () => {
+    mockSessionStorageValue = 'qs2';
+    mockRegister.mockResolvedValue({ user: mockUser, token: 't2' });
+    mockClaimSession.mockResolvedValue(undefined);
+    await useAuthStore.getState().register('u@example.com', 'pass', 'Nick');
+    expect(mockClaimSession).toHaveBeenCalledWith('qs2');
   });
 });

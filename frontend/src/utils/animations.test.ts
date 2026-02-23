@@ -21,17 +21,21 @@ import {
 describe('animations', () => {
   let el: HTMLElement;
   let rafSpy: ReturnType<typeof vi.spyOn>;
+  let rafActive: boolean;
 
   beforeEach(() => {
     el = document.createElement('div');
     document.body.appendChild(el);
+    rafActive = true;
     rafSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb: FrameRequestCallback) => {
-      setTimeout(() => cb(0), 0);
+      if (!rafActive) return 0;
+      setTimeout(() => { if (rafActive) cb(0); }, 0);
       return 1;
     });
   });
 
   afterEach(() => {
+    rafActive = false;
     rafSpy.mockRestore();
     document.body.removeChild(el);
     vi.useRealTimers();
@@ -125,13 +129,15 @@ describe('animations', () => {
   });
 
   describe('staggerIn', () => {
-    it('應對多個元素設置 opacity 與 transform', () => {
+    it('應對多個元素設置 opacity 與 transform 並返回取消函數', () => {
       const el2 = document.createElement('div');
       document.body.appendChild(el2);
       vi.useFakeTimers();
-      staggerIn(document.querySelectorAll('div') as NodeListOf<HTMLElement>, 50, 300);
+      const cancel = staggerIn(document.querySelectorAll('div') as NodeListOf<HTMLElement>, 50, 300);
       expect(el.style.opacity).toBe('0');
       expect(el2.style.opacity).toBe('0');
+      expect(typeof cancel).toBe('function');
+      cancel();
       vi.advanceTimersByTime(200);
       vi.useRealTimers();
       document.body.removeChild(el2);
@@ -139,11 +145,13 @@ describe('animations', () => {
   });
 
   describe('animateProgress', () => {
-    it('應在動畫中更新 element.style.width', () => {
-      animateProgress(el, 100, 10);
+    it('應在動畫中更新 element.style.width 並返回取消函數', () => {
+      const cancel = animateProgress(el, 100, 10);
+      expect(typeof cancel).toBe('function');
       return new Promise<void>((resolve) => {
         setTimeout(() => {
           expect(el.style.width).toBeDefined();
+          cancel();
           resolve();
         }, 20);
       });
@@ -180,11 +188,13 @@ describe('animations', () => {
   });
 
   describe('scrollToElement', () => {
-    it('應使用 requestAnimationFrame 進行滾動', () => {
+    it('應使用 requestAnimationFrame 進行滾動並返回取消函數', () => {
       Object.defineProperty(el, 'offsetTop', { value: 100, configurable: true });
       Object.defineProperty(window, 'pageYOffset', { value: 0, writable: true });
-      scrollToElement(el, 0, 100);
+      const cancel = scrollToElement(el, 0, 100);
       expect(rafSpy).toHaveBeenCalled();
+      expect(typeof cancel).toBe('function');
+      cancel();
     });
   });
 });

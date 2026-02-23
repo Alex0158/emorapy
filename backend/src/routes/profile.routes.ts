@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authenticate } from '../middleware/auth';
 import { validate } from '../middleware/validator';
-import { pairingIdParamSchema } from '../utils/validation';
+import { pairingIdParamSchema, upsertUserProfileSchema, upsertRelationshipProfileSchema } from '../utils/validation';
 import { profileController } from '../controllers/profile.controller';
 import { generalLimiter } from '../middleware/rateLimiter';
 
@@ -9,7 +9,7 @@ const router = Router();
 
 // 個人背景
 router.get('/profile/me', generalLimiter, authenticate, profileController.getUserProfile.bind(profileController));
-router.put('/profile/me', generalLimiter, authenticate, profileController.upsertUserProfile.bind(profileController));
+router.put('/profile/me', generalLimiter, authenticate, validate(upsertUserProfileSchema), profileController.upsertUserProfile.bind(profileController));
 
 // 關係檔案（需配對成員）
 router.get(
@@ -25,6 +25,7 @@ router.put(
   generalLimiter,
   authenticate,
   validate(pairingIdParamSchema),
+  validate(upsertRelationshipProfileSchema),
   profileController.upsertRelationshipProfile.bind(profileController)
 );
 

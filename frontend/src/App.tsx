@@ -47,7 +47,10 @@ function App() {
   const { checkAuth } = useAuthStore();
   const [locale, setLocale] = useState(getLocale());
 
-  useEffect(() => onLocaleChange(() => setLocale(getLocale())), []);
+  useEffect(() => {
+    const unsubscribe = onLocaleChange(() => setLocale(getLocale()));
+    return unsubscribe;
+  }, []);
 
   useEffect(() => {
     // 記錄頁面加載時間

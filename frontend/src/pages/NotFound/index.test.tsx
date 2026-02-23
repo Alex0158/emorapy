@@ -1,10 +1,11 @@
 /**
  * NotFound 頁面單元測試
  */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
+import { setLocale } from '@/utils/i18n';
 import NotFound from './index';
 
 const mockNavigate = vi.fn();
@@ -19,6 +20,7 @@ vi.mock('react-router-dom', async () => {
 describe('NotFound', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    setLocale('zh-TW');
   });
 
   it('應顯示 404 與說明文字', () => {

@@ -2,7 +2,7 @@
  * 和好方案詳情頁面
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Card,
@@ -27,6 +27,7 @@ import ProtectedRoute from '@/components/common/ProtectedRoute';
 import SEO from '@/components/common/SEO';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
 import { t } from '@/utils/i18n';
+import { safeParsePlanContent } from '@/utils/planContent';
 import './Detail.less';
 
 const { Title, Paragraph } = Typography;
@@ -38,24 +39,33 @@ const ReconciliationDetail = () => {
   const [loading, setLoading] = useState(false);
   const [executing, setExecuting] = useState(false);
 
+  const staleRef = useRef(false);
   useEffect(() => {
+    staleRef.current = false;
+    setPlan(null);
     if (judgmentId && id) {
       fetchPlan();
     }
+    return () => { staleRef.current = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 僅在 judgmentId/id 變化時拉取
   }, [judgmentId, id]);
 
   const fetchPlan = async () => {
     setLoading(true);
     try {
-      // 優先使用getPlanById獲取詳情（更高效）
       if (id) {
         try {
           const planDetail = await getPlanById(id);
+          if (staleRef.current) return;
           setPlan(planDetail as ReconciliationPlan);
         } catch {
-          // 如果getPlanById失敗，回退到getPlans
-          const plans = await getPlans(judgmentId!);
+          if (staleRef.current) return;
+          if (!judgmentId) {
+            message.error(t('message.planNotFound'));
+            return;
+          }
+          const plans = await getPlans(judgmentId);
+          if (staleRef.current) return;
           const foundPlan = plans.find((p) => p.id === id);
           if (foundPlan) {
             setPlan(foundPlan);
@@ -67,10 +77,11 @@ const ReconciliationDetail = () => {
         message.error(t('message.planIdMissing'));
       }
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : t('message.getPlanDetailFail');
+      if (staleRef.current) return;
+      const msg = (error as { message?: string })?.message || t('message.getPlanDetailFail');
       message.error(msg);
     } finally {
-      setLoading(false);
+      if (!staleRef.current) setLoading(false);
     }
   };
 
@@ -81,20 +92,20 @@ const ReconciliationDetail = () => {
       message.success(t('message.selectPlanSuccess'));
       fetchPlan();
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : t('message.selectPlanFail');
+      const msg = (error as { message?: string })?.message || t('message.selectPlanFail');
       message.error(msg);
     }
   };
 
   const handleStartExecution = async () => {
-    if (!id) return;
+    if (!id || executing) return;
     setExecuting(true);
     try {
       await confirmExecution(id);
       message.success(t('message.startExecutionSuccess'));
       navigate(`/execution/${id}/checkin`);
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : t('message.startExecutionFail');
+      const msg = (error as { message?: string })?.message || t('message.startExecutionFail');
       message.error(msg);
     } finally {
       setExecuting(false);
@@ -124,7 +135,7 @@ const ReconciliationDetail = () => {
     <ProtectedRoute>
       <SEO
         title={t('reconDetail.pageTitle')}
-        description={plan.plan_content.substring(0, 100)}
+        description={safeParsePlanContent(plan.plan_content).description.substring(0, 100)}
       />
       <div className="reconciliation-detail-page" role="main" aria-label={t('reconDetail.pageLabel')}>
         <AnimatedWrapper animation="fade" delay={100}>
@@ -138,7 +149,7 @@ const ReconciliationDetail = () => {
         <AnimatedWrapper animation="slide" direction="up" delay={200} trigger="intersection">
           <Card role="article" aria-labelledby="plan-title">
           <div className="plan-header">
-            <Title level={2}>{plan.plan_content.split('\n')[0]}</Title>
+            <Title level={2}>{safeParsePlanContent(plan.plan_content).title}</Title>
             <Space>
               <Tag color="blue">{typeLabel}</Tag>
               <Tag color={plan.difficulty_level === 'easy' ? 'success' : plan.difficulty_level === 'medium' ? 'warning' : 'error'}>
@@ -151,7 +162,7 @@ const ReconciliationDetail = () => {
             <Descriptions.Item label={t('reconDetail.planType')}>{typeLabel}</Descriptions.Item>
             <Descriptions.Item label={t('reconDetail.difficultyLevel')}>{difficultyLabel}</Descriptions.Item>
             <Descriptions.Item label={t('reconDetail.estimatedDuration')}>
-              {plan.estimated_duration != null ? t('reconList.estimatedDays').replace('{days}', String(plan.estimated_duration)) : `${t('reconList.estimatedTbd')} 天`}
+              {plan.estimated_duration != null ? t('reconList.estimatedDays').replace('{days}', String(plan.estimated_duration)) : t('reconList.estimatedTbd')}
             </Descriptions.Item>
             <Descriptions.Item label={t('reconDetail.timeCost')}>{plan.time_cost}/5</Descriptions.Item>
             <Descriptions.Item label={t('reconDetail.moneyCost')}>{plan.money_cost}/5</Descriptions.Item>
@@ -162,7 +173,26 @@ const ReconciliationDetail = () => {
 
         <AnimatedWrapper animation="slide" direction="up" delay={300} trigger="intersection">
           <Card title={t('reconDetail.contentTitle')} style={{ marginTop: 24 }}>
-            <Paragraph style={{ whiteSpace: 'pre-wrap' }}>{plan.plan_content}</Paragraph>
+            {(() => {
+              const parsed = safeParsePlanContent(plan.plan_content);
+              return (
+                <>
+                  <Paragraph>{parsed.description}</Paragraph>
+                  {parsed.steps.length > 0 && (
+                    <div style={{ marginTop: 16 }}>
+                      <Title level={5}>{t('reconDetail.steps')}</Title>
+                      <ol>{parsed.steps.map((step, i) => <li key={i}><Paragraph>{step}</Paragraph></li>)}</ol>
+                    </div>
+                  )}
+                  {parsed.expected_effect && (
+                    <div style={{ marginTop: 16 }}>
+                      <Title level={5}>{t('reconDetail.expectedEffect')}</Title>
+                      <Paragraph>{parsed.expected_effect}</Paragraph>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </Card>
         </AnimatedWrapper>
 

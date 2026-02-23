@@ -6,13 +6,13 @@
 
 ## 🛠️ 技術棧
 
-- **運行時**: Node.js 18+
+- **運行時**: Node.js 20+
 - **語言**: TypeScript 5.0+
 - **框架**: Express.js 4.18+
 - **ORM**: Prisma 5.0+
 - **數據庫**: PostgreSQL (Supabase)
 - **認證**: JWT
-- **AI服務**: OpenAI API (GPT-3.5-turbo)
+- **AI服務**: OpenAI API (GPT-4o-mini 對話 + GPT-4o 分析)
 
 ## 📦 安裝
 
@@ -85,7 +85,7 @@ backend/
 ## 📚 API文檔
 
 - [API接口文檔](./API.md)
-- [後端設計文檔](../後端設計/README.md)
+- [後端設計文檔](../docs/後端設計/README.md)
 
 ## 🧪 測試
 
@@ -105,9 +105,18 @@ npm run test:coverage
 rm -rf node_modules && npm install
 ```
 
+## 🧠 v2.0 新增模組
+
+- **訪談系統**：`interview.routes.ts` → `interview.controller.ts` → `interview.service.ts`（SSE 流式）
+- **心理畫像**：`psych-profile.routes.ts` → `psych-profile.controller.ts`
+- **異步管線**：`async-pipeline.service.ts`（域分類 + 敘事合併 + 洞察提取 + 反饋卡片）
+- **新 Prisma 模型**：InterviewSession、InterviewTurn、ProfileNarrative、ProfileInsight、ProfileSnapshot
+- **環境變量**：`OPENAI_INTERVIEW_MODEL`、`OPENAI_ANALYSIS_MODEL`、`INTERVIEW_MAX_TURNS`、`REDIS_URL`（可選）
+- 詳見 [UPGRADE_PLAN](../UPGRADE_PLAN_PERSONALIZED_JUDGMENT.md)
+
 ## 📝 開發規範
 
-詳見 [接口建設規範](../後端設計/12-接口建設規範.md)。
+詳見 [接口建設規範](../docs/後端設計/12-接口建設規範.md)。
 
 ## 🐛 問題反饋
 

@@ -10,13 +10,15 @@ const mockLogout = vi.fn();
 const mockNavigate = vi.fn();
 const mockMessageSuccess = vi.fn();
 
+let mockAuthState = {
+  user: { id: 'u1', email: 'u@example.com' } as Record<string, unknown> | null,
+  isAuthenticated: true,
+  checkAuth: mockCheckAuth,
+  logout: mockLogout,
+};
+
 vi.mock('@/store/authStore', () => ({
-  useAuthStore: () => ({
-    user: { id: 'u1', email: 'u@example.com' },
-    isAuthenticated: true,
-    checkAuth: mockCheckAuth,
-    logout: mockLogout,
-  }),
+  useAuthStore: () => mockAuthState,
 }));
 
 vi.mock('react-router-dom', () => ({
@@ -27,9 +29,19 @@ vi.mock('antd', () => ({
   message: { success: (...args: unknown[]) => mockMessageSuccess(...args) },
 }));
 
+vi.mock('@/utils/i18n', () => ({
+  t: (key: string) => key,
+}));
+
 describe('useAuth', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockAuthState = {
+      user: { id: 'u1', email: 'u@example.com' },
+      isAuthenticated: true,
+      checkAuth: mockCheckAuth,
+      logout: mockLogout,
+    };
   });
 
   it('應返回 user、isAuthenticated、logout', () => {
@@ -45,7 +57,7 @@ describe('useAuth', () => {
       result.current.logout();
     });
     expect(mockLogout).toHaveBeenCalled();
-    expect(mockMessageSuccess).toHaveBeenCalledWith('已退出登錄');
+    expect(mockMessageSuccess).toHaveBeenCalledWith('common.logoutSuccess');
     expect(mockNavigate).toHaveBeenCalledWith('/');
   });
 });
@@ -55,8 +67,16 @@ describe('useRequireAuth', () => {
     vi.clearAllMocks();
   });
 
-  it('應返回 isAuthenticated', () => {
+  it('已認證時應返回 isAuthenticated=true', () => {
+    mockAuthState.isAuthenticated = true;
     const { result } = renderHook(() => useRequireAuth());
-    expect(result.current).toHaveProperty('isAuthenticated');
+    expect(result.current.isAuthenticated).toBe(true);
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('未認證時應導航到登入頁', () => {
+    mockAuthState.isAuthenticated = false;
+    renderHook(() => useRequireAuth());
+    expect(mockNavigate).toHaveBeenCalledWith('/auth/login', { replace: true });
   });
 });

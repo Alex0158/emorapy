@@ -1,0 +1,33 @@
+.interview-input {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  padding: 16px;
+  background: #fff;
+  border-top: 1px solid #f0f0f0;
+
+  &__area {
+    flex: 1;
+    position: relative;
+  }
+
+  &__textarea {
+    width: 100%;
+    border-radius: 12px !important;
+    padding: 8px 16px !important;
+    resize: none !important;
+    font-size: 14px;
+
+    &:focus {
+      box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.1) !important;
+    }
+  }
+
+  &__counter {
+    position: absolute;
+    bottom: 4px;
+    right: 8px;
+    font-size: 12px;
+    pointer-events: none;
+  }
+}

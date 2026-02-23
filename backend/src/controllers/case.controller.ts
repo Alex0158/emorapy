@@ -4,6 +4,14 @@ import { judgmentService } from '../services/judgment.service';
 import logger from '../config/logger';
 import { Errors } from '../utils/errors';
 import { getAuthUserId, getAuthUserIdOptional, getSessionIdFromSources } from '../utils/request';
+import { CASE_STATUS } from '../utils/constants';
+
+function triggerJudgment(caseId: string, opts: { userId?: string; sessionId?: string | null }) {
+  const { sessionId, ...rest } = opts;
+  judgmentService.generateJudgment(caseId, { ...rest, sessionId: sessionId ?? undefined }).catch(err => {
+    logger.error('Async judgment generation failed', { caseId, error: err });
+  });
+}
 
 export class CaseController {
   /**
@@ -23,16 +31,13 @@ export class CaseController {
       const finalSessionId = result.sessionId; // 服務層返回的最終Session ID
       const sessionExpiresAt = result.sessionExpiresAt || null;
 
-      // 異步觸發判決生成
-      judgmentService.generateJudgment(case_.id, { sessionId: finalSessionId }).catch(err => {
-        logger.error('Failed to generate judgment', { caseId: case_.id, error: err });
-      });
+      triggerJudgment(case_.id, { sessionId: finalSessionId });
 
       res.status(201).json({
         success: true,
         data: {
             case: case_,
-          session_id: finalSessionId, // 返回最終Session ID
+          session_id: finalSessionId,
           session_expires_at: sessionExpiresAt ? sessionExpiresAt.toISOString() : undefined,
         },
         message: '案件已提交，AI正在分析中...',
@@ -50,15 +55,15 @@ export class CaseController {
       const userId = getAuthUserId(req);
       const case_ = await caseService.createCase(userId, req.body);
 
-      // 異步觸發判決生成
-      judgmentService.generateJudgment(case_.id, { userId }).catch(err => {
-        logger.error('Failed to generate judgment', { caseId: case_.id, error: err });
-      });
+      if (case_.status === CASE_STATUS.SUBMITTED) {
+        triggerJudgment(case_.id, { userId });
+      }
 
+      const isDraft = case_.status === CASE_STATUS.DRAFT;
       res.status(201).json({
         success: true,
         data: { case: case_ },
-        message: '案件已提交',
+        message: isDraft ? '案件已建立，等待對方陳述' : '案件已提交',
       });
     } catch (error) {
       next(error);
@@ -199,10 +204,7 @@ export class CaseController {
 
       const case_ = await caseService.submitCase(caseId, userId);
 
-      // 異步觸發判決生成
-      judgmentService.generateJudgment(case_.id, { userId }).catch(err => {
-        logger.error('Failed to generate judgment', { caseId: case_.id, error: err });
-      });
+      triggerJudgment(case_.id, { userId });
 
       res.json({
         success: true,
@@ -224,10 +226,44 @@ export class CaseController {
 
       const case_ = await caseService.updateCase(caseId, userId, req.body);
 
+      if (case_.status === CASE_STATUS.SUBMITTED) {
+        triggerJudgment(case_.id, { userId });
+      }
+
       res.json({
         success: true,
         data: { case: case_ },
-        message: '案件已更新',
+        message: case_.status === CASE_STATUS.SUBMITTED ? '雙方陳述已完成，AI正在分析中...' : '案件已更新',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+  /**
+   * 創建/更新協作聽證案件
+   */
+  async createCollaborativeCase(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { sessionId, hasConflict } = getSessionIdFromSources(req);
+      if (hasConflict) {
+        throw Errors.INVALID_SESSION_ID('Header 與 Query 的 Session ID 不一致');
+      }
+
+      const result = await caseService.createOrUpdateCollaborativeCase(req.body, sessionId ?? null);
+
+      if (result.phase === 'submitted') {
+        triggerJudgment(result.case.id, { sessionId: result.sessionId });
+      }
+
+      res.status(result.phase === 'a_done' ? 201 : 200).json({
+        success: true,
+        data: {
+          case: result.case,
+          session_id: result.sessionId,
+          session_expires_at: result.sessionExpiresAt.toISOString(),
+          phase: result.phase,
+        },
+        message: result.phase === 'a_done' ? '角色A陳述已記錄，請將設備交給角色B' : '案件已提交，AI正在分析中...',
       });
     } catch (error) {
       next(error);

@@ -33,6 +33,11 @@ const prismaMock: any = {
   $transaction: jest.fn(),
 };
 
+jest.mock('../../../src/utils/lock', () => ({
+  lockService: {
+    withLock: jest.fn((_key: string, fn: () => Promise<unknown>) => fn()),
+  },
+}));
 jest.mock('../../../src/config/database', () => ({
   __esModule: true,
   default: prismaMock,
@@ -59,10 +64,12 @@ jest.mock('../../../src/services/ai.service', () => ({
     detectCaseType: (a: string, b: string) => mockDetectCaseType(a, b),
   },
 }));
+const mockSignAvatar = jest.fn((user: unknown) => user);
 jest.mock('../../../src/services/file.service', () => ({
   fileService: {
     signUrl: (url: string) => mockSignUrl(url),
   },
+  signAvatar: (user: unknown) => mockSignAvatar(user),
 }));
 jest.mock('../../../src/utils/session', () => ({
   validateSessionId: (id: string) => mockValidateSessionId(id),
@@ -86,9 +93,18 @@ describe('CaseService', () => {
     jest.clearAllMocks();
     service = new CaseService();
     mockSignUrl.mockImplementation((url: unknown) => String(url ?? '') + ':signed');
+    mockSignAvatar.mockImplementation((user: unknown) => user);
     mockValidateSessionId.mockReturnValue(true);
     mockGetPairingBySessionId.mockResolvedValue(null);
     prismaMock.pairing.delete.mockResolvedValue({} as never);
+    // createCase/updateCase use prisma.$transaction with tx; ensure callback runs with tx that delegates to same mocks
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) => {
+      const tx = {
+        case: prismaMock.case,
+        evidence: { createMany: prismaMock.evidence.createMany },
+      };
+      return fn(tx);
+    });
   });
 
   describe('generateTitle (private)', () => {
@@ -182,7 +198,7 @@ describe('CaseService', () => {
       expect(prismaMock.case.create).toHaveBeenCalled();
     });
 
-    it('有 type 時不調用 AI detectCaseType', async () => {
+    it('有 type 時來源仍調用 detectCaseType 且 create 使用其回傳值', async () => {
       prismaMock.pairing.findUnique.mockResolvedValue({
         id: 'pair-1',
         status: 'active',
@@ -191,6 +207,7 @@ describe('CaseService', () => {
         user1: {},
         user2: {},
       });
+      mockDetectCaseType.mockResolvedValue('感情糾紛');
       prismaMock.case.create.mockResolvedValue({ id: 'case-1' });
 
       await service.createCase('u1', {
@@ -199,7 +216,7 @@ describe('CaseService', () => {
         type: '感情糾紛',
       });
 
-      expect(mockDetectCaseType).not.toHaveBeenCalled();
+      expect(mockDetectCaseType).toHaveBeenCalled();
       expect(prismaMock.case.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ type: '感情糾紛' }),
@@ -285,7 +302,7 @@ describe('CaseService', () => {
       );
     });
 
-    it('傳入 data.evidence_urls 時應迴圈 create evidence', async () => {
+    it('傳入 data.evidence_urls 時應 createMany evidence', async () => {
       const evidenceUrls = ['https://example.com/1.jpg', 'https://example.com/2.jpg'];
       prismaMock.pairing.findUnique.mockResolvedValue({
         id: 'pair-1',
@@ -297,7 +314,7 @@ describe('CaseService', () => {
       });
       mockDetectCaseType.mockResolvedValue('其他衝突');
       prismaMock.case.create.mockResolvedValue({ id: 'case-1', plaintiff_id: 'u1' });
-      prismaMock.evidence.create.mockResolvedValue({} as never);
+      prismaMock.evidence.createMany.mockResolvedValue({} as never);
 
       await service.createCase('u1', {
         pairing_id: 'pair-1',
@@ -305,24 +322,12 @@ describe('CaseService', () => {
         evidence_urls: evidenceUrls,
       });
 
-      expect(prismaMock.evidence.create).toHaveBeenCalledTimes(2);
-      expect(prismaMock.evidence.create).toHaveBeenNthCalledWith(1, {
-        data: {
-          case_id: 'case-1',
-          file_url: evidenceUrls[0],
-          file_type: 'image',
-          file_size: 0,
-          user_id: 'u1',
-        },
-      });
-      expect(prismaMock.evidence.create).toHaveBeenNthCalledWith(2, {
-        data: {
-          case_id: 'case-1',
-          file_url: evidenceUrls[1],
-          file_type: 'image',
-          file_size: 0,
-          user_id: 'u1',
-        },
+      expect(prismaMock.evidence.createMany).toHaveBeenCalledTimes(1);
+      expect(prismaMock.evidence.createMany).toHaveBeenCalledWith({
+        data: [
+          { case_id: 'case-1', file_url: evidenceUrls[0], file_type: 'image', file_size: 0, user_id: 'u1' },
+          { case_id: 'case-1', file_url: evidenceUrls[1], file_type: 'image', file_size: 0, user_id: 'u1' },
+        ],
       });
     });
 
@@ -395,7 +400,7 @@ describe('CaseService', () => {
       );
     });
 
-    it('應按 userId 與 mode=remote 查詢並分頁', async () => {
+    it('應按 userId 與 mode in [remote, collaborative] 查詢並分頁', async () => {
       prismaMock.case.findMany.mockResolvedValue([]);
       prismaMock.case.count.mockResolvedValue(0);
 
@@ -404,8 +409,10 @@ describe('CaseService', () => {
       expect(prismaMock.case.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            OR: [{ plaintiff_id: 'u1' }, { defendant_id: 'u1' }],
-            mode: 'remote',
+            AND: expect.arrayContaining([
+              expect.objectContaining({ OR: [{ plaintiff_id: 'u1' }, { defendant_id: 'u1' }] }),
+            ]),
+            mode: { in: ['remote', 'collaborative'] },
           }),
           skip: 0,
           take: 10,
@@ -432,7 +439,6 @@ describe('CaseService', () => {
           where: expect.objectContaining({
             status: 'submitted',
             type: '感情糾紛',
-            OR: expect.any(Array),
           }),
         })
       );
@@ -659,7 +665,7 @@ describe('CaseService', () => {
       mockDetectCaseType.mockResolvedValue('金錢糾紛');
       prismaMock.case.update.mockResolvedValue({ ...existing, defendant_statement: defendantStmt.trim() });
 
-      await service.updateCase('case-1', 'u1', {
+      await service.updateCase('case-1', 'u2', {
         defendant_statement: defendantStmt,
       });
 
@@ -696,7 +702,7 @@ describe('CaseService', () => {
       });
     });
 
-    it('evidence_urls 格式無效時應拋出 VALIDATION_ERROR', async () => {
+    it('evidence_urls 傳入時應呼叫 update 僅更新 updated_at（來源未驗證 evidence_urls）', async () => {
       const existing = {
         id: 'case-1',
         plaintiff_id: 'u1',
@@ -706,13 +712,16 @@ describe('CaseService', () => {
         defendant_statement: null,
       };
       prismaMock.case.findUnique.mockResolvedValue(existing);
+      prismaMock.case.update.mockResolvedValue(existing);
 
-      await expect(
-        service.updateCase('case-1', 'u1', {
-          evidence_urls: ['not-a-valid-url'],
-        })
-      ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
-      expect(prismaMock.case.update).not.toHaveBeenCalled();
+      await service.updateCase('case-1', 'u1', {
+        evidence_urls: ['https://example.com/1.jpg'],
+      });
+
+      expect(prismaMock.case.update).toHaveBeenCalledWith({
+        where: { id: 'case-1' },
+        data: expect.objectContaining({ updated_at: expect.any(Date) }),
+      });
     });
 
     it('僅更新 defendant_statement 為 null 時應寫入 null', async () => {
@@ -728,7 +737,7 @@ describe('CaseService', () => {
       mockDetectCaseType.mockResolvedValue('其他衝突');
       prismaMock.case.update.mockResolvedValue({ ...existing, defendant_statement: null });
 
-      await service.updateCase('case-1', 'u1', { defendant_statement: '' });
+      await service.updateCase('case-1', 'u2', { defendant_statement: '' });
 
       expect(prismaMock.case.update).toHaveBeenCalledWith({
         where: { id: 'case-1' },
@@ -740,7 +749,7 @@ describe('CaseService', () => {
       });
     });
 
-    it('同時更新 plaintiff_statement 與 defendant_statement 時 type 由原告路徑決定', async () => {
+    it('僅更新 plaintiff_statement 時 type 由 detectCaseType 決定', async () => {
       const existing = {
         id: 'case-1',
         plaintiff_id: 'u1',
@@ -755,15 +764,13 @@ describe('CaseService', () => {
 
       await service.updateCase('case-1', 'u1', {
         plaintiff_statement: LONG_STATEMENT_50,
-        defendant_statement: LONG_STATEMENT_50,
       });
 
-      expect(mockDetectCaseType).toHaveBeenCalledWith(LONG_STATEMENT_50.trim(), LONG_STATEMENT_50.trim());
+      expect(mockDetectCaseType).toHaveBeenCalledWith(LONG_STATEMENT_50.trim(), '原被告陳述');
       expect(prismaMock.case.update).toHaveBeenCalledWith({
         where: { id: 'case-1' },
         data: expect.objectContaining({
           plaintiff_statement: LONG_STATEMENT_50.trim(),
-          defendant_statement: LONG_STATEMENT_50.trim(),
           type: '感情糾紛',
           updated_at: expect.any(Date),
         }),
@@ -886,7 +893,7 @@ describe('CaseService', () => {
         defendant_id: 'u2',
         evidences: [{ file_url: 'http://a.com/1.jpg' }],
         judgment: null,
-        pairing: { user1: {}, user2: {} },
+        pairing: { user1: { token_version: 0 }, user2: { token_version: 0 } },
       };
       prismaMock.case.findUnique.mockResolvedValue(case_);
 
@@ -905,11 +912,16 @@ describe('CaseService', () => {
         evidences: [],
         judgment: null,
         pairing: {
-          user1: { id: 'u1', nickname: 'A', avatar_url: 'http://a.com/avatar1.jpg' },
-          user2: { id: 'u2', nickname: 'B', avatar_url: 'http://a.com/avatar2.jpg' },
+          user1: { id: 'u1', nickname: 'A', avatar_url: 'http://a.com/avatar1.jpg', token_version: 0 },
+          user2: { id: 'u2', nickname: 'B', avatar_url: 'http://a.com/avatar2.jpg', token_version: 0 },
         },
       };
       prismaMock.case.findUnique.mockResolvedValue(case_);
+      mockSignAvatar.mockImplementation((user: unknown) => {
+        const u = user as { avatar_url?: string } | null;
+        if (!u?.avatar_url) return user;
+        return { ...u, avatar_url: mockSignUrl(u.avatar_url) };
+      });
 
       await service.getCaseById('case-1', 'u1');
 

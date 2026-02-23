@@ -182,3 +182,26 @@ export const downloadLimiter = rateLimit({
   validate: isProduction ? { trustProxy: false } : undefined,
   skip: (_req: Request, _res: Response) => isDevelopment && process.env.SKIP_RATE_LIMIT === 'true',
 });
+
+// 訪談開始限流 (per user, per hour) — DDoS 安全網
+// 實質性限流（僅計 ≥3 輪 session）在業務邏輯層 startSession 中處理
+const interviewStartLimitConfig = getRateLimitConfig(10, 10);
+export const interviewStartLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: interviewStartLimitConfig.max,
+  keyGenerator: (req: Request) => req.user?.id ?? req.ip ?? 'anonymous',
+  handler: createRateLimitHandler('開始訪談過於頻繁，請稍後再試'),
+  validate: isProduction ? { trustProxy: false } : undefined,
+  skip: (_req: Request, _res: Response) => isDevelopment && process.env.SKIP_RATE_LIMIT === 'true',
+});
+
+// 訪談回覆限流 (per user, per minute)
+const interviewRespondLimitConfig = getRateLimitConfig(20, 5);
+export const interviewRespondLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: interviewRespondLimitConfig.max,
+  keyGenerator: (req: Request) => req.user?.id ?? req.ip ?? 'anonymous',
+  handler: createRateLimitHandler('回覆過於頻繁，請稍後再試'),
+  validate: isProduction ? { trustProxy: false } : undefined,
+  skip: (_req: Request, _res: Response) => isDevelopment && process.env.SKIP_RATE_LIMIT === 'true',
+});

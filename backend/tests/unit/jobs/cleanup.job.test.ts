@@ -6,7 +6,7 @@ import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 const mockStart = jest.fn();
 const mockStop = jest.fn();
 const scheduleReturn = { start: mockStart, stop: mockStop };
-/** 依註冊順序：cleanupExpiredSessions, cleanupOrphanUploads, cleanupTempPairings, cleanupExpiredVerifications, resetAIDailyCount */
+/** 依註冊順序：cleanupExpiredSessions, cleanupOrphanUploads, cleanupTempPairings, cleanupAbandonedInterviewSessions, cleanupExpiredVerifications, resetAIDailyCount, followUp7Day, followUp30Day, cleanupStaleDraftCases, cleanupStuckProcessingSessions */
 const scheduledCallbacks: Array<() => void | Promise<void>> = [];
 
 jest.mock('node-cron', () => ({
@@ -107,7 +107,7 @@ describe('cleanup.job', () => {
       process.env.ENABLE_SCHEDULED_JOBS = 'true';
       mockEnvRef.NODE_ENV = 'test';
       startJobs();
-      expect(mockStart).toHaveBeenCalledTimes(5);
+      expect(mockStart).toHaveBeenCalledTimes(10);
       expect(jobsStarted).toBe(true);
       expect(mockLogger.info).toHaveBeenCalledWith('Scheduled jobs started', expect.objectContaining({ env: 'test' }));
     });
@@ -120,7 +120,7 @@ describe('cleanup.job', () => {
       startJobs();
       expect(mockStart).toHaveBeenCalled();
       stopJobs();
-      expect(mockStop).toHaveBeenCalledTimes(5);
+      expect(mockStop).toHaveBeenCalledTimes(10);
       expect(jobsStarted).toBe(false);
       expect(mockLogger.info).toHaveBeenCalledWith('Scheduled jobs stopped');
     });
@@ -197,25 +197,25 @@ describe('cleanup.job', () => {
     it('cleanupExpiredVerifications 依環境記錄 debug 或 info', async () => {
       (mockEmailVerificationDeleteMany as any).mockResolvedValue({ count: 2 });
       mockEnvRef.NODE_ENV = 'development';
-      await scheduledCallbacks[3]();
+      await scheduledCallbacks[4]();
       expect(mockLogger.debug).toHaveBeenCalledWith('Expired verifications cleaned up', { count: 2 });
       jest.clearAllMocks();
       mockEnvRef.NODE_ENV = 'production';
       (mockEmailVerificationDeleteMany as any).mockResolvedValue({ count: 1 });
-      await scheduledCallbacks[3]();
+      await scheduledCallbacks[4]();
       expect(mockLogger.info).toHaveBeenCalledWith('Expired verifications cleaned up', { count: 1 });
     });
 
     it('cleanupExpiredVerifications 失敗時記錄 error', async () => {
       (mockEmailVerificationDeleteMany as any).mockRejectedValue(new Error('db error'));
-      await scheduledCallbacks[3]();
+      await scheduledCallbacks[4]();
       expect(mockLogger.error).toHaveBeenCalledWith('Failed to cleanup expired verifications', expect.any(Object));
     });
 
     it('resetAIDailyCount 成功時記錄 info', async () => {
       (mockResetDailyCallCount as any).mockResolvedValue(undefined);
       mockEnvRef.NODE_ENV = 'production';
-      await scheduledCallbacks[4]();
+      await scheduledCallbacks[5]();
       expect(mockResetDailyCallCount).toHaveBeenCalled();
       expect(mockLogger.info).toHaveBeenCalledWith('AI service daily call count reset');
     });
@@ -223,13 +223,13 @@ describe('cleanup.job', () => {
     it('resetAIDailyCount 在 development 時記錄 debug', async () => {
       (mockResetDailyCallCount as any).mockResolvedValue(undefined);
       mockEnvRef.NODE_ENV = 'development';
-      await scheduledCallbacks[4]();
+      await scheduledCallbacks[5]();
       expect(mockLogger.debug).toHaveBeenCalledWith('AI service daily call count reset');
     });
 
     it('resetAIDailyCount 失敗時 catch 並記錄 error', async () => {
       (mockResetDailyCallCount as any).mockRejectedValue(new Error('reset failed'));
-      await scheduledCallbacks[4]();
+      await scheduledCallbacks[5]();
       expect(mockLogger.error).toHaveBeenCalledWith('Failed to reset AI daily count', expect.objectContaining({ error: expect.any(Error) }));
     });
   });

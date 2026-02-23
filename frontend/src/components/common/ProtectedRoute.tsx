@@ -3,7 +3,11 @@
  */
 
 import { Navigate, useLocation } from 'react-router-dom';
+import { Spin } from 'antd';
+import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/authStore';
+
+const HYDRATION_TIMEOUT_MS = 5000;
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -21,10 +25,24 @@ export default function ProtectedRoute({
   requireAuth = true,
   redirectTo = '/auth/login',
 }: ProtectedRouteProps) {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, _hasHydrated } = useAuthStore();
   const location = useLocation();
+  const [timedOut, setTimedOut] = useState(false);
 
-  // 如果需要認證但未認證，重定向到登錄頁
+  useEffect(() => {
+    if (_hasHydrated) return;
+    const id = setTimeout(() => setTimedOut(true), HYDRATION_TIMEOUT_MS);
+    return () => clearTimeout(id);
+  }, [_hasHydrated]);
+
+  if (!_hasHydrated && !timedOut) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <Spin size="large" />
+      </div>
+    );
+  }
+
   if (requireAuth && !isAuthenticated) {
     return <Navigate to={redirectTo} state={{ from: location }} replace />;
   }

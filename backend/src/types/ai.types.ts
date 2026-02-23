@@ -13,15 +13,17 @@ export interface ResponsibilityRatio {
 /**
  * 責任分比例類型守衛
  */
-export function isResponsibilityRatio(obj: any): obj is ResponsibilityRatio {
+export function isResponsibilityRatio(obj: unknown): obj is ResponsibilityRatio {
   return (
     typeof obj === 'object' &&
     obj !== null &&
-    typeof obj.plaintiff === 'number' &&
-    typeof obj.defendant === 'number' &&
-    obj.plaintiff >= 0 &&
-    obj.defendant >= 0 &&
-    Math.abs(obj.plaintiff + obj.defendant - 100) < 0.01
+    'plaintiff' in obj &&
+    'defendant' in obj &&
+    typeof (obj as ResponsibilityRatio).plaintiff === 'number' &&
+    typeof (obj as ResponsibilityRatio).defendant === 'number' &&
+    (obj as ResponsibilityRatio).plaintiff >= 0 &&
+    (obj as ResponsibilityRatio).defendant >= 0 &&
+    Math.abs((obj as ResponsibilityRatio).plaintiff + (obj as ResponsibilityRatio).defendant - 100) < 0.01
   );
 }
 
@@ -46,19 +48,19 @@ export interface ReconciliationPlanContent {
  * 和好方案內容類型守衛
  */
 export function isReconciliationPlanContent(
-  obj: any
+  obj: unknown
 ): obj is ReconciliationPlanContent {
+  if (typeof obj !== 'object' || obj === null) return false;
+  const o = obj as Record<string, unknown>;
   return (
-    typeof obj === 'object' &&
-    obj !== null &&
-    typeof obj.title === 'string' &&
-    typeof obj.description === 'string' &&
-    Array.isArray(obj.steps) &&
-    typeof obj.expected_effect === 'string' &&
-    typeof obj.time_cost === 'number' &&
-    typeof obj.money_cost === 'number' &&
-    typeof obj.emotion_cost === 'number' &&
-    typeof obj.skill_requirement === 'number' &&
-    ['activity', 'communication', 'intimacy', 'gift', 'service'].includes(obj.plan_type)
+    typeof o.title === 'string' &&
+    typeof o.description === 'string' &&
+    Array.isArray(o.steps) &&
+    typeof o.expected_effect === 'string' &&
+    typeof o.time_cost === 'number' &&
+    typeof o.money_cost === 'number' &&
+    typeof o.emotion_cost === 'number' &&
+    typeof o.skill_requirement === 'number' &&
+    ['activity', 'communication', 'intimacy', 'gift', 'service'].includes(o.plan_type as string)
   );
 }

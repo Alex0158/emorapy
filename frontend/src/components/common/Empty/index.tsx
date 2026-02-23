@@ -4,13 +4,14 @@
 
 import { Empty as AntEmpty } from 'antd';
 import type { EmptyProps } from 'antd/es/empty';
+import { t } from '@/utils/i18n';
 
 interface EmptyStateProps extends EmptyProps {
   description?: string;
   action?: React.ReactNode;
 }
 
-const Empty = ({ description = '暫無數據', action, ...props }: EmptyStateProps) => {
+const Empty = ({ description = t('common.noData'), action, ...props }: EmptyStateProps) => {
   return (
     <AntEmpty
       description={description}

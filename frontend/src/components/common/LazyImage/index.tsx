@@ -4,6 +4,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Spin } from 'antd';
+import { t } from '@/utils/i18n';
 import './LazyImage.less';
 
 interface LazyImageProps {
@@ -83,7 +84,7 @@ const LazyImage = ({
       )}
       {hasError && (
         <div className="lazy-image-error">
-          <span>圖片加載失敗</span>
+          <span>{t('common.imageLoadFail')}</span>
         </div>
       )}
     </div>

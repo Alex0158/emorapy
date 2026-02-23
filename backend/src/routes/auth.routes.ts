@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authController } from '../controllers/auth.controller';
+import { authenticate } from '../middleware/auth';
 import { validate } from '../middleware/validator';
 import {
   registerSchema,
@@ -8,6 +9,7 @@ import {
   verifyEmailSchema,
   resetPasswordSchema,
   confirmResetPasswordSchema,
+  claimSessionSchema,
 } from '../utils/validation';
 import {
   registerLimiter,
@@ -90,6 +92,18 @@ router.post(
   resetConfirmLimiter,
   validate(confirmResetPasswordSchema),
   authController.confirmResetPassword.bind(authController)
+);
+
+/**
+ * @route   POST /api/v1/auth/claim-session
+ * @desc    關聯快速體驗案件到已註冊用戶
+ * @access  Private
+ */
+router.post(
+  '/claim-session',
+  authenticate,
+  validate(claimSessionSchema),
+  authController.claimSession.bind(authController)
 );
 
 export default router;

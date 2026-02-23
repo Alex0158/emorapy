@@ -3,6 +3,7 @@ import prisma from '../config/database';
 import { Errors } from '../utils/errors';
 import { getAuthUserId } from '../utils/request';
 import { fileService, upload } from '../services/file.service';
+import logger from '../config/logger';
 import path from 'path';
 import fs from 'fs/promises';
 import { env } from '../config/env';
@@ -68,7 +69,7 @@ export class UserController {
         'privacy_level',
       ];
 
-      const updateData: Record<string, any> = {};
+      const updateData: Record<string, unknown> = {};
       allowedFields.forEach(field => {
         if (req.body[field] !== undefined) {
           updateData[field] = req.body[field];
@@ -158,7 +159,9 @@ export const uploadAvatar = [
 
       // 僅允許圖片
       if (!file.mimetype.startsWith('image/')) {
-        await fs.unlink(path.join(file.destination, file.filename)).catch(() => {});
+        await fs.unlink(path.join(file.destination, file.filename)).catch((e) => {
+          logger.warn('Failed to remove invalid avatar file', { filename: file.filename, error: e });
+        });
         throw Errors.INVALID_FILE_TYPE('頭像僅支持圖片格式');
       }
 

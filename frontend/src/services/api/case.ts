@@ -4,7 +4,7 @@
 
 import request from '../request';
 import type { ApiResponse } from '@/types/common';
-import type { Case, CreateCaseDto, QuickCaseDto } from '@/types/case';
+import type { Case, CreateCaseDto, UpdateCaseDto, QuickCaseDto } from '@/types/case';
 
 /**
  * 創建案件（快速體驗模式）
@@ -16,7 +16,9 @@ export const createQuickCase = async (
     '/cases/quick',
     data
   );
-  return (response.data as ApiResponse<{ case: Case; session_id?: string; session_expires_at?: string }>).data;
+  const result = (response.data as ApiResponse<{ case: Case; session_id?: string; session_expires_at?: string }>)?.data;
+  if (!result?.case) throw new Error('Invalid case response from server');
+  return result;
 };
 
 /**
@@ -24,7 +26,9 @@ export const createQuickCase = async (
  */
 export const createCase = async (data: CreateCaseDto): Promise<Case> => {
   const response = await request.post<ApiResponse<{ case: Case }>>('/cases', data);
-  return (response.data as ApiResponse<{ case: Case }>).data.case;
+  const result = (response.data as ApiResponse<{ case: Case }>)?.data?.case;
+  if (!result) throw new Error('Invalid case response from server');
+  return result;
 };
 
 /**
@@ -37,7 +41,9 @@ export const getCase = async (id: string, sessionId?: string): Promise<Case> => 
     ? { headers: { 'X-Session-Id': sessionId } as Record<string, string> }
     : undefined;
   const response = await request.get<ApiResponse<{ case: Case }>>(`/cases/${id}`, config);
-  return (response.data as ApiResponse<{ case: Case }>).data.case;
+  const result = (response.data as ApiResponse<{ case: Case }>)?.data?.case;
+  if (!result) throw new Error('Invalid case response from server');
+  return result;
 };
 
 /**
@@ -48,7 +54,7 @@ export const getCaseBySessionId = async (sessionId: string): Promise<Case | null
     const response = await request.get<ApiResponse<{ case: Case }>>('/cases/by-session', {
       headers: { 'X-Session-Id': sessionId },
     });
-    return (response.data as ApiResponse<{ case: Case }>).data.case;
+    return (response.data as ApiResponse<{ case: Case }>)?.data?.case ?? null;
   } catch (error: unknown) {
     const err = error as { code?: string };
     if (err.code === 'NOT_FOUND' || err.code === 'HTTP_404') {
@@ -87,7 +93,7 @@ export const getCaseList = async (params?: {
       total_pages: number;
     };
   }>>('/cases', { params });
-  return (response.data as ApiResponse<{
+  const result = (response.data as ApiResponse<{
     cases: Case[];
     pagination: {
       page: number;
@@ -95,22 +101,29 @@ export const getCaseList = async (params?: {
       total: number;
       total_pages: number;
     };
-  }>).data;
+  }>)?.data;
+  if (!result) throw new Error('Invalid case list response from server');
+  return { cases: result.cases ?? [], pagination: result.pagination };
 };
 
 /**
  * 提交案件
  */
-export const submitCase = async (id: string): Promise<void> => {
-  await request.post<ApiResponse>(`/cases/${id}/submit`);
+export const submitCase = async (id: string): Promise<Case> => {
+  const response = await request.post<ApiResponse<{ case: Case }>>(`/cases/${id}/submit`);
+  const result = (response.data as ApiResponse<{ case: Case }>)?.data?.case;
+  if (!result) throw new Error('Invalid case response from server');
+  return result;
 };
 
 /**
  * 更新案件
  */
-export const updateCase = async (id: string, data: Partial<CreateCaseDto>): Promise<Case> => {
+export const updateCase = async (id: string, data: UpdateCaseDto): Promise<Case> => {
   const response = await request.put<ApiResponse<{ case: Case }>>(`/cases/${id}`, data);
-  return (response.data as ApiResponse<{ case: Case }>).data.case;
+  const result = (response.data as ApiResponse<{ case: Case }>)?.data?.case;
+  if (!result) throw new Error('Invalid case response from server');
+  return result;
 };
 
 /**
@@ -126,15 +139,10 @@ export const uploadEvidence = async (
     formData.append('files', file);
   });
 
-  const config: { headers: { 'Content-Type': string; 'X-Session-Id'?: string } } = {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  };
+  const config: { headers?: Record<string, string> } = {};
 
-  // 顯式傳遞案件對應 session，避免被全局 session 覆蓋
   if (sessionId) {
-    config.headers['X-Session-Id'] = sessionId;
+    config.headers = { 'X-Session-Id': sessionId };
   }
 
   const response = await request.post<ApiResponse<{ evidences: Array<{ id: string; file_url: string; file_type: string }> }>>(
@@ -142,7 +150,9 @@ export const uploadEvidence = async (
     formData,
     config
   );
-  return (response.data as ApiResponse<{ evidences: Array<{ id: string; file_url: string; file_type: string }> }>).data.evidences;
+  const result = (response.data as ApiResponse<{ evidences: Array<{ id: string; file_url: string; file_type: string }> }>)?.data?.evidences;
+  if (!result) throw new Error('Invalid evidence response from server');
+  return result;
 };
 
 /**
@@ -158,4 +168,35 @@ export const deleteEvidence = async (
     config.headers = { 'X-Session-Id': sessionId };
   }
   await request.delete<ApiResponse>(`/cases/${caseId}/evidence/${evidenceId}`, config);
+};
+
+/**
+ * 創建/更新協作聽證案件
+ */
+export interface CollaborativeResponse {
+  case: Case;
+  session_id: string;
+  session_expires_at: string;
+  phase: 'a_done' | 'submitted';
+}
+
+export const createCollaborativeCase = async (
+  data: {
+    case_id?: string;
+    plaintiff_statement?: string;
+    defendant_statement?: string;
+  },
+  sessionId?: string
+): Promise<CollaborativeResponse> => {
+  const config = sessionId
+    ? { headers: { 'X-Session-Id': sessionId } as Record<string, string> }
+    : undefined;
+  const response = await request.post<ApiResponse<CollaborativeResponse>>(
+    '/cases/collaborative',
+    data,
+    config
+  );
+  const result = (response.data as ApiResponse<CollaborativeResponse>)?.data;
+  if (!result?.case) throw new Error('Invalid collaborative case response from server');
+  return result;
 };

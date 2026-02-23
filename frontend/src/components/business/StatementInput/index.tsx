@@ -8,6 +8,7 @@ import { useState, useEffect } from 'react';
 import { validateStatement } from '@/utils/validate';
 import { MAX_STATEMENT_LENGTH, MIN_STATEMENT_LENGTH } from '@/utils/constants';
 import { formatWordCount } from '@/utils/format';
+import { t } from '@/utils/i18n';
 import './StatementInput.less';
 
 const { TextArea } = Input;
@@ -29,7 +30,7 @@ interface StatementInputProps {
 const StatementInput = ({
   value,
   onChange,
-  placeholder = '請詳細描述發生了什麼事，你的感受，以及你希望對方怎麼做...',
+  placeholder = t('statementInput.defaultPlaceholder'),
   label,
   role = 'plaintiff',
   showGuide = true,
@@ -73,15 +74,15 @@ const StatementInput = ({
         <div className={`guide-questions ${focused ? 'visible' : ''}`}>
           <div className="guide-item">
             <QuestionCircleOutlined className="guide-icon" />
-            <Text type="secondary">發生了什麼事？</Text>
+            <Text type="secondary">{t('statementInput.guide1')}</Text>
           </div>
           <div className="guide-item">
             <QuestionCircleOutlined className="guide-icon" />
-            <Text type="secondary">你的感受是什麼？</Text>
+            <Text type="secondary">{t('statementInput.guide2')}</Text>
           </div>
           <div className="guide-item">
             <QuestionCircleOutlined className="guide-icon" />
-            <Text type="secondary">你希望對方怎麼做？</Text>
+            <Text type="secondary">{t('statementInput.guide3')}</Text>
           </div>
         </div>
       )}
@@ -104,7 +105,7 @@ const StatementInput = ({
           {wordCount > 0 && (
             <div className={`status-icon ${isComplete ? 'valid' : 'invalid'}`}>
               {isComplete ? (
-                <Tooltip title="字數符合要求">
+                <Tooltip title={t('statementInput.wordCountOk')}>
                   <CheckCircleOutlined />
                 </Tooltip>
               ) : (
@@ -118,7 +119,7 @@ const StatementInput = ({
       </div>
 
       <div className={`word-count ${isComplete ? 'success' : isEmptyAllowed ? 'default' : wordCount < minLength ? 'warning' : 'default'}`}>
-        {isEmptyAllowed ? '可留空' : validation.message || formatWordCount(wordCount, MAX_STATEMENT_LENGTH)}
+        {isEmptyAllowed ? t('statementInput.optional') : validation.message || formatWordCount(wordCount, MAX_STATEMENT_LENGTH)}
       </div>
     </div>
   );

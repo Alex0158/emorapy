@@ -2,8 +2,10 @@ import prisma from '../config/database';
 import { generateInviteCode } from '../utils/session';
 import { Errors } from '../utils/errors';
 import logger from '../config/logger';
-import { fileService } from './file.service';
+import { fileService, signAvatar } from './file.service';
 import { lockService } from '../utils/lock';
+import { LOCK_TTL, PAIRING_STATUS, PAIRING_TYPE } from '../utils/constants';
+import { emailService } from './email.service';
 
 export class PairingService {
   /**
@@ -14,8 +16,8 @@ export class PairingService {
     const existingPairing = await prisma.pairing.findFirst({
       where: {
         OR: [
-          { user1_id: userId, status: { in: ['pending', 'active'] } },
-          { user2_id: userId, status: { in: ['pending', 'active'] } },
+          { user1_id: userId, status: { in: [PAIRING_STATUS.PENDING, PAIRING_STATUS.ACTIVE] } },
+          { user2_id: userId, status: { in: [PAIRING_STATUS.PENDING, PAIRING_STATUS.ACTIVE] } },
         ],
       },
     });
@@ -50,8 +52,8 @@ export class PairingService {
       data: {
         user1_id: userId,
         invite_code: inviteCode!,
-        status: 'pending',
-        pairing_type: 'normal',
+        status: PAIRING_STATUS.PENDING,
+        pairing_type: PAIRING_TYPE.NORMAL,
         expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000),
       },
     });
@@ -84,7 +86,7 @@ export class PairingService {
     }
 
     // 3. 檢查是否已使用
-    if (pairing.status !== 'pending') {
+    if (pairing.status !== PAIRING_STATUS.PENDING) {
       throw Errors.INVALID_CODE('邀請碼已使用');
     }
 
@@ -93,25 +95,41 @@ export class PairingService {
       throw Errors.VALIDATION_ERROR('不能與自己配對');
     }
 
-    // 5. 更新配對記錄
-    const updatedPairing = await prisma.pairing.update({
-      where: { id: pairing.id },
+    // 5. 原子更新：只有 status 仍為 PENDING 才成功（防止並發）
+    const { count } = await prisma.pairing.updateMany({
+      where: {
+        id: pairing.id,
+        status: PAIRING_STATUS.PENDING,
+      },
       data: {
         user2_id: userId,
-        status: 'active',
+        status: PAIRING_STATUS.ACTIVE,
         confirmed_at: new Date(),
       },
     });
 
+    if (count === 0) {
+      throw Errors.INVALID_CODE('邀請碼已使用');
+    }
+
     logger.info('Pairing joined', { pairingId: pairing.id, userId });
 
-    const signAvatar = (user: any) =>
-      user?.avatar_url ? { ...user, avatar_url: fileService.signUrl(user.avatar_url) } : user;
+    const updatedPairing = await prisma.pairing.findUnique({
+      where: { id: pairing.id },
+      include: {
+        user1: true,
+        user2: true,
+      },
+    });
+
+    emailService.sendPairingNotification(pairing.user1_id!, userId).catch(err => {
+      logger.warn('Failed to send pairing notification email', { pairingId: pairing.id, error: err });
+    });
 
     return {
-      ...updatedPairing,
-      user1: signAvatar(pairing.user1),
-      user2: signAvatar(pairing.user2),
+      ...updatedPairing!,
+      user1: signAvatar(updatedPairing!.user1),
+      user2: signAvatar(updatedPairing!.user2),
     };
   }
 
@@ -125,7 +143,7 @@ export class PairingService {
           { user1_id: userId },
           { user2_id: userId },
         ],
-        status: { in: ['pending', 'active'] },
+        status: { in: [PAIRING_STATUS.PENDING, PAIRING_STATUS.ACTIVE] },
       },
       include: {
         user1: {
@@ -149,8 +167,6 @@ export class PairingService {
     });
 
     if (!pairing) return pairing;
-    const signAvatar = (user: any) =>
-      user?.avatar_url ? { ...user, avatar_url: fileService.signUrl(user.avatar_url) } : user;
 
     return {
       ...pairing,
@@ -169,7 +185,7 @@ export class PairingService {
           { user1_id: userId },
           { user2_id: userId },
         ],
-        status: { in: ['pending', 'active'] },
+        status: { in: [PAIRING_STATUS.PENDING, PAIRING_STATUS.ACTIVE] },
       },
     });
 
@@ -185,7 +201,7 @@ export class PairingService {
     const updated = await prisma.pairing.update({
       where: { id: pairing.id },
       data: {
-        status: 'cancelled',
+        status: PAIRING_STATUS.CANCELLED,
         cancelled_at: new Date(),
       },
     });
@@ -201,7 +217,7 @@ export class PairingService {
       const existingPairing = await prisma.pairing.findFirst({
         where: {
           session_id: sessionId,
-          pairing_type: 'quick',
+          pairing_type: PAIRING_TYPE.QUICK,
         },
       });
 
@@ -213,7 +229,7 @@ export class PairingService {
       todayStart.setUTCHours(0, 0, 0, 0);
       const dailyCount = await prisma.pairing.count({
         where: {
-          pairing_type: 'quick',
+          pairing_type: PAIRING_TYPE.QUICK,
           created_at: { gte: todayStart },
         },
       });
@@ -230,13 +246,13 @@ export class PairingService {
           user1_id: null,
           user2_id: null,
           invite_code: null,
-          status: 'temp',
-          pairing_type: 'quick',
+          status: PAIRING_STATUS.TEMP,
+          pairing_type: PAIRING_TYPE.QUICK,
           session_id: sessionId,
           expires_at: null,
         },
       });
-    }, 20);
+    }, LOCK_TTL.PAIRING_CREATE);
   }
 
   /**
@@ -246,7 +262,7 @@ export class PairingService {
     const pairing = await prisma.pairing.findFirst({
       where: {
         session_id: sessionId,
-        pairing_type: 'quick',
+        pairing_type: PAIRING_TYPE.QUICK,
       },
     });
 

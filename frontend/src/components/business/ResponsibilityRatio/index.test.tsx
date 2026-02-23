@@ -12,11 +12,17 @@ describe('ResponsibilityRatio', () => {
     expect(screen.getByText(/角色B: 40%/)).toBeInTheDocument();
   });
 
-  it('應支援 size 與 showLabels', () => {
+  it('size="small" 時應套用 small class', () => {
     render(
-      <ResponsibilityRatio ratio={{ plaintiff: 50, defendant: 50 }} size="small" showLabels={false} />
+      <ResponsibilityRatio ratio={{ plaintiff: 50, defendant: 50 }} size="small" />
     );
-    const el = document.querySelector('.responsibility-ratio.small');
-    expect(el).toBeInTheDocument();
+    expect(document.querySelector('.responsibility-ratio.small')).toBeInTheDocument();
+  });
+
+  it('showLabels={false} 時不應渲染 responsibility-labels', () => {
+    render(
+      <ResponsibilityRatio ratio={{ plaintiff: 50, defendant: 50 }} showLabels={false} />
+    );
+    expect(document.querySelector('.responsibility-labels')).not.toBeInTheDocument();
   });
 });

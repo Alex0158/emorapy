@@ -88,17 +88,18 @@ const FileUpload = ({
         setUploading(true);
         const evidences = await uploadEvidence(caseId, files, sessionId);
         
-        // 更新文件列表，添加已上傳的文件信息
-        const newFileList: UploadFile[] = files.map((file, index) => {
+        const newFileList: UploadFile[] = files.reduce<UploadFile[]>((acc, file, index) => {
           const evidence = evidences[index];
-          return {
+          if (!evidence) return acc;
+          acc.push({
             uid: evidence.id || file.name + Date.now(),
             name: file.name,
             status: 'done',
             url: evidence.file_url,
             response: evidence,
-          } as UploadFile;
-        });
+          } as UploadFile);
+          return acc;
+        }, []);
 
         const updatedFileList = [...value, ...newFileList];
         onChange?.(updatedFileList);
@@ -125,7 +126,11 @@ const FileUpload = ({
       return Upload.LIST_IGNORE;
     }
 
-    // 檢查文件大小
+    if (file.size === 0) {
+      message.error(t('fileUpload.emptyFile'));
+      return Upload.LIST_IGNORE;
+    }
+
     if (file.size > MAX_FILE_SIZE) {
       message.error(t('fileUpload.sizeLimit').replace('{size}', formatFileSize(MAX_FILE_SIZE)));
       return Upload.LIST_IGNORE;

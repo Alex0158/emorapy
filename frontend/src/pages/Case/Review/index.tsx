@@ -2,7 +2,7 @@
  * 審理中頁面
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Card,
@@ -16,12 +16,12 @@ import {
 } from 'antd';
 import {
   ArrowLeftOutlined,
+  ReloadOutlined,
 } from '@ant-design/icons';
 import { getCase } from '@/services/api/case';
-import { getJudgmentByCaseId } from '@/services/api/judgment';
+import { getJudgmentByCaseId, generateJudgment } from '@/services/api/judgment';
 import type { Case } from '@/types/case';
 import type { Judgment } from '@/types/judgment';
-import ProtectedRoute from '@/components/common/ProtectedRoute';
 import BearJudge from '@/components/business/BearJudge';
 import SEO from '@/components/common/SEO';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
@@ -39,24 +39,40 @@ const CaseReview = () => {
   const [case_, setCase_] = useState<Case | null>(null);
   const [judgment, setJudgment] = useState<Judgment | null>(null);
   const [loading, setLoading] = useState(false);
+  const [retrying, setRetrying] = useState(false);
 
+  const staleRef = useRef(false);
   useEffect(() => {
+    staleRef.current = false;
+    setCase_(null);
+    setJudgment(null);
     if (id) {
       fetchCase();
     }
+    return () => { staleRef.current = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 僅在 id 變化時拉取
   }, [id]);
 
   const fetchCase = async () => {
+    if (!id) return;
     setLoading(true);
     try {
-      const caseData = await getCase(id!);
+      const caseData = await getCase(id);
+      if (staleRef.current) return;
       setCase_(caseData);
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : t('common.getCaseFail');
-      message.error(msg);
+      if (staleRef.current) return;
+      const err = error as { code?: string; message?: string };
+      if (err?.code === 'FORBIDDEN' || err?.code === 'HTTP_403') {
+        message.error(t('message.noPermissionViewCase'));
+        navigate('/case/list', { replace: true });
+      } else if (err?.code === 'NOT_FOUND' || err?.code === 'HTTP_404') {
+        message.error(t('common.caseNotFound'));
+      } else {
+        message.error(err?.message || t('common.getCaseFail'));
+      }
     } finally {
-      setLoading(false);
+      if (!staleRef.current) setLoading(false);
     }
   };
 
@@ -64,36 +80,68 @@ const CaseReview = () => {
     if (!id) return false;
     try {
       const judgmentData = await getJudgmentByCaseId(id);
+      if (staleRef.current) return false;
       if (judgmentData) {
         setJudgment(judgmentData);
-        return true; // 停止輪詢
+        return true;
       }
-      return false; // 繼續輪詢
+      return false;
     } catch (error: unknown) {
+      if (staleRef.current) return false;
       const err = error as { code?: string };
-      if (err.code === 'JUDGMENT_NOT_FOUND' || err.code === 'HTTP_404') {
-        return false; // 繼續輪詢
+      if (err?.code === 'JUDGMENT_NOT_FOUND' || err?.code === 'HTTP_404') {
+        return false;
       }
       logger.error('Failed to fetch judgment', error);
       return false;
     }
   };
 
-  const { startPolling, stopPolling, isPolling } = usePolling(fetchJudgment, POLLING_INTERVAL);
+  const { startPolling, stopPolling, isPolling } = usePolling(
+    fetchJudgment,
+    POLLING_INTERVAL,
+    (data) => data === true
+  );
 
   useEffect(() => {
-    if (case_ && (case_.status === 'submitted' || case_.status === 'in_progress')) {
+    if (!case_) return;
+    if (case_.status === 'completed' || case_.status === 'judgment_failed') {
+      fetchJudgment();
+    } else if (case_.status === 'submitted' || case_.status === 'in_progress') {
       startPolling();
+    } else if (case_.status === 'draft') {
+      message.warning(t('review.caseNotSubmitted'));
+      navigate(`/case/${id}`, { replace: true });
     }
     return () => stopPolling();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchJudgment 不進 deps
   }, [case_, startPolling, stopPolling]);
 
   useEffect(() => {
     if (judgment) {
       stopPolling();
-      // 判決生成完成，可以跳轉到結果頁
     }
   }, [judgment, stopPolling]);
+
+  const handleRetryJudgment = async () => {
+    if (!id || retrying) return;
+    setRetrying(true);
+    try {
+      const newJudgment = await generateJudgment(id);
+      setJudgment(newJudgment);
+      message.success(t('review.retrySuccess'));
+    } catch (error: unknown) {
+      const err = error as { code?: string; message?: string };
+      if (err?.code === 'JUDGMENT_EXISTS') {
+        await fetchJudgment();
+      } else {
+        message.error(err?.message || t('review.retryFail'));
+        if (id) fetchCase();
+      }
+    } finally {
+      setRetrying(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -106,7 +154,20 @@ const CaseReview = () => {
   if (!case_) {
     return (
       <div className="case-review-page">
-        <Alert message={t('common.caseNotFound')} type="error" />
+        <Alert
+          message={t('common.caseNotFound')}
+          type="error"
+          action={
+            <Space>
+              <Button size="small" onClick={() => navigate('/case/list')}>
+                {t('caseDetail.backList')}
+              </Button>
+              <Button size="small" type="primary" onClick={() => id && fetchCase()}>
+                {t('common.retry')}
+              </Button>
+            </Space>
+          }
+        />
       </div>
     );
   }
@@ -131,8 +192,38 @@ const CaseReview = () => {
     );
   }
 
+  if (case_.status === 'judgment_failed') {
+    return (
+      <div className="case-review-page">
+        <Card>
+          <Space direction="vertical" size="large" style={{ width: '100%' }}>
+            <Alert
+              message={t('review.judgmentFailed')}
+              description={case_.judgment_failure_reason || t('review.judgmentFailedDesc')}
+              type="error"
+              showIcon
+            />
+            <Space>
+              <Button
+                type="primary"
+                icon={<ReloadOutlined />}
+                loading={retrying}
+                onClick={handleRetryJudgment}
+              >
+                {t('review.retryJudgment')}
+              </Button>
+              <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(`/case/${id}`)}>
+                {t('review.backToCase')}
+              </Button>
+            </Space>
+          </Space>
+        </Card>
+      </div>
+    );
+  }
+
   return (
-    <ProtectedRoute>
+    <>
       <SEO
         title={t('review.title')}
         description={t('review.description')}
@@ -185,14 +276,13 @@ const CaseReview = () => {
         <AnimatedWrapper animation="slide" direction="up" delay={300} trigger="intersection">
           <div className="action-section">
             <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(`/case/${id}`)}>
-              返回案件詳情
+              {t('review.backToCase')}
             </Button>
           </div>
         </AnimatedWrapper>
       </div>
-    </ProtectedRoute>
+    </>
   );
 };
 
 export default CaseReview;
-

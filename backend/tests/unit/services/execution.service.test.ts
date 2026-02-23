@@ -8,6 +8,9 @@ const planWithCase = (overrides: Record<string, unknown> = {}) => ({
   user1_selected: true,
   user2_selected: false,
   estimated_duration: 7,
+  plan_content: JSON.stringify({ title: '測試方案', description: '描述', steps: ['步驟1'], expected_effect: '效果' }),
+  plan_type: 'communication',
+  difficulty_level: 'medium',
   judgment: {
     case: {
       plaintiff_id: 'u1',
@@ -200,6 +203,12 @@ describe('ExecutionService', () => {
       expect(result.status).toBeDefined();
       expect(result.progress).toBeGreaterThanOrEqual(0);
       expect(result.progress).toBeLessThanOrEqual(100);
+      expect(result.plan_summary).toMatchObject({
+        title: '測試方案',
+        plan_type: 'communication',
+        difficulty_level: 'medium',
+        estimated_duration: 7,
+      });
     });
 
     it('無記錄時進度應為 0、狀態 pending', async () => {
@@ -294,6 +303,12 @@ describe('ExecutionService', () => {
         plan_id: 'plan-1',
         status: 'pending',
         progress: 0,
+        plan_summary: {
+          title: '每週約會一次',
+          plan_type: 'custom',
+          difficulty_level: 1,
+          estimated_duration: 7,
+        },
       });
     });
   });

@@ -23,7 +23,9 @@ export const generateJudgment = async (
     undefined,
     config
   );
-  return (response.data as ApiResponse<{ judgment: Judgment }>).data.judgment;
+  const result = (response.data as ApiResponse<{ judgment: Judgment }>)?.data?.judgment;
+  if (!result) throw new Error('Invalid judgment response from server');
+  return result;
 };
 
 /**
@@ -31,7 +33,9 @@ export const generateJudgment = async (
  */
 export const getJudgment = async (id: string): Promise<Judgment> => {
   const response = await request.get<ApiResponse<{ judgment: Judgment }>>(`/judgments/${id}`);
-  return (response.data as ApiResponse<{ judgment: Judgment }>).data.judgment;
+  const result = (response.data as ApiResponse<{ judgment: Judgment }>)?.data?.judgment;
+  if (!result) throw new Error('Invalid judgment response from server');
+  return result;
 };
 
 /**
@@ -51,10 +55,9 @@ export const getJudgmentByCaseId = async (
       `/cases/${caseId}/judgment`,
       config
     );
-    return (response.data as ApiResponse<{ judgment: Judgment }>).data.judgment;
+    return (response.data as ApiResponse<{ judgment: Judgment }>)?.data?.judgment ?? null;
   } catch (error: unknown) {
     const err = error as { code?: string };
-    // 判決尚未生成：視為正常 pending（不作為錯誤）
     if (err.code === 'JUDGMENT_PENDING' || err.code === 'JUDGMENT_NOT_FOUND' || err.code === 'HTTP_404') {
       return null;
     }
@@ -74,6 +77,8 @@ export const acceptJudgment = async (
     `/judgments/${id}/accept`,
     data
   );
-  return (response.data as ApiResponse<{ judgment: Judgment }>).data.judgment;
+  const result = (response.data as ApiResponse<{ judgment: Judgment }>)?.data?.judgment;
+  if (!result) throw new Error('Invalid judgment response from server');
+  return result;
 };
 

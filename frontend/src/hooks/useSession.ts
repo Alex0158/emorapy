@@ -2,7 +2,7 @@
  * Session相關Hooks（快速體驗模式）
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import * as sessionApi from '@/services/api/session';
 import { sessionStorage } from '@/utils/storage';
 import { message } from 'antd';
@@ -12,39 +12,31 @@ import { t } from '@/utils/i18n';
  * 使用Session管理
  */
 export function useSession() {
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(sessionStorage.get);
   const [loading, setLoading] = useState(false);
+  const inflightRef = useRef<Promise<string> | null>(null);
 
-  // 初始化時檢查是否有Session
-  useEffect(() => {
-    const stored = sessionStorage.get();
-    if (stored) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSessionId(stored);
-    }
-  }, []);
-
-  /**
-   * 創建新Session
-   */
   const createSession = useCallback(async () => {
+    if (inflightRef.current) return inflightRef.current;
+
     setLoading(true);
-    try {
-      const session = await sessionApi.createSession();
-      sessionStorage.set(session.session_id);
-      setSessionId(session.session_id);
-      setLoading(false);
-      return session.session_id;
-    } catch (error: unknown) {
-      message.error(t('message.sessionCreateFail'));
-      setLoading(false);
-      throw error;
-    }
+    inflightRef.current = (async () => {
+      try {
+        const session = await sessionApi.createSession();
+        sessionStorage.set(session.session_id);
+        setSessionId(session.session_id);
+        return session.session_id;
+      } catch (error: unknown) {
+        message.error(t('message.sessionCreateFail'));
+        throw error;
+      } finally {
+        setLoading(false);
+        inflightRef.current = null;
+      }
+    })();
+    return inflightRef.current;
   }, []);
 
-  /**
-   * 獲取或創建Session
-   */
   const getOrCreateSession = useCallback(async () => {
     if (sessionId) {
       return sessionId;

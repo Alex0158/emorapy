@@ -18,9 +18,11 @@ const prismaMock: any = {
   },
   case: {
     update: jest.fn(),
+    updateMany: jest.fn(),
   },
   pairing: {
     update: jest.fn(),
+    updateMany: jest.fn(),
   },
 };
 
@@ -49,10 +51,10 @@ describe('SessionService', () => {
       fn({
         quickSession: {
           create: prismaMock.quickSession.create,
-          delete: prismaMock.quickSession.delete,
+          deleteMany: prismaMock.quickSession.deleteMany,
         },
-        case: { update: prismaMock.case.update },
-        pairing: { update: prismaMock.pairing.update },
+        case: { updateMany: prismaMock.case.updateMany },
+        pairing: { updateMany: prismaMock.pairing.updateMany },
       })
     );
     service = new SessionService();
@@ -193,15 +195,15 @@ describe('SessionService', () => {
         session_data: null,
       });
       prismaMock.quickSession.create.mockResolvedValue({});
-      prismaMock.quickSession.delete.mockResolvedValue({});
+      prismaMock.quickSession.deleteMany.mockResolvedValue({ count: 1 });
 
       const result = await service.refreshSession(oldId);
       expect(result.session_id).toBe(newId);
       expect(prismaMock.quickSession.create).toHaveBeenCalled();
-      expect(prismaMock.quickSession.delete).toHaveBeenCalledWith({ where: { id: oldId } });
+      expect(prismaMock.quickSession.deleteMany).toHaveBeenCalledWith({ where: { id: oldId } });
     });
 
-    it('旋轉時 case/pairing 關聯更新失敗應被吞掉並仍成功', async () => {
+    it('旋轉時 case/pairing 關聯更新失敗應導致事務失敗並拋出 INTERNAL_ERROR', async () => {
       const oldId = 'guest_1700000000000_old';
       const newId = 'guest_1700000000000_new';
       mockValidateSessionId.mockReturnValue(true);
@@ -213,19 +215,44 @@ describe('SessionService', () => {
         pairing_id: 'pair-1',
         session_data: { foo: 'bar' },
       });
-      prismaMock.case.update.mockRejectedValueOnce(new Error('case update fail'));
-      prismaMock.pairing.update.mockRejectedValueOnce(new Error('pairing update fail'));
       prismaMock.quickSession.create.mockResolvedValue({});
-      prismaMock.quickSession.delete.mockResolvedValue({});
+      prismaMock.case.updateMany.mockRejectedValueOnce(new Error('case update fail'));
+
+      await expect(service.refreshSession(oldId)).rejects.toMatchObject({
+        code: 'INTERNAL_ERROR',
+        message: expect.stringContaining('Session'),
+      });
+      expect(prismaMock.case.updateMany).toHaveBeenCalledWith({
+        where: { id: 'case-1', session_id: oldId },
+        data: { session_id: newId },
+      });
+    });
+
+    it('旋轉時有 case_id/pairing_id 應調用 updateMany 並成功', async () => {
+      const oldId = 'guest_1700000000000_old';
+      const newId = 'guest_1700000000000_new';
+      mockValidateSessionId.mockReturnValue(true);
+      mockGenerateSessionId.mockReturnValue(newId);
+      prismaMock.quickSession.findUnique.mockResolvedValue({
+        id: oldId,
+        expires_at: new Date(Date.now() + 60_000),
+        case_id: 'case-1',
+        pairing_id: 'pair-1',
+        session_data: { foo: 'bar' },
+      });
+      prismaMock.quickSession.create.mockResolvedValue({});
+      prismaMock.case.updateMany.mockResolvedValue({ count: 1 });
+      prismaMock.pairing.updateMany.mockResolvedValue({ count: 1 });
+      prismaMock.quickSession.deleteMany.mockResolvedValue({ count: 1 });
 
       const result = await service.refreshSession(oldId);
       expect(result.session_id).toBe(newId);
-      expect(prismaMock.case.update).toHaveBeenCalledWith({
-        where: { id: 'case-1' },
+      expect(prismaMock.case.updateMany).toHaveBeenCalledWith({
+        where: { id: 'case-1', session_id: oldId },
         data: { session_id: newId },
       });
-      expect(prismaMock.pairing.update).toHaveBeenCalledWith({
-        where: { id: 'pair-1' },
+      expect(prismaMock.pairing.updateMany).toHaveBeenCalledWith({
+        where: { id: 'pair-1', session_id: oldId },
         data: { session_id: newId },
       });
     });

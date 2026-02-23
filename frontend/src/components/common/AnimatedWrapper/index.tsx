@@ -35,18 +35,22 @@ const AnimatedWrapper: React.FC<AnimatedWrapperProps> = ({
   if (trigger === 'intersection') {
     animationRef = intersection.ref;
     isVisible = intersection.isVisible;
-  } else if (animation === 'fade') {
-    animationRef = fadeIn.ref;
-    isVisible = fadeIn.isVisible;
   } else if (animation === 'slide') {
     animationRef = slideIn.ref;
     isVisible = slideIn.isVisible;
+  } else {
+    animationRef = fadeIn.ref;
+    isVisible = fadeIn.isVisible;
   }
 
   const getAnimationClass = () => {
-    if (animation === 'none' || !isVisible) return '';
-    return `animated-wrapper animated-wrapper--${animation} animated-wrapper--${direction}`;
+    if (!isVisible) return '';
+    return `animated-wrapper--${animation} animated-wrapper--${direction}`;
   };
+
+  if (animation === 'none') {
+    return <div className={className}>{children}</div>;
+  }
 
   return (
     <div

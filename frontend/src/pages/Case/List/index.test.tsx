@@ -8,10 +8,23 @@ import CaseList from './index';
 
 const mockGetCaseList = vi.fn();
 const mockNavigate = vi.fn();
+const mockMessageError = vi.fn();
 
 vi.mock('@/services/api/case', () => ({
   getCaseList: (...args: unknown[]) => mockGetCaseList(...args),
 }));
+vi.mock('antd', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('antd')>();
+  return {
+    ...actual,
+    message: {
+      error: (...args: unknown[]) => mockMessageError(...args),
+      success: vi.fn(),
+      info: vi.fn(),
+      warning: vi.fn(),
+    },
+  };
+});
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
@@ -21,10 +34,6 @@ vi.mock('react-router-dom', async () => {
   };
 });
 
-vi.mock('@/components/common/ProtectedRoute', () => ({
-  default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-}));
-
 vi.mock('@/components/common/SEO', () => ({ default: () => null }));
 vi.mock('@/components/common/AnimatedWrapper', () => ({
   default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -32,6 +41,9 @@ vi.mock('@/components/common/AnimatedWrapper', () => ({
 
 vi.mock('@/hooks/usePerformance', () => ({
   useDebounce: (fn: () => void) => fn,
+}));
+vi.mock('@/utils/i18n', () => ({
+  t: (key: string) => key,
 }));
 
 describe('Case List', () => {
@@ -43,14 +55,14 @@ describe('Case List', () => {
     });
   });
 
-  it('應顯示頁面標題「案件列表」', async () => {
+  it('應顯示頁面標題「我的案件」', async () => {
     render(
       <MemoryRouter>
         <CaseList />
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(screen.getByText('案件列表')).toBeInTheDocument();
+      expect(screen.getByText('caseList.heading')).toBeInTheDocument();
     });
   });
 
@@ -61,7 +73,7 @@ describe('Case List', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      const main = container.querySelector('[role="main"][aria-label="案件列表頁面"]');
+      const main = container.querySelector('[role="main"][aria-label="caseList.pageLabel"]');
       expect(main).toBeInTheDocument();
     });
   });
@@ -74,6 +86,41 @@ describe('Case List', () => {
     );
     await waitFor(() => {
       expect(mockGetCaseList).toHaveBeenCalled();
+    });
+  });
+
+  it('getCaseList 錯誤時應處理錯誤', async () => {
+    mockGetCaseList.mockRejectedValue(new Error('獲取失敗'));
+    render(
+      <MemoryRouter>
+        <CaseList />
+      </MemoryRouter>
+    );
+    await waitFor(() => {
+      expect(mockMessageError).toHaveBeenCalledWith('獲取失敗');
+    });
+  });
+
+  it('非空列表時應顯示案件標題', async () => {
+    mockGetCaseList.mockResolvedValue({
+      cases: [
+        {
+          id: 'c1',
+          title: 'Test Case',
+          status: 'draft',
+          type: '生活習慣衝突',
+          created_at: '2025-01-01',
+        },
+      ],
+      pagination: { page: 1, page_size: 10, total: 1, total_pages: 1 },
+    });
+    render(
+      <MemoryRouter>
+        <CaseList />
+      </MemoryRouter>
+    );
+    await waitFor(() => {
+      expect(screen.getByText('Test Case')).toBeInTheDocument();
     });
   });
 });

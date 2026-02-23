@@ -2,15 +2,17 @@
  * Login 頁面單元測試
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import Login from './index';
 
 const mockLogin = vi.fn();
 const mockNavigate = vi.fn();
-const mockUseAuthStore = vi.fn(() => ({ login: mockLogin, isLoading: false }));
+const mockMessageSuccess = vi.fn();
+const mockMessageError = vi.fn();
+const mockMessageWarning = vi.fn();
+
 vi.mock('@/store/authStore', () => ({
-  useAuthStore: () => mockUseAuthStore(),
+  useAuthStore: () => ({ login: mockLogin, isLoading: false }),
 }));
 
 vi.mock('react-router-dom', async () => {
@@ -21,8 +23,8 @@ vi.mock('react-router-dom', async () => {
   };
 });
 
-vi.mock('@/components/common/PublicRoute', () => ({
-  default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+vi.mock('@/utils/i18n', () => ({
+  t: (key: string) => key,
 }));
 
 vi.mock('@/components/common/SEO', () => ({ default: () => null }));
@@ -34,23 +36,32 @@ vi.mock('antd', async (importOriginal) => {
   const actual = await importOriginal<typeof import('antd')>();
   return {
     ...actual,
-    message: { success: vi.fn(), error: vi.fn(), warning: vi.fn() },
+    message: {
+      success: (...args: unknown[]) => mockMessageSuccess(...args),
+      error: (...args: unknown[]) => mockMessageError(...args),
+      warning: (...args: unknown[]) => mockMessageWarning(...args),
+    },
   };
 });
+vi.mock('@/services/api/auth', () => ({
+  sendVerificationCode: vi.fn(),
+}));
+
+import Login from './index';
 
 describe('Login', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('應顯示歡迎回來與登錄以繼續', () => {
+  it('應顯示歡迎標題與副標題', () => {
     render(
       <MemoryRouter>
         <Login />
       </MemoryRouter>
     );
-    expect(screen.getByText('歡迎回來')).toBeInTheDocument();
-    expect(screen.getByText('登錄以繼續')).toBeInTheDocument();
+    expect(screen.getByText('auth.login.welcome')).toBeInTheDocument();
+    expect(screen.getByText('auth.login.subtitle')).toBeInTheDocument();
   });
 
   it('應有郵箱與密碼輸入框', () => {
@@ -59,8 +70,8 @@ describe('Login', () => {
         <Login />
       </MemoryRouter>
     );
-    expect(screen.getByLabelText(/郵箱|邮箱|Email/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/密碼|密码|Password/i)).toBeInTheDocument();
+    expect(screen.getByText('auth.login.email')).toBeInTheDocument();
+    expect(screen.getByText('auth.login.password')).toBeInTheDocument();
   });
 
   it('應有登錄按鈕', () => {
@@ -69,7 +80,7 @@ describe('Login', () => {
         <Login />
       </MemoryRouter>
     );
-    expect(screen.getByRole('button', { name: /登\s*錄|登录/ })).toBeInTheDocument();
+    expect(screen.getByText('auth.login.submit')).toBeInTheDocument();
   });
 
   it('應有登錄頁面 role 與 aria-label', () => {
@@ -78,7 +89,102 @@ describe('Login', () => {
         <Login />
       </MemoryRouter>
     );
-    const main = container.querySelector('[role="main"][aria-label="登錄頁面"]');
+    const main = container.querySelector('[role="main"][aria-label="auth.login.pageLabel"]');
     expect(main).toBeInTheDocument();
+  });
+
+  it('登入成功應顯示成功訊息並導航', async () => {
+    mockLogin.mockResolvedValue(undefined);
+    render(
+      <MemoryRouter>
+        <Login />
+      </MemoryRouter>
+    );
+    const emailInput = screen.getByPlaceholderText('auth.login.emailRequired');
+    const passwordInput = screen.getByPlaceholderText('auth.login.passwordRequired');
+    fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
+    fireEvent.change(passwordInput, { target: { value: 'password123' } });
+    fireEvent.click(screen.getByText('auth.login.submit'));
+    await waitFor(() => {
+      expect(mockLogin).toHaveBeenCalledWith('test@example.com', 'password123', false);
+    });
+    await waitFor(() => {
+      expect(mockMessageSuccess).toHaveBeenCalledWith('message.loginSuccess');
+    });
+    expect(mockNavigate).toHaveBeenCalledWith('/case/list', { replace: true });
+  });
+
+  it('登入失敗應顯示錯誤訊息', async () => {
+    mockLogin.mockRejectedValue({ message: '帳號或密碼錯誤' });
+    render(
+      <MemoryRouter>
+        <Login />
+      </MemoryRouter>
+    );
+    const emailInput = screen.getByPlaceholderText('auth.login.emailRequired');
+    const passwordInput = screen.getByPlaceholderText('auth.login.passwordRequired');
+    fireEvent.change(emailInput, { target: { value: 'bad@example.com' } });
+    fireEvent.change(passwordInput, { target: { value: 'wrong' } });
+    fireEvent.click(screen.getByText('auth.login.submit'));
+    await waitFor(() => {
+      expect(mockLogin).toHaveBeenCalled();
+    });
+    await waitFor(() => {
+      expect(mockMessageError).toHaveBeenCalledWith('帳號或密碼錯誤');
+    });
+  });
+
+  it('登入成功後應重導到 location.state.from 指定路徑', async () => {
+    mockLogin.mockResolvedValue(undefined);
+    render(
+      <MemoryRouter initialEntries={[{ pathname: '/auth/login', state: { from: { pathname: '/judgment/123' } } }]}>
+        <Login />
+      </MemoryRouter>
+    );
+    fireEvent.change(screen.getByPlaceholderText('auth.login.emailRequired'), { target: { value: 'test@example.com' } });
+    fireEvent.change(screen.getByPlaceholderText('auth.login.passwordRequired'), { target: { value: 'password123' } });
+    fireEvent.click(screen.getByText('auth.login.submit'));
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/judgment/123', { replace: true });
+    });
+  });
+
+  it('EMAIL_NOT_VERIFIED 時應顯示 warning 並嘗試重發驗證碼', async () => {
+    const mockSendVerificationCode = vi.fn().mockResolvedValue(undefined);
+    const authModule = await import('@/services/api/auth');
+    (authModule.sendVerificationCode as ReturnType<typeof vi.fn>).mockImplementation(mockSendVerificationCode);
+    mockLogin.mockRejectedValue({ code: 'EMAIL_NOT_VERIFIED', message: 'Email not verified' });
+    render(
+      <MemoryRouter>
+        <Login />
+      </MemoryRouter>
+    );
+    fireEvent.change(screen.getByPlaceholderText('auth.login.emailRequired'), { target: { value: 'test@example.com' } });
+    fireEvent.change(screen.getByPlaceholderText('auth.login.passwordRequired'), { target: { value: 'password123' } });
+    fireEvent.click(screen.getByText('auth.login.submit'));
+    await waitFor(() => {
+      expect(mockMessageWarning).toHaveBeenCalledWith('message.emailNotVerified');
+    });
+    expect(mockSendVerificationCode).toHaveBeenCalledWith('test@example.com', 'verify_email');
+  });
+
+  it('忘記密碼連結應導航至 /auth/forgot-password', () => {
+    render(
+      <MemoryRouter>
+        <Login />
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getByText('auth.login.forgotPassword'));
+    expect(mockNavigate).toHaveBeenCalledWith('/auth/forgot-password');
+  });
+
+  it('註冊連結應導航至 /auth/register', () => {
+    render(
+      <MemoryRouter>
+        <Login />
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getByText('auth.login.registerNow'));
+    expect(mockNavigate).toHaveBeenCalledWith('/auth/register');
   });
 });

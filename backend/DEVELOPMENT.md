@@ -2,7 +2,7 @@
 
 ## 環境要求
 
-- Node.js 18+
+- Node.js 20+
 - PostgreSQL 14+ 或 Supabase
 - npm 或 yarn
 
@@ -185,3 +185,67 @@ npm test -- --coverage
 4. 啟動服務: `npm start`
 
 詳見 [部署文檔](./DEPLOYMENT.md)
+
+---
+
+## 🧠 v2.0 個人化判決系統開發指引
+
+### 新增服務
+
+| 服務 | 職責 | 模型 |
+|------|------|------|
+| `InterviewService` | 訪談 session/turn 管理、SSE 流式回應 | GPT-4o-mini |
+| `AsyncPipelineService` | POST /end 後觸發的異步處理管線 | — |
+| `NarrativeService` | 域級敘事合併與摘要 | GPT-4o |
+| `InsightExtractionService` | 結構化洞察提取 | GPT-4o |
+| `ProfileSnapshotService` | 判決前凍結畫像快照 | — |
+| `ProfileRichnessService` | 8 域加權豐富度計算 | — |
+
+### 新增環境變量
+
+```bash
+# .env
+INTERVIEW_START_RATE_LIMIT=3          # start 端點每用戶每小時上限（express-rate-limit，防濫用）
+INTERVIEW_DAILY_SESSION_LIMIT=5       # 每用戶每天最多 substantive session（業務邏輯，僅計 ≥ 3 輪）
+INTERVIEW_MAX_TURNS=25                # 單 session 最大輪數（硬限）
+INTERVIEW_TURN_INTERVAL_MS=3000       # 輪間最小間隔
+OPENAI_INTERVIEW_MODEL=gpt-4o-mini   # 訪談對話 + 域分類使用的模型（INTERVIEW_AI_CONFIG）
+OPENAI_ANALYSIS_MODEL=gpt-4o         # 敘事摘要 / 洞察提取 / 反饋卡片使用的模型（ANALYSIS_AI_CONFIG）
+INTERVIEW_SOFT_TARGET=15              # AI 軟目標輪數（13 輪起準備收尾，15 輪尋找自然結束點）
+```
+
+### SSE 端點開發
+
+訪談的 `/respond` 和 `/skip` 端點使用 SSE（Server-Sent Events）：
+
+```typescript
+res.writeHead(200, {
+  'Content-Type': 'text/event-stream',
+  'Cache-Control': 'no-cache',
+  Connection: 'keep-alive',
+});
+```
+
+SSE 客戶端協議：`token` / `metadata` / `complete` 等事件不變。⚠️ **實現說明**：當前 AI 回應格式為單一 JSON（含 `text`/`intent`/`target_domains`/`should_end`/`safety_flag`/`safety_message`），由 `interview.service.ts` 解析後轉為 SSE 事件推送。設計方案中的「雙通道」格式（文本 + `---METADATA---` + JSON）尚未實現。
+
+### 異步管線
+
+`POST /interview/:id/end` 後，session 狀態由 `in_progress` → `processing`。後端啟動 5 步異步管線：
+
+1. **NARRATIVE_EXTRACTION**：`domainClassificationService.batchClassify()` 域分類 AI（INTERVIEW_AI_CONFIG gpt-4o-mini）+ `narrativeService.extractNarratives()` 按域歸類
+2. **NARRATIVE_SUMMARY**：`narrativeService.summarizeNarratives()` 每域 AI 摘要（ANALYSIS_AI_CONFIG gpt-4o）
+3. **INSIGHT_EXTRACTION**：`insightExtractionService.extractInsights()` 批次 AI（ANALYSIS_AI_CONFIG gpt-4o）
+4. **RICHNESS_CALCULATION**：`profileRichnessService.calculateRichness()` 純計算
+5. **FEEDBACK_GENERATION**：AI 生成反饋卡片 JSON（ANALYSIS_AI_CONFIG gpt-4o）
+
+每步失敗可重試 2 次（固定退避 2s/4s）。SSE 實現為 **callback-based**（`onSSE` 函數參數），非 AsyncGenerator。
+
+### 資料庫遷移
+
+v2.0 新增 5 個表和 4 個 ENUM，執行遷移：
+
+```bash
+npm run prisma:migrate
+```
+
+詳見 [UPGRADE_PLAN_PERSONALIZED_JUDGMENT.md](../UPGRADE_PLAN_PERSONALIZED_JUDGMENT.md)

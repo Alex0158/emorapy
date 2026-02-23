@@ -44,7 +44,11 @@ export interface AuthResponse {
  */
 export const register = async (data: RegisterDto): Promise<AuthResponse> => {
   const response = await request.post<ApiResponse<AuthResponse>>('/auth/register', data);
-  return (response.data as ApiResponse<AuthResponse>).data;
+  const result = (response.data as ApiResponse<AuthResponse>)?.data;
+  if (!result?.token || !result?.user) {
+    throw new Error('Invalid auth response from server');
+  }
+  return result;
 };
 
 /**
@@ -52,7 +56,11 @@ export const register = async (data: RegisterDto): Promise<AuthResponse> => {
  */
 export const login = async (data: LoginDto): Promise<AuthResponse> => {
   const response = await request.post<ApiResponse<AuthResponse>>('/auth/login', data);
-  return (response.data as ApiResponse<AuthResponse>).data;
+  const result = (response.data as ApiResponse<AuthResponse>)?.data;
+  if (!result?.token || !result?.user) {
+    throw new Error('Invalid auth response from server');
+  }
+  return result;
 };
 
 /**
@@ -78,7 +86,7 @@ export const verifyEmail = async (
     code,
     type,
   });
-  return (response.data as ApiResponse<{ verified: boolean }>).data.verified;
+  return (response.data as ApiResponse<{ verified: boolean }>)?.data?.verified ?? false;
 };
 
 /**
@@ -101,4 +109,14 @@ export const confirmResetPassword = async (
     code,
     new_password: newPassword,
   });
+};
+
+/**
+ * 關聯快速體驗案件到已註冊用戶
+ */
+export const claimSession = async (sessionId: string): Promise<{ case_id: string | null }> => {
+  const response = await request.post<ApiResponse<{ case_id: string | null }>>('/auth/claim-session', {
+    session_id: sessionId,
+  });
+  return (response.data as ApiResponse<{ case_id: string | null }>)?.data ?? { case_id: null };
 };

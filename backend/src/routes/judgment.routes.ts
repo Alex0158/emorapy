@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { judgmentController } from '../controllers/judgment.controller';
 import { authenticate, optionalAuthenticate } from '../middleware/auth';
 import { validate } from '../middleware/validator';
-import { uuidParamSchema } from '../utils/validation';
+import { uuidParamSchema, acceptJudgmentSchema } from '../utils/validation';
 import { aiLimiter, generalLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
@@ -43,6 +43,7 @@ router.post(
   generalLimiter,
   authenticate,
   validate(uuidParamSchema),
+  validate(acceptJudgmentSchema),
   judgmentController.acceptJudgment.bind(judgmentController)
 );
 

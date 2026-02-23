@@ -6,13 +6,13 @@
 
 ## 🛠️ 技術棧
 
-- **運行時**: Node.js 18+
+- **運行時**: Node.js 20+
 - **語言**: TypeScript 5.0+
 - **框架**: Express.js 4.18+
 - **ORM**: Prisma 5.0+
 - **數據庫**: PostgreSQL (Supabase)
 - **認證**: JWT
-- **AI服務**: OpenAI API (GPT-3.5-turbo)
+- **AI服務**: OpenAI API (GPT-4o-mini 對話 + GPT-4o 分析)
 
 ## 📦 安裝
 
@@ -67,14 +67,24 @@ backend/
 │   ├── config/          # 配置文件
 │   ├── middleware/      # 中間件
 │   ├── routes/         # 路由定義
+│   │   ├── interview.routes.ts      # v2.0 訪談路由
+│   │   └── psych-profile.routes.ts  # v2.0 畫像路由
 │   ├── controllers/    # 控制器層
+│   │   ├── interview.controller.ts      # v2.0 訪談控制器
+│   │   └── psych-profile.controller.ts  # v2.0 畫像控制器
 │   ├── services/       # 業務邏輯層
+│   │   ├── interview.service.ts             # v2.0 訪談服務
+│   │   ├── async-pipeline.service.ts        # v2.0 異步管線
+│   │   ├── narrative.service.ts             # v2.0 敘事合併
+│   │   ├── insight-extraction.service.ts    # v2.0 洞察提取
+│   │   ├── profile-snapshot.service.ts      # v2.0 畫像快照
+│   │   └── profile-richness.service.ts      # v2.0 豐富度計算（ProfileRichnessService）
 │   ├── utils/          # 工具函數
 │   ├── types/          # TypeScript類型定義
 │   ├── app.ts          # Express應用入口
 │   └── index.ts        # 服務器啟動文件
 ├── prisma/
-│   └── schema.prisma   # Prisma Schema
+│   └── schema.prisma   # Prisma Schema（含 v2.0 心理畫像 5 表 4 ENUM）
 └── package.json
 ```
 
@@ -108,6 +118,35 @@ rm -rf node_modules && npm install
 ## 📝 開發規範
 
 詳見 [接口建設規範](../後端設計/12-接口建設規範.md)。
+
+---
+
+## 🧠 v2.0 個人化判決系統
+
+v2.0 新增 AI 引導式心理訪談，為用戶建立 8 維心理畫像，並在判決時按 `richness_score` 分級注入個人化上下文。
+
+### 核心組件
+
+- **訪談服務**（`InterviewService`）：Session/Turn 管理、SSE 流式回應（GPT-4o-mini）
+- **異步管線**（`AsyncPipelineService`）：5 步後處理（敘事提取→敘事摘要→洞察提取→豐富度計算→反饋卡片生成）
+- **畫像服務**（`NarrativeService`、`InsightExtractionService`）：域級敘事與結構化洞察
+- **快照服務**（`ProfileSnapshotService`）：判決前凍結畫像
+- **豐富度計算**（`ProfileRichnessService`）：8 域加權評分 → L0-L3 注入等級
+
+### 新增 API 端點
+
+11 個端點（`/api/interview/*`、`/api/psych-profile/*`），詳見 [API 文檔](./API.md)。
+
+### 安全機制
+
+- 知情同意驗證（`psych_consent_given`）
+- Rate Limiting（start 頻率、turn 間隔）
+- Session 級併發鎖
+- SSE 分隔符注入防禦
+- 安全風險即時偵測與資源轉介
+- 遺忘權（DELETE 永久刪除訪談記錄和畫像數據）
+
+詳見 [UPGRADE_PLAN_PERSONALIZED_JUDGMENT.md](../../UPGRADE_PLAN_PERSONALIZED_JUDGMENT.md)
 
 ## 🐛 問題反饋
 

@@ -290,15 +290,14 @@ export class FileService {
         .jpeg({ quality: 80 })
         .toFile(outputPath);
 
-      // 刪除原始文件以節省空間
-      await fs.unlink(inputPath).catch(() => {});
+      await fs.unlink(inputPath).catch((e) => { logger.debug('Failed to remove original image after processing', { inputPath, error: e }); });
       const stat = await fs.stat(outputPath);
       return { filename: outputName, size: stat.size, mimetype: 'image/jpeg' };
     } catch (error) {
       logger.error('Image processing failed', { file: file.filename, error });
       // 失敗時返回原文件名，避免阻塞流程
-      const stat = await fs.stat(inputPath).catch(() => ({ size: file.size })) as any;
-      return { filename: file.filename, size: stat.size ?? file.size, mimetype: file.mimetype };
+      const stat = await fs.stat(inputPath).catch((): { size: number } => ({ size: file.size }));
+      return { filename: file.filename, size: stat.size, mimetype: file.mimetype };
     }
   }
 
@@ -323,14 +322,13 @@ export class FileService {
           .run();
       });
 
-      // 刪除原始文件
-      await fs.unlink(inputPath).catch(() => {});
+      await fs.unlink(inputPath).catch((e) => { logger.debug('Failed to remove original video after processing', { inputPath, error: e }); });
       const stat = await fs.stat(outputPath);
       return { filename: outputName, size: stat.size, mimetype: 'video/mp4' };
     } catch (error) {
       logger.error('Video processing failed', { file: file.filename, error });
-      const stat = await fs.stat(inputPath).catch(() => ({ size: file.size })) as any;
-      return { filename: file.filename, size: stat.size ?? file.size, mimetype: file.mimetype };
+      const stat = await fs.stat(inputPath).catch((): { size: number } => ({ size: file.size }));
+      return { filename: file.filename, size: stat.size, mimetype: file.mimetype };
     }
   }
 
@@ -358,3 +356,11 @@ export class FileService {
 }
 
 export const fileService = new FileService();
+
+/**
+ * 簽名使用者 avatar URL。傳入帶 avatar_url 的物件，回傳 URL 已簽名的副本。
+ */
+export function signAvatar<T extends { avatar_url?: string | null }>(user: T | null | undefined): T | null | undefined {
+  if (!user?.avatar_url) return user;
+  return { ...user, avatar_url: fileService.signUrl(user.avatar_url) };
+}

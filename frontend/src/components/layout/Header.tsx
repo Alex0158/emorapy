@@ -4,13 +4,21 @@
 
 import { Layout, Menu, Button, Dropdown, Avatar, Space, Select } from 'antd';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { HomeOutlined, LoginOutlined, UserOutlined, LogoutOutlined, SettingOutlined, GlobalOutlined } from '@ant-design/icons';
-import { useCallback, useEffect, useState } from 'react';
+import { HomeOutlined, LoginOutlined, UserOutlined, LogoutOutlined, SettingOutlined, GlobalOutlined, FileTextOutlined, CheckSquareOutlined } from '@ant-design/icons';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { t, getLocale, onLocaleChange, setLocale, type Locale } from '@/utils/i18n';
 import './Header.less';
 
 const { Header: AntHeader } = Layout;
+
+const NAV_PREFIX_MAP: Record<string, string> = {
+  '/case': '/case/list',
+  '/judgment': '/case/list',
+  '/reconciliation': '/case/list',
+  '/execution': '/execution/dashboard',
+  '/profile': '/profile/index',
+};
 
 const Header = () => {
   const location = useLocation();
@@ -18,7 +26,19 @@ const Header = () => {
   const { isAuthenticated, user, logout } = useAuthStore();
   const [locale, setLocalLocale] = useState<Locale>(getLocale());
 
-  useEffect(() => onLocaleChange(() => setLocalLocale(getLocale())), []);
+  const selectedKeys = useMemo(() => {
+    const { pathname } = location;
+    if (pathname === '/') return ['/'];
+    for (const [prefix, key] of Object.entries(NAV_PREFIX_MAP)) {
+      if (pathname.startsWith(prefix)) return [key];
+    }
+    return [pathname];
+  }, [location]);
+
+  useEffect(() => {
+    const unsubscribe = onLocaleChange(() => setLocalLocale(getLocale()));
+    return unsubscribe;
+  }, []);
 
   const handleLocaleChange = useCallback((value: Locale) => {
     // 先更新本地 state，避免 UI 因重渲染時序看起來像「沒切換」
@@ -32,10 +52,25 @@ const Header = () => {
       icon: <HomeOutlined />,
       label: <Link to="/">{t('nav.home')}</Link>,
     },
-    {
-      key: '/quick-experience/create',
-      label: <Link to="/quick-experience/create">{t('nav.quickExperience')}</Link>,
-    },
+    ...(!isAuthenticated
+      ? [
+          {
+            key: '/quick-experience/create',
+            label: <Link to="/quick-experience/create">{t('nav.quickExperience')}</Link>,
+          },
+        ]
+      : [
+          {
+            key: '/case/list',
+            icon: <FileTextOutlined />,
+            label: <Link to="/case/list">{t('nav.myCases')}</Link>,
+          },
+          {
+            key: '/execution/dashboard',
+            icon: <CheckSquareOutlined />,
+            label: <Link to="/execution/dashboard">{t('nav.execution')}</Link>,
+          },
+        ]),
   ];
 
   const userMenuItems = [
@@ -74,7 +109,7 @@ const Header = () => {
 
         <Menu
           mode="horizontal"
-          selectedKeys={[location.pathname]}
+          selectedKeys={selectedKeys}
           items={menuItems}
           className="header-menu"
         />

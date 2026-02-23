@@ -20,7 +20,7 @@ export const requestLogger = (req: Request, res: Response, next: NextFunction): 
     // 根據環境構建日誌數據
     // 開發環境：記錄詳細信息
     // 生產環境：不記錄 userAgent 等敏感信息，僅記錄錯誤請求
-    const logData: any = {
+    const logData: Record<string, unknown> = {
       request_id: requestId,
       method: req.method,
       url: req.url,

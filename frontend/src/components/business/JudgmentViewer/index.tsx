@@ -14,7 +14,7 @@ import ReactMarkdown from 'react-markdown';
 import { useState } from 'react';
 import { copyToClipboard } from '@/utils/helpers';
 import { message } from 'antd';
-import { t } from '@/utils/i18n';
+import { t, getLocale } from '@/utils/i18n';
 import './JudgmentViewer.less';
 
 const { Title } = Typography;
@@ -56,7 +56,7 @@ const JudgmentViewer = ({
         setIsPlaying(false);
       } else {
         const utterance = new SpeechSynthesisUtterance(content);
-        utterance.lang = 'zh-CN';
+        utterance.lang = getLocale().startsWith('zh') ? 'zh-TW' : 'en-US';
         utterance.rate = 1;
         utterance.pitch = 1;
         utterance.volume = 1;

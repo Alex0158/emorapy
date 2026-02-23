@@ -88,14 +88,15 @@ async function initializeDatabase() {
           timeout: 60000 // 60秒超時（本機首次或慢速環境）
         });
         logger.info('數據庫遷移完成');
-      } catch (migrationError: any) {
+      } catch (migrationError: unknown) {
         // 如果遷移失敗，記錄詳細錯誤但繼續嘗試連接
-        const errorMessage = migrationError.message || migrationError.toString();
-        const errorOutput = migrationError.stdout?.toString() || migrationError.stderr?.toString() || '';
+        const migErr = migrationError as { message?: string; stdout?: Buffer; stderr?: Buffer };
+        const errorMessage = migErr.message || String(migrationError);
+        const errorOutput = migErr.stdout?.toString() || migErr.stderr?.toString() || '';
         
         logger.warn('數據庫遷移失敗，嘗試直接連接', { 
           error: errorMessage,
-          output: errorOutput.substring(0, 500), // 限制輸出長度
+          output: errorOutput.substring(0, 500),
         });
         
         // 檢查是否是連接問題
@@ -213,10 +214,10 @@ async function initializeDatabase() {
 
 export const databaseReady = initializeDatabase();
 
-// 優雅關閉
+// 安全網：event loop 自然排空時斷開連接（SIGINT/SIGTERM 由 index.ts 統一處理）
 process.on('beforeExit', async () => {
   await prisma.$disconnect();
-  logger.info('數據庫連接已關閉');
+  logger.info('數據庫連接已關閉（beforeExit）');
 });
 
 export default prisma;

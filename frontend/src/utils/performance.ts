@@ -36,7 +36,7 @@ export const logPageLoadTime = (): void => {
         const loadTime = navigation.loadEventEnd - navigation.fetchStart;
         logger.debug(`[Performance] Page Load Time: ${loadTime.toFixed(2)}ms`);
       }
-    });
+    }, { once: true });
   }
 };
 
@@ -59,10 +59,8 @@ export const logResourceTiming = (): void => {
  * 獲取Web Vitals指標
  */
 export const getWebVitals = (): {
-  fcp?: number;
-  lcp?: number;
-  fid?: number;
-  cls?: number;
+  vitals: { fcp?: number; lcp?: number; fid?: number; cls?: number };
+  disconnect: () => void;
 } => {
   const vitals: {
     fcp?: number;
@@ -71,8 +69,9 @@ export const getWebVitals = (): {
     cls?: number;
   } = {};
 
+  const observers: PerformanceObserver[] = [];
+
   if (typeof window !== 'undefined' && 'PerformanceObserver' in window) {
-    // FCP (First Contentful Paint)
     try {
       const fcpObserver = new PerformanceObserver((list) => {
         const entries = list.getEntries();
@@ -83,11 +82,11 @@ export const getWebVitals = (): {
         });
       });
       fcpObserver.observe({ entryTypes: ['paint'] });
+      observers.push(fcpObserver);
     } catch {
-      // 忽略錯誤
+      // PerformanceObserver not supported for this entry type
     }
 
-    // LCP (Largest Contentful Paint)
     try {
       const lcpObserver = new PerformanceObserver((list) => {
         const entries = list.getEntries();
@@ -96,11 +95,15 @@ export const getWebVitals = (): {
         vitals.lcp = Math.round((lastEntry as LCPEntry).renderTime ?? (lastEntry as LCPEntry).loadTime ?? 0);
       });
       lcpObserver.observe({ entryTypes: ['largest-contentful-paint'] });
+      observers.push(lcpObserver);
     } catch {
-      // 忽略錯誤
+      // PerformanceObserver not supported for this entry type
     }
   }
 
-  return vitals;
+  return {
+    vitals,
+    disconnect: () => observers.forEach(o => o.disconnect()),
+  };
 };
 

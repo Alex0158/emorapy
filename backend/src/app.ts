@@ -10,7 +10,7 @@ import { downloadLimiter } from './middleware/rateLimiter';
 import { responseFormatter } from './middleware/responseFormatter';
 import { requestId } from './middleware/requestId';
 import { performanceMonitor } from './middleware/performance';
-import { authorizeMedia } from './middleware/auth';
+import { authorizeMedia, optionalAuthenticate } from './middleware/auth';
 import { localeMiddleware } from './middleware/locale';
 import { translateBackendMessage, translateErrorByCode } from './i18n';
 
@@ -27,6 +27,8 @@ import executionRoutes from './routes/execution.routes';
 import contentRoutes from './routes/content.routes';
 import profileRoutes from './routes/profile.routes';
 import notificationRoutes from './routes/notification.routes';
+import interviewRoutes from './routes/interview.routes';
+import psychProfileRoutes from './routes/psych-profile.routes';
 
 const app: Application = express();
 
@@ -89,7 +91,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // 捕獲 JSON 解析錯誤，返回 400
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: unknown, req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (err instanceof SyntaxError && 'body' in err) {
     return res.status(400).json({
       success: false,
@@ -128,11 +130,14 @@ app.use('/uploads', (req, res, next) => {
       },
     });
   }
-  return downloadLimiter(req, res, (err: any) => {
+  return downloadLimiter(req, res, (err: unknown) => {
     if (err) return next(err);
-    authorizeMedia(req, res, (err2: any) => {
-      if (err2) return next(err2);
-      return express.static(uploadPath)(req, res, next);
+    optionalAuthenticate(req, res, (err1: unknown) => {
+      if (err1) return next(err1);
+      authorizeMedia(req, res, (err2: unknown) => {
+        if (err2) return next(err2);
+        return express.static(uploadPath)(req, res, next);
+      });
     });
   });
 });
@@ -145,6 +150,8 @@ app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/sessions', sessionRoutes);
 app.use('/api/v1/user', userRoutes);
 app.use('/api/v1', profileRoutes);
+app.use('/api/v1/interview', interviewRoutes);
+app.use('/api/v1/psych-profile', psychProfileRoutes);
 app.use('/api/v1/pairing', pairingRoutes);
 app.use('/api/v1/cases', caseRoutes);
 app.use('/api/v1/judgments', judgmentRoutes);

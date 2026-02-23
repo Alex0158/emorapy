@@ -14,7 +14,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import BearJudge from "@/components/business/BearJudge";
 import AnimatedWrapper from "@/components/common/AnimatedWrapper";
-import PublicRoute from "@/components/common/PublicRoute";
 import SEO from "@/components/common/SEO";
 import { confirmResetPassword, resetPassword } from "@/services/api/auth";
 import { getErrorMessage } from "@/utils/apiError";
@@ -159,7 +158,7 @@ const ForgotPassword = () => {
 	};
 
 	return (
-		<PublicRoute>
+		<>
 			<SEO
 				title={t("auth.forgot.title")}
 				description={t("auth.forgot.description")}
@@ -305,6 +304,7 @@ const ForgotPassword = () => {
 											message: t("auth.forgot.newPasswordRequired"),
 										},
 										{ min: 8, message: t("auth.register.passwordMin") },
+										{ max: 128, message: t("auth.register.passwordMax") },
 										{
 											pattern: /^(?=.*[A-Za-z])(?=.*\d)/,
 											message: t("auth.register.passwordPattern"),
@@ -314,6 +314,7 @@ const ForgotPassword = () => {
 									<Input.Password
 										prefix={<LockOutlined />}
 										placeholder={t("auth.forgot.newPasswordPlaceholder")}
+										maxLength={128}
 										iconRender={(visible) =>
 											visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />
 										}
@@ -389,7 +390,7 @@ const ForgotPassword = () => {
 					</Card>
 				</AnimatedWrapper>
 			</div>
-		</PublicRoute>
+		</>
 	);
 };
 

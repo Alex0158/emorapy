@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('@/utils/logger', () => ({ logger: { error: vi.fn() } }));
 
-import { memoryCache, sessionCache } from './cache';
+import { memoryCache, MemoryCache, sessionCache } from './cache';
 
 describe('cache', () => {
   describe('memoryCache', () => {
@@ -49,6 +49,17 @@ describe('cache', () => {
       memoryCache.set('a', 1);
       memoryCache.set('b', 2);
       expect(memoryCache.size()).toBe(2);
+    });
+    it('超過 maxSize 時應淘汰最早的條目', () => {
+      const small = new MemoryCache(3);
+      small.set('a', 1);
+      small.set('b', 2);
+      small.set('c', 3);
+      expect(small.size()).toBe(3);
+      small.set('d', 4);
+      expect(small.size()).toBe(3);
+      expect(small.get('a')).toBeNull();
+      expect(small.get('d')).toBe(4);
     });
   });
 

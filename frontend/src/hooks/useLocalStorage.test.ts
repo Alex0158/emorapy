@@ -2,10 +2,10 @@
  * useLocalStorage Hook 單元測試
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { useLocalStorage } from './useLocalStorage';
 
-const mockLogger = { error: vi.fn() };
+const { mockLogger } = vi.hoisted(() => ({ mockLogger: { error: vi.fn() } }));
 vi.mock('@/utils/logger', () => ({ logger: mockLogger }));
 
 describe('useLocalStorage', () => {
@@ -41,25 +41,29 @@ describe('useLocalStorage', () => {
     expect(result.current[0]).toEqual({ name: 'test' });
   });
 
-  it('setValue 應寫入 localStorage 並更新 state', () => {
+  it('setValue 應寫入 localStorage 並更新 state', async () => {
     getItem.mockReturnValue(null);
     const { result } = renderHook(() => useLocalStorage('key3', 0));
-    act(() => {
+    await act(async () => {
       result.current[1](42);
     });
-    expect(result.current[0]).toBe(42);
+    await waitFor(() => {
+      expect(result.current[0]).toBe(42);
+    });
     expect(setItem).toHaveBeenCalledWith('key3', '42');
   });
 
-  it('setValue 接受函數 updater', () => {
+  it('setValue 接受函數 updater', async () => {
     storage['key4'] = '10';
     getItem.mockImplementation((k: string) => storage[k] ?? null);
     const { result } = renderHook(() => useLocalStorage('key4', 0));
     expect(result.current[0]).toBe(10);
-    act(() => {
+    await act(async () => {
       result.current[1]((prev: number) => prev + 5);
     });
-    expect(result.current[0]).toBe(15);
+    await waitFor(() => {
+      expect(result.current[0]).toBe(15);
+    });
     expect(setItem).toHaveBeenCalledWith('key4', '15');
   });
 
@@ -71,16 +75,18 @@ describe('useLocalStorage', () => {
     expect(mockLogger.error).toHaveBeenCalled();
   });
 
-  it('寫入時異常應記錄錯誤且不拋出', () => {
+  it('寫入時異常應記錄錯誤且不拋出', async () => {
     getItem.mockReturnValue(null);
     setItem.mockImplementation(() => {
       throw new Error('QuotaExceeded');
     });
     const { result } = renderHook(() => useLocalStorage('key5', 'v'));
-    act(() => {
+    await act(async () => {
       result.current[1]('v2');
     });
     expect(mockLogger.error).toHaveBeenCalled();
-    expect(result.current[0]).toBe('v2');
+    await waitFor(() => {
+      expect(result.current[0]).toBe('v2');
+    });
   });
 });

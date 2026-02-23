@@ -7,12 +7,19 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import type { User } from "@/services/api/auth";
 import * as authApi from "@/services/api/auth";
 import { getProfile } from "@/services/api/user";
+import { logger } from "@/utils/logger";
+import { cancelAllRequests } from "@/services/request";
+import { sessionStorage as appSessionStorage } from "@/utils/storage";
+import { useInterviewStore } from "./interviewStore";
+import { usePsychProfileStore } from "./psychProfileStore";
+import { useCaseStore } from "./caseStore";
 
 interface AuthState {
 	user: User | null;
 	token: string | null;
 	isAuthenticated: boolean;
 	isLoading: boolean;
+	_hasHydrated: boolean;
 	login: (
 		email: string,
 		password: string,
@@ -28,8 +35,17 @@ interface AuthState {
 	checkAuth: () => Promise<void>;
 }
 
+function safeGetItem(storage: Storage, key: string): string | null {
+	try { return storage.getItem(key); } catch { return null; }
+}
+function safeSetItem(storage: Storage, key: string, value: string): void {
+	try { storage.setItem(key, value); } catch { /* noop */ }
+}
+function safeRemoveItem(storage: Storage, key: string): void {
+	try { storage.removeItem(key); } catch { /* noop */ }
+}
 function getPersistedToken(): string | null {
-	return localStorage.getItem("token") || sessionStorage.getItem("token");
+	return safeGetItem(localStorage, "token") || safeGetItem(sessionStorage, "token");
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -38,6 +54,7 @@ export const useAuthStore = create<AuthState>()(
 			user: null,
 			token: null,
 			isAuthenticated: false,
+			_hasHydrated: false,
 			isLoading: false,
 
 			login: async (email: string, password: string, rememberMe?: boolean) => {
@@ -45,11 +62,11 @@ export const useAuthStore = create<AuthState>()(
 				try {
 					const response = await authApi.login({ email, password });
 					if (rememberMe) {
-						localStorage.setItem("token", response.token);
-						sessionStorage.removeItem("token");
+						safeSetItem(localStorage, "token", response.token);
+						safeRemoveItem(sessionStorage, "token");
 					} else {
-						sessionStorage.setItem("token", response.token);
-						localStorage.removeItem("token");
+						safeSetItem(sessionStorage, "token", response.token);
+						safeRemoveItem(localStorage, "token");
 					}
 					set({
 						user: response.user,
@@ -57,6 +74,11 @@ export const useAuthStore = create<AuthState>()(
 						isAuthenticated: true,
 						isLoading: false,
 					});
+
+					const quickSessionId = appSessionStorage.get();
+					if (quickSessionId) {
+						authApi.claimSession(quickSessionId).catch((e: unknown) => { logger.warn('Failed to claim quick session on login', e); });
+					}
 				} catch (error) {
 					set({ isLoading: false });
 					throw error;
@@ -71,14 +93,19 @@ export const useAuthStore = create<AuthState>()(
 						password,
 						nickname,
 					});
-					localStorage.setItem("token", response.token);
-					sessionStorage.removeItem("token");
+					safeSetItem(localStorage, "token", response.token);
+					safeRemoveItem(sessionStorage, "token");
 					set({
 						user: response.user,
 						token: response.token,
 						isAuthenticated: true,
 						isLoading: false,
 					});
+
+					const quickSessionId = appSessionStorage.get();
+					if (quickSessionId) {
+						authApi.claimSession(quickSessionId).catch((e: unknown) => { logger.warn('Failed to claim quick session', e); });
+					}
 				} catch (error) {
 					set({ isLoading: false });
 					throw error;
@@ -86,8 +113,14 @@ export const useAuthStore = create<AuthState>()(
 			},
 
 			logout: () => {
-				localStorage.removeItem("token");
-				sessionStorage.removeItem("token");
+				useInterviewStore.getState().reset();
+				usePsychProfileStore.getState().reset();
+				useCaseStore.getState().clearError();
+				useCaseStore.getState().setCurrentCase(null);
+				cancelAllRequests();
+
+				safeRemoveItem(localStorage, "token");
+				safeRemoveItem(sessionStorage, "token");
 				set({
 					user: null,
 					token: null,
@@ -115,8 +148,8 @@ export const useAuthStore = create<AuthState>()(
 							isAuthenticated: true,
 						});
 					} catch {
-						localStorage.removeItem("token");
-						sessionStorage.removeItem("token");
+						safeRemoveItem(localStorage, "token");
+						safeRemoveItem(sessionStorage, "token");
 						set({
 							user: null,
 							token: null,
@@ -153,3 +186,14 @@ export const useAuthStore = create<AuthState>()(
 		},
 	),
 );
+
+// Zustand v5 的 persist 使用同步 thenable 處理 localStorage hydration，
+// 導致 onRehydrateStorage 回調在 create() 完成前就執行，此時 useAuthStore 仍在 TDZ。
+// 改用 onFinishHydration API 確保 _hasHydrated 在 store 建立後才設定。
+const _setHydrated = () => {
+	useAuthStore.setState({ _hasHydrated: true });
+};
+if (useAuthStore.persist.hasHydrated()) {
+	_setHydrated();
+}
+useAuthStore.persist.onFinishHydration(_setHydrated);

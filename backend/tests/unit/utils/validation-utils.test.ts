@@ -17,7 +17,7 @@ describe('ValidationUtils', () => {
     });
 
     it('應拋出過短錯誤', () => {
-      expect(() => ValidationUtils.validateStatement('short')).toThrow(/至少50字/);
+      expect(() => ValidationUtils.validateStatement('short')).toThrow(/至少30字/);
     });
 
     it('應拋出過長錯誤', () => {

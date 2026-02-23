@@ -2,29 +2,28 @@
  * 網絡狀態監控組件
  */
 
-import { useEffect, useState } from 'react';
-import { Alert } from 'antd';
+import { useEffect, useState, useRef } from 'react';
+import { Alert, message } from 'antd';
 import { DisconnectOutlined } from '@ant-design/icons';
 import { t } from '@/utils/i18n';
 import './NetworkStatus.less';
 
 const NetworkStatus = () => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [wasOffline, setWasOffline] = useState(false);
+  const wasOfflineRef = useRef(false);
 
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
-      if (wasOffline) {
-        setWasOffline(false);
-        // 可以觸發數據刷新
-        window.location.reload();
+      if (wasOfflineRef.current) {
+        wasOfflineRef.current = false;
+        message.success(t('networkStatus.restored'));
       }
     };
 
     const handleOffline = () => {
       setIsOnline(false);
-      setWasOffline(true);
+      wasOfflineRef.current = true;
     };
 
     window.addEventListener('online', handleOnline);
@@ -34,7 +33,7 @@ const NetworkStatus = () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, [wasOffline]);
+  }, []);
 
   if (isOnline) {
     return null;

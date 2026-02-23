@@ -2,7 +2,7 @@
  * NetworkStatus 組件單元測試
  */
 import { describe, it, expect, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import NetworkStatus from './index';
 
 describe('NetworkStatus', () => {
@@ -28,12 +28,14 @@ describe('NetworkStatus', () => {
     expect(container.querySelector('.network-status')).toBeInTheDocument();
   });
 
-  it('離線後觸發 online 事件應隱藏提示', () => {
+  it('離線後觸發 online 事件應隱藏提示', async () => {
     Object.defineProperty(navigator, 'onLine', { value: false, writable: true, configurable: true });
-    const { rerender } = render(<NetworkStatus />);
+    render(<NetworkStatus />);
     expect(screen.getByText('網絡連接已斷開')).toBeInTheDocument();
     Object.defineProperty(navigator, 'onLine', { value: true, writable: true, configurable: true });
     window.dispatchEvent(new Event('online'));
-    rerender(<NetworkStatus />);
+    await waitFor(() => {
+      expect(screen.queryByText('網絡連接已斷開')).not.toBeInTheDocument();
+    });
   });
 });

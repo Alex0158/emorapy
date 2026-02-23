@@ -2,7 +2,7 @@
  * 個人資料頁面
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Card,
   Form,
@@ -14,6 +14,8 @@ import {
   Space,
   message,
   Spin,
+  Tag,
+  Progress,
 } from 'antd';
 import {
   UserOutlined,
@@ -26,10 +28,17 @@ import { formatFileSize } from '@/utils/format';
 import ProtectedRoute from '@/components/common/ProtectedRoute';
 import SEO from '@/components/common/SEO';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
+import RichnessRing from '@/components/business/Interview/RichnessRing';
+import ConsentModal from '@/components/business/Interview/ConsentModal';
+import { usePsychProfileStore } from '@/store/psychProfileStore';
+import { useInterviewStore } from '@/store/interviewStore';
+import { useNavigate } from 'react-router-dom';
+import { getDomainLabel } from '@/types/interview';
+import type { PsychDomain } from '@/types/interview';
 import { t } from '@/utils/i18n';
 import './Index.less';
 
-const { Title, Text } = Typography;
+const { Title, Text, Paragraph } = Typography;
 
 const ProfileIndex = () => {
   const [form] = Form.useForm();
@@ -37,9 +46,18 @@ const ProfileIndex = () => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [consentOpen, setConsentOpen] = useState(false);
+  const navigate = useNavigate();
+  const { profile: psychProfile, fetchProfile: fetchPsychProfile, giveConsent, consentLoading } = usePsychProfileStore();
+  const { startSession, checkResume } = useInterviewStore();
+
+  const staleRef = useRef(false);
 
   useEffect(() => {
+    staleRef.current = false;
     fetchProfile();
+    fetchPsychProfile();
+    return () => { staleRef.current = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 僅 mount 時拉取一次
   }, []);
 
@@ -47,13 +65,15 @@ const ProfileIndex = () => {
     setLoading(true);
     try {
       const profile = await getProfile();
+      if (staleRef.current) return;
       form.setFieldsValue(profile);
       updateUser(profile);
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : t('message.getProfileIndexFail');
-      message.error(msg);
+      if (staleRef.current) return;
+      const err = error as { message?: string };
+      message.error(err?.message || t('message.getProfileIndexFail'));
     } finally {
-      setLoading(false);
+      if (!staleRef.current) setLoading(false);
     }
   };
 
@@ -64,8 +84,8 @@ const ProfileIndex = () => {
       updateUser(updatedUser);
       message.success(t('message.profileUpdateSuccess'));
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : t('message.updateFail');
-      message.error(msg);
+      const err = error as { message?: string };
+      message.error(err?.message || t('message.updateFail'));
     } finally {
       setSaving(false);
     }
@@ -128,17 +148,17 @@ const ProfileIndex = () => {
                         method: 'POST',
                         body: formData,
                         headers: {
-                          Authorization: `Bearer ${localStorage.getItem('token') || ''}`,
+                          Authorization: `Bearer ${(() => { try { return localStorage.getItem('token') || window.sessionStorage.getItem('token') || ''; } catch { return ''; } })()}`,
                         },
                       });
-                      const json = await resp.json();
-                      if (!resp.ok || !json.success) {
-                        throw new Error(json.error?.message || t('message.avatarUploadFail'));
+                      const json = await resp.json().catch(() => null);
+                      if (!resp.ok || !json?.success) {
+                        throw new Error(json?.error?.message || t('message.avatarUploadFail'));
                       }
-                      updateUser(json.data.user);
+                      updateUser(json.data?.user);
                       message.success(t('message.avatarSuccess'));
                     } catch (err: unknown) {
-                      const msg = err instanceof Error ? err.message : t('message.avatarUploadFail');
+                      const msg = (err as { message?: string })?.message || t('message.avatarUploadFail');
                       message.error(msg);
                     } finally {
                       setUploading(false);
@@ -181,6 +201,110 @@ const ProfileIndex = () => {
           </Form>
           </Card>
         </AnimatedWrapper>
+
+        {/* 我的故事卡片 — v2.0 心理畫像 */}
+        <AnimatedWrapper animation="slide" direction="up" delay={300} trigger="intersection">
+          <Card
+            title={t('psychProfile.myStory')}
+            extra={
+              psychProfile?.consent_given ? (
+                <Button
+                  type="link"
+                  onClick={async () => {
+                    try {
+                      const resumeData = await checkResume();
+                      if (resumeData.has_pending && resumeData.session_id) {
+                        navigate(`/interview/${resumeData.session_id}`);
+                        return;
+                      }
+                      const session = await startSession('organic');
+                      navigate(`/interview/${session.id}`);
+                    } catch {
+                      message.error(t('interview.startFail'));
+                    }
+                  }}
+                >
+                  {t('psychProfile.continueChat')}
+                </Button>
+              ) : null
+            }
+            style={{ marginTop: 24 }}
+          >
+            {!psychProfile?.consent_given ? (
+              <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                <Paragraph>{t('psychProfile.intro')}</Paragraph>
+                <Button type="primary" onClick={() => setConsentOpen(true)}>
+                  {t('psychProfile.chatForFive')}
+                </Button>
+              </Space>
+            ) : (
+              <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+                  <RichnessRing score={psychProfile.richness_score || 0} size={80} />
+                  <div style={{ flex: 1 }}>
+                    <Text strong>{t('psychProfile.exploredDomains')}</Text>
+                    <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                      {psychProfile.narratives?.filter(n => n.is_latest && n.completeness > 0).map(n => (
+                        <Tag key={n.domain} color="blue">
+                          {getDomainLabel(n.domain as PsychDomain)}
+                        </Tag>
+                      ))}
+                      {(!psychProfile.narratives || psychProfile.narratives.filter(n => n.is_latest && n.completeness > 0).length === 0) && (
+                        <Text type="secondary">{t('psychProfile.noExplored')}</Text>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                {psychProfile.insights && psychProfile.insights.filter(i => i.is_active).length > 0 && (
+                  <div>
+                    <Text type="secondary">{t('psychProfile.keyInsights')}</Text>
+                    <div style={{ marginTop: 8 }}>
+                      {psychProfile.insights.filter(i => i.is_active).slice(0, 5).map(i => (
+                        <div key={i.id} style={{ marginBottom: 4 }}>
+                          <Text>{i.key}：{i.value}</Text>
+                          <Progress
+                            percent={Math.round(i.confidence * 100)}
+                            size="small"
+                            showInfo={false}
+                            style={{ width: 80, display: 'inline-block', marginLeft: 8 }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <Button
+                  type="link"
+                  onClick={() => navigate('/profile/my-story')}
+                  style={{ padding: 0 }}
+                >
+                  {t('psychProfile.manageMyData')}
+                </Button>
+              </Space>
+            )}
+          </Card>
+        </AnimatedWrapper>
+
+        <ConsentModal
+          open={consentOpen}
+          onConsent={async () => {
+            try {
+              await giveConsent();
+              setConsentOpen(false);
+              const resumeData = await checkResume();
+              if (resumeData.has_pending && resumeData.session_id) {
+                navigate(`/interview/${resumeData.session_id}`);
+                return;
+              }
+              const session = await startSession('onboarding');
+              navigate(`/interview/${session.id}`);
+            } catch {
+              message.error(t('interview.startFail'));
+            }
+          }}
+          onCancel={() => setConsentOpen(false)}
+          loading={consentLoading}
+        />
       </div>
     </ProtectedRoute>
   );

@@ -77,18 +77,30 @@ describe('useApi', () => {
     expect(mockMessageSuccess).toHaveBeenCalledWith('成功');
   });
 
-  it('reset 應清空 data、error、loading', async () => {
-    const fn = vi.fn().mockResolvedValue(1);
+  it('reset 應清空 data', async () => {
+    const fn = vi.fn().mockResolvedValue(42);
     const { result } = renderHook(() => useApi(fn));
     await act(async () => {
       await result.current.execute();
     });
-    expect(result.current.data).toBe(1);
+    expect(result.current.data).toBe(42);
     act(() => {
       result.current.reset();
     });
     expect(result.current.data).toBeNull();
-    expect(result.current.error).toBeNull();
     expect(result.current.loading).toBe(false);
+  });
+
+  it('reset 應清空 error', async () => {
+    const fn = vi.fn().mockRejectedValue(new Error('fail'));
+    const { result } = renderHook(() => useApi(fn, { showError: false }));
+    await act(async () => {
+      try { await result.current.execute(); } catch { /* expected */ }
+    });
+    expect(result.current.error).toBeTruthy();
+    act(() => {
+      result.current.reset();
+    });
+    expect(result.current.error).toBeNull();
   });
 });

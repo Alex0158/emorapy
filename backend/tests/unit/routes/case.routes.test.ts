@@ -8,6 +8,7 @@ import request from 'supertest';
 const mockGetCaseBySessionId = jest.fn();
 const mockCreateQuickCase = jest.fn();
 const mockCreateCase = jest.fn();
+const mockCreateCollaborativeCase = jest.fn();
 const mockGetCaseList = jest.fn();
 const mockGetJudgmentByCaseId = jest.fn();
 const mockSubmitCase = jest.fn();
@@ -22,6 +23,8 @@ jest.mock('../../../src/controllers/case.controller', () => ({
       mockGetCaseBySessionId(req, res, next),
     createQuickCase: (req: unknown, res: unknown, next: unknown) =>
       mockCreateQuickCase(req, res, next),
+    createCollaborativeCase: (req: unknown, res: unknown, next: unknown) =>
+      mockCreateCollaborativeCase(req, res, next),
     createCase: (req: unknown, res: unknown, next: unknown) =>
       mockCreateCase(req, res, next),
     getCaseList: (req: unknown, res: unknown, next: unknown) =>

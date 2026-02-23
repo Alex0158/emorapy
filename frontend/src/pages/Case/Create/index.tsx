@@ -4,55 +4,69 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { logger } from '@/utils/logger';
 import {
   Card,
   Button,
   Form,
   Input,
-  Select,
   Space,
   Typography,
   message,
   Alert,
   Radio,
+  Spin,
 } from 'antd';
 import {
   InfoCircleOutlined,
+  HeartOutlined,
 } from '@ant-design/icons';
-import { useCaseStore } from '@/store/caseStore';
 import { getPairingStatus } from '@/services/api/pairing';
 import { createCase } from '@/services/api/case';
+import { psychProfileApi } from '@/services/api/psychProfile';
 import { validateStatement } from '@/utils/validate';
+import { useInterviewTrigger } from '@/hooks/useInterviewTrigger';
 import BearJudge from '@/components/business/BearJudge';
 import StatementInput from '@/components/business/StatementInput';
+import ConsentModal from '@/components/business/Interview/ConsentModal';
 import type { UploadFile } from 'antd/es/upload/interface';
 import FileUpload from '@/components/business/FileUpload';
-import ProtectedRoute from '@/components/common/ProtectedRoute';
 import SEO from '@/components/common/SEO';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
 import { t } from '@/utils/i18n';
-import { CASE_TYPES, CASE_TYPE_I18N_KEYS } from '@/utils/caseType';
 import './Create.less';
 
 const { Title, Text, Paragraph } = Typography;
-const { Option } = Select;
+
+const PRE_CASE_RICHNESS_THRESHOLD = 0.3;
 
 const CaseCreate = () => {
   const navigate = useNavigate();
   const [form] = Form.useForm();
-  const { isLoading } = useCaseStore();
   const [pairingId, setPairingId] = useState<string | null>(null);
-  const [pairingStatus, setPairingStatus] = useState<'pending' | 'active' | null>(null);
+  const [pairingStatus, setPairingStatus] = useState<'loading' | 'pending' | 'active'>('loading');
+  const [submitting, setSubmitting] = useState(false);
   const [plaintiffStatement, setPlaintiffStatement] = useState('');
   const [defendantStatement, setDefendantStatement] = useState('');
   const [evidenceFiles, setEvidenceFiles] = useState<UploadFile[]>([]);
   const [mode, setMode] = useState<'remote' | 'collaborative'>('remote');
 
-  // 檢查配對狀態
+  const [showPreCaseBanner, setShowPreCaseBanner] = useState(false);
+  const {
+    triggerInterview: handlePreCaseChat,
+    consentOpen,
+    setConsentOpen,
+    setProfileConsent,
+    handleConsent,
+    consentLoading,
+  } = useInterviewTrigger('pre_case');
+
   useEffect(() => {
+    let cancelled = false;
     const checkPairing = async () => {
       try {
         const pairing = await getPairingStatus();
+        if (cancelled) return;
         if (pairing && pairing.status === 'active') {
           setPairingId(pairing.id);
           setPairingStatus('active');
@@ -60,19 +74,40 @@ const CaseCreate = () => {
           setPairingStatus('pending');
         }
       } catch {
-        setPairingStatus('pending');
+        if (!cancelled) setPairingStatus('pending');
       }
     };
     checkPairing();
+    return () => { cancelled = true; };
   }, []);
 
-  // 驗證陳述
+  useEffect(() => {
+    let cancelled = false;
+    psychProfileApi.getProfile()
+      .then((res) => {
+        if (cancelled) return;
+        const profile = res.data?.data;
+        if (!profile) return;
+        setProfileConsent(!!profile.consent_given);
+        const richness = profile.richness_score ?? 0;
+        if (richness < PRE_CASE_RICHNESS_THRESHOLD) {
+          setShowPreCaseBanner(true);
+        }
+      })
+      .catch((e: unknown) => { logger.warn('Failed to fetch profile for pre-case banner', e); });
+    return () => { cancelled = true; };
+  }, [setProfileConsent]);
+
   const plaintiffValid = validateStatement(plaintiffStatement).valid;
   const defendantValid = validateStatement(defendantStatement).valid;
-  const canSubmit = plaintiffValid && defendantValid && pairingStatus === 'active';
+  const isRemote = mode === 'remote';
+  const canSubmit = isRemote
+    ? plaintiffValid && pairingStatus === 'active'
+    : plaintiffValid && defendantValid && pairingStatus === 'active';
 
-  type CreateCaseFormValues = { title?: string; type?: string; sub_type?: string };
+  type CreateCaseFormValues = { title?: string };
   const handleSubmit = async (values: CreateCaseFormValues) => {
+    if (submitting) return;
     if (!pairingId) {
       message.error(t('message.pairingRequired'));
       navigate('/profile/pairing');
@@ -80,25 +115,30 @@ const CaseCreate = () => {
     }
 
     if (!canSubmit) {
-      message.warning(t('message.completeBothStatements'));
+      message.warning(isRemote ? t('caseCreate.plaintiffStatementRequired') : t('message.completeBothStatements'));
       return;
     }
 
+    setSubmitting(true);
     try {
-      const caseData = {
+      const caseData: Parameters<typeof createCase>[0] = {
         pairing_id: pairingId,
-        title: values.title || t('message.untitledCase'),
-        type: values.type || '其他衝突',
-        sub_type: values.sub_type,
+        title: values.title,
         plaintiff_statement: plaintiffStatement,
-        defendant_statement: defendantStatement,
-        evidence_urls: [], // 證據將在案件創建後上傳
+        mode,
+        evidence_urls: [],
       };
+      if (!isRemote && defendantStatement) {
+        caseData.defendant_statement = defendantStatement;
+      }
 
       const newCase = await createCase(caseData);
-      message.success(t('message.createCaseSuccess'));
+      message.success(
+        isRemote
+          ? t('caseCreate.remoteCreateSuccess')
+          : t('message.createCaseSuccess')
+      );
 
-      // 如果有證據文件，上傳證據
       const filesToUpload: File[] = evidenceFiles
         .filter((f): f is UploadFile<File> & { originFileObj: File } => Boolean(f.originFileObj))
         .map((f) => f.originFileObj);
@@ -109,43 +149,50 @@ const CaseCreate = () => {
           await uploadEvidence(newCase.id, filesToUpload);
           message.success(t('message.evidenceUploadSuccess'));
         } catch (uploadError: unknown) {
-          // 證據上傳失敗不阻止流程，只提示
-          const msg = uploadError instanceof Error ? uploadError.message : t('message.evidenceUploadFailCaseCreated');
-          message.warning(msg);
+          const uerr = uploadError as { message?: string };
+          message.warning(uerr?.message || t('message.evidenceUploadFailCaseCreated'));
         }
       }
 
       navigate(`/case/${newCase.id}`);
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : t('message.createCaseFail');
-      message.error(msg);
+      const err = error as { message?: string };
+      message.error(err?.message || t('message.createCaseFail'));
+    } finally {
+      setSubmitting(false);
     }
   };
 
+  if (pairingStatus === 'loading') {
+    return (
+      <div className="case-create-page">
+        <Spin size="large" />
+      </div>
+    );
+  }
+
   if (pairingStatus === 'pending') {
     return (
-      <ProtectedRoute>
-        <div className="case-create-page">
-          <Card>
-            <Alert
-              message={t('caseCreate.pairingRequired')}
-              description={t('caseCreate.pairingDesc')}
-              type="warning"
-              showIcon
-              action={
-                <Button type="primary" onClick={() => navigate('/profile/pairing')}>
-                  {t('caseCreate.goPairing')}
-                </Button>
-              }
-            />
-          </Card>
-        </div>
-      </ProtectedRoute>
+      <div className="case-create-page">
+        <Card>
+          <Alert
+            message={t('caseCreate.pairingRequired')}
+            description={t('caseCreate.pairingDesc')}
+            type="warning"
+            showIcon
+            action={
+              <Button type="primary" onClick={() => navigate('/profile/pairing')}>
+                {t('caseCreate.goPairing')}
+              </Button>
+            }
+          />
+        </Card>
+      </div>
     );
   }
 
   return (
-    <ProtectedRoute>
+    <>
       <SEO
         title={t('caseCreate.title')}
         description={t('caseCreate.description')}
@@ -160,6 +207,31 @@ const CaseCreate = () => {
           </div>
         </AnimatedWrapper>
 
+        {showPreCaseBanner && (
+          <AnimatedWrapper animation="slide" direction="up" delay={150}>
+            <Alert
+              message={t('trigger.preCaseTitle')}
+              description={t('trigger.preCaseDesc')}
+              type="info"
+              showIcon
+              icon={<HeartOutlined />}
+              closable
+              onClose={() => setShowPreCaseBanner(false)}
+              action={
+                <Space direction="vertical" size="small">
+                  <Button size="small" type="primary" onClick={handlePreCaseChat}>
+                    {t('trigger.preCaseOk')}
+                  </Button>
+                  <Button size="small" onClick={() => setShowPreCaseBanner(false)}>
+                    {t('trigger.preCaseSkip')}
+                  </Button>
+                </Space>
+              }
+              style={{ marginBottom: 16 }}
+            />
+          </AnimatedWrapper>
+        )}
+
         <Form
           form={form}
           layout="vertical"
@@ -172,50 +244,49 @@ const CaseCreate = () => {
             <Form.Item
               name="title"
               label={t('caseCreate.caseTitle')}
-              rules={[{ required: true, message: t('caseCreate.caseTitleRequired') }]}
             >
               <Input placeholder={t('caseCreate.caseTitlePlaceholder')} maxLength={200} />
             </Form.Item>
 
-            <Form.Item
-              name="type"
-              label={t('caseCreate.caseType')}
-              rules={[{ required: true, message: t('caseCreate.caseTypeRequired') }]}
-            >
-              <Select placeholder={t('caseCreate.caseTypePlaceholder')}>
-                {CASE_TYPES.map((type) => (
-                  <Option key={type} value={type}>
-                    {t(CASE_TYPE_I18N_KEYS[type])}
-                  </Option>
-                ))}
-              </Select>
-            </Form.Item>
-
-            <Form.Item name="sub_type" label={t('caseCreate.subType')}>
-              <Input placeholder={t('caseCreate.subTypePlaceholder')} />
-            </Form.Item>
+            <Alert
+              message={t('caseCreate.aiAutoDetectHint')}
+              type="info"
+              showIcon
+              icon={<InfoCircleOutlined />}
+              style={{ marginBottom: 16 }}
+            />
 
             <Form.Item
-              name="mode"
               label={t('caseCreate.mode')}
-              initialValue="remote"
             >
               <Radio.Group value={mode} onChange={(e) => setMode(e.target.value)}>
-                <Radio value="remote">{t('caseCreate.modeRemoteLabel')}</Radio>
-                <Radio value="collaborative">{t('caseCreate.modeCollaborativeLabel')}</Radio>
+                <Space direction="vertical">
+                  <Radio value="remote">
+                    <span>{t('caseCreate.modeRemoteLabel')}</span>
+                    <Text type="secondary" style={{ display: 'block', marginLeft: 22, fontSize: 12 }}>
+                      {t('caseCreate.modeRemoteDesc')}
+                    </Text>
+                  </Radio>
+                  <Radio value="collaborative">
+                    <span>{t('caseCreate.modeCollaborativeLabel')}</span>
+                    <Text type="secondary" style={{ display: 'block', marginLeft: 22, fontSize: 12 }}>
+                      {t('caseCreate.modeCollaborativeDesc')}
+                    </Text>
+                  </Radio>
+                </Space>
               </Radio.Group>
-              <Text type="secondary" style={{ display: 'block', marginTop: 8 }}>
-                <InfoCircleOutlined /> {t('caseCreate.modeHint')}
-              </Text>
             </Form.Item>
             </Card>
           </AnimatedWrapper>
 
           <AnimatedWrapper animation="slide" direction="up" delay={250} trigger="intersection">
-            <Card title={t('caseCreate.statements')} className="form-section">
+            <Card
+              title={isRemote ? t('caseCreate.plaintiffStatementTitle') : t('caseCreate.statements')}
+              className="form-section"
+            >
             <div className="statements-section">
               <div className="statement-item">
-                <Title level={4}>{t('caseDetail.plaintiffStatement')}</Title>
+                {!isRemote && <Title level={4}>{t('caseDetail.plaintiffStatement')}</Title>}
                 <StatementInput
                   value={plaintiffStatement}
                   onChange={setPlaintiffStatement}
@@ -223,14 +294,25 @@ const CaseCreate = () => {
                 />
               </div>
 
-              <div className="statement-item">
-                <Title level={4}>{t('caseDetail.defendantStatement')}</Title>
-                <StatementInput
-                  value={defendantStatement}
-                  onChange={setDefendantStatement}
-                  placeholder={t('caseCreate.defendantPlaceholder')}
+              {!isRemote && (
+                <div className="statement-item">
+                  <Title level={4}>{t('caseDetail.defendantStatement')}</Title>
+                  <StatementInput
+                    value={defendantStatement}
+                    onChange={setDefendantStatement}
+                    placeholder={t('caseCreate.defendantPlaceholder')}
+                  />
+                </div>
+              )}
+
+              {isRemote && (
+                <Alert
+                  message={t('caseCreate.remoteFlowHint')}
+                  type="info"
+                  showIcon
+                  style={{ marginTop: 12 }}
                 />
-              </div>
+              )}
             </div>
             </Card>
           </AnimatedWrapper>
@@ -257,10 +339,10 @@ const CaseCreate = () => {
                 htmlType="submit"
                 size="large"
                 block
-                loading={isLoading}
+                loading={submitting}
                 disabled={!canSubmit}
               >
-                {isLoading ? t('caseCreate.creating') : t('caseCreate.submitBtn')}
+                {submitting ? t('caseCreate.creating') : t('caseCreate.submitBtn')}
               </Button>
               <Text type="secondary" style={{ textAlign: 'center', display: 'block' }}>
                 {t('caseCreate.submitHint')}
@@ -269,8 +351,15 @@ const CaseCreate = () => {
             </div>
           </AnimatedWrapper>
         </Form>
+
+        <ConsentModal
+          open={consentOpen}
+          onConsent={handleConsent}
+          onCancel={() => setConsentOpen(false)}
+          loading={consentLoading}
+        />
       </div>
-    </ProtectedRoute>
+    </>
   );
 };
 

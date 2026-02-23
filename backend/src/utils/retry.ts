@@ -9,7 +9,7 @@ export interface RetryOptions {
   initialDelay?: number;
   maxDelay?: number;
   backoffMultiplier?: number;
-  shouldRetry?: (error: any) => boolean;
+  shouldRetry?: (error: unknown) => boolean;
 }
 
 /**
@@ -18,6 +18,14 @@ export interface RetryOptions {
 const sleep = (ms: number): Promise<void> => {
   return new Promise(resolve => setTimeout(resolve, ms));
 };
+
+function defaultShouldRetry(error: unknown): boolean {
+  const status = (error as { status?: number })?.status;
+  if (typeof status === 'number' && status >= 400 && status < 500) {
+    return false;
+  }
+  return true;
+}
 
 /**
  * 指數退避重試
@@ -31,34 +39,25 @@ export async function retryWithBackoff<T>(
     initialDelay = 1000,
     maxDelay = 10000,
     backoffMultiplier = 2,
-    shouldRetry = (error: any) => {
-      // 默認：只對網絡錯誤和5xx錯誤重試
-      if (error.status >= 400 && error.status < 500) {
-        return false; // 4xx錯誤不重試
-      }
-      return true; // 網絡錯誤和5xx錯誤重試
-    },
+    shouldRetry = defaultShouldRetry,
   } = options;
 
-  let lastError: Error | null = null;
+  let lastError: unknown = null;
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       return await fn();
-    } catch (error: any) {
+    } catch (error: unknown) {
       lastError = error;
 
-      // 檢查是否應該重試
       if (!shouldRetry(error)) {
         throw error;
       }
 
-      // 最後一次嘗試失敗，拋出錯誤
       if (attempt === maxRetries - 1) {
         throw error;
       }
 
-      // 計算延遲時間（指數退避）
       const delay = Math.min(
         initialDelay * Math.pow(backoffMultiplier, attempt),
         maxDelay
@@ -68,7 +67,7 @@ export async function retryWithBackoff<T>(
         attempt: attempt + 1,
         maxRetries,
         delay,
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
       });
 
       await sleep(delay);
@@ -86,15 +85,14 @@ export async function retry<T>(
   maxRetries: number = 3,
   delay: number = 1000
 ): Promise<T> {
-  let lastError: Error | null = null;
+  let lastError: unknown = null;
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       return await fn();
-    } catch (error: any) {
+    } catch (error: unknown) {
       lastError = error;
 
-      // 最後一次嘗試失敗，拋出錯誤
       if (attempt === maxRetries - 1) {
         throw error;
       }
@@ -105,4 +103,3 @@ export async function retry<T>(
 
   throw lastError || new Error('Unknown error');
 }
-

@@ -11,6 +11,7 @@ const mockSendVerificationCode = jest.fn();
 const mockVerifyEmail = jest.fn();
 const mockResetPassword = jest.fn();
 const mockConfirmResetPassword = jest.fn();
+const mockClaimSession = jest.fn();
 
 jest.mock('../../../src/controllers/auth.controller', () => ({
   authController: {
@@ -24,6 +25,8 @@ jest.mock('../../../src/controllers/auth.controller', () => ({
       mockResetPassword(req, res, next),
     confirmResetPassword: (req: unknown, res: unknown, next: unknown) =>
       mockConfirmResetPassword(req, res, next),
+    claimSession: (req: unknown, res: unknown, next: unknown) =>
+      mockClaimSession(req, res, next),
   },
 }));
 jest.mock('../../../src/middleware/validator', () => ({

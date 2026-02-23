@@ -84,8 +84,29 @@ const mockPrismaClient: any = {
 
 jest.mock('@prisma/client', () => ({
   PrismaClient: jest.fn(() => mockPrismaClient),
+  Prisma: { PrismaClientKnownRequestError: class extends Error { code: string; meta?: unknown; constructor(m: string, o: { code: string; meta?: unknown }) { super(m); this.code = o.code; this.meta = o.meta; } } },
   NotificationChannel: { email: 'email', push: 'push' },
   NotificationStatus: { pending: 'pending', sent: 'sent', failed: 'failed' },
+  PsychDomain: {
+    attachment: 'attachment',
+    family_origin: 'family_origin',
+    life_events: 'life_events',
+    belief_values: 'belief_values',
+    cultural_background: 'cultural_background',
+    education_cognition: 'education_cognition',
+    personality: 'personality',
+    relationship_history: 'relationship_history',
+  },
+  InsightType: {
+    trait: 'trait',
+    pattern: 'pattern',
+    belief: 'belief',
+    trigger: 'trigger',
+    strength: 'strength',
+    risk: 'risk',
+    cultural: 'cultural',
+    developmental: 'developmental',
+  },
 }));
 
 import app from '../../src/app';

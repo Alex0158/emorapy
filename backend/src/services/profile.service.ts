@@ -6,7 +6,7 @@ export class ProfileService {
     return prisma.userProfile.findUnique({ where: { user_id: userId } });
   }
 
-  async upsertUserProfile(userId: string, data: any) {
+  async upsertUserProfile(userId: string, data: Record<string, unknown>) {
     return prisma.userProfile.upsert({
       where: { user_id: userId },
       create: {
@@ -38,7 +38,7 @@ export class ProfileService {
     });
   }
 
-  async upsertRelationshipProfile(pairingId: string, userId: string, data: any) {
+  async upsertRelationshipProfile(pairingId: string, userId: string, data: Record<string, unknown>) {
     await this.assertPairingMember(pairingId, userId);
     return prisma.relationshipProfile.upsert({
       where: { pairing_id: pairingId },

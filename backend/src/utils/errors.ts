@@ -106,5 +106,33 @@ export const Errors = {
   
   RATE_LIMIT_EXCEEDED: (message = '請求過於頻繁，請稍後再試') => 
     new AppError(429, 'RATE_LIMIT_EXCEEDED', message),
+
+  // v2.0: 訪談系統錯誤
+  CONSENT_REQUIRED: (message = '需要心理畫像同意') =>
+    new AppError(403, 'CONSENT_REQUIRED', message),
+
+  CONCURRENT_REQUEST: (message = '已有進行中的請求') =>
+    new AppError(409, 'CONCURRENT_REQUEST', message),
+
+  AI_CALL_FAILED: (message = 'AI 調用失敗') =>
+    new AppError(503, 'AI_CALL_FAILED', message),
+
+  MAX_TURNS_REACHED: (message = '已達最大對話輪數') =>
+    new AppError(422, 'MAX_TURNS_REACHED', message),
+
+  TURN_TOO_FAST: (message = '回覆過快，請稍候') =>
+    new AppError(429, 'TURN_TOO_FAST', message),
+
+  START_RATE_LIMIT: (message = '開始訪談過於頻繁') =>
+    new AppError(429, 'START_RATE_LIMIT', message),
+
+  PROCESSING_NOT_DONE: (message = '處理尚未完成') =>
+    new AppError(409, 'PROCESSING_NOT_DONE', message),
+
+  PROCESSING_FAILED: (message = '處理失敗') =>
+    new AppError(500, 'PROCESSING_FAILED', message),
+
+  SESSION_COMPLETED: (message = '此訪談已結束，不可繼續') =>
+    new AppError(409, 'SESSION_COMPLETED', message),
 };
 

@@ -4,6 +4,7 @@
 
 import { Typography } from 'antd';
 import { COLORS } from '@/utils/constants';
+import { t } from '@/utils/i18n';
 import type { ResponsibilityRatio as ResponsibilityRatioType } from '@/types/common';
 import './ResponsibilityRatio.less';
 
@@ -20,6 +21,7 @@ const ResponsibilityRatio = ({
   showLabels = true,
   size = 'medium',
 }: ResponsibilityRatioProps) => {
+  if (!ratio) return null;
   const { plaintiff, defendant } = ratio;
 
   return (
@@ -36,11 +38,11 @@ const ResponsibilityRatio = ({
             <div className="pie-label">
               <div className="label-item">
                 <span className="label-dot" style={{ background: COLORS.primary }}></span>
-                <span>角色A: {plaintiff}%</span>
+                <span>{t('responsibility.roleA')}: {plaintiff}%</span>
               </div>
               <div className="label-item">
                 <span className="label-dot" style={{ background: COLORS.secondary }}></span>
-                <span>角色B: {defendant}%</span>
+                <span>{t('responsibility.roleB')}: {defendant}%</span>
               </div>
             </div>
           </div>
@@ -76,15 +78,15 @@ const ResponsibilityRatio = ({
         <div className="responsibility-labels">
           <div className="label-item">
             <span className="label-badge" style={{ background: COLORS.primary }}>
-              角色A
+              {t('responsibility.roleA')}
             </span>
-            <Text strong>{plaintiff}% 責任</Text>
+            <Text strong>{plaintiff}% {t('responsibility.liability')}</Text>
           </div>
           <div className="label-item">
             <span className="label-badge" style={{ background: COLORS.secondary }}>
-              角色B
+              {t('responsibility.roleB')}
             </span>
-            <Text strong>{defendant}% 責任</Text>
+            <Text strong>{defendant}% {t('responsibility.liability')}</Text>
           </div>
         </div>
       )}

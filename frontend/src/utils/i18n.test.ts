@@ -8,6 +8,7 @@ vi.mock('@/assets/i18n/zh-TW', () => ({
   default: {
     'result.title': '判決結果',
     'key.one': '值一',
+    'greeting.hello': '你好 {name}，計數: {count}',
   },
 }));
 
@@ -38,6 +39,16 @@ describe('i18n', () => {
     it('en-US 未命中翻譯時應返回可讀英文 fallback', () => {
       setLocale('en-US');
       expect(t('message.caseIdMissing')).toBe('Message Case Id Missing');
+    });
+
+    it('應支援插值：params 中的 key 會替換字串中的 {key}', () => {
+      setLocale('zh-TW');
+      expect(t('greeting.hello', { name: 'Alice', count: 3 })).toBe('你好 Alice，計數: 3');
+    });
+
+    it('無 params 時含 {placeholder} 的字串應原樣返回', () => {
+      setLocale('zh-TW');
+      expect(t('greeting.hello')).toBe('你好 {name}，計數: {count}');
     });
   });
 

@@ -43,6 +43,10 @@ const {
 
 vi.mock('@/utils/i18n', () => ({
   t: (key: string) => key,
+  getLocale: () => 'zh-TW',
+}));
+vi.mock('@/services/api/content', () => ({
+  getContentList: vi.fn().mockResolvedValue([]),
 }));
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>();
@@ -111,10 +115,13 @@ vi.mock('@/utils/logger', () => ({
 }));
 
 vi.mock('@/components/common/SEO', () => ({ default: () => null }));
-vi.mock('@/components/common/Skeleton', () => ({ default: () => <div>skeleton</div> }));
 vi.mock('./components/ResultHeader', () => ({ default: () => <div>ResultHeader</div> }));
 vi.mock('./components/SummarySection', () => ({ default: () => <div>SummarySection</div> }));
-vi.mock('./components/ResponsibilitySection', () => ({ default: () => <div>ResponsibilitySection</div> }));
+vi.mock('./components/ResponsibilitySection', () => ({
+  default: ({ ratio }: { ratio: { plaintiff: number; defendant: number } }) => (
+    <div>ResponsibilitySection:{ratio.plaintiff}/{ratio.defendant}</div>
+  ),
+}));
 vi.mock('./components/JudgmentSection', () => ({ default: () => <div>JudgmentSection</div> }));
 vi.mock('./components/EvidenceUploadSection', () => ({
   default: ({
@@ -130,20 +137,6 @@ vi.mock('./components/EvidenceUploadSection', () => ({
         upload-evidence
       </button>
       <button onClick={() => onUploadFiles([])}>upload-empty</button>
-    </div>
-  ),
-}));
-vi.mock('./components/ActionsSection', () => ({
-  default: ({
-    onRegister,
-    onBackToCreate,
-  }: {
-    onRegister: () => void;
-    onBackToCreate: () => void;
-  }) => (
-    <div>
-      <button onClick={onRegister}>go-register</button>
-      <button onClick={onBackToCreate}>go-create</button>
     </div>
   ),
 }));
@@ -220,7 +213,8 @@ describe('QuickExperienceResult', () => {
     mockUseJudgmentStore.isLoading = true;
     mockGetJudgmentByCaseId.mockResolvedValueOnce(null);
     renderWithRoute('/quick-experience/result/case-1');
-    expect(await screen.findByText(/AI 心理師深度分析中/)).toBeInTheDocument();
+    // t() is mocked to return keys; component uses quickResult.analyzingTitle
+    expect(await screen.findByText('quickResult.analyzingTitle')).toBeInTheDocument();
   });
 
   it('store error 且尚無判決時應顯示錯誤並可返回創建頁', async () => {
@@ -535,7 +529,7 @@ describe('QuickExperienceResult', () => {
       responsibility_ratio: null,
     });
     renderWithRoute('/quick-experience/result/case-1');
-    expect(await screen.findByText('ResponsibilitySection')).toBeInTheDocument();
+    expect(await screen.findByText('ResponsibilitySection:55/45')).toBeInTheDocument();
   });
 
   it('主要按鈕應可導向註冊與返回創建頁', async () => {

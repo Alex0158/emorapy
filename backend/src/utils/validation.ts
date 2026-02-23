@@ -12,7 +12,7 @@ export class ValidationUtils {
   static validateStatement(
     statement: string,
     fieldName: string = '陳述',
-    minLength: number = 50,
+    minLength: number = 30,
     maxLength: number = 2000
   ): string {
     if (!statement || typeof statement !== 'string') {
@@ -189,6 +189,19 @@ export const confirmResetPasswordSchema = {
   }),
 };
 
+export const claimSessionSchema = {
+  body: Joi.object({
+    session_id: Joi.string().min(1).max(100).required(),
+  }),
+};
+
+export const acceptJudgmentSchema = {
+  body: Joi.object({
+    accepted: Joi.boolean().required(),
+    rating: Joi.number().integer().min(0).max(5).optional(),
+  }),
+};
+
 // Case Schemas
 export const quickCaseSchema = {
   body: Joi.object({
@@ -201,15 +214,32 @@ export const quickCaseSchema = {
 
 export const createCaseSchema = {
   body: Joi.object({
-    // 使用下劃線命名，與數據庫和服務層保持一致
     plaintiff_statement: Joi.string().min(30).max(2000).required(),
-    defendant_statement: Joi.string().min(10).max(2000).optional().allow(null, ''),
+    defendant_statement: Joi.string().min(30).max(2000).optional().allow(null, ''),
     evidence_urls: Joi.array().items(Joi.string().uri({ scheme: ['https'] })).max(3).optional(),
     pairing_id: Joi.string().pattern(uuidPattern).required(),
-    title: Joi.string().max(200).optional(),
+    title: Joi.string().max(200).optional().allow(null, ''),
     type: Joi.string().max(50).optional(),
     sub_type: Joi.string().max(50).optional(),
+    mode: Joi.string().valid('remote', 'collaborative').optional().default('remote'),
   }),
+};
+
+export const collaborativeCaseSchema = {
+  body: Joi.object({
+    case_id: Joi.string().pattern(uuidPattern).optional(),
+    plaintiff_statement: Joi.string().min(30).max(2000).optional(),
+    defendant_statement: Joi.string().min(10).max(2000).optional(),
+    evidence_urls: Joi.array().items(Joi.string().uri({ scheme: ['https'] })).max(3).optional(),
+  }).or('plaintiff_statement', 'defendant_statement'),
+};
+
+export const updateCaseSchema = {
+  body: Joi.object({
+    title: Joi.string().max(200).optional().allow(null, ''),
+    plaintiff_statement: Joi.string().min(30).max(2000).optional(),
+    defendant_statement: Joi.string().min(30).max(2000).optional().allow(null, ''),
+  }).min(1),
 };
 
 export const uuidParamSchema = {
@@ -291,10 +321,66 @@ export const updateProfileSchema = {
     avatar_url: Joi.string().uri().optional(),
     gender: Joi.string().valid('male', 'female', 'other').optional(),
     age: Joi.number().integer().min(13).max(120).optional(),
-    relationship_status: Joi.string().valid('single', 'dating', 'married', 'complicated', 'separated').optional(),
+    relationship_status: Joi.string().valid('single', 'dating', 'married').optional(),
     language: Joi.string().max(10).optional(),
     timezone: Joi.string().max(50).optional(),
     notification_enabled: Joi.boolean().optional(),
-    privacy_level: Joi.string().valid('private', 'friends', 'public').optional(),
+    privacy_level: Joi.string().valid('public', 'partner_only', 'private').optional(),
   }).min(1),
+};
+
+// Interview (v2.0) Schemas
+export const interviewStartSchema = {
+  body: Joi.object({
+    trigger: Joi.string().valid('organic', 'pre_case', 'post_judgment', 'onboarding').optional(),
+  }).optional(),
+};
+
+export const interviewRespondSchema = {
+  body: Joi.object({
+    message: Joi.string().min(1).max(2000).required(),
+  }),
+};
+
+export const createNotificationSchema = {
+  body: Joi.object({
+    channel: Joi.string().valid('email', 'push').required(),
+    template_code: Joi.string().max(50).required(),
+    payload: Joi.object().max(20).optional(),
+    dedup_key: Joi.string().max(100).optional(),
+  }),
+};
+
+export const createContentLinkSchema = {
+  body: Joi.object({
+    case_id: Joi.string().uuid().required(),
+    content_id: Joi.string().uuid().required(),
+    relation: Joi.string().valid('recommend', 'similar', 'waiting').optional(),
+  }),
+};
+
+export const upsertUserProfileSchema = {
+  body: Joi.object().pattern(
+    Joi.string(),
+    Joi.alternatives().try(
+      Joi.string().max(500),
+      Joi.number(),
+      Joi.boolean(),
+      Joi.array().max(50).items(Joi.string().max(200)),
+      Joi.object().max(20)
+    )
+  ).max(30),
+};
+
+export const upsertRelationshipProfileSchema = {
+  body: Joi.object().pattern(
+    Joi.string(),
+    Joi.alternatives().try(
+      Joi.string().max(1000),
+      Joi.number(),
+      Joi.boolean(),
+      Joi.array().max(100).items(Joi.alternatives().try(Joi.string().max(500), Joi.object().max(20))),
+      Joi.object().max(20)
+    )
+  ).max(60),
 };

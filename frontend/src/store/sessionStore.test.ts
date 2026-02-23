@@ -73,7 +73,7 @@ describe('sessionStore', () => {
     mockCreateSession.mockRejectedValue(new Error('創建Session失敗'));
     const result = await useSessionStore.getState().createSession();
     expect(result).toBeNull();
-    expect(useSessionStore.getState().error).toBe('創建Session失敗');
+    expect(useSessionStore.getState().error).toBe('message.createSessionFail');
     expect(useSessionStore.getState().isLoading).toBe(false);
   });
 
@@ -81,7 +81,7 @@ describe('sessionStore', () => {
     mockCreateSession.mockRejectedValue('boom');
     const result = await useSessionStore.getState().createSession();
     expect(result).toBeNull();
-    expect(useSessionStore.getState().error).toBe('創建Session失敗');
+    expect(useSessionStore.getState().error).toBe('message.createSessionFail');
   });
 
   it('createSession 在有效舊 session 存在時應直接返回舊值', async () => {

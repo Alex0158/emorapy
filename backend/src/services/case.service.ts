@@ -1,4 +1,5 @@
 import prisma from '../config/database';
+import { Prisma } from '@prisma/client';
 import { Errors } from '../utils/errors';
 import logger from '../config/logger';
 import { aiService } from './ai.service';
@@ -6,9 +7,10 @@ import { sessionService } from './session.service';
 import { pairingService } from './pairing.service';
 import { ValidationUtils } from '../utils/validation';
 import { validateSessionId } from '../utils/session';
-import { fileService } from './file.service';
+import { fileService, signAvatar } from './file.service';
 import { normalizeJudgment } from '../utils/judgment';
 import { lockService } from '../utils/lock';
+import { LOCK_TTL, SESSION_EXPIRY, CASE_STATUS, CASE_MODE, PAGINATION, FILE_TYPE, PAIRING_STATUS } from '../utils/constants';
 
 export interface QuickCaseDto {
   plaintiff_statement: string;
@@ -24,6 +26,7 @@ export interface CreateCaseDto {
   plaintiff_statement: string;
   defendant_statement?: string;
   evidence_urls?: string[];
+  mode?: 'remote' | 'collaborative';
 }
 
 export class CaseService {
@@ -33,7 +36,7 @@ export class CaseService {
   async createQuickCase(
     data: QuickCaseDto, 
     sessionId: string | null  // 允許為null，由服務層統一處理
-  ): Promise<{ case: any; sessionId: string; sessionExpiresAt: Date }> {
+  ) {
     let finalSessionId: string;
     
     // 統一處理Session：驗證 → 創建（如需要）
@@ -117,7 +120,7 @@ export class CaseService {
       }
 
       // 8-10. 使用事務確保數據一致性
-      const case_ = await prisma.$transaction(async (tx: any) => {
+      const case_ = await prisma.$transaction(async (tx) => {
         const newCase = await tx.case.create({
           data: {
             pairing_id: tempPairing.id,
@@ -127,8 +130,8 @@ export class CaseService {
             defendant_id: null,
             plaintiff_statement: plaintiffStatement,
             defendant_statement: defendantStatement,
-            status: 'submitted',
-            mode: 'quick',
+            status: CASE_STATUS.SUBMITTED,
+            mode: CASE_MODE.QUICK,
             session_id: sessionIdToUse,
             submitted_at: new Date(),
           },
@@ -139,7 +142,7 @@ export class CaseService {
             data: data.evidence_urls.map(url => ({
               case_id: newCase.id,
               file_url: url,
-              file_type: 'image',
+              file_type: FILE_TYPE.IMAGE,
               file_size: 0,
               user_id: null,
             })),
@@ -155,16 +158,18 @@ export class CaseService {
         });
 
         return newCase;
-      }).catch(async (error: any) => {
+      }).catch(async (error: unknown) => {
         if (pairingCreatedNow) {
-          await prisma.pairing.delete({ where: { id: tempPairing.id } }).catch(() => {});
+          await prisma.pairing.delete({ where: { id: tempPairing.id } }).catch((e) => {
+            logger.warn('Failed to rollback temp pairing', { pairingId: tempPairing.id, error: e });
+          });
         }
         logger.error('Failed to create case in transaction', { error });
         throw Errors.INTERNAL_ERROR('案件創建失敗，請稍後再試');
       });
 
       return { case: case_, sessionId: sessionIdToUse, sessionExpiresAt: session.expires_at };
-    }, 30);
+    }, LOCK_TTL.CASE_CREATE);
   }
 
   /**
@@ -173,11 +178,10 @@ export class CaseService {
   async createCase(userId: string, data: CreateCaseDto) {
     return lockService.withLock(`case:create:${data.pairing_id}`, async () => {
       return this._createCaseInner(userId, data);
-    });
+    }, LOCK_TTL.CASE_CREATE);
   }
 
   private async _createCaseInner(userId: string, data: CreateCaseDto) {
-    // 1. 驗證配對關係
     const pairing = await prisma.pairing.findUnique({
       where: { id: data.pairing_id },
       include: {
@@ -190,77 +194,75 @@ export class CaseService {
       throw Errors.NOT_FOUND('配對不存在');
     }
 
-    if (pairing.status !== 'active') {
+    if (pairing.status !== PAIRING_STATUS.ACTIVE) {
       throw Errors.VALIDATION_ERROR('配對關係未激活');
     }
 
-    // 2. 驗證用戶是否屬於此配對
     if (pairing.user1_id !== userId && pairing.user2_id !== userId) {
       throw Errors.FORBIDDEN('無權限訪問此配對');
     }
 
-    // 3. 驗證陳述長度（使用統一驗證工具）
     const plaintiffStatement = ValidationUtils.validateStatement(
       data.plaintiff_statement,
-      '原告陳述'
+      '原告陳述',
+      30
     );
 
-    // 4. 案件類型：優先使用用戶選擇，其次 AI 判斷
-    let caseType: string = data.type || '其他衝突';
-    if (!data.type) {
-      try {
-        caseType = await aiService.detectCaseType(
-          data.plaintiff_statement,
-          data.defendant_statement || ''
-        );
-      } catch (error) {
-        logger.error('Failed to detect case type', { error });
-        caseType = '其他衝突';
-      }
+    const caseMode = data.mode || CASE_MODE.REMOTE;
+    const hasDefendantStatement = data.defendant_statement && data.defendant_statement.trim().length > 0;
+
+    let caseType: string;
+    try {
+      caseType = await aiService.detectCaseType(
+        data.plaintiff_statement,
+        data.defendant_statement || ''
+      );
+    } catch (error) {
+      logger.error('Failed to detect case type', { error });
+      caseType = '其他衝突';
     }
 
-    // 5. 生成標題
-    const title = data.title || this.generateTitle(data.plaintiff_statement);
+    const title = data.title && data.title.trim() ? data.title.trim() : this.generateTitle(data.plaintiff_statement);
 
-    // 6. 確定原告和被告
     const plaintiffId = pairing.user1_id === userId ? pairing.user1_id : pairing.user2_id;
     const defendantId = pairing.user1_id === userId ? pairing.user2_id : pairing.user1_id;
 
-    // 7. 創建案件
-    const case_ = await prisma.case.create({
-      data: {
-        pairing_id: data.pairing_id,
-        title,
-        type: caseType,
-        sub_type: data.sub_type || null,
-        plaintiff_id: plaintiffId,
-        defendant_id: defendantId,
-        plaintiff_statement: plaintiffStatement,
-        defendant_statement: data.defendant_statement
-          ? ValidationUtils.validateStatement(data.defendant_statement, '被告陳述')
-          : null,
-        status: 'submitted',
-        mode: 'remote',
-        submitted_at: new Date(),
-      },
-    });
+    const isReadyForSubmission = caseMode === CASE_MODE.COLLABORATIVE || hasDefendantStatement;
+    const defendantStatementValidated = hasDefendantStatement
+      ? ValidationUtils.validateStatement(data.defendant_statement!, '被告陳述', 30)
+      : null;
 
-    // 8. 保存證據
-    if (data.evidence_urls && data.evidence_urls.length > 0) {
-      for (const url of data.evidence_urls) {
-        await prisma.evidence.create({
-          data: {
-            case_id: case_.id,
+    const case_ = await prisma.$transaction(async (tx) => {
+      const newCase = await tx.case.create({
+        data: {
+          pairing_id: data.pairing_id,
+          title,
+          type: caseType,
+          sub_type: data.sub_type || null,
+          plaintiff_id: plaintiffId,
+          defendant_id: defendantId,
+          plaintiff_statement: plaintiffStatement,
+          defendant_statement: defendantStatementValidated,
+          status: isReadyForSubmission ? CASE_STATUS.SUBMITTED : CASE_STATUS.DRAFT,
+          mode: caseMode,
+          submitted_at: isReadyForSubmission ? new Date() : null,
+        },
+      });
+
+      if (data.evidence_urls && data.evidence_urls.length > 0) {
+        await tx.evidence.createMany({
+          data: data.evidence_urls.map((url: string) => ({
+            case_id: newCase.id,
             file_url: url,
-            file_type: 'image',
+            file_type: FILE_TYPE.IMAGE,
             file_size: 0,
             user_id: plaintiffId,
-          },
+          })),
         });
       }
-    }
 
-    // 9. 異步觸發AI判決生成（在controller層處理）
+      return newCase;
+    });
 
     return case_;
   }
@@ -284,38 +286,37 @@ export class CaseService {
     const {
       status,
       type,
-      page = 1,
-      page_size = 10,
+      page: rawPage = 1,
+      page_size: rawPageSize = PAGINATION.CASE_LIST_DEFAULT_PAGE_SIZE,
       sort_by: rawSortBy = 'created_at',
       sort_order: rawSortOrder = 'desc',
       search,
     } = params;
+    const page = Math.max(1, Math.floor(Number(rawPage)) || 1);
+    const page_size = Math.min(PAGINATION.CASE_LIST_MAX_PAGE_SIZE, Math.max(1, Math.floor(Number(rawPageSize)) || PAGINATION.CASE_LIST_DEFAULT_PAGE_SIZE));
     const sort_by = ALLOWED_SORT_FIELDS.includes(rawSortBy) ? rawSortBy : 'created_at';
     const sort_order = rawSortOrder === 'asc' ? 'asc' : 'desc';
 
-    const where: any = {
-      OR: [
-        { plaintiff_id: userId },
-        { defendant_id: userId },
-      ],
-      mode: 'remote', // 只返回完整模式的案件
-    };
-
-    if (status && status !== 'all') {
-      where.status = status;
-    }
-
-    if (type && type !== 'all') {
-      where.type = type;
-    }
+    const andConditions: Prisma.CaseWhereInput[] = [
+      { OR: [{ plaintiff_id: userId }, { defendant_id: userId }] },
+    ];
 
     if (search) {
-      where.OR = [
-        { title: { contains: search, mode: 'insensitive' } },
-        { plaintiff_statement: { contains: search, mode: 'insensitive' } },
-        { defendant_statement: { contains: search, mode: 'insensitive' } },
-      ];
+      andConditions.push({
+        OR: [
+          { title: { contains: search, mode: 'insensitive' } },
+          { plaintiff_statement: { contains: search, mode: 'insensitive' } },
+          { defendant_statement: { contains: search, mode: 'insensitive' } },
+        ],
+      });
     }
+
+    const where: Prisma.CaseWhereInput = {
+      AND: andConditions,
+      mode: { in: [CASE_MODE.REMOTE, CASE_MODE.COLLABORATIVE] },
+      ...(status && status !== 'all' ? { status: status as Prisma.CaseWhereInput['status'] } : {}),
+      ...(type && type !== 'all' ? { type: type as Prisma.CaseWhereInput['type'] } : {}),
+    };
 
     const [cases, total] = await Promise.all([
       prisma.case.findMany({
@@ -339,9 +340,9 @@ export class CaseService {
       prisma.case.count({ where }),
     ]);
 
-    const normalized = cases.map((c: any) => ({
+    const normalized = cases.map((c) => ({
       ...c,
-      judgment: normalizeJudgment((c as any).judgment),
+      judgment: normalizeJudgment(c.judgment),
     }));
 
     return {
@@ -359,6 +360,7 @@ export class CaseService {
    * 提交案件（將狀態從draft改為submitted）
    */
   async submitCase(caseId: string, userId: string) {
+    return lockService.withLock(`case:submit:${caseId}`, async () => {
     const case_ = await prisma.case.findUnique({
       where: { id: caseId },
     });
@@ -373,32 +375,32 @@ export class CaseService {
     }
 
     // 驗證案件狀態
-    if (case_.status !== 'draft') {
+    if (case_.status !== CASE_STATUS.DRAFT) {
       throw Errors.CASE_NOT_EDITABLE('案件狀態不允許提交');
     }
 
-    // 更新狀態
+    if (case_.mode === CASE_MODE.REMOTE && (!case_.defendant_statement || !case_.defendant_statement.trim())) {
+      throw Errors.VALIDATION_ERROR('遠程模式需等待被告陳述後才能提交');
+    }
+
     const updatedCase = await prisma.case.update({
       where: { id: caseId },
       data: {
-        status: 'submitted',
+        status: CASE_STATUS.SUBMITTED,
         submitted_at: new Date(),
       },
     });
 
-    // 異步觸發AI判決生成
-    const { judgmentService } = await import('./judgment.service');
-    judgmentService.generateJudgment(caseId).catch(err => {
-      logger.error('Failed to generate judgment after submission', { caseId, error: err });
-    });
-
     return updatedCase;
+    }, LOCK_TTL.CASE_SUBMIT);
   }
 
   /**
    * 更新案件（僅draft狀態可更新）
+   * 遠程模式：被告加入陳述後自動提交
    */
   async updateCase(caseId: string, userId: string, data: Partial<CreateCaseDto>) {
+    return lockService.withLock(`case:update:${caseId}`, async () => {
     const case_ = await prisma.case.findUnique({
       where: { id: caseId },
     });
@@ -407,55 +409,61 @@ export class CaseService {
       throw Errors.NOT_FOUND('案件不存在');
     }
 
-    // 驗證用戶權限
     if (case_.plaintiff_id !== userId && case_.defendant_id !== userId) {
       throw Errors.FORBIDDEN('無權限更新此案件');
     }
 
-    // 驗證案件狀態（僅draft狀態可更新）
-    if (case_.status !== 'draft') {
+    if (case_.status !== CASE_STATUS.DRAFT) {
       throw Errors.CASE_NOT_EDITABLE('案件狀態不允許更新');
     }
 
-    // 驗證更新數據
-    const updateData: any = {};
+    const updateData: Prisma.CaseUpdateInput = {};
+    const isPlaintiff = case_.plaintiff_id === userId;
+    const isDefendant = case_.defendant_id === userId;
 
     if (data.title !== undefined) {
       updateData.title = data.title;
     }
 
     if (data.plaintiff_statement !== undefined) {
+      if (!isPlaintiff) {
+        throw Errors.FORBIDDEN('只有原告可以修改原告陳述');
+      }
       updateData.plaintiff_statement = ValidationUtils.validateStatement(
         data.plaintiff_statement,
-        '原告陳述'
+        '原告陳述',
+        30
       );
-      // 更新案件類型（如果陳述改變）
       const caseType = await aiService.detectCaseType(
         data.plaintiff_statement,
-        data.defendant_statement || case_.defendant_statement || ''
+        case_.defendant_statement || ''
       );
       updateData.type = caseType;
     }
 
     if (data.defendant_statement !== undefined) {
-      // 驗證被告陳述（包括長度驗證）
-      updateData.defendant_statement = data.defendant_statement
-        ? ValidationUtils.validateStatement(data.defendant_statement, '被告陳述')
-        : null;
-      // 更新案件類型（如果陳述改變）
-      if (data.plaintiff_statement === undefined) {
-        const caseType = await aiService.detectCaseType(
-          case_.plaintiff_statement,
-          data.defendant_statement || ''
-        );
-        updateData.type = caseType;
+      if (!isDefendant) {
+        throw Errors.FORBIDDEN('只有被告可以修改被告陳述');
       }
+      updateData.defendant_statement = data.defendant_statement
+        ? ValidationUtils.validateStatement(data.defendant_statement, '被告陳述', 30)
+        : null;
+      const caseType = await aiService.detectCaseType(
+        case_.plaintiff_statement,
+        data.defendant_statement || ''
+      );
+      updateData.type = caseType;
     }
 
-    // 驗證evidence_urls（如果提供）
-    if (data.evidence_urls !== undefined) {
-      ValidationUtils.validateEvidenceUrls(data.evidence_urls);
-      // 注意：這裡只驗證URL格式，實際文件上傳需要通過專門的證據上傳接口
+    const isDefendantResponding =
+      case_.mode === CASE_MODE.REMOTE &&
+      case_.defendant_id === userId &&
+      !case_.defendant_statement &&
+      updateData.defendant_statement;
+
+    if (isDefendantResponding) {
+      updateData.status = CASE_STATUS.SUBMITTED;
+      updateData.submitted_at = new Date();
     }
 
     updateData.updated_at = new Date();
@@ -466,6 +474,7 @@ export class CaseService {
     });
 
     return updatedCase;
+    }, LOCK_TTL.CASE_UPDATE);
   }
 
   /**
@@ -511,11 +520,10 @@ export class CaseService {
     }
 
     // 快速體驗模式：驗證Session ID
-    if (case_.mode === 'quick') {
+    if (case_.mode === CASE_MODE.QUICK) {
       if (!sessionId || case_.session_id !== sessionId) {
         throw Errors.FORBIDDEN('無權限訪問此案件');
       }
-      // 追加：驗證Session是否存在且未過期（保持有效期規則一致）
       const session = await sessionService.getSession(sessionId);
       if (!session) {
         throw Errors.SESSION_EXPIRED();
@@ -532,20 +540,22 @@ export class CaseService {
     }
 
     // 權限校驗通過後再簽名媒體URL，避免未授權請求消耗簽名/I/O成本
-    case_.evidences = case_.evidences.map((e: any) => ({
+    case_.evidences = case_.evidences.map((e) => ({
       ...e,
       file_url: fileService.signUrl(e.file_url),
     }));
     if (case_.pairing) {
-      const signAvatar = (user: any) =>
-        user?.avatar_url ? { ...user, avatar_url: fileService.signUrl(user.avatar_url) } : user;
+      const pairing = case_.pairing as typeof case_.pairing & {
+        user1?: { avatar_url?: string | null } | null;
+        user2?: { avatar_url?: string | null } | null;
+      };
       case_.pairing = {
         ...case_.pairing,
-        user1: signAvatar((case_ as any).pairing.user1),
-        user2: signAvatar((case_ as any).pairing.user2),
+        user1: signAvatar(pairing.user1) ?? null,
+        user2: signAvatar(pairing.user2) ?? null,
       };
     }
-    case_.judgment = normalizeJudgment((case_ as any).judgment);
+    (case_ as { judgment: unknown }).judgment = normalizeJudgment(case_.judgment);
 
     return case_;
   }
@@ -557,7 +567,7 @@ export class CaseService {
     const case_ = await prisma.case.findFirst({
       where: {
         session_id: sessionId,
-        mode: 'quick',
+        mode: CASE_MODE.QUICK,
       },
       include: {
         evidences: {
@@ -575,11 +585,11 @@ export class CaseService {
     });
 
     if (case_) {
-      case_.evidences = case_.evidences.map((e: any) => ({
+      case_.evidences = case_.evidences.map((e) => ({
         ...e,
         file_url: fileService.signUrl(e.file_url),
       }));
-      case_.judgment = normalizeJudgment((case_ as any).judgment);
+      (case_ as { judgment: unknown }).judgment = normalizeJudgment(case_.judgment);
     }
 
     return case_;
@@ -589,9 +599,118 @@ export class CaseService {
    * 生成案件標題
    */
   private generateTitle(statement: string): string {
-    // 簡單標題生成：取前30個字符
     const title = statement.substring(0, 30).trim();
     return title.length < 5 ? '案件-' + new Date().toLocaleDateString() : title;
+  }
+
+  /**
+   * 創建協作聽證案件（同設備雙人模式）
+   * 第一次呼叫：創建案件並寫入角色A陳述
+   * 第二次呼叫（帶 case_id）：寫入角色B陳述並提交
+   */
+  async createOrUpdateCollaborativeCase(
+    data: {
+      case_id?: string;
+      plaintiff_statement?: string;
+      defendant_statement?: string;
+      evidence_urls?: string[];
+    },
+    sessionId: string | null
+  ) {
+    if (data.case_id && data.defendant_statement) {
+      // Phase 2: 角色 B 提交陳述（帶鎖防止併發提交）
+      return lockService.withLock(`case:collaborative:submit:${data.case_id}`, async () => {
+        const case_ = await prisma.case.findUnique({ where: { id: data.case_id } });
+        if (!case_ || case_.mode !== CASE_MODE.COLLABORATIVE) {
+          throw Errors.NOT_FOUND('協作案件不存在');
+        }
+        if (!sessionId || case_.session_id !== sessionId) {
+          throw Errors.FORBIDDEN('Session 不匹配');
+        }
+        const activeSession = await sessionService.getSession(sessionId);
+        if (!activeSession) {
+          throw Errors.SESSION_EXPIRED();
+        }
+        if (case_.status !== CASE_STATUS.DRAFT) {
+          throw Errors.CASE_NOT_EDITABLE('案件已提交');
+        }
+
+        const defendantStatement = ValidationUtils.validateStatement(data.defendant_statement!, '角色B陳述', 10);
+
+        const updated = await prisma.case.update({
+          where: { id: data.case_id },
+          data: {
+            defendant_statement: defendantStatement,
+            status: CASE_STATUS.SUBMITTED,
+            submitted_at: new Date(),
+          },
+        });
+
+        const session = await sessionService.getSession(case_.session_id!);
+
+        return {
+          case: updated,
+          sessionId: case_.session_id!,
+          sessionExpiresAt: session?.expires_at || new Date(Date.now() + SESSION_EXPIRY.DEFAULT_MS),
+          phase: 'submitted' as const,
+        };
+      }, LOCK_TTL.CASE_UPDATE);
+    }
+
+    // Phase 1: 角色 A 創建案件
+    if (!data.plaintiff_statement) {
+      throw Errors.VALIDATION_ERROR('角色A陳述不能為空');
+    }
+
+    let finalSessionId: string;
+    if (!sessionId || !validateSessionId(sessionId)) {
+      const newSession = await sessionService.createSession();
+      finalSessionId = newSession.session_id;
+    } else {
+      const session = await sessionService.getSession(sessionId);
+      if (!session) {
+        const newSession = await sessionService.createSession();
+        finalSessionId = newSession.session_id;
+      } else {
+        finalSessionId = sessionId;
+      }
+    }
+
+    const plaintiffStatement = ValidationUtils.validateStatement(data.plaintiff_statement, '角色A陳述', 30);
+
+    let caseType: string;
+    try {
+      caseType = await aiService.detectCaseType(data.plaintiff_statement, '');
+    } catch {
+      caseType = '其他衝突';
+    }
+
+    const title = this.generateTitle(data.plaintiff_statement);
+    const existingTempPairing = await pairingService.getPairingBySessionId(finalSessionId);
+    const tempPairing = existingTempPairing || await pairingService.createTempPairing(finalSessionId);
+
+    const case_ = await prisma.case.create({
+      data: {
+        pairing_id: tempPairing.id,
+        title,
+        type: caseType,
+        plaintiff_statement: plaintiffStatement,
+        status: CASE_STATUS.DRAFT,
+        mode: CASE_MODE.COLLABORATIVE,
+        session_id: finalSessionId,
+      },
+    });
+
+    await sessionService.addCaseToSession(finalSessionId, case_.id);
+
+    const session = await sessionService.getSession(finalSessionId);
+
+    return {
+      case: case_,
+      sessionId: finalSessionId,
+      sessionExpiresAt: session?.expires_at || new Date(Date.now() + SESSION_EXPIRY.DEFAULT_MS),
+      phase: 'a_done',
+    };
   }
 }
 

@@ -178,14 +178,14 @@ describe('CaseController', () => {
       expect(next).not.toHaveBeenCalled();
       await Promise.resolve();
       await Promise.resolve();
-      expect(logger.error).toHaveBeenCalledWith('Failed to generate judgment', { caseId: 'c1', error: expect.any(Error) });
+      expect(logger.error).toHaveBeenCalledWith('Async judgment generation failed', { caseId: 'c1', error: expect.any(Error) });
     });
   });
 
   describe('createCase', () => {
     it('成功應調用 createCase 並觸發 generateJudgment', async () => {
       req.body = { description: 'desc' };
-      const case_ = { id: 'c1' };
+      const case_ = { id: 'c1', status: 'submitted' };
       mockCreateCase.mockResolvedValue(case_);
 
       await controller.createCase(req as Request, res as Response, next);
@@ -212,7 +212,7 @@ describe('CaseController', () => {
 
     it('createCase 成功但 generateJudgment 拋錯時應記錄 logger.error 且仍返回 201', async () => {
       req.body = { description: 'desc' };
-      mockCreateCase.mockResolvedValue({ id: 'c1' });
+      mockCreateCase.mockResolvedValue({ id: 'c1', status: 'submitted' });
       mockGenerateJudgment.mockRejectedValueOnce(new Error('judgment failed'));
 
       await controller.createCase(req as Request, res as Response, next);
@@ -221,7 +221,7 @@ describe('CaseController', () => {
       expect(next).not.toHaveBeenCalled();
       await Promise.resolve();
       await Promise.resolve();
-      expect(logger.error).toHaveBeenCalledWith('Failed to generate judgment', { caseId: 'c1', error: expect.any(Error) });
+      expect(logger.error).toHaveBeenCalledWith('Async judgment generation failed', { caseId: 'c1', error: expect.any(Error) });
     });
   });
 
@@ -417,7 +417,7 @@ describe('CaseController', () => {
       expect(next).not.toHaveBeenCalled();
       await Promise.resolve();
       await Promise.resolve();
-      expect(logger.error).toHaveBeenCalledWith('Failed to generate judgment', { caseId: 'c1', error: expect.any(Error) });
+      expect(logger.error).toHaveBeenCalledWith('Async judgment generation failed', { caseId: 'c1', error: expect.any(Error) });
     });
 
     it('submitCase 拋錯時應 next(error)', async () => {

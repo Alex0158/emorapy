@@ -2,14 +2,13 @@
  * 案件詳情頁面
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Card,
   Button,
   Typography,
   Space,
-  Tag,
   Descriptions,
   Spin,
   message,
@@ -20,15 +19,19 @@ import {
   CheckCircleOutlined,
   ClockCircleOutlined,
   EyeOutlined,
+  SendOutlined,
+  ExclamationCircleOutlined,
 } from '@ant-design/icons';
-import { getCase, submitCase } from '@/services/api/case';
+import { getCase, submitCase, updateCase } from '@/services/api/case';
 import type { Case } from '@/types/case';
-import ProtectedRoute from '@/components/common/ProtectedRoute';
+import { useAuthStore } from '@/store/authStore';
+import StatementInput from '@/components/business/StatementInput';
+import { validateStatement } from '@/utils/validate';
 import SEO from '@/components/common/SEO';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
 import { formatDateTime } from '@/utils/formatDate';
 import { logger } from '@/utils/logger';
-import { getCaseStatusTag } from '@/utils/statusTags';
+import { getCaseStatusTag, getCaseTypeTag } from '@/utils/statusTags';
 import { t } from '@/utils/i18n';
 import './Detail.less';
 
@@ -37,14 +40,24 @@ const { Title, Text, Paragraph } = Typography;
 const CaseDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuthStore();
   const [case_, setCase_] = useState<Case | null>(null);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [defendantStatement, setDefendantStatement] = useState('');
+  const [respondLoading, setRespondLoading] = useState(false);
+  const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
+  const staleRef = useRef(false);
   useEffect(() => {
+    staleRef.current = false;
     if (id) {
       fetchCase();
     }
+    return () => {
+      staleRef.current = true;
+      clearTimeout(redirectTimerRef.current);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 僅在 id 變化時拉取，fetchCase 不進 deps
   }, [id]);
 
@@ -58,22 +71,24 @@ const CaseDetail = () => {
     setLoading(true);
     try {
       const caseData = await getCase(id);
+      if (staleRef.current) return;
       setCase_(caseData);
     } catch (error: unknown) {
-      type ErrShape = { response?: { data?: { error?: { message?: string; code?: string } }; status?: number }; message?: string };
+      if (staleRef.current) return;
+      type ErrShape = { code?: string; message?: string };
       const err = error as ErrShape;
-      const errorMessage = err?.response?.data?.error?.message || err?.message || t('common.getCaseFail');
-      const errorCode = err?.response?.data?.error?.code;
+      const errorCode = err?.code;
+      const errorMessage = err?.message || t('common.getCaseFail');
 
-      if (errorCode === 'NOT_FOUND' || err?.response?.status === 404) {
+      if (errorCode === 'NOT_FOUND' || errorCode === 'HTTP_404') {
         message.error(t('common.caseNotFound'));
-        setTimeout(() => navigate('/case/list'), 1500);
-      } else if (errorCode === 'FORBIDDEN' || err?.response?.status === 403) {
+        redirectTimerRef.current = setTimeout(() => navigate('/case/list'), 1500);
+      } else if (errorCode === 'FORBIDDEN' || errorCode === 'HTTP_403') {
         message.error(t('message.noPermissionViewCase'));
-        setTimeout(() => navigate('/case/list'), 1500);
-      } else if (err?.response?.status === 401) {
+        redirectTimerRef.current = setTimeout(() => navigate('/case/list'), 1500);
+      } else if (errorCode === 'UNAUTHORIZED' || errorCode === 'HTTP_401') {
         message.error(t('message.pleaseLogin'));
-        setTimeout(() => navigate('/auth/login'), 1500);
+        redirectTimerRef.current = setTimeout(() => navigate('/auth/login'), 1500);
       } else {
         message.error(errorMessage);
         logger.error('Failed to fetch case', error);
@@ -84,6 +99,7 @@ const CaseDetail = () => {
   };
 
   const handleSubmit = async () => {
+    if (submitting) return;
     if (!id) {
       message.error(t('message.caseIdMissing'));
       return;
@@ -95,14 +111,14 @@ const CaseDetail = () => {
       message.success(t('message.submitCaseSuccess'));
       navigate(`/case/${id}/review`);
     } catch (error: unknown) {
-      type ErrShape = { response?: { data?: { error?: { message?: string; code?: string } }; status?: number }; message?: string };
+      type ErrShape = { code?: string; message?: string };
       const err = error as ErrShape;
-      const errorMessage = err?.response?.data?.error?.message || err?.message || t('message.submitCaseFail');
-      const errorCode = err?.response?.data?.error?.code;
+      const errorCode = err?.code;
+      const errorMessage = err?.message || t('message.submitCaseFail');
 
       if (errorCode === 'CASE_NOT_EDITABLE' || errorCode === 'VALIDATION_ERROR') {
         message.error(errorMessage);
-      } else if (err?.response?.status === 403) {
+      } else if (errorCode === 'FORBIDDEN' || errorCode === 'HTTP_403') {
         message.error(t('message.noPermissionSubmitCase'));
       } else {
         message.error(errorMessage);
@@ -110,6 +126,32 @@ const CaseDetail = () => {
       }
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleDefendantRespond = async () => {
+    if (respondLoading) return;
+    if (!id || !case_) return;
+
+    const validation = validateStatement(defendantStatement);
+    if (!validation.valid) {
+      message.warning(t('caseDetail.defendantStatementTooShort'));
+      return;
+    }
+
+    setRespondLoading(true);
+    try {
+      const updated = await updateCase(id, { defendant_statement: defendantStatement });
+      setCase_(updated);
+      message.success(t('caseDetail.defendantRespondSuccess'));
+      if (updated.status === 'submitted') {
+        navigate(`/case/${id}/review`);
+      }
+    } catch (error: unknown) {
+      const err = error as { message?: string };
+      message.error(err?.message || t('caseDetail.defendantRespondFail'));
+    } finally {
+      setRespondLoading(false);
     }
   };
 
@@ -124,7 +166,20 @@ const CaseDetail = () => {
   if (!case_) {
     return (
       <div className="case-detail-page">
-        <Alert message={t('common.caseNotFound')} type="error" />
+        <Alert
+          message={t('common.caseNotFound')}
+          type="error"
+          action={
+            <Space>
+              <Button size="small" onClick={() => navigate('/case/list')}>
+                {t('caseDetail.backList')}
+              </Button>
+              <Button size="small" type="primary" onClick={() => id && fetchCase()}>
+                {t('common.retry')}
+              </Button>
+            </Space>
+          }
+        />
       </div>
     );
   }
@@ -136,11 +191,18 @@ const CaseDetail = () => {
         ? t('caseDetail.modeCollaborative')
         : t('caseDetail.modeQuick');
 
+  const isDefendant = user?.id === case_.defendant_id;
+  const isPlaintiff = user?.id === case_.plaintiff_id;
+  const needsDefendantResponse =
+    case_.status === 'draft' &&
+    case_.mode === 'remote' &&
+    !case_.defendant_statement;
+
   return (
-    <ProtectedRoute>
+    <>
       <SEO
         title={`${case_.title}${t('caseDetail.titleSuffix')}`}
-        description={case_.plaintiff_statement.substring(0, 100)}
+        description={case_.plaintiff_statement?.substring(0, 100) || ''}
       />
       <div className="case-detail-page" role="main" aria-label={t('caseDetail.pageLabel')}>
         <AnimatedWrapper animation="fade" delay={100}>
@@ -153,7 +215,7 @@ const CaseDetail = () => {
               >
                 {t('caseDetail.backList')}
               </Button>
-              {case_.status === 'draft' && (
+              {case_.status === 'draft' && !needsDefendantResponse && (
                 <Button
                   icon={<EditOutlined />}
                   onClick={() => {
@@ -176,7 +238,7 @@ const CaseDetail = () => {
               </Title>
               <Space>
                 {getCaseStatusTag(case_.status)}
-                <Tag color="orange">{case_.type}</Tag>
+                {getCaseTypeTag(case_.type)}
               </Space>
             </div>
 
@@ -204,15 +266,59 @@ const CaseDetail = () => {
         </AnimatedWrapper>
 
         {case_.defendant_statement && (
-          <AnimatedWrapper animation="slide" direction="up" delay={350} trigger="intersection">
+          <AnimatedWrapper animation="slide" direction="up" delay={350}>
             <Card title={t('caseDetail.defendantStatement')} style={{ marginTop: 24 }} role="article" aria-labelledby="defendant-statement-title">
               <Paragraph id="defendant-statement-title">{case_.defendant_statement}</Paragraph>
             </Card>
           </AnimatedWrapper>
         )}
 
-        {case_.status === 'draft' && (
-          <AnimatedWrapper animation="slide" direction="up" delay={400} trigger="intersection">
+        {needsDefendantResponse && isDefendant && (
+          <AnimatedWrapper animation="slide" direction="up" delay={350}>
+            <Card
+              title={t('caseDetail.yourResponse')}
+              style={{ marginTop: 24 }}
+            >
+              <Alert
+                message={t('caseDetail.defendantResponseHint')}
+                type="info"
+                showIcon
+                style={{ marginBottom: 16 }}
+              />
+              <StatementInput
+                value={defendantStatement}
+                onChange={setDefendantStatement}
+                placeholder={t('caseDetail.defendantResponsePlaceholder')}
+              />
+              <Button
+                type="primary"
+                size="large"
+                icon={<SendOutlined />}
+                onClick={handleDefendantRespond}
+                loading={respondLoading}
+                disabled={!validateStatement(defendantStatement).valid}
+                style={{ marginTop: 16 }}
+              >
+                {t('caseDetail.submitResponse')}
+              </Button>
+            </Card>
+          </AnimatedWrapper>
+        )}
+
+        {needsDefendantResponse && isPlaintiff && (
+          <AnimatedWrapper animation="slide" direction="up" delay={350}>
+            <Alert
+              message={t('caseDetail.waitingForDefendant')}
+              description={t('caseDetail.waitingForDefendantDesc')}
+              type="warning"
+              showIcon
+              style={{ marginTop: 24 }}
+            />
+          </AnimatedWrapper>
+        )}
+
+        {case_.status === 'draft' && !needsDefendantResponse && (
+          <AnimatedWrapper animation="slide" direction="up" delay={400}>
             <div className="action-section" role="group" aria-label={t('caseDetail.actionSectionLabel')}>
               <Button
                 type="primary"
@@ -233,7 +339,7 @@ const CaseDetail = () => {
         )}
 
         {(case_.status === 'submitted' || case_.status === 'in_progress') && (
-          <AnimatedWrapper animation="slide" direction="up" delay={400} trigger="intersection">
+          <AnimatedWrapper animation="slide" direction="up" delay={400}>
             <div className="action-section" role="group" aria-label={t('caseDetail.actionSectionLabel')}>
               <Button
                 type="primary"
@@ -249,7 +355,7 @@ const CaseDetail = () => {
         )}
 
         {case_.status === 'completed' && (
-          <AnimatedWrapper animation="slide" direction="up" delay={400} trigger="intersection">
+          <AnimatedWrapper animation="slide" direction="up" delay={400}>
             <div className="action-section" role="group" aria-label={t('caseDetail.actionSectionLabel')}>
               <Button
                 type="primary"
@@ -274,10 +380,31 @@ const CaseDetail = () => {
             </div>
           </AnimatedWrapper>
         )}
+
+        {case_.status === 'judgment_failed' && (
+          <AnimatedWrapper animation="slide" direction="up" delay={400}>
+            <Alert
+              message={t('review.judgmentFailed')}
+              description={case_.judgment_failure_reason || t('review.judgmentFailedDesc')}
+              type="error"
+              showIcon
+              icon={<ExclamationCircleOutlined />}
+              style={{ marginTop: 24 }}
+              action={
+                <Button
+                  type="primary"
+                  size="small"
+                  onClick={() => navigate(`/case/${id}/review`)}
+                >
+                  {t('review.retryJudgment')}
+                </Button>
+              }
+            />
+          </AnimatedWrapper>
+        )}
       </div>
-    </ProtectedRoute>
+    </>
   );
 };
 
 export default CaseDetail;
-

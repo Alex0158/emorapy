@@ -24,11 +24,19 @@ function humanizeKey(key: string): string {
     .trim();
 }
 
-export function t(key: string): string {
+export function t(key: string, params?: Record<string, string | number>): string {
   const dict = catalogs[current];
-  if (dict[key]) return dict[key];
-  if (current === 'en-US') return humanizeKey(key);
-  return catalogs[DEFAULT_LOCALE][key] ?? key;
+  let result: string;
+  if (dict[key]) result = dict[key];
+  else if (current === 'en-US') result = humanizeKey(key);
+  else result = catalogs[DEFAULT_LOCALE][key] ?? key;
+
+  if (params) {
+    for (const [k, v] of Object.entries(params)) {
+      result = result.replaceAll(`{${k}}`, String(v));
+    }
+  }
+  return result;
 }
 
 export function normalizeLocale(input?: string | null): Locale {
@@ -40,7 +48,8 @@ export function normalizeLocale(input?: string | null): Locale {
 
 function detectInitialLocale(): Locale {
   if (typeof window === 'undefined') return DEFAULT_LOCALE;
-  const stored = window.localStorage.getItem(LOCALE_STORAGE_KEY);
+  let stored: string | null = null;
+  try { stored = window.localStorage.getItem(LOCALE_STORAGE_KEY); } catch { /* noop */ }
   if (stored) return normalizeLocale(stored);
   return normalizeLocale(window.navigator.language);
 }
@@ -56,7 +65,7 @@ export function setLocale(locale: Locale | string): void {
   if (!catalogs[normalized] || current === normalized) return;
   current = normalized;
   if (typeof window !== 'undefined') {
-    window.localStorage.setItem(LOCALE_STORAGE_KEY, normalized);
+    try { window.localStorage.setItem(LOCALE_STORAGE_KEY, normalized); } catch { /* noop */ }
   }
   notifyLocaleChange();
 }

@@ -154,5 +154,23 @@ export function getPlanTypeTagColor(type: string): string {
  * 案件類型標籤（用於 Case/List，顯示 type 字串）
  */
 export function getCaseTypeTag(type: string): React.ReactNode {
-  return <Tag color="orange">{type}</Tag>;
+  const colorMap: Record<string, string> = {
+    '生活習慣衝突': 'green',
+    '消費決策衝突': 'blue',
+    '社交關係衝突': 'purple',
+    '價值觀衝突': 'orange',
+    '情感需求衝突': 'magenta',
+    '其他衝突': 'default',
+  };
+  const i18nMap: Record<string, string> = {
+    '生活習慣衝突': 'caseList.typeLife',
+    '消費決策衝突': 'caseList.typeConsumption',
+    '社交關係衝突': 'caseList.typeSocial',
+    '價值觀衝突': 'caseList.typeValues',
+    '情感需求衝突': 'caseList.typeEmotion',
+    '其他衝突': 'caseList.typeOther',
+  };
+  const color = colorMap[type] ?? 'default';
+  const label = i18nMap[type] ? t(i18nMap[type]) : type;
+  return <Tag color={color}>{label}</Tag>;
 }

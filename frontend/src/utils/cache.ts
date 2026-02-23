@@ -12,12 +12,22 @@ interface CacheItem<T> {
 /**
  * 內存緩存類
  */
-class MemoryCache {
+export class MemoryCache {
   private cache = new Map<string, CacheItem<unknown>>();
+  private maxSize: number;
+
+  constructor(maxSize = 200) {
+    this.maxSize = maxSize;
+  }
 
   set<T>(key: string, value: T, ttl: number = 0): void {
     const expiry = ttl > 0 ? Date.now() + ttl : Infinity;
     this.cache.set(key, { value, expiry });
+    while (this.cache.size > this.maxSize) {
+      const firstKey = this.cache.keys().next().value;
+      if (firstKey !== undefined) this.cache.delete(firstKey);
+      else break;
+    }
   }
 
   get<T>(key: string): T | null {

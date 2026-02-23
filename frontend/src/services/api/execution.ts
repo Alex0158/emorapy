@@ -46,7 +46,9 @@ export const confirmExecution = async (planId: string): Promise<ExecutionRecord>
     '/execution/confirm',
     { plan_id: planId }
   );
-  return (response.data as ApiResponse<{ execution: ExecutionRecord }>).data.execution;
+  const result = (response.data as ApiResponse<{ execution: ExecutionRecord }>)?.data?.execution;
+  if (!result) throw new Error('Invalid execution response from server');
+  return result;
 };
 
 /**
@@ -57,7 +59,9 @@ export const checkin = async (data: CheckinDto): Promise<ExecutionRecord> => {
     '/execution/checkin',
     data
   );
-  return (response.data as ApiResponse<{ execution: ExecutionRecord }>).data.execution;
+  const result = (response.data as ApiResponse<{ execution: ExecutionRecord }>)?.data?.execution;
+  if (!result) throw new Error('Invalid execution response from server');
+  return result;
 };
 
 /**
@@ -65,9 +69,12 @@ export const checkin = async (data: CheckinDto): Promise<ExecutionRecord> => {
  */
 export const getExecutionStatus = async (planId: string): Promise<ExecutionStatus> => {
   const response = await request.get<ApiResponse<ExecutionStatus>>(
-    `/execution/status?plan_id=${planId}`
+    '/execution/status',
+    { params: { plan_id: planId } }
   );
-  return (response.data as ApiResponse<ExecutionStatus>).data;
+  const result = (response.data as ApiResponse<ExecutionStatus>)?.data;
+  if (!result) throw new Error('Invalid execution status response from server');
+  return result;
 };
 
 /**
@@ -77,6 +84,6 @@ export const getAllExecutionStatuses = async (): Promise<ExecutionStatus[]> => {
   const response = await request.get<ApiResponse<{ executions: ExecutionStatus[] }>>(
     '/execution/dashboard'
   );
-  return (response.data as ApiResponse<{ executions: ExecutionStatus[] }>).data.executions;
+  return (response.data as ApiResponse<{ executions: ExecutionStatus[] }>)?.data?.executions ?? [];
 };
 

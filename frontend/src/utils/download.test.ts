@@ -41,6 +41,24 @@ describe('download', () => {
       downloadFile('https://example.com/file');
       expect(mockLink.download).toBe('');
     });
+
+    it('應拒絕不安全的 URL scheme 並拋出', () => {
+      expect(() => downloadFile('javascript:alert(1)')).toThrow(
+        'Blocked download from unsafe URL scheme: javascript'
+      );
+      expect(() => downloadFile('vbscript:msgbox')).toThrow(
+        'Blocked download from unsafe URL scheme: vbscript'
+      );
+      expect(mockLink.click).not.toHaveBeenCalled();
+    });
+
+    it('應允許 blob: 與 data: scheme', () => {
+      downloadFile('blob:http://localhost/abc', 'file.bin');
+      expect(mockLink.click).toHaveBeenCalled();
+      mockLink.click.mockClear();
+      downloadFile('data:text/plain;base64,SGVsbG8=', 'file.txt');
+      expect(mockLink.click).toHaveBeenCalled();
+    });
   });
 
   describe('downloadText', () => {

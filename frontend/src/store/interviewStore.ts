@@ -140,8 +140,16 @@ export const useInterviewStore = create<InterviewState>((set, get) => {
           onMetadata: (data: SSEMetadata) => {
             metadata = data;
           },
-          onSafetyAlert: (alert: SafetyAlertData) => {
-            set({ safetyAlert: alert });
+          onSafetyAlert: (data: Record<string, unknown>) => {
+            const severityValue = data.severity;
+            const normalizedSeverity: SafetyAlertData['severity'] =
+              severityValue === 'warning' || severityValue === 'critical' ? severityValue : 'info';
+            set({
+              safetyAlert: {
+                message: typeof data.message === 'string' ? data.message : t('interview.respondFail'),
+                severity: normalizedSeverity,
+              },
+            });
           },
           onComplete: (data) => {
             completeData = data;

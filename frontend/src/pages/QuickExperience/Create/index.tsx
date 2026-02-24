@@ -63,7 +63,7 @@ const QuickExperienceCreate = () => {
   const [recoveredCase, setRecoveredCase] = useState<{ id: string; status: string } | null>(null);
   const submitLockRef = useRef(false);
   const mountedRef = useMountedRef();
-  const autoGenTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const autoGenTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setLayoutMode(width >= 1024 ? 'horizontal' : 'vertical');
@@ -174,7 +174,9 @@ const QuickExperienceCreate = () => {
     setIsGeneratingDefendant(true);
     const source = plaintiffStatement.slice(0, 120);
     const draft = t('quickCreate.defendantDraftTemplate').replace('{source}', source);
-    clearTimeout(autoGenTimeoutRef.current);
+    if (autoGenTimeoutRef.current) {
+      clearTimeout(autoGenTimeoutRef.current);
+    }
     autoGenTimeoutRef.current = setTimeout(() => {
       if (!mountedRef.current) return;
       setDefendantStatement(draft);
@@ -184,7 +186,11 @@ const QuickExperienceCreate = () => {
   };
 
   useEffect(() => {
-    return () => { clearTimeout(autoGenTimeoutRef.current); };
+    return () => {
+      if (autoGenTimeoutRef.current) {
+        clearTimeout(autoGenTimeoutRef.current);
+      }
+    };
   }, []);
 
   useKeyboardNavigation(() => { if (canSubmit) handleSubmit(); }, undefined, undefined, undefined, canSubmit);

@@ -14,7 +14,8 @@ COPY package*.json ./
 COPY prisma ./prisma/
 
 # 安裝所有依賴（包括 devDependencies，用於構建）
-RUN npm ci
+# 忽略 postinstall，避免在源碼尚未 COPY 前提前觸發 build
+RUN npm ci --ignore-scripts
 
 # 生成Prisma Client
 RUN npx prisma generate

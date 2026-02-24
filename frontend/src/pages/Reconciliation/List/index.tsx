@@ -21,7 +21,6 @@ import {
   ClockCircleOutlined,
   HeartOutlined,
   CheckCircleOutlined,
-  ArrowLeftOutlined,
 } from '@ant-design/icons';
 import { getPlans, selectPlan, generatePlans } from '@/services/api/reconciliation';
 import type { ReconciliationPlan } from '@/services/api/reconciliation';

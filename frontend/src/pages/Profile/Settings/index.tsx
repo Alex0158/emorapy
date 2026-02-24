@@ -16,10 +16,10 @@ const { Title } = Typography;
 
 const ProfileSettings = () => {
   const [form] = Form.useForm();
-   const { user, updateUser } = useAuthStore();
-   const [loading, setLoading] = useState(false);
-   const [loadError, setLoadError] = useState(false);
-   const [saving, setSaving] = useState(false);
+  const { updateUser } = useAuthStore();
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const staleRef = useRef(false);
 

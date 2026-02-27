@@ -14,6 +14,10 @@ import { profileSnapshotService } from './profile-snapshot.service';
 import { profileRichnessService } from './profile-richness.service';
 import { getRichnessLevel, RichnessLevel } from '../types/interview.types';
 import { caseContextService } from './case-context.service';
+import { safetyRoutingService } from './safety-routing.service';
+import { ruptureRepairService } from './rupture-repair.service';
+import { clinicalQualityService } from './clinical-quality.service';
+import { env } from '../config/env';
 
 // ─── 關係互動層模板匹配（Step 4B）──────────────────
 // 使用雙方洞察的 key/value 查表生成，零額外 AI 成本
@@ -233,6 +237,25 @@ interface PrioritizedText {
   priority: ProfilePriority;
 }
 
+interface ContextGovernanceAudit {
+  profileContext: {
+    enabled: boolean;
+    injected: boolean;
+    reason: string;
+    requireConsent: boolean;
+    profileMaxAgeDays: number;
+    sources: string[];
+    droppedParts: number;
+    totalTokens: number;
+    keptTokens: number;
+  };
+  caseContext: {
+    enabled: boolean;
+    injected: boolean;
+    reason: string;
+  };
+}
+
 function estimateTokens(text: string): number {
   if (!text) return 0;
   const cjkChars = (text.match(/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g) || []).length;
@@ -240,10 +263,20 @@ function estimateTokens(text: string): number {
   return Math.ceil(cjkChars * 1.5) + nonCjkTokens;
 }
 
-function truncateProfileParts(parts: PrioritizedText[]): string {
+function truncateProfileParts(parts: PrioritizedText[]): {
+  text: string;
+  droppedParts: number;
+  totalTokens: number;
+  keptTokens: number;
+} {
   const totalTokens = parts.reduce((sum, p) => sum + estimateTokens(p.text), 0);
   if (totalTokens <= PROFILE_TOKEN_BUDGET) {
-    return parts.map(p => p.text).join('\n');
+    return {
+      text: parts.map(p => p.text).join('\n'),
+      droppedParts: 0,
+      totalTokens,
+      keptTokens: totalTokens,
+    };
   }
 
   const indexed = parts.map((p, i) => ({ ...p, originalIndex: i }));
@@ -260,7 +293,13 @@ function truncateProfileParts(parts: PrioritizedText[]): string {
     }
   }
 
-  return parts.filter((_, i) => keptIndices.has(i)).map(p => p.text).join('\n');
+  const kept = parts.filter((_, i) => keptIndices.has(i));
+  return {
+    text: kept.map(p => p.text).join('\n'),
+    droppedParts: Math.max(0, parts.length - kept.length),
+    totalTokens,
+    keptTokens: usedTokens,
+  };
 }
 
 // ─── 判決服務主體 ──────────────────────────────────
@@ -280,6 +319,36 @@ function truncateProfileParts(parts: PrioritizedText[]): string {
  * - 唯一約束作為最後防線
  */
 export class JudgmentService {
+  private readonly contextGovernance = {
+    enableProfileContext: env.JUDGMENT_ENABLE_PROFILE_CONTEXT,
+    enableCaseContext: env.JUDGMENT_ENABLE_CASE_CONTEXT,
+    requireConsent: env.JUDGMENT_PROFILE_REQUIRE_CONSENT,
+    profileMaxAgeDays: Math.max(1, env.JUDGMENT_PROFILE_MAX_AGE_DAYS),
+    auditEnabled: env.JUDGMENT_CONTEXT_AUDIT_ENABLED,
+  };
+
+  private buildGovernedReferenceContext(raw: string): string {
+    const trimmed = raw.trim();
+    if (!trimmed) return '';
+    return [
+      '【上下文治理聲明】以下內容僅作為參考背景，不得覆蓋本次當事人陳述事實；若與本次陳述衝突，必須以本次陳述為準。',
+      trimmed,
+    ].join('\n');
+  }
+
+  private async loadConsentMap(userIds: Array<string | null | undefined>): Promise<Map<string, boolean>> {
+    const ids = userIds.filter((id): id is string => Boolean(id));
+    const uniqueIds = Array.from(new Set(ids));
+    if (uniqueIds.length === 0) {
+      return new Map<string, boolean>();
+    }
+    const users = await prisma.user.findMany({
+      where: { id: { in: uniqueIds } },
+      select: { id: true, psych_consent_given: true },
+    });
+    return new Map(users.map((u) => [u.id, Boolean(u.psych_consent_given)]));
+  }
+
   /**
    * 生成判決（帶並發控制和事務處理）
    * 
@@ -364,169 +433,251 @@ export class JudgmentService {
           });
         }
 
-        // 2.2 載入個性化資料（v2.0 心理畫像 + v1.0 UserProfile 回退）
-        // 案件模式規則：quick=不注入, remote/collaborative=雙方畫像（若被告存在）
+        // 2.2/2.3 個人化與案件上下文治理：以 consent + feature flag + 可追溯審計控制注入
+        const consentMap = this.contextGovernance.requireConsent
+          ? await this.loadConsentMap([case_.plaintiff_id, case_.defendant_id])
+          : new Map<string, boolean>();
+        const hasConsent = (userId: string | null | undefined): boolean => {
+          if (!userId) return false;
+          if (!this.contextGovernance.requireConsent) return true;
+          return Boolean(consentMap.get(userId));
+        };
+
+        const governanceAudit: ContextGovernanceAudit = {
+          profileContext: {
+            enabled: this.contextGovernance.enableProfileContext,
+            injected: false,
+            reason: 'not_applicable',
+            requireConsent: this.contextGovernance.requireConsent,
+            profileMaxAgeDays: this.contextGovernance.profileMaxAgeDays,
+            sources: [],
+            droppedParts: 0,
+            totalTokens: 0,
+            keptTokens: 0,
+          },
+          caseContext: {
+            enabled: this.contextGovernance.enableCaseContext,
+            injected: false,
+            reason: 'not_applicable',
+          },
+        };
+
         let profileContext: string | undefined;
-        if (case_.mode !== CASE_MODE.QUICK && case_.plaintiff_id) {
-          try {
-            const HIGH_PRIORITY_DOMAINS = new Set(['attachment', 'family_origin']);
-            const MEDIUM_PRIORITY_DOMAINS = new Set(['relationship_history', 'life_events']);
-
-            function insightPriority(insight: InsightRow): ProfilePriority {
-              const isTrigger = /觸發|雷區|敏感/.test(insight.key);
-              if (HIGH_PRIORITY_DOMAINS.has(insight.domain) || isTrigger) {
-                return insight.confidence >= 0.6 ? ProfilePriority.HIGH : ProfilePriority.FIRST_CUT;
-              }
-              if (MEDIUM_PRIORITY_DOMAINS.has(insight.domain)) {
-                return insight.confidence >= 0.6 ? ProfilePriority.MEDIUM : ProfilePriority.FIRST_CUT;
-              }
-              return insight.confidence >= 0.6 ? ProfilePriority.LOW : ProfilePriority.FIRST_CUT;
-            }
-
-            function narrativePriority(domain: string): ProfilePriority {
-              if (HIGH_PRIORITY_DOMAINS.has(domain)) return ProfilePriority.HIGH;
-              if (MEDIUM_PRIORITY_DOMAINS.has(domain)) return ProfilePriority.MEDIUM;
-              return ProfilePriority.LOW;
-            }
-
-            const loadPsychProfile = async (userId: string, label: string): Promise<{ parts: PrioritizedText[]; insights: InsightRow[] }> => {
-              const parts: PrioritizedText[] = [];
-              const richness = await profileRichnessService.calculateRichness(userId);
-              const level = getRichnessLevel(richness);
-
-              if (level === RichnessLevel.L0) return { parts: [], insights: [] };
-
-              await profileSnapshotService.createSnapshot(userId, caseId).catch(err => {
-                logger.warn('Failed to create profile snapshot', { userId, caseId, error: err });
-              });
-
-              const narratives = await prisma.profileNarrative.findMany({
-                where: { user_id: userId, is_latest: true },
-                select: { domain: true, ai_summary: true, completeness: true },
-              });
-              const insights = await prisma.profileInsight.findMany({
-                where: { user_id: userId, is_active: true, confidence: { gte: 0.4 } },
-                select: { domain: true, insight_type: true, key: true, value: true, confidence: true },
-              });
-
-              if (level === RichnessLevel.L1) {
-                const topInsights = insights.filter(i => i.confidence >= 0.7);
-                if (topInsights.length > 0) {
-                  parts.push({
-                    text: `${label}的核心特質：${topInsights.map(i => `${i.key}：${i.value}`).join('；')}`,
-                    priority: ProfilePriority.HIGH,
-                  });
-                }
-              } else if (level === RichnessLevel.L2) {
-                for (const n of narratives) {
-                  if (n.ai_summary && n.completeness > 0.2) {
-                    parts.push({ text: `${label}（${n.domain}）：${n.ai_summary}`, priority: narrativePriority(n.domain) });
-                  }
-                }
-                const keyInsights = insights.filter(i => i.confidence >= 0.5);
-                if (keyInsights.length > 0) {
-                  parts.push({ text: `${label}的洞察：${keyInsights.map(i => `${i.key}=${i.value}`).join('；')}`, priority: ProfilePriority.MEDIUM });
-                }
-              } else {
-                for (const n of narratives) {
-                  if (n.ai_summary) {
-                    parts.push({
-                      text: `${label}（${n.domain}，完整度 ${Math.round(n.completeness * 100)}%）：${n.ai_summary}`,
-                      priority: narrativePriority(n.domain),
-                    });
-                  }
-                }
-                for (const i of insights) {
-                  parts.push({
-                    text: `${label}洞察[${i.domain}/${i.insight_type}] ${i.key}：${i.value}（信心 ${Math.round(i.confidence * 100)}%）`,
-                    priority: insightPriority(i),
-                  });
-                }
-              }
-
-              return { parts, insights };
-            };
-
-            const allParts: PrioritizedText[] = [];
-
-            const plaintiffResult = await loadPsychProfile(case_.plaintiff_id, '角色A');
-            allParts.push(...plaintiffResult.parts);
-
-            let defendantResult: { parts: PrioritizedText[]; insights: InsightRow[] } | null = null;
-            if (case_.defendant_id && (case_.mode === CASE_MODE.REMOTE || case_.mode === CASE_MODE.COLLABORATIVE)) {
-              defendantResult = await loadPsychProfile(case_.defendant_id, '角色B');
-              allParts.push(...defendantResult.parts);
-            }
-
-            // Step 4B：互動層 — 最高保留優先級
-            if (defendantResult && plaintiffResult.insights.length > 0 && defendantResult.insights.length > 0) {
-              const interactionLayer = buildInteractionLayer(
-                plaintiffResult.insights, defendantResult.insights, '角色A', '角色B'
-              );
-              if (interactionLayer) {
-                allParts.push({ text: interactionLayer, priority: ProfilePriority.ALWAYS_KEEP });
-              }
-            }
-
-            // v1.0 回退：UserProfile 基礎資料（最低優先級）
-            const [plaintiffBasic, relationshipProfile] = await Promise.all([
-              prisma.userProfile.findUnique({ where: { user_id: case_.plaintiff_id } }),
-              case_.pairing_id ? prisma.relationshipProfile.findUnique({ where: { pairing_id: case_.pairing_id } }) : null,
-            ]);
-            if (plaintiffBasic) {
-              if (plaintiffBasic.mbti_type && !allParts.some(p => p.text.includes('MBTI'))) {
-                allParts.push({ text: `角色A的MBTI：${plaintiffBasic.mbti_type}`, priority: ProfilePriority.FIRST_CUT });
-              }
-              if (plaintiffBasic.communication_style) {
-                allParts.push({ text: `角色A的溝通風格：${plaintiffBasic.communication_style}`, priority: ProfilePriority.FIRST_CUT });
-              }
-            }
-            if (case_.defendant_id && (case_.mode === CASE_MODE.REMOTE || case_.mode === CASE_MODE.COLLABORATIVE)) {
-              const defBasic = await prisma.userProfile.findUnique({ where: { user_id: case_.defendant_id } });
-              if (defBasic) {
-                if (defBasic.mbti_type && !allParts.some(p => p.text.includes('角色B') && p.text.includes('MBTI'))) {
-                  allParts.push({ text: `角色B的MBTI：${defBasic.mbti_type}`, priority: ProfilePriority.FIRST_CUT });
-                }
-              }
-            }
-            if (relationshipProfile) {
-              const rpParts: string[] = [];
-              if (relationshipProfile.relationship_duration_days) rpParts.push(`交往天數：${relationshipProfile.relationship_duration_days}天`);
-              if (relationshipProfile.relationship_stage) rpParts.push(`關係階段：${relationshipProfile.relationship_stage}`);
-              if (relationshipProfile.is_long_distance) rpParts.push('遠距離關係');
-              if (relationshipProfile.conflict_communication_style) rpParts.push(`衝突溝通風格：${relationshipProfile.conflict_communication_style}`);
-              if (rpParts.length > 0) {
-                allParts.push({ text: rpParts.join('；'), priority: ProfilePriority.MEDIUM });
-              }
-            }
-
-            if (allParts.length > 0) profileContext = truncateProfileParts(allParts);
-          } catch (err) {
-            logger.warn('Failed to load profile context for judgment', { caseId, error: err });
-          }
-        }
-
-        // 2.3 載入案件類型相關的上下文（用於情感分析、責任比、摘要）
         let emotionalAnalysisHint: string | undefined;
         let responsibilityHint: string | undefined;
         let summaryBrief: string | undefined;
 
-        if (case_.mode !== CASE_MODE.QUICK) {
-          try {
-            const caseCtx = await caseContextService.loadCaseContext(caseId, {
-              type: case_.type,
-              mode: case_.mode,
-              plaintiff_id: case_.plaintiff_id,
-              defendant_id: case_.defendant_id,
-              pairing_id: case_.pairing_id,
-            });
-            if (caseCtx) {
-              emotionalAnalysisHint = caseContextService.formatForEmotionalAnalysis(caseCtx) || undefined;
-              responsibilityHint = caseContextService.formatForResponsibilityRatio(caseCtx) || undefined;
-              summaryBrief = caseContextService.formatForSummary(caseCtx) || undefined;
+        if (case_.mode === CASE_MODE.QUICK) {
+          governanceAudit.profileContext.reason = 'quick_mode_no_profile_context';
+          governanceAudit.caseContext.reason = 'quick_mode_no_case_context';
+        } else {
+          if (!this.contextGovernance.enableProfileContext) {
+            governanceAudit.profileContext.reason = 'feature_flag_disabled';
+          } else if (!case_.plaintiff_id) {
+            governanceAudit.profileContext.reason = 'missing_plaintiff';
+          } else if (!hasConsent(case_.plaintiff_id)) {
+            governanceAudit.profileContext.reason = 'plaintiff_consent_missing';
+          } else {
+            try {
+              const HIGH_PRIORITY_DOMAINS = new Set(['attachment', 'family_origin']);
+              const MEDIUM_PRIORITY_DOMAINS = new Set(['relationship_history', 'life_events']);
+              const profileCutoffDate = new Date(Date.now() - this.contextGovernance.profileMaxAgeDays * 24 * 60 * 60 * 1000);
+
+              function insightPriority(insight: InsightRow): ProfilePriority {
+                const isTrigger = /觸發|雷區|敏感/.test(insight.key);
+                if (HIGH_PRIORITY_DOMAINS.has(insight.domain) || isTrigger) {
+                  return insight.confidence >= 0.6 ? ProfilePriority.HIGH : ProfilePriority.FIRST_CUT;
+                }
+                if (MEDIUM_PRIORITY_DOMAINS.has(insight.domain)) {
+                  return insight.confidence >= 0.6 ? ProfilePriority.MEDIUM : ProfilePriority.FIRST_CUT;
+                }
+                return insight.confidence >= 0.6 ? ProfilePriority.LOW : ProfilePriority.FIRST_CUT;
+              }
+
+              function narrativePriority(domain: string): ProfilePriority {
+                if (HIGH_PRIORITY_DOMAINS.has(domain)) return ProfilePriority.HIGH;
+                if (MEDIUM_PRIORITY_DOMAINS.has(domain)) return ProfilePriority.MEDIUM;
+                return ProfilePriority.LOW;
+              }
+
+              const loadPsychProfile = async (userId: string, label: string): Promise<{ parts: PrioritizedText[]; insights: InsightRow[]; sources: string[] }> => {
+                const parts: PrioritizedText[] = [];
+                const sources: string[] = [];
+                const richness = await profileRichnessService.calculateRichness(userId);
+                const level = getRichnessLevel(richness);
+                if (level === RichnessLevel.L0) {
+                  return { parts: [], insights: [], sources };
+                }
+                await profileSnapshotService.createSnapshot(userId, caseId).catch(err => {
+                  logger.warn('Failed to create profile snapshot', { userId, caseId, error: err });
+                });
+                const narratives = await prisma.profileNarrative.findMany({
+                  where: { user_id: userId, is_latest: true, created_at: { gte: profileCutoffDate } },
+                  select: { domain: true, ai_summary: true, completeness: true },
+                });
+                const insights = await prisma.profileInsight.findMany({
+                  where: { user_id: userId, is_active: true, confidence: { gte: 0.4 }, created_at: { gte: profileCutoffDate } },
+                  select: { domain: true, insight_type: true, key: true, value: true, confidence: true },
+                });
+                if (narratives.length > 0) sources.push('profile_narratives');
+                if (insights.length > 0) sources.push('profile_insights');
+
+                if (level === RichnessLevel.L1) {
+                  const topInsights = insights.filter(i => i.confidence >= 0.7);
+                  if (topInsights.length > 0) {
+                    parts.push({
+                      text: `${label}的核心特質：${topInsights.map(i => `${i.key}：${i.value}`).join('；')}`,
+                      priority: ProfilePriority.HIGH,
+                    });
+                  }
+                } else if (level === RichnessLevel.L2) {
+                  for (const n of narratives) {
+                    if (n.ai_summary && n.completeness > 0.2) {
+                      parts.push({ text: `${label}（${n.domain}）：${n.ai_summary}`, priority: narrativePriority(n.domain) });
+                    }
+                  }
+                  const keyInsights = insights.filter(i => i.confidence >= 0.5);
+                  if (keyInsights.length > 0) {
+                    parts.push({ text: `${label}的洞察：${keyInsights.map(i => `${i.key}=${i.value}`).join('；')}`, priority: ProfilePriority.MEDIUM });
+                  }
+                } else {
+                  for (const n of narratives) {
+                    if (n.ai_summary) {
+                      parts.push({
+                        text: `${label}（${n.domain}，完整度 ${Math.round(n.completeness * 100)}%）：${n.ai_summary}`,
+                        priority: narrativePriority(n.domain),
+                      });
+                    }
+                  }
+                  for (const i of insights) {
+                    parts.push({
+                      text: `${label}洞察[${i.domain}/${i.insight_type}] ${i.key}：${i.value}（信心 ${Math.round(i.confidence * 100)}%）`,
+                      priority: insightPriority(i),
+                    });
+                  }
+                }
+
+                return { parts, insights, sources };
+              };
+
+              const allParts: PrioritizedText[] = [];
+              const allSources = new Set<string>();
+              const plaintiffResult = await loadPsychProfile(case_.plaintiff_id, '角色A');
+              plaintiffResult.sources.forEach((s) => allSources.add(s));
+              allParts.push(...plaintiffResult.parts);
+
+              let defendantResult: { parts: PrioritizedText[]; insights: InsightRow[]; sources: string[] } | null = null;
+              if (case_.defendant_id && (case_.mode === CASE_MODE.REMOTE || case_.mode === CASE_MODE.COLLABORATIVE)) {
+                if (hasConsent(case_.defendant_id)) {
+                  defendantResult = await loadPsychProfile(case_.defendant_id, '角色B');
+                  defendantResult.sources.forEach((s) => allSources.add(s));
+                  allParts.push(...defendantResult.parts);
+                } else {
+                  governanceAudit.profileContext.reason = 'defendant_consent_missing_partial_injection';
+                }
+              }
+
+              if (defendantResult && plaintiffResult.insights.length > 0 && defendantResult.insights.length > 0) {
+                const interactionLayer = buildInteractionLayer(
+                  plaintiffResult.insights,
+                  defendantResult.insights,
+                  '角色A',
+                  '角色B'
+                );
+                if (interactionLayer) {
+                  allParts.push({ text: interactionLayer, priority: ProfilePriority.ALWAYS_KEEP });
+                  allSources.add('interaction_layer');
+                }
+              }
+
+              const [plaintiffBasic, relationshipProfile] = await Promise.all([
+                prisma.userProfile.findUnique({ where: { user_id: case_.plaintiff_id } }),
+                case_.pairing_id ? prisma.relationshipProfile.findUnique({ where: { pairing_id: case_.pairing_id } }) : null,
+              ]);
+              if (plaintiffBasic) {
+                if (plaintiffBasic.mbti_type && !allParts.some(p => p.text.includes('MBTI'))) {
+                  allParts.push({ text: `角色A的MBTI：${plaintiffBasic.mbti_type}`, priority: ProfilePriority.FIRST_CUT });
+                }
+                if (plaintiffBasic.communication_style) {
+                  allParts.push({ text: `角色A的溝通風格：${plaintiffBasic.communication_style}`, priority: ProfilePriority.FIRST_CUT });
+                }
+                allSources.add('user_profile');
+              }
+              if (case_.defendant_id && hasConsent(case_.defendant_id) && (case_.mode === CASE_MODE.REMOTE || case_.mode === CASE_MODE.COLLABORATIVE)) {
+                const defBasic = await prisma.userProfile.findUnique({ where: { user_id: case_.defendant_id } });
+                if (defBasic?.mbti_type && !allParts.some(p => p.text.includes('角色B') && p.text.includes('MBTI'))) {
+                  allParts.push({ text: `角色B的MBTI：${defBasic.mbti_type}`, priority: ProfilePriority.FIRST_CUT });
+                  allSources.add('user_profile');
+                }
+              }
+              if (relationshipProfile) {
+                const rpParts: string[] = [];
+                if (relationshipProfile.relationship_duration_days) rpParts.push(`交往天數：${relationshipProfile.relationship_duration_days}天`);
+                if (relationshipProfile.relationship_stage) rpParts.push(`關係階段：${relationshipProfile.relationship_stage}`);
+                if (relationshipProfile.is_long_distance) rpParts.push('遠距離關係');
+                if (relationshipProfile.conflict_communication_style) rpParts.push(`衝突溝通風格：${relationshipProfile.conflict_communication_style}`);
+                if (rpParts.length > 0) {
+                  allParts.push({ text: rpParts.join('；'), priority: ProfilePriority.MEDIUM });
+                  allSources.add('relationship_profile');
+                }
+              }
+
+              if (allParts.length > 0) {
+                const truncated = truncateProfileParts(allParts);
+                profileContext = this.buildGovernedReferenceContext(truncated.text);
+                governanceAudit.profileContext.injected = Boolean(profileContext);
+                governanceAudit.profileContext.reason = governanceAudit.profileContext.reason === 'not_applicable'
+                  ? 'ok'
+                  : governanceAudit.profileContext.reason;
+                governanceAudit.profileContext.sources = Array.from(allSources);
+                governanceAudit.profileContext.droppedParts = truncated.droppedParts;
+                governanceAudit.profileContext.totalTokens = truncated.totalTokens;
+                governanceAudit.profileContext.keptTokens = truncated.keptTokens;
+              } else if (governanceAudit.profileContext.reason === 'not_applicable') {
+                governanceAudit.profileContext.reason = 'no_eligible_profile_sources';
+              }
+            } catch (err) {
+              governanceAudit.profileContext.reason = 'profile_context_load_failed';
+              logger.warn('Failed to load profile context for judgment', { caseId, error: err });
             }
-          } catch (err) {
-            logger.warn('Failed to load case context for sub-prompts', { caseId, error: err });
+          }
+
+          if (!this.contextGovernance.enableCaseContext) {
+            governanceAudit.caseContext.reason = 'feature_flag_disabled';
+          } else if (!case_.plaintiff_id || !hasConsent(case_.plaintiff_id)) {
+            governanceAudit.caseContext.reason = 'plaintiff_consent_missing';
+          } else {
+            try {
+              const caseCtx = await caseContextService.loadCaseContext(caseId, {
+                type: case_.type,
+                mode: case_.mode,
+                plaintiff_id: case_.plaintiff_id,
+                defendant_id: case_.defendant_id,
+                pairing_id: case_.pairing_id,
+              });
+              if (caseCtx) {
+                emotionalAnalysisHint = this.buildGovernedReferenceContext(
+                  caseContextService.formatForEmotionalAnalysis(caseCtx) || ''
+                ) || undefined;
+                responsibilityHint = this.buildGovernedReferenceContext(
+                  caseContextService.formatForResponsibilityRatio(caseCtx) || ''
+                ) || undefined;
+                summaryBrief = this.buildGovernedReferenceContext(
+                  caseContextService.formatForSummary(caseCtx) || ''
+                ) || undefined;
+                governanceAudit.caseContext.injected = Boolean(
+                  emotionalAnalysisHint || responsibilityHint || summaryBrief
+                );
+                governanceAudit.caseContext.reason = governanceAudit.caseContext.injected
+                  ? 'ok'
+                  : 'case_context_empty_after_filter';
+              } else {
+                governanceAudit.caseContext.reason = 'case_context_not_available';
+              }
+            } catch (err) {
+              governanceAudit.caseContext.reason = 'case_context_load_failed';
+              logger.warn('Failed to load case context for sub-prompts', { caseId, error: err });
+            }
           }
         }
 
@@ -535,6 +686,11 @@ export class JudgmentService {
         let responsibilityRatio: { plaintiff: number; defendant: number };
         let summary: string;
         let emotionalAnalysisData: unknown = null;
+        let routeDecision: { route: 'standard' | 'safety_support' | 'crisis_support'; reasons: string[]; detectedFlags: string[] } = {
+          route: 'standard',
+          reasons: ['default route'],
+          detectedFlags: [],
+        };
         let timedOut = false;
         const abortController = new AbortController();
         const timeoutHandle = setTimeout(() => {
@@ -543,6 +699,19 @@ export class JudgmentService {
         }, AI_TIMEOUT.JUDGMENT_GENERATION);
 
         try {
+          const prefetchedAnalysis = await aiService.analyzeEmotionalDynamics(
+            case_.plaintiff_statement,
+            case_.defendant_statement || '',
+            abortController.signal,
+            emotionalAnalysisHint
+          );
+
+          routeDecision = safetyRoutingService.decideRoute({
+            analysis: prefetchedAnalysis,
+            plaintiffStatement: case_.plaintiff_statement,
+            defendantStatement: case_.defendant_statement || '',
+          });
+
           const response = await aiService.generateJudgment(
             case_.type,
             case_.plaintiff_statement,
@@ -553,13 +722,39 @@ export class JudgmentService {
               emotionalAnalysisHint,
               responsibilityHint,
               summaryBrief,
+              routeType: routeDecision.route,
+              prefetchedAnalysis,
             }
           );
 
           judgmentContent = response.content;
           responsibilityRatio = response.responsibilityRatio;
           summary = response.summary;
-          emotionalAnalysisData = response.emotionalAnalysis ? JSON.parse(JSON.stringify(response.emotionalAnalysis)) : null;
+          if (this.contextGovernance.auditEnabled) {
+            logger.info('Judgment context governance audit', {
+              caseId,
+              profileContext: governanceAudit.profileContext,
+              caseContext: governanceAudit.caseContext,
+            });
+          }
+          emotionalAnalysisData = response.emotionalAnalysis
+            ? {
+              ...(JSON.parse(JSON.stringify(response.emotionalAnalysis)) as Record<string, unknown>),
+              route: routeDecision.route,
+              route_reasons: routeDecision.reasons,
+              route_detected_flags: routeDecision.detectedFlags,
+              ...(this.contextGovernance.auditEnabled
+                ? { context_governance: governanceAudit }
+                : {}),
+            }
+            : {
+              route: routeDecision.route,
+              route_reasons: routeDecision.reasons,
+              route_detected_flags: routeDecision.detectedFlags,
+              ...(this.contextGovernance.auditEnabled
+                ? { context_governance: governanceAudit }
+                : {}),
+            };
           aiUsed = true;
         } catch (error: unknown) {
           const errObj = error as { message?: string; status?: number } | undefined;
@@ -602,6 +797,7 @@ export class JudgmentService {
             caseId,
             error: normalizedError,
             status: CASE_STATUS.JUDGMENT_FAILED,
+            routeDecision,
           });
 
           if (timedOut || msg.includes('超時') || msg.includes('timeout') || msg.includes('AbortError') || msg.includes('aborted')) {
@@ -654,7 +850,7 @@ export class JudgmentService {
               defendant_ratio: responsibilityRatio.defendant,
               emotional_analysis: (emotionalAnalysisData ?? undefined) as Prisma.InputJsonValue | undefined,
               ai_model: AI_CONFIG.model,
-              prompt_version: 'v3.21',
+              prompt_version: 'v4.0',
             },
           });
 
@@ -711,6 +907,92 @@ export class JudgmentService {
       }
       throw err;
     });
+  }
+
+  async repairJudgmentResponse(
+    judgmentId: string,
+    feedback: string,
+    options?: { userId?: string; sessionId?: string }
+  ): Promise<{ repairedContent: string; repairType: 'validation' | 'apology_tone_fix' | 'strategy_reset' }> {
+    const judgment = await prisma.judgment.findUnique({
+      where: { id: judgmentId },
+      include: { case: true },
+    });
+
+    if (!judgment) {
+      throw Errors.NOT_FOUND('判決不存在');
+    }
+
+    if (judgment.case.mode === CASE_MODE.QUICK) {
+      if (!options?.sessionId || judgment.case.session_id !== options.sessionId) {
+        throw Errors.FORBIDDEN('無權限修復此判決');
+      }
+    } else {
+      const uid = options?.userId;
+      if (!uid || (judgment.case.plaintiff_id !== uid && judgment.case.defendant_id !== uid)) {
+        throw Errors.FORBIDDEN('無權限修復此判決');
+      }
+    }
+
+    const trimmedFeedback = (feedback || '').trim();
+    if (trimmedFeedback.length < 3) {
+      throw Errors.VALIDATION_ERROR('回饋內容過短');
+    }
+
+    const emotional = (judgment.emotional_analysis || {}) as Record<string, unknown>;
+    const route = (typeof emotional.route === 'string' ? emotional.route : 'standard') as 'standard' | 'safety_support' | 'crisis_support';
+
+    return ruptureRepairService.repair({
+      judgmentContent: judgment.judgment_content,
+      userFeedback: trimmedFeedback,
+      caseType: judgment.case.type,
+      route,
+    });
+  }
+
+  async recordClinicalMetrics(
+    judgmentId: string,
+    metrics: {
+      felt_understood: number;
+      felt_blamed: number;
+      willing_to_try: number;
+    },
+    options?: { userId?: string; sessionId?: string }
+  ): Promise<{ recorded: true }> {
+    const judgment = await prisma.judgment.findUnique({
+      where: { id: judgmentId },
+      include: { case: true },
+    });
+
+    if (!judgment) {
+      throw Errors.NOT_FOUND('判決不存在');
+    }
+
+    if (judgment.case.mode === CASE_MODE.QUICK) {
+      if (!options?.sessionId || judgment.case.session_id !== options.sessionId) {
+        throw Errors.FORBIDDEN('無權限提交此判決指標');
+      }
+    } else {
+      const uid = options?.userId;
+      if (!uid || (judgment.case.plaintiff_id !== uid && judgment.case.defendant_id !== uid)) {
+        throw Errors.FORBIDDEN('無權限提交此判決指標');
+      }
+    }
+
+    const emotional = (judgment.emotional_analysis || {}) as Record<string, unknown>;
+    const route = (typeof emotional.route === 'string' ? emotional.route : 'standard') as 'standard' | 'safety_support' | 'crisis_support';
+
+    await clinicalQualityService.recordPostResponseMetrics({
+      judgmentId: judgment.id,
+      promptVersion: judgment.prompt_version || 'unknown',
+      caseType: judgment.case.type || 'unknown',
+      route,
+      feltUnderstood: metrics.felt_understood,
+      feltBlamed: metrics.felt_blamed,
+      willingToTry: metrics.willing_to_try,
+    });
+
+    return { recorded: true };
   }
 
   /**

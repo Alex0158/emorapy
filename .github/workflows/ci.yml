@@ -40,6 +40,15 @@ jobs:
           OPENAI_API_KEY: sk-dev-test-placeholder
           DATABASE_URL: file:./test.db
 
+      - name: Admin integration tests
+        run: npx jest tests/integration/admin-api-flow.test.ts --runInBand
+        env:
+          NODE_ENV: test
+          SKIP_DB_INIT: 'true'
+          JWT_SECRET: test-secret-min-16-chars
+          OPENAI_API_KEY: sk-dev-test-placeholder
+          DATABASE_URL: file:./test.db
+
       - name: Build
         run: npm run build
 
@@ -77,3 +86,156 @@ jobs:
 
       - name: Audit (report only)
         run: npm audit --audit-level=high || true
+
+  admin-e2e:
+    name: Admin E2E
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: mbc
+          POSTGRES_PASSWORD: mbc_dev_pass
+          POSTGRES_DB: mbc_dev
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mbc -d mbc_dev"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node (backend)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Prepare backend database and seed admin users
+        working-directory: backend
+        env:
+          NODE_ENV: development
+          PORT: 3001
+          DATABASE_URL: postgresql://mbc:mbc_dev_pass@127.0.0.1:5432/mbc_dev
+          JWT_SECRET: test-secret-min-32-chars-1234567890
+          OPENAI_API_KEY: sk-dev-test-placeholder
+          FRONTEND_URL: http://127.0.0.1:5173
+          ALLOWED_ORIGINS: http://127.0.0.1:5173
+          ENABLE_SCHEDULED_JOBS: 'false'
+          ADMIN_SEED_EMAIL: admin-e2e@example.com
+          ADMIN_SEED_PASSWORD: AdminPass1234
+          ADMIN_SEED_NAME: Admin E2E
+          LIMITED_ADMIN_SEED_EMAIL: support-e2e@example.com
+          LIMITED_ADMIN_SEED_PASSWORD: SupportPass1234
+          LIMITED_ADMIN_SEED_NAME: Support E2E
+          LIMITED_ADMIN_SEED_ROLE: support
+        run: npx prisma db push --accept-data-loss && npm run prisma:seed
+
+      - name: Start backend server
+        working-directory: backend
+        env:
+          NODE_ENV: development
+          PORT: 3001
+          DATABASE_URL: postgresql://mbc:mbc_dev_pass@127.0.0.1:5432/mbc_dev
+          JWT_SECRET: test-secret-min-32-chars-1234567890
+          OPENAI_API_KEY: sk-dev-test-placeholder
+          FRONTEND_URL: http://127.0.0.1:5173
+          ALLOWED_ORIGINS: http://127.0.0.1:5173
+          ENABLE_SCHEDULED_JOBS: 'false'
+        run: npm run dev > ../backend-e2e.log 2>&1 &
+
+      - name: Wait for backend ready
+        run: |
+          for i in {1..30}; do
+            if curl -sf "http://127.0.0.1:3001/health" >/dev/null; then
+              echo "Backend ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Backend did not become ready"
+          tail -n 200 backend-e2e.log || true
+          exit 1
+
+      - name: Setup Node (frontend)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Start frontend server
+        working-directory: frontend
+        env:
+          VITE_API_BASE_URL: http://127.0.0.1:3001/api/v1
+        run: npm run dev -- --host 127.0.0.1 --port 5173 > ../frontend-e2e.log 2>&1 &
+
+      - name: Wait for frontend ready
+        run: |
+          for i in {1..30}; do
+            if curl -sf "http://127.0.0.1:5173/admin/login" >/dev/null; then
+              echo "Frontend ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Frontend did not become ready"
+          tail -n 200 frontend-e2e.log || true
+          exit 1
+
+      - name: Setup Node (e2e)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: Install e2e dependencies
+        working-directory: e2e
+        run: npm ci
+
+      - name: Install Playwright browser
+        working-directory: e2e
+        run: npx playwright install --with-deps chromium
+
+      - name: Run admin E2E
+        working-directory: e2e
+        run: npm test
+        env:
+          E2E_STRICT: 'true'
+          E2E_BASE_URL: http://127.0.0.1:5173
+          E2E_ADMIN_EMAIL: admin-e2e@example.com
+          E2E_ADMIN_PASSWORD: AdminPass1234
+          E2E_LIMITED_ADMIN_EMAIL: support-e2e@example.com
+          E2E_LIMITED_ADMIN_PASSWORD: SupportPass1234
+
+      - name: Dump service logs on failure
+        if: failure()
+        run: |
+          echo "===== backend-e2e.log (tail 200) ====="
+          tail -n 200 backend-e2e.log || true
+          echo "===== frontend-e2e.log (tail 200) ====="
+          tail -n 200 frontend-e2e.log || true
+
+      - name: Upload Playwright artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-e2e-report
+          path: |
+            e2e/playwright-report
+            e2e/test-results
+            backend-e2e.log
+            frontend-e2e.log
+          if-no-files-found: ignore

@@ -12,11 +12,15 @@ const prismaMock: any = {
     findUnique: jest.fn(),
     update: jest.fn(),
   },
+  user: {
+    findMany: jest.fn(),
+  },
   $transaction: jest.fn(),
 };
 
 const aiServiceMock = {
   generateJudgment: jest.fn(),
+  analyzeEmotionalDynamics: jest.fn(),
 };
 
 const sessionServiceMock = {
@@ -57,6 +61,8 @@ jest.mock('../../../src/config/logger', () => ({
 jest.mock('../../../src/services/ai.service', () => ({
   __esModule: true,
   aiService: aiServiceMock,
+  IPV_SIGNAL_REGEX: /控制|暴力|威脅/,
+  CRISIS_SIGNAL_REGEX: /自傷|自殺/,
 }));
 
 jest.mock('../../../src/services/session.service', () => ({
@@ -97,6 +103,27 @@ describe('JudgmentService', () => {
     jest.clearAllMocks();
     prismaMock.$transaction.mockImplementation(async (fn: any) => fn(prismaMock));
     prismaMock.case.update.mockResolvedValue({ id: 'case-1' });
+    prismaMock.user.findMany.mockResolvedValue([]);
+    aiServiceMock.analyzeEmotionalDynamics.mockResolvedValue({
+      severity: 'moderate',
+      personA: {
+        primaryFeelings: '',
+        unmetNeeds: '',
+        communicationPattern: '',
+      },
+      personB: {
+        primaryFeelings: '',
+        unmetNeeds: '',
+        communicationPattern: '',
+      },
+      interactionCycle: '',
+      triggerPattern: '',
+      coreIssue: '',
+      relationshipStrengths: '',
+      gottmanFlags: [],
+      safetyFlags: [],
+      suggestedApproach: '',
+    });
     cacheServiceMock.get.mockResolvedValue(1);
     cacheServiceMock.set.mockResolvedValue(undefined);
     sessionServiceMock.markSessionCompleted.mockResolvedValue(undefined);
@@ -446,6 +473,58 @@ describe('JudgmentService', () => {
       expect(loggerMock.warn).toHaveBeenCalledWith(
         'Failed to mark session completed',
         expect.objectContaining({ error: expect.any(Error) })
+      );
+    });
+
+    it('remote 模式應寫入 context_governance 審計（含 consent 治理結果）', async () => {
+      prismaMock.judgment.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+      prismaMock.case.findUnique.mockResolvedValueOnce(
+        baseCase({
+          mode: 'remote',
+          session_id: null,
+          plaintiff_id: 'u1',
+          defendant_id: 'u2',
+        })
+      );
+      // 未返回任何 consent，觸發 consent missing 路徑
+      prismaMock.user.findMany.mockResolvedValueOnce([]);
+      aiServiceMock.generateJudgment.mockResolvedValueOnce({
+        content: 'ok',
+        responsibilityRatio: { plaintiff: 60, defendant: 40 },
+        summary: 'sum',
+        emotionalAnalysis: {
+          severity: 'moderate',
+          personA: {},
+          personB: {},
+          interactionCycle: '',
+          triggerPattern: '',
+          coreIssue: '',
+          relationshipStrengths: '',
+          gottmanFlags: [],
+          safetyFlags: [],
+          suggestedApproach: '',
+        },
+      });
+      prismaMock.judgment.create.mockResolvedValueOnce({ id: 'j-ctx', case_id: 'case-1' });
+
+      const service = new JudgmentService();
+      await service.generateJudgment('case-1', { userId: 'u1' });
+
+      expect(prismaMock.judgment.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            emotional_analysis: expect.objectContaining({
+              context_governance: expect.objectContaining({
+                profileContext: expect.objectContaining({
+                  reason: expect.stringMatching(/plaintiff_consent_missing|no_eligible_profile_sources/),
+                }),
+                caseContext: expect.objectContaining({
+                  reason: expect.stringMatching(/plaintiff_consent_missing|case_context_not_available/),
+                }),
+              }),
+            }),
+          }),
+        })
       );
     });
   });

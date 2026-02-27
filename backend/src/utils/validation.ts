@@ -202,6 +202,20 @@ export const acceptJudgmentSchema = {
   }),
 };
 
+export const repairJudgmentSchema = {
+  body: Joi.object({
+    feedback: Joi.string().trim().min(3).max(2000).required(),
+  }),
+};
+
+export const judgmentMetricsSchema = {
+  body: Joi.object({
+    felt_understood: Joi.number().min(0).max(10).required(),
+    felt_blamed: Joi.number().min(0).max(10).required(),
+    willing_to_try: Joi.number().min(0).max(10).required(),
+  }),
+};
+
 // Case Schemas
 export const quickCaseSchema = {
   body: Joi.object({
@@ -383,4 +397,172 @@ export const upsertRelationshipProfileSchema = {
       Joi.object().max(20)
     )
   ).max(60),
+};
+
+// Admin Schemas
+export const adminBootstrapSchema = {
+  body: Joi.object({
+    email: Joi.string().email().max(255).required(),
+    password: Joi.string().min(10).max(128).required(),
+    name: Joi.string().min(2).max(100).required(),
+    roleKey: Joi.string().valid('super_admin', 'ops', 'marketing', 'support').optional(),
+  }),
+};
+
+export const adminLoginSchema = {
+  body: Joi.object({
+    email: Joi.string().email().max(255).required(),
+    password: Joi.string().min(1).max(128).required(),
+  }),
+};
+
+export const adminUpsertConfigSchema = {
+  body: Joi.object({
+    key: Joi.string()
+      .valid(
+        'jobs.enabled',
+        'interview.maxTurns',
+        'interview.softTarget',
+        'interview.turnIntervalMs',
+        'interview.startRateLimit',
+        'interview.dailySessionLimit',
+        'admin.alert.rules',
+        'feature.flags'
+      )
+      .required(),
+    value: Joi.alternatives().try(
+      Joi.string().max(5000),
+      Joi.number(),
+      Joi.boolean(),
+      Joi.array().max(200).items(Joi.alternatives().try(Joi.string().max(1000), Joi.number(), Joi.boolean(), Joi.object().max(50))),
+      Joi.object().max(100)
+    ).required(),
+    description: Joi.string().max(500).allow('', null).optional(),
+    isRuntime: Joi.boolean().optional(),
+    isSensitive: Joi.boolean().optional(),
+  }),
+};
+
+export const adminUserStatusSchema = {
+  body: Joi.object({
+    action: Joi.string().valid('lock', 'unlock', 'deactivate', 'activate').required(),
+    lockMinutes: Joi.number().integer().min(1).max(60 * 24 * 14).optional(),
+  }),
+  params: Joi.object({
+    userId: Joi.string().uuid().required(),
+  }),
+};
+
+export const adminUserDetailParamSchema = {
+  params: Joi.object({
+    userId: Joi.string().uuid().required(),
+  }),
+};
+
+export const adminAdminUserCreateSchema = {
+  body: Joi.object({
+    email: Joi.string().email().max(255).required(),
+    password: Joi.string().min(10).max(128).required(),
+    name: Joi.string().min(2).max(100).required(),
+    roleKey: Joi.string().valid('super_admin', 'ops', 'marketing', 'support').required(),
+  }),
+};
+
+export const adminAdminUserUpdateSchema = {
+  params: Joi.object({
+    adminUserId: Joi.string().uuid().required(),
+  }),
+  body: Joi.object({
+    name: Joi.string().min(2).max(100).optional(),
+    roleKey: Joi.string().valid('super_admin', 'ops', 'marketing', 'support').optional(),
+    isActive: Joi.boolean().optional(),
+    password: Joi.string().min(10).max(128).optional(),
+  }).min(1),
+};
+
+export const adminAdminUserDeleteSchema = {
+  params: Joi.object({
+    adminUserId: Joi.string().uuid().required(),
+  }),
+};
+
+export const adminJobTriggerSchema = {
+  params: Joi.object({
+    jobKey: Joi.string().max(100).required(),
+  }),
+};
+
+export const adminJobStatsQuerySchema = {
+  query: Joi.object({
+    days: Joi.number().integer().min(1).max(90).optional(),
+    includeRunning: Joi.boolean().optional(),
+    maxRows: Joi.number().integer().min(100).max(20000).optional(),
+  }),
+};
+
+export const adminAuditLogsQuerySchema = {
+  query: Joi.object({
+    limit: Joi.number().integer().min(1).max(100).optional(),
+    offset: Joi.number().integer().min(0).optional(),
+    entityType: Joi.string().max(50).optional(),
+    action: Joi.string().max(50).optional(),
+    from: Joi.string().isoDate().optional(),
+    to: Joi.string().isoDate().optional(),
+  }),
+};
+
+export const adminCustomReportSchema = {
+  body: Joi.object({
+    metrics: Joi.array()
+      .items(Joi.string().valid('dau', 'mau', 'judgment_failed'))
+      .min(1)
+      .max(20)
+      .required(),
+  }),
+};
+
+const chatRoomIdPattern = Joi.string().pattern(uuidPattern);
+const chatVisibilityModeRule = Joi.string().valid(
+  'share_full_history',
+  'share_summary_only',
+  'share_from_join_time'
+);
+
+export const createChatRoomSchema = {
+  body: Joi.object({
+    history_visibility_mode: chatVisibilityModeRule.optional(),
+  }),
+};
+
+export const chatRoomIdParamSchema = {
+  params: Joi.object({
+    roomId: chatRoomIdPattern.required(),
+  }),
+};
+
+export const createChatInviteSchema = {
+  body: Joi.object({
+    history_visibility_mode: chatVisibilityModeRule.optional(),
+    expires_in_hours: Joi.number().integer().min(1).max(168).optional(),
+  }),
+};
+
+export const acceptChatInviteSchema = {
+  params: Joi.object({
+    inviteCode: Joi.string().alphanum().min(6).max(12).required(),
+  }),
+};
+
+export const listChatMessagesSchema = {
+  query: Joi.object({
+    cursor: Joi.string().isoDate().optional(),
+    limit: Joi.number().integer().min(1).max(100).optional(),
+  }),
+};
+
+export const sendChatMessageSchema = {
+  body: Joi.object({
+    content: Joi.string().trim().min(1).max(4000).required(),
+    visibility_scope: Joi.string().valid('all', 'owner_only', 'summary_only').optional(),
+  }),
 };

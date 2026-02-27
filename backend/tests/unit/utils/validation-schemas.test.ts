@@ -3,6 +3,8 @@
  */
 
 import {
+  adminJobStatsQuerySchema,
+  adminUpsertConfigSchema,
   executionStatusQuerySchema,
   pairingIdParamSchema,
   caseIdParamSchema,
@@ -123,6 +125,43 @@ describe('Validation Schemas', () => {
     it('uuidEvidenceParamSchema 應要求 evidenceId', () => {
       const { error } = uuidEvidenceParamSchema.params!.validate({
         id: validUUID,
+      });
+      expect(error).toBeDefined();
+    });
+  });
+
+  describe('admin schemas', () => {
+    it('adminJobStatsQuerySchema 應接受 1~90 的 days', () => {
+      const ok1 = adminJobStatsQuerySchema.query!.validate({ days: 1 });
+      const ok2 = adminJobStatsQuerySchema.query!.validate({ days: 90 });
+      const ok3 = adminJobStatsQuerySchema.query!.validate({ days: 7, includeRunning: false });
+      const ok4 = adminJobStatsQuerySchema.query!.validate({ maxRows: 100 });
+      const ok5 = adminJobStatsQuerySchema.query!.validate({ maxRows: 20000 });
+      expect(ok1.error).toBeUndefined();
+      expect(ok2.error).toBeUndefined();
+      expect(ok3.error).toBeUndefined();
+      expect(ok4.error).toBeUndefined();
+      expect(ok5.error).toBeUndefined();
+    });
+
+    it('adminJobStatsQuerySchema 應拒絕超界 days', () => {
+      const low = adminJobStatsQuerySchema.query!.validate({ days: 0 });
+      const high = adminJobStatsQuerySchema.query!.validate({ days: 91 });
+      expect(low.error).toBeDefined();
+      expect(high.error).toBeDefined();
+    });
+
+    it('adminJobStatsQuerySchema 應拒絕超界 maxRows', () => {
+      const low = adminJobStatsQuerySchema.query!.validate({ maxRows: 99 });
+      const high = adminJobStatsQuerySchema.query!.validate({ maxRows: 20001 });
+      expect(low.error).toBeDefined();
+      expect(high.error).toBeDefined();
+    });
+
+    it('adminUpsertConfigSchema 應拒絕非白名單 key', () => {
+      const { error } = adminUpsertConfigSchema.body!.validate({
+        key: 'unknown.key',
+        value: true,
       });
       expect(error).toBeDefined();
     });

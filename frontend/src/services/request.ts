@@ -123,10 +123,14 @@ request.interceptors.request.use(
 		// 添加請求取消支持
 		addCancelToken(config);
 
-		// 添加認證Token（如果存在）
+		// 添加認證 Token（如果呼叫端已自行指定 Authorization，則不覆蓋）
 		let token: string | null = null;
-		try { token = localStorage.getItem("token") || window.sessionStorage.getItem("token"); } catch { /* noop */ }
-		if (token) {
+		try {
+			token = localStorage.getItem("token") || window.sessionStorage.getItem("token");
+		} catch {
+			/* noop */
+		}
+		if (!config.headers.Authorization && token) {
 			config.headers.Authorization = `Bearer ${token}`;
 		}
 
@@ -248,6 +252,7 @@ request.interceptors.response.use(
 
 				case 401: {
 					const code = errorData?.code;
+          const requestUrl = String(response.config?.url || '');
 
 					// 快速體驗 Session 過期/缺失：不導向登入頁（零門檻設計）
 					if (
@@ -279,20 +284,37 @@ request.interceptors.response.use(
 						break;
 					}
 
-					localStorage.removeItem("token");
-					window.sessionStorage.removeItem("token");
-					// 使用useAuthStore清除狀態（如果可用）
-					// 動態導入避免循環依賴
-					import("@/store/authStore")
-						.then(({ useAuthStore }) => {
-							useAuthStore.getState().logout();
-						})
-						.catch(() => {
-							// Store可能未初始化，忽略
-						});
-					if (window.location.pathname !== "/auth/login") {
-						window.location.href = "/auth/login";
-					}
+          // Admin API 401：清理 admin token，避免無效 token 持續重試。
+          if (requestUrl.includes('/admin')) {
+            try {
+              const { setAdminToken } = await import('@/services/api/admin');
+              setAdminToken('');
+            } catch {
+              // 忽略動態導入失敗，避免覆蓋原始錯誤處理鏈
+            }
+            if (
+              window.location.pathname.startsWith('/admin') &&
+              window.location.pathname !== '/admin/login'
+            ) {
+              window.location.href = '/admin/login';
+            }
+          } else {
+            // 非 Admin API 401：維持原有前台 user token 清理流程
+					  localStorage.removeItem("token");
+					  window.sessionStorage.removeItem("token");
+					  // 使用useAuthStore清除狀態（如果可用）
+					  // 動態導入避免循環依賴
+					  import("@/store/authStore")
+						  .then(({ useAuthStore }) => {
+							  useAuthStore.getState().logout();
+						  })
+						  .catch(() => {
+							  // Store可能未初始化，忽略
+						  });
+					  if (window.location.pathname !== "/auth/login") {
+						  window.location.href = "/auth/login";
+					  }
+          } 
 					message.error(errorData?.message || t("common.unauthorized"));
 					break;
 				}

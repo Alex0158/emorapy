@@ -29,6 +29,8 @@ import profileRoutes from './routes/profile.routes';
 import notificationRoutes from './routes/notification.routes';
 import interviewRoutes from './routes/interview.routes';
 import psychProfileRoutes from './routes/psych-profile.routes';
+import adminRoutes from './routes/admin.routes';
+import chatRoutes from './routes/chat.routes';
 
 const app: Application = express();
 
@@ -152,6 +154,7 @@ app.use('/api/v1/user', userRoutes);
 app.use('/api/v1', profileRoutes);
 app.use('/api/v1/interview', interviewRoutes);
 app.use('/api/v1/psych-profile', psychProfileRoutes);
+app.use('/api/v1/chat', chatRoutes);
 app.use('/api/v1/pairing', pairingRoutes);
 app.use('/api/v1/cases', caseRoutes);
 app.use('/api/v1/judgments', judgmentRoutes);
@@ -159,6 +162,7 @@ app.use('/api/v1', reconciliationRoutes);
 app.use('/api/v1/execution', executionRoutes);
 app.use('/api/v1', contentRoutes);
 app.use('/api/v1', notificationRoutes);
+app.use('/api/v1/admin', adminRoutes);
 
 // 404處理
 app.use((req, res) => {

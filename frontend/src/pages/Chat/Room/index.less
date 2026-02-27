@@ -1,0 +1,39 @@
+.chat-room-page {
+  min-height: calc(100vh - 120px);
+  padding: 24px 16px;
+  display: flex;
+  justify-content: center;
+
+  &__panel {
+    width: 100%;
+    max-width: 900px;
+    border-radius: 12px;
+  }
+
+  &__loading {
+    min-height: 320px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__messages {
+    margin: 20px 0;
+    border: 1px solid #f0f0f0;
+    border-radius: 8px;
+    padding: 12px;
+    max-height: 420px;
+    overflow: auto;
+    background: #fafafa;
+  }
+
+  &__message-item {
+    padding: 10px 0;
+    border-bottom: 1px solid #f0f0f0;
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+}
+

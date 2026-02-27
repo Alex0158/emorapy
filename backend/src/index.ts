@@ -2,7 +2,7 @@ import app from './app';
 import { env } from './config/env';
 import logger from './config/logger';
 import prisma, { databaseReady } from './config/database';
-import { startJobs, stopJobs } from './jobs/cleanup.job';
+import { reconcileJobsRuntimeConfig, startJobs, stopJobs } from './jobs/cleanup.job';
 import { validateEnvConfig } from './config/validation';
 
 // 驗證環境變量
@@ -18,6 +18,10 @@ Promise.resolve(databaseReady).then(() => {
     
     // 啟動定時任務
     startJobs();
+    // 啟動後對齊一次 DB runtime 開關（若有 SystemConfig 覆蓋）
+    void reconcileJobsRuntimeConfig().catch((error) => {
+      logger.warn('Failed to reconcile jobs runtime config', { error });
+    });
   });
   
   // 優雅關閉

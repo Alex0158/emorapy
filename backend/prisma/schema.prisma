@@ -118,6 +118,19 @@ enum NotificationStatus {
   failed
 }
 
+enum AdminRoleKey {
+  super_admin
+  ops
+  marketing
+  support
+}
+
+enum CronRunStatus {
+  running
+  success
+  failed
+}
+
 // v2.0: 心理畫像系統 ENUM
 enum PsychDomain {
   attachment
@@ -154,6 +167,58 @@ enum InsightType {
   risk
   cultural
   developmental
+}
+
+enum ChatRoomStatus {
+  solo_active
+  invite_pending
+  invite_accepted
+  group_active
+  judgment_requested
+  judgment_completed
+  judgment_failed
+  archived
+}
+
+enum ChatHistoryVisibilityMode {
+  share_full_history
+  share_summary_only
+  share_from_join_time
+}
+
+enum ChatParticipantType {
+  user
+  ai
+  system
+}
+
+enum ChatRoleInRoom {
+  roleA
+  roleB
+  aiMediator
+  system
+}
+
+enum ChatMessageType {
+  user_text
+  ai_reflection
+  ai_summary
+  system_event
+  safety_notice
+}
+
+enum ChatVisibilityScope {
+  all
+  owner_only
+  summary_only
+}
+
+enum ChatInviteStatus {
+  pending
+  accepted
+  declined
+  expired
+  revoked
 }
 
 // 模型定義
@@ -199,10 +264,83 @@ model User {
   profile_narratives   ProfileNarrative[]
   profile_insights     ProfileInsight[]
   profile_snapshots    ProfileSnapshot[]
+  chat_rooms_owned     ChatRoom[]           @relation("ChatRoomOwner")
+  chat_participants    ChatParticipant[]
+  chat_invites_received ChatInvite[]        @relation("ChatInvitee")
 
   @@index([is_active])
   @@index([email_verified])
   @@map("users")
+}
+
+model AdminUser {
+  id            String      @id @default(uuid())
+  email         String      @unique
+  password_hash String
+  name          String
+  role_id       String
+  is_active     Boolean     @default(true)
+  last_login_at DateTime?
+  deleted_at    DateTime?
+  created_at    DateTime    @default(now())
+  updated_at    DateTime    @updatedAt
+
+  role          AdminRole   @relation(fields: [role_id], references: [id], onDelete: Restrict)
+  cron_run_logs CronRunLog[]
+
+  @@index([role_id])
+  @@index([is_active])
+  @@map("admin_users")
+}
+
+model AdminRole {
+  id          String      @id @default(uuid())
+  key         AdminRoleKey @unique
+  name        String
+  description String?
+  permissions Json
+  is_system   Boolean     @default(true)
+  created_at  DateTime    @default(now())
+  updated_at  DateTime    @updatedAt
+
+  admin_users AdminUser[]
+
+  @@map("admin_roles")
+}
+
+model SystemConfig {
+  id           String   @id @default(uuid())
+  key          String   @unique
+  value        Json
+  description  String?
+  is_sensitive Boolean  @default(false)
+  is_runtime   Boolean  @default(true)
+  updated_by   String?
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  @@index([is_runtime])
+  @@map("system_configs")
+}
+
+model CronRunLog {
+  id                     String        @id @default(uuid())
+  job_name               String        @db.VarChar(100)
+  status                 CronRunStatus @default(running)
+  started_at             DateTime      @default(now())
+  finished_at            DateTime?
+  duration_ms            Int?
+  affected_count         Int?
+  detail                 Json?
+  triggered_by_admin_id  String?
+  error_message          String?
+  created_at             DateTime      @default(now())
+
+  triggered_by_admin     AdminUser?    @relation(fields: [triggered_by_admin_id], references: [id], onDelete: SetNull)
+
+  @@index([job_name, started_at])
+  @@index([status, started_at])
+  @@map("cron_run_logs")
 }
 
 /// v2.0: 下列個人資料欄位已被 ProfileNarrative / ProfileInsight 系統取代（按心理領域分析）。
@@ -350,6 +488,7 @@ model Case {
   quick_sessions      QuickSession[]
   case_content_links  CaseContentLink[]
   profile_snapshots   ProfileSnapshot[]
+  chat_to_case_links  ChatToCaseLink[]
 
   @@index([pairing_id])
   @@index([plaintiff_id])
@@ -403,6 +542,7 @@ model Judgment {
 
   case                 Case                 @relation(fields: [case_id], references: [id], onDelete: Cascade)
   reconciliation_plans ReconciliationPlan[]
+  chat_to_case_links   ChatToCaseLink[]
 
   @@index([case_id])
   @@index([created_at])
@@ -472,6 +612,111 @@ model QuickSession {
   @@index([pairing_id])
   @@index([case_id])
   @@map("quick_sessions")
+}
+
+model ChatRoom {
+  id                      String                    @id @default(uuid())
+  status                  ChatRoomStatus            @default(solo_active)
+  owner_user_id           String?
+  session_id              String?                   @db.VarChar(100)
+  history_visibility_mode ChatHistoryVisibilityMode @default(share_summary_only)
+  created_at              DateTime                  @default(now())
+  updated_at              DateTime                  @updatedAt
+
+  owner                   User?                     @relation("ChatRoomOwner", fields: [owner_user_id], references: [id], onDelete: SetNull)
+  participants            ChatParticipant[]
+  messages                ChatMessage[]
+  invites                 ChatInvite[]
+  case_links              ChatToCaseLink[]
+
+  @@index([owner_user_id])
+  @@index([session_id])
+  @@index([status, created_at])
+  @@map("chat_rooms")
+}
+
+model ChatParticipant {
+  id                        String              @id @default(uuid())
+  room_id                   String
+  participant_type          ChatParticipantType @default(user)
+  user_id                   String?
+  role_in_room              ChatRoleInRoom
+  joined_at                 DateTime            @default(now())
+  left_at                   DateTime?
+  is_active                 Boolean             @default(true)
+
+  room                      ChatRoom            @relation(fields: [room_id], references: [id], onDelete: Cascade)
+  user                      User?               @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  sent_messages             ChatMessage[]
+  sent_invites              ChatInvite[]        @relation("ChatInviteSender")
+  triggered_case_links      ChatToCaseLink[]    @relation("ChatCaseTrigger")
+
+  @@index([room_id, role_in_room])
+  @@index([user_id])
+  @@index([room_id, is_active])
+  @@map("chat_participants")
+}
+
+model ChatMessage {
+  id                        String              @id @default(uuid())
+  room_id                   String
+  sender_participant_id     String
+  content                   String
+  message_type              ChatMessageType     @default(user_text)
+  visibility_scope          ChatVisibilityScope @default(all)
+  safety_flag               Boolean             @default(false)
+  safety_detail             String?
+  created_at                DateTime            @default(now())
+
+  room                      ChatRoom            @relation(fields: [room_id], references: [id], onDelete: Cascade)
+  sender_participant        ChatParticipant     @relation(fields: [sender_participant_id], references: [id], onDelete: Restrict)
+
+  @@index([room_id, created_at])
+  @@index([sender_participant_id])
+  @@index([room_id, visibility_scope])
+  @@map("chat_messages")
+}
+
+model ChatInvite {
+  id                        String            @id @default(uuid())
+  room_id                   String
+  inviter_participant_id    String
+  invited_user_id           String?
+  invite_code               String?           @unique @db.VarChar(12)
+  status                    ChatInviteStatus  @default(pending)
+  expires_at                DateTime?
+  created_at                DateTime          @default(now())
+  responded_at              DateTime?
+
+  room                      ChatRoom          @relation(fields: [room_id], references: [id], onDelete: Cascade)
+  inviter_participant       ChatParticipant   @relation("ChatInviteSender", fields: [inviter_participant_id], references: [id], onDelete: Restrict)
+  invited_user              User?             @relation("ChatInvitee", fields: [invited_user_id], references: [id], onDelete: SetNull)
+
+  @@index([room_id, status])
+  @@index([invited_user_id, status])
+  @@index([expires_at])
+  @@map("chat_invites")
+}
+
+model ChatToCaseLink {
+  id                           String            @id @default(uuid())
+  room_id                      String
+  case_id                      String
+  judgment_id                  String?
+  triggered_by_participant_id  String?
+  conversion_snapshot          Json?
+  created_at                   DateTime          @default(now())
+
+  room                         ChatRoom          @relation(fields: [room_id], references: [id], onDelete: Cascade)
+  case                         Case              @relation(fields: [case_id], references: [id], onDelete: Cascade)
+  judgment                     Judgment?         @relation(fields: [judgment_id], references: [id], onDelete: SetNull)
+  triggered_by_participant     ChatParticipant?  @relation("ChatCaseTrigger", fields: [triggered_by_participant_id], references: [id], onDelete: SetNull)
+
+  @@index([room_id, created_at])
+  @@index([case_id])
+  @@index([judgment_id])
+  @@index([triggered_by_participant_id])
+  @@map("chat_to_case_links")
 }
 
 model EmailVerification {

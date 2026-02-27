@@ -12,6 +12,7 @@ const {
 	mockMessageWarning,
 	mockSessionStoreState,
 	mockAuthStoreState,
+	mockSetAdminToken,
 } = vi.hoisted(() => ({
 	mockRequest: vi.fn(),
 	mockInterceptorsRequestUse: vi.fn(),
@@ -26,6 +27,7 @@ const {
 	mockAuthStoreState: {
 		logout: vi.fn(),
 	},
+	mockSetAdminToken: vi.fn(() => true),
 }));
 
 vi.mock("axios", () => ({
@@ -77,6 +79,9 @@ vi.mock("@/store/authStore", () => ({
 		getState: () => mockAuthStoreState,
 	},
 }));
+vi.mock("@/services/api/admin", () => ({
+	setAdminToken: (...args: unknown[]) => mockSetAdminToken(...args),
+}));
 
 vi.mock("antd", () => ({
 	message: {
@@ -105,6 +110,7 @@ describe("request", () => {
 		mockSessionStoreState.clearSession.mockClear();
 		mockSessionStoreState.refreshSession.mockClear();
 		mockAuthStoreState.logout.mockClear();
+		mockSetAdminToken.mockClear();
 		localStorage.clear();
 		mockSessionStoreState.refreshSession.mockResolvedValue(true);
 	});
@@ -201,6 +207,16 @@ describe("request", () => {
 				headers: { "X-Session-Id": "pre-set-session" },
 			});
 			expect(config.headers["X-Session-Id"]).toBe("pre-set-session");
+		});
+
+		it("request interceptor 已有 Authorization 時不應被 user token 覆蓋", async () => {
+			localStorage.setItem("token", "user-token");
+			const config = await onRequest({
+				method: "get",
+				url: "/admin/jobs/stats",
+				headers: { Authorization: "Bearer admin-token" },
+			});
+			expect(config.headers.Authorization).toBe("Bearer admin-token");
 		});
 
 		it("response success=false 應轉為拒絕錯誤", async () => {
@@ -426,6 +442,27 @@ describe("request", () => {
 			await Promise.resolve();
 			expect(localStorage.getItem("token")).toBeNull();
 			expect(mockAuthStoreState.logout).toHaveBeenCalled();
+			history.pushState({}, "", "/");
+		});
+
+		it("401 admin API 應清理 admin token，且不清理前台 user token", async () => {
+			localStorage.setItem("token", "front-user-token");
+			history.pushState({}, "", "/admin/login");
+			await expect(
+				onError({
+					response: {
+						status: 401,
+						data: { error: { code: "UNAUTHORIZED", message: "" } },
+						config: { url: "/admin/users", headers: {}, params: {} },
+					},
+					config: {},
+					message: "unauth",
+				}),
+			).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+			await Promise.resolve();
+			expect(mockSetAdminToken).toHaveBeenCalledWith("");
+			expect(localStorage.getItem("token")).toBe("front-user-token");
+			expect(mockAuthStoreState.logout).not.toHaveBeenCalled();
 			history.pushState({}, "", "/");
 		});
 

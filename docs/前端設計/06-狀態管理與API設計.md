@@ -2,7 +2,7 @@
 
 **項目名稱**：熊媽媽法庭（Mother Bear Court）  
 **設計階段**：MVP開發階段  
-**文檔版本**：v3.0
+**文檔版本**：v3.2
 
 ---
 
@@ -750,6 +750,140 @@ const useGenerateJudgment = () => {
   }
   ```
 
+#### 管理員後台（運維）相關
+
+**Admin 前端模組分層（已實作）**：
+- `services/api/admin.ts`：集中管理 admin API、token 存取、標準化器。
+- `hooks/useAdminSession.ts`：登入/登出會話管理（login mutation + token 寫入）。
+- `hooks/useAdminMe.ts`、`hooks/useAdminAccess.ts`：身份與 RBAC 取用。
+- `components/common/AdminPermissionRoute.tsx`：路由層權限守衛。
+- `components/common/AdminSectionLayout.tsx`：管理端導航骨架。
+
+**已覆蓋 Admin API（前端可操作）**：
+- 認證：`POST /admin/login`、`GET /admin/me`
+- 健康：`GET /admin/health/detailed`
+- 任務：`GET /admin/jobs`、`GET /admin/jobs/stats`、`POST /admin/jobs/:jobKey/trigger`
+- 配置：`GET/PUT /admin/configs`、`GET /admin/runtime/interview`
+- 用戶：`GET /admin/users`、`GET /admin/users/:userId`、`PATCH /admin/users/:userId/status`
+- 審計：`GET /admin/audit-logs`、`GET /admin/audit-logs.csv`
+- 報表：`GET /admin/reports/overview`、`GET /admin/reports/funnel`、`POST /admin/reports/custom`
+- 治理：`PUT /admin/alerts/rules`、`PUT /admin/feature-flags`
+- 管理員：`GET/POST /admin/admin-users`、`PATCH /admin/admin-users/:adminUserId`
+- 管理員（刪除）：`DELETE /admin/admin-users/:adminUserId`（軟刪除）
+
+**權限模式（混合策略）**：
+- 一般管理頁：`any`（具備任一 required permission 即可）
+- 高敏頁面/端點：`all`（需具備全部 required permissions）
+- 目前高敏示例：`/admin/audit-logs`（`users:read` + `ops:read`）、`PUT /admin/alerts/rules`（`alerts:write` + `ops:execute`）
+
+**GET /admin/jobs/stats**
+- **用途**：Cron 執行統計看板（運維）
+- **認證**：需要 Admin JWT + `ops:read`
+- **查詢參數**：
+  ```typescript
+  interface AdminJobStatsQuery {
+    days?: number;                 // 1~90，默認 7
+    includeRunning?: boolean;      // 默認 true
+    maxRows?: number;              // 100~20000，默認 5000
+  }
+  ```
+- **響應（核心字段）**：
+  ```typescript
+  type RateBase = 'total_runs' | 'completed_runs';
+
+  interface AdminJobStatsRow {
+    totalRuns: number;
+    successRuns: number;
+    failedRuns: number;
+    runningRuns: number;
+    completedRuns: number;
+    successRate: number;
+    failureRate: number;
+    successRateCompleted: number;
+    failureRateCompleted: number;
+  }
+
+  interface AdminJobStatsResponse {
+    days: number;
+    since: string;
+    totals: AdminJobStatsRow & { avgDurationMs: number };
+    perJob: Array<AdminJobStatsRow & {
+      jobKey: string;
+      avgDurationMs: number;
+      totalAffectedCount: number;
+      lastRunAt: string;
+    }>;
+    dailyBuckets: Array<AdminJobStatsRow & { date: string }>;
+    rateBase: RateBase;
+    statsMeta: {
+      maxRows: number;
+      returnedRows: number;
+      sampled: boolean;
+      sampleStrategy: string;
+    };
+  }
+  ```
+
+**前端落地模板（建議放 `src/services/admin/jobStats.ts`）**：
+```typescript
+type RateBase = 'total_runs' | 'completed_runs';
+
+interface StatsMeta {
+  maxRows: number;
+  returnedRows: number;
+  sampled: boolean;
+  sampleStrategy: 'latest_runs_desc';
+}
+
+interface JobStatsPayload {
+  rateBase?: RateBase; // 舊版後端可能缺少
+  statsMeta?: Partial<StatsMeta>;
+  // ...其餘字段沿用 API 契約
+  [key: string]: unknown;
+}
+
+interface NormalizedJobStatsPayload extends JobStatsPayload {
+  rateBase: RateBase;
+  statsMeta: StatsMeta;
+}
+
+export function normalizeJobStatsPayload(raw: JobStatsPayload): NormalizedJobStatsPayload {
+  const rateBase: RateBase =
+    raw.rateBase === 'completed_runs' ? 'completed_runs' : 'total_runs';
+
+  const meta = raw.statsMeta ?? {};
+  const maxRows = Number(meta.maxRows ?? 5000);
+  const returnedRows = Number(meta.returnedRows ?? 0);
+  const sampled = Boolean(meta.sampled);
+
+  return {
+    ...raw,
+    rateBase,
+    statsMeta: {
+      maxRows: Number.isFinite(maxRows) ? maxRows : 5000,
+      returnedRows: Number.isFinite(returnedRows) ? returnedRows : 0,
+      sampled,
+      sampleStrategy:
+        meta.sampleStrategy === 'latest_runs_desc' ? 'latest_runs_desc' : 'latest_runs_desc',
+    },
+  };
+}
+
+export function getRateDenominatorLabel(rateBase: RateBase): 'totalRuns' | 'completedRuns' {
+  return rateBase === 'completed_runs' ? 'completedRuns' : 'totalRuns';
+}
+
+export function shouldShowSampledHint(payload: NormalizedJobStatsPayload): boolean {
+  return payload.statsMeta.sampled === true;
+}
+```
+
+**前端渲染防呆（必做）**：
+- 一律使用 `payload.rateBase` 決定成功率/失敗率解讀分母。
+- `payload.statsMeta.sampled=true` 時，圖表顯示「資料已採樣」提示。
+- `dailyBuckets` 直接渲染，不做前端二次補洞，避免和後端補零邏輯衝突。
+- 若欄位缺失或型別異常，先經 `normalizeJobStatsPayload` 後再進圖表層，避免 runtime crash。
+
 ---
 
 ## 🔒 錯誤處理設計
@@ -1129,6 +1263,6 @@ export const psychProfileApi = {
 
 ---
 
-**文檔版本**：v3.0  
+**文檔版本**：v3.2  
 **創建日期**：2024年  
-**最後更新**：2026-02-21（v3.1：InterviewStore 補充 errorCode/safetyAlert/dismissSafetyAlert；onSafetyAlert 改為 store 寫入；checkResume 補充 has_failed/failed_session_id）
+**最後更新**：2026-02-21（v3.2：新增管理員運維 `/admin/jobs/stats` 前端接入模板：型別、normalize 回退策略、渲染防呆；v3.1：InterviewStore 補充 errorCode/safetyAlert/dismissSafetyAlert；onSafetyAlert 改為 store 寫入；checkResume 補充 has_failed/failed_session_id）

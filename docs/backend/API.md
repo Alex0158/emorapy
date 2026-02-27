@@ -330,6 +330,184 @@ Authorization: Bearer <token>
 }
 ```
 
+## 🛠️ 管理員後台（運維）
+
+### 認證與身份
+
+- `POST /admin/bootstrap`：初始化首個管理員（需 `X-Admin-Bootstrap-Token`）
+- `POST /admin/login`：管理員登入，返回 `token + admin`
+- `GET /admin/me`：獲取當前管理員身份與權限
+
+### 健康、任務與配置
+
+- `GET /admin/health/detailed`：後台健康度（DB、cron、性能統計）
+- `GET /admin/jobs`：任務列表與最近一次執行
+- `POST /admin/jobs/:jobKey/trigger`：手動觸發任務（`ops:execute`）
+- `GET /admin/jobs/stats`：任務統計（見下節）
+- `GET /admin/configs`：配置列表（敏感值遮罩）
+- `PUT /admin/configs`：配置新增/更新（白名單+跨欄位規則）
+- `GET /admin/runtime/interview`：訪談運行時配置（default/runtime）
+
+### 用戶與審計
+
+- `GET /admin/users`：用戶列表（支持 `q/limit/offset`）
+- `GET /admin/users/:userId`：單用戶詳情（profile、pairings、cases）
+- `PATCH /admin/users/:userId/status`：用戶狀態操作（lock/unlock/activate/deactivate）
+- `GET /admin/audit-logs`：審計列表（支持 `entityType/action/from/to`）
+- `GET /admin/audit-logs.csv`：審計導出 CSV（同篩選條件）
+- 審計端點權限策略：`users:read` + `ops:read`（AND）
+
+### 報表、告警與旗標
+
+- `GET /admin/reports/overview`：總覽指標
+- `GET /admin/reports/funnel`：漏斗指標
+- `GET /admin/reports/overview.csv`：總覽 CSV
+- `POST /admin/reports/custom`：自定義指標（如 `dau/mau/judgment_failed`）
+  - `metrics` 僅允許：`dau`、`mau`、`judgment_failed`
+- `PUT /admin/alerts/rules`：告警規則
+- `PUT /admin/feature-flags`：功能旗標
+- 告警規則端點權限策略：`alerts:write` + `ops:execute`（AND）
+
+### 管理員帳號治理（`admin:all`）
+
+- `GET /admin/admin-users`：管理員列表
+- `POST /admin/admin-users`：新增管理員
+- `PATCH /admin/admin-users/:adminUserId`：更新管理員（角色、啟用、重置密碼）
+- `DELETE /admin/admin-users/:adminUserId`：軟刪除管理員（停用並記錄審計）
+  - 安全護欄：不可自刪、不可停用自己、不可降級/刪除最後一位啟用中的 `super_admin`
+
+### Cron 統計（dashboard-ready）
+**GET** `/admin/jobs/stats`（需 Admin JWT + `ops:read`）
+
+**查詢參數**：
+- `days`：回溯天數，`1~90`，默認 `7`
+- `includeRunning`：成功/失敗率分母是否包含 `running`，默認 `true`
+- `maxRows`：最多讀取最新執行記錄數，`100~20000`，默認 `5000`
+
+> 後端內部會查詢 `maxRows + 1` 判斷是否採樣，實際聚合最多使用 `maxRows`。
+
+**響應關鍵字段**：
+- `totals`：總體計數與比率（含 `completedRuns`、`successRateCompleted`、`failureRateCompleted`）
+- `perJob`：按 job 聚合結果（同上）
+- `dailyBuckets`：按日桶聚合（缺資料日期補 0）
+- `rateBase`：`total_runs` 或 `completed_runs`（對應 `includeRunning`）
+- `statsMeta`：`maxRows`、`returnedRows`、`sampled`、`sampleStrategy`
+
+**分母語義**：
+- `successRate/failureRate`：
+  - `includeRunning=true` → 分母 `totalRuns`
+  - `includeRunning=false` → 分母 `completedRuns`
+- `successRateCompleted/failureRateCompleted`：固定以 `completedRuns` 為分母
+
+**完整響應範例**：
+```json
+{
+  "success": true,
+  "data": {
+    "days": 7,
+    "since": "2026-02-18T00:00:00.000Z",
+    "totals": {
+      "totalRuns": 123,
+      "successRuns": 90,
+      "failedRuns": 20,
+      "runningRuns": 13,
+      "completedRuns": 110,
+      "successRate": 0.7317,
+      "failureRate": 0.1626,
+      "successRateCompleted": 0.8182,
+      "failureRateCompleted": 0.1818,
+      "avgDurationMs": 1420
+    },
+    "perJob": [
+      {
+        "jobKey": "cleanup_expired_sessions",
+        "totalRuns": 70,
+        "successRuns": 60,
+        "failedRuns": 8,
+        "runningRuns": 2,
+        "completedRuns": 68,
+        "successRate": 0.8571,
+        "failureRate": 0.1143,
+        "successRateCompleted": 0.8824,
+        "failureRateCompleted": 0.1176,
+        "avgDurationMs": 980,
+        "totalAffectedCount": 1560,
+        "lastRunAt": "2026-02-25T09:01:00.000Z"
+      }
+    ],
+    "dailyBuckets": [
+      {
+        "date": "2026-02-24",
+        "totalRuns": 20,
+        "successRuns": 15,
+        "failedRuns": 3,
+        "runningRuns": 2,
+        "completedRuns": 18,
+        "successRate": 0.75,
+        "failureRate": 0.15,
+        "successRateCompleted": 0.8333,
+        "failureRateCompleted": 0.1667
+      }
+    ],
+    "rateBase": "total_runs",
+    "statsMeta": {
+      "maxRows": 5000,
+      "returnedRows": 5000,
+      "sampled": true,
+      "sampleStrategy": "latest_runs_desc"
+    }
+  }
+}
+```
+
+**對照範例 A（`includeRunning=true`）**：
+```json
+{
+  "rateBase": "total_runs",
+  "totals": {
+    "totalRuns": 3,
+    "successRuns": 1,
+    "failedRuns": 1,
+    "runningRuns": 1,
+    "completedRuns": 2,
+    "successRate": 0.3333,
+    "failureRate": 0.3333,
+    "successRateCompleted": 0.5,
+    "failureRateCompleted": 0.5
+  }
+}
+```
+
+**對照範例 B（`includeRunning=false`）**：
+```json
+{
+  "rateBase": "completed_runs",
+  "totals": {
+    "totalRuns": 3,
+    "successRuns": 1,
+    "failedRuns": 1,
+    "runningRuns": 1,
+    "completedRuns": 2,
+    "successRate": 0.5,
+    "failureRate": 0.5,
+    "successRateCompleted": 0.5,
+    "failureRateCompleted": 0.5
+  }
+}
+```
+
+**向後相容說明**：
+- 保留舊欄位：`totalRuns/successRuns/failedRuns/runningRuns/avgDurationMs`。
+- 新增欄位：`completedRuns`、`successRateCompleted`、`failureRateCompleted`、`rateBase`、`statsMeta.*`。
+- 舊前端若缺少 `rateBase` 可回退按 `total_runs` 解讀。
+
+### 前端接入檢查清單
+- 顯示比率前先讀 `rateBase`，避免把 total 與 completed 語義混用。
+- 若 `statsMeta.sampled=true`，在圖表或表格顯示「資料已採樣」提示。
+- 若缺少 `rateBase`（舊版本），前端回退按 `total_runs` 解讀。
+- 對 `dailyBuckets` 按 `date` 直接渲染，不自行補洞，避免雙重補零。
+- 大窗口分析時優先調整 `days`，避免盲目提高 `maxRows`。
+
 ## 錯誤碼
 
 | 錯誤碼 | HTTP狀態碼 | 說明 |

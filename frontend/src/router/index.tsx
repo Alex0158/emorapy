@@ -11,6 +11,8 @@ import AuthLayout from '@/components/layout/AuthLayout';
 import Loading from '@/components/common/Loading';
 import ProtectedRoute from '@/components/common/ProtectedRoute';
 import PublicRoute from '@/components/common/PublicRoute';
+import AdminPermissionRoute from '@/components/common/AdminPermissionRoute';
+import AdminSectionLayout from '@/components/common/AdminSectionLayout';
 
 // 懶加載頁面組件（代碼分割）
 const Home = lazy(() => import('@/pages/Home'));
@@ -35,6 +37,16 @@ const ProfilePairing = lazy(() => import('@/pages/Profile/Pairing'));
 const ProfileMyStory = lazy(() => import('@/pages/Profile/MyStory'));
 const InterviewChat = lazy(() => import('@/pages/Interview/Chat'));
 const InterviewResult = lazy(() => import('@/pages/Interview/Result'));
+const ChatRoomPage = lazy(() => import('@/pages/Chat/Room'));
+const AdminLogin = lazy(() => import('@/pages/Admin/Login'));
+const AdminOpsJobs = lazy(() => import('@/pages/Admin/OpsJobs'));
+const AdminJobs = lazy(() => import('@/pages/Admin/Jobs'));
+const AdminHealth = lazy(() => import('@/pages/Admin/Health'));
+const AdminConfigs = lazy(() => import('@/pages/Admin/Configs'));
+const AdminUsers = lazy(() => import('@/pages/Admin/Users'));
+const AdminAuditLogs = lazy(() => import('@/pages/Admin/AuditLogs'));
+const AdminReports = lazy(() => import('@/pages/Admin/Reports'));
+const AdminSettings = lazy(() => import('@/pages/Admin/Settings'));
 const NotFound = lazy(() => import('@/pages/NotFound'));
 
 // 路由懶加載包裝器
@@ -205,6 +217,119 @@ export const router = createBrowserRouter([
           </LazyWrapper>
         ),
       },
+      {
+        path: 'chat/room',
+        element: (
+          <LazyWrapper>
+            <ChatRoomPage />
+          </LazyWrapper>
+        ),
+      },
+      {
+        path: 'chat/room/:roomId',
+        element: (
+          <LazyWrapper>
+            <ChatRoomPage />
+          </LazyWrapper>
+        ),
+      },
+      {
+        path: 'admin',
+        element: (
+          <LazyWrapper>
+            <AdminSectionLayout />
+          </LazyWrapper>
+        ),
+        children: [
+          {
+            index: true,
+            element: <Navigate to="/admin/ops/jobs" replace />,
+          },
+          {
+            path: 'ops/jobs',
+            element: (
+              <LazyWrapper>
+                <AdminPermissionRoute requiredPermissions={['ops:read']}>
+                  <AdminOpsJobs />
+                </AdminPermissionRoute>
+              </LazyWrapper>
+            ),
+          },
+          {
+            path: 'jobs',
+            element: (
+              <LazyWrapper>
+                <AdminPermissionRoute requiredPermissions={['ops:read']}>
+                  <AdminJobs />
+                </AdminPermissionRoute>
+              </LazyWrapper>
+            ),
+          },
+          {
+            path: 'health',
+            element: (
+              <LazyWrapper>
+                <AdminPermissionRoute requiredPermissions={['ops:read']}>
+                  <AdminHealth />
+                </AdminPermissionRoute>
+              </LazyWrapper>
+            ),
+          },
+          {
+            path: 'configs',
+            element: (
+              <LazyWrapper>
+                <AdminPermissionRoute requiredPermissions={['config:read']}>
+                  <AdminConfigs />
+                </AdminPermissionRoute>
+              </LazyWrapper>
+            ),
+          },
+          {
+            path: 'users',
+            element: (
+              <LazyWrapper>
+                <AdminPermissionRoute requiredPermissions={['users:read']}>
+                  <AdminUsers />
+                </AdminPermissionRoute>
+              </LazyWrapper>
+            ),
+          },
+          {
+            path: 'audit-logs',
+            element: (
+              <LazyWrapper>
+                <AdminPermissionRoute
+                  requiredPermissions={['users:read', 'ops:read']}
+                  permissionMode="all"
+                >
+                  <AdminAuditLogs />
+                </AdminPermissionRoute>
+              </LazyWrapper>
+            ),
+          },
+          {
+            path: 'reports',
+            element: (
+              <LazyWrapper>
+                <AdminPermissionRoute requiredPermissions={['reports:read']}>
+                  <AdminReports />
+                </AdminPermissionRoute>
+              </LazyWrapper>
+            ),
+          },
+          {
+            path: 'settings',
+            element: (
+              <LazyWrapper>
+                <AdminPermissionRoute requiredPermissions={['admin:all']}>
+                  <AdminSettings />
+                </AdminPermissionRoute>
+              </LazyWrapper>
+            ),
+          },
+        ],
+      },
     ],
   },
   {
@@ -240,6 +365,14 @@ export const router = createBrowserRouter([
         ),
       },
     ],
+  },
+  {
+    path: '/admin/login',
+    element: (
+      <LazyWrapper>
+        <AdminLogin />
+      </LazyWrapper>
+    ),
   },
   {
     path: '/auth',

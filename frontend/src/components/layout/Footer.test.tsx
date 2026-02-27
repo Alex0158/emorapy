@@ -8,7 +8,8 @@ import Footer from './Footer';
 describe('Footer', () => {
   it('應渲染版權與標語', () => {
     render(<Footer />);
-    expect(screen.getByText(/© 2024 關係修復室/)).toBeInTheDocument();
+    const year = new Date().getFullYear();
+    expect(screen.getByText(new RegExp(`© ${year} 關係修復室`))).toBeInTheDocument();
     expect(screen.getByText(/釐清爭點，重建對話，逐步修復關係/)).toBeInTheDocument();
   });
 });

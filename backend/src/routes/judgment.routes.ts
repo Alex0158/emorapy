@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { judgmentController } from '../controllers/judgment.controller';
 import { authenticate, optionalAuthenticate } from '../middleware/auth';
 import { validate } from '../middleware/validator';
-import { uuidParamSchema, acceptJudgmentSchema } from '../utils/validation';
+import { uuidParamSchema, acceptJudgmentSchema, repairJudgmentSchema, judgmentMetricsSchema } from '../utils/validation';
 import { aiLimiter, generalLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
@@ -45,6 +45,34 @@ router.post(
   validate(uuidParamSchema),
   validate(acceptJudgmentSchema),
   judgmentController.acceptJudgment.bind(judgmentController)
+);
+
+/**
+ * @route   POST /api/v1/judgments/:id/repair
+ * @desc    修復判決回應（聯盟破裂修復）
+ * @access  Private/Public (快速體驗模式)
+ */
+router.post(
+  '/:id/repair',
+  generalLimiter,
+  optionalAuthenticate,
+  validate(uuidParamSchema),
+  validate(repairJudgmentSchema),
+  judgmentController.repairJudgment.bind(judgmentController)
+);
+
+/**
+ * @route   POST /api/v1/judgments/:id/metrics
+ * @desc    提交臨床品質評分
+ * @access  Private/Public (快速體驗模式)
+ */
+router.post(
+  '/:id/metrics',
+  generalLimiter,
+  optionalAuthenticate,
+  validate(uuidParamSchema),
+  validate(judgmentMetricsSchema),
+  judgmentController.recordClinicalMetrics.bind(judgmentController)
 );
 
 export default router;

@@ -62,6 +62,8 @@ export interface EmotionalAnalysis {
   suggestedApproach: string;
 }
 
+export type JudgmentRoute = 'standard' | 'safety_support' | 'crisis_support';
+
 interface ResponsibilityAssessment {
   plaintiff: number;
   defendant: number;
@@ -558,6 +560,8 @@ severity 評估標準：
       emotionalAnalysisHint?: string;
       responsibilityHint?: string;
       summaryBrief?: string;
+      routeType?: JudgmentRoute;
+      prefetchedAnalysis?: EmotionalAnalysis;
     }
   ): Promise<JudgmentResponse> {
     if (this.useMock) {
@@ -670,8 +674,10 @@ severity 評估標準：
       return { content, responsibilityRatio, summary, emotionalAnalysis };
     }
 
+    const routeType: JudgmentRoute = options?.routeType || 'standard';
+
     // Phase 0：深度情感動態分析（低溫度、結構化），注入依附/溝通提示
-    const analysis = await this.analyzeEmotionalDynamics(
+    const analysis = options?.prefetchedAnalysis || await this.analyzeEmotionalDynamics(
       plaintiffStatement,
       defendantStatement,
       options?.signal,
@@ -679,7 +685,14 @@ severity 評估標準：
     );
 
     // Phase 1：基於分析結果生成個性化回應（高溫度、富表達）
-    const prompt = this.buildJudgmentPrompt(caseType, plaintiffStatement, defendantStatement, analysis, options?.profileContext);
+    const prompt = this.buildJudgmentPrompt(
+      caseType,
+      plaintiffStatement,
+      defendantStatement,
+      analysis,
+      options?.profileContext,
+      routeType
+    );
 
     try {
       const content = await this.generateText(prompt, {
@@ -690,14 +703,16 @@ severity 評估標準：
         signal: options?.signal,
       });
 
-      const responsibilityRatio = await this.computeResponsibilityRatio(
-        content,
-        analysis,
-        plaintiffStatement,
-        defendantStatement,
-        options?.signal,
-        options?.responsibilityHint
-      );
+      const responsibilityRatio = routeType === 'crisis_support'
+        ? { plaintiff: 50, defendant: 50 }
+        : await this.computeResponsibilityRatio(
+          content,
+          analysis,
+          plaintiffStatement,
+          defendantStatement,
+          options?.signal,
+          options?.responsibilityHint
+        );
       const summary = await this.generateSummary(content, options?.signal, options?.summaryBrief);
 
       return {
@@ -720,7 +735,8 @@ severity 評估標準：
     plaintiffStatement: string,
     defendantStatement: string,
     analysis: EmotionalAnalysis,
-    profileContext?: string
+    profileContext?: string,
+    routeType: JudgmentRoute = 'standard'
   ): string {
     const severityGuide = {
       mild: '這是一個相對輕微的日常摩擦。語氣可以輕鬆一些，帶一點幽默感也沒關係。重點放在具體的解決方案上。',
@@ -759,6 +775,20 @@ severity 評估標準：
     }
 
     const analysisIncomplete = analysis.suggestedApproach.startsWith('前置情感動態分析未能完成');
+    const routeGuidance = routeType === 'crisis_support'
+      ? `\n## 路由策略（危機支持）
+\n本案已被標記為 crisis_support。你的首要任務是：
+- 優先穩定情緒與生命安全，不急著推進關係修復
+- 建議以「陪伴 + 降載 + 具體求助資源」為主
+- 可以弱化或省略「調整比重」段落，避免被理解為責任評分
+- 任何建議都不得增加當事人的心理壓力或現場風險`
+      : routeType === 'safety_support'
+        ? `\n## 路由策略（安全支持）
+\n本案已被標記為 safety_support。你的首要任務是：
+- 優先安全、邊界與保護，不把問題寫成對稱衝突
+- 若存在控制/暴力信號，不要要求弱勢方做雙向修復
+- 「調整方向」可改為非對稱表述，避免對受害方產生責備感`
+        : '';
 
     return `你正在為一對伴侶提供關係溝通輔導。${analysisIncomplete
       ? '由於技術原因，前置的情感動態分析未能完成。你需要直接從雙方的原始陳述出發，自行運用 NVC、EFT、Gottman 框架進行深度分析，並評估雙方各自的改變準備度（Prochaska 跨理論模型），然後把你的理解轉化為一份溫暖的、讓雙方都覺得「被深度理解」的回應。以下部分資訊仍可作為參考。'
@@ -788,6 +818,7 @@ ${analysis.personB.readinessStage ? `角色 B 的改變準備度：${analysis.pe
 介入方向：${analysis.suggestedApproach}
 ${gottmanWarnings}
 ${safetyWarnings}
+${routeGuidance}
 ${profileContext ? `\n## 雙方背景資訊（輔助理解，不要直接展示）\n\n${profileContext}\n\n請在回應中適當融入這些背景——例如根據溝通風格調整建議方式，根據文化背景選擇合適的表達方式，根據交往時長調整期待管理。但不要逐條列出這些資訊。` : ''}
 
 ## 用戶的原始描述

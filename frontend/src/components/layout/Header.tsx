@@ -4,7 +4,7 @@
 
 import { Layout, Menu, Button, Dropdown, Avatar, Space, Select } from 'antd';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { HomeOutlined, LoginOutlined, UserOutlined, LogoutOutlined, SettingOutlined, GlobalOutlined, FileTextOutlined, CheckSquareOutlined } from '@ant-design/icons';
+import { HomeOutlined, LoginOutlined, UserOutlined, LogoutOutlined, SettingOutlined, GlobalOutlined, FileTextOutlined, CheckSquareOutlined, DashboardOutlined, MessageOutlined } from '@ant-design/icons';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { t, getLocale, onLocaleChange, setLocale, type Locale } from '@/utils/i18n';
@@ -18,6 +18,8 @@ const NAV_PREFIX_MAP: Record<string, string> = {
   '/reconciliation': '/case/list',
   '/execution': '/execution/dashboard',
   '/profile': '/profile/index',
+  '/chat': '/chat/room',
+  '/admin': '/admin/ops/jobs',
 };
 
 const Header = () => {
@@ -58,6 +60,16 @@ const Header = () => {
             key: '/quick-experience/create',
             label: <Link to="/quick-experience/create">{t('nav.quickExperience')}</Link>,
           },
+          {
+            key: '/chat/room',
+            icon: <MessageOutlined />,
+            label: <Link to="/chat/room">{t('nav.chat')}</Link>,
+          },
+          {
+            key: '/admin/ops/jobs',
+            icon: <DashboardOutlined />,
+            label: <Link to="/admin/login">{t('nav.opsConsole')}</Link>,
+          },
         ]
       : [
           {
@@ -69,6 +81,16 @@ const Header = () => {
             key: '/execution/dashboard',
             icon: <CheckSquareOutlined />,
             label: <Link to="/execution/dashboard">{t('nav.execution')}</Link>,
+          },
+          {
+            key: '/chat/room',
+            icon: <MessageOutlined />,
+            label: <Link to="/chat/room">{t('nav.chat')}</Link>,
+          },
+          {
+            key: '/admin/ops/jobs',
+            icon: <DashboardOutlined />,
+            label: <Link to="/admin/ops/jobs">{t('nav.opsConsole')}</Link>,
           },
         ]),
   ];

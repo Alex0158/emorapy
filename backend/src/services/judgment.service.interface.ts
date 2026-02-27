@@ -21,4 +21,20 @@ export interface IJudgmentService {
     accepted: boolean,
     rating?: number
   ): Promise<unknown>;
+
+  repairJudgmentResponse(
+    judgmentId: string,
+    feedback: string,
+    options?: { userId?: string; sessionId?: string }
+  ): Promise<unknown>;
+
+  recordClinicalMetrics(
+    judgmentId: string,
+    metrics: {
+      felt_understood: number;
+      felt_blamed: number;
+      willing_to_try: number;
+    },
+    options?: { userId?: string; sessionId?: string }
+  ): Promise<unknown>;
 }

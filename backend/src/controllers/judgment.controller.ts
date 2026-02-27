@@ -110,6 +110,63 @@ export class JudgmentController {
       next(error);
     }
   }
+
+  /**
+   * 修復判決回應（聯盟破裂修復）
+   */
+  async repairJudgment(req: Request, res: Response, next: NextFunction) {
+    try {
+      const judgmentId = req.params.id;
+      const userId = getAuthUserIdOptional(req);
+      const { sessionId, hasConflict } = getSessionIdFromSources(req);
+      if (hasConflict) {
+        throw Errors.INVALID_SESSION_ID('Header 與 Query 的 Session ID 不一致');
+      }
+
+      const { feedback } = req.body as { feedback: string };
+      const repaired = await judgmentService.repairJudgmentResponse(
+        judgmentId,
+        feedback,
+        { userId, sessionId }
+      );
+
+      res.json({
+        success: true,
+        data: repaired,
+        message: '已生成修復版回應',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * 提交臨床品質評分
+   */
+  async recordClinicalMetrics(req: Request, res: Response, next: NextFunction) {
+    try {
+      const judgmentId = req.params.id;
+      const userId = getAuthUserIdOptional(req);
+      const { sessionId, hasConflict } = getSessionIdFromSources(req);
+      if (hasConflict) {
+        throw Errors.INVALID_SESSION_ID('Header 與 Query 的 Session ID 不一致');
+      }
+
+      const result = await judgmentService.recordClinicalMetrics(
+        judgmentId,
+        req.body as { felt_understood: number; felt_blamed: number; willing_to_try: number },
+        { userId, sessionId }
+      );
+
+      res.json({
+        success: true,
+        data: result,
+        message: '已記錄臨床品質指標',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const judgmentController = new JudgmentController();

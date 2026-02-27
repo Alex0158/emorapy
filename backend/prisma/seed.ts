@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
+import { DEFAULT_ROLE_PERMISSIONS } from '../src/utils/admin-permissions';
 
 const prisma = new PrismaClient();
 
@@ -26,6 +27,97 @@ const TEST_ACCOUNTS = [
 
 async function main() {
   console.log('🐻 開始建立測試帳號...\n');
+
+  await prisma.adminRole.upsert({
+    where: { key: 'super_admin' },
+    create: {
+      key: 'super_admin',
+      name: 'Super Admin',
+      description: '全域管理權限',
+      permissions: DEFAULT_ROLE_PERMISSIONS.super_admin as unknown as object,
+    },
+    update: {},
+  });
+  await prisma.adminRole.upsert({
+    where: { key: 'ops' },
+    create: {
+      key: 'ops',
+      name: 'Ops',
+      description: '運維管理權限',
+      permissions: DEFAULT_ROLE_PERMISSIONS.ops as unknown as object,
+    },
+    update: {},
+  });
+  await prisma.adminRole.upsert({
+    where: { key: 'marketing' },
+    create: {
+      key: 'marketing',
+      name: 'Marketing',
+      description: '行銷分析權限',
+      permissions: DEFAULT_ROLE_PERMISSIONS.marketing as unknown as object,
+    },
+    update: {},
+  });
+  await prisma.adminRole.upsert({
+    where: { key: 'support' },
+    create: {
+      key: 'support',
+      name: 'Support',
+      description: '客服管理權限',
+      permissions: DEFAULT_ROLE_PERMISSIONS.support as unknown as object,
+    },
+    update: {},
+  });
+
+  if (process.env.ADMIN_SEED_EMAIL && process.env.ADMIN_SEED_PASSWORD) {
+    const role = await prisma.adminRole.findUnique({ where: { key: 'super_admin' } });
+    if (role) {
+      const existingAdmin = await prisma.adminUser.findUnique({
+        where: { email: process.env.ADMIN_SEED_EMAIL.toLowerCase() },
+      });
+      if (!existingAdmin) {
+        const adminPasswordHash = await bcrypt.hash(process.env.ADMIN_SEED_PASSWORD, SALT_ROUNDS);
+        await prisma.adminUser.create({
+          data: {
+            email: process.env.ADMIN_SEED_EMAIL.toLowerCase(),
+            password_hash: adminPasswordHash,
+            name: process.env.ADMIN_SEED_NAME || 'System Admin',
+            role_id: role.id,
+          },
+        });
+        console.log(`✅ 建立管理員帳號: ${process.env.ADMIN_SEED_EMAIL}`);
+      }
+    }
+  }
+
+  if (process.env.LIMITED_ADMIN_SEED_EMAIL && process.env.LIMITED_ADMIN_SEED_PASSWORD) {
+    const rawLimitedRoleKey = process.env.LIMITED_ADMIN_SEED_ROLE || 'support';
+    const allowedRoleKeys = ['super_admin', 'ops', 'marketing', 'support'] as const;
+    if (!allowedRoleKeys.includes(rawLimitedRoleKey as (typeof allowedRoleKeys)[number])) {
+      throw new Error(`LIMITED_ADMIN_SEED_ROLE 不合法: ${rawLimitedRoleKey}`);
+    }
+    const limitedRoleKey = rawLimitedRoleKey as (typeof allowedRoleKeys)[number];
+    const role = await prisma.adminRole.findUnique({ where: { key: limitedRoleKey } });
+    if (!role) {
+      throw new Error(`找不到 LIMITED_ADMIN_SEED_ROLE 對應角色: ${limitedRoleKey}`);
+    }
+    const limitedEmail = process.env.LIMITED_ADMIN_SEED_EMAIL.toLowerCase();
+    const existingAdmin = await prisma.adminUser.findUnique({
+      where: { email: limitedEmail },
+    });
+    if (!existingAdmin) {
+      const limitedPasswordHash = await bcrypt.hash(process.env.LIMITED_ADMIN_SEED_PASSWORD, SALT_ROUNDS);
+      await prisma.adminUser.create({
+        data: {
+          email: limitedEmail,
+          password_hash: limitedPasswordHash,
+          name: process.env.LIMITED_ADMIN_SEED_NAME || 'Limited Admin',
+          role_id: role.id,
+        },
+      });
+      console.log(`✅ 建立低權限管理員帳號: ${limitedEmail} (${limitedRoleKey})`);
+    }
+  }
 
   for (const account of TEST_ACCOUNTS) {
     const existing = await prisma.user.findUnique({

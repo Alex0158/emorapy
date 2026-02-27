@@ -41,8 +41,14 @@ jest.mock('../../../src/services/async-pipeline.service', () => ({
   __esModule: true,
   asyncPipelineService: { runPipeline: jest.fn() },
 }));
+jest.mock('../../../src/services/system-config.service', () => ({
+  __esModule: true,
+  systemConfigService: { getNumberConfig: jest.fn() },
+}));
 
 import { InterviewService } from '../../../src/services/interview.service';
+import prisma from '../../../src/config/database';
+import { systemConfigService } from '../../../src/services/system-config.service';
 
 const service = new InterviewService();
 const buildSystemPrompt = (service as any).buildInterviewSystemPrompt.bind(service);
@@ -54,6 +60,7 @@ describe('InterviewService — buildInterviewSystemPrompt', () => {
     uncoveredDomains: ['attachment', 'family_origin'],
     currentTurn: 3,
     maxTurns: 30,
+    softTarget: 10,
     previousInsights: '',
     collectedFacts: [] as string[],
   };
@@ -197,5 +204,62 @@ describe('InterviewService — key_facts 解析邏輯', () => {
     const newFacts = ['MBTI 為 ENTP', '對星座有興趣'];
     const updated = [...existingFacts, ...newFacts];
     expect(updated).toEqual(['用戶來自澳門', 'MBTI 為 ENTP', '對星座有興趣']);
+  });
+});
+
+describe('InterviewService — runtime config 行為', () => {
+  const mockedPrisma = prisma as any;
+  const mockedSystemConfig = systemConfigService as any;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (mockedSystemConfig.getNumberConfig as jest.Mock).mockImplementation(async (...args: any[]) => args[1]);
+  });
+
+  it('startSession 應使用 runtime dailySessionLimit 阻擋超額啟動', async () => {
+    (mockedPrisma.user.findUnique as any).mockResolvedValue({ psych_consent_given: true });
+    (mockedSystemConfig.getNumberConfig as jest.Mock).mockImplementation(async (...args: any[]) => {
+      const [key, fallback] = args;
+      if (key === 'interview.dailySessionLimit') return 1;
+      return fallback;
+    });
+    (mockedPrisma.interviewSession.findMany as any).mockResolvedValue([
+      { created_at: new Date().toISOString(), _count: { turns: 3 } },
+    ]);
+
+    await expect(service.startSession('u1', 'organic')).rejects.toThrow('今日開始訪談次數已達上限');
+  });
+
+  it('respond 應使用 runtime maxTurns 阻擋超輪次', async () => {
+    (mockedSystemConfig.getNumberConfig as jest.Mock).mockImplementation(async (...args: any[]) => {
+      const [key, fallback] = args;
+      if (key === 'interview.maxTurns') return 2;
+      return fallback;
+    });
+    (mockedPrisma.interviewSession.findUnique as any).mockResolvedValue({
+      id: 's1',
+      user_id: 'u1',
+      status: 'in_progress',
+      turns: [{ id: 't1', created_at: new Date(Date.now() - 1000 * 60) }, { id: 't2', created_at: new Date() }],
+    });
+
+    await expect(service.respond('s1', 'u1', 'hello')).rejects.toThrow();
+  });
+
+  it('respond 應使用 runtime turnIntervalMs 阻擋過快輸入', async () => {
+    (mockedSystemConfig.getNumberConfig as jest.Mock).mockImplementation(async (...args: any[]) => {
+      const [key, fallback] = args;
+      if (key === 'interview.maxTurns') return 10;
+      if (key === 'interview.turnIntervalMs') return 120000;
+      return fallback;
+    });
+    (mockedPrisma.interviewSession.findUnique as any).mockResolvedValue({
+      id: 's1',
+      user_id: 'u1',
+      status: 'in_progress',
+      turns: [{ id: 't1', created_at: new Date() }],
+    });
+
+    await expect(service.respond('s1', 'u1', 'hello')).rejects.toThrow();
   });
 });

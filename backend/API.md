@@ -314,6 +314,41 @@ Authorization: Bearer <token>
 }
 ```
 
+---
+
+## 管理後台（Admin）
+
+> Base URL: `/api/v1/admin`，需管理員 JWT。
+
+### 定時任務統計
+**GET** `/jobs/stats`
+
+**Query 參數**:
+- `days`：統計天數（1~90，預設 7）
+- `includeRunning`：`true|false`（預設 `true`）
+  - `true`：`successRate/failureRate` 分母為 `totalRuns`
+  - `false`：`successRate/failureRate` 分母為 `completedRuns`
+- `maxRows`：查詢保護上限（100~20000，預設 5000）
+
+**響應重點（contract）**:
+- `totals`：
+  - `totalRuns/successRuns/failedRuns/runningRuns/completedRuns`
+  - `successRate/failureRate`
+  - `successRateCompleted/failureRateCompleted`
+  - `avgDurationMs`
+- `perJob[]`：每個 job 的同維度聚合
+- `dailyBuckets[]`：日粒度趨勢（缺值補 0）
+- `rateBase`：`total_runs | completed_runs`
+- `statsMeta`：
+  - `maxRows`
+  - `sampled`（是否發生截斷）
+  - `sampleStrategy`（目前為 `latest_runs_desc`）
+
+**採樣語義說明**:
+- 後端採用 `maxRows + 1` 探測：
+  - 若回傳行數 `> maxRows`，則 `sampled=true`，並只使用最新 `maxRows` 筆聚合
+  - 否則 `sampled=false`
+
 ## 錯誤碼
 
 | 錯誤碼 | HTTP狀態碼 | 說明 |

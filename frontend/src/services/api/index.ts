@@ -12,3 +12,5 @@ export * from './reconciliation';
 export * from './execution';
 export * from './interview';
 export * from './psychProfile';
+export * from './admin';
+export * from './chat';

@@ -10,6 +10,12 @@ declare global {
   namespace Express {
     interface Request {
       user?: UserPayload;
+      admin?: {
+        id: string;
+        email: string;
+        roleKey: 'super_admin' | 'ops' | 'marketing' | 'support';
+        permissions: string[];
+      };
       sessionId?: string;
       requestId?: string;
       locale?: BackendLocale;

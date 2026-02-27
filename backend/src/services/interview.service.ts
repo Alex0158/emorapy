@@ -15,6 +15,7 @@ import {
   type SSEErrorEvent,
 } from '../types/interview.types';
 import { asyncPipelineService } from './async-pipeline.service';
+import { systemConfigService } from './system-config.service';
 import { PsychDomain } from '@prisma/client';
 import { fenceUserInput } from '../utils/prompt';
 import { INTERVIEW_STATUS, CLEANUP_THRESHOLDS } from '../utils/constants';
@@ -22,6 +23,66 @@ import { INTERVIEW_STATUS, CLEANUP_THRESHOLDS } from '../utils/constants';
 const DOMAINS_LIST = Object.values(PsychDomain).join('、');
 
 export class InterviewService {
+  private sanitizeInsightValue(value: string): string {
+    return (value || '')
+      .replace(/\s+/g, ' ')
+      .replace(/[「」"'`]/g, '')
+      .trim()
+      .slice(0, 48);
+  }
+
+  private isSafeForSeed(domain: PsychDomain, insightType: string, key: string, value: string): boolean {
+    if (insightType === 'risk' || insightType === 'trigger') return false;
+    if (/自傷|自殺|暴力|威脅|創傷|受害/.test(`${key} ${value}`)) return false;
+    switch (domain) {
+      case PsychDomain.personality:
+      case PsychDomain.belief_values:
+      case PsychDomain.education_cognition:
+      case PsychDomain.cultural_background:
+      case PsychDomain.relationship_history:
+      case PsychDomain.life_events:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  private buildPersonalizedSeedQuestion(base: string, hints: string[]): string {
+    if (hints.length === 0) return base;
+    const hint = hints[0];
+    return `嗨，歡迎回來。上次聊天裡我對你的一個印象是：${hint}。如果你願意，想先從這件事最近在你生活裡的變化聊起嗎？`;
+  }
+
+  private async getRuntimeInterviewConfig() {
+    const maxTurns = await systemConfigService.getNumberConfig(
+      'interview.maxTurns',
+      env.INTERVIEW_MAX_TURNS
+    );
+    const softTarget = await systemConfigService.getNumberConfig(
+      'interview.softTarget',
+      env.INTERVIEW_SOFT_TARGET
+    );
+    const turnIntervalMs = await systemConfigService.getNumberConfig(
+      'interview.turnIntervalMs',
+      env.INTERVIEW_TURN_INTERVAL_MS
+    );
+    const startRateLimit = await systemConfigService.getNumberConfig(
+      'interview.startRateLimit',
+      env.INTERVIEW_START_RATE_LIMIT
+    );
+    const dailySessionLimit = await systemConfigService.getNumberConfig(
+      'interview.dailySessionLimit',
+      env.INTERVIEW_DAILY_SESSION_LIMIT
+    );
+    return {
+      maxTurns: Math.max(Math.floor(maxTurns), 1),
+      softTarget: Math.max(Math.floor(softTarget), 1),
+      turnIntervalMs: Math.max(Math.floor(turnIntervalMs), 0),
+      startRateLimit: Math.max(Math.floor(startRateLimit), 1),
+      dailySessionLimit: Math.max(Math.floor(dailySessionLimit), 1),
+    };
+  }
+
   /**
    * 開始新訪談：檢查同意、每日/每小時限額，放棄舊進行中 session，建立新 session 與第一輪
    */
@@ -30,6 +91,7 @@ export class InterviewService {
     trigger: 'organic' | 'pre_case' | 'post_judgment' | 'onboarding' = 'organic'
   ) {
     return lockService.withLock(`interview:start:${userId}`, async () => {
+    const runtimeConfig = await this.getRuntimeInterviewConfig();
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { psych_consent_given: true },
@@ -55,13 +117,13 @@ export class InterviewService {
     const dailyCount = substantive.filter(
       (s) => new Date(s.created_at) >= today
     ).length;
-    if (dailyCount >= env.INTERVIEW_DAILY_SESSION_LIMIT) {
+    if (dailyCount >= runtimeConfig.dailySessionLimit) {
       throw Errors.RATE_LIMIT_EXCEEDED('今日開始訪談次數已達上限');
     }
     const hourlyCount = substantive.filter(
       (s) => new Date(s.created_at) >= new Date(oneHourAgo)
     ).length;
-    if (hourlyCount >= env.INTERVIEW_START_RATE_LIMIT) {
+    if (hourlyCount >= runtimeConfig.startRateLimit) {
       throw Errors.RATE_LIMIT_EXCEEDED('每小時開始訪談次數已達上限，請稍後再試');
     }
 
@@ -69,6 +131,36 @@ export class InterviewService {
       where: { user_id: userId, status: INTERVIEW_STATUS.IN_PROGRESS },
       include: { turns: true },
     });
+
+    // v4.1: 首題輕量個人化（僅使用高信心且低風險洞見）
+    let firstQuestion = getSeedQuestion(trigger);
+    try {
+      const seedInsights = await prisma.profileInsight.findMany({
+        where: {
+          user_id: userId,
+          is_active: true,
+          confidence: { gte: 0.7 },
+        },
+        select: {
+          domain: true,
+          insight_type: true,
+          key: true,
+          value: true,
+          confidence: true,
+        },
+        orderBy: { confidence: 'desc' },
+        take: 12,
+      });
+
+      const hints = seedInsights
+        .filter((i) => this.isSafeForSeed(i.domain, i.insight_type, i.key, i.value))
+        .slice(0, 3)
+        .map((i) => `${i.key}：${this.sanitizeInsightValue(i.value)}`);
+
+      firstQuestion = this.buildPersonalizedSeedQuestion(firstQuestion, hints);
+    } catch (seedErr) {
+      logger.debug('Non-critical: failed to build personalized seed', { userId, error: seedErr });
+    }
 
     let previousSessionToProcess: string | null = null;
 
@@ -103,7 +195,7 @@ export class InterviewService {
         data: {
           session_id: session.id,
           turn_order: 1,
-          ai_message: getSeedQuestion(trigger),
+          ai_message: firstQuestion,
           ai_intent: 'opening',
           ai_target_domains: [PsychDomain.personality],
         },
@@ -142,6 +234,7 @@ export class InterviewService {
       await lockService.withLock(
         `interview:respond:${sessionId}`,
         async () => {
+          const runtimeConfig = await this.getRuntimeInterviewConfig();
           const session = await prisma.interviewSession.findUnique({
             where: { id: sessionId },
             include: { turns: { orderBy: { turn_order: 'asc' } } },
@@ -152,14 +245,14 @@ export class InterviewService {
           if (session.status !== INTERVIEW_STATUS.IN_PROGRESS) {
             throw Errors.SESSION_COMPLETED();
           }
-          if (session.turns.length >= env.INTERVIEW_MAX_TURNS) {
+          if (session.turns.length >= runtimeConfig.maxTurns) {
             throw Errors.MAX_TURNS_REACHED();
           }
 
           const lastTurn = session.turns[session.turns.length - 1];
           if (lastTurn?.created_at) {
             const elapsed = Date.now() - lastTurn.created_at.getTime();
-            if (elapsed < env.INTERVIEW_TURN_INTERVAL_MS) {
+            if (elapsed < runtimeConfig.turnIntervalMs) {
               throw Errors.TURN_TOO_FAST();
             }
           }
@@ -190,17 +283,34 @@ export class InterviewService {
           const uncoveredDomains = allDomains.filter(d => !coveredDomains.includes(d));
 
           let previousInsights = '';
+          let previousNarrativeHints = '';
           try {
-            const existingInsights = await prisma.profileInsight.findMany({
-              where: { user_id: userId, is_active: true, confidence: { gte: 0.5 } },
-              select: { domain: true, key: true, value: true, confidence: true },
-              orderBy: { confidence: 'desc' },
-              take: 15,
-            });
+            const [existingInsights, existingNarratives] = await Promise.all([
+              prisma.profileInsight.findMany({
+                where: { user_id: userId, is_active: true, confidence: { gte: 0.5 } },
+                select: { domain: true, key: true, value: true, confidence: true },
+                orderBy: { confidence: 'desc' },
+                take: 15,
+              }),
+              prisma.profileNarrative.findMany({
+                where: { user_id: userId, is_latest: true },
+                select: { domain: true, ai_summary: true, completeness: true },
+                orderBy: { completeness: 'desc' },
+                take: 4,
+              }),
+            ]);
+
             if (existingInsights.length > 0) {
               previousInsights = existingInsights
                 .map(i => `- ${i.domain}：${i.key} — ${i.value}（${Math.round(i.confidence * 100)}%）`)
                 .join('\n');
+            }
+            const summarizedNarratives = existingNarratives
+              .filter((n) => (n.ai_summary || '').trim().length > 0 && n.completeness >= 0.25)
+              .slice(0, 3)
+              .map((n) => `- ${n.domain}：${(n.ai_summary || '').trim().slice(0, 120)}`);
+            if (summarizedNarratives.length > 0) {
+              previousNarrativeHints = summarizedNarratives.join('\n');
             }
           } catch (insightErr) {
             logger.debug('Non-critical: failed to load previous insights', { sessionId: session.id, error: insightErr });
@@ -212,8 +322,10 @@ export class InterviewService {
             coveredDomains,
             uncoveredDomains,
             currentTurn,
-            maxTurns: env.INTERVIEW_MAX_TURNS,
+            maxTurns: runtimeConfig.maxTurns,
+            softTarget: runtimeConfig.softTarget,
             previousInsights,
+            previousNarrativeHints,
             collectedFacts,
           });
 
@@ -333,7 +445,7 @@ export class InterviewService {
           const newFacts = Array.isArray(parsedMeta.key_facts)
             ? parsedMeta.key_facts.filter((f): f is string => typeof f === 'string' && f.trim().length > 0)
             : [];
-          const updatedCollectedFacts = [...collectedFacts, ...newFacts];
+          const updatedCollectedFacts = [...new Set([...collectedFacts, ...newFacts])];
 
           const aiWordCount = text.split(/\s+/).filter(Boolean).length;
           const newDomains = [...new Set([...session.domains_touched, ...targetDomains])];
@@ -390,10 +502,21 @@ export class InterviewService {
     uncoveredDomains: string[];
     currentTurn: number;
     maxTurns: number;
+    softTarget: number;
     previousInsights: string;
+    previousNarrativeHints: string;
     collectedFacts: string[];
   }): string {
-    const { coveredDomains, uncoveredDomains, currentTurn, maxTurns, previousInsights, collectedFacts } = ctx;
+    const {
+      coveredDomains,
+      uncoveredDomains,
+      currentTurn,
+      maxTurns,
+      softTarget,
+      previousInsights,
+      previousNarrativeHints,
+      collectedFacts,
+    } = ctx;
     const covered = coveredDomains.length > 0 ? coveredDomains.join('、') : '無';
     const uncovered = uncoveredDomains.length > 0 ? uncoveredDomains.join('、') : '無（已全部覆蓋）';
 
@@ -406,6 +529,7 @@ export class InterviewService {
 
 已知背景（歷史 session 的洞見）：
 ${previousInsights || '（首次對話，尚無已知背景）'}
+${previousNarrativeHints ? `\n補充脈絡（過往敘事摘要，僅供方向參考）：\n${previousNarrativeHints}\n` : ''}
 ${factsSection}
 已覆蓋的話題領域：${covered}
 尚未覆蓋的話題領域：${uncovered}
@@ -438,7 +562,7 @@ ${factsSection}
 
 8. **疲勞感知**：如果來訪者已經分享了很多、回答開始變短、或者說出「差不多」「就這樣吧」等信號 → 溫暖地建議結束，肯定他/她今天分享的一切。
 
-${currentTurn >= env.INTERVIEW_SOFT_TARGET ? `## 覆蓋引導（第 ${currentTurn} 輪 ≥ 軟目標 ${env.INTERVIEW_SOFT_TARGET} 輪）
+${currentTurn >= softTarget ? `## 覆蓋引導（第 ${currentTurn} 輪 ≥ 軟目標 ${softTarget} 輪）
 
 你已經和來訪者聊了一段時間。目前覆蓋了 ${coveredDomains.length}/8 個領域。
 尚未覆蓋的高優先領域：${uncoveredDomains.filter(d => ['attachment', 'family_origin'].includes(d)).join('、') || '無'}

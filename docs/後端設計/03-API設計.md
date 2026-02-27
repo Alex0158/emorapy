@@ -1,7 +1,7 @@
 # API設計
 
-**文檔版本**：v2.1  
-**最後更新**：2026-02-21
+**文檔版本**：v2.2  
+**最後更新**：2026-02-20
 
 ---
 
@@ -1635,6 +1635,146 @@ data: {"code": "AI_CALL_FAILED", "message": "AI 回應失敗，請重試"}
 
 ---
 
+## 🛠️ 管理員後台 API（Round12 契約補充）
+
+### Cron 統計（dashboard-ready）
+
+**GET** `/api/v1/admin/jobs/stats`
+
+**認證**：需要 Admin JWT  
+**權限**：`ops:read`
+
+**查詢參數**：
+
+| 參數 | 類型 | 必填 | 默認 | 範圍 | 說明 |
+|------|------|------|------|------|------|
+| `days` | number | 否 | `7` | `1 ~ 90` | 回溯天數窗口 |
+| `includeRunning` | boolean | 否 | `true` | - | 成功/失敗率分母是否包含 `running` |
+| `maxRows` | number | 否 | `5000` | `100 ~ 20000` | 後端最多讀取的最新執行記錄數 |
+
+> 實現細節：為判斷是否發生採樣，後端內部會查詢 `maxRows + 1` 筆，再裁切為 `maxRows`。
+
+### 響應契約（穩定欄位）
+
+```json
+{
+  "success": true,
+  "data": {
+    "days": 7,
+    "since": "2026-02-18T00:00:00.000Z",
+    "totals": {
+      "totalRuns": 123,
+      "successRuns": 90,
+      "failedRuns": 20,
+      "runningRuns": 13,
+      "completedRuns": 110,
+      "successRate": 0.7317,
+      "failureRate": 0.1626,
+      "successRateCompleted": 0.8182,
+      "failureRateCompleted": 0.1818,
+      "avgDurationMs": 1420
+    },
+    "perJob": [
+      {
+        "jobKey": "cleanup_expired_sessions",
+        "totalRuns": 70,
+        "successRuns": 60,
+        "failedRuns": 8,
+        "runningRuns": 2,
+        "completedRuns": 68,
+        "successRate": 0.8571,
+        "failureRate": 0.1143,
+        "successRateCompleted": 0.8824,
+        "failureRateCompleted": 0.1176,
+        "avgDurationMs": 980,
+        "totalAffectedCount": 1560,
+        "lastRunAt": "2026-02-25T09:01:00.000Z"
+      }
+    ],
+    "dailyBuckets": [
+      {
+        "date": "2026-02-24",
+        "totalRuns": 20,
+        "successRuns": 15,
+        "failedRuns": 3,
+        "runningRuns": 2,
+        "completedRuns": 18,
+        "successRate": 0.75,
+        "failureRate": 0.15,
+        "successRateCompleted": 0.8333,
+        "failureRateCompleted": 0.1667
+      }
+    ],
+    "rateBase": "total_runs",
+    "statsMeta": {
+      "maxRows": 5000,
+      "returnedRows": 5000,
+      "sampled": true,
+      "sampleStrategy": "latest_runs_desc"
+    }
+  }
+}
+```
+
+### 分母語義說明（重要）
+
+- `successRate` / `failureRate` 會依 `includeRunning` 切換：
+  - `includeRunning=true` → 分母是 `totalRuns`
+  - `includeRunning=false` → 分母是 `completedRuns`
+- `successRateCompleted` / `failureRateCompleted` 永遠以 `completedRuns` 為分母（固定語義）。
+
+### 範例 A：`includeRunning=true`（預設）
+
+```json
+{
+  "rateBase": "total_runs",
+  "totals": {
+    "totalRuns": 3,
+    "successRuns": 1,
+    "failedRuns": 1,
+    "runningRuns": 1,
+    "completedRuns": 2,
+    "successRate": 0.3333,
+    "failureRate": 0.3333,
+    "successRateCompleted": 0.5,
+    "failureRateCompleted": 0.5
+  }
+}
+```
+
+### 範例 B：`includeRunning=false`
+
+```json
+{
+  "rateBase": "completed_runs",
+  "totals": {
+    "totalRuns": 3,
+    "successRuns": 1,
+    "failedRuns": 1,
+    "runningRuns": 1,
+    "completedRuns": 2,
+    "successRate": 0.5,
+    "failureRate": 0.5,
+    "successRateCompleted": 0.5,
+    "failureRateCompleted": 0.5
+  }
+}
+```
+
+### 向後相容與版本演進
+
+- 舊欄位 `totalRuns/successRuns/failedRuns/runningRuns/avgDurationMs` 保留，既有前端不會中斷。
+- 新增欄位（向後相容擴充）：
+  - `completedRuns`
+  - `successRateCompleted` / `failureRateCompleted`
+  - `rateBase`
+  - `statsMeta.maxRows` / `statsMeta.returnedRows` / `statsMeta.sampled` / `statsMeta.sampleStrategy`
+- 建議前端策略：
+  - 若不存在 `rateBase`，可回退為 `total_runs` 解讀（兼容舊版）。
+  - 優先使用 `statsMeta.sampled` 呈現「資料已採樣」提示，避免誤讀為全量統計。
+
+---
+
 ## 📚 相關文檔
 
 - [後端架構設計](./01-後端架構設計.md)
@@ -1644,5 +1784,5 @@ data: {"code": "AI_CALL_FAILED", "message": "AI 回應失敗，請重試"}
 
 ---
 
-**文檔版本**：v2.1  
-**最後更新**：2026-02-20（v2.1：訪談/畫像 API 與源碼對齊——修正路由參數 `:id`、請求欄位 `message`、響應結構、SSE 實現說明、合併 result/history 為 GET /:id、新增 retry 端點；v2.0：新增心理畫像與 AI 訪談 API，共 11 個端點）
+**文檔版本**：v2.2  
+**最後更新**：2026-02-20（v2.2：新增 admin `/api/v1/admin/jobs/stats` 契約、`includeRunning` 分母語義、`maxRows` 採樣元資訊、向後相容說明；v2.1：訪談/畫像 API 與源碼對齊——修正路由參數 `:id`、請求欄位 `message`、響應結構、SSE 實現說明、合併 result/history 為 GET /:id、新增 retry 端點；v2.0：新增心理畫像與 AI 訪談 API，共 11 個端點）

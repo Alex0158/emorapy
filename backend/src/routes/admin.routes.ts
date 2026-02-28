@@ -164,6 +164,13 @@ router.get(
   adminController.reportFunnel.bind(adminController)
 );
 router.get(
+  '/reports/costs',
+  generalLimiter,
+  authenticateAdmin,
+  requireAdminPermission('reports:read'),
+  adminController.reportCosts.bind(adminController)
+);
+router.get(
   '/reports/overview.csv',
   generalLimiter,
   authenticateAdmin,

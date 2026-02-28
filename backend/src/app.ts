@@ -6,6 +6,7 @@ import path from 'path';
 import { env } from './config/env';
 import { errorHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/logger';
+import { opsMetrics } from './middleware/opsMetrics';
 import { downloadLimiter } from './middleware/rateLimiter';
 import { responseFormatter } from './middleware/responseFormatter';
 import { requestId } from './middleware/requestId';
@@ -114,6 +115,9 @@ app.use(performanceMonitor);
 
 // 請求日誌
 app.use(requestLogger);
+
+// 運維指標（用於 5xx/409 比例告警）
+app.use(opsMetrics);
 
 // 響應格式化
 app.use(responseFormatter);

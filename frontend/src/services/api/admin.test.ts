@@ -122,6 +122,48 @@ describe('admin API', () => {
     expect(data.admin.permissions).toEqual(['ops:read']);
   });
 
+  it('getReportCosts 應攜帶 admin token 並返回成本資料', async () => {
+    setAdminToken('eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoib3BzIn0.signature');
+    mockGet.mockResolvedValue({
+      data: {
+        data: {
+          generatedAt: '2026-02-28T00:00:00.000Z',
+          currency: 'USD',
+          partial: false,
+          reasons: [],
+          summary: {
+            redisMemoryMb: 12.3,
+            redisTotalKeys: 99,
+            railwayEgressGb24h: 1.1,
+            railwayEgressGb7d: 3.3,
+            openaiCostUsd24h: 0.12,
+            openaiCostUsd7d: 0.88,
+            openaiInputTokens24h: 1200,
+            openaiOutputTokens24h: 800,
+          },
+          redis: { status: 'ok', memoryUsedBytes: 12800000, connectedClients: 2, totalKeys: 99 },
+          railway: { status: 'ok', egressGb24h: 1.1, egressGb7d: 3.3, dailyEgressGb: [] },
+          openai: {
+            status: 'ok',
+            costUsd24h: 0.12,
+            costUsd7d: 0.88,
+            inputTokens24h: 1200,
+            outputTokens24h: 800,
+            dailyCostUsd: [],
+          },
+        },
+      },
+    });
+
+    const data = await adminApi.getReportCosts();
+
+    expect(mockGet).toHaveBeenCalledWith('/admin/reports/costs', {
+      headers: { Authorization: 'Bearer eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoib3BzIn0.signature' },
+    });
+    expect(data.currency).toBe('USD');
+    expect(data.summary.openaiCostUsd7d).toBe(0.88);
+  });
+
   it('分母與採樣輔助函式應返回正確語義', () => {
     expect(getRateDenominatorLabel('total_runs')).toBe('totalRuns');
     expect(getRateDenominatorLabel('completed_runs')).toBe('completedRuns');

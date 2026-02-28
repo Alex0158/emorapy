@@ -16,6 +16,7 @@ import type {
   AdminJobStatsMeta,
   AdminMeData,
   AdminJobStatsQuery,
+  AdminCostReportData,
   AdminReportFunnelData,
   AdminReportOverviewData,
   AdminJobStatsRow,
@@ -409,6 +410,13 @@ export const adminApi = {
       headers: getAdminAuthHeaders(),
     });
     return (response.data as ApiResponse<AdminReportFunnelData>).data;
+  },
+
+  async getReportCosts(): Promise<AdminCostReportData> {
+    const response = await request.get<ApiResponse<AdminCostReportData>>('/admin/reports/costs', {
+      headers: getAdminAuthHeaders(),
+    });
+    return (response.data as ApiResponse<AdminCostReportData>).data;
   },
 
   async getCustomReport(metrics: string[]): Promise<{ metrics: Record<string, number> }> {

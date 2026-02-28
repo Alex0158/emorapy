@@ -6,6 +6,7 @@ const mockCronRunLogFindMany = jest.fn();
 const mockSystemConfigUpsert = jest.fn();
 const mockWriteAuditLog = jest.fn();
 const mockGetNumberConfig = jest.fn();
+const mockGetAdminCostReport = jest.fn();
 
 jest.mock('../../../src/config/database', () => ({
   __esModule: true,
@@ -51,6 +52,12 @@ jest.mock('../../../src/middleware/performance', () => ({
 jest.mock('../../../src/services/system-config.service', () => ({
   systemConfigService: {
     getNumberConfig: (...args: unknown[]) => mockGetNumberConfig(...args),
+  },
+}));
+
+jest.mock('../../../src/services/cost-monitoring.service', () => ({
+  costMonitoringService: {
+    getAdminCostReport: (...args: unknown[]) => mockGetAdminCostReport(...args),
   },
 }));
 
@@ -467,6 +474,58 @@ describe('AdminController', () => {
         })
       );
       expect(next).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('reportCosts', () => {
+    it('應回傳成本報告資料', async () => {
+      (mockGetAdminCostReport as any).mockResolvedValue({
+        generatedAt: '2026-01-01T00:00:00.000Z',
+        currency: 'USD',
+        partial: true,
+        reasons: ['railway unavailable'],
+        summary: {
+          redisMemoryMb: 10,
+          redisTotalKeys: 20,
+          railwayEgressGb24h: 0,
+          railwayEgressGb7d: 0,
+          openaiCostUsd24h: 0,
+          openaiCostUsd7d: 0,
+          openaiInputTokens24h: 0,
+          openaiOutputTokens24h: 0,
+        },
+        redis: { status: 'ok', memoryUsedBytes: 100, connectedClients: 1, totalKeys: 20 },
+        railway: { status: 'unavailable', egressGb24h: 0, egressGb7d: 0, dailyEgressGb: [] },
+        openai: {
+          status: 'unavailable',
+          costUsd24h: 0,
+          costUsd7d: 0,
+          inputTokens24h: 0,
+          outputTokens24h: 0,
+          dailyCostUsd: [],
+        },
+      });
+
+      await adminController.reportCosts(req as Request, res as Response, next);
+
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          data: expect.objectContaining({
+            currency: 'USD',
+            partial: true,
+          }),
+        })
+      );
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('成本報告異常時應 next(error)', async () => {
+      (mockGetAdminCostReport as any).mockRejectedValue(new Error('cost source down'));
+
+      await adminController.reportCosts(req as Request, res as Response, next);
+
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
     });
   });
 });

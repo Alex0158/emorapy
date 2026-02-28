@@ -21,6 +21,7 @@ const mockListAuditLogs = jest.fn();
 const mockExportAuditLogsCsv = jest.fn();
 const mockReportOverview = jest.fn();
 const mockReportFunnel = jest.fn();
+const mockReportCosts = jest.fn();
 const mockExportOverviewCsv = jest.fn();
 const mockCustomReport = jest.fn();
 const mockUpsertAlertRules = jest.fn();
@@ -49,6 +50,7 @@ jest.mock('../../../src/controllers/admin.controller', () => ({
     exportAuditLogsCsv: (req: unknown, res: unknown, next: unknown) => mockExportAuditLogsCsv(req, res, next),
     reportOverview: (req: unknown, res: unknown, next: unknown) => mockReportOverview(req, res, next),
     reportFunnel: (req: unknown, res: unknown, next: unknown) => mockReportFunnel(req, res, next),
+    reportCosts: (req: unknown, res: unknown, next: unknown) => mockReportCosts(req, res, next),
     exportOverviewCsv: (req: unknown, res: unknown, next: unknown) => mockExportOverviewCsv(req, res, next),
     customReport: (req: unknown, res: unknown, next: unknown) => mockCustomReport(req, res, next),
     upsertAlertRules: (req: unknown, res: unknown, next: unknown) => mockUpsertAlertRules(req, res, next),
@@ -109,6 +111,7 @@ describe('admin.routes', () => {
     mockExportAuditLogsCsv.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true }));
     mockReportOverview.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true, data: {} }));
     mockReportFunnel.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true, data: {} }));
+    mockReportCosts.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true, data: {} }));
     mockExportOverviewCsv.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true }));
     mockCustomReport.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true, data: {} }));
     mockUpsertAlertRules.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true, data: { item: {} } }));
@@ -181,6 +184,13 @@ describe('admin.routes', () => {
     const res = await request(app).get('/audit-logs.csv');
     expect(res.status).toBe(200);
     expect(mockExportAuditLogsCsv).toHaveBeenCalled();
+  });
+
+  it('GET /reports/costs 應調用 reportCosts', async () => {
+    const app = createApp();
+    const res = await request(app).get('/reports/costs');
+    expect(res.status).toBe(200);
+    expect(mockReportCosts).toHaveBeenCalled();
   });
 
   it('GET /admin-users 應調用 listAdminUsers', async () => {

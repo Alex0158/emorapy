@@ -172,6 +172,50 @@ export interface AdminReportFunnelData {
   }>;
 }
 
+export interface AdminCostDailyPoint {
+  date: string;
+  value: number;
+}
+
+export interface AdminCostReportData {
+  generatedAt: string;
+  currency: 'USD';
+  partial: boolean;
+  reasons: string[];
+  summary: {
+    redisMemoryMb: number;
+    redisTotalKeys: number;
+    railwayEgressGb24h: number;
+    railwayEgressGb7d: number;
+    openaiCostUsd24h: number;
+    openaiCostUsd7d: number;
+    openaiInputTokens24h: number;
+    openaiOutputTokens24h: number;
+  };
+  redis: {
+    status: 'ok' | 'partial' | 'unavailable';
+    memoryUsedBytes: number;
+    connectedClients: number;
+    totalKeys: number;
+  };
+  railway: {
+    status: 'ok' | 'partial' | 'unavailable';
+    egressGb24h: number;
+    egressGb7d: number;
+    dailyEgressGb: AdminCostDailyPoint[];
+    note?: string;
+  };
+  openai: {
+    status: 'ok' | 'partial' | 'unavailable';
+    costUsd24h: number;
+    costUsd7d: number;
+    inputTokens24h: number;
+    outputTokens24h: number;
+    dailyCostUsd: AdminCostDailyPoint[];
+    note?: string;
+  };
+}
+
 export interface AdminInterviewRuntimeConfigData {
   defaults: Record<string, number>;
   runtime: Record<string, number>;

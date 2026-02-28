@@ -2,13 +2,33 @@
  * JWT工具函數測試
  */
 
-import { generateToken, verifyToken } from '../../../src/utils/jwt';
+import jwt from 'jsonwebtoken';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 describe('JWT Utils', () => {
+  const originalEnv = process.env;
   const testPayload = { id: 'test-user-id', email: 'test@example.com' };
 
+  beforeEach(() => {
+    jest.resetModules();
+    process.env = {
+      ...originalEnv,
+      NODE_ENV: 'test',
+      DATABASE_URL: process.env.DATABASE_URL || 'postgresql://localhost/test',
+      OPENAI_API_KEY: process.env.OPENAI_API_KEY || 'sk-test-key',
+      JWT_SECRET: 'new-jwt-secret-at-least-32-characters-long',
+      JWT_EXPIRES_IN: '24h',
+    };
+    delete process.env.JWT_SECRET_PREVIOUS;
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+  });
+
   describe('generateToken', () => {
-    it('應該成功生成JWT token', () => {
+    it('應該成功生成JWT token', async () => {
+      const { generateToken } = await import('../../../src/utils/jwt');
       const token = generateToken(testPayload);
 
       expect(token).toBeDefined();
@@ -16,7 +36,8 @@ describe('JWT Utils', () => {
       expect(token.split('.').length).toBe(3); // JWT格式：header.payload.signature
     });
 
-    it('應該生成不同的token（即使payload相同）', () => {
+    it('應該生成不同的token（即使payload相同）', async () => {
+      const { generateToken } = await import('../../../src/utils/jwt');
       const realNow = Date.now;
       // jsonwebtoken 的 iat/exp 以秒為粒度，需保證時間差至少 1 秒
       // 這裡用 mock Date.now 讓測試穩定且不依賴 sleep
@@ -32,7 +53,8 @@ describe('JWT Utils', () => {
   });
 
   describe('verifyToken', () => {
-    it('應該成功驗證有效的token', () => {
+    it('應該成功驗證有效的token', async () => {
+      const { generateToken, verifyToken } = await import('../../../src/utils/jwt');
       const token = generateToken(testPayload);
       const decoded = verifyToken(token);
 
@@ -41,7 +63,8 @@ describe('JWT Utils', () => {
       expect(decoded.email).toBe(testPayload.email);
     });
 
-    it('應該拒絕無效的token', () => {
+    it('應該拒絕無效的token', async () => {
+      const { verifyToken } = await import('../../../src/utils/jwt');
       const invalidToken = 'invalid.token.here';
 
       expect(() => {
@@ -49,13 +72,32 @@ describe('JWT Utils', () => {
       }).toThrow();
     });
 
-    it('應該拒絕過期的token', () => {
-      // 生成一個立即過期的token（需要修改JWT_EXPIRES_IN為很短的時間）
-      // 這裡只是測試結構，實際測試需要設置短過期時間
-      const token = generateToken(testPayload);
-      const decoded = verifyToken(token);
+    it('應該允許舊密鑰簽發的token在過渡期通過驗證', async () => {
+      process.env.JWT_SECRET_PREVIOUS = 'old-jwt-secret-at-least-32-characters-long';
+      jest.resetModules();
+      const { verifyToken } = await import('../../../src/utils/jwt');
 
-      expect(decoded).toBeDefined();
+      const legacyToken = jwt.sign(testPayload, process.env.JWT_SECRET_PREVIOUS as string, {
+        algorithm: 'HS256',
+        expiresIn: '1h',
+      });
+
+      const decoded = verifyToken(legacyToken);
+      expect(decoded.id).toBe(testPayload.id);
+      expect(decoded.email).toBe(testPayload.email);
+    });
+
+    it('移除舊密鑰後，舊token應失效', async () => {
+      const oldSecret = 'old-jwt-secret-at-least-32-characters-long';
+      const legacyToken = jwt.sign(testPayload, oldSecret, {
+        algorithm: 'HS256',
+        expiresIn: '1h',
+      });
+      delete process.env.JWT_SECRET_PREVIOUS;
+      jest.resetModules();
+      const { verifyToken } = await import('../../../src/utils/jwt');
+
+      expect(() => verifyToken(legacyToken)).toThrow();
     });
   });
 });

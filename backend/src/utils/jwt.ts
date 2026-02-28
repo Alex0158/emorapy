@@ -4,6 +4,14 @@ import { Errors } from './errors';
 
 const ALGORITHM = 'HS256';
 
+function getVerificationSecrets(): string[] {
+  const secrets = [env.JWT_SECRET];
+  if (env.JWT_SECRET_PREVIOUS && env.JWT_SECRET_PREVIOUS !== env.JWT_SECRET) {
+    secrets.push(env.JWT_SECRET_PREVIOUS);
+  }
+  return secrets;
+}
+
 export interface UserPayload {
   id: string;
   email: string;
@@ -24,17 +32,33 @@ export function generateToken(payload: UserPayload): string {
  * 驗證JWT Token（強制 HS256，拒絕 none / 其他演算法）
  */
 export function verifyToken(token: string): UserPayload {
-  try {
-    const decoded = jwt.verify(token, env.JWT_SECRET as string, {
-      algorithms: [ALGORITHM],
-    }) as UserPayload;
-    return decoded;
-  } catch (error) {
-    if (error instanceof jwt.TokenExpiredError) {
-      throw Errors.TOKEN_EXPIRED();
-    } else if (error instanceof jwt.JsonWebTokenError) {
-      throw Errors.UNAUTHORIZED('Token無效');
+  const secrets = getVerificationSecrets();
+  let lastError: unknown;
+
+  for (const secret of secrets) {
+    try {
+      const decoded = jwt.verify(token, secret as string, {
+        algorithms: [ALGORITHM],
+      }) as UserPayload;
+      return decoded;
+    } catch (error) {
+      lastError = error;
+      if (error instanceof jwt.TokenExpiredError) {
+        throw Errors.TOKEN_EXPIRED();
+      }
+      // JsonWebTokenError（如 invalid signature）允許嘗試下一把密鑰
+      if (error instanceof jwt.JsonWebTokenError) {
+        continue;
+      }
+      break;
     }
-    throw Errors.UNAUTHORIZED('Token驗證失敗');
   }
+
+  if (lastError instanceof jwt.TokenExpiredError) {
+    throw Errors.TOKEN_EXPIRED();
+  }
+  if (lastError instanceof jwt.JsonWebTokenError) {
+    throw Errors.UNAUTHORIZED('Token無效');
+  }
+  throw Errors.UNAUTHORIZED('Token驗證失敗');
 }

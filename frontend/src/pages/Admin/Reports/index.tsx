@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Alert, Button, Card, Input, Space, Statistic, Typography, message } from 'antd';
+import { Alert, Button, Card, Input, Space, Statistic, Tag, Typography, message } from 'antd';
 import { useState } from 'react';
 import dayjs from 'dayjs';
 import { adminApi } from '@/services/api/admin';
@@ -19,6 +19,10 @@ export default function AdminReportsPage() {
   });
   const customMutation = useMutation({
     mutationFn: (metrics: string[]) => adminApi.getCustomReport(metrics),
+  });
+  const costQuery = useQuery({
+    queryKey: ['admin', 'reports', 'costs'],
+    queryFn: adminApi.getReportCosts,
   });
 
   const runCustomReport = () => {
@@ -51,7 +55,9 @@ export default function AdminReportsPage() {
         </Title>
         <Text type="secondary">{t('admin.reports.subtitle')}</Text>
       </div>
-      {(overviewQuery.error || funnelQuery.error) && <Alert showIcon type="error" title={t('admin.reports.loadFailed')} />}
+      {(overviewQuery.error || funnelQuery.error || costQuery.error) && (
+        <Alert showIcon type="error" title={t('admin.reports.loadFailed')} />
+      )}
       <Card title={t('admin.reports.overview')}>
         <Space wrap size="large">
           <Statistic title={t('admin.reports.users')} value={overviewQuery.data?.totals.users || 0} />
@@ -77,6 +83,63 @@ export default function AdminReportsPage() {
             {t('admin.reports.runCustom')}
           </Button>
           <pre style={{ margin: 0 }}>{JSON.stringify(customMutation.data?.metrics || {}, null, 2)}</pre>
+        </Space>
+      </Card>
+      <Card title={t('admin.reports.costs')}>
+        <Space direction="vertical" style={{ width: '100%' }} size="middle">
+          {costQuery.data?.partial ? (
+            <Alert
+              showIcon
+              type="warning"
+              title={t('admin.reports.costsPartial')}
+              description={(costQuery.data.reasons || []).join('；') || '-'}
+            />
+          ) : null}
+          <Space wrap size="large">
+            <Statistic
+              title={t('admin.reports.redisMemoryMb')}
+              value={costQuery.data?.summary.redisMemoryMb || 0}
+              suffix="MB"
+              precision={2}
+            />
+            <Statistic
+              title={t('admin.reports.railwayEgress24h')}
+              value={costQuery.data?.summary.railwayEgressGb24h || 0}
+              suffix="GB"
+              precision={3}
+            />
+            <Statistic
+              title={t('admin.reports.openaiCost24h')}
+              value={costQuery.data?.summary.openaiCostUsd24h || 0}
+              prefix="$"
+              precision={4}
+            />
+            <Statistic
+              title={t('admin.reports.openaiCost7d')}
+              value={costQuery.data?.summary.openaiCostUsd7d || 0}
+              prefix="$"
+              precision={4}
+            />
+          </Space>
+          <Space wrap>
+            <Tag>{`Redis: ${costQuery.data?.redis.status || 'unknown'}`}</Tag>
+            <Tag>{`Railway: ${costQuery.data?.railway.status || 'unknown'}`}</Tag>
+            <Tag>{`OpenAI: ${costQuery.data?.openai.status || 'unknown'}`}</Tag>
+          </Space>
+          <pre style={{ margin: 0 }}>
+            {JSON.stringify(
+              {
+                railwayDailyEgressGb: costQuery.data?.railway.dailyEgressGb || [],
+                openaiDailyCostUsd: costQuery.data?.openai.dailyCostUsd || [],
+                openaiTokens24h: {
+                  input: costQuery.data?.summary.openaiInputTokens24h || 0,
+                  output: costQuery.data?.summary.openaiOutputTokens24h || 0,
+                },
+              },
+              null,
+              2
+            )}
+          </pre>
         </Space>
       </Card>
     </Space>

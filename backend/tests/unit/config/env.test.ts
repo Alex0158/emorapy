@@ -17,6 +17,7 @@ describe('config/env', () => {
     process.env = { ...origEnv };
     process.env.DATABASE_URL = 'postgresql://localhost/test';
     process.env.JWT_SECRET = 'test-jwt-secret-at-least-32-characters-long';
+    process.env.JWT_EXPIRES_IN = '24h';
     process.env.OPENAI_API_KEY = 'sk-test-key';
   });
 
@@ -92,5 +93,19 @@ describe('config/env', () => {
     process.env.NODE_ENV = 'production';
     jest.resetModules();
     await expect(import('../../../src/config/env')).rejects.toThrow(/DATABASE_URL|postgresql/);
+  });
+
+  it('生產環境缺少 JWT_EXPIRES_IN 時應拋錯', async () => {
+    process.env.NODE_ENV = 'production';
+    delete process.env.JWT_EXPIRES_IN;
+    jest.resetModules();
+    await expect(import('../../../src/config/env')).rejects.toThrow(/JWT_EXPIRES_IN/);
+  });
+
+  it('生產環境 JWT_SECRET 含換行時應拋錯', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.JWT_SECRET = 'abc12345678901234567890123456789\nJWT_EXPIRES_IN=7d';
+    jest.resetModules();
+    await expect(import('../../../src/config/env')).rejects.toThrow(/JWT_SECRET|換行|多行/);
   });
 });

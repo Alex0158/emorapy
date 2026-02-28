@@ -127,6 +127,61 @@ npx prisma migrate deploy
 
 健康檢查端點: `GET /health`
 
+運維告警檢查（建議接入定時任務）：
+
+```bash
+API_BASE_URL=https://<backend-domain> REDIS_URL=redis://... npm run ops:alerts:check
+```
+
+接 Slack 通知（可選）：
+
+```bash
+API_BASE_URL=https://<backend-domain> \
+REDIS_URL=redis://... \
+ALERT_SLACK_WEBHOOK_URL=https://hooks.slack.com/services/... \
+ALERT_SLACK_DEDUP_WINDOW_SECONDS=600 \
+npm run ops:alerts:check
+```
+
+後端若啟用定時任務（`ENABLE_SCHEDULED_JOBS=true`），內建 `ops_alerts_check` 會每 5 分鐘自動執行。
+
+Migration baseline 報告（發版前）：
+
+```bash
+npm run ops:migration:report
+```
+
+JWT 密鑰輪替（主/舊密鑰過渡 + 關窗）請按：
+
+- `docs/backend/JWT_SECRET_ROTATION_RUNBOOK.md`
+
+JWT 變數建議（過渡期）：
+
+```env
+JWT_SECRET=<new-secret-single-line>
+JWT_SECRET_PREVIOUS=<old-secret>
+JWT_EXPIRES_IN=7d
+```
+
+注意：
+
+- `JWT_SECRET` 嚴禁包含換行或 `KEY=VALUE` 污染內容
+- 過渡期結束後需移除 `JWT_SECRET_PREVIOUS`
+- 外部健康檢查若受 CORS 影響，請帶允許的 `Origin` 驗證
+
+成本看板 API（`GET /api/v1/admin/reports/costs`）所需外部變數（可選）：
+
+```env
+RAILWAY_API_TOKEN=<railway-api-token>
+RAILWAY_PROJECT_ID=<railway-project-id>
+RAILWAY_ENVIRONMENT_ID=<railway-environment-id>
+OPENAI_BILLING_API_KEY=<openai-billing-key-preferred>
+OPENAI_API_KEY=<fallback-if-billing-key-missing>
+OPENAI_ORG_ID=<openai-org-id-optional>
+```
+
+若外部 API 不可用，成本 API 仍會返回 `partial=true` 與 `reasons`，不阻斷管理端主功能。
+
 ### 性能監控
 
 建議集成：

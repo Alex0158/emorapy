@@ -33,9 +33,13 @@
   - `npx jest tests/unit/routes/admin.routes.test.ts --runInBand`
   - `npx jest tests/unit/controllers/admin.controller.test.ts --runInBand`
   - `npx jest tests/unit/services/admin.service.test.ts --runInBand`（含 bootstrap token/重入保護）
+  - `npx jest tests/unit/services/admin-config-rules.test.ts --runInBand`
   - `npx jest tests/integration/admin-api-flow.test.ts --runInBand`（跨層驗證 bootstrap 安全路徑、權限邊界、停用後 token 即時失效）
 - 前端管理員關鍵測試：
   - `npm run test:run -- src/services/request.test.ts`（admin API 401 token 清理）
+- 驗收留檔：
+  - 本輪 artifact：`docs/backend/artifacts/ADMIN_ACCEPTANCE_REPLAY_2026-02-28.md`
+  - 模板：`docs/backend/artifacts/ADMIN_ACCEPTANCE_REPLAY_<YYYY-MM-DD>.md`
 - Admin E2E（Playwright，可執行）：
   - `cd e2e && npm test`
   - 需提供 `E2E_ADMIN_EMAIL/E2E_ADMIN_PASSWORD`
@@ -60,6 +64,7 @@
 
 - 確認 health：`/api/v1/admin/health/detailed` 正常
 - 確認 Cron 任務失敗率告警規則生效
+- 確認 `npm run ops:alerts:check` 已接入定時檢查（lock degraded / 5xx / 409）
 - 確認 API 429/401/403/500 指標已接入監控看板
 - 確認高敏權限邊界生效（audit/alerts 為 AND）
 

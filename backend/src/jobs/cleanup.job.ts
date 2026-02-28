@@ -18,6 +18,7 @@ import {
   EXECUTION_ACTION,
 } from '../utils/constants';
 import { systemConfigService } from '../services/system-config.service';
+import { runOpsAlertChecks } from '../services/ops-alerts.service';
 
 type CronExecutionResult = {
   affectedCount?: number;
@@ -543,6 +544,51 @@ export const cleanupStuckProcessingSessions = cron.schedule('*/30 * * * *', asyn
   });
 });
 
+/**
+ * 運維告警檢查（每 5 分鐘）
+ * 會檢查 lock degraded / 5xx / 409 比例，並可選擇推送 Slack。
+ */
+export const runOpsAlertsCheck = cron.schedule('*/5 * * * *', async () => {
+  await withCronRunLog('ops_alerts_check', async () => {
+    try {
+      const apiBaseUrl = env.OPS_ALERTS_API_BASE_URL || `http://127.0.0.1:${env.PORT}`;
+      const result = await runOpsAlertChecks({
+        apiBaseUrl,
+        redisUrl: env.REDIS_URL,
+        healthTimeoutMs: env.OPS_ALERTS_HEALTH_TIMEOUT_MS,
+        lookbackMinutes: env.OPS_ALERTS_LOOKBACK_MINUTES,
+        minSamples: env.OPS_ALERTS_MIN_SAMPLES,
+        max5xxRatio: env.OPS_ALERTS_MAX_5XX_RATIO,
+        maxConflictRatio: env.OPS_ALERTS_MAX_CONFLICT_RATIO,
+        slackWebhookUrl: env.ALERT_SLACK_WEBHOOK_URL,
+        slackDedupWindowSeconds: env.ALERT_SLACK_DEDUP_WINDOW_SECONDS,
+      });
+
+      if (result.status === 'alert') {
+        logger.warn('Ops alerts check detected alerts', {
+          checks: result.checks.filter((check) => check.status === 'alert').map((check) => check.name),
+          slack: result.slack,
+        });
+      } else {
+        logger.info('Ops alerts check passed', {
+          slack: result.slack,
+        });
+      }
+
+      return {
+        affectedCount: result.checks.filter((check) => check.status === 'alert').length,
+        detail: {
+          status: result.status,
+          slack: result.slack,
+        },
+      };
+    } catch (error) {
+      logger.error('Failed to run ops alerts check', { error });
+      throw error;
+    }
+  });
+});
+
 export const adminJobs = [
   { key: 'cleanup_expired_sessions', schedule: '0 * * * *', task: cleanupExpiredSessions },
   { key: 'cleanup_abandoned_interview_sessions', schedule: '0 * * * *', task: cleanupAbandonedInterviewSessions },
@@ -552,6 +598,7 @@ export const adminJobs = [
   { key: 'cleanup_orphan_uploads', schedule: '0 3 * * *', task: cleanupOrphanUploads },
   { key: 'cleanup_temp_pairings', schedule: '0 2 * * *', task: cleanupTempPairings },
   { key: 'cleanup_stale_draft_cases', schedule: '0 4 * * *', task: cleanupStaleDraftCases },
+  { key: 'ops_alerts_check', schedule: '*/5 * * * *', task: runOpsAlertsCheck },
   { key: 'follow_up_7_day', schedule: '0 10 * * *', task: followUp7Day },
   { key: 'follow_up_30_day', schedule: '0 10 * * *', task: followUp30Day },
 ] as const;
@@ -608,6 +655,7 @@ export const startJobs = () => {
   cleanupOrphanUploads.start();
   cleanupTempPairings.start();
   cleanupStaleDraftCases.start();
+  runOpsAlertsCheck.start();
   followUp7Day.start();
   followUp30Day.start();
   jobsStarted = true;
@@ -636,6 +684,7 @@ export const stopJobs = () => {
   cleanupOrphanUploads.stop();
   cleanupTempPairings.stop();
   cleanupStaleDraftCases.stop();
+  runOpsAlertsCheck.stop();
   followUp7Day.stop();
   followUp30Day.stop();
   jobsStarted = false;

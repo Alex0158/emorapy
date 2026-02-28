@@ -22,6 +22,7 @@ interface EnvConfig {
   
   // JWT配置
   JWT_SECRET: string;
+  JWT_SECRET_PREVIOUS?: string;
   JWT_EXPIRES_IN: string;
   
   // OpenAI配置
@@ -75,6 +76,16 @@ interface EnvConfig {
   JUDGMENT_PROFILE_REQUIRE_CONSENT: boolean;
   JUDGMENT_PROFILE_MAX_AGE_DAYS: number;
   JUDGMENT_CONTEXT_AUDIT_ENABLED: boolean;
+
+  // Ops 告警配置
+  OPS_ALERTS_API_BASE_URL?: string;
+  OPS_ALERTS_HEALTH_TIMEOUT_MS: number;
+  OPS_ALERTS_LOOKBACK_MINUTES: number;
+  OPS_ALERTS_MIN_SAMPLES: number;
+  OPS_ALERTS_MAX_5XX_RATIO: number;
+  OPS_ALERTS_MAX_CONFLICT_RATIO: number;
+  ALERT_SLACK_WEBHOOK_URL?: string;
+  ALERT_SLACK_DEDUP_WINDOW_SECONDS: number;
 }
 
 function getEnvConfig(): EnvConfig {
@@ -112,6 +123,7 @@ function getEnvConfig(): EnvConfig {
     DATABASE_URL: process.env.DATABASE_URL!,
     
     JWT_SECRET: process.env.JWT_SECRET!,
+    JWT_SECRET_PREVIOUS: process.env.JWT_SECRET_PREVIOUS,
     JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '24h',
     
     OPENAI_API_KEY: process.env.OPENAI_API_KEY!,
@@ -162,6 +174,16 @@ function getEnvConfig(): EnvConfig {
     JUDGMENT_PROFILE_REQUIRE_CONSENT: process.env.JUDGMENT_PROFILE_REQUIRE_CONSENT !== 'false',
     JUDGMENT_PROFILE_MAX_AGE_DAYS: parseInt(process.env.JUDGMENT_PROFILE_MAX_AGE_DAYS || '365', 10),
     JUDGMENT_CONTEXT_AUDIT_ENABLED: process.env.JUDGMENT_CONTEXT_AUDIT_ENABLED !== 'false',
+
+    // Ops 告警配置
+    OPS_ALERTS_API_BASE_URL: process.env.OPS_ALERTS_API_BASE_URL,
+    OPS_ALERTS_HEALTH_TIMEOUT_MS: parseInt(process.env.OPS_ALERTS_HEALTH_TIMEOUT_MS || '5000', 10),
+    OPS_ALERTS_LOOKBACK_MINUTES: parseInt(process.env.OPS_ALERTS_LOOKBACK_MINUTES || '15', 10),
+    OPS_ALERTS_MIN_SAMPLES: parseInt(process.env.OPS_ALERTS_MIN_SAMPLES || '30', 10),
+    OPS_ALERTS_MAX_5XX_RATIO: Number(process.env.OPS_ALERTS_MAX_5XX_RATIO || '0.05'),
+    OPS_ALERTS_MAX_CONFLICT_RATIO: Number(process.env.OPS_ALERTS_MAX_CONFLICT_RATIO || '0.2'),
+    ALERT_SLACK_WEBHOOK_URL: process.env.ALERT_SLACK_WEBHOOK_URL,
+    ALERT_SLACK_DEDUP_WINDOW_SECONDS: parseInt(process.env.ALERT_SLACK_DEDUP_WINDOW_SECONDS || '600', 10),
   };
 }
 
@@ -202,6 +224,15 @@ function validateEnvVars(): void {
     const secret = process.env.JWT_SECRET;
     const length = secret.length;
     if (isProduction) {
+      if (!process.env.JWT_EXPIRES_IN) {
+        throw new Error('生產環境必須顯式設置 JWT_EXPIRES_IN，避免默認值漂移');
+      }
+      if (/[\r\n]/.test(secret)) {
+        throw new Error('生產環境 JWT_SECRET 不得包含換行，請檢查是否誤貼多行環境變量');
+      }
+      if (/(?:^|[\r\n])(JWT_[A-Z0-9_]*|OPENAI_[A-Z0-9_]*|DATABASE_URL)=/m.test(secret)) {
+        throw new Error('JWT_SECRET 疑似包含 KEY=VALUE 片段，請僅保留密鑰字串');
+      }
       if (length < 32) {
         throw new Error(`生產環境JWT_SECRET長度必須至少32字符，當前長度: ${length}`);
       }

@@ -5,6 +5,7 @@ import { env } from '../config/env';
 import { getPerformanceStats } from '../middleware/performance';
 import { adminJobs, getRuntimeJobsEnabled, jobsStarted, reconcileJobsRuntimeConfig, runAdminJobNow } from '../jobs/cleanup.job';
 import { adminService } from '../services/admin.service';
+import { costMonitoringService } from '../services/cost-monitoring.service';
 import { systemConfigService } from '../services/system-config.service';
 import {
   ADMIN_MANAGED_CONFIG_KEYS,
@@ -932,6 +933,15 @@ class AdminController {
       }
 
       res.json({ success: true, data: { metrics: result } });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async reportCosts(_req: Request, res: Response, next: NextFunction) {
+    try {
+      const data = await costMonitoringService.getAdminCostReport();
+      res.json({ success: true, data });
     } catch (error) {
       next(error);
     }

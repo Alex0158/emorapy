@@ -25,15 +25,21 @@ const logger = winston.createLogger({
   ],
 });
 
-// 開發環境輸出到控制台
-if (env.NODE_ENV !== 'production') {
-  logger.add(new winston.transports.Console({
-    format: winston.format.combine(
-      winston.format.colorize(),
-      winston.format.simple()
-    )
-  }));
-}
+// 始終輸出到控制台，確保 PaaS（如 Railway）可直接收集應用日誌
+logger.add(new winston.transports.Console({
+  level: process.env.CONSOLE_LOG_LEVEL || undefined,
+  format: env.NODE_ENV === 'production'
+    ? winston.format.combine(
+        winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+        winston.format.errors({ stack: true }),
+        winston.format.splat(),
+        winston.format.json()
+      )
+    : winston.format.combine(
+        winston.format.colorize(),
+        winston.format.simple()
+      ),
+}));
 
 export default logger;
 

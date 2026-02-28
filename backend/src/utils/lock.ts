@@ -115,6 +115,7 @@ const simpleLock = new SimpleLock();
  */
 export class LockService {
   private redis: Redis | null = null; // Redis客戶端（可選）
+  private warnedSimpleLockInProd = false;
 
   constructor() {
     // 嘗試初始化Redis（如果可用）
@@ -186,6 +187,12 @@ export class LockService {
     if (env.NODE_ENV === 'production' && !this.redis && process.env.ALLOW_SIMPLE_LOCK !== 'true') {
       throw Errors.INTERNAL_ERROR('缺少分布式鎖後端 (Redis)，請聯繫管理員');
     }
+    if (env.NODE_ENV === 'production' && !this.redis && process.env.ALLOW_SIMPLE_LOCK === 'true' && !this.warnedSimpleLockInProd) {
+      this.warnedSimpleLockInProd = true;
+      logger.warn('使用內存鎖降級運行（production）', {
+        note: '建議儘快配置 REDIS_URL，避免多實例競態風險',
+      });
+    }
 
     const acquired = await this.acquire(key, ttlSeconds);
     
@@ -198,6 +205,17 @@ export class LockService {
     } finally {
       await this.release(key);
     }
+  }
+
+  /**
+   * 回報目前鎖後端狀態，供 health/監控使用
+   */
+  getBackendStatus(): 'redis' | 'simple-lock' | 'simple-lock-degraded' {
+    if (this.redis) return 'redis';
+    if (env.NODE_ENV === 'production' && process.env.ALLOW_SIMPLE_LOCK === 'true') {
+      return 'simple-lock-degraded';
+    }
+    return 'simple-lock';
   }
 }
 

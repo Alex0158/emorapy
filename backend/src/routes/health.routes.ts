@@ -7,6 +7,7 @@ import prisma from '../config/database';
 import logger from '../config/logger';
 import { env } from '../config/env';
 import { jobsStarted } from '../jobs/cleanup.job';
+import { lockService } from '../utils/lock';
 
 const router = Router();
 
@@ -58,6 +59,12 @@ router.get('/health', async (req: Request, res: Response) => {
         ? (env.NODE_ENV === 'development' ? `Missing: ${missingVars.join(', ')}` : `${missingVars.length} required env var(s) missing`)
         : undefined,
     };
+
+    const lockBackend = lockService.getBackendStatus();
+    checks.lock = lockBackend === 'simple-lock-degraded'
+      ? { status: 'degraded', message: 'Lock backend degraded: simple-lock in production' }
+      : { status: 'healthy', message: `Lock backend: ${lockBackend}` };
+    if (checks.lock.status !== 'healthy') degraded = true;
 
     const totalResponseTime = Date.now() - startTime;
 

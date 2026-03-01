@@ -8,6 +8,8 @@ import request from 'supertest';
 const mockGenerateJudgment = jest.fn();
 const mockGetJudgmentById = jest.fn();
 const mockAcceptJudgment = jest.fn();
+const mockRepairJudgment = jest.fn();
+const mockRecordClinicalMetrics = jest.fn();
 
 jest.mock('../../../src/controllers/judgment.controller', () => ({
   judgmentController: {
@@ -17,6 +19,10 @@ jest.mock('../../../src/controllers/judgment.controller', () => ({
       mockGetJudgmentById(req, res, next),
     acceptJudgment: (req: unknown, res: unknown, next: unknown) =>
       mockAcceptJudgment(req, res, next),
+    repairJudgment: (req: unknown, res: unknown, next: unknown) =>
+      mockRepairJudgment(req, res, next),
+    recordClinicalMetrics: (req: unknown, res: unknown, next: unknown) =>
+      mockRecordClinicalMetrics(req, res, next),
   },
 }));
 jest.mock('../../../src/middleware/auth', () => ({
@@ -56,6 +62,12 @@ describe('judgment.routes', () => {
     mockAcceptJudgment.mockImplementation((_req: unknown, res: unknown) =>
       sendJson(res, { success: true, data: { judgment: {} }, message: '判決已接受' })
     );
+    mockRepairJudgment.mockImplementation((_req: unknown, res: unknown) =>
+      sendJson(res, { success: true, data: { acknowledged: true }, message: '已生成修復版回應' })
+    );
+    mockRecordClinicalMetrics.mockImplementation((_req: unknown, res: unknown) =>
+      sendJson(res, { success: true, data: { ok: true }, message: '已記錄臨床品質指標' })
+    );
   });
 
   it('POST /generate/:id 應調用 generateJudgment 並返回 200', async () => {
@@ -77,5 +89,23 @@ describe('judgment.routes', () => {
     const res = await request(app).post(`/${uuid}/accept`).send({ accepted: true });
     expect(res.status).toBe(200);
     expect(mockAcceptJudgment).toHaveBeenCalled();
+  });
+
+  it('POST /:id/repair 應調用 repairJudgment 並返回 200', async () => {
+    const app = createApp();
+    const res = await request(app).post(`/${uuid}/repair`).send({ feedback: '請修復' });
+    expect(res.status).toBe(200);
+    expect(mockRepairJudgment).toHaveBeenCalled();
+  });
+
+  it('POST /:id/metrics 應調用 recordClinicalMetrics 並返回 200', async () => {
+    const app = createApp();
+    const res = await request(app).post(`/${uuid}/metrics`).send({
+      felt_understood: 5,
+      felt_blamed: 1,
+      willing_to_try: 4,
+    });
+    expect(res.status).toBe(200);
+    expect(mockRecordClinicalMetrics).toHaveBeenCalled();
   });
 });

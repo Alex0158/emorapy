@@ -1,5 +1,16 @@
 # 更新日誌
 
+## [2.1.0] - 2026-03-01（聊天室 Chat v1 + 可觀測性）
+
+詳細變更記錄見後端目錄 `backend/CHANGELOG.md`。摘要：
+- 新增聊天室（Chat v1）主流程：建房、邀請、收發訊息、SSE 即時同步、轉判決、判決狀態查詢
+- 新增判決前「可審計納入訊息」能力：`POST /api/v1/chat/rooms/:roomId/request-judgment` 支援 `included_message_ids`
+- 新增參與者治理：`POST /api/v1/chat/rooms/:roomId/leave`（B 自離）、`POST /api/v1/chat/rooms/:roomId/kick-b`（A 移除 B）
+- 新增回覆引用欄位：`reply_to_message_id`，並補齊 AI 回覆欄位：`ai_strategy`、`ai_confidence`
+- 新增房級訊息限流（防洗版/濫用）與 Chat 指標：`GET /metrics`（Prometheus），並提供告警規則示例
+
+---
+
 ## [2.0.0] - 2026-02-20（個人化判決系統 v2.0）
 
 詳細變更記錄見後端目錄 `backend/CHANGELOG.md`。摘要：
@@ -134,4 +145,3 @@
 - [ ] WebSocket支持（實時通知）
 - [ ] 更多AI模型支持
 - [x] 國際化支持（zh-TW / en-US 雙語）
-

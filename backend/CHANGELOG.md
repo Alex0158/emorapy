@@ -1,5 +1,32 @@
 # 更新日誌
 
+## [2.1.0] - 2026-03-01（聊天室 Chat v1 + 可觀測性）
+
+### 新增功能（Chat v1）
+
+- 💬 **聊天室主流程**：A 先單聊 → Invite B 入房 → 群聊 → 轉判決銜接既有案件/判決流程
+- **SSE 即時同步**：`GET /api/v1/chat/rooms/:roomId/stream`（`ready/ping/message/invite/room_status`）
+- **訊息分頁**：`GET /api/v1/chat/rooms/:roomId/messages?cursor=<ISO>&limit=50`（cursor-based pagination）
+- **回覆引用**：訊息支援 `reply_to_message_id`
+- **轉判決前可審計納入訊息**：`POST /api/v1/chat/rooms/:roomId/request-judgment` 支援 `included_message_ids?: string[]`
+- **參與者治理**：
+  - `POST /api/v1/chat/rooms/:roomId/leave`（B 自離）
+  - `POST /api/v1/chat/rooms/:roomId/kick-b`（A 移除 B）
+
+### 可見性 / 安全 / 節流
+
+- **訊息可見性**：`visibility_scope`（`all`/`summary_only`/`owner_only`）+ `history_visibility_mode`（B 加入前後裁切）
+- **房級訊息限流**：5 秒最多 1 則、30 秒滑窗最多 6 則（超限 429）
+- **AI 回覆編排**（`ChatAIOrchestrator`）：support/mediation 策略切換；安全命中時寫入 `safety_notice` 並冷卻
+- **AI 記錄欄位**：`ai_strategy`、`ai_confidence`（見 migration `20260301090000_chat_ai_reply_fields`）
+
+### 指標 / 運維
+
+- **Prometheus 指標**：`GET /metrics`（chat counters）
+- 告警示例：`backend/ops/prometheus/chat-alerts.rules.yml`、`backend/docs/ALERTS_CHAT.md`
+
+---
+
 ## [2.0.0] - 2026-02-20（個人化判決系統）
 
 ### 新增功能
@@ -172,4 +199,3 @@
 - [ ] WebSocket支持（實時通知）
 - [ ] 更多AI模型支持
 - [x] 國際化支持（zh-TW / en-US 雙語）
-

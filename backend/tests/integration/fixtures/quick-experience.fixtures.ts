@@ -40,8 +40,8 @@ export const validCaseRequests = {
 
   // 最小長度陳述
   minimalStatements: {
-    plaintiff_statement: '他不理我',
-    defendant_statement: '她誤會了',
+    plaintiff_statement: '我最近多次感到被忽視，說話時他常常沒有回應，讓我感到很受傷也很無助。',
+    defendant_statement: '我不是故意忽略她，我只是常常不知道怎麼回應。',
   },
 
   // 較長的陳述

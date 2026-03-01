@@ -310,7 +310,7 @@ const QuickExperienceResult = () => {
 
   if (error && !judgment) return (
     <div className="error-container">
-      <Alert message={t('error.fetch.title')} description={error} type="error" showIcon />
+      <Alert title={t('error.fetch.title')} description={error} type="error" showIcon />
       <button className="action-button primary" onClick={() => navigate('/quick-experience/create')} style={{marginTop: 24}}>
         {t('error.back')}
       </button>
@@ -323,7 +323,7 @@ const QuickExperienceResult = () => {
     return (
       <div className="error-container">
         <Alert
-          message={isSessionExpired ? t('error.session.title') : isJudgmentFailed ? t('error.judgment.title') : t('error.fetch.title')}
+          title={isSessionExpired ? t('error.session.title') : isJudgmentFailed ? t('error.judgment.title') : t('error.fetch.title')}
           description={isJudgmentFailed && judgmentFailureReason ? `${t('error.judgment.failureReasonPrefix')}${judgmentFailureReason}` : judgmentError || (isSessionExpired ? t('error.session.expiredHint') : t('message.retryOrLater'))}
           type="error"
           showIcon
@@ -346,7 +346,7 @@ const QuickExperienceResult = () => {
       <div className="loading-container">
         {isTimeout ? (
           <Alert
-            message={t('pending.long.message')}
+            title={t('pending.long.message')}
             description={t('pending.long.desc')}
             type="warning"
             showIcon

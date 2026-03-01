@@ -1,7 +1,86 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { message as antdMessage } from 'antd';
 import ChatRoomPage from './index';
+import { setLocale } from '@/utils/i18n';
+import { useAuthStore } from '@/store/authStore';
+
+vi.mock('react-virtuoso', async () => {
+  const React = await import('react');
+  type VirtuosoProps = {
+    data?: unknown[];
+    firstItemIndex?: number;
+    computeItemKey?: (index: number, item: unknown) => React.Key;
+    itemContent?: (index: number, item: unknown) => React.ReactNode;
+    components?: { Header?: React.ComponentType; Footer?: React.ComponentType };
+    rangeChanged?: (range: { startIndex: number; endIndex: number }) => void;
+    atBottomStateChange?: (atBottom: boolean) => void;
+    scrollerRef?: (node: HTMLElement | null) => void;
+    style?: React.CSSProperties;
+    className?: string;
+  };
+
+  const Virtuoso = React.forwardRef(function VirtuosoMock(
+    {
+      data = [],
+      firstItemIndex = 0,
+      computeItemKey,
+      itemContent,
+      components,
+      rangeChanged,
+      atBottomStateChange,
+      scrollerRef,
+      style,
+      className,
+    }: VirtuosoProps,
+    ref
+  ) {
+    const scrollerDivRef = React.useRef<HTMLDivElement | null>(null);
+
+    React.useImperativeHandle(ref, () => ({
+      scrollToIndex: () => undefined,
+      scrollTo: () => undefined,
+    }));
+
+    React.useEffect(() => {
+      scrollerRef?.(scrollerDivRef.current);
+      return () => scrollerRef?.(null);
+    }, [scrollerRef]);
+
+    React.useEffect(() => {
+      if (!Array.isArray(data)) return;
+      if (data.length === 0) return;
+      rangeChanged?.({ startIndex: firstItemIndex, endIndex: firstItemIndex + data.length - 1 });
+      atBottomStateChange?.(true);
+    }, [atBottomStateChange, data, firstItemIndex, rangeChanged]);
+
+    const Header = components?.Header;
+    const Footer = components?.Footer;
+
+    return (
+      <div className={className} style={style}>
+        {Header ? <Header /> : null}
+        <div ref={scrollerDivRef} data-testid="virtuoso-scroller">
+          <div data-testid="virtuoso-item-list">
+            {data.map((item, i) => {
+              const absIndex = firstItemIndex + i;
+              const key = computeItemKey ? computeItemKey(absIndex, item) : absIndex;
+              return (
+                <div key={key} data-index={absIndex}>
+                  {itemContent ? itemContent(absIndex, item) : null}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        {Footer ? <Footer /> : null}
+      </div>
+    );
+  });
+
+  return { Virtuoso };
+});
 
 const mockCreateChatRoom = vi.fn();
 const mockAcceptChatInvite = vi.fn();
@@ -28,16 +107,30 @@ vi.mock('@/services/api/chat', () => ({
 }));
 
 describe('ChatRoomPage', () => {
-  afterEach(() => {
+  afterEach(async () => {
     vi.useRealTimers();
+    // Flush any pending promise-driven updates (antd message/portal, router, etc.)
+    await act(async () => {
+      await Promise.resolve();
+    });
+    useAuthStore.setState({ user: null, isAuthenticated: false });
   });
 
   beforeEach(() => {
+    vi.restoreAllMocks();
+    setLocale('zh-TW');
     vi.clearAllMocks();
+    useAuthStore.setState({ user: { id: 'u1' } as any, isAuthenticated: true });
+    vi.spyOn(antdMessage, 'success').mockImplementation(() => undefined as any);
+    vi.spyOn(antdMessage, 'error').mockImplementation(() => undefined as any);
+    vi.spyOn(antdMessage, 'warning').mockImplementation(() => undefined as any);
+    vi.spyOn(antdMessage, 'info').mockImplementation(() => undefined as any);
     mockConnectChatStream.mockResolvedValue(() => undefined);
     mockGetChatRoom.mockResolvedValue({
       id: 'room-1',
       status: 'solo_active',
+      owner_user_id: 'u1',
+      history_visibility_mode: 'share_summary_only',
       participants: [],
     });
     mockListChatMessages.mockResolvedValue({
@@ -58,7 +151,9 @@ describe('ChatRoomPage', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole('button', { name: '建立聊天室' }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: '建立聊天室' }));
+    });
     await waitFor(() => {
       expect(mockCreateChatRoom).toHaveBeenCalled();
     });
@@ -76,8 +171,10 @@ describe('ChatRoomPage', () => {
     );
 
     const button = screen.getByRole('button', { name: '建立聊天室' });
-    fireEvent.click(button);
-    fireEvent.click(button);
+    await act(async () => {
+      fireEvent.click(button);
+      fireEvent.click(button);
+    });
     await waitFor(() => {
       expect(mockCreateChatRoom).toHaveBeenCalledTimes(1);
     });
@@ -93,10 +190,12 @@ describe('ChatRoomPage', () => {
       </MemoryRouter>
     );
 
-    fireEvent.change(screen.getByPlaceholderText('輸入邀請碼'), {
-      target: { value: 'ABC123' },
+    await act(async () => {
+      fireEvent.change(screen.getByPlaceholderText('輸入邀請碼'), {
+        target: { value: 'ABC123' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: '拒絕邀請' }));
     });
-    fireEvent.click(screen.getByRole('button', { name: '拒絕邀請' }));
     await waitFor(() => {
       expect(mockDeclineChatInvite).toHaveBeenCalledWith('ABC123');
     });
@@ -112,11 +211,13 @@ describe('ChatRoomPage', () => {
       </MemoryRouter>
     );
 
-    fireEvent.change(screen.getByPlaceholderText('輸入邀請碼'), {
-      target: { value: 'ABC123' },
+    await act(async () => {
+      fireEvent.change(screen.getByPlaceholderText('輸入邀請碼'), {
+        target: { value: 'ABC123' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: '用邀請碼加入' }));
+      fireEvent.click(screen.getByRole('button', { name: '拒絕邀請' }));
     });
-    fireEvent.click(screen.getByRole('button', { name: '用邀請碼加入' }));
-    fireEvent.click(screen.getByRole('button', { name: '拒絕邀請' }));
 
     expect(mockAcceptChatInvite).toHaveBeenCalledTimes(1);
     expect(mockDeclineChatInvite).not.toHaveBeenCalled();
@@ -140,15 +241,18 @@ describe('ChatRoomPage', () => {
     await waitFor(() => {
       expect(mockGetChatRoom).toHaveBeenCalledWith('room-1');
     });
+    await screen.findByPlaceholderText('輸入訊息...');
 
-    fireEvent.change(screen.getByPlaceholderText('輸入訊息...'), {
-      target: { value: 'hello' },
+    await act(async () => {
+      fireEvent.change(screen.getByPlaceholderText('輸入訊息...'), {
+        target: { value: 'hello' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: /送\s*出/ }));
     });
-    fireEvent.click(screen.getByRole('button', { name: /送\s*出/ }));
 
-    await waitFor(() => {
-      expect(mockSendChatMessage).toHaveBeenCalledWith('room-1', { content: 'hello' });
-    });
+	    await waitFor(() => {
+	      expect(mockSendChatMessage).toHaveBeenCalledWith('room-1', expect.objectContaining({ content: 'hello' }));
+	    });
     expect(screen.getByText('hello')).toBeInTheDocument();
   });
 
@@ -166,14 +270,16 @@ describe('ChatRoomPage', () => {
       expect(mockGetChatRoom).toHaveBeenCalledWith('room-1');
     });
     const beforeCalls = mockGetChatRoom.mock.calls.length;
-    fireEvent.click(screen.getByRole('button', { name: '建立邀請' }));
-    await waitFor(() => {
-      expect(mockCreateChatInvite).toHaveBeenCalledWith('room-1', {
-        history_visibility_mode: 'share_full_history',
-      });
-      expect(mockGetChatRoom.mock.calls.length).toBeGreaterThan(beforeCalls);
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: '建立邀請' }));
     });
-  });
+	    await waitFor(() => {
+	      expect(mockCreateChatInvite).toHaveBeenCalledWith('room-1', {
+	        history_visibility_mode: 'share_summary_only',
+	      });
+	      expect(mockGetChatRoom.mock.calls.length).toBeGreaterThan(beforeCalls);
+	    });
+	  });
 
   it('建立邀請快速連點只會送出一次請求', async () => {
     mockCreateChatInvite.mockResolvedValue({ id: 'i1', invite_code: 'ABC123' });
@@ -187,10 +293,13 @@ describe('ChatRoomPage', () => {
     await waitFor(() => {
       expect(mockGetChatRoom).toHaveBeenCalledWith('room-1');
     });
+    await screen.findByRole('button', { name: '建立邀請' });
 
     const inviteBtn = screen.getByRole('button', { name: '建立邀請' });
-    fireEvent.click(inviteBtn);
-    fireEvent.click(inviteBtn);
+    await act(async () => {
+      fireEvent.click(inviteBtn);
+      fireEvent.click(inviteBtn);
+    });
     await waitFor(() => {
       expect(mockCreateChatInvite).toHaveBeenCalledTimes(1);
     });
@@ -301,17 +410,20 @@ describe('ChatRoomPage', () => {
       </MemoryRouter>
     );
 
-    await waitFor(() => {
-      expect(mockGetChatRoom).toHaveBeenCalledWith('room-1');
-    });
-    expect(screen.getByRole('button', { name: '建立邀請' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: '發起判決' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /送\s*出/ })).toBeDisabled();
+	    await waitFor(() => {
+	      expect(mockGetChatRoom).toHaveBeenCalledWith('room-1');
+	    });
+	    await screen.findByText('聊天室：room-1');
+	    expect(screen.getByRole('button', { name: '建立邀請' })).toBeDisabled();
+	    expect(screen.getByRole('button', { name: '發起判決' })).toBeDisabled();
+	    expect(screen.getByRole('button', { name: /送\s*出/ })).toBeDisabled();
 
-    fireEvent.change(screen.getByPlaceholderText('輸入訊息...'), {
-      target: { value: 'should-not-send' },
+    await act(async () => {
+      fireEvent.change(screen.getByPlaceholderText('輸入訊息...'), {
+        target: { value: 'should-not-send' },
+      });
+      fireEvent.keyDown(screen.getByPlaceholderText('輸入訊息...'), { key: 'Enter', code: 'Enter' });
     });
-    fireEvent.keyDown(screen.getByPlaceholderText('輸入訊息...'), { key: 'Enter', code: 'Enter' });
     expect(mockSendChatMessage).not.toHaveBeenCalled();
   });
 
@@ -320,6 +432,19 @@ describe('ChatRoomPage', () => {
       roomId: 'room-1',
       caseId: 'case-1',
       status: 'judgment_requested',
+    });
+    mockListChatMessages.mockResolvedValueOnce({
+      messages: [
+        {
+          id: 'msg-1',
+          content: 'hello',
+          message_type: 'user_text',
+          visibility_scope: 'all',
+          created_at: new Date().toISOString(),
+          sender_participant: { role_in_room: 'roleA' },
+        },
+      ],
+      nextCursor: null,
     });
 
     render(
@@ -330,16 +455,27 @@ describe('ChatRoomPage', () => {
       </MemoryRouter>
     );
 
-    await waitFor(() => {
-      expect(mockGetChatRoom).toHaveBeenCalledWith('room-1');
-    });
+	    await waitFor(() => {
+	      expect(mockGetChatRoom).toHaveBeenCalledWith('room-1');
+	    });
+		    await screen.findByText('聊天室：room-1');
 
-    const button = screen.getByRole('button', { name: '發起判決' });
-    fireEvent.click(button);
-    fireEvent.click(button);
-    await waitFor(() => {
-      expect(mockRequestChatJudgment).toHaveBeenCalledTimes(1);
-    });
-  });
+		    const button = screen.getByRole('button', { name: '發起判決' });
+		    await act(async () => {
+		      fireEvent.click(button);
+		      fireEvent.click(button);
+		    });
+
+	    await screen.findByText('轉判決前確認');
+		    const dialog = await screen.findByRole('dialog');
+		    const dialogButtons = within(dialog).getAllByRole('button');
+		    const confirm = dialogButtons[dialogButtons.length - 1];
+		    await act(async () => {
+		      fireEvent.click(confirm);
+		      fireEvent.click(confirm);
+		    });
+		    await waitFor(() => {
+		      expect(mockRequestChatJudgment).toHaveBeenCalledTimes(1);
+		    });
+		  });
 });
-

@@ -48,7 +48,7 @@ export default function AdminReportsPage() {
   };
 
   return (
-    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+    <Space orientation="vertical" size="large" style={{ width: '100%' }}>
       <div>
         <Title level={3} style={{ marginBottom: 0 }}>
           {t('admin.reports.heading')}
@@ -73,7 +73,7 @@ export default function AdminReportsPage() {
         <pre style={{ margin: 0 }}>{JSON.stringify(funnelQuery.data?.stages || [], null, 2)}</pre>
       </Card>
       <Card title={t('admin.reports.custom')}>
-        <Space direction="vertical" style={{ width: '100%' }}>
+        <Space orientation="vertical" style={{ width: '100%' }}>
           <Input
             value={metricsInput}
             onChange={(event) => setMetricsInput(event.target.value)}
@@ -86,7 +86,7 @@ export default function AdminReportsPage() {
         </Space>
       </Card>
       <Card title={t('admin.reports.costs')}>
-        <Space direction="vertical" style={{ width: '100%' }} size="middle">
+        <Space orientation="vertical" style={{ width: '100%' }} size="middle">
           {costQuery.data?.partial ? (
             <Alert
               showIcon

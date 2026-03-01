@@ -7,6 +7,7 @@ const { mockUseQuery, mockUseMutation, mockUseQueryClient } = vi.hoisted(() => (
   mockUseMutation: vi.fn(),
   mockUseQueryClient: vi.fn(),
 }));
+const mockUseAdminAccess = vi.fn();
 
 vi.mock('@tanstack/react-query', () => ({
   useQuery: (...args: unknown[]) => mockUseQuery(...args),
@@ -21,6 +22,9 @@ vi.mock('@/services/api/admin', () => ({
     upsertConfig: vi.fn(),
   },
 }));
+vi.mock('@/hooks/useAdminAccess', () => ({
+  useAdminAccess: (...args: unknown[]) => mockUseAdminAccess(...args),
+}));
 
 vi.mock('@/utils/i18n', () => ({
   t: (key: string) => key,
@@ -29,6 +33,7 @@ vi.mock('@/utils/i18n', () => ({
 describe('AdminConfigsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUseAdminAccess.mockReturnValue({ hasPermission: true });
     mockUseQueryClient.mockReturnValue({ invalidateQueries: vi.fn() });
     mockUseQuery
       .mockReturnValueOnce({
@@ -50,6 +55,13 @@ describe('AdminConfigsPage', () => {
     render(<AdminConfigsPage />);
     expect(screen.getByText('admin.configs.heading')).toBeInTheDocument();
     expect(screen.getByText('jobs.enabled')).toBeInTheDocument();
+  });
+
+  it('缺少 config:write 時應禁用保存按鈕', () => {
+    mockUseAdminAccess.mockReturnValue({ hasPermission: false });
+    render(<AdminConfigsPage />);
+    expect(screen.getByText('admin.configs.writeDenied')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'admin.configs.save' })).toBeDisabled();
   });
 });
 

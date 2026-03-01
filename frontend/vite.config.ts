@@ -6,6 +6,31 @@ import path from 'path';
 export default defineConfig(({ mode }) => {
   const isProduction = mode === 'production';
   const isDevelopment = mode === 'development';
+  const manualChunks = (id: string): string | undefined => {
+    if (!id.includes('node_modules')) return undefined;
+    if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/react-router-dom/')) {
+      return 'react-vendor';
+    }
+    if (id.includes('/zustand/') || id.includes('/@tanstack/react-query/')) {
+      return 'state-vendor';
+    }
+    if (id.includes('/axios/') || id.includes('/dayjs/') || id.includes('/react-markdown/')) {
+      return 'utils-vendor';
+    }
+    if (id.includes('/rc-table/')) {
+      return 'antd-table-vendor';
+    }
+    if (id.includes('/rc-picker/')) {
+      return 'antd-date-vendor';
+    }
+    if (id.includes('/rc-field-form/')) {
+      return 'antd-form-vendor';
+    }
+    if (id.includes('/antd/')) {
+      return 'antd-vendor';
+    }
+    return undefined;
+  };
 
   return {
     plugins: [react()],
@@ -34,19 +59,10 @@ export default defineConfig(({ mode }) => {
     build: {
       rollupOptions: {
         output: {
-          manualChunks: {
-            // 將React相關庫分離
-            'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-            // 將Ant Design分離
-            'antd-vendor': ['antd', '@ant-design/icons'],
-            // 將工具庫分離
-            'utils-vendor': ['axios', 'dayjs', 'react-markdown'],
-            // 將狀態管理庫分離
-            'state-vendor': ['zustand', '@tanstack/react-query'],
-          },
+          manualChunks,
         },
       },
-      chunkSizeWarningLimit: 1000, // 提高警告閾值到1MB
+      chunkSizeWarningLimit: 1000,
       sourcemap: isDevelopment, // 開發環境生成sourcemap，生產環境不生成
       minify: isProduction ? 'terser' : false, // 生產環境使用terser壓縮
       terserOptions: isProduction ? {

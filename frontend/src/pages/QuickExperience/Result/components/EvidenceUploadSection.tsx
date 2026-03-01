@@ -25,7 +25,7 @@ const EvidenceUploadSection = ({ status, caseId, isUploading, onUploadFiles }: P
       <section className="evidence-upload-section" aria-labelledby="evidence-upload-title" style={{ padding: '0 0 40px' }}>
         <div className="container">
           <div className="premium-card" style={{ padding: '32px' }}>
-            <Space direction="vertical" size="large" style={{ width: '100%' }}>
+            <Space orientation="vertical" size="large" style={{ width: '100%' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 {status === 'failed' ? (
                   <ExclamationCircleOutlined style={{ color: '#EF4444', fontSize: 28, filter: 'drop-shadow(0 0 8px rgba(239,68,68,0.5))' }} />
@@ -47,7 +47,7 @@ const EvidenceUploadSection = ({ status, caseId, isUploading, onUploadFiles }: P
                     border: '1px solid rgba(245, 158, 11, 0.3)',
                     borderRadius: 16,
                   }}
-                  message={<span style={{ color: '#FCD34D', fontWeight: 600 }}>{t('evidence.failed')}</span>}
+                  title={<span style={{ color: '#FCD34D', fontWeight: 600 }}>{t('evidence.failed')}</span>}
                 />
               )}
               
@@ -61,7 +61,7 @@ const EvidenceUploadSection = ({ status, caseId, isUploading, onUploadFiles }: P
                     border: '1px solid rgba(14, 165, 233, 0.3)',
                     borderRadius: 16,
                   }}
-                  message={<span style={{ color: '#7DD3FC', fontWeight: 600 }}>{t('evidence.pending')}</span>}
+                  title={<span style={{ color: '#7DD3FC', fontWeight: 600 }}>{t('evidence.pending')}</span>}
                 />
               )}
               

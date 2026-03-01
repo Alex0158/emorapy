@@ -176,7 +176,7 @@ const CaseCreate = () => {
       <div className="case-create-page">
         <Card>
           <Alert
-            message={t('caseCreate.pairingRequired')}
+            title={t('caseCreate.pairingRequired')}
             description={t('caseCreate.pairingDesc')}
             type="warning"
             showIcon
@@ -210,7 +210,7 @@ const CaseCreate = () => {
         {showPreCaseBanner && (
           <AnimatedWrapper animation="slide" direction="up" delay={150}>
             <Alert
-              message={t('trigger.preCaseTitle')}
+              title={t('trigger.preCaseTitle')}
               description={t('trigger.preCaseDesc')}
               type="info"
               showIcon
@@ -218,7 +218,7 @@ const CaseCreate = () => {
               closable
               onClose={() => setShowPreCaseBanner(false)}
               action={
-                <Space direction="vertical" size="small">
+                <Space orientation="vertical" size="small">
                   <Button size="small" type="primary" onClick={handlePreCaseChat}>
                     {t('trigger.preCaseOk')}
                   </Button>
@@ -249,7 +249,7 @@ const CaseCreate = () => {
             </Form.Item>
 
             <Alert
-              message={t('caseCreate.aiAutoDetectHint')}
+              title={t('caseCreate.aiAutoDetectHint')}
               type="info"
               showIcon
               icon={<InfoCircleOutlined />}
@@ -260,7 +260,7 @@ const CaseCreate = () => {
               label={t('caseCreate.mode')}
             >
               <Radio.Group value={mode} onChange={(e) => setMode(e.target.value)}>
-                <Space direction="vertical">
+                <Space orientation="vertical">
                   <Radio value="remote">
                     <span>{t('caseCreate.modeRemoteLabel')}</span>
                     <Text type="secondary" style={{ display: 'block', marginLeft: 22, fontSize: 12 }}>
@@ -307,7 +307,7 @@ const CaseCreate = () => {
 
               {isRemote && (
                 <Alert
-                  message={t('caseCreate.remoteFlowHint')}
+                  title={t('caseCreate.remoteFlowHint')}
                   type="info"
                   showIcon
                   style={{ marginTop: 12 }}
@@ -333,7 +333,7 @@ const CaseCreate = () => {
 
           <AnimatedWrapper animation="slide" direction="up" delay={350} trigger="intersection">
             <div className="submit-section">
-            <Space direction="vertical" size="large" style={{ width: '100%' }}>
+            <Space orientation="vertical" size="large" style={{ width: '100%' }}>
               <Button
                 type="primary"
                 htmlType="submit"
@@ -364,4 +364,3 @@ const CaseCreate = () => {
 };
 
 export default CaseCreate;
-

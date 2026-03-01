@@ -13,8 +13,16 @@ import type {
 import axios from "axios";
 import { env } from "@/config/env";
 import type { ApiError, ApiResponse } from "@/types/common";
+import { getAdminLoginUrl } from "@/utils/adminEntry";
 import { getLocale, t } from "@/utils/i18n";
 import { requestWithRetry } from "@/utils/retry";
+import { triggerRequestLogout } from "@/services/requestAuthBridge";
+import {
+	cancelAllRequests as cancelAllRequestsInternal,
+	cancelRequest as cancelRequestInternal,
+	registerCancelableRequest,
+	unregisterCancelableRequest,
+} from "@/services/requestCancel";
 import { sessionStorage as quickSessionStorage } from "@/utils/storage";
 
 // 擴展 InternalAxiosRequestConfig 以支持 metadata
@@ -30,6 +38,42 @@ interface ApiErrorResponseBody {
 	error?: ApiError;
 }
 
+function safeNavigate(url: string): void {
+	if (
+		typeof navigator !== "undefined" &&
+		typeof navigator.userAgent === "string" &&
+		navigator.userAgent.toLowerCase().includes("jsdom")
+	) {
+		return;
+	}
+	try {
+		window.location.href = url;
+	} catch {
+		// 在測試環境或受限執行環境下，導航 API 可能不可用；忽略不影響主流程
+	}
+}
+
+function isAdminApiRequest(url: string): boolean {
+	const trimmed = url.trim();
+	if (!trimmed) return false;
+	if (trimmed.startsWith("/admin") || trimmed.startsWith("/api/v1/admin")) return true;
+	try {
+		const parsed = new URL(trimmed);
+		return (
+			parsed.pathname.startsWith("/admin") ||
+			parsed.pathname.startsWith("/api/v1/admin")
+		);
+	} catch {
+		return false;
+	}
+}
+
+function shouldResetAdminSessionOn401(errorCode?: string): boolean {
+	// 登入失敗（帳密錯）不應觸發全域 admin token 清理與導轉，避免覆蓋頁面內錯誤提示。
+	if (errorCode === "INVALID_CREDENTIALS") return false;
+	return true;
+}
+
 // 創建axios實例
 const request: AxiosInstance = axios.create({
 	baseURL: env.apiBaseURL,
@@ -39,28 +83,18 @@ const request: AxiosInstance = axios.create({
 	},
 });
 
-// 請求取消控制器Map（用於追蹤活躍的請求）
-const cancelTokenMap = new Map<string, AbortController>();
-
 /**
  * 取消指定的請求
  */
 export const cancelRequest = (requestId: string): void => {
-	const controller = cancelTokenMap.get(requestId);
-	if (controller) {
-		controller.abort();
-		cancelTokenMap.delete(requestId);
-	}
+	cancelRequestInternal(requestId);
 };
 
 /**
  * 取消所有活躍的請求
  */
 export const cancelAllRequests = (): void => {
-	cancelTokenMap.forEach((controller) => {
-		controller.abort();
-	});
-	cancelTokenMap.clear();
+	cancelAllRequestsInternal();
 };
 
 /**
@@ -80,11 +114,11 @@ const addCancelToken = (config: InternalAxiosRequestConfig): void => {
 	extendedConfig.metadata = { ...extendedConfig.metadata, requestId };
 
 	// 保存controller以便後續取消
-	cancelTokenMap.set(requestId, controller);
+	registerCancelableRequest(requestId, controller);
 
 	// 請求完成後清理（成功或失敗都會執行）
 	const cleanup = () => {
-		cancelTokenMap.delete(requestId);
+		unregisterCancelableRequest(requestId);
 	};
 
 	// 監聽請求完成
@@ -130,7 +164,9 @@ request.interceptors.request.use(
 		} catch {
 			/* noop */
 		}
-		if (!config.headers.Authorization && token) {
+		const requestUrl = String(config.url || "");
+		const isAdminRequest = isAdminApiRequest(requestUrl);
+		if (!config.headers.Authorization && token && !isAdminRequest) {
 			config.headers.Authorization = `Bearer ${token}`;
 		}
 
@@ -160,7 +196,7 @@ request.interceptors.response.use(
 		const requestId = (response.config as ExtendedAxiosRequestConfig).metadata
 			?.requestId;
 		if (requestId) {
-			cancelTokenMap.delete(requestId);
+			unregisterCancelableRequest(requestId);
 		}
 		const { data } = response;
 
@@ -191,7 +227,7 @@ request.interceptors.response.use(
 		const requestId = (error.config as ExtendedAxiosRequestConfig | undefined)
 			?.metadata?.requestId;
 		if (requestId) {
-			cancelTokenMap.delete(requestId);
+			unregisterCancelableRequest(requestId);
 		}
 
 		// 如果請求被取消，不顯示錯誤消息
@@ -252,7 +288,8 @@ request.interceptors.response.use(
 
 				case 401: {
 					const code = errorData?.code;
-          const requestUrl = String(response.config?.url || '');
+          const requestUrl = String(response.config?.url || "");
+          const isAdminRequest = isAdminApiRequest(requestUrl);
 
 					// 快速體驗 Session 過期/缺失：不導向登入頁（零門檻設計）
 					if (
@@ -284,43 +321,43 @@ request.interceptors.response.use(
 						break;
 					}
 
-          // Admin API 401：清理 admin token，避免無效 token 持續重試。
-          if (requestUrl.includes('/admin')) {
+          // Admin API 401：僅在 token/session 失效類錯誤時清理 admin token。
+          if (isAdminRequest && shouldResetAdminSessionOn401(code)) {
             try {
-              const { setAdminToken } = await import('@/services/api/admin');
-              setAdminToken('');
+              localStorage.removeItem("admin_token");
+              window.sessionStorage.removeItem("admin_token");
+              window.dispatchEvent(new Event("admin-token-changed"));
             } catch {
-              // 忽略動態導入失敗，避免覆蓋原始錯誤處理鏈
+              // 忽略 storage 例外，避免覆蓋原始錯誤處理鏈
             }
-            if (
-              window.location.pathname.startsWith('/admin') &&
-              window.location.pathname !== '/admin/login'
-            ) {
-              window.location.href = '/admin/login';
+            const adminLoginUrl = getAdminLoginUrl();
+            if (window.location.pathname.startsWith('/admin')) {
+              if (adminLoginUrl) {
+                safeNavigate(adminLoginUrl);
+              } else {
+                message.error(t("admin.login.urlMissing"));
+              }
             }
           } else {
             // 非 Admin API 401：維持原有前台 user token 清理流程
 					  localStorage.removeItem("token");
 					  window.sessionStorage.removeItem("token");
-					  // 使用useAuthStore清除狀態（如果可用）
-					  // 動態導入避免循環依賴
-					  import("@/store/authStore")
-						  .then(({ useAuthStore }) => {
-							  useAuthStore.getState().logout();
-						  })
-						  .catch(() => {
-							  // Store可能未初始化，忽略
-						  });
+					  triggerRequestLogout();
 					  if (window.location.pathname !== "/auth/login") {
-						  window.location.href = "/auth/login";
+						  safeNavigate("/auth/login");
 					  }
           } 
-					message.error(errorData?.message || t("common.unauthorized"));
+          // Admin API 的 401 由頁面門禁/導轉處理，避免與頁面錯誤提示重複彈窗。
+          if (!isAdminRequest) {
+					  message.error(errorData?.message || t("common.unauthorized"));
+          }
 					break;
 				}
 
 				case 403:
-					message.error(errorData?.message || t("common.forbidden"));
+          if (!isAdminApiRequest(String(response.config?.url || ""))) {
+					  message.error(errorData?.message || t("common.forbidden"));
+          }
 					break;
 
 				case 404: {

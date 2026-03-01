@@ -27,6 +27,7 @@ vi.mock('antd', async (importOriginal) => {
   const actual = await importOriginal<typeof import('antd')>();
   return {
     ...actual,
+    Steps: ({ current }: { current: number }) => <div data-testid="steps-mock">step-{current}</div>,
     message: {
       error: (...args: unknown[]) => mockMessageError(...args),
       warning: (...args: unknown[]) => mockMessageWarning(...args),
@@ -51,7 +52,9 @@ vi.mock('@/components/business/BearJudge', () => ({
 }));
 vi.mock('framer-motion', () => ({
   motion: {
-    div: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => <div {...props}>{children}</div>,
+    div: ({ children, animate, initial, exit, variants, transition, layout, layoutId, viewport, whileInView, whileHover, whileTap, ...props }: React.PropsWithChildren<Record<string, unknown>>) => (
+      <div {...props}>{children}</div>
+    ),
   },
   AnimatePresence: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
@@ -67,8 +70,20 @@ function renderPage() {
 }
 
 describe('CollaborativeCreate', () => {
+  const originalError = console.error;
   beforeEach(() => {
     vi.clearAllMocks();
+    console.error = (...args: unknown[]) => {
+      if (typeof args[0] === 'string' && args[0].includes('height') && args[0].includes('NaN')) {
+        return;
+      }
+      // @ts-expect-error spread
+      originalError(...args);
+    };
+  });
+
+  afterEach(() => {
+    console.error = originalError;
   });
 
   it('初始應顯示 intro 階段', () => {

@@ -120,9 +120,10 @@ npm run test:coverage  # 單元測試 + 覆蓋率報告
 ```bash
 cd frontend
 npm install   # 若尚未安裝（含 vitest、@testing-library 等）
-npm run test:run       # 執行一次所有測試
-npm run test           # watch 模式，改碼即跑
-npm run test:coverage  # 測試 + 覆蓋率
+npm run test           # 執行一次所有測試（CI 建議）
+npm run test:run       # 同上（別名）
+npm run test:coverage  # 覆蓋率（當前等同於 vitest run）
+# watch 模式：npx vitest
 ```
 
 前端測試涵蓋：執行儀表板頁面、statusTags 工具、執行 API、format/formatDate 工具等（約 35 個用例）。

@@ -47,7 +47,7 @@
   - CI `admin-e2e` 會自動啟動 Postgres + Backend + Frontend 並執行嚴格模式（`E2E_STRICT=true`）
   - CI 失敗時會輸出 `backend-e2e.log` / `frontend-e2e.log` tail，並上傳 Playwright report / test-results 供追蹤
   - 驗證 mixed-tighten：低權限帳號可訪問 `users`，但必須被拒於 `audit-logs/settings`
-  - 功能矩陣：`admin-config-flow.e2e.ts`（configs 讀寫）、`admin-jobs-flow.e2e.ts`（list/trigger/stats）、`admin-reports-flow.e2e.ts`（overview/funnel/custom/csv）
+  - 功能矩陣：`admin-config-flow.e2e.ts`（configs 讀寫，含 `alerts/rules` 與 `feature-flags`）、`admin-jobs-flow.e2e.ts`（list/trigger/stats）、`admin-reports-flow.e2e.ts`（overview/funnel/custom/csv/costs）
   - 驗證審計閉環：管理員寫操作（create admin user）必須在 audit logs 可查
   - 驗證審計精確性：`actor_id / entity_id / action / detail` 與實際操作一致
   - 驗證 API 邊界：低權限 token 直接呼叫 `POST /admin/admin-users` 必須回 `403`

@@ -104,6 +104,21 @@ curl -X POST http://localhost:3001/api/v1/cases/quick \
   }'
 ```
 
+### 4. 聊天室（Chat v1）基本驗證（可選）
+
+```bash
+# 建立聊天室（匿名示例：請自行帶 X-Session-Id）
+curl -X POST http://localhost:3001/api/v1/chat/rooms \
+  -H "Content-Type: application/json" \
+  -H "X-Session-Id: guest_xxx" \
+  -d '{"history_visibility_mode":"share_summary_only"}'
+
+# 讀取 / 發訊息 / 分頁 / SSE 等，詳見 docs/backend/API.md 的「聊天室（Chat v1）」段落
+
+# Prometheus 指標（非 /api/v1）
+curl http://localhost:3001/metrics
+```
+
 ## 🔐 認證流程
 
 ### 完整模式認證流程

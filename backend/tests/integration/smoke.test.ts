@@ -148,6 +148,14 @@ describe('煙霧測試 (Smoke Test)', () => {
       // 這裡我們只檢查不是服務器錯誤
       expect(response.status).toBeLessThan(500);
     });
+
+    it('不在白名單的 Origin 應返回 403 且錯誤碼可識別', async () => {
+      const response = await request(app)
+        .get('/api/v1/admin/jobs')
+        .set('Origin', 'https://evil.example.com');
+      expect(response.status).toBe(403);
+      expect(response.body?.error?.code).toBe('CORS_ORIGIN_DENIED');
+    });
   });
 
   describe('請求驗證', () => {

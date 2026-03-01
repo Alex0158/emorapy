@@ -18,6 +18,7 @@ export type ChatRoleInRoom = 'roleA' | 'roleB' | 'aiMediator' | 'system';
 export type ChatMessageType =
   | 'user_text'
   | 'ai_reflection'
+  | 'ai_mediation'
   | 'ai_summary'
   | 'system_event'
   | 'safety_notice';
@@ -52,9 +53,12 @@ export interface ChatMessage {
   id: string;
   room_id: string;
   sender_participant_id: string;
+  reply_to_message_id?: string | null;
   content: string;
   message_type: ChatMessageType;
   visibility_scope: ChatVisibilityScope;
+  ai_strategy?: string | null;
+  ai_confidence?: number | null;
   safety_flag: boolean;
   safety_detail?: string | null;
   created_at: string;
@@ -107,4 +111,3 @@ export interface ChatStreamEvent {
   payload?: Record<string, unknown>;
   at?: string;
 }
-

@@ -20,16 +20,22 @@ export const errorHandler = (
 ): void => {
   const locale = req.locale ?? 'zh-TW';
   const safeErr = err instanceof Error ? err : new Error(String(err ?? 'Unknown error'));
+  const isApp4xx = safeErr instanceof AppError && safeErr.statusCode >= 400 && safeErr.statusCode < 500;
 
-  logger.error('Error occurred', {
+  const logPayload = {
     request_id: getRequestId(req),
     error: safeErr.message,
-    stack: env.NODE_ENV === 'development' ? safeErr.stack : undefined,
+    stack: env.NODE_ENV === 'development' && !isApp4xx ? safeErr.stack : undefined,
     url: req.url,
     method: req.method,
     userId: getAuthUserIdOptional(req),
     sessionId: maskSessionId(getSessionId(req)),
-  });
+  };
+  if (isApp4xx) {
+    logger.warn('Request rejected', logPayload);
+  } else {
+    logger.error('Error occurred', logPayload);
+  }
   
   // 處理自定義錯誤
   if (safeErr instanceof AppError) {

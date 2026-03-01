@@ -1,4 +1,5 @@
 import bcrypt from 'bcrypt';
+import crypto from 'crypto';
 import { AdminRoleKey, Prisma } from '@prisma/client';
 import prisma from '../config/database';
 import { generateAdminToken } from '../utils/admin-jwt';
@@ -30,6 +31,7 @@ class AdminService {
         update: {
           name: role.name,
           description: role.description,
+          permissions: DEFAULT_ROLE_PERMISSIONS[role.key] as Prisma.InputJsonValue,
         },
       });
     }
@@ -57,7 +59,12 @@ class AdminService {
       // 非生產環境也要求顯式 token，以免誤開
       throw Errors.FORBIDDEN('缺少 ADMIN_BOOTSTRAP_TOKEN 配置');
     }
-    if (payload.bootstrapToken !== requiredBootstrapToken) {
+    const actualToken = payload.bootstrapToken || '';
+    const expectedBuffer = Buffer.from(requiredBootstrapToken);
+    const actualBuffer = Buffer.from(actualToken);
+    const sameLength = expectedBuffer.length === actualBuffer.length;
+    const tokenMatches = sameLength && crypto.timingSafeEqual(expectedBuffer, actualBuffer);
+    if (!tokenMatches) {
       throw Errors.FORBIDDEN('Bootstrap token 不正確');
     }
 
@@ -100,7 +107,6 @@ class AdminService {
   }
 
   async login(payload: { email: string; password: string }) {
-    await this.ensureDefaultRoles();
     const admin = await prisma.adminUser.findUnique({
       where: { email: payload.email.toLowerCase() },
       include: { role: true },
@@ -115,10 +121,7 @@ class AdminService {
       throw Errors.INVALID_CREDENTIALS('管理員帳號或密碼錯誤');
     }
 
-    await prisma.adminUser.update({
-      where: { id: admin.id },
-      data: { last_login_at: new Date() },
-    });
+    await prisma.$executeRaw`UPDATE admin_users SET last_login_at = NOW() WHERE id = ${admin.id}`;
 
     const token = generateAdminToken({
       id: admin.id,

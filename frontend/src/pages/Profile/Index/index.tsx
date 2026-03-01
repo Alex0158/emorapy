@@ -231,14 +231,14 @@ const ProfileIndex = () => {
             style={{ marginTop: 24 }}
           >
             {!psychProfile?.consent_given ? (
-              <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+              <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
                 <Paragraph>{t('psychProfile.intro')}</Paragraph>
                 <Button type="primary" onClick={() => setConsentOpen(true)}>
                   {t('psychProfile.chatForFive')}
                 </Button>
               </Space>
             ) : (
-              <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+              <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
                   <RichnessRing score={psychProfile.richness_score || 0} size={80} />
                   <div style={{ flex: 1 }}>

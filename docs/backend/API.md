@@ -361,6 +361,7 @@ Authorization: Bearer <token>
 
 - `GET /admin/reports/overview`：總覽指標
 - `GET /admin/reports/funnel`：漏斗指標
+- `GET /admin/reports/costs`：成本監控（Redis / Railway egress / OpenAI，可能 `partial=true`）
 - `GET /admin/reports/overview.csv`：總覽 CSV
 - `POST /admin/reports/custom`：自定義指標（如 `dau/mau/judgment_failed`）
   - `metrics` 僅允許：`dau`、`mau`、`judgment_failed`
@@ -530,6 +531,209 @@ Authorization: Bearer <token>
 
 ---
 
+## 💬 聊天室（Chat v1）
+
+> Base URL：`/api/v1/chat`。聊天室同時支援「登入使用者」與「匿名 session」兩種 actor。
+
+### Actor（登入 / 匿名）傳遞方式
+
+- 登入：`Authorization: Bearer <token>`
+- 匿名：`X-Session-Id: <sessionId>` 或 query `?session_id=<sessionId>`
+- ⚠️ 若同時提供 header 與 query 且值不同，會返回 `INVALID_SESSION_ID`（400）
+
+### 1) 建立聊天室
+
+**POST** `/chat/rooms`
+
+Request body：
+```json
+{
+  "history_visibility_mode": "share_summary_only"
+}
+```
+
+`history_visibility_mode` 允許值：
+- `share_full_history`：B 加入後可見完整歷史（僅限 `all` / `summary_only`）
+- `share_summary_only`：B 加入前僅可見 `summary_only`；加入後可見 `all` + `summary_only`
+- `share_from_join_time`：B 僅可見加入後的 `all` + `summary_only`
+
+Response：
+```json
+{
+  "success": true,
+  "data": {
+    "room": {
+      "id": "uuid",
+      "status": "solo_active",
+      "history_visibility_mode": "share_summary_only",
+      "participants": []
+    }
+  }
+}
+```
+
+### 2) 讀取聊天室
+
+**GET** `/chat/rooms/:roomId`
+
+Response：`{ success, data: { room } }`
+
+### 3) 建立邀請
+
+**POST** `/chat/rooms/:roomId/invites`
+
+Request body（皆可省略）：
+```json
+{
+  "history_visibility_mode": "share_summary_only",
+  "expires_in_hours": 24
+}
+```
+
+Response：`{ success, data: { invite } }`
+
+### 4) 接受邀請 / 拒絕邀請
+
+**POST** `/chat/invites/:inviteCode/accept`
+
+**POST** `/chat/invites/:inviteCode/decline`
+
+Response：
+- accept：`{ success, data: { room } }`
+- decline：`{ success, data: { invite } }`
+
+### 5) 讀取訊息（分頁）
+
+**GET** `/chat/rooms/:roomId/messages?limit=50&cursor=2026-03-01T00:00:00.000Z`
+
+說明：
+- `limit` 預設 30
+- `cursor` 為 ISO 時間字串，表示「取游標時間之前更舊的訊息」
+- Response 內的 `nextCursor` 為本次返回的最舊訊息時間（用於下一頁）
+
+Response：
+```json
+{
+  "success": true,
+  "data": {
+    "messages": [
+      {
+        "id": "uuid",
+        "content": "hello",
+        "message_type": "user_text",
+        "visibility_scope": "all",
+        "reply_to_message_id": null,
+        "ai_strategy": null,
+        "ai_confidence": null,
+        "safety_flag": false,
+        "safety_detail": null,
+        "created_at": "2026-03-01T00:00:00.000Z",
+        "sender_participant": { "id": "uuid", "role_in_room": "roleA" }
+      }
+    ],
+    "nextCursor": "2026-03-01T00:00:00.000Z"
+  }
+}
+```
+
+可見性（後端強制）：
+- A（房主）可見全部訊息（含 `owner_only`）
+- B 只能看 `all` / `summary_only`，且依 `history_visibility_mode` + `joined_at` 進一步裁切
+
+### 6) 發送訊息
+
+**POST** `/chat/rooms/:roomId/messages`
+
+Request body：
+```json
+{
+  "content": "text",
+  "visibility_scope": "all",
+  "reply_to_message_id": "uuid"
+}
+```
+
+說明：
+- `visibility_scope` 預設 `all`（可選：`owner_only`、`summary_only`）
+- `reply_to_message_id` 可省略（回覆引用）
+- 房級限流：5 秒內最多 1 則，30 秒滑窗最多 6 則；超限返回 `RATE_LIMIT_EXCEEDED`（429）
+
+Response：`{ success, data: { message } }`
+
+### 7) SSE 訂閱（即時事件）
+
+**GET** `/chat/rooms/:roomId/stream`
+
+Headers：
+```
+Accept: text/event-stream
+Authorization: Bearer <token> (optional)
+X-Session-Id: <sessionId> (optional)
+```
+
+事件格式（示例）：
+```text
+event: message
+data: {"type":"message","roomId":"...","payload":{"messageId":"..."},"at":"2026-03-01T00:00:00.000Z"}
+```
+
+事件類型：
+- `ready`：連線建立完成（data: `{ roomId }`）
+- `ping`：心跳
+- `message`：新訊息事件
+- `invite`：邀請狀態變更
+- `room_status`：房間狀態變更 / 參與者離開或被移除
+
+### 8) 轉判決 / 查詢判決狀態
+
+**POST** `/chat/rooms/:roomId/request-judgment`
+
+Request body（可省略；提供時至少 1 個）：
+```json
+{
+  "included_message_ids": ["uuid-1", "uuid-2"]
+}
+```
+
+說明：
+- 不提供 `included_message_ids`：後端使用預設規則（僅納入 `message_type=user_text` 且 `visibility_scope=all`，並按 `history_visibility_mode`/B 加入時間裁切）
+- 提供 `included_message_ids`：必須是「可被預設規則納入」的子集合；否則返回 `NOT_FOUND` 或 `CASE_NOT_READY`
+- 轉換時 `conversion_snapshot` 會記錄 `included_message_ids`、過濾策略與訊息範圍，供稽核回溯
+
+Response（成功）：
+```json
+{
+  "success": true,
+  "data": {
+    "roomId": "uuid",
+    "caseId": "uuid",
+    "judgmentId": "uuid",
+    "linkId": "uuid",
+    "status": "judgment_completed"
+  }
+}
+```
+
+**GET** `/chat/rooms/:roomId/judgment-status`
+
+### 9) 離開 / 移除 B 方
+
+**POST** `/chat/rooms/:roomId/leave`（B 自離）
+
+**POST** `/chat/rooms/:roomId/kick-b`（A 移除 B）
+
+Response：`{ success, data: { room } }`
+
+---
+
+## 📈 Metrics（Prometheus）
+
+**GET** `/metrics`
+
+- Content-Type：`text/plain; version=0.0.4`
+- 指標來源：`backend/src/services/chat-metrics.service.ts`
+- Prometheus rules 示例：`backend/ops/prometheus/chat-alerts.rules.yml`（另見 `backend/docs/ALERTS_CHAT.md`）
+
 ## 🧠 心理畫像與 AI 訪談（v2.0 新增）
 
 > 詳細規格見 `docs/後端設計/03-API設計.md`。路由參數使用 `:id`（非 `:sessionId`），與源碼對齊。
@@ -563,6 +767,7 @@ Authorization: Bearer <token>
 - 註冊接口：每小時5次
 - 驗證碼接口：每郵箱每5分鐘1次
 - AI接口：每小時10次
+- 聊天室訊息：房級限流（5 秒最多 1 則；30 秒滑窗最多 6 則）
 - 訪談 start：雙層限流——①中間件：每用戶每小時 3 次（express-rate-limit，防濫用）；②業務邏輯：每用戶每天 5 個 substantive session（僅計 ≥ 3 輪）
 - 訪談 respond：每輪間隔 ≥ 3 秒、每 session ≤ 25 輪
 - 訪談全局：每用戶每天 5 個 substantive session（僅計 ≥ 3 輪）

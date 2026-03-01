@@ -136,7 +136,7 @@ const MyStory: React.FC = () => {
     return (
       <div className="my-story-page">
         <Alert
-          message={t('common.loadFailed')}
+          title={t('common.loadFailed')}
           type="error"
           showIcon
           action={
@@ -188,7 +188,7 @@ const MyStory: React.FC = () => {
             showIcon
             closable
             onClose={() => setFailedSessionId(null)}
-            message={t('psychProfile.failedSessionTitle')}
+            title={t('psychProfile.failedSessionTitle')}
             description={t('psychProfile.failedSessionDesc')}
             action={
               <Button size="small" loading={retryingFailed} onClick={handleRetryFailed}>
@@ -247,7 +247,7 @@ const MyStory: React.FC = () => {
               />
             ) : (
               <Collapse
-                expandIconPosition="end"
+                expandIconPlacement="end"
                 items={latestNarratives.map((narrative) => ({
                   key: narrative.domain,
                   label: (
@@ -263,7 +263,7 @@ const MyStory: React.FC = () => {
                     </Space>
                   ),
                   children: (
-                    <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                    <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
                       {narrative.ai_summary && (
                         <div>
                           <Text type="secondary">{t('psychProfile.aiSummary')}：</Text>
@@ -343,7 +343,7 @@ const MyStory: React.FC = () => {
         {/* 管理我的資料 */}
         <AnimatedWrapper animation="slide" direction="up" delay={500} trigger="intersection">
           <Card style={{ marginTop: 16 }} className="my-story-page__manage">
-            <Space direction="vertical" size="small" style={{ width: '100%' }}>
+            <Space orientation="vertical" size="small" style={{ width: '100%' }}>
               <Title level={5}>{t('psychProfile.manageData')}</Title>
               <Paragraph type="secondary">
                 {t('psychProfile.manageDataDesc')}

@@ -1,0 +1,13 @@
+{
+  "name": "mother-bear-court-root",
+  "private": true,
+  "version": "0.0.0",
+  "workspaces": [
+    "frontend",
+    "frontend-admin"
+  ],
+  "scripts": {
+    "vercel-build": "npm install --include=optional && npm run build --workspace frontend-admin",
+    "build": "npm run vercel-build"
+  }
+}

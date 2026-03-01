@@ -123,7 +123,7 @@ const ReconciliationDetail = () => {
   if (!plan) {
     return (
       <div className="reconciliation-detail-page">
-        <Alert message={t('message.planNotFound')} type="error" />
+        <Alert title={t('message.planNotFound')} type="error" />
       </div>
     );
   }
@@ -198,7 +198,7 @@ const ReconciliationDetail = () => {
 
         <AnimatedWrapper animation="slide" direction="up" delay={400} trigger="intersection">
           <div className="action-section">
-          <Space direction="vertical" size="large" style={{ width: '100%' }}>
+          <Space orientation="vertical" size="large" style={{ width: '100%' }}>
             {!plan.user1_selected && !plan.user2_selected && (
               <Button
                 type="primary"
@@ -225,7 +225,7 @@ const ReconciliationDetail = () => {
             )}
 
             <Alert
-              message={t('reconDetail.execHintTitle')}
+              title={t('reconDetail.execHintTitle')}
               description={t('reconDetail.execHintDesc')}
               type="info"
               showIcon
@@ -239,4 +239,3 @@ const ReconciliationDetail = () => {
 };
 
 export default ReconciliationDetail;
-

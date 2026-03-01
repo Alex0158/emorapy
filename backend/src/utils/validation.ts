@@ -511,6 +511,21 @@ export const adminAuditLogsQuerySchema = {
   }),
 };
 
+export const adminPaginationQuerySchema = {
+  query: Joi.object({
+    limit: Joi.number().integer().min(1).max(100).optional(),
+    offset: Joi.number().integer().min(0).optional(),
+  }),
+};
+
+export const adminSearchPaginationQuerySchema = {
+  query: Joi.object({
+    limit: Joi.number().integer().min(1).max(100).optional(),
+    offset: Joi.number().integer().min(0).optional(),
+    q: Joi.string().max(255).optional().allow(''),
+  }),
+};
+
 export const adminCustomReportSchema = {
   body: Joi.object({
     metrics: Joi.array()
@@ -518,6 +533,21 @@ export const adminCustomReportSchema = {
       .min(1)
       .max(20)
       .required(),
+  }),
+};
+
+export const adminAlertRulesSchema = {
+  body: Joi.object({
+    rules: Joi.array()
+      .items(Joi.object().unknown(true))
+      .max(200)
+      .required(),
+  }),
+};
+
+export const adminFeatureFlagsSchema = {
+  body: Joi.object({
+    flags: Joi.object().unknown(true).required(),
   }),
 };
 
@@ -564,5 +594,12 @@ export const sendChatMessageSchema = {
   body: Joi.object({
     content: Joi.string().trim().min(1).max(4000).required(),
     visibility_scope: Joi.string().valid('all', 'owner_only', 'summary_only').optional(),
+    reply_to_message_id: Joi.string().uuid().optional(),
   }),
+};
+
+export const requestChatJudgmentSchema = {
+  body: Joi.object({
+    included_message_ids: Joi.array().items(Joi.string().uuid()).min(1).optional(),
+  }).optional(),
 };

@@ -12,9 +12,26 @@ vi.mock('@/utils/i18n', () => ({
 
 vi.mock('framer-motion', () => {
   const React = require('react');
+  const stripMotionProps = (props: Record<string, unknown>) => {
+    const {
+      animate,
+      initial,
+      exit,
+      variants,
+      transition,
+      layout,
+      layoutId,
+      viewport,
+      whileInView,
+      whileHover,
+      whileTap,
+      ...rest
+    } = props;
+    return rest;
+  };
   const forward = (name: string) =>
     React.forwardRef((props: Record<string, unknown>, ref: unknown) =>
-      React.createElement('div', { ...props, ref, 'data-motion': name }, props.children));
+      React.createElement('div', { ...stripMotionProps(props), ref, 'data-motion': name }, props.children));
   const motion = new Proxy({}, {
     get: (_target: unknown, prop: string) => forward(`motion.${prop}`),
   });

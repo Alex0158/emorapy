@@ -560,6 +560,7 @@ export const runOpsAlertsCheck = cron.schedule('*/5 * * * *', async () => {
         minSamples: env.OPS_ALERTS_MIN_SAMPLES,
         max5xxRatio: env.OPS_ALERTS_MAX_5XX_RATIO,
         maxConflictRatio: env.OPS_ALERTS_MAX_CONFLICT_RATIO,
+        healthOrigin: env.ALERT_HEALTH_ORIGIN,
         slackWebhookUrl: env.ALERT_SLACK_WEBHOOK_URL,
         slackDedupWindowSeconds: env.ALERT_SLACK_DEDUP_WINDOW_SECONDS,
       });

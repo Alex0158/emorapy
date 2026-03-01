@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, Button, Card, Drawer, Input, Popconfirm, Space, Table, Typography, message } from 'antd';
 import { useState } from 'react';
+import { useAdminAccess } from '@/hooks/useAdminAccess';
 import { adminApi } from '@/services/api/admin';
 import type { AdminAppUserItem } from '@/types/admin';
 import { t } from '@/utils/i18n';
@@ -16,8 +17,10 @@ function isUserCurrentlyLocked(lockedUntil: string | null): boolean {
 
 export default function AdminUsersPage() {
   const queryClient = useQueryClient();
+  const { hasPermission: canWriteUsers } = useAdminAccess(['users:write'], true);
   const [q, setQ] = useState('');
   const [selectedUserId, setSelectedUserId] = useState<string>('');
+  const [pendingActionKey, setPendingActionKey] = useState<string>('');
   const usersQuery = useQuery({
     queryKey: ['admin', 'users', q],
     queryFn: () => adminApi.listUsers({ q, limit: 50, offset: 0 }),
@@ -42,13 +45,39 @@ export default function AdminUsersPage() {
       message.success(t('admin.users.updateSuccess'));
       void queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
     },
-    onError: () => {
+    onError: (error: unknown) => {
+      const err = error as { code?: string } | null;
+      if (err?.code === 'FORBIDDEN') {
+        message.error(t('admin.ops.accessDenied'));
+        return;
+      }
       message.error(t('admin.users.updateFailed'));
     },
   });
 
+  const handleStatusAction = (
+    row: AdminAppUserItem,
+    action: 'lock' | 'unlock' | 'deactivate' | 'activate',
+    lockMinutes?: number
+  ) => {
+    const actionKey = `${row.id}:${action}`;
+    setPendingActionKey(actionKey);
+    statusMutation.mutate(
+      {
+        userId: row.id,
+        action,
+        lockMinutes,
+      },
+      {
+        onSettled: () => {
+          setPendingActionKey('');
+        },
+      }
+    );
+  };
+
   return (
-    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+    <Space orientation="vertical" size="large" style={{ width: '100%' }}>
       <div>
         <Title level={3} style={{ marginBottom: 0 }}>
           {t('admin.users.heading')}
@@ -56,8 +85,9 @@ export default function AdminUsersPage() {
         <Text type="secondary">{t('admin.users.subtitle')}</Text>
       </div>
       {usersQuery.error && <Alert showIcon type="error" title={t('admin.users.loadFailed')} />}
+      {!canWriteUsers && <Alert showIcon type="warning" title={t('admin.users.writeDenied')} />}
       <Card>
-        <Space direction="vertical" style={{ width: '100%' }}>
+        <Space orientation="vertical" style={{ width: '100%' }}>
           <Input.Search value={q} onChange={(event) => setQ(event.target.value)} placeholder={t('admin.users.search')} />
           <Table<AdminAppUserItem>
             rowKey="id"
@@ -68,7 +98,7 @@ export default function AdminUsersPage() {
               { title: t('admin.users.nickname'), dataIndex: 'nickname' },
               {
                 title: t('admin.users.active'),
-                render: (_, row) => (row.is_active ? 'Y' : 'N'),
+                render: (_, row) => (row.is_active ? t('admin.users.activeYes') : t('admin.users.activeNo')),
               },
               {
                 title: t('admin.users.actions'),
@@ -80,35 +110,36 @@ export default function AdminUsersPage() {
                         {t('admin.users.detail')}
                       </Button>
                       <Popconfirm
-                        title={isLocked ? '確認解除鎖定？' : '確認鎖定 30 分鐘？'}
-                        description="此操作會寫入審計日誌。"
-                        okText="確認"
-                        cancelText="取消"
+                        title={isLocked ? t('admin.users.confirmUnlock') : t('admin.users.confirmLock30m')}
+                        description={t('admin.users.auditHint')}
+                        okText={t('common.confirm')}
+                        cancelText={t('common.cancel')}
                         onConfirm={() =>
-                          statusMutation.mutate({
-                            userId: row.id,
-                            action: isLocked ? 'unlock' : 'lock',
-                            lockMinutes: 30,
-                          })
+                          handleStatusAction(row, isLocked ? 'unlock' : 'lock', 30)
                         }
                       >
-                        <Button size="small" loading={statusMutation.isPending}>
-                          {isLocked ? '解除鎖定' : '鎖定30分鐘'}
+                        <Button
+                          size="small"
+                          disabled={!canWriteUsers}
+                          loading={pendingActionKey === `${row.id}:${isLocked ? 'unlock' : 'lock'}`}
+                        >
+                          {isLocked ? t('admin.users.unlock') : t('admin.users.lock30m')}
                         </Button>
                       </Popconfirm>
                       <Popconfirm
-                        title={row.is_active ? '確認停用此用戶？' : '確認啟用此用戶？'}
-                        description="此操作會寫入審計日誌。"
-                        okText="確認"
-                        cancelText="取消"
+                        title={row.is_active ? t('admin.users.confirmDeactivate') : t('admin.users.confirmActivate')}
+                        description={t('admin.users.auditHint')}
+                        okText={t('common.confirm')}
+                        cancelText={t('common.cancel')}
                         onConfirm={() =>
-                          statusMutation.mutate({
-                            userId: row.id,
-                            action: row.is_active ? 'deactivate' : 'activate',
-                          })
+                          handleStatusAction(row, row.is_active ? 'deactivate' : 'activate')
                         }
                       >
-                        <Button size="small" loading={statusMutation.isPending}>
+                        <Button
+                          size="small"
+                          disabled={!canWriteUsers}
+                          loading={pendingActionKey === `${row.id}:${row.is_active ? 'deactivate' : 'activate'}`}
+                        >
                           {row.is_active ? t('admin.users.deactivate') : t('admin.users.activate')}
                         </Button>
                       </Popconfirm>
@@ -123,10 +154,17 @@ export default function AdminUsersPage() {
       <Drawer
         open={selectedUserId.length > 0}
         title={t('admin.users.detail')}
-        width={640}
+        size="large"
         onClose={() => setSelectedUserId('')}
       >
-        <pre>{JSON.stringify(detailQuery.data?.user || {}, null, 2)}</pre>
+        {detailQuery.isLoading && <Text type="secondary">{t('common.loading')}</Text>}
+        {detailQuery.error && <Alert showIcon type="error" title={t('admin.users.detailLoadFailed')} />}
+        {!detailQuery.isLoading && !detailQuery.error && !detailQuery.data?.user && (
+          <Text type="secondary">{t('common.noData')}</Text>
+        )}
+        {!detailQuery.isLoading && !detailQuery.error && detailQuery.data?.user && (
+          <pre>{JSON.stringify(detailQuery.data.user, null, 2)}</pre>
+        )}
       </Drawer>
     </Space>
   );

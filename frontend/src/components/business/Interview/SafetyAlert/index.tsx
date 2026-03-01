@@ -28,11 +28,11 @@ const SafetyAlert: React.FC<SafetyAlertProps> = ({ message: alertMessage, severi
         type={typeMap[severity] || 'info'}
         showIcon
         icon={<HeartOutlined />}
-        message={
+        title={
           <Text strong>{t('safety.title')}</Text>
         }
         description={
-          <Space direction="vertical" size="small">
+          <Space orientation="vertical" size="small">
             <Text>{alertMessage}</Text>
             {isCritical && (
               <div className="safety-alert__resources">

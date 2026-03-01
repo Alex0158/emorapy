@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, Button, Card, Space, Table, Typography, message } from 'antd';
 import type { AdminJobListItem } from '@/types/admin';
+import { useAdminAccess } from '@/hooks/useAdminAccess';
 import { adminApi } from '@/services/api/admin';
 import { t } from '@/utils/i18n';
 
@@ -8,6 +9,7 @@ const { Title, Text } = Typography;
 
 export default function AdminJobsPage() {
   const queryClient = useQueryClient();
+  const { hasPermission: canExecuteJobs } = useAdminAccess(['ops:execute'], true);
   const jobsQuery = useQuery({
     queryKey: ['admin', 'jobs', 'list'],
     queryFn: adminApi.listJobs,
@@ -18,13 +20,18 @@ export default function AdminJobsPage() {
       message.success(t('admin.jobs.triggerSuccess'));
       void queryClient.invalidateQueries({ queryKey: ['admin', 'jobs'] });
     },
-    onError: () => {
+    onError: (error: unknown) => {
+      const err = error as { code?: string } | null;
+      if (err?.code === 'FORBIDDEN') {
+        message.error(t('admin.ops.accessDenied'));
+        return;
+      }
       message.error(t('admin.jobs.triggerFailed'));
     },
   });
 
   return (
-    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+    <Space orientation="vertical" size="large" style={{ width: '100%' }}>
       <div>
         <Title level={3} style={{ marginBottom: 0 }}>
           {t('admin.jobs.heading')}
@@ -32,6 +39,7 @@ export default function AdminJobsPage() {
         <Text type="secondary">{t('admin.jobs.subtitle')}</Text>
       </div>
       {jobsQuery.error && <Alert showIcon type="error" title={t('admin.jobs.loadFailed')} />}
+      {!canExecuteJobs && <Alert showIcon type="warning" title={t('admin.jobs.executeDenied')} />}
       <Card>
         <Table<AdminJobListItem>
           rowKey="key"
@@ -54,6 +62,7 @@ export default function AdminJobsPage() {
               render: (_, row) => (
                 <Button
                   loading={triggerMutation.isPending}
+                  disabled={!canExecuteJobs}
                   onClick={() => triggerMutation.mutate(row.key)}
                 >
                   {t('admin.jobs.trigger')}

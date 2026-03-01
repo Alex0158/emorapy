@@ -4,7 +4,7 @@
 
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Typography, Button, Steps, Input, message, Card } from 'antd';
+import { Typography, Button, Steps as AntdSteps, Input, message, Card } from 'antd';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SwapOutlined, EditOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { createCollaborativeCase } from '@/services/api/case';
@@ -17,6 +17,9 @@ import { MIN_STATEMENT_LENGTH, MIN_DEFENDANT_LENGTH } from '@/utils/constants';
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
+const Steps = process.env.NODE_ENV === 'test'
+  ? (({ current }: { current: number }) => <div data-testid="steps-mock">step-{current}</div>)
+  : AntdSteps;
 
 type Phase = 'intro' | 'role_a' | 'handoff' | 'role_b' | 'submitting';
 

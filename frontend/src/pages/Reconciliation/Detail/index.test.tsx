@@ -2,7 +2,7 @@
  * Reconciliation Detail 頁面單元測試
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 const mockGetPlanById = vi.fn();
@@ -128,9 +128,9 @@ describe('ReconciliationDetail', () => {
     await waitFor(() => {
       expect(screen.getByText('reconDetail.startExecution')).toBeInTheDocument();
     });
-    screen.getByRole('button', { name: /reconDetail\.startExecution/ }).click();
-    await waitFor(() => {
-      expect(mockConfirmExecution).toHaveBeenCalledWith('plan-1');
+    await act(async () => {
+      screen.getByRole('button', { name: /reconDetail\.startExecution/ }).click();
     });
+    await waitFor(() => expect(mockConfirmExecution).toHaveBeenCalledWith('plan-1'));
   });
 });

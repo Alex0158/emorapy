@@ -13,10 +13,14 @@ import {
   adminAdminUserUpdateSchema,
   adminAuditLogsQuerySchema,
   adminBootstrapSchema,
+  adminFeatureFlagsSchema,
   adminCustomReportSchema,
+  adminAlertRulesSchema,
   adminJobTriggerSchema,
   adminJobStatsQuerySchema,
   adminLoginSchema,
+  adminPaginationQuerySchema,
+  adminSearchPaginationQuerySchema,
   adminUpsertConfigSchema,
   adminUserDetailParamSchema,
   adminUserStatusSchema,
@@ -65,6 +69,7 @@ router.get(
   generalLimiter,
   authenticateAdmin,
   requireAdminPermission('config:read'),
+  validate(adminPaginationQuerySchema),
   adminController.listConfigs.bind(adminController)
 );
 router.put(
@@ -81,6 +86,7 @@ router.get(
   generalLimiter,
   authenticateAdmin,
   requireAdminPermission('users:read'),
+  validate(adminSearchPaginationQuerySchema),
   adminController.listUsers.bind(adminController)
 );
 router.get(
@@ -122,6 +128,7 @@ router.get(
   generalLimiter,
   authenticateAdmin,
   requireAdminPermission('admin:all'),
+  validate(adminSearchPaginationQuerySchema),
   adminController.listAdminUsers.bind(adminController)
 );
 router.post(
@@ -198,6 +205,7 @@ router.put(
   generalLimiter,
   authenticateAdmin,
   requireAdminPermissionAll('alerts:write', 'ops:execute'),
+  validate(adminAlertRulesSchema),
   adminController.upsertAlertRules.bind(adminController)
 );
 router.put(
@@ -205,6 +213,7 @@ router.put(
   generalLimiter,
   authenticateAdmin,
   requireAdminPermission('config:write'),
+  validate(adminFeatureFlagsSchema),
   adminController.setFeatureFlags.bind(adminController)
 );
 

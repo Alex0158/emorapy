@@ -35,6 +35,19 @@ npm run build
 npm run preview
 ```
 
+### 前後台分離運行（推薦）
+
+- 主前台：`/frontend`（一般用戶入口）
+- 管理後台：`/frontend-admin`（管理員入口）
+
+```bash
+# 主前台
+cd frontend && npm run dev
+
+# 管理後台（另一個 terminal）
+cd frontend-admin && npm run dev
+```
+
 ## 🧪 測試
 
 使用 Vitest + Testing Library 進行單元測試。
@@ -42,12 +55,16 @@ npm run preview
 ```bash
 # 安裝依賴後執行
 npm install
-npm run test:run       # 執行一次所有測試
-npm run test          # watch 模式
-npm run test:coverage # 覆蓋率報告
+npm run test          # 執行一次所有測試（CI 建議）
+npm run test:run       # 同上（別名）
+npm run test:coverage # 覆蓋率報告（當前等同於 vitest run）
+# watch 模式：npx vitest
 ```
 
 測試涵蓋：執行儀表板頁面、statusTags/format/formatDate/helpers/seo/apiError/url/validation/storage 工具、執行 API、useToggle Hook、utils/hooks/store/config/components/pages 等。
+
+補充：
+- 聊天室訊息列表使用 `react-virtuoso`（依賴 DOM 量測）。在 jsdom 測試環境下，`frontend/src/pages/Chat/Room/index.test.tsx` 會對 `react-virtuoso` 做 stub，以確保測試能穩定驗證訊息送出/禁用狀態等核心行為。
 
 **若出現 `vitest: command not found` 或 `ERR_MODULE_NOT_FOUND: vitest`**：依賴未正確安裝。請執行：
 
@@ -68,6 +85,9 @@ cp .env.example .env
 
 必需配置：
 - `VITE_API_BASE_URL`: 後端API地址（默認: http://localhost:3001/api/v1）
+- `VITE_ADMIN_LOGIN_URL`: 主前台跳轉管理台入口（僅 frontend 需要，必須是絕對 URL）
+
+`frontend-admin` 也建議設置 `VITE_ADMIN_LOGIN_URL` 為絕對 URL（供 admin 401 回登入頁使用）。
 
 ## 📁 項目結構
 
@@ -88,6 +108,11 @@ frontend/
 │   ├── config/         # 配置文件
 │   └── router/         # 路由配置
 ├── public/             # 靜態資源
+└── package.json
+
+frontend-admin/
+├── src/                # Admin 專屬入口與路由
+├── vite.config.ts      # 共享 frontend/src 的 alias 設定
 └── package.json
 ```
 
@@ -116,6 +141,15 @@ frontend/
 - 📋 畫像數據清除（設定頁面，遺忘權）
 - 📋 4 種觸發入口：主動進入 / 建案前 / 判決後 / 首次登入
 
+### 💬 聊天室（Chat v1）
+- 📋 單人訴苦聊天室（A+AI），可隨時建立邀請碼 Invite B 入房
+- 📋 A/B/AI 三方對話（含 SSE 即時更新 + 斷線輪詢回補）
+- 📋 訊息可見性：`all` / `summary_only` / `owner_only`
+- 📋 回覆引用（reply）與訊息錨點定位（`#msg-<id>`）+ 複製連結
+- 📋 歷史訊息分頁載入（cursor-based pagination）
+- 📋 大量訊息效能：訊息列表使用 `react-virtuoso` 虛擬列表，並設有前端快取上限避免卡頓
+- 📋 轉判決前預覽與手動勾選納入訊息（提交 `included_message_ids`）
+
 ## 📚 API服務
 
 所有API服務位於 `src/services/api/`：
@@ -130,6 +164,7 @@ frontend/
 - `execution.ts`: 執行相關
 - `interview.ts`: 訪談相關（v2.0，含 SSE）
 - `psychProfile.ts`: 心理畫像相關（v2.0）
+- `chat.ts`: 聊天室相關（v1，含 SSE）
 
 ### v2.0 新增 SSE 通訊
 
@@ -199,10 +234,17 @@ npm run build
 - GitHub Pages
 - 任何靜態文件服務器
 
+前台與後台建議使用兩個獨立 Vercel 專案：
+- `frontend`（Production Domain: 例如 `app.xxx.com`）
+- `frontend-admin`（Production Domain: 例如 `admin.xxx.com`）
+
+若 `frontend-admin` 仍引用 `../frontend/src` 共用代碼，Vercel 需採用 **repo root** 建置（使用 root `vercel.json`，輸出 `frontend-admin/dist`），避免子目錄建置時出現模組解析失敗。
+
 ### 環境變量
 
 生產環境需要設置：
 - `VITE_API_BASE_URL`: 生產環境API地址
+- `VITE_ADMIN_LOGIN_URL`: 主前台導向管理後台登入頁（必須為絕對 URL）
 
 ## 🌐 國際化（i18n）
 

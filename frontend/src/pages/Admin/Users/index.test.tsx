@@ -7,6 +7,7 @@ const { mockUseQuery, mockUseMutation, mockUseQueryClient } = vi.hoisted(() => (
   mockUseMutation: vi.fn(),
   mockUseQueryClient: vi.fn(),
 }));
+const mockUseAdminAccess = vi.fn();
 
 vi.mock('@tanstack/react-query', () => ({
   useQuery: (...args: unknown[]) => mockUseQuery(...args),
@@ -21,6 +22,9 @@ vi.mock('@/services/api/admin', () => ({
     updateUserStatus: vi.fn(),
   },
 }));
+vi.mock('@/hooks/useAdminAccess', () => ({
+  useAdminAccess: (...args: unknown[]) => mockUseAdminAccess(...args),
+}));
 
 vi.mock('@/utils/i18n', () => ({
   t: (key: string) => key,
@@ -29,6 +33,7 @@ vi.mock('@/utils/i18n', () => ({
 describe('AdminUsersPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUseAdminAccess.mockReturnValue({ hasPermission: true });
     mockUseQueryClient.mockReturnValue({ invalidateQueries: vi.fn() });
     mockUseQuery
       .mockReturnValueOnce({
@@ -71,8 +76,16 @@ describe('AdminUsersPage', () => {
 
   it('locked_until 過期時應顯示鎖定而非解除', () => {
     render(<AdminUsersPage />);
-    expect(screen.getAllByText('鎖定30分鐘').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('解除鎖定').length).toBeGreaterThanOrEqual(1);
+    const texts = screen.getAllByRole('button').map((b) => b.textContent || '');
+    expect(texts.some((t) => /lock30m|鎖定30分鐘/i.test(t))).toBe(true);
+    expect(texts.some((t) => /unlock|解除鎖定/i.test(t))).toBe(true);
+  });
+
+  it('缺少 users:write 時應禁用狀態操作按鈕', () => {
+    mockUseAdminAccess.mockReturnValue({ hasPermission: false });
+    render(<AdminUsersPage />);
+    expect(screen.getByText('admin.users.writeDenied')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'admin.users.lock30m' })[0]).toBeDisabled();
+    expect(screen.getAllByRole('button', { name: 'admin.users.deactivate' })[0]).toBeDisabled();
   });
 });
-

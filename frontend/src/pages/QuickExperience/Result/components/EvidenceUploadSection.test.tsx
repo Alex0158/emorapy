@@ -9,11 +9,28 @@ vi.mock('@/components/common/AnimatedWrapper', () => ({
 }));
 vi.mock('framer-motion', () => {
   const React = require('react');
+  const stripMotionProps = (props: Record<string, unknown>) => {
+    const {
+      animate,
+      initial,
+      exit,
+      variants,
+      transition,
+      layout,
+      layoutId,
+      viewport,
+      whileInView,
+      whileHover,
+      whileTap,
+      ...rest
+    } = props;
+    return rest;
+  };
   return {
     motion: new Proxy({}, {
       get: (_t: unknown, prop: string) =>
         React.forwardRef((props: Record<string, unknown>, ref: unknown) =>
-          React.createElement(prop === 'div' ? 'div' : prop, { ...props, ref }, props.children)),
+          React.createElement(prop === 'div' ? 'div' : prop, { ...stripMotionProps(props), ref }, props.children)),
     }),
   };
 });

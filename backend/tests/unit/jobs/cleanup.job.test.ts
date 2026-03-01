@@ -66,6 +66,7 @@ jest.mock('fs/promises', () => ({
 }));
 
 import {
+  adminJobs,
   startJobs,
   stopJobs,
   jobsStarted,
@@ -107,7 +108,7 @@ describe('cleanup.job', () => {
       process.env.ENABLE_SCHEDULED_JOBS = 'true';
       mockEnvRef.NODE_ENV = 'test';
       startJobs();
-      expect(mockStart).toHaveBeenCalledTimes(10);
+      expect(mockStart).toHaveBeenCalledTimes(adminJobs.length);
       expect(jobsStarted).toBe(true);
       expect(mockLogger.info).toHaveBeenCalledWith('Scheduled jobs started', expect.objectContaining({ env: 'test' }));
     });
@@ -120,7 +121,7 @@ describe('cleanup.job', () => {
       startJobs();
       expect(mockStart).toHaveBeenCalled();
       stopJobs();
-      expect(mockStop).toHaveBeenCalledTimes(10);
+      expect(mockStop).toHaveBeenCalledTimes(adminJobs.length);
       expect(jobsStarted).toBe(false);
       expect(mockLogger.info).toHaveBeenCalledWith('Scheduled jobs stopped');
     });

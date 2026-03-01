@@ -26,7 +26,7 @@ const ensureData = <T>(value: T | undefined | null, errorMessage: string): T => 
 };
 
 export const createChatRoom = async (
-  historyVisibilityMode: ChatHistoryVisibilityMode = 'share_full_history'
+  historyVisibilityMode: ChatHistoryVisibilityMode = 'share_summary_only'
 ): Promise<ChatRoom> => {
   const response = await request.post<ApiResponse<{ room: ChatRoom }>>('/chat/rooms', {
     history_visibility_mode: historyVisibilityMode,
@@ -101,7 +101,7 @@ export const listChatMessages = async (
 
 export const sendChatMessage = async (
   roomId: string,
-  payload: { content: string; visibility_scope?: 'all' | 'owner_only' | 'summary_only' }
+  payload: { content: string; visibility_scope?: 'all' | 'owner_only' | 'summary_only'; reply_to_message_id?: string }
 ): Promise<ChatMessage> => {
   const response = await request.post<ApiResponse<{ message: ChatMessage }>>(
     `/chat/rooms/${encodeURIComponent(roomId)}/messages`,
@@ -113,9 +113,13 @@ export const sendChatMessage = async (
   );
 };
 
-export const requestChatJudgment = async (roomId: string): Promise<ChatJudgmentResult> => {
+export const requestChatJudgment = async (
+  roomId: string,
+  payload?: { included_message_ids?: string[] }
+): Promise<ChatJudgmentResult> => {
   const response = await request.post<ApiResponse<ChatJudgmentResult>>(
-    `/chat/rooms/${encodeURIComponent(roomId)}/request-judgment`
+    `/chat/rooms/${encodeURIComponent(roomId)}/request-judgment`,
+    payload ?? {}
   );
   return ensureData(
     (response.data as ApiResponse<ChatJudgmentResult>)?.data,
@@ -131,6 +135,20 @@ export const getChatJudgmentStatus = async (roomId: string): Promise<ChatJudgmen
     (response.data as ApiResponse<ChatJudgmentStatus>)?.data,
     'Invalid judgment status response from server'
   );
+};
+
+export const leaveChatRoom = async (roomId: string): Promise<ChatRoom> => {
+  const response = await request.post<ApiResponse<{ room: ChatRoom }>>(
+    `/chat/rooms/${encodeURIComponent(roomId)}/leave`
+  );
+  return ensureData((response.data as ApiResponse<{ room: ChatRoom }>)?.data?.room, 'Invalid leave room response');
+};
+
+export const kickChatParticipantB = async (roomId: string): Promise<ChatRoom> => {
+  const response = await request.post<ApiResponse<{ room: ChatRoom }>>(
+    `/chat/rooms/${encodeURIComponent(roomId)}/kick-b`
+  );
+  return ensureData((response.data as ApiResponse<{ room: ChatRoom }>)?.data?.room, 'Invalid kick response');
 };
 
 export interface ChatStreamCallbacks {
@@ -227,4 +245,3 @@ export const connectChatStream = async (
   void run();
   return () => controller.abort();
 };
-

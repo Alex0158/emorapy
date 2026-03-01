@@ -190,7 +190,7 @@ const JudgmentDetail = () => {
     return (
       <div className="judgment-detail-page">
         <Alert
-          message={t('message.judgmentNotFound')}
+          title={t('message.judgmentNotFound')}
           type="error"
           action={
             <Space>
@@ -264,7 +264,7 @@ const JudgmentDetail = () => {
             <Title level={4} id="feedback-title">
               {t('judgmentDetail.feedbackTitle')}
             </Title>
-            <Space direction="vertical" size="large" style={{ width: '100%' }}>
+            <Space orientation="vertical" size="large" style={{ width: '100%' }}>
               <div role="group" aria-label={t('judgmentDetail.ratingAria')}>
                 <Text>{t('judgmentDetail.ratingLabel')}</Text>
                 <Rate
@@ -307,7 +307,7 @@ const JudgmentDetail = () => {
 
             {judgment.user1_acceptance !== undefined && (
               <Alert
-                message={judgment.user1_acceptance ? t('judgmentDetail.acceptedAlert') : t('judgmentDetail.rejectedAlert')}
+                title={judgment.user1_acceptance ? t('judgmentDetail.acceptedAlert') : t('judgmentDetail.rejectedAlert')}
                 type={judgment.user1_acceptance ? 'success' : 'warning'}
                 showIcon
                 role="status"
@@ -342,7 +342,7 @@ const JudgmentDetail = () => {
         {showPostJudgmentCard && (
           <AnimatedWrapper animation="slide" direction="up" delay={600}>
             <Card className="post-judgment-trigger-card" style={{ marginTop: 16 }}>
-              <Space direction="vertical" size="middle" style={{ width: '100%', textAlign: 'center' }}>
+            <Space orientation="vertical" size="middle" style={{ width: '100%', textAlign: 'center' }}>
                 <HeartOutlined style={{ fontSize: 32, color: '#eb2f96' }} />
                 <Title level={4} style={{ margin: 0 }}>{t('trigger.postJudgmentTitle')}</Title>
                 <Text type="secondary">{t('trigger.postJudgmentDesc')}</Text>

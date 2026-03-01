@@ -127,7 +127,7 @@ const ExecutionCheckIn = () => {
       <div className="execution-checkin-page">
         <Alert
           type="warning"
-          message={t('execCheckIn.notFound')}
+          title={t('execCheckIn.notFound')}
           action={
             <Button onClick={() => navigate('/execution/dashboard')}>{t('common.back')}</Button>
           }
@@ -161,7 +161,7 @@ const ExecutionCheckIn = () => {
         {execution && (
           <AnimatedWrapper animation="slide" direction="down" delay={200}>
             <Card style={{ marginBottom: 24 }} role="status" aria-live="polite">
-              <Space direction="vertical">
+              <Space orientation="vertical">
                 <Text strong>{t('execCheckIn.progressLabel').replace('{percent}', String(execution.progress))}</Text>
                 <Text type="secondary">{t('execCheckIn.recordsCount').replace('{count}', String(execution.records.length))}</Text>
               </Space>
@@ -193,6 +193,8 @@ const ExecutionCheckIn = () => {
             <Form.Item
               name="photos"
               label={t('execCheckIn.photosLabel')}
+              valuePropName="fileList"
+              getValueFromEvent={(e) => e?.fileList}
             >
               <Upload
                 listType="picture-card"
@@ -224,7 +226,7 @@ const ExecutionCheckIn = () => {
         {execution && execution.records.length > 0 && (
           <AnimatedWrapper animation="slide" direction="up" delay={400}>
             <Card title={t('execCheckIn.historyTitle')} style={{ marginTop: 24 }}>
-            <Space direction="vertical" style={{ width: '100%' }}>
+            <Space orientation="vertical" style={{ width: '100%' }}>
               {execution.records.map((record) => (
                 <Card key={record.id} size="small">
                   {record.notes && <Text>{record.notes}</Text>}
@@ -243,4 +245,3 @@ const ExecutionCheckIn = () => {
 };
 
 export default ExecutionCheckIn;
-

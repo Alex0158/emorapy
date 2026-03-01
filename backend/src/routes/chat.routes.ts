@@ -13,6 +13,7 @@ import {
   createChatRoomSchema,
   listChatMessagesSchema,
   sendChatMessageSchema,
+  requestChatJudgmentSchema,
 } from '../utils/validation';
 
 const router = Router();
@@ -233,10 +234,13 @@ router.post(
   generalLimiter,
   optionalAuthenticate,
   validate(chatRoomIdParamSchema),
+  validate(requestChatJudgmentSchema),
   async (req, res, next) => {
     try {
       const actor = getActorFromRequest(req);
-      const result = await chatService.requestJudgment(req.params.roomId, actor);
+      const result = await chatService.requestJudgment(req.params.roomId, actor, {
+        includedMessageIds: req.body.included_message_ids,
+      });
       chatEventsService.publish({
         type: 'room_status',
         roomId: req.params.roomId,
@@ -252,6 +256,64 @@ router.post(
         success: true,
         data: result,
         message: '已發起判決',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+router.post(
+  '/rooms/:roomId/leave',
+  generalLimiter,
+  optionalAuthenticate,
+  validate(chatRoomIdParamSchema),
+  async (req, res, next) => {
+    try {
+      const actor = getActorFromRequest(req);
+      const room = await chatService.leaveRoom(req.params.roomId, actor);
+      chatEventsService.publish({
+        type: 'room_status',
+        roomId: req.params.roomId,
+        payload: {
+          status: room.status,
+          participantLeft: true,
+        },
+        at: new Date().toISOString(),
+      });
+      res.json({
+        success: true,
+        data: { room },
+        message: '已離開聊天室',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+router.post(
+  '/rooms/:roomId/kick-b',
+  generalLimiter,
+  optionalAuthenticate,
+  validate(chatRoomIdParamSchema),
+  async (req, res, next) => {
+    try {
+      const actor = getActorFromRequest(req);
+      const room = await chatService.kickParticipantB(req.params.roomId, actor);
+      chatEventsService.publish({
+        type: 'room_status',
+        roomId: req.params.roomId,
+        payload: {
+          status: room.status,
+          participantKicked: true,
+        },
+        at: new Date().toISOString(),
+      });
+      res.json({
+        success: true,
+        data: { room },
+        message: '已移除 B 方',
       });
     } catch (error) {
       next(error);
@@ -290,6 +352,7 @@ router.post(
       const message = await chatService.sendMessage(req.params.roomId, actor, {
         content: req.body.content,
         visibilityScope: req.body.visibility_scope ?? 'all',
+        replyToMessageId: req.body.reply_to_message_id,
       });
       chatEventsService.publish({
         type: 'message',

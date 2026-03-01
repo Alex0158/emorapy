@@ -9,6 +9,14 @@ vi.mock('@/utils/i18n', () => ({
   t: (key: string) => key,
 }));
 
+vi.mock('antd', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('antd')>();
+  return {
+    ...actual,
+    Space: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  };
+});
+
 describe('ConsentModal', () => {
   const defaultProps = {
     open: true,

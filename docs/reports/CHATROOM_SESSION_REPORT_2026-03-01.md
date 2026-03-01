@@ -1,0 +1,154 @@
+# 聊天室功能與可觀測性深化實作報告（本次會話）
+
+日期：2026-03-01  
+範圍：Mother Bear Court（`mother-bear-court/`）Chat v1（單聊→邀請→群聊→轉判決）與其前後端/文件/測試/可觀測性配套
+
+---
+
+## 1. 目標與結論（摘要）
+
+本次會話的核心目標是把「聊天室半成品」補齊成可用、可審計、可觀測、在大量訊息下仍可維持順暢操作的 Chat v1：
+
+1. 使用者體驗：從頁面操作角度修正不合理行為（錯誤也會導航離房、B 端看到 A-only 按鈕、誤點整行就進回覆等），並補齊回覆引用、錨點定位、複製連結、未讀提示、判決前預覽勾選。
+2. 大量訊息效能：導入虛擬列表、避免全量 sort/去重導致卡頓，並加上前端快取上限與合理的「載入更多歷史」策略。
+3. 後端完整性：補齊 leave/kick API、`included_message_ids` 納入判決能力、房級限流與 AI 回覆編排器（support/mediation/safety），並以 `conversion_snapshot` 留存轉換可追溯資訊。
+4. 可觀測性：暴露 Prometheus `/metrics` 指標、提供告警規則示例與 runbook 接入指引。
+5. 文件一致性：以代碼為準（routes/service/schema）回寫到核心/開發/設計文件，避免設計草圖與現況漂移。
+
+---
+
+## 2. 使用者可感知的前端功能/體驗改動
+
+對應頁面：`frontend/src/pages/Chat/Room/index.tsx`、`frontend/src/pages/Chat/Room/index.less`
+
+### 2.1 訊息呈現與互動
+
+1. A/B 氣泡對齊與視覺區分：A 右、B 左、system/safety 置中。
+2. 訊息分組（Group）：同角色 + 同 message_type + 3 分鐘內視為同一組，減少重複 header；同時保留每組結尾時間。
+3. 日期分隔線：跨日自動插入日期 divider，提升長對話可讀性。
+4. 時間顯示優化：在支援 hover 的裝置下，時間（foot）與 actions 預設隱藏、hover 才顯示，降低視覺噪音。
+5. 明確「回覆」按鈕：不再依賴整行點擊觸發回覆，避免誤觸與無法選取文字。
+6. 引用（reply preview）可點擊跳轉：點引用會跳到被引用訊息，並高亮 2 秒。
+7. 錨點定位：支援 URL `#msg-<messageId>` 定位訊息；同房間 hash 變動可重新定位。
+8. 複製訊息連結：提供 Copy Link 操作，且不會強制把使用者捲動位置拉走。
+9. 跳轉後「回到剛才位置」：從底部或其他位置跳到引用訊息後，提供一鍵回跳提示。
+10. 未讀提示與跳到最新：使用者不在底部時收到新訊息，提示 unread，點擊可回到底部。
+
+### 2.2 歷史訊息載入（Pagination）
+
+1. Cursor-based pagination：向上載入更舊訊息（後端用 `cursor=<ISO>`）。
+2. 進房與 SSE 更新採 merge 策略：避免載入歷史後被「最新拉取」覆蓋舊資料。
+3. 自動載入：捲到頂可觸發載入更多歷史（同時保留 Header 的手動按鈕）。
+
+### 2.3 大量訊息效能（Virtualized + 上限）
+
+1. 導入虛擬列表：使用 `react-virtuoso`（可變高度、prepend 保持位置、支援 scrollToIndex）。
+2. 訊息合併改為線性 merge：避免「去重 + sort」的全量 O(n log n) 成本。
+3. 前端快取上限：預設保留最近 `600` 則訊息（`MAX_MESSAGE_CACHE=600`）。
+4. 載入更多的上限策略：當已達快取上限且非錨點自動補頁時，暫停再載入更多並提示（避免越載越卡且無限堆記憶體）。
+5. 底部提示條（JumpBack/Unread）改為 overlay + Footer padding：避免遮住最後訊息。
+
+---
+
+## 3. 後端能力/邏輯調整（API、模型、轉判決、安全、節流）
+
+### 3.1 Chat API 端點（v1）
+
+Base：`/api/v1/chat`
+
+1. 房間：`POST /chat/rooms`、`GET /chat/rooms/:roomId`
+2. 邀請：`POST /chat/rooms/:roomId/invites`、`POST /chat/invites/:inviteCode/accept`、`POST /chat/invites/:inviteCode/decline`
+3. 訊息：`GET /chat/rooms/:roomId/messages`（cursor pagination）、`POST /chat/rooms/:roomId/messages`（含 `visibility_scope`、`reply_to_message_id`）
+4. SSE：`GET /chat/rooms/:roomId/stream`（`ready/ping/message/invite/room_status`）
+5. 轉判決：`POST /chat/rooms/:roomId/request-judgment`（支援 `included_message_ids?: string[]`）、`GET /chat/rooms/:roomId/judgment-status`
+6. 參與者治理：`POST /chat/rooms/:roomId/leave`（B 自離）、`POST /chat/rooms/:roomId/kick-b`（A 移除 B）
+
+Actor 傳遞（登入/匿名）：
+
+1. JWT：`Authorization: Bearer <token>`
+2. 匿名：`X-Session-Id: <sessionId>` 或 query `?session_id=<sessionId>`
+3. 若同時提供 header 與 query 且值不同，回 `INVALID_SESSION_ID`（避免 session 混淆）
+
+### 3.2 轉判決納入訊息（included_message_ids）
+
+端點：`POST /chat/rooms/:roomId/request-judgment`
+
+1. 未提供 `included_message_ids`：後端採預設策略（只納入 `message_type=user_text` 且 `visibility_scope=all`，並按 `history_visibility_mode` 與 B `joined_at` 裁切）。
+2. 提供 `included_message_ids`：必須是「符合預設策略可納入」的子集合；若非法或最終為空，返回對應錯誤（包含「至少 1 則」的可用性約束）。
+3. 可追溯：轉換時 `conversion_snapshot` 記錄 `included_message_ids`、來源訊息範圍、過濾策略與排除原因，用於稽核/回放/疑難排查。
+
+### 3.3 房級限流與安全守門
+
+1. 房級訊息速率限制：5 秒最多 1 則、30 秒滑窗最多 6 則；超限 429（`RATE_LIMIT_EXCEEDED`）。
+2. 安全命中策略：危機/安全命中會寫入 `safety_notice`，並對 AI 一般插話施加冷卻（避免在高風險互動中「正常化」或誤導）。
+
+### 3.4 AI 回覆編排（ChatAIOrchestrator）
+
+1. 觸發：使用者送出公開訊息（`visibility_scope=all`）後，依房間狀態、安全結果與節流決定是否回覆。
+2. 策略：B 未加入走 support（`ai_reflection`）；B 已加入走 mediation（`ai_mediation`）。
+3. 節流：房級節流（預設約 8 秒一次），避免 AI 洗版與成本失控。
+4. 記錄欄位：訊息表增加 `ai_strategy`、`ai_confidence`，並保留 `reply_to_message_id` 以支援引用關係。
+
+---
+
+## 4. 可觀測性（Metrics/告警示例）
+
+### 4.1 Prometheus 指標
+
+端點：`GET /metrics`（注意：此端點在後端根路徑，非 `/api/v1`）
+
+主要 counters（Chat）：
+
+1. `chat_messages_total`
+2. `chat_rate_limit_hits_total`
+3. `chat_ai_trigger_total{strategy}`
+4. `chat_safety_hits_total`
+5. `chat_judgment_total{result}`
+
+### 4.2 告警規則示例與文件
+
+1. 告警示例：`backend/ops/prometheus/chat-alerts.rules.yml`
+2. 說明文件：`backend/docs/ALERTS_CHAT.md`
+3. Runbook：`docs/backend/OPS_ALERTS_RUNBOOK.md`（已補齊 chat 告警來源與落地提示）
+
+---
+
+## 5. 測試與工程化調整
+
+### 5.1 前端測試命令與穩定性
+
+1. 前端測試腳本對齊 Vitest：`frontend/package.json` 的 `test` 為 `vitest run`。
+2. jsdom 下虛擬列表渲染：`frontend/src/pages/Chat/Room/index.test.tsx` 對 `react-virtuoso` 做 stub，確保能驗證訊息送出/禁用狀態等核心行為。
+3. 測試環境 mock/降噪：`frontend/src/test/setup.ts` 補齊常見 Web API mock（含 `getComputedStyle` fallback、ResizeObserver 等）並僅過濾固定格式的 act 警告（不吞其它錯誤）。
+
+### 5.2 本次會話實際執行
+
+1. 前端：已在本次會話中執行 `frontend` 全套 Vitest，結果通過（全綠）。
+
+---
+
+## 6. 文件更新（以代碼為準回寫）
+
+本次會話已同步更新/補齊以下文件，確保「設計/開發/部署/運維」口徑與現況一致：
+
+1. `docs/backend/API.md`（新增 Chat v1 章節 + `/metrics`）
+2. `docs/frontend/README.md`（補 Chat v1、測試命令對齊、Virtuoso 測試說明）
+3. `docs/backend/README.md`（補 chat/metrics routes & services）
+4. `docs/技術實現細節補充.md`（新增 Chat v1 技術細節，版本升級 v2.4）
+5. `docs/backend/OPS_ALERTS_RUNBOOK.md`（納入 chat metrics/告警接入）
+6. `docs/chatroom-original-requirements-dev-design-report.md`（現況對照更新）
+7. `docs/單聊轉群聊再判決-v1設計方案.md`（API/狀態機/實作進度對齊）
+8. `docs/發佈流程指引.md`、`docs/backend/DEPLOYMENT.md`、`docs/INTEGRATION.md`、`docs/QUICK_START.md`（加入 chat 與 /metrics 的驗證點、修正測試命令）
+9. `docs/11-開發環境配置.md`（重寫成以 repo 實際 scripts/env/migrations/metrics 為準）
+10. `docs/前端設計/08-接口一覽表.md`（新增 Chat v1 接口表，更新統計）
+11. `docs/backend/CHANGELOG.md`、`backend/CHANGELOG.md`（新增 2.1.0：Chat v1）
+12. `docs/功能特性清單.md`（新增 v99.1：Chat v1）
+
+---
+
+## 7. 已知限制與後續建議（不影響當前可用性）
+
+1. `share_summary_only` 的「中立摘要」仍偏手動：目前 summary-only 訊息需使用者自行輸入/標記，未自動生成摘要供 B 加入前閱讀。
+2. Prometheus 告警規則已提供示例，但實際監控系統（Prometheus/Alertmanager）需運維側落地部署與路由。
+3. 前端訊息快取上限會在極長對話下阻擋持續向上載入（以避免卡頓）：若要支持無限回溯，需增加「清理並繼續載入」或「服務端全文搜尋/回放」等產品能力。
+

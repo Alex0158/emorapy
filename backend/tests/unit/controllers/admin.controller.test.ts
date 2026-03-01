@@ -5,8 +5,11 @@ import { adminController } from '../../../src/controllers/admin.controller';
 const mockCronRunLogFindMany = jest.fn();
 const mockSystemConfigUpsert = jest.fn();
 const mockWriteAuditLog = jest.fn();
+const mockListAuditLogs = jest.fn();
 const mockGetNumberConfig = jest.fn();
 const mockGetAdminCostReport = jest.fn();
+const mockUserFindMany = jest.fn();
+const mockUserCount = jest.fn();
 
 jest.mock('../../../src/config/database', () => ({
   __esModule: true,
@@ -17,12 +20,17 @@ jest.mock('../../../src/config/database', () => ({
     systemConfig: {
       upsert: (...args: unknown[]) => mockSystemConfigUpsert(...args),
     },
+    user: {
+      findMany: (...args: unknown[]) => mockUserFindMany(...args),
+      count: (...args: unknown[]) => mockUserCount(...args),
+    },
   },
 }));
 
 jest.mock('../../../src/services/admin.service', () => ({
   adminService: {
     writeAuditLog: (...args: unknown[]) => mockWriteAuditLog(...args),
+    listAuditLogs: (...args: unknown[]) => mockListAuditLogs(...args),
   },
 }));
 
@@ -78,6 +86,8 @@ describe('AdminController', () => {
     res = {
       json: jest.fn().mockReturnThis(),
       status: jest.fn().mockReturnThis(),
+      setHeader: jest.fn().mockReturnThis(),
+      send: jest.fn().mockReturnThis(),
     } as unknown as Response;
     next = jest.fn();
   });
@@ -526,6 +536,108 @@ describe('AdminController', () => {
       await adminController.reportCosts(req as Request, res as Response, next);
 
       expect(next).toHaveBeenCalledWith(expect.any(Error));
+    });
+  });
+
+  describe('pagination and audit serialization', () => {
+    it('listUsers 分頁參數非數字時應回 VALIDATION_ERROR', async () => {
+      req.query = { limit: 'abc', offset: '0' };
+
+      await adminController.listUsers(req as Request, res as Response, next);
+
+      expect(next).toHaveBeenCalledWith(
+        expect.objectContaining({ code: 'VALIDATION_ERROR' })
+      );
+      expect(mockUserFindMany).not.toHaveBeenCalled();
+    });
+
+    it('listAuditLogs 應將 BigInt id 轉為字串', async () => {
+      req.query = {};
+      (mockListAuditLogs as any).mockResolvedValue({
+        items: [
+          {
+            id: BigInt(123),
+            actor_id: 'a1',
+            actor_type: 'admin',
+            entity_type: 'user',
+            entity_id: 'u1',
+            action: 'user_lock',
+            detail: { lockMinutes: 30 },
+            created_at: new Date('2026-03-01T00:00:00.000Z'),
+          },
+        ],
+        total: 1,
+      });
+
+      await adminController.listAuditLogs(req as Request, res as Response, next);
+
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          data: expect.objectContaining({
+            items: [
+              expect.objectContaining({
+                id: '123',
+              }),
+            ],
+            total: 1,
+          }),
+        })
+      );
+    });
+
+    it('exportAuditLogsCsv 應對可疑公式前綴做安全轉義', async () => {
+      req.query = {};
+      (mockListAuditLogs as any).mockResolvedValue({
+        items: [
+          {
+            id: BigInt(9),
+            actor_id: '=cmd|\' /C calc\'!A0',
+            actor_type: 'admin',
+            entity_type: 'user',
+            entity_id: 'u1',
+            action: '@SUM(1,2)',
+            detail: '-danger',
+            created_at: new Date('2026-03-01T00:00:00.000Z'),
+          },
+        ],
+        total: 1,
+      });
+
+      await adminController.exportAuditLogsCsv(req as Request, res as Response, next);
+
+      expect((res.setHeader as jest.Mock)).toHaveBeenCalledWith('Content-Type', 'text/csv; charset=utf-8');
+      const payload = (res.send as jest.Mock).mock.calls[0][0] as string;
+      expect(payload).toContain('"\'=cmd|');
+      expect(payload).toContain('"\'@SUM(1,2)"');
+      expect(payload).toContain('"\'-danger"');
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('exportAuditLogsCsv 應對前置空白後的公式前綴做安全轉義', async () => {
+      req.query = {};
+      (mockListAuditLogs as any).mockResolvedValue({
+        items: [
+          {
+            id: BigInt(10),
+            actor_id: '  =2+2',
+            actor_type: 'admin',
+            entity_type: 'user',
+            entity_id: 'u1',
+            action: 'ok',
+            detail: '\t@SUM(A1:A2)',
+            created_at: new Date('2026-03-01T00:00:00.000Z'),
+          },
+        ],
+        total: 1,
+      });
+
+      await adminController.exportAuditLogsCsv(req as Request, res as Response, next);
+
+      const payload = (res.send as jest.Mock).mock.calls[0][0] as string;
+      expect(payload).toContain('"\'  =2+2"');
+      expect(payload).toContain('"\'\t@SUM(A1:A2)"');
+      expect(next).not.toHaveBeenCalled();
     });
   });
 });

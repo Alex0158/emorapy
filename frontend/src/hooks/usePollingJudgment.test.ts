@@ -45,7 +45,7 @@ describe('usePollingJudgment', () => {
     expect(mockCreatePolling).not.toHaveBeenCalled();
   });
 
-  it('enabled 且 caseId 存在時應調用 createPolling 並 start', () => {
+  it('enabled 且 caseId 存在時應調用 createPolling 並 start', async () => {
     mockGetJudgmentByCaseId.mockResolvedValue({
       id: 'j1',
       case_id: 'c1',
@@ -61,6 +61,10 @@ describe('usePollingJudgment', () => {
     );
     expect(mockCreatePolling).toHaveBeenCalled();
     expect(result.current.loading).toBe(true);
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+      expect(result.current.judgment?.id).toBe('j1');
+    });
   });
 
   it('輪詢成功取得判決時應更新 judgment 並停止 loading', async () => {

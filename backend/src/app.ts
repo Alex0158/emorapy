@@ -14,6 +14,7 @@ import { performanceMonitor } from './middleware/performance';
 import { authorizeMedia, optionalAuthenticate } from './middleware/auth';
 import { localeMiddleware } from './middleware/locale';
 import { translateBackendMessage, translateErrorByCode } from './i18n';
+import { AppError } from './utils/errors';
 
 // 導入路由
 import healthRoutes from './routes/health.routes';
@@ -32,6 +33,7 @@ import interviewRoutes from './routes/interview.routes';
 import psychProfileRoutes from './routes/psych-profile.routes';
 import adminRoutes from './routes/admin.routes';
 import chatRoutes from './routes/chat.routes';
+import metricsRoutes from './routes/metrics.routes';
 
 const app: Application = express();
 
@@ -66,21 +68,45 @@ const helmetConfig = env.NODE_ENV === 'production'
 
 app.use(helmet(helmetConfig));
 
-// CORS配置（生產環境嚴格限制 origin）
-app.use(cors({
-  origin: (origin, callback) => {
-    // 開發環境允許無 origin（Postman / curl 等工具）
-    if (!origin && env.NODE_ENV !== 'production') {
-      return callback(null, true);
-    }
-    if (origin && env.ALLOWED_ORIGINS.includes(origin)) {
-      return callback(null, true);
-    }
-    callback(new Error('不允許的來源'));
-  },
+// 請求ID（盡早注入，確保被 CORS 拒絕的請求也可追蹤）
+app.use(requestId);
+
+// CORS 配置（生產環境嚴格限制 origin）
+const corsBaseOptions = {
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Session-Id', 'X-Locale'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Session-Id', 'X-Locale', 'X-Admin-Bootstrap-Token'],
+};
+const isHealthPath = (path: string): boolean =>
+  path === '/health' || path === '/health/ready' || path === '/health/live';
+
+// 先做來源白名單判斷，避免 cors 套件錯誤被包裝後落成 500
+app.use((req, _res, next) => {
+  const origin = req.header('Origin');
+  if (!origin) {
+    if (env.NODE_ENV !== 'production' || isHealthPath(req.path)) {
+      return next();
+    }
+    return next(new AppError(403, 'CORS_ORIGIN_DENIED', '不允許的來源'));
+  }
+
+  if (env.ALLOWED_ORIGINS.includes(origin)) {
+    return next();
+  }
+
+  return next(new AppError(403, 'CORS_ORIGIN_DENIED', '不允許的來源'));
+});
+
+app.use(cors((req, callback) => {
+  const origin = req.header('Origin');
+  if (!origin) {
+    // 非瀏覽器來源不需要 CORS 標頭；health 在上方白名單中已放行
+    return callback(null, { ...corsBaseOptions, origin: false });
+  }
+  if (env.ALLOWED_ORIGINS.includes(origin) || (env.NODE_ENV !== 'production' && isHealthPath(req.path))) {
+    return callback(null, { ...corsBaseOptions, origin: true });
+  }
+  return callback(null, { ...corsBaseOptions, origin: false });
 }));
 
 // 語言偵測（Accept-Language）
@@ -106,9 +132,6 @@ app.use((err: unknown, req: express.Request, res: express.Response, next: expres
   }
   return next(err);
 });
-
-// 請求ID（必須在日誌之前）
-app.use(requestId);
 
 // 性能監控（必須在日誌之前）
 app.use(performanceMonitor);
@@ -150,6 +173,7 @@ app.use('/uploads', (req, res, next) => {
 
 // 健康檢查路由（不限制流，用於監控）
 app.use('/', healthRoutes);
+app.use('/', metricsRoutes);
 
 // API路由
 app.use('/api/v1/auth', authRoutes);

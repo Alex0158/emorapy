@@ -1,5 +1,7 @@
 import { env } from './env';
 import logger from './logger';
+import jwt from 'jsonwebtoken';
+import type { StringValue } from 'ms';
 
 /**
  * 驗證環境變量配置
@@ -14,6 +16,14 @@ export function validateEnvConfig(): void {
 
   if (!env.JWT_SECRET) {
     errors.push('JWT_SECRET is required');
+  }
+  if (env.NODE_ENV === 'production') {
+    if (!process.env.ADMIN_JWT_SECRET || !process.env.ADMIN_JWT_SECRET.trim()) {
+      errors.push('ADMIN_JWT_SECRET is required in production');
+    }
+    if (!process.env.ADMIN_JWT_EXPIRES_IN || !process.env.ADMIN_JWT_EXPIRES_IN.trim()) {
+      errors.push('ADMIN_JWT_EXPIRES_IN is required in production');
+    }
   }
 
   if (!env.OPENAI_API_KEY) {
@@ -37,6 +47,17 @@ export function validateEnvConfig(): void {
   // 驗證文件大小限制
   if (env.MAX_FILE_SIZE < 1024 || env.MAX_FILE_SIZE > 100 * 1024 * 1024) {
     errors.push('MAX_FILE_SIZE must be between 1KB and 100MB');
+  }
+  if (process.env.ADMIN_JWT_EXPIRES_IN?.trim()) {
+    try {
+      const adminJwtExpiresIn = process.env.ADMIN_JWT_EXPIRES_IN.trim() as StringValue;
+      jwt.sign({ probe: true }, 'probe-secret', {
+        algorithm: 'HS256',
+        expiresIn: adminJwtExpiresIn,
+      });
+    } catch {
+      errors.push('ADMIN_JWT_EXPIRES_IN is invalid');
+    }
   }
 
   if (errors.length > 0) {

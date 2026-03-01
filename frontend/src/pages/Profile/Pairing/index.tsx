@@ -176,7 +176,7 @@ const ProfilePairing = () => {
         {!profile?.consent_given && (
           <AnimatedWrapper animation="fade" delay={50}>
             <Alert
-              message={t('trigger.bannerTitle')}
+              title={t('trigger.bannerTitle')}
               description={t('trigger.bannerDesc')}
               type="info"
               showIcon
@@ -208,12 +208,12 @@ const ProfilePairing = () => {
           <AnimatedWrapper animation="slide" direction="up" delay={200}>
             <Card role="article" aria-labelledby="pairing-title">
             <Alert
-              message={t('pairing.pairedTitle')}
+              title={t('pairing.pairedTitle')}
               description={t('pairing.pairedDesc')}
               type="success"
               showIcon
             />
-            <Space direction="vertical" style={{ marginTop: 24, width: '100%' }}>
+            <Space orientation="vertical" style={{ marginTop: 24, width: '100%' }}>
               <Text strong>{t('pairing.pairingInfo')}</Text>
               <Text>{t('pairing.pairingId')}{pairing.id}</Text>
               {pairing.user1 && <Text>{t('pairing.user1')}{pairing.user1.nickname || pairing.user1.id}</Text>}
@@ -238,12 +238,12 @@ const ProfilePairing = () => {
           <AnimatedWrapper animation="slide" direction="up" delay={200}>
             <Card>
             <Alert
-              message={t('pairing.pendingTitle')}
+              title={t('pairing.pendingTitle')}
               description={t('pairing.pendingDesc')}
               type="info"
               showIcon
             />
-            <Space direction="vertical" style={{ marginTop: 24, width: '100%' }}>
+            <Space orientation="vertical" style={{ marginTop: 24, width: '100%' }}>
               <Text strong>{t('pairing.inviteCode')}</Text>
               <Space>
                 <Input
@@ -264,7 +264,7 @@ const ProfilePairing = () => {
         ) : (
           <AnimatedWrapper animation="slide" direction="up" delay={200}>
             <Card>
-            <Space direction="vertical" size="large" style={{ width: '100%' }}>
+            <Space orientation="vertical" size="large" style={{ width: '100%' }}>
               <div>
                 <Title level={4}>{t('pairing.createTitle')}</Title>
                 <Paragraph>

@@ -9,11 +9,17 @@ import QuickExperienceCreate from './index';
 vi.mock('framer-motion', () => ({
   motion: {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
+    div: ({ children, whileInView, transition, initial, animate, ...props }: any) => (
+      <div {...props}>{children}</div>
+    ),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    section: ({ children, ...props }: any) => <section {...props}>{children}</section>,
+    section: ({ children, whileInView, transition, initial, animate, ...props }: any) => (
+      <section {...props}>{children}</section>
+    ),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    span: ({ children, ...props }: any) => <span {...props}>{children}</span>,
+    span: ({ children, whileInView, transition, initial, animate, ...props }: any) => (
+      <span {...props}>{children}</span>
+    ),
   },
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   AnimatePresence: ({ children }: any) => <>{children}</>,
@@ -119,17 +125,19 @@ vi.mock('antd', () => {
     ),
     Alert: ({
       message,
+      title,
       description,
       action,
       onClose,
     }: {
-      message: React.ReactNode;
+      message?: React.ReactNode;
+      title?: React.ReactNode;
       description?: React.ReactNode;
       action?: React.ReactNode;
       onClose?: () => void;
     }) => (
       <div data-testid="alert">
-        <div>{message}</div>
+        <div>{title ?? message}</div>
         <div>{description}</div>
         <div>{action}</div>
         {onClose ? <button onClick={onClose}>close-alert</button> : null}

@@ -42,8 +42,8 @@ const FeedbackCardComponent: React.FC<FeedbackCardProps> = ({
   const primaryAction = getPrimaryAction();
 
   return (
-    <Card className="feedback-card" bordered={false}>
-      <Space direction="vertical" size="large" style={{ width: '100%' }}>
+    <Card className="feedback-card" variant="outlined">
+      <Space orientation="vertical" size="large" style={{ width: '100%' }}>
         <div className="feedback-card__header">
           <SmileOutlined style={{ fontSize: 28, color: '#52c41a' }} />
           <Title level={4} style={{ margin: 0 }}>{t('interview.result.doneTitle')}</Title>

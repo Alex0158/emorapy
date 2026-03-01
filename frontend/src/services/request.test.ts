@@ -11,8 +11,7 @@ const {
 	mockMessageError,
 	mockMessageWarning,
 	mockSessionStoreState,
-	mockAuthStoreState,
-	mockSetAdminToken,
+	mockTriggerRequestLogout,
 } = vi.hoisted(() => ({
 	mockRequest: vi.fn(),
 	mockInterceptorsRequestUse: vi.fn(),
@@ -24,10 +23,7 @@ const {
 		clearSession: vi.fn(),
 		refreshSession: vi.fn(),
 	},
-	mockAuthStoreState: {
-		logout: vi.fn(),
-	},
-	mockSetAdminToken: vi.fn(() => true),
+	mockTriggerRequestLogout: vi.fn(),
 }));
 
 vi.mock("axios", () => ({
@@ -74,13 +70,8 @@ vi.mock("@/store/sessionStore", () => ({
 		getState: () => mockSessionStoreState,
 	},
 }));
-vi.mock("@/store/authStore", () => ({
-	useAuthStore: {
-		getState: () => mockAuthStoreState,
-	},
-}));
-vi.mock("@/services/api/admin", () => ({
-	setAdminToken: (...args: unknown[]) => mockSetAdminToken(...args),
+vi.mock("@/services/requestAuthBridge", () => ({
+	triggerRequestLogout: () => mockTriggerRequestLogout(),
 }));
 
 vi.mock("antd", () => ({
@@ -96,6 +87,7 @@ import {
 	requestWithRetryWrapper,
 } from "./request";
 
+const originalAdminLoginUrl = import.meta.env.VITE_ADMIN_LOGIN_URL;
 const onRequest = mockInterceptorsRequestUse.mock.calls[0]?.[0];
 const onResponse = mockInterceptorsResponseUse.mock.calls[0]?.[0];
 const onError = mockInterceptorsResponseUse.mock.calls[0]?.[1];
@@ -109,10 +101,12 @@ describe("request", () => {
 		mockMessageWarning.mockClear();
 		mockSessionStoreState.clearSession.mockClear();
 		mockSessionStoreState.refreshSession.mockClear();
-		mockAuthStoreState.logout.mockClear();
-		mockSetAdminToken.mockClear();
+		mockTriggerRequestLogout.mockClear();
 		localStorage.clear();
+		window.sessionStorage.clear();
 		mockSessionStoreState.refreshSession.mockResolvedValue(true);
+		(import.meta.env as { VITE_ADMIN_LOGIN_URL?: string }).VITE_ADMIN_LOGIN_URL =
+			originalAdminLoginUrl;
 	});
 
 	describe("cancelRequest", () => {
@@ -197,6 +191,16 @@ describe("request", () => {
 			expect(config.headers["X-Session-Id"]).toBe("session-1");
 			expect(config.metadata.requestId).toBeTruthy();
 			expect(config.signal).toBeTruthy();
+		});
+
+		it("request interceptor 對 admin 路徑不應自動附加前台 user token", async () => {
+			localStorage.setItem("token", "front-user-token");
+			const config = await onRequest({
+				method: "get",
+				url: "/api/v1/admin/users",
+				headers: {},
+			});
+			expect(config.headers.Authorization).toBeUndefined();
 		});
 
 		it("request interceptor 已有 X-Session-Id 時不應覆蓋", async () => {
@@ -441,12 +445,15 @@ describe("request", () => {
 			).rejects.toMatchObject({ code: "UNAUTHORIZED" });
 			await Promise.resolve();
 			expect(localStorage.getItem("token")).toBeNull();
-			expect(mockAuthStoreState.logout).toHaveBeenCalled();
+			expect(mockTriggerRequestLogout).toHaveBeenCalled();
 			history.pushState({}, "", "/");
 		});
 
 		it("401 admin API 應清理 admin token，且不清理前台 user token", async () => {
 			localStorage.setItem("token", "front-user-token");
+			localStorage.setItem("admin_token", "admin-token-local");
+			window.sessionStorage.setItem("admin_token", "admin-token-session");
+			const dispatchSpy = vi.spyOn(window, "dispatchEvent");
 			history.pushState({}, "", "/admin/login");
 			await expect(
 				onError({
@@ -460,10 +467,121 @@ describe("request", () => {
 				}),
 			).rejects.toMatchObject({ code: "UNAUTHORIZED" });
 			await Promise.resolve();
-			expect(mockSetAdminToken).toHaveBeenCalledWith("");
+			expect(localStorage.getItem("admin_token")).toBeNull();
+			expect(window.sessionStorage.getItem("admin_token")).toBeNull();
+			expect(dispatchSpy).toHaveBeenCalledWith(expect.any(Event));
 			expect(localStorage.getItem("token")).toBe("front-user-token");
-			expect(mockAuthStoreState.logout).not.toHaveBeenCalled();
+			expect(mockTriggerRequestLogout).not.toHaveBeenCalled();
+			dispatchSpy.mockRestore();
 			history.pushState({}, "", "/");
+		});
+
+		it("401 admin API（絕對 URL）也應清理 admin token", async () => {
+			localStorage.setItem("token", "front-user-token");
+			localStorage.setItem("admin_token", "admin-token-local");
+			window.sessionStorage.setItem("admin_token", "admin-token-session");
+			const dispatchSpy = vi.spyOn(window, "dispatchEvent");
+			history.pushState({}, "", "/admin/ops/jobs");
+			await expect(
+				onError({
+					response: {
+						status: 401,
+						data: { error: { code: "UNAUTHORIZED", message: "" } },
+						config: {
+							url: "https://api.example.com/api/v1/admin/users",
+							headers: {},
+							params: {},
+						},
+					},
+					config: {},
+					message: "unauth",
+				}),
+			).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+			await Promise.resolve();
+			expect(localStorage.getItem("admin_token")).toBeNull();
+			expect(window.sessionStorage.getItem("admin_token")).toBeNull();
+			expect(dispatchSpy).toHaveBeenCalledWith(expect.any(Event));
+			expect(localStorage.getItem("token")).toBe("front-user-token");
+			expect(mockTriggerRequestLogout).not.toHaveBeenCalled();
+			dispatchSpy.mockRestore();
+			history.pushState({}, "", "/");
+		});
+
+		it("401 admin API（/api/v1/admin 相對路徑）也應清理 admin token", async () => {
+			localStorage.setItem("token", "front-user-token");
+			localStorage.setItem("admin_token", "admin-token-local");
+			window.sessionStorage.setItem("admin_token", "admin-token-session");
+			const dispatchSpy = vi.spyOn(window, "dispatchEvent");
+			history.pushState({}, "", "/admin/health");
+			await expect(
+				onError({
+					response: {
+						status: 401,
+						data: { error: { code: "UNAUTHORIZED", message: "" } },
+						config: { url: "/api/v1/admin/users", headers: {}, params: {} },
+					},
+					config: {},
+					message: "unauth",
+				}),
+			).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+			await Promise.resolve();
+			expect(localStorage.getItem("admin_token")).toBeNull();
+			expect(window.sessionStorage.getItem("admin_token")).toBeNull();
+			expect(dispatchSpy).toHaveBeenCalledWith(expect.any(Event));
+			expect(localStorage.getItem("token")).toBe("front-user-token");
+			expect(mockTriggerRequestLogout).not.toHaveBeenCalled();
+			dispatchSpy.mockRestore();
+			history.pushState({}, "", "/");
+		});
+
+		it("401 admin API 在缺少 admin URL 配置時應提示 urlMissing", async () => {
+			(import.meta.env as { VITE_ADMIN_LOGIN_URL?: string }).VITE_ADMIN_LOGIN_URL = "";
+			localStorage.setItem("admin_token", "admin-token-local");
+			window.sessionStorage.setItem("admin_token", "admin-token-session");
+			const dispatchSpy = vi.spyOn(window, "dispatchEvent");
+			history.pushState({}, "", "/admin/reports");
+			await expect(
+				onError({
+					response: {
+						status: 401,
+						data: { error: { code: "UNAUTHORIZED", message: "" } },
+						config: { url: "/api/v1/admin/reports", headers: {}, params: {} },
+					},
+					config: {},
+					message: "unauth",
+				}),
+			).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+			await Promise.resolve();
+			expect(localStorage.getItem("admin_token")).toBeNull();
+			expect(window.sessionStorage.getItem("admin_token")).toBeNull();
+			expect(dispatchSpy).toHaveBeenCalledWith(expect.any(Event));
+			expect(mockTriggerRequestLogout).not.toHaveBeenCalled();
+			expect(mockMessageError).toHaveBeenCalledWith("admin.login.urlMissing");
+			dispatchSpy.mockRestore();
+		});
+
+		it("401 admin login INVALID_CREDENTIALS 不應清理 admin token 或觸發導轉流程", async () => {
+			localStorage.setItem("admin_token", "admin-token-local");
+			window.sessionStorage.setItem("admin_token", "admin-token-session");
+			const dispatchSpy = vi.spyOn(window, "dispatchEvent");
+			history.pushState({}, "", "/admin/login");
+			await expect(
+				onError({
+					response: {
+						status: 401,
+						data: { error: { code: "INVALID_CREDENTIALS", message: "帳號或密碼錯誤" } },
+						config: { url: "/admin/login", headers: {}, params: {} },
+					},
+					config: {},
+					message: "invalid credentials",
+				}),
+			).rejects.toMatchObject({ code: "INVALID_CREDENTIALS" });
+			await Promise.resolve();
+			expect(localStorage.getItem("admin_token")).toBe("admin-token-local");
+			expect(window.sessionStorage.getItem("admin_token")).toBe("admin-token-session");
+			expect(dispatchSpy).not.toHaveBeenCalled();
+			expect(mockMessageError).not.toHaveBeenCalledWith("admin.login.urlMissing");
+			dispatchSpy.mockRestore();
 		});
 
 		it("403 應提示 forbidden", async () => {

@@ -55,25 +55,27 @@ vi.mock('react-router-dom', async (importOriginal) => {
     useNavigate: () => mockNavigate,
   };
 });
-vi.mock('antd', () => {
-  return {
-    Typography: { Text: ({ children }: { children: unknown }) => <span>{children}</span> },
-    Spin: ({ description }: { description?: string }) => <div>{description || 'spin'}</div>,
-    Alert: ({
-      message,
-      description,
-      action,
-    }: {
-      message: unknown;
-      description?: unknown;
-      action?: unknown;
-    }) => (
-      <div>
-        <div>{message}</div>
-        <div>{description}</div>
-        <div>{action}</div>
-      </div>
-    ),
+	vi.mock('antd', () => {
+	  return {
+	    Typography: { Text: ({ children }: { children: unknown }) => <span>{children}</span> },
+	    Spin: ({ description }: { description?: string }) => <div>{description || 'spin'}</div>,
+	    Alert: ({
+	      title,
+	      message,
+	      description,
+	      action,
+	    }: {
+	      title?: unknown;
+	      message?: unknown;
+	      description?: unknown;
+	      action?: unknown;
+	    }) => (
+	      <div>
+	        <div>{title ?? message}</div>
+	        <div>{description}</div>
+	        <div>{action}</div>
+	      </div>
+	    ),
     Button: ({
       children,
       onClick,

@@ -4,15 +4,14 @@
 /* eslint-disable react-refresh/only-export-components */
 
 import { createBrowserRouter, Navigate } from 'react-router-dom';
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import SimpleLayout from '@/components/layout/SimpleLayout';
 import AuthLayout from '@/components/layout/AuthLayout';
 import Loading from '@/components/common/Loading';
 import ProtectedRoute from '@/components/common/ProtectedRoute';
 import PublicRoute from '@/components/common/PublicRoute';
-import AdminPermissionRoute from '@/components/common/AdminPermissionRoute';
-import AdminSectionLayout from '@/components/common/AdminSectionLayout';
+import { getAdminLoginUrl } from '@/utils/adminEntry';
 
 // 懶加載頁面組件（代碼分割）
 const Home = lazy(() => import('@/pages/Home'));
@@ -38,16 +37,24 @@ const ProfileMyStory = lazy(() => import('@/pages/Profile/MyStory'));
 const InterviewChat = lazy(() => import('@/pages/Interview/Chat'));
 const InterviewResult = lazy(() => import('@/pages/Interview/Result'));
 const ChatRoomPage = lazy(() => import('@/pages/Chat/Room'));
-const AdminLogin = lazy(() => import('@/pages/Admin/Login'));
-const AdminOpsJobs = lazy(() => import('@/pages/Admin/OpsJobs'));
-const AdminJobs = lazy(() => import('@/pages/Admin/Jobs'));
-const AdminHealth = lazy(() => import('@/pages/Admin/Health'));
-const AdminConfigs = lazy(() => import('@/pages/Admin/Configs'));
-const AdminUsers = lazy(() => import('@/pages/Admin/Users'));
-const AdminAuditLogs = lazy(() => import('@/pages/Admin/AuditLogs'));
-const AdminReports = lazy(() => import('@/pages/Admin/Reports'));
-const AdminSettings = lazy(() => import('@/pages/Admin/Settings'));
 const NotFound = lazy(() => import('@/pages/NotFound'));
+
+const AdminRedirect = () => {
+  const adminLoginUrl = getAdminLoginUrl();
+  useEffect(() => {
+    if (adminLoginUrl) {
+      try {
+        window.location.assign(adminLoginUrl);
+      } catch {
+        // 受限環境（如測試）可能不支持導航；忽略即可
+      }
+    }
+  }, [adminLoginUrl]);
+  if (!adminLoginUrl) {
+    return <Navigate to="/" replace />;
+  }
+  return <Loading />;
+};
 
 // 路由懶加載包裝器
 const LazyWrapper = ({ children }: { children: React.ReactNode }) => (
@@ -234,101 +241,8 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: 'admin',
-        element: (
-          <LazyWrapper>
-            <AdminSectionLayout />
-          </LazyWrapper>
-        ),
-        children: [
-          {
-            index: true,
-            element: <Navigate to="/admin/ops/jobs" replace />,
-          },
-          {
-            path: 'ops/jobs',
-            element: (
-              <LazyWrapper>
-                <AdminPermissionRoute requiredPermissions={['ops:read']}>
-                  <AdminOpsJobs />
-                </AdminPermissionRoute>
-              </LazyWrapper>
-            ),
-          },
-          {
-            path: 'jobs',
-            element: (
-              <LazyWrapper>
-                <AdminPermissionRoute requiredPermissions={['ops:read']}>
-                  <AdminJobs />
-                </AdminPermissionRoute>
-              </LazyWrapper>
-            ),
-          },
-          {
-            path: 'health',
-            element: (
-              <LazyWrapper>
-                <AdminPermissionRoute requiredPermissions={['ops:read']}>
-                  <AdminHealth />
-                </AdminPermissionRoute>
-              </LazyWrapper>
-            ),
-          },
-          {
-            path: 'configs',
-            element: (
-              <LazyWrapper>
-                <AdminPermissionRoute requiredPermissions={['config:read']}>
-                  <AdminConfigs />
-                </AdminPermissionRoute>
-              </LazyWrapper>
-            ),
-          },
-          {
-            path: 'users',
-            element: (
-              <LazyWrapper>
-                <AdminPermissionRoute requiredPermissions={['users:read']}>
-                  <AdminUsers />
-                </AdminPermissionRoute>
-              </LazyWrapper>
-            ),
-          },
-          {
-            path: 'audit-logs',
-            element: (
-              <LazyWrapper>
-                <AdminPermissionRoute
-                  requiredPermissions={['users:read', 'ops:read']}
-                  permissionMode="all"
-                >
-                  <AdminAuditLogs />
-                </AdminPermissionRoute>
-              </LazyWrapper>
-            ),
-          },
-          {
-            path: 'reports',
-            element: (
-              <LazyWrapper>
-                <AdminPermissionRoute requiredPermissions={['reports:read']}>
-                  <AdminReports />
-                </AdminPermissionRoute>
-              </LazyWrapper>
-            ),
-          },
-          {
-            path: 'settings',
-            element: (
-              <LazyWrapper>
-                <AdminPermissionRoute requiredPermissions={['admin:all']}>
-                  <AdminSettings />
-                </AdminPermissionRoute>
-              </LazyWrapper>
-            ),
-          },
-        ],
+        path: 'admin/*',
+        element: <AdminRedirect />,
       },
     ],
   },
@@ -365,14 +279,6 @@ export const router = createBrowserRouter([
         ),
       },
     ],
-  },
-  {
-    path: '/admin/login',
-    element: (
-      <LazyWrapper>
-        <AdminLogin />
-      </LazyWrapper>
-    ),
   },
   {
     path: '/auth',

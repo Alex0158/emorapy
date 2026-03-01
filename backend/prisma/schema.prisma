@@ -202,6 +202,7 @@ enum ChatRoleInRoom {
 enum ChatMessageType {
   user_text
   ai_reflection
+  ai_mediation
   ai_summary
   system_event
   safety_notice
@@ -661,19 +662,25 @@ model ChatMessage {
   id                        String              @id @default(uuid())
   room_id                   String
   sender_participant_id     String
+  reply_to_message_id       String?
   content                   String
   message_type              ChatMessageType     @default(user_text)
   visibility_scope          ChatVisibilityScope @default(all)
+  ai_strategy               String?
+  ai_confidence             Float?
   safety_flag               Boolean             @default(false)
   safety_detail             String?
   created_at                DateTime            @default(now())
 
   room                      ChatRoom            @relation(fields: [room_id], references: [id], onDelete: Cascade)
   sender_participant        ChatParticipant     @relation(fields: [sender_participant_id], references: [id], onDelete: Restrict)
+  reply_to_message          ChatMessage?        @relation("ChatMessageReply", fields: [reply_to_message_id], references: [id], onDelete: SetNull)
+  replies                   ChatMessage[]       @relation("ChatMessageReply")
 
   @@index([room_id, created_at])
   @@index([sender_participant_id])
   @@index([room_id, visibility_scope])
+  @@index([reply_to_message_id])
   @@map("chat_messages")
 }
 

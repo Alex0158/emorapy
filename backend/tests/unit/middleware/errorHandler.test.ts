@@ -6,7 +6,7 @@ import type { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import { AppError } from '../../../src/utils/errors';
 
-const mockLogger = { error: jest.fn() };
+const mockLogger = { error: jest.fn(), warn: jest.fn() };
 const mockGetRequestId = jest.fn();
 const mockGetAuthUserIdOptional = jest.fn();
 const mockGetSessionId = jest.fn();
@@ -43,6 +43,7 @@ describe('middleware/errorHandler', () => {
 
   beforeEach(async () => {
     mockLogger.error.mockClear();
+    mockLogger.warn.mockClear();
     mockGetRequestId.mockReturnValue('req-1');
     mockGetAuthUserIdOptional.mockReturnValue(undefined);
     mockGetSessionId.mockReturnValue(undefined);
@@ -58,7 +59,7 @@ describe('middleware/errorHandler', () => {
 
     errorHandler(err, req, res, jest.fn());
 
-    expect(mockLogger.error).toHaveBeenCalledWith('Error occurred', expect.objectContaining({
+    expect(mockLogger.warn).toHaveBeenCalledWith('Request rejected', expect.objectContaining({
       request_id: 'req-1',
       error: '驗證失敗',
       url: '/api/test',
@@ -203,5 +204,20 @@ describe('middleware/errorHandler', () => {
       userId: 'user-123',
       sessionId: hashSessionId('session-456'),
     }));
+  });
+
+  it('4xx AppError 應記錄 warn（避免污染 5xx 錯誤訊號）', () => {
+    const req = createMockReq() as Request;
+    const res = createMockRes() as Response;
+    const err = new AppError(403, 'CORS_ORIGIN_DENIED', '不允許的來源');
+
+    errorHandler(err, req, res, jest.fn());
+
+    expect(mockLogger.warn).toHaveBeenCalledWith('Request rejected', expect.objectContaining({
+      error: '不允許的來源',
+      method: 'GET',
+      url: '/api/test',
+    }));
+    expect(mockLogger.error).not.toHaveBeenCalled();
   });
 });

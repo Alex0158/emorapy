@@ -20,6 +20,8 @@ import logger from '../config/logger';
 import { lockService } from '../utils/lock';
 import { LOCK_TTL } from '../utils/constants';
 import { safetyRoutingService } from './safety-routing.service';
+import { chatAIOrchestrator } from './chat-ai-orchestrator.service';
+import { chatMetricsService } from './chat-metrics.service';
 
 type ActorContext = {
   userId?: string;
@@ -43,6 +45,11 @@ type ListMessagesInput = {
 type SendMessageInput = {
   content: string;
   visibilityScope: ChatVisibilityScope;
+  replyToMessageId?: string | null;
+};
+
+type RequestJudgmentOptions = {
+  includedMessageIds?: string[];
 };
 
 type RequestJudgmentResult = {
@@ -100,6 +107,10 @@ type MessageLayerAnalysis = {
 
 export class ChatService {
   private inFlightJudgmentByRoom = new Map<string, Promise<RequestJudgmentResult>>();
+  private roomMessageTimestamps = new Map<string, number[]>();
+  private readonly ROOM_RATE_WINDOW_MS = 30_000;
+  private readonly ROOM_RATE_MAX = 6;
+  private readonly ROOM_MIN_INTERVAL_MS = 5_000;
 
   private readonly emotionRegex =
     /難過|傷心|委屈|生氣|憤怒|焦慮|害怕|痛苦|失望|絕望|崩潰|窒息|\bsad\b|\bhurt\b|\bupset\b|\bangry\b|\banxious\b|\bscared\b|\bdisappointed\b|\bhopeless\b|\boverwhelmed\b|\bdevastated\b/i;
@@ -316,6 +327,21 @@ export class ChatService {
     }
 
     return fallback.padEnd(minLength, '。');
+  }
+
+  private checkRoomRateLimit(roomId: string) {
+    const now = Date.now();
+    const list = (this.roomMessageTimestamps.get(roomId) ?? []).filter((ts) => now - ts <= this.ROOM_RATE_WINDOW_MS);
+    if (list.length > 0 && now - list[list.length - 1] < this.ROOM_MIN_INTERVAL_MS) {
+      chatMetricsService.recordRateLimit().catch(() => undefined);
+      throw Errors.RATE_LIMIT_EXCEEDED('訊息發送過於頻繁，請稍後再試');
+    }
+    if (list.length >= this.ROOM_RATE_MAX) {
+      chatMetricsService.recordRateLimit().catch(() => undefined);
+      throw Errors.RATE_LIMIT_EXCEEDED('訊息發送過於頻繁，請稍後再試');
+    }
+    list.push(now);
+    this.roomMessageTimestamps.set(roomId, list);
   }
 
   private async ensurePairingForRoom(
@@ -907,21 +933,52 @@ export class ChatService {
       throw Errors.CASE_NOT_EDITABLE('當前狀態不可發送訊息');
     }
 
-    return prisma.chatMessage.create({
+    this.checkRoomRateLimit(room.id);
+
+    let replyTarget: { id: string } | null = null;
+    if (input.replyToMessageId) {
+      replyTarget = await prisma.chatMessage.findFirst({
+        where: {
+          id: input.replyToMessageId,
+          room_id: room.id,
+        },
+        select: { id: true },
+      });
+      if (!replyTarget) {
+        throw Errors.NOT_FOUND('回覆的訊息不存在');
+      }
+    }
+
+    const message = await prisma.chatMessage.create({
       data: {
         room_id: room.id,
         sender_participant_id: participant.id,
         content: input.content.trim(),
         message_type: 'user_text',
         visibility_scope: input.visibilityScope,
+        reply_to_message_id: replyTarget?.id ?? null,
       },
       include: {
         sender_participant: true,
       },
     });
+    chatMetricsService.recordMessage().catch(() => undefined);
+
+    // 非阻塞觸發 AI 介入
+    void chatAIOrchestrator.onUserMessage(
+      {
+        roomId: room.id,
+        roomStatus: room.status,
+        aiParticipant: room.participants.find((p) => p.role_in_room === 'aiMediator' && p.is_active),
+      },
+      message.sender_participant,
+      { id: message.id, content: message.content, visibility_scope: message.visibility_scope }
+    );
+
+    return message;
   }
 
-  async requestJudgment(roomId: string, actor: ActorContext): Promise<RequestJudgmentResult> {
+  async requestJudgment(roomId: string, actor: ActorContext, options?: RequestJudgmentOptions): Promise<RequestJudgmentResult> {
     const resolvedActor = await this.ensureActor(actor);
     const preCheckRoom = await this.getAccessibleRoom(roomId, resolvedActor);
     const preCheckParticipant = this.getCurrentParticipant(preCheckRoom, resolvedActor);
@@ -1099,16 +1156,41 @@ export class ChatService {
         throw Errors.CASE_NOT_READY('缺少發起方資訊，無法轉判決');
       }
 
-      const userMessages = await prisma.chatMessage.findMany({
-        where: {
-          room_id: room.id,
-          message_type: 'user_text',
-        },
+      const visibilityFilteredWhere: Prisma.ChatMessageWhereInput = {
+        room_id: room.id,
+        message_type: 'user_text',
+        visibility_scope: ChatVisibilityScope.all,
+      };
+
+      if (roleBParticipant?.joined_at) {
+        if (room.history_visibility_mode === ChatHistoryVisibilityMode.share_from_join_time) {
+          visibilityFilteredWhere.created_at = { gte: roleBParticipant.joined_at };
+        }
+        if (room.history_visibility_mode === ChatHistoryVisibilityMode.share_summary_only) {
+          visibilityFilteredWhere.created_at = { gte: roleBParticipant.joined_at };
+        }
+      }
+
+      let userMessages = await prisma.chatMessage.findMany({
+        where: visibilityFilteredWhere,
         orderBy: { created_at: 'asc' },
         include: {
           sender_participant: true,
         },
       });
+
+      if (options?.includedMessageIds && options.includedMessageIds.length > 0) {
+        const allowedIds = new Set(userMessages.map((m) => m.id));
+        const provided = options.includedMessageIds;
+        const invalid = provided.filter((id) => !allowedIds.has(id));
+        if (invalid.length > 0) {
+          throw Errors.NOT_FOUND('部分訊息不存在或不可納入判決');
+        }
+        userMessages = userMessages.filter((m) => provided.includes(m.id));
+        if (userMessages.length === 0) {
+          throw Errors.CASE_NOT_READY('需至少 1 則訊息納入判決');
+        }
+      }
 
       const roleAMessages = userMessages
         .filter((m) => m.sender_participant.role_in_room === 'roleA')
@@ -1242,6 +1324,14 @@ export class ChatService {
                 layer_usability: layerAnalysis.layerUsability,
                 gap_details: layerAnalysis.gapDetails,
                 signal_stats: layerAnalysis.signalStats,
+                included_message_ids: userMessages.map((m) => m.id),
+                excluded_policy: {
+                  filtered_visibility: true,
+                  filtered_before_join:
+                    !!roleBParticipant?.joined_at &&
+                    (room.history_visibility_mode === ChatHistoryVisibilityMode.share_from_join_time
+                      || room.history_visibility_mode === ChatHistoryVisibilityMode.share_summary_only),
+                },
                 conversion_version: 'v2-layered-2026-02',
                 generated_at: new Date().toISOString(),
               },
@@ -1272,6 +1362,7 @@ export class ChatService {
             });
           }
         });
+        chatMetricsService.recordJudgmentSuccess().catch(() => undefined);
 
         return {
           roomId: room.id,
@@ -1286,6 +1377,7 @@ export class ChatService {
           where: { id: room.id },
           data: { status: ChatRoomStatus.judgment_failed },
         }).catch(() => undefined);
+        chatMetricsService.recordJudgmentFailed().catch(() => undefined);
         throw error;
       }
     }, LOCK_TTL.JUDGMENT_GENERATION);
@@ -1337,6 +1429,65 @@ export class ChatService {
       roomStatus: room?.status,
       latestLink: latest,
     };
+  }
+
+  async leaveRoom(roomId: string, actor: ActorContext) {
+    const resolvedActor = await this.ensureActor(actor);
+    if (!resolvedActor.userId) {
+      throw Errors.UNAUTHORIZED('需登入才能離開聊天室');
+    }
+    const room = await this.getAccessibleRoom(roomId, resolvedActor);
+    const participant = room.participants.find(
+      (p) => p.role_in_room === 'roleB' && p.user_id === resolvedActor.userId && p.is_active
+    );
+    if (!participant) {
+      throw Errors.FORBIDDEN('只有 B 方成員可離開聊天室');
+    }
+    await prisma.chatParticipant.update({
+      where: { id: participant.id },
+      data: { is_active: false, left_at: new Date() },
+    });
+
+    if (
+      room.status === ChatRoomStatus.group_active ||
+      room.status === ChatRoomStatus.invite_pending ||
+      room.status === ChatRoomStatus.solo_active
+    ) {
+      await prisma.chatRoom.update({
+        where: { id: room.id },
+        data: { status: ChatRoomStatus.solo_active },
+      }).catch(() => undefined);
+    }
+
+    return this.getAccessibleRoom(roomId, resolvedActor);
+  }
+
+  async kickParticipantB(roomId: string, actor: ActorContext) {
+    const resolvedActor = await this.ensureActor(actor);
+    const room = await this.getAccessibleRoom(roomId, resolvedActor);
+    const actorParticipant = this.getCurrentParticipant(room, resolvedActor);
+    if (!actorParticipant || actorParticipant.role_in_room !== 'roleA') {
+      throw Errors.FORBIDDEN('只有發起方可以移除 B 方');
+    }
+    const participantB = room.participants.find((p) => p.role_in_room === 'roleB' && p.is_active);
+    if (!participantB) {
+      throw Errors.NOT_FOUND('聊天室目前沒有 B 方可移除');
+    }
+    await prisma.chatParticipant.update({
+      where: { id: participantB.id },
+      data: { is_active: false, left_at: new Date() },
+    });
+    if (
+      room.status === ChatRoomStatus.group_active ||
+      room.status === ChatRoomStatus.invite_pending ||
+      room.status === ChatRoomStatus.solo_active
+    ) {
+      await prisma.chatRoom.update({
+        where: { id: room.id },
+        data: { status: ChatRoomStatus.solo_active },
+      }).catch(() => undefined);
+    }
+    return this.getAccessibleRoom(roomId, resolvedActor);
   }
 }
 

@@ -96,7 +96,7 @@ const ExecutionDashboard = () => {
             <Alert
               type="error"
               showIcon
-              message={loadError}
+              title={loadError}
               action={<Button size="small" onClick={fetchExecutions}>{t('common.retry')}</Button>}
               style={{ marginTop: 16 }}
             />
@@ -141,7 +141,7 @@ const ExecutionDashboard = () => {
                           </Button>,
                         ]}
                       >
-                        <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                        <Space orientation="vertical" size="small" style={{ width: '100%' }}>
                           <div className="execution-card-header">
                             <Text strong ellipsis style={{ maxWidth: '100%' }}>
                               {item.plan_summary?.title ?? t('execDashboard.planFallbackTitle').replace('{id}', item.plan_id.slice(0, 8))}
@@ -179,7 +179,7 @@ const ExecutionDashboard = () => {
                   {completed.map((item) => (
                     <Col xs={24} sm={24} md={12} lg={8} key={item.plan_id}>
                       <Card className="execution-card execution-card-completed" size="small">
-                        <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                        <Space orientation="vertical" size="small" style={{ width: '100%' }}>
                           <div className="execution-card-header">
                             <Text strong ellipsis style={{ maxWidth: '100%' }}>
                               {item.plan_summary?.title ?? t('execDashboard.planFallbackTitle').replace('{id}', item.plan_id.slice(0, 8))}

@@ -32,6 +32,7 @@ interface AdminUserFormValues {
 export default function AdminSettingsPage() {
   const queryClient = useQueryClient();
   const [editingAdmin, setEditingAdmin] = useState<AdminAdminUserItem | null>(null);
+  const [pendingAdminActionKey, setPendingAdminActionKey] = useState('');
   const [adminEditForm] = Form.useForm();
   const [alertRulesForm] = Form.useForm<{ rules: string }>();
   const [featureFlagsForm] = Form.useForm<{ flags: string }>();
@@ -65,7 +66,12 @@ export default function AdminSettingsPage() {
       message.success(t('admin.settings.adminUsers.createSuccess'));
       void queryClient.invalidateQueries({ queryKey: ['admin', 'admin-users'] });
     },
-    onError: () => {
+    onError: (error: unknown) => {
+      const err = error as { code?: string } | null;
+      if (err?.code === 'FORBIDDEN') {
+        message.error(t('admin.ops.accessDenied'));
+        return;
+      }
       message.error(t('admin.settings.adminUsers.createFailed'));
     },
   });
@@ -89,32 +95,58 @@ export default function AdminSettingsPage() {
       void queryClient.invalidateQueries({ queryKey: ['admin', 'admin-users'] });
       setEditingAdmin(null);
     },
-    onError: () => {
+    onError: (error: unknown) => {
+      const err = error as { code?: string } | null;
+      if (err?.code === 'FORBIDDEN') {
+        message.error(t('admin.ops.accessDenied'));
+        return;
+      }
       message.error(t('admin.settings.adminUsers.updateFailed'));
     },
   });
   const deleteAdminUserMutation = useMutation({
     mutationFn: (id: string) => adminApi.deleteAdminUser(id),
     onSuccess: () => {
-      message.success('管理員已刪除');
+      message.success(t('admin.settings.adminUsers.deleteSuccess'));
       void queryClient.invalidateQueries({ queryKey: ['admin', 'admin-users'] });
     },
-    onError: () => message.error('刪除管理員失敗'),
+    onError: (error: unknown) => {
+      const err = error as { code?: string } | null;
+      if (err?.code === 'FORBIDDEN') {
+        message.error(t('admin.ops.accessDenied'));
+        return;
+      }
+      message.error(t('admin.settings.adminUsers.deleteFailed'));
+    },
   });
 
   const alertRulesMutation = useMutation({
     mutationFn: (rules: unknown[]) => adminApi.upsertAlertRules(rules),
     onSuccess: () => message.success(t('admin.settings.alerts.saveSuccess')),
-    onError: () => message.error(t('admin.settings.alerts.saveFailed')),
+    onError: (error: unknown) => {
+      const err = error as { code?: string } | null;
+      if (err?.code === 'FORBIDDEN') {
+        message.error(t('admin.ops.accessDenied'));
+        return;
+      }
+      message.error(t('admin.settings.alerts.saveFailed'));
+    },
   });
   const featureFlagsMutation = useMutation({
     mutationFn: (flags: Record<string, unknown>) => adminApi.setFeatureFlags(flags),
     onSuccess: () => message.success(t('admin.settings.flags.saveSuccess')),
-    onError: () => message.error(t('admin.settings.flags.saveFailed')),
+    onError: (error: unknown) => {
+      const err = error as { code?: string } | null;
+      if (err?.code === 'FORBIDDEN') {
+        message.error(t('admin.ops.accessDenied'));
+        return;
+      }
+      message.error(t('admin.settings.flags.saveFailed'));
+    },
   });
 
   return (
-    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+    <Space orientation="vertical" size="large" style={{ width: '100%' }}>
       <div>
         <Title level={3} style={{ marginBottom: 0 }}>
           {t('admin.settings.heading')}
@@ -131,8 +163,8 @@ export default function AdminSettingsPage() {
           <Form.Item
             name="email"
             rules={[
-              { required: true, message: '請輸入 Email' },
-              { type: 'email', message: 'Email 格式不正確' },
+              { required: true, message: t('admin.settings.adminUsers.emailRequired') },
+              { type: 'email', message: t('admin.settings.adminUsers.emailInvalid') },
             ]}
           >
             <Input placeholder={t('admin.settings.adminUsers.email')} />
@@ -143,8 +175,8 @@ export default function AdminSettingsPage() {
           <Form.Item
             name="password"
             rules={[
-              { required: true, message: '請輸入密碼' },
-              { min: 10, message: '密碼至少 10 碼' },
+              { required: true, message: t('admin.settings.adminUsers.passwordRequired') },
+              { min: 10, message: t('admin.settings.adminUsers.passwordMinLength') },
             ]}
           >
             <Input.Password placeholder={t('admin.settings.adminUsers.password')} />
@@ -178,12 +210,18 @@ export default function AdminSettingsPage() {
               render: (_, row) => (
                 <Space>
                   <Popconfirm
-                    title={row.is_active ? '確認停用此管理員？' : '確認啟用此管理員？'}
-                    okText="確認"
-                    cancelText="取消"
-                    onConfirm={() => updateAdminUserMutation.mutate({ id: row.id, isActive: !row.is_active })}
+                    title={row.is_active ? t('admin.settings.adminUsers.confirmDeactivate') : t('admin.settings.adminUsers.confirmActivate')}
+                    okText={t('common.confirm')}
+                    cancelText={t('common.cancel')}
+                    onConfirm={() => {
+                      setPendingAdminActionKey(`${row.id}:toggle`);
+                      updateAdminUserMutation.mutate(
+                        { id: row.id, isActive: !row.is_active },
+                        { onSettled: () => setPendingAdminActionKey('') }
+                      );
+                    }}
                   >
-                    <Switch checked={row.is_active} />
+                    <Switch checked={row.is_active} loading={pendingAdminActionKey === `${row.id}:toggle`} />
                   </Popconfirm>
                   <Button
                     size="small"
@@ -197,23 +235,26 @@ export default function AdminSettingsPage() {
                       });
                     }}
                   >
-                    編輯
+                    {t('admin.settings.adminUsers.edit')}
                   </Button>
                   <Popconfirm
-                    title="確認刪除此管理員？"
-                    description="此操作為軟刪除，且會寫入審計日誌。"
-                    okText="確認"
-                    cancelText="取消"
-                    onConfirm={() => deleteAdminUserMutation.mutate(row.id)}
+                    title={t('admin.settings.adminUsers.confirmDelete')}
+                    description={t('admin.settings.adminUsers.deleteAuditHint')}
+                    okText={t('common.confirm')}
+                    cancelText={t('common.cancel')}
+                    onConfirm={() => {
+                      setPendingAdminActionKey(`${row.id}:delete`);
+                      deleteAdminUserMutation.mutate(row.id, { onSettled: () => setPendingAdminActionKey('') });
+                    }}
                     disabled={row.id === currentAdminId}
                   >
                     <Button
                       size="small"
                       danger
-                      loading={deleteAdminUserMutation.isPending}
+                      loading={pendingAdminActionKey === `${row.id}:delete`}
                       disabled={row.id === currentAdminId}
                     >
-                      刪除
+                      {t('admin.settings.adminUsers.delete')}
                     </Button>
                   </Popconfirm>
                 </Space>
@@ -224,10 +265,10 @@ export default function AdminSettingsPage() {
       </Card>
 
       <Card title={t('admin.settings.alerts.title')}>
-        <Space direction="vertical" style={{ width: '100%' }}>
+        <Space orientation="vertical" style={{ width: '100%' }}>
           <Text type="secondary">{t('admin.settings.alerts.subtitle')}</Text>
           <Form form={alertRulesForm} layout="vertical">
-            <Form.Item name="rules" rules={[{ required: true, message: '請輸入合法 JSON 陣列' }]}>
+            <Form.Item name="rules" rules={[{ required: true, message: t('admin.settings.alerts.rulesJsonArrayRequired') }]}>
               <Input.TextArea rows={8} placeholder='[{"key":"jobs.failure_rate","threshold":0.2}]' />
             </Form.Item>
             <Button
@@ -239,7 +280,7 @@ export default function AdminSettingsPage() {
                   if (!Array.isArray(parsed)) throw new Error('not-array');
                   alertRulesMutation.mutate(parsed);
                 } catch {
-                  message.error('告警規則必須為 JSON 陣列');
+                  message.error(t('admin.settings.alerts.rulesJsonArrayRequired'));
                 }
               }}
             >
@@ -250,10 +291,10 @@ export default function AdminSettingsPage() {
       </Card>
 
       <Card title={t('admin.settings.flags.title')}>
-        <Space direction="vertical" style={{ width: '100%' }}>
+        <Space orientation="vertical" style={{ width: '100%' }}>
           <Text type="secondary">{t('admin.settings.flags.subtitle')}</Text>
           <Form form={featureFlagsForm} layout="vertical">
-            <Form.Item name="flags" rules={[{ required: true, message: '請輸入合法 JSON Object' }]}>
+            <Form.Item name="flags" rules={[{ required: true, message: t('admin.settings.flags.flagsJsonObjectRequired') }]}>
               <Input.TextArea rows={8} placeholder='{"adminOpsBeta": true}' />
             </Form.Item>
             <Button
@@ -267,7 +308,7 @@ export default function AdminSettingsPage() {
                   }
                   featureFlagsMutation.mutate(parsed as Record<string, unknown>);
                 } catch {
-                  message.error('Feature Flags 必須為 JSON Object');
+                  message.error(t('admin.settings.flags.flagsJsonObjectRequired'));
                 }
               }}
             >
@@ -277,7 +318,7 @@ export default function AdminSettingsPage() {
         </Space>
       </Card>
       <Modal
-        title="編輯管理員"
+        title={t('admin.settings.adminUsers.editTitle')}
         open={editingAdmin !== null}
         onCancel={() => setEditingAdmin(null)}
         onOk={async () => {
@@ -294,10 +335,10 @@ export default function AdminSettingsPage() {
         confirmLoading={updateAdminUserMutation.isPending}
       >
         <Form form={adminEditForm} layout="vertical">
-          <Form.Item name="name" label="名稱" rules={[{ required: true, message: '請輸入名稱' }]}>
+          <Form.Item name="name" label={t('admin.settings.adminUsers.nameLabel')} rules={[{ required: true, message: t('admin.settings.adminUsers.nameRequired') }]}>
             <Input />
           </Form.Item>
-          <Form.Item name="roleKey" label="角色" rules={[{ required: true, message: '請選擇角色' }]}>
+          <Form.Item name="roleKey" label={t('admin.settings.adminUsers.roleLabel')} rules={[{ required: true, message: t('admin.settings.adminUsers.roleRequired') }]}>
             <Select
               options={[
                 { label: 'super_admin', value: 'super_admin' },
@@ -307,17 +348,17 @@ export default function AdminSettingsPage() {
               ]}
             />
           </Form.Item>
-          <Form.Item name="isActive" label="啟用狀態" valuePropName="checked">
+          <Form.Item name="isActive" label={t('admin.settings.adminUsers.activeLabel')} valuePropName="checked">
             <Switch />
           </Form.Item>
           <Form.Item
             name="password"
-            label="重設密碼（可選，至少10碼）"
+            label={t('admin.settings.adminUsers.resetPasswordLabel')}
             rules={[
               {
                 validator: async (_, value: string | undefined) => {
                   if (!value || value.trim().length === 0) return;
-                  if (value.length < 10) throw new Error('密碼至少 10 碼');
+                  if (value.length < 10) throw new Error(t('admin.settings.adminUsers.passwordMinLength'));
                 },
               },
             ]}

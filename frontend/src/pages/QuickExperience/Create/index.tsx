@@ -262,7 +262,7 @@ const QuickExperienceCreate = () => {
           {recoveredCase && (
             <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="container" style={{ paddingTop: 24 }}>
               <Alert
-                message={t('quickCreate.recoveredCase.title')}
+                title={t('quickCreate.recoveredCase.title')}
                 description={t('quickCreate.recoveredCase.desc')}
                 type="info"
                 showIcon
@@ -306,7 +306,7 @@ const QuickExperienceCreate = () => {
         <AnimatePresence>
           {autoSaveStatus === 'saved' && (
             <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="container">
-              <Alert message={t('quickCreate.autoSaved')} type="success" showIcon closable style={{ marginBottom: 24, borderRadius: 16 }} />
+              <Alert title={t('quickCreate.autoSaved')} type="success" showIcon closable style={{ marginBottom: 24, borderRadius: 16 }} />
             </motion.div>
           )}
         </AnimatePresence>
@@ -415,7 +415,7 @@ const QuickExperienceCreate = () => {
           <div className="container">
             <Collapse
               defaultActiveKey={[]}
-              expandIconPosition="end"
+              expandIconPlacement="end"
               items={[
                 {
                   key: 'evidence',
@@ -444,7 +444,7 @@ const QuickExperienceCreate = () => {
             >
               <div className="container">
                 <Alert
-                  message={<Space><LockOutlined /><span>{t('quickCreate.registerMessage')}</span></Space>}
+                  title={<Space><LockOutlined /><span>{t('quickCreate.registerMessage')}</span></Space>}
                   description={t('register.prompt.desc')}
                   type="info"
                   action={

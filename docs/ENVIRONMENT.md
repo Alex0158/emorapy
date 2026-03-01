@@ -73,7 +73,7 @@
 | `INTERVIEW_TURN_INTERVAL_MS` | turn 最小間隔（毫秒） | `3000` |
 | `INTERVIEW_START_RATE_LIMIT` | start 端點每用戶每小時最多請求數（express-rate-limit 中間件，防濫用，不計 turn 數） | `3` |
 | `INTERVIEW_DAILY_SESSION_LIMIT` | 每用戶每天最多 substantive session 數（業務邏輯，僅計 ≥ 3 輪的 session） | `5` |
-| `REDIS_URL` | Redis URL（用於 session mutex） | - |
+| `REDIS_URL` | Redis URL（用於分佈式鎖、訪談 session mutex、以及 Chat minute-bucket metrics） | - |
 
 > 若不配置 `REDIS_URL`，mutex lock 會 fallback 到 PostgreSQL advisory lock。
 

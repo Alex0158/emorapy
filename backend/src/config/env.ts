@@ -86,6 +86,7 @@ interface EnvConfig {
   OPS_ALERTS_MAX_CONFLICT_RATIO: number;
   ALERT_SLACK_WEBHOOK_URL?: string;
   ALERT_SLACK_DEDUP_WINDOW_SECONDS: number;
+  ALERT_HEALTH_ORIGIN?: string;
 }
 
 function getEnvConfig(): EnvConfig {
@@ -184,6 +185,7 @@ function getEnvConfig(): EnvConfig {
     OPS_ALERTS_MAX_CONFLICT_RATIO: Number(process.env.OPS_ALERTS_MAX_CONFLICT_RATIO || '0.2'),
     ALERT_SLACK_WEBHOOK_URL: process.env.ALERT_SLACK_WEBHOOK_URL,
     ALERT_SLACK_DEDUP_WINDOW_SECONDS: parseInt(process.env.ALERT_SLACK_DEDUP_WINDOW_SECONDS || '600', 10),
+    ALERT_HEALTH_ORIGIN: process.env.ALERT_HEALTH_ORIGIN,
   };
 }
 
@@ -245,6 +247,36 @@ function validateEnvVars(): void {
       }
     } else if (length < 32) {
       logger.warn(`警告: JWT_SECRET長度建議至少32字符，當前長度: ${length}`);
+    }
+  }
+
+  // 驗證 ADMIN_JWT_SECRET（管理員專用密鑰，生產環境必填）
+  const adminSecret = process.env.ADMIN_JWT_SECRET;
+  if (isProduction) {
+    if (!adminSecret || !adminSecret.trim()) {
+      throw new Error('生產環境必須設置 ADMIN_JWT_SECRET，且不得回退到 JWT_SECRET');
+    }
+  }
+  if (adminSecret && adminSecret.trim()) {
+    const normalizedAdminSecret = adminSecret.trim();
+    if (isProduction) {
+      if (/[\r\n]/.test(normalizedAdminSecret)) {
+        throw new Error('生產環境 ADMIN_JWT_SECRET 不得包含換行');
+      }
+      if (/(?:^|[\r\n])(JWT_[A-Z0-9_]*|OPENAI_[A-Z0-9_]*|DATABASE_URL)=/m.test(normalizedAdminSecret)) {
+        throw new Error('ADMIN_JWT_SECRET 疑似包含 KEY=VALUE 片段，請僅保留密鑰字串');
+      }
+      if (normalizedAdminSecret.length < 32) {
+        throw new Error(`生產環境 ADMIN_JWT_SECRET 長度必須至少32字符，當前長度: ${normalizedAdminSecret.length}`);
+      }
+      if (new Set(normalizedAdminSecret).size < 8) {
+        throw new Error('ADMIN_JWT_SECRET 熵值過低，請使用高隨機字串');
+      }
+      if (normalizedAdminSecret === process.env.JWT_SECRET) {
+        throw new Error('生產環境 ADMIN_JWT_SECRET 不可與 JWT_SECRET 相同');
+      }
+    } else if (normalizedAdminSecret.length < 32) {
+      logger.warn(`警告: ADMIN_JWT_SECRET 長度建議至少32字符，當前長度: ${normalizedAdminSecret.length}`);
     }
   }
 

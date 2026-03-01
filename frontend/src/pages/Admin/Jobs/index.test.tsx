@@ -7,6 +7,7 @@ const { mockUseQuery, mockUseMutation, mockUseQueryClient } = vi.hoisted(() => (
   mockUseMutation: vi.fn(),
   mockUseQueryClient: vi.fn(),
 }));
+const mockUseAdminAccess = vi.fn();
 
 vi.mock('@tanstack/react-query', () => ({
   useQuery: (...args: unknown[]) => mockUseQuery(...args),
@@ -20,6 +21,9 @@ vi.mock('@/services/api/admin', () => ({
     triggerJob: vi.fn(),
   },
 }));
+vi.mock('@/hooks/useAdminAccess', () => ({
+  useAdminAccess: (...args: unknown[]) => mockUseAdminAccess(...args),
+}));
 
 vi.mock('@/utils/i18n', () => ({
   t: (key: string) => key,
@@ -28,6 +32,7 @@ vi.mock('@/utils/i18n', () => ({
 describe('AdminJobsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUseAdminAccess.mockReturnValue({ hasPermission: true });
     mockUseQueryClient.mockReturnValue({ invalidateQueries: vi.fn() });
     mockUseQuery.mockReturnValue({
       data: {
@@ -46,6 +51,13 @@ describe('AdminJobsPage', () => {
     render(<AdminJobsPage />);
     expect(screen.getByText('admin.jobs.heading')).toBeInTheDocument();
     expect(screen.getByText('cleanup_expired_sessions')).toBeInTheDocument();
+  });
+
+  it('缺少 ops:execute 時應禁用觸發按鈕', () => {
+    mockUseAdminAccess.mockReturnValue({ hasPermission: false });
+    render(<AdminJobsPage />);
+    expect(screen.getByText('admin.jobs.executeDenied')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'admin.jobs.trigger' })).toBeDisabled();
   });
 });
 

@@ -68,7 +68,9 @@ backend/
 │   ├── middleware/      # 中間件
 │   ├── routes/         # 路由定義
 │   │   ├── interview.routes.ts      # v2.0 訪談路由
-│   │   └── psych-profile.routes.ts  # v2.0 畫像路由
+│   │   ├── psych-profile.routes.ts  # v2.0 畫像路由
+│   │   ├── chat.routes.ts           # v1 聊天室路由（rooms/messages/invites/SSE/judgment）
+│   │   └── metrics.routes.ts        # /metrics（Prometheus 指標）
 │   ├── controllers/    # 控制器層
 │   │   ├── interview.controller.ts      # v2.0 訪談控制器
 │   │   └── psych-profile.controller.ts  # v2.0 畫像控制器
@@ -78,13 +80,17 @@ backend/
 │   │   ├── narrative.service.ts             # v2.0 敘事合併
 │   │   ├── insight-extraction.service.ts    # v2.0 洞察提取
 │   │   ├── profile-snapshot.service.ts      # v2.0 畫像快照
-│   │   └── profile-richness.service.ts      # v2.0 豐富度計算（ProfileRichnessService）
+│   │   ├── profile-richness.service.ts      # v2.0 豐富度計算（ProfileRichnessService）
+│   │   ├── chat.service.ts                  # v1 聊天室主流程（可見性、邀請、轉判決）
+│   │   ├── chat-events.service.ts           # v1 聊天室 SSE 事件匯流排
+│   │   ├── chat-ai-orchestrator.service.ts  # v1 聊天室 AI 回覆編排（support/mediation/safety）
+│   │   └── chat-metrics.service.ts          # v1 聊天室 metrics（Prometheus + Redis minute buckets）
 │   ├── utils/          # 工具函數
 │   ├── types/          # TypeScript類型定義
 │   ├── app.ts          # Express應用入口
 │   └── index.ts        # 服務器啟動文件
 ├── prisma/
-│   └── schema.prisma   # Prisma Schema（含 v2.0 心理畫像 5 表 4 ENUM）
+│   └── schema.prisma   # Prisma Schema（含聊天室 v1 與 v2.0 心理畫像）
 └── package.json
 ```
 
@@ -96,6 +102,7 @@ backend/
 
 - [API接口文檔](./API.md)
 - [後端設計文檔](../後端設計/README.md)
+  - 聊天室（Chat v1）與 `/metrics` 指標端點已收錄於 `docs/backend/API.md`
 
 ## 🧪 測試
 

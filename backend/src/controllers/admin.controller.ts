@@ -15,8 +15,13 @@ import {
 import { Errors } from '../utils/errors';
 
 function parsePagination(req: Request) {
-  const limit = Math.min(Math.max(Number(req.query.limit || 20), 1), 100);
-  const offset = Math.max(Number(req.query.offset || 0), 0);
+  const rawLimit = Number(req.query.limit ?? 20);
+  const rawOffset = Number(req.query.offset ?? 0);
+  if (!Number.isFinite(rawLimit) || !Number.isFinite(rawOffset)) {
+    throw Errors.VALIDATION_ERROR('limit/offset 必須為數字');
+  }
+  const limit = Math.min(Math.max(Math.floor(rawLimit), 1), 100);
+  const offset = Math.max(Math.floor(rawOffset), 0);
   return { limit, offset };
 }
 
@@ -597,7 +602,11 @@ class AdminController {
       const action = req.query.action ? String(req.query.action) : undefined;
       const { from, to } = parseDateRange(req);
       const data = await adminService.listAuditLogs({ limit, offset, entityType, action, from, to });
-      res.json({ success: true, data: { ...data, limit, offset } });
+      const items = data.items.map((row) => ({
+        ...row,
+        id: row.id.toString(),
+      }));
+      res.json({ success: true, data: { items, total: data.total, limit, offset } });
     } catch (error) {
       next(error);
     }
@@ -619,13 +628,14 @@ class AdminController {
 
       const csvEscape = (value: unknown) => {
         const asText = typeof value === 'string' ? value : JSON.stringify(value ?? '');
-        const escaped = asText.split('"').join('""');
+        const normalized = /^\s*[=+\-@]/.test(asText) ? `'${asText}` : asText;
+        const escaped = normalized.split('"').join('""');
         return `"${escaped}"`;
       };
       const lines = ['id,actor_id,actor_type,entity_type,entity_id,action,created_at,detail'];
       for (const row of data.items) {
         lines.push([
-          row.id,
+          row.id.toString(),
           csvEscape(row.actor_id || ''),
           csvEscape(row.actor_type || ''),
           csvEscape(row.entity_type || ''),
@@ -790,7 +800,7 @@ class AdminController {
         prisma.pairing.count({ where: { status: 'active' } }),
         prisma.case.count(),
         prisma.judgment.count(),
-        prisma.executionRecord.count({ where: { action: 'complete' } }),
+        prisma.executionRecord.count({ where: { status: 'completed' } }),
       ]);
 
       res.json({

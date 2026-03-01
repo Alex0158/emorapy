@@ -1,5 +1,4 @@
 import zhTW from '@/assets/i18n/zh-TW';
-import enUS from '@/assets/i18n/en-US';
 
 export type Locale = 'zh-TW' | 'en-US';
 
@@ -10,8 +9,25 @@ let current: Locale = detectInitialLocale();
 
 const catalogs: Record<Locale, Record<string, string>> = {
   'zh-TW': zhTW,
-  'en-US': enUS,
+  'en-US': {},
 };
+
+let enUSLoading: Promise<void> | null = null;
+
+function ensureLocaleCatalogLoaded(locale: Locale): Promise<void> {
+  if (locale !== 'en-US') return Promise.resolve();
+  if (Object.keys(catalogs['en-US']).length > 0) return Promise.resolve();
+  if (!enUSLoading) {
+    enUSLoading = import('@/assets/i18n/en-US')
+      .then((module) => {
+        catalogs['en-US'] = module.default;
+      })
+      .finally(() => {
+        enUSLoading = null;
+      });
+  }
+  return enUSLoading;
+}
 
 function humanizeKey(key: string): string {
   return key
@@ -28,7 +44,7 @@ export function t(key: string, params?: Record<string, string | number>): string
   const dict = catalogs[current];
   let result: string;
   if (dict[key]) result = dict[key];
-  else if (current === 'en-US') result = humanizeKey(key);
+  else if (current === 'en-US') result = catalogs[DEFAULT_LOCALE][key] ?? humanizeKey(key);
   else result = catalogs[DEFAULT_LOCALE][key] ?? key;
 
   if (params) {
@@ -67,7 +83,9 @@ export function setLocale(locale: Locale | string): void {
   if (typeof window !== 'undefined') {
     try { window.localStorage.setItem(LOCALE_STORAGE_KEY, normalized); } catch { /* noop */ }
   }
-  notifyLocaleChange();
+  void ensureLocaleCatalogLoaded(normalized).finally(() => {
+    notifyLocaleChange();
+  });
 }
 
 export function getLocale(): Locale {
@@ -77,4 +95,10 @@ export function getLocale(): Locale {
 export function onLocaleChange(listener: () => void): () => void {
   listeners.add(listener);
   return () => listeners.delete(listener);
+}
+
+if (current === 'en-US') {
+  void ensureLocaleCatalogLoaded('en-US').finally(() => {
+    notifyLocaleChange();
+  });
 }

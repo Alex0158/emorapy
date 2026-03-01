@@ -79,7 +79,7 @@ const ProfileSettings = () => {
       <ProtectedRoute>
         <div className="profile-settings-page">
           <Alert
-            message={t('message.getProfileFail')}
+            title={t('message.getProfileFail')}
             type="error"
             showIcon
             action={<Button size="small" onClick={() => { setLoadError(false); setLoading(true); getProfile().then(p => { updateUser(p); form.setFieldsValue({ notification_enabled: p.notification_enabled ?? true }); }).catch(() => setLoadError(true)).finally(() => setLoading(false)); }}>{t('common.retry')}</Button>}

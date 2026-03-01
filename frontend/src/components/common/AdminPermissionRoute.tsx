@@ -48,7 +48,22 @@ export default function AdminPermissionRoute({
   }
 
   if (adminMeQuery.error) {
-    return <Alert showIcon type="error" title={t('admin.ops.identityFailed')} />;
+    const queryError = adminMeQuery.error as { code?: string; message?: string } | null;
+    const errorCode = queryError?.code;
+    if (errorCode === 'FORBIDDEN') {
+      return <Alert showIcon type="warning" title={t('admin.ops.accessDenied')} />;
+    }
+    if (errorCode === 'NETWORK_ERROR') {
+      return <Alert showIcon type="error" title={t('common.networkError')} />;
+    }
+    return (
+      <Alert
+        showIcon
+        type="error"
+        title={t('admin.ops.identityFailed')}
+        description={queryError?.message}
+      />
+    );
   }
 
   if (!hasPermission) {

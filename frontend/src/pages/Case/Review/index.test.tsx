@@ -2,7 +2,7 @@
  * Case Review 頁面單元測試
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import CaseReview from './index';
 
@@ -29,7 +29,7 @@ describe('CaseReview', () => {
     vi.clearAllMocks();
   });
 
-  it('應掛載且不崩潰', () => {
+  it('應掛載且不崩潰', async () => {
     const { container } = render(
       <MemoryRouter initialEntries={['/case/123/review']}>
         <Routes>
@@ -38,5 +38,8 @@ describe('CaseReview', () => {
       </MemoryRouter>
     );
     expect(container).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('AI正在審理中')).toBeInTheDocument();
+    });
   });
 });

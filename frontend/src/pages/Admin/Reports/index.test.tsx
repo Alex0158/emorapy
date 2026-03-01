@@ -27,6 +27,14 @@ vi.mock('@/utils/i18n', () => ({
   t: (key: string) => key,
 }));
 
+Object.defineProperty(window, 'open', {
+  writable: true,
+  value: vi.fn(),
+});
+Object.defineProperty(window, 'location', {
+  value: { assign: vi.fn() },
+});
+
 describe('AdminReportsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -37,6 +45,23 @@ describe('AdminReportsPage', () => {
       })
       .mockReturnValueOnce({
         data: { stages: [] },
+        error: null,
+      })
+      .mockReturnValueOnce({
+        data: {
+          partial: false,
+          summary: {
+            redisMemoryMb: 0,
+            railwayEgressGb24h: 0,
+            openaiCostUsd24h: 0,
+            openaiCostUsd7d: 0,
+            openaiInputTokens24h: 0,
+            openaiOutputTokens24h: 0,
+          },
+          redis: { status: 'ok' },
+          railway: { status: 'ok', dailyEgressGb: [] },
+          openai: { status: 'ok', dailyCostUsd: [] },
+        },
         error: null,
       });
     mockUseMutation.mockReturnValue({
@@ -62,4 +87,3 @@ describe('AdminReportsPage', () => {
     expect(mockDownloadCsv).toHaveBeenCalledTimes(1);
   });
 });
-

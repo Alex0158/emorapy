@@ -155,7 +155,7 @@ const CaseReview = () => {
     return (
       <div className="case-review-page">
         <Alert
-          message={t('common.caseNotFound')}
+          title={t('common.caseNotFound')}
           type="error"
           action={
             <Space>
@@ -177,7 +177,7 @@ const CaseReview = () => {
       <div className="case-review-page">
         <Card>
           <Alert
-            message={t('review.judgmentReady')}
+            title={t('review.judgmentReady')}
             description={t('review.judgmentReadyDesc')}
             type="success"
             showIcon
@@ -196,9 +196,9 @@ const CaseReview = () => {
     return (
       <div className="case-review-page">
         <Card>
-          <Space direction="vertical" size="large" style={{ width: '100%' }}>
+          <Space orientation="vertical" size="large" style={{ width: '100%' }}>
             <Alert
-              message={t('review.judgmentFailed')}
+              title={t('review.judgmentFailed')}
               description={case_.judgment_failure_reason || t('review.judgmentFailedDesc')}
               type="error"
               showIcon
@@ -243,7 +243,7 @@ const CaseReview = () => {
 
         <AnimatedWrapper animation="slide" direction="up" delay={200} trigger="intersection">
           <Card>
-          <Space direction="vertical" size="large" style={{ width: '100%' }}>
+          <Space orientation="vertical" size="large" style={{ width: '100%' }}>
             <div className="progress-section">
               <Progress
                 percent={isPolling ? 75 : 100}
@@ -259,7 +259,7 @@ const CaseReview = () => {
             </div>
 
             <Alert
-              message={t('review.etaTitle')}
+              title={t('review.etaTitle')}
               description={t('review.etaDesc')}
               type="info"
               showIcon

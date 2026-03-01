@@ -64,6 +64,13 @@ describe('config/env', () => {
     expect(mod.env.AI_MOCK).toBe(false);
   });
 
+  it('應解析 ALERT_HEALTH_ORIGIN 供 ops health 檢查使用', async () => {
+    process.env.ALERT_HEALTH_ORIGIN = 'https://frontend-lilac-three-52.vercel.app';
+    jest.resetModules();
+    const mod = await import('../../../src/config/env');
+    expect(mod.env.ALERT_HEALTH_ORIGIN).toBe('https://frontend-lilac-three-52.vercel.app');
+  });
+
   it('DATABASE_URL 非 postgresql 開頭時在 development 應記錄 warn', async () => {
     process.env.DATABASE_URL = 'http://localhost/db';
     process.env.NODE_ENV = 'development';
@@ -107,5 +114,21 @@ describe('config/env', () => {
     process.env.JWT_SECRET = 'abc12345678901234567890123456789\nJWT_EXPIRES_IN=7d';
     jest.resetModules();
     await expect(import('../../../src/config/env')).rejects.toThrow(/JWT_SECRET|換行|多行/);
+  });
+
+  it('生產環境缺少 ADMIN_JWT_SECRET 時應拋錯', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.JWT_SECRET = 'JwTProdKey_9fK2LmP8xR4tV7qN1cD6hZ3uA0mY5';
+    process.env.ADMIN_JWT_SECRET = '';
+    jest.resetModules();
+    await expect(import('../../../src/config/env')).rejects.toThrow(/ADMIN_JWT_SECRET/);
+  });
+
+  it('生產環境 ADMIN_JWT_SECRET 與 JWT_SECRET 相同時應拋錯', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.JWT_SECRET = 'JwTProdKey_9fK2LmP8xR4tV7qN1cD6hZ3uA0mY5';
+    process.env.ADMIN_JWT_SECRET = process.env.JWT_SECRET;
+    jest.resetModules();
+    await expect(import('../../../src/config/env')).rejects.toThrow(/ADMIN_JWT_SECRET.*JWT_SECRET/);
   });
 });

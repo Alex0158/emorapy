@@ -7,8 +7,9 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import type { User } from "@/services/api/auth";
 import * as authApi from "@/services/api/auth";
 import { getProfile } from "@/services/api/user";
+import { registerRequestLogoutHandler } from "@/services/requestAuthBridge";
 import { logger } from "@/utils/logger";
-import { cancelAllRequests } from "@/services/request";
+import { cancelAllRequests } from "@/services/requestCancel";
 import { sessionStorage as appSessionStorage } from "@/utils/storage";
 import { useInterviewStore } from "./interviewStore";
 import { usePsychProfileStore } from "./psychProfileStore";
@@ -197,3 +198,6 @@ if (useAuthStore.persist.hasHydrated()) {
 	_setHydrated();
 }
 useAuthStore.persist.onFinishHydration(_setHydrated);
+registerRequestLogoutHandler(() => {
+	useAuthStore.getState().logout();
+});

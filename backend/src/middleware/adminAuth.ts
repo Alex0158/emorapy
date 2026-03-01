@@ -36,6 +36,13 @@ export const authenticateAdmin = async (
     if (!admin || !admin.is_active || admin.deleted_at) {
       throw Errors.UNAUTHORIZED('管理員帳號不存在或未啟用');
     }
+    // 使用 token iat 與帳號 updated_at 比對，確保帳號敏感變更（改密/停用/角色調整）後舊 token 失效。
+    if (typeof decoded.iat === 'number') {
+      const notBefore = Math.floor(admin.updated_at.getTime() / 1000);
+      if (decoded.iat < notBefore) {
+        throw Errors.UNAUTHORIZED('管理員 Token 已失效，請重新登入');
+      }
+    }
 
     req.admin = {
       id: admin.id,

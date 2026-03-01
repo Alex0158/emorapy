@@ -42,7 +42,7 @@ const NetworkStatus = () => {
   return (
     <div className="network-status">
       <Alert
-        message={t('networkStatus.offline')}
+        title={t('networkStatus.offline')}
         description={t('networkStatus.offlineDesc')}
         type="warning"
         icon={<DisconnectOutlined />}
@@ -54,4 +54,3 @@ const NetworkStatus = () => {
 };
 
 export default NetworkStatus;
-

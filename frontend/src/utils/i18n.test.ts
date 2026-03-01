@@ -2,7 +2,7 @@
  * i18n 單元測試
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { t, setLocale, getLocale } from './i18n';
+import { t, setLocale, getLocale, onLocaleChange } from './i18n';
 
 vi.mock('@/assets/i18n/zh-TW', () => ({
   default: {
@@ -66,6 +66,26 @@ describe('i18n', () => {
       setLocale('zh-TW');
       setLocale('ja-JP' as unknown as Parameters<typeof setLocale>[0]);
       expect(getLocale()).toBe('zh-TW');
+    });
+
+    it('切到 en-US 後，字典載入完成應觸發 locale listener', async () => {
+      const listener = vi.fn();
+      const unsubscribe = onLocaleChange(listener);
+      setLocale('en-US');
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(listener).toHaveBeenCalled();
+      unsubscribe();
+    });
+
+    it('en-US 字典載入前後都不應回退為 key 原文', async () => {
+      setLocale('en-US');
+      const immediate = t('result.title');
+      await Promise.resolve();
+      await Promise.resolve();
+      const loaded = t('result.title');
+      expect(immediate === '判決結果' || immediate === 'Result').toBe(true);
+      expect(loaded).toBe('Result');
     });
   });
 });

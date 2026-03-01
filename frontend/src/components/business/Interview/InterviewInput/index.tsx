@@ -57,9 +57,10 @@ const InterviewInput: React.FC<InterviewInputProps> = ({
           onKeyDown={handleKeyDown}
           placeholder={placeholder ?? t('interview.sendPlaceholder')}
           disabled={disabled || isStreaming}
-          autoSize={{ minRows: 1, maxRows: 4 }}
+          autoSize={{ minRows: 2, maxRows: 4 }}
           className="interview-input__textarea"
           status={isOverLimit ? 'error' : undefined}
+          style={{ minHeight: 64 }}
         />
         {charCount > MAX_CHARS * 0.8 && (
           <Text

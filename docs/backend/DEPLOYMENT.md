@@ -82,8 +82,17 @@ OPENAI_API_KEY=sk-...
 OPENAI_MODEL=gpt-3.5-turbo
 OPENAI_MAX_TOKENS=2000
 FRONTEND_URL=https://your-frontend-domain.com
-ALLOWED_ORIGINS=https://your-frontend-domain.com
+ALLOWED_ORIGINS=https://your-frontend-domain.com,https://your-admin-domain.com
 ```
+
+> 前後台拆分後，`ALLOWED_ORIGINS` 必須同時包含主前台與管理後台網域，否則管理後台會被 CORS 阻擋。
+>
+> 若啟用健康檢查告警腳本，也請設定 `ALERT_HEALTH_ORIGIN` 為 `ALLOWED_ORIGINS` 內其中一個合法來源，避免健康檢查因 Origin 不符而誤報 5xx。
+>
+> 生產環境 CORS 行為基準：
+> - 來源不在 `ALLOWED_ORIGINS`：返回 `403`（`CORS_ORIGIN_DENIED`）
+> - 無 `Origin` 請求：僅 `GET /health`、`GET /health/ready`、`GET /health/live` 放行（供監控探針）
+> - 合法來源但未登入管理端：返回 `401`（`UNAUTHORIZED`），不是 `403`
 
 ### 可選變量
 
@@ -142,6 +151,8 @@ ALERT_SLACK_WEBHOOK_URL=https://hooks.slack.com/services/... \
 ALERT_SLACK_DEDUP_WINDOW_SECONDS=600 \
 npm run ops:alerts:check
 ```
+
+若結果中 `slack.reason=missing webhook`，表示告警判斷流程正常但通知通道未配置，請補上 `ALERT_SLACK_WEBHOOK_URL` 才能完成告警閉環。
 
 後端若啟用定時任務（`ENABLE_SCHEDULED_JOBS=true`），內建 `ops_alerts_check` 會每 5 分鐘自動執行。
 
@@ -244,6 +255,12 @@ OPENAI_ORG_ID=<openai-org-id-optional>
 4. 運行數據庫遷移
 5. 驗證功能
 6. 監控錯誤
+
+功能驗證建議（含聊天室）：
+- `GET /health`、`GET /health/ready`
+- 主要流程：快速體驗建案 → 判決完成
+- 聊天室：建立房間 → 發訊息 → 建邀請 → 接受 → 發起判決（含 included_message_ids）→ 查詢 judgment-status
+- 監控：`GET /metrics` 可返回 Prometheus 指標文本（建議僅內網暴露/抓取）
 
 ---
 

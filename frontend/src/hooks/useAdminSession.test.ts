@@ -33,6 +33,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
 describe('useAdminSession', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockSetAdminToken.mockReturnValue(true);
   });
 
   it('login 成功應寫入 token 並失效 admin queries', async () => {

@@ -8,6 +8,7 @@ import { HomeOutlined, LoginOutlined, UserOutlined, LogoutOutlined, SettingOutli
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { t, getLocale, onLocaleChange, setLocale, type Locale } from '@/utils/i18n';
+import { getAdminLoginUrl } from '@/utils/adminEntry';
 import './Header.less';
 
 const { Header: AntHeader } = Layout;
@@ -19,14 +20,13 @@ const NAV_PREFIX_MAP: Record<string, string> = {
   '/execution': '/execution/dashboard',
   '/profile': '/profile/index',
   '/chat': '/chat/room',
-  '/admin': '/admin/ops/jobs',
 };
-
 const Header = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { isAuthenticated, user, logout } = useAuthStore();
   const [locale, setLocalLocale] = useState<Locale>(getLocale());
+  const adminLoginUrl = getAdminLoginUrl();
 
   const selectedKeys = useMemo(() => {
     const { pathname } = location;
@@ -66,9 +66,16 @@ const Header = () => {
             label: <Link to="/chat/room">{t('nav.chat')}</Link>,
           },
           {
-            key: '/admin/ops/jobs',
+            key: '/admin-login',
             icon: <DashboardOutlined />,
-            label: <Link to="/admin/login">{t('nav.opsConsole')}</Link>,
+            label: adminLoginUrl ? (
+              <a href={adminLoginUrl} rel="noopener noreferrer">
+                {t('nav.opsConsole')}
+              </a>
+            ) : (
+              <span>{t('nav.opsConsole')}</span>
+            ),
+            disabled: !adminLoginUrl,
           },
         ]
       : [
@@ -88,9 +95,16 @@ const Header = () => {
             label: <Link to="/chat/room">{t('nav.chat')}</Link>,
           },
           {
-            key: '/admin/ops/jobs',
+            key: '/admin-login',
             icon: <DashboardOutlined />,
-            label: <Link to="/admin/ops/jobs">{t('nav.opsConsole')}</Link>,
+            label: adminLoginUrl ? (
+              <a href={adminLoginUrl} rel="noopener noreferrer">
+                {t('nav.opsConsole')}
+              </a>
+            ) : (
+              <span>{t('nav.opsConsole')}</span>
+            ),
+            disabled: !adminLoginUrl,
           },
         ]),
   ];

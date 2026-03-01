@@ -30,7 +30,7 @@ describe('chat API', () => {
     mockPost.mockResolvedValueOnce({ data: { data: { room: { id: 'r1' } } } });
     const result = await createChatRoom();
     expect(mockPost).toHaveBeenCalledWith('/chat/rooms', {
-      history_visibility_mode: 'share_full_history',
+      history_visibility_mode: 'share_summary_only',
     });
     expect(result).toMatchObject({ id: 'r1' });
   });
@@ -88,8 +88,8 @@ describe('chat API', () => {
 
   it('requestChatJudgment 應 POST /chat/rooms/:id/request-judgment', async () => {
     mockPost.mockResolvedValueOnce({ data: { data: { roomId: 'r1', caseId: 'c1', status: 'judgment_requested' } } });
-    const result = await requestChatJudgment('r1');
-    expect(mockPost).toHaveBeenCalledWith('/chat/rooms/r1/request-judgment');
+    const result = await requestChatJudgment('r1', { included_message_ids: ['m1', 'm2'] });
+    expect(mockPost).toHaveBeenCalledWith('/chat/rooms/r1/request-judgment', { included_message_ids: ['m1', 'm2'] });
     expect(result).toMatchObject({ roomId: 'r1', caseId: 'c1' });
   });
 
@@ -125,4 +125,3 @@ describe('chat API', () => {
     vi.unstubAllGlobals();
   });
 });
-

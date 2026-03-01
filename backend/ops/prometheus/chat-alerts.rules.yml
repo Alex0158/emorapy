@@ -1,0 +1,29 @@
+groups:
+  - name: chat
+    rules:
+      - alert: ChatSafetySpike
+        expr: increase(chat_safety_hits_total[5m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Chat 安全命中異常上升"
+          description: "5 分鐘內安全命中 {{ $value }} 次"
+
+      - alert: ChatJudgmentFailureRateHigh
+        expr: (rate(chat_judgment_total{result="failed"}[10m]) / clamp_min(rate(chat_judgment_total[10m]), 0.000001)) > 0.03
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "聊天室判決失敗率過高"
+          description: "10 分鐘內失敗率超過 3%"
+
+      - alert: ChatRateLimitFlood
+        expr: increase(chat_rate_limit_hits_total[5m]) > 20
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "聊天室限流觸發頻繁"
+          description: "5 分鐘內限流命中 {{ $value }} 次，可能出現刷屏或濫用"

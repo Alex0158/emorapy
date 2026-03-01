@@ -18,9 +18,8 @@ vi.mock('@/services/api/auth', () => ({
 vi.mock('@/services/api/user', () => ({
   getProfile: (...args: unknown[]) => mockGetProfile(...args),
 }));
-vi.mock('@/services/request', () => ({
+vi.mock('@/services/requestCancel', () => ({
   cancelAllRequests: (...args: unknown[]) => mockCancelAllRequests(...args),
-  default: { post: vi.fn(), get: vi.fn(), put: vi.fn(), delete: vi.fn(), interceptors: { request: { use: vi.fn() }, response: { use: vi.fn() } } },
 }));
 
 let mockSessionStorageValue: string | null = null;

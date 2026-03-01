@@ -10,6 +10,7 @@ import { useAdminTokenEditor } from './useAdminTokenEditor';
 describe('useAdminTokenEditor', () => {
   beforeEach(() => {
     localStorage.clear();
+    sessionStorage.clear();
   });
 
   it('應以已保存 token 初始化輸入框', async () => {

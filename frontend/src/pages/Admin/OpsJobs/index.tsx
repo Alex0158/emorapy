@@ -4,7 +4,6 @@
 
 import { Alert, Button, Card, Col, Empty, Input, InputNumber, Row, Segmented, Space, Statistic, Table, Typography, message } from 'antd';
 import { useMemo, useState } from 'react';
-import ProtectedRoute from '@/components/common/ProtectedRoute';
 import SEO from '@/components/common/SEO';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
 import { useAdminAccess } from '@/hooks/useAdminAccess';
@@ -115,7 +114,7 @@ const OpsJobsStatsPage = () => {
   const totals = statsQuery.data?.totals;
 
   return (
-    <ProtectedRoute>
+    <>
       <SEO title={t('admin.ops.title')} description={t('admin.ops.subtitle')} />
       <div className="execution-dashboard-page" role="main" aria-label={t('admin.ops.pageLabel')}>
         <AnimatedWrapper animation="fade" delay={100}>
@@ -184,7 +183,7 @@ const OpsJobsStatsPage = () => {
                     )
                   }
                 />
-                <Button disabled={!canLoadStats} onClick={handleRetryStats}>
+                <Button disabled={!canLoadStats || statsQuery.isFetching} onClick={handleRetryStats}>
                   {t('common.retry')}
                 </Button>
               </Space>
@@ -211,6 +210,11 @@ const OpsJobsStatsPage = () => {
         {accessViewState.showIdentityFailed && (
           <AnimatedWrapper animation="slide" direction="up" delay={178}>
             <Alert style={{ marginTop: 16 }} showIcon type="error" title={t('admin.ops.identityFailed')} />
+          </AnimatedWrapper>
+        )}
+        {accessViewState.showNetworkError && (
+          <AnimatedWrapper animation="slide" direction="up" delay={178}>
+            <Alert style={{ marginTop: 16 }} showIcon type="error" title={t('common.networkError')} />
           </AnimatedWrapper>
         )}
 
@@ -286,7 +290,7 @@ const OpsJobsStatsPage = () => {
           </AnimatedWrapper>
         )}
       </div>
-    </ProtectedRoute>
+    </>
   );
 };
 

@@ -167,7 +167,7 @@ const CaseDetail = () => {
     return (
       <div className="case-detail-page">
         <Alert
-          message={t('common.caseNotFound')}
+          title={t('common.caseNotFound')}
           type="error"
           action={
             <Space>
@@ -280,7 +280,7 @@ const CaseDetail = () => {
               style={{ marginTop: 24 }}
             >
               <Alert
-                message={t('caseDetail.defendantResponseHint')}
+                title={t('caseDetail.defendantResponseHint')}
                 type="info"
                 showIcon
                 style={{ marginBottom: 16 }}
@@ -308,7 +308,7 @@ const CaseDetail = () => {
         {needsDefendantResponse && isPlaintiff && (
           <AnimatedWrapper animation="slide" direction="up" delay={350}>
             <Alert
-              message={t('caseDetail.waitingForDefendant')}
+              title={t('caseDetail.waitingForDefendant')}
               description={t('caseDetail.waitingForDefendantDesc')}
               type="warning"
               showIcon
@@ -384,7 +384,7 @@ const CaseDetail = () => {
         {case_.status === 'judgment_failed' && (
           <AnimatedWrapper animation="slide" direction="up" delay={400}>
             <Alert
-              message={t('review.judgmentFailed')}
+              title={t('review.judgmentFailed')}
               description={case_.judgment_failure_reason || t('review.judgmentFailedDesc')}
               type="error"
               showIcon

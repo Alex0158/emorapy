@@ -198,7 +198,7 @@ const ChatRoomPage = () => {
     return t('chat.role.unknown');
   }, []);
 
-  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
+  const scrollToBottom = useCallback((behavior: 'auto' | 'smooth' = 'smooth') => {
     const api = virtuosoRef.current;
     if (!api) return;
     const list = messagesRef.current;
@@ -1101,8 +1101,8 @@ const ChatRoomPage = () => {
 	                    data={messages}
 	                    firstItemIndex={firstItemIndex}
 	                    computeItemKey={(_index, item) => (item as ChatMessage).id}
-	                    scrollerRef={(node) => {
-	                      messagesContainerRef.current = node;
+                    scrollerRef={(node) => {
+                      messagesContainerRef.current = node instanceof HTMLElement ? node : null;
 	                    }}
 	                    rangeChanged={(range: ListRange) => {
 	                      rangeStartIndexRef.current = range.startIndex;

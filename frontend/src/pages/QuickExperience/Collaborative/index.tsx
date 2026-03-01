@@ -17,7 +17,7 @@ import { MIN_STATEMENT_LENGTH, MIN_DEFENDANT_LENGTH } from '@/utils/constants';
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
-const Steps = process.env.NODE_ENV === 'test'
+const Steps = import.meta.env.MODE === 'test'
   ? (({ current }: { current: number }) => <div data-testid="steps-mock">step-{current}</div>)
   : AntdSteps;
 

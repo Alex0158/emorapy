@@ -30,6 +30,7 @@ export default function AdminUsersPage() {
     queryFn: () => adminApi.getUserDetail(selectedUserId),
     enabled: selectedUserId.length > 0,
   });
+  const hasUserDetail = detailQuery.data?.user !== null && detailQuery.data?.user !== undefined;
 
   const statusMutation = useMutation({
     mutationFn: (payload: {
@@ -159,11 +160,11 @@ export default function AdminUsersPage() {
       >
         {detailQuery.isLoading && <Text type="secondary">{t('common.loading')}</Text>}
         {detailQuery.error && <Alert showIcon type="error" title={t('admin.users.detailLoadFailed')} />}
-        {!detailQuery.isLoading && !detailQuery.error && !detailQuery.data?.user && (
+        {!detailQuery.isLoading && !detailQuery.error && !hasUserDetail && (
           <Text type="secondary">{t('common.noData')}</Text>
         )}
-        {!detailQuery.isLoading && !detailQuery.error && detailQuery.data?.user && (
-          <pre>{JSON.stringify(detailQuery.data.user, null, 2)}</pre>
+        {!detailQuery.isLoading && !detailQuery.error && hasUserDetail && (
+          <pre>{JSON.stringify(detailQuery.data?.user, null, 2)}</pre>
         )}
       </Drawer>
     </Space>

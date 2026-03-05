@@ -39,7 +39,7 @@ npm run prisma:migrate
 # （可選）打開Prisma Studio查看數據
 npm run prisma:studio
 
-# Docker 開發默認數據庫（參考 Docker-DEV-Guide.md）
+# Docker 開發默認數據庫（參考 ../docs/11-開發環境配置.md）
 # DATABASE_URL=postgresql://mbc:mbc_dev_pass@localhost:55432/mbc_dev
 ```
 

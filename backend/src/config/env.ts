@@ -87,6 +87,11 @@ interface EnvConfig {
   ALERT_SLACK_WEBHOOK_URL?: string;
   ALERT_SLACK_DEDUP_WINDOW_SECONDS: number;
   ALERT_HEALTH_ORIGIN?: string;
+
+  // Metrics 暴露控制
+  METRICS_ENABLED: boolean;
+  METRICS_TOKEN?: string;
+  METRICS_ALLOWED_IPS: string[];
 }
 
 function getEnvConfig(): EnvConfig {
@@ -186,6 +191,14 @@ function getEnvConfig(): EnvConfig {
     ALERT_SLACK_WEBHOOK_URL: process.env.ALERT_SLACK_WEBHOOK_URL,
     ALERT_SLACK_DEDUP_WINDOW_SECONDS: parseInt(process.env.ALERT_SLACK_DEDUP_WINDOW_SECONDS || '600', 10),
     ALERT_HEALTH_ORIGIN: process.env.ALERT_HEALTH_ORIGIN,
+
+    // Metrics 暴露控制
+    METRICS_ENABLED: process.env.METRICS_ENABLED !== 'false',
+    METRICS_TOKEN: process.env.METRICS_TOKEN,
+    METRICS_ALLOWED_IPS: (process.env.METRICS_ALLOWED_IPS || '')
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean),
   };
 }
 
@@ -320,6 +333,18 @@ function validateEnvVars(): void {
 
   // 生產環境額外驗證
   if (isProduction) {
+    const metricsEnabled = process.env.METRICS_ENABLED !== 'false';
+    const metricsToken = process.env.METRICS_TOKEN?.trim();
+    const metricsAllowedIps = (process.env.METRICS_ALLOWED_IPS || '')
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+    if (metricsEnabled && !metricsToken && metricsAllowedIps.length === 0) {
+      throw new Error(
+        '生產環境啟用 METRICS 時，必須設置 METRICS_TOKEN 或 METRICS_ALLOWED_IPS 以保護 /metrics'
+      );
+    }
+
     // 驗證FRONTEND_URL格式
     if (process.env.FRONTEND_URL && !process.env.FRONTEND_URL.startsWith('https://')) {
       logger.warn('警告: 生產環境FRONTEND_URL建議使用HTTPS');

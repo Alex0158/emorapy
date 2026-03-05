@@ -69,48 +69,40 @@ async function initializeDatabase() {
       process.env.RUN_MIGRATIONS === 'true' ||
       (env.NODE_ENV === 'development' && process.env.RUN_MIGRATIONS !== 'false');
 
-    if (shouldRunMigrations && databaseUrl.startsWith('file:')) {
-      logger.info('使用 SQLite 測試庫，運行 Prisma db push 以同步 schema');
-      execSync('npx prisma db push --accept-data-loss', {
-        stdio: 'pipe',
-        env: { ...process.env, DATABASE_URL: databaseUrl },
-        cwd: process.cwd(),
-        timeout: 30000,
-      });
-    }
-    if (shouldRunMigrations && !databaseUrl.startsWith('file:')) {
+    if (shouldRunMigrations) {
+      const isSQLite = databaseUrl.startsWith('file:');
+      const migrationCommand = isSQLite
+        ? 'npx prisma db push --accept-data-loss'
+        : (env.NODE_ENV === 'production' ? 'npx prisma migrate deploy' : 'npx prisma db push');
+      const migrationTimeout = isSQLite ? 30000 : 60000;
+
       try {
-        logger.info('正在運行數據庫遷移...');
-        execSync('npx prisma db push --accept-data-loss', { 
+        logger.info('正在運行數據庫遷移...', {
+          command: migrationCommand,
+          env: env.NODE_ENV,
+        });
+        execSync(migrationCommand, {
           stdio: 'pipe',
-          env: { ...process.env },
+          env: { ...process.env, DATABASE_URL: databaseUrl },
           cwd: process.cwd(),
-          timeout: 60000 // 60秒超時（本機首次或慢速環境）
+          timeout: migrationTimeout,
         });
         logger.info('數據庫遷移完成');
       } catch (migrationError: unknown) {
-        // 如果遷移失敗，記錄詳細錯誤但繼續嘗試連接
         const migErr = migrationError as { message?: string; stdout?: Buffer; stderr?: Buffer };
         const errorMessage = migErr.message || String(migrationError);
         const errorOutput = migErr.stdout?.toString() || migErr.stderr?.toString() || '';
-        
-        logger.warn('數據庫遷移失敗，嘗試直接連接', { 
+
+        logger.error('數據庫遷移失敗', {
+          command: migrationCommand,
           error: errorMessage,
           output: errorOutput.substring(0, 500),
         });
-        
-        // 檢查是否是連接問題
-        if (errorMessage.includes('P1001') || errorMessage.includes("Can't reach database server")) {
-          logger.error('無法連接到數據庫服務器，請檢查：', {
-            suggestions: [
-              '1. 確認 Supabase 項目是否處於活動狀態',
-              '2. 檢查 Supabase 的 IP 白名單設置（應允許所有 IP 或添加 Railway IP）',
-              '3. 驗證 DATABASE_URL 是否正確（特別是密碼中的特殊字符需要 URL 編碼）',
-              '4. 確認 Supabase 數據庫沒有暫停',
-            ],
-          });
+
+        // 生產環境或顯式遷移時不應靜默降級，避免 schema 漂移後帶著不一致狀態啟動。
+        if (env.NODE_ENV === 'production') {
+          throw migrationError;
         }
-        // 不退出，繼續嘗試連接（可能表已經存在）
       }
     }
     if (!shouldRunMigrations) {
@@ -204,10 +196,16 @@ async function initializeDatabase() {
     }
     
     // 所有重試都失敗
+    if (env.NODE_ENV === 'production') {
+      throw new Error('DATABASE_NOT_READY');
+    }
     logger.warn('應用將繼續運行，但數據庫功能可能不可用');
     logger.warn('請檢查 Railway 環境變量中的 DATABASE_URL 配置');
   } catch (error) {
     logger.error('數據庫初始化過程中發生未預期的錯誤', { error });
+    if (env.NODE_ENV === 'production') {
+      throw error;
+    }
     logger.warn('應用將繼續運行，但數據庫功能可能不可用');
   }
 }

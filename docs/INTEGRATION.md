@@ -117,6 +117,8 @@ curl -X POST http://localhost:3001/api/v1/chat/rooms \
 
 # Prometheus 指標（非 /api/v1）
 curl http://localhost:3001/metrics
+# 生產環境若設置 METRICS_TOKEN，需附帶：
+# -H "X-Metrics-Token: <your-token>"
 ```
 
 ## 🔐 認證流程

@@ -112,6 +112,8 @@ npm run dev
 cd backend
 npm install   # 若尚未安裝
 npm run test:unit      # 僅單元測試
+npm run test:integration  # 集成測試（默認跳過 quick flow）
+npm run test:integration:flow  # 需可用 PostgreSQL，顯式啟用 quick flow
 npm run test:coverage  # 單元測試 + 覆蓋率報告
 ```
 

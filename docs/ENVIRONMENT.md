@@ -61,6 +61,9 @@
 | `FRONTEND_URL` | 前端 URL | `http://localhost:5173` |
 | `ALLOWED_ORIGINS` | 允許的 CORS 來源 | `http://localhost:5173` |
 | `FILE_BASE_URL` | 文件訪問基礎 URL（返回上傳文件可訪問地址） | `http://localhost:3001` |
+| `METRICS_ENABLED` | 是否啟用 `/metrics` | `true` |
+| `METRICS_TOKEN` | `/metrics` 保護 token（Header: `X-Metrics-Token`） | - |
+| `METRICS_ALLOWED_IPS` | `/metrics` 允許抓取來源 IP（逗號分隔） | - |
 
 #### v2.0 新增（心理畫像系統）
 

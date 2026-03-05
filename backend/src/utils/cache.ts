@@ -133,21 +133,34 @@ class MemoryCache {
 // 全局內存緩存實例
 const memoryCache = new MemoryCache();
 
-// 定期清理過期條目
-// 根據環境調整日誌級別
-setInterval(() => {
+let cleanupTimer: NodeJS.Timeout | null = null;
+
+function runCacheCleanup(): void {
   const count = memoryCache.cleanup();
   if (count > 0) {
     if (env.NODE_ENV === 'development') {
       logger.debug('Memory cache cleanup', { count });
-    } else {
+    } else if (count > 10) {
       // 生產環境：僅在清理大量條目時記錄
-      if (count > 10) {
-        logger.info('Memory cache cleanup', { count });
-      }
+      logger.info('Memory cache cleanup', { count });
     }
   }
-}, CLEANUP_INTERVAL_MS);
+}
+
+function startCacheCleanupTimer(): void {
+  if (cleanupTimer || env.NODE_ENV === 'test') return;
+  cleanupTimer = setInterval(runCacheCleanup, CLEANUP_INTERVAL_MS);
+  // 不阻止進程退出，避免測試與短命腳本被常駐 timer 掛住。
+  cleanupTimer.unref?.();
+}
+
+export function stopCacheCleanupTimer(): void {
+  if (!cleanupTimer) return;
+  clearInterval(cleanupTimer);
+  cleanupTimer = null;
+}
+
+startCacheCleanupTimer();
 
 /**
  * 緩存服務

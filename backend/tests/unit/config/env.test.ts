@@ -131,4 +131,27 @@ describe('config/env', () => {
     jest.resetModules();
     await expect(import('../../../src/config/env')).rejects.toThrow(/ADMIN_JWT_SECRET.*JWT_SECRET/);
   });
+
+  it('生產環境啟用 METRICS 但未配置 token/ip 時應拋錯', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.JWT_SECRET = 'JwTProdKey_9fK2LmP8xR4tV7qN1cD6hZ3uA0mY5';
+    process.env.ADMIN_JWT_SECRET = 'AdminProdKey_1zX9vB6nM3kL8pQ2wS5eR7tY0uI4oP';
+    process.env.METRICS_ENABLED = 'true';
+    delete process.env.METRICS_TOKEN;
+    delete process.env.METRICS_ALLOWED_IPS;
+    jest.resetModules();
+    await expect(import('../../../src/config/env')).rejects.toThrow(/METRICS|metrics/);
+  });
+
+  it('生產環境配置 METRICS_TOKEN 時應允許啟動', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.JWT_SECRET = 'JwTProdKey_9fK2LmP8xR4tV7qN1cD6hZ3uA0mY5';
+    process.env.ADMIN_JWT_SECRET = 'AdminProdKey_1zX9vB6nM3kL8pQ2wS5eR7tY0uI4oP';
+    process.env.METRICS_ENABLED = 'true';
+    process.env.METRICS_TOKEN = 'metrics-token-for-tests';
+    jest.resetModules();
+    const mod = await import('../../../src/config/env');
+    expect(mod.env.METRICS_ENABLED).toBe(true);
+    expect(mod.env.METRICS_TOKEN).toBe('metrics-token-for-tests');
+  });
 });

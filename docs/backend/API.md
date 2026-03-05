@@ -731,6 +731,10 @@ Response：`{ success, data: { room } }`
 **GET** `/metrics`
 
 - Content-Type：`text/plain; version=0.0.4`
+- 生產環境保護：需滿足其一（否則 `403`）
+  - Header `X-Metrics-Token` = `METRICS_TOKEN`
+  - 請求來源 IP 命中 `METRICS_ALLOWED_IPS`
+- 可透過 `METRICS_ENABLED=false` 關閉端點（返回 `404`）
 - 指標來源：`backend/src/services/chat-metrics.service.ts`
 - Prometheus rules 示例：`backend/ops/prometheus/chat-alerts.rules.yml`（另見 `backend/docs/ALERTS_CHAT.md`）
 

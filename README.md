@@ -97,7 +97,7 @@ CJ/
 - [後端開發指南](./backend/DEVELOPMENT.md) - 後端開發文檔
 - [前端開發指南](./docs/frontend/README.md) - 前端開發文檔
 - [後端API文檔](./backend/API.md) - API接口文檔
-- [本地 Docker 開發指引](./Docker-DEV-Guide.md) - 端口/DB/啟停說明
+- [開發環境配置](./docs/11-開發環境配置.md) - 端口/DB/啟停與本地環境說明
 
 ## 🎯 核心功能
 

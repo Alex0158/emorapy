@@ -109,10 +109,13 @@ const withCronRunLog = async (
   }
 };
 
+const createJob = (expression: string, task: () => Promise<void>) =>
+  cron.schedule(expression, task, { scheduled: false });
+
 /**
  * 清理過期Session（每小時執行一次）
  */
-export const cleanupExpiredSessions = cron.schedule('0 * * * *', async () => {
+export const cleanupExpiredSessions = createJob('0 * * * *', async () => {
   await withCronRunLog('cleanup_expired_sessions', async () => {
     try {
       const count = await sessionService.cleanupExpiredSessions(1000);
@@ -134,7 +137,7 @@ export const cleanupExpiredSessions = cron.schedule('0 * * * *', async () => {
  * 清理孤兒上傳文件（每天凌晨3點）
  * 只刪除未在 evidence 表中的文件，避免佔用磁碟
  */
-export const cleanupOrphanUploads = cron.schedule('0 3 * * *', async () => {
+export const cleanupOrphanUploads = createJob('0 3 * * *', async () => {
   await withCronRunLog('cleanup_orphan_uploads', async () => {
     try {
       const uploadPath = path.isAbsolute(env.UPLOAD_DIR)
@@ -187,7 +190,7 @@ export const cleanupOrphanUploads = cron.schedule('0 3 * * *', async () => {
 /**
  * 清理過期臨時配對（每晚2點）
  */
-export const cleanupTempPairings = cron.schedule('0 2 * * *', async () => {
+export const cleanupTempPairings = createJob('0 2 * * *', async () => {
   await withCronRunLog('cleanup_temp_pairings', async () => {
     try {
       const expiredAt = new Date(Date.now() - CLEANUP_THRESHOLDS.TEMP_PAIRING_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
@@ -214,7 +217,7 @@ export const cleanupTempPairings = cron.schedule('0 2 * * *', async () => {
  * 將 in_progress 且 updated_at 超過 24 小時的 session 設為 abandoned；
  * 若輪次 ≥ MIN_TURNS_FOR_PIPELINE，則觸發 asyncPipelineService.process(sessionId)（fire and forget）
  */
-export const cleanupAbandonedInterviewSessions = cron.schedule('0 * * * *', async () => {
+export const cleanupAbandonedInterviewSessions = createJob('0 * * * *', async () => {
   await withCronRunLog('cleanup_abandoned_interview_sessions', async () => {
     try {
       const cutoff = new Date(Date.now() - CLEANUP_THRESHOLDS.ABANDONED_SESSION_HOURS * 60 * 60 * 1000);
@@ -257,7 +260,7 @@ export const cleanupAbandonedInterviewSessions = cron.schedule('0 * * * *', asyn
 /**
  * 清理過期驗證碼（每小時執行一次）
  */
-export const cleanupExpiredVerifications = cron.schedule('0 * * * *', async () => {
+export const cleanupExpiredVerifications = createJob('0 * * * *', async () => {
   await withCronRunLog('cleanup_expired_verifications', async () => {
     try {
       const result = await prisma.emailVerification.deleteMany({
@@ -285,7 +288,7 @@ export const cleanupExpiredVerifications = cron.schedule('0 * * * *', async () =
 /**
  * 重置AI服務每日調用計數（每天0點執行）
  */
-export const resetAIDailyCount = cron.schedule('0 0 * * *', async () => {
+export const resetAIDailyCount = createJob('0 0 * * *', async () => {
   await withCronRunLog('reset_ai_daily_count', async () => {
     try {
       await aiService.resetDailyCallCount().catch(err => logger.error('Failed to reset AI daily count', { error: err }));
@@ -307,7 +310,7 @@ export const resetAIDailyCount = cron.schedule('0 0 * * *', async () => {
  * 7天跟進提醒（每天上午10點）
  * 對已完成判決但尚未生成和好方案的案件，提醒用戶
  */
-export const followUp7Day = cron.schedule('0 10 * * *', async () => {
+export const followUp7Day = createJob('0 10 * * *', async () => {
   await withCronRunLog('follow_up_7_day', async () => {
     try {
       const sevenDaysAgo = new Date(Date.now() - CLEANUP_THRESHOLDS.FOLLOWUP_7_DAYS * 24 * 60 * 60 * 1000);
@@ -395,7 +398,7 @@ export const followUp7Day = cron.schedule('0 10 * * *', async () => {
  * 30天跟進提醒（每天上午10點）
  * 對已選擇和好方案但執行進度不足50%的案件，提醒用戶
  */
-export const followUp30Day = cron.schedule('0 10 * * *', async () => {
+export const followUp30Day = createJob('0 10 * * *', async () => {
   await withCronRunLog('follow_up_30_day', async () => {
     try {
     const thirtyDaysAgo = new Date(Date.now() - CLEANUP_THRESHOLDS.FOLLOWUP_30_DAYS * 24 * 60 * 60 * 1000);
@@ -494,7 +497,7 @@ export const followUp30Day = cron.schedule('0 10 * * *', async () => {
  * 清理逾時未回應的遠程 draft 案件（每天凌晨 4 點）
  * 將 draft 狀態的遠程案件在 14 天後自動取消，避免永久懸掛
  */
-export const cleanupStaleDraftCases = cron.schedule('0 4 * * *', async () => {
+export const cleanupStaleDraftCases = createJob('0 4 * * *', async () => {
   await withCronRunLog('cleanup_stale_draft_cases', async () => {
     try {
       const cutoff = new Date(Date.now() - CLEANUP_THRESHOLDS.STALE_DRAFT_DAYS * 24 * 60 * 60 * 1000);
@@ -522,7 +525,7 @@ export const cleanupStaleDraftCases = cron.schedule('0 4 * * *', async () => {
  * 偵測卡住的 processing session（每 30 分鐘）
  * 將 processing 超過 10 分鐘的 session 標記為 processing_failed，允許用戶從「我的故事」重試
  */
-export const cleanupStuckProcessingSessions = cron.schedule('*/30 * * * *', async () => {
+export const cleanupStuckProcessingSessions = createJob('*/30 * * * *', async () => {
   await withCronRunLog('cleanup_stuck_processing_sessions', async () => {
     try {
       const cutoff = new Date(Date.now() - CLEANUP_THRESHOLDS.STUCK_PROCESSING_MINUTES * 60 * 1000);
@@ -548,7 +551,7 @@ export const cleanupStuckProcessingSessions = cron.schedule('*/30 * * * *', asyn
  * 運維告警檢查（每 5 分鐘）
  * 會檢查 lock degraded / 5xx / 409 比例，並可選擇推送 Slack。
  */
-export const runOpsAlertsCheck = cron.schedule('*/5 * * * *', async () => {
+export const runOpsAlertsCheck = createJob('*/5 * * * *', async () => {
   await withCronRunLog('ops_alerts_check', async () => {
     try {
       const apiBaseUrl = env.OPS_ALERTS_API_BASE_URL || `http://127.0.0.1:${env.PORT}`;

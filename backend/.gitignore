@@ -35,7 +35,7 @@ coverage/
 .nyc_output/
 
 # Prisma
-prisma/migrations/
+# Keep prisma/migrations in git for deployment consistency.
 
 # Uploads
 uploads/

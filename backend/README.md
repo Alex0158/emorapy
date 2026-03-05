@@ -1,8 +1,8 @@
-# 熊媽媽法庭 - 後端服務
+# CJ 平台 - 後端服務
 
 ## 📋 項目簡介
 
-熊媽媽法庭（Mother Bear Court）是一個為情侶衝突提供公平、公正、溫暖的第三方判決平台。後端服務使用 Node.js + TypeScript + Express + Prisma 構建。
+CJ 平台（CJ Platform）是一個為情侶衝突提供公平、公正、溫暖的第三方判決平台。後端服務使用 Node.js + TypeScript + Express + Prisma 構建。
 
 ## 🛠️ 技術棧
 

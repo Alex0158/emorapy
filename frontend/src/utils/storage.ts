@@ -2,7 +2,7 @@
  * 本地存儲工具
  */
 
-import { SESSION_STORAGE_KEY } from './constants';
+import { LEGACY_SESSION_STORAGE_KEY, SESSION_STORAGE_KEY } from './constants';
 import { logger } from './logger';
 
 const CASE_SESSION_MAP_KEY = 'quick_case_session_map';
@@ -52,19 +52,41 @@ const compactCaseSessionMap = (map: Record<string, CaseSessionEntry>): Record<st
  */
 export const sessionStorage = {
   get: (): string | null => {
-    try { return localStorage.getItem(SESSION_STORAGE_KEY); } catch { return null; }
+    try {
+      const current = localStorage.getItem(SESSION_STORAGE_KEY);
+      if (current) return current;
+      const legacy = localStorage.getItem(LEGACY_SESSION_STORAGE_KEY);
+      if (legacy) {
+        // One-time lazy migration: read old key, write new key.
+        localStorage.setItem(SESSION_STORAGE_KEY, legacy);
+        localStorage.removeItem(LEGACY_SESSION_STORAGE_KEY);
+      }
+      return legacy;
+    } catch {
+      return null;
+    }
   },
 
   set: (sessionId: string): void => {
-    try { localStorage.setItem(SESSION_STORAGE_KEY, sessionId); } catch { /* noop */ }
+    try {
+      localStorage.setItem(SESSION_STORAGE_KEY, sessionId);
+      localStorage.removeItem(LEGACY_SESSION_STORAGE_KEY);
+    } catch {
+      /* noop */
+    }
   },
 
   remove: (): void => {
-    try { localStorage.removeItem(SESSION_STORAGE_KEY); } catch { /* noop */ }
+    try {
+      localStorage.removeItem(SESSION_STORAGE_KEY);
+      localStorage.removeItem(LEGACY_SESSION_STORAGE_KEY);
+    } catch {
+      /* noop */
+    }
   },
 
   exists: (): boolean => {
-    try { return !!localStorage.getItem(SESSION_STORAGE_KEY); } catch { return false; }
+    try { return !!(localStorage.getItem(SESSION_STORAGE_KEY) || localStorage.getItem(LEGACY_SESSION_STORAGE_KEY)); } catch { return false; }
   },
 };
 

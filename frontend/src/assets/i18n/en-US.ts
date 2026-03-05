@@ -6,7 +6,7 @@ const enUS: Record<string, string> = {
 	"nav.profile": "Profile",
 	"nav.settings": "Settings",
 	"nav.logout": "Logout",
-	"nav.logo": "Mother Bear Court",
+	"nav.logo": "CJ Platform",
 	"nav.login": "Login",
 	"nav.register": "Register",
 	"nav.myCases": "My Cases",
@@ -22,7 +22,7 @@ const enUS: Record<string, string> = {
 	"admin.nav.reports": "Reports",
 	"admin.nav.settings": "Security & Settings",
 	"admin.nav.health": "Health",
-	"admin.login.title": "Admin Login - Mother Bear Court",
+	"admin.login.title": "Admin Login - CJ Platform",
 	"admin.login.heading": "Admin Login",
 	"admin.login.subtitle": "Sign in with admin credentials",
 	"admin.login.email": "Admin Email",
@@ -175,7 +175,7 @@ const enUS: Record<string, string> = {
 	"admin.settings.flags.saveSuccess": "Feature flags saved",
 	"admin.settings.flags.saveFailed": "Failed to save feature flags",
 	"admin.settings.flags.flagsJsonObjectRequired": "Feature Flags must be a JSON object",
-	"admin.ops.title": "Ops Dashboard - Mother Bear Court",
+	"admin.ops.title": "Ops Dashboard - CJ Platform",
 	"admin.ops.pageLabel": "Admin operations stats page",
 	"admin.ops.heading": "Cron Job Stats Dashboard",
 	"admin.ops.subtitle": "Track scheduler health, rates, and sampling state",
@@ -955,7 +955,7 @@ const enUS: Record<string, string> = {
 		"Try anonymously first; if it helps, register to save the full history.",
 	"home.cta.button": "Start Free Experience Now",
 	"home.cta.titleAuth": "Ready to Resolve the Issue?",
-	"home.cta.descAuth": "Create a case and let Bear Judge help you clarify the issues and find solutions.",
+	"home.cta.descAuth": "Create a case and let the AI assistant help you clarify issues and find solutions.",
 
 	// Chat Room
 	"chat.title": "Chat Room",
@@ -1104,7 +1104,7 @@ const enUS: Record<string, string> = {
 	"validation.passwordNumberAlt": "Password must contain numbers",
 
 	// v2.0 Interview & Psychological Profile
-	"interview.title": "Chat with Bear",
+	"interview.title": "Chat with AI",
 	"interview.domainsExplored": "{count} domains explored",
 	"interview.turnsProgress": "{count} turns so far",
 	"interview.endChat": "End Chat",
@@ -1289,10 +1289,10 @@ const enUS: Record<string, string> = {
 	// Empty
 	"common.noData": "No data",
 
-	// BearJudge aria-labels
-	"bearJudge.aria.neutral": "Neutral mediation icon",
-	"bearJudge.aria.bear": "Bear character icon",
-	"bearJudge.aria.balance": "Balanced judgment icon",
+	// MediatorAvatar aria-labels
+	"mediatorAvatar.aria.neutral": "Neutral mediation icon",
+	"mediatorAvatar.aria.support": "Support assistant icon",
+	"mediatorAvatar.aria.balance": "Balanced judgment icon",
 
 	// SafetyAlert crisis resources
 	"safety.crisis.peaceLine": "Peace of Mind Hotline",

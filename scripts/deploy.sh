@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# 熊媽媽法庭 - 部署腳本
+# CJ 平台 - 部署腳本
 # 用於自動化部署後端服務
 
 set -e  # 遇到錯誤立即退出
 
-echo "🚀 開始部署熊媽媽法庭後端服務..."
+echo "🚀 開始部署 CJ 平台後端服務..."
 
 # 顏色定義
 RED='\033[0;31m'
@@ -81,6 +81,6 @@ echo ""
 echo "下一步："
 echo "1. 檢查環境變量配置（backend/.env）"
 echo "2. 運行 'npm start' 啟動服務（在backend目錄）"
-echo "3. 或使用 PM2: pm2 start dist/index.js --name mother-bear-court-backend"
+echo "3. 或使用 PM2: pm2 start dist/index.js --name cj-platform-backend"
 echo "4. 運行部署驗證: ./scripts/verify-deployment.sh"
 

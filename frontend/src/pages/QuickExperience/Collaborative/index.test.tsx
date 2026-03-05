@@ -47,8 +47,8 @@ vi.mock('@/components/common/SEO', () => ({ default: () => null }));
 vi.mock('@/components/common/AnimatedWrapper', () => ({
   default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
-vi.mock('@/components/business/BearJudge', () => ({
-  default: () => <div data-testid="bear-judge" />,
+vi.mock('@/components/business/MediatorAvatar', () => ({
+  default: () => <div data-testid="mediator-avatar" />,
 }));
 vi.mock('framer-motion', () => ({
   motion: {

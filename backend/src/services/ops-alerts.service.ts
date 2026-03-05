@@ -144,7 +144,7 @@ async function trySendSlackNotification(
   const text = alertChecks.map((item) => `• ${item.name}: ${item.message}`).join('\n');
   await postSlackMessage({
     webhookUrl: options.slackWebhookUrl,
-    title: 'Mother Bear Court Ops Alert',
+    title: 'CJ Platform Ops Alert',
     text,
     color: 'danger',
     fields: [

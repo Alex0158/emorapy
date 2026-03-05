@@ -46,7 +46,7 @@ Object.defineProperty(window, 'scrollTo', {
 });
 
 // 測試預設語言固定為 zh-TW，避免受執行環境 navigator.language 影響
-window.localStorage.setItem('mbc_locale', 'zh-TW');
+window.localStorage.setItem('cj_locale', 'zh-TW');
 
 if (typeof globalThis.ResizeObserver !== 'function') {
   class ResizeObserverMock implements ResizeObserver {

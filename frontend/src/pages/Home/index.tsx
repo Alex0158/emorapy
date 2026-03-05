@@ -6,7 +6,7 @@ import { useMemo } from 'react';
 import { Button } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { RocketOutlined, HeartOutlined, BulbOutlined, CheckCircleOutlined, FileTextOutlined, TeamOutlined } from '@ant-design/icons';
-import BearJudge from '@/components/business/BearJudge';
+import MediatorAvatar from '@/components/business/MediatorAvatar';
 import SEO from '@/components/common/SEO';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
 import FlowSimulation from './components/FlowSimulation';
@@ -92,7 +92,7 @@ const Home = () => {
               </div>
             </AnimatedWrapper>
             <AnimatedWrapper animation="fade" delay={250} duration={400} className="hero-image">
-              <BearJudge size="large" animated />
+              <MediatorAvatar size="large" animated />
             </AnimatedWrapper>
           </div>
         </section>

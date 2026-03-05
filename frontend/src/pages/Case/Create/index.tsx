@@ -26,7 +26,7 @@ import { createCase } from '@/services/api/case';
 import { psychProfileApi } from '@/services/api/psychProfile';
 import { validateStatement } from '@/utils/validate';
 import { useInterviewTrigger } from '@/hooks/useInterviewTrigger';
-import BearJudge from '@/components/business/BearJudge';
+import MediatorAvatar from '@/components/business/MediatorAvatar';
 import StatementInput from '@/components/business/StatementInput';
 import ConsentModal from '@/components/business/Interview/ConsentModal';
 import type { UploadFile } from 'antd/es/upload/interface';
@@ -201,7 +201,7 @@ const CaseCreate = () => {
       <div className="case-create-page" role="main" aria-label={t('caseCreate.pageLabel')}>
         <AnimatedWrapper animation="fade" delay={100}>
           <div className="page-header" aria-labelledby="create-title">
-            <BearJudge size="medium" animated />
+            <MediatorAvatar size="medium" animated />
             <Title level={2} id="create-title">{t('caseCreate.heading')}</Title>
             <Paragraph type="secondary">{t('caseCreate.subtitle')}</Paragraph>
           </div>

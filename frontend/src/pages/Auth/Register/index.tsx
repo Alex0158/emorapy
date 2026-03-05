@@ -20,7 +20,7 @@ import {
 } from "antd";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import BearJudge from "@/components/business/BearJudge";
+import MediatorAvatar from "@/components/business/MediatorAvatar";
 import AnimatedWrapper from "@/components/common/AnimatedWrapper";
 import SEO from "@/components/common/SEO";
 import { sendVerificationCode, verifyEmail } from "@/services/api/auth";
@@ -203,7 +203,7 @@ const Register = () => {
 				<AnimatedWrapper animation="scale" delay={100}>
 					<Card className="auth-card">
 						<div className="auth-header">
-							<BearJudge size="medium" animated />
+							<MediatorAvatar size="medium" animated />
 							<Title level={2} className="auth-title">
 								{t("auth.register.welcome")}
 							</Title>

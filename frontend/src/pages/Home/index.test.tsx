@@ -25,8 +25,8 @@ vi.mock('@/components/common/AnimatedWrapper', () => ({
   default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
-vi.mock('@/components/business/BearJudge', () => ({
-  default: () => <div data-testid="bear-judge">BearJudge</div>,
+vi.mock('@/components/business/MediatorAvatar', () => ({
+  default: () => <div data-testid="mediator-avatar">MediatorAvatar</div>,
 }));
 const mockUseAuthStore = vi.fn();
 vi.mock('@/store/authStore', () => ({

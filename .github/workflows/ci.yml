@@ -62,13 +62,13 @@ jobs:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_USER: mbc
-          POSTGRES_PASSWORD: mbc_dev_pass
-          POSTGRES_DB: mbc_flow_test
+          POSTGRES_USER: cj
+          POSTGRES_PASSWORD: cj_dev_pass
+          POSTGRES_DB: cj_flow_test
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U mbc -d mbc_flow_test"
+          --health-cmd "pg_isready -U cj -d cj_flow_test"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
@@ -90,15 +90,15 @@ jobs:
 
       - name: Prepare flow test database
         env:
-          DATABASE_URL: postgresql://mbc:mbc_dev_pass@127.0.0.1:5432/mbc_flow_test
+          DATABASE_URL: postgresql://cj:cj_dev_pass@127.0.0.1:5432/cj_flow_test
         run: npx prisma migrate deploy
 
       - name: Quick experience flow integration
         env:
           NODE_ENV: test
           RUN_FLOW_TESTS: 'true'
-          TEST_DATABASE_URL: postgresql://mbc:mbc_dev_pass@127.0.0.1:5432/mbc_flow_test
-          DATABASE_URL: postgresql://mbc:mbc_dev_pass@127.0.0.1:5432/mbc_flow_test
+          TEST_DATABASE_URL: postgresql://cj:cj_dev_pass@127.0.0.1:5432/cj_flow_test
+          DATABASE_URL: postgresql://cj:cj_dev_pass@127.0.0.1:5432/cj_flow_test
           SKIP_DB_INIT: 'true'
           JWT_SECRET: test-secret-min-32-chars-1234567890
           OPENAI_API_KEY: sk-dev-test-placeholder
@@ -170,13 +170,13 @@ jobs:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_USER: mbc
-          POSTGRES_PASSWORD: mbc_dev_pass
-          POSTGRES_DB: mbc_dev
+          POSTGRES_USER: cj
+          POSTGRES_PASSWORD: cj_dev_pass
+          POSTGRES_DB: cj_dev
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U mbc -d mbc_dev"
+          --health-cmd "pg_isready -U cj -d cj_dev"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
@@ -199,7 +199,7 @@ jobs:
         env:
           NODE_ENV: development
           PORT: 3001
-          DATABASE_URL: postgresql://mbc:mbc_dev_pass@127.0.0.1:5432/mbc_dev
+          DATABASE_URL: postgresql://cj:cj_dev_pass@127.0.0.1:5432/cj_dev
           JWT_SECRET: test-secret-min-32-chars-1234567890
           OPENAI_API_KEY: sk-dev-test-placeholder
           FRONTEND_URL: http://127.0.0.1:5173
@@ -219,7 +219,7 @@ jobs:
         env:
           NODE_ENV: development
           PORT: 3001
-          DATABASE_URL: postgresql://mbc:mbc_dev_pass@127.0.0.1:5432/mbc_dev
+          DATABASE_URL: postgresql://cj:cj_dev_pass@127.0.0.1:5432/cj_dev
           JWT_SECRET: test-secret-min-32-chars-1234567890
           OPENAI_API_KEY: sk-dev-test-placeholder
           FRONTEND_URL: http://127.0.0.1:5173

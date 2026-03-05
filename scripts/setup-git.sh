@@ -56,7 +56,7 @@ fi
 echo ""
 echo "💾 步驟 5: 創建初始提交..."
 read -p "提交信息 (默認: Initial commit): " commit_msg
-commit_msg=${commit_msg:-"Initial commit: 熊媽媽法庭 MVP"}
+commit_msg=${commit_msg:-"Initial commit: CJ 平台 MVP"}
 git commit -m "$commit_msg"
 
 echo ""

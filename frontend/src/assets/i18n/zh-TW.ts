@@ -241,7 +241,7 @@ const zhTW = {
 	"home.cta.desc": "先匿名試一次；覺得有幫助，再註冊保存完整歷程。",
 	"home.cta.button": "立即開始免費體驗",
 	"home.cta.titleAuth": "準備好解決問題了嗎？",
-	"home.cta.descAuth": "建立案件，讓熊熊法官幫你理清爭點、找到解法。",
+	"home.cta.descAuth": "建立案件，讓 AI 助手幫你理清爭點、找到解法。",
 
 	// Chat Room
 	"chat.title": "聊天室",
@@ -1012,7 +1012,7 @@ const zhTW = {
 	"common.reload": "重新載入",
 
 	// v2.0 心理畫像訪談
-	"interview.title": "與熊熊聊聊",
+	"interview.title": "與 AI 聊聊",
 	"interview.domainsExplored": "{count} 個面向已探索",
 	"interview.turnsProgress": "已進行 {count} 輪對話",
 	"interview.endChat": "結束對話",
@@ -1197,10 +1197,10 @@ const zhTW = {
 	// Empty
 	"common.noData": "暫無數據",
 
-	// BearJudge aria-labels
-	"bearJudge.aria.neutral": "中立調解圖示",
-	"bearJudge.aria.bear": "熊形象圖示",
-	"bearJudge.aria.balance": "平衡判斷圖示",
+	// MediatorAvatar aria-labels
+	"mediatorAvatar.aria.neutral": "中立調解圖示",
+	"mediatorAvatar.aria.support": "支援助手圖示",
+	"mediatorAvatar.aria.balance": "平衡判斷圖示",
 
 	// SafetyAlert crisis resources
 	"safety.crisis.peaceLine": "安心專線",

@@ -40,7 +40,7 @@ describe('constants', () => {
 
   describe('Session', () => {
     it('SESSION_STORAGE_KEY 應為字串', () => {
-      expect(SESSION_STORAGE_KEY).toBe('mbc_session_id');
+      expect(SESSION_STORAGE_KEY).toBe('cj_session_id');
     });
     it('SESSION_PREFIX 應為字串', () => {
       expect(SESSION_PREFIX).toBe('guest_');

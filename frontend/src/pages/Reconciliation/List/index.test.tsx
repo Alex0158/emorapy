@@ -29,7 +29,7 @@ vi.mock('@/components/common/SEO', () => ({ default: () => null }));
 vi.mock('@/components/common/AnimatedWrapper', () => ({
   default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
-vi.mock('@/components/business/BearJudge', () => ({ default: () => <span data-testid="bear-judge">BearJudge</span> }));
+vi.mock('@/components/business/MediatorAvatar', () => ({ default: () => <span data-testid="mediator-avatar">MediatorAvatar</span> }));
 vi.mock('antd', async (importOriginal) => {
   const actual = await importOriginal<typeof import('antd')>();
   return {

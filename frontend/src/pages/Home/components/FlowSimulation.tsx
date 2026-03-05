@@ -793,7 +793,7 @@ const PhoneSimulator = ({
                         <div className="notif-header">
                           <div className="notif-brand">
                             <div className="brand-dot"></div>
-                            <span>Mother Bear</span>
+                            <span>CJ Platform</span>
                           </div>
                           <span className="notif-time">{content.s0b.notifTime}</span>
                         </div>

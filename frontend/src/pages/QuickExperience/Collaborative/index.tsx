@@ -10,7 +10,7 @@ import { SwapOutlined, EditOutlined, CheckCircleOutlined } from '@ant-design/ico
 import { createCollaborativeCase } from '@/services/api/case';
 import { sessionStorage, caseSessionMap } from '@/utils/storage';
 import SEO from '@/components/common/SEO';
-import BearJudge from '@/components/business/BearJudge';
+import MediatorAvatar from '@/components/business/MediatorAvatar';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
 import { t } from '@/utils/i18n';
 import { MIN_STATEMENT_LENGTH, MIN_DEFENDANT_LENGTH } from '@/utils/constants';
@@ -92,7 +92,7 @@ const CollaborativeCreate = () => {
         <div style={{ maxWidth: 640, margin: '0 auto' }}>
           <AnimatedWrapper animation="fade" delay={100}>
             <div style={{ textAlign: 'center', marginBottom: 32 }}>
-              <BearJudge size="medium" animated />
+              <MediatorAvatar size="medium" animated />
               <Title level={2} style={{ color: '#fff', marginTop: 16 }}>{t('collaborative.title')}</Title>
               <Text style={{ color: '#94A3B8', fontSize: 16 }}>
                 {t('collaborative.subtitle')}
@@ -241,7 +241,7 @@ const CollaborativeCreate = () => {
                     transition={{ duration: 1.5, repeat: Infinity }}
                     style={{ fontSize: 48, marginBottom: 24 }}
                   >
-                    🐻
+                    🤖
                   </motion.div>
                   <Text style={{ color: '#CBD5E1', fontSize: 16 }}>{t('collaborative.submittingText')}</Text>
                 </div>

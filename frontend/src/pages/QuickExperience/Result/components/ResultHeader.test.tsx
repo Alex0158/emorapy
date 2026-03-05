@@ -6,8 +6,8 @@ vi.mock('@/utils/i18n', () => ({ t: (key: string) => key }));
 vi.mock('@/components/common/AnimatedWrapper', () => ({
   default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
-vi.mock('@/components/business/BearJudge', () => ({
-  default: () => <div data-testid="bear-judge" />,
+vi.mock('@/components/business/MediatorAvatar', () => ({
+  default: () => <div data-testid="mediator-avatar" />,
 }));
 
 describe('ResultHeader', () => {
@@ -17,8 +17,8 @@ describe('ResultHeader', () => {
     expect(screen.getByText('result.subtitle')).toBeInTheDocument();
   });
 
-  it('應渲染 BearJudge', () => {
+  it('應渲染 MediatorAvatar', () => {
     render(<ResultHeader />);
-    expect(screen.getByTestId('bear-judge')).toBeInTheDocument();
+    expect(screen.getByTestId('mediator-avatar')).toBeInTheDocument();
   });
 });

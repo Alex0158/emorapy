@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 熊媽媽法庭 - 健康檢查腳本
+# CJ 平台 - 健康檢查腳本
 # 用於檢查服務健康狀態
 
 # 顏色定義
@@ -12,8 +12,9 @@ NC='\033[0m'
 # 默認配置
 API_URL="${API_URL:-http://localhost:3001}"
 HEALTH_ENDPOINT="${HEALTH_ENDPOINT:-/health}"
+SERVICE_MATCH_REGEX="${SERVICE_MATCH_REGEX:-cj-platform|mother-bear-court}"
 
-echo "🏥 健康檢查 - 熊媽媽法庭"
+echo "🏥 健康檢查 - CJ 平台"
 echo "================================"
 echo ""
 
@@ -67,10 +68,10 @@ fi
 if command -v pm2 &> /dev/null; then
     echo ""
     echo "⚙️  檢查PM2進程..."
-    PM2_LIST=$(pm2 list 2>/dev/null | grep "mother-bear-court" || echo "")
+    PM2_LIST=$(pm2 list 2>/dev/null | grep -E "$SERVICE_MATCH_REGEX" || echo "")
     if [ -n "$PM2_LIST" ]; then
         echo -e "${GREEN}✅ PM2進程運行中${NC}"
-        pm2 list | grep "mother-bear-court"
+        pm2 list | grep -E "$SERVICE_MATCH_REGEX"
     else
         echo -e "${YELLOW}⚠️  未找到PM2進程${NC}"
     fi

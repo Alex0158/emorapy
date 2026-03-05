@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 熊媽媽法庭 - 部署驗證腳本
+# CJ 平台 - 部署驗證腳本
 # 用於驗證部署是否成功
 
 set -e
@@ -16,7 +16,7 @@ NC='\033[0m'
 BACKEND_URL="${BACKEND_URL:-http://localhost:3001}"
 FRONTEND_URL="${FRONTEND_URL:-http://localhost:5173}"
 
-echo "🔍 部署驗證 - 熊媽媽法庭"
+echo "🔍 部署驗證 - CJ 平台"
 echo "================================"
 echo ""
 echo "後端URL: ${BACKEND_URL}"

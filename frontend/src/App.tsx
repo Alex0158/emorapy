@@ -61,7 +61,7 @@ function App() {
       title: t('nav.logo'),
       description: t('home.description'),
       keywords: t('home.keywords'),
-      image: `${window.location.origin}/images/bear-judge/mother-bear-judge-large.png`,
+      image: `${window.location.origin}/vite.svg`,
       url: window.location.origin,
     });
 

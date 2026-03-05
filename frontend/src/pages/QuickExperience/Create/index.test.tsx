@@ -174,7 +174,7 @@ vi.mock('@/hooks/useAccessibility', () => ({
 }));
 
 vi.mock('@/components/common/SEO', () => ({ default: () => null }));
-vi.mock('@/components/business/BearJudge', () => ({ default: () => <span>BearJudge</span> }));
+vi.mock('@/components/business/MediatorAvatar', () => ({ default: () => <span>MediatorAvatar</span> }));
 vi.mock('@/components/business/StatementInput', () => ({
   default: ({
     value,

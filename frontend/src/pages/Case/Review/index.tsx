@@ -22,7 +22,7 @@ import { getCase } from '@/services/api/case';
 import { getJudgmentByCaseId, generateJudgment } from '@/services/api/judgment';
 import type { Case } from '@/types/case';
 import type { Judgment } from '@/types/judgment';
-import BearJudge from '@/components/business/BearJudge';
+import MediatorAvatar from '@/components/business/MediatorAvatar';
 import SEO from '@/components/common/SEO';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
 import { usePolling } from '@/hooks/usePolling';
@@ -231,7 +231,7 @@ const CaseReview = () => {
       <div className="case-review-page" role="main" aria-label={t('review.pageLabel')}>
         <AnimatedWrapper animation="fade" delay={100}>
           <div className="review-header" aria-labelledby="review-title">
-            <BearJudge size="large" animated />
+            <MediatorAvatar size="large" animated />
             <Title level={2} id="review-title">
               {t('review.aiReviewing')}
             </Title>

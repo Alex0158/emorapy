@@ -1,5 +1,5 @@
 import { Typography } from 'antd';
-import BearJudge from '@/components/business/BearJudge';
+import MediatorAvatar from '@/components/business/MediatorAvatar';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
 import { t } from '@/utils/i18n';
 
@@ -9,7 +9,7 @@ const ResultHeader = () => {
   return (
     <AnimatedWrapper animation="fade" delay={100}>
       <section className="result-header" aria-labelledby="result-title">
-        <BearJudge size="large" animated />
+        <MediatorAvatar size="large" animated />
         <Title level={1} id="result-title" className="result-title">
           {t('result.title')}
         </Title>

@@ -24,7 +24,7 @@ import { getCaseBySessionId } from '@/services/api/case';
 import { validateStatement } from '@/utils/validate';
 import { MAX_IMAGE_COUNT, MIN_DEFENDANT_LENGTH } from '@/utils/constants';
 import { localStore, sessionStorage, caseSessionMap } from '@/utils/storage';
-import BearJudge from '@/components/business/BearJudge';
+import MediatorAvatar from '@/components/business/MediatorAvatar';
 import StatementInput from '@/components/business/StatementInput';
 import FileUpload from '@/components/business/FileUpload';
 import KeyboardShortcuts from '@/components/common/KeyboardShortcuts';
@@ -287,7 +287,7 @@ const QuickExperienceCreate = () => {
           transition={{ duration: 0.8, ease: "easeOut" }}
         >
           <div className="container">
-            <BearJudge size="medium" animated />
+            <MediatorAvatar size="medium" animated />
             <Title level={1} className="guide-title">{t('quickCreate.guide.title')}</Title>
             <Text className="guide-subtitle">{t('quickCreate.guide.subtitle')}</Text>
             <div style={{ marginTop: 16 }}>
@@ -365,7 +365,7 @@ const QuickExperienceCreate = () => {
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.6, delay: 0.4 }}
               >
-                <BearJudge size="small" animated />
+                <MediatorAvatar size="small" animated />
               </motion.div>
 
               <motion.div 

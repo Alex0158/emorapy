@@ -5,7 +5,7 @@
 // 設置測試環境變量
 process.env.NODE_ENV = 'test';
 // 使用環境變量中的 DATABASE_URL，如果有 TEST_DATABASE_URL 則優先使用
-process.env.DATABASE_URL = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL || 'postgresql://postgres:password@localhost:5432/mother_bear_court_test';
+process.env.DATABASE_URL = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL || 'postgresql://postgres:password@localhost:5432/cj_platform_test';
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret-key';
 process.env.OPENAI_API_KEY = process.env.OPENAI_API_KEY || 'test-openai-api-key';
 process.env.FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';

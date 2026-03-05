@@ -3,7 +3,8 @@ import zhTW from '@/assets/i18n/zh-TW';
 export type Locale = 'zh-TW' | 'en-US';
 
 const DEFAULT_LOCALE: Locale = 'zh-TW';
-const LOCALE_STORAGE_KEY = 'mbc_locale';
+const LOCALE_STORAGE_KEY = 'cj_locale';
+const LEGACY_LOCALE_STORAGE_KEY = 'mbc_locale';
 
 let current: Locale = detectInitialLocale();
 
@@ -65,7 +66,12 @@ export function normalizeLocale(input?: string | null): Locale {
 function detectInitialLocale(): Locale {
   if (typeof window === 'undefined') return DEFAULT_LOCALE;
   let stored: string | null = null;
-  try { stored = window.localStorage.getItem(LOCALE_STORAGE_KEY); } catch { /* noop */ }
+  try {
+    stored = window.localStorage.getItem(LOCALE_STORAGE_KEY)
+      ?? window.localStorage.getItem(LEGACY_LOCALE_STORAGE_KEY);
+  } catch {
+    /* noop */
+  }
   if (stored) return normalizeLocale(stored);
   return normalizeLocale(window.navigator.language);
 }

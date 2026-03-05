@@ -1,7 +1,7 @@
 {
-  "name": "mother-bear-court-backend",
+  "name": "cj-platform-backend",
   "version": "1.0.0",
-  "description": "熊媽媽法庭後端服務",
+  "description": "CJ 平台後端服務",
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",

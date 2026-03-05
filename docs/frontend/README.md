@@ -1,8 +1,8 @@
-# 熊媽媽法庭 - 前端應用
+# CJ 平台 - 前端應用
 
 ## 📋 項目簡介
 
-熊媽媽法庭（Mother Bear Court）前端應用，使用 React + TypeScript + Vite + Ant Design 構建。
+CJ 平台（CJ Platform）前端應用，使用 React + TypeScript + Vite + Ant Design 構建。
 
 ## 🛠️ 技術棧
 

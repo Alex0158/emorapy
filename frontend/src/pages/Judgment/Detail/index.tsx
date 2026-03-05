@@ -28,7 +28,7 @@ import { psychProfileApi } from '@/services/api/psychProfile';
 import { useInterviewTrigger } from '@/hooks/useInterviewTrigger';
 import type { Judgment } from '@/types/judgment';
 import ProtectedRoute from '@/components/common/ProtectedRoute';
-import BearJudge from '@/components/business/BearJudge';
+import MediatorAvatar from '@/components/business/MediatorAvatar';
 import JudgmentViewer from '@/components/business/JudgmentViewer';
 import ResponsibilityRatio from '@/components/business/ResponsibilityRatio';
 import ConsentModal from '@/components/business/Interview/ConsentModal';
@@ -228,7 +228,7 @@ const JudgmentDetail = () => {
 
         <AnimatedWrapper animation="fade" delay={200}>
           <div className="judgment-header" aria-labelledby="judgment-title">
-            <BearJudge size="large" animated />
+            <MediatorAvatar size="large" animated />
             <Title level={2} id="judgment-title">
               {t('result.title')}
             </Title>

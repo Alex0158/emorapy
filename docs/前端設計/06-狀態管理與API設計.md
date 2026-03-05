@@ -1,3 +1,214 @@
+# 前端狀態管理與 API 設計（代碼對齊版）
+
+**文檔版本**：v4.0  
+**最後更新**：2026-03-05  
+**對齊基準**：`frontend/src/store/*`、`frontend/src/services/*`、`frontend/src/pages/Admin/*`
+
+---
+
+## 1. 狀態管理總覽
+
+目前採「**Zustand（業務狀態）+ React Query（Admin 查詢）+ Axios/fetch API 層**」混合模式。
+
+### 1.1 Zustand Store（主業務流）
+
+實際存在：
+
+- `authStore`
+- `sessionStore`（快速體驗 session）
+- `caseStore`
+- `judgmentStore`
+- `reconciliationStore`
+- `executionStore`
+- `interviewStore`
+- `psychProfileStore`
+
+### 1.2 React Query（目前集中在 Admin）
+
+主要用於：
+
+- Admin Users / Configs / Jobs / Health / AuditLogs / Reports
+- hooks：`useAdminMe`、`useAdminSession`、`useAdminJobStats`
+
+---
+
+## 2. Store 設計（按實作）
+
+## 2.1 `authStore`
+
+關鍵狀態：
+
+- `user`
+- `token`
+- `isAuthenticated`
+- `isLoading`
+- `_hasHydrated`
+
+關鍵行為：
+
+- `login/register`：依 `rememberMe` 把 token 存 `localStorage` 或 `sessionStorage`
+- `checkAuth`：啟動時讀 token，再打 `getProfile`
+- `logout`：會重置 `interviewStore` / `psychProfileStore` / `caseStore` 並 `cancelAllRequests`
+- 透過 `requestAuthBridge` 接收全局 401 登出觸發
+
+持久化規則：
+
+- Zustand persist 只持久化 `user`
+- `token` 由 `onRehydrateStorage` 重新從 storage 恢復（避免 rememberMe 語義錯位）
+
+## 2.2 `sessionStore`（快速體驗）
+
+關鍵狀態：
+
+- `session`
+- `isLoading`
+- `error`
+
+關鍵行為：
+
+- `createSession`（`POST /sessions/quick`）
+- `refreshSession`（`POST /sessions/refresh`）
+- `checkSessionExpiry`（提前 5 分鐘視為過期）
+- 內建 in-flight 去重（create/refresh 各自單飛）
+
+## 2.3 `caseStore`
+
+範圍偏「快速體驗鏈路」：
+
+- `createQuickCase`
+- `submitCase`
+- `getCase`
+- `currentCase` 管理
+
+有序請求保護：
+
+- `_reqSeq` 防止舊請求覆蓋新狀態
+
+## 2.4 `judgmentStore`
+
+- `generateJudgment`
+- `getJudgment`
+- `getJudgmentByCaseId`
+- `currentJudgment` 管理
+- 同樣用 `_reqSeq` 避免競態覆蓋
+
+## 2.5 `reconciliationStore`
+
+- `getPlans`
+- `generatePlans`
+- `selectPlan`
+- `selectedPlan` 管理
+
+## 2.6 `executionStore`
+
+- `confirmExecution`
+- `checkin`
+- `getExecutionStatus`
+- `currentExecution` 管理
+
+## 2.7 `interviewStore`（SSE 核心）
+
+關鍵狀態：
+
+- `currentSession`
+- `turns`
+- `streamingText`
+- `isStreaming`
+- `shouldEnd`
+- `safetyAlert`
+- `error/errorCode`
+
+關鍵行為：
+
+- `startSession`
+- `checkResume`
+- `respond`（SSE）
+- `skipTurn`（SSE）
+- `endSession`
+- `getSession`
+- `retryFailed`
+- `cancelStream`
+
+SSE 事件落地：
+
+- `token` -> 累積 `streamingText`
+- `metadata` -> 保存回合意圖等元數據
+- `safety_alert` -> 設置 `safetyAlert`
+- `complete` -> 合併 session 狀態與 domains
+- `error` -> `error/errorCode`
+
+## 2.8 `psychProfileStore`
+
+- `fetchProfile`
+- `fetchFeedbackHistory`
+- `giveConsent`
+- `deleteAllData`（會同步 reset `interviewStore`）
+
+---
+
+## 3. API 層設計
+
+## 3.1 `request.ts`（Axios 核心）
+
+基礎能力：
+
+- `baseURL = env.apiBaseURL`
+- 30s timeout
+- 全局 request/response interceptor
+
+請求攔截：
+
+- 自動附 `Authorization`（非 admin API）
+- 自動附 `X-Session-Id`（快速體驗）
+- 自動附 `X-Locale`
+- 每個請求註冊 `AbortController`（可取消）
+
+響應攔截（重點）：
+
+- 400/401 對 session 類錯誤會自動 refresh
+- 401 普通 API：清 token + 觸發 logout + 跳 `/auth/login`
+- 401 admin API：走 admin token 清理與 admin 登入導轉
+- 404/409 針對特定快速體驗場景抑制全局彈窗，交由頁面處理
+
+## 3.2 `sseRequest.ts`（訪談流式）
+
+- 使用 `fetch` + `ReadableStream`
+- 事件：`token` / `metadata` / `safety_alert` / `complete` / `error`
+- 超時：
+  - 首 token 30s
+  - 連線無事件 60s
+
+## 3.3 API 模塊（實際檔案）
+
+- `auth.ts`
+- `user.ts`
+- `session.ts`
+- `pairing.ts`
+- `case.ts`
+- `judgment.ts`
+- `reconciliation.ts`
+- `execution.ts`
+- `interview.ts`
+- `psychProfile.ts`
+- `chat.ts`
+- `admin.ts`
+
+---
+
+## 4. 併發與一致性策略（前端）
+
+- Store 層普遍使用 `_reqSeq` 防 stale response 覆蓋
+- Session 建立/刷新使用 in-flight 去重
+- HTTP 請求可被單請求或全局取消（登出時會全 cancel）
+- SSE 支援 `AbortController`，離開頁面可中斷流
+
+---
+
+## 5. 邊界與已知現況
+
+- React Query 目前主要服務 Admin，不是全站 server-state 標準層
+- 業務主流程（快速體驗/訪談/判決）主要由 Zustand + API wrappers 驅動
+- 文檔中的 store/API 若與代碼衝突，一律以 `frontend/src/store` 與 `frontend/src/services` 為準
 # 熊媽媽法庭 - 狀態管理與API設計
 
 **項目名稱**：熊媽媽法庭（Mother Bear Court）  

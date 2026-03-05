@@ -41,9 +41,9 @@ export class EmailService {
     email = this.sanitizeEmail(email);
 
     const subjectMap = {
-      register: '歡迎註冊熊媽媽法庭 - 請驗證您的郵箱',
-      reset_password: '重置密碼 - 熊媽媽法庭',
-      verify_email: '驗證郵箱 - 熊媽媽法庭',
+      register: '歡迎註冊 CJ 平台 - 請驗證您的郵箱',
+      reset_password: '重置密碼 - CJ 平台',
+      verify_email: '驗證郵箱 - CJ 平台',
     };
 
     const contentMap = {
@@ -54,7 +54,7 @@ export class EmailService {
 
     try {
       await this.transporter.sendMail({
-        from: `"熊媽媽法庭" <${env.SMTP_USER}>`,
+        from: `"CJ 平台" <${env.SMTP_USER}>`,
         to: email,
         subject: subjectMap[type],
         text: contentMap[type],
@@ -91,7 +91,7 @@ export class EmailService {
         where: { id: { in: [userId1, userId2] } },
         select: { email: true, nickname: true },
       });
-      const subject = '配對成功通知 - 熊媽媽法庭';
+      const subject = '配對成功通知 - CJ 平台';
       const html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #333;">配對成功</h2>
@@ -102,7 +102,7 @@ export class EmailService {
         if (!u.email) continue;
         const safeEmail = this.sanitizeEmail(u.email);
         await this.transporter.sendMail({
-          from: `"熊媽媽法庭" <${env.SMTP_USER}>`,
+          from: `"CJ 平台" <${env.SMTP_USER}>`,
           to: safeEmail,
           subject,
           html,
@@ -131,7 +131,7 @@ export class EmailService {
       });
       if (!user?.email) return;
       const safeEmail = this.sanitizeEmail(user.email);
-      const subject = '判決完成通知 - 熊媽媽法庭';
+      const subject = '判決完成通知 - CJ 平台';
       const html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #333;">判決已生成</h2>
@@ -139,7 +139,7 @@ export class EmailService {
         </div>
       `;
       await this.transporter.sendMail({
-        from: `"熊媽媽法庭" <${env.SMTP_USER}>`,
+        from: `"CJ 平台" <${env.SMTP_USER}>`,
         to: safeEmail,
         subject,
         html,

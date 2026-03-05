@@ -20,7 +20,7 @@ import {
 } from "antd";
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import BearJudge from "@/components/business/BearJudge";
+import MediatorAvatar from "@/components/business/MediatorAvatar";
 import AnimatedWrapper from "@/components/common/AnimatedWrapper";
 import SEO from "@/components/common/SEO";
 import { sendVerificationCode } from "@/services/api/auth";
@@ -97,7 +97,7 @@ const Login = () => {
 				<AnimatedWrapper animation="scale" delay={100}>
 					<Card className="auth-card">
 						<div className="auth-header" aria-labelledby="auth-title">
-							<BearJudge size="medium" animated />
+							<MediatorAvatar size="medium" animated />
 							<Title level={2} id="auth-title" className="auth-title">
 								{t("auth.login.welcome")}
 							</Title>

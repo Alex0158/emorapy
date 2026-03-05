@@ -9,7 +9,10 @@ const logger = winston.createLogger({
     winston.format.splat(),
     winston.format.json()
   ),
-  defaultMeta: { service: 'mother-bear-court-backend' },
+  defaultMeta: {
+    service: process.env.LOG_SERVICE_NAME || 'cj-platform-backend',
+    service_legacy: 'mother-bear-court-backend',
+  },
   transports: [
     new winston.transports.File({ 
       filename: 'logs/error.log', 

@@ -33,6 +33,12 @@ describe('storage', () => {
       mockGetItem.mockReturnValue(null);
       expect(sessionStorage.get()).toBe(null);
     });
+    it('get 應支援舊 key 並遷移到新 key', () => {
+      mockGetItem.mockImplementation((key: string) => (key === 'mbc_session_id' ? 'legacy_sid' : null));
+      expect(sessionStorage.get()).toBe('legacy_sid');
+      expect(mockSetItem).toHaveBeenCalledWith('cj_session_id', 'legacy_sid');
+      expect(mockRemoveItem).toHaveBeenCalledWith('mbc_session_id');
+    });
     it('set 應調用 localStorage.setItem', () => {
       sessionStorage.set('guest_xyz');
       expect(mockSetItem).toHaveBeenCalledWith(expect.any(String), 'guest_xyz');

@@ -25,7 +25,7 @@ import {
 import { getPlans, selectPlan, generatePlans } from '@/services/api/reconciliation';
 import type { ReconciliationPlan } from '@/services/api/reconciliation';
 import ProtectedRoute from '@/components/common/ProtectedRoute';
-import BearJudge from '@/components/business/BearJudge';
+import MediatorAvatar from '@/components/business/MediatorAvatar';
 import SEO from '@/components/common/SEO';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
 import {
@@ -126,7 +126,7 @@ const ReconciliationList = () => {
       <div className="reconciliation-list-page" role="main" aria-label={t('reconList.pageLabel')}>
         <AnimatedWrapper animation="fade" delay={100}>
           <div className="page-header" aria-labelledby="reconciliation-title">
-            <BearJudge size="medium" animated />
+            <MediatorAvatar size="medium" animated />
             <Title level={2} id="reconciliation-title">
               {t('reconList.heading')}
             </Title>

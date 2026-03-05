@@ -140,7 +140,7 @@ const Header = () => {
     <AntHeader className="app-header">
       <div className="header-content">
         <Link to="/" className="logo">
-          <span className="logo-text">🐻 {t('nav.logo')}</span>
+          <span className="logo-text">✨ {t('nav.logo')}</span>
         </Link>
 
         <Menu

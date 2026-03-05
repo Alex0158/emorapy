@@ -37,6 +37,10 @@ lerna-debug.log*
 # Testing
 coverage/
 .nyc_output/
+backend/coverage-auth-only/
+frontend/test-results/
+e2e/test-results/
+backend/tmp/
 
 # Prisma
 prisma/migrations/

@@ -6,16 +6,16 @@ import { render, screen } from '@testing-library/react';
 import ChatBubble from './index';
 
 describe('ChatBubble', () => {
-  it('AI 訊息應渲染 bear avatar 和內容', () => {
+  it('AI 訊息應渲染 assistant avatar 和內容', () => {
     render(<ChatBubble content="你好" isUser={false} />);
     expect(screen.getByText('你好')).toBeInTheDocument();
-    expect(screen.getByLabelText('bear')).toBeInTheDocument();
+    expect(screen.getByLabelText('assistant')).toBeInTheDocument();
   });
 
   it('使用者訊息不應渲染 avatar', () => {
     render(<ChatBubble content="我的回覆" isUser={true} />);
     expect(screen.getByText('我的回覆')).toBeInTheDocument();
-    expect(screen.queryByLabelText('bear')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('assistant')).not.toBeInTheDocument();
   });
 
   it('isStreaming 時應顯示游標', () => {

@@ -17,7 +17,7 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({ content, isUser, isStreaming, t
     <div className={`chat-bubble ${isUser ? 'chat-bubble--user' : 'chat-bubble--ai'} ${safetyFlag ? 'chat-bubble--safety' : ''}`}>
       {!isUser && (
         <div className="chat-bubble__avatar">
-          <span role="img" aria-label="bear">🐻</span>
+          <span role="img" aria-label="assistant">🤖</span>
         </div>
       )}
       <div className="chat-bubble__content">

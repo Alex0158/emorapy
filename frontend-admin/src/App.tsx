@@ -50,7 +50,7 @@ function App() {
       title: `${t('nav.logo')} Admin`,
       description: t('admin.login.title'),
       keywords: `${t('nav.logo')},admin,ops,${locale}`,
-      image: `${window.location.origin}/images/bear-judge/mother-bear-judge-large.png`,
+      image: `${window.location.origin}/vite.svg`,
       url: window.location.origin,
     });
   }, [locale]);

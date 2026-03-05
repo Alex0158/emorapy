@@ -27,6 +27,9 @@
 
 ## 4) 測試驗收
 
+- CI production-like smoke gate：
+  - `.github/workflows/ci.yml` 的 `production-like-smoke` job 必須通過
+  - 本地複驗可用：`bash scripts/smoke-production-like.sh`
 - 前端：`npm run build`、`npm run test:run`
 - 後端：`npm run build`
 - 後端管理員關鍵測試：
@@ -59,6 +62,7 @@
   - 驗證認證即時性：管理員被停用後，既有 JWT 呼叫 `/admin/me` 應立即回 `401`
   - 驗證認證即時性：管理員被停用後，既有 JWT 呼叫 `/admin/users`、`/admin/audit-logs` 亦需回 `401`
   - 驗證停用封鎖：被停用管理員不可再次 `POST /admin/login` 取得新 token
+  - 驗證 production-like 鏈路：`/health`、`/health/ready`、`POST /sessions/quick`、`POST /cases/quick`、`POST /admin/login`、`GET /admin/me`
 
 ## 5) 監控與告警
 

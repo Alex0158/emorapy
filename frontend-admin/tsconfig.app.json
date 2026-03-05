@@ -21,15 +21,15 @@
     "noUncheckedSideEffectImports": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["../frontend/src/*"]
+      "@/*": ["src/*"]
     }
   },
-  "include": ["src", "../frontend/src"],
+  "include": ["src"],
   "exclude": [
-    "../frontend/src/**/*.test.ts",
-    "../frontend/src/**/*.test.tsx",
-    "../frontend/src/**/*.spec.ts",
-    "../frontend/src/**/*.spec.tsx",
-    "../frontend/src/test"
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/**/*.spec.ts",
+    "src/**/*.spec.tsx",
+    "src/test"
   ]
 }

@@ -24,7 +24,7 @@
 | 前端 i18n | `/Users/alex/Desktop/CJ/mother-bear-court/frontend/src/assets/i18n/zh-TW.ts` | `熊熊法官`、`與熊熊聊聊` 等對外字串 | 高 | 與英文本同步替換，避免多語系殘留 | 否 |
 | 前台首頁 | `/Users/alex/Desktop/CJ/mother-bear-court/frontend/src/pages/Home/components/FlowSimulation.tsx` | 內文含 `Mother Bear` | 高 | 改為新品牌文案，並核對動畫/假資料文本 | 否 |
 | 前端 SEO | `/Users/alex/Desktop/CJ/mother-bear-court/frontend/src/App.tsx` | SEO image path 含 `/images/bear-judge/mother-bear-judge-large.png` | 中 | 改路徑與檔名，避免對外 metadata 洩漏舊命名 | 否 |
-| Admin SEO | `/Users/alex/Desktop/CJ/mother-bear-court/frontend-admin/src/App.tsx` | image path 含 `mother-bear-judge-large.png` | 中 | 與前台一起改路徑策略 | 否 |
+| Admin SEO | `/Users/alex/Desktop/CJ/mother-bear-court/frontend-admin/src/App.tsx` | （已清理）不再引用舊 `mother-bear-judge` SEO 圖片路徑 | 低 | 維持現狀，後續僅檢查是否回流 | 否 |
 | Admin HTML | `/Users/alex/Desktop/CJ/mother-bear-court/frontend-admin/index.html` | `<title>Mother Bear Court Admin</title>` | 高 | 直接替換標題與品牌詞 | 否 |
 | 郵件服務 | `/Users/alex/Desktop/CJ/mother-bear-court/backend/src/services/email.service.ts` | 郵件主旨/寄件顯示含 `熊媽媽法庭` | 高 | 優先改（會直接觸達用戶） | 否 |
 | 告警服務 | `/Users/alex/Desktop/CJ/mother-bear-court/backend/src/services/ops-alerts.service.ts` | `Mother Bear Court Ops Alert` | 高 | 改告警標題與通知模板 | 否 |

@@ -12,6 +12,10 @@ import {
   Alert,
   message,
   Spin,
+  Form,
+  InputNumber,
+  Select,
+  Divider,
 } from 'antd';
 import {
   CopyOutlined,
@@ -20,6 +24,12 @@ import {
 } from '@ant-design/icons';
 import { createPairing, joinPairing, getPairingStatus, cancelPairing } from '@/services/api/pairing';
 import type { Pairing } from '@/services/api/pairing';
+import {
+  getRelationshipProfile,
+  upsertRelationshipProfile,
+  type RelationshipProfile,
+  type RelationshipProfileInput,
+} from '@/services/api/profile';
 import ProtectedRoute from '@/components/common/ProtectedRoute';
 import ConfirmModal from '@/components/common/ConfirmModal';
 import SEO from '@/components/common/SEO';
@@ -32,6 +42,78 @@ import { useNavigate } from 'react-router-dom';
 import './Pairing.less';
 
 const { Title, Text, Paragraph } = Typography;
+const { TextArea } = Input;
+
+interface RelationshipFormValues {
+  relationship_stage?: string;
+  relationship_duration_days?: number | null;
+  communication_frequency?: string;
+  preferred_communication_methods?: string[];
+  relationship_strengths?: string;
+  relationship_challenges?: string;
+  completion_percentage?: number | null;
+}
+
+const toOptionalTrimmed = (value: unknown): string | undefined => {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
+
+const toOptionalNumber = (value: unknown): number | undefined => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return undefined;
+};
+
+const toOptionalStringArray = (value: unknown): string[] | undefined => {
+  if (!Array.isArray(value)) return undefined;
+  const cleaned = value
+    .map((item) => toOptionalTrimmed(item))
+    .filter((item): item is string => Boolean(item));
+  return cleaned.length > 0 ? cleaned : undefined;
+};
+
+const toRelationshipFormValues = (
+  profile: RelationshipProfile | null
+): RelationshipFormValues => ({
+  relationship_stage: toOptionalTrimmed(profile?.relationship_stage),
+  relationship_duration_days: toOptionalNumber(profile?.relationship_duration_days),
+  communication_frequency: toOptionalTrimmed(profile?.communication_frequency),
+  preferred_communication_methods: toOptionalStringArray(profile?.preferred_communication_methods) ?? [],
+  relationship_strengths: toOptionalTrimmed(profile?.relationship_strengths),
+  relationship_challenges: toOptionalTrimmed(profile?.relationship_challenges),
+  completion_percentage: toOptionalNumber(profile?.completion_percentage),
+});
+
+const buildRelationshipPayload = (
+  values: RelationshipFormValues
+): RelationshipProfileInput => {
+  const payload: RelationshipProfileInput = {};
+
+  const relationshipStage = toOptionalTrimmed(values.relationship_stage);
+  const relationshipDurationDays = toOptionalNumber(values.relationship_duration_days);
+  const communicationFrequency = toOptionalTrimmed(values.communication_frequency);
+  const preferredCommunicationMethods = toOptionalStringArray(values.preferred_communication_methods);
+  const relationshipStrengths = toOptionalTrimmed(values.relationship_strengths);
+  const relationshipChallenges = toOptionalTrimmed(values.relationship_challenges);
+  const completionPercentage = toOptionalNumber(values.completion_percentage);
+
+  if (relationshipStage) payload.relationship_stage = relationshipStage;
+  if (relationshipDurationDays !== undefined) payload.relationship_duration_days = relationshipDurationDays;
+  if (communicationFrequency) payload.communication_frequency = communicationFrequency;
+  if (preferredCommunicationMethods) {
+    payload.preferred_communication_methods = preferredCommunicationMethods;
+  }
+  if (relationshipStrengths) payload.relationship_strengths = relationshipStrengths;
+  if (relationshipChallenges) payload.relationship_challenges = relationshipChallenges;
+  if (completionPercentage !== undefined) payload.completion_percentage = completionPercentage;
+
+  return payload;
+};
 
 const ProfilePairing = () => {
   const [pairing, setPairing] = useState<Pairing | null>(null);
@@ -44,8 +126,13 @@ const ProfilePairing = () => {
   const navigate = useNavigate();
   const { profile, fetchProfile: fetchPsychProfile, giveConsent, consentLoading } = usePsychProfileStore();
   const { startSession, checkResume } = useInterviewStore();
+  const [relationshipLoading, setRelationshipLoading] = useState(false);
+  const [relationshipSaving, setRelationshipSaving] = useState(false);
+  const [relationshipProfile, setRelationshipProfile] = useState<RelationshipProfile | null>(null);
+  const [relationshipForm] = Form.useForm<RelationshipFormValues>();
 
   const staleRef = useRef(false);
+  const activePairingId = pairing?.status === 'active' ? pairing.id : null;
 
   useEffect(() => {
     staleRef.current = false;
@@ -67,6 +154,25 @@ const ProfilePairing = () => {
       setPairing(null);
     } finally {
       if (!staleRef.current) setLoading(false);
+    }
+  };
+
+  const fetchRelationshipData = async (pairingId: string) => {
+    setRelationshipLoading(true);
+    try {
+      const relationshipData = await getRelationshipProfile(pairingId);
+      if (staleRef.current) return;
+      setRelationshipProfile(relationshipData);
+      relationshipForm.setFieldsValue(toRelationshipFormValues(relationshipData));
+    } catch (error: unknown) {
+      if (staleRef.current) return;
+      const msg =
+        (error as { message?: string })?.message || t('message.relationshipProfileLoadFail');
+      message.error(msg);
+      setRelationshipProfile(null);
+      relationshipForm.resetFields();
+    } finally {
+      if (!staleRef.current) setRelationshipLoading(false);
     }
   };
 
@@ -125,6 +231,35 @@ const ProfilePairing = () => {
       setCancelling(false);
     }
   };
+
+  const handleSaveRelationshipProfile = async (values: RelationshipFormValues) => {
+    if (!activePairingId) return;
+    setRelationshipSaving(true);
+    try {
+      const payload = buildRelationshipPayload(values);
+      const savedProfile = await upsertRelationshipProfile(activePairingId, payload);
+      if (staleRef.current) return;
+      setRelationshipProfile(savedProfile);
+      relationshipForm.setFieldsValue(toRelationshipFormValues(savedProfile));
+      message.success(t('message.relationshipProfileSaveSuccess'));
+    } catch (error: unknown) {
+      if (staleRef.current) return;
+      const msg =
+        (error as { message?: string })?.message || t('message.relationshipProfileSaveFail');
+      message.error(msg);
+    } finally {
+      if (!staleRef.current) setRelationshipSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!activePairingId) {
+      relationshipForm.resetFields();
+      setRelationshipProfile(null);
+      return;
+    }
+    void fetchRelationshipData(activePairingId);
+  }, [activePairingId, relationshipForm]);
 
   if (loading) {
     return (
@@ -218,6 +353,117 @@ const ProfilePairing = () => {
               <Text>{t('pairing.pairingId')}{pairing.id}</Text>
               {pairing.user1 && <Text>{t('pairing.user1')}{pairing.user1.nickname || pairing.user1.id}</Text>}
               {pairing.user2 && <Text>{t('pairing.user2')}{pairing.user2.nickname || pairing.user2.id}</Text>}
+              <Divider style={{ margin: '12px 0' }} />
+              <Text strong>{t('pairing.relationshipTitle')}</Text>
+              <Paragraph type="secondary" style={{ marginBottom: 8 }}>
+                {t('pairing.relationshipDesc')}
+              </Paragraph>
+              {relationshipProfile?.last_updated_at && (
+                <Text type="secondary">
+                  {t('pairing.relationshipLastUpdated', {
+                    time: new Date(relationshipProfile.last_updated_at).toLocaleString(),
+                  })}
+                </Text>
+              )}
+              {relationshipLoading ? (
+                <Spin size="small" />
+              ) : (
+                <Form<RelationshipFormValues>
+                  form={relationshipForm}
+                  layout="vertical"
+                  onFinish={handleSaveRelationshipProfile}
+                  style={{ width: '100%' }}
+                >
+                  <Form.Item
+                    label={t('pairing.relationshipStage')}
+                    name="relationship_stage"
+                  >
+                    <Select
+                      allowClear
+                      placeholder={t('pairing.relationshipStagePlaceholder')}
+                      options={[
+                        { value: 'newly_dating', label: t('pairing.relationshipStageNewlyDating') },
+                        { value: 'stable', label: t('pairing.relationshipStageStable') },
+                        { value: 'engaged', label: t('pairing.relationshipStageEngaged') },
+                        { value: 'married', label: t('pairing.relationshipStageMarried') },
+                        { value: 'separated', label: t('pairing.relationshipStageSeparated') },
+                        { value: 'other', label: t('pairing.relationshipStageOther') },
+                      ]}
+                    />
+                  </Form.Item>
+
+                  <Form.Item
+                    label={t('pairing.relationshipDurationDays')}
+                    name="relationship_duration_days"
+                  >
+                    <InputNumber
+                      min={0}
+                      max={36500}
+                      style={{ width: '100%' }}
+                      placeholder={t('pairing.relationshipDurationDaysPlaceholder')}
+                    />
+                  </Form.Item>
+
+                  <Form.Item
+                    label={t('pairing.communicationFrequency')}
+                    name="communication_frequency"
+                  >
+                    <Input placeholder={t('pairing.communicationFrequencyPlaceholder')} />
+                  </Form.Item>
+
+                  <Form.Item
+                    label={t('pairing.preferredCommunicationMethods')}
+                    name="preferred_communication_methods"
+                  >
+                    <Select
+                      mode="tags"
+                      tokenSeparators={[',']}
+                      placeholder={t('pairing.preferredCommunicationMethodsPlaceholder')}
+                    />
+                  </Form.Item>
+
+                  <Form.Item
+                    label={t('pairing.relationshipStrengths')}
+                    name="relationship_strengths"
+                  >
+                    <TextArea
+                      rows={3}
+                      showCount
+                      maxLength={1000}
+                      placeholder={t('pairing.relationshipStrengthsPlaceholder')}
+                    />
+                  </Form.Item>
+
+                  <Form.Item
+                    label={t('pairing.relationshipChallenges')}
+                    name="relationship_challenges"
+                  >
+                    <TextArea
+                      rows={3}
+                      showCount
+                      maxLength={1000}
+                      placeholder={t('pairing.relationshipChallengesPlaceholder')}
+                    />
+                  </Form.Item>
+
+                  <Form.Item
+                    label={t('pairing.completionPercentage')}
+                    name="completion_percentage"
+                    rules={[{ type: 'number', min: 0, max: 100 }]}
+                  >
+                    <InputNumber
+                      min={0}
+                      max={100}
+                      style={{ width: '100%' }}
+                      placeholder={t('pairing.completionPercentagePlaceholder')}
+                    />
+                  </Form.Item>
+
+                  <Button type="primary" htmlType="submit" loading={relationshipSaving}>
+                    {t('pairing.saveRelationshipProfile')}
+                  </Button>
+                </Form>
+              )}
               <Button danger onClick={() => setConfirmCancelOpen(true)} loading={cancelling}>
                 {t('pairing.cancelPairing')}
               </Button>

@@ -75,8 +75,8 @@
 | `POST /api/v1/pairing/join` | F08 | `/profile/pairing` | 加入配對 | M | 已使用 |
 | `GET /api/v1/pairing/status` | F08/F03 | `/profile/pairing`、`/case/create` | 查配對 | M | 已使用 |
 | `POST /api/v1/pairing/cancel` | F08 | `/profile/pairing` | 解除配對 | M | 已使用 |
-| `GET /api/v1/profile/relationship/:pairingId` | F08 | 配對後頁面流程（待驗證） | 關係背景讀取 | L | 已使用 |
-| `PUT /api/v1/profile/relationship/:pairingId` | F08 | 配對後頁面流程（待驗證） | 關係背景更新 | L | 已使用 |
+| `GET /api/v1/profile/relationship/:pairingId` | F08 | `/profile/pairing`（配對成功態） | 關係背景讀取 | M | 已使用 |
+| `PUT /api/v1/profile/relationship/:pairingId` | F08 | `/profile/pairing`（配對成功態） | 關係背景更新 | M | 已使用 |
 | `POST /api/v1/auth/register` | F09 | `/auth/register` | 註冊 | M | 已使用 |
 | `POST /api/v1/auth/login` | F09 | `/auth/login` | 登入 | H | 已使用 |
 | `POST /api/v1/auth/send-verification-code` | F09 | `/auth/*` | 驗證碼發送 | M | 已使用 |
@@ -108,12 +108,12 @@
 | `PUT /api/v1/admin/alerts/rules` | F10 | `/admin/settings` | 告警規則 | M | 已使用 |
 | `PUT /api/v1/admin/feature-flags` | F10 | `/admin/settings` | 功能旗標 | M | 已使用 |
 | `POST /api/v1/admin/bootstrap` | F10 | （無） | 初始 admin 建立 | L | 候選廢棄 |
-| `GET /api/v1/admin/health/detailed` | F10 | （無） | 詳細健康 | L | 候選廢棄 |
-| `GET /api/v1/admin/jobs` | F10 | （無） | 任務列表 | L | 候選廢棄 |
-| `GET /api/v1/admin/reports/overview` | F10 | （無） | 總覽報表 | L | 候選廢棄 |
-| `GET /api/v1/admin/reports/funnel` | F10 | （無） | 漏斗報表 | L | 候選廢棄 |
-| `GET /api/v1/admin/reports/costs` | F10 | （無） | 成本報表 | L | 候選廢棄 |
-| `GET /api/v1/admin/runtime/interview` | F10 | （無） | 訪談運行參數 | L | 候選廢棄 |
+| `GET /api/v1/admin/health/detailed` | F10 | `/admin/health` | 詳細健康 | M | 已使用 |
+| `GET /api/v1/admin/jobs` | F10 | `/admin/jobs` | 任務列表 | M | 已使用 |
+| `GET /api/v1/admin/reports/overview` | F10 | `/admin/reports` | 總覽報表 | M | 已使用 |
+| `GET /api/v1/admin/reports/funnel` | F10 | `/admin/reports` | 漏斗報表 | M | 已使用 |
+| `GET /api/v1/admin/reports/costs` | F10 | `/admin/reports` | 成本報表 | M | 已使用 |
+| `GET /api/v1/admin/runtime/interview` | F10 | `/admin/settings` | 訪談運行參數 | L | 已使用 |
 | `GET /api/v1/admin/reports/overview.csv` | F10 | `/admin/reports` | 報表下載 | M | 已使用 |
 | `POST /api/v1/admin/reports/custom` | F10 | `/admin/reports` | 客製報表 | M | 已使用 |
 | `GET /health` | F14 | （監控） | 聚合健康探針 | L | 候選廢棄 |
@@ -139,8 +139,8 @@
 | `GET /api/v1/cases/:id/judgment` | F02 | 已使用 | 跨功能依賴 | 協作頁只負責提交與導頁，判決查詢在 result 頁執行 | `pages/QuickExperience/Collaborative`、`pages/QuickExperience/Result` |
 | `GET /api/v1/reconciliation-plans/:id` | F05 | 已使用 | 已完成 | 打卡流程先取 `judgment.case_id`，再進照片上傳與 checkin | `pages/Execution/CheckIn` |
 | `POST /api/v1/cases/:id/evidence` | F05 | 已使用 | 已完成 | 打卡照片上傳實際調用 case evidence 接口 | `pages/Execution/CheckIn`、`services/api/case.ts` |
-| `GET /api/v1/profile/relationship/:pairingId` | F08 | 已使用 | 待驗證 | 後端可用，但前台主流程未檢出明確調用點 | 前端檢索 `rg "/profile/relationship"` 無命中 |
-| `PUT /api/v1/profile/relationship/:pairingId` | F08 | 已使用 | 待驗證 | 同上，暫不宣稱前台已完成 | 前端檢索 `rg "/profile/relationship"` 無命中 |
+| `GET /api/v1/profile/relationship/:pairingId` | F08 | 已使用 | 已完成 | `/profile/pairing` 已在配對成功態接入讀取流程 | `frontend/src/services/api/profile.ts`、`frontend/src/pages/Profile/Pairing` |
+| `PUT /api/v1/profile/relationship/:pairingId` | F08 | 已使用 | 已完成 | `/profile/pairing` 已接入保存與回顯流程 | `frontend/src/services/api/profile.ts`、`frontend/src/pages/Profile/Pairing` |
 
 ## 追溯閉環檢查
 

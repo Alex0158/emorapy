@@ -5,13 +5,7 @@ import enUS from 'antd/locale/en_US';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { router } from './router';
-import ErrorBoundary from '@/components/common/ErrorBoundary';
-import Loading from '@/components/common/Loading';
-import BackToTop from '@/components/common/BackToTop';
-import NetworkStatus from '@/components/common/NetworkStatus';
-import { logPageLoadTime } from '@/utils/performance';
-import { initSEO } from '@/utils/seo';
-import { getLocale, onLocaleChange, t } from '@/utils/i18n';
+import { getLocale, onLocaleChange } from '@/utils/i18n';
 import '@/App.less';
 
 const theme = {
@@ -44,31 +38,16 @@ function App() {
     return unsubscribe;
   }, []);
 
-  useEffect(() => {
-    logPageLoadTime();
-    initSEO({
-      title: `${t('nav.logo')} Admin`,
-      description: t('admin.login.title'),
-      keywords: `${t('nav.logo')},admin,ops,${locale}`,
-      image: `${window.location.origin}/vite.svg`,
-      url: window.location.origin,
-    });
-  }, [locale]);
-
   const antdLocale = useMemo(() => (locale === 'en-US' ? enUS : zhCN), [locale]);
 
   return (
-    <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <ConfigProvider theme={theme} locale={antdLocale}>
-          <NetworkStatus />
-          <Suspense fallback={<Loading />}>
-            <RouterProvider key={locale} router={router} />
-          </Suspense>
-          <BackToTop />
-        </ConfigProvider>
-      </QueryClientProvider>
-    </ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <ConfigProvider theme={theme} locale={antdLocale}>
+        <Suspense fallback={<div style={{ padding: 24 }}>Loading...</div>}>
+          <RouterProvider key={locale} router={router} />
+        </Suspense>
+      </ConfigProvider>
+    </QueryClientProvider>
   );
 }
 

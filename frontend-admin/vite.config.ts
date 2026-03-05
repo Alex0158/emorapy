@@ -23,7 +23,7 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '../frontend/src'),
+        '@': path.resolve(__dirname, './src'),
       },
       dedupe: [
         'react',

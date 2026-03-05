@@ -15,15 +15,16 @@
 1. migration baseline 報告：`npm run ops:migration:report` 無警告  
 2. chat 併發 gate：`npm run bench:chat:concurrency-gate` 通過  
 3. admin 主流程測試：login/jobs/users/audit 通過  
-4. ops 告警檢查：`npm run ops:alerts:check` 無 alert
-5. 若涉及密鑰輪替：完成 `docs/backend/JWT_SECRET_ROTATION_RUNBOOK.md` 的 staging 驗證
-6. health 檢查需同時驗證：
+4. production-like smoke gate：CI `production-like-smoke` job 必須通過（可本地複驗 `bash scripts/smoke-production-like.sh`）  
+5. ops 告警檢查：`npm run ops:alerts:check` 無 alert
+6. 若涉及密鑰輪替：完成 `docs/backend/JWT_SECRET_ROTATION_RUNBOOK.md` 的 staging 驗證
+7. health 檢查需同時驗證：
    - 平台內探測（無 Origin）
    - 外部探測（帶允許 Origin）可回 200
-7. Slack 告警鏈路驗證：
+8. Slack 告警鏈路驗證：
    - staging 觸發一組測試 alert，可收到 Slack
    - `ALERT_SLACK_DEDUP_WINDOW_SECONDS` 防抖生效（不洗版）
-8. 成本看板驗證：
+9. 成本看板驗證：
    - `GET /api/v1/admin/reports/costs` 可回資料
    - 若外部 API 不可用，回傳 `partial=true` 並包含 `reasons`
    - 前端 Reports 成本區塊可正常展示
@@ -32,7 +33,7 @@
 
 1. 合併到待發版分支（或 main 前）  
 2. 部署 staging  
-3. 跑 gate 與 smoke test  
+3. 跑 gate 與 smoke test（含 CI `production-like-smoke` 與管理員主流程）  
 4. 紀錄 artifact（JSON 報告、commit SHA、環境）  
 5. 同版本部署 production  
 6. 發布後 30 分鐘觀察告警與 health

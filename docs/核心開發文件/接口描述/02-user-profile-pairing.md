@@ -21,8 +21,8 @@
 | `POST /api/v1/user/avatar` | multipart `files/avatar` | `data.user.avatar_url`（前端依此回填） | `FILE_TOO_LARGE` `INVALID_FILE_TYPE` | 生成文件資源、更新頭像 URL | `/profile/index` |
 | `GET /api/v1/profile/me` | JWT header | `data.profile`（動態 key/value） | `UNAUTHORIZED` | 無 | Profile 相關流程 |
 | `PUT /api/v1/profile/me` | 動態 JSON（最多 30 keys） | `data.profile` | `VALIDATION_ERROR` | Upsert 個人背景 | Profile 相關流程 |
-| `GET /api/v1/profile/relationship/:pairingId` | `pairingId(uuid)` | `data.profile` | `FORBIDDEN` `NOT_FOUND` | 無 | 配對後流程 |
-| `PUT /api/v1/profile/relationship/:pairingId` | `pairingId(uuid)` + 動態 JSON（最多 60 keys） | `data.profile` | `FORBIDDEN` `VALIDATION_ERROR` | Upsert 關係背景 | 配對後流程 |
+| `GET /api/v1/profile/relationship/:pairingId` | `pairingId(uuid)` | `data.profile` | `FORBIDDEN` `NOT_FOUND` | 無 | `/profile/pairing`（配對成功態） |
+| `PUT /api/v1/profile/relationship/:pairingId` | `pairingId(uuid)` + 動態 JSON（最多 60 keys） | `data.profile` | `FORBIDDEN` `VALIDATION_ERROR` | Upsert 關係背景 | `/profile/pairing`（配對成功態） |
 | `POST /api/v1/pairing/create` | 空 body | `data.pairing.invite_code` | `UNAUTHORIZED` | 建立 pending pairing | `/profile/pairing` |
 | `POST /api/v1/pairing/join` | `invite_code(6)` | `data.pairing.status=active` | `INVALID_CODE` `CODE_EXPIRED` `RATE_LIMIT_EXCEEDED` | 由 pending -> active | `/profile/pairing` |
 | `GET /api/v1/pairing/status` | JWT header | `data.pairing`（或 404） | `NOT_FOUND` | 無 | `/profile/pairing`、`/case/create` |
@@ -34,6 +34,7 @@
 - `pairing/join` 採獨立 limiter，避免邀請碼暴力猜測。
 - `getPairingStatus` 在前端把 `404` 視為 `null`（不是錯誤），這是流程控制關鍵語義。
 - `profile/relationship/:pairingId` 屬配對依賴型接口，未配對時應返回不可訪問語義而非空資料。
+- 前端目前採最小白名單字段接入（stage/duration/communication/methods/strengths/challenges/completion），保存後即時回顯並支援重進重讀。
 
 ## 回歸測試最小集
 
@@ -41,6 +42,7 @@
 2. `/case/create` 以 `pairing/status` 判斷是否導向 `/profile/pairing`。  
 3. 頭像上傳成功後頁面立即回填新 URL。  
 4. `pairing/status` 返回 404 時前端不應崩潰（應顯示未配對態）。  
+5. 配對成功後可讀取並保存 relationship profile（刷新或重進頁面可回顯）。  
 
 ## 錯誤碼覆蓋矩陣（API -> code -> UI 行為）
 

@@ -105,6 +105,148 @@ jobs:
           SUPPRESS_LOGS: 'true'
         run: npx jest tests/integration/quick-experience.flow.test.ts --runInBand
 
+  production-like-smoke:
+    name: Production-like Smoke
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: cj
+          POSTGRES_PASSWORD: cj_dev_pass
+          POSTGRES_DB: cj_smoke
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U cj -d cj_smoke"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node (backend)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Prepare smoke database and seed admin users
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://cj:cj_dev_pass@127.0.0.1:5432/cj_smoke
+          ADMIN_SEED_EMAIL: admin-smoke@example.com
+          ADMIN_SEED_PASSWORD: AdminPass1234
+          ADMIN_SEED_NAME: Admin Smoke
+          LIMITED_ADMIN_SEED_EMAIL: support-smoke@example.com
+          LIMITED_ADMIN_SEED_PASSWORD: SupportPass1234
+          LIMITED_ADMIN_SEED_NAME: Support Smoke
+          LIMITED_ADMIN_SEED_ROLE: support
+        run: npx prisma migrate deploy && npm run prisma:seed
+
+      - name: Build backend (production-like)
+        working-directory: backend
+        run: npm run build:prod
+
+      - name: Start backend (production-like)
+        working-directory: backend
+        env:
+          NODE_ENV: production
+          PORT: 3001
+          DATABASE_URL: postgresql://cj:cj_dev_pass@127.0.0.1:5432/cj_smoke
+          JWT_SECRET: cjJwtProdKeyA9f7k2LmN3pQ4rS5tU6vW8xY1zB3cD
+          JWT_EXPIRES_IN: 24h
+          ADMIN_JWT_SECRET: cjAdminJwtKeyH8j3k4LmN5pQ6rS7tU9vW1xY2zB4cD
+          ADMIN_JWT_EXPIRES_IN: 12h
+          OPENAI_API_KEY: sk-prod-smoke-placeholder
+          FRONTEND_URL: http://127.0.0.1:4173
+          ALLOWED_ORIGINS: http://127.0.0.1:4173
+          ENABLE_SCHEDULED_JOBS: 'false'
+          METRICS_ENABLED: 'false'
+        run: npm run start > ../backend-prod-smoke.log 2>&1 &
+
+      - name: Wait for backend ready
+        run: |
+          for i in {1..45}; do
+            if curl -sf "http://127.0.0.1:3001/health" >/dev/null; then
+              echo "Backend ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Backend did not become ready"
+          tail -n 200 backend-prod-smoke.log || true
+          exit 1
+
+      - name: Setup Node (frontend)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend artifact
+        working-directory: frontend
+        env:
+          VITE_API_BASE_URL: http://127.0.0.1:3001/api/v1
+        run: npm run build
+
+      - name: Start frontend preview
+        working-directory: frontend
+        env:
+          VITE_API_BASE_URL: http://127.0.0.1:3001/api/v1
+        run: npm run preview -- --host 127.0.0.1 --port 4173 > ../frontend-prod-smoke.log 2>&1 &
+
+      - name: Wait for frontend preview ready
+        run: |
+          for i in {1..30}; do
+            if curl -sf "http://127.0.0.1:4173/admin/login" >/dev/null; then
+              echo "Frontend preview ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Frontend preview did not become ready"
+          tail -n 200 frontend-prod-smoke.log || true
+          exit 1
+
+      - name: Run production-like smoke script
+        env:
+          BACKEND_BASE_URL: http://127.0.0.1:3001
+          API_BASE_URL: http://127.0.0.1:3001/api/v1
+          FRONTEND_BASE_URL: http://127.0.0.1:4173
+          ORIGIN: http://127.0.0.1:4173
+          ADMIN_EMAIL: admin-smoke@example.com
+          ADMIN_PASSWORD: AdminPass1234
+        run: bash scripts/smoke-production-like.sh
+
+      - name: Dump production-like logs on failure
+        if: failure()
+        run: |
+          echo "===== backend-prod-smoke.log (tail 200) ====="
+          tail -n 200 backend-prod-smoke.log || true
+          echo "===== frontend-prod-smoke.log (tail 200) ====="
+          tail -n 200 frontend-prod-smoke.log || true
+
+      - name: Upload production-like artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-like-smoke-report
+          path: |
+            backend-prod-smoke.log
+            frontend-prod-smoke.log
+          if-no-files-found: ignore
+
   frontend:
     name: Frontend
     runs-on: ubuntu-latest

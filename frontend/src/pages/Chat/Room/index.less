@@ -1,3 +1,258 @@
+@import '../../../assets/styles/variables.less';
+
+/* ========== Chat Room Entry (landing at /chat/room) ========== */
+.chat-room-entry {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: @spacing-lg;
+  box-sizing: border-box;
+  background-color: #f0f4f3;
+  overflow: hidden;
+}
+
+.chat-room-entry__ambient {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.chat-room-entry__orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(100px);
+  opacity: 0.42;
+  animation: chat-entry-float 22s ease-in-out infinite alternate;
+}
+
+.chat-room-entry__orb--1 {
+  width: 55vw;
+  height: 55vw;
+  background: fade(@color-primary, 28%);
+  top: -12%;
+  right: -8%;
+  animation-delay: 0s;
+}
+
+.chat-room-entry__orb--2 {
+  width: 48vw;
+  height: 48vw;
+  background: fade(@color-secondary, 18%);
+  bottom: -18%;
+  left: -8%;
+  animation-delay: -6s;
+  animation-direction: alternate-reverse;
+}
+
+.chat-room-entry__orb--3 {
+  width: 36vw;
+  height: 36vw;
+  background: fade(#a8c0b9, 36%);
+  top: 42%;
+  left: 28%;
+  animation-delay: -12s;
+}
+
+/* 柔焦光暈：中心透明、邊緣極淡品牌色，增加景深且無雜訊感 */
+.chat-room-entry__vignette {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 90% 85% at 50% 50%,
+    transparent 35%,
+    fade(@color-primary, 5%) 100%
+  );
+}
+
+.chat-room-entry__panel {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  max-width: 520px;
+  padding: @spacing-xxl @spacing-xl;
+  background: rgba(255, 255, 255, 0.52);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  border-radius: @border-radius-xl;
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  box-shadow:
+    0 24px 56px -16px rgba(0, 0, 0, 0.1),
+    0 0 0 1px rgba(255, 255, 255, 0.35) inset;
+}
+
+.chat-room-entry__header {
+  text-align: center;
+  margin-bottom: @spacing-xl;
+}
+
+.chat-room-entry__title {
+  font-family: @font-family-heading;
+  font-size: @font-size-xxxl;
+  font-weight: @font-weight-bold;
+  color: @color-text-primary;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin: 0 0 @spacing-sm;
+}
+
+.chat-room-entry__subtitle {
+  font-size: @font-size-md;
+  color: fade(@color-text-primary, 62%);
+  line-height: 1.5;
+  margin: 0;
+  max-width: 42ch;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.chat-room-entry__alert {
+  margin-bottom: @spacing-lg;
+  border-radius: @border-radius-md;
+}
+
+.chat-room-entry__create {
+  margin-bottom: @spacing-xl;
+}
+
+.chat-room-entry__section-title {
+  font-family: @font-family-heading;
+  font-size: @font-size-lg;
+  font-weight: @font-weight-medium;
+  color: @color-text-primary;
+  margin: 0 0 @spacing-sm;
+}
+
+.chat-room-entry__create-actions {
+  display: flex;
+  flex-direction: column;
+  gap: @spacing-md;
+}
+
+.chat-room-entry__visibility-select {
+  width: 100%;
+
+  .ant-select-selector {
+    border-radius: @border-radius-lg !important;
+    padding: 12px 16px !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    background: rgba(255, 255, 255, 0.9) !important;
+    font-size: @font-size-md;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .ant-select-selector:hover {
+    border-color: fade(@color-primary, 40%) !important;
+  }
+
+  .ant-select-focused .ant-select-selector {
+    border-color: @color-primary !important;
+    box-shadow: 0 0 0 3px fade(@color-primary, 14%) !important;
+  }
+}
+
+.chat-room-entry__cta {
+  height: 52px;
+  border-radius: @border-radius-lg;
+  font-size: @font-size-md;
+  font-weight: @font-weight-medium;
+  background: linear-gradient(145deg, @color-primary 0%, darken(@color-primary, 8%) 100%) !important;
+  border: none !important;
+  box-shadow: 0 4px 14px fade(@color-primary, 32%);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.chat-room-entry__cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px fade(@color-primary, 38%);
+}
+
+.chat-room-entry__divider {
+  height: 1px;
+  background: linear-gradient(to right, transparent, fade(@color-text-primary, 14%), transparent);
+  margin: @spacing-lg 0;
+}
+
+.chat-room-entry__join {
+  margin-top: @spacing-lg;
+}
+
+.chat-room-entry__join-row {
+  display: flex;
+  flex-direction: column;
+  gap: @spacing-md;
+}
+
+.chat-room-entry__invite-input {
+  border-radius: @border-radius-lg !important;
+  padding: 12px 16px !important;
+  font-size: @font-size-md !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  background: rgba(255, 255, 255, 0.9) !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.chat-room-entry__invite-input:hover {
+  border-color: fade(@color-primary, 30%) !important;
+}
+
+.chat-room-entry__invite-input:focus,
+.chat-room-entry__invite-input.ant-input-focused {
+  border-color: @color-primary !important;
+  box-shadow: 0 0 0 3px fade(@color-primary, 12%) !important;
+}
+
+.chat-room-entry__join-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: @spacing-sm;
+}
+
+.chat-room-entry__decline-btn {
+  color: fade(@color-text-primary, 72%);
+}
+
+@media (max-width: @breakpoint-mobile) {
+  .chat-room-entry {
+    padding: @spacing-md;
+  }
+
+  .chat-room-entry__panel {
+    padding: @spacing-xl @spacing-lg;
+    border-radius: @border-radius-lg;
+  }
+
+  .chat-room-entry__title {
+    font-size: @font-size-xxl;
+  }
+
+  .chat-room-entry__join-btns {
+    flex-direction: column;
+  }
+
+  .chat-room-entry__join-btns .ant-btn {
+    width: 100%;
+  }
+}
+
+@keyframes chat-entry-float {
+  0% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(2vw, 4vh) scale(1.04); }
+  66% { transform: translate(-2vw, 2vh) scale(0.96); }
+  100% { transform: translate(1vw, -2vh) scale(1); }
+}
+
+/* ========== Chat Room Page (inside room) ========== */
 .chat-room-page {
   min-height: calc(100vh - 120px);
   padding: 24px 16px;

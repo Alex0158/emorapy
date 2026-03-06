@@ -8,7 +8,8 @@ interface Props {
 }
 
 const ErrorFallback = ({ error, resetError }: Props) => {
-  const message = error?.message || t('errorFallback.unknown');
+  const isDev = import.meta.env.DEV;
+  const message = isDev && error?.message ? error.message : t('errorFallback.unknown');
   return (
     <div style={{ padding: 24 }}>
       <Result

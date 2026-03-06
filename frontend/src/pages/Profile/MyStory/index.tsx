@@ -17,7 +17,6 @@ import {
   Spin,
   Modal,
   message,
-  Divider,
   Alert,
 } from 'antd';
 import {
@@ -35,7 +34,7 @@ import { getDomainLabel } from '@/types/interview';
 import type { PsychDomain, ProfileInsight, FeedbackHistoryItem, FeedbackCard } from '@/types/interview';
 import SEO from '@/components/common/SEO';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
-import { t } from '@/utils/i18n';
+import { getLocale, t } from '@/utils/i18n';
 import './index.less';
 
 const { Title, Text, Paragraph } = Typography;
@@ -67,6 +66,12 @@ const MyStory: React.FC = () => {
   const [deleting, setDeleting] = useState(false);
   const [failedSessionId, setFailedSessionId] = useState<string | null>(null);
   const [retryingFailed, setRetryingFailed] = useState(false);
+  const locale = getLocale();
+
+  const getInsightTypeLabel = (insightType: string) => {
+    const translated = t(`psychProfile.insightType.${insightType}`);
+    return translated === `psychProfile.insightType.${insightType}` ? insightType : translated;
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -182,195 +187,218 @@ const MyStory: React.FC = () => {
         description={t('psychProfile.myStoryDesc')}
       />
       <div className="my-story-page" role="main">
-        {failedSessionId && (
-          <Alert
-            type="warning"
-            showIcon
-            closable
-            onClose={() => setFailedSessionId(null)}
-            title={t('psychProfile.failedSessionTitle')}
-            description={t('psychProfile.failedSessionDesc')}
-            action={
-              <Button size="small" loading={retryingFailed} onClick={handleRetryFailed}>
-                {t('psychProfile.retryProcessing')}
-              </Button>
-            }
-            style={{ marginBottom: 16 }}
-          />
-        )}
-        <AnimatedWrapper animation="fade" delay={100}>
-          <div className="my-story-page__header">
-            <Button
-              type="text"
-              icon={<ArrowLeftOutlined />}
-              onClick={() => navigate('/profile/index')}
-            />
-            <Title level={2} style={{ margin: 0, flex: 1 }}>{t('psychProfile.myStoryTitle')}</Title>
-          </div>
-        </AnimatedWrapper>
-
-        {/* 豐富度概覽 */}
-        <AnimatedWrapper animation="slide" direction="up" delay={200} trigger="intersection">
-          <Card className="my-story-page__overview">
-            <div className="my-story-page__overview-content">
-              <RichnessRing score={profile.richness_score || 0} size={100} />
-              <div className="my-story-page__overview-info">
-                <Text strong>{t('psychProfile.exploredDomains')}</Text>
-                <div className="my-story-page__domain-tags">
-                  {exploredDomains.map((d) => (
-                    <Tag key={d} color="blue">{getDomainLabel(d as PsychDomain)}</Tag>
-                  ))}
-                  {unexploredDomains.map((d) => (
-                    <Tag key={d}>{getDomainLabel(d as PsychDomain)}</Tag>
-                  ))}
-                </div>
-                <Button
-                  type="primary"
-                  icon={<MessageOutlined />}
-                  onClick={handleStartChat}
-                  style={{ marginTop: 12 }}
-                >
-                  {t('psychProfile.continueChat')}
-                </Button>
-              </div>
-            </div>
-          </Card>
-        </AnimatedWrapper>
-
-        {/* 按領域展示敘事和洞察 */}
-        <AnimatedWrapper animation="slide" direction="up" delay={300} trigger="intersection">
-          <Card title={<><BookOutlined /> {t('psychProfile.domainDetails')}</>} style={{ marginTop: 16 }}>
-            {latestNarratives.length === 0 ? (
-              <Empty
-                description={t('psychProfile.noDomainData')}
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-              />
-            ) : (
-              <Collapse
-                expandIconPlacement="end"
-                items={latestNarratives.map((narrative) => ({
-                  key: narrative.domain,
-                  label: (
-                    <Space>
-                      <Tag color="blue">{getDomainLabel(narrative.domain as PsychDomain)}</Tag>
-                      <Progress
-                        percent={Math.round(narrative.completeness * 100)}
-                        size="small"
-                        style={{ width: 100 }}
-                        showInfo={false}
-                      />
-                      <Text type="secondary">{Math.round(narrative.completeness * 100)}%</Text>
-                    </Space>
-                  ),
-                  children: (
-                    <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
-                      {narrative.ai_summary && (
-                        <div>
-                          <Text type="secondary">{t('psychProfile.aiSummary')}：</Text>
-                          <Paragraph>{narrative.ai_summary}</Paragraph>
-                        </div>
-                      )}
-
-                      {insightsByDomain[narrative.domain]?.length > 0 && (
-                        <div>
-                          <Text type="secondary"><BulbOutlined /> {t('psychProfile.insightsForDomain')}：</Text>
-                          <div className="my-story-page__insights">
-                            {insightsByDomain[narrative.domain].map((insight) => (
-                              <div key={insight.id} className="my-story-page__insight-item">
-                                <div className="my-story-page__insight-header">
-                                  <Tag>{insight.insight_type}</Tag>
-                                  <Text strong>{insight.key}</Text>
-                                  <Progress
-                                    percent={Math.round(insight.confidence * 100)}
-                                    size="small"
-                                    style={{ width: 60 }}
-                                    showInfo={false}
-                                  />
-                                </div>
-                                <Text>{insight.value}</Text>
-                                {insight.evidence && (
-                                  <Text type="secondary" italic>「{insight.evidence}」</Text>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </Space>
-                  ),
-                }))}
+        <div className="adaptive-hero-section mb-8 bg-gradient-to-br from-background to-gray-50 rounded-b-[40px] shadow-sm p-8">
+          <div className="max-w-4xl mx-auto">
+            {failedSessionId && (
+              <Alert
+                type="warning"
+                showIcon
+                closable
+                onClose={() => setFailedSessionId(null)}
+                title={t('psychProfile.failedSessionTitle')}
+                description={t('psychProfile.failedSessionDesc')}
+                action={
+                  <Button size="small" loading={retryingFailed} onClick={handleRetryFailed}>
+                    {t('psychProfile.retryProcessing')}
+                  </Button>
+                }
+                style={{ marginBottom: 16 }}
+                className="rounded-2xl"
               />
             )}
-          </Card>
-        </AnimatedWrapper>
+            <AnimatedWrapper animation="fade" delay={100}>
+              <div className="my-story-page__header flex items-center gap-4 mb-4">
+                <Button
+                  type="text"
+                  icon={<ArrowLeftOutlined />}
+                  onClick={() => navigate('/profile/index')}
+                  className="font-semibold text-gray-600 hover:text-primary"
+                />
+                <Title level={2} style={{ margin: 0, flex: 1 }} className="font-heading font-bold text-3xl">{t('psychProfile.myStoryTitle')}</Title>
+              </div>
+            </AnimatedWrapper>
+          </div>
+        </div>
 
-        {/* 訪談歷史 */}
-        {feedbackHistory.length > 0 && (
-          <AnimatedWrapper animation="slide" direction="up" delay={400}>
-            <Card
-              title={<><HistoryOutlined /> {t('psychProfile.interviewHistory')}</>}
-              style={{ marginTop: 16 }}
-            >
-              {feedbackHistory.map((item: FeedbackHistoryItem) => {
-                let card: FeedbackCard | null = null;
-                try {
-                  card = item.feedback_card ? JSON.parse(item.feedback_card) : null;
-                } catch { /* ignore */ }
-
-                return (
-                  <div key={item.session_id} className="my-story-page__history-item">
-                    <div className="my-story-page__history-header">
-                      <Text type="secondary">
-                        {new Date(item.created_at).toLocaleDateString('zh-TW')}
-                      </Text>
-                      <Space>
-                        {item.domains_touched.map((d) => (
-                          <Tag key={d} color="blue" style={{ margin: 0 }}>{getDomainLabel(d as PsychDomain)}</Tag>
-                        ))}
-                      </Space>
-                    </div>
-                    {card?.summary && (
-                      <Paragraph type="secondary">{card.summary}</Paragraph>
-                    )}
-                    <Divider style={{ margin: '8px 0' }} />
+        <div className="max-w-4xl mx-auto px-6 pb-24">
+          {/* 豐富度概覽 */}
+          <AnimatedWrapper animation="slide" direction="up" delay={200} trigger="intersection">
+            <Card className="my-story-page__overview glassmorphism-2 border-none shadow-sm rounded-3xl mb-8">
+              <div className="my-story-page__overview-content flex flex-col md:flex-row items-center gap-8">
+                <RichnessRing score={profile.richness_score || 0} size={120} />
+                <div className="my-story-page__overview-info flex-1">
+                  <Text strong className="text-lg block mb-4">{t('psychProfile.exploredDomains')}</Text>
+                  <div className="my-story-page__domain-tags flex flex-wrap gap-2 mb-6">
+                    {exploredDomains.map((d) => (
+                      <Tag key={d} color="blue" className="rounded-full px-3 py-1 text-sm border-blue-200 bg-blue-50 text-blue-600">{getDomainLabel(d as PsychDomain)}</Tag>
+                    ))}
+                    {unexploredDomains.map((d) => (
+                      <Tag key={d} className="rounded-full px-3 py-1 text-sm text-gray-400 bg-gray-50 border-gray-200">{getDomainLabel(d as PsychDomain)}</Tag>
+                    ))}
                   </div>
-                );
-              })}
+                  <Button
+                    type="primary"
+                    size="large"
+                    shape="round"
+                    icon={<MessageOutlined />}
+                    onClick={handleStartChat}
+                    className="shadow-md hover:shadow-lg"
+                  >
+                    {t('psychProfile.continueChat')}
+                  </Button>
+                </div>
+              </div>
             </Card>
           </AnimatedWrapper>
-        )}
 
-        {/* 管理我的資料 */}
-        <AnimatedWrapper animation="slide" direction="up" delay={500} trigger="intersection">
-          <Card style={{ marginTop: 16 }} className="my-story-page__manage">
-            <Space orientation="vertical" size="small" style={{ width: '100%' }}>
-              <Title level={5}>{t('psychProfile.manageData')}</Title>
-              <Paragraph type="secondary">
-                {t('psychProfile.manageDataDesc')}
-              </Paragraph>
-              <Button
-                danger
-                icon={<DeleteOutlined />}
-                onClick={() => setDeleteModalOpen(true)}
+          {/* 按領域展示敘事和洞察 */}
+          <AnimatedWrapper animation="slide" direction="up" delay={300} trigger="intersection">
+            <Card title={<span className="font-heading text-xl"><BookOutlined className="mr-2" /> {t('psychProfile.domainDetails')}</span>} className="glassmorphism-2 border-none shadow-sm rounded-3xl mb-8">
+              {latestNarratives.length === 0 ? (
+                <Empty
+                  description={t('psychProfile.noDomainData')}
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                />
+              ) : (
+                <Collapse
+                  expandIconPlacement="end"
+                  ghost
+                  className="bg-white/50 rounded-2xl"
+                  items={latestNarratives.map((narrative) => ({
+                    key: narrative.domain,
+                    label: (
+                      <Space size="middle" className="w-full">
+                        <Tag color="blue" className="rounded-full px-3 py-1 text-sm border-blue-200 bg-blue-50 text-blue-600">{getDomainLabel(narrative.domain as PsychDomain)}</Tag>
+                        <Progress
+                          percent={Math.round(narrative.completeness * 100)}
+                          size="small"
+                          style={{ width: 100 }}
+                          showInfo={false}
+                          strokeColor="#84A59D"
+                        />
+                        <Text type="secondary" className="font-medium">{Math.round(narrative.completeness * 100)}%</Text>
+                      </Space>
+                    ),
+                    children: (
+                      <Space orientation="vertical" size="large" style={{ width: '100%' }} className="pt-2 pb-4">
+                        {narrative.ai_summary && (
+                          <div className="bg-gray-50/50 p-4 rounded-2xl border border-gray-100">
+                            <Text type="secondary" className="block mb-2 font-semibold">{t('psychProfile.aiSummary')}：</Text>
+                            <Paragraph className="text-gray-700 leading-relaxed m-0">{narrative.ai_summary}</Paragraph>
+                          </div>
+                        )}
+
+                        {insightsByDomain[narrative.domain]?.length > 0 && (
+                          <div>
+                            <Text type="secondary" className="block mb-4 font-semibold"><BulbOutlined className="mr-1" /> {t('psychProfile.insightsForDomain')}：</Text>
+                            <div className="my-story-page__insights space-y-3">
+                              {insightsByDomain[narrative.domain].map((insight) => (
+                                <div key={insight.id} className="my-story-page__insight-item bg-white p-4 rounded-2xl shadow-sm border border-gray-50">
+                                  <div className="my-story-page__insight-header flex items-center gap-3 mb-2">
+                                    <Tag className="rounded-full m-0">{getInsightTypeLabel(insight.insight_type)}</Tag>
+                                    <Text strong className="text-gray-900">{insight.key}</Text>
+                                    <Progress
+                                      percent={Math.round(insight.confidence * 100)}
+                                      size="small"
+                                      style={{ width: 60 }}
+                                      showInfo={false}
+                                      strokeColor="#E27D60"
+                                      className="m-0"
+                                    />
+                                  </div>
+                                  <Text className="block text-gray-700 mb-2">{insight.value}</Text>
+                                  {insight.evidence && (
+                                    <div className="bg-blue-50/50 p-3 rounded-xl border border-blue-100">
+                                      <Text type="secondary" italic className="text-sm text-blue-700/80">「{insight.evidence}」</Text>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </Space>
+                    ),
+                  }))}
+                />
+              )}
+            </Card>
+          </AnimatedWrapper>
+
+          {/* 訪談歷史 */}
+          {feedbackHistory.length > 0 && (
+            <AnimatedWrapper animation="slide" direction="up" delay={400}>
+              <Card
+                title={<span className="font-heading text-xl"><HistoryOutlined className="mr-2" /> {t('psychProfile.interviewHistory')}</span>}
+                className="glassmorphism-2 border-none shadow-sm rounded-3xl mb-8"
               >
-                {t('psychProfile.deleteAllData')}
-              </Button>
-            </Space>
-          </Card>
-        </AnimatedWrapper>
+                <div className="space-y-4">
+                {feedbackHistory.map((item: FeedbackHistoryItem) => {
+                  let card: FeedbackCard | null = null;
+                  try {
+                    card = item.feedback_card ? JSON.parse(item.feedback_card) : null;
+                  } catch { /* ignore */ }
 
-        <Modal
-          title={t('psychProfile.deleteConfirmTitle')}
-          open={deleteModalOpen}
-          onOk={handleDelete}
-          onCancel={() => setDeleteModalOpen(false)}
-          okText={t('psychProfile.confirmDelete')}
-          cancelText={t('common.cancel')}
-          okButtonProps={{ danger: true, loading: deleting }}
-        >
-          <Paragraph>{t('psychProfile.deleteConfirmDesc')}</Paragraph>
-          <Paragraph type="danger">{t('psychProfile.deleteWarning')}</Paragraph>
-        </Modal>
+                  return (
+                    <div key={item.session_id} className="my-story-page__history-item bg-white/50 p-4 rounded-2xl border border-gray-50">
+                      <div className="my-story-page__history-header flex justify-between items-start mb-3">
+                        <Text type="secondary" className="font-medium">
+                          {new Date(item.created_at).toLocaleDateString(locale)}
+                        </Text>
+                        <Space className="flex-wrap justify-end">
+                          {item.domains_touched.map((d) => (
+                            <Tag key={d} color="blue" className="rounded-full m-0 border-blue-200 bg-blue-50 text-blue-600">{getDomainLabel(d as PsychDomain)}</Tag>
+                          ))}
+                        </Space>
+                      </div>
+                      {card?.summary && (
+                        <Paragraph type="secondary" className="text-gray-600 leading-relaxed m-0">{card.summary}</Paragraph>
+                      )}
+                    </div>
+                  );
+                })}
+                </div>
+              </Card>
+            </AnimatedWrapper>
+          )}
+
+          {/* 管理我的資料 */}
+          <AnimatedWrapper animation="slide" direction="up" delay={500} trigger="intersection">
+            <Card className="my-story-page__manage glassmorphism-2 border-none shadow-sm rounded-3xl bg-red-50/30">
+              <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
+                <Title level={5} className="font-heading text-red-800 m-0">{t('psychProfile.manageData')}</Title>
+                <Paragraph type="secondary" className="text-red-600/80 m-0">
+                  {t('psychProfile.manageDataDesc')}
+                </Paragraph>
+                <Button
+                  danger
+                  shape="round"
+                  icon={<DeleteOutlined />}
+                  onClick={() => setDeleteModalOpen(true)}
+                  className="mt-2"
+                >
+                  {t('psychProfile.deleteAllData')}
+                </Button>
+              </Space>
+            </Card>
+          </AnimatedWrapper>
+
+          <Modal
+            title={t('psychProfile.deleteConfirmTitle')}
+            open={deleteModalOpen}
+            onOk={handleDelete}
+            onCancel={() => setDeleteModalOpen(false)}
+            okText={t('psychProfile.confirmDelete')}
+            cancelText={t('common.cancel')}
+            okButtonProps={{ danger: true, loading: deleting, shape: 'round' }}
+            cancelButtonProps={{ shape: 'round' }}
+            centered
+            className="rounded-3xl overflow-hidden"
+          >
+            <Paragraph className="text-lg">{t('psychProfile.deleteConfirmDesc')}</Paragraph>
+            <Paragraph className="text-red-500 font-medium">{t('psychProfile.deleteWarning')}</Paragraph>
+          </Modal>
+        </div>
       </div>
     </>
   );

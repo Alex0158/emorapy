@@ -198,6 +198,23 @@ const ChatRoomPage = () => {
     return t('chat.role.unknown');
   }, []);
 
+  const getMessageTypeLabel = useCallback((messageType: string | null | undefined) => {
+    if (!messageType) return t('common.na');
+    const translated = t(`chat.messageType.${messageType}`);
+    return translated === `chat.messageType.${messageType}` ? messageType : translated;
+  }, []);
+
+  const getVisibilityScopeLabel = useCallback((visibilityScope: string | null | undefined) => {
+    if (!visibilityScope) return t('common.na');
+    const translated = t(`chat.visibility.${visibilityScope}`);
+    return translated === `chat.visibility.${visibilityScope}` ? visibilityScope : translated;
+  }, []);
+
+  const getAiStrategyLabel = useCallback((strategy: string | null | undefined) => {
+    if (!strategy) return '';
+    return t('chat.aiStrategyLabel', { strategy });
+  }, []);
+
   const scrollToBottom = useCallback((behavior: 'auto' | 'smooth' = 'smooth') => {
     const api = virtuosoRef.current;
     if (!api) return;
@@ -960,37 +977,87 @@ const ChatRoomPage = () => {
 
   if (!routeRoomId) {
     return (
-      <div className="chat-room-page">
-        <Card className="chat-room-page__panel">
-          <Title level={3}>{t('chat.title')}</Title>
-          <Paragraph type="secondary">{t('chat.subtitle')}</Paragraph>
-          <Space orientation="vertical" size={16} style={{ width: '100%' }}>
-            <Select
-              value={visibilityMode}
-              onChange={(value) => setVisibilityMode(value)}
-              options={[
-                { value: 'share_full_history', label: t('chat.visibility.share_full_history') },
-                { value: 'share_summary_only', label: t('chat.visibility.share_summary_only') },
-                { value: 'share_from_join_time', label: t('chat.visibility.share_from_join_time') },
-              ]}
+      <div className="chat-room-entry">
+        <div className="chat-room-entry__ambient">
+          <div className="chat-room-entry__orb chat-room-entry__orb--1" />
+          <div className="chat-room-entry__orb chat-room-entry__orb--2" />
+          <div className="chat-room-entry__orb chat-room-entry__orb--3" />
+          <div className="chat-room-entry__vignette" aria-hidden />
+        </div>
+        <div className="chat-room-entry__panel">
+          <header className="chat-room-entry__header">
+            <h1 className="chat-room-entry__title">{t('chat.title')}</h1>
+            <p className="chat-room-entry__subtitle">{t('chat.subtitle')}</p>
+          </header>
+          {errorText ? (
+            <Alert
+              type="error"
+              showIcon
+              message={errorText}
+              className="chat-room-entry__alert"
             />
-            <Button type="primary" loading={creatingRoom} onClick={handleCreateRoom}>
+          ) : null}
+          <section className="chat-room-entry__create" aria-labelledby="chat-create-heading">
+            <h2 id="chat-create-heading" className="chat-room-entry__section-title">
               {t('chat.createRoom')}
-            </Button>
-            <Input
-              value={inviteCodeInput}
-              onChange={(e) => setInviteCodeInput(e.target.value)}
-              placeholder={t('chat.inviteCodePlaceholder')}
-            />
-            <Button loading={joiningInvite} onClick={handleAcceptInvite}>
+            </h2>
+            <div className="chat-room-entry__create-actions">
+              <Select
+                value={visibilityMode}
+                onChange={(value) => setVisibilityMode(value)}
+                options={[
+                  { value: 'share_full_history', label: t('chat.visibility.share_full_history') },
+                  { value: 'share_summary_only', label: t('chat.visibility.share_summary_only') },
+                  { value: 'share_from_join_time', label: t('chat.visibility.share_from_join_time') },
+                ]}
+                className="chat-room-entry__visibility-select"
+              />
+              <Button
+                type="primary"
+                size="large"
+                loading={creatingRoom}
+                onClick={handleCreateRoom}
+                className="chat-room-entry__cta"
+              >
+                {t('chat.createRoom')}
+              </Button>
+            </div>
+          </section>
+          <div className="chat-room-entry__divider" aria-hidden />
+          <section className="chat-room-entry__join" aria-labelledby="chat-join-heading">
+            <h2 id="chat-join-heading" className="chat-room-entry__section-title">
               {t('chat.joinByInvite')}
-            </Button>
-            <Button loading={decliningInvite} onClick={handleDeclineInvite}>
-              {t('chat.declineInvite')}
-            </Button>
-            {errorText ? <Alert type="error" title={errorText} showIcon /> : null}
-          </Space>
-        </Card>
+            </h2>
+            <div className="chat-room-entry__join-row">
+              <Input
+                value={inviteCodeInput}
+                onChange={(e) => setInviteCodeInput(e.target.value)}
+                placeholder={t('chat.inviteCodePlaceholder')}
+                className="chat-room-entry__invite-input"
+                size="large"
+              />
+              <div className="chat-room-entry__join-btns">
+                <Button
+                  type="primary"
+                  ghost
+                  size="large"
+                  loading={joiningInvite}
+                  onClick={handleAcceptInvite}
+                >
+                  {t('chat.joinByInvite')}
+                </Button>
+                <Button
+                  size="large"
+                  loading={decliningInvite}
+                  onClick={handleDeclineInvite}
+                  className="chat-room-entry__decline-btn"
+                >
+                  {t('chat.declineInvite')}
+                </Button>
+              </div>
+            </div>
+          </section>
+        </div>
       </div>
     );
   }
@@ -1199,9 +1266,9 @@ const ChatRoomPage = () => {
 	                                <div className="chat-room-page__message-head">
 	                                  <Space size={6} wrap>
 	                                    <Tag color="default">{roleLabel}</Tag>
-	                                    {msg.message_type !== 'user_text' ? <Tag color="processing">{msg.message_type}</Tag> : null}
-	                                    <Tag color="purple">{msg.visibility_scope}</Tag>
-	                                    {msg.ai_strategy ? <Tag color="blue">{msg.ai_strategy}</Tag> : null}
+	                                    {msg.message_type !== 'user_text' ? <Tag color="processing">{getMessageTypeLabel(msg.message_type)}</Tag> : null}
+	                                    <Tag color="purple">{getVisibilityScopeLabel(msg.visibility_scope)}</Tag>
+	                                    {msg.ai_strategy ? <Tag color="blue">{getAiStrategyLabel(msg.ai_strategy)}</Tag> : null}
 	                                  </Space>
 	                                  <div className="chat-room-page__message-actions">
 	                                    {msg.message_type !== 'safety_notice' ? (
@@ -1483,12 +1550,18 @@ const ChatRoomPage = () => {
             <>
               <div>
                 {t('chat.preview.ruleVisibility')}
-                {previewInfo.excludedByVisibility > 0 ? `（已排除 ${previewInfo.excludedByVisibility} 則）` : ''}
+                {previewInfo.excludedByVisibility > 0
+                  ? t('chat.preview.excludedCount', { count: previewInfo.excludedByVisibility })
+                  : ''}
               </div>
               {previewInfo.joinAt && previewInfo.applyJoinTimeFilter ? (
                 <div>
                   {t('chat.preview.ruleJoinTime')}
-                  {`（B 加入：${new Date(previewInfo.joinAt).toLocaleString()}，已排除 ${previewInfo.excludedByJoinTime} 則）`}
+                  {t('chat.preview.joinFilterMeta', {
+                    role: t('chat.role.roleB'),
+                    time: new Date(previewInfo.joinAt).toLocaleString(),
+                    count: previewInfo.excludedByJoinTime,
+                  })}
                 </div>
               ) : null}
             </>
@@ -1509,7 +1582,7 @@ const ChatRoomPage = () => {
               <div>
                 <Text strong>{new Date(m.created_at).toLocaleString()}</Text>
                 <Paragraph style={{ margin: 0 }}>
-                  {m.sender_participant?.role_in_room ?? ''}: {m.content}
+                  {getRoleLabel(m.sender_participant?.role_in_room)}: {m.content}
                 </Paragraph>
               </div>
             </div>

@@ -20,6 +20,7 @@ import {
 import {
   UploadOutlined,
   ArrowLeftOutlined,
+  CheckCircleFilled,
 } from '@ant-design/icons';
 import { checkin, getExecutionStatus } from '@/services/api/execution';
 import { uploadEvidence } from '@/services/api/case';
@@ -27,6 +28,7 @@ import type { ExecutionStatus } from '@/services/api/execution';
 import ProtectedRoute from '@/components/common/ProtectedRoute';
 import SEO from '@/components/common/SEO';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
+import { motion, AnimatePresence } from 'framer-motion';
 import { t } from '@/utils/i18n';
 import './CheckIn.less';
 
@@ -41,6 +43,7 @@ const ExecutionCheckIn = () => {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const [showSuccessAnim, setShowSuccessAnim] = useState(false);
 
   const mountedRef = useMountedRef();
   const staleRef = useRef(false);
@@ -102,9 +105,16 @@ const ExecutionCheckIn = () => {
         photos: photoUrls,
       });
       if (!mountedRef.current) return;
-      message.success(t('message.checkinSuccess'));
-      form.resetFields();
-      fetchExecution();
+      
+      setShowSuccessAnim(true);
+      setTimeout(() => {
+        if (mountedRef.current) {
+          setShowSuccessAnim(false);
+          message.success(t('message.checkinSuccess'));
+          form.resetFields();
+          fetchExecution();
+        }
+      }, 2000);
     } catch (error: unknown) {
       if (!mountedRef.current) return;
       const msg = (error as { message?: string })?.message || t('message.checkinFail');
@@ -215,8 +225,31 @@ const ExecutionCheckIn = () => {
                 size="large"
                 block
                 loading={submitting || uploadingPhotos}
+                className={`submit-btn ${showSuccessAnim ? 'success-state' : ''}`}
+                style={{ height: 56, borderRadius: 28, fontSize: 18 }}
               >
-                {uploadingPhotos ? t('execCheckIn.uploadingPhotos') : t('execCheckIn.submit')}
+                <AnimatePresence mode="wait">
+                  {showSuccessAnim ? (
+                    <motion.div
+                      key="success"
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      exit={{ scale: 0 }}
+                      className="flex items-center justify-center gap-2"
+                    >
+                      <CheckCircleFilled className="text-2xl" /> {t('execCheckIn.successInline')}
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="normal"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                    >
+                      {uploadingPhotos ? t('execCheckIn.uploadingPhotos') : t('execCheckIn.submit')}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </Button>
             </Form.Item>
           </Form>

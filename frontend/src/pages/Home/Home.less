@@ -18,6 +18,15 @@
     }
   }
 
+  .adaptive-hero-section {
+    padding: 60px 20px;
+    background: linear-gradient(135deg, @home-hero-bg-start 0%, @home-hero-bg-end 100%);
+    min-height: 60vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
   .hero-section {
     min-height: 90vh;
     display: flex;
@@ -25,7 +34,7 @@
     padding: @spacing-xxl @spacing-lg;
     position: relative;
     overflow: hidden;
-    background: linear-gradient(160deg, @home-hero-bg-start 0%, @home-hero-bg-end 50%, rgba(255, 236, 230, 0.98) 100%);
+    background: linear-gradient(160deg, @home-hero-bg-start 0%, @home-hero-bg-end 50%, rgba(132, 165, 157, 0.05) 100%);
     color: @color-text-primary;
 
     &::before {
@@ -35,7 +44,7 @@
       left: 0;
       right: 0;
       bottom: 0;
-      background: radial-gradient(ellipse 80% 50% at 70% 40%, rgba(255, 140, 66, 0.06) 0%, transparent 55%);
+      background: radial-gradient(ellipse 80% 50% at 70% 40%, rgba(132, 165, 157, 0.06) 0%, transparent 55%);
       pointer-events: none;
     }
 
@@ -69,6 +78,11 @@
       letter-spacing: -0.02em;
       margin-bottom: @spacing-lg;
       color: @color-text-primary;
+      font-family: @font-family-heading;
+
+      .text-primary {
+        color: @color-primary;
+      }
     }
 
     .hero-subtitle {
@@ -88,13 +102,13 @@
         height: 52px;
         font-size: @font-size-lg;
         padding: 0 32px;
-        border-radius: @border-radius-md;
+        border-radius: @border-radius-xl;
         font-weight: @font-weight-medium;
         transition: transform 0.2s ease, box-shadow 0.2s ease;
 
         &:hover {
           transform: translateY(-2px);
-          box-shadow: 0 6px 20px rgba(255, 140, 66, 0.35);
+          box-shadow: 0 6px 20px rgba(132, 165, 157, 0.35);
         }
 
         &:active {
@@ -102,7 +116,7 @@
         }
 
         &:focus-visible {
-          outline: 3px solid rgba(255, 140, 66, 0.6);
+          outline: 3px solid rgba(132, 165, 157, 0.6);
           outline-offset: 2px;
         }
       }
@@ -111,7 +125,7 @@
         height: 52px;
         font-size: @font-size-lg;
         padding: 0 32px;
-        border-radius: @border-radius-md;
+        border-radius: @border-radius-xl;
         border: 2px solid @color-text-secondary;
         color: @color-text-primary;
         background: transparent;
@@ -132,7 +146,7 @@
 
   .features-section {
     padding: 96px @spacing-lg;
-    background: @home-section-alt-bg;
+    background: linear-gradient(180deg, @home-section-alt-bg 0%, fade(@color-primary, 4%) 100%);
     position: relative;
 
     .container {
@@ -141,6 +155,7 @@
     }
 
     .section-title {
+      font-family: @font-family-heading;
       text-align: center;
       font-size: clamp(24px, 3vw, @font-size-xxxl);
       font-weight: @font-weight-bold;
@@ -154,56 +169,72 @@
         bottom: -16px;
         left: 50%;
         transform: translateX(-50%);
-        width: 48px;
+        width: 56px;
         height: 4px;
-        background: @color-primary;
+        background: linear-gradient(90deg, transparent 0%, @color-primary 50%, transparent 100%);
         border-radius: 2px;
       }
     }
 
     .features-grid {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: @spacing-lg;
+      grid-template-columns: repeat(2, 1fr);
+      gap: @spacing-xl;
+      align-items: stretch;
     }
   }
 
   .home-feature-card {
     text-align: center;
-    padding: @spacing-xl;
-    background: @color-white;
-    border-radius: @border-radius-lg;
-    border: 1px solid @color-border;
-    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+    padding: @spacing-xxl @spacing-xl;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-radius: @border-radius-xl;
+    border: 1px solid fade(@color-primary, 14%);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(255, 255, 255, 0.6) inset;
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.28s ease, border-color 0.28s ease;
     cursor: default;
 
     &:hover,
     &:focus-within {
-      transform: translateY(-4px);
-      box-shadow: @shadow-large;
-      border-color: rgba(255, 140, 66, 0.3);
+      transform: translateY(-6px);
+      box-shadow: 0 16px 48px -12px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.8) inset;
+      border-color: fade(@color-primary, 28%);
     }
 
     &:focus-visible {
-      outline: 3px solid @color-primary;
+      outline: 3px solid fade(@color-primary, 45%);
       outline-offset: 2px;
     }
 
     .feature-icon {
-      font-size: 48px;
+      width: 72px;
+      height: 72px;
+      margin: 0 auto @spacing-lg;
+      border-radius: 50%;
+      background: fade(@color-primary, 12%);
       color: @color-primary;
-      margin-bottom: @spacing-md;
-      display: inline-flex;
+      font-size: 32px;
+      display: flex;
       align-items: center;
       justify-content: center;
-      transition: transform 0.25s ease;
+      transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), background 0.28s ease;
     }
 
     &:hover .feature-icon {
-      transform: scale(1.05);
+      transform: scale(1.08);
+      background: fade(@color-primary, 18%);
+    }
+
+    &:first-child .feature-icon {
+      width: 80px;
+      height: 80px;
+      font-size: 36px;
     }
 
     h3 {
+      font-family: @font-family-heading;
       font-size: @font-size-xl;
       font-weight: @font-weight-bold;
       margin-bottom: @spacing-sm;
@@ -213,7 +244,7 @@
     p {
       color: @color-text-secondary;
       font-size: @font-size-sm;
-      line-height: 1.6;
+      line-height: 1.65;
       margin: 0;
     }
   }
@@ -382,6 +413,7 @@
 
     .features-section .features-grid {
       grid-template-columns: repeat(2, 1fr);
+      gap: @spacing-lg;
     }
 
     .process-section .process-timeline {
@@ -424,6 +456,17 @@
 
     .features-section .features-grid {
       grid-template-columns: 1fr;
+      gap: @spacing-md;
+    }
+
+    .home-feature-card {
+      padding: @spacing-xl @spacing-lg;
+    }
+
+    .home-feature-card:first-child .feature-icon {
+      width: 72px;
+      height: 72px;
+      font-size: 32px;
     }
 
     .section-title {

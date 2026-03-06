@@ -2,7 +2,7 @@
  * Home 頁面單元測試
  */
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import Home from './index';
@@ -105,15 +105,17 @@ describe('Home', () => {
     expect(screen.getByText('跳過到主要內容')).toBeInTheDocument();
   });
 
-  it('en-US 下應顯示英文版流程模擬器', () => {
+  it('en-US 下應顯示英文版流程模擬器', async () => {
     setLocale('en-US');
     render(
       <MemoryRouter>
         <Home />
       </MemoryRouter>
     );
+    await waitFor(() => {
+      expect(screen.getByText('See the Flow in Action')).toBeInTheDocument();
+    });
     expect(screen.queryByText('模擬實際使用流程')).not.toBeInTheDocument();
-    expect(screen.getByText('See the Flow in Action')).toBeInTheDocument();
   });
 
   it('已登入時主按鈕應導航至 /case/create 且不顯示協同模式按鈕', async () => {

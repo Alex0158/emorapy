@@ -70,8 +70,8 @@ describe('Login', () => {
         <Login />
       </MemoryRouter>
     );
-    expect(screen.getByText('auth.login.email')).toBeInTheDocument();
-    expect(screen.getByText('auth.login.password')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('auth.login.email')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('auth.login.password')).toBeInTheDocument();
   });
 
   it('應有登錄按鈕', () => {
@@ -100,8 +100,8 @@ describe('Login', () => {
         <Login />
       </MemoryRouter>
     );
-    const emailInput = screen.getByPlaceholderText('auth.login.emailRequired');
-    const passwordInput = screen.getByPlaceholderText('auth.login.passwordRequired');
+    const emailInput = screen.getByPlaceholderText('auth.login.email');
+    const passwordInput = screen.getByPlaceholderText('auth.login.password');
     fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
     fireEvent.change(passwordInput, { target: { value: 'password123' } });
     fireEvent.click(screen.getByText('auth.login.submit'));
@@ -121,8 +121,8 @@ describe('Login', () => {
         <Login />
       </MemoryRouter>
     );
-    const emailInput = screen.getByPlaceholderText('auth.login.emailRequired');
-    const passwordInput = screen.getByPlaceholderText('auth.login.passwordRequired');
+    const emailInput = screen.getByPlaceholderText('auth.login.email');
+    const passwordInput = screen.getByPlaceholderText('auth.login.password');
     fireEvent.change(emailInput, { target: { value: 'bad@example.com' } });
     fireEvent.change(passwordInput, { target: { value: 'wrong' } });
     fireEvent.click(screen.getByText('auth.login.submit'));
@@ -141,8 +141,8 @@ describe('Login', () => {
         <Login />
       </MemoryRouter>
     );
-    fireEvent.change(screen.getByPlaceholderText('auth.login.emailRequired'), { target: { value: 'test@example.com' } });
-    fireEvent.change(screen.getByPlaceholderText('auth.login.passwordRequired'), { target: { value: 'password123' } });
+    fireEvent.change(screen.getByPlaceholderText('auth.login.email'), { target: { value: 'test@example.com' } });
+    fireEvent.change(screen.getByPlaceholderText('auth.login.password'), { target: { value: 'password123' } });
     fireEvent.click(screen.getByText('auth.login.submit'));
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/judgment/123', { replace: true });
@@ -159,8 +159,8 @@ describe('Login', () => {
         <Login />
       </MemoryRouter>
     );
-    fireEvent.change(screen.getByPlaceholderText('auth.login.emailRequired'), { target: { value: 'test@example.com' } });
-    fireEvent.change(screen.getByPlaceholderText('auth.login.passwordRequired'), { target: { value: 'password123' } });
+    fireEvent.change(screen.getByPlaceholderText('auth.login.email'), { target: { value: 'test@example.com' } });
+    fireEvent.change(screen.getByPlaceholderText('auth.login.password'), { target: { value: 'password123' } });
     fireEvent.click(screen.getByText('auth.login.submit'));
     await waitFor(() => {
       expect(mockMessageWarning).toHaveBeenCalledWith('message.emailNotVerified');

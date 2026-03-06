@@ -31,6 +31,7 @@ import { useDebounce } from '@/hooks/usePerformance';
 import { formatDate } from '@/utils/formatDate';
 import { getCaseStatusTag, getCaseTypeTag } from '@/utils/statusTags';
 import { CASE_TYPES, CASE_TYPE_I18N_KEYS } from '@/utils/caseType';
+import AdaptiveDashboard from '@/pages/Home/components/AdaptiveDashboard';
 import { t } from '@/utils/i18n';
 import './List.less';
 
@@ -205,27 +206,34 @@ const CaseList = () => {
         keywords={t('caseList.keywords')}
       />
       <div className="case-list-page" role="main" aria-label={t('caseList.pageLabel')}>
-        <AnimatedWrapper animation="fade" delay={100}>
-          <div className="page-header" aria-labelledby="page-title">
-            <div className="header-left">
-              <Title level={2} id="page-title">
-                {t('caseList.heading')}
-              </Title>
-              <Text type="secondary" aria-live="polite">
-                {t('caseList.totalCount').replace('{count}', String(pagination.total))}
-              </Text>
+        <div className="adaptive-hero-section mb-12 bg-gradient-to-br from-background to-gray-50 rounded-b-[40px] shadow-sm">
+          <AdaptiveDashboard />
+        </div>
+
+        <div className="container mx-auto px-6">
+          <AnimatedWrapper animation="fade" delay={100}>
+            <div className="page-header flex justify-between items-end mb-8" aria-labelledby="page-title">
+              <div className="header-left">
+                <Title level={2} id="page-title" className="font-heading font-bold m-0">
+                  {t('caseList.heading')}
+                </Title>
+                <Text type="secondary" aria-live="polite" className="mt-2 block">
+                  {t('caseList.totalCount').replace('{count}', String(pagination.total))}
+                </Text>
+              </div>
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => navigate('/case/create')}
+                size="large"
+                shape="round"
+                className="shadow-md hover:shadow-lg transition-all"
+                aria-label={t('caseList.createNew')}
+              >
+                {t('caseList.createNew')}
+              </Button>
             </div>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => navigate('/case/create')}
-              size="large"
-              aria-label={t('caseList.createNew')}
-            >
-              {t('caseList.createNew')}
-            </Button>
-          </div>
-        </AnimatedWrapper>
+          </AnimatedWrapper>
 
         <AnimatedWrapper animation="slide" direction="down" delay={200} trigger="intersection">
           <div className="filters-section" role="group" aria-label={t('caseList.filtersLabel')}>
@@ -331,6 +339,7 @@ const CaseList = () => {
             </div>
           </AnimatedWrapper>
         )}
+        </div>
       </div>
     </>
   );

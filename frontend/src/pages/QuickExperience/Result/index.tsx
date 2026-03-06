@@ -55,18 +55,18 @@ const AIAnalyzingAnimation = ({ tips }: { tips?: ContentItem[] }) => {
         transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
         style={{
           width: 80, height: 80, margin: '0 auto 30px', borderRadius: '50%',
-          background: 'conic-gradient(from 0deg, #0EA5E9, #FF7043, #0EA5E9)',
-          boxShadow: '0 0 30px rgba(14, 165, 233, 0.5)'
+          background: 'conic-gradient(from 0deg, #84A59D, #E27D60, #84A59D)',
+          boxShadow: '0 0 30px rgba(132, 165, 157, 0.5)'
         }}
       />
       <motion.h2
         animate={{ opacity: [0.5, 1, 0.5] }}
         transition={{ duration: 2, repeat: Infinity }}
-        style={{ color: '#fff', fontSize: '24px', fontWeight: 700, marginBottom: '16px' }}
+        style={{ fontSize: '24px', fontWeight: 700, marginBottom: '16px' }}
       >
         {t('quickResult.analyzingTitle')}
       </motion.h2>
-      <Text style={{ color: '#94A3B8', fontSize: '16px', display: 'block', marginBottom: 32 }}>
+      <Text style={{ fontSize: '16px', display: 'block', marginBottom: 32 }}>
         {t('quickResult.analyzingSubtitle')}
       </Text>
 
@@ -80,15 +80,15 @@ const AIAnalyzingAnimation = ({ tips }: { tips?: ContentItem[] }) => {
             transition={{ duration: 0.5 }}
             style={{
               maxWidth: 480, margin: '0 auto', padding: '20px 24px',
-              background: 'rgba(255,255,255,0.06)', borderRadius: 12,
-              border: '1px solid rgba(255,255,255,0.1)',
+              background: 'rgba(132, 165, 157, 0.05)', borderRadius: 16,
+              border: '1px solid rgba(132, 165, 157, 0.2)',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <BulbOutlined style={{ color: '#FBBF24', fontSize: 16 }} />
-              <Text strong style={{ color: '#FBBF24', fontSize: 13 }}>{currentTip.title}</Text>
+              <BulbOutlined style={{ color: '#84A59D', fontSize: 16 }} />
+              <Text strong style={{ color: '#84A59D', fontSize: 13 }}>{t('quickResult.thinkingBadge')}</Text>
             </div>
-            <Text style={{ color: '#CBD5E1', fontSize: 14, lineHeight: 1.7, display: 'block', textAlign: 'left' }}>
+            <Text style={{ fontSize: 14, lineHeight: 1.7, display: 'block', textAlign: 'left' }}>
               {currentTip.content}
             </Text>
           </motion.div>

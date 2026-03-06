@@ -1,5 +1,8 @@
 import React from 'react';
 import { Typography } from 'antd';
+import { motion } from 'framer-motion';
+import MediatorAvatar from '@/components/business/MediatorAvatar';
+import { getLocale } from '@/utils/i18n';
 import './index.less';
 
 const { Text } = Typography;
@@ -13,11 +16,18 @@ interface ChatBubbleProps {
 }
 
 const ChatBubble: React.FC<ChatBubbleProps> = ({ content, isUser, isStreaming, timestamp, safetyFlag }) => {
+  const locale = getLocale();
+
   return (
-    <div className={`chat-bubble ${isUser ? 'chat-bubble--user' : 'chat-bubble--ai'} ${safetyFlag ? 'chat-bubble--safety' : ''}`}>
+    <motion.div 
+      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.3, ease: 'easeOut' }}
+      className={`chat-bubble ${isUser ? 'chat-bubble--user' : 'chat-bubble--ai'} ${safetyFlag ? 'chat-bubble--safety' : ''}`}
+    >
       {!isUser && (
         <div className="chat-bubble__avatar">
-          <span role="img" aria-label="assistant">🤖</span>
+          <MediatorAvatar size="small" />
         </div>
       )}
       <div className="chat-bubble__content">
@@ -27,11 +37,11 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({ content, isUser, isStreaming, t
         </div>
         {timestamp && (
           <Text type="secondary" className="chat-bubble__time">
-            {new Date(timestamp).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
+            {new Date(timestamp).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
           </Text>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 };
 

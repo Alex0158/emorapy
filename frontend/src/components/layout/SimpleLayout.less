@@ -1,26 +1,31 @@
+/* 與 Header 品牌色一致：鼠尾草綠 + 珍珠白 + 深炭灰 */
+@logo-primary: #6b8f71;
+@layout-bg: #fafaf8;
+@text-charcoal: #2d2d2d;
+
 .simple-layout {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background: #fafafa;
+  background: @layout-bg;
 
   .simple-header {
-    background: #fff;
+    background: @layout-bg;
     padding: 0 24px;
     height: 64px;
     line-height: 64px;
-    border-bottom: 1px solid #e8e8e8;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
     display: flex;
     align-items: center;
 
     .logo-link {
       text-decoration: none;
-      color: #262626;
+      color: @text-charcoal;
       font-size: 20px;
       font-weight: bold;
 
       .logo-text {
-        color: #ff8c42;
+        color: @logo-primary;
       }
     }
   }

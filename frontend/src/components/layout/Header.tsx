@@ -4,11 +4,11 @@
 
 import { Layout, Menu, Button, Dropdown, Avatar, Space, Select } from 'antd';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { HomeOutlined, LoginOutlined, UserOutlined, LogoutOutlined, SettingOutlined, GlobalOutlined, FileTextOutlined, CheckSquareOutlined, DashboardOutlined, MessageOutlined } from '@ant-design/icons';
+import { HomeOutlined, LoginOutlined, UserOutlined, LogoutOutlined, SettingOutlined, GlobalOutlined, FileTextOutlined, CheckSquareOutlined, MessageOutlined } from '@ant-design/icons';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
-import { t, getLocale, onLocaleChange, setLocale, type Locale } from '@/utils/i18n';
 import { getAdminLoginUrl } from '@/utils/adminEntry';
+import { t, getLocale, onLocaleChange, setLocale, type Locale } from '@/utils/i18n';
 import './Header.less';
 
 const { Header: AntHeader } = Layout;
@@ -25,8 +25,8 @@ const Header = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { isAuthenticated, user, logout } = useAuthStore();
-  const [locale, setLocalLocale] = useState<Locale>(getLocale());
   const adminLoginUrl = getAdminLoginUrl();
+  const [locale, setLocalLocale] = useState<Locale>(getLocale());
 
   const selectedKeys = useMemo(() => {
     const { pathname } = location;
@@ -67,15 +67,15 @@ const Header = () => {
           },
           {
             key: '/admin-login',
-            icon: <DashboardOutlined />,
+            icon: <SettingOutlined />,
+            disabled: !adminLoginUrl,
             label: adminLoginUrl ? (
-              <a href={adminLoginUrl} rel="noopener noreferrer">
+              <a href={adminLoginUrl} target="_blank" rel="noopener noreferrer">
                 {t('nav.opsConsole')}
               </a>
             ) : (
               <span>{t('nav.opsConsole')}</span>
             ),
-            disabled: !adminLoginUrl,
           },
         ]
       : [
@@ -93,18 +93,6 @@ const Header = () => {
             key: '/chat/room',
             icon: <MessageOutlined />,
             label: <Link to="/chat/room">{t('nav.chat')}</Link>,
-          },
-          {
-            key: '/admin-login',
-            icon: <DashboardOutlined />,
-            label: adminLoginUrl ? (
-              <a href={adminLoginUrl} rel="noopener noreferrer">
-                {t('nav.opsConsole')}
-              </a>
-            ) : (
-              <span>{t('nav.opsConsole')}</span>
-            ),
-            disabled: !adminLoginUrl,
           },
         ]),
   ];
@@ -159,8 +147,8 @@ const Header = () => {
             suffixIcon={<GlobalOutlined />}
             getPopupContainer={(triggerNode) => triggerNode.parentElement ?? document.body}
             options={[
-              { value: 'zh-TW', label: '繁體中文' },
-              { value: 'en-US', label: 'English' },
+              { value: 'zh-TW', label: t('auth.locale.zhTW') },
+              { value: 'en-US', label: t('auth.locale.enUS') },
             ]}
           />
           {isAuthenticated ? (

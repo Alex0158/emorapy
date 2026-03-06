@@ -2,22 +2,23 @@
  * 判決書查看器組件（增強版Markdown渲染）
  */
 
-import { Card, Typography, Button, Space, Tooltip } from 'antd';
+import { Card, Typography, Button, Space, Tooltip, Collapse } from 'antd';
 import {
   SoundOutlined,
   ShareAltOutlined,
   StarOutlined,
   PrinterOutlined,
   CopyOutlined,
+  RobotOutlined,
 } from '@ant-design/icons';
 import ReactMarkdown from 'react-markdown';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { copyToClipboard } from '@/utils/helpers';
 import { message } from 'antd';
 import { t, getLocale } from '@/utils/i18n';
 import './JudgmentViewer.less';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 
 interface JudgmentViewerProps {
   content: string;
@@ -27,6 +28,32 @@ interface JudgmentViewerProps {
   showActions?: boolean;
 }
 
+// 簡單解析 Markdown，將其按標題拆分為多個區塊
+const parseMarkdownSections = (content: string, defaultTitle: string) => {
+  const lines = content.split('\n');
+  const sections: { title: string; content: string; type: string }[] = [];
+  let currentTitle = defaultTitle;
+  let currentContent: string[] = [];
+
+  lines.forEach(line => {
+    if (line.startsWith('## ') || line.startsWith('### ')) {
+      if (currentContent.length > 0) {
+        sections.push({ title: currentTitle, content: currentContent.join('\n'), type: 'section' });
+      }
+      currentTitle = line.replace(/^#+\s/, '');
+      currentContent = [];
+    } else {
+      currentContent.push(line);
+    }
+  });
+
+  if (currentContent.length > 0) {
+    sections.push({ title: currentTitle, content: currentContent.join('\n'), type: 'section' });
+  }
+
+  return sections;
+};
+
 const JudgmentViewer = ({
   content,
   title = t('judgmentDetail.docTitle'),
@@ -35,6 +62,11 @@ const JudgmentViewer = ({
   showActions = true,
 }: JudgmentViewerProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
+
+  const sections = useMemo(
+    () => parseMarkdownSections(content, t('judgmentViewer.defaultSectionTitle')),
+    [content]
+  );
 
   const handleCopy = async () => {
     const success = await copyToClipboard(content);
@@ -76,7 +108,7 @@ const JudgmentViewer = ({
   };
 
   return (
-    <Card className="judgment-viewer" title={title}>
+    <Card className="judgment-viewer glassmorphism-2" title={title}>
       {showActions && (
         <div className="judgment-actions">
           <Space>
@@ -108,24 +140,49 @@ const JudgmentViewer = ({
       )}
 
       <div className="judgment-content">
-        <ReactMarkdown
-          components={{
-            h1: ({ children }) => <Title level={1}>{children}</Title>,
-            h2: ({ children }) => <Title level={2}>{children}</Title>,
-            h3: ({ children }) => <Title level={3}>{children}</Title>,
-            h4: ({ children }) => <Title level={4}>{children}</Title>,
-            p: ({ children }) => <p className="judgment-paragraph">{children}</p>,
-            ul: ({ children }) => <ul className="judgment-list">{children}</ul>,
-            ol: ({ children }) => <ol className="judgment-list">{children}</ol>,
-            li: ({ children }) => <li className="judgment-list-item">{children}</li>,
-            strong: ({ children }) => <strong className="judgment-strong">{children}</strong>,
-            blockquote: ({ children }) => (
-              <blockquote className="judgment-blockquote">{children}</blockquote>
+        <Collapse 
+          defaultActiveKey={['0']} 
+          ghost 
+          expandIconPosition="end"
+          className="judgment-accordion"
+          items={sections.map((section, index) => ({
+            key: String(index),
+            label: (
+              <div className="flex items-center gap-3">
+                <Title level={4} style={{ margin: 0 }}>{section.title}</Title>
+              </div>
             ),
-          }}
-        >
-          {content}
-        </ReactMarkdown>
+            children: (
+              <div className="section-body relative">
+                <ReactMarkdown
+                  components={{
+                    p: ({ children }) => <p className="judgment-paragraph text-lg leading-relaxed text-gray-700">{children}</p>,
+                    ul: ({ children }) => <ul className="judgment-list list-disc pl-6 mb-4">{children}</ul>,
+                    ol: ({ children }) => <ol className="judgment-list list-decimal pl-6 mb-4">{children}</ol>,
+                    li: ({ children }) => <li className="judgment-list-item mb-2">{children}</li>,
+                    strong: ({ children }) => <strong className="judgment-strong font-bold text-gray-900">{children}</strong>,
+                    blockquote: ({ children }) => (
+                      <blockquote className="judgment-blockquote border-l-4 border-primary pl-4 py-1 my-4 bg-gray-50 rounded-r-lg">{children}</blockquote>
+                    ),
+                  }}
+                >
+                  {section.content}
+                </ReactMarkdown>
+                
+                {/* Explainable AI Tag */}
+                <div className="ai-insight-tag mt-4 p-3 bg-blue-50/50 rounded-xl border border-blue-100 flex items-start gap-3">
+                  <RobotOutlined className="text-blue-500 mt-1" />
+                  <div>
+                    <Text strong className="text-blue-700 text-sm block mb-1">{t('judgmentViewer.aiInsightTitle')}</Text>
+                    <Text className="text-blue-600/80 text-sm">
+                      {t('judgmentViewer.aiInsightDesc', { sectionTitle: section.title })}
+                    </Text>
+                  </div>
+                </div>
+              </div>
+            )
+          }))}
+        />
       </div>
     </Card>
   );

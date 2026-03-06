@@ -1,1 +1,20 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #84A59D;
+  --color-primary-hover: #6B8E85;
+  --color-accent: #E27D60;
+  --color-accent-hover: #C86A4F;
+  --color-background: #FDFDFD;
+  --color-surface: #FFFFFF;
+  --color-text-main: #2D3142;
+  --color-text-muted: #6B7280;
+
+  --font-heading: "Plus Jakarta Sans", "Outfit", sans-serif;
+  --font-body: "Inter", "Noto Sans TC", sans-serif;
+
+  --radius-xl: 16px;
+  --radius-2xl: 24px;
+}
+
 /* 全局樣式已移至 assets/styles/global.less */

@@ -47,6 +47,18 @@ export default function AdminSettingsPage() {
   });
   const adminMeQuery = useAdminMe(true);
   const currentAdminId = adminMeQuery.data?.admin.id || '';
+  const roleOptions: Array<{ label: string; value: AdminUserFormValues['roleKey'] }> = [
+    { label: t('admin.settings.role.super_admin'), value: 'super_admin' },
+    { label: t('admin.settings.role.ops'), value: 'ops' },
+    { label: t('admin.settings.role.marketing'), value: 'marketing' },
+    { label: t('admin.settings.role.support'), value: 'support' },
+  ];
+
+  const getRoleLabel = (roleKey?: string) => {
+    if (!roleKey) return t('common.na');
+    const translated = t(`admin.settings.role.${roleKey}`);
+    return translated === `admin.settings.role.${roleKey}` ? roleKey : translated;
+  };
 
   useEffect(() => {
     const items = configsQuery.data?.items || [];
@@ -182,14 +194,7 @@ export default function AdminSettingsPage() {
             <Input.Password placeholder={t('admin.settings.adminUsers.password')} />
           </Form.Item>
           <Form.Item name="roleKey" initialValue="ops" rules={[{ required: true }]}>
-            <Select
-              options={[
-                { label: 'super_admin', value: 'super_admin' },
-                { label: 'ops', value: 'ops' },
-                { label: 'marketing', value: 'marketing' },
-                { label: 'support', value: 'support' },
-              ]}
-            />
+            <Select options={roleOptions} />
           </Form.Item>
           <Button type="primary" htmlType="submit" loading={createAdminUserMutation.isPending}>
             {t('admin.settings.adminUsers.create')}
@@ -204,7 +209,7 @@ export default function AdminSettingsPage() {
           columns={[
             { title: t('admin.settings.adminUsers.email'), dataIndex: 'email' },
             { title: t('admin.settings.adminUsers.name'), dataIndex: 'name' },
-            { title: t('admin.settings.adminUsers.role'), render: (_, row) => row.role.key },
+            { title: t('admin.settings.adminUsers.role'), render: (_, row) => getRoleLabel(row.role.key) },
             {
               title: t('admin.settings.adminUsers.active'),
               render: (_, row) => (
@@ -269,7 +274,7 @@ export default function AdminSettingsPage() {
           <Text type="secondary">{t('admin.settings.alerts.subtitle')}</Text>
           <Form form={alertRulesForm} layout="vertical">
             <Form.Item name="rules" rules={[{ required: true, message: t('admin.settings.alerts.rulesJsonArrayRequired') }]}>
-              <Input.TextArea rows={8} placeholder='[{"key":"jobs.failure_rate","threshold":0.2}]' />
+              <Input.TextArea rows={8} placeholder={t('admin.settings.alerts.rulesPlaceholder')} />
             </Form.Item>
             <Button
               loading={alertRulesMutation.isPending}
@@ -295,7 +300,7 @@ export default function AdminSettingsPage() {
           <Text type="secondary">{t('admin.settings.flags.subtitle')}</Text>
           <Form form={featureFlagsForm} layout="vertical">
             <Form.Item name="flags" rules={[{ required: true, message: t('admin.settings.flags.flagsJsonObjectRequired') }]}>
-              <Input.TextArea rows={8} placeholder='{"adminOpsBeta": true}' />
+              <Input.TextArea rows={8} placeholder={t('admin.settings.flags.placeholder')} />
             </Form.Item>
             <Button
               loading={featureFlagsMutation.isPending}
@@ -339,14 +344,7 @@ export default function AdminSettingsPage() {
             <Input />
           </Form.Item>
           <Form.Item name="roleKey" label={t('admin.settings.adminUsers.roleLabel')} rules={[{ required: true, message: t('admin.settings.adminUsers.roleRequired') }]}>
-            <Select
-              options={[
-                { label: 'super_admin', value: 'super_admin' },
-                { label: 'ops', value: 'ops' },
-                { label: 'marketing', value: 'marketing' },
-                { label: 'support', value: 'support' },
-              ]}
-            />
+            <Select options={roleOptions} />
           </Form.Item>
           <Form.Item name="isActive" label={t('admin.settings.adminUsers.activeLabel')} valuePropName="checked">
             <Switch />

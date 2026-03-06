@@ -2,7 +2,7 @@
  * 快速體驗 - 創建案件頁面（極致美學版）
  */
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useMountedRef } from '@/hooks/useMountedRef';
 import { useNavigate } from 'react-router-dom';
 import { logger } from '@/utils/logger';
@@ -10,27 +10,16 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Button,
   Progress,
-  Space,
   Typography,
-  Tabs,
-  Collapse,
   message,
-  Alert,
 } from 'antd';
-import { LockOutlined, TeamOutlined } from '@ant-design/icons';
 import { useSessionStore } from '@/store/sessionStore';
 import { useCaseStore } from '@/store/caseStore';
-import { getCaseBySessionId } from '@/services/api/case';
 import { validateStatement } from '@/utils/validate';
 import { MAX_IMAGE_COUNT, MIN_DEFENDANT_LENGTH } from '@/utils/constants';
 import { localStore, sessionStorage, caseSessionMap } from '@/utils/storage';
-import MediatorAvatar from '@/components/business/MediatorAvatar';
 import StatementInput from '@/components/business/StatementInput';
 import FileUpload from '@/components/business/FileUpload';
-import KeyboardShortcuts from '@/components/common/KeyboardShortcuts';
-import GuideTooltip from '@/components/common/GuideTooltip';
-import { useWindowSize } from '@/hooks/useWindowSize';
-import { useKeyboardNavigation } from '@/hooks/useAccessibility';
 import type { UploadFile } from 'antd/es/upload/interface';
 import SEO from '@/components/common/SEO';
 import { t } from '@/utils/i18n';
@@ -50,24 +39,17 @@ const QuickExperienceCreate = () => {
   const { session, createSession, setSession } = useSessionStore();
   const { createQuickCase, isLoading } = useCaseStore();
 
-  const { width } = useWindowSize();
-  const [layoutMode, setLayoutMode] = useState<'horizontal' | 'vertical'>(
-    width >= 1024 ? 'horizontal' : 'vertical'
-  );
+  const [currentStep, setCurrentStep] = useState(0);
   const [plaintiffStatement, setPlaintiffStatement] = useState('');
   const [defendantStatement, setDefendantStatement] = useState('');
   const [evidenceFiles, setEvidenceFiles] = useState<UploadFile[]>([]);
-  const [showRegisterPrompt, setShowRegisterPrompt] = useState(true);
-  const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | null>(null);
   const [isGeneratingDefendant, setIsGeneratingDefendant] = useState(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | null>(null);
   const [recoveredCase, setRecoveredCase] = useState<{ id: string; status: string } | null>(null);
+  
   const submitLockRef = useRef(false);
   const mountedRef = useMountedRef();
   const autoGenTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    setLayoutMode(width >= 1024 ? 'horizontal' : 'vertical');
-  }, [width]);
 
   useEffect(() => {
     const existingSessionId = sessionStorage.get() || session?.session_id;
@@ -76,41 +58,25 @@ const QuickExperienceCreate = () => {
     }
   }, [session, createSession]);
 
+  // 檢查是否有未完成的案件
   useEffect(() => {
-    let stale = false;
-    const sessionId = sessionStorage.get() || session?.session_id;
-    if (!sessionId) return;
-    getCaseBySessionId(sessionId)
-      .then((case_) => {
-        if (stale) return;
-        if (case_ && ['submitted', 'in_progress', 'completed', 'judgment_failed'].includes(case_.status)) {
-          setRecoveredCase({ id: case_.id, status: case_.status });
+    const checkRecoveredCase = async () => {
+      const currentSessionId = sessionStorage.get() || session?.session_id;
+      if (!currentSessionId) return;
+      try {
+        const { getCaseBySessionId } = await import('@/services/api/case');
+        const existingCase = await getCaseBySessionId(currentSessionId);
+        if (existingCase && existingCase.status === 'draft' && mountedRef.current) {
+          setRecoveredCase({ id: existingCase.id, status: existingCase.status });
         }
-      })
-      .catch((e: unknown) => { logger.warn('Failed to check case recovery', e); });
-    return () => { stale = true; };
-  }, [session?.session_id]);
-
-  useEffect(() => {
-    let hideTimeout: ReturnType<typeof setTimeout>;
-    const timer = setInterval(() => {
-      if (plaintiffStatement || defendantStatement) {
-        const draft: CaseDraft = {
-          plaintiffStatement,
-          defendantStatement,
-          evidenceUrls: evidenceFiles.map((f: { url?: string }) => f.url || '').filter(Boolean),
-        };
-        localStore.set(DRAFT_STORAGE_KEY, draft);
-        setAutoSaveStatus('saved');
-        hideTimeout = setTimeout(() => setAutoSaveStatus(null), 3000);
+      } catch (error) {
+        logger.warn('Failed to check recovered case', error);
       }
-    }, 30000);
-    return () => {
-      clearInterval(timer);
-      clearTimeout(hideTimeout);
     };
-  }, [plaintiffStatement, defendantStatement, evidenceFiles]);
+    checkRecoveredCase();
+  }, [session, mountedRef]);
 
+  // 載入草稿
   useEffect(() => {
     const draft = localStore.get<CaseDraft>(DRAFT_STORAGE_KEY);
     if (draft) {
@@ -119,52 +85,29 @@ const QuickExperienceCreate = () => {
     }
   }, []);
 
-  const calculateProgress = useCallback(() => {
-    let progress = 0;
-    const plaintiffValid = validateStatement(plaintiffStatement).valid;
-    const defendantLen = defendantStatement.trim().length;
-    const defendantValid = defendantLen === 0 ? true : defendantLen >= MIN_DEFENDANT_LENGTH;
-    if (plaintiffValid) progress += 70;
-    if (defendantValid) progress += 30;
-    return Math.min(progress, 100);
-  }, [plaintiffStatement, defendantStatement]);
+  // 自動保存草稿
+  useEffect(() => {
+    if (!plaintiffStatement && !defendantStatement) return;
+    
+    setAutoSaveStatus('saving');
+    const timer = setTimeout(() => {
+      localStore.set(DRAFT_STORAGE_KEY, {
+        plaintiffStatement,
+        defendantStatement,
+        evidenceUrls: [],
+      });
+      if (mountedRef.current) {
+        setAutoSaveStatus('saved');
+        setTimeout(() => {
+          if (mountedRef.current) setAutoSaveStatus(null);
+        }, 2000);
+      }
+    }, 1000);
 
-  const progress = calculateProgress();
+    return () => clearTimeout(timer);
+  }, [plaintiffStatement, defendantStatement, mountedRef]);
+
   const canSubmit = validateStatement(plaintiffStatement).valid;
-
-  const shortcuts = [
-    {
-      key: 'ctrl+s',
-      description: t('message.shortcutSaveDraft'),
-      action: () => {
-        const draft: CaseDraft = {
-          plaintiffStatement,
-          defendantStatement,
-          evidenceUrls: evidenceFiles.map((f: { url?: string }) => f.url || '').filter(Boolean),
-        };
-        localStore.set(DRAFT_STORAGE_KEY, draft);
-        message.success(t('message.draftSaved'));
-      },
-    },
-    {
-      key: 'ctrl+enter',
-      description: t('message.shortcutSubmit'),
-      action: () => {
-        if (canSubmit) handleSubmit();
-      },
-    },
-  ];
-
-  const templates = useMemo(() => [
-    t('quickCreate.template1'),
-    t('quickCreate.template2'),
-    t('quickCreate.template3'),
-  ], []);
-
-  const applyTemplate = (text: string, target: 'plaintiff' | 'defendant') => {
-    if (target === 'plaintiff') setPlaintiffStatement(text);
-    else setDefendantStatement(text);
-  };
 
   const handleAutoGenerateDefendant = () => {
     if (!plaintiffStatement.trim()) {
@@ -192,8 +135,6 @@ const QuickExperienceCreate = () => {
       }
     };
   }, []);
-
-  useKeyboardNavigation(() => { if (canSubmit) handleSubmit(); }, undefined, undefined, undefined, canSubmit);
 
   const handleSubmit = async () => {
     if (submitLockRef.current) return;
@@ -251,98 +192,61 @@ const QuickExperienceCreate = () => {
     }
   };
 
+  const handleNextStep = () => {
+    if (currentStep === 0 && !canSubmit) {
+      message.warning(t('message.completePlaintiff'));
+      return;
+    }
+    setCurrentStep(prev => Math.min(prev + 1, 2));
+  };
+
+  const handlePrevStep = () => {
+    setCurrentStep(prev => Math.max(prev - 1, 0));
+  };
+
   return (
     <>
       <SEO title={t('quickCreate.title')} description={t('quickCreate.description')} keywords={t('quickCreate.keywords')} />
       
-      <div className="quick-experience-create">
-        <a href="#input-section" className="skip-link">{t('quickCreate.skipToInput')}</a>
+      <div className="quick-experience-create typeform-style">
+        <div className="typeform-header">
+          <Button type="text" onClick={() => navigate('/')} className="back-btn">
+            {t('quickCreate.close')}
+          </Button>
+          <div className="flex items-center gap-4">
+            {autoSaveStatus === 'saving' && <Text type="secondary" className="text-sm">{t('quickCreate.autoSaving')}</Text>}
+            {autoSaveStatus === 'saved' && <Text type="success" className="text-sm">{t('quickCreate.autoSaved')}</Text>}
+            <Progress percent={((currentStep + 1) / 3) * 100} showInfo={false} strokeColor="#84A59D" className="step-progress" />
+          </div>
+        </div>
 
-        <AnimatePresence>
-          {recoveredCase && (
-            <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="container" style={{ paddingTop: 24 }}>
-              <Alert
-                title={t('quickCreate.recoveredCase.title')}
-                description={t('quickCreate.recoveredCase.desc')}
-                type="info"
-                showIcon
-                action={
-                  <Space>
-                    <Button size="small" type="primary" onClick={() => navigate(`/quick-experience/result/${recoveredCase.id}`)}>{t('quickCreate.recoveredCase.continue')}</Button>
-                    <Button size="small" onClick={() => setRecoveredCase(null)}>{t('quickCreate.recoveredCase.startNew')}</Button>
-                  </Space>
-                }
-                closable
-                onClose={() => setRecoveredCase(null)}
-                style={{ borderRadius: 16, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <motion.section 
-          className="guide-section"
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
-        >
-          <div className="container">
-            <MediatorAvatar size="medium" animated />
-            <Title level={1} className="guide-title">{t('quickCreate.guide.title')}</Title>
-            <Text className="guide-subtitle">{t('quickCreate.guide.subtitle')}</Text>
-            <div style={{ marginTop: 16 }}>
-              <Button
-                type="link"
-                icon={<TeamOutlined />}
-                onClick={() => navigate('/quick-experience/collaborative')}
-                style={{ color: '#FBBF24', fontSize: 14 }}
-              >
-                {t('quickCreate.collaborativeHint')}
+        {recoveredCase && (
+          <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 w-full max-w-md px-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 shadow-lg flex items-center justify-between">
+              <Text className="text-blue-800">{t('quickCreate.recoveredCase.title')}</Text>
+              <Button type="primary" size="small" shape="round" onClick={() => navigate(`/quick-experience/result/${recoveredCase.id}`)}>
+                {t('quickCreate.recoveredCase.continue')}
               </Button>
             </div>
           </div>
-        </motion.section>
+        )}
 
-        <AnimatePresence>
-          {autoSaveStatus === 'saved' && (
-            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="container">
-              <Alert title={t('quickCreate.autoSaved')} type="success" showIcon closable style={{ marginBottom: 24, borderRadius: 16 }} />
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <section id="input-section" className="input-section">
-          <div className="container">
+        <AnimatePresence mode="wait">
+          {currentStep === 0 && (
             <motion.div 
-              className="layout-selector"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.4 }}
+              key="step0"
+              className="typeform-step"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.5 }}
             >
-              <Tabs
-                activeKey={layoutMode}
-                onChange={(key) => setLayoutMode(key as 'horizontal' | 'vertical')}
-                items={[
-                  { key: 'horizontal', label: t('quickCreate.layout.horizontal') },
-                  { key: 'vertical', label: t('quickCreate.layout.vertical') },
-                ]}
-              />
-            </motion.div>
-
-            <div className={`input-area ${layoutMode}`}>
-              <motion.div 
-                className="statement-card plaintiff-card"
-                initial={{ opacity: 0, x: -30 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.6, delay: 0.2 }}
-              >
-                <div className="card-header">
-                  <span className="role-badge role-a">{t('quickCreate.roleA')}</span>
-                  <h3 className="card-title">{t('quickCreate.plaintiffTitle')}</h3>
-                </div>
-                <Text type="secondary" style={{ display: 'block', marginBottom: 24, fontSize: 15, lineHeight: 1.6 }}>
-                  {t('quickCreate.plaintiffHint')}
+              <div className="step-content">
+                <Title level={2} className="step-title">{t('quickCreate.step1.title')}</Title>
+                <Text className="step-subtitle text-lg text-gray-500 mb-8 block">
+                  {t('quickCreate.step1.subtitle')}
                 </Text>
+                
                 <StatementInput
                   value={plaintiffStatement}
                   onChange={setPlaintiffStatement}
@@ -350,37 +254,38 @@ const QuickExperienceCreate = () => {
                   showGuide={true}
                   minLength={30}
                 />
-                <Space size="middle" wrap style={{ marginTop: 16 }}>
-                  {templates.map((tmpl, idx) => (
-                    <Button key={idx} onClick={() => applyTemplate(tmpl, 'plaintiff')}>
-                      {t('quickCreate.applyTemplateN').replace('{n}', String(idx + 1))}
-                    </Button>
-                  ))}
-                </Space>
-              </motion.div>
-
-              <motion.div 
-                className="divider"
-                initial={{ opacity: 0, scale: 0 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.6, delay: 0.4 }}
-              >
-                <MediatorAvatar size="small" animated />
-              </motion.div>
-
-              <motion.div 
-                className="statement-card defendant-card"
-                initial={{ opacity: 0, x: 30 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.6, delay: 0.3 }}
-              >
-                <div className="card-header">
-                  <span className="role-badge role-b">{t('quickCreate.roleB')}</span>
-                  <h3 className="card-title">{t('quickCreate.defendantTitle')}</h3>
+                
+                <div className="step-actions mt-8">
+                  <Button 
+                    type="primary" 
+                    size="large" 
+                    className="next-btn h-14 px-12 text-lg rounded-full"
+                    onClick={handleNextStep}
+                    disabled={!canSubmit}
+                  >
+                    {t('quickCreate.step.next')}
+                  </Button>
+                  <Text className="hint-text ml-4 text-gray-400">{t('quickCreate.step.enterHint')}</Text>
                 </div>
-                <Text type="secondary" style={{ display: 'block', marginBottom: 24, fontSize: 15, lineHeight: 1.6 }}>
-                  {t('quickCreate.defendantHint')}
+              </div>
+            </motion.div>
+          )}
+
+          {currentStep === 1 && (
+            <motion.div 
+              key="step1"
+              className="typeform-step"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.5 }}
+            >
+              <div className="step-content">
+                <Title level={2} className="step-title">{t('quickCreate.step2.title')}</Title>
+                <Text className="step-subtitle text-lg text-gray-500 mb-8 block">
+                  {t('quickCreate.step2.subtitle')}
                 </Text>
+                
                 <StatementInput
                   value={defendantStatement}
                   onChange={setDefendantStatement}
@@ -389,123 +294,72 @@ const QuickExperienceCreate = () => {
                   allowEmpty
                   minLength={MIN_DEFENDANT_LENGTH}
                 />
-                <Space size="middle" wrap style={{ marginTop: 16 }}>
-                  <Button onClick={() => applyTemplate(templates[0], 'defendant')}>
-                    {t('quickCreate.applyTemplate')}
+                
+                <div className="step-actions mt-8 flex items-center gap-4">
+                  <Button 
+                    size="large" 
+                    className="prev-btn h-14 px-8 text-lg rounded-full"
+                    onClick={handlePrevStep}
+                  >
+                    {t('quickCreate.step.prev')}
                   </Button>
-                  <Button type="primary" ghost loading={isGeneratingDefendant} onClick={handleAutoGenerateDefendant} style={{ border: 'none', background: 'rgba(14, 165, 233, 0.1)', color: '#0284C7' }}>
-                    ✨ {t('quickCreate.autoWrite')}
+                  <Button 
+                    type="primary" 
+                    size="large" 
+                    className="next-btn h-14 px-12 text-lg rounded-full"
+                    onClick={handleNextStep}
+                  >
+                    {t('quickCreate.step.next')}
                   </Button>
-                </Space>
-                <Text type="secondary" style={{ display: 'block', marginTop: 12, fontSize: 13 }}>
-                  {t('quickCreate.defendantMinHint').replace('{min}', String(MIN_DEFENDANT_LENGTH))}
-                </Text>
-              </motion.div>
-            </div>
-          </div>
-        </section>
+                  <Button type="link" loading={isGeneratingDefendant} onClick={handleAutoGenerateDefendant} className="text-primary">
+                    {t('quickCreate.autoWrite')}
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          )}
 
-        <motion.section 
-          className="evidence-section"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.6 }}
-        >
-          <div className="container">
-            <Collapse
-              defaultActiveKey={[]}
-              expandIconPlacement="end"
-              items={[
-                {
-                  key: 'evidence',
-                  label: t('quickCreate.evidenceHeader'),
-                  children: (
-                    <>
-                      <Text type="secondary" style={{ display: 'block', marginBottom: 24, fontSize: 15 }}>
-                        {t('quickCreate.evidenceHint')}
-                      </Text>
-                      <FileUpload value={evidenceFiles} onChange={setEvidenceFiles} maxCount={MAX_IMAGE_COUNT} />
-                    </>
-                  ),
-                },
-              ]}
-            />
-          </div>
-        </motion.section>
-
-        <AnimatePresence>
-          {showRegisterPrompt && (
-            <motion.section 
-              className="register-prompt-section"
+          {currentStep === 2 && (
+            <motion.div 
+              key="step2"
+              className="typeform-step"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.5 }}
             >
-              <div className="container">
-                <Alert
-                  title={<Space><LockOutlined /><span>{t('quickCreate.registerMessage')}</span></Space>}
-                  description={t('register.prompt.desc')}
-                  type="info"
-                  action={
-                    <Space>
-                      <Button type="primary" onClick={() => navigate('/auth/register')}>{t('register.action.now')}</Button>
-                      <Button type="text" onClick={() => setShowRegisterPrompt(false)}>{t('quickCreate.close')}</Button>
-                    </Space>
-                  }
-                  closable
-                  onClose={() => setShowRegisterPrompt(false)}
-                />
+              <div className="step-content">
+                <Title level={2} className="step-title">{t('quickCreate.step3.title')}</Title>
+                <Text className="step-subtitle text-lg text-gray-500 mb-8 block">
+                  {t('quickCreate.step3.subtitle')}
+                </Text>
+                
+                <div className="evidence-upload-wrapper bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+                  <FileUpload value={evidenceFiles} onChange={setEvidenceFiles} maxCount={MAX_IMAGE_COUNT} />
+                </div>
+                
+                <div className="step-actions mt-12 flex items-center gap-4">
+                  <Button 
+                    size="large" 
+                    className="prev-btn h-14 px-8 text-lg rounded-full"
+                    onClick={handlePrevStep}
+                  >
+                    {t('quickCreate.step.prev')}
+                  </Button>
+                  <Button 
+                    type="primary" 
+                    size="large" 
+                    className="submit-btn h-14 px-12 text-lg rounded-full shadow-lg hover:shadow-xl transition-all"
+                    onClick={handleSubmit}
+                    loading={isLoading}
+                  >
+                    {isLoading ? t('quickCreate.submitting') : t('quickCreate.submitAndAnalyze')}
+                  </Button>
+                </div>
               </div>
-            </motion.section>
+            </motion.div>
           )}
         </AnimatePresence>
-
-        <KeyboardShortcuts shortcuts={shortcuts} showHelp={true} />
-
-        <motion.section 
-          className="submit-section"
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.8 }}
-        >
-          <div className="container">
-            <AnimatePresence>
-              {canSubmit && (
-                <motion.div 
-                  className="progress-display"
-                  initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.9, y: -20 }}
-                >
-                  <Progress percent={progress} status="active" strokeColor={{ '0%': '#34D399', '100%': '#10B981' }} />
-                  <Text>{t('quickCreate.progressDone').replace('{percent}', String(progress))}</Text>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <div className="submit-actions">
-              <GuideTooltip content={t('quickCreate.submitHint')} storageKey="quick_submit_guide" placement="top">
-                <button
-                  className="submit-button"
-                  disabled={!canSubmit || isLoading}
-                  onClick={handleSubmit}
-                  aria-label={canSubmit ? t('quickCreate.submitAriaReady') : t('quickCreate.submitAriaDisabled')}
-                >
-                  {isLoading ? t('quickCreate.submitting') : t('quickCreate.submit')}
-                </button>
-              </GuideTooltip>
-              <div className="submit-hints">
-                <Text>{t('quickCreate.afterSubmit')}</Text>
-                <br />
-                <Text style={{ fontSize: 13, opacity: 0.8 }}>{t('quickCreate.eta')}</Text>
-                <br />
-                <Text style={{ fontSize: 13, opacity: 0.8 }}>{t('quickCreate.quickNote')}</Text>
-              </div>
-            </div>
-          </div>
-        </motion.section>
       </div>
     </>
   );

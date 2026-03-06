@@ -1,9 +1,14 @@
+/* 品牌色彩（與 Emorapy-UIUX設計優化指引 一致） */
+@app-primary: #6b8f71; /* 寧靜鼠尾草綠 Sage Green */
+@app-bg: #fafaf8; /* 珍珠白/米白 Off-white */
+@app-text: #2d2d2d; /* 深炭灰 Dark Charcoal */
+
 .app-header {
-  background: #fff;
+  background: @app-bg;
   padding: 0;
   height: 64px;
   line-height: 64px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 
   .header-content {
     max-width: 1200px;
@@ -15,12 +20,17 @@
 
     .logo {
       text-decoration: none;
-      color: #262626;
+      color: @app-text;
       font-size: 20px;
       font-weight: bold;
 
       .logo-text {
-        color: #ff8c42;
+        color: @app-primary;
+        transition: color 0.2s ease;
+      }
+
+      &:hover .logo-text {
+        color: darken(@app-primary, 8%);
       }
     }
 

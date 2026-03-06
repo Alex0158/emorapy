@@ -10,7 +10,6 @@ import {
 } from "@ant-design/icons";
 import {
 	Button,
-	Card,
 	Checkbox,
 	Form,
 	Input,
@@ -20,7 +19,6 @@ import {
 } from "antd";
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import MediatorAvatar from "@/components/business/MediatorAvatar";
 import AnimatedWrapper from "@/components/common/AnimatedWrapper";
 import SEO from "@/components/common/SEO";
 import { sendVerificationCode } from "@/services/api/auth";
@@ -94,106 +92,103 @@ const Login = () => {
 				role="main"
 				aria-label={t("auth.login.pageLabel")}
 			>
-				<AnimatedWrapper animation="scale" delay={100}>
-					<Card className="auth-card">
-						<div className="auth-header" aria-labelledby="auth-title">
-							<MediatorAvatar size="medium" animated />
-							<Title level={2} id="auth-title" className="auth-title">
-								{t("auth.login.welcome")}
-							</Title>
-							<Text type="secondary" className="auth-subtitle">
-								{t("auth.login.subtitle")}
-							</Text>
-						</div>
+				<AnimatedWrapper animation="fade" delay={100}>
+					<div className="auth-header mb-8" aria-labelledby="auth-title">
+						<Title level={2} id="auth-title" className="auth-title font-heading">
+							{t("auth.login.welcome")}
+						</Title>
+						<Text type="secondary" className="auth-subtitle text-lg">
+							{t("auth.login.subtitle")}
+						</Text>
+					</div>
 
-						<Form
-							form={form}
-							name="login"
-							onFinish={handleSubmit}
-							autoComplete="off"
-							layout="vertical"
-							size="large"
-							className="auth-form"
-							aria-label={t("auth.login.formLabel")}
+					<Form
+						form={form}
+						name="login"
+						onFinish={handleSubmit}
+						autoComplete="off"
+						layout="vertical"
+						size="large"
+						className="auth-form"
+						aria-label={t("auth.login.formLabel")}
+					>
+						<Form.Item
+							name="email"
+							rules={[
+								{ required: true, message: t("auth.login.emailRequired") },
+								{ type: "email", message: t("auth.login.emailInvalid") },
+							]}
 						>
-							<Form.Item
-								name="email"
-								label={t("auth.login.email")}
-								rules={[
-									{ required: true, message: t("auth.login.emailRequired") },
-									{ type: "email", message: t("auth.login.emailInvalid") },
-								]}
-							>
-								<Input
-									prefix={<UserOutlined />}
-									placeholder={t("auth.login.emailRequired")}
-									autoComplete="email"
-								/>
-							</Form.Item>
+							<Input
+								prefix={<UserOutlined className="text-gray-400" />}
+								placeholder={t("auth.login.email")}
+								autoComplete="email"
+								className="floating-input"
+							/>
+						</Form.Item>
 
-							<Form.Item
-								name="password"
-								label={t("auth.login.password")}
-								rules={[
-									{ required: true, message: t("auth.login.passwordRequired") },
-								]}
-							>
-								<Input.Password
-									prefix={<LockOutlined />}
-									placeholder={t("auth.login.passwordRequired")}
-									iconRender={(visible) =>
-										visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />
-									}
-									autoComplete="current-password"
-								/>
-							</Form.Item>
+						<Form.Item
+							name="password"
+							rules={[
+								{ required: true, message: t("auth.login.passwordRequired") },
+							]}
+						>
+							<Input.Password
+								prefix={<LockOutlined className="text-gray-400" />}
+								placeholder={t("auth.login.password")}
+								iconRender={(visible) =>
+									visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />
+								}
+								autoComplete="current-password"
+								className="floating-input"
+							/>
+						</Form.Item>
 
-							<Form.Item>
-								<Space
-									style={{ width: "100%", justifyContent: "space-between" }}
+						<Form.Item className="mb-6">
+							<Space
+								style={{ width: "100%", justifyContent: "space-between" }}
+							>
+								<Checkbox
+									checked={rememberMe}
+									onChange={(e) => setRememberMe(e.target.checked)}
 								>
-									<Checkbox
-										checked={rememberMe}
-										onChange={(e) => setRememberMe(e.target.checked)}
-									>
-										{t("auth.login.rememberMe")}
-									</Checkbox>
-									<Button
-										type="link"
-										onClick={() => navigate("/auth/forgot-password")}
-										className="forgot-password-link"
-									>
-										{t("auth.login.forgotPassword")}
-									</Button>
-								</Space>
-							</Form.Item>
-
-							<Form.Item>
+									{t("auth.login.rememberMe")}
+								</Checkbox>
 								<Button
-									type="primary"
-									htmlType="submit"
-									block
-									loading={isLoading}
-									className="auth-submit-button"
+									type="link"
+									onClick={() => navigate("/auth/forgot-password")}
+									className="forgot-password-link px-0"
 								>
-									{t("auth.login.submit")}
+									{t("auth.login.forgotPassword")}
 								</Button>
-							</Form.Item>
-						</Form>
+							</Space>
+						</Form.Item>
 
-						<div className="auth-divider">
-							<Text type="secondary">{t("auth.login.noAccount")}</Text>
-						</div>
+						<Form.Item className="mb-6">
+							<Button
+								type="primary"
+								htmlType="submit"
+								block
+								loading={isLoading}
+								className="auth-submit-button h-12 text-lg rounded-full shadow-md hover:shadow-lg transition-all"
+							>
+								{t("auth.login.submit")}
+							</Button>
+						</Form.Item>
+					</Form>
 
-						<Button
-							type="link"
-							block
-							onClick={() => navigate("/auth/register")}
-							className="auth-switch-link"
-						>
-							{t("auth.login.registerNow")}
-						</Button>
-					</Card>
+					<div className="auth-divider my-6 text-center">
+						<Text type="secondary">{t("auth.login.noAccount")}</Text>
+					</div>
+
+					<Button
+						type="default"
+						block
+						onClick={() => navigate("/auth/register")}
+						className="auth-switch-link h-12 text-lg rounded-full"
+					>
+						{t("auth.login.registerNow")}
+					</Button>
 				</AnimatedWrapper>
 			</div>
 		</>

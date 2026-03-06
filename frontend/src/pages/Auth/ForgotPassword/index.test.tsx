@@ -69,7 +69,9 @@ async function advanceToStep2() {
   }
   fireEvent.click(screen.getByText('auth.register.verifyAndContinue'));
   await waitFor(() => {
-    expect(screen.getByText('auth.forgot.newPassword')).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText('auth.forgot.newPasswordPlaceholder'),
+    ).toBeInTheDocument();
   });
 }
 
@@ -82,7 +84,9 @@ describe('ForgotPassword', () => {
     renderPage();
     expect(screen.getByText('auth.forgot.heading')).toBeInTheDocument();
     expect(screen.getByText('auth.forgot.subtitle')).toBeInTheDocument();
-    expect(screen.getByText('auth.login.email')).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText('auth.forgot.emailPlaceholder'),
+    ).toBeInTheDocument();
     expect(screen.getByText('auth.forgot.sendResetEmail')).toBeInTheDocument();
   });
 
@@ -112,7 +116,9 @@ describe('ForgotPassword', () => {
 
   it('Step 1 → 2: 填寫驗證碼後應轉到密碼步驟', async () => {
     await advanceToStep2();
-    expect(screen.getByText('auth.forgot.newPassword')).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText('auth.forgot.newPasswordPlaceholder'),
+    ).toBeInTheDocument();
     expect(screen.getByText('auth.forgot.resetButton')).toBeInTheDocument();
   });
 

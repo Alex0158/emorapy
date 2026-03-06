@@ -11,7 +11,6 @@ import {
 } from "@ant-design/icons";
 import {
 	Button,
-	Card,
 	Form,
 	Input,
 	message,
@@ -20,7 +19,6 @@ import {
 } from "antd";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import MediatorAvatar from "@/components/business/MediatorAvatar";
 import AnimatedWrapper from "@/components/common/AnimatedWrapper";
 import SEO from "@/components/common/SEO";
 import { sendVerificationCode, verifyEmail } from "@/services/api/auth";
@@ -200,228 +198,226 @@ const Register = () => {
 				role="main"
 				aria-label={t("auth.register.pageLabel")}
 			>
-				<AnimatedWrapper animation="scale" delay={100}>
-					<Card className="auth-card">
-						<div className="auth-header">
-							<MediatorAvatar size="medium" animated />
-							<Title level={2} className="auth-title">
-								{t("auth.register.welcome")}
-							</Title>
-							<Text type="secondary" className="auth-subtitle">
-								{t("auth.register.subtitle")}
-							</Text>
-						</div>
+				<AnimatedWrapper animation="fade" delay={100}>
+					<div className="auth-header mb-8">
+						<Title level={2} className="auth-title font-heading">
+							{t("auth.register.welcome")}
+						</Title>
+						<Text type="secondary" className="auth-subtitle text-lg">
+							{t("auth.register.subtitle")}
+						</Text>
+					</div>
 
-						<Steps
-							current={currentStep}
-							className="register-steps"
-							items={[
-								{ title: t("auth.register.stepEmail") },
-								{ title: t("auth.register.stepVerify") },
-								{ title: t("auth.register.stepPassword") },
-							]}
-						/>
+					<Steps
+						current={currentStep}
+						className="register-steps mb-8"
+						items={[
+							{ title: t("auth.register.stepEmail") },
+							{ title: t("auth.register.stepVerify") },
+							{ title: t("auth.register.stepPassword") },
+						]}
+					/>
 
-						{currentStep === 0 && (
-							<Form
-								form={form}
-								name="register-email"
-								onFinish={handleSendCode}
-								layout="vertical"
-								size="large"
-								className="auth-form"
+					{currentStep === 0 && (
+						<Form
+							form={form}
+							name="register-email"
+							onFinish={handleSendCode}
+							layout="vertical"
+							size="large"
+							className="auth-form"
+						>
+							<Form.Item
+								name="email"
+								rules={[
+									{
+										required: true,
+										message: t("auth.register.emailRequired"),
+									},
+									{ type: "email", message: t("auth.register.emailInvalid") },
+								]}
 							>
-								<Form.Item
-									name="email"
-									label={t("auth.register.email")}
-									rules={[
-										{
-											required: true,
-											message: t("auth.register.emailRequired"),
-										},
-										{ type: "email", message: t("auth.register.emailInvalid") },
-									]}
-								>
-									<Input
-										prefix={<MailOutlined />}
-										placeholder={t("auth.register.emailPlaceholder")}
-										autoComplete="email"
-									/>
-								</Form.Item>
+								<Input
+									prefix={<MailOutlined className="text-gray-400" />}
+									placeholder={t("auth.register.emailPlaceholder")}
+									autoComplete="email"
+									className="floating-input"
+								/>
+							</Form.Item>
 
-								<Form.Item name="nickname" label={t("auth.register.nickname")}>
-									<Input
-										prefix={<UserOutlined />}
-										placeholder={t("auth.register.nicknamePlaceholder")}
-										maxLength={20}
-									/>
-								</Form.Item>
+							<Form.Item name="nickname">
+								<Input
+									prefix={<UserOutlined className="text-gray-400" />}
+									placeholder={t("auth.register.nicknamePlaceholder")}
+									maxLength={20}
+									className="floating-input"
+								/>
+							</Form.Item>
 
-								<Form.Item>
+							<Form.Item className="mt-6">
 								<Button
 									type="primary"
 									htmlType="submit"
 									block
 									loading={sendingCode}
-									className="auth-submit-button"
+									className="auth-submit-button h-12 text-lg rounded-full shadow-md hover:shadow-lg transition-all"
 								>
 									{t("auth.register.sendCode")}
 								</Button>
-								</Form.Item>
-							</Form>
-						)}
+							</Form.Item>
+						</Form>
+					)}
 
-						{currentStep === 1 && (
-							<div className="verification-step">
-								<div className="verification-info">
-									<Text>{t("auth.register.codeSentTo")}</Text>
-									<Text strong>{email}</Text>
-								</div>
+					{currentStep === 1 && (
+						<div className="verification-step">
+							<div className="verification-info text-center mb-6">
+								<Text className="text-gray-500">{t("auth.register.codeSentTo")}</Text>
+								<br />
+								<Text strong className="text-lg">{email}</Text>
+							</div>
 
-								<div className="code-input-group">
-									{verificationCode.map((value, index) => (
-										<input
-											key={index}
-											ref={(el) => {
-												codeInputRefs.current[index] = el;
-											}}
-											type="text"
-											inputMode="numeric"
-											pattern="\d*"
-											maxLength={1}
-											value={value}
-											onChange={(e) => handleCodeChange(index, e.target.value)}
-											onKeyDown={(e) => handleCodeKeyDown(index, e)}
-											onPaste={handleCodePaste}
-											className="code-input"
-											aria-label={`${t("auth.register.stepVerify")} ${index + 1}`}
-											autoFocus={index === 0}
-										/>
-									))}
-								</div>
+							<div className="code-input-group flex justify-between gap-2 mb-6">
+								{verificationCode.map((value, index) => (
+									<input
+										key={index}
+										ref={(el) => {
+											codeInputRefs.current[index] = el;
+										}}
+										type="text"
+										inputMode="numeric"
+										pattern="\d*"
+										maxLength={1}
+										value={value}
+										onChange={(e) => handleCodeChange(index, e.target.value)}
+										onKeyDown={(e) => handleCodeKeyDown(index, e)}
+										onPaste={handleCodePaste}
+										className="code-input w-12 h-14 text-center text-xl font-bold rounded-xl border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all bg-gray-50 focus:bg-white"
+										aria-label={`${t("auth.register.stepVerify")} ${index + 1}`}
+										autoFocus={index === 0}
+									/>
+								))}
+							</div>
 
-								<div className="countdown-info">
-									<Text type="secondary">
-										{t("auth.register.codeExpiry")} {formatCountdown(countdown)}
-									</Text>
-								</div>
+							<div className="countdown-info text-center mb-4">
+								<Text type="secondary">
+									{t("auth.register.codeExpiry")} {formatCountdown(countdown)}
+								</Text>
+							</div>
 
-								<Button
-									type="link"
-									onClick={handleResendCode}
-									disabled={countdown > 0}
-									className="resend-code-link"
-								>
-									{t("auth.register.resendCode")}
-								</Button>
+							<Button
+								type="link"
+								onClick={handleResendCode}
+								disabled={countdown > 0}
+								className="resend-code-link block w-full text-center mb-6"
+							>
+								{t("auth.register.resendCode")}
+							</Button>
 
+							<Button
+								type="primary"
+								block
+								onClick={handleVerifyCode}
+								disabled={verificationCode.join("").length !== CODE_LENGTH}
+								loading={verifying}
+								className="auth-submit-button h-12 text-lg rounded-full shadow-md hover:shadow-lg transition-all"
+							>
+								{t("auth.register.verifyAndContinue")}
+							</Button>
+						</div>
+					)}
+
+					{currentStep === 2 && (
+						<Form
+							name="register-password"
+							onFinish={handleSubmit}
+							layout="vertical"
+							size="large"
+							className="auth-form"
+						>
+							<Form.Item
+								name="password"
+								rules={[
+									{
+										required: true,
+										message: t("auth.login.passwordRequired"),
+									},
+									{ min: 8, message: t("auth.register.passwordMin") },
+									{ max: 128, message: t("auth.register.passwordMax") },
+									{
+										pattern: /^(?=.*[A-Za-z])(?=.*\d)/,
+										message: t("auth.register.passwordPattern"),
+									},
+								]}
+							>
+								<Input.Password
+									prefix={<LockOutlined className="text-gray-400" />}
+									placeholder={t("auth.register.passwordPlaceholder")}
+									maxLength={128}
+									iconRender={(visible) =>
+										visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />
+									}
+									autoComplete="new-password"
+									className="floating-input"
+								/>
+							</Form.Item>
+
+							<Form.Item
+								name="confirmPassword"
+								dependencies={["password"]}
+								rules={[
+									{
+										required: true,
+										message: t("auth.register.confirmRequired"),
+									},
+									({ getFieldValue }) => ({
+										validator(_, value) {
+											if (!value || getFieldValue("password") === value) {
+												return Promise.resolve();
+											}
+											return Promise.reject(
+												new Error(t("message.passwordMismatch")),
+											);
+										},
+									}),
+								]}
+							>
+								<Input.Password
+									prefix={<LockOutlined className="text-gray-400" />}
+									placeholder={t("auth.register.confirmPlaceholder")}
+									iconRender={(visible) =>
+										visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />
+									}
+									autoComplete="new-password"
+									className="floating-input"
+								/>
+							</Form.Item>
+
+							<Form.Item className="mt-6">
 								<Button
 									type="primary"
+									htmlType="submit"
 									block
-									onClick={handleVerifyCode}
-									disabled={verificationCode.join("").length !== CODE_LENGTH}
-									loading={verifying}
-									className="auth-submit-button"
-									style={{ marginTop: 16 }}
+									loading={isLoading}
+									className="auth-submit-button h-12 text-lg rounded-full shadow-md hover:shadow-lg transition-all"
 								>
-									{t("auth.register.verifyAndContinue")}
+									{t("auth.register.finishRegister")}
 								</Button>
-							</div>
-						)}
+							</Form.Item>
+						</Form>
+					)}
 
-						{currentStep === 2 && (
-							<Form
-								name="register-password"
-								onFinish={handleSubmit}
-								layout="vertical"
-								size="large"
-								className="auth-form"
-							>
-								<Form.Item
-									name="password"
-									label={t("auth.register.setPassword")}
-									rules={[
-										{
-											required: true,
-											message: t("auth.login.passwordRequired"),
-										},
-										{ min: 8, message: t("auth.register.passwordMin") },
-										{ max: 128, message: t("auth.register.passwordMax") },
-										{
-											pattern: /^(?=.*[A-Za-z])(?=.*\d)/,
-											message: t("auth.register.passwordPattern"),
-										},
-									]}
-								>
-									<Input.Password
-										prefix={<LockOutlined />}
-										placeholder={t("auth.register.passwordPlaceholder")}
-										maxLength={128}
-										iconRender={(visible) =>
-											visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />
-										}
-										autoComplete="new-password"
-									/>
-								</Form.Item>
+					<div className="auth-divider my-6 text-center">
+						<Text type="secondary">{t("auth.register.hasAccount")}</Text>
+					</div>
 
-								<Form.Item
-									name="confirmPassword"
-									label={t("auth.register.confirmPassword")}
-									dependencies={["password"]}
-									rules={[
-										{
-											required: true,
-											message: t("auth.register.confirmRequired"),
-										},
-										({ getFieldValue }) => ({
-											validator(_, value) {
-												if (!value || getFieldValue("password") === value) {
-													return Promise.resolve();
-												}
-												return Promise.reject(
-													new Error(t("message.passwordMismatch")),
-												);
-											},
-										}),
-									]}
-								>
-									<Input.Password
-										prefix={<LockOutlined />}
-										placeholder={t("auth.register.confirmPlaceholder")}
-										iconRender={(visible) =>
-											visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />
-										}
-										autoComplete="new-password"
-									/>
-								</Form.Item>
-
-								<Form.Item>
-									<Button
-										type="primary"
-										htmlType="submit"
-										block
-										loading={isLoading}
-										className="auth-submit-button"
-									>
-										{t("auth.register.finishRegister")}
-									</Button>
-								</Form.Item>
-							</Form>
-						)}
-
-						<div className="auth-divider">
-							<Text type="secondary">{t("auth.register.hasAccount")}</Text>
-						</div>
-
-						<Button
-							type="link"
-							block
-							onClick={() => navigate("/auth/login")}
-							className="auth-switch-link"
-						>
-							{t("auth.register.loginNow")}
-						</Button>
-					</Card>
+					<Button
+						type="default"
+						block
+						onClick={() => navigate("/auth/login")}
+						className="auth-switch-link h-12 text-lg rounded-full"
+					>
+						{t("auth.register.loginNow")}
+					</Button>
 				</AnimatedWrapper>
 			</div>
 		</>

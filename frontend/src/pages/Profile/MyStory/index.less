@@ -1,9 +1,6 @@
-.my-story-page {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 24px 16px;
-  min-height: calc(100vh - 64px);
+@import '../../../assets/styles/variables.less';
 
+.my-story-page {
   &__loading {
     display: flex;
     flex-direction: column;
@@ -11,72 +8,6 @@
     justify-content: center;
     min-height: calc(100vh - 64px);
     gap: 16px;
-  }
-
-  &__header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 24px;
-  }
-
-  &__overview {
-    &-content {
-      display: flex;
-      align-items: flex-start;
-      gap: 24px;
-
-      @media (max-width: 480px) {
-        flex-direction: column;
-        align-items: center;
-      }
-    }
-
-    &-info {
-      flex: 1;
-    }
-  }
-
-  &__domain-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    margin-top: 8px;
-  }
-
-  &__insights {
-    margin-top: 8px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  &__insight-item {
-    padding: 8px 12px;
-    background: #fafafa;
-    border-radius: 8px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  &__insight-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  &__history-item {
-    padding: 8px 0;
-  }
-
-  &__history-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 4px;
-    flex-wrap: wrap;
-    gap: 4px;
   }
 
   &__manage {

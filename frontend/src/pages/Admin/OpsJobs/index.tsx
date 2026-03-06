@@ -38,7 +38,13 @@ const OpsJobsStatsPage = () => {
   });
   const canLoadStats = accessViewState.canLoadStats;
   const statsQuery = useAdminJobStats(query, canLoadStats);
-  const rateBaseLabel = statsQuery.data ? getRateDenominatorLabel(statsQuery.data.rateBase) : 'totalRuns';
+  const rateBaseLabel = (() => {
+    const fallback = t('admin.ops.rateBase.totalRuns');
+    if (!statsQuery.data) return fallback;
+    const baseCode = getRateDenominatorLabel(statsQuery.data.rateBase);
+    const translated = t(`admin.ops.rateBase.${baseCode}`);
+    return translated === `admin.ops.rateBase.${baseCode}` ? baseCode : translated;
+  })();
   const sampled = statsQuery.data ? shouldShowSampledHint(statsQuery.data) : false;
   const dataViewState = deriveAdminOpsJobsDataState({
     canLoadStats,

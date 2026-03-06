@@ -30,6 +30,12 @@ export default function AdminJobsPage() {
     },
   });
 
+  const getJobStatusLabel = (status?: string) => {
+    if (!status) return t('common.na');
+    const translated = t(`admin.jobs.status.${status}`);
+    return translated === `admin.jobs.status.${status}` ? status : translated;
+  };
+
   return (
     <Space orientation="vertical" size="large" style={{ width: '100%' }}>
       <div>
@@ -51,11 +57,11 @@ export default function AdminJobsPage() {
             { title: t('admin.jobs.schedule'), dataIndex: 'schedule' },
             {
               title: t('admin.jobs.latestStatus'),
-              render: (_, row) => row.latestRun?.status || '-',
+              render: (_, row) => getJobStatusLabel(row.latestRun?.status),
             },
             {
               title: t('admin.jobs.latestAt'),
-              render: (_, row) => row.latestRun?.started_at || '-',
+              render: (_, row) => row.latestRun?.started_at || t('common.na'),
             },
             {
               title: t('admin.jobs.actions'),

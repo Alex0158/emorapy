@@ -1,0 +1,132 @@
+@import '../../../assets/styles/variables.less';
+
+.adaptive-dashboard {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 40px 20px;
+  
+  .dashboard-header {
+    margin-bottom: 32px;
+    text-align: center;
+    
+    .greeting {
+      margin-bottom: 8px;
+      font-family: @font-family-heading;
+      color: @color-text-primary;
+    }
+    
+    .subtitle {
+      font-size: 16px;
+      color: @color-text-secondary;
+    }
+  }
+
+  .next-step-card {
+    margin-bottom: 40px;
+    border: none;
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.04);
+    border-radius: 24px;
+    overflow: hidden;
+    position: relative;
+    
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background: @color-primary;
+    }
+
+    .ant-card-body {
+      padding: 32px;
+    }
+
+    .card-content {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      
+      @media (max-width: 768px) {
+        flex-direction: column;
+        text-align: center;
+      }
+
+      .icon-wrapper {
+        width: 64px;
+        height: 64px;
+        border-radius: 16px;
+        background: fade(@color-primary, 10%);
+        color: @color-primary;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        flex-shrink: 0;
+      }
+
+      .text-content {
+        flex: 1;
+        
+        h4 {
+          margin-bottom: 4px;
+          font-family: @font-family-heading;
+        }
+      }
+
+      .action-btn {
+        flex-shrink: 0;
+        @media (max-width: 768px) {
+          width: 100%;
+        }
+      }
+    }
+  }
+
+  .quick-actions {
+    .section-title {
+      color: @color-text-secondary;
+      margin-bottom: 16px;
+    }
+
+    .actions-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      width: 100%;
+      
+      .ant-space-item {
+        width: 100%;
+      }
+    }
+
+    .action-card {
+      border-radius: 16px;
+      border: 1px solid @color-border;
+      background: transparent;
+      transition: all 0.3s ease;
+      
+      &:hover {
+        border-color: @color-primary;
+        background: fade(@color-primary, 2%);
+        transform: translateY(-2px);
+      }
+
+      .ant-card-body {
+        padding: 20px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .action-icon {
+        font-size: 20px;
+        color: @color-primary;
+      }
+    }
+  }
+}

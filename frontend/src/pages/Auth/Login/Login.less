@@ -1,149 +1,107 @@
+@import '../../../assets/styles/variables.less';
+
 .auth-page {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, #ff8c42 0%, #5b9bd5 100%);
-  padding: 24px;
-
-  .auth-card {
-    width: 100%;
-    max-width: 440px;
-    border-radius: 16px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-    padding: 48px;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    animation: scaleIn 0.4s ease-out;
-
-    @keyframes scaleIn {
-      from {
-        opacity: 0;
-        transform: scale(0.95);
-      }
-      to {
-        opacity: 1;
-        transform: scale(1);
-      }
-    }
-
-    &:hover {
-      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
-    }
-
-    @media (max-width: 768px) {
-      padding: 32px;
-      max-width: 90%;
-    }
-  }
+  width: 100%;
 
   .auth-header {
-    text-align: center;
-    margin-bottom: 32px;
-
     .auth-title {
-      margin-top: 24px;
-      margin-bottom: 8px;
       font-size: 32px;
-
-      @media (max-width: 768px) {
-        font-size: 24px;
-      }
+      font-weight: 800;
+      color: @color-text-primary;
+      letter-spacing: -0.02em;
     }
-
     .auth-subtitle {
-      font-size: 16px;
+      color: fade(@color-text-primary, 60%);
     }
   }
 
   .auth-form {
-    .ant-form-item-label > label {
-      font-weight: 500;
+    .ant-form-item {
+      margin-bottom: 20px;
     }
 
-    .forgot-password-link {
-      padding: 0;
-      height: auto;
-      color: #ff8c42;
+    .floating-input {
+      border-radius: 16px;
+      padding: 14px 18px;
+      background: rgba(255, 255, 255, 0.7);
+      border: 1px solid rgba(0, 0, 0, 0.04);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.01) inset;
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      font-size: 16px;
+
+      .ant-input-prefix {
+        margin-right: 12px;
+      }
 
       &:hover {
-        text-decoration: underline;
+        background: rgba(255, 255, 255, 0.9);
+        border-color: rgba(0, 0, 0, 0.08);
+      }
+
+      &:focus, &-focused {
+        background: #fff;
+        border-color: @color-primary;
+        box-shadow: 
+          0 0 0 4px fade(@color-primary, 15%),
+          0 2px 8px rgba(0, 0, 0, 0.02);
+      }
+    }
+
+    /* Override Ant Design password input specific styles */
+    .ant-input-affix-wrapper.floating-input {
+      padding: 10px 18px; /* Slightly different padding to account for wrapper */
+      
+      input {
+        background: transparent;
       }
     }
   }
 
   .auth-submit-button {
-    height: 56px;
-    font-size: 18px;
-    font-weight: 500;
-    border-radius: 8px;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    position: relative;
-    overflow: hidden;
-
-    &::before {
-      content: '';
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 0;
-      height: 0;
-      border-radius: 50%;
-      background: rgba(255, 255, 255, 0.3);
-      transform: translate(-50%, -50%);
-      transition: width 0.6s, height 0.6s;
-    }
-
-    &:hover:not(:disabled) {
+    font-weight: 600;
+    border-radius: 16px;
+    height: 52px;
+    font-size: 16px;
+    background: linear-gradient(135deg, @color-primary 0%, darken(@color-primary, 5%) 100%);
+    border: none;
+    box-shadow: 0 8px 20px fade(@color-primary, 25%);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    
+    &:hover {
       transform: translateY(-2px);
-      box-shadow: 0 8px 24px rgba(255, 140, 66, 0.4);
-
-      &::before {
-        width: 300px;
-        height: 300px;
-      }
+      box-shadow: 0 12px 24px fade(@color-primary, 30%);
+      background: linear-gradient(135deg, lighten(@color-primary, 5%) 0%, @color-primary 100%);
     }
-
-    &:focus-visible {
-      outline: 3px solid rgba(255, 140, 66, 0.8);
-      outline-offset: 2px;
+    
+    &:active {
+      transform: translateY(0);
     }
   }
 
-  .auth-divider {
-    text-align: center;
-    margin: 24px 0;
-    padding: 16px 0;
-    border-top: 1px solid #d9d9d9;
+  .forgot-password-link {
+    color: fade(@color-text-primary, 60%);
+    font-weight: 500;
+    
+    &:hover {
+      color: @color-primary;
+    }
   }
 
   .auth-switch-link {
-    height: auto;
-    padding: 0;
+    font-weight: 600;
+    border-radius: 16px;
+    height: 52px;
     font-size: 16px;
-    font-weight: 500;
-    color: #ff8c42;
-    transition: all 0.3s;
-
+    color: @color-text-primary;
+    background: rgba(255, 255, 255, 0.5);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+    
     &:hover {
-      text-decoration: underline;
-      color: #e67a2e;
-    }
-
-    &:focus-visible {
-      outline: 2px solid #ff8c42;
-      outline-offset: 2px;
-      border-radius: 4px;
-    }
-  }
-
-  // 減少動畫（可訪問性）
-  @media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
+      color: @color-primary;
+      background: #fff;
+      border-color: fade(@color-primary, 30%);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
     }
   }
 }

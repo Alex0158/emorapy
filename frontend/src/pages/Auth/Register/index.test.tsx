@@ -74,7 +74,9 @@ async function advanceToStep2() {
   }
   fireEvent.click(screen.getByText('auth.register.verifyAndContinue'));
   await waitFor(() => {
-    expect(screen.getByText('auth.register.setPassword')).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText('auth.register.passwordPlaceholder'),
+    ).toBeInTheDocument();
   });
 }
 
@@ -87,7 +89,9 @@ describe('Register', () => {
     renderPage();
     expect(screen.getByText('auth.register.welcome')).toBeInTheDocument();
     expect(screen.getByText('auth.register.subtitle')).toBeInTheDocument();
-    expect(screen.getByText('auth.register.email')).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText('auth.register.emailPlaceholder'),
+    ).toBeInTheDocument();
     expect(screen.getByText('auth.register.sendCode')).toBeInTheDocument();
   });
 

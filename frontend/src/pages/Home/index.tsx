@@ -5,11 +5,12 @@
 import { useMemo } from 'react';
 import { Button } from 'antd';
 import { useNavigate } from 'react-router-dom';
-import { RocketOutlined, HeartOutlined, BulbOutlined, CheckCircleOutlined, FileTextOutlined, TeamOutlined } from '@ant-design/icons';
+import { RocketOutlined, HeartOutlined, BulbOutlined, CheckCircleOutlined, FileTextOutlined } from '@ant-design/icons';
 import MediatorAvatar from '@/components/business/MediatorAvatar';
 import SEO from '@/components/common/SEO';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
 import FlowSimulation from './components/FlowSimulation';
+import AdaptiveDashboard from './components/AdaptiveDashboard';
 import { useAuthStore } from '@/store/authStore';
 import { t } from '@/utils/i18n';
 import './Home.less';
@@ -54,48 +55,49 @@ const Home = () => {
           {t('home.skipToContent')}
         </a>
 
-        <section className="hero-section" aria-label={t('home.hero.ariaLabel')}>
-          <div className="hero-content">
-            <AnimatedWrapper animation="slide" direction="right" delay={150} duration={400} className="hero-text">
-              <h1 className="hero-title">{t('home.hero.heading')}</h1>
-              <p className="hero-subtitle">{t('home.hero.subtitle')}</p>
-              <div className="hero-actions" role="group" aria-label={t('home.ariaHeroActions')}>
-                <Button
-                  type="primary"
-                  size="large"
-                  icon={isAuthenticated ? <FileTextOutlined /> : <RocketOutlined />}
-                  onClick={handleQuickStart}
-                  className="primary-button"
-                  aria-label={isAuthenticated ? t('home.hero.createCaseAria') : t('home.hero.quickStartAria')}
-                >
-                  {isAuthenticated ? t('home.hero.createCase') : t('home.hero.quickStart')}
-                </Button>
-                <Button
-                  size="large"
-                  onClick={() => navigate(isAuthenticated ? '/case/list' : '/auth/register')}
-                  className="hero-btn-secondary"
-                  aria-label={isAuthenticated ? t('home.hero.viewCasesAria') : t('home.hero.learnMoreAria')}
-                >
-                  {isAuthenticated ? t('home.hero.viewCases') : t('home.hero.learnMore')}
-                </Button>
-                {!isAuthenticated && (
+        {isAuthenticated ? (
+          <section className="adaptive-hero-section">
+            <AdaptiveDashboard />
+          </section>
+        ) : (
+          <section className="hero-section" aria-label={t('home.hero.ariaLabel')}>
+            <div className="hero-content">
+              <AnimatedWrapper animation="slide" direction="right" delay={150} duration={400} className="hero-text">
+                <h1 className="hero-title">
+                  {t('home.hero.heading')}
+                </h1>
+                <p className="hero-subtitle">
+                  {t('home.hero.subtitle')}
+                </p>
+                <div className="hero-actions" role="group" aria-label={t('home.ariaHeroActions')}>
+                  <Button
+                    type="primary"
+                    size="large"
+                    shape="round"
+                    icon={<RocketOutlined />}
+                    onClick={handleQuickStart}
+                    className="primary-button"
+                    aria-label={t('home.hero.quickStartAria')}
+                  >
+                    {t('home.hero.quickStart')}
+                  </Button>
                   <Button
                     size="large"
-                    icon={<TeamOutlined />}
-                    onClick={() => navigate('/quick-experience/collaborative')}
+                    shape="round"
+                    onClick={() => navigate('/auth/register')}
                     className="hero-btn-secondary"
-                    style={{ marginLeft: 8 }}
+                    aria-label={t('home.hero.learnMoreAria')}
                   >
-                    {t('home.collaborativeMode')}
+                    {t('home.hero.learnMore')}
                   </Button>
-                )}
-              </div>
-            </AnimatedWrapper>
-            <AnimatedWrapper animation="fade" delay={250} duration={400} className="hero-image">
-              <MediatorAvatar size="large" animated />
-            </AnimatedWrapper>
-          </div>
-        </section>
+                </div>
+              </AnimatedWrapper>
+              <AnimatedWrapper animation="fade" delay={250} duration={400} className="hero-image">
+                <MediatorAvatar size="large" animated />
+              </AnimatedWrapper>
+            </div>
+          </section>
+        )}
 
         <FlowSimulation />
 

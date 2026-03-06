@@ -140,99 +140,108 @@ const ReconciliationDetail = () => {
       <div className="reconciliation-detail-page" role="main" aria-label={t('reconDetail.pageLabel')}>
         <AnimatedWrapper animation="fade" delay={100}>
           <div className="page-header" aria-labelledby="plan-title">
-            <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)} aria-label={t('reconDetail.backAria')}>
+            <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)} aria-label={t('reconDetail.backAria')} className="font-semibold text-gray-600 hover:text-primary">
               {t('reconDetail.back')}
             </Button>
           </div>
         </AnimatedWrapper>
 
-        <AnimatedWrapper animation="slide" direction="up" delay={200} trigger="intersection">
-          <Card role="article" aria-labelledby="plan-title">
-          <div className="plan-header">
-            <Title level={2}>{safeParsePlanContent(plan.plan_content).title}</Title>
-            <Space>
-              <Tag color="blue">{typeLabel}</Tag>
-              <Tag color={plan.difficulty_level === 'easy' ? 'success' : plan.difficulty_level === 'medium' ? 'warning' : 'error'}>
-                {difficultyLabel}
-              </Tag>
-            </Space>
-          </div>
+        <div className="max-w-4xl mx-auto px-6 pb-24">
+          <AnimatedWrapper animation="slide" direction="up" delay={200} trigger="intersection">
+            <Card className="glassmorphism-2 border-none shadow-sm rounded-3xl mb-8" role="article" aria-labelledby="plan-title">
+              <div className="plan-header mb-8">
+                <Title level={2} className="font-heading font-bold m-0 text-3xl text-gray-900 mb-4">{safeParsePlanContent(plan.plan_content).title}</Title>
+                <Space>
+                  <Tag color="blue" className="px-3 py-1 rounded-full text-sm">{typeLabel}</Tag>
+                  <Tag color={plan.difficulty_level === 'easy' ? 'success' : plan.difficulty_level === 'medium' ? 'warning' : 'error'} className="px-3 py-1 rounded-full text-sm">
+                    {difficultyLabel}
+                  </Tag>
+                </Space>
+              </div>
 
-          <Descriptions column={2} bordered style={{ marginTop: 24 }}>
-            <Descriptions.Item label={t('reconDetail.planType')}>{typeLabel}</Descriptions.Item>
-            <Descriptions.Item label={t('reconDetail.difficultyLevel')}>{difficultyLabel}</Descriptions.Item>
-            <Descriptions.Item label={t('reconDetail.estimatedDuration')}>
-              {plan.estimated_duration != null ? t('reconList.estimatedDays').replace('{days}', String(plan.estimated_duration)) : t('reconList.estimatedTbd')}
-            </Descriptions.Item>
-            <Descriptions.Item label={t('reconDetail.timeCost')}>{plan.time_cost}/5</Descriptions.Item>
-            <Descriptions.Item label={t('reconDetail.moneyCost')}>{plan.money_cost}/5</Descriptions.Item>
-            <Descriptions.Item label={t('reconDetail.emotionCost')}>{plan.emotion_cost}/5</Descriptions.Item>
-          </Descriptions>
-          </Card>
-        </AnimatedWrapper>
+              <Descriptions column={{ xxl: 2, xl: 2, lg: 2, md: 1, sm: 1, xs: 1 }} bordered className="bg-white/50 rounded-2xl overflow-hidden">
+                <Descriptions.Item label={t('reconDetail.planType')}>{typeLabel}</Descriptions.Item>
+                <Descriptions.Item label={t('reconDetail.difficultyLevel')}>{difficultyLabel}</Descriptions.Item>
+                <Descriptions.Item label={t('reconDetail.estimatedDuration')}>
+                  {plan.estimated_duration != null ? t('reconList.estimatedDays').replace('{days}', String(plan.estimated_duration)) : t('reconList.estimatedTbd')}
+                </Descriptions.Item>
+                <Descriptions.Item label={t('reconDetail.timeCost')}>{plan.time_cost}/5</Descriptions.Item>
+                <Descriptions.Item label={t('reconDetail.moneyCost')}>{plan.money_cost}/5</Descriptions.Item>
+                <Descriptions.Item label={t('reconDetail.emotionCost')}>{plan.emotion_cost}/5</Descriptions.Item>
+              </Descriptions>
+            </Card>
+          </AnimatedWrapper>
 
-        <AnimatedWrapper animation="slide" direction="up" delay={300} trigger="intersection">
-          <Card title={t('reconDetail.contentTitle')} style={{ marginTop: 24 }}>
-            {(() => {
-              const parsed = safeParsePlanContent(plan.plan_content);
-              return (
-                <>
-                  <Paragraph>{parsed.description}</Paragraph>
-                  {parsed.steps.length > 0 && (
-                    <div style={{ marginTop: 16 }}>
-                      <Title level={5}>{t('reconDetail.steps')}</Title>
-                      <ol>{parsed.steps.map((step, i) => <li key={i}><Paragraph>{step}</Paragraph></li>)}</ol>
-                    </div>
-                  )}
-                  {parsed.expected_effect && (
-                    <div style={{ marginTop: 16 }}>
-                      <Title level={5}>{t('reconDetail.expectedEffect')}</Title>
-                      <Paragraph>{parsed.expected_effect}</Paragraph>
-                    </div>
-                  )}
-                </>
-              );
-            })()}
-          </Card>
-        </AnimatedWrapper>
+          <AnimatedWrapper animation="slide" direction="up" delay={300} trigger="intersection">
+            <Card title={t('reconDetail.contentTitle')} className="glassmorphism-2 border-none shadow-sm rounded-3xl mb-8">
+              {(() => {
+                const parsed = safeParsePlanContent(plan.plan_content);
+                return (
+                  <div className="text-lg leading-relaxed text-gray-700">
+                    <Paragraph className="mb-6">{parsed.description}</Paragraph>
+                    {parsed.steps.length > 0 && (
+                      <div className="mb-6">
+                        <Title level={5} className="font-heading text-gray-900">{t('reconDetail.steps')}</Title>
+                        <ol className="list-decimal pl-6 space-y-2">
+                          {parsed.steps.map((step, i) => <li key={i}><Paragraph className="m-0">{step}</Paragraph></li>)}
+                        </ol>
+                      </div>
+                    )}
+                    {parsed.expected_effect && (
+                      <div>
+                        <Title level={5} className="font-heading text-gray-900">{t('reconDetail.expectedEffect')}</Title>
+                        <Paragraph className="m-0">{parsed.expected_effect}</Paragraph>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </Card>
+          </AnimatedWrapper>
 
-        <AnimatedWrapper animation="slide" direction="up" delay={400} trigger="intersection">
-          <div className="action-section">
-          <Space orientation="vertical" size="large" style={{ width: '100%' }}>
-            {!plan.user1_selected && !plan.user2_selected && (
-              <Button
-                type="primary"
-                size="large"
-                icon={<CheckCircleOutlined />}
-                onClick={handleSelect}
-                block
-              >
-                {t('reconDetail.selectThisPlan')}
-              </Button>
-            )}
+          <AnimatedWrapper animation="slide" direction="up" delay={400} trigger="intersection">
+            <div className="action-section bg-white/80 backdrop-blur-xl p-8 rounded-3xl shadow-sm border border-gray-100">
+              <Space orientation="vertical" size="large" style={{ width: '100%' }}>
+                {!plan.user1_selected && !plan.user2_selected && (
+                  <Button
+                    type="primary"
+                    size="large"
+                    shape="round"
+                    icon={<CheckCircleOutlined />}
+                    onClick={handleSelect}
+                    block
+                    className="h-14 text-lg shadow-md hover:shadow-lg"
+                  >
+                    {t('reconDetail.selectThisPlan')}
+                  </Button>
+                )}
 
-            {(plan.user1_selected || plan.user2_selected) && (
-              <Button
-                type="primary"
-                size="large"
-                icon={<PlayCircleOutlined />}
-                onClick={handleStartExecution}
-                loading={executing}
-                block
-              >
-                {t('reconDetail.startExecution')}
-              </Button>
-            )}
+                {(plan.user1_selected || plan.user2_selected) && (
+                  <Button
+                    type="primary"
+                    size="large"
+                    shape="round"
+                    icon={<PlayCircleOutlined />}
+                    onClick={handleStartExecution}
+                    loading={executing}
+                    block
+                    className="h-14 text-lg shadow-md hover:shadow-lg"
+                  >
+                    {t('reconDetail.startExecution')}
+                  </Button>
+                )}
 
-            <Alert
-              title={t('reconDetail.execHintTitle')}
-              description={t('reconDetail.execHintDesc')}
-              type="info"
-              showIcon
-            />
-          </Space>
-          </div>
-        </AnimatedWrapper>
+                <Alert
+                  title={t('reconDetail.execHintTitle')}
+                  description={t('reconDetail.execHintDesc')}
+                  type="info"
+                  showIcon
+                  className="rounded-2xl"
+                />
+              </Space>
+            </div>
+          </AnimatedWrapper>
+        </div>
       </div>
     </ProtectedRoute>
   );

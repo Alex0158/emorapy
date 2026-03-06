@@ -8,7 +8,7 @@ import { t } from '@/utils/i18n';
 const { Title, Text } = Typography;
 
 export default function AdminReportsPage() {
-  const [metricsInput, setMetricsInput] = useState('dau,mau,judgment_failed');
+  const [metricsInput, setMetricsInput] = useState(t('admin.reports.metricsPlaceholder'));
   const overviewQuery = useQuery({
     queryKey: ['admin', 'reports', 'overview'],
     queryFn: adminApi.getReportOverview,
@@ -31,6 +31,16 @@ export default function AdminReportsPage() {
       .map((item) => item.trim())
       .filter(Boolean);
     customMutation.mutate(metrics);
+  };
+
+  const getProviderTagLabel = (provider: 'redis' | 'railway' | 'openai', status?: string) => {
+    const providerLabel = t(`admin.reports.provider.${provider}`);
+    const resolvedStatus = (() => {
+      if (!status) return t('admin.reports.status.unknown');
+      const maybeTranslated = t(`admin.reports.status.${status}`);
+      return maybeTranslated === `admin.reports.status.${status}` ? status : maybeTranslated;
+    })();
+    return `${providerLabel}: ${resolvedStatus}`;
   };
 
   const exportOverviewCsv = async () => {
@@ -77,7 +87,7 @@ export default function AdminReportsPage() {
           <Input
             value={metricsInput}
             onChange={(event) => setMetricsInput(event.target.value)}
-            placeholder="dau,mau,judgment_failed"
+            placeholder={t('admin.reports.metricsPlaceholder')}
           />
           <Button onClick={runCustomReport} loading={customMutation.isPending}>
             {t('admin.reports.runCustom')}
@@ -122,9 +132,9 @@ export default function AdminReportsPage() {
             />
           </Space>
           <Space wrap>
-            <Tag>{`Redis: ${costQuery.data?.redis.status || 'unknown'}`}</Tag>
-            <Tag>{`Railway: ${costQuery.data?.railway.status || 'unknown'}`}</Tag>
-            <Tag>{`OpenAI: ${costQuery.data?.openai.status || 'unknown'}`}</Tag>
+            <Tag>{getProviderTagLabel('redis', costQuery.data?.redis.status)}</Tag>
+            <Tag>{getProviderTagLabel('railway', costQuery.data?.railway.status)}</Tag>
+            <Tag>{getProviderTagLabel('openai', costQuery.data?.openai.status)}</Tag>
           </Space>
           <pre style={{ margin: 0 }}>
             {JSON.stringify(

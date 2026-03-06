@@ -22,13 +22,30 @@ import './App.less';
 // 配置Ant Design主題
 const theme = {
   token: {
-    colorPrimary: '#FF8C42', // 溫暖橘
+    colorPrimary: '#84A59D', // 寧靜鼠尾草綠 (Sage Green)
+    colorInfo: '#84A59D',
     colorSuccess: '#52C41A',
     colorWarning: '#FAAD14',
     colorError: '#FF4D4F',
-    colorInfo: '#1890FF',
-    borderRadius: 8,
+    colorTextBase: '#2D3142', // 深炭灰色 (Dark Charcoal)
+    colorBgBase: '#FDFDFD', // 珍珠白/米白 (Off-white)
+    borderRadius: 16, // 大圓角
+    fontFamily: '"Inter", "Noto Sans TC", sans-serif',
   },
+  components: {
+    Button: {
+      borderRadius: 24,
+      controlHeight: 40,
+      controlHeightLG: 48,
+    },
+    Card: {
+      borderRadiusLG: 24,
+    },
+    Input: {
+      borderRadius: 12,
+      controlHeight: 44,
+    }
+  }
 };
 
 // 創建React Query客戶端

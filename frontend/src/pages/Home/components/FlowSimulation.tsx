@@ -10,10 +10,10 @@ import {
   SendOutlined,
   LockOutlined,
 } from '@ant-design/icons';
-import { getLocale, type Locale } from '@/utils/i18n';
+import { t } from '@/utils/i18n';
 import './FlowSimulation.less';
 
-/* ─── Locale-aware content ─── */
+/* ─── Locale-aware content (from i18n) ─── */
 
 type PhoneContent = {
   roleNames: Record<'A' | 'B', string>;
@@ -38,178 +38,111 @@ type FlowContent = {
   phone: PhoneContent;
 };
 
-const contentMap: Record<Locale, FlowContent> = {
-  'zh-TW': {
-    badge: 'HOW IT WORKS',
-    title: '模擬實際使用流程',
-    subtitle: '模擬雙方在各自設備上的真實互動，獨立輸入，專業分析',
+function getFlowContent(): FlowContent {
+  return {
+    badge: t('flowSim.badge'),
+    title: t('flowSim.title'),
+    subtitle: t('flowSim.subtitle'),
     steps: [
-      { title: '發起溝通', subtitle: 'A 發起案件，B 收到邀請' },
-      { title: '雙向聆聽', subtitle: 'B 獨立回覆視角，雙方盲寫' },
-      { title: '心理師分析', subtitle: 'AI 梳理觀點與認知落差' },
-      { title: '個別開解', subtitle: '同理雙方並提供盲點引導' },
-      { title: '和好行動', subtitle: '雙方獲得專屬修復任務' },
+      { title: t('flowSim.step1.title'), subtitle: t('flowSim.step1.subtitle') },
+      { title: t('flowSim.step2.title'), subtitle: t('flowSim.step2.subtitle') },
+      { title: t('flowSim.step3.title'), subtitle: t('flowSim.step3.subtitle') },
+      { title: t('flowSim.step4.title'), subtitle: t('flowSim.step4.subtitle') },
+      { title: t('flowSim.step5.title'), subtitle: t('flowSim.step5.subtitle') },
     ],
-    hintPaused: '輪播已暫停，您可以安心閱讀',
-    hintActive: '您可以點擊步驟自由切換',
-    keywords: ['家務', '委屈', '期待', '壓力', '溝通', '理解'],
+    hintPaused: t('flowSim.hintPaused'),
+    hintActive: t('flowSim.hintActive'),
+    keywords: [
+      t('flowSim.keyword1'),
+      t('flowSim.keyword2'),
+      t('flowSim.keyword3'),
+      t('flowSim.keyword4'),
+      t('flowSim.keyword5'),
+      t('flowSim.keyword6'),
+    ],
     phone: {
-      roleNames: { A: '用戶 A', B: '用戶 B' },
-      deviceSuffix: '的設備',
+      roleNames: { A: t('flowSim.phone.roleA'), B: t('flowSim.phone.roleB') },
+      deviceSuffix: t('flowSim.phone.deviceSuffix'),
       s0a: {
-        header: '發起溝通案件',
-        topicLabel: '事件主題',
-        topicTag: '僅對方可見',
-        topicText: '家務分配不均',
-        feelLabel: '我的感受與觀點',
-        feelTag: 'AI 將保密處理',
-        feelText: '我覺得家務分配不鈞\b均，累積很多委屈，你總是忽視我的付出。',
-        feelHighlights: ['委屈', '總是', '忽視'],
-        button: '發送溝通邀請',
+        header: t('flowSim.phone.s0a.header'),
+        topicLabel: t('flowSim.phone.s0a.topicLabel'),
+        topicTag: t('flowSim.phone.s0a.topicTag'),
+        topicText: t('flowSim.phone.s0a.topicText'),
+        feelLabel: t('flowSim.phone.s0a.feelLabel'),
+        feelTag: t('flowSim.phone.s0a.feelTag'),
+        feelText: t('flowSim.phone.s0a.feelText'),
+        feelHighlights: [
+          t('flowSim.phone.s0a.feelHighlight1'),
+          t('flowSim.phone.s0a.feelHighlight2'),
+          t('flowSim.phone.s0a.feelHighlight3'),
+        ],
+        button: t('flowSim.phone.s0a.button'),
       },
       s0b: {
-        header: '首頁',
-        empty: '目前沒有進行中的溝通',
-        notifTitle: '用戶 A 發起了溝通邀請',
-        notifBody: '關於「家務分配不均」，請前往回覆你的視角。',
-        notifTime: '剛剛',
-        notifAction: '點擊查看詳情',
+        header: t('flowSim.phone.s0b.header'),
+        empty: t('flowSim.phone.s0b.empty'),
+        notifTitle: t('flowSim.phone.s0b.notifTitle'),
+        notifBody: t('flowSim.phone.s0b.notifBody'),
+        notifTime: t('flowSim.phone.s0b.notifTime'),
+        notifAction: t('flowSim.phone.s0b.notifAction'),
       },
       s1a: {
-        header: '案件狀態',
-        waitTitle: '等待對方回覆',
-        skelHeader: '對方正在輸入視角...',
-        skelLock: '內容已加密，雙方提交後解鎖',
+        header: t('flowSim.phone.s1a.header'),
+        waitTitle: t('flowSim.phone.s1a.waitTitle'),
+        skelHeader: t('flowSim.phone.s1a.skelHeader'),
+        skelLock: t('flowSim.phone.s1a.skelLock'),
       },
       s1b: {
-        header: '回覆案件',
-        infoTitle: '主題：家務分配不均',
-        infoDesc: '盲寫模式：在雙方皆提交前，彼此無法看到對方的內容。請安心寫下真實感受。',
-        feelLabel: '我的感受與觀點',
-        feelTag: 'AI 將保密處理',
-        feelText: '我以為你只是在發牢騷\b\b\b偶爾抱怨，沒意識到你真的很在意，我工作也很累。',
-        feelHighlights: ['牢騷', '抱怨', '在意', '累'],
-        button: '提交我的視角',
+        header: t('flowSim.phone.s1b.header'),
+        infoTitle: t('flowSim.phone.s1b.infoTitle'),
+        infoDesc: t('flowSim.phone.s1b.infoDesc'),
+        feelLabel: t('flowSim.phone.s1b.feelLabel'),
+        feelTag: t('flowSim.phone.s1b.feelTag'),
+        feelText: t('flowSim.phone.s1b.feelText'),
+        feelHighlights: [
+          t('flowSim.phone.s1b.feelHighlight1'),
+          t('flowSim.phone.s1b.feelHighlight2'),
+          t('flowSim.phone.s1b.feelHighlight3'),
+          t('flowSim.phone.s1b.feelHighlight4'),
+        ],
+        button: t('flowSim.phone.s1b.button'),
       },
       s2: {
-        header: 'AI 心理師分析中',
-        rows: ['正在匯整雙方私密陳述...', '交叉比對認知落差與盲點...', '正在生成雙方專屬開解方案...'],
-        badge: 'AI 僅提取觀點，保護雙方隱私',
-      },
-      s3: {
-        header: '個別開解',
-        feedbackTitle: '心理師的反饋',
-        feedbackA: '我理解你的委屈，你確實承擔了許多日常家務。但對方可能並非故意忽視，而是雙方對於『整潔標準』與『分工默契』的期待沒有對齊。',
-        feedbackB: '對方比你想像中更需要支持。當 A 開始抱怨時，往往是因為家務壓力已經累積到了臨界點，而非針對你個人的指責。',
-        ratioTitle: '責任與認知比例',
-        you: '你',
-        other: '對方',
-      },
-      s4: {
-        header: '和好方案',
-        taskTitle: '專屬修復任務',
-        badge: '7 天挑戰',
-        tasksA: [
-          { title: '溝通句型轉換', desc: '嘗試將「你總是」改為「我希望」' },
-          { title: '明確需求', desc: '具體列出最需要對方協助的 3 項家務' },
-        ],
-        tasksB: [
-          { title: '主動關心', desc: '每天主動詢問「今天有什麼我可以幫忙的嗎？」' },
-          { title: '分擔責任', desc: '主動認領並固定負責至少一項家務' },
-        ],
-        footerTitle: '對方也已收到專屬任務！',
-        footerDesc: '系統將協助你們打卡追蹤，一起變好！',
-      },
-    },
-  },
-  'en-US': {
-    badge: 'HOW IT WORKS',
-    title: 'See the Flow in Action',
-    subtitle: 'Watch both sides interact on their own devices — independent input, professional analysis',
-    steps: [
-      { title: 'Start a Case', subtitle: 'A initiates, B receives an invite' },
-      { title: 'Both Sides Speak', subtitle: 'B shares their view independently' },
-      { title: 'AI Analysis', subtitle: 'AI identifies gaps & blind spots' },
-      { title: 'Personal Insight', subtitle: 'Empathetic guidance for each side' },
-      { title: 'Action Plan', subtitle: 'Both get personalized repair tasks' },
-    ],
-    hintPaused: 'Carousel paused — take your time',
-    hintActive: 'Click any step to explore',
-    keywords: ['Chores', 'Hurt', 'Hopes', 'Stress', 'Talk', 'Empathy'],
-    phone: {
-      roleNames: { A: 'User A', B: 'User B' },
-      deviceSuffix: "'s Device",
-      s0a: {
-        header: 'Start a Case',
-        topicLabel: 'Topic',
-        topicTag: 'Only visible to partner',
-        topicText: 'Unfair division of chores',
-        feelLabel: 'My feelings & perspective',
-        feelTag: 'AI keeps this private',
-        feelText: "I feel the chores are unfari\b\b\bair, and I've built up resentment — you always overlook my effort.",
-        feelHighlights: ['resentment', 'always', 'overlook'],
-        button: 'Send Invitation',
-      },
-      s0b: {
-        header: 'Home',
-        empty: 'No active cases right now',
-        notifTitle: 'User A started a case',
-        notifBody: 'About "Unfair division of chores" — share your side now.',
-        notifTime: 'Just now',
-        notifAction: 'View Details',
-      },
-      s1a: {
-        header: 'Case Status',
-        waitTitle: 'Waiting for response',
-        skelHeader: 'The other party is writing...',
-        skelLock: 'Encrypted — unlocked after both submit',
-      },
-      s1b: {
-        header: 'Reply to Case',
-        infoTitle: 'Topic: Unfair division of chores',
-        infoDesc: "Blind-write mode: Neither side can see the other's input until both submit. Write honestly.",
-        feelLabel: 'My feelings & perspective',
-        feelTag: 'AI keeps this private',
-        feelText: "I thought you were just ranting\b\b\b\b\b\b\bventing. I didn't realize you truly cared. I'm exhausted from work too.",
-        feelHighlights: ['venting', 'cared', 'exhausted'],
-        button: 'Submit My View',
-      },
-      s2: {
-        header: 'AI Therapist Analyzing',
+        header: t('flowSim.phone.s2.header'),
         rows: [
-          'Consolidating both private statements...',
-          'Cross-referencing perception gaps...',
-          'Generating personalized guidance...',
+          t('flowSim.phone.s2.row1'),
+          t('flowSim.phone.s2.row2'),
+          t('flowSim.phone.s2.row3'),
         ],
-        badge: 'AI only extracts viewpoints — privacy protected',
+        badge: t('flowSim.phone.s2.badge'),
       },
       s3: {
-        header: 'Personal Insight',
-        feedbackTitle: "Therapist's Feedback",
-        feedbackA: "I understand your frustration — you've taken on so much of the daily chores. But your partner may not be ignoring you on purpose. It's more likely your expectations around \"clean enough\" and \"who does what\" were never aligned.",
-        feedbackB: "Your partner needs more support than you realize. When A starts to complain, it's usually because chore pressure has hit a tipping point — it's not a personal attack on you.",
-        ratioTitle: 'Responsibility & Perception',
-        you: 'You',
-        other: 'Other',
+        header: t('flowSim.phone.s3.header'),
+        feedbackTitle: t('flowSim.phone.s3.feedbackTitle'),
+        feedbackA: t('flowSim.phone.s3.feedbackA'),
+        feedbackB: t('flowSim.phone.s3.feedbackB'),
+        ratioTitle: t('flowSim.phone.s3.ratioTitle'),
+        you: t('flowSim.phone.s3.you'),
+        other: t('flowSim.phone.s3.other'),
       },
       s4: {
-        header: 'Action Plan',
-        taskTitle: 'Your Repair Tasks',
-        badge: '7-Day Challenge',
+        header: t('flowSim.phone.s4.header'),
+        taskTitle: t('flowSim.phone.s4.taskTitle'),
+        badge: t('flowSim.phone.s4.badge'),
         tasksA: [
-          { title: 'Reframe Your Words', desc: 'Try changing "You always..." to "I wish..."' },
-          { title: 'Be Specific', desc: 'List the top 3 chores you need help with' },
+          { title: t('flowSim.phone.s4.taskA1.title'), desc: t('flowSim.phone.s4.taskA1.desc') },
+          { title: t('flowSim.phone.s4.taskA2.title'), desc: t('flowSim.phone.s4.taskA2.desc') },
         ],
         tasksB: [
-          { title: 'Show Initiative', desc: 'Ask daily: "Is there anything I can help with?"' },
-          { title: 'Share the Load', desc: 'Claim and own at least one regular chore' },
+          { title: t('flowSim.phone.s4.taskB1.title'), desc: t('flowSim.phone.s4.taskB1.desc') },
+          { title: t('flowSim.phone.s4.taskB2.title'), desc: t('flowSim.phone.s4.taskB2.desc') },
         ],
-        footerTitle: 'Your partner also received their tasks!',
-        footerDesc: 'The system will help you track progress together!',
+        footerTitle: t('flowSim.phone.s4.footerTitle'),
+        footerDesc: t('flowSim.phone.s4.footerDesc'),
       },
     },
-  },
-};
+  };
+}
 
 /* ─── Constants & animation config ─── */
 
@@ -228,8 +161,8 @@ const sceneVariants = {
 };
 
 const orbColors = [
-  ['rgba(59, 130, 246, 0.15)', 'rgba(255, 140, 66, 0.1)', 'rgba(16, 185, 129, 0.1)'],
-  ['rgba(16, 185, 129, 0.15)', 'rgba(59, 130, 246, 0.1)', 'rgba(255, 140, 66, 0.1)'],
+  ['rgba(59, 130, 246, 0.15)', 'rgba(132, 165, 157, 0.1)', 'rgba(16, 185, 129, 0.1)'],
+  ['rgba(16, 185, 129, 0.15)', 'rgba(59, 130, 246, 0.1)', 'rgba(132, 165, 157, 0.1)'],
   ['rgba(139, 92, 246, 0.2)', 'rgba(6, 182, 212, 0.15)', 'rgba(236, 72, 153, 0.15)'],
   ['rgba(245, 158, 11, 0.15)', 'rgba(252, 211, 77, 0.15)', 'rgba(251, 113, 133, 0.1)'],
   ['rgba(16, 185, 129, 0.2)', 'rgba(52, 211, 153, 0.15)', 'rgba(110, 231, 183, 0.15)'],
@@ -411,12 +344,12 @@ const TypewriterText = React.memo(({
         return (
           <motion.span
             key={`${index}-${char}`}
-            initial={{ opacity: 0, filter: 'blur(2px)', color: '#ff8c42' }}
+            initial={{ opacity: 0, filter: 'blur(2px)', color: '#84A59D' }}
             animate={{
               opacity: 1,
               filter: 'blur(0px)',
-              color: isHigh ? '#ef4444' : 'inherit',
-              textShadow: isHigh ? '0 0 8px rgba(239,68,68,0.5)' : 'none',
+              color: isHigh ? '#E27D60' : 'inherit',
+              textShadow: isHigh ? '0 0 8px rgba(226,125,96,0.5)' : 'none',
               fontWeight: isHigh ? 800 : 'normal'
             }}
             transition={{ duration: 0.1 }}
@@ -620,9 +553,9 @@ const AIBrainCore = React.memo(() => (
     animate={{
       scale: [1, 1.15, 1],
       boxShadow: [
-        "0 0 20px rgba(255,140,66,0.4)",
-        "0 0 50px rgba(255,140,66,0.8)",
-        "0 0 20px rgba(255,140,66,0.4)"
+        "0 0 20px rgba(132,165,157,0.4)",
+        "0 0 50px rgba(132,165,157,0.8)",
+        "0 0 20px rgba(132,165,157,0.4)"
       ]
     }}
     transition={{ duration: 1.5, repeat: Infinity }}
@@ -793,7 +726,7 @@ const PhoneSimulator = ({
                         <div className="notif-header">
                           <div className="notif-brand">
                             <div className="brand-dot"></div>
-                            <span>CJ Platform</span>
+                            <span>{t('nav.logo')}</span>
                           </div>
                           <span className="notif-time">{content.s0b.notifTime}</span>
                         </div>
@@ -1139,8 +1072,7 @@ const PhoneSimulator = ({
 /* ─── Main FlowSimulation ─── */
 
 const FlowSimulation = () => {
-  const locale = getLocale();
-  const c = contentMap[locale];
+  const c = getFlowContent();
 
   const steps = useMemo<Step[]>(
     () => [
@@ -1224,8 +1156,8 @@ const FlowSimulation = () => {
       <svg width="0" height="0" className="svg-defs">
         <defs>
           <linearGradient id="ring-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#ff8c42" />
-            <stop offset="100%" stopColor="#ff6b6b" />
+            <stop offset="0%" stopColor="#84A59D" />
+            <stop offset="100%" stopColor="#E27D60" />
           </linearGradient>
         </defs>
       </svg>

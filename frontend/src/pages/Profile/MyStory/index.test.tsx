@@ -41,6 +41,7 @@ vi.mock('@/store/interviewStore', () => ({
 }));
 vi.mock('@/utils/i18n', () => ({
   t: (key: string) => key,
+  getLocale: () => 'zh-TW',
 }));
 vi.mock('@/types/interview', () => ({
   getDomainLabel: (d: string) => d,

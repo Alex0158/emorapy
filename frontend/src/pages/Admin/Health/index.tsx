@@ -33,7 +33,7 @@ export default function AdminHealthPage() {
               {healthQuery.data.timestamp}
             </Descriptions.Item>
             <Descriptions.Item label={t('admin.health.cronStarted')}>
-              {healthQuery.data.cronStarted ? 'Y' : 'N'}
+              {healthQuery.data.cronStarted ? t('common.yesShort') : t('common.noShort')}
             </Descriptions.Item>
             <Descriptions.Item label={t('admin.health.activeJobCount')}>
               {healthQuery.data.activeJobCount}

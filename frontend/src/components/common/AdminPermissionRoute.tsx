@@ -8,6 +8,39 @@ import { useAdminToken } from '@/hooks/useAdminToken';
 import { deriveAdminTokenStatus } from '@/utils/adminTokenState';
 import { t } from '@/utils/i18n';
 
+const ADMIN_PERMISSION_LABEL_KEYS: Record<string, string> = {
+  'ops:read': 'admin.ops.permission.opsRead',
+  'ops:execute': 'admin.ops.permission.opsExecute',
+  'users:read': 'admin.ops.permission.usersRead',
+  'users:write': 'admin.ops.permission.usersWrite',
+  'config:read': 'admin.ops.permission.configRead',
+  'config:write': 'admin.ops.permission.configWrite',
+};
+
+const ADMIN_ERROR_CODE_I18N_KEYS: Record<string, string> = {
+  UNAUTHORIZED: 'common.unauthorized',
+  FORBIDDEN: 'common.forbidden',
+  NOT_FOUND: 'common.notFound',
+  NETWORK_ERROR: 'common.networkError',
+  INVALID_TOKEN: 'admin.ops.invalidTokenFormat',
+};
+
+const getPermissionLabel = (permission: string) => {
+  const labelKey = ADMIN_PERMISSION_LABEL_KEYS[permission];
+  if (labelKey) {
+    return t(labelKey);
+  }
+  return t('admin.ops.permission.code', { code: permission });
+};
+
+const getIdentityErrorMessage = (error: { code?: string; message?: string } | null) => {
+  const code = error?.code;
+  if (code && ADMIN_ERROR_CODE_I18N_KEYS[code]) {
+    return t(ADMIN_ERROR_CODE_I18N_KEYS[code]);
+  }
+  return t('admin.ops.identityFailedDesc');
+};
+
 interface AdminPermissionRouteProps {
   children: React.ReactNode;
   requiredPermissions: string[];
@@ -61,14 +94,15 @@ export default function AdminPermissionRoute({
         showIcon
         type="error"
         title={t('admin.ops.identityFailed')}
-        description={queryError?.message}
+        description={getIdentityErrorMessage(queryError)}
       />
     );
   }
 
   if (!hasPermission) {
-    const requiredLabel =
-      missingPermissions.length > 0 ? missingPermissions.join(', ') : requiredPermissions.join(', ');
+    const requiredLabel = (missingPermissions.length > 0 ? missingPermissions : requiredPermissions)
+      .map(getPermissionLabel)
+      .join(', ');
     return (
       <Alert
         showIcon

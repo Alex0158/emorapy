@@ -124,45 +124,50 @@ const ReconciliationList = () => {
         description={t('reconList.description')}
       />
       <div className="reconciliation-list-page" role="main" aria-label={t('reconList.pageLabel')}>
-        <AnimatedWrapper animation="fade" delay={100}>
-          <div className="page-header" aria-labelledby="reconciliation-title">
-            <MediatorAvatar size="medium" animated />
-            <Title level={2} id="reconciliation-title">
-              {t('reconList.heading')}
-            </Title>
-            <Paragraph type="secondary">{t('reconList.subtitle')}</Paragraph>
-          </div>
-        </AnimatedWrapper>
+        <div className="adaptive-hero-section mb-12 bg-gradient-to-br from-background to-gray-50 rounded-b-[40px] shadow-sm p-8 text-center">
+          <AnimatedWrapper animation="fade" delay={100}>
+            <div className="page-header flex flex-col items-center" aria-labelledby="reconciliation-title">
+              <MediatorAvatar size="medium" animated />
+              <Title level={2} id="reconciliation-title" className="font-heading font-bold mt-6 mb-2 text-3xl">
+                {t('reconList.heading')}
+              </Title>
+              <Paragraph type="secondary" className="text-lg max-w-2xl">{t('reconList.subtitle')}</Paragraph>
+            </div>
+          </AnimatedWrapper>
+        </div>
 
-        <AnimatedWrapper animation="slide" direction="down" delay={200} trigger="intersection">
-          <div className="filters-section" role="group" aria-label={t('reconList.filtersLabel')}>
-            <Space wrap>
-              <Select
-                value={difficultyFilter}
-                onChange={setDifficultyFilter}
-                style={{ width: 120 }}
-                aria-label={t('reconList.ariaDifficultyFilter')}
-              >
-                <Option value="all">{t('reconList.difficultyAll')}</Option>
-                <Option value="easy">{t('reconList.difficultyEasy')}</Option>
-                <Option value="medium">{t('reconList.difficultyMedium')}</Option>
-                <Option value="hard">{t('reconList.difficultyHard')}</Option>
-              </Select>
+        <div className="max-w-6xl mx-auto px-6 pb-24">
+          <AnimatedWrapper animation="slide" direction="down" delay={200} trigger="intersection">
+            <div className="filters-section bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-8" role="group" aria-label={t('reconList.filtersLabel')}>
+              <Space wrap>
+                <Select
+                  value={difficultyFilter}
+                  onChange={setDifficultyFilter}
+                  style={{ width: 140 }}
+                  aria-label={t('reconList.ariaDifficultyFilter')}
+                  className="rounded-lg"
+                >
+                  <Option value="all">{t('reconList.difficultyAll')}</Option>
+                  <Option value="easy">{t('reconList.difficultyEasy')}</Option>
+                  <Option value="medium">{t('reconList.difficultyMedium')}</Option>
+                  <Option value="hard">{t('reconList.difficultyHard')}</Option>
+                </Select>
 
-              <Select
-                value={typeFilter}
-                onChange={setTypeFilter}
-                style={{ width: 120 }}
-                aria-label={t('reconList.ariaTypeFilter')}
-              >
-                <Option value="all">{t('reconList.typeAll')}</Option>
-                <Option value="activity">{t('reconList.typeActivity')}</Option>
-                <Option value="communication">{t('reconList.typeCommunication')}</Option>
-                <Option value="intimacy">{t('reconList.typeIntimacy')}</Option>
-              </Select>
-            </Space>
-          </div>
-        </AnimatedWrapper>
+                <Select
+                  value={typeFilter}
+                  onChange={setTypeFilter}
+                  style={{ width: 140 }}
+                  aria-label={t('reconList.ariaTypeFilter')}
+                  className="rounded-lg"
+                >
+                  <Option value="all">{t('reconList.typeAll')}</Option>
+                  <Option value="activity">{t('reconList.typeActivity')}</Option>
+                  <Option value="communication">{t('reconList.typeCommunication')}</Option>
+                  <Option value="intimacy">{t('reconList.typeIntimacy')}</Option>
+                </Select>
+              </Space>
+            </div>
+          </AnimatedWrapper>
 
         <Spin spinning={loading || generating} description={generating ? t('reconList.generating') : t('common.loading')}>
           {plans.length === 0 ? (
@@ -197,45 +202,46 @@ const ReconciliationList = () => {
                         delay={index * 50}
                       >
                         <Card
-                          className="plan-card"
+                          className="plan-card h-full transition-all duration-300 border border-gray-100 rounded-3xl hover:-translate-y-1 hover:shadow-xl hover:border-primary/30 bg-white"
                           hoverable
                           role="article"
                           aria-labelledby={`plan-title-${plan.id}`}
                           tabIndex={0}
                           extra={
                             (plan.user1_selected || plan.user2_selected) && (
-                              <Tag color="success" icon={<CheckCircleOutlined />} aria-label={t('reconList.selected')}>
+                              <Tag color="success" icon={<CheckCircleOutlined />} aria-label={t('reconList.selected')} className="rounded-full px-3 py-1">
                                 {t('reconList.selected')}
                               </Tag>
                             )
                           }
                         >
-                          <div className="plan-header">
-                            <Title level={4} id={`plan-title-${plan.id}`}>
+                          <div className="plan-header mb-4 flex justify-between items-start gap-4">
+                            <Title level={4} id={`plan-title-${plan.id}`} className="font-heading m-0 flex-1">
                               {planTitle}
                             </Title>
-                            <Space>
-                              <Tag color={getPlanTypeTagColor(plan.plan_type)}>{getPlanTypeText(plan.plan_type)}</Tag>
-                              <Tag color={getDifficultyTagColor(plan.difficulty_level)}>{getDifficultyText(plan.difficulty_level)}</Tag>
+                            <Space className="flex-shrink-0">
+                              <Tag color={getPlanTypeTagColor(plan.plan_type)} className="rounded-full">{getPlanTypeText(plan.plan_type)}</Tag>
+                              <Tag color={getDifficultyTagColor(plan.difficulty_level)} className="rounded-full">{getDifficultyText(plan.difficulty_level)}</Tag>
                             </Space>
                           </div>
 
-                          <div className="plan-body">
-                            <Paragraph ellipsis={{ rows: 3 }}>
+                          <div className="plan-body mb-6">
+                            <Paragraph ellipsis={{ rows: 3 }} className="text-gray-600 text-base leading-relaxed">
                               {parsed.description}
                             </Paragraph>
 
-                            <Space>
-                              <Text type="secondary">
-                                <ClockCircleOutlined /> {plan.estimated_duration != null ? t('reconList.estimatedDays').replace('{days}', String(plan.estimated_duration)) : t('reconList.estimatedTbd')}
+                            <Space className="mt-4 bg-gray-50 px-4 py-2 rounded-xl w-full">
+                              <Text type="secondary" className="flex items-center gap-2">
+                                <ClockCircleOutlined className="text-primary" /> {plan.estimated_duration != null ? t('reconList.estimatedDays').replace('{days}', String(plan.estimated_duration)) : t('reconList.estimatedTbd')}
                               </Text>
                             </Space>
                           </div>
 
-                          <div className="plan-footer" role="group" aria-label={t('reconList.ariaPlanActions')}>
+                          <div className="plan-footer pt-4 border-t border-gray-100 flex justify-end" role="group" aria-label={t('reconList.ariaPlanActions')}>
                             <Space>
                               <Button
                                 type="default"
+                                shape="round"
                                 onClick={() => navigate(`/reconciliation/${judgmentId}/${plan.id}`)}
                                 aria-label={t('reconList.viewDetailAria').replace('{title}', planTitle)}
                               >
@@ -243,6 +249,7 @@ const ReconciliationList = () => {
                               </Button>
                               <Button
                                 type="primary"
+                                shape="round"
                                 icon={<HeartOutlined />}
                                 onClick={() => handleSelectPlan(plan.id)}
                                 disabled={plan.user1_selected || plan.user2_selected}
@@ -261,6 +268,7 @@ const ReconciliationList = () => {
             </AnimatedWrapper>
           )}
         </Spin>
+        </div>
       </div>
     </ProtectedRoute>
   );

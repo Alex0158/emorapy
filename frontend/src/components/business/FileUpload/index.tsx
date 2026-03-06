@@ -20,6 +20,31 @@ import './FileUpload.less';
 
 const { Text } = Typography;
 
+const FILE_UPLOAD_ERROR_CODE_MAP: Record<string, string> = {
+  NETWORK_ERROR: 'common.networkError',
+  UNAUTHORIZED: 'common.unauthorized',
+  FORBIDDEN: 'common.forbidden',
+  NOT_FOUND: 'common.notFound',
+  FILE_TOO_LARGE: 'common.fileTooLarge',
+  RATE_LIMIT_EXCEEDED: 'common.fileRateLimit',
+};
+
+const getLocalizedUploadError = (error: unknown, fallbackKey: string) => {
+  const code =
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    typeof (error as { code?: unknown }).code === 'string'
+      ? (error as { code: string }).code
+      : undefined;
+
+  if (code && FILE_UPLOAD_ERROR_CODE_MAP[code]) {
+    return t(FILE_UPLOAD_ERROR_CODE_MAP[code]);
+  }
+
+  return t(fallbackKey);
+};
+
 interface FileUploadProps {
   value?: UploadFile[];
   onChange?: (fileList: UploadFile[]) => void;
@@ -106,7 +131,7 @@ const FileUpload = ({
         onUploadComplete?.(evidences);
         message.success(t('fileUpload.uploadSuccessCount').replace('{count}', String(files.length)));
       } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : t('fileUpload.uploadFail');
+        const msg = getLocalizedUploadError(error, 'fileUpload.uploadFail');
         message.error(msg);
         throw error;
       } finally {
@@ -215,7 +240,7 @@ const FileUpload = ({
           try {
             await deleteEvidence(caseId, evidenceId, sessionId);
           } catch (err: unknown) {
-            const msg = err instanceof Error ? err.message : t('fileUpload.deleteEvidenceFail');
+            const msg = getLocalizedUploadError(err, 'fileUpload.deleteEvidenceFail');
             message.error(msg);
             return false;
           }

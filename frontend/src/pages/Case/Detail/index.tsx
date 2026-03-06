@@ -18,9 +18,9 @@ import {
   EditOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
-  EyeOutlined,
   SendOutlined,
   ExclamationCircleOutlined,
+  ArrowLeftOutlined,
 } from '@ant-design/icons';
 import { getCase, submitCase, updateCase } from '@/services/api/case';
 import type { Case } from '@/types/case';
@@ -205,59 +205,70 @@ const CaseDetail = () => {
         description={case_.plaintiff_statement?.substring(0, 100) || ''}
       />
       <div className="case-detail-page" role="main" aria-label={t('caseDetail.pageLabel')}>
-        <AnimatedWrapper animation="fade" delay={100}>
-          <div className="page-header" role="navigation" aria-label={t('caseDetail.actionsLabel')}>
-            <Space>
-              <Button
-                icon={<EyeOutlined />}
-                onClick={() => navigate('/case/list')}
-                aria-label={t('caseDetail.backListAria')}
-              >
-                {t('caseDetail.backList')}
-              </Button>
-              {case_.status === 'draft' && !needsDefendantResponse && (
+        
+        {/* Adaptive Hero Section based on case status */}
+        <div className={`adaptive-hero-section status-${case_.status} mb-8 bg-gradient-to-br from-background to-gray-50 rounded-b-[40px] shadow-sm p-8`}>
+          <div className="max-w-4xl mx-auto">
+            <AnimatedWrapper animation="fade" delay={100}>
+              <div className="page-header flex justify-between items-center mb-6" role="navigation" aria-label={t('caseDetail.actionsLabel')}>
                 <Button
-                  icon={<EditOutlined />}
-                  onClick={() => {
-                    message.info(t('message.editComingSoon'));
-                  }}
-                  aria-label={t('caseDetail.editAria')}
+                  type="text"
+                  icon={<ArrowLeftOutlined />}
+                  onClick={() => navigate('/case/list')}
+                  className="font-semibold text-gray-600 hover:text-primary"
+                  aria-label={t('caseDetail.backListAria')}
                 >
-                  {t('caseDetail.edit')}
+                  {t('caseDetail.backList')}
                 </Button>
-              )}
-            </Space>
+                {case_.status === 'draft' && !needsDefendantResponse && (
+                  <Button
+                    type="default"
+                    shape="round"
+                    icon={<EditOutlined />}
+                    onClick={() => {
+                      message.info(t('message.editComingSoon'));
+                    }}
+                    aria-label={t('caseDetail.editAria')}
+                  >
+                    {t('caseDetail.edit')}
+                  </Button>
+                )}
+              </div>
+            </AnimatedWrapper>
+
+            <AnimatedWrapper animation="slide" direction="up" delay={200} trigger="intersection">
+              <div className="case-header mb-8">
+                <Space className="mb-4">
+                  {getCaseStatusTag(case_.status)}
+                  {getCaseTypeTag(case_.type)}
+                </Space>
+                <Title level={1} id="case-title" className="font-heading font-bold m-0 text-4xl text-gray-900">
+                  {case_.title}
+                </Title>
+              </div>
+            </AnimatedWrapper>
           </div>
-        </AnimatedWrapper>
+        </div>
 
-        <AnimatedWrapper animation="slide" direction="up" delay={200} trigger="intersection">
-          <Card role="article" aria-labelledby="case-title">
-            <div className="case-header">
-              <Title level={2} id="case-title">
-                {case_.title}
-              </Title>
-              <Space>
-                {getCaseStatusTag(case_.status)}
-                {getCaseTypeTag(case_.type)}
-              </Space>
-            </div>
-
-            <Descriptions column={2} bordered style={{ marginTop: 24 }} aria-label={t('caseDetail.descLabel')}>
-              <Descriptions.Item label={t('caseDetail.caseId')}>{case_.id}</Descriptions.Item>
-              <Descriptions.Item label={t('caseDetail.caseType')}>{case_.type}</Descriptions.Item>
-              <Descriptions.Item label={t('caseDetail.subType')}>{case_.sub_type || t('caseDetail.subTypeNone')}</Descriptions.Item>
-              <Descriptions.Item label={t('caseDetail.mode')}>{modeLabel}</Descriptions.Item>
-              <Descriptions.Item label={t('caseDetail.createdAt')}>{formatDateTime(case_.created_at)}</Descriptions.Item>
-              <Descriptions.Item label={t('caseDetail.updatedAt')}>{formatDateTime(case_.updated_at)}</Descriptions.Item>
-              {case_.submitted_at && (
-                <Descriptions.Item label={t('caseDetail.submittedAt')}>{formatDateTime(case_.submitted_at)}</Descriptions.Item>
-              )}
-              {case_.completed_at && (
-                <Descriptions.Item label={t('caseDetail.completedAt')}>{formatDateTime(case_.completed_at)}</Descriptions.Item>
-              )}
-            </Descriptions>
-          </Card>
-        </AnimatedWrapper>
+        <div className="max-w-4xl mx-auto px-6 pb-24">
+          <AnimatedWrapper animation="slide" direction="up" delay={250} trigger="intersection">
+            <Card className="glassmorphism-2 border-none shadow-sm rounded-3xl mb-8" aria-labelledby="case-info">
+              <Descriptions column={{ xxl: 2, xl: 2, lg: 2, md: 1, sm: 1, xs: 1 }} style={{ marginTop: 8 }} aria-label={t('caseDetail.descLabel')}>
+                <Descriptions.Item label={t('caseDetail.caseId')}>{case_.id}</Descriptions.Item>
+                <Descriptions.Item label={t('caseDetail.caseType')}>{case_.type}</Descriptions.Item>
+                <Descriptions.Item label={t('caseDetail.subType')}>{case_.sub_type || t('caseDetail.subTypeNone')}</Descriptions.Item>
+                <Descriptions.Item label={t('caseDetail.mode')}>{modeLabel}</Descriptions.Item>
+                <Descriptions.Item label={t('caseDetail.createdAt')}>{formatDateTime(case_.created_at)}</Descriptions.Item>
+                <Descriptions.Item label={t('caseDetail.updatedAt')}>{formatDateTime(case_.updated_at)}</Descriptions.Item>
+                {case_.submitted_at && (
+                  <Descriptions.Item label={t('caseDetail.submittedAt')}>{formatDateTime(case_.submitted_at)}</Descriptions.Item>
+                )}
+                {case_.completed_at && (
+                  <Descriptions.Item label={t('caseDetail.completedAt')}>{formatDateTime(case_.completed_at)}</Descriptions.Item>
+                )}
+              </Descriptions>
+            </Card>
+          </AnimatedWrapper>
 
         <AnimatedWrapper animation="slide" direction="up" delay={300} trigger="intersection">
           <Card title={t('caseDetail.plaintiffStatement')} style={{ marginTop: 24 }} role="article" aria-labelledby="plaintiff-statement-title">
@@ -402,6 +413,7 @@ const CaseDetail = () => {
             />
           </AnimatedWrapper>
         )}
+        </div>
       </div>
     </>
   );

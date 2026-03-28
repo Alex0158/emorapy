@@ -1,0 +1,60 @@
+name: Manual Regression Gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      date:
+        description: Target evidence date (YYYY-MM-DD). Default uses latest folder.
+        required: false
+        type: string
+
+jobs:
+  manual-regression-gate:
+    name: Manual Regression Gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate date input format
+        if: ${{ inputs.date != '' }}
+        run: |
+          if ! echo "${{ inputs.date }}" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'; then
+            echo "Invalid date format: ${{ inputs.date }} (expected YYYY-MM-DD)"
+            exit 1
+          fi
+
+      - name: Run manual regression gate
+        if: ${{ inputs.date == '' }}
+        run: npm run manual-regression:gate
+
+      - name: Run manual regression gate (date)
+        if: ${{ inputs.date != '' }}
+        run: npm run manual-regression:gate -- --date "${{ inputs.date }}"
+
+      - name: Resolve summary path
+        if: ${{ always() }}
+        id: summary-path
+        run: |
+          if [ -n "${{ inputs.date }}" ]; then
+            target_date="${{ inputs.date }}"
+          else
+            target_date="$(find docs/核心開發文件/發版前手動回歸證據 -mindepth 1 -maxdepth 1 -type d -name '20??-??-??' | sort | tail -n 1 | xargs basename)"
+          fi
+          echo "target_date=${target_date}" >> "$GITHUB_OUTPUT"
+          echo "summary_path=docs/核心開發文件/發版前手動回歸證據/${target_date}/summary.md" >> "$GITHUB_OUTPUT"
+
+      - name: Upload summary artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: manual-regression-summary-${{ steps.summary-path.outputs.target_date }}
+          path: ${{ steps.summary-path.outputs.summary_path }}
+          if-no-files-found: warn

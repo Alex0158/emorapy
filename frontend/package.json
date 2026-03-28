@@ -1,7 +1,7 @@
 {
   "name": "frontend",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.3.2",
   "type": "module",
   "engines": {
     "node": ">=20.19.0"
@@ -14,7 +14,8 @@
     "test": "vitest run",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:e2e": "playwright test -c e2e/playwright.config.ts"
+    "test:e2e": "playwright test -c e2e/playwright.config.ts",
+    "test:e2e:critical-guard": "node ../scripts/check-critical-e2e-skips.mjs"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",

@@ -1,13 +1,20 @@
 {
   "name": "cj-platform-root",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.3.2",
   "workspaces": [
     "frontend",
     "frontend-admin"
   ],
   "scripts": {
     "vercel-build": "npm install --include=optional && npm run build --workspace frontend-admin",
-    "build": "npm run vercel-build"
+    "build": "npm run vercel-build",
+    "smoke:staging": "bash scripts/smoke-staging.sh",
+    "manual-regression:init": "node scripts/init-manual-regression-batch.mjs",
+    "manual-regression:check": "node scripts/check-manual-regression-status.mjs",
+    "manual-regression:check:strict": "node scripts/check-manual-regression-status.mjs --require-evidence",
+    "manual-regression:summarize": "node scripts/summarize-manual-regression.mjs",
+    "manual-regression:mark": "node scripts/mark-manual-regression-result.mjs",
+    "manual-regression:gate": "node scripts/run-manual-regression-gate.mjs"
   }
 }

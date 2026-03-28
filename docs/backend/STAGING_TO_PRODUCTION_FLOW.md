@@ -1,5 +1,7 @@
 # Staging -> Production 固定流程
 
+> **與發布指引的關係**：本文件為**可選的嚴格 gate 流程**（需有 staging 環境）。若無 staging，僅需依 [docs/發布指引/發佈流程指引.md](../發布指引/發佈流程指引.md) 執行最小發布即可。
+
 ## 1) 原則
 
 - 所有發版走同一條路：`feature/main -> staging -> production`
@@ -9,6 +11,17 @@
 
 - `staging`：功能驗證、壓測、回歸測試
 - `production`：僅接收通過 gate 的版本
+
+### 2.1 現有落地入口（2026-03-28）
+
+- 新增 workflow：`.github/workflows/staging-smoke.yml`（`workflow_dispatch`）
+- 新增腳本：`scripts/smoke-staging.sh`（包裝 `smoke-production-like.sh`）
+- 必填 secrets：
+  - `STAGING_BACKEND_BASE_URL`
+  - `STAGING_FRONTEND_BASE_URL`
+  - `STAGING_ADMIN_EMAIL`
+  - `STAGING_ADMIN_PASSWORD`
+- 配置模板：`docs/backend/STAGING_SECRETS_TEMPLATE.md`
 
 ## 3) 發布 Gate（最少）
 
@@ -42,6 +55,25 @@
 
 7. 留存輪替稽核資料（start time、remove-after、部署 ID）
 8. 設定關窗排程（移除 `JWT_SECRET_PREVIOUS`）
+
+### 4.1 staging smoke 操作命令
+
+本地（需先提供環境變量）：
+
+```bash
+BACKEND_BASE_URL=https://<staging-backend-domain> \
+FRONTEND_BASE_URL=https://<staging-frontend-domain> \
+STAGING_ADMIN_EMAIL=<staging-admin-email> \
+STAGING_ADMIN_PASSWORD=<staging-admin-password> \
+npm run smoke:staging
+```
+
+GitHub Actions：
+
+1. 進入 `Staging Smoke Gate` workflow  
+2. 點擊 `Run workflow`  
+3.（可選）提供 `origin` 覆蓋值  
+4. 查看 smoke gate 結果與日誌
 
 ## 5) 回滾準則
 

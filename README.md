@@ -92,7 +92,7 @@ CJ/
 ## 📚 文檔
 
 - [快速開始](./docs/QUICK_START.md) - 5分鐘快速啟動指南
-- [功能特性清單](./docs/功能特性清單.md) - 完整功能/特性清單（多層級）
+- [功能特性清單](./docs/核心開發文件/功能特性清單.md) - 核心功能/特性清單（SSOT）
 - [前後端集成指南](./docs/INTEGRATION.md) - 接口對接說明
 - [後端開發指南](./backend/DEVELOPMENT.md) - 後端開發文檔
 - [前端開發指南](./docs/frontend/README.md) - 前端開發文檔

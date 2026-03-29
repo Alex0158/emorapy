@@ -3,18 +3,19 @@
 > **文檔分級說明（2026-03-05 起）**  
 > 本文件為二級映射文檔；接口一級權威改為 `docs/核心開發文件/全接口清單-主文檔.md` 與 `docs/核心開發文件/接口描述/`。
 
-**文檔版本**：v3.1  
-**最後更新**：2026-03-05  
+**文檔版本**：v3.3  
+**最後更新**：2026-03-09  
 **對齊基準**：`backend/src/app.ts`、`backend/src/routes/*.ts`、`backend/src/middleware/*`
 
 ---
 
 ## 0. 關聯 SSOT（導航）
 
-- 功能邊界主清單：`docs/功能特性清單.md`
-- 產品流程與邊界：`docs/02-產品設計.md`
+- 功能邊界主清單：`docs/核心開發文件/功能特性清單.md`
+- 接口一級權威：`docs/核心開發文件/全接口清單-主文檔.md`、`docs/核心開發文件/接口描述/`
+- 產品流程與邊界：`docs/核心開發文件/業務流程整合.md`
 - 前端接口主文檔：`docs/前端設計/08-接口一覽表.md`
-- 後端 API 快查：`backend/API.md`、`docs/backend/API.md`
+- 後端 API 快查：`docs/backend/API.md`
 
 ---
 
@@ -28,6 +29,7 @@
 - `authenticate`：用戶 JWT
 - `optionalAuthenticate`：JWT 可選，常配合 `X-Session-Id`
 - `authenticateAdmin`：管理員 JWT
+- `claim-session` 為 auth 成功後的弱依賴後置流程，失敗不應推翻登入/註冊成功態。
 
 ---
 
@@ -134,6 +136,11 @@
 - `POST /rooms/:roomId/leave`（optional auth，`generalLimiter`，schema）
 - `POST /rooms/:roomId/kick-b`（optional auth，`generalLimiter`，schema）
 
+補充規則：
+- chat 接口中，房間讀寫仍可由 `User/Session` 視權限承接，但 `accept invite` 已收斂為 `User only`。
+- 匿名 A 房主建立 invite 時，需以 `room.session_id` 與當前 `canonical session_id` 一致作為 owner 判定前提。
+- `GET /rooms/:roomId/judgment-status` 僅負責 handoff；正式 judgment 詳情消費由登入後鏈路承接。
+
 ## 2.11 Admin（`/admin`）
 
 公開：
@@ -205,4 +212,4 @@
 1. `backend/src/routes/*.ts`  
 2. 本文件  
 3. `docs/前端設計/08-接口一覽表.md`  
-4. `docs/功能特性清單.md`（若能力邊界改變）  
+4. `docs/核心開發文件/功能特性清單.md`（若能力邊界改變）  

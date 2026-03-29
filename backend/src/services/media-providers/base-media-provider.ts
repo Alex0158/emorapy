@@ -82,7 +82,7 @@ export abstract class BaseMediaProvider implements MediaProvider {
     const { baseUrl, endpoint, method, apiKey, payload: bodyPayload, headers = {}, timeoutMs } = payload;
     const url = this.joinUrl(baseUrl, endpoint);
     const timeout = Math.min(Math.max(Number(timeoutMs ?? 12000), 500), 120000);
-    const requestHeaders = {
+    const requestHeaders: Record<string, string> = {
       Accept: 'application/json',
       Authorization: `Bearer ${apiKey}`,
       'X-API-Key': apiKey,

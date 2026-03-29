@@ -27,7 +27,7 @@ export class EvidenceController {
         throw Errors.NOT_FOUND('案件不存在');
       }
 
-      if (case_.mode === CASE_MODE.QUICK) {
+      if (case_.mode === CASE_MODE.QUICK || case_.mode === CASE_MODE.COLLABORATIVE) {
         if (!sessionId || case_.session_id !== sessionId) {
           throw Errors.FORBIDDEN('無權限上傳證據');
         }
@@ -179,8 +179,8 @@ export const deleteEvidence = async (req: Request, res: Response, next: NextFunc
 
     const case_ = evidence.case;
 
-    // 快速體驗：驗證 session
-    if (case_.mode === CASE_MODE.QUICK) {
+    // 匿名體驗模式（quick/collaborative）：驗證 session
+    if (case_.mode === CASE_MODE.QUICK || case_.mode === CASE_MODE.COLLABORATIVE) {
       if (!sessionId || case_.session_id !== sessionId) {
         throw Errors.FORBIDDEN('無權限刪除此證據');
       }

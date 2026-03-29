@@ -35,7 +35,11 @@
       "@/services/*": ["./src/services/*"],
       "@/utils/*": ["./src/utils/*"],
       "@/types/*": ["./src/types/*"],
-      "@/assets/*": ["./src/assets/*"]
+      "@/assets/*": ["./src/assets/*"],
+      "@cj/contracts": ["../packages/contracts/src/index.ts"],
+      "@cj/contracts/*": ["../packages/contracts/src/*"],
+      "@cj/api-client": ["../packages/api-client/src/index.ts"],
+      "@cj/api-client/*": ["../packages/api-client/src/*"]
     }
   },
   "include": ["src"],

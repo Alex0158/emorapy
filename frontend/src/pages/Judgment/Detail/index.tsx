@@ -3,6 +3,7 @@
  */
 
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { useMountedRef } from '@/hooks/useMountedRef';
 import { useParams, useNavigate } from 'react-router-dom';
 import { logger } from '@/utils/logger';
 import {
@@ -27,13 +28,13 @@ import { generatePlans } from '@/services/api/reconciliation';
 import { psychProfileApi } from '@/services/api/psychProfile';
 import { useInterviewTrigger } from '@/hooks/useInterviewTrigger';
 import type { Judgment } from '@/types/judgment';
-import ProtectedRoute from '@/components/common/ProtectedRoute';
 import MediatorAvatar from '@/components/business/MediatorAvatar';
 import JudgmentViewer from '@/components/business/JudgmentViewer';
 import ResponsibilityRatio from '@/components/business/ResponsibilityRatio';
 import ConsentModal from '@/components/business/Interview/ConsentModal';
 import SEO from '@/components/common/SEO';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
+import { getErrorMessage } from '@/utils/apiError';
 import { t } from '@/utils/i18n';
 import './Detail.less';
 
@@ -46,6 +47,7 @@ const JudgmentDetail = () => {
   const navigate = useNavigate();
   const [judgment, setJudgment] = useState<Judgment | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [accepting, setAccepting] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [rating, setRating] = useState(0);
@@ -54,6 +56,9 @@ const JudgmentDetail = () => {
 
   const [showPostJudgmentCard, setShowPostJudgmentCard] = useState(false);
   const dismissedPostJudgmentRef = useRef(false);
+  const generatingLockRef = useRef(false);
+  const fetchLockRef = useRef(false);
+  const acceptLockRef = useRef(false);
   const {
     triggerInterview: handlePostJudgmentChat,
     consentOpen,
@@ -63,6 +68,7 @@ const JudgmentDetail = () => {
     consentLoading,
   } = useInterviewTrigger('post_judgment');
 
+  const mountedRef = useMountedRef();
   const staleRef = useRef(false);
   useEffect(() => {
     staleRef.current = false;
@@ -101,8 +107,10 @@ const JudgmentDetail = () => {
   }, [judgment, setProfileConsent]);
 
   const fetchJudgment = async () => {
-    if (!id) return;
+    if (!id || fetchLockRef.current) return;
+    fetchLockRef.current = true;
     setLoading(true);
+    setLoadError(null);
     try {
       const judgmentData = await getJudgment(id);
       if (staleRef.current) return;
@@ -112,56 +120,66 @@ const JudgmentDetail = () => {
       }
     } catch (error: unknown) {
       if (staleRef.current) return;
-      const msg = (error as { message?: string })?.message || t('message.getJudgmentDetailFail');
+      const msg = getErrorMessage(error, 'message.getJudgmentDetailFail');
       message.error(msg);
+      setLoadError(msg);
     } finally {
+      fetchLockRef.current = false;
       if (!staleRef.current) setLoading(false);
     }
   };
 
   const handleAccept = async () => {
-    if (!id || accepting) return;
+    if (!id || accepting || acceptLockRef.current) return;
+    acceptLockRef.current = true;
     setAccepting(true);
     try {
       await acceptJudgment(id, { accepted: true, rating: rating || undefined });
+      if (!mountedRef.current) return;
       message.success(t('message.acceptJudgmentSuccess'));
       setShowAcceptModal(false);
+      setJudgment((prev) => (prev ? { ...prev, user1_acceptance: true as const } : null)); // 樂觀更新，避免 fetch 失敗時按鈕仍可點
       fetchJudgment(); // 刷新數據
     } catch (error: unknown) {
-      const msg = (error as { message?: string })?.message || t('message.operationFail');
-      message.error(msg);
+      message.error(getErrorMessage(error, 'message.operationFail'));
     } finally {
+      acceptLockRef.current = false;
       setAccepting(false);
     }
   };
 
   const handleReject = async () => {
-    if (!id || accepting) return;
+    if (!id || accepting || acceptLockRef.current) return;
+    acceptLockRef.current = true;
     setAccepting(true);
     try {
       await acceptJudgment(id, { accepted: false });
+      if (!mountedRef.current) return;
       message.success(t('message.rejectJudgmentSuccess'));
       setShowRejectModal(false);
+      setJudgment((prev) => (prev ? { ...prev, user1_acceptance: false as const } : null)); // 樂觀更新，避免 fetch 失敗時按鈕仍可點
       fetchJudgment();
     } catch (error: unknown) {
-      const msg = (error as { message?: string })?.message || t('message.operationFail');
-      message.error(msg);
+      message.error(getErrorMessage(error, 'message.operationFail'));
     } finally {
+      acceptLockRef.current = false;
       setAccepting(false);
     }
   };
 
   const handleGeneratePlans = async () => {
-    if (!id) return;
+    if (!id || generatingLockRef.current) return;
+    generatingLockRef.current = true;
     setGenerating(true);
     try {
       await generatePlans(id);
+      if (!mountedRef.current) return;
       message.success(t('message.generatePlansSuccess'));
       navigate(`/reconciliation/${id}`);
     } catch (error: unknown) {
-      const msg = (error as { message?: string })?.message || t('message.generatePlansFail');
-      message.error(msg);
+      message.error(getErrorMessage(error, 'message.generatePlansFail'));
     } finally {
+      generatingLockRef.current = false;
       setGenerating(false);
     }
   };
@@ -191,6 +209,7 @@ const JudgmentDetail = () => {
       <div className="judgment-detail-page">
         <Alert
           title={t('message.judgmentNotFound')}
+          description={loadError ?? undefined}
           type="error"
           action={
             <Space>
@@ -208,7 +227,7 @@ const JudgmentDetail = () => {
   }
 
   return (
-    <ProtectedRoute>
+    <>
       <SEO
         title={t('judgmentDetail.pageTitle')}
         description={t('judgmentDetail.description')}
@@ -255,7 +274,7 @@ const JudgmentDetail = () => {
           <AnimatedWrapper animation="fade" delay={400} trigger="intersection">
             <div className="judgment-content-wrapper mb-8">
               <JudgmentViewer
-                content={judgment.judgment_content}
+                content={judgment.judgment_content ?? ''}
                 title={t('judgmentDetail.docTitle')}
                 showActions={true}
               />
@@ -383,7 +402,7 @@ const JudgmentDetail = () => {
           />
         </div>
       </div>
-    </ProtectedRoute>
+    </>
   );
 };
 

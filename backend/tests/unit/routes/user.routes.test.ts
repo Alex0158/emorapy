@@ -39,6 +39,10 @@ function createApp() {
   const app = express();
   app.use(express.json());
   app.use('/', userRouter);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    res.status(500).json({ success: false, error: err.message });
+  });
   return app;
 }
 
@@ -64,6 +68,21 @@ describe('user.routes', () => {
     expect(mockGetProfile).toHaveBeenCalled();
   });
 
+  it('getProfile 成功時應返回 data.user（F09 邊界）', async () => {
+    mockGetProfile.mockImplementationOnce((_req: unknown, res: unknown) =>
+      (res as { status: (n: number) => { json: (b: unknown) => void } })
+        .status(200)
+        .json({ success: true, data: { user: { id: 'u1', email: 'a@b.com', nickname: 'test' } } })
+    );
+    const app = createApp();
+    const res = await request(app).get('/profile');
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data).toHaveProperty('user');
+    expect(res.body.data.user).toMatchObject({ id: 'u1', email: 'a@b.com' });
+    expect(mockGetProfile).toHaveBeenCalled();
+  });
+
   it('PUT /profile 應調用 updateProfile 並返回 200', async () => {
     const app = createApp();
     const res = await request(app).put('/profile').send({ nickname: 'x' });
@@ -71,9 +90,39 @@ describe('user.routes', () => {
     expect(mockUpdateProfile).toHaveBeenCalled();
   });
 
+  it('updateProfile 成功時應返回 data.user（F09 邊界）', async () => {
+    const app = createApp();
+    const res = await request(app).put('/profile').send({ nickname: 'x' });
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data).toHaveProperty('user');
+  });
+
   it('POST /avatar 應返回 200', async () => {
     const app = createApp();
     const res = await request(app).post('/avatar').attach('file', Buffer.from('x'), 'x.txt');
     expect(res.status).toBe(200);
+  });
+
+  describe('錯誤傳遞', () => {
+    it('getProfile 調用 next(error) 時應返回 500', async () => {
+      mockGetProfile.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('profile load failed'));
+      });
+      const app = createApp();
+      const res = await request(app).get('/profile');
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'profile load failed' });
+    });
+
+    it('updateProfile 調用 next(error) 時應返回 500', async () => {
+      mockUpdateProfile.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('update failed'));
+      });
+      const app = createApp();
+      const res = await request(app).put('/profile').send({ nickname: 'x' });
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'update failed' });
+    });
   });
 });

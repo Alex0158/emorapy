@@ -22,7 +22,9 @@ const ResponsibilityRatio = ({
   size = 'medium',
 }: ResponsibilityRatioProps) => {
   if (!ratio) return null;
-  const { plaintiff, defendant } = ratio;
+  const p = Number(ratio.plaintiff);
+  const d = Number(ratio.defendant);
+  if (Number.isNaN(p) || Number.isNaN(d) || p < 0 || d < 0) return null;
 
   return (
     <div className={`responsibility-ratio ${size}`}>
@@ -31,18 +33,18 @@ const ResponsibilityRatio = ({
         <div
           className="pie-segment"
           style={{
-            background: `conic-gradient(${COLORS.primary} 0% ${plaintiff}%, ${COLORS.secondary} ${plaintiff}% 100%)`,
+            background: `conic-gradient(${COLORS.primary} 0% ${p}%, ${COLORS.secondary} ${p}% 100%)`,
           }}
         >
           <div className="pie-center">
             <div className="pie-label">
               <div className="label-item">
                 <span className="label-dot" style={{ background: COLORS.primary }}></span>
-                <span>{t('responsibility.roleA')}: {plaintiff}%</span>
+                <span>{t('responsibility.roleA')}: {p}%</span>
               </div>
               <div className="label-item">
                 <span className="label-dot" style={{ background: COLORS.secondary }}></span>
-                <span>{t('responsibility.roleB')}: {defendant}%</span>
+                <span>{t('responsibility.roleB')}: {d}%</span>
               </div>
             </div>
           </div>
@@ -55,20 +57,20 @@ const ResponsibilityRatio = ({
           <div
             className="progress-segment plaintiff-progress"
             style={{
-              width: `${plaintiff}%`,
+              width: `${p}%`,
               background: COLORS.primary,
             }}
           >
-            <span className="progress-label">{plaintiff}%</span>
+            <span className="progress-label">{p}%</span>
           </div>
           <div
             className="progress-segment defendant-progress"
             style={{
-              width: `${defendant}%`,
+              width: `${d}%`,
               background: COLORS.secondary,
             }}
           >
-            <span className="progress-label">{defendant}%</span>
+            <span className="progress-label">{d}%</span>
           </div>
         </div>
       </div>
@@ -80,13 +82,13 @@ const ResponsibilityRatio = ({
             <span className="label-badge" style={{ background: COLORS.primary }}>
               {t('responsibility.roleA')}
             </span>
-            <Text strong>{plaintiff}% {t('responsibility.liability')}</Text>
+            <Text strong>{p}% {t('responsibility.liability')}</Text>
           </div>
           <div className="label-item">
             <span className="label-badge" style={{ background: COLORS.secondary }}>
               {t('responsibility.roleB')}
             </span>
-            <Text strong>{defendant}% {t('responsibility.liability')}</Text>
+            <Text strong>{d}% {t('responsibility.liability')}</Text>
           </div>
         </div>
       )}

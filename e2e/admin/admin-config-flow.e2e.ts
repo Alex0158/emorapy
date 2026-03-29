@@ -15,7 +15,7 @@ test.describe('Admin config flow', () => {
     await loginAsAdmin(page, adminCreds.email, adminCreds.password);
     await page.goto('/admin/configs');
     await expect(page).toHaveURL(/\/admin\/configs/);
-    await expect(page.getByText(/配置管理|config management/i)).toBeVisible();
+    await expect(page.getByText(/系統配置|configurations/i)).toBeVisible();
     await expectNoPermissionDenied(page);
 
     const adminToken = await page.evaluate(() => {

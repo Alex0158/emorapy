@@ -22,6 +22,7 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
     testTimeout: 10000,
+    pool: 'threads', // 確保 mock 隔離，避免 forks 模式下跨檔污染導致 flaky
     coverage: {
       provider: 'v8',
       include: ['src/**/*.{ts,tsx}'],

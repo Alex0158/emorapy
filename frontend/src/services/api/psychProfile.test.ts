@@ -27,10 +27,22 @@ describe('psychProfileApi', () => {
     expect(res.data.data.consent_given).toBe(true);
   });
 
+  it('getProfile 後端回傳 data 為 null 時應正常返回不拋錯（F06 邊界：API 回傳不完整時由 store 防禦）', async () => {
+    mockGet.mockResolvedValue({ data: { data: null } });
+    const res = await psychProfileApi.getProfile();
+    expect(res.data?.data).toBeNull();
+  });
+
   it('getFeedbackHistory 應 GET /psych-profile/feedback', async () => {
     mockGet.mockResolvedValue({ data: { data: { history: [] } } });
     await psychProfileApi.getFeedbackHistory();
     expect(mockGet).toHaveBeenCalledWith('/psych-profile/feedback');
+  });
+
+  it('getFeedbackHistory 後端回傳 data 為 null 時應正常返回不拋錯（F06 邊界：API 回傳不完整時由 store 防禦）', async () => {
+    mockGet.mockResolvedValue({ data: { data: null } });
+    const res = await psychProfileApi.getFeedbackHistory();
+    expect(res.data?.data).toBeNull();
   });
 
   it('giveConsent 應 POST /psych-profile/consent', async () => {

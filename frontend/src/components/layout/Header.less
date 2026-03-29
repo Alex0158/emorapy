@@ -1,14 +1,15 @@
+@import '../../assets/styles/variables.less';
+
 /* 品牌色彩（與 Emorapy-UIUX設計優化指引 一致） */
 @app-primary: #6b8f71; /* 寧靜鼠尾草綠 Sage Green */
-@app-bg: #fafaf8; /* 珍珠白/米白 Off-white */
 @app-text: #2d2d2d; /* 深炭灰 Dark Charcoal */
 
 .app-header {
-  background: @app-bg;
+  background: @color-background;
   padding: 0;
   height: 64px;
   line-height: 64px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
 
   .header-content {
     max-width: 1200px;
@@ -45,10 +46,40 @@
       align-items: center;
       gap: 8px;
 
+      .version-trigger {
+        color: fade(@app-text, 75%);
+      }
+
       .locale-select {
         min-width: 120px;
       }
     }
+  }
+}
+
+.version-popover-content {
+  min-width: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  &.loading {
+    min-height: 32px;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .version-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .version-row-message {
+    display: block;
+    margin-top: 2px;
+    font-size: 12px;
   }
 }
 

@@ -53,6 +53,12 @@ describe('relationship profile API', () => {
     expect(result).toBeNull();
   });
 
+  it('getRelationshipProfile 在 data 或 profile 缺失時應返回 null（F08 邊界：API 回傳不完整時防禦）', async () => {
+    mockGet.mockResolvedValue({ data: {} });
+    const result = await getRelationshipProfile(pairingId);
+    expect(result).toBeNull();
+  });
+
   it('upsertRelationshipProfile 應請求正確路徑並返回 profile', async () => {
     const payload: RelationshipProfileInput = {
       relationship_stage: 'stable',
@@ -69,6 +75,14 @@ describe('relationship profile API', () => {
 
   it('upsertRelationshipProfile 無 profile 時應拋錯', async () => {
     mockPut.mockResolvedValue({ data: { data: {} } });
+
+    await expect(upsertRelationshipProfile(pairingId, {})).rejects.toThrow(
+      'Invalid relationship profile response from server'
+    );
+  });
+
+  it('upsertRelationshipProfile 後端回傳 profile 為 null 時應拋錯（F08 邊界：API 回傳不完整時防禦）', async () => {
+    mockPut.mockResolvedValue({ data: { data: { profile: null } } });
 
     await expect(upsertRelationshipProfile(pairingId, {})).rejects.toThrow(
       'Invalid relationship profile response from server'

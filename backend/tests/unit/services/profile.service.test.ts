@@ -111,6 +111,19 @@ describe('ProfileService', () => {
         where: { pairing_id: 'pair-1' },
       });
     });
+
+    it('配對存在但無關係檔案時應返回 null（F08 邊界：尚未填寫關係檔案）', async () => {
+      prismaMock.pairing.findUnique.mockResolvedValue({
+        id: 'pair-1',
+        user1_id: 'u1',
+        user2_id: 'u2',
+      });
+      prismaMock.relationshipProfile.findUnique.mockResolvedValue(null);
+
+      const result = await service.getRelationshipProfile('pair-1', 'u1');
+
+      expect(result).toBeNull();
+    });
   });
 
   describe('upsertRelationshipProfile', () => {

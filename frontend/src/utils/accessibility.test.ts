@@ -116,5 +116,41 @@ describe('accessibility', () => {
       cleanup();
       document.body.removeChild(container);
     });
+
+    it('Tab 在最後元素時應循環到第一個（焦點陷阱契約）', () => {
+      const container = document.createElement('div');
+      const first = document.createElement('button');
+      first.textContent = 'First';
+      const last = document.createElement('button');
+      last.textContent = 'Last';
+      container.appendChild(first);
+      container.appendChild(last);
+      document.body.appendChild(container);
+      trapFocus(container);
+      last.focus();
+      const tabEvent = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true });
+      Object.defineProperty(tabEvent, 'preventDefault', { value: vi.fn() });
+      container.dispatchEvent(tabEvent);
+      expect(document.activeElement).toBe(first);
+      document.body.removeChild(container);
+    });
+
+    it('Shift+Tab 在第一個元素時應循環到最後一個（焦點陷阱契約）', () => {
+      const container = document.createElement('div');
+      const first = document.createElement('button');
+      first.textContent = 'First';
+      const last = document.createElement('button');
+      last.textContent = 'Last';
+      container.appendChild(first);
+      container.appendChild(last);
+      document.body.appendChild(container);
+      trapFocus(container);
+      first.focus();
+      const shiftTabEvent = new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true });
+      Object.defineProperty(shiftTabEvent, 'preventDefault', { value: vi.fn() });
+      container.dispatchEvent(shiftTabEvent);
+      expect(document.activeElement).toBe(last);
+      document.body.removeChild(container);
+    });
   });
 });

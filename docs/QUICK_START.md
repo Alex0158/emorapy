@@ -1,7 +1,7 @@
 # 快速開始指南（代碼對齊版）
 
-**文檔版本**：v3.0  
-**最後更新**：2026-03-05  
+**文檔版本**：v3.2  
+**最後更新**：2026-03-09  
 **對齊基準**：`backend/package.json`、`frontend/package.json`、`scripts/*.sh`
 
 ---
@@ -83,8 +83,10 @@ npm run dev
 - 前端：`/quick-experience/create`
 - 主要 API：
   - `POST /api/v1/sessions/quick`
+  - `POST /api/v1/sessions/refresh`
   - `POST /api/v1/cases/quick`
   - `GET /api/v1/cases/:id/judgment`
+  - `POST /api/v1/auth/claim-session`（登入/註冊成功後隱式承接）
 
 ### 5.2 完整模式（登入後）
 
@@ -99,6 +101,9 @@ npm run dev
 
 - 路由：`/chat/room`、`/chat/room/:roomId`
 - API：`/api/v1/chat/*`
+- 補充：匿名 A 房主建立 invite 時，需 `room.session_id` 與當前 `canonical session_id` 匹配
+- 補充：B 接受 invite 前需先登入，`accept invite` 已收斂為 `User only`
+- judgment ready 後，未登入用戶會先跳 `/auth/login`，再回跳 `/judgment/:id`
 
 ---
 
@@ -161,5 +166,5 @@ npm run test:coverage
 
 - `docs/INTEGRATION.md`
 - `docs/ENVIRONMENT.md`
-- `docs/功能特性清單.md`
+- `docs/核心開發文件/功能特性清單.md`
 - `docs/後端設計/03-API設計.md`

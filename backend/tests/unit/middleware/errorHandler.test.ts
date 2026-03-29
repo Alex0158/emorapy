@@ -4,6 +4,7 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import type { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
+import multer from 'multer';
 import { AppError } from '../../../src/utils/errors';
 
 const mockLogger = { error: jest.fn(), warn: jest.fn() };
@@ -219,5 +220,88 @@ describe('middleware/errorHandler', () => {
       url: '/api/test',
     }));
     expect(mockLogger.error).not.toHaveBeenCalled();
+  });
+
+  it('應處理 MulterError LIMIT_FILE_SIZE 並回傳 413', () => {
+    const req = createMockReq() as Request;
+    const res = createMockRes() as Response;
+    const err = new multer.MulterError('LIMIT_FILE_SIZE');
+
+    errorHandler(err, req, res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(413);
+    expect(res.json).toHaveBeenCalledWith({
+      success: false,
+      error: {
+        code: 'FILE_TOO_LARGE',
+        message: expect.any(String),
+      },
+    });
+  });
+
+  it('應處理 MulterError LIMIT_FILE_COUNT 並回傳 400', () => {
+    const req = createMockReq() as Request;
+    const res = createMockRes() as Response;
+    const err = new multer.MulterError('LIMIT_FILE_COUNT');
+
+    errorHandler(err, req, res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+      success: false,
+      error: {
+        code: 'TOO_MANY_FILES',
+        message: expect.any(String),
+      },
+    });
+  });
+
+  it('應處理 MulterError LIMIT_UNEXPECTED_FILE 並回傳 400', () => {
+    const req = createMockReq() as Request;
+    const res = createMockRes() as Response;
+    const err = new multer.MulterError('LIMIT_UNEXPECTED_FILE');
+
+    errorHandler(err, req, res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+      success: false,
+      error: {
+        code: 'INVALID_FILE_FIELD',
+        message: expect.any(String),
+      },
+    });
+  });
+
+  it('err 為 null 時應回傳 500 且不崩潰（邊界：防禦性）', () => {
+    const req = createMockReq() as Request;
+    const res = createMockRes() as Response;
+
+    errorHandler(null as unknown as Error, req, res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({
+      success: false,
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: expect.any(String),
+      },
+    });
+  });
+
+  it('err 為非 Error 物件時應回傳 500 且不崩潰（邊界：防禦性）', () => {
+    const req = createMockReq() as Request;
+    const res = createMockRes() as Response;
+
+    errorHandler('string error' as unknown as Error, req, res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({
+      success: false,
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: expect.any(String),
+      },
+    });
   });
 });

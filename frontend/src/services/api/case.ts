@@ -103,7 +103,17 @@ export const getCaseList = async (params?: {
     };
   }>)?.data;
   if (!result) throw new Error('Invalid case list response from server');
-  return { cases: result.cases ?? [], pagination: result.pagination };
+  const cases = result.cases;
+  const pagination = result.pagination;
+  const safePagination = pagination && typeof pagination === 'object'
+    ? {
+        page: pagination.page ?? 1,
+        page_size: pagination.page_size ?? 10,
+        total: pagination.total ?? 0,
+        total_pages: pagination.total_pages ?? 0,
+      }
+    : { page: 1, page_size: 10, total: 0, total_pages: 0 };
+  return { cases: Array.isArray(cases) ? cases : [], pagination: safePagination };
 };
 
 /**
@@ -152,7 +162,7 @@ export const uploadEvidence = async (
   );
   const result = (response.data as ApiResponse<{ evidences: Array<{ id: string; file_url: string; file_type: string }> }>)?.data?.evidences;
   if (!result) throw new Error('Invalid evidence response from server');
-  return result;
+  return Array.isArray(result) ? result : [];
 };
 
 /**

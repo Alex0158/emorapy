@@ -66,6 +66,12 @@ describe('utils/cache', () => {
       expect(CacheService.generateKey('p', 'a', 1)).toBe('p:a:1');
       expect(CacheService.generateKey('user', 'id', '123')).toBe('user:id:123');
     });
+    it('僅 prefix 無 parts 時應返回 prefix:（邊界：空 parts）', () => {
+      expect(CacheService.generateKey('p')).toBe('p:');
+    });
+    it('空 prefix 時應仍可生成 key（邊界：防禦性）', () => {
+      expect(CacheService.generateKey('', 'a', 1)).toBe(':a:1');
+    });
   });
 
   describe('CacheService.generateHashKey', () => {
@@ -78,6 +84,10 @@ describe('utils/cache', () => {
     });
     it('不同內容應生成不同 key', () => {
       expect(CacheService.generateHashKey('p', 'a')).not.toBe(CacheService.generateHashKey('p', 'b'));
+    });
+    it('空字串 content 應仍生成有效 key（邊界：防禦性）', () => {
+      const key = CacheService.generateHashKey('h', '');
+      expect(key).toMatch(/^h:[a-f0-9]{16}$/);
     });
   });
 
@@ -166,6 +176,20 @@ describe('utils/cache', () => {
       const value = await svc.get<{ x: number }>('k');
       expect(value).toEqual({ x: 1 });
       expect(mockRedisInstance.get).toHaveBeenCalledWith('k');
+    });
+
+    it('Redis set 拋錯時應降級到內存並記錄 logger.warn，且 get 可取得值', async () => {
+      mockEnvRef.current.REDIS_URL = 'redis://localhost';
+      (mockRedisInstance.setex as any).mockRejectedValue(new Error('redis set down'));
+      (mockRedisInstance.get as any).mockResolvedValue(null);
+      jest.resetModules();
+      const { cacheService: svc } = await import('../../../src/utils/cache');
+      await new Promise(r => setImmediate(r));
+      await svc.set('set-fallback', 'from-memory', 3600);
+      expect(mockLogger.warn).toHaveBeenCalledWith('Redis set failed, falling back to memory cache', expect.any(Object));
+      (mockRedisInstance.get as any).mockRejectedValue(new Error('redis get down'));
+      const value = await svc.get<string>('set-fallback');
+      expect(value).toBe('from-memory');
     });
 
     it('Redis get 拋錯時應降級到內存緩存並記錄 logger.warn', async () => {

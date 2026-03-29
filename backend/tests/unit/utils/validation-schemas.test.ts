@@ -5,6 +5,8 @@
 import {
   adminJobStatsQuerySchema,
   adminUpsertConfigSchema,
+  claimSessionSchema,
+  checkinSchema,
   executionStatusQuerySchema,
   pairingIdParamSchema,
   caseIdParamSchema,
@@ -17,6 +19,66 @@ import {
 const validUUID = '550e8400-e29b-41d4-a716-446655440000';
 
 describe('Validation Schemas', () => {
+  describe('checkinSchema', () => {
+    it('應接受有效的 plan_id、notes、photos', () => {
+      const { error } = checkinSchema.body!.validate({
+        plan_id: validUUID,
+        notes: '今日完成第一步',
+        photos: ['https://example.com/1.jpg', 'https://example.com/2.jpg'],
+      });
+      expect(error).toBeUndefined();
+    });
+
+    it('應拒絕缺失的 plan_id', () => {
+      const { error } = checkinSchema.body!.validate({});
+      expect(error).toBeDefined();
+    });
+
+    it('應拒絕無效的 plan_id UUID 格式', () => {
+      const { error } = checkinSchema.body!.validate({
+        plan_id: 'invalid',
+      });
+      expect(error).toBeDefined();
+    });
+
+    it('應拒絕 notes 超過 500 字', () => {
+      const { error } = checkinSchema.body!.validate({
+        plan_id: validUUID,
+        notes: 'a'.repeat(501),
+      });
+      expect(error).toBeDefined();
+    });
+
+    it('應接受 notes 剛好 500 字', () => {
+      const { error } = checkinSchema.body!.validate({
+        plan_id: validUUID,
+        notes: 'a'.repeat(500),
+      });
+      expect(error).toBeUndefined();
+    });
+
+    it('應拒絕 photos 超過 3 個（F05 打卡輸入護欄）', () => {
+      const { error } = checkinSchema.body!.validate({
+        plan_id: validUUID,
+        photos: [
+          'https://example.com/1.jpg',
+          'https://example.com/2.jpg',
+          'https://example.com/3.jpg',
+          'https://example.com/4.jpg',
+        ],
+      });
+      expect(error).toBeDefined();
+    });
+
+    it('應拒絕 photos 含非 URI 字串', () => {
+      const { error } = checkinSchema.body!.validate({
+        plan_id: validUUID,
+        photos: ['not-a-valid-uri'],
+      });
+      expect(error).toBeDefined();
+    });
+  });
+
   describe('executionStatusQuerySchema', () => {
     it('應接受有效的 plan_id', () => {
       const { error } = executionStatusQuerySchema.query!.validate({
@@ -75,6 +137,37 @@ describe('Validation Schemas', () => {
     });
   });
 
+  describe('claimSessionSchema', () => {
+    it('應接受有效 session_id', () => {
+      const { error } = claimSessionSchema.body!.validate({ session_id: 'guest_1234567890' });
+      expect(error).toBeUndefined();
+    });
+
+    it('應拒絕缺失 session_id', () => {
+      const { error } = claimSessionSchema.body!.validate({});
+      expect(error).toBeDefined();
+    });
+
+    it('應拒絕空字串 session_id', () => {
+      const { error } = claimSessionSchema.body!.validate({ session_id: '' });
+      expect(error).toBeDefined();
+    });
+
+    it('應拒絕超過 100 字元的 session_id', () => {
+      const { error } = claimSessionSchema.body!.validate({
+        session_id: 'a'.repeat(101),
+      });
+      expect(error).toBeDefined();
+    });
+
+    it('應接受剛好 100 字元的 session_id', () => {
+      const { error } = claimSessionSchema.body!.validate({
+        session_id: 'a'.repeat(100),
+      });
+      expect(error).toBeUndefined();
+    });
+  });
+
   describe('quickCaseSchema', () => {
     it('應接受快速體驗有效請求', () => {
       const { error } = quickCaseSchema.body!.validate({
@@ -106,6 +199,15 @@ describe('Validation Schemas', () => {
         sub_type: '家務分工',
       });
       expect(error).toBeUndefined();
+    });
+
+    it('collaborative 模式缺少 defendant_statement 應拒絕', () => {
+      const { error } = createCaseSchema.body!.validate({
+        plaintiff_statement: 'a'.repeat(35),
+        pairing_id: validUUID,
+        mode: 'collaborative',
+      });
+      expect(error).toBeDefined();
     });
 
     it('缺少 pairing_id 應拒絕', () => {

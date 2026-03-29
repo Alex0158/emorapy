@@ -34,6 +34,11 @@ describe('errorMessages', () => {
       expect(getErrorMessage('NOT_FOUND')).toBe('資源不存在');
     });
 
+    it('FORBIDDEN/JUDGMENT_NOT_FOUND 等 code 應返回對應消息（F10 邊界：權限與判決錯誤映射）', () => {
+      expect(getErrorMessage('FORBIDDEN')).toBe('無權限訪問此資源');
+      expect(getErrorMessage('JUDGMENT_NOT_FOUND')).toBe('判決尚未生成');
+    });
+
     it('未知 code 應返回 UNKNOWN_ERROR', () => {
       expect(getErrorMessage('UNKNOWN_CODE')).toBe('發生未知錯誤');
     });

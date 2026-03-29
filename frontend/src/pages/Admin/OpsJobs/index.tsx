@@ -122,16 +122,14 @@ const OpsJobsStatsPage = () => {
   return (
     <>
       <SEO title={t('admin.ops.title')} description={t('admin.ops.subtitle')} />
-      <div className="execution-dashboard-page" role="main" aria-label={t('admin.ops.pageLabel')}>
-        <AnimatedWrapper animation="fade" delay={100}>
-          <div className="page-header">
-            <Title level={2}>{t('admin.ops.heading')}</Title>
-            <Text type="secondary">{t('admin.ops.subtitle')}</Text>
-          </div>
-        </AnimatedWrapper>
+      <div className="admin-page" role="main" aria-label={t('admin.ops.pageLabel')}>
+        <div className="admin-page__header">
+          <Title level={3} className="admin-page__header-title">{t('admin.ops.heading')}</Title>
+          <Text type="secondary" className="admin-page__header-subtitle">{t('admin.ops.subtitle')}</Text>
+        </div>
 
         <AnimatedWrapper animation="slide" direction="up" delay={150}>
-          <Card style={{ marginTop: 16 }}>
+          <Card className="admin-page__table-card">
             <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
               <Text strong>{t('admin.ops.tokenLabel')}</Text>
               <Space wrap>
@@ -232,7 +230,22 @@ const OpsJobsStatsPage = () => {
 
         {dataViewState.showLoadFailed && (
           <AnimatedWrapper animation="slide" direction="up" delay={180}>
-            <Alert style={{ marginTop: 16 }} showIcon type="error" title={t('admin.ops.loadFailed')} />
+            <Alert
+              style={{ marginTop: 16 }}
+              showIcon
+              type="error"
+              title={t('admin.ops.loadFailed')}
+              action={
+                <Button
+                  size="small"
+                  loading={statsQuery.isFetching}
+                  onClick={handleRetryStats}
+                  data-testid="admin-ops-load-retry"
+                >
+                  {t('common.retry')}
+                </Button>
+              }
+            />
           </AnimatedWrapper>
         )}
 

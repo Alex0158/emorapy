@@ -44,8 +44,11 @@ vi.mock('antd', () => {
   const Avatar = () => <div />;
   const Space = ({ children }: { children: React.ReactNode }) => <div>{children}</div>;
   const Select = () => <select aria-label="locale-select" />;
+  const Typography = { Text: ({ children }: { children?: React.ReactNode }) => <span>{children}</span> };
+  const Popover = ({ children }: { children: React.ReactNode }) => <div>{children}</div>;
+  const Spin = () => <span />;
 
-  return { Layout, Menu, Button, Dropdown, Avatar, Space, Select };
+  return { Layout, Menu, Button, Dropdown, Avatar, Space, Select, Typography, Popover, Spin };
 });
 
 describe('Header', () => {

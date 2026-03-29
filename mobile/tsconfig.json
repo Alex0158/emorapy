@@ -1,0 +1,29 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "@/*": [
+        "./*"
+      ],
+      "@cj/contracts": [
+        "../packages/contracts/src/index.ts"
+      ],
+      "@cj/contracts/*": [
+        "../packages/contracts/src/*"
+      ],
+      "@cj/api-client": [
+        "../packages/api-client/src/index.ts"
+      ],
+      "@cj/api-client/*": [
+        "../packages/api-client/src/*"
+      ]
+    }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+  ]
+}

@@ -27,9 +27,14 @@ export const createSession = async (): Promise<Session> => {
  * 刷新/獲取新的 Session（快速體驗模式）
  * 後端共用 createSession 邏輯，便於前端在過期/即將過期時自動續期
  */
-export const refreshSession = async (): Promise<Session> => {
+export const refreshSession = async (currentSessionId?: string): Promise<Session> => {
+  const config = currentSessionId
+    ? { headers: { 'X-Session-Id': currentSessionId } as Record<string, string> }
+    : undefined;
   const response = await request.post<ApiResponse<{ session_id: string; expires_at: string }>>(
-    '/sessions/refresh'
+    '/sessions/refresh',
+    undefined,
+    config
   );
   const data = (response.data as ApiResponse<{ session_id: string; expires_at: string }>)?.data;
   if (!data?.session_id || !data?.expires_at) {

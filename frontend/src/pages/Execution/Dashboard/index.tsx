@@ -30,6 +30,7 @@ import {
 import ProtectedRoute from '@/components/common/ProtectedRoute';
 import SEO from '@/components/common/SEO';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
+import { getErrorMessage } from '@/utils/apiError';
 import { t } from '@/utils/i18n';
 import './Dashboard.less';
 
@@ -42,21 +43,25 @@ const ExecutionDashboard = () => {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const staleRef = useRef(false);
+  const fetchLockRef = useRef(false);
 
   const fetchExecutions = async () => {
+    if (fetchLockRef.current) return;
+    fetchLockRef.current = true;
     setLoading(true);
     setLoadError(null);
     try {
       const data = await getAllExecutionStatuses();
       if (staleRef.current) return;
-      setExecutions(data);
+      setExecutions(Array.isArray(data) ? data : []);
     } catch (error: unknown) {
       if (staleRef.current) return;
-      const msg = (error as { message?: string })?.message || t('message.getExecutionStatusFail');
+      const msg = getErrorMessage(error, 'message.getExecutionStatusFail');
       message.error(msg);
       setLoadError(msg);
       setExecutions([]);
     } finally {
+      fetchLockRef.current = false;
       if (!staleRef.current) setLoading(false);
     }
   };
@@ -97,7 +102,17 @@ const ExecutionDashboard = () => {
               type="error"
               showIcon
               title={loadError}
-              action={<Button size="small" onClick={fetchExecutions}>{t('common.retry')}</Button>}
+              action={
+                <Space>
+                  <Button size="small" onClick={fetchExecutions}>{t('common.retry')}</Button>
+                  <Button size="small" onClick={() => navigate(-1)}>
+                    {t('common.back')}
+                  </Button>
+                  <Button size="small" type="primary" onClick={() => navigate('/case/list')}>
+                    {t('execDashboard.goCaseList')}
+                  </Button>
+                </Space>
+              }
               style={{ marginTop: 16 }}
             />
           </AnimatedWrapper>

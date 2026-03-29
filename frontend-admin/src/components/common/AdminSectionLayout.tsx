@@ -1,5 +1,5 @@
 import { Layout, Menu, Typography } from 'antd';
-import { Link, Outlet, useLocation } from 'react-router-dom';
+import { Link, Navigate, Outlet, useLocation } from 'react-router-dom';
 import {
   AlertOutlined,
   DashboardOutlined,
@@ -10,7 +10,10 @@ import {
   TeamOutlined,
   ToolOutlined,
 } from '@ant-design/icons';
+import { useAdminToken } from '@/hooks/useAdminToken';
+import { deriveAdminTokenStatus } from '@/utils/adminTokenState';
 import { t } from '@/utils/i18n';
+import VersionPopover from '@/components/common/VersionPopover';
 
 const { Sider, Content } = Layout;
 const { Title, Text } = Typography;
@@ -60,6 +63,13 @@ const adminMenuItems = [
 
 export default function AdminSectionLayout() {
   const location = useLocation();
+  const token = useAdminToken();
+  const { tokenPresent, tokenReady } = deriveAdminTokenStatus(token);
+
+  if (!tokenPresent || !tokenReady) {
+    return <Navigate to="/admin/login" replace />;
+  }
+
   const selected =
     adminMenuItems.find((item) => location.pathname.startsWith(item.key))?.key ||
     '/admin/ops/jobs';
@@ -72,10 +82,15 @@ export default function AdminSectionLayout() {
         collapsedWidth={0}
         style={{ background: 'transparent', marginRight: 16 }}
       >
-        <Title level={4} style={{ marginBottom: 4 }}>
-          {t('admin.nav.title')}
-        </Title>
-        <Text type="secondary">{t('admin.nav.subtitle')}</Text>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: 8 }}>
+          <div>
+            <Title level={4} style={{ marginBottom: 4 }}>
+              {t('admin.nav.title')}
+            </Title>
+            <Text type="secondary">{t('admin.nav.subtitle')}</Text>
+          </div>
+          <VersionPopover />
+        </div>
         <Menu
           mode="inline"
           selectedKeys={[selected]}

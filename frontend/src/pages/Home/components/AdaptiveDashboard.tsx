@@ -1,27 +1,78 @@
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Card, Typography, Space } from 'antd';
 import { FileTextOutlined, ArrowRightOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { useAuthStore } from '@/store/authStore';
 import { motion } from 'framer-motion';
+import { getCaseList } from '@/services/api/case';
 import { t } from '@/utils/i18n';
 import './AdaptiveDashboard.less';
 
 const { Title, Text } = Typography;
 
+type NextStep = {
+  type: 'case_draft' | 'create_new';
+  title: string;
+  desc: string;
+  action: string;
+  path: string;
+};
+
 const AdaptiveDashboard = () => {
   const navigate = useNavigate();
-  const { user } = useAuthStore();
+  const { user, isAuthenticated } = useAuthStore();
   const userName = user?.nickname || user?.email?.split('@')[0] || '';
-  
-  // 這裡未來可以根據真實的 caseStore 狀態來決定下一步
-  // 目前先寫死一個「繼續未完成的案件」或「查看判決」的狀態
-  const mockNextStep = {
-    type: 'case_draft',
-    title: t('home.adaptive.nextStep.title'),
-    desc: t('home.adaptive.nextStep.desc'),
-    action: t('home.adaptive.nextStep.action'),
-    path: '/case/list'
-  };
+  const [nextStep, setNextStep] = useState<NextStep | null>(null);
+  const staleRef = useRef(false);
+
+  useEffect(() => {
+    staleRef.current = false;
+    if (!isAuthenticated) {
+      setNextStep({
+        type: 'create_new',
+        title: t('home.adaptive.nextStep.createNew.title'),
+        desc: t('home.adaptive.nextStep.createNew.desc'),
+        action: t('home.adaptive.nextStep.createNew.action'),
+        path: '/quick-experience/create',
+      });
+      return;
+    }
+    const fetchDraft = async () => {
+      try {
+        const { cases } = await getCaseList({ status: 'draft', page_size: 1 });
+        if (staleRef.current) return;
+        const draftCase = cases?.[0];
+        if (draftCase) {
+          setNextStep({
+            type: 'case_draft',
+            title: t('home.adaptive.nextStep.title'),
+            desc: t('home.adaptive.nextStep.desc'),
+            action: t('home.adaptive.nextStep.action'),
+            path: `/case/${draftCase.id}`,
+          });
+        } else {
+          setNextStep({
+            type: 'create_new',
+            title: t('home.adaptive.nextStep.createNew.title'),
+            desc: t('home.adaptive.nextStep.createNew.desc'),
+            action: t('home.adaptive.nextStep.createNew.action'),
+            path: '/case/create',
+          });
+        }
+      } catch {
+        if (staleRef.current) return;
+        setNextStep({
+          type: 'create_new',
+          title: t('home.adaptive.nextStep.createNew.title'),
+          desc: t('home.adaptive.nextStep.createNew.desc'),
+          action: t('home.adaptive.nextStep.createNew.action'),
+          path: '/case/create',
+        });
+      }
+    };
+    fetchDraft();
+    return () => { staleRef.current = true; };
+  }, [isAuthenticated]);
 
   return (
     <div className="adaptive-dashboard">
@@ -48,8 +99,8 @@ const AdaptiveDashboard = () => {
               <FileTextOutlined />
             </div>
             <div className="text-content">
-              <Title level={4}>{mockNextStep.title}</Title>
-              <Text type="secondary">{mockNextStep.desc}</Text>
+              <Title level={4}>{nextStep?.title ?? t('home.adaptive.nextStep.createNew.title')}</Title>
+              <Text type="secondary">{nextStep?.desc ?? t('home.adaptive.nextStep.createNew.desc')}</Text>
             </div>
             <Button 
               type="primary" 
@@ -57,10 +108,10 @@ const AdaptiveDashboard = () => {
               shape="round"
               icon={<ArrowRightOutlined />}
               iconPlacement="end"
-              onClick={() => navigate(mockNextStep.path)}
+              onClick={() => navigate(nextStep?.path ?? '/case/create')}
               className="action-btn"
             >
-              {mockNextStep.action}
+              {nextStep?.action ?? t('home.adaptive.nextStep.createNew.action')}
             </Button>
           </div>
         </Card>

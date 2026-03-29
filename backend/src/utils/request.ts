@@ -4,10 +4,11 @@
  */
 /// <reference path="../types/express.d.ts" />
 import type { Request } from 'express';
+import { Errors } from './errors';
 
 export function getAuthUserId(req: Request): string {
   if (!req.user?.id) {
-    throw new Error('User not authenticated');
+    throw Errors.UNAUTHORIZED('未提供認證Token');
   }
   return req.user.id;
 }
@@ -38,7 +39,10 @@ export function getSessionIdFromSources(req: Request): {
   hasConflict: boolean;
 } {
   const headerSessionId = normalizeSessionHeaderValue(req.headers['x-session-id'] as string | string[] | undefined);
-  const querySessionId = typeof req.query.session_id === 'string' ? req.query.session_id : undefined;
+  const querySessionId =
+    req.query != null && typeof (req.query as { session_id?: unknown }).session_id === 'string'
+      ? (req.query as { session_id: string }).session_id
+      : undefined;
   const hasConflict = !!headerSessionId && !!querySessionId && headerSessionId !== querySessionId;
 
   return {

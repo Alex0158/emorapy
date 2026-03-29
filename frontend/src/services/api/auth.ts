@@ -3,41 +3,17 @@
  */
 
 import request from '../request';
+import type {
+  AuthResponse,
+  AuthUser,
+  ClaimSessionResponse,
+  LoginDto,
+  RegisterDto,
+  VerificationType,
+} from '@cj/contracts/auth';
 import type { ApiResponse } from '@/types/common';
 
-export interface RegisterDto {
-  email: string;
-  password: string;
-  nickname?: string;
-}
-
-export interface LoginDto {
-  email: string;
-  password: string;
-}
-
-export interface User {
-  id: string;
-  email: string;
-  nickname?: string;
-  avatar_url?: string;
-  email_verified: boolean;
-  created_at: string;
-  last_login_at?: string;
-  gender?: string;
-  age?: number;
-  relationship_status?: string;
-  language?: string;
-  timezone?: string;
-  notification_enabled?: boolean;
-  privacy_level?: string;
-}
-
-export interface AuthResponse {
-  user: User;
-  token: string;
-  expires_in?: number;
-}
+export type User = AuthUser;
 
 /**
  * 用戶註冊
@@ -68,7 +44,7 @@ export const login = async (data: LoginDto): Promise<AuthResponse> => {
  */
 export const sendVerificationCode = async (
   email: string,
-  type: 'register' | 'reset_password' | 'verify_email'
+  type: VerificationType
 ): Promise<void> => {
   await request.post<ApiResponse>('/auth/send-verification-code', { email, type });
 };
@@ -79,7 +55,7 @@ export const sendVerificationCode = async (
 export const verifyEmail = async (
   email: string,
   code: string,
-  type: 'register' | 'reset_password' | 'verify_email' = 'verify_email'
+  type: VerificationType = 'verify_email'
 ): Promise<boolean> => {
   const response = await request.post<ApiResponse<{ verified: boolean }>>('/auth/verify-email', {
     email,
@@ -114,9 +90,10 @@ export const confirmResetPassword = async (
 /**
  * 關聯快速體驗案件到已註冊用戶
  */
-export const claimSession = async (sessionId: string): Promise<{ case_id: string | null }> => {
-  const response = await request.post<ApiResponse<{ case_id: string | null }>>('/auth/claim-session', {
+export const claimSession = async (sessionId: string): Promise<ClaimSessionResponse> => {
+  const response = await request.post<ApiResponse<{ case_id?: string | null }>>('/auth/claim-session', {
     session_id: sessionId,
   });
-  return (response.data as ApiResponse<{ case_id: string | null }>)?.data ?? { case_id: null };
+  const raw = (response.data as ApiResponse<{ case_id?: string | null }>)?.data ?? { case_id: null };
+  return { case_id: raw.case_id ?? null };
 };

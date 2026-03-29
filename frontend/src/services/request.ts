@@ -38,6 +38,22 @@ interface ApiErrorResponseBody {
 	error?: ApiError;
 }
 
+function getFailedRequestSessionId(
+	config?: { params?: Record<string, unknown>; headers?: Record<string, unknown> },
+): string | undefined {
+	const sessionIdFromParams = config?.params?.session_id;
+	if (typeof sessionIdFromParams === "string" && sessionIdFromParams) {
+		return sessionIdFromParams;
+	}
+
+	const headers = config?.headers ?? {};
+	const headerValue =
+		headers["X-Session-Id"] ??
+		headers["x-session-id"];
+
+	return typeof headerValue === "string" && headerValue ? headerValue : undefined;
+}
+
 function safeNavigate(url: string): void {
 	if (
 		typeof navigator !== "undefined" &&
@@ -262,10 +278,11 @@ request.interceptors.response.use(
 					if (code === "SESSION_ID_REQUIRED" || code === "INVALID_SESSION_ID") {
 						try {
 							const { useSessionStore } = await import("@/store/sessionStore");
+							const staleSessionId = getFailedRequestSessionId(response.config);
 							useSessionStore.getState().clearSession();
 							const refreshed = await useSessionStore
 								.getState()
-								.refreshSession(true);
+								.refreshSession(true, staleSessionId);
 							if (refreshed) {
 								message.warning(
 									errorData?.message || t("common.sessionExpiredRefreshed"),
@@ -300,10 +317,11 @@ request.interceptors.response.use(
 						try {
 							const { useSessionStore } = await import("@/store/sessionStore");
 							// 先清理舊 Session，再嘗試換發新 Session，避免 401/403 無限循環
+							const staleSessionId = getFailedRequestSessionId(response.config);
 							useSessionStore.getState().clearSession();
 							const refreshed = await useSessionStore
 								.getState()
-								.refreshSession(true);
+								.refreshSession(true, staleSessionId);
 							if (refreshed) {
 								message.warning(
 									errorData?.message || t("common.sessionExpiredRefreshed"),

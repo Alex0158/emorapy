@@ -1,7 +1,7 @@
 /**
  * 設備檢測工具單元測試
  */
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi, beforeEach } from 'vitest';
 import {
   getDeviceType,
   getOS,
@@ -19,6 +19,7 @@ describe('device', () => {
       value: origUserAgent,
       writable: true,
     });
+    vi.restoreAllMocks();
   });
 
   describe('getDeviceType', () => {
@@ -72,6 +73,22 @@ describe('device', () => {
       });
       expect(getOS()).toBe('macos');
     });
+
+    it('Linux UA 應返回 linux', () => {
+      Object.defineProperty(navigator, 'userAgent', {
+        value: 'Mozilla/5.0 (X11; Linux x86_64)',
+        writable: true,
+      });
+      expect(getOS()).toBe('linux');
+    });
+
+    it('未知 UA 應返回 unknown', () => {
+      Object.defineProperty(navigator, 'userAgent', {
+        value: 'UnknownBot/1.0',
+        writable: true,
+      });
+      expect(getOS()).toBe('unknown');
+    });
   });
 
   describe('getBrowser', () => {
@@ -90,6 +107,38 @@ describe('device', () => {
       });
       expect(getBrowser()).toBe('edge');
     });
+
+    it('Firefox UA 應返回 firefox', () => {
+      Object.defineProperty(navigator, 'userAgent', {
+        value: 'Mozilla/5.0 (Windows NT 10.0; rv:91.0) Gecko/20100101 Firefox/91.0',
+        writable: true,
+      });
+      expect(getBrowser()).toBe('firefox');
+    });
+
+    it('Safari UA（無 chrome）應返回 safari', () => {
+      Object.defineProperty(navigator, 'userAgent', {
+        value: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Safari/605.1.15',
+        writable: true,
+      });
+      expect(getBrowser()).toBe('safari');
+    });
+
+    it('IE UA 應返回 ie', () => {
+      Object.defineProperty(navigator, 'userAgent', {
+        value: 'Mozilla/5.0 (Windows NT 10.0; Trident/7.0; rv:11.0) like Gecko',
+        writable: true,
+      });
+      expect(getBrowser()).toBe('ie');
+    });
+
+    it('未知 UA 應返回 unknown', () => {
+      Object.defineProperty(navigator, 'userAgent', {
+        value: 'CustomBot/1.0',
+        writable: true,
+      });
+      expect(getBrowser()).toBe('unknown');
+    });
   });
 
   describe('isTouchDevice', () => {
@@ -103,11 +152,25 @@ describe('device', () => {
     it('正常環境應返回 true', () => {
       expect(isLocalStorageSupported()).toBe(true);
     });
+    it('setItem 拋錯時應返回 false', () => {
+      const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementationOnce(() => {
+        throw new Error('quota exceeded');
+      });
+      expect(isLocalStorageSupported()).toBe(false);
+      setItem.mockRestore();
+    });
   });
 
   describe('isSessionStorageSupported', () => {
     it('正常環境應返回 true', () => {
       expect(isSessionStorageSupported()).toBe(true);
+    });
+    it('setItem 拋錯時應返回 false', () => {
+      const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementationOnce(() => {
+        throw new Error('access denied');
+      });
+      expect(isSessionStorageSupported()).toBe(false);
+      setItem.mockRestore();
     });
   });
 });

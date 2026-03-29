@@ -10,7 +10,61 @@ export const ADMIN_MANAGED_CONFIG_KEYS: ReadonlySet<string> = new Set([
   'interview.dailySessionLimit',
   'admin.alert.rules',
   'feature.flags',
+  'media.providers',
 ]);
+
+export const ADMIN_MANAGED_CONFIG_KEY_PREFIXES: ReadonlySet<string> = new Set([
+  'media.provider.',
+]);
+
+function isProviderConfigPrefix(key: string): boolean {
+  if (key === 'media.providers') return true;
+  return Array.from(ADMIN_MANAGED_CONFIG_KEY_PREFIXES).some((prefix) => key.startsWith(prefix));
+}
+
+export function isManagedConfigKeyAllowed(key: string): boolean {
+  return ADMIN_MANAGED_CONFIG_KEYS.has(key) || isProviderConfigPrefix(key);
+}
+
+function normalizeMediaProviderItemConfig(value: unknown, providerKey: string) {
+  if (!isPlainObject(value)) {
+    throw Errors.VALIDATION_ERROR(`${providerKey} 設定必須是 object`);
+  }
+  const normalized: Record<string, unknown> = {};
+  const apiKey = value.apiKey ?? value.api_key;
+  if (apiKey !== undefined) {
+    if (typeof apiKey !== 'string' || !apiKey.trim()) {
+      throw Errors.VALIDATION_ERROR(`${providerKey} 的 apiKey 需為非空字串`);
+    }
+    normalized.apiKey = apiKey.trim();
+  }
+
+  const baseUrl = value.baseUrl ?? value.base_url;
+  if (baseUrl !== undefined) {
+    if (typeof baseUrl !== 'string' || !baseUrl.trim().toLowerCase().startsWith('http')) {
+      throw Errors.VALIDATION_ERROR(`${providerKey} 的 baseUrl 需為合法 URL`);
+    }
+    normalized.baseUrl = baseUrl.trim();
+  }
+
+  const timeoutMs = value.timeoutMs ?? value.timeout_ms;
+  if (timeoutMs !== undefined) {
+    const parsed = Number(timeoutMs);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      throw Errors.VALIDATION_ERROR(`${providerKey} 的 timeoutMs 需為正整數`);
+    }
+    normalized.timeoutMs = Math.max(500, Math.min(120000, Math.trunc(parsed)));
+  }
+
+  for (const key of Object.keys(value)) {
+    if (key === 'apiKey' || key === 'api_key' || key === 'baseUrl' || key === 'base_url' || key === 'timeoutMs' || key === 'timeout_ms') {
+      continue;
+    }
+    normalized[key] = value[key];
+  }
+
+  return normalized;
+}
 
 function toBoundedInteger(value: unknown, options: { keyLabel: string; min: number; max: number }) {
   const { keyLabel, min, max } = options;
@@ -139,7 +193,15 @@ export function normalizeManagedConfigValue(key: string, value: unknown): Prisma
       return value.map((item, index) => normalizeAlertRule(item, index)) as Prisma.InputJsonValue;
     case 'feature.flags':
       return normalizeFeatureFlags(value) as Prisma.InputJsonValue;
+    case 'media.providers':
+      if (!isPlainObject(value)) {
+        throw Errors.VALIDATION_ERROR('media.providers 必須是 object');
+      }
+      return value as Prisma.InputJsonValue;
     default:
+      if (isManagedConfigKeyAllowed(key) && key.startsWith('media.provider.')) {
+        return normalizeMediaProviderItemConfig(value, key) as Prisma.InputJsonValue;
+      }
       return value as Prisma.InputJsonValue;
   }
 }

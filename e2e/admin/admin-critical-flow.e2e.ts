@@ -21,7 +21,7 @@ test.describe('Admin critical flow', () => {
 
     await page.goto('/admin/configs');
     await expect(page).toHaveURL(/\/admin\/configs/);
-    await expect(page.getByText(/配置管理|config management/i)).toBeVisible();
+    await expect(page.getByText(/系統配置|configurations/i)).toBeVisible();
     await expectNoPermissionDenied(page);
 
     await page.goto('/admin/reports');
@@ -37,7 +37,7 @@ test.describe('Admin critical flow', () => {
 
     await page.goto('/admin/ops/jobs');
     await expect(page).toHaveURL(/\/admin\/ops\/jobs/);
-    await expect(page.getByText(/任務|job/i)).toBeVisible();
+    await expect(page.getByText(/Cron 任務統計|Cron Job Stats/i)).toBeVisible();
     await expectNoPermissionDenied(page);
   });
 
@@ -94,8 +94,8 @@ test.describe('Admin critical flow', () => {
     await page.getByPlaceholder(/實體類型|Entity Type/i).fill('admin_user');
     await page.getByPlaceholder(/操作類型|Action/i).fill('admin_user_create');
 
-    await expect(page.getByText('admin_user_create')).toBeVisible();
-    await expect(page.getByText(tempEmail)).toBeVisible();
+    await expect(page.getByRole('cell', { name: 'admin_user_create' }).first()).toBeVisible();
+    await expect(page.getByRole('cell', { name: tempEmail }).first()).toBeVisible();
 
     // API 層再校驗一次審計內容，避免僅依賴 UI 呈現造成假陽性。
     const matchedEntry = await waitForAuditEntry({

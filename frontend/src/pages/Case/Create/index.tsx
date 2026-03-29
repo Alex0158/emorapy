@@ -2,7 +2,8 @@
  * 完整模式案件創建頁面
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useMountedRef } from '@/hooks/useMountedRef';
 import { useNavigate } from 'react-router-dom';
 import { logger } from '@/utils/logger';
 import {
@@ -34,6 +35,7 @@ import FileUpload from '@/components/business/FileUpload';
 import SEO from '@/components/common/SEO';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
 import { t } from '@/utils/i18n';
+import { getErrorMessage } from '@/utils/apiError';
 import './Create.less';
 
 const { Title, Text, Paragraph } = Typography;
@@ -45,13 +47,17 @@ const CaseCreate = () => {
   const [form] = Form.useForm();
   const [pairingId, setPairingId] = useState<string | null>(null);
   const [pairingStatus, setPairingStatus] = useState<'loading' | 'pending' | 'active'>('loading');
+  const [pairingLoadError, setPairingLoadError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [plaintiffStatement, setPlaintiffStatement] = useState('');
   const [defendantStatement, setDefendantStatement] = useState('');
   const [evidenceFiles, setEvidenceFiles] = useState<UploadFile[]>([]);
   const [mode, setMode] = useState<'remote' | 'collaborative'>('remote');
 
   const [showPreCaseBanner, setShowPreCaseBanner] = useState(false);
+  const mountedRef = useMountedRef();
+  const submitLockRef = useRef(false);
   const {
     triggerInterview: handlePreCaseChat,
     consentOpen,
@@ -61,25 +67,28 @@ const CaseCreate = () => {
     consentLoading,
   } = useInterviewTrigger('pre_case');
 
-  useEffect(() => {
-    let cancelled = false;
-    const checkPairing = async () => {
-      try {
-        const pairing = await getPairingStatus();
-        if (cancelled) return;
-        if (pairing && pairing.status === 'active') {
-          setPairingId(pairing.id);
-          setPairingStatus('active');
-        } else {
-          setPairingStatus('pending');
-        }
-      } catch {
-        if (!cancelled) setPairingStatus('pending');
+  const checkPairing = useCallback(async () => {
+    setPairingLoadError(null);
+    try {
+      const pairing = await getPairingStatus();
+      if (!mountedRef.current) return;
+      if (pairing && pairing.status === 'active') {
+        setPairingId(pairing.id);
+        setPairingStatus('active');
+      } else {
+        setPairingStatus('pending');
       }
-    };
-    checkPairing();
-    return () => { cancelled = true; };
+    } catch (err: unknown) {
+      if (!mountedRef.current) return;
+      const msg = getErrorMessage(err, 'message.getPairingFail');
+      setPairingLoadError(msg);
+      setPairingStatus('pending');
+    }
   }, []);
+
+  useEffect(() => {
+    checkPairing();
+  }, [checkPairing]);
 
   useEffect(() => {
     let cancelled = false;
@@ -107,7 +116,7 @@ const CaseCreate = () => {
 
   type CreateCaseFormValues = { title?: string };
   const handleSubmit = async (values: CreateCaseFormValues) => {
-    if (submitting) return;
+    if (submitting || submitLockRef.current) return;
     if (!pairingId) {
       message.error(t('message.pairingRequired'));
       navigate('/profile/pairing');
@@ -119,6 +128,8 @@ const CaseCreate = () => {
       return;
     }
 
+    submitLockRef.current = true;
+    setSubmitError(null);
     setSubmitting(true);
     try {
       const caseData: Parameters<typeof createCase>[0] = {
@@ -133,6 +144,7 @@ const CaseCreate = () => {
       }
 
       const newCase = await createCase(caseData);
+      if (!mountedRef.current) return;
       message.success(
         isRemote
           ? t('caseCreate.remoteCreateSuccess')
@@ -147,19 +159,24 @@ const CaseCreate = () => {
         try {
           const { uploadEvidence } = await import('@/services/api/case');
           await uploadEvidence(newCase.id, filesToUpload);
-          message.success(t('message.evidenceUploadSuccess'));
+          if (mountedRef.current) message.success(t('message.evidenceUploadSuccess'));
         } catch (uploadError: unknown) {
-          const uerr = uploadError as { message?: string };
-          message.warning(uerr?.message || t('message.evidenceUploadFailCaseCreated'));
+          if (mountedRef.current) {
+            message.warning(getErrorMessage(uploadError, 'message.evidenceUploadFailCaseCreated'));
+          }
         }
       }
 
+      if (!mountedRef.current) return;
       navigate(`/case/${newCase.id}`);
     } catch (error: unknown) {
-      const err = error as { message?: string };
-      message.error(err?.message || t('message.createCaseFail'));
+      if (!mountedRef.current) return;
+      const errorMessage = getErrorMessage(error, 'message.createCaseFail');
+      message.error(errorMessage);
+      setSubmitError(errorMessage);
     } finally {
-      setSubmitting(false);
+      submitLockRef.current = false;
+      if (mountedRef.current) setSubmitting(false);
     }
   };
 
@@ -175,17 +192,35 @@ const CaseCreate = () => {
     return (
       <div className="case-create-page">
         <Card>
-          <Alert
-            title={t('caseCreate.pairingRequired')}
-            description={t('caseCreate.pairingDesc')}
-            type="warning"
-            showIcon
-            action={
-              <Button type="primary" onClick={() => navigate('/profile/pairing')}>
-                {t('caseCreate.goPairing')}
-              </Button>
-            }
-          />
+          {pairingLoadError ? (
+            <Alert
+              title={pairingLoadError}
+              type="error"
+              showIcon
+              action={
+                <Space>
+                  <Button size="small" onClick={checkPairing} data-testid="case-create-pairing-retry">
+                    {t('common.retry')}
+                  </Button>
+                  <Button type="primary" size="small" onClick={() => navigate('/profile/pairing')}>
+                    {t('caseCreate.goPairing')}
+                  </Button>
+                </Space>
+              }
+            />
+          ) : (
+            <Alert
+              title={t('caseCreate.pairingRequired')}
+              description={t('caseCreate.pairingDesc')}
+              type="warning"
+              showIcon
+              action={
+                <Button type="primary" onClick={() => navigate('/profile/pairing')}>
+                  {t('caseCreate.goPairing')}
+                </Button>
+              }
+            />
+          )}
         </Card>
       </div>
     );
@@ -289,7 +324,10 @@ const CaseCreate = () => {
                 {!isRemote && <Title level={4}>{t('caseDetail.plaintiffStatement')}</Title>}
                 <StatementInput
                   value={plaintiffStatement}
-                  onChange={setPlaintiffStatement}
+                  onChange={(value) => {
+                    if (submitError) setSubmitError(null);
+                    setPlaintiffStatement(value);
+                  }}
                   placeholder={t('caseCreate.plaintiffPlaceholder')}
                 />
               </div>
@@ -299,7 +337,10 @@ const CaseCreate = () => {
                   <Title level={4}>{t('caseDetail.defendantStatement')}</Title>
                   <StatementInput
                     value={defendantStatement}
-                    onChange={setDefendantStatement}
+                    onChange={(value) => {
+                      if (submitError) setSubmitError(null);
+                      setDefendantStatement(value);
+                    }}
                     placeholder={t('caseCreate.defendantPlaceholder')}
                   />
                 </div>
@@ -334,6 +375,18 @@ const CaseCreate = () => {
           <AnimatedWrapper animation="slide" direction="up" delay={350} trigger="intersection">
             <div className="submit-section">
             <Space orientation="vertical" size="large" style={{ width: '100%' }}>
+              {submitError && (
+                <Alert
+                  type="error"
+                  showIcon
+                  title={submitError}
+                  action={
+                    <Button size="small" onClick={() => form.submit()}>
+                      {t('common.retry')}
+                    </Button>
+                  }
+                />
+              )}
               <Button
                 type="primary"
                 htmlType="submit"

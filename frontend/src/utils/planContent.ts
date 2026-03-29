@@ -7,16 +7,17 @@ interface ParsedPlanContent {
   expected_effect: string;
 }
 
-export function safeParsePlanContent(raw: string): ParsedPlanContent {
+export function safeParsePlanContent(raw: string | null | undefined): ParsedPlanContent {
+  const safeRaw = raw ?? '';
   const fallback: ParsedPlanContent = {
-    title: raw.split('\n')[0] || t('reconList.heading'),
-    description: raw,
+    title: safeRaw.split('\n')[0] || t('reconList.heading'),
+    description: safeRaw,
     steps: [],
     expected_effect: '',
   };
 
   try {
-    const parsed = JSON.parse(raw);
+    const parsed = JSON.parse(safeRaw);
     if (typeof parsed === 'object' && parsed !== null) {
       return {
         title: typeof parsed.title === 'string' ? parsed.title : fallback.title,

@@ -54,6 +54,15 @@ describe('Errors Utils', () => {
       { name: 'DATABASE_ERROR', fn: () => Errors.DATABASE_ERROR(), expectedCode: 'DATABASE_ERROR', expectedStatus: 500 },
       { name: 'EXTERNAL_SERVICE_ERROR', fn: () => Errors.EXTERNAL_SERVICE_ERROR(), expectedCode: 'EXTERNAL_SERVICE_ERROR', expectedStatus: 503 },
       { name: 'RATE_LIMIT_EXCEEDED', fn: () => Errors.RATE_LIMIT_EXCEEDED(), expectedCode: 'RATE_LIMIT_EXCEEDED', expectedStatus: 429 },
+      { name: 'CONSENT_REQUIRED', fn: () => Errors.CONSENT_REQUIRED(), expectedCode: 'CONSENT_REQUIRED', expectedStatus: 403 },
+      { name: 'CONCURRENT_REQUEST', fn: () => Errors.CONCURRENT_REQUEST(), expectedCode: 'CONCURRENT_REQUEST', expectedStatus: 409 },
+      { name: 'AI_CALL_FAILED', fn: () => Errors.AI_CALL_FAILED(), expectedCode: 'AI_CALL_FAILED', expectedStatus: 503 },
+      { name: 'MAX_TURNS_REACHED', fn: () => Errors.MAX_TURNS_REACHED(), expectedCode: 'MAX_TURNS_REACHED', expectedStatus: 422 },
+      { name: 'TURN_TOO_FAST', fn: () => Errors.TURN_TOO_FAST(), expectedCode: 'TURN_TOO_FAST', expectedStatus: 429 },
+      { name: 'START_RATE_LIMIT', fn: () => Errors.START_RATE_LIMIT(), expectedCode: 'START_RATE_LIMIT', expectedStatus: 429 },
+      { name: 'PROCESSING_NOT_DONE', fn: () => Errors.PROCESSING_NOT_DONE(), expectedCode: 'PROCESSING_NOT_DONE', expectedStatus: 409 },
+      { name: 'PROCESSING_FAILED', fn: () => Errors.PROCESSING_FAILED(), expectedCode: 'PROCESSING_FAILED', expectedStatus: 500 },
+      { name: 'SESSION_COMPLETED', fn: () => Errors.SESSION_COMPLETED(), expectedCode: 'SESSION_COMPLETED', expectedStatus: 409 },
     ];
 
     errorFactories.forEach(({ name, fn, expectedCode, expectedStatus }) => {

@@ -39,7 +39,7 @@ export const generatePlans = async (
     { preferences }
   );
   const result = (response.data as ApiResponse<{ plans: ReconciliationPlan[] }>)?.data?.plans;
-  if (!result) throw new Error('Invalid reconciliation response from server');
+  if (!Array.isArray(result)) throw new Error('Invalid reconciliation response from server');
   return result;
 };
 
@@ -65,7 +65,8 @@ export const getPlans = async (
   const url = `/judgments/${judgmentId}/reconciliation-plans${queryString ? `?${queryString}` : ''}`;
 
   const response = await request.get<ApiResponse<{ plans: ReconciliationPlan[] }>>(url);
-  return (response.data as ApiResponse<{ plans: ReconciliationPlan[] }>)?.data?.plans ?? [];
+  const plans = (response.data as ApiResponse<{ plans: ReconciliationPlan[] }>)?.data?.plans;
+  return Array.isArray(plans) ? plans : [];
 };
 
 /**

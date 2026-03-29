@@ -114,6 +114,14 @@ describe('fileValidation', () => {
       expect(result.valid).toBe(false);
       expect(result.error).toContain('JPG');
     });
+
+    it('單一文件超過大小應失敗', () => {
+      const file = new File(['x'], 'a.jpg', { type: 'image/jpeg' });
+      Object.defineProperty(file, 'size', { value: 6 * 1024 * 1024 });
+      const result = validateFiles([file]);
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain('5MB');
+    });
   });
 
   describe('getFilePreviewUrl', () => {

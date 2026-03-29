@@ -158,18 +158,34 @@ export default function AdminSettingsPage() {
   });
 
   return (
-    <Space orientation="vertical" size="large" style={{ width: '100%' }}>
-      <div>
-        <Title level={3} style={{ marginBottom: 0 }}>
-          {t('admin.settings.heading')}
-        </Title>
-        <Text type="secondary">{t('admin.settings.subtitle')}</Text>
+    <div className="admin-page">
+      <div className="admin-page__header">
+        <Title level={3} className="admin-page__header-title">{t('admin.settings.heading')}</Title>
+        <Text type="secondary" className="admin-page__header-subtitle">{t('admin.settings.subtitle')}</Text>
       </div>
 
       {(adminUsersQuery.error || configsQuery.error) && (
-        <Alert showIcon type="error" title={t('admin.settings.loadFailed')} />
+        <Alert
+          showIcon
+          type="error"
+          title={t('admin.settings.loadFailed')}
+          action={
+            <Button
+              size="small"
+              loading={adminUsersQuery.isFetching || configsQuery.isFetching}
+              onClick={() => {
+                void adminUsersQuery.refetch();
+                void configsQuery.refetch();
+              }}
+              data-testid="admin-settings-load-retry"
+            >
+              {t('common.retry')}
+            </Button>
+          }
+        />
       )}
 
+      <div className="admin-page__content">
       <Card title={t('admin.settings.adminUsers.title')}>
         <Form<AdminUserFormValues> layout="inline" onFinish={(values) => createAdminUserMutation.mutate(values)}>
           <Form.Item
@@ -365,6 +381,7 @@ export default function AdminSettingsPage() {
           </Form.Item>
         </Form>
       </Modal>
-    </Space>
+      </div>
+    </div>
   );
 }

@@ -18,6 +18,8 @@ const mockVerifyEmail: any = jest.fn();
 const mockResetPassword: any = jest.fn();
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockConfirmResetPassword: any = jest.fn();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockClaimSession: any = jest.fn();
 
 jest.mock('../../../src/services/auth.service', () => ({
   authService: {
@@ -28,6 +30,7 @@ jest.mock('../../../src/services/auth.service', () => ({
     resetPassword: (email: string) => mockResetPassword(email),
     confirmResetPassword: (email: string, code: string, newPassword: string) =>
       mockConfirmResetPassword(email, code, newPassword),
+    claimSession: (userId: string, sessionId: string) => mockClaimSession(userId, sessionId),
   },
 }));
 
@@ -210,6 +213,46 @@ describe('AuthController', () => {
       await controller.confirmResetPassword(req as Request, res as Response, next);
 
       expect(next).toHaveBeenCalledWith(expect.any(Error));
+    });
+  });
+
+  describe('claimSession', () => {
+    it('成功應調用 authService.claimSession 並返回結果', async () => {
+      mockClaimSession.mockResolvedValue({ case_id: 'case-1' });
+      req.user = { id: 'user-1' } as Request['user'];
+      req.body = { session_id: 'session-1' };
+
+      await controller.claimSession(req as Request, res as Response, next);
+
+      expect(mockClaimSession).toHaveBeenCalledWith('user-1', 'session-1');
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        data: { case_id: 'case-1' },
+        message: '案件已關聯到您的帳號',
+      });
+    });
+
+    it('無 userId 時應 next(UNAUTHORIZED)', async () => {
+      req.user = undefined;
+      req.body = { session_id: 'session-1' };
+
+      await controller.claimSession(req as Request, res as Response, next);
+
+      expect(mockClaimSession).not.toHaveBeenCalled();
+      expect(next).toHaveBeenCalledWith(
+        expect.objectContaining({ code: 'UNAUTHORIZED', statusCode: 401 })
+      );
+    });
+
+    it('service 拋錯時應 next(error)', async () => {
+      const err = new Error('claim failed');
+      mockClaimSession.mockRejectedValue(err);
+      req.user = { id: 'user-1' } as Request['user'];
+      req.body = { session_id: 'session-1' };
+
+      await controller.claimSession(req as Request, res as Response, next);
+
+      expect(next).toHaveBeenCalledWith(err);
     });
   });
 });

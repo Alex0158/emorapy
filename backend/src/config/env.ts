@@ -36,6 +36,8 @@ interface EnvConfig {
   SMTP_PORT?: number;
   SMTP_USER?: string;
   SMTP_PASS?: string;
+  /** 發件人信箱（可選；Resend 等需用已驗證網域，與 SMTP 登入用戶名分離） */
+  EMAIL_FROM?: string;
   
   // 文件存儲配置
   UPLOAD_DIR: string;
@@ -141,6 +143,7 @@ function getEnvConfig(): EnvConfig {
     SMTP_PORT: process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : undefined,
     SMTP_USER: process.env.SMTP_USER,
     SMTP_PASS: process.env.SMTP_PASS,
+    EMAIL_FROM: process.env.EMAIL_FROM,
     
     UPLOAD_DIR: process.env.UPLOAD_DIR || './uploads',
     MAX_FILE_SIZE: parseInt(process.env.MAX_FILE_SIZE || '5242880', 10), // 5MB

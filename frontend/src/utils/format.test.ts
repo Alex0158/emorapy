@@ -1,12 +1,37 @@
 /**
  * format 工具單元測試
  */
-import { describe, it, expect } from 'vitest';
-import { formatFileSize, formatWordCount, truncateText, formatPercent } from './format';
+import { describe, it, expect, vi } from 'vitest';
+import { formatDate, formatRelativeTime, formatFileSize, formatWordCount, truncateText, formatPercent } from './format';
+
+vi.mock('@/utils/i18n', () => ({
+  t: (key: string) => ({ 'common.wordCount': '已輸入 {count} / {max} 字' }[key] ?? key),
+  getLocale: () => 'zh-TW',
+}));
 
 describe('format', () => {
+  describe('formatDate', () => {
+    it('應依格式輸出日期時間', () => {
+      expect(formatDate('2025-06-01T12:00:00Z')).toMatch(/2025-06-01/);
+      expect(formatDate('2025-06-01T12:00:00Z', 'YYYY-MM-DD')).toBe('2025-06-01');
+    });
+  });
+
+  describe('formatRelativeTime', () => {
+    it('應返回相對時間字串', () => {
+      const past = new Date(Date.now() - 60000);
+      expect(formatRelativeTime(past)).toBeDefined();
+      expect(typeof formatRelativeTime(past)).toBe('string');
+    });
+  });
+
   describe('formatFileSize', () => {
     it('0 應返回「0 B」', () => expect(formatFileSize(0)).toBe('0 B'));
+    it('負數或非有限數應返回「0 B」', () => {
+      expect(formatFileSize(-1)).toBe('0 B');
+      expect(formatFileSize(Number.NaN)).toBe('0 B');
+      expect(formatFileSize(Number.POSITIVE_INFINITY)).toBe('0 B');
+    });
     it('應正確換算 B/KB/MB/GB', () => {
       expect(formatFileSize(1024)).toBe('1 KB');
       expect(formatFileSize(1024 * 1024)).toBe('1 MB');

@@ -1,9 +1,11 @@
 import { Alert, Button, Card, Form, Input, Typography, message } from 'antd';
 import { Navigate, useNavigate } from 'react-router-dom';
+import { useMountedRef } from '@/hooks/useMountedRef';
 import SEO from '@/components/common/SEO';
 import { useAdminSession } from '@/hooks/useAdminSession';
 import { useAdminToken } from '@/hooks/useAdminToken';
 import { deriveAdminTokenStatus } from '@/utils/adminTokenState';
+import { getErrorMessage } from '@/utils/apiError';
 import { t } from '@/utils/i18n';
 
 const { Title, Text } = Typography;
@@ -15,6 +17,7 @@ interface FormValues {
 
 export default function AdminLoginPage() {
   const navigate = useNavigate();
+  const mountedRef = useMountedRef();
   const token = useAdminToken();
   const tokenState = deriveAdminTokenStatus(token);
   const { loginMutation } = useAdminSession();
@@ -26,10 +29,11 @@ export default function AdminLoginPage() {
   const onFinish = async (values: FormValues) => {
     try {
       await loginMutation.mutateAsync(values);
+      if (!mountedRef.current) return;
       message.success(t('admin.login.success'));
       navigate('/admin/ops/jobs', { replace: true });
-    } catch {
-      message.error(t('admin.login.failed'));
+    } catch (error: unknown) {
+      message.error(getErrorMessage(error, 'admin.login.failed'));
     }
   };
 

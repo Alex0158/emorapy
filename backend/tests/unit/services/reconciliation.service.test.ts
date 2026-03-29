@@ -333,6 +333,16 @@ describe('ReconciliationService', () => {
   });
 
   describe('getPlansByJudgmentId', () => {
+    it('判決不存在應拋出 NOT_FOUND（F05 邊界）', async () => {
+      prismaMock.judgment.findUnique.mockResolvedValue(null);
+
+      await expect(service.getPlansByJudgmentId('judge-1', 'u1')).rejects.toMatchObject({
+        code: 'NOT_FOUND',
+        message: expect.stringContaining('判決'),
+      });
+      expect(prismaMock.reconciliationPlan.findMany).not.toHaveBeenCalled();
+    });
+
     it('應按條件查詢並返回列表', async () => {
       prismaMock.judgment.findUnique.mockResolvedValue({
         id: 'judge-1',
@@ -351,6 +361,18 @@ describe('ReconciliationService', () => {
         where: { judgment_id: 'judge-1', difficulty_level: 'easy', plan_type: 'activity' },
         orderBy: { created_at: 'desc' },
       });
+    });
+
+    it('判決存在但尚無方案時應返回空陣列（F05 邊界：尚未生成方案）', async () => {
+      prismaMock.judgment.findUnique.mockResolvedValue({
+        id: 'judge-1',
+        case: { plaintiff_id: 'u1', defendant_id: 'u2', session_id: null },
+      });
+      prismaMock.reconciliationPlan.findMany.mockResolvedValue([]);
+
+      const result = await service.getPlansByJudgmentId('judge-1', 'u1');
+
+      expect(result).toEqual([]);
     });
 
     it('非當事人應被拒絕', async () => {

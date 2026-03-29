@@ -4,7 +4,7 @@
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useMountedRef } from '@/hooks/useMountedRef';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Typography, Alert, message, Space, Button } from 'antd';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LockOutlined, RetweetOutlined, BulbOutlined } from '@ant-design/icons';
@@ -19,6 +19,7 @@ import { useSessionStore } from '@/store/sessionStore';
 import { sessionStorage, caseSessionMap } from '@/utils/storage';
 import SEO from '@/components/common/SEO';
 import { logger } from '@/utils/logger';
+import { getErrorMessage } from '@/utils/apiError';
 import { t, getLocale } from '@/utils/i18n';
 import './Result.less';
 
@@ -33,64 +34,48 @@ const { Text } = Typography;
 
 const AIAnalyzingAnimation = ({ tips }: { tips?: ContentItem[] }) => {
   const [tipIndex, setTipIndex] = useState(0);
+  const safeTips = Array.isArray(tips) ? tips : [];
 
   useEffect(() => {
-    if (!tips || tips.length === 0) return;
+    if (safeTips.length === 0) return;
     const timer = setInterval(() => {
-      setTipIndex(prev => (prev + 1) % tips.length);
+      setTipIndex(prev => (prev + 1) % safeTips.length);
     }, 8000);
     return () => clearInterval(timer);
-  }, [tips]);
+  }, [safeTips]);
 
-  const currentTip = tips && tips.length > 0 ? tips[tipIndex] : null;
+  const currentTip = safeTips.length > 0 ? safeTips[tipIndex] : null;
 
   return (
-    <div className="ai-analyzing-container" style={{ textAlign: 'center', padding: '60px 20px' }}>
+    <div className="ai-analyzing-container">
       <motion.div
-        animate={{ 
-          scale: [1, 1.2, 1],
-          rotate: [0, 180, 360],
-          filter: ['hue-rotate(0deg)', 'hue-rotate(90deg)', 'hue-rotate(0deg)']
-        }}
-        transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
-        style={{
-          width: 80, height: 80, margin: '0 auto 30px', borderRadius: '50%',
-          background: 'conic-gradient(from 0deg, #84A59D, #E27D60, #84A59D)',
-          boxShadow: '0 0 30px rgba(132, 165, 157, 0.5)'
-        }}
+        className="ai-analyzing-spinner"
+        animate={{ scale: [1, 1.2, 1], rotate: [0, 180, 360], filter: ['hue-rotate(0deg)', 'hue-rotate(90deg)', 'hue-rotate(0deg)'] }}
+        transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
       />
       <motion.h2
         animate={{ opacity: [0.5, 1, 0.5] }}
         transition={{ duration: 2, repeat: Infinity }}
-        style={{ fontSize: '24px', fontWeight: 700, marginBottom: '16px' }}
       >
         {t('quickResult.analyzingTitle')}
       </motion.h2>
-      <Text style={{ fontSize: '16px', display: 'block', marginBottom: 32 }}>
-        {t('quickResult.analyzingSubtitle')}
-      </Text>
+      <Text>{t('quickResult.analyzingSubtitle')}</Text>
 
       {currentTip && (
         <AnimatePresence mode="wait">
           <motion.div
             key={tipIndex}
+            className="ai-analyzing-tip-card"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.5 }}
-            style={{
-              maxWidth: 480, margin: '0 auto', padding: '20px 24px',
-              background: 'rgba(132, 165, 157, 0.05)', borderRadius: 16,
-              border: '1px solid rgba(132, 165, 157, 0.2)',
-            }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <BulbOutlined style={{ color: '#84A59D', fontSize: 16 }} />
-              <Text strong style={{ color: '#84A59D', fontSize: 13 }}>{t('quickResult.thinkingBadge')}</Text>
+            <div className="ai-analyzing-tip-header">
+              <BulbOutlined />
+              <Text strong>{t('quickResult.thinkingBadge')}</Text>
             </div>
-            <Text style={{ fontSize: 14, lineHeight: 1.7, display: 'block', textAlign: 'left' }}>
-              {currentTip.content}
-            </Text>
+            <Text className="ai-analyzing-tip-content">{currentTip.content}</Text>
           </motion.div>
         </AnimatePresence>
       )}
@@ -101,6 +86,7 @@ const AIAnalyzingAnimation = ({ tips }: { tips?: ContentItem[] }) => {
 const QuickExperienceResult = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { isLoading, error } = useJudgmentStore();
   const mountedRef = useMountedRef();
 
@@ -117,6 +103,7 @@ const QuickExperienceResult = () => {
   const { session } = useSessionStore();
   const pollingEverStartedRef = useRef(false);
   const stopPollingRef = useRef<(() => void) | null>(null);
+  const retryJudgmentLockRef = useRef(false);
 
   const loadTips = useCallback(async () => {
     try {
@@ -130,6 +117,10 @@ const QuickExperienceResult = () => {
   useEffect(() => { loadTips(); }, [loadTips]);
 
   const caseSessionId = id ? caseSessionMap.get(id) || sessionStorage.get() || session?.session_id : null;
+  const registerTargetState = useMemo(
+    () => ({ from: { pathname: location.pathname } }),
+    [location.pathname]
+  );
 
   const fetchJudgment = async (): Promise<Judgment | null> => {
     if (!id) {
@@ -156,18 +147,20 @@ const QuickExperienceResult = () => {
       }
       if (err.code === 'JUDGMENT_FAILED') {
         setJudgmentErrorCode('JUDGMENT_FAILED');
-        setJudgmentError(err.message ?? t('message.judgmentRetryHint'));
+        setJudgmentError(getErrorMessage(error, 'message.judgmentRetryHint'));
         stopPollingRef.current?.();
         return null;
       }
       if (err.code === 'SESSION_EXPIRED' || err.code === 'SESSION_ID_REQUIRED' || err.code === 'INVALID_SESSION_ID') {
         setJudgmentErrorCode(err.code as string);
-        setJudgmentError(err.message ?? t('error.session.expiredHint'));
+        setJudgmentError(getErrorMessage(error, 'error.session.expiredHint'));
+        stopPollingRef.current?.();
         return null;
       }
       logger.error('Failed to fetch judgment', error);
       setJudgmentErrorCode(err.code ?? 'UNKNOWN');
-      setJudgmentError(err.message ?? t('message.getJudgmentFail'));
+      setJudgmentError(getErrorMessage(error, 'message.getJudgmentFail'));
+      stopPollingRef.current?.();
       return null;
     }
   };
@@ -190,6 +183,7 @@ const QuickExperienceResult = () => {
     const caseId = id as string;
     try {
       const case_ = await getCase(caseId, caseSessionId ?? undefined);
+      if (!mountedRef.current) return case_;
       const status = case_.status;
       setCaseStatus(status);
       if (status === 'judgment_failed' && case_.judgment_failure_reason) {
@@ -212,6 +206,7 @@ const QuickExperienceResult = () => {
       }
       return case_;
     } catch (error) {
+      if (!mountedRef.current) return null;
       const err = error as { code?: string };
       if (err?.code === 'NOT_FOUND' || err?.code === 'HTTP_404') {
         caseSessionMap.remove(caseId);
@@ -239,6 +234,8 @@ const QuickExperienceResult = () => {
   }, [id, stopPolling]);
 
   const handleRetryJudgment = async () => {
+    if (retryJudgmentLockRef.current) return;
+    retryJudgmentLockRef.current = true;
     const caseId = id as string;
     setJudgmentError(null); setJudgmentErrorCode(null); setJudgmentFailureReason(null); setJudgment(null);
     try {
@@ -249,9 +246,11 @@ const QuickExperienceResult = () => {
       startPolling();
     } catch (error: unknown) {
       if (!mountedRef.current) return;
-      const msg = (error as { message?: string })?.message || t('message.retryFail');
+      const msg = getErrorMessage(error, 'message.retryFail');
       message.error(msg);
       setJudgmentError(msg);
+    } finally {
+      retryJudgmentLockRef.current = false;
     }
   };
 
@@ -276,10 +275,14 @@ const QuickExperienceResult = () => {
       message.success(t('message.evidenceUploadSuccess'));
       setEvidenceUploadStatus('success');
       localStorage.removeItem(`pending_evidence_${caseId}`);
-      await fetchCase();
+      try {
+        await fetchCase();
+      } catch (refreshErr) {
+        logger.error('Failed to refresh case after evidence upload', refreshErr);
+      }
     } catch (error: unknown) {
       if (!mountedRef.current) return;
-      message.error((error as { message?: string })?.message || t('message.evidenceUploadFail'));
+      message.error(getErrorMessage(error, 'message.evidenceUploadFail'));
       setEvidenceUploadStatus('failed');
       try { localStorage.setItem(`pending_evidence_${caseId}`, 'true'); } catch { /* noop */ }
     } finally {
@@ -328,7 +331,19 @@ const QuickExperienceResult = () => {
           type="error"
           showIcon
           action={
-            isSessionExpired ? <Button type="primary" onClick={() => navigate('/quick-experience/create')}>{t('result.restart')}</Button>
+            isSessionExpired ? (
+              <Space>
+                <Button type="primary" onClick={() => navigate('/auth/login', { state: registerTargetState })}>
+                  {t('auth.login.submit')}
+                </Button>
+                <Button onClick={() => navigate('/auth/register', { state: registerTargetState })}>
+                  {t('register.action.now')}
+                </Button>
+                <Button onClick={() => navigate('/quick-experience/create')}>
+                  {t('result.restart')}
+                </Button>
+              </Space>
+            )
             : isJudgmentFailed ? <Button type="primary" onClick={handleRetryJudgment}>{t('error.retry')}</Button>
             : <Button type="primary" onClick={() => { setJudgmentError(null); setJudgmentErrorCode(null); pollingEverStartedRef.current = true; startPolling(); }}>{t('error.retry')}</Button>
           }
@@ -354,6 +369,7 @@ const QuickExperienceResult = () => {
               <Space>
                 <Button type="primary" onClick={() => { pollingEverStartedRef.current = true; startPolling(); }}>{t('pending.long.action.wait')}</Button>
                 <Button onClick={handleRetryJudgment}>{t('pending.long.action.regen')}</Button>
+                <Button onClick={() => navigate('/quick-experience/create')}>{t('pending.long.action.back')}</Button>
               </Space>
             }
           />
@@ -382,8 +398,17 @@ const QuickExperienceResult = () => {
         <section className="actions-section">
           <div className="container">
             <div className="primary-actions">
-              <button className="action-button primary" onClick={() => navigate('/auth/register')}>
+              <button
+                className="action-button primary"
+                onClick={() => navigate('/auth/register', { state: registerTargetState })}
+              >
                 <LockOutlined style={{ marginRight: 8 }} /> {t('register.action.now')}
+              </button>
+              <button
+                className="action-button secondary"
+                onClick={() => navigate('/auth/login', { state: registerTargetState })}
+              >
+                <LockOutlined style={{ marginRight: 8 }} /> {t('auth.login.submit')}
               </button>
               <button className="action-button secondary" onClick={() => navigate('/quick-experience/create')}>
                 <RetweetOutlined style={{ marginRight: 8 }} /> {t('quickCreate.recoveredCase.startNew')}
@@ -392,7 +417,11 @@ const QuickExperienceResult = () => {
           </div>
         </section>
 
-        <RegisterPromptSection show={showRegisterPrompt} onRegister={() => navigate('/auth/register')} onClose={() => setShowRegisterPrompt(false)} />
+        <RegisterPromptSection
+          show={showRegisterPrompt}
+          onRegister={() => navigate('/auth/register', { state: registerTargetState })}
+          onClose={() => setShowRegisterPrompt(false)}
+        />
       </div>
     </>
   );

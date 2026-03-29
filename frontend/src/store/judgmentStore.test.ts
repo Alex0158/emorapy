@@ -75,6 +75,15 @@ describe('judgmentStore', () => {
     expect(useJudgmentStore.getState().currentJudgment).toEqual(mockJudgment);
   });
 
+  it('getJudgmentByCaseId 回傳 null（判決尚未生成）時應設 currentJudgment 為 null 並返回 null', async () => {
+    mockGetJudgmentByCaseId.mockResolvedValue(null);
+    useJudgmentStore.setState({ currentJudgment: mockJudgment });
+    const result = await useJudgmentStore.getState().getJudgmentByCaseId('c1');
+    expect(result).toBeNull();
+    expect(useJudgmentStore.getState().currentJudgment).toBeNull();
+    expect(useJudgmentStore.getState().error).toBeNull();
+  });
+
   it('getJudgment 失敗應設 error 並拋出', async () => {
     mockGetJudgment.mockRejectedValue(new Error('取得判決失敗'));
     await expect(
@@ -89,5 +98,65 @@ describe('judgmentStore', () => {
     const result = await useJudgmentStore.getState().getJudgmentByCaseId('c1');
     expect(result).toBeNull();
     expect(useJudgmentStore.getState().error).toBe('獲取判決失敗');
+  });
+
+  it('getJudgmentByCaseId 成功但 API 返回 null 時應設 currentJudgment 為 null 並返回 null', async () => {
+    mockGetJudgmentByCaseId.mockResolvedValue(null);
+    const result = await useJudgmentStore.getState().getJudgmentByCaseId('c1');
+    expect(result).toBeNull();
+    expect(useJudgmentStore.getState().currentJudgment).toBeNull();
+    expect(useJudgmentStore.getState().isLoading).toBe(false);
+  });
+
+  it('getJudgment 競態：後發請求先回傳時，先發請求回傳應忽略不覆蓋 state', async () => {
+    const j1 = { ...mockJudgment, id: 'j1', case_id: 'c1' };
+    const j2 = { ...mockJudgment, id: 'j2', case_id: 'c2' };
+    mockGetJudgment
+      .mockImplementationOnce(() => new Promise((r) => setTimeout(() => r(j1), 50)))
+      .mockResolvedValueOnce(j2);
+    const slowPromise = useJudgmentStore.getState().getJudgment('j1');
+    const fastResult = await useJudgmentStore.getState().getJudgment('j2');
+    expect(fastResult).toEqual(j2);
+    expect(useJudgmentStore.getState().currentJudgment).toEqual(j2);
+    await slowPromise;
+    expect(useJudgmentStore.getState().currentJudgment).toEqual(j2);
+  });
+
+  it('getJudgment 競態：後發請求先 reject 時，先發請求 reject 應直接拋出、不設 error', async () => {
+    mockGetJudgment
+      .mockImplementationOnce(() => new Promise((_, r) => setTimeout(() => r(new Error('慢請求失敗')), 50)))
+      .mockRejectedValueOnce(new Error('快請求失敗'));
+    const slowPromise = useJudgmentStore.getState().getJudgment('j1');
+    await expect(useJudgmentStore.getState().getJudgment('j2')).rejects.toThrow('快請求失敗');
+    expect(useJudgmentStore.getState().error).toBe('快請求失敗');
+    await expect(slowPromise).rejects.toThrow('慢請求失敗');
+    expect(useJudgmentStore.getState().error).toBe('快請求失敗');
+  });
+
+  it('getJudgmentByCaseId 競態：後發請求先回傳時，先發請求回傳應忽略不覆蓋 state', async () => {
+    const j1 = { ...mockJudgment, id: 'j1', case_id: 'c1' };
+    const j2 = { ...mockJudgment, id: 'j2', case_id: 'c2' };
+    mockGetJudgmentByCaseId
+      .mockImplementationOnce(() => new Promise((r) => setTimeout(() => r(j1), 50)))
+      .mockResolvedValueOnce(j2);
+    const slowPromise = useJudgmentStore.getState().getJudgmentByCaseId('c1');
+    const fastResult = await useJudgmentStore.getState().getJudgmentByCaseId('c2');
+    expect(fastResult).toEqual(j2);
+    expect(useJudgmentStore.getState().currentJudgment).toEqual(j2);
+    await slowPromise;
+    expect(useJudgmentStore.getState().currentJudgment).toEqual(j2);
+  });
+
+  it('getJudgmentByCaseId 競態：後發請求先 reject 時，先發請求 reject 應 return null、不覆蓋 error', async () => {
+    mockGetJudgmentByCaseId
+      .mockImplementationOnce(() => new Promise((_, r) => setTimeout(() => r(new Error('慢請求失敗')), 50)))
+      .mockRejectedValueOnce(new Error('快請求失敗'));
+    const slowPromise = useJudgmentStore.getState().getJudgmentByCaseId('c1');
+    const fastResult = await useJudgmentStore.getState().getJudgmentByCaseId('c2');
+    expect(fastResult).toBeNull();
+    expect(useJudgmentStore.getState().error).toBe('快請求失敗');
+    const slowResult = await slowPromise;
+    expect(slowResult).toBeNull();
+    expect(useJudgmentStore.getState().error).toBe('快請求失敗');
   });
 });

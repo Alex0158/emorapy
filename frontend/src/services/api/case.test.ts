@@ -59,6 +59,13 @@ describe('case API', () => {
       expect(result.case).toEqual(mockCase);
       expect(result.session_id).toBe('s1');
     });
+
+    it('後端回傳 case 為 null 時應拋錯（F01 邊界：API 回傳不完整時防禦）', async () => {
+      mockPost.mockResolvedValue({ data: { data: { case: null, session_id: 's1' } } });
+      await expect(
+        createQuickCase({ plaintiff_statement: '原告', defendant_statement: '被告' })
+      ).rejects.toThrow('Invalid case response from server');
+    });
   });
 
   describe('createCase', () => {
@@ -70,6 +77,13 @@ describe('case API', () => {
       });
       expect(mockPost).toHaveBeenCalledWith('/cases', expect.any(Object));
       expect(result).toEqual(mockCase);
+    });
+
+    it('後端回傳 case 為 null 時應拋錯（F03 邊界：API 回傳不完整時防禦）', async () => {
+      mockPost.mockResolvedValue({ data: { data: { case: null } } });
+      await expect(
+        createCase({ plaintiff_statement: '原告', defendant_statement: '被告' })
+      ).rejects.toThrow('Invalid case response from server');
     });
   });
 
@@ -87,6 +101,16 @@ describe('case API', () => {
       expect(mockGet).toHaveBeenCalledWith('/cases/c1', {
         headers: { 'X-Session-Id': 's-session' },
       });
+    });
+
+    it('回應缺少 case 或 case 為 null 時應拋錯（F01/F03 邊界：API 回傳不完整時防禦）', async () => {
+      mockGet.mockResolvedValue({ data: { data: { case: null } } });
+      await expect(getCase('c1')).rejects.toThrow('Invalid case response from server');
+    });
+
+    it('後端回傳 case 為 undefined 時應拋錯（F01/F03 邊界：API 回傳不完整時防禦）', async () => {
+      mockGet.mockResolvedValue({ data: { data: { case: undefined } } });
+      await expect(getCase('c1')).rejects.toThrow('Invalid case response from server');
     });
   });
 
@@ -112,6 +136,18 @@ describe('case API', () => {
       expect(result).toBeNull();
     });
 
+    it('後端回傳 200 且 case 為 null 時應返回 null（F01 邊界：無關聯案件）', async () => {
+      mockGet.mockResolvedValue({ data: { data: { case: null } } });
+      const result = await getCaseBySessionId('s1');
+      expect(result).toBeNull();
+    });
+
+    it('後端回傳 200 且 case 為 undefined 時應返回 null（F01 邊界：API 回傳不完整時防禦，無關聯案件語義）', async () => {
+      mockGet.mockResolvedValue({ data: { data: { case: undefined } } });
+      const result = await getCaseBySessionId('s1');
+      expect(result).toBeNull();
+    });
+
     it('其他錯誤應拋出', async () => {
       mockGet.mockRejectedValue(new Error('Server error'));
       await expect(getCaseBySessionId('s1')).rejects.toThrow('Server error');
@@ -119,6 +155,11 @@ describe('case API', () => {
   });
 
   describe('getCaseList', () => {
+    it('後端回傳 data 為 null 時應拋錯（F03 邊界：API 回傳不完整時防禦）', async () => {
+      mockGet.mockResolvedValue({ data: { data: null } });
+      await expect(getCaseList()).rejects.toThrow('Invalid case list response from server');
+    });
+
     it('應 GET /cases 並返回 cases 與 pagination', async () => {
       const pagination = { page: 1, page_size: 10, total: 1, total_pages: 1 };
       mockGet.mockResolvedValue({ data: { data: { cases: [mockCase], pagination } } });
@@ -133,6 +174,44 @@ describe('case API', () => {
       await getCaseList();
       expect(mockGet).toHaveBeenCalledWith('/cases', { params: undefined });
     });
+
+    it('後端回傳 cases 為非陣列時應返回空陣列（F03 邊界：API 回傳不完整時防禦）', async () => {
+      mockGet.mockResolvedValue({
+        data: { data: { cases: { items: [] }, pagination: { page: 1, page_size: 10, total: 0, total_pages: 0 } } },
+      });
+      const result = await getCaseList();
+      expect(result.cases).toEqual([]);
+    });
+
+    it('後端回傳 pagination 為 null 或 undefined 時應返回預設 pagination（F03 邊界：API 回傳不完整時防禦）', async () => {
+      mockGet.mockResolvedValue({ data: { data: { cases: [mockCase], pagination: null } } });
+      const result = await getCaseList({ page: 1, page_size: 10 });
+      expect(result.cases).toEqual([mockCase]);
+      expect(result.pagination).toEqual({ page: 1, page_size: 10, total: 0, total_pages: 0 });
+    });
+
+    it('後端回傳 pagination 為 undefined 時應返回預設 pagination', async () => {
+      mockGet.mockResolvedValue({ data: { data: { cases: [], pagination: undefined } } });
+      const result = await getCaseList();
+      expect(result.pagination).toEqual({ page: 1, page_size: 10, total: 0, total_pages: 0 });
+    });
+
+    it('後端回傳 pagination 部分欄位為 undefined 時應補齊預設值', async () => {
+      mockGet.mockResolvedValue({
+        data: { data: { cases: [], pagination: { page: 2, page_size: undefined, total: undefined, total_pages: undefined } } },
+      });
+      const result = await getCaseList();
+      expect(result.pagination).toEqual({ page: 2, page_size: 10, total: 0, total_pages: 0 });
+    });
+
+    it('後端回傳 pagination 為非物件（如字串）時應返回預設 pagination（F03 邊界：API 回傳不完整時防禦）', async () => {
+      mockGet.mockResolvedValue({
+        data: { data: { cases: [mockCase], pagination: 'invalid' as unknown as { page: number; page_size: number; total: number; total_pages: number } } },
+      });
+      const result = await getCaseList();
+      expect(result.cases).toEqual([mockCase]);
+      expect(result.pagination).toEqual({ page: 1, page_size: 10, total: 0, total_pages: 0 });
+    });
   });
 
   describe('submitCase', () => {
@@ -142,6 +221,11 @@ describe('case API', () => {
       expect(mockPost).toHaveBeenCalledWith('/cases/c1/submit');
       expect(result).toEqual(mockCase);
     });
+
+    it('後端回傳 case 為 null 時應拋錯（F03 邊界：API 回傳不完整時防禦）', async () => {
+      mockPost.mockResolvedValue({ data: { data: { case: null } } });
+      await expect(submitCase('c1')).rejects.toThrow('Invalid case response from server');
+    });
   });
 
   describe('updateCase', () => {
@@ -150,6 +234,13 @@ describe('case API', () => {
       const result = await updateCase('c1', { title: 'Updated' });
       expect(mockPut).toHaveBeenCalledWith('/cases/c1', { title: 'Updated' });
       expect(result.title).toBe('Updated');
+    });
+
+    it('後端回傳 case 為 null 時應拋錯（F03 邊界：API 回傳不完整時防禦，被告回覆）', async () => {
+      mockPut.mockResolvedValue({ data: { data: { case: null } } });
+      await expect(updateCase('c1', { defendant_statement: '被告陳述' })).rejects.toThrow(
+        'Invalid case response from server'
+      );
     });
   });
 
@@ -161,6 +252,19 @@ describe('case API', () => {
       const result = await uploadEvidence('c1', files);
       expect(mockPost).toHaveBeenCalledWith('/cases/c1/evidence', expect.any(FormData), expect.any(Object));
       expect(result).toEqual(evidences);
+    });
+
+    it('後端回傳 evidences 為非陣列時應返回空陣列（F03/F05 邊界：API 回傳不完整時防禦）', async () => {
+      const files = [new File(['x'], 'a.jpg', { type: 'image/jpeg' })];
+      mockPost.mockResolvedValue({ data: { data: { evidences: { items: [] } } } });
+      const result = await uploadEvidence('c1', files);
+      expect(result).toEqual([]);
+    });
+
+    it('後端回傳 evidences 為 null 時應拋錯（F03/F05 邊界：API 回傳不完整時防禦）', async () => {
+      const files = [new File(['x'], 'a.jpg', { type: 'image/jpeg' })];
+      mockPost.mockResolvedValue({ data: { data: { evidences: null } } });
+      await expect(uploadEvidence('c1', files)).rejects.toThrow('Invalid evidence response from server');
     });
 
     it('有 sessionId 時應傳 header', async () => {
@@ -229,6 +333,15 @@ describe('case API', () => {
     it('回傳無 case 時應拋出錯誤', async () => {
       mockPost.mockResolvedValue({ data: { data: { session_id: 'x' } } });
       await expect(createCollaborativeCase({ plaintiff_statement: 'test' })).rejects.toThrow('Invalid collaborative case response');
+    });
+
+    it('後端回傳 case 為 null 時應拋錯（F02 邊界：API 回傳不完整時防禦）', async () => {
+      mockPost.mockResolvedValue({
+        data: { data: { case: null, session_id: 'cs1', session_expires_at: '2026-12-31T00:00:00Z', phase: 'a_done' } },
+      });
+      await expect(createCollaborativeCase({ plaintiff_statement: '原告' })).rejects.toThrow(
+        'Invalid collaborative case response from server'
+      );
     });
   });
 });

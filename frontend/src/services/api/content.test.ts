@@ -43,4 +43,16 @@ describe('getContentList', () => {
     const result = await getContentList();
     expect(result).toEqual([]);
   });
+
+  it('後端回傳 items 為非陣列時應返回空陣列（F01 邊界：API 回傳不完整時防禦）', async () => {
+    mockGet.mockResolvedValue({ data: { data: { items: { list: [] } } } });
+    const result = await getContentList();
+    expect(result).toEqual([]);
+  });
+
+  it('後端回傳 items 為 null 時應返回空陣列（F01 邊界：API 回傳不完整時防禦）', async () => {
+    mockGet.mockResolvedValue({ data: { data: { items: null } } });
+    const result = await getContentList();
+    expect(result).toEqual([]);
+  });
 });

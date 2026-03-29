@@ -15,6 +15,7 @@ vi.mock('react-router-dom', async () => {
 });
 
 vi.mock('@/components/common/ScrollToTop', () => ({ default: () => null }));
+vi.mock('@/utils/i18n', () => ({ t: (key: string) => key }));
 
 describe('SimpleLayout', () => {
   it('應渲染 Logo 與 Outlet', () => {
@@ -23,7 +24,7 @@ describe('SimpleLayout', () => {
         <SimpleLayout />
       </MemoryRouter>
     );
-    expect(screen.getByText(/關係修復室/)).toBeInTheDocument();
+    expect(screen.getByText('nav.logo')).toBeInTheDocument();
     expect(screen.getByTestId('outlet')).toBeInTheDocument();
   });
 });

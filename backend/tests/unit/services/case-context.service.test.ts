@@ -118,6 +118,79 @@ describe('CaseContextService', () => {
     });
   });
 
+  describe('loadCaseContext', () => {
+    it('preloadedCase mode 為 quick 時應返回 null（F01/F05 邊界：quick 模式不載入 context）', async () => {
+      const result = await service.loadCaseContext('case-1', {
+        type: '其他衝突',
+        mode: 'quick',
+        plaintiff_id: 'u1',
+        defendant_id: 'u2',
+        pairing_id: 'p1',
+      });
+      expect(result).toBeNull();
+    });
+
+    it('preloadedCase plaintiff_id 為 null 時應返回 null（F01/F05 邊界：無原告不載入）', async () => {
+      const result = await service.loadCaseContext('case-1', {
+        type: '其他衝突',
+        mode: 'remote',
+        plaintiff_id: null,
+        defendant_id: 'u2',
+        pairing_id: null,
+      });
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('formatForEmotionalAnalysis', () => {
+    it('無 attachmentHint 與 communicationHint 時應返回 null（F04/F05 邊界：空 ctx 不崩潰）', () => {
+      const ctx: CaseContextResult = {
+        userA: { label: '角色A', attachmentHint: null, communicationHint: null, keyInsights: [], culturalHint: null },
+        userB: null,
+        relationship: null,
+        relevantDomains: [],
+        caseType: '其他衝突',
+      };
+      expect(service.formatForEmotionalAnalysis(ctx)).toBeNull();
+    });
+  });
+
+  describe('formatForResponsibilityRatio', () => {
+    it('relationship 為 null 或無 duration/stage 時應返回 null（F04 邊界：空 ctx 不崩潰）', () => {
+      const ctx: CaseContextResult = {
+        userA: null,
+        userB: null,
+        relationship: null,
+        relevantDomains: [],
+        caseType: '其他衝突',
+      };
+      expect(service.formatForResponsibilityRatio(ctx)).toBeNull();
+    });
+  });
+
+  describe('formatForSummary', () => {
+    it('relationship 無 duration/stage 時應返回 null（F04/F05 邊界：空 ctx 不崩潰）', () => {
+      const ctx: CaseContextResult = {
+        userA: null,
+        userB: null,
+        relationship: {
+          duration: null,
+          stage: null,
+          isLongDistance: false,
+          strengths: [],
+          challenges: [],
+          bottomLines: { userA: [], userB: [] },
+          conflictStyle: null,
+          historicalPatterns: null,
+          executionRate: null,
+        },
+        relevantDomains: [],
+        caseType: '其他衝突',
+      };
+      expect(service.formatForSummary(ctx)).toBeNull();
+    });
+  });
+
   describe('formatForReconciliationPlans — culturalHint', () => {
     it('有 culturalHint 時應包含文化背景資訊', () => {
       const ctx: CaseContextResult = {

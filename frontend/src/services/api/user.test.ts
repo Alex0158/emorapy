@@ -33,6 +33,21 @@ describe('user API', () => {
       expect(mockGet).toHaveBeenCalledWith('/user/profile');
       expect(result).toEqual(mockUser);
     });
+
+    it('回應缺少 user 時應拋錯', async () => {
+      mockGet.mockResolvedValue({ data: { data: {} } });
+      await expect(getProfile()).rejects.toThrow('Invalid profile response from server');
+    });
+
+    it('後端回傳 user 為 null 時應拋錯（F09 邊界：profile/me 回傳不完整時防禦）', async () => {
+      mockGet.mockResolvedValue({ data: { data: { user: null } } });
+      await expect(getProfile()).rejects.toThrow('Invalid profile response from server');
+    });
+
+    it('後端回傳 user 為 undefined 時應拋錯（F09 邊界：API 回傳不完整時防禦）', async () => {
+      mockGet.mockResolvedValue({ data: { data: { user: undefined } } });
+      await expect(getProfile()).rejects.toThrow('Invalid profile response from server');
+    });
   });
 
   describe('updateProfile', () => {
@@ -43,6 +58,20 @@ describe('user API', () => {
       const result = await updateProfile({ nickname: 'NewName' });
       expect(mockPut).toHaveBeenCalledWith('/user/profile', { nickname: 'NewName' });
       expect(result.nickname).toBe('NewName');
+    });
+
+    it('回應缺少 user 時應拋錯', async () => {
+      mockPut.mockResolvedValue({ data: { data: {} } });
+      await expect(updateProfile({ nickname: 'x' })).rejects.toThrow(
+        'Invalid profile response from server',
+      );
+    });
+
+    it('後端回傳 user 為 null 時應拋錯（F09 邊界：API 回傳不完整時防禦）', async () => {
+      mockPut.mockResolvedValue({ data: { data: { user: null } } });
+      await expect(updateProfile({ nickname: 'x' })).rejects.toThrow(
+        'Invalid profile response from server',
+      );
     });
   });
 });

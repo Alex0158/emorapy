@@ -2,9 +2,9 @@
  * 404頁面
  */
 
-import { Result, Button } from 'antd';
+import { Result, Button, Space } from 'antd';
 import { useNavigate } from 'react-router-dom';
-import { HomeOutlined } from '@ant-design/icons';
+import { HomeOutlined, ArrowLeftOutlined, RocketOutlined } from '@ant-design/icons';
 import { t } from '@/utils/i18n';
 
 const NotFound = () => {
@@ -16,13 +16,20 @@ const NotFound = () => {
       title={t('notFound.title')}
       subTitle={t('notFound.subTitle')}
       extra={
-        <Button type="primary" icon={<HomeOutlined />} onClick={() => navigate('/')}>
-          {t('notFound.backHome')}
-        </Button>
+        <Space wrap>
+          <Button type="primary" icon={<HomeOutlined />} onClick={() => navigate('/')}>
+            {t('notFound.backHome')}
+          </Button>
+          <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)}>
+            {t('notFound.backPrevious')}
+          </Button>
+          <Button icon={<RocketOutlined />} onClick={() => navigate('/quick-experience/create')}>
+            {t('notFound.goQuickExperience')}
+          </Button>
+        </Space>
       }
     />
   );
 };
 
 export default NotFound;
-

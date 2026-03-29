@@ -280,17 +280,33 @@ describe('SessionService', () => {
 
   describe('addCaseToSession', () => {
     it('應調用 quickSession.update', async () => {
+      prismaMock.quickSession.findUnique.mockResolvedValue({ id: 's1' });
       prismaMock.quickSession.update.mockResolvedValue({});
 
       await service.addCaseToSession('s1', 'case-1');
 
+      expect(prismaMock.quickSession.findUnique).toHaveBeenCalledWith({
+        where: { id: 's1' },
+        select: { id: true },
+      });
       expect(prismaMock.quickSession.update).toHaveBeenCalledWith({
         where: { id: 's1' },
         data: { case_id: 'case-1' },
       });
     });
 
+    it('session 不存在時應拋出 SESSION_EXPIRED（F01 邊界：與 psych-profile giveConsent 對齊）', async () => {
+      prismaMock.quickSession.findUnique.mockResolvedValue(null);
+
+      await expect(service.addCaseToSession('nonexistent', 'case-1')).rejects.toMatchObject({
+        code: 'SESSION_EXPIRED',
+        message: expect.stringContaining('Session'),
+      });
+      expect(prismaMock.quickSession.update).not.toHaveBeenCalled();
+    });
+
     it('更新失敗應拋出 INTERNAL_ERROR', async () => {
+      prismaMock.quickSession.findUnique.mockResolvedValue({ id: 's1' });
       prismaMock.quickSession.update.mockRejectedValue(new Error('DB error'));
 
       await expect(service.addCaseToSession('s1', 'case-1')).rejects.toMatchObject({
@@ -301,17 +317,33 @@ describe('SessionService', () => {
 
   describe('addPairingToSession', () => {
     it('應調用 quickSession.update', async () => {
+      prismaMock.quickSession.findUnique.mockResolvedValue({ id: 's1' });
       prismaMock.quickSession.update.mockResolvedValue({});
 
       await service.addPairingToSession('s1', 'pairing-1');
 
+      expect(prismaMock.quickSession.findUnique).toHaveBeenCalledWith({
+        where: { id: 's1' },
+        select: { id: true },
+      });
       expect(prismaMock.quickSession.update).toHaveBeenCalledWith({
         where: { id: 's1' },
         data: { pairing_id: 'pairing-1' },
       });
     });
 
+    it('session 不存在時應拋出 SESSION_EXPIRED（F01 邊界：與 addCaseToSession 對齊）', async () => {
+      prismaMock.quickSession.findUnique.mockResolvedValue(null);
+
+      await expect(service.addPairingToSession('nonexistent', 'p1')).rejects.toMatchObject({
+        code: 'SESSION_EXPIRED',
+        message: expect.stringContaining('Session'),
+      });
+      expect(prismaMock.quickSession.update).not.toHaveBeenCalled();
+    });
+
     it('更新失敗應拋出 INTERNAL_ERROR', async () => {
+      prismaMock.quickSession.findUnique.mockResolvedValue({ id: 's1' });
       prismaMock.quickSession.update.mockRejectedValue(new Error('DB error'));
 
       await expect(service.addPairingToSession('s1', 'p1')).rejects.toMatchObject({

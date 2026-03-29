@@ -113,4 +113,23 @@ describe('useAsync', () => {
     expect(fn2).toHaveBeenCalled();
     expect(fn1).not.toHaveBeenCalled();
   });
+
+  it('execute 進行中 unmount 後 resolve 不應再更新 state', async () => {
+    let resolvePromise: (value: number) => void;
+    const fn = vi.fn().mockImplementation(
+      () => new Promise<number>((resolve) => { resolvePromise = resolve; })
+    );
+    const { result, unmount } = renderHook(() => useAsync(fn));
+    let p: Promise<number> | undefined;
+    act(() => {
+      p = result.current.execute();
+    });
+    unmount();
+    act(() => {
+      resolvePromise!(42);
+    });
+    await p;
+    expect(result.current.status).toBe('pending');
+    expect(result.current.value).toBeNull();
+  });
 });

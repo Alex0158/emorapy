@@ -54,6 +54,19 @@ describe('ContentController', () => {
   });
 
   describe('list', () => {
+    it('無內容時應返回 items 空陣列（F01 邊界）', async () => {
+      req.query = { limit: '20' };
+      mockListContent.mockResolvedValue([]);
+
+      await controller.list(req as Request, res as Response, next);
+
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        data: { items: [] },
+      });
+      expect(next).not.toHaveBeenCalled();
+    });
+
     it('成功應解析 query 並返回 items', async () => {
       req.query = {
         type: 'article',
@@ -92,9 +105,73 @@ describe('ContentController', () => {
         })
       );
     });
+
+    it('tags 為空字串時應傳空陣列（F01 邊界：防禦性）', async () => {
+      req.query = { type: 'article', tags: '', limit: '5' };
+      mockListContent.mockResolvedValue([]);
+
+      await controller.list(req as Request, res as Response, next);
+
+      expect(mockListContent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tags: [],
+          limit: 5,
+        })
+      );
+    });
+
+    it('query 完全為空時應使用預設 limit 20 與 is_active true', async () => {
+      req.query = {};
+      mockListContent.mockResolvedValue([]);
+
+      await controller.list(req as Request, res as Response, next);
+
+      expect(mockListContent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          limit: 20,
+          is_active: true,
+        })
+      );
+    });
+
+    it('limit 超過 100 時應 clamp 到 100（F01 邊界：MAX_CONTENT_LIMIT）', async () => {
+      req.query = { limit: '200' };
+      mockListContent.mockResolvedValue([]);
+
+      await controller.list(req as Request, res as Response, next);
+
+      expect(mockListContent).toHaveBeenCalledWith(
+        expect.objectContaining({ limit: 100 })
+      );
+    });
+
+    it('is_active 為 false 時應傳 false', async () => {
+      req.query = { is_active: 'false', limit: '10' };
+      mockListContent.mockResolvedValue([]);
+
+      await controller.list(req as Request, res as Response, next);
+
+      expect(mockListContent).toHaveBeenCalledWith(
+        expect.objectContaining({ is_active: false })
+      );
+    });
   });
 
   describe('recommendations', () => {
+    it('無推薦時應返回 items 空陣列（F01/F05 邊界）', async () => {
+      req.params = { caseId: 'c1' };
+      req.query = {};
+      mockGetRecommendations.mockResolvedValue([]);
+
+      await controller.recommendations(req as Request, res as Response, next);
+
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        data: { items: [] },
+      });
+      expect(next).not.toHaveBeenCalled();
+    });
+
     it('成功應返回 items', async () => {
       req.params = { caseId: 'c1' };
       req.query = { relation: 'similar' };
@@ -199,6 +276,15 @@ describe('ContentController', () => {
       mockGetRecommendations.mockRejectedValue(new Error('service error'));
 
       await controller.recommendations(req as Request, res as Response, next);
+
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
+    });
+
+    it('link 拋錯時應 next(error)', async () => {
+      req.body = { case_id: 'c1', content_id: 'ct1' };
+      mockLinkContent.mockRejectedValue(new Error('link failed'));
+
+      await controller.link(req as Request, res as Response, next);
 
       expect(next).toHaveBeenCalledWith(expect.any(Error));
     });

@@ -1,6 +1,6 @@
 {
   "name": "cj-platform-backend",
-  "version": "1.3.2",
+  "version": "1.3.3",
   "description": "CJ 平台後端服務",
   "main": "dist/index.js",
   "scripts": {

@@ -62,6 +62,54 @@ describe('PublicRoute', () => {
     expect(screen.getByTestId('dash')).toBeInTheDocument();
   });
 
+  it('已認證且有合法 from 時應優先回跳原頁（F01/F09 升格閉環）', () => {
+    mockUseAuthStore.mockReturnValue({ isAuthenticated: true, _hasHydrated: true });
+    render(
+      <MemoryRouter initialEntries={[{ pathname: '/register', state: { from: { pathname: '/quick-experience/result/case-1' } } }]}>
+        <Routes>
+          <Route path="/register" element={
+            <PublicRoute><span>Register form</span></PublicRoute>
+          } />
+          <Route path="/quick-experience/result/case-1" element={<span data-testid="result">Quick Result</span>} />
+          <Route path="/case/list" element={<span data-testid="list">Case List</span>} />
+        </Routes>
+      </MemoryRouter>
+    );
+    expect(screen.queryByText('Register form')).not.toBeInTheDocument();
+    expect(screen.getByTestId('result')).toBeInTheDocument();
+  });
+
+  it('已認證且有合法 chat from 時應優先回跳聊天室弱入口（F07 弱入口回跳）', () => {
+    mockUseAuthStore.mockReturnValue({ isAuthenticated: true, _hasHydrated: true });
+    render(
+      <MemoryRouter initialEntries={[{ pathname: '/register', state: { from: { pathname: '/chat/room/room-1' } } }]}>
+        <Routes>
+          <Route path="/register" element={<PublicRoute><span>Register form</span></PublicRoute>} />
+          <Route path="/chat/room/:roomId" element={<span data-testid="chat-room">Chat Room</span>} />
+          <Route path="/case/list" element={<span data-testid="list">Case List</span>} />
+        </Routes>
+      </MemoryRouter>
+    );
+    expect(screen.queryByText('Register form')).not.toBeInTheDocument();
+    expect(screen.getByTestId('chat-room')).toBeInTheDocument();
+  });
+
+  it('已認證但 from 為無效路徑時應回退至 redirectTo', () => {
+    mockUseAuthStore.mockReturnValue({ isAuthenticated: true, _hasHydrated: true });
+    render(
+      <MemoryRouter initialEntries={[{ pathname: '/register', state: { from: { pathname: '/admin/settings' } } }]}>
+        <Routes>
+          <Route path="/register" element={
+            <PublicRoute><span>Register form</span></PublicRoute>
+          } />
+          <Route path="/case/list" element={<span data-testid="list">Case List</span>} />
+        </Routes>
+      </MemoryRouter>
+    );
+    expect(screen.queryByText('Register form')).not.toBeInTheDocument();
+    expect(screen.getByTestId('list')).toBeInTheDocument();
+  });
+
   it('未 hydrated 時應顯示 loading Spin', () => {
     mockUseAuthStore.mockReturnValue({ isAuthenticated: false, _hasHydrated: false });
     render(
@@ -91,5 +139,22 @@ describe('PublicRoute', () => {
     expect(document.querySelector('.ant-spin')).toBeInTheDocument();
     act(() => { vi.advanceTimersByTime(5000); });
     expect(screen.getByTestId('list')).toBeInTheDocument();
+  });
+
+  it('hydration 超時且未認證時應渲染 children，不卡在 loading', () => {
+    vi.useFakeTimers();
+    mockUseAuthStore.mockReturnValue({ isAuthenticated: false, _hasHydrated: false });
+    render(
+      <MemoryRouter>
+        <PublicRoute>
+          <span data-testid="login-form">Login form</span>
+        </PublicRoute>
+      </MemoryRouter>
+    );
+    expect(document.querySelector('.ant-spin')).toBeInTheDocument();
+    act(() => { vi.advanceTimersByTime(5000); });
+    expect(screen.getByTestId('login-form')).toBeInTheDocument();
+    expect(screen.getByText('Login form')).toBeInTheDocument();
+    expect(document.querySelector('.ant-spin')).not.toBeInTheDocument();
   });
 });

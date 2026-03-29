@@ -5,6 +5,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  Alert,
   Card,
   Button,
   Typography,
@@ -32,6 +33,7 @@ import { formatDate } from '@/utils/formatDate';
 import { getCaseStatusTag, getCaseTypeTag } from '@/utils/statusTags';
 import { CASE_TYPES, CASE_TYPE_I18N_KEYS } from '@/utils/caseType';
 import AdaptiveDashboard from '@/pages/Home/components/AdaptiveDashboard';
+import { getErrorMessage } from '@/utils/apiError';
 import { t } from '@/utils/i18n';
 import './List.less';
 
@@ -56,11 +58,16 @@ const CaseList = () => {
   const [sortBy, setSortBy] = useState<string>('latest');
   const [searchText, setSearchText] = useState('');
   const [fetchKey, setFetchKey] = useState(0);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const staleRef = useRef(false);
+  const fetchLockRef = useRef(false);
 
   const fetchCases = async () => {
+    if (fetchLockRef.current) return;
+    fetchLockRef.current = true;
     setLoading(true);
+    setLoadError(null);
     try {
       const params: {
         page: number;
@@ -98,13 +105,16 @@ const CaseList = () => {
 
       const response = await getCaseList(params);
       if (staleRef.current) return;
-      setCases(response.cases ?? []);
+      setCases(Array.isArray(response.cases) ? response.cases : []);
       setPagination(response.pagination ?? { page: 1, page_size: 10, total: 0, total_pages: 0 });
     } catch (error: unknown) {
       if (staleRef.current) return;
-      const err = error as { message?: string };
-      message.error(err?.message || t('message.getCaseListFail'));
+      const msg = getErrorMessage(error, 'message.getCaseListFail');
+      message.error(msg);
+      setLoadError(msg);
+      setCases([]);
     } finally {
+      fetchLockRef.current = false;
       if (!staleRef.current) setLoading(false);
     }
   };
@@ -206,13 +216,13 @@ const CaseList = () => {
         keywords={t('caseList.keywords')}
       />
       <div className="case-list-page" role="main" aria-label={t('caseList.pageLabel')}>
-        <div className="adaptive-hero-section mb-12 bg-gradient-to-br from-background to-gray-50 rounded-b-[40px] shadow-sm">
+        <div className="page-hero">
           <AdaptiveDashboard />
         </div>
 
         <div className="container mx-auto px-6">
           <AnimatedWrapper animation="fade" delay={100}>
-            <div className="page-header flex justify-between items-end mb-8" aria-labelledby="page-title">
+            <div className="page-header" aria-labelledby="page-title">
               <div className="header-left">
                 <Title level={2} id="page-title" className="font-heading font-bold m-0">
                   {t('caseList.heading')}
@@ -236,60 +246,80 @@ const CaseList = () => {
           </AnimatedWrapper>
 
         <AnimatedWrapper animation="slide" direction="down" delay={200} trigger="intersection">
-          <div className="filters-section" role="group" aria-label={t('caseList.filtersLabel')}>
-            <Space wrap>
-              <Select
-                value={statusFilter}
-                onChange={handleFilterChange(setStatusFilter)}
-                style={{ width: 120 }}
-                aria-label={t('caseList.ariaStatusFilter')}
-              >
-                <Option value="all">{t('caseList.statusAll')}</Option>
-                <Option value="draft">{t('caseList.statusDraft')}</Option>
-                <Option value="submitted">{t('caseList.statusSubmitted')}</Option>
-                <Option value="in_progress">{t('caseList.statusInProgress')}</Option>
-                <Option value="completed">{t('caseList.statusCompleted')}</Option>
-                <Option value="judgment_failed">{t('caseList.statusJudgmentFailed')}</Option>
-                <Option value="cancelled">{t('caseList.statusCancelled')}</Option>
-              </Select>
+          {cases.length > 0 || loadError ? (
+            <div className="filters-section" role="group" aria-label={t('caseList.filtersLabel')}>
+              <Space wrap>
+                <Select
+                  value={statusFilter}
+                  onChange={handleFilterChange(setStatusFilter)}
+                  style={{ width: 120 }}
+                  aria-label={t('caseList.ariaStatusFilter')}
+                >
+                  <Option value="all">{t('caseList.statusAll')}</Option>
+                  <Option value="draft">{t('caseList.statusDraft')}</Option>
+                  <Option value="submitted">{t('caseList.statusSubmitted')}</Option>
+                  <Option value="in_progress">{t('caseList.statusInProgress')}</Option>
+                  <Option value="completed">{t('caseList.statusCompleted')}</Option>
+                  <Option value="judgment_failed">{t('caseList.statusJudgmentFailed')}</Option>
+                  <Option value="cancelled">{t('caseList.statusCancelled')}</Option>
+                </Select>
 
-              <Select
-                value={typeFilter}
-                onChange={handleFilterChange(setTypeFilter)}
-                style={{ width: 150 }}
-                aria-label={t('caseList.ariaTypeFilter')}
-              >
-                <Option value="all">{t('caseList.typeAll')}</Option>
-                {CASE_TYPES.map((type) => (
-                  <Option key={type} value={type}>
-                    {t(CASE_TYPE_I18N_KEYS[type])}
-                  </Option>
-                ))}
-              </Select>
+                <Select
+                  value={typeFilter}
+                  onChange={handleFilterChange(setTypeFilter)}
+                  style={{ width: 150 }}
+                  aria-label={t('caseList.ariaTypeFilter')}
+                >
+                  <Option value="all">{t('caseList.typeAll')}</Option>
+                  {CASE_TYPES.map((type) => (
+                    <Option key={type} value={type}>
+                      {t(CASE_TYPE_I18N_KEYS[type])}
+                    </Option>
+                  ))}
+                </Select>
 
-              <Select
-                value={sortBy}
-                onChange={handleFilterChange(setSortBy)}
-                style={{ width: 120 }}
-                aria-label={t('caseList.ariaSort')}
-              >
-                <Option value="latest">{t('caseList.sortLatest')}</Option>
-                <Option value="oldest">{t('caseList.sortOldest')}</Option>
-                <Option value="status">{t('caseList.sortStatus')}</Option>
-              </Select>
+                <Select
+                  value={sortBy}
+                  onChange={handleFilterChange(setSortBy)}
+                  style={{ width: 120 }}
+                  aria-label={t('caseList.ariaSort')}
+                >
+                  <Option value="latest">{t('caseList.sortLatest')}</Option>
+                  <Option value="oldest">{t('caseList.sortOldest')}</Option>
+                  <Option value="status">{t('caseList.sortStatus')}</Option>
+                </Select>
 
-              <Search
-                placeholder={t('caseList.searchPlaceholder')}
-                allowClear
-                value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
-                style={{ width: 300 }}
-                onSearch={() => fetchCases()}
-                aria-label={t('caseList.ariaSearch')}
-              />
-            </Space>
-          </div>
+                <Search
+                  placeholder={t('caseList.searchPlaceholder')}
+                  allowClear
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                  style={{ width: 300 }}
+                  onSearch={() => fetchCases()}
+                  aria-label={t('caseList.ariaSearch')}
+                />
+              </Space>
+            </div>
+          ) : (
+            <div className="filters-empty-hint" role="status">
+              <Text type="secondary">{t('caseList.filtersEmptyHint')}</Text>
+            </div>
+          )}
         </AnimatedWrapper>
+
+        {loadError ? (
+          <Alert
+            type="error"
+            showIcon
+            title={loadError}
+            action={
+              <Button size="small" loading={loading} onClick={() => fetchCases()} data-testid="case-list-load-retry">
+                {t('common.retry')}
+              </Button>
+            }
+            style={{ marginBottom: 16 }}
+          />
+        ) : null}
 
         <Spin spinning={loading} description={t('common.loading')}>
           {cases.length === 0 ? (

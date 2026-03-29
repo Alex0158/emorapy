@@ -1,19 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import {
-  Alert,
-  Button,
-  Card,
-  Input,
-  Modal,
-  Select,
-  Space,
-  Spin,
-  Tag,
-  Typography,
-  message,
-} from 'antd';
-import { ArrowLeftOutlined, LinkOutlined, RollbackOutlined } from '@ant-design/icons';
+import { useMountedRef } from '@/hooks/useMountedRef';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Card, Space, Spin, message } from 'antd';
+import { getErrorMessage } from '@/utils/apiError';
 import { t } from '@/utils/i18n';
 import {
   acceptChatInvite,
@@ -31,30 +20,24 @@ import {
 } from '@/services/api/chat';
 import type { ChatMessage, ChatRoom, ChatRoomStatus } from '@/types/chat';
 import { useAuthStore } from '@/store/authStore';
-import { copyToClipboard } from '@/utils/copyToClipboard';
 import { sessionStorage } from '@/utils/storage';
-import { Virtuoso, type ListRange, type VirtuosoHandle } from 'react-virtuoso';
+import type { VirtuosoHandle } from 'react-virtuoso';
+import ChatRoomEntrySection from './components/ChatRoomEntrySection';
+import ChatRoomHeader from './components/ChatRoomHeader';
+import ChatRoomAlerts from './components/ChatRoomAlerts';
+import ChatMessageList from './components/ChatMessageList';
+import ChatMessageComposer from './components/ChatMessageComposer';
+import ChatJudgmentPanel, { getJudgmentPreviewInfo } from './components/ChatJudgmentPanel';
 import './index.less';
-
-const { Title, Text, Paragraph } = Typography;
 
 const MAX_MESSAGE_CACHE = 600;
 const ANCHOR_AUTO_PAGE_LIMIT = 6;
 const INITIAL_FIRST_ITEM_INDEX = 100_000;
-
-const ROOM_STATUS_COLOR: Partial<Record<ChatRoomStatus, string>> = {
-  solo_active: 'blue',
-  invite_pending: 'gold',
-  invite_accepted: 'cyan',
-  group_active: 'green',
-  judgment_requested: 'orange',
-  judgment_completed: 'success',
-  judgment_failed: 'error',
-  archived: 'default',
-};
+const AI_THINKING_TIMEOUT_MS = 15000;
 
 const ChatRoomPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { roomId: routeRoomId } = useParams<{ roomId: string }>();
   const currentUserId = useAuthStore((s) => s.user?.id);
 
@@ -86,7 +69,10 @@ const ChatRoomPage = () => {
   const [loadingMoreHistory, setLoadingMoreHistory] = useState(false);
   const [pendingAnchorMessageId, setPendingAnchorMessageId] = useState<string | null>(null);
   const [jumpBackState, setJumpBackState] = useState<{ originMessageId: string | null; wasAtBottom: boolean } | null>(null);
+  const [streamingAiText, setStreamingAiText] = useState('');
+  const [isAiStreaming, setIsAiStreaming] = useState(false);
 
+  const mountedRef = useMountedRef();
   const judgmentPollingRef = useRef<number | null>(null);
   const judgmentPollingAttemptsRef = useRef(0);
   const judgmentPollingRoomIdRef = useRef<string | null>(null);
@@ -97,6 +83,7 @@ const ChatRoomPage = () => {
   const roomRefreshQueuedRef = useRef(false);
   const createRoomLockRef = useRef(false);
   const joinInviteLockRef = useRef(false);
+  const loadRetryLockRef = useRef(false);
   const declineInviteLockRef = useRef(false);
   const sendMessageLockRef = useRef(false);
   const createInviteLockRef = useRef(false);
@@ -116,6 +103,7 @@ const ChatRoomPage = () => {
   const historyCacheFullNoticeAtRef = useRef(0);
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);
   const rangeStartIndexRef = useRef(0);
+  const thinkingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearRoomPolling = useCallback(() => {
     if (roomPollingRef.current) {
@@ -165,11 +153,20 @@ const ChatRoomPage = () => {
     return false;
   }, []);
 
+  const getRoomLoadErrorText = useCallback((error: unknown) => {
+    const err = error as { code?: string };
+    if (err?.code === 'NOT_FOUND' || err?.code === 'HTTP_404') {
+      return t('chat.message.roomUnavailable');
+    }
+    return getErrorMessage(error, 'chat.message.loadFail');
+  }, []);
+
   const isRoomTerminalStatus = useCallback((status?: ChatRoomStatus) => {
     return status === 'judgment_completed' || status === 'judgment_failed' || status === 'archived';
   }, []);
 
   const showRoomStatusNotice = useCallback((event: { at?: string; payload?: Record<string, unknown> }) => {
+    if (!mountedRef.current) return;
     const at = typeof event.at === 'string' ? event.at : null;
     if (at && lastRoomStatusNoticeAtRef.current === at) return;
 
@@ -187,7 +184,7 @@ const ChatRoomPage = () => {
     }
 
     lastRoomStatusNoticeAtRef.current = at ?? String(Date.now());
-  }, []);
+  }, [mountedRef]);
 
   const getRoleLabel = useCallback((role: string | null | undefined) => {
     const r = role ?? 'unknown';
@@ -363,6 +360,26 @@ const ChatRoomPage = () => {
     }, 8000);
   }, [refreshRoomSafely]);
 
+  const handleRetryLoad = useCallback(() => {
+    if (!routeRoomId || loadRetryLockRef.current) return;
+    loadRetryLockRef.current = true;
+    setErrorText('');
+    setLoading(true);
+    loadRoomInitial(routeRoomId)
+      .then(() => {
+        if (routeRoomId) {
+          ensureRoomPolling(routeRoomId);
+        }
+      })
+      .catch((error) => {
+        setErrorText(getRoomLoadErrorText(error));
+      })
+      .finally(() => {
+        setLoading(false);
+        loadRetryLockRef.current = false;
+      });
+  }, [routeRoomId, loadRoomInitial, ensureRoomPolling, getRoomLoadErrorText]);
+
   const tryStartJudgmentPolling = useCallback((targetRoomId: string) => {
     if (judgmentPollingRoomIdRef.current === targetRoomId && judgmentPollingRef.current) {
       return;
@@ -383,6 +400,7 @@ const ChatRoomPage = () => {
         const status = await getChatJudgmentStatus(targetRoomId);
         if (status.latestLink?.judgment?.id) {
           clearJudgmentPolling();
+          if (!mountedRef.current) return;
           message.success(t('chat.message.judgmentReady'));
           navigate(`/judgment/${status.latestLink.judgment.id}`);
           return;
@@ -409,6 +427,8 @@ const ChatRoomPage = () => {
         setHasMoreHistory(true);
         setPendingAnchorMessageId(null);
         setJumpBackState(null);
+        setIsAiStreaming(false);
+        setStreamingAiText('');
         pendingAnchorHandledRef.current = null;
         anchorJumpOriginRef.current = null;
         anchorAutoPagesRef.current = 0;
@@ -428,30 +448,80 @@ const ChatRoomPage = () => {
       setJumpBackState(null);
       pendingAnchorHandledRef.current = null;
       anchorJumpOriginRef.current = null;
-      setLoading(true);
       setErrorText('');
-      try {
-        await loadRoomInitial(routeRoomId);
-        if (!cancelled) {
-          clearRoomPolling();
-          ensureRoomPolling(routeRoomId);
-          // 初次進入房間：若帶有訊息錨點（#msg-...），優先讓錨點邏輯接管定位；
-          // 否則直接置底，避免使用者一開始看到中段訊息。
-          const hasAnchor = (() => {
-            try { return typeof window.location.hash === 'string' && window.location.hash.startsWith('#msg-'); } catch { return false; }
-          })();
-          if (!hasAnchor) {
-            setTimeout(() => scrollToBottom('auto'), 0);
+      const stateRoom = (location.state as { room?: ChatRoom } | null)?.room;
+      const useFastPath = stateRoom?.id === routeRoomId;
+      if (useFastPath) {
+        if (!cancelled) setRoom(stateRoom!);
+        try {
+          const r = await listChatMessages(routeRoomId, { limit: 50 });
+          if (!cancelled) {
+            firstItemIndexRef.current = INITIAL_FIRST_ITEM_INDEX;
+            messagesRef.current = r.messages;
+            setFirstItemIndex(INITIAL_FIRST_ITEM_INDEX);
+            setMessages(r.messages);
+            setHistoryCursor(r.nextCursor);
+            setHasMoreHistory(!!r.nextCursor);
+          }
+          if (!cancelled) {
+            clearRoomPolling();
+            ensureRoomPolling(routeRoomId);
+            const hasAnchor = (() => {
+              try { return typeof window.location.hash === 'string' && window.location.hash.startsWith('#msg-'); } catch { return false; }
+            })();
+            if (!hasAnchor) {
+              setTimeout(() => scrollToBottom('auto'), 0);
+            }
+          }
+        } catch {
+          if (!cancelled) {
+            setLoading(true);
+            setErrorText('');
+            try {
+              await loadRoomInitial(routeRoomId);
+              if (!cancelled) {
+                clearRoomPolling();
+                ensureRoomPolling(routeRoomId);
+                const hasAnchor = (() => {
+                  try { return typeof window.location.hash === 'string' && window.location.hash.startsWith('#msg-'); } catch { return false; }
+                })();
+                if (!hasAnchor) {
+                  setTimeout(() => scrollToBottom('auto'), 0);
+                }
+              }
+            } catch (e) {
+              if (!cancelled) {
+                setErrorText(getRoomLoadErrorText(e));
+              }
+            } finally {
+              if (!cancelled) {
+                setLoading(false);
+              }
+            }
           }
         }
-      } catch (error) {
-        const err = error as { message?: string };
-        if (!cancelled) {
-          setErrorText(err.message || t('chat.message.loadFail'));
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
+      } else {
+        setLoading(true);
+        try {
+          await loadRoomInitial(routeRoomId);
+          if (!cancelled) {
+            clearRoomPolling();
+            ensureRoomPolling(routeRoomId);
+            const hasAnchor = (() => {
+              try { return typeof window.location.hash === 'string' && window.location.hash.startsWith('#msg-'); } catch { return false; }
+            })();
+            if (!hasAnchor) {
+              setTimeout(() => scrollToBottom('auto'), 0);
+            }
+          }
+        } catch (error) {
+          if (!cancelled) {
+            setErrorText(getRoomLoadErrorText(error));
+          }
+        } finally {
+          if (!cancelled) {
+            setLoading(false);
+          }
         }
       }
     };
@@ -464,11 +534,13 @@ const ChatRoomPage = () => {
       streamCleanupRef.current = null;
       clearStreamRetry();
       clearHighlightTimer();
+      if (thinkingTimeoutRef.current) clearTimeout(thinkingTimeoutRef.current);
     };
-  }, [routeRoomId, clearJudgmentPolling, clearRoomPolling, loadRoomInitial, ensureRoomPolling, clearStreamRetry, clearHighlightTimer, scrollToBottom]);
+  }, [location.state, routeRoomId, clearJudgmentPolling, clearRoomPolling, loadRoomInitial, ensureRoomPolling, clearStreamRetry, clearHighlightTimer, scrollToBottom, getRoomLoadErrorText]);
 
   useEffect(() => {
-    if (!routeRoomId) return;
+    const activeRoomId = room?.id ?? null;
+    if (!activeRoomId) return;
     let cancelled = false;
     streamCleanupRef.current?.();
     streamCleanupRef.current = null;
@@ -479,7 +551,7 @@ const ChatRoomPage = () => {
         if (errorMessage) {
           setErrorText(errorMessage);
         }
-        ensureRoomPolling(routeRoomId);
+        ensureRoomPolling(activeRoomId);
         const nextRetry = Math.min(10000, 1000 * Math.max(1, retryFrom + 1));
         clearStreamRetry();
         streamRetryRef.current = setTimeout(() => {
@@ -490,7 +562,7 @@ const ChatRoomPage = () => {
 
       let cleanup: () => void;
 	      try {
-	        cleanup = await connectChatStream(routeRoomId, {
+	        cleanup = await connectChatStream(activeRoomId, {
 	          onEvent: (event) => {
 	            if (cancelled) return;
 	            if (event.type === 'ready') {
@@ -498,11 +570,30 @@ const ChatRoomPage = () => {
 	              setErrorText('');
 	              return;
 	            }
+	            if (event.type === 'ai_start') {
+	              setIsAiStreaming(true);
+	              setStreamingAiText('');
+	              return;
+	            }
+	            if (event.type === 'ai_token') {
+	              setStreamingAiText((prev) => prev + (event.payload?.text ?? ''));
+	              return;
+	            }
+	            if (event.type === 'ai_end') {
+	              if (thinkingTimeoutRef.current) clearTimeout(thinkingTimeoutRef.current);
+	              setIsAiStreaming(false);
+	              setStreamingAiText('');
+	              void refreshRoomSafely(activeRoomId);
+	              return;
+	            }
 	            if (event.type === 'message' || event.type === 'invite' || event.type === 'room_status') {
 	              if (event.type === 'room_status') {
 	                showRoomStatusNotice(event);
 	              }
-	              void refreshRoomSafely(routeRoomId);
+	              if (thinkingTimeoutRef.current) clearTimeout(thinkingTimeoutRef.current);
+	              setIsAiStreaming(false);
+	              setStreamingAiText('');
+	              void refreshRoomSafely(activeRoomId);
 	            }
 	          },
           onError: (streamError) => {
@@ -522,8 +613,7 @@ const ChatRoomPage = () => {
         });
       } catch (error) {
         if (cancelled) return;
-        const err = error as { message?: string };
-        scheduleReconnect(retryCount, err.message || t('chat.message.streamFail'));
+        scheduleReconnect(retryCount, getErrorMessage(error, 'chat.message.streamFail'));
         return;
       }
       if (cancelled) {
@@ -540,7 +630,7 @@ const ChatRoomPage = () => {
       streamCleanupRef.current?.();
       streamCleanupRef.current = null;
     };
-	  }, [clearRoomPolling, clearStreamRetry, ensureRoomPolling, isTerminalStreamError, refreshRoomSafely, routeRoomId, showRoomStatusNotice]);
+	  }, [clearRoomPolling, clearStreamRetry, ensureRoomPolling, isTerminalStreamError, refreshRoomSafely, room?.id, showRoomStatusNotice]);
 
   useEffect(() => {
     // 新訊息進來時：
@@ -592,8 +682,7 @@ const ChatRoomPage = () => {
       setHasMoreHistory(!!result.nextCursor);
 
     } catch (error) {
-      const err = error as { message?: string };
-      message.error(err.message || t('chat.message.loadMoreFail'));
+      message.error(getErrorMessage(error, 'chat.message.loadMoreFail'));
     } finally {
       setLoadingMoreHistory(false);
       loadMoreHistoryLockRef.current = false;
@@ -739,17 +828,20 @@ const ChatRoomPage = () => {
     setErrorText('');
     try {
       const created = await createChatRoom(visibilityMode);
+      if (!mountedRef.current) return;
       setRoom(created);
       setLastInviteCode('');
-      navigate(`/chat/room/${created.id}`);
+      navigate(`/chat/room/${created.id}`, { state: { room: created } });
     } catch (error) {
-      const err = error as { message?: string };
-      setErrorText(err.message || t('chat.message.createRoomFail'));
+      if (!mountedRef.current) return;
+      setErrorText(getErrorMessage(error, 'chat.message.createRoomFail'));
     } finally {
-      setCreatingRoom(false);
+      if (mountedRef.current) {
+        setCreatingRoom(false);
+      }
       createRoomLockRef.current = false;
     }
-  }, [navigate, visibilityMode]);
+  }, [mountedRef, navigate, visibilityMode]);
 
   const handleAcceptInvite = useCallback(async () => {
     if (decliningInvite || declineInviteLockRef.current) return;
@@ -763,17 +855,20 @@ const ChatRoomPage = () => {
     setJoiningInvite(true);
     try {
       const joined = await acceptChatInvite(inviteCode);
+      if (!mountedRef.current) return;
       setErrorText('');
       message.success(t('chat.message.joinSuccess'));
       navigate(`/chat/room/${joined.id}`);
     } catch (error) {
-      const err = error as { message?: string };
-      message.error(err.message || t('chat.message.joinFail'));
+      if (!mountedRef.current) return;
+      message.error(getErrorMessage(error, 'chat.message.joinFail'));
     } finally {
-      setJoiningInvite(false);
+      if (mountedRef.current) {
+        setJoiningInvite(false);
+      }
       joinInviteLockRef.current = false;
     }
-  }, [decliningInvite, inviteCodeInput, navigate]);
+  }, [decliningInvite, inviteCodeInput, mountedRef, navigate]);
 
   const handleDeclineInvite = useCallback(async () => {
     if (joiningInvite || joinInviteLockRef.current) return;
@@ -787,16 +882,19 @@ const ChatRoomPage = () => {
     setDecliningInvite(true);
     try {
       await declineChatInvite(inviteCode);
+      if (!mountedRef.current) return;
       setErrorText('');
       message.success(t('chat.message.declineSuccess'));
     } catch (error) {
-      const err = error as { message?: string };
-      message.error(err.message || t('chat.message.declineFail'));
+      if (!mountedRef.current) return;
+      message.error(getErrorMessage(error, 'chat.message.declineFail'));
     } finally {
-      setDecliningInvite(false);
+      if (mountedRef.current) {
+        setDecliningInvite(false);
+      }
       declineInviteLockRef.current = false;
     }
-  }, [inviteCodeInput, joiningInvite]);
+  }, [inviteCodeInput, joiningInvite, mountedRef]);
 
   const handleSendMessage = useCallback(async () => {
     if (!room?.id) return;
@@ -812,26 +910,41 @@ const ChatRoomPage = () => {
         visibility_scope: visibilityScope,
         reply_to_message_id: replyTo?.id,
       });
+      if (!mountedRef.current) return;
       setMessages((prev) => {
         const next = [...prev, sent];
         const allowTrim = isAtBottomRef.current && !pendingAnchorMessageId && !loadingMoreHistory;
         return trimMessageCache(next, { allowTrim });
       });
+      if (visibilityScope === 'all') {
+        if (thinkingTimeoutRef.current) clearTimeout(thinkingTimeoutRef.current);
+        setIsAiStreaming(true);
+        setStreamingAiText('');
+        thinkingTimeoutRef.current = setTimeout(() => {
+          if (mountedRef.current) {
+            setIsAiStreaming(false);
+            setStreamingAiText('');
+          }
+        }, AI_THINKING_TIMEOUT_MS);
+      }
       setMessageInput('');
       setReplyTo(null);
       setErrorText('');
     } catch (error) {
+      if (!mountedRef.current) return;
       const err = error as { message?: string; code?: string };
       if (err.code === 'FORBIDDEN') {
         message.warning(t('chat.message.forbidden'));
       } else {
-        message.error(err.message || t('chat.message.sendFail'));
+        message.error(getErrorMessage(error, 'chat.message.sendFail'));
       }
     } finally {
-      setSending(false);
+      if (mountedRef.current) {
+        setSending(false);
+      }
       sendMessageLockRef.current = false;
     }
-  }, [isRoomTerminalStatus, loadingMoreHistory, messageInput, pendingAnchorMessageId, replyTo?.id, room?.id, room?.status, trimMessageCache, visibilityScope]);
+  }, [isRoomTerminalStatus, loadingMoreHistory, messageInput, mountedRef, pendingAnchorMessageId, replyTo?.id, room?.id, room?.status, trimMessageCache, visibilityScope]);
 
   const handleCreateInvite = useCallback(async () => {
     if (!room?.id) return;
@@ -842,23 +955,32 @@ const ChatRoomPage = () => {
     try {
       // Invite visibility should follow room settings; avoid leaking stale UI state.
       const invite = await createChatInvite(room.id, { history_visibility_mode: room.history_visibility_mode ?? 'share_summary_only' });
+      if (!mountedRef.current) return;
       setLastInviteCode(invite.invite_code || '');
       setErrorText('');
       await refreshRoomSafely(room.id);
+      if (!mountedRef.current) return;
       message.success(t('chat.message.createInviteSuccess'));
     } catch (error) {
+      if (!mountedRef.current) return;
       const err = error as { message?: string; code?: string };
       if (err.code === 'CONFLICT') {
         message.warning(t('chat.message.conflictRefresh'));
         await refreshRoomSafely(room.id).catch(() => undefined);
         return;
       }
-      message.error(err.message || t('chat.message.createInviteFail'));
+      if (err.code === 'INVALID_SESSION_ID' || err.code === 'SESSION_EXPIRED') {
+        message.warning(t('chat.message.invalidSession'));
+        return;
+      }
+      message.error(getErrorMessage(error, 'chat.message.createInviteFail'));
     } finally {
-      setCreatingInvite(false);
+      if (mountedRef.current) {
+        setCreatingInvite(false);
+      }
       createInviteLockRef.current = false;
     }
-  }, [isRoomTerminalStatus, refreshRoomSafely, room?.history_visibility_mode, room?.id, room?.status]);
+  }, [isRoomTerminalStatus, mountedRef, refreshRoomSafely, room?.history_visibility_mode, room?.id, room?.status]);
 
   const openJudgmentPreview = useCallback(() => {
     if (!room?.id) return;
@@ -867,6 +989,48 @@ const ChatRoomPage = () => {
     setSelectedForJudgment(included);
     setPreviewVisible(true);
   }, [messages, room, isRoomTerminalStatus]);
+
+  const handleJumpBack = useCallback(() => {
+    const origin = jumpBackState;
+    setJumpBackState(null);
+    if (!origin) return;
+    if (origin.wasAtBottom) {
+      scrollToBottom('smooth');
+      return;
+    }
+    if (origin.originMessageId) {
+      const idx = messageIndexByIdRef.current.get(origin.originMessageId);
+      if (idx !== undefined) {
+        virtuosoRef.current?.scrollToIndex({ index: idx, align: 'start', behavior: 'smooth' });
+      }
+    }
+  }, [jumpBackState, scrollToBottom]);
+
+  const handleLeaveRoomAction = useCallback(async () => {
+    if (!room?.id) return;
+    try {
+      await leaveChatRoom(room.id);
+      if (!mountedRef.current) return;
+      message.success(t('chat.message.leaveRoomSuccess'));
+      navigate('/chat/room');
+    } catch (error) {
+      if (!mountedRef.current) return;
+      message.error(getErrorMessage(error, 'chat.message.leaveRoomFail'));
+    }
+  }, [mountedRef, navigate, room?.id]);
+
+  const handleKickB = useCallback(async () => {
+    if (!room?.id) return;
+    try {
+      await kickChatParticipantB(room.id);
+      if (!mountedRef.current) return;
+      message.success(t('chat.message.kickSuccess'));
+      await refreshRoomSafely(room.id);
+    } catch (error) {
+      if (!mountedRef.current) return;
+      message.error(getErrorMessage(error, 'chat.message.kickFail'));
+    }
+  }, [mountedRef, refreshRoomSafely, room?.id]);
 
   const handleRequestJudgment = useCallback(async (includedIds?: string[]) => {
     if (!room?.id) return;
@@ -877,6 +1041,7 @@ const ChatRoomPage = () => {
     try {
       const payload = includedIds && includedIds.length > 0 ? { included_message_ids: includedIds } : undefined;
       const result = await requestChatJudgment(room.id, payload);
+      if (!mountedRef.current) return;
       setErrorText('');
       message.success(t('chat.message.judgmentRequested'));
       if (result.judgmentId) {
@@ -886,29 +1051,23 @@ const ChatRoomPage = () => {
       tryStartJudgmentPolling(room.id);
       await refreshRoomSafely(room.id);
     } catch (error) {
+      if (!mountedRef.current) return;
       const err = error as { message?: string; code?: string };
       if (err.code === 'CONFLICT') {
         message.warning(t('chat.message.conflictRefresh'));
         await refreshRoomSafely(room.id).catch(() => undefined);
-      } else if (err.code === 'INVALID_SESSION_ID') {
+      } else if (err.code === 'INVALID_SESSION_ID' || err.code === 'SESSION_EXPIRED') {
         message.warning(t('chat.message.invalidSession'));
       } else {
-        message.error(err.message || t('chat.message.judgmentFail'));
+        message.error(getErrorMessage(error, 'chat.message.judgmentFail'));
       }
     } finally {
-      setJudging(false);
+      if (mountedRef.current) {
+        setJudging(false);
+      }
       requestJudgmentLockRef.current = false;
     }
-  }, [isRoomTerminalStatus, navigate, refreshRoomSafely, room?.id, room?.status, tryStartJudgmentPolling]);
-
-  const statusTag = useMemo(() => {
-    if (!room?.status) return null;
-    return (
-      <Tag color={ROOM_STATUS_COLOR[room.status] || 'default'}>
-        {t(`chat.status.${room.status}`)}
-      </Tag>
-    );
-  }, [room?.status]);
+  }, [isRoomTerminalStatus, mountedRef, navigate, refreshRoomSafely, room?.id, room?.status, tryStartJudgmentPolling]);
 
   const roomStatus = room?.status;
   const isRoomTerminal = isRoomTerminalStatus(roomStatus);
@@ -946,12 +1105,6 @@ const ChatRoomPage = () => {
   }, [messages]);
 
   const previewInfo = useMemo(() => getJudgmentPreviewInfo(room, messages), [messages, room]);
-  const previewList = previewInfo.includedMessages;
-  const previewMessage = previewList.length === 0
-    ? t('chat.preview.none')
-    : previewList
-      .map((m) => `${new Date(m.created_at).toLocaleString()} | ${getRoleLabel(m.sender_participant?.role_in_room)}: ${m.content}`)
-      .join('\n');
 
   const canRequestMoreHistory = hasMoreHistory && !!historyCursor && messages.length > 0;
   const historyBlockedByCache = canRequestMoreHistory && !pendingAnchorMessageId && messages.length >= MAX_MESSAGE_CACHE;
@@ -977,88 +1130,19 @@ const ChatRoomPage = () => {
 
   if (!routeRoomId) {
     return (
-      <div className="chat-room-entry">
-        <div className="chat-room-entry__ambient">
-          <div className="chat-room-entry__orb chat-room-entry__orb--1" />
-          <div className="chat-room-entry__orb chat-room-entry__orb--2" />
-          <div className="chat-room-entry__orb chat-room-entry__orb--3" />
-          <div className="chat-room-entry__vignette" aria-hidden />
-        </div>
-        <div className="chat-room-entry__panel">
-          <header className="chat-room-entry__header">
-            <h1 className="chat-room-entry__title">{t('chat.title')}</h1>
-            <p className="chat-room-entry__subtitle">{t('chat.subtitle')}</p>
-          </header>
-          {errorText ? (
-            <Alert
-              type="error"
-              showIcon
-              message={errorText}
-              className="chat-room-entry__alert"
-            />
-          ) : null}
-          <section className="chat-room-entry__create" aria-labelledby="chat-create-heading">
-            <h2 id="chat-create-heading" className="chat-room-entry__section-title">
-              {t('chat.createRoom')}
-            </h2>
-            <div className="chat-room-entry__create-actions">
-              <Select
-                value={visibilityMode}
-                onChange={(value) => setVisibilityMode(value)}
-                options={[
-                  { value: 'share_full_history', label: t('chat.visibility.share_full_history') },
-                  { value: 'share_summary_only', label: t('chat.visibility.share_summary_only') },
-                  { value: 'share_from_join_time', label: t('chat.visibility.share_from_join_time') },
-                ]}
-                className="chat-room-entry__visibility-select"
-              />
-              <Button
-                type="primary"
-                size="large"
-                loading={creatingRoom}
-                onClick={handleCreateRoom}
-                className="chat-room-entry__cta"
-              >
-                {t('chat.createRoom')}
-              </Button>
-            </div>
-          </section>
-          <div className="chat-room-entry__divider" aria-hidden />
-          <section className="chat-room-entry__join" aria-labelledby="chat-join-heading">
-            <h2 id="chat-join-heading" className="chat-room-entry__section-title">
-              {t('chat.joinByInvite')}
-            </h2>
-            <div className="chat-room-entry__join-row">
-              <Input
-                value={inviteCodeInput}
-                onChange={(e) => setInviteCodeInput(e.target.value)}
-                placeholder={t('chat.inviteCodePlaceholder')}
-                className="chat-room-entry__invite-input"
-                size="large"
-              />
-              <div className="chat-room-entry__join-btns">
-                <Button
-                  type="primary"
-                  ghost
-                  size="large"
-                  loading={joiningInvite}
-                  onClick={handleAcceptInvite}
-                >
-                  {t('chat.joinByInvite')}
-                </Button>
-                <Button
-                  size="large"
-                  loading={decliningInvite}
-                  onClick={handleDeclineInvite}
-                  className="chat-room-entry__decline-btn"
-                >
-                  {t('chat.declineInvite')}
-                </Button>
-              </div>
-            </div>
-          </section>
-        </div>
-      </div>
+      <ChatRoomEntrySection
+        errorText={errorText}
+        visibilityMode={visibilityMode}
+        onVisibilityModeChange={setVisibilityMode}
+        inviteCodeInput={inviteCodeInput}
+        onInviteCodeInputChange={(v) => setInviteCodeInput(v)}
+        creatingRoom={creatingRoom}
+        joiningInvite={joiningInvite}
+        decliningInvite={decliningInvite}
+        onCreateRoom={handleCreateRoom}
+        onAcceptInvite={handleAcceptInvite}
+        onDeclineInvite={handleDeclineInvite}
+      />
     );
   }
 
@@ -1071,570 +1155,107 @@ const ChatRoomPage = () => {
           </div>
         ) : (
           <>
-	            <Space orientation="vertical" size={12} style={{ width: '100%' }}>
-	              <Space style={{ justifyContent: 'space-between', width: '100%' }}>
-	                <Title level={4} style={{ margin: 0 }}>
-	                  {t('chat.roomLabel').replace('{roomId}', room?.id || routeRoomId)}
-	                </Title>
-	                {statusTag}
-	              </Space>
-              {myRole ? (
-                <Text type="secondary">
-                  {t('chat.myRoleLabel')}
-                  {getRoleLabel(myRole)}
-                </Text>
-              ) : null}
-	              {errorText ? <Alert type="error" showIcon title={errorText} /> : null}
-	              {lastInviteCode ? (
-	                <Alert
-	                  type="success"
-	                  showIcon
-	                  title={t('chat.inviteCodeLabel').replace('{code}', lastInviteCode)}
-	                />
-	              ) : null}
-	              {latestSafetyNotice ? (
-	                <Alert
-	                  className="chat-room-page__safety-banner"
-	                  type="warning"
-	                  showIcon
-	                  title={t('chat.safetyBannerTitle')}
-	                  description={latestSafetyNotice.content}
-	                />
-	              ) : null}
-	              <Space wrap>
-	                <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/chat/room')}>
-	                  {t('chat.leaveRoom')}
-	                </Button>
-	                <Button disabled={disableCreateInvite} loading={creatingInvite} onClick={handleCreateInvite}>
-	                  {t('chat.createInvite')}
-	                </Button>
-	                <Button type="primary" disabled={disableRequestJudgment} loading={judging} onClick={openJudgmentPreview}>
-	                  {t('chat.requestJudgment')}
-	                </Button>
-	                {canLeaveRoom ? (
-	                  <Button
-	                    onClick={async () => {
-	                      if (!room?.id) return;
-	                      try {
-	                        await leaveChatRoom(room.id);
-	                        message.success(t('chat.message.leaveRoomSuccess'));
-	                        navigate('/chat/room');
-	                      } catch (error) {
-	                        const err = error as { message?: string };
-	                        message.error(err.message || t('chat.message.leaveRoomFail'));
-	                      }
-	                    }}
-	                  >
-	                    {t('chat.leaveRoomAction')}
-	                  </Button>
-	                ) : null}
-	                {canKickB ? (
-	                  <Button
-	                    danger
-	                    onClick={async () => {
-	                      if (!room?.id) return;
-	                      try {
-	                        await kickChatParticipantB(room.id);
-	                        message.success(t('chat.message.kickSuccess'));
-	                        await refreshRoomSafely(room.id);
-	                      } catch (error) {
-	                        const err = error as { message?: string };
-	                        message.error(err.message || t('chat.message.kickFail'));
-	                      }
-	                    }}
-	                  >
-	                    {t('chat.kickB')}
-	                  </Button>
-	                ) : null}
-	              </Space>
-	              {!isOwner ? (
-	                <Text type="secondary">{t('chat.hint.onlyOwnerActions')}</Text>
-	              ) : hasActiveRoleB ? (
-	                <Text type="secondary">{t('chat.hint.roleBAlreadyJoined')}</Text>
-	              ) : null}
-	            </Space>
-
-	            <div className="chat-room-page__messages">
-	              {messages.length === 0 ? (
-	                <div className="chat-room-page__messages-empty">
-	                  <Text type="secondary">{t('chat.emptyMessages')}</Text>
-	                </div>
-	              ) : (
-	                <>
-	                  <Virtuoso
-	                    ref={virtuosoRef}
-	                    className="chat-room-page__virtuoso"
-	                    style={{ height: '100%' }}
-	                    data={messages}
-	                    firstItemIndex={firstItemIndex}
-	                    computeItemKey={(_index, item) => (item as ChatMessage).id}
-                    scrollerRef={(node) => {
-                      messagesContainerRef.current = node instanceof HTMLElement ? node : null;
-	                    }}
-	                    rangeChanged={(range: ListRange) => {
-	                      rangeStartIndexRef.current = range.startIndex;
-	                    }}
-	                    atBottomStateChange={(atBottom) => {
-	                      isAtBottomRef.current = atBottom;
-	                      if (atBottom) setHasUnread(false);
-	                    }}
-	                    startReached={() => {
-	                      if (pendingAnchorMessageId) return;
-	                      if (!canLoadMoreHistory) return;
-	                      if (loadingMoreHistory) return;
-	                      void loadMoreHistory();
-	                    }}
-	                    followOutput={(isAtBottom) => (isAtBottom ? 'auto' : false)}
-	                    components={{
-	                      Header: () => (
-	                        canRequestMoreHistory ? (
-	                          <div className="chat-room-page__history-bar">
-	                            <Space size={8} wrap>
-	                              <Button
-	                                size="small"
-	                                loading={loadingMoreHistory}
-	                                disabled={!canLoadMoreHistory}
-	                                onClick={loadMoreHistory}
-	                              >
-	                                {t('chat.loadMore')}
-	                              </Button>
-	                              {historyBlockedByCache ? (
-	                                <Text type="secondary">{t('chat.historyCacheFullHint')}</Text>
-	                              ) : null}
-	                            </Space>
-	                          </div>
-	                        ) : null
-	                      ),
-	                      Footer: () => <div style={{ height: 80 }} />,
-	                    }}
-	                    itemContent={(index, item) => {
-	                      const list = messages;
-	                      const msg = item as ChatMessage;
-	                      const localIndex = index - firstItemIndex;
-
-	                      const role = msg.sender_participant?.role_in_room ?? 'unknown';
-	                      const roleLabel = getRoleLabel(role);
-	                      const side = (() => {
-	                        if (msg.message_type === 'safety_notice') return 'center';
-	                        if (role === 'roleA') return 'right';
-	                        if (role === 'roleB') return 'left';
-	                        return 'center';
-	                      })();
-
-	                      const prev = localIndex > 0 ? list[localIndex - 1] : null;
-	                      const next = localIndex < list.length - 1 ? list[localIndex + 1] : null;
-	                      const groupKey = `${role}:${msg.message_type}`;
-	                      const prevKey = prev ? `${prev.sender_participant?.role_in_room ?? 'unknown'}:${prev.message_type}` : null;
-	                      const nextKey = next ? `${next.sender_participant?.role_in_room ?? 'unknown'}:${next.message_type}` : null;
-	                      const withinGroupGap = (a: ChatMessage | null, b: ChatMessage | null) => {
-	                        if (!a || !b) return false;
-	                        const aAt = new Date(a.created_at).getTime();
-	                        const bAt = new Date(b.created_at).getTime();
-	                        return Math.abs(bAt - aAt) <= 3 * 60 * 1000;
-	                      };
-	                      const isGroupStart = !prev || prevKey !== groupKey || !withinGroupGap(prev, msg) || msg.message_type === 'safety_notice';
-	                      const isGroupEnd = !next || nextKey !== groupKey || !withinGroupGap(msg, next) || msg.message_type === 'safety_notice';
-
-	                      const prevDay = prev ? new Date(prev.created_at).toLocaleDateString() : null;
-	                      const currentDay = new Date(msg.created_at).toLocaleDateString();
-	                      const showDayDivider = !prev || prevDay !== currentDay;
-
-	                      const anchorId = `msg-${msg.id}`;
-	                      const linkUrl = currentHrefWithoutHash ? `${currentHrefWithoutHash}#${anchorId}` : '';
-
-	                      return (
-	                        <div>
-	                          {showDayDivider ? (
-	                            <div className="chat-room-page__date-divider">
-	                              <Text type="secondary">{currentDay}</Text>
-	                            </div>
-	                          ) : null}
-
-	                          <div className={`chat-room-page__message-row chat-room-page__message-row--${side}`}>
-	                            <div
-	                              id={anchorId}
-	                              className={[
-	                                'chat-room-page__message-item',
-	                                `chat-room-page__message-item--${side}`,
-	                                msg.message_type === 'safety_notice' ? 'chat-room-page__message-item--safety' : null,
-	                                replyTo?.id === msg.id ? 'chat-room-page__message-item--reply-target' : null,
-	                                highlightMessageId === msg.id ? 'chat-room-page__message-item--reply-target' : null,
-	                                !isGroupStart ? 'chat-room-page__message-item--grouped' : null,
-	                              ].filter(Boolean).join(' ')}
-	                            >
-	                              {isGroupStart ? (
-	                                <div className="chat-room-page__message-head">
-	                                  <Space size={6} wrap>
-	                                    <Tag color="default">{roleLabel}</Tag>
-	                                    {msg.message_type !== 'user_text' ? <Tag color="processing">{getMessageTypeLabel(msg.message_type)}</Tag> : null}
-	                                    <Tag color="purple">{getVisibilityScopeLabel(msg.visibility_scope)}</Tag>
-	                                    {msg.ai_strategy ? <Tag color="blue">{getAiStrategyLabel(msg.ai_strategy)}</Tag> : null}
-	                                  </Space>
-	                                  <div className="chat-room-page__message-actions">
-	                                    {msg.message_type !== 'safety_notice' ? (
-	                                      <>
-	                                        <Button
-	                                          size="small"
-	                                          type="text"
-	                                          icon={<RollbackOutlined />}
-	                                          disabled={disableSendMessage}
-	                                          aria-label={t('chat.reply')}
-	                                          onClick={(e) => {
-	                                            e.stopPropagation();
-	                                            setReplyTo(msg);
-	                                          }}
-	                                        >
-	                                          {t('chat.reply')}
-	                                        </Button>
-	                                        <Button
-	                                          size="small"
-	                                          type="text"
-	                                          icon={<LinkOutlined />}
-	                                          aria-label={t('chat.copyLink')}
-	                                          onClick={async (e) => {
-	                                            e.stopPropagation();
-	                                            setMessageAnchor(msg.id, { replace: true });
-	                                            if (linkUrl) {
-	                                              await copyToClipboard(linkUrl);
-	                                            }
-	                                          }}
-	                                        >
-	                                          {t('chat.copyLink')}
-	                                        </Button>
-	                                      </>
-	                                    ) : null}
-	                                  </div>
-	                                </div>
-	                              ) : (
-	                                <div className="chat-room-page__message-actions chat-room-page__message-actions--floating">
-	                                  {msg.message_type !== 'safety_notice' ? (
-	                                    <>
-	                                      <Button
-	                                        size="small"
-	                                        type="text"
-	                                        icon={<RollbackOutlined />}
-	                                        disabled={disableSendMessage}
-	                                        aria-label={t('chat.reply')}
-	                                        onClick={(e) => {
-	                                          e.stopPropagation();
-	                                          setReplyTo(msg);
-	                                        }}
-	                                      />
-	                                      <Button
-	                                        size="small"
-	                                        type="text"
-	                                        icon={<LinkOutlined />}
-	                                        aria-label={t('chat.copyLink')}
-	                                        onClick={async (e) => {
-	                                          e.stopPropagation();
-	                                          setMessageAnchor(msg.id, { replace: true });
-	                                          if (linkUrl) {
-	                                            await copyToClipboard(linkUrl);
-	                                          }
-	                                        }}
-	                                      />
-	                                    </>
-	                                  ) : null}
-	                                </div>
-	                              )}
-
-	                              {msg.reply_to_message_id ? (
-	                                <div
-	                                  className="chat-room-page__reply-preview"
-	                                  role="button"
-	                                  tabIndex={0}
-	                                  onClick={() => {
-	                                    const targetId = msg.reply_to_message_id!;
-	                                    setMessageAnchor(targetId, { replace: true });
-	                                    handleAnchorTarget(targetId);
-	                                  }}
-	                                  onKeyDown={(e) => {
-	                                    if (e.key === 'Enter' || e.key === ' ') {
-	                                      e.preventDefault();
-	                                      const targetId = msg.reply_to_message_id!;
-	                                      setMessageAnchor(targetId, { replace: true });
-	                                      handleAnchorTarget(targetId);
-	                                    }
-	                                  }}
-	                                >
-	                                  <Text type="secondary">{t('chat.replyReference')}</Text>
-	                                  <Paragraph className="chat-room-page__reply-preview-content">
-	                                    {messageById.get(msg.reply_to_message_id)?.content ?? t('chat.replyReferenceMissing')}
-	                                  </Paragraph>
-	                                </div>
-	                              ) : null}
-
-	                              {msg.message_type === 'safety_notice' ? (
-	                                <Alert
-	                                  type="warning"
-	                                  showIcon
-	                                  title={t('chat.safetyMessageTitle')}
-	                                  description={msg.content}
-	                                />
-	                              ) : (
-	                                <Paragraph className="chat-room-page__message-content">{msg.content}</Paragraph>
-	                              )}
-
-	                              {isGroupEnd ? (
-	                                <div className="chat-room-page__message-foot">
-	                                  <Text type="secondary">{new Date(msg.created_at).toLocaleString()}</Text>
-	                                </div>
-	                              ) : null}
-	                            </div>
-	                          </div>
-	                        </div>
-	                      );
-	                    }}
-	                  />
-
-	                  {hasUnread || jumpBackState ? (
-	                    <div className="chat-room-page__bottom-bar">
-	                      <div className="chat-room-page__bottom-bar-left">
-	                        {jumpBackState ? (
-	                          <Space size={8}>
-	                            <Button
-	                              size="small"
-	                              onClick={() => {
-	                                const origin = jumpBackState;
-	                                setJumpBackState(null);
-	                                if (!origin) return;
-	                                if (origin.wasAtBottom) {
-	                                  scrollToBottom('smooth');
-	                                  return;
-	                                }
-	                                if (origin.originMessageId) {
-	                                  const idx = messageIndexByIdRef.current.get(origin.originMessageId);
-	                                  if (idx !== undefined) {
-	                                    virtuosoRef.current?.scrollToIndex({ index: idx, align: 'start', behavior: 'smooth' });
-	                                  }
-	                                }
-	                              }}
-	                            >
-	                              {t('chat.jumpBack')}
-	                            </Button>
-	                            <Button
-	                              size="small"
-	                              type="text"
-	                              aria-label={t('chat.dismiss')}
-	                              onClick={() => setJumpBackState(null)}
-	                            >
-	                              ×
-	                            </Button>
-	                          </Space>
-	                        ) : null}
-	                      </div>
-	                      <div className="chat-room-page__bottom-bar-right">
-	                        {hasUnread ? (
-	                          <Button
-	                            size="small"
-	                            type="primary"
-	                            onClick={() => scrollToBottom('smooth')}
-	                          >
-	                            {t('chat.jumpToLatest')}
-	                          </Button>
-	                        ) : null}
-	                      </div>
-	                    </div>
-	                  ) : null}
-	                </>
-	              )}
-	            </div>
-
-            {replyTo ? (
-              <Alert
-                type="info"
-                showIcon
-                title={t('chat.replyingTo')}
-                description={replyTo.content}
-                closable
-                onClose={() => setReplyTo(null)}
+            <Space orientation="vertical" size={12} style={{ width: '100%' }}>
+              <ChatRoomHeader
+                roomId={routeRoomId!}
+                room={room}
+                myRole={myRole}
+                isOwner={!!isOwner}
+                hasActiveRoleB={!!hasActiveRoleB}
+                getRoleLabel={getRoleLabel}
+                disableCreateInvite={disableCreateInvite}
+                disableRequestJudgment={disableRequestJudgment}
+                creatingInvite={creatingInvite}
+                judging={judging}
+                canLeaveRoom={!!canLeaveRoom}
+                canKickB={!!canKickB}
+                onCreateInvite={handleCreateInvite}
+                onRequestJudgment={openJudgmentPreview}
+                onLeaveRoomAction={handleLeaveRoomAction}
+                onKickB={handleKickB}
+                onNavigateBack={() => navigate('/chat/room')}
               />
-            ) : null}
-
-            <Space style={{ width: '100%', marginBottom: 8 }}>
-              <Select
-                value={visibilityScope}
-                onChange={setVisibilityScope}
-                options={[
-                  { value: 'all', label: t('chat.visibility.all') },
-                  { value: 'summary_only', label: t('chat.visibility.summary_only') },
-                  { value: 'owner_only', label: t('chat.visibility.owner_only') },
-                ]}
-                style={{ width: 180 }}
+              <ChatRoomAlerts
+                errorText={errorText}
+                lastInviteCode={lastInviteCode}
+                latestSafetyContent={latestSafetyNotice?.content ?? null}
+                hasRoom={!!room}
+                roomId={routeRoomId}
+                onRetryLoad={handleRetryLoad}
+              />
+              <ChatMessageList
+                messages={messages}
+                firstItemIndex={firstItemIndex}
+                virtuosoRef={virtuosoRef}
+                messagesContainerRef={messagesContainerRef}
+                onRangeChanged={(range) => { rangeStartIndexRef.current = range.startIndex; }}
+                onAtBottomChange={(atBottom) => {
+                  isAtBottomRef.current = atBottom;
+                  if (atBottom) setHasUnread(false);
+                }}
+                onStartReached={() => {
+                  if (pendingAnchorMessageId) return;
+                  if (!canLoadMoreHistory) return;
+                  if (loadingMoreHistory) return;
+                  void loadMoreHistory();
+                }}
+                canRequestMoreHistory={canRequestMoreHistory}
+                canLoadMoreHistory={canLoadMoreHistory}
+                loadingMoreHistory={loadingMoreHistory}
+                historyBlockedByCache={historyBlockedByCache}
+                onLoadMoreHistory={loadMoreHistory}
+                isAiStreaming={isAiStreaming}
+                streamingAiText={streamingAiText}
+                currentHrefWithoutHash={currentHrefWithoutHash}
+                messageById={messageById}
+                replyTo={replyTo}
+                highlightMessageId={highlightMessageId}
+                disableSendMessage={disableSendMessage}
+                setMessageAnchor={setMessageAnchor}
+                handleAnchorTarget={handleAnchorTarget}
+                getRoleLabel={getRoleLabel}
+                getVisibilityScopeLabel={getVisibilityScopeLabel}
+                getMessageTypeLabel={getMessageTypeLabel}
+                getAiStrategyLabel={getAiStrategyLabel}
+                setReplyTo={setReplyTo}
+                hasUnread={hasUnread}
+                jumpBackState={jumpBackState}
+                onJumpBack={handleJumpBack}
+                onDismissJumpBack={() => setJumpBackState(null)}
+                onJumpToLatest={() => scrollToBottom('smooth')}
+              />
+              <ChatMessageComposer
+                visibilityScope={visibilityScope}
+                onVisibilityScopeChange={setVisibilityScope}
+                messageInput={messageInput}
+                onMessageInputChange={setMessageInput}
+                replyTo={replyTo}
+                onClearReply={() => setReplyTo(null)}
+                disableSend={disableSendMessage}
+                sending={sending}
+                onSend={handleSendMessage}
               />
             </Space>
-
-            <Space.Compact style={{ width: '100%' }}>
-              <Input
-                value={messageInput}
-                maxLength={2000}
-                onChange={(e) => setMessageInput(e.target.value)}
-                onPressEnter={handleSendMessage}
-                placeholder={t('chat.messagePlaceholder')}
-              />
-              <Button type="primary" disabled={disableSendMessage} loading={sending} onClick={handleSendMessage}>
-                {t('chat.send')}
-              </Button>
-            </Space.Compact>
           </>
         )}
       </Card>
 
-      <Modal
+      <ChatJudgmentPanel
         open={previewVisible}
-        title={t('chat.preview.title')}
+        previewInfo={previewInfo}
+        selectedForJudgment={selectedForJudgment}
+        onSelectedChange={setSelectedForJudgment}
+        judging={judging}
+        getRoleLabel={getRoleLabel}
         onCancel={() => {
           setPreviewVisible(false);
           setJudging(false);
           requestJudgmentLockRef.current = false;
         }}
-        footer={[
-          <Space key="footer" wrap style={{ width: '100%', justifyContent: 'flex-end' }}>
-            <Button
-              key="selectAll"
-              size="small"
-              onClick={() => setSelectedForJudgment(previewList.map((m) => m.id))}
-              disabled={previewList.length === 0}
-            >
-              {t('chat.preview.selectAll')}
-            </Button>
-            <Button
-              key="clearAll"
-              size="small"
-              onClick={() => setSelectedForJudgment([])}
-              disabled={previewList.length === 0}
-            >
-              {t('chat.preview.clearAll')}
-            </Button>
-            <Text key="count" type="secondary">
-              {t('chat.preview.selectedCount')} {selectedForJudgment.length}/{previewList.length}
-            </Text>
-            <Button
-              key="cancel"
-              onClick={() => {
-                setPreviewVisible(false);
-                setJudging(false);
-                requestJudgmentLockRef.current = false;
-              }}
-            >
-              {t('common.cancel')}
-            </Button>
-            <Button
-              key="ok"
-              type="primary"
-              loading={judging}
-              onClick={() => {
-                const allowedIds = new Set(previewList.map((m) => m.id));
-                const finalSelected = selectedForJudgment.filter((id) => allowedIds.has(id));
-                if (finalSelected.length === 0) {
-                  message.warning(t('chat.preview.mustSelectOne'));
-                  if (previewList.length > 0) {
-                    setSelectedForJudgment(previewList.map((m) => m.id));
-                  }
-                  return;
-                }
-                setPreviewVisible(false);
-                void handleRequestJudgment(finalSelected);
-              }}
-            >
-              {t('common.confirm')}
-            </Button>
-          </Space>,
-        ]}
-      >
-        <Alert
-          type="info"
-          showIcon
-          title={t('chat.preview.ruleTitle')}
-          description={
-            <>
-              <div>
-                {t('chat.preview.ruleVisibility')}
-                {previewInfo.excludedByVisibility > 0
-                  ? t('chat.preview.excludedCount', { count: previewInfo.excludedByVisibility })
-                  : ''}
-              </div>
-              {previewInfo.joinAt && previewInfo.applyJoinTimeFilter ? (
-                <div>
-                  {t('chat.preview.ruleJoinTime')}
-                  {t('chat.preview.joinFilterMeta', {
-                    role: t('chat.role.roleB'),
-                    time: new Date(previewInfo.joinAt).toLocaleString(),
-                    count: previewInfo.excludedByJoinTime,
-                  })}
-                </div>
-              ) : null}
-            </>
-          }
-        />
-        <div style={{ maxHeight: 240, overflowY: 'auto', padding: '8px 0' }}>
-          {previewList.map((m) => (
-            <div key={m.id} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', padding: '4px 0' }}>
-              <input
-                type="checkbox"
-                checked={selectedForJudgment.includes(m.id)}
-                onChange={(e) => {
-                  setSelectedForJudgment((prev) =>
-                    e.target.checked ? (prev.includes(m.id) ? prev : [...prev, m.id]) : prev.filter((id) => id !== m.id)
-                  );
-                }}
-              />
-              <div>
-                <Text strong>{new Date(m.created_at).toLocaleString()}</Text>
-                <Paragraph style={{ margin: 0 }}>
-                  {getRoleLabel(m.sender_participant?.role_in_room)}: {m.content}
-                </Paragraph>
-              </div>
-            </div>
-          ))}
-          {previewList.length === 0 ? <Paragraph>{previewMessage}</Paragraph> : null}
-        </div>
-      </Modal>
+        onConfirm={handleRequestJudgment}
+      />
     </div>
   );
 };
 
 export default ChatRoomPage;
-
-function getJudgmentPreviewInfo(room: ChatRoom | null, messages: ChatMessage[]): {
-  includedMessages: ChatMessage[];
-  excludedByVisibility: number;
-  excludedByJoinTime: number;
-  joinAt: Date | null;
-  applyJoinTimeFilter: boolean;
-} {
-  if (!room) {
-    return {
-      includedMessages: [],
-      excludedByVisibility: 0,
-      excludedByJoinTime: 0,
-      joinAt: null,
-      applyJoinTimeFilter: false,
-    };
-  }
-
-  const participants = Array.isArray((room as unknown as { participants?: unknown }).participants) ? room.participants : [];
-  const roleB = participants.find((p) => p.role_in_room === 'roleB' && p.is_active);
-  const joinAt = roleB?.joined_at ? new Date(roleB.joined_at) : null;
-  const applyJoinTimeFilter =
-    !!joinAt &&
-    (room.history_visibility_mode === 'share_from_join_time' || room.history_visibility_mode === 'share_summary_only');
-
-  let excludedByVisibility = 0;
-  let excludedByJoinTime = 0;
-  const includedMessages: ChatMessage[] = [];
-
-  messages.forEach((m) => {
-    if (m.visibility_scope !== 'all') {
-      excludedByVisibility += 1;
-      return;
-    }
-    if (applyJoinTimeFilter && joinAt && new Date(m.created_at) < joinAt) {
-      excludedByJoinTime += 1;
-      return;
-    }
-    includedMessages.push(m);
-  });
-
-  return { includedMessages, excludedByVisibility, excludedByJoinTime, joinAt, applyJoinTimeFilter };
-}

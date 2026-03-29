@@ -8,8 +8,19 @@ import logger from '../config/logger';
 import { env } from '../config/env';
 import { jobsStarted } from '../jobs/cleanup.job';
 import { lockService } from '../utils/lock';
+import packageJson from '../../package.json';
 
 const router = Router();
+const backendVersion = packageJson.version || '1.0.0';
+
+router.get('/version', (_req: Request, res: Response) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.status(200).json({
+    service: 'backend',
+    version: backendVersion,
+    timestamp: new Date().toISOString(),
+  });
+});
 
 /**
  * @route   GET /health
@@ -81,7 +92,7 @@ router.get('/health', async (req: Request, res: Response) => {
       uptime: Math.floor(process.uptime()),
       checks,
       responseTime: totalResponseTime,
-      version: process.env.npm_package_version || '1.0.0',
+      version: backendVersion,
     };
 
     if (isHealthy) {

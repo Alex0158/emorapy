@@ -193,6 +193,21 @@ describe("request", () => {
 			expect(config.signal).toBeTruthy();
 		});
 
+		it("request interceptor 當 localStorage.getItem 拋錯時應靜默忽略並繼續", async () => {
+			const getItemSpy = vi
+				.spyOn(Storage.prototype, "getItem")
+				.mockImplementationOnce(() => {
+					throw new Error("storage unavailable");
+				});
+			const config = await onRequest({
+				method: "get",
+				url: "/x",
+				headers: {},
+			});
+			expect(config.headers.Authorization).toBeUndefined();
+			getItemSpy.mockRestore();
+		});
+
 		it("request interceptor 對 admin 路徑不應自動附加前台 user token", async () => {
 			localStorage.setItem("token", "front-user-token");
 			const config = await onRequest({
@@ -284,8 +299,83 @@ describe("request", () => {
 				}),
 			).rejects.toMatchObject({ code: "INVALID_SESSION_ID" });
 			expect(mockSessionStoreState.clearSession).toHaveBeenCalled();
-			expect(mockSessionStoreState.refreshSession).toHaveBeenCalledWith(true);
+			expect(mockSessionStoreState.refreshSession).toHaveBeenCalledWith(
+				true,
+				undefined,
+			);
 			expect(mockMessageWarning).toHaveBeenCalled();
+		});
+
+		it("400 + INVALID_SESSION_ID 應把失敗請求的 X-Session-Id 傳給 refresh", async () => {
+			await expect(
+				onError({
+					response: {
+						status: 400,
+						data: {
+							error: { code: "INVALID_SESSION_ID", message: "session-bad" },
+						},
+						config: {
+							url: "/cases/case-1",
+							headers: { "X-Session-Id": "guest_sid_old" },
+							params: {},
+						},
+					},
+					config: {},
+					message: "bad",
+				}),
+			).rejects.toMatchObject({ code: "INVALID_SESSION_ID" });
+			expect(mockSessionStoreState.refreshSession).toHaveBeenCalledWith(
+				true,
+				"guest_sid_old",
+			);
+		});
+
+		it("400 + INVALID_SESSION_ID 應支援小寫 x-session-id header 並傳給 refresh", async () => {
+			await expect(
+				onError({
+					response: {
+						status: 400,
+						data: {
+							error: { code: "INVALID_SESSION_ID", message: "session-bad" },
+						},
+						config: {
+							url: "/cases/case-2",
+							headers: { "x-session-id": "guest_sid_lower" },
+							params: {},
+						},
+					},
+					config: {},
+					message: "bad",
+				}),
+			).rejects.toMatchObject({ code: "INVALID_SESSION_ID" });
+			expect(mockSessionStoreState.refreshSession).toHaveBeenCalledWith(
+				true,
+				"guest_sid_lower",
+			);
+		});
+
+		it("400 + INVALID_SESSION_ID 應支援 params.session_id 並傳給 refresh", async () => {
+			await expect(
+				onError({
+					response: {
+						status: 400,
+						data: {
+							error: { code: "INVALID_SESSION_ID", message: "session-bad" },
+						},
+						config: {
+							url: "/cases/by-session",
+							headers: {},
+							params: { session_id: "guest_sid_from_params" },
+						},
+					},
+					config: {},
+					message: "bad",
+				}),
+			).rejects.toMatchObject({ code: "INVALID_SESSION_ID" });
+			expect(mockSessionStoreState.refreshSession).toHaveBeenCalledWith(
+				true,
+				"guest_sid_from_params",
+			);
 		});
 
 		it("400 + SESSION_ID_REQUIRED 刷新成功且無 message 時應使用 fallback warning", async () => {
@@ -476,6 +566,30 @@ describe("request", () => {
 			history.pushState({}, "", "/");
 		});
 
+		it("401 admin API 當 storage.removeItem 拋錯時應靜默忽略並繼續處理", async () => {
+			localStorage.setItem("admin_token", "admin-token-local");
+			window.sessionStorage.setItem("admin_token", "admin-token-session");
+			const removeItemSpy = vi
+				.spyOn(Storage.prototype, "removeItem")
+				.mockImplementationOnce(() => {
+					throw new Error("storage quota");
+				});
+			history.pushState({}, "", "/admin/login");
+			await expect(
+				onError({
+					response: {
+						status: 401,
+						data: { error: { code: "UNAUTHORIZED", message: "" } },
+						config: { url: "/admin/users", headers: {}, params: {} },
+					},
+					config: {},
+					message: "unauth",
+				}),
+			).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+			removeItemSpy.mockRestore();
+			history.pushState({}, "", "/");
+		});
+
 		it("401 admin API（絕對 URL）也應清理 admin token", async () => {
 			localStorage.setItem("token", "front-user-token");
 			localStorage.setItem("admin_token", "admin-token-local");
@@ -591,6 +705,36 @@ describe("request", () => {
 						status: 403,
 						data: { error: { code: "FORBIDDEN", message: "" } },
 						config: { url: "/forbidden", headers: {}, params: {} },
+					},
+					config: {},
+					message: "forbidden",
+				}),
+			).rejects.toMatchObject({ code: "FORBIDDEN" });
+			expect(mockMessageError).toHaveBeenCalledWith("common.forbidden");
+		});
+
+		it("403 admin API 應抑制全域錯誤提示", async () => {
+			await expect(
+				onError({
+					response: {
+						status: 403,
+						data: { error: { code: "FORBIDDEN", message: "" } },
+						config: { url: "/api/v1/admin/users", headers: {}, params: {} },
+					},
+					config: {},
+					message: "forbidden",
+				}),
+			).rejects.toMatchObject({ code: "FORBIDDEN" });
+			expect(mockMessageError).not.toHaveBeenCalled();
+		});
+
+		it("403 config.url 為無效 URL 時 isAdminApiRequest 應 catch 並回退為非 admin 並提示 forbidden", async () => {
+			await expect(
+				onError({
+					response: {
+						status: 403,
+						data: { error: { code: "FORBIDDEN", message: "" } },
+						config: { url: "http://[", headers: {}, params: {} },
 					},
 					config: {},
 					message: "forbidden",
@@ -722,6 +866,21 @@ describe("request", () => {
 			expect(mockMessageError).toHaveBeenCalledWith("common.validationError");
 		});
 
+		it("413 應提示 fileTooLarge", async () => {
+			await expect(
+				onError({
+					response: {
+						status: 413,
+						data: { error: { code: "FILE_TOO_LARGE", message: "" } },
+						config: { url: "/uploads", headers: {}, params: {} },
+					},
+					config: {},
+					message: "payload too large",
+				}),
+			).rejects.toMatchObject({ code: "FILE_TOO_LARGE" });
+			expect(mockMessageError).toHaveBeenCalledWith("common.fileTooLarge");
+		});
+
 		it("429 /uploads 應走 fileRateLimit 分支", async () => {
 			await expect(
 				onError({
@@ -780,6 +939,23 @@ describe("request", () => {
 				}),
 			).rejects.toMatchObject({ code: "SERVER_ERROR" });
 			expect(mockMessageError).toHaveBeenCalledWith("common.serverError");
+		});
+
+		it("503 應提示 serviceUnavailable", async () => {
+			await expect(
+				onError({
+					response: {
+						status: 503,
+						data: { error: { code: "SERVICE_UNAVAILABLE", message: "" } },
+						config: { url: "/api", headers: {}, params: {} },
+					},
+					config: {},
+					message: "unavailable",
+				}),
+			).rejects.toMatchObject({ code: "SERVICE_UNAVAILABLE" });
+			expect(mockMessageError).toHaveBeenCalledWith(
+				"common.serviceUnavailable",
+			);
 		});
 
 		it("500 且 response data 非 object 時應返回 HTTP_500", async () => {

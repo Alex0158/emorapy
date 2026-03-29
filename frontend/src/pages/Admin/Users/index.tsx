@@ -78,17 +78,31 @@ export default function AdminUsersPage() {
   };
 
   return (
-    <Space orientation="vertical" size="large" style={{ width: '100%' }}>
-      <div>
-        <Title level={3} style={{ marginBottom: 0 }}>
-          {t('admin.users.heading')}
-        </Title>
-        <Text type="secondary">{t('admin.users.subtitle')}</Text>
+    <div className="admin-page">
+      <div className="admin-page__header">
+        <Title level={3} className="admin-page__header-title">{t('admin.users.heading')}</Title>
+        <Text type="secondary" className="admin-page__header-subtitle">{t('admin.users.subtitle')}</Text>
       </div>
-      {usersQuery.error && <Alert showIcon type="error" title={t('admin.users.loadFailed')} />}
+      {usersQuery.error && (
+        <Alert
+          showIcon
+          type="error"
+          title={t('admin.users.loadFailed')}
+          action={
+            <Button
+              size="small"
+              loading={usersQuery.isFetching}
+              onClick={() => void usersQuery.refetch()}
+              data-testid="admin-users-load-retry"
+            >
+              {t('common.retry')}
+            </Button>
+          }
+        />
+      )}
       {!canWriteUsers && <Alert showIcon type="warning" title={t('admin.users.writeDenied')} />}
-      <Card>
-        <Space orientation="vertical" style={{ width: '100%' }}>
+      <Card className="admin-page__table-card">
+        <div className="admin-page__content">
           <Input.Search value={q} onChange={(event) => setQ(event.target.value)} placeholder={t('admin.users.search')} />
           <Table<AdminAppUserItem>
             rowKey="id"
@@ -150,7 +164,7 @@ export default function AdminUsersPage() {
               },
             ]}
           />
-        </Space>
+        </div>
       </Card>
       <Drawer
         open={selectedUserId.length > 0}
@@ -159,7 +173,23 @@ export default function AdminUsersPage() {
         onClose={() => setSelectedUserId('')}
       >
         {detailQuery.isLoading && <Text type="secondary">{t('common.loading')}</Text>}
-        {detailQuery.error && <Alert showIcon type="error" title={t('admin.users.detailLoadFailed')} />}
+        {detailQuery.error && (
+          <Alert
+            showIcon
+            type="error"
+            title={t('admin.users.detailLoadFailed')}
+            action={
+              <Button
+                size="small"
+                loading={detailQuery.isFetching}
+                onClick={() => void detailQuery.refetch()}
+                data-testid="admin-users-detail-retry"
+              >
+                {t('common.retry')}
+              </Button>
+            }
+          />
+        )}
         {!detailQuery.isLoading && !detailQuery.error && !hasUserDetail && (
           <Text type="secondary">{t('common.noData')}</Text>
         )}
@@ -167,6 +197,6 @@ export default function AdminUsersPage() {
           <pre>{JSON.stringify(detailQuery.data?.user, null, 2)}</pre>
         )}
       </Drawer>
-    </Space>
+    </div>
   );
 }

@@ -37,6 +37,10 @@ function createApp() {
   const app = express();
   app.use(express.json());
   app.use('/', executionRouter);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    res.status(500).json({ success: false, error: err.message });
+  });
   return app;
 }
 
@@ -67,11 +71,27 @@ describe('execution.routes', () => {
     expect(mockConfirmExecution).toHaveBeenCalled();
   });
 
+  it('confirmExecution 成功時應返回 data.execution（F05 邊界）', async () => {
+    const app = createApp();
+    const res = await request(app).post('/confirm').send({ plan_id: '550e8400-e29b-41d4-a716-446655440000' });
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data).toHaveProperty('execution');
+  });
+
   it('POST /checkin 應調用 checkin 並返回 200', async () => {
     const app = createApp();
     const res = await request(app).post('/checkin').send({ plan_id: '550e8400-e29b-41d4-a716-446655440000' });
     expect(res.status).toBe(200);
     expect(mockCheckin).toHaveBeenCalled();
+  });
+
+  it('checkin 成功時應返回 data.execution（F05 邊界）', async () => {
+    const app = createApp();
+    const res = await request(app).post('/checkin').send({ plan_id: '550e8400-e29b-41d4-a716-446655440000' });
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data).toHaveProperty('execution');
   });
 
   it('GET /status 應調用 getExecutionStatus 並返回 200', async () => {
@@ -81,10 +101,95 @@ describe('execution.routes', () => {
     expect(mockGetExecutionStatus).toHaveBeenCalled();
   });
 
+  it('getExecutionStatus 成功時應返回 data 含 plan_id、records、progress（F05 邊界）', async () => {
+    const planId = '550e8400-e29b-41d4-a716-446655440000';
+    const statusData = { plan_id: planId, status: 'pending', records: [], progress: 0 };
+    mockGetExecutionStatus.mockImplementationOnce((_req: unknown, res: unknown) =>
+      (res as { status: (n: number) => { json: (b: unknown) => void } })
+        .status(200)
+        .json({ success: true, data: statusData })
+    );
+    const app = createApp();
+    const res = await request(app).get('/status').query({ plan_id: planId });
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data).toHaveProperty('plan_id');
+    expect(res.body.data).toHaveProperty('records');
+    expect(Array.isArray(res.body.data.records)).toBe(true);
+    expect(res.body.data.plan_id).toBe(planId);
+    expect(mockGetExecutionStatus).toHaveBeenCalled();
+  });
+
   it('GET /dashboard 應調用 getAllExecutionStatuses 並返回 200', async () => {
     const app = createApp();
     const res = await request(app).get('/dashboard');
     expect(res.status).toBe(200);
     expect(mockGetAllExecutionStatuses).toHaveBeenCalled();
+  });
+
+  it('getAllExecutionStatuses 成功時應返回 data.executions（F05 邊界）', async () => {
+    const app = createApp();
+    const res = await request(app).get('/dashboard');
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data).toHaveProperty('executions');
+    expect(Array.isArray(res.body.data.executions)).toBe(true);
+  });
+
+  it('GET /dashboard 無執行狀態時應返回 executions 空陣列（F05 邊界）', async () => {
+    mockGetAllExecutionStatuses.mockImplementationOnce((_req: unknown, res: unknown) =>
+      sendJson(res, { success: true, data: { executions: [] } })
+    );
+    const app = createApp();
+    const res = await request(app).get('/dashboard');
+    expect(res.status).toBe(200);
+    expect(res.body.data.executions).toEqual([]);
+    expect(mockGetAllExecutionStatuses).toHaveBeenCalled();
+  });
+
+  describe('錯誤傳遞', () => {
+    it('confirmExecution 調用 next(error) 時應返回 500', async () => {
+      mockConfirmExecution.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('confirm failed'));
+      });
+      const app = createApp();
+      const res = await request(app)
+        .post('/confirm')
+        .send({ plan_id: '550e8400-e29b-41d4-a716-446655440000' });
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'confirm failed' });
+    });
+
+    it('checkin 調用 next(error) 時應返回 500', async () => {
+      mockCheckin.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('checkin failed'));
+      });
+      const app = createApp();
+      const res = await request(app)
+        .post('/checkin')
+        .send({ plan_id: '550e8400-e29b-41d4-a716-446655440000' });
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'checkin failed' });
+    });
+
+    it('getExecutionStatus 調用 next(error) 時應返回 500', async () => {
+      mockGetExecutionStatus.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('get status failed'));
+      });
+      const app = createApp();
+      const res = await request(app).get('/status').query({ plan_id: '550e8400-e29b-41d4-a716-446655440000' });
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'get status failed' });
+    });
+
+    it('getAllExecutionStatuses 調用 next(error) 時應返回 500', async () => {
+      mockGetAllExecutionStatuses.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('dashboard load failed'));
+      });
+      const app = createApp();
+      const res = await request(app).get('/dashboard');
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'dashboard load failed' });
+    });
   });
 });

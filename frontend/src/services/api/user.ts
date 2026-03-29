@@ -26,3 +26,14 @@ export const updateProfile = async (data: Partial<User>): Promise<User> => {
   return result;
 };
 
+/**
+ * 上傳頭像
+ * 使用 request 實例，由攔截器自動附加 token，頁面層無需直接存取 storage
+ */
+export const uploadAvatar = async (formData: FormData): Promise<User> => {
+  const response = await request.post<ApiResponse<{ user: User }>>('/user/avatar', formData);
+  const result = (response.data as ApiResponse<{ user: User }>)?.data?.user;
+  if (!result) throw new Error('Invalid avatar upload response from server');
+  return result;
+};
+

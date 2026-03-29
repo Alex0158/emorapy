@@ -29,5 +29,6 @@ export const getContentList = async (params?: {
   if (params?.language) query.set('language', params.language);
   if (params?.limit) query.set('limit', String(params.limit));
   const response = await request.get<ApiResponse<{ items: ContentItem[] }>>(`/content-items?${query.toString()}`);
-  return (response.data as ApiResponse<{ items: ContentItem[] }>)?.data?.items ?? [];
+  const items = (response.data as ApiResponse<{ items: ContentItem[] }>)?.data?.items;
+  return Array.isArray(items) ? items : [];
 };

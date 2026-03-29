@@ -3,8 +3,31 @@
 .profile-index-page {
   padding-bottom: 80px;
 
+  &__hero {
+    margin-bottom: @spacing-xl;
+    background: linear-gradient(to bottom right, @color-background, #f9fafb);
+    border-radius: 0 0 40px 40px;
+    box-shadow: @shadow-small;
+    padding: @spacing-xl;
+    text-align: center;
+  }
+
+  &__container {
+    max-width: 768px;
+    margin: 0 auto;
+    padding: 0 @spacing-md @spacing-xxl;
+  }
+
   .ant-form-item-label > label {
     font-weight: 600;
     color: @color-text-primary;
+  }
+
+  .ant-card-head {
+    padding-left: 24px;
+  }
+
+  .profile-index-progress .ant-progress-bg {
+    background: @color-primary !important;
   }
 }

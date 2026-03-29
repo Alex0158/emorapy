@@ -7,6 +7,13 @@ const mockAdminUserCreate = jest.fn() as any;
 const mockAdminRoleUpsert = jest.fn() as any;
 const mockAdminRoleFindUnique = jest.fn() as any;
 const mockAuditLogCreate = jest.fn() as any;
+const mockAuditLogFindMany = jest.fn() as any;
+const mockAuditLogCount = jest.fn() as any;
+const mockSystemConfigFindMany = jest.fn() as any;
+const mockSystemConfigCount = jest.fn() as any;
+const mockSystemConfigUpsert = jest.fn() as any;
+const mockUserUpdate = jest.fn() as any;
+const mockUserCount = jest.fn() as any;
 
 jest.mock('../../src/config/database', () => ({
   __esModule: true,
@@ -23,8 +30,17 @@ jest.mock('../../src/config/database', () => ({
     },
     auditLog: {
       create: (...args: unknown[]) => mockAuditLogCreate(...args),
-      findMany: jest.fn(),
-      count: jest.fn(),
+      findMany: (...args: unknown[]) => mockAuditLogFindMany(...args),
+      count: (...args: unknown[]) => mockAuditLogCount(...args),
+    },
+    systemConfig: {
+      findMany: (...args: unknown[]) => mockSystemConfigFindMany(...args),
+      count: (...args: unknown[]) => mockSystemConfigCount(...args),
+      upsert: (...args: unknown[]) => mockSystemConfigUpsert(...args),
+    },
+    user: {
+      count: (...args: unknown[]) => mockUserCount(...args),
+      update: (...args: unknown[]) => mockUserUpdate(...args),
     },
   },
 }));
@@ -66,6 +82,7 @@ describe('Admin API integration flow', () => {
 
     mockAdminRoleUpsert.mockResolvedValue({} as any);
     mockAdminRoleFindUnique.mockResolvedValue({ id: 'role-super-admin', key: 'super_admin' } as any);
+    mockUserCount.mockResolvedValue(42 as any);
     mockAdminUserCreate.mockResolvedValue({
       id: 'admin-1',
       email: 'root@example.com',
@@ -73,6 +90,26 @@ describe('Admin API integration flow', () => {
       role: { key: 'super_admin' },
     } as any);
     mockAuditLogCreate.mockResolvedValue({} as any);
+    mockAuditLogFindMany.mockResolvedValue([] as any);
+    mockAuditLogCount.mockResolvedValue(0 as any);
+    mockSystemConfigFindMany.mockResolvedValue([] as any);
+    mockSystemConfigCount.mockResolvedValue(0 as any);
+    mockSystemConfigUpsert.mockResolvedValue({
+      id: 'cfg-1',
+      key: 'feature.flags',
+      value: { adminAuditExport: true },
+      description: 'feature flags',
+      is_runtime: true,
+      is_sensitive: false,
+      updated_by: 'super-1',
+    } as any);
+    mockUserUpdate.mockResolvedValue({
+      id: '11111111-1111-4111-8111-111111111111',
+      email: 'user@example.com',
+      is_active: false,
+      locked_until: null,
+      deleted_at: new Date('2026-03-17T00:00:00.000Z'),
+    } as any);
     mockAdminUserFindUnique.mockImplementation((({ where }: { where?: { id?: string } }) => {
       const id = where?.id;
       if (id === 'super-1') {
@@ -168,6 +205,102 @@ describe('Admin API integration flow', () => {
     expect(auditRes.status).toBe(403);
     expect(auditRes.body.success).toBe(false);
     expect(auditRes.body.error.code).toBe('FORBIDDEN');
+  });
+
+  it('super_admin 可 upsert config，且應寫入 audit log（F10 配置生效 + 審計留痕）', async () => {
+    const res = await request(app)
+      .put('/api/v1/admin/configs')
+      .set('Authorization', 'Bearer super-token')
+      .send({
+        key: 'feature.flags',
+        value: { adminAuditExport: true },
+        description: 'feature flags',
+        isRuntime: true,
+        isSensitive: false,
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.item.key).toBe('feature.flags');
+    expect(mockSystemConfigUpsert).toHaveBeenCalled();
+    expect(mockAuditLogCreate).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        actor_id: 'super-1',
+        entity_type: 'system_config',
+        action: 'upsert',
+      }),
+    }));
+  });
+
+  it('低權限 token 不可寫入 config（F10 RBAC）', async () => {
+    const res = await request(app)
+      .put('/api/v1/admin/configs')
+      .set('Authorization', 'Bearer limited-token')
+      .send({
+        key: 'feature.flags',
+        value: { adminAuditExport: true },
+      });
+
+    expect(res.status).toBe(403);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error.code).toBe('FORBIDDEN');
+  });
+
+  it('super_admin 可更新 user status，且應寫入 audit log（F10 用戶治理留痕）', async () => {
+    const userId = '11111111-1111-4111-8111-111111111111';
+    const res = await request(app)
+      .patch(`/api/v1/admin/users/${userId}/status`)
+      .set('Authorization', 'Bearer super-token')
+      .send({
+        action: 'deactivate',
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.user.id).toBe(userId);
+    expect(mockUserUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: userId },
+      data: expect.objectContaining({ is_active: false }),
+    }));
+    expect(mockAuditLogCreate).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        actor_id: 'super-1',
+        entity_type: 'user',
+        entity_id: userId,
+        action: 'user_deactivate',
+      }),
+    }));
+  });
+
+  it('super_admin 可查 audit logs，且返回 items/total（F10 審計查詢證據）', async () => {
+    mockAuditLogFindMany.mockResolvedValueOnce([
+      {
+        id: 101,
+        actor_id: 'super-1',
+        actor_type: 'admin',
+        entity_type: 'system_config',
+        entity_id: 'cfg-1',
+        action: 'upsert',
+        detail: { key: 'feature.flags' },
+        created_at: new Date('2026-03-17T08:00:00.000Z'),
+      },
+    ] as any);
+    mockAuditLogCount.mockResolvedValueOnce(1 as any);
+
+    const res = await request(app)
+      .get('/api/v1/admin/audit-logs')
+      .set('Authorization', 'Bearer super-token');
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.total).toBe(1);
+    expect(res.body.data.items).toHaveLength(1);
+    expect(res.body.data.items[0]).toEqual(expect.objectContaining({
+      id: '101',
+      actor_id: 'super-1',
+      entity_type: 'system_config',
+      action: 'upsert',
+    }));
   });
 
   it('停用管理員 token 訪問多端點應返回 401', async () => {

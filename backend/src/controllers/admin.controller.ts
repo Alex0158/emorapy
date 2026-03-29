@@ -9,6 +9,7 @@ import { costMonitoringService } from '../services/cost-monitoring.service';
 import { systemConfigService } from '../services/system-config.service';
 import {
   ADMIN_MANAGED_CONFIG_KEYS,
+  isManagedConfigKeyAllowed,
   normalizeManagedConfigValue,
   validateCrossManagedConfigRules,
 } from '../services/admin-config-rules';
@@ -414,7 +415,7 @@ class AdminController {
       if (forbiddenPrefix.some((prefix) => normalizedUpperKey.startsWith(prefix))) {
         throw Errors.FORBIDDEN('敏感基礎密鑰不可由後台配置管理');
       }
-      if (!ADMIN_MANAGED_CONFIG_KEYS.has(normalizedKey)) {
+      if (!isManagedConfigKeyAllowed(normalizedKey)) {
         throw Errors.FORBIDDEN('該配置 key 不在後台可管理白名單');
       }
       const normalizedValue = normalizeManagedConfigValue(normalizedKey, value);
@@ -989,4 +990,3 @@ class AdminController {
 }
 
 export const adminController = new AdminController();
-

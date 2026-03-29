@@ -43,6 +43,10 @@ function createApp() {
   const app = express();
   app.use(express.json());
   app.use('/', judgmentRouter);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    res.status(500).json({ success: false, error: err.message });
+  });
   return app;
 }
 
@@ -77,10 +81,34 @@ describe('judgment.routes', () => {
     expect(mockGenerateJudgment).toHaveBeenCalled();
   });
 
+  it('generateJudgment 成功時應返回 data.judgment（F04 邊界）', async () => {
+    const app = createApp();
+    const res = await request(app).post(`/generate/${uuid}`);
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data).toHaveProperty('judgment');
+  });
+
   it('GET /:id 應調用 getJudgmentById 並返回 200', async () => {
     const app = createApp();
     const res = await request(app).get(`/${uuid}`);
     expect(res.status).toBe(200);
+    expect(mockGetJudgmentById).toHaveBeenCalled();
+  });
+
+  it('getJudgmentById 成功時應返回 data.judgment（F04 邊界）', async () => {
+    const judgmentData = { id: uuid, case_id: 'c1', judgment_content: '判決內容', plaintiff_ratio: 60 };
+    mockGetJudgmentById.mockImplementationOnce((_req: unknown, res: unknown) =>
+      (res as { status: (n: number) => { json: (b: unknown) => void } })
+        .status(200)
+        .json({ success: true, data: { judgment: judgmentData } })
+    );
+    const app = createApp();
+    const res = await request(app).get(`/${uuid}`);
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data).toHaveProperty('judgment');
+    expect(res.body.data.judgment).toMatchObject({ id: uuid, case_id: 'c1' });
     expect(mockGetJudgmentById).toHaveBeenCalled();
   });
 
@@ -91,11 +119,27 @@ describe('judgment.routes', () => {
     expect(mockAcceptJudgment).toHaveBeenCalled();
   });
 
+  it('acceptJudgment 成功時應返回 data.judgment（F04 邊界）', async () => {
+    const app = createApp();
+    const res = await request(app).post(`/${uuid}/accept`).send({ accepted: true });
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data).toHaveProperty('judgment');
+  });
+
   it('POST /:id/repair 應調用 repairJudgment 並返回 200', async () => {
     const app = createApp();
     const res = await request(app).post(`/${uuid}/repair`).send({ feedback: '請修復' });
     expect(res.status).toBe(200);
     expect(mockRepairJudgment).toHaveBeenCalled();
+  });
+
+  it('repairJudgment 成功時應返回 data（F04 邊界）', async () => {
+    const app = createApp();
+    const res = await request(app).post(`/${uuid}/repair`).send({ feedback: '請修復' });
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data).toBeDefined();
   });
 
   it('POST /:id/metrics 應調用 recordClinicalMetrics 並返回 200', async () => {
@@ -107,5 +151,73 @@ describe('judgment.routes', () => {
     });
     expect(res.status).toBe(200);
     expect(mockRecordClinicalMetrics).toHaveBeenCalled();
+  });
+
+  it('recordClinicalMetrics 成功時應返回 data（F04 邊界）', async () => {
+    const app = createApp();
+    const res = await request(app).post(`/${uuid}/metrics`).send({
+      felt_understood: 5,
+      felt_blamed: 1,
+      willing_to_try: 4,
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data).toBeDefined();
+  });
+
+  describe('錯誤傳遞', () => {
+    it('generateJudgment 調用 next(error) 時應返回 500', async () => {
+      mockGenerateJudgment.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('generate failed'));
+      });
+      const app = createApp();
+      const res = await request(app).post(`/generate/${uuid}`);
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'generate failed' });
+    });
+
+    it('getJudgmentById 調用 next(error) 時應返回 500', async () => {
+      mockGetJudgmentById.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('get failed'));
+      });
+      const app = createApp();
+      const res = await request(app).get(`/${uuid}`);
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'get failed' });
+    });
+
+    it('acceptJudgment 調用 next(error) 時應返回 500', async () => {
+      mockAcceptJudgment.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('accept failed'));
+      });
+      const app = createApp();
+      const res = await request(app).post(`/${uuid}/accept`).send({ accepted: true });
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'accept failed' });
+    });
+
+    it('repairJudgment 調用 next(error) 時應返回 500', async () => {
+      mockRepairJudgment.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('repair failed'));
+      });
+      const app = createApp();
+      const res = await request(app).post(`/${uuid}/repair`).send({ feedback: '請修復' });
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'repair failed' });
+    });
+
+    it('recordClinicalMetrics 調用 next(error) 時應返回 500', async () => {
+      mockRecordClinicalMetrics.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('metrics failed'));
+      });
+      const app = createApp();
+      const res = await request(app).post(`/${uuid}/metrics`).send({
+        felt_understood: 5,
+        felt_blamed: 1,
+        willing_to_try: 4,
+      });
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'metrics failed' });
+    });
   });
 });

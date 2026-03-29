@@ -62,6 +62,17 @@ describe('safeParsePlanContent', () => {
     expect(result.steps).toEqual([]);
   });
 
+  it('null 或 undefined 應 fallback 為空字串且不拋錯', () => {
+    const r1 = safeParsePlanContent(null as unknown as string);
+    const r2 = safeParsePlanContent(undefined as unknown as string);
+    expect(r1.title).toBe('reconList.heading');
+    expect(r1.description).toBe('');
+    expect(r1.steps).toEqual([]);
+    expect(r2.title).toBe('reconList.heading');
+    expect(r2.description).toBe('');
+    expect(r2.steps).toEqual([]);
+  });
+
   it('JSON 為非物件（如 array/null）時應 fallback', () => {
     const raw = JSON.stringify([1, 2, 3]);
     const result = safeParsePlanContent(raw);

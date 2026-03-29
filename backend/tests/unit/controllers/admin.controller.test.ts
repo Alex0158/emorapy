@@ -3,9 +3,12 @@ import type { NextFunction, Request, Response } from 'express';
 import { adminController } from '../../../src/controllers/admin.controller';
 
 const mockCronRunLogFindMany = jest.fn();
+const mockSystemConfigFindMany = jest.fn();
+const mockSystemConfigCount = jest.fn();
 const mockSystemConfigUpsert = jest.fn();
 const mockWriteAuditLog = jest.fn();
 const mockListAuditLogs = jest.fn();
+const mockListAdminUsers = jest.fn();
 const mockGetNumberConfig = jest.fn();
 const mockGetAdminCostReport = jest.fn();
 const mockUserFindMany = jest.fn();
@@ -18,6 +21,8 @@ jest.mock('../../../src/config/database', () => ({
       findMany: (...args: unknown[]) => mockCronRunLogFindMany(...args),
     },
     systemConfig: {
+      findMany: (...args: unknown[]) => mockSystemConfigFindMany(...args),
+      count: (...args: unknown[]) => mockSystemConfigCount(...args),
       upsert: (...args: unknown[]) => mockSystemConfigUpsert(...args),
     },
     user: {
@@ -31,6 +36,7 @@ jest.mock('../../../src/services/admin.service', () => ({
   adminService: {
     writeAuditLog: (...args: unknown[]) => mockWriteAuditLog(...args),
     listAuditLogs: (...args: unknown[]) => mockListAuditLogs(...args),
+    listAdminUsers: (...args: unknown[]) => mockListAdminUsers(...args),
   },
 }));
 
@@ -90,6 +96,45 @@ describe('AdminController', () => {
       send: jest.fn().mockReturnThis(),
     } as unknown as Response;
     next = jest.fn();
+  });
+
+  describe('listJobs', () => {
+    it('無日誌時應返回 jobs 空陣列（F10 邊界）', async () => {
+      (mockCronRunLogFindMany as any).mockResolvedValue([]);
+
+      await adminController.listJobs(req as Request, res as Response, next);
+
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          data: expect.objectContaining({
+            jobs: [],
+          }),
+        })
+      );
+      expect(next).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('listConfigs', () => {
+    it('無配置時應返回 items 空陣列與 total 0（F10 邊界）', async () => {
+      (mockSystemConfigFindMany as any).mockResolvedValue([]);
+      (mockSystemConfigCount as any).mockResolvedValue(0);
+      req.query = { limit: '20', offset: '0' };
+
+      await adminController.listConfigs(req as Request, res as Response, next);
+
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          data: expect.objectContaining({
+            items: [],
+            total: 0,
+          }),
+        })
+      );
+      expect(next).not.toHaveBeenCalled();
+    });
   });
 
   describe('upsertConfig', () => {
@@ -540,6 +585,25 @@ describe('AdminController', () => {
   });
 
   describe('pagination and audit serialization', () => {
+    it('listUsers 無用戶時應返回 items 空陣列與 total 0（F10 邊界）', async () => {
+      (mockUserFindMany as any).mockResolvedValue([]);
+      (mockUserCount as any).mockResolvedValue(0);
+      req.query = { limit: '20', offset: '0' };
+
+      await adminController.listUsers(req as Request, res as Response, next);
+
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          data: expect.objectContaining({
+            items: [],
+            total: 0,
+          }),
+        })
+      );
+      expect(next).not.toHaveBeenCalled();
+    });
+
     it('listUsers 分頁參數非數字時應回 VALIDATION_ERROR', async () => {
       req.query = { limit: 'abc', offset: '0' };
 
@@ -549,6 +613,42 @@ describe('AdminController', () => {
         expect.objectContaining({ code: 'VALIDATION_ERROR' })
       );
       expect(mockUserFindMany).not.toHaveBeenCalled();
+    });
+
+    it('listAdminUsers 無管理員時應返回 items 空陣列與 total 0（F10 邊界）', async () => {
+      (mockListAdminUsers as any).mockResolvedValue({ items: [], total: 0 });
+      req.query = { limit: '20', offset: '0' };
+
+      await adminController.listAdminUsers(req as Request, res as Response, next);
+
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          data: expect.objectContaining({
+            items: [],
+            total: 0,
+          }),
+        })
+      );
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('listAuditLogs 無審計時應返回 items 空陣列與 total 0（F10 邊界）', async () => {
+      (mockListAuditLogs as any).mockResolvedValue({ items: [], total: 0 });
+      req.query = { limit: '20', offset: '0' };
+
+      await adminController.listAuditLogs(req as Request, res as Response, next);
+
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          data: expect.objectContaining({
+            items: [],
+            total: 0,
+          }),
+        })
+      );
+      expect(next).not.toHaveBeenCalled();
     });
 
     it('listAuditLogs 應將 BigInt id 轉為字串', async () => {

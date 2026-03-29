@@ -70,6 +70,40 @@ describe('executionStore', () => {
     expect(useExecutionStore.getState().currentExecution).toEqual(mockStatus);
   });
 
+  it('getExecutionStatus 失敗應設 error 並拋出', async () => {
+    mockGetExecutionStatus.mockRejectedValue(new Error('取得狀態失敗'));
+    await expect(
+      useExecutionStore.getState().getExecutionStatus('p1')
+    ).rejects.toThrow('取得狀態失敗');
+    expect(useExecutionStore.getState().error).toBe('取得狀態失敗');
+    expect(useExecutionStore.getState().isLoading).toBe(false);
+  });
+
+  it('getExecutionStatus 競態：後發請求先回傳時，先發請求回傳應忽略不覆蓋 state', async () => {
+    const status1 = { ...mockStatus, plan_id: 'p1' };
+    const status2 = { ...mockStatus, plan_id: 'p2' };
+    mockGetExecutionStatus
+      .mockImplementationOnce(() => new Promise((r) => setTimeout(() => r(status1), 50)))
+      .mockResolvedValueOnce(status2);
+    const slowPromise = useExecutionStore.getState().getExecutionStatus('p1');
+    const fastResult = await useExecutionStore.getState().getExecutionStatus('p2');
+    expect(fastResult).toEqual(status2);
+    expect(useExecutionStore.getState().currentExecution).toEqual(status2);
+    await slowPromise;
+    expect(useExecutionStore.getState().currentExecution).toEqual(status2);
+  });
+
+  it('getExecutionStatus 競態：後發請求先 reject 時，先發請求 reject 應直接拋出、不設 error', async () => {
+    mockGetExecutionStatus
+      .mockImplementationOnce(() => new Promise((_, r) => setTimeout(() => r(new Error('慢請求失敗')), 50)))
+      .mockRejectedValueOnce(new Error('快請求失敗'));
+    const slowPromise = useExecutionStore.getState().getExecutionStatus('p1');
+    await expect(useExecutionStore.getState().getExecutionStatus('p2')).rejects.toThrow('快請求失敗');
+    expect(useExecutionStore.getState().error).toBe('快請求失敗');
+    await expect(slowPromise).rejects.toThrow('慢請求失敗');
+    expect(useExecutionStore.getState().error).toBe('快請求失敗');
+  });
+
   it('checkin 成功應清除 loading', async () => {
     mockCheckin.mockResolvedValue(undefined);
     const data = { plan_id: 'p1', notes: '已完成' };
@@ -86,5 +120,17 @@ describe('executionStore', () => {
     ).rejects.toThrow('打卡失敗');
     expect(useExecutionStore.getState().error).toBe('打卡失敗');
     expect(useExecutionStore.getState().isLoading).toBe(false);
+  });
+
+  it('confirmExecution 在 isLoading=true 時應 reject 不呼叫 API，避免呼叫方誤判成功', async () => {
+    useExecutionStore.setState({ isLoading: true });
+    await expect(useExecutionStore.getState().confirmExecution('p1')).rejects.toThrow();
+    expect(mockConfirmExecution).not.toHaveBeenCalled();
+  });
+
+  it('checkin 在 isLoading=true 時應 reject 不呼叫 API，避免呼叫方誤判成功', async () => {
+    useExecutionStore.setState({ isLoading: true });
+    await expect(useExecutionStore.getState().checkin({ plan_id: 'p1' })).rejects.toThrow();
+    expect(mockCheckin).not.toHaveBeenCalled();
   });
 });

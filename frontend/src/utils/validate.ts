@@ -17,11 +17,11 @@ export const validateEmail = (email: string): boolean => {
  * 驗證陳述長度
  */
 export const validateStatement = (
-  statement: string,
+  statement: string | null | undefined,
   min: number = MIN_STATEMENT_LENGTH,
   max: number = MAX_STATEMENT_LENGTH
 ): { valid: boolean; message?: string } => {
-  const length = statement.trim().length;
+  const length = (statement ?? '').trim().length;
 
   if (length < min) {
     return {

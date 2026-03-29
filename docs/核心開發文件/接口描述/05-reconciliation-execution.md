@@ -1,7 +1,7 @@
 # 接口描述：reconciliation + execution
 
-**文檔版本**：v2.1  
-**最後更新**：2026-03-05  
+**文檔版本**：v2.2  
+**最後更新**：2026-03-06  
 **代碼基準**：`backend/src/routes/reconciliation.routes.ts`、`backend/src/routes/execution.routes.ts`、`backend/src/utils/validation.ts`
 
 ---

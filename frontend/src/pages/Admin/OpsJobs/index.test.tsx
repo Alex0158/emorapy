@@ -280,6 +280,81 @@ describe('OpsJobsStatsPage', () => {
     expect(screen.getByText('admin.ops.accessDenied')).toBeInTheDocument();
   });
 
+  it('有權限但 stats 載入失敗時應顯示 admin.ops.loadFailed', () => {
+    mockUseAdminToken.mockReturnValue('admin-jwt');
+    mockUseAdminAccess.mockReturnValue({
+      adminMeQuery: {
+        data: {
+          admin: {
+            id: 'admin-1',
+            email: 'ops@example.com',
+            roleKey: 'ops',
+            permissions: ['ops:read'],
+          },
+        },
+        error: null,
+        isLoading: false,
+        refetch: vi.fn().mockResolvedValue({ data: undefined }),
+      },
+      permissions: ['ops:read'],
+      hasPermission: true,
+    });
+    mockUseAdminJobStats.mockReturnValue({
+      data: undefined,
+      error: new Error('stats load failed'),
+      refetch: vi.fn(),
+    });
+
+    render(
+      <MemoryRouter>
+        <OpsJobsStatsPage />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText('admin.ops.loadFailed')).toBeInTheDocument();
+  });
+
+  it('stats 載入失敗時 loadFailed Alert 內應有 retry 按鈕，點擊應觸發 refetch（F10 錯誤恢復：失敗不阻塞重試）', async () => {
+    const user = userEvent.setup();
+    const mockRefetch = vi.fn().mockResolvedValue({ data: undefined });
+    mockUseAdminToken.mockReturnValue('admin-jwt');
+    mockUseAdminAccess.mockReturnValue({
+      adminMeQuery: {
+        data: {
+          admin: {
+            id: 'admin-1',
+            email: 'ops@example.com',
+            roleKey: 'ops',
+            permissions: ['ops:read'],
+          },
+        },
+        error: null,
+        isLoading: false,
+        refetch: vi.fn().mockResolvedValue({ data: undefined }),
+      },
+      permissions: ['ops:read'],
+      hasPermission: true,
+    });
+    mockUseAdminJobStats.mockReturnValue({
+      data: undefined,
+      error: new Error('stats load failed'),
+      refetch: mockRefetch,
+      isFetching: false,
+    });
+
+    render(
+      <MemoryRouter>
+        <OpsJobsStatsPage />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText('admin.ops.loadFailed')).toBeInTheDocument();
+    const retryInAlert = screen.getByTestId('admin-ops-load-retry');
+    expect(retryInAlert).toBeInTheDocument();
+    await user.click(retryInAlert);
+    expect(mockRefetch).toHaveBeenCalledTimes(1);
+  });
+
   it('saved token 格式無效時應優先顯示 invalidTokenFormat', () => {
     mockUseAdminToken.mockReturnValue('invalid-token');
     render(

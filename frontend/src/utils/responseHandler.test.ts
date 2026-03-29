@@ -41,6 +41,11 @@ describe('responseHandler', () => {
   });
 
   describe('handleApiError', () => {
+    it('預設 showMessage 為 true 應調用 message.error', () => {
+      handleApiError(new Error('err'));
+      expect(mockMessageError).toHaveBeenCalledWith('err');
+    });
+
     it('showMessage 為 true 時應調用 message.error', () => {
       handleApiError(new Error('err'), true);
       expect(mockMessageError).toHaveBeenCalledWith('err');

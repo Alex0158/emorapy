@@ -5,8 +5,8 @@
 import { useState, useCallback, useRef } from 'react';
 import * as sessionApi from '@/services/api/session';
 import { sessionStorage } from '@/utils/storage';
+import { getErrorMessage } from '@/utils/apiError';
 import { message } from 'antd';
-import { t } from '@/utils/i18n';
 
 /**
  * 使用Session管理
@@ -27,7 +27,7 @@ export function useSession() {
         setSessionId(session.session_id);
         return session.session_id;
       } catch (error: unknown) {
-        message.error(t('message.sessionCreateFail'));
+        message.error(getErrorMessage(error, 'message.sessionCreateFail'));
         throw error;
       } finally {
         setLoading(false);

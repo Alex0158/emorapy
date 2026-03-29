@@ -72,6 +72,16 @@ describe('download', () => {
       createObjectURL.mockRestore();
       revokeObjectURL.mockRestore();
     });
+
+    it('未傳 mimeType 時應使用 text/plain', () => {
+      const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock-url');
+      const revokeObjectURL = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+      downloadText('content', 'out.txt');
+      expect(createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
+      expect((createObjectURL.mock.calls[0][0] as Blob).type).toBe('text/plain');
+      createObjectURL.mockRestore();
+      revokeObjectURL.mockRestore();
+    });
   });
 
   describe('downloadJSON', () => {

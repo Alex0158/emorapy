@@ -11,13 +11,20 @@ import {
   Space,
   Switch,
   Table,
+  Tag,
   Typography,
+  InputNumber,
   message,
 } from 'antd';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAdminMe } from '@/hooks/useAdminMe';
 import { adminApi } from '@/services/api/admin';
-import type { AdminAdminUserItem } from '@/types/admin';
+import type {
+  AdminAdminUserItem,
+  AdminMediaProviderCatalogItem,
+  AdminMediaProviderTestInput,
+  AdminMediaProviderTestResult,
+} from '@/types/admin';
 import { t } from '@/utils/i18n';
 
 const { Title, Text } = Typography;
@@ -29,6 +36,18 @@ interface AdminUserFormValues {
   roleKey: 'super_admin' | 'ops' | 'marketing' | 'support';
 }
 
+interface MediaProviderFormValues {
+  providerKey?: string;
+  apiKey?: string;
+  baseUrl?: string;
+  timeoutMs?: number;
+  model?: string;
+  sourceImageUrl?: string;
+  count?: number;
+  durationSeconds?: number;
+  prompt?: string;
+}
+
 export default function AdminSettingsPage() {
   const queryClient = useQueryClient();
   const [editingAdmin, setEditingAdmin] = useState<AdminAdminUserItem | null>(null);
@@ -36,6 +55,10 @@ export default function AdminSettingsPage() {
   const [adminEditForm] = Form.useForm();
   const [alertRulesForm] = Form.useForm<{ rules: string }>();
   const [featureFlagsForm] = Form.useForm<{ flags: string }>();
+  const [mediaProviderForm] = Form.useForm<MediaProviderFormValues>();
+  const [selectedMediaProviderKey, setSelectedMediaProviderKey] = useState('');
+  const [mediaProviderTestResult, setMediaProviderTestResult] =
+    useState<AdminMediaProviderTestResult | null>(null);
 
   const adminUsersQuery = useQuery({
     queryKey: ['admin', 'admin-users'],
@@ -45,8 +68,86 @@ export default function AdminSettingsPage() {
     queryKey: ['admin', 'configs', 'settings'],
     queryFn: () => adminApi.listConfigs({ limit: 200, offset: 0 }),
   });
+  const mediaProvidersQuery = useQuery({
+    queryKey: ['admin', 'media-providers'],
+    queryFn: () => adminApi.listMediaProviders(),
+  });
   const adminMeQuery = useAdminMe(true);
   const currentAdminId = adminMeQuery.data?.admin.id || '';
+
+  const mediaProviderCatalog: AdminMediaProviderCatalogItem[] =
+    mediaProvidersQuery.data?.items || [];
+  const selectedMediaProvider = useMemo(
+    () => mediaProviderCatalog.find((provider) => provider.providerKey === selectedMediaProviderKey),
+    [mediaProviderCatalog, selectedMediaProviderKey]
+  );
+
+  useEffect(() => {
+    if (!selectedMediaProviderKey && mediaProviderCatalog.length > 0) {
+      setSelectedMediaProviderKey(mediaProviderCatalog[0].providerKey);
+      return;
+    }
+    if (selectedMediaProviderKey && !mediaProviderCatalog.some((provider) => provider.providerKey === selectedMediaProviderKey)) {
+      setSelectedMediaProviderKey(mediaProviderCatalog[0]?.providerKey || '');
+    }
+  }, [mediaProviderCatalog, selectedMediaProviderKey]);
+
+  const mediaConfigItems = useMemo(
+    () => configsQuery.data?.items || [],
+    [configsQuery.data]
+  );
+
+  const getMediaProviderConfigValue = (providerKey: string): Record<string, unknown> | undefined => {
+    const configItem = mediaConfigItems.find((item) => item.key === `media.provider.${providerKey}`);
+    if (!configItem || typeof configItem.value !== 'object' || configItem.value === null || Array.isArray(configItem.value)) {
+      return undefined;
+    }
+    return configItem.value as Record<string, unknown>;
+  };
+
+  useEffect(() => {
+    if (!selectedMediaProvider || !selectedMediaProvider.providerType) return;
+    const providerConfig = getMediaProviderConfigValue(selectedMediaProvider.providerKey) || {};
+    mediaProviderForm.setFieldsValue({
+      providerKey: selectedMediaProvider.providerKey,
+      apiKey: '',
+      baseUrl:
+        (typeof providerConfig.baseUrl === 'string' && providerConfig.baseUrl)
+        || (typeof providerConfig.base_url === 'string' && providerConfig.base_url)
+        || selectedMediaProvider.defaultBaseUrl
+        || undefined,
+      timeoutMs:
+        typeof providerConfig.timeoutMs === 'number'
+          ? providerConfig.timeoutMs
+          : typeof providerConfig.timeout_ms === 'number'
+            ? providerConfig.timeout_ms
+            : 12000,
+      model:
+        typeof providerConfig.model === 'string' && providerConfig.model
+          ? providerConfig.model
+          : selectedMediaProvider.defaultModel,
+      sourceImageUrl:
+        typeof providerConfig.sourceImageUrl === 'string'
+          ? providerConfig.sourceImageUrl
+          : '',
+      count:
+        selectedMediaProvider.providerType === 'image'
+          ? typeof providerConfig.count === 'number' && providerConfig.count > 0
+            ? providerConfig.count
+            : 1
+          : undefined,
+      durationSeconds:
+        selectedMediaProvider.providerType === 'video'
+          ? typeof providerConfig.durationSeconds === 'number' && providerConfig.durationSeconds > 0
+            ? providerConfig.durationSeconds
+            : 5
+          : undefined,
+      prompt:
+        selectedMediaProvider.providerType === 'image'
+          ? 'A calm neutral composition'
+          : 'A cinematic short clip',
+    });
+  }, [selectedMediaProvider, mediaConfigItems, mediaProviderForm]);
 
   useEffect(() => {
     const items = configsQuery.data?.items || [];
@@ -145,6 +246,157 @@ export default function AdminSettingsPage() {
     },
   });
 
+  const mediaProviderSaveMutation = useMutation({
+    mutationFn: ({
+      providerKey,
+      value,
+    }: {
+      providerKey: string;
+      value: Record<string, unknown>;
+    }) => adminApi.upsertConfig({
+      key: `media.provider.${providerKey}`,
+      value,
+      isRuntime: true,
+      isSensitive: true,
+    }),
+    onSuccess: () => {
+      message.success(t('admin.settings.mediaProviders.saveSuccess'));
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'configs', 'settings'] });
+    },
+    onError: (error: unknown) => {
+      const err = error as { code?: string } | null;
+      if (err?.code === 'FORBIDDEN') {
+        message.error(t('admin.ops.accessDenied'));
+        return;
+      }
+      message.error(t('admin.settings.mediaProviders.saveFailed'));
+    },
+  });
+
+  const mediaProviderTestMutation = useMutation({
+    mutationFn: ({
+      providerKey,
+      payload,
+    }: {
+      providerKey: string;
+      payload: AdminMediaProviderTestInput;
+    }) => adminApi.testMediaProvider(providerKey, payload),
+    onSuccess: (result) => {
+      setMediaProviderTestResult(result);
+      message.success(t('admin.settings.mediaProviders.testSuccess'));
+    },
+    onError: (error: unknown) => {
+      const err = error as { code?: string } | null;
+      setMediaProviderTestResult(null);
+      if (err?.code === 'FORBIDDEN') {
+        message.error(t('admin.ops.accessDenied'));
+        return;
+      }
+      message.error(t('admin.settings.mediaProviders.testFailed'));
+    },
+  });
+
+  const handleSaveMediaProvider = async () => {
+    if (!selectedMediaProvider) return;
+    const values = await mediaProviderForm.validateFields();
+    const currentConfig = getMediaProviderConfigValue(selectedMediaProvider.providerKey) || {};
+    const updatedConfig: Record<string, unknown> = { ...currentConfig };
+    if (typeof values.apiKey === 'string' && values.apiKey.trim()) {
+      updatedConfig.apiKey = values.apiKey.trim();
+    }
+    if (typeof values.baseUrl === 'string' && values.baseUrl.trim()) {
+      updatedConfig.baseUrl = values.baseUrl.trim();
+    }
+    if (typeof values.timeoutMs === 'number' && Number.isFinite(values.timeoutMs)) {
+      updatedConfig.timeoutMs = values.timeoutMs;
+    }
+    if (typeof values.model === 'string' && values.model.trim()) {
+      updatedConfig.model = values.model.trim();
+    }
+    if (
+      selectedMediaProvider.providerType === 'video'
+      && typeof values.sourceImageUrl === 'string'
+      && values.sourceImageUrl.trim()
+    ) {
+      updatedConfig.sourceImageUrl = values.sourceImageUrl.trim();
+    }
+    if (!updatedConfig.apiKey && !currentConfig.apiKey) {
+      message.error(t('admin.settings.mediaProviders.apiKeyRequired'));
+      return;
+    }
+
+    mediaProviderSaveMutation.mutate({
+      providerKey: selectedMediaProvider.providerKey,
+      value: updatedConfig,
+    });
+  };
+
+  const handleTestMediaProvider = async () => {
+    if (!selectedMediaProvider) return;
+    const values = await mediaProviderForm.validateFields();
+    const payload: AdminMediaProviderTestInput = {
+      apiKey:
+        typeof values.apiKey === 'string' && values.apiKey.trim()
+          ? values.apiKey.trim()
+          : undefined,
+      baseUrl:
+        typeof values.baseUrl === 'string' && values.baseUrl.trim()
+          ? values.baseUrl.trim()
+          : undefined,
+      timeoutMs:
+        typeof values.timeoutMs === 'number' && Number.isFinite(values.timeoutMs)
+          ? values.timeoutMs
+          : undefined,
+      model:
+        typeof values.model === 'string' && values.model.trim()
+          ? values.model.trim()
+          : undefined,
+      prompt:
+        typeof values.prompt === 'string' && values.prompt.trim()
+          ? values.prompt.trim()
+          : undefined,
+    };
+
+    if (selectedMediaProvider.providerType === 'image') {
+      if (typeof values.count === 'number' && Number.isFinite(values.count)) {
+        payload.count = Math.max(1, Math.floor(values.count));
+      }
+    } else if (selectedMediaProvider.providerType === 'video') {
+      if (typeof values.durationSeconds === 'number' && Number.isFinite(values.durationSeconds)) {
+        payload.durationSeconds = Math.max(1, Math.floor(values.durationSeconds));
+      }
+      if (typeof values.sourceImageUrl === 'string' && values.sourceImageUrl.trim()) {
+        payload.sourceImageUrl = values.sourceImageUrl.trim();
+      }
+    }
+
+    mediaProviderTestMutation.mutate({
+      providerKey: selectedMediaProvider.providerKey,
+      payload,
+    });
+  };
+
+  const renderCurrentProviderState = (provider: AdminMediaProviderCatalogItem) => {
+    const isConfigured = Boolean(getMediaProviderConfigValue(provider.providerKey)?.apiKey);
+    return (
+      <Space direction="vertical" size={4}>
+        <Space>
+          <Tag color={provider.providerType === 'image' ? 'blue' : 'purple'}>
+            {provider.providerType}
+          </Tag>
+          <Text>{t('admin.settings.mediaProviders.defaultModel')}</Text>
+          <Text code>{provider.defaultModel || '-'}</Text>
+          <Text>
+            {isConfigured ? t('admin.settings.mediaProviders.configured') : t('admin.settings.mediaProviders.notConfigured')}
+          </Text>
+        </Space>
+        <Text type="secondary">
+          {provider.description || ''}
+        </Text>
+      </Space>
+    );
+  };
+
   return (
     <Space orientation="vertical" size="large" style={{ width: '100%' }}>
       <div>
@@ -157,6 +409,137 @@ export default function AdminSettingsPage() {
       {(adminUsersQuery.error || configsQuery.error) && (
         <Alert showIcon type="error" title={t('admin.settings.loadFailed')} />
       )}
+
+      <Card title={t('admin.settings.mediaProviders.title')}>
+        <Space direction="vertical" size="large" style={{ width: '100%' }}>
+          <Text type="secondary">{t('admin.settings.mediaProviders.subtitle')}</Text>
+          <Form form={mediaProviderForm} layout="vertical">
+            <Form.Item
+              name="providerKey"
+              label={t('admin.settings.mediaProviders.provider')}
+              rules={[
+                { required: true, message: t('admin.settings.mediaProviders.selectProviderRequired') },
+              ]}
+            >
+              <Select
+                placeholder={t('admin.settings.mediaProviders.selectProvider')}
+                value={selectedMediaProviderKey}
+                onChange={(value) => {
+                  setSelectedMediaProviderKey(value);
+                  setMediaProviderTestResult(null);
+                }}
+                options={mediaProviderCatalog.map((provider) => ({
+                  label: `${provider.displayName} (${provider.providerType})`,
+                  value: provider.providerKey,
+                }))}
+              />
+            </Form.Item>
+
+            {selectedMediaProvider && (
+              <>
+                {renderCurrentProviderState(selectedMediaProvider)}
+                <Form.Item
+                  name="apiKey"
+                  label={
+                    selectedMediaProvider.secretLabel || t('admin.settings.mediaProviders.apiKey')
+                  }
+                  extra={t('admin.settings.mediaProviders.apiKeyHelp')}
+                >
+                  <Input.Password placeholder="sk-..." />
+                </Form.Item>
+                <Form.Item name="baseUrl" label={t('admin.settings.mediaProviders.baseUrl')}>
+                  <Input placeholder={selectedMediaProvider.defaultBaseUrl || ''} />
+                </Form.Item>
+                <Form.Item
+                  name="timeoutMs"
+                  label={t('admin.settings.mediaProviders.timeoutMs')}
+                >
+                  <InputNumber min={500} max={120000} style={{ width: '100%' }} />
+                </Form.Item>
+                <Form.Item
+                  name="model"
+                  label={t('admin.settings.mediaProviders.model')}
+                >
+                  <Input placeholder={selectedMediaProvider.defaultModel || ''} />
+                </Form.Item>
+                {selectedMediaProvider.providerType === 'video' && (
+                  <Form.Item
+                    name="sourceImageUrl"
+                    label={t('admin.settings.mediaProviders.sourceImage')}
+                    extra={t('admin.settings.mediaProviders.sourceImageHelp')}
+                  >
+                    <Input
+                      placeholder="https://your-domain.example/image.jpg"
+                    />
+                  </Form.Item>
+                )}
+                {selectedMediaProvider.providerType === 'image' ? (
+                  <Form.Item
+                    name="count"
+                    label={t('admin.settings.mediaProviders.count')}
+                  >
+                    <InputNumber min={1} max={20} style={{ width: '100%' }} />
+                  </Form.Item>
+                ) : (
+                  <Form.Item
+                    name="durationSeconds"
+                    label={t('admin.settings.mediaProviders.duration')}
+                  >
+                    <InputNumber min={1} max={240} style={{ width: '100%' }} />
+                  </Form.Item>
+                )}
+                <Form.Item
+                  name="prompt"
+                  label={t('admin.settings.mediaProviders.prompt')}
+                  extra={t('admin.settings.mediaProviders.promptHelp')}
+                >
+                  <Input.TextArea rows={3} />
+                </Form.Item>
+                <Space>
+                  <Button
+                    type="primary"
+                    loading={mediaProviderSaveMutation.isPending}
+                    onClick={handleSaveMediaProvider}
+                  >
+                    {t('admin.settings.mediaProviders.save')}
+                  </Button>
+                  <Button
+                    loading={mediaProviderTestMutation.isPending}
+                    onClick={handleTestMediaProvider}
+                  >
+                    {t('admin.settings.mediaProviders.test')}
+                  </Button>
+                </Space>
+              </>
+            )}
+          </Form>
+
+          {mediaProviderTestResult && (
+            <Space direction="vertical" style={{ width: '100%' }}>
+              <Alert
+                type={mediaProviderTestResult.success ? 'success' : 'error'}
+                message={mediaProviderTestResult.message}
+                description={`${t('admin.settings.mediaProviders.latency')}: ${mediaProviderTestResult.latencyMs}ms`}
+                showIcon
+              />
+              {mediaProviderTestResult.detail !== undefined && (
+                <pre
+                  style={{
+                    background: '#f5f5f5',
+                    padding: 12,
+                    borderRadius: 6,
+                    maxHeight: 180,
+                    overflow: 'auto',
+                  }}
+                  translate="no"
+                >
+                  {JSON.stringify(mediaProviderTestResult.detail, null, 2)}
+                </pre>
+              )}
+            </Space>
+          )}
+        </Space>
+      </Card>
 
       <Card title={t('admin.settings.adminUsers.title')}>
         <Form<AdminUserFormValues>

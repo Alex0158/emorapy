@@ -105,5 +105,29 @@ describe('cache', () => {
       expect(sessionCache.get('k')).toBeNull();
       expect(logger.logger.error).toHaveBeenCalled();
     });
+    it('set 拋錯時應記錄 logger.error 且不拋出', async () => {
+      mockSetItem.mockImplementationOnce(() => {
+        throw new Error('quota exceeded');
+      });
+      const logger = await import('@/utils/logger');
+      expect(() => sessionCache.set('k', { x: 1 })).not.toThrow();
+      expect(logger.logger.error).toHaveBeenCalledWith('SessionStorage set error', expect.any(Error));
+    });
+    it('remove 拋錯時應記錄 logger.error 且不拋出', async () => {
+      mockRemoveItem.mockImplementationOnce(() => {
+        throw new Error('storage error');
+      });
+      const logger = await import('@/utils/logger');
+      expect(() => sessionCache.remove('k')).not.toThrow();
+      expect(logger.logger.error).toHaveBeenCalledWith('SessionStorage remove error', expect.any(Error));
+    });
+    it('clear 拋錯時應記錄 logger.error 且不拋出', async () => {
+      mockClear.mockImplementationOnce(() => {
+        throw new Error('clear failed');
+      });
+      const logger = await import('@/utils/logger');
+      expect(() => sessionCache.clear()).not.toThrow();
+      expect(logger.logger.error).toHaveBeenCalledWith('SessionStorage clear error', expect.any(Error));
+    });
   });
 });

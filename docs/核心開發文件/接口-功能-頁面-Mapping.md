@@ -1,7 +1,7 @@
 # CJ 接口-功能-頁面 Mapping（核心版）
 
-**文檔版本**：v1.1  
-**最後更新**：2026-03-05  
+**文檔版本**：v1.4  
+**最後更新**：2026-03-14  
 **目標**：把 API -> 功能 -> 頁面 -> 流程節點建立可回歸的單點追溯。
 
 ---
@@ -12,6 +12,7 @@
 - 一條 API 可映射多個頁面（多場景），但每個場景需落到明確流程節點。
 - `狀態` 與 `全接口清單-主文檔` 保持一致（已使用/候選廢棄）。
 - 前台「完成度」以 `功能特性清單.md` 的口徑為準（`已完成/跨功能依賴/待驗證`），不覆蓋 API 狀態欄。
+- `F01-F10` 為主功能；`F11-F14` 僅作候選/平台能力附錄索引。
 - 風險等級：
   - `H`：跨多場景、涉及身份/狀態遷移/SSE/文件。
   - `M`：單場景核心功能。
@@ -23,11 +24,13 @@
 |---|---|---|---|---|---|
 | `POST /api/v1/sessions/quick` | F01 | `/quick-experience/create` | 快速體驗起始 | H | 已使用 |
 | `POST /api/v1/sessions/refresh` | F01 | `/quick-experience/*` | Session 續期 | H | 已使用 |
-| `POST /api/v1/auth/claim-session` | F01/F09 | 登入後隱式 | 快速案件升格 | H | 已使用 |
+| `POST /api/v1/auth/claim-session` | F01/F09 | 登入後隱式 | quick case 升格 | H | 已使用 |
 | `POST /api/v1/cases/quick` | F01 | `/quick-experience/create` | 匿名建案 | H | 已使用 |
 | `POST /api/v1/cases/collaborative` | F02 | `/quick-experience/collaborative` | A/B 輪流提交流程 | H | 已使用 |
 | `GET /api/v1/cases/by-session` | F01 | `/quick-experience/create` | 回收歷史 quick case | M | 已使用 |
 | `GET /api/v1/cases/:id` | F01/F03 | `/quick-experience/result/:id`、`/case/:id` | 案件讀取 | H | 已使用 |
+| `GET /api/v1/profile/me` | F09 | `/profile/index` | 個人背景資料讀取 | M | 已使用 |
+| `PUT /api/v1/profile/me` | F09 | `/profile/index` | 個人背景資料更新 | M | 已使用 |
 | `POST /api/v1/cases` | F03 | `/case/create` | 正式建案 | H | 已使用 |
 | `PUT /api/v1/cases/:id` | F03 | `/case/:id/review` | 案件修訂 | M | 已使用 |
 | `POST /api/v1/cases/:id/submit` | F03 | `/case/:id` | draft -> submitted | H | 已使用 |
@@ -35,8 +38,8 @@
 | `POST /api/v1/cases/:id/evidence` | F01/F03/F05 | `/quick-experience/*`、`/case/create`、`/execution/:planId/checkin` | 證據上傳 | H | 已使用 |
 | `DELETE /api/v1/cases/:id/evidence/:evidenceId` | F03 | 證據組件 | 證據刪除 | M | 已使用 |
 | `GET /api/v1/cases/:id/judgment` | F01/F02 | `/quick-experience/result/:id` | 結果頁判決查詢（F02 透過導頁跨功能依賴） | H | 已使用 |
-| `POST /api/v1/judgments/generate/:id` | F04/F07 | `/case/:id/review`、`/chat/room/:roomId`(間接) | 判決生成 | H | 已使用 |
-| `GET /api/v1/judgments/:id` | F04 | `/judgment/:id` | 判決展示 | M | 已使用 |
+| `POST /api/v1/judgments/generate/:id` | F04 | `/case/:id/review` | 判決生成（formal review） | H | 已使用 |
+| `GET /api/v1/judgments/:id` | F04 | `/judgment/:id` | 判決展示（純登入後消費） | M | 已使用 |
 | `POST /api/v1/judgments/:id/accept` | F04 | `/judgment/:id` | 判決接受/拒絕 | M | 已使用 |
 | `POST /api/v1/judgments/:id/repair` | F12 | （無） | 聯盟修復 | L | 候選廢棄 |
 | `POST /api/v1/judgments/:id/metrics` | F12 | （無） | 臨床品質回寫 | L | 候選廢棄 |
@@ -48,12 +51,12 @@
 | `POST /api/v1/execution/checkin` | F05 | `/execution/:planId/checkin` | 執行打卡 | M | 已使用 |
 | `GET /api/v1/execution/status` | F05 | `/execution/:planId/checkin` | 單方案進度 | M | 已使用 |
 | `GET /api/v1/execution/dashboard` | F05 | `/execution/dashboard` | 全局看板 | M | 已使用 |
-| `POST /api/v1/interview/start` | F06 | `/profile/index`、`/profile/my-story`、`/profile/pairing` | 啟動訪談 | H | 已使用 |
+| `POST /api/v1/interview/start` | F06 | `/profile/index`、`/profile/my-story`、`/profile/pairing`（F08 主責頁之 F06 次責入口） | 啟動訪談 | H | 已使用 |
 | `POST /api/v1/interview/:id/respond` | F06 | `/interview/:sessionId` | SSE 回答 | H | 已使用 |
 | `POST /api/v1/interview/:id/skip` | F06 | `/interview/:sessionId` | SSE 跳題 | H | 已使用 |
 | `POST /api/v1/interview/:id/end` | F06 | `/interview/:sessionId` | 結束訪談 | M | 已使用 |
 | `GET /api/v1/interview/resume` | F06/F08 | `/profile/index`、`/profile/my-story`、`/profile/pairing` | 恢復檢查 | M | 已使用 |
-| `GET /api/v1/interview/:id` | F06 | `/interview/:sessionId` | 訪談詳情 | M | 已使用 |
+| `GET /api/v1/interview/:id` | F06 | `/interview/:sessionId`、`/interview/:sessionId/result` | 訪談詳情/結果讀取 | M | 已使用 |
 | `POST /api/v1/interview/:id/retry` | F06 | `/profile/my-story`、`/interview/:sessionId/result` | 重試失敗流水線 | M | 已使用 |
 | `GET /api/v1/psych-profile` | F06 | `/profile/my-story`、`/judgment/:id`、`/case/create` | 心理畫像讀取 | M | 已使用 |
 | `GET /api/v1/psych-profile/feedback` | F06 | `/profile/my-story` | 回饋歷史 | M | 已使用 |
@@ -61,14 +64,14 @@
 | `DELETE /api/v1/psych-profile` | F06 | `/profile/my-story` | 刪除心理資料 | M | 已使用 |
 | `POST /api/v1/chat/rooms` | F07 | `/chat/room` | 建房 | H | 已使用 |
 | `GET /api/v1/chat/rooms/:roomId` | F07 | `/chat/room/:roomId` | 房間讀取 | H | 已使用 |
-| `POST /api/v1/chat/rooms/:roomId/invites` | F07 | `/chat/room/:roomId` | 建邀請碼 | H | 已使用 |
-| `POST /api/v1/chat/invites/:inviteCode/accept` | F07 | `/chat/room` | 接受邀請 | H | 已使用 |
+| `POST /api/v1/chat/rooms/:roomId/invites` | F07 | `/chat/room/:roomId` | 建邀請碼（需 `canonical session_id` 匹配 owner session） | H | 已使用 |
+| `POST /api/v1/chat/invites/:inviteCode/accept` | F07 | `/chat/room` | 接受邀請（User only） | H | 已使用 |
 | `POST /api/v1/chat/invites/:inviteCode/decline` | F07 | `/chat/room` | 拒絕邀請 | M | 已使用 |
 | `GET /api/v1/chat/rooms/:roomId/stream` | F07 | `/chat/room/:roomId` | SSE 事件流 | H | 已使用 |
 | `GET /api/v1/chat/rooms/:roomId/messages` | F07 | `/chat/room/:roomId` | 歷史訊息 | M | 已使用 |
 | `POST /api/v1/chat/rooms/:roomId/messages` | F07 | `/chat/room/:roomId` | 發送訊息 | H | 已使用 |
-| `POST /api/v1/chat/rooms/:roomId/request-judgment` | F07/F04 | `/chat/room/:roomId` | 聊天轉判決 | H | 已使用 |
-| `GET /api/v1/chat/rooms/:roomId/judgment-status` | F07 | `/chat/room/:roomId` | 判決狀態 | M | 已使用 |
+| `POST /api/v1/chat/rooms/:roomId/request-judgment` | F07 | `/chat/room/:roomId` | 聊天轉判決 request | H | 已使用 |
+| `GET /api/v1/chat/rooms/:roomId/judgment-status` | F07/F04 | `/chat/room/:roomId`、`/judgment/:id`(承接) | 判決狀態與 handoff（未登入先導 auth 回跳） | M | 已使用 |
 | `POST /api/v1/chat/rooms/:roomId/leave` | F07 | `/chat/room/:roomId` | B 方離房 | M | 已使用 |
 | `POST /api/v1/chat/rooms/:roomId/kick-b` | F07 | `/chat/room/:roomId` | A 方踢人 | M | 已使用 |
 | `POST /api/v1/pairing/create` | F08 | `/profile/pairing` | 創邀請碼 | M | 已使用 |
@@ -116,6 +119,7 @@
 | `GET /api/v1/admin/runtime/interview` | F10 | `/admin/settings` | 訪談運行參數 | L | 已使用 |
 | `GET /api/v1/admin/reports/overview.csv` | F10 | `/admin/reports` | 報表下載 | M | 已使用 |
 | `POST /api/v1/admin/reports/custom` | F10 | `/admin/reports` | 客製報表 | M | 已使用 |
+| `GET /api/v1/version` | F14 | `frontend` Header、`frontend-admin` AdminSectionLayout | 版本面板（三端版本顯示，部署驗證） | L | 已使用 |
 | `GET /health` | F14 | （監控） | 聚合健康探針 | L | 候選廢棄 |
 | `GET /health/ready` | F14 | （監控） | 就緒探針 | L | 候選廢棄 |
 | `GET /health/live` | F14 | （監控） | 存活探針 | L | 候選廢棄 |
@@ -132,19 +136,27 @@
 | `POST /api/v1/auth/claim-session` | 註冊後關聯 | 登入後關聯 | 失敗不應阻斷 auth 主流程 | 模擬 claim 失敗仍可登入 |
 | `GET /api/v1/admin/configs` | Config 頁讀取 | Settings 頁同時讀取 | 多頁並發 + token 狀態 | 雙頁同時請求結果一致 |
 
-## 前台完成度補丁表（對齊功能特性清單 v2.1）
+## 前台完成度補丁表（對齊功能特性清單 v3.0）
 
 | API | 功能ID | API 狀態（主註冊） | 前台完成度（功能清單） | 修訂說明 | 取證 |
 |---|---|---|---|---|---|
+| `POST /api/v1/sessions/refresh` | F01 | 已使用 | 已完成 | session 恢復已升級為 F01 正式映射，不再只存在於例外敘述 | `services/api/session.ts`、`sessionStore` |
+| `POST /api/v1/auth/claim-session` | F01/F09 | 已使用 | 跨功能依賴 | quick 升格由 F09 auth 成功態承接，功能歸屬改為共用後置流程 | `authStore.ts` |
 | `GET /api/v1/cases/:id/judgment` | F02 | 已使用 | 跨功能依賴 | 協作頁只負責提交與導頁，判決查詢在 result 頁執行 | `pages/QuickExperience/Collaborative`、`pages/QuickExperience/Result` |
+| `GET /api/v1/interview/:id` | F06 | 已使用 | 已完成 | 訪談結果頁已納入 F06 正式承接，不再只記聊天頁讀取 | `pages/Interview/Chat`、`pages/Interview/Result` |
+| `POST /api/v1/interview/start` | F06 | 已使用 | 已完成 | `/profile/pairing` 已正式納入 F08 主責頁上的 F06 次責入口 | `pages/Profile/Pairing`、`services/api/interview.ts` |
 | `GET /api/v1/reconciliation-plans/:id` | F05 | 已使用 | 已完成 | 打卡流程先取 `judgment.case_id`，再進照片上傳與 checkin | `pages/Execution/CheckIn` |
 | `POST /api/v1/cases/:id/evidence` | F05 | 已使用 | 已完成 | 打卡照片上傳實際調用 case evidence 接口 | `pages/Execution/CheckIn`、`services/api/case.ts` |
 | `GET /api/v1/profile/relationship/:pairingId` | F08 | 已使用 | 已完成 | `/profile/pairing` 已在配對成功態接入讀取流程 | `frontend/src/services/api/profile.ts`、`frontend/src/pages/Profile/Pairing` |
 | `PUT /api/v1/profile/relationship/:pairingId` | F08 | 已使用 | 已完成 | `/profile/pairing` 已接入保存與回顯流程 | `frontend/src/services/api/profile.ts`、`frontend/src/pages/Profile/Pairing` |
+| `POST /api/v1/chat/rooms/:roomId/invites` | F07 | 已使用 | 已完成 | 匿名 owner 仍需 `room.session_id` 與當前 `canonical session_id` 匹配才可建立 invite | `pages/Chat/Room`、`chat-flow` E2E 補丁 |
+| `GET /api/v1/chat/rooms/:roomId/judgment-status` | F07/F04 | 已使用 | 跨功能依賴 | chat 僅負責 judgment ready handoff；正式 judgment 消費由 F04 登入鏈路承接 | `pages/Chat/Room`、`pages/Judgment/Detail` |
+| `GET /api/v1/user/profile` | F09 | 已使用 | 已完成 | `/profile/settings` 已明確納入 F09 頁面責任 | `pages/Profile/Settings` |
+| `GET /api/v1/admin/health/detailed` | F10 | 已使用 | 已完成 | admin health 已明確納入 F10 子域 | `frontend-admin/src/pages/Admin/Health` |
 
 ## 追溯閉環檢查
 
 - API -> 功能：見本文件 `功能ID` 欄。
 - 功能 -> 頁面：見 `功能特性清單.md` 的「頁面 × API 小功能點」。
-- 頁面 -> 路由守衛：見 `頁面清單.md`。
+- 頁面 -> 路由守衛：見 `頁面清單.md`。守衛與直連行為（未登入強制跳轉、admin 無 token 重定向）以 `頁面清單.md` 與 `docs/前端設計/02-路由與頁面結構設計.md` 為準。
 - 流程 -> API：見 `業務流程整合.md`（下一文檔）。

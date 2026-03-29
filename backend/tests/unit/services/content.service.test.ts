@@ -44,6 +44,14 @@ describe('ContentService', () => {
       });
     });
 
+    it('無內容時應返回空陣列（F01 邊界：content list 空結果）', async () => {
+      prismaMock.contentItem.findMany.mockResolvedValue([]);
+
+      const result = await service.listContent({});
+
+      expect(result).toEqual([]);
+    });
+
     it('有 type、tags、language、is_active、limit 時應傳入 where 與 take', async () => {
       prismaMock.contentItem.findMany.mockResolvedValue([]);
 
@@ -75,6 +83,28 @@ describe('ContentService', () => {
 
       expect(result).toEqual(items);
     });
+
+    it('tags 為空陣列時應不設置 where.tags（F01 邊界：等價於查全部）', async () => {
+      prismaMock.contentItem.findMany.mockResolvedValue([]);
+
+      await service.listContent({ tags: [], limit: 5 });
+
+      expect(prismaMock.contentItem.findMany).toHaveBeenCalledWith({
+        where: {},
+        orderBy: { created_at: 'desc' },
+        take: 5,
+      });
+    });
+
+    it('limit 為 0 時應使用 20（防禦性：0 為 falsy）', async () => {
+      prismaMock.contentItem.findMany.mockResolvedValue([]);
+
+      await service.listContent({ limit: 0 });
+
+      expect(prismaMock.contentItem.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ take: 20 })
+      );
+    });
   });
 
   describe('getRecommendations', () => {
@@ -105,6 +135,14 @@ describe('ContentService', () => {
           where: { case_id: 'case-1', relation: 'related' },
         })
       );
+    });
+
+    it('無關聯時應返回空陣列（F01/F05 邊界：案件無推薦內容）', async () => {
+      prismaMock.caseContentLink.findMany.mockResolvedValue([]);
+
+      const result = await service.getRecommendations('case-1', 'recommend');
+
+      expect(result).toEqual([]);
     });
   });
 

@@ -14,8 +14,9 @@ import { fenceUserInput } from '../utils/prompt';
  */
 export const SAFETY_SIGNAL_REGEX = /安全注意|安全隱憂|控制行為|暴力|威脅|權力不對等|經濟控制|人身威脅|貶低人格|孤立社交|自傷|自殺/;
 
-/** 親密暴力（IPV）信號子集——用於區分安全介入策略 */
-export const IPV_SIGNAL_REGEX = /控制行為|暴力|威脅|權力不對等|經濟控制|人身威脅|貶低人格|孤立社交/;
+/** 親密暴力（IPV）信號子集——用於區分安全介入策略；含常見口語敘述以穩定識別暴力/動手場景（F02-BUG-002 擴充：打人、摔碗） */
+export const IPV_SIGNAL_REGEX =
+  /控制行為|暴力|威脅|權力不對等|經濟控制|人身威脅|貶低人格|孤立社交|打我|打了他|打人|動手|推我|扇巴掌|砸東西|掐|拉扯|摔東西|摔碗|衝過來/;
 
 /** 自傷/自殺危機信號子集——用於區分安全介入策略 */
 export const CRISIS_SIGNAL_REGEX = /自傷|自殺/;
@@ -257,6 +258,98 @@ export class AIService {
       } else {
         throw Errors.AI_SERVICE_ERROR('AI服務暫時不可用');
       }
+    });
+  }
+
+  /**
+   * 生成文本（串流模式，每收到 token 呼叫 onToken）
+   */
+  async generateTextStream(
+    prompt: string,
+    options: GenerateOptions & { onToken?: (text: string) => void }
+  ): Promise<string> {
+    if (this.useMock) {
+      const mock = 'Mock AI response for: ' + String(prompt ?? '').substring(0, 50);
+      for (const c of mock) {
+        options.onToken?.(c);
+      }
+      return mock;
+    }
+    await this.reserveDailyQuota();
+
+    return await retryWithBackoff(
+      async () => {
+        if (options.signal?.aborted) {
+          throw new Error('AI request aborted');
+        }
+        const abortController = new AbortController();
+        const timeoutMs = 45000;
+        const timeout = setTimeout(() => abortController.abort(), timeoutMs);
+        const onExternalAbort = () => abortController.abort();
+        options.signal?.addEventListener('abort', onExternalAbort, { once: true });
+
+        const stream = await openai.chat.completions.create(
+          {
+            model: options.model || AI_CONFIG.model,
+            messages: [
+              { role: 'system', content: options.systemPrompt || '你是一個有用的助手。' },
+              { role: 'user', content: prompt },
+            ],
+            max_tokens: options.maxTokens || AI_CONFIG.maxTokens,
+            temperature: options.temperature ?? AI_CONFIG.temperature,
+            top_p: options.topP ?? AI_CONFIG.topP,
+            frequency_penalty: options.frequencyPenalty ?? AI_CONFIG.frequencyPenalty,
+            presence_penalty: options.presencePenalty ?? AI_CONFIG.presencePenalty,
+            stream: true,
+          },
+          { signal: abortController.signal as any }
+        ).finally(() => {
+          clearTimeout(timeout);
+          options.signal?.removeEventListener('abort', onExternalAbort);
+        });
+
+        let fullContent = '';
+        for await (const chunk of stream) {
+          const delta = chunk.choices[0]?.delta?.content;
+          if (delta) {
+            fullContent += delta;
+            options.onToken?.(delta);
+          }
+        }
+
+        if (!fullContent.trim()) {
+          throw Errors.AI_SERVICE_ERROR('AI返回空內容');
+        }
+        return fullContent;
+      },
+      {
+        maxRetries: 3,
+        initialDelay: 1000,
+        maxDelay: 10000,
+        backoffMultiplier: 2,
+        shouldRetry: (error: unknown) => {
+          const e = error as { name?: string; message?: string; status?: number };
+          const msg = String(e?.message || '');
+          if (e?.name === 'AbortError' || msg.includes('aborted')) return false;
+          if (typeof e?.status === 'number' && e.status >= 400 && e.status < 500) return false;
+          return true;
+        },
+      }
+    ).catch((error: unknown) => {
+      const e = error as { message?: string; status?: number };
+      const today = new Date().toISOString().split('T')[0];
+      const countKey = CacheService.generateKey('ai:daily:count', today);
+      lockService.withLock(`lock:${countKey}`, async () => {
+        const count = (await this.cache.get<number>(countKey)) || 0;
+        const next = Math.max(0, count - 1);
+        await this.cache.set(countKey, next, 24 * 60 * 60);
+      }, 5).catch((err: unknown) => { logger.warn('Failed to rollback AI daily quota', { error: err }); });
+
+      logger.error('OpenAI API stream error after retries', { error: e?.message, prompt: prompt.substring(0, 100) });
+
+      if (e?.status === 429) throw Errors.AI_SERVICE_ERROR('AI服務請求過於頻繁，請稍後再試');
+      if (e?.status === 401) throw Errors.AI_SERVICE_ERROR('AI服務認證失敗');
+      throw Errors.AI_SERVICE_ERROR('AI服務暫時不可用');
     });
   }
 
@@ -847,12 +940,13 @@ ${severityGuide[analysis.severity]}
 - 如果你覺得有更適合這對伴侶的段落結構，你可以靈活調整順序或合併
 - 回應的總體篇幅由情感複雜度決定——嚴重的衝突需要更多空間陪伴情緒，輕微的摩擦可以更精簡有力
 
-**重要的自我檢查**：寫完後，請用這五個問題檢查你的回應：
+**重要的自我檢查**：寫完後，請用這六個問題檢查你的回應：
 1. 每一方讀了之後，會不會覺得「他理解我」？（如果只有一方會這樣覺得，那另一方還不夠。）
 2. 有沒有任何一句話讓人覺得「被說教了」或「被瞧不起了」？（如果有，改寫。）
 3. 讀完後的感覺是「想要試試看」還是「壓力又更大了」？（如果是後者，降低要求、增加鼓勵。）
 4. 如果有安全隱憂（暴力、控制、自傷風險）：你的建議有沒有可能讓弱勢方處於更危險的境地？有沒有可能被控制方利用？如果有，刪除那個建議。
 5. 如果一方或雙方已表達想離開：你的回應有沒有尊重他們的決定？有沒有讓人覺得「被推去挽回一段自己已經放下的關係」？（如果有，重新調整段落結構。）
+6. 若僅有一方陳述：你是否過度採信該方視角？B 的沉默/未發言不代表同意 A 的敘述，分析時應保持對 A 敘事主觀性的警覺。
 
 **結構適配提醒**：以下情況需要對段落結構做根本性調整（不只是微調語氣）：
 - **一方或雙方已表達想結束關係**（「我已經決定要離開」「我心死了」「我不想再繼續了」）：「可以直接用的對話」和「具體可以嘗試的事」不應聚焦在挽回行動上。改為聚焦：①幫助他們釐清自己真正想要的（是真的想離開，還是在用「離開」表達某個未被聽見的需求？）；②如果確定要離開，如何帶著尊重和感謝好好告別；③分開後如何照顧自己的情緒。「調整比重」段落改為「各自可以照顧自己的方向」。
@@ -866,9 +960,17 @@ ${severityGuide[analysis.severity]}
 
 ### 你們之間發生了什麼
 
+**前置步驟（在撰寫回應前，請先完成以下梳理，用於指導後續寫作，不直接展示給用戶）**：
+1. **時間線**：依發生順序列出關鍵事件，不按「誰先說」排序，而是按「什麼時候發生」
+2. **因果鏈**：每個事件如何引發下一個？雙方各自的行為與反應如何互相影響？
+3. **關鍵轉折**：哪個時刻讓衝突升級或僵持？雙方在該時刻各自做了什麼？
+**重要**：此梳理應以事件為中心，不以「角色 A 的陳述先出現」來推斷因果。A 對 B 行為的描述是 A 的主觀詮釋，需與 B 的陳述（若有）交叉檢視。
+
 **這是最關鍵的部分——讓每個人讀了都覺得「天啊，他完全理解我」。**
 
 用你的分析結果來寫，但語氣必須是溫暖的敘事，不是冰冷的分析報告。
+
+**順序中性原則**：以下「先對 A、再對 B」僅為寫作結構，不代表責任輕重或誰的視角更可信。你必須對雙方給予同等深度的理解與篇幅。若你發現自己對某一方的描述明顯更長或更細，請回頭平衡。
 
 1. **先對角色 A 說話**：
    用「角色 A」稱呼。描述他/她可能正在感受什麼、為什麼會那樣感受。
@@ -1096,6 +1198,11 @@ ${severityGuide[analysis.severity]}
       ? `\n${relationshipHint}\n請將此背景作為校準參考：例如長期反覆出現的同類衝突可能意味著雙方都需要更多調整空間。\n`
       : '';
 
+    const singlePartyReminder =
+      !defendantStatement || defendantStatement.trim().length === 0
+        ? '\n⚠️ 單方陳述提醒：角色 B 未發言。A 對 B 行為的描述是 A 的主觀詮釋，不是客觀事實。評估時應警惕過度採信 A 的視角，避免將 A 的詮釋當作 B 的實際狀態。調整空間應傾向保守（如 45–55 或 50–50）。\n'
+        : '';
+
     const prompt = `你是關係諮詢評估助手。請根據以下資訊，僅輸出 JSON：
 {
   "plaintiff": 整數百分比,
@@ -1111,7 +1218,7 @@ ${severityGuide[analysis.severity]}
    - 親密暴力信號（控制、威脅、暴力、權力不對等）：調整空間應大幅傾向有害行為方（如 80:20 或更高），因為需要改變的是暴力/控制行為本身。受害方的「調整空間」僅限於自我保護和尋求支持，不應被解讀為「受害方也需要改變」。將 confidence 降低至 0.4 以下
    - 自傷/自殺風險：此概念的適用性降低，因為核心議題已超出關係調整範疇。給出你的最佳判斷但將 confidence 降低至 0.3 以下
 5) 只輸出 JSON，不要任何解釋
-${relationshipSection}
+${relationshipSection}${singlePartyReminder}
 情感分析：
 - severity: ${analysis.severity}
 - personA.communicationPattern: ${analysis.personA.communicationPattern}

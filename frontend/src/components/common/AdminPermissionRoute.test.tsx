@@ -98,6 +98,114 @@ describe('AdminPermissionRoute', () => {
     expect(screen.getByText('admin.ops.identityFailed')).toBeInTheDocument();
   });
 
+  it('有 token 且 adminMe 錯誤碼 FORBIDDEN 時應顯示 accessDenied', () => {
+    mockUseAdminToken.mockReturnValue('h.payload.s');
+    mockUseAdminAccess.mockReturnValue({
+      adminMeQuery: {
+        isLoading: false,
+        error: { code: 'FORBIDDEN', message: '無權限' },
+      },
+      hasPermission: false,
+      missingPermissions: ['ops:read'],
+    });
+
+    render(
+      <AdminPermissionRoute requiredPermissions={['ops:read']}>
+        <span>child content</span>
+      </AdminPermissionRoute>
+    );
+
+    expect(screen.getByText('admin.ops.accessDenied')).toBeInTheDocument();
+    expect(screen.queryByText('child content')).not.toBeInTheDocument();
+  });
+
+  it('有 token 且 adminMe 錯誤碼 NETWORK_ERROR 時應顯示 common.networkError', () => {
+    mockUseAdminToken.mockReturnValue('h.payload.s');
+    mockUseAdminAccess.mockReturnValue({
+      adminMeQuery: {
+        isLoading: false,
+        error: { code: 'NETWORK_ERROR', message: '網路錯誤' },
+      },
+      hasPermission: false,
+      missingPermissions: ['ops:read'],
+    });
+
+    render(
+      <AdminPermissionRoute requiredPermissions={['ops:read']}>
+        <span>child content</span>
+      </AdminPermissionRoute>
+    );
+
+    expect(screen.getByText('common.networkError')).toBeInTheDocument();
+    expect(screen.queryByText('child content')).not.toBeInTheDocument();
+  });
+
+  it('adminMe 錯誤碼 UNAUTHORIZED 時應顯示 identityFailed 且 description 為 common.unauthorized', () => {
+    mockUseAdminToken.mockReturnValue('h.payload.s');
+    mockUseAdminAccess.mockReturnValue({
+      adminMeQuery: {
+        isLoading: false,
+        error: { code: 'UNAUTHORIZED', message: '未授權' },
+      },
+      hasPermission: false,
+      missingPermissions: ['ops:read'],
+    });
+
+    render(
+      <AdminPermissionRoute requiredPermissions={['ops:read']}>
+        <span>child content</span>
+      </AdminPermissionRoute>
+    );
+
+    expect(screen.getByText('admin.ops.identityFailed')).toBeInTheDocument();
+    expect(screen.getByText('common.unauthorized')).toBeInTheDocument();
+    expect(screen.queryByText('child content')).not.toBeInTheDocument();
+  });
+
+  it('adminMe 錯誤碼 INVALID_TOKEN 時應顯示 identityFailed 且 description 為 admin.ops.invalidTokenFormat', () => {
+    mockUseAdminToken.mockReturnValue('h.payload.s');
+    mockUseAdminAccess.mockReturnValue({
+      adminMeQuery: {
+        isLoading: false,
+        error: { code: 'INVALID_TOKEN', message: 'token 無效' },
+      },
+      hasPermission: false,
+      missingPermissions: ['ops:read'],
+    });
+
+    render(
+      <AdminPermissionRoute requiredPermissions={['ops:read']}>
+        <span>child content</span>
+      </AdminPermissionRoute>
+    );
+
+    expect(screen.getByText('admin.ops.identityFailed')).toBeInTheDocument();
+    expect(screen.getByText('admin.ops.invalidTokenFormat')).toBeInTheDocument();
+    expect(screen.queryByText('child content')).not.toBeInTheDocument();
+  });
+
+  it('adminMe 錯誤碼未知時應使用 identityFailedDesc 作為 description', () => {
+    mockUseAdminToken.mockReturnValue('h.payload.s');
+    mockUseAdminAccess.mockReturnValue({
+      adminMeQuery: {
+        isLoading: false,
+        error: { code: 'UNKNOWN_CODE', message: '未知錯誤' },
+      },
+      hasPermission: false,
+      missingPermissions: ['ops:read'],
+    });
+
+    render(
+      <AdminPermissionRoute requiredPermissions={['ops:read']}>
+        <span>child content</span>
+      </AdminPermissionRoute>
+    );
+
+    expect(screen.getByText('admin.ops.identityFailed')).toBeInTheDocument();
+    expect(screen.getByText('admin.ops.identityFailedDesc')).toBeInTheDocument();
+    expect(screen.queryByText('child content')).not.toBeInTheDocument();
+  });
+
   it('有 token 且權限不足時應顯示 accessDeniedWithPermissions', () => {
     mockUseAdminToken.mockReturnValue('h.payload.s');
     mockUseAdminAccess.mockReturnValue({
@@ -171,5 +279,69 @@ describe('AdminPermissionRoute', () => {
 
     expect(screen.getByText('admin.ops.invalidTokenFormat')).toBeInTheDocument();
     expect(screen.queryByText('child content')).not.toBeInTheDocument();
+  });
+
+  it('adminMe 錯誤碼 NOT_FOUND 時應顯示 identityFailed 且 description 為 common.notFound（F10 權限矩陣錯誤碼映射）', () => {
+    mockUseAdminToken.mockReturnValue('h.payload.s');
+    mockUseAdminAccess.mockReturnValue({
+      adminMeQuery: {
+        isLoading: false,
+        error: { code: 'NOT_FOUND', message: '管理員不存在' },
+      },
+      hasPermission: false,
+      missingPermissions: ['ops:read'],
+    });
+
+    render(
+      <AdminPermissionRoute requiredPermissions={['ops:read']}>
+        <span>child content</span>
+      </AdminPermissionRoute>
+    );
+
+    expect(screen.getByText('admin.ops.identityFailed')).toBeInTheDocument();
+    expect(screen.getByText('common.notFound')).toBeInTheDocument();
+    expect(screen.queryByText('child content')).not.toBeInTheDocument();
+  });
+
+  it('adminMe 錯誤為 { code: "", message: "" } 時應使用 identityFailedDesc（F10 邊界）', () => {
+    mockUseAdminToken.mockReturnValue('h.payload.s');
+    mockUseAdminAccess.mockReturnValue({
+      adminMeQuery: {
+        isLoading: false,
+        error: { code: '', message: '' },
+      },
+      hasPermission: false,
+      missingPermissions: ['ops:read'],
+    });
+
+    render(
+      <AdminPermissionRoute requiredPermissions={['ops:read']}>
+        <span>child content</span>
+      </AdminPermissionRoute>
+    );
+
+    expect(screen.getByText('admin.ops.identityFailed')).toBeInTheDocument();
+    expect(screen.getByText('admin.ops.identityFailedDesc')).toBeInTheDocument();
+    expect(screen.queryByText('child content')).not.toBeInTheDocument();
+  });
+
+  it('requiredPermissions 為空陣列時應渲染 children（F10 權限邊界：空需求即放行）', () => {
+    mockUseAdminToken.mockReturnValue('h.payload.s');
+    mockUseAdminAccess.mockReturnValue({
+      adminMeQuery: {
+        isLoading: false,
+        error: null,
+      },
+      hasPermission: true,
+      missingPermissions: [],
+    });
+
+    render(
+      <AdminPermissionRoute requiredPermissions={[]}>
+        <span>child content</span>
+      </AdminPermissionRoute>
+    );
+
+    expect(screen.getByText('child content')).toBeInTheDocument();
   });
 });

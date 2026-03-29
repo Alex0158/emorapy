@@ -61,3 +61,54 @@ describe('AdminJobsPage', () => {
   });
 });
 
+describe('AdminJobsPage when jobsQuery fails', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseAdminAccess.mockReturnValue({ hasPermission: true });
+    mockUseQueryClient.mockReturnValue({ invalidateQueries: vi.fn() });
+    mockUseQuery.mockReturnValue({
+      data: undefined,
+      error: new Error('load failed'),
+      isLoading: false,
+      isFetching: false,
+      refetch: vi.fn(),
+    });
+    mockUseMutation.mockReturnValue({ mutate: vi.fn(), isPending: false });
+  });
+
+  it('應顯示 admin.jobs.loadFailed Alert', () => {
+    render(<AdminJobsPage />);
+    expect(screen.getByText('admin.jobs.loadFailed')).toBeInTheDocument();
+  });
+
+  it('應仍可點擊 retry 重新拉取（F10 錯誤恢復：失敗不阻塞重試）', () => {
+    const mockRefetch = vi.fn();
+    mockUseQuery.mockReturnValue({
+      data: undefined,
+      error: new Error('load failed'),
+      isLoading: false,
+      isFetching: false,
+      refetch: mockRefetch,
+    });
+    render(<AdminJobsPage />);
+    screen.getByTestId('admin-jobs-load-retry').click();
+    expect(mockRefetch).toHaveBeenCalled();
+  });
+
+  it('retry 失敗後應仍可再次點擊 retry（F10 錯誤恢復：失敗不阻塞重試）', () => {
+    const mockRefetch = vi.fn();
+    mockUseQuery.mockReturnValue({
+      data: undefined,
+      error: new Error('load failed'),
+      isLoading: false,
+      isFetching: false,
+      refetch: mockRefetch,
+    });
+    render(<AdminJobsPage />);
+    const retryBtn = screen.getByTestId('admin-jobs-load-retry');
+    retryBtn.click();
+    retryBtn.click();
+    expect(mockRefetch).toHaveBeenCalledTimes(2);
+  });
+});
+

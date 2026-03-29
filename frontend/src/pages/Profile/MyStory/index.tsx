@@ -3,7 +3,8 @@
  * 顯示所有領域敘事、洞察、豐富度及訪談歷史
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useMountedRef } from '@/hooks/useMountedRef';
 import { useNavigate } from 'react-router-dom';
 import {
   Typography,
@@ -29,6 +30,7 @@ import {
 } from '@ant-design/icons';
 import RichnessRing from '@/components/business/Interview/RichnessRing';
 import { usePsychProfileStore } from '@/store/psychProfileStore';
+import { getErrorMessage } from '@/utils/apiError';
 import { useInterviewStore } from '@/store/interviewStore';
 import { getDomainLabel } from '@/types/interview';
 import type { PsychDomain, ProfileInsight, FeedbackHistoryItem, FeedbackCard } from '@/types/interview';
@@ -66,6 +68,8 @@ const MyStory: React.FC = () => {
   const [deleting, setDeleting] = useState(false);
   const [failedSessionId, setFailedSessionId] = useState<string | null>(null);
   const [retryingFailed, setRetryingFailed] = useState(false);
+  const mountedRef = useMountedRef();
+  const retryLockRef = useRef(false);
   const locale = getLocale();
 
   const getInsightTypeLabel = (insightType: string) => {
@@ -89,28 +93,35 @@ const MyStory: React.FC = () => {
   const handleStartChat = async () => {
     try {
       const resumeData = await checkResume();
+      if (!mountedRef.current) return;
       if (resumeData.has_pending && resumeData.session_id) {
         navigate(`/interview/${resumeData.session_id}`);
         return;
       }
       const session = await startSession('organic');
+      if (!mountedRef.current) return;
       navigate(`/interview/${session.id}`);
-    } catch {
-      message.error(t('interview.startFail'));
+    } catch (error: unknown) {
+      if (mountedRef.current) message.error(getErrorMessage(error, 'interview.startFail'));
     }
   };
 
   const handleRetryFailed = async () => {
-    if (!failedSessionId) return;
+    if (!failedSessionId || retryLockRef.current) return;
+    const retrySessionId = failedSessionId;
+    retryLockRef.current = true;
     setRetryingFailed(true);
     try {
-      await retryFailed(failedSessionId);
+      await retryFailed(retrySessionId);
+      if (!mountedRef.current) return;
       message.info(t('psychProfile.retryProcessing'));
       setFailedSessionId(null);
-    } catch {
-      message.error(t('interview.retryFail'));
+      navigate(`/interview/${retrySessionId}/result`);
+    } catch (error: unknown) {
+      if (mountedRef.current) message.error(getErrorMessage(error, 'interview.retryFail'));
     } finally {
-      setRetryingFailed(false);
+      retryLockRef.current = false;
+      if (mountedRef.current) setRetryingFailed(false);
     }
   };
 
@@ -118,13 +129,14 @@ const MyStory: React.FC = () => {
     setDeleting(true);
     try {
       await deleteAllData();
+      if (!mountedRef.current) return;
       message.success(t('psychProfile.deleteSuccess'));
       setDeleteModalOpen(false);
       navigate('/profile/index');
-    } catch {
-      message.error(t('psychProfile.deleteFail'));
+    } catch (error: unknown) {
+      if (mountedRef.current) message.error(getErrorMessage(error, 'psychProfile.deleteFail'));
     } finally {
-      setDeleting(false);
+      if (mountedRef.current) setDeleting(false);
     }
   };
 
@@ -142,12 +154,18 @@ const MyStory: React.FC = () => {
       <div className="my-story-page">
         <Alert
           title={t('common.loadFailed')}
+          description={storeError}
           type="error"
           showIcon
           action={
-            <Button size="small" onClick={() => fetchProfile()}>
-              {t('common.retry')}
-            </Button>
+            <Space>
+              <Button size="small" onClick={() => fetchProfile()}>
+                {t('common.retry')}
+              </Button>
+              <Button size="small" onClick={() => navigate('/profile/index')}>
+                {t('settings.goToProfile')}
+              </Button>
+            </Space>
           }
         />
       </div>
@@ -169,8 +187,10 @@ const MyStory: React.FC = () => {
     );
   }
 
-  const latestNarratives = profile.narratives?.filter((n) => n.is_latest && n.completeness > 0) || [];
-  const activeInsights = profile.insights?.filter((i) => i.is_active) || [];
+  const latestNarratives = Array.isArray(profile.narratives)
+    ? profile.narratives.filter((n) => n.is_latest && n.completeness > 0)
+    : [];
+  const activeInsights = Array.isArray(profile.insights) ? profile.insights.filter((i) => i.is_active) : [];
   const exploredDomains = latestNarratives.map((n) => n.domain);
   const unexploredDomains = ALL_DOMAINS.filter((d) => !exploredDomains.includes(d));
 
@@ -187,7 +207,7 @@ const MyStory: React.FC = () => {
         description={t('psychProfile.myStoryDesc')}
       />
       <div className="my-story-page" role="main">
-        <div className="adaptive-hero-section mb-8 bg-gradient-to-br from-background to-gray-50 rounded-b-[40px] shadow-sm p-8">
+        <div className="page-hero page-hero--compact">
           <div className="max-w-4xl mx-auto">
             {failedSessionId && (
               <Alert

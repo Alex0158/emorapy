@@ -21,13 +21,14 @@ interface ExecutionState {
 
 let _reqSeq = 0;
 
-export const useExecutionStore = create<ExecutionState>((set) => ({
+export const useExecutionStore = create<ExecutionState>((set, get) => ({
   executions: [],
   currentExecution: null,
   isLoading: false,
   error: null,
 
   confirmExecution: async (planId: string) => {
+    if (get().isLoading) throw new Error();
     set({ isLoading: true, error: null });
     try {
       await confirmExecution(planId);
@@ -39,6 +40,7 @@ export const useExecutionStore = create<ExecutionState>((set) => ({
   },
 
   checkin: async (data) => {
+    if (get().isLoading) throw new Error();
     set({ isLoading: true, error: null });
     try {
       await checkin(data);

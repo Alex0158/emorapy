@@ -59,6 +59,12 @@ export class PsychProfileService {
   }
 
   async giveConsent(userId: string): Promise<void> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
+    if (!user) throw Errors.NOT_FOUND('用戶不存在');
+
     await prisma.user.update({
       where: { id: userId },
       data: {

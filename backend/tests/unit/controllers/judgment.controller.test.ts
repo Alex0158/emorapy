@@ -12,6 +12,10 @@ const mockGenerateJudgment: any = jest.fn();
 const mockGetJudgmentByCaseId: any = jest.fn();
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockAcceptJudgment: any = jest.fn();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockRepairJudgmentResponse: any = jest.fn();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockRecordClinicalMetrics: any = jest.fn();
 const mockGetAuthUserId = jest.fn();
 const mockGetAuthUserIdOptional = jest.fn();
 
@@ -27,6 +31,10 @@ jest.mock('../../../src/services/judgment.service', () => ({
       mockGetJudgmentByCaseId(caseId, userId, sessionId),
     acceptJudgment: (id: string, userId: string, accepted: boolean, rating?: number) =>
       mockAcceptJudgment(id, userId, accepted, rating),
+    repairJudgmentResponse: (id: string, feedback: string, opts: unknown) =>
+      mockRepairJudgmentResponse(id, feedback, opts),
+    recordClinicalMetrics: (id: string, body: unknown, opts: unknown) =>
+      mockRecordClinicalMetrics(id, body, opts),
   },
 }));
 jest.mock('../../../src/utils/request', () => ({
@@ -189,6 +197,45 @@ describe('JudgmentController', () => {
         data: { judgment },
       });
     });
+
+    it('prisma.findUnique 拋錯時應 next(error)', async () => {
+      req.params = { id: 'judge-1' };
+      prismaMock.judgment.findUnique.mockRejectedValue(new Error('db error'));
+
+      await controller.getJudgmentById(req as Request, res as Response, next);
+
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
+    });
+
+    it('getJudgmentByCaseId 拋錯（非 FORBIDDEN）時應 next(error)', async () => {
+      req.params = { id: 'judge-1' };
+      prismaMock.judgment.findUnique.mockResolvedValue({
+        id: 'judge-1',
+        case_id: 'case-1',
+        case: {},
+      });
+      mockGetJudgmentByCaseId.mockRejectedValue(new Error('service error'));
+
+      await controller.getJudgmentById(req as Request, res as Response, next);
+
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
+    });
+
+    it('getJudgmentByCaseId 拋錯（FORBIDDEN）時應 next(NOT_FOUND)', async () => {
+      req.params = { id: 'judge-1' };
+      prismaMock.judgment.findUnique.mockResolvedValue({
+        id: 'judge-1',
+        case_id: 'case-1',
+        case: {},
+      });
+      const forbiddenErr = new Error('無權限') as Error & { code?: string };
+      forbiddenErr.code = 'FORBIDDEN';
+      mockGetJudgmentByCaseId.mockRejectedValue(forbiddenErr);
+
+      await controller.getJudgmentById(req as Request, res as Response, next);
+
+      expect(next).toHaveBeenCalledWith(expect.objectContaining({ code: 'NOT_FOUND', message: '判決不存在' }));
+    });
   });
 
   describe('acceptJudgment', () => {
@@ -227,6 +274,54 @@ describe('JudgmentController', () => {
       mockAcceptJudgment.mockRejectedValue(new Error('service error'));
 
       await controller.acceptJudgment(req as Request, res as Response, next);
+
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
+    });
+  });
+
+  describe('repairJudgment', () => {
+    it('header/query session 衝突時應 next(INVALID_SESSION_ID)', async () => {
+      req.params = { id: 'judge-1' };
+      req.body = { feedback: 'test feedback' };
+      req.headers = { 'x-session-id': 's1' };
+      req.query = { session_id: 's2' };
+
+      await controller.repairJudgment(req as Request, res as Response, next);
+
+      expect(mockRepairJudgmentResponse).not.toHaveBeenCalled();
+      expect(next).toHaveBeenCalledWith(expect.objectContaining({ code: 'INVALID_SESSION_ID' }));
+    });
+
+    it('repairJudgment 拋錯時應 next(error)', async () => {
+      req.params = { id: 'judge-1' };
+      req.body = { feedback: 'test feedback' };
+      mockRepairJudgmentResponse.mockRejectedValue(new Error('service error'));
+
+      await controller.repairJudgment(req as Request, res as Response, next);
+
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
+    });
+  });
+
+  describe('recordClinicalMetrics', () => {
+    it('header/query session 衝突時應 next(INVALID_SESSION_ID)', async () => {
+      req.params = { id: 'judge-1' };
+      req.body = { felt_understood: 5, felt_blamed: 2, willing_to_try: 4 };
+      req.headers = { 'x-session-id': 's1' };
+      req.query = { session_id: 's2' };
+
+      await controller.recordClinicalMetrics(req as Request, res as Response, next);
+
+      expect(mockRecordClinicalMetrics).not.toHaveBeenCalled();
+      expect(next).toHaveBeenCalledWith(expect.objectContaining({ code: 'INVALID_SESSION_ID' }));
+    });
+
+    it('recordClinicalMetrics 拋錯時應 next(error)', async () => {
+      req.params = { id: 'judge-1' };
+      req.body = { felt_understood: 5, felt_blamed: 2, willing_to_try: 4 };
+      mockRecordClinicalMetrics.mockRejectedValue(new Error('service error'));
+
+      await controller.recordClinicalMetrics(req as Request, res as Response, next);
 
       expect(next).toHaveBeenCalledWith(expect.any(Error));
     });

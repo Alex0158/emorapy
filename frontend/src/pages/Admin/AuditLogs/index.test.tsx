@@ -40,3 +40,51 @@ describe('AdminAuditLogsPage', () => {
   });
 });
 
+describe('AdminAuditLogsPage when query fails', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseQuery.mockReturnValue({
+      data: undefined,
+      error: new Error('load failed'),
+      isLoading: false,
+      isFetching: false,
+      refetch: vi.fn(),
+    });
+  });
+
+  it('應顯示 admin.audit.loadFailed Alert', () => {
+    render(<AdminAuditLogsPage />);
+    expect(screen.getByText('admin.audit.loadFailed')).toBeInTheDocument();
+  });
+
+  it('應仍可點擊 retry 重新拉取（F10 錯誤恢復：失敗不阻塞重試）', () => {
+    const mockRefetch = vi.fn();
+    mockUseQuery.mockReturnValue({
+      data: undefined,
+      error: new Error('load failed'),
+      isLoading: false,
+      isFetching: false,
+      refetch: mockRefetch,
+    });
+    render(<AdminAuditLogsPage />);
+    screen.getByTestId('admin-audit-load-retry').click();
+    expect(mockRefetch).toHaveBeenCalled();
+  });
+
+  it('retry 失敗後應仍可再次點擊 retry（F10 錯誤恢復：失敗不阻塞重試）', () => {
+    const mockRefetch = vi.fn();
+    mockUseQuery.mockReturnValue({
+      data: undefined,
+      error: new Error('load failed'),
+      isLoading: false,
+      isFetching: false,
+      refetch: mockRefetch,
+    });
+    render(<AdminAuditLogsPage />);
+    const retryBtn = screen.getByTestId('admin-audit-load-retry');
+    retryBtn.click();
+    retryBtn.click();
+    expect(mockRefetch).toHaveBeenCalledTimes(2);
+  });
+});
+

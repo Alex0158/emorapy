@@ -111,6 +111,9 @@ export class ValidationUtils {
     plaintiff: number;
     defendant: number;
   }): void {
+    if (!ratio || typeof ratio !== 'object') {
+      throw Errors.VALIDATION_ERROR('責任分比例必須是數字');
+    }
     if (
       typeof ratio.plaintiff !== 'number' ||
       typeof ratio.defendant !== 'number'
@@ -229,7 +232,11 @@ export const quickCaseSchema = {
 export const createCaseSchema = {
   body: Joi.object({
     plaintiff_statement: Joi.string().min(30).max(2000).required(),
-    defendant_statement: Joi.string().min(30).max(2000).optional().allow(null, ''),
+    defendant_statement: Joi.alternatives().conditional('mode', {
+      is: 'collaborative',
+      then: Joi.string().min(30).max(2000).required(),
+      otherwise: Joi.string().min(30).max(2000).optional().allow(null, ''),
+    }),
     evidence_urls: Joi.array().items(Joi.string().uri({ scheme: ['https'] })).max(3).optional(),
     pairing_id: Joi.string().pattern(uuidPattern).required(),
     title: Joi.string().max(200).optional().allow(null, ''),
@@ -419,15 +426,8 @@ export const adminLoginSchema = {
 export const adminUpsertConfigSchema = {
   body: Joi.object({
     key: Joi.string()
-      .valid(
-        'jobs.enabled',
-        'interview.maxTurns',
-        'interview.softTarget',
-        'interview.turnIntervalMs',
-        'interview.startRateLimit',
-        'interview.dailySessionLimit',
-        'admin.alert.rules',
-        'feature.flags'
+      .pattern(
+        /^(jobs\.enabled|interview\.maxTurns|interview\.softTarget|interview\.turnIntervalMs|interview\.startRateLimit|interview\.dailySessionLimit|admin\.alert\.rules|feature\.flags|media\.providers|media\.provider\.[a-z0-9][a-z0-9_-]*)$/
       )
       .required(),
     value: Joi.alternatives().try(
@@ -549,6 +549,80 @@ export const adminFeatureFlagsSchema = {
   body: Joi.object({
     flags: Joi.object().unknown(true).required(),
   }),
+};
+
+export const mediaProviderTestSchema = {
+  params: Joi.object({
+    providerKey: Joi.string().pattern(/^[a-z0-9][a-z0-9_-]*$/).required(),
+  }),
+  body: Joi.object({
+    api_key: Joi.string().trim().allow('').optional(),
+    apiKey: Joi.string().trim().allow('').optional(),
+    base_url: Joi.string().uri().optional(),
+    baseUrl: Joi.string().uri().optional(),
+    timeout_ms: Joi.number().integer().min(500).max(120000).optional(),
+    timeoutMs: Joi.number().integer().min(500).max(120000).optional(),
+    model: Joi.string().max(128).optional(),
+    count: Joi.number().integer().min(1).max(20).optional(),
+    durationSeconds: Joi.number().integer().min(1).max(240).optional(),
+    source_image_url: Joi.string().uri().optional(),
+    sourceImageUrl: Joi.string().uri().optional(),
+    prompt: Joi.string().max(2048).optional(),
+  }),
+};
+
+const mediaProviderBaseGenerationSchema = {
+  params: Joi.object({
+    providerKey: Joi.string().pattern(/^[a-z0-9][a-z0-9_-]*$/).required(),
+  }),
+  body: Joi.object({
+    api_key: Joi.string().trim().allow('').optional(),
+    apiKey: Joi.string().trim().allow('').optional(),
+    base_url: Joi.string().uri().optional(),
+    baseUrl: Joi.string().uri().optional(),
+    timeout_ms: Joi.number().integer().min(500).max(120000).optional(),
+    timeoutMs: Joi.number().integer().min(500).max(120000).optional(),
+    model: Joi.string().max(128).optional(),
+    prompt: Joi.string().max(2048).required(),
+  }),
+};
+
+export const mediaProviderGenerateImageSchema = {
+  ...mediaProviderBaseGenerationSchema,
+  body: (mediaProviderBaseGenerationSchema.body as Joi.ObjectSchema).append({
+    count: Joi.number().integer().min(1).max(20).optional(),
+    width: Joi.number().integer().min(16).max(8192).optional(),
+    height: Joi.number().integer().min(16).max(8192).optional(),
+  }),
+};
+
+export const mediaProviderGenerateVideoSchema = {
+  ...mediaProviderBaseGenerationSchema,
+  body: (mediaProviderBaseGenerationSchema.body as Joi.ObjectSchema).append({
+    durationSeconds: Joi.number().integer().min(1).max(240).optional(),
+    source_image_url: Joi.string().uri().optional(),
+    sourceImageUrl: Joi.string().uri().optional(),
+  }),
+};
+
+export const mediaProviderEstimateSchema = {
+  params: Joi.object({
+    providerKey: Joi.string().pattern(/^[a-z0-9][a-z0-9_-]*$/).required(),
+  }),
+  body: Joi.object({
+    count: Joi.number().integer().min(1).optional(),
+    durationSeconds: Joi.number().integer().min(1).max(86400).optional(),
+    pricingOverride: Joi.object({
+      billingUnit: Joi.string().valid('image', 'second', 'frame').required(),
+      unitPriceUsd: Joi.number().min(0).required(),
+    }).optional(),
+  }),
+};
+
+export const mediaProviderCatalogQuerySchema = {
+  query: Joi.object({
+    providerType: Joi.string().valid('image', 'video').optional(),
+  }).optional(),
 };
 
 const chatRoomIdPattern = Joi.string().pattern(uuidPattern);

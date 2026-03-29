@@ -84,6 +84,10 @@ function createApp() {
   const app = express();
   app.use(express.json());
   app.use('/', adminRouter);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    res.status(500).json({ success: false, error: err.message });
+  });
   return app;
 }
 
@@ -144,6 +148,19 @@ describe('admin.routes', () => {
     expect(mockListJobs).toHaveBeenCalled();
   });
 
+  it('GET /jobs 無日誌時應返回 jobs 空陣列（F10 邊界）', async () => {
+    mockListJobs.mockImplementationOnce((_req: unknown, res: unknown) =>
+      (res as { status: (n: number) => { json: (b: unknown) => void } })
+        .status(200)
+        .json({ success: true, data: { jobs: [] } })
+    );
+    const app = createApp();
+    const res = await request(app).get('/jobs');
+    expect(res.status).toBe(200);
+    expect(res.body.data.jobs).toEqual([]);
+    expect(mockListJobs).toHaveBeenCalled();
+  });
+
   it('POST /jobs/:jobKey/trigger 應調用 triggerJob', async () => {
     const app = createApp();
     const res = await request(app).post('/jobs/cleanup_expired_sessions/trigger');
@@ -156,6 +173,20 @@ describe('admin.routes', () => {
     const res = await request(app).get('/jobs/stats?days=7');
     expect(res.status).toBe(200);
     expect(mockGetJobStats).toHaveBeenCalled();
+  });
+
+  it('GET /configs 無配置時應返回 items 空陣列與 total 0（F10 邊界）', async () => {
+    mockListConfigs.mockImplementationOnce((_req: unknown, res: unknown) =>
+      (res as { status: (n: number) => { json: (b: unknown) => void } })
+        .status(200)
+        .json({ success: true, data: { items: [], total: 0, limit: 20, offset: 0 } })
+    );
+    const app = createApp();
+    const res = await request(app).get('/configs');
+    expect(res.status).toBe(200);
+    expect(res.body.data.items).toEqual([]);
+    expect(res.body.data.total).toBe(0);
+    expect(mockListConfigs).toHaveBeenCalled();
   });
 
   it('PUT /configs 應調用 upsertConfig', async () => {
@@ -172,11 +203,39 @@ describe('admin.routes', () => {
     expect(mockGetInterviewRuntimeConfig).toHaveBeenCalled();
   });
 
+  it('GET /users 無用戶時應返回 items 空陣列與 total 0（F10 邊界）', async () => {
+    mockListUsers.mockImplementationOnce((_req: unknown, res: unknown) =>
+      (res as { status: (n: number) => { json: (b: unknown) => void } })
+        .status(200)
+        .json({ success: true, data: { items: [], total: 0, limit: 20, offset: 0 } })
+    );
+    const app = createApp();
+    const res = await request(app).get('/users');
+    expect(res.status).toBe(200);
+    expect(res.body.data.items).toEqual([]);
+    expect(res.body.data.total).toBe(0);
+    expect(mockListUsers).toHaveBeenCalled();
+  });
+
   it('GET /users/:userId 應調用 getUserDetail', async () => {
     const app = createApp();
     const res = await request(app).get('/users/11111111-1111-1111-1111-111111111111');
     expect(res.status).toBe(200);
     expect(mockGetUserDetail).toHaveBeenCalled();
+  });
+
+  it('GET /audit-logs 無審計時應返回 items 空陣列與 total 0（F10 邊界）', async () => {
+    mockListAuditLogs.mockImplementationOnce((_req: unknown, res: unknown) =>
+      (res as { status: (n: number) => { json: (b: unknown) => void } })
+        .status(200)
+        .json({ success: true, data: { items: [], total: 0, limit: 20, offset: 0 } })
+    );
+    const app = createApp();
+    const res = await request(app).get('/audit-logs');
+    expect(res.status).toBe(200);
+    expect(res.body.data.items).toEqual([]);
+    expect(res.body.data.total).toBe(0);
+    expect(mockListAuditLogs).toHaveBeenCalled();
   });
 
   it('GET /audit-logs.csv 應調用 exportAuditLogsCsv', async () => {
@@ -200,11 +259,443 @@ describe('admin.routes', () => {
     expect(mockListAdminUsers).toHaveBeenCalled();
   });
 
+  it('GET /admin-users 無管理員時應返回 items 空陣列與 total 0（F10 邊界）', async () => {
+    mockListAdminUsers.mockImplementationOnce((_req: unknown, res: unknown) =>
+      (res as { status: (n: number) => { json: (b: unknown) => void } })
+        .status(200)
+        .json({ success: true, data: { items: [], total: 0, limit: 20, offset: 0 } })
+    );
+    const app = createApp();
+    const res = await request(app).get('/admin-users');
+    expect(res.status).toBe(200);
+    expect(res.body.data.items).toEqual([]);
+    expect(res.body.data.total).toBe(0);
+    expect(mockListAdminUsers).toHaveBeenCalled();
+  });
+
   it('DELETE /admin-users/:adminUserId 應調用 deleteAdminUser', async () => {
     const app = createApp();
     const res = await request(app).delete('/admin-users/11111111-1111-1111-1111-111111111111');
     expect(res.status).toBe(200);
     expect(mockDeleteAdminUser).toHaveBeenCalled();
+  });
+
+  describe('成功回應結構邊界（F10 data.xxx）', () => {
+    it('bootstrap 成功時應返回 data（F10 邊界）', async () => {
+      const app = createApp();
+      const res = await request(app)
+        .post('/bootstrap')
+        .send({ email: 'admin@test.com', password: 'Password1234', name: 'Admin' });
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toBeDefined();
+    });
+
+    it('login 成功時應返回 data.token（F10 邊界）', async () => {
+      const app = createApp();
+      const res = await request(app).post('/login').send({ email: 'admin@test.com', password: 'Password1234' });
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toHaveProperty('token');
+    });
+
+    it('me 成功時應返回 data.admin（F10 邊界）', async () => {
+      const app = createApp();
+      const res = await request(app).get('/me');
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toHaveProperty('admin');
+    });
+
+    it('listJobs 成功時應返回 data.jobs（F10 邊界）', async () => {
+      const app = createApp();
+      const res = await request(app).get('/jobs');
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toHaveProperty('jobs');
+      expect(Array.isArray(res.body.data.jobs)).toBe(true);
+    });
+
+    it('listConfigs 成功時應返回 data.items（F10 邊界）', async () => {
+      const app = createApp();
+      const res = await request(app).get('/configs');
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toHaveProperty('items');
+      expect(Array.isArray(res.body.data.items)).toBe(true);
+    });
+
+    it('getUserDetail 成功時應返回 data.user（F10 邊界）', async () => {
+      const app = createApp();
+      const res = await request(app).get('/users/11111111-1111-1111-1111-111111111111');
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toHaveProperty('user');
+    });
+
+    it('listAdminUsers 成功時應返回 data.items（F10 邊界）', async () => {
+      const app = createApp();
+      const res = await request(app).get('/admin-users');
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toHaveProperty('items');
+      expect(Array.isArray(res.body.data.items)).toBe(true);
+    });
+
+    it('listUsers 成功時應返回 data.items（F10 邊界）', async () => {
+      const app = createApp();
+      const res = await request(app).get('/users');
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toHaveProperty('items');
+      expect(Array.isArray(res.body.data.items)).toBe(true);
+    });
+
+    it('listAuditLogs 成功時應返回 data.items（F10 邊界）', async () => {
+      const app = createApp();
+      const res = await request(app).get('/audit-logs');
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toHaveProperty('items');
+      expect(Array.isArray(res.body.data.items)).toBe(true);
+    });
+
+    it('triggerJob 成功時應返回 data.status（F10 邊界）', async () => {
+      const app = createApp();
+      const res = await request(app).post('/jobs/cleanup_expired_sessions/trigger');
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toHaveProperty('status');
+    });
+
+    it('getJobStats 成功時應返回 data.perJob（F10 邊界）', async () => {
+      const app = createApp();
+      const res = await request(app).get('/jobs/stats?days=7');
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toHaveProperty('perJob');
+      expect(Array.isArray(res.body.data.perJob)).toBe(true);
+    });
+
+    it('upsertConfig 成功時應返回 data.item（F10 邊界）', async () => {
+      const app = createApp();
+      const res = await request(app).put('/configs').send({ key: 'jobs.enabled', value: true });
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toHaveProperty('item');
+    });
+
+    it('updateUserStatus 成功時應返回 data.user（F10 邊界）', async () => {
+      const app = createApp();
+      const res = await request(app).patch('/users/11111111-1111-1111-1111-111111111111/status').send({ status: 'active' });
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toHaveProperty('user');
+    });
+
+    it('getInterviewRuntimeConfig 成功時應返回 data（F10 邊界）', async () => {
+      const app = createApp();
+      const res = await request(app).get('/runtime/interview');
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toBeDefined();
+    });
+
+    it('createAdminUser 成功時應返回 data.item（F10 邊界）', async () => {
+      const app = createApp();
+      const res = await request(app)
+        .post('/admin-users')
+        .send({ email: 'new@test.com', password: 'Password1234', name: 'New Admin', roleKey: 'admin' });
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toHaveProperty('item');
+    });
+
+    it('updateAdminUser 成功時應返回 data.item（F10 邊界）', async () => {
+      const app = createApp();
+      const res = await request(app)
+        .patch('/admin-users/11111111-1111-1111-1111-111111111111')
+        .send({ name: 'Updated' });
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toHaveProperty('item');
+    });
+
+    it('deleteAdminUser 成功時應返回 data.item（F10 邊界）', async () => {
+      const app = createApp();
+      const res = await request(app).delete('/admin-users/11111111-1111-1111-1111-111111111111');
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toHaveProperty('item');
+    });
+  });
+
+  describe('錯誤傳遞', () => {
+    it('login 調用 next(error) 時應返回 500', async () => {
+      mockLogin.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('login failed'));
+      });
+      const app = createApp();
+      const res = await request(app).post('/login').send({ email: 'admin@test.com', password: 'Password1234' });
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'login failed' });
+    });
+
+    it('me 調用 next(error) 時應返回 500', async () => {
+      mockMe.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('me failed'));
+      });
+      const app = createApp();
+      const res = await request(app).get('/me');
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'me failed' });
+    });
+
+    it('bootstrap 調用 next(error) 時應返回 500', async () => {
+      mockBootstrap.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('bootstrap failed'));
+      });
+      const app = createApp();
+      const res = await request(app)
+        .post('/bootstrap')
+        .send({ email: 'admin@test.com', password: 'Password1234', name: 'Admin' });
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'bootstrap failed' });
+    });
+
+    it('listJobs 調用 next(error) 時應返回 500', async () => {
+      mockListJobs.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('jobs load failed'));
+      });
+      const app = createApp();
+      const res = await request(app).get('/jobs');
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'jobs load failed' });
+    });
+
+    it('listConfigs 調用 next(error) 時應返回 500', async () => {
+      mockListConfigs.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('configs load failed'));
+      });
+      const app = createApp();
+      const res = await request(app).get('/configs');
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'configs load failed' });
+    });
+
+    it('listUsers 調用 next(error) 時應返回 500', async () => {
+      mockListUsers.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('users load failed'));
+      });
+      const app = createApp();
+      const res = await request(app).get('/users');
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'users load failed' });
+    });
+
+    it('listAdminUsers 調用 next(error) 時應返回 500', async () => {
+      mockListAdminUsers.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('admin users load failed'));
+      });
+      const app = createApp();
+      const res = await request(app).get('/admin-users');
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'admin users load failed' });
+    });
+
+    it('listAuditLogs 調用 next(error) 時應返回 500', async () => {
+      mockListAuditLogs.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('audit logs load failed'));
+      });
+      const app = createApp();
+      const res = await request(app).get('/audit-logs');
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'audit logs load failed' });
+    });
+
+    it('triggerJob 調用 next(error) 時應返回 500', async () => {
+      mockTriggerJob.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('trigger failed'));
+      });
+      const app = createApp();
+      const res = await request(app).post('/jobs/cleanup_expired_sessions/trigger');
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'trigger failed' });
+    });
+
+    it('getJobStats 調用 next(error) 時應返回 500', async () => {
+      mockGetJobStats.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('stats failed'));
+      });
+      const app = createApp();
+      const res = await request(app).get('/jobs/stats?days=7');
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'stats failed' });
+    });
+
+    it('upsertConfig 調用 next(error) 時應返回 500', async () => {
+      mockUpsertConfig.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('upsert failed'));
+      });
+      const app = createApp();
+      const res = await request(app).put('/configs').send({ key: 'jobs.enabled', value: true });
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'upsert failed' });
+    });
+
+    it('getUserDetail 調用 next(error) 時應返回 500', async () => {
+      mockGetUserDetail.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('user detail failed'));
+      });
+      const app = createApp();
+      const res = await request(app).get('/users/11111111-1111-1111-1111-111111111111');
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'user detail failed' });
+    });
+
+    it('updateUserStatus 調用 next(error) 時應返回 500', async () => {
+      mockUpdateUserStatus.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('update status failed'));
+      });
+      const app = createApp();
+      const res = await request(app).patch('/users/11111111-1111-1111-1111-111111111111/status').send({ status: 'active' });
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'update status failed' });
+    });
+
+    it('createAdminUser 調用 next(error) 時應返回 500', async () => {
+      mockCreateAdminUser.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('create admin failed'));
+      });
+      const app = createApp();
+      const res = await request(app)
+        .post('/admin-users')
+        .send({ email: 'new@test.com', password: 'Password1234', name: 'New Admin', roleKey: 'admin' });
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'create admin failed' });
+    });
+
+    it('updateAdminUser 調用 next(error) 時應返回 500', async () => {
+      mockUpdateAdminUser.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('update admin failed'));
+      });
+      const app = createApp();
+      const res = await request(app)
+        .patch('/admin-users/11111111-1111-1111-1111-111111111111')
+        .send({ name: 'Updated' });
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'update admin failed' });
+    });
+
+    it('deleteAdminUser 調用 next(error) 時應返回 500', async () => {
+      mockDeleteAdminUser.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('delete admin failed'));
+      });
+      const app = createApp();
+      const res = await request(app).delete('/admin-users/11111111-1111-1111-1111-111111111111');
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'delete admin failed' });
+    });
+
+    it('healthDetailed 調用 next(error) 時應返回 500', async () => {
+      mockHealthDetailed.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('health failed'));
+      });
+      const app = createApp();
+      const res = await request(app).get('/health/detailed');
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'health failed' });
+    });
+
+    it('exportAuditLogsCsv 調用 next(error) 時應返回 500', async () => {
+      mockExportAuditLogsCsv.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('export csv failed'));
+      });
+      const app = createApp();
+      const res = await request(app).get('/audit-logs.csv');
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'export csv failed' });
+    });
+
+    it('reportOverview 調用 next(error) 時應返回 500', async () => {
+      mockReportOverview.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('overview failed'));
+      });
+      const app = createApp();
+      const res = await request(app).get('/reports/overview');
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'overview failed' });
+    });
+
+    it('reportFunnel 調用 next(error) 時應返回 500', async () => {
+      mockReportFunnel.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('funnel failed'));
+      });
+      const app = createApp();
+      const res = await request(app).get('/reports/funnel');
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'funnel failed' });
+    });
+
+    it('reportCosts 調用 next(error) 時應返回 500', async () => {
+      mockReportCosts.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('costs failed'));
+      });
+      const app = createApp();
+      const res = await request(app).get('/reports/costs');
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'costs failed' });
+    });
+
+    it('exportOverviewCsv 調用 next(error) 時應返回 500', async () => {
+      mockExportOverviewCsv.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('export overview csv failed'));
+      });
+      const app = createApp();
+      const res = await request(app).get('/reports/overview.csv');
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'export overview csv failed' });
+    });
+
+    it('customReport 調用 next(error) 時應返回 500', async () => {
+      mockCustomReport.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('custom report failed'));
+      });
+      const app = createApp();
+      const res = await request(app).post('/reports/custom').send({ type: 'overview' });
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'custom report failed' });
+    });
+
+    it('getInterviewRuntimeConfig 調用 next(error) 時應返回 500', async () => {
+      mockGetInterviewRuntimeConfig.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('runtime config failed'));
+      });
+      const app = createApp();
+      const res = await request(app).get('/runtime/interview');
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'runtime config failed' });
+    });
+
+    it('upsertAlertRules 調用 next(error) 時應返回 500', async () => {
+      mockUpsertAlertRules.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('alert rules failed'));
+      });
+      const app = createApp();
+      const res = await request(app).put('/alerts/rules').send({ rules: [] });
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'alert rules failed' });
+    });
+
+    it('setFeatureFlags 調用 next(error) 時應返回 500', async () => {
+      mockSetFeatureFlags.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('feature flags failed'));
+      });
+      const app = createApp();
+      const res = await request(app).put('/feature-flags').send({ flags: {} });
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'feature flags failed' });
+    });
   });
 });
 

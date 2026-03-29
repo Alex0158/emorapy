@@ -26,7 +26,10 @@ export function useAdminAccess(
   mode: PermissionMode = 'any'
 ) {
   const adminMeQuery = useAdminMe(enabled);
-  const permissions = adminMeQuery.data?.admin.permissions ?? [];
+  const rawPermissions = adminMeQuery.data?.admin?.permissions ?? [];
+  const permissions = Array.isArray(rawPermissions)
+    ? rawPermissions.filter((p): p is string => typeof p === 'string')
+    : [];
 
   const hasPermission = useMemo(
     () => hasRequiredPermission(permissions, requiredPermissions, mode),

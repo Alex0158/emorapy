@@ -5,6 +5,8 @@
 
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { lazy, Suspense, useEffect } from 'react';
+import { Button, Result, Space } from 'antd';
+import { HomeOutlined, RocketOutlined } from '@ant-design/icons';
 import AppLayout from '@/components/layout/AppLayout';
 import SimpleLayout from '@/components/layout/SimpleLayout';
 import AuthLayout from '@/components/layout/AuthLayout';
@@ -12,6 +14,7 @@ import Loading from '@/components/common/Loading';
 import ProtectedRoute from '@/components/common/ProtectedRoute';
 import PublicRoute from '@/components/common/PublicRoute';
 import { getAdminLoginUrl } from '@/utils/adminEntry';
+import { t } from '@/utils/i18n';
 
 // 懶加載頁面組件（代碼分割）
 const Home = lazy(() => import('@/pages/Home'));
@@ -39,7 +42,7 @@ const InterviewResult = lazy(() => import('@/pages/Interview/Result'));
 const ChatRoomPage = lazy(() => import('@/pages/Chat/Room'));
 const NotFound = lazy(() => import('@/pages/NotFound'));
 
-const AdminRedirect = () => {
+export const AdminRedirect = () => {
   const adminLoginUrl = getAdminLoginUrl();
   useEffect(() => {
     if (adminLoginUrl) {
@@ -51,13 +54,29 @@ const AdminRedirect = () => {
     }
   }, [adminLoginUrl]);
   if (!adminLoginUrl) {
-    return <Navigate to="/" replace />;
+    return (
+      <Result
+        status="warning"
+        title={t('admin.redirect.title')}
+        subTitle={t('admin.login.urlMissing')}
+        extra={
+          <Space wrap>
+            <Button type="primary" icon={<HomeOutlined />} onClick={() => window.location.assign('/')}>
+              {t('notFound.backHome')}
+            </Button>
+            <Button icon={<RocketOutlined />} onClick={() => window.location.assign('/quick-experience/create')}>
+              {t('notFound.goQuickExperience')}
+            </Button>
+          </Space>
+        }
+      />
+    );
   }
   return <Loading />;
 };
 
-// 路由懶加載包裝器
-const LazyWrapper = ({ children }: { children: React.ReactNode }) => (
+// 路由懶加載包裝器（導出供測試覆蓋）
+export const LazyWrapper = ({ children }: { children: React.ReactNode }) => (
   <Suspense fallback={<Loading />}>{children}</Suspense>
 );
 
@@ -329,4 +348,3 @@ export const router = createBrowserRouter([
     ),
   },
 ]);
-

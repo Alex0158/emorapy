@@ -3,6 +3,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
+import { useMountedRef } from '@/hooks/useMountedRef';
 import {
   Card,
   Button,
@@ -37,6 +38,7 @@ import AnimatedWrapper from '@/components/common/AnimatedWrapper';
 import ConsentModal from '@/components/business/Interview/ConsentModal';
 import { usePsychProfileStore } from '@/store/psychProfileStore';
 import { useInterviewStore } from '@/store/interviewStore';
+import { getErrorMessage } from '@/utils/apiError';
 import { t } from '@/utils/i18n';
 import { useNavigate } from 'react-router-dom';
 import './Pairing.less';
@@ -118,6 +120,7 @@ const buildRelationshipPayload = (
 const ProfilePairing = () => {
   const [pairing, setPairing] = useState<Pairing | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [inviteCode, setInviteCode] = useState('');
   const [joining, setJoining] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -131,7 +134,13 @@ const ProfilePairing = () => {
   const [relationshipProfile, setRelationshipProfile] = useState<RelationshipProfile | null>(null);
   const [relationshipForm] = Form.useForm<RelationshipFormValues>();
 
+  const mountedRef = useMountedRef();
   const staleRef = useRef(false);
+  const retryLockRef = useRef(false);
+  const createLockRef = useRef(false);
+  const joinLockRef = useRef(false);
+  const cancelLockRef = useRef(false);
+  const saveLockRef = useRef(false);
   const activePairingId = pairing?.status === 'active' ? pairing.id : null;
 
   useEffect(() => {
@@ -143,18 +152,28 @@ const ProfilePairing = () => {
 
   const fetchPairingStatus = async () => {
     setLoading(true);
+    setLoadError(false);
     try {
       const pairingData = await getPairingStatus();
       if (staleRef.current) return;
       setPairing(pairingData);
     } catch (error: unknown) {
       if (staleRef.current) return;
-      const msg = (error as { message?: string })?.message || t('message.getPairingFail');
-      message.error(msg);
+      message.error(getErrorMessage(error, 'message.getPairingFail'));
       setPairing(null);
+      setLoadError(true);
     } finally {
       if (!staleRef.current) setLoading(false);
     }
+  };
+
+  const handleRetry = () => {
+    if (retryLockRef.current) return;
+    retryLockRef.current = true;
+    setLoadError(false);
+    fetchPairingStatus().finally(() => {
+      retryLockRef.current = false;
+    });
   };
 
   const fetchRelationshipData = async (pairingId: string) => {
@@ -166,9 +185,7 @@ const ProfilePairing = () => {
       relationshipForm.setFieldsValue(toRelationshipFormValues(relationshipData));
     } catch (error: unknown) {
       if (staleRef.current) return;
-      const msg =
-        (error as { message?: string })?.message || t('message.relationshipProfileLoadFail');
-      message.error(msg);
+      message.error(getErrorMessage(error, 'message.relationshipProfileLoadFail'));
       setRelationshipProfile(null);
       relationshipForm.resetFields();
     } finally {
@@ -178,15 +195,18 @@ const ProfilePairing = () => {
 
   const [creating, setCreating] = useState(false);
   const handleCreatePairing = async () => {
+    if (createLockRef.current) return;
+    createLockRef.current = true;
     setCreating(true);
     try {
       const newPairing = await createPairing();
+      if (!mountedRef.current) return;
       setPairing(newPairing);
       message.success(t('message.createPairingSuccess'));
     } catch (error: unknown) {
-      const msg = (error as { message?: string })?.message || t('message.createPairingFail');
-      message.error(msg);
+      message.error(getErrorMessage(error, 'message.createPairingFail'));
     } finally {
+      createLockRef.current = false;
       setCreating(false);
     }
   };
@@ -196,16 +216,19 @@ const ProfilePairing = () => {
       message.warning(t('message.enterInviteCode'));
       return;
     }
+    if (joinLockRef.current) return;
+    joinLockRef.current = true;
     setJoining(true);
     try {
       const joinedPairing = await joinPairing(inviteCode.trim());
+      if (!mountedRef.current) return;
       setPairing(joinedPairing);
       message.success(t('message.joinPairingSuccess'));
       setInviteCode('');
     } catch (error: unknown) {
-      const msg = (error as { message?: string })?.message || t('message.joinPairingFail');
-      message.error(msg);
+      message.error(getErrorMessage(error, 'message.joinPairingFail'));
     } finally {
+      joinLockRef.current = false;
       setJoining(false);
     }
   };
@@ -219,36 +242,42 @@ const ProfilePairing = () => {
 
   const handleCancelPairing = async () => {
     setConfirmCancelOpen(false);
+    if (cancelLockRef.current) return;
+    cancelLockRef.current = true;
     setCancelling(true);
     try {
       const cancelled = await cancelPairing();
+      if (!mountedRef.current) return;
       setPairing(cancelled);
       message.success(t('message.cancelPairingSuccess'));
     } catch (error: unknown) {
-      const msg = (error as { message?: string })?.message || t('message.cancelPairingFail');
-      message.error(msg);
+      message.error(getErrorMessage(error, 'message.cancelPairingFail'));
     } finally {
+      cancelLockRef.current = false;
       setCancelling(false);
     }
   };
 
   const handleSaveRelationshipProfile = async (values: RelationshipFormValues) => {
     if (!activePairingId) return;
+    if (saveLockRef.current) return;
+    saveLockRef.current = true;
     setRelationshipSaving(true);
     try {
       const payload = buildRelationshipPayload(values);
       const savedProfile = await upsertRelationshipProfile(activePairingId, payload);
-      if (staleRef.current) return;
+      if (staleRef.current || !mountedRef.current) return;
       setRelationshipProfile(savedProfile);
       relationshipForm.setFieldsValue(toRelationshipFormValues(savedProfile));
       message.success(t('message.relationshipProfileSaveSuccess'));
     } catch (error: unknown) {
       if (staleRef.current) return;
-      const msg =
-        (error as { message?: string })?.message || t('message.relationshipProfileSaveFail');
-      message.error(msg);
+      message.error(getErrorMessage(error, 'message.relationshipProfileSaveFail'));
     } finally {
-      if (!staleRef.current) setRelationshipSaving(false);
+      if (!staleRef.current) {
+        saveLockRef.current = false;
+        setRelationshipSaving(false);
+      }
     }
   };
 
@@ -270,36 +299,71 @@ const ProfilePairing = () => {
   }
 
   const startInterviewFlow = async () => {
+    if (!activePairingId) return;
     const resumeData = await checkResume();
+    if (!mountedRef.current) return;
     if (resumeData.has_pending && resumeData.session_id) {
       navigate(`/interview/${resumeData.session_id}`);
       return;
     }
     const session = await startSession('onboarding');
+    if (!mountedRef.current) return;
     navigate(`/interview/${session.id}`);
   };
 
   const handleTriggerAClick = async () => {
+    if (!activePairingId) return;
     if (!profile?.consent_given) {
       setConsentOpen(true);
       return;
     }
     try {
       await startInterviewFlow();
-    } catch {
-      message.error(t('interview.startFail'));
+    } catch (error: unknown) {
+      if (mountedRef.current) {
+        message.error(getErrorMessage(error, 'interview.startFail'));
+      }
     }
   };
 
   const handleConsent = async () => {
+    if (!activePairingId) {
+      setConsentOpen(false);
+      return;
+    }
     try {
       await giveConsent();
+      if (!mountedRef.current) return;
       setConsentOpen(false);
       await startInterviewFlow();
-    } catch {
-      message.error(t('interview.startFail'));
+    } catch (error: unknown) {
+      if (mountedRef.current) {
+        message.error(getErrorMessage(error, 'interview.startFail'));
+      }
     }
   };
+
+  if (loadError) {
+    return (
+      <ProtectedRoute>
+        <div className="profile-pairing-page" role="main" aria-label={t('pairing.pageLabel')}>
+          <Alert
+            title={t('message.getPairingFail')}
+            type="error"
+            showIcon
+            action={
+              <Space>
+                <Button size="small" onClick={handleRetry}>{t('common.retry')}</Button>
+                <Button size="small" type="primary" onClick={() => navigate('/profile/settings')}>
+                  {t('pairing.goToSettings')}
+                </Button>
+              </Space>
+            }
+          />
+        </div>
+      </ProtectedRoute>
+    );
+  }
 
   return (
     <ProtectedRoute>
@@ -308,7 +372,7 @@ const ProfilePairing = () => {
         description={t('pairing.description')}
       />
       <div className="profile-pairing-page" role="main" aria-label={t('pairing.pageLabel')}>
-        {!profile?.consent_given && (
+        {activePairingId && !profile?.consent_given && (
           <AnimatedWrapper animation="fade" delay={50}>
             <Alert
               title={t('trigger.bannerTitle')}

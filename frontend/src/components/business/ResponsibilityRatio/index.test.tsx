@@ -25,4 +25,23 @@ describe('ResponsibilityRatio', () => {
     );
     expect(document.querySelector('.responsibility-labels')).not.toBeInTheDocument();
   });
+
+  it('ratio 為 null 時應不渲染（F04 邊界）', () => {
+    const { container } = render(<ResponsibilityRatio ratio={null as unknown as { plaintiff: number; defendant: number }} />);
+    expect(container.querySelector('.responsibility-ratio')).not.toBeInTheDocument();
+  });
+
+  it('plaintiff 為 undefined 時應不渲染（F04 邊界：API 回傳不完整時不崩潰）', () => {
+    const { container } = render(
+      <ResponsibilityRatio ratio={{ plaintiff: undefined as unknown as number, defendant: 40 }} />
+    );
+    expect(container.querySelector('.responsibility-ratio')).not.toBeInTheDocument();
+  });
+
+  it('defendant 為 NaN 時應不渲染（F04 邊界：API 回傳不完整時不崩潰）', () => {
+    const { container } = render(
+      <ResponsibilityRatio ratio={{ plaintiff: 60, defendant: NaN }} />
+    );
+    expect(container.querySelector('.responsibility-ratio')).not.toBeInTheDocument();
+  });
 });

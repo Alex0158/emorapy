@@ -1,5 +1,7 @@
 # 部署指南
 
+> **與發布指引的關係**：本文件為**後端部署細則**（環境變數、遷移、監控、多種部署方式）。僅用 Railway CLI 推送的步驟見 [docs/發布指引/Railway-發布指引.md](../發布指引/Railway-發布指引.md)。
+
 ## 部署選項
 
 ### 1. Railway (推薦)
@@ -86,6 +88,8 @@ ALLOWED_ORIGINS=https://your-frontend-domain.com,https://your-admin-domain.com
 ```
 
 > 前後台拆分後，`ALLOWED_ORIGINS` 必須同時包含主前台與管理後台網域，否則管理後台會被 CORS 阻擋。
+>
+> **Vercel 部署**：若前台部署於 Vercel（例如 `https://mother-bear-court.vercel.app`），Railway 後端的 `ALLOWED_ORIGINS` 必須包含該完整網址，否則 Quick Experience 等頁面會出現 CORS 403／「網絡連接失敗」。
 >
 > 若啟用健康檢查告警腳本，也請設定 `ALERT_HEALTH_ORIGIN` 為 `ALLOWED_ORIGINS` 內其中一個合法來源，避免健康檢查因 Origin 不符而誤報 5xx。
 >

@@ -112,6 +112,84 @@ export interface AdminConfigItem {
   updated_at: string;
 }
 
+export interface AdminMediaProviderCatalogItem {
+  providerKey: string;
+  providerType: 'image' | 'video';
+  displayName: string;
+  description?: string;
+  secretLabel?: string;
+  defaultModel?: string;
+  defaultBaseUrl?: string;
+  supportsSourceImage?: boolean;
+  pricing: {
+    billingUnit: 'image' | 'second' | 'frame';
+    unitPriceUsd: number;
+  };
+  isEnabledByDefault?: boolean;
+}
+
+export interface AdminMediaProviderTestInput {
+  apiKey?: string;
+  baseUrl?: string;
+  timeoutMs?: number;
+  model?: string;
+  count?: number;
+  durationSeconds?: number;
+  sourceImageUrl?: string;
+  prompt?: string;
+}
+
+export interface AdminMediaProviderTestResult {
+  providerKey: string;
+  success: boolean;
+  message: string;
+  latencyMs: number;
+  detail?: unknown;
+}
+
+export interface AdminMediaProviderCostEstimate {
+  billingUnit: 'image' | 'second' | 'frame';
+  unitPriceUsd: number;
+  unitCount: number;
+  totalCostUsd: number;
+}
+
+export interface AdminMediaProviderAsset {
+  url: string;
+  type: 'image' | 'video';
+  width?: number;
+  height?: number;
+  durationSeconds?: number;
+}
+
+export interface AdminMediaProviderGenerateRequest {
+  apiKey?: string;
+  baseUrl?: string;
+  timeoutMs?: number;
+  model?: string;
+  prompt: string;
+}
+
+export interface AdminMediaProviderGenerateImageRequest
+  extends AdminMediaProviderGenerateRequest {
+  count?: number;
+  width?: number;
+  height?: number;
+}
+
+export interface AdminMediaProviderGenerateVideoRequest
+  extends AdminMediaProviderGenerateRequest {
+  durationSeconds?: number;
+  sourceImageUrl?: string;
+}
+
+export interface AdminMediaProviderGenerationResult {
+  providerKey: string;
+  requestId?: string;
+  assets: AdminMediaProviderAsset[];
+  raw?: unknown;
+}
+
 export interface AdminListResponse<T> {
   items: T[];
   total: number;

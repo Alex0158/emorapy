@@ -34,6 +34,8 @@ import psychProfileRoutes from './routes/psych-profile.routes';
 import adminRoutes from './routes/admin.routes';
 import chatRoutes from './routes/chat.routes';
 import metricsRoutes from './routes/metrics.routes';
+import metaRoutes from './routes/meta.routes';
+import mediaProviderRoutes from './routes/media-provider.routes';
 
 const app: Application = express();
 
@@ -191,6 +193,8 @@ app.use('/api/v1/execution', executionRoutes);
 app.use('/api/v1', contentRoutes);
 app.use('/api/v1', notificationRoutes);
 app.use('/api/v1/admin', adminRoutes);
+app.use('/api/v1', mediaProviderRoutes);
+app.use('/api/v1', metaRoutes);
 
 // 404處理
 app.use((req, res) => {

@@ -169,6 +169,20 @@ describe('FileService', () => {
       });
     });
 
+    it('originalname 為空字串時應拋出 INVALID_FILE_TYPE（候選功能邊界：無擴展名防禦）', async () => {
+      const file = {
+        size: 100,
+        originalname: '',
+        mimetype: 'image/jpeg',
+        destination: 'uploads',
+        filename: '123.jpg',
+      } as Express.Multer.File;
+
+      await expect(fileService.validateFile(file)).rejects.toMatchObject({
+        code: 'INVALID_FILE_TYPE',
+      });
+    });
+
     it('魔數驗證通過應不拋錯', async () => {
       const file = {
         size: 100,

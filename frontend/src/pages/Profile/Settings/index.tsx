@@ -3,31 +3,38 @@
  */
 
 import { useEffect, useState, useRef } from 'react';
-import { Card, Form, Switch, Button, Typography, message, Spin, Alert } from 'antd';
+import { useMountedRef } from '@/hooks/useMountedRef';
+import { useNavigate } from 'react-router-dom';
+import { Card, Form, Switch, Button, Typography, message, Spin, Alert, Space } from 'antd';
 import ProtectedRoute from '@/components/common/ProtectedRoute';
 import SEO from '@/components/common/SEO';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
 import { getProfile, updateProfile } from '@/services/api/user';
 import { useAuthStore } from '@/store/authStore';
+import { getErrorMessage } from '@/utils/apiError';
 import { t } from '@/utils/i18n';
 import './Settings.less';
 
 const { Title } = Typography;
 
 const ProfileSettings = () => {
+  const navigate = useNavigate();
   const [form] = Form.useForm();
   const { updateUser } = useAuthStore();
   const [loading, setLoading] = useState(false);
-  const [loadError, setLoadError] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const mountedRef = useMountedRef();
   const staleRef = useRef(false);
+  const saveLockRef = useRef(false);
+  const retryLockRef = useRef(false);
 
   useEffect(() => {
     staleRef.current = false;
     const init = async () => {
       setLoading(true);
-      setLoadError(false);
+      setLoadError(null);
       try {
         const profile = await getProfile();
         if (staleRef.current) return;
@@ -37,9 +44,9 @@ const ProfileSettings = () => {
         });
       } catch (error: unknown) {
         if (staleRef.current) return;
-        const msg = (error as { message?: string })?.message || t('message.getProfileFail');
+        const msg = getErrorMessage(error, 'message.getProfileFail');
         message.error(msg);
-        setLoadError(true);
+        setLoadError(msg);
       } finally {
         if (!staleRef.current) setLoading(false);
       }
@@ -49,18 +56,21 @@ const ProfileSettings = () => {
   }, [form, updateUser]);
 
   const handleSubmit = async (values: { notification_enabled?: boolean }) => {
+    if (saveLockRef.current) return;
+    saveLockRef.current = true;
     setSaving(true);
     try {
       const updated = await updateProfile({
         notification_enabled: values.notification_enabled,
       });
+      if (!mountedRef.current) return;
       updateUser(updated);
       message.success(t('message.saveSuccess'));
     } catch (error: unknown) {
-      const msg = (error as { message?: string })?.message || t('message.saveFail');
-      message.error(msg);
+      if (mountedRef.current) message.error(getErrorMessage(error, 'message.saveFail'));
     } finally {
-      setSaving(false);
+      saveLockRef.current = false;
+      if (mountedRef.current) setSaving(false);
     }
   };
 
@@ -74,15 +84,45 @@ const ProfileSettings = () => {
     );
   }
 
+  const handleRetry = () => {
+    if (retryLockRef.current) return;
+    retryLockRef.current = true;
+    setLoadError(null);
+    setLoading(true);
+    getProfile()
+      .then((p) => {
+        if (staleRef.current) return;
+        updateUser(p);
+        form.setFieldsValue({ notification_enabled: p.notification_enabled ?? true });
+      })
+      .catch((error: unknown) => {
+        if (staleRef.current) return;
+        const msg = getErrorMessage(error, 'message.getProfileFail');
+        message.error(msg);
+        setLoadError(msg);
+      })
+      .finally(() => {
+        retryLockRef.current = false;
+        if (!staleRef.current) setLoading(false);
+      });
+  };
+
   if (loadError) {
     return (
       <ProtectedRoute>
         <div className="profile-settings-page">
           <Alert
-            title={t('message.getProfileFail')}
+            title={loadError}
             type="error"
             showIcon
-            action={<Button size="small" onClick={() => { setLoadError(false); setLoading(true); getProfile().then(p => { updateUser(p); form.setFieldsValue({ notification_enabled: p.notification_enabled ?? true }); }).catch(() => setLoadError(true)).finally(() => setLoading(false)); }}>{t('common.retry')}</Button>}
+            action={
+              <Space>
+                <Button size="small" onClick={handleRetry}>{t('common.retry')}</Button>
+                <Button size="small" type="primary" onClick={() => navigate('/profile/index')}>
+                  {t('settings.goToProfile')}
+                </Button>
+              </Space>
+            }
           />
         </div>
       </ProtectedRoute>

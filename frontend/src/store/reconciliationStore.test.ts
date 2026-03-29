@@ -67,6 +67,20 @@ describe('reconciliationStore', () => {
     expect(useReconciliationStore.getState().error).toBe('獲取和好方案失敗');
   });
 
+  it('getPlans 競態：後發請求先回傳時，先發請求 reject 應直接拋出、不覆蓋 state', async () => {
+    mockGetPlans
+      .mockImplementationOnce(() => new Promise((_, r) => setTimeout(() => r(new Error('慢請求失敗')), 50)))
+      .mockResolvedValueOnce([{ ...mockPlan, id: 'p2' }]);
+    const slowPromise = useReconciliationStore.getState().getPlans('j1');
+    const fastResult = await useReconciliationStore.getState().getPlans('j1');
+    expect(fastResult).toHaveLength(1);
+    expect(fastResult[0].id).toBe('p2');
+    expect(useReconciliationStore.getState().plans).toHaveLength(1);
+    expect(useReconciliationStore.getState().plans[0].id).toBe('p2');
+    await expect(slowPromise).rejects.toThrow('慢請求失敗');
+    expect(useReconciliationStore.getState().plans[0].id).toBe('p2');
+  });
+
   it('generatePlans 成功應設 plans', async () => {
     mockGeneratePlans.mockResolvedValue([mockPlan]);
     const result = await useReconciliationStore.getState().generatePlans('j1');
@@ -96,6 +110,18 @@ describe('reconciliationStore', () => {
     ).rejects.toThrow('生成方案失敗');
     expect(useReconciliationStore.getState().error).toBe('生成方案失敗');
     expect(useReconciliationStore.getState().isLoading).toBe(false);
+  });
+
+  it('getPlans 競態：後發請求先回傳時，先發請求 reject 應直接拋出、不覆蓋 state', async () => {
+    mockGetPlans
+      .mockImplementationOnce(() => new Promise((_, r) => setTimeout(() => r(new Error('慢請求失敗')), 50)))
+      .mockResolvedValueOnce([{ ...mockPlan, id: 'p2' }]);
+    const slowPromise = useReconciliationStore.getState().getPlans('j1');
+    const fastResult = await useReconciliationStore.getState().getPlans('j1');
+    expect(fastResult).toHaveLength(1);
+    expect(useReconciliationStore.getState().plans).toHaveLength(1);
+    await expect(slowPromise).rejects.toThrow('慢請求失敗');
+    expect(useReconciliationStore.getState().plans).toHaveLength(1);
   });
 
   it('連續調用 generatePlans 時只有最後一次生效（競態保護）', async () => {
@@ -134,5 +160,27 @@ describe('reconciliationStore', () => {
     await p2;
 
     expect(useReconciliationStore.getState().selectedPlan).toEqual(secondPlan);
+  });
+
+  it('getPlans 競態：後發請求先 reject 時，先發請求 reject 應直接拋出、不覆蓋 state', async () => {
+    mockGetPlans
+      .mockImplementationOnce(() => new Promise((_, r) => setTimeout(() => r(new Error('慢請求失敗')), 50)))
+      .mockRejectedValueOnce(new Error('快請求失敗'));
+    const slowPromise = useReconciliationStore.getState().getPlans('j1');
+    await expect(useReconciliationStore.getState().getPlans('j2')).rejects.toThrow('快請求失敗');
+    expect(useReconciliationStore.getState().error).toBe('快請求失敗');
+    await expect(slowPromise).rejects.toThrow('慢請求失敗');
+    expect(useReconciliationStore.getState().error).toBe('快請求失敗');
+  });
+
+  it('selectPlan 競態：後發請求先回傳時，先發請求 reject 應直接拋出、不覆蓋 state', async () => {
+    mockSelectPlan
+      .mockImplementationOnce(() => new Promise((_, r) => setTimeout(() => r(new Error('慢請求失敗')), 50)))
+      .mockResolvedValueOnce({ ...mockPlan, id: 'p2' });
+    const slowPromise = useReconciliationStore.getState().selectPlan('p1');
+    const fastResult = await useReconciliationStore.getState().selectPlan('p2');
+    expect(useReconciliationStore.getState().selectedPlan?.id).toBe('p2');
+    await expect(slowPromise).rejects.toThrow('慢請求失敗');
+    expect(useReconciliationStore.getState().selectedPlan?.id).toBe('p2');
   });
 });

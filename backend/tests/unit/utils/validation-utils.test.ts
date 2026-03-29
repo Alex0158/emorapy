@@ -16,6 +16,11 @@ describe('ValidationUtils', () => {
       expect(() => ValidationUtils.validateStatement('   ')).toThrow();
     });
 
+    it('應對 null 或 undefined 拋出錯誤（防禦性邊界）', () => {
+      expect(() => ValidationUtils.validateStatement(null as any)).toThrow();
+      expect(() => ValidationUtils.validateStatement(undefined as any)).toThrow();
+    });
+
     it('應拋出過短錯誤', () => {
       expect(() => ValidationUtils.validateStatement('short')).toThrow(/至少30字/);
     });
@@ -61,6 +66,14 @@ describe('ValidationUtils', () => {
       expect(() => ValidationUtils.validateEvidenceUrls(['https://valid.com/1.jpg', ''])).toThrow(/證據URL\[1\]格式錯誤/);
       expect(() => ValidationUtils.validateEvidenceUrls([123 as unknown as string])).toThrow(/格式錯誤/);
     });
+
+    it('應拒絕 http 協議，僅支持 https', () => {
+      expect(() => ValidationUtils.validateEvidenceUrls(['http://example.com/1.jpg'])).toThrow(/僅支持 HTTPS/);
+    });
+
+    it('空陣列應通過', () => {
+      expect(() => ValidationUtils.validateEvidenceUrls([])).not.toThrow();
+    });
   });
 
   describe('validateUUID', () => {
@@ -74,6 +87,11 @@ describe('ValidationUtils', () => {
       expect(() => ValidationUtils.validateUUID('invalid')).toThrow(/格式無效/);
       expect(() => ValidationUtils.validateUUID('')).toThrow();
     });
+
+    it('應拒絕 null 或 undefined', () => {
+      expect(() => ValidationUtils.validateUUID(null as any)).toThrow();
+      expect(() => ValidationUtils.validateUUID(undefined as any)).toThrow();
+    });
   });
 
   describe('validateEmail', () => {
@@ -84,6 +102,11 @@ describe('ValidationUtils', () => {
     it('應拋出無效郵箱錯誤', () => {
       expect(() => ValidationUtils.validateEmail('invalid')).toThrow(/郵箱格式錯誤/);
     });
+
+    it('應拒絕 null 或 undefined', () => {
+      expect(() => ValidationUtils.validateEmail(null as any)).toThrow();
+      expect(() => ValidationUtils.validateEmail(undefined as any)).toThrow();
+    });
   });
 
   describe('validatePassword', () => {
@@ -93,6 +116,11 @@ describe('ValidationUtils', () => {
 
     it('應拋出空密碼錯誤', () => {
       expect(() => ValidationUtils.validatePassword('')).toThrow();
+    });
+
+    it('應拒絕 null 或 undefined', () => {
+      expect(() => ValidationUtils.validatePassword(null as any)).toThrow();
+      expect(() => ValidationUtils.validatePassword(undefined as any)).toThrow();
     });
 
     it('應拋出長度不足錯誤', () => {
@@ -131,6 +159,20 @@ describe('ValidationUtils', () => {
       expect(() =>
         ValidationUtils.validateResponsibilityRatio({ plaintiff: 50, defendant: 60 })
       ).toThrow(/總和必須為100/);
+    });
+
+    it('應拒絕 null 或 undefined ratio（防禦性邊界）', () => {
+      expect(() => ValidationUtils.validateResponsibilityRatio(null as any)).toThrow(/必須是數字/);
+      expect(() => ValidationUtils.validateResponsibilityRatio(undefined as any)).toThrow(/必須是數字/);
+    });
+
+    it('應接受 0+100 與 100+0 邊界', () => {
+      expect(() =>
+        ValidationUtils.validateResponsibilityRatio({ plaintiff: 0, defendant: 100 })
+      ).not.toThrow();
+      expect(() =>
+        ValidationUtils.validateResponsibilityRatio({ plaintiff: 100, defendant: 0 })
+      ).not.toThrow();
     });
   });
 });

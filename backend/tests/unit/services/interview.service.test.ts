@@ -1,6 +1,7 @@
 /**
- * InterviewService 單元測試 — prompt 構建、key_facts 解析邏輯
+ * InterviewService 單元測試 — prompt 構建、key_facts 解析邏輯、endSession、retryFailed、startSession 狀態轉移
  */
+// @ts-nocheck
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 
 jest.mock('../../../src/config/database', () => ({
@@ -9,6 +10,7 @@ jest.mock('../../../src/config/database', () => ({
     interviewSession: { findUnique: jest.fn(), update: jest.fn(), findFirst: jest.fn(), findMany: jest.fn(), create: jest.fn() },
     interviewTurn: { create: jest.fn(), update: jest.fn() },
     profileInsight: { findMany: jest.fn() },
+    profileNarrative: { findMany: jest.fn() },
     user: { findUnique: jest.fn() },
     $transaction: jest.fn(),
   },
@@ -39,7 +41,11 @@ jest.mock('../../../src/utils/retry', () => ({
 }));
 jest.mock('../../../src/services/async-pipeline.service', () => ({
   __esModule: true,
-  asyncPipelineService: { runPipeline: jest.fn() },
+  asyncPipelineService: {
+    runPipeline: jest.fn(),
+    process: jest.fn().mockResolvedValue(undefined),
+    resume: jest.fn().mockResolvedValue(undefined),
+  },
 }));
 jest.mock('../../../src/services/system-config.service', () => ({
   __esModule: true,
@@ -207,6 +213,17 @@ describe('InterviewService — key_facts 解析邏輯', () => {
   });
 });
 
+describe('InterviewService — startSession CONSENT_REQUIRED', () => {
+  const mockedPrisma = prisma as any;
+
+  it('psych_consent_given 為 false 時應拋出 CONSENT_REQUIRED', async () => {
+    mockedPrisma.user.findUnique.mockResolvedValue({ psych_consent_given: false });
+    await expect(service.startSession('u1', 'organic')).rejects.toMatchObject({
+      code: 'CONSENT_REQUIRED',
+    });
+  });
+});
+
 describe('InterviewService — runtime config 行為', () => {
   const mockedPrisma = prisma as any;
   const mockedSystemConfig = systemConfigService as any;
@@ -230,7 +247,7 @@ describe('InterviewService — runtime config 行為', () => {
     await expect(service.startSession('u1', 'organic')).rejects.toThrow('今日開始訪談次數已達上限');
   });
 
-  it('respond 應使用 runtime maxTurns 阻擋超輪次', async () => {
+  it('respond 應使用 runtime maxTurns 阻擋超輪次並拋出 MAX_TURNS_REACHED', async () => {
     (mockedSystemConfig.getNumberConfig as jest.Mock).mockImplementation(async (...args: any[]) => {
       const [key, fallback] = args;
       if (key === 'interview.maxTurns') return 2;
@@ -243,10 +260,10 @@ describe('InterviewService — runtime config 行為', () => {
       turns: [{ id: 't1', created_at: new Date(Date.now() - 1000 * 60) }, { id: 't2', created_at: new Date() }],
     });
 
-    await expect(service.respond('s1', 'u1', 'hello')).rejects.toThrow();
+    await expect(service.respond('s1', 'u1', 'hello')).rejects.toMatchObject({ code: 'MAX_TURNS_REACHED' });
   });
 
-  it('respond 應使用 runtime turnIntervalMs 阻擋過快輸入', async () => {
+  it('respond 應使用 runtime turnIntervalMs 阻擋過快輸入並拋出 TURN_TOO_FAST', async () => {
     (mockedSystemConfig.getNumberConfig as jest.Mock).mockImplementation(async (...args: any[]) => {
       const [key, fallback] = args;
       if (key === 'interview.maxTurns') return 10;
@@ -260,6 +277,307 @@ describe('InterviewService — runtime config 行為', () => {
       turns: [{ id: 't1', created_at: new Date() }],
     });
 
-    await expect(service.respond('s1', 'u1', 'hello')).rejects.toThrow();
+    await expect(service.respond('s1', 'u1', 'hello')).rejects.toMatchObject({ code: 'TURN_TOO_FAST' });
+  });
+});
+
+describe('InterviewService — respond 邊界與異常', () => {
+  const mockedPrisma = prisma as any;
+  const mockedSystemConfig = systemConfigService as any;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (mockedSystemConfig.getNumberConfig as jest.Mock).mockImplementation(async (...args: any[]) => args[1]);
+  });
+
+  it('session 不存在時應拋出 NOT_FOUND', async () => {
+    mockedPrisma.interviewSession.findUnique.mockResolvedValue(null);
+    await expect(service.respond('s1', 'u1', 'hello')).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+
+  it('session 屬於其他用戶時應拋出 NOT_FOUND', async () => {
+    mockedPrisma.interviewSession.findUnique.mockResolvedValue({
+      id: 's1',
+      user_id: 'other-user',
+      status: 'in_progress',
+      turns: [{ id: 't1', created_at: new Date(Date.now() - 10000) }],
+    });
+    await expect(service.respond('s1', 'u1', 'hello')).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+
+  it('session 非 IN_PROGRESS 時應拋出 SESSION_COMPLETED', async () => {
+    mockedPrisma.interviewSession.findUnique.mockResolvedValue({
+      id: 's1',
+      user_id: 'u1',
+      status: 'completed',
+      turns: [{ id: 't1', created_at: new Date(Date.now() - 10000) }],
+    });
+    await expect(service.respond('s1', 'u1', 'hello')).rejects.toMatchObject({ code: 'SESSION_COMPLETED' });
+  });
+});
+
+describe('InterviewService — endSession 狀態轉移', () => {
+  const mockedPrisma = prisma as any;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('session 不存在時應拋出 NOT_FOUND', async () => {
+    mockedPrisma.interviewSession.findUnique.mockResolvedValue(null);
+    await expect(service.endSession('s1', 'u1')).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+
+  it('session 屬於其他用戶時應拋出 NOT_FOUND', async () => {
+    mockedPrisma.interviewSession.findUnique.mockResolvedValue({
+      id: 's1',
+      user_id: 'other-user',
+      status: 'in_progress',
+      turns: [{ user_response: 'a'.repeat(60) }],
+      _count: { turns: 5 },
+    });
+    await expect(service.endSession('s1', 'u1')).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+
+  it('session 非 IN_PROGRESS 時應拋出 SESSION_COMPLETED', async () => {
+    mockedPrisma.interviewSession.findUnique.mockResolvedValue({
+      id: 's1',
+      user_id: 'u1',
+      status: 'completed',
+      turns: [],
+      _count: { turns: 5 },
+    });
+    await expect(service.endSession('s1', 'u1')).rejects.toMatchObject({ code: 'SESSION_COMPLETED' });
+  });
+
+  it('內容不足（turns < 5）時應更新為 COMPLETED 且不觸發 pipeline', async () => {
+    mockedPrisma.interviewSession.findUnique.mockResolvedValue({
+      id: 's1',
+      user_id: 'u1',
+      status: 'in_progress',
+      turns: [
+        { user_response: 'a'.repeat(20) },
+        { user_response: 'b'.repeat(20) },
+      ],
+      _count: { turns: 2 },
+    });
+    mockedPrisma.interviewSession.update.mockResolvedValue({});
+
+    await service.endSession('s1', 'u1');
+
+    expect(mockedPrisma.interviewSession.update).toHaveBeenCalledWith({
+      where: { id: 's1' },
+      data: expect.objectContaining({ status: 'completed' }),
+    });
+    const { asyncPipelineService } = require('../../../src/services/async-pipeline.service');
+    expect(asyncPipelineService.process).not.toHaveBeenCalled();
+  });
+
+  it('內容不足（總字數 < 50）時應更新為 COMPLETED 且不觸發 pipeline', async () => {
+    mockedPrisma.interviewSession.findUnique.mockResolvedValue({
+      id: 's1',
+      user_id: 'u1',
+      status: 'in_progress',
+      turns: [
+        { user_response: 'a' },
+        { user_response: 'b' },
+        { user_response: 'c' },
+        { user_response: 'd' },
+        { user_response: 'e' },
+      ],
+      _count: { turns: 5 },
+    });
+    mockedPrisma.interviewSession.update.mockResolvedValue({});
+
+    await service.endSession('s1', 'u1');
+
+    expect(mockedPrisma.interviewSession.update).toHaveBeenCalledWith({
+      where: { id: 's1' },
+      data: expect.objectContaining({ status: 'completed' }),
+    });
+    const { asyncPipelineService } = require('../../../src/services/async-pipeline.service');
+    expect(asyncPipelineService.process).not.toHaveBeenCalled();
+  });
+
+  it('內容足夠時應更新為 PROCESSING 且觸發 pipeline', async () => {
+    mockedPrisma.interviewSession.findUnique.mockResolvedValue({
+      id: 's1',
+      user_id: 'u1',
+      status: 'in_progress',
+      turns: [
+        { user_response: 'a'.repeat(20) },
+        { user_response: 'b'.repeat(20) },
+        { user_response: 'c'.repeat(20) },
+        { user_response: 'd'.repeat(20) },
+        { user_response: 'e'.repeat(20) },
+      ],
+      _count: { turns: 5 },
+    });
+    mockedPrisma.interviewSession.update.mockResolvedValue({});
+
+    await service.endSession('s1', 'u1');
+
+    expect(mockedPrisma.interviewSession.update).toHaveBeenCalledWith({
+      where: { id: 's1' },
+      data: expect.objectContaining({ status: 'processing' }),
+    });
+    const { asyncPipelineService } = require('../../../src/services/async-pipeline.service');
+    expect(asyncPipelineService.process).toHaveBeenCalledWith('s1');
+  });
+});
+
+describe('InterviewService — retryFailed', () => {
+  const mockedPrisma = prisma as any;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('session 不存在時應拋出 NOT_FOUND', async () => {
+    mockedPrisma.interviewSession.findFirst.mockResolvedValue(null);
+    await expect(service.retryFailed('s1', 'u1')).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+
+  it('session 屬於其他用戶時應拋出 NOT_FOUND', async () => {
+    mockedPrisma.interviewSession.findFirst.mockResolvedValue(null);
+    await expect(service.retryFailed('s1', 'u1')).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+
+  it('session 非 PROCESSING_FAILED 時應拋出 VALIDATION_ERROR', async () => {
+    mockedPrisma.interviewSession.findFirst.mockResolvedValue({
+      id: 's1',
+      user_id: 'u1',
+      status: 'completed',
+      pipeline_step: 0,
+    });
+    await expect(service.retryFailed('s1', 'u1')).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+  });
+
+  it('PROCESSING_FAILED 時應更新為 PROCESSING 且觸發 resume', async () => {
+    mockedPrisma.interviewSession.findFirst.mockResolvedValue({
+      id: 's1',
+      user_id: 'u1',
+      status: 'processing_failed',
+      pipeline_step: 2,
+    });
+    mockedPrisma.interviewSession.update.mockResolvedValue({});
+
+    await service.retryFailed('s1', 'u1');
+
+    expect(mockedPrisma.interviewSession.update).toHaveBeenCalledWith({
+      where: { id: 's1' },
+      data: { status: 'processing' },
+    });
+    const { asyncPipelineService } = require('../../../src/services/async-pipeline.service');
+    expect(asyncPipelineService.resume).toHaveBeenCalledWith('s1', 3);
+  });
+});
+
+describe('InterviewService — startSession 每小時限額與舊 session 處理', () => {
+  const mockedPrisma = prisma as any;
+  const mockedSystemConfig = systemConfigService as any;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (mockedSystemConfig.getNumberConfig as jest.Mock).mockImplementation(async (...args: any[]) => args[1]);
+  });
+
+  it('每小時 substantive session 達限時應拋出 RATE_LIMIT_EXCEEDED（每小時開始訪談次數已達上限）', async () => {
+    (mockedPrisma.user.findUnique as any).mockResolvedValue({ psych_consent_given: true });
+    (mockedSystemConfig.getNumberConfig as jest.Mock).mockImplementation(async (...args: any[]) => {
+      const [key, fallback] = args;
+      if (key === 'interview.dailySessionLimit') return 2;
+      if (key === 'interview.startRateLimit') return 1;
+      return fallback;
+    });
+    const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000);
+    (mockedPrisma.interviewSession.findMany as any).mockResolvedValue([
+      { created_at: thirtyMinAgo.toISOString(), _count: { turns: 5 } },
+    ]);
+    (mockedPrisma.interviewSession.findFirst as any).mockResolvedValue(null);
+    (mockedPrisma.profileInsight.findMany as any).mockResolvedValue([]);
+    (mockedPrisma.$transaction as any).mockImplementation(async (fn: (tx: any) => Promise<any>) => {
+      const tx = {
+        interviewSession: {
+          update: jest.fn().mockResolvedValue({}),
+          create: jest.fn().mockResolvedValue({ id: 's2', user_id: 'u1', status: 'in_progress' }),
+          findUnique: jest.fn().mockResolvedValue({ id: 's2', user_id: 'u1', status: 'in_progress', turns: [] }),
+        },
+        interviewTurn: { create: jest.fn().mockResolvedValue({}) },
+      };
+      return fn(tx);
+    });
+
+    await expect(service.startSession('u1', 'organic')).rejects.toThrow('每小時開始訪談次數已達上限');
+  });
+
+  it('有舊 IN_PROGRESS 且 turns >= 5 時應將舊 session 設為 PROCESSING 並建立新 session', async () => {
+    (mockedPrisma.user.findUnique as any).mockResolvedValue({ psych_consent_given: true });
+    (mockedSystemConfig.getNumberConfig as jest.Mock).mockImplementation(async (...args: any[]) => args[1]);
+    (mockedPrisma.interviewSession.findMany as any).mockResolvedValue([]);
+    (mockedPrisma.interviewSession.findFirst as any).mockResolvedValue({
+      id: 's1',
+      user_id: 'u1',
+      status: 'in_progress',
+      turns: Array(5).fill({ id: 't', created_at: new Date() }),
+    });
+    (mockedPrisma.profileInsight.findMany as any).mockResolvedValue([]);
+    const newSession = { id: 's2', user_id: 'u1', status: 'in_progress', turns: [{ turn_order: 1 }] };
+    (mockedPrisma.$transaction as any).mockImplementation(async (fn: (tx: any) => Promise<any>) => {
+      const tx = {
+        interviewSession: {
+          update: jest.fn().mockResolvedValue({}),
+          create: jest.fn().mockResolvedValue(newSession),
+          findUnique: jest.fn().mockResolvedValue({ ...newSession, turns: [{ turn_order: 1 }] }),
+        },
+        interviewTurn: { create: jest.fn().mockResolvedValue({}) },
+      };
+      const result = await fn(tx);
+      expect(tx.interviewSession.update).toHaveBeenCalledWith({
+        where: { id: 's1' },
+        data: { status: 'processing' },
+      });
+      return result;
+    });
+
+    const result = await service.startSession('u1', 'organic');
+    expect(result).toBeDefined();
+    const { asyncPipelineService } = require('../../../src/services/async-pipeline.service');
+    expect(asyncPipelineService.process).toHaveBeenCalledWith('s1');
+  });
+
+  it('有舊 IN_PROGRESS 且 turns < 5 時應將舊 session 設為 ABANDONED', async () => {
+    (mockedPrisma.user.findUnique as any).mockResolvedValue({ psych_consent_given: true });
+    (mockedSystemConfig.getNumberConfig as jest.Mock).mockImplementation(async (...args: any[]) => args[1]);
+    (mockedPrisma.interviewSession.findMany as any).mockResolvedValue([]);
+    (mockedPrisma.interviewSession.findFirst as any).mockResolvedValue({
+      id: 's1',
+      user_id: 'u1',
+      status: 'in_progress',
+      turns: [{ id: 't1' }],
+    });
+    (mockedPrisma.profileInsight.findMany as any).mockResolvedValue([]);
+    const newSession = { id: 's2', user_id: 'u1', status: 'in_progress', turns: [{ turn_order: 1 }] };
+    (mockedPrisma.$transaction as any).mockImplementation(async (fn: (tx: any) => Promise<any>) => {
+      const tx = {
+        interviewSession: {
+          update: jest.fn().mockResolvedValue({}),
+          create: jest.fn().mockResolvedValue(newSession),
+          findUnique: jest.fn().mockResolvedValue({ ...newSession, turns: [{ turn_order: 1 }] }),
+        },
+        interviewTurn: { create: jest.fn().mockResolvedValue({}) },
+      };
+      const result = await fn(tx);
+      expect(tx.interviewSession.update).toHaveBeenCalledWith({
+        where: { id: 's1' },
+        data: { status: 'abandoned' },
+      });
+      return result;
+    });
+
+    const result = await service.startSession('u1', 'organic');
+    expect(result).toBeDefined();
+    const { asyncPipelineService } = require('../../../src/services/async-pipeline.service');
+    expect(asyncPipelineService.process).not.toHaveBeenCalled();
   });
 });

@@ -2,6 +2,12 @@
  * 通用類型定義
  */
 
+import type {
+  ApiError as SharedApiError,
+  PaginationParams as SharedPaginationParams,
+  ResponsibilityRatio as SharedResponsibilityRatio,
+} from '@cj/contracts/common';
+
 // API響應格式
 export interface ApiResponse<T = unknown> {
   success: boolean;
@@ -14,21 +20,10 @@ export interface ApiResponse<T = unknown> {
 }
 
 // API錯誤響應
-export interface ApiError {
-  code: string;
-  message: string;
-  details?: unknown;
-  request_id?: string;
-  timestamp?: string;
-}
+export type ApiError = SharedApiError;
 
 // 分頁參數
-export interface PaginationParams {
-  page?: number;
-  page_size?: number;
-  sort_by?: string;
-  sort_order?: 'asc' | 'desc';
-}
+export type PaginationParams = SharedPaginationParams;
 
 // 分頁響應
 export interface PaginationResponse<T> {
@@ -42,8 +37,5 @@ export interface PaginationResponse<T> {
 }
 
 // 責任分比例
-export interface ResponsibilityRatio {
-  plaintiff: number; // 0-100
-  defendant: number; // 0-100
-}
+export type ResponsibilityRatio = SharedResponsibilityRatio;
 

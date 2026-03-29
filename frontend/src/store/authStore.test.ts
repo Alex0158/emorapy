@@ -9,6 +9,7 @@ const mockRegister = vi.fn();
 const mockClaimSession = vi.fn();
 const mockGetProfile = vi.fn();
 const mockCancelAllRequests = vi.fn();
+const mockLoggerWarn = vi.fn();
 
 vi.mock('@/services/api/auth', () => ({
   login: (...args: unknown[]) => mockLogin(...args),
@@ -20,6 +21,11 @@ vi.mock('@/services/api/user', () => ({
 }));
 vi.mock('@/services/requestCancel', () => ({
   cancelAllRequests: (...args: unknown[]) => mockCancelAllRequests(...args),
+}));
+vi.mock('@/utils/logger', () => ({
+  logger: {
+    warn: (...args: unknown[]) => mockLoggerWarn(...args),
+  },
 }));
 
 let mockSessionStorageValue: string | null = null;
@@ -136,6 +142,16 @@ describe('authStore', () => {
     expect(localStorage.getItem('token')).toBeNull();
   });
 
+  it('checkAuth getProfile 失敗時應同時清除 localStorage 與 sessionStorage 的 token（F09 守衛：token 失效時徹底清理雙儲存）', async () => {
+    sessionStorage.setItem('token', 'bad-session');
+    localStorage.setItem('token', 'bad-local');
+    mockGetProfile.mockRejectedValue(new Error('UNAUTHORIZED'));
+    await useAuthStore.getState().checkAuth();
+    expect(localStorage.getItem('token')).toBeNull();
+    expect(sessionStorage.getItem('token')).toBeNull();
+    expect(useAuthStore.getState().isAuthenticated).toBe(false);
+  });
+
   it('login 成功時若有 quickSessionId 應呼叫 claimSession', async () => {
     mockSessionStorageValue = 'qs1';
     mockLogin.mockResolvedValue({ user: mockUser, token: 't1' });
@@ -144,11 +160,63 @@ describe('authStore', () => {
     expect(mockClaimSession).toHaveBeenCalledWith('qs1');
   });
 
+  it('login 成功但沒有 quickSessionId 時不應呼叫 claimSession', async () => {
+    mockLogin.mockResolvedValue({ user: mockUser, token: 't-no-claim' });
+
+    await useAuthStore.getState().login('u@example.com', 'pass');
+
+    expect(useAuthStore.getState().isAuthenticated).toBe(true);
+    expect(mockClaimSession).not.toHaveBeenCalled();
+  });
+
   it('register 成功時若有 quickSessionId 應呼叫 claimSession', async () => {
     mockSessionStorageValue = 'qs2';
     mockRegister.mockResolvedValue({ user: mockUser, token: 't2' });
     mockClaimSession.mockResolvedValue(undefined);
     await useAuthStore.getState().register('u@example.com', 'pass', 'Nick');
     expect(mockClaimSession).toHaveBeenCalledWith('qs2');
+  });
+
+  it('login 成功但 claimSession 失敗時不應阻斷登入成功態', async () => {
+    mockSessionStorageValue = 'qs3';
+    mockLogin.mockResolvedValue({ user: mockUser, token: 't3' });
+    mockClaimSession.mockRejectedValue(new Error('claim failed'));
+
+    await expect(useAuthStore.getState().login('u@example.com', 'pass')).resolves.toBeUndefined();
+
+    expect(useAuthStore.getState().isAuthenticated).toBe(true);
+    expect(useAuthStore.getState().token).toBe('t3');
+    expect(mockClaimSession).toHaveBeenCalledWith('qs3');
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      'Failed to claim quick session on login',
+      expect.any(Error)
+    );
+  });
+
+  it('register 成功但沒有 quickSessionId 時不應呼叫 claimSession', async () => {
+    mockRegister.mockResolvedValue({ user: mockUser, token: 't4' });
+
+    await useAuthStore.getState().register('u@example.com', 'pass', 'Nick');
+
+    expect(useAuthStore.getState().isAuthenticated).toBe(true);
+    expect(mockClaimSession).not.toHaveBeenCalled();
+  });
+
+  it('register 成功但 claimSession 失敗時不應阻斷註冊成功態', async () => {
+    mockSessionStorageValue = 'qs4';
+    mockRegister.mockResolvedValue({ user: mockUser, token: 't5' });
+    mockClaimSession.mockRejectedValue(new Error('claim failed on register'));
+
+    await expect(
+      useAuthStore.getState().register('u@example.com', 'pass', 'Nick')
+    ).resolves.toBeUndefined();
+
+    expect(useAuthStore.getState().isAuthenticated).toBe(true);
+    expect(useAuthStore.getState().token).toBe('t5');
+    expect(mockClaimSession).toHaveBeenCalledWith('qs4');
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      'Failed to claim quick session',
+      expect.any(Error)
+    );
   });
 });

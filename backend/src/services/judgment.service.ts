@@ -395,8 +395,8 @@ export class JudgmentService {
           throw Errors.NOT_FOUND('案件不存在');
         }
 
-        // 權限校驗：完整模式需當事人；快速體驗需匹配 Session
-        if (case_.mode === CASE_MODE.QUICK) {
+        // 權限校驗：匿名 quick/collaborative 需匹配 Session；完整模式需當事人
+        if (case_.mode === CASE_MODE.QUICK || case_.mode === CASE_MODE.COLLABORATIVE) {
           if (!options?.sessionId || case_.session_id !== options.sessionId) {
             throw Errors.FORBIDDEN('無權限生成判決');
           }
@@ -1016,8 +1016,8 @@ export class JudgmentService {
       throw Errors.NOT_FOUND('案件不存在');
     }
 
-    // 快速體驗模式：驗證Session ID
-    if (case_.mode === CASE_MODE.QUICK) {
+    // 匿名體驗模式（quick/collaborative）：驗證 Session ID
+    if (case_.mode === CASE_MODE.QUICK || case_.mode === CASE_MODE.COLLABORATIVE) {
       if (!sessionId || case_.session_id !== sessionId) {
         throw Errors.FORBIDDEN('無權限訪問此判決');
       }

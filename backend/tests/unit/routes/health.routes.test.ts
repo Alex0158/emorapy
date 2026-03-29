@@ -33,6 +33,12 @@ jest.mock('../../../src/jobs/cleanup.job', () => ({
     return mockJobsStartedRef.current;
   },
 }));
+const mockGetBackendStatus = jest.fn();
+jest.mock('../../../src/utils/lock', () => ({
+  lockService: {
+    getBackendStatus: () => mockGetBackendStatus(),
+  },
+}));
 
 import healthRouter from '../../../src/routes/health.routes';
 
@@ -50,6 +56,7 @@ describe('routes/health.routes', () => {
     mockPrismaQueryRaw.mockReset();
     mockLogger.info.mockClear();
     mockLogger.warn.mockClear();
+    mockGetBackendStatus.mockReturnValue('redis');
     mockEnvRef.current = { NODE_ENV: 'test' };
     mockJobsStartedRef.current = true;
     process.env = { ...origEnv };
@@ -123,6 +130,18 @@ describe('routes/health.routes', () => {
       expect(res.body).toHaveProperty('version');
     });
 
+    it('lock backend 為 simple-lock-degraded 時應標記 degraded（F10 邊界）', async () => {
+      mockGetBackendStatus.mockReturnValueOnce('simple-lock-degraded');
+      const app = createApp();
+      const res = await request(app).get('/health');
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('degraded');
+      expect(res.body.checks.lock).toEqual({
+        status: 'degraded',
+        message: 'Lock backend degraded: simple-lock in production',
+      });
+    });
+
     it('degraded 時應記錄 logger.warn', async () => {
       process.env.SKIP_DB_INIT = 'false';
       (mockPrismaQueryRaw as unknown as jest.Mock).mockRejectedValue(new Error('DB error') as never);
@@ -185,6 +204,15 @@ describe('routes/health.routes', () => {
       expect(res.body.status).toBe('not ready');
       expect(res.body.error).toBeTruthy();
     });
+
+    it('development 時 DB 失敗 error 應為實際錯誤訊息（F10 邊界）', async () => {
+      mockEnvRef.current = { NODE_ENV: 'development' };
+      (mockPrismaQueryRaw as unknown as jest.Mock).mockRejectedValue(new Error('Connection refused') as never);
+      const app = createApp();
+      const res = await request(app).get('/health/ready');
+      expect(res.status).toBe(503);
+      expect(res.body.error).toBe('Connection refused');
+    });
   });
 
   describe('GET /health/live', () => {
@@ -193,6 +221,19 @@ describe('routes/health.routes', () => {
       const res = await request(app).get('/health/live');
       expect(res.status).toBe(200);
       expect(res.body).toEqual({ status: 'alive' });
+    });
+  });
+
+  describe('GET /health handler 異常', () => {
+    it('getBackendStatus 拋錯時應返回 500', async () => {
+      mockGetBackendStatus.mockImplementationOnce(() => {
+        throw new Error('lock backend error');
+      });
+      const app = createApp();
+      const res = await request(app).get('/health');
+      expect(res.status).toBe(500);
+      expect(res.body.status).toBe('error');
+      expect(res.body.message).toContain('Internal health check');
     });
   });
 });

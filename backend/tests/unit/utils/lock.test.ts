@@ -95,6 +95,24 @@ describe('utils/lock', () => {
       ).rejects.toMatchObject({ code: 'CONFLICT', message: expect.stringContaining('進行中') });
       await lockService.release('lock-conflict');
     });
+
+    it('release 不存在的 key 應不拋錯（邊界：冪等釋放）', async () => {
+      await expect(lockService.release('nonexistent-key')).resolves.not.toThrow();
+    });
+
+    it('getBackendStatus 在 test 無 Redis 時應返回 simple-lock', () => {
+      expect(lockService.getBackendStatus()).toBe('simple-lock');
+    });
+
+    it('withLock 當 fn 拋錯時仍應釋放鎖（高風險：併發冪等）', async () => {
+      await expect(
+        lockService.withLock('lock-key-2', async () => {
+          throw new Error('業務錯誤');
+        }, 60)
+      ).rejects.toThrow('業務錯誤');
+      const got = await lockService.acquire('lock-key-2', 60);
+      expect(got).toBe(true);
+    });
   });
 
   describe('withLock (production 無 Redis)', () => {

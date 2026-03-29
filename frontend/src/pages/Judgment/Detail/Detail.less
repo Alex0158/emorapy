@@ -1,9 +1,33 @@
 @import '../../../assets/styles/variables.less';
 
 .judgment-detail-page {
+  min-height: 60vh;
+
   .page-header {
     padding: 24px;
     max-width: 800px;
+    margin: 0 auto;
+  }
+
+  /* loading / error 狀態：置中與留白，避免版面偏上或貼邊 */
+  > .ant-spin-nested-loading,
+  > .ant-alert {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 50vh;
+    padding: @spacing-xxl;
+  }
+
+  > .ant-spin-nested-loading .ant-spin-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40vh;
+  }
+
+  > .ant-alert {
+    max-width: 560px;
     margin: 0 auto;
   }
 }

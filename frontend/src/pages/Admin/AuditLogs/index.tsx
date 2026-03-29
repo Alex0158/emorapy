@@ -46,14 +46,29 @@ export default function AdminAuditLogsPage() {
   };
 
   return (
-    <Space orientation="vertical" size="large" style={{ width: '100%' }}>
-      <div>
-        <Title level={3} style={{ marginBottom: 0 }}>
-          {t('admin.audit.heading')}
-        </Title>
-        <Text type="secondary">{t('admin.audit.subtitle')}</Text>
+    <div className="admin-page">
+      <div className="admin-page__header">
+        <Title level={3} className="admin-page__header-title">{t('admin.audit.heading')}</Title>
+        <Text type="secondary" className="admin-page__header-subtitle">{t('admin.audit.subtitle')}</Text>
       </div>
-      {query.error && <Alert showIcon type="error" title={t('admin.audit.loadFailed')} />}
+      {query.error && (
+        <Alert
+          showIcon
+          type="error"
+          title={t('admin.audit.loadFailed')}
+          action={
+            <Button
+              size="small"
+              loading={query.isFetching}
+              onClick={() => void query.refetch()}
+              data-testid="admin-audit-load-retry"
+            >
+              {t('common.retry')}
+            </Button>
+          }
+        />
+      )}
+      <div className="admin-page__content">
       <Card>
         <Space wrap>
           <Input placeholder={t('admin.audit.entityType')} value={entityType} onChange={(event) => setEntityType(event.target.value)} />
@@ -90,6 +105,7 @@ export default function AdminAuditLogsPage() {
           ]}
         />
       </Card>
-    </Space>
+      </div>
+    </div>
   );
 }

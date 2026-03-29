@@ -4,6 +4,13 @@ import type {
   AdminAppUserItem,
   AdminAuditLogItem,
   AdminConfigItem,
+  AdminMediaProviderCatalogItem,
+  AdminMediaProviderGenerationResult,
+  AdminMediaProviderTestInput,
+  AdminMediaProviderTestResult,
+  AdminMediaProviderGenerateImageRequest,
+  AdminMediaProviderGenerateVideoRequest,
+  AdminMediaProviderCostEstimate,
   AdminCostReportData,
   AdminHealthDetailedData,
   AdminInterviewRuntimeConfigData,
@@ -474,6 +481,71 @@ export const adminApi = {
       }
     );
     return (response.data as ApiResponse<AdminCostReportData>).data;
+  },
+
+  async listMediaProviders(params?: {
+    providerType?: 'image' | 'video';
+  }): Promise<{ items: AdminMediaProviderCatalogItem[] }> {
+    const response = await request.get<ApiResponse<{ items: AdminMediaProviderCatalogItem[] }>>(
+      '/providers',
+      { params, headers: getAdminAuthHeaders() }
+    );
+    return (response.data as ApiResponse<{ items: AdminMediaProviderCatalogItem[] }>).data;
+  },
+
+  async estimateMediaProviderCost(
+    providerKey: string,
+    payload: {
+      count?: number;
+      durationSeconds?: number;
+      pricingOverride?: {
+        billingUnit: 'image' | 'second' | 'frame';
+        unitPriceUsd: number;
+      };
+    }
+  ): Promise<AdminMediaProviderCostEstimate> {
+    const response = await request.post<ApiResponse<AdminMediaProviderCostEstimate>>(
+      `/providers/${providerKey}/estimate`,
+      payload,
+      { headers: getAdminAuthHeaders() }
+    );
+    return (response.data as ApiResponse<AdminMediaProviderCostEstimate>).data;
+  },
+
+  async testMediaProvider(
+    providerKey: string,
+    payload: AdminMediaProviderTestInput
+  ): Promise<AdminMediaProviderTestResult> {
+    const response = await request.post<ApiResponse<AdminMediaProviderTestResult>>(
+      `/providers/${providerKey}/test`,
+      payload,
+      { headers: getAdminAuthHeaders() }
+    );
+    return (response.data as ApiResponse<AdminMediaProviderTestResult>).data;
+  },
+
+  async generateMediaProviderImage(
+    providerKey: string,
+    payload: AdminMediaProviderGenerateImageRequest
+  ): Promise<AdminMediaProviderGenerationResult> {
+    const response = await request.post<ApiResponse<AdminMediaProviderGenerationResult>>(
+      `/providers/${providerKey}/images`,
+      payload,
+      { headers: getAdminAuthHeaders() }
+    );
+    return (response.data as ApiResponse<AdminMediaProviderGenerationResult>).data;
+  },
+
+  async generateMediaProviderVideo(
+    providerKey: string,
+    payload: AdminMediaProviderGenerateVideoRequest
+  ): Promise<AdminMediaProviderGenerationResult> {
+    const response = await request.post<ApiResponse<AdminMediaProviderGenerationResult>>(
+      `/providers/${providerKey}/videos`,
+      payload,
+      { headers: getAdminAuthHeaders() }
+    );
+    return (response.data as ApiResponse<AdminMediaProviderGenerationResult>).data;
   },
 
   async getCustomReport(

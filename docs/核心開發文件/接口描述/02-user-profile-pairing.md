@@ -1,7 +1,7 @@
 # 接口描述：user + profile + pairing
 
-**文檔版本**：v2.1  
-**最後更新**：2026-03-05  
+**文檔版本**：v2.3  
+**最後更新**：2026-03-14  
 **代碼基準**：`backend/src/routes/user.routes.ts`、`backend/src/routes/profile.routes.ts`、`backend/src/routes/pairing.routes.ts`、`backend/src/utils/validation.ts`
 
 ---
@@ -30,7 +30,7 @@
 
 ## 操作級規則（深水區）
 
-- 頭像上傳是旁路：前端直接 `fetch("/api/v1/user/avatar")`，不經 `services/api/user.ts`。
+- 頭像上傳已收斂至 `services/api/user.ts` 的 `uploadAvatar(formData)`，由 request 實例與攔截器處理 token。
 - `pairing/join` 採獨立 limiter，避免邀請碼暴力猜測。
 - `getPairingStatus` 在前端把 `404` 視為 `null`（不是錯誤），這是流程控制關鍵語義。
 - `profile/relationship/:pairingId` 屬配對依賴型接口，未配對時應返回不可訪問語義而非空資料。

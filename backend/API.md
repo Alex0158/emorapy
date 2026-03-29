@@ -1,14 +1,14 @@
 # 熊媽媽法庭 - Backend API 索引（代碼對齊版）
 
-**文檔版本**：v3.1  
-**最後更新**：2026-03-05  
+**文檔版本**：v3.2  
+**最後更新**：2026-03-09  
 **對齊基準**：`backend/src/app.ts`、`backend/src/routes/*.ts`
 
 ---
 
 ## 0. SSOT Cross References
 
-- Feature boundary list: `docs/功能特性清單.md`
+- Feature boundary list: `docs/核心開發文件/功能特性清單.md`
 - Product boundary and flows: `docs/02-產品設計.md`
 - Authoritative backend API spec: `docs/後端設計/03-API設計.md`
 - Frontend API map: `docs/前端設計/08-接口一覽表.md`

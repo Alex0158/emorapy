@@ -25,7 +25,17 @@ export function createPolling<T>(
 
   let attempts = 0;
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  let resolveInterval: (() => void) | null = null;
   let isStopped = false;
+
+  const waitInterval = (): Promise<void> =>
+    new Promise((resolve) => {
+      resolveInterval = resolve;
+      timeoutId = setTimeout(() => {
+        resolveInterval = null;
+        resolve();
+      }, interval);
+    });
 
   const poll = async (): Promise<T> => {
     if (isStopped) {
@@ -48,9 +58,7 @@ export function createPolling<T>(
       }
 
       if (!isStopped && attempts < maxAttempts) {
-        await new Promise<void>((resolve) => {
-          timeoutId = setTimeout(resolve, interval);
-        });
+        await waitInterval();
         return poll();
       }
 
@@ -70,9 +78,7 @@ export function createPolling<T>(
 
       // 繼續輪詢
       if (!isStopped && attempts < maxAttempts) {
-        await new Promise<void>((resolve) => {
-          timeoutId = setTimeout(resolve, interval);
-        });
+        await waitInterval();
         return poll();
       }
 
@@ -85,6 +91,10 @@ export function createPolling<T>(
     if (timeoutId) {
       clearTimeout(timeoutId);
       timeoutId = null;
+    }
+    if (resolveInterval) {
+      resolveInterval();
+      resolveInterval = null;
     }
   };
 

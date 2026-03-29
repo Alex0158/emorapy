@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { logger } from '@/utils/logger';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
+  Alert,
   Button,
   Progress,
   Typography,
@@ -22,6 +23,7 @@ import StatementInput from '@/components/business/StatementInput';
 import FileUpload from '@/components/business/FileUpload';
 import type { UploadFile } from 'antd/es/upload/interface';
 import SEO from '@/components/common/SEO';
+import { getErrorMessage } from '@/utils/apiError';
 import { t } from '@/utils/i18n';
 import './Create.less';
 
@@ -46,26 +48,61 @@ const QuickExperienceCreate = () => {
   const [isGeneratingDefendant, setIsGeneratingDefendant] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | null>(null);
   const [recoveredCase, setRecoveredCase] = useState<{ id: string; status: string } | null>(null);
+  const [sessionInitError, setSessionInitError] = useState<string | null>(null);
+  const [isRetryingSession, setIsRetryingSession] = useState(false);
   
   const submitLockRef = useRef(false);
   const mountedRef = useMountedRef();
   const autoGenTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const ensureSession = async (isManualRetry = false) => {
+    if (isManualRetry && mountedRef.current) {
+      setIsRetryingSession(true);
+    }
+
+    try {
+      await createSession();
+      if (mountedRef.current) {
+        setSessionInitError(null);
+      }
+    } catch (error) {
+      logger.warn('Failed to create session', error);
+      if (mountedRef.current) {
+        setSessionInitError(t('quickCreate.sessionInitWeakWarning'));
+      }
+    } finally {
+      if (isManualRetry && mountedRef.current) {
+        setIsRetryingSession(false);
+      }
+    }
+  };
+
   useEffect(() => {
     const existingSessionId = sessionStorage.get() || session?.session_id;
     if (!existingSessionId) {
-      createSession().catch((e: unknown) => { logger.warn('Failed to create session', e); });
+      createSession()
+        .then(() => {
+          if (mountedRef.current) {
+            setSessionInitError(null);
+          }
+        })
+        .catch((error: unknown) => {
+          logger.warn('Failed to create session', error);
+          if (mountedRef.current) {
+            setSessionInitError(t('quickCreate.sessionInitWeakWarning'));
+          }
+        });
     }
-  }, [session, createSession]);
+  }, [session, createSession, mountedRef]);
 
-  // 檢查是否有未完成的案件
+  // 檢查是否有未完成的案件（僅在 session_id 存在且變更時呼叫一次，避免重複 404）
+  const sessionId = session?.session_id ?? sessionStorage.get();
   useEffect(() => {
+    if (!sessionId) return;
     const checkRecoveredCase = async () => {
-      const currentSessionId = sessionStorage.get() || session?.session_id;
-      if (!currentSessionId) return;
       try {
         const { getCaseBySessionId } = await import('@/services/api/case');
-        const existingCase = await getCaseBySessionId(currentSessionId);
+        const existingCase = await getCaseBySessionId(sessionId);
         if (existingCase && existingCase.status === 'draft' && mountedRef.current) {
           setRecoveredCase({ id: existingCase.id, status: existingCase.status });
         }
@@ -74,7 +111,7 @@ const QuickExperienceCreate = () => {
       }
     };
     checkRecoveredCase();
-  }, [session, mountedRef]);
+  }, [sessionId]);
 
   // 載入草稿
   useEffect(() => {
@@ -146,7 +183,7 @@ const QuickExperienceCreate = () => {
     submitLockRef.current = true;
     try {
       if (!sessionStorage.get() && !session?.session_id) {
-        await createSession().catch((e: unknown) => { logger.warn('Failed to create session before submit', e); });
+        await ensureSession();
       }
 
       const result = await createQuickCase({
@@ -186,7 +223,7 @@ const QuickExperienceCreate = () => {
       localStore.remove(DRAFT_STORAGE_KEY);
       if (mountedRef.current) navigate(`/quick-experience/result/${result.case.id}`);
     } catch (error: unknown) {
-      if (mountedRef.current) message.error((error as { message?: string })?.message || t('message.submitFail'));
+      if (mountedRef.current) message.error(getErrorMessage(error, 'message.submitFail'));
     } finally {
       submitLockRef.current = false;
     }
@@ -227,6 +264,25 @@ const QuickExperienceCreate = () => {
               <Button type="primary" size="small" shape="round" onClick={() => navigate(`/quick-experience/result/${recoveredCase.id}`)}>
                 {t('quickCreate.recoveredCase.continue')}
               </Button>
+            </div>
+          </div>
+        )}
+
+        {sessionInitError && (
+          <div className="mx-auto mb-6 w-full max-w-3xl px-4">
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
+              <Alert
+                type="warning"
+                showIcon
+                className="mb-3"
+                title={sessionInitError}
+              />
+              <div className="flex items-center justify-between gap-4">
+                <Text type="secondary">{t('quickCreate.sessionInitWeakHint')}</Text>
+                <Button onClick={() => void ensureSession(true)} loading={isRetryingSession}>
+                  {t('quickCreate.sessionInitRetry')}
+                </Button>
+              </div>
             </div>
           </div>
         )}
@@ -281,6 +337,12 @@ const QuickExperienceCreate = () => {
               transition={{ duration: 0.5 }}
             >
               <div className="step-content">
+                <Alert
+                  type="info"
+                  showIcon
+                  className="step2-handoff-alert mb-8"
+                  title={t('quickCreate.step2.handoffPrompt')}
+                />
                 <Title level={2} className="step-title">{t('quickCreate.step2.title')}</Title>
                 <Text className="step-subtitle text-lg text-gray-500 mb-8 block">
                   {t('quickCreate.step2.subtitle')}

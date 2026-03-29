@@ -2,14 +2,32 @@
  * Jest測試環境設置
  */
 
+import { existsSync } from 'fs';
+import path from 'path';
+import dotenv from 'dotenv';
+
+const backendRoot = path.resolve(__dirname, '..');
+
+// 測試環境需主動載入 dotenv；否則 env.ts 在 NODE_ENV=test 下不會再讀取 .env。
+for (const filename of ['.env.test.local', '.env.test', '.env']) {
+  const envPath = path.join(backendRoot, filename);
+  if (existsSync(envPath)) {
+    dotenv.config({ path: envPath, override: false });
+  }
+}
+
 // 設置測試環境變量
 process.env.NODE_ENV = 'test';
 // 使用環境變量中的 DATABASE_URL，如果有 TEST_DATABASE_URL 則優先使用
-process.env.DATABASE_URL = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL || 'postgresql://postgres:password@localhost:5432/cj_platform_test';
+process.env.DATABASE_URL =
+  process.env.TEST_DATABASE_URL ||
+  process.env.DATABASE_URL ||
+  'postgresql://postgres:password@localhost:5432/cj_platform_test';
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret-key';
 process.env.OPENAI_API_KEY = process.env.OPENAI_API_KEY || 'test-openai-api-key';
 process.env.FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 process.env.ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS || 'http://localhost:5173';
+process.env.SKIP_RATE_LIMIT = process.env.SKIP_RATE_LIMIT || 'true';
 
 // 設置測試超時
 jest.setTimeout(60000);
@@ -26,4 +44,3 @@ if (process.env.SUPPRESS_LOGS === 'true' || !process.env.DEBUG_TESTS) {
     // error: jest.fn(),
   };
 }
-

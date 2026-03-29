@@ -6,8 +6,9 @@
  * 生成案件標題
  */
 export function generateCaseTitle(statement: string): string {
-  // 簡單標題生成：取前30個字符
-  const title = statement.substring(0, 30).trim();
+  // 簡單標題生成：取前30個字符；null/undefined 視為空字串（防禦邊界）
+  const s = statement ?? '';
+  const title = s.substring(0, 30).trim();
   return title.length < 5 ? '案件-' + new Date().toLocaleDateString() : title;
 }
 
@@ -15,16 +16,20 @@ export function generateCaseTitle(statement: string): string {
  * 驗證郵箱格式
  */
 export function isValidEmail(email: string): boolean {
+  // null/undefined 視為空字串（防禦邊界）
+  const e = email ?? '';
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
+  return emailRegex.test(e);
 }
 
 /**
  * 驗證URL格式
  */
 export function isValidUrl(url: string): boolean {
+  // null/undefined 視為空字串（防禦邊界）
+  const u = url ?? '';
   try {
-    new URL(url);
+    new URL(u);
     return true;
   } catch {
     return false;
@@ -35,6 +40,8 @@ export function isValidUrl(url: string): boolean {
  * 格式化日期時間
  */
 export function formatDateTime(date: Date): string {
+  // null/undefined 視為無效，返回空字串（防禦邊界）
+  if (date == null) return '';
   return date.toISOString();
 }
 
@@ -52,11 +59,13 @@ export function calculatePagination(
   total_pages: number;
   has_more: boolean;
 } {
-  const totalPages = Math.ceil(total / pageSize);
+  const safePageSize = pageSize > 0 ? pageSize : 1;
+  const safeTotal = total >= 0 ? total : 0; // 負數視為 0（防禦邊界）
+  const totalPages = Math.ceil(safeTotal / safePageSize);
   return {
     page,
     page_size: pageSize,
-    total,
+    total: safeTotal,
     total_pages: totalPages,
     has_more: page < totalPages,
   };
@@ -66,8 +75,9 @@ export function calculatePagination(
  * 提取關鍵詞（簡單實現）
  */
 export function extractKeywords(text: string, count: number = 5): string[] {
-  // 簡單的關鍵詞提取：取前N個詞
-  const words = text.split(/\s+/).filter(word => word.length > 2);
+  // 簡單的關鍵詞提取：取前N個詞；null/undefined 視為空字串（防禦邊界）
+  const t = text ?? '';
+  const words = t.split(/\s+/).filter(word => word.length > 2);
   return words.slice(0, count);
 }
 
@@ -75,6 +85,8 @@ export function extractKeywords(text: string, count: number = 5): string[] {
  * 清理文本
  */
 export function sanitizeText(text: string): string {
-  return text.trim().replace(/\s+/g, ' ');
+  // null/undefined 視為空字串（防禦邊界）
+  const t = text ?? '';
+  return t.trim().replace(/\s+/g, ' ');
 }
 

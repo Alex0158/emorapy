@@ -11,6 +11,27 @@ const testPrisma = new PrismaClient({
   log: process.env.DEBUG_TESTS ? ['query', 'error', 'warn'] : ['error'],
 });
 
+async function waitForPendingJudgmentsToDrain(timeoutMs: number = 3000): Promise<void> {
+  const start = Date.now();
+
+  while (Date.now() - start < timeoutMs) {
+    const pendingCount = await testPrisma.case.count({
+      where: {
+        mode: 'quick',
+        status: {
+          in: ['submitted', 'in_progress'],
+        },
+      },
+    });
+
+    if (pendingCount === 0) {
+      return;
+    }
+
+    await sleep(100);
+  }
+}
+
 /**
  * 獲取測試用 Prisma 客戶端
  */
@@ -25,6 +46,9 @@ export function getPrismaClient(): PrismaClient {
  */
 export async function cleanupTestData(): Promise<void> {
   try {
+    // quick-experience flow 會異步生成判決；清理前先等背景任務收斂，避免 FK race。
+    await waitForPendingJudgmentsToDrain();
+
     // 按依賴順序刪除（從最依賴到最不依賴）
     await testPrisma.evidence.deleteMany({});
     await testPrisma.judgment.deleteMany({});

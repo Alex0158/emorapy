@@ -150,6 +150,24 @@ describe('ChatService', () => {
     });
   });
 
+  it('listMessages 無訊息時應返回 messages 空陣列與 nextCursor null（F07 邊界）', async () => {
+    prismaMock.chatRoom.findFirst.mockResolvedValueOnce({
+      id: 'room-1',
+      status: 'group_active',
+      owner_user_id: 'u1',
+      history_visibility_mode: 'share_summary_only',
+      participants: [
+        { id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true },
+      ],
+    });
+    prismaMock.chatMessage.findMany.mockResolvedValueOnce([]);
+
+    const result = await service.listMessages('room-1', { userId: 'u1' }, { limit: 20 });
+
+    expect(result.messages).toEqual([]);
+    expect(result.nextCursor).toBeNull();
+  });
+
   it('listMessages: roleB + share_from_join_time 應只取加入後訊息', async () => {
     const joinedAt = new Date('2026-02-25T10:00:00.000Z');
     prismaMock.chatRoom.findFirst.mockResolvedValueOnce({
@@ -1067,6 +1085,65 @@ describe('ChatService', () => {
     });
     expect(prismaMock.case.create).not.toHaveBeenCalled();
     expect(judgmentServiceMock.generateJudgment).not.toHaveBeenCalled();
+  });
+
+  it('createInvite: 匿名房主 canonical session 匹配時可建立邀請', async () => {
+    const ownerSessionId = 'guest_1700000000000_abcdefghijklmnop';
+    sessionServiceMock.getSession.mockResolvedValueOnce({ id: ownerSessionId });
+    prismaMock.chatRoom.findFirst.mockResolvedValueOnce({
+      id: 'room-anon-owner',
+      status: 'solo_active',
+      owner_user_id: null,
+      session_id: ownerSessionId,
+      history_visibility_mode: 'share_summary_only',
+      participants: [
+        { id: 'p-a', role_in_room: 'roleA', user_id: null, is_active: true },
+      ],
+    });
+    prismaMock.chatInvite.updateMany.mockResolvedValueOnce({ count: 0 });
+    prismaMock.chatInvite.create.mockResolvedValueOnce({
+      id: 'inv-anon-owner',
+      room_id: 'room-anon-owner',
+      status: 'pending',
+      invite_code: 'ANON123',
+    });
+
+    const invite = await service.createInvite(
+      'room-anon-owner',
+      { sessionId: ownerSessionId },
+      { expiresInHours: 12 }
+    );
+
+    expect(invite.invite_code).toBe('ANON123');
+  });
+
+  it('createInvite: 匿名房主 canonical session 不匹配時應拒絕', async () => {
+    const otherSessionId = 'guest_1700000000001_bcdefghijklmnop';
+    sessionServiceMock.getSession.mockResolvedValueOnce({ id: otherSessionId });
+    prismaMock.chatRoom.findFirst.mockResolvedValueOnce(null);
+
+    await expect(
+      service.createInvite('room-anon-owner', { sessionId: otherSessionId }, { expiresInHours: 12 })
+    ).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
+
+    expect(prismaMock.chatRoom.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: 'room-anon-owner',
+          session_id: otherSessionId,
+        }),
+      })
+    );
+  });
+
+  it('createInvite: 匿名 actor 缺少 session 時應拒絕', async () => {
+    await expect(
+      service.createInvite('room-anon-owner', {}, { expiresInHours: 12 })
+    ).rejects.toMatchObject({
+      code: 'SESSION_ID_REQUIRED',
+    });
   });
 
   it('createInvite: 房間已有 active roleB 應拒絕重複邀請', async () => {

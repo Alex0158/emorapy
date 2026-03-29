@@ -109,9 +109,44 @@ describe('caseStore', () => {
     expect(useCaseStore.getState().isLoading).toBe(false);
   });
 
-  it('submitCase 在 isLoading=true 時應直接返回不呼叫 API', async () => {
+  it('getCase 競態：後發請求先回傳時，先發請求回傳應忽略不覆蓋 state', async () => {
+    const case1 = { ...mockCase, id: 'c1', title: 'Case 1' };
+    const case2 = { ...mockCase, id: 'c2', title: 'Case 2' };
+    mockGetCase
+      .mockImplementationOnce(() => new Promise((r) => setTimeout(() => r(case1), 50)))
+      .mockResolvedValueOnce(case2);
+    const slowPromise = useCaseStore.getState().getCase('c1');
+    const fastResult = await useCaseStore.getState().getCase('c2');
+    expect(fastResult).toEqual(case2);
+    expect(useCaseStore.getState().currentCase).toEqual(case2);
+    await slowPromise;
+    expect(useCaseStore.getState().currentCase).toEqual(case2);
+  });
+
+  it('getCase 競態：後發請求先 reject 時，先發請求 reject 應直接拋出、不設 error', async () => {
+    mockGetCase
+      .mockImplementationOnce(() => new Promise((_, r) => setTimeout(() => r(new Error('慢請求失敗')), 50)))
+      .mockRejectedValueOnce(new Error('快請求失敗'));
+    const slowPromise = useCaseStore.getState().getCase('c1');
+    await expect(useCaseStore.getState().getCase('c2')).rejects.toThrow('快請求失敗');
+    expect(useCaseStore.getState().error).toBe('快請求失敗');
+    await expect(slowPromise).rejects.toThrow('慢請求失敗');
+    expect(useCaseStore.getState().error).toBe('快請求失敗');
+  });
+
+  it('submitCase 在 isLoading=true 時應 reject 不呼叫 API，避免呼叫方誤判成功', async () => {
     useCaseStore.setState({ isLoading: true });
-    await useCaseStore.getState().submitCase('c1');
+    await expect(useCaseStore.getState().submitCase('c1')).rejects.toThrow();
     expect(mockSubmitCase).not.toHaveBeenCalled();
+  });
+
+  it('createQuickCase 在 isLoading=true 時應直接返回不呼叫 API', async () => {
+    useCaseStore.setState({ isLoading: true });
+    const result = await useCaseStore.getState().createQuickCase({
+      plaintiff_statement: '原告',
+      defendant_statement: '被告',
+    });
+    expect(mockCreateQuickCase).not.toHaveBeenCalled();
+    expect(result.case).toBeNull();
   });
 });

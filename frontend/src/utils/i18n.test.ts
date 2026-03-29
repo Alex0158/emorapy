@@ -2,11 +2,11 @@
  * i18n 單元測試
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { t, setLocale, getLocale, onLocaleChange } from './i18n';
+import { t, setLocale, getLocale, onLocaleChange, normalizeLocale } from './i18n';
 
 vi.mock('@/assets/i18n/zh-TW', () => ({
   default: {
-    'result.title': '判決結果',
+    'result.title': '關係分析結果',
     'key.one': '值一',
     'greeting.hello': '你好 {name}，計數: {count}',
   },
@@ -14,7 +14,7 @@ vi.mock('@/assets/i18n/zh-TW', () => ({
 
 vi.mock('@/assets/i18n/en-US', () => ({
   default: {
-    'result.title': 'Result',
+    'result.title': 'Relationship Analysis Result',
     'key.one': 'Value One',
   },
 }));
@@ -27,7 +27,7 @@ describe('i18n', () => {
   describe('t', () => {
     it('已知 key 應返回對應翻譯', () => {
       setLocale('zh-TW');
-      expect(t('result.title')).toBe('判決結果');
+      expect(t('result.title')).toBe('關係分析結果');
       expect(t('key.one')).toBe('值一');
     });
 
@@ -52,6 +52,23 @@ describe('i18n', () => {
     });
   });
 
+  describe('normalizeLocale', () => {
+    it('空值或 null/undefined 應返回 zh-TW', () => {
+      expect(normalizeLocale('')).toBe('zh-TW');
+      expect(normalizeLocale(null as unknown as string)).toBe('zh-TW');
+      expect(normalizeLocale(undefined as unknown as string)).toBe('zh-TW');
+    });
+    it('en 開頭應返回 en-US', () => {
+      expect(normalizeLocale('en')).toBe('en-US');
+      expect(normalizeLocale('en-US')).toBe('en-US');
+      expect(normalizeLocale('EN')).toBe('en-US');
+    });
+    it('其他應返回 zh-TW', () => {
+      expect(normalizeLocale('zh-TW')).toBe('zh-TW');
+      expect(normalizeLocale('ja')).toBe('zh-TW');
+    });
+  });
+
   describe('setLocale / getLocale', () => {
     it('預設應為受支援的 locale', () => {
       expect(['zh-TW', 'en-US']).toContain(getLocale());
@@ -66,6 +83,15 @@ describe('i18n', () => {
       setLocale('zh-TW');
       setLocale('ja-JP' as unknown as Parameters<typeof setLocale>[0]);
       expect(getLocale()).toBe('zh-TW');
+    });
+
+    it('setLocale 時 localStorage.setItem 拋錯不應拋出', () => {
+      const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementationOnce(() => {
+        throw new Error('quota exceeded');
+      });
+      setLocale('en-US');
+      expect(getLocale()).toBe('en-US');
+      setItem.mockRestore();
     });
 
     it('切到 en-US 後，字典載入完成應觸發 locale listener', async () => {
@@ -84,8 +110,10 @@ describe('i18n', () => {
       await Promise.resolve();
       await Promise.resolve();
       const loaded = t('result.title');
-      expect(immediate === '判決結果' || immediate === 'Result').toBe(true);
-      expect(loaded).toBe('Result');
+      expect(
+        immediate === '關係分析結果' || immediate === 'Relationship Analysis Result'
+      ).toBe(true);
+      expect(loaded).toBe('Relationship Analysis Result');
     });
   });
 });

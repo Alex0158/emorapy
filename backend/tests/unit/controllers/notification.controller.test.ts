@@ -38,6 +38,18 @@ describe('NotificationController', () => {
   });
 
   describe('list', () => {
+    it('無通知時應返回 notifications 空陣列（F09/F10 邊界）', async () => {
+      mockList.mockResolvedValue([]);
+
+      await controller.list(req as Request, res as Response, next);
+
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        data: { notifications: [] },
+      });
+      expect(next).not.toHaveBeenCalled();
+    });
+
     it('成功應調用 list 並返回 notifications', async () => {
       const notifications = [{ id: 'n1', user_id: 'u1' }];
       mockList.mockResolvedValue(notifications);

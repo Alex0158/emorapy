@@ -72,6 +72,31 @@ describe('JWT Utils', () => {
       }).toThrow();
     });
 
+    it('空字串應拋錯（防禦性邊界）', async () => {
+      const { verifyToken } = await import('../../../src/utils/jwt');
+      expect(() => verifyToken('')).toThrow();
+    });
+
+    it('undefined 應拋錯（防禦性邊界）', async () => {
+      const { verifyToken } = await import('../../../src/utils/jwt');
+      expect(() => verifyToken(undefined as unknown as string)).toThrow();
+    });
+
+    it('過期 token 應拋 TOKEN_EXPIRED', async () => {
+      const { verifyToken } = await import('../../../src/utils/jwt');
+      const expiredToken = jwt.sign(
+        { ...testPayload, exp: Math.floor(Date.now() / 1000) - 3600 },
+        process.env.JWT_SECRET as string,
+        { algorithm: 'HS256' },
+      );
+      expect(() => verifyToken(expiredToken)).toThrow();
+      try {
+        verifyToken(expiredToken);
+      } catch (e: unknown) {
+        expect((e as { code?: string }).code).toBe('TOKEN_EXPIRED');
+      }
+    });
+
     it('應該允許舊密鑰簽發的token在過渡期通過驗證', async () => {
       process.env.JWT_SECRET_PREVIOUS = 'old-jwt-secret-at-least-32-characters-long';
       jest.resetModules();

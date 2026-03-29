@@ -3,6 +3,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
+import { useMountedRef } from '@/hooks/useMountedRef';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Card,
@@ -32,6 +33,7 @@ import AnimatedWrapper from '@/components/common/AnimatedWrapper';
 import { formatDateTime } from '@/utils/formatDate';
 import { logger } from '@/utils/logger';
 import { getCaseStatusTag, getCaseTypeTag } from '@/utils/statusTags';
+import { getErrorMessage } from '@/utils/apiError';
 import { t } from '@/utils/i18n';
 import './Detail.less';
 
@@ -46,8 +48,15 @@ const CaseDetail = () => {
   const [submitting, setSubmitting] = useState(false);
   const [defendantStatement, setDefendantStatement] = useState('');
   const [respondLoading, setRespondLoading] = useState(false);
+  const [loadErrorTitle, setLoadErrorTitle] = useState<string | null>(null);
+  const [loadErrorDescription, setLoadErrorDescription] = useState<string | null>(null);
   const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const fetchLockRef = useRef(false);
+  const submitLockRef = useRef(false);
+  const respondLockRef = useRef(false);
+  const viewJudgmentLockRef = useRef(false);
 
+  const mountedRef = useMountedRef();
   const staleRef = useRef(false);
   useEffect(() => {
     staleRef.current = false;
@@ -67,70 +76,87 @@ const CaseDetail = () => {
       navigate('/case/list');
       return;
     }
-
+    if (fetchLockRef.current) return;
+    fetchLockRef.current = true;
     setLoading(true);
     try {
       const caseData = await getCase(id);
       if (staleRef.current) return;
+      setLoadErrorTitle(null);
+      setLoadErrorDescription(null);
       setCase_(caseData);
     } catch (error: unknown) {
       if (staleRef.current) return;
       type ErrShape = { code?: string; message?: string };
       const err = error as ErrShape;
       const errorCode = err?.code;
-      const errorMessage = err?.message || t('common.getCaseFail');
 
       if (errorCode === 'NOT_FOUND' || errorCode === 'HTTP_404') {
-        message.error(t('common.caseNotFound'));
+        const errorMessage = t('common.caseNotFound');
+        setLoadErrorTitle(errorMessage);
+        setLoadErrorDescription(null);
+        message.error(errorMessage);
         redirectTimerRef.current = setTimeout(() => navigate('/case/list'), 1500);
       } else if (errorCode === 'FORBIDDEN' || errorCode === 'HTTP_403') {
-        message.error(t('message.noPermissionViewCase'));
+        const errorMessage = getErrorMessage(error, 'message.noPermissionViewCase');
+        setLoadErrorTitle(t('message.noPermissionViewCase'));
+        setLoadErrorDescription(errorMessage === t('message.noPermissionViewCase') ? null : errorMessage);
+        message.error(errorMessage);
         redirectTimerRef.current = setTimeout(() => navigate('/case/list'), 1500);
       } else if (errorCode === 'UNAUTHORIZED' || errorCode === 'HTTP_401') {
-        message.error(t('message.pleaseLogin'));
+        const errorMessage = t('message.pleaseLogin');
+        setLoadErrorTitle(errorMessage);
+        setLoadErrorDescription(null);
+        message.error(errorMessage);
         redirectTimerRef.current = setTimeout(() => navigate('/auth/login'), 1500);
       } else {
+        const errorMessage = getErrorMessage(error, 'common.getCaseFail');
+        setLoadErrorTitle(t('common.getCaseFail'));
+        setLoadErrorDescription(errorMessage === t('common.getCaseFail') ? null : errorMessage);
         message.error(errorMessage);
         logger.error('Failed to fetch case', error);
       }
     } finally {
-      setLoading(false);
+      fetchLockRef.current = false;
+      if (!staleRef.current) setLoading(false);
     }
   };
 
   const handleSubmit = async () => {
-    if (submitting) return;
+    if (submitting || submitLockRef.current) return;
     if (!id) {
       message.error(t('message.caseIdMissing'));
       return;
     }
-
+    submitLockRef.current = true;
     setSubmitting(true);
     try {
       await submitCase(id);
+      if (!mountedRef.current) return;
       message.success(t('message.submitCaseSuccess'));
       navigate(`/case/${id}/review`);
     } catch (error: unknown) {
+      if (!mountedRef.current) return;
       type ErrShape = { code?: string; message?: string };
       const err = error as ErrShape;
       const errorCode = err?.code;
-      const errorMessage = err?.message || t('message.submitCaseFail');
 
-      if (errorCode === 'CASE_NOT_EDITABLE' || errorCode === 'VALIDATION_ERROR') {
-        message.error(errorMessage);
-      } else if (errorCode === 'FORBIDDEN' || errorCode === 'HTTP_403') {
-        message.error(t('message.noPermissionSubmitCase'));
+      if (errorCode === 'FORBIDDEN' || errorCode === 'HTTP_403') {
+        message.error(getErrorMessage(error, 'message.noPermissionSubmitCase'));
       } else {
-        message.error(errorMessage);
-        logger.error('Failed to submit case', error);
+        message.error(getErrorMessage(error, 'message.submitCaseFail'));
+        if (errorCode !== 'CASE_NOT_EDITABLE' && errorCode !== 'VALIDATION_ERROR') {
+          logger.error('Failed to submit case', error);
+        }
       }
     } finally {
-      setSubmitting(false);
+      submitLockRef.current = false;
+      if (mountedRef.current) setSubmitting(false);
     }
   };
 
   const handleDefendantRespond = async () => {
-    if (respondLoading) return;
+    if (respondLoading || respondLockRef.current) return;
     if (!id || !case_) return;
 
     const validation = validateStatement(defendantStatement);
@@ -139,19 +165,22 @@ const CaseDetail = () => {
       return;
     }
 
+    respondLockRef.current = true;
     setRespondLoading(true);
     try {
       const updated = await updateCase(id, { defendant_statement: defendantStatement });
+      if (!mountedRef.current) return;
       setCase_(updated);
       message.success(t('caseDetail.defendantRespondSuccess'));
       if (updated.status === 'submitted') {
         navigate(`/case/${id}/review`);
       }
     } catch (error: unknown) {
-      const err = error as { message?: string };
-      message.error(err?.message || t('caseDetail.defendantRespondFail'));
+      if (!mountedRef.current) return;
+      message.error(getErrorMessage(error, 'caseDetail.defendantRespondFail'));
     } finally {
-      setRespondLoading(false);
+      respondLockRef.current = false;
+      if (mountedRef.current) setRespondLoading(false);
     }
   };
 
@@ -167,7 +196,8 @@ const CaseDetail = () => {
     return (
       <div className="case-detail-page">
         <Alert
-          title={t('common.caseNotFound')}
+          title={loadErrorTitle || t('common.caseNotFound')}
+          description={loadErrorDescription || undefined}
           type="error"
           action={
             <Space>
@@ -195,7 +225,7 @@ const CaseDetail = () => {
   const isPlaintiff = user?.id === case_.plaintiff_id;
   const needsDefendantResponse =
     case_.status === 'draft' &&
-    case_.mode === 'remote' &&
+    (case_.mode === 'remote' || case_.mode === 'collaborative') &&
     !case_.defendant_statement;
 
   return (
@@ -207,7 +237,7 @@ const CaseDetail = () => {
       <div className="case-detail-page" role="main" aria-label={t('caseDetail.pageLabel')}>
         
         {/* Adaptive Hero Section based on case status */}
-        <div className={`adaptive-hero-section status-${case_.status} mb-8 bg-gradient-to-br from-background to-gray-50 rounded-b-[40px] shadow-sm p-8`}>
+        <div className={`page-hero page-hero--compact status-${case_.status}`}>
           <div className="max-w-4xl mx-auto">
             <AnimatedWrapper animation="fade" delay={100}>
               <div className="page-header flex justify-between items-center mb-6" role="navigation" aria-label={t('caseDetail.actionsLabel')}>
@@ -372,16 +402,22 @@ const CaseDetail = () => {
                 type="primary"
                 size="large"
                 onClick={async () => {
+                  if (viewJudgmentLockRef.current) return;
+                  viewJudgmentLockRef.current = true;
                   try {
                     const { getJudgmentByCaseId } = await import('@/services/api/judgment');
                     const judgment = await getJudgmentByCaseId(case_.id);
+                    if (!mountedRef.current) return;
                     if (judgment) {
                       navigate(`/judgment/${judgment.id}`);
                     } else {
                       message.warning(t('message.judgmentNotReady'));
                     }
-                  } catch {
-                    message.error(t('message.getJudgmentFail'));
+                  } catch (error) {
+                    if (!mountedRef.current) return;
+                    message.error(getErrorMessage(error, 'message.getJudgmentFail'));
+                  } finally {
+                    viewJudgmentLockRef.current = false;
                   }
                 }}
                 aria-label={t('caseDetail.viewJudgmentAria')}

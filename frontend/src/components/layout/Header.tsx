@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { getAdminLoginUrl } from '@/utils/adminEntry';
 import { t, getLocale, onLocaleChange, setLocale, type Locale } from '@/utils/i18n';
+import VersionPopover from './VersionPopover';
 import './Header.less';
 
 const { Header: AntHeader } = Layout;
@@ -139,6 +140,7 @@ const Header = () => {
         />
 
         <div className="header-actions">
+          <VersionPopover />
           <Select
             value={locale}
             onChange={handleLocaleChange}

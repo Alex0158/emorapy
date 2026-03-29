@@ -35,6 +35,7 @@ const enUS: Record<string, string> = {
 	"admin.login.success": "Admin login successful",
 	"admin.login.failed": "Admin login failed. Please check credentials.",
 	"admin.login.urlMissing": "Admin login URL is not configured. Please contact support.",
+	"admin.redirect.title": "Admin entry is not configured",
 	"admin.login.invalidHint": "An invalid local admin token was detected. Please log in again.",
 	"admin.jobs.heading": "Job Management",
 	"admin.jobs.subtitle": "Inspect scheduler jobs and trigger manually",
@@ -526,17 +527,17 @@ const enUS: Record<string, string> = {
 	"message.startExecutionSuccess": "Execution started",
 	"message.startExecutionFail": "Failed to start execution",
 
-	// Result
-	"result.title": "Judgment Result",
-	"result.subtitle": "Fair judgment based on AI analysis",
-	"summary.title": "Judgment Summary",
-	"responsibility.title": "Responsibility Ratio",
+	// Result (semantic alignment: system output is "adjustment suggestion" not moral liability)
+	"result.title": "Relationship Analysis Result",
+	"result.subtitle": "Relationship & interaction analysis from AI",
+	"summary.title": "Analysis Summary",
+	"responsibility.title": "Adjustment Suggestion Ratio",
 	"responsibility.roleA": "Role A",
 	"responsibility.roleB": "Role B",
-	"responsibility.liability": "Liability",
-	"judgment.title": "Full Judgment",
+	"responsibility.liability": "Adjustment space",
+	"judgment.title": "Full Analysis Report",
 	"result.ariaActions": "Next steps",
-	"result.keywords": "judgment result,responsibility ratio,AI judgment",
+	"result.keywords": "relationship analysis,adjustment suggestion,AI analysis",
 	"result.restart": "Start Over",
 	"result.skipToJudgment": "Skip to judgment",
 	"actions.plan.locked":
@@ -576,6 +577,7 @@ const enUS: Record<string, string> = {
 		"We are carefully analyzing your case, please wait...",
 	"review.backToCase": "Back to Case Details",
 	"review.caseNotSubmitted": "This case has not been submitted yet. Cannot view review progress.",
+	"review.caseCancelled": "This case has been cancelled. Cannot view review progress.",
 	"review.judgmentFailed": "Judgment Generation Failed",
 	"review.judgmentFailedDesc": "An error occurred during AI judgment generation. Please try again.",
 	"review.retryJudgment": "Retry Judgment",
@@ -590,6 +592,7 @@ const enUS: Record<string, string> = {
 	"settings.notification": "Notification Settings",
 	"settings.enableNotification": "Enable notifications",
 	"settings.save": "Save Settings",
+	"settings.goToProfile": "Go to Profile",
 
 	// Quick Create
 	"quickCreate.title": "Quick Experience - Create Case",
@@ -605,10 +608,10 @@ const enUS: Record<string, string> = {
 	"quickCreate.step1.title": "First, tell us what happened.",
 	"quickCreate.step1.subtitle":
 		"Please describe the event and your feelings as objectively as possible. AI will keep it private.",
-	"quickCreate.step2.title":
-		"If you were in the other person's role, what would you say? (Optional)",
+	"quickCreate.step2.handoffPrompt": "Now, please have the other person involved enter their side.",
+	"quickCreate.step2.title": "Have the other party (Role B) enter their side (Optional)",
 	"quickCreate.step2.subtitle":
-		"Try to think from the other side's perspective so AI can analyze the conflict more comprehensively.",
+		"You can ask them to fill this in; if they're not with you, leave it blank or use \"Auto-write\".",
 	"quickCreate.step3.title": "Any screenshots or evidence to add? (Optional)",
 	"quickCreate.step3.subtitle":
 		"For example, chat records or photos. This helps AI make a more accurate judgment.",
@@ -664,11 +667,16 @@ const enUS: Record<string, string> = {
 		"You can continue viewing the judgment from your last submission",
 	"quickCreate.recoveredCase.continue": "Continue",
 	"quickCreate.recoveredCase.startNew": "Start New",
+	"quickCreate.sessionInitWeakWarning": "We couldn't initialize a guest session right now, but you can still keep filling things out.",
+	"quickCreate.sessionInitWeakHint": "If a retry succeeds later, we'll continue preserving the anonymous quick-experience flow for you.",
+	"quickCreate.sessionInitRetry": "Retry session setup",
 
 	// 404
 	"notFound.title": "404",
 	"notFound.subTitle": "Sorry, the page you visited does not exist.",
 	"notFound.backHome": "Back to Home",
+	"notFound.backPrevious": "Go Back",
+	"notFound.goQuickExperience": "Try Quick Experience",
 
 	// Case List
 	"caseList.title": "My Cases - Relationship Repair Room",
@@ -703,6 +711,7 @@ const enUS: Record<string, string> = {
 	"caseList.viewDetail": "View Details",
 	"caseList.viewDetailAria": "View details of case {title}",
 	"caseList.empty": "No cases yet",
+	"caseList.filtersEmptyHint": "Create a case to filter and search",
 	"caseList.paginationTotal": "{total} total",
 	"caseList.ariaStatusFilter": "Filter by status",
 	"caseList.ariaTypeFilter": "Filter by type",
@@ -846,6 +855,7 @@ const enUS: Record<string, string> = {
 	"execCheckIn.pageLabel": "Check-in page",
 	"execCheckIn.heading": "Check In",
 	"execCheckIn.notFound": "Execution plan not found or access denied",
+	"execCheckIn.backToDashboard": "Go to Execution Dashboard",
 	"execCheckIn.back": "Back",
 	"execCheckIn.backAria": "Go back",
 	"execCheckIn.progressLabel": "Progress: {percent}%",
@@ -861,6 +871,7 @@ const enUS: Record<string, string> = {
 	"execCheckIn.successInline": "Check-in successful!",
 	"execCheckIn.uploadingPhotos": "Uploading photos...",
 	"execCheckIn.historyTitle": "History",
+	"execCheckIn.refreshFail": "Failed to refresh history",
 
 	// Reconciliation List
 	"reconList.title": "Reconciliation Plans - Relationship Repair Room",
@@ -893,6 +904,7 @@ const enUS: Record<string, string> = {
 	"reconList.planSelectedAria": "Plan selected",
 	"reconList.estimatedDays": "{days} days",
 	"reconList.estimatedTbd": "TBD",
+	"reconList.backToJudgment": "Back to Judgment",
 
 	// Reconciliation Detail
 	"reconDetail.pageTitle": "Plan Details - Relationship Repair Room",
@@ -922,8 +934,7 @@ const enUS: Record<string, string> = {
 	"profileIndex.formLabel": "Profile form",
 	"profileIndex.avatarLabel": "Avatar",
 	"profileIndex.uploadAvatar": "Upload Avatar",
-	"profileIndex.avatarHint":
-		"Only directly uploaded images are supported. External URLs are not allowed.",
+	"profileIndex.avatarHint": "Upload from this site only; external URLs not supported.",
 	"profileIndex.nicknameLabel": "Nickname",
 	"profileIndex.nicknamePlaceholder": "Enter your nickname",
 	"profileIndex.emailLabel": "Email",
@@ -985,6 +996,7 @@ const enUS: Record<string, string> = {
 	"pairing.joinDesc": "If you received an invite code, enter it here to join.",
 	"pairing.joinPlaceholder": "Enter 6-character invite code",
 	"pairing.joinButton": "Join Pairing",
+	"pairing.goToSettings": "Go to Settings",
 
 	// Home
 	"home.title":
@@ -1050,6 +1062,9 @@ const enUS: Record<string, string> = {
 	"home.adaptive.nextStep.title": "You have an unfinished case",
 	"home.adaptive.nextStep.desc": "Continue your statement and let AI help with analysis.",
 	"home.adaptive.nextStep.action": "Continue",
+	"home.adaptive.nextStep.createNew.title": "Create a new case",
+	"home.adaptive.nextStep.createNew.desc": "Start your statement and let AI help with analysis.",
+	"home.adaptive.nextStep.createNew.action": "Create case",
 	"home.adaptive.otherActions": "Other actions",
 	"home.adaptive.action.startChat": "Start a new conversation",
 	"home.adaptive.action.viewProfile": "View psych profile",
@@ -1173,8 +1188,10 @@ const enUS: Record<string, string> = {
 	"chat.inviteCodePlaceholder": "Enter invite code",
 	"chat.inviteCodeLabel": "Invite Code: {code}",
 	"chat.messagePlaceholder": "Type a message...",
+		"chat.thinking": "Thinking...",
 		"chat.send": "Send",
 		"chat.emptyMessages": "No messages yet",
+		"chat.messagesLogAria": "Chat message log",
 		"chat.visibility.all": "Visible to everyone",
 		"chat.visibility.summary_only": "Summary-only shared",
 		"chat.visibility.owner_only": "Only visible to me",
@@ -1211,6 +1228,7 @@ const enUS: Record<string, string> = {
 	"chat.status.judgment_failed": "Judgment failed",
 	"chat.status.archived": "Archived",
 	"chat.message.loadFail": "Failed to load chat room",
+	"chat.message.roomUnavailable": "Chat room no longer exists or has expired. Please return to the entry page.",
 	"chat.message.streamFail": "Real-time stream unavailable. Falling back to polling.",
 	"chat.message.streamTerminalError": "Chat stream authorization/state error. Auto-retry stopped.",
 	"chat.message.referenceNotLoaded": "Referenced message not loaded. Try loading more history.",

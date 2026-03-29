@@ -34,4 +34,29 @@ describe("requestAuthBridge", () => {
 		registerRequestLogoutHandler(onLogout);
 		expect(onLogout).toHaveBeenCalledTimes(1);
 	});
+
+	it("補償執行時 handler 拋錯不應阻斷應用啟動", async () => {
+		vi.resetModules();
+		const { registerRequestLogoutHandler, triggerRequestLogout } = await import(
+			"./requestAuthBridge"
+		);
+		const onLogout = vi.fn().mockImplementation(() => {
+			throw new Error("登出失敗");
+		});
+		triggerRequestLogout();
+		expect(() => registerRequestLogoutHandler(onLogout)).not.toThrow();
+		expect(onLogout).toHaveBeenCalledTimes(1);
+	});
+
+	it("handler 已註冊時觸發拋錯不應阻斷原始請求錯誤鏈", async () => {
+		const { registerRequestLogoutHandler, triggerRequestLogout } = await import(
+			"./requestAuthBridge"
+		);
+		const onLogout = vi.fn().mockImplementation(() => {
+			throw new Error("登出失敗");
+		});
+		registerRequestLogoutHandler(onLogout);
+		expect(() => triggerRequestLogout()).not.toThrow();
+		expect(onLogout).toHaveBeenCalledTimes(1);
+	});
 });

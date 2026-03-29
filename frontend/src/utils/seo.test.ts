@@ -2,11 +2,12 @@
  * SEO 工具單元測試
  */
 import { describe, it, expect, beforeEach } from 'vitest';
-import { setPageTitle, setMetaTag, initSEO } from './seo';
+import { setPageTitle, setMetaTag, setOGTag, setDescription, setKeywords, setImage, setURL, initSEO } from './seo';
 
 describe('seo', () => {
   beforeEach(() => {
     document.title = '';
+    document.head.querySelectorAll('meta[name="description"], meta[property^="og:"]').forEach((el) => el.remove());
   });
 
   describe('setPageTitle', () => {
@@ -25,6 +26,44 @@ describe('seo', () => {
     });
   });
 
+  describe('setOGTag', () => {
+    it('應創建或更新 meta[property] 的 content', () => {
+      setOGTag('og:image', 'https://example.com/img.png');
+      const meta = document.querySelector('meta[property="og:image"]') as HTMLMetaElement;
+      expect(meta).toBeTruthy();
+      expect(meta?.content).toBe('https://example.com/img.png');
+    });
+  });
+
+  describe('setDescription', () => {
+    it('應同時設置 description 與 og:description', () => {
+      setDescription('頁面描述');
+      expect((document.querySelector('meta[name="description"]') as HTMLMetaElement)?.content).toBe('頁面描述');
+      expect((document.querySelector('meta[property="og:description"]') as HTMLMetaElement)?.content).toBe('頁面描述');
+    });
+  });
+
+  describe('setKeywords', () => {
+    it('應設置 keywords meta', () => {
+      setKeywords('a, b, c');
+      expect((document.querySelector('meta[name="keywords"]') as HTMLMetaElement)?.content).toBe('a, b, c');
+    });
+  });
+
+  describe('setImage', () => {
+    it('應設置 og:image', () => {
+      setImage('https://example.com/cover.jpg');
+      expect((document.querySelector('meta[property="og:image"]') as HTMLMetaElement)?.content).toBe('https://example.com/cover.jpg');
+    });
+  });
+
+  describe('setURL', () => {
+    it('應設置 og:url', () => {
+      setURL('https://example.com/page');
+      expect((document.querySelector('meta[property="og:url"]') as HTMLMetaElement)?.content).toBe('https://example.com/page');
+    });
+  });
+
   describe('initSEO', () => {
     it('應設置 title、description 與 og:title、og:type', () => {
       initSEO({ title: '首頁', description: '首頁描述' });
@@ -40,6 +79,14 @@ describe('seo', () => {
       initSEO({ title: 'T', description: 'D', keywords: '關鍵詞' });
       const meta = document.querySelector('meta[name="keywords"]') as HTMLMetaElement;
       expect(meta?.content).toBe('關鍵詞');
+    });
+    it('有 image 時應設置 og:image', () => {
+      initSEO({ title: 'T', description: 'D', image: 'https://site.com/img.png' });
+      expect((document.querySelector('meta[property="og:image"]') as HTMLMetaElement)?.content).toBe('https://site.com/img.png');
+    });
+    it('有 url 時應設置 og:url', () => {
+      initSEO({ title: 'T', description: 'D', url: 'https://site.com/page' });
+      expect((document.querySelector('meta[property="og:url"]') as HTMLMetaElement)?.content).toBe('https://site.com/page');
     });
   });
 });

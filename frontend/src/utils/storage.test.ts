@@ -39,6 +39,11 @@ describe('storage', () => {
       expect(mockSetItem).toHaveBeenCalledWith('cj_session_id', 'legacy_sid');
       expect(mockRemoveItem).toHaveBeenCalledWith('mbc_session_id');
     });
+    it('set sessionId 為空時應直接返回不寫入（F01 邊界：與 caseSessionMap 一致，防止無效 session）', () => {
+      sessionStorage.set('');
+      expect(mockSetItem).not.toHaveBeenCalled();
+    });
+
     it('set 應調用 localStorage.setItem', () => {
       sessionStorage.set('guest_xyz');
       expect(mockSetItem).toHaveBeenCalledWith(expect.any(String), 'guest_xyz');
@@ -51,6 +56,30 @@ describe('storage', () => {
       mockGetItem.mockReturnValue('x');
       expect(sessionStorage.exists()).toBe(true);
       mockGetItem.mockReturnValue(null);
+      expect(sessionStorage.exists()).toBe(false);
+    });
+    it('get 當 localStorage 拋錯時應返回 null', () => {
+      mockGetItem.mockImplementationOnce(() => {
+        throw new Error('storage unavailable');
+      });
+      expect(sessionStorage.get()).toBe(null);
+    });
+    it('set 當 setItem 拋錯時不應拋出', () => {
+      mockSetItem.mockImplementationOnce(() => {
+        throw new Error('quota exceeded');
+      });
+      expect(() => sessionStorage.set('sid')).not.toThrow();
+    });
+    it('remove 當 removeItem 拋錯時不應拋出', () => {
+      mockRemoveItem.mockImplementationOnce(() => {
+        throw new Error('storage error');
+      });
+      expect(() => sessionStorage.remove()).not.toThrow();
+    });
+    it('exists 當 getItem 拋錯時應返回 false', () => {
+      mockGetItem.mockImplementationOnce(() => {
+        throw new Error('access denied');
+      });
       expect(sessionStorage.exists()).toBe(false);
     });
   });
@@ -121,6 +150,13 @@ describe('storage', () => {
       expect(caseSessionMap.get('caseA')).toBeNull();
     });
 
+    it('set caseId 或 sessionId 為空時應直接返回不寫入（F01 邊界：防止無效映射）', () => {
+      caseSessionMap.set('', 'sid');
+      expect(mockSetItem).not.toHaveBeenCalled();
+      caseSessionMap.set('caseA', '');
+      expect(mockSetItem).not.toHaveBeenCalled();
+    });
+
     it('set 應保留新資料並壓縮過期資料', () => {
       const now = Date.now();
       const dateNowSpy = vi.spyOn(Date, 'now').mockReturnValue(now);
@@ -186,6 +222,67 @@ describe('storage', () => {
       expect(() => caseSessionMap.remove('caseA')).not.toThrow();
     });
 
+    it('replaceSession 應批量替換命中的舊 session', () => {
+      const now = Date.now();
+      const dateNowSpy = vi.spyOn(Date, 'now').mockReturnValue(now);
+      mockGetItem.mockReturnValueOnce(
+        JSON.stringify({
+          caseA: { sid: 'sid-old', updatedAt: now - 1000 },
+          caseB: { sid: 'sid-keep', updatedAt: now - 2000 },
+          caseC: { sid: 'sid-old', updatedAt: now - 3000 },
+        })
+      );
+
+      caseSessionMap.replaceSession('sid-old', 'sid-new');
+
+      const written = JSON.parse(mockSetItem.mock.calls.at(-1)?.[1] as string);
+      expect(written.caseA.sid).toBe('sid-new');
+      expect(written.caseC.sid).toBe('sid-new');
+      expect(written.caseB.sid).toBe('sid-keep');
+      expect(written.caseA.updatedAt).toBe(now);
+      dateNowSpy.mockRestore();
+    });
+
+    it('replaceSession 未命中時不應寫回', () => {
+      mockGetItem.mockReturnValueOnce(
+        JSON.stringify({
+          caseA: { sid: 'sid-a', updatedAt: Date.now() },
+        })
+      );
+
+      caseSessionMap.replaceSession('sid-missing', 'sid-new');
+
+      expect(mockSetItem).not.toHaveBeenCalled();
+    });
+
+    it('replaceSession oldSessionId 或 newSessionId 為空時應直接返回不寫入（F01 邊界）', () => {
+      mockGetItem.mockReturnValueOnce(JSON.stringify({ caseA: { sid: 's1', updatedAt: Date.now() } }));
+      caseSessionMap.replaceSession('', 'sid-new');
+      expect(mockSetItem).not.toHaveBeenCalled();
+
+      mockGetItem.mockReturnValueOnce(JSON.stringify({ caseA: { sid: 's1', updatedAt: Date.now() } }));
+      caseSessionMap.replaceSession('s1', '');
+      expect(mockSetItem).not.toHaveBeenCalled();
+    });
+
+    it('replaceSession oldSessionId 等於 newSessionId 時應直接返回不寫入（F01 邊界：避免冗餘寫入）', () => {
+      mockGetItem.mockReturnValueOnce(JSON.stringify({ caseA: { sid: 'sid-same', updatedAt: Date.now() } }));
+      caseSessionMap.replaceSession('sid-same', 'sid-same');
+      expect(mockSetItem).not.toHaveBeenCalled();
+    });
+
+    it('replaceSession 寫回失敗時應走 catch 且不拋錯', () => {
+      mockGetItem.mockReturnValueOnce(
+        JSON.stringify({
+          caseA: { sid: 'sid-old', updatedAt: Date.now() },
+        })
+      );
+      mockSetItem.mockImplementationOnce(() => {
+        throw new Error('write failed');
+      });
+      expect(() => caseSessionMap.replaceSession('sid-old', 'sid-new')).not.toThrow();
+    });
+
     it('set 發生錯誤時應記錄 logger.error', () => {
       mockSetItem.mockImplementationOnce(() => {
         throw new Error('write fail');
@@ -193,5 +290,16 @@ describe('storage', () => {
       caseSessionMap.set('caseE', 'sidE');
       expect(mockLoggerError).toHaveBeenCalled();
     });
+
+    it('get 當 entry 的 sid 為空字串時應過濾並返回 null（F01 邊界：compact 過濾無效 sid）', () => {
+      const now = Date.now();
+      mockGetItem.mockReturnValue(
+        JSON.stringify({
+          caseEmpty: { sid: '', updatedAt: now },
+        })
+      );
+      expect(caseSessionMap.get('caseEmpty')).toBeNull();
+    });
+
   });
 });

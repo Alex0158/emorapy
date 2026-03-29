@@ -68,6 +68,7 @@ export const sessionStorage = {
   },
 
   set: (sessionId: string): void => {
+    if (!sessionId) return;
     try {
       localStorage.setItem(SESSION_STORAGE_KEY, sessionId);
       localStorage.removeItem(LEGACY_SESSION_STORAGE_KEY);
@@ -105,12 +106,40 @@ export const caseSessionMap = {
   },
 
   set: (caseId: string, sessionId: string): void => {
+    if (!caseId || !sessionId) return;
     try {
       const map = compactCaseSessionMap(parseCaseSessionMap());
       map[caseId] = { sid: sessionId, updatedAt: Date.now() };
       localStorage.setItem(CASE_SESSION_MAP_KEY, JSON.stringify(compactCaseSessionMap(map)));
     } catch (error) {
       logger.error('Failed to save case-session mapping', error);
+    }
+  },
+
+  /**
+   * 將所有引用舊 session 的案件映射批量替換為新 session
+   * 用於 session refresh/rotate 後維持舊案件回訪能力
+   */
+  replaceSession: (oldSessionId: string, newSessionId: string): void => {
+    if (!oldSessionId || !newSessionId || oldSessionId === newSessionId) return;
+    try {
+      const now = Date.now();
+      const map = compactCaseSessionMap(parseCaseSessionMap());
+      let changed = false;
+
+      Object.values(map).forEach((entry) => {
+        if (entry.sid === oldSessionId) {
+          entry.sid = newSessionId;
+          entry.updatedAt = now;
+          changed = true;
+        }
+      });
+
+      if (changed) {
+        localStorage.setItem(CASE_SESSION_MAP_KEY, JSON.stringify(compactCaseSessionMap(map)));
+      }
+    } catch {
+      // ignore
     }
   },
 

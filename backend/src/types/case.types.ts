@@ -19,7 +19,7 @@ export interface CreateCaseDto {
 
 export type CaseStatus = 'draft' | 'submitted' | 'in_progress' | 'completed' | 'judgment_failed' | 'cancelled';
 export type CaseMode = 'remote' | 'collaborative' | 'quick';
-export type CaseType = 
+export type CaseType =
   | '生活習慣衝突'
   | '消費決策衝突'
   | '社交關係衝突'

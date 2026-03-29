@@ -34,6 +34,10 @@ function createApp() {
   const app = express();
   app.use(express.json());
   app.use('/', contentRouter);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    res.status(500).json({ success: false, error: err.message });
+  });
   return app;
 }
 
@@ -64,6 +68,28 @@ describe('content.routes', () => {
       expect(res.body.data).toHaveProperty('items');
       expect(mockList).toHaveBeenCalled();
     });
+
+    it('list 成功時應返回 data.items（F01 邊界）', async () => {
+      const app = createApp();
+      const res = await request(app).get('/content-items');
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toHaveProperty('items');
+      expect(Array.isArray(res.body.data.items)).toBe(true);
+    });
+
+    it('無內容時應返回 items 空陣列（F01 邊界）', async () => {
+      mockList.mockImplementationOnce((_req: unknown, res: unknown) =>
+        (res as { status: (n: number) => { json: (b: unknown) => void } })
+          .status(200)
+          .json({ success: true, data: { items: [] } })
+      );
+      const app = createApp();
+      const res = await request(app).get('/content-items');
+      expect(res.status).toBe(200);
+      expect(res.body.data.items).toEqual([]);
+      expect(mockList).toHaveBeenCalled();
+    });
   });
 
   describe('GET /content-items/recommendations/:caseId', () => {
@@ -72,6 +98,30 @@ describe('content.routes', () => {
       const caseId = '550e8400-e29b-41d4-a716-446655440000';
       const res = await request(app).get(`/content-items/recommendations/${caseId}`);
       expect(res.status).toBe(200);
+      expect(mockRecommendations).toHaveBeenCalled();
+    });
+
+    it('recommendations 成功時應返回 data.items（F01/F05 邊界）', async () => {
+      const app = createApp();
+      const caseId = '550e8400-e29b-41d4-a716-446655440000';
+      const res = await request(app).get(`/content-items/recommendations/${caseId}`);
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toHaveProperty('items');
+      expect(Array.isArray(res.body.data.items)).toBe(true);
+    });
+
+    it('無推薦時應返回 items 空陣列（F01/F05 邊界）', async () => {
+      mockRecommendations.mockImplementationOnce((_req: unknown, res: unknown) =>
+        (res as { status: (n: number) => { json: (b: unknown) => void } })
+          .status(200)
+          .json({ success: true, data: { items: [] } })
+      );
+      const app = createApp();
+      const caseId = '550e8400-e29b-41d4-a716-446655440000';
+      const res = await request(app).get(`/content-items/recommendations/${caseId}`);
+      expect(res.status).toBe(200);
+      expect(res.body.data.items).toEqual([]);
       expect(mockRecommendations).toHaveBeenCalled();
     });
   });
@@ -84,6 +134,51 @@ describe('content.routes', () => {
         .send({ case_id: 'c1', content_id: 'ct1' });
       expect(res.status).toBe(200);
       expect(mockLink).toHaveBeenCalled();
+    });
+
+    it('link 成功時應返回 data.link（F01 邊界）', async () => {
+      const app = createApp();
+      const res = await request(app)
+        .post('/content-links')
+        .send({ case_id: 'c1', content_id: 'ct1' });
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toHaveProperty('link');
+    });
+  });
+
+  describe('錯誤傳遞', () => {
+    it('list 調用 next(error) 時應返回 500', async () => {
+      mockList.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('db error'));
+      });
+      const app = createApp();
+      const res = await request(app).get('/content-items');
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'db error' });
+    });
+
+    it('recommendations 調用 next(error) 時應返回 500', async () => {
+      mockRecommendations.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('recommendations load failed'));
+      });
+      const app = createApp();
+      const caseId = '550e8400-e29b-41d4-a716-446655440000';
+      const res = await request(app).get(`/content-items/recommendations/${caseId}`);
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'recommendations load failed' });
+    });
+
+    it('link 調用 next(error) 時應返回 500', async () => {
+      mockLink.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('link failed'));
+      });
+      const app = createApp();
+      const res = await request(app)
+        .post('/content-links')
+        .send({ case_id: 'c1', content_id: 'ct1' });
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'link failed' });
     });
   });
 });

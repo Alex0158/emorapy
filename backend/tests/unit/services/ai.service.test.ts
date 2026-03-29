@@ -47,7 +47,31 @@ jest.mock('../../../src/utils/retry', () => ({
   retryWithBackoff: (...args: unknown[]) => retryWithBackoffMock(...args),
 }));
 
-import { AIService } from '../../../src/services/ai.service';
+import { AIService, IPV_SIGNAL_REGEX } from '../../../src/services/ai.service';
+
+describe('IPV_SIGNAL_REGEX', () => {
+  it('應匹配常見暴力/動手口語敘述', () => {
+    expect(IPV_SIGNAL_REGEX.test('他打我')).toBe(true);
+    expect(IPV_SIGNAL_REGEX.test('我打了他')).toBe(true);
+    expect(IPV_SIGNAL_REGEX.test('對方動手')).toBe(true);
+    expect(IPV_SIGNAL_REGEX.test('推我')).toBe(true);
+    expect(IPV_SIGNAL_REGEX.test('扇巴掌')).toBe(true);
+    expect(IPV_SIGNAL_REGEX.test('砸東西')).toBe(true);
+    expect(IPV_SIGNAL_REGEX.test('掐')).toBe(true);
+    expect(IPV_SIGNAL_REGEX.test('拉扯')).toBe(true);
+    expect(IPV_SIGNAL_REGEX.test('摔東西')).toBe(true);
+    expect(IPV_SIGNAL_REGEX.test('衝過來')).toBe(true);
+  });
+  it('應匹配既有安全詞', () => {
+    expect(IPV_SIGNAL_REGEX.test('控制行為')).toBe(true);
+    expect(IPV_SIGNAL_REGEX.test('暴力')).toBe(true);
+    expect(IPV_SIGNAL_REGEX.test('威脅')).toBe(true);
+  });
+  it('應匹配 F02-BUG-002 擴充詞：打人、摔碗', () => {
+    expect(IPV_SIGNAL_REGEX.test('打人')).toBe(true);
+    expect(IPV_SIGNAL_REGEX.test('摔碗')).toBe(true);
+  });
+});
 
 describe('AIService (useMock)', () => {
   let service: AIService;

@@ -65,5 +65,9 @@ describe('analytics', () => {
         event_category: 'User Action',
       }));
     });
+    it('DEV 且傳入 details 時應呼叫 logger.debug', () => {
+      trackUserAction('submit_form', { field: 'email' });
+      expect(mockLoggerDebug).toHaveBeenCalledWith('[Analytics] Details', { field: 'email' });
+    });
   });
 });

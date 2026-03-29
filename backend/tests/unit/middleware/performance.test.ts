@@ -105,6 +105,20 @@ describe('middleware/performance', () => {
       }));
       jest.useRealTimers();
     });
+
+    it('生產環境 finish 時正常請求（status 200, duration < 1000）不應記錄', async () => {
+      mockEnvRef.current = { NODE_ENV: 'production' };
+      jest.resetModules();
+      const { performanceMonitor: pm } = await import('../../../src/middleware/performance');
+      const req = { url: '/api/test', method: 'GET' } as Request;
+      const res = createMockRes();
+      res.statusCode = 200;
+      const next = jest.fn();
+      pm(req, res, next);
+      res.emitFinish();
+      expect(mockLogger.debug).not.toHaveBeenCalled();
+      expect(mockLogger.warn).not.toHaveBeenCalled();
+    });
   });
 
   describe('getPerformanceStats', () => {

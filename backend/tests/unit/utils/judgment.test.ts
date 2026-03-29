@@ -10,6 +10,10 @@ describe('judgment utils', () => {
       expect(normalizeJudgment(null)).toBe(null);
     });
 
+    it('應對 undefined 返回 null（邊界：防禦性）', () => {
+      expect(normalizeJudgment(undefined as unknown as null)).toBe(null);
+    });
+
     it('應補充 responsibility_ratio 當僅有 plaintiff_ratio/defendant_ratio', () => {
       const input = {
         id: '1',
@@ -87,6 +91,36 @@ describe('judgment utils', () => {
       };
       normalizeJudgment(input);
       expect(input.emotional_analysis).toEqual({ severity: 'mild' });
+    });
+
+    it('plaintiff_ratio 或 defendant_ratio 為 undefined 時不應補充 responsibility_ratio', () => {
+      const input = {
+        id: '1',
+        plaintiff_ratio: 60,
+        defendant_ratio: undefined as unknown as number,
+      };
+      const result = normalizeJudgment(input);
+      expect(result.responsibility_ratio).toBeUndefined();
+    });
+
+    it('僅 plaintiff_ratio 存在時不應補充 responsibility_ratio', () => {
+      const input = {
+        id: '1',
+        plaintiff_ratio: 100,
+        defendant_ratio: undefined as unknown as number,
+      };
+      const result = normalizeJudgment(input);
+      expect(result.responsibility_ratio).toBeUndefined();
+    });
+
+    it('plaintiff_ratio 與 defendant_ratio 為 0 時應正確補充 responsibility_ratio', () => {
+      const input = {
+        id: '1',
+        plaintiff_ratio: 0,
+        defendant_ratio: 0,
+      };
+      const result = normalizeJudgment(input);
+      expect(result.responsibility_ratio).toEqual({ plaintiff: 0, defendant: 0 });
     });
   });
 });

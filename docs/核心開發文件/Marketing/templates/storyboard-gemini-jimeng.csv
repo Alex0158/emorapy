@@ -1,0 +1,6 @@
+project_id,script_id,shot_id,timecode_sec,voice_or_subtitle,scene_one_liner,gemini_prompt_anchor,gemini_image_file,jimeng_motion_prompt,jimeng_video_file,notes_compliance
+CJ_AD_001,E-alpha,01,0-2,Hook 字幕,大字幕情緒停格,,,,
+CJ_AD_001,E-alpha,02,2-6,共鳴旁白,情境畫面,,,,
+CJ_AD_001,E-alpha,03,6-14,產品段,第三方／象徵畫面,,,,
+CJ_AD_001,E-alpha,04,14-18,CTA,行動呼籲畫面,,,,
+CJ_AD_001,E-alpha,05,18-20,品牌,Logo 結尾,,,,

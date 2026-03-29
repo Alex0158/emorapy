@@ -79,6 +79,20 @@ describe('ReconciliationController', () => {
   });
 
   describe('getPlans', () => {
+    it('無方案時應返回 plans 空陣列（F05 邊界）', async () => {
+      req.params = { id: 'judge-1' };
+      req.query = {};
+      mockGetPlansByJudgmentId.mockResolvedValue([]);
+
+      await controller.getPlans(req as Request, res as Response, next);
+
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        data: { plans: [] },
+      });
+      expect(next).not.toHaveBeenCalled();
+    });
+
     it('成功應按 filters 查詢並返回', async () => {
       req.params = { id: 'judge-1' };
       req.query = { difficulty: 'easy', type: 'activity' };

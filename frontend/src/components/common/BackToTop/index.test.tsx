@@ -36,6 +36,18 @@ describe('BackToTop', () => {
     });
   });
 
+  it('pageYOffset 為 0 時應使用 documentElement.scrollTop 判斷顯示', async () => {
+    Object.defineProperty(window, 'pageYOffset', { value: 0, writable: true, configurable: true });
+    Object.defineProperty(document.documentElement, 'scrollTop', { value: 400, writable: true, configurable: true });
+    render(<BackToTop />);
+    act(() => {
+      window.dispatchEvent(new Event('scroll'));
+    });
+    await waitFor(() => {
+      expect(screen.getByRole('button')).toBeInTheDocument();
+    });
+  });
+
   it('點擊按鈕應調用 window.scrollTo', async () => {
     const scrollTo = vi.fn();
     Object.defineProperty(window, 'scrollTo', { value: scrollTo, writable: true, configurable: true });

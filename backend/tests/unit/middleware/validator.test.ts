@@ -29,6 +29,17 @@ describe('middleware/validator', () => {
     expect(err.message).toContain('name');
   });
 
+  it('body 為 undefined 時應正常處理不拋錯（邊界：異常請求）', () => {
+    const schema = {
+      body: Joi.object({ name: Joi.string().required() }),
+    };
+    const req = createMockReq({ body: undefined });
+    const res = createMockRes();
+    const next = jest.fn();
+    expect(() => validate(schema)(req, res, next)).not.toThrow();
+    expect(next).toHaveBeenCalledTimes(1);
+  });
+
   it('body 驗證通過應 next()', () => {
     const schema = {
       body: Joi.object({ name: Joi.string().required() }),
@@ -119,5 +130,25 @@ describe('middleware/validator', () => {
     expect(next).toHaveBeenCalledWith(expect.any(Error));
     const err = next.mock.calls[0][0] as { message: string };
     expect(err.message).toMatch(/;/);
+  });
+
+  it('schema 為空物件時應直接 next()（邊界：無驗證需求）', () => {
+    const schema = {};
+    const req = createMockReq();
+    const res = createMockRes();
+    const next = jest.fn();
+    validate(schema)(req, res, next);
+    expect(next).toHaveBeenCalledWith();
+  });
+
+  it('query 為 undefined 時應正常處理不拋錯（邊界：異常請求）', () => {
+    const schema = {
+      query: Joi.object({ page: Joi.number().optional() }),
+    };
+    const req = createMockReq({ query: undefined });
+    const res = createMockRes();
+    const next = jest.fn();
+    expect(() => validate(schema)(req, res, next)).not.toThrow();
+    expect(next).toHaveBeenCalledTimes(1);
   });
 });

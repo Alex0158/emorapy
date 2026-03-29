@@ -1,7 +1,7 @@
 # 環境配置文檔（代碼對齊版）
 
-**文檔版本**：v3.0  
-**最後更新**：2026-03-05  
+**文檔版本**：v3.1  
+**最後更新**：2026-03-06  
 **對齊基準**：`backend/src/config/env.ts`、`backend/.env.example`、`frontend/.env.example`
 
 ---
@@ -42,7 +42,7 @@
 | `MAX_FILE_SIZE` | `5242880` | 檔案大小上限（5MB） |
 | `FRONTEND_URL` | `http://localhost:5173` | 前端 URL |
 | `FILE_BASE_URL` | 推導值 | 檔案可訪問基礎 URL |
-| `ALLOWED_ORIGINS` | `http://localhost:5173` | CORS 來源列表 |
+| `ALLOWED_ORIGINS` | `http://localhost:5173` | CORS 來源列表；生產環境若前台為 Vercel 預設網域（如 `https://mother-bear-court.vercel.app`），須包含該網址，否則會 CORS 403。 |
 
 ### 2.3 訪談 v2 配置
 

@@ -93,6 +93,37 @@ describe('usePollingJudgment', () => {
     expect(onSuccess).toHaveBeenCalledWith(judgment);
   });
 
+  it('NOT_FOUND 時應返回 null 且不觸發 onError', async () => {
+    mockGetJudgmentByCaseId.mockRejectedValue({ code: 'NOT_FOUND' });
+    const onError = vi.fn();
+    const onSuccess = vi.fn();
+    renderHook(() =>
+      usePollingJudgment({ caseId: 'c1', enabled: true, onSuccess, onError })
+    );
+    await waitFor(() => {
+      expect(mockCreatePolling).toHaveBeenCalled();
+    });
+    const fetchFn = mockCreatePolling.mock.calls[0][0];
+    const result = await fetchFn();
+    expect(result).toBe(null);
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it('HTTP_404 時應返回 null 且不觸發 onError', async () => {
+    mockGetJudgmentByCaseId.mockRejectedValue({ code: 'HTTP_404' });
+    const onError = vi.fn();
+    renderHook(() =>
+      usePollingJudgment({ caseId: 'c1', enabled: true, onError })
+    );
+    await waitFor(() => {
+      expect(mockCreatePolling).toHaveBeenCalled();
+    });
+    const fetchFn = mockCreatePolling.mock.calls[0][0];
+    const result = await fetchFn();
+    expect(result).toBe(null);
+    expect(onError).not.toHaveBeenCalled();
+  });
+
   it('輪詢失敗時應調用 onError 並停止 loading', async () => {
     mockGetJudgmentByCaseId.mockRejectedValue(new Error('network error'));
     const onError = vi.fn();

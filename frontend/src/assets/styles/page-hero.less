@@ -1,0 +1,22 @@
+/**
+ * 共用頁面 Hero 區塊
+ * 統一 outer spacing、rounded bottom、shadow，避免各頁重複 Tailwind utility
+ */
+
+@import './variables.less';
+
+.page-hero {
+  margin-bottom: @spacing-xl;
+  background: linear-gradient(to bottom right, @color-background, #f9fafb);
+  border-radius: 0 0 40px 40px;
+  box-shadow: @shadow-small;
+  padding: @spacing-xl;
+}
+
+.page-hero--compact {
+  margin-bottom: @spacing-lg;
+}
+
+.page-hero--centered {
+  text-align: center;
+}

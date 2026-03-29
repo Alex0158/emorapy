@@ -29,6 +29,19 @@ describe('Helpers Utils', () => {
       expect(title).toMatch(/^案件-/);
       expect(title).toContain(new Date().toLocaleDateString());
     });
+
+    it('空字串應使用默認標題格式（邊界：防禦性）', () => {
+      const title = generateCaseTitle('');
+      expect(title).toMatch(/^案件-/);
+      expect(title).toContain(new Date().toLocaleDateString());
+    });
+
+    it('null 或 undefined 應視為空字串不拋錯（防禦邊界）', () => {
+      const titleNull = generateCaseTitle(null as unknown as string);
+      const titleUndef = generateCaseTitle(undefined as unknown as string);
+      expect(titleNull).toMatch(/^案件-/);
+      expect(titleUndef).toMatch(/^案件-/);
+    });
   });
 
   describe('isValidEmail', () => {
@@ -42,6 +55,11 @@ describe('Helpers Utils', () => {
       expect(isValidEmail('@domain.com')).toBe(false);
       expect(isValidEmail('user@')).toBe(false);
     });
+
+    it('null 或 undefined 應視為空字串返回 false（防禦邊界）', () => {
+      expect(isValidEmail(null as unknown as string)).toBe(false);
+      expect(isValidEmail(undefined as unknown as string)).toBe(false);
+    });
   });
 
   describe('isValidUrl', () => {
@@ -54,12 +72,22 @@ describe('Helpers Utils', () => {
       expect(isValidUrl('not-a-url')).toBe(false);
       expect(isValidUrl('')).toBe(false);
     });
+
+    it('null 或 undefined 應視為空字串返回 false（防禦邊界）', () => {
+      expect(isValidUrl(null as unknown as string)).toBe(false);
+      expect(isValidUrl(undefined as unknown as string)).toBe(false);
+    });
   });
 
   describe('formatDateTime', () => {
     it('應返回 ISO 格式字符串', () => {
       const date = new Date('2024-01-15T10:30:00.000Z');
       expect(formatDateTime(date)).toBe('2024-01-15T10:30:00.000Z');
+    });
+
+    it('null 或 undefined 應返回空字串不拋錯（防禦邊界）', () => {
+      expect(formatDateTime(null as unknown as Date)).toBe('');
+      expect(formatDateTime(undefined as unknown as Date)).toBe('');
     });
   });
 
@@ -85,6 +113,29 @@ describe('Helpers Utils', () => {
       expect(result.total_pages).toBe(0);
       expect(result.has_more).toBe(false);
     });
+
+    it('pageSize 為 0 時應以 1 計入避免 NaN（防禦性邊界）', () => {
+      const result = calculatePagination(1, 0, 0);
+      expect(result.total_pages).toBe(0);
+      expect(result.has_more).toBe(false);
+      expect(result.page_size).toBe(0);
+    });
+
+    it('pageSize 為 0 且 total 大於 0 時應以 1 計入避免 Infinity（防禦性邊界）', () => {
+      const result = calculatePagination(1, 0, 25);
+      expect(result.page).toBe(1);
+      expect(result.page_size).toBe(0);
+      expect(result.total).toBe(25);
+      expect(result.total_pages).toBe(25);
+      expect(result.has_more).toBe(true);
+    });
+
+    it('total 為負數時應以 0 計入避免負 total_pages（防禦性邊界）', () => {
+      const result = calculatePagination(1, 10, -5);
+      expect(result.total).toBe(0);
+      expect(result.total_pages).toBe(0);
+      expect(result.has_more).toBe(false);
+    });
   });
 
   describe('extractKeywords', () => {
@@ -102,9 +153,22 @@ describe('Helpers Utils', () => {
       expect(keywords).not.toContain('們');
     });
 
+    it('空字串應返回空陣列', () => {
+      expect(extractKeywords('', 5)).toEqual([]);
+    });
+
+    it('count 為 0 時應返回空陣列', () => {
+      expect(extractKeywords('hello world test', 0)).toEqual([]);
+    });
+
     it('默認提取5個關鍵詞', () => {
       const text = 'first second third fourth fifth sixth seventh';
       expect(extractKeywords(text)).toHaveLength(5);
+    });
+
+    it('null 或 undefined 應視為空字串返回空陣列（防禦邊界）', () => {
+      expect(extractKeywords(null as unknown as string, 5)).toEqual([]);
+      expect(extractKeywords(undefined as unknown as string, 5)).toEqual([]);
     });
   });
 
@@ -115,6 +179,15 @@ describe('Helpers Utils', () => {
 
     it('應將連續空白壓縮為單一空格', () => {
       expect(sanitizeText('a   b    c')).toBe('a b c');
+    });
+
+    it('空字串應返回空字串', () => {
+      expect(sanitizeText('')).toBe('');
+    });
+
+    it('null 或 undefined 應視為空字串不拋錯（防禦邊界）', () => {
+      expect(sanitizeText(null as unknown as string)).toBe('');
+      expect(sanitizeText(undefined as unknown as string)).toBe('');
     });
   });
 });

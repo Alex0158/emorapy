@@ -26,8 +26,11 @@ jest.mock('../../../src/config/env', () => ({
 
 import metricsRouter from '../../../src/routes/metrics.routes';
 
-function createApp() {
+function createApp(opts?: { trustProxy?: boolean }) {
   const app = express();
+  if (opts?.trustProxy) {
+    app.set('trust proxy', true);
+  }
   app.use('/', metricsRouter);
   return app;
 }
@@ -42,6 +45,15 @@ describe('routes/metrics.routes', () => {
       METRICS_TOKEN: undefined,
       METRICS_ALLOWED_IPS: [],
     };
+  });
+
+  it('development 且 METRICS_ENABLED 時應返回 200（F10 邊界）', async () => {
+    const app = createApp();
+    const res = await request(app).get('/metrics');
+    expect(res.status).toBe(200);
+    expect(res.text).toContain('demo_metric 1');
+    expect(res.headers['content-type']).toContain('text/plain');
+    expect(mockExportPrometheus).toHaveBeenCalledTimes(1);
   });
 
   it('METRICS_ENABLED=false 時應返回 404', async () => {
@@ -100,11 +112,31 @@ describe('routes/metrics.routes', () => {
       METRICS_ALLOWED_IPS: ['::ffff:127.0.0.1', '127.0.0.1'],
     };
 
-    const app = createApp();
-    const res = await request(app).get('/metrics');
+    const app = createApp({ trustProxy: true });
+    const res = await request(app)
+      .get('/metrics')
+      .set('X-Forwarded-For', '::ffff:127.0.0.1');
 
     expect(res.status).toBe(200);
     expect(mockExportPrometheus).toHaveBeenCalledTimes(1);
+  });
+
+  it('production 且 IP 不在白名單且無 token 時應返回 403', async () => {
+    mockEnvRef.current = {
+      ...mockEnvRef.current,
+      NODE_ENV: 'production',
+      METRICS_TOKEN: undefined,
+      METRICS_ALLOWED_IPS: ['192.168.1.1'],
+    };
+
+    const app = createApp({ trustProxy: true });
+    const res = await request(app)
+      .get('/metrics')
+      .set('X-Forwarded-For', '10.0.0.1');
+
+    expect(res.status).toBe(403);
+    expect(res.text).toContain('metrics forbidden');
+    expect(mockExportPrometheus).not.toHaveBeenCalled();
   });
 
   it('metrics 導出失敗時應返回 500', async () => {

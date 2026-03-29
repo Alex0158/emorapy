@@ -93,8 +93,9 @@ export const listChatMessages = async (
     (response.data as ApiResponse<ListMessagesResponse>)?.data,
     'Invalid chat messages response from server'
   );
+  const messages = result.messages;
   return {
-    messages: result.messages ?? [],
+    messages: Array.isArray(messages) ? messages : [],
     nextCursor: result.nextCursor ?? null,
   };
 };

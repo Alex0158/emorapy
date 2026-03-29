@@ -66,6 +66,10 @@ function createApp() {
   const app = express();
   app.use(express.json());
   app.use('/', caseRouter);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    res.status(500).json({ success: false, error: err.message });
+  });
   return app;
 }
 
@@ -104,7 +108,7 @@ describe('case.routes', () => {
       sendJson(res, { success: true, data: { case: {} } })
     );
     mockUploadEvidence.mockImplementation((_req: unknown, res: unknown) =>
-      sendJson(res, { success: true, data: {} })
+      sendJson(res, { success: true, data: { evidences: [] } })
     );
     mockDeleteEvidence.mockImplementation((_req: unknown, res: unknown) =>
       sendJson(res, { success: true })
@@ -118,6 +122,14 @@ describe('case.routes', () => {
     expect(mockGetCaseBySessionId).toHaveBeenCalled();
   });
 
+  it('getCaseBySessionId 成功時應返回 data.case（F01/F03 邊界）', async () => {
+    const app = createApp();
+    const res = await request(app).get('/by-session').query({ session_id: 's1' });
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data).toHaveProperty('case');
+  });
+
   it('POST /quick 應調用 createQuickCase 並返回 201', async () => {
     const app = createApp();
     const longStatement =
@@ -127,6 +139,49 @@ describe('case.routes', () => {
       .send({ plaintiff_statement: longStatement });
     expect(res.status).toBe(201);
     expect(mockCreateQuickCase).toHaveBeenCalled();
+  });
+
+  it('createQuickCase 成功時應返回 data.case、data.session_id（F01 邊界）', async () => {
+    const app = createApp();
+    const longStatement =
+      '原告陳述至少三十個字以上才能通過驗證所以這裡寫足夠長度了完畢';
+    const res = await request(app)
+      .post('/quick')
+      .send({ plaintiff_statement: longStatement });
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data).toHaveProperty('case');
+    expect(res.body.data).toHaveProperty('session_id');
+  });
+
+  it('createCollaborativeCase 成功時應返回 data.case、data.session_id（F02 邊界）', async () => {
+    const app = createApp();
+    mockCreateCollaborativeCase.mockImplementation((_req: unknown, res: unknown) =>
+      send201(res, { success: true, data: { case: {}, session_id: 's1', phase: 'a_done' } })
+    );
+    const longStatement =
+      '原告陳述至少三十個字以上才能通過驗證所以這裡寫足夠長度了完畢';
+    const res = await request(app)
+      .post('/collaborative')
+      .send({ plaintiff_statement: longStatement });
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data).toHaveProperty('case');
+    expect(res.body.data).toHaveProperty('session_id');
+  });
+
+  it('POST /collaborative 應調用 createCollaborativeCase 並返回 200/201', async () => {
+    const app = createApp();
+    mockCreateCollaborativeCase.mockImplementation((_req: unknown, res: unknown) =>
+      send201(res, { success: true, data: { case: {}, session_id: 's1', phase: 'a_done' } })
+    );
+    const longStatement =
+      '原告陳述至少三十個字以上才能通過驗證所以這裡寫足夠長度了完畢';
+    const res = await request(app)
+      .post('/collaborative')
+      .send({ plaintiff_statement: longStatement });
+    expect(res.status).toBe(201);
+    expect(mockCreateCollaborativeCase).toHaveBeenCalled();
   });
 
   it('POST / 應調用 createCase 並返回 201', async () => {
@@ -143,6 +198,21 @@ describe('case.routes', () => {
     expect(mockCreateCase).toHaveBeenCalled();
   });
 
+  it('createCase 成功時應返回 data.case（F03 邊界）', async () => {
+    const app = createApp();
+    const longStatement =
+      '原告陳述內容需要至少五十個字才能通過驗證所以這裡寫足夠長度再加一些字數湊滿五十字即可達到驗證標準長度';
+    const res = await request(app)
+      .post('/')
+      .send({
+        pairing_id: uuid,
+        plaintiff_statement: longStatement,
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data).toHaveProperty('case');
+  });
+
   it('GET / 應調用 getCaseList 並返回 200', async () => {
     const app = createApp();
     const res = await request(app).get('/');
@@ -150,10 +220,54 @@ describe('case.routes', () => {
     expect(mockGetCaseList).toHaveBeenCalled();
   });
 
+  it('getCaseList 成功時應返回 data.cases、data.pagination（F03 邊界）', async () => {
+    const app = createApp();
+    const res = await request(app).get('/');
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data).toHaveProperty('cases');
+    expect(res.body.data).toHaveProperty('pagination');
+    expect(Array.isArray(res.body.data.cases)).toBe(true);
+  });
+
+  it('GET / 無案件時應返回 cases 空陣列與 pagination total 0（F03 邊界）', async () => {
+    mockGetCaseList.mockImplementationOnce((_req: unknown, res: unknown) =>
+      sendJson(res, {
+        success: true,
+        data: {
+          cases: [],
+          pagination: { page: 1, page_size: 10, total: 0, total_pages: 0 },
+        },
+      })
+    );
+    const app = createApp();
+    const res = await request(app).get('/');
+    expect(res.status).toBe(200);
+    expect(res.body.data.cases).toEqual([]);
+    expect(res.body.data.pagination.total).toBe(0);
+    expect(mockGetCaseList).toHaveBeenCalled();
+  });
+
   it('GET /:id 應調用 getCaseById 並返回 200', async () => {
     const app = createApp();
     const res = await request(app).get(`/${uuid}`);
     expect(res.status).toBe(200);
+    expect(mockGetCaseById).toHaveBeenCalled();
+  });
+
+  it('getCaseById 成功時應返回 data.case（F03 邊界）', async () => {
+    const caseData = { id: uuid, status: 'draft', plaintiff_statement: '原告陳述', mode: 'remote' };
+    mockGetCaseById.mockImplementationOnce((_req: unknown, res: unknown) =>
+      (res as { status: (n: number) => { json: (b: unknown) => void } })
+        .status(200)
+        .json({ success: true, data: { case: caseData } })
+    );
+    const app = createApp();
+    const res = await request(app).get(`/${uuid}`);
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data).toHaveProperty('case');
+    expect(res.body.data.case).toMatchObject({ id: uuid, status: 'draft' });
     expect(mockGetCaseById).toHaveBeenCalled();
   });
 
@@ -172,6 +286,14 @@ describe('case.routes', () => {
     expect(mockGetJudgmentByCaseId).toHaveBeenCalled();
   });
 
+  it('getJudgmentByCaseId 成功時應返回 data.judgment（F04 邊界）', async () => {
+    const app = createApp();
+    const res = await request(app).get(`/${uuid}/judgment`);
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data).toHaveProperty('judgment');
+  });
+
   it('POST /:id/submit 應調用 submitCase 並返回 200', async () => {
     const app = createApp();
     const res = await request(app).post(`/${uuid}/submit`);
@@ -179,11 +301,27 @@ describe('case.routes', () => {
     expect(mockSubmitCase).toHaveBeenCalled();
   });
 
+  it('submitCase 成功時應返回 data.case（F03 邊界）', async () => {
+    const app = createApp();
+    const res = await request(app).post(`/${uuid}/submit`);
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data).toHaveProperty('case');
+  });
+
   it('PUT /:id 應調用 updateCase 並返回 200', async () => {
     const app = createApp();
     const res = await request(app).put(`/${uuid}`).send({ title: 'x' });
     expect(res.status).toBe(200);
     expect(mockUpdateCase).toHaveBeenCalled();
+  });
+
+  it('updateCase 成功時應返回 data.case（F03 邊界）', async () => {
+    const app = createApp();
+    const res = await request(app).put(`/${uuid}`).send({ title: 'x' });
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data).toHaveProperty('case');
   });
 
   it('POST /:id/evidence 應調用 uploadEvidence 並返回 200', async () => {
@@ -195,10 +333,158 @@ describe('case.routes', () => {
     expect(mockUploadEvidence).toHaveBeenCalled();
   });
 
+  it('uploadEvidence 成功時應返回 data.evidences（F03 邊界）', async () => {
+    const app = createApp();
+    const res = await request(app)
+      .post(`/${uuid}/evidence`)
+      .attach('file', Buffer.from('x'), 'x.txt');
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data).toHaveProperty('evidences');
+    expect(Array.isArray(res.body.data.evidences)).toBe(true);
+  });
+
   it('DELETE /:id/evidence/:evidenceId 應調用 deleteEvidence 並返回 200', async () => {
     const app = createApp();
     const res = await request(app).delete(`/${uuid}/evidence/${evidenceId}`);
     expect(res.status).toBe(200);
     expect(mockDeleteEvidence).toHaveBeenCalled();
+  });
+
+  it('deleteEvidence 成功時應返回 data（F03 邊界）', async () => {
+    mockDeleteEvidence.mockImplementationOnce((_req: unknown, res: unknown) =>
+      sendJson(res, { success: true, data: {}, message: '證據已刪除' })
+    );
+    const app = createApp();
+    const res = await request(app).delete(`/${uuid}/evidence/${evidenceId}`);
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data).toBeDefined();
+  });
+
+  describe('錯誤傳遞', () => {
+    it('getCaseBySessionId 調用 next(error) 時應返回 500', async () => {
+      mockGetCaseBySessionId.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('get by session failed'));
+      });
+      const app = createApp();
+      const res = await request(app).get('/by-session').query({ session_id: 's1' });
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'get by session failed' });
+    });
+
+    it('createQuickCase 調用 next(error) 時應返回 500', async () => {
+      mockCreateQuickCase.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('create quick failed'));
+      });
+      const app = createApp();
+      const longStatement =
+        '原告陳述至少三十個字以上才能通過驗證所以這裡寫足夠長度了完畢';
+      const res = await request(app)
+        .post('/quick')
+        .send({ plaintiff_statement: longStatement });
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'create quick failed' });
+    });
+
+    it('createCollaborativeCase 調用 next(error) 時應返回 500', async () => {
+      mockCreateCollaborativeCase.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('create collaborative failed'));
+      });
+      const app = createApp();
+      const longStatement =
+        '原告陳述至少三十個字以上才能通過驗證所以這裡寫足夠長度了完畢';
+      const res = await request(app)
+        .post('/collaborative')
+        .send({ plaintiff_statement: longStatement });
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'create collaborative failed' });
+    });
+
+    it('createCase 調用 next(error) 時應返回 500', async () => {
+      mockCreateCase.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('create case failed'));
+      });
+      const app = createApp();
+      const longStatement =
+        '原告陳述內容需要至少五十個字才能通過驗證所以這裡寫足夠長度再加一些字數湊滿五十字即可達到驗證標準長度';
+      const res = await request(app)
+        .post('/')
+        .send({ pairing_id: uuid, plaintiff_statement: longStatement });
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'create case failed' });
+    });
+
+    it('getCaseList 調用 next(error) 時應返回 500', async () => {
+      mockGetCaseList.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('get list failed'));
+      });
+      const app = createApp();
+      const res = await request(app).get('/');
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'get list failed' });
+    });
+
+    it('getCaseById 調用 next(error) 時應返回 500', async () => {
+      mockGetCaseById.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('get case failed'));
+      });
+      const app = createApp();
+      const res = await request(app).get(`/${uuid}`);
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'get case failed' });
+    });
+
+    it('getJudgmentByCaseId 調用 next(error) 時應返回 500', async () => {
+      mockGetJudgmentByCaseId.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('get judgment failed'));
+      });
+      const app = createApp();
+      const res = await request(app).get(`/${uuid}/judgment`);
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'get judgment failed' });
+    });
+
+    it('submitCase 調用 next(error) 時應返回 500', async () => {
+      mockSubmitCase.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('submit failed'));
+      });
+      const app = createApp();
+      const res = await request(app).post(`/${uuid}/submit`);
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'submit failed' });
+    });
+
+    it('updateCase 調用 next(error) 時應返回 500', async () => {
+      mockUpdateCase.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('update failed'));
+      });
+      const app = createApp();
+      const res = await request(app).put(`/${uuid}`).send({ title: 'x' });
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'update failed' });
+    });
+
+    it('uploadEvidence 調用 next(error) 時應返回 500', async () => {
+      mockUploadEvidence.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('upload failed'));
+      });
+      const app = createApp();
+      const res = await request(app)
+        .post(`/${uuid}/evidence`)
+        .attach('file', Buffer.from('x'), 'x.txt');
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'upload failed' });
+    });
+
+    it('deleteEvidence 調用 next(error) 時應返回 500', async () => {
+      mockDeleteEvidence.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('delete failed'));
+      });
+      const app = createApp();
+      const res = await request(app).delete(`/${uuid}/evidence/${evidenceId}`);
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'delete failed' });
+    });
   });
 });

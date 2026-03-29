@@ -52,6 +52,16 @@ describe('judgment API', () => {
         { headers: { 'X-Session-Id': 's-1' } }
       );
     });
+
+    it('回應缺少 judgment 時應拋錯', async () => {
+      mockPost.mockResolvedValue({ data: { data: {} } });
+      await expect(generateJudgment('c1')).rejects.toThrow('Invalid judgment response from server');
+    });
+
+    it('後端回傳 judgment 為 null 時應拋錯（F04 邊界：API 回傳不完整時防禦）', async () => {
+      mockPost.mockResolvedValue({ data: { data: { judgment: null } } });
+      await expect(generateJudgment('c1')).rejects.toThrow('Invalid judgment response from server');
+    });
   });
 
   describe('getJudgment', () => {
@@ -60,6 +70,16 @@ describe('judgment API', () => {
       const result = await getJudgment('j1');
       expect(mockGet).toHaveBeenCalledWith('/judgments/j1');
       expect(result).toEqual(mockJudgment);
+    });
+
+    it('回應缺少 judgment 時應拋錯', async () => {
+      mockGet.mockResolvedValue({ data: { data: {} } });
+      await expect(getJudgment('j1')).rejects.toThrow('Invalid judgment response from server');
+    });
+
+    it('後端回傳 judgment 為 null 時應拋錯（F04 邊界：API 回傳不完整時防禦）', async () => {
+      mockGet.mockResolvedValue({ data: { data: { judgment: null } } });
+      await expect(getJudgment('j1')).rejects.toThrow('Invalid judgment response from server');
     });
   });
 
@@ -87,6 +107,18 @@ describe('judgment API', () => {
       }
     });
 
+    it('後端回傳 200 且 judgment 為 null 時應返回 null（F01 邊界：pending 語義，不拋錯）', async () => {
+      mockGet.mockResolvedValue({ data: { data: { judgment: null } } });
+      const result = await getJudgmentByCaseId('c1');
+      expect(result).toBeNull();
+    });
+
+    it('後端回傳 200 且 judgment 為 undefined 時應返回 null（F01/F04 邊界：API 回傳不完整時防禦，pending 語義）', async () => {
+      mockGet.mockResolvedValue({ data: { data: { judgment: undefined } } });
+      const result = await getJudgmentByCaseId('c1');
+      expect(result).toBeNull();
+    });
+
     it('其他錯誤應拋出', async () => {
       mockGet.mockRejectedValue(new Error('Server error'));
       await expect(getJudgmentByCaseId('c1')).rejects.toThrow('Server error');
@@ -102,6 +134,20 @@ describe('judgment API', () => {
         rating: 5,
       });
       expect(result).toEqual(mockJudgment);
+    });
+
+    it('回應缺少 judgment 時應拋錯', async () => {
+      mockPost.mockResolvedValue({ data: { data: {} } });
+      await expect(acceptJudgment('j1', { accepted: true })).rejects.toThrow(
+        'Invalid judgment response from server'
+      );
+    });
+
+    it('後端回傳 judgment 為 null 時應拋錯（F04 邊界：API 回傳不完整時防禦）', async () => {
+      mockPost.mockResolvedValue({ data: { data: { judgment: null } } });
+      await expect(acceptJudgment('j1', { accepted: true })).rejects.toThrow(
+        'Invalid judgment response from server'
+      );
     });
   });
 });

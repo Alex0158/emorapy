@@ -32,7 +32,7 @@ const EvidenceUploadSection = ({ status, caseId, isUploading, onUploadFiles }: P
                 ) : (
                   <CloudUploadOutlined style={{ color: '#F59E0B', fontSize: 28, filter: 'drop-shadow(0 0 8px rgba(245,158,11,0.5))' }} />
                 )}
-                <Title level={3} id="evidence-upload-title" style={{ margin: 0, color: '#fff', fontSize: 24, fontWeight: 700 }}>
+                <Title level={3} id="evidence-upload-title" style={{ margin: 0, fontSize: 24, fontWeight: 700 }}>
                   {t('evidence.title')}
                 </Title>
               </div>

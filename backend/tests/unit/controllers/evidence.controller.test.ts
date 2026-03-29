@@ -197,6 +197,17 @@ describe('evidence.controller', () => {
       expect(prisma.case.findUnique).toHaveBeenCalled();
     });
 
+    it('prisma.case.findUnique 拋錯時應 next(error)', async () => {
+      req.params = { id: caseId };
+      req.files = [{ fieldname: 'files', filename: 'a.jpg', mimetype: 'image/jpeg', size: 100 } as Express.Multer.File];
+      req.query = { session_id: 's1' };
+      (prisma.case.findUnique as jest.Mock).mockRejectedValue(new Error('db error') as never);
+
+      await runUpload(controller, req as Request, res as Response, next);
+
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
+    });
+
     it('案件不存在應拋出 NOT_FOUND', async () => {
       req.params = { id: caseId };
       req.files = [{ fieldname: 'files', filename: 'a.jpg', mimetype: 'image/jpeg', size: 100 } as Express.Multer.File];
@@ -260,6 +271,23 @@ describe('evidence.controller', () => {
       );
     });
 
+    it('sessionService.getSession 拋錯時應 next(error)', async () => {
+      req.params = { id: caseId };
+      req.files = [{ fieldname: 'files', filename: 'a.jpg', mimetype: 'image/jpeg', size: 100 } as Express.Multer.File];
+      req.query = { session_id: 's1' };
+      (prisma.case.findUnique as jest.Mock).mockResolvedValue({
+        id: caseId,
+        mode: 'quick',
+        session_id: 's1',
+        status: 'draft',
+      } as never);
+      mockGetSession.mockRejectedValue(new Error('db error') as never);
+
+      await runUpload(controller, req as Request, res as Response, next);
+
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
+    });
+
     it('remote 模式無 userId 應拋出 UNAUTHORIZED', async () => {
       req.params = { id: caseId };
       req.files = [{ fieldname: 'files', filename: 'a.jpg', mimetype: 'image/jpeg', size: 100 } as Express.Multer.File];
@@ -296,6 +324,37 @@ describe('evidence.controller', () => {
       expect(next).toHaveBeenCalledWith(
         expect.objectContaining({ code: 'FORBIDDEN', message: expect.stringContaining('無權限上傳') })
       );
+    });
+
+    it('collaborative 模式應允許以 session 上傳證據', async () => {
+      req.params = { id: caseId };
+      req.files = [{ fieldname: 'files', filename: 'a.jpg', mimetype: 'image/jpeg', size: 100 } as Express.Multer.File];
+      req.query = { session_id: 's-collab' };
+      (prisma.case.findUnique as jest.Mock).mockResolvedValue({
+        id: caseId,
+        mode: 'collaborative',
+        session_id: 's-collab',
+        status: 'submitted',
+      } as never);
+      mockGetSession.mockResolvedValue({ id: 's-collab' } as never);
+      (prisma.evidence.count as jest.Mock).mockResolvedValue(0 as never);
+      (prisma.evidence.create as jest.Mock).mockResolvedValue({
+        id: evidenceId,
+        case_id: caseId,
+        file_url: 'http://files/a.jpg',
+      } as never);
+
+      await runUpload(controller, req as Request, res as Response, next);
+
+      expect(mockGetSession).toHaveBeenCalledWith('s-collab');
+      expect(prisma.evidence.create).toHaveBeenCalled();
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          message: '證據上傳成功',
+        })
+      );
+      expect(next).not.toHaveBeenCalled();
     });
 
     it('案件狀態不允許上傳時應拋出 CASE_NOT_EDITABLE', async () => {
@@ -559,6 +618,21 @@ describe('evidence.controller', () => {
       );
     });
 
+    it('sessionService.getSession 拋錯時應 next(error)', async () => {
+      req.params = { id: caseId, evidenceId };
+      req.query = { session_id: 's1' };
+      (prisma.evidence.findUnique as jest.Mock).mockResolvedValue({
+        id: evidenceId,
+        file_url: 'http://x.com/a.jpg',
+        case: { mode: 'quick', session_id: 's1' },
+      } as never);
+      mockGetSession.mockRejectedValue(new Error('db error') as never);
+
+      await deleteEvidence(req as Request, res as Response, next);
+
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
+    });
+
     it('remote 模式非當事人應拋出 FORBIDDEN', async () => {
       req.params = { evidenceId };
       mockGetAuthUserIdOptional.mockReturnValue('u3');
@@ -577,6 +651,32 @@ describe('evidence.controller', () => {
       expect(next).toHaveBeenCalledWith(
         expect.objectContaining({ code: 'FORBIDDEN', message: expect.stringContaining('無權限刪除') })
       );
+    });
+
+    it('collaborative 模式應允許以 session 刪除證據', async () => {
+      req.params = { evidenceId };
+      req.query = { session_id: 's-collab' };
+      (prisma.evidence.findUnique as jest.Mock).mockResolvedValue({
+        id: evidenceId,
+        file_url: 'http://x.com/uploads/a.jpg',
+        case: {
+          mode: 'collaborative',
+          session_id: 's-collab',
+        },
+      } as never);
+      mockGetSession.mockResolvedValue({ id: 's-collab' } as never);
+      (prisma.evidence.delete as jest.Mock).mockResolvedValue({} as never);
+
+      await deleteEvidence(req as Request, res as Response, next);
+
+      expect(mockGetSession).toHaveBeenCalledWith('s-collab');
+      expect(prisma.evidence.delete).toHaveBeenCalledWith({ where: { id: evidenceId } });
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        data: {},
+        message: '證據已刪除',
+      });
+      expect(next).not.toHaveBeenCalled();
     });
 
     it('成功應刪除文件與 DB 記錄並返回', async () => {
@@ -657,8 +757,18 @@ describe('evidence.controller', () => {
       expect(prisma.evidence.delete).toHaveBeenCalledWith({ where: { id: evidenceId } });
     });
 
+    it('prisma.evidence.findUnique 拋錯時應 next(error)', async () => {
+      req.params = { id: caseId, evidenceId };
+      req.query = { session_id: 's1' };
+      (prisma.evidence.findUnique as jest.Mock).mockRejectedValue(new Error('db error') as never);
+
+      await deleteEvidence(req as Request, res as Response, next);
+
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
+    });
+
     it('deleteEvidence 拋錯時應 next(error)', async () => {
-      req.params = { evidenceId };
+      req.params = { id: caseId, evidenceId };
       req.query = { session_id: 's1' };
       (prisma.evidence.findUnique as jest.Mock).mockResolvedValue({
         id: evidenceId,
@@ -670,6 +780,23 @@ describe('evidence.controller', () => {
 
       await deleteEvidence(req as Request, res as Response, next);
 
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
+    });
+
+    it('fileService.deleteFile 拋錯時應 next(error)', async () => {
+      req.params = { evidenceId };
+      req.query = { session_id: 's1' };
+      (prisma.evidence.findUnique as jest.Mock).mockResolvedValue({
+        id: evidenceId,
+        file_url: 'http://x.com/a.jpg',
+        case: { mode: 'quick', session_id: 's1' },
+      } as never);
+      mockGetSession.mockResolvedValue({ id: 's1' } as never);
+      mockDeleteFile.mockRejectedValueOnce(new Error('file delete error') as never);
+
+      await deleteEvidence(req as Request, res as Response, next);
+
+      expect(mockDeleteFile).toHaveBeenCalledWith('a.jpg');
       expect(next).toHaveBeenCalledWith(expect.any(Error));
     });
   });

@@ -48,6 +48,14 @@ describe('NotificationService', () => {
       });
     });
 
+    it('無通知時應返回空陣列（F09/F10 邊界：用戶尚未收到任何通知）', async () => {
+      prismaMock.notification.findMany.mockResolvedValue([]);
+
+      const result = await service.list('u1');
+
+      expect(result).toEqual([]);
+    });
+
     it('有 status 時應傳入 where.status', async () => {
       prismaMock.notification.findMany.mockResolvedValue([]);
 
@@ -137,6 +145,13 @@ describe('NotificationService', () => {
         data: { status: NotificationStatus.sent, sent_at: expect.any(Date) },
       });
     });
+
+    it('notification 不存在時應拋錯（候選功能邊界：Prisma P2025 會由 errorHandler 轉為 404）', async () => {
+      const p2025 = Object.assign(new Error('Record to update not found.'), { code: 'P2025' });
+      prismaMock.notification.update.mockRejectedValue(p2025);
+
+      await expect(service.markAsSent('nonexistent')).rejects.toMatchObject({ code: 'P2025' });
+    });
   });
 
   describe('markFailed', () => {
@@ -149,6 +164,13 @@ describe('NotificationService', () => {
         where: { id: 'n1' },
         data: { status: NotificationStatus.failed, error_message: 'SMTP timeout' },
       });
+    });
+
+    it('notification 不存在時應拋錯（候選功能邊界：Prisma P2025 會由 errorHandler 轉為 404）', async () => {
+      const p2025 = Object.assign(new Error('Record to update not found.'), { code: 'P2025' });
+      prismaMock.notification.update.mockRejectedValue(p2025);
+
+      await expect(service.markFailed('nonexistent', 'err')).rejects.toMatchObject({ code: 'P2025' });
     });
   });
 
@@ -174,6 +196,14 @@ describe('NotificationService', () => {
       expect(prismaMock.notification.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ take: 50 })
       );
+    });
+
+    it('無待處理通知時應返回空陣列（F10 邊界：queue 為空）', async () => {
+      prismaMock.notification.findMany.mockResolvedValue([]);
+
+      const result = await service.getPending(10);
+
+      expect(result).toEqual([]);
     });
   });
 
@@ -221,6 +251,18 @@ describe('NotificationService', () => {
       prismaMock.user.findUnique.mockResolvedValue({ notification_enabled: false });
 
       const result = await service.createIfEnabled('u1', {
+        template_code: 'T1',
+        channel: NotificationChannel.email,
+      });
+
+      expect(result).toBeNull();
+      expect(prismaMock.notification.create).not.toHaveBeenCalled();
+    });
+
+    it('用戶不存在時應跳過並返回 null（F10 邊界：isNotificationEnabled 回傳 false）', async () => {
+      prismaMock.user.findUnique.mockResolvedValue(null);
+
+      const result = await service.createIfEnabled('nonexistent', {
         template_code: 'T1',
         channel: NotificationChannel.email,
       });

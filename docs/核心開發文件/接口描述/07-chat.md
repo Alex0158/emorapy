@@ -1,7 +1,7 @@
 # 接口描述：chat
 
-**文檔版本**：v2.1  
-**最後更新**：2026-03-05  
+**文檔版本**：v2.4  
+**最後更新**：2026-03-15  
 **代碼基準**：`backend/src/routes/chat.routes.ts`、`backend/src/services/chat.service.ts`、`frontend/src/pages/Chat/Room`、`frontend/src/services/api/chat.ts`
 
 ---
@@ -10,6 +10,7 @@
 
 - 聊天域同時支持匿名 session 與登入 user。
 - 高風險鏈路是 `request-judgment`：涉及房間狀態機、冪等與判決生成。
+- judgment 詳情的正式消費屬登入後鏈路；chat 僅承接到 judgment ready 與 handoff。
 
 ## 接口契約（字段級）
 
@@ -18,7 +19,7 @@
 | `POST /api/v1/chat/rooms` | `history_visibility_mode?` | `data.room.id` `status` | `SESSION_ID_REQUIRED` | 建立 room + roleA + ai 參與者 | `/chat/room` |
 | `GET /api/v1/chat/rooms/:roomId` | `roomId(uuid)` | `data.room` | `FORBIDDEN` `NOT_FOUND` | 無 | `/chat/room/:roomId` |
 | `POST /api/v1/chat/rooms/:roomId/invites` | `expires_in_hours?` `history_visibility_mode?` | `data.invite.invite_code` | `CASE_NOT_EDITABLE` `CONFLICT` | room `solo_active -> invite_pending` | 房間操作 |
-| `POST /api/v1/chat/invites/:inviteCode/accept` | `inviteCode` | `data.room.status=group_active` | `INVALID_CODE` `CODE_EXPIRED` | B 方加入，狀態更新 | 邀請碼進房 |
+| `POST /api/v1/chat/invites/:inviteCode/accept` | `inviteCode` | `data.room.status=group_active` | `UNAUTHORIZED` `INVALID_CODE` `CODE_EXPIRED` | B 方登入後加入，狀態更新 | 邀請碼進房 |
 | `POST /api/v1/chat/invites/:inviteCode/decline` | `inviteCode` | `data.invite.status=declined/revoked` | `FORBIDDEN` `INVALID_CODE` | 可能回退 `invite_pending -> solo_active` | 邀請碼流程 |
 | `GET /api/v1/chat/rooms/:roomId/stream`（SSE） | 無 body，headers 含 auth/session | `ready/ping/message/room_status/invite` 事件 | `FORBIDDEN` | 訂閱 room 事件總線 | 房間頁 |
 | `GET /api/v1/chat/rooms/:roomId/messages` | `cursor?` `limit?<=100` | `data.messages[]` `data.nextCursor` | `VALIDATION_ERROR` | 無 | 房間頁 |
@@ -34,10 +35,19 @@
 - 訊息發送限速：同房 30 秒最多 6 條，且最小間隔 5 秒；違規回 `RATE_LIMIT_EXCEEDED`。
 - `history_visibility_mode` 直接決定轉判決可納入訊息的時間窗與可見性。
 - SSE 事件是 UI 狀態主來源，非 SSE 退化路徑僅作補償。
+- 匿名 A 房主建立 invite 的前提是 `room.session_id === canonical session_id`。
+- `accept invite` 已收斂為 `User only`；B 方需先取得登入身份。
+- `canonical session_id` 指前端統一 session 管理層持有的有效匿名會話 ID，不以任意 storage 臨時值作為權限判定依據。
+
+## UX 優化（2026-03）
+
+- **思考中反饋**：發送訊息且 `visibility_scope === 'all'` 時，發送成功後立即顯示「思考中...」；收到 `ai_end` 或 `message/invite/room_status` 時清除；15 秒內未收到則超時清除。
+- **建立後樂觀渲染**：建立聊天室成功後 `navigate` 帶 `state.room`，進入房間時若 `state.room.id === routeRoomId` 則走快速路徑（僅 `listChatMessages`，不呼叫 `getChatRoom`）；無 state 或 listChatMessages 失敗時 fallback 至完整 `loadRoomInitial`。
+- **AI 流式回應**：後端以 `ai_token` 串流推播；前端 `ChatStreamingBubble` 即時顯示；`streamingAiText` 為空時顯示「思考中...」；AI_MOCK 模式改為逐字 `onToken` 以模擬流式。
 
 ## 回歸測試最小集
 
-1. 建房 -> 發邀請 -> 接受邀請 -> 群聊成功。  
+1. 建房 -> 發邀請 -> B 登入後接受邀請 -> 群聊成功。  
 2. 超頻發送訊息觸發限流且 UI 不丟狀態。  
 3. request-judgment 連點只建一筆 case/link。  
 4. leave/kick-b 後 room 狀態回 `solo_active`。  
@@ -53,6 +63,7 @@
 | `POST /api/v1/chat/rooms/:roomId/invites` | `CONFLICT` | 409 | 提示當前狀態不可邀請 | 先刷新房間狀態 |
 | `POST /api/v1/chat/invites/:inviteCode/accept` | `INVALID_CODE` | 400 | 提示邀請碼錯誤 | 重新輸入 |
 | `POST /api/v1/chat/invites/:inviteCode/accept` | `CODE_EXPIRED` | 400 | 提示邀請碼過期 | 請 A 重新發邀請 |
+| `POST /api/v1/chat/invites/:inviteCode/accept` | `UNAUTHORIZED` | 401 | 提示需先登入再接受邀請 | 登入後重試 |
 | `GET /api/v1/chat/rooms/:roomId/stream` | `FORBIDDEN` | 403 | 關閉 SSE 並提示無權限 | 不自動重連 |
 | `POST /api/v1/chat/rooms/:roomId/messages` | `RATE_LIMIT_EXCEEDED` | 429 | 保留輸入並顯示限流提示 | 冷卻後重送 |
 | `POST /api/v1/chat/rooms/:roomId/messages` | `NOT_FOUND` | 404 | 提示房間不存在 | 返回上游頁 |

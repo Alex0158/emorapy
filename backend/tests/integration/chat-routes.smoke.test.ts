@@ -149,6 +149,21 @@ describe('Chat Routes Smoke', () => {
     expect(res.body.data.nextCursor).toBeTruthy();
   });
 
+  it('GET /api/v1/chat/rooms/:roomId/messages 無訊息時應返回 messages 空陣列與 nextCursor null（F07 邊界）', async () => {
+    (chatServiceMock.listMessages as any).mockResolvedValueOnce({
+      messages: [],
+      nextCursor: null,
+    });
+    const res = await request(app)
+      .get('/api/v1/chat/rooms/550e8400-e29b-41d4-a716-446655440000/messages?limit=20')
+      .set('x-session-id', 'guest_1700000000000_abcdefghijklmnop');
+
+    expect(res.status).toBe(200);
+    expect(chatServiceMock.listMessages).toHaveBeenCalled();
+    expect(res.body.data.messages).toEqual([]);
+    expect(res.body.data.nextCursor).toBeNull();
+  });
+
   it('POST /api/v1/chat/rooms/:roomId/messages 應成功發送消息', async () => {
     (chatServiceMock.sendMessage as any).mockResolvedValueOnce({
       id: 'm-2',

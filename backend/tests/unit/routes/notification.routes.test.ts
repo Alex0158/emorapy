@@ -24,6 +24,10 @@ function createApp() {
   const app = express();
   app.use(express.json());
   app.use('/', notificationRouter);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    res.status(500).json({ success: false, error: err.message });
+  });
   return app;
 }
 
@@ -32,7 +36,7 @@ describe('notification.routes', () => {
     jest.clearAllMocks();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mockList.mockImplementation((_req: unknown, res: any) =>
-      res.status(200).json({ success: true, data: { items: [] } })
+      res.status(200).json({ success: true, data: { notifications: [] } })
     );
   });
 
@@ -41,6 +45,33 @@ describe('notification.routes', () => {
       const app = createApp();
       const res = await request(app).get('/notifications');
       expect(res.status).toBe(200);
+      expect(mockList).toHaveBeenCalled();
+    });
+
+    it('list 成功時應返回 data 含 notifications（F09/F10 邊界）', async () => {
+      mockList.mockImplementationOnce((_req: unknown, res: unknown) =>
+        (res as { status: (n: number) => { json: (b: unknown) => void } })
+          .status(200)
+          .json({ success: true, data: { notifications: [] } })
+      );
+      const app = createApp();
+      const res = await request(app).get('/notifications');
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toHaveProperty('notifications');
+      expect(Array.isArray(res.body.data.notifications)).toBe(true);
+    });
+
+    it('無通知時應返回 notifications 空陣列（F09/F10 邊界）', async () => {
+      mockList.mockImplementationOnce((_req: unknown, res: unknown) =>
+        (res as { status: (n: number) => { json: (b: unknown) => void } })
+          .status(200)
+          .json({ success: true, data: { notifications: [] } })
+      );
+      const app = createApp();
+      const res = await request(app).get('/notifications');
+      expect(res.status).toBe(200);
+      expect(res.body.data.notifications).toEqual([]);
       expect(mockList).toHaveBeenCalled();
     });
   });
@@ -54,6 +85,18 @@ describe('notification.routes', () => {
       });
       expect(res.status).toBe(404);
       expect(mockCreate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('錯誤傳遞', () => {
+    it('list 調用 next(error) 時應返回 500', async () => {
+      mockList.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('list failed'));
+      });
+      const app = createApp();
+      const res = await request(app).get('/notifications');
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'list failed' });
     });
   });
 });

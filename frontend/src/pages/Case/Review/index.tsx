@@ -3,6 +3,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
+import { useMountedRef } from '@/hooks/useMountedRef';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Card,
@@ -27,6 +28,7 @@ import SEO from '@/components/common/SEO';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
 import { usePolling } from '@/hooks/usePolling';
 import { POLLING_INTERVAL } from '@/utils/constants';
+import { getErrorMessage } from '@/utils/apiError';
 import { t } from '@/utils/i18n';
 import { logger } from '@/utils/logger';
 import './Review.less';
@@ -40,6 +42,11 @@ const CaseReview = () => {
   const [judgment, setJudgment] = useState<Judgment | null>(null);
   const [loading, setLoading] = useState(false);
   const [retrying, setRetrying] = useState(false);
+  const [loadErrorTitle, setLoadErrorTitle] = useState<string | null>(null);
+  const [loadErrorDescription, setLoadErrorDescription] = useState<string | null>(null);
+  const mountedRef = useMountedRef();
+  const retryLockRef = useRef(false);
+  const fetchLockRef = useRef(false);
 
   const staleRef = useRef(false);
   useEffect(() => {
@@ -54,24 +61,37 @@ const CaseReview = () => {
   }, [id]);
 
   const fetchCase = async () => {
-    if (!id) return;
+    if (!id || fetchLockRef.current) return;
+    fetchLockRef.current = true;
     setLoading(true);
     try {
       const caseData = await getCase(id);
       if (staleRef.current) return;
+      setLoadErrorTitle(null);
+      setLoadErrorDescription(null);
       setCase_(caseData);
     } catch (error: unknown) {
       if (staleRef.current) return;
       const err = error as { code?: string; message?: string };
       if (err?.code === 'FORBIDDEN' || err?.code === 'HTTP_403') {
-        message.error(t('message.noPermissionViewCase'));
+        const errorMessage = getErrorMessage(error, 'message.noPermissionViewCase');
+        setLoadErrorTitle(t('message.noPermissionViewCase'));
+        setLoadErrorDescription(errorMessage === t('message.noPermissionViewCase') ? null : errorMessage);
+        message.error(errorMessage);
         navigate('/case/list', { replace: true });
       } else if (err?.code === 'NOT_FOUND' || err?.code === 'HTTP_404') {
-        message.error(t('common.caseNotFound'));
+        const errorMessage = t('common.caseNotFound');
+        setLoadErrorTitle(errorMessage);
+        setLoadErrorDescription(null);
+        message.error(errorMessage);
       } else {
-        message.error(err?.message || t('common.getCaseFail'));
+        const errorMessage = getErrorMessage(error, 'common.getCaseFail');
+        setLoadErrorTitle(t('common.getCaseFail'));
+        setLoadErrorDescription(errorMessage === t('common.getCaseFail') ? null : errorMessage);
+        message.error(errorMessage);
       }
     } finally {
+      fetchLockRef.current = false;
       if (!staleRef.current) setLoading(false);
     }
   };
@@ -112,6 +132,9 @@ const CaseReview = () => {
     } else if (case_.status === 'draft') {
       message.warning(t('review.caseNotSubmitted'));
       navigate(`/case/${id}`, { replace: true });
+    } else if (case_.status === 'cancelled') {
+      message.warning(t('review.caseCancelled'));
+      navigate(`/case/list`, { replace: true });
     }
     return () => stopPolling();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchJudgment 不進 deps
@@ -124,22 +147,40 @@ const CaseReview = () => {
   }, [judgment, stopPolling]);
 
   const handleRetryJudgment = async () => {
-    if (!id || retrying) return;
+    if (!id || retrying || retryLockRef.current) return;
+    retryLockRef.current = true;
     setRetrying(true);
     try {
       const newJudgment = await generateJudgment(id);
+      if (!mountedRef.current) return;
       setJudgment(newJudgment);
       message.success(t('review.retrySuccess'));
     } catch (error: unknown) {
+      if (!mountedRef.current) return;
       const err = error as { code?: string; message?: string };
       if (err?.code === 'JUDGMENT_EXISTS') {
-        await fetchJudgment();
+        try {
+          const judgmentData = await getJudgmentByCaseId(id);
+          if (!mountedRef.current) return;
+          if (judgmentData) {
+            setJudgment(judgmentData);
+          } else {
+            message.error(t('review.retryFail'));
+            if (id) fetchCase();
+          }
+        } catch (fetchErr: unknown) {
+          if (!mountedRef.current) return;
+          const msg = getErrorMessage(fetchErr, 'review.retryFail');
+          message.error(msg);
+          if (id) fetchCase();
+        }
       } else {
-        message.error(err?.message || t('review.retryFail'));
+        message.error(getErrorMessage(error, 'review.retryFail'));
         if (id) fetchCase();
       }
     } finally {
-      setRetrying(false);
+      retryLockRef.current = false;
+      if (mountedRef.current) setRetrying(false);
     }
   };
 
@@ -155,7 +196,8 @@ const CaseReview = () => {
     return (
       <div className="case-review-page">
         <Alert
-          title={t('common.caseNotFound')}
+          title={loadErrorTitle || t('common.caseNotFound')}
+          description={loadErrorDescription || undefined}
           type="error"
           action={
             <Space>

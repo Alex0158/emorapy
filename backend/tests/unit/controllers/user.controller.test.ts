@@ -187,6 +187,17 @@ describe('UserController', () => {
       );
     });
 
+    it('updateProfile 拋錯時應 next(error)', async () => {
+      req.body = { nickname: 'x' };
+      (prisma.user.update as jest.Mock).mockRejectedValue(new Error('db error') as never);
+
+      await controller.updateProfile(req as Request, res as Response, next);
+
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
+    });
+  });
+
+  describe('getProfile 拋錯', () => {
     it('getProfile 拋錯時應 next(error)', async () => {
       (prisma.user.findUnique as jest.Mock).mockRejectedValue(new Error('db error') as never);
 

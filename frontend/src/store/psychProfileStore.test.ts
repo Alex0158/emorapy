@@ -62,10 +62,22 @@ describe('psychProfileStore', () => {
       expect(state.profile).toBeNull();
     });
 
+    it('失敗且錯誤無 message 時應使用 psychProfile.loadFail fallback', async () => {
+      mockGetProfile.mockRejectedValue({ code: 'FORBIDDEN' });
+      await usePsychProfileStore.getState().fetchProfile();
+      expect(usePsychProfileStore.getState().error).toBe('psychProfile.loadFail');
+    });
+
     it('API 返回空 data 時 profile 應為 null', async () => {
       mockGetProfile.mockResolvedValue({ data: {} });
       await usePsychProfileStore.getState().fetchProfile();
       expect(usePsychProfileStore.getState().profile).toBeNull();
+    });
+
+    it('失敗且錯誤無 message 時應使用 psychProfile.loadFail 作為 error', async () => {
+      mockGetProfile.mockRejectedValue({ code: 'FORBIDDEN' });
+      await usePsychProfileStore.getState().fetchProfile();
+      expect(usePsychProfileStore.getState().error).toBe('psychProfile.loadFail');
     });
   });
 
@@ -81,6 +93,12 @@ describe('psychProfileStore', () => {
       mockGetFeedbackHistory.mockRejectedValue(new Error('fail'));
       await usePsychProfileStore.getState().fetchFeedbackHistory();
       expect(usePsychProfileStore.getState().error).toBe('fail');
+    });
+
+    it('API 回傳 history 為非陣列時應設置空陣列（F06 邊界：API 回傳不完整時防禦）', async () => {
+      mockGetFeedbackHistory.mockResolvedValue({ data: { data: { history: { items: [] } } } });
+      await usePsychProfileStore.getState().fetchFeedbackHistory();
+      expect(usePsychProfileStore.getState().feedbackHistory).toEqual([]);
     });
   });
 

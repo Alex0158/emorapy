@@ -154,4 +154,18 @@ describe('config/env', () => {
     expect(mod.env.METRICS_ENABLED).toBe(true);
     expect(mod.env.METRICS_TOKEN).toBe('metrics-token-for-tests');
   });
+
+  it('METRICS_ALLOWED_IPS 空字串時應返回空陣列', async () => {
+    process.env.METRICS_ALLOWED_IPS = '';
+    jest.resetModules();
+    const mod = await import('../../../src/config/env');
+    expect(mod.env.METRICS_ALLOWED_IPS).toEqual([]);
+  });
+
+  it('METRICS_ALLOWED_IPS 逗號分隔時應正確解析並 trim', async () => {
+    process.env.METRICS_ALLOWED_IPS = ' 192.168.1.1 , 10.0.0.1 ';
+    jest.resetModules();
+    const mod = await import('../../../src/config/env');
+    expect(mod.env.METRICS_ALLOWED_IPS).toEqual(['192.168.1.1', '10.0.0.1']);
+  });
 });

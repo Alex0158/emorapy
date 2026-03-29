@@ -52,9 +52,14 @@ export class EmailService {
       verify_email: `您的驗證碼是：${code}，有效期5分鐘。`,
     };
 
+    const fromAddr = env.EMAIL_FROM || env.SMTP_USER;
+    if (!fromAddr) {
+      logger.warn('未配置發件人地址（EMAIL_FROM 或 SMTP_USER），跳過發送', { email, type });
+      return;
+    }
     try {
       await this.transporter.sendMail({
-        from: `"CJ 平台" <${env.SMTP_USER}>`,
+        from: `"CJ 平台" <${fromAddr}>`,
         to: email,
         subject: subjectMap[type],
         text: contentMap[type],
@@ -98,11 +103,13 @@ export class EmailService {
           <p style="font-size: 16px; color: #666;">你們的配對已生效，現在可以創建案件並獲取判決。</p>
         </div>
       `;
+      const fromAddr = env.EMAIL_FROM || env.SMTP_USER;
+      if (!fromAddr) return;
       for (const u of users) {
         if (!u.email) continue;
         const safeEmail = this.sanitizeEmail(u.email);
         await this.transporter.sendMail({
-          from: `"CJ 平台" <${env.SMTP_USER}>`,
+          from: `"CJ 平台" <${fromAddr}>`,
           to: safeEmail,
           subject,
           html,
@@ -130,6 +137,8 @@ export class EmailService {
         select: { email: true, nickname: true },
       });
       if (!user?.email) return;
+      const fromAddr = env.EMAIL_FROM || env.SMTP_USER;
+      if (!fromAddr) return;
       const safeEmail = this.sanitizeEmail(user.email);
       const subject = '判決完成通知 - CJ 平台';
       const html = `
@@ -139,7 +148,7 @@ export class EmailService {
         </div>
       `;
       await this.transporter.sendMail({
-        from: `"CJ 平台" <${env.SMTP_USER}>`,
+        from: `"CJ 平台" <${fromAddr}>`,
         to: safeEmail,
         subject,
         html,

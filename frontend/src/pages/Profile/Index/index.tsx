@@ -3,7 +3,9 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
+import { useMountedRef } from '@/hooks/useMountedRef';
 import {
+  Alert,
   Card,
   Form,
   Input,
@@ -21,10 +23,11 @@ import {
   UserOutlined,
   UploadOutlined,
 } from '@ant-design/icons';
-import { getProfile, updateProfile } from '@/services/api/user';
+import { getProfile, updateProfile, uploadAvatar } from '@/services/api/user';
 import { useAuthStore } from '@/store/authStore';
 import { MAX_FILE_SIZE } from '@/utils/constants';
 import { formatFileSize } from '@/utils/format';
+import { getErrorMessage } from '@/utils/apiError';
 import ProtectedRoute from '@/components/common/ProtectedRoute';
 import SEO from '@/components/common/SEO';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
@@ -44,6 +47,7 @@ const ProfileIndex = () => {
   const [form] = Form.useForm();
   const { user, updateUser } = useAuthStore();
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [consentOpen, setConsentOpen] = useState(false);
@@ -51,7 +55,11 @@ const ProfileIndex = () => {
   const { profile: psychProfile, fetchProfile: fetchPsychProfile, giveConsent, consentLoading } = usePsychProfileStore();
   const { startSession, checkResume } = useInterviewStore();
 
+  const mountedRef = useMountedRef();
   const staleRef = useRef(false);
+  const fetchLockRef = useRef(false);
+  const continueLockRef = useRef(false);
+  const submitLockRef = useRef(false);
 
   useEffect(() => {
     staleRef.current = false;
@@ -62,7 +70,10 @@ const ProfileIndex = () => {
   }, []);
 
   const fetchProfile = async () => {
+    if (fetchLockRef.current) return;
+    fetchLockRef.current = true;
     setLoading(true);
+    setLoadError(null);
     try {
       const profile = await getProfile();
       if (staleRef.current) return;
@@ -70,24 +81,33 @@ const ProfileIndex = () => {
       updateUser(profile);
     } catch (error: unknown) {
       if (staleRef.current) return;
-      const err = error as { message?: string };
-      message.error(err?.message || t('message.getProfileIndexFail'));
+      const msg = getErrorMessage(error, 'message.getProfileIndexFail');
+      message.error(msg);
+      setLoadError(msg);
     } finally {
+      fetchLockRef.current = false;
       if (!staleRef.current) setLoading(false);
     }
   };
 
   const handleSubmit = async (values: Parameters<typeof updateProfile>[0]) => {
+    if (submitLockRef.current) return;
+    submitLockRef.current = true;
     setSaving(true);
     try {
       const updatedUser = await updateProfile(values);
+      if (!mountedRef.current) return;
       updateUser(updatedUser);
       message.success(t('message.profileUpdateSuccess'));
     } catch (error: unknown) {
-      const err = error as { message?: string };
-      message.error(err?.message || t('message.updateFail'));
+      if (mountedRef.current) {
+        message.error(getErrorMessage(error, 'message.updateFail'));
+      }
     } finally {
-      setSaving(false);
+      submitLockRef.current = false;
+      if (mountedRef.current) {
+        setSaving(false);
+      }
     }
   };
 
@@ -106,7 +126,7 @@ const ProfileIndex = () => {
         description={t('profileIndex.description')}
       />
       <div className="profile-index-page" role="main" aria-label={t('profileIndex.pageLabel')}>
-        <div className="adaptive-hero-section mb-8 bg-gradient-to-br from-background to-gray-50 rounded-b-[40px] shadow-sm p-8 text-center">
+        <div className="profile-index-page__hero">
           <AnimatedWrapper animation="fade" delay={100}>
             <Title level={2} id="profile-title" className="font-heading font-bold m-0 text-3xl">
               {t('profileIndex.heading')}
@@ -114,7 +134,25 @@ const ProfileIndex = () => {
           </AnimatedWrapper>
         </div>
 
-        <div className="max-w-3xl mx-auto px-6 pb-24">
+        <div className="profile-index-page__container">
+          {loadError ? (
+            <Alert
+              type="error"
+              showIcon
+              title={loadError}
+              action={
+                <Space>
+                  <Button size="small" loading={loading} onClick={() => fetchProfile()} data-testid="profile-index-load-retry">
+                    {t('common.retry')}
+                  </Button>
+                  <Button size="small" onClick={() => navigate(-1)}>
+                    {t('common.back')}
+                  </Button>
+                </Space>
+              }
+              style={{ marginBottom: 16 }}
+            />
+          ) : null}
           <AnimatedWrapper animation="slide" direction="up" delay={200} trigger="intersection">
             <Card role="article" aria-labelledby="profile-title" className="glassmorphism-2 border-none shadow-sm rounded-3xl mb-8">
               <Form
@@ -150,24 +188,18 @@ const ProfileIndex = () => {
                         try {
                           const formData = new FormData();
                           formData.append('avatar', file);
-                          const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL.replace('/api/v1','')}/api/v1/user/avatar`, {
-                            method: 'POST',
-                            body: formData,
-                            headers: {
-                              Authorization: `Bearer ${(() => { try { return localStorage.getItem('token') || window.sessionStorage.getItem('token') || ''; } catch { return ''; } })()}`,
-                            },
-                          });
-                          const json = await resp.json().catch(() => null);
-                          if (!resp.ok || !json?.success) {
-                            throw new Error(json?.error?.message || t('message.avatarUploadFail'));
-                          }
-                          updateUser(json.data?.user);
+                          const updatedUser = await uploadAvatar(formData);
+                          if (!mountedRef.current) return;
+                          updateUser(updatedUser);
                           message.success(t('message.avatarSuccess'));
                         } catch (err: unknown) {
-                          const msg = (err as { message?: string })?.message || t('message.avatarUploadFail');
-                          message.error(msg);
+                          if (mountedRef.current) {
+                            message.error(getErrorMessage(err, 'message.avatarUploadFail'));
+                          }
                         } finally {
-                          setUploading(false);
+                          if (mountedRef.current) {
+                            setUploading(false);
+                          }
                         }
                         return false;
                       }}
@@ -195,7 +227,7 @@ const ProfileIndex = () => {
                 <Input disabled size="large" className="rounded-xl bg-gray-50" />
               </Form.Item>
 
-              <Form.Item className="mb-0 mt-8 text-right">
+              <Form.Item className="mb-0 mt-8 text-center">
                 <Button
                   type="primary"
                   htmlType="submit"
@@ -223,16 +255,24 @@ const ProfileIndex = () => {
                     type="link"
                     className="font-semibold"
                     onClick={async () => {
+                      if (continueLockRef.current) return;
+                      continueLockRef.current = true;
                       try {
                         const resumeData = await checkResume();
+                        if (!mountedRef.current) return;
                         if (resumeData.has_pending && resumeData.session_id) {
                           navigate(`/interview/${resumeData.session_id}`);
                           return;
                         }
                         const session = await startSession('organic');
+                        if (!mountedRef.current) return;
                         navigate(`/interview/${session.id}`);
-                      } catch {
-                        message.error(t('interview.startFail'));
+                      } catch (error: unknown) {
+                        if (mountedRef.current) {
+                          message.error(getErrorMessage(error, 'interview.startFail'));
+                        }
+                      } finally {
+                        continueLockRef.current = false;
                       }
                     }}
                   >
@@ -255,18 +295,18 @@ const ProfileIndex = () => {
                     <div className="flex-1">
                       <Text strong className="text-lg block mb-3">{t('psychProfile.exploredDomains')}</Text>
                       <div className="flex flex-wrap gap-2">
-                        {psychProfile.narratives?.filter(n => n.is_latest && n.completeness > 0).map(n => (
+                        {(Array.isArray(psychProfile.narratives) ? psychProfile.narratives.filter(n => n.is_latest && n.completeness > 0) : []).map(n => (
                           <Tag key={n.domain} color="blue" className="rounded-full px-3 py-1 text-sm border-blue-200 bg-blue-50 text-blue-600">
                             {getDomainLabel(n.domain as PsychDomain)}
                           </Tag>
                         ))}
-                        {(!psychProfile.narratives || psychProfile.narratives.filter(n => n.is_latest && n.completeness > 0).length === 0) && (
+                        {(!Array.isArray(psychProfile.narratives) || psychProfile.narratives.filter(n => n.is_latest && n.completeness > 0).length === 0) && (
                           <Text type="secondary">{t('psychProfile.noExplored')}</Text>
                         )}
                       </div>
                     </div>
                   </div>
-                  {psychProfile.insights && psychProfile.insights.filter(i => i.is_active).length > 0 && (
+                  {Array.isArray(psychProfile.insights) && psychProfile.insights.filter(i => i.is_active).length > 0 && (
                     <div className="bg-gray-50/50 p-6 rounded-2xl border border-gray-100">
                       <Text type="secondary" className="block mb-4 font-semibold">{t('psychProfile.keyInsights')}</Text>
                       <div className="space-y-3">
@@ -277,8 +317,7 @@ const ProfileIndex = () => {
                               percent={Math.round(i.confidence * 100)}
                               size="small"
                               showInfo={false}
-                              strokeColor="#84A59D"
-                              className="w-20 m-0"
+                              className="profile-index-progress w-20 m-0"
                             />
                           </div>
                         ))}
@@ -304,16 +343,21 @@ const ProfileIndex = () => {
             onConsent={async () => {
               try {
                 await giveConsent();
+                if (!mountedRef.current) return;
                 setConsentOpen(false);
                 const resumeData = await checkResume();
+                if (!mountedRef.current) return;
                 if (resumeData.has_pending && resumeData.session_id) {
                   navigate(`/interview/${resumeData.session_id}`);
                   return;
                 }
                 const session = await startSession('onboarding');
+                if (!mountedRef.current) return;
                 navigate(`/interview/${session.id}`);
-              } catch {
-                message.error(t('interview.startFail'));
+              } catch (error: unknown) {
+                if (mountedRef.current) {
+                  message.error(getErrorMessage(error, 'interview.startFail'));
+                }
               }
             }}
             onCancel={() => setConsentOpen(false)}

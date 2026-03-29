@@ -58,16 +58,33 @@ export default function AdminReportsPage() {
   };
 
   return (
-    <Space orientation="vertical" size="large" style={{ width: '100%' }}>
-      <div>
-        <Title level={3} style={{ marginBottom: 0 }}>
-          {t('admin.reports.heading')}
-        </Title>
-        <Text type="secondary">{t('admin.reports.subtitle')}</Text>
+    <div className="admin-page">
+      <div className="admin-page__header">
+        <Title level={3} className="admin-page__header-title">{t('admin.reports.heading')}</Title>
+        <Text type="secondary" className="admin-page__header-subtitle">{t('admin.reports.subtitle')}</Text>
       </div>
       {(overviewQuery.error || funnelQuery.error || costQuery.error) && (
-        <Alert showIcon type="error" title={t('admin.reports.loadFailed')} />
+        <Alert
+          showIcon
+          type="error"
+          title={t('admin.reports.loadFailed')}
+          action={
+            <Button
+              size="small"
+              loading={overviewQuery.isFetching || funnelQuery.isFetching || costQuery.isFetching}
+              onClick={() => {
+                void overviewQuery.refetch();
+                void funnelQuery.refetch();
+                void costQuery.refetch();
+              }}
+              data-testid="admin-reports-load-retry"
+            >
+              {t('common.retry')}
+            </Button>
+          }
+        />
       )}
+      <div className="admin-page__content">
       <Card title={t('admin.reports.overview')}>
         <Space wrap size="large">
           <Statistic title={t('admin.reports.users')} value={overviewQuery.data?.totals.users || 0} />
@@ -152,6 +169,7 @@ export default function AdminReportsPage() {
           </pre>
         </Space>
       </Card>
-    </Space>
+      </div>
+    </div>
   );
 }

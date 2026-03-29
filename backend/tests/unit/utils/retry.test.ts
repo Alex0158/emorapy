@@ -36,6 +36,12 @@ describe('utils/retry', () => {
       };
       await expect(retry(fn, 2, 1)).rejects.toThrow('persistent');
     });
+
+    test('maxRetries 為 0 時應立即拋出，不呼叫 fn', async () => {
+      const fn = jest.fn().mockRejectedValue(new Error('x'));
+      await expect(retry(fn, 0, 100)).rejects.toThrow('Unknown error');
+      expect(fn).not.toHaveBeenCalled();
+    });
   });
 
   describe('retryWithBackoff', () => {
@@ -53,6 +59,28 @@ describe('utils/retry', () => {
           backoffMultiplier: 2,
         })
       ).rejects.toThrow('bad request');
+    });
+
+    test('401/403/404 應不重試（4xx 不重試）', async () => {
+      const fn = jest.fn().mockRejectedValue((() => {
+        const err: any = new Error('auth');
+        err.status = 401;
+        return err;
+      })());
+      await expect(retryWithBackoff(fn, { maxRetries: 3, initialDelay: 1 })).rejects.toThrow('auth');
+      expect(fn).toHaveBeenCalledTimes(1);
+    });
+
+    test('error 無 status 時應重試', async () => {
+      let attempts = 0;
+      const fn = async () => {
+        attempts++;
+        if (attempts < 2) throw new Error('network');
+        return 'ok';
+      };
+      const result = await retryWithBackoff(fn, { maxRetries: 3, initialDelay: 1 });
+      expect(result).toBe('ok');
+      expect(attempts).toBe(2);
     });
 
     test('retries on 5xx and succeeds', async () => {

@@ -51,15 +51,33 @@ export default function AdminConfigsPage() {
   });
 
   return (
-    <Space orientation="vertical" size="large" style={{ width: '100%' }}>
-      <div>
-        <Title level={3} style={{ marginBottom: 0 }}>
-          {t('admin.configs.heading')}
-        </Title>
-        <Text type="secondary">{t('admin.configs.subtitle')}</Text>
+    <div className="admin-page">
+      <div className="admin-page__header">
+        <Title level={3} className="admin-page__header-title">{t('admin.configs.heading')}</Title>
+        <Text type="secondary" className="admin-page__header-subtitle">{t('admin.configs.subtitle')}</Text>
       </div>
-      {(listQuery.error || runtimeQuery.error) && <Alert showIcon type="error" title={t('admin.configs.loadFailed')} />}
+      {(listQuery.error || runtimeQuery.error) && (
+        <Alert
+          showIcon
+          type="error"
+          title={t('admin.configs.loadFailed')}
+          action={
+            <Button
+              size="small"
+              loading={listQuery.isFetching || runtimeQuery.isFetching}
+              onClick={() => {
+                void listQuery.refetch();
+                void runtimeQuery.refetch();
+              }}
+              data-testid="admin-configs-load-retry"
+            >
+              {t('common.retry')}
+            </Button>
+          }
+        />
+      )}
       {!canWriteConfigs && <Alert showIcon type="warning" title={t('admin.configs.writeDenied')} />}
+      <div className="admin-page__content">
       <Card title={t('admin.configs.runtime')}>
         <pre style={{ margin: 0 }}>{JSON.stringify(runtimeQuery.data?.runtime || {}, null, 2)}</pre>
       </Card>
@@ -107,6 +125,7 @@ export default function AdminConfigsPage() {
           ]}
         />
       </Card>
-    </Space>
+      </div>
+    </div>
   );
 }

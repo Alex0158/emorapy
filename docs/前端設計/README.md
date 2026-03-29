@@ -3,8 +3,8 @@
 **項目名稱**：熊媽媽法庭（Mother Bear Court）  
 **品牌定位**：大愛、包容、保護、呵護  
 **設計階段**：MVP開發階段  
-**文檔版本**：v3.2  
-**最後更新**：2026-02-21
+**文檔版本**：v3.3  
+**最後更新**：2026-03-14
 
 **v2.0 個人化判決升級（前端對應 v3.0）**：新增 InterviewStore、PsychProfileStore；訪談與畫像相關路由、知情同意機制（頁面級檢查，無獨立 ConsentGuard 組件）；訪談頁與 6 個專用組件（ChatBubble、InterviewInput、RichnessRing、FeedbackCard、ConsentModal、SafetyAlert）；SSE 流式與輪詢集成、4 種訪談觸發點。詳見本目錄 v3.0 小節與接口一覽表。
 
@@ -182,6 +182,17 @@
 - 用戶體驗優化
 
 **適合閱讀對象**：UX設計師、前端開發者、產品經理
+
+---
+
+### 9. 樣式 Token 使用規範（`frontend/docs/STYLE_TOKEN_RULES.md`）
+
+**內容概要**：
+- Ant Design theme、Less variables、Tailwind token 責任邊界
+- 硬編碼顏色與 inline 視覺樣式的收斂原則
+- 新增/重構頁面時的樣式規範
+
+**適合閱讀對象**：前端開發者、Code Review
 
 ---
 
@@ -428,8 +439,8 @@ frontend/
 
 ---
 
-**文檔版本**：v3.2  
+**文檔版本**：v3.3  
 **創建日期**：2024年  
-**最後更新**：2026-02-21（v3.2：補 `jobs/stats` 前端防呆輔助函式（rateBase 分母標籤、sampled 提示判斷）並與 06 文檔版本同步；v3.1：補管理員運維 `/admin/jobs/stats` 前端型別/解析模板，並修正文檔索引與接口總數一致性）  
+**最後更新**：2026-03-14（v3.3：新增樣式 Token 規範引用、對應 v1.1.0 發佈）  
 **設計狀態**：✅ 設計完成
 

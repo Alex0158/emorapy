@@ -108,5 +108,42 @@ describe('SessionController', () => {
       expect(next).toHaveBeenCalledWith(err);
       expect(res.json).not.toHaveBeenCalled();
     });
+
+    it('header/query 皆無 session 時應調用 refreshSession(undefined) 等同創建新 session（F01 邊界）', async () => {
+      req = { headers: {}, query: {} };
+      const result = {
+        session_id: 'guest_new123',
+        expires_at: new Date(Date.now() + 86400000),
+      };
+      mockRefreshSession.mockResolvedValue(result);
+
+      await controller.refreshSession(req as Request, res as Response, next);
+
+      expect(mockRefreshSession).toHaveBeenCalledWith(undefined);
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        data: result,
+        message: 'Session刷新成功',
+      });
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('僅 query 有 session 時應使用 query session_id', async () => {
+      req = { headers: {}, query: { session_id: 'guest_query_only' } };
+      const result = {
+        session_id: 'guest_rotated',
+        expires_at: new Date(Date.now() + 86400000),
+      };
+      mockRefreshSession.mockResolvedValue(result);
+
+      await controller.refreshSession(req as Request, res as Response, next);
+
+      expect(mockRefreshSession).toHaveBeenCalledWith('guest_query_only');
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        data: result,
+        message: 'Session刷新成功',
+      });
+    });
   });
 });

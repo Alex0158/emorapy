@@ -25,6 +25,8 @@ const mockCreateQuickCase: any = jest.fn();
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockCreateCase: any = jest.fn();
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockCreateCollaborativeCase: any = jest.fn();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockGetCaseById: any = jest.fn();
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockGetCaseBySessionId: any = jest.fn();
@@ -46,6 +48,8 @@ jest.mock('../../../src/services/case.service', () => ({
     createQuickCase: (body: unknown, sessionId: string | null) =>
       mockCreateQuickCase(body, sessionId),
     createCase: (userId: string, body: unknown) => mockCreateCase(userId, body),
+    createOrUpdateCollaborativeCase: (body: unknown, sessionId: string | null) =>
+      mockCreateCollaborativeCase(body, sessionId),
     getCaseById: (caseId: string, userId?: string | null, sessionId?: string | null) =>
       mockGetCaseById(caseId, userId, sessionId),
     getCaseBySessionId: (sessionId: string) => mockGetCaseBySessionId(sessionId),
@@ -225,6 +229,84 @@ describe('CaseController', () => {
     });
   });
 
+  describe('createCollaborativeCase', () => {
+    it('header/query session 衝突時應 next(INVALID_SESSION_ID)', async () => {
+      req.body = { plaintiff_statement: 'x'.repeat(50) };
+      req.headers = { 'x-session-id': 's1' };
+      req.query = { session_id: 's2' };
+
+      await controller.createCollaborativeCase(req as Request, res as Response, next);
+
+      expect(mockCreateCollaborativeCase).not.toHaveBeenCalled();
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
+      expect(((next as jest.Mock).mock.calls[0][0] as any).code).toBe('INVALID_SESSION_ID');
+    });
+
+    it('角色 A 成功時應返回 201 與 a_done', async () => {
+      req.body = { plaintiff_statement: '角色A已寫足夠長度的描述內容' };
+      req.headers = { 'x-session-id': 's1' };
+      mockCreateCollaborativeCase.mockResolvedValue({
+        case: { id: 'c-collab-1' },
+        sessionId: 's1',
+        sessionExpiresAt: new Date('2026-01-02'),
+        phase: 'a_done',
+      });
+
+      await controller.createCollaborativeCase(req as Request, res as Response, next);
+
+      expect(mockCreateCollaborativeCase).toHaveBeenCalledWith(req.body, 's1');
+      expect(mockGenerateJudgment).not.toHaveBeenCalled();
+      expect(res.status).toHaveBeenCalledWith(201);
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        data: {
+          case: { id: 'c-collab-1' },
+          session_id: 's1',
+          session_expires_at: '2026-01-02T00:00:00.000Z',
+          phase: 'a_done',
+        },
+        message: '角色A陳述已記錄，請將設備交給角色B',
+      });
+    });
+
+    it('角色 B 成功時應返回 200 並觸發 generateJudgment', async () => {
+      req.body = { case_id: 'c-collab-1', defendant_statement: '角色B已寫足夠字數了' };
+      req.headers = { 'x-session-id': 's1' };
+      mockCreateCollaborativeCase.mockResolvedValue({
+        case: { id: 'c-collab-1' },
+        sessionId: 's1',
+        sessionExpiresAt: new Date('2026-01-03'),
+        phase: 'submitted',
+      });
+
+      await controller.createCollaborativeCase(req as Request, res as Response, next);
+
+      expect(mockCreateCollaborativeCase).toHaveBeenCalledWith(req.body, 's1');
+      expect(mockGenerateJudgment).toHaveBeenCalledWith('c-collab-1', { sessionId: 's1' });
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        data: {
+          case: { id: 'c-collab-1' },
+          session_id: 's1',
+          session_expires_at: '2026-01-03T00:00:00.000Z',
+          phase: 'submitted',
+        },
+        message: '案件已提交，AI正在分析中...',
+      });
+    });
+
+    it('createCollaborativeCase 拋錯時應 next(error)', async () => {
+      req.body = { plaintiff_statement: 'x'.repeat(50) };
+      req.headers = { 'x-session-id': 's1' };
+      mockCreateCollaborativeCase.mockRejectedValue(new Error('service error'));
+
+      await controller.createCollaborativeCase(req as Request, res as Response, next);
+
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
+    });
+  });
+
   describe('getCaseById', () => {
     it('header/query session 衝突時應 next(INVALID_SESSION_ID)', async () => {
       req.params = { id: 'c1' };
@@ -282,6 +364,15 @@ describe('CaseController', () => {
 
       expect(mockGetCaseBySessionId).toHaveBeenCalledWith('s1');
       expect(res.json).toHaveBeenCalledWith({ success: true, data: { case: case_ } });
+    });
+
+    it('getCaseBySessionId 拋錯時應 next(error)', async () => {
+      req.query = { session_id: 's1' };
+      mockGetCaseBySessionId.mockRejectedValue(new Error('not found'));
+
+      await controller.getCaseBySessionId(req as Request, res as Response, next);
+
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
     });
 
     it('無 sessionId 時應調用 next(error)', async () => {
@@ -358,6 +449,25 @@ describe('CaseController', () => {
   });
 
   describe('getCaseList', () => {
+    it('無案件時應返回 cases 空陣列與 pagination total 0（F03 邊界）', async () => {
+      req.query = { page: '1', page_size: '10' };
+      mockGetCaseList.mockResolvedValue({
+        cases: [],
+        pagination: { page: 1, page_size: 10, total: 0, total_pages: 0 },
+      });
+
+      await controller.getCaseList(req as Request, res as Response, next);
+
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        data: {
+          cases: [],
+          pagination: expect.objectContaining({ total: 0, total_pages: 0 }),
+        },
+      });
+      expect(next).not.toHaveBeenCalled();
+    });
+
     it('成功應傳 query 參數並返回列表', async () => {
       req.query = { status: 'submitted', page: '1', page_size: '10' };
       const result = { items: [], total: 0 };

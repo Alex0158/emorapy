@@ -74,7 +74,7 @@ export const getExecutionStatus = async (planId: string): Promise<ExecutionStatu
   );
   const result = (response.data as ApiResponse<ExecutionStatus>)?.data;
   if (!result) throw new Error('Invalid execution status response from server');
-  return result;
+  return { ...result, records: Array.isArray(result.records) ? result.records : [] };
 };
 
 /**
@@ -84,6 +84,8 @@ export const getAllExecutionStatuses = async (): Promise<ExecutionStatus[]> => {
   const response = await request.get<ApiResponse<{ executions: ExecutionStatus[] }>>(
     '/execution/dashboard'
   );
-  return (response.data as ApiResponse<{ executions: ExecutionStatus[] }>)?.data?.executions ?? [];
+  const executions = (response.data as ApiResponse<{ executions: ExecutionStatus[] }>)?.data?.executions;
+  const list = Array.isArray(executions) ? executions : [];
+  return list.map((e) => ({ ...e, records: Array.isArray(e.records) ? e.records : [] }));
 };
 

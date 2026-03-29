@@ -43,4 +43,26 @@ describe('NotFound', () => {
     await userEvent.click(btn);
     expect(mockNavigate).toHaveBeenCalledWith('/');
   });
+
+  it('點擊返回上一頁應調用 navigate(-1)', async () => {
+    render(
+      <MemoryRouter>
+        <NotFound />
+      </MemoryRouter>
+    );
+    const btn = screen.getByRole('button', { name: /返回上一頁/ });
+    await userEvent.click(btn);
+    expect(mockNavigate).toHaveBeenCalledWith(-1);
+  });
+
+  it('點擊前往快速體驗應調用 navigate("/quick-experience/create")', async () => {
+    render(
+      <MemoryRouter>
+        <NotFound />
+      </MemoryRouter>
+    );
+    const btn = screen.getByRole('button', { name: /前往快速體驗/ });
+    await userEvent.click(btn);
+    expect(mockNavigate).toHaveBeenCalledWith('/quick-experience/create');
+  });
 });

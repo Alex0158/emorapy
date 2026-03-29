@@ -2,7 +2,7 @@
  * helpers 工具單元測試
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { delay, deepClone, generateId, debounce, throttle } from './helpers';
+import { delay, deepClone, generateId, debounce, throttle, isMobile, isTablet, isDesktop, scrollToElement, copyToClipboard } from './helpers';
 
 describe('helpers', () => {
   describe('delay', () => {
@@ -89,6 +89,104 @@ describe('helpers', () => {
       vi.advanceTimersByTime(100);
       throttled();
       expect(fn).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('isMobile', () => {
+    it('innerWidth < 768 應返回 true', () => {
+      Object.defineProperty(window, 'innerWidth', { value: 767, writable: true });
+      expect(isMobile()).toBe(true);
+    });
+    it('innerWidth >= 768 應返回 false', () => {
+      Object.defineProperty(window, 'innerWidth', { value: 768, writable: true });
+      expect(isMobile()).toBe(false);
+    });
+  });
+
+  describe('isTablet', () => {
+    it('768 <= innerWidth < 1024 應返回 true', () => {
+      Object.defineProperty(window, 'innerWidth', { value: 900, writable: true });
+      expect(isTablet()).toBe(true);
+    });
+    it('innerWidth < 768 應返回 false', () => {
+      Object.defineProperty(window, 'innerWidth', { value: 767, writable: true });
+      expect(isTablet()).toBe(false);
+    });
+  });
+
+  describe('isDesktop', () => {
+    it('innerWidth >= 1024 應返回 true', () => {
+      Object.defineProperty(window, 'innerWidth', { value: 1024, writable: true });
+      expect(isDesktop()).toBe(true);
+    });
+    it('innerWidth < 1024 應返回 false', () => {
+      Object.defineProperty(window, 'innerWidth', { value: 1023, writable: true });
+      expect(isDesktop()).toBe(false);
+    });
+  });
+
+  describe('scrollToElement', () => {
+    it('元素存在時應呼叫 scrollTo', () => {
+      const scrollTo = vi.fn();
+      const getBoundingClientRect = vi.fn(() => ({ top: 100 }));
+      const mockEl = { getBoundingClientRect };
+      vi.stubGlobal('document', {
+        getElementById: vi.fn(() => mockEl),
+      });
+      vi.stubGlobal('window', { ...window, pageYOffset: 0, scrollTo });
+      scrollToElement('target', 10);
+      expect(scrollTo).toHaveBeenCalledWith({ top: 90, behavior: 'smooth' });
+    });
+    it('元素不存在時不應呼叫 scrollTo', () => {
+      const scrollTo = vi.fn();
+      vi.stubGlobal('document', { getElementById: vi.fn(() => null) });
+      vi.stubGlobal('window', { ...window, scrollTo });
+      scrollToElement('missing');
+      expect(scrollTo).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('copyToClipboard', () => {
+    it('navigator.clipboard 可用時應寫入並返回 true', async () => {
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      vi.stubGlobal('navigator', { clipboard: { writeText } });
+      const result = await copyToClipboard('hello');
+      expect(result).toBe(true);
+      expect(writeText).toHaveBeenCalledWith('hello');
+    });
+    it('clipboard 失敗時降級 execCommand 成功應返回 true', async () => {
+      vi.stubGlobal('navigator', { clipboard: { writeText: vi.fn().mockRejectedValue(new Error('denied')) } });
+      const removeChild = vi.fn();
+      const appendChild = vi.fn();
+      const execCommand = vi.fn().mockReturnValue(true);
+      vi.stubGlobal('document', {
+        createElement: () => ({
+          value: '',
+          style: {},
+          select: vi.fn(),
+        }),
+        body: { appendChild, removeChild },
+        execCommand,
+      });
+      const result = await copyToClipboard('fallback');
+      expect(appendChild).toHaveBeenCalled();
+      expect(execCommand).toHaveBeenCalledWith('copy');
+      expect(removeChild).toHaveBeenCalled();
+      expect(result).toBe(true);
+    });
+    it('降級 execCommand 拋錯時應 removeChild 並返回 false', async () => {
+      vi.stubGlobal('navigator', { clipboard: { writeText: vi.fn().mockRejectedValue(new Error('denied')) } });
+      const removeChild = vi.fn();
+      vi.stubGlobal('document', {
+        createElement: () => ({ value: '', style: {}, select: vi.fn() }),
+        body: { appendChild: vi.fn(), removeChild },
+        execCommand: vi.fn().mockImplementation(() => {
+          throw new Error('execCommand failed');
+        }),
+      });
+      const result = await copyToClipboard('x');
+      expect(removeChild).toHaveBeenCalled();
+      expect(result).toBe(false);
     });
   });
 });

@@ -125,6 +125,18 @@ describe('ExecutionController', () => {
   });
 
   describe('getAllExecutionStatuses', () => {
+    it('無執行狀態時應返回 executions 空陣列（F05 邊界）', async () => {
+      mockGetAllExecutionStatuses.mockResolvedValue([]);
+
+      await controller.getAllExecutionStatuses(req as Request, res as Response, next);
+
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        data: { executions: [] },
+      });
+      expect(next).not.toHaveBeenCalled();
+    });
+
     it('成功應返回 executions', async () => {
       const statuses = [{ plan_id: 'plan-1' }, { plan_id: 'plan-2' }];
       mockGetAllExecutionStatuses.mockResolvedValue(statuses);

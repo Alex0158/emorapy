@@ -1,7 +1,7 @@
 @import '../../../assets/styles/variables.less';
 
 .case-detail-page {
-  .adaptive-hero-section {
+  .page-hero {
     &.status-draft {
       background: linear-gradient(135deg, fade(@color-warning, 10%), fade(@color-warning, 5%));
     }
@@ -13,6 +13,12 @@
     }
     &.status-completed {
       background: linear-gradient(135deg, fade(@color-success, 10%), fade(@color-success, 5%));
+    }
+    &.status-judgment_failed {
+      background: linear-gradient(135deg, fade(@color-error, 10%), fade(@color-error, 5%));
+    }
+    &.status-cancelled {
+      background: linear-gradient(135deg, fade(@color-text-tertiary, 10%), fade(@color-text-tertiary, 5%));
     }
   }
 

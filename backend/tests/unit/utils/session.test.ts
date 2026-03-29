@@ -42,6 +42,18 @@ describe('Session Utils', () => {
       expect(validateSessionId(null as any)).toBe(false);
       expect(validateSessionId(123 as any)).toBe(false);
     });
+
+    it('應拒絕 undefined', () => {
+      expect(validateSessionId(undefined as any)).toBe(false);
+    });
+
+    it('隨機部分 exactly 8 字應通過（邊界）', () => {
+      expect(validateSessionId('guest_1704067200000_a1b2c3d4')).toBe(true);
+    });
+
+    it('隨機部分 7 字應拒絕', () => {
+      expect(validateSessionId('guest_1704067200000_a1b2c3d')).toBe(false);
+    });
   });
 
   describe('generateVerificationCode', () => {

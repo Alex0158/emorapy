@@ -1,7 +1,7 @@
 # 接口描述：auth + sessions
 
-**文檔版本**：v2.1  
-**最後更新**：2026-03-05  
+**文檔版本**：v2.2  
+**最後更新**：2026-03-06  
 **代碼基準**：`backend/src/routes/auth.routes.ts`、`backend/src/routes/session.routes.ts`、`backend/src/utils/validation.ts`、`frontend/src/services/api/auth.ts`、`frontend/src/services/api/session.ts`
 
 ---
@@ -16,7 +16,7 @@
 
 | API | Request（核心字段） | Success（前端實際用到） | 常見錯誤碼 | 副作用/狀態轉移 | 前端入口 |
 |---|---|---|---|---|---|
-| `POST /api/v1/auth/register` | `email`、`password(>=8,含字母數字)`、`nickname?` | `data.user`、`data.token` | `VALIDATION_ERROR`、`EMAIL_ALREADY_EXISTS`、`RATE_LIMIT_EXCEEDED` | 建立用戶、簽發 JWT | `/auth/register` |
+| `POST /api/v1/auth/register` | `email`、`password(>=8,含字母數字)`、`nickname?` | `data.user`、`data.token` | `VALIDATION_ERROR`、`EMAIL_EXISTS`、`RATE_LIMIT_EXCEEDED` | 建立用戶、簽發 JWT | `/auth/register` |
 | `POST /api/v1/auth/login` | `email`、`password` | `data.user`、`data.token`、`data.expires_in?` | `INVALID_CREDENTIALS`、`USER_LOCKED`、`RATE_LIMIT_EXCEEDED` | 更新最後登入時間、簽發 JWT | `/auth/login` |
 | `POST /api/v1/auth/send-verification-code` | `email`、`type(register/reset_password/verify_email)` | 成功旗標（無固定 data） | `RATE_LIMIT_EXCEEDED`、`INVALID_EMAIL` | 寫入驗證碼紀錄，觸發郵件發送 | `/auth/register`、`/auth/forgot-password` |
 | `POST /api/v1/auth/verify-email` | `email`、`code(6)`、`type` | `data.verified:boolean` | `VERIFICATION_CODE_INVALID`、`VERIFICATION_CODE_EXPIRED` | 依 type 更新驗證狀態 | 認證流程內 |

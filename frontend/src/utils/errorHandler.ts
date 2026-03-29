@@ -8,13 +8,15 @@ import { t } from '@/utils/i18n';
 
 /**
  * 處理API錯誤
+ * F10 約定：message 為空字串或純空白時使用對應 fallback，不顯示空白
  */
 export const handleApiError = (error: ApiError | Error | unknown): void => {
   let errorMessage = t('common.unknownError');
 
   if (error && typeof error === 'object') {
-    if ('message' in error && typeof error.message === 'string') {
-      errorMessage = error.message;
+    const rawMsg = 'message' in error ? (error as { message?: unknown }).message : undefined;
+    if (typeof rawMsg === 'string' && rawMsg.trim().length > 0) {
+      errorMessage = rawMsg;
     } else if ('code' in error && typeof error.code === 'string') {
       // 根據錯誤碼顯示對應的錯誤信息
       const errorCodeMap: Record<string, string> = {

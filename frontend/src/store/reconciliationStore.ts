@@ -70,7 +70,7 @@ export const useReconciliationStore = create<ReconciliationState>((set) => ({
       if (seq !== _reqSeq) return;
       set({ selectedPlan: plan, isLoading: false });
     } catch (error: unknown) {
-      if (seq !== _reqSeq) return;
+      if (seq !== _reqSeq) throw error;
       set({ error: getErrorMessage(error, 'message.selectPlanFail'), isLoading: false });
       throw error;
     }

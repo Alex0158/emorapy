@@ -77,7 +77,7 @@ export const invalidCaseRequests = {
 
   // 空的被告陳述
   emptyDefendant: {
-    plaintiff_statement: '我的陳述',
+    plaintiff_statement: '我已經多次清楚表達我的感受，但這個問題一直沒有被正面處理和回應。',
     defendant_statement: '',
   },
 

@@ -8,6 +8,8 @@ const mockAdminUserCreate = jest.fn();
 const mockAdminRoleFindUnique = jest.fn();
 const mockAdminRoleUpsert = jest.fn();
 const mockAuditLogCreate = jest.fn();
+const mockAuditLogFindMany = jest.fn();
+const mockAuditLogCount = jest.fn();
 
 jest.mock('../../../src/config/database', () => ({
   __esModule: true,
@@ -25,6 +27,8 @@ jest.mock('../../../src/config/database', () => ({
     },
     auditLog: {
       create: (...args: unknown[]) => mockAuditLogCreate(...args),
+      findMany: (...args: unknown[]) => mockAuditLogFindMany(...args),
+      count: (...args: unknown[]) => mockAuditLogCount(...args),
     },
   },
 }));
@@ -119,6 +123,26 @@ describe('admin.service safety guards', () => {
     );
   });
 
+  it('無管理員時應返回 items 空陣列與 total 0（F10 邊界）', async () => {
+    (mockAdminUserFindMany as any).mockResolvedValue([]);
+    (mockAdminUserCount as any).mockResolvedValue(0);
+
+    const result = await adminService.listAdminUsers({ limit: 20, offset: 0 });
+
+    expect(result.items).toEqual([]);
+    expect(result.total).toBe(0);
+  });
+
+  it('listAuditLogs 無審計時應返回 items 空陣列與 total 0（F10 邊界）', async () => {
+    (mockAuditLogFindMany as any).mockResolvedValue([]);
+    (mockAuditLogCount as any).mockResolvedValue(0);
+
+    const result = await adminService.listAuditLogs({ limit: 20, offset: 0 });
+
+    expect(result.items).toEqual([]);
+    expect(result.total).toBe(0);
+  });
+
   it('bootstrap 缺少 ADMIN_BOOTSTRAP_TOKEN 應拒絕', async () => {
     process.env.ADMIN_BOOTSTRAP_TOKEN = '';
     process.env.NODE_ENV = 'development';
@@ -175,5 +199,23 @@ describe('admin.service safety guards', () => {
         name: 'Root Admin',
       })
     ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  });
+
+  it('bootstrap roleKey 對應角色不存在時應拋出 VALIDATION_ERROR（F10 邊界）', async () => {
+    process.env.ADMIN_BOOTSTRAP_TOKEN = 'expected-token';
+    process.env.NODE_ENV = 'development';
+    (mockAdminUserCount as any).mockResolvedValue(0);
+    (mockAdminRoleFindUnique as any).mockResolvedValue(null);
+
+    await expect(
+      adminService.bootstrap({
+        email: 'root@example.com',
+        password: 'Password1234',
+        name: 'Root Admin',
+        bootstrapToken: 'expected-token',
+        roleKey: 'invalid_role' as any,
+      })
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: expect.stringContaining('角色') });
+    expect(mockAdminUserCreate).not.toHaveBeenCalled();
   });
 });

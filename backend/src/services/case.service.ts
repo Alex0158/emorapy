@@ -211,6 +211,10 @@ export class CaseService {
     const caseMode = data.mode || CASE_MODE.REMOTE;
     const hasDefendantStatement = data.defendant_statement && data.defendant_statement.trim().length > 0;
 
+    if (caseMode === CASE_MODE.COLLABORATIVE && !hasDefendantStatement) {
+      throw Errors.VALIDATION_ERROR('協作模式需同時提供雙方陳述');
+    }
+
     let caseType: string;
     try {
       caseType = await aiService.detectCaseType(
@@ -379,8 +383,11 @@ export class CaseService {
       throw Errors.CASE_NOT_EDITABLE('案件狀態不允許提交');
     }
 
-    if (case_.mode === CASE_MODE.REMOTE && (!case_.defendant_statement || !case_.defendant_statement.trim())) {
-      throw Errors.VALIDATION_ERROR('遠程模式需等待被告陳述後才能提交');
+    if (
+      (case_.mode === CASE_MODE.REMOTE || case_.mode === CASE_MODE.COLLABORATIVE) &&
+      (!case_.defendant_statement || !case_.defendant_statement.trim())
+    ) {
+      throw Errors.VALIDATION_ERROR('遠程/協作模式需等待被告陳述後才能提交');
     }
 
     const updatedCase = await prisma.case.update({
@@ -519,8 +526,8 @@ export class CaseService {
       throw Errors.NOT_FOUND('案件不存在');
     }
 
-    // 快速體驗模式：驗證Session ID
-    if (case_.mode === CASE_MODE.QUICK) {
+    // 匿名體驗模式（quick/collaborative）：驗證 Session ID
+    if (case_.mode === CASE_MODE.QUICK || case_.mode === CASE_MODE.COLLABORATIVE) {
       if (!sessionId || case_.session_id !== sessionId) {
         throw Errors.FORBIDDEN('無權限訪問此案件');
       }

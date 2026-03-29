@@ -1,7 +1,44 @@
-import { defineConfig } from 'vite';
+import type { IncomingMessage, ServerResponse } from 'node:http';
+import { defineConfig, type Plugin, type ViteDevServer } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import path from 'path';
+import pkg from './package.json';
+
+const appVersion = pkg.version;
+const appService = 'frontend';
+
+function versionManifestPlugin(): Plugin {
+  return {
+    name: 'version-manifest-plugin',
+    configureServer(server: ViteDevServer) {
+      server.middlewares.use('/version.json', (_req: IncomingMessage, res: ServerResponse) => {
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.setHeader('Cache-Control', 'no-store');
+        res.end(
+          JSON.stringify({
+            service: appService,
+            version: appVersion,
+          })
+        );
+      });
+    },
+    generateBundle() {
+      this.emitFile({
+        type: 'asset',
+        fileName: 'version.json',
+        source: JSON.stringify(
+          {
+            service: appService,
+            version: appVersion,
+          },
+          null,
+          2
+        ),
+      });
+    },
+  };
+}
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
@@ -34,7 +71,7 @@ export default defineConfig(({ mode }) => {
   };
 
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), versionManifestPlugin()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),
@@ -46,6 +83,8 @@ export default defineConfig(({ mode }) => {
         '@/utils': path.resolve(__dirname, './src/utils'),
         '@/types': path.resolve(__dirname, './src/types'),
         '@/assets': path.resolve(__dirname, './src/assets'),
+        '@cj/contracts': path.resolve(__dirname, '../packages/contracts/src'),
+        '@cj/api-client': path.resolve(__dirname, '../packages/api-client/src'),
       },
     },
     server: {
@@ -80,6 +119,8 @@ export default defineConfig(({ mode }) => {
       // 確保環境變量在構建時被正確替換
       __DEV__: JSON.stringify(isDevelopment),
       __PROD__: JSON.stringify(isProduction),
+      'import.meta.env.VITE_APP_VERSION': JSON.stringify(appVersion),
+      'import.meta.env.VITE_APP_SERVICE': JSON.stringify(appService),
     },
   };
 });

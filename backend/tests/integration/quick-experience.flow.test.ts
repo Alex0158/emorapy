@@ -14,6 +14,7 @@
  */
 
 import { jest, describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from '@jest/globals';
+import request from 'supertest';
 
 // 增加 Jest 超時以適應集成測試
 jest.setTimeout(60000);
@@ -66,6 +67,7 @@ import {
   createMockFiles,
   getPrismaClient,
   createExpiredTestSession,
+  randomString,
 } from './helpers/test-utils';
 import {
   validCaseRequests,
@@ -335,6 +337,181 @@ flowDescribe('快速體驗全流程集成測試', () => {
     });
   });
 
+  // ==================== 2.5 匿名升格 / claim-session 場景 ====================
+  describe('2.5 匿名升格 / claim-session 場景', () => {
+    it('註冊後 claim-session 應將 quick case 綁定到當前 user', async () => {
+      if (skipIfNoDatabase()) return;
+
+      await apiClient.createSession();
+      const caseResult = await apiClient.createQuickCase(validCaseRequests.coupleDispute);
+      expect(caseResult.response.status).toBe(httpStatus.CREATED);
+      const caseId = caseResult.data!.case.id;
+      const sessionId = caseResult.data!.session_id;
+
+      const email = `claim-${randomString(8)}@example.com`;
+      const registerRes = await request(app)
+        .post('/api/v1/auth/register')
+        .send({ email, password: 'Password123!', nickname: 'ClaimUser' });
+
+      expect(registerRes.status).toBe(httpStatus.CREATED);
+      expect(registerRes.body?.data?.token).toBeTruthy();
+      expect(registerRes.body?.data?.user?.id).toBeTruthy();
+
+      const token = registerRes.body.data.token as string;
+      const userId = registerRes.body.data.user.id as string;
+
+      const claimRes = await request(app)
+        .post('/api/v1/auth/claim-session')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ session_id: sessionId });
+
+      expect(claimRes.status).toBe(httpStatus.OK);
+      expect(claimRes.body?.data).toEqual({ case_id: caseId });
+
+      const claimedCase = await prisma.case.findUnique({ where: { id: caseId } });
+      expect(claimedCase?.plaintiff_id).toBe(userId);
+      expect(claimedCase?.mode).toBe('quick');
+    });
+
+    it('已被 claim 的 quick case 不應被後續用戶覆蓋', async () => {
+      if (skipIfNoDatabase()) return;
+
+      await apiClient.createSession();
+      const caseResult = await apiClient.createQuickCase(validCaseRequests.coupleDispute);
+      expect(caseResult.response.status).toBe(httpStatus.CREATED);
+      const caseId = caseResult.data!.case.id;
+      const sessionId = caseResult.data!.session_id;
+
+      const registerUser = async (suffix: string) => {
+        const email = `claim-${suffix}-${randomString(6)}@example.com`;
+        const res = await request(app)
+          .post('/api/v1/auth/register')
+          .send({ email, password: 'Password123!', nickname: suffix });
+        expect(res.status).toBe(httpStatus.CREATED);
+        return {
+          token: res.body.data.token as string,
+          userId: res.body.data.user.id as string,
+        };
+      };
+
+      const firstUser = await registerUser('first');
+      const secondUser = await registerUser('second');
+
+      const firstClaimRes = await request(app)
+        .post('/api/v1/auth/claim-session')
+        .set('Authorization', `Bearer ${firstUser.token}`)
+        .send({ session_id: sessionId });
+      expect(firstClaimRes.status).toBe(httpStatus.OK);
+      expect(firstClaimRes.body?.data).toEqual({ case_id: caseId });
+
+      const secondClaimRes = await request(app)
+        .post('/api/v1/auth/claim-session')
+        .set('Authorization', `Bearer ${secondUser.token}`)
+        .send({ session_id: sessionId });
+      expect(secondClaimRes.status).toBe(httpStatus.OK);
+      expect(secondClaimRes.body?.data).toEqual({ case_id: caseId });
+
+      const claimedCase = await prisma.case.findUnique({ where: { id: caseId } });
+      expect(claimedCase?.plaintiff_id).toBe(firstUser.userId);
+    });
+  });
+
+  // ==================== 2.6 協作聽證場景 ====================
+  describe('2.6 協作聽證場景', () => {
+    it('應該完成協作聽證流程：角色A建立 -> 角色B提交 -> 判決可讀取', async () => {
+      if (skipIfNoDatabase()) return;
+
+      const sessionResult = await apiClient.createSession();
+      expect([httpStatus.OK, httpStatus.CREATED]).toContain(sessionResult.response.status);
+      expect(sessionResult.data?.session_id).toBeTruthy();
+
+      const roleAStatement = validCaseRequests.coupleDispute.plaintiff_statement;
+      const roleBStatement = validCaseRequests.coupleDispute.defendant_statement;
+
+      const roleAResult = await apiClient.createCollaborativeCase({
+        plaintiff_statement: roleAStatement,
+      });
+
+      expect(roleAResult.response.status).toBe(httpStatus.CREATED);
+      expect(roleAResult.data?.phase).toBe('a_done');
+      expect(roleAResult.data?.case.mode).toBe('collaborative');
+      expect(roleAResult.data?.case.status).toBe('draft');
+      expect(roleAResult.data?.case.plaintiff_statement).toBe(roleAStatement);
+
+      const caseId = roleAResult.data!.case.id;
+
+      const roleBResult = await apiClient.createCollaborativeCase({
+        case_id: caseId,
+        defendant_statement: roleBStatement,
+      });
+
+      expect(roleBResult.response.status).toBe(httpStatus.OK);
+      expect(roleBResult.data?.phase).toBe('submitted');
+      expect(roleBResult.data?.case.status).toBe('submitted');
+      expect(roleBResult.data?.case.defendant_statement).toBe(roleBStatement);
+
+      const caseDetailResult = await apiClient.getCase(caseId);
+      expect(caseDetailResult.response.status).toBe(httpStatus.OK);
+      expect(caseDetailResult.data?.id).toBe(caseId);
+      expect(caseDetailResult.data?.mode).toBe('collaborative');
+
+      await sleep(500);
+
+      const pollResult = await apiClient.pollJudgment(caseId, {
+        maxAttempts: pollingConfig.testMaxAttempts,
+        intervalMs: pollingConfig.testIntervalMs,
+      });
+
+      expect(pollResult.timedOut).toBe(false);
+      expect(pollResult.judgment).toBeDefined();
+      expect(pollResult.judgment?.summary).toBeTruthy();
+    }, 30000);
+
+    it('角色B 使用錯誤 session 提交時應被拒絕', async () => {
+      if (skipIfNoDatabase()) return;
+
+      await apiClient.createSession();
+      const roleAResult = await apiClient.createCollaborativeCase({
+        plaintiff_statement: validCaseRequests.coupleDispute.plaintiff_statement,
+      });
+      expect(roleAResult.response.status).toBe(httpStatus.CREATED);
+
+      const caseId = roleAResult.data!.case.id;
+      apiClient.setSessionId('guest_wrong_session_id');
+
+      const roleBResult = await apiClient.createCollaborativeCase({
+        case_id: caseId,
+        defendant_statement: validCaseRequests.coupleDispute.defendant_statement,
+      });
+
+      expect(roleBResult.response.status).toBe(httpStatus.FORBIDDEN);
+      expect(roleBResult.error?.code).toBe('FORBIDDEN');
+    });
+
+    it('角色B 重複提交同一 collaborative case 時應返回 CASE_NOT_EDITABLE', async () => {
+      if (skipIfNoDatabase()) return;
+
+      await apiClient.createSession();
+      const roleAResult = await apiClient.createCollaborativeCase({
+        plaintiff_statement: validCaseRequests.coupleDispute.plaintiff_statement,
+      });
+      expect(roleAResult.response.status).toBe(httpStatus.CREATED);
+
+      const caseId = roleAResult.data!.case.id;
+      const roleBPayload = {
+        case_id: caseId,
+        defendant_statement: validCaseRequests.coupleDispute.defendant_statement,
+      };
+
+      const firstSubmit = await apiClient.createCollaborativeCase(roleBPayload);
+      expect(firstSubmit.response.status).toBe(httpStatus.OK);
+
+      const duplicateSubmit = await apiClient.createCollaborativeCase(roleBPayload);
+      expect(duplicateSubmit.response.status).toBe(httpStatus.UNPROCESSABLE_ENTITY);
+      expect(duplicateSubmit.error?.code).toBe('CASE_NOT_EDITABLE');
+    });
+  });
+
   // ==================== 3. 案件創建場景 ====================
   describe('3. 案件創建場景', () => {
     beforeEach(async () => {
@@ -348,11 +525,12 @@ flowDescribe('快速體驗全流程集成測試', () => {
       expect(result.error).toBeDefined();
     });
 
-    it('應該驗證被告陳述不能為空', async () => {
+    it('應該允許被告陳述為空字串並成功建立 quick case（服務層應正規化為 null）', async () => {
       const result = await apiClient.createQuickCase(invalidCaseRequests.emptyDefendant);
-      
-      expect([httpStatus.BAD_REQUEST, httpStatus.UNPROCESSABLE_ENTITY]).toContain(result.response.status);
-      expect(result.error).toBeDefined();
+
+      expect(result.response.status).toBe(httpStatus.CREATED);
+      expect(result.data?.case).toBeDefined();
+      expect(result.data?.case.defendant_statement).toBeNull();
     });
 
     it('應該驗證陳述長度限制', async () => {

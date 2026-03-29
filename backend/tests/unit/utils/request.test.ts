@@ -10,6 +10,7 @@ import {
   getSessionIdFromSources,
 } from '../../../src/utils/request';
 import type { Request } from 'express';
+import { AppError } from '../../../src/utils/errors';
 
 function mockReq(overrides: Partial<{
   user?: { id: string; email: string };
@@ -26,14 +27,25 @@ describe('utils/request', () => {
       expect(getAuthUserId(req)).toBe('uid-1');
     });
 
-    it('應在 user 為 undefined 時拋錯', () => {
+    it('應在 user 為 undefined 時拋 UNAUTHORIZED', () => {
       const req = mockReq();
-      expect(() => getAuthUserId(req)).toThrow('User not authenticated');
+      expect(() => getAuthUserId(req)).toThrow(AppError);
+      try {
+        getAuthUserId(req);
+      } catch (e) {
+        expect((e as AppError).code).toBe('UNAUTHORIZED');
+        expect((e as AppError).statusCode).toBe(401);
+      }
     });
 
-    it('應在 user.id 為 undefined 時拋錯', () => {
+    it('應在 user.id 為 undefined 時拋 UNAUTHORIZED', () => {
       const req = mockReq({ user: { id: undefined as unknown as string, email: 'a@b.com' } });
-      expect(() => getAuthUserId(req)).toThrow('User not authenticated');
+      expect(() => getAuthUserId(req)).toThrow(AppError);
+      try {
+        getAuthUserId(req);
+      } catch (e) {
+        expect((e as AppError).code).toBe('UNAUTHORIZED');
+      }
     });
   });
 
@@ -102,6 +114,49 @@ describe('utils/request', () => {
       } as unknown as Request;
       const result = getSessionIdFromSources(req);
       expect(result.sessionId).toBe('query-only');
+      expect(result.hasConflict).toBe(false);
+    });
+
+    it('header 與 query 皆無時應返回 undefined 且 hasConflict 為 false', () => {
+      const req = { headers: {}, query: {} } as unknown as Request;
+      const result = getSessionIdFromSources(req);
+      expect(result.sessionId).toBeUndefined();
+      expect(result.headerSessionId).toBeUndefined();
+      expect(result.querySessionId).toBeUndefined();
+      expect(result.hasConflict).toBe(false);
+    });
+
+    it('query.session_id 為陣列時應忽略（非字串）', () => {
+      const req = {
+        headers: {},
+        query: { session_id: ['a', 'b'] },
+      } as unknown as Request;
+      const result = getSessionIdFromSources(req);
+      expect(result.querySessionId).toBeUndefined();
+      expect(result.sessionId).toBeUndefined();
+    });
+
+    it('header 與 query 相同時 hasConflict 應為 false', () => {
+      const req = {
+        headers: { 'x-session-id': 'same-sid' },
+        query: { session_id: 'same-sid' },
+      } as unknown as Request;
+      const result = getSessionIdFromSources(req);
+      expect(result.sessionId).toBe('same-sid');
+      expect(result.hasConflict).toBe(false);
+    });
+
+    it('query 為 undefined 時應不崩潰且返回 header 或 undefined', () => {
+      const req = { headers: { 'x-session-id': 'h-sid' }, query: undefined } as unknown as Request;
+      const result = getSessionIdFromSources(req);
+      expect(result.sessionId).toBe('h-sid');
+      expect(result.hasConflict).toBe(false);
+    });
+
+    it('query 為 undefined 且 header 無 session 時應返回 undefined', () => {
+      const req = { headers: {}, query: undefined } as unknown as Request;
+      const result = getSessionIdFromSources(req);
+      expect(result.sessionId).toBeUndefined();
       expect(result.hasConflict).toBe(false);
     });
   });

@@ -31,12 +31,56 @@
   }
 
   .ai-analyzing-container {
+    text-align: center;
+    padding: 60px 20px;
+
     h2 {
       color: @color-text-primary !important;
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 16px;
     }
     .ant-typography {
       color: @color-text-secondary !important;
+      font-size: 16px;
+      display: block;
+      margin-bottom: 32px;
     }
+  }
+
+  .ai-analyzing-spinner {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 30px;
+    border-radius: 50%;
+    background: conic-gradient(from 0deg, @color-primary, @color-secondary, @color-primary);
+    box-shadow: 0 0 30px fade(@color-primary, 50%);
+  }
+
+  .ai-analyzing-tip-card {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 20px 24px;
+    background: fade(@color-primary, 5%);
+    border-radius: @border-radius-lg;
+    border: 1px solid fade(@color-primary, 20%);
+  }
+
+  .ai-analyzing-tip-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+
+    .anticon { color: @color-primary; font-size: 16px; }
+    .ant-typography { color: @color-primary !important; font-size: 13px; margin-bottom: 0 !important; }
+  }
+
+  .ai-analyzing-tip-content {
+    font-size: 14px;
+    line-height: 1.7;
+    display: block;
+    text-align: left;
   }
 
   .result-header {
@@ -159,7 +203,7 @@
       font-weight: 800;
       color: @color-text-primary;
       text-align: center;
-      margin-bottom: 32px !important;
+      margin-bottom: 32px;
     }
 
     .judgment-viewer-wrapper {
@@ -195,9 +239,23 @@
   }
 
   @media (max-width: 768px) {
-    .result-header { padding: 60px 0 32px; .result-title { font-size: 36px; } }
+    .result-header {
+      padding: 60px 0 32px;
+      .result-title { font-size: 36px; }
+      .result-subtitle { font-size: 17px; }
+    }
     .responsibility-section .responsibility-card { padding: 32px 20px; }
-    .actions-section .primary-actions { flex-direction: column; width: 100%; gap: 16px; .action-button { width: 100%; } }
-    .judgment-section .judgment-viewer-wrapper { padding: 20px; }
+    .actions-section .primary-actions {
+      flex-direction: column;
+      width: 100%;
+      gap: 16px;
+      .action-button { width: 100%; }
+    }
+    .judgment-section {
+      .section-title { font-size: 26px; margin-bottom: 24px; }
+      .judgment-viewer-wrapper { padding: 20px; }
+    }
+    .summary-section .ant-collapse-header { padding: 20px 24px !important; }
+    .container { padding: 0 16px; }
   }
 }

@@ -91,4 +91,16 @@
     70% { box-shadow: 0 0 0 6px fade(@color-primary, 0%); }
     100% { box-shadow: 0 0 0 0 fade(@color-primary, 0%); }
   }
+
+  @media (max-width: 768px) {
+    .ant-card-head { padding: 16px 20px; .ant-card-head-title { font-size: 20px; } }
+    .judgment-actions { padding: 12px 20px; }
+    .judgment-content {
+      padding: 20px;
+      .judgment-accordion .ant-collapse-item {
+        .ant-collapse-header { padding: 16px 20px; }
+        .ant-collapse-content-box { padding: 16px; }
+      }
+    }
+  }
 }

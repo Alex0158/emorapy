@@ -29,6 +29,12 @@ export interface QuickCaseRequest {
   evidence_urls?: string[];
 }
 
+export interface CollaborativeCaseRequest {
+  case_id?: string;
+  plaintiff_statement?: string;
+  defendant_statement?: string;
+}
+
 export interface QuickCaseResponse {
   case: {
     id: string;
@@ -45,6 +51,25 @@ export interface QuickCaseResponse {
   };
   session_id: string;
   session_expires_at?: string;
+}
+
+export interface CollaborativeCaseResponse {
+  case: {
+    id: string;
+    title: string;
+    type: string;
+    status: string;
+    plaintiff_statement: string;
+    defendant_statement?: string | null;
+    session_id: string;
+    mode: string;
+    pairing_id: string;
+    created_at: string;
+    submitted_at?: string | null;
+  };
+  session_id: string;
+  session_expires_at?: string;
+  phase: 'a_done' | 'submitted';
 }
 
 export interface Judgment {
@@ -164,6 +189,32 @@ export class ApiClient {
       return { response, data: body.data, error: null };
     }
     
+    return { response, data: null, error: body.error || null };
+  }
+
+  /**
+   * 創建/更新協作聽證案件
+   * POST /api/v1/cases/collaborative
+   */
+  async createCollaborativeCase(data: CollaborativeCaseRequest): Promise<{
+    response: request.Response;
+    data: CollaborativeCaseResponse | null;
+    error: ApiResponse['error'] | null;
+  }> {
+    const response = await request(this.app)
+      .post(`${this.baseUrl}/cases/collaborative`)
+      .set(this.getHeaders())
+      .send(data);
+
+    const body = response.body as ApiResponse<CollaborativeCaseResponse>;
+
+    if (body.success && body.data) {
+      if (body.data.session_id) {
+        this.sessionId = body.data.session_id;
+      }
+      return { response, data: body.data, error: null };
+    }
+
     return { response, data: null, error: body.error || null };
   }
 

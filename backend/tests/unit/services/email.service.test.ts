@@ -11,6 +11,7 @@ const mockEnvRef = {
   SMTP_USER: undefined as string | undefined,
   SMTP_PASS: undefined as string | undefined,
   SMTP_PORT: 587,
+  EMAIL_FROM: undefined as string | undefined,
 };
 
 jest.mock('nodemailer', () => ({
@@ -164,6 +165,17 @@ describe('EmailService', () => {
       expect(mockSendMail).toHaveBeenCalledWith(expect.objectContaining({ to: 'u1@x.com' }));
     });
 
+    it('findMany 返回空陣列時應不發送且不拋錯（候選功能邊界：雙方皆不存在）', async () => {
+      mockEnvRef.SMTP_HOST = 'smtp.example.com';
+      mockEnvRef.SMTP_USER = 'noreply@example.com';
+      mockEnvRef.SMTP_PASS = 'secret';
+      const svc = new EmailService();
+      dbMock.user.findMany.mockResolvedValue([]);
+
+      await expect(svc.sendPairingNotification('u-missing-1', 'u-missing-2')).resolves.toBeUndefined();
+      expect(mockSendMail).not.toHaveBeenCalled();
+    });
+
     it('sendPairingNotification 發送失敗時應記錄 logger.error 且不拋錯', async () => {
       mockEnvRef.SMTP_HOST = 'smtp.example.com';
       mockEnvRef.SMTP_USER = 'noreply@example.com';
@@ -198,6 +210,18 @@ describe('EmailService', () => {
       dbMock.user.findUnique.mockResolvedValue({ email: null, nickname: 'U' });
 
       await svc.sendJudgmentNotification('u1', 'case-1');
+
+      expect(mockSendMail).not.toHaveBeenCalled();
+    });
+
+    it('用戶不存在時應靜默返回（候選功能邊界：findUnique 返回 null 不拋錯）', async () => {
+      mockEnvRef.SMTP_HOST = 'smtp.example.com';
+      mockEnvRef.SMTP_USER = 'noreply@example.com';
+      mockEnvRef.SMTP_PASS = 'secret';
+      const svc = new EmailService();
+      dbMock.user.findUnique.mockResolvedValue(null);
+
+      await svc.sendJudgmentNotification('u-missing', 'case-1');
 
       expect(mockSendMail).not.toHaveBeenCalled();
     });

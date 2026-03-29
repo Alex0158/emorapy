@@ -3,8 +3,10 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
+import { useMountedRef } from '@/hooks/useMountedRef';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
+  Alert,
   Card,
   Button,
   Typography,
@@ -35,6 +37,7 @@ import {
   getPlanTypeTagColor,
 } from '@/utils/statusTags';
 import { t } from '@/utils/i18n';
+import { getErrorMessage } from '@/utils/apiError';
 import { safeParsePlanContent } from '@/utils/planContent';
 import './List.less';
 
@@ -49,8 +52,13 @@ const ReconciliationList = () => {
   const [generating, setGenerating] = useState(false);
   const [difficultyFilter, setDifficultyFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [loadError, setLoadError] = useState<string | null>(null);
 
+  const mountedRef = useMountedRef();
   const staleRef = useRef(false);
+  const fetchLockRef = useRef(false);
+  const selectingPlanIdRef = useRef<string | null>(null);
+  const generatingLockRef = useRef(false);
   useEffect(() => {
     staleRef.current = false;
     setPlans([]);
@@ -62,7 +70,10 @@ const ReconciliationList = () => {
   }, [judgmentId, difficultyFilter, typeFilter]);
 
   const fetchPlans = async () => {
+    if (fetchLockRef.current) return;
+    fetchLockRef.current = true;
     setLoading(true);
+    setLoadError(null);
     try {
       const filters: {
         difficulty?: 'easy' | 'medium' | 'hard';
@@ -76,44 +87,60 @@ const ReconciliationList = () => {
       }
       const plansData = await getPlans(judgmentId!, filters);
       if (staleRef.current) return;
-      setPlans(plansData);
+      setPlans(Array.isArray(plansData) ? plansData : []);
     } catch (error: unknown) {
       if (staleRef.current) return;
       const err = error as { code?: string; message?: string };
       if (err.code === 'NOT_FOUND' || err.code === 'HTTP_404') {
         setPlans([]);
       } else {
-        message.error(err.message ?? t('message.getPlansFail'));
+        const msg = getErrorMessage(error, 'message.getPlansFail');
+        message.error(msg);
+        setLoadError(msg);
+        setPlans([]);
       }
     } finally {
+      fetchLockRef.current = false;
       if (!staleRef.current) setLoading(false);
     }
   };
 
   const handleGeneratePlans = async () => {
-    if (!judgmentId || generating) return;
+    if (!judgmentId || generatingLockRef.current) return;
+    generatingLockRef.current = true;
     setGenerating(true);
     try {
       const generatedPlans = await generatePlans(judgmentId);
-      message.success(t('message.generatePlansSuccessCount').replace('{count}', String(generatedPlans.length)));
-      setPlans(generatedPlans);
+      if (!mountedRef.current) return;
+      const plansArray = Array.isArray(generatedPlans) ? generatedPlans : [];
+      message.success(t('message.generatePlansSuccessCount').replace('{count}', String(plansArray.length)));
+      setPlans(plansArray);
     } catch (error: unknown) {
-      const msg = (error as { message?: string })?.message || t('message.generatePlansFail');
-      message.error(msg);
+      if (mountedRef.current) {
+        message.error(getErrorMessage(error, 'message.generatePlansFail'));
+      }
     } finally {
-      setGenerating(false);
+      generatingLockRef.current = false;
+      if (mountedRef.current) {
+        setGenerating(false);
+      }
     }
   };
 
   const handleSelectPlan = async (planId: string) => {
-    if (!judgmentId) return;
+    if (!judgmentId || selectingPlanIdRef.current) return;
+    selectingPlanIdRef.current = planId;
     try {
       await selectPlan(planId);
+      if (!mountedRef.current) return;
       message.success(t('message.selectPlanSuccess'));
       navigate(`/reconciliation/${judgmentId}/${planId}`);
     } catch (error: unknown) {
-      const msg = (error as { message?: string })?.message || t('message.selectPlanFail');
-      message.error(msg);
+      if (mountedRef.current) {
+        message.error(getErrorMessage(error, 'message.selectPlanFail'));
+      }
+    } finally {
+      selectingPlanIdRef.current = null;
     }
   };
 
@@ -124,7 +151,7 @@ const ReconciliationList = () => {
         description={t('reconList.description')}
       />
       <div className="reconciliation-list-page" role="main" aria-label={t('reconList.pageLabel')}>
-        <div className="adaptive-hero-section mb-12 bg-gradient-to-br from-background to-gray-50 rounded-b-[40px] shadow-sm p-8 text-center">
+        <div className="page-hero page-hero--centered">
           <AnimatedWrapper animation="fade" delay={100}>
             <div className="page-header flex flex-col items-center" aria-labelledby="reconciliation-title">
               <MediatorAvatar size="medium" animated />
@@ -168,6 +195,25 @@ const ReconciliationList = () => {
               </Space>
             </div>
           </AnimatedWrapper>
+
+        {loadError ? (
+          <Alert
+            type="error"
+            showIcon
+            title={loadError}
+            action={
+              <Space>
+                <Button size="small" loading={loading} onClick={() => fetchPlans()} data-testid="recon-list-load-retry">
+                  {t('common.retry')}
+                </Button>
+                <Button size="small" type="primary" onClick={() => judgmentId && navigate(`/judgment/${judgmentId}`)} data-testid="recon-list-back-judgment">
+                  {t('reconList.backToJudgment')}
+                </Button>
+              </Space>
+            }
+            style={{ marginBottom: 16 }}
+          />
+        ) : null}
 
         <Spin spinning={loading || generating} description={generating ? t('reconList.generating') : t('common.loading')}>
           {plans.length === 0 ? (
@@ -275,4 +321,3 @@ const ReconciliationList = () => {
 };
 
 export default ReconciliationList;
-

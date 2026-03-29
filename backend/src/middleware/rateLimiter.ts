@@ -6,7 +6,9 @@ import { translateBackendMessage } from '../i18n';
 
 // 根據環境調整限流配置
 const isDevelopment = env.NODE_ENV === 'development';
+const isTest = env.NODE_ENV === 'test';
 const isProduction = env.NODE_ENV === 'production';
+const shouldSkipRateLimit = () => (isDevelopment || isTest) && process.env.SKIP_RATE_LIMIT === 'true';
 
 // 開發環境：更寬鬆的限流（方便調試）
 // 生產環境：嚴格的限流（安全）
@@ -44,7 +46,7 @@ export const generalLimiter = rateLimit({
   // 開發環境：不需要此配置
   validate: isProduction ? { trustProxy: false } : undefined,
   // 開發環境跳過限流（方便調試）
-  skip: (_req: Request, _res: Response) => isDevelopment && process.env.SKIP_RATE_LIMIT === 'true',
+  skip: (_req: Request, _res: Response) => shouldSkipRateLimit(),
 });
 
 // 認證接口限流
@@ -56,7 +58,7 @@ export const authLimiter = rateLimit({
   handler: createRateLimitHandler('認證請求過於頻繁，請稍後再試'),
   skipSuccessfulRequests: true, // 成功請求不計入限流
   validate: isProduction ? { trustProxy: false } : undefined,
-  skip: (_req: Request, _res: Response) => isDevelopment && process.env.SKIP_RATE_LIMIT === 'true',
+  skip: (_req: Request, _res: Response) => shouldSkipRateLimit(),
 });
 
 // 註冊接口限流
@@ -67,7 +69,7 @@ export const registerLimiter = rateLimit({
   max: registerLimitConfig.max,
   handler: createRateLimitHandler('註冊請求過於頻繁，請稍後再試'),
   validate: isProduction ? { trustProxy: false } : undefined,
-  skip: (_req: Request, _res: Response) => isDevelopment && process.env.SKIP_RATE_LIMIT === 'true',
+  skip: (_req: Request, _res: Response) => shouldSkipRateLimit(),
 });
 
 // 驗證碼接口限流（每郵箱每5分鐘1次）
@@ -81,7 +83,7 @@ export const verificationCodeLimiter = rateLimit({
   },
   handler: createRateLimitHandler('驗證碼發送過於頻繁，請稍後再試'),
   validate: isProduction ? { trustProxy: false } : undefined,
-  skip: (_req: Request, _res: Response) => isDevelopment && process.env.SKIP_RATE_LIMIT === 'true',
+  skip: (_req: Request, _res: Response) => shouldSkipRateLimit(),
 });
 
 // 驗證碼驗證接口限流（防暴力破解6位數字驗證碼）
@@ -96,7 +98,7 @@ export const verifyCodeLimiter = rateLimit({
   },
   handler: createRateLimitHandler('驗證碼嘗試過於頻繁，請15分鐘後再試'),
   validate: isProduction ? { trustProxy: false } : undefined,
-  skip: (_req: Request, _res: Response) => isDevelopment && process.env.SKIP_RATE_LIMIT === 'true',
+  skip: (_req: Request, _res: Response) => shouldSkipRateLimit(),
 });
 
 // 重設密碼請求限流（防郵件轟炸）
@@ -109,7 +111,7 @@ export const resetPasswordLimiter = rateLimit({
   },
   handler: createRateLimitHandler('重設密碼請求過於頻繁，請稍後再試'),
   validate: isProduction ? { trustProxy: false } : undefined,
-  skip: (_req: Request, _res: Response) => isDevelopment && process.env.SKIP_RATE_LIMIT === 'true',
+  skip: (_req: Request, _res: Response) => shouldSkipRateLimit(),
 });
 
 // 重設密碼確認限流（防暴力破解驗證碼）
@@ -123,7 +125,7 @@ export const resetConfirmLimiter = rateLimit({
   },
   handler: createRateLimitHandler('重設密碼嘗試過於頻繁，請15分鐘後再試'),
   validate: isProduction ? { trustProxy: false } : undefined,
-  skip: (_req: Request, _res: Response) => isDevelopment && process.env.SKIP_RATE_LIMIT === 'true',
+  skip: (_req: Request, _res: Response) => shouldSkipRateLimit(),
 });
 
 // 配對加入限流（防邀請碼暴力破解）
@@ -137,7 +139,7 @@ export const pairingJoinLimiter = rateLimit({
   },
   handler: createRateLimitHandler('配對嘗試過於頻繁，請稍後再試'),
   validate: isProduction ? { trustProxy: false } : undefined,
-  skip: (_req: Request, _res: Response) => isDevelopment && process.env.SKIP_RATE_LIMIT === 'true',
+  skip: (_req: Request, _res: Response) => shouldSkipRateLimit(),
 });
 
 // AI接口限流
@@ -153,7 +155,7 @@ export const aiLimiter = rateLimit({
   handler: createRateLimitHandler('AI服務請求過於頻繁，請稍後再試'),
   skipSuccessfulRequests: false, // AI請求都計入限流
   validate: isProduction ? { trustProxy: false } : undefined,
-  skip: (_req: Request, _res: Response) => isDevelopment && process.env.SKIP_RATE_LIMIT === 'true',
+  skip: (_req: Request, _res: Response) => shouldSkipRateLimit(),
 });
 
 // 文件上傳限流
@@ -169,7 +171,7 @@ export const uploadLimiter = rateLimit({
   },
   handler: createRateLimitHandler('文件上傳過於頻繁，請稍後再試'),
   validate: isProduction ? { trustProxy: false } : undefined,
-  skip: (_req: Request, _res: Response) => isDevelopment && process.env.SKIP_RATE_LIMIT === 'true',
+  skip: (_req: Request, _res: Response) => shouldSkipRateLimit(),
 });
 
 // 文件下載/訪問限流（保護 /uploads）
@@ -180,7 +182,7 @@ export const downloadLimiter = rateLimit({
   keyGenerator: (req: Request) => (req.ip || 'unknown'),
   handler: createRateLimitHandler('訪問過於頻繁，請稍後再試'),
   validate: isProduction ? { trustProxy: false } : undefined,
-  skip: (_req: Request, _res: Response) => isDevelopment && process.env.SKIP_RATE_LIMIT === 'true',
+  skip: (_req: Request, _res: Response) => shouldSkipRateLimit(),
 });
 
 // 訪談開始限流 (per user, per hour) — DDoS 安全網
@@ -192,7 +194,7 @@ export const interviewStartLimiter = rateLimit({
   keyGenerator: (req: Request) => req.user?.id ?? req.ip ?? 'anonymous',
   handler: createRateLimitHandler('開始訪談過於頻繁，請稍後再試'),
   validate: isProduction ? { trustProxy: false } : undefined,
-  skip: (_req: Request, _res: Response) => isDevelopment && process.env.SKIP_RATE_LIMIT === 'true',
+  skip: (_req: Request, _res: Response) => shouldSkipRateLimit(),
 });
 
 // 訪談回覆限流 (per user, per minute)
@@ -203,5 +205,5 @@ export const interviewRespondLimiter = rateLimit({
   keyGenerator: (req: Request) => req.user?.id ?? req.ip ?? 'anonymous',
   handler: createRateLimitHandler('回覆過於頻繁，請稍後再試'),
   validate: isProduction ? { trustProxy: false } : undefined,
-  skip: (_req: Request, _res: Response) => isDevelopment && process.env.SKIP_RATE_LIMIT === 'true',
+  skip: (_req: Request, _res: Response) => shouldSkipRateLimit(),
 });

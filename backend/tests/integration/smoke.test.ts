@@ -35,6 +35,7 @@ jest.mock('../../src/services/ai.service', () => {
 const mockPrismaClient: any = {
   $connect: jest.fn().mockResolvedValue(undefined as never),
   $disconnect: jest.fn().mockResolvedValue(undefined as never),
+  $queryRaw: jest.fn().mockResolvedValue([] as never),
   quickSession: {
     create: jest.fn(),
     findUnique: jest.fn(),
@@ -79,6 +80,14 @@ const mockPrismaClient: any = {
   user: {
     deleteMany: jest.fn(),
   },
+  contentItem: {
+    findMany: jest.fn().mockResolvedValue([] as never),
+    findUnique: jest.fn(),
+  },
+  caseContentLink: {
+    findMany: jest.fn().mockResolvedValue([] as never),
+    upsert: jest.fn(),
+  },
   $transaction: jest.fn().mockImplementation((fn: unknown) => (fn as (prisma: any) => Promise<any>)(mockPrismaClient)),
 };
 
@@ -121,6 +130,18 @@ describe('煙霧測試 (Smoke Test)', () => {
       expect(response.body).toHaveProperty('status');
     });
 
+    it('GET /health/live 應返回 200 alive（K8s 存活探針端點可達）', async () => {
+      const response = await request(app).get('/health/live');
+      expect(response.status).toBe(200);
+      expect(response.body.status).toBe('alive');
+    });
+
+    it('GET /health/ready 應返回 200 或 503（K8s 就緒探針端點可達）', async () => {
+      const response = await request(app).get('/health/ready');
+      expect([200, 503]).toContain(response.status);
+      expect(response.body).toHaveProperty('status');
+    });
+
     it('不存在的接口應返回404', async () => {
       const response = await request(app).get('/api/v1/non-existent-endpoint');
       
@@ -158,6 +179,196 @@ describe('煙霧測試 (Smoke Test)', () => {
     });
   });
 
+  describe('F01 升格相關端點可達性', () => {
+    it('POST /api/v1/auth/claim-session 無 token 時應返回 401（F01 升格前置：端點可達）', async () => {
+      const response = await request(app)
+        .post('/api/v1/auth/claim-session')
+        .set('Content-Type', 'application/json')
+        .send({ session_id: 'guest_1234567890' });
+      expect(response.status).toBe(401);
+    });
+
+    it('POST /api/v1/sessions/quick 應返回 201 且含 session_id（F01 session 創建端點可達）', async () => {
+      mockPrismaClient.quickSession.create.mockResolvedValueOnce({
+        id: 'guest_test123',
+        expires_at: new Date(Date.now() + 86400000),
+      });
+      const response = await request(app)
+        .post('/api/v1/sessions/quick')
+        .set('Content-Type', 'application/json');
+      expect([200, 201]).toContain(response.status);
+      expect(response.body?.data?.session_id).toBeTruthy();
+    });
+
+    it('POST /api/v1/sessions/refresh 無 session 時應返回 200 且含 session_id（F01 session refresh 端點可達）', async () => {
+      mockPrismaClient.quickSession.create.mockResolvedValue({
+        id: 'guest_refresh123',
+        expires_at: new Date(Date.now() + 86400000),
+      });
+      const response = await request(app)
+        .post('/api/v1/sessions/refresh')
+        .set('Content-Type', 'application/json');
+      expect([200, 201]).toContain(response.status);
+      expect(response.body?.data?.session_id).toBeTruthy();
+    });
+
+    it('GET /api/v1/content-items 應返回 200 且含 items（F01 content tips 端點可達）', async () => {
+      mockPrismaClient.contentItem.findMany.mockResolvedValue([]);
+      const response = await request(app).get('/api/v1/content-items');
+      expect(response.status).toBe(200);
+      expect(response.body?.data?.items).toBeDefined();
+      expect(Array.isArray(response.body?.data?.items)).toBe(true);
+    });
+
+    it('GET /api/v1/content-items/recommendations/:caseId 無效 UUID 時應返回驗證錯誤（F01/F05 推薦端點可達與驗證）', async () => {
+      const response = await request(app).get(
+        '/api/v1/content-items/recommendations/invalid-uuid'
+      );
+      expect([400, 422]).toContain(response.status);
+    });
+  });
+
+  describe('F09 認證端點可達性', () => {
+    it('POST /api/v1/auth/send-verification-code 無效 email 時應返回驗證錯誤（F09 端點可達）', async () => {
+      const response = await request(app)
+        .post('/api/v1/auth/send-verification-code')
+        .set('Content-Type', 'application/json')
+        .send({ email: 'invalid', type: 'register' });
+      expect([400, 422]).toContain(response.status);
+    });
+
+    it('POST /api/v1/auth/login 缺少必填字段時應返回驗證錯誤（F09 端點可達）', async () => {
+      const response = await request(app)
+        .post('/api/v1/auth/login')
+        .set('Content-Type', 'application/json')
+        .send({});
+      expect([400, 422]).toContain(response.status);
+    });
+
+    it('POST /api/v1/auth/register 缺少必填字段時應返回驗證錯誤（F09 端點可達）', async () => {
+      const response = await request(app)
+        .post('/api/v1/auth/register')
+        .set('Content-Type', 'application/json')
+        .send({});
+      expect([400, 422]).toContain(response.status);
+    });
+
+    it('POST /api/v1/auth/reset-password 缺少必填字段時應返回驗證錯誤（F09 忘記密碼端點可達）', async () => {
+      const response = await request(app)
+        .post('/api/v1/auth/reset-password')
+        .set('Content-Type', 'application/json')
+        .send({});
+      expect([400, 422]).toContain(response.status);
+    });
+
+    it('POST /api/v1/auth/verify-email 缺少必填字段時應返回驗證錯誤（F09 驗證端點可達）', async () => {
+      const response = await request(app)
+        .post('/api/v1/auth/verify-email')
+        .set('Content-Type', 'application/json')
+        .send({});
+      expect([400, 422]).toContain(response.status);
+    });
+
+    it('POST /api/v1/auth/reset-password-confirm 缺少必填字段時應返回驗證錯誤（F09 確認重置端點可達）', async () => {
+      const response = await request(app)
+        .post('/api/v1/auth/reset-password-confirm')
+        .set('Content-Type', 'application/json')
+        .send({});
+      expect([400, 422]).toContain(response.status);
+    });
+
+    it('GET /api/v1/user/profile 無 token 時應返回 401（F09 個人資料端點可達）', async () => {
+      const response = await request(app).get('/api/v1/user/profile');
+      expect(response.status).toBe(401);
+    });
+  });
+
+  describe('F08 配對端點可達性', () => {
+    it('GET /api/v1/pairing/status 無 token 時應返回 401（F08 配對端點可達）', async () => {
+      const response = await request(app).get('/api/v1/pairing/status');
+      expect(response.status).toBe(401);
+    });
+  });
+
+  describe('F03 案件端點可達性', () => {
+    it('GET /api/v1/cases 無 token 時應返回 401（F03 案件列表端點可達）', async () => {
+      const response = await request(app).get('/api/v1/cases');
+      expect(response.status).toBe(401);
+    });
+  });
+
+  describe('F09 通知與個人資料端點可達性', () => {
+    it('GET /api/v1/notifications 無 token 時應返回 401（F09 通知端點可達）', async () => {
+      const response = await request(app).get('/api/v1/notifications');
+      expect(response.status).toBe(401);
+    });
+
+    it('GET /api/v1/profile/me 無 token 時應返回 401（F08/F09 個人資料端點可達）', async () => {
+      const response = await request(app).get('/api/v1/profile/me');
+      expect(response.status).toBe(401);
+    });
+  });
+
+  describe('F05 執行端點可達性', () => {
+    it('GET /api/v1/execution/dashboard 無 token 時應返回 401（F05 執行看板端點可達）', async () => {
+      const response = await request(app).get('/api/v1/execution/dashboard');
+      expect(response.status).toBe(401);
+    });
+
+    it('GET /api/v1/execution/status 無 token 時應返回 401（F05 執行狀態端點可達）', async () => {
+      const response = await request(app).get('/api/v1/execution/status');
+      expect(response.status).toBe(401);
+    });
+  });
+
+  describe('F06 心理畫像端點可達性', () => {
+    it('GET /api/v1/psych-profile 無 token 時應返回 401（F06 心理畫像端點可達）', async () => {
+      const response = await request(app).get('/api/v1/psych-profile');
+      expect(response.status).toBe(401);
+    });
+  });
+
+  describe('F06 訪談端點可達性', () => {
+    it('POST /api/v1/interview/start 無 token 時應返回 401（F06 訪談啟動端點可達）', async () => {
+      const response = await request(app)
+        .post('/api/v1/interview/start')
+        .set('Content-Type', 'application/json')
+        .send({});
+      expect(response.status).toBe(401);
+    });
+
+    it('GET /api/v1/interview/resume 無 token 時應返回 401（F06 訪談恢復端點可達）', async () => {
+      const response = await request(app).get('/api/v1/interview/resume');
+      expect(response.status).toBe(401);
+    });
+  });
+
+  describe('F04 判決端點可達性', () => {
+    it('POST /api/v1/judgments/:id/accept 無 token 時應返回 401（F04 接受判決端點可達）', async () => {
+      const response = await request(app)
+        .post('/api/v1/judgments/550e8400-e29b-41d4-a716-446655440000/accept')
+        .set('Content-Type', 'application/json')
+        .send({ accepted: true });
+      expect(response.status).toBe(401);
+    });
+  });
+
+  describe('F05 和好方案端點可達性', () => {
+    it('GET /api/v1/judgments/:id/reconciliation-plans 無 token 時應返回 401（F05 和好方案列表端點可達）', async () => {
+      const response = await request(app).get(
+        '/api/v1/judgments/550e8400-e29b-41d4-a716-446655440000/reconciliation-plans'
+      );
+      expect(response.status).toBe(401);
+    });
+
+    it('GET /api/v1/reconciliation-plans/:id 無 token 時應返回 401（F05 和好方案詳情端點可達）', async () => {
+      const response = await request(app).get(
+        '/api/v1/reconciliation-plans/550e8400-e29b-41d4-a716-446655440000'
+      );
+      expect(response.status).toBe(401);
+    });
+  });
+
   describe('請求驗證', () => {
     it('無效的 JSON 請求體應被處理', async () => {
       const response = await request(app)
@@ -175,6 +386,14 @@ describe('煙霧測試 (Smoke Test)', () => {
         .send({});
       
       // 應該返回 400 或 422 錯誤
+      expect([400, 422]).toContain(response.status);
+    });
+
+    it('POST /api/v1/cases/quick plaintiff_statement 不足 30 字時應返回驗證錯誤（F01 邊界）', async () => {
+      const response = await request(app)
+        .post('/api/v1/cases/quick')
+        .set('Content-Type', 'application/json')
+        .send({ plaintiff_statement: '不足三十字' });
       expect([400, 422]).toContain(response.status);
     });
   });

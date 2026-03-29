@@ -54,6 +54,21 @@ describe('reconciliation API', () => {
         preferences: { difficulty: 'medium', types: ['activity'] },
       });
     });
+
+    it('後端回傳 plans 為 null 時應拋錯（F05 邊界：API 回傳不完整時防禦）', async () => {
+      mockPost.mockResolvedValue({ data: { data: { plans: null } } });
+      await expect(generatePlans('j1')).rejects.toThrow('Invalid reconciliation response from server');
+    });
+
+    it('後端回傳 plans 為 undefined 時應拋錯（F05 邊界：API 回傳不完整時防禦）', async () => {
+      mockPost.mockResolvedValue({ data: { data: { plans: undefined } } });
+      await expect(generatePlans('j1')).rejects.toThrow('Invalid reconciliation response from server');
+    });
+
+    it('後端回傳 plans 為非陣列時應拋錯（F05 邊界：API 回傳不完整時防禦）', async () => {
+      mockPost.mockResolvedValue({ data: { data: { plans: {} } } });
+      await expect(generatePlans('j1')).rejects.toThrow('Invalid reconciliation response from server');
+    });
   });
 
   describe('getPlans', () => {
@@ -69,6 +84,30 @@ describe('reconciliation API', () => {
       await getPlans('j1', { difficulty: 'easy', type: 'activity' });
       expect(mockGet).toHaveBeenCalledWith('/judgments/j1/reconciliation-plans?difficulty=easy&type=activity');
     });
+
+    it('後端回傳 plans 為 undefined 時應返回空陣列（F05 邊界：API 回傳不完整時防禦）', async () => {
+      mockGet.mockResolvedValue({ data: { data: { plans: undefined } } });
+      const result = await getPlans('j1');
+      expect(result).toEqual([]);
+    });
+
+    it('後端回傳 plans 為 null 時應返回空陣列（F05 邊界：API 回傳不完整時防禦）', async () => {
+      mockGet.mockResolvedValue({ data: { data: { plans: null } } });
+      const result = await getPlans('j1');
+      expect(result).toEqual([]);
+    });
+
+    it('後端回傳 data 無 plans 時應返回空陣列（F05 邊界：API 回傳不完整時防禦）', async () => {
+      mockGet.mockResolvedValue({ data: { data: {} } });
+      const result = await getPlans('j1');
+      expect(result).toEqual([]);
+    });
+
+    it('後端回傳 plans 為非陣列時應返回空陣列（F05 邊界：API 回傳不完整時防禦）', async () => {
+      mockGet.mockResolvedValue({ data: { data: { plans: 'invalid' } } });
+      const result = await getPlans('j1');
+      expect(result).toEqual([]);
+    });
   });
 
   describe('getPlanById', () => {
@@ -79,6 +118,16 @@ describe('reconciliation API', () => {
       expect(mockGet).toHaveBeenCalledWith('/reconciliation-plans/rp1');
       expect(result.judgment.case_id).toBe('c1');
     });
+
+    it('回應缺少 plan 或 plan 為 null 時應拋錯（F05 邊界：API 回傳不完整時防禦）', async () => {
+      mockGet.mockResolvedValue({ data: { data: { plan: null } } });
+      await expect(getPlanById('rp1')).rejects.toThrow('Invalid plan response from server');
+    });
+
+    it('後端回傳 plan 為 undefined 時應拋錯（F05 邊界：API 回傳不完整時防禦）', async () => {
+      mockGet.mockResolvedValue({ data: { data: { plan: undefined } } });
+      await expect(getPlanById('rp1')).rejects.toThrow('Invalid plan response from server');
+    });
   });
 
   describe('selectPlan', () => {
@@ -87,6 +136,16 @@ describe('reconciliation API', () => {
       const result = await selectPlan('rp1');
       expect(mockPost).toHaveBeenCalledWith('/reconciliation-plans/rp1/select');
       expect(result).toEqual(mockPlan);
+    });
+
+    it('回應缺少 plan 或 plan 為 null 時應拋錯（F05 邊界：API 回傳不完整時防禦）', async () => {
+      mockPost.mockResolvedValue({ data: { data: { plan: null } } });
+      await expect(selectPlan('rp1')).rejects.toThrow('Invalid plan response from server');
+    });
+
+    it('後端回傳 plan 為 undefined 時應拋錯（F05 邊界：API 回傳不完整時防禦）', async () => {
+      mockPost.mockResolvedValue({ data: { data: { plan: undefined } } });
+      await expect(selectPlan('rp1')).rejects.toThrow('Invalid plan response from server');
     });
   });
 });

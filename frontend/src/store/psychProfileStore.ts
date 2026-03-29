@@ -46,7 +46,8 @@ export const usePsychProfileStore = create<PsychProfileState>((set) => ({
     set({ loading: true, error: null });
     try {
       const res = await psychProfileApi.getFeedbackHistory();
-      set({ feedbackHistory: res.data?.data?.history ?? [], loading: false });
+      const history = res.data?.data?.history;
+      set({ feedbackHistory: Array.isArray(history) ? history : [], loading: false });
     } catch (err: unknown) {
       set({ error: getErrorMessage(err, 'psychProfile.loadHistoryFail'), loading: false });
     }

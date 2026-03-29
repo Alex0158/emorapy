@@ -18,7 +18,8 @@ import {
 	Typography,
 } from "antd";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useMountedRef } from "@/hooks/useMountedRef";
+import { useLocation, useNavigate } from "react-router-dom";
 import AnimatedWrapper from "@/components/common/AnimatedWrapper";
 import SEO from "@/components/common/SEO";
 import { sendVerificationCode, verifyEmail } from "@/services/api/auth";
@@ -31,8 +32,13 @@ const { Title, Text } = Typography;
 
 const CODE_LENGTH = 6;
 
+interface LocationState {
+	from?: { pathname: string };
+}
+
 const Register = () => {
 	const navigate = useNavigate();
+	const location = useLocation();
 	const { register, isLoading } = useAuthStore();
 	const [form] = Form.useForm();
 	const [currentStep, setCurrentStep] = useState(0);
@@ -43,8 +49,21 @@ const Register = () => {
 	);
 	const [countdown, setCountdown] = useState(0);
 	const [sendingCode, setSendingCode] = useState(false);
+	const mountedRef = useMountedRef();
 	const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 	const codeInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+	const registerLockRef = useRef(false);
+	const sendCodeLockRef = useRef(false);
+	const VALID_REDIRECT_PREFIXES = [
+		"/case", "/judgment", "/reconciliation", "/execution",
+		"/profile", "/interview", "/quick-experience", "/chat",
+	];
+	const state = location.state as LocationState | null;
+	const rawFrom = state?.from?.pathname || "/profile/pairing";
+	const isValidRedirect =
+		rawFrom === "/" ||
+		VALID_REDIRECT_PREFIXES.some((prefix) => rawFrom.startsWith(prefix));
+	const redirectTo = isValidRedirect ? rawFrom : "/profile/pairing";
 
 	useEffect(() => {
 		return () => {
@@ -72,10 +91,12 @@ const Register = () => {
 			message.error(t("message.emailFirst"));
 			return;
 		}
-
+		if (sendCodeLockRef.current) return;
+		sendCodeLockRef.current = true;
 		setSendingCode(true);
 		try {
 			await sendVerificationCode(emailValue, "register");
+			if (!mountedRef.current) return;
 			if (!email) {
 				setEmail(emailValue);
 				setNickname(form.getFieldValue("nickname") || "");
@@ -84,9 +105,14 @@ const Register = () => {
 			message.success(t("message.codeSent"));
 			setCurrentStep(1);
 		} catch (error: unknown) {
-			message.error(getErrorMessage(error, "message.sendCodeFail"));
+			if (mountedRef.current) {
+				message.error(getErrorMessage(error, "message.sendCodeFail"));
+			}
 		} finally {
-			setSendingCode(false);
+			sendCodeLockRef.current = false;
+			if (mountedRef.current) {
+				setSendingCode(false);
+			}
 		}
 	};
 
@@ -147,6 +173,7 @@ const Register = () => {
 		setVerifying(true);
 		try {
 			const verified = await verifyEmail(email, code, "register");
+			if (!mountedRef.current) return;
 			if (verified) {
 				message.success(t("message.verifySuccess"));
 				setCurrentStep(2);
@@ -156,9 +183,13 @@ const Register = () => {
 				codeInputRefs.current[0]?.focus();
 			}
 		} catch (error: unknown) {
-			message.error(getErrorMessage(error, "message.verifyFail"));
+			if (mountedRef.current) {
+				message.error(getErrorMessage(error, "message.verifyFail"));
+			}
 		} finally {
-			setVerifying(false);
+			if (mountedRef.current) {
+				setVerifying(false);
+			}
 		}
 	};
 
@@ -170,13 +201,19 @@ const Register = () => {
 			message.error(t("message.passwordMismatch"));
 			return;
 		}
-
+		if (registerLockRef.current) return;
+		registerLockRef.current = true;
 		try {
 			await register(email, values.password, nickname || undefined);
+			if (!mountedRef.current) return;
 			message.success(t("message.registerSuccess"));
-			navigate("/profile/pairing", { replace: true });
+			navigate(redirectTo, { replace: true });
 		} catch (error: unknown) {
-			message.error(getErrorMessage(error, "message.registerFail"));
+			if (mountedRef.current) {
+				message.error(getErrorMessage(error, "message.registerFail"));
+			}
+		} finally {
+			registerLockRef.current = false;
 		}
 	};
 
@@ -413,7 +450,7 @@ const Register = () => {
 					<Button
 						type="default"
 						block
-						onClick={() => navigate("/auth/login")}
+						onClick={() => navigate("/auth/login", { state: { from: { pathname: redirectTo } } })}
 						className="auth-switch-link h-12 text-lg rounded-full"
 					>
 						{t("auth.register.loginNow")}

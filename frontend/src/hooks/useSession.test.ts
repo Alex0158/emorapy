@@ -58,7 +58,7 @@ describe('useSession', () => {
     expect(mockSet).toHaveBeenCalledWith('s2');
   });
 
-  it('createSession 失敗時應提示錯誤並拋出', async () => {
+  it('createSession 失敗時若有 message 應顯示該 message 並拋出', async () => {
     mockGet.mockReturnValue(null);
     mockCreateSession.mockRejectedValueOnce(new Error('api-failed'));
     const { result } = renderHook(() => useSession());
@@ -67,6 +67,19 @@ describe('useSession', () => {
         await result.current.createSession();
       })
     ).rejects.toThrow('api-failed');
+    expect(mockMessageError).toHaveBeenCalledWith('api-failed');
+    expect(result.current.loading).toBe(false);
+  });
+
+  it('createSession 失敗且無 message 時應使用 sessionCreateFail（F01 權限邊界 fallback）', async () => {
+    mockGet.mockReturnValue(null);
+    mockCreateSession.mockRejectedValueOnce({ code: 'SERVER_ERROR' });
+    const { result } = renderHook(() => useSession());
+    await expect(
+      act(async () => {
+        await result.current.createSession();
+      })
+    ).rejects.toMatchObject({ code: 'SERVER_ERROR' });
     expect(mockMessageError).toHaveBeenCalledWith('message.sessionCreateFail');
     expect(result.current.loading).toBe(false);
   });

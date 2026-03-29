@@ -1,7 +1,7 @@
 # 接口描述：content + notification
 
-**文檔版本**：v2.1  
-**最後更新**：2026-03-05  
+**文檔版本**：v2.2  
+**最後更新**：2026-03-06  
 **代碼基準**：`backend/src/routes/content.routes.ts`、`backend/src/routes/notification.routes.ts`、`frontend/src/services/api/content.ts`
 
 ---

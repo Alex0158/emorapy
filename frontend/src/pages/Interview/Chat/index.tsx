@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { useMountedRef } from '@/hooks/useMountedRef';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Typography, Button, Spin, message } from 'antd';
@@ -7,6 +7,7 @@ import ChatBubble from '@/components/business/Interview/ChatBubble';
 import InterviewInput from '@/components/business/Interview/InterviewInput';
 import SafetyAlert from '@/components/business/Interview/SafetyAlert';
 import { useInterviewStore } from '@/store/interviewStore';
+import { getErrorMessage as getApiErrorMessage } from '@/utils/apiError';
 import { t } from '@/utils/i18n';
 import './index.less';
 
@@ -31,6 +32,8 @@ const InterviewChat: React.FC = () => {
   const navigate = useNavigate();
   const chatEndRef = useRef<HTMLDivElement>(null);
   const mountedRef = useMountedRef();
+  const reloadLockRef = useRef(false);
+  const [initialLoadError, setInitialLoadError] = useState<string | null>(null);
 
   const {
     currentSession,
@@ -50,31 +53,57 @@ const InterviewChat: React.FC = () => {
     dismissSafetyAlert,
   } = useInterviewStore();
 
+  // Session bootstrapping: load session on mount, cancel stream on unmount
   useEffect(() => {
     let stale = false;
     if (sessionId) {
-      getSession(sessionId).catch(() => {
-        if (stale) return;
-        message.error(t('interview.loadFail'));
-        navigate('/profile/index');
-      });
+      getSession(sessionId)
+        .then(() => {
+          if (stale || !mountedRef.current) return;
+          setInitialLoadError(null);
+        })
+        .catch((err: unknown) => {
+          if (stale || !mountedRef.current) return;
+          setInitialLoadError(getApiErrorMessage(err, 'interview.loadFail'));
+        });
     }
     return () => {
       stale = true;
       cancelStream();
     };
-  }, [sessionId, cancelStream]);
+  }, [sessionId, getSession, cancelStream, mountedRef]);
 
+  // Chat scroll behavior: scroll to bottom when turns or streaming text change
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [turns, streamingText]);
 
+  const endingRef = useRef(false);
+  const handleEnd = useCallback(async () => {
+    if (!sessionId || endingRef.current) return;
+    endingRef.current = true;
+    try {
+      if (isStreaming) {
+        cancelStream();
+      }
+      await endSession(sessionId);
+      if (!mountedRef.current) return;
+      message.success(t('interview.endSuccess'));
+      navigate(`/interview/${sessionId}/result`, { replace: true });
+    } catch (error: unknown) {
+      if (!mountedRef.current) return;
+      message.error(getApiErrorMessage(error, 'interview.endFail'));
+    } finally {
+      endingRef.current = false;
+    }
+  }, [sessionId, endSession, navigate, isStreaming, cancelStream, mountedRef]);
+
+  // Session termination behavior: auto-end when shouldEnd is true and not streaming
   useEffect(() => {
     if (shouldEnd && sessionId && currentSession?.status === 'in_progress' && !isStreaming) {
       handleEnd();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shouldEnd, isStreaming, sessionId, currentSession?.status]);
+  }, [shouldEnd, isStreaming, sessionId, currentSession?.status, handleEnd]);
 
   const handleSend = useCallback(async (msg: string) => {
     if (!sessionId) return;
@@ -94,32 +123,35 @@ const InterviewChat: React.FC = () => {
     }
   }, [sessionId, skipTurn]);
 
-  const endingRef = useRef(false);
-  const handleEnd = useCallback(async () => {
-    if (!sessionId || endingRef.current) return;
-    endingRef.current = true;
-    try {
-      if (isStreaming) {
-        cancelStream();
-      }
-      await endSession(sessionId);
-      if (!mountedRef.current) return;
-      message.success(t('interview.endSuccess'));
-      navigate(`/interview/${sessionId}/result`, { replace: true });
-    } catch {
-      if (!mountedRef.current) return;
-      message.error(t('interview.endFail'));
-    } finally {
-      endingRef.current = false;
-    }
-  }, [sessionId, endSession, navigate, isStreaming, cancelStream, mountedRef]);
-
   const getErrorMessage = (errMsg: string, code: string | null): string => {
     if (code && ERROR_MESSAGES[code]) {
       return t(ERROR_MESSAGES[code]);
     }
     return errMsg;
   };
+
+  const handleReload = useCallback(() => {
+    if (!sessionId || reloadLockRef.current) return;
+    reloadLockRef.current = true;
+    getSession(sessionId).finally(() => { reloadLockRef.current = false; });
+  }, [sessionId, getSession]);
+
+  const handleInitialLoadRetry = useCallback(() => {
+    if (!sessionId || reloadLockRef.current) return;
+    reloadLockRef.current = true;
+    getSession(sessionId)
+      .then(() => {
+        if (!mountedRef.current) return;
+        setInitialLoadError(null);
+      })
+      .catch((err: unknown) => {
+        if (!mountedRef.current) return;
+        setInitialLoadError(getApiErrorMessage(err, 'interview.loadFail'));
+      })
+      .finally(() => {
+        reloadLockRef.current = false;
+      });
+  }, [sessionId, getSession, mountedRef]);
 
   const isSessionActive = currentSession?.status === 'in_progress';
   const isTerminalError = errorCode === 'MAX_TURNS_REACHED' || errorCode === 'SESSION_COMPLETED';
@@ -129,6 +161,22 @@ const InterviewChat: React.FC = () => {
       <div className="interview-chat__loading">
         <Spin size="large" />
         <Text type="secondary">{t('interview.loadingChat')}</Text>
+      </div>
+    );
+  }
+
+  if (initialLoadError && !currentSession) {
+    return (
+      <div className="interview-chat__loading">
+        <Text type="danger">{initialLoadError}</Text>
+        <div className="interview-chat__load-error-actions">
+          <Button type="primary" onClick={handleInitialLoadRetry} data-testid="interview-chat-load-retry">
+            {t('common.retry')}
+          </Button>
+          <Button onClick={() => navigate('/profile/index')} style={{ marginLeft: 8 }}>
+            {t('interview.backToProfile')}
+          </Button>
+        </div>
       </div>
     );
   }
@@ -220,20 +268,36 @@ const InterviewChat: React.FC = () => {
             <Text type="secondary">{t('interview.error.rateLimitHint')}</Text>
           )}
           {errorCode === 'AI_CALL_FAILED' && sessionId && (
-            <Button size="small" onClick={() => getSession(sessionId)}>
+            <Button size="small" onClick={handleReload}>
               {t('interview.reloadConversation')}
             </Button>
           )}
           {errorCode === 'CONCURRENT_REQUEST' && sessionId && (
-            <Button size="small" onClick={() => getSession(sessionId)}>
+            <Button size="small" onClick={handleReload}>
               {t('interview.reloadConversation')}
             </Button>
           )}
           {errorCode === 'CONNECTION_LOST' && sessionId && (
-            <Button size="small" onClick={() => getSession(sessionId)}>
+            <Button size="small" onClick={handleReload}>
               {t('interview.reloadConversation')}
             </Button>
           )}
+          {sessionId &&
+            ![
+              'NOT_FOUND',
+              'CONSENT_REQUIRED',
+              'RATE_LIMIT_EXCEEDED',
+              'TURN_TOO_FAST',
+              'MAX_TURNS_REACHED',
+              'SESSION_COMPLETED',
+              'AI_CALL_FAILED',
+              'CONCURRENT_REQUEST',
+              'CONNECTION_LOST',
+            ].includes(errorCode || '') && (
+              <Button size="small" onClick={handleReload} data-testid="interview-chat-reload-fallback">
+                {t('interview.reloadConversation')}
+              </Button>
+            )}
         </div>
       )}
 

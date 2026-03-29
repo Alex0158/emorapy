@@ -2,9 +2,12 @@
  * Interview Chat 頁面單元測試
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
+const mockNavigate = vi.fn();
+const mockMessageError = vi.fn();
+const mockMessageSuccess = vi.fn();
 const mockGetSession = vi.fn();
 const mockRespond = vi.fn();
 const mockSkipTurn = vi.fn();
@@ -30,6 +33,11 @@ let mockStoreState = {
   dismissSafetyAlert: mockDismissSafetyAlert,
 };
 
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
+  return { ...actual, useNavigate: () => mockNavigate };
+});
+
 vi.mock('@/store/interviewStore', () => ({
   useInterviewStore: () => mockStoreState,
 }));
@@ -49,6 +57,18 @@ vi.mock('@/components/business/Interview/InterviewInput', () => ({
 vi.mock('@/components/business/Interview/SafetyAlert', () => ({
   default: ({ message }: { message: string }) => <div data-testid="safety-alert">{message}</div>,
 }));
+
+vi.mock('antd', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('antd')>();
+  return {
+    ...actual,
+    message: {
+      ...actual.message,
+      error: (...args: unknown[]) => mockMessageError(...args),
+      success: (...args: unknown[]) => mockMessageSuccess(...args),
+    },
+  };
+});
 
 import InterviewChat from './index';
 
@@ -112,6 +132,19 @@ describe('InterviewChat', () => {
     mockStoreState.errorCode = 'RATE_LIMIT_EXCEEDED';
     renderWithRouter();
     expect(screen.getByText('interview.error.rateLimit')).toBeInTheDocument();
+  });
+
+  it('RATE_LIMIT_EXCEEDED 時仍可透過 header 返回按鈕導向 /profile/index（F06 錯誤恢復：無專用按鈕時仍有導航出口）', async () => {
+    mockStoreState.currentSession = { id: 'test-session', status: 'in_progress' };
+    mockStoreState.turns = [{ id: 't1', turn_order: 1, ai_message: 'Q1', user_response: 'A1', skipped: false, safety_flag: false, created_at: '2025-01-01' }];
+    mockStoreState.error = 'rate limited';
+    mockStoreState.errorCode = 'RATE_LIMIT_EXCEEDED';
+    renderWithRouter();
+    expect(screen.getByText('interview.error.rateLimit')).toBeInTheDocument();
+    const buttons = screen.getAllByRole('button');
+    expect(buttons.length).toBeGreaterThanOrEqual(1);
+    fireEvent.click(buttons[0]);
+    expect(mockNavigate).toHaveBeenCalledWith('/profile/index');
   });
 
   it('有 safetyAlert 時應渲染 SafetyAlert', () => {
@@ -183,6 +216,38 @@ describe('InterviewChat', () => {
     expect(screen.getByText('interview.backToProfile')).toBeInTheDocument();
   });
 
+  it('errorCode 為未知時應顯示重新載入按鈕，點擊應呼叫 getSession（F06 錯誤恢復：未知錯誤提供 retry 出口）', () => {
+    mockStoreState.currentSession = { id: 'test-session', status: 'in_progress' };
+    mockStoreState.error = 'network error';
+    mockStoreState.errorCode = 'NETWORK_ERROR';
+    renderWithRouter();
+    const reloadBtn = screen.getByTestId('interview-chat-reload-fallback');
+    expect(reloadBtn).toBeInTheDocument();
+    const callCountBefore = mockGetSession.mock.calls.length;
+    fireEvent.click(reloadBtn);
+    expect(mockGetSession).toHaveBeenCalledTimes(callCountBefore + 1);
+  });
+
+  it('errorCode 為未知時 reload 快速連點只會送出一次 getSession 請求（F06 重試節流）', async () => {
+    mockStoreState.currentSession = { id: 'test-session', status: 'in_progress' };
+    mockStoreState.error = 'network error';
+    mockStoreState.errorCode = 'NETWORK_ERROR';
+    let resolveReload: (value: unknown) => void;
+    const reloadPromise = new Promise((resolve) => { resolveReload = resolve; });
+    mockGetSession.mockResolvedValueOnce({ data: { data: { id: 'test-session', status: 'in_progress', turns: [] } } }).mockImplementation(() => reloadPromise);
+    renderWithRouter();
+    await waitFor(() => {
+      expect(screen.getByTestId('interview-chat-reload-fallback')).toBeInTheDocument();
+    });
+    expect(mockGetSession).toHaveBeenCalledTimes(1);
+    const reloadBtn = screen.getByTestId('interview-chat-reload-fallback');
+    fireEvent.click(reloadBtn);
+    fireEvent.click(reloadBtn);
+    fireEvent.click(reloadBtn);
+    expect(mockGetSession).toHaveBeenCalledTimes(2);
+    resolveReload!({ data: { data: { id: 'test-session', status: 'in_progress', turns: [] } } });
+  });
+
   it('isTerminalError 時不應渲染 InterviewInput', () => {
     mockStoreState.currentSession = { id: 'test-session', status: 'in_progress' };
     mockStoreState.error = 'done';
@@ -210,5 +275,195 @@ describe('InterviewChat', () => {
     ];
     renderWithRouter();
     expect(screen.getByText('interview.pauseChat')).toBeInTheDocument();
+  });
+
+  it('getSession 失敗且有 message 應顯示頁內錯誤與 retry/back 出口（P1-03）', async () => {
+    mockGetSession.mockRejectedValue(new Error('會話載入失敗'));
+    renderWithRouter();
+    await waitFor(() => {
+      expect(screen.getByText('會話載入失敗')).toBeInTheDocument();
+      expect(screen.getByTestId('interview-chat-load-retry')).toBeInTheDocument();
+      expect(screen.getByText('interview.backToProfile')).toBeInTheDocument();
+    });
+  });
+
+  it('getSession 失敗且無 message 應顯示 interview.loadFail 並停留當前頁', async () => {
+    mockGetSession.mockRejectedValue({ code: 'SERVER_ERROR' });
+    renderWithRouter();
+    await waitFor(() => {
+      expect(screen.getByText('interview.loadFail')).toBeInTheDocument();
+      expect(mockNavigate).not.toHaveBeenCalled();
+    });
+  });
+
+  it('getSession 失敗且 message 為空字串時應使用 interview.loadFail（F10 邊界：空 message 視為無）', async () => {
+    mockGetSession.mockRejectedValue({ code: 'UNKNOWN', message: '' });
+    renderWithRouter();
+    await waitFor(() => {
+      expect(screen.getByText('interview.loadFail')).toBeInTheDocument();
+      expect(mockNavigate).not.toHaveBeenCalled();
+    });
+  });
+
+  it('getSession 失敗 FORBIDDEN 且無 message 時應使用 interview.loadFail（F06 權限邊界 fallback）', async () => {
+    mockGetSession.mockRejectedValue({ code: 'FORBIDDEN' });
+    renderWithRouter();
+    await waitFor(() => {
+      expect(screen.getByText('interview.loadFail')).toBeInTheDocument();
+      expect(mockNavigate).not.toHaveBeenCalled();
+    });
+  });
+
+  it('getSession 首次失敗時點擊 retry 應重新呼叫 getSession，成功後清除頁內錯誤（P1-03）', async () => {
+    mockGetSession
+      .mockRejectedValueOnce(new Error('會話載入失敗'))
+      .mockResolvedValueOnce(undefined);
+    renderWithRouter();
+    await waitFor(() => {
+      expect(screen.getByText('會話載入失敗')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByTestId('interview-chat-load-retry'));
+    await waitFor(() => {
+      expect(mockGetSession).toHaveBeenCalledTimes(2);
+      expect(screen.queryByText('會話載入失敗')).not.toBeInTheDocument();
+    });
+  });
+
+  it('getSession 首次失敗時點擊 back 應導向 /profile/index（P1-03）', async () => {
+    mockGetSession.mockRejectedValue(new Error('會話載入失敗'));
+    renderWithRouter();
+    await waitFor(() => {
+      expect(screen.getByText('會話載入失敗')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('interview.backToProfile'));
+    expect(mockNavigate).toHaveBeenCalledWith('/profile/index');
+  });
+
+  it('getSession 首次失敗時 retry 快速連點只會送出一次額外請求（P1-05）', async () => {
+    let resolveReload: (value: unknown) => void;
+    const retryPromise = new Promise((resolve) => { resolveReload = resolve; });
+    mockGetSession
+      .mockRejectedValueOnce(new Error('會話載入失敗'))
+      .mockImplementationOnce(() => retryPromise);
+    renderWithRouter();
+    await waitFor(() => {
+      expect(screen.getByTestId('interview-chat-load-retry')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByTestId('interview-chat-load-retry'));
+    fireEvent.click(screen.getByTestId('interview-chat-load-retry'));
+    fireEvent.click(screen.getByTestId('interview-chat-load-retry'));
+    expect(mockGetSession).toHaveBeenCalledTimes(2);
+    resolveReload!(undefined);
+    await waitFor(() => {
+      expect(screen.queryByTestId('interview-chat-load-retry')).not.toBeInTheDocument();
+    });
+  });
+
+  it('暫停對話時 endSession 失敗且有 message 應顯示該 message', async () => {
+    mockStoreState.currentSession = { id: 'test-session', status: 'in_progress' };
+    mockStoreState.turns = [
+      { id: 't1', turn_order: 1, ai_message: 'Q1', user_response: 'A1', skipped: false, safety_flag: false, created_at: '2025-01-01' },
+      { id: 't2', turn_order: 2, ai_message: 'Q2', user_response: 'A2', skipped: false, safety_flag: false, created_at: '2025-01-01' },
+      { id: 't3', turn_order: 3, ai_message: 'Q3', user_response: undefined, skipped: false, safety_flag: false, created_at: '2025-01-01' },
+    ];
+    mockEndSession.mockRejectedValue(new Error('結束對話失敗'));
+    renderWithRouter();
+    fireEvent.click(screen.getByText('interview.pauseChat'));
+    await waitFor(() => {
+      expect(mockMessageError).toHaveBeenCalledWith('結束對話失敗');
+    });
+  });
+
+  it('暫停對話時 endSession 失敗且無 message 應顯示 interview.endFail', async () => {
+    mockStoreState.currentSession = { id: 'test-session', status: 'in_progress' };
+    mockStoreState.turns = [
+      { id: 't1', turn_order: 1, ai_message: 'Q1', user_response: 'A1', skipped: false, safety_flag: false, created_at: '2025-01-01' },
+      { id: 't2', turn_order: 2, ai_message: 'Q2', user_response: 'A2', skipped: false, safety_flag: false, created_at: '2025-01-01' },
+      { id: 't3', turn_order: 3, ai_message: 'Q3', user_response: undefined, skipped: false, safety_flag: false, created_at: '2025-01-01' },
+    ];
+    mockEndSession.mockRejectedValue({ code: 'UNKNOWN' });
+    renderWithRouter();
+    fireEvent.click(screen.getByText('interview.pauseChat'));
+    await waitFor(() => {
+      expect(mockMessageError).toHaveBeenCalledWith('interview.endFail');
+    });
+  });
+
+  it('暫停對話時 endSession 失敗且 message 為空字串時應使用 interview.endFail（F10 邊界：空 message 視為無）', async () => {
+    mockStoreState.currentSession = { id: 'test-session', status: 'in_progress' };
+    mockStoreState.turns = [
+      { id: 't1', turn_order: 1, ai_message: 'Q1', user_response: 'A1', skipped: false, safety_flag: false, created_at: '2025-01-01' },
+      { id: 't2', turn_order: 2, ai_message: 'Q2', user_response: 'A2', skipped: false, safety_flag: false, created_at: '2025-01-01' },
+      { id: 't3', turn_order: 3, ai_message: 'Q3', user_response: undefined, skipped: false, safety_flag: false, created_at: '2025-01-01' },
+    ];
+    mockEndSession.mockRejectedValue({ code: 'SERVER_ERROR', message: '' });
+    renderWithRouter();
+    fireEvent.click(screen.getByText('interview.pauseChat'));
+    await waitFor(() => {
+      expect(mockMessageError).toHaveBeenCalledWith('interview.endFail');
+    });
+  });
+
+  it('暫停對話時 endSession FORBIDDEN 且無 message 時應使用 interview.endFail（F06 權限邊界 fallback）', async () => {
+    mockStoreState.currentSession = { id: 'test-session', status: 'in_progress' };
+    mockStoreState.turns = [
+      { id: 't1', turn_order: 1, ai_message: 'Q1', user_response: 'A1', skipped: false, safety_flag: false, created_at: '2025-01-01' },
+      { id: 't2', turn_order: 2, ai_message: 'Q2', user_response: 'A2', skipped: false, safety_flag: false, created_at: '2025-01-01' },
+      { id: 't3', turn_order: 3, ai_message: 'Q3', user_response: undefined, skipped: false, safety_flag: false, created_at: '2025-01-01' },
+    ];
+    mockEndSession.mockRejectedValue({ code: 'FORBIDDEN' });
+    renderWithRouter();
+    fireEvent.click(screen.getByText('interview.pauseChat'));
+    await waitFor(() => {
+      expect(mockMessageError).toHaveBeenCalledWith('interview.endFail');
+    });
+  });
+
+  it('暫停對話時 endSession 成功但組件已卸載時不應呼叫 message.success 或 navigate（useMountedRef 回歸：避免 F01-BUG-001 同類問題）', async () => {
+    mockStoreState.currentSession = { id: 'test-session', status: 'in_progress' };
+    mockStoreState.turns = [
+      { id: 't1', turn_order: 1, ai_message: 'Q1', user_response: 'A1', skipped: false, safety_flag: false, created_at: '2025-01-01' },
+      { id: 't2', turn_order: 2, ai_message: 'Q2', user_response: 'A2', skipped: false, safety_flag: false, created_at: '2025-01-01' },
+      { id: 't3', turn_order: 3, ai_message: 'Q3', user_response: undefined, skipped: false, safety_flag: false, created_at: '2025-01-01' },
+    ];
+    let resolveEndSession: () => void;
+    mockEndSession.mockImplementation(
+      () => new Promise<void>((resolve) => { resolveEndSession = resolve; })
+    );
+    const { unmount } = renderWithRouter();
+    await waitFor(() => {
+      expect(screen.getByText('interview.pauseChat')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('interview.pauseChat'));
+    await waitFor(() => {
+      expect(mockEndSession).toHaveBeenCalledWith('test-session');
+    });
+    unmount();
+    resolveEndSession!();
+    await Promise.resolve();
+    expect(mockMessageSuccess).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('暫停對話時 endSession 失敗後應仍可再次點擊暫停對話，成功後應導向 result（F06 錯誤恢復：失敗不阻塞重試）', async () => {
+    mockStoreState.currentSession = { id: 'test-session', status: 'in_progress' };
+    mockStoreState.turns = [
+      { id: 't1', turn_order: 1, ai_message: 'Q1', user_response: 'A1', skipped: false, safety_flag: false, created_at: '2025-01-01' },
+      { id: 't2', turn_order: 2, ai_message: 'Q2', user_response: 'A2', skipped: false, safety_flag: false, created_at: '2025-01-01' },
+      { id: 't3', turn_order: 3, ai_message: 'Q3', user_response: undefined, skipped: false, safety_flag: false, created_at: '2025-01-01' },
+    ];
+    mockEndSession
+      .mockRejectedValueOnce(new Error('暫時無法結束'))
+      .mockResolvedValueOnce(undefined);
+    renderWithRouter();
+    fireEvent.click(screen.getByText('interview.pauseChat'));
+    await waitFor(() => {
+      expect(mockMessageError).toHaveBeenCalledWith('暫時無法結束');
+    });
+    fireEvent.click(screen.getByText('interview.pauseChat'));
+    await waitFor(() => {
+      expect(mockEndSession).toHaveBeenCalledTimes(2);
+      expect(mockNavigate).toHaveBeenCalledWith('/interview/test-session/result', { replace: true });
+    });
   });
 });

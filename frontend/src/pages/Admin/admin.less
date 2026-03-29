@@ -1,0 +1,54 @@
+@import '../../assets/styles/variables.less';
+
+/**
+ * Admin 頁群共用 layout
+ * admin-page, admin-page__container, admin-page__header, admin-page__toolbar, admin-page__content, admin-page__table-card
+ */
+
+.admin-page {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: @spacing-lg;
+}
+
+.admin-page__container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 @spacing-lg;
+  width: 100%;
+}
+
+.admin-page__header {
+  margin-bottom: 0;
+
+  .ant-typography {
+    margin-bottom: 0;
+  }
+}
+
+.admin-page__header-title {
+  margin-bottom: 0;
+}
+
+.admin-page__header-subtitle {
+  display: block;
+  margin-top: @spacing-xs;
+}
+
+.admin-page__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: @spacing-sm;
+  align-items: center;
+}
+
+.admin-page__content {
+  flex: 1;
+}
+
+.admin-page__table-card {
+  .ant-card-body {
+    padding: @spacing-lg;
+  }
+}

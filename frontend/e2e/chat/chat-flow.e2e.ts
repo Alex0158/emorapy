@@ -1,11 +1,26 @@
+import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
+
+const SESSION_STORAGE_KEY = 'cj_session_id';
+
+async function setChatSession(page: Page, sessionId: string, baseURL: string) {
+  await page.goto(baseURL, { waitUntil: 'commit' });
+  await page.evaluate(
+    ({ key, sid }: { key: string; sid: string }) => {
+      localStorage.setItem(key, sid);
+    },
+    { key: SESSION_STORAGE_KEY, sid: sessionId }
+  );
+}
 
 test.describe('Chat 多角色流程', () => {
   test('A 建房 -> 發話 -> 建邀請 -> 發起判決', async ({ page }) => {
     const roomId = 'room-e2e-a';
+    const sessionId = 'e2e-session-flow-a';
     let roomStatus = 'solo_active';
     const messages: Array<Record<string, unknown>> = [];
 
+    await setChatSession(page, sessionId, 'http://127.0.0.1:4173');
     await page.route('**/api/v1/chat/**', async (route) => {
       const url = new URL(route.request().url());
       const method = route.request().method();
@@ -23,6 +38,7 @@ test.describe('Chat 多角色流程', () => {
                 status: roomStatus,
                 history_visibility_mode: 'share_full_history',
                 participants: [],
+                session_id: sessionId,
               },
             },
           }),
@@ -41,6 +57,7 @@ test.describe('Chat 多角色流程', () => {
                 status: roomStatus,
                 history_visibility_mode: 'share_full_history',
                 participants: [],
+                session_id: sessionId,
               },
             },
           }),
@@ -168,11 +185,44 @@ test.describe('Chat 多角色流程', () => {
     await expect(page.getByText(/邀請碼：FLOWA1|Invite Code:\s*FLOWA1/)).toBeVisible();
 
     await page.getByRole('button', { name: /發起判決|Request Judgment/ }).click();
-    await expect(page.getByText(/已發起判決，正在等待結果|Judgment requested\. Waiting for result\./)).toBeVisible();
+    await expect(page.getByText(/轉判決前確認|Confirm Before Judgment/)).toBeVisible();
+    await page.getByRole('button', { name: /確認|Confirm/ }).click();
+    await expect(page.getByText(/判決請求中|Judgment requested/).first()).toBeVisible({ timeout: 10000 });
   });
 
-  test('B 以邀請碼加入，並可在入口拒絕邀請', async ({ page }) => {
+  test('已登入 B 以邀請碼加入，並可在入口拒絕邀請', async ({ page }) => {
     const roomId = 'room-e2e-b';
+
+    await page.addInitScript(() => {
+      localStorage.setItem('token', 'e2e-token-b');
+      localStorage.setItem('auth-storage', JSON.stringify({
+        state: {
+          user: {
+            id: 'user-b',
+            email: 'b@example.com',
+            nickname: 'B',
+          },
+        },
+        version: 0,
+      }));
+    });
+
+    await page.route('**/api/v1/user/profile', async (route) => {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: {
+            user: {
+              id: 'user-b',
+              email: 'b@example.com',
+              nickname: 'B',
+            },
+          },
+        }),
+      });
+    });
 
     await page.route('**/api/v1/chat/**', async (route) => {
       const url = new URL(route.request().url());

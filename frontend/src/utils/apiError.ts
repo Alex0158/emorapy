@@ -23,11 +23,19 @@ export function isApiError(error: unknown): error is ApiError {
  * @param fallbackKey 可選 i18n key，當無法從 error 取得訊息時使用
  */
 export function getErrorMessage(error: unknown, fallbackKey?: string): string {
-  if (error && typeof error === 'object' && 'message' in error && typeof (error as { message: unknown }).message === 'string') {
-    return (error as { message: string }).message;
+  const msg = error && typeof error === 'object' && 'message' in error ? (error as { message: unknown }).message : undefined;
+  if (typeof msg === 'string' && msg.trim().length > 0) {
+    return msg;
+  }
+  const nested = error && typeof error === 'object' && 'error' in error
+    ? (error as { error?: { message?: unknown } }).error?.message
+    : undefined;
+  if (typeof nested === 'string' && nested.trim().length > 0) {
+    return nested;
   }
   if (error instanceof Error) {
-    return error.message;
+    const errMsg = error.message;
+    if (typeof errMsg === 'string' && errMsg.trim().length > 0) return errMsg;
   }
   return fallbackKey ? t(fallbackKey) : t('common.unknownError');
 }

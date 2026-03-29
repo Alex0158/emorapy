@@ -87,3 +87,52 @@ describe('AdminReportsPage', () => {
     expect(mockDownloadCsv).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('AdminReportsPage when a query fails', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseQuery.mockReturnValue({
+      data: undefined,
+      error: new Error('overview failed'),
+      isLoading: false,
+      isFetching: false,
+      refetch: vi.fn(),
+    });
+    mockUseMutation.mockReturnValue({ mutate: vi.fn(), isPending: false, data: { metrics: {} } });
+  });
+
+  it('應顯示 admin.reports.loadFailed Alert', () => {
+    render(<AdminReportsPage />);
+    expect(screen.getByText('admin.reports.loadFailed')).toBeInTheDocument();
+  });
+
+  it('retry 失敗後應仍可再次點擊 retry（F10 錯誤恢復：失敗不阻塞重試）', () => {
+    const mockRefetch = vi.fn();
+    mockUseQuery.mockReturnValue({
+      data: undefined,
+      error: new Error('overview failed'),
+      isLoading: false,
+      isFetching: false,
+      refetch: mockRefetch,
+    });
+    render(<AdminReportsPage />);
+    const retryBtn = screen.getByTestId('admin-reports-load-retry');
+    retryBtn.click();
+    retryBtn.click();
+    expect(mockRefetch).toHaveBeenCalledTimes(6);
+  });
+
+  it('應仍可點擊 retry 重新拉取（F10 錯誤恢復：失敗不阻塞重試）', () => {
+    const mockRefetch = vi.fn();
+    mockUseQuery.mockReturnValue({
+      data: undefined,
+      error: new Error('overview failed'),
+      isLoading: false,
+      isFetching: false,
+      refetch: mockRefetch,
+    });
+    render(<AdminReportsPage />);
+    screen.getByTestId('admin-reports-load-retry').click();
+    expect(mockRefetch).toHaveBeenCalledTimes(3);
+  });
+});

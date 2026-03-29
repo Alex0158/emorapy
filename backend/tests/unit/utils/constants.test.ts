@@ -11,6 +11,8 @@ import {
   SESSION_EXPIRY,
   CACHE_CONFIG,
   LIMITS,
+  EVIDENCE_UPLOAD_ALLOWED_STATUSES,
+  PAGINATION,
 } from '../../../src/utils/constants';
 
 describe('Constants', () => {
@@ -18,6 +20,12 @@ describe('Constants', () => {
     expect(CASE_STATUS.DRAFT).toBe('draft');
     expect(CASE_STATUS.SUBMITTED).toBe('submitted');
     expect(CASE_STATUS.COMPLETED).toBe('completed');
+  });
+
+  it('CASE_STATUS 應包含完整狀態（in_progress、judgment_failed、cancelled）', () => {
+    expect(CASE_STATUS.IN_PROGRESS).toBe('in_progress');
+    expect(CASE_STATUS.JUDGMENT_FAILED).toBe('judgment_failed');
+    expect(CASE_STATUS.CANCELLED).toBe('cancelled');
   });
 
   it('CASE_MODE 應包含 quick', () => {
@@ -38,6 +46,12 @@ describe('Constants', () => {
     expect(LOCK_TTL.DEFAULT).toBe(60);
   });
 
+  it('LOCK_TTL 應包含 CASE_CREATE、EVIDENCE_UPLOAD 等業務鎖', () => {
+    expect(LOCK_TTL.CASE_CREATE).toBe(30);
+    expect(LOCK_TTL.EVIDENCE_UPLOAD).toBe(30);
+    expect(LOCK_TTL.PAIRING_CREATE).toBe(20);
+  });
+
   it('SESSION_EXPIRY 應包含過期時間', () => {
     expect(SESSION_EXPIRY.DEFAULT_MS).toBe(24 * 60 * 60 * 1000);
     expect(SESSION_EXPIRY.COMPLETED_MS).toBe(7 * 24 * 60 * 60 * 1000);
@@ -53,5 +67,16 @@ describe('Constants', () => {
     expect(LIMITS.MAX_STATEMENT_LENGTH).toBe(2000);
     expect(LIMITS.MIN_STATEMENT_LENGTH).toBe(50);
     expect(LIMITS.MAX_EVIDENCE_COUNT).toBe(3);
+  });
+
+  it('EVIDENCE_UPLOAD_ALLOWED_STATUSES 應包含 draft/submitted/in_progress', () => {
+    expect(EVIDENCE_UPLOAD_ALLOWED_STATUSES).toContain('draft');
+    expect(EVIDENCE_UPLOAD_ALLOWED_STATUSES).toContain('submitted');
+    expect(EVIDENCE_UPLOAD_ALLOWED_STATUSES).toContain('in_progress');
+  });
+
+  it('PAGINATION 應包含分頁常量', () => {
+    expect(PAGINATION.CASE_LIST_MAX_PAGE_SIZE).toBe(50);
+    expect(PAGINATION.CASE_LIST_DEFAULT_PAGE_SIZE).toBe(10);
   });
 });

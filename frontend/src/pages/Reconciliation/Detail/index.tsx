@@ -3,6 +3,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
+import { useMountedRef } from '@/hooks/useMountedRef';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Card,
@@ -26,6 +27,7 @@ import type { ReconciliationPlan } from '@/services/api/reconciliation';
 import ProtectedRoute from '@/components/common/ProtectedRoute';
 import SEO from '@/components/common/SEO';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
+import { getErrorMessage } from '@/utils/apiError';
 import { t } from '@/utils/i18n';
 import { safeParsePlanContent } from '@/utils/planContent';
 import './Detail.less';
@@ -37,7 +39,13 @@ const ReconciliationDetail = () => {
   const navigate = useNavigate();
   const [plan, setPlan] = useState<ReconciliationPlan | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [selecting, setSelecting] = useState(false);
   const [executing, setExecuting] = useState(false);
+  const mountedRef = useMountedRef();
+  const selectingLockRef = useRef(false);
+  const executeLockRef = useRef(false);
+  const fetchLockRef = useRef(false);
 
   const staleRef = useRef(false);
   useEffect(() => {
@@ -51,7 +59,10 @@ const ReconciliationDetail = () => {
   }, [judgmentId, id]);
 
   const fetchPlan = async () => {
+    if (!judgmentId || !id || fetchLockRef.current) return;
+    fetchLockRef.current = true;
     setLoading(true);
+    setLoadError(null);
     try {
       if (id) {
         try {
@@ -61,7 +72,9 @@ const ReconciliationDetail = () => {
         } catch {
           if (staleRef.current) return;
           if (!judgmentId) {
-            message.error(t('message.planNotFound'));
+            const msg = t('message.planNotFound');
+            message.error(msg);
+            setLoadError(msg);
             return;
           }
           const plans = await getPlans(judgmentId);
@@ -70,45 +83,64 @@ const ReconciliationDetail = () => {
           if (foundPlan) {
             setPlan(foundPlan);
           } else {
-            message.error(t('message.planNotFound'));
+            const msg = t('message.planNotFound');
+            message.error(msg);
+            setLoadError(msg);
           }
         }
       } else {
-        message.error(t('message.planIdMissing'));
+        const msg = t('message.planIdMissing');
+        message.error(msg);
+        setLoadError(msg);
       }
     } catch (error: unknown) {
       if (staleRef.current) return;
-      const msg = (error as { message?: string })?.message || t('message.getPlanDetailFail');
+      const msg = getErrorMessage(error, 'message.getPlanDetailFail');
       message.error(msg);
+      setLoadError(msg);
     } finally {
+      fetchLockRef.current = false;
       if (!staleRef.current) setLoading(false);
     }
   };
 
   const handleSelect = async () => {
-    if (!id) return;
+    if (!id || selectingLockRef.current) return;
+    selectingLockRef.current = true;
+    setSelecting(true);
     try {
       await selectPlan(id);
+      if (!mountedRef.current) return;
       message.success(t('message.selectPlanSuccess'));
       fetchPlan();
     } catch (error: unknown) {
-      const msg = (error as { message?: string })?.message || t('message.selectPlanFail');
-      message.error(msg);
+      if (mountedRef.current) {
+        message.error(getErrorMessage(error, 'message.selectPlanFail'));
+      }
+    } finally {
+      selectingLockRef.current = false;
+      if (!staleRef.current && mountedRef.current) setSelecting(false);
     }
   };
 
   const handleStartExecution = async () => {
-    if (!id || executing) return;
+    if (!id || executing || executeLockRef.current) return;
+    executeLockRef.current = true;
     setExecuting(true);
     try {
       await confirmExecution(id);
+      if (!mountedRef.current) return;
       message.success(t('message.startExecutionSuccess'));
       navigate(`/execution/${id}/checkin`);
     } catch (error: unknown) {
-      const msg = (error as { message?: string })?.message || t('message.startExecutionFail');
-      message.error(msg);
+      if (mountedRef.current) {
+        message.error(getErrorMessage(error, 'message.startExecutionFail'));
+      }
     } finally {
-      setExecuting(false);
+      executeLockRef.current = false;
+      if (!staleRef.current && mountedRef.current) {
+        setExecuting(false);
+      }
     }
   };
 
@@ -123,7 +155,27 @@ const ReconciliationDetail = () => {
   if (!plan) {
     return (
       <div className="reconciliation-detail-page">
-        <Alert title={t('message.planNotFound')} type="error" />
+        <Alert
+          title={t('message.planNotFound')}
+          description={loadError ?? undefined}
+          type="error"
+          showIcon
+          action={
+            <Space>
+              <Button size="small" onClick={() => judgmentId && id && fetchPlan()}>
+                {t('common.retry')}
+              </Button>
+              {judgmentId && (
+                <Button size="small" type="primary" onClick={() => navigate(`/judgment/${judgmentId}`)}>
+                  {t('reconList.backToJudgment')}
+                </Button>
+              )}
+              <Button size="small" onClick={() => navigate(-1)}>
+                {t('reconDetail.back')}
+              </Button>
+            </Space>
+          }
+        />
       </div>
     );
   }
@@ -165,9 +217,9 @@ const ReconciliationDetail = () => {
                 <Descriptions.Item label={t('reconDetail.estimatedDuration')}>
                   {plan.estimated_duration != null ? t('reconList.estimatedDays').replace('{days}', String(plan.estimated_duration)) : t('reconList.estimatedTbd')}
                 </Descriptions.Item>
-                <Descriptions.Item label={t('reconDetail.timeCost')}>{plan.time_cost}/5</Descriptions.Item>
-                <Descriptions.Item label={t('reconDetail.moneyCost')}>{plan.money_cost}/5</Descriptions.Item>
-                <Descriptions.Item label={t('reconDetail.emotionCost')}>{plan.emotion_cost}/5</Descriptions.Item>
+                <Descriptions.Item label={t('reconDetail.timeCost')}>{plan.time_cost ?? 0}/5</Descriptions.Item>
+                <Descriptions.Item label={t('reconDetail.moneyCost')}>{plan.money_cost ?? 0}/5</Descriptions.Item>
+                <Descriptions.Item label={t('reconDetail.emotionCost')}>{plan.emotion_cost ?? 0}/5</Descriptions.Item>
               </Descriptions>
             </Card>
           </AnimatedWrapper>
@@ -209,6 +261,7 @@ const ReconciliationDetail = () => {
                     shape="round"
                     icon={<CheckCircleOutlined />}
                     onClick={handleSelect}
+                    loading={selecting}
                     block
                     className="h-14 text-lg shadow-md hover:shadow-lg"
                   >

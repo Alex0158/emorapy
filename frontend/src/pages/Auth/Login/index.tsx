@@ -17,12 +17,14 @@ import {
 	Space,
 	Typography,
 } from "antd";
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { useMountedRef } from "@/hooks/useMountedRef";
 import { useLocation, useNavigate } from "react-router-dom";
 import AnimatedWrapper from "@/components/common/AnimatedWrapper";
 import SEO from "@/components/common/SEO";
 import { sendVerificationCode } from "@/services/api/auth";
 import { useAuthStore } from "@/store/authStore";
+import { getErrorMessage } from "@/utils/apiError";
 import { t } from "@/utils/i18n";
 import "./Login.less";
 
@@ -38,10 +40,12 @@ const Login = () => {
 	const { login, isLoading } = useAuthStore();
 	const [form] = Form.useForm();
 	const [rememberMe, setRememberMe] = useState(false);
+	const mountedRef = useMountedRef();
+	const loginLockRef = useRef(false);
 
 	const VALID_REDIRECT_PREFIXES = [
 		"/case", "/judgment", "/reconciliation", "/execution",
-		"/profile", "/interview", "/quick-experience",
+		"/profile", "/interview", "/quick-experience", "/chat",
 	];
 	const state = location.state as LocationState | null;
 	const rawFrom = state?.from?.pathname || "/case/list";
@@ -51,8 +55,11 @@ const Login = () => {
 	const from = isValidRedirect ? rawFrom : "/case/list";
 
 	const handleSubmit = async (values: { email: string; password: string }) => {
+		if (loginLockRef.current) return;
+		loginLockRef.current = true;
 		try {
 			await login(values.email, values.password, rememberMe);
+			if (!mountedRef.current) return;
 			message.success(t("message.loginSuccess"));
 			navigate(from, { replace: true });
 		} catch (error: unknown) {
@@ -61,22 +68,26 @@ const Login = () => {
 					? (error as { code?: string; message?: string })
 					: null;
 			const code = err?.code;
-			const msg = err?.message ?? t("message.loginFail");
-			const msgStr = typeof msg === "string" ? msg : t("message.loginFail");
+			const msgStr = getErrorMessage(error, "message.loginFail");
 			const looksLikeEmailNotVerified =
 				code === "EMAIL_NOT_VERIFIED" ||
 				/郵箱驗證|email verification|not verified/i.test(msgStr);
+
+			if (!mountedRef.current) return;
 
 			if (looksLikeEmailNotVerified) {
 				message.warning(t("message.emailNotVerified"));
 				try {
 					await sendVerificationCode(values.email, "verify_email");
-				} catch {
-					message.error(t("message.resendVerifyFail"));
+				} catch (sendErr: unknown) {
+					if (!mountedRef.current) return;
+					message.error(getErrorMessage(sendErr, "message.resendVerifyFail"));
 				}
 			} else {
 				message.error(msgStr);
 			}
+		} finally {
+			loginLockRef.current = false;
 		}
 	};
 
@@ -156,7 +167,9 @@ const Login = () => {
 								</Checkbox>
 								<Button
 									type="link"
-									onClick={() => navigate("/auth/forgot-password")}
+									onClick={() =>
+										navigate("/auth/forgot-password", { state: { from: { pathname: from } } })
+									}
 									className="forgot-password-link px-0"
 								>
 									{t("auth.login.forgotPassword")}
@@ -181,14 +194,16 @@ const Login = () => {
 						<Text type="secondary">{t("auth.login.noAccount")}</Text>
 					</div>
 
-					<Button
-						type="default"
-						block
-						onClick={() => navigate("/auth/register")}
-						className="auth-switch-link h-12 text-lg rounded-full"
-					>
-						{t("auth.login.registerNow")}
-					</Button>
+						<Button
+							type="default"
+							block
+							onClick={() =>
+								navigate("/auth/register", { state: { from: { pathname: from } } })
+							}
+							className="auth-switch-link h-12 text-lg rounded-full"
+						>
+							{t("auth.login.registerNow")}
+						</Button>
 				</AnimatedWrapper>
 			</div>
 		</>

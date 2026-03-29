@@ -7,7 +7,7 @@ import { getErrorMessage } from '@/utils/apiError';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { Session } from '@/types/session';
 import { createSession, refreshSession } from '@/services/api/session';
-import { sessionStorage } from '@/utils/storage';
+import { sessionStorage, caseSessionMap } from '@/utils/storage';
 
 const SESSION_EXPIRY_BUFFER_MS = 5 * 60 * 1000;
 
@@ -18,7 +18,7 @@ interface SessionState {
   isLoading: boolean;
   error: string | null;
   createSession: () => Promise<Session | null>;
-  refreshSession: (force?: boolean) => Promise<Session | null>;
+  refreshSession: (force?: boolean, currentSessionId?: string) => Promise<Session | null>;
   setSession: (session: Session | null) => void;
   clearSession: () => void;
   checkSessionExpiry: () => boolean;
@@ -63,11 +63,12 @@ export const useSessionStore = create<SessionState>()(
         return _inflight.create;
       },
 
-      refreshSession: async (force = false) => {
+      refreshSession: async (force = false, currentSessionId) => {
         if (_inflight.refresh) return _inflight.refresh;
 
         const current = get().session;
         const currentId = sessionStorage.get();
+        const previousSessionId = currentSessionId ?? currentId ?? current?.session_id ?? null;
         if (!force && current && currentId && current.session_id === currentId) {
           const expiresAt = new Date(current.expires_at).getTime();
           if (Number.isFinite(expiresAt) && expiresAt - Date.now() > SESSION_EXPIRY_BUFFER_MS) {
@@ -77,8 +78,11 @@ export const useSessionStore = create<SessionState>()(
 
         _inflight.refresh = (async () => {
           try {
-            const session = await refreshSession();
+            const session = await refreshSession(previousSessionId ?? undefined);
             sessionStorage.set(session.session_id);
+            if (previousSessionId) {
+              caseSessionMap.replaceSession(previousSessionId, session.session_id);
+            }
             set({ session, error: null });
             return session;
           } catch (error: unknown) {

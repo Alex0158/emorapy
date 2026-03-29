@@ -11,7 +11,8 @@ import {
 } from "@ant-design/icons";
 import { Button, Form, Input, message, Steps, Typography } from "antd";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useMountedRef } from "@/hooks/useMountedRef";
+import { useLocation, useNavigate } from "react-router-dom";
 import AnimatedWrapper from "@/components/common/AnimatedWrapper";
 import SEO from "@/components/common/SEO";
 import { confirmResetPassword, resetPassword } from "@/services/api/auth";
@@ -25,6 +26,7 @@ const CODE_LENGTH = 6;
 
 const ForgotPassword = () => {
 	const navigate = useNavigate();
+	const location = useLocation();
 	const [form] = Form.useForm();
 	const [currentStep, setCurrentStep] = useState(0);
 	const [email, setEmail] = useState("");
@@ -36,7 +38,20 @@ const ForgotPassword = () => {
 	const [resetDone, setResetDone] = useState(false);
 	const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 	const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const mountedRef = useMountedRef();
 	const codeInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+	const sendResetLockRef = useRef(false);
+	const resetLockRef = useRef(false);
+	const VALID_REDIRECT_PREFIXES = [
+		"/case", "/judgment", "/reconciliation", "/execution",
+		"/profile", "/interview", "/quick-experience", "/chat",
+	];
+	const state = location.state as { from?: { pathname?: string } } | null;
+	const rawFrom = state?.from?.pathname || "/case/list";
+	const isValidRedirect =
+		rawFrom === "/" ||
+		VALID_REDIRECT_PREFIXES.some((prefix) => rawFrom.startsWith(prefix));
+	const from = isValidRedirect ? rawFrom : "/case/list";
 
 	useEffect(() => {
 		return () => {
@@ -60,17 +75,22 @@ const ForgotPassword = () => {
 	}, []);
 
 	const handleSendResetEmail = async (values: { email: string }) => {
+		if (sendResetLockRef.current) return;
+		sendResetLockRef.current = true;
+		setLoading(true);
 		try {
-			setLoading(true);
 			await resetPassword(values.email);
+			if (!mountedRef.current) return;
 			setEmail(values.email);
 			startCountdown();
 			message.success(t("message.resetEmailSent"));
 			setCurrentStep(1);
 		} catch (error: unknown) {
+			if (!mountedRef.current) return;
 			message.error(getErrorMessage(error, "message.sendResetFail"));
 		} finally {
-			setLoading(false);
+			sendResetLockRef.current = false;
+			if (mountedRef.current) setLoading(false);
 		}
 	};
 
@@ -134,19 +154,23 @@ const ForgotPassword = () => {
 			message.error(t("message.codeFull"));
 			return;
 		}
-
+		if (resetLockRef.current) return;
+		resetLockRef.current = true;
+		setLoading(true);
 		try {
-			setLoading(true);
 			await confirmResetPassword(email, code, values.password);
+			if (!mountedRef.current) return;
 			message.success(t("message.resetSuccess"));
 			setResetDone(true);
 			redirectTimerRef.current = setTimeout(() => {
-				navigate("/auth/login");
+				if (mountedRef.current) navigate("/auth/login", { state: { from: { pathname: from } } });
 			}, 2000);
 		} catch (error: unknown) {
+			if (!mountedRef.current) return;
 			message.error(getErrorMessage(error, "message.resetFail"));
 		} finally {
-			setLoading(false);
+			resetLockRef.current = false;
+			if (mountedRef.current) setLoading(false);
 		}
 	};
 
@@ -379,7 +403,7 @@ const ForgotPassword = () => {
 					<Button
 						type="default"
 						block
-						onClick={() => navigate("/auth/login")}
+						onClick={() => navigate("/auth/login", { state: { from: { pathname: from } } })}
 						className="auth-switch-link h-12 text-lg rounded-full"
 					>
 						{t("auth.forgot.backToLogin")}

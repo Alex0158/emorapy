@@ -43,6 +43,10 @@ export default function ProtectedRoute({
     );
   }
 
+  if (!_hasHydrated && timedOut) {
+    return <Navigate to={redirectTo} state={{ from: location }} replace />;
+  }
+
   if (requireAuth && !isAuthenticated) {
     return <Navigate to={redirectTo} state={{ from: location }} replace />;
   }

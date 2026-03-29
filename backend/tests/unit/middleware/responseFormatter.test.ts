@@ -98,4 +98,48 @@ describe('middleware/responseFormatter', () => {
     responseFormatter(req, res, next);
     expect(next).toHaveBeenCalledTimes(1);
   });
+
+  it('data 為 null 時應不崩潰並包裝為 success 格式（邊界：防禦性）', () => {
+    const req = createMockReq();
+    const { res, jsonMock } = createMockRes();
+    const next = jest.fn();
+    responseFormatter(req, res, next);
+    res.json(null as unknown as object);
+    expect(jsonMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: true,
+        data: null,
+        meta: expect.objectContaining({ request_id: 'req-123' }),
+      })
+    );
+  });
+
+  it('data 為 undefined 時應不崩潰並包裝為 success 格式（邊界：防禦性）', () => {
+    const req = createMockReq();
+    const { res, jsonMock } = createMockRes();
+    const next = jest.fn();
+    responseFormatter(req, res, next);
+    res.json(undefined as unknown as object);
+    expect(jsonMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: true,
+        data: undefined,
+        meta: expect.objectContaining({ request_id: 'req-123' }),
+      })
+    );
+  });
+
+  it('data 含 success: false 時應仍添加 meta（錯誤響應格式）', () => {
+    const req = createMockReq();
+    const { res, jsonMock } = createMockRes();
+    const next = jest.fn();
+    responseFormatter(req, res, next);
+    res.json({ success: false, error: { code: 'ERR', message: 'fail' } });
+    expect(jsonMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: false,
+        meta: expect.objectContaining({ request_id: 'req-123' }),
+      })
+    );
+  });
 });

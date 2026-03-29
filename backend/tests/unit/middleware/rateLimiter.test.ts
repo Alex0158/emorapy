@@ -235,4 +235,24 @@ describe('middleware/rateLimiter', () => {
     expect((await request(app).post('/upload').set('x-session-id', 'sid-dev')).status).toBe(200);
     expect((await request(app).get('/download')).status).toBe(200);
   });
+
+  it('test 且 SKIP_RATE_LIMIT=true 時 generalLimiter 應跳過限流', async () => {
+    mockEnvRef.current = { NODE_ENV: 'test' };
+    process.env.SKIP_RATE_LIMIT = 'true';
+    jest.resetModules();
+    jest.doMock('../../../src/config/env', () => ({
+      get env() {
+        return { NODE_ENV: 'test' };
+      },
+    }));
+    const { generalLimiter: limiter } = await import('../../../src/middleware/rateLimiter');
+    const app = express();
+    app.use(limiter);
+    app.get('/t', (_req, res) => res.status(200).json({ ok: true }));
+
+    for (let i = 0; i < 8; i++) {
+      const res = await request(app).get('/t');
+      expect(res.status).toBe(200);
+    }
+  });
 });

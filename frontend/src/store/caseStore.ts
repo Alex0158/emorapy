@@ -26,6 +26,7 @@ export const useCaseStore = create<CaseState>((set, get) => ({
   error: null,
 
   createQuickCase: async (data: QuickCaseDto) => {
+    if (get().isLoading) return { case: null as unknown as Case, session_id: undefined, session_expires_at: undefined };
     set({ isLoading: true, error: null });
 
     try {
@@ -39,7 +40,7 @@ export const useCaseStore = create<CaseState>((set, get) => ({
   },
 
   submitCase: async (id: string) => {
-    if (get().isLoading) return;
+    if (get().isLoading) throw new Error();
     set({ isLoading: true, error: null });
 
     try {

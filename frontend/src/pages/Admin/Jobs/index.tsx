@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Alert, Button, Card, Space, Table, Typography, message } from 'antd';
+import { Alert, Button, Card, Table, Typography, message } from 'antd';
 import type { AdminJobListItem } from '@/types/admin';
 import { useAdminAccess } from '@/hooks/useAdminAccess';
 import { adminApi } from '@/services/api/admin';
@@ -37,16 +37,30 @@ export default function AdminJobsPage() {
   };
 
   return (
-    <Space orientation="vertical" size="large" style={{ width: '100%' }}>
-      <div>
-        <Title level={3} style={{ marginBottom: 0 }}>
-          {t('admin.jobs.heading')}
-        </Title>
-        <Text type="secondary">{t('admin.jobs.subtitle')}</Text>
+    <div className="admin-page">
+      <div className="admin-page__header">
+        <Title level={3} className="admin-page__header-title">{t('admin.jobs.heading')}</Title>
+        <Text type="secondary" className="admin-page__header-subtitle">{t('admin.jobs.subtitle')}</Text>
       </div>
-      {jobsQuery.error && <Alert showIcon type="error" title={t('admin.jobs.loadFailed')} />}
+      {jobsQuery.error && (
+        <Alert
+          showIcon
+          type="error"
+          title={t('admin.jobs.loadFailed')}
+          action={
+            <Button
+              size="small"
+              loading={jobsQuery.isFetching}
+              onClick={() => void jobsQuery.refetch()}
+              data-testid="admin-jobs-load-retry"
+            >
+              {t('common.retry')}
+            </Button>
+          }
+        />
+      )}
       {!canExecuteJobs && <Alert showIcon type="warning" title={t('admin.jobs.executeDenied')} />}
-      <Card>
+      <Card className="admin-page__table-card">
         <Table<AdminJobListItem>
           rowKey="key"
           loading={jobsQuery.isLoading}
@@ -78,6 +92,6 @@ export default function AdminJobsPage() {
           ]}
         />
       </Card>
-    </Space>
+    </div>
   );
 }

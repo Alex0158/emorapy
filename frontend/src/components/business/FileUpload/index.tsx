@@ -129,7 +129,8 @@ const FileUpload = ({
         const updatedFileList = [...value, ...newFileList];
         onChange?.(updatedFileList);
         onUploadComplete?.(evidences);
-        message.success(t('fileUpload.uploadSuccessCount').replace('{count}', String(files.length)));
+        const successCount = newFileList.length;
+        message.success(t('fileUpload.uploadSuccessCount').replace('{count}', String(successCount)));
       } catch (error: unknown) {
         const msg = getLocalizedUploadError(error, 'fileUpload.uploadFail');
         message.error(msg);

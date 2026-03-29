@@ -133,4 +133,99 @@ describe('sseRequest', () => {
     expect(onToken).not.toHaveBeenCalled();
     expect(onComplete).toHaveBeenCalledWith({});
   });
+
+  it('signal abort 時應呼叫 reader.cancel', async () => {
+    const cancelMock = vi.fn();
+    let resolveRead: (v: { done: boolean; value?: Uint8Array }) => void;
+    const readPromise = new Promise<{ done: boolean; value?: Uint8Array }>((r) => {
+      resolveRead = r;
+    });
+    const reader = {
+      read: () => readPromise,
+      cancel: cancelMock,
+      releaseLock: vi.fn(),
+    };
+    const body = {
+      getReader: () => reader,
+    } as unknown as ReadableStream;
+    const controller = new AbortController();
+    globalThis.fetch = vi.fn().mockResolvedValue({ ok: true, body });
+    const p = sseRequest('/test', {}, {}, controller.signal);
+    await new Promise((r) => setTimeout(r, 20)); // 讓 sseRequest 進入 read 等待
+    controller.abort();
+    resolveRead!({ done: true }); // 讓 read 結束，避免 hang
+    await p.catch(() => {});
+    expect(cancelMock).toHaveBeenCalled();
+  });
+
+  it('30 秒內未收到 token 應觸發 RESPONSE_TIMEOUT 並呼叫 onError', async () => {
+    vi.useFakeTimers();
+    const cancelMock = vi.fn();
+    let resolveRead: (v: { done: boolean; value?: Uint8Array }) => void;
+    const readPromise = new Promise<{ done: boolean; value?: Uint8Array }>((r) => {
+      resolveRead = r;
+    });
+    const reader = {
+      read: () => readPromise,
+      cancel: () => {
+        cancelMock();
+        resolveRead!({ done: true });
+        return Promise.resolve();
+      },
+      releaseLock: vi.fn(),
+    };
+    const body = { getReader: () => reader } as unknown as ReadableStream;
+    const onError = vi.fn();
+    globalThis.fetch = vi.fn().mockResolvedValue({ ok: true, body });
+    const p = sseRequest('/test', {}, { onError });
+    await Promise.resolve(); // 讓 sseRequest 進入 read 等待
+    await vi.advanceTimersByTimeAsync(31_000); // 超過 TOKEN_TIMEOUT_MS (30s)
+    await p.catch(() => {});
+    expect(onError).toHaveBeenCalledWith({
+      code: 'RESPONSE_TIMEOUT',
+      message: 'interview.error.responseTimeout',
+    });
+    expect(cancelMock).toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  it('60 秒無新資料應觸發 CONNECTION_TIMEOUT 並呼叫 onError', async () => {
+    vi.useFakeTimers();
+    const cancelMock = vi.fn();
+    let readCount = 0;
+    let resolveRead: (v: { done: boolean; value?: Uint8Array }) => void;
+    const reader = {
+      read: () => {
+        readCount++;
+        if (readCount === 1) {
+          return Promise.resolve({
+            done: false,
+            value: new TextEncoder().encode('event: token\ndata: {"text":"x"}\n\n'),
+          });
+        }
+        return new Promise<{ done: boolean; value?: Uint8Array }>((r) => {
+          resolveRead = r;
+        });
+      },
+      cancel: () => {
+        cancelMock();
+        resolveRead!({ done: true });
+        return Promise.resolve();
+      },
+      releaseLock: vi.fn(),
+    };
+    const body = { getReader: () => reader } as unknown as ReadableStream;
+    const onError = vi.fn();
+    globalThis.fetch = vi.fn().mockResolvedValue({ ok: true, body });
+    const p = sseRequest('/test', {}, { onError });
+    await vi.advanceTimersByTimeAsync(100); // 讓第一筆 token 處理完
+    await vi.advanceTimersByTimeAsync(61_000); // 超過 CONNECTION_TIMEOUT_MS (60s)
+    await p.catch(() => {});
+    expect(onError).toHaveBeenCalledWith({
+      code: 'CONNECTION_TIMEOUT',
+      message: 'interview.error.connectionTimeout',
+    });
+    expect(cancelMock).toHaveBeenCalled();
+    vi.useRealTimers();
+  });
 });

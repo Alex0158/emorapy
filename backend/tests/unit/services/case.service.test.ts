@@ -8,6 +8,8 @@ const mockCreateSession: any = jest.fn();
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockGetSession: any = jest.fn();
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockAddCaseToSession: any = jest.fn();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockCreateTempPairing: any = jest.fn();
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockGetPairingBySessionId: any = jest.fn();
@@ -51,6 +53,7 @@ jest.mock('../../../src/services/session.service', () => ({
   sessionService: {
     createSession: () => mockCreateSession(),
     getSession: (id: string) => mockGetSession(id),
+    addCaseToSession: (sessionId: string, caseId: string) => mockAddCaseToSession(sessionId, caseId),
   },
 }));
 jest.mock('../../../src/services/pairing.service', () => ({
@@ -96,6 +99,7 @@ describe('CaseService', () => {
     mockSignAvatar.mockImplementation((user: unknown) => user);
     mockValidateSessionId.mockReturnValue(true);
     mockGetPairingBySessionId.mockResolvedValue(null);
+    mockAddCaseToSession.mockResolvedValue(undefined);
     prismaMock.pairing.delete.mockResolvedValue({} as never);
     // createCase/updateCase use prisma.$transaction with tx; ensure callback runs with tx that delegates to same mocks
     prismaMock.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) => {
@@ -302,6 +306,28 @@ describe('CaseService', () => {
       );
     });
 
+    it('collaborative 模式缺少 defendant_statement 時應拋出 VALIDATION_ERROR', async () => {
+      prismaMock.pairing.findUnique.mockResolvedValue({
+        id: 'pair-1',
+        status: 'active',
+        user1_id: 'u1',
+        user2_id: 'u2',
+        user1: {},
+        user2: {},
+      });
+
+      await expect(service.createCase('u1', {
+        pairing_id: 'pair-1',
+        plaintiff_statement: LONG_STATEMENT_50,
+        mode: 'collaborative',
+      })).rejects.toMatchObject({
+        code: 'VALIDATION_ERROR',
+        message: expect.stringContaining('雙方陳述'),
+      });
+
+      expect(prismaMock.case.create).not.toHaveBeenCalled();
+    });
+
     it('傳入 data.evidence_urls 時應 createMany evidence', async () => {
       const evidenceUrls = ['https://example.com/1.jpg', 'https://example.com/2.jpg'];
       prismaMock.pairing.findUnique.mockResolvedValue({
@@ -385,6 +411,21 @@ describe('CaseService', () => {
   });
 
   describe('getCaseList', () => {
+    it('無案件時應返回 cases 空陣列與 pagination total 0（F03 邊界）', async () => {
+      prismaMock.case.findMany.mockResolvedValue([]);
+      prismaMock.case.count.mockResolvedValue(0);
+
+      const result = await service.getCaseList('u1', { page: 1, page_size: 10 });
+
+      expect(result.cases).toEqual([]);
+      expect(result.pagination).toMatchObject({
+        page: 1,
+        page_size: 10,
+        total: 0,
+        total_pages: 0,
+      });
+    });
+
     it('不傳 params 時應使用預設分頁與排序', async () => {
       prismaMock.case.findMany.mockResolvedValue([]);
       prismaMock.case.count.mockResolvedValue(0);
@@ -540,6 +581,38 @@ describe('CaseService', () => {
       });
     });
 
+    it('remote 模式缺少 defendant_statement 應拋出 VALIDATION_ERROR', async () => {
+      prismaMock.case.findUnique.mockResolvedValue({
+        id: 'case-1',
+        plaintiff_id: 'u1',
+        defendant_id: 'u2',
+        status: 'draft',
+        mode: 'remote',
+        defendant_statement: null,
+      });
+
+      await expect(service.submitCase('case-1', 'u1')).rejects.toMatchObject({
+        code: 'VALIDATION_ERROR',
+        message: expect.stringMatching(/被告陳述|遠程/),
+      });
+    });
+
+    it('collaborative 模式缺少 defendant_statement 應拋出 VALIDATION_ERROR（F03-BUG-004）', async () => {
+      prismaMock.case.findUnique.mockResolvedValue({
+        id: 'case-1',
+        plaintiff_id: 'u1',
+        defendant_id: 'u2',
+        status: 'draft',
+        mode: 'collaborative',
+        defendant_statement: '',
+      });
+
+      await expect(service.submitCase('case-1', 'u1')).rejects.toMatchObject({
+        code: 'VALIDATION_ERROR',
+        message: expect.stringMatching(/被告陳述|遠程|協作/),
+      });
+    });
+
     it('成功應更新為 submitted 並返回', async () => {
       const updated = {
         id: 'case-1',
@@ -553,6 +626,8 @@ describe('CaseService', () => {
         plaintiff_id: 'u1',
         defendant_id: 'u2',
         status: 'draft',
+        mode: 'remote',
+        defendant_statement: '被告已填寫足夠長度的陳述',
       });
       prismaMock.case.update.mockResolvedValue(updated);
 
@@ -851,6 +926,25 @@ describe('CaseService', () => {
       expect(result).toBeDefined();
       expect(mockSignUrl).toHaveBeenCalled();
       expect(mockGetSession).toHaveBeenCalledWith('s1');
+    });
+
+    it('collaborative 模式應允許以 sessionId 讀取案件', async () => {
+      const case_ = {
+        id: 'case-1',
+        mode: 'collaborative',
+        session_id: 's-collab',
+        evidences: [{ file_url: 'http://a.com/1.jpg' }],
+        judgment: null,
+        pairing: null,
+      };
+      prismaMock.case.findUnique.mockResolvedValue(case_);
+      mockGetSession.mockResolvedValue({ id: 's-collab' });
+
+      const result = await service.getCaseById('case-1', undefined, 's-collab');
+
+      expect(result).toBeDefined();
+      expect(mockGetSession).toHaveBeenCalledWith('s-collab');
+      expect(mockSignUrl).toHaveBeenCalledWith('http://a.com/1.jpg');
     });
 
     it('remote 模式無 userId 應拋出 UNAUTHORIZED', async () => {
@@ -1209,6 +1303,35 @@ describe('CaseService', () => {
       expect(capturedCaseData!.defendant_statement).toBe(defendantStmt.trim());
     });
 
+    it('defendant_statement 為空字串時應成功建案並正規化為 null', async () => {
+      mockGetSession.mockResolvedValue({ id: 's1', case_id: null, expires_at: new Date() });
+      mockDetectCaseType.mockResolvedValue('其他衝突');
+      mockCreateTempPairing.mockResolvedValue({ id: 'pair-1' });
+      let capturedCaseData: { defendant_statement: string | null } | null = null;
+      prismaMock.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) => {
+        const tx = {
+          case: {
+            create: jest.fn().mockImplementation((arg: unknown) => {
+              capturedCaseData = (arg as { data: { defendant_statement: string | null } }).data;
+              return Promise.resolve({ id: 'case-1', session_id: 's1', mode: 'quick', status: 'submitted' });
+            }),
+          },
+          evidence: { createMany: jest.fn().mockResolvedValue({} as never) },
+          quickSession: { update: jest.fn().mockResolvedValue({} as never) },
+        };
+        return fn(tx);
+      });
+
+      const result = await service.createQuickCase(
+        { plaintiff_statement: LONG_STATEMENT_30, defendant_statement: '' },
+        's1'
+      );
+
+      expect(result.case).toBeDefined();
+      expect(capturedCaseData).not.toBeNull();
+      expect(capturedCaseData!.defendant_statement).toBeNull();
+    });
+
     it('有 evidence_urls 時應驗證並在事務中 createMany', async () => {
       const evidenceUrls = ['https://example.com/1.jpg', 'https://example.com/2.jpg'];
       mockGetSession.mockResolvedValue({ id: 's1', case_id: null, expires_at: new Date() });
@@ -1337,6 +1460,178 @@ describe('CaseService', () => {
         'Failed to create case in transaction',
         expect.objectContaining({ error: expect.any(Error) })
       );
+    });
+  });
+
+  describe('createOrUpdateCollaborativeCase', () => {
+    it('角色 A 缺少 plaintiff_statement 時應拋出 VALIDATION_ERROR', async () => {
+      await expect(
+        service.createOrUpdateCollaborativeCase({}, 's1')
+      ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+      expect(prismaMock.case.create).not.toHaveBeenCalled();
+    });
+
+    it('角色 A 首次提交時應建立 collaborative draft case 並綁定 session', async () => {
+      mockValidateSessionId.mockReturnValue(true);
+      mockGetSession.mockResolvedValue({ id: 's1', expires_at: new Date('2026-01-01T00:00:00Z') });
+      mockDetectCaseType.mockResolvedValue('其他衝突');
+      mockCreateTempPairing.mockResolvedValue({ id: 'pair-1' });
+      prismaMock.case.create.mockResolvedValue({
+        id: 'case-collab-1',
+        session_id: 's1',
+        mode: 'collaborative',
+        status: 'draft',
+      });
+
+      const result = await service.createOrUpdateCollaborativeCase(
+        { plaintiff_statement: LONG_STATEMENT_30 },
+        's1'
+      );
+
+      expect(prismaMock.case.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            pairing_id: 'pair-1',
+            plaintiff_statement: LONG_STATEMENT_30.trim(),
+            status: 'draft',
+            mode: 'collaborative',
+            session_id: 's1',
+          }),
+        })
+      );
+      expect(mockAddCaseToSession).toHaveBeenCalledWith('s1', 'case-collab-1');
+      expect(result.phase).toBe('a_done');
+      expect(result.sessionId).toBe('s1');
+    });
+
+    it('角色 A 在 session 無效時應自動建立新 session', async () => {
+      mockValidateSessionId.mockReturnValue(false);
+      mockCreateSession.mockResolvedValue({
+        session_id: 's-new',
+        expires_at: new Date('2026-01-01T00:00:00Z'),
+      });
+      mockGetSession.mockResolvedValue({ id: 's-new', expires_at: new Date('2026-01-01T00:00:00Z') });
+      mockDetectCaseType.mockResolvedValue('其他衝突');
+      mockCreateTempPairing.mockResolvedValue({ id: 'pair-1' });
+      prismaMock.case.create.mockResolvedValue({
+        id: 'case-collab-2',
+        session_id: 's-new',
+        mode: 'collaborative',
+        status: 'draft',
+      });
+
+      const result = await service.createOrUpdateCollaborativeCase(
+        { plaintiff_statement: LONG_STATEMENT_30 },
+        'bad-session'
+      );
+
+      expect(mockCreateSession).toHaveBeenCalled();
+      expect(mockAddCaseToSession).toHaveBeenCalledWith('s-new', 'case-collab-2');
+      expect(result.sessionId).toBe('s-new');
+      expect(result.phase).toBe('a_done');
+    });
+
+    it('角色 B 案件不存在或非 collaborative 時應拋出 NOT_FOUND', async () => {
+      prismaMock.case.findUnique.mockResolvedValue({
+        id: 'case-collab-1',
+        mode: 'quick',
+        session_id: 's1',
+        status: 'draft',
+      });
+
+      await expect(
+        service.createOrUpdateCollaborativeCase(
+          { case_id: 'case-collab-1', defendant_statement: '角色B已寫足夠字數了' },
+          's1'
+        )
+      ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    });
+
+    it('角色 B session 不匹配時應拋出 FORBIDDEN', async () => {
+      prismaMock.case.findUnique.mockResolvedValue({
+        id: 'case-collab-1',
+        mode: 'collaborative',
+        session_id: 's-expected',
+        status: 'draft',
+      });
+
+      await expect(
+        service.createOrUpdateCollaborativeCase(
+          { case_id: 'case-collab-1', defendant_statement: '角色B已寫足夠字數了' },
+          's-other'
+        )
+      ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      expect(prismaMock.case.update).not.toHaveBeenCalled();
+    });
+
+    it('角色 B session 已過期時應拋出 SESSION_EXPIRED', async () => {
+      prismaMock.case.findUnique.mockResolvedValue({
+        id: 'case-collab-1',
+        mode: 'collaborative',
+        session_id: 's1',
+        status: 'draft',
+      });
+      mockGetSession.mockResolvedValue(null);
+
+      await expect(
+        service.createOrUpdateCollaborativeCase(
+          { case_id: 'case-collab-1', defendant_statement: '角色B已寫足夠字數了' },
+          's1'
+        )
+      ).rejects.toMatchObject({ code: 'SESSION_EXPIRED' });
+      expect(prismaMock.case.update).not.toHaveBeenCalled();
+    });
+
+    it('角色 B 案件已提交時應拋出 CASE_NOT_EDITABLE', async () => {
+      prismaMock.case.findUnique.mockResolvedValue({
+        id: 'case-collab-1',
+        mode: 'collaborative',
+        session_id: 's1',
+        status: 'submitted',
+      });
+      mockGetSession.mockResolvedValue({ id: 's1', expires_at: new Date('2026-01-01T00:00:00Z') });
+
+      await expect(
+        service.createOrUpdateCollaborativeCase(
+          { case_id: 'case-collab-1', defendant_statement: '角色B已寫足夠字數了' },
+          's1'
+        )
+      ).rejects.toMatchObject({ code: 'CASE_NOT_EDITABLE' });
+      expect(prismaMock.case.update).not.toHaveBeenCalled();
+    });
+
+    it('角色 B 正常提交時應更新 defendant_statement 並返回 submitted', async () => {
+      const expiresAt = new Date('2026-01-01T00:00:00Z');
+      prismaMock.case.findUnique.mockResolvedValue({
+        id: 'case-collab-1',
+        mode: 'collaborative',
+        session_id: 's1',
+        status: 'draft',
+      });
+      mockGetSession.mockResolvedValue({ id: 's1', expires_at: expiresAt });
+      prismaMock.case.update.mockResolvedValue({
+        id: 'case-collab-1',
+        mode: 'collaborative',
+        status: 'submitted',
+        defendant_statement: '角色B已寫足夠字數了',
+      });
+
+      const result = await service.createOrUpdateCollaborativeCase(
+        { case_id: 'case-collab-1', defendant_statement: '角色B已寫足夠字數了' },
+        's1'
+      );
+
+      expect(prismaMock.case.update).toHaveBeenCalledWith({
+        where: { id: 'case-collab-1' },
+        data: expect.objectContaining({
+          defendant_statement: '角色B已寫足夠字數了',
+          status: 'submitted',
+          submitted_at: expect.any(Date),
+        }),
+      });
+      expect(result.phase).toBe('submitted');
+      expect(result.sessionId).toBe('s1');
+      expect(result.sessionExpiresAt).toEqual(expiresAt);
     });
   });
 });

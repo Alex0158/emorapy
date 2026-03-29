@@ -1,0 +1,143 @@
+{
+  "generated_at": "2026-03-17T12:00:31.674Z",
+  "frontend": [
+    {
+      "file": "frontend/home.html",
+      "route": "/"
+    },
+    {
+      "file": "frontend/case-list.html",
+      "route": "/case/list"
+    },
+    {
+      "file": "frontend/case-create.html",
+      "route": "/case/create"
+    },
+    {
+      "file": "frontend/case-detail.html",
+      "route": "/case/case-001"
+    },
+    {
+      "file": "frontend/case-review.html",
+      "route": "/case/case-001/review"
+    },
+    {
+      "file": "frontend/judgment-detail.html",
+      "route": "/judgment/judgment-001"
+    },
+    {
+      "file": "frontend/reconciliation-list.html",
+      "route": "/reconciliation/judgment-001"
+    },
+    {
+      "file": "frontend/reconciliation-detail.html",
+      "route": "/reconciliation/judgment-001/plan-001"
+    },
+    {
+      "file": "frontend/execution-dashboard.html",
+      "route": "/execution/dashboard"
+    },
+    {
+      "file": "frontend/execution-checkin.html",
+      "route": "/execution/plan-001/checkin"
+    },
+    {
+      "file": "frontend/profile-index.html",
+      "route": "/profile/index"
+    },
+    {
+      "file": "frontend/profile-settings.html",
+      "route": "/profile/settings"
+    },
+    {
+      "file": "frontend/profile-pairing.html",
+      "route": "/profile/pairing"
+    },
+    {
+      "file": "frontend/profile-my-story.html",
+      "route": "/profile/my-story"
+    },
+    {
+      "file": "frontend/interview-chat.html",
+      "route": "/interview/session-001"
+    },
+    {
+      "file": "frontend/interview-result.html",
+      "route": "/interview/session-001/result"
+    },
+    {
+      "file": "frontend/chat-room-entry.html",
+      "route": "/chat/room"
+    },
+    {
+      "file": "frontend/chat-room.html",
+      "route": "/chat/room/room-001"
+    },
+    {
+      "file": "frontend/quick-experience-create.html",
+      "route": "/quick-experience/create"
+    },
+    {
+      "file": "frontend/quick-experience-result.html",
+      "route": "/quick-experience/result/case-quick-001"
+    },
+    {
+      "file": "frontend/quick-experience-collaborative.html",
+      "route": "/quick-experience/collaborative"
+    },
+    {
+      "file": "frontend/auth-login.html",
+      "route": "/auth/login"
+    },
+    {
+      "file": "frontend/auth-register.html",
+      "route": "/auth/register"
+    },
+    {
+      "file": "frontend/auth-forgot-password.html",
+      "route": "/auth/forgot-password"
+    },
+    {
+      "file": "frontend/not-found.html",
+      "route": "/this-route-does-not-exist"
+    }
+  ],
+  "admin": [
+    {
+      "file": "frontend-admin/admin-login.html",
+      "route": "/admin/login"
+    },
+    {
+      "file": "frontend-admin/ops-jobs.html",
+      "route": "/admin/ops/jobs"
+    },
+    {
+      "file": "frontend-admin/jobs.html",
+      "route": "/admin/jobs"
+    },
+    {
+      "file": "frontend-admin/health.html",
+      "route": "/admin/health"
+    },
+    {
+      "file": "frontend-admin/configs.html",
+      "route": "/admin/configs"
+    },
+    {
+      "file": "frontend-admin/users.html",
+      "route": "/admin/users"
+    },
+    {
+      "file": "frontend-admin/audit-logs.html",
+      "route": "/admin/audit-logs"
+    },
+    {
+      "file": "frontend-admin/reports.html",
+      "route": "/admin/reports"
+    },
+    {
+      "file": "frontend-admin/settings.html",
+      "route": "/admin/settings"
+    }
+  ]
+}

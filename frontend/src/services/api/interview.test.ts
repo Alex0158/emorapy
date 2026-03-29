@@ -40,6 +40,12 @@ describe('interviewApi', () => {
       expect(mockGet).toHaveBeenCalledWith('/interview/resume');
       expect(res.data.data.has_pending).toBe(true);
     });
+
+    it('後端回傳 200 且 data 為 null 時應正常返回不拋錯（F06 邊界：API 回傳不完整時由 store 防禦）', async () => {
+      mockGet.mockResolvedValue({ data: { data: null } });
+      const res = await interviewApi.checkResume();
+      expect(res.data?.data).toBeNull();
+    });
   });
 
   describe('getSession', () => {
@@ -47,6 +53,12 @@ describe('interviewApi', () => {
       mockGet.mockResolvedValue({ data: { data: { id: 's3', status: 'completed' } } });
       await interviewApi.getSession('s3');
       expect(mockGet).toHaveBeenCalledWith('/interview/s3');
+    });
+
+    it('後端回傳 200 且 data 為 null 時應正常返回不拋錯（F06 邊界：API 回傳不完整時由 store 防禦）', async () => {
+      mockGet.mockResolvedValue({ data: { data: null } });
+      const res = await interviewApi.getSession('s1');
+      expect(res.data?.data).toBeNull();
     });
   });
 

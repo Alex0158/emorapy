@@ -136,6 +136,13 @@ export class SessionService {
    * 將案件ID關聯到Session
    */
   async addCaseToSession(sessionId: string, caseId: string): Promise<void> {
+    const session = await prisma.quickSession.findUnique({
+      where: { id: sessionId },
+      select: { id: true },
+    });
+    if (!session) {
+      throw Errors.SESSION_EXPIRED('Session已過期或不存在');
+    }
     try {
       await prisma.quickSession.update({
         where: { id: sessionId },
@@ -151,6 +158,13 @@ export class SessionService {
    * 將配對ID關聯到Session
    */
   async addPairingToSession(sessionId: string, pairingId: string): Promise<void> {
+    const session = await prisma.quickSession.findUnique({
+      where: { id: sessionId },
+      select: { id: true },
+    });
+    if (!session) {
+      throw Errors.SESSION_EXPIRED('Session已過期或不存在');
+    }
     try {
       await prisma.quickSession.update({
         where: { id: sessionId },

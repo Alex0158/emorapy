@@ -59,11 +59,32 @@ describe('pairing.routes', () => {
     expect(res.body.data).toHaveProperty('pairing');
   });
 
+  it('createPairing 成功時應返回 data.pairing 含 invite_code（F08 邊界）', async () => {
+    const pairingData = { id: 'pair-1', invite_code: 'XYZ789', status: 'pending' };
+    mockCreatePairing.mockResolvedValueOnce(pairingData as never);
+    const app = createApp();
+    const res = await request(app).post('/create').send({});
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.pairing).toHaveProperty('invite_code');
+    expect(res.body.data.pairing.invite_code).toBe('XYZ789');
+    expect(res.body.data.pairing.id).toBe('pair-1');
+    expect(mockCreatePairing).toHaveBeenCalledWith('u1');
+  });
+
   it('POST /join 應調用 joinPairing 並返回 200', async () => {
     const app = createApp();
     const res = await request(app).post('/join').send({ invite_code: 'ABC123' });
     expect(res.status).toBe(200);
     expect(mockJoinPairing).toHaveBeenCalledWith('u1', 'ABC123');
+  });
+
+  it('joinPairing 成功時應返回 data.pairing（F08 邊界）', async () => {
+    const app = createApp();
+    const res = await request(app).post('/join').send({ invite_code: 'ABC123' });
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data).toHaveProperty('pairing');
   });
 
   it('GET /status 應調用 getPairingStatus 並返回 200', async () => {
@@ -73,11 +94,40 @@ describe('pairing.routes', () => {
     expect(mockGetPairingStatus).toHaveBeenCalledWith('u1');
   });
 
+  it('GET /status 無配對時應返回 pairing null（F08 邊界）', async () => {
+    mockGetPairingStatus.mockResolvedValueOnce(null as never);
+    const app = createApp();
+    const res = await request(app).get('/status');
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.pairing).toBeNull();
+    expect(mockGetPairingStatus).toHaveBeenCalledWith('u1');
+  });
+
+  it('getPairingStatus 有配對時應返回 data.pairing（F08 邊界）', async () => {
+    const pairingData = { id: 'pair-1', invite_code: 'XYZ789', status: 'active' };
+    mockGetPairingStatus.mockResolvedValueOnce(pairingData as never);
+    const app = createApp();
+    const res = await request(app).get('/status');
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data).toHaveProperty('pairing');
+    expect(res.body.data.pairing).toEqual(pairingData);
+  });
+
   it('POST /cancel 應調用 cancelPairing 並返回 200', async () => {
     const app = createApp();
     const res = await request(app).post('/cancel').send({});
     expect(res.status).toBe(200);
     expect(mockCancelPairing).toHaveBeenCalledWith('u1');
+  });
+
+  it('cancelPairing 成功時應返回 data.pairing（F08 邊界）', async () => {
+    const app = createApp();
+    const res = await request(app).post('/cancel').send({});
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data).toHaveProperty('pairing');
   });
 
   it('createPairing 拋錯時應 next(error)', async () => {

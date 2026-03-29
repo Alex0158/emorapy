@@ -43,6 +43,16 @@ describe('errorHandler', () => {
       expect(mockMessageError).toHaveBeenCalledWith('資源不存在');
     });
 
+    it('FORBIDDEN 應顯示權限不足訊息', () => {
+      handleApiError({ code: 'FORBIDDEN' });
+      expect(mockMessageError).toHaveBeenCalledWith('無權限訪問此資源');
+    });
+
+    it('RATE_LIMIT 應顯示限流訊息', () => {
+      handleApiError({ code: 'RATE_LIMIT' });
+      expect(mockMessageError).toHaveBeenCalledWith('請求過於頻繁，請稍後再試');
+    });
+
     it('未知 code 應顯示默認訊息', () => {
       handleApiError({ code: 'UNKNOWN' });
       expect(mockMessageError).toHaveBeenCalledWith('發生未知錯誤，請稍後再試');
@@ -62,6 +72,11 @@ describe('errorHandler', () => {
 
     it('空物件不應調用 message.error', () => {
       handleValidationError({});
+      expect(mockMessageError).not.toHaveBeenCalled();
+    });
+
+    it('第一個 key 陣列為空時不應調用 message.error（邊界）', () => {
+      handleValidationError({ name: [], email: ['郵箱格式錯誤'] });
       expect(mockMessageError).not.toHaveBeenCalled();
     });
   });

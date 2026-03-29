@@ -152,6 +152,30 @@ describe('JudgmentService', () => {
       await expect(service.generateJudgment('case-1', { sessionId: 's-fake' })).rejects.toMatchObject({ code: 'FORBIDDEN' });
     });
 
+    it('collaborative 模式使用匹配 sessionId 時應允許生成判決', async () => {
+      prismaMock.judgment.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+      prismaMock.case.findUnique.mockResolvedValueOnce(
+        baseCase({
+          mode: 'collaborative',
+          session_id: 's-collab',
+          plaintiff_id: null,
+          defendant_id: null,
+        })
+      );
+      aiServiceMock.generateJudgment.mockResolvedValueOnce({
+        content: 'ok',
+        responsibilityRatio: { plaintiff: 55, defendant: 45 },
+        summary: 'sum',
+      });
+      prismaMock.judgment.create.mockResolvedValueOnce({ id: 'j-collab', case_id: 'case-1' });
+
+      const service = new JudgmentService();
+      const result = await service.generateJudgment('case-1', { sessionId: 's-collab' });
+
+      expect(aiServiceMock.generateJudgment).toHaveBeenCalled();
+      expect(result).toMatchObject({ id: 'j-collab', case_id: 'case-1' });
+    });
+
     it('remote 模式非當事人應拋出 FORBIDDEN', async () => {
       prismaMock.judgment.findUnique.mockResolvedValueOnce(null);
       prismaMock.case.findUnique.mockResolvedValueOnce(
@@ -567,6 +591,37 @@ describe('JudgmentService', () => {
       await expect(
         service.getJudgmentByCaseId('case-1', undefined, baseCase().session_id as string)
       ).rejects.toMatchObject({ code: 'SESSION_EXPIRED' });
+    });
+
+    it('collaborative 模式應允許以 sessionId 讀取判決', async () => {
+      prismaMock.case.findUnique.mockResolvedValueOnce(
+        baseCase({ mode: 'collaborative', session_id: 's-collab', plaintiff_id: null, defendant_id: null })
+      );
+      sessionServiceMock.getSession.mockResolvedValueOnce({ id: 's-collab' });
+      prismaMock.judgment.findUnique.mockResolvedValueOnce({
+        id: 'j-collab',
+        case_id: 'case-1',
+        plaintiff_ratio: 55,
+        defendant_ratio: 45,
+        reconciliation_plans: [],
+      });
+      const service = new JudgmentService();
+
+      const judgment = await service.getJudgmentByCaseId('case-1', undefined, 's-collab');
+
+      expect(sessionServiceMock.getSession).toHaveBeenCalledWith('s-collab');
+      expect(judgment).toMatchObject({ id: 'j-collab', case_id: 'case-1' });
+    });
+
+    it('collaborative 模式 session 不匹配時應拒絕讀取判決', async () => {
+      prismaMock.case.findUnique.mockResolvedValueOnce(
+        baseCase({ mode: 'collaborative', session_id: 's-collab', plaintiff_id: null, defendant_id: null })
+      );
+      const service = new JudgmentService();
+
+      await expect(service.getJudgmentByCaseId('case-1', undefined, 's-wrong')).rejects.toMatchObject({
+        code: 'FORBIDDEN',
+      });
     });
 
     it('remote 模式無 userId 應 UNAUTHORIZED', async () => {

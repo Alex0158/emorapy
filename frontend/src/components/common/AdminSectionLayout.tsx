@@ -1,5 +1,6 @@
 import { Layout, Menu, Typography } from 'antd';
 import { Link, Outlet, useLocation } from 'react-router-dom';
+import '@/pages/Admin/admin.less';
 import {
   AlertOutlined,
   DashboardOutlined,
@@ -45,7 +46,7 @@ export default function AdminSectionLayout() {
         <Text type="secondary">{t('admin.nav.subtitle')}</Text>
         <Menu mode="inline" selectedKeys={[selected]} items={adminMenuItems} style={{ marginTop: 12 }} />
       </Sider>
-      <Content>
+      <Content className="admin-page__container">
         <Outlet />
       </Content>
     </Layout>

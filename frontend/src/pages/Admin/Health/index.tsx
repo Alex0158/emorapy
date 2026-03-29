@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Alert, Card, Descriptions, Space, Spin, Typography } from 'antd';
+import { Alert, Button, Card, Descriptions, Spin, Typography } from 'antd';
 import { adminApi } from '@/services/api/admin';
 import { t } from '@/utils/i18n';
 
@@ -13,15 +13,24 @@ export default function AdminHealthPage() {
   });
 
   return (
-    <Space orientation="vertical" size="large" style={{ width: '100%' }}>
-      <div>
-        <Title level={3} style={{ marginBottom: 0 }}>
-          {t('admin.health.heading')}
-        </Title>
-        <Text type="secondary">{t('admin.health.subtitle')}</Text>
+    <div className="admin-page">
+      <div className="admin-page__header">
+        <Title level={3} className="admin-page__header-title">{t('admin.health.heading')}</Title>
+        <Text type="secondary" className="admin-page__header-subtitle">{t('admin.health.subtitle')}</Text>
       </div>
-      {healthQuery.error && <Alert showIcon type="error" title={t('admin.health.loadFailed')} />}
-      <Card>
+      {healthQuery.error && (
+        <Alert
+          showIcon
+          type="error"
+          title={t('admin.health.loadFailed')}
+          action={
+            <Button size="small" loading={healthQuery.isFetching} onClick={() => healthQuery.refetch()} data-testid="admin-health-load-retry">
+              {t('common.retry')}
+            </Button>
+          }
+        />
+      )}
+      <Card className="admin-page__table-card">
         {healthQuery.isLoading || !healthQuery.data ? (
           <Spin />
         ) : (
@@ -53,6 +62,6 @@ export default function AdminHealthPage() {
           </Descriptions>
         )}
       </Card>
-    </Space>
+    </div>
   );
 }

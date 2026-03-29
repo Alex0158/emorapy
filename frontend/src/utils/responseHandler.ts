@@ -4,7 +4,7 @@
 
 import type { ApiResponse } from '@/types/common';
 import { message } from 'antd';
-import { t } from '@/utils/i18n';
+import { getErrorMessage } from '@/utils/apiError';
 
 /**
  * 處理API響應
@@ -20,14 +20,11 @@ export function handleApiResponse<T>(response: ApiResponse<T>): T {
 
 /**
  * 處理API錯誤
+ * F10 約定：message 為空字串或純空白時使用 common.unknownError
  */
 export function handleApiError(error: unknown, showMessage: boolean = true): void {
-  type ErrShape = { message?: string; error?: { message?: string } };
-  const err = error as ErrShape;
-  const errorMessage = err?.message ?? err?.error?.message ?? t('common.unknownError');
-
   if (showMessage) {
-    message.error(errorMessage);
+    message.error(getErrorMessage(error, 'common.unknownError'));
   }
 }
 

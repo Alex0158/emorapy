@@ -78,6 +78,7 @@ describe('middleware/adminAuth', () => {
         email: 'admin@test.com',
         is_active: true,
         deleted_at: null,
+        updated_at: new Date('2025-01-01T00:00:00Z'),
         role: {
           key: 'ops',
           permissions: ['ops:read', 'ops:execute'],
@@ -92,6 +93,30 @@ describe('middleware/adminAuth', () => {
         permissions: ['ops:read', 'ops:execute'],
       });
       expect(next).toHaveBeenCalledWith();
+    });
+
+    it('token iat 早於 admin.updated_at 時應回 UNAUTHORIZED（F10 權限：帳號變更後舊 token 失效）', async () => {
+      const req = createReq({ headers: { authorization: 'Bearer ok' } });
+      mockVerifyAdminToken.mockReturnValue({
+        id: 'a1',
+        email: 'admin@test.com',
+        roleKey: 'ops',
+        iat: 1000,
+      });
+      mockFindAdminUser.mockResolvedValue({
+        id: 'a1',
+        email: 'admin@test.com',
+        is_active: true,
+        deleted_at: null,
+        updated_at: new Date(3000 * 1000),
+        role: { key: 'ops', permissions: ['ops:read'] },
+      } as never);
+
+      await authenticateAdmin(req, createRes(), next);
+
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
+      expect((next.mock.calls[0][0] as { code: string; message: string }).code).toBe('UNAUTHORIZED');
+      expect((next.mock.calls[0][0] as { message: string }).message).toContain('已失效');
     });
   });
 

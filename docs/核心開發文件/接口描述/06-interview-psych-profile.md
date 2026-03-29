@@ -1,7 +1,7 @@
 # 接口描述：interview + psych-profile
 
-**文檔版本**：v2.1  
-**最後更新**：2026-03-05  
+**文檔版本**：v2.2  
+**最後更新**：2026-03-06  
 **代碼基準**：`backend/src/routes/interview.routes.ts`、`backend/src/services/interview.service.ts`、`frontend/src/store/interviewStore.ts`、`frontend/src/services/sseRequest.ts`
 
 ---

@@ -25,20 +25,31 @@ import {
 import { checkin, getExecutionStatus } from '@/services/api/execution';
 import { uploadEvidence } from '@/services/api/case';
 import type { ExecutionStatus } from '@/services/api/execution';
+import type { FormInstance } from 'antd';
 import ProtectedRoute from '@/components/common/ProtectedRoute';
 import SEO from '@/components/common/SEO';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getErrorMessage } from '@/utils/apiError';
 import { t } from '@/utils/i18n';
 import './CheckIn.less';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
 
-const ExecutionCheckIn = () => {
+interface ExecutionCheckInProps {
+  /** 僅供測試使用：注入 form 實例以程式化設定表單值 */
+  formRef?: React.MutableRefObject<FormInstance | null>;
+}
+
+const ExecutionCheckIn = ({ formRef }: ExecutionCheckInProps) => {
   const { planId } = useParams<{ planId: string }>();
   const navigate = useNavigate();
   const [form] = Form.useForm();
+  useEffect(() => {
+    if (formRef) formRef.current = form;
+    return () => { if (formRef) formRef.current = null; };
+  }, [form, formRef]);
   const [execution, setExecution] = useState<ExecutionStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -46,6 +57,9 @@ const ExecutionCheckIn = () => {
   const [showSuccessAnim, setShowSuccessAnim] = useState(false);
 
   const mountedRef = useMountedRef();
+  const submitLockRef = useRef(false);
+  const retryLockRef = useRef(false);
+  const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const staleRef = useRef(false);
   useEffect(() => {
     staleRef.current = false;
@@ -53,33 +67,47 @@ const ExecutionCheckIn = () => {
     if (planId) {
       fetchExecution();
     }
-    return () => { staleRef.current = true; };
+    return () => {
+      staleRef.current = true;
+      if (successTimeoutRef.current) {
+        clearTimeout(successTimeoutRef.current);
+        successTimeoutRef.current = null;
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 僅在 planId 變化時拉取
   }, [planId]);
 
-  const fetchExecution = async () => {
-    setLoading(true);
+  const fetchExecution = async (opts?: { isRefresh?: boolean }) => {
+    const isRefresh = opts?.isRefresh ?? false;
+    if (!isRefresh) setLoading(true);
     try {
       const executionData = await getExecutionStatus(planId!);
       if (staleRef.current) return;
       setExecution(executionData);
     } catch (error: unknown) {
       if (staleRef.current) return;
-      const msg = (error as { message?: string })?.message || t('message.getExecutionStatusFail');
-      message.error(msg);
+      if (isRefresh && execution) {
+        message.warning(t('execCheckIn.refreshFail'));
+        return;
+      }
+      message.error(getErrorMessage(error, 'message.getExecutionStatusFail'));
       setExecution(null);
     } finally {
-      if (!staleRef.current) setLoading(false);
+      if (!staleRef.current && !isRefresh) setLoading(false);
     }
   };
 
-  type CheckInFormValues = { notes?: string; photos?: { fileList?: Array<{ originFileObj?: File }> } };
+  type CheckInFormValues = { notes?: string; photos?: Array<{ originFileObj?: File }> | { fileList?: Array<{ originFileObj?: File }> } };
   const handleSubmit = async (values: CheckInFormValues) => {
-    if (!planId || submitting) return;
+    if (!planId || submitting || submitLockRef.current) return;
+    submitLockRef.current = true;
     setSubmitting(true);
+    let deferUnlockToSuccessAnimation = false;
     try {
       let photoUrls: string[] = [];
-      const photoFiles = values.photos?.fileList?.filter((file) => file.originFileObj) || [];
+      const rawPhotos = values.photos;
+      const photoList = Array.isArray(rawPhotos) ? rawPhotos : rawPhotos?.fileList ?? [];
+      const photoFiles = photoList.filter((file) => file?.originFileObj);
       
       if (photoFiles.length > 0) {
         setUploadingPhotos(true);
@@ -91,9 +119,13 @@ const ExecutionCheckIn = () => {
             const files = photoFiles.map((file) => file.originFileObj as File);
             const evidences = await uploadEvidence(caseId, files);
             photoUrls = evidences.map(e => e.file_url);
+          } else if (mountedRef.current) {
+            message.warning(t('message.photoUploadFailContinue'));
           }
-        } catch {
-          if (mountedRef.current) message.warning(t('message.photoUploadFailContinue'));
+        } catch (photoErr: unknown) {
+          if (mountedRef.current) {
+            message.warning(getErrorMessage(photoErr, 'message.photoUploadFailContinue'));
+          }
         } finally {
           if (mountedRef.current) setUploadingPhotos(false);
         }
@@ -105,22 +137,28 @@ const ExecutionCheckIn = () => {
         photos: photoUrls,
       });
       if (!mountedRef.current) return;
-      
+
+      deferUnlockToSuccessAnimation = true;
       setShowSuccessAnim(true);
-      setTimeout(() => {
+      successTimeoutRef.current = setTimeout(() => {
+        successTimeoutRef.current = null;
         if (mountedRef.current) {
+          submitLockRef.current = false;
+          setSubmitting(false);
           setShowSuccessAnim(false);
           message.success(t('message.checkinSuccess'));
           form.resetFields();
-          fetchExecution();
+          fetchExecution({ isRefresh: true });
         }
       }, 2000);
     } catch (error: unknown) {
       if (!mountedRef.current) return;
-      const msg = (error as { message?: string })?.message || t('message.checkinFail');
-      message.error(msg);
+      message.error(getErrorMessage(error, 'message.checkinFail'));
     } finally {
-      if (mountedRef.current) setSubmitting(false);
+      if (!deferUnlockToSuccessAnimation && mountedRef.current) {
+        submitLockRef.current = false;
+        setSubmitting(false);
+      }
     }
   };
 
@@ -133,13 +171,25 @@ const ExecutionCheckIn = () => {
   }
 
   if (!execution) {
+    const handleRetry = () => {
+      if (retryLockRef.current) return;
+      retryLockRef.current = true;
+      fetchExecution().finally(() => {
+        retryLockRef.current = false;
+      });
+    };
     return (
       <div className="execution-checkin-page">
         <Alert
           type="warning"
           title={t('execCheckIn.notFound')}
           action={
-            <Button onClick={() => navigate('/execution/dashboard')}>{t('common.back')}</Button>
+            <Space>
+              <Button size="small" onClick={handleRetry}>{t('common.retry')}</Button>
+              <Button size="small" type="primary" onClick={() => navigate('/execution/dashboard')}>
+                {t('execCheckIn.backToDashboard')}
+              </Button>
+            </Space>
           }
         />
       </div>
@@ -173,7 +223,7 @@ const ExecutionCheckIn = () => {
             <Card style={{ marginBottom: 24 }} role="status" aria-live="polite">
               <Space orientation="vertical">
                 <Text strong>{t('execCheckIn.progressLabel').replace('{percent}', String(execution.progress))}</Text>
-                <Text type="secondary">{t('execCheckIn.recordsCount').replace('{count}', String(execution.records.length))}</Text>
+                <Text type="secondary">{t('execCheckIn.recordsCount').replace('{count}', String((Array.isArray(execution.records) ? execution.records : []).length))}</Text>
               </Space>
             </Card>
           </AnimatedWrapper>
@@ -256,11 +306,11 @@ const ExecutionCheckIn = () => {
           </Card>
         </AnimatedWrapper>
 
-        {execution && execution.records.length > 0 && (
+        {execution && (Array.isArray(execution.records) ? execution.records : []).length > 0 && (
           <AnimatedWrapper animation="slide" direction="up" delay={400}>
             <Card title={t('execCheckIn.historyTitle')} style={{ marginTop: 24 }}>
             <Space orientation="vertical" style={{ width: '100%' }}>
-              {execution.records.map((record) => (
+              {(Array.isArray(execution.records) ? execution.records : []).map((record) => (
                 <Card key={record.id} size="small">
                   {record.notes && <Text>{record.notes}</Text>}
                   <Text type="secondary" style={{ display: 'block', marginTop: 8 }}>

@@ -5,6 +5,7 @@ import { Spin, Typography, Button, Result, message } from 'antd';
 import { useInterviewStore } from '@/store/interviewStore';
 import FeedbackCardComponent from '@/components/business/Interview/FeedbackCard';
 import type { FeedbackCard } from '@/types/interview';
+import { getErrorMessage } from '@/utils/apiError';
 import { t } from '@/utils/i18n';
 import './index.less';
 
@@ -16,8 +17,9 @@ const POLLING_TIMEOUT_MS = 60_000;
 const InterviewResult: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
-  const { currentSession, loading, getSession, retryFailed } = useInterviewStore();
+  const { currentSession, loading, error: storeError, getSession, retryFailed } = useInterviewStore();
   const [retrying, setRetrying] = useState(false);
+  const retryLockRef = useRef(false);
   const [pollingTimedOut, setPollingTimedOut] = useState(false);
   const pollingStartRef = useRef<number>(0);
   const mountedRef = useMountedRef();
@@ -88,13 +90,18 @@ const InterviewResult: React.FC = () => {
           title={t('interview.result.processingSlowTitle')}
           subTitle={t('interview.result.processingSlowSub')}
           extra={
-            <Button type="primary" onClick={() => {
-              setPollingTimedOut(false);
-              pollingStartRef.current = Date.now();
-              if (sessionId) getSession(sessionId);
-            }}>
-              {t('interview.result.keepWaiting')}
-            </Button>
+            <>
+              <Button type="primary" onClick={() => {
+                setPollingTimedOut(false);
+                pollingStartRef.current = Date.now();
+                if (sessionId) getSession(sessionId);
+              }}>
+                {t('interview.result.keepWaiting')}
+              </Button>
+              <Button onClick={() => navigate('/profile/index')} style={{ marginLeft: 8 }}>
+                {t('interview.result.backProfile')}
+              </Button>
+            </>
           }
         />
       </div>
@@ -102,20 +109,44 @@ const InterviewResult: React.FC = () => {
   }
 
   const handleRetry = async () => {
-    if (!sessionId) return;
+    if (!sessionId || retryLockRef.current) return;
+    retryLockRef.current = true;
     setRetrying(true);
     try {
       await retryFailed(sessionId);
       if (!mountedRef.current) return;
       message.info(t('interview.retryProcessing'));
       await getSession(sessionId);
-    } catch {
+    } catch (error: unknown) {
       if (!mountedRef.current) return;
-      message.error(t('interview.retryFail'));
+      message.error(getErrorMessage(error, 'interview.retryFail'));
     } finally {
+      retryLockRef.current = false;
       if (mountedRef.current) setRetrying(false);
     }
   };
+
+  if (!currentSession && storeError && sessionId) {
+    return (
+      <div className="interview-result">
+        <Result
+          status="error"
+          title={t('interview.loadFail')}
+          subTitle={storeError}
+          extra={
+            <>
+              <Button type="primary" onClick={() => sessionId && getSession(sessionId)} data-testid="interview-result-load-retry">
+                {t('common.retry')}
+              </Button>
+              <Button onClick={() => navigate('/profile/index')} style={{ marginLeft: 8 }}>
+                {t('interview.result.backProfile')}
+              </Button>
+            </>
+          }
+        />
+      </div>
+    );
+  }
 
   if (currentSession?.status === 'processing_failed') {
     return (
@@ -125,9 +156,14 @@ const InterviewResult: React.FC = () => {
           title={t('interview.result.failedTitle')}
           subTitle={t('interview.result.failedSub')}
           extra={
-            <Button type="primary" loading={retrying} onClick={handleRetry}>
-              {t('interview.result.retry')}
-            </Button>
+            <>
+              <Button type="primary" loading={retrying} onClick={handleRetry}>
+                {t('interview.result.retry')}
+              </Button>
+              <Button onClick={() => navigate('/profile/index')} style={{ marginLeft: 8 }}>
+                {t('interview.result.backProfile')}
+              </Button>
+            </>
           }
         />
       </div>

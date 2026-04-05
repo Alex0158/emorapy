@@ -7,6 +7,9 @@ import { useInterviewStore } from './interviewStore';
 const mockStartSession = vi.fn();
 const mockCheckResume = vi.fn();
 const mockGetSession = vi.fn();
+const mockRespondApi = vi.fn();
+const mockSkipApi = vi.fn();
+const mockCancelApi = vi.fn();
 const mockEndSession = vi.fn();
 const mockRetryFailed = vi.fn();
 
@@ -15,14 +18,12 @@ vi.mock('@/services/api/interview', () => ({
     startSession: (...args: unknown[]) => mockStartSession(...args),
     checkResume: (...args: unknown[]) => mockCheckResume(...args),
     getSession: (...args: unknown[]) => mockGetSession(...args),
+    respond: (...args: unknown[]) => mockRespondApi(...args),
+    skip: (...args: unknown[]) => mockSkipApi(...args),
+    cancel: (...args: unknown[]) => mockCancelApi(...args),
     endSession: (...args: unknown[]) => mockEndSession(...args),
     retryFailed: (...args: unknown[]) => mockRetryFailed(...args),
   },
-}));
-
-const mockSseRequest = vi.fn();
-vi.mock('@/services/sseRequest', () => ({
-  sseRequest: (...args: unknown[]) => mockSseRequest(...args),
 }));
 
 vi.mock('@/utils/i18n', () => ({
@@ -34,6 +35,8 @@ const initialState = {
   turns: [],
   streamingText: '',
   isStreaming: false,
+  streamingStatus: null,
+  cancelledDraft: null,
   loading: false,
   error: null,
   errorCode: null,
@@ -77,11 +80,13 @@ describe('interviewStore', () => {
       expect(useInterviewStore.getState().error).toBe('start fail');
     });
 
-    it('應重置殘留的 shouldEnd/streamingText/isStreaming/safetyAlert', async () => {
+    it('應重置殘留的 shouldEnd/streamingText/isStreaming/streamingStatus/cancelledDraft/safetyAlert', async () => {
       useInterviewStore.setState({
         shouldEnd: true,
         streamingText: 'stale',
         isStreaming: true,
+        streamingStatus: 'streaming',
+        cancelledDraft: { streamId: null, requestId: null, text: 'cancelled', status: 'cancelled' },
         safetyAlert: { message: 'old', severity: 'warning' },
       });
       const session = { id: 's1', status: 'in_progress', turns: [] };
@@ -91,6 +96,8 @@ describe('interviewStore', () => {
       expect(state.shouldEnd).toBe(false);
       expect(state.streamingText).toBe('');
       expect(state.isStreaming).toBe(false);
+      expect(state.streamingStatus).toBeNull();
+      expect(state.cancelledDraft).toBeNull();
       expect(state.safetyAlert).toBeNull();
     });
   });
@@ -161,11 +168,13 @@ describe('interviewStore', () => {
       expect(useInterviewStore.getState().errorCode).toBe('NOT_FOUND');
     });
 
-    it('應重置殘留的 shouldEnd/streamingText/isStreaming/safetyAlert', async () => {
+    it('應重置殘留的 shouldEnd/streamingText/isStreaming/streamingStatus/cancelledDraft/safetyAlert', async () => {
       useInterviewStore.setState({
         shouldEnd: true,
         streamingText: 'stale',
         isStreaming: true,
+        streamingStatus: 'thinking',
+        cancelledDraft: { streamId: null, requestId: null, text: 'cancelled', status: 'cancelled' },
         safetyAlert: { message: 'old', severity: 'info' },
       });
       const session = { id: 's2', status: 'in_progress', turns: [] };
@@ -175,6 +184,8 @@ describe('interviewStore', () => {
       expect(state.shouldEnd).toBe(false);
       expect(state.streamingText).toBe('');
       expect(state.isStreaming).toBe(false);
+      expect(state.streamingStatus).toBeNull();
+      expect(state.cancelledDraft).toBeNull();
       expect(state.safetyAlert).toBeNull();
     });
   });
@@ -193,18 +204,66 @@ describe('interviewStore', () => {
     });
   });
 
+  describe('syncSessionSilently', () => {
+    it('成功時應靜默覆蓋 currentSession 和 turns', async () => {
+      useInterviewStore.setState({
+        currentSession: { id: 'old', status: 'in_progress' } as never,
+        turns: [{ id: 'old-turn' }] as never,
+        shouldEnd: false,
+      });
+      mockGetSession.mockResolvedValue({
+        data: {
+          data: {
+            id: 's-sync',
+            status: 'in_progress',
+            turns: [{ id: 'turn-sync', ai_message: 'canonical' }],
+          },
+        },
+      });
+
+      await useInterviewStore.getState().syncSessionSilently('s-sync');
+
+      expect(useInterviewStore.getState().currentSession).toEqual({
+        id: 's-sync',
+        status: 'in_progress',
+        turns: [{ id: 'turn-sync', ai_message: 'canonical' }],
+      });
+      expect(useInterviewStore.getState().turns).toEqual([{ id: 'turn-sync', ai_message: 'canonical' }]);
+    });
+
+    it('失敗時應保留既有本地狀態', async () => {
+      useInterviewStore.setState({
+        currentSession: { id: 'local', status: 'in_progress' } as never,
+        turns: [{ id: 'local-turn' }] as never,
+      });
+      mockGetSession.mockRejectedValue(new Error('network fail'));
+
+      await useInterviewStore.getState().syncSessionSilently('s-sync');
+
+      expect(useInterviewStore.getState().currentSession).toEqual({ id: 'local', status: 'in_progress' });
+      expect(useInterviewStore.getState().turns).toEqual([{ id: 'local-turn' }]);
+    });
+  });
+
   describe('cancelStream', () => {
-    it('應 abort 現有 controller 並清除 streaming 狀態', () => {
-      const abortFn = vi.fn();
+    it('應調用 cancel API 並轉為 cancelled draft', async () => {
+      mockCancelApi.mockResolvedValue({});
       useInterviewStore.setState({
         isStreaming: true,
         streamingText: 'partial',
-        abortController: { abort: abortFn } as never,
+        streamingStatus: 'streaming',
       });
-      useInterviewStore.getState().cancelStream();
-      expect(abortFn).toHaveBeenCalledOnce();
+      await useInterviewStore.getState().cancelStream('s1');
+      expect(mockCancelApi).toHaveBeenCalledWith('s1');
       expect(useInterviewStore.getState().isStreaming).toBe(false);
       expect(useInterviewStore.getState().streamingText).toBe('');
+      expect(useInterviewStore.getState().streamingStatus).toBeNull();
+      expect(useInterviewStore.getState().cancelledDraft).toEqual({
+        streamId: null,
+        requestId: null,
+        text: 'partial',
+        status: 'cancelled',
+      });
       expect(useInterviewStore.getState().abortController).toBeNull();
     });
   });
@@ -227,6 +286,8 @@ describe('interviewStore', () => {
         turns: [{ id: 't1' }] as never,
         streamingText: 'text',
         isStreaming: true,
+        streamingStatus: 'persisting',
+        cancelledDraft: { streamId: null, requestId: null, text: 'cancelled', status: 'cancelled' },
         loading: true,
         error: 'err',
         errorCode: 'CODE',
@@ -241,6 +302,8 @@ describe('interviewStore', () => {
       expect(state.turns).toEqual([]);
       expect(state.streamingText).toBe('');
       expect(state.isStreaming).toBe(false);
+      expect(state.streamingStatus).toBeNull();
+      expect(state.cancelledDraft).toBeNull();
       expect(state.loading).toBe(false);
       expect(state.error).toBeNull();
       expect(state.errorCode).toBeNull();
@@ -250,7 +313,7 @@ describe('interviewStore', () => {
   });
 
   describe('respond', () => {
-    it('SSE 成功時應更新 turns 含使用者回覆和 AI 回覆', async () => {
+    it('提交成功時應立即寫入使用者回覆並進入 thinking', async () => {
       const existingTurn = {
         id: 't1', turn_order: 1, ai_message: 'Hello',
         user_response: undefined, skipped: false, safety_flag: false,
@@ -260,30 +323,21 @@ describe('interviewStore', () => {
         currentSession: { id: 's1', status: 'in_progress' } as never,
         turns: [existingTurn] as never,
       });
-      mockSseRequest.mockImplementation(
-        async (_url: string, _body: unknown, callbacks: Record<string, Function>) => {
-          callbacks.onToken?.('AI reply');
-          callbacks.onComplete?.({ status: 'in_progress' });
-        }
-      );
+      mockRespondApi.mockResolvedValue({ data: { accepted: true } });
+
       await useInterviewStore.getState().respond('s1', 'User msg');
       const state = useInterviewStore.getState();
-      expect(mockSseRequest).toHaveBeenCalledWith(
-        '/interview/s1/respond',
-        { message: 'User msg' },
-        expect.any(Object),
-        expect.any(AbortSignal),
-      );
-      expect(state.isStreaming).toBe(false);
-      expect(state.turns.length).toBe(2);
+      expect(mockRespondApi).toHaveBeenCalledWith('s1', 'User msg');
+      expect(state.isStreaming).toBe(true);
+      expect(state.streamingStatus).toBe('thinking');
+      expect(state.turns.length).toBe(1);
       expect(state.turns[0].user_response).toBe('User msg');
-      expect(state.turns[1].ai_message).toBe('AI reply');
     });
 
     it('已在 streaming 時應直接返回不重複呼叫', async () => {
       useInterviewStore.setState({ isStreaming: true });
       await useInterviewStore.getState().respond('s1', 'msg');
-      expect(mockSseRequest).not.toHaveBeenCalled();
+      expect(mockRespondApi).not.toHaveBeenCalled();
     });
 
     it('無既有 turns 時 respond 應建立 temp user turn', async () => {
@@ -291,49 +345,48 @@ describe('interviewStore', () => {
         currentSession: { id: 's1', status: 'in_progress' } as never,
         turns: [],
       });
-      mockSseRequest.mockImplementation(
-        async (_url: string, _body: unknown, callbacks: Record<string, Function>) => {
-          callbacks.onToken?.('First AI');
-          callbacks.onComplete?.({});
-        }
-      );
+      mockRespondApi.mockResolvedValue({ data: { accepted: true } });
+
       await useInterviewStore.getState().respond('s1', 'Hello');
       const state = useInterviewStore.getState();
-      expect(state.turns.length).toBe(2);
+      expect(state.turns.length).toBe(1);
       expect(state.turns[0].user_response).toBe('Hello');
       expect(state.turns[0].ai_message).toBe('');
-      expect(state.turns[1].ai_message).toBe('First AI');
     });
 
-    it('SSE onError 時應設置 error 狀態', async () => {
+    it('提交失敗時應設置 error 狀態', async () => {
       useInterviewStore.setState({
         currentSession: { id: 's1', status: 'in_progress' } as never,
         turns: [],
       });
-      mockSseRequest.mockImplementation(
-        async (_url: string, _body: unknown, callbacks: Record<string, Function>) => {
-          callbacks.onError?.({ code: 'AI_CALL_FAILED', message: 'AI error' });
-        }
-      );
-      await useInterviewStore.getState().respond('s1', 'test');
+      mockRespondApi.mockRejectedValue({ code: 'AI_CALL_FAILED', message: 'AI error' });
+
+      await expect(useInterviewStore.getState().respond('s1', 'test')).rejects.toEqual({
+        code: 'AI_CALL_FAILED',
+        message: 'AI error',
+      });
       const state = useInterviewStore.getState();
       expect(state.error).toBe('AI error');
       expect(state.errorCode).toBe('AI_CALL_FAILED');
+      expect(state.isStreaming).toBe(false);
+      expect(state.streamingStatus).toBeNull();
     });
 
-    it('網路錯誤時應設置 CONNECTION_LOST', async () => {
+    it('網路錯誤時應保留原始錯誤訊息並退出 streaming', async () => {
       useInterviewStore.setState({
         currentSession: { id: 's1', status: 'in_progress' } as never,
         turns: [],
       });
-      mockSseRequest.mockRejectedValue(new Error('Failed to fetch'));
-      await useInterviewStore.getState().respond('s1', 'test');
+      mockRespondApi.mockRejectedValue(new Error('Failed to fetch'));
+
+      await expect(useInterviewStore.getState().respond('s1', 'test')).rejects.toThrow('Failed to fetch');
       const state = useInterviewStore.getState();
-      expect(state.error).toBe('interview.error.connectionLost');
-      expect(state.errorCode).toBe('CONNECTION_LOST');
+      expect(state.error).toBe('Failed to fetch');
+      expect(state.errorCode).toBeNull();
+      expect(state.isStreaming).toBe(false);
     });
 
-    it('用戶訊息應在 SSE 完成前立即寫入 turns（即時顯示）', async () => {
+    it('用戶訊息應在提交請求返回前立即寫入 turns', async () => {
       const existingTurn = {
         id: 't1', turn_order: 1, ai_message: 'Question?',
         user_response: undefined, skipped: false, safety_flag: false,
@@ -344,41 +397,47 @@ describe('interviewStore', () => {
         turns: [existingTurn] as never,
       });
 
-      let resolveSSE!: () => void;
-      mockSseRequest.mockImplementation(() => new Promise<void>((r) => { resolveSSE = r; }));
+      let resolveRequest!: () => void;
+      mockRespondApi.mockImplementation(
+        () => new Promise<void>((resolve) => { resolveRequest = resolve; })
+      );
 
       const promise = useInterviewStore.getState().respond('s1', '我很難過');
 
       const midState = useInterviewStore.getState();
       expect(midState.turns[0].user_response).toBe('我很難過');
       expect(midState.isStreaming).toBe(true);
+      expect(midState.streamingStatus).toBe('thinking');
 
-      resolveSSE();
+      resolveRequest();
       await promise;
 
-      expect(useInterviewStore.getState().isStreaming).toBe(false);
+      expect(useInterviewStore.getState().isStreaming).toBe(true);
+      expect(useInterviewStore.getState().streamingStatus).toBe('thinking');
     });
 
-    it('SSE onSafetyAlert 時應設置 safetyAlert', async () => {
+    it('beginStreaming 應切到 thinking 並清除 cancelledDraft 和錯誤', () => {
       useInterviewStore.setState({
-        currentSession: { id: 's1', status: 'in_progress' } as never,
-        turns: [{ id: 't1', turn_order: 1, ai_message: 'Hi', user_response: undefined, skipped: false, safety_flag: false, created_at: '2025-01-01' }] as never,
+        isStreaming: false,
+        streamingStatus: null,
+        cancelledDraft: { streamId: null, requestId: null, text: 'cancelled', status: 'cancelled' },
+        error: 'old',
+        errorCode: 'OLD',
       });
-      mockSseRequest.mockImplementation(
-        async (_url: string, _body: unknown, callbacks: Record<string, Function>) => {
-          callbacks.onSafetyAlert?.({ message: '偵測到安全風險', severity: 'critical' });
-          callbacks.onToken?.('response');
-          callbacks.onComplete?.({});
-        }
-      );
-      await useInterviewStore.getState().respond('s1', 'msg');
+
+      useInterviewStore.getState().beginStreaming();
+
       const state = useInterviewStore.getState();
-      expect(state.safetyAlert).toEqual({ message: '偵測到安全風險', severity: 'critical' });
+      expect(state.isStreaming).toBe(true);
+      expect(state.streamingStatus).toBe('thinking');
+      expect(state.cancelledDraft).toBeNull();
+      expect(state.error).toBeNull();
+      expect(state.errorCode).toBeNull();
     });
   });
 
   describe('skipTurn', () => {
-    it('SSE 成功時應標記最後一個 turn 為 skipped 並添加 AI 回覆', async () => {
+    it('提交成功時應標記最後一個 turn 為 skipped 並進入 thinking', async () => {
       const turn = {
         id: 't1', turn_order: 1, ai_message: 'Question?',
         user_response: undefined, skipped: false, safety_flag: false,
@@ -388,21 +447,99 @@ describe('interviewStore', () => {
         currentSession: { id: 's1', status: 'in_progress' } as never,
         turns: [turn] as never,
       });
-      mockSseRequest.mockImplementation(
-        async (_url: string, _body: unknown, callbacks: Record<string, Function>) => {
-          callbacks.onToken?.('Next question');
-          callbacks.onComplete?.({});
-        }
-      );
+      mockSkipApi.mockResolvedValue({ data: { accepted: true } });
+
       await useInterviewStore.getState().skipTurn('s1');
       const state = useInterviewStore.getState();
-      expect(mockSseRequest).toHaveBeenCalledWith(
-        '/interview/s1/skip', {}, expect.any(Object), expect.any(AbortSignal),
-      );
-      expect(state.turns.length).toBe(2);
+      expect(mockSkipApi).toHaveBeenCalledWith('s1');
+      expect(state.turns.length).toBe(1);
       expect(state.turns[0].skipped).toBe(true);
       expect(state.turns[0].user_response).toBe('');
-      expect(state.turns[1].ai_message).toBe('Next question');
+      expect(state.isStreaming).toBe(true);
+      expect(state.streamingStatus).toBe('thinking');
+    });
+
+    it('提交失敗時應回退 skip 狀態並設置錯誤', async () => {
+      const turn = {
+        id: 't1', turn_order: 1, ai_message: 'Question?',
+        user_response: undefined, skipped: false, safety_flag: false,
+        created_at: '2025-01-01T00:00:00Z',
+      };
+      useInterviewStore.setState({
+        currentSession: { id: 's1', status: 'in_progress' } as never,
+        turns: [turn] as never,
+      });
+      mockSkipApi.mockRejectedValue({ code: 'SKIP_FAILED', message: 'skip fail' });
+
+      await expect(useInterviewStore.getState().skipTurn('s1')).rejects.toEqual({
+        code: 'SKIP_FAILED',
+        message: 'skip fail',
+      });
+
+      const state = useInterviewStore.getState();
+      expect(state.turns[0].skipped).toBe(false);
+      expect(state.error).toBe('skip fail');
+      expect(state.errorCode).toBe('SKIP_FAILED');
+      expect(state.isStreaming).toBe(false);
+    });
+  });
+
+  describe('stream actions', () => {
+    it('finishStreaming 應清除 streaming 狀態', () => {
+      useInterviewStore.setState({
+        isStreaming: true,
+        streamingText: 'partial',
+        streamingStatus: 'persisting',
+      });
+
+      useInterviewStore.getState().finishStreaming();
+
+      expect(useInterviewStore.getState().isStreaming).toBe(false);
+      expect(useInterviewStore.getState().streamingText).toBe('');
+      expect(useInterviewStore.getState().streamingStatus).toBeNull();
+    });
+
+    it('applyStreamFailure 應退出 streaming 並設置錯誤', () => {
+      useInterviewStore.setState({
+        isStreaming: true,
+        streamingText: 'partial',
+        streamingStatus: 'streaming',
+      });
+
+      useInterviewStore.getState().applyStreamFailure({
+        code: 'AI_STREAM_FAILED',
+        message: 'stream failed',
+      });
+
+      const state = useInterviewStore.getState();
+      expect(state.isStreaming).toBe(false);
+      expect(state.streamingText).toBe('');
+      expect(state.streamingStatus).toBeNull();
+      expect(state.error).toBe('stream failed');
+      expect(state.errorCode).toBe('AI_STREAM_FAILED');
+    });
+
+    it('applyStreamSafetyAlert 應標準化 severity', () => {
+      useInterviewStore.getState().applyStreamSafetyAlert({
+        message: 'alert',
+        severity: 'unknown',
+      });
+
+      expect(useInterviewStore.getState().safetyAlert).toEqual({
+        message: 'alert',
+        severity: 'info',
+      });
+    });
+
+    it('applyShouldEnd 應只增不減', () => {
+      useInterviewStore.getState().applyShouldEnd(false);
+      expect(useInterviewStore.getState().shouldEnd).toBe(false);
+
+      useInterviewStore.getState().applyShouldEnd(true);
+      expect(useInterviewStore.getState().shouldEnd).toBe(true);
+
+      useInterviewStore.getState().applyShouldEnd(false);
+      expect(useInterviewStore.getState().shouldEnd).toBe(true);
     });
   });
 });

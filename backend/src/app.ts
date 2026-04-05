@@ -33,6 +33,7 @@ import interviewRoutes from './routes/interview.routes';
 import psychProfileRoutes from './routes/psych-profile.routes';
 import adminRoutes from './routes/admin.routes';
 import chatRoutes from './routes/chat.routes';
+import aiStreamRoutes from './routes/ai-stream.routes';
 import metricsRoutes from './routes/metrics.routes';
 import metaRoutes from './routes/meta.routes';
 import mediaProviderRoutes from './routes/media-provider.routes';
@@ -81,18 +82,38 @@ const corsBaseOptions = {
 };
 const isHealthPath = (path: string): boolean =>
   path === '/health' || path === '/health/ready' || path === '/health/live';
+const isPublicStatusPath = (path: string): boolean =>
+  isHealthPath(path) || path === '/version' || path === '/api/v1/version';
+const isMachineProtectedPath = (path: string): boolean =>
+  path === '/metrics';
+const isSameOriginRequest = (req: express.Request, origin: string): boolean => {
+  try {
+    const parsedOrigin = new URL(origin);
+    const forwardedProto = req.header('X-Forwarded-Proto')?.split(',')[0]?.trim();
+    const requestProto = forwardedProto || req.protocol;
+    const requestHost = req.get('host');
+    if (!requestHost) return false;
+    return `${parsedOrigin.protocol}//${parsedOrigin.host}` === `${requestProto}://${requestHost}`;
+  } catch {
+    return false;
+  }
+};
 
 // 先做來源白名單判斷，避免 cors 套件錯誤被包裝後落成 500
 app.use((req, _res, next) => {
+  if (isPublicStatusPath(req.path) || isMachineProtectedPath(req.path)) {
+    return next();
+  }
+
   const origin = req.header('Origin');
   if (!origin) {
-    if (env.NODE_ENV !== 'production' || isHealthPath(req.path)) {
+    if (env.NODE_ENV !== 'production') {
       return next();
     }
     return next(new AppError(403, 'CORS_ORIGIN_DENIED', '不允許的來源'));
   }
 
-  if (env.ALLOWED_ORIGINS.includes(origin)) {
+  if (env.ALLOWED_ORIGINS.includes(origin) || isSameOriginRequest(req, origin)) {
     return next();
   }
 
@@ -100,12 +121,16 @@ app.use((req, _res, next) => {
 });
 
 app.use(cors((req, callback) => {
+  if (isPublicStatusPath(req.path) || isMachineProtectedPath(req.path)) {
+    return callback(null, { ...corsBaseOptions, origin: false });
+  }
+
   const origin = req.header('Origin');
   if (!origin) {
     // 非瀏覽器來源不需要 CORS 標頭；health 在上方白名單中已放行
     return callback(null, { ...corsBaseOptions, origin: false });
   }
-  if (env.ALLOWED_ORIGINS.includes(origin) || (env.NODE_ENV !== 'production' && isHealthPath(req.path))) {
+  if (env.ALLOWED_ORIGINS.includes(origin) || isSameOriginRequest(req, origin)) {
     return callback(null, { ...corsBaseOptions, origin: true });
   }
   return callback(null, { ...corsBaseOptions, origin: false });
@@ -185,6 +210,7 @@ app.use('/api/v1', profileRoutes);
 app.use('/api/v1/interview', interviewRoutes);
 app.use('/api/v1/psych-profile', psychProfileRoutes);
 app.use('/api/v1/chat', chatRoutes);
+app.use('/api/v1/streams', aiStreamRoutes);
 app.use('/api/v1/pairing', pairingRoutes);
 app.use('/api/v1/cases', caseRoutes);
 app.use('/api/v1/judgments', judgmentRoutes);

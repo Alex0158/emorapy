@@ -1,7 +1,7 @@
 # CJ 接口-功能-頁面 Mapping（核心版）
 
-**文檔版本**：v1.4  
-**最後更新**：2026-03-14  
+**文檔版本**：v1.8  
+**最後更新**：2026-04-05  
 **目標**：把 API -> 功能 -> 頁面 -> 流程節點建立可回歸的單點追溯。
 
 ---
@@ -38,22 +38,32 @@
 | `POST /api/v1/cases/:id/evidence` | F01/F03/F05 | `/quick-experience/*`、`/case/create`、`/execution/:planId/checkin` | 證據上傳 | H | 已使用 |
 | `DELETE /api/v1/cases/:id/evidence/:evidenceId` | F03 | 證據組件 | 證據刪除 | M | 已使用 |
 | `GET /api/v1/cases/:id/judgment` | F01/F02 | `/quick-experience/result/:id` | 結果頁判決查詢（F02 透過導頁跨功能依賴） | H | 已使用 |
+| `GET /api/v1/streams/case_judgment/:id` | F01/F04 | `/quick-experience/result/:id` | 判決 phase 流與 persisted handoff | H | 已使用 |
 | `POST /api/v1/judgments/generate/:id` | F04 | `/case/:id/review` | 判決生成（formal review） | H | 已使用 |
 | `GET /api/v1/judgments/:id` | F04 | `/judgment/:id` | 判決展示（純登入後消費） | M | 已使用 |
 | `POST /api/v1/judgments/:id/accept` | F04 | `/judgment/:id` | 判決接受/拒絕 | M | 已使用 |
 | `POST /api/v1/judgments/:id/repair` | F12 | （無） | 聯盟修復 | L | 候選廢棄 |
 | `POST /api/v1/judgments/:id/metrics` | F12 | （無） | 臨床品質回寫 | L | 候選廢棄 |
-| `POST /api/v1/judgments/:id/reconciliation-plans` | F05 | `/reconciliation/:judgmentId` | 生成和好方案 | H | 已使用 |
-| `GET /api/v1/judgments/:id/reconciliation-plans` | F05 | `/reconciliation/:judgmentId` | 方案列表 | M | 已使用 |
-| `GET /api/v1/reconciliation-plans/:id` | F05 | `/reconciliation/:judgmentId/:id` | 方案詳情 | M | 已使用 |
-| `POST /api/v1/reconciliation-plans/:id/select` | F05 | `/reconciliation/:judgmentId/:id` | 方案選擇 | H | 已使用 |
-| `POST /api/v1/execution/confirm` | F05 | `/reconciliation/:judgmentId/:id` | 執行啟動 | M | 已使用 |
-| `POST /api/v1/execution/checkin` | F05 | `/execution/:planId/checkin` | 執行打卡 | M | 已使用 |
-| `GET /api/v1/execution/status` | F05 | `/execution/:planId/checkin` | 單方案進度 | M | 已使用 |
-| `GET /api/v1/execution/dashboard` | F05 | `/execution/dashboard` | 全局看板 | M | 已使用 |
+| `POST /api/v1/judgments/:id/reconciliation-plans` | F05 | `/reconciliation/:judgmentId` | 生成 Repair Journey 方案 bundle | H | 已使用 |
+| `GET /api/v1/judgments/:id/reconciliation-plans` | F05 | `/reconciliation/:judgmentId` | 方案 bundle / 旅程入口狀態 | M | 已使用 |
+| `GET /api/v1/reconciliation-plans/:id` | F05 | `/reconciliation/:judgmentId/:id` | 方案詳情 / 共同承諾工作台 | M | 已使用 |
+| `POST /api/v1/reconciliation-plans/:id/select` | F05 | `/reconciliation/:judgmentId/:id` | 當前用戶承諾（兼容入口） | H | 已使用 |
+| `POST /api/v1/reconciliation-plans/:id/respond` | F05 | `/reconciliation/:judgmentId/:id` | invitee viewed / accept / defer / decline / pause | H | 已使用 |
+| `GET /api/v1/reconciliation-plans/:id/commitment` | F05 | `/reconciliation/:judgmentId/:id` | 承諾狀態查詢 | M | 已使用 |
+| `POST /api/v1/reconciliation-plans/:id/invite` | F05 | `/reconciliation/:judgmentId/:id` | 邀請對方共修 | H | 已使用 |
+| `POST /api/v1/reconciliation-plans/:id/pause` | F05 | `/reconciliation/:judgmentId/:id` | 暫停旅程（兼容入口） | M | 已使用 |
+| `POST /api/v1/execution/confirm` | F05 | `/reconciliation/:judgmentId/:id` | 啟動今天的一小步 | M | 已使用 |
+| `POST /api/v1/execution/checkin` | F05 | `/execution/:planId/checkin` | 每日脈搏回報 / 觸發重調 | H | 已使用 |
+| `GET /api/v1/execution/status` | F05 | `/execution/:planId/checkin`、`/execution/:planId/replan` | 單方案修復旅程狀態 + `journey_context` + CTA hints | H | 已使用 |
+| `POST /api/v1/repair-tracks/:id/replan` | F05 | `/execution/:planId/replan` | AI 異步旅程重調 / 降壓降速 / 單人先行 | H | 已使用 |
+| `GET /api/v1/streams/repair_track/:id` | F05 | `/execution/:planId/replan` | AI 重調等待 / phase / replay / recovering | H | 已使用 |
+| `POST /api/v1/repair-tracks/:id/resume` | F05 | `/execution/dashboard`、`/reconciliation/:judgmentId/:id` | 恢復暫停旅程 | M | 已使用 |
+| `GET /api/v1/execution/dashboard` | F05 | `/execution/dashboard` | 修復進展看板 + `presentation_bucket` + 下一步 CTA | M | 已使用 |
 | `POST /api/v1/interview/start` | F06 | `/profile/index`、`/profile/my-story`、`/profile/pairing`（F08 主責頁之 F06 次責入口） | 啟動訪談 | H | 已使用 |
-| `POST /api/v1/interview/:id/respond` | F06 | `/interview/:sessionId` | SSE 回答 | H | 已使用 |
-| `POST /api/v1/interview/:id/skip` | F06 | `/interview/:sessionId` | SSE 跳題 | H | 已使用 |
+| `POST /api/v1/interview/:id/respond` | F06 | `/interview/:sessionId` | 提交回答並啟動 AI 任務 | H | 已使用 |
+| `POST /api/v1/interview/:id/skip` | F06 | `/interview/:sessionId` | 跳題並啟動 AI 任務 | H | 已使用 |
+| `POST /api/v1/interview/:id/cancel` | F06 | `/interview/:sessionId` | 中止進行中的 AI 任務 | M | 已使用 |
+| `GET /api/v1/streams/interview_session/:id` | F06 | `AI stream 統一鏈路` | 訪談 AI stream snapshot / replay | M | 已使用 |
 | `POST /api/v1/interview/:id/end` | F06 | `/interview/:sessionId` | 結束訪談 | M | 已使用 |
 | `GET /api/v1/interview/resume` | F06/F08 | `/profile/index`、`/profile/my-story`、`/profile/pairing` | 恢復檢查 | M | 已使用 |
 | `GET /api/v1/interview/:id` | F06 | `/interview/:sessionId`、`/interview/:sessionId/result` | 訪談詳情/結果讀取 | M | 已使用 |
@@ -68,6 +78,7 @@
 | `POST /api/v1/chat/invites/:inviteCode/accept` | F07 | `/chat/room` | 接受邀請（User only） | H | 已使用 |
 | `POST /api/v1/chat/invites/:inviteCode/decline` | F07 | `/chat/room` | 拒絕邀請 | M | 已使用 |
 | `GET /api/v1/chat/rooms/:roomId/stream` | F07 | `/chat/room/:roomId` | SSE 事件流 | H | 已使用 |
+| `GET /api/v1/streams/chat_room/:roomId` | F07 | `/chat/room/:roomId` | Chat AI 草稿/完成/落庫主鏈路 | H | 已使用 |
 | `GET /api/v1/chat/rooms/:roomId/messages` | F07 | `/chat/room/:roomId` | 歷史訊息 | M | 已使用 |
 | `POST /api/v1/chat/rooms/:roomId/messages` | F07 | `/chat/room/:roomId` | 發送訊息 | H | 已使用 |
 | `POST /api/v1/chat/rooms/:roomId/request-judgment` | F07 | `/chat/room/:roomId` | 聊天轉判決 request | H | 已使用 |
@@ -92,7 +103,13 @@
 | `GET /api/v1/content-items` | F01 | `/quick-experience/result/:id` | 推薦內容 | L | 已使用 |
 | `GET /api/v1/content-items/recommendations/:caseId` | F11 | （無） | 案件內容推薦 | L | 候選廢棄 |
 | `POST /api/v1/content-links` | F11 | （無） | 內容關聯寫入 | L | 候選廢棄 |
-| `GET /api/v1/notifications` | F13 | （無） | 通知列表 | L | 候選廢棄 |
+| `GET /api/v1/notifications` | F13 | `/notifications` | 通知列表 / repair journey actionable+snoozed inbox | M | 已使用 |
+| `GET /api/v1/notifications/unread-count` | F13 | Header bell | 通知未讀數 | M | 已使用 |
+| `POST /api/v1/notifications/read-all` | F13 | `/notifications` | 全部標記已讀 | L | 已使用 |
+| `POST /api/v1/notifications/:id/read` | F13 | `/notifications` | 單條已讀 | L | 已使用 |
+| `POST /api/v1/notifications/:id/dismiss` | F13 | `/notifications` | 封存較早/歷史通知 | L | 已使用 |
+| `POST /api/v1/notifications/:id/snooze` | F13 | `/notifications` | 稍後提醒 repair journey actionable 通知 | M | 已使用 |
+| `POST /api/v1/notifications/:id/act` | F13 | `/notifications` | 執行 CTA + 深鏈回旅程 | H | 已使用 |
 | `POST /api/v1/admin/login` | F10 | `/admin/login` | Admin 登入 | M | 已使用 |
 | `GET /api/v1/admin/me` | F10 | `/admin/*` | Admin 身份恢復 | M | 已使用 |
 | `GET /api/v1/admin/jobs/stats` | F10 | `/admin/ops/jobs` | 任務統計 | M | 已使用 |
@@ -116,6 +133,9 @@
 | `GET /api/v1/admin/reports/overview` | F10 | `/admin/reports` | 總覽報表 | M | 已使用 |
 | `GET /api/v1/admin/reports/funnel` | F10 | `/admin/reports` | 漏斗報表 | M | 已使用 |
 | `GET /api/v1/admin/reports/costs` | F10 | `/admin/reports` | 成本報表 | M | 已使用 |
+| `GET /api/v1/admin/reports/ai-streams` | F10 | `/admin/reports` | AI Stream 治理報表 | L | 已使用 |
+| `GET /api/v1/admin/reports/ai-streams/sessions` | F10 | `/admin/reports` | AI Stream Session 明細 | L | 已使用 |
+| `GET /api/v1/admin/reports/ai-streams/sessions/:streamId` | F10 | `/admin/reports` | AI Stream 詳情 | L | 已使用 |
 | `GET /api/v1/admin/runtime/interview` | F10 | `/admin/settings` | 訪談運行參數 | L | 已使用 |
 | `GET /api/v1/admin/reports/overview.csv` | F10 | `/admin/reports` | 報表下載 | M | 已使用 |
 | `POST /api/v1/admin/reports/custom` | F10 | `/admin/reports` | 客製報表 | M | 已使用 |

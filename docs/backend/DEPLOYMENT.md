@@ -8,6 +8,13 @@
 
 Railway 提供免費額度，支持自動部署。
 
+**當前環境事實**：
+
+- `production` 已配置 Railway Redis，屬 Redis-backed production 標準形態
+- `staging` 已於 2026-04-05 補回 Railway Redis，`lock/cache/chat metrics/ops metrics/AI Stream` 已切回 Redis mode
+- `staging` 已於同日啟用受保護 `/metrics`；目前與 production 的主要差異已不在核心 runtime，而是域名與部署角色
+- 公開狀態端點 `/health`、`/health/ready`、`/health/live`、`/version`、`/api/v1/version` 已可供探活 / smoke gate 使用；受保護接口仍嚴格遵循 `ALLOWED_ORIGINS`
+
 **步驟**:
 
 1. 在 Railway 創建新項目
@@ -20,6 +27,12 @@ Railway 提供免費額度，支持自動部署。
 - `JWT_SECRET`: 生成隨機字符串
 - `OPENAI_API_KEY`: 你的 OpenAI API 密鑰
 - `NODE_ENV`: `production`
+- `REDIS_URL`: `production` / `staging` 建議都配置
+- `ADMIN_JWT_SECRET`: `production` / `staging` 必配
+- `ADMIN_JWT_EXPIRES_IN`: `production` / `staging` 必配
+- `METRICS_ENABLED`: `production` / `staging` 建議保持 `true`
+- `METRICS_TOKEN`: `production` / `staging` 至少配置其一；抓取端需帶 `X-Metrics-Token`
+- `METRICS_ALLOWED_IPS`: 可選，適合內網抓取來源固定的環境
 
 ### 2. Render
 
@@ -91,11 +104,11 @@ ALLOWED_ORIGINS=https://your-frontend-domain.com,https://your-admin-domain.com
 >
 > **Vercel 部署**：若前台部署於 Vercel（例如 `https://mother-bear-court.vercel.app`），Railway 後端的 `ALLOWED_ORIGINS` 必須包含該完整網址，否則 Quick Experience 等頁面會出現 CORS 403／「網絡連接失敗」。
 >
-> 若啟用健康檢查告警腳本，也請設定 `ALERT_HEALTH_ORIGIN` 為 `ALLOWED_ORIGINS` 內其中一個合法來源，避免健康檢查因 Origin 不符而誤報 5xx。
+> 若啟用健康檢查告警腳本，也請設定 `ALERT_HEALTH_ORIGIN` 為 `ALLOWED_ORIGINS` 內其中一個合法來源，方便對業務接口做白名單來源驗證；公開狀態端點本身已可直接探活。
 >
 > 生產環境 CORS 行為基準：
 > - 來源不在 `ALLOWED_ORIGINS`：返回 `403`（`CORS_ORIGIN_DENIED`）
-> - 無 `Origin` 請求：僅 `GET /health`、`GET /health/ready`、`GET /health/live` 放行（供監控探針）
+> - 公開狀態端點 `GET /health`、`GET /health/ready`、`GET /health/live`、`GET /version`、`GET /api/v1/version`：無論是否帶 `Origin`，均放行（供監控探針 / CLI / smoke gate）
 > - 合法來源但未登入管理端：返回 `401`（`UNAUTHORIZED`），不是 `403`
 
 ### 可選變量
@@ -138,7 +151,13 @@ npx prisma migrate deploy
 
 ### 健康檢查
 
-健康檢查端點: `GET /health`
+公開狀態端點：
+
+- `GET /health`
+- `GET /health/ready`
+- `GET /health/live`
+- `GET /version`
+- `GET /api/v1/version`
 
 運維告警檢查（建議接入定時任務）：
 
@@ -182,7 +201,7 @@ JWT_EXPIRES_IN=7d
 
 - `JWT_SECRET` 嚴禁包含換行或 `KEY=VALUE` 污染內容
 - 過渡期結束後需移除 `JWT_SECRET_PREVIOUS`
-- 外部健康檢查若受 CORS 影響，請帶允許的 `Origin` 驗證
+- 受保護業務接口若需跨站 smoke，請帶允許的 `Origin` 驗證；公開狀態端點不需要
 
 成本看板 API（`GET /api/v1/admin/reports/costs`）所需外部變數（可選）：
 
@@ -220,7 +239,7 @@ OPENAI_ORG_ID=<openai-org-id-optional>
 如果需要多實例部署：
 
 1. 使用負載均衡器（如 Nginx）
-2. 確保 Session 存儲在共享存儲（Redis）
+2. 確保 `REDIS_URL` 可用，供分散式鎖、metrics、AI Stream replay / cross-instance 分發使用
 3. 數據庫連接池配置
 
 ### 垂直擴展
@@ -264,7 +283,7 @@ OPENAI_ORG_ID=<openai-org-id-optional>
 - `GET /health`、`GET /health/ready`
 - 主要流程：快速體驗建案 → 判決完成
 - 聊天室：建立房間 → 發訊息 → 建邀請 → 接受 → 發起判決（含 included_message_ids）→ 查詢 judgment-status
-- 監控：`GET /metrics` 可返回 Prometheus 指標文本（建議僅內網暴露/抓取）
+- 監控：`GET /metrics` 可返回 Prometheus 指標文本，但需通過 `METRICS_TOKEN` 或 `METRICS_ALLOWED_IPS` 保護；不應被作為公開狀態端點直接暴露
 
 ---
 
@@ -283,9 +302,10 @@ v2.0 訪談系統需要以下可選環境變量（均有預設值，不配不影
 | `INTERVIEW_TURN_INTERVAL_MS` | `3000` | 輪次最小間隔（毫秒） |
 | `INTERVIEW_START_RATE_LIMIT` | `3` | start 每用戶每小時上限（express-rate-limit，防濫用，不計 turn 數） |
 | `INTERVIEW_DAILY_SESSION_LIMIT` | `5` | 每用戶每天最多 session 數 |
-| `REDIS_URL` | — | 併發鎖用 Redis（可選，無則 fallback 到 DB advisory lock） |
+| `REDIS_URL` | — | `production` / `staging` 建議同樣配置，用於 lock、metrics、AI Stream 與跨實例 replay |
+| `METRICS_TOKEN` | — | `/metrics` header token；`production` / `staging` 至少配置 token 或 allowed IP 其中之一 |
 
-在 Railway / Render / Docker 中增加上述環境變量即可。詳見 `docs/ENVIRONMENT.md`。
+在 Railway / Render / Docker 中增加上述環境變量即可。詳見 `docs/ENVIRONMENT.md`、`backend/DEPLOYMENT.md` 與 `docs/核心開發文件/Staging 運行時收口記錄-2026-04-05.md`。
 
 ### 數據庫遷移
 

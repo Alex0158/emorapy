@@ -13,7 +13,15 @@ interface ExecutionState {
   isLoading: boolean;
   error: string | null;
   confirmExecution: (planId: string) => Promise<void>;
-  checkin: (data: { plan_id: string; notes?: string; photos?: string[] }) => Promise<void>;
+  checkin: (data: {
+    plan_id: string;
+    notes?: string;
+    photos?: string[];
+    step_result?: 'done' | 'partial' | 'skipped';
+    closeness?: 'closer' | 'same' | 'farther';
+    stress?: 'low' | 'medium' | 'high';
+    needs_help?: boolean;
+  }) => Promise<void>;
   getExecutionStatus: (planId: string) => Promise<ExecutionStatus>;
   setCurrentExecution: (execution: ExecutionStatus | null) => void;
   clearError: () => void;
@@ -74,4 +82,3 @@ export const useExecutionStore = create<ExecutionState>((set, get) => ({
     set({ error: null });
   },
 }));
-

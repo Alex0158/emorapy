@@ -4,6 +4,8 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Card, Space, Spin, message } from 'antd';
 import { getErrorMessage } from '@/utils/apiError';
 import { t } from '@/utils/i18n';
+import { useAIStreamSubscription } from '@/hooks/useAIStreamSubscription';
+import { draftFromSnapshot, reduceDraftWithEvent, type AIStreamDraft } from '@/utils/aiStreamState';
 import {
   acceptChatInvite,
   connectChatStream,
@@ -69,16 +71,13 @@ const ChatRoomPage = () => {
   const [loadingMoreHistory, setLoadingMoreHistory] = useState(false);
   const [pendingAnchorMessageId, setPendingAnchorMessageId] = useState<string | null>(null);
   const [jumpBackState, setJumpBackState] = useState<{ originMessageId: string | null; wasAtBottom: boolean } | null>(null);
-  const [streamingAiText, setStreamingAiText] = useState('');
-  const [isAiStreaming, setIsAiStreaming] = useState(false);
-
   const mountedRef = useMountedRef();
   const judgmentPollingRef = useRef<number | null>(null);
   const judgmentPollingAttemptsRef = useRef(0);
   const judgmentPollingRoomIdRef = useRef<string | null>(null);
   const roomPollingRef = useRef<number | null>(null);
-  const streamCleanupRef = useRef<(() => void) | null>(null);
-  const streamRetryRef = useRef<number | null>(null);
+  const roomStreamCleanupRef = useRef<(() => void) | null>(null);
+  const roomStreamRetryRef = useRef<number | null>(null);
   const roomRefreshInFlightRef = useRef<Promise<void> | null>(null);
   const roomRefreshQueuedRef = useRef(false);
   const createRoomLockRef = useRef(false);
@@ -121,10 +120,17 @@ const ChatRoomPage = () => {
     judgmentPollingRoomIdRef.current = null;
   }, []);
 
-  const clearStreamRetry = useCallback(() => {
-    if (streamRetryRef.current) {
-      clearTimeout(streamRetryRef.current);
-      streamRetryRef.current = null;
+  const clearRoomStreamRetry = useCallback(() => {
+    if (roomStreamRetryRef.current) {
+      clearTimeout(roomStreamRetryRef.current);
+      roomStreamRetryRef.current = null;
+    }
+  }, []);
+
+  const clearThinkingTimeout = useCallback(() => {
+    if (thinkingTimeoutRef.current) {
+      clearTimeout(thinkingTimeoutRef.current);
+      thinkingTimeoutRef.current = null;
     }
   }, []);
 
@@ -353,6 +359,44 @@ const ChatRoomPage = () => {
     return promise;
   }, [loadRoomLatestMerge]);
 
+  const activeRoomId = room?.id ?? null;
+  const {
+    state: aiDraft,
+    setState: setAIDraft,
+    resetState: resetAIDraft,
+  } = useAIStreamSubscription<AIStreamDraft | null>({
+    scopeType: 'chat_room',
+    scopeId: activeRoomId,
+    enabled: !!activeRoomId,
+    initialState: null,
+    reduceReady: (_prev, ready) => {
+      const snapshots = Array.isArray(ready.snapshots) ? ready.snapshots : [];
+      const latestActive = [...snapshots]
+        .sort((a, b) => b.lastSeq - a.lastSeq)
+        .find((snapshot) => !['persisted', 'failed', 'cancelled'].includes(snapshot.status));
+      const nextDraft = draftFromSnapshot(latestActive);
+      if (nextDraft?.status !== 'thinking') {
+        clearThinkingTimeout();
+      }
+      return nextDraft;
+    },
+    reduceEvent: (prev, event) => {
+      if (event.eventType === 'stream.delta' || event.eventType === 'stream.completed') {
+        clearThinkingTimeout();
+      }
+      return reduceDraftWithEvent(prev, event);
+    },
+    isTerminalError: isTerminalStreamError,
+    onEvent: (event) => {
+      if (event.eventType === 'stream.persisted') {
+        void refreshRoomSafely(activeRoomId as string);
+      }
+      if (event.eventType === 'stream.persisted' || event.eventType === 'stream.failed' || event.eventType === 'stream.cancelled') {
+        clearThinkingTimeout();
+      }
+    },
+  });
+
   const ensureRoomPolling = useCallback((targetRoomId: string) => {
     if (roomPollingRef.current) return;
     roomPollingRef.current = setInterval(() => {
@@ -427,16 +471,15 @@ const ChatRoomPage = () => {
         setHasMoreHistory(true);
         setPendingAnchorMessageId(null);
         setJumpBackState(null);
-        setIsAiStreaming(false);
-        setStreamingAiText('');
+        resetAIDraft();
         pendingAnchorHandledRef.current = null;
         anchorJumpOriginRef.current = null;
         anchorAutoPagesRef.current = 0;
         clearRoomPolling();
         clearJudgmentPolling();
-        streamCleanupRef.current?.();
-        streamCleanupRef.current = null;
-        clearStreamRetry();
+        roomStreamCleanupRef.current?.();
+        roomStreamCleanupRef.current = null;
+        clearRoomStreamRetry();
         return;
       }
       prevMessageCountRef.current = 0;
@@ -449,6 +492,7 @@ const ChatRoomPage = () => {
       pendingAnchorHandledRef.current = null;
       anchorJumpOriginRef.current = null;
       setErrorText('');
+      resetAIDraft();
       const stateRoom = (location.state as { room?: ChatRoom } | null)?.room;
       const useFastPath = stateRoom?.id === routeRoomId;
       if (useFastPath) {
@@ -530,21 +574,21 @@ const ChatRoomPage = () => {
       cancelled = true;
       clearRoomPolling();
       clearJudgmentPolling();
-      streamCleanupRef.current?.();
-      streamCleanupRef.current = null;
-      clearStreamRetry();
+      roomStreamCleanupRef.current?.();
+      roomStreamCleanupRef.current = null;
+      clearRoomStreamRetry();
       clearHighlightTimer();
-      if (thinkingTimeoutRef.current) clearTimeout(thinkingTimeoutRef.current);
+      resetAIDraft();
     };
-  }, [location.state, routeRoomId, clearJudgmentPolling, clearRoomPolling, loadRoomInitial, ensureRoomPolling, clearStreamRetry, clearHighlightTimer, scrollToBottom, getRoomLoadErrorText]);
+  }, [location.state, routeRoomId, clearJudgmentPolling, clearRoomPolling, loadRoomInitial, ensureRoomPolling, clearRoomStreamRetry, clearHighlightTimer, scrollToBottom, getRoomLoadErrorText, resetAIDraft]);
 
   useEffect(() => {
     const activeRoomId = room?.id ?? null;
     if (!activeRoomId) return;
     let cancelled = false;
-    streamCleanupRef.current?.();
-    streamCleanupRef.current = null;
-    clearStreamRetry();
+    roomStreamCleanupRef.current?.();
+    roomStreamCleanupRef.current = null;
+    clearRoomStreamRetry();
 
     const bindStream = async (retryCount = 0) => {
       const scheduleReconnect = (retryFrom: number, errorMessage?: string) => {
@@ -553,8 +597,8 @@ const ChatRoomPage = () => {
         }
         ensureRoomPolling(activeRoomId);
         const nextRetry = Math.min(10000, 1000 * Math.max(1, retryFrom + 1));
-        clearStreamRetry();
-        streamRetryRef.current = setTimeout(() => {
+        clearRoomStreamRetry();
+        roomStreamRetryRef.current = setTimeout(() => {
           if (cancelled) return;
           void bindStream(retryFrom + 1);
         }, nextRetry);
@@ -570,36 +614,17 @@ const ChatRoomPage = () => {
 	              setErrorText('');
 	              return;
 	            }
-	            if (event.type === 'ai_start') {
-	              setIsAiStreaming(true);
-	              setStreamingAiText('');
-	              return;
-	            }
-	            if (event.type === 'ai_token') {
-	              setStreamingAiText((prev) => prev + (event.payload?.text ?? ''));
-	              return;
-	            }
-	            if (event.type === 'ai_end') {
-	              if (thinkingTimeoutRef.current) clearTimeout(thinkingTimeoutRef.current);
-	              setIsAiStreaming(false);
-	              setStreamingAiText('');
-	              void refreshRoomSafely(activeRoomId);
-	              return;
-	            }
 	            if (event.type === 'message' || event.type === 'invite' || event.type === 'room_status') {
 	              if (event.type === 'room_status') {
 	                showRoomStatusNotice(event);
 	              }
-	              if (thinkingTimeoutRef.current) clearTimeout(thinkingTimeoutRef.current);
-	              setIsAiStreaming(false);
-	              setStreamingAiText('');
 	              void refreshRoomSafely(activeRoomId);
 	            }
 	          },
           onError: (streamError) => {
             if (cancelled) return;
             if (isTerminalStreamError(streamError)) {
-              clearStreamRetry();
+              clearRoomStreamRetry();
               clearRoomPolling();
               setErrorText(streamError.message || t('chat.message.streamTerminalError'));
               return;
@@ -620,17 +645,17 @@ const ChatRoomPage = () => {
         cleanup();
         return;
       }
-      streamCleanupRef.current = cleanup;
+      roomStreamCleanupRef.current = cleanup;
     };
 
     void bindStream();
     return () => {
       cancelled = true;
-      clearStreamRetry();
-      streamCleanupRef.current?.();
-      streamCleanupRef.current = null;
+      clearRoomStreamRetry();
+      roomStreamCleanupRef.current?.();
+      roomStreamCleanupRef.current = null;
     };
-	  }, [clearRoomPolling, clearStreamRetry, ensureRoomPolling, isTerminalStreamError, refreshRoomSafely, room?.id, showRoomStatusNotice]);
+	  }, [clearRoomPolling, clearRoomStreamRetry, ensureRoomPolling, isTerminalStreamError, refreshRoomSafely, room?.id, showRoomStatusNotice]);
 
   useEffect(() => {
     // 新訊息進來時：
@@ -917,14 +942,18 @@ const ChatRoomPage = () => {
         return trimMessageCache(next, { allowTrim });
       });
       if (visibilityScope === 'all') {
-        if (thinkingTimeoutRef.current) clearTimeout(thinkingTimeoutRef.current);
-        setIsAiStreaming(true);
-        setStreamingAiText('');
+        clearThinkingTimeout();
+        setAIDraft({
+          streamId: null,
+          requestId: null,
+          text: '',
+          status: 'thinking',
+        });
         thinkingTimeoutRef.current = setTimeout(() => {
           if (mountedRef.current) {
-            setIsAiStreaming(false);
-            setStreamingAiText('');
+            setAIDraft(null);
           }
+          thinkingTimeoutRef.current = null;
         }, AI_THINKING_TIMEOUT_MS);
       }
       setMessageInput('');
@@ -944,7 +973,7 @@ const ChatRoomPage = () => {
       }
       sendMessageLockRef.current = false;
     }
-  }, [isRoomTerminalStatus, loadingMoreHistory, messageInput, mountedRef, pendingAnchorMessageId, replyTo?.id, room?.id, room?.status, trimMessageCache, visibilityScope]);
+  }, [clearThinkingTimeout, isRoomTerminalStatus, loadingMoreHistory, messageInput, mountedRef, pendingAnchorMessageId, replyTo?.id, room?.id, room?.status, trimMessageCache, visibilityScope]);
 
   const handleCreateInvite = useCallback(async () => {
     if (!room?.id) return;
@@ -1204,8 +1233,7 @@ const ChatRoomPage = () => {
                 loadingMoreHistory={loadingMoreHistory}
                 historyBlockedByCache={historyBlockedByCache}
                 onLoadMoreHistory={loadMoreHistory}
-                isAiStreaming={isAiStreaming}
-                streamingAiText={streamingAiText}
+                aiDraft={aiDraft}
                 currentHrefWithoutHash={currentHrefWithoutHash}
                 messageById={messageById}
                 replyTo={replyTo}

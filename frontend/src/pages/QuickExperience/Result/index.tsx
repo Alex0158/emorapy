@@ -5,13 +5,19 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useMountedRef } from '@/hooks/useMountedRef';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Typography, Alert, message, Space, Button } from 'antd';
+import { Typography, message, Space, Button } from 'antd';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LockOutlined, RetweetOutlined, BulbOutlined } from '@ant-design/icons';
+import { useAIStreamSubscription } from '@/hooks/useAIStreamSubscription';
+import AIErrorState from '@/components/common/AIErrorState';
+import AIPhaseTimeline from '@/components/common/AIPhaseTimeline';
+import AIThinkingIndicator from '@/components/common/AIThinkingIndicator';
 import { useJudgmentStore } from '@/store/judgmentStore';
 import { getJudgmentByCaseId } from '@/services/api/judgment';
 import { getCase, uploadEvidence } from '@/services/api/case';
 import { getContentList, type ContentItem } from '@/services/api/content';
+import type { AIStreamPhase } from '@/types/aiStream';
+import { appendUniquePhase } from '@/utils/aiStreamState';
 import type { Judgment } from '@/types/judgment';
 import { usePolling } from '@/hooks/usePolling';
 import { POLLING_INTERVAL } from '@/utils/constants';
@@ -32,7 +38,44 @@ import RegisterPromptSection from './components/RegisterPromptSection';
 
 const { Text } = Typography;
 
-const AIAnalyzingAnimation = ({ tips }: { tips?: ContentItem[] }) => {
+interface JudgmentPhaseStreamState {
+  currentPhase: AIStreamPhase | null;
+  phaseHistory: AIStreamPhase[];
+}
+
+const storageGetItem = (key: string): string | null => {
+  try {
+    return Storage.prototype.getItem.call(window.localStorage, key);
+  } catch {
+    return null;
+  }
+};
+
+const storageSetItem = (key: string, value: string) => {
+  try {
+    Storage.prototype.setItem.call(window.localStorage, key, value);
+  } catch {
+    // ignore storage failures
+  }
+};
+
+const storageRemoveItem = (key: string) => {
+  try {
+    Storage.prototype.removeItem.call(window.localStorage, key);
+  } catch {
+    // ignore storage failures
+  }
+};
+
+const AIAnalyzingAnimation = ({
+  tips,
+  currentPhase,
+  phaseHistory,
+}: {
+  tips?: ContentItem[];
+  currentPhase?: AIStreamPhase | null;
+  phaseHistory?: AIStreamPhase[];
+}) => {
   const [tipIndex, setTipIndex] = useState(0);
   const safeTips = Array.isArray(tips) ? tips : [];
 
@@ -45,7 +88,6 @@ const AIAnalyzingAnimation = ({ tips }: { tips?: ContentItem[] }) => {
   }, [safeTips]);
 
   const currentTip = safeTips.length > 0 ? safeTips[tipIndex] : null;
-
   return (
     <div className="ai-analyzing-container">
       <motion.div
@@ -61,6 +103,26 @@ const AIAnalyzingAnimation = ({ tips }: { tips?: ContentItem[] }) => {
       </motion.h2>
       <Text>{t('quickResult.analyzingSubtitle')}</Text>
 
+      {currentPhase ? (
+        <div className="ai-analyzing-tip-card">
+          <div className="ai-analyzing-tip-header">
+            <BulbOutlined />
+            <Text strong>{t('quickResult.livePhaseBadge')}</Text>
+          </div>
+          <Text className="ai-analyzing-tip-content">{t(`quickResult.phase.${currentPhase}`)}</Text>
+          <AIPhaseTimeline
+            currentPhase={currentPhase}
+            phaseHistory={phaseHistory ?? []}
+            getLabel={(phase) => t(`quickResult.phase.${phase}`)}
+            className="ai-analyzing-phase-timeline"
+            itemClassName="ai-analyzing-phase-item"
+            activeItemClassName="ai-analyzing-phase-item--active"
+            completedItemClassName="ai-analyzing-phase-item--completed"
+            pendingItemClassName="ai-analyzing-phase-item--pending"
+          />
+        </div>
+      ) : null}
+
       {currentTip && (
         <AnimatePresence mode="wait">
           <motion.div
@@ -75,7 +137,13 @@ const AIAnalyzingAnimation = ({ tips }: { tips?: ContentItem[] }) => {
               <BulbOutlined />
               <Text strong>{t('quickResult.thinkingBadge')}</Text>
             </div>
-            <Text className="ai-analyzing-tip-content">{currentTip.content}</Text>
+            <Text className="ai-analyzing-tip-content">
+              <AIThinkingIndicator
+                text={currentTip.content}
+                className="ai-analyzing-thinking"
+                dotsClassName="ai-analyzing-thinking-dots"
+              />
+            </Text>
           </motion.div>
         </AnimatePresence>
       )}
@@ -122,7 +190,45 @@ const QuickExperienceResult = () => {
     [location.pathname]
   );
 
-  const fetchJudgment = async (): Promise<Judgment | null> => {
+  const {
+    state: phaseStreamState,
+  } = useAIStreamSubscription<JudgmentPhaseStreamState>({
+    scopeType: 'case_judgment',
+    scopeId: judgment ? null : id,
+    enabled: !!id && !judgment,
+    initialState: { currentPhase: null, phaseHistory: [] },
+    reduceReady: (_prev, ready) => {
+      const snapshots = Array.isArray(ready.snapshots) ? ready.snapshots : [];
+      const latest = [...snapshots].sort((a, b) => a.lastSeq - b.lastSeq).at(-1);
+      if (!latest?.phase) {
+        return { currentPhase: null, phaseHistory: [] };
+      }
+      return {
+        currentPhase: latest.phase,
+        phaseHistory: appendUniquePhase([], latest.phase),
+      };
+    },
+    reduceEvent: (prev, event) => {
+      if (!event.phase) return prev;
+      return {
+        currentPhase: event.phase,
+        phaseHistory: appendUniquePhase(prev.phaseHistory, event.phase),
+      };
+    },
+    onEvent: (event) => {
+      if (event.eventType === 'stream.persisted') {
+        void fetchJudgment();
+      }
+      if (event.eventType === 'stream.failed' && event.error?.message) {
+        setJudgmentError(event.error.message);
+        setJudgmentErrorCode(event.error.code);
+      }
+    },
+  });
+  const streamPhase = phaseStreamState.currentPhase;
+  const phaseHistory = phaseStreamState.phaseHistory;
+
+  const fetchJudgment = useCallback(async (): Promise<Judgment | null> => {
     if (!id) {
       if (mountedRef.current) {
         message.error(t('message.caseIdMissing'));
@@ -163,7 +269,7 @@ const QuickExperienceResult = () => {
       stopPollingRef.current?.();
       return null;
     }
-  };
+  }, [caseSessionId, id, mountedRef, navigate]);
 
   const responsibilityRatioMemo = useMemo(() =>
     judgment ? (judgment.responsibility_ratio ?? { plaintiff: judgment.plaintiff_ratio, defendant: judgment.defendant_ratio })
@@ -193,13 +299,13 @@ const QuickExperienceResult = () => {
       const canUploadEvidence = ['draft', 'submitted', 'in_progress'].includes(status);
       if (!canUploadEvidence) {
         setEvidenceUploadStatus(null);
-        localStorage.removeItem(`pending_evidence_${caseId}`);
+        storageRemoveItem(`pending_evidence_${caseId}`);
         return case_;
       }
 
       if (case_.evidences && Array.isArray(case_.evidences) && case_.evidences.length > 0) {
         setEvidenceUploadStatus('success');
-      } else if (localStorage.getItem(`pending_evidence_${caseId}`)) {
+      } else if (storageGetItem(`pending_evidence_${caseId}`)) {
         setEvidenceUploadStatus('pending');
       } else {
         setEvidenceUploadStatus(null);
@@ -274,7 +380,7 @@ const QuickExperienceResult = () => {
       if (!mountedRef.current) return;
       message.success(t('message.evidenceUploadSuccess'));
       setEvidenceUploadStatus('success');
-      localStorage.removeItem(`pending_evidence_${caseId}`);
+      storageRemoveItem(`pending_evidence_${caseId}`);
       try {
         await fetchCase();
       } catch (refreshErr) {
@@ -284,7 +390,7 @@ const QuickExperienceResult = () => {
       if (!mountedRef.current) return;
       message.error(getErrorMessage(error, 'message.evidenceUploadFail'));
       setEvidenceUploadStatus('failed');
-      try { localStorage.setItem(`pending_evidence_${caseId}`, 'true'); } catch { /* noop */ }
+      storageSetItem(`pending_evidence_${caseId}`, 'true');
     } finally {
       if (mountedRef.current) setIsUploading(false);
     }
@@ -309,14 +415,25 @@ const QuickExperienceResult = () => {
     return () => stopPolling();
   }, [judgment, id, judgmentError, caseStatus, startPolling, stopPolling]);
 
-  if (isLoading && !judgment) return <div className="loading-container"><AIAnalyzingAnimation tips={tips} /></div>;
+  if (isLoading && !judgment) {
+    return (
+      <div className="loading-container">
+        <AIAnalyzingAnimation tips={tips} currentPhase={streamPhase} phaseHistory={phaseHistory} />
+      </div>
+    );
+  }
 
   if (error && !judgment) return (
     <div className="error-container">
-      <Alert title={t('error.fetch.title')} description={error} type="error" showIcon />
-      <button className="action-button primary" onClick={() => navigate('/quick-experience/create')} style={{marginTop: 24}}>
-        {t('error.back')}
-      </button>
+      <AIErrorState
+        title={t('error.fetch.title')}
+        description={error}
+        footer={(
+          <button className="action-button primary" onClick={() => navigate('/quick-experience/create')} style={{ marginTop: 24 }}>
+            {t('error.back')}
+          </button>
+        )}
+      />
     </div>
   );
 
@@ -325,12 +442,10 @@ const QuickExperienceResult = () => {
     const isJudgmentFailed = judgmentErrorCode === 'JUDGMENT_FAILED' || caseStatus === 'judgment_failed';
     return (
       <div className="error-container">
-        <Alert
+        <AIErrorState
           title={isSessionExpired ? t('error.session.title') : isJudgmentFailed ? t('error.judgment.title') : t('error.fetch.title')}
           description={isJudgmentFailed && judgmentFailureReason ? `${t('error.judgment.failureReasonPrefix')}${judgmentFailureReason}` : judgmentError || (isSessionExpired ? t('error.session.expiredHint') : t('message.retryOrLater'))}
-          type="error"
-          showIcon
-          action={
+          actions={
             isSessionExpired ? (
               <Space>
                 <Button type="primary" onClick={() => navigate('/auth/login', { state: registerTargetState })}>
@@ -347,10 +462,12 @@ const QuickExperienceResult = () => {
             : isJudgmentFailed ? <Button type="primary" onClick={handleRetryJudgment}>{t('error.retry')}</Button>
             : <Button type="primary" onClick={() => { setJudgmentError(null); setJudgmentErrorCode(null); pollingEverStartedRef.current = true; startPolling(); }}>{t('error.retry')}</Button>
           }
+          footer={(
+            <button className="action-button secondary" onClick={() => navigate('/quick-experience/create')} style={{ marginTop: 24 }}>
+              {t('error.back')}
+            </button>
+          )}
         />
-        <button className="action-button secondary" onClick={() => navigate('/quick-experience/create')} style={{marginTop: 24}}>
-          {t('error.back')}
-        </button>
       </div>
     );
   }
@@ -360,12 +477,11 @@ const QuickExperienceResult = () => {
     return (
       <div className="loading-container">
         {isTimeout ? (
-          <Alert
+          <AIErrorState
             title={t('pending.long.message')}
             description={t('pending.long.desc')}
             type="warning"
-            showIcon
-            action={
+            actions={
               <Space>
                 <Button type="primary" onClick={() => { pollingEverStartedRef.current = true; startPolling(); }}>{t('pending.long.action.wait')}</Button>
                 <Button onClick={handleRetryJudgment}>{t('pending.long.action.regen')}</Button>
@@ -373,7 +489,7 @@ const QuickExperienceResult = () => {
               </Space>
             }
           />
-        ) : <AIAnalyzingAnimation tips={tips} />}
+        ) : <AIAnalyzingAnimation tips={tips} currentPhase={streamPhase} phaseHistory={phaseHistory} />}
       </div>
     );
   }

@@ -33,6 +33,8 @@ const ReconciliationList = lazy(() => import('@/pages/Reconciliation/List'));
 const ReconciliationDetail = lazy(() => import('@/pages/Reconciliation/Detail'));
 const ExecutionDashboard = lazy(() => import('@/pages/Execution/Dashboard'));
 const ExecutionCheckIn = lazy(() => import('@/pages/Execution/CheckIn'));
+const ExecutionReplan = lazy(() => import('@/pages/Execution/Replan'));
+const NotificationsPage = lazy(() => import('@/pages/Notifications'));
 const ProfileIndex = lazy(() => import('@/pages/Profile/Index'));
 const ProfileSettings = lazy(() => import('@/pages/Profile/Settings'));
 const ProfilePairing = lazy(() => import('@/pages/Profile/Pairing'));
@@ -179,6 +181,26 @@ export const router = createBrowserRouter([
           <LazyWrapper>
             <ProtectedRoute>
               <ExecutionCheckIn />
+            </ProtectedRoute>
+          </LazyWrapper>
+        ),
+      },
+      {
+        path: 'execution/:planId/replan',
+        element: (
+          <LazyWrapper>
+            <ProtectedRoute>
+              <ExecutionReplan />
+            </ProtectedRoute>
+          </LazyWrapper>
+        ),
+      },
+      {
+        path: 'notifications',
+        element: (
+          <LazyWrapper>
+            <ProtectedRoute>
+              <NotificationsPage />
             </ProtectedRoute>
           </LazyWrapper>
         ),

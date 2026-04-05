@@ -2,7 +2,15 @@ import { Router } from 'express';
 import { reconciliationController } from '../controllers/reconciliation.controller';
 import { authenticate } from '../middleware/auth';
 import { validate } from '../middleware/validator';
-import { uuidParamSchema, generateReconciliationPlansSchema, selectPlanSchema } from '../utils/validation';
+import {
+  uuidParamSchema,
+  generateReconciliationPlansSchema,
+  selectPlanSchema,
+  invitePartnerSchema,
+  respondPlanSchema,
+  uuidTrackParamSchema,
+  replanTrackSchema,
+} from '../utils/validation';
 import { aiLimiter, generalLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
@@ -59,5 +67,52 @@ router.post(
   reconciliationController.selectPlan.bind(reconciliationController)
 );
 
-export default router;
+router.get(
+  '/reconciliation-plans/:id/commitment',
+  generalLimiter,
+  authenticate,
+  validate(uuidParamSchema),
+  reconciliationController.getCommitment.bind(reconciliationController)
+);
 
+router.post(
+  '/reconciliation-plans/:id/invite',
+  generalLimiter,
+  authenticate,
+  validate({ ...uuidParamSchema, ...invitePartnerSchema }),
+  reconciliationController.invitePartner.bind(reconciliationController)
+);
+
+router.post(
+  '/reconciliation-plans/:id/pause',
+  generalLimiter,
+  authenticate,
+  validate({ ...uuidParamSchema, ...invitePartnerSchema }),
+  reconciliationController.pausePlan.bind(reconciliationController)
+);
+
+router.post(
+  '/reconciliation-plans/:id/respond',
+  generalLimiter,
+  authenticate,
+  validate({ ...uuidParamSchema, ...respondPlanSchema }),
+  reconciliationController.respondPlan.bind(reconciliationController)
+);
+
+router.post(
+  '/repair-tracks/:id/replan',
+  generalLimiter,
+  authenticate,
+  validate({ ...uuidTrackParamSchema, ...replanTrackSchema }),
+  reconciliationController.replanTrack.bind(reconciliationController)
+);
+
+router.post(
+  '/repair-tracks/:id/resume',
+  generalLimiter,
+  authenticate,
+  validate(uuidTrackParamSchema),
+  reconciliationController.resumeTrack.bind(reconciliationController)
+);
+
+export default router;

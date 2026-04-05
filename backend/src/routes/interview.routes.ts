@@ -44,6 +44,14 @@ router.post(
   interviewController.skip.bind(interviewController)
 );
 
+router.post(
+  '/:id/cancel',
+  authenticate,
+  requireConsent,
+  validate(uuidParamSchema),
+  interviewController.cancel.bind(interviewController)
+);
+
 router.get(
   '/resume',
   authenticate,

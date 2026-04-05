@@ -1,6 +1,9 @@
 import type { ApiResponse } from '@/types/common';
 import type {
   AdminAdminUserItem,
+  AdminAIStreamDetailData,
+  AdminAIStreamReportData,
+  AdminAIStreamSessionListData,
   AdminAppUserItem,
   AdminAuditLogItem,
   AdminConfigItem,
@@ -481,6 +484,58 @@ export const adminApi = {
       }
     );
     return (response.data as ApiResponse<AdminCostReportData>).data;
+  },
+
+  async getReportAIStreams(params?: {
+    days?: number;
+    limit?: number;
+  }): Promise<AdminAIStreamReportData> {
+    const response = await request.get<ApiResponse<AdminAIStreamReportData>>(
+      '/admin/reports/ai-streams',
+      {
+        params,
+        headers: getAdminAuthHeaders(),
+      }
+    );
+    return (response.data as ApiResponse<AdminAIStreamReportData>).data;
+  },
+
+  async listReportAIStreamSessions(params?: {
+    days?: number;
+    limit?: number;
+    offset?: number;
+    status?: string;
+    scopeType?: string;
+    scopeId?: string;
+    requestId?: string;
+    streamId?: string;
+    source?: 'live' | 'archive' | 'all';
+  }): Promise<AdminAIStreamSessionListData> {
+    const response = await request.get<ApiResponse<AdminAIStreamSessionListData>>(
+      '/admin/reports/ai-streams/sessions',
+      {
+        params,
+        headers: getAdminAuthHeaders(),
+      }
+    );
+    return (response.data as ApiResponse<AdminAIStreamSessionListData>).data;
+  },
+
+  async getReportAIStreamDetail(
+    streamId: string,
+    params?: {
+      eventLimit?: number;
+      source?: 'live' | 'archive' | 'all';
+    }
+  ): Promise<AdminAIStreamDetailData> {
+    const response = await request.get<ApiResponse<AdminAIStreamDetailData>>(
+      `/admin/reports/ai-streams/sessions/${streamId}`,
+      {
+        params,
+        headers: getAdminAuthHeaders(),
+      }
+    );
+    return (response.data as ApiResponse<AdminAIStreamDetailData>).data;
   },
 
   async listMediaProviders(params?: {

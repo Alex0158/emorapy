@@ -1,7 +1,7 @@
 # 前端狀態管理與 API 設計（代碼對齊版）
 
-**文檔版本**：v4.0  
-**最後更新**：2026-03-05  
+**文檔版本**：v5.0  
+**最後更新**：2026-04-05  
 **對齊基準**：`frontend/src/store/*`、`frontend/src/services/*`、`frontend/src/pages/Admin/*`
 
 ---
@@ -22,6 +22,7 @@
 - `executionStore`
 - `interviewStore`
 - `psychProfileStore`
+- `notificationStore`
 
 ### 1.2 React Query（目前集中在 Admin）
 
@@ -29,6 +30,40 @@
 
 - Admin Users / Configs / Jobs / Health / AuditLogs / Reports
 - hooks：`useAdminMe`、`useAdminSession`、`useAdminJobStats`
+
+### 1.3 F05 Repair Journey 2.1 補充
+
+- `reconciliationStore`
+  - `getPlans / generatePlans` 底層已從單純 `plans[]` 升級為 `bundle`
+  - bundle 口徑：`plans + recommended_plan_id + intent + applied_preferences + journey_entry + version_summary`
+  - 旅程頁要先按 `journey_entry.status` 決定主 CTA，再決定是否顯示生成/重調/恢復入口
+- `executionStore`
+  - 保留原方法名，但語義已升級為 repair journey
+  - `confirmExecution`：啟動今天的一小步
+  - `checkin`：提交 `step_result + closeness + stress + needs_help`
+  - `getExecutionStatus`：返回 `current_step / commitment / pulse_summary / recent_checkins / CTA hints`
+  - `replanTrack` 已升級為 async accepted 語義，返回 `stream_scope/scope_id/stream_id/request_id`
+  - `getExecutionStatus` 補充 `replan_state / active_replan_stream_id / latest_plan_version / superseded_plan_id`
+  - 2.1 新增 `replanTrack / resumeTrack`
+- `notificationStore`
+  - 負責 repair journey 通知中心與 Header bell
+  - `fetchNotifications / fetchUnreadCount / markRead / markAllRead / dismiss / snooze / act`
+  - `act` 不自行判斷模板跳轉，只消費後端返回的 `target.path`
+  - `snooze` 只應用於 active repair journey 通知；歷史通知仍可走 `dismiss`
+- `Reconciliation Detail`
+  - 方案詳情頁除了 `plan`，還要消費 `viewer_role / invite_context / cta_state / track_history_summary`
+  - invitee 打開頁面會自動上報 `respond(viewed)`，之後可 `committed / deferred / declined`
+- `journey_context`
+  - F05 主要讀接口現已統一附帶 `journey_context`
+  - 前端必須優先使用 `journey_context.primary_cta / secondary_cta / presentation_bucket`
+  - 只有 legacy/缺字段時才回退到本地 `status -> CTA` 映射
+- F05 的頁面主鏈路已改為：
+  - 判決後選方向
+  - 方案旅程頁按狀態續接主推薦 / 進行中旅程
+  - 共同承諾工作台（含 invite response）
+  - 每日一步頁
+  - 重調頁
+  - 修復進展看板
 
 ---
 
@@ -106,7 +141,14 @@
 - `getExecutionStatus`
 - `currentExecution` 管理
 
-## 2.7 `interviewStore`（SSE 核心）
+補充（Repair Journey 2.2）：
+
+- `/execution/:planId/replan` 不再依賴同步 `plan_id` 響應。
+- 前台提交 `replanTrack(trackId, dto)` 後，進入 `waitingForAI`。
+- 真正的完成信號來自 `useAIStreamSubscription('repair_track', trackId)` 的 `stream.persisted + metadata.plan_id`。
+- `Execution Status` 若返回 `journey_status=replanning` 或 `active_replan_stream_id`，頁面重掛時必須直接恢復等待態。
+
+## 2.7 `interviewStore`（提交 + AI Stream 核心）
 
 關鍵狀態：
 
@@ -114,6 +156,8 @@
 - `turns`
 - `streamingText`
 - `isStreaming`
+- `streamingStatus`
+- `cancelledDraft`
 - `shouldEnd`
 - `safetyAlert`
 - `error/errorCode`
@@ -122,20 +166,39 @@
 
 - `startSession`
 - `checkResume`
-- `respond`（SSE）
-- `skipTurn`（SSE）
+- `respond`（提交）
+- `skipTurn`（提交）
 - `endSession`
 - `getSession`
+- `syncSessionSilently`
 - `retryFailed`
 - `cancelStream`
+- `beginStreaming`
+- `finishStreaming`
+- `applyStreamFailure`
+- `applyStreamSafetyAlert`
+- `applyShouldEnd`
 
-SSE 事件落地：
+AI Stream 事件落地：
 
-- `token` -> 累積 `streamingText`
-- `metadata` -> 保存回合意圖等元數據
-- `safety_alert` -> 設置 `safetyAlert`
-- `complete` -> 合併 session 狀態與 domains
-- `error` -> `error/errorCode`
+- `stream.started` -> `beginStreaming`
+- `stream.delta` -> 更新草稿文本與 `streaming`
+- `stream.phase` -> `safety_alert` / `should_end` 類 metadata
+- `stream.completed` -> `persisting`
+- `stream.persisted` -> `syncSessionSilently`
+- `stream.failed` -> `applyStreamFailure`
+- `stream.cancelled` -> 保留 `cancelledDraft`
+
+補充對齊（2026-04）：
+
+- `isStreaming = true` 後，頁面即渲染 AI placeholder bubble。
+- `streamingText === ''` 時顯示 thinking 文案，不再等待首 token 才出現 AI 氣泡。
+- store 已對齊共享 AI 狀態契約：`thinking -> streaming -> persisting -> null`。
+- `Interview` 的提交端已改為普通 `interviewApi.respond/skip/cancel`；可見輸出主鏈路統一由 `connectAIStream('interview_session', sessionId)` 驅動。
+- `cancelStream` 已把本地 abort 映射為可見的 `cancelled` draft，避免停止生成後 UI 靜默消失。
+- `Interview/Chat` 透過 `connectAIStream('interview_session', sessionId)` 記錄 `after_seq`，在頁面重掛或 stream 中斷後，用 snapshot / replay 回填活動 draft，並在恢復期間顯示 `interview.recovering`。
+- `Interview` 對 cancelled 狀態採用 `keepCancelled` 映射分支：`stream.cancelled` 的 snapshot / replay 會保留為可見 draft；聊天室仍維持 cancelled 後直接清空，不共享這個展示策略。
+- `Interview` 在 `stream.persisted` 到達後會調用 `syncSessionSilently(sessionId)`，靜默回拉 canonical session，讓最終 turns 不再只依賴本地 SSE 拼裝。
 
 ## 2.8 `psychProfileStore`
 
@@ -170,15 +233,80 @@ SSE 事件落地：
 - 401 admin API：走 admin token 清理與 admin 登入導轉
 - 404/409 針對特定快速體驗場景抑制全局彈窗，交由頁面處理
 
-## 3.2 `sseRequest.ts`（訪談流式）
+## 3.2 `aiStream.ts`（統一 AI Stream client）
 
 - 使用 `fetch` + `ReadableStream`
-- 事件：`token` / `metadata` / `safety_alert` / `complete` / `error`
-- 超時：
-  - 首 token 30s
-  - 連線無事件 60s
+- 入口：`GET /api/v1/streams/:scopeType/:scopeId`
+- 現已覆蓋 scope：`interview_session / chat_room / case_judgment / judgment_detail / repair_track`
+- 支援 `after_seq` replay
+- 事件：
+  - `ready`
+  - `stream.created`
+  - `stream.queued`
+  - `stream.started`
+  - `stream.phase`
+  - `stream.delta`
+  - `stream.completed`
+  - `stream.persisted`
+  - `stream.failed`
+  - `stream.heartbeat`
 
-## 3.3 API 模塊（實際檔案）
+前端接線現況：
+
+- `QuickExperience/Result`：訂閱 `case_judgment/:caseId`，先顯示 live phase，再於 `stream.persisted` 後拉正式判決。
+- `Chat Room`：AI 草稿與 persisted 交接已由 `connectAIStream('chat_room', roomId)` 主驅動；房間頁面內部統一以 `aiDraft: AIStreamDraft | null` 表示暫存 AI 回覆；房間 SSE 只保留 `message/invite/room_status`。
+- `Interview`：交互體驗與統一 AI 狀態機對齊，先顯示 placeholder，再接 token。
+- `Interview Store`：顯式維護 `streamingStatus`，供頁面與後續共享 UI 元件使用一致狀態語義。
+
+## 3.3 `aiStreamState.ts`（共享流狀態工具）
+
+- 位置：`frontend/src/utils/aiStreamState.ts`
+- 共用能力：
+  - `draftFromSnapshot`
+  - `reduceDraftWithEvent`
+  - `appendUniquePhase`
+- 用途：
+  - 統一 `Chat Room` 的 draft 狀態轉換
+  - 統一 `QuickExperience/Result` 的 phase history 累積
+  - 提供 `buildLocalDraft` 給需要保留本地 cancelled / fallback draft 的場景
+  - 避免不同頁面各自手寫 `thinking/streaming/persisting` 與 phase 去重邏輯
+
+## 3.4 `useAIStreamSubscription.ts`（共享流 hook）
+
+- 位置：`frontend/src/hooks/useAIStreamSubscription.ts`
+- 責任：
+  - 管理 `connectAIStream` 的連線生命週期
+  - 統一 `after_seq` replay、重連退避、recovering 狀態與終態錯誤收口
+  - 把 `ready snapshots` / `stream.*` 事件歸併到場景狀態
+- 已接入：
+  - `Interview/Chat`
+  - `Chat Room`
+  - `QuickExperience/Result`
+- 當前前端分層已收斂為：
+  - `aiStream.ts`：純 transport client
+  - `useAIStreamSubscription.ts`：共享 stream orchestration
+  - `aiStreamState.ts`：純狀態映射工具
+## 3.5 `AIStreamingBubble.tsx`（共享流式氣泡）
+
+- 位置：`frontend/src/components/common/AIStreamingBubble.tsx`
+- 用途：
+  - 統一聊天型 AI draft bubble 的 DOM 結構、`aria-live`、cursor 與 `data-ai-stream-status`
+  - 由 `Interview` 與 `Chat Room` 共用，同一狀態語義不再各畫各的 placeholder
+  - 保留各頁自己的外層 className 與視覺皮膚，但 bubble 骨架與 streaming 狀態標記收斂到同一元件
+
+## 3.6 補充共享 UI 元件
+
+- `AIThinkingIndicator.tsx`
+  - 把 thinking 文案與省略號動畫骨架從頁面內聯結構抽出
+- `AIStreamingText.tsx`
+  - 統一增量文本與 cursor DOM，避免每個頁面自己手寫 `text + |`
+- `AIPhaseTimeline.tsx`
+  - 統一 long-running AI 場景的 phase timeline DOM 與 `active/completed/pending` 標記
+- `AIRecoveryBadge.tsx`
+  - 統一 recovering/replay 中的恢復提示標記，避免頁面各自放一段孤立文案
+- `AIErrorState.tsx`
+  - 統一 AI 場景的 error/timeout 容器、主文案、操作區與 footer 出口
+## 3.7 API 模塊（實際檔案）
 
 - `auth.ts`
 - `user.ts`
@@ -213,7 +341,7 @@ SSE 事件落地：
 
 **項目名稱**：熊媽媽法庭（Mother Bear Court）  
 **設計階段**：MVP開發階段  
-**文檔版本**：v3.2
+**文檔版本**：v4.4
 
 ---
 
@@ -903,61 +1031,262 @@ const useGenerateJudgment = () => {
 #### 和好方案相關
 
 **POST /judgments/:id/reconciliation-plans**
-- **用途**：生成和好方案
+- **用途**：按方向與偏好生成 repair journey 方案 bundle
 - **認證**：需要（檢查權限）
+- **請求體**：
+  ```typescript
+  {
+    intent?: 'repair' | 'cool_down' | 'graceful_exit' | 'safety_support';
+    preferences?: {
+      difficulty?: 'easy' | 'medium' | 'hard';
+      duration?: number;
+      types?: Array<'activity' | 'communication' | 'intimacy' | 'gift' | 'service'>;
+      pressure_level?: 'low' | 'medium' | 'high';
+      pace?: 'today' | 'this_week' | 'ease_in';
+      style?: Array<'action' | 'conversation' | 'companionship' | 'distance'>;
+      invite_partner?: boolean;
+    };
+    force_regenerate?: boolean;
+  }
+  ```
 - **響應**：
   ```typescript
   {
     plans: ReconciliationPlan[];
+    recommended_plan_id: string | null;
+    intent: 'repair' | 'cool_down' | 'graceful_exit' | 'safety_support';
+    applied_preferences: PlanPreferences | null;
+    journey_entry: {
+      status: 'none' | 'draft' | 'partner_invited' | 'solo_active' | 'co_active' | 'replanning' | 'paused' | 'completed';
+      track_id?: string;
+      active_plan_id?: string;
+      recommended_action?: 'review_plan' | 'continue_journey' | 'invite_partner' | 'replan' | 'resume' | 'restart';
+      last_pulse?: {
+        closeness: 'closer' | 'same' | 'farther';
+        stress: 'low' | 'medium' | 'high';
+        needs_help: boolean;
+      } | null;
+      has_superseded_versions: boolean;
+    };
+    version_summary: {
+      version_group_id: string | null;
+      total_versions: number;
+      superseded_versions: number;
+    };
   }
   ```
 
 **GET /judgments/:id/reconciliation-plans**
-- **用途**：獲取和好方案列表
+- **用途**：獲取指定方向下的方案 bundle
 - **認證**：需要（檢查權限）
-- **響應**：`ReconciliationPlan[]`
+- **查詢**：`intent? / difficulty? / type?`
+- **響應**：同上 bundle
+
+**GET /reconciliation-plans/:id**
+- **用途**：獲取方案詳情與承諾工作台資料
+- **認證**：需要（檢查權限）
+- **響應**：
+  ```typescript
+  {
+    plan: ReconciliationPlan & {
+      content?: ParsedPlanContent;
+      fit_reason?: string;
+      first_step?: string;
+      fallback_step?: string;
+      pause_rule?: string;
+      do_not_use_when?: string[];
+      commitment?: CommitmentSummary;
+      viewer_role?: 'initiator' | 'invitee' | 'neutral';
+      invite_context?: {
+        can_invite: boolean;
+        is_invited: boolean;
+        invited_at?: string | null;
+        invite_status?: 'not_invited' | 'pending' | 'viewed' | 'accepted' | 'declined';
+      };
+      cta_state?: {
+        primary: 'commit' | 'invite' | 'start' | 'continue' | 'replan' | 'resume' | 'await_partner';
+        secondary?: 'pause' | 'change_plan' | 'view_history';
+      };
+      track_history_summary?: {
+        has_track_history: boolean;
+        has_superseded_versions: boolean;
+        current_track_status?: string | null;
+      };
+    };
+  }
+  ```
 
 **POST /reconciliation-plans/:id/select**
-- **用途**：選擇和好方案
+- **用途**：當前用戶承諾此方案（兼容入口，內部對齊 `respond(committed)`）
+- **認證**：需要（檢查權限）
+
+**POST /reconciliation-plans/:id/respond**
+- **用途**：invitee / initiator 回應共同承諾狀態
+- **認證**：需要（檢查權限）
+- **請求體**：
+  ```typescript
+  {
+    action: 'viewed' | 'committed' | 'declined' | 'paused';
+  }
+  ```
+
+**GET /reconciliation-plans/:id/commitment**
+- **用途**：讀取雙方承諾狀態
+- **認證**：需要（檢查權限）
+
+**POST /reconciliation-plans/:id/invite**
+- **用途**：邀請對方一起共修
+- **認證**：需要（檢查權限）
+
+**POST /reconciliation-plans/:id/pause**
+- **用途**：暫停本輪修復旅程但保留歷史（兼容入口）
 - **認證**：需要（檢查權限）
 
 #### 執行相關
 
 **POST /execution/confirm**
-- **用途**：確認執行和好方案
+- **用途**：啟動今天的一小步 / 啟動 repair track
 - **認證**：需要（檢查權限）
 - **請求體**：
   ```typescript
   {
-    planId: string;
+    plan_id: string;
   }
   ```
 
 **POST /execution/checkin**
-- **用途**：執行打卡
+- **用途**：提交每日一步結果與情緒脈搏
 - **認證**：需要（檢查權限）
 - **請求體**：
   ```typescript
   {
-    planId: string;
+    plan_id: string;
+    step_result?: 'done' | 'partial' | 'skipped';
+    closeness?: 'closer' | 'same' | 'farther';
+    stress?: 'low' | 'medium' | 'high';
+    needs_help?: boolean;
     notes?: string;
     photos?: string[];
   }
   ```
 
-**GET /execution/dashboard**
-- **用途**：獲取執行看板
+**GET /execution/status**
+- **用途**：獲取單個 plan 的修復旅程狀態
 - **認證**：需要
 - **響應**：
   ```typescript
   {
-    activePlans: ExecutionRecord[];
-    completedPlans: ExecutionRecord[];
-    statistics: {
-      totalPlans: number;
-      completedPlans: number;
-      completionRate: number;
+    plan_id: string;
+    track_id?: string;
+    judgment_id?: string;
+    journey_status: string;
+    relationship_mode: 'solo' | 'co';
+    progress: number;
+    current_step?: {
+      step_index: number;
+      title: string;
+      content: string;
+      fallback_content?: string;
+      pause_rule?: string;
     };
+    commitment?: CommitmentSummary;
+    pulse_summary?: {
+      closeness: 'closer' | 'same' | 'farther';
+      stress: 'low' | 'medium' | 'high';
+      needs_help: boolean;
+      needs_replan: boolean;
+    };
+    records: ExecutionRecord[];
+    recent_checkins: RepairCheckIn[];
+    primary_cta?: 'review_plan' | 'continue_step' | 'replan' | 'resume_track';
+    secondary_cta?: 'pause' | 'view_detail';
+    last_activity_at?: string | null;
+    status_reason?: string | null;
+    replan_recommendation?: 'lower_pressure' | 'slower_pace' | 'solo_first' | null;
+  }
+  ```
+
+**POST /repair-tracks/:id/replan**
+- **用途**：在同一 intent 內做降壓 / 降速 / 單人先行重調
+- **認證**：需要
+- **請求體**：
+  ```typescript
+  {
+    mode: 'lower_pressure' | 'slower_pace' | 'solo_first';
+    reason: 'needs_help' | 'farther' | 'high_stress' | 'manual';
+  }
+  ```
+- **響應**：
+  ```typescript
+  {
+    track: {
+      track_id: string;
+      status: 'replanning';
+      accepted: true;
+      stream_scope: 'repair_track';
+      scope_id: string;
+      stream_id: string;
+      request_id: string;
+    }
+  }
+  ```
+- **前端約束**：
+  - 不可再假設同步返回新的 `plan_id`
+  - 必須接 `GET /api/v1/streams/repair_track/:id` 的 snapshot / replay / persisted
+
+**通知中心 API**
+- `GET /notifications`
+- `GET /notifications/unread-count`
+- `POST /notifications/read-all`
+- `POST /notifications/:id/read`
+- `POST /notifications/:id/dismiss`
+- `POST /notifications/:id/snooze`
+- `POST /notifications/:id/act`
+
+**通知 DTO（前端實際消費）**：
+```typescript
+interface NotificationItem {
+  id: string;
+  template_code: string;
+  action_key: string | null;
+  unread: boolean;
+  actionable: boolean;
+  priority?: string | null;
+  group_key?: string | null;
+  read_at: string | null;
+  dismissed_at: string | null;
+  acted_at: string | null;
+  snoozed_until?: string | null;
+  journey_context?: RepairJourneyContext | null;
+  render_payload: {
+    title: string;
+    body: string;
+    path: string | null;
+    cta_label: string | null;
+    entity_type: string | null;
+    entity_id: string | null;
+    journey_status: string | null;
+    track_id: string | null;
+    plan_id: string | null;
+    judgment_id: string | null;
+    priority?: string | null;
+    partner_state?: string | null;
+    reason_code?: string | null;
+  };
+}
+```
+
+**POST /repair-tracks/:id/resume**
+- **用途**：恢復 paused 的 repair track
+- **認證**：需要
+
+**GET /execution/dashboard**
+- **用途**：獲取修復進展看板
+- **認證**：需要
+- **響應**：
+  ```typescript
+  {
+    executions: ExecutionStatus[];
   }
   ```
 
@@ -1273,7 +1602,7 @@ axios.interceptors.response.use(
 
 **按鈕點擊**：
 - CTA按鈕點擊（立即開始、立即註冊）
-- 功能按鈕點擊（生成和好方案、執行追蹤）
+- 功能按鈕點擊（選方向、承諾方案、開始今天的一小步、查看修復進展）
 - 分享按鈕點擊（分享判決、邀請好友）
 
 **表單填寫**：
@@ -1357,25 +1686,33 @@ interface InterviewState {
   // 核心狀態
   currentSession: InterviewSession | null;  // 完整 session 對象（含 id、status、trigger 等）
   turns: InterviewTurn[];
-  streamingText: string;         // SSE 回應文本 buffer（對應設計中的 pendingMessage）
-  isStreaming: boolean;          // SSE 進行中（對應設計中的 isInputDisabled）
+  streamingText: string;         // 本地 fallback / cancelled draft 文本
+  isStreaming: boolean;          // AI 回覆進行中（對應設計中的 isInputDisabled）
+  streamingStatus: 'thinking' | 'streaming' | 'persisting' | null;
+  cancelledDraft: AIStreamDraft | null;
   loading: boolean;              // startSession / endSession / getSession 期間
   error: string | null;
   errorCode: string | null;      // v2.0 具體錯誤碼（CONCURRENT_REQUEST, TURN_TOO_FAST 等）
-  safetyAlert: { message: string; severity?: string } | null;  // safety_alert SSE 事件
+  safetyAlert: { message: string; severity?: string } | null;
   abortController: AbortController | null;
-  shouldEnd: boolean;            // AI metadata.should_end 標記
+  shouldEnd: boolean;            // AI phase metadata.should_end 標記
 
   // Actions
   startSession: (trigger?: string) => Promise<InterviewSession>;   // 返回完整 session
   checkResume: () => Promise<{ has_pending: boolean; session_id?: string; last_ai_message?: string; turn_count?: number; has_failed?: boolean; failed_session_id?: string }>;
-  respond: (sessionId: string, message: string) => Promise<void>;  // SSE（sseRequest 直接調用）
-  skipTurn: (sessionId: string) => Promise<void>;                  // SSE（sseRequest 直接調用）
+  respond: (sessionId: string, message: string) => Promise<void>;  // POST submit
+  skipTurn: (sessionId: string) => Promise<void>;                  // POST submit
   endSession: (sessionId: string) => Promise<void>;
   getSession: (sessionId: string) => Promise<void>;                // 合併了原 getResult + loadHistory
+  syncSessionSilently: (sessionId: string) => Promise<void>;
   retryFailed: (sessionId: string) => Promise<void>;
-  cancelStream: () => void;
-  dismissSafetyAlert: () => void;  // 清除 safetyAlert state
+  cancelStream: (sessionId?: string) => Promise<void>;
+  beginStreaming: () => void;
+  finishStreaming: () => void;
+  applyStreamFailure: (error: { code?: string; message?: string }) => void;
+  applyStreamSafetyAlert: (data: { message?: string; severity?: string }) => void;
+  applyShouldEnd: (shouldEnd: boolean) => void;
+  dismissSafetyAlert: () => void;
   reset: () => void;
 }
 ```
@@ -1384,18 +1721,18 @@ interface InterviewState {
 >
 > **設計名稱映射**：`sessionId` → `currentSession.id`、`status` → `currentSession.status`、`feedbackCard` → `currentSession.feedback_card`、`pendingMessage` → `streamingText`、`isInputDisabled` → `isStreaming`。不在 Store 中的屬性（`consentRequired`、`richnessScore`）由 PsychProfileStore 提供。
 
-**SSE 處理邏輯**（`respond` / `skipTurn` action；與 [03-核心頁面詳細設計](03-核心頁面詳細設計.md) §4.5 和 [後端 03-API設計](../後端設計/03-API設計.md) §SSE 對齊）：
+**提交 + AI Stream 處理邏輯**（`respond` / `skipTurn` action）：
 
 1. **前置校驗**（由頁面組件負責）：`text.trim()` 為空 → 不發送；超過 2000 字 → 不發送
-2. 建立 `AbortController` → 調用 `sseRequest('/interview/${sessionId}/respond', { message })` 直接處理 SSE（不經過 `interviewApi`）
-3. 立即 `isStreaming = true`、`streamingText = ''`、`error = null`
-4. 收到 `onToken` callback → 追加文本到 `streamingText`
-5. 收到 `onMetadata` callback → 暫存 turn_order、intent、target_domains、should_end
-6. 收到 `onSafetyAlert` callback → ✅ 寫入 `safetyAlert` state（InterviewChat 渲染 SafetyAlert 組件；severity=critical 時顯示危機熱線）
-7. 收到 `onError` callback → 設置 `error`
-8. 收到 `onComplete` callback → **將 `streamingText` 構建為 `InterviewTurn` 加入 `turns`**（附加 turn_order 和 metadata）→ 清空 `streamingText` → `isStreaming = false` → 更新 `shouldEnd`
-9. 頁面組件偵測 `shouldEnd === true` → 自動調 `endSession()` → 導向結果頁
-10. **SSE 中斷**：AbortError 被過濾；其他錯誤設 `error` → 用戶可手動「重新整理」→ 調 `getSession()` 恢復
+2. `respond/skipTurn` 先做 optimistic 本地更新：回答立即寫入最後一輪或標記 skipped，然後提交 `interviewApi.respond/skip`
+3. 提交成功後，頁面維持 `isStreaming = true`、`streamingStatus = 'thinking'`
+4. `Interview/Chat` 同步訂閱 `connectAIStream('interview_session', sessionId)`，並記錄 `after_seq`
+5. 收到 `stream.started` / 首個 `stream.delta` 後切換草稿為 `thinking/streaming`
+6. 收到 `stream.phase` 中的 safety / should_end metadata 後，調用 `applyStreamSafetyAlert`、`applyShouldEnd`
+7. 收到 `stream.completed` 後進入 `persisting`
+8. 收到 `stream.persisted` 後，調用 `syncSessionSilently(sessionId)`，以 canonical turns 覆蓋本地臨時狀態
+9. 收到 `stream.failed` 後設置 `error/errorCode`；收到 `stream.cancelled` 後保留 `cancelledDraft`
+10. 頁面組件偵測 `shouldEnd === true` → 自動調 `endSession()` → 導向結果頁
 
 **Polling 策略**（由頁面組件驅動，非 Store action）：
 - `endSession()` 後 `currentSession.status` 更新為 `processing`
@@ -1443,10 +1780,13 @@ export const interviewApi = {
     request.post('/interview/start', { trigger }),
   checkResume: () => request.get('/interview/resume'),
   getSession: (sessionId: string) => request.get(`/interview/${sessionId}`),
+  respond: (sessionId: string, message: string) =>
+    request.post(`/interview/${sessionId}/respond`, { message }),
+  skip: (sessionId: string) => request.post(`/interview/${sessionId}/skip`),
+  cancel: (sessionId: string) => request.post(`/interview/${sessionId}/cancel`),
   endSession: (sessionId: string) => request.post(`/interview/${sessionId}/end`),
   retryFailed: (sessionId: string) => request.post(`/interview/${sessionId}/retry`),
 };
-// 注意：respond 和 skip 由 Store 直接調用 sseRequest，不在此 API 層
 
 // services/api/psychProfile.ts
 export const psychProfileApi = {
@@ -1458,22 +1798,22 @@ export const psychProfileApi = {
 ```
 
 **API 實現說明**：
-- `respond` / `skip` 由 InterviewStore 直接調用 `sseRequest('/interview/${sessionId}/respond', { message })` 處理 SSE，不經過 `interviewApi`
+- `respond` / `skip` / `cancel` 都經過 `interviewApi`
 - `startSession` 返回完整 session 對象（含 `id`、`status`、`trigger`、`turns[]`）
 - `getSession`（`GET /:id`）合併了原 `getResult` 和 `getHistory`——返回完整 session 含 turns、status、feedback_card
 - `retryFailed`（`POST /:id/retry`）用於重試 `processing_failed` 的 session
 - `giveConsent` 不傳 body；`deleteAllData` 清除所有畫像數據並重置 consent
 
-**SSE 請求工具**（`sseRequest` 函數）：
-- 使用 `fetch` + `ReadableStream`（非 EventSource，因需 POST + Bearer token）
-- 接受 callback 配置：`onToken`、`onMetadata`、`onSafetyAlert`、`onComplete`、`onError`
-- 支持 `AbortController` 取消請求
-- **注意**：後端當前發送完整回應文本（非逐字流式），前端可選擇模擬打字效果或一次性展示
+**AI Stream 請求工具**（`connectAIStream`）：
+- 使用 `fetch` + `ReadableStream`
+- 支持 `ready`、`stream.*` 事件和 `after_seq` replay
+- `Interview` / `Chat Room` / `QuickExperience` 都使用這套客戶端承接可見流式輸出
+- **注意**：`Interview` 的提交請求與可見流輸出已解耦；提交用普通 POST，可見回覆只走 `AI Stream`。
 
 > 與後端 [03-API設計](../後端設計/03-API設計.md) §心理畫像與 AI 訪談 API 對齊。`getSession` 響應中的 `partial_success` 由頁面組件讀取，作為 route state 傳遞給結果頁。
 
 ---
 
-**文檔版本**：v3.2  
+**文檔版本**：v4.5  
 **創建日期**：2024年  
-**最後更新**：2026-02-21（v3.2：新增管理員運維 `/admin/jobs/stats` 前端接入模板：型別、normalize 回退策略、渲染防呆；v3.1：InterviewStore 補充 errorCode/safetyAlert/dismissSafetyAlert；onSafetyAlert 改為 store 寫入；checkResume 補充 has_failed/failed_session_id）
+**最後更新**：2026-04-04（v4.4：補充 `Interview` cancelled snapshot / replay 保留可見 draft、`stream.persisted` 後以 `syncSessionSilently` 回拉 canonical session，並標明 `keepCancelled` 僅用於訪談頁；v4.3：補充 `Interview/Chat` 接入 `interview_session` AI Stream recovering / replay 讀鏈路與 `interview.recovering` 狀態；v4.2：補充 `Interview` 專用 SSE 與 `interview_session` AI Stream 鏡像同步、`stream.cancelled/completed/persisted` 統一事件語義；v4.1：AI Stream 統一前端狀態模型接入 `Interview` / `Chat Room` / `QuickExperience`，新增 `AIStreamDraft`、`AIStreamingBubble` 與共享 draft 狀態工具；v3.2：新增管理員運維 `/admin/jobs/stats` 前端接入模板：型別、normalize 回退策略、渲染防呆；v3.1：InterviewStore 補充 errorCode/safetyAlert/dismissSafetyAlert；onSafetyAlert 改為 store 寫入；checkResume 補充 has_failed/failed_session_id）

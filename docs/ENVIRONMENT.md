@@ -1,7 +1,7 @@
 # 環境配置文檔（代碼對齊版）
 
-**文檔版本**：v3.1  
-**最後更新**：2026-03-06  
+**文檔版本**：v3.3  
+**最後更新**：2026-04-05  
 **對齊基準**：`backend/src/config/env.ts`、`backend/.env.example`、`frontend/.env.example`
 
 ---
@@ -32,7 +32,7 @@
 |---|---:|---|
 | `PORT` | `3000` | 服務端口（`.env.example` 建議填 `3001`） |
 | `NODE_ENV` | `development` | 執行環境 |
-| `REDIS_URL` | - | Redis（鎖/快取） |
+| `REDIS_URL` | - | Redis；供 `lock`、`cache`、`chat metrics`、`ops metrics`、`AI Stream` 共用。本地開發現推薦配置 |
 | `AI_MOCK` | `false` | AI mock 模式 |
 | `JWT_EXPIRES_IN` | `24h` | token 壽命 |
 | `OPENAI_MODEL` | `gpt-3.5-turbo` | 通用模型 |
@@ -73,6 +73,20 @@
 - `METRICS_ALLOWED_IPS`
 - `OPS_ALERTS_*`、`ALERT_*`（ops 告警參數）
 
+### 2.6 當前環境矩陣
+
+| 環境 | `REDIS_URL` | `ALLOW_SIMPLE_LOCK` | `METRICS_ENABLED` | 當前說明 |
+|---|---|---|---|---|
+| `development` | 推薦配置 | `false` | 自行決定 | 建議本地直接啟 Redis，避免與線上語義脫節 |
+| `staging` | 已配置 | `false` | `true`（需配 token 或 IP 保護） | 已恢復 Redis-backed 鏈路；`/metrics` 已啟用且受保護 |
+| `production` | 已配置 | `false` | `true`（需配 token 或 IP 保護） | Redis-backed production 標準形態 |
+
+補充：
+
+- `staging` / `production` 都需要 `ADMIN_JWT_SECRET` 與 `ADMIN_JWT_EXPIRES_IN`
+- 公開狀態端點 `/health`、`/health/ready`、`/health/live`、`/version`、`/api/v1/version` 可供探活與 CLI 使用；其餘接口仍遵循 `ALLOWED_ORIGINS`
+- `/metrics` 是機器保護端點，不屬公開狀態端點；應透過 `METRICS_TOKEN` 或 `METRICS_ALLOWED_IPS` 控制抓取權限
+
 ---
 
 ## 3. 前端環境變量
@@ -104,7 +118,7 @@
 - `ADMIN_JWT_SECRET` 生產必填，且不可等於 `JWT_SECRET`
 - `OPENAI_API_KEY` 格式校驗
 - `PORT` 範圍校驗
-- 若 `METRICS_ENABLED=true`，生產必須配置 `METRICS_TOKEN` 或 `METRICS_ALLOWED_IPS`
+- 若 `METRICS_ENABLED=true`，線上環境必須配置 `METRICS_TOKEN` 或 `METRICS_ALLOWED_IPS`
 
 ---
 
@@ -112,10 +126,18 @@
 
 1. `cp backend/.env.example backend/.env`
 2. `cp frontend/.env.example frontend/.env`
-3. 後端先跑：
+3. 啟動本地 Redis：
+   - `cd backend && npm run dev:redis:up`
+4. 後端先跑：
    - `npm run prisma:generate`
    - `npm run prisma:migrate`
-4. 再啟前端
+5. 再啟前端
+
+補充：
+
+- 當前 `backend/.env` 已默認配置 `REDIS_URL=redis://127.0.0.1:6379`
+- 若本地未啟 Redis，後端的 `AI Stream` 會降級為 memory runtime，與 production/staging 的 Railway Redis 行為不一致
+- 若本機 `6379` 衝突，可同步修改 `backend/docker-compose.redis.yml` 與 `backend/.env`
 
 ---
 

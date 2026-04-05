@@ -9,6 +9,7 @@ const mockStartSession = jest.fn();
 const mockRespond = jest.fn();
 const mockEndSession = jest.fn();
 const mockSkip = jest.fn();
+const mockCancel = jest.fn();
 const mockCheckResume = jest.fn();
 const mockGetSession = jest.fn();
 const mockRetryFailed = jest.fn();
@@ -19,6 +20,7 @@ jest.mock('../../../src/controllers/interview.controller', () => ({
     respond: (req: unknown, res: unknown, next: unknown) => mockRespond(req, res, next),
     endSession: (req: unknown, res: unknown, next: unknown) => mockEndSession(req, res, next),
     skip: (req: unknown, res: unknown, next: unknown) => mockSkip(req, res, next),
+    cancel: (req: unknown, res: unknown, next: unknown) => mockCancel(req, res, next),
     checkResume: (req: unknown, res: unknown, next: unknown) => mockCheckResume(req, res, next),
     getSession: (req: unknown, res: unknown, next: unknown) => mockGetSession(req, res, next),
     retryFailed: (req: unknown, res: unknown, next: unknown) => mockRetryFailed(req, res, next),
@@ -76,6 +78,9 @@ describe('interview.routes', () => {
     mockSkip.mockImplementation((_req: unknown, res: unknown) =>
       mockResJson(res, { success: true })
     );
+    mockCancel.mockImplementation((_req: unknown, res: unknown) =>
+      mockResJson(res, { success: true, data: { cancelled: true } })
+    );
     mockCheckResume.mockImplementation((_req: unknown, res: unknown) =>
       mockResJson(res, { success: true, data: null })
     );
@@ -107,7 +112,7 @@ describe('interview.routes', () => {
 
   it('POST /interview/:id/respond 應調用 respond 並返回 200', async () => {
     const app = createApp();
-    const res = await request(app).post(`/interview/${sessionId}/respond`).send({ user_response: 'hello' });
+    const res = await request(app).post(`/interview/${sessionId}/respond`).send({ message: 'hello' });
     expect(res.status).toBe(200);
     expect(mockRespond).toHaveBeenCalledTimes(1);
   });
@@ -124,6 +129,13 @@ describe('interview.routes', () => {
     const res = await request(app).post(`/interview/${sessionId}/skip`).send({});
     expect(res.status).toBe(200);
     expect(mockSkip).toHaveBeenCalledTimes(1);
+  });
+
+  it('POST /interview/:id/cancel 應調用 cancel 並返回 200', async () => {
+    const app = createApp();
+    const res = await request(app).post(`/interview/${sessionId}/cancel`).send({});
+    expect(res.status).toBe(200);
+    expect(mockCancel).toHaveBeenCalledTimes(1);
   });
 
   it('GET /interview/resume 應調用 checkResume 並返回 200', async () => {

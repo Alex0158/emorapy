@@ -177,6 +177,30 @@ describe('煙霧測試 (Smoke Test)', () => {
       expect(response.status).toBe(403);
       expect(response.body?.error?.code).toBe('CORS_ORIGIN_DENIED');
     });
+
+    it('health 路徑即使帶有非白名單 Origin 也應放行（供監控與平台健康檢查）', async () => {
+      const response = await request(app)
+        .get('/health')
+        .set('Origin', 'https://evil.example.com');
+      expect([200, 503]).toContain(response.status);
+      expect(response.body).toHaveProperty('status');
+    });
+
+    it('公開狀態端點 /api/v1/version 即使帶有非白名單 Origin 也應放行', async () => {
+      const response = await request(app)
+        .get('/api/v1/version')
+        .set('Origin', 'https://evil.example.com');
+      expect(response.status).toBe(200);
+      expect(response.body?.data?.version || response.body?.version).toBeTruthy();
+    });
+
+    it('/metrics 不應先被全局 CORS 拒絕，應交由 metrics 自身保護邏輯處理', async () => {
+      const response = await request(app)
+        .get('/metrics')
+        .set('Origin', 'https://evil.example.com');
+      expect(response.body?.error?.code).not.toBe('CORS_ORIGIN_DENIED');
+      expect(response.status).toBeLessThan(500);
+    });
   });
 
   describe('F01 升格相關端點可達性', () => {

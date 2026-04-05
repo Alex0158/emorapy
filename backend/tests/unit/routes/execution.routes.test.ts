@@ -101,9 +101,21 @@ describe('execution.routes', () => {
     expect(mockGetExecutionStatus).toHaveBeenCalled();
   });
 
-  it('getExecutionStatus 成功時應返回 data 含 plan_id、records、progress（F05 邊界）', async () => {
+  it('getExecutionStatus 成功時應返回 journey fields 與回退陣列（F05 邊界）', async () => {
     const planId = '550e8400-e29b-41d4-a716-446655440000';
-    const statusData = { plan_id: planId, status: 'pending', records: [], progress: 0 };
+    const statusData = {
+      plan_id: planId,
+      journey_status: 'solo_active',
+      relationship_mode: 'solo',
+      progress: 40,
+      current_step: {
+        step_index: 1,
+        title: '先傳一條低壓訊息',
+        content: '只表達關心，不先追問。',
+      },
+      records: [],
+      recent_checkins: [],
+    };
     mockGetExecutionStatus.mockImplementationOnce((_req: unknown, res: unknown) =>
       (res as { status: (n: number) => { json: (b: unknown) => void } })
         .status(200)
@@ -114,8 +126,13 @@ describe('execution.routes', () => {
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.data).toHaveProperty('plan_id');
+    expect(res.body.data).toHaveProperty('journey_status', 'solo_active');
+    expect(res.body.data).toHaveProperty('relationship_mode', 'solo');
+    expect(res.body.data).toHaveProperty('current_step');
     expect(res.body.data).toHaveProperty('records');
+    expect(res.body.data).toHaveProperty('recent_checkins');
     expect(Array.isArray(res.body.data.records)).toBe(true);
+    expect(Array.isArray(res.body.data.recent_checkins)).toBe(true);
     expect(res.body.data.plan_id).toBe(planId);
     expect(mockGetExecutionStatus).toHaveBeenCalled();
   });

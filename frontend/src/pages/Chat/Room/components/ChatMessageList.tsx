@@ -6,6 +6,7 @@ import { Button, Space, Typography } from 'antd';
 import { Virtuoso, type ListRange, type VirtuosoHandle } from 'react-virtuoso';
 import { t } from '@/utils/i18n';
 import type { ChatMessage } from '@/types/chat';
+import type { AIStreamDraft } from '@/utils/aiStreamState';
 import {
   getMessageSide,
   getGroupKey,
@@ -31,8 +32,7 @@ interface ChatMessageListProps {
   loadingMoreHistory: boolean;
   historyBlockedByCache: boolean;
   onLoadMoreHistory: () => void;
-  isAiStreaming: boolean;
-  streamingAiText: string;
+  aiDraft: AIStreamDraft | null;
   currentHrefWithoutHash: string;
   messageById: Map<string, ChatMessage>;
   replyTo: ChatMessage | null;
@@ -65,8 +65,7 @@ export default function ChatMessageList({
   loadingMoreHistory,
   historyBlockedByCache,
   onLoadMoreHistory,
-  isAiStreaming,
-  streamingAiText,
+  aiDraft,
   currentHrefWithoutHash,
   messageById,
   replyTo,
@@ -133,8 +132,11 @@ export default function ChatMessageList({
                 ) : null,
               Footer: () => (
                 <div style={{ padding: '0 12px' }}>
-                  {isAiStreaming ? (
-                    <ChatStreamingBubble streamingAiText={streamingAiText} />
+                  {aiDraft ? (
+                    <ChatStreamingBubble
+                      text={aiDraft.text}
+                      status={aiDraft.status}
+                    />
                   ) : null}
                   <div style={{ height: 80 }} />
                 </div>

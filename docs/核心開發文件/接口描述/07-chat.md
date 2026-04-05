@@ -1,7 +1,7 @@
 # 接口描述：chat
 
-**文檔版本**：v2.4  
-**最後更新**：2026-03-15  
+**文檔版本**：v2.5  
+**最後更新**：2026-04-04  
 **代碼基準**：`backend/src/routes/chat.routes.ts`、`backend/src/services/chat.service.ts`、`frontend/src/pages/Chat/Room`、`frontend/src/services/api/chat.ts`
 
 ---
@@ -22,6 +22,7 @@
 | `POST /api/v1/chat/invites/:inviteCode/accept` | `inviteCode` | `data.room.status=group_active` | `UNAUTHORIZED` `INVALID_CODE` `CODE_EXPIRED` | B 方登入後加入，狀態更新 | 邀請碼進房 |
 | `POST /api/v1/chat/invites/:inviteCode/decline` | `inviteCode` | `data.invite.status=declined/revoked` | `FORBIDDEN` `INVALID_CODE` | 可能回退 `invite_pending -> solo_active` | 邀請碼流程 |
 | `GET /api/v1/chat/rooms/:roomId/stream`（SSE） | 無 body，headers 含 auth/session | `ready/ping/message/room_status/invite` 事件 | `FORBIDDEN` | 訂閱 room 事件總線 | 房間頁 |
+| `GET /api/v1/streams/chat_room/:roomId`（SSE） | `after_seq?` + auth/session headers | `ready + stream.*` 事件，含 snapshot/replay/heartbeat | `FORBIDDEN` `NOT_FOUND` | Chat AI 主鏈路 | AI stream client |
 | `GET /api/v1/chat/rooms/:roomId/messages` | `cursor?` `limit?<=100` | `data.messages[]` `data.nextCursor` | `VALIDATION_ERROR` | 無 | 房間頁 |
 | `POST /api/v1/chat/rooms/:roomId/messages` | `content(1..4000)` `visibility_scope?` `reply_to_message_id?` | `data.message` | `RATE_LIMIT_EXCEEDED` `NOT_FOUND` | 寫入 message，觸發 AI orchestrator | 房間頁 |
 | `POST /api/v1/chat/rooms/:roomId/request-judgment` | `included_message_ids?[]` | `data.caseId` `judgmentId?` `status` | `FORBIDDEN` `CASE_NOT_READY` `CONFLICT` | room -> judgment_requested/completed/failed，可能建 case/link | 房間頁 |
@@ -34,16 +35,20 @@
 - `request-judgment` 去重機制：記憶體 in-flight map + 分布式 lock + 既有 link 冪等復用。
 - 訊息發送限速：同房 30 秒最多 6 條，且最小間隔 5 秒；違規回 `RATE_LIMIT_EXCEEDED`。
 - `history_visibility_mode` 直接決定轉判決可納入訊息的時間窗與可見性。
-- SSE 事件是 UI 狀態主來源，非 SSE 退化路徑僅作補償。
+- 房間 SSE 是房間級 domain event 主來源；AI 回覆狀態則以 `AI Stream` 為主來源。
 - 匿名 A 房主建立 invite 的前提是 `room.session_id === canonical session_id`。
 - `accept invite` 已收斂為 `User only`；B 方需先取得登入身份。
 - `canonical session_id` 指前端統一 session 管理層持有的有效匿名會話 ID，不以任意 storage 臨時值作為權限判定依據。
+- `stream.created/started/delta/completed/persisted` 需以 `streamId` 關聯為同一條 AI 回覆；`stream.completed` 不代表可清除暫存氣泡，只有 `stream.persisted` 與正式 `message` 落庫後才算 handoff 完成。
+- 前端 draft 狀態轉換已收斂到共享 `aiStreamState.ts`，避免聊天室與其他 AI 頁面產生不同狀態機。
+- 聊天室頁的 `AI Stream` 訂閱生命週期已收斂到共享 `useAIStreamSubscription`，不再在頁面內各自維護 `after_seq/retry/cleanup`。
+- 房間頁面層內部只使用 `aiDraft: AIStreamDraft | null` 表示暫存 AI 回覆，不再保留 `streamingAi*` 歷史命名。
 
 ## UX 優化（2026-03）
 
-- **思考中反饋**：發送訊息且 `visibility_scope === 'all'` 時，發送成功後立即顯示「思考中...」；收到 `ai_end` 或 `message/invite/room_status` 時清除；15 秒內未收到則超時清除。
+- **思考中反饋**：發送訊息且 `visibility_scope === 'all'` 時，發送成功後立即顯示 thinking bubble；收到首個 `stream.*` 事件前即可顯示 placeholder；15 秒內未收到任何 AI 事件則超時清除。
 - **建立後樂觀渲染**：建立聊天室成功後 `navigate` 帶 `state.room`，進入房間時若 `state.room.id === routeRoomId` 則走快速路徑（僅 `listChatMessages`，不呼叫 `getChatRoom`）；無 state 或 listChatMessages 失敗時 fallback 至完整 `loadRoomInitial`。
-- **AI 流式回應**：後端以 `ai_token` 串流推播；前端 `ChatStreamingBubble` 即時顯示；`streamingAiText` 為空時顯示「思考中...」；AI_MOCK 模式改為逐字 `onToken` 以模擬流式。
+- **AI 流式回應**：後端透過 `GET /api/v1/streams/chat_room/:roomId` 推送 `stream.*` 事件；前端以 draft 狀態 `thinking -> streaming -> persisting` 運行，直到 `stream.persisted` 觸發正式消息交接。
 
 ## 回歸測試最小集
 

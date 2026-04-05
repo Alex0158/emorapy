@@ -18,6 +18,7 @@ import { safetyRoutingService } from './safety-routing.service';
 import { ruptureRepairService } from './rupture-repair.service';
 import { clinicalQualityService } from './clinical-quality.service';
 import { env } from '../config/env';
+import { aiStreamService } from './ai-stream.service';
 
 // ─── 關係互動層模板匹配（Step 4B）──────────────────
 // 使用雙方洞察的 key/value 查表生成，零額外 AI 成本
@@ -371,6 +372,7 @@ export class JudgmentService {
   async generateJudgment(caseId: string, options?: { userId?: string; sessionId?: string }) {
     const lockKey = `judgment:lock:${caseId}`;
     let aiUsed = false;
+    const streamHandle = await aiStreamService.createStream('case_judgment', caseId);
 
     // 使用分布式鎖防止並發生成
     return await lockService.withLock(
@@ -383,6 +385,19 @@ export class JudgmentService {
 
         if (existing) {
           logger.debug('Judgment already exists', { caseId, judgmentId: existing.id });
+          await aiStreamService.completed(streamHandle, {
+            actorRole: 'ai',
+            phase: 'completed',
+            fullText: existing.judgment_content,
+            metadata: { judgmentId: existing.id, caseId },
+          });
+          await aiStreamService.persisted(streamHandle, {
+            actorRole: 'ai',
+            phase: 'completed',
+            fullText: existing.judgment_content,
+            messageId: existing.id,
+            metadata: { judgmentId: existing.id, caseId, summary: existing.summary },
+          });
           return existing;
         }
 
@@ -432,6 +447,16 @@ export class JudgmentService {
             logger.warn('Failed to set case status to in_progress', { caseId, error: err });
           });
         }
+
+        await aiStreamService.start(streamHandle, {
+          actorRole: 'ai',
+          phase: 'collecting_context',
+          metadata: {
+            caseId,
+            caseType: case_.type,
+            caseMode: case_.mode,
+          },
+        });
 
         // 2.2/2.3 個人化與案件上下文治理：以 consent + feature flag + 可追溯審計控制注入
         const consentMap = this.contextGovernance.requireConsent
@@ -699,6 +724,10 @@ export class JudgmentService {
         }, AI_TIMEOUT.JUDGMENT_GENERATION);
 
         try {
+          await aiStreamService.phase(streamHandle, 'analyzing_emotion', {
+            actorRole: 'ai',
+            metadata: { caseId },
+          });
           const prefetchedAnalysis = await aiService.analyzeEmotionalDynamics(
             case_.plaintiff_statement,
             case_.defendant_statement || '',
@@ -712,6 +741,13 @@ export class JudgmentService {
             defendantStatement: case_.defendant_statement || '',
           });
 
+          await aiStreamService.phase(streamHandle, 'building_responsibility', {
+            actorRole: 'ai',
+            metadata: {
+              route: routeDecision.route,
+              detectedFlags: routeDecision.detectedFlags,
+            },
+          });
           const response = await aiService.generateJudgment(
             case_.type,
             case_.plaintiff_statement,
@@ -727,6 +763,12 @@ export class JudgmentService {
             }
           );
 
+          await aiStreamService.phase(streamHandle, 'drafting_judgment', {
+            actorRole: 'ai',
+            metadata: {
+              route: routeDecision.route,
+            },
+          });
           judgmentContent = response.content;
           responsibilityRatio = response.responsibilityRatio;
           summary = response.summary;
@@ -800,6 +842,25 @@ export class JudgmentService {
             routeDecision,
           });
 
+          await aiStreamService.failed(
+            streamHandle,
+            {
+              code: timedOut || msg.includes('超時') || msg.includes('timeout') || msg.includes('AbortError') || msg.includes('aborted')
+                ? 'JUDGMENT_STREAM_TIMEOUT'
+                : 'JUDGMENT_STREAM_FAILED',
+              message: reasonToStore,
+              retryable: true,
+            },
+            {
+              actorRole: 'ai',
+              phase: 'finalizing',
+              metadata: {
+                caseId,
+                route: routeDecision.route,
+              },
+            }
+          );
+
           if (timedOut || msg.includes('超時') || msg.includes('timeout') || msg.includes('AbortError') || msg.includes('aborted')) {
             throw Errors.AI_SERVICE_ERROR('AI服務響應超時，請稍後再試');
           }
@@ -815,12 +876,34 @@ export class JudgmentService {
           throw Errors.VALIDATION_ERROR('責任分比例必須為非負且總和 100');
         }
 
+        await aiStreamService.phase(streamHandle, 'finalizing', {
+          actorRole: 'ai',
+          metadata: {
+            caseId,
+            plaintiffRatio: responsibilityRatio.plaintiff,
+            defendantRatio: responsibilityRatio.defendant,
+          },
+        });
+
         const judgment = await prisma.$transaction(async (tx) => {
           // 再次檢查（防止在生成過程中其他進程已創建）
           const existing2 = await tx.judgment.findUnique({
             where: { case_id: caseId },
           });
           if (existing2) {
+            await aiStreamService.completed(streamHandle, {
+              actorRole: 'ai',
+              phase: 'completed',
+              fullText: existing2.judgment_content,
+              metadata: { judgmentId: existing2.id, caseId },
+            });
+            await aiStreamService.persisted(streamHandle, {
+              actorRole: 'ai',
+              phase: 'completed',
+              fullText: existing2.judgment_content,
+              messageId: existing2.id,
+              metadata: { judgmentId: existing2.id, caseId, summary: existing2.summary },
+            });
             return existing2;
           }
 
@@ -891,6 +974,29 @@ export class JudgmentService {
         }
 
         logger.info('Judgment generated', { caseId, judgmentId: judgment.id });
+
+        await aiStreamService.completed(streamHandle, {
+          actorRole: 'ai',
+          phase: 'completed',
+          fullText: judgment.judgment_content,
+          metadata: {
+            judgmentId: judgment.id,
+            caseId,
+          },
+        });
+        await aiStreamService.persisted(streamHandle, {
+          actorRole: 'ai',
+          phase: 'completed',
+          fullText: judgment.judgment_content,
+          messageId: judgment.id,
+          metadata: {
+            judgmentId: judgment.id,
+            caseId,
+            summary: judgment.summary,
+            plaintiffRatio: judgment.plaintiff_ratio,
+            defendantRatio: judgment.defendant_ratio,
+          },
+        });
 
         return normalizeJudgment(judgment);
       },

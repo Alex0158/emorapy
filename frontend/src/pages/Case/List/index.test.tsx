@@ -58,7 +58,6 @@ vi.mock('@/components/common/SEO', () => ({ default: () => null }));
 vi.mock('@/components/common/AnimatedWrapper', () => ({
   default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
-vi.mock('@/pages/Home/components/AdaptiveDashboard', () => ({ default: () => <div data-testid="adaptive-dashboard" /> }));
 
 vi.mock('@/hooks/usePerformance', () => ({
   useDebounce: (fn: () => void) => fn,
@@ -522,8 +521,9 @@ describe('Case List', () => {
     await waitFor(() => {
       expect(screen.getByText('Test Case')).toBeInTheDocument();
     });
-    const card = screen.getByRole('article', { name: /Test Case/i });
-    await user.click(card);
+    const row = screen.getByText('Test Case').closest('button');
+    expect(row).toBeTruthy();
+    await user.click(row!);
     expect(mockNavigate).toHaveBeenCalledWith('/case/c1');
   });
 

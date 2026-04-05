@@ -45,6 +45,33 @@ Object.defineProperty(window, 'scrollTo', {
   writable: true,
 });
 
+if (
+  !window.localStorage ||
+  typeof window.localStorage.getItem !== 'function' ||
+  typeof window.localStorage.setItem !== 'function'
+) {
+  const store = new Map<string, string>();
+  Object.defineProperty(window, 'localStorage', {
+    value: {
+      getItem: vi.fn((key: string) => store.get(key) ?? null),
+      setItem: vi.fn((key: string, value: string) => {
+        store.set(key, String(value));
+      }),
+      removeItem: vi.fn((key: string) => {
+        store.delete(key);
+      }),
+      clear: vi.fn(() => {
+        store.clear();
+      }),
+      key: vi.fn((index: number) => Array.from(store.keys())[index] ?? null),
+      get length() {
+        return store.size;
+      },
+    },
+    writable: true,
+  });
+}
+
 // 測試預設語言固定為 zh-TW，避免受執行環境 navigator.language 影響
 window.localStorage.setItem('cj_locale', 'zh-TW');
 

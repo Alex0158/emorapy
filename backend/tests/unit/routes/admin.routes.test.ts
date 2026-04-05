@@ -22,6 +22,9 @@ const mockExportAuditLogsCsv = jest.fn();
 const mockReportOverview = jest.fn();
 const mockReportFunnel = jest.fn();
 const mockReportCosts = jest.fn();
+const mockReportAIStreams = jest.fn();
+const mockListAIStreamSessions = jest.fn();
+const mockGetAIStreamDetail = jest.fn();
 const mockExportOverviewCsv = jest.fn();
 const mockCustomReport = jest.fn();
 const mockUpsertAlertRules = jest.fn();
@@ -51,6 +54,9 @@ jest.mock('../../../src/controllers/admin.controller', () => ({
     reportOverview: (req: unknown, res: unknown, next: unknown) => mockReportOverview(req, res, next),
     reportFunnel: (req: unknown, res: unknown, next: unknown) => mockReportFunnel(req, res, next),
     reportCosts: (req: unknown, res: unknown, next: unknown) => mockReportCosts(req, res, next),
+    reportAIStreams: (req: unknown, res: unknown, next: unknown) => mockReportAIStreams(req, res, next),
+    listAIStreamSessions: (req: unknown, res: unknown, next: unknown) => mockListAIStreamSessions(req, res, next),
+    getAIStreamDetail: (req: unknown, res: unknown, next: unknown) => mockGetAIStreamDetail(req, res, next),
     exportOverviewCsv: (req: unknown, res: unknown, next: unknown) => mockExportOverviewCsv(req, res, next),
     customReport: (req: unknown, res: unknown, next: unknown) => mockCustomReport(req, res, next),
     upsertAlertRules: (req: unknown, res: unknown, next: unknown) => mockUpsertAlertRules(req, res, next),
@@ -116,6 +122,9 @@ describe('admin.routes', () => {
     mockReportOverview.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true, data: {} }));
     mockReportFunnel.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true, data: {} }));
     mockReportCosts.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true, data: {} }));
+    mockReportAIStreams.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true, data: {} }));
+    mockListAIStreamSessions.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true, data: { items: [], total: 0 } }));
+    mockGetAIStreamDetail.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true, data: { session: null, events: [] } }));
     mockExportOverviewCsv.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true }));
     mockCustomReport.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true, data: {} }));
     mockUpsertAlertRules.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true, data: { item: {} } }));
@@ -250,6 +259,27 @@ describe('admin.routes', () => {
     const res = await request(app).get('/reports/costs');
     expect(res.status).toBe(200);
     expect(mockReportCosts).toHaveBeenCalled();
+  });
+
+  it('GET /reports/ai-streams 應調用 reportAIStreams', async () => {
+    const app = createApp();
+    const res = await request(app).get('/reports/ai-streams');
+    expect(res.status).toBe(200);
+    expect(mockReportAIStreams).toHaveBeenCalled();
+  });
+
+  it('GET /reports/ai-streams/sessions 應調用 listAIStreamSessions', async () => {
+    const app = createApp();
+    const res = await request(app).get('/reports/ai-streams/sessions?source=all&limit=20');
+    expect(res.status).toBe(200);
+    expect(mockListAIStreamSessions).toHaveBeenCalled();
+  });
+
+  it('GET /reports/ai-streams/sessions/:streamId 應調用 getAIStreamDetail', async () => {
+    const app = createApp();
+    const res = await request(app).get('/reports/ai-streams/sessions/stream-1?source=archive');
+    expect(res.status).toBe(200);
+    expect(mockGetAIStreamDetail).toHaveBeenCalled();
   });
 
   it('GET /admin-users 應調用 listAdminUsers', async () => {
@@ -647,6 +677,16 @@ describe('admin.routes', () => {
       expect(res.body).toMatchObject({ success: false, error: 'costs failed' });
     });
 
+    it('reportAIStreams 調用 next(error) 時應返回 500', async () => {
+      mockReportAIStreams.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('ai streams failed'));
+      });
+      const app = createApp();
+      const res = await request(app).get('/reports/ai-streams');
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'ai streams failed' });
+    });
+
     it('exportOverviewCsv 調用 next(error) 時應返回 500', async () => {
       mockExportOverviewCsv.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
         (next as (err: Error) => void)(new Error('export overview csv failed'));
@@ -698,4 +738,3 @@ describe('admin.routes', () => {
     });
   });
 });
-

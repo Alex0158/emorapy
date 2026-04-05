@@ -51,10 +51,30 @@ jest.mock('../../../src/services/system-config.service', () => ({
   __esModule: true,
   systemConfigService: { getNumberConfig: jest.fn() },
 }));
+jest.mock('../../../src/services/ai-stream.service', () => ({
+  __esModule: true,
+  aiStreamService: {
+    createStream: jest.fn(() => ({
+      streamId: 'stream-interview-1',
+      requestId: 'request-interview-1',
+      scopeType: 'interview_session',
+      scopeId: 's1',
+    })),
+    start: jest.fn(),
+    delta: jest.fn(),
+    phase: jest.fn(),
+    completed: jest.fn(),
+    persisted: jest.fn(),
+    failed: jest.fn(),
+    cancelled: jest.fn(),
+  },
+}));
 
 import { InterviewService } from '../../../src/services/interview.service';
 import prisma from '../../../src/config/database';
 import { systemConfigService } from '../../../src/services/system-config.service';
+import { openai } from '../../../src/config/openai';
+import { aiStreamService } from '../../../src/services/ai-stream.service';
 
 const service = new InterviewService();
 const buildSystemPrompt = (service as any).buildInterviewSystemPrompt.bind(service);
@@ -284,10 +304,13 @@ describe('InterviewService — runtime config 行為', () => {
 describe('InterviewService — respond 邊界與異常', () => {
   const mockedPrisma = prisma as any;
   const mockedSystemConfig = systemConfigService as any;
+  const mockedOpenAI = openai as any;
 
   beforeEach(() => {
     jest.clearAllMocks();
     (mockedSystemConfig.getNumberConfig as jest.Mock).mockImplementation(async (...args: any[]) => args[1]);
+    mockedPrisma.profileInsight.findMany.mockResolvedValue([]);
+    mockedPrisma.profileNarrative.findMany.mockResolvedValue([]);
   });
 
   it('session 不存在時應拋出 NOT_FOUND', async () => {
@@ -313,6 +336,133 @@ describe('InterviewService — respond 邊界與異常', () => {
       turns: [{ id: 't1', created_at: new Date(Date.now() - 10000) }],
     });
     await expect(service.respond('s1', 'u1', 'hello')).rejects.toMatchObject({ code: 'SESSION_COMPLETED' });
+  });
+
+  it('成功回覆時應同步發送 AI Stream delta/completed/persisted', async () => {
+    mockedPrisma.interviewSession.findUnique.mockResolvedValue({
+      id: 's1',
+      user_id: 'u1',
+      status: 'in_progress',
+      domains_touched: [],
+      collected_facts: [],
+      turns: [
+        {
+          id: 't1',
+          ai_message: '最近過得如何？',
+          user_response: null,
+          ai_intent: 'opening',
+          extracted_facts: [],
+          created_at: new Date(Date.now() - 60_000),
+        },
+      ],
+    });
+    mockedPrisma.interviewTurn.update.mockResolvedValue({});
+    mockedPrisma.interviewTurn.create.mockResolvedValue({ id: 'turn-ai-2' });
+    mockedPrisma.interviewSession.update.mockResolvedValue({});
+    mockedOpenAI.chat.completions.create.mockResolvedValue((async function* () {
+      yield {
+        choices: [
+          {
+            delta: {
+              content: '謝謝你願意說這些。---METADATA---{"intent":"deepening","target_domains":["personality"],"should_end":false,"safety_flag":false,"safety_message":"","key_facts":["用戶來自澳門"]}',
+            },
+          },
+        ],
+      };
+    })());
+
+    const sseEvents: string[] = [];
+    await service.respond('s1', 'u1', '我最近壓力很大', (event) => {
+      if ('text' in event) sseEvents.push(`token:${event.text}`);
+      if ('turn_order' in event) sseEvents.push(`metadata:${event.turn_order}`);
+      if ('session_id' in event) sseEvents.push(`complete:${event.session_id}`);
+    });
+
+    expect(aiStreamService.createStream).toHaveBeenCalledWith('interview_session', 's1');
+    expect(aiStreamService.start).toHaveBeenCalledWith(
+      expect.objectContaining({ streamId: 'stream-interview-1' }),
+      expect.objectContaining({ actorRole: 'aiMediator', phase: 'thinking' })
+    );
+    expect(aiStreamService.delta).toHaveBeenCalledWith(
+      expect.objectContaining({ streamId: 'stream-interview-1' }),
+      '謝謝你願意說這些。',
+      expect.objectContaining({ actorRole: 'aiMediator' })
+    );
+    expect(aiStreamService.completed).toHaveBeenCalledWith(
+      expect.objectContaining({ streamId: 'stream-interview-1' }),
+      expect.objectContaining({ fullText: '謝謝你願意說這些。', phase: 'completed' })
+    );
+    expect(aiStreamService.persisted).toHaveBeenCalledWith(
+      expect.objectContaining({ streamId: 'stream-interview-1' }),
+      expect.objectContaining({ messageId: 'turn-ai-2', fullText: '謝謝你願意說這些。' })
+    );
+    expect(sseEvents).toContain('complete:s1');
+  });
+
+  it('signal 中止時應發送 stream.cancelled 並不拋錯', async () => {
+    mockedPrisma.interviewSession.findUnique.mockResolvedValue({
+      id: 's1',
+      user_id: 'u1',
+      status: 'in_progress',
+      domains_touched: [],
+      collected_facts: [],
+      turns: [
+        {
+          id: 't1',
+          ai_message: '最近過得如何？',
+          user_response: null,
+          ai_intent: 'opening',
+          extracted_facts: [],
+          created_at: new Date(Date.now() - 60_000),
+        },
+      ],
+    });
+    mockedPrisma.interviewTurn.update.mockResolvedValue({});
+
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(
+      service.respond('s1', 'u1', '我想跳過', undefined, false, { signal: controller.signal })
+    ).resolves.toBeUndefined();
+
+    expect(aiStreamService.createStream).toHaveBeenCalledWith('interview_session', 's1');
+    expect(aiStreamService.start).toHaveBeenCalled();
+    expect(aiStreamService.cancelled).toHaveBeenCalledWith(
+      expect.objectContaining({ streamId: 'stream-interview-1' }),
+      expect.objectContaining({
+        actorRole: 'aiMediator',
+        metadata: expect.objectContaining({ reason: 'client_abort', mode: 'respond' }),
+      })
+    );
+    expect(aiStreamService.failed).not.toHaveBeenCalled();
+  });
+
+  it('submitResponse 應啟動背景 respond 任務', async () => {
+    const respondSpy = jest.spyOn(service, 'respond').mockResolvedValue(undefined);
+
+    await service.submitResponse('s1', 'u1', 'hello');
+    await Promise.resolve();
+
+    expect(respondSpy).toHaveBeenCalledWith('s1', 'u1', 'hello', undefined, false, expect.objectContaining({
+      signal: expect.any(Object),
+    }));
+    respondSpy.mockRestore();
+  });
+
+  it('cancelActiveStream 在有進行中任務時應返回 true', async () => {
+    const respondSpy = jest.spyOn(service, 'respond').mockImplementation(async (_s, _u, _m, _onSSE, _isSkip, options) => {
+      await new Promise<void>((resolve, reject) => {
+        options?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')), { once: true });
+      });
+    });
+    mockedPrisma.interviewSession.findFirst.mockResolvedValue({ id: 's1', user_id: 'u1' });
+
+    await service.submitResponse('s1', 'u1', 'hello');
+    await Promise.resolve();
+    await expect(service.cancelActiveStream('s1', 'u1')).resolves.toBe(true);
+
+    respondSpy.mockRestore();
   });
 });
 

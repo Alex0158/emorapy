@@ -10,7 +10,7 @@
 |------|------|
 | [發佈流程指引.md](./發佈流程指引.md) | **總覽**：發佈前檢查、建議順序、部署後驗證、回滾、發佈清單；並說明與其他文檔的關係 |
 | [Vercel-發布指引.md](./Vercel-發布指引.md) | 前端：客戶端與管理端在 Vercel 的手動／自動發布步驟 |
-| [Railway-發布指引.md](./Railway-發布指引.md) | 後端：在 Railway 的手動發布（`railway up`）與 Git 接法；環境變數完整清單見 backend/DEPLOYMENT |
+| [Railway-發布指引.md](./Railway-發布指引.md) | 後端：在 Railway 的手動發布（`railway up`）與 Git 接法；若有 staging，優先看 `Staging Deploy and Smoke` 的建議入口 |
 
 ---
 
@@ -18,7 +18,8 @@
 
 - **前端客戶端**：repo 根目錄執行 `vercel --prod` → 見 [Vercel-發布指引](./Vercel-發布指引.md)
 - **前端管理端**：`frontend-admin/` 執行 `vercel --prod` → 見 [Vercel-發布指引](./Vercel-發布指引.md)
-- **後端**：repo 根目錄執行 `railway up` → 見 [Railway-發布指引](./Railway-發布指引.md)
+- **後端 production**：repo 根目錄執行 `railway up` → 見 [Railway-發布指引](./Railway-發布指引.md)
+- **後端 staging**：優先在 GitHub Actions 執行 `Staging Deploy and Smoke` → 見 [docs/backend/STAGING_TO_PRODUCTION_FLOW.md](../backend/STAGING_TO_PRODUCTION_FLOW.md)
 
 ---
 

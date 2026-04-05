@@ -4,26 +4,13 @@
 
 import { create } from 'zustand';
 import { interviewApi } from '@/services/api/interview';
-import { sseRequest } from '@/services/sseRequest';
 import { t } from '@/utils/i18n';
-import type {
-  InterviewSession,
-  InterviewTurn,
-  PsychDomain,
-  InterviewStatus,
-} from '@/types/interview';
+import { buildLocalDraft, type AIStreamDraft, type AIStreamDraftStatus } from '@/utils/aiStreamState';
+import type { InterviewSession, InterviewTurn } from '@/types/interview';
 
 export interface SafetyAlertData {
   message: string;
   severity: 'info' | 'warning' | 'critical';
-}
-
-interface SSEMetadata {
-  turn_order?: number;
-  intent?: string;
-  target_domains?: string[];
-  should_end?: boolean;
-  domains_touched?: string[];
 }
 
 interface InterviewState {
@@ -31,6 +18,8 @@ interface InterviewState {
   turns: InterviewTurn[];
   streamingText: string;
   isStreaming: boolean;
+  streamingStatus: AIStreamDraftStatus | null;
+  cancelledDraft: AIStreamDraft | null;
   loading: boolean;
   error: string | null;
   errorCode: string | null;
@@ -44,8 +33,14 @@ interface InterviewState {
   skipTurn: (sessionId: string) => Promise<void>;
   endSession: (sessionId: string) => Promise<void>;
   getSession: (sessionId: string) => Promise<void>;
+  syncSessionSilently: (sessionId: string) => Promise<void>;
   retryFailed: (sessionId: string) => Promise<void>;
-  cancelStream: () => void;
+  cancelStream: (sessionId?: string) => Promise<void>;
+  beginStreaming: () => void;
+  finishStreaming: () => void;
+  applyStreamFailure: (error: { code?: string; message?: string }) => void;
+  applyStreamSafetyAlert: (data: { message?: string; severity?: string }) => void;
+  applyShouldEnd: (shouldEnd: boolean) => void;
   dismissSafetyAlert: () => void;
   reset: () => void;
 }
@@ -62,150 +57,44 @@ function extractErrorInfo(err: unknown): { message: string; code: string | null;
   return { message: String(err), code: null, status: null };
 }
 
-function isAbortError(err: unknown): boolean {
-  return !!(err && typeof err === 'object' && 'name' in err && (err as { name: string }).name === 'AbortError');
-}
-
-function buildAiTurn(fullText: string, metadata: SSEMetadata | null, lastTurn: InterviewTurn | undefined): InterviewTurn {
-  const nextOrder = metadata?.turn_order ?? (lastTurn ? lastTurn.turn_order + 1 : 1);
-  return {
-    id: `temp-ai-${Date.now()}`,
-    turn_order: nextOrder,
-    ai_message: fullText,
-    ai_intent: metadata?.intent,
-    ai_target_domains: metadata?.target_domains as PsychDomain[] | undefined,
-    user_response: undefined,
-    skipped: false,
-    safety_flag: false,
-    created_at: new Date().toISOString(),
-  };
-}
-
-function updateSessionFromComplete(
-  state: InterviewState,
-  completeData: { status?: string; domains_touched?: string[] } | null,
-  metadata: SSEMetadata | null,
-): InterviewSession | null {
-  if (!state.currentSession) return state.currentSession;
-  if (completeData?.status) {
-    return {
-      ...state.currentSession,
-      status: completeData.status as InterviewStatus,
-      domains_touched:
-        (completeData.domains_touched as PsychDomain[]) ??
-        (metadata?.domains_touched as PsychDomain[]) ??
-        state.currentSession.domains_touched ??
-        [],
-    };
-  }
-  if (metadata?.domains_touched) {
-    return {
-      ...state.currentSession,
-      domains_touched: (metadata.domains_touched as PsychDomain[]) ?? state.currentSession.domains_touched ?? [],
-    };
-  }
-  return state.currentSession;
-}
-
 let _getSessionSeq = 0;
 
 export const useInterviewStore = create<InterviewState>((set, get) => {
-
-  async function runSSE(
-    endpoint: string,
-    body: Record<string, unknown>,
+  async function submitTurn(
+    submit: () => Promise<unknown>,
     opts: {
       buildPrevTurns: (turns: InterviewTurn[]) => InterviewTurn[];
-      detectConnectionError?: boolean;
     },
   ): Promise<void> {
     if (get().isStreaming) return;
-    const abortController = new AbortController();
-    set({ isStreaming: true, streamingText: '', error: null, errorCode: null, safetyAlert: null, abortController });
+    set({
+      isStreaming: true,
+      streamingText: '',
+      streamingStatus: 'thinking',
+      cancelledDraft: null,
+      error: null,
+      errorCode: null,
+      safetyAlert: null,
+      abortController: null,
+    });
 
     try {
-      let fullText = '';
-      let metadata: SSEMetadata | null = null;
-      let completeData: { status?: string; domains_touched?: string[] } | null = null;
-      let hadServerError = false;
-
-      await sseRequest(
-        endpoint,
-        body,
-        {
-          onToken: (text) => {
-            fullText += text;
-            set({ streamingText: fullText });
-          },
-          onMetadata: (data: SSEMetadata) => {
-            metadata = data;
-          },
-          onSafetyAlert: (data: Record<string, unknown>) => {
-            const severityValue = data.severity;
-            const normalizedSeverity: SafetyAlertData['severity'] =
-              severityValue === 'warning' || severityValue === 'critical' ? severityValue : 'info';
-            set({
-              safetyAlert: {
-                message: typeof data.message === 'string' ? data.message : t('interview.respondFail'),
-                severity: normalizedSeverity,
-              },
-            });
-          },
-          onComplete: (data) => {
-            completeData = data;
-          },
-          onError: (error: { code?: string; message?: string }) => {
-            hadServerError = true;
-            set({
-              error: error?.message || t('interview.respondFail'),
-              errorCode: error?.code || null,
-            });
-          },
-        },
-        abortController.signal
-      );
-
-      if (!hadServerError && (completeData || fullText)) {
-        const { turns } = get();
-        const aiTurn = buildAiTurn(fullText, metadata, turns[turns.length - 1]);
-        const prevTurns = opts.buildPrevTurns(turns);
-
-        set((state) => ({
-          turns: [...prevTurns, aiTurn],
-          streamingText: '',
-          isStreaming: false,
-          shouldEnd: metadata?.should_end || false,
-          currentSession: updateSessionFromComplete(state, completeData, metadata),
-        }));
-      } else {
-        const { turns } = get();
-        const fallbackTurns = opts.buildPrevTurns(turns);
-        set({
-          turns: fallbackTurns,
-          streamingText: '',
-          isStreaming: false,
-        });
-      }
+      await submit();
     } catch (err: unknown) {
       const { turns } = get();
       const preservedTurns = opts.buildPrevTurns(turns);
-
-      if (isAbortError(err)) {
-        set({ turns: preservedTurns, isStreaming: false, streamingText: '' });
-        return;
-      }
       const info = extractErrorInfo(err);
-      const isConnectionError = opts.detectConnectionError &&
-        (info.message?.includes('fetch') || info.message?.includes('network') || info.message?.includes('Failed to fetch') || info.code === 'CONNECTION_TIMEOUT');
       set({
         turns: preservedTurns,
-        error: isConnectionError ? t('interview.error.connectionLost') : (info.message || t('interview.respondFail')),
-        errorCode: isConnectionError ? 'CONNECTION_LOST' : info.code,
+        error: info.message || t('interview.respondFail'),
+        errorCode: info.code,
         isStreaming: false,
         streamingText: '',
+        streamingStatus: null,
+        cancelledDraft: null,
+        abortController: null,
       });
-    } finally {
-      set({ isStreaming: false, abortController: null });
+      throw err;
     }
   }
 
@@ -214,6 +103,8 @@ export const useInterviewStore = create<InterviewState>((set, get) => {
   turns: [],
   streamingText: '',
   isStreaming: false,
+  streamingStatus: null,
+  cancelledDraft: null,
   loading: false,
   error: null,
   errorCode: null,
@@ -222,7 +113,17 @@ export const useInterviewStore = create<InterviewState>((set, get) => {
   safetyAlert: null,
 
   startSession: async (trigger = 'organic') => {
-    set({ loading: true, error: null, errorCode: null, shouldEnd: false, streamingText: '', isStreaming: false, safetyAlert: null });
+    set({
+      loading: true,
+      error: null,
+      errorCode: null,
+      shouldEnd: false,
+      streamingText: '',
+      isStreaming: false,
+      streamingStatus: null,
+      cancelledDraft: null,
+      safetyAlert: null,
+    });
     try {
       const res = await interviewApi.startSession(trigger);
       const session = (res.data?.data ?? null) as InterviewSession | null;
@@ -273,19 +174,32 @@ export const useInterviewStore = create<InterviewState>((set, get) => {
       return { turns: updatedTurns };
     });
 
-    await runSSE(`/interview/${sessionId}/respond`, { message }, {
-      detectConnectionError: true,
+    await submitTurn(() => interviewApi.respond(sessionId, message), {
       buildPrevTurns: (turns) => turns,
     });
   },
 
   skipTurn: (sessionId: string) =>
-    runSSE(`/interview/${sessionId}/skip`, {}, {
-      buildPrevTurns: (turns) =>
-        turns.length > 0 && !turns[turns.length - 1].user_response
-          ? [...turns.slice(0, -1), { ...turns[turns.length - 1], user_response: '', skipped: true }]
-          : turns,
-    }),
+    (() => {
+      set((state) => ({
+        turns:
+          state.turns.length > 0 && !state.turns[state.turns.length - 1].user_response
+            ? [
+                ...state.turns.slice(0, -1),
+                { ...state.turns[state.turns.length - 1], user_response: '', skipped: true },
+              ]
+            : state.turns,
+      }));
+      return submitTurn(() => interviewApi.skip(sessionId), {
+        buildPrevTurns: (turns) =>
+          turns.length > 0 && turns[turns.length - 1].skipped
+            ? [
+                ...turns.slice(0, -1),
+                { ...turns[turns.length - 1], user_response: undefined, skipped: false },
+              ]
+            : turns,
+      });
+    })(),
 
   endSession: async (sessionId: string) => {
     set({ loading: true, error: null, errorCode: null });
@@ -306,7 +220,17 @@ export const useInterviewStore = create<InterviewState>((set, get) => {
 
   getSession: async (sessionId: string) => {
     const seq = ++_getSessionSeq;
-    set({ loading: true, error: null, errorCode: null, shouldEnd: false, streamingText: '', isStreaming: false, safetyAlert: null });
+    set({
+      loading: true,
+      error: null,
+      errorCode: null,
+      shouldEnd: false,
+      streamingText: '',
+      isStreaming: false,
+      streamingStatus: null,
+      cancelledDraft: null,
+      safetyAlert: null,
+    });
     try {
       const res = await interviewApi.getSession(sessionId);
       if (seq !== _getSessionSeq) return;
@@ -332,6 +256,21 @@ export const useInterviewStore = create<InterviewState>((set, get) => {
     }
   },
 
+  syncSessionSilently: async (sessionId: string) => {
+    try {
+      const res = await interviewApi.getSession(sessionId);
+      const session = (res.data?.data ?? null) as InterviewSession | null;
+      if (!session) return;
+      set((state) => ({
+        currentSession: session,
+        turns: session.turns || [],
+        shouldEnd: state.shouldEnd || session.status === 'completed',
+      }));
+    } catch {
+      // Keep optimistic local state when canonical refresh fails.
+    }
+  },
+
   retryFailed: async (sessionId: string) => {
     set({ loading: true, error: null, errorCode: null });
     try {
@@ -344,10 +283,73 @@ export const useInterviewStore = create<InterviewState>((set, get) => {
     }
   },
 
-  cancelStream: () => {
-    const { abortController } = get();
-    abortController?.abort();
-    set({ isStreaming: false, streamingText: '', abortController: null });
+  cancelStream: async (sessionId?: string) => {
+    const { streamingText } = get();
+    if (sessionId) {
+      try {
+        await interviewApi.cancel(sessionId);
+      } catch {
+        // Preserve local cancelled state even if cancel request fails.
+      }
+    }
+    set({
+      isStreaming: false,
+      streamingText: '',
+      streamingStatus: null,
+      cancelledDraft: buildLocalDraft({
+        text: streamingText,
+        status: 'cancelled',
+      }),
+      abortController: null,
+    });
+  },
+
+  beginStreaming: () => {
+    set({
+      isStreaming: true,
+      streamingStatus: 'thinking',
+      cancelledDraft: null,
+      error: null,
+      errorCode: null,
+    });
+  },
+
+  finishStreaming: () => {
+    set({
+      isStreaming: false,
+      streamingText: '',
+      streamingStatus: null,
+      abortController: null,
+    });
+  },
+
+  applyStreamFailure: (error) => {
+    set({
+      error: error.message || t('interview.respondFail'),
+      errorCode: error.code || null,
+      isStreaming: false,
+      streamingText: '',
+      streamingStatus: null,
+      abortController: null,
+    });
+  },
+
+  applyStreamSafetyAlert: (data) => {
+    const severityValue = data.severity;
+    const normalizedSeverity: SafetyAlertData['severity'] =
+      severityValue === 'warning' || severityValue === 'critical' ? severityValue : 'info';
+    set({
+      safetyAlert: {
+        message: data.message || t('interview.respondFail'),
+        severity: normalizedSeverity,
+      },
+    });
+  },
+
+  applyShouldEnd: (shouldEnd: boolean) => {
+    set((state) => ({
+      shouldEnd: shouldEnd || state.shouldEnd,
+    }));
   },
 
   dismissSafetyAlert: () => {
@@ -362,6 +364,8 @@ export const useInterviewStore = create<InterviewState>((set, get) => {
       turns: [],
       streamingText: '',
       isStreaming: false,
+      streamingStatus: null,
+      cancelledDraft: null,
       loading: false,
       error: null,
       errorCode: null,

@@ -9,6 +9,12 @@ const mockGeneratePlans = jest.fn();
 const mockGetPlans = jest.fn();
 const mockGetPlanById = jest.fn();
 const mockSelectPlan = jest.fn();
+const mockGetCommitment = jest.fn();
+const mockInvitePartner = jest.fn();
+const mockPausePlan = jest.fn();
+const mockRespondPlan = jest.fn();
+const mockReplanTrack = jest.fn();
+const mockResumeTrack = jest.fn();
 
 jest.mock('../../../src/controllers/reconciliation.controller', () => ({
   reconciliationController: {
@@ -19,6 +25,18 @@ jest.mock('../../../src/controllers/reconciliation.controller', () => ({
       mockGetPlanById(req, res, next),
     selectPlan: (req: unknown, res: unknown, next: unknown) =>
       mockSelectPlan(req, res, next),
+    getCommitment: (req: unknown, res: unknown, next: unknown) =>
+      mockGetCommitment(req, res, next),
+    invitePartner: (req: unknown, res: unknown, next: unknown) =>
+      mockInvitePartner(req, res, next),
+    pausePlan: (req: unknown, res: unknown, next: unknown) =>
+      mockPausePlan(req, res, next),
+    respondPlan: (req: unknown, res: unknown, next: unknown) =>
+      mockRespondPlan(req, res, next),
+    replanTrack: (req: unknown, res: unknown, next: unknown) =>
+      mockReplanTrack(req, res, next),
+    resumeTrack: (req: unknown, res: unknown, next: unknown) =>
+      mockResumeTrack(req, res, next),
   },
 }));
 jest.mock('../../../src/middleware/auth', () => ({
@@ -56,13 +74,31 @@ describe('reconciliation.routes', () => {
       sendJson(res, { success: true, data: { plans: [] }, message: '和好方案已生成' })
     );
     mockGetPlans.mockImplementation((_req: unknown, res: unknown) =>
-      sendJson(res, { success: true, data: { plans: [] } })
+      sendJson(res, { success: true, data: { plans: [], journey_entry: { status: 'none' } } })
     );
     mockGetPlanById.mockImplementation((_req: unknown, res: unknown) =>
       sendJson(res, { success: true, data: { plan: {} } })
     );
     mockSelectPlan.mockImplementation((_req: unknown, res: unknown) =>
       sendJson(res, { success: true, data: { plan: {} }, message: '方案已選擇' })
+    );
+    mockGetCommitment.mockImplementation((_req: unknown, res: unknown) =>
+      sendJson(res, { success: true, data: { commitment: { track_status: 'draft' } } })
+    );
+    mockInvitePartner.mockImplementation((_req: unknown, res: unknown) =>
+      sendJson(res, { success: true, data: { invitation: { status: 'sent' } }, message: '已送出一起試試看的邀請' })
+    );
+    mockPausePlan.mockImplementation((_req: unknown, res: unknown) =>
+      sendJson(res, { success: true, data: { commitment: { track_status: 'paused' } }, message: '已暫停這一輪修復旅程' })
+    );
+    mockRespondPlan.mockImplementation((_req: unknown, res: unknown) =>
+      sendJson(res, { success: true, data: { plan: { id: uuid } }, message: '已同步回應' })
+    );
+    mockReplanTrack.mockImplementation((_req: unknown, res: unknown) =>
+      sendJson(res, { success: true, data: { track: { track_id: 'track-1', plan_id: uuid, status: 'solo_active' } }, message: '已重新調整這一輪修復旅程' })
+    );
+    mockResumeTrack.mockImplementation((_req: unknown, res: unknown) =>
+      sendJson(res, { success: true, data: { track: { track_id: 'track-1', plan_id: uuid, status: 'solo_active' } }, message: '已恢復這一輪修復旅程' })
     );
   });
 
@@ -151,6 +187,54 @@ describe('reconciliation.routes', () => {
     expect(res.body.data).toHaveProperty('plan');
   });
 
+  it('GET /reconciliation-plans/:id/commitment 應調用 getCommitment 並返回 200', async () => {
+    const app = createApp();
+    const res = await request(app).get(`/reconciliation-plans/${uuid}/commitment`);
+    expect(res.status).toBe(200);
+    expect(mockGetCommitment).toHaveBeenCalled();
+    expect(res.body.data).toHaveProperty('commitment');
+  });
+
+  it('POST /reconciliation-plans/:id/invite 應調用 invitePartner 並返回 invitation', async () => {
+    const app = createApp();
+    const res = await request(app).post(`/reconciliation-plans/${uuid}/invite`).send({});
+    expect(res.status).toBe(200);
+    expect(mockInvitePartner).toHaveBeenCalled();
+    expect(res.body.data).toHaveProperty('invitation');
+  });
+
+  it('POST /reconciliation-plans/:id/pause 應調用 pausePlan 並返回 commitment', async () => {
+    const app = createApp();
+    const res = await request(app).post(`/reconciliation-plans/${uuid}/pause`).send({});
+    expect(res.status).toBe(200);
+    expect(mockPausePlan).toHaveBeenCalled();
+    expect(res.body.data).toHaveProperty('commitment');
+  });
+
+  it('POST /reconciliation-plans/:id/respond 應調用 respondPlan 並返回 plan', async () => {
+    const app = createApp();
+    const res = await request(app).post(`/reconciliation-plans/${uuid}/respond`).send({ action: 'committed' });
+    expect(res.status).toBe(200);
+    expect(mockRespondPlan).toHaveBeenCalled();
+    expect(res.body.data).toHaveProperty('plan');
+  });
+
+  it('POST /repair-tracks/:id/replan 應調用 replanTrack 並返回 track', async () => {
+    const app = createApp();
+    const res = await request(app).post(`/repair-tracks/${uuid}/replan`).send({ mode: 'lower_pressure', reason: 'manual' });
+    expect(res.status).toBe(200);
+    expect(mockReplanTrack).toHaveBeenCalled();
+    expect(res.body.data).toHaveProperty('track');
+  });
+
+  it('POST /repair-tracks/:id/resume 應調用 resumeTrack 並返回 track', async () => {
+    const app = createApp();
+    const res = await request(app).post(`/repair-tracks/${uuid}/resume`).send({});
+    expect(res.status).toBe(200);
+    expect(mockResumeTrack).toHaveBeenCalled();
+    expect(res.body.data).toHaveProperty('track');
+  });
+
   describe('錯誤傳遞', () => {
     it('generatePlans 調用 next(error) 時應返回 500', async () => {
       mockGeneratePlans.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
@@ -192,6 +276,36 @@ describe('reconciliation.routes', () => {
       const res = await request(app).post(`/reconciliation-plans/${uuid}/select`).send({});
       expect(res.status).toBe(500);
       expect(res.body).toMatchObject({ success: false, error: 'select plan failed' });
+    });
+
+    it('getCommitment 調用 next(error) 時應返回 500', async () => {
+      mockGetCommitment.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('get commitment failed'));
+      });
+      const app = createApp();
+      const res = await request(app).get(`/reconciliation-plans/${uuid}/commitment`);
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'get commitment failed' });
+    });
+
+    it('invitePartner 調用 next(error) 時應返回 500', async () => {
+      mockInvitePartner.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('invite partner failed'));
+      });
+      const app = createApp();
+      const res = await request(app).post(`/reconciliation-plans/${uuid}/invite`).send({});
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'invite partner failed' });
+    });
+
+    it('pausePlan 調用 next(error) 時應返回 500', async () => {
+      mockPausePlan.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('pause plan failed'));
+      });
+      const app = createApp();
+      const res = await request(app).post(`/reconciliation-plans/${uuid}/pause`).send({});
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'pause plan failed' });
     });
   });
 });

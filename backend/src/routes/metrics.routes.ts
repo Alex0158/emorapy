@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { env } from '../config/env';
+import { aiStreamMetricsService } from '../services/ai-stream-metrics.service';
 import { chatMetricsService } from '../services/chat-metrics.service';
 
 const router = Router();
@@ -24,7 +25,11 @@ router.get('/metrics', async (req, res) => {
   }
 
   try {
-    const body = await chatMetricsService.exportPrometheus();
+    const [chatMetrics, aiStreamMetrics] = await Promise.all([
+      chatMetricsService.exportPrometheus(),
+      aiStreamMetricsService.exportPrometheus(),
+    ]);
+    const body = [chatMetrics, aiStreamMetrics].filter(Boolean).join('\n');
     res.setHeader('Content-Type', 'text/plain; version=0.0.4');
     return res.send(body);
   } catch (error) {

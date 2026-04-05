@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../types/prisma-client';
 import { execSync } from 'child_process';
 import { env } from './env';
 import logger from './logger';

@@ -2,11 +2,12 @@
  * 頂部導航欄
  */
 
-import { Layout, Menu, Button, Dropdown, Avatar, Space, Select } from 'antd';
+import { Layout, Menu, Button, Dropdown, Avatar, Space, Select, Badge } from 'antd';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { HomeOutlined, LoginOutlined, UserOutlined, LogoutOutlined, SettingOutlined, GlobalOutlined, FileTextOutlined, CheckSquareOutlined, MessageOutlined } from '@ant-design/icons';
+import { HomeOutlined, LoginOutlined, UserOutlined, LogoutOutlined, SettingOutlined, GlobalOutlined, FileTextOutlined, CheckSquareOutlined, MessageOutlined, BellOutlined } from '@ant-design/icons';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
+import { useNotificationStore } from '@/store/notificationStore';
 import { getAdminLoginUrl } from '@/utils/adminEntry';
 import { t, getLocale, onLocaleChange, setLocale, type Locale } from '@/utils/i18n';
 import VersionPopover from './VersionPopover';
@@ -26,6 +27,8 @@ const Header = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { isAuthenticated, user, logout } = useAuthStore();
+  const unreadCount = useNotificationStore((state) => state.unreadCount);
+  const fetchUnreadCount = useNotificationStore((state) => state.fetchUnreadCount);
   const adminLoginUrl = getAdminLoginUrl();
   const [locale, setLocalLocale] = useState<Locale>(getLocale());
 
@@ -42,6 +45,18 @@ const Header = () => {
     const unsubscribe = onLocaleChange(() => setLocalLocale(getLocale()));
     return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    void fetchUnreadCount();
+    const handleFocus = () => {
+      void fetchUnreadCount();
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [fetchUnreadCount, isAuthenticated]);
 
   const handleLocaleChange = useCallback((value: Locale) => {
     // 先更新本地 state，避免 UI 因重渲染時序看起來像「沒切換」
@@ -141,6 +156,16 @@ const Header = () => {
 
         <div className="header-actions">
           <VersionPopover />
+          {isAuthenticated ? (
+            <Badge count={unreadCount} size="small" offset={[-2, 2]}>
+              <Button
+                type="text"
+                icon={<BellOutlined />}
+                aria-label={t('nav.notifications')}
+                onClick={() => navigate('/notifications')}
+              />
+            </Badge>
+          ) : null}
           <Select
             value={locale}
             onChange={handleLocaleChange}
@@ -181,4 +206,3 @@ const Header = () => {
 };
 
 export default Header;
-

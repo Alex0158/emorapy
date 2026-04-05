@@ -35,6 +35,12 @@ export interface ReconciliationPlanContent {
   description: string;
   steps: string[];
   expected_effect: string;
+  fit_reason: string;
+  do_not_use_when: string[];
+  first_step: string;
+  fallback_step: string;
+  pause_rule: string;
+  risk_note?: string;
   time_cost: number;
   money_cost: number;
   emotion_cost: number;
@@ -57,6 +63,11 @@ export function isReconciliationPlanContent(
     typeof o.description === 'string' &&
     Array.isArray(o.steps) &&
     typeof o.expected_effect === 'string' &&
+    typeof o.fit_reason === 'string' &&
+    Array.isArray(o.do_not_use_when) &&
+    typeof o.first_step === 'string' &&
+    typeof o.fallback_step === 'string' &&
+    typeof o.pause_rule === 'string' &&
     typeof o.time_cost === 'number' &&
     typeof o.money_cost === 'number' &&
     typeof o.emotion_cost === 'number' &&

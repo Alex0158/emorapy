@@ -296,6 +296,112 @@ export interface AdminInterviewRuntimeConfigData {
   source: string;
 }
 
+export interface AdminAIStreamRetentionPolicy {
+  sessionRetentionDays: number;
+  eventRetentionDays: number;
+  archiveEnabled: boolean;
+  archiveBatchSize: number;
+  backendMode: 'redis' | 'memory' | string;
+}
+
+export interface AdminAIStreamRecentFailure {
+  streamId: string;
+  requestId: string;
+  scopeType: string;
+  scopeId: string;
+  status: string;
+  lastEventType: string;
+  lastSeq: number;
+  error?: unknown;
+  updatedAt: string;
+}
+
+export interface AdminAIStreamReportData {
+  windowDays: number;
+  retentionPolicy: AdminAIStreamRetentionPolicy;
+  totals: {
+    totalSessions: number;
+    recentSessions: number;
+    recentEvents: number;
+    activeSessions: number;
+    archivedSessions: number;
+    archivedEvents: number;
+  };
+  byStatus: Array<{ status: string; count: number }>;
+  byScopeType: Array<{ scopeType: string; count: number }>;
+  byBackendMode: Array<{ backendMode: string; count: number }>;
+  recentFailures: AdminAIStreamRecentFailure[];
+}
+
+export interface AdminAIStreamSessionItem {
+  streamId: string;
+  requestId: string;
+  scopeType: string;
+  scopeId: string;
+  status: string;
+  lastSeq: number;
+  lastEventType: string;
+  actorRole?: string | null;
+  phase?: string | null;
+  messageId?: string | null;
+  backendMode?: string | null;
+  updatedAt: string;
+  createdAt: string;
+  archivedAt?: string | null;
+  source: 'live' | 'archive';
+}
+
+export interface AdminAIStreamSessionListData {
+  source: 'live' | 'archive' | 'all';
+  total: number;
+  limit: number;
+  offset: number;
+  items: AdminAIStreamSessionItem[];
+}
+
+export interface AdminAIStreamEventItem {
+  streamId: string;
+  requestId: string;
+  scopeType: string;
+  scopeId: string;
+  seq: number;
+  eventType: string;
+  actorRole?: string | null;
+  messageId?: string | null;
+  deltaText?: string | null;
+  fullText?: string | null;
+  phase?: string | null;
+  metadata?: unknown;
+  error?: unknown;
+  createdAt: string;
+  archivedAt?: string | null;
+  source: 'live' | 'archive';
+}
+
+export interface AdminAIStreamDetailData {
+  source: 'live' | 'archive';
+  session: {
+    streamId: string;
+    requestId: string;
+    scopeType: string;
+    scopeId: string;
+    status: string;
+    lastSeq: number;
+    lastEventType: string;
+    actorRole?: string | null;
+    text?: string | null;
+    phase?: string | null;
+    messageId?: string | null;
+    metadata?: unknown;
+    error?: unknown;
+    backendMode?: string | null;
+    createdAt: string;
+    updatedAt: string;
+    archivedAt?: string | null;
+  };
+  events: AdminAIStreamEventItem[];
+}
+
 export interface AdminAdminUserItem {
   id: string;
   email: string;

@@ -14,14 +14,21 @@
 
 ### 2.1 現有落地入口（2026-03-28）
 
+- 新增 workflow：`.github/workflows/staging-deploy-and-smoke.yml`（推薦的一鍵 staging deploy + smoke）
 - 新增 workflow：`.github/workflows/staging-smoke.yml`（`workflow_dispatch`）
 - 新增腳本：`scripts/smoke-staging.sh`（包裝 `smoke-production-like.sh`）
+- 新增腳本：`scripts/wait-railway-deploy.sh`（輪詢 Railway staging deploy 成功）
 - 必填 secrets：
+  - `RAILWAY_TOKEN`
+  - `STAGING_RAILWAY_PROJECT_ID`
   - `STAGING_BACKEND_BASE_URL`
   - `STAGING_FRONTEND_BASE_URL`
   - `STAGING_ADMIN_EMAIL`
   - `STAGING_ADMIN_PASSWORD`
+  - `STAGING_METRICS_TOKEN`
 - 配置模板：`docs/backend/STAGING_SECRETS_TEMPLATE.md`
+- `STAGING_ADMIN_EMAIL` 建議固定使用 validator-safe 地址，例如 `staging-smoke-admin@example.com`
+  - 不要使用 `.local` 類假 TLD，否則可能在 `/api/v1/admin/login` 的輸入驗證階段就被拒絕
 
 ## 3) 發布 Gate（最少）
 
@@ -34,10 +41,13 @@
 7. health 檢查需同時驗證：
    - 平台內探測（無 Origin）
    - 外部探測（帶允許 Origin）可回 200
-8. Slack 告警鏈路驗證：
+8. staging smoke 需同時驗證：
+   - `/metrics` 無 token 時為 `403 # metrics forbidden`
+   - `/metrics` 帶 `STAGING_METRICS_TOKEN` 時可回 Prometheus 文本
+9. Slack 告警鏈路驗證：
    - staging 觸發一組測試 alert，可收到 Slack
    - `ALERT_SLACK_DEDUP_WINDOW_SECONDS` 防抖生效（不洗版）
-9. 成本看板驗證：
+10. 成本看板驗證：
    - `GET /api/v1/admin/reports/costs` 可回資料
    - 若外部 API 不可用，回傳 `partial=true` 並包含 `reasons`
    - 前端 Reports 成本區塊可正常展示
@@ -45,8 +55,8 @@
 ## 4) 建議流程
 
 1. 合併到待發版分支（或 main 前）  
-2. 部署 staging  
-3. 跑 gate 與 smoke test（含 CI `production-like-smoke` 與管理員主流程）  
+2. 優先執行 `Staging Deploy and Smoke` workflow；它會先部署 staging，再自動跑 smoke  
+3. 如只需重跑驗證、不需重新部署，可單獨執行 `Staging Smoke Gate`
 4. 紀錄 artifact（JSON 報告、commit SHA、環境）  
 5. 同版本部署 production  
 6. 發布後 30 分鐘觀察告警與 health
@@ -56,17 +66,31 @@
 7. 留存輪替稽核資料（start time、remove-after、部署 ID）
 8. 設定關窗排程（移除 `JWT_SECRET_PREVIOUS`）
 
-### 4.1 staging smoke 操作命令
+### 4.1 推薦入口：GitHub Actions 一鍵執行
 
-本地（需先提供環境變量）：
+1. 進入 `Staging Deploy and Smoke` workflow  
+2. 點擊 `Run workflow`  
+3.（可選）提供 `origin` 與 `deploy_message`  
+4. 等待 deploy job 成功  
+5. 確認後續 `Staging Smoke Gate` 自動通過
+
+### 4.2 單獨重跑 staging smoke
+
+本地（需先提供環境變量；適合 staging 已部署、只需重跑 smoke）：
 
 ```bash
 BACKEND_BASE_URL=https://<staging-backend-domain> \
 FRONTEND_BASE_URL=https://<staging-frontend-domain> \
 STAGING_ADMIN_EMAIL=<staging-admin-email> \
 STAGING_ADMIN_PASSWORD=<staging-admin-password> \
+STAGING_METRICS_TOKEN=<staging-metrics-token> \
 npm run smoke:staging
 ```
+
+建議：
+
+- `STAGING_ADMIN_EMAIL` 用 `example.com` 或真實域名，不要用 `.local`
+- 若 smoke 卡在 admin login 且返回 `400 VALIDATION_ERROR`，先檢查這個 email 是否為 validator-safe
 
 GitHub Actions：
 
@@ -74,6 +98,12 @@ GitHub Actions：
 2. 點擊 `Run workflow`  
 3.（可選）提供 `origin` 覆蓋值  
 4. 查看 smoke gate 結果與日誌
+
+說明：
+
+- `Staging Deploy and Smoke` 是推薦入口，目的是把 deploy 與 smoke 收成一次操作，避免發版人忘記後半段驗證
+- `Staging Smoke Gate` 現在不只驗證 health / quick case / admin login，也會驗證受保護 `/metrics`
+- 這樣 staging promotion 前可以同時確認公開端點、受保護業務接口與機器抓取端點三種邊界沒有分叉
 
 ## 5) 回滾準則
 

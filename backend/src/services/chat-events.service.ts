@@ -1,6 +1,6 @@
 import { Errors } from '../utils/errors';
 
-type ChatStreamEventType = 'message' | 'invite' | 'room_status' | 'system' | 'ai_start' | 'ai_token' | 'ai_end';
+type ChatStreamEventType = 'message' | 'invite' | 'room_status' | 'system';
 
 export type ChatStreamEvent = {
   type: ChatStreamEventType;

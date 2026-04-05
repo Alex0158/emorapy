@@ -5,8 +5,9 @@
  *   POST /start
  *   GET  /resume
  *   GET  /:id
- *   POST /:id/respond  (SSE，由 sseRequest 處理)
- *   POST /:id/skip     (SSE，由 sseRequest 處理)
+ *   POST /:id/respond
+ *   POST /:id/skip
+ *   POST /:id/cancel
  *   POST /:id/end
  *   POST /:id/retry
  */
@@ -22,6 +23,15 @@ export const interviewApi = {
 
   getSession: (sessionId: string) =>
     request.get(`/interview/${sessionId}`),
+
+  respond: (sessionId: string, message: string) =>
+    request.post(`/interview/${sessionId}/respond`, { message }),
+
+  skip: (sessionId: string) =>
+    request.post(`/interview/${sessionId}/skip`),
+
+  cancel: (sessionId: string) =>
+    request.post(`/interview/${sessionId}/cancel`),
 
   endSession: (sessionId: string) =>
     request.post(`/interview/${sessionId}/end`),

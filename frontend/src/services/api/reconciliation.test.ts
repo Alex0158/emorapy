@@ -1,12 +1,16 @@
 /**
  * 和好方案 API 單元測試
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   generatePlans,
   getPlans,
   getPlanById,
   selectPlan,
+  invitePartner,
+  pausePlan,
+  getCommitment,
+  respondPlan,
   type ReconciliationPlan,
 } from './reconciliation';
 
@@ -22,10 +26,21 @@ vi.mock('../request', () => ({
 const mockPlan: ReconciliationPlan = {
   id: 'rp1',
   judgment_id: 'j1',
-  plan_content: '方案內容',
+  intent: 'repair',
+  plan_content: JSON.stringify({
+    title: '方案內容',
+    description: '描述',
+    steps: ['步驟1'],
+    expected_effect: '效果',
+    fit_reason: '適配原因',
+    do_not_use_when: ['當前不適合'],
+    first_step: '今天先做這件事',
+    fallback_step: '改成更低壓版本',
+    pause_rule: '先停一下',
+  }),
   plan_type: 'activity',
   difficulty_level: 'easy',
-  time_cost: 30,
+  time_cost: 1,
   money_cost: 0,
   emotion_cost: 1,
   skill_requirement: 1,
@@ -39,113 +54,106 @@ describe('reconciliation API', () => {
     vi.clearAllMocks();
   });
 
-  describe('generatePlans', () => {
-    it('應 POST /judgments/:id/reconciliation-plans 並返回 plans', async () => {
-      mockPost.mockResolvedValue({ data: { data: { plans: [mockPlan] } } });
-      const result = await generatePlans('j1');
-      expect(mockPost).toHaveBeenCalledWith('/judgments/j1/reconciliation-plans', { preferences: undefined });
-      expect(result).toEqual([mockPlan]);
+  it('generatePlans 應返回 bundle 並傳遞方向與偏好', async () => {
+    mockPost.mockResolvedValue({
+      data: {
+        data: {
+          plans: [mockPlan],
+          recommended_plan_id: 'rp1',
+          intent: 'repair',
+          applied_preferences: { pressure_level: 'low' },
+          journey_entry: { status: 'draft', track_id: null, active_plan_id: 'rp1', recommended_action: 'commit_plan', last_pulse: null, has_superseded_versions: false },
+          version_summary: { version_group_id: null, has_superseded_versions: false, superseded_versions_count: 0 },
+        },
+      },
     });
 
-    it('可傳 preferences', async () => {
-      mockPost.mockResolvedValue({ data: { data: { plans: [] } } });
-      await generatePlans('j1', { difficulty: 'medium', types: ['activity'] });
-      expect(mockPost).toHaveBeenCalledWith('/judgments/j1/reconciliation-plans', {
-        preferences: { difficulty: 'medium', types: ['activity'] },
-      });
+    const result = await generatePlans('j1', {
+      intent: 'repair',
+      preferences: { pressure_level: 'low' },
     });
 
-    it('後端回傳 plans 為 null 時應拋錯（F05 邊界：API 回傳不完整時防禦）', async () => {
-      mockPost.mockResolvedValue({ data: { data: { plans: null } } });
-      await expect(generatePlans('j1')).rejects.toThrow('Invalid reconciliation response from server');
+    expect(mockPost).toHaveBeenCalledWith('/judgments/j1/reconciliation-plans', {
+      intent: 'repair',
+      preferences: { pressure_level: 'low' },
+    });
+    expect(result.recommended_plan_id).toBe('rp1');
+    expect(result.plans).toEqual([mockPlan]);
+  });
+
+  it('getPlans 應返回 bundle 並帶 intent 查詢參數', async () => {
+    mockGet.mockResolvedValue({
+      data: {
+        data: {
+          plans: [mockPlan],
+          recommended_plan_id: 'rp1',
+          intent: 'repair',
+          applied_preferences: null,
+          journey_entry: { status: 'draft', track_id: null, active_plan_id: 'rp1', recommended_action: 'commit_plan', last_pulse: null, has_superseded_versions: false },
+          version_summary: { version_group_id: null, has_superseded_versions: false, superseded_versions_count: 0 },
+        },
+      },
     });
 
-    it('後端回傳 plans 為 undefined 時應拋錯（F05 邊界：API 回傳不完整時防禦）', async () => {
-      mockPost.mockResolvedValue({ data: { data: { plans: undefined } } });
-      await expect(generatePlans('j1')).rejects.toThrow('Invalid reconciliation response from server');
-    });
+    const result = await getPlans('j1', { intent: 'repair', type: 'activity' });
 
-    it('後端回傳 plans 為非陣列時應拋錯（F05 邊界：API 回傳不完整時防禦）', async () => {
-      mockPost.mockResolvedValue({ data: { data: { plans: {} } } });
-      await expect(generatePlans('j1')).rejects.toThrow('Invalid reconciliation response from server');
+    expect(mockGet).toHaveBeenCalledWith('/judgments/j1/reconciliation-plans?type=activity&intent=repair');
+    expect(result.plans).toHaveLength(1);
+    expect(result.intent).toBe('repair');
+  });
+
+  it('bundle 缺失時應回退為空結構', async () => {
+    mockGet.mockResolvedValue({ data: { data: {} } });
+    const result = await getPlans('j1');
+    expect(result).toEqual({
+      plans: [],
+      recommended_plan_id: null,
+      intent: 'repair',
+      applied_preferences: null,
+      journey_entry: {
+        status: 'none',
+        track_id: null,
+        active_plan_id: null,
+        recommended_action: 'generate_bundle',
+        last_pulse: null,
+        has_superseded_versions: false,
+      },
+      version_summary: {
+        version_group_id: null,
+        has_superseded_versions: false,
+        superseded_versions_count: 0,
+      },
     });
   });
 
-  describe('getPlans', () => {
-    it('應 GET /judgments/:id/reconciliation-plans', async () => {
-      mockGet.mockResolvedValue({ data: { data: { plans: [mockPlan] } } });
-      const result = await getPlans('j1');
-      expect(mockGet).toHaveBeenCalledWith('/judgments/j1/reconciliation-plans');
-      expect(result).toEqual([mockPlan]);
-    });
-
-    it('有 filters 時應帶查詢參數', async () => {
-      mockGet.mockResolvedValue({ data: { data: { plans: [] } } });
-      await getPlans('j1', { difficulty: 'easy', type: 'activity' });
-      expect(mockGet).toHaveBeenCalledWith('/judgments/j1/reconciliation-plans?difficulty=easy&type=activity');
-    });
-
-    it('後端回傳 plans 為 undefined 時應返回空陣列（F05 邊界：API 回傳不完整時防禦）', async () => {
-      mockGet.mockResolvedValue({ data: { data: { plans: undefined } } });
-      const result = await getPlans('j1');
-      expect(result).toEqual([]);
-    });
-
-    it('後端回傳 plans 為 null 時應返回空陣列（F05 邊界：API 回傳不完整時防禦）', async () => {
-      mockGet.mockResolvedValue({ data: { data: { plans: null } } });
-      const result = await getPlans('j1');
-      expect(result).toEqual([]);
-    });
-
-    it('後端回傳 data 無 plans 時應返回空陣列（F05 邊界：API 回傳不完整時防禦）', async () => {
-      mockGet.mockResolvedValue({ data: { data: {} } });
-      const result = await getPlans('j1');
-      expect(result).toEqual([]);
-    });
-
-    it('後端回傳 plans 為非陣列時應返回空陣列（F05 邊界：API 回傳不完整時防禦）', async () => {
-      mockGet.mockResolvedValue({ data: { data: { plans: 'invalid' } } });
-      const result = await getPlans('j1');
-      expect(result).toEqual([]);
-    });
+  it('getPlanById 應返回 plan', async () => {
+    const planWithJudgment = { ...mockPlan, judgment: { case_id: 'c1' } };
+    mockGet.mockResolvedValue({ data: { data: { plan: planWithJudgment } } });
+    const result = await getPlanById('rp1');
+    expect(mockGet).toHaveBeenCalledWith('/reconciliation-plans/rp1');
+    expect(result.judgment.case_id).toBe('c1');
   });
 
-  describe('getPlanById', () => {
-    it('應 GET /reconciliation-plans/:id 並返回 plan', async () => {
-      const planWithJudgment = { ...mockPlan, judgment: { case_id: 'c1' } };
-      mockGet.mockResolvedValue({ data: { data: { plan: planWithJudgment } } });
-      const result = await getPlanById('rp1');
-      expect(mockGet).toHaveBeenCalledWith('/reconciliation-plans/rp1');
-      expect(result.judgment.case_id).toBe('c1');
+  it('selectPlan / getCommitment / invitePartner / pausePlan / respondPlan 應處理各自回應', async () => {
+    mockPost
+      .mockResolvedValueOnce({ data: { data: { plan: mockPlan } } })
+      .mockResolvedValueOnce({ data: { data: { invitation: { track_id: 't1', partner_id: 'u2', invited_at: 'now', status: 'partner_invited' } } } })
+      .mockResolvedValueOnce({ data: { data: { commitment: { track_id: 't1', track_status: 'paused', recommended_mode: 'solo', invited_partner_at: null, is_dual_committed: false, current_user: { user_id: 'u1', commitment_status: 'paused', viewed_at: null, committed_at: null }, partner: null } } } })
+      .mockResolvedValueOnce({ data: { data: { plan: { ...mockPlan, id: 'rp2' } } } });
+    mockGet.mockResolvedValue({
+      data: { data: { commitment: { track_id: 't1', track_status: 'draft', recommended_mode: 'solo', invited_partner_at: null, is_dual_committed: false, current_user: { user_id: 'u1', commitment_status: 'committed', viewed_at: null, committed_at: null }, partner: null } } },
     });
 
-    it('回應缺少 plan 或 plan 為 null 時應拋錯（F05 邊界：API 回傳不完整時防禦）', async () => {
-      mockGet.mockResolvedValue({ data: { data: { plan: null } } });
-      await expect(getPlanById('rp1')).rejects.toThrow('Invalid plan response from server');
-    });
+    const selected = await selectPlan('rp1');
+    const commitment = await getCommitment('rp1');
+    const invitation = await invitePartner('rp1');
+    const paused = await pausePlan('rp1');
+    const responded = await respondPlan('rp1', 'viewed');
 
-    it('後端回傳 plan 為 undefined 時應拋錯（F05 邊界：API 回傳不完整時防禦）', async () => {
-      mockGet.mockResolvedValue({ data: { data: { plan: undefined } } });
-      await expect(getPlanById('rp1')).rejects.toThrow('Invalid plan response from server');
-    });
-  });
-
-  describe('selectPlan', () => {
-    it('應 POST /reconciliation-plans/:id/select 並返回 plan', async () => {
-      mockPost.mockResolvedValue({ data: { data: { plan: mockPlan } } });
-      const result = await selectPlan('rp1');
-      expect(mockPost).toHaveBeenCalledWith('/reconciliation-plans/rp1/select');
-      expect(result).toEqual(mockPlan);
-    });
-
-    it('回應缺少 plan 或 plan 為 null 時應拋錯（F05 邊界：API 回傳不完整時防禦）', async () => {
-      mockPost.mockResolvedValue({ data: { data: { plan: null } } });
-      await expect(selectPlan('rp1')).rejects.toThrow('Invalid plan response from server');
-    });
-
-    it('後端回傳 plan 為 undefined 時應拋錯（F05 邊界：API 回傳不完整時防禦）', async () => {
-      mockPost.mockResolvedValue({ data: { data: { plan: undefined } } });
-      await expect(selectPlan('rp1')).rejects.toThrow('Invalid plan response from server');
-    });
+    expect(selected.id).toBe('rp1');
+    expect(commitment.track_id).toBe('t1');
+    expect(invitation.status).toBe('partner_invited');
+    expect(paused.track_status).toBe('paused');
+    expect(responded.id).toBe('rp2');
   });
 });

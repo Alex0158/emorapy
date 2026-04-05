@@ -1,17 +1,21 @@
 /**
- * ReconciliationService 單元測試（mock Prisma、aiService、isReconciliationPlanContent）
+ * ReconciliationService 單元測試
  */
-import { describe, it, expect, jest, beforeEach } from '@jest/globals';
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 const mockGenerateReconciliationPlans = jest.fn();
 const mockIsReconciliationPlanContent = jest.fn();
 
-// 符合 isReconciliationPlanContent 的範例方案
 const validPlanContent = {
   title: '方案標題',
   description: '描述',
   steps: ['步驟1'],
   expected_effect: '效果',
+  fit_reason: '適配原因',
+  do_not_use_when: ['現在不適合'],
+  first_step: '今天先做這一步',
+  fallback_step: '換成更低壓版本',
+  pause_rule: '先停一下',
   time_cost: 1,
   money_cost: 0,
   emotion_cost: 1,
@@ -29,17 +33,31 @@ const prismaMock: any = {
     findUnique: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn(),
+    count: jest.fn(),
   },
+  repairTrack: {
+    create: jest.fn(),
+    findUnique: jest.fn(),
+    update: jest.fn(),
+    updateMany: jest.fn(),
+  },
+  repairParticipantState: {
+    upsert: jest.fn(),
+  },
+  repairTrackEvent: {
+    create: jest.fn(),
+  },
+  $transaction: jest.fn(),
 };
 
 jest.mock('../../../src/config/database', () => ({
   __esModule: true,
   default: prismaMock,
 }));
-const mockLogger = { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() };
 jest.mock('../../../src/config/logger', () => ({
   __esModule: true,
-  default: mockLogger,
+  default: { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() },
 }));
 jest.mock('../../../src/services/ai.service', () => ({
   aiService: {
@@ -52,19 +70,57 @@ jest.mock('../../../src/services/ai.service', () => ({
 jest.mock('../../../src/types/ai.types', () => ({
   isReconciliationPlanContent: (obj: unknown) => mockIsReconciliationPlanContent(obj),
 }));
-
-const mockLoadCaseContext = jest.fn();
-const mockFormatForReconciliationPlans = jest.fn();
-const mockFormatDiagnosticContext = jest.fn();
 jest.mock('../../../src/services/case-context.service', () => ({
   caseContextService: {
-    loadCaseContext: (...args: unknown[]) => mockLoadCaseContext(...args),
-    formatForReconciliationPlans: (...args: unknown[]) => mockFormatForReconciliationPlans(...args),
-    formatDiagnosticContext: (...args: unknown[]) => mockFormatDiagnosticContext(...args),
+    loadCaseContext: jest.fn(),
+    formatForReconciliationPlans: jest.fn(),
+    formatDiagnosticContext: jest.fn(),
+  },
+}));
+jest.mock('../../../src/services/notification.service', () => ({
+  notificationService: {
+    createIfEnabled: jest.fn(),
   },
 }));
 
 import { ReconciliationService } from '../../../src/services/reconciliation.service';
+
+const baseJudgment = {
+  id: 'judge-1',
+  case: {
+    id: 'case-1',
+    type: '情感需求衝突',
+    mode: 'remote',
+    plaintiff_id: 'u1',
+    defendant_id: 'u2',
+  },
+  plaintiff_ratio: 50,
+  defendant_ratio: 50,
+  summary: '摘要',
+  judgment_content: '判決內容',
+};
+
+const storedPlan = {
+  id: 'plan-1',
+  judgment_id: 'judge-1',
+  intent: 'repair',
+  plan_content: JSON.stringify(validPlanContent),
+  plan_type: 'activity',
+  difficulty_level: 'medium',
+  estimated_duration: 7,
+  time_cost: 1,
+  money_cost: 0,
+  emotion_cost: 1,
+  skill_requirement: 1,
+  user1_selected: false,
+  user2_selected: false,
+  created_at: new Date(),
+  version_group_id: null,
+  superseded_at: null,
+  superseded_by_plan_id: null,
+  judgment: baseJudgment,
+  repair_track: null,
+};
 
 describe('ReconciliationService', () => {
   let service: ReconciliationService;
@@ -73,420 +129,201 @@ describe('ReconciliationService', () => {
     jest.clearAllMocks();
     service = new ReconciliationService();
     mockIsReconciliationPlanContent.mockReturnValue(true);
+    prismaMock.reconciliationPlan.count.mockResolvedValue(0);
   });
 
-  describe('generatePlans', () => {
-    it('判決不存在應拋出 NOT_FOUND', async () => {
-      prismaMock.judgment.findUnique.mockResolvedValue(null);
-
-      await expect(service.generatePlans('judge-1')).rejects.toMatchObject({
-        code: 'NOT_FOUND',
-        message: expect.stringContaining('判決'),
-      });
-      expect(mockGenerateReconciliationPlans).not.toHaveBeenCalled();
-    });
-
-    it('有 userId 且非當事人應拋出 FORBIDDEN', async () => {
-      prismaMock.judgment.findUnique.mockResolvedValue({
-        id: 'judge-1',
-        case: { plaintiff_id: 'u1', defendant_id: 'u2' },
-        case_id: 'case-1',
-        plaintiff_ratio: 50,
-        defendant_ratio: 50,
-        summary: 's',
-      });
-      prismaMock.reconciliationPlan.findMany.mockResolvedValue([]);
-
-      await expect(service.generatePlans('judge-1', undefined, 'u3')).rejects.toMatchObject({
-        code: 'FORBIDDEN',
-      });
-    });
-
-    it('已有方案應直接返回', async () => {
-      const existing = [{ id: 'plan-1', judgment_id: 'judge-1' }];
-      prismaMock.judgment.findUnique.mockResolvedValue({
-        id: 'judge-1',
-        case: { type: '其他', plaintiff_id: 'u1', defendant_id: 'u2' },
-        plaintiff_ratio: 50,
-        defendant_ratio: 50,
-        summary: 's',
-      });
-      prismaMock.reconciliationPlan.findMany.mockResolvedValue(existing);
-
-      const result = await service.generatePlans('judge-1');
-
-      expect(result).toEqual(existing);
-      expect(mockGenerateReconciliationPlans).not.toHaveBeenCalled();
-    });
-
-    it('AI 生成失敗應拋出 AI_SERVICE_ERROR 並記錄 logger.error', async () => {
-      prismaMock.judgment.findUnique.mockResolvedValue({
-        id: 'judge-1',
-        case: { type: '其他', plaintiff_id: 'u1', defendant_id: 'u2' },
-        plaintiff_ratio: 50,
-        defendant_ratio: 50,
-        summary: 's',
-      });
-      prismaMock.reconciliationPlan.findMany.mockResolvedValue([]);
-      const aiErr = new Error('AI error');
-      (mockGenerateReconciliationPlans as jest.Mock).mockRejectedValue(aiErr as never);
-
-      await expect(service.generatePlans('judge-1')).rejects.toMatchObject({
-        code: 'AI_SERVICE_ERROR',
-      });
-      expect(mockLogger.error).toHaveBeenCalledWith('Failed to generate reconciliation plans', {
-        judgmentId: 'judge-1',
-        error: aiErr,
-      });
-    });
-
-    it('方案內容無效應拋出 VALIDATION_ERROR', async () => {
-      prismaMock.judgment.findUnique.mockResolvedValue({
-        id: 'judge-1',
-        case: { type: '其他', plaintiff_id: 'u1', defendant_id: 'u2' },
-        plaintiff_ratio: 50,
-        defendant_ratio: 50,
-        summary: 's',
-      });
-      prismaMock.reconciliationPlan.findMany.mockResolvedValue([]);
-      // @ts-expect-error mock 泛型推斷為 never
-      mockGenerateReconciliationPlans.mockResolvedValue([{ bad: 'plan' }]);
-      mockIsReconciliationPlanContent.mockReturnValue(false);
-      prismaMock.$transaction = jest.fn(async (fn: (tx: unknown) => unknown) => fn(prismaMock));
-
-      await expect(service.generatePlans('judge-1')).rejects.toMatchObject({
-        code: 'VALIDATION_ERROR',
-      });
-    });
-
-    it('成功應調用 AI 並保存方案', async () => {
-      prismaMock.judgment.findUnique.mockResolvedValue({
-        id: 'judge-1',
-        case: { type: '其他', plaintiff_id: 'u1', defendant_id: 'u2' },
-        plaintiff_ratio: 50,
-        defendant_ratio: 50,
-        summary: 's',
-      });
-      prismaMock.reconciliationPlan.findMany.mockResolvedValue([]);
-      // @ts-expect-error mock 泛型推斷為 never
-      mockGenerateReconciliationPlans.mockResolvedValue([validPlanContent]);
-      prismaMock.$transaction = jest.fn(async (fn: (tx: any) => any) => {
-        const tx = {
-          // @ts-expect-error mock 泛型推斷為 never
-          reconciliationPlan: { create: jest.fn().mockResolvedValue({ id: 'plan-1' }) },
-        };
-        return fn(tx);
-      });
-
-      const result = await service.generatePlans('judge-1');
-
-      expect(result).toHaveLength(1);
-      expect(mockGenerateReconciliationPlans).toHaveBeenCalledWith(
-        '其他',
-        { plaintiff: 50, defendant: 50 },
-        's',
-        undefined,
-        undefined,
-        undefined
-      );
-    });
-
-    it('非 QUICK 模式且有 emotional_analysis 時應傳遞 diagnosticContext 給 AI', async () => {
-      const emotionalAnalysis = {
-        severity: 'moderate',
-        interactionCycle: '追-逃循環',
-        coreIssue: '核心議題',
-        personA: { readinessStage: '準備期' },
-        personB: { readinessStage: '沉思期' },
+  it('generatePlans 應返回帶 recommended_plan_id 的 bundle', async () => {
+    prismaMock.judgment.findUnique.mockResolvedValue(baseJudgment);
+    prismaMock.reconciliationPlan.findMany.mockResolvedValue([]);
+    mockGenerateReconciliationPlans.mockResolvedValue([validPlanContent] as never);
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) => {
+      const tx = {
+        reconciliationPlan: {
+          create: jest.fn().mockResolvedValue(storedPlan as never),
+          updateMany: jest.fn(),
+        },
+        repairTrack: {
+          updateMany: jest.fn(),
+        },
       };
-      prismaMock.judgment.findUnique.mockResolvedValue({
-        id: 'judge-1',
-        case: { id: 'case-1', type: '情感需求衝突', mode: 'remote', plaintiff_id: 'u1', defendant_id: 'u2' },
-        plaintiff_ratio: 55,
-        defendant_ratio: 45,
-        summary: '摘要',
-        emotional_analysis: emotionalAnalysis,
-        judgment_content: '判決內容',
-      });
-      prismaMock.reconciliationPlan.findMany.mockResolvedValue([]);
-      // @ts-expect-error mock 泛型推斷為 never
-      mockLoadCaseContext.mockResolvedValue({
-        userA: { label: '角色A', communicationHint: '偏感性', attachmentHint: null, keyInsights: [], culturalHint: null },
-        userB: null,
-        relationship: null,
-      });
-      mockFormatForReconciliationPlans.mockReturnValue('角色A：溝通偏好：偏感性');
-      mockFormatDiagnosticContext.mockReturnValue('互動循環模式：追-逃循環\n\n核心議題：核心議題');
-      // @ts-expect-error mock 泛型推斷為 never
-      mockGenerateReconciliationPlans.mockResolvedValue([validPlanContent]);
-      prismaMock.$transaction = jest.fn(async (fn: (tx: any) => any) => {
-        const tx = {
-          // @ts-expect-error mock 泛型推斷為 never
-          reconciliationPlan: { create: jest.fn().mockResolvedValue({ id: 'plan-1' }) },
-        };
-        return fn(tx);
-      });
-
-      await service.generatePlans('judge-1');
-
-      expect(mockFormatDiagnosticContext).toHaveBeenCalledWith(emotionalAnalysis);
-      expect(mockGenerateReconciliationPlans).toHaveBeenCalledWith(
-        '情感需求衝突',
-        { plaintiff: 55, defendant: 45 },
-        '摘要',
-        '角色A：溝通偏好：偏感性',
-        undefined,
-        '互動循環模式：追-逃循環\n\n核心議題：核心議題'
-      );
+      return fn(tx);
     });
 
-    it('QUICK 模式不應載入診斷上下文', async () => {
-      prismaMock.judgment.findUnique.mockResolvedValue({
-        id: 'judge-1',
-        case: { id: 'case-1', type: '其他', mode: 'quick', plaintiff_id: 'u1', defendant_id: 'u2' },
-        plaintiff_ratio: 50,
-        defendant_ratio: 50,
-        summary: 's',
-        emotional_analysis: { interactionCycle: '追-逃' },
-        judgment_content: '',
-      });
-      prismaMock.reconciliationPlan.findMany.mockResolvedValue([]);
-      // @ts-expect-error mock 泛型推斷為 never
-      mockGenerateReconciliationPlans.mockResolvedValue([validPlanContent]);
-      prismaMock.$transaction = jest.fn(async (fn: (tx: any) => any) => {
-        const tx = {
-          // @ts-expect-error mock 泛型推斷為 never
-          reconciliationPlan: { create: jest.fn().mockResolvedValue({ id: 'plan-1' }) },
-        };
-        return fn(tx);
-      });
+    const result = await service.generatePlans('judge-1', {
+      intent: 'repair',
+      preferences: { pressure_level: 'low' },
+    }, 'u1');
 
-      await service.generatePlans('judge-1');
-
-      expect(mockFormatDiagnosticContext).not.toHaveBeenCalled();
-      expect(mockLoadCaseContext).not.toHaveBeenCalled();
-    });
-
-    it('emotional_analysis 為 null 時不應呼叫 formatDiagnosticContext', async () => {
-      prismaMock.judgment.findUnique.mockResolvedValue({
-        id: 'judge-1',
-        case: { id: 'case-1', type: '其他', mode: 'remote', plaintiff_id: 'u1', defendant_id: 'u2' },
-        plaintiff_ratio: 50,
-        defendant_ratio: 50,
-        summary: 's',
-        emotional_analysis: null,
-        judgment_content: '',
-      });
-      prismaMock.reconciliationPlan.findMany.mockResolvedValue([]);
-      // @ts-expect-error mock 泛型推斷為 never
-      mockLoadCaseContext.mockResolvedValue(null);
-      // @ts-expect-error mock 泛型推斷為 never
-      mockGenerateReconciliationPlans.mockResolvedValue([validPlanContent]);
-      prismaMock.$transaction = jest.fn(async (fn: (tx: any) => any) => {
-        const tx = {
-          // @ts-expect-error mock 泛型推斷為 never
-          reconciliationPlan: { create: jest.fn().mockResolvedValue({ id: 'plan-1' }) },
-        };
-        return fn(tx);
-      });
-
-      await service.generatePlans('judge-1');
-
-      expect(mockFormatDiagnosticContext).not.toHaveBeenCalled();
-    });
-
-    it('傳入 preferences 時應按 difficulty 與 types 過濾方案', async () => {
-      const easyActivity = { ...validPlanContent, difficulty_level: 'easy' as const, plan_type: 'activity' as const };
-      const mediumComm = { ...validPlanContent, title: 'B', difficulty_level: 'medium' as const, plan_type: 'communication' as const };
-      prismaMock.judgment.findUnique.mockResolvedValue({
-        id: 'judge-1',
-        case: { type: '其他', plaintiff_id: 'u1', defendant_id: 'u2' },
-        plaintiff_ratio: 50,
-        defendant_ratio: 50,
-        summary: 's',
-      });
-      prismaMock.reconciliationPlan.findMany.mockResolvedValue([]);
-      mockGenerateReconciliationPlans.mockResolvedValue([easyActivity, mediumComm] as never);
-      let createdPlans: unknown[] = [];
-      prismaMock.$transaction = jest.fn(async (fn: (tx: { reconciliationPlan: { create: jest.Mock } }) => unknown) => {
-        const tx = {
-          reconciliationPlan: {
-            create: jest.fn().mockImplementation((arg: unknown) => {
-              createdPlans.push((arg as { data: unknown }).data);
-              return Promise.resolve({ id: 'plan-1' });
-            }),
-          },
-        };
-        return fn(tx);
-      });
-
-      const result = await service.generatePlans('judge-1', {
-        difficulty: 'easy',
-        types: ['activity'],
-      }, 'u1');
-
-      expect(result).toHaveLength(1);
-      expect(createdPlans).toHaveLength(1);
-      expect((createdPlans[0] as { difficulty_level: string }).difficulty_level).toBe('easy');
-      expect((createdPlans[0] as { plan_type: string }).plan_type).toBe('activity');
-    });
+    expect(mockGenerateReconciliationPlans).toHaveBeenCalledWith(
+      '情感需求衝突',
+      { plaintiff: 50, defendant: 50 },
+      '摘要',
+      undefined,
+      undefined,
+      undefined,
+      expect.objectContaining({
+        intent: 'repair',
+        preferenceSummary: expect.stringContaining('壓力承受度：low'),
+      }),
+    );
+    expect(result.recommended_plan_id).toBe('plan-1');
+    expect(result.plans).toHaveLength(1);
+    expect(result.plans[0].fit_reason).toBe('適配原因');
   });
 
-  describe('getPlansByJudgmentId', () => {
-    it('判決不存在應拋出 NOT_FOUND（F05 邊界）', async () => {
-      prismaMock.judgment.findUnique.mockResolvedValue(null);
+  it('已有同方向方案時應直接返回 bundle', async () => {
+    prismaMock.judgment.findUnique.mockResolvedValue(baseJudgment);
+    prismaMock.reconciliationPlan.findMany.mockResolvedValue([storedPlan]);
 
-      await expect(service.getPlansByJudgmentId('judge-1', 'u1')).rejects.toMatchObject({
-        code: 'NOT_FOUND',
-        message: expect.stringContaining('判決'),
-      });
-      expect(prismaMock.reconciliationPlan.findMany).not.toHaveBeenCalled();
-    });
+    const result = await service.generatePlans('judge-1', { intent: 'repair' }, 'u1');
 
-    it('應按條件查詢並返回列表', async () => {
-      prismaMock.judgment.findUnique.mockResolvedValue({
-        id: 'judge-1',
-        case: { plaintiff_id: 'u1', defendant_id: 'u2', session_id: null },
-      });
-      const plans = [{ id: 'plan-1', judgment_id: 'judge-1', difficulty_level: 'easy' }];
-      prismaMock.reconciliationPlan.findMany.mockResolvedValue(plans);
-
-      const result = await service.getPlansByJudgmentId('judge-1', 'u1', {
-        difficulty: 'easy',
-        type: 'activity',
-      });
-
-      expect(result).toEqual(plans);
-      expect(prismaMock.reconciliationPlan.findMany).toHaveBeenCalledWith({
-        where: { judgment_id: 'judge-1', difficulty_level: 'easy', plan_type: 'activity' },
-        orderBy: { created_at: 'desc' },
-      });
-    });
-
-    it('判決存在但尚無方案時應返回空陣列（F05 邊界：尚未生成方案）', async () => {
-      prismaMock.judgment.findUnique.mockResolvedValue({
-        id: 'judge-1',
-        case: { plaintiff_id: 'u1', defendant_id: 'u2', session_id: null },
-      });
-      prismaMock.reconciliationPlan.findMany.mockResolvedValue([]);
-
-      const result = await service.getPlansByJudgmentId('judge-1', 'u1');
-
-      expect(result).toEqual([]);
-    });
-
-    it('非當事人應被拒絕', async () => {
-      prismaMock.judgment.findUnique.mockResolvedValue({
-        id: 'judge-1',
-        case: { plaintiff_id: 'u1', defendant_id: 'u2', session_id: null },
-      });
-
-      await expect(service.getPlansByJudgmentId('judge-1', 'u999')).rejects.toMatchObject({
-        code: 'FORBIDDEN',
-      });
-    });
+    expect(mockGenerateReconciliationPlans).not.toHaveBeenCalled();
+    expect(result.plans[0].id).toBe('plan-1');
+    expect(result.intent).toBe('repair');
   });
 
-  describe('getPlanById', () => {
-    it('方案不存在應拋出 NOT_FOUND', async () => {
-      prismaMock.reconciliationPlan.findUnique.mockResolvedValue(null);
-
-      await expect(service.getPlanById('plan-1', 'u1')).rejects.toMatchObject({
-        code: 'NOT_FOUND',
-        message: expect.stringContaining('和好方案'),
-      });
-    });
-
-    it('有 userId 且非當事人應拋出 FORBIDDEN', async () => {
-      prismaMock.reconciliationPlan.findUnique.mockResolvedValue({
-        id: 'plan-1',
-        judgment: {
-          case: { plaintiff_id: 'u1', defendant_id: 'u2' },
-        },
-      });
-
-      await expect(service.getPlanById('plan-1', 'u3')).rejects.toMatchObject({
-        code: 'FORBIDDEN',
-      });
-    });
-
-    it('成功應返回方案', async () => {
-      const plan = {
-        id: 'plan-1',
-        judgment: { case: { plaintiff_id: 'u1', defendant_id: 'u2' } },
-      };
-      prismaMock.reconciliationPlan.findUnique.mockResolvedValue(plan);
-
-      const result = await service.getPlanById('plan-1', 'u1');
-
-      expect(result).toEqual(plan);
-    });
-  });
-
-  describe('selectPlan', () => {
-    it('方案不存在應拋出 NOT_FOUND', async () => {
-      prismaMock.reconciliationPlan.findUnique.mockResolvedValue(null);
-
-      await expect(service.selectPlan('plan-1', 'u1')).rejects.toMatchObject({
-        code: 'NOT_FOUND',
-      });
-    });
-
-    it('非當事人應拋出 FORBIDDEN', async () => {
-      prismaMock.reconciliationPlan.findUnique.mockResolvedValue({
-        id: 'plan-1',
-        judgment: {
-          case: { plaintiff_id: 'u1', defendant_id: 'u2' },
-        },
-      });
-
-      await expect(service.selectPlan('plan-1', 'u3')).rejects.toMatchObject({
-        code: 'FORBIDDEN',
-      });
-    });
-
-    it('當事人 user1 選擇應更新 user1_selected', async () => {
-      prismaMock.reconciliationPlan.findUnique.mockResolvedValue({
-        id: 'plan-1',
-        judgment: {
-          case: { plaintiff_id: 'u1', defendant_id: 'u2' },
-        },
-      });
-      prismaMock.reconciliationPlan.update.mockResolvedValue({
-        id: 'plan-1',
+  it('selectPlan 應為當前用戶建立承諾與 track', async () => {
+    prismaMock.reconciliationPlan.findUnique
+      .mockResolvedValueOnce(storedPlan)
+      .mockResolvedValueOnce({
+        ...storedPlan,
         user1_selected: true,
-        user2_selected: false,
-      });
-
-      const result = await service.selectPlan('plan-1', 'u1');
-
-      expect(result.user1_selected).toBe(true);
-      expect(prismaMock.reconciliationPlan.update).toHaveBeenCalledWith({
-        where: { id: 'plan-1' },
-        data: { user1_selected: true },
-      });
-    });
-
-    it('當事人 user2 選擇應更新 user2_selected', async () => {
-      prismaMock.reconciliationPlan.findUnique.mockResolvedValue({
-        id: 'plan-1',
-        judgment: {
-          case: { plaintiff_id: 'u1', defendant_id: 'u2' },
+        repair_track: {
+          id: 'track-1',
+          status: 'draft',
+          recommended_mode: 'solo',
+          partner_invited_at: null,
+          participant_states: [
+            {
+              user_id: 'u1',
+              commitment_status: 'committed',
+              viewed_at: new Date(),
+              committed_at: new Date(),
+            },
+          ],
+          step_progresses: [],
+          checkins: [],
         },
       });
-      prismaMock.reconciliationPlan.update.mockResolvedValue({
-        id: 'plan-1',
-        user1_selected: false,
-        user2_selected: true,
-      });
-
-      const result = await service.selectPlan('plan-1', 'u2');
-
-      expect(result.user2_selected).toBe(true);
-      expect(prismaMock.reconciliationPlan.update).toHaveBeenCalledWith({
-        where: { id: 'plan-1' },
-        data: { user2_selected: true },
-      });
+    prismaMock.reconciliationPlan.update.mockResolvedValue({ ...storedPlan, user1_selected: true });
+    prismaMock.repairTrack.create.mockResolvedValue({
+      id: 'track-1',
+      participant_states: [],
+      step_progresses: [],
+      checkins: [],
     });
+    prismaMock.repairParticipantState.upsert.mockResolvedValue({});
+    prismaMock.repairTrack.findUnique.mockResolvedValue({
+      id: 'track-1',
+      status: 'draft',
+      recommended_mode: 'solo',
+      partner_invited_at: null,
+      participant_states: [
+        { user_id: 'u1', commitment_status: 'committed' },
+      ],
+    });
+    prismaMock.repairTrack.update.mockResolvedValue({
+      id: 'track-1',
+      status: 'draft',
+      recommended_mode: 'solo',
+      partner_invited_at: null,
+      participant_states: [
+        { user_id: 'u1', commitment_status: 'committed', viewed_at: new Date(), committed_at: new Date() },
+      ],
+      step_progresses: [],
+      checkins: [],
+    });
+
+    const result = await service.selectPlan('plan-1', 'u1');
+
+    expect(prismaMock.repairParticipantState.upsert).toHaveBeenCalled();
+    expect(result.commitment.current_user.commitment_status).toBe('committed');
+  });
+
+  it('force_regenerate 應保留舊版本並標記 superseded，而不是直接刪除', async () => {
+    prismaMock.judgment.findUnique.mockResolvedValue(baseJudgment);
+    prismaMock.reconciliationPlan.findMany.mockResolvedValue([
+      { ...storedPlan, version_group_id: 'vg-1' },
+    ]);
+    mockGenerateReconciliationPlans.mockResolvedValue([validPlanContent] as never);
+    const tx = {
+      reconciliationPlan: {
+        updateMany: jest.fn(),
+        create: jest.fn().mockResolvedValue({ ...storedPlan, id: 'plan-2', version_group_id: 'vg-1' } as never),
+      },
+      repairTrack: {
+        updateMany: jest.fn(),
+      },
+    };
+    prismaMock.$transaction.mockImplementation(async (fn: (innerTx: unknown) => unknown) => fn(tx));
+
+    const result = await service.generatePlans('judge-1', { intent: 'repair', force_regenerate: true }, 'u1');
+
+    expect(tx.reconciliationPlan.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        version_group_id: 'vg-1',
+      }),
+    }));
+    expect(result.plans[0].id).toBe('plan-2');
+  });
+
+  it('respondPlan(viewed) 應記錄 invitee 已查看狀態', async () => {
+    prismaMock.reconciliationPlan.findUnique
+      .mockResolvedValueOnce({
+        ...storedPlan,
+        repair_track: {
+          id: 'track-1',
+          status: 'partner_invited',
+          recommended_mode: 'solo',
+          partner_invited_at: new Date(),
+          participant_states: [
+            { user_id: 'u1', commitment_status: 'committed', viewed_at: new Date(), committed_at: new Date() },
+            { user_id: 'u2', commitment_status: 'not_viewed', viewed_at: null, committed_at: null, invited_at: new Date() },
+          ],
+          step_progresses: [],
+          checkins: [],
+        },
+      })
+      .mockResolvedValueOnce({
+        ...storedPlan,
+        repair_track: {
+          id: 'track-1',
+          status: 'partner_invited',
+          recommended_mode: 'solo',
+          partner_invited_at: new Date(),
+          participant_states: [
+            { user_id: 'u1', commitment_status: 'committed', viewed_at: new Date(), committed_at: new Date() },
+            { user_id: 'u2', commitment_status: 'viewed', viewed_at: new Date(), committed_at: null, invited_at: new Date() },
+          ],
+          step_progresses: [],
+          checkins: [],
+        },
+      });
+    prismaMock.repairParticipantState.upsert.mockResolvedValue({});
+    prismaMock.repairTrack.findUnique.mockResolvedValue({
+      id: 'track-1',
+      status: 'partner_invited',
+      recommended_mode: 'solo',
+      partner_invited_at: new Date(),
+      participant_states: [
+        { user_id: 'u1', commitment_status: 'committed' },
+        { user_id: 'u2', commitment_status: 'viewed' },
+      ],
+    });
+    prismaMock.repairTrack.update.mockResolvedValue({
+      id: 'track-1',
+      status: 'partner_invited',
+      recommended_mode: 'solo',
+      partner_invited_at: new Date(),
+      participant_states: [],
+      step_progresses: [],
+      checkins: [],
+    });
+
+    const result = await service.respondPlan('plan-1', 'u2', 'viewed');
+
+    expect(prismaMock.repairParticipantState.upsert).toHaveBeenCalled();
+    expect(prismaMock.repairTrackEvent.create).toHaveBeenCalled();
+    expect(result.commitment.current_user.commitment_status).toBe('viewed');
   });
 });

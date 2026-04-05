@@ -22,6 +22,8 @@
 
 以下命令於 `backend/` 執行：
 
+> 若 `local`、`staging`、`production` 指向不同資料庫，以下流程必須**逐環境各跑一遍**。不得用本地或 staging 的 baseline / diff 結果代替 production。
+
 ### 4.1 產出現況報告（必做）
 
 ```bash
@@ -33,11 +35,26 @@ npm run ops:migration:report
 - exit `0`：migration folder 與 DB 紀錄一致，且無 failed migration。
 - exit `2`：存在不一致或失敗遷移，禁止直接上 production。
 
+### 4.1b 核對真庫與當前 schema（建議補充）
+
+```bash
+npx prisma migrate diff \
+  --from-url "$DATABASE_URL" \
+  --to-schema-datamodel prisma/schema.prisma \
+  --exit-code
+```
+
+說明：
+- 若 exit `0`，代表真庫與當前 `schema.prisma` 無差異。
+- 若 exit `2`，代表即使 migration baseline 看起來正常，真庫仍可能缺欄位、缺表或缺約束。
+- 當 repo 同時存在 `supabase/migrations`、`db push` 歷史或 emergency 補 SQL 時，**不能只看** `ops:migration:report` 或 `migrate status`。
+
 ### 4.2 先修復不一致（視報告而定）
 
 - `missingInDb` 非空：代表程式碼有 migration 但 DB 未紀錄，先確認是否需要 `migrate deploy` 或 `resolve --applied`。
 - `missingInCode` 非空：代表 DB 記錄有 migration，但 repo 缺失；需補回 migration 目錄或提交 baseline 說明。
 - `failedMigrations` 非空：先處理失敗原因，不可跳過。
+- 若 baseline 正常但 `migrate diff` 仍非空：代表 migration 歷史與實際 schema 已分離，需先補齊真庫 schema，再決定是否做 migration 歷史正規化。
 
 ### 4.3 正式遷移（production）
 
@@ -71,5 +88,11 @@ npx prisma migrate deploy
 Production 發布前，必須同時滿足：
 
 - migration baseline 報告為 `status=ok`，或有明確核准的例外單。
+- `prisma migrate diff --from-url ... --to-schema-datamodel prisma/schema.prisma --exit-code` 為 `0`。
 - 本次部署 runbook 已附 artifact 路徑與 commit SHA。
 - 若有 emergency 操作，已附回補計畫（最晚下個迭代完成）。
+
+補充：
+
+- 若 staging 也承擔預發驗證，staging 應先獨立完成同一套 gate，再輪到 production。
+- 若 staging / production 環境變量不同（例如 staging 暫未掛 Redis），需在運維記錄中同步標註，避免把「啟動可用」誤判為「production 等價」。

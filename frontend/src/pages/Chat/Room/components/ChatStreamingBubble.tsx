@@ -2,31 +2,33 @@
  * AI streaming response placeholder
  */
 
-import { Tag, Typography } from 'antd';
+import { Tag } from 'antd';
+import AIStreamingBubble, { type AIStreamingBubbleStatus } from '@/components/common/AIStreamingBubble';
 import { t } from '@/utils/i18n';
 
-const { Paragraph } = Typography;
-
 interface ChatStreamingBubbleProps {
-  streamingAiText: string;
+  text: string;
+  status?: AIStreamingBubbleStatus;
 }
 
-export default function ChatStreamingBubble({ streamingAiText }: ChatStreamingBubbleProps) {
+export default function ChatStreamingBubble({ text, status = 'thinking' }: ChatStreamingBubbleProps) {
   return (
-    <div className="chat-room-page__message-row chat-room-page__message-row--left">
-      <div
-        className="chat-room-page__message-item chat-room-page__message-item--left chat-room-page__message-item--streaming"
-        aria-live="polite"
-        aria-busy="true"
-      >
+    <AIStreamingBubble
+      text={text}
+      fallbackText={t('chat.thinking')}
+      status={status}
+      wrapperClassName="chat-room-page__message-row chat-room-page__message-row--left"
+      itemClassName="chat-room-page__message-item chat-room-page__message-item--left chat-room-page__message-item--streaming"
+      bodyClassName="chat-room-page__message-body"
+      contentClassName="chat-room-page__message-content"
+      cursorClassName="chat-room-page__streaming-cursor"
+      thinkingClassName="chat-room-page__thinking-indicator"
+      thinkingDotsClassName="chat-room-page__thinking-dots"
+      head={(
         <div className="chat-room-page__message-head">
           <Tag color="default">{t('chat.role.aiMediator')}</Tag>
         </div>
-        <Paragraph className="chat-room-page__message-content">
-          {streamingAiText ? streamingAiText : t('chat.thinking')}
-          <span className="chat-room-page__streaming-cursor">|</span>
-        </Paragraph>
-      </div>
-    </div>
+      )}
+    />
   );
 }

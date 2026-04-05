@@ -92,6 +92,7 @@ const mockCreateChatInvite = vi.fn();
 const mockRequestChatJudgment = vi.fn();
 const mockGetChatJudgmentStatus = vi.fn();
 const mockConnectChatStream = vi.fn();
+const mockConnectAIStream = vi.fn();
 const mockDeclineChatInvite = vi.fn();
 const mockLeaveChatRoom = vi.fn();
 const mockKickChatParticipantB = vi.fn();
@@ -109,6 +110,10 @@ vi.mock('@/services/api/chat', () => ({
   declineChatInvite: (...args: unknown[]) => mockDeclineChatInvite(...args),
   leaveChatRoom: (...args: unknown[]) => mockLeaveChatRoom(...args),
   kickChatParticipantB: (...args: unknown[]) => mockKickChatParticipantB(...args),
+}));
+
+vi.mock('@/services/aiStream', () => ({
+  connectAIStream: (...args: unknown[]) => mockConnectAIStream(...args),
 }));
 
 const LoginCapture = () => {
@@ -138,6 +143,7 @@ describe('ChatRoomPage', () => {
     vi.spyOn(antdMessage, 'warning').mockImplementation(() => undefined as any);
     vi.spyOn(antdMessage, 'info').mockImplementation(() => undefined as any);
     mockConnectChatStream.mockResolvedValue(() => undefined);
+    mockConnectAIStream.mockResolvedValue(() => undefined);
     mockGetChatRoom.mockResolvedValue({
       id: 'room-1',
       status: 'solo_active',
@@ -778,6 +784,121 @@ describe('ChatRoomPage', () => {
     await waitFor(() => {
       expect(screen.getByText('思考中...')).toBeInTheDocument();
     });
+  });
+
+  it('聊天室 AI draft 應由 AI Stream 驅動，收到 persisted 前保持氣泡，persisted 後交接為正式消息', async () => {
+    let aiStreamCallbacks: Record<string, ((payload: any) => void) | undefined> = {};
+    mockConnectAIStream.mockImplementation(async (_scopeType, _scopeId, callbacks) => {
+      aiStreamCallbacks = callbacks as Record<string, (payload: any) => void>;
+      return () => undefined;
+    });
+    mockSendChatMessage.mockResolvedValue({
+      id: 'msg-user-1',
+      content: 'hello',
+      message_type: 'user_text',
+      visibility_scope: 'all',
+      created_at: new Date().toISOString(),
+      sender_participant: { role_in_room: 'roleA' },
+    });
+    mockListChatMessages
+      .mockResolvedValueOnce({ messages: [], nextCursor: null })
+      .mockResolvedValueOnce({
+        messages: [
+          {
+            id: 'msg-user-1',
+            content: 'hello',
+            message_type: 'user_text',
+            visibility_scope: 'all',
+            created_at: new Date().toISOString(),
+            sender_participant: { role_in_room: 'roleA' },
+          },
+          {
+            id: 'msg-ai-1',
+            content: 'AI 已落庫回覆',
+            message_type: 'ai_reflection',
+            visibility_scope: 'all',
+            created_at: new Date().toISOString(),
+            sender_participant: { role_in_room: 'aiMediator' },
+          },
+        ],
+        nextCursor: null,
+      });
+
+    render(
+      <MemoryRouter initialEntries={['/chat/room/room-1']}>
+        <Routes>
+          <Route path="/chat/room/:roomId" element={<ChatRoomPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(mockGetChatRoom).toHaveBeenCalledWith('room-1'));
+    await screen.findByPlaceholderText('輸入訊息...');
+
+    await act(async () => {
+      fireEvent.change(screen.getByPlaceholderText('輸入訊息...'), {
+        target: { value: 'hello' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: /送\s*出/ }));
+    });
+
+    await screen.findByText('思考中...');
+
+    await act(async () => {
+      aiStreamCallbacks.onEvent?.({
+        eventType: 'stream.started',
+        streamId: 'stream-1',
+        requestId: 'request-1',
+        scopeType: 'chat_room',
+        scopeId: 'room-1',
+        seq: 1,
+        createdAt: new Date().toISOString(),
+      });
+      aiStreamCallbacks.onEvent?.({
+        eventType: 'stream.delta',
+        streamId: 'stream-1',
+        requestId: 'request-1',
+        scopeType: 'chat_room',
+        scopeId: 'room-1',
+        seq: 2,
+        createdAt: new Date().toISOString(),
+        deltaText: 'AI 正在回覆',
+      });
+      aiStreamCallbacks.onEvent?.({
+        eventType: 'stream.completed',
+        streamId: 'stream-1',
+        requestId: 'request-1',
+        scopeType: 'chat_room',
+        scopeId: 'room-1',
+        seq: 3,
+        createdAt: new Date().toISOString(),
+        fullText: 'AI 正在回覆',
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('AI 正在回覆')).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      aiStreamCallbacks.onEvent?.({
+        eventType: 'stream.persisted',
+        streamId: 'stream-1',
+        requestId: 'request-1',
+        scopeType: 'chat_room',
+        scopeId: 'room-1',
+        seq: 4,
+        createdAt: new Date().toISOString(),
+        messageId: 'msg-ai-1',
+        fullText: 'AI 已落庫回覆',
+      });
+    });
+
+    await waitFor(() => {
+      expect(mockListChatMessages).toHaveBeenCalledTimes(2);
+      expect(screen.getByText('AI 已落庫回覆')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('AI 正在回覆')).not.toBeInTheDocument();
   });
 
   it('sendChatMessage 失敗後應仍可再次發送訊息，成功後應顯示訊息（F07 錯誤恢復：失敗不阻塞重試）', async () => {

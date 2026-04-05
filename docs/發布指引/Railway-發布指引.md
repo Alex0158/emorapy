@@ -1,7 +1,7 @@
 # Railway 發布指引（後端）
 
-**文檔版本**：v1.0  
-**最後更新**：2026-03-07  
+**文檔版本**：v1.1  
+**最後更新**：2026-04-05  
 **適用**：後端（backend）單一服務，同時服務客戶端與管理端 API。
 
 ---
@@ -27,6 +27,8 @@
 
 ## 3. 手動發布（CLI）
 
+> 若目標是 `staging`，且倉庫已配置 GitHub Actions secrets，現在更推薦直接使用 `Staging Deploy and Smoke` workflow。它會先部署 staging，再自動跑 smoke，避免漏掉後續驗證。手動 `railway up` 保留給本機緊急部署或需要 CLI 直控的場景。
+
 ### 3.1 從 repo 根目錄部署
 
 建置與啟動指令由**根目錄**的 `railway.json` 定義（`cd backend && ...`），因此必須在 **mother-bear-court 根目錄** 執行：
@@ -49,7 +51,15 @@ railway up
 | `railway variables` | 列出該服務的環境變數（名稱，不顯示值） |
 | `railway link` | 重新選擇 Project / Service 連結 |
 
-### 3.3 確認部署結果
+### 3.3 staging 推薦操作
+
+對 `staging`：
+
+1. 優先進 GitHub Actions 執行 `Staging Deploy and Smoke`
+2. 若只需重跑驗證、不需重新部署，再執行 `Staging Smoke Gate`
+3. 只有在需要本機緊急操作或檢查 Railway CLI 問題時，才直接使用 `railway up`
+
+### 3.4 確認部署結果
 
 - 在終端輸出的 **Build Logs** 連結中確認建置為 Success。
 - 在 Railway Dashboard → 該 Service → **Deployments** 查看最新部署狀態。

@@ -16,13 +16,24 @@ import {
 } from '../types/interview.types';
 import { asyncPipelineService } from './async-pipeline.service';
 import { systemConfigService } from './system-config.service';
+import { aiStreamService } from './ai-stream.service';
 import { PsychDomain } from '@prisma/client';
 import { fenceUserInput } from '../utils/prompt';
 import { INTERVIEW_STATUS, CLEANUP_THRESHOLDS } from '../utils/constants';
+import type { AIStreamHandle } from './ai-stream.service';
 
 const DOMAINS_LIST = Object.values(PsychDomain).join('、');
 
 export class InterviewService {
+  private activeStreamControllers = new Map<string, AbortController>();
+
+  private isAbortError(error: unknown): boolean {
+    if (!error || typeof error !== 'object') return false;
+    const name = 'name' in error ? String((error as { name?: string }).name || '') : '';
+    const message = 'message' in error ? String((error as { message?: string }).message || '') : '';
+    return name === 'AbortError' || message.toLowerCase().includes('aborted');
+  }
+
   private sanitizeInsightValue(value: string): string {
     return (value || '')
       .replace(/\s+/g, ' ')
@@ -228,8 +239,12 @@ export class InterviewService {
     userId: string,
     userResponse: string,
     onSSE?: (event: SSETokenEvent | SSEMetadataEvent | SSESafetyAlertEvent | SSECompleteEvent | SSEErrorEvent) => void,
-    isSkip = false
+    isSkip = false,
+    options: { signal?: AbortSignal } = {}
   ): Promise<void> {
+    let streamHandle: AIStreamHandle | null = null;
+    let streamSettled = false;
+    let latestText = '';
     try {
       await lockService.withLock(
         `interview:respond:${sessionId}`,
@@ -338,6 +353,36 @@ export class InterviewService {
           const userPrompt = this.buildInterviewUserPrompt(historyWithFacts, currentTurn);
 
           const DELIMITER = '---METADATA---';
+          streamHandle = await aiStreamService.createStream('interview_session', sessionId);
+          await aiStreamService.start(streamHandle, {
+            actorRole: 'aiMediator',
+            phase: 'thinking',
+            metadata: {
+              mode: isSkip ? 'skip' : 'respond',
+              currentTurn,
+            },
+          });
+
+          if (options.signal?.aborted) {
+            await aiStreamService.cancelled(streamHandle, {
+              actorRole: 'aiMediator',
+              metadata: { reason: 'client_abort', mode: isSkip ? 'skip' : 'respond' },
+            });
+            streamSettled = true;
+            return;
+          }
+
+          const emitTextDelta = (textDelta: string) => {
+            if (!textDelta) return;
+            latestText += textDelta;
+            onSSE?.({ text: textDelta } as SSETokenEvent);
+            if (streamHandle) {
+              void aiStreamService.delta(streamHandle, textDelta, {
+                actorRole: 'aiMediator',
+              });
+            }
+          };
+
           const stream = await retryWithBackoff(
             async () => openai.chat.completions.create({
               model: INTERVIEW_AI_CONFIG.model,
@@ -351,11 +396,12 @@ export class InterviewService {
               frequency_penalty: INTERVIEW_AI_CONFIG.frequencyPenalty,
               presence_penalty: INTERVIEW_AI_CONFIG.presencePenalty,
               stream: true,
-            }),
+            }, options.signal ? { signal: options.signal as any } : undefined),
             {
               maxRetries: 3,
               shouldRetry: (e: unknown) => {
                 const err = e as { status?: number };
+                if (this.isAbortError(e)) return false;
                 return err?.status !== 429 && err?.status !== 401;
               },
             }
@@ -385,13 +431,13 @@ export class InterviewService {
             if (delimIdx >= 0) {
               const textPart = fullContent.substring(0, delimIdx);
               if (sentTextLength < textPart.length) {
-                onSSE?.({ text: textPart.substring(sentTextLength) } as SSETokenEvent);
+                emitTextDelta(textPart.substring(sentTextLength));
                 sentTextLength = textPart.length;
               }
             } else {
               const safeEnd = Math.max(0, fullContent.length - DELIMITER.length);
               if (safeEnd > sentTextLength) {
-                onSSE?.({ text: fullContent.substring(sentTextLength, safeEnd) } as SSETokenEvent);
+                emitTextDelta(fullContent.substring(sentTextLength, safeEnd));
                 sentTextLength = safeEnd;
               }
             }
@@ -413,7 +459,7 @@ export class InterviewService {
               logger.warn('Interview: metadata JSON parse failed', { sessionId });
             }
             if (sentTextLength < text.length) {
-              onSSE?.({ text: text.substring(sentTextLength) } as SSETokenEvent);
+              emitTextDelta(text.substring(sentTextLength));
             }
           } else if (isJsonFormat) {
             try {
@@ -429,15 +475,28 @@ export class InterviewService {
               logger.warn('Interview AI: JSON parse failed, using raw text', { sessionId });
               text = fullContent.trim();
             }
-            onSSE?.({ text } as SSETokenEvent);
+            emitTextDelta(text);
           } else {
             text = fullContent.trim();
             if (sentTextLength < text.length) {
-              onSSE?.({ text: text.substring(sentTextLength) } as SSETokenEvent);
+              emitTextDelta(text.substring(sentTextLength));
             }
           }
 
           text = text || '謝謝你的分享，我們下次再聊。';
+          latestText = text;
+
+          if (streamHandle) {
+            await aiStreamService.completed(streamHandle, {
+              actorRole: 'aiMediator',
+              fullText: text,
+              phase: 'completed',
+              metadata: {
+                mode: isSkip ? 'skip' : 'respond',
+              },
+            });
+          }
+
           const targetDomains = ((parsedMeta.target_domains || []) as string[]).filter((d) =>
             Object.values(PsychDomain).includes(d as PsychDomain)
           ) as PsychDomain[];
@@ -449,7 +508,7 @@ export class InterviewService {
 
           const aiWordCount = text.split(/\s+/).filter(Boolean).length;
           const newDomains = [...new Set([...session.domains_touched, ...targetDomains])];
-          await prisma.interviewTurn.create({
+          const createdTurn = await prisma.interviewTurn.create({
             data: {
               session_id: sessionId,
               turn_order: nextOrder,
@@ -484,17 +543,124 @@ export class InterviewService {
               message: parsedMeta.safety_message,
               severity: 'warning',
             } as SSESafetyAlertEvent);
+            if (streamHandle) {
+              await aiStreamService.phase(streamHandle, 'safety_alert', {
+                actorRole: 'aiMediator',
+                metadata: {
+                  message: parsedMeta.safety_message,
+                  severity: 'warning',
+                },
+              });
+            }
           }
+
+          onSSE?.({
+            session_id: sessionId,
+            status: INTERVIEW_STATUS.IN_PROGRESS,
+            total_turns: nextOrder,
+            domains_touched: newDomains,
+          } as SSECompleteEvent);
+
+          if (streamHandle) {
+            await aiStreamService.persisted(streamHandle, {
+              actorRole: 'aiMediator',
+              messageId: createdTurn.id,
+              fullText: text,
+              phase: 'completed',
+              metadata: {
+                mode: isSkip ? 'skip' : 'respond',
+                turnOrder: nextOrder,
+                shouldEnd: parsedMeta.should_end || false,
+                domainsTouched: newDomains,
+              },
+            });
+          }
+          streamSettled = true;
         },
         30
       );
     } catch (e: unknown) {
+      if (this.isAbortError(e)) {
+        if (streamHandle && !streamSettled) {
+          await aiStreamService.cancelled(streamHandle, {
+            actorRole: 'aiMediator',
+            fullText: latestText || undefined,
+            metadata: {
+              reason: 'client_abort',
+              mode: isSkip ? 'skip' : 'respond',
+            },
+          });
+          streamSettled = true;
+        }
+        return;
+      }
+
+      if (streamHandle && !streamSettled) {
+        const code = e && typeof e === 'object' && 'code' in e ? String((e as { code?: string }).code || 'INTERNAL_ERROR') : 'INTERNAL_ERROR';
+        const message = e instanceof Error ? e.message : '服務內部錯誤';
+        await aiStreamService.failed(streamHandle, { code, message }, {
+          actorRole: 'aiMediator',
+          fullText: latestText || undefined,
+          metadata: {
+            mode: isSkip ? 'skip' : 'respond',
+          },
+        });
+        streamSettled = true;
+      }
       const err = e as { code?: string; message?: string };
       if (err?.code === 'CONFLICT' || err?.message?.includes('正在進行中')) {
         throw Errors.CONCURRENT_REQUEST();
       }
       throw e;
     }
+  }
+
+  async submitResponse(sessionId: string, userId: string, userResponse: string): Promise<void> {
+    await this.ensureNoActiveStream(sessionId);
+    const controller = new AbortController();
+    this.activeStreamControllers.set(sessionId, controller);
+
+    void this.respond(sessionId, userId, userResponse, undefined, false, { signal: controller.signal })
+      .catch((error) => {
+        logger.error('Interview background respond failed', { sessionId, userId, error });
+      })
+      .finally(() => {
+        if (this.activeStreamControllers.get(sessionId) === controller) {
+          this.activeStreamControllers.delete(sessionId);
+        }
+      });
+  }
+
+  async submitSkip(sessionId: string, userId: string): Promise<void> {
+    await this.ensureNoActiveStream(sessionId);
+    const controller = new AbortController();
+    this.activeStreamControllers.set(sessionId, controller);
+
+    void this.skipTurn(sessionId, userId, undefined, { signal: controller.signal })
+      .catch((error) => {
+        logger.error('Interview background skip failed', { sessionId, userId, error });
+      })
+      .finally(() => {
+        if (this.activeStreamControllers.get(sessionId) === controller) {
+          this.activeStreamControllers.delete(sessionId);
+        }
+      });
+  }
+
+  async cancelActiveStream(sessionId: string, userId: string): Promise<boolean> {
+    await this.getSession(sessionId, userId);
+    const controller = this.activeStreamControllers.get(sessionId);
+    if (!controller) return false;
+    controller.abort();
+    return true;
+  }
+
+  private async ensureNoActiveStream(sessionId: string): Promise<void> {
+    const controller = this.activeStreamControllers.get(sessionId);
+    if (controller && !controller.signal.aborted) {
+      throw Errors.CONCURRENT_REQUEST();
+    }
+    this.activeStreamControllers.delete(sessionId);
   }
 
   private buildInterviewSystemPrompt(ctx: {
@@ -764,9 +930,10 @@ key_facts 欄位說明：
   async skipTurn(
     sessionId: string,
     userId: string,
-    onSSE?: (event: SSETokenEvent | SSEMetadataEvent | SSESafetyAlertEvent | SSECompleteEvent | SSEErrorEvent) => void
+    onSSE?: (event: SSETokenEvent | SSEMetadataEvent | SSESafetyAlertEvent | SSECompleteEvent | SSEErrorEvent) => void,
+    options: { signal?: AbortSignal } = {}
   ): Promise<void> {
-    await this.respond(sessionId, userId, '', onSSE, true);
+    await this.respond(sessionId, userId, '', onSSE, true, options);
   }
 
   async retryFailed(sessionId: string, userId: string): Promise<void> {

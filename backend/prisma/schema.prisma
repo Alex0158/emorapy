@@ -79,6 +79,65 @@ enum Difficulty {
   hard
 }
 
+enum ReconciliationIntent {
+  repair
+  cool_down
+  graceful_exit
+  safety_support
+}
+
+enum CommitmentStatus {
+  not_viewed
+  viewed
+  deferred
+  committed
+  declined
+  paused
+}
+
+enum RepairTrackStatus {
+  draft
+  partner_invited
+  solo_active
+  co_active
+  replanning
+  paused
+  completed
+  closed
+}
+
+enum RepairStepStatus {
+  pending
+  active
+  done
+  partial
+  skipped
+  adapted
+}
+
+enum RepairMode {
+  solo
+  co
+}
+
+enum RepairCheckInResult {
+  done
+  partial
+  skipped
+}
+
+enum ClosenessLevel {
+  closer
+  same
+  farther
+}
+
+enum StressLevel {
+  low
+  medium
+  high
+}
+
 enum ExecutionAction {
   confirm
   checkin
@@ -156,6 +215,17 @@ enum InterviewTrigger {
   pre_case
   post_judgment
   onboarding
+}
+
+enum AIStreamPersistenceStatus {
+  created
+  queued
+  started
+  streaming
+  completed
+  persisted
+  failed
+  cancelled
 }
 
 enum InsightType {
@@ -254,6 +324,9 @@ model User {
   cases_as_defendant   Case[]              @relation("DefendantCases")
   evidences            Evidence[]
   execution_records    ExecutionRecord[]
+  repair_participant_states RepairParticipantState[]
+  repair_checkins      RepairCheckIn[]
+  repair_track_events  RepairTrackEvent[]
   pairings_as_user1    Pairing[]           @relation("User1Pairings")
   pairings_as_user2    Pairing[]           @relation("User2Pairings")
   notifications        Notification[]
@@ -555,6 +628,10 @@ model Judgment {
 model ReconciliationPlan {
   id                 String            @id @default(uuid())
   judgment_id        String
+  intent             ReconciliationIntent @default(repair)
+  version_group_id   String?
+  superseded_at      DateTime?
+  superseded_by_plan_id String?
   plan_content       String
   plan_type          PlanType
   difficulty_level   Difficulty
@@ -569,11 +646,132 @@ model ReconciliationPlan {
 
   execution_records  ExecutionRecord[]
   judgment           Judgment          @relation(fields: [judgment_id], references: [id], onDelete: Cascade)
+  repair_track       RepairTrack?
 
   @@index([judgment_id])
+  @@index([intent])
+  @@index([version_group_id])
+  @@index([judgment_id, intent, superseded_at])
   @@index([difficulty_level])
   @@index([plan_type])
   @@map("reconciliation_plans")
+}
+
+model RepairTrack {
+  id                String             @id @default(uuid())
+  plan_id           String             @unique
+  intent            ReconciliationIntent
+  status            RepairTrackStatus  @default(draft)
+  recommended_mode  RepairMode         @default(solo)
+  current_step_index Int               @default(0)
+  needs_replan      Boolean            @default(false)
+  status_reason     String?
+  closed_reason     String?
+  last_closeness    ClosenessLevel?
+  last_stress       StressLevel?
+  last_needs_help   Boolean?
+  last_replan_at    DateTime?
+  partner_invited_at DateTime?
+  started_at        DateTime?
+  paused_at         DateTime?
+  completed_at      DateTime?
+  closed_at         DateTime?
+  created_at        DateTime           @default(now())
+  updated_at        DateTime           @updatedAt
+
+  plan              ReconciliationPlan @relation(fields: [plan_id], references: [id], onDelete: Cascade)
+  participant_states RepairParticipantState[]
+  step_progresses   RepairStepProgress[]
+  checkins          RepairCheckIn[]
+  events            RepairTrackEvent[]
+
+  @@index([status])
+  @@index([intent])
+  @@map("repair_tracks")
+}
+
+model RepairParticipantState {
+  id                String            @id @default(uuid())
+  repair_track_id   String
+  user_id           String
+  commitment_status CommitmentStatus  @default(not_viewed)
+  response_reason   String?
+  deferred_until    DateTime?
+  last_notified_at  DateTime?
+  responded_at      DateTime?
+  invited_at        DateTime?
+  viewed_at         DateTime?
+  committed_at      DateTime?
+  paused_at         DateTime?
+  declined_at       DateTime?
+  created_at        DateTime          @default(now())
+  updated_at        DateTime          @updatedAt
+
+  repair_track      RepairTrack       @relation(fields: [repair_track_id], references: [id], onDelete: Cascade)
+  user              User              @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([repair_track_id, user_id])
+  @@index([user_id, commitment_status])
+  @@map("repair_participant_states")
+}
+
+model RepairStepProgress {
+  id                String            @id @default(uuid())
+  repair_track_id   String
+  step_index        Int
+  step_title        String
+  step_content      String
+  fallback_content  String?
+  pause_rule        String?
+  status            RepairStepStatus  @default(pending)
+  completed_by      String?
+  completed_at      DateTime?
+  created_at        DateTime          @default(now())
+  updated_at        DateTime          @updatedAt
+
+  repair_track      RepairTrack       @relation(fields: [repair_track_id], references: [id], onDelete: Cascade)
+
+  @@unique([repair_track_id, step_index])
+  @@index([repair_track_id, status])
+  @@map("repair_step_progresses")
+}
+
+model RepairCheckIn {
+  id                String             @id @default(uuid())
+  repair_track_id   String
+  user_id           String
+  step_index        Int
+  result            RepairCheckInResult
+  closeness         ClosenessLevel
+  stress            StressLevel
+  needs_help        Boolean            @default(false)
+  notes             String?
+  photos_urls       String[]
+  created_at        DateTime           @default(now())
+  updated_at        DateTime           @updatedAt
+
+  repair_track      RepairTrack        @relation(fields: [repair_track_id], references: [id], onDelete: Cascade)
+  user              User               @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([repair_track_id, created_at])
+  @@index([user_id, created_at])
+  @@map("repair_checkins")
+}
+
+model RepairTrackEvent {
+  id              String      @id @default(uuid())
+  repair_track_id String
+  user_id         String?
+  event_type      String
+  payload         Json?
+  created_at      DateTime    @default(now())
+
+  repair_track    RepairTrack @relation(fields: [repair_track_id], references: [id], onDelete: Cascade)
+  user            User?       @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@index([repair_track_id, created_at])
+  @@index([event_type, created_at])
+  @@map("repair_track_events")
 }
 
 model ExecutionRecord {
@@ -778,9 +976,16 @@ model Notification {
   user_id       String
   channel       NotificationChannel
   template_code String               @db.VarChar(50)
+  action_key    String?              @db.VarChar(50)
+  priority      String?              @db.VarChar(20)
+  group_key     String?              @db.VarChar(100)
   payload       Json?
   dedup_key     String?              @db.VarChar(100)
   sent_at       DateTime?
+  read_at       DateTime?
+  dismissed_at  DateTime?
+  acted_at      DateTime?
+  snoozed_until DateTime?
   status        NotificationStatus   @default(pending)
   error_message String?
   created_at    DateTime             @default(now())
@@ -789,6 +994,10 @@ model Notification {
 
   @@index([user_id])
   @@index([status])
+  @@index([user_id, read_at])
+  @@index([user_id, dismissed_at])
+  @@index([user_id, acted_at])
+  @@index([user_id, snoozed_until])
   @@unique([dedup_key, template_code])
   @@map("notifications")
 }
@@ -856,6 +1065,117 @@ model InterviewTurn {
 
   @@unique([session_id, turn_order], name: "ux_interview_turns_session_order")
   @@map("interview_turns")
+}
+
+model AIStreamSession {
+  id              String                    @id @default(uuid())
+  stream_id       String                    @unique
+  request_id      String
+  scope_type      String                    @db.VarChar(50)
+  scope_id        String
+  status          AIStreamPersistenceStatus
+  last_seq        Int
+  last_event_type String                    @db.VarChar(50)
+  actor_role      String?                   @db.VarChar(50)
+  text            String?
+  phase           String?                   @db.VarChar(50)
+  message_id      String?
+  metadata        Json?
+  error           Json?
+  backend_mode    String?                   @db.VarChar(20)
+  started_at      DateTime?
+  completed_at    DateTime?
+  persisted_at    DateTime?
+  failed_at       DateTime?
+  cancelled_at    DateTime?
+  created_at      DateTime                  @default(now())
+  updated_at      DateTime                  @updatedAt
+
+  @@index([scope_type, scope_id, updated_at])
+  @@index([request_id])
+  @@index([status, updated_at])
+  @@map("ai_stream_sessions")
+}
+
+model AIStreamEventRecord {
+  id          String   @id @default(uuid())
+  stream_id   String
+  request_id  String
+  scope_type  String   @db.VarChar(50)
+  scope_id    String
+  seq         Int
+  event_type  String   @db.VarChar(50)
+  actor_role  String?  @db.VarChar(50)
+  message_id  String?
+  delta_text  String?
+  full_text   String?
+  phase       String?  @db.VarChar(50)
+  metadata    Json?
+  error       Json?
+  created_at  DateTime @default(now())
+
+  @@unique([stream_id, seq], name: "ux_ai_stream_events_stream_seq")
+  @@index([scope_type, scope_id, seq], map: "idx_ai_stream_events_scope_seq")
+  @@index([event_type, created_at], map: "idx_ai_stream_events_type_created_at")
+  @@map("ai_stream_events")
+}
+
+model AIStreamSessionArchive {
+  id                String                    @id @default(uuid())
+  archive_batch_key String                    @db.VarChar(100)
+  stream_id         String                    @unique
+  request_id        String
+  scope_type        String                    @db.VarChar(50)
+  scope_id          String
+  status            AIStreamPersistenceStatus
+  last_seq          Int
+  last_event_type   String                    @db.VarChar(50)
+  actor_role        String?                   @db.VarChar(50)
+  text              String?
+  phase             String?                   @db.VarChar(50)
+  message_id        String?
+  metadata          Json?
+  error             Json?
+  backend_mode      String?                   @db.VarChar(20)
+  started_at        DateTime?
+  completed_at      DateTime?
+  persisted_at      DateTime?
+  failed_at         DateTime?
+  cancelled_at      DateTime?
+  source_created_at DateTime
+  source_updated_at DateTime
+  archived_at       DateTime                  @default(now())
+
+  @@index([archive_batch_key, archived_at], map: "idx_ai_stream_session_archives_batch_archived_at")
+  @@index([scope_type, scope_id, source_updated_at], map: "idx_ai_stream_session_archives_scope_updated_at")
+  @@index([status, source_updated_at], map: "idx_ai_stream_session_archives_status_updated_at")
+  @@map("ai_stream_session_archives")
+}
+
+model AIStreamEventArchive {
+  id                String   @id @default(uuid())
+  archive_batch_key String   @db.VarChar(100)
+  stream_id         String
+  request_id        String
+  scope_type        String   @db.VarChar(50)
+  scope_id          String
+  seq               Int
+  event_type        String   @db.VarChar(50)
+  actor_role        String?  @db.VarChar(50)
+  message_id        String?
+  delta_text        String?
+  full_text         String?
+  phase             String?  @db.VarChar(50)
+  metadata          Json?
+  error             Json?
+  source_created_at DateTime
+  archived_at       DateTime @default(now())
+
+  @@unique([stream_id, seq], name: "ux_ai_stream_event_archives_stream_seq")
+  @@index([archive_batch_key, archived_at], map: "idx_ai_stream_event_archives_batch_archived_at")
+  @@index([scope_type, scope_id, seq], map: "idx_ai_stream_event_archives_scope_seq")
+  @@index([event_type, source_created_at], map: "idx_ai_stream_event_archives_type_created_at")
+  @@map("ai_stream_event_archives")
 }
 
 model ProfileNarrative {

@@ -1,7 +1,7 @@
 # 接口描述：admin
 
-**文檔版本**：v2.2  
-**最後更新**：2026-03-06  
+**文檔版本**：v2.5  
+**最後更新**：2026-04-04  
 **代碼基準**：`backend/src/routes/admin.routes.ts`、`backend/src/middleware/adminAuth.ts`、`frontend/src/services/api/admin.ts`
 
 ---
@@ -49,7 +49,10 @@
 | `GET/POST/PATCH/DELETE /api/v1/admin/admin-users*` | `adminUserId?` + create/update body | `data.item/items` | `VALIDATION_ERROR` `FORBIDDEN` | `admin:all`，管理後台帳號 |
 | `POST /api/v1/admin/reports/custom` | `metrics[]` | `data.metrics{}` | `VALIDATION_ERROR` | `reports:read` |
 | `GET /api/v1/admin/reports/overview.csv` | 無 | blob | `FORBIDDEN` | `reports:read` |
-| `GET /api/v1/admin/reports/overview|funnel|costs` | 無 | 報表資料（保留） | `FORBIDDEN` | 候選接口，未前台接線 |
+| `GET /api/v1/admin/reports/overview|funnel|costs` | 無 | 報表資料 | `FORBIDDEN` | `reports:read`，已由 admin reports 頁接線 |
+| `GET /api/v1/admin/reports/ai-streams` | query `days? limit?` | `data.windowDays data.retentionPolicy data.totals data.byStatus data.byScopeType data.byBackendMode data.recentFailures[]` | `FORBIDDEN` `VALIDATION_ERROR` | `reports:read`，AI Stream 治理報表，已由 admin reports 頁接線 |
+| `GET /api/v1/admin/reports/ai-streams/sessions` | query `days? limit? offset? status? scopeType? scopeId? requestId? streamId? source?` | `data.items[] data.total data.source` | `FORBIDDEN` `VALIDATION_ERROR` | `reports:read`，AI Stream session 明細查詢 |
+| `GET /api/v1/admin/reports/ai-streams/sessions/:streamId` | params `streamId` + query `eventLimit? source?` | `data.source data.session data.events[]` | `FORBIDDEN` `NOT_FOUND` `VALIDATION_ERROR` | `reports:read`，單條 stream 詳情 |
 | `GET /api/v1/admin/health/detailed` / `GET /jobs` / `GET /runtime/interview` | 無 | 運維資料（保留） | `FORBIDDEN` | 候選接口，未前台接線 |
 
 ## 操作級規則（深水區）
@@ -57,6 +60,9 @@
 - Admin token 與 user token 完全隔離，且優先存於 `sessionStorage`（降低長期暴露）。
 - Admin API 的 401 處理與前台不同：`INVALID_CREDENTIALS` 不清 token，不應觸發全域導轉。
 - CSV 下載鏈路（audit/reports）是運維高風險點，需回歸 responseType 與文件內容。
+- `GET /api/v1/admin/reports/ai-streams` 直接讀取 `ai_stream_sessions / ai_stream_events / archives` 聚合結果，主要用於排障、驗收與保留策略校驗；現已由 Admin Reports 頁接線。
+- `GET /api/v1/admin/reports/ai-streams/sessions` 與 `:streamId` 用於直接查看 live/archive 明細，避免只剩匯總報表。
+- `cleanup_ai_stream_persistence` 已加入排程任務，會先 archive 再 delete；如需立即驗證清理策略，可透過既有 `POST /api/v1/admin/jobs/:jobKey/trigger` 手動觸發。
 
 ## 回歸測試最小集
 
@@ -81,6 +87,9 @@
 | `GET /api/v1/admin/audit-logs(.csv)` | `FORBIDDEN` | 403 | 提示無審計權限 | 不重試 |
 | `GET/POST/PATCH/DELETE /api/v1/admin/admin-users*` | `FORBIDDEN` | 403 | 關閉管理員治理按鈕 | 不重試 |
 | `POST /api/v1/admin/reports/custom` | `VALIDATION_ERROR` | 400 | 提示 metrics 列表不合法 | 修正後重送 |
+| `GET /api/v1/admin/reports/ai-streams` | `FORBIDDEN` | 403 | 顯示無 AI Stream 報表權限 | 不重試 |
+| `GET /api/v1/admin/reports/ai-streams/sessions` | `FORBIDDEN` | 403 | 顯示無 AI Stream 查詢權限 | 不重試 |
+| `GET /api/v1/admin/reports/ai-streams/sessions/:streamId` | `NOT_FOUND` | 404 | 提示 stream 不存在或已被清理 | 可切換 source 後重查 |
 | `GET /api/v1/admin/reports/overview.csv` | `FORBIDDEN` | 403 | 顯示無報表權限 | 不重試 |
 | `PUT /api/v1/admin/alerts/rules` | `VALIDATION_ERROR` | 400 | 顯示規則 schema 錯誤 | 修正後重送 |
 | `PUT /api/v1/admin/feature-flags` | `VALIDATION_ERROR` | 400 | 提示旗標格式錯誤 | 修正後重送 |
@@ -88,4 +97,4 @@
 ## 狀態標記
 
 - 已使用：18
-- 候選廢棄：8
+- 候選廢棄：9

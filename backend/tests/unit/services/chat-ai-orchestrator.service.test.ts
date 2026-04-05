@@ -43,6 +43,18 @@ jest.mock('../../../src/services/chat-events.service', () => ({
   chatEventsService: { publish: jest.fn() },
 }));
 
+jest.mock('../../../src/services/ai-stream.service', () => ({
+  __esModule: true,
+  aiStreamService: {
+    createStream: jest.fn(() => ({ streamId: 'stream-1', requestId: 'request-1', scopeType: 'chat_room', scopeId: 'room-1' })),
+    start: jest.fn(),
+    delta: jest.fn(),
+    completed: jest.fn(),
+    persisted: jest.fn(),
+    failed: jest.fn(),
+  },
+}));
+
 jest.mock('../../../src/services/chat-metrics.service', () => ({
   __esModule: true,
   chatMetricsService: { recordAiTrigger: jest.fn(), recordSafetyHit: jest.fn() },
@@ -54,6 +66,9 @@ jest.mock('../../../src/config/logger', () => ({
 }));
 
 import { chatAIOrchestrator, detectValidationSeeking } from '../../../src/services/chat-ai-orchestrator.service';
+import { chatEventsService } from '../../../src/services/chat-events.service';
+import { aiStreamService } from '../../../src/services/ai-stream.service';
+import { chatMetricsService } from '../../../src/services/chat-metrics.service';
 
 describe('detectValidationSeeking', () => {
   describe('應觸發（validation-seeking）', () => {
@@ -101,6 +116,8 @@ describe('ChatAIOrchestrator prompt 選擇', () => {
     ]);
     prisma.chatMessage.create.mockResolvedValue({ id: 'msg-1' });
     generateTextStreamMock.mockResolvedValue('AI 回應');
+    (chatMetricsService.recordAiTrigger as jest.Mock).mockResolvedValue(undefined);
+    (chatMetricsService.recordSafetyHit as jest.Mock).mockResolvedValue(undefined);
   });
 
   it('validation-seeking 訊息應傳入 SUPPORT_VALIDATION_SEEKING_PROMPT', async () => {
@@ -136,5 +153,48 @@ describe('ChatAIOrchestrator prompt 選擇', () => {
     const [, options] = generateTextStreamMock.mock.calls[0];
     expect(options.systemPrompt).toContain('價值澄清（重要）');
     expect(options.systemPrompt).not.toContain('本輪情境：用戶似乎在尋求你對其爭議行為的認同或背書');
+  });
+
+  it('應以 AI Stream 發送草稿事件，聊天室事件流只在落庫後發 message', async () => {
+    const lockDone = new Promise<void>((r) => { lockState.resolve = r; });
+    prisma.chatParticipant.count.mockResolvedValue(1);
+    prisma.chatMessage.create.mockResolvedValue({
+      id: 'msg-1',
+      sender_participant_id: 'ai-1',
+      content: 'AI 回應',
+      ai_strategy: 'mediation',
+      message_type: 'ai_mediation',
+      visibility_scope: 'all',
+    });
+    generateTextStreamMock.mockImplementation(async (_prompt: string, options: { onToken?: (token: string) => void }) => {
+      options.onToken?.('AI ');
+      options.onToken?.('回應');
+      return 'AI 回應';
+    });
+
+    chatAIOrchestrator.onUserMessage(
+      {
+        roomId: 'room-1',
+        roomStatus: 'group_active',
+      },
+      { id: 'p-a', role_in_room: 'roleA', is_active: true } as any,
+      { id: 'm1', content: '請幫我協調', visibility_scope: 'all' }
+    );
+    await lockDone;
+
+    expect(aiStreamService.start).toHaveBeenCalled();
+    expect(aiStreamService.delta).toHaveBeenCalledTimes(2);
+    expect(aiStreamService.completed).toHaveBeenCalled();
+    expect(aiStreamService.persisted).toHaveBeenCalledWith(
+      expect.objectContaining({ streamId: 'stream-1', requestId: 'request-1' }),
+      expect.objectContaining({ messageId: 'msg-1', fullText: 'AI 回應' })
+    );
+
+    expect(chatEventsService.publish).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'message',
+      roomId: 'room-1',
+      payload: expect.objectContaining({ streamId: 'stream-1', requestId: 'request-1', messageId: 'msg-1' }),
+    }));
+    expect(chatEventsService.publish).toHaveBeenCalledTimes(1);
   });
 });

@@ -38,10 +38,7 @@ export type ChatStreamEventType =
   | 'room_status'
   | 'ready'
   | 'ping'
-  | 'system'
-  | 'ai_start'
-  | 'ai_token'
-  | 'ai_end';
+  | 'system';
 
 export interface ChatParticipant {
   id: string;
@@ -124,6 +121,13 @@ export interface ChatJudgmentStatus {
 export interface ChatStreamEvent {
   type: ChatStreamEventType;
   roomId: string;
-  payload?: Record<string, unknown> & { text?: string };
+  payload?: Record<string, unknown> & {
+    text?: string;
+    streamId?: string;
+    requestId?: string;
+    messageId?: string;
+    done?: boolean;
+    error?: boolean;
+  };
   at?: string;
 }

@@ -19,6 +19,7 @@ import {
 } from '../utils/constants';
 import { systemConfigService } from '../services/system-config.service';
 import { runOpsAlertChecks } from '../services/ops-alerts.service';
+import { aiStreamService } from '../services/ai-stream.service';
 
 type CronExecutionResult = {
   affectedCount?: number;
@@ -307,20 +308,20 @@ export const resetAIDailyCount = createJob('0 0 * * *', async () => {
 });
 
 /**
- * 7天跟進提醒（每天上午10點）
- * 對已完成判決但尚未生成和好方案的案件，提醒用戶
+ * 修復旅程早期提醒（每天上午10點）
+ * - 判決完成後 48h 尚未選方向 / 尚未生成方案
  */
 export const followUp7Day = createJob('0 10 * * *', async () => {
   await withCronRunLog('follow_up_7_day', async () => {
     try {
-      const sevenDaysAgo = new Date(Date.now() - CLEANUP_THRESHOLDS.FOLLOWUP_7_DAYS * 24 * 60 * 60 * 1000);
-      const eightDaysAgo = new Date(Date.now() - CLEANUP_THRESHOLDS.FOLLOWUP_8_DAYS * 24 * 60 * 60 * 1000);
+      const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
+      const seventyTwoHoursAgo = new Date(Date.now() - 72 * 60 * 60 * 1000);
 
       const cases = await prisma.case.findMany({
         where: {
           status: CASE_STATUS.COMPLETED,
           mode: CASE_MODE.REMOTE,
-          completed_at: { gte: eightDaysAgo, lte: sevenDaysAgo },
+          completed_at: { gte: seventyTwoHoursAgo, lte: fortyEightHoursAgo },
           judgment: {
             reconciliation_plans: { none: {} },
           },
@@ -343,7 +344,7 @@ export const followUp7Day = createJob('0 10 * * *', async () => {
         ];
         for (const party of parties) {
           if (!party.id || party.enabled === false) continue;
-          const dedupKey = `followup_7d_${c.id}_${party.id}`;
+          const dedupKey = `repair_choose_direction_${c.id}_${party.id}`;
           allDedupKeys.push(dedupKey);
           dedupKeyCaseMap.set(dedupKey, c);
           dedupKeyUserMap.set(dedupKey, party.id);
@@ -363,17 +364,24 @@ export const followUp7Day = createJob('0 10 * * *', async () => {
         .map(k => {
           const c = dedupKeyCaseMap.get(k)!;
           const userId = dedupKeyUserMap.get(k)!;
-          return {
-            user_id: userId,
-            channel: 'email' as const,
-            template_code: 'followup_7day',
-            payload: {
-              case_id: c.id,
-              judgment_id: c.judgment?.id,
-              case_title: c.title,
-            },
-            dedup_key: k,
-            status: 'pending' as const,
+        return {
+          user_id: userId,
+          channel: 'email' as const,
+          template_code: 'repair_journey_choose_direction',
+          action_key: 'open_reconciliation_entry' as const,
+          priority: 'soon' as const,
+          group_key: c.judgment?.id ? `judgment_${c.judgment.id}` : `case_${c.id}`,
+          payload: {
+            case_id: c.id,
+            judgment_id: c.judgment?.id,
+            case_title: c.title,
+            path: c.judgment?.id ? `/reconciliation/${c.judgment.id}` : null,
+            entity_type: c.judgment?.id ? 'judgment' : 'case',
+            entity_id: c.judgment?.id ?? c.id,
+            cta_label: '看看最適合你們的下一步',
+          },
+          dedup_key: k,
+          status: 'pending' as const,
           };
         });
 
@@ -384,110 +392,245 @@ export const followUp7Day = createJob('0 10 * * *', async () => {
       }
 
       if (created > 0) {
-        logger.info('7-day follow-up notifications created', { count: created });
+        logger.info('Repair journey choose-direction notifications created', { count: created });
       }
       return { affectedCount: created };
     } catch (error) {
-      logger.error('Failed to create 7-day follow-up notifications', { error });
+      logger.error('Failed to create repair journey choose-direction notifications', { error });
       throw error;
     }
   });
 });
 
 /**
- * 30天跟進提醒（每天上午10點）
- * 對已選擇和好方案但執行進度不足50%的案件，提醒用戶
+ * 修復旅程狀態提醒（每天上午10點）
+ * - 已承諾但 24h 未開始
+ * - partner_invited 48h 未查看
+ * - partner_invited 72h 未回應
+ * - replanning 24h 未處理
+ * - paused 7d 未恢復
  */
 export const followUp30Day = createJob('0 10 * * *', async () => {
   await withCronRunLog('follow_up_30_day', async () => {
     try {
-    const thirtyDaysAgo = new Date(Date.now() - CLEANUP_THRESHOLDS.FOLLOWUP_30_DAYS * 24 * 60 * 60 * 1000);
-    const thirtyOneDaysAgo = new Date(Date.now() - CLEANUP_THRESHOLDS.FOLLOWUP_31_DAYS * 24 * 60 * 60 * 1000);
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
+      const seventyTwoHoursAgo = new Date(Date.now() - 72 * 60 * 60 * 1000);
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-    const plans = await prisma.reconciliationPlan.findMany({
-      where: {
-        OR: [{ user1_selected: true }, { user2_selected: true }],
-        created_at: { gte: thirtyOneDaysAgo, lte: thirtyDaysAgo },
-      },
-      include: {
-        judgment: {
-          include: {
-            case: {
-              select: {
-                id: true, title: true, plaintiff_id: true, defendant_id: true,
-                plaintiff: { select: { notification_enabled: true } },
-                defendant: { select: { notification_enabled: true } },
+      const tracks = await prisma.repairTrack.findMany({
+        where: {
+          status: {
+            in: ['draft', 'partner_invited', 'replanning', 'paused'],
+          },
+        },
+        include: {
+          plan: {
+            include: {
+              judgment: {
+                include: {
+                  case: {
+                    select: {
+                      id: true,
+                      title: true,
+                      plaintiff_id: true,
+                      defendant_id: true,
+                      plaintiff: { select: { notification_enabled: true } },
+                      defendant: { select: { notification_enabled: true } },
+                    },
+                  },
+                },
               },
             },
           },
+          participant_states: true,
         },
-        execution_records: true,
-      },
-    });
-
-    const allDedupKeys30: string[] = [];
-    const dedupKeyPlanMap = new Map<string, { plan: typeof plans[number]; userId: string; progress: number }>();
-
-    for (const plan of plans) {
-      const checkins = plan.execution_records.filter(r => r.action === EXECUTION_ACTION.CHECKIN);
-      const estimatedDuration = plan.estimated_duration || CLEANUP_THRESHOLDS.DEFAULT_ESTIMATED_DURATION_DAYS;
-      const progress = Math.min(100, Math.round((checkins.length / estimatedDuration) * 100));
-
-      if (progress >= CLEANUP_THRESHOLDS.FOLLOWUP_PROGRESS_THRESHOLD) continue;
-
-      const c = plan.judgment.case;
-      const parties = [
-        { id: c.plaintiff_id, enabled: c.plaintiff?.notification_enabled },
-        { id: c.defendant_id, enabled: c.defendant?.notification_enabled },
-      ];
-      for (const party of parties) {
-        if (!party.id || party.enabled === false) continue;
-        const dedupKey = `followup_30d_${plan.id}_${party.id}`;
-        allDedupKeys30.push(dedupKey);
-        dedupKeyPlanMap.set(dedupKey, { plan, userId: party.id, progress });
-      }
-    }
-
-    const existingNotifs30 = allDedupKeys30.length > 0
-      ? await prisma.notification.findMany({
-          where: { dedup_key: { in: allDedupKeys30 } },
-          select: { dedup_key: true },
-        })
-      : [];
-    const existingKeys30 = new Set(existingNotifs30.map(n => n.dedup_key));
-
-    const toCreate30 = allDedupKeys30
-      .filter(k => !existingKeys30.has(k))
-      .map(k => {
-        const { plan, userId, progress } = dedupKeyPlanMap.get(k)!;
-        const c = plan.judgment.case;
-        return {
-          user_id: userId,
-          channel: 'email' as const,
-          template_code: 'followup_30day',
-          payload: {
-            case_id: c.id,
-            plan_id: plan.id,
-            case_title: c.title,
-            progress,
-          },
-          dedup_key: k,
-          status: 'pending' as const,
-        };
       });
 
-    let created = 0;
-    if (toCreate30.length > 0) {
-      const result = await prisma.notification.createMany({ data: toCreate30, skipDuplicates: true });
-      created = result.count;
-    }
+      const pendingNotifications: Array<{
+        user_id: string;
+        channel: 'email';
+        template_code: string;
+        action_key?: string;
+        priority?: string;
+        group_key?: string;
+        payload: Prisma.InputJsonValue;
+        dedup_key: string;
+        status: 'pending';
+      }> = [];
+
+      for (const track of tracks) {
+        const c = track.plan.judgment.case;
+        const currentParties = [
+          { id: c.plaintiff_id, enabled: c.plaintiff?.notification_enabled },
+          { id: c.defendant_id, enabled: c.defendant?.notification_enabled },
+        ].filter((party) => Boolean(party.id) && party.enabled !== false) as Array<{ id: string; enabled?: boolean | null }>;
+
+        if (
+          track.status === 'draft'
+          && track.updated_at <= twentyFourHoursAgo
+          && track.participant_states.some((state) => state.commitment_status === 'committed')
+          && !track.started_at
+        ) {
+          for (const party of currentParties) {
+            const state = track.participant_states.find((item) => item.user_id === party.id);
+            if (state?.commitment_status !== 'committed') continue;
+            pendingNotifications.push({
+              user_id: party.id,
+              channel: 'email',
+              template_code: 'repair_journey_start_step',
+              action_key: 'continue_today_step',
+              priority: 'now',
+              group_key: `repair_track_${track.id}`,
+              payload: {
+                case_id: c.id,
+                plan_id: track.plan_id,
+                repair_track_id: track.id,
+                case_title: c.title,
+                path: `/execution/${track.plan_id}/checkin`,
+                journey_status: track.status,
+                entity_type: 'repair_track',
+                entity_id: track.id,
+                cta_label: '開始今天的一小步',
+              },
+              dedup_key: `repair_start_step_${track.id}_${party.id}`,
+              status: 'pending',
+            });
+          }
+        }
+
+        if (track.status === 'partner_invited') {
+          const invitee = track.participant_states.find((state) => !!state.invited_at);
+          const inviter = track.participant_states.find((state) => state.commitment_status === 'committed');
+          if (invitee?.user_id && invitee.invited_at && invitee.commitment_status === 'not_viewed' && invitee.invited_at <= fortyEightHoursAgo) {
+            pendingNotifications.push({
+              user_id: invitee.user_id,
+              channel: 'email',
+              template_code: 'repair_journey_partner_invited',
+              action_key: 'review_invitation',
+              priority: 'now',
+              group_key: `repair_track_${track.id}`,
+              payload: {
+                case_id: c.id,
+                plan_id: track.plan_id,
+                repair_track_id: track.id,
+                case_title: c.title,
+                path: `/reconciliation/${track.plan.judgment_id}/${track.plan_id}`,
+                journey_status: track.status,
+                entity_type: 'repair_track',
+                entity_id: track.id,
+                cta_label: '查看這個邀請',
+              },
+              dedup_key: `repair_partner_invited_${track.id}_${invitee.user_id}`,
+              status: 'pending',
+            });
+          }
+
+          if (
+            inviter?.user_id
+            && track.partner_invited_at
+            && track.partner_invited_at <= seventyTwoHoursAgo
+            && !track.participant_states.some((state) => state.commitment_status === 'declined' || state.commitment_status === 'committed' && state.user_id !== inviter.user_id)
+          ) {
+            pendingNotifications.push({
+              user_id: inviter.user_id,
+              channel: 'email',
+              template_code: 'repair_journey_partner_no_response',
+              action_key: 'view_invitation_status',
+              priority: 'soon',
+              group_key: `repair_track_${track.id}`,
+              payload: {
+                case_id: c.id,
+                plan_id: track.plan_id,
+                repair_track_id: track.id,
+                case_title: c.title,
+                path: `/reconciliation/${track.plan.judgment_id}/${track.plan_id}`,
+                journey_status: track.status,
+                entity_type: 'repair_track',
+                entity_id: track.id,
+                cta_label: '查看目前狀態',
+              },
+              dedup_key: `repair_partner_no_response_${track.id}_${inviter.user_id}`,
+              status: 'pending',
+            });
+          }
+        }
+
+        if (track.status === 'replanning' && track.updated_at <= twentyFourHoursAgo) {
+          for (const party of currentParties) {
+            pendingNotifications.push({
+              user_id: party.id,
+              channel: 'email',
+              template_code: 'repair_journey_replan',
+              action_key: 'replan_track',
+              priority: 'now',
+              group_key: `repair_track_${track.id}`,
+              payload: {
+                case_id: c.id,
+                plan_id: track.plan_id,
+                repair_track_id: track.id,
+                case_title: c.title,
+                path: `/execution/${track.plan_id}/replan`,
+                journey_status: track.status,
+                entity_type: 'repair_track',
+                entity_id: track.id,
+                cta_label: '重新調整這一輪',
+              },
+              dedup_key: `repair_replan_${track.id}_${party.id}`,
+              status: 'pending',
+            });
+          }
+        }
+
+        if (track.status === 'paused' && track.paused_at && track.paused_at <= sevenDaysAgo) {
+          for (const party of currentParties) {
+            pendingNotifications.push({
+              user_id: party.id,
+              channel: 'email',
+              template_code: 'repair_journey_resume',
+              action_key: 'resume_track',
+              priority: 'soon',
+              group_key: `repair_track_${track.id}`,
+              payload: {
+                case_id: c.id,
+                plan_id: track.plan_id,
+                repair_track_id: track.id,
+                case_title: c.title,
+                path: `/reconciliation/${track.plan.judgment_id}/${track.plan_id}`,
+                journey_status: track.status,
+                entity_type: 'repair_track',
+                entity_id: track.id,
+                cta_label: '恢復這一輪',
+              },
+              dedup_key: `repair_resume_${track.id}_${party.id}`,
+              status: 'pending',
+            });
+          }
+        }
+      }
+
+      const dedupKeys = pendingNotifications.map((item) => item.dedup_key);
+      const existing = dedupKeys.length > 0
+        ? await prisma.notification.findMany({
+            where: { dedup_key: { in: dedupKeys } },
+            select: { dedup_key: true },
+          })
+        : [];
+      const existingKeys = new Set(existing.map((item) => item.dedup_key));
+      const toCreate = pendingNotifications.filter((item) => !existingKeys.has(item.dedup_key));
+
+      let created = 0;
+      if (toCreate.length > 0) {
+        const result = await prisma.notification.createMany({ data: toCreate, skipDuplicates: true });
+        created = result.count;
+      }
 
       if (created > 0) {
-        logger.info('30-day follow-up notifications created', { count: created });
+        logger.info('Repair journey status notifications created', { count: created });
       }
       return { affectedCount: created };
     } catch (error) {
-      logger.error('Failed to create 30-day follow-up notifications', { error });
+      logger.error('Failed to create repair journey status notifications', { error });
       throw error;
     }
   });
@@ -516,6 +659,34 @@ export const cleanupStaleDraftCases = createJob('0 4 * * *', async () => {
       return { affectedCount: result.count };
     } catch (error) {
       logger.error('Failed to cleanup stale draft cases', { error });
+      throw error;
+    }
+  });
+});
+
+/**
+ * 清理 AI Stream 持久化資料（每天凌晨 5 點）
+ * - events 預設保留 14 天
+ * - sessions 預設保留 30 天，且僅清理已終態 stream
+ */
+export const cleanupAIStreamPersistence = createJob('0 5 * * *', async () => {
+  await withCronRunLog('cleanup_ai_stream_persistence', async () => {
+    try {
+      const result = await aiStreamService.cleanupPersistence({
+        sessionRetentionDays: env.AI_STREAM_SESSION_RETENTION_DAYS,
+        eventRetentionDays: env.AI_STREAM_EVENT_RETENTION_DAYS,
+        archiveEnabled: env.AI_STREAM_ARCHIVE_ENABLED,
+        archiveBatchSize: env.AI_STREAM_ARCHIVE_BATCH_SIZE,
+      });
+      if ((result.deletedEvents as number) > 0 || (result.deletedSessions as number) > 0) {
+        logger.info('AI Stream persistence cleaned', result);
+      }
+      return {
+        affectedCount: Number(result.deletedEvents || 0) + Number(result.deletedSessions || 0),
+        detail: result as Record<string, unknown>,
+      };
+    } catch (error) {
+      logger.error('Failed to cleanup AI Stream persistence', { error });
       throw error;
     }
   });
@@ -598,6 +769,7 @@ export const adminJobs = [
   { key: 'cleanup_abandoned_interview_sessions', schedule: '0 * * * *', task: cleanupAbandonedInterviewSessions },
   { key: 'cleanup_stuck_processing_sessions', schedule: '*/30 * * * *', task: cleanupStuckProcessingSessions },
   { key: 'cleanup_expired_verifications', schedule: '0 * * * *', task: cleanupExpiredVerifications },
+  { key: 'cleanup_ai_stream_persistence', schedule: '0 5 * * *', task: cleanupAIStreamPersistence },
   { key: 'reset_ai_daily_count', schedule: '0 0 * * *', task: resetAIDailyCount },
   { key: 'cleanup_orphan_uploads', schedule: '0 3 * * *', task: cleanupOrphanUploads },
   { key: 'cleanup_temp_pairings', schedule: '0 2 * * *', task: cleanupTempPairings },
@@ -655,6 +827,7 @@ export const startJobs = () => {
   cleanupAbandonedInterviewSessions.start();
   cleanupStuckProcessingSessions.start();
   cleanupExpiredVerifications.start();
+  cleanupAIStreamPersistence.start();
   resetAIDailyCount.start();
   cleanupOrphanUploads.start();
   cleanupTempPairings.start();
@@ -684,6 +857,7 @@ export const stopJobs = () => {
   cleanupAbandonedInterviewSessions.stop();
   cleanupStuckProcessingSessions.stop();
   cleanupExpiredVerifications.stop();
+  cleanupAIStreamPersistence.stop();
   resetAIDailyCount.stop();
   cleanupOrphanUploads.stop();
   cleanupTempPairings.stop();

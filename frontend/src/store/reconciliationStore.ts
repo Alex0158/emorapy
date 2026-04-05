@@ -4,12 +4,13 @@
 
 import { create } from 'zustand';
 import { getErrorMessage } from '@/utils/apiError';
-import type { ReconciliationPlan, PlanPreferences } from '@/services/api/reconciliation';
+import type { ReconciliationPlan, PlanPreferences, ReconciliationIntent } from '@/services/api/reconciliation';
 import { getPlans, selectPlan, generatePlans } from '@/services/api/reconciliation';
 
 export type PlanFilters = {
   difficulty?: 'easy' | 'medium' | 'hard';
-  type?: 'activity' | 'communication' | 'intimacy';
+  type?: 'activity' | 'communication' | 'intimacy' | 'gift' | 'service';
+  intent?: ReconciliationIntent;
 };
 
 interface ReconciliationState {
@@ -18,7 +19,11 @@ interface ReconciliationState {
   isLoading: boolean;
   error: string | null;
   getPlans: (judgmentId: string, filters?: PlanFilters) => Promise<ReconciliationPlan[]>;
-  generatePlans: (judgmentId: string, preferences?: PlanPreferences) => Promise<ReconciliationPlan[]>;
+  generatePlans: (judgmentId: string, input?: {
+    intent?: ReconciliationIntent;
+    preferences?: PlanPreferences;
+    force_regenerate?: boolean;
+  }) => Promise<ReconciliationPlan[]>;
   selectPlan: (planId: string) => Promise<void>;
   setSelectedPlan: (plan: ReconciliationPlan | null) => void;
   clearError: () => void;
@@ -36,7 +41,8 @@ export const useReconciliationStore = create<ReconciliationState>((set) => ({
     const seq = ++_reqSeq;
     set({ isLoading: true, error: null });
     try {
-      const plans = await getPlans(judgmentId, filters);
+      const bundle = await getPlans(judgmentId, filters);
+      const plans = bundle.plans;
       if (seq !== _reqSeq) return plans;
       set({ plans, isLoading: false });
       return plans;
@@ -47,11 +53,12 @@ export const useReconciliationStore = create<ReconciliationState>((set) => ({
     }
   },
 
-  generatePlans: async (judgmentId: string, preferences?: PlanPreferences) => {
+  generatePlans: async (judgmentId: string, input) => {
     const seq = ++_reqSeq;
     set({ isLoading: true, error: null });
     try {
-      const plans = await generatePlans(judgmentId, preferences);
+      const bundle = await generatePlans(judgmentId, input);
+      const plans = bundle.plans;
       if (seq !== _reqSeq) return plans;
       set({ plans, isLoading: false });
       return plans;
@@ -84,4 +91,3 @@ export const useReconciliationStore = create<ReconciliationState>((set) => ({
     set({ error: null });
   },
 }));
-

@@ -16,18 +16,24 @@ import {
   message,
   Spin,
   Alert,
+  Divider,
+  Row,
+  Col,
 } from 'antd';
 import {
   CheckCircleOutlined,
   CloseCircleOutlined,
   HeartOutlined,
   ArrowLeftOutlined,
+  SafetyCertificateOutlined,
+  PauseCircleOutlined,
+  LogoutOutlined,
 } from '@ant-design/icons';
 import { getJudgment, acceptJudgment } from '@/services/api/judgment';
-import { generatePlans } from '@/services/api/reconciliation';
 import { psychProfileApi } from '@/services/api/psychProfile';
 import { useInterviewTrigger } from '@/hooks/useInterviewTrigger';
 import type { Judgment } from '@/types/judgment';
+import type { ReconciliationIntent } from '@/services/api/reconciliation';
 import MediatorAvatar from '@/components/business/MediatorAvatar';
 import JudgmentViewer from '@/components/business/JudgmentViewer';
 import ResponsibilityRatio from '@/components/business/ResponsibilityRatio';
@@ -49,14 +55,12 @@ const JudgmentDetail = () => {
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [accepting, setAccepting] = useState(false);
-  const [generating, setGenerating] = useState(false);
   const [rating, setRating] = useState(0);
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
 
   const [showPostJudgmentCard, setShowPostJudgmentCard] = useState(false);
   const dismissedPostJudgmentRef = useRef(false);
-  const generatingLockRef = useRef(false);
   const fetchLockRef = useRef(false);
   const acceptLockRef = useRef(false);
   const {
@@ -167,21 +171,9 @@ const JudgmentDetail = () => {
     }
   };
 
-  const handleGeneratePlans = async () => {
-    if (!id || generatingLockRef.current) return;
-    generatingLockRef.current = true;
-    setGenerating(true);
-    try {
-      await generatePlans(id);
-      if (!mountedRef.current) return;
-      message.success(t('message.generatePlansSuccess'));
-      navigate(`/reconciliation/${id}`);
-    } catch (error: unknown) {
-      message.error(getErrorMessage(error, 'message.generatePlansFail'));
-    } finally {
-      generatingLockRef.current = false;
-      setGenerating(false);
-    }
+  const handleChooseIntent = (intent: ReconciliationIntent) => {
+    if (!id) return;
+    navigate(`/reconciliation/${id}?intent=${intent}`);
   };
 
   const responsibilityRatio = useMemo(
@@ -321,18 +313,75 @@ const JudgmentDetail = () => {
                   >
                     {t('judgmentDetail.reject')}
                   </Button>
-                  <Button
-                    type="default"
-                    size="large"
-                    shape="round"
-                    icon={<HeartOutlined />}
-                    onClick={handleGeneratePlans}
-                    loading={generating}
-                    aria-label={t('judgmentDetail.generatePlansAria')}
-                    className="ml-auto"
-                  >
-                    {t('judgmentDetail.generatePlans')}
-                  </Button>
+                </div>
+
+                <Divider />
+
+                <div className="space-y-4">
+                  <Title level={5} className="font-heading mb-0">
+                    {t('judgmentDetail.nextDirectionTitle')}
+                  </Title>
+                  <Text type="secondary">
+                    {t('judgmentDetail.nextDirectionDesc')}
+                  </Text>
+                  <Row gutter={[16, 16]} style={{ marginTop: 8 }}>
+                    <Col xs={24} md={12}>
+                      <Card variant="borderless" className="rounded-2xl bg-rose-50">
+                        <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
+                          <Space>
+                            <HeartOutlined />
+                            <Text strong>{t('judgmentDetail.intentRepairTitle')}</Text>
+                          </Space>
+                          <Text type="secondary">{t('judgmentDetail.intentRepairDesc')}</Text>
+                          <Button type="primary" shape="round" onClick={() => handleChooseIntent('repair')}>
+                            {t('judgmentDetail.intentRepairCta')}
+                          </Button>
+                        </Space>
+                      </Card>
+                    </Col>
+                    <Col xs={24} md={12}>
+                      <Card variant="borderless" className="rounded-2xl bg-amber-50">
+                        <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
+                          <Space>
+                            <PauseCircleOutlined />
+                            <Text strong>{t('judgmentDetail.intentCoolDownTitle')}</Text>
+                          </Space>
+                          <Text type="secondary">{t('judgmentDetail.intentCoolDownDesc')}</Text>
+                          <Button shape="round" onClick={() => handleChooseIntent('cool_down')}>
+                            {t('judgmentDetail.intentCoolDownCta')}
+                          </Button>
+                        </Space>
+                      </Card>
+                    </Col>
+                    <Col xs={24} md={12}>
+                      <Card variant="borderless" className="rounded-2xl bg-slate-50">
+                        <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
+                          <Space>
+                            <LogoutOutlined />
+                            <Text strong>{t('judgmentDetail.intentGracefulExitTitle')}</Text>
+                          </Space>
+                          <Text type="secondary">{t('judgmentDetail.intentGracefulExitDesc')}</Text>
+                          <Button shape="round" onClick={() => handleChooseIntent('graceful_exit')}>
+                            {t('judgmentDetail.intentGracefulExitCta')}
+                          </Button>
+                        </Space>
+                      </Card>
+                    </Col>
+                    <Col xs={24} md={12}>
+                      <Card variant="borderless" className="rounded-2xl bg-cyan-50">
+                        <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
+                          <Space>
+                            <SafetyCertificateOutlined />
+                            <Text strong>{t('judgmentDetail.intentSafetyTitle')}</Text>
+                          </Space>
+                          <Text type="secondary">{t('judgmentDetail.intentSafetyDesc')}</Text>
+                          <Button shape="round" onClick={() => handleChooseIntent('safety_support')}>
+                            {t('judgmentDetail.intentSafetyCta')}
+                          </Button>
+                        </Space>
+                      </Card>
+                    </Col>
+                  </Row>
                 </div>
 
               {judgment.user1_acceptance !== undefined && (

@@ -1,8 +1,8 @@
 # 接口描述：judgment
 
-**文檔版本**：v2.2  
-**最後更新**：2026-03-06  
-**代碼基準**：`backend/src/routes/judgment.routes.ts`、`backend/src/utils/validation.ts`、`frontend/src/services/api/judgment.ts`
+**文檔版本**：v2.3  
+**最後更新**：2026-04-04  
+**代碼基準**：`backend/src/routes/judgment.routes.ts`、`backend/src/routes/ai-stream.routes.ts`、`backend/src/services/judgment.service.ts`、`frontend/src/services/api/judgment.ts`、`frontend/src/services/aiStream.ts`
 
 ---
 
@@ -16,6 +16,7 @@
 | API | Request（核心字段） | Success（前端實際用到） | 常見錯誤碼 | 副作用/狀態轉移 | 前端入口 |
 |---|---|---|---|---|---|
 | `POST /api/v1/judgments/generate/:id` | `id(uuid)` + optional `X-Session-Id` | `data.judgment.id` `plaintiff_ratio/defendant_ratio` | `RATE_LIMIT_EXCEEDED` `CASE_NOT_READY` `AI_CALL_FAILED` | case 進入判決生成流 | `/case/:id/review` |
+| `GET /api/v1/streams/case_judgment/:id`（SSE） | `after_seq?` + optional `X-Session-Id` | `ready + stream.phase/completed/persisted/failed` | `FORBIDDEN` `NOT_FOUND` | 暴露判決生成 phase 與 persisted 狀態 | `/quick-experience/result/:id` |
 | `GET /api/v1/judgments/:id` | `id(uuid)` | `data.judgment` | `NOT_FOUND` `FORBIDDEN` | 無 | `/judgment/:id` |
 | `POST /api/v1/judgments/:id/accept` | `accepted:boolean` `rating?:0..5` | `data.judgment.accepted` | `VALIDATION_ERROR` `UNAUTHORIZED` | 寫入接受/拒絕結果 | `/judgment/:id` |
 | `POST /api/v1/judgments/:id/repair` | `feedback(3..2000)` | 修復後 judgment（若啟用） | `VALIDATION_ERROR` `NOT_FOUND` | 觸發修復流程 | （候選，未接線） |
@@ -25,6 +26,7 @@
 
 - `generate` 是判決域唯一 `aiLimiter` 接口，回歸需優先覆蓋超頻與重試。
 - 前端在 quick 流程多透過 `/cases/:id/judgment` 查判決；`/judgments/:id` 主要用於正式流程詳情頁。
+- quick result 頁現以 `GET /streams/case_judgment/:id` 先顯示 AI phase，再於 `stream.persisted` 後拉正式判決內容。
 - `repair` / `metrics` 目前為「保留能力」，需維持接口可用但不作前台回歸主路徑。
 
 ## 回歸測試最小集

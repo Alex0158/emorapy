@@ -6,6 +6,21 @@
 
 Railway 提供免費額度，支持自動部署。
 
+**當前項目現況**：
+
+| 環境 | Redis 狀態 | Lock / AI Stream 狀態 | 健康口徑 |
+|------|-----------|------------------------|----------|
+| `production` | 已配置 Railway 內網 `REDIS_URL` + 專用 Redis 服務 | Redis-backed `lock` / `cache` / `chat metrics` / `ops metrics` / `AI Stream` | 正常情況下應為 `healthy` |
+| `staging` | 已配置 Railway 內網 `REDIS_URL` + 專用 Redis 服務 | Redis-backed `lock` / `cache` / `chat metrics` / `ops metrics` / `AI Stream`；`METRICS_ENABLED=true` 並以 token / IP 保護 `/metrics` | 當前已回到 `healthy` |
+| `local` | 推薦本地啟 Redis | 未配 `REDIS_URL` 時會 fallback memory / DB advisory lock | 取決於本地依賴是否齊全 |
+
+補充：
+
+- `production` 的 `REDIS_URL` 由後端統一復用於 `lock`、`cache`、`chat metrics`、`ops metrics` 與 `AI Stream`
+- `staging` 已於 2026-04-05 補回 Railway Redis，`/health` 已恢復 `healthy`
+- `staging` 已於同日補齊 `/metrics` token 保護並完成真實探測；現在與 `production` 的主要差異已不在核心 runtime 形態，而是域名與部署角色
+- 公開狀態端點 `/health`、`/health/ready`、`/health/live`、`/version`、`/api/v1/version` 已放寬為可供探活 / CLI 驗證；受保護業務接口仍遵循 `ALLOWED_ORIGINS`
+
 **步驟**:
 
 1. 在 Railway 創建新項目
@@ -18,6 +33,13 @@ Railway 提供免費額度，支持自動部署。
 - `JWT_SECRET`: 生成隨機字符串
 - `OPENAI_API_KEY`: 你的 OpenAI API 密鑰
 - `NODE_ENV`: `production`
+- `REDIS_URL`: Railway Redis 提供的內網連接串；`production` / `staging` 都應配置
+- `ALLOW_SIMPLE_LOCK`: 僅在無 Redis 的臨時環境顯式設為 `true`
+- `METRICS_ENABLED`: `production` / `staging` 建議保持 `true`
+- `METRICS_TOKEN`: `production` / `staging` 至少配置其一；抓取端需帶 `X-Metrics-Token`
+- `METRICS_ALLOWED_IPS`: 可選，適合內網抓取來源固定的環境
+- `ADMIN_JWT_SECRET`: production / staging 都需配置
+- `ADMIN_JWT_EXPIRES_IN`: production / staging 都需配置
 
 ### 2. Render
 
@@ -83,7 +105,29 @@ OPENAI_MODEL=gpt-3.5-turbo
 OPENAI_MAX_TOKENS=2000
 FRONTEND_URL=https://your-frontend-domain.com
 ALLOWED_ORIGINS=https://your-frontend-domain.com
+REDIS_URL=redis://default:***@redis.railway.internal:6379
+ADMIN_JWT_SECRET=another-strong-secret
+ADMIN_JWT_EXPIRES_IN=12h
+METRICS_ENABLED=true
 ```
+
+### Staging 最小可用配置
+
+若 staging 需要先行收口、但暫未掛 Redis，至少應顯式配置：
+
+```env
+NODE_ENV=production
+ALLOW_SIMPLE_LOCK=true
+METRICS_ENABLED=false
+ADMIN_JWT_SECRET=another-strong-secret
+ADMIN_JWT_EXPIRES_IN=12h
+ALLOWED_ORIGINS=https://frontend-lilac-three-52.vercel.app,https://mother-bear-court.vercel.app,https://mother-bear-court-staging.up.railway.app
+```
+
+說明：
+
+- 此配置可讓 staging 正常啟動與回歸，但 `/health` 會因 simple-lock 顯示 `degraded`
+- 當前 staging 已完成這一步後續收口，現況為：已補 Railway Redis、已恢復 `REDIS_URL`、`ALLOW_SIMPLE_LOCK=false`、`METRICS_ENABLED=true` 並配置獨立 metrics token
 
 ### 可選變量
 
@@ -125,7 +169,19 @@ npx prisma migrate deploy
 
 ### 健康檢查
 
-健康檢查端點: `GET /health`
+公開狀態端點：
+
+- `GET /health`
+- `GET /health/ready`
+- `GET /health/live`
+- `GET /version`
+- `GET /api/v1/version`
+
+這些端點允許探活 / CLI / 平台健康檢查使用，不受一般 `ALLOWED_ORIGINS` 拒絕規則影響。
+
+受保護接口（例如 `/api/v1/admin/*`）仍嚴格遵循 `ALLOWED_ORIGINS`。
+
+`GET /metrics` 屬機器保護端點，不作為公開狀態端點。它不應被全局 CORS 提前拒絕；是否返回 Prometheus 文本由 `METRICS_TOKEN` / `METRICS_ALLOWED_IPS` 決定。
 
 ### 性能監控
 
@@ -150,7 +206,8 @@ npx prisma migrate deploy
 如果需要多實例部署：
 
 1. 使用負載均衡器（如 Nginx）
-2. 確保 Session 存儲在共享存儲（Redis）
+2. 確保 `REDIS_URL` 可用，供分布式鎖、快取、metrics 與 `AI Stream` 跨實例分發 / replay 使用
+   如 staging 暫未配置 Redis，需接受 `simple-lock` / 非 production 等價語義，並在文檔與驗收記錄中明確標註
 3. 數據庫連接池配置
 
 ### 垂直擴展
@@ -207,9 +264,10 @@ v2.0 訪談系統需要以下可選環境變量（均有預設值，不配不影
 | `INTERVIEW_TURN_INTERVAL_MS` | `3000` | 輪次最小間隔（毫秒） |
 | `INTERVIEW_START_RATE_LIMIT` | `3` | start 每用戶每小時上限（express-rate-limit，防濫用，不計 turn 數） |
 | `INTERVIEW_DAILY_SESSION_LIMIT` | `5` | 每用戶每天最多 session 數 |
-| `REDIS_URL` | — | 併發鎖用 Redis（可選，無則 fallback 到 DB advisory lock） |
+| `REDIS_URL` | — | Railway Redis 連接串；`production` / `staging` 建議同樣配置，以保持 lock、metrics、AI Stream 語義一致。 |
+| `METRICS_TOKEN` | — | `/metrics` header token；`production` / `staging` 至少配置 token 或 allowed IP 其中之一。 |
 
-在 Railway / Render / Docker 中增加上述環境變量即可。詳見 `docs/ENVIRONMENT.md`。
+在 Railway / Render / Docker 中增加上述環境變量即可。當前 production / staging 已確認配置 Railway Redis，且 staging 已實測啟用受保護 `/metrics`。詳見 `docs/ENVIRONMENT.md` 與 `docs/核心開發文件/Staging 運行時收口記錄-2026-04-05.md`。
 
 ### 數據庫遷移
 
@@ -238,11 +296,11 @@ ALTER TABLE profile_snapshots ADD CONSTRAINT chk_richness_score CHECK (richness_
 
 ### Nginx / 反向代理 SSE 配置
 
-訪談 `/respond` 和 `/skip` 端點使用 SSE（Server-Sent Events）長連線。
-若使用 Nginx 反向代理，需為訪談端點關閉緩衝、延長超時：
+`Interview` 現已改為 `respond/skip/cancel` 提交式觸發，AI 可見輸出統一由 `GET /api/v1/streams/interview_session/:id` 提供。
+若使用 Nginx 反向代理，需為統一 stream 端點關閉緩衝、延長超時：
 
 ```nginx
-location /api/v1/interview/ {
+location /api/v1/streams/ {
     proxy_buffering off;
     proxy_read_timeout 120s;
     proxy_set_header Connection '';
@@ -255,7 +313,6 @@ Railway 和 Render 原生支援 SSE，無需額外配置。
 ### 監控要點
 
 - **AsyncPipelineService 失敗率**：`processing_failed` 狀態的 session 數量
-- **SSE 超時率**：`/respond` 請求超過 30 秒未完成的比例
+- **AI Stream 超時率**：`/api/v1/streams/*` 首字、連線與 persisted 延遲異常比例
 - **AI 調用費用**：每日 GPT-4o-mini / GPT-4o 的 token 消耗
 - **併發鎖衝突率**：`CONCURRENT_REQUEST` 錯誤的頻率
-

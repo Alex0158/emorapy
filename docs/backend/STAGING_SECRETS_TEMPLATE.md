@@ -15,21 +15,47 @@
   - 例：`admin-staging@example.com`
 - `STAGING_ADMIN_PASSWORD`
   - 例：`<長隨機密碼>`
+- `STAGING_METRICS_TOKEN`
+  - 例：`<staging 專用 metrics token>`
+- `RAILWAY_TOKEN`
+  - 例：`<Railway CLI / API token>`
+- `STAGING_RAILWAY_PROJECT_ID`
+  - 例：`<Railway project id>`
 
 ## 2. Staging 服務端環境（建議）
 
 - `NODE_ENV=production`
 - `DATABASE_URL=<staging 專用 DB>`
-- `REDIS_URL=<staging 專用 Redis>`
 - `OPENAI_API_KEY=<staging 專用 key>`
 - `ALLOWED_ORIGINS=<staging frontend domain>`
 - `ADMIN_JWT_SECRET=<staging 專用 secret>`
 - `JWT_SECRET=<staging 專用 secret>`
-- `METRICS_TOKEN` 或 `METRICS_ALLOWED_IPS`
+- `ADMIN_JWT_EXPIRES_IN=12h`
+
+二選一：
+
+- production 等價 staging：
+  - `REDIS_URL=<staging 專用 Redis>`
+  - `METRICS_TOKEN` 或 `METRICS_ALLOWED_IPS`
+- 簡化回歸 staging：
+  - `ALLOW_SIMPLE_LOCK=true`
+  - `METRICS_ENABLED=false`
+
+說明：
+
+- 若選簡化回歸 staging，`/health` 會因 simple-lock 顯示 `degraded`
+- 若要做 Redis replay / cross-instance / production 等價驗證，仍應配置 staging 專用 Redis
 
 ## 3. 檢查清單
 
 1. 所有 `STAGING_*` secrets 已建立。  
-2. staging admin 帳號可正常登入後台。  
-3. `ALLOWED_ORIGINS` 含 `STAGING_FRONTEND_BASE_URL`。  
-4. workflow `Staging Smoke Gate` 可成功執行。
+2. `RAILWAY_TOKEN` 與 `STAGING_RAILWAY_PROJECT_ID` 已建立，且能對應到 staging project。  
+3. staging admin 帳號可正常登入後台。  
+   - 建議使用 `example.com` 或真實可解析網域作為 email。
+   - 不要使用 `.local` / 內網假 TLD；目前後端 `admin/login` 走 Joi email 驗證，這類地址可能直接被判為 `VALIDATION_ERROR`，導致 smoke gate 卡在登入前。
+4. `ALLOWED_ORIGINS` 含 `STAGING_FRONTEND_BASE_URL`。  
+5. workflow `Staging Deploy and Smoke` 可成功執行；`Staging Smoke Gate` 可用於重跑 smoke。  
+6. smoke gate 需同時驗證：
+   - `/health` / 管理端登入與主流程可用
+   - `/metrics` 無 token 時回 `403 # metrics forbidden`
+   - `/metrics` 帶 `STAGING_METRICS_TOKEN` 時回 Prometheus 文本

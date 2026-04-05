@@ -12,6 +12,9 @@ import {
   adminAdminUserCreateSchema,
   adminAdminUserUpdateSchema,
   adminAuditLogsQuerySchema,
+  adminAIStreamDetailSchema,
+  adminAIStreamListQuerySchema,
+  adminAIStreamReportQuerySchema,
   adminBootstrapSchema,
   adminFeatureFlagsSchema,
   adminCustomReportSchema,
@@ -178,6 +181,30 @@ router.get(
   adminController.reportCosts.bind(adminController)
 );
 router.get(
+  '/reports/ai-streams',
+  generalLimiter,
+  authenticateAdmin,
+  requireAdminPermission('reports:read'),
+  validate(adminAIStreamReportQuerySchema),
+  adminController.reportAIStreams.bind(adminController)
+);
+router.get(
+  '/reports/ai-streams/sessions',
+  generalLimiter,
+  authenticateAdmin,
+  requireAdminPermission('reports:read'),
+  validate(adminAIStreamListQuerySchema),
+  adminController.listAIStreamSessions.bind(adminController)
+);
+router.get(
+  '/reports/ai-streams/sessions/:streamId',
+  generalLimiter,
+  authenticateAdmin,
+  requireAdminPermission('reports:read'),
+  validate(adminAIStreamDetailSchema),
+  adminController.getAIStreamDetail.bind(adminController)
+);
+router.get(
   '/reports/overview.csv',
   generalLimiter,
   authenticateAdmin,
@@ -218,4 +245,3 @@ router.put(
 );
 
 export default router;
-

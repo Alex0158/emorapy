@@ -295,6 +295,10 @@ export const checkinSchema = {
     plan_id: Joi.string().pattern(uuidPattern).required(),
     notes: Joi.string().max(500).optional(),
     photos: Joi.array().items(Joi.string().uri()).max(3).optional(),
+    step_result: Joi.string().valid('done', 'partial', 'skipped').optional(),
+    closeness: Joi.string().valid('closer', 'same', 'farther').optional(),
+    stress: Joi.string().valid('low', 'medium', 'high').optional(),
+    needs_help: Joi.boolean().optional(),
   }),
 };
 
@@ -312,16 +316,47 @@ export const joinPairingSchema = {
 // Reconciliation Schemas
 export const generateReconciliationPlansSchema = {
   body: Joi.object({
+    intent: Joi.string().valid('repair', 'cool_down', 'graceful_exit', 'safety_support').optional(),
     preferences: Joi.object({
       difficulty: Joi.string().valid('easy', 'medium', 'hard').optional(),
       duration: Joi.number().integer().min(1).max(365).optional(),
-      types: Joi.array().items(Joi.string().valid('activity', 'communication', 'intimacy')).max(3).optional(),
+      types: Joi.array().items(Joi.string().valid('activity', 'communication', 'intimacy', 'gift', 'service')).max(5).optional(),
+      pressure_level: Joi.string().valid('low', 'medium', 'high').optional(),
+      pace: Joi.string().valid('today', 'this_week', 'ease_in').optional(),
+      style: Joi.array().items(Joi.string().valid('action', 'conversation', 'companionship', 'distance')).max(4).optional(),
+      invite_partner: Joi.boolean().optional(),
     }).optional(),
+    force_regenerate: Joi.boolean().optional(),
   }).optional(),
 };
 
 export const selectPlanSchema = {
   body: Joi.object({}).optional(),
+};
+
+export const invitePartnerSchema = {
+  body: Joi.object({}).optional(),
+};
+
+export const respondPlanSchema = {
+  body: Joi.object({
+    action: Joi.string().valid('viewed', 'committed', 'deferred', 'declined', 'paused').required(),
+    reason: Joi.string().valid('need_time', 'needs_space', 'unsure', 'too_much_pressure').optional(),
+    remind_in_hours: Joi.number().integer().min(1).max(168).optional(),
+  }),
+};
+
+export const uuidTrackParamSchema = {
+  params: Joi.object({
+    id: Joi.string().pattern(uuidPattern).required(),
+  }),
+};
+
+export const replanTrackSchema = {
+  body: Joi.object({
+    mode: Joi.string().valid('lower_pressure', 'slower_pace', 'solo_first').required(),
+    reason: Joi.string().valid('needs_help', 'farther', 'high_stress', 'manual').required(),
+  }),
 };
 
 export const pairingIdParamSchema = {
@@ -369,7 +404,38 @@ export const createNotificationSchema = {
     template_code: Joi.string().max(50).required(),
     payload: Joi.object().max(20).optional(),
     dedup_key: Joi.string().max(100).optional(),
+    action_key: Joi.string().max(50).optional(),
+    priority: Joi.string().valid('now', 'soon', 'later').optional(),
+    group_key: Joi.string().max(100).optional(),
   }),
+};
+
+export const notificationIdParamSchema = {
+  params: Joi.object({
+    id: Joi.string().pattern(uuidPattern).required(),
+  }),
+};
+
+export const notificationListQuerySchema = {
+  query: Joi.object({
+    status: Joi.string().valid('pending', 'sent', 'failed').optional(),
+    state: Joi.string().valid('unread', 'all', 'actionable', 'snoozed', 'archived').optional(),
+    template_code: Joi.string().max(50).optional(),
+    limit: Joi.number().integer().min(1).max(50).optional(),
+    cursor: Joi.string().pattern(uuidPattern).optional(),
+  }),
+};
+
+export const notificationActSchema = {
+  body: Joi.object({
+    action_key: Joi.string().max(50).optional(),
+  }).optional(),
+};
+
+export const notificationSnoozeSchema = {
+  body: Joi.object({
+    hours: Joi.number().integer().min(1).max(168).optional(),
+  }).optional(),
 };
 
 export const createContentLinkSchema = {
@@ -497,6 +563,37 @@ export const adminJobStatsQuerySchema = {
     days: Joi.number().integer().min(1).max(90).optional(),
     includeRunning: Joi.boolean().optional(),
     maxRows: Joi.number().integer().min(100).max(20000).optional(),
+  }),
+};
+
+export const adminAIStreamReportQuerySchema = {
+  query: Joi.object({
+    days: Joi.number().integer().min(1).max(90).optional(),
+    limit: Joi.number().integer().min(1).max(50).optional(),
+  }),
+};
+
+export const adminAIStreamListQuerySchema = {
+  query: Joi.object({
+    days: Joi.number().integer().min(1).max(90).optional(),
+    limit: Joi.number().integer().min(1).max(100).optional(),
+    offset: Joi.number().integer().min(0).optional(),
+    status: Joi.string().valid('created', 'queued', 'started', 'streaming', 'completed', 'persisted', 'failed', 'cancelled').optional(),
+    scopeType: Joi.string().max(50).optional(),
+    scopeId: Joi.string().max(100).optional(),
+    requestId: Joi.string().max(100).optional(),
+    streamId: Joi.string().max(100).optional(),
+    source: Joi.string().valid('live', 'archive', 'all').optional(),
+  }),
+};
+
+export const adminAIStreamDetailSchema = {
+  params: Joi.object({
+    streamId: Joi.string().max(100).required(),
+  }),
+  query: Joi.object({
+    eventLimit: Joi.number().integer().min(1).max(1000).optional(),
+    source: Joi.string().valid('live', 'archive', 'all').optional(),
   }),
 };
 

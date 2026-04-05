@@ -56,11 +56,11 @@ const Home = () => {
         </a>
 
         {isAuthenticated ? (
-          <section className="adaptive-hero-section">
+          <section className="adaptive-hero-section" id="main-content">
             <AdaptiveDashboard />
           </section>
         ) : (
-          <section className="hero-section" aria-label={t('home.hero.ariaLabel')}>
+          <section id="main-content" className="hero-section" aria-label={t('home.hero.ariaLabel')}>
             <div className="hero-content">
               <AnimatedWrapper animation="slide" direction="right" delay={150} duration={400} className="hero-text">
                 <h1 className="hero-title">

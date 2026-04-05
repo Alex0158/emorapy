@@ -7,6 +7,7 @@ import { adminJobs, getRuntimeJobsEnabled, jobsStarted, reconcileJobsRuntimeConf
 import { adminService } from '../services/admin.service';
 import { costMonitoringService } from '../services/cost-monitoring.service';
 import { systemConfigService } from '../services/system-config.service';
+import { aiStreamService } from '../services/ai-stream.service';
 import {
   ADMIN_MANAGED_CONFIG_KEYS,
   isManagedConfigKeyAllowed,
@@ -74,6 +75,12 @@ function parseIncludeRunning(req: Request) {
     if (normalized === 'false') return false;
   }
   throw Errors.VALIDATION_ERROR('includeRunning 必須為 boolean');
+}
+
+function parseAIStreamSource(req: Request): 'live' | 'archive' | 'all' {
+  const raw = typeof req.query.source === 'string' ? req.query.source : 'live';
+  if (raw === 'live' || raw === 'archive' || raw === 'all') return raw;
+  throw Errors.VALIDATION_ERROR('source 必須為 live/archive/all');
 }
 
 class AdminController {
@@ -952,6 +959,60 @@ class AdminController {
   async reportCosts(_req: Request, res: Response, next: NextFunction) {
     try {
       const data = await costMonitoringService.getAdminCostReport();
+      res.json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async reportAIStreams(req: Request, res: Response, next: NextFunction) {
+    try {
+      const days = parseDaysRange(req);
+      const limit = Math.min(Math.max(Number(req.query.limit ?? 10) || 10, 1), 50);
+      const data = await aiStreamService.getPersistenceReport({ days, limit });
+      res.json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async listAIStreamSessions(req: Request, res: Response, next: NextFunction) {
+    try {
+      const days = parseDaysRange(req);
+      const { limit, offset } = parsePagination(req);
+      const source = parseAIStreamSource(req);
+      const data = await aiStreamService.listPersistenceSessions({
+        days,
+        limit,
+        offset,
+        status: typeof req.query.status === 'string' ? req.query.status : undefined,
+        scopeType: typeof req.query.scopeType === 'string' ? req.query.scopeType : undefined,
+        scopeId: typeof req.query.scopeId === 'string' ? req.query.scopeId : undefined,
+        requestId: typeof req.query.requestId === 'string' ? req.query.requestId : undefined,
+        streamId: typeof req.query.streamId === 'string' ? req.query.streamId : undefined,
+        source,
+      });
+      res.json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getAIStreamDetail(req: Request, res: Response, next: NextFunction) {
+    try {
+      const streamId = String(req.params.streamId || '');
+      if (!streamId) {
+        throw Errors.VALIDATION_ERROR('streamId 為必填');
+      }
+      const source = parseAIStreamSource(req);
+      const eventLimit = Math.min(Math.max(Number(req.query.eventLimit ?? 200) || 200, 1), 1000);
+      const data = await aiStreamService.getStreamPersistenceDetail(streamId, {
+        source,
+        eventLimit,
+      });
+      if (!data) {
+        throw Errors.NOT_FOUND('AI Stream 不存在');
+      }
       res.json({ success: true, data });
     } catch (error) {
       next(error);

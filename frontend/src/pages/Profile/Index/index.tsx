@@ -113,9 +113,21 @@ const ProfileIndex = () => {
 
   if (loading) {
     return (
-      <div className="profile-index-page">
-        <Spin size="large" description={t('common.loading')} />
-      </div>
+      <ProtectedRoute>
+        <SEO
+          title={t('profileIndex.title')}
+          description={t('profileIndex.description')}
+        />
+        <div
+          className="profile-index-page profile-index-page--loading"
+          role="status"
+          aria-busy="true"
+          aria-live="polite"
+          aria-label={t('common.loading')}
+        >
+          <Spin size="large" description={t('common.loading')} />
+        </div>
+      </ProtectedRoute>
     );
   }
 

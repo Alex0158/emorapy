@@ -71,12 +71,14 @@ const AdaptiveDashboard = () => {
       }
     };
     fetchDraft();
-    return () => { staleRef.current = true; };
+    return () => {
+      staleRef.current = true;
+    };
   }, [isAuthenticated]);
 
   return (
     <div className="adaptive-dashboard">
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
@@ -88,7 +90,7 @@ const AdaptiveDashboard = () => {
         <Text className="subtitle">{t('home.adaptive.subtitle')}</Text>
       </motion.div>
 
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.5, delay: 0.1 }}
@@ -102,9 +104,9 @@ const AdaptiveDashboard = () => {
               <Title level={4}>{nextStep?.title ?? t('home.adaptive.nextStep.createNew.title')}</Title>
               <Text type="secondary">{nextStep?.desc ?? t('home.adaptive.nextStep.createNew.desc')}</Text>
             </div>
-            <Button 
-              type="primary" 
-              size="large" 
+            <Button
+              type="primary"
+              size="large"
               shape="round"
               icon={<ArrowRightOutlined />}
               iconPlacement="end"
@@ -117,27 +119,21 @@ const AdaptiveDashboard = () => {
         </Card>
       </motion.div>
 
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.2 }}
         className="quick-actions"
       >
-        <Title level={5} className="section-title">{t('home.adaptive.otherActions')}</Title>
+        <Title level={5} className="section-title">
+          {t('home.adaptive.otherActions')}
+        </Title>
         <Space size="middle" className="actions-grid">
-          <Card 
-            hoverable 
-            className="action-card"
-            onClick={() => navigate('/chat/room')}
-          >
+          <Card hoverable className="action-card" onClick={() => navigate('/chat/room')}>
             <CheckCircleOutlined className="action-icon" />
             <Text strong>{t('home.adaptive.action.startChat')}</Text>
           </Card>
-          <Card 
-            hoverable 
-            className="action-card"
-            onClick={() => navigate('/profile/my-story')}
-          >
+          <Card hoverable className="action-card" onClick={() => navigate('/profile/my-story')}>
             <CheckCircleOutlined className="action-icon" />
             <Text strong>{t('home.adaptive.action.viewProfile')}</Text>
           </Card>

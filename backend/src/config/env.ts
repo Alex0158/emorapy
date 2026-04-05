@@ -16,6 +16,10 @@ interface EnvConfig {
   NODE_ENV: string;
   REDIS_URL?: string;
   AI_MOCK: boolean;
+  AI_STREAM_SESSION_RETENTION_DAYS: number;
+  AI_STREAM_EVENT_RETENTION_DAYS: number;
+  AI_STREAM_ARCHIVE_ENABLED: boolean;
+  AI_STREAM_ARCHIVE_BATCH_SIZE: number;
   
   // 數據庫配置
   DATABASE_URL: string;
@@ -127,6 +131,10 @@ function getEnvConfig(): EnvConfig {
     NODE_ENV: process.env.NODE_ENV || 'development',
     REDIS_URL: process.env.REDIS_URL,
     AI_MOCK: process.env.AI_MOCK === 'true',
+    AI_STREAM_SESSION_RETENTION_DAYS: parseInt(process.env.AI_STREAM_SESSION_RETENTION_DAYS || '30', 10),
+    AI_STREAM_EVENT_RETENTION_DAYS: parseInt(process.env.AI_STREAM_EVENT_RETENTION_DAYS || '14', 10),
+    AI_STREAM_ARCHIVE_ENABLED: process.env.AI_STREAM_ARCHIVE_ENABLED !== 'false',
+    AI_STREAM_ARCHIVE_BATCH_SIZE: parseInt(process.env.AI_STREAM_ARCHIVE_BATCH_SIZE || '500', 10),
     
     DATABASE_URL: process.env.DATABASE_URL!,
     

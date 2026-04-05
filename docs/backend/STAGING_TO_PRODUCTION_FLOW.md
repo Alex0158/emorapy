@@ -29,6 +29,8 @@
 - 配置模板：`docs/backend/STAGING_SECRETS_TEMPLATE.md`
 - `STAGING_ADMIN_EMAIL` 建議固定使用 validator-safe 地址，例如 `staging-smoke-admin@example.com`
   - 不要使用 `.local` 類假 TLD，否則可能在 `/api/v1/admin/login` 的輸入驗證階段就被拒絕
+- `RAILWAY_TOKEN` secret 建議存 Railway account/workspace token；workflow 會同步映射到 `RAILWAY_API_TOKEN`
+  - 這樣 `railway link`、`railway up` 等 CLI 行為不會因 token 類型差異而失敗
 
 ## 3) 發布 Gate（最少）
 

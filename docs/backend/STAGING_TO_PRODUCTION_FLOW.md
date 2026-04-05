@@ -19,7 +19,7 @@
 - 新增腳本：`scripts/smoke-staging.sh`（包裝 `smoke-production-like.sh`）
 - 新增腳本：`scripts/wait-railway-deploy.sh`（輪詢 Railway staging deploy 成功）
 - 必填 secrets：
-  - `RAILWAY_TOKEN`
+  - `RAILWAY_API_TOKEN`
   - `STAGING_RAILWAY_PROJECT_ID`
   - `STAGING_BACKEND_BASE_URL`
   - `STAGING_FRONTEND_BASE_URL`
@@ -29,7 +29,8 @@
 - 配置模板：`docs/backend/STAGING_SECRETS_TEMPLATE.md`
 - `STAGING_ADMIN_EMAIL` 建議固定使用 validator-safe 地址，例如 `staging-smoke-admin@example.com`
   - 不要使用 `.local` 類假 TLD，否則可能在 `/api/v1/admin/login` 的輸入驗證階段就被拒絕
-- `RAILWAY_TOKEN` secret 建議存 Railway account/workspace token；workflow 會同步映射到 `RAILWAY_API_TOKEN`
+- `RAILWAY_API_TOKEN` 應存 Railway account/workspace token
+  - workflow 會優先使用 `RAILWAY_API_TOKEN`，並只把 `RAILWAY_TOKEN` 保留為 legacy fallback
   - 這樣 `railway link`、`railway up` 等 CLI 行為不會因 token 類型差異而失敗
 
 ## 3) 發布 Gate（最少）

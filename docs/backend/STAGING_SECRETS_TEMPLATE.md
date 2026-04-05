@@ -17,8 +17,10 @@
   - 例：`<長隨機密碼>`
 - `STAGING_METRICS_TOKEN`
   - 例：`<staging 專用 metrics token>`
+- `RAILWAY_API_TOKEN`
+  - 例：`<Railway account/workspace token>`
 - `RAILWAY_TOKEN`
-  - 例：`<Railway account/workspace token 或 project token>`
+  - 例：`<legacy Railway token，僅作兼容回退>`
 - `STAGING_RAILWAY_PROJECT_ID`
   - 例：`<Railway project id>`
 
@@ -49,8 +51,9 @@
 ## 3. 檢查清單
 
 1. 所有 `STAGING_*` secrets 已建立。  
-2. `RAILWAY_TOKEN` 與 `STAGING_RAILWAY_PROJECT_ID` 已建立，且能對應到 staging project。  
-   - workflow 內會同時映射到 `RAILWAY_TOKEN` 與 `RAILWAY_API_TOKEN`，以兼容 Railway CLI 對 project token / account token 的不同讀法。
+2. `RAILWAY_API_TOKEN` 與 `STAGING_RAILWAY_PROJECT_ID` 已建立，且能對應到 staging project。  
+   - `RAILWAY_API_TOKEN` 應是可供 GitHub Actions / CLI 使用的 Railway account 或 workspace token。
+   - workflow 會優先讀 `RAILWAY_API_TOKEN`，沒有時才回退到 legacy `RAILWAY_TOKEN`。
 3. staging admin 帳號可正常登入後台。  
    - 建議使用 `example.com` 或真實可解析網域作為 email。
    - 不要使用 `.local` / 內網假 TLD；目前後端 `admin/login` 走 Joi email 驗證，這類地址可能直接被判為 `VALIDATION_ERROR`，導致 smoke gate 卡在登入前。

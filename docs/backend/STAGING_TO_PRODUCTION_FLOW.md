@@ -76,6 +76,12 @@
 4. 等待 deploy job 成功  
 5. 確認後續 `Staging Smoke Gate` 自動通過
 
+目前補充：
+
+- 倉庫已具備這條 workflow，但若 GitHub secret `RAILWAY_TOKEN` 不是可供 CI 使用的 Railway token，deploy job 會卡在 `railway link`
+- 若發生這種情況，不要重複重跑；應先更換正確的 Railway CI token
+- 在 token 修正前，臨時 fallback 是：由本機已登入且已 link 的 Railway CLI 手動 `railway up` 到 staging，再單獨執行 `Staging Smoke Gate`
+
 ### 4.2 單獨重跑 staging smoke
 
 本地（需先提供環境變量；適合 staging 已部署、只需重跑 smoke）：

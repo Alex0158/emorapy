@@ -57,7 +57,8 @@ railway up
 
 1. 優先進 GitHub Actions 執行 `Staging Deploy and Smoke`
 2. 若只需重跑驗證、不需重新部署，再執行 `Staging Smoke Gate`
-3. 只有在需要本機緊急操作或檢查 Railway CLI 問題時，才直接使用 `railway up`
+3. 若 `Staging Deploy and Smoke` 卡在 `railway link` / token 授權，先修正 GitHub secret 中可供 CI 使用的 Railway token
+4. 在 CI token 尚未修正前，才使用本機已登入 Railway CLI 直接 `railway up` 作為臨時 fallback
 
 ### 3.4 確認部署結果
 
@@ -121,3 +122,4 @@ railway up
 - **建置失敗**：在 Build Logs 中查看錯誤；常見為依賴、Node 版本或缺少環境變數。根目錄部署時請確認 `railway.json` 的 `cd backend` 路徑正確。
 - **本機未連結或連結錯誤**：在 repo 根目錄執行 `railway link`，選擇正確的 Project 與 Service。
 - **要確認目前連結**：執行 `railway status`。
+- **GitHub Actions deploy 卡在 `railway link`**：優先檢查 `RAILWAY_TOKEN` secret 是否為真正可供 CI 使用的 Railway token；本機 CLI 的登入狀態或被 redacted 的 config 值不能直接當成 CI secret 使用。

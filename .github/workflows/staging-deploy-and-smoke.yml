@@ -66,6 +66,17 @@ jobs:
             echo "RAILWAY_TOKEN=${LEGACY_RAILWAY_TOKEN}" >> "$GITHUB_ENV"
           fi
 
+      - name: Probe Railway auth
+        run: |
+          if [ -n "${RAILWAY_API_TOKEN}" ]; then
+            fingerprint="$(printf '%s' "${RAILWAY_API_TOKEN}" | sha256sum | cut -c1-12)"
+            echo "RAILWAY_API_TOKEN_SHA12=${fingerprint}"
+          else
+            echo "RAILWAY_API_TOKEN_SHA12=missing"
+          fi
+          railway whoami
+          railway project list
+
       - name: Link staging backend
         run: railway link -p "${STAGING_RAILWAY_PROJECT_ID}" -e "${STAGING_RAILWAY_ENVIRONMENT}" -s "${STAGING_RAILWAY_SERVICE}"
 

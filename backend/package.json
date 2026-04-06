@@ -5,6 +5,9 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "dev:railway": "railway run -e staging -- node scripts/dev-railway.cjs",
+    "dev:railway:staging": "railway run -e staging -- node scripts/dev-railway.cjs",
+    "dev:railway:production": "ALLOW_REMOTE_PRODUCTION_ENV=true railway run -e production -- node scripts/dev-railway.cjs",
     "dev:redis:up": "docker compose -f docker-compose.redis.yml up -d",
     "dev:redis:down": "docker compose -f docker-compose.redis.yml down",
     "dev:redis:logs": "docker compose -f docker-compose.redis.yml logs -f redis",

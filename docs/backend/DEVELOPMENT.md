@@ -65,6 +65,24 @@ npm run dev:redis:logs
 npm run dev:redis:down
 ```
 
+如需在本機使用 Railway 遠端環境變量啟動後端：
+
+```bash
+# 推薦：只連 staging
+npm run dev:railway
+
+# 等價於上面，顯式寫法
+npm run dev:railway:staging
+
+# 僅在明確認知風險時才允許連 production
+npm run dev:railway:production
+```
+
+注意：
+- `dev:railway` 現在默認只連 `staging`，避免本機誤連 production。
+- `dev:railway:production` 會注入 Railway production 的遠端 `DATABASE_URL`、JWT、Redis 等環境變量，不應作為日常本地開發入口。
+- 若只是本機聯調，優先使用 `npm run dev` + 本地 `.env`。
+
 ## 開發規範
 
 ### 代碼風格
@@ -187,6 +205,9 @@ npm test -- --coverage
 1. **數據庫連接失敗**
    - 檢查 `DATABASE_URL` 配置
    - 確認數據庫服務正在運行
+   - 若你是用 `npm run dev:railway` 啟動，請先確認當前注入的是 `staging` 還是 `production`
+   - 可查看啟動日誌中的 `railwayEnvironment` 與 `databaseHost`
+   - 本機若使用 Node 24 跑 Prisma 連遠端 Supabase，可能出現資料庫連線異常；當前項目本地開發請優先使用 Node 20
 
 2. **Redis 未連上 / AI Stream 降級到 memory**
    - 檢查 `REDIS_URL` 是否存在

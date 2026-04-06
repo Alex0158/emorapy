@@ -53,7 +53,8 @@
 1. 所有 `STAGING_*` secrets 已建立。  
 2. `RAILWAY_API_TOKEN` 與 `STAGING_RAILWAY_PROJECT_ID` 已建立，且能對應到 staging project。  
    - `RAILWAY_API_TOKEN` 應是可供 GitHub Actions / CLI 使用的 Railway account 或 workspace token。
-   - workflow 會優先讀 `RAILWAY_API_TOKEN`，沒有時才回退到 legacy `RAILWAY_TOKEN`。
+   - workflow 會優先讀 `RAILWAY_API_TOKEN`；一旦存在，就會顯式清空 `RAILWAY_TOKEN`，避免 CLI 誤把 account token 當成 project token 讀取。
+   - 只有在未提供 `RAILWAY_API_TOKEN` 時，才回退到 legacy `RAILWAY_TOKEN`。
 3. staging admin 帳號可正常登入後台。  
    - 建議使用 `example.com` 或真實可解析網域作為 email。
    - 不要使用 `.local` / 內網假 TLD；目前後端 `admin/login` 走 Joi email 驗證，這類地址可能直接被判為 `VALIDATION_ERROR`，導致 smoke gate 卡在登入前。

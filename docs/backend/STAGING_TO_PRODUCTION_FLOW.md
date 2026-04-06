@@ -30,7 +30,7 @@
 - `STAGING_ADMIN_EMAIL` 建議固定使用 validator-safe 地址，例如 `staging-smoke-admin@example.com`
   - 不要使用 `.local` 類假 TLD，否則可能在 `/api/v1/admin/login` 的輸入驗證階段就被拒絕
 - `RAILWAY_API_TOKEN` 應存 Railway account/workspace token
-  - workflow 會優先使用 `RAILWAY_API_TOKEN`，並在其存在時顯式清空 `RAILWAY_TOKEN`
+  - workflow 會在 job 內正規化 Railway auth 環境變量：有 `RAILWAY_API_TOKEN` 時清空 `RAILWAY_TOKEN`，否則才從 legacy token 回填
   - 這樣可以避免 Railway CLI 錯把 account token 當成 project token 使用
   - 這樣 `railway link`、`railway up` 等 CLI 行為不會因 token 類型差異而失敗
 

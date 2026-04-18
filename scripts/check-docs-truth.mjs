@@ -13,6 +13,29 @@ async function readDoc(relativePath) {
   return fs.readFile(path.join(coreDocsRoot, relativePath), 'utf8');
 }
 
+async function collectMarkdownDocsUnder(relativeDir) {
+  const rootDir = path.join(coreDocsRoot, relativeDir);
+  const docs = [];
+  const stack = [rootDir];
+
+  while (stack.length > 0) {
+    const current = stack.pop();
+    const entries = await fs.readdir(current, { withFileTypes: true });
+    for (const entry of entries) {
+      const entryPath = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(entryPath);
+        continue;
+      }
+      if (entry.isFile() && entry.name.endsWith('.md')) {
+        docs.push(path.relative(coreDocsRoot, entryPath).split(path.sep).join('/'));
+      }
+    }
+  }
+
+  return docs.sort();
+}
+
 function parseStatValue(content, label) {
   const statRe = new RegExp(`\\|\\s*${escapeRegExp(label)}\\s*\\|\\s*([0-9]+)\\s*\\|`);
   const match = content.match(statRe);
@@ -110,18 +133,6 @@ async function main() {
     chatServiceCode,
     validationCode,
     frontendPackageJsonRaw,
-    evidenceRootReadme,
-    evidenceEnvReadme,
-    evidenceSnapshotReadme,
-    evidenceManualReadme,
-    evidenceAIReadme,
-    historyRootReadme,
-    historyMigrationIndexDoc,
-    historyAppPlanDoc,
-    governanceRootReadme,
-    governanceRulesDoc,
-    governanceBatchIndexDoc,
-    governancePostSealDoc,
   ] = await Promise.all([
     readDoc('頁面清單.md'),
     readDoc('全接口清單-主文檔.md'),
@@ -151,18 +162,6 @@ async function main() {
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'services', 'chat.service.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'utils', 'validation.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'frontend', 'package.json'), 'utf8'),
-    readDoc(path.join('90-證據與盤點', 'README.md')),
-    readDoc(path.join('90-證據與盤點', '環境與發版驗證', 'README.md')),
-    readDoc(path.join('90-證據與盤點', '頁面HTML快照', 'README.md')),
-    readDoc(path.join('90-證據與盤點', '手動回歸證據', 'README.md')),
-    readDoc(path.join('90-證據與盤點', 'AI流式驗證', 'README.md')),
-    readDoc(path.join('99-歷史降級索引', 'README.md')),
-    readDoc(path.join('99-歷史降級索引', '00-2026-04-首輪重構遷移索引.md')),
-    readDoc(path.join('99-歷史降級索引', 'APP版本開發方案-ReactNative-Expo.md')),
-    readDoc(path.join('文件收斂', 'README.md')),
-    readDoc(path.join('文件收斂', '00-CJ-文檔治理與同步規則.md')),
-    readDoc(path.join('文件收斂', '01-CJ-文檔收斂台賬與批次索引.md')),
-    readDoc(path.join('文件收斂', '文檔封板後-代碼與測試對齊清單.md')),
   ]);
   const latestManualRegression = await readLatestManualRegressionSummary();
   const frontendPackageJson = JSON.parse(frontendPackageJsonRaw);
@@ -494,20 +493,19 @@ async function main() {
     }
   }
 
-  const batch6MetadataDocs = [
-    ['90-證據與盤點/README.md', evidenceRootReadme],
-    ['90-證據與盤點/環境與發版驗證/README.md', evidenceEnvReadme],
-    ['90-證據與盤點/頁面HTML快照/README.md', evidenceSnapshotReadme],
-    ['90-證據與盤點/手動回歸證據/README.md', evidenceManualReadme],
-    ['90-證據與盤點/AI流式驗證/README.md', evidenceAIReadme],
-    ['99-歷史降級索引/README.md', historyRootReadme],
-    ['99-歷史降級索引/00-2026-04-首輪重構遷移索引.md', historyMigrationIndexDoc],
-    ['99-歷史降級索引/APP版本開發方案-ReactNative-Expo.md', historyAppPlanDoc],
-    ['文件收斂/README.md', governanceRootReadme],
-    ['文件收斂/00-CJ-文檔治理與同步規則.md', governanceRulesDoc],
-    ['文件收斂/01-CJ-文檔收斂台賬與批次索引.md', governanceBatchIndexDoc],
-    ['文件收斂/文檔封板後-代碼與測試對齊清單.md', governancePostSealDoc],
-  ];
+  const batch6DocPaths = (
+    await Promise.all(
+      ['90-證據與盤點', '99-歷史降級索引', '文件收斂'].map((dir) =>
+        collectMarkdownDocsUnder(dir)
+      )
+    )
+  )
+    .flat()
+    .sort();
+
+  const batch6MetadataDocs = await Promise.all(
+    batch6DocPaths.map(async (docName) => [docName, await readDoc(docName)])
+  );
 
   for (const [docName, docContent] of batch6MetadataDocs) {
     if (!docContent.includes('CORE_DOC_AUDIT_METADATA:START')) {
@@ -527,7 +525,10 @@ async function main() {
     }
   }
 
+  const evidenceSnapshotReadme =
+    batch6MetadataDocs.find(([docName]) => docName === '90-證據與盤點/頁面HTML快照/README.md')?.[1] || '';
   if (
+    !evidenceSnapshotReadme ||
     !evidenceSnapshotReadme.includes('scripts/export-static-pages.mjs') ||
     !evidenceSnapshotReadme.includes('manifest.json') ||
     !evidenceSnapshotReadme.includes('generated_at')

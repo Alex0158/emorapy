@@ -140,27 +140,38 @@ async function main() {
     readmeDoc,
     featureDoc,
     interfaceDocs,
+    authSessionInterfaceDoc,
     caseInterfaceDoc,
     judgmentInterfaceDoc,
     interviewInterfaceDoc,
     chatInterfaceDoc,
     profilePairingInterfaceDoc,
     contentNotificationInterfaceDoc,
+    adminInterfaceDoc,
+    healthMetricsInterfaceDoc,
     envBaselineDoc,
     commonMechanismDoc,
     activeRiskDoc,
     testingRulesDoc,
     testingAIGateDoc,
     authOverviewDoc,
+    authServiceCode,
+    sessionControllerCode,
     caseServiceCode,
     interviewServiceCode,
     chatServiceCode,
+    adminControllerCode,
     backendEnvCode,
     backendAppCode,
+    healthRoutesCode,
+    metricsRoutesCode,
+    metaRoutesCode,
     constantsCode,
     requestServiceCode,
     interviewStoreCode,
     validationCode,
+    frontendVersionInfoCode,
+    frontendAdminVersionInfoCode,
     frontendPackageJsonRaw,
   ] = await Promise.all([
     readDoc('頁面清單.md'),
@@ -179,27 +190,38 @@ async function main() {
       );
       return [readme, ...docs].join('\n');
     }),
+    readDoc(path.join('06-接口描述', '01-auth-session.md')),
     readDoc(path.join('06-接口描述', '03-case.md')),
     readDoc(path.join('06-接口描述', '04-judgment.md')),
     readDoc(path.join('06-接口描述', '06-interview-psych-profile.md')),
     readDoc(path.join('06-接口描述', '07-chat.md')),
     readDoc(path.join('06-接口描述', '02-user-profile-pairing.md')),
     readDoc(path.join('06-接口描述', '08-content-notification.md')),
+    readDoc(path.join('06-接口描述', '09-admin.md')),
+    readDoc(path.join('06-接口描述', '10-health-metrics.md')),
     readDoc(path.join('03-管理端與平台治理', '01-環境與部署基線.md')),
     readDoc(path.join('04-共用機制', '00-共用機制總覽.md')),
     readDoc(path.join('07-待處理問題與治理', '待處理', '已知風險清單-2026-03-17.md')),
     readDoc(path.join('08-測試規範與驗收', '01-測試文檔分層與使用規則.md')),
     readDoc(path.join('08-測試規範與驗收', '02-AI流式與Chat治理驗收基線.md')),
     readDoc(path.join('01-認證與會話', '00-認證與會話總覽.md')),
+    fs.readFile(path.join(repoRoot, 'backend', 'src', 'services', 'auth.service.ts'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'backend', 'src', 'controllers', 'session.controller.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'services', 'case.service.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'services', 'interview.service.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'services', 'chat.service.ts'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'backend', 'src', 'controllers', 'admin.controller.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'config', 'env.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'app.ts'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'backend', 'src', 'routes', 'health.routes.ts'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'backend', 'src', 'routes', 'metrics.routes.ts'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'backend', 'src', 'routes', 'meta.routes.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'utils', 'constants.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'frontend', 'src', 'services', 'request.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'frontend', 'src', 'store', 'interviewStore.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'utils', 'validation.ts'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'frontend', 'src', 'utils', 'versionInfo.ts'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'frontend-admin', 'src', 'utils', 'versionInfo.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'frontend', 'package.json'), 'utf8'),
   ]);
   const latestManualRegression = await readLatestManualRegressionSummary();
@@ -504,6 +526,151 @@ async function main() {
     }
   }
 
+  if (authServiceCode.includes('if (!user.email_verified)') && authServiceCode.includes('if (!user.is_active)')) {
+    const loginRow = findEndpointRow(authSessionInterfaceDoc, 'POST', '/api/v1/auth/login');
+    if (!loginRow || !loginRow.includes('UNAUTHORIZED')) {
+      issues.push(
+        '[truth/auth] 06-接口描述/01-auth-session.md must include UNAUTHORIZED for POST /api/v1/auth/login (inactive/unverified account)'
+      );
+    }
+  }
+
+  if (authServiceCode.includes('if (!user) {') && authServiceCode.includes('return;')) {
+    if (
+      !authSessionInterfaceDoc.includes('不存在帳號時仍回成功') &&
+      !authSessionInterfaceDoc.includes('不暴露用戶是否存在')
+    ) {
+      issues.push(
+        '[truth/auth] 06-接口描述/01-auth-session.md must document reset-password anti-enumeration semantics (non-existent account still success)'
+      );
+    }
+  }
+
+  if (sessionControllerCode.includes('hasConflict') && sessionControllerCode.includes('INVALID_SESSION_ID')) {
+    if (!authSessionInterfaceDoc.includes('僅保留單一 `X-Session-Id`')) {
+      issues.push(
+        '[truth/session] 06-接口描述/01-auth-session.md must document refresh conflict handling (single X-Session-Id source)'
+      );
+    }
+  }
+
+  if (adminControllerCode.includes('async listJobs')) {
+    const jobsRow = findEndpointRow(adminInterfaceDoc, 'GET', '/api/v1/admin/jobs');
+    if (!jobsRow || !jobsRow.includes('data.jobs')) {
+      issues.push(
+        '[truth/admin] 06-接口描述/09-admin.md must include GET /api/v1/admin/jobs with data.jobs[] contract'
+      );
+    }
+  }
+
+  if (adminControllerCode.includes('async healthDetailed')) {
+    const healthDetailedRow = findEndpointRow(adminInterfaceDoc, 'GET', '/api/v1/admin/health/detailed');
+    if (
+      !healthDetailedRow ||
+      !healthDetailedRow.includes('cronStarted') ||
+      !healthDetailedRow.includes('activeJobCount') ||
+      !healthDetailedRow.includes('performance') ||
+      !healthDetailedRow.includes('data.env')
+    ) {
+      issues.push(
+        '[truth/admin] 06-接口描述/09-admin.md health/detailed row must document cronStarted/activeJobCount/performance/env fields'
+      );
+    }
+  }
+
+  if (adminControllerCode.includes('async getInterviewRuntimeConfig')) {
+    const runtimeRow = findEndpointRow(adminInterfaceDoc, 'GET', '/api/v1/admin/runtime/interview');
+    if (!runtimeRow || !runtimeRow.includes('defaults') || !runtimeRow.includes('runtime') || !runtimeRow.includes('source')) {
+      issues.push(
+        '[truth/admin] 06-接口描述/09-admin.md must document runtime/interview response as defaults/runtime/source'
+      );
+    }
+  }
+
+  if (validationCode.includes('mediaProviderCatalogQuerySchema')) {
+    const providersRow = findEndpointRow(adminInterfaceDoc, 'GET', '/api/v1/providers');
+    if (!providersRow || !providersRow.includes('providerType?') || providersRow.includes('activeOnly') || providersRow.includes('includeConfig')) {
+      issues.push(
+        '[truth/admin] 06-接口描述/09-admin.md GET /api/v1/providers row must align with current query contract (providerType only)'
+      );
+    }
+  }
+
+  if (validationCode.includes('mediaProviderEstimateSchema')) {
+    const estimateRow = findEndpointRow(adminInterfaceDoc, 'POST', '/api/v1/providers/:providerKey/estimate');
+    if (
+      !estimateRow ||
+      !estimateRow.includes('pricingOverride') ||
+      !estimateRow.includes('unitPriceUsd') ||
+      estimateRow.includes('prompt')
+    ) {
+      issues.push(
+        '[truth/admin] 06-接口描述/09-admin.md provider estimate row must match count/durationSeconds/pricingOverride contract (no prompt)'
+      );
+    }
+  }
+
+  if (validationCode.includes('mediaProviderTestSchema')) {
+    const testRow = findEndpointRow(adminInterfaceDoc, 'POST', '/api/v1/providers/:providerKey/test');
+    if (!testRow || !testRow.includes('latencyMs') || !testRow.includes('data.success')) {
+      issues.push(
+        '[truth/admin] 06-接口描述/09-admin.md provider test row must document providerKey/success/message/latencyMs response'
+      );
+    }
+  }
+
+  if (validationCode.includes('mediaProviderGenerateImageSchema')) {
+    const imageRow = findEndpointRow(adminInterfaceDoc, 'POST', '/api/v1/providers/:providerKey/images');
+    if (!imageRow || !imageRow.includes('assets[]') || !imageRow.includes('requestId')) {
+      issues.push(
+        '[truth/admin] 06-接口描述/09-admin.md provider images row must document requestId + assets[] response'
+      );
+    }
+  }
+
+  if (validationCode.includes('mediaProviderGenerateVideoSchema')) {
+    const videoRow = findEndpointRow(adminInterfaceDoc, 'POST', '/api/v1/providers/:providerKey/videos');
+    if (!videoRow || !videoRow.includes('assets[]') || !videoRow.includes('requestId')) {
+      issues.push(
+        '[truth/admin] 06-接口描述/09-admin.md provider videos row must document requestId + assets[] response'
+      );
+    }
+  }
+
+  if (backendAppCode.includes("path === '/version'") && backendAppCode.includes("path === '/api/v1/version'")) {
+    const versionApiRow = findEndpointRow(healthMetricsInterfaceDoc, 'GET', '/api/v1/version');
+    const versionRootRow = findEndpointRow(healthMetricsInterfaceDoc, 'GET', '/version');
+    if (!versionApiRow || !versionRootRow) {
+      issues.push(
+        '[truth/health] 06-接口描述/10-health-metrics.md must document both GET /api/v1/version and GET /version'
+      );
+    }
+  }
+
+  if (healthRoutesCode.includes("router.get('/version'") && metaRoutesCode.includes("router.get('/version'")) {
+    if (!healthMetricsInterfaceDoc.includes('/api/v1/version') || !healthMetricsInterfaceDoc.includes('同 payload')) {
+      issues.push(
+        '[truth/health] 06-接口描述/10-health-metrics.md must explain /version and /api/v1/version same-payload semantics'
+      );
+    }
+  }
+
+  if (metricsRoutesCode.includes('METRICS_ALLOWED_IPS') && metricsRoutesCode.includes('X-Metrics-Token')) {
+    if (!healthMetricsInterfaceDoc.includes('token 或 IP 白名單')) {
+      issues.push(
+        '[truth/health] 06-接口描述/10-health-metrics.md must document metrics token-or-IP allowlist protection'
+      );
+    }
+  }
+
+  if (frontendVersionInfoCode.includes('/version') && frontendAdminVersionInfoCode.includes('/version')) {
+    if (!healthMetricsInterfaceDoc.includes("VITE_API_BASE_URL + '/version'")) {
+      issues.push(
+        "[truth/health] 06-接口描述/10-health-metrics.md must document frontend/admin version panel source: VITE_API_BASE_URL + '/version'"
+      );
+    }
+  }
+
   if (validationCode.includes('createNotificationSchema')) {
     const createNotificationRow = findEndpointRow(
       contentNotificationInterfaceDoc,
@@ -692,7 +859,7 @@ async function main() {
   }
 
   console.log(
-    `[docs-truth] ok: ${truth.backend.endpoints.length} endpoints, ${truth.frontend.stats.totalRoutes} frontend routes, ${truth.frontend.adminExternalRoutes.length} admin routes, enum coverage verified, critical auth semantics verified, content+notification semantics verified, risk semantics verified, testing semantics verified, batch-6 metadata semantics verified`
+    `[docs-truth] ok: ${truth.backend.endpoints.length} endpoints, ${truth.frontend.stats.totalRoutes} frontend routes, ${truth.frontend.adminExternalRoutes.length} admin routes, enum coverage verified, critical auth semantics verified, admin+health semantics verified, content+notification semantics verified, risk semantics verified, testing semantics verified, batch-6 metadata semantics verified`
   );
 }
 

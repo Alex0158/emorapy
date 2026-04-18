@@ -1,5 +1,13 @@
 # 接口描述：auth + sessions
 
+<!-- CORE_DOC_AUDIT_METADATA:START -->
+**文檔類型**：接口詳規
+**覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：01-auth-session
+**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`frontend/src/services/api`、`frontend-admin/src/services/api`
+**最後核驗 Commit**：`97708e5`
+**最後核驗日期**：`2026-04-18`
+<!-- CORE_DOC_AUDIT_METADATA:END -->
+
 **文檔版本**：v2.2  
 **最後更新**：2026-03-06  
 **代碼基準**：`backend/src/routes/auth.routes.ts`、`backend/src/routes/session.routes.ts`、`backend/src/utils/validation.ts`、`frontend/src/services/api/auth.ts`、`frontend/src/services/api/session.ts`
@@ -17,15 +25,15 @@
 
 | API                                        | Request（核心字段）                                        | Success（前端實際用到）                             | 常見錯誤碼                                                     | 副作用/狀態轉移             | 前端入口                                     |
 | ------------------------------------------ | ---------------------------------------------------- | ------------------------------------------- | --------------------------------------------------------- | -------------------- | ---------------------------------------- |
-| `POST /api/v1/auth/register`               | `email`、`password(>=8,含字母數字)`、`nickname?`            | `data.user`、`data.token`                    | `VALIDATION_ERROR`、`EMAIL_EXISTS`、`RATE_LIMIT_EXCEEDED`   | 建立用戶、簽發 JWT          | `/auth/register`                         |
-| `POST /api/v1/auth/login`                  | `email`、`password`                                   | `data.user`、`data.token`、`data.expires_in?` | `INVALID_CREDENTIALS`、`USER_LOCKED`、`RATE_LIMIT_EXCEEDED` | 更新最後登入時間、簽發 JWT      | `/auth/login`                            |
+| `POST /api/v1/auth/register`               | `email`、`password(>=8,含字母數字)`、`nickname?`            | `data.user`、`data.token`                    | `VALIDATION_ERROR`、`EMAIL_EXISTS`、`WEAK_PASSWORD`、`RATE_LIMIT_EXCEEDED`   | 建立用戶、簽發 JWT          | `/auth/register`                         |
+| `POST /api/v1/auth/login`                  | `email`、`password`                                   | `data.user`、`data.token`、`data.expires_in?` | `INVALID_CREDENTIALS`、`UNAUTHORIZED`、`RATE_LIMIT_EXCEEDED` | 更新最後登入時間、簽發 JWT      | `/auth/login`                            |
 | `POST /api/v1/auth/send-verification-code` | `email`、`type(register/reset_password/verify_email)` | 成功旗標（無固定 data）                              | `RATE_LIMIT_EXCEEDED`、`INVALID_EMAIL`                     | 寫入驗證碼紀錄，觸發郵件發送       | `/auth/register`、`/auth/forgot-password` |
-| `POST /api/v1/auth/verify-email`           | `email`、`code(6)`、`type`                             | `data.verified:boolean`                     | `VERIFICATION_CODE_INVALID`、`VERIFICATION_CODE_EXPIRED`   | 依 type 更新驗證狀態        | 認證流程內                                    |
-| `POST /api/v1/auth/reset-password`         | `email`                                              | 成功旗標                                        | `USER_NOT_FOUND`、`RATE_LIMIT_EXCEEDED`                    | 生成重設碼                | `/auth/forgot-password`                  |
-| `POST /api/v1/auth/reset-password-confirm` | `email`、`code(6)`、`new_password`                     | 成功旗標                                        | `VERIFICATION_CODE_INVALID`、`WEAK_PASSWORD`               | 寫入新密碼 hash           | `/auth/forgot-password`                  |
-| `POST /api/v1/auth/claim-session`          | `session_id`（需 JWT）                                  | `data.case_id`（可為 null）                     | `SESSION_NOT_FOUND`、`INVALID_SESSION_ID`、`UNAUTHORIZED`   | quick case 與 user 綁定 | 登入/註冊後隱式                                 |
+| `POST /api/v1/auth/verify-email`           | `email`、`code(6)`、`type`                             | `data.verified:boolean`                     | `INVALID_CODE`、`CODE_EXPIRED`、`RATE_LIMIT_EXCEEDED`   | 依 type 更新驗證狀態        | 認證流程內                                    |
+| `POST /api/v1/auth/reset-password`         | `email`                                              | 成功旗標                                        | `RATE_LIMIT_EXCEEDED`                    | 嘗試生成重設碼；不存在帳號時仍回成功                | `/auth/forgot-password`                  |
+| `POST /api/v1/auth/reset-password-confirm` | `email`、`code(6)`、`new_password`                     | 成功旗標                                        | `INVALID_CODE`、`CODE_EXPIRED`、`WEAK_PASSWORD`、`RATE_LIMIT_EXCEEDED`               | 寫入新密碼 hash 並使既有 token 失效           | `/auth/forgot-password`                  |
+| `POST /api/v1/auth/claim-session`          | `session_id`（需 JWT）                                  | `data.case_id`（可為 null）                     | `VALIDATION_ERROR`、`UNAUTHORIZED`   | quick case 與 user 綁定；無可關聯案件時 no-op | 登入/註冊後隱式                                 |
 | `POST /api/v1/sessions/quick`              | 無 body                                               | `data.session_id`、`data.expires_at`         | `RATE_LIMIT_EXCEEDED`                                     | 建立匿名 session         | `/quick-experience/create`               |
-| `POST /api/v1/sessions/refresh`            | 無 body                                               | `data.session_id`、`data.expires_at`         | `RATE_LIMIT_EXCEEDED`                                     | 刷新/換發 session        | 全站攔截器恢復                                  |
+| `POST /api/v1/sessions/refresh`            | 無 body                                               | `data.session_id`、`data.expires_at`         | `INVALID_SESSION_ID`、`RATE_LIMIT_EXCEEDED`                                     | 原子旋轉舊 session 或新建 session        | 全站攔截器恢復                                  |
 
 
 ## 操作級規則（深水區）
@@ -33,6 +41,8 @@
 - `request.ts` 對非 admin API 自動帶 JWT；同時會補 `X-Session-Id`，形成雙憑證併存。
 - Session 類 401/400（`SESSION_EXPIRED`、`SESSION_ID_REQUIRED`、`INVALID_SESSION_ID`）走「清舊 -> refresh -> 重試」策略，避免死循環。
 - `claim-session` 屬提升體驗轉化率的「弱依賴」：失敗不應阻斷登入成功態。
+- `reset-password` 刻意不暴露用戶是否存在；不存在帳號時仍返回成功，避免枚舉用戶。
+- `sessions/refresh` 若帶合法舊 `X-Session-Id`，後端會做「新建 -> 遷移 `case_id/pairing_id/session_data` -> 刪舊」的原子旋轉；前端必須同步替換本地 `sessionStorage` 與 `caseSessionMap`。
 
 ## 回歸測試最小集
 
@@ -50,17 +60,23 @@
 | ------------------------------------------ | --------------------- | ---- | -------------------- | ----------------- |
 | `POST /api/v1/auth/register`               | `VALIDATION_ERROR`    | 400  | 高亮字段錯誤並保留輸入          | 修正後立即重送           |
 | `POST /api/v1/auth/register`               | `EMAIL_EXISTS`        | 409  | 提示改用登入/忘記密碼          | 不重試，改走登入流程        |
+| `POST /api/v1/auth/register`               | `WEAK_PASSWORD`       | 400  | 提示密碼強度不足              | 修正密碼後重送           |
 | `POST /api/v1/auth/login`                  | `INVALID_CREDENTIALS` | 401  | 留在登入頁顯示錯誤            | 人工修正帳密後重送         |
+| `POST /api/v1/auth/login`                  | `UNAUTHORIZED`        | 401  | 提示帳號未激活或未完成郵箱驗證 | 完成驗證或聯繫支持後重試   |
 | `POST /api/v1/auth/login`                  | `RATE_LIMIT_EXCEEDED` | 429  | 顯示限流倒數               | 冷卻後重試             |
 | `POST /api/v1/auth/send-verification-code` | `INVALID_EMAIL`       | 400  | email 欄位錯誤提示         | 修正 email 後重送      |
 | `POST /api/v1/auth/send-verification-code` | `RATE_LIMIT_EXCEEDED` | 429  | 顯示發碼過頻提示             | 冷卻後重送             |
 | `POST /api/v1/auth/verify-email`           | `INVALID_CODE`        | 400  | 顯示驗證碼錯誤              | 允許重新輸入            |
 | `POST /api/v1/auth/verify-email`           | `CODE_EXPIRED`        | 400  | 提示驗證碼過期              | 先重發碼再驗證           |
+| `POST /api/v1/auth/reset-password`         | `RATE_LIMIT_EXCEEDED` | 429  | 顯示重設郵件發送過頻，不暴露帳號是否存在 | 冷卻後重試 |
+| `POST /api/v1/auth/reset-password-confirm` | `INVALID_CODE`        | 400  | 顯示重設碼錯誤              | 重新輸入或重發碼 |
+| `POST /api/v1/auth/reset-password-confirm` | `CODE_EXPIRED`        | 400  | 提示重設碼過期              | 先重發碼再重設 |
 | `POST /api/v1/auth/reset-password-confirm` | `WEAK_PASSWORD`       | 400  | 顯示密碼強度規則             | 修正密碼後重送           |
-| `POST /api/v1/auth/claim-session`          | `INVALID_SESSION_ID`  | 400  | 清理本地 session，顯示非阻斷提示 | 可重建 quick session |
-| `POST /api/v1/auth/claim-session`          | `SESSION_EXPIRED`     | 401  | 不阻斷登入成功態，僅提示綁定失敗     | 可稍後手動重綁           |
+| `POST /api/v1/auth/claim-session`          | `VALIDATION_ERROR`  | 400  | 僅記錄 warning，不回滾登入成功態 | 修正 session payload 後再嘗試 |
+| `POST /api/v1/auth/claim-session`          | `UNAUTHORIZED`     | 401  | 不阻斷登入成功態，僅放棄綁定     | 重新登入後再嘗試           |
 | `POST /api/v1/sessions/quick`              | `RATE_LIMIT_EXCEEDED` | 429  | 顯示建立體驗過頻             | 冷卻後重試             |
-| `POST /api/v1/sessions/refresh`            | `SESSION_EXPIRED`     | 401  | 導回 quick create 起點   | 重建新 session       |
+| `POST /api/v1/sessions/refresh`            | `INVALID_SESSION_ID`     | 400  | 清理衝突的本地 session 來源，僅保留單一 `X-Session-Id` 後重試   | 修正來源後重試       |
+| `POST /api/v1/sessions/refresh`            | `RATE_LIMIT_EXCEEDED`     | 429  | 顯示續期過頻，避免循環刷新   | 冷卻後重試       |
 
 
 ## 狀態標記

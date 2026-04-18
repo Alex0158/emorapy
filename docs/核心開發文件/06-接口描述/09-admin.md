@@ -1,5 +1,13 @@
 # 接口描述：admin
 
+<!-- CORE_DOC_AUDIT_METADATA:START -->
+**文檔類型**：接口詳規
+**覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：09-admin
+**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`frontend/src/services/api`、`frontend-admin/src/services/api`
+**最後核驗 Commit**：`97708e5`
+**最後核驗日期**：`2026-04-18`
+<!-- CORE_DOC_AUDIT_METADATA:END -->
+
 **文檔版本**：v2.5  
 **最後更新**：2026-04-04  
 **代碼基準**：`backend/src/routes/admin.routes.ts`、`backend/src/middleware/adminAuth.ts`、`frontend/src/services/api/admin.ts`
@@ -25,8 +33,10 @@
 
 | API | Request | Success（前端使用） | 常見錯誤碼 | 權限/副作用 |
 |---|---|---|---|---|
+| `GET /api/v1/admin/jobs` | 無 | `data.jobs[]` | `FORBIDDEN` | 需 `ops:read`，作業列表與最近執行紀錄 |
 | `GET /api/v1/admin/jobs/stats` | query `days includeRunning maxRows` | `data.totals data.perJob data.dailyBuckets` | `VALIDATION_ERROR` | 需 `ops:read` |
 | `POST /api/v1/admin/jobs/:jobKey/trigger` | `jobKey` | `data.status triggeredAt` | `FORBIDDEN` | 需 `ops:execute`，觸發任務 |
+| `GET /api/v1/admin/health/detailed` | 無 | `data.status data.timestamp data.cronStarted data.activeJobCount data.adminCount data.userCount data.performance data.env` | `FORBIDDEN` | 需 `ops:read`，詳細健康檢查 |
 | `GET /api/v1/admin/configs` | query `limit offset` | `data.items[]` | `FORBIDDEN` | 需 `config:read` |
 | `PUT /api/v1/admin/configs` | `key value description? isRuntime? isSensitive?` | `data.item` | `VALIDATION_ERROR` | 需 `config:write`，配置落庫 |
 | `PUT /api/v1/admin/alerts/rules` | `rules[]` | `data.item` | `VALIDATION_ERROR` | 需 `alerts:write + ops:execute` |
@@ -46,14 +56,24 @@
 
 | API | Request | Success（前端使用） | 常見錯誤碼 | 權限/副作用 |
 |---|---|---|---|---|
-| `GET/POST/PATCH/DELETE /api/v1/admin/admin-users*` | `adminUserId?` + create/update body | `data.item/items` | `VALIDATION_ERROR` `FORBIDDEN` | `admin:all`，管理後台帳號 |
+| `GET /api/v1/admin/admin-users` | query `q? limit? offset?` | `data.items[]` | `FORBIDDEN` | `admin:all`，管理後台帳號列表 |
+| `POST /api/v1/admin/admin-users` | `email password name roleKey` | `data.item` | `VALIDATION_ERROR` `FORBIDDEN` | `admin:all`，建立後台帳號 |
+| `PATCH /api/v1/admin/admin-users/:adminUserId` | `name? roleKey? isActive? password?` | `data.item` | `VALIDATION_ERROR` `FORBIDDEN` `NOT_FOUND` | `admin:all`，更新後台帳號 |
+| `DELETE /api/v1/admin/admin-users/:adminUserId` | `adminUserId(uuid)` | `data.item` | `FORBIDDEN` `NOT_FOUND` | `admin:all`，刪除後台帳號 |
 | `POST /api/v1/admin/reports/custom` | `metrics[]` | `data.metrics{}` | `VALIDATION_ERROR` | `reports:read` |
 | `GET /api/v1/admin/reports/overview.csv` | 無 | blob | `FORBIDDEN` | `reports:read` |
-| `GET /api/v1/admin/reports/overview|funnel|costs` | 無 | 報表資料 | `FORBIDDEN` | `reports:read`，已由 admin reports 頁接線 |
+| `GET /api/v1/admin/reports/overview` | 無 | `data.totals data.conversion` | `FORBIDDEN` | `reports:read`，已由 admin reports 頁接線 |
+| `GET /api/v1/admin/reports/funnel` | 無 | `data.stages[]` | `FORBIDDEN` | `reports:read`，已由 admin reports 頁接線 |
+| `GET /api/v1/admin/reports/costs` | 無 | `data.generatedAt data.summary data.redis data.railway data.openai` | `FORBIDDEN` | `reports:read`，已由 admin reports 頁接線 |
 | `GET /api/v1/admin/reports/ai-streams` | query `days? limit?` | `data.windowDays data.retentionPolicy data.totals data.byStatus data.byScopeType data.byBackendMode data.recentFailures[]` | `FORBIDDEN` `VALIDATION_ERROR` | `reports:read`，AI Stream 治理報表，已由 admin reports 頁接線 |
 | `GET /api/v1/admin/reports/ai-streams/sessions` | query `days? limit? offset? status? scopeType? scopeId? requestId? streamId? source?` | `data.items[] data.total data.source` | `FORBIDDEN` `VALIDATION_ERROR` | `reports:read`，AI Stream session 明細查詢 |
 | `GET /api/v1/admin/reports/ai-streams/sessions/:streamId` | params `streamId` + query `eventLimit? source?` | `data.source data.session data.events[]` | `FORBIDDEN` `NOT_FOUND` `VALIDATION_ERROR` | `reports:read`，單條 stream 詳情 |
-| `GET /api/v1/admin/health/detailed` / `GET /jobs` / `GET /runtime/interview` | 無 | 運維資料（保留） | `FORBIDDEN` | 候選接口，未前台接線 |
+| `GET /api/v1/admin/runtime/interview` | 無 | `data.defaults data.runtime data.source` | `FORBIDDEN` | `config:read`，訪談運行時設定，已由 admin settings 頁接線 |
+| `GET /api/v1/providers` | query `providerType?` | `data.items[]` | `FORBIDDEN` `VALIDATION_ERROR` | `config:read`，media provider 目錄與配置檢視 |
+| `POST /api/v1/providers/:providerKey/estimate` | `count? durationSeconds? pricingOverride?` | `data.billingUnit data.unitPriceUsd data.unitCount data.totalCostUsd` | `FORBIDDEN` `VALIDATION_ERROR` `NOT_FOUND` | `config:read`，試算 media provider 成本 |
+| `POST /api/v1/providers/:providerKey/test` | `apiKey?/api_key? baseUrl?/base_url? timeoutMs?/timeout_ms? model? count? durationSeconds? sourceImageUrl?/source_image_url? prompt?` | `data.providerKey data.success data.message data.latencyMs data.detail?` | `FORBIDDEN` `VALIDATION_ERROR` `NOT_FOUND` | `config:write`，供應商健康探針 |
+| `POST /api/v1/providers/:providerKey/images` | `prompt model? count? width? height? apiKey?/api_key? baseUrl?/base_url? timeoutMs?/timeout_ms?` | `data.providerKey data.requestId data.assets[] data.raw?` | `FORBIDDEN` `VALIDATION_ERROR` `NOT_FOUND` | `config:write`，執行圖片生成驗證 |
+| `POST /api/v1/providers/:providerKey/videos` | `prompt model? durationSeconds? sourceImageUrl?/source_image_url? apiKey?/api_key? baseUrl?/base_url? timeoutMs?/timeout_ms?` | `data.providerKey data.requestId data.assets[] data.raw?` | `FORBIDDEN` `VALIDATION_ERROR` `NOT_FOUND` | `config:write`，執行視頻生成驗證 |
 
 ## 操作級規則（深水區）
 
@@ -77,15 +97,17 @@
 |---|---|---:|---|---|
 | `POST /api/v1/admin/login` | `INVALID_CREDENTIALS` | 401 | 留在登入頁提示錯誤，不清其他本地狀態 | 修正帳密後重送 |
 | `GET /api/v1/admin/me` | `UNAUTHORIZED` | 401 | 清 admin token 並返回 `/admin/login` | 登入後重拉 |
+| `GET /api/v1/admin/jobs` | `FORBIDDEN` | 403 | 隱藏任務列表與手動觸發入口 | 不重試，申請權限 |
 | `GET /api/v1/admin/jobs/stats` | `VALIDATION_ERROR` | 400 | 提示 query 參數錯誤 | 修正參數後重拉 |
 | `POST /api/v1/admin/jobs/:jobKey/trigger` | `FORBIDDEN` | 403 | 顯示無執行權限 | 不重試，申請權限 |
+| `POST /api/v1/admin/jobs/:jobKey/trigger` | `NOT_FOUND` | 404 | 提示任務不存在或不支援手動觸發 | 刷新任務列表後重試 |
 | `GET /api/v1/admin/configs` | `FORBIDDEN` | 403 | 配置頁切唯讀或禁用 | 不重試 |
 | `PUT /api/v1/admin/configs` | `VALIDATION_ERROR` | 400 | 提示 key/value 不合法 | 修正後重送 |
 | `PUT /api/v1/admin/configs` | `FORBIDDEN` | 403 | 顯示權限不足 | 不重試 |
 | `PATCH /api/v1/admin/users/:userId/status` | `VALIDATION_ERROR` | 400 | 高亮 action/lockMinutes | 修正後重送 |
 | `PATCH /api/v1/admin/users/:userId/status` | `NOT_FOUND` | 404 | 提示目標用戶不存在 | 刷新列表後再操作 |
 | `GET /api/v1/admin/audit-logs(.csv)` | `FORBIDDEN` | 403 | 提示無審計權限 | 不重試 |
-| `GET/POST/PATCH/DELETE /api/v1/admin/admin-users*` | `FORBIDDEN` | 403 | 關閉管理員治理按鈕 | 不重試 |
+| `GET /api/v1/admin/admin-users` / `POST /api/v1/admin/admin-users` / `PATCH /api/v1/admin/admin-users/:adminUserId` / `DELETE /api/v1/admin/admin-users/:adminUserId` | `FORBIDDEN` | 403 | 關閉管理員治理按鈕 | 不重試 |
 | `POST /api/v1/admin/reports/custom` | `VALIDATION_ERROR` | 400 | 提示 metrics 列表不合法 | 修正後重送 |
 | `GET /api/v1/admin/reports/ai-streams` | `FORBIDDEN` | 403 | 顯示無 AI Stream 報表權限 | 不重試 |
 | `GET /api/v1/admin/reports/ai-streams/sessions` | `FORBIDDEN` | 403 | 顯示無 AI Stream 查詢權限 | 不重試 |
@@ -93,8 +115,8 @@
 | `GET /api/v1/admin/reports/overview.csv` | `FORBIDDEN` | 403 | 顯示無報表權限 | 不重試 |
 | `PUT /api/v1/admin/alerts/rules` | `VALIDATION_ERROR` | 400 | 顯示規則 schema 錯誤 | 修正後重送 |
 | `PUT /api/v1/admin/feature-flags` | `VALIDATION_ERROR` | 400 | 提示旗標格式錯誤 | 修正後重送 |
+| `GET /api/v1/providers` / `POST /api/v1/providers/:providerKey/(estimate|test|images|videos)` | `FORBIDDEN` / `NOT_FOUND` / `VALIDATION_ERROR` | 403/404/400 | provider 面板顯示權限、配置或 providerKey 錯誤 | 修正配置後重試 |
 
 ## 狀態標記
 
-- 已使用：18
-- 候選廢棄：9
+- 本模組接口狀態以 [`全接口清單-主文檔.md`](../全接口清單-主文檔.md) 為唯一裁決口徑；本文件僅維護模組級字段契約與錯誤碼矩陣。

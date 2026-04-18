@@ -142,14 +142,24 @@ async function main() {
     interfaceDocs,
     caseInterfaceDoc,
     judgmentInterfaceDoc,
+    interviewInterfaceDoc,
     chatInterfaceDoc,
+    profilePairingInterfaceDoc,
     contentNotificationInterfaceDoc,
+    envBaselineDoc,
+    commonMechanismDoc,
     activeRiskDoc,
     testingRulesDoc,
     testingAIGateDoc,
     authOverviewDoc,
     caseServiceCode,
+    interviewServiceCode,
     chatServiceCode,
+    backendEnvCode,
+    backendAppCode,
+    constantsCode,
+    requestServiceCode,
+    interviewStoreCode,
     validationCode,
     frontendPackageJsonRaw,
   ] = await Promise.all([
@@ -171,14 +181,24 @@ async function main() {
     }),
     readDoc(path.join('06-接口描述', '03-case.md')),
     readDoc(path.join('06-接口描述', '04-judgment.md')),
+    readDoc(path.join('06-接口描述', '06-interview-psych-profile.md')),
     readDoc(path.join('06-接口描述', '07-chat.md')),
+    readDoc(path.join('06-接口描述', '02-user-profile-pairing.md')),
     readDoc(path.join('06-接口描述', '08-content-notification.md')),
+    readDoc(path.join('03-管理端與平台治理', '01-環境與部署基線.md')),
+    readDoc(path.join('04-共用機制', '00-共用機制總覽.md')),
     readDoc(path.join('07-待處理問題與治理', '待處理', '已知風險清單-2026-03-17.md')),
     readDoc(path.join('08-測試規範與驗收', '01-測試文檔分層與使用規則.md')),
     readDoc(path.join('08-測試規範與驗收', '02-AI流式與Chat治理驗收基線.md')),
     readDoc(path.join('01-認證與會話', '00-認證與會話總覽.md')),
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'services', 'case.service.ts'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'backend', 'src', 'services', 'interview.service.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'services', 'chat.service.ts'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'backend', 'src', 'config', 'env.ts'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'backend', 'src', 'app.ts'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'backend', 'src', 'utils', 'constants.ts'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'frontend', 'src', 'services', 'request.ts'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'frontend', 'src', 'store', 'interviewStore.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'utils', 'validation.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'frontend', 'package.json'), 'utf8'),
   ]);
@@ -397,6 +417,89 @@ async function main() {
     if (!chatGetRoomRow || !chatGetRoomRow.includes('FORBIDDEN') || chatGetRoomRow.includes('NOT_FOUND')) {
       issues.push(
         '[truth/chat] 06-接口描述/07-chat.md GET /api/v1/chat/rooms/:roomId row must use FORBIDDEN-only access semantics (no NOT_FOUND)'
+      );
+    }
+  }
+
+  if (!interviewStoreCode.includes('cancelledDraft')) {
+    const cancelledDraftMentions = [
+      ['06-接口描述/06-interview-psych-profile.md', interviewInterfaceDoc],
+      ['功能特性清單.md', featureDoc],
+    ];
+    for (const [docName, docContent] of cancelledDraftMentions) {
+      const staleLines = docContent
+        .split('\n')
+        .filter(
+          (line) =>
+            line.includes('cancelled draft') &&
+            !line.includes('不再') &&
+            !line.includes('不顯示') &&
+            !line.includes('不渲染')
+        );
+      if (staleLines.length > 0) {
+        issues.push(
+          `[truth/interview] ${docName} still claims visible cancelled draft, but interviewStore no longer keeps cancelledDraft state`
+        );
+      }
+    }
+  }
+
+  if (interviewServiceCode.includes('loadValidatedTurnContext')) {
+    if (!interviewInterfaceDoc.includes('前置錯誤現在會在提交當下同步返回')) {
+      issues.push(
+        '[truth/interview] 06-接口描述/06-interview-psych-profile.md must document submit pre-validation sync error semantics'
+      );
+    }
+  }
+
+  if (requestServiceCode.includes('instanceof FormData') && requestServiceCode.includes('Content-Type')) {
+    if (
+      !profilePairingInterfaceDoc.includes('FormData') ||
+      !profilePairingInterfaceDoc.includes('Content-Type') ||
+      !profilePairingInterfaceDoc.includes('boundary')
+    ) {
+      issues.push(
+        '[truth/upload] 06-接口描述/02-user-profile-pairing.md must document FormData Content-Type boundary handling for avatar upload'
+      );
+    }
+  }
+
+  if (backendAppCode.includes("'PATCH'")) {
+    if (!envBaselineDoc.includes('PATCH') || !envBaselineDoc.includes('CORS')) {
+      issues.push(
+        '[truth/env] 03-管理端與平台治理/01-環境與部署基線.md must document CORS PATCH method support'
+      );
+    }
+  }
+
+  if (backendEnvCode.includes('LOCAL_DEV_ORIGINS_DEFAULT') && backendEnvCode.includes('mergeAllowedOrigins')) {
+    if (!envBaselineDoc.includes('4173-4175') || !envBaselineDoc.includes('5173-5175')) {
+      issues.push(
+        '[truth/env] 03-管理端與平台治理/01-環境與部署基線.md must document development ALLOWED_ORIGINS local-port merge baseline'
+      );
+    }
+  }
+
+  if (constantsCode.includes('OPENAI_REQUEST: 90000')) {
+    if (!commonMechanismDoc.includes('OPENAI_REQUEST=90000ms')) {
+      issues.push(
+        '[truth/ai] 04-共用機制/00-共用機制總覽.md missing OPENAI_REQUEST=90000ms runtime budget'
+      );
+    }
+  }
+
+  if (constantsCode.includes('JUDGMENT_GENERATION: 180000')) {
+    if (!commonMechanismDoc.includes('JUDGMENT_GENERATION=180000ms')) {
+      issues.push(
+        '[truth/ai] 04-共用機制/00-共用機制總覽.md missing JUDGMENT_GENERATION=180000ms runtime budget'
+      );
+    }
+  }
+
+  if (constantsCode.includes('JUDGMENT_GENERATION: 300')) {
+    if (!commonMechanismDoc.includes('LOCK_TTL.JUDGMENT_GENERATION=300s')) {
+      issues.push(
+        '[truth/ai] 04-共用機制/00-共用機制總覽.md missing LOCK_TTL.JUDGMENT_GENERATION=300s runtime budget'
       );
     }
   }

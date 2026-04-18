@@ -1,5 +1,13 @@
 # 接口描述：user + profile + pairing
 
+<!-- CORE_DOC_AUDIT_METADATA:START -->
+**文檔類型**：接口詳規
+**覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：02-user-profile-pairing
+**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`frontend/src/services/api`、`frontend-admin/src/services/api`
+**最後核驗 Commit**：`4a1374a`
+**最後核驗日期**：`2026-04-18`
+<!-- CORE_DOC_AUDIT_METADATA:END -->
+
 **文檔版本**：v2.3  
 **最後更新**：2026-03-14  
 **代碼基準**：`backend/src/routes/user.routes.ts`、`backend/src/routes/profile.routes.ts`、`backend/src/routes/pairing.routes.ts`、`backend/src/utils/validation.ts`
@@ -33,6 +41,7 @@
 ## 操作級規則（深水區）
 
 - 頭像上傳已收斂至 `services/api/user.ts` 的 `uploadAvatar(formData)`，由 request 實例與攔截器處理 token。
+- 主 Web request 攔截器在偵測 `FormData` 時會移除預設 `Content-Type`，交由瀏覽器自動附帶 multipart boundary；否則 `POST /api/v1/user/avatar` 會因 boundary 缺失被後端判為 `VALIDATION_ERROR`。
 - `pairing/join` 採獨立 limiter，避免邀請碼暴力猜測。
 - `getPairingStatus` 在前端把 `404` 視為 `null`（不是錯誤），這是流程控制關鍵語義。
 - `profile/relationship/:pairingId` 屬配對依賴型接口，未配對時應返回不可訪問語義而非空資料。

@@ -4,6 +4,7 @@ import { extractCoreDocsTruth } from './lib/core-docs-truth.mjs';
 
 const repoRoot = path.resolve(new URL('.', import.meta.url).pathname, '..');
 const coreDocsRoot = path.join(repoRoot, 'docs', '核心開發文件');
+const MANUAL_FLOW_IDS = ['P01', 'P02', 'P03', 'P04', 'P05'];
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -107,7 +108,25 @@ async function readLatestManualRegressionSummary() {
     return null;
   }
 
-  return { latestDate, summary };
+  const summaryStatuses = {};
+  for (const flowId of MANUAL_FLOW_IDS) {
+    const summaryRowMatch = summary.match(new RegExp(`\\|\\s*${flowId}\\b[^\\n]*\\|\\s*([A-Z_]+)\\s*\\|`));
+    summaryStatuses[flowId] = summaryRowMatch ? summaryRowMatch[1] : 'MISSING';
+  }
+
+  const recordStatuses = {};
+  for (const flowId of MANUAL_FLOW_IDS) {
+    const recordPath = path.join(evidenceRoot, latestDate, flowId, 'record.md');
+    try {
+      const record = await fs.readFile(recordPath, 'utf8');
+      const statusMatch = record.match(/^- 狀態：\s*(\S+)/m);
+      recordStatuses[flowId] = statusMatch ? statusMatch[1] : 'MISSING';
+    } catch {
+      recordStatuses[flowId] = 'MISSING';
+    }
+  }
+
+  return { latestDate, summary, summaryStatuses, recordStatuses };
 }
 
 async function main() {
@@ -450,9 +469,31 @@ async function main() {
   }
 
   if (latestManualRegression) {
-    const flowIds = ['P01', 'P02', 'P03', 'P04', 'P05'];
-    const allFlowsPassed = flowIds.every((flowId) =>
-      new RegExp(`\\|\\s*${flowId}\\b[^\\n]*\\|\\s*PASS\\s*\\|`).test(latestManualRegression.summary)
+    for (const flowId of MANUAL_FLOW_IDS) {
+      const summaryStatus = latestManualRegression.summaryStatuses[flowId] || 'MISSING';
+      const recordStatus = latestManualRegression.recordStatuses[flowId] || 'MISSING';
+
+      if (summaryStatus === 'MISSING') {
+        issues.push(
+          `[truth/manual-regression] summary.md (${latestManualRegression.latestDate}) missing status row for ${flowId}`
+        );
+      }
+      if (recordStatus === 'MISSING') {
+        issues.push(
+          `[truth/manual-regression] record.md (${latestManualRegression.latestDate}) missing status for ${flowId}`
+        );
+      }
+      if (summaryStatus !== 'MISSING' && recordStatus !== 'MISSING' && summaryStatus !== recordStatus) {
+        issues.push(
+          `[truth/manual-regression] status drift for ${flowId} (${latestManualRegression.latestDate}): summary=${summaryStatus}, record=${recordStatus}`
+        );
+      }
+    }
+
+    const allFlowsPassed = MANUAL_FLOW_IDS.every(
+      (flowId) =>
+        latestManualRegression.summaryStatuses[flowId] === 'PASS' &&
+        latestManualRegression.recordStatuses[flowId] === 'PASS'
     );
     if (allFlowsPassed) {
       const staleManualRegressionPatterns = [

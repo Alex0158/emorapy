@@ -947,6 +947,26 @@ describe('CaseService', () => {
       expect(mockSignUrl).toHaveBeenCalledWith('http://a.com/1.jpg');
     });
 
+    it('collaborative full-mode（無 session_id）應允許以當事人 userId 讀取案件', async () => {
+      const case_ = {
+        id: 'case-1',
+        mode: 'collaborative',
+        session_id: null,
+        plaintiff_id: 'u1',
+        defendant_id: 'u2',
+        evidences: [{ file_url: 'http://a.com/1.jpg' }],
+        judgment: null,
+        pairing: null,
+      };
+      prismaMock.case.findUnique.mockResolvedValue(case_);
+
+      const result = await service.getCaseById('case-1', 'u1');
+
+      expect(result).toBeDefined();
+      expect(mockGetSession).not.toHaveBeenCalled();
+      expect(mockSignUrl).toHaveBeenCalledWith('http://a.com/1.jpg');
+    });
+
     it('remote 模式無 userId 應拋出 UNAUTHORIZED', async () => {
       prismaMock.case.findUnique.mockResolvedValue({
         id: 'case-1',

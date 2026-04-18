@@ -1,6 +1,7 @@
 /**
  * JudgmentService 單元測試（快速體驗主流程與關鍵分支）
  */
+import { AI_TIMEOUT } from '../../../src/utils/constants';
 
 const prismaMock: any = {
   judgment: {
@@ -282,7 +283,7 @@ describe('JudgmentService', () => {
       const service = new JudgmentService();
       const promise = service.generateJudgment('case-1', { sessionId: baseCase().session_id as string });
       const rejected = expect(promise).rejects.toMatchObject({ code: 'AI_SERVICE_ERROR' });
-      await jest.advanceTimersByTimeAsync(60000);
+      await jest.advanceTimersByTimeAsync(AI_TIMEOUT.JUDGMENT_GENERATION);
       await rejected;
       jest.useRealTimers();
 
@@ -622,6 +623,34 @@ describe('JudgmentService', () => {
       await expect(service.getJudgmentByCaseId('case-1', undefined, 's-wrong')).rejects.toMatchObject({
         code: 'FORBIDDEN',
       });
+    });
+
+    it('collaborative full-mode（無 session_id）應允許當事人以 userId 讀取判決', async () => {
+      prismaMock.case.findUnique.mockResolvedValueOnce(
+        baseCase({ mode: 'collaborative', session_id: null, plaintiff_id: 'u1', defendant_id: 'u2' })
+      );
+      prismaMock.judgment.findUnique.mockResolvedValueOnce({
+        id: 'j-collab-full',
+        case_id: 'case-1',
+        plaintiff_ratio: 52,
+        defendant_ratio: 48,
+        reconciliation_plans: [],
+      });
+      const service = new JudgmentService();
+
+      const judgment = await service.getJudgmentByCaseId('case-1', 'u1');
+
+      expect(sessionServiceMock.getSession).not.toHaveBeenCalled();
+      expect(judgment).toMatchObject({ id: 'j-collab-full', case_id: 'case-1' });
+    });
+
+    it('collaborative full-mode（無 session_id）非當事人應 FORBIDDEN', async () => {
+      prismaMock.case.findUnique.mockResolvedValueOnce(
+        baseCase({ mode: 'collaborative', session_id: null, plaintiff_id: 'u1', defendant_id: 'u2' })
+      );
+      const service = new JudgmentService();
+
+      await expect(service.getJudgmentByCaseId('case-1', 'u3')).rejects.toMatchObject({ code: 'FORBIDDEN' });
     });
 
     it('remote 模式無 userId 應 UNAUTHORIZED', async () => {

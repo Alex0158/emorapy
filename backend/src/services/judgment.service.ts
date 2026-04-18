@@ -320,6 +320,14 @@ function truncateProfileParts(parts: PrioritizedText[]): {
  * - 唯一約束作為最後防線
  */
 export class JudgmentService {
+  /**
+   * quick 一律為 session-bound；
+   * collaborative 僅在 session_id 存在時視為匿名協作流程。
+   */
+  private isSessionBoundCase(case_: { mode: string; session_id?: string | null }): boolean {
+    return case_.mode === CASE_MODE.QUICK || (case_.mode === CASE_MODE.COLLABORATIVE && Boolean(case_.session_id));
+  }
+
   private readonly contextGovernance = {
     enableProfileContext: env.JUDGMENT_ENABLE_PROFILE_CONTEXT,
     enableCaseContext: env.JUDGMENT_ENABLE_CASE_CONTEXT,
@@ -1122,8 +1130,8 @@ export class JudgmentService {
       throw Errors.NOT_FOUND('案件不存在');
     }
 
-    // 匿名體驗模式（quick/collaborative）：驗證 Session ID
-    if (case_.mode === CASE_MODE.QUICK || case_.mode === CASE_MODE.COLLABORATIVE) {
+    // session-bound 模式（quick / collaborative with session_id）：驗證 Session ID
+    if (this.isSessionBoundCase(case_)) {
       if (!sessionId || case_.session_id !== sessionId) {
         throw Errors.FORBIDDEN('無權限訪問此判決');
       }

@@ -37,6 +37,29 @@ async function collectMarkdownDocsUnder(relativeDir) {
   return docs.sort();
 }
 
+async function collectFilesUnder(relativeDir, extension) {
+  const rootDir = path.join(coreDocsRoot, relativeDir);
+  const files = [];
+  const stack = [rootDir];
+
+  while (stack.length > 0) {
+    const current = stack.pop();
+    const entries = await fs.readdir(current, { withFileTypes: true });
+    for (const entry of entries) {
+      const entryPath = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(entryPath);
+        continue;
+      }
+      if (entry.isFile() && entry.name.endsWith(extension)) {
+        files.push(path.relative(rootDir, entryPath).split(path.sep).join('/'));
+      }
+    }
+  }
+
+  return files.sort();
+}
+
 function parseStatValue(content, label) {
   const statRe = new RegExp(`\\|\\s*${escapeRegExp(label)}\\s*\\|\\s*([0-9]+)\\s*\\|`);
   const match = content.match(statRe);
@@ -149,30 +172,46 @@ async function main() {
     contentNotificationInterfaceDoc,
     adminInterfaceDoc,
     healthMetricsInterfaceDoc,
+    reconciliationExecutionInterfaceDoc,
     envBaselineDoc,
     commonMechanismDoc,
     activeRiskDoc,
+    handledIssueLedgerDoc,
+    outOfScopeIssueDoc,
+    testingReadmeDoc,
     testingRulesDoc,
     testingAIGateDoc,
+    testingActiveEntryDoc,
+    testingRegressionReadmeDoc,
+    testingRegressionRecordDoc,
+    testingManualRunbookDoc,
+    testingManualPackDoc,
     authOverviewDoc,
     authServiceCode,
     sessionControllerCode,
     caseServiceCode,
     interviewServiceCode,
     chatServiceCode,
+    reconciliationServiceCode,
+    executionServiceCode,
     adminControllerCode,
     backendEnvCode,
     backendAppCode,
     healthRoutesCode,
     metricsRoutesCode,
     metaRoutesCode,
+    aiStreamServiceCode,
     constantsCode,
     requestServiceCode,
     interviewStoreCode,
     validationCode,
     frontendVersionInfoCode,
     frontendAdminVersionInfoCode,
+    manualGateScriptCode,
+    criticalE2ESkipGuardCode,
+    rootPackageJsonRaw,
     frontendPackageJsonRaw,
+    snapshotManifestRaw,
   ] = await Promise.all([
     readDoc('頁面清單.md'),
     readDoc('全接口清單-主文檔.md'),
@@ -199,32 +238,49 @@ async function main() {
     readDoc(path.join('06-接口描述', '08-content-notification.md')),
     readDoc(path.join('06-接口描述', '09-admin.md')),
     readDoc(path.join('06-接口描述', '10-health-metrics.md')),
+    readDoc(path.join('06-接口描述', '05-reconciliation-execution.md')),
     readDoc(path.join('03-管理端與平台治理', '01-環境與部署基線.md')),
     readDoc(path.join('04-共用機制', '00-共用機制總覽.md')),
     readDoc(path.join('07-待處理問題與治理', '待處理', '已知風險清單-2026-03-17.md')),
+    readDoc(path.join('07-待處理問題與治理', '已處理', '業務缺陷收斂台帳-2026-03-17.md')),
+    readDoc(path.join('07-待處理問題與治理', '不處理', '不納入發版項清單-2026-03-17.md')),
+    readDoc(path.join('08-測試規範與驗收', 'README.md')),
     readDoc(path.join('08-測試規範與驗收', '01-測試文檔分層與使用規則.md')),
     readDoc(path.join('08-測試規範與驗收', '02-AI流式與Chat治理驗收基線.md')),
+    readDoc(path.join('測試', 'README.md')),
+    readDoc(path.join('測試', '回歸與驗收', 'README.md')),
+    readDoc(path.join('測試', '回歸與驗收', '發版前回歸記錄-2026-03-17.md')),
+    readDoc(path.join('測試', '回歸與驗收', '發版前手動回歸執行版-2026-03-17.md')),
+    readDoc(path.join('測試', '回歸與驗收', '發版前手動回歸包-2026-03-17.md')),
     readDoc(path.join('01-認證與會話', '00-認證與會話總覽.md')),
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'services', 'auth.service.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'controllers', 'session.controller.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'services', 'case.service.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'services', 'interview.service.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'services', 'chat.service.ts'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'backend', 'src', 'services', 'reconciliation.service.ts'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'backend', 'src', 'services', 'execution.service.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'controllers', 'admin.controller.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'config', 'env.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'app.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'routes', 'health.routes.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'routes', 'metrics.routes.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'routes', 'meta.routes.ts'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'backend', 'src', 'services', 'ai-stream.service.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'utils', 'constants.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'frontend', 'src', 'services', 'request.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'frontend', 'src', 'store', 'interviewStore.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'utils', 'validation.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'frontend', 'src', 'utils', 'versionInfo.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'frontend-admin', 'src', 'utils', 'versionInfo.ts'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'scripts', 'run-manual-regression-gate.mjs'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'scripts', 'check-critical-e2e-skips.mjs'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'package.json'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'frontend', 'package.json'), 'utf8'),
+    fs.readFile(path.join(coreDocsRoot, '90-證據與盤點', '頁面HTML快照', 'manifest.json'), 'utf8'),
   ]);
   const latestManualRegression = await readLatestManualRegressionSummary();
+  const rootPackageJson = JSON.parse(rootPackageJsonRaw);
   const frontendPackageJson = JSON.parse(frontendPackageJsonRaw);
 
   const issues = [];
@@ -738,6 +794,117 @@ async function main() {
     }
   }
 
+  if (
+    validationCode.includes("mode: Joi.string().valid('lower_pressure', 'slower_pace', 'solo_first')") &&
+    validationCode.includes("reason: Joi.string().valid('needs_help', 'farther', 'high_stress', 'manual')")
+  ) {
+    const replanContractTokens = [
+      'mode(lower_pressure/slower_pace/solo_first)',
+      'reason(needs_help/farther/high_stress/manual)',
+      'data.track{track_id,status,accepted,stream_scope,scope_id,stream_id,request_id}',
+      '202 Accepted',
+      '/api/v1/streams/repair_track/:id',
+    ];
+    for (const token of replanContractTokens) {
+      if (!reconciliationExecutionInterfaceDoc.includes(token)) {
+        issues.push(
+          `[truth/repair-journey] 06-接口描述/05-reconciliation-execution.md missing replan contract token: ${token}`
+        );
+      }
+    }
+  }
+
+  if (
+    executionServiceCode.includes("existingSnapshot && ['created', 'queued', 'started', 'streaming', 'completed'].includes(existingSnapshot.status)")
+  ) {
+    const idempotentMarkers = [
+      'created/queued/started/streaming/completed',
+      '直接返回既有 `stream_id/request_id`',
+    ];
+    for (const token of idempotentMarkers) {
+      if (!reconciliationExecutionInterfaceDoc.includes(token)) {
+        issues.push(
+          `[truth/repair-journey] 06-接口描述/05-reconciliation-execution.md missing replan idempotent marker: ${token}`
+        );
+      }
+    }
+  }
+
+  if (
+    executionServiceCode.includes('active_replan_stream_id') &&
+    executionServiceCode.includes("['persisted', 'failed', 'cancelled']")
+  ) {
+    const replanStateMarkers = [
+      'replan_state',
+      'active_replan_stream_id',
+      'persisted/failed/cancelled',
+    ];
+    for (const token of replanStateMarkers) {
+      if (!reconciliationExecutionInterfaceDoc.includes(token)) {
+        issues.push(
+          `[truth/repair-journey] 06-接口描述/05-reconciliation-execution.md missing replan stream-state marker: ${token}`
+        );
+      }
+    }
+  }
+
+  if (executionServiceCode.includes('const primaryCtaMap') && executionServiceCode.includes('const secondaryCtaMap')) {
+    const primaryCtaMappings = [
+      'draft -> commit_plan',
+      'partner_invited -> view_invitation_status',
+      'solo_active/co_active -> continue_today_step',
+      'replanning -> replan_track',
+      'paused -> resume_track',
+      'completed -> review_completed_journey',
+      'closed -> review_history',
+    ];
+    const secondaryCtaMappings = [
+      'draft -> review_direction',
+      'partner_invited -> continue_solo',
+      'solo_active/co_active/replanning -> pause_track',
+      'paused -> review_direction',
+      'completed/closed -> restart_new_round',
+    ];
+    for (const token of [...primaryCtaMappings, ...secondaryCtaMappings]) {
+      if (!reconciliationExecutionInterfaceDoc.includes(token)) {
+        issues.push(
+          `[truth/repair-journey] 06-接口描述/05-reconciliation-execution.md missing CTA mapping token: ${token}`
+        );
+      }
+    }
+  }
+
+  if (
+    reconciliationServiceCode.includes(
+      "const shouldKeepRuntimeState = ['solo_active', 'co_active', 'paused', 'completed', 'closed', 'replanning'].includes(track.status);"
+    )
+  ) {
+    const inviteRuntimeStateMarkers = [
+      'solo_active/co_active/paused/replanning/completed/closed',
+      '不覆蓋運行態',
+    ];
+    for (const token of inviteRuntimeStateMarkers) {
+      if (!reconciliationExecutionInterfaceDoc.includes(token)) {
+        issues.push(
+          `[truth/repair-journey] 06-接口描述/05-reconciliation-execution.md missing invite runtime-state marker: ${token}`
+        );
+      }
+    }
+  }
+
+  if (
+    executionServiceCode.includes('status: progressResult.status') &&
+    executionServiceCode.includes('progress: progressResult.progress')
+  ) {
+    for (const token of ['`data.status`', '`data.progress`', '`data.plan_id`']) {
+      if (!reconciliationExecutionInterfaceDoc.includes(token)) {
+        issues.push(
+          `[truth/repair-journey] 06-接口描述/05-reconciliation-execution.md missing execution status field token: ${token}`
+        );
+      }
+    }
+  }
+
   if (latestManualRegression) {
     for (const flowId of MANUAL_FLOW_IDS) {
       const summaryStatus = latestManualRegression.summaryStatuses[flowId] || 'MISSING';
@@ -804,6 +971,132 @@ async function main() {
     }
   }
 
+  if (rootPackageJson.scripts?.['manual-regression:gate']) {
+    const expectedGateCommand = 'npm run manual-regression:gate';
+    const gateDocsToCheck = [
+      ['08-測試規範與驗收/01-測試文檔分層與使用規則.md', testingRulesDoc],
+      ['08-測試規範與驗收/02-AI流式與Chat治理驗收基線.md', testingAIGateDoc],
+    ];
+    for (const [docName, docContent] of gateDocsToCheck) {
+      if (!docContent.includes(expectedGateCommand)) {
+        issues.push(`[truth/testing] ${docName} missing manual regression gate command: ${expectedGateCommand}`);
+      }
+    }
+  }
+
+  if (
+    manualGateScriptCode.includes("runStep('check-strict'") &&
+    manualGateScriptCode.includes("runStep('summarize'")
+  ) {
+    if (
+      !testingRulesDoc.includes('manual-regression:*') ||
+      !testingRulesDoc.includes('manual-regression:gate')
+    ) {
+      issues.push(
+        '[truth/testing] 08-測試規範與驗收/01-測試文檔分層與使用規則.md must describe manual-regression:* and manual-regression:gate usage'
+      );
+    }
+  }
+
+  if (
+    criticalE2ESkipGuardCode.includes('criticalE2eFiles') &&
+    criticalE2ESkipGuardCode.includes('skipPattern')
+  ) {
+    if (!testingAIGateDoc.includes('test:e2e:critical-guard')) {
+      issues.push(
+        '[truth/testing] 08-測試規範與驗收/02-AI流式與Chat治理驗收基線.md must mention critical E2E skip guard command'
+      );
+    }
+  }
+
+  if (
+    aiStreamServiceCode.includes('Redis unavailable, falling back to in-memory runtime') &&
+    aiStreamServiceCode.includes("getBackendMode(): 'redis' | 'memory'")
+  ) {
+    const runtimeDegradeMarkers = ['Redis 不可達', '降級 memory'];
+    for (const token of runtimeDegradeMarkers) {
+      if (!testingAIGateDoc.includes(token)) {
+        issues.push(
+          `[truth/testing] 08-測試規範與驗收/02-AI流式與Chat治理驗收基線.md missing runtime degrade marker: ${token}`
+        );
+      }
+    }
+  }
+
+  if (activeRiskDoc.includes('原 `R-01（手動回歸結果尚未形成正式記錄）`')) {
+    issues.push(
+      '[truth/risk] 07-待處理問題與治理/待處理/已知風險清單-2026-03-17.md still uses duplicated R-01 label for historical manual-regression item'
+    );
+  }
+
+  if (!activeRiskDoc.includes('R-MR-01')) {
+    issues.push(
+      '[truth/risk] 07-待處理問題與治理/待處理/已知風險清單-2026-03-17.md must retain historical manual-regression closure label as R-MR-01'
+    );
+  }
+
+  if (outOfScopeIssueDoc.includes('`v1.3.1`')) {
+    issues.push(
+      '[truth/risk] 07-待處理問題與治理/不處理/不納入發版項清單-2026-03-17.md contains stale release label `v1.3.1`'
+    );
+  }
+
+  if (!handledIssueLedgerDoc.includes('../../測試/回歸與驗收/發版前回歸記錄-2026-03-17.md')) {
+    issues.push(
+      '[truth/risk] 07-待處理問題與治理/已處理/業務缺陷收斂台帳-2026-03-17.md must link to ../../測試/回歸與驗收/發版前回歸記錄-2026-03-17.md'
+    );
+  }
+
+  if (
+    !testingReadmeDoc.includes('01-測試文檔分層與使用規則.md') ||
+    !testingReadmeDoc.includes('02-AI流式與Chat治理驗收基線.md')
+  ) {
+    issues.push(
+      '[truth/testing] 08-測試規範與驗收/README.md must expose both formal test-spec entries'
+    );
+  }
+
+  const latestManualEvidenceSummary = '90-證據與盤點/手動回歸證據/2026-04-18/summary.md';
+  const testEntryDocs = [
+    ['測試/README.md', testingActiveEntryDoc],
+    ['測試/回歸與驗收/README.md', testingRegressionReadmeDoc],
+  ];
+  for (const [docName, docContent] of testEntryDocs) {
+    if (!docContent.includes(latestManualEvidenceSummary)) {
+      issues.push(`[truth/testing] ${docName} must reference latest manual evidence summary: ${latestManualEvidenceSummary}`);
+    }
+    if (!docContent.includes('manual-regression:gate')) {
+      issues.push(`[truth/testing] ${docName} must reference manual-regression:gate as active gate entry`);
+    }
+  }
+
+  if (
+    !testingRegressionRecordDoc.includes('結果（當時，2026-03-17）') ||
+    !testingRegressionRecordDoc.includes('P01-P05 = PASS')
+  ) {
+    issues.push(
+      '[truth/testing] 測試/回歸與驗收/發版前回歸記錄-2026-03-17.md must clearly mark historical status and link latest P01-P05 PASS context'
+    );
+  }
+
+  if (
+    rootPackageJson.scripts?.['manual-regression:init'] &&
+    !testingManualRunbookDoc.includes('npm run manual-regression:init -- --date <YYYY-MM-DD>')
+  ) {
+    issues.push(
+      '[truth/testing] 測試/回歸與驗收/發版前手動回歸執行版-2026-03-17.md must use <YYYY-MM-DD> placeholder for manual-regression:init'
+    );
+  }
+
+  if (
+    !testingManualRunbookDoc.includes('若本次批次不是 `2026-03-17`') ||
+    !testingManualPackDoc.includes('若本次執行批次不是 `2026-03-17`')
+  ) {
+    issues.push(
+      '[truth/testing] 手動回歸包/執行版 must explicitly require replacing historical date paths when running non-2026-03-17 batches'
+    );
+  }
+
   const batch6DocPaths = (
     await Promise.all(
       ['90-證據與盤點', '99-歷史降級索引', '文件收斂'].map((dir) =>
@@ -822,8 +1115,8 @@ async function main() {
     if (!docContent.includes('CORE_DOC_AUDIT_METADATA:START')) {
       issues.push(`[truth/batch6] missing metadata header in ${docName}`);
     }
-    if (docContent.includes('來源時間：未標註')) {
-      issues.push(`[truth/batch6] placeholder source time found in ${docName}: 來源時間：未標註`);
+    if (/\*\*來源時間\*\*[：:]\s*`?未標註`?/.test(docContent) || /來源時間[：:]\s*`?未標註`?/.test(docContent)) {
+      issues.push(`[truth/batch6] placeholder source time found in ${docName}: 來源時間=未標註`);
     }
     if (!docContent.includes('**SSOT 屬性**：非現行 SSOT')) {
       issues.push(`[truth/batch6] non-SSOT marker missing in ${docName}`);
@@ -849,6 +1142,95 @@ async function main() {
     );
   }
 
+  let snapshotManifest = null;
+  try {
+    snapshotManifest = JSON.parse(snapshotManifestRaw);
+  } catch {
+    issues.push('[truth/batch6] 90-證據與盤點/頁面HTML快照/manifest.json must be valid JSON');
+  }
+
+  if (snapshotManifest) {
+    const generatedAt = snapshotManifest.generated_at;
+    if (typeof generatedAt !== 'string' || Number.isNaN(Date.parse(generatedAt))) {
+      issues.push(
+        '[truth/batch6] 90-證據與盤點/頁面HTML快照/manifest.json generated_at must be valid ISO timestamp'
+      );
+    }
+
+    if (
+      typeof generatedAt === 'string' &&
+      evidenceSnapshotReadme &&
+      !evidenceSnapshotReadme.includes(`manifest.json.generated_at = ${generatedAt}`)
+    ) {
+      issues.push(
+        '[truth/batch6] 90-證據與盤點/頁面HTML快照/README.md must pin current manifest generated_at'
+      );
+    }
+
+    if (!Array.isArray(snapshotManifest.frontend) || !Array.isArray(snapshotManifest.admin)) {
+      issues.push(
+        '[truth/batch6] 90-證據與盤點/頁面HTML快照/manifest.json must contain frontend[] and admin[] arrays'
+      );
+    } else {
+      const snapshotHtmlFiles = await collectFilesUnder('90-證據與盤點/頁面HTML快照', '.html');
+      const manifestEntries = [
+        ...snapshotManifest.frontend.map((entry) => ({ ...entry, area: 'frontend' })),
+        ...snapshotManifest.admin.map((entry) => ({ ...entry, area: 'frontend-admin' })),
+      ];
+
+      const diskFileSet = new Set(snapshotHtmlFiles);
+      const manifestFileSet = new Set();
+      const routeSet = new Set();
+
+      for (const entry of manifestEntries) {
+        if (!entry || typeof entry !== 'object') {
+          issues.push('[truth/batch6] manifest entry must be object with file/route');
+          continue;
+        }
+
+        const { file, route, area } = entry;
+        if (typeof file !== 'string' || !file.endsWith('.html')) {
+          issues.push('[truth/batch6] manifest entry file must be .html path string');
+          continue;
+        }
+        if (typeof route !== 'string' || !route.startsWith('/')) {
+          issues.push(`[truth/batch6] manifest route must start with '/': ${String(route)}`);
+        }
+
+        if (area === 'frontend' && !file.startsWith('frontend/')) {
+          issues.push(`[truth/batch6] frontend manifest file must be under frontend/: ${file}`);
+        }
+        if (area === 'frontend-admin' && !file.startsWith('frontend-admin/')) {
+          issues.push(
+            `[truth/batch6] admin manifest file must be under frontend-admin/: ${file}`
+          );
+        }
+
+        if (manifestFileSet.has(file)) {
+          issues.push(`[truth/batch6] duplicate manifest file entry: ${file}`);
+        }
+        manifestFileSet.add(file);
+
+        const routeKey = `${area}:${route}`;
+        if (routeSet.has(routeKey)) {
+          issues.push(`[truth/batch6] duplicate manifest route entry in ${area}: ${route}`);
+        }
+        routeSet.add(routeKey);
+
+        if (!diskFileSet.has(file)) {
+          issues.push(`[truth/batch6] manifest references missing html file: ${file}`);
+        }
+      }
+
+      const missingInManifest = snapshotHtmlFiles.filter((file) => !manifestFileSet.has(file));
+      if (missingInManifest.length > 0) {
+        issues.push(
+          `[truth/batch6] html files missing in manifest.json: ${missingInManifest.join(', ')}`
+        );
+      }
+    }
+  }
+
   if (issues.length > 0) {
     console.error('[docs-truth] drift detected:');
     for (const issue of issues) {
@@ -859,7 +1241,7 @@ async function main() {
   }
 
   console.log(
-    `[docs-truth] ok: ${truth.backend.endpoints.length} endpoints, ${truth.frontend.stats.totalRoutes} frontend routes, ${truth.frontend.adminExternalRoutes.length} admin routes, enum coverage verified, critical auth semantics verified, admin+health semantics verified, content+notification semantics verified, risk semantics verified, testing semantics verified, batch-6 metadata semantics verified`
+    `[docs-truth] ok: ${truth.backend.endpoints.length} endpoints, ${truth.frontend.stats.totalRoutes} frontend routes, ${truth.frontend.adminExternalRoutes.length} admin routes, enum coverage verified, critical auth semantics verified, admin+health semantics verified, content+notification semantics verified, risk semantics verified, testing semantics verified, batch-6 metadata semantics verified, html-snapshot manifest consistency verified`
   );
 }
 

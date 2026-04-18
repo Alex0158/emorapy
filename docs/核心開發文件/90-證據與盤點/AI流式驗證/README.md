@@ -2,10 +2,10 @@
 
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：證據索引
-**來源時間**：2026-04-04
+**來源時間**：2026-04-18
 **上下文**：AI Stream 重構與驗收證據
 **SSOT 屬性**：非現行 SSOT（僅作證據/歷史/治理參考）
-**最後核驗 Commit**：`125982c`
+**最後核驗 Commit**：`cbec3aa`
 **最後核驗日期**：`2026-04-18`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 

@@ -1,6 +1,22 @@
 # 測試規範與驗收
 
+<!-- CORE_DOC_AUDIT_METADATA:START -->
+**文檔類型**：測試規範
+**覆蓋範圍**：08-測試規範與驗收 子域入口與閱讀順序
+**取證代碼入口**：`backend/tests`、`frontend/src/**/*.test.tsx`、`frontend/e2e/**/*.ts`、`e2e/**/*.ts`、`scripts`
+**最後核驗 Commit**：`b80ba01`
+**最後核驗日期**：`2026-04-18`
+<!-- CORE_DOC_AUDIT_METADATA:END -->
+
 本目錄承接可作為長期依據的測試策略、覆蓋規則、驗收口徑與高位執行指引。
+
+當前長期取證入口以實際倉庫結構為準：
+
+1. `backend/tests`
+2. `frontend/src/**/*.test.tsx`
+3. `frontend/e2e/**/*.ts`
+4. `e2e/**/*.ts`
+5. `scripts/`
 
 本目錄不單獨定義以下產品正式語義：
 

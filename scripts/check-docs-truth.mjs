@@ -103,10 +103,13 @@ async function main() {
     chatInterfaceDoc,
     contentNotificationInterfaceDoc,
     activeRiskDoc,
+    testingRulesDoc,
+    testingAIGateDoc,
     authOverviewDoc,
     caseServiceCode,
     chatServiceCode,
     validationCode,
+    frontendPackageJsonRaw,
   ] = await Promise.all([
     readDoc('頁面清單.md'),
     readDoc('全接口清單-主文檔.md'),
@@ -129,12 +132,16 @@ async function main() {
     readDoc(path.join('06-接口描述', '07-chat.md')),
     readDoc(path.join('06-接口描述', '08-content-notification.md')),
     readDoc(path.join('07-待處理問題與治理', '待處理', '已知風險清單-2026-03-17.md')),
+    readDoc(path.join('08-測試規範與驗收', '01-測試文檔分層與使用規則.md')),
+    readDoc(path.join('08-測試規範與驗收', '02-AI流式與Chat治理驗收基線.md')),
     readDoc(path.join('01-認證與會話', '00-認證與會話總覽.md')),
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'services', 'case.service.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'services', 'chat.service.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'utils', 'validation.ts'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'frontend', 'package.json'), 'utf8'),
   ]);
   const latestManualRegression = await readLatestManualRegressionSummary();
+  const frontendPackageJson = JSON.parse(frontendPackageJsonRaw);
 
   const issues = [];
 
@@ -445,6 +452,24 @@ async function main() {
     }
   }
 
+  if (frontendPackageJson.scripts?.['test:e2e:critical-guard']) {
+    const expectedCriticalGuardCommand = 'npm run --workspace frontend test:e2e:critical-guard';
+    const expectedSmokeCommand = 'npm run smoke:staging';
+    const testingDocsToCheck = [
+      ['08-測試規範與驗收/01-測試文檔分層與使用規則.md', testingRulesDoc],
+      ['08-測試規範與驗收/02-AI流式與Chat治理驗收基線.md', testingAIGateDoc],
+    ];
+
+    for (const [docName, docContent] of testingDocsToCheck) {
+      if (!docContent.includes(expectedCriticalGuardCommand)) {
+        issues.push(`[truth/testing] ${docName} missing workspace command: ${expectedCriticalGuardCommand}`);
+      }
+      if (!docContent.includes(expectedSmokeCommand)) {
+        issues.push(`[truth/testing] ${docName} missing root command: ${expectedSmokeCommand}`);
+      }
+    }
+  }
+
   if (issues.length > 0) {
     console.error('[docs-truth] drift detected:');
     for (const issue of issues) {
@@ -455,7 +480,7 @@ async function main() {
   }
 
   console.log(
-    `[docs-truth] ok: ${truth.backend.endpoints.length} endpoints, ${truth.frontend.stats.totalRoutes} frontend routes, ${truth.frontend.adminExternalRoutes.length} admin routes, enum coverage verified, critical auth semantics verified, content+notification semantics verified, risk semantics verified`
+    `[docs-truth] ok: ${truth.backend.endpoints.length} endpoints, ${truth.frontend.stats.totalRoutes} frontend routes, ${truth.frontend.adminExternalRoutes.length} admin routes, enum coverage verified, critical auth semantics verified, content+notification semantics verified, risk semantics verified, testing semantics verified`
   );
 }
 

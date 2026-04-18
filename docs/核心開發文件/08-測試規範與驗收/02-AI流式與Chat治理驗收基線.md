@@ -1,5 +1,13 @@
 # AI 流式與 Chat 治理驗收基線
 
+<!-- CORE_DOC_AUDIT_METADATA:START -->
+**文檔類型**：測試規範
+**覆蓋範圍**：長期測試規範、驗收口徑與回歸門檻：02-AI流式與Chat治理驗收基線
+**取證代碼入口**：`backend/tests`、`frontend/src/**/*.test.tsx`、`frontend/e2e/**/*.ts`、`e2e/**/*.ts`、`scripts`
+**最後核驗 Commit**：`b80ba01`
+**最後核驗日期**：`2026-04-18`
+<!-- CORE_DOC_AUDIT_METADATA:END -->
+
 本文件承接 AI 流式與 chat 治理的穩定驗收基線，取代歷史藍圖稿作為正式驗收裁決依據。
 
 ## 1. 驗收目標
@@ -46,15 +54,15 @@
 
 1. Interview store / 頁面測試
 2. Chat Room 頁面測試
-3. 共享 draft 工具與 hook 測試
-4. 共享 UI 元件族測試
+3. `frontend/e2e/chat/*.e2e.ts` 的流式恢復與失敗矩陣回歸
+4. Admin 與 staging smoke 需保留治理面驗證入口
 
 ## 4. 發版前最低治理檢查
 
 1. `health` / `metrics` 正常
 2. Redis-backed runtime 正常
 3. chat stage gate 綠燈
-4. benchmark / migration rehearsal 文檔與腳本可運行
+4. `npm run smoke:staging`、`npm run --workspace frontend test:e2e:critical-guard` 與相關治理腳本可運行
 
 ## 5. 與證據的關係
 

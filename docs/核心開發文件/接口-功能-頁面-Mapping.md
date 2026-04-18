@@ -1,7 +1,15 @@
 # CJ 接口-功能-頁面 Mapping（核心版）
 
-**文檔版本**：v1.8  
-**最後更新**：2026-04-05  
+<!-- CORE_DOC_AUDIT_METADATA:START -->
+**文檔類型**：旗艦映射
+**覆蓋範圍**：API -> 功能 -> 頁面 -> 流程節點映射
+**取證代碼入口**：`backend/src/routes`、`frontend/src/router/index.tsx`、`frontend-admin/src/router.tsx`、`frontend/src/services/api`、`frontend-admin/src/services/api`
+**最後核驗 Commit**：`7eb5022`
+**最後核驗日期**：`2026-04-18`
+<!-- CORE_DOC_AUDIT_METADATA:END -->
+
+**文檔版本**：v1.9  
+**最後更新**：2026-04-18  
 **目標**：把 API -> 功能 -> 頁面 -> 流程節點建立可回歸的單點追溯。
 
 ---
@@ -13,6 +21,7 @@
 - `狀態` 與 `全接口清單-主文檔` 保持一致（已使用/候選廢棄）。
 - 前台「完成度」以 `功能特性清單.md` 的口徑為準（`已完成/跨功能依賴/待驗證`），不覆蓋 API 狀態欄。
 - `F01-F10` 為主功能；`F11-F14` 僅作候選/平台能力附錄索引。
+- `GET /cases/:id`、`GET /cases/:id/judgment` 的授權分流以現碼為準：`quick`/`collaborative(session_id 有值)` 走 session；`remote`/`collaborative(session_id=null)` 走當事人 JWT。
 - 風險等級：
   - `H`：跨多場景、涉及身份/狀態遷移/SSE/文件。
   - `M`：單場景核心功能。
@@ -28,7 +37,7 @@
 | `POST /api/v1/cases/quick` | F01 | `/quick-experience/create` | 匿名建案 | H | 已使用 |
 | `POST /api/v1/cases/collaborative` | F02 | `/quick-experience/collaborative` | A/B 輪流提交流程 | H | 已使用 |
 | `GET /api/v1/cases/by-session` | F01 | `/quick-experience/create` | 回收歷史 quick case | M | 已使用 |
-| `GET /api/v1/cases/:id` | F01/F03 | `/quick-experience/result/:id`、`/case/:id` | 案件讀取 | H | 已使用 |
+| `GET /api/v1/cases/:id` | F01/F03 | `/quick-experience/result/:id`、`/case/:id` | 案件讀取（mode 分流：session vs 當事人 JWT） | H | 已使用 |
 | `GET /api/v1/profile/me` | F09 | `/profile/index` | 個人背景資料讀取 | M | 已使用 |
 | `PUT /api/v1/profile/me` | F09 | `/profile/index` | 個人背景資料更新 | M | 已使用 |
 | `POST /api/v1/cases` | F03 | `/case/create` | 正式建案 | H | 已使用 |
@@ -37,7 +46,7 @@
 | `GET /api/v1/cases` | F03 | `/case/list` | 列表查詢 | M | 已使用 |
 | `POST /api/v1/cases/:id/evidence` | F01/F03/F05 | `/quick-experience/*`、`/case/create`、`/execution/:planId/checkin` | 證據上傳 | H | 已使用 |
 | `DELETE /api/v1/cases/:id/evidence/:evidenceId` | F03 | 證據組件 | 證據刪除 | M | 已使用 |
-| `GET /api/v1/cases/:id/judgment` | F01/F02 | `/quick-experience/result/:id` | 結果頁判決查詢（F02 透過導頁跨功能依賴） | H | 已使用 |
+| `GET /api/v1/cases/:id/judgment` | F01/F02 | `/quick-experience/result/:id` | 結果頁判決查詢（與 `GET /cases/:id` 同授權分流；F02 透過導頁跨功能依賴） | H | 已使用 |
 | `GET /api/v1/streams/case_judgment/:id` | F01/F04 | `/quick-experience/result/:id` | 判決 phase 流與 persisted handoff | H | 已使用 |
 | `POST /api/v1/judgments/generate/:id` | F04 | `/case/:id/review` | 判決生成（formal review） | H | 已使用 |
 | `GET /api/v1/judgments/:id` | F04 | `/judgment/:id` | 判決展示（純登入後消費） | M | 已使用 |
@@ -105,6 +114,7 @@
 | `POST /api/v1/content-links` | F11 | （無） | 內容關聯寫入 | L | 候選廢棄 |
 | `GET /api/v1/notifications` | F13 | `/notifications` | 通知列表 / repair journey actionable+snoozed inbox | M | 已使用 |
 | `GET /api/v1/notifications/unread-count` | F13 | Header bell | 通知未讀數 | M | 已使用 |
+| `POST /api/v1/notifications` | F13 | （系統內部/無直接前台入口） | 建立通知 | L | 候選廢棄 |
 | `POST /api/v1/notifications/read-all` | F13 | `/notifications` | 全部標記已讀 | L | 已使用 |
 | `POST /api/v1/notifications/:id/read` | F13 | `/notifications` | 單條已讀 | L | 已使用 |
 | `POST /api/v1/notifications/:id/dismiss` | F13 | `/notifications` | 封存較早/歷史通知 | L | 已使用 |
@@ -139,7 +149,13 @@
 | `GET /api/v1/admin/runtime/interview` | F10 | `/admin/settings` | 訪談運行參數 | L | 已使用 |
 | `GET /api/v1/admin/reports/overview.csv` | F10 | `/admin/reports` | 報表下載 | M | 已使用 |
 | `POST /api/v1/admin/reports/custom` | F10 | `/admin/reports` | 客製報表 | M | 已使用 |
-| `GET /api/v1/version` | F14 | `frontend` Header、`frontend-admin` AdminSectionLayout | 版本面板（三端版本顯示，部署驗證） | L | 已使用 |
+| `GET /api/v1/providers` | F10 | `/admin/settings` | 媒體供應商目錄與默認配置檢視 | M | 已使用 |
+| `POST /api/v1/providers/:providerKey/estimate` | F10 | `/admin/settings` | 媒體生成成本試算 | M | 已使用 |
+| `POST /api/v1/providers/:providerKey/test` | F10 | `/admin/settings` | 供應商健康探針 / credential 校驗 | M | 已使用 |
+| `POST /api/v1/providers/:providerKey/images` | F10 | `/admin/settings` | 供應商圖片生成驗證 | M | 已使用 |
+| `POST /api/v1/providers/:providerKey/videos` | F10 | `/admin/settings` | 供應商視頻生成驗證 | M | 已使用 |
+| `GET /api/v1/version` | F14 | （無直接頁面） | API 空間版本資訊兼容入口 | L | 候選廢棄 |
+| `GET /version` | F14 | `frontend` Header、`frontend-admin` AdminSectionLayout | 版本面板（三端版本顯示，部署驗證） | L | 已使用 |
 | `GET /health` | F14 | （監控） | 聚合健康探針 | L | 候選廢棄 |
 | `GET /health/ready` | F14 | （監控） | 就緒探針 | L | 候選廢棄 |
 | `GET /health/live` | F14 | （監控） | 存活探針 | L | 候選廢棄 |
@@ -150,7 +166,7 @@
 | API | 場景A | 場景B | 風險點 | 最小回歸案例 |
 |---|---|---|---|---|
 | `POST /api/v1/cases/:id/evidence` | 快速體驗建案後補證據 | 正式案件建案後補證據/執行打卡補圖 | JWT 與 Session 雙憑證、文件大小與 MIME | 匿名 + 登入各上傳一次並可讀取 |
-| `GET /api/v1/cases/:id` | 快速結果頁 | 正式案件詳情頁 | `X-Session-Id` 覆蓋與 404 分支處理 | 同 caseId 在兩種身份下讀取 |
+| `GET /api/v1/cases/:id` | 快速結果頁 | 正式案件詳情頁 | 需同時覆蓋 mode 分流（session vs 當事人 JWT）、`X-Session-Id` 覆蓋與 404 分支處理 | 同 caseId 在 quick / remote / `collaborative(session_id=null)` 三種模式下讀取 |
 | `POST /api/v1/interview/start` | Profile 首次引導 | My Story 二次進入 | consent 判斷 + 每日/每小時限額 | consent 前後與超額回應 |
 | `POST /api/v1/chat/rooms/:roomId/request-judgment` | A 方首次發起 | 重複點擊/網路重送 | 房間鎖、冪等、狀態競態 | 連續點擊僅生成一次 case |
 | `POST /api/v1/auth/claim-session` | 註冊後關聯 | 登入後關聯 | 失敗不應阻斷 auth 主流程 | 模擬 claim 失敗仍可登入 |

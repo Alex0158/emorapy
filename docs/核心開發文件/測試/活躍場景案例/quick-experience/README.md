@@ -1,6 +1,14 @@
 # 快速體驗測試案例
 
-本資料夾包含 5 份用於測試快速體驗流程的雙方口供，涵蓋不同衝突類型與責任分布。
+<!-- CORE_DOC_AUDIT_METADATA:START -->
+**文檔類型**：測試索引
+**覆蓋範圍**：測試目錄入口與使用規則
+**取證代碼入口**：`backend/tests`、`frontend/src/**/*.test.tsx`、`frontend/e2e/**/*.ts`、`e2e/**/*.ts`、`scripts`
+**最後核驗 Commit**：`bd66c2d`
+**最後核驗日期**：`2026-04-18`
+<!-- CORE_DOC_AUDIT_METADATA:END -->
+
+本資料夾包含 6 份用於測試快速體驗流程的雙方口供，涵蓋不同衝突類型與責任分布。
 
 ## 案例總覽
 

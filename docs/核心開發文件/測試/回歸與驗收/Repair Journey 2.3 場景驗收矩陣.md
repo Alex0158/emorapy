@@ -1,5 +1,13 @@
 # Repair Journey 2.3 場景驗收矩陣
 
+<!-- CORE_DOC_AUDIT_METADATA:START -->
+**文檔類型**：測試案例
+**覆蓋範圍**：回歸案例/驗收腳本：Repair Journey 2.3 場景驗收矩陣
+**取證代碼入口**：`backend/tests`、`frontend/src/**/*.test.tsx`、`frontend/e2e/**/*.ts`、`e2e/**/*.ts`、`scripts`、`backend/src/routes/reconciliation.routes.ts`、`backend/src/routes/execution.routes.ts`
+**最後核驗 Commit**：`bd66c2d`
+**最後核驗日期**：`2026-04-18`
+<!-- CORE_DOC_AUDIT_METADATA:END -->
+
 **文檔版本**：v1.0  
 **最後更新**：2026-04-05  
 **對應發佈**：v1.3.4  
@@ -21,16 +29,16 @@
 | 角色 | 入口 | 當前狀態 | 預期主任務 | 預期主 CTA | 預期落點 |
 |---|---|---|---|---|---|
 | initiator | `/judgment/:id` | 尚無 track | 選方向 / 進入 journey entry | 看看最適合你們的下一步 | `/reconciliation/:judgmentId` |
-| initiator | `/reconciliation/:judgmentId` | `draft` | 回到主推薦與承諾 | 回到承諾工作台 | `/reconciliation/:judgmentId/:planId` |
-| initiator | `/reconciliation/:judgmentId/:planId` | 自己已 committed、對方未邀請 | 是否邀請對方 | 邀請對方一起試 | `/reconciliation/:judgmentId/:planId` |
-| initiator | `/notifications` | 對方 `deferred` | 理解對方需要時間並決定是否單人先行 | 查看邀請進度 | `/reconciliation/:judgmentId/:planId` |
+| initiator | `/reconciliation/:judgmentId` | `draft` | 回到主推薦與承諾 | 回到承諾工作台 | `/reconciliation/:judgmentId/:id` |
+| initiator | `/reconciliation/:judgmentId/:id` | 自己已 committed、對方未邀請 | 是否邀請對方 | 邀請對方一起試 | `/reconciliation/:judgmentId/:id` |
+| initiator | `/notifications` | 對方 `deferred` | 理解對方需要時間並決定是否單人先行 | 查看邀請進度 | `/reconciliation/:judgmentId/:id` |
 | initiator | `/execution/dashboard` | `solo_active` | 完成今天的一小步 | 去看今天的一小步 | `/execution/:planId/checkin` |
 | initiator | `/execution/dashboard` | `replanning` | 重新調整這一輪 | 重新調整這一輪 | `/execution/:planId/replan` |
-| initiator | `/notifications` | `paused` | 恢復旅程 | 恢復這一輪 | `/reconciliation/:judgmentId/:planId` |
-| invitee | 通知 deep link | 尚未查看邀請 | 先理解邀請，不強迫立即承諾 | 看看這個邀請 | `/reconciliation/:judgmentId/:planId` |
-| invitee | `/reconciliation/:judgmentId/:planId` | `viewed` | 柔和回應邀請 | 我願意一起試 / 我需要一點時間 / 暫時先不要 | 留在詳情頁，並回寫狀態 |
-| invitee | `/notifications` | 已 `deferred` | 之後回來再看這一輪 | 看看這個邀請 | `/reconciliation/:judgmentId/:planId` |
-| solo user | `/reconciliation/:judgmentId/:planId` | 無有效 partner | 單人先行 | 先由我開始 | `/execution/:planId/checkin` |
+| initiator | `/notifications` | `paused` | 恢復旅程 | 恢復這一輪 | `/reconciliation/:judgmentId/:id` |
+| invitee | 通知 deep link | 尚未查看邀請 | 先理解邀請，不強迫立即承諾 | 看看這個邀請 | `/reconciliation/:judgmentId/:id` |
+| invitee | `/reconciliation/:judgmentId/:id` | `viewed` | 柔和回應邀請 | 我願意一起試 / 我需要一點時間 / 暫時先不要 | 留在詳情頁，並回寫狀態 |
+| invitee | `/notifications` | 已 `deferred` | 之後回來再看這一輪 | 看看這個邀請 | `/reconciliation/:judgmentId/:id` |
+| solo user | `/reconciliation/:judgmentId/:id` | 無有效 partner | 單人先行 | 先由我開始 | `/execution/:planId/checkin` |
 | 任一角色 | `/notifications` | active actionable 通知 | 稍後再處理 | 稍後提醒我 | 留在 `/notifications`，並進入 snoozed |
 
 ## 狀態閉環檢查

@@ -1,7 +1,15 @@
 # 接口描述：case
 
-**文檔版本**：v2.2  
-**最後更新**：2026-03-06  
+<!-- CORE_DOC_AUDIT_METADATA:START -->
+**文檔類型**：接口詳規
+**覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：03-case
+**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`frontend/src/services/api`、`frontend-admin/src/services/api`
+**最後核驗 Commit**：`ebb9fc9`
+**最後核驗日期**：`2026-04-18`
+<!-- CORE_DOC_AUDIT_METADATA:END -->
+
+**文檔版本**：v2.3  
+**最後更新**：2026-04-18  
 **代碼基準**：`backend/src/routes/case.routes.ts`、`backend/src/controllers/case.controller.ts`、`backend/src/utils/validation.ts`
 
 ---
@@ -24,10 +32,10 @@
 | `GET /api/v1/cases`                             | query: `status/type/page/page_size/sort/search`                         | `data.cases[]` `data.pagination` | `UNAUTHORIZED`                                         | 無                    | `/case/list`                      |
 | `POST /api/v1/cases/:id/evidence`               | path `id(uuid)` + multipart `files[]`                                   | `data.evidences[]`               | `FILE_TOO_LARGE` `INVALID_FILE_TYPE`                   | 寫入 evidence 記錄與文件    | FileUpload、快速結果頁                  |
 | `DELETE /api/v1/cases/:id/evidence/:evidenceId` | `id(uuid)` `evidenceId(uuid)`                                           | 成功旗標                             | `NOT_FOUND` `FORBIDDEN`                                | 刪除 evidence 關聯       | FileUpload                        |
-| `GET /api/v1/cases/:id/judgment`                | `id(uuid)` + optional `X-Session-Id`                                    | `data.judgment`                  | `JUDGMENT_PENDING` `JUDGMENT_NOT_FOUND`                | 無                    | 快速結果、判決快捷查詢                       |
+| `GET /api/v1/cases/:id/judgment`                | `id(uuid)` + optional `X-Session-Id`                                    | `data.judgment`                  | `JUDGMENT_PENDING` `NOT_FOUND` `UNAUTHORIZED` `FORBIDDEN`                | 無                    | 快速結果、判決快捷查詢                       |
 | `POST /api/v1/cases/:id/submit`                 | `id(uuid)`                                                              | `data.case.status=submitted`     | `CASE_NOT_EDITABLE` `UNAUTHORIZED`                     | `draft -> submitted` | `/case/:id`                       |
 | `PUT /api/v1/cases/:id`                         | `id(uuid)` + 至少 1 字段（title/plaintiff/defendant）                         | `data.case`                      | `CASE_NOT_EDITABLE` `VALIDATION_ERROR`                 | 更新 draft 欄位          | `/case/:id/review`                |
-| `GET /api/v1/cases/:id`                         | `id(uuid)` + optional `X-Session-Id`                                    | `data.case`                      | `NOT_FOUND` `FORBIDDEN`                                | 無                    | `/case/:id`、快速結果                  |
+| `GET /api/v1/cases/:id`                         | `id(uuid)` + optional `X-Session-Id`                                    | `data.case`                      | `NOT_FOUND` `UNAUTHORIZED` `FORBIDDEN`                                | 無                    | `/case/:id`、快速結果                  |
 
 
 ## 操作級規則（深水區）
@@ -36,6 +44,10 @@
 - `validateUuidParam` 用於提前 `next('route')`，避免 `/quick`、`/by-session` 被 UUID 路由吸收。
 - 證據接口授權模型為 `optionalAuthenticate + session`，是「匿名與登入共用」高風險鏈路。
 - `/cases/:id/judgment` 在前端語義是「可能尚未生成」，`404/特定 code` 需被當成可恢復狀態而非致命錯誤。
+- `GET /cases/:id`、`GET /cases/:id/judgment` 的授權判定使用同一條規則：
+  - `quick` 與 `collaborative(session_id 有值)`：必須提供匹配的 `session_id`。
+  - `remote` 與 `collaborative(session_id=null)`：必須是案件當事人 JWT（`plaintiff_id`/`defendant_id`）。
+- `collaborative full-mode` 不再是「一律 session-only」；當 `session_id=null` 時按正式案件權限處理。
 
 ## 回歸測試最小集
 
@@ -43,6 +55,7 @@
 2. draft 允許 `PUT`，submitted 後 `PUT` 必須拒絕。
 3. 匿名 session 上傳證據 + 登入上傳證據都可成功。
 4. `/cases/:id/judgment` 在 pending 與 ready 兩種狀態下前端行為正確。
+5. `collaborative + session_id=null` 案件下，當事人 JWT 讀 `GET /cases/:id` 與 `GET /cases/:id/judgment` 必須通過；匿名或非當事人必須拒絕。
 
 ## 錯誤碼覆蓋矩陣（API -> code -> UI 行為）
 
@@ -57,9 +70,13 @@
 | `POST /api/v1/cases/:id/evidence`               | `FILE_TOO_LARGE`      | 413  | 提示檔案過大          | 更換檔案後重傳        |
 | `POST /api/v1/cases/:id/evidence`               | `INVALID_FILE_TYPE`   | 400  | 提示格式不支持         | 轉換格式後重傳        |
 | `DELETE /api/v1/cases/:id/evidence/:evidenceId` | `FORBIDDEN`           | 403  | 顯示無刪除權限         | 切換正確身份/資源      |
-| `GET /api/v1/cases/:id/judgment`                | `NOT_FOUND`           | 404  | 顯示尚未生成（可恢復）     | 輪詢或手動刷新        |
+| `GET /api/v1/cases/:id/judgment`                | `JUDGMENT_PENDING`    | 202  | 顯示生成中狀態         | 輪詢或手動刷新        |
+| `GET /api/v1/cases/:id/judgment`                | `NOT_FOUND`           | 404  | 顯示案件不存在或已移除     | 返回來源頁        |
+| `GET /api/v1/cases/:id/judgment`                | `UNAUTHORIZED`        | 401  | 觸發登入流程         | 登入後重試        |
+| `GET /api/v1/cases/:id/judgment`                | `FORBIDDEN`           | 403  | 顯示無權訪問該案件判決     | 返回列表頁        |
 | `POST /api/v1/cases/:id/submit`                 | `CASE_NOT_EDITABLE`   | 422  | 顯示當前狀態不可提交      | 回案件頁查看狀態       |
 | `PUT /api/v1/cases/:id`                         | `CASE_NOT_EDITABLE`   | 422  | 切換頁面為唯讀模式       | 不重試編輯          |
+| `GET /api/v1/cases/:id`                         | `UNAUTHORIZED`        | 401  | 觸發登入流程         | 登入後重試          |
 | `GET /api/v1/cases/:id`                         | `FORBIDDEN`           | 403  | 顯示無權訪問該案件       | 返回列表頁          |
 
 

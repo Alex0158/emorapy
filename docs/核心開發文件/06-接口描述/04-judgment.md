@@ -1,7 +1,15 @@
 # 接口描述：judgment
 
-**文檔版本**：v2.3  
-**最後更新**：2026-04-04  
+<!-- CORE_DOC_AUDIT_METADATA:START -->
+**文檔類型**：接口詳規
+**覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：04-judgment
+**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`frontend/src/services/api`、`frontend-admin/src/services/api`
+**最後核驗 Commit**：`ebb9fc9`
+**最後核驗日期**：`2026-04-18`
+<!-- CORE_DOC_AUDIT_METADATA:END -->
+
+**文檔版本**：v2.4  
+**最後更新**：2026-04-18  
 **代碼基準**：`backend/src/routes/judgment.routes.ts`、`backend/src/routes/ai-stream.routes.ts`、`backend/src/services/judgment.service.ts`、`frontend/src/services/api/judgment.ts`、`frontend/src/services/aiStream.ts`
 
 ---
@@ -18,7 +26,7 @@
 | -------------------------------------------- | --------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------- | --------------------------- | ------------------------------ |
 | `POST /api/v1/judgments/generate/:id`        | `id(uuid)` + optional `X-Session-Id`                | `data.judgment.id` `plaintiff_ratio/defendant_ratio` | `RATE_LIMIT_EXCEEDED` `CASE_NOT_READY` `AI_CALL_FAILED` | case 進入判決生成流                | `/case/:id/review`             |
 | `GET /api/v1/streams/case_judgment/:id`（SSE） | `after_seq?` + optional `X-Session-Id`              | `ready + stream.phase/completed/persisted/failed`    | `FORBIDDEN` `NOT_FOUND`                                 | 暴露判決生成 phase 與 persisted 狀態 | `/quick-experience/result/:id` |
-| `GET /api/v1/judgments/:id`                  | `id(uuid)`                                          | `data.judgment`                                      | `NOT_FOUND` `FORBIDDEN`                                 | 無                           | `/judgment/:id`                |
+| `GET /api/v1/judgments/:id`                  | `id(uuid)`                                          | `data.judgment`                                      | `NOT_FOUND` `UNAUTHORIZED` `JUDGMENT_PENDING`                                 | 無                           | `/judgment/:id`                |
 | `POST /api/v1/judgments/:id/accept`          | `accepted:boolean` `rating?:0..5`                   | `data.judgment.accepted`                             | `VALIDATION_ERROR` `UNAUTHORIZED`                       | 寫入接受/拒絕結果                   | `/judgment/:id`                |
 | `POST /api/v1/judgments/:id/repair`          | `feedback(3..2000)`                                 | 修復後 judgment（若啟用）                                    | `VALIDATION_ERROR` `NOT_FOUND`                          | 觸發修復流程                      | （候選，未接線）                       |
 | `POST /api/v1/judgments/:id/metrics`         | `felt_understood/felt_blamed/willing_to_try`（0..10） | 成功旗標或 metrics 記錄                                     | `VALIDATION_ERROR`                                      | 寫入品質分數                      | （候選，未接線）                       |
@@ -30,6 +38,8 @@
 - 前端在 quick 流程多透過 `/cases/:id/judgment` 查判決；`/judgments/:id` 主要用於正式流程詳情頁。
 - quick result 頁現以 `GET /streams/case_judgment/:id` 先顯示 AI phase，再於 `stream.persisted` 後拉正式判決內容。
 - `repair` / `metrics` 目前為「保留能力」，需維持接口可用但不作前台回歸主路徑。
+- `GET /api/v1/judgments/:id` 的權限檢查實際委派到 `getJudgmentByCaseId(case_id)`；`FORBIDDEN` 會在 controller 層轉為 `NOT_FOUND`，用於避免暴露資源存在性。
+- case 維度判斷規則與 case 模組一致：`quick`/`collaborative(session_id 有值)` 走 session 校驗；`remote`/`collaborative(session_id=null)` 走當事人 JWT 校驗。
 
 ## 回歸測試最小集
 
@@ -47,7 +57,8 @@
 | `POST /api/v1/judgments/generate/:id` | `RATE_LIMIT_EXCEEDED` | 429  | 顯示 AI 生成過頻              | 冷卻後重試         |
 | `POST /api/v1/judgments/generate/:id` | `AI_CALL_FAILED`      | 503  | 顯示「可重試」並保留頁面狀態          | 人工重試 generate |
 | `GET /api/v1/judgments/:id`           | `NOT_FOUND`           | 404  | 顯示判決不存在/已移除             | 返回來源頁         |
-| `GET /api/v1/judgments/:id`           | `FORBIDDEN`           | 403  | 顯示無權限                   | 返回列表或首頁       |
+| `GET /api/v1/judgments/:id`           | `UNAUTHORIZED`        | 401  | 觸發登入恢復流程                 | 登入後重試         |
+| `GET /api/v1/judgments/:id`           | `JUDGMENT_PENDING`    | 202  | 顯示判決生成中                 | 輪詢或手動刷新       |
 | `POST /api/v1/judgments/:id/accept`   | `VALIDATION_ERROR`    | 400  | 高亮 `accepted/rating` 字段 | 修正後重送         |
 | `POST /api/v1/judgments/:id/accept`   | `UNAUTHORIZED`        | 401  | 觸發登入恢復流程                | 登入後重送         |
 | `POST /api/v1/judgments/:id/repair`   | `NOT_FOUND`           | 404  | 提示目標判決不存在               | 不重試           |

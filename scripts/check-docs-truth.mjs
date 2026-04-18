@@ -66,6 +66,7 @@ async function main() {
     interfaceDocs,
     caseInterfaceDoc,
     judgmentInterfaceDoc,
+    chatInterfaceDoc,
     authOverviewDoc,
     caseServiceCode,
     chatServiceCode,
@@ -89,6 +90,7 @@ async function main() {
     }),
     readDoc(path.join('06-接口描述', '03-case.md')),
     readDoc(path.join('06-接口描述', '04-judgment.md')),
+    readDoc(path.join('06-接口描述', '07-chat.md')),
     readDoc(path.join('01-認證與會話', '00-認證與會話總覽.md')),
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'services', 'case.service.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'services', 'chat.service.ts'), 'utf8'),
@@ -273,6 +275,40 @@ async function main() {
     if (!mappingAcceptRow || !mappingAcceptRow.includes('User only')) {
       issues.push(
         '[truth/chat] 接口-功能-頁面-Mapping.md must mark POST /api/v1/chat/invites/:inviteCode/accept as User only'
+      );
+    }
+
+    const chatAcceptRow =
+      chatInterfaceDoc
+        .split('\n')
+        .find((line) => line.includes('`POST /api/v1/chat/invites/:inviteCode/accept`')) || null;
+    if (!chatAcceptRow || !chatAcceptRow.includes('UNAUTHORIZED')) {
+      issues.push(
+        '[truth/chat] 06-接口描述/07-chat.md must include UNAUTHORIZED for POST /api/v1/chat/invites/:inviteCode/accept'
+      );
+    }
+  }
+
+  if (chatServiceCode.includes('需登入才能離開聊天室')) {
+    const chatLeaveRow =
+      chatInterfaceDoc
+        .split('\n')
+        .find((line) => line.includes('`POST /api/v1/chat/rooms/:roomId/leave`')) || null;
+    if (!chatLeaveRow || !chatLeaveRow.includes('UNAUTHORIZED')) {
+      issues.push(
+        '[truth/chat] 06-接口描述/07-chat.md must include UNAUTHORIZED for POST /api/v1/chat/rooms/:roomId/leave'
+      );
+    }
+  }
+
+  if (chatServiceCode.includes("throw Errors.FORBIDDEN('你沒有該聊天室權限')")) {
+    const chatGetRoomRow =
+      chatInterfaceDoc
+        .split('\n')
+        .find((line) => line.includes('`GET /api/v1/chat/rooms/:roomId` |')) || null;
+    if (!chatGetRoomRow || !chatGetRoomRow.includes('FORBIDDEN') || chatGetRoomRow.includes('NOT_FOUND')) {
+      issues.push(
+        '[truth/chat] 06-接口描述/07-chat.md GET /api/v1/chat/rooms/:roomId row must use FORBIDDEN-only access semantics (no NOT_FOUND)'
       );
     }
   }

@@ -110,6 +110,18 @@ async function main() {
     chatServiceCode,
     validationCode,
     frontendPackageJsonRaw,
+    evidenceRootReadme,
+    evidenceEnvReadme,
+    evidenceSnapshotReadme,
+    evidenceManualReadme,
+    evidenceAIReadme,
+    historyRootReadme,
+    historyMigrationIndexDoc,
+    historyAppPlanDoc,
+    governanceRootReadme,
+    governanceRulesDoc,
+    governanceBatchIndexDoc,
+    governancePostSealDoc,
   ] = await Promise.all([
     readDoc('頁面清單.md'),
     readDoc('全接口清單-主文檔.md'),
@@ -139,6 +151,18 @@ async function main() {
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'services', 'chat.service.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'utils', 'validation.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'frontend', 'package.json'), 'utf8'),
+    readDoc(path.join('90-證據與盤點', 'README.md')),
+    readDoc(path.join('90-證據與盤點', '環境與發版驗證', 'README.md')),
+    readDoc(path.join('90-證據與盤點', '頁面HTML快照', 'README.md')),
+    readDoc(path.join('90-證據與盤點', '手動回歸證據', 'README.md')),
+    readDoc(path.join('90-證據與盤點', 'AI流式驗證', 'README.md')),
+    readDoc(path.join('99-歷史降級索引', 'README.md')),
+    readDoc(path.join('99-歷史降級索引', '00-2026-04-首輪重構遷移索引.md')),
+    readDoc(path.join('99-歷史降級索引', 'APP版本開發方案-ReactNative-Expo.md')),
+    readDoc(path.join('文件收斂', 'README.md')),
+    readDoc(path.join('文件收斂', '00-CJ-文檔治理與同步規則.md')),
+    readDoc(path.join('文件收斂', '01-CJ-文檔收斂台賬與批次索引.md')),
+    readDoc(path.join('文件收斂', '文檔封板後-代碼與測試對齊清單.md')),
   ]);
   const latestManualRegression = await readLatestManualRegressionSummary();
   const frontendPackageJson = JSON.parse(frontendPackageJsonRaw);
@@ -470,6 +494,49 @@ async function main() {
     }
   }
 
+  const batch6MetadataDocs = [
+    ['90-證據與盤點/README.md', evidenceRootReadme],
+    ['90-證據與盤點/環境與發版驗證/README.md', evidenceEnvReadme],
+    ['90-證據與盤點/頁面HTML快照/README.md', evidenceSnapshotReadme],
+    ['90-證據與盤點/手動回歸證據/README.md', evidenceManualReadme],
+    ['90-證據與盤點/AI流式驗證/README.md', evidenceAIReadme],
+    ['99-歷史降級索引/README.md', historyRootReadme],
+    ['99-歷史降級索引/00-2026-04-首輪重構遷移索引.md', historyMigrationIndexDoc],
+    ['99-歷史降級索引/APP版本開發方案-ReactNative-Expo.md', historyAppPlanDoc],
+    ['文件收斂/README.md', governanceRootReadme],
+    ['文件收斂/00-CJ-文檔治理與同步規則.md', governanceRulesDoc],
+    ['文件收斂/01-CJ-文檔收斂台賬與批次索引.md', governanceBatchIndexDoc],
+    ['文件收斂/文檔封板後-代碼與測試對齊清單.md', governancePostSealDoc],
+  ];
+
+  for (const [docName, docContent] of batch6MetadataDocs) {
+    if (!docContent.includes('CORE_DOC_AUDIT_METADATA:START')) {
+      issues.push(`[truth/batch6] missing metadata header in ${docName}`);
+    }
+    if (docContent.includes('來源時間：未標註')) {
+      issues.push(`[truth/batch6] placeholder source time found in ${docName}: 來源時間：未標註`);
+    }
+    if (!docContent.includes('**SSOT 屬性**：非現行 SSOT')) {
+      issues.push(`[truth/batch6] non-SSOT marker missing in ${docName}`);
+    }
+    if (!/\*\*最後核驗 Commit\*\*：`[^`]+`/.test(docContent)) {
+      issues.push(`[truth/batch6] missing audited commit metadata in ${docName}`);
+    }
+    if (!/\*\*最後核驗日期\*\*：`[0-9]{4}-[0-9]{2}-[0-9]{2}`/.test(docContent)) {
+      issues.push(`[truth/batch6] missing audited date metadata in ${docName}`);
+    }
+  }
+
+  if (
+    !evidenceSnapshotReadme.includes('scripts/export-static-pages.mjs') ||
+    !evidenceSnapshotReadme.includes('manifest.json') ||
+    !evidenceSnapshotReadme.includes('generated_at')
+  ) {
+    issues.push(
+      '[truth/batch6] 90-證據與盤點/頁面HTML快照/README.md must keep script + manifest + generated_at traceability markers'
+    );
+  }
+
   if (issues.length > 0) {
     console.error('[docs-truth] drift detected:');
     for (const issue of issues) {
@@ -480,7 +547,7 @@ async function main() {
   }
 
   console.log(
-    `[docs-truth] ok: ${truth.backend.endpoints.length} endpoints, ${truth.frontend.stats.totalRoutes} frontend routes, ${truth.frontend.adminExternalRoutes.length} admin routes, enum coverage verified, critical auth semantics verified, content+notification semantics verified, risk semantics verified, testing semantics verified`
+    `[docs-truth] ok: ${truth.backend.endpoints.length} endpoints, ${truth.frontend.stats.totalRoutes} frontend routes, ${truth.frontend.adminExternalRoutes.length} admin routes, enum coverage verified, critical auth semantics verified, content+notification semantics verified, risk semantics verified, testing semantics verified, batch-6 metadata semantics verified`
   );
 }
 

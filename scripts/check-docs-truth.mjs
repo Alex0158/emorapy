@@ -37,10 +37,15 @@ function ensureEndpointRow(content, endpoint) {
 
 function findEndpointRow(content, method, endpointPath) {
   const methodToken = `| ${method}`;
+  const inlineMethodPathToken = `\`${method} ${endpointPath}\``;
+  const pathToken = `\`${endpointPath}\``;
   return (
     content
       .split('\n')
-      .find((line) => line.includes(methodToken) && line.includes(`\`${endpointPath}\``)) || null
+      .find(
+        (line) =>
+          (line.includes(methodToken) && line.includes(pathToken)) || line.includes(inlineMethodPathToken)
+      ) || null
   );
 }
 
@@ -67,6 +72,7 @@ async function main() {
     caseInterfaceDoc,
     judgmentInterfaceDoc,
     chatInterfaceDoc,
+    contentNotificationInterfaceDoc,
     authOverviewDoc,
     caseServiceCode,
     chatServiceCode,
@@ -91,6 +97,7 @@ async function main() {
     readDoc(path.join('06-接口描述', '03-case.md')),
     readDoc(path.join('06-接口描述', '04-judgment.md')),
     readDoc(path.join('06-接口描述', '07-chat.md')),
+    readDoc(path.join('06-接口描述', '08-content-notification.md')),
     readDoc(path.join('01-認證與會話', '00-認證與會話總覽.md')),
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'services', 'case.service.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'services', 'chat.service.ts'), 'utf8'),
@@ -313,6 +320,73 @@ async function main() {
     }
   }
 
+  if (validationCode.includes('createNotificationSchema')) {
+    const createNotificationRow = findEndpointRow(
+      contentNotificationInterfaceDoc,
+      'POST',
+      '/api/v1/notifications'
+    );
+    if (!createNotificationRow) {
+      issues.push(
+        '[truth/notification] 06-接口描述/08-content-notification.md missing row: POST /api/v1/notifications'
+      );
+    } else {
+      if (!createNotificationRow.includes('channel') || !createNotificationRow.includes('template_code')) {
+        issues.push(
+          '[truth/notification] POST /api/v1/notifications must document channel/template_code request fields in 08-content-notification.md'
+        );
+      }
+      if (!createNotificationRow.includes('VALIDATION_ERROR')) {
+        issues.push(
+          '[truth/notification] POST /api/v1/notifications must include VALIDATION_ERROR in 08-content-notification.md'
+        );
+      }
+    }
+  }
+
+  if (validationCode.includes('notificationListQuerySchema')) {
+    const listNotificationRow = findEndpointRow(
+      contentNotificationInterfaceDoc,
+      'GET',
+      '/api/v1/notifications'
+    );
+    if (!listNotificationRow || !listNotificationRow.includes('VALIDATION_ERROR')) {
+      issues.push(
+        '[truth/notification] GET /api/v1/notifications must include VALIDATION_ERROR in 08-content-notification.md'
+      );
+    }
+  }
+
+  if (validationCode.includes('notificationIdParamSchema')) {
+    const notificationIdEndpoints = [
+      '/api/v1/notifications/:id/read',
+      '/api/v1/notifications/:id/dismiss',
+      '/api/v1/notifications/:id/snooze',
+      '/api/v1/notifications/:id/act',
+    ];
+    for (const endpointPath of notificationIdEndpoints) {
+      const row = findEndpointRow(contentNotificationInterfaceDoc, 'POST', endpointPath);
+      if (!row || !row.includes('VALIDATION_ERROR')) {
+        issues.push(
+          `[truth/notification] ${endpointPath} must include VALIDATION_ERROR in 08-content-notification.md`
+        );
+      }
+    }
+  }
+
+  if (validationCode.includes('createContentLinkSchema')) {
+    const recommendationsRow = findEndpointRow(
+      contentNotificationInterfaceDoc,
+      'GET',
+      '/api/v1/content-items/recommendations/:caseId'
+    );
+    if (!recommendationsRow || !recommendationsRow.includes('relation?')) {
+      issues.push(
+        '[truth/content] GET /api/v1/content-items/recommendations/:caseId must document query relation? in 08-content-notification.md'
+      );
+    }
+  }
+
   if (issues.length > 0) {
     console.error('[docs-truth] drift detected:');
     for (const issue of issues) {
@@ -323,7 +397,7 @@ async function main() {
   }
 
   console.log(
-    `[docs-truth] ok: ${truth.backend.endpoints.length} endpoints, ${truth.frontend.stats.totalRoutes} frontend routes, ${truth.frontend.adminExternalRoutes.length} admin routes, enum coverage verified, critical auth semantics verified`
+    `[docs-truth] ok: ${truth.backend.endpoints.length} endpoints, ${truth.frontend.stats.totalRoutes} frontend routes, ${truth.frontend.adminExternalRoutes.length} admin routes, enum coverage verified, critical auth semantics verified, content+notification semantics verified`
   );
 }
 

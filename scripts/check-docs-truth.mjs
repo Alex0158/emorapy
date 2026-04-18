@@ -58,6 +58,35 @@ function isCoveredByGenericStreamDocs(endpointPath, content) {
   );
 }
 
+async function readLatestManualRegressionSummary() {
+  const evidenceRoot = path.join(coreDocsRoot, '90-證據與盤點', '手動回歸證據');
+  let entries = [];
+  try {
+    entries = await fs.readdir(evidenceRoot, { withFileTypes: true });
+  } catch {
+    return null;
+  }
+
+  const dateDirs = entries
+    .filter((entry) => entry.isDirectory() && /^\d{4}-\d{2}-\d{2}$/.test(entry.name))
+    .map((entry) => entry.name)
+    .sort();
+  if (dateDirs.length === 0) {
+    return null;
+  }
+
+  const latestDate = dateDirs[dateDirs.length - 1];
+  const summaryPath = path.join(evidenceRoot, latestDate, 'summary.md');
+  let summary = '';
+  try {
+    summary = await fs.readFile(summaryPath, 'utf8');
+  } catch {
+    return null;
+  }
+
+  return { latestDate, summary };
+}
+
 async function main() {
   const truth = await extractCoreDocsTruth(repoRoot);
   const [
@@ -73,6 +102,7 @@ async function main() {
     judgmentInterfaceDoc,
     chatInterfaceDoc,
     contentNotificationInterfaceDoc,
+    activeRiskDoc,
     authOverviewDoc,
     caseServiceCode,
     chatServiceCode,
@@ -98,11 +128,13 @@ async function main() {
     readDoc(path.join('06-接口描述', '04-judgment.md')),
     readDoc(path.join('06-接口描述', '07-chat.md')),
     readDoc(path.join('06-接口描述', '08-content-notification.md')),
+    readDoc(path.join('07-待處理問題與治理', '待處理', '已知風險清單-2026-03-17.md')),
     readDoc(path.join('01-認證與會話', '00-認證與會話總覽.md')),
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'services', 'case.service.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'services', 'chat.service.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'utils', 'validation.ts'), 'utf8'),
   ]);
+  const latestManualRegression = await readLatestManualRegressionSummary();
 
   const issues = [];
 
@@ -387,6 +419,32 @@ async function main() {
     }
   }
 
+  if (latestManualRegression) {
+    const flowIds = ['P01', 'P02', 'P03', 'P04', 'P05'];
+    const allFlowsPassed = flowIds.every((flowId) =>
+      new RegExp(`\\|\\s*${flowId}\\b[^\\n]*\\|\\s*PASS\\s*\\|`).test(latestManualRegression.summary)
+    );
+    if (allFlowsPassed) {
+      const staleManualRegressionPatterns = [
+        {
+          label: 'manual-regression-pending-row',
+          pattern: /手動回歸結果尚未形成正式記錄\s*\|\s*待補/,
+        },
+        {
+          label: 'manual-regression-pending-batch',
+          pattern: /P01-P05\s*=\s*PENDING/,
+        },
+      ];
+      for (const { label, pattern } of staleManualRegressionPatterns) {
+        if (pattern.test(activeRiskDoc)) {
+          issues.push(
+            `[truth/risk] 07-待處理問題與治理/待處理/已知風險清單-2026-03-17.md contains stale manual-regression marker: ${label}`
+          );
+        }
+      }
+    }
+  }
+
   if (issues.length > 0) {
     console.error('[docs-truth] drift detected:');
     for (const issue of issues) {
@@ -397,7 +455,7 @@ async function main() {
   }
 
   console.log(
-    `[docs-truth] ok: ${truth.backend.endpoints.length} endpoints, ${truth.frontend.stats.totalRoutes} frontend routes, ${truth.frontend.adminExternalRoutes.length} admin routes, enum coverage verified, critical auth semantics verified, content+notification semantics verified`
+    `[docs-truth] ok: ${truth.backend.endpoints.length} endpoints, ${truth.frontend.stats.totalRoutes} frontend routes, ${truth.frontend.adminExternalRoutes.length} admin routes, enum coverage verified, critical auth semantics verified, content+notification semantics verified, risk semantics verified`
   );
 }
 

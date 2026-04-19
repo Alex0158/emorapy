@@ -7,6 +7,8 @@ import { extractCoreDocsTruth } from './lib/core-docs-truth.mjs';
 const repoRoot = path.resolve(new URL('.', import.meta.url).pathname, '..');
 const coreDocsRoot = path.join(repoRoot, 'docs', '核心開發文件');
 const execFileAsync = promisify(execFile);
+const gitPathspecMatchCache = new Map();
+const gitTrackedPathCache = new Map();
 const MANUAL_FLOW_IDS = ['P01', 'P02', 'P03', 'P04', 'P05'];
 const API_STATUS_VALUES = new Set(['已使用', '候選廢棄', '已確認廢棄']);
 const GENERIC_STREAM_DOC_ENDPOINTS = [
@@ -137,14 +139,45 @@ function isWildcardPathToken(pathRef) {
 }
 
 async function hasGitPathspecMatch(pathSpec) {
+  if (gitPathspecMatchCache.has(pathSpec)) {
+    return gitPathspecMatchCache.get(pathSpec);
+  }
   try {
     const { stdout } = await execFileAsync('git', ['ls-files', '--', `:(glob)${pathSpec}`], {
       cwd: repoRoot,
     });
-    return stdout.trim().length > 0;
+    const matched = stdout.trim().length > 0;
+    gitPathspecMatchCache.set(pathSpec, matched);
+    return matched;
   } catch {
+    gitPathspecMatchCache.set(pathSpec, false);
     return false;
   }
+}
+
+async function hasGitTrackedPath(pathRef) {
+  if (gitTrackedPathCache.has(pathRef)) {
+    return gitTrackedPathCache.get(pathRef);
+  }
+  try {
+    const { stdout } = await execFileAsync('git', ['ls-files', '--', pathRef], {
+      cwd: repoRoot,
+    });
+    const matched = stdout.trim().length > 0;
+    gitTrackedPathCache.set(pathRef, matched);
+    return matched;
+  } catch {
+    gitTrackedPathCache.set(pathRef, false);
+    return false;
+  }
+}
+
+function isScriptPathWiredInPackageScripts(pathRef, packageJson) {
+  if (!pathRef.startsWith('scripts/')) {
+    return false;
+  }
+  const scripts = packageJson?.scripts || {};
+  return Object.values(scripts).some((command) => typeof command === 'string' && command.includes(pathRef));
 }
 
 function parseStatValue(content, label) {
@@ -990,6 +1023,14 @@ async function main() {
         issues.push(
           `[truth/formal-metadata] metadata evidence path missing in repo (${relativePath}): ${evidencePathRef}`
         );
+        continue;
+      }
+      if (!(await hasGitTrackedPath(evidencePathRef))) {
+        if (!isScriptPathWiredInPackageScripts(evidencePathRef, rootPackageJson)) {
+          issues.push(
+            `[truth/formal-metadata] metadata evidence path is neither git-tracked nor package-script wired (${relativePath}): ${evidencePathRef}`
+          );
+        }
       }
     }
     const wildcardMetadataEvidencePathRefs = metadataEvidencePathRefs.filter((pathRef) =>
@@ -3500,7 +3541,7 @@ async function main() {
   }
 
   console.log(
-    `[docs-truth] ok: ${truth.backend.endpoints.length} endpoints, ${truth.frontend.stats.totalRoutes} frontend routes, ${truth.frontend.adminExternalRoutes.length} admin routes, enum coverage verified, critical auth semantics verified, formal-doc metadata semantics verified, formal-doc metadata evidence-path semantics verified, formal-doc metadata wildcard-evidence semantics verified, formal-doc audited-commit resolve semantics verified, formal-doc audited-date chronology semantics verified, formal-doc global path-reference semantics verified, batch-1 flagship path-reference semantics verified, batch-2 auth+user-flow semantics verified, batch-2/3 formal-doc path-reference semantics verified, batch-3 governance+architecture semantics verified, batch-4 interface path-reference semantics verified, admin+health semantics verified, content+notification semantics verified, risk semantics verified, testing semantics verified, batch-5 scenario+regression semantics verified, batch-6 metadata semantics verified, html-snapshot manifest consistency verified`
+    `[docs-truth] ok: ${truth.backend.endpoints.length} endpoints, ${truth.frontend.stats.totalRoutes} frontend routes, ${truth.frontend.adminExternalRoutes.length} admin routes, enum coverage verified, critical auth semantics verified, formal-doc metadata semantics verified, formal-doc metadata evidence-path semantics verified, formal-doc metadata tracked-or-script-wired semantics verified, formal-doc metadata wildcard-evidence semantics verified, formal-doc audited-commit resolve semantics verified, formal-doc audited-date chronology semantics verified, formal-doc global path-reference semantics verified, batch-1 flagship path-reference semantics verified, batch-2 auth+user-flow semantics verified, batch-2/3 formal-doc path-reference semantics verified, batch-3 governance+architecture semantics verified, batch-4 interface path-reference semantics verified, admin+health semantics verified, content+notification semantics verified, risk semantics verified, testing semantics verified, batch-5 scenario+regression semantics verified, batch-6 metadata semantics verified, html-snapshot manifest consistency verified`
   );
 }
 

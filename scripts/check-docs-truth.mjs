@@ -1269,6 +1269,15 @@ async function main() {
         );
       }
     }
+
+    const featureInterviewCanonicalTokens = ['2500ms', '`24`', '有界 canonical 自愈輪詢'];
+    for (const token of featureInterviewCanonicalTokens) {
+      if (!featureDoc.includes(token)) {
+        issues.push(
+          `[truth/interview] 功能特性清單.md missing Interview canonical self-heal token: ${token}`
+        );
+      }
+    }
   }
 
   if (
@@ -1282,6 +1291,44 @@ async function main() {
       if (!chatInterfaceDoc.includes(token)) {
         issues.push(
           `[truth/chat] 06-接口描述/07-chat.md missing included_message_ids whitelist token: ${token}`
+        );
+      }
+    }
+
+    const featureChatWhitelistTokens = [
+      'included_message_ids',
+      'user_text',
+      'visibility_scope=all',
+      'NOT_FOUND',
+      'AI_SERVICE_ERROR',
+    ];
+    for (const token of featureChatWhitelistTokens) {
+      if (!featureDoc.includes(token)) {
+        issues.push(
+          `[truth/chat] 功能特性清單.md missing request-judgment whitelist token: ${token}`
+        );
+      }
+    }
+
+    const flowChatWhitelistTokens = ['included_message_ids', 'NOT_FOUND', 'AI_SERVICE_ERROR'];
+    for (const token of flowChatWhitelistTokens) {
+      if (!flowDoc.includes(token)) {
+        issues.push(
+          `[truth/chat] 業務流程整合.md missing P04 request-judgment failure/whitelist token: ${token}`
+        );
+      }
+    }
+
+    const mappingChatWhitelistTokens = [
+      'included_message_ids',
+      'user_text',
+      'visibility_scope=all',
+      'NOT_FOUND',
+    ];
+    for (const token of mappingChatWhitelistTokens) {
+      if (!mappingDoc.includes(token)) {
+        issues.push(
+          `[truth/chat] 接口-功能-頁面-Mapping.md missing request-judgment mapping token: ${token}`
         );
       }
     }

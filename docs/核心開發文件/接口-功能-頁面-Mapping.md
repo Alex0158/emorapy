@@ -90,7 +90,7 @@
 | `GET /api/v1/streams/chat_room/:roomId` | F07 | `/chat/room/:roomId` | Chat AI 草稿/完成/落庫主鏈路 | H | 已使用 |
 | `GET /api/v1/chat/rooms/:roomId/messages` | F07 | `/chat/room/:roomId` | 歷史訊息 | M | 已使用 |
 | `POST /api/v1/chat/rooms/:roomId/messages` | F07 | `/chat/room/:roomId` | 發送訊息 | H | 已使用 |
-| `POST /api/v1/chat/rooms/:roomId/request-judgment` | F07 | `/chat/room/:roomId` | 聊天轉判決 request（前端請求窗口 `180000ms`；超時後改查 `judgment-status`） | H | 已使用 |
+| `POST /api/v1/chat/rooms/:roomId/request-judgment` | F07 | `/chat/room/:roomId` | 聊天轉判決 request（前端請求窗口 `180000ms`；超時後改查 `judgment-status`；`included_message_ids` 僅允許 `user_text + visibility_scope=all`，越界返回 `NOT_FOUND`） | H | 已使用 |
 | `GET /api/v1/chat/rooms/:roomId/judgment-status` | F07/F04 | `/chat/room/:roomId`、`/judgment/:id`(承接) | 判決狀態與 handoff（未登入先導 auth 回跳） | M | 已使用 |
 | `POST /api/v1/chat/rooms/:roomId/leave` | F07 | `/chat/room/:roomId` | B 方離房 | M | 已使用 |
 | `POST /api/v1/chat/rooms/:roomId/kick-b` | F07 | `/chat/room/:roomId` | A 方踢人 | M | 已使用 |

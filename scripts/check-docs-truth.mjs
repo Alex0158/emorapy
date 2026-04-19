@@ -866,9 +866,47 @@ async function main() {
   const allowlistHitKeys = new Set();
   for (const relativePath of formalDocFiles) {
     const docContent = await readDoc(relativePath);
+    if (!docContent.includes('CORE_DOC_AUDIT_METADATA:START')) {
+      issues.push(`[truth/formal-metadata] missing metadata header in ${relativePath}`);
+    }
+    if (!/\*\*文檔類型\*\*[：:]\s*\S+/.test(docContent)) {
+      issues.push(`[truth/formal-metadata] missing 文檔類型 in ${relativePath}`);
+    }
+    if (/\*\*文檔類型\*\*[：:]\s*`?(?:未標註|待補|TBD)`?/i.test(docContent)) {
+      issues.push(`[truth/formal-metadata] placeholder 文檔類型 found in ${relativePath}`);
+    }
+    if (!/\*\*覆蓋範圍\*\*[：:]\s*\S+/.test(docContent)) {
+      issues.push(`[truth/formal-metadata] missing 覆蓋範圍 in ${relativePath}`);
+    }
+    if (/\*\*覆蓋範圍\*\*[：:]\s*`?(?:未標註|待補|TBD)`?/i.test(docContent)) {
+      issues.push(`[truth/formal-metadata] placeholder 覆蓋範圍 found in ${relativePath}`);
+    }
+    if (!/\*\*取證代碼入口\*\*[：:]\s*\S+/.test(docContent)) {
+      issues.push(`[truth/formal-metadata] missing 取證代碼入口 in ${relativePath}`);
+    }
+    if (/\*\*取證代碼入口\*\*[：:]\s*`?(?:未標註|待補|TBD)`?/i.test(docContent)) {
+      issues.push(`[truth/formal-metadata] placeholder 取證代碼入口 found in ${relativePath}`);
+    }
+    if (!/\*\*最後核驗 Commit\*\*[：:]\s*`[0-9a-f]{7,40}`/.test(docContent)) {
+      issues.push(`[truth/formal-metadata] missing or invalid 最後核驗 Commit in ${relativePath}`);
+    }
+    const lastAuditedDateMatch = docContent.match(/\*\*最後核驗日期\*\*[：:]\s*`([0-9]{4}-[0-9]{2}-[0-9]{2})`/);
+    if (!lastAuditedDateMatch) {
+      issues.push(`[truth/formal-metadata] missing or invalid 最後核驗日期 in ${relativePath}`);
+    } else if (Number.isNaN(Date.parse(`${lastAuditedDateMatch[1]}T00:00:00Z`))) {
+      issues.push(`[truth/formal-metadata] invalid 最後核驗日期 value in ${relativePath}`);
+    }
+    if (docContent.includes('**SSOT 屬性**：非現行 SSOT')) {
+      issues.push(`[truth/formal-metadata] formal doc marked as non-SSOT: ${relativePath}`);
+    }
+
+    const repoPathRefs = extractBacktickRepoPathRefs(docContent);
+    if (repoPathRefs.length === 0) {
+      issues.push(`[truth/formal-metadata] no repo-path evidence tokens found in ${relativePath}`);
+    }
     const allowEntries = FORMAL_DOC_MISSING_PATH_ALLOWLIST[relativePath] || [];
     const allowMap = new Map(allowEntries.map((entry) => [entry.path, entry]));
-    for (const repoPathRef of extractBacktickRepoPathRefs(docContent)) {
+    for (const repoPathRef of repoPathRefs) {
       const absPath = path.join(repoRoot, repoPathRef);
       if (await pathExists(absPath)) {
         continue;
@@ -3306,7 +3344,7 @@ async function main() {
   }
 
   console.log(
-    `[docs-truth] ok: ${truth.backend.endpoints.length} endpoints, ${truth.frontend.stats.totalRoutes} frontend routes, ${truth.frontend.adminExternalRoutes.length} admin routes, enum coverage verified, critical auth semantics verified, formal-doc global path-reference semantics verified, batch-1 flagship path-reference semantics verified, batch-2 auth+user-flow semantics verified, batch-2/3 formal-doc path-reference semantics verified, batch-3 governance+architecture semantics verified, batch-4 interface path-reference semantics verified, admin+health semantics verified, content+notification semantics verified, risk semantics verified, testing semantics verified, batch-5 scenario+regression semantics verified, batch-6 metadata semantics verified, html-snapshot manifest consistency verified`
+    `[docs-truth] ok: ${truth.backend.endpoints.length} endpoints, ${truth.frontend.stats.totalRoutes} frontend routes, ${truth.frontend.adminExternalRoutes.length} admin routes, enum coverage verified, critical auth semantics verified, formal-doc metadata semantics verified, formal-doc global path-reference semantics verified, batch-1 flagship path-reference semantics verified, batch-2 auth+user-flow semantics verified, batch-2/3 formal-doc path-reference semantics verified, batch-3 governance+architecture semantics verified, batch-4 interface path-reference semantics verified, admin+health semantics verified, content+notification semantics verified, risk semantics verified, testing semantics verified, batch-5 scenario+regression semantics verified, batch-6 metadata semantics verified, html-snapshot manifest consistency verified`
   );
 }
 

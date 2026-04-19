@@ -4,7 +4,7 @@
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：09-admin
 **取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`53e9059`
+**最後核驗 Commit**：`f241150`
 **最後核驗日期**：`2026-04-19`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -65,9 +65,9 @@
 | `GET /api/v1/admin/reports/overview` | 無 | `data.totals data.conversion` | `FORBIDDEN` | `reports:read`，已由 admin reports 頁接線 |
 | `GET /api/v1/admin/reports/funnel` | 無 | `data.stages[]` | `FORBIDDEN` | `reports:read`，已由 admin reports 頁接線 |
 | `GET /api/v1/admin/reports/costs` | 無 | `data.generatedAt data.summary data.redis data.railway data.openai` | `FORBIDDEN` | `reports:read`，已由 admin reports 頁接線 |
-| `GET /api/v1/admin/reports/ai-streams` | query `days? limit?` | `data.windowDays data.retentionPolicy data.totals data.byStatus data.byScopeType data.byBackendMode data.recentFailures[]` | `FORBIDDEN` `VALIDATION_ERROR` | `reports:read`，AI Stream 治理報表，已由 admin reports 頁接線 |
-| `GET /api/v1/admin/reports/ai-streams/sessions` | query `days? limit? offset? status? scopeType? scopeId? requestId? streamId? source?` | `data.items[] data.total data.source` | `FORBIDDEN` `VALIDATION_ERROR` | `reports:read`，AI Stream session 明細查詢 |
-| `GET /api/v1/admin/reports/ai-streams/sessions/:streamId` | params `streamId` + query `eventLimit? source?` | `data.source data.session data.events[]` | `FORBIDDEN` `NOT_FOUND` `VALIDATION_ERROR` | `reports:read`，單條 stream 詳情 |
+| `GET /api/v1/admin/reports/ai-streams` | query `days?(1-90) limit?(1-50)` | `data.windowDays data.retentionPolicy data.totals data.byStatus data.byScopeType data.byBackendMode data.recentFailures[]` | `FORBIDDEN` `VALIDATION_ERROR` | `reports:read`，AI Stream 治理報表，已由 admin reports 頁接線 |
+| `GET /api/v1/admin/reports/ai-streams/sessions` | query `days?(1-90) limit?(1-100) offset?(>=0) status? scopeType? scopeId? requestId? streamId? source?(live/archive/all)` | `data.source data.total data.limit data.offset data.items[]` | `FORBIDDEN` `VALIDATION_ERROR` | `reports:read`，AI Stream session 明細查詢 |
+| `GET /api/v1/admin/reports/ai-streams/sessions/:streamId` | params `streamId` + query `eventLimit?(1-1000) source?(live/archive/all)` | `data.source(live/archive) data.session data.events[]` | `FORBIDDEN` `NOT_FOUND` `VALIDATION_ERROR` | `reports:read`，單條 stream 詳情 |
 | `GET /api/v1/admin/runtime/interview` | 無 | `data.defaults data.runtime data.source` | `FORBIDDEN` | `config:read`，訪談運行時設定，已由 admin settings 頁接線 |
 | `GET /api/v1/providers` | query `providerType?` | `data.items[]` | `FORBIDDEN` `VALIDATION_ERROR` | `config:read`，media provider 目錄與配置檢視 |
 | `POST /api/v1/providers/:providerKey/estimate` | `count? durationSeconds? pricingOverride?` | `data.billingUnit data.unitPriceUsd data.unitCount data.totalCostUsd` | `FORBIDDEN` `VALIDATION_ERROR` `NOT_FOUND` | `config:read`，試算 media provider 成本 |

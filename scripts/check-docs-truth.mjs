@@ -1694,6 +1694,197 @@ async function main() {
     }
   }
 
+  const adminAIStreamReportRouteBound =
+    /router\.get\(\s*'\/reports\/ai-streams'\s*,[\s\S]*?validate\(adminAIStreamReportQuerySchema\)/m.test(
+      adminRoutesCode
+    );
+  const adminAIStreamReportSchemaBound =
+    validationCode.includes('adminAIStreamReportQuerySchema') &&
+    validationCode.includes('days: Joi.number().integer().min(1).max(90).optional()') &&
+    validationCode.includes('limit: Joi.number().integer().min(1).max(50).optional()');
+  const adminAIStreamReportPayloadBound =
+    adminControllerCode.includes('async reportAIStreams') &&
+    adminControllerCode.includes('const days = parseDaysRange(req);') &&
+    adminControllerCode.includes('const limit = Math.min(Math.max(Number(req.query.limit ?? 10) || 10, 1), 50);') &&
+    aiStreamServiceCode.includes('windowDays: days') &&
+    aiStreamServiceCode.includes('retentionPolicy: this.getRetentionPolicy()') &&
+    aiStreamServiceCode.includes('recentFailures:');
+  if (adminAIStreamReportRouteBound && adminAIStreamReportSchemaBound && adminAIStreamReportPayloadBound) {
+    const reportInterfaceRow = findEndpointRow(adminInterfaceDoc, 'GET', '/api/v1/admin/reports/ai-streams');
+    if (
+      !reportInterfaceRow ||
+      !reportInterfaceRow.includes('days') ||
+      !reportInterfaceRow.includes('limit') ||
+      !reportInterfaceRow.includes('windowDays') ||
+      !reportInterfaceRow.includes('retentionPolicy') ||
+      !reportInterfaceRow.includes('totals') ||
+      !reportInterfaceRow.includes('recentFailures')
+    ) {
+      issues.push(
+        '[truth/admin] 06-接口描述/09-admin.md GET /api/v1/admin/reports/ai-streams row must document days/limit query and windowDays/retentionPolicy/totals/recentFailures response contract'
+      );
+    }
+
+    const reportApiMainRow = findEndpointRow(apiMainDoc, 'GET', '/api/v1/admin/reports/ai-streams');
+    if (!reportApiMainRow || !reportApiMainRow.includes('days') || !reportApiMainRow.includes('limit')) {
+      issues.push(
+        '[truth/api] 全接口清單-主文檔.md GET /api/v1/admin/reports/ai-streams row must include days/limit semantics'
+      );
+    }
+    if (!apiMainDoc.includes('data.windowDays,data.retentionPolicy,data.totals')) {
+      issues.push(
+        '[truth/api] 全接口清單-主文檔.md GET /api/v1/admin/reports/ai-streams deep contract must include windowDays/retentionPolicy/totals'
+      );
+    }
+
+    const reportMappingRow = findEndpointRow(mappingDoc, 'GET', '/api/v1/admin/reports/ai-streams');
+    if (!reportMappingRow || !reportMappingRow.includes('days') || !reportMappingRow.includes('limit')) {
+      issues.push(
+        '[truth/mapping] 接口-功能-頁面-Mapping.md GET /api/v1/admin/reports/ai-streams row must include days/limit semantics'
+      );
+    }
+  }
+
+  const adminAIStreamSessionsRouteBound =
+    /router\.get\(\s*'\/reports\/ai-streams\/sessions'\s*,[\s\S]*?validate\(adminAIStreamListQuerySchema\)/m.test(
+      adminRoutesCode
+    );
+  const adminAIStreamSessionsSchemaBound =
+    validationCode.includes('adminAIStreamListQuerySchema') &&
+    validationCode.includes('status: Joi.string().valid(') &&
+    validationCode.includes('scopeType: Joi.string().max(50).optional()') &&
+    validationCode.includes('scopeId: Joi.string().max(100).optional()') &&
+    validationCode.includes('requestId: Joi.string().max(100).optional()') &&
+    validationCode.includes('streamId: Joi.string().max(100).optional()') &&
+    validationCode.includes("source: Joi.string().valid('live', 'archive', 'all').optional()");
+  const adminAIStreamSessionsPayloadBound =
+    adminControllerCode.includes('async listAIStreamSessions') &&
+    adminControllerCode.includes('const { limit, offset } = parsePagination(req);') &&
+    adminControllerCode.includes('const source = parseAIStreamSource(req);') &&
+    aiStreamServiceCode.includes('source, total: live.total + archive.total') &&
+    aiStreamServiceCode.includes('return { source, total: live.total, limit, offset, items: live.items };');
+  if (adminAIStreamSessionsRouteBound && adminAIStreamSessionsSchemaBound && adminAIStreamSessionsPayloadBound) {
+    const sessionsInterfaceRow = findEndpointRow(adminInterfaceDoc, 'GET', '/api/v1/admin/reports/ai-streams/sessions');
+    if (
+      !sessionsInterfaceRow ||
+      !sessionsInterfaceRow.includes('days') ||
+      !sessionsInterfaceRow.includes('limit') ||
+      !sessionsInterfaceRow.includes('offset') ||
+      !sessionsInterfaceRow.includes('status') ||
+      !sessionsInterfaceRow.includes('scopeType') ||
+      !sessionsInterfaceRow.includes('scopeId') ||
+      !sessionsInterfaceRow.includes('requestId') ||
+      !sessionsInterfaceRow.includes('streamId') ||
+      !sessionsInterfaceRow.includes('source') ||
+      !sessionsInterfaceRow.includes('live/archive/all') ||
+      !sessionsInterfaceRow.includes('data.source') ||
+      !sessionsInterfaceRow.includes('data.total') ||
+      !sessionsInterfaceRow.includes('data.limit') ||
+      !sessionsInterfaceRow.includes('data.offset') ||
+      !sessionsInterfaceRow.includes('data.items[]')
+    ) {
+      issues.push(
+        '[truth/admin] 06-接口描述/09-admin.md GET /api/v1/admin/reports/ai-streams/sessions row must document full filter query + source(live/archive/all) and source/total/limit/offset/items response contract'
+      );
+    }
+
+    const sessionsApiMainRow = findEndpointRow(apiMainDoc, 'GET', '/api/v1/admin/reports/ai-streams/sessions');
+    if (
+      !sessionsApiMainRow ||
+      !sessionsApiMainRow.includes('limit') ||
+      !sessionsApiMainRow.includes('offset') ||
+      !sessionsApiMainRow.includes('source')
+    ) {
+      issues.push(
+        '[truth/api] 全接口清單-主文檔.md GET /api/v1/admin/reports/ai-streams/sessions row must include limit/offset/source semantics'
+      );
+    }
+    if (!apiMainDoc.includes('data.source,data.total,data.limit,data.offset,data.items[]')) {
+      issues.push(
+        '[truth/api] 全接口清單-主文檔.md GET /api/v1/admin/reports/ai-streams/sessions deep contract must include source/total/limit/offset/items'
+      );
+    }
+
+    const sessionsMappingRow = findEndpointRow(mappingDoc, 'GET', '/api/v1/admin/reports/ai-streams/sessions');
+    if (
+      !sessionsMappingRow ||
+      !sessionsMappingRow.includes('limit') ||
+      !sessionsMappingRow.includes('offset') ||
+      !sessionsMappingRow.includes('source')
+    ) {
+      issues.push(
+        '[truth/mapping] 接口-功能-頁面-Mapping.md GET /api/v1/admin/reports/ai-streams/sessions row must include filter/source semantics'
+      );
+    }
+  }
+
+  const adminAIStreamDetailRouteBound =
+    /router\.get\(\s*'\/reports\/ai-streams\/sessions\/:streamId'\s*,[\s\S]*?validate\(adminAIStreamDetailSchema\)/m.test(
+      adminRoutesCode
+    );
+  const adminAIStreamDetailSchemaBound =
+    validationCode.includes('adminAIStreamDetailSchema') &&
+    validationCode.includes('eventLimit: Joi.number().integer().min(1).max(1000).optional()') &&
+    validationCode.includes("source: Joi.string().valid('live', 'archive', 'all').optional()");
+  const adminAIStreamDetailPayloadBound =
+    adminControllerCode.includes('async getAIStreamDetail') &&
+    adminControllerCode.includes('const source = parseAIStreamSource(req);') &&
+    adminControllerCode.includes('const eventLimit = Math.min(Math.max(Number(req.query.eventLimit ?? 200) || 200, 1), 1000);') &&
+    adminControllerCode.includes("throw Errors.NOT_FOUND('AI Stream 不存在');") &&
+    aiStreamServiceCode.includes("if (source === 'archive') return fetchArchive();");
+  if (adminAIStreamDetailRouteBound && adminAIStreamDetailSchemaBound && adminAIStreamDetailPayloadBound) {
+    const detailInterfaceRow = findEndpointRow(adminInterfaceDoc, 'GET', '/api/v1/admin/reports/ai-streams/sessions/:streamId');
+    if (
+      !detailInterfaceRow ||
+      !detailInterfaceRow.includes('eventLimit') ||
+      !detailInterfaceRow.includes('source') ||
+      !detailInterfaceRow.includes('live/archive/all') ||
+      !detailInterfaceRow.includes('data.source') ||
+      !detailInterfaceRow.includes('data.session') ||
+      !detailInterfaceRow.includes('data.events[]') ||
+      !detailInterfaceRow.includes('NOT_FOUND')
+    ) {
+      issues.push(
+        '[truth/admin] 06-接口描述/09-admin.md GET /api/v1/admin/reports/ai-streams/sessions/:streamId row must document eventLimit/source(live/archive/all), source/session/events response and NOT_FOUND'
+      );
+    }
+
+    const detailApiMainRow = findEndpointRow(apiMainDoc, 'GET', '/api/v1/admin/reports/ai-streams/sessions/:streamId');
+    if (!detailApiMainRow || !detailApiMainRow.includes('eventLimit') || !detailApiMainRow.includes('source')) {
+      issues.push(
+        '[truth/api] 全接口清單-主文檔.md GET /api/v1/admin/reports/ai-streams/sessions/:streamId row must include eventLimit/source semantics'
+      );
+    }
+    if (!apiMainDoc.includes('data.source(live/archive),data.session,data.events[]')) {
+      issues.push(
+        '[truth/api] 全接口清單-主文檔.md GET /api/v1/admin/reports/ai-streams/sessions/:streamId deep contract must include source/session/events'
+      );
+    }
+
+    const detailMappingRow = findEndpointRow(mappingDoc, 'GET', '/api/v1/admin/reports/ai-streams/sessions/:streamId');
+    if (!detailMappingRow || !detailMappingRow.includes('source') || !detailMappingRow.includes('eventLimit')) {
+      issues.push(
+        '[truth/mapping] 接口-功能-頁面-Mapping.md GET /api/v1/admin/reports/ai-streams/sessions/:streamId row must include source/eventLimit semantics'
+      );
+    }
+  }
+
+  if (adminAIStreamReportRouteBound && adminAIStreamSessionsRouteBound && adminAIStreamDetailRouteBound) {
+    const aiStreamFlowRow = flowDoc.split('\n').find((line) => line.includes('GET /admin/reports/ai-streams*')) || null;
+    if (
+      !aiStreamFlowRow ||
+      !aiStreamFlowRow.includes('days + limit') ||
+      !aiStreamFlowRow.includes('source(live/archive/all)') ||
+      !aiStreamFlowRow.includes('eventLimit/source') ||
+      !aiStreamFlowRow.includes('VALIDATION_ERROR') ||
+      !aiStreamFlowRow.includes('NOT_FOUND')
+    ) {
+      issues.push(
+        '[truth/flow] 業務流程整合.md P05 AI Stream governance step must document ai-streams*/sessions/detail query contracts and VALIDATION_ERROR/NOT_FOUND recovery branch'
+      );
+    }
+  }
+
   if (validationCode.includes('mediaProviderCatalogQuerySchema')) {
     const providersRow = findEndpointRow(adminInterfaceDoc, 'GET', '/api/v1/providers');
     if (!providersRow || !providersRow.includes('providerType?') || providersRow.includes('activeOnly') || providersRow.includes('includeConfig')) {

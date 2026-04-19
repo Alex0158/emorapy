@@ -4,7 +4,7 @@
 **文檔類型**：旗艦映射
 **覆蓋範圍**：API -> 功能 -> 頁面 -> 流程節點映射
 **取證代碼入口**：`backend/src/routes`、`frontend/src/router/index.tsx`、`frontend-admin/src/router.tsx`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`53e9059`
+**最後核驗 Commit**：`f241150`
 **最後核驗日期**：`2026-04-19`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -143,9 +143,9 @@
 | `GET /api/v1/admin/reports/overview` | F10 | `/admin/reports` | 總覽報表 | M | 已使用 |
 | `GET /api/v1/admin/reports/funnel` | F10 | `/admin/reports` | 漏斗報表 | M | 已使用 |
 | `GET /api/v1/admin/reports/costs` | F10 | `/admin/reports` | 成本報表 | M | 已使用 |
-| `GET /api/v1/admin/reports/ai-streams` | F10 | `/admin/reports` | AI Stream 治理報表 | L | 已使用 |
-| `GET /api/v1/admin/reports/ai-streams/sessions` | F10 | `/admin/reports` | AI Stream Session 明細 | L | 已使用 |
-| `GET /api/v1/admin/reports/ai-streams/sessions/:streamId` | F10 | `/admin/reports` | AI Stream 詳情 | L | 已使用 |
+| `GET /api/v1/admin/reports/ai-streams` | F10 | `/admin/reports` | AI Stream 治理報表（days + limit，回傳 retentionPolicy/totals/recentFailures） | L | 已使用 |
+| `GET /api/v1/admin/reports/ai-streams/sessions` | F10 | `/admin/reports` | AI Stream Session 明細（days/limit/offset + status/scope/request/source） | L | 已使用 |
+| `GET /api/v1/admin/reports/ai-streams/sessions/:streamId` | F10 | `/admin/reports` | AI Stream 詳情（source=live/archive/all，eventLimit<=1000） | L | 已使用 |
 | `GET /api/v1/admin/runtime/interview` | F10 | `/admin/settings` | 訪談運行參數 | L | 已使用 |
 | `GET /api/v1/admin/reports/overview.csv` | F10 | `/admin/reports` | 報表下載 | M | 已使用 |
 | `POST /api/v1/admin/reports/custom` | F10 | `/admin/reports` | 客製報表 | M | 已使用 |

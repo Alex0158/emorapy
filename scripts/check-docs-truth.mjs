@@ -107,6 +107,39 @@ function extractTableFirstColumnMarkdownNames(content) {
   return names;
 }
 
+function extractBacktickTestPathRefs(content) {
+  const refs = new Set();
+  const quotedCodeRe = /`([^`\n]+)`/g;
+  const allowedPrefixRe = /^(backend|frontend|frontend-admin|mobile|e2e|packages|scripts)\//;
+  const allowedSuffixRe = /(?:\.test\.(?:ts|tsx)|\.e2e\.ts)$/;
+
+  for (const match of content.matchAll(quotedCodeRe)) {
+    const code = match[1].trim();
+    if (!code) {
+      continue;
+    }
+    const candidates = code.split(/[\s,]+/).map((token) => token.trim()).filter(Boolean);
+    for (const token of candidates) {
+      const normalized = token
+        .replace(/^[./]+/, '')
+        .replace(/^[("']+/, '')
+        .replace(/[)"'`。；，,.;:]+$/, '');
+      if (!normalized) {
+        continue;
+      }
+      if (!allowedPrefixRe.test(normalized) || !allowedSuffixRe.test(normalized)) {
+        continue;
+      }
+      if (normalized.includes('*') || normalized.includes('<') || normalized.includes('>')) {
+        continue;
+      }
+      refs.add(normalized);
+    }
+  }
+
+  return [...refs].sort();
+}
+
 function ensureRouteRow(content, route) {
   return content
     .split('\n')
@@ -2560,6 +2593,15 @@ async function main() {
       const content = await readDoc(docPath);
       if (staleRootChatPlaywrightPattern.test(content)) {
         staleRootCommandDocs.push(docPath);
+      }
+      const testPathRefs = extractBacktickTestPathRefs(content);
+      for (const testPathRef of testPathRefs) {
+        const absTestPath = path.join(repoRoot, testPathRef);
+        if (!(await pathExists(absTestPath))) {
+          issues.push(
+            `[truth/batch5-testing] ${docPath} references missing test file: ${testPathRef}`
+          );
+        }
       }
     }
   }

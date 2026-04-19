@@ -2551,6 +2551,24 @@ async function main() {
   const workspacePlaywrightCommand = 'npm exec --workspace frontend -- playwright test -c e2e/playwright.config.ts';
   const staleRootChatPlaywrightPattern =
     /npm exec -- playwright test -c e2e\/playwright\.config\.ts[\s\S]{0,260}?e2e\/chat\//;
+  const batch5CommandDocsRoots = ['07-待處理問題與治理', '08-測試規範與驗收', '測試'];
+  const staleRootCommandDocs = [];
+  for (const docsRoot of batch5CommandDocsRoots) {
+    const docsUnderRoot = await collectFilesUnder(docsRoot, '.md');
+    for (const relativePath of docsUnderRoot) {
+      const docPath = path.posix.join(docsRoot, relativePath);
+      const content = await readDoc(docPath);
+      if (staleRootChatPlaywrightPattern.test(content)) {
+        staleRootCommandDocs.push(docPath);
+      }
+    }
+  }
+  for (const relativePath of staleRootCommandDocs) {
+    issues.push(
+      `[truth/batch5-testing] ${relativePath} contains stale root playwright + e2e/chat command without --workspace frontend`
+    );
+  }
+
   if (!handledIssueLedgerDoc.includes(workspacePlaywrightCommand)) {
     issues.push(
       '[truth/risk] 07-待處理問題與治理/已處理/業務缺陷收斂台帳-2026-03-17.md must use workspace playwright command: npm exec --workspace frontend -- playwright test -c e2e/playwright.config.ts'

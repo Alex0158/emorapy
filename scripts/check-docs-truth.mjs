@@ -132,6 +132,21 @@ async function readGitCommitDateYmd(commitRef) {
   }
 }
 
+function isWildcardPathToken(pathRef) {
+  return /[*?[\]{}]/.test(pathRef);
+}
+
+async function hasGitPathspecMatch(pathSpec) {
+  try {
+    const { stdout } = await execFileAsync('git', ['ls-files', '--', `:(glob)${pathSpec}`], {
+      cwd: repoRoot,
+    });
+    return stdout.trim().length > 0;
+  } catch {
+    return false;
+  }
+}
+
 function parseStatValue(content, label) {
   const statRe = new RegExp(`\\|\\s*${escapeRegExp(label)}\\s*\\|\\s*([0-9]+)\\s*\\|`);
   const match = content.match(statRe);
@@ -962,7 +977,7 @@ async function main() {
       );
     }
     const concreteMetadataEvidencePathRefs = metadataEvidencePathRefs.filter(
-      (pathRef) => !/[?*[\]{}]/.test(pathRef)
+      (pathRef) => !isWildcardPathToken(pathRef)
     );
     if (metadataEvidencePathRefs.length > 0 && concreteMetadataEvidencePathRefs.length === 0) {
       issues.push(
@@ -974,6 +989,16 @@ async function main() {
       if (!(await pathExists(absEvidencePath))) {
         issues.push(
           `[truth/formal-metadata] metadata evidence path missing in repo (${relativePath}): ${evidencePathRef}`
+        );
+      }
+    }
+    const wildcardMetadataEvidencePathRefs = metadataEvidencePathRefs.filter((pathRef) =>
+      isWildcardPathToken(pathRef)
+    );
+    for (const wildcardPathRef of wildcardMetadataEvidencePathRefs) {
+      if (!(await hasGitPathspecMatch(wildcardPathRef))) {
+        issues.push(
+          `[truth/formal-metadata] metadata wildcard evidence path has no git match (${relativePath}): ${wildcardPathRef}`
         );
       }
     }
@@ -3475,7 +3500,7 @@ async function main() {
   }
 
   console.log(
-    `[docs-truth] ok: ${truth.backend.endpoints.length} endpoints, ${truth.frontend.stats.totalRoutes} frontend routes, ${truth.frontend.adminExternalRoutes.length} admin routes, enum coverage verified, critical auth semantics verified, formal-doc metadata semantics verified, formal-doc metadata evidence-path semantics verified, formal-doc audited-commit resolve semantics verified, formal-doc audited-date chronology semantics verified, formal-doc global path-reference semantics verified, batch-1 flagship path-reference semantics verified, batch-2 auth+user-flow semantics verified, batch-2/3 formal-doc path-reference semantics verified, batch-3 governance+architecture semantics verified, batch-4 interface path-reference semantics verified, admin+health semantics verified, content+notification semantics verified, risk semantics verified, testing semantics verified, batch-5 scenario+regression semantics verified, batch-6 metadata semantics verified, html-snapshot manifest consistency verified`
+    `[docs-truth] ok: ${truth.backend.endpoints.length} endpoints, ${truth.frontend.stats.totalRoutes} frontend routes, ${truth.frontend.adminExternalRoutes.length} admin routes, enum coverage verified, critical auth semantics verified, formal-doc metadata semantics verified, formal-doc metadata evidence-path semantics verified, formal-doc metadata wildcard-evidence semantics verified, formal-doc audited-commit resolve semantics verified, formal-doc audited-date chronology semantics verified, formal-doc global path-reference semantics verified, batch-1 flagship path-reference semantics verified, batch-2 auth+user-flow semantics verified, batch-2/3 formal-doc path-reference semantics verified, batch-3 governance+architecture semantics verified, batch-4 interface path-reference semantics verified, admin+health semantics verified, content+notification semantics verified, risk semantics verified, testing semantics verified, batch-5 scenario+regression semantics verified, batch-6 metadata semantics verified, html-snapshot manifest consistency verified`
   );
 }
 

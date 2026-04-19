@@ -2336,6 +2336,34 @@ async function main() {
     }
   }
 
+  const staleApiEvidencePathTokens = [
+    'frontend-admin/pages/Admin/Health',
+    'frontend-admin/pages/Admin/Jobs',
+    'frontend-admin/pages/Admin/Reports',
+    'frontend-admin/pages/Admin/Settings',
+    'frontend/versionInfo',
+    'frontend-admin/versionInfo',
+  ];
+  for (const token of staleApiEvidencePathTokens) {
+    if (apiMainDoc.includes(token)) {
+      issues.push(`[truth/api] 全接口清單-主文檔.md contains stale evidence path token: ${token}`);
+    }
+  }
+
+  const requiredApiEvidencePathTokens = [
+    'frontend-admin/src/pages/Admin/Health',
+    'frontend-admin/src/pages/Admin/Jobs',
+    'frontend-admin/src/pages/Admin/Reports',
+    'frontend-admin/src/pages/Admin/Settings',
+    'frontend/src/utils/versionInfo.ts',
+    'frontend-admin/src/utils/versionInfo.ts',
+  ];
+  for (const token of requiredApiEvidencePathTokens) {
+    if (!apiMainDoc.includes(token)) {
+      issues.push(`[truth/api] 全接口清單-主文檔.md missing normalized evidence path token: ${token}`);
+    }
+  }
+
   if (validationCode.includes('createNotificationSchema')) {
     const createNotificationRow = findEndpointRow(
       contentNotificationInterfaceDoc,

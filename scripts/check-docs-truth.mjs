@@ -54,6 +54,22 @@ const FORMAL_DOC_DOMAIN_DIRS = [
 ];
 const FORMAL_DOC_AUDIT_LEDGER_PATH = '文件收斂/03-CJ-核心開發文件逐文件代碼校驗總台賬-2026-04-18.md';
 const FORMAL_DOC_CLOSED_LEDGER_STATUSES = new Set(['已修正', '已核驗']);
+const FORMAL_DOC_LEDGER_STATUS_KEYS = ['已修正', '已核驗', '證據已核對', '已降級'];
+const FORMAL_DOC_LEDGER_DOMAIN_KEYS = [
+  '01-認證與會話',
+  '02-用戶端核心流程',
+  '03-管理端與平台治理',
+  '04-共用機制',
+  '05-工程架構與共享層',
+  '06-接口描述',
+  '07-待處理問題與治理',
+  '08-測試規範與驗收',
+  '90-證據與盤點',
+  '99-歷史降級索引',
+  '測試',
+  '根層旗艦',
+  '文件收斂',
+];
 const FORMAL_DOC_MISSING_PATH_ALLOWLIST = {
   '04-共用機制/01-樣式Token與共享視覺規範.md': [
     { path: 'frontend/src/styles/theme.ts', marker: '目前不存在 `frontend/src/styles/theme.ts`' },
@@ -319,23 +335,37 @@ function parseAuditLedgerStatusRows(content) {
     }
     const cells = line.split('|').map((cell) => cell.trim());
     const pathCell = cells[1] || '';
+    const domainCell = cells[3] || '';
     const statusCell = cells[6] || '';
     if (!pathCell.startsWith('`') || !pathCell.endsWith('`')) {
       continue;
     }
     const docPath = pathCell.slice(1, -1);
-    if (!docPath.endsWith('.md')) {
-      continue;
-    }
     if (statusByPath.has(docPath)) {
       duplicatePaths.push(docPath);
       continue;
     }
     statusByPath.set(docPath, statusCell);
-    rows.push({ docPath, status: statusCell });
+    rows.push({ docPath, domain: domainCell, status: statusCell });
   }
 
   return { statusByPath, duplicatePaths, rows };
+}
+
+function parseAuditLedgerSummaryStats(content) {
+  const summarySectionMatch = content.match(/## 摘要[\s\S]*?(?=\n## 逐文件台賬)/);
+  if (!summarySectionMatch) {
+    return null;
+  }
+  const summaryStats = new Map();
+  for (const line of summarySectionMatch[0].split('\n')) {
+    const rowMatch = line.match(/^\|\s*(.+?)\s*\|\s*([0-9]+)\s*\|\s*$/);
+    if (!rowMatch) {
+      continue;
+    }
+    summaryStats.set(rowMatch[1], Number(rowMatch[2]));
+  }
+  return summaryStats;
 }
 
 function extractBacktickTestPathRefs(content) {
@@ -1069,8 +1099,45 @@ async function main() {
     }
   }
   const formalAuditLedgerDoc = await readDoc(FORMAL_DOC_AUDIT_LEDGER_PATH);
-  const { statusByPath: formalLedgerStatusByPath, duplicatePaths: formalLedgerDuplicatePaths } =
+  const {
+    statusByPath: formalLedgerStatusByPath,
+    duplicatePaths: formalLedgerDuplicatePaths,
+    rows: formalLedgerRows,
+  } =
     parseAuditLedgerStatusRows(formalAuditLedgerDoc);
+  const formalLedgerSummaryStats = parseAuditLedgerSummaryStats(formalAuditLedgerDoc);
+  if (!formalLedgerSummaryStats) {
+    issues.push(`[truth/formal-ledger] missing 摘要 section in ${FORMAL_DOC_AUDIT_LEDGER_PATH}`);
+  } else {
+    const expectedSummaryStats = new Map();
+    expectedSummaryStats.set('文件總數', formalLedgerRows.length);
+    for (const status of FORMAL_DOC_LEDGER_STATUS_KEYS) {
+      expectedSummaryStats.set(
+        `狀態：${status}`,
+        formalLedgerRows.filter((row) => row.status === status).length
+      );
+    }
+    for (const domain of FORMAL_DOC_LEDGER_DOMAIN_KEYS) {
+      expectedSummaryStats.set(
+        `子域：${domain}`,
+        formalLedgerRows.filter((row) => row.domain === domain).length
+      );
+    }
+    for (const [summaryKey, expectedValue] of expectedSummaryStats.entries()) {
+      const actualValue = formalLedgerSummaryStats.get(summaryKey);
+      if (typeof actualValue !== 'number') {
+        issues.push(
+          `[truth/formal-ledger] missing summary stat in ${FORMAL_DOC_AUDIT_LEDGER_PATH}: ${summaryKey}`
+        );
+        continue;
+      }
+      if (actualValue !== expectedValue) {
+        issues.push(
+          `[truth/formal-ledger] summary stat drift in ${FORMAL_DOC_AUDIT_LEDGER_PATH}: ${summaryKey} doc=${actualValue} calc=${expectedValue}`
+        );
+      }
+    }
+  }
   for (const duplicatePath of formalLedgerDuplicatePaths) {
     issues.push(
       `[truth/formal-ledger] duplicate formal-doc ledger row in ${FORMAL_DOC_AUDIT_LEDGER_PATH}: ${duplicatePath}`
@@ -3690,7 +3757,7 @@ async function main() {
   }
 
   console.log(
-    `[docs-truth] ok: ${truth.backend.endpoints.length} endpoints, ${truth.frontend.stats.totalRoutes} frontend routes, ${truth.frontend.adminExternalRoutes.length} admin routes, enum coverage verified, critical auth semantics verified, formal-doc ledger coverage semantics verified, formal-doc metadata semantics verified, formal-doc metadata evidence-path semantics verified, formal-doc metadata path-policy semantics verified, formal-doc metadata non-doc-evidence semantics verified, formal-doc metadata tracked-or-script-wired semantics verified, formal-doc metadata wildcard-evidence semantics verified, formal-doc audited-commit resolve semantics verified, formal-doc audited-commit ancestry semantics verified, formal-doc audited-date chronology semantics verified, formal-doc audited-date non-future semantics verified, formal-doc last-update coherence semantics verified, formal-doc global path-reference semantics verified, batch-1 flagship path-reference semantics verified, batch-2 auth+user-flow semantics verified, batch-2/3 formal-doc path-reference semantics verified, batch-3 governance+architecture semantics verified, batch-4 interface path-reference semantics verified, admin+health semantics verified, content+notification semantics verified, risk semantics verified, testing semantics verified, batch-5 scenario+regression semantics verified, batch-6 metadata semantics verified, html-snapshot manifest consistency verified`
+    `[docs-truth] ok: ${truth.backend.endpoints.length} endpoints, ${truth.frontend.stats.totalRoutes} frontend routes, ${truth.frontend.adminExternalRoutes.length} admin routes, enum coverage verified, critical auth semantics verified, formal-doc ledger coverage+summary semantics verified, formal-doc metadata semantics verified, formal-doc metadata evidence-path semantics verified, formal-doc metadata path-policy semantics verified, formal-doc metadata non-doc-evidence semantics verified, formal-doc metadata tracked-or-script-wired semantics verified, formal-doc metadata wildcard-evidence semantics verified, formal-doc audited-commit resolve semantics verified, formal-doc audited-commit ancestry semantics verified, formal-doc audited-date chronology semantics verified, formal-doc audited-date non-future semantics verified, formal-doc last-update coherence semantics verified, formal-doc global path-reference semantics verified, batch-1 flagship path-reference semantics verified, batch-2 auth+user-flow semantics verified, batch-2/3 formal-doc path-reference semantics verified, batch-3 governance+architecture semantics verified, batch-4 interface path-reference semantics verified, admin+health semantics verified, content+notification semantics verified, risk semantics verified, testing semantics verified, batch-5 scenario+regression semantics verified, batch-6 metadata semantics verified, html-snapshot manifest consistency verified`
   );
 }
 

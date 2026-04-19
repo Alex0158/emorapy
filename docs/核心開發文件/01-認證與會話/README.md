@@ -4,8 +4,8 @@
 **文檔類型**：域索引
 **覆蓋範圍**：01-認證與會話 子域入口與閱讀順序
 **取證代碼入口**：`backend/src/routes/auth.routes.ts`、`backend/src/routes/session.routes.ts`、`frontend/src/router/index.tsx`、`frontend/src/services/api/auth.ts`、`frontend/src/services/api/session.ts`
-**最後核驗 Commit**：`bd66c2d`
-**最後核驗日期**：`2026-04-18`
+**最後核驗 Commit**：`587df41`
+**最後核驗日期**：`2026-04-19`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 本子域承接 `CJ` 前台的認證、登入、會話與身份來源正式規格入口，不裁決 Admin 登入治理。

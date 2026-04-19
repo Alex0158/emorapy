@@ -117,6 +117,21 @@ async function isResolvableGitCommit(commitRef) {
   }
 }
 
+async function readGitCommitDateYmd(commitRef) {
+  try {
+    const { stdout } = await execFileAsync('git', ['show', '-s', '--format=%cs', commitRef], {
+      cwd: repoRoot,
+    });
+    const commitDate = stdout.trim();
+    if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(commitDate)) {
+      return null;
+    }
+    return commitDate;
+  } catch {
+    return null;
+  }
+}
+
 function parseStatValue(content, label) {
   const statRe = new RegExp(`\\|\\s*${escapeRegExp(label)}\\s*\\|\\s*([0-9]+)\\s*\\|`);
   const match = content.match(statRe);
@@ -879,6 +894,7 @@ async function main() {
   }
   const allowlistHitKeys = new Set();
   const formalAuditCommitRefs = new Map();
+  const formalAuditRows = [];
   for (const relativePath of formalDocFiles) {
     const docContent = await readDoc(relativePath);
     if (!docContent.includes('CORE_DOC_AUDIT_METADATA:START')) {
@@ -917,6 +933,12 @@ async function main() {
       issues.push(`[truth/formal-metadata] missing or invalid 最後核驗日期 in ${relativePath}`);
     } else if (Number.isNaN(Date.parse(`${lastAuditedDateMatch[1]}T00:00:00Z`))) {
       issues.push(`[truth/formal-metadata] invalid 最後核驗日期 value in ${relativePath}`);
+    } else if (lastAuditedCommitMatch) {
+      formalAuditRows.push({
+        relativePath,
+        commitRef: lastAuditedCommitMatch[1],
+        auditedDate: lastAuditedDateMatch[1],
+      });
     }
     if (docContent.includes('**SSOT 屬性**：非現行 SSOT')) {
       issues.push(`[truth/formal-metadata] formal doc marked as non-SSOT: ${relativePath}`);
@@ -955,10 +977,31 @@ async function main() {
       }
     }
   }
+  const commitDateByRef = new Map();
   for (const [commitRef, docPaths] of formalAuditCommitRefs.entries()) {
     if (!(await isResolvableGitCommit(commitRef))) {
       issues.push(
         `[truth/formal-metadata] unresolvable 最後核驗 Commit ${commitRef} in docs: ${docPaths.join(', ')}`
+      );
+      continue;
+    }
+    const commitDateYmd = await readGitCommitDateYmd(commitRef);
+    if (!commitDateYmd) {
+      issues.push(
+        `[truth/formal-metadata] cannot resolve commit date for ${commitRef} in docs: ${docPaths.join(', ')}`
+      );
+      continue;
+    }
+    commitDateByRef.set(commitRef, commitDateYmd);
+  }
+  for (const { relativePath, commitRef, auditedDate } of formalAuditRows) {
+    const commitDateYmd = commitDateByRef.get(commitRef);
+    if (!commitDateYmd) {
+      continue;
+    }
+    if (auditedDate < commitDateYmd) {
+      issues.push(
+        `[truth/formal-metadata] 最後核驗日期早於commit日期 in ${relativePath}: audited=${auditedDate}, commit=${commitRef}, commit_date=${commitDateYmd}`
       );
     }
   }
@@ -3373,7 +3416,7 @@ async function main() {
   }
 
   console.log(
-    `[docs-truth] ok: ${truth.backend.endpoints.length} endpoints, ${truth.frontend.stats.totalRoutes} frontend routes, ${truth.frontend.adminExternalRoutes.length} admin routes, enum coverage verified, critical auth semantics verified, formal-doc metadata semantics verified, formal-doc audited-commit resolve semantics verified, formal-doc global path-reference semantics verified, batch-1 flagship path-reference semantics verified, batch-2 auth+user-flow semantics verified, batch-2/3 formal-doc path-reference semantics verified, batch-3 governance+architecture semantics verified, batch-4 interface path-reference semantics verified, admin+health semantics verified, content+notification semantics verified, risk semantics verified, testing semantics verified, batch-5 scenario+regression semantics verified, batch-6 metadata semantics verified, html-snapshot manifest consistency verified`
+    `[docs-truth] ok: ${truth.backend.endpoints.length} endpoints, ${truth.frontend.stats.totalRoutes} frontend routes, ${truth.frontend.adminExternalRoutes.length} admin routes, enum coverage verified, critical auth semantics verified, formal-doc metadata semantics verified, formal-doc audited-commit resolve semantics verified, formal-doc audited-date chronology semantics verified, formal-doc global path-reference semantics verified, batch-1 flagship path-reference semantics verified, batch-2 auth+user-flow semantics verified, batch-2/3 formal-doc path-reference semantics verified, batch-3 governance+architecture semantics verified, batch-4 interface path-reference semantics verified, admin+health semantics verified, content+notification semantics verified, risk semantics verified, testing semantics verified, batch-5 scenario+regression semantics verified, batch-6 metadata semantics verified, html-snapshot manifest consistency verified`
   );
 }
 

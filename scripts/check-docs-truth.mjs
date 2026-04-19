@@ -1470,6 +1470,137 @@ async function main() {
     }
   }
 
+  const adminUsersSearchRouteBound = /router\.get\(\s*'\/users'[\s\S]*?validate\(adminSearchPaginationQuerySchema\)/m.test(
+    adminRoutesCode
+  );
+  const adminUsersSearchSchemaBound =
+    validationCode.includes('adminSearchPaginationQuerySchema') &&
+    validationCode.includes("q: Joi.string().max(255).optional().allow('')") &&
+    validationCode.includes('limit: Joi.number().integer().min(1).max(100).optional()') &&
+    validationCode.includes('offset: Joi.number().integer().min(0).optional()');
+  if (adminUsersSearchRouteBound && adminUsersSearchSchemaBound) {
+    const usersInterfaceRow = findEndpointRow(adminInterfaceDoc, 'GET', '/api/v1/admin/users');
+    if (
+      !usersInterfaceRow ||
+      !usersInterfaceRow.includes('q') ||
+      !usersInterfaceRow.includes('limit') ||
+      !usersInterfaceRow.includes('offset')
+    ) {
+      issues.push(
+        '[truth/admin] 06-接口描述/09-admin.md GET /api/v1/admin/users row must document q/limit/offset query contract'
+      );
+    }
+
+    const usersApiMainRow = findEndpointRow(apiMainDoc, 'GET', '/api/v1/admin/users');
+    if (
+      !usersApiMainRow ||
+      !usersApiMainRow.includes('q') ||
+      !usersApiMainRow.includes('limit') ||
+      !usersApiMainRow.includes('offset')
+    ) {
+      issues.push(
+        '[truth/api] 全接口清單-主文檔.md GET /api/v1/admin/users row must include q/limit/offset semantics'
+      );
+    }
+
+    const usersMappingRow = findEndpointRow(mappingDoc, 'GET', '/api/v1/admin/users');
+    if (
+      !usersMappingRow ||
+      !usersMappingRow.includes('q') ||
+      !usersMappingRow.includes('limit') ||
+      !usersMappingRow.includes('offset')
+    ) {
+      issues.push(
+        '[truth/mapping] 接口-功能-頁面-Mapping.md GET /api/v1/admin/users row must include q/limit/offset semantics'
+      );
+    }
+
+    const usersFlowRow = flowDoc.split('\n').find((line) => line.includes('GET /admin/users*')) || null;
+    if (
+      !usersFlowRow ||
+      !usersFlowRow.includes('q') ||
+      !usersFlowRow.includes('limit') ||
+      !usersFlowRow.includes('offset')
+    ) {
+      issues.push(
+        '[truth/flow] 業務流程整合.md P05 step 6 must document /admin/users query contract as q + limit/offset'
+      );
+    }
+  }
+
+  const adminAuditLogsRouteBound = /router\.get\(\s*'\/audit-logs'[\s\S]*?validate\(adminAuditLogsQuerySchema\)/m.test(
+    adminRoutesCode
+  );
+  const adminAuditLogsSchemaBound =
+    validationCode.includes('adminAuditLogsQuerySchema') &&
+    validationCode.includes('entityType: Joi.string().max(50).optional()') &&
+    validationCode.includes('action: Joi.string().max(50).optional()') &&
+    validationCode.includes('from: Joi.string().isoDate().optional()') &&
+    validationCode.includes('to: Joi.string().isoDate().optional()') &&
+    validationCode.includes('limit: Joi.number().integer().min(1).max(100).optional()') &&
+    validationCode.includes('offset: Joi.number().integer().min(0).optional()');
+  if (adminAuditLogsRouteBound && adminAuditLogsSchemaBound) {
+    const auditInterfaceRow = findEndpointRow(adminInterfaceDoc, 'GET', '/api/v1/admin/audit-logs');
+    if (
+      !auditInterfaceRow ||
+      !auditInterfaceRow.includes('entityType') ||
+      !auditInterfaceRow.includes('action') ||
+      !auditInterfaceRow.includes('from') ||
+      !auditInterfaceRow.includes('to') ||
+      !auditInterfaceRow.includes('limit') ||
+      !auditInterfaceRow.includes('offset')
+    ) {
+      issues.push(
+        '[truth/admin] 06-接口描述/09-admin.md GET /api/v1/admin/audit-logs row must document entityType/action/from/to/limit/offset query contract'
+      );
+    }
+
+    const auditApiMainRow = findEndpointRow(apiMainDoc, 'GET', '/api/v1/admin/audit-logs');
+    if (
+      !auditApiMainRow ||
+      !auditApiMainRow.includes('entityType') ||
+      !auditApiMainRow.includes('action') ||
+      !auditApiMainRow.includes('from') ||
+      !auditApiMainRow.includes('to') ||
+      !auditApiMainRow.includes('limit') ||
+      !auditApiMainRow.includes('offset')
+    ) {
+      issues.push(
+        '[truth/api] 全接口清單-主文檔.md GET /api/v1/admin/audit-logs row must include entityType/action/from/to/limit/offset semantics'
+      );
+    }
+
+    const auditMappingRow = findEndpointRow(mappingDoc, 'GET', '/api/v1/admin/audit-logs');
+    if (
+      !auditMappingRow ||
+      !auditMappingRow.includes('entityType') ||
+      !auditMappingRow.includes('action') ||
+      !auditMappingRow.includes('from') ||
+      !auditMappingRow.includes('to') ||
+      !auditMappingRow.includes('limit') ||
+      !auditMappingRow.includes('offset')
+    ) {
+      issues.push(
+        '[truth/mapping] 接口-功能-頁面-Mapping.md GET /api/v1/admin/audit-logs row must include entityType/action/from/to/limit/offset semantics'
+      );
+    }
+
+    const auditFlowRow = flowDoc.split('\n').find((line) => line.includes('GET /admin/audit-logs*')) || null;
+    if (
+      !auditFlowRow ||
+      !auditFlowRow.includes('entityType') ||
+      !auditFlowRow.includes('action') ||
+      !auditFlowRow.includes('from') ||
+      !auditFlowRow.includes('to') ||
+      !auditFlowRow.includes('limit') ||
+      !auditFlowRow.includes('offset')
+    ) {
+      issues.push(
+        '[truth/flow] 業務流程整合.md P05 step 7 must document /admin/audit-logs query contract as entityType/action/from/to + limit/offset'
+      );
+    }
+  }
+
   if (validationCode.includes('mediaProviderCatalogQuerySchema')) {
     const providersRow = findEndpointRow(adminInterfaceDoc, 'GET', '/api/v1/providers');
     if (!providersRow || !providersRow.includes('providerType?') || providersRow.includes('activeOnly') || providersRow.includes('includeConfig')) {

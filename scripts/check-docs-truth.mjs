@@ -12,6 +12,33 @@ const GENERIC_STREAM_DOC_ENDPOINTS = [
   '/api/v1/streams/interview_session/:id',
   '/api/v1/streams/chat_room/:roomId',
 ];
+const FORMAL_DOC_ROOT_FILES = [
+  'README.md',
+  '功能特性清單.md',
+  '頁面清單.md',
+  '全接口清單-主文檔.md',
+  '接口-功能-頁面-Mapping.md',
+  '業務流程整合.md',
+  '術語表.md',
+];
+const FORMAL_DOC_DOMAIN_DIRS = [
+  '01-認證與會話',
+  '02-用戶端核心流程',
+  '03-管理端與平台治理',
+  '04-共用機制',
+  '05-工程架構與共享層',
+  '06-接口描述',
+  '07-待處理問題與治理',
+  '08-測試規範與驗收',
+];
+const FORMAL_DOC_MISSING_PATH_ALLOWLIST = {
+  '04-共用機制/01-樣式Token與共享視覺規範.md': [
+    { path: 'frontend/src/styles/theme.ts', marker: '目前不存在 `frontend/src/styles/theme.ts`' },
+  ],
+  '05-工程架構與共享層/Repo平台分層與共享規範.md': [
+    { path: 'packages/domain', marker: '建立 `packages/domain`' },
+  ],
+};
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -164,6 +191,45 @@ function extractBacktickScriptPathRefs(content) {
         continue;
       }
       if (normalized.includes('*') || normalized.includes('<') || normalized.includes('>')) {
+        continue;
+      }
+      refs.add(normalized);
+    }
+  }
+
+  return [...refs].sort();
+}
+
+function extractBacktickRepoPathRefs(content) {
+  const refs = new Set();
+  const quotedCodeRe = /`([^`\n]+)`/g;
+  const allowedPrefixRe = /^(backend|frontend|frontend-admin|mobile|e2e|packages|scripts)\//;
+
+  for (const match of content.matchAll(quotedCodeRe)) {
+    const code = match[1].trim();
+    if (!code) {
+      continue;
+    }
+    const candidates = code.split(/[\s,]+/).map((token) => token.trim()).filter(Boolean);
+    for (const token of candidates) {
+      const normalized = token
+        .replace(/^[./]+/, '')
+        .replace(/^[("']+/, '')
+        .replace(/[)"'`。；，,.;:]+$/, '');
+      if (!normalized) {
+        continue;
+      }
+      if (!allowedPrefixRe.test(normalized)) {
+        continue;
+      }
+      if (
+        normalized.includes('*') ||
+        normalized.includes('<') ||
+        normalized.includes('>') ||
+        normalized.includes('{') ||
+        normalized.includes('}') ||
+        normalized.includes('|')
+      ) {
         continue;
       }
       refs.add(normalized);
@@ -787,6 +853,46 @@ async function main() {
   for (const item of readmeRequired) {
     if (!readmeDoc.includes(item)) {
       issues.push(`[truth/readme] root reference missing in README.md: ${item}`);
+    }
+  }
+
+  const formalDocFiles = [...FORMAL_DOC_ROOT_FILES];
+  for (const docsRoot of FORMAL_DOC_DOMAIN_DIRS) {
+    const files = await collectFilesUnder(docsRoot, '.md');
+    for (const fileName of files) {
+      formalDocFiles.push(path.posix.join(docsRoot, fileName));
+    }
+  }
+  const allowlistHitKeys = new Set();
+  for (const relativePath of formalDocFiles) {
+    const docContent = await readDoc(relativePath);
+    const allowEntries = FORMAL_DOC_MISSING_PATH_ALLOWLIST[relativePath] || [];
+    const allowMap = new Map(allowEntries.map((entry) => [entry.path, entry]));
+    for (const repoPathRef of extractBacktickRepoPathRefs(docContent)) {
+      const absPath = path.join(repoRoot, repoPathRef);
+      if (await pathExists(absPath)) {
+        continue;
+      }
+      const allowEntry = allowMap.get(repoPathRef);
+      if (allowEntry) {
+        const allowKey = `${relativePath}::${repoPathRef}`;
+        allowlistHitKeys.add(allowKey);
+        if (allowEntry.marker && !docContent.includes(allowEntry.marker)) {
+          issues.push(
+            `[truth/formal-path] allowlisted missing path marker drift in ${relativePath}: ${repoPathRef} (missing marker: ${allowEntry.marker})`
+          );
+        }
+        continue;
+      }
+      issues.push(`[truth/formal-path] ${relativePath} references missing repo path: ${repoPathRef}`);
+    }
+  }
+  for (const [docPath, entries] of Object.entries(FORMAL_DOC_MISSING_PATH_ALLOWLIST)) {
+    for (const entry of entries) {
+      const allowKey = `${docPath}::${entry.path}`;
+      if (!allowlistHitKeys.has(allowKey)) {
+        issues.push(`[truth/formal-path] stale allowlist entry (not found in doc): ${docPath} -> ${entry.path}`);
+      }
     }
   }
 
@@ -3200,7 +3306,7 @@ async function main() {
   }
 
   console.log(
-    `[docs-truth] ok: ${truth.backend.endpoints.length} endpoints, ${truth.frontend.stats.totalRoutes} frontend routes, ${truth.frontend.adminExternalRoutes.length} admin routes, enum coverage verified, critical auth semantics verified, batch-1 flagship path-reference semantics verified, batch-2 auth+user-flow semantics verified, batch-2/3 formal-doc path-reference semantics verified, batch-3 governance+architecture semantics verified, batch-4 interface path-reference semantics verified, admin+health semantics verified, content+notification semantics verified, risk semantics verified, testing semantics verified, batch-5 scenario+regression semantics verified, batch-6 metadata semantics verified, html-snapshot manifest consistency verified`
+    `[docs-truth] ok: ${truth.backend.endpoints.length} endpoints, ${truth.frontend.stats.totalRoutes} frontend routes, ${truth.frontend.adminExternalRoutes.length} admin routes, enum coverage verified, critical auth semantics verified, formal-doc global path-reference semantics verified, batch-1 flagship path-reference semantics verified, batch-2 auth+user-flow semantics verified, batch-2/3 formal-doc path-reference semantics verified, batch-3 governance+architecture semantics verified, batch-4 interface path-reference semantics verified, admin+health semantics verified, content+notification semantics verified, risk semantics verified, testing semantics verified, batch-5 scenario+regression semantics verified, batch-6 metadata semantics verified, html-snapshot manifest consistency verified`
   );
 }
 

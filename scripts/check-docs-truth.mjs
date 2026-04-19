@@ -1163,6 +1163,67 @@ async function main() {
     }
   }
 
+  if (
+    chatServiceCode.includes('includedMessageIds') &&
+    chatServiceCode.includes("message_type: 'user_text'") &&
+    chatServiceCode.includes('visibility_scope: ChatVisibilityScope.all') &&
+    chatServiceCode.includes('Errors.NOT_FOUND')
+  ) {
+    const chatRequestJudgmentContractRow =
+      apiMainDoc
+        .split('\n')
+        .find(
+          (line) =>
+            line.includes('`POST /api/v1/chat/rooms/:roomId/request-judgment`') &&
+            line.includes('`included_message_ids?`')
+        ) || null;
+    if (
+      !chatRequestJudgmentContractRow ||
+      !chatRequestJudgmentContractRow.includes('NOT_FOUND') ||
+      !chatRequestJudgmentContractRow.includes('AI_SERVICE_ERROR')
+    ) {
+      issues.push(
+        '[truth/chat] 全接口清單-主文檔.md compact contract row for request-judgment must include NOT_FOUND and AI_SERVICE_ERROR'
+      );
+    }
+
+    const chatRequestJudgmentErrorMatrixRow =
+      apiMainDoc
+        .split('\n')
+        .find(
+          (line) =>
+            line.includes('`POST /api/v1/chat/rooms/:roomId/request-judgment`') &&
+            line.includes('錯誤碼覆蓋矩陣')
+        ) || null;
+    if (
+      !chatRequestJudgmentErrorMatrixRow ||
+      !chatRequestJudgmentErrorMatrixRow.includes('NOT_FOUND') ||
+      !chatRequestJudgmentErrorMatrixRow.includes('AI_SERVICE_ERROR')
+    ) {
+      issues.push(
+        '[truth/chat] 全接口清單-主文檔.md high-risk error matrix row for request-judgment must include NOT_FOUND and AI_SERVICE_ERROR'
+      );
+    }
+
+    const chatRequestJudgmentRiskRow =
+      apiMainDoc
+        .split('\n')
+        .find(
+          (line) =>
+            line.includes('/chat/rooms/:roomId/request-judgment') &&
+            line.includes('聊天轉判決冪等')
+        ) || null;
+    if (
+      !chatRequestJudgmentRiskRow ||
+      !chatRequestJudgmentRiskRow.includes('included_message_ids') ||
+      !chatRequestJudgmentRiskRow.includes('user_text')
+    ) {
+      issues.push(
+        '[truth/chat] 全接口清單-主文檔.md risk row for request-judgment must keep included_message_ids user_text whitelist semantics'
+      );
+    }
+  }
+
   if (!interviewStoreCode.includes('cancelledDraft')) {
     const cancelledDraftMentions = [
       ['06-接口描述/06-interview-psych-profile.md', interviewInterfaceDoc],

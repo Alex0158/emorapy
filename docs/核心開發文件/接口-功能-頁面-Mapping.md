@@ -4,12 +4,12 @@
 **文檔類型**：旗艦映射
 **覆蓋範圍**：API -> 功能 -> 頁面 -> 流程節點映射
 **取證代碼入口**：`backend/src/routes`、`frontend/src/router/index.tsx`、`frontend-admin/src/router.tsx`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`7eb5022`
-**最後核驗日期**：`2026-04-18`
+**最後核驗 Commit**：`4d14e4f`
+**最後核驗日期**：`2026-04-19`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 **文檔版本**：v1.9  
-**最後更新**：2026-04-18  
+**最後更新**：2026-04-19  
 **目標**：把 API -> 功能 -> 頁面 -> 流程節點建立可回歸的單點追溯。
 
 ---
@@ -20,7 +20,7 @@
 - 一條 API 可映射多個頁面（多場景），但每個場景需落到明確流程節點。
 - `狀態` 與 `全接口清單-主文檔` 保持一致（已使用/候選廢棄）。
 - 前台「完成度」以 `功能特性清單.md` 的口徑為準（`已完成/跨功能依賴/待驗證`），不覆蓋 API 狀態欄。
-- `F01-F10` 為主功能；`F11-F14` 僅作候選/平台能力附錄索引。
+- `F01-F10` 為主功能；`F11-F14` 為平台輔助能力附錄（同時包含候選與已使用運維接口）。
 - `GET /cases/:id`、`GET /cases/:id/judgment` 的授權分流以現碼為準：`quick`/`collaborative(session_id 有值)` 走 session；`remote`/`collaborative(session_id=null)` 走當事人 JWT。
 - 風險等級：
   - `H`：跨多場景、涉及身份/狀態遷移/SSE/文件。
@@ -90,7 +90,7 @@
 | `GET /api/v1/streams/chat_room/:roomId` | F07 | `/chat/room/:roomId` | Chat AI 草稿/完成/落庫主鏈路 | H | 已使用 |
 | `GET /api/v1/chat/rooms/:roomId/messages` | F07 | `/chat/room/:roomId` | 歷史訊息 | M | 已使用 |
 | `POST /api/v1/chat/rooms/:roomId/messages` | F07 | `/chat/room/:roomId` | 發送訊息 | H | 已使用 |
-| `POST /api/v1/chat/rooms/:roomId/request-judgment` | F07 | `/chat/room/:roomId` | 聊天轉判決 request | H | 已使用 |
+| `POST /api/v1/chat/rooms/:roomId/request-judgment` | F07 | `/chat/room/:roomId` | 聊天轉判決 request（前端請求窗口 `180000ms`；超時後改查 `judgment-status`） | H | 已使用 |
 | `GET /api/v1/chat/rooms/:roomId/judgment-status` | F07/F04 | `/chat/room/:roomId`、`/judgment/:id`(承接) | 判決狀態與 handoff（未登入先導 auth 回跳） | M | 已使用 |
 | `POST /api/v1/chat/rooms/:roomId/leave` | F07 | `/chat/room/:roomId` | B 方離房 | M | 已使用 |
 | `POST /api/v1/chat/rooms/:roomId/kick-b` | F07 | `/chat/room/:roomId` | A 方踢人 | M | 已使用 |
@@ -124,7 +124,7 @@
 | `GET /api/v1/admin/me` | F10 | `/admin/*` | Admin 身份恢復 | M | 已使用 |
 | `GET /api/v1/admin/jobs/stats` | F10 | `/admin/ops/jobs` | 任務統計 | M | 已使用 |
 | `POST /api/v1/admin/jobs/:jobKey/trigger` | F10 | `/admin/jobs` | 任務觸發 | M | 已使用 |
-| `GET /api/v1/admin/configs` | F10 | `/admin/configs`、`/admin/settings` | 配置讀取 | M | 已使用 |
+| `GET /api/v1/admin/configs` | F10 | `/admin/configs`、`/admin/settings` | 配置讀取（當前兩頁均以 `limit=100,offset=0` 拉取） | M | 已使用 |
 | `PUT /api/v1/admin/configs` | F10 | `/admin/configs` | 配置更新 | M | 已使用 |
 | `GET /api/v1/admin/users` | F10 | `/admin/users` | 用戶列表 | M | 已使用 |
 | `GET /api/v1/admin/users/:userId` | F10 | `/admin/users` | 用戶詳情 | M | 已使用 |
@@ -156,10 +156,10 @@
 | `POST /api/v1/providers/:providerKey/videos` | F10 | `/admin/settings` | 供應商視頻生成驗證 | M | 已使用 |
 | `GET /api/v1/version` | F14 | （無直接頁面） | API 空間版本資訊兼容入口 | L | 候選廢棄 |
 | `GET /version` | F14 | `frontend` Header、`frontend-admin` AdminSectionLayout | 版本面板（三端版本顯示，部署驗證） | L | 已使用 |
-| `GET /health` | F14 | （監控） | 聚合健康探針 | L | 候選廢棄 |
-| `GET /health/ready` | F14 | （監控） | 就緒探針 | L | 候選廢棄 |
-| `GET /health/live` | F14 | （監控） | 存活探針 | L | 候選廢棄 |
-| `GET /metrics` | F14 | （監控） | 指標導出 | L | 候選廢棄 |
+| `GET /health` | F14 | （監控） | 聚合健康探針 | L | 已使用 |
+| `GET /health/ready` | F14 | （監控） | 就緒探針 | L | 已使用 |
+| `GET /health/live` | F14 | （監控） | 存活探針 | L | 已使用 |
+| `GET /metrics` | F14 | （監控） | 指標導出 | L | 已使用 |
 
 ## 一 API 多場景（高風險回歸）
 
@@ -170,7 +170,7 @@
 | `POST /api/v1/interview/start` | Profile 首次引導 | My Story 二次進入 | consent 判斷 + 每日/每小時限額 | consent 前後與超額回應 |
 | `POST /api/v1/chat/rooms/:roomId/request-judgment` | A 方首次發起 | 重複點擊/網路重送 | 房間鎖、冪等、狀態競態 | 連續點擊僅生成一次 case |
 | `POST /api/v1/auth/claim-session` | 註冊後關聯 | 登入後關聯 | 失敗不應阻斷 auth 主流程 | 模擬 claim 失敗仍可登入 |
-| `GET /api/v1/admin/configs` | Config 頁讀取 | Settings 頁同時讀取 | 多頁並發 + token 狀態 | 雙頁同時請求結果一致 |
+| `GET /api/v1/admin/configs` | Config 頁讀取（`limit=100`） | Settings 頁同時讀取（`limit=100`） | 多頁並發 + token 狀態 + 首屏窗口一致性 | 雙頁同時請求結果一致 |
 
 ## 前台完成度補丁表（對齊功能特性清單 v3.0）
 

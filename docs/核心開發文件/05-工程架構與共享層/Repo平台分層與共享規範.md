@@ -1,5 +1,13 @@
 # Repo 平台分層與共享規範
 
+<!-- CORE_DOC_AUDIT_METADATA:START -->
+**文檔類型**：正式規格
+**覆蓋範圍**：工作區結構、共享層與工程約束：Repo平台分層與共享規範
+**取證代碼入口**：`package.json`、`frontend/tsconfig.app.json`、`frontend-admin/tsconfig.app.json`、`backend/tsconfig.json`、`mobile/tsconfig.json`、`packages/contracts/package.json`、`packages/api-client/package.json`、`backend/src`、`frontend/src`、`frontend-admin/src`、`mobile/src`
+**最後核驗 Commit**：`bd66c2d`
+**最後核驗日期**：`2026-04-18`
+<!-- CORE_DOC_AUDIT_METADATA:END -->
+
 ## 1. 目的
 
 本文件將 `mother-bear-court` 的平台分層正式定義為三個層次：
@@ -8,7 +16,7 @@
 - `services/*`：後端服務與基礎服務
 - `packages/*`：可跨平台共用的契約、資料層核心與純邏輯
 
-這份規範先建立「分類心智」與新代碼的落點原則，不要求一次性搬動既有大量目錄。
+這份規範先建立「分類心智」與新代碼的落點原則，不要求一次性搬動既有大量目錄，也不等於現有目錄已全部進入同一 root workspace。
 
 ## 2. 目前對應關係
 
@@ -73,7 +81,7 @@
 ## 6. 推進順序
 
 1. 先把重複的型別與 API 契約收斂到 `packages/contracts`
-2. 再把 Web 既有 request 層拆成 `packages/api-client` 與 Web adapter
+2. 再把 Web 既有 request 層可抽離部分拆成 `packages/api-client` 與 Web adapter
 3. 最後再逐步讓 `mobile` 消費共享層
 
 ## 7. 本次落地範圍
@@ -83,7 +91,7 @@
 - 建立 `packages/contracts`
 - 建立 `packages/api-client`
 - 建立 `mobile/src/features` 與 `mobile/src/platform` 骨架
-- 保持 `mobile/` 不進 root workspace，不做大規模目錄搬移
+- 保持 `mobile/`、`backend/`、`packages/*` 都不進 root workspace，不做大規模目錄搬移
 
 這代表 repo 已開始進入平台分層模式，但仍保留既有目錄穩定性。
 
@@ -91,28 +99,24 @@
 
 目前已完成：
 
-- `frontend/` 已可透過 alias 讀取 `packages/contracts` 與 `packages/api-client`
-- `frontend/src/types/case.ts`
-- `frontend/src/types/chat.ts`
-- `frontend/src/types/interview.ts`
-- `frontend/src/types/session.ts`
-- `frontend/src/services/api/auth.ts`
+- `frontend/tsconfig.app.json` 已接上 `@cj/contracts` 與 `@cj/api-client` alias
+- `frontend/src/types/*` 與 `frontend/src/services/api/auth.ts` 已開始消費 `@cj/contracts`
+- `backend/tsconfig.json` 與 `mobile/tsconfig.json` 已預留共享 package alias
 
-上述檔案已開始以共享 contracts 作為型別來源，代表 Web 端已真正接上第一批共享契約。
+目前尚未完成：
 
-另外也已完成：
-
-- `mobile/tsconfig.json` 已預留共享 package alias
-- `backend/tsconfig.json` 已預留共享 package alias
+- `frontend-admin/` 尚未接入 `@cj/contracts` / `@cj/api-client` alias
+- `packages/api-client` 已建立，但現行 app 尚未形成穩定消費面
+- `backend/` 雖預留 alias，但當前正式代碼仍未把共享 package 作為主來源
 
 ## 9. 暫緩事項
 
 以下項目是刻意延後，而不是遺漏：
 
 - `backend/src` 目前仍有 `rootDir` 限制，不能直接安全地引用 `packages/contracts` 原始碼作為正式來源
-- `backend/src/types/interview.types.ts` 仍保留本地版本，因為其內含後端正在使用的值層常數與函式
 - `frontend/src/types/common.ts` 目前只做部分共享對齊，仍保留相容性包裝，避免一次影響既有大量 API 使用點
 - `mobile/` 尚未正式消費共享 contracts，只先完成平台骨架與 alias 準備
+- `frontend-admin/` 仍維持本地 request / type stack，尚未進入共享 package 體系
 
 ## 10. 下一步建議
 

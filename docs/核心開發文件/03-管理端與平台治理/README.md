@@ -1,6 +1,14 @@
 # 管理端與平台治理
 
-本子域承接 `CJ` 管理端與平台治理能力的正式規格入口。
+<!-- CORE_DOC_AUDIT_METADATA:START -->
+**文檔類型**：域索引
+**覆蓋範圍**：03-管理端與平台治理 子域入口與閱讀順序
+**取證代碼入口**：`backend/src/routes/admin.routes.ts`、`backend/src/routes/health.routes.ts`、`backend/src/routes/metrics.routes.ts`、`backend/src/middleware/adminAuth.ts`、`backend/src/config/env.ts`、`backend/src/utils/admin-jwt.ts`、`frontend/src/router/index.tsx`、`frontend/src/utils/adminEntry.ts`、`frontend-admin/src/router.tsx`、`frontend-admin/src/pages`、`backend/package.json`
+**最後核驗 Commit**：`bd66c2d`
+**最後核驗日期**：`2026-04-18`
+<!-- CORE_DOC_AUDIT_METADATA:END -->
+
+本子域承接 `CJ` 管理端 Web、主站 admin 轉導入口與平台治理能力的正式規格入口。
 
 當前正式文檔：
 
@@ -11,9 +19,9 @@
 
 當前重點包括：
 
-1. Admin Web 的用戶、內容、配置與治理能力
-2. 健康檢查、metrics、後台任務與平台運營入口
-3. 與管理端審計、風險接受與治理邊界相關的正式口徑
+1. Admin Web 的身份入口、頁面責任、RBAC 與治理能力
+2. 健康檢查、metrics、後台任務、runtime config、報表與 settings 治理入口
+3. 與審計、告警規則、feature flags、media provider 配置相關的正式口徑
 
 本子域不回答：
 

@@ -1,12 +1,26 @@
 # 工程架構與共享層
 
-本子域承接 `CJ` monorepo 的工程分層、共享 package 與跨端落點規則。
+<!-- CORE_DOC_AUDIT_METADATA:START -->
+**文檔類型**：域索引
+**覆蓋範圍**：05-工程架構與共享層 子域入口與閱讀順序
+**取證代碼入口**：`package.json`、`frontend/tsconfig.app.json`、`frontend-admin/tsconfig.app.json`、`backend/tsconfig.json`、`mobile/tsconfig.json`、`packages/contracts/package.json`、`packages/api-client/package.json`、`backend/src`、`frontend/src`、`frontend-admin/src`、`mobile/src`
+**最後核驗 Commit**：`bd66c2d`
+**最後核驗日期**：`2026-04-18`
+<!-- CORE_DOC_AUDIT_METADATA:END -->
+
+本子域承接 `CJ` repo 的工程分層、共享 package、tsconfig alias 與跨端落點規則。
 
 當前正式文檔：
 
 1. [00-工程架構與共享層總覽.md](./00-工程架構與共享層總覽.md)
 2. [Repo平台分層與共享規範.md](./Repo平台分層與共享規範.md)
 3. [01-本地開發與工作區基線.md](./01-本地開發與工作區基線.md)
+
+本子域的固定前提：
+
+1. root npm workspaces 目前只包含 `frontend/` 與 `frontend-admin/`
+2. `backend/`、`mobile/`、`packages/*` 都是 repo-local 目錄，不是 root workspace
+3. 共享 alias 的接線狀態必須以各自 `tsconfig` 與真實 import 為準，不按理想化 monorepo 假設寫正文
 
 本子域不回答：
 

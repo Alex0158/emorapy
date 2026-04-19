@@ -1,5 +1,13 @@
 # 運維告警與 AI / Chat 治理基線
 
+<!-- CORE_DOC_AUDIT_METADATA:START -->
+**文檔類型**：正式規格
+**覆蓋範圍**：admin 平台治理、環境部署與運維基線：03-運維告警與AI-Chat治理基線
+**取證代碼入口**：`backend/src/routes/admin.routes.ts`、`backend/src/routes/health.routes.ts`、`backend/src/routes/metrics.routes.ts`、`backend/src/middleware/adminAuth.ts`、`backend/src/config/env.ts`、`backend/src/utils/admin-jwt.ts`、`frontend/src/router/index.tsx`、`frontend/src/utils/adminEntry.ts`、`frontend-admin/src/router.tsx`、`frontend-admin/src/pages`、`backend/package.json`
+**最後核驗 Commit**：`bd66c2d`
+**最後核驗日期**：`2026-04-18`
+<!-- CORE_DOC_AUDIT_METADATA:END -->
+
 本文件承接 ops alerts、metrics、chat stage gate、benchmark readiness 與 migration rehearsal 的正式治理口徑。
 
 ## 1. 告警來源
@@ -8,7 +16,7 @@
 
 1. `GET /health` 的健康檢查結果
 2. `/metrics` 暴露的 Prometheus 指標
-3. Redis minute buckets 與後端治理腳本輸出的運維報告
+3. 後端治理腳本輸出的運維報告，例如 `npm run ops:alerts:check`、`npm run ops:migration:report`
 
 ## 2. Ops 告警基線
 
@@ -29,7 +37,7 @@ Chat 與 AI Stream 的平台治理至少包含：
 2. `AI Stream` runtime 可恢復
 3. chat 判決失敗率可量化
 4. benchmark readiness 有固定檢查集
-5. migration rehearsal 有固定 runbook 與報告口徑
+5. migration report / precheck 有固定 runbook 與報告口徑
 
 ## 4. Stage Gate 最低要求
 
@@ -39,7 +47,7 @@ Chat 與 AI Stream 的平台治理至少包含：
 2. backend integration chain 已驗證
 3. frontend e2e matrix 已驗證
 4. benchmark dry-run gate 可產生報告
-5. migration rehearsal 文檔與預檢 / 修復腳本可運行
+5. migration report 文檔與預檢 / 修復腳本可運行
 
 ## 5. 建議驗證命令
 
@@ -47,7 +55,10 @@ Chat 與 AI Stream 的平台治理至少包含：
 cd backend
 npx jest tests/unit/services/chat.service.test.ts tests/unit/services/judgment.service.test.ts --runInBand
 npx jest tests/integration/chat-routes.smoke.test.ts tests/integration/chat-invite-judgment-flow.test.ts --runInBand
+npm run ops:alerts:check
 DRY_RUN=true GATE_RUN_JUDGMENT=true GATE_RUN_INVITE_ACCEPT=true npm run bench:chat:concurrency-gate
+npm run precheck:chat:active-roles-uniqueness
+npm run ops:migration:report
 cd ../frontend
 npm run test:e2e -- e2e/chat
 ```

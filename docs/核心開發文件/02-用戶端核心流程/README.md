@@ -1,6 +1,14 @@
 # 用戶端核心流程
 
-本子域承接 `CJ` 面向普通用戶的核心業務流程入口，覆蓋 Web 與 Mobile 主鏈路。
+<!-- CORE_DOC_AUDIT_METADATA:START -->
+**文檔類型**：域索引
+**覆蓋範圍**：02-用戶端核心流程 子域入口與閱讀順序
+**取證代碼入口**：`frontend/src/router/index.tsx`、`frontend/src/pages`、`backend/src/routes/case.routes.ts`、`backend/src/routes/interview.routes.ts`、`backend/src/routes/chat.routes.ts`
+**最後核驗 Commit**：`bd66c2d`
+**最後核驗日期**：`2026-04-18`
+<!-- CORE_DOC_AUDIT_METADATA:END -->
+
+本子域承接 `CJ` 面向普通用戶的核心業務流程入口，當前以 Web 前台實作為取證基準；若 Mobile 復用同一接口語義，以本子域流程裁決為準，但不在此單獨裁決頁面實作。
 
 當前正式文檔：
 
@@ -8,9 +16,9 @@
 
 當前重點包括：
 
-1. 快速體驗、正式案件、聊天室、Repair Journey
-2. 心理訪談、心理畫像、個人資料與配對相關主流程
-3. 與前台主流程直接相關的頁面入口與狀態轉移
+1. 快速體驗、協作聽證、正式案件、聊天室、Repair Journey
+2. 心理訪談、心理畫像、個人資料、配對與前置 trigger
+3. 通知中心與前台主流程直接相關的頁面入口、狀態轉移與 handoff
 
 本子域不回答：
 

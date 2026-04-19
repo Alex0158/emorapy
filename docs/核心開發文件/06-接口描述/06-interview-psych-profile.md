@@ -4,8 +4,8 @@
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：06-interview-psych-profile
 **取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`4a1374a`
-**最後核驗日期**：`2026-04-18`
+**最後核驗 Commit**：`4d14e4f`
+**最後核驗日期**：`2026-04-19`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 **文檔版本**：v2.9  
@@ -57,6 +57,7 @@
 - 安全協議（safety flag）會透過 metadata/safety_alert 事件回傳前端。
 - `POST/GET /api/v1/interview/*`（除 `psych-profile` GET/consent 外）全部要求 `authenticate + requireConsent`；`resume` 既回報 `has_pending/session_id`，也會同時回報 `has_failed/failed_session_id`，供 `/profile/my-story` 決定 resume 或 retry 入口。
 - `GET /api/v1/psych-profile` 當前只回傳最新 `narratives/insights/richness_score` 與 consent 狀態，不再以 `PROCESSING_NOT_DONE/PROCESSING_FAILED` 表達畫像流水線狀態；pending/failed 入口應以 `resume` 或通知旅程判斷。
+- `/profile/my-story` 的豐富度標籤以 `richness_score + narratives` 聯合判斷：當 `richness_score < 0.05` 但已存在 `is_latest && completeness>0` 的 domain narrative 時，前端顯示「早期探索」而非「尚未開始」。
 
 ## 回歸測試最小集
 

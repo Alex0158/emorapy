@@ -1,5 +1,13 @@
 # CJ 核心開發文件（唯一工程 SSOT）
 
+<!-- CORE_DOC_AUDIT_METADATA:START -->
+**文檔類型**：核心入口
+**覆蓋範圍**：核心開發文件閱讀順序、SSOT 邊界與 repo 級文檔治理口徑
+**取證代碼入口**：`backend/src/app.ts`、`frontend/src/router/index.tsx`、`frontend-admin/src/router.tsx`、`scripts/check-docs-structure.mjs`
+**最後核驗 Commit**：`bd66c2d`
+**最後核驗日期**：`2026-04-18`
+<!-- CORE_DOC_AUDIT_METADATA:END -->
+
 本目錄是 `CJ` 項目唯一有效的工程與產品正式文檔依據。
 
 對整個 `/Users/alex/Desktop/CJ` 而言，Markdown 只允許存在於三個區域：

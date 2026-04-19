@@ -4,12 +4,12 @@
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：07-chat
 **取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`7cae077`
-**最後核驗日期**：`2026-04-18`
+**最後核驗 Commit**：`4d14e4f`
+**最後核驗日期**：`2026-04-19`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 **文檔版本**：v2.6  
-**最後更新**：2026-04-18  
+**最後更新**：2026-04-19  
 **代碼基準**：`backend/src/routes/chat.routes.ts`、`backend/src/services/chat.service.ts`、`frontend/src/pages/Chat/Room`、`frontend/src/services/api/chat.ts`
 
 ---
@@ -33,7 +33,7 @@
 | `GET /api/v1/streams/chat_room/:roomId`（SSE） | `after_seq?` + auth/session headers | `ready + stream.*` 事件，含 snapshot/replay/heartbeat | `FORBIDDEN` `INVALID_SESSION_ID` `SESSION_EXPIRED` | Chat AI 主鏈路 | AI stream client |
 | `GET /api/v1/chat/rooms/:roomId/messages` | `cursor?` `limit?<=100` | `data.messages[]` `data.nextCursor` | `FORBIDDEN` `VALIDATION_ERROR` `INVALID_SESSION_ID` `SESSION_EXPIRED` | 無 | 房間頁 |
 | `POST /api/v1/chat/rooms/:roomId/messages` | `content(1..4000)` `visibility_scope?` `reply_to_message_id?` | `data.message` | `FORBIDDEN` `CASE_NOT_EDITABLE` `RATE_LIMIT_EXCEEDED` `NOT_FOUND` `INVALID_SESSION_ID` `SESSION_EXPIRED` | 寫入 message，觸發 AI orchestrator | 房間頁 |
-| `POST /api/v1/chat/rooms/:roomId/request-judgment` | `included_message_ids?[]` | `data.caseId` `judgmentId?` `status` | `FORBIDDEN` `CASE_NOT_READY` `CASE_NOT_EDITABLE` `CONFLICT` `NOT_FOUND` `INVALID_SESSION_ID` `SESSION_EXPIRED` | room -> judgment_requested/completed/failed，可能建 case/link | 房間頁 |
+| `POST /api/v1/chat/rooms/:roomId/request-judgment` | `included_message_ids?[]` | `data.caseId` `judgmentId?` `linkId?` `status` | `FORBIDDEN` `CASE_NOT_READY` `CASE_NOT_EDITABLE` `CONFLICT` `NOT_FOUND` `INVALID_SESSION_ID` `SESSION_EXPIRED` `AI_SERVICE_ERROR` | room -> judgment_requested/completed/failed，可能建 case/link | 房間頁 |
 | `GET /api/v1/chat/rooms/:roomId/judgment-status` | 無 body | `data.roomStatus` `data.latestLink` | `FORBIDDEN` `INVALID_SESSION_ID` `SESSION_EXPIRED` | 無 | 房間頁輪詢 |
 | `POST /api/v1/chat/rooms/:roomId/leave` | 無 body | `data.room` | `UNAUTHORIZED` `FORBIDDEN` `INVALID_SESSION_ID` `SESSION_EXPIRED` | B 方 `is_active=false`，room 回 `solo_active` | 房間頁 |
 | `POST /api/v1/chat/rooms/:roomId/kick-b` | 無 body | `data.room` | `FORBIDDEN` `NOT_FOUND` `INVALID_SESSION_ID` `SESSION_EXPIRED` | A 方移除 B，room 回 `solo_active` | 房間頁 |
@@ -41,6 +41,8 @@
 ## 操作級規則（深水區）
 
 - `request-judgment` 去重機制：記憶體 in-flight map + 分布式 lock + 既有 link 冪等復用。
+- `request-judgment` 超時契約：前端 `requestChatJudgment` 以 `180000ms`（`frontend/src/config/api.ts` 的 `API_CONFIG.chat.judgmentRequestTimeout`）作請求上限；後端對應 `AI_TIMEOUT.JUDGMENT_GENERATION=180000`，且單次 OpenAI 請求 `AI_TIMEOUT.OPENAI_REQUEST=90000`（`backend/src/utils/constants.ts`）。前端超時時不直接判定失敗，需回查 `judgment-status`。
+- `request-judgment` 成功載荷中的 `linkId` 是 chat->case 轉換鏈路主鍵；前端與運維排障需以 `roomId + linkId + caseId` 關聯查詢。
 - 訊息發送限速：同房 30 秒最多 6 條，且最小間隔 5 秒；違規回 `RATE_LIMIT_EXCEEDED`。
 - `history_visibility_mode` 直接決定轉判決可納入訊息的時間窗與可見性。
 - 房間 SSE 是房間級 domain event 主來源；AI 回覆狀態則以 `AI Stream` 為主來源。
@@ -89,6 +91,7 @@
 | `POST /api/v1/chat/rooms/:roomId/request-judgment` | `CASE_NOT_EDITABLE` | 422 | 提示封存房間不可轉判決 | 返回房間頁 |
 | `POST /api/v1/chat/rooms/:roomId/request-judgment` | `CONFLICT` | 409 | 提示已在處理或已有結果 | 改查 judgment-status |
 | `POST /api/v1/chat/rooms/:roomId/request-judgment` | `FORBIDDEN` | 403 | 顯示僅 A 方可發起 | 不重試 |
+| `POST /api/v1/chat/rooms/:roomId/request-judgment` | `AI_SERVICE_ERROR` | 503 | 顯示判決生成暫時失敗 | 稍後重試並先查 judgment-status |
 | `GET /api/v1/chat/rooms/:roomId/judgment-status` | `FORBIDDEN` | 403 | 關閉輪詢並提示無權限 | 不重試 |
 | `POST /api/v1/chat/rooms/:roomId/leave` | `UNAUTHORIZED` | 401 | 提示需登入後才能離房 | 登入後重試 |
 | `POST /api/v1/chat/rooms/:roomId/leave` | `FORBIDDEN` | 403 | 提示僅 B 可離開 | 不重試 |

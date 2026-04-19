@@ -4,8 +4,8 @@
 **文檔類型**：測試案例
 **覆蓋範圍**：回歸案例/驗收腳本：Repair Journey 2.3 場景驗收矩陣
 **取證代碼入口**：`backend/tests`、`frontend/src/**/*.test.tsx`、`frontend/e2e/**/*.ts`、`e2e/**/*.ts`、`scripts`、`backend/src/routes/reconciliation.routes.ts`、`backend/src/routes/execution.routes.ts`
-**最後核驗 Commit**：`bd66c2d`
-**最後核驗日期**：`2026-04-18`
+**最後核驗 Commit**：`4d14e4f`
+**最後核驗日期**：`2026-04-19`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 **文檔版本**：v1.0  

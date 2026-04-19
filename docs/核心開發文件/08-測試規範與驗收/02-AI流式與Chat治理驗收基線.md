@@ -4,8 +4,8 @@
 **文檔類型**：測試規範
 **覆蓋範圍**：長期測試規範、驗收口徑與回歸門檻：02-AI流式與Chat治理驗收基線
 **取證代碼入口**：`backend/tests`、`frontend/src/**/*.test.tsx`、`frontend/e2e/**/*.ts`、`e2e/**/*.ts`、`scripts`
-**最後核驗 Commit**：`b80ba01`
-**最後核驗日期**：`2026-04-18`
+**最後核驗 Commit**：`4d14e4f`
+**最後核驗日期**：`2026-04-19`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 本文件承接 AI 流式與 chat 治理的穩定驗收基線，取代歷史藍圖稿作為正式驗收裁決依據。
@@ -27,7 +27,7 @@
 
 1. 共享 stream 契約已存在
 2. runtime 具備 seq、snapshot、replay、heartbeat
-3. production / staging 以 Redis-backed runtime 為正式形態
+3. production / staging 以 Redis-backed runtime 為目標正式形態；若 Redis 不可達，後端會自動降級 memory runtime，該情況必須在發版驗收記錄中明示為降級運行
 
 ### 2.2 前端共享語義
 
@@ -60,9 +60,9 @@
 ## 4. 發版前最低治理檢查
 
 1. `health` / `metrics` 正常
-2. Redis-backed runtime 正常
-3. chat stage gate 綠燈
-4. `npm run smoke:staging`、`npm run --workspace frontend test:e2e:critical-guard` 與相關治理腳本可運行
+2. Redis-backed runtime 正常（若降級 memory，需明示並補風險說明）
+3. Chat 關鍵 E2E skip guard 綠燈：`npm run --workspace frontend test:e2e:critical-guard`
+4. `npm run smoke:staging`、`npm run manual-regression:gate` 與相關治理腳本可運行
 
 ## 5. 與證據的關係
 

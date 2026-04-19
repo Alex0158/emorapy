@@ -4,12 +4,12 @@
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：08-content-notification
 **取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`9e8ae87`
-**最後核驗日期**：`2026-04-18`
+**最後核驗 Commit**：`4d14e4f`
+**最後核驗日期**：`2026-04-19`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 **文檔版本**：v2.5  
-**最後更新**：2026-04-18  
+**最後更新**：2026-04-19  
 **代碼基準**：`backend/src/routes/content.routes.ts`、`backend/src/routes/notification.routes.ts`、`backend/src/controllers/content.controller.ts`、`backend/src/controllers/notification.controller.ts`、`backend/src/services/content.service.ts`、`backend/src/services/notification.service.ts`、`backend/src/utils/validation.ts`、`frontend/src/services/api/content.ts`、`frontend/src/services/api/notifications.ts`
 
 ---
@@ -38,7 +38,7 @@
 ## 操作級規則（深水區）
 
 - `content-items` 是目前唯一實際接線內容接口，失敗時前端降級為不顯示推薦區塊，不阻斷主流程。
-- `content-items/recommendations/:caseId` 為候選接口，但授權不獨立定義：直接複用 `caseService.getCaseById` 的 mode 分流（session-bound vs 當事人 JWT）。
+- `content-items/recommendations/:caseId` 為候選接口，但授權不獨立定義：路由層是 `optionalAuthenticate`，最終直接複用 `caseService.getCaseById` 的 mode 分流（session-bound vs 當事人 JWT）。
 - `notifications` 現已是前台主流程的一部分：
   - Header bell 只拉 `unread-count`
   - `/notifications` 頁拉可分區列表，支持 `actionable / unread / snoozed / archived`
@@ -46,6 +46,7 @@
 - `POST /api/v1/notifications` 仍保留為系統/運維創建入口，前台不直接調用；其渲染內容主要來自 `payload` 而非 top-level `title/body/path` 字段。
 - `GET /api/v1/notifications` 的 `cursor` 為 `notification.id(uuid)`；分頁不是時間戳游標。
 - `GET /api/v1/notifications/unread-count` 只統計「未讀 + 未dismiss + snooze到期或未snooze」的通知。
+- `POST /api/v1/content-links` 必須認證（`authenticate`），且在寫入關聯前會再次用 `caseService.getCaseById(case_id, userId)` 做案件訪問校驗。
 - repair journey 通知 payload 應帶：
   - `title/body/path/cta_label`
   - `entity_type/entity_id`

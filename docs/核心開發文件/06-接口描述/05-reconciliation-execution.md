@@ -1,7 +1,15 @@
 # 接口描述：reconciliation + execution / repair journey
 
-**文檔版本**：v2.6  
-**最後更新**：2026-04-05  
+<!-- CORE_DOC_AUDIT_METADATA:START -->
+**文檔類型**：接口詳規
+**覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：05-reconciliation-execution
+**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`frontend/src/services/api`、`frontend-admin/src/services/api`
+**最後核驗 Commit**：`4d14e4f`
+**最後核驗日期**：`2026-04-19`
+<!-- CORE_DOC_AUDIT_METADATA:END -->
+
+**文檔版本**：v2.7  
+**最後更新**：2026-04-19  
 **代碼基準**：`backend/src/routes/reconciliation.routes.ts`、`backend/src/routes/execution.routes.ts`、`backend/src/routes/ai-stream.routes.ts`、`backend/src/services/reconciliation.service.ts`、`backend/src/services/execution.service.ts`
 
 ---
@@ -47,13 +55,13 @@
 | `POST /api/v1/reconciliation-plans/:id/select`    | `id(uuid)`                                                                                                           | `data.plan.commitment`                                                                                                                                                                                                                                                                                                                                                             | 當前用戶承諾此方案；必要時初始化 `repair_track`                                     | `/reconciliation/:judgmentId/:id`                        |
 | `POST /api/v1/reconciliation-plans/:id/respond`   | `action(viewed/committed/deferred/declined/paused)` `reason?` `remind_in_hours?`                                     | `data.plan`                                                                                                                                                                                                                                                                                                                                                                        | invitee 查看 / 接受 / 延後回應 / 婉拒 / 暫停回應閉環                                | `/reconciliation/:judgmentId/:id`                        |
 | `GET /api/v1/reconciliation-plans/:id/commitment` | `id(uuid)`                                                                                                           | `data.commitment`                                                                                                                                                                                                                                                                                                                                                                  | 無                                                                   | 詳情頁 / 後續擴展                                               |
-| `POST /api/v1/reconciliation-plans/:id/invite`    | `id(uuid)`                                                                                                           | `data.invitation`                                                                                                                                                                                                                                                                                                                                                                  | 標記 partner invite，更新 `track_status=partner_invited`，並建立通知 deep link | `/reconciliation/:judgmentId/:id`                        |
+| `POST /api/v1/reconciliation-plans/:id/invite`    | `id(uuid)`                                                                                                           | `data.invitation`                                                                                                                                                                                                                                                                                                                                                                  | 記錄邀請與通知 deep link；若 track 處於 `draft/partner_invited` 會進 `partner_invited`，若已在運行態（如 `solo_active/co_active/paused/replanning`）則保留當前運行態 | `/reconciliation/:judgmentId/:id`                        |
 | `POST /api/v1/reconciliation-plans/:id/pause`     | `id(uuid)`                                                                                                           | `data.commitment`                                                                                                                                                                                                                                                                                                                                                                  | 將當前用戶 / track 標記為 `paused`                                          | `/reconciliation/:judgmentId/:id`                        |
 | `POST /api/v1/execution/confirm`                  | `plan_id(uuid)`                                                                                                      | `data.execution`                                                                                                                                                                                                                                                                                                                                                                   | 啟動 repair journey；兼容保留 execution confirm 記錄                         | `/reconciliation/:judgmentId/:id`                        |
 | `POST /api/v1/execution/checkin`                  | `plan_id(uuid)` `step_result?` `closeness?` `stress?` `needs_help?` `notes?` `photos?<=3`                            | `data.execution`                                                                                                                                                                                                                                                                                                                                                                   | 寫入 `repair_checkins`、更新當前步驟 / 旅程狀態 / legacy execution record        | `/execution/:planId/checkin`                             |
-| `POST /api/v1/repair-tracks/:id/replan`           | `mode(lower_pressure/slower_pace/solo_first)` `reason(needs_help/farther/high_stress/manual)`                        | `data.track{track_id,status,accepted,stream_scope,scope_id,stream_id,request_id}`                                                                                                                                                                                                                                                                                                  | 提交 AI 重調任務，track 轉為 `replanning`，舊版本保留                              | `/execution/:planId/replan`                              |
+| `POST /api/v1/repair-tracks/:id/replan`           | `id(track uuid)` + `mode(lower_pressure/slower_pace/solo_first)` `reason(needs_help/farther/high_stress/manual)`                        | `data.track{track_id,status,accepted,stream_scope,scope_id,stream_id,request_id}`                                                                                                                                                                                                                                                                                                  | 提交 AI 重調任務，track 轉為 `replanning`；若同 track 已有進行中/可恢復快照，直接返回既有 `stream_id/request_id`；舊版本保留                              | `/execution/:planId/replan`                              |
 | `POST /api/v1/repair-tracks/:id/resume`           | `id(uuid)`                                                                                                           | `data.track{track_id,plan_id,status}`                                                                                                                                                                                                                                                                                                                                              | 恢復 paused 旅程，按 committed 人數回到 `solo_active/co_active`               | `/reconciliation/:judgmentId/:id`、`/execution/dashboard` |
-| `GET /api/v1/execution/status`                    | query `plan_id(uuid)`                                                                                                | `data.track_id` `data.judgment_id` `data.plan_summary` `data.current_step` `data.commitment` `data.pulse_summary` `data.primary_cta` `data.secondary_cta` `data.status_reason` `data.presentation_bucket` `data.journey_context` `data.replan_state` `data.active_replan_stream_id` `data.latest_plan_version` `data.superseded_plan_id` `data.records[]` `data.recent_checkins[]` | 無                                                                   | `/execution/:planId/checkin`、`/execution/:planId/replan` |
+| `GET /api/v1/execution/status`                    | query `plan_id(uuid)`                                                                                                | `data.track_id` `data.plan_id` `data.judgment_id` `data.status` `data.journey_status` `data.relationship_mode` `data.progress` `data.plan_summary` `data.current_step` `data.commitment` `data.pulse_summary` `data.primary_cta` `data.secondary_cta` `data.status_reason` `data.replan_recommendation` `data.presentation_bucket` `data.journey_context` `data.replan_state` `data.active_replan_stream_id` `data.latest_plan_version` `data.superseded_plan_id` `data.records[]` `data.recent_checkins[]` | 無                                                                   | `/execution/:planId/checkin`、`/execution/:planId/replan` |
 | `GET /api/v1/execution/dashboard`                 | 無                                                                                                                    | `data.executions[]`（journey 聚合，含 `presentation_bucket + journey_context + CTA hints`）                                                                                                                                                                                                                                                                                              | 無                                                                   | `/execution/dashboard`                                   |
 | `GET /api/v1/streams/repair_track/:id`            | optional query `after_seq`                                                                                           | SSE `ready` + `stream.*` events                                                                                                                                                                                                                                                                                                                                                    | repair track AI 重調 phase/replay/recovering 主鏈路                      | `/execution/:planId/replan`                              |
 
@@ -120,9 +128,12 @@
 ### `GET /execution/status`
 
 - `track_id`
+- `plan_id`
 - `judgment_id`
+- `status`
 - `journey_status`
 - `relationship_mode`
+- `progress`
 - `current_step`
   - `step_index`
   - `title`
@@ -145,6 +156,28 @@
 - `latest_plan_version`
 - `superseded_plan_id`
 
+## Replan 流式與 CTA 冪等語義（代碼實作）
+
+- `POST /repair-tracks/:id/replan` 為 `202 Accepted` 非阻塞提交；返回 `stream_scope=repair_track + stream_id + request_id`。
+- 若同一 `track_id` 最新快照狀態仍在 `created/queued/started/streaming/completed`，後端直接回傳既有 `stream_id/request_id`（避免重複開新流）。
+- `GET /execution/status` 的 `replan_state` 來自最新 `repair_track` 快照狀態；`active_replan_stream_id` 僅在快照狀態不屬於 `persisted/failed/cancelled` 時返回。
+- SSE 入口固定為 `GET /api/v1/streams/repair_track/:id`，初始 `ready` 事件內帶 `snapshots`，前端可據此做 reload/revisit 恢復。
+- `replan / resume` 的實際執行服務在 `executionService`（路由由 `reconciliationController` 暴露），以此保持「方案協調入口 + 旅程執行能力」的分層。
+- CTA 主映射（`execution.service.ts::buildJourneyActions`）：
+  - `draft -> commit_plan`
+  - `partner_invited -> view_invitation_status`
+  - `solo_active/co_active -> continue_today_step`
+  - `replanning -> replan_track`
+  - `paused -> resume_track`
+  - `completed -> review_completed_journey`
+  - `closed -> review_history`
+- CTA 次映射（`execution.service.ts::buildJourneyActions`）：
+  - `draft -> review_direction`
+  - `partner_invited -> continue_solo`
+  - `solo_active/co_active/replanning -> pause_track`
+  - `paused -> review_direction`
+  - `completed/closed -> restart_new_round`
+
 ## 狀態轉移規則
 
 1. `select`
@@ -156,7 +189,8 @@
   - `declined`：僅改變邀請回應，不直接刪除旅程
   - `paused`：可由任一方暫停
 3. `invite`
-  - 對方尚未承諾時，`track_status` 進入 `partner_invited`。
+  - 在 `draft/partner_invited` 階段會維持或進入 `partner_invited`。
+  - 若已進入運行態（`solo_active/co_active/paused/replanning/completed/closed`），邀請只更新邀請時間與通知，不覆蓋運行態。
 4. `confirm`
   - 單人承諾時啟動 `solo_active`
   - 雙方都承諾時啟動 `co_active`
@@ -165,6 +199,7 @@
   - `needs_help=true` 或 `closeness=farther` 或 `stress=high`：標記 `needs_replan=true`，`journey_status=replanning`
 6. `replan`
   - 提交後先回 `202 Accepted`，並產生 `repair_track` scope 的 AI stream
+  - 若已有同 track 的進行中快照（`created/queued/started/streaming/completed`），回傳既有 stream，避免重複起任務
   - 不刪除舊版本，不重置歷史 checkin
   - 同一 `repair_track` 內將舊 active/pending step 標記為 `adapted`
   - AI 任務成功後生成新 plan version 並把 `track.plan_id` 指向新版本
@@ -200,4 +235,4 @@
 
 ## 狀態標記
 
-- 本模組接口狀態：`已更新至 Repair Journey 2.3`。
+- 本模組接口狀態：`已更新至 Repair Journey 2.4`。

@@ -4,8 +4,8 @@
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：09-admin
 **取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`97708e5`
-**最後核驗日期**：`2026-04-18`
+**最後核驗 Commit**：`4d14e4f`
+**最後核驗日期**：`2026-04-19`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 **文檔版本**：v2.5  
@@ -83,6 +83,7 @@
 - `GET /api/v1/admin/reports/ai-streams` 直接讀取 `ai_stream_sessions / ai_stream_events / archives` 聚合結果，主要用於排障、驗收與保留策略校驗；現已由 Admin Reports 頁接線。
 - `GET /api/v1/admin/reports/ai-streams/sessions` 與 `:streamId` 用於直接查看 live/archive 明細，避免只剩匯總報表。
 - `cleanup_ai_stream_persistence` 已加入排程任務，會先 archive 再 delete；如需立即驗證清理策略，可透過既有 `POST /api/v1/admin/jobs/:jobKey/trigger` 手動觸發。
+- Admin `Configs` 與 `Settings` 頁目前都以 `listConfigs({ limit: 100, offset: 0 })` 拉取配置列表，避免首屏拉取過大集合；如需翻頁能力須同步回寫前台查詢與本文件契約。
 
 ## 回歸測試最小集
 

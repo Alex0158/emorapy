@@ -832,6 +832,33 @@ async function main() {
     }
   }
 
+  const batch23DocRoots = [
+    '01-認證與會話',
+    '02-用戶端核心流程',
+    '03-管理端與平台治理',
+    '04-共用機制',
+    '05-工程架構與共享層',
+  ];
+  for (const docsRoot of batch23DocRoots) {
+    const docsUnderRoot = await collectFilesUnder(docsRoot, '.md');
+    for (const fileName of docsUnderRoot) {
+      const docPath = path.posix.join(docsRoot, fileName);
+      const docContent = await readDoc(docPath);
+      for (const testPathRef of extractBacktickTestPathRefs(docContent)) {
+        const absTestPath = path.join(repoRoot, testPathRef);
+        if (!(await pathExists(absTestPath))) {
+          issues.push(`[truth/batch2-3] ${docPath} references missing test file: ${testPathRef}`);
+        }
+      }
+      for (const scriptPathRef of extractBacktickScriptPathRefs(docContent)) {
+        const absScriptPath = path.join(repoRoot, scriptPathRef);
+        if (!(await pathExists(absScriptPath))) {
+          issues.push(`[truth/batch2-3] ${docPath} references missing script file: ${scriptPathRef}`);
+        }
+      }
+    }
+  }
+
   const hasModeSplitInCode = caseServiceCode.includes(
     'case_.mode === CASE_MODE.COLLABORATIVE && Boolean(case_.session_id)'
   );
@@ -3173,7 +3200,7 @@ async function main() {
   }
 
   console.log(
-    `[docs-truth] ok: ${truth.backend.endpoints.length} endpoints, ${truth.frontend.stats.totalRoutes} frontend routes, ${truth.frontend.adminExternalRoutes.length} admin routes, enum coverage verified, critical auth semantics verified, batch-1 flagship path-reference semantics verified, batch-2 auth+user-flow semantics verified, batch-3 governance+architecture semantics verified, batch-4 interface path-reference semantics verified, admin+health semantics verified, content+notification semantics verified, risk semantics verified, testing semantics verified, batch-5 scenario+regression semantics verified, batch-6 metadata semantics verified, html-snapshot manifest consistency verified`
+    `[docs-truth] ok: ${truth.backend.endpoints.length} endpoints, ${truth.frontend.stats.totalRoutes} frontend routes, ${truth.frontend.adminExternalRoutes.length} admin routes, enum coverage verified, critical auth semantics verified, batch-1 flagship path-reference semantics verified, batch-2 auth+user-flow semantics verified, batch-2/3 formal-doc path-reference semantics verified, batch-3 governance+architecture semantics verified, batch-4 interface path-reference semantics verified, admin+health semantics verified, content+notification semantics verified, risk semantics verified, testing semantics verified, batch-5 scenario+regression semantics verified, batch-6 metadata semantics verified, html-snapshot manifest consistency verified`
   );
 }
 

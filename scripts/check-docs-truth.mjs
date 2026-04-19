@@ -10,6 +10,16 @@ const execFileAsync = promisify(execFile);
 const gitPathspecMatchCache = new Map();
 const gitTrackedPathCache = new Map();
 const gitAncestorOfHeadCache = new Map();
+const NON_DOC_METADATA_EVIDENCE_PATHS = new Set([
+  'package.json',
+  'backend/package.json',
+  'frontend/package.json',
+  'backend/prisma/schema.prisma',
+  'frontend/tsconfig.app.json',
+  'frontend-admin/tsconfig.app.json',
+  'backend/tsconfig.json',
+  'mobile/tsconfig.json',
+]);
 const MANUAL_FLOW_IDS = ['P01', 'P02', 'P03', 'P04', 'P05'];
 const API_STATUS_VALUES = new Set(['已使用', '候選廢棄', '已確認廢棄']);
 const GENERIC_STREAM_DOC_ENDPOINTS = [
@@ -195,6 +205,13 @@ function isScriptPathWiredInPackageScripts(pathRef, packageJson) {
   }
   const scripts = packageJson?.scripts || {};
   return Object.values(scripts).some((command) => typeof command === 'string' && command.includes(pathRef));
+}
+
+function isNonDocMetadataEvidencePath(pathRef) {
+  if (/^(backend|frontend|frontend-admin|mobile|packages|scripts|e2e)\//.test(pathRef)) {
+    return true;
+  }
+  return NON_DOC_METADATA_EVIDENCE_PATHS.has(pathRef);
 }
 
 function parseStatValue(content, label) {
@@ -1037,6 +1054,14 @@ async function main() {
     if (metadataEvidencePathRefs.length === 0) {
       issues.push(
         `[truth/formal-metadata] no backticked metadata evidence path refs in ${relativePath}`
+      );
+    }
+    if (
+      metadataEvidencePathRefs.length > 0 &&
+      !metadataEvidencePathRefs.some((pathRef) => isNonDocMetadataEvidencePath(pathRef))
+    ) {
+      issues.push(
+        `[truth/formal-metadata] metadata evidence path refs must include at least one non-doc code path in ${relativePath}`
       );
     }
     const concreteMetadataEvidencePathRefs = metadataEvidencePathRefs.filter(
@@ -3592,7 +3617,7 @@ async function main() {
   }
 
   console.log(
-    `[docs-truth] ok: ${truth.backend.endpoints.length} endpoints, ${truth.frontend.stats.totalRoutes} frontend routes, ${truth.frontend.adminExternalRoutes.length} admin routes, enum coverage verified, critical auth semantics verified, formal-doc metadata semantics verified, formal-doc metadata evidence-path semantics verified, formal-doc metadata tracked-or-script-wired semantics verified, formal-doc metadata wildcard-evidence semantics verified, formal-doc audited-commit resolve semantics verified, formal-doc audited-commit ancestry semantics verified, formal-doc audited-date chronology semantics verified, formal-doc audited-date non-future semantics verified, formal-doc last-update coherence semantics verified, formal-doc global path-reference semantics verified, batch-1 flagship path-reference semantics verified, batch-2 auth+user-flow semantics verified, batch-2/3 formal-doc path-reference semantics verified, batch-3 governance+architecture semantics verified, batch-4 interface path-reference semantics verified, admin+health semantics verified, content+notification semantics verified, risk semantics verified, testing semantics verified, batch-5 scenario+regression semantics verified, batch-6 metadata semantics verified, html-snapshot manifest consistency verified`
+    `[docs-truth] ok: ${truth.backend.endpoints.length} endpoints, ${truth.frontend.stats.totalRoutes} frontend routes, ${truth.frontend.adminExternalRoutes.length} admin routes, enum coverage verified, critical auth semantics verified, formal-doc metadata semantics verified, formal-doc metadata evidence-path semantics verified, formal-doc metadata non-doc-evidence semantics verified, formal-doc metadata tracked-or-script-wired semantics verified, formal-doc metadata wildcard-evidence semantics verified, formal-doc audited-commit resolve semantics verified, formal-doc audited-commit ancestry semantics verified, formal-doc audited-date chronology semantics verified, formal-doc audited-date non-future semantics verified, formal-doc last-update coherence semantics verified, formal-doc global path-reference semantics verified, batch-1 flagship path-reference semantics verified, batch-2 auth+user-flow semantics verified, batch-2/3 formal-doc path-reference semantics verified, batch-3 governance+architecture semantics verified, batch-4 interface path-reference semantics verified, admin+health semantics verified, content+notification semantics verified, risk semantics verified, testing semantics verified, batch-5 scenario+regression semantics verified, batch-6 metadata semantics verified, html-snapshot manifest consistency verified`
   );
 }
 

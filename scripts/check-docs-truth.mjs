@@ -148,6 +148,43 @@ function stripInlineCodeToken(value) {
   return value.replace(/^`|`$/g, '').trim();
 }
 
+function normalizeBacktickPathToken(token) {
+  return token
+    .replace(/^[./]+/, '')
+    .replace(/^[("']+/, '')
+    .replace(/[)"'`。；，,.;:]+$/, '')
+    .trim();
+}
+
+function extractFormalMetadataEvidencePathRefs(content) {
+  const metadataBlockMatch = content.match(
+    /<!-- CORE_DOC_AUDIT_METADATA:START -->[\s\S]*?<!-- CORE_DOC_AUDIT_METADATA:END -->/
+  );
+  if (!metadataBlockMatch) {
+    return [];
+  }
+  const metadataBlock = metadataBlockMatch[0];
+  const evidenceLine =
+    metadataBlock
+      .split('\n')
+      .find((line) => line.includes('**取證代碼入口**')) || '';
+  if (!evidenceLine) {
+    return [];
+  }
+
+  const refs = new Set();
+  const quotedCodeRe = /`([^`\n]+)`/g;
+  for (const match of evidenceLine.matchAll(quotedCodeRe)) {
+    const normalized = normalizeBacktickPathToken(match[1].trim());
+    if (!normalized) {
+      continue;
+    }
+    refs.add(normalized);
+  }
+
+  return [...refs].sort();
+}
+
 function extractTableFirstColumnMarkdownNames(content) {
   const names = [];
   for (const line of content.split('\n')) {
@@ -917,6 +954,28 @@ async function main() {
     }
     if (/\*\*取證代碼入口\*\*[：:]\s*`?(?:未標註|待補|TBD)`?/i.test(docContent)) {
       issues.push(`[truth/formal-metadata] placeholder 取證代碼入口 found in ${relativePath}`);
+    }
+    const metadataEvidencePathRefs = extractFormalMetadataEvidencePathRefs(docContent);
+    if (metadataEvidencePathRefs.length === 0) {
+      issues.push(
+        `[truth/formal-metadata] no backticked metadata evidence path refs in ${relativePath}`
+      );
+    }
+    const concreteMetadataEvidencePathRefs = metadataEvidencePathRefs.filter(
+      (pathRef) => !/[?*[\]{}]/.test(pathRef)
+    );
+    if (metadataEvidencePathRefs.length > 0 && concreteMetadataEvidencePathRefs.length === 0) {
+      issues.push(
+        `[truth/formal-metadata] metadata evidence path refs must include concrete repo path in ${relativePath}`
+      );
+    }
+    for (const evidencePathRef of concreteMetadataEvidencePathRefs) {
+      const absEvidencePath = path.join(repoRoot, evidencePathRef);
+      if (!(await pathExists(absEvidencePath))) {
+        issues.push(
+          `[truth/formal-metadata] metadata evidence path missing in repo (${relativePath}): ${evidencePathRef}`
+        );
+      }
     }
     const lastAuditedCommitMatch = docContent.match(/\*\*最後核驗 Commit\*\*[：:]\s*`([0-9a-f]{7,40})`/);
     if (!lastAuditedCommitMatch) {
@@ -3416,7 +3475,7 @@ async function main() {
   }
 
   console.log(
-    `[docs-truth] ok: ${truth.backend.endpoints.length} endpoints, ${truth.frontend.stats.totalRoutes} frontend routes, ${truth.frontend.adminExternalRoutes.length} admin routes, enum coverage verified, critical auth semantics verified, formal-doc metadata semantics verified, formal-doc audited-commit resolve semantics verified, formal-doc audited-date chronology semantics verified, formal-doc global path-reference semantics verified, batch-1 flagship path-reference semantics verified, batch-2 auth+user-flow semantics verified, batch-2/3 formal-doc path-reference semantics verified, batch-3 governance+architecture semantics verified, batch-4 interface path-reference semantics verified, admin+health semantics verified, content+notification semantics verified, risk semantics verified, testing semantics verified, batch-5 scenario+regression semantics verified, batch-6 metadata semantics verified, html-snapshot manifest consistency verified`
+    `[docs-truth] ok: ${truth.backend.endpoints.length} endpoints, ${truth.frontend.stats.totalRoutes} frontend routes, ${truth.frontend.adminExternalRoutes.length} admin routes, enum coverage verified, critical auth semantics verified, formal-doc metadata semantics verified, formal-doc metadata evidence-path semantics verified, formal-doc audited-commit resolve semantics verified, formal-doc audited-date chronology semantics verified, formal-doc global path-reference semantics verified, batch-1 flagship path-reference semantics verified, batch-2 auth+user-flow semantics verified, batch-2/3 formal-doc path-reference semantics verified, batch-3 governance+architecture semantics verified, batch-4 interface path-reference semantics verified, admin+health semantics verified, content+notification semantics verified, risk semantics verified, testing semantics verified, batch-5 scenario+regression semantics verified, batch-6 metadata semantics verified, html-snapshot manifest consistency verified`
   );
 }
 

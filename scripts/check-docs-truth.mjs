@@ -1,9 +1,12 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { extractCoreDocsTruth } from './lib/core-docs-truth.mjs';
 
 const repoRoot = path.resolve(new URL('.', import.meta.url).pathname, '..');
 const coreDocsRoot = path.join(repoRoot, 'docs', '核心開發文件');
+const execFileAsync = promisify(execFile);
 const MANUAL_FLOW_IDS = ['P01', 'P02', 'P03', 'P04', 'P05'];
 const API_STATUS_VALUES = new Set(['已使用', '候選廢棄', '已確認廢棄']);
 const GENERIC_STREAM_DOC_ENDPOINTS = [
@@ -97,6 +100,17 @@ async function collectFilesUnder(relativeDir, extension) {
 async function pathExists(targetPath) {
   try {
     await fs.access(targetPath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function isResolvableGitCommit(commitRef) {
+  try {
+    await execFileAsync('git', ['rev-parse', '--quiet', '--verify', `${commitRef}^{commit}`], {
+      cwd: repoRoot,
+    });
     return true;
   } catch {
     return false;
@@ -864,6 +878,7 @@ async function main() {
     }
   }
   const allowlistHitKeys = new Set();
+  const formalAuditCommitRefs = new Map();
   for (const relativePath of formalDocFiles) {
     const docContent = await readDoc(relativePath);
     if (!docContent.includes('CORE_DOC_AUDIT_METADATA:START')) {
@@ -887,8 +902,15 @@ async function main() {
     if (/\*\*取證代碼入口\*\*[：:]\s*`?(?:未標註|待補|TBD)`?/i.test(docContent)) {
       issues.push(`[truth/formal-metadata] placeholder 取證代碼入口 found in ${relativePath}`);
     }
-    if (!/\*\*最後核驗 Commit\*\*[：:]\s*`[0-9a-f]{7,40}`/.test(docContent)) {
+    const lastAuditedCommitMatch = docContent.match(/\*\*最後核驗 Commit\*\*[：:]\s*`([0-9a-f]{7,40})`/);
+    if (!lastAuditedCommitMatch) {
       issues.push(`[truth/formal-metadata] missing or invalid 最後核驗 Commit in ${relativePath}`);
+    } else {
+      const commitRef = lastAuditedCommitMatch[1];
+      if (!formalAuditCommitRefs.has(commitRef)) {
+        formalAuditCommitRefs.set(commitRef, []);
+      }
+      formalAuditCommitRefs.get(commitRef).push(relativePath);
     }
     const lastAuditedDateMatch = docContent.match(/\*\*最後核驗日期\*\*[：:]\s*`([0-9]{4}-[0-9]{2}-[0-9]{2})`/);
     if (!lastAuditedDateMatch) {
@@ -931,6 +953,13 @@ async function main() {
       if (!allowlistHitKeys.has(allowKey)) {
         issues.push(`[truth/formal-path] stale allowlist entry (not found in doc): ${docPath} -> ${entry.path}`);
       }
+    }
+  }
+  for (const [commitRef, docPaths] of formalAuditCommitRefs.entries()) {
+    if (!(await isResolvableGitCommit(commitRef))) {
+      issues.push(
+        `[truth/formal-metadata] unresolvable 最後核驗 Commit ${commitRef} in docs: ${docPaths.join(', ')}`
+      );
     }
   }
 
@@ -3344,7 +3373,7 @@ async function main() {
   }
 
   console.log(
-    `[docs-truth] ok: ${truth.backend.endpoints.length} endpoints, ${truth.frontend.stats.totalRoutes} frontend routes, ${truth.frontend.adminExternalRoutes.length} admin routes, enum coverage verified, critical auth semantics verified, formal-doc metadata semantics verified, formal-doc global path-reference semantics verified, batch-1 flagship path-reference semantics verified, batch-2 auth+user-flow semantics verified, batch-2/3 formal-doc path-reference semantics verified, batch-3 governance+architecture semantics verified, batch-4 interface path-reference semantics verified, admin+health semantics verified, content+notification semantics verified, risk semantics verified, testing semantics verified, batch-5 scenario+regression semantics verified, batch-6 metadata semantics verified, html-snapshot manifest consistency verified`
+    `[docs-truth] ok: ${truth.backend.endpoints.length} endpoints, ${truth.frontend.stats.totalRoutes} frontend routes, ${truth.frontend.adminExternalRoutes.length} admin routes, enum coverage verified, critical auth semantics verified, formal-doc metadata semantics verified, formal-doc audited-commit resolve semantics verified, formal-doc global path-reference semantics verified, batch-1 flagship path-reference semantics verified, batch-2 auth+user-flow semantics verified, batch-2/3 formal-doc path-reference semantics verified, batch-3 governance+architecture semantics verified, batch-4 interface path-reference semantics verified, admin+health semantics verified, content+notification semantics verified, risk semantics verified, testing semantics verified, batch-5 scenario+regression semantics verified, batch-6 metadata semantics verified, html-snapshot manifest consistency verified`
   );
 }
 

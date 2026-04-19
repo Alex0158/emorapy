@@ -1528,6 +1528,48 @@ async function main() {
     }
   }
 
+  const adminAdminUsersSearchRouteBound =
+    /router\.get\(\s*'\/admin-users'[\s\S]*?validate\(adminSearchPaginationQuerySchema\)/m.test(
+      adminRoutesCode
+    );
+  if (adminAdminUsersSearchRouteBound && adminUsersSearchSchemaBound) {
+    const adminUsersInterfaceRow = findEndpointRow(adminInterfaceDoc, 'GET', '/api/v1/admin/admin-users');
+    if (
+      !adminUsersInterfaceRow ||
+      !adminUsersInterfaceRow.includes('q') ||
+      !adminUsersInterfaceRow.includes('limit') ||
+      !adminUsersInterfaceRow.includes('offset')
+    ) {
+      issues.push(
+        '[truth/admin] 06-接口描述/09-admin.md GET /api/v1/admin/admin-users row must document q/limit/offset query contract'
+      );
+    }
+
+    const adminUsersApiMainRow = findEndpointRow(apiMainDoc, 'GET', '/api/v1/admin/admin-users');
+    if (
+      !adminUsersApiMainRow ||
+      !adminUsersApiMainRow.includes('q') ||
+      !adminUsersApiMainRow.includes('limit') ||
+      !adminUsersApiMainRow.includes('offset')
+    ) {
+      issues.push(
+        '[truth/api] 全接口清單-主文檔.md GET /api/v1/admin/admin-users row must include q/limit/offset semantics'
+      );
+    }
+
+    const adminUsersMappingRow = findEndpointRow(mappingDoc, 'GET', '/api/v1/admin/admin-users');
+    if (
+      !adminUsersMappingRow ||
+      !adminUsersMappingRow.includes('q') ||
+      !adminUsersMappingRow.includes('limit') ||
+      !adminUsersMappingRow.includes('offset')
+    ) {
+      issues.push(
+        '[truth/mapping] 接口-功能-頁面-Mapping.md GET /api/v1/admin/admin-users row must include q/limit/offset semantics'
+      );
+    }
+  }
+
   const adminAuditLogsRouteBound = /router\.get\(\s*'\/audit-logs'[\s\S]*?validate\(adminAuditLogsQuerySchema\)/m.test(
     adminRoutesCode
   );
@@ -1597,6 +1639,57 @@ async function main() {
     ) {
       issues.push(
         '[truth/flow] 業務流程整合.md P05 step 7 must document /admin/audit-logs query contract as entityType/action/from/to + limit/offset'
+      );
+    }
+  }
+
+  const adminAuditLogsCsvRouteBound =
+    /router\.get\(\s*'\/audit-logs\.csv'[\s\S]*?validate\(adminAuditLogsQuerySchema\)/m.test(
+      adminRoutesCode
+    );
+  if (adminAuditLogsCsvRouteBound && adminAuditLogsSchemaBound) {
+    const auditCsvInterfaceRow = findEndpointRow(adminInterfaceDoc, 'GET', '/api/v1/admin/audit-logs.csv');
+    if (
+      !auditCsvInterfaceRow ||
+      !auditCsvInterfaceRow.includes('entityType') ||
+      !auditCsvInterfaceRow.includes('action') ||
+      !auditCsvInterfaceRow.includes('from') ||
+      !auditCsvInterfaceRow.includes('to') ||
+      !auditCsvInterfaceRow.includes('limit') ||
+      !auditCsvInterfaceRow.includes('offset')
+    ) {
+      issues.push(
+        '[truth/admin] 06-接口描述/09-admin.md GET /api/v1/admin/audit-logs.csv row must document entityType/action/from/to/limit/offset query contract'
+      );
+    }
+
+    const auditCsvApiMainRow = findEndpointRow(apiMainDoc, 'GET', '/api/v1/admin/audit-logs.csv');
+    if (
+      !auditCsvApiMainRow ||
+      !auditCsvApiMainRow.includes('entityType') ||
+      !auditCsvApiMainRow.includes('action') ||
+      !auditCsvApiMainRow.includes('from') ||
+      !auditCsvApiMainRow.includes('to') ||
+      !auditCsvApiMainRow.includes('limit') ||
+      !auditCsvApiMainRow.includes('offset')
+    ) {
+      issues.push(
+        '[truth/api] 全接口清單-主文檔.md GET /api/v1/admin/audit-logs.csv row must include entityType/action/from/to/limit/offset semantics'
+      );
+    }
+
+    const auditCsvMappingRow = findEndpointRow(mappingDoc, 'GET', '/api/v1/admin/audit-logs.csv');
+    if (
+      !auditCsvMappingRow ||
+      !auditCsvMappingRow.includes('entityType') ||
+      !auditCsvMappingRow.includes('action') ||
+      !auditCsvMappingRow.includes('from') ||
+      !auditCsvMappingRow.includes('to') ||
+      !auditCsvMappingRow.includes('limit') ||
+      !auditCsvMappingRow.includes('offset')
+    ) {
+      issues.push(
+        '[truth/mapping] 接口-功能-頁面-Mapping.md GET /api/v1/admin/audit-logs.csv row must include entityType/action/from/to/limit/offset semantics'
       );
     }
   }

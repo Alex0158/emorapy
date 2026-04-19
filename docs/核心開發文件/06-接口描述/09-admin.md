@@ -4,7 +4,7 @@
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：09-admin
 **取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`45d4897`
+**最後核驗 Commit**：`53e9059`
 **最後核驗日期**：`2026-04-19`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -50,7 +50,7 @@
 | `GET /api/v1/admin/users/:userId` | `userId(uuid)` | `data.user` | `NOT_FOUND` | `users:read` |
 | `PATCH /api/v1/admin/users/:userId/status` | `action(lock/unlock/deactivate/activate) lockMinutes?` | `data.user` | `VALIDATION_ERROR` | `users:write`，更新帳號狀態 |
 | `GET /api/v1/admin/audit-logs` | query `entityType action from to limit offset` | `data.items[]` | `FORBIDDEN` | `users:read + ops:read` |
-| `GET /api/v1/admin/audit-logs.csv` | 同上 | blob | `FORBIDDEN` | 匯出審計 |
+| `GET /api/v1/admin/audit-logs.csv` | query `entityType action from to limit offset`（同 `/audit-logs`） | blob | `FORBIDDEN` | 匯出審計 |
 
 ### D. Admin 帳號與報表
 

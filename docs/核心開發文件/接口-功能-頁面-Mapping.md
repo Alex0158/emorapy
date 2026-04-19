@@ -4,7 +4,7 @@
 **文檔類型**：旗艦映射
 **覆蓋範圍**：API -> 功能 -> 頁面 -> 流程節點映射
 **取證代碼入口**：`backend/src/routes`、`frontend/src/router/index.tsx`、`frontend-admin/src/router.tsx`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`4830d79`
+**最後核驗 Commit**：`53e9059`
 **最後核驗日期**：`2026-04-19`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -130,8 +130,8 @@
 | `GET /api/v1/admin/users/:userId` | F10 | `/admin/users` | 用戶詳情 | M | 已使用 |
 | `PATCH /api/v1/admin/users/:userId/status` | F10 | `/admin/users` | 用戶治理 | M | 已使用 |
 | `GET /api/v1/admin/audit-logs` | F10 | `/admin/audit-logs` | 稽核查詢（entityType/action/from/to + limit/offset） | M | 已使用 |
-| `GET /api/v1/admin/audit-logs.csv` | F10 | `/admin/audit-logs` | 稽核下載 | M | 已使用 |
-| `GET /api/v1/admin/admin-users` | F10 | `/admin/settings` | 管理員列表 | M | 已使用 |
+| `GET /api/v1/admin/audit-logs.csv` | F10 | `/admin/audit-logs` | 稽核下載（同 entityType/action/from/to + limit/offset） | M | 已使用 |
+| `GET /api/v1/admin/admin-users` | F10 | `/admin/settings` | 管理員列表（q + limit/offset） | M | 已使用 |
 | `POST /api/v1/admin/admin-users` | F10 | `/admin/settings` | 建立管理員 | M | 已使用 |
 | `PATCH /api/v1/admin/admin-users/:adminUserId` | F10 | `/admin/settings` | 更新管理員 | M | 已使用 |
 | `DELETE /api/v1/admin/admin-users/:adminUserId` | F10 | `/admin/settings` | 刪除管理員 | M | 已使用 |

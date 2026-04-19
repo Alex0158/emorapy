@@ -140,6 +140,39 @@ function extractBacktickTestPathRefs(content) {
   return [...refs].sort();
 }
 
+function extractBacktickScriptPathRefs(content) {
+  const refs = new Set();
+  const quotedCodeRe = /`([^`\n]+)`/g;
+  const allowedPrefixRe = /^scripts\//;
+  const allowedSuffixRe = /\.(?:mjs|js|sh|ts)$/;
+
+  for (const match of content.matchAll(quotedCodeRe)) {
+    const code = match[1].trim();
+    if (!code) {
+      continue;
+    }
+    const candidates = code.split(/[\s,]+/).map((token) => token.trim()).filter(Boolean);
+    for (const token of candidates) {
+      const normalized = token
+        .replace(/^[./]+/, '')
+        .replace(/^[("']+/, '')
+        .replace(/[)"'`。；，,.;:]+$/, '');
+      if (!normalized) {
+        continue;
+      }
+      if (!allowedPrefixRe.test(normalized) || !allowedSuffixRe.test(normalized)) {
+        continue;
+      }
+      if (normalized.includes('*') || normalized.includes('<') || normalized.includes('>')) {
+        continue;
+      }
+      refs.add(normalized);
+    }
+  }
+
+  return [...refs].sort();
+}
+
 function ensureRouteRow(content, route) {
   return content
     .split('\n')
@@ -754,6 +787,30 @@ async function main() {
   for (const item of readmeRequired) {
     if (!readmeDoc.includes(item)) {
       issues.push(`[truth/readme] root reference missing in README.md: ${item}`);
+    }
+  }
+
+  const flagshipDocs = [
+    ['README.md', readmeDoc],
+    ['功能特性清單.md', featureDoc],
+    ['頁面清單.md', pageListDoc],
+    ['全接口清單-主文檔.md', apiMainDoc],
+    ['接口-功能-頁面-Mapping.md', mappingDoc],
+    ['業務流程整合.md', flowDoc],
+    ['術語表.md', glossaryDoc],
+  ];
+  for (const [docName, docContent] of flagshipDocs) {
+    for (const testPathRef of extractBacktickTestPathRefs(docContent)) {
+      const absTestPath = path.join(repoRoot, testPathRef);
+      if (!(await pathExists(absTestPath))) {
+        issues.push(`[truth/batch1-flagship] ${docName} references missing test file: ${testPathRef}`);
+      }
+    }
+    for (const scriptPathRef of extractBacktickScriptPathRefs(docContent)) {
+      const absScriptPath = path.join(repoRoot, scriptPathRef);
+      if (!(await pathExists(absScriptPath))) {
+        issues.push(`[truth/batch1-flagship] ${docName} references missing script file: ${scriptPathRef}`);
+      }
     }
   }
 
@@ -3070,7 +3127,7 @@ async function main() {
   }
 
   console.log(
-    `[docs-truth] ok: ${truth.backend.endpoints.length} endpoints, ${truth.frontend.stats.totalRoutes} frontend routes, ${truth.frontend.adminExternalRoutes.length} admin routes, enum coverage verified, critical auth semantics verified, batch-2 auth+user-flow semantics verified, batch-3 governance+architecture semantics verified, admin+health semantics verified, content+notification semantics verified, risk semantics verified, testing semantics verified, batch-5 scenario+regression semantics verified, batch-6 metadata semantics verified, html-snapshot manifest consistency verified`
+    `[docs-truth] ok: ${truth.backend.endpoints.length} endpoints, ${truth.frontend.stats.totalRoutes} frontend routes, ${truth.frontend.adminExternalRoutes.length} admin routes, enum coverage verified, critical auth semantics verified, batch-1 flagship path-reference semantics verified, batch-2 auth+user-flow semantics verified, batch-3 governance+architecture semantics verified, admin+health semantics verified, content+notification semantics verified, risk semantics verified, testing semantics verified, batch-5 scenario+regression semantics verified, batch-6 metadata semantics verified, html-snapshot manifest consistency verified`
   );
 }
 

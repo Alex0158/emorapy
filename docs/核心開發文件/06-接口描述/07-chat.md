@@ -4,7 +4,7 @@
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：07-chat
 **取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`45d4897`
+**最後核驗 Commit**：`8147ac3`
 **最後核驗日期**：`2026-04-19`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -45,6 +45,8 @@
 - `request-judgment` 成功載荷中的 `linkId` 是 chat->case 轉換鏈路主鍵；前端與運維排障需以 `roomId + linkId + caseId` 關聯查詢。
 - 訊息發送限速：同房 30 秒最多 6 條，且最小間隔 5 秒；違規回 `RATE_LIMIT_EXCEEDED`。
 - `history_visibility_mode` 直接決定轉判決可納入訊息的時間窗與可見性。
+- `request-judgment` 的 `included_message_ids` 必須是「可納入判決消息集合」子集：僅允許 `message_type=user_text` 且 `visibility_scope=all`，且在 `share_from_join_time/share_summary_only` 下需同時滿足 `created_at >= roleB.joined_at`；若提交越界 ID，後端返回 `NOT_FOUND`。
+- 前端判決預覽（`ChatJudgmentPanel`）與提交 payload 使用同一白名單口徑：只允許 `user_text` 進入勾選與 `included_message_ids`，AI 與 safety 類訊息不得被帶入轉判決請求。
 - 房間 SSE 是房間級 domain event 主來源；AI 回覆狀態則以 `AI Stream` 為主來源。
 - `GET /chat/rooms/:roomId` 在現碼不區分「房間不存在」與「無權訪問」，統一返回 `FORBIDDEN`。
 - 匿名 A 房主建立 invite 的前提是 `room.session_id === canonical session_id`。

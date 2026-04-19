@@ -356,6 +356,7 @@ async function main() {
     interviewRoutesCode,
     caseCreatePageCode,
     profilePairingPageCode,
+    interviewChatPageCode,
     interviewStoreCode,
     validationCode,
     frontendVersionInfoCode,
@@ -447,6 +448,7 @@ async function main() {
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'routes', 'interview.routes.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'frontend', 'src', 'pages', 'Case', 'Create', 'index.tsx'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'frontend', 'src', 'pages', 'Profile', 'Pairing', 'index.tsx'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'frontend', 'src', 'pages', 'Interview', 'Chat', 'index.tsx'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'frontend', 'src', 'store', 'interviewStore.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'utils', 'validation.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'frontend', 'src', 'utils', 'versionInfo.ts'), 'utf8'),
@@ -1189,6 +1191,38 @@ async function main() {
       issues.push(
         '[truth/interview] 06-接口描述/06-interview-psych-profile.md must document submit pre-validation sync error semantics'
       );
+    }
+  }
+
+  if (
+    interviewChatPageCode.includes('const intervalMs = 2500') &&
+    interviewChatPageCode.includes('const maxAttempts = 24') &&
+    interviewChatPageCode.includes('canonicalSyncLockRef.current') &&
+    interviewChatPageCode.includes('syncSessionSilently(sessionId)')
+  ) {
+    const interviewCanonicalTokens = ['2500ms', '`24`', '有界 canonical 自愈輪詢', 'lock'];
+    for (const token of interviewCanonicalTokens) {
+      if (!interviewInterfaceDoc.includes(token)) {
+        issues.push(
+          `[truth/interview] 06-接口描述/06-interview-psych-profile.md missing canonical self-heal polling token: ${token}`
+        );
+      }
+    }
+  }
+
+  if (
+    chatServiceCode.includes("message_type: 'user_text'") &&
+    chatServiceCode.includes('includedMessageIds') &&
+    chatServiceCode.includes('Errors.NOT_FOUND') &&
+    chatServiceCode.includes('visibility_scope: ChatVisibilityScope.all')
+  ) {
+    const chatIncludedMessageTokens = ['included_message_ids', 'message_type=user_text', 'visibility_scope=all', 'NOT_FOUND'];
+    for (const token of chatIncludedMessageTokens) {
+      if (!chatInterfaceDoc.includes(token)) {
+        issues.push(
+          `[truth/chat] 06-接口描述/07-chat.md missing included_message_ids whitelist token: ${token}`
+        );
+      }
     }
   }
 

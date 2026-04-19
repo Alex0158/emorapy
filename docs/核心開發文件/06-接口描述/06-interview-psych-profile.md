@@ -4,12 +4,12 @@
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：06-interview-psych-profile
 **取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`45d4897`
+**最後核驗 Commit**：`8147ac3`
 **最後核驗日期**：`2026-04-19`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 **文檔版本**：v2.9  
-**最後更新**：2026-04-06  
+**最後更新**：2026-04-19  
 **代碼基準**：`backend/src/routes/interview.routes.ts`、`backend/src/routes/ai-stream.routes.ts`、`backend/src/services/interview.service.ts`、`frontend/src/store/interviewStore.ts`、`frontend/src/services/api/interview.ts`、`frontend/src/services/aiStream.ts`
 
 ---
@@ -51,6 +51,7 @@
 - `Interview/Chat` 頁面主動訂閱 `GET /api/v1/streams/interview_session/:id`，用 `after_seq` 做快照回填與重連補償；當頁面重掛或主請求已返回但 AI 任務仍在進行時，頁面會顯示 recovering 狀態而非退回空白。
 - `stream.cancelled` 的 snapshot / replay 仍會參與狀態收口與重連對齊，但 `Interview` 頁面不再渲染 cancelled draft 氣泡；使用者主動停止後以提示文案收口，避免誤解為一條新的 AI 回覆。
 - `stream.persisted` 到達後，前端會再靜默拉一次 `GET /api/v1/interview/:id`，用 canonical session/turns 覆蓋本地臨時拼裝結果。
+- 為避免 SSE 漏掉 terminal 事件導致頁面卡在 optimistic streaming，`Interview/Chat` 在 `isStreaming=true` 且 session 有效時會啟用有界 canonical 自愈輪詢：每 `2500ms` 靜默執行一次 `syncSessionSilently(sessionId)`，最多 `24` 次（約 60 秒），且以 lock 防止並發重入；當 `stream.persisted` / ready-snapshot `persisted` 收口或 streaming 結束後立即停止。
 - 若 `AI Stream` 訂閱在建立或恢復階段收到 terminal error（尤其是 4xx/5xx），`Interview` 頁面必須立即退出 thinking 狀態並顯示可恢復錯誤，不允許無限停留在「我正在整理你的分享......」；其中 5xx 需映射為 `CONNECTION_LOST` 統一提示。
 - `AI Stream` 的訪談持久化必須正確寫入 `ai_stream_sessions / ai_stream_events`，否則會出現 canonical `interview_turns` 已生成、但前端因缺少 `stream.persisted` / replay 而停在舊 draft 的假完成狀態。2026-04-06 已以真實訪談回覆驗證此鏈路恢復落庫。
 - `end` 依內容充分度決定是否進 pipeline，非所有結束都會產生畫像更新。

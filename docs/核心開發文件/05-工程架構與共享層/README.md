@@ -4,8 +4,8 @@
 **文檔類型**：域索引
 **覆蓋範圍**：05-工程架構與共享層 子域入口與閱讀順序
 **取證代碼入口**：`package.json`、`frontend/tsconfig.app.json`、`frontend-admin/tsconfig.app.json`、`backend/tsconfig.json`、`mobile/tsconfig.json`、`packages/contracts/package.json`、`packages/api-client/package.json`、`backend/src`、`frontend/src`、`frontend-admin/src`、`mobile/src`
-**最後核驗 Commit**：`bd66c2d`
-**最後核驗日期**：`2026-04-18`
+**最後核驗 Commit**：`963c0d3`
+**最後核驗日期**：`2026-04-19`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 本子域承接 `CJ` repo 的工程分層、共享 package、tsconfig alias 與跨端落點規則。

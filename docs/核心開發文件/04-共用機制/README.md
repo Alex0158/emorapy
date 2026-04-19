@@ -4,8 +4,8 @@
 **文檔類型**：域索引
 **覆蓋範圍**：04-共用機制 子域入口與閱讀順序
 **取證代碼入口**：`frontend/src/App.tsx`、`frontend-admin/src/App.tsx`、`frontend/src/components/common`、`frontend/src/services/request.ts`、`frontend/src/services/sseRequest.ts`、`frontend/src/services/aiStream.ts`、`frontend-admin/src/services/request.ts`、`packages/contracts/src`、`packages/api-client/src`
-**最後核驗 Commit**：`bd66c2d`
-**最後核驗日期**：`2026-04-18`
+**最後核驗 Commit**：`963c0d3`
+**最後核驗日期**：`2026-04-19`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 本子域承接跨主 Web、Admin token 體系、共享契約與部分跨端邏輯的正式規則與共用機制。

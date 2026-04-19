@@ -341,6 +341,8 @@ async function main() {
     adminAuthCode,
     adminRoutesCode,
     adminEntryCode,
+    adminConfigsPageCode,
+    adminSettingsPageCode,
     backendEnvCode,
     backendAppCode,
     healthRoutesCode,
@@ -433,6 +435,8 @@ async function main() {
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'middleware', 'adminAuth.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'routes', 'admin.routes.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'frontend', 'src', 'utils', 'adminEntry.ts'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'frontend-admin', 'src', 'pages', 'Admin', 'Configs', 'index.tsx'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'frontend-admin', 'src', 'pages', 'Admin', 'Settings', 'index.tsx'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'config', 'env.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'app.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'routes', 'health.routes.ts'), 'utf8'),
@@ -1443,6 +1447,25 @@ async function main() {
     if (!runtimeRow || !runtimeRow.includes('defaults') || !runtimeRow.includes('runtime') || !runtimeRow.includes('source')) {
       issues.push(
         '[truth/admin] 06-接口描述/09-admin.md must document runtime/interview response as defaults/runtime/source'
+      );
+    }
+  }
+
+  const adminConfigListLimit100 =
+    adminConfigsPageCode.includes('listConfigs({ limit: 100, offset: 0 })') &&
+    adminSettingsPageCode.includes('listConfigs({ limit: 100, offset: 0 })');
+  if (adminConfigListLimit100) {
+    if (
+      !adminInterfaceDoc.includes('listConfigs({ limit: 100, offset: 0 })') &&
+      !adminInterfaceDoc.includes('limit=100')
+    ) {
+      issues.push(
+        '[truth/admin] 06-接口描述/09-admin.md must document Configs/Settings listConfigs limit=100 fetch window'
+      );
+    }
+    if (!flowDoc.includes('Config/Settings 首屏讀取窗口目前統一為 `limit=100`')) {
+      issues.push(
+        '[truth/flow] 業務流程整合.md P05 step 5 must document Configs/Settings limit=100 fetch window'
       );
     }
   }

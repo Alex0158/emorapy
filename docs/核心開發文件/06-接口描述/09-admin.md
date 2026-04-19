@@ -9,7 +9,7 @@
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 **文檔版本**：v2.5  
-**最後更新**：2026-04-04  
+**最後更新**：2026-04-19  
 **代碼基準**：`backend/src/routes/admin.routes.ts`、`backend/src/middleware/adminAuth.ts`、`frontend/src/services/api/admin.ts`
 
 ---

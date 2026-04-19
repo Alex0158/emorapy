@@ -1089,6 +1089,17 @@ async function main() {
     } else if (Number.isNaN(Date.parse(`${lastAuditedDateMatch[1]}T00:00:00Z`))) {
       issues.push(`[truth/formal-metadata] invalid 最後核驗日期 value in ${relativePath}`);
     } else if (lastAuditedCommitMatch) {
+      const lastUpdatedMatch = docContent.match(/\*\*最後更新\*\*[：:]\s*`?([0-9]{4}-[0-9]{2}-[0-9]{2})`?/);
+      if (lastUpdatedMatch) {
+        const lastUpdatedDate = lastUpdatedMatch[1];
+        if (Number.isNaN(Date.parse(`${lastUpdatedDate}T00:00:00Z`))) {
+          issues.push(`[truth/formal-metadata] invalid 最後更新 value in ${relativePath}`);
+        } else if (lastUpdatedDate !== lastAuditedDateMatch[1]) {
+          issues.push(
+            `[truth/formal-metadata] 最後更新與最後核驗日期不一致 in ${relativePath}: updated=${lastUpdatedDate}, audited=${lastAuditedDateMatch[1]}`
+          );
+        }
+      }
       formalAuditRows.push({
         relativePath,
         commitRef: lastAuditedCommitMatch[1],
@@ -3581,7 +3592,7 @@ async function main() {
   }
 
   console.log(
-    `[docs-truth] ok: ${truth.backend.endpoints.length} endpoints, ${truth.frontend.stats.totalRoutes} frontend routes, ${truth.frontend.adminExternalRoutes.length} admin routes, enum coverage verified, critical auth semantics verified, formal-doc metadata semantics verified, formal-doc metadata evidence-path semantics verified, formal-doc metadata tracked-or-script-wired semantics verified, formal-doc metadata wildcard-evidence semantics verified, formal-doc audited-commit resolve semantics verified, formal-doc audited-commit ancestry semantics verified, formal-doc audited-date chronology semantics verified, formal-doc audited-date non-future semantics verified, formal-doc global path-reference semantics verified, batch-1 flagship path-reference semantics verified, batch-2 auth+user-flow semantics verified, batch-2/3 formal-doc path-reference semantics verified, batch-3 governance+architecture semantics verified, batch-4 interface path-reference semantics verified, admin+health semantics verified, content+notification semantics verified, risk semantics verified, testing semantics verified, batch-5 scenario+regression semantics verified, batch-6 metadata semantics verified, html-snapshot manifest consistency verified`
+    `[docs-truth] ok: ${truth.backend.endpoints.length} endpoints, ${truth.frontend.stats.totalRoutes} frontend routes, ${truth.frontend.adminExternalRoutes.length} admin routes, enum coverage verified, critical auth semantics verified, formal-doc metadata semantics verified, formal-doc metadata evidence-path semantics verified, formal-doc metadata tracked-or-script-wired semantics verified, formal-doc metadata wildcard-evidence semantics verified, formal-doc audited-commit resolve semantics verified, formal-doc audited-commit ancestry semantics verified, formal-doc audited-date chronology semantics verified, formal-doc audited-date non-future semantics verified, formal-doc last-update coherence semantics verified, formal-doc global path-reference semantics verified, batch-1 flagship path-reference semantics verified, batch-2 auth+user-flow semantics verified, batch-2/3 formal-doc path-reference semantics verified, batch-3 governance+architecture semantics verified, batch-4 interface path-reference semantics verified, admin+health semantics verified, content+notification semantics verified, risk semantics verified, testing semantics verified, batch-5 scenario+regression semantics verified, batch-6 metadata semantics verified, html-snapshot manifest consistency verified`
   );
 }
 

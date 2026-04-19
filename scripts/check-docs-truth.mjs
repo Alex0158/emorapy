@@ -1885,6 +1885,265 @@ async function main() {
     }
   }
 
+  const adminReportsOverviewRouteBound = /router\.get\(\s*'\/reports\/overview'[\s\S]*?reportOverview\.bind\(adminController\)/m.test(
+    adminRoutesCode
+  );
+  const adminReportsOverviewPayloadBound =
+    adminControllerCode.includes('async reportOverview') &&
+    adminControllerCode.includes('totals: {') &&
+    adminControllerCode.includes('conversion') &&
+    adminControllerCode.includes('pairingRate') &&
+    adminControllerCode.includes('caseCreationRate') &&
+    adminControllerCode.includes('judgmentCompletionRate') &&
+    adminControllerCode.includes('caseCompletionRate');
+  if (adminReportsOverviewRouteBound && adminReportsOverviewPayloadBound) {
+    const overviewInterfaceRow = findEndpointRow(adminInterfaceDoc, 'GET', '/api/v1/admin/reports/overview');
+    if (
+      !overviewInterfaceRow ||
+      !overviewInterfaceRow.includes('data.totals') ||
+      !overviewInterfaceRow.includes('data.conversion') ||
+      !overviewInterfaceRow.includes('pairingRate') ||
+      !overviewInterfaceRow.includes('caseCreationRate') ||
+      !overviewInterfaceRow.includes('judgmentCompletionRate') ||
+      !overviewInterfaceRow.includes('caseCompletionRate')
+    ) {
+      issues.push(
+        '[truth/admin] 06-接口描述/09-admin.md GET /api/v1/admin/reports/overview row must document totals/conversion payload and conversion keys'
+      );
+    }
+
+    const overviewApiMainRow = findEndpointRow(apiMainDoc, 'GET', '/api/v1/admin/reports/overview');
+    if (!overviewApiMainRow || !overviewApiMainRow.includes('totals') || !overviewApiMainRow.includes('conversion')) {
+      issues.push(
+        '[truth/api] 全接口清單-主文檔.md GET /api/v1/admin/reports/overview row must include totals/conversion semantics'
+      );
+    }
+    if (!apiMainDoc.includes('data.totals,data.conversion')) {
+      issues.push(
+        '[truth/api] 全接口清單-主文檔.md GET /api/v1/admin/reports/overview deep contract must include data.totals,data.conversion'
+      );
+    }
+
+    const overviewMappingRow = findEndpointRow(mappingDoc, 'GET', '/api/v1/admin/reports/overview');
+    if (!overviewMappingRow || !overviewMappingRow.includes('totals') || !overviewMappingRow.includes('conversion')) {
+      issues.push(
+        '[truth/mapping] 接口-功能-頁面-Mapping.md GET /api/v1/admin/reports/overview row must include totals/conversion semantics'
+      );
+    }
+  }
+
+  const adminReportsFunnelRouteBound = /router\.get\(\s*'\/reports\/funnel'[\s\S]*?reportFunnel\.bind\(adminController\)/m.test(
+    adminRoutesCode
+  );
+  const adminReportsFunnelPayloadBound =
+    adminControllerCode.includes('async reportFunnel') &&
+    adminControllerCode.includes("key: 'register'") &&
+    adminControllerCode.includes("key: 'pairing'") &&
+    adminControllerCode.includes("key: 'case'") &&
+    adminControllerCode.includes("key: 'judgment'") &&
+    adminControllerCode.includes("key: 'execution_complete'");
+  if (adminReportsFunnelRouteBound && adminReportsFunnelPayloadBound) {
+    const funnelInterfaceRow = findEndpointRow(adminInterfaceDoc, 'GET', '/api/v1/admin/reports/funnel');
+    if (
+      !funnelInterfaceRow ||
+      !funnelInterfaceRow.includes('data.stages[]') ||
+      !funnelInterfaceRow.includes('register') ||
+      !funnelInterfaceRow.includes('execution_complete')
+    ) {
+      issues.push(
+        '[truth/admin] 06-接口描述/09-admin.md GET /api/v1/admin/reports/funnel row must document stages[] and register/execution_complete key coverage'
+      );
+    }
+
+    const funnelApiMainRow = findEndpointRow(apiMainDoc, 'GET', '/api/v1/admin/reports/funnel');
+    if (!funnelApiMainRow || !funnelApiMainRow.includes('stages')) {
+      issues.push(
+        '[truth/api] 全接口清單-主文檔.md GET /api/v1/admin/reports/funnel row must include stages[] semantics'
+      );
+    }
+    if (!apiMainDoc.includes('data.stages[]')) {
+      issues.push(
+        '[truth/api] 全接口清單-主文檔.md GET /api/v1/admin/reports/funnel deep contract must include data.stages[]'
+      );
+    }
+
+    const funnelMappingRow = findEndpointRow(mappingDoc, 'GET', '/api/v1/admin/reports/funnel');
+    if (!funnelMappingRow || !funnelMappingRow.includes('stages')) {
+      issues.push(
+        '[truth/mapping] 接口-功能-頁面-Mapping.md GET /api/v1/admin/reports/funnel row must include stages[] semantics'
+      );
+    }
+  }
+
+  const adminReportsCostsRouteBound = /router\.get\(\s*'\/reports\/costs'[\s\S]*?reportCosts\.bind\(adminController\)/m.test(
+    adminRoutesCode
+  );
+  const adminReportsCostsPayloadBound =
+    adminControllerCode.includes('async reportCosts') &&
+    adminControllerCode.includes('costMonitoringService.getAdminCostReport');
+  if (adminReportsCostsRouteBound && adminReportsCostsPayloadBound) {
+    const costsInterfaceRow = findEndpointRow(adminInterfaceDoc, 'GET', '/api/v1/admin/reports/costs');
+    if (
+      !costsInterfaceRow ||
+      !costsInterfaceRow.includes('generatedAt') ||
+      !costsInterfaceRow.includes('currency') ||
+      !costsInterfaceRow.includes('partial') ||
+      !costsInterfaceRow.includes('reasons') ||
+      !costsInterfaceRow.includes('summary') ||
+      !costsInterfaceRow.includes('redis') ||
+      !costsInterfaceRow.includes('railway') ||
+      !costsInterfaceRow.includes('openai')
+    ) {
+      issues.push(
+        '[truth/admin] 06-接口描述/09-admin.md GET /api/v1/admin/reports/costs row must document generatedAt/currency/partial/reasons/summary/redis/railway/openai payload'
+      );
+    }
+
+    const costsApiMainRow = findEndpointRow(apiMainDoc, 'GET', '/api/v1/admin/reports/costs');
+    if (
+      !costsApiMainRow ||
+      !costsApiMainRow.includes('currency') ||
+      !costsApiMainRow.includes('partial') ||
+      !costsApiMainRow.includes('summary')
+    ) {
+      issues.push(
+        '[truth/api] 全接口清單-主文檔.md GET /api/v1/admin/reports/costs row must include currency/partial/summary semantics'
+      );
+    }
+    if (!apiMainDoc.includes('data.generatedAt,data.currency,data.partial,data.summary,data.redis,data.railway,data.openai')) {
+      issues.push(
+        '[truth/api] 全接口清單-主文檔.md GET /api/v1/admin/reports/costs deep contract must include generatedAt/currency/partial/summary/redis/railway/openai'
+      );
+    }
+
+    const costsMappingRow = findEndpointRow(mappingDoc, 'GET', '/api/v1/admin/reports/costs');
+    if (!costsMappingRow || !costsMappingRow.includes('currency') || !costsMappingRow.includes('summary')) {
+      issues.push(
+        '[truth/mapping] 接口-功能-頁面-Mapping.md GET /api/v1/admin/reports/costs row must include currency/summary semantics'
+      );
+    }
+  }
+
+  const adminReportsOverviewCsvRouteBound =
+    /router\.get\(\s*'\/reports\/overview\.csv'[\s\S]*?exportOverviewCsv\.bind\(adminController\)/m.test(
+      adminRoutesCode
+    );
+  const adminReportsOverviewCsvPayloadBound =
+    adminControllerCode.includes('async exportOverviewCsv') &&
+    adminControllerCode.includes("'metric,value'") &&
+    adminControllerCode.includes('users,${users}') &&
+    adminControllerCode.includes('cases,${cases}') &&
+    adminControllerCode.includes('judgments,${judgments}') &&
+    adminControllerCode.includes('attachment; filename="admin-overview.csv"');
+  if (adminReportsOverviewCsvRouteBound && adminReportsOverviewCsvPayloadBound) {
+    const overviewCsvInterfaceRow = findEndpointRow(adminInterfaceDoc, 'GET', '/api/v1/admin/reports/overview.csv');
+    if (
+      !overviewCsvInterfaceRow ||
+      !overviewCsvInterfaceRow.includes('blob') ||
+      !overviewCsvInterfaceRow.includes('metric,value') ||
+      !overviewCsvInterfaceRow.includes('users/cases/judgments')
+    ) {
+      issues.push(
+        '[truth/admin] 06-接口描述/09-admin.md GET /api/v1/admin/reports/overview.csv row must document blob csv metric,value with users/cases/judgments metrics'
+      );
+    }
+
+    const overviewCsvApiMainRow = findEndpointRow(apiMainDoc, 'GET', '/api/v1/admin/reports/overview.csv');
+    if (!overviewCsvApiMainRow || !overviewCsvApiMainRow.includes('CSV') || !overviewCsvApiMainRow.includes('metric,value')) {
+      issues.push(
+        '[truth/api] 全接口清單-主文檔.md GET /api/v1/admin/reports/overview.csv row must include csv metric,value semantics'
+      );
+    }
+    if (!apiMainDoc.includes('blob(csv:metric,value)')) {
+      issues.push(
+        '[truth/api] 全接口清單-主文檔.md GET /api/v1/admin/reports/overview.csv deep contract must include blob(csv:metric,value)'
+      );
+    }
+
+    const overviewCsvMappingRow = findEndpointRow(mappingDoc, 'GET', '/api/v1/admin/reports/overview.csv');
+    if (!overviewCsvMappingRow || !overviewCsvMappingRow.includes('CSV') || !overviewCsvMappingRow.includes('metric,value')) {
+      issues.push(
+        '[truth/mapping] 接口-功能-頁面-Mapping.md GET /api/v1/admin/reports/overview.csv row must include CSV metric,value semantics'
+      );
+    }
+  }
+
+  const adminReportsCustomRouteBound =
+    /router\.post\(\s*'\/reports\/custom'[\s\S]*?validate\(adminCustomReportSchema\)[\s\S]*?customReport\.bind\(adminController\)/m.test(
+      adminRoutesCode
+    );
+  const adminReportsCustomSchemaBound =
+    validationCode.includes('adminCustomReportSchema') &&
+    validationCode.includes("Joi.string().valid('dau', 'mau', 'judgment_failed')") &&
+    validationCode.includes('.min(1)') &&
+    validationCode.includes('.max(20)') &&
+    validationCode.includes('.required()');
+  const adminReportsCustomPayloadBound =
+    adminControllerCode.includes('async customReport') &&
+    adminControllerCode.includes("if (metrics.includes('dau'))") &&
+    adminControllerCode.includes("if (metrics.includes('mau'))") &&
+    adminControllerCode.includes("if (metrics.includes('judgment_failed'))") &&
+    adminControllerCode.includes('data: { metrics: result }');
+  if (adminReportsCustomRouteBound && adminReportsCustomSchemaBound && adminReportsCustomPayloadBound) {
+    const customInterfaceRow = findEndpointRow(adminInterfaceDoc, 'POST', '/api/v1/admin/reports/custom');
+    if (
+      !customInterfaceRow ||
+      !customInterfaceRow.includes('metrics[]') ||
+      !customInterfaceRow.includes('dau/mau/judgment_failed') ||
+      !customInterfaceRow.includes('1-20') ||
+      !customInterfaceRow.includes('data.metrics') ||
+      !customInterfaceRow.includes('FORBIDDEN') ||
+      !customInterfaceRow.includes('VALIDATION_ERROR')
+    ) {
+      issues.push(
+        '[truth/admin] 06-接口描述/09-admin.md POST /api/v1/admin/reports/custom row must document metrics enum/min-max and FORBIDDEN/VALIDATION_ERROR'
+      );
+    }
+
+    const customApiMainRow = findEndpointRow(apiMainDoc, 'POST', '/api/v1/admin/reports/custom');
+    if (!customApiMainRow || !customApiMainRow.includes('metrics') || !customApiMainRow.includes('dau')) {
+      issues.push(
+        '[truth/api] 全接口清單-主文檔.md POST /api/v1/admin/reports/custom row must include metrics enum semantics'
+      );
+    }
+    if (!apiMainDoc.includes('metrics[]: dau/mau/judgment_failed (1-20)')) {
+      issues.push(
+        '[truth/api] 全接口清單-主文檔.md POST /api/v1/admin/reports/custom deep contract must include metrics[]: dau/mau/judgment_failed (1-20)'
+      );
+    }
+
+    const customMappingRow = findEndpointRow(mappingDoc, 'POST', '/api/v1/admin/reports/custom');
+    if (!customMappingRow || !customMappingRow.includes('metrics[]') || !customMappingRow.includes('judgment_failed')) {
+      issues.push(
+        '[truth/mapping] 接口-功能-頁面-Mapping.md POST /api/v1/admin/reports/custom row must include metrics enum semantics'
+      );
+    }
+  }
+
+  if (
+    adminReportsOverviewRouteBound &&
+    adminReportsFunnelRouteBound &&
+    adminReportsCostsRouteBound &&
+    adminReportsOverviewCsvRouteBound &&
+    adminReportsCustomRouteBound
+  ) {
+    const reportFlowRow =
+      flowDoc.split('\n').find((line) => line.includes('GET /admin/reports/overview|funnel|costs')) || null;
+    if (
+      !reportFlowRow ||
+      !reportFlowRow.includes('POST /admin/reports/custom') ||
+      !reportFlowRow.includes('GET /admin/reports/overview.csv') ||
+      !reportFlowRow.includes('dau/mau/judgment_failed') ||
+      !reportFlowRow.includes('1-20') ||
+      !reportFlowRow.includes('VALIDATION_ERROR') ||
+      !reportFlowRow.includes('FORBIDDEN')
+    ) {
+      issues.push(
+        '[truth/flow] 業務流程整合.md P05 report step must document overview/funnel/costs/custom/overview.csv contracts and VALIDATION_ERROR/FORBIDDEN recovery branch'
+      );
+    }
+  }
+
   if (validationCode.includes('mediaProviderCatalogQuerySchema')) {
     const providersRow = findEndpointRow(adminInterfaceDoc, 'GET', '/api/v1/providers');
     if (!providersRow || !providersRow.includes('providerType?') || providersRow.includes('activeOnly') || providersRow.includes('includeConfig')) {

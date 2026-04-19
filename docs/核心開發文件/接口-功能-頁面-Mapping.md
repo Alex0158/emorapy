@@ -4,7 +4,7 @@
 **文檔類型**：旗艦映射
 **覆蓋範圍**：API -> 功能 -> 頁面 -> 流程節點映射
 **取證代碼入口**：`backend/src/routes`、`frontend/src/router/index.tsx`、`frontend-admin/src/router.tsx`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`f241150`
+**最後核驗 Commit**：`70e3436`
 **最後核驗日期**：`2026-04-19`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -140,15 +140,15 @@
 | `POST /api/v1/admin/bootstrap` | F10 | （無） | 初始 admin 建立 | L | 候選廢棄 |
 | `GET /api/v1/admin/health/detailed` | F10 | `/admin/health` | 詳細健康 | M | 已使用 |
 | `GET /api/v1/admin/jobs` | F10 | `/admin/jobs` | 任務列表 | M | 已使用 |
-| `GET /api/v1/admin/reports/overview` | F10 | `/admin/reports` | 總覽報表 | M | 已使用 |
-| `GET /api/v1/admin/reports/funnel` | F10 | `/admin/reports` | 漏斗報表 | M | 已使用 |
-| `GET /api/v1/admin/reports/costs` | F10 | `/admin/reports` | 成本報表 | M | 已使用 |
+| `GET /api/v1/admin/reports/overview` | F10 | `/admin/reports` | 總覽報表（totals + conversion） | M | 已使用 |
+| `GET /api/v1/admin/reports/funnel` | F10 | `/admin/reports` | 漏斗報表（stages[]） | M | 已使用 |
+| `GET /api/v1/admin/reports/costs` | F10 | `/admin/reports` | 成本報表（currency/partial + summary） | M | 已使用 |
 | `GET /api/v1/admin/reports/ai-streams` | F10 | `/admin/reports` | AI Stream 治理報表（days + limit，回傳 retentionPolicy/totals/recentFailures） | L | 已使用 |
 | `GET /api/v1/admin/reports/ai-streams/sessions` | F10 | `/admin/reports` | AI Stream Session 明細（days/limit/offset + status/scope/request/source） | L | 已使用 |
 | `GET /api/v1/admin/reports/ai-streams/sessions/:streamId` | F10 | `/admin/reports` | AI Stream 詳情（source=live/archive/all，eventLimit<=1000） | L | 已使用 |
 | `GET /api/v1/admin/runtime/interview` | F10 | `/admin/settings` | 訪談運行參數 | L | 已使用 |
-| `GET /api/v1/admin/reports/overview.csv` | F10 | `/admin/reports` | 報表下載 | M | 已使用 |
-| `POST /api/v1/admin/reports/custom` | F10 | `/admin/reports` | 客製報表 | M | 已使用 |
+| `GET /api/v1/admin/reports/overview.csv` | F10 | `/admin/reports` | 報表下載（CSV：metric,value） | M | 已使用 |
+| `POST /api/v1/admin/reports/custom` | F10 | `/admin/reports` | 客製報表（metrics[]: dau/mau/judgment_failed） | M | 已使用 |
 | `GET /api/v1/providers` | F10 | `/admin/settings` | 媒體供應商目錄與默認配置檢視 | M | 已使用 |
 | `POST /api/v1/providers/:providerKey/estimate` | F10 | `/admin/settings` | 媒體生成成本試算 | M | 已使用 |
 | `POST /api/v1/providers/:providerKey/test` | F10 | `/admin/settings` | 供應商健康探針 / credential 校驗 | M | 已使用 |

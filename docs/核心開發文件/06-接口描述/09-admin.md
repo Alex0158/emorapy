@@ -4,7 +4,7 @@
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：09-admin
 **取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`f241150`
+**最後核驗 Commit**：`70e3436`
 **最後核驗日期**：`2026-04-19`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -60,11 +60,11 @@
 | `POST /api/v1/admin/admin-users` | `email password name roleKey` | `data.item` | `VALIDATION_ERROR` `FORBIDDEN` | `admin:all`，建立後台帳號 |
 | `PATCH /api/v1/admin/admin-users/:adminUserId` | `name? roleKey? isActive? password?` | `data.item` | `VALIDATION_ERROR` `FORBIDDEN` `NOT_FOUND` | `admin:all`，更新後台帳號 |
 | `DELETE /api/v1/admin/admin-users/:adminUserId` | `adminUserId(uuid)` | `data.item` | `FORBIDDEN` `NOT_FOUND` | `admin:all`，刪除後台帳號 |
-| `POST /api/v1/admin/reports/custom` | `metrics[]` | `data.metrics{}` | `VALIDATION_ERROR` | `reports:read` |
-| `GET /api/v1/admin/reports/overview.csv` | 無 | blob | `FORBIDDEN` | `reports:read` |
-| `GET /api/v1/admin/reports/overview` | 無 | `data.totals data.conversion` | `FORBIDDEN` | `reports:read`，已由 admin reports 頁接線 |
-| `GET /api/v1/admin/reports/funnel` | 無 | `data.stages[]` | `FORBIDDEN` | `reports:read`，已由 admin reports 頁接線 |
-| `GET /api/v1/admin/reports/costs` | 無 | `data.generatedAt data.summary data.redis data.railway data.openai` | `FORBIDDEN` | `reports:read`，已由 admin reports 頁接線 |
+| `POST /api/v1/admin/reports/custom` | `metrics[]`（`dau/mau/judgment_failed`，`1-20`） | `data.metrics{}` | `FORBIDDEN` `VALIDATION_ERROR` | `reports:read` |
+| `GET /api/v1/admin/reports/overview.csv` | 無 | `blob`（CSV：`metric,value`，當前輸出 `users/cases/judgments`） | `FORBIDDEN` | `reports:read` |
+| `GET /api/v1/admin/reports/overview` | 無 | `data.totals(users/activePairings/cases/judgments/reconciliationPlans/executionCompleted/interviewCompleted) data.conversion(pairingRate/caseCreationRate/judgmentCompletionRate/caseCompletionRate)` | `FORBIDDEN` | `reports:read`，已由 admin reports 頁接線 |
+| `GET /api/v1/admin/reports/funnel` | 無 | `data.stages[]`（`register/pairing/case/judgment/execution_complete`） | `FORBIDDEN` | `reports:read`，已由 admin reports 頁接線 |
+| `GET /api/v1/admin/reports/costs` | 無 | `data.generatedAt data.currency data.partial data.reasons[] data.summary data.redis data.railway data.openai` | `FORBIDDEN` | `reports:read`，已由 admin reports 頁接線 |
 | `GET /api/v1/admin/reports/ai-streams` | query `days?(1-90) limit?(1-50)` | `data.windowDays data.retentionPolicy data.totals data.byStatus data.byScopeType data.byBackendMode data.recentFailures[]` | `FORBIDDEN` `VALIDATION_ERROR` | `reports:read`，AI Stream 治理報表，已由 admin reports 頁接線 |
 | `GET /api/v1/admin/reports/ai-streams/sessions` | query `days?(1-90) limit?(1-100) offset?(>=0) status? scopeType? scopeId? requestId? streamId? source?(live/archive/all)` | `data.source data.total data.limit data.offset data.items[]` | `FORBIDDEN` `VALIDATION_ERROR` | `reports:read`，AI Stream session 明細查詢 |
 | `GET /api/v1/admin/reports/ai-streams/sessions/:streamId` | params `streamId` + query `eventLimit?(1-1000) source?(live/archive/all)` | `data.source(live/archive) data.session data.events[]` | `FORBIDDEN` `NOT_FOUND` `VALIDATION_ERROR` | `reports:read`，單條 stream 詳情 |
@@ -109,6 +109,7 @@
 | `PATCH /api/v1/admin/users/:userId/status` | `NOT_FOUND` | 404 | 提示目標用戶不存在 | 刷新列表後再操作 |
 | `GET /api/v1/admin/audit-logs(.csv)` | `FORBIDDEN` | 403 | 提示無審計權限 | 不重試 |
 | `GET /api/v1/admin/admin-users` / `POST /api/v1/admin/admin-users` / `PATCH /api/v1/admin/admin-users/:adminUserId` / `DELETE /api/v1/admin/admin-users/:adminUserId` | `FORBIDDEN` | 403 | 關閉管理員治理按鈕 | 不重試 |
+| `POST /api/v1/admin/reports/custom` | `FORBIDDEN` | 403 | 顯示無自定義報表權限 | 不重試 |
 | `POST /api/v1/admin/reports/custom` | `VALIDATION_ERROR` | 400 | 提示 metrics 列表不合法 | 修正後重送 |
 | `GET /api/v1/admin/reports/ai-streams` | `FORBIDDEN` | 403 | 顯示無 AI Stream 報表權限 | 不重試 |
 | `GET /api/v1/admin/reports/ai-streams/sessions` | `FORBIDDEN` | 403 | 顯示無 AI Stream 查詢權限 | 不重試 |

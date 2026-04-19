@@ -4,12 +4,12 @@
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：01-auth-session
 **取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`bd66c2d`
-**最後核驗日期**：`2026-04-18`
+**最後核驗 Commit**：`45d4897`
+**最後核驗日期**：`2026-04-19`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 **文檔版本**：v2.2  
-**最後更新**：2026-03-06  
+**最後更新**：2026-04-19  
 **代碼基準**：`backend/src/routes/auth.routes.ts`、`backend/src/routes/session.routes.ts`、`backend/src/utils/validation.ts`、`frontend/src/services/api/auth.ts`、`frontend/src/services/api/session.ts`
 
 ---

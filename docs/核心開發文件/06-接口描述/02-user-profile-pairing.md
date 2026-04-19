@@ -4,12 +4,12 @@
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：02-user-profile-pairing
 **取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`bd66c2d`
-**最後核驗日期**：`2026-04-18`
+**最後核驗 Commit**：`45d4897`
+**最後核驗日期**：`2026-04-19`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 **文檔版本**：v2.3  
-**最後更新**：2026-03-14  
+**最後更新**：2026-04-19  
 **代碼基準**：`backend/src/routes/user.routes.ts`、`backend/src/routes/profile.routes.ts`、`backend/src/routes/pairing.routes.ts`、`backend/src/utils/validation.ts`
 
 ---

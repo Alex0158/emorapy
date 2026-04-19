@@ -4,7 +4,7 @@
 **文檔類型**：旗艦映射
 **覆蓋範圍**：API -> 功能 -> 頁面 -> 流程節點映射
 **取證代碼入口**：`backend/src/routes`、`frontend/src/router/index.tsx`、`frontend-admin/src/router.tsx`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`4d14e4f`
+**最後核驗 Commit**：`1351c20`
 **最後核驗日期**：`2026-04-19`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 

@@ -2548,6 +2548,20 @@ async function main() {
     );
   }
 
+  const workspacePlaywrightCommand = 'npm exec --workspace frontend -- playwright test -c e2e/playwright.config.ts';
+  const staleRootChatPlaywrightPattern =
+    /npm exec -- playwright test -c e2e\/playwright\.config\.ts[\s\S]{0,260}?e2e\/chat\//;
+  if (!handledIssueLedgerDoc.includes(workspacePlaywrightCommand)) {
+    issues.push(
+      '[truth/risk] 07-待處理問題與治理/已處理/業務缺陷收斂台帳-2026-03-17.md must use workspace playwright command: npm exec --workspace frontend -- playwright test -c e2e/playwright.config.ts'
+    );
+  }
+  if (staleRootChatPlaywrightPattern.test(handledIssueLedgerDoc)) {
+    issues.push(
+      '[truth/risk] 07-待處理問題與治理/已處理/業務缺陷收斂台帳-2026-03-17.md contains stale root playwright + e2e/chat command without --workspace frontend'
+    );
+  }
+
   if (
     !testingReadmeDoc.includes('01-測試文檔分層與使用規則.md') ||
     !testingReadmeDoc.includes('02-AI流式與Chat治理驗收基線.md')
@@ -2577,6 +2591,17 @@ async function main() {
   ) {
     issues.push(
       '[truth/testing] 測試/回歸與驗收/發版前回歸記錄-2026-03-17.md must clearly mark historical status and link latest P01-P05 PASS context'
+    );
+  }
+
+  if (!testingRegressionRecordDoc.includes(workspacePlaywrightCommand)) {
+    issues.push(
+      '[truth/testing] 測試/回歸與驗收/發版前回歸記錄-2026-03-17.md must use workspace playwright command: npm exec --workspace frontend -- playwright test -c e2e/playwright.config.ts'
+    );
+  }
+  if (staleRootChatPlaywrightPattern.test(testingRegressionRecordDoc)) {
+    issues.push(
+      '[truth/testing] 測試/回歸與驗收/發版前回歸記錄-2026-03-17.md contains stale root playwright + e2e/chat command without --workspace frontend'
     );
   }
 

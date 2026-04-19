@@ -9,6 +9,7 @@ const coreDocsRoot = path.join(repoRoot, 'docs', '核心開發文件');
 const execFileAsync = promisify(execFile);
 const gitPathspecMatchCache = new Map();
 const gitTrackedPathCache = new Map();
+const gitAncestorOfHeadCache = new Map();
 const MANUAL_FLOW_IDS = ['P01', 'P02', 'P03', 'P04', 'P05'];
 const API_STATUS_VALUES = new Set(['已使用', '候選廢棄', '已確認廢棄']);
 const GENERIC_STREAM_DOC_ENDPOINTS = [
@@ -172,6 +173,22 @@ async function hasGitTrackedPath(pathRef) {
   }
 }
 
+async function isCommitAncestorOfHead(commitRef) {
+  if (gitAncestorOfHeadCache.has(commitRef)) {
+    return gitAncestorOfHeadCache.get(commitRef);
+  }
+  try {
+    await execFileAsync('git', ['merge-base', '--is-ancestor', commitRef, 'HEAD'], {
+      cwd: repoRoot,
+    });
+    gitAncestorOfHeadCache.set(commitRef, true);
+    return true;
+  } catch {
+    gitAncestorOfHeadCache.set(commitRef, false);
+    return false;
+  }
+}
+
 function isScriptPathWiredInPackageScripts(pathRef, packageJson) {
   if (!pathRef.startsWith('scripts/')) {
     return false;
@@ -190,6 +207,18 @@ function parseInlineCounterValue(content, label) {
   const statRe = new RegExp(`${escapeRegExp(label)}[：:]\\s*` + '`?([0-9]+)`?');
   const match = content.match(statRe);
   return match ? Number(match[1]) : null;
+}
+
+function getCurrentDateYmdInShanghai() {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const parts = formatter.formatToParts(new Date());
+  const partMap = Object.fromEntries(parts.filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]));
+  return `${partMap.year}-${partMap.month}-${partMap.day}`;
 }
 
 function stripInlineCodeToken(value) {
@@ -720,6 +749,7 @@ async function main() {
   const frontendAdminTsconfigText = frontendAdminTsconfigRaw;
   const backendTsconfigText = backendTsconfigRaw;
   const mobileTsconfigText = mobileTsconfigRaw;
+  const shanghaiTodayYmd = getCurrentDateYmdInShanghai();
 
   const issues = [];
 
@@ -1110,6 +1140,11 @@ async function main() {
       );
       continue;
     }
+    if (!(await isCommitAncestorOfHead(commitRef))) {
+      issues.push(
+        `[truth/formal-metadata] audited commit not reachable from HEAD ${commitRef} in docs: ${docPaths.join(', ')}`
+      );
+    }
     const commitDateYmd = await readGitCommitDateYmd(commitRef);
     if (!commitDateYmd) {
       issues.push(
@@ -1121,6 +1156,11 @@ async function main() {
   }
   for (const { relativePath, commitRef, auditedDate } of formalAuditRows) {
     const commitDateYmd = commitDateByRef.get(commitRef);
+    if (auditedDate > shanghaiTodayYmd) {
+      issues.push(
+        `[truth/formal-metadata] 最後核驗日期晚於今日 in ${relativePath}: audited=${auditedDate}, today=${shanghaiTodayYmd}`
+      );
+    }
     if (!commitDateYmd) {
       continue;
     }
@@ -3541,7 +3581,7 @@ async function main() {
   }
 
   console.log(
-    `[docs-truth] ok: ${truth.backend.endpoints.length} endpoints, ${truth.frontend.stats.totalRoutes} frontend routes, ${truth.frontend.adminExternalRoutes.length} admin routes, enum coverage verified, critical auth semantics verified, formal-doc metadata semantics verified, formal-doc metadata evidence-path semantics verified, formal-doc metadata tracked-or-script-wired semantics verified, formal-doc metadata wildcard-evidence semantics verified, formal-doc audited-commit resolve semantics verified, formal-doc audited-date chronology semantics verified, formal-doc global path-reference semantics verified, batch-1 flagship path-reference semantics verified, batch-2 auth+user-flow semantics verified, batch-2/3 formal-doc path-reference semantics verified, batch-3 governance+architecture semantics verified, batch-4 interface path-reference semantics verified, admin+health semantics verified, content+notification semantics verified, risk semantics verified, testing semantics verified, batch-5 scenario+regression semantics verified, batch-6 metadata semantics verified, html-snapshot manifest consistency verified`
+    `[docs-truth] ok: ${truth.backend.endpoints.length} endpoints, ${truth.frontend.stats.totalRoutes} frontend routes, ${truth.frontend.adminExternalRoutes.length} admin routes, enum coverage verified, critical auth semantics verified, formal-doc metadata semantics verified, formal-doc metadata evidence-path semantics verified, formal-doc metadata tracked-or-script-wired semantics verified, formal-doc metadata wildcard-evidence semantics verified, formal-doc audited-commit resolve semantics verified, formal-doc audited-commit ancestry semantics verified, formal-doc audited-date chronology semantics verified, formal-doc audited-date non-future semantics verified, formal-doc global path-reference semantics verified, batch-1 flagship path-reference semantics verified, batch-2 auth+user-flow semantics verified, batch-2/3 formal-doc path-reference semantics verified, batch-3 governance+architecture semantics verified, batch-4 interface path-reference semantics verified, admin+health semantics verified, content+notification semantics verified, risk semantics verified, testing semantics verified, batch-5 scenario+regression semantics verified, batch-6 metadata semantics verified, html-snapshot manifest consistency verified`
   );
 }
 

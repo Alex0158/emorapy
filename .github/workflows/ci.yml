@@ -13,6 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -106,7 +108,7 @@ jobs:
       - name: Prepare flow test database
         env:
           DATABASE_URL: postgresql://cj:cj_dev_pass@127.0.0.1:5432/cj_flow_test
-        run: npx prisma migrate deploy
+        run: npx prisma generate && npx prisma migrate deploy
 
       - name: Quick experience flow integration
         env:
@@ -162,7 +164,7 @@ jobs:
           LIMITED_ADMIN_SEED_PASSWORD: SupportPass1234
           LIMITED_ADMIN_SEED_NAME: Support Smoke
           LIMITED_ADMIN_SEED_ROLE: support
-        run: npx prisma migrate deploy && npm run prisma:seed
+        run: npx prisma generate && npx prisma migrate deploy && npm run prisma:seed
 
       - name: Build backend (production-like)
         working-directory: backend

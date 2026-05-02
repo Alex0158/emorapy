@@ -88,7 +88,7 @@ export default function AdminSettingsPage() {
   }, [mediaConfigItems]);
 
   useEffect(() => {
-    if (!selectedMediaProvider || !selectedMediaProvider.providerType) return;
+    if (!selectedMediaProvider?.providerType) return;
     const providerConfig = getMediaProviderConfigValue(selectedMediaProvider.providerKey) || {};
     mediaProviderForm.setFieldsValue({
       providerKey: selectedMediaProvider.providerKey,

@@ -4,6 +4,7 @@ import { getAdminLoginUrl } from '@/utils/adminEntry';
 export interface VersionRow {
   name: '客戶前端' | '管理前端' | '後端';
   version: string;
+  commitSha?: string;
   status: 'ok' | 'error';
   message?: string;
 }
@@ -15,7 +16,9 @@ export interface VersionSnapshot {
 
 interface RemoteVersionResponse {
   version?: string;
-  data?: { version?: string };
+  commitSha?: string;
+  commitShortSha?: string;
+  data?: { version?: string; commitSha?: string; commitShortSha?: string };
 }
 
 const CACHE_TTL_MS = 20_000;
@@ -32,7 +35,12 @@ function resolveAdminVersionUrl(): string | null {
   return `${new URL(adminLoginUrl).origin}/version.json`;
 }
 
-async function fetchRemoteVersion(url: string): Promise<string> {
+function formatVersion(version: string, commitSha?: string): string {
+  if (!commitSha || commitSha === 'unknown') return version;
+  return `${version}@${commitSha.slice(0, 7)}`;
+}
+
+async function fetchRemoteVersion(url: string): Promise<{ version: string; commitSha?: string }> {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), 5000);
 
@@ -50,7 +58,11 @@ async function fetchRemoteVersion(url: string): Promise<string> {
     if (!version || typeof version !== 'string') {
       throw new Error('INVALID_VERSION_PAYLOAD');
     }
-    return version;
+    const commitSha = json.data?.commitSha ?? json.commitSha ?? json.data?.commitShortSha ?? json.commitShortSha;
+    return {
+      version,
+      commitSha: typeof commitSha === 'string' ? commitSha : undefined,
+    };
   } finally {
     window.clearTimeout(timeout);
   }
@@ -66,6 +78,7 @@ export async function getVersionSnapshot(forceRefresh = false): Promise<VersionS
   }
 
   const localVersion = import.meta.env.VITE_APP_VERSION || 'unknown';
+  const localCommitSha = import.meta.env.VITE_APP_COMMIT_SHA || undefined;
   const adminUrl = resolveAdminVersionUrl();
 
   const [adminResult, backendResult] = await Promise.allSettled([
@@ -76,13 +89,15 @@ export async function getVersionSnapshot(forceRefresh = false): Promise<VersionS
   const rows: VersionRow[] = [
     {
       name: '客戶前端',
-      version: localVersion,
+      version: formatVersion(localVersion, localCommitSha),
+      commitSha: localCommitSha,
       status: 'ok',
     },
     adminResult.status === 'fulfilled'
       ? {
           name: '管理前端',
-          version: adminResult.value,
+          version: formatVersion(adminResult.value.version, adminResult.value.commitSha),
+          commitSha: adminResult.value.commitSha,
           status: 'ok',
         }
       : {
@@ -95,7 +110,8 @@ export async function getVersionSnapshot(forceRefresh = false): Promise<VersionS
     backendResult.status === 'fulfilled'
       ? {
           name: '後端',
-          version: backendResult.value,
+          version: formatVersion(backendResult.value.version, backendResult.value.commitSha),
+          commitSha: backendResult.value.commitSha,
           status: 'ok',
         }
       : {

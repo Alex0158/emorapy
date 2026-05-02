@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { execSync } from 'node:child_process';
 import { defineConfig, type Plugin, type ViteDevServer } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
@@ -7,6 +8,29 @@ import pkg from './package.json';
 
 const appVersion = pkg.version;
 const appService = 'frontend';
+const appCommitSha = resolveCommitSha();
+
+function resolveCommitSha(): string {
+  const envSha = process.env.CJ_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA;
+  if (envSha) return envSha;
+
+  try {
+    return execSync('git rev-parse HEAD', { cwd: __dirname, stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString()
+      .trim();
+  } catch {
+    return 'unknown';
+  }
+}
+
+function versionManifest() {
+  return {
+    service: appService,
+    version: appVersion,
+    commitSha: appCommitSha,
+    commitShortSha: appCommitSha === 'unknown' ? 'unknown' : appCommitSha.slice(0, 7),
+  };
+}
 
 function versionManifestPlugin(): Plugin {
   return {
@@ -16,10 +40,7 @@ function versionManifestPlugin(): Plugin {
         res.setHeader('Content-Type', 'application/json; charset=utf-8');
         res.setHeader('Cache-Control', 'no-store');
         res.end(
-          JSON.stringify({
-            service: appService,
-            version: appVersion,
-          })
+          JSON.stringify(versionManifest())
         );
       });
     },
@@ -27,14 +48,7 @@ function versionManifestPlugin(): Plugin {
       this.emitFile({
         type: 'asset',
         fileName: 'version.json',
-        source: JSON.stringify(
-          {
-            service: appService,
-            version: appVersion,
-          },
-          null,
-          2
-        ),
+        source: JSON.stringify(versionManifest(), null, 2),
       });
     },
   };
@@ -121,6 +135,7 @@ export default defineConfig(({ mode }) => {
       __PROD__: JSON.stringify(isProduction),
       'import.meta.env.VITE_APP_VERSION': JSON.stringify(appVersion),
       'import.meta.env.VITE_APP_SERVICE': JSON.stringify(appService),
+      'import.meta.env.VITE_APP_COMMIT_SHA': JSON.stringify(appCommitSha),
     },
   };
 });

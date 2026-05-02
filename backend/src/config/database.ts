@@ -20,6 +20,23 @@ function parseDatabaseUrl(url: string) {
   }
 }
 
+async function connectPrismaWithTimeout(timeoutMs: number) {
+  let timeout: NodeJS.Timeout | undefined;
+
+  try {
+    await Promise.race([
+      prisma.$connect(),
+      new Promise((_, reject) => {
+        timeout = setTimeout(() => reject(new Error(`連接超時（${timeoutMs}ms）`)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+  }
+}
+
 // 支援測試環境可選 SQLite（需 TEST_USE_SQLITE=true，默認關閉以避免 provider 不匹配）
 const databaseUrl =
   (env.NODE_ENV === 'test' && process.env.TEST_USE_SQLITE === 'true')
@@ -121,12 +138,7 @@ async function initializeDatabase() {
     while (retries > 0) {
       try {
         // 設置連接超時（可配置）
-        await Promise.race([
-          prisma.$connect(),
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error(`連接超時（${connectTimeout}ms）`)), connectTimeout)
-          ),
-        ]);
+        await connectPrismaWithTimeout(connectTimeout);
         
         // 測試連接：執行一個簡單查詢
         await prisma.$queryRaw`SELECT 1`;

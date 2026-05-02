@@ -22,6 +22,7 @@ module.exports = {
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
   moduleNameMapper: {
+    '^@prisma/client$': '<rootDir>/tests/mocks/prisma-client.ts',
     '^@/(.*)$': '<rootDir>/src/$1',
   },
   setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],

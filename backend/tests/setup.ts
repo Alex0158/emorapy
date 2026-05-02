@@ -18,6 +18,9 @@ for (const filename of ['.env.test.local', '.env.test', '.env']) {
 
 // 設置測試環境變量
 process.env.NODE_ENV = 'test';
+if (!process.env.TEST_REDIS_URL) {
+  delete process.env.REDIS_URL;
+}
 // 使用環境變量中的 DATABASE_URL，如果有 TEST_DATABASE_URL 則優先使用
 process.env.DATABASE_URL =
   process.env.TEST_DATABASE_URL ||
@@ -44,3 +47,11 @@ if (process.env.SUPPRESS_LOGS === 'true' || !process.env.DEBUG_TESTS) {
     // error: jest.fn(),
   };
 }
+
+afterAll(async () => {
+  const clients = Object.values(require.cache)
+    .map((cachedModule) => cachedModule?.exports?.default)
+    .filter((client): client is { $disconnect: () => Promise<void> } => typeof client?.$disconnect === 'function');
+
+  await Promise.all(clients.map((client) => client.$disconnect()));
+});

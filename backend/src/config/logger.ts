@@ -1,6 +1,23 @@
 import winston from 'winston';
 import { env } from './env';
 
+const isJestRuntime = process.env.NODE_ENV === 'test';
+const fileTransports = isJestRuntime
+  ? []
+  : [
+      new winston.transports.File({
+        filename: 'logs/error.log',
+        level: 'error',
+        maxsize: 5242880, // 5MB
+        maxFiles: 5,
+      }),
+      new winston.transports.File({
+        filename: 'logs/combined.log',
+        maxsize: 5242880, // 5MB
+        maxFiles: 5,
+      }),
+    ];
+
 const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || (env.NODE_ENV === 'production' ? 'info' : 'debug'),
   format: winston.format.combine(
@@ -13,19 +30,7 @@ const logger = winston.createLogger({
     service: process.env.LOG_SERVICE_NAME || 'cj-platform-backend',
     service_legacy: 'mother-bear-court-backend',
   },
-  transports: [
-    new winston.transports.File({ 
-      filename: 'logs/error.log', 
-      level: 'error',
-      maxsize: 5242880, // 5MB
-      maxFiles: 5,
-    }),
-    new winston.transports.File({ 
-      filename: 'logs/combined.log',
-      maxsize: 5242880, // 5MB
-      maxFiles: 5,
-    }),
-  ],
+  transports: fileTransports,
 });
 
 // 始終輸出到控制台，確保 PaaS（如 Railway）可直接收集應用日誌
@@ -45,4 +50,3 @@ logger.add(new winston.transports.Console({
 }));
 
 export default logger;
-

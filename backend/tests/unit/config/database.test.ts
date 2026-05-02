@@ -31,7 +31,7 @@ jest.mock('../../../src/config/logger', () => ({
   __esModule: true,
   default: mockLogger,
 }));
-jest.mock('@prisma/client', () => ({
+jest.mock('../../../src/types/prisma-client', () => ({
   PrismaClient: jest.fn().mockImplementation(() => mockPrismaInstance),
 }));
 jest.mock('child_process', () => ({

@@ -5,7 +5,8 @@ import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 
 const mockStart = jest.fn();
 const mockStop = jest.fn();
-const scheduleReturn = { start: mockStart, stop: mockStop };
+const mockExecute = jest.fn();
+const scheduleReturn = { start: mockStart, stop: mockStop, execute: mockExecute };
 /** 依註冊順序：cleanupExpiredSessions, cleanupOrphanUploads, cleanupTempPairings, cleanupAbandonedInterviewSessions, cleanupExpiredVerifications, resetAIDailyCount, followUp7Day, followUp30Day, cleanupStaleDraftCases, cleanupStuckProcessingSessions */
 const scheduledCallbacks: Array<() => void | Promise<void>> = [];
 
@@ -67,6 +68,7 @@ jest.mock('fs/promises', () => ({
 
 import {
   adminJobs,
+  runAdminJobNow,
   startJobs,
   stopJobs,
   jobsStarted,
@@ -81,6 +83,7 @@ describe('cleanup.job', () => {
     process.env = { ...origEnv };
     (scheduleReturn as any).start = mockStart;
     (scheduleReturn as any).stop = mockStop;
+    (scheduleReturn as any).execute = mockExecute;
     (mockPairingDeleteMany as any).mockResolvedValue({ count: 0 });
     (mockEmailVerificationDeleteMany as any).mockResolvedValue({ count: 0 });
   });
@@ -124,6 +127,21 @@ describe('cleanup.job', () => {
       expect(mockStop).toHaveBeenCalledTimes(adminJobs.length);
       expect(jobsStarted).toBe(false);
       expect(mockLogger.info).toHaveBeenCalledWith('Scheduled jobs stopped');
+    });
+  });
+
+  describe('runAdminJobNow', () => {
+    it('應使用 node-cron v4 execute 立即觸發指定任務', async () => {
+      (mockExecute as any).mockResolvedValue(undefined);
+      const result = await runAdminJobNow('cleanup_expired_sessions', 'admin-1');
+      expect(result).toEqual({ accepted: true, mode: 'immediate' });
+      expect(mockExecute).toHaveBeenCalledTimes(1);
+    });
+
+    it('未知任務應回傳不接受', async () => {
+      const result = await runAdminJobNow('missing_job');
+      expect(result).toEqual({ accepted: false, mode: 'unknown' });
+      expect(mockExecute).not.toHaveBeenCalled();
     });
   });
 

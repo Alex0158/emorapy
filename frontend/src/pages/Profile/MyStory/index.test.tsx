@@ -617,7 +617,8 @@ describe('MyStory', () => {
     await waitFor(() => expect(screen.getByText('psychProfile.deleteConfirmTitle')).toBeInTheDocument());
     fireEvent.click(screen.getByText('psychProfile.confirmDelete'));
     await waitFor(() => expect(mockMessageError).toHaveBeenCalledWith('暫無法刪除'));
-    fireEvent.click(screen.getByText('psychProfile.confirmDelete'));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'psychProfile.confirmDelete' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'psychProfile.confirmDelete' }));
     await waitFor(() => {
       expect(mockDeleteAllData).toHaveBeenCalledTimes(2);
       expect(mockNavigate).toHaveBeenCalledWith('/profile/index');
@@ -637,7 +638,8 @@ describe('MyStory', () => {
     await waitFor(() => {
       expect(screen.getByText('psychProfile.deleteConfirmTitle')).toBeInTheDocument();
     });
-    fireEvent.click(screen.getByText('psychProfile.confirmDelete'));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'psychProfile.confirmDelete' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'psychProfile.confirmDelete' }));
     await waitFor(() => {
       expect(mockMessageError).toHaveBeenCalledWith('psychProfile.deleteFail');
     });

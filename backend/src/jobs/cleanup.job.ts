@@ -785,10 +785,14 @@ export const runAdminJobNow = async (
 ): Promise<{ accepted: boolean; mode: 'immediate' | 'unknown' }> => {
   const job = adminJobs.find((j) => j.key === jobKey);
   if (!job) return { accepted: false, mode: 'unknown' };
-  const task = job.task as unknown as { now?: () => void };
-  if (typeof task.now !== 'function') return { accepted: false, mode: 'unknown' };
+  const task = job.task as unknown as {
+    execute?: () => Promise<unknown> | unknown;
+    now?: () => Promise<unknown> | unknown;
+  };
+  const runNow = typeof task.execute === 'function' ? task.execute : task.now;
+  if (!runNow) return { accepted: false, mode: 'unknown' };
   manualTriggerMeta.set(jobKey, { adminId: triggeredByAdminId, at: Date.now() });
-  task.now();
+  await runNow.call(task);
   return { accepted: true, mode: 'immediate' };
 };
 

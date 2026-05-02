@@ -417,7 +417,7 @@ jobs:
         working-directory: .
         env:
           VITE_API_BASE_URL: http://127.0.0.1:3001/api/v1
-        run: npm run dev --workspace frontend -- --host 127.0.0.1 --port 5173 > frontend-e2e.log 2>&1 &
+        run: npm run dev --workspace frontend-admin -- --host 127.0.0.1 --port 5173 > frontend-e2e.log 2>&1 &
 
       - name: Wait for frontend ready
         run: |

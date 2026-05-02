@@ -1775,7 +1775,7 @@ async function main() {
     ciWorkflowCode.includes('npm run build --workspace frontend') &&
     ciWorkflowCode.includes('npm run lint --workspace frontend-admin') &&
     ciWorkflowCode.includes('npm run build --workspace frontend-admin') &&
-    ciWorkflowCode.includes('npm run dev --workspace frontend --');
+    ciWorkflowCode.includes('npm run dev --workspace frontend-admin --');
   if (!ciUsesRootWorkspaceFrontend) {
     issues.push('[truth/batch3-architecture] .github/workflows/ci.yml must install/run frontend workspaces from root package-lock');
   }

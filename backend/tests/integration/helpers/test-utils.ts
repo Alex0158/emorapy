@@ -4,7 +4,7 @@
  * 數據庫清理、等待函數、測試數據生成等
  */
 
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../../node_modules/.prisma/client';
 
 // 創建專用於測試的 Prisma 客戶端
 const testPrisma = new PrismaClient({

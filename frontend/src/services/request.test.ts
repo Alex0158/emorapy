@@ -238,6 +238,23 @@ describe("request", () => {
 			expect(config.headers.Authorization).toBe("Bearer admin-token");
 		});
 
+		it("request interceptor 對 FormData 應移除 Content-Type 以便 multipart boundary", async () => {
+			const fd = new FormData();
+			fd.append("avatar", new Blob(["x"], { type: "image/png" }), "a.png");
+			const config = await onRequest({
+				method: "post",
+				url: "/user/avatar",
+				data: fd,
+				headers: {
+					"Content-Type": "application/json",
+				},
+			});
+			expect(config.headers["Content-Type"]).toBeUndefined();
+			expect(
+				(config.headers as Record<string, unknown>)["content-type"],
+			).toBeUndefined();
+		});
+
 		it("response success=false 應轉為拒絕錯誤", async () => {
 			await expect(
 				onResponse({

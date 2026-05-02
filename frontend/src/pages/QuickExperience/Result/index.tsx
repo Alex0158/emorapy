@@ -5,13 +5,10 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useMountedRef } from '@/hooks/useMountedRef';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Typography, message, Space, Button } from 'antd';
-import { motion, AnimatePresence } from 'framer-motion';
-import { LockOutlined, RetweetOutlined, BulbOutlined } from '@ant-design/icons';
+import { message, Space, Button } from 'antd';
+import { LockOutlined, RetweetOutlined } from '@ant-design/icons';
 import { useAIStreamSubscription } from '@/hooks/useAIStreamSubscription';
 import AIErrorState from '@/components/common/AIErrorState';
-import AIPhaseTimeline from '@/components/common/AIPhaseTimeline';
-import AIThinkingIndicator from '@/components/common/AIThinkingIndicator';
 import { useJudgmentStore } from '@/store/judgmentStore';
 import { getJudgmentByCaseId } from '@/services/api/judgment';
 import { getCase, uploadEvidence } from '@/services/api/case';
@@ -29,127 +26,33 @@ import { getErrorMessage } from '@/utils/apiError';
 import { t, getLocale } from '@/utils/i18n';
 import './Result.less';
 
+import AIAnalyzingAnimation from './components/AIAnalyzingAnimation';
 import ResultHeader from './components/ResultHeader';
 import SummarySection from './components/SummarySection';
 import ResponsibilitySection from './components/ResponsibilitySection';
 import JudgmentSection from './components/JudgmentSection';
 import EvidenceUploadSection from './components/EvidenceUploadSection';
 import RegisterPromptSection from './components/RegisterPromptSection';
-
-const { Text } = Typography;
+import {
+  canUploadEvidenceForCaseStatus,
+  getEvidenceUploadStatusFromCase,
+  getPendingEvidenceStorageKey,
+  getResponsibilityRatio,
+  isJudgmentFailedState,
+  isPendingJudgmentErrorCode,
+  isSessionJudgmentErrorCode,
+  resolveQuickResultSessionId,
+  shouldShowResponsibilityRatio as shouldRenderResponsibilityRatio,
+  storageGetItem,
+  storageRemoveItem,
+  storageSetItem,
+  type EvidenceUploadStatus,
+} from './resultUtils';
 
 interface JudgmentPhaseStreamState {
   currentPhase: AIStreamPhase | null;
   phaseHistory: AIStreamPhase[];
 }
-
-const storageGetItem = (key: string): string | null => {
-  try {
-    return Storage.prototype.getItem.call(window.localStorage, key);
-  } catch {
-    return null;
-  }
-};
-
-const storageSetItem = (key: string, value: string) => {
-  try {
-    Storage.prototype.setItem.call(window.localStorage, key, value);
-  } catch {
-    // ignore storage failures
-  }
-};
-
-const storageRemoveItem = (key: string) => {
-  try {
-    Storage.prototype.removeItem.call(window.localStorage, key);
-  } catch {
-    // ignore storage failures
-  }
-};
-
-const AIAnalyzingAnimation = ({
-  tips,
-  currentPhase,
-  phaseHistory,
-}: {
-  tips?: ContentItem[];
-  currentPhase?: AIStreamPhase | null;
-  phaseHistory?: AIStreamPhase[];
-}) => {
-  const [tipIndex, setTipIndex] = useState(0);
-  const safeTips = Array.isArray(tips) ? tips : [];
-
-  useEffect(() => {
-    if (safeTips.length === 0) return;
-    const timer = setInterval(() => {
-      setTipIndex(prev => (prev + 1) % safeTips.length);
-    }, 8000);
-    return () => clearInterval(timer);
-  }, [safeTips]);
-
-  const currentTip = safeTips.length > 0 ? safeTips[tipIndex] : null;
-  return (
-    <div className="ai-analyzing-container">
-      <motion.div
-        className="ai-analyzing-spinner"
-        animate={{ scale: [1, 1.2, 1], rotate: [0, 180, 360], filter: ['hue-rotate(0deg)', 'hue-rotate(90deg)', 'hue-rotate(0deg)'] }}
-        transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
-      />
-      <motion.h2
-        animate={{ opacity: [0.5, 1, 0.5] }}
-        transition={{ duration: 2, repeat: Infinity }}
-      >
-        {t('quickResult.analyzingTitle')}
-      </motion.h2>
-      <Text>{t('quickResult.analyzingSubtitle')}</Text>
-
-      {currentPhase ? (
-        <div className="ai-analyzing-tip-card">
-          <div className="ai-analyzing-tip-header">
-            <BulbOutlined />
-            <Text strong>{t('quickResult.livePhaseBadge')}</Text>
-          </div>
-          <Text className="ai-analyzing-tip-content">{t(`quickResult.phase.${currentPhase}`)}</Text>
-          <AIPhaseTimeline
-            currentPhase={currentPhase}
-            phaseHistory={phaseHistory ?? []}
-            getLabel={(phase) => t(`quickResult.phase.${phase}`)}
-            className="ai-analyzing-phase-timeline"
-            itemClassName="ai-analyzing-phase-item"
-            activeItemClassName="ai-analyzing-phase-item--active"
-            completedItemClassName="ai-analyzing-phase-item--completed"
-            pendingItemClassName="ai-analyzing-phase-item--pending"
-          />
-        </div>
-      ) : null}
-
-      {currentTip && (
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={tipIndex}
-            className="ai-analyzing-tip-card"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.5 }}
-          >
-            <div className="ai-analyzing-tip-header">
-              <BulbOutlined />
-              <Text strong>{t('quickResult.thinkingBadge')}</Text>
-            </div>
-            <Text className="ai-analyzing-tip-content">
-              <AIThinkingIndicator
-                text={currentTip.content}
-                className="ai-analyzing-thinking"
-                dotsClassName="ai-analyzing-thinking-dots"
-              />
-            </Text>
-          </motion.div>
-        </AnimatePresence>
-      )}
-    </div>
-  );
-};
 
 const QuickExperienceResult = () => {
   const { id } = useParams<{ id: string }>();
@@ -164,7 +67,7 @@ const QuickExperienceResult = () => {
   const [judgmentErrorCode, setJudgmentErrorCode] = useState<string | null>(null);
   const [caseStatus, setCaseStatus] = useState<string | null>(null);
   const [judgmentFailureReason, setJudgmentFailureReason] = useState<string | null>(null);
-  const [evidenceUploadStatus, setEvidenceUploadStatus] = useState<'success' | 'failed' | 'pending' | null>(null);
+  const [evidenceUploadStatus, setEvidenceUploadStatus] = useState<EvidenceUploadStatus>(null);
   const [isUploading, setIsUploading] = useState(false);
   
   const [tips, setTips] = useState<ContentItem[]>([]);
@@ -172,6 +75,7 @@ const QuickExperienceResult = () => {
   const pollingEverStartedRef = useRef(false);
   const stopPollingRef = useRef<(() => void) | null>(null);
   const retryJudgmentLockRef = useRef(false);
+  const sessionJudgmentErrorHandledRef = useRef(false);
 
   const loadTips = useCallback(async () => {
     try {
@@ -184,7 +88,16 @@ const QuickExperienceResult = () => {
 
   useEffect(() => { loadTips(); }, [loadTips]);
 
-  const caseSessionId = id ? caseSessionMap.get(id) || sessionStorage.get() || session?.session_id : null;
+  const caseMappedSessionId = id ? caseSessionMap.get(id) : null;
+  const globalSessionId = id && !caseMappedSessionId ? sessionStorage.get() : null;
+  const storeSessionId = id && !caseMappedSessionId && !globalSessionId ? session?.session_id : null;
+  const caseSessionId = id
+    ? resolveQuickResultSessionId({
+        caseSessionId: caseMappedSessionId,
+        globalSessionId,
+        storeSessionId,
+      })
+    : null;
   const registerTargetState = useMemo(
     () => ({ from: { pathname: location.pathname } }),
     [location.pathname]
@@ -229,6 +142,8 @@ const QuickExperienceResult = () => {
   const phaseHistory = phaseStreamState.phaseHistory;
 
   const fetchJudgment = useCallback(async (): Promise<Judgment | null> => {
+    if (sessionJudgmentErrorHandledRef.current) return null;
+
     if (!id) {
       if (mountedRef.current) {
         message.error(t('message.caseIdMissing'));
@@ -248,7 +163,7 @@ const QuickExperienceResult = () => {
     } catch (error: unknown) {
       if (!mountedRef.current) return null;
       const err = error as { code?: string; message?: string };
-      if (err.code === 'JUDGMENT_PENDING' || err.code === 'HTTP_404' || err.code === 'JUDGMENT_NOT_FOUND') {
+      if (isPendingJudgmentErrorCode(err.code)) {
         return null;
       }
       if (err.code === 'JUDGMENT_FAILED') {
@@ -257,7 +172,8 @@ const QuickExperienceResult = () => {
         stopPollingRef.current?.();
         return null;
       }
-      if (err.code === 'SESSION_EXPIRED' || err.code === 'SESSION_ID_REQUIRED' || err.code === 'INVALID_SESSION_ID') {
+      if (isSessionJudgmentErrorCode(err.code)) {
+        sessionJudgmentErrorHandledRef.current = true;
         setJudgmentErrorCode(err.code as string);
         setJudgmentError(getErrorMessage(error, 'error.session.expiredHint'));
         stopPollingRef.current?.();
@@ -271,11 +187,8 @@ const QuickExperienceResult = () => {
     }
   }, [caseSessionId, id, mountedRef, navigate]);
 
-  const responsibilityRatioMemo = useMemo(() =>
-    judgment ? (judgment.responsibility_ratio ?? { plaintiff: judgment.plaintiff_ratio, defendant: judgment.defendant_ratio })
-             : { plaintiff: 0, defendant: 0 },
-    [judgment]
-  );
+  const responsibilityRatioMemo = useMemo(() => getResponsibilityRatio(judgment), [judgment]);
+  const shouldShowResponsibilityRatio = shouldRenderResponsibilityRatio(judgment);
 
   const { startPolling, stopPolling, isPolling } = usePolling(
     fetchJudgment,
@@ -296,20 +209,14 @@ const QuickExperienceResult = () => {
         setJudgmentFailureReason(case_.judgment_failure_reason);
       }
 
-      const canUploadEvidence = ['draft', 'submitted', 'in_progress'].includes(status);
-      if (!canUploadEvidence) {
+      const pendingEvidenceKey = getPendingEvidenceStorageKey(caseId);
+      if (!canUploadEvidenceForCaseStatus(status)) {
         setEvidenceUploadStatus(null);
-        storageRemoveItem(`pending_evidence_${caseId}`);
+        storageRemoveItem(pendingEvidenceKey);
         return case_;
       }
 
-      if (case_.evidences && Array.isArray(case_.evidences) && case_.evidences.length > 0) {
-        setEvidenceUploadStatus('success');
-      } else if (storageGetItem(`pending_evidence_${caseId}`)) {
-        setEvidenceUploadStatus('pending');
-      } else {
-        setEvidenceUploadStatus(null);
-      }
+      setEvidenceUploadStatus(getEvidenceUploadStatusFromCase(case_, Boolean(storageGetItem(pendingEvidenceKey))));
       return case_;
     } catch (error) {
       if (!mountedRef.current) return null;
@@ -367,7 +274,12 @@ const QuickExperienceResult = () => {
 
     setIsUploading(true); setEvidenceUploadStatus('pending');
     try {
-      const sessionIdToUse = caseSessionId || sessionStorage.get() || session?.session_id;
+      const fallbackSessionId = caseSessionId ? null : sessionStorage.get();
+      const sessionIdToUse = resolveQuickResultSessionId({
+        caseSessionId,
+        globalSessionId: fallbackSessionId,
+        storeSessionId: fallbackSessionId ? null : session?.session_id,
+      });
       if (!sessionIdToUse) {
         if (mountedRef.current) {
           message.error(t('message.sessionIdMissing'));
@@ -380,7 +292,7 @@ const QuickExperienceResult = () => {
       if (!mountedRef.current) return;
       message.success(t('message.evidenceUploadSuccess'));
       setEvidenceUploadStatus('success');
-      storageRemoveItem(`pending_evidence_${caseId}`);
+      storageRemoveItem(getPendingEvidenceStorageKey(caseId));
       try {
         await fetchCase();
       } catch (refreshErr) {
@@ -390,7 +302,7 @@ const QuickExperienceResult = () => {
       if (!mountedRef.current) return;
       message.error(getErrorMessage(error, 'message.evidenceUploadFail'));
       setEvidenceUploadStatus('failed');
-      storageSetItem(`pending_evidence_${caseId}`, 'true');
+      storageSetItem(getPendingEvidenceStorageKey(caseId), 'true');
     } finally {
       if (mountedRef.current) setIsUploading(false);
     }
@@ -403,6 +315,7 @@ const QuickExperienceResult = () => {
     setJudgmentFailureReason(null);
     setCaseStatus(null);
     setEvidenceUploadStatus(null);
+    sessionJudgmentErrorHandledRef.current = false;
     pollingEverStartedRef.current = false;
     fetchJudgment();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -417,14 +330,14 @@ const QuickExperienceResult = () => {
 
   if (isLoading && !judgment) {
     return (
-      <div className="loading-container">
+      <div className="quick-experience-result-state loading-container">
         <AIAnalyzingAnimation tips={tips} currentPhase={streamPhase} phaseHistory={phaseHistory} />
       </div>
     );
   }
 
   if (error && !judgment) return (
-    <div className="error-container">
+    <div className="quick-experience-result-state error-container">
       <AIErrorState
         title={t('error.fetch.title')}
         description={error}
@@ -438,10 +351,10 @@ const QuickExperienceResult = () => {
   );
 
   if (judgmentError !== null || caseStatus === 'judgment_failed') {
-    const isSessionExpired = ['SESSION_EXPIRED', 'SESSION_ID_REQUIRED', 'INVALID_SESSION_ID'].includes(judgmentErrorCode!);
-    const isJudgmentFailed = judgmentErrorCode === 'JUDGMENT_FAILED' || caseStatus === 'judgment_failed';
+    const isSessionExpired = isSessionJudgmentErrorCode(judgmentErrorCode);
+    const isJudgmentFailed = isJudgmentFailedState(judgmentErrorCode, caseStatus);
     return (
-      <div className="error-container">
+      <div className="quick-experience-result-state error-container">
         <AIErrorState
           title={isSessionExpired ? t('error.session.title') : isJudgmentFailed ? t('error.judgment.title') : t('error.fetch.title')}
           description={isJudgmentFailed && judgmentFailureReason ? `${t('error.judgment.failureReasonPrefix')}${judgmentFailureReason}` : judgmentError || (isSessionExpired ? t('error.session.expiredHint') : t('message.retryOrLater'))}
@@ -475,7 +388,7 @@ const QuickExperienceResult = () => {
   if (!judgment) {
     const isTimeout = pollingEverStartedRef.current && !isPolling;
     return (
-      <div className="loading-container">
+      <div className="quick-experience-result-state loading-container">
         {isTimeout ? (
           <AIErrorState
             title={t('pending.long.message')}
@@ -506,7 +419,7 @@ const QuickExperienceResult = () => {
         
         <ResultHeader />
         <SummarySection summary={judgment.summary} />
-        <ResponsibilitySection ratio={responsibilityRatioMemo} />
+        {shouldShowResponsibilityRatio && <ResponsibilitySection ratio={responsibilityRatioMemo} />}
         {judgment.judgment_content && <JudgmentSection content={judgment.judgment_content} />}
 
         <EvidenceUploadSection status={evidenceUploadStatus} caseId={id as string} isUploading={isUploading} onUploadFiles={handleEvidenceUpload} />

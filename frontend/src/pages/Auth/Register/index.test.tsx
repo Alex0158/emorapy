@@ -83,6 +83,9 @@ async function advanceToStep2() {
 describe('Register', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRegister.mockReset();
+    mockSendVerificationCode.mockReset();
+    mockVerifyEmail.mockReset();
   });
 
   it('Step 0: 應顯示歡迎標題與郵箱表單', () => {

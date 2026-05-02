@@ -87,7 +87,9 @@ describe('judgment API', () => {
     it('成功時應返回 Judgment', async () => {
       mockGet.mockResolvedValue({ data: { data: { judgment: mockJudgment } } });
       const result = await getJudgmentByCaseId('c1');
-      expect(mockGet).toHaveBeenCalledWith('/cases/c1/judgment', undefined);
+      expect(mockGet).toHaveBeenCalledWith('/cases/c1/judgment', {
+        metadata: { suppressGlobalSessionToast: true },
+      });
       expect(result).toEqual(mockJudgment);
     });
 
@@ -96,6 +98,7 @@ describe('judgment API', () => {
       await getJudgmentByCaseId('c1', 's-2');
       expect(mockGet).toHaveBeenCalledWith('/cases/c1/judgment', {
         headers: { 'X-Session-Id': 's-2' },
+        metadata: { suppressGlobalSessionToast: true },
       });
     });
 

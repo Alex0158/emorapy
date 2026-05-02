@@ -23,72 +23,20 @@ import {
 	registerCancelableRequest,
 	unregisterCancelableRequest,
 } from "@/services/requestCancel";
+import {
+	clearAdminSessionStorage,
+	type ExtendedAxiosRequestConfig,
+	getFailedRequestSessionId,
+	getHttpErrorData,
+	isAdminApiRequest,
+	isRecoverableSessionErrorCode,
+	isUploadRequest,
+	safeNavigate,
+	shouldResetAdminSessionOn401,
+	shouldSuppressConflictToast,
+	shouldSuppressNotFoundToast,
+} from "@/services/requestPolicy";
 import { sessionStorage as quickSessionStorage } from "@/utils/storage";
-
-// 擴展 InternalAxiosRequestConfig 以支持 metadata
-interface ExtendedAxiosRequestConfig extends InternalAxiosRequestConfig {
-	metadata?: {
-		requestId?: string;
-	};
-}
-
-// 後端錯誤響應體（success: false 時）
-interface ApiErrorResponseBody {
-	success: false;
-	error?: ApiError;
-}
-
-function getFailedRequestSessionId(
-	config?: { params?: Record<string, unknown>; headers?: Record<string, unknown> },
-): string | undefined {
-	const sessionIdFromParams = config?.params?.session_id;
-	if (typeof sessionIdFromParams === "string" && sessionIdFromParams) {
-		return sessionIdFromParams;
-	}
-
-	const headers = config?.headers ?? {};
-	const headerValue =
-		headers["X-Session-Id"] ??
-		headers["x-session-id"];
-
-	return typeof headerValue === "string" && headerValue ? headerValue : undefined;
-}
-
-function safeNavigate(url: string): void {
-	if (
-		typeof navigator !== "undefined" &&
-		typeof navigator.userAgent === "string" &&
-		navigator.userAgent.toLowerCase().includes("jsdom")
-	) {
-		return;
-	}
-	try {
-		window.location.href = url;
-	} catch {
-		// 在測試環境或受限執行環境下，導航 API 可能不可用；忽略不影響主流程
-	}
-}
-
-function isAdminApiRequest(url: string): boolean {
-	const trimmed = url.trim();
-	if (!trimmed) return false;
-	if (trimmed.startsWith("/admin") || trimmed.startsWith("/api/v1/admin")) return true;
-	try {
-		const parsed = new URL(trimmed);
-		return (
-			parsed.pathname.startsWith("/admin") ||
-			parsed.pathname.startsWith("/api/v1/admin")
-		);
-	} catch {
-		return false;
-	}
-}
-
-function shouldResetAdminSessionOn401(errorCode?: string): boolean {
-	// 登入失敗（帳密錯）不應觸發全域 admin token 清理與導轉，避免覆蓋頁面內錯誤提示。
-	if (errorCode === "INVALID_CREDENTIALS") return false;
-	return true;
-}
 
 // 創建axios實例
 const request: AxiosInstance = axios.create({
@@ -198,6 +146,19 @@ request.interceptors.request.use(
 		// 跟隨前端語言設定，讓後端錯誤與提示文案可同步切換
 		config.headers["X-Locale"] = getLocale();
 
+		// FormData（頭像、證據等）須由瀏覽器自動帶 multipart boundary；
+		// 預設 Content-Type: application/json 會覆蓋 boundary，導致後端無法解析檔案而回 400「驗證失敗」
+		if (typeof FormData !== "undefined" && config.data instanceof FormData) {
+			const h = config.headers;
+			if (h && typeof (h as { delete?: (key: string) => void }).delete === "function") {
+				(h as { delete: (key: string) => void }).delete("Content-Type");
+				(h as { delete: (key: string) => void }).delete("content-type");
+			} else if (h && typeof h === "object") {
+				delete (h as Record<string, unknown>)["Content-Type"];
+				delete (h as Record<string, unknown>)["content-type"];
+			}
+		}
+
 		return config;
 	},
 	(error) => {
@@ -223,8 +184,7 @@ request.interceptors.response.use(
 				return response;
 			}
 			// 如果失敗，轉換為錯誤
-			const errBody = data as ApiErrorResponseBody;
-			const err = errBody.error;
+			const err = getHttpErrorData(data);
 			return Promise.reject({
 				code: err?.code || "API_ERROR",
 				message: err?.message || t("common.requestFail"),
@@ -264,13 +224,7 @@ request.interceptors.response.use(
 		// 處理HTTP錯誤
 		if (response) {
 			const { status, data } = response;
-
-			// 後端統一返回格式：{ success: false, error: { code, message, details } }
-			const errBody = data as unknown as ApiErrorResponseBody | undefined;
-			type ErrorLike = { code?: string; message?: string; details?: unknown };
-			const errorData: ErrorLike =
-				(errBody?.error as ErrorLike) ??
-				(typeof data === "object" && data !== null ? (data as ErrorLike) : {});
+			const errorData = getHttpErrorData(data);
 
 			switch (status) {
 				case 400: {
@@ -305,15 +259,15 @@ request.interceptors.response.use(
 
 				case 401: {
 					const code = errorData?.code;
-          const requestUrl = String(response.config?.url || "");
-          const isAdminRequest = isAdminApiRequest(requestUrl);
+					const requestUrl = String(response.config?.url || "");
+					const isAdminRequest = isAdminApiRequest(requestUrl);
 
 					// 快速體驗 Session 過期/缺失：不導向登入頁（零門檻設計）
-					if (
-						code === "SESSION_EXPIRED" ||
-						code === "SESSION_ID_REQUIRED" ||
-						code === "INVALID_SESSION_ID"
-					) {
+					if (isRecoverableSessionErrorCode(code)) {
+						const suppressGlobalSessionToast = Boolean(
+							(response.config as ExtendedAxiosRequestConfig | undefined)
+								?.metadata?.suppressGlobalSessionToast,
+						);
 						try {
 							const { useSessionStore } = await import("@/store/sessionStore");
 							// 先清理舊 Session，再嘗試換發新 Session，避免 401/403 無限循環
@@ -322,76 +276,61 @@ request.interceptors.response.use(
 							const refreshed = await useSessionStore
 								.getState()
 								.refreshSession(true, staleSessionId);
-							if (refreshed) {
+							if (refreshed && !suppressGlobalSessionToast) {
 								message.warning(
 									errorData?.message || t("common.sessionExpiredRefreshed"),
 								);
-							} else {
+							} else if (!suppressGlobalSessionToast) {
 								message.error(
 									errorData?.message || t("error.session.expiredHint"),
 								);
 							}
 						} catch {
-							message.error(
-								errorData?.message || t("error.session.expiredHint"),
-							);
+							if (!suppressGlobalSessionToast) {
+								message.error(
+									errorData?.message || t("error.session.expiredHint"),
+								);
+							}
 						}
 						break;
 					}
 
-          // Admin API 401：僅在 token/session 失效類錯誤時清理 admin token。
-          if (isAdminRequest && shouldResetAdminSessionOn401(code)) {
-            try {
-              localStorage.removeItem("admin_token");
-              window.sessionStorage.removeItem("admin_token");
-              window.dispatchEvent(new Event("admin-token-changed"));
-            } catch {
-              // 忽略 storage 例外，避免覆蓋原始錯誤處理鏈
-            }
-            const adminLoginUrl = getAdminLoginUrl();
-            if (window.location.pathname.startsWith('/admin')) {
-              if (adminLoginUrl) {
-                safeNavigate(adminLoginUrl);
-              } else {
-                message.error(t("admin.login.urlMissing"));
-              }
-            }
-          } else {
-            // 非 Admin API 401：維持原有前台 user token 清理流程
-					  localStorage.removeItem("token");
-					  window.sessionStorage.removeItem("token");
-					  triggerRequestLogout();
-					  if (window.location.pathname !== "/auth/login") {
-						  safeNavigate("/auth/login");
-					  }
-          } 
-          // Admin API 的 401 由頁面門禁/導轉處理，避免與頁面錯誤提示重複彈窗。
-          if (!isAdminRequest) {
-					  message.error(errorData?.message || t("common.unauthorized"));
-          }
+					// Admin API 401：僅在 token/session 失效類錯誤時清理 admin token。
+					if (isAdminRequest && shouldResetAdminSessionOn401(code)) {
+						clearAdminSessionStorage();
+						const adminLoginUrl = getAdminLoginUrl();
+						if (window.location.pathname.startsWith("/admin")) {
+							if (adminLoginUrl) {
+								safeNavigate(adminLoginUrl);
+							} else {
+								message.error(t("admin.login.urlMissing"));
+							}
+						}
+					} else {
+						// 非 Admin API 401：維持原有前台 user token 清理流程
+						localStorage.removeItem("token");
+						window.sessionStorage.removeItem("token");
+						triggerRequestLogout();
+						if (window.location.pathname !== "/auth/login") {
+							safeNavigate("/auth/login");
+						}
+					}
+					// Admin API 的 401 由頁面門禁/導轉處理，避免與頁面錯誤提示重複彈窗。
+					if (!isAdminRequest) {
+						message.error(errorData?.message || t("common.unauthorized"));
+					}
 					break;
 				}
 
 				case 403:
-          if (!isAdminApiRequest(String(response.config?.url || ""))) {
-					  message.error(errorData?.message || t("common.forbidden"));
-          }
+					if (!isAdminApiRequest(String(response.config?.url || ""))) {
+						message.error(errorData?.message || t("common.forbidden"));
+					}
 					break;
 
 				case 404: {
-					const url = (response.config?.url ?? "") as string;
-					const params = response.config?.params as
-						| { session_id?: string }
-						| undefined;
-					const hasSession = !!(
-						params?.session_id ?? response.config?.headers?.["X-Session-Id"]
-					);
-					if (url.includes("by-session")) {
-						// 快速體驗「找回案件」無案件時 404 屬正常，不彈窗
-						break;
-					}
-					if (url.includes("/cases/") && hasSession) {
-						// 快速體驗 GET /cases/:id 404（案件不存在或已過期），由結果頁處理，不全局彈窗
+					if (shouldSuppressNotFoundToast(response.config)) {
+						// quick case 回收與 session-bound case 404 由頁面處理，不全局彈窗
 						break;
 					}
 					message.error(errorData?.message || t("common.notFound"));
@@ -399,11 +338,7 @@ request.interceptors.response.use(
 				}
 
 				case 409: {
-					const url = (response.config?.url ?? "") as string;
-					if (
-						url.includes("/judgment") &&
-						errorData?.code === "JUDGMENT_FAILED"
-					) {
+					if (shouldSuppressConflictToast(response.config, errorData?.code)) {
 						// 快速體驗結果頁會自行顯示重試，不全局彈窗
 						break;
 					}
@@ -420,7 +355,7 @@ request.interceptors.response.use(
 					break;
 
 				case 429:
-					if ((response.config?.url || "").includes("/uploads")) {
+					if (isUploadRequest(response.config)) {
 						message.error(errorData?.message || t("common.fileRateLimit"));
 					} else {
 						message.error(errorData?.message || t("common.rateLimit"));

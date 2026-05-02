@@ -250,6 +250,25 @@ describe('QuickExperienceResult', () => {
     expect(screen.getByText('ResponsibilitySection:55/45')).toBeInTheDocument();
   });
 
+  it('safety_support 判決不應展示比例卡（F02-BUG-002：安全場景不得呈現對稱責任分配）', async () => {
+    mockGetJudgmentByCaseId.mockResolvedValueOnce({
+      id: 'j-safety',
+      summary: 'safety-summary',
+      judgment_content: 'safety-content',
+      plaintiff_ratio: 20,
+      defendant_ratio: 80,
+      responsibility_ratio: { plaintiff: 20, defendant: 80 },
+      judgment_route: 'safety_support',
+    });
+
+    renderWithRoute('/quick-experience/result/case-1');
+
+    expect(await screen.findByText('ResultHeader')).toBeInTheDocument();
+    expect(screen.getByText('SummarySection')).toBeInTheDocument();
+    expect(screen.getByText('JudgmentSection')).toBeInTheDocument();
+    expect(screen.queryByText('ResponsibilitySection:20/80')).not.toBeInTheDocument();
+  });
+
   it('getContentList 失敗時應不影響頁面渲染（tips 非關鍵，F01 邊界）', async () => {
     mockGetContentList.mockRejectedValueOnce(new Error('content load fail'));
     renderWithRoute('/quick-experience/result/case-1');

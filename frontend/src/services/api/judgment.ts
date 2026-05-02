@@ -49,8 +49,8 @@ export const getJudgmentByCaseId = async (
 ): Promise<Judgment | null> => {
   try {
     const config = sessionId
-      ? { headers: { 'X-Session-Id': sessionId } as Record<string, string> }
-      : undefined;
+      ? { headers: { 'X-Session-Id': sessionId } as Record<string, string>, metadata: { suppressGlobalSessionToast: true } }
+      : { metadata: { suppressGlobalSessionToast: true } };
     const response = await request.get<ApiResponse<{ judgment: Judgment }>>(
       `/cases/${caseId}/judgment`,
       config
@@ -81,4 +81,3 @@ export const acceptJudgment = async (
   if (!result) throw new Error('Invalid judgment response from server');
   return result;
 };
-

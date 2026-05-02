@@ -23,6 +23,12 @@ describe('safeParsePlanContent', () => {
       description: '描述文字',
       steps: ['步驟一', '步驟二'],
       expected_effect: '預期效果',
+      fit_reason: '',
+      do_not_use_when: [],
+      first_step: '',
+      fallback_step: '',
+      pause_rule: '',
+      risk_note: '',
     });
   });
 

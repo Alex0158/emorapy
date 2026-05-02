@@ -14,7 +14,7 @@ const mockGetAuthUserId = jest.fn();
 
 jest.mock('../../../src/services/notification.service', () => ({
   notificationService: {
-    list: (userId: string, status?: string) => mockList(userId, status),
+    list: (userId: string, filters?: unknown) => mockList(userId, filters),
     create: (userId: string, data: unknown) => mockCreate(userId, data),
   },
 }));
@@ -39,39 +39,51 @@ describe('NotificationController', () => {
 
   describe('list', () => {
     it('無通知時應返回 notifications 空陣列（F09/F10 邊界）', async () => {
-      mockList.mockResolvedValue([]);
+      mockList.mockResolvedValue({ items: [], nextCursor: null, hasMore: false });
 
       await controller.list(req as Request, res as Response, next);
 
       expect(res.json).toHaveBeenCalledWith({
         success: true,
-        data: { notifications: [] },
+        data: { notifications: [], next_cursor: null, has_more: false },
       });
       expect(next).not.toHaveBeenCalled();
     });
 
     it('成功應調用 list 並返回 notifications', async () => {
       const notifications = [{ id: 'n1', user_id: 'u1' }];
-      mockList.mockResolvedValue(notifications);
+      mockList.mockResolvedValue({ items: notifications, nextCursor: 'n2', hasMore: true });
 
       await controller.list(req as Request, res as Response, next);
 
       expect(mockGetAuthUserId).toHaveBeenCalledWith(req);
-      expect(mockList).toHaveBeenCalledWith('u1', undefined);
+      expect(mockList).toHaveBeenCalledWith('u1', {
+        status: undefined,
+        state: undefined,
+        templateCode: undefined,
+        limit: undefined,
+        cursor: undefined,
+      });
       expect(res.json).toHaveBeenCalledWith({
         success: true,
-        data: { notifications },
+        data: { notifications, next_cursor: 'n2', has_more: true },
       });
       expect(next).not.toHaveBeenCalled();
     });
 
     it('有 status query 時應傳入 list', async () => {
       req.query = { status: 'sent' };
-      mockList.mockResolvedValue([]);
+      mockList.mockResolvedValue({ items: [], nextCursor: null, hasMore: false });
 
       await controller.list(req as Request, res as Response, next);
 
-      expect(mockList).toHaveBeenCalledWith('u1', 'sent');
+      expect(mockList).toHaveBeenCalledWith('u1', {
+        status: 'sent',
+        state: undefined,
+        templateCode: undefined,
+        limit: undefined,
+        cursor: undefined,
+      });
     });
 
     it('status 無效時應拋出 VALIDATION_ERROR', async () => {
@@ -108,6 +120,9 @@ describe('NotificationController', () => {
         template_code: 'welcome',
         payload: {},
         dedup_key: undefined,
+        action_key: undefined,
+        priority: undefined,
+        group_key: undefined,
       });
       expect(res.status).toHaveBeenCalledWith(201);
       expect(res.json).toHaveBeenCalledWith({

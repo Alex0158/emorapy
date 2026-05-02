@@ -4,11 +4,18 @@
   "version": "1.3.4",
   "workspaces": [
     "frontend",
-    "frontend-admin"
+    "frontend-admin",
+    "packages/*"
   ],
   "scripts": {
-    "vercel-build": "npm install --include=optional && npm run build --workspace frontend-admin",
+    "contracts:build": "npm run build --workspace @cj/contracts",
+    "api-client:build": "npm run build --workspace @cj/api-client",
+    "vercel-build": "npm run contracts:build && npm run api-client:build && npm run build --workspace frontend-admin",
     "build": "npm run vercel-build",
+    "docs:check": "npm run docs:check:structure && npm run docs:check:truth",
+    "docs:check:structure": "node scripts/check-docs-structure.mjs",
+    "docs:check:truth": "node scripts/check-docs-truth.mjs",
+    "docs:audit:sync": "node scripts/sync-core-docs-metadata.mjs && node scripts/generate-core-docs-audit-ledger.mjs",
     "smoke:staging": "bash scripts/smoke-staging.sh",
     "manual-regression:init": "node scripts/init-manual-regression-batch.mjs",
     "manual-regression:check": "node scripts/check-manual-regression-status.mjs",
@@ -16,5 +23,8 @@
     "manual-regression:summarize": "node scripts/summarize-manual-regression.mjs",
     "manual-regression:mark": "node scripts/mark-manual-regression-result.mjs",
     "manual-regression:gate": "node scripts/run-manual-regression-gate.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.58.2"
   }
 }

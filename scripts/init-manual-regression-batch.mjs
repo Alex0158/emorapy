@@ -1,5 +1,10 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import {
+  MANUAL_REGRESSION_EVIDENCE_SEGMENTS,
+  joinRepoPath,
+  joinRepoRelativePath,
+} from './lib/docs-paths.mjs';
 
 const FLOWS = [
   { id: 'P01', name: '快速體驗閉環' },
@@ -101,6 +106,12 @@ function flowReadme(flowId) {
 }
 
 function flowRecord(flow, date) {
+  const evidencePath = joinRepoRelativePath([
+    ...MANUAL_REGRESSION_EVIDENCE_SEGMENTS,
+    date,
+    flow.id,
+  ]);
+
   return `# ${flow.id} 手動回歸記錄
 
 - 狀態：
@@ -108,7 +119,7 @@ function flowRecord(flow, date) {
 - 時間：
 - 瀏覽器/裝置：
 - 測試帳號：
-- 截圖/錄屏：docs/核心開發文件/發版前手動回歸證據/${date}/${flow.id}/
+- 截圖/錄屏：${evidencePath}/
 - 問題類型：
 - 問題描述：
 
@@ -127,7 +138,7 @@ async function main() {
   }
 
   const repoRoot = path.resolve(new URL('.', import.meta.url).pathname, '..');
-  const evidenceRoot = path.join(repoRoot, 'docs', '核心開發文件', '發版前手動回歸證據');
+  const evidenceRoot = joinRepoPath(repoRoot, MANUAL_REGRESSION_EVIDENCE_SEGMENTS);
   const dateDir = path.join(evidenceRoot, date);
 
   await fs.mkdir(dateDir, { recursive: true });

@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { MANUAL_REGRESSION_EVIDENCE_SEGMENTS, joinRepoPath } from './lib/docs-paths.mjs';
 
 const FLOWS = new Set(['P01', 'P02', 'P03', 'P04', 'P05']);
 const STATUS = new Set(['PASS', 'FAIL', 'BLOCKED']);
@@ -113,7 +114,7 @@ async function main() {
   }
 
   const repoRoot = path.resolve(new URL('.', import.meta.url).pathname, '..');
-  const evidenceRoot = path.join(repoRoot, 'docs', '核心開發文件', '發版前手動回歸證據');
+  const evidenceRoot = joinRepoPath(repoRoot, MANUAL_REGRESSION_EVIDENCE_SEGMENTS);
   const targetDate = await resolveEvidenceDate(evidenceRoot, args.date);
   const recordPath = path.join(evidenceRoot, targetDate, args.flow, 'record.md');
   let content = await fs.readFile(recordPath, 'utf8');

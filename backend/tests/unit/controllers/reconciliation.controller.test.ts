@@ -53,15 +53,16 @@ describe('ReconciliationController', () => {
       req.params = { id: 'judge-1' };
       req.body = { preferences: { difficulty: 'easy' } };
       const plans = [{ id: 'plan-1', plan_type: 'activity' }];
-      mockGeneratePlans.mockResolvedValue(plans);
+      const bundle = { plans, recommended_plan_id: 'plan-1' };
+      mockGeneratePlans.mockResolvedValue(bundle);
 
       await controller.generatePlans(req as Request, res as Response, next);
 
       expect(mockGetAuthUserId).toHaveBeenCalledWith(req);
-      expect(mockGeneratePlans).toHaveBeenCalledWith('judge-1', { difficulty: 'easy' }, 'u1');
+      expect(mockGeneratePlans).toHaveBeenCalledWith('judge-1', { preferences: { difficulty: 'easy' } }, 'u1');
       expect(res.json).toHaveBeenCalledWith({
         success: true,
-        data: { plans },
+        data: bundle,
         message: '和好方案已生成',
       });
       expect(next).not.toHaveBeenCalled();
@@ -82,7 +83,7 @@ describe('ReconciliationController', () => {
     it('無方案時應返回 plans 空陣列（F05 邊界）', async () => {
       req.params = { id: 'judge-1' };
       req.query = {};
-      mockGetPlansByJudgmentId.mockResolvedValue([]);
+      mockGetPlansByJudgmentId.mockResolvedValue({ plans: [] });
 
       await controller.getPlans(req as Request, res as Response, next);
 
@@ -97,15 +98,17 @@ describe('ReconciliationController', () => {
       req.params = { id: 'judge-1' };
       req.query = { difficulty: 'easy', type: 'activity' };
       const plans = [{ id: 'plan-1' }];
-      mockGetPlansByJudgmentId.mockResolvedValue(plans);
+      const bundle = { plans };
+      mockGetPlansByJudgmentId.mockResolvedValue(bundle);
 
       await controller.getPlans(req as Request, res as Response, next);
 
       expect(mockGetPlansByJudgmentId).toHaveBeenCalledWith('judge-1', 'u1', {
         difficulty: 'easy',
         type: 'activity',
+        intent: undefined,
       });
-      expect(res.json).toHaveBeenCalledWith({ success: true, data: { plans } });
+      expect(res.json).toHaveBeenCalledWith({ success: true, data: bundle });
     });
 
     it('getPlans 拋錯時應 next(error)', async () => {
@@ -154,7 +157,7 @@ describe('ReconciliationController', () => {
       expect(res.json).toHaveBeenCalledWith({
         success: true,
         data: { plan },
-        message: '方案已選擇',
+        message: '已記下你的承諾',
       });
     });
 

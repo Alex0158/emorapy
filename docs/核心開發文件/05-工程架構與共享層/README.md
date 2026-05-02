@@ -18,9 +18,9 @@
 
 本子域的固定前提：
 
-1. root npm workspaces 目前只包含 `frontend/` 與 `frontend-admin/`
-2. `backend/`、`mobile/`、`packages/*` 都是 repo-local 目錄，不是 root workspace
-3. 共享 alias 的接線狀態必須以各自 `tsconfig` 與真實 import 為準，不按理想化 monorepo 假設寫正文
+1. root npm workspaces 目前包含 `frontend/`、`frontend-admin/` 與 `packages/*`
+2. `backend/`、`mobile/` 仍是 repo-local 目錄，不是 root workspace
+3. 共享 alias 的接線狀態必須以各自 `tsconfig` 與真實 import 為準，不按理想化 monorepo 假設寫正文；`frontend-admin/` 目前已局部接入 `@cj/contracts` 與 `@cj/api-client` transport baseline
 
 本子域不回答：
 

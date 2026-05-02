@@ -297,11 +297,11 @@ Create a vertical 9:16 image. Vertical 9:16 cinematic social ad for relationship
 ## 11. 資產與後製
 
 
-| 項目       | 說明                                                    |
-| -------- | ----------------------------------------------------- |
-| 預期即夢片段數  | **5** 條（對應 5 鏡），剪映拼接為 20 秒                            |
-| 剪輯軟體     | 剪映／Premiere                                           |
-| 匯出檔名（成片） | `CJ_E-alpha_counseling-cost_9x16_20s_v1.mp4`          |
+| 項目       | 說明                                                 |
+| -------- | -------------------------------------------------- |
+| 預期即夢片段數  | **5** 條（對應 5 鏡），剪映拼接為 20 秒                         |
+| 剪輯軟體     | 剪映／Premiere                                        |
+| 匯出檔名（成片） | `CJ_E-alpha_counseling-cost_9x16_20s_v1.mp4`       |
 | 素材資料夾建議  | `核心營銷文件/campaigns/assets/E-alpha-counseling-cost/` |
 
 

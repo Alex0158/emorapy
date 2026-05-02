@@ -729,10 +729,16 @@ async function main() {
     validationCode,
     frontendVersionInfoCode,
     frontendAdminVersionInfoCode,
+    exportStaticPagesCode,
+    ciWorkflowCode,
+    rootVercelJsonRaw,
+    frontendAdminVercelJsonRaw,
     manualGateScriptCode,
     criticalE2ESkipGuardCode,
     rootPackageJsonRaw,
     frontendPackageJsonRaw,
+    frontendAdminPackageJsonRaw,
+    packageLockJsonRaw,
     frontendTsconfigRaw,
     frontendAdminTsconfigRaw,
     backendTsconfigRaw,
@@ -823,10 +829,16 @@ async function main() {
     fs.readFile(path.join(repoRoot, 'backend', 'src', 'utils', 'validation.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'frontend', 'src', 'utils', 'versionInfo.ts'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'frontend-admin', 'src', 'utils', 'versionInfo.ts'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'scripts', 'export-static-pages.mjs'), 'utf8'),
+    fs.readFile(path.join(repoRoot, '.github', 'workflows', 'ci.yml'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'vercel.json'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'frontend-admin', 'vercel.json'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'scripts', 'run-manual-regression-gate.mjs'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'scripts', 'check-critical-e2e-skips.mjs'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'package.json'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'frontend', 'package.json'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'frontend-admin', 'package.json'), 'utf8'),
+    fs.readFile(path.join(repoRoot, 'package-lock.json'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'frontend', 'tsconfig.app.json'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'frontend-admin', 'tsconfig.app.json'), 'utf8'),
     fs.readFile(path.join(repoRoot, 'backend', 'tsconfig.json'), 'utf8'),
@@ -835,7 +847,11 @@ async function main() {
   ]);
   const latestManualRegression = await readLatestManualRegressionSummary();
   const rootPackageJson = JSON.parse(rootPackageJsonRaw);
+  const rootVercelJson = JSON.parse(rootVercelJsonRaw);
+  const frontendAdminVercelJson = JSON.parse(frontendAdminVercelJsonRaw);
   const frontendPackageJson = JSON.parse(frontendPackageJsonRaw);
+  const frontendAdminPackageJson = JSON.parse(frontendAdminPackageJsonRaw);
+  const packageLockJson = JSON.parse(packageLockJsonRaw);
   const frontendTsconfigText = frontendTsconfigRaw;
   const frontendAdminTsconfigText = frontendAdminTsconfigRaw;
   const backendTsconfigText = backendTsconfigRaw;
@@ -1648,18 +1664,173 @@ async function main() {
     ? rootPackageJson.workspaces
     : [];
   if (
-    rootWorkspaces.length === 2 &&
     rootWorkspaces.includes('frontend') &&
-    rootWorkspaces.includes('frontend-admin')
+    rootWorkspaces.includes('frontend-admin') &&
+    rootWorkspaces.includes('packages/*')
   ) {
     const workspaceTokens = [
-      ['05-工程架構與共享層/00-工程架構與共享層總覽.md', architectureOverviewDoc, 'root npm workspaces 目前只有 `frontend/` 與 `frontend-admin/`'],
+      ['05-工程架構與共享層/00-工程架構與共享層總覽.md', architectureOverviewDoc, 'root npm workspaces 目前包含 `frontend/`、`frontend-admin/` 與 `packages/*`'],
       ['05-工程架構與共享層/01-本地開發與工作區基線.md', workspaceBaselineDoc, 'root workspace'],
-      ['05-工程架構與共享層/Repo平台分層與共享規範.md', repoLayerSpecDoc, '不進 root workspace'],
+      ['05-工程架構與共享層/Repo平台分層與共享規範.md', repoLayerSpecDoc, '`packages/*` 已進入 root workspace'],
     ];
     for (const [docName, docContent, token] of workspaceTokens) {
       if (!docContent.includes(token)) {
         issues.push(`[truth/batch3-architecture] ${docName} missing workspace-contract token: ${token}`);
+      }
+    }
+  }
+
+  const packageLockRootWorkspaces = Array.isArray(packageLockJson.packages?.['']?.workspaces)
+    ? packageLockJson.packages[''].workspaces
+    : [];
+  if (
+    rootWorkspaces.includes('packages/*') &&
+    !packageLockRootWorkspaces.includes('packages/*')
+  ) {
+    issues.push('[truth/batch3-architecture] package-lock.json root workspaces missing packages/*');
+  }
+
+  const internalWorkspacePackages = [
+    ['@cj/contracts', 'packages/contracts'],
+    ['@cj/api-client', 'packages/api-client'],
+  ];
+  for (const [packageName, workspacePath] of internalWorkspacePackages) {
+    const workspaceVersion = packageLockJson.packages?.[workspacePath]?.version;
+    const lockLink = packageLockJson.packages?.[`node_modules/${packageName}`];
+    if (!workspaceVersion) {
+      issues.push(`[truth/batch3-architecture] package-lock.json missing workspace package entry: ${workspacePath}`);
+    }
+    if (lockLink?.resolved !== workspacePath || lockLink?.link !== true) {
+      issues.push(`[truth/batch3-architecture] package-lock.json missing workspace link for ${packageName}`);
+    }
+  }
+
+  const frontendDeps = frontendPackageJson.dependencies || {};
+  const frontendAdminDeps = frontendAdminPackageJson.dependencies || {};
+  const contractsVersion = packageLockJson.packages?.['packages/contracts']?.version;
+  const apiClientVersion = packageLockJson.packages?.['packages/api-client']?.version;
+  const frontendContractsSpec = frontendDeps['@cj/contracts'];
+  const frontendAdminContractsSpec = frontendAdminDeps['@cj/contracts'];
+  const frontendAdminApiClientSpec = frontendAdminDeps['@cj/api-client'];
+
+  if (frontendContractsSpec !== contractsVersion) {
+    issues.push(
+      `[truth/batch3-architecture] frontend/package.json @cj/contracts dependency mismatch: manifest=${frontendContractsSpec ?? 'missing'} workspace=${contractsVersion ?? 'missing'}`
+    );
+  }
+  if (frontendAdminContractsSpec !== contractsVersion) {
+    issues.push(
+      `[truth/batch3-architecture] frontend-admin/package.json @cj/contracts dependency mismatch: manifest=${frontendAdminContractsSpec ?? 'missing'} workspace=${contractsVersion ?? 'missing'}`
+    );
+  }
+  if (frontendAdminApiClientSpec !== apiClientVersion) {
+    issues.push(
+      `[truth/batch3-architecture] frontend-admin/package.json @cj/api-client dependency mismatch: manifest=${frontendAdminApiClientSpec ?? 'missing'} workspace=${apiClientVersion ?? 'missing'}`
+    );
+  }
+
+  const frontendLockDeps = packageLockJson.packages?.frontend?.dependencies || {};
+  const frontendAdminLockDeps = packageLockJson.packages?.['frontend-admin']?.dependencies || {};
+  if (frontendLockDeps['@cj/contracts'] !== frontendContractsSpec) {
+    issues.push('[truth/batch3-architecture] package-lock.json frontend @cj/contracts dependency is out of sync');
+  }
+  if (frontendAdminLockDeps['@cj/contracts'] !== frontendAdminContractsSpec) {
+    issues.push('[truth/batch3-architecture] package-lock.json frontend-admin @cj/contracts dependency is out of sync');
+  }
+  if (frontendAdminLockDeps['@cj/api-client'] !== frontendAdminApiClientSpec) {
+    issues.push('[truth/batch3-architecture] package-lock.json frontend-admin @cj/api-client dependency is out of sync');
+  }
+
+  if (
+    frontendContractsSpec === contractsVersion &&
+    frontendAdminContractsSpec === contractsVersion &&
+    frontendAdminApiClientSpec === apiClientVersion
+  ) {
+    const manifestDependencyTokens = [
+      ['05-工程架構與共享層/00-工程架構與共享層總覽.md', architectureOverviewDoc, '`frontend/` package manifest 已聲明 `@cj/contracts` workspace dependency'],
+      ['05-工程架構與共享層/00-工程架構與共享層總覽.md', architectureOverviewDoc, '`frontend-admin/` package manifest 已聲明 `@cj/contracts` 與 `@cj/api-client` workspace dependencies'],
+      ['05-工程架構與共享層/Repo平台分層與共享規範.md', repoLayerSpecDoc, '`frontend/package.json` 已聲明 `@cj/contracts` workspace dependency'],
+      ['05-工程架構與共享層/Repo平台分層與共享規範.md', repoLayerSpecDoc, '`frontend-admin/package.json` 已聲明 `@cj/contracts` 與 `@cj/api-client` workspace dependencies'],
+    ];
+    for (const [docName, docContent, token] of manifestDependencyTokens) {
+      if (!docContent.includes(token)) {
+        issues.push(`[truth/batch3-architecture] ${docName} missing manifest-dependency token: ${token}`);
+      }
+    }
+  }
+
+  const frontendLocalLockExists = await pathExists(path.join(repoRoot, 'frontend', 'package-lock.json'));
+  const frontendAdminLocalLockExists = await pathExists(path.join(repoRoot, 'frontend-admin', 'package-lock.json'));
+  if (frontendLocalLockExists) {
+    issues.push('[truth/batch3-architecture] frontend/package-lock.json must not exist for root-workspace frontend app');
+  }
+  if (frontendAdminLocalLockExists) {
+    issues.push('[truth/batch3-architecture] frontend-admin/package-lock.json must not exist for root-workspace frontend-admin app');
+  }
+
+  const ciUsesRootWorkspaceFrontend =
+    ciWorkflowCode.includes('cache-dependency-path: package-lock.json') &&
+    ciWorkflowCode.includes('npm run lint --workspace frontend') &&
+    ciWorkflowCode.includes('npm run test:run --workspace frontend') &&
+    ciWorkflowCode.includes('npm run build --workspace frontend') &&
+    ciWorkflowCode.includes('npm run lint --workspace frontend-admin') &&
+    ciWorkflowCode.includes('npm run build --workspace frontend-admin') &&
+    ciWorkflowCode.includes('npm run dev --workspace frontend --');
+  if (!ciUsesRootWorkspaceFrontend) {
+    issues.push('[truth/batch3-architecture] .github/workflows/ci.yml must install/run frontend workspaces from root package-lock');
+  }
+  if (ciWorkflowCode.includes('frontend/package-lock.json') || ciWorkflowCode.includes('frontend-admin/package-lock.json')) {
+    issues.push('[truth/batch3-architecture] .github/workflows/ci.yml must not reference app-local frontend package-lock files');
+  }
+
+  const vercelBuildScript = rootPackageJson.scripts?.['vercel-build'] || '';
+  if (
+    vercelBuildScript.includes('npm install') ||
+    !vercelBuildScript.includes('npm run contracts:build') ||
+    !vercelBuildScript.includes('npm run api-client:build') ||
+    !vercelBuildScript.includes('npm run build --workspace frontend-admin')
+  ) {
+    issues.push('[truth/batch3-architecture] root vercel-build must build shared artifacts and frontend-admin without running install');
+  }
+  if (rootVercelJson.installCommand !== 'npm install --include=optional') {
+    issues.push('[truth/batch3-architecture] root vercel.json installCommand must include optional dependencies');
+  }
+  if (frontendAdminVercelJson.buildCommand !== 'cd .. && npm run vercel-build') {
+    issues.push('[truth/batch3-architecture] frontend-admin/vercel.json must delegate build to root vercel-build');
+  }
+  if (frontendAdminVercelJson.installCommand !== 'cd .. && npm install --include=dev --include=optional') {
+    issues.push('[truth/batch3-architecture] frontend-admin/vercel.json must install from repo root workspace');
+  }
+  if (exportStaticPagesCode.includes('frontend/node_modules/playwright')) {
+    issues.push('[truth/batch3-architecture] scripts/export-static-pages.mjs must not import Playwright from frontend/node_modules');
+  }
+  const rootPlaywrightSpec = rootPackageJson.devDependencies?.playwright;
+  const rootLockPlaywrightSpec = packageLockJson.packages?.['']?.devDependencies?.playwright;
+  const rootLockPlaywrightVersion = packageLockJson.packages?.['node_modules/playwright']?.version;
+  if (!rootPlaywrightSpec || rootLockPlaywrightSpec !== rootPlaywrightSpec || !rootLockPlaywrightVersion) {
+    issues.push('[truth/batch3-architecture] root-owned Playwright script must have root package.json and package-lock.json playwright devDependency');
+  }
+
+  if (
+    !frontendLocalLockExists &&
+    !frontendAdminLocalLockExists &&
+    ciUsesRootWorkspaceFrontend &&
+    vercelBuildScript.includes('npm run contracts:build') &&
+    vercelBuildScript.includes('npm run api-client:build') &&
+    rootVercelJson.installCommand === 'npm install --include=optional' &&
+    frontendAdminVercelJson.buildCommand === 'cd .. && npm run vercel-build'
+  ) {
+    const workspaceInstallTokens = [
+      ['05-工程架構與共享層/00-工程架構與共享層總覽.md', architectureOverviewDoc, '`frontend/` 與 `frontend-admin/` 不再保留 app-local package-lock'],
+      ['05-工程架構與共享層/00-工程架構與共享層總覽.md', architectureOverviewDoc, 'CI 前端 jobs 必須從 root `package-lock.json` 執行 `npm ci` 並用 `--workspace` 跑 app scripts'],
+      ['05-工程架構與共享層/00-工程架構與共享層總覽.md', architectureOverviewDoc, 'root package manifest 已聲明 root-owned script 需要的 `playwright` devDependency'],
+      ['05-工程架構與共享層/Repo平台分層與共享規範.md', repoLayerSpecDoc, '`frontend/` 與 `frontend-admin/` 不保留 app-local package-lock'],
+      ['05-工程架構與共享層/Repo平台分層與共享規範.md', repoLayerSpecDoc, 'Vercel build 必須先跑 shared artifacts，再執行 `npm run build --workspace frontend-admin`'],
+      ['05-工程架構與共享層/Repo平台分層與共享規範.md', repoLayerSpecDoc, 'root 腳本若以 bare import 使用工具，必須由 root manifest 聲明依賴'],
+    ];
+    for (const [docName, docContent, token] of workspaceInstallTokens) {
+      if (!docContent.includes(token)) {
+        issues.push(`[truth/batch3-architecture] ${docName} missing workspace-install token: ${token}`);
       }
     }
   }
@@ -1695,6 +1866,39 @@ async function main() {
     }
   }
 
+  const frontendAdminHasContractsOnlyAlias =
+    /"@\/\*"\s*:/.test(frontendAdminTsconfigText) &&
+    /"@cj\/contracts"\s*:/.test(frontendAdminTsconfigText) &&
+    !/"@cj\/api-client"\s*:/.test(frontendAdminTsconfigText);
+  if (frontendAdminHasContractsOnlyAlias) {
+    const adminContractsAliasTokens = [
+      ['05-工程架構與共享層/00-工程架構與共享層總覽.md', architectureOverviewDoc, '`frontend-admin/` 已接入 `@cj/contracts` alias，但仍未接入 `@cj/api-client`'],
+      ['05-工程架構與共享層/Repo平台分層與共享規範.md', repoLayerSpecDoc, '`frontend-admin/tsconfig.app.json` 已接上 `@cj/contracts` alias，尚未接入 `@cj/api-client`'],
+    ];
+    for (const [docName, docContent, token] of adminContractsAliasTokens) {
+      if (!docContent.includes(token)) {
+        issues.push(`[truth/batch3-architecture] ${docName} missing frontend-admin contracts-alias token: ${token}`);
+      }
+    }
+  }
+
+  const frontendAdminHasSharedAliases =
+    /"@\/\*"\s*:/.test(frontendAdminTsconfigText) &&
+    /"@cj\/contracts"\s*:/.test(frontendAdminTsconfigText) &&
+    /"@cj\/api-client"\s*:/.test(frontendAdminTsconfigText);
+  if (frontendAdminHasSharedAliases) {
+    const adminSharedAliasTokens = [
+      ['05-工程架構與共享層/00-工程架構與共享層總覽.md', architectureOverviewDoc, '`frontend-admin/` 已接入 `@cj/contracts` 與 `@cj/api-client` alias'],
+      ['05-工程架構與共享層/Repo平台分層與共享規範.md', repoLayerSpecDoc, '`frontend-admin/tsconfig.app.json` 已接上 `@cj/contracts` 與 `@cj/api-client` alias'],
+      ['05-工程架構與共享層/Repo平台分層與共享規範.md', repoLayerSpecDoc, '`frontend-admin/` 仍維持本地 domain API request stack，僅使用 `@cj/api-client` 的 transport baseline'],
+    ];
+    for (const [docName, docContent, token] of adminSharedAliasTokens) {
+      if (!docContent.includes(token)) {
+        issues.push(`[truth/batch3-architecture] ${docName} missing frontend-admin shared-alias token: ${token}`);
+      }
+    }
+  }
+
   const backendAndMobileHaveAlias =
     /"@cj\/contracts"\s*:/.test(backendTsconfigText) &&
     /"@cj\/contracts"\s*:/.test(mobileTsconfigText) &&
@@ -1702,8 +1906,8 @@ async function main() {
     /"@cj\/api-client"\s*:/.test(mobileTsconfigText);
   if (backendAndMobileHaveAlias) {
     const reservedAliasTokens = [
-      ['05-工程架構與共享層/00-工程架構與共享層總覽.md', architectureOverviewDoc, '`backend/` 與 `mobile/` 只完成 alias 預留'],
-      ['05-工程架構與共享層/Repo平台分層與共享規範.md', repoLayerSpecDoc, '`backend/tsconfig.json` 與 `mobile/tsconfig.json` 已預留共享 package alias'],
+      ['05-工程架構與共享層/00-工程架構與共享層總覽.md', architectureOverviewDoc, '`backend/` 已改用共享 package declaration artifact'],
+      ['05-工程架構與共享層/Repo平台分層與共享規範.md', repoLayerSpecDoc, '`backend/tsconfig.json` 已指向共享 package declaration artifact'],
     ];
     for (const [docName, docContent, token] of reservedAliasTokens) {
       if (!docContent.includes(token)) {

@@ -43,8 +43,8 @@ describe('NotificationService', () => {
 
       expect(prismaMock.notification.findMany).toHaveBeenCalledWith({
         where: { user_id: 'u1' },
-        orderBy: { created_at: 'desc' },
-        take: 50,
+        orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
+        take: 21,
       });
     });
 
@@ -53,18 +53,18 @@ describe('NotificationService', () => {
 
       const result = await service.list('u1');
 
-      expect(result).toEqual([]);
+      expect(result).toEqual({ items: [], nextCursor: null, hasMore: false });
     });
 
     it('有 status 時應傳入 where.status', async () => {
       prismaMock.notification.findMany.mockResolvedValue([]);
 
-      await service.list('u1', NotificationStatus.sent);
+      await service.list('u1', { status: NotificationStatus.sent });
 
       expect(prismaMock.notification.findMany).toHaveBeenCalledWith({
         where: { user_id: 'u1', status: NotificationStatus.sent },
-        orderBy: { created_at: 'desc' },
-        take: 50,
+        orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
+        take: 21,
       });
     });
 
@@ -76,7 +76,13 @@ describe('NotificationService', () => {
 
       const result = await service.list('u1');
 
-      expect(result).toEqual(list);
+      expect(result).toEqual({
+        items: expect.arrayContaining([
+          expect.objectContaining({ id: 'n1', template_code: 'T1' }),
+        ]),
+        nextCursor: null,
+        hasMore: false,
+      });
     });
   });
 

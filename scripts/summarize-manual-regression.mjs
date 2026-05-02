@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { MANUAL_REGRESSION_EVIDENCE_SEGMENTS, joinRepoPath } from './lib/docs-paths.mjs';
 
 const FLOWS = [
   { id: 'P01', name: '快速體驗閉環' },
@@ -87,7 +88,7 @@ function buildMarkdown(items, targetDate) {
   lines.push('## 原始記錄');
   lines.push('');
   for (const item of items) {
-    lines.push(`- ${item.id}: \`${item.recordPath}\``);
+    lines.push(`- ${item.id}: \`./${item.id}/record.md\``);
   }
   lines.push('');
   return `${lines.join('\n')}\n`;
@@ -96,7 +97,7 @@ function buildMarkdown(items, targetDate) {
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const repoRoot = path.resolve(new URL('.', import.meta.url).pathname, '..');
-  const evidenceBase = path.join(repoRoot, 'docs', '核心開發文件', '發版前手動回歸證據');
+  const evidenceBase = joinRepoPath(repoRoot, MANUAL_REGRESSION_EVIDENCE_SEGMENTS);
   const targetDate = await resolveEvidenceDate(evidenceBase, args.date);
   const evidenceRoot = path.join(evidenceBase, targetDate);
 

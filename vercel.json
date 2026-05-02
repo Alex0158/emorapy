@@ -1,6 +1,6 @@
 {
   "buildCommand": "npm run vercel-build",
-  "installCommand": "npm install",
+  "installCommand": "npm install --include=optional",
   "outputDirectory": "frontend-admin/dist",
   "framework": "vite",
   "rewrites": [
@@ -21,4 +21,3 @@
     }
   ]
 }
-

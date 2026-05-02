@@ -1,8 +1,8 @@
 {
-  "buildCommand": "npm run build",
+  "buildCommand": "cd .. && npm run vercel-build",
   "outputDirectory": "dist",
   "devCommand": "npm run dev",
-  "installCommand": "npm install --include=dev",
+  "installCommand": "cd .. && npm install --include=dev --include=optional",
   "framework": "vite",
   "rewrites": [
     {

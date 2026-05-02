@@ -61,6 +61,8 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),
+        '@cj/contracts': path.resolve(__dirname, '../packages/contracts/src'),
+        '@cj/api-client': path.resolve(__dirname, '../packages/api-client/src'),
       },
       dedupe: [
         'react',
@@ -70,6 +72,7 @@ export default defineConfig(({ mode }) => {
         'zustand',
         'antd',
         '@ant-design/icons',
+        'axios',
       ],
     },
     server: {

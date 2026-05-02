@@ -21,7 +21,11 @@
     "noUncheckedSideEffectImports": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@cj/contracts": ["../packages/contracts/src/index.ts"],
+      "@cj/contracts/*": ["../packages/contracts/src/*"],
+      "@cj/api-client": ["../packages/api-client/src/index.ts"],
+      "@cj/api-client/*": ["../packages/api-client/src/*"]
     }
   },
   "include": ["src"],

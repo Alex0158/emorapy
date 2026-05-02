@@ -23,6 +23,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Check docs structure
+        run: npm run docs:check
+
       - name: Validate date input format
         if: ${{ inputs.date != '' }}
         run: |
@@ -43,13 +46,14 @@ jobs:
         if: ${{ always() }}
         id: summary-path
         run: |
+          evidence_root="docs/核心開發文件/90-證據與盤點/手動回歸證據"
           if [ -n "${{ inputs.date }}" ]; then
             target_date="${{ inputs.date }}"
           else
-            target_date="$(find docs/核心開發文件/發版前手動回歸證據 -mindepth 1 -maxdepth 1 -type d -name '20??-??-??' | sort | tail -n 1 | xargs basename)"
+            target_date="$(find "${evidence_root}" -mindepth 1 -maxdepth 1 -type d -name '20??-??-??' | sort | tail -n 1 | xargs basename)"
           fi
           echo "target_date=${target_date}" >> "$GITHUB_OUTPUT"
-          echo "summary_path=docs/核心開發文件/發版前手動回歸證據/${target_date}/summary.md" >> "$GITHUB_OUTPUT"
+          echo "summary_path=${evidence_root}/${target_date}/summary.md" >> "$GITHUB_OUTPUT"
 
       - name: Upload summary artifact
         if: ${{ always() }}

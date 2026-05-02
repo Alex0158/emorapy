@@ -28,13 +28,12 @@
       "@services/*": ["src/services/*"],
       "@utils/*": ["src/utils/*"],
       "@types/*": ["src/types/*"],
-      "@cj/contracts": ["../packages/contracts/src/index.ts"],
-      "@cj/contracts/*": ["../packages/contracts/src/*"],
-      "@cj/api-client": ["../packages/api-client/src/index.ts"],
-      "@cj/api-client/*": ["../packages/api-client/src/*"]
+      "@cj/contracts": ["../packages/contracts/types/index.d.ts"],
+      "@cj/contracts/*": ["../packages/contracts/types/*.d.ts"],
+      "@cj/api-client": ["../packages/api-client/types/index.d.ts"],
+      "@cj/api-client/*": ["../packages/api-client/types/*.d.ts"]
     }
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "tests", "**/*.test.ts", "**/*.spec.ts"]
 }
-

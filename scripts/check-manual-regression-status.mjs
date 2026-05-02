@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { MANUAL_REGRESSION_EVIDENCE_SEGMENTS, joinRepoPath } from './lib/docs-paths.mjs';
 
 const FLOWS = ['P01', 'P02', 'P03', 'P04', 'P05'];
 const REQUIRED_COMMON_FIELDS = ['狀態', '執行人', '時間', '瀏覽器/裝置', '截圖/錄屏'];
@@ -107,7 +108,7 @@ async function hasEvidenceArtifacts(repoRoot, evidencePath) {
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const repoRoot = path.resolve(new URL('.', import.meta.url).pathname, '..');
-  const evidenceRoot = path.join(repoRoot, 'docs', '核心開發文件', '發版前手動回歸證據');
+  const evidenceRoot = joinRepoPath(repoRoot, MANUAL_REGRESSION_EVIDENCE_SEGMENTS);
   const targetDate = await resolveEvidenceDate(evidenceRoot, args.date);
   const baseDir = path.join(evidenceRoot, targetDate);
 

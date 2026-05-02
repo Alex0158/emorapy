@@ -75,7 +75,7 @@
 
 - 預設所有功能放在跨平台共用檔案
 - 只有在必要時才建立 `*.ios.ts`、`*.android.ts`、`*.ios.tsx`、`*.android.tsx`
-- 平台差異優先收斂在 `mobile/src/platform/*`
+- 平台差異優先收斂在 `mobile/` 內的平台適配層；正式 `src/platform` 骨架尚未落地
 - 業務流程、路由結構、型別契約與資料層邏輯應盡量共用
 
 ## 6. 推進順序
@@ -90,8 +90,8 @@
 
 - 建立 `packages/contracts`
 - 建立 `packages/api-client`
-- 建立 `mobile/src/features` 與 `mobile/src/platform` 骨架
-- 保持 `mobile/`、`backend/`、`packages/*` 都不進 root workspace，不做大規模目錄搬移
+- 保持 `mobile/`、`backend/` 不進 root workspace；`packages/*` 已進入 root workspace，但不做大規模 app 目錄搬移
+- 不在本輪建立 mobile feature/platform 骨架，避免未驗證的 mobile 結構變更混入共享層基線
 
 這代表 repo 已開始進入平台分層模式，但仍保留既有目錄穩定性。
 
@@ -100,23 +100,30 @@
 目前已完成：
 
 - `frontend/tsconfig.app.json` 已接上 `@cj/contracts` 與 `@cj/api-client` alias
+- `frontend/package.json` 已聲明 `@cj/contracts` workspace dependency
 - `frontend/src/types/*` 與 `frontend/src/services/api/auth.ts` 已開始消費 `@cj/contracts`
-- `backend/tsconfig.json` 與 `mobile/tsconfig.json` 已預留共享 package alias
+- `backend/tsconfig.json` 已指向共享 package declaration artifact，避免直接引用 `packages/*/src` 穿越 `rootDir`
+- `frontend-admin/tsconfig.app.json` 已接上 `@cj/contracts` 與 `@cj/api-client` alias
+- `frontend-admin/package.json` 已聲明 `@cj/contracts` 與 `@cj/api-client` workspace dependencies
+- `mobile/tsconfig.json` 已預留共享 package alias
+- `frontend/` 與 `frontend-admin/` 不保留 app-local package-lock；CI/Vercel 必須從 root workspace 安裝
+- Vercel build 必須先跑 shared artifacts，再執行 `npm run build --workspace frontend-admin`
+- root 腳本若以 bare import 使用工具，必須由 root manifest 聲明依賴
 
 目前尚未完成：
 
-- `frontend-admin/` 尚未接入 `@cj/contracts` / `@cj/api-client` alias
-- `packages/api-client` 已建立，但現行 app 尚未形成穩定消費面
-- `backend/` 雖預留 alias，但當前正式代碼仍未把共享 package 作為主來源
+- `frontend-admin/` 只接入了 `@cj/contracts` 的局部 DTO，且 `frontend-admin/` 仍維持本地 domain API request stack，僅使用 `@cj/api-client` 的 transport baseline
+- `packages/api-client` 已建立 transport baseline，但現行 app 尚未形成穩定 domain API client 消費面
+- `backend/` 只消費共享 declaration artifact，不直接以共享原始碼作為編譯來源
 
 ## 9. 暫緩事項
 
 以下項目是刻意延後，而不是遺漏：
 
-- `backend/src` 目前仍有 `rootDir` 限制，不能直接安全地引用 `packages/contracts` 原始碼作為正式來源
+- `backend/src` 目前仍有 `rootDir` 限制，不能直接安全地引用 `packages/contracts` 原始碼作為正式來源；應消費 `types/` declaration artifact
 - `frontend/src/types/common.ts` 目前只做部分共享對齊，仍保留相容性包裝，避免一次影響既有大量 API 使用點
-- `mobile/` 尚未正式消費共享 contracts，只先完成平台骨架與 alias 準備
-- `frontend-admin/` 仍維持本地 request / type stack，尚未進入共享 package 體系
+- `mobile/` 尚未正式消費共享 contracts，目前只保留既有 Expo 目錄與 alias 準備
+- `frontend-admin/` 仍維持本地 domain API request stack，僅局部接入共享 contracts DTO 與 shared transport baseline
 
 ## 10. 下一步建議
 

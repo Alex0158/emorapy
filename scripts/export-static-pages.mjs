@@ -2,12 +2,13 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import process from 'node:process';
-import playwright from '../frontend/node_modules/playwright/index.js';
+import playwright from 'playwright';
+import { HTML_SNAPSHOT_SEGMENTS, joinRepoPath } from './lib/docs-paths.mjs';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const FRONTEND_DIR = path.join(ROOT, 'frontend');
 const ADMIN_DIR = path.join(ROOT, 'frontend-admin');
-const OUTPUT_DIR = path.join(ROOT, 'docs', '核心開發文件', '頁面HTML');
+const OUTPUT_DIR = joinRepoPath(ROOT, HTML_SNAPSHOT_SEGMENTS);
 const FRONTEND_OUT = path.join(OUTPUT_DIR, 'frontend');
 const ADMIN_OUT = path.join(OUTPUT_DIR, 'frontend-admin');
 const FRONTEND_PORT = 4173;

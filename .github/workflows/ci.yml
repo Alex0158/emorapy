@@ -8,6 +8,21 @@ on:
     branches: [main, master]
 
 jobs:
+  docs-guard:
+    name: Docs Guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Check docs structure
+        run: npm run docs:check
+        timeout-minutes: 2
+
   backend:
     name: Backend
     runs-on: ubuntu-latest
@@ -188,23 +203,23 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install frontend dependencies
-        working-directory: frontend
+        working-directory: .
         run: npm ci
 
       - name: Build frontend artifact
-        working-directory: frontend
+        working-directory: .
         env:
           VITE_API_BASE_URL: http://127.0.0.1:3001/api/v1
-        run: npm run build
+        run: npm run build --workspace frontend
 
       - name: Start frontend preview
-        working-directory: frontend
+        working-directory: .
         env:
           VITE_API_BASE_URL: http://127.0.0.1:3001/api/v1
-        run: npm run preview -- --host 127.0.0.1 --port 4173 > ../frontend-prod-smoke.log 2>&1 &
+        run: npm run preview --workspace frontend -- --host 127.0.0.1 --port 4173 > frontend-prod-smoke.log 2>&1 &
 
       - name: Wait for frontend preview ready
         run: |
@@ -250,9 +265,6 @@ jobs:
   frontend:
     name: Frontend
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
     steps:
       - uses: actions/checkout@v4
 
@@ -261,30 +273,32 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
+        working-directory: .
         run: npm ci
 
       - name: Lint
-        run: npm run lint
+        working-directory: .
+        run: npm run lint --workspace frontend
         timeout-minutes: 2
 
       - name: Unit tests
-        run: npm run test:run
+        working-directory: .
+        run: npm run test:run --workspace frontend
 
       - name: Build
-        run: npm run build
+        working-directory: .
+        run: npm run build --workspace frontend
 
       - name: Audit (report only)
-        run: npm audit --audit-level=high || true
+        working-directory: .
+        run: npm audit --workspace frontend --audit-level=high || true
 
   frontend-admin:
     name: Frontend Admin
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend-admin
     steps:
       - uses: actions/checkout@v4
 
@@ -293,17 +307,20 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: frontend-admin/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
+        working-directory: .
         run: npm ci
 
       - name: Lint
-        run: npm run lint
+        working-directory: .
+        run: npm run lint --workspace frontend-admin
         timeout-minutes: 2
 
       - name: Build
-        run: npm run build
+        working-directory: .
+        run: npm run build --workspace frontend-admin
 
   admin-e2e:
     name: Admin E2E
@@ -387,17 +404,17 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install frontend dependencies
-        working-directory: frontend
+        working-directory: .
         run: npm ci
 
       - name: Start frontend server
-        working-directory: frontend
+        working-directory: .
         env:
           VITE_API_BASE_URL: http://127.0.0.1:3001/api/v1
-        run: npm run dev -- --host 127.0.0.1 --port 5173 > ../frontend-e2e.log 2>&1 &
+        run: npm run dev --workspace frontend -- --host 127.0.0.1 --port 5173 > frontend-e2e.log 2>&1 &
 
       - name: Wait for frontend ready
         run: |

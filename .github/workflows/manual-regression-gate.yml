@@ -13,10 +13,10 @@ jobs:
     name: Manual Regression Gate
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '20'
 
@@ -57,7 +57,7 @@ jobs:
 
       - name: Upload summary artifact
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: manual-regression-summary-${{ steps.summary-path.outputs.target_date }}
           path: ${{ steps.summary-path.outputs.summary_path }}

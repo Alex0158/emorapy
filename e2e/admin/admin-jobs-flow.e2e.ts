@@ -16,7 +16,7 @@ test.describe('Admin jobs flow', () => {
 
     await page.goto('/admin/jobs');
     await expect(page).toHaveURL(/\/admin\/jobs/);
-    await expect(page.getByText(/任務|job/i)).toBeVisible();
+    await expect(page.getByRole('heading', { name: /任務管理|job management/i })).toBeVisible();
     await expectNoPermissionDenied(page);
 
     const adminToken = await page.evaluate(() => {

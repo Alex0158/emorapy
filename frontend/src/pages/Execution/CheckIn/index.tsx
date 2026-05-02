@@ -171,6 +171,7 @@ const ExecutionCheckIn = ({ formRef }: ExecutionCheckInProps) => {
   if (loading) {
     return (
       <div className="execution-checkin-page">
+        <Form form={form} component={false} />
         <Spin size="large" description={t('common.loading')} />
       </div>
     );
@@ -179,6 +180,7 @@ const ExecutionCheckIn = ({ formRef }: ExecutionCheckInProps) => {
   if (!execution) {
     return (
       <div className="execution-checkin-page">
+        <Form form={form} component={false} />
         <Alert
           type="warning"
           title={t('execCheckIn.notFound')}

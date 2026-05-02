@@ -49,7 +49,7 @@ export async function loginAsAdmin(page: Page, email: string, password: string):
 }
 
 export function permissionDeniedLocator(page: Page) {
-  return page.getByText(/權限不足|does not have permission|lacks required permissions/i);
+  return page.getByText(/權限不足|does not have permission|lacks required permissions|missing permissions/i);
 }
 
 export async function expectNoPermissionDenied(page: Page): Promise<void> {

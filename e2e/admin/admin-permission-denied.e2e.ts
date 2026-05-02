@@ -24,7 +24,7 @@ test.describe('Admin permission denied flow', () => {
     }
     await loginAsAdmin(page, limitedCreds.email, limitedCreds.password);
     await expect(page).toHaveURL(/\/admin\/ops\/jobs/);
-    await expectNoPermissionDenied(page);
+    await expectPermissionDenied(page);
 
     // support 角色應可讀 users（users:read）
     await page.goto('/admin/users');

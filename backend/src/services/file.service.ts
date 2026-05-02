@@ -3,19 +3,14 @@ import multer from 'multer';
 import path from 'path';
 import crypto from 'crypto';
 import { statSync, readFileSync } from 'fs';
+import { spawn } from 'child_process';
 import { Errors } from '../utils/errors';
 import { env } from '../config/env';
 import logger from '../config/logger';
 import fs from 'fs/promises';
 import sharp from 'sharp';
-import ffmpeg from 'fluent-ffmpeg';
 import ffmpegPath from 'ffmpeg-static';
 import jwt, { SignOptions, Secret } from 'jsonwebtoken';
-
-// 配置 ffmpeg 路徑（使用內置的靜態二進制，避免依賴系統環境）
-if (ffmpegPath) {
-  ffmpeg.setFfmpegPath(ffmpegPath as string);
-}
 
 /**
  * 文件上傳配置
@@ -325,16 +320,36 @@ export class FileService {
     const outputPath = path.join(file.destination, outputName);
 
     try {
+      const ffmpegExecutable = typeof ffmpegPath === 'string' && ffmpegPath.length > 0 ? ffmpegPath : null;
+      if (!ffmpegExecutable) throw new Error('ffmpeg binary is not available');
+
+      const args = [
+        '-y',
+        '-i', inputPath,
+        '-c:v', 'libx264',
+        '-c:a', 'aac',
+        '-vf', 'scale=-2:min(720\\,ih)',
+        '-preset', 'veryfast',
+        '-movflags', '+faststart',
+        outputPath,
+      ];
+
       await new Promise<void>((resolve, reject) => {
-        ffmpeg(inputPath)
-          .videoCodec('libx264')
-          .audioCodec('aac')
-          .size('?720') // 最大720p，保持比例
-          .outputOptions(['-preset veryfast', '-movflags +faststart'])
-          .output(outputPath)
-          .on('end', () => resolve())
-          .on('error', (err) => reject(err))
-          .run();
+        const child = spawn(ffmpegExecutable, args, { stdio: ['ignore', 'ignore', 'pipe'] });
+        let stderr = '';
+
+        child.stderr?.on('data', (chunk: Buffer | string) => {
+          stderr += chunk.toString();
+          if (stderr.length > 4000) stderr = stderr.slice(-4000);
+        });
+        child.on('error', reject);
+        child.on('close', (code) => {
+          if (code === 0) {
+            resolve();
+            return;
+          }
+          reject(new Error(`ffmpeg exited with code ${code ?? 'unknown'}${stderr ? `: ${stderr}` : ''}`));
+        });
       });
 
       await fs.unlink(inputPath).catch((e) => { logger.debug('Failed to remove original video after processing', { inputPath, error: e }); });

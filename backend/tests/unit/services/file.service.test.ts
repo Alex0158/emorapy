@@ -1,5 +1,5 @@
 /**
- * FileService 單元測試（mock env、jwt、fs、sharp、ffmpeg）
+ * FileService 單元測試（mock env、jwt、fs、sharp、ffmpeg binary）
  * 覆蓋 getFileUrl、signUrl、validateFile、processImage、processVideo、deleteFile 邏輯分支
  */
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
@@ -42,12 +42,10 @@ jest.mock('jsonwebtoken', () => ({
 const mockSharp = jest.fn();
 jest.mock('sharp', () => mockSharp);
 
-const mockFfmpeg = jest.fn();
-jest.mock('fluent-ffmpeg', () => {
-  const fn = (...args: unknown[]) => mockFfmpeg(...args);
-  (fn as any).setFfmpegPath = jest.fn();
-  return { __esModule: true, default: fn };
-});
+const mockSpawn = jest.fn();
+jest.mock('child_process', () => ({
+  spawn: (...args: unknown[]) => mockSpawn(...args),
+}));
 jest.mock('ffmpeg-static', () => ({ __esModule: true, default: '/fake/ffmpeg' }));
 
 import { FileService, fileService } from '../../../src/services/file.service';
@@ -75,6 +73,16 @@ describe('FileService', () => {
     });
     (mockUnlink as any).mockResolvedValue(undefined);
     (mockStat as any).mockResolvedValue({ size: 200 });
+    mockSpawn.mockImplementation(() => {
+      const child = {
+        stderr: { on: jest.fn() },
+        on: jest.fn((event: string, cb: (code?: number) => void) => {
+          if (event === 'close') setImmediate(() => cb(0));
+          return child;
+        }),
+      };
+      return child;
+    });
   });
 
   describe('getFileUrl', () => {
@@ -376,23 +384,6 @@ describe('FileService', () => {
 
   describe('processVideo', () => {
     it('成功應轉碼並返回新檔名與 mimetype', async () => {
-      let endCb: () => void;
-      const runChain = {
-        on: () => ({ run: () => { endCb(); } }),
-        run: () => { endCb(); },
-      };
-      const chain = {
-        videoCodec: () => chain,
-        audioCodec: () => chain,
-        size: () => chain,
-        outputOptions: () => chain,
-        output: () => chain,
-        on: (ev: string, cb: () => void) => {
-          if (ev === 'end') endCb = cb;
-          return runChain;
-        },
-      };
-      mockFfmpeg.mockReturnValue(chain);
       (mockStat as any).mockResolvedValue({ size: 300 });
       const file = {
         destination: 'uploads',
@@ -404,22 +395,30 @@ describe('FileService', () => {
       expect(result.filename).toBe('vid-transcoded.mp4');
       expect(result.size).toBe(300);
       expect(result.mimetype).toBe('video/mp4');
+      expect(mockSpawn).toHaveBeenCalledWith('/fake/ffmpeg', expect.arrayContaining([
+        '-i', 'uploads/vid.mp4',
+        '-c:v', 'libx264',
+        '-c:a', 'aac',
+        '-vf', 'scale=-2:min(720\\,ih)',
+        'uploads/vid-transcoded.mp4',
+      ]), { stdio: ['ignore', 'ignore', 'pipe'] });
     });
 
     it('轉碼失敗應返回原文件資訊並記錄 logger.error', async () => {
-      let errorCb: (err: Error) => void;
-      const failChain = {
-        videoCodec: () => failChain,
-        audioCodec: () => failChain,
-        size: () => failChain,
-        outputOptions: () => failChain,
-        output: () => failChain,
-        on: (ev: string, cb: (err: Error) => void) => {
-          if (ev === 'error') errorCb = cb;
-          return { on: () => ({ run: () => { errorCb(new Error('ffmpeg error')); } }) };
-        },
-      };
-      mockFfmpeg.mockReturnValueOnce(failChain);
+      mockSpawn.mockImplementationOnce(() => {
+        const child = {
+          stderr: {
+            on: jest.fn((event: string, cb: (chunk: Buffer) => void) => {
+              if (event === 'data') cb(Buffer.from('ffmpeg error'));
+            }),
+          },
+          on: jest.fn((event: string, cb: (code?: number) => void) => {
+            if (event === 'close') setImmediate(() => cb(1));
+            return child;
+          }),
+        };
+        return child;
+      });
       (mockStat as any).mockRejectedValueOnce(new Error('stat fail'));
       const file = {
         destination: 'uploads',

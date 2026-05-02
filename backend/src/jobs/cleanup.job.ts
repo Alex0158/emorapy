@@ -111,7 +111,7 @@ const withCronRunLog = async (
 };
 
 const createJob = (expression: string, task: () => Promise<void>) =>
-  cron.schedule(expression, task, { scheduled: false });
+  cron.createTask(expression, task);
 
 /**
  * 清理過期Session（每小時執行一次）

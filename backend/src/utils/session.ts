@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
 
 /**
@@ -7,7 +6,7 @@ import crypto from 'crypto';
  */
 export function generateSessionId(): string {
   const timestamp = Date.now();
-  const random = uuidv4().replace(/-/g, '').substring(0, 16);
+  const random = crypto.randomUUID().replace(/-/g, '').substring(0, 16);
   return `guest_${timestamp}_${random}`;
 }
 
@@ -41,4 +40,3 @@ export function generateInviteCode(): string {
   }
   return code;
 }
-

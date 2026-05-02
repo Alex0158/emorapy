@@ -5,11 +5,6 @@ import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import type { Request, Response, NextFunction } from 'express';
 import { requestId } from '../../../src/middleware/requestId';
 
-const mockUuid = 'aaaaaaaa-bbbb-4ccc-dddd-eeeeeeeeeeee';
-jest.mock('uuid', () => ({
-  v4: () => mockUuid,
-}));
-
 describe('middleware/requestId', () => {
   let req: Partial<Request>;
   let res: Partial<Response>;
@@ -23,12 +18,12 @@ describe('middleware/requestId', () => {
 
   it('應設置 req.requestId 為 UUID', () => {
     requestId(req as Request, res as Response, next);
-    expect(req.requestId).toBe(mockUuid);
+    expect(req.requestId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
   });
 
   it('應設置 X-Request-ID 響應頭', () => {
     requestId(req as Request, res as Response, next);
-    expect(res.setHeader).toHaveBeenCalledWith('X-Request-ID', mockUuid);
+    expect(res.setHeader).toHaveBeenCalledWith('X-Request-ID', req.requestId);
   });
 
   it('應調用 next()', () => {

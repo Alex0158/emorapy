@@ -12,7 +12,7 @@ const scheduledCallbacks: Array<() => void | Promise<void>> = [];
 jest.mock('node-cron', () => ({
   __esModule: true,
   default: {
-    schedule: jest.fn((_expr: string, callback: () => void | Promise<void>) => {
+    createTask: jest.fn((_expr: string, callback: () => void | Promise<void>) => {
       scheduledCallbacks.push(callback);
       return scheduleReturn;
     }),

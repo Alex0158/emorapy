@@ -11,12 +11,10 @@ import {
   Space,
   Switch,
   Table,
-  Tag,
   Typography,
-  InputNumber,
   message,
 } from 'antd';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAdminMe } from '@/hooks/useAdminMe';
 import { adminApi } from '@/services/api/admin';
 import type {
@@ -26,27 +24,11 @@ import type {
   AdminMediaProviderTestResult,
 } from '@/types/admin';
 import { t } from '@/utils/i18n';
+import JsonConfigCard from './JsonConfigCard';
+import MediaProviderSettingsCard from './MediaProviderSettingsCard';
+import type { AdminUserFormValues, MediaProviderFormValues } from './types';
 
 const { Title, Text } = Typography;
-
-interface AdminUserFormValues {
-  email: string;
-  password: string;
-  name: string;
-  roleKey: 'super_admin' | 'ops' | 'marketing' | 'support';
-}
-
-interface MediaProviderFormValues {
-  providerKey?: string;
-  apiKey?: string;
-  baseUrl?: string;
-  timeoutMs?: number;
-  model?: string;
-  sourceImageUrl?: string;
-  count?: number;
-  durationSeconds?: number;
-  prompt?: string;
-}
 
 export default function AdminSettingsPage() {
   const queryClient = useQueryClient();
@@ -66,7 +48,7 @@ export default function AdminSettingsPage() {
   });
   const configsQuery = useQuery({
     queryKey: ['admin', 'configs', 'settings'],
-    queryFn: () => adminApi.listConfigs({ limit: 200, offset: 0 }),
+    queryFn: () => adminApi.listConfigs({ limit: 100, offset: 0 }),
   });
   const mediaProvidersQuery = useQuery({
     queryKey: ['admin', 'media-providers'],
@@ -97,13 +79,13 @@ export default function AdminSettingsPage() {
     [configsQuery.data]
   );
 
-  const getMediaProviderConfigValue = (providerKey: string): Record<string, unknown> | undefined => {
+  const getMediaProviderConfigValue = useCallback((providerKey: string): Record<string, unknown> | undefined => {
     const configItem = mediaConfigItems.find((item) => item.key === `media.provider.${providerKey}`);
     if (!configItem || typeof configItem.value !== 'object' || configItem.value === null || Array.isArray(configItem.value)) {
       return undefined;
     }
     return configItem.value as Record<string, unknown>;
-  };
+  }, [mediaConfigItems]);
 
   useEffect(() => {
     if (!selectedMediaProvider || !selectedMediaProvider.providerType) return;
@@ -147,7 +129,7 @@ export default function AdminSettingsPage() {
           ? 'A calm neutral composition'
           : 'A cinematic short clip',
     });
-  }, [selectedMediaProvider, mediaConfigItems, mediaProviderForm]);
+  }, [selectedMediaProvider, mediaProviderForm, getMediaProviderConfigValue]);
 
   useEffect(() => {
     const items = configsQuery.data?.items || [];
@@ -376,27 +358,6 @@ export default function AdminSettingsPage() {
     });
   };
 
-  const renderCurrentProviderState = (provider: AdminMediaProviderCatalogItem) => {
-    const isConfigured = Boolean(getMediaProviderConfigValue(provider.providerKey)?.apiKey);
-    return (
-      <Space direction="vertical" size={4}>
-        <Space>
-          <Tag color={provider.providerType === 'image' ? 'blue' : 'purple'}>
-            {provider.providerType}
-          </Tag>
-          <Text>{t('admin.settings.mediaProviders.defaultModel')}</Text>
-          <Text code>{provider.defaultModel || '-'}</Text>
-          <Text>
-            {isConfigured ? t('admin.settings.mediaProviders.configured') : t('admin.settings.mediaProviders.notConfigured')}
-          </Text>
-        </Space>
-        <Text type="secondary">
-          {provider.description || ''}
-        </Text>
-      </Space>
-    );
-  };
-
   return (
     <Space orientation="vertical" size="large" style={{ width: '100%' }}>
       <div>
@@ -410,136 +371,22 @@ export default function AdminSettingsPage() {
         <Alert showIcon type="error" title={t('admin.settings.loadFailed')} />
       )}
 
-      <Card title={t('admin.settings.mediaProviders.title')}>
-        <Space direction="vertical" size="large" style={{ width: '100%' }}>
-          <Text type="secondary">{t('admin.settings.mediaProviders.subtitle')}</Text>
-          <Form form={mediaProviderForm} layout="vertical">
-            <Form.Item
-              name="providerKey"
-              label={t('admin.settings.mediaProviders.provider')}
-              rules={[
-                { required: true, message: t('admin.settings.mediaProviders.selectProviderRequired') },
-              ]}
-            >
-              <Select
-                placeholder={t('admin.settings.mediaProviders.selectProvider')}
-                value={selectedMediaProviderKey}
-                onChange={(value) => {
-                  setSelectedMediaProviderKey(value);
-                  setMediaProviderTestResult(null);
-                }}
-                options={mediaProviderCatalog.map((provider) => ({
-                  label: `${provider.displayName} (${provider.providerType})`,
-                  value: provider.providerKey,
-                }))}
-              />
-            </Form.Item>
-
-            {selectedMediaProvider && (
-              <>
-                {renderCurrentProviderState(selectedMediaProvider)}
-                <Form.Item
-                  name="apiKey"
-                  label={
-                    selectedMediaProvider.secretLabel || t('admin.settings.mediaProviders.apiKey')
-                  }
-                  extra={t('admin.settings.mediaProviders.apiKeyHelp')}
-                >
-                  <Input.Password placeholder="sk-..." />
-                </Form.Item>
-                <Form.Item name="baseUrl" label={t('admin.settings.mediaProviders.baseUrl')}>
-                  <Input placeholder={selectedMediaProvider.defaultBaseUrl || ''} />
-                </Form.Item>
-                <Form.Item
-                  name="timeoutMs"
-                  label={t('admin.settings.mediaProviders.timeoutMs')}
-                >
-                  <InputNumber min={500} max={120000} style={{ width: '100%' }} />
-                </Form.Item>
-                <Form.Item
-                  name="model"
-                  label={t('admin.settings.mediaProviders.model')}
-                >
-                  <Input placeholder={selectedMediaProvider.defaultModel || ''} />
-                </Form.Item>
-                {selectedMediaProvider.providerType === 'video' && (
-                  <Form.Item
-                    name="sourceImageUrl"
-                    label={t('admin.settings.mediaProviders.sourceImage')}
-                    extra={t('admin.settings.mediaProviders.sourceImageHelp')}
-                  >
-                    <Input
-                      placeholder="https://your-domain.example/image.jpg"
-                    />
-                  </Form.Item>
-                )}
-                {selectedMediaProvider.providerType === 'image' ? (
-                  <Form.Item
-                    name="count"
-                    label={t('admin.settings.mediaProviders.count')}
-                  >
-                    <InputNumber min={1} max={20} style={{ width: '100%' }} />
-                  </Form.Item>
-                ) : (
-                  <Form.Item
-                    name="durationSeconds"
-                    label={t('admin.settings.mediaProviders.duration')}
-                  >
-                    <InputNumber min={1} max={240} style={{ width: '100%' }} />
-                  </Form.Item>
-                )}
-                <Form.Item
-                  name="prompt"
-                  label={t('admin.settings.mediaProviders.prompt')}
-                  extra={t('admin.settings.mediaProviders.promptHelp')}
-                >
-                  <Input.TextArea rows={3} />
-                </Form.Item>
-                <Space>
-                  <Button
-                    type="primary"
-                    loading={mediaProviderSaveMutation.isPending}
-                    onClick={handleSaveMediaProvider}
-                  >
-                    {t('admin.settings.mediaProviders.save')}
-                  </Button>
-                  <Button
-                    loading={mediaProviderTestMutation.isPending}
-                    onClick={handleTestMediaProvider}
-                  >
-                    {t('admin.settings.mediaProviders.test')}
-                  </Button>
-                </Space>
-              </>
-            )}
-          </Form>
-
-          {mediaProviderTestResult && (
-            <Space direction="vertical" style={{ width: '100%' }}>
-              <Alert
-                type={mediaProviderTestResult.success ? 'success' : 'error'}
-                message={mediaProviderTestResult.message}
-                description={`${t('admin.settings.mediaProviders.latency')}: ${mediaProviderTestResult.latencyMs}ms`}
-                showIcon
-              />
-              {mediaProviderTestResult.detail !== undefined && (
-                <pre
-                  style={{
-                    background: '#f5f5f5',
-                    padding: 12,
-                    borderRadius: 6,
-                    maxHeight: 180,
-                    overflow: 'auto',
-                  }}
-                  translate="no"
-                >
-                  {JSON.stringify(mediaProviderTestResult.detail, null, 2)}
-                </pre>
-              )}
-            </Space>
-          )}
-        </Space>
-      </Card>
+      <MediaProviderSettingsCard
+        form={mediaProviderForm}
+        catalog={mediaProviderCatalog}
+        selectedProvider={selectedMediaProvider}
+        selectedProviderKey={selectedMediaProviderKey}
+        testResult={mediaProviderTestResult}
+        saveLoading={mediaProviderSaveMutation.isPending}
+        testLoading={mediaProviderTestMutation.isPending}
+        onProviderChange={(value) => {
+          setSelectedMediaProviderKey(value);
+          setMediaProviderTestResult(null);
+        }}
+        onSave={handleSaveMediaProvider}
+        onTest={handleTestMediaProvider}
+        getConfigValue={getMediaProviderConfigValue}
+      />
 
       <Card title={t('admin.settings.adminUsers.title')}>
         <Form<AdminUserFormValues>
@@ -669,78 +516,31 @@ export default function AdminSettingsPage() {
         />
       </Card>
 
-      <Card title={t('admin.settings.alerts.title')}>
-        <Space orientation="vertical" style={{ width: '100%' }}>
-          <Text type="secondary">{t('admin.settings.alerts.subtitle')}</Text>
-          <Form form={alertRulesForm} layout="vertical">
-            <Form.Item
-              name="rules"
-              rules={[
-                {
-                  required: true,
-                  message: t('admin.settings.alerts.rulesJsonArrayRequired'),
-                },
-              ]}
-            >
-              <Input.TextArea
-                rows={8}
-                placeholder='[{"key":"jobs.failure_rate","threshold":0.2}]'
-              />
-            </Form.Item>
-            <Button
-              loading={alertRulesMutation.isPending}
-              onClick={async () => {
-                const values = await alertRulesForm.validateFields();
-                try {
-                  const parsed = JSON.parse(values.rules);
-                  if (!Array.isArray(parsed)) throw new Error('not-array');
-                  alertRulesMutation.mutate(parsed);
-                } catch {
-                  message.error(t('admin.settings.alerts.rulesJsonArrayRequired'));
-                }
-              }}
-            >
-              {t('admin.settings.alerts.save')}
-            </Button>
-          </Form>
-        </Space>
-      </Card>
+      <JsonConfigCard
+        title={t('admin.settings.alerts.title')}
+        subtitle={t('admin.settings.alerts.subtitle')}
+        form={alertRulesForm}
+        fieldName="rules"
+        requiredMessage={t('admin.settings.alerts.rulesJsonArrayRequired')}
+        placeholder='[{"key":"jobs.failure_rate","threshold":0.2}]'
+        loading={alertRulesMutation.isPending}
+        valueKind="array"
+        saveLabel={t('admin.settings.alerts.save')}
+        onSave={(value) => alertRulesMutation.mutate(value as unknown[])}
+      />
 
-      <Card title={t('admin.settings.flags.title')}>
-        <Space orientation="vertical" style={{ width: '100%' }}>
-          <Text type="secondary">{t('admin.settings.flags.subtitle')}</Text>
-          <Form form={featureFlagsForm} layout="vertical">
-            <Form.Item
-              name="flags"
-              rules={[
-                {
-                  required: true,
-                  message: t('admin.settings.flags.flagsJsonObjectRequired'),
-                },
-              ]}
-            >
-              <Input.TextArea rows={8} placeholder='{"adminOpsBeta": true}' />
-            </Form.Item>
-            <Button
-              loading={featureFlagsMutation.isPending}
-              onClick={async () => {
-                const values = await featureFlagsForm.validateFields();
-                try {
-                  const parsed = JSON.parse(values.flags);
-                  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-                    throw new Error('not-object');
-                  }
-                  featureFlagsMutation.mutate(parsed as Record<string, unknown>);
-                } catch {
-                  message.error(t('admin.settings.flags.flagsJsonObjectRequired'));
-                }
-              }}
-            >
-              {t('admin.settings.flags.save')}
-            </Button>
-          </Form>
-        </Space>
-      </Card>
+      <JsonConfigCard
+        title={t('admin.settings.flags.title')}
+        subtitle={t('admin.settings.flags.subtitle')}
+        form={featureFlagsForm}
+        fieldName="flags"
+        requiredMessage={t('admin.settings.flags.flagsJsonObjectRequired')}
+        placeholder='{"adminOpsBeta": true}'
+        loading={featureFlagsMutation.isPending}
+        valueKind="object"
+        saveLabel={t('admin.settings.flags.save')}
+        onSave={(value) => featureFlagsMutation.mutate(value as Record<string, unknown>)}
+      />
       <Modal
         title={t('admin.settings.adminUsers.editTitle')}
         open={editingAdmin !== null}

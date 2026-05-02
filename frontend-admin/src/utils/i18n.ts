@@ -48,7 +48,9 @@ export function setLocale(locale: Locale | string): void {
       // ignore storage errors
     }
   }
-  listeners.forEach((listener) => listener());
+  listeners.forEach((listener) => {
+    listener();
+  });
 }
 
 export function onLocaleChange(listener: () => void): () => void {

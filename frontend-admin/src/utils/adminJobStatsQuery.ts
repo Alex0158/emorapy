@@ -78,6 +78,6 @@ export function updateAdminJobStatsIncludeRunning(
 ): Required<AdminJobStatsQuery> {
   return normalizeAdminJobStatsQueryWithDefaults({
     ...query,
-    includeRunning: value === false ? false : true,
+    includeRunning: value !== false,
   });
 }

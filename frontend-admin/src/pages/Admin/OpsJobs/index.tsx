@@ -139,9 +139,8 @@ const OpsJobsStatsPage = () => {
   return (
     <>
       <SEO title={t('admin.ops.title')} description={t('admin.ops.subtitle')} />
-      <div
+      <main
         className="execution-dashboard-page"
-        role="main"
         aria-label={t('admin.ops.pageLabel')}
       >
         <AnimatedWrapper animation="fade" delay={100}>
@@ -368,7 +367,7 @@ const OpsJobsStatsPage = () => {
             </Card>
           </AnimatedWrapper>
         )}
-      </div>
+      </main>
     </>
   );
 };

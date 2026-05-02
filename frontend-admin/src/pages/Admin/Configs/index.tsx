@@ -31,7 +31,7 @@ export default function AdminConfigsPage() {
   const { hasPermission: canWriteConfigs } = useAdminAccess(['config:write'], true);
   const listQuery = useQuery({
     queryKey: ['admin', 'configs'],
-    queryFn: () => adminApi.listConfigs({ limit: 200, offset: 0 }),
+    queryFn: () => adminApi.listConfigs({ limit: 100, offset: 0 }),
   });
   const runtimeQuery = useQuery({
     queryKey: ['admin', 'runtime', 'interview'],

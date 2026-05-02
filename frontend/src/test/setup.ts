@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom';
-import { vi } from 'vitest';
+import { afterEach, beforeEach, vi } from 'vitest';
 
 // jsdom 缺少的 Web API mock
 if (!Element.prototype.animate) {
@@ -45,32 +45,59 @@ Object.defineProperty(window, 'scrollTo', {
   writable: true,
 });
 
-if (
-  !window.localStorage ||
-  typeof window.localStorage.getItem !== 'function' ||
-  typeof window.localStorage.setItem !== 'function'
-) {
-  const store = new Map<string, string>();
-  Object.defineProperty(window, 'localStorage', {
-    value: {
-      getItem: vi.fn((key: string) => store.get(key) ?? null),
-      setItem: vi.fn((key: string, value: string) => {
-        store.set(key, String(value));
-      }),
-      removeItem: vi.fn((key: string) => {
-        store.delete(key);
-      }),
-      clear: vi.fn(() => {
-        store.clear();
-      }),
-      key: vi.fn((index: number) => Array.from(store.keys())[index] ?? null),
-      get length() {
-        return store.size;
-      },
-    },
+class MemoryStorage implements Storage {
+  private readonly store = new Map<string, string>();
+
+  get length() {
+    return this.store.size;
+  }
+
+  clear() {
+    this.store.clear();
+  }
+
+  getItem(key: string) {
+    return this.store.get(String(key)) ?? null;
+  }
+
+  key(index: number) {
+    return Array.from(this.store.keys())[index] ?? null;
+  }
+
+  removeItem(key: string) {
+    this.store.delete(String(key));
+  }
+
+  setItem(key: string, value: string) {
+    this.store.set(String(key), String(value));
+  }
+}
+
+Object.defineProperty(window, 'Storage', {
+  value: MemoryStorage,
+  configurable: true,
+});
+Object.defineProperty(globalThis, 'Storage', {
+  value: MemoryStorage,
+  configurable: true,
+});
+
+const installTestStorage = (key: 'localStorage' | 'sessionStorage') => {
+  const storage = new MemoryStorage();
+  Object.defineProperty(window, key, {
+    value: storage,
+    configurable: true,
     writable: true,
   });
-}
+  Object.defineProperty(globalThis, key, {
+    value: storage,
+    configurable: true,
+    writable: true,
+  });
+};
+
+installTestStorage('localStorage');
+installTestStorage('sessionStorage');
 
 // 測試預設語言固定為 zh-TW，避免受執行環境 navigator.language 影響
 window.localStorage.setItem('cj_locale', 'zh-TW');
@@ -185,13 +212,59 @@ if (typeof HTMLAnchorElement !== 'undefined') {
   HTMLAnchorElement.prototype.click = vi.fn();
 }
 
-// 若仍有元件在 jsdom 下輸出 layout 類 warning，應優先補齊 mock（避免全域吞錯）
+// 測試應保持乾淨輸出。預期的 console.warn/error 必須在單測內用 vi.spyOn 局部接管；
+// 非預期輸出會在 afterEach 失敗，避免 CI log 噪音掩蓋真正回歸。
+type GuardedConsoleLevel = 'warn' | 'error';
 
-// React/antd 在 jsdom 測試環境下常出現「not wrapped in act」警告（多數來自第三方元件的非同步動畫/Portal 更新），
-// 會大量污染 CI 輸出、且不影響實際測試斷言。本專案選擇僅過濾該類固定格式警告，其它 console.error 仍照常輸出。
-const _consoleError = console.error.bind(console);
-console.error = (...args: unknown[]) => {
-  const first = args[0];
-  if (typeof first === 'string' && first.includes('not wrapped in act')) return;
-  _consoleError(...args);
+const unexpectedConsoleCalls: string[] = [];
+
+const formatConsoleArg = (arg: unknown): string => {
+  if (arg instanceof Error) return `${arg.name}: ${arg.message}`;
+  if (typeof arg === 'string') return arg;
+  try {
+    return JSON.stringify(arg);
+  } catch {
+    return String(arg);
+  }
 };
+
+const isAllowedConsoleCall = (_level: GuardedConsoleLevel, args: unknown[]): boolean => {
+  const first = args[0];
+  return typeof first === 'string' && first.includes('not wrapped in act');
+};
+
+const createGuardedConsole =
+  (level: GuardedConsoleLevel) =>
+  (...args: unknown[]) => {
+    if (isAllowedConsoleCall(level, args)) return;
+    unexpectedConsoleCalls.push(`[console.${level}] ${args.map(formatConsoleArg).join(' ')}`);
+  };
+
+const guardedConsoleWarn = createGuardedConsole('warn');
+const guardedConsoleError = createGuardedConsole('error');
+
+const installConsoleGuard = () => {
+  console.warn = guardedConsoleWarn;
+  console.error = guardedConsoleError;
+};
+
+installConsoleGuard();
+
+beforeEach(() => {
+  unexpectedConsoleCalls.length = 0;
+  installConsoleGuard();
+});
+
+afterEach(() => {
+  const calls = unexpectedConsoleCalls.splice(0);
+  installConsoleGuard();
+  if (calls.length > 0) {
+    throw new Error(
+      [
+        'Unexpected console.warn/error output during test.',
+        'Use a local vi.spyOn(console, ...) when the output is part of the assertion.',
+        ...calls,
+      ].join('\n')
+    );
+  }
+});

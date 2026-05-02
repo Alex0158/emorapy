@@ -135,6 +135,9 @@ export const useAuthStore = create<AuthState>()(
 					set({
 						user: { ...currentUser, ...user },
 					});
+				} else if (user && typeof user === "object" && user.id) {
+					// fetchProfile／上傳頭像可能在 persist / checkAuth 完成前先返回，此時仍應寫入完整 user
+					set({ user: user as User });
 				}
 			},
 

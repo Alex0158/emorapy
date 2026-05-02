@@ -3,7 +3,6 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import ProfilePairing from './index';
 import type { Pairing } from '@/services/api/pairing';
@@ -264,7 +263,7 @@ describe('ProfilePairing', () => {
     });
     const goSettingsBtn = screen.getByText('pairing.goToSettings');
     expect(goSettingsBtn).toBeInTheDocument();
-    await userEvent.click(goSettingsBtn);
+    fireEvent.click(goSettingsBtn);
     expect(mockNavigate).toHaveBeenCalledWith('/profile/settings');
   });
 
@@ -280,7 +279,7 @@ describe('ProfilePairing', () => {
     await waitFor(() => {
       expect(screen.getByText('common.retry')).toBeInTheDocument();
     });
-    await userEvent.click(screen.getByText('common.retry'));
+    fireEvent.click(screen.getByText('common.retry'));
     await waitFor(() => {
       expect(mockGetPairingStatus).toHaveBeenCalledTimes(2);
     });
@@ -299,14 +298,14 @@ describe('ProfilePairing', () => {
     await waitFor(() => {
       expect(screen.getByText('common.retry')).toBeInTheDocument();
     });
-    await userEvent.click(screen.getByText('common.retry'));
+    fireEvent.click(screen.getByText('common.retry'));
     await waitFor(() => {
       expect(mockGetPairingStatus).toHaveBeenCalledTimes(2);
     });
     await waitFor(() => {
       expect(screen.getByText('common.retry')).toBeInTheDocument();
     });
-    await userEvent.click(screen.getByText('common.retry'));
+    fireEvent.click(screen.getByText('common.retry'));
     await waitFor(() => {
       expect(mockGetPairingStatus).toHaveBeenCalledTimes(3);
     });
@@ -327,7 +326,7 @@ describe('ProfilePairing', () => {
     });
     expect(mockGetPairingStatus).toHaveBeenCalledTimes(1);
     mockGetPairingStatus.mockRejectedValueOnce(new Error('重試時服務不可用'));
-    await userEvent.click(screen.getByText('common.retry'));
+    fireEvent.click(screen.getByText('common.retry'));
     await waitFor(() => {
       expect(mockGetPairingStatus).toHaveBeenCalledTimes(2);
     });
@@ -347,7 +346,7 @@ describe('ProfilePairing', () => {
       expect(screen.getByText('common.retry')).toBeInTheDocument();
     });
     mockGetPairingStatus.mockRejectedValueOnce({ code: 'SERVER_ERROR', message: '' });
-    await userEvent.click(screen.getByText('common.retry'));
+    fireEvent.click(screen.getByText('common.retry'));
     await waitFor(() => {
       expect(mockGetPairingStatus).toHaveBeenCalledTimes(2);
     });
@@ -521,6 +520,34 @@ describe('ProfilePairing', () => {
       expect(mockCheckResume).toHaveBeenCalled();
       expect(mockStartSession).not.toHaveBeenCalled();
       expect(mockNavigate).toHaveBeenCalledWith('/interview/resume-pairing-session');
+    });
+  });
+
+  it('同意後 checkResume 有 failed session 時應直接導航到 result retry 頁且不再 startSession', async () => {
+    mockGetPairingStatus.mockResolvedValue(activePairing);
+    mockCheckResume.mockResolvedValue({
+      has_pending: false,
+      has_failed: true,
+      failed_session_id: 'failed-pairing-session',
+    });
+    render(
+      <MemoryRouter>
+        <ProfilePairing />
+      </MemoryRouter>
+    );
+    await waitFor(() => {
+      expect(screen.getByText('trigger.bannerOk')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('trigger.bannerOk'));
+    await waitFor(() => {
+      expect(screen.getByText('consent.agree')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('consent.agree'));
+    fireEvent.click(screen.getByText('consent.start'));
+    await waitFor(() => {
+      expect(mockCheckResume).toHaveBeenCalled();
+      expect(mockStartSession).not.toHaveBeenCalled();
+      expect(mockNavigate).toHaveBeenCalledWith('/interview/failed-pairing-session/result');
     });
   });
 
@@ -736,7 +763,7 @@ describe('ProfilePairing', () => {
       expect(screen.getByPlaceholderText('pairing.joinPlaceholder')).toBeInTheDocument();
     });
     const joinInput = screen.getByPlaceholderText('pairing.joinPlaceholder');
-    await userEvent.type(joinInput, 'ABC123');
+    fireEvent.change(joinInput, { target: { value: 'ABC123' } });
     await waitFor(() => expect(joinInput).toHaveValue('ABC123'));
     fireEvent.click(screen.getByRole('button', { name: /pairing\.joinButton/ }));
     await waitFor(() => {
@@ -764,7 +791,7 @@ describe('ProfilePairing', () => {
       expect(screen.getByPlaceholderText('pairing.joinPlaceholder')).toBeInTheDocument();
     });
     const joinInput = screen.getByPlaceholderText('pairing.joinPlaceholder');
-    await userEvent.type(joinInput, 'ABC123');
+    fireEvent.change(joinInput, { target: { value: 'ABC123' } });
     await waitFor(() => expect(joinInput).toHaveValue('ABC123'));
     fireEvent.click(screen.getByRole('button', { name: /pairing\.joinButton/ }));
     await waitFor(() => {
@@ -820,7 +847,9 @@ describe('ProfilePairing', () => {
     await waitFor(() => {
       expect(screen.getByPlaceholderText('pairing.joinPlaceholder')).toBeInTheDocument();
     });
-    await userEvent.type(screen.getByPlaceholderText('pairing.joinPlaceholder'), 'ABC123');
+    fireEvent.change(screen.getByPlaceholderText('pairing.joinPlaceholder'), {
+      target: { value: 'ABC123' },
+    });
     fireEvent.click(screen.getByRole('button', { name: /pairing\.joinButton/ }));
     await waitFor(() => {
       expect(mockMessageError).toHaveBeenCalledWith('message.joinPairingFail');

@@ -15,23 +15,19 @@ import { getErrorMessage as getApiErrorMessage } from '@/utils/apiError';
 import { t } from '@/utils/i18n';
 import { useAIStreamSubscription } from '@/hooks/useAIStreamSubscription';
 import { buildLocalDraft, draftFromSnapshot, reduceDraftWithEvent, type AIStreamDraft } from '@/utils/aiStreamState';
+import {
+  CANONICAL_SYNC_INTERVAL_MS,
+  CANONICAL_SYNC_MAX_ATTEMPTS,
+  getVisibleInterviewDraft,
+  isTerminalInterviewErrorCode,
+  isTerminalInterviewStreamError,
+  resolveInterviewErrorMessage,
+  shouldShowFallbackReloadButton,
+  shouldShowRateLimitHint,
+} from './interviewChatUtils';
 import './index.less';
 
 const { Title, Text } = Typography;
-
-const ERROR_MESSAGES: Record<string, string> = {
-  CONSENT_REQUIRED: 'interview.error.consentRequired',
-  MAX_TURNS_REACHED: 'interview.error.maxTurns',
-  SESSION_COMPLETED: 'interview.error.sessionCompleted',
-  RATE_LIMIT_EXCEEDED: 'interview.error.rateLimit',
-  NOT_FOUND: 'interview.error.notFound',
-  RESPONSE_TIMEOUT: 'interview.error.timeout',
-  CONNECTION_TIMEOUT: 'interview.error.connectionTimeout',
-  CONNECTION_LOST: 'interview.error.connectionLost',
-  TURN_TOO_FAST: 'interview.error.turnTooFast',
-  AI_CALL_FAILED: 'interview.error.aiCallFailed',
-  CONCURRENT_REQUEST: 'interview.error.concurrentRequest',
-};
 
 const InterviewChat: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -39,6 +35,7 @@ const InterviewChat: React.FC = () => {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const mountedRef = useMountedRef();
   const reloadLockRef = useRef(false);
+  const canonicalSyncLockRef = useRef(false);
   const [initialLoadError, setInitialLoadError] = useState<string | null>(null);
 
   const {
@@ -47,7 +44,6 @@ const InterviewChat: React.FC = () => {
     streamingText,
     isStreaming,
     streamingStatus,
-    cancelledDraft,
     loading,
     error,
     errorCode,
@@ -66,16 +62,6 @@ const InterviewChat: React.FC = () => {
     cancelStream,
     dismissSafetyAlert,
   } = useInterviewStore();
-
-  const isTerminalStreamError = useCallback((error: { code?: string; status?: number }) => {
-    if (error.status && [400, 401, 403, 404].includes(error.status)) {
-      return true;
-    }
-    if (error.code && ['INVALID_SESSION_ID', 'SESSION_EXPIRED', 'FORBIDDEN', 'NOT_FOUND'].includes(error.code)) {
-      return true;
-    }
-    return false;
-  }, []);
 
   const {
     state: mirroredDraft,
@@ -100,7 +86,45 @@ const InterviewChat: React.FC = () => {
       || event.eventType === 'stream.completed'
       || event.eventType === 'stream.cancelled'
     ),
-    isTerminalError: isTerminalStreamError,
+    onReady: (ready) => {
+      if (!isStreaming) return;
+      const snapshots = Array.isArray(ready.snapshots) ? ready.snapshots : [];
+      const latest = [...snapshots].sort((a, b) => a.lastSeq - b.lastSeq).at(-1);
+      if (!latest) return;
+
+      // Reconnect can miss the terminal live event and only replay the latest
+      // persisted snapshot. Recover the canonical session so the page does not
+      // stay stuck in the optimistic streaming state forever.
+      if (latest.status === 'persisted') {
+        applyShouldEnd(latest.metadata?.shouldEnd === true);
+        finishStreaming();
+        if (sessionId) {
+          void syncSessionSilently(sessionId);
+        }
+        return;
+      }
+
+      if (latest.status === 'failed') {
+        applyStreamFailure(latest.error ?? {});
+        return;
+      }
+
+      if (latest.status === 'cancelled') {
+        finishStreaming();
+      }
+    },
+    onTerminalError: (streamError) => {
+      finishStreaming();
+      if (streamError.status && streamError.status >= 500) {
+        applyStreamFailure({
+          code: 'CONNECTION_LOST',
+          message: t('interview.error.connectionLost'),
+        });
+        return;
+      }
+      applyStreamFailure(streamError);
+    },
+    isTerminalError: isTerminalInterviewStreamError,
     onEvent: (event) => {
       if (event.eventType === 'stream.started') {
         beginStreaming();
@@ -199,12 +223,8 @@ const InterviewChat: React.FC = () => {
     }
   }, [resetMirroredDraft, sessionId, skipTurn]);
 
-  const getErrorMessage = (errMsg: string, code: string | null): string => {
-    if (code && ERROR_MESSAGES[code]) {
-      return t(ERROR_MESSAGES[code]);
-    }
-    return errMsg;
-  };
+  const getErrorMessage = (errMsg: string, code: string | null): string =>
+    resolveInterviewErrorMessage(errMsg, code, t);
 
   const handleReload = useCallback(() => {
     if (!sessionId || reloadLockRef.current) return;
@@ -229,19 +249,46 @@ const InterviewChat: React.FC = () => {
       });
   }, [sessionId, getSession, mountedRef]);
 
+  // P03 regression guard: if SSE misses the terminal event, keep reconciling
+  // the canonical session for a bounded window so the optimistic streaming
+  // shell can self-heal without a manual reload.
+  useEffect(() => {
+    if (!sessionId || !currentSession?.id || !isStreaming) {
+      canonicalSyncLockRef.current = false;
+      return;
+    }
+
+    let cancelled = false;
+    let attempts = 0;
+    const intervalId = window.setInterval(() => {
+      if (cancelled || canonicalSyncLockRef.current || attempts >= CANONICAL_SYNC_MAX_ATTEMPTS) {
+        return;
+      }
+      attempts += 1;
+      canonicalSyncLockRef.current = true;
+      void Promise.resolve(syncSessionSilently(sessionId)).finally(() => {
+        canonicalSyncLockRef.current = false;
+      });
+    }, CANONICAL_SYNC_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      canonicalSyncLockRef.current = false;
+      window.clearInterval(intervalId);
+    };
+  }, [sessionId, currentSession?.id, isStreaming, syncSessionSilently]);
+
   const isSessionActive = currentSession?.status === 'in_progress';
-  const isTerminalError = errorCode === 'MAX_TURNS_REACHED' || errorCode === 'SESSION_COMPLETED';
+  const isTerminalError = isTerminalInterviewErrorCode(errorCode);
   const streamingDraft = isStreaming
     ? buildLocalDraft({
         text: streamingText,
         status: streamingStatus ?? 'thinking',
       })
     : null;
-  const activeDraft = mirroredDraft ?? streamingDraft ?? cancelledDraft;
+  const bubbleDraft = getVisibleInterviewDraft(mirroredDraft, streamingDraft);
   const recoveryBadgeText = t('interview.recoveringBadge');
-  const draftFallbackText = activeDraft?.status === 'cancelled'
-    ? t('interview.cancelled')
-    : t('interview.thinking');
+  const draftFallbackText = t('interview.thinking');
 
   if (loading && !currentSession) {
     return (
@@ -316,11 +363,11 @@ const InterviewChat: React.FC = () => {
             )}
           </React.Fragment>
         ))}
-        {activeDraft && (
+        {bubbleDraft && (
           <AIStreamingBubble
-            text={activeDraft.text}
+            text={bubbleDraft.text}
             fallbackText={draftFallbackText}
-            status={activeDraft.status}
+            status={bubbleDraft.status}
             wrapperClassName="chat-bubble chat-bubble--ai"
             itemClassName="chat-bubble__streaming-shell"
             bodyClassName="chat-bubble__content"
@@ -356,7 +403,7 @@ const InterviewChat: React.FC = () => {
         <AIErrorState
           className="interview-chat__error"
           title={getErrorMessage(error, errorCode)}
-          description={(errorCode === 'RATE_LIMIT_EXCEEDED' || errorCode === 'TURN_TOO_FAST')
+          description={shouldShowRateLimitHint(errorCode)
             ? t('interview.error.rateLimitHint')
             : undefined}
           actions={(
@@ -397,17 +444,7 @@ const InterviewChat: React.FC = () => {
                 </Button>
               )}
               {sessionId &&
-                ![
-                  'NOT_FOUND',
-                  'CONSENT_REQUIRED',
-                  'RATE_LIMIT_EXCEEDED',
-                  'TURN_TOO_FAST',
-                  'MAX_TURNS_REACHED',
-                  'SESSION_COMPLETED',
-                  'AI_CALL_FAILED',
-                  'CONCURRENT_REQUEST',
-                  'CONNECTION_LOST',
-                ].includes(errorCode || '') && (
+                shouldShowFallbackReloadButton(errorCode) && (
                   <Button size="small" onClick={handleReload} data-testid="interview-chat-reload-fallback">
                     {t('interview.reloadConversation')}
                   </Button>
@@ -421,7 +458,9 @@ const InterviewChat: React.FC = () => {
         <InterviewInput
           onSend={handleSend}
           onStop={() => {
-            void cancelStream(sessionId);
+            void cancelStream(sessionId).then(() => {
+              message.info(t('interview.cancelled'));
+            });
           }}
           onSkip={handleSkip}
           disabled={loading}

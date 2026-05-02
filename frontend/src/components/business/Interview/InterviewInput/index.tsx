@@ -62,7 +62,7 @@ const InterviewInput: React.FC<InterviewInputProps> = ({
   return (
     <div className="interview-input-wrapper">
       {!isStreaming && !disabled && (
-        <div className="quick-tags flex gap-2 mb-3 overflow-x-auto pb-2 scrollbar-hide">
+        <div className="interview-input-wrapper__quick-tags scrollbar-hide">
           {QUICK_TAGS.map((tag, idx) => (
             <Tag 
               key={idx} 

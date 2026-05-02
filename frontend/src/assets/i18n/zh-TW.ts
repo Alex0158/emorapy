@@ -1311,6 +1311,9 @@ const zhTW = {
 
 	"psychProfile.richnessLabel": "故事豐富度",
 	"psychProfile.richnessNotStarted": "尚未開始",
+	"psychProfile.richnessEarlyStage": "探索初階",
+	"psychProfile.domainOverviewHint": "圓環為加權後的故事豐富度。藍標代表已有敘事，灰標代表尚待補齊。",
+	"psychProfile.noExploredDomainsYet": "尚無已累積敘事的面向，可先從聊聊開始。",
 	"psychProfile.richnessGettingToKnow": "初步了解",
 	"psychProfile.richnessGoodUnderstanding": "了解不少",
 	"psychProfile.richnessDeepUnderstanding": "深入了解",

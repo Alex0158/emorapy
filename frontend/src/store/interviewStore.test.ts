@@ -36,7 +36,6 @@ const initialState = {
   streamingText: '',
   isStreaming: false,
   streamingStatus: null,
-  cancelledDraft: null,
   loading: false,
   error: null,
   errorCode: null,
@@ -80,13 +79,12 @@ describe('interviewStore', () => {
       expect(useInterviewStore.getState().error).toBe('start fail');
     });
 
-    it('應重置殘留的 shouldEnd/streamingText/isStreaming/streamingStatus/cancelledDraft/safetyAlert', async () => {
+    it('應重置殘留的 shouldEnd/streamingText/isStreaming/streamingStatus/safetyAlert', async () => {
       useInterviewStore.setState({
         shouldEnd: true,
         streamingText: 'stale',
         isStreaming: true,
         streamingStatus: 'streaming',
-        cancelledDraft: { streamId: null, requestId: null, text: 'cancelled', status: 'cancelled' },
         safetyAlert: { message: 'old', severity: 'warning' },
       });
       const session = { id: 's1', status: 'in_progress', turns: [] };
@@ -97,7 +95,6 @@ describe('interviewStore', () => {
       expect(state.streamingText).toBe('');
       expect(state.isStreaming).toBe(false);
       expect(state.streamingStatus).toBeNull();
-      expect(state.cancelledDraft).toBeNull();
       expect(state.safetyAlert).toBeNull();
     });
   });
@@ -107,6 +104,24 @@ describe('interviewStore', () => {
       mockCheckResume.mockResolvedValue({ data: { data: { has_pending: true, session_id: 's1' } } });
       const result = await useInterviewStore.getState().checkResume();
       expect(result).toEqual({ has_pending: true, session_id: 's1' });
+    });
+
+    it('成功時應保留 failed resume data', async () => {
+      mockCheckResume.mockResolvedValue({
+        data: {
+          data: {
+            has_pending: false,
+            has_failed: true,
+            failed_session_id: 'fs1',
+          },
+        },
+      });
+      const result = await useInterviewStore.getState().checkResume();
+      expect(result).toEqual({
+        has_pending: false,
+        has_failed: true,
+        failed_session_id: 'fs1',
+      });
     });
 
     it('失敗時應返回 { has_pending: false }', async () => {
@@ -168,13 +183,12 @@ describe('interviewStore', () => {
       expect(useInterviewStore.getState().errorCode).toBe('NOT_FOUND');
     });
 
-    it('應重置殘留的 shouldEnd/streamingText/isStreaming/streamingStatus/cancelledDraft/safetyAlert', async () => {
+    it('應重置殘留的 shouldEnd/streamingText/isStreaming/streamingStatus/safetyAlert', async () => {
       useInterviewStore.setState({
         shouldEnd: true,
         streamingText: 'stale',
         isStreaming: true,
         streamingStatus: 'thinking',
-        cancelledDraft: { streamId: null, requestId: null, text: 'cancelled', status: 'cancelled' },
         safetyAlert: { message: 'old', severity: 'info' },
       });
       const session = { id: 's2', status: 'in_progress', turns: [] };
@@ -185,7 +199,6 @@ describe('interviewStore', () => {
       expect(state.streamingText).toBe('');
       expect(state.isStreaming).toBe(false);
       expect(state.streamingStatus).toBeNull();
-      expect(state.cancelledDraft).toBeNull();
       expect(state.safetyAlert).toBeNull();
     });
   });
@@ -231,6 +244,63 @@ describe('interviewStore', () => {
       expect(useInterviewStore.getState().turns).toEqual([{ id: 'turn-sync', ai_message: 'canonical' }]);
     });
 
+    it('canonical session 已前進到下一輪 AI 時應結束 optimistic streaming（P03 回歸）', async () => {
+      useInterviewStore.setState({
+        currentSession: { id: 's-sync', status: 'in_progress' } as never,
+        turns: [
+          {
+            id: 'turn-1',
+            turn_order: 1,
+            ai_message: '第一題',
+            user_response: '我需要冷靜',
+            skipped: false,
+            safety_flag: false,
+            created_at: '2026-04-18T00:00:00.000Z',
+          },
+        ] as never,
+        isStreaming: true,
+        streamingText: '我正在整理你的分享......',
+        streamingStatus: 'thinking',
+      });
+      mockGetSession.mockResolvedValue({
+        data: {
+          data: {
+            id: 's-sync',
+            status: 'in_progress',
+            turns: [
+              {
+                id: 'turn-1',
+                turn_order: 1,
+                ai_message: '第一題',
+                user_response: '我需要冷靜',
+                skipped: false,
+                safety_flag: false,
+                created_at: '2026-04-18T00:00:00.000Z',
+              },
+              {
+                id: 'turn-2',
+                turn_order: 2,
+                ai_message: '第二題',
+                skipped: false,
+                safety_flag: false,
+                created_at: '2026-04-18T00:00:10.000Z',
+              },
+            ],
+          },
+        },
+      });
+
+      await useInterviewStore.getState().syncSessionSilently('s-sync');
+
+      const state = useInterviewStore.getState();
+      expect(state.turns).toHaveLength(2);
+      expect(state.turns[1].ai_message).toBe('第二題');
+      expect(state.isStreaming).toBe(false);
+      expect(state.streamingText).toBe('');
+      expect(state.streamingStatus).toBeNull();
+      expect(state.abortController).toBeNull();
+    });
+
     it('失敗時應保留既有本地狀態', async () => {
       useInterviewStore.setState({
         currentSession: { id: 'local', status: 'in_progress' } as never,
@@ -246,7 +316,7 @@ describe('interviewStore', () => {
   });
 
   describe('cancelStream', () => {
-    it('應調用 cancel API 並轉為 cancelled draft', async () => {
+    it('應調用 cancel API 並清除串流狀態（不保留 cancelled draft）', async () => {
       mockCancelApi.mockResolvedValue({});
       useInterviewStore.setState({
         isStreaming: true,
@@ -258,12 +328,6 @@ describe('interviewStore', () => {
       expect(useInterviewStore.getState().isStreaming).toBe(false);
       expect(useInterviewStore.getState().streamingText).toBe('');
       expect(useInterviewStore.getState().streamingStatus).toBeNull();
-      expect(useInterviewStore.getState().cancelledDraft).toEqual({
-        streamId: null,
-        requestId: null,
-        text: 'partial',
-        status: 'cancelled',
-      });
       expect(useInterviewStore.getState().abortController).toBeNull();
     });
   });
@@ -287,7 +351,6 @@ describe('interviewStore', () => {
         streamingText: 'text',
         isStreaming: true,
         streamingStatus: 'persisting',
-        cancelledDraft: { streamId: null, requestId: null, text: 'cancelled', status: 'cancelled' },
         loading: true,
         error: 'err',
         errorCode: 'CODE',
@@ -303,7 +366,6 @@ describe('interviewStore', () => {
       expect(state.streamingText).toBe('');
       expect(state.isStreaming).toBe(false);
       expect(state.streamingStatus).toBeNull();
-      expect(state.cancelledDraft).toBeNull();
       expect(state.loading).toBe(false);
       expect(state.error).toBeNull();
       expect(state.errorCode).toBeNull();
@@ -416,11 +478,10 @@ describe('interviewStore', () => {
       expect(useInterviewStore.getState().streamingStatus).toBe('thinking');
     });
 
-    it('beginStreaming 應切到 thinking 並清除 cancelledDraft 和錯誤', () => {
+    it('beginStreaming 應切到 thinking 並清除錯誤', () => {
       useInterviewStore.setState({
         isStreaming: false,
         streamingStatus: null,
-        cancelledDraft: { streamId: null, requestId: null, text: 'cancelled', status: 'cancelled' },
         error: 'old',
         errorCode: 'OLD',
       });
@@ -430,7 +491,6 @@ describe('interviewStore', () => {
       const state = useInterviewStore.getState();
       expect(state.isStreaming).toBe(true);
       expect(state.streamingStatus).toBe('thinking');
-      expect(state.cancelledDraft).toBeNull();
       expect(state.error).toBeNull();
       expect(state.errorCode).toBeNull();
     });

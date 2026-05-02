@@ -182,8 +182,22 @@ describe('chat API', () => {
   it('requestChatJudgment 應 POST /chat/rooms/:id/request-judgment', async () => {
     mockPost.mockResolvedValueOnce({ data: { data: { roomId: 'r1', caseId: 'c1', status: 'judgment_requested' } } });
     const result = await requestChatJudgment('r1', { included_message_ids: ['m1', 'm2'] });
-    expect(mockPost).toHaveBeenCalledWith('/chat/rooms/r1/request-judgment', { included_message_ids: ['m1', 'm2'] });
+    expect(mockPost).toHaveBeenCalledWith(
+      '/chat/rooms/r1/request-judgment',
+      { included_message_ids: ['m1', 'm2'] },
+      { timeout: 180000 }
+    );
     expect(result).toMatchObject({ roomId: 'r1', caseId: 'c1' });
+  });
+
+  it('requestChatJudgment 未傳 included_message_ids 時也應保留長超時配置（P04 超時回歸）', async () => {
+    mockPost.mockResolvedValueOnce({ data: { data: { roomId: 'r1', caseId: 'c1', status: 'judgment_requested' } } });
+    await requestChatJudgment('r1');
+    expect(mockPost).toHaveBeenCalledWith(
+      '/chat/rooms/r1/request-judgment',
+      {},
+      { timeout: 180000 }
+    );
   });
 
   it('requestChatJudgment 後端回傳 data 為 null 時應拋錯（F07 邊界：API 回傳不完整時防禦）', async () => {

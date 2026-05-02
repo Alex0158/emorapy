@@ -2,12 +2,13 @@
  * Interview Chat 頁面單元測試
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 const mockNavigate = vi.fn();
 const mockMessageError = vi.fn();
 const mockMessageSuccess = vi.fn();
+const mockMessageInfo = vi.fn();
 const mockGetSession = vi.fn();
 const mockSyncSessionSilently = vi.fn();
 const mockRespond = vi.fn();
@@ -28,7 +29,6 @@ let mockStoreState = {
   streamingText: '',
   isStreaming: false,
   streamingStatus: null as 'thinking' | 'streaming' | 'persisting' | null,
-  cancelledDraft: null as { text: string; status: 'cancelled' } | null,
   loading: false,
   error: null as string | null,
   errorCode: null as string | null,
@@ -87,6 +87,7 @@ vi.mock('antd', async (importOriginal) => {
       ...actual.message,
       error: (...args: unknown[]) => mockMessageError(...args),
       success: (...args: unknown[]) => mockMessageSuccess(...args),
+      info: (...args: unknown[]) => mockMessageInfo(...args),
     },
   };
 });
@@ -113,7 +114,6 @@ describe('InterviewChat', () => {
       streamingText: '',
       isStreaming: false,
       streamingStatus: null,
-      cancelledDraft: null,
       loading: false,
       error: null,
       errorCode: null,
@@ -240,14 +240,6 @@ describe('InterviewChat', () => {
     expect(screen.getByText('interview.thinking').closest('[data-ai-stream-status="thinking"]')).toBeInTheDocument();
   });
 
-  it('cancelledDraft 存在時應顯示 cancelled 文案與狀態', () => {
-    mockStoreState.currentSession = { id: 'test-session', status: 'in_progress' };
-    mockStoreState.cancelledDraft = { text: '', status: 'cancelled' };
-    renderWithRouter();
-    expect(screen.getByText('interview.cancelled')).toBeInTheDocument();
-    expect(screen.getByText('interview.cancelled').closest('[data-ai-stream-status="cancelled"]')).toBeInTheDocument();
-  });
-
   it('AI Stream ready snapshot 有活動 draft 時應顯示 recovering 文案', async () => {
     mockStoreState.currentSession = { id: 'test-session', status: 'in_progress' };
     mockConnectAIStream.mockImplementation(async (_scope: string, _scopeId: string, callbacks: { onReady?: (payload: { snapshots?: Array<Record<string, unknown>> }) => void }) => {
@@ -275,7 +267,7 @@ describe('InterviewChat', () => {
     expect(screen.getByText('interview.thinking').closest('[data-ai-stream-status="thinking"]')).toBeInTheDocument();
   });
 
-  it('AI Stream ready snapshot 為 cancelled 時應顯示 cancelled draft', async () => {
+  it('AI Stream ready snapshot 為 cancelled 時不應以對話氣泡顯示（避免像多一則 AI 訊息）', async () => {
     mockStoreState.currentSession = { id: 'test-session', status: 'in_progress' };
     mockConnectAIStream.mockImplementation(async (_scope: string, _scopeId: string, callbacks: { onReady?: (payload: { snapshots?: Array<Record<string, unknown>> }) => void }) => {
       callbacks.onReady?.({
@@ -296,9 +288,10 @@ describe('InterviewChat', () => {
     });
     renderWithRouter();
     await waitFor(() => {
-      expect(screen.getByText('已中止的回覆')).toBeInTheDocument();
+      expect(mockConnectAIStream).toHaveBeenCalled();
     });
-    expect(screen.getByText('已中止的回覆').closest('[data-ai-stream-status="cancelled"]')).toBeInTheDocument();
+    expect(document.querySelector('[data-ai-stream-status="cancelled"]')).toBeNull();
+    expect(screen.queryByText('已中止的回覆')).not.toBeInTheDocument();
   });
 
   it('生成中收到 AI Stream delta 時應優先顯示鏡像 draft', async () => {
@@ -348,6 +341,77 @@ describe('InterviewChat', () => {
     renderWithRouter();
     await waitFor(() => {
       expect(mockSyncSessionSilently).toHaveBeenCalledWith('test-session');
+    });
+  });
+
+  it('reconnect 後 ready snapshot 若已是 persisted，應結束 streaming 並同步 canonical session（P03 回歸）', async () => {
+    mockStoreState.currentSession = { id: 'test-session', status: 'in_progress' };
+    mockStoreState.isStreaming = true;
+    mockStoreState.streamingStatus = 'thinking';
+    mockConnectAIStream.mockImplementation(async (_scope: string, _scopeId: string, callbacks: { onReady?: (payload: { snapshots?: Array<Record<string, unknown>> }) => void }) => {
+      queueMicrotask(() => {
+        callbacks.onReady?.({
+          snapshots: [
+            {
+              streamId: 'stream-4',
+              requestId: 'request-4',
+              scopeType: 'interview_session',
+              scopeId: 'test-session',
+              status: 'persisted',
+              lastSeq: 10,
+              text: '已落庫的下一輪 AI 回覆',
+              metadata: { shouldEnd: false },
+              updatedAt: new Date().toISOString(),
+            },
+          ],
+        });
+      });
+      return () => undefined;
+    });
+    renderWithRouter();
+    await waitFor(() => {
+      expect(mockFinishStreaming).toHaveBeenCalledTimes(1);
+      expect(mockSyncSessionSilently).toHaveBeenCalledWith('test-session');
+      expect(mockApplyShouldEnd).toHaveBeenCalledWith(false);
+    });
+  });
+
+  it('streaming 中若 SSE 漏掉 persisted，應定期同步 canonical session 自愈（P03 回歸）', async () => {
+    vi.useFakeTimers();
+    try {
+      mockStoreState.currentSession = { id: 'test-session', status: 'in_progress' };
+      mockStoreState.isStreaming = true;
+      mockStoreState.streamingStatus = 'thinking';
+
+      renderWithRouter();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2500);
+      });
+
+      expect(mockSyncSessionSilently).toHaveBeenCalledWith('test-session');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('AI Stream 初始連線返回 500 時應結束 thinking 並套用 connectionLost 錯誤', async () => {
+    mockStoreState.currentSession = { id: 'test-session', status: 'in_progress' };
+    mockStoreState.isStreaming = true;
+    mockStoreState.streamingStatus = 'thinking';
+    mockConnectAIStream.mockImplementation(async (_scope: string, _scopeId: string, callbacks: { onError?: (error: { code: string; message: string; status?: number }) => void }) => {
+      queueMicrotask(() => {
+        callbacks.onError?.({ code: 'HTTP_500', message: 'HTTP 500', status: 500 });
+      });
+      return () => undefined;
+    });
+    renderWithRouter();
+    await waitFor(() => {
+      expect(mockFinishStreaming).toHaveBeenCalledTimes(1);
+      expect(mockApplyStreamFailure).toHaveBeenCalledWith({
+        code: 'CONNECTION_LOST',
+        message: 'interview.error.connectionLost',
+      });
     });
   });
 

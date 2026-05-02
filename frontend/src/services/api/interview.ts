@@ -13,13 +13,15 @@
  */
 
 import request from '../request';
+import type { InterviewResumeStatus } from '@/types/interview';
+import type { ApiResponse } from '@/types/common';
 
 export const interviewApi = {
   startSession: (trigger: string = 'organic') =>
     request.post('/interview/start', { trigger }),
 
   checkResume: () =>
-    request.get('/interview/resume'),
+    request.get<ApiResponse<InterviewResumeStatus | null>>('/interview/resume'),
 
   getSession: (sessionId: string) =>
     request.get(`/interview/${sessionId}`),

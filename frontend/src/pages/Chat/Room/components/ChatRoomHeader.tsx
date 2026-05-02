@@ -31,6 +31,8 @@ interface ChatRoomHeaderProps {
   disableRequestJudgment: boolean;
   creatingInvite: boolean;
   judging: boolean;
+  leavingRoom: boolean;
+  kickingB: boolean;
   canLeaveRoom: boolean;
   canKickB: boolean;
   onCreateInvite: () => void;
@@ -51,6 +53,8 @@ export default function ChatRoomHeader({
   disableRequestJudgment,
   creatingInvite,
   judging,
+  leavingRoom,
+  kickingB,
   canLeaveRoom,
   canKickB,
   onCreateInvite,
@@ -90,12 +94,12 @@ export default function ChatRoomHeader({
           {t('chat.requestJudgment')}
         </Button>
         {canLeaveRoom ? (
-          <Button onClick={onLeaveRoomAction}>
+          <Button loading={leavingRoom} onClick={onLeaveRoomAction}>
             {t('chat.leaveRoomAction')}
           </Button>
         ) : null}
         {canKickB ? (
-          <Button danger onClick={onKickB}>
+          <Button danger loading={kickingB} onClick={onKickB}>
             {t('chat.kickB')}
           </Button>
         ) : null}

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { message } from 'antd';
 import { usePsychProfileStore } from '@/store/psychProfileStore';
 import { useInterviewStore } from '@/store/interviewStore';
+import { getInterviewResumeNavigationPath } from '@/utils/interviewResume';
 import { t } from '@/utils/i18n';
 
 type TriggerType = 'organic' | 'onboarding' | 'pre_case' | 'post_judgment';
@@ -16,8 +17,9 @@ export function useInterviewTrigger(trigger: TriggerType) {
 
   const startFlow = useCallback(async () => {
     const resumeData = await checkResume();
-    if (resumeData.has_pending && resumeData.session_id) {
-      navigate(`/interview/${resumeData.session_id}`);
+    const resumePath = getInterviewResumeNavigationPath(resumeData);
+    if (resumePath) {
+      navigate(resumePath);
       return;
     }
     const session = await startSession(trigger);

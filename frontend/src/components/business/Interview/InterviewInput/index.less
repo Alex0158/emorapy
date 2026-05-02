@@ -1,13 +1,29 @@
 @import '../../../../assets/styles/variables.less';
 
 .interview-input-wrapper {
-  padding: 16px 20px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 22px 24px 26px;
   background: rgba(253, 253, 253, 0.85);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-top: 1px solid rgba(0, 0, 0, 0.05);
 
-  .quick-tags {
+  &__quick-tags {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 14px;
+    margin-bottom: 22px;
+
+    @media (max-width: @breakpoint-mobile) {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      padding-bottom: 8px;
+      margin-bottom: 18px;
+      -webkit-overflow-scrolling: touch;
+    }
+
     &::-webkit-scrollbar {
       display: none;
     }
@@ -20,7 +36,7 @@
     background: fade(@color-primary, 5%);
     color: @color-primary;
     border-radius: 20px;
-    padding: 6px 16px;
+    padding: 8px 18px;
     font-size: 14px;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -34,7 +50,7 @@
 
   .interview-input {
     display: flex;
-    gap: 12px;
+    gap: 16px;
     align-items: flex-end;
 
     &__area {
@@ -54,7 +70,7 @@
     &__textarea {
       width: 100%;
       border-radius: 24px !important;
-      padding: 12px 16px !important;
+      padding: 14px 18px !important;
       resize: none !important;
       font-size: 16px;
       border: none !important;
@@ -71,7 +87,7 @@
     }
 
     .input-actions {
-      margin-bottom: 4px;
+      margin-bottom: 6px;
 
       .action-btn {
         width: 44px;

@@ -1,0 +1,65 @@
+import type { AIStreamDraftStatus } from '@/utils/aiStreamState';
+import type { InterviewSession, InterviewTurn } from '@/types/interview';
+
+export interface InterviewErrorInfo {
+  message: string;
+  code: string | null;
+  status: number | null;
+}
+
+export type SafetyAlertSeverity = 'info' | 'warning' | 'critical';
+
+export function extractInterviewErrorInfo(err: unknown): InterviewErrorInfo {
+  if (err && typeof err === 'object') {
+    const e = err as { message?: string; code?: string; status?: number };
+    return {
+      message: e.message || 'Unknown error',
+      code: e.code || null,
+      status: e.status ?? null,
+    };
+  }
+  return { message: String(err), code: null, status: null };
+}
+
+export function getStreamingStartState() {
+  return {
+    isStreaming: true,
+    streamingText: '',
+    streamingStatus: 'thinking' as AIStreamDraftStatus,
+    error: null,
+    errorCode: null,
+    safetyAlert: null,
+    abortController: null,
+  };
+}
+
+export function getStreamingIdleState() {
+  return {
+    isStreaming: false,
+    streamingText: '',
+    streamingStatus: null,
+  };
+}
+
+export function getStreamingIdleWithAbortState() {
+  return {
+    ...getStreamingIdleState(),
+    abortController: null,
+  };
+}
+
+export function shouldRecoverStreamingFromCanonical(
+  isStreaming: boolean,
+  localTurns: InterviewTurn[],
+  canonicalSession: InterviewSession,
+): boolean {
+  if (!isStreaming) return false;
+  if (canonicalSession.status !== 'in_progress') return true;
+
+  const canonicalTurns = canonicalSession.turns || [];
+  return canonicalTurns.length > localTurns.length;
+}
+
+export function normalizeSafetyAlertSeverity(severity?: string): SafetyAlertSeverity {
+  return severity === 'warning' || severity === 'critical' ? severity : 'info';
+}

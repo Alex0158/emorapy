@@ -3,6 +3,19 @@ import type { ApiResponse } from '@/types/common';
 import { env } from '@/config/env';
 import { sessionStorage } from '@/utils/storage';
 import { getLocale } from '@/utils/i18n';
+import {
+  buildChatStreamHeaders,
+  chatInvitePath,
+  chatRoomPath,
+  ensureChatApiData,
+  getChatJudgmentRequestConfig,
+  normalizeListMessagesResponse,
+  parseChatStreamEventChunk,
+  readChatStreamHttpError,
+  readChatStreamToken,
+  unwrapChatApiData,
+  type ListMessagesResponse,
+} from './chatApiUtils';
 import type {
   ChatInvite,
   ChatJudgmentResult,
@@ -13,34 +26,22 @@ import type {
   ChatStreamEvent,
 } from '@/types/chat';
 
-interface ListMessagesResponse {
-  messages: ChatMessage[];
-  nextCursor: string | null;
-}
-
-const ensureData = <T>(value: T | undefined | null, errorMessage: string): T => {
-  if (value === undefined || value === null) {
-    throw new Error(errorMessage);
-  }
-  return value;
-};
-
 export const createChatRoom = async (
   historyVisibilityMode: ChatHistoryVisibilityMode = 'share_summary_only'
 ): Promise<ChatRoom> => {
   const response = await request.post<ApiResponse<{ room: ChatRoom }>>('/chat/rooms', {
     history_visibility_mode: historyVisibilityMode,
   });
-  return ensureData(
-    (response.data as ApiResponse<{ room: ChatRoom }>)?.data?.room,
+  return ensureChatApiData(
+    unwrapChatApiData(response, 'Invalid chat room response from server').room,
     'Invalid chat room response from server'
   );
 };
 
 export const getChatRoom = async (roomId: string): Promise<ChatRoom> => {
-  const response = await request.get<ApiResponse<{ room: ChatRoom }>>(`/chat/rooms/${encodeURIComponent(roomId)}`);
-  return ensureData(
-    (response.data as ApiResponse<{ room: ChatRoom }>)?.data?.room,
+  const response = await request.get<ApiResponse<{ room: ChatRoom }>>(chatRoomPath(roomId));
+  return ensureChatApiData(
+    unwrapChatApiData(response, 'Invalid chat room response from server').room,
     'Invalid chat room response from server'
   );
 };
@@ -50,31 +51,31 @@ export const createChatInvite = async (
   payload?: { history_visibility_mode?: ChatHistoryVisibilityMode; expires_in_hours?: number }
 ): Promise<ChatInvite> => {
   const response = await request.post<ApiResponse<{ invite: ChatInvite }>>(
-    `/chat/rooms/${encodeURIComponent(roomId)}/invites`,
+    chatRoomPath(roomId, '/invites'),
     payload ?? {}
   );
-  return ensureData(
-    (response.data as ApiResponse<{ invite: ChatInvite }>)?.data?.invite,
+  return ensureChatApiData(
+    unwrapChatApiData(response, 'Invalid chat invite response from server').invite,
     'Invalid chat invite response from server'
   );
 };
 
 export const acceptChatInvite = async (inviteCode: string): Promise<ChatRoom> => {
   const response = await request.post<ApiResponse<{ room: ChatRoom }>>(
-    `/chat/invites/${encodeURIComponent(inviteCode)}/accept`
+    chatInvitePath(inviteCode, '/accept')
   );
-  return ensureData(
-    (response.data as ApiResponse<{ room: ChatRoom }>)?.data?.room,
+  return ensureChatApiData(
+    unwrapChatApiData(response, 'Invalid accept invite response from server').room,
     'Invalid accept invite response from server'
   );
 };
 
 export const declineChatInvite = async (inviteCode: string): Promise<ChatInvite> => {
   const response = await request.post<ApiResponse<{ invite: ChatInvite }>>(
-    `/chat/invites/${encodeURIComponent(inviteCode)}/decline`
+    chatInvitePath(inviteCode, '/decline')
   );
-  return ensureData(
-    (response.data as ApiResponse<{ invite: ChatInvite }>)?.data?.invite,
+  return ensureChatApiData(
+    unwrapChatApiData(response, 'Invalid decline invite response from server').invite,
     'Invalid decline invite response from server'
   );
 };
@@ -84,20 +85,16 @@ export const listChatMessages = async (
   params?: { cursor?: string; limit?: number }
 ): Promise<ListMessagesResponse> => {
   const response = await request.get<ApiResponse<ListMessagesResponse>>(
-    `/chat/rooms/${encodeURIComponent(roomId)}/messages`,
+    chatRoomPath(roomId, '/messages'),
     {
-    params,
+      params,
     }
   );
-  const result = ensureData(
-    (response.data as ApiResponse<ListMessagesResponse>)?.data,
+  const result = unwrapChatApiData(
+    response,
     'Invalid chat messages response from server'
   );
-  const messages = result.messages;
-  return {
-    messages: Array.isArray(messages) ? messages : [],
-    nextCursor: result.nextCursor ?? null,
-  };
+  return normalizeListMessagesResponse(result);
 };
 
 export const sendChatMessage = async (
@@ -105,11 +102,11 @@ export const sendChatMessage = async (
   payload: { content: string; visibility_scope?: 'all' | 'owner_only' | 'summary_only'; reply_to_message_id?: string }
 ): Promise<ChatMessage> => {
   const response = await request.post<ApiResponse<{ message: ChatMessage }>>(
-    `/chat/rooms/${encodeURIComponent(roomId)}/messages`,
+    chatRoomPath(roomId, '/messages'),
     payload
   );
-  return ensureData(
-    (response.data as ApiResponse<{ message: ChatMessage }>)?.data?.message,
+  return ensureChatApiData(
+    unwrapChatApiData(response, 'Invalid send message response from server').message,
     'Invalid send message response from server'
   );
 };
@@ -119,37 +116,32 @@ export const requestChatJudgment = async (
   payload?: { included_message_ids?: string[] }
 ): Promise<ChatJudgmentResult> => {
   const response = await request.post<ApiResponse<ChatJudgmentResult>>(
-    `/chat/rooms/${encodeURIComponent(roomId)}/request-judgment`,
-    payload ?? {}
+    chatRoomPath(roomId, '/request-judgment'),
+    payload ?? {},
+    getChatJudgmentRequestConfig()
   );
-  return ensureData(
-    (response.data as ApiResponse<ChatJudgmentResult>)?.data,
-    'Invalid judgment request response from server'
-  );
+  return unwrapChatApiData(response, 'Invalid judgment request response from server');
 };
 
 export const getChatJudgmentStatus = async (roomId: string): Promise<ChatJudgmentStatus> => {
   const response = await request.get<ApiResponse<ChatJudgmentStatus>>(
-    `/chat/rooms/${encodeURIComponent(roomId)}/judgment-status`
+    chatRoomPath(roomId, '/judgment-status')
   );
-  return ensureData(
-    (response.data as ApiResponse<ChatJudgmentStatus>)?.data,
-    'Invalid judgment status response from server'
-  );
+  return unwrapChatApiData(response, 'Invalid judgment status response from server');
 };
 
 export const leaveChatRoom = async (roomId: string): Promise<ChatRoom> => {
   const response = await request.post<ApiResponse<{ room: ChatRoom }>>(
-    `/chat/rooms/${encodeURIComponent(roomId)}/leave`
+    chatRoomPath(roomId, '/leave')
   );
-  return ensureData((response.data as ApiResponse<{ room: ChatRoom }>)?.data?.room, 'Invalid leave room response');
+  return ensureChatApiData(unwrapChatApiData(response, 'Invalid leave room response').room, 'Invalid leave room response');
 };
 
 export const kickChatParticipantB = async (roomId: string): Promise<ChatRoom> => {
   const response = await request.post<ApiResponse<{ room: ChatRoom }>>(
-    `/chat/rooms/${encodeURIComponent(roomId)}/kick-b`
+    chatRoomPath(roomId, '/kick-b')
   );
-  return ensureData((response.data as ApiResponse<{ room: ChatRoom }>)?.data?.room, 'Invalid kick response');
+  return ensureChatApiData(unwrapChatApiData(response, 'Invalid kick response').room, 'Invalid kick response');
 };
 
 export interface ChatStreamCallbacks {
@@ -163,36 +155,16 @@ export const connectChatStream = async (
   callbacks: ChatStreamCallbacks
 ): Promise<() => void> => {
   const controller = new AbortController();
-  let token: string | null = null;
-  try {
-    token = localStorage.getItem('token') || globalThis.sessionStorage?.getItem('token') || null;
-  } catch {
-    token = null;
-  }
-
+  const token = readChatStreamToken();
   const sessionId = sessionStorage.get();
-  const response = await fetch(`${env.apiBaseURL}/chat/rooms/${encodeURIComponent(roomId)}/stream`, {
+  const response = await fetch(`${env.apiBaseURL}${chatRoomPath(roomId, '/stream')}`, {
     method: 'GET',
-    headers: {
-      Accept: 'text/event-stream',
-      'X-Locale': getLocale(),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(sessionId ? { 'X-Session-Id': sessionId } : {}),
-    },
+    headers: buildChatStreamHeaders({ token, sessionId, locale: getLocale() }),
     signal: controller.signal,
   });
 
   if (!response.ok) {
-    let code = `HTTP_${response.status}`;
-    let message = `HTTP ${response.status}`;
-    try {
-      const body = await response.json() as { error?: { code?: string; message?: string } };
-      if (body?.error?.code) code = body.error.code;
-      if (body?.error?.message) message = body.error.message;
-    } catch {
-      // keep fallback
-    }
-    callbacks.onError?.({ code, message, status: response.status });
+    callbacks.onError?.(await readChatStreamHttpError(response));
     return () => controller.abort();
   }
 
@@ -221,19 +193,8 @@ export const connectChatStream = async (
         buffer = chunks.pop() ?? '';
 
         chunks.forEach((chunk) => {
-          const lines = chunk.split('\n');
-          const eventLine = lines.find((line) => line.startsWith('event:'));
-          const dataLine = lines.find((line) => line.startsWith('data:'));
-          if (!eventLine || !dataLine) return;
-          try {
-            const payload = JSON.parse(dataLine.replace(/^data:\s*/, '')) as ChatStreamEvent;
-            callbacks.onEvent?.({
-              ...payload,
-              type: (eventLine.replace(/^event:\s*/, '').trim() || payload.type) as ChatStreamEvent['type'],
-            });
-          } catch {
-            // ignore parse errors for non-JSON ping lines
-          }
+          const event = parseChatStreamEventChunk(chunk);
+          if (event) callbacks.onEvent?.(event);
         });
       }
     } catch {

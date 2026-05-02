@@ -15,6 +15,11 @@ describe('RichnessRing', () => {
     expect(screen.getByText('psychProfile.richnessNotStarted')).toBeInTheDocument();
   });
 
+  it('score < 0.05 但已有面向進度時應顯示 earlyStage 標籤', () => {
+    render(<RichnessRing score={0.02} hasDomainProgress />);
+    expect(screen.getByText('psychProfile.richnessEarlyStage')).toBeInTheDocument();
+  });
+
   it('score 0.1 時應顯示 gettingToKnow 標籤', () => {
     render(<RichnessRing score={0.1} />);
     expect(screen.getByText('psychProfile.richnessGettingToKnow')).toBeInTheDocument();

@@ -1,0 +1,98 @@
+import { describe, expect, it } from 'vitest';
+import type { InterviewSession, InterviewTurn } from '@/types/interview';
+import {
+  extractInterviewErrorInfo,
+  getStreamingIdleState,
+  getStreamingIdleWithAbortState,
+  getStreamingStartState,
+  normalizeSafetyAlertSeverity,
+  shouldRecoverStreamingFromCanonical,
+} from './interviewStoreUtils';
+
+function createSession(overrides: Partial<InterviewSession> = {}): InterviewSession {
+  return {
+    id: 'session-1',
+    status: 'in_progress',
+    turns: [],
+    ...overrides,
+  } as InterviewSession;
+}
+
+function createTurn(id: string): InterviewTurn {
+  return {
+    id,
+    turn_order: 1,
+    ai_message: 'Question',
+    user_response: 'Answer',
+    skipped: false,
+    safety_flag: false,
+    created_at: '2026-01-01T00:00:00.000Z',
+  } as InterviewTurn;
+}
+
+describe('interview store utils', () => {
+  it('解析標準 API error，保留 message/code/status', () => {
+    expect(extractInterviewErrorInfo({
+      message: 'too fast',
+      code: 'TURN_TOO_FAST',
+      status: 429,
+    })).toEqual({
+      message: 'too fast',
+      code: 'TURN_TOO_FAST',
+      status: 429,
+    });
+  });
+
+  it('非物件 error 轉為字串，缺失欄位使用安全預設值', () => {
+    expect(extractInterviewErrorInfo('plain error')).toEqual({
+      message: 'plain error',
+      code: null,
+      status: null,
+    });
+    expect(extractInterviewErrorInfo({})).toEqual({
+      message: 'Unknown error',
+      code: null,
+      status: null,
+    });
+  });
+
+  it('streaming 狀態片段分清是否清理 abortController', () => {
+    expect(getStreamingStartState()).toEqual({
+      isStreaming: true,
+      streamingText: '',
+      streamingStatus: 'thinking',
+      error: null,
+      errorCode: null,
+      safetyAlert: null,
+      abortController: null,
+    });
+    expect(getStreamingIdleState()).toEqual({
+      isStreaming: false,
+      streamingText: '',
+      streamingStatus: null,
+    });
+    expect(getStreamingIdleWithAbortState()).toEqual({
+      isStreaming: false,
+      streamingText: '',
+      streamingStatus: null,
+      abortController: null,
+    });
+  });
+
+  it('canonical session 已完成或已前進到下一輪時才結束 optimistic streaming', () => {
+    const localTurns = [createTurn('local-1')];
+    expect(shouldRecoverStreamingFromCanonical(false, localTurns, createSession())).toBe(false);
+    expect(shouldRecoverStreamingFromCanonical(true, localTurns, createSession({ status: 'completed' }))).toBe(true);
+    expect(shouldRecoverStreamingFromCanonical(true, localTurns, createSession({ turns: localTurns }))).toBe(false);
+    expect(shouldRecoverStreamingFromCanonical(true, localTurns, createSession({
+      turns: [...localTurns, createTurn('canonical-2')],
+    }))).toBe(true);
+  });
+
+  it('safety alert severity 只接受 warning/critical，其他值回到 info', () => {
+    expect(normalizeSafetyAlertSeverity('warning')).toBe('warning');
+    expect(normalizeSafetyAlertSeverity('critical')).toBe('critical');
+    expect(normalizeSafetyAlertSeverity('unknown')).toBe('info');
+    expect(normalizeSafetyAlertSeverity(undefined)).toBe('info');
+  });
+});

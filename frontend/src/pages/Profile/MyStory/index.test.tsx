@@ -345,6 +345,28 @@ describe('MyStory', () => {
     });
   });
 
+  it('繼續聊天 (有 failed session) 應導航到 result retry 頁且不再 startSession', async () => {
+    mockCheckResume
+      .mockResolvedValueOnce({ has_pending: false })
+      .mockResolvedValueOnce({
+        has_pending: false,
+        has_failed: true,
+        failed_session_id: 'failed-sess',
+      });
+    mockPsychState.profile = {
+      consent_given: true,
+      richness_score: 0.5,
+      narratives: [{ domain: 'attachment', is_latest: true, completeness: 0.5 }],
+      insights: [],
+    };
+    renderPage();
+    fireEvent.click(screen.getByText('psychProfile.continueChat'));
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/interview/failed-sess/result');
+      expect(mockStartSession).not.toHaveBeenCalled();
+    });
+  });
+
   it('繼續聊天 startSession 失敗且有 message 應顯示該 message（F06 錯誤處理約定）', async () => {
     mockCheckResume.mockResolvedValue({ has_pending: false });
     mockStartSession.mockRejectedValue(new Error('啟動訪談失敗'));

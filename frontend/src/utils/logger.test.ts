@@ -7,8 +7,22 @@ import { logger } from './logger';
 const originalEnv = import.meta.env;
 
 describe('logger', () => {
+  let consoleSpies: Array<ReturnType<typeof vi.spyOn>>;
+
   beforeEach(() => {
     logger.clearLogs();
+    consoleSpies = [
+      vi.spyOn(console, 'debug').mockImplementation(() => undefined),
+      vi.spyOn(console, 'info').mockImplementation(() => undefined),
+      vi.spyOn(console, 'warn').mockImplementation(() => undefined),
+      vi.spyOn(console, 'error').mockImplementation(() => undefined),
+    ];
+  });
+
+  afterEach(() => {
+    for (const spy of consoleSpies) {
+      spy.mockRestore();
+    }
   });
 
   it('info 後 getLogs 應有一條記錄', () => {

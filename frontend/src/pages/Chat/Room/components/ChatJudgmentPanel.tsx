@@ -54,6 +54,9 @@ export function getJudgmentPreviewInfo(room: ChatRoom | null, messages: ChatMess
   const includedMessages: ChatMessage[] = [];
 
   messages.forEach((m) => {
+    if (m.message_type !== 'user_text') {
+      return;
+    }
     if (m.visibility_scope !== 'all') {
       excludedByVisibility += 1;
       return;

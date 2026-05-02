@@ -68,6 +68,13 @@
   }
 }
 
+// 桌面寬度應只使用頂部導航；避免 .bottom-nav { display: flex } 覆寫 Tailwind 的 md:hidden
+@media (min-width: 768px) {
+  .bottom-nav {
+    display: none !important;
+  }
+}
+
 // Hide header menu on mobile
 @media (max-width: 768px) {
   .app-header .header-menu {

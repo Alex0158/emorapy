@@ -7,6 +7,9 @@ import { env } from './env';
 export const API_CONFIG = {
   baseURL: env.apiBaseURL,
   timeout: 30000,
+  chat: {
+    judgmentRequestTimeout: 180000,
+  },
   retry: {
     maxRetries: 3,
     delay: 1000,
@@ -22,4 +25,3 @@ export const API_CONFIG = {
     },
   },
 } as const;
-

@@ -88,6 +88,23 @@ describe('useInterviewTrigger', () => {
     expect(mockStartSession).not.toHaveBeenCalled();
   });
 
+  it('checkResume 有 failed session 時應直接導航到 result retry 頁', async () => {
+    mockCheckResume.mockResolvedValue({
+      has_pending: false,
+      has_failed: true,
+      failed_session_id: 'failed-existing',
+    });
+    const { result } = renderHook(() => useInterviewTrigger('organic'));
+    act(() => {
+      result.current.setProfileConsent(true);
+    });
+    await act(async () => {
+      await result.current.triggerInterview();
+    });
+    expect(mockNavigate).toHaveBeenCalledWith('/interview/failed-existing/result');
+    expect(mockStartSession).not.toHaveBeenCalled();
+  });
+
   it('startFlow 失敗時應顯示錯誤訊息', async () => {
     mockCheckResume.mockRejectedValue(new Error('fail'));
     const { result } = renderHook(() => useInterviewTrigger('organic'));

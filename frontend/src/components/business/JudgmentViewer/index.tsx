@@ -143,7 +143,7 @@ const JudgmentViewer = ({
         <Collapse 
           defaultActiveKey={['0']} 
           ghost 
-          expandIconPosition="end"
+          expandIconPlacement="end"
           className="judgment-accordion"
           items={sections.map((section, index) => ({
             key: String(index),
@@ -189,4 +189,3 @@ const JudgmentViewer = ({
 };
 
 export default JudgmentViewer;
-

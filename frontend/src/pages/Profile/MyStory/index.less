@@ -1,6 +1,37 @@
 @import '../../../assets/styles/variables.less';
 
+// 與 Header / Footer 的 .header-content、.footer-content 一致，避免主欄在寬螢幕偏左
+@my-story-content-max: 1200px;
+
 .my-story-page {
+  width: 100%;
+  max-width: 100%;
+  margin-inline: auto;
+  box-sizing: border-box;
+
+  &__container {
+    width: 100%;
+    max-width: @my-story-content-max;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: @spacing-md;
+    padding-right: @spacing-md;
+    box-sizing: border-box;
+
+    @media (min-width: 640px) {
+      padding-left: @spacing-lg;
+      padding-right: @spacing-lg;
+    }
+
+    &--body {
+      padding-bottom: 96px;
+
+      @media (min-width: @breakpoint-mobile) {
+        padding-bottom: @spacing-lg;
+      }
+    }
+  }
+
   &__loading {
     display: flex;
     flex-direction: column;
@@ -10,9 +41,19 @@
     gap: 16px;
   }
 
+  &__overview {
+    .ant-card-body {
+      padding: @spacing-xl @spacing-lg;
+
+      @media (min-width: @breakpoint-mobile) {
+        padding: @spacing-xxl @spacing-xl;
+      }
+    }
+  }
+
   &__manage {
     .ant-card-body {
-      text-align: center;
+      text-align: start;
     }
   }
 }

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { message as antdMessage } from 'antd';
 import ChatRoomPage from './index';
 import { setLocale } from '@/utils/i18n';
@@ -120,6 +120,64 @@ const LoginCapture = () => {
   const location = useLocation();
   return <div data-testid="login-from">{location.state?.from?.pathname ?? 'none'}</div>;
 };
+
+const RoomNavigationButton = ({ to }: { to: string }) => {
+  const navigate = useNavigate();
+  return <button type="button" onClick={() => navigate(to)}>go room</button>;
+};
+
+const buildRoomWithRoleB = (roomId = 'room-1') => ({
+  id: roomId,
+  status: 'group_active',
+  owner_user_id: 'u-owner',
+  history_visibility_mode: 'share_summary_only',
+  participants: [
+    {
+      id: `${roomId}-p-role-b`,
+      room_id: roomId,
+      user_id: 'u1',
+      role_in_room: 'roleB',
+      is_active: true,
+      joined_at: new Date().toISOString(),
+      participant_type: 'user',
+    },
+  ],
+});
+
+const buildOwnerRoomWithRoleB = (roomId = 'room-1') => ({
+  id: roomId,
+  status: 'group_active',
+  owner_user_id: 'u1',
+  history_visibility_mode: 'share_summary_only',
+  participants: [
+    {
+      id: `${roomId}-p-role-a`,
+      room_id: roomId,
+      user_id: 'u1',
+      role_in_room: 'roleA',
+      is_active: true,
+      joined_at: new Date().toISOString(),
+      participant_type: 'user',
+    },
+    {
+      id: `${roomId}-p-role-b`,
+      room_id: roomId,
+      user_id: 'u2',
+      role_in_room: 'roleB',
+      is_active: true,
+      joined_at: new Date().toISOString(),
+      participant_type: 'user',
+    },
+  ],
+});
+
+const buildOwnerSoloRoom = (roomId = 'room-1') => ({
+  id: roomId,
+  status: 'solo_active',
+  owner_user_id: 'u1',
+  history_visibility_mode: 'share_summary_only',
+  participants: [],
+});
 
 describe('ChatRoomPage', () => {
   afterEach(async () => {
@@ -383,6 +441,286 @@ describe('ChatRoomPage', () => {
     expect(mockListChatMessages).toHaveBeenCalledWith('fast-room', { limit: 50 });
   });
 
+  it('路由切換後舊入口 createChatRoom 成功不應導向舊建立房間（entry action 競態回歸）', async () => {
+    let resolveCreate!: (room: unknown) => void;
+    mockCreateChatRoom.mockImplementation(() => new Promise((resolve) => { resolveCreate = resolve; }));
+    mockGetChatRoom.mockImplementation((roomId: string) => Promise.resolve(buildOwnerSoloRoom(roomId)));
+    mockListChatMessages.mockResolvedValue({ messages: [], nextCursor: null });
+
+    render(
+      <MemoryRouter initialEntries={['/chat/room']}>
+        <Routes>
+          <Route
+            path="/chat/room/:roomId?"
+            element={(
+              <>
+                <RoomNavigationButton to="/chat/room/room-b" />
+                <ChatRoomPage />
+              </>
+            )}
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '建立聊天室' }));
+    await waitFor(() => {
+      expect(mockCreateChatRoom).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'go room' }));
+    await screen.findByText(/聊天室：room-b/);
+
+    await act(async () => {
+      resolveCreate(buildOwnerSoloRoom('created-after-route-change'));
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByText(/created-after-route-change/)).not.toBeInTheDocument();
+    expect(screen.getByText(/聊天室：room-b/)).toBeInTheDocument();
+  });
+
+  it('路由切換時舊房間初始化請求完成不應覆蓋新房間（F07 競態回歸）', async () => {
+    let resolveRoomA!: (room: unknown) => void;
+    mockGetChatRoom.mockImplementation((roomId: string) => {
+      if (roomId === 'room-a') {
+        return new Promise((resolve) => {
+          resolveRoomA = resolve;
+        });
+      }
+      return Promise.resolve({
+        id: roomId,
+        status: 'solo_active',
+        owner_user_id: 'u1',
+        history_visibility_mode: 'share_summary_only',
+        participants: [],
+      });
+    });
+    mockListChatMessages.mockResolvedValue({ messages: [], nextCursor: null });
+
+    render(
+      <MemoryRouter initialEntries={['/chat/room/room-a']}>
+        <Routes>
+          <Route
+            path="/chat/room/:roomId"
+            element={(
+              <>
+                <RoomNavigationButton to="/chat/room/room-b" />
+                <ChatRoomPage />
+              </>
+            )}
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(mockGetChatRoom).toHaveBeenCalledWith('room-a');
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'go room' }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/聊天室：room-b/)).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      resolveRoomA({
+        id: 'room-a',
+        status: 'solo_active',
+        owner_user_id: 'u1',
+        history_visibility_mode: 'share_summary_only',
+        participants: [],
+      });
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByText(/聊天室：room-a/)).not.toBeInTheDocument();
+    expect(screen.getByText(/聊天室：room-b/)).toBeInTheDocument();
+  });
+
+  it('路由切換時舊房間 refresh 請求完成不應覆蓋新房間（F07 SSE refresh 競態回歸）', async () => {
+    const streamCallbacksByRoom: Record<string, { onEvent?: (event: unknown) => void }> = {};
+    let roomAGetCount = 0;
+    let resolveRoomARefresh!: (room: unknown) => void;
+
+    mockConnectChatStream.mockImplementation(async (roomId: string, callbacks: { onEvent?: (event: unknown) => void }) => {
+      streamCallbacksByRoom[roomId] = callbacks;
+      return () => undefined;
+    });
+    mockGetChatRoom.mockImplementation((roomId: string) => {
+      if (roomId === 'room-a') {
+        roomAGetCount += 1;
+        if (roomAGetCount === 2) {
+          return new Promise((resolve) => {
+            resolveRoomARefresh = resolve;
+          });
+        }
+      }
+      return Promise.resolve({
+        id: roomId,
+        status: 'solo_active',
+        owner_user_id: 'u1',
+        history_visibility_mode: 'share_summary_only',
+        participants: [],
+      });
+    });
+    mockListChatMessages.mockResolvedValue({ messages: [], nextCursor: null });
+
+    render(
+      <MemoryRouter initialEntries={['/chat/room/room-a']}>
+        <Routes>
+          <Route
+            path="/chat/room/:roomId"
+            element={(
+              <>
+                <RoomNavigationButton to="/chat/room/room-b" />
+                <ChatRoomPage />
+              </>
+            )}
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByText(/聊天室：room-a/);
+    await waitFor(() => {
+      expect(streamCallbacksByRoom['room-a']).toBeTruthy();
+    });
+
+    await act(async () => {
+      streamCallbacksByRoom['room-a'].onEvent?.({ type: 'message', roomId: 'room-a' });
+    });
+    await waitFor(() => {
+      expect(roomAGetCount).toBe(2);
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'go room' }));
+    await screen.findByText(/聊天室：room-b/);
+
+    await act(async () => {
+      resolveRoomARefresh({
+        id: 'room-a',
+        status: 'solo_active',
+        owner_user_id: 'u1',
+        history_visibility_mode: 'share_summary_only',
+        participants: [],
+      });
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByText(/聊天室：room-a/)).not.toBeInTheDocument();
+    expect(screen.getByText(/聊天室：room-b/)).toBeInTheDocument();
+  });
+
+  it('路由切換後舊房間 stream event 不應再觸發舊房間 refresh（live update 競態回歸）', async () => {
+    const streamCallbacksByRoom: Record<string, { onEvent?: (event: unknown) => void }> = {};
+    const getRoomCalls: string[] = [];
+
+    mockConnectChatStream.mockImplementation(async (roomId: string, callbacks: { onEvent?: (event: unknown) => void }) => {
+      streamCallbacksByRoom[roomId] = callbacks;
+      return () => undefined;
+    });
+    mockGetChatRoom.mockImplementation((roomId: string) => {
+      getRoomCalls.push(roomId);
+      return Promise.resolve({
+        id: roomId,
+        status: 'solo_active',
+        owner_user_id: 'u1',
+        history_visibility_mode: 'share_summary_only',
+        participants: [],
+      });
+    });
+    mockListChatMessages.mockResolvedValue({ messages: [], nextCursor: null });
+
+    render(
+      <MemoryRouter initialEntries={['/chat/room/room-a']}>
+        <Routes>
+          <Route
+            path="/chat/room/:roomId"
+            element={(
+              <>
+                <RoomNavigationButton to="/chat/room/room-b" />
+                <ChatRoomPage />
+              </>
+            )}
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByText(/聊天室：room-a/);
+    await waitFor(() => {
+      expect(streamCallbacksByRoom['room-a']).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'go room' }));
+    await screen.findByText(/聊天室：room-b/);
+    const roomACallsAfterSwitch = getRoomCalls.filter((roomId) => roomId === 'room-a').length;
+
+    await act(async () => {
+      streamCallbacksByRoom['room-a'].onEvent?.({ type: 'message', roomId: 'room-a' });
+      await Promise.resolve();
+    });
+
+    expect(getRoomCalls.filter((roomId) => roomId === 'room-a')).toHaveLength(roomACallsAfterSwitch);
+    expect(screen.getByText(/聊天室：room-b/)).toBeInTheDocument();
+  });
+
+  it('路由切換後應清理舊房間 composer reply/draft 與判決 preview 狀態（UI state 競態回歸）', async () => {
+    mockGetChatRoom.mockImplementation((roomId: string) => Promise.resolve(buildOwnerSoloRoom(roomId)));
+    mockListChatMessages.mockImplementation((roomId: string) => Promise.resolve({
+      messages: [
+        {
+          id: `msg-${roomId}`,
+          content: `${roomId} message`,
+          message_type: 'user_text',
+          visibility_scope: 'all',
+          created_at: new Date().toISOString(),
+          sender_participant: { role_in_room: 'roleA' },
+        },
+      ],
+      nextCursor: null,
+    }));
+
+    render(
+      <MemoryRouter initialEntries={['/chat/room/room-a']}>
+        <Routes>
+          <Route
+            path="/chat/room/:roomId"
+            element={(
+              <>
+                <RoomNavigationButton to="/chat/room/room-b" />
+                <ChatRoomPage />
+              </>
+            )}
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByText(/聊天室：room-a/);
+    fireEvent.click(screen.getByRole('button', { name: '回覆' }));
+    expect(screen.getByText('回覆訊息')).toBeInTheDocument();
+    expect(screen.getAllByText('room-a message').length).toBeGreaterThan(1);
+
+    fireEvent.change(screen.getByPlaceholderText('輸入訊息...'), {
+      target: { value: 'room-a draft' },
+    });
+    expect(screen.getByDisplayValue('room-a draft')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '發起判決' }));
+    await screen.findByText('轉判決前確認');
+
+    fireEvent.click(screen.getByRole('button', { name: 'go room' }));
+    await screen.findByText(/聊天室：room-b/);
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByText('回覆訊息')).not.toBeInTheDocument();
+    expect(screen.queryByDisplayValue('room-a draft')).not.toBeInTheDocument();
+    expect(screen.getByPlaceholderText('輸入訊息...')).toHaveValue('');
+  });
+
   it('在入口頁可拒絕邀請', async () => {
     mockDeclineChatInvite.mockResolvedValue({ id: 'invite-1', status: 'declined' });
     render(
@@ -550,6 +888,52 @@ describe('ChatRoomPage', () => {
     });
   });
 
+  it('路由切換後舊入口 declineChatInvite 成功不應顯示成功（entry action 競態回歸）', async () => {
+    let resolveDecline!: (value: unknown) => void;
+    mockDeclineChatInvite.mockImplementation(
+      () => new Promise((resolve) => { resolveDecline = resolve; })
+    );
+    mockGetChatRoom.mockImplementation((roomId: string) => Promise.resolve(buildOwnerSoloRoom(roomId)));
+    mockListChatMessages.mockResolvedValue({ messages: [], nextCursor: null });
+
+    render(
+      <MemoryRouter initialEntries={['/chat/room']}>
+        <Routes>
+          <Route
+            path="/chat/room/:roomId?"
+            element={(
+              <>
+                <RoomNavigationButton to="/chat/room/room-b" />
+                <ChatRoomPage />
+              </>
+            )}
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await act(async () => {
+      fireEvent.change(screen.getByPlaceholderText('輸入邀請碼'), {
+        target: { value: 'ABC123' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: '拒絕邀請' }));
+    });
+    await waitFor(() => {
+      expect(mockDeclineChatInvite).toHaveBeenCalledWith('ABC123');
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'go room' }));
+    await screen.findByText(/聊天室：room-b/);
+
+    await act(async () => {
+      resolveDecline({ id: 'invite-1', status: 'declined' });
+      await Promise.resolve();
+    });
+
+    expect(antdMessage.success).not.toHaveBeenCalledWith('已拒絕邀請');
+    expect(screen.getByText(/聊天室：room-b/)).toBeInTheDocument();
+  });
+
   it('接受邀請進行中時不應觸發拒絕邀請', async () => {
     mockAcceptChatInvite.mockReturnValue(new Promise(() => undefined));
     render(
@@ -570,6 +954,69 @@ describe('ChatRoomPage', () => {
 
     expect(mockAcceptChatInvite).toHaveBeenCalledTimes(1);
     expect(mockDeclineChatInvite).not.toHaveBeenCalled();
+  });
+
+  it('拒絕邀請進行中時不應觸發接受邀請', async () => {
+    let resolveDecline!: (value: unknown) => void;
+    mockDeclineChatInvite.mockImplementation(
+      () => new Promise((resolve) => { resolveDecline = resolve; })
+    );
+    render(
+      <MemoryRouter initialEntries={['/chat/room']}>
+        <Routes>
+          <Route path="/chat/room" element={<ChatRoomPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await act(async () => {
+      fireEvent.change(screen.getByPlaceholderText('輸入邀請碼'), {
+        target: { value: 'ABC123' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: '拒絕邀請' }));
+      fireEvent.click(screen.getByRole('button', { name: '用邀請碼加入' }));
+    });
+
+    expect(mockDeclineChatInvite).toHaveBeenCalledTimes(1);
+    expect(mockAcceptChatInvite).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveDecline({ id: 'invite-1', status: 'declined' });
+      await Promise.resolve();
+    });
+  });
+
+  it('建立聊天室進行中時不應觸發接受或拒絕邀請', async () => {
+    let resolveCreate!: (value: unknown) => void;
+    mockCreateChatRoom.mockImplementation(
+      () => new Promise((resolve) => { resolveCreate = resolve; })
+    );
+    render(
+      <MemoryRouter initialEntries={['/chat/room']}>
+        <Routes>
+          <Route path="/chat/room" element={<ChatRoomPage />} />
+          <Route path="/chat/room/:roomId" element={<ChatRoomPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await act(async () => {
+      fireEvent.change(screen.getByPlaceholderText('輸入邀請碼'), {
+        target: { value: 'ABC123' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: '建立聊天室' }));
+      fireEvent.click(screen.getByRole('button', { name: '用邀請碼加入' }));
+      fireEvent.click(screen.getByRole('button', { name: '拒絕邀請' }));
+    });
+
+    expect(mockCreateChatRoom).toHaveBeenCalledTimes(1);
+    expect(mockAcceptChatInvite).not.toHaveBeenCalled();
+    expect(mockDeclineChatInvite).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveCreate(buildOwnerSoloRoom('created-room'));
+      await Promise.resolve();
+    });
   });
 
   it('acceptChatInvite 失敗且有 message 應顯示該 message（F07 錯誤處理約定）', async () => {
@@ -687,6 +1134,51 @@ describe('ChatRoomPage', () => {
     expect(antdMessage.success).not.toHaveBeenCalled();
   });
 
+  it('路由切換後舊入口 acceptChatInvite 成功不應導向加入房間（entry action 競態回歸）', async () => {
+    let resolveAccept!: (room: { id: string }) => void;
+    mockAcceptChatInvite.mockImplementation(() => new Promise((resolve) => { resolveAccept = resolve; }));
+    mockGetChatRoom.mockImplementation((roomId: string) => Promise.resolve(buildOwnerSoloRoom(roomId)));
+    mockListChatMessages.mockResolvedValue({ messages: [], nextCursor: null });
+
+    render(
+      <MemoryRouter initialEntries={['/chat/room']}>
+        <Routes>
+          <Route
+            path="/chat/room/:roomId?"
+            element={(
+              <>
+                <RoomNavigationButton to="/chat/room/room-b" />
+                <ChatRoomPage />
+              </>
+            )}
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await act(async () => {
+      fireEvent.change(screen.getByPlaceholderText('輸入邀請碼'), {
+        target: { value: 'ABC123' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: '用邀請碼加入' }));
+    });
+    await waitFor(() => {
+      expect(mockAcceptChatInvite).toHaveBeenCalledWith('ABC123');
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'go room' }));
+    await screen.findByText(/聊天室：room-b/);
+
+    await act(async () => {
+      resolveAccept({ id: 'joined-after-route-change' });
+      await Promise.resolve();
+    });
+
+    expect(antdMessage.success).not.toHaveBeenCalledWith('加入聊天室成功');
+    expect(screen.queryByText(/joined-after-route-change/)).not.toBeInTheDocument();
+    expect(screen.getByText(/聊天室：room-b/)).toBeInTheDocument();
+  });
+
   it('acceptChatInvite 失敗後應仍可再次點擊加入，成功後應顯示成功（F07 錯誤恢復：失敗不阻塞重試）', async () => {
     mockAcceptChatInvite
       .mockRejectedValueOnce(new Error('暫時無法加入'))
@@ -747,10 +1239,93 @@ describe('ChatRoomPage', () => {
       fireEvent.click(screen.getByRole('button', { name: /送\s*出/ }));
     });
 
-	    await waitFor(() => {
-	      expect(mockSendChatMessage).toHaveBeenCalledWith('room-1', expect.objectContaining({ content: 'hello' }));
-	    });
+    await waitFor(() => {
+      expect(mockSendChatMessage).toHaveBeenCalledWith('room-1', expect.objectContaining({ content: 'hello' }));
+    });
     expect(screen.getByText('hello')).toBeInTheDocument();
+  });
+
+  it('切換房間後舊房間 sendChatMessage 未完成不應阻塞新房間發送或寫入舊訊息（message action 競態回歸）', async () => {
+    const sendResolvers = new Map<string, (message: unknown) => void>();
+    mockGetChatRoom.mockImplementation((roomId: string) => Promise.resolve(buildOwnerSoloRoom(roomId)));
+    mockListChatMessages.mockResolvedValue({ messages: [], nextCursor: null });
+    mockSendChatMessage.mockImplementation(
+      (roomId: string) => new Promise((resolve) => {
+        sendResolvers.set(roomId, resolve);
+      })
+    );
+
+    render(
+      <MemoryRouter initialEntries={['/chat/room/room-a']}>
+        <Routes>
+          <Route
+            path="/chat/room/:roomId?"
+            element={(
+              <>
+                <RoomNavigationButton to="/chat/room/room-b" />
+                <ChatRoomPage />
+              </>
+            )}
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByText(/聊天室：room-a/);
+    await act(async () => {
+      fireEvent.change(screen.getByPlaceholderText('輸入訊息...'), {
+        target: { value: 'room-a-pending' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: /送\s*出/ }));
+    });
+    await waitFor(() => {
+      expect(mockSendChatMessage).toHaveBeenCalledWith(
+        'room-a',
+        expect.objectContaining({ content: 'room-a-pending' })
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'go room' }));
+    await screen.findByText(/聊天室：room-b/);
+    await act(async () => {
+      fireEvent.change(screen.getByPlaceholderText('輸入訊息...'), {
+        target: { value: 'room-b-message' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: /送\s*出/ }));
+    });
+
+    await waitFor(() => {
+      expect(mockSendChatMessage).toHaveBeenCalledWith(
+        'room-b',
+        expect.objectContaining({ content: 'room-b-message' })
+      );
+    });
+
+    await act(async () => {
+      sendResolvers.get('room-b')?.({
+        id: 'msg-room-b',
+        content: 'room-b-message',
+        message_type: 'user_text',
+        visibility_scope: 'all',
+        created_at: new Date().toISOString(),
+      });
+      await Promise.resolve();
+    });
+    expect(screen.getByText('room-b-message')).toBeInTheDocument();
+
+    await act(async () => {
+      sendResolvers.get('room-a')?.({
+        id: 'msg-room-a-stale',
+        content: 'room-a-stale',
+        message_type: 'user_text',
+        visibility_scope: 'all',
+        created_at: new Date().toISOString(),
+      });
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByText('room-a-stale')).not.toBeInTheDocument();
+    expect(screen.getByText(/聊天室：room-b/)).toBeInTheDocument();
   });
 
   it('發送訊息後 visibilityScope 為 all 時應顯示思考中（UX 優化）', async () => {
@@ -1133,148 +1708,6 @@ describe('ChatRoomPage', () => {
     expect(await screen.findByRole('button', { name: '建立邀請' })).toBeDisabled();
   });
 
-  it('匿名 owner 且 canonical session_id 匹配時可發起判決（F07 session 規則）', async () => {
-    useAuthStore.setState({ user: null, isAuthenticated: false, _hasHydrated: true } as any);
-    localStorage.setItem('cj_session_id', 'guest_owner_123');
-    mockGetChatRoom.mockResolvedValue({
-      id: 'room-anon-owner',
-      status: 'solo_active',
-      owner_user_id: null,
-      session_id: 'guest_owner_123',
-      history_visibility_mode: 'share_summary_only',
-      participants: [{ id: 'p-a', role_in_room: 'roleA', user_id: null, is_active: true }],
-    });
-
-    render(
-      <MemoryRouter initialEntries={['/chat/room/room-anon-owner']}>
-        <Routes>
-          <Route path="/chat/room/:roomId" element={<ChatRoomPage />} />
-        </Routes>
-      </MemoryRouter>
-    );
-
-    await waitFor(() => expect(mockGetChatRoom).toHaveBeenCalledWith('room-anon-owner'));
-    expect(await screen.findByRole('button', { name: '發起判決' })).not.toBeDisabled();
-  });
-
-  it('匿名 owner 但 canonical session_id 不匹配時應禁用發起判決（F07 session 規則）', async () => {
-    useAuthStore.setState({ user: null, isAuthenticated: false, _hasHydrated: true } as any);
-    localStorage.setItem('cj_session_id', 'guest_other_123');
-    mockGetChatRoom.mockResolvedValue({
-      id: 'room-anon-owner',
-      status: 'solo_active',
-      owner_user_id: null,
-      session_id: 'guest_owner_123',
-      history_visibility_mode: 'share_summary_only',
-      participants: [{ id: 'p-a', role_in_room: 'roleA', user_id: null, is_active: true }],
-    });
-
-    render(
-      <MemoryRouter initialEntries={['/chat/room/room-anon-owner']}>
-        <Routes>
-          <Route path="/chat/room/:roomId" element={<ChatRoomPage />} />
-        </Routes>
-      </MemoryRouter>
-    );
-
-    await waitFor(() => expect(mockGetChatRoom).toHaveBeenCalledWith('room-anon-owner'));
-    expect(await screen.findByRole('button', { name: '發起判決' })).toBeDisabled();
-  });
-
-  it('匿名 owner 缺少 canonical session_id 時應禁用發起判決（F07 session 規則）', async () => {
-    useAuthStore.setState({ user: null, isAuthenticated: false, _hasHydrated: true } as any);
-    mockGetChatRoom.mockResolvedValue({
-      id: 'room-anon-owner',
-      status: 'solo_active',
-      owner_user_id: null,
-      session_id: 'guest_owner_123',
-      history_visibility_mode: 'share_summary_only',
-      participants: [{ id: 'p-a', role_in_room: 'roleA', user_id: null, is_active: true }],
-    });
-
-    render(
-      <MemoryRouter initialEntries={['/chat/room/room-anon-owner']}>
-        <Routes>
-          <Route path="/chat/room/:roomId" element={<ChatRoomPage />} />
-        </Routes>
-      </MemoryRouter>
-    );
-
-    await waitFor(() => expect(mockGetChatRoom).toHaveBeenCalledWith('room-anon-owner'));
-    expect(await screen.findByRole('button', { name: '發起判決' })).toBeDisabled();
-  });
-
-  it('匿名 owner 且 canonical session_id 匹配時可發起判決（F07 session 規則）', async () => {
-    useAuthStore.setState({ user: null, isAuthenticated: false, _hasHydrated: true } as any);
-    localStorage.setItem('cj_session_id', 'guest_owner_123');
-    mockGetChatRoom.mockResolvedValue({
-      id: 'room-anon-owner',
-      status: 'solo_active',
-      owner_user_id: null,
-      session_id: 'guest_owner_123',
-      history_visibility_mode: 'share_summary_only',
-      participants: [{ id: 'p-a', role_in_room: 'roleA', user_id: null, is_active: true }],
-    });
-
-    render(
-      <MemoryRouter initialEntries={['/chat/room/room-anon-owner']}>
-        <Routes>
-          <Route path="/chat/room/:roomId" element={<ChatRoomPage />} />
-        </Routes>
-      </MemoryRouter>
-    );
-
-    await waitFor(() => expect(mockGetChatRoom).toHaveBeenCalledWith('room-anon-owner'));
-    expect(await screen.findByRole('button', { name: '發起判決' })).not.toBeDisabled();
-  });
-
-  it('匿名 owner 但 canonical session_id 不匹配時應禁用發起判決（F07 session 規則）', async () => {
-    useAuthStore.setState({ user: null, isAuthenticated: false, _hasHydrated: true } as any);
-    localStorage.setItem('cj_session_id', 'guest_other_123');
-    mockGetChatRoom.mockResolvedValue({
-      id: 'room-anon-owner',
-      status: 'solo_active',
-      owner_user_id: null,
-      session_id: 'guest_owner_123',
-      history_visibility_mode: 'share_summary_only',
-      participants: [{ id: 'p-a', role_in_room: 'roleA', user_id: null, is_active: true }],
-    });
-
-    render(
-      <MemoryRouter initialEntries={['/chat/room/room-anon-owner']}>
-        <Routes>
-          <Route path="/chat/room/:roomId" element={<ChatRoomPage />} />
-        </Routes>
-      </MemoryRouter>
-    );
-
-    await waitFor(() => expect(mockGetChatRoom).toHaveBeenCalledWith('room-anon-owner'));
-    expect(await screen.findByRole('button', { name: '發起判決' })).toBeDisabled();
-  });
-
-  it('匿名 owner 缺少 canonical session_id 時應禁用發起判決（F07 session 規則）', async () => {
-    useAuthStore.setState({ user: null, isAuthenticated: false, _hasHydrated: true } as any);
-    mockGetChatRoom.mockResolvedValue({
-      id: 'room-anon-owner',
-      status: 'solo_active',
-      owner_user_id: null,
-      session_id: 'guest_owner_123',
-      history_visibility_mode: 'share_summary_only',
-      participants: [{ id: 'p-a', role_in_room: 'roleA', user_id: null, is_active: true }],
-    });
-
-    render(
-      <MemoryRouter initialEntries={['/chat/room/room-anon-owner']}>
-        <Routes>
-          <Route path="/chat/room/:roomId" element={<ChatRoomPage />} />
-        </Routes>
-      </MemoryRouter>
-    );
-
-    await waitFor(() => expect(mockGetChatRoom).toHaveBeenCalledWith('room-anon-owner'));
-    expect(await screen.findByRole('button', { name: '發起判決' })).toBeDisabled();
-  });
-
   it('建立邀請遇到 CONFLICT 會觸發房間刷新', async () => {
     mockCreateChatInvite.mockRejectedValue({ code: 'CONFLICT', message: 'conflict' });
     render(
@@ -1559,6 +1992,118 @@ describe('ChatRoomPage', () => {
     await waitFor(() => {
       expect(mockCreateChatInvite).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it('路由切換後舊房間 createChatInvite 成功不應寫入邀請碼或顯示成功（invite action 競態回歸）', async () => {
+    let resolveCreateInvite!: (v: { id: string; invite_code: string }) => void;
+    mockCreateChatInvite.mockImplementation(
+      () => new Promise((resolve) => { resolveCreateInvite = resolve; })
+    );
+    mockGetChatRoom.mockImplementation((roomId: string) => Promise.resolve(buildOwnerSoloRoom(roomId)));
+
+    render(
+      <MemoryRouter initialEntries={['/chat/room/room-a']}>
+        <Routes>
+          <Route
+            path="/chat/room/:roomId"
+            element={(
+              <>
+                <RoomNavigationButton to="/chat/room/room-b" />
+                <ChatRoomPage />
+              </>
+            )}
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByText(/聊天室：room-a/);
+    fireEvent.click(screen.getByRole('button', { name: '建立邀請' }));
+    await waitFor(() => {
+      expect(mockCreateChatInvite).toHaveBeenCalledWith('room-a', {
+        history_visibility_mode: 'share_summary_only',
+      });
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'go room' }));
+    await screen.findByText(/聊天室：room-b/);
+
+    await act(async () => {
+      resolveCreateInvite({ id: 'invite-old', invite_code: 'OLD123' });
+      await Promise.resolve();
+    });
+
+    expect(antdMessage.success).not.toHaveBeenCalledWith('邀請建立成功');
+    expect(screen.queryByText('邀請碼：OLD123')).not.toBeInTheDocument();
+    expect(screen.getByText(/聊天室：room-b/)).toBeInTheDocument();
+  });
+
+  it('切換房間時應清除上一個房間已建立的邀請碼', async () => {
+    mockCreateChatInvite.mockResolvedValue({ id: 'invite-a', invite_code: 'ROOMA123' });
+    mockGetChatRoom.mockImplementation((roomId: string) => Promise.resolve(buildOwnerSoloRoom(roomId)));
+
+    render(
+      <MemoryRouter initialEntries={['/chat/room/room-a']}>
+        <Routes>
+          <Route
+            path="/chat/room/:roomId"
+            element={(
+              <>
+                <RoomNavigationButton to="/chat/room/room-b" />
+                <ChatRoomPage />
+              </>
+            )}
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByText(/聊天室：room-a/);
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: '建立邀請' }));
+    });
+    await screen.findByText('邀請碼：ROOMA123');
+
+    fireEvent.click(screen.getByRole('button', { name: 'go room' }));
+    await screen.findByText(/聊天室：room-b/);
+
+    expect(screen.queryByText('邀請碼：ROOMA123')).not.toBeInTheDocument();
+  });
+
+  it('createChatInvite 成功後刷新失敗不應回報建立邀請失敗', async () => {
+    let getRoomCalls = 0;
+    mockGetChatRoom.mockImplementation((roomId: string) => {
+      getRoomCalls += 1;
+      if (getRoomCalls === 2) {
+        return Promise.reject(new Error('refresh failed'));
+      }
+      return Promise.resolve(buildOwnerSoloRoom(roomId));
+    });
+    mockCreateChatInvite.mockResolvedValue({ id: 'invite-1', invite_code: 'OK123' });
+
+    render(
+      <MemoryRouter initialEntries={['/chat/room/room-1']}>
+        <Routes>
+          <Route path="/chat/room/:roomId" element={<ChatRoomPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByText(/聊天室：room-1/);
+    const beforeCalls = mockGetChatRoom.mock.calls.length;
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: '建立邀請' }));
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(antdMessage.success).toHaveBeenCalledWith('邀請建立成功');
+      expect(screen.getByText('邀請碼：OK123')).toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(mockGetChatRoom.mock.calls.length).toBeGreaterThan(beforeCalls);
+    });
+    expect(antdMessage.error).not.toHaveBeenCalledWith('建立邀請失敗');
   });
 
   it('SSE close 時會顯示重連提示', async () => {
@@ -1868,6 +2413,58 @@ describe('ChatRoomPage', () => {
     });
   });
 
+  it('路由切換後舊房間 retry 請求完成不應覆蓋新房間（F07 retry 競態回歸）', async () => {
+    let room1CallCount = 0;
+    let resolveRoom1Retry!: (room: unknown) => void;
+    mockGetChatRoom.mockImplementation((roomId: string) => {
+      if (roomId === 'room-1') {
+        room1CallCount += 1;
+        if (room1CallCount === 1) {
+          return Promise.reject({ code: 'SERVER_ERROR', message: '第一次失敗' });
+        }
+        return new Promise((resolve) => {
+          resolveRoom1Retry = resolve;
+        });
+      }
+      return Promise.resolve(buildOwnerSoloRoom(roomId));
+    });
+    mockListChatMessages.mockResolvedValue({ messages: [], nextCursor: null });
+
+    render(
+      <MemoryRouter initialEntries={['/chat/room/room-1']}>
+        <Routes>
+          <Route
+            path="/chat/room/:roomId"
+            element={(
+              <>
+                <RoomNavigationButton to="/chat/room/room-b" />
+                <ChatRoomPage />
+              </>
+            )}
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByText('第一次失敗');
+
+    fireEvent.click(screen.getByTestId('chat-room-load-retry'));
+    await waitFor(() => {
+      expect(room1CallCount).toBe(2);
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'go room' }));
+    await screen.findByText(/聊天室：room-b/);
+
+    await act(async () => {
+      resolveRoom1Retry(buildOwnerSoloRoom('room-1'));
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByText(/聊天室：room-1/)).not.toBeInTheDocument();
+    expect(screen.getByText(/聊天室：room-b/)).toBeInTheDocument();
+  });
+
   it('房間終態時應禁用建立邀請/發起判決/發送訊息', async () => {
     mockGetChatRoom.mockResolvedValueOnce({
       id: 'room-1',
@@ -1961,6 +2558,71 @@ describe('ChatRoomPage', () => {
     await waitFor(() => {
       expect(screen.getByTestId('login-from')).toHaveTextContent('/judgment/judgment-from-chat');
     });
+  });
+
+  it('發起判決時只應提交 user_text 訊息 id，不應把 AI 訊息帶進 included_message_ids（P04 回歸）', async () => {
+    mockRequestChatJudgment.mockResolvedValue({
+      judgmentId: 'judgment-user-only',
+      roomId: 'room-1',
+      status: 'judgment_requested',
+    });
+    mockListChatMessages.mockResolvedValueOnce({
+      messages: [
+        {
+          id: 'msg-user-1',
+          content: 'role-a-message',
+          message_type: 'user_text',
+          visibility_scope: 'all',
+          created_at: new Date().toISOString(),
+          sender_participant: { role_in_room: 'roleA' },
+        },
+        {
+          id: 'msg-ai-1',
+          content: 'ai-summary',
+          message_type: 'ai_text',
+          visibility_scope: 'all',
+          created_at: new Date().toISOString(),
+          sender_participant: { role_in_room: 'aiMediator' },
+        },
+        {
+          id: 'msg-user-2',
+          content: 'role-b-message',
+          message_type: 'user_text',
+          visibility_scope: 'all',
+          created_at: new Date().toISOString(),
+          sender_participant: { role_in_room: 'roleB' },
+        },
+      ],
+      nextCursor: null,
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/chat/room/room-1']}>
+        <Routes>
+          <Route path="/chat/room/:roomId" element={<ChatRoomPage />} />
+          <Route path="/judgment/:judgmentId" element={<div>judgment page</div>} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(mockGetChatRoom).toHaveBeenCalledWith('room-1'));
+    await screen.findByText('聊天室：room-1');
+    fireEvent.click(screen.getByRole('button', { name: '發起判決' }));
+    await screen.findByText('轉判決前確認');
+    const dialog = await screen.findByRole('dialog');
+    const confirm = within(dialog).getAllByRole('button').at(-1);
+    expect(confirm).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.click(confirm!);
+    });
+
+    await waitFor(() => {
+      expect(mockRequestChatJudgment).toHaveBeenCalledWith('room-1', {
+        included_message_ids: ['msg-user-1', 'msg-user-2'],
+      });
+    });
+    expect(screen.queryByText('ai-summary')).not.toBeInTheDocument();
   });
 
   it('requestChatJudgment 成功但組件已卸載時不應呼叫 message.success 或 navigate（useMountedRef 回歸：避免 F01-BUG-001 同類問題）', async () => {
@@ -2099,6 +2761,140 @@ describe('ChatRoomPage', () => {
 		      expect(mockRequestChatJudgment).toHaveBeenCalledTimes(1);
 		    });
 		  });
+
+  it('requestChatJudgment 成功但尚無 judgmentId 時應保持 pending，避免再次發起判決', async () => {
+    mockRequestChatJudgment.mockResolvedValue({
+      roomId: 'room-1',
+      caseId: 'case-1',
+      status: 'judgment_requested',
+    });
+    mockListChatMessages.mockResolvedValueOnce({
+      messages: [
+        {
+          id: 'msg-1',
+          content: 'hello',
+          message_type: 'user_text',
+          visibility_scope: 'all',
+          created_at: new Date().toISOString(),
+          sender_participant: { role_in_room: 'roleA' },
+        },
+      ],
+      nextCursor: null,
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/chat/room/room-1']}>
+        <Routes>
+          <Route path="/chat/room/:roomId" element={<ChatRoomPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(mockGetChatRoom).toHaveBeenCalledWith('room-1'));
+    await screen.findByText('聊天室：room-1');
+    fireEvent.click(screen.getByRole('button', { name: '發起判決' }));
+    await screen.findByText('轉判決前確認');
+    const dialog = await screen.findByRole('dialog');
+    const dialogButtons = within(dialog).getAllByRole('button');
+    const confirm = dialogButtons[dialogButtons.length - 1];
+
+    await act(async () => {
+      fireEvent.click(confirm);
+    });
+
+    await waitFor(() => {
+      expect(mockRequestChatJudgment).toHaveBeenCalledTimes(1);
+      expect(antdMessage.success).toHaveBeenCalledWith('已發起判決，正在等待結果');
+    });
+
+    expect(screen.getByRole('button', { name: /發起判決/ })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: /發起判決/ }));
+    expect(mockRequestChatJudgment).toHaveBeenCalledTimes(1);
+  });
+
+  it('路由切換後舊房間判決 polling 結果不應導向舊判決（F07 polling 競態回歸）', async () => {
+    let resolveStatus!: (status: unknown) => void;
+    let judgmentTick: (() => void | Promise<void>) | null = null;
+    let intervalId = 1;
+    const realSetInterval = globalThis.setInterval;
+    const realClearInterval = globalThis.clearInterval;
+    vi.spyOn(globalThis, 'setInterval').mockImplementation((handler: TimerHandler, timeout?: number, ...args: unknown[]) => {
+      if (timeout === 4000 && typeof handler === 'function') {
+        const id = intervalId;
+        intervalId += 1;
+        judgmentTick = () => handler(...args);
+        return id as unknown as ReturnType<typeof setInterval>;
+      }
+      return realSetInterval(handler, timeout, ...args);
+    });
+    vi.spyOn(globalThis, 'clearInterval').mockImplementation((id?: Parameters<typeof clearInterval>[0]) => {
+      if (typeof id === 'number' && id < intervalId) return;
+      return realClearInterval(id);
+    });
+    mockGetChatRoom.mockImplementation((roomId: string) =>
+      Promise.resolve({
+        id: roomId,
+        status: roomId === 'room-a' ? 'judgment_requested' : 'solo_active',
+        owner_user_id: 'u1',
+        history_visibility_mode: 'share_summary_only',
+        participants: [],
+      })
+    );
+    mockListChatMessages.mockResolvedValue({ messages: [], nextCursor: null });
+    mockGetChatJudgmentStatus.mockImplementation(
+      () => new Promise((resolve) => { resolveStatus = resolve; })
+    );
+
+    render(
+      <MemoryRouter initialEntries={['/chat/room/room-a']}>
+        <Routes>
+          <Route
+            path="/chat/room/:roomId"
+            element={(
+              <>
+                <RoomNavigationButton to="/chat/room/room-b" />
+                <ChatRoomPage />
+              </>
+            )}
+          />
+          <Route path="/judgment/:judgmentId" element={<div>judgment page</div>} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByText(/聊天室：room-a/);
+    await waitFor(() => {
+      expect(judgmentTick).toBeTruthy();
+    });
+
+    await act(async () => {
+      judgmentTick!();
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(mockGetChatJudgmentStatus).toHaveBeenCalledWith('room-a');
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'go room' }));
+    await screen.findByText(/聊天室：room-b/);
+
+    await act(async () => {
+      resolveStatus({
+        roomStatus: 'judgment_completed',
+        latestLink: {
+          id: 'link-old',
+          judgment: {
+            id: 'judgment-old',
+            created_at: '2026-01-01T00:00:00.000Z',
+          },
+        },
+      });
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByText('judgment page')).not.toBeInTheDocument();
+    expect(screen.getByText(/聊天室：room-b/)).toBeInTheDocument();
+  });
 
   it('requestChatJudgment 失敗後應仍可再次點擊確認發起判決，成功後應導向判決頁（F07 錯誤恢復：失敗不阻塞重試）', async () => {
     mockRequestChatJudgment
@@ -2565,6 +3361,81 @@ describe('ChatRoomPage', () => {
     });
   });
 
+  it('leaveChatRoom 快速連點只會送出一次請求（participant action 重入保護）', async () => {
+    mockGetChatRoom.mockResolvedValue(buildRoomWithRoleB());
+    let resolveLeave!: () => void;
+    mockLeaveChatRoom.mockImplementation(() => new Promise<void>((resolve) => { resolveLeave = resolve; }));
+
+    render(
+      <MemoryRouter initialEntries={['/chat/room/room-1']}>
+        <Routes>
+          <Route path="/chat/room" element={<ChatRoomPage />} />
+          <Route path="/chat/room/:roomId" element={<ChatRoomPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(mockGetChatRoom).toHaveBeenCalledWith('room-1'));
+    const leaveBtn = await screen.findByRole('button', { name: '離開聊天室' });
+    await act(async () => {
+      fireEvent.click(leaveBtn);
+      fireEvent.click(leaveBtn);
+    });
+
+    expect(mockLeaveChatRoom).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      resolveLeave();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(antdMessage.success).toHaveBeenCalledWith('已離開聊天室');
+    });
+  });
+
+  it('路由切換後舊房間 leaveChatRoom 成功不應導回入口或顯示成功（participant action 競態回歸）', async () => {
+    let resolveLeave!: () => void;
+    mockLeaveChatRoom.mockImplementation(() => new Promise<void>((resolve) => { resolveLeave = resolve; }));
+    mockGetChatRoom.mockImplementation((roomId: string) => Promise.resolve(
+      roomId === 'room-a' ? buildRoomWithRoleB('room-a') : buildOwnerSoloRoom(roomId)
+    ));
+
+    render(
+      <MemoryRouter initialEntries={['/chat/room/room-a']}>
+        <Routes>
+          <Route
+            path="/chat/room/:roomId"
+            element={(
+              <>
+                <RoomNavigationButton to="/chat/room/room-b" />
+                <ChatRoomPage />
+              </>
+            )}
+          />
+          <Route path="/chat/room" element={<div>entry page</div>} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByText(/聊天室：room-a/);
+    fireEvent.click(screen.getByRole('button', { name: '離開聊天室' }));
+    await waitFor(() => {
+      expect(mockLeaveChatRoom).toHaveBeenCalledWith('room-a');
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'go room' }));
+    await screen.findByText(/聊天室：room-b/);
+
+    await act(async () => {
+      resolveLeave();
+      await Promise.resolve();
+    });
+
+    expect(antdMessage.success).not.toHaveBeenCalledWith('已離開聊天室');
+    expect(screen.queryByText('entry page')).not.toBeInTheDocument();
+    expect(screen.getByText(/聊天室：room-b/)).toBeInTheDocument();
+  });
+
   it('kickChatParticipantB 成功但組件已卸載時不應呼叫 message.success（useMountedRef 回歸：避免 F01-BUG-001 同類問題）', async () => {
     const roomWithOwnerAndRoleB = {
       id: 'room-1',
@@ -2785,6 +3656,108 @@ describe('ChatRoomPage', () => {
     });
   });
 
+  it('kickChatParticipantB 快速連點只會送出一次請求（participant action 重入保護）', async () => {
+    mockGetChatRoom.mockResolvedValue(buildOwnerRoomWithRoleB());
+    let resolveKick!: () => void;
+    mockKickChatParticipantB.mockImplementation(() => new Promise<void>((resolve) => { resolveKick = resolve; }));
+
+    render(
+      <MemoryRouter initialEntries={['/chat/room/room-1']}>
+        <Routes>
+          <Route path="/chat/room/:roomId" element={<ChatRoomPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(mockGetChatRoom).toHaveBeenCalledWith('room-1'));
+    const kickBtn = await screen.findByRole('button', { name: '移除 B 方' });
+    await act(async () => {
+      fireEvent.click(kickBtn);
+      fireEvent.click(kickBtn);
+    });
+
+    expect(mockKickChatParticipantB).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      resolveKick();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(antdMessage.success).toHaveBeenCalledWith('已移除 B 方');
+    });
+  });
+
+  it('路由切換後舊房間 kickChatParticipantB 成功不應顯示成功（participant action 競態回歸）', async () => {
+    let resolveKick!: () => void;
+    mockKickChatParticipantB.mockImplementation(() => new Promise<void>((resolve) => { resolveKick = resolve; }));
+    mockGetChatRoom.mockImplementation((roomId: string) => Promise.resolve(
+      roomId === 'room-a' ? buildOwnerRoomWithRoleB('room-a') : buildOwnerSoloRoom(roomId)
+    ));
+
+    render(
+      <MemoryRouter initialEntries={['/chat/room/room-a']}>
+        <Routes>
+          <Route
+            path="/chat/room/:roomId"
+            element={(
+              <>
+                <RoomNavigationButton to="/chat/room/room-b" />
+                <ChatRoomPage />
+              </>
+            )}
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByText(/聊天室：room-a/);
+    fireEvent.click(screen.getByRole('button', { name: '移除 B 方' }));
+    await waitFor(() => {
+      expect(mockKickChatParticipantB).toHaveBeenCalledWith('room-a');
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'go room' }));
+    await screen.findByText(/聊天室：room-b/);
+
+    await act(async () => {
+      resolveKick();
+      await Promise.resolve();
+    });
+
+    expect(antdMessage.success).not.toHaveBeenCalledWith('已移除 B 方');
+    expect(screen.getByText(/聊天室：room-b/)).toBeInTheDocument();
+  });
+
+  it('kickChatParticipantB 成功後刷新失敗不應回報移除失敗', async () => {
+    mockGetChatRoom
+      .mockResolvedValueOnce(buildOwnerRoomWithRoleB())
+      .mockRejectedValueOnce(new Error('refresh failed'));
+    mockKickChatParticipantB.mockResolvedValue(undefined);
+
+    render(
+      <MemoryRouter initialEntries={['/chat/room/room-1']}>
+        <Routes>
+          <Route path="/chat/room/:roomId" element={<ChatRoomPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(mockGetChatRoom).toHaveBeenCalledWith('room-1'));
+    const kickBtn = await screen.findByRole('button', { name: '移除 B 方' });
+    await act(async () => {
+      fireEvent.click(kickBtn);
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(antdMessage.success).toHaveBeenCalledWith('已移除 B 方');
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(antdMessage.error).not.toHaveBeenCalledWith('移除失敗');
+  });
+
   it('loadMoreHistory（listChatMessages 帶 cursor）FORBIDDEN 且無 message 時應使用 loadMoreFail（F07 權限邊界 fallback）', async () => {
     mockListChatMessages
       .mockResolvedValueOnce({
@@ -2859,6 +3832,147 @@ describe('ChatRoomPage', () => {
     await waitFor(() => {
       expect(antdMessage.error).toHaveBeenCalledWith('載入更多訊息失敗');
     });
+  });
+
+  it('切換房間後舊房間 loadMoreHistory 完成不應寫入新房間（history navigation 競態回歸）', async () => {
+    let resolveOldLoadMore!: (value: unknown) => void;
+    mockGetChatRoom.mockImplementation((roomId: string) => Promise.resolve(buildOwnerSoloRoom(roomId)));
+    mockListChatMessages.mockImplementation((roomId: string, params?: { cursor?: string }) => {
+      if (roomId === 'room-a' && !params?.cursor) {
+        return Promise.resolve({
+          messages: [
+            {
+              id: 'msg-room-a-new',
+              content: 'room-a-new',
+              message_type: 'user_text',
+              visibility_scope: 'all',
+              created_at: new Date('2026-04-18T11:15:41.592Z').toISOString(),
+              sender_participant: { role_in_room: 'roleA' },
+            },
+          ],
+          nextCursor: 'cursor-room-a',
+        });
+      }
+      if (roomId === 'room-a' && params?.cursor === 'cursor-room-a') {
+        return new Promise((resolve) => { resolveOldLoadMore = resolve; });
+      }
+      if (roomId === 'room-b') {
+        return Promise.resolve({
+          messages: [
+            {
+              id: 'msg-room-b-new',
+              content: 'room-b-new',
+              message_type: 'user_text',
+              visibility_scope: 'all',
+              created_at: new Date('2026-04-18T11:16:41.592Z').toISOString(),
+              sender_participant: { role_in_room: 'roleA' },
+            },
+          ],
+          nextCursor: null,
+        });
+      }
+      return Promise.resolve({ messages: [], nextCursor: null });
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/chat/room/room-a']}>
+        <Routes>
+          <Route
+            path="/chat/room/:roomId?"
+            element={(
+              <>
+                <RoomNavigationButton to="/chat/room/room-b" />
+                <ChatRoomPage />
+              </>
+            )}
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByText('room-a-new');
+    const loadMoreBtn = await screen.findByRole('button', { name: '載入更多' });
+    await act(async () => {
+      fireEvent.click(loadMoreBtn);
+    });
+    await waitFor(() => {
+      expect(mockListChatMessages).toHaveBeenCalledWith('room-a', { cursor: 'cursor-room-a', limit: 50 });
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'go room' }));
+    await screen.findByText('room-b-new');
+
+    await act(async () => {
+      resolveOldLoadMore({
+        messages: [
+          {
+            id: 'msg-room-a-old',
+            content: 'room-a-old-should-not-appear',
+            message_type: 'user_text',
+            visibility_scope: 'all',
+            created_at: new Date('2026-04-18T11:14:41.592Z').toISOString(),
+            sender_participant: { role_in_room: 'roleA' },
+          },
+        ],
+        nextCursor: null,
+      });
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByText('room-a-old-should-not-appear')).not.toBeInTheDocument();
+    expect(screen.getByText('room-b-new')).toBeInTheDocument();
+  });
+
+  it('載入更多歷史訊息不應重新觸發整個房間初始化（P04 匿名房間 loading 回歸）', async () => {
+    mockListChatMessages
+      .mockResolvedValueOnce({
+        messages: [
+          {
+            id: 'msg-2',
+            content: 'newest',
+            message_type: 'user_text',
+            visibility_scope: 'all',
+            created_at: new Date('2026-04-18T11:15:41.592Z').toISOString(),
+            sender_participant: { role_in_room: 'roleA' },
+          },
+        ],
+        nextCursor: 'cursor-1',
+      })
+      .mockResolvedValueOnce({
+        messages: [
+          {
+            id: 'msg-1',
+            content: 'older',
+            message_type: 'user_text',
+            visibility_scope: 'all',
+            created_at: new Date('2026-04-18T11:15:33.034Z').toISOString(),
+            sender_participant: { role_in_room: 'roleA' },
+          },
+        ],
+        nextCursor: null,
+      });
+
+    render(
+      <MemoryRouter initialEntries={['/chat/room/room-1']}>
+        <Routes>
+          <Route path="/chat/room/:roomId" element={<ChatRoomPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(mockGetChatRoom).toHaveBeenCalledTimes(1));
+    await screen.findByText('聊天室：room-1');
+
+    const loadMoreBtn = await screen.findByRole('button', { name: '載入更多' });
+    await act(async () => {
+      fireEvent.click(loadMoreBtn);
+    });
+
+    await waitFor(() => {
+      expect(mockListChatMessages).toHaveBeenCalledTimes(2);
+    });
+    await screen.findByText('older');
+    expect(mockGetChatRoom).toHaveBeenCalledTimes(1);
   });
 
 });

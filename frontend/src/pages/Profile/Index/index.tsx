@@ -28,6 +28,7 @@ import { useAuthStore } from '@/store/authStore';
 import { MAX_FILE_SIZE } from '@/utils/constants';
 import { formatFileSize } from '@/utils/format';
 import { getErrorMessage } from '@/utils/apiError';
+import { getInterviewResumeNavigationPath } from '@/utils/interviewResume';
 import ProtectedRoute from '@/components/common/ProtectedRoute';
 import SEO from '@/components/common/SEO';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
@@ -39,6 +40,7 @@ import { useNavigate } from 'react-router-dom';
 import { getDomainLabel } from '@/types/interview';
 import type { PsychDomain } from '@/types/interview';
 import { t } from '@/utils/i18n';
+import axios from 'axios';
 import './Index.less';
 
 const { Title, Text, Paragraph } = Typography;
@@ -205,9 +207,12 @@ const ProfileIndex = () => {
                           updateUser(updatedUser);
                           message.success(t('message.avatarSuccess'));
                         } catch (err: unknown) {
-                          if (mountedRef.current) {
-                            message.error(getErrorMessage(err, 'message.avatarUploadFail'));
+                          if (!mountedRef.current) return;
+                          // 已有 HTTP 回應的錯誤由 services/request 攔截器提示，避免與此處重複 Toast
+                          if (axios.isAxiosError(err) && err.response) {
+                            return;
                           }
+                          message.error(getErrorMessage(err, 'message.avatarUploadFail'));
                         } finally {
                           if (mountedRef.current) {
                             setUploading(false);
@@ -272,8 +277,9 @@ const ProfileIndex = () => {
                       try {
                         const resumeData = await checkResume();
                         if (!mountedRef.current) return;
-                        if (resumeData.has_pending && resumeData.session_id) {
-                          navigate(`/interview/${resumeData.session_id}`);
+                        const resumePath = getInterviewResumeNavigationPath(resumeData);
+                        if (resumePath) {
+                          navigate(resumePath);
                           return;
                         }
                         const session = await startSession('organic');
@@ -359,8 +365,9 @@ const ProfileIndex = () => {
                 setConsentOpen(false);
                 const resumeData = await checkResume();
                 if (!mountedRef.current) return;
-                if (resumeData.has_pending && resumeData.session_id) {
-                  navigate(`/interview/${resumeData.session_id}`);
+                const resumePath = getInterviewResumeNavigationPath(resumeData);
+                if (resumePath) {
+                  navigate(resumePath);
                   return;
                 }
                 const session = await startSession('onboarding');

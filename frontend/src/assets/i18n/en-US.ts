@@ -1409,6 +1409,9 @@ const enUS: Record<string, string> = {
 
 	"psychProfile.richnessLabel": "Story Richness",
 	"psychProfile.richnessNotStarted": "Not Started",
+	"psychProfile.richnessEarlyStage": "Early exploration",
+	"psychProfile.domainOverviewHint": "Weighted story richness. Blue tags have narratives; gray tags are still to explore.",
+	"psychProfile.noExploredDomainsYet": "No domains with narrative data yet—start with a chat.",
 	"psychProfile.richnessGettingToKnow": "Getting to Know",
 	"psychProfile.richnessGoodUnderstanding": "Good Understanding",
 	"psychProfile.richnessDeepUnderstanding": "Deep Understanding",

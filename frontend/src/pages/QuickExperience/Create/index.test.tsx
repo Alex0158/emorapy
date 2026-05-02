@@ -31,6 +31,7 @@ const {
   mockLocalStoreSet,
   mockLocalStoreRemove,
   mockCaseSessionMapSet,
+  mockLoggerWarn,
 } = vi.hoisted(() => ({
   mockNavigate: vi.fn(),
   mockMessage: {
@@ -52,6 +53,7 @@ const {
   mockLocalStoreSet: vi.fn(),
   mockLocalStoreRemove: vi.fn(),
   mockCaseSessionMapSet: vi.fn(),
+  mockLoggerWarn: vi.fn(),
 }));
 
 vi.mock('@/utils/i18n', () => ({
@@ -114,6 +116,11 @@ vi.mock('@/utils/storage', () => ({
   localStore: { get: mockLocalStoreGet, set: mockLocalStoreSet, remove: mockLocalStoreRemove },
   sessionStorage: { get: mockSessionStorageGet, set: mockSessionStorageSet },
   caseSessionMap: { set: mockCaseSessionMapSet, get: vi.fn(), remove: vi.fn() },
+}));
+vi.mock('@/utils/logger', () => ({
+  logger: {
+    warn: mockLoggerWarn,
+  },
 }));
 
 vi.mock('@/components/common/SEO', () => ({ default: () => null }));
@@ -180,6 +187,8 @@ describe('QuickExperienceCreate', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    mockCreateSession.mockReset();
+    mockCreateSession.mockResolvedValue(undefined);
     mockSessionState.session = null;
     mockCaseStoreState.isLoading = false;
     mockSessionStorageGet.mockReturnValue(null);

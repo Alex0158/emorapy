@@ -3,7 +3,6 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import CaseCreate from './index';
 import { createCase, uploadEvidence } from '@/services/api/case';
@@ -84,6 +83,10 @@ vi.mock('antd', async (importOriginal) => {
     },
   };
 });
+
+const changeText = (element: HTMLElement, value: string) => {
+  fireEvent.change(element, { target: { value } });
+};
 
 describe('Case Create', () => {
   beforeEach(() => {
@@ -237,7 +240,6 @@ describe('Case Create', () => {
   it('表單填妥提交成功後應導向 /case/:id', async () => {
     vi.mocked(validateStatement).mockReturnValue({ valid: true });
     vi.mocked(createCase).mockResolvedValue({ id: 'new-case-123' } as Awaited<ReturnType<typeof createCase>>);
-    const user = userEvent.setup();
     render(
       <MemoryRouter>
         <CaseCreate />
@@ -248,11 +250,11 @@ describe('Case Create', () => {
     });
     const textboxes = screen.getAllByRole('textbox');
     const plaintiffInput = textboxes[0];
-    await user.type(plaintiffInput, '原告陳述內容至少一字觸發驗證');
+    changeText(plaintiffInput, '原告陳述內容至少一字觸發驗證');
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).not.toBeDisabled();
     });
-    await user.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
+    fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     await waitFor(() => {
       expect(createCase).toHaveBeenCalled();
       expect(mockNavigate).toHaveBeenCalledWith('/case/new-case-123');
@@ -303,7 +305,6 @@ describe('Case Create', () => {
     vi.mocked(createCase).mockImplementation(
       () => new Promise((resolve) => { resolveCreate = resolve; }) as ReturnType<typeof createCase>
     );
-    const user = userEvent.setup();
     const { unmount } = render(
       <MemoryRouter>
         <CaseCreate />
@@ -313,11 +314,11 @@ describe('Case Create', () => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
     const textboxes = screen.getAllByRole('textbox');
-    await user.type(textboxes[0], '原告陳述內容至少一字觸發驗證');
+    changeText(textboxes[0], '原告陳述內容至少一字觸發驗證');
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).not.toBeDisabled();
     });
-    await user.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
+    fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     await waitFor(() => {
       expect(createCase).toHaveBeenCalled();
     });
@@ -333,7 +334,6 @@ describe('Case Create', () => {
     const createPromise = new Promise((resolve) => { resolveCreate = resolve; });
     vi.mocked(validateStatement).mockReturnValue({ valid: true });
     vi.mocked(createCase).mockImplementation(() => createPromise as ReturnType<typeof createCase>);
-    const user = userEvent.setup();
     render(
       <MemoryRouter>
         <CaseCreate />
@@ -343,7 +343,7 @@ describe('Case Create', () => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
     const textboxes = screen.getAllByRole('textbox');
-    await user.type(textboxes[0], '原告陳述內容至少一字觸發驗證');
+    changeText(textboxes[0], '原告陳述內容至少一字觸發驗證');
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).not.toBeDisabled();
     });
@@ -363,7 +363,6 @@ describe('Case Create', () => {
   it('createCase 失敗且錯誤無 message 時應顯示 message.createCaseFail', async () => {
     vi.mocked(validateStatement).mockReturnValue({ valid: true });
     vi.mocked(createCase).mockRejectedValue({ code: 'SERVER_ERROR' });
-    const user = userEvent.setup();
     render(
       <MemoryRouter>
         <CaseCreate />
@@ -373,11 +372,11 @@ describe('Case Create', () => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
     const textboxes = screen.getAllByRole('textbox');
-    await user.type(textboxes[0], '原告陳述內容至少一字觸發驗證');
+    changeText(textboxes[0], '原告陳述內容至少一字觸發驗證');
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).not.toBeDisabled();
     });
-    await user.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
+    fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     await waitFor(() => {
       expect(mockMessageError).toHaveBeenCalledWith('message.createCaseFail');
     });
@@ -386,7 +385,6 @@ describe('Case Create', () => {
   it('createCase 失敗且 message 為空字串時應使用 message.createCaseFail（F10 邊界）', async () => {
     vi.mocked(validateStatement).mockReturnValue({ valid: true });
     vi.mocked(createCase).mockRejectedValue({ code: 'SERVER_ERROR', message: '' });
-    const user = userEvent.setup();
     render(
       <MemoryRouter>
         <CaseCreate />
@@ -396,11 +394,11 @@ describe('Case Create', () => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
     const textboxes = screen.getAllByRole('textbox');
-    await user.type(textboxes[0], '原告陳述內容至少一字觸發驗證');
+    changeText(textboxes[0], '原告陳述內容至少一字觸發驗證');
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).not.toBeDisabled();
     });
-    await user.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
+    fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     await waitFor(() => {
       expect(mockMessageError).toHaveBeenCalledWith('message.createCaseFail');
     });
@@ -410,7 +408,6 @@ describe('Case Create', () => {
   it('createCase 失敗且有 message（非 FORBIDDEN）時應顯示該 message（F10 錯誤處理約定）', async () => {
     vi.mocked(validateStatement).mockReturnValue({ valid: true });
     vi.mocked(createCase).mockRejectedValue(new Error('陳述內容含敏感詞彙，請修正後再試'));
-    const user = userEvent.setup();
     render(
       <MemoryRouter>
         <CaseCreate />
@@ -420,11 +417,11 @@ describe('Case Create', () => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
     const textboxes = screen.getAllByRole('textbox');
-    await user.type(textboxes[0], '原告陳述內容至少一字觸發驗證');
+    changeText(textboxes[0], '原告陳述內容至少一字觸發驗證');
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).not.toBeDisabled();
     });
-    await user.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
+    fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     await waitFor(() => {
       expect(mockMessageError).toHaveBeenCalledWith('陳述內容含敏感詞彙，請修正後再試');
     });
@@ -436,7 +433,6 @@ describe('Case Create', () => {
     vi.mocked(createCase)
       .mockRejectedValueOnce(new Error('暫時無法建立'))
       .mockResolvedValueOnce({ id: 'retry-inline-case' } as Awaited<ReturnType<typeof createCase>>);
-    const user = userEvent.setup();
     render(
       <MemoryRouter>
         <CaseCreate />
@@ -445,13 +441,13 @@ describe('Case Create', () => {
     await waitFor(() => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
-    await user.type(screen.getAllByRole('textbox')[0], '原告陳述內容至少一字觸發驗證');
+    changeText(screen.getAllByRole('textbox')[0], '原告陳述內容至少一字觸發驗證');
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).not.toBeDisabled();
     });
-    await user.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
+    fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     expect(await screen.findByText('暫時無法建立')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'common.retry' }));
+    fireEvent.click(screen.getByRole('button', { name: 'common.retry' }));
     await waitFor(() => {
       expect(createCase).toHaveBeenCalledTimes(2);
       expect(mockNavigate).toHaveBeenCalledWith('/case/retry-inline-case');
@@ -461,7 +457,6 @@ describe('Case Create', () => {
   it('createCase 失敗後修改輸入時應清除頁內錯誤', async () => {
     vi.mocked(validateStatement).mockReturnValue({ valid: true });
     vi.mocked(createCase).mockRejectedValueOnce(new Error('暫時無法建立'));
-    const user = userEvent.setup();
     render(
       <MemoryRouter>
         <CaseCreate />
@@ -471,13 +466,13 @@ describe('Case Create', () => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
     const plaintiffInput = screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder');
-    await user.type(plaintiffInput, '原告陳述內容至少一字觸發驗證');
+    changeText(plaintiffInput, '原告陳述內容至少一字觸發驗證');
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).not.toBeDisabled();
     });
-    await user.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
+    fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     expect(await screen.findByText('暫時無法建立')).toBeInTheDocument();
-    await user.type(plaintiffInput, '補充');
+    changeText(plaintiffInput, '原告陳述內容至少一字觸發驗證補充');
     await waitFor(() => {
       expect(screen.queryByText('暫時無法建立')).not.toBeInTheDocument();
     });
@@ -488,7 +483,6 @@ describe('Case Create', () => {
     vi.mocked(createCase)
       .mockRejectedValueOnce({ code: 'SERVER_ERROR', message: '暫時無法建立' })
       .mockResolvedValueOnce({ id: 'retry-case-456' } as Awaited<ReturnType<typeof createCase>>);
-    const user = userEvent.setup();
     render(
       <MemoryRouter>
         <CaseCreate />
@@ -498,15 +492,15 @@ describe('Case Create', () => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
     const textboxes = screen.getAllByRole('textbox');
-    await user.type(textboxes[0], '原告陳述內容至少一字觸發驗證');
+    changeText(textboxes[0], '原告陳述內容至少一字觸發驗證');
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).not.toBeDisabled();
     });
-    await user.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
+    fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     await waitFor(() => {
       expect(mockMessageError).toHaveBeenCalledWith('暫時無法建立');
     });
-    await user.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
+    fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     await waitFor(() => {
       expect(createCase).toHaveBeenCalledTimes(2);
       expect(mockNavigate).toHaveBeenCalledWith('/case/retry-case-456');
@@ -516,7 +510,6 @@ describe('Case Create', () => {
   it('createCase FORBIDDEN 時若有 message 應顯示該 message（F03 權限邊界）', async () => {
     vi.mocked(validateStatement).mockReturnValue({ valid: true });
     vi.mocked(createCase).mockRejectedValue({ code: 'FORBIDDEN', message: '配對已達案件上限' });
-    const user = userEvent.setup();
     render(
       <MemoryRouter>
         <CaseCreate />
@@ -526,11 +519,11 @@ describe('Case Create', () => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
     const textboxes = screen.getAllByRole('textbox');
-    await user.type(textboxes[0], '原告陳述內容至少一字觸發驗證');
+    changeText(textboxes[0], '原告陳述內容至少一字觸發驗證');
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).not.toBeDisabled();
     });
-    await user.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
+    fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     await waitFor(() => {
       expect(mockMessageError).toHaveBeenCalledWith('配對已達案件上限');
     });
@@ -540,7 +533,6 @@ describe('Case Create', () => {
   it('createCase FORBIDDEN 且無 message 時應使用 createCaseFail（F03 權限邊界 fallback）', async () => {
     vi.mocked(validateStatement).mockReturnValue({ valid: true });
     vi.mocked(createCase).mockRejectedValue({ code: 'FORBIDDEN' });
-    const user = userEvent.setup();
     render(
       <MemoryRouter>
         <CaseCreate />
@@ -549,11 +541,11 @@ describe('Case Create', () => {
     await waitFor(() => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
-    await user.type(screen.getAllByRole('textbox')[0], '原告陳述內容至少一字觸發驗證');
+    changeText(screen.getAllByRole('textbox')[0], '原告陳述內容至少一字觸發驗證');
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).not.toBeDisabled();
     });
-    await user.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
+    fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     await waitFor(() => {
       expect(mockMessageError).toHaveBeenCalledWith('message.createCaseFail');
     });
@@ -563,7 +555,6 @@ describe('Case Create', () => {
   it('無證據時提交，createCase 成功後不應調用 uploadEvidence（F03 證據邊界）', async () => {
     vi.mocked(validateStatement).mockReturnValue({ valid: true });
     vi.mocked(createCase).mockResolvedValue({ id: 'new-case-no-ev' } as Awaited<ReturnType<typeof createCase>>);
-    const user = userEvent.setup();
     render(
       <MemoryRouter>
         <CaseCreate />
@@ -572,11 +563,11 @@ describe('Case Create', () => {
     await waitFor(() => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
-    await user.type(screen.getAllByRole('textbox')[0], '原告陳述內容至少一字觸發驗證');
+    changeText(screen.getAllByRole('textbox')[0], '原告陳述內容至少一字觸發驗證');
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).not.toBeDisabled();
     });
-    await user.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
+    fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     await waitFor(() => {
       expect(createCase).toHaveBeenCalled();
       expect(mockNavigate).toHaveBeenCalledWith('/case/new-case-no-ev');
@@ -588,7 +579,6 @@ describe('Case Create', () => {
     vi.mocked(validateStatement).mockReturnValue({ valid: true });
     vi.mocked(createCase).mockResolvedValue({ id: 'new-case-456' } as Awaited<ReturnType<typeof createCase>>);
     vi.mocked(uploadEvidence).mockRejectedValueOnce(new Error('upload failed'));
-    const user = userEvent.setup();
     render(
       <MemoryRouter>
         <CaseCreate />
@@ -598,11 +588,11 @@ describe('Case Create', () => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
     fireEvent.click(screen.getByTestId('add-evidence'));
-    await user.type(screen.getAllByRole('textbox')[0], '原告陳述內容至少一字觸發驗證');
+    changeText(screen.getAllByRole('textbox')[0], '原告陳述內容至少一字觸發驗證');
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).not.toBeDisabled();
     });
-    await user.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
+    fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     await waitFor(() => {
       expect(mockMessageSuccess).toHaveBeenCalledWith('caseCreate.remoteCreateSuccess');
       expect(mockMessageWarning).toHaveBeenCalledWith('upload failed');
@@ -614,7 +604,6 @@ describe('Case Create', () => {
     vi.mocked(validateStatement).mockReturnValue({ valid: true });
     vi.mocked(createCase).mockResolvedValue({ id: 'new-case-fb' } as Awaited<ReturnType<typeof createCase>>);
     vi.mocked(uploadEvidence).mockRejectedValueOnce({ code: 'FORBIDDEN', message: '檔案類型不允許' });
-    const user = userEvent.setup();
     render(
       <MemoryRouter>
         <CaseCreate />
@@ -624,11 +613,11 @@ describe('Case Create', () => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
     fireEvent.click(screen.getByTestId('add-evidence'));
-    await user.type(screen.getAllByRole('textbox')[0], '原告陳述內容至少一字觸發驗證');
+    changeText(screen.getAllByRole('textbox')[0], '原告陳述內容至少一字觸發驗證');
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).not.toBeDisabled();
     });
-    await user.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
+    fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     await waitFor(() => {
       expect(mockMessageWarning).toHaveBeenCalledWith('檔案類型不允許');
       expect(mockNavigate).toHaveBeenCalledWith('/case/new-case-fb');
@@ -639,7 +628,6 @@ describe('Case Create', () => {
     vi.mocked(validateStatement).mockReturnValue({ valid: true });
     vi.mocked(createCase).mockResolvedValue({ id: 'new-case-forbidden' } as Awaited<ReturnType<typeof createCase>>);
     vi.mocked(uploadEvidence).mockRejectedValueOnce({ code: 'FORBIDDEN' });
-    const user = userEvent.setup();
     render(
       <MemoryRouter>
         <CaseCreate />
@@ -649,11 +637,11 @@ describe('Case Create', () => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
     fireEvent.click(screen.getByTestId('add-evidence'));
-    await user.type(screen.getAllByRole('textbox')[0], '原告陳述內容至少一字觸發驗證');
+    changeText(screen.getAllByRole('textbox')[0], '原告陳述內容至少一字觸發驗證');
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).not.toBeDisabled();
     });
-    await user.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
+    fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     await waitFor(() => {
       expect(mockMessageWarning).toHaveBeenCalledWith('message.evidenceUploadFailCaseCreated');
       expect(mockNavigate).toHaveBeenCalledWith('/case/new-case-forbidden');
@@ -664,7 +652,6 @@ describe('Case Create', () => {
     vi.mocked(validateStatement).mockReturnValue({ valid: true });
     vi.mocked(createCase).mockResolvedValue({ id: 'new-case-789' } as Awaited<ReturnType<typeof createCase>>);
     vi.mocked(uploadEvidence).mockRejectedValueOnce({ code: 'SERVER_ERROR' });
-    const user = userEvent.setup();
     render(
       <MemoryRouter>
         <CaseCreate />
@@ -674,11 +661,11 @@ describe('Case Create', () => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
     fireEvent.click(screen.getByTestId('add-evidence'));
-    await user.type(screen.getAllByRole('textbox')[0], '原告陳述內容至少一字觸發驗證');
+    changeText(screen.getAllByRole('textbox')[0], '原告陳述內容至少一字觸發驗證');
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).not.toBeDisabled();
     });
-    await user.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
+    fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     await waitFor(() => {
       expect(mockMessageWarning).toHaveBeenCalledWith('message.evidenceUploadFailCaseCreated');
       expect(mockNavigate).toHaveBeenCalledWith('/case/new-case-789');
@@ -689,7 +676,6 @@ describe('Case Create', () => {
     vi.mocked(validateStatement).mockReturnValue({ valid: true });
     vi.mocked(createCase).mockResolvedValue({ id: 'new-case-empty-msg' } as Awaited<ReturnType<typeof createCase>>);
     vi.mocked(uploadEvidence).mockRejectedValueOnce({ code: 'SERVER_ERROR', message: '' });
-    const user = userEvent.setup();
     render(
       <MemoryRouter>
         <CaseCreate />
@@ -699,11 +685,11 @@ describe('Case Create', () => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
     fireEvent.click(screen.getByTestId('add-evidence'));
-    await user.type(screen.getAllByRole('textbox')[0], '原告陳述內容至少一字觸發驗證');
+    changeText(screen.getAllByRole('textbox')[0], '原告陳述內容至少一字觸發驗證');
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).not.toBeDisabled();
     });
-    await user.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
+    fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     await waitFor(() => {
       expect(mockMessageWarning).toHaveBeenCalledWith('message.evidenceUploadFailCaseCreated');
       expect(mockNavigate).toHaveBeenCalledWith('/case/new-case-empty-msg');
@@ -714,7 +700,6 @@ describe('Case Create', () => {
     vi.mocked(validateStatement).mockImplementation((s: string) => ({
       valid: (s?.trim?.() ?? '').length >= 30,
     }));
-    const user = userEvent.setup();
     render(
       <MemoryRouter>
         <CaseCreate />
@@ -724,7 +709,7 @@ describe('Case Create', () => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
     const textboxes = screen.getAllByRole('textbox');
-    await user.type(textboxes[1], 'a'.repeat(29)); // plaintiff
+    changeText(textboxes[1], 'a'.repeat(29)); // plaintiff
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).toBeDisabled();
     });
@@ -734,7 +719,6 @@ describe('Case Create', () => {
     vi.mocked(validateStatement).mockImplementation((s: string) => ({
       valid: (s?.trim?.() ?? '').length >= 30,
     }));
-    const user = userEvent.setup();
     render(
       <MemoryRouter>
         <CaseCreate />
@@ -744,7 +728,7 @@ describe('Case Create', () => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
     const textboxes = screen.getAllByRole('textbox');
-    await user.type(textboxes[1], 'a'.repeat(30)); // plaintiff exactly 30
+    changeText(textboxes[1], 'a'.repeat(30)); // plaintiff exactly 30
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).not.toBeDisabled();
     });
@@ -754,7 +738,6 @@ describe('Case Create', () => {
     vi.mocked(validateStatement).mockImplementation((s: string) => ({
       valid: (s?.trim?.() ?? '').length >= 30,
     }));
-    const user = userEvent.setup();
     render(
       <MemoryRouter>
         <CaseCreate />
@@ -764,10 +747,10 @@ describe('Case Create', () => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
     const radios = screen.getAllByRole('radio');
-    await user.click(radios[1]); // collaborative
+    fireEvent.click(radios[1]); // collaborative
     const textboxes = screen.getAllByRole('textbox');
-    await user.type(textboxes[1], 'a'.repeat(29));
-    await user.type(textboxes[2], 'a'.repeat(30)); // defendant 足
+    changeText(textboxes[1], 'a'.repeat(29));
+    changeText(textboxes[2], 'a'.repeat(30)); // defendant 足
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).toBeDisabled();
     });
@@ -777,7 +760,6 @@ describe('Case Create', () => {
     vi.mocked(validateStatement).mockImplementation((s: string) => ({
       valid: (s?.trim?.()?.length ?? 0) >= 30,
     }));
-    const user = userEvent.setup();
     render(
       <MemoryRouter>
         <CaseCreate />
@@ -787,10 +769,10 @@ describe('Case Create', () => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
     const radios = screen.getAllByRole('radio');
-    await user.click(radios[1]); // collaborative 為第二個選項
+    fireEvent.click(radios[1]); // collaborative 為第二個選項
     const textboxes = screen.getAllByRole('textbox');
     const plaintiffInput = textboxes[1]; // [0]=title, [1]=plaintiff, [2]=defendant
-    await user.type(plaintiffInput, 'a'.repeat(30));
+    changeText(plaintiffInput, 'a'.repeat(30));
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).toBeDisabled();
     });
@@ -801,7 +783,6 @@ describe('Case Create', () => {
       valid: (s?.trim?.()?.length ?? 0) >= 30,
     }));
     vi.mocked(createCase).mockResolvedValue({ id: 'collab-case-1' } as Awaited<ReturnType<typeof createCase>>);
-    const user = userEvent.setup();
     render(
       <MemoryRouter>
         <CaseCreate />
@@ -811,16 +792,16 @@ describe('Case Create', () => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
     const radios = screen.getAllByRole('radio');
-    await user.click(radios[1]); // collaborative 為第二個選項
+    fireEvent.click(radios[1]); // collaborative 為第二個選項
     const textboxes = screen.getAllByRole('textbox');
     // textboxes[0]=標題, [1]=原告陳述, [2]=被告陳述；validateStatement 需至少 30 字
     const validStatement = 'a'.repeat(30);
-    await user.type(textboxes[1], validStatement);
-    await user.type(textboxes[2], validStatement);
+    changeText(textboxes[1], validStatement);
+    changeText(textboxes[2], validStatement);
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).not.toBeDisabled();
     });
-    await user.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
+    fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     await waitFor(() => {
       expect(createCase).toHaveBeenCalledWith(
         expect.objectContaining({

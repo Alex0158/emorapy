@@ -5,8 +5,16 @@
 import { create } from 'zustand';
 import { interviewApi } from '@/services/api/interview';
 import { t } from '@/utils/i18n';
-import { buildLocalDraft, type AIStreamDraft, type AIStreamDraftStatus } from '@/utils/aiStreamState';
-import type { InterviewSession, InterviewTurn } from '@/types/interview';
+import type { AIStreamDraftStatus } from '@/utils/aiStreamState';
+import type { InterviewResumeStatus, InterviewSession, InterviewTurn } from '@/types/interview';
+import {
+  extractInterviewErrorInfo,
+  getStreamingIdleWithAbortState,
+  getStreamingIdleState,
+  getStreamingStartState,
+  normalizeSafetyAlertSeverity,
+  shouldRecoverStreamingFromCanonical,
+} from './interviewStoreUtils';
 
 export interface SafetyAlertData {
   message: string;
@@ -19,7 +27,6 @@ interface InterviewState {
   streamingText: string;
   isStreaming: boolean;
   streamingStatus: AIStreamDraftStatus | null;
-  cancelledDraft: AIStreamDraft | null;
   loading: boolean;
   error: string | null;
   errorCode: string | null;
@@ -28,7 +35,7 @@ interface InterviewState {
   safetyAlert: SafetyAlertData | null;
 
   startSession: (trigger?: string) => Promise<InterviewSession>;
-  checkResume: () => Promise<{ has_pending: boolean; session_id?: string; last_ai_message?: string | null; turn_count?: number; has_failed?: boolean; failed_session_id?: string }>;
+  checkResume: () => Promise<InterviewResumeStatus>;
   respond: (sessionId: string, message: string) => Promise<void>;
   skipTurn: (sessionId: string) => Promise<void>;
   endSession: (sessionId: string) => Promise<void>;
@@ -45,18 +52,6 @@ interface InterviewState {
   reset: () => void;
 }
 
-function extractErrorInfo(err: unknown): { message: string; code: string | null; status: number | null } {
-  if (err && typeof err === 'object') {
-    const e = err as { message?: string; code?: string; status?: number };
-    return {
-      message: e.message || 'Unknown error',
-      code: e.code || null,
-      status: e.status ?? null,
-    };
-  }
-  return { message: String(err), code: null, status: null };
-}
-
 let _getSessionSeq = 0;
 
 export const useInterviewStore = create<InterviewState>((set, get) => {
@@ -67,32 +62,19 @@ export const useInterviewStore = create<InterviewState>((set, get) => {
     },
   ): Promise<void> {
     if (get().isStreaming) return;
-    set({
-      isStreaming: true,
-      streamingText: '',
-      streamingStatus: 'thinking',
-      cancelledDraft: null,
-      error: null,
-      errorCode: null,
-      safetyAlert: null,
-      abortController: null,
-    });
+    set(getStreamingStartState());
 
     try {
       await submit();
     } catch (err: unknown) {
       const { turns } = get();
       const preservedTurns = opts.buildPrevTurns(turns);
-      const info = extractErrorInfo(err);
+      const info = extractInterviewErrorInfo(err);
       set({
         turns: preservedTurns,
         error: info.message || t('interview.respondFail'),
         errorCode: info.code,
-        isStreaming: false,
-        streamingText: '',
-        streamingStatus: null,
-        cancelledDraft: null,
-        abortController: null,
+        ...getStreamingIdleWithAbortState(),
       });
       throw err;
     }
@@ -104,7 +86,6 @@ export const useInterviewStore = create<InterviewState>((set, get) => {
   streamingText: '',
   isStreaming: false,
   streamingStatus: null,
-  cancelledDraft: null,
   loading: false,
   error: null,
   errorCode: null,
@@ -118,10 +99,7 @@ export const useInterviewStore = create<InterviewState>((set, get) => {
       error: null,
       errorCode: null,
       shouldEnd: false,
-      streamingText: '',
-      isStreaming: false,
-      streamingStatus: null,
-      cancelledDraft: null,
+      ...getStreamingIdleState(),
       safetyAlert: null,
     });
     try {
@@ -135,7 +113,7 @@ export const useInterviewStore = create<InterviewState>((set, get) => {
       });
       return session;
     } catch (err: unknown) {
-      const info = extractErrorInfo(err);
+      const info = extractInterviewErrorInfo(err);
       set({ error: info.message || t('interview.startFail'), errorCode: info.code, loading: false });
       throw err;
     }
@@ -144,7 +122,7 @@ export const useInterviewStore = create<InterviewState>((set, get) => {
   checkResume: async () => {
     try {
       const res = await interviewApi.checkResume();
-      const data = res.data?.data as { has_pending: boolean; session_id?: string; last_ai_message?: string | null; turn_count?: number; has_failed?: boolean; failed_session_id?: string } | undefined;
+      const data = res.data?.data;
       return data ?? { has_pending: false };
     } catch {
       return { has_pending: false };
@@ -212,7 +190,7 @@ export const useInterviewStore = create<InterviewState>((set, get) => {
         loading: false,
       }));
     } catch (err: unknown) {
-      const info = extractErrorInfo(err);
+      const info = extractInterviewErrorInfo(err);
       set({ error: info.message || t('interview.endFail'), errorCode: info.code, loading: false });
       throw err;
     }
@@ -225,10 +203,7 @@ export const useInterviewStore = create<InterviewState>((set, get) => {
       error: null,
       errorCode: null,
       shouldEnd: false,
-      streamingText: '',
-      isStreaming: false,
-      streamingStatus: null,
-      cancelledDraft: null,
+      ...getStreamingIdleState(),
       safetyAlert: null,
     });
     try {
@@ -243,7 +218,7 @@ export const useInterviewStore = create<InterviewState>((set, get) => {
       });
     } catch (err: unknown) {
       if (seq !== _getSessionSeq) throw err;
-      const info = extractErrorInfo(err);
+      const info = extractInterviewErrorInfo(err);
       const isNotFound = info.code === 'NOT_FOUND' || info.status === 404;
       set({
         error: info.message || t('interview.loadFail'),
@@ -265,6 +240,9 @@ export const useInterviewStore = create<InterviewState>((set, get) => {
         currentSession: session,
         turns: session.turns || [],
         shouldEnd: state.shouldEnd || session.status === 'completed',
+        ...(shouldRecoverStreamingFromCanonical(state.isStreaming, state.turns, session)
+          ? getStreamingIdleWithAbortState()
+          : {}),
       }));
     } catch {
       // Keep optimistic local state when canonical refresh fails.
@@ -277,71 +255,50 @@ export const useInterviewStore = create<InterviewState>((set, get) => {
       await interviewApi.retryFailed(sessionId);
       set({ loading: false });
     } catch (err: unknown) {
-      const info = extractErrorInfo(err);
+      const info = extractInterviewErrorInfo(err);
       set({ error: info.message || t('interview.retryFail'), errorCode: info.code, loading: false });
       throw err;
     }
   },
 
+  /** 取消進行中的串流（卸載頁面或使用者按「停止」）。不再寫入 cancelledDraft，避免以假對話氣泡長駐。 */
   cancelStream: async (sessionId?: string) => {
-    const { streamingText } = get();
     if (sessionId) {
       try {
         await interviewApi.cancel(sessionId);
       } catch {
-        // Preserve local cancelled state even if cancel request fails.
+        /* 仍清除本地串流狀態 */
       }
     }
-    set({
-      isStreaming: false,
-      streamingText: '',
-      streamingStatus: null,
-      cancelledDraft: buildLocalDraft({
-        text: streamingText,
-        status: 'cancelled',
-      }),
-      abortController: null,
-    });
+    set(getStreamingIdleWithAbortState());
   },
 
   beginStreaming: () => {
     set({
       isStreaming: true,
       streamingStatus: 'thinking',
-      cancelledDraft: null,
       error: null,
       errorCode: null,
     });
   },
 
   finishStreaming: () => {
-    set({
-      isStreaming: false,
-      streamingText: '',
-      streamingStatus: null,
-      abortController: null,
-    });
+    set(getStreamingIdleWithAbortState());
   },
 
-  applyStreamFailure: (error) => {
+  applyStreamFailure: (error: { code?: string; message?: string }) => {
     set({
       error: error.message || t('interview.respondFail'),
       errorCode: error.code || null,
-      isStreaming: false,
-      streamingText: '',
-      streamingStatus: null,
-      abortController: null,
+      ...getStreamingIdleWithAbortState(),
     });
   },
 
   applyStreamSafetyAlert: (data) => {
-    const severityValue = data.severity;
-    const normalizedSeverity: SafetyAlertData['severity'] =
-      severityValue === 'warning' || severityValue === 'critical' ? severityValue : 'info';
     set({
       safetyAlert: {
         message: data.message || t('interview.respondFail'),
-        severity: normalizedSeverity,
+        severity: normalizeSafetyAlertSeverity(data.severity),
       },
     });
   },
@@ -362,14 +319,10 @@ export const useInterviewStore = create<InterviewState>((set, get) => {
     set({
       currentSession: null,
       turns: [],
-      streamingText: '',
-      isStreaming: false,
-      streamingStatus: null,
-      cancelledDraft: null,
+      ...getStreamingIdleWithAbortState(),
       loading: false,
       error: null,
       errorCode: null,
-      abortController: null,
       shouldEnd: false,
       safetyAlert: null,
     });

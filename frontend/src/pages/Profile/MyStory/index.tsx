@@ -19,6 +19,7 @@ import {
   Modal,
   message,
   Alert,
+  Tooltip,
 } from 'antd';
 import {
   ArrowLeftOutlined,
@@ -27,10 +28,12 @@ import {
   HistoryOutlined,
   BulbOutlined,
   BookOutlined,
+  InfoCircleOutlined,
 } from '@ant-design/icons';
 import RichnessRing from '@/components/business/Interview/RichnessRing';
 import { usePsychProfileStore } from '@/store/psychProfileStore';
 import { getErrorMessage } from '@/utils/apiError';
+import { getInterviewResumeNavigationPath } from '@/utils/interviewResume';
 import { useInterviewStore } from '@/store/interviewStore';
 import { getDomainLabel } from '@/types/interview';
 import type { PsychDomain, ProfileInsight, FeedbackHistoryItem, FeedbackCard } from '@/types/interview';
@@ -94,8 +97,9 @@ const MyStory: React.FC = () => {
     try {
       const resumeData = await checkResume();
       if (!mountedRef.current) return;
-      if (resumeData.has_pending && resumeData.session_id) {
-        navigate(`/interview/${resumeData.session_id}`);
+      const resumePath = getInterviewResumeNavigationPath(resumeData);
+      if (resumePath) {
+        navigate(resumePath);
         return;
       }
       const session = await startSession('organic');
@@ -208,7 +212,7 @@ const MyStory: React.FC = () => {
       />
       <div className="my-story-page" role="main">
         <div className="page-hero page-hero--compact">
-          <div className="max-w-4xl mx-auto">
+          <div className="my-story-page__container">
             {failedSessionId && (
               <Alert
                 type="warning"
@@ -240,32 +244,64 @@ const MyStory: React.FC = () => {
           </div>
         </div>
 
-        <div className="max-w-4xl mx-auto px-6 pb-24">
+        <div className="my-story-page__container my-story-page__container--body">
           {/* 豐富度概覽 */}
           <AnimatedWrapper animation="slide" direction="up" delay={200} trigger="intersection">
             <Card className="my-story-page__overview glassmorphism-2 border-none shadow-sm rounded-3xl mb-8">
-              <div className="my-story-page__overview-content flex flex-col md:flex-row items-center gap-8">
-                <RichnessRing score={profile.richness_score || 0} size={120} />
-                <div className="my-story-page__overview-info flex-1">
-                  <Text strong className="text-lg block mb-4">{t('psychProfile.exploredDomains')}</Text>
-                  <div className="my-story-page__domain-tags flex flex-wrap gap-2 mb-6">
-                    {exploredDomains.map((d) => (
-                      <Tag key={d} color="blue" className="rounded-full px-3 py-1 text-sm border-blue-200 bg-blue-50 text-blue-600">{getDomainLabel(d as PsychDomain)}</Tag>
-                    ))}
-                    {unexploredDomains.map((d) => (
-                      <Tag key={d} className="rounded-full px-3 py-1 text-sm text-gray-400 bg-gray-50 border-gray-200">{getDomainLabel(d as PsychDomain)}</Tag>
-                    ))}
+              <div className="my-story-page__overview-content flex flex-col md:flex-row md:items-start gap-8 md:gap-10 lg:gap-12">
+                <div className="flex flex-col items-center shrink-0 w-full md:w-auto md:pt-1">
+                  <div className="flex items-center gap-1.5 mb-3">
+                    <Text type="secondary" className="text-sm">
+                      {t('psychProfile.richnessLabel')}
+                    </Text>
+                    <Tooltip title={t('psychProfile.domainOverviewHint')}>
+                      <InfoCircleOutlined
+                        className="text-gray-400 text-sm cursor-help"
+                        aria-label={t('psychProfile.domainOverviewHint')}
+                      />
+                    </Tooltip>
                   </div>
-                  <Button
-                    type="primary"
-                    size="large"
-                    shape="round"
-                    icon={<MessageOutlined />}
-                    onClick={handleStartChat}
-                    className="shadow-md hover:shadow-lg"
-                  >
-                    {t('psychProfile.continueChat')}
-                  </Button>
+                  <RichnessRing
+                    score={profile.richness_score || 0}
+                    size={120}
+                    hasDomainProgress={exploredDomains.length > 0}
+                  />
+                </div>
+                <div className="my-story-page__overview-info flex-1 min-w-0 flex flex-col gap-8">
+                  <section className="flex flex-col gap-3">
+                    <Text strong className="text-base block leading-snug">{t('psychProfile.exploredDomains')}</Text>
+                    <div className="my-story-page__domain-tags flex flex-wrap gap-x-2 gap-y-2.5 min-h-[32px]">
+                      {exploredDomains.length === 0 ? (
+                        <Text type="secondary" className="text-sm leading-relaxed max-w-prose">
+                          {t('psychProfile.noExploredDomainsYet')}
+                        </Text>
+                      ) : (
+                        exploredDomains.map((d) => (
+                          <Tag key={d} color="blue" className="rounded-full px-3 py-1 text-sm border-blue-200 bg-blue-50 text-blue-600 m-0">{getDomainLabel(d as PsychDomain)}</Tag>
+                        ))
+                      )}
+                    </div>
+                  </section>
+                  <section className="flex flex-col gap-3">
+                    <Text strong className="text-base block leading-snug">{t('psychProfile.unexploredDomains')}</Text>
+                    <div className="my-story-page__domain-tags flex flex-wrap gap-x-2 gap-y-2.5">
+                      {unexploredDomains.map((d) => (
+                        <Tag key={d} className="rounded-full px-3 py-1.5 text-sm text-gray-400 bg-gray-50 border-gray-200 m-0">{getDomainLabel(d as PsychDomain)}</Tag>
+                      ))}
+                    </div>
+                  </section>
+                  <div className="pt-1">
+                    <Button
+                      type="primary"
+                      size="large"
+                      shape="round"
+                      icon={<MessageOutlined />}
+                      onClick={handleStartChat}
+                      className="shadow-md hover:shadow-lg"
+                    >
+                      {t('psychProfile.continueChat')}
+                    </Button>
+                  </div>
                 </div>
               </div>
             </Card>

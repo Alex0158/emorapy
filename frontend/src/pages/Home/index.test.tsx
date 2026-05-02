@@ -28,6 +28,9 @@ vi.mock('@/components/common/AnimatedWrapper', () => ({
 vi.mock('@/components/business/MediatorAvatar', () => ({
   default: () => <div data-testid="mediator-avatar">MediatorAvatar</div>,
 }));
+vi.mock('./components/AdaptiveDashboard', () => ({
+  default: () => <div data-testid="adaptive-dashboard">AdaptiveDashboard</div>,
+}));
 const mockUseAuthStore = vi.fn();
 vi.mock('@/store/authStore', () => ({
   useAuthStore: (...args: unknown[]) => mockUseAuthStore(...args),

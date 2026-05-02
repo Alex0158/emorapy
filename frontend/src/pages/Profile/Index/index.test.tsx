@@ -466,6 +466,66 @@ describe('ProfileIndex', () => {
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
+  it('繼續聊天 checkResume 有 pending session 時應直接導航且不再 startSession', async () => {
+    mockUsePsychProfileStore.mockReturnValue({
+      profile: { consent_given: true },
+      fetchProfile: vi.fn(),
+      giveConsent: vi.fn(),
+      consentLoading: false,
+    });
+    mockCheckResume.mockResolvedValue({ has_pending: true, session_id: 'resume-sess' });
+    mockUseInterviewStore.mockReturnValue({
+      startSession: mockStartSession,
+      checkResume: mockCheckResume,
+    });
+
+    render(
+      <MemoryRouter>
+        <ProfileIndex />
+      </MemoryRouter>
+    );
+
+    const continueBtn = await screen.findByText('psychProfile.continueChat');
+    await userEvent.click(continueBtn);
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/interview/resume-sess');
+      expect(mockStartSession).not.toHaveBeenCalled();
+    });
+  });
+
+  it('繼續聊天 checkResume 有 failed session 時應直接導航到 result retry 頁', async () => {
+    mockUsePsychProfileStore.mockReturnValue({
+      profile: { consent_given: true },
+      fetchProfile: vi.fn(),
+      giveConsent: vi.fn(),
+      consentLoading: false,
+    });
+    mockCheckResume.mockResolvedValue({
+      has_pending: false,
+      has_failed: true,
+      failed_session_id: 'failed-sess',
+    });
+    mockUseInterviewStore.mockReturnValue({
+      startSession: mockStartSession,
+      checkResume: mockCheckResume,
+    });
+
+    render(
+      <MemoryRouter>
+        <ProfileIndex />
+      </MemoryRouter>
+    );
+
+    const continueBtn = await screen.findByText('psychProfile.continueChat');
+    await userEvent.click(continueBtn);
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/interview/failed-sess/result');
+      expect(mockStartSession).not.toHaveBeenCalled();
+    });
+  });
+
   it('繼續聊天 startSession 失敗但組件已卸載時不應呼叫 message.error（useMountedRef 回歸：避免卸載後誤提示）', async () => {
     let rejectStartSession: (reason?: unknown) => void;
     mockUsePsychProfileStore.mockReturnValue({

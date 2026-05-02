@@ -34,6 +34,9 @@ const mockRedisInstance = {
   get: jest.fn(),
   setex: jest.fn(),
   del: jest.fn(),
+  on: jest.fn(),
+  removeListener: jest.fn(),
+  disconnect: jest.fn(),
 };
 jest.mock('ioredis', () => ({
   __esModule: true,
@@ -56,6 +59,9 @@ describe('utils/cache', () => {
     (mockRedisInstance.get as any).mockResolvedValue(null);
     (mockRedisInstance.setex as any).mockResolvedValue('OK');
     (mockRedisInstance.del as any).mockResolvedValue(1);
+    (mockRedisInstance.on as any).mockReturnValue(undefined);
+    (mockRedisInstance.removeListener as any).mockReturnValue(undefined);
+    (mockRedisInstance.disconnect as any).mockReturnValue(undefined);
     // 清空內存緩存（通過 delete 我們將要用的 key）
     await cacheService.delete('test-key');
     await cacheService.delete('k1');
@@ -202,7 +208,8 @@ describe('utils/cache', () => {
       (mockRedisInstance.get as any).mockRejectedValue(new Error('redis down'));
       const value = await svc.get<string>('fallback');
       expect(value).toBe('v');
-      expect(mockLogger.warn).toHaveBeenCalledWith('Redis get failed, falling back to memory cache', expect.any(Object));
+      expect(mockLogger.warn).toHaveBeenCalledWith('Redis set failed, falling back to memory cache', expect.any(Object));
+      expect(mockRedisInstance.get).not.toHaveBeenCalled();
     });
 
     it('Redis init 失敗時應記錄 logger.warn', async () => {
@@ -223,9 +230,25 @@ describe('utils/cache', () => {
       await new Promise(r => setImmediate(r));
       await svc.set('k', 1, 3600);
       await svc.delete('k');
-      expect(mockLogger.warn).toHaveBeenCalledWith('Redis delete failed', expect.any(Object));
+      expect(mockLogger.warn).toHaveBeenCalledWith('Redis delete failed, falling back to memory cache', expect.any(Object));
       const got = await svc.get('k');
       expect(got).toBeNull();
+    });
+
+    it('Redis set 失敗後後續請求不應再次觸發 Redis setex/get', async () => {
+      mockEnvRef.current.REDIS_URL = 'redis://localhost';
+      (mockRedisInstance.setex as any).mockRejectedValueOnce(new Error('redis set down'));
+      jest.resetModules();
+      const { cacheService: svc } = await import('../../../src/utils/cache');
+      await new Promise(r => setImmediate(r));
+
+      await svc.set('fallback-key', 'v1', 3600);
+      const value = await svc.get<string>('fallback-key');
+
+      expect(value).toBe('v1');
+      expect(mockRedisInstance.setex).toHaveBeenCalledTimes(1);
+      expect(mockRedisInstance.get).not.toHaveBeenCalled();
+      expect(mockRedisInstance.disconnect).toHaveBeenCalled();
     });
   });
 });

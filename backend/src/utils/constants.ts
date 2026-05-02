@@ -69,7 +69,10 @@ export const EXECUTION_ACTION = {
 
 // 鎖定時間常量（秒）
 export const LOCK_TTL = {
-  JUDGMENT_GENERATION: 120,
+  // Judgment generation is a multi-stage pipeline with several sequential AI calls.
+  // Keep the lock TTL comfortably above the end-to-end judgment timeout to avoid
+  // lock expiry mid-flight and duplicate generation.
+  JUDGMENT_GENERATION: 300,
   DEFAULT: 60,
   CASE_CREATE: 30,
   CASE_SUBMIT: 10,
@@ -93,7 +96,11 @@ export const CACHE_CONFIG = {
 
 // AI服務超時常量（毫秒）
 export const AI_TIMEOUT = {
-  JUDGMENT_GENERATION: 60000,
+  // Single OpenAI calls in the judgment pipeline can legitimately exceed 45s for
+  // large prompts. The overall judgment budget must cover multiple sequential calls:
+  // analysis -> main response -> responsibility ratio -> summary.
+  OPENAI_REQUEST: 90000,
+  JUDGMENT_GENERATION: 180000,
   DEFAULT: 30000,
 } as const;
 
@@ -171,4 +178,3 @@ export const PAGINATION = {
   EXECUTION_LIST_TAKE: 50,
   EXECUTION_RECORDS_TAKE: 100,
 } as const;
-

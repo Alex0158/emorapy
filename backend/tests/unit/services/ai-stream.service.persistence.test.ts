@@ -7,10 +7,10 @@ const mockCreate = jest.fn();
 jest.mock('../../../src/config/database', () => ({
   __esModule: true,
   default: {
-    aiStreamSession: {
+    aIStreamSession: {
       upsert: (...args: unknown[]) => mockUpsert(...args),
     },
-    aiStreamEventRecord: {
+    aIStreamEventRecord: {
       create: (...args: unknown[]) => mockCreate(...args),
     },
   },

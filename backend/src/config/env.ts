@@ -100,6 +100,34 @@ interface EnvConfig {
   METRICS_ALLOWED_IPS: string[];
 }
 
+/** 本機 Vite / 管理台常用埠；development 時與 ALLOWED_ORIGINS 合併，避免 Railway 注入僅含正式網域時擋住 localhost */
+const LOCAL_DEV_ORIGINS_DEFAULT = [
+  'http://localhost:4173',
+  'http://localhost:4174',
+  'http://localhost:4175',
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:5175',
+  'http://127.0.0.1:4173',
+  'http://127.0.0.1:4174',
+  'http://127.0.0.1:4175',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:5174',
+  'http://127.0.0.1:5175',
+] as const;
+
+function mergeAllowedOrigins(): string[] {
+  const fromEnv = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const nodeEnv = process.env.NODE_ENV || 'development';
+  if (nodeEnv !== 'development') {
+    return fromEnv;
+  }
+  return [...new Set([...LOCAL_DEV_ORIGINS_DEFAULT, ...fromEnv])];
+}
+
 function getEnvConfig(): EnvConfig {
   const requiredEnvVars = [
     'DATABASE_URL',
@@ -158,7 +186,7 @@ function getEnvConfig(): EnvConfig {
     
     FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
     FILE_BASE_URL: process.env.FILE_BASE_URL || process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 3000}`,
-    ALLOWED_ORIGINS: (process.env.ALLOWED_ORIGINS || 'http://localhost:5173').split(',').map(s => s.trim()),
+    ALLOWED_ORIGINS: mergeAllowedOrigins(),
     
     // 定時任務配置（默認：生產環境啟用，開發環境可通過環境變量禁用）
     ENABLE_SCHEDULED_JOBS: process.env.ENABLE_SCHEDULED_JOBS !== 'false' && 

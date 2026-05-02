@@ -286,12 +286,15 @@ describe('AIService (non-useMock)', () => {
       expect(openaiCreateMock).not.toHaveBeenCalled();
     });
 
-    it('generateText 拋錯時應返回 其他衝突並記錄 logger.error', async () => {
+    it('generateText 拋錯時應返回 其他衝突並記錄 logger.warn', async () => {
       (cacheGetMock as any).mockResolvedValueOnce(null);
       (retryWithBackoffMock as any).mockRejectedValueOnce(new Error('API error'));
       const result = await service.detectCaseType('A', 'B');
       expect(result).toBe('其他衝突');
-      expect(mockLogger.error).toHaveBeenCalledWith('Failed to detect case type', expect.objectContaining({ error: expect.any(Error) }));
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        'Failed to detect case type, fallback to default',
+        expect.objectContaining({ error: expect.any(Error) })
+      );
     });
 
     it('AI 返回不在 validTypes 中的類型時應返回並緩存 其他衝突', async () => {
@@ -423,6 +426,70 @@ describe('AIService (non-useMock)', () => {
 
       // 回退路徑：70/30（抽取） 與 50/50（規則）按 0.55 混合，約為 61/39
       expect(result.responsibilityRatio).toEqual({ plaintiff: 61, defendant: 39 });
+    });
+
+    it('safety_support 應跳過一般比例算法並將明確加害方設為主要安全介入負擔', async () => {
+      const analysis = {
+        severity: 'serious' as const,
+        personA: { primaryFeelings: '害怕', unmetNeeds: '安全', communicationPattern: '自我保護' },
+        personB: { primaryFeelings: '失控', unmetNeeds: '情緒調節', communicationPattern: '高壓控制' },
+        interactionCycle: '暴力升級',
+        triggerPattern: '爭吵時',
+        coreIssue: '安全風險',
+        relationshipStrengths: '',
+        gottmanFlags: [],
+        safetyFlags: ['暴力'],
+        suggestedApproach: '先做安全支持',
+      };
+      (openaiCreateMock as any)
+        .mockResolvedValueOnce({
+          choices: [{ message: { content: '本案先處理安全與邊界，不輸出對稱式調整比重。' } }],
+        })
+        .mockResolvedValueOnce({
+          choices: [{ message: { content: '摘要內容' } }],
+        });
+
+      const result = await service.generateJudgment(
+        '情感需求衝突',
+        '他打我，摔碗後又威脅我。',
+        '我只是太生氣。',
+        { routeType: 'safety_support', prefetchedAnalysis: analysis }
+      );
+
+      expect(result.responsibilityRatio).toEqual({ plaintiff: 20, defendant: 80 });
+      expect(openaiCreateMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('safety_support 應識別角色 A 自承動手時由角色 A 承擔主要安全介入負擔', async () => {
+      const analysis = {
+        severity: 'serious' as const,
+        personA: { primaryFeelings: '失控', unmetNeeds: '情緒調節', communicationPattern: '高壓控制' },
+        personB: { primaryFeelings: '害怕', unmetNeeds: '安全', communicationPattern: '退縮' },
+        interactionCycle: '暴力升級',
+        triggerPattern: '爭吵時',
+        coreIssue: '安全風險',
+        relationshipStrengths: '',
+        gottmanFlags: [],
+        safetyFlags: ['暴力'],
+        suggestedApproach: '先做安全支持',
+      };
+      (openaiCreateMock as any)
+        .mockResolvedValueOnce({
+          choices: [{ message: { content: '本案先處理安全與邊界。' } }],
+        })
+        .mockResolvedValueOnce({
+          choices: [{ message: { content: '摘要內容' } }],
+        });
+
+      const result = await service.generateJudgment(
+        '情感需求衝突',
+        '我打了他，也摔東西。',
+        '我很害怕。',
+        { routeType: 'safety_support', prefetchedAnalysis: analysis }
+      );
+
+      expect(result.responsibilityRatio).toEqual({ plaintiff: 80, defendant: 20 });
+      expect(openaiCreateMock).toHaveBeenCalledTimes(2);
     });
   });
 

@@ -25,7 +25,7 @@
 import logger from '../config/logger';
 import { env } from '../config/env';
 import { Errors } from './errors';
-import Redis from 'ioredis';
+import { RedisFallbackClient } from './redis-fallback-client';
 
 /**
  * 簡單的內存鎖（單實例有效）
@@ -114,13 +114,17 @@ const simpleLock = new SimpleLock();
  * 鎖服務
  */
 export class LockService {
-  private redis: Redis | null = null; // Redis客戶端（可選）
+  private readonly redisClient = new RedisFallbackClient({
+    connectedMessage: 'Redis connected for lock',
+    connectionLostMessage: 'Redis connection lost, falling back to simple lock',
+    disconnectCleanupFailedMessage: 'Redis lock disconnect cleanup failed',
+  });
   private warnedSimpleLockInProd = false;
 
   constructor() {
     // 嘗試初始化Redis（如果可用）
     this.initRedis().catch(err => {
-      logger.warn('Redis not available, using simple lock', { error: err.message });
+      logger.warn('Redis not available, using simple lock', { error: err });
     });
 
     // 生產環境強制要求 Redis，除非顯式允許降級
@@ -133,13 +137,14 @@ export class LockService {
    * 初始化Redis（可選）
    */
   private async initRedis(): Promise<void> {
-    if (!env.REDIS_URL) return;
-    this.redis = new Redis(env.REDIS_URL, {
-      lazyConnect: true,
-      maxRetriesPerRequest: 2,
-    });
-    await this.redis.connect();
-    logger.info('Redis connected for lock');
+    await this.redisClient.init(env.REDIS_URL);
+  }
+
+  /**
+   * 永久關閉當前 Redis 客戶端，避免不可達實例在每次操作都先重試再降級
+   */
+  private disableRedis(message: string, context: Record<string, unknown>): void {
+    this.redisClient.disable(message, context);
   }
 
   /**
@@ -148,12 +153,13 @@ export class LockService {
   async acquire(key: string, ttlSeconds: number = 60): Promise<boolean> {
     try {
       // 優先使用Redis分布式鎖
-      if (this.redis) {
-        const result = await this.redis.set(key, '1', 'PX', ttlSeconds * 1000, 'NX');
+      const redis = this.redisClient.current;
+      if (redis) {
+        const result = await redis.set(key, '1', 'PX', ttlSeconds * 1000, 'NX');
         return result === 'OK';
       }
     } catch (error) {
-      logger.warn('Redis lock failed, falling back to simple lock', { key, error });
+      this.disableRedis('Redis lock failed, falling back to simple lock', { key, error });
     }
 
     // 降級到簡單鎖
@@ -165,12 +171,13 @@ export class LockService {
    */
   async release(key: string): Promise<void> {
     try {
-      if (this.redis) {
-        await this.redis.del(key);
+      const redis = this.redisClient.current;
+      if (redis) {
+        await redis.del(key);
         return;
       }
     } catch (error) {
-      logger.warn('Redis unlock failed', { key, error });
+      this.disableRedis('Redis unlock failed, falling back to simple lock', { key, error });
     }
 
     await simpleLock.release(key);
@@ -184,10 +191,10 @@ export class LockService {
     fn: () => Promise<T>,
     ttlSeconds: number = 60
   ): Promise<T> {
-    if (env.NODE_ENV === 'production' && !this.redis && process.env.ALLOW_SIMPLE_LOCK !== 'true') {
+    if (env.NODE_ENV === 'production' && !this.redisClient.current && process.env.ALLOW_SIMPLE_LOCK !== 'true') {
       throw Errors.INTERNAL_ERROR('缺少分布式鎖後端 (Redis)，請聯繫管理員');
     }
-    if (env.NODE_ENV === 'production' && !this.redis && process.env.ALLOW_SIMPLE_LOCK === 'true' && !this.warnedSimpleLockInProd) {
+    if (env.NODE_ENV === 'production' && !this.redisClient.current && process.env.ALLOW_SIMPLE_LOCK === 'true' && !this.warnedSimpleLockInProd) {
       this.warnedSimpleLockInProd = true;
       logger.warn('使用內存鎖降級運行（production）', {
         note: '建議儘快配置 REDIS_URL，避免多實例競態風險',
@@ -211,7 +218,7 @@ export class LockService {
    * 回報目前鎖後端狀態，供 health/監控使用
    */
   getBackendStatus(): 'redis' | 'simple-lock' | 'simple-lock-degraded' {
-    if (this.redis) return 'redis';
+    if (this.redisClient.current) return 'redis';
     if (env.NODE_ENV === 'production' && process.env.ALLOW_SIMPLE_LOCK === 'true') {
       return 'simple-lock-degraded';
     }

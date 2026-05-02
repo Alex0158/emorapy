@@ -7,7 +7,7 @@ import crypto from 'crypto';
 import logger from '../config/logger';
 import { env } from '../config/env';
 import { CACHE_CONFIG } from './constants';
-import Redis from 'ioredis';
+import { RedisFallbackClient } from './redis-fallback-client';
 
 // 內存緩存配置（優先使用環境變量，否則使用常量）
 const DEFAULT_MAX_SIZE = env.CACHE_MAX_SIZE || CACHE_CONFIG.MAX_SIZE;
@@ -166,12 +166,16 @@ startCacheCleanupTimer();
  * 緩存服務
  */
 export class CacheService {
-  private redis: Redis | null = null; // Redis客戶端（可選）
+  private readonly redisClient = new RedisFallbackClient({
+    connectedMessage: 'Redis connected for cache',
+    connectionLostMessage: 'Redis connection lost, using memory cache instead',
+    disconnectCleanupFailedMessage: 'Redis cache disconnect cleanup failed',
+  });
 
   constructor() {
     // 嘗試初始化Redis（如果可用）
     this.initRedis().catch(err => {
-      logger.warn('Redis not available, using memory cache', { error: err.message });
+      logger.warn('Redis not available, using memory cache', { error: err });
     });
   }
 
@@ -179,13 +183,14 @@ export class CacheService {
    * 初始化Redis（可選）
    */
   private async initRedis(): Promise<void> {
-    if (!env.REDIS_URL) return;
-    this.redis = new Redis(env.REDIS_URL, {
-      lazyConnect: true,
-      maxRetriesPerRequest: 2,
-    });
-    await this.redis.connect();
-    logger.info('Redis connected for cache');
+    await this.redisClient.init(env.REDIS_URL);
+  }
+
+  /**
+   * 永久關閉當前 Redis 客戶端，避免不可達實例在每次緩存操作都阻塞一次
+   */
+  private disableRedis(message: string, context: Record<string, unknown>): void {
+    this.redisClient.disable(message, context);
   }
 
   /**
@@ -194,15 +199,16 @@ export class CacheService {
   async get<T>(key: string): Promise<T | null> {
     try {
       // 優先使用Redis
-      if (this.redis) {
-        const value = await this.redis.get(key);
+      const redis = this.redisClient.current;
+      if (redis) {
+        const value = await redis.get(key);
         if (value) {
           return JSON.parse(value) as T;
         }
         return null;
       }
     } catch (error) {
-      logger.warn('Redis get failed, falling back to memory cache', { key, error });
+      this.disableRedis('Redis get failed, falling back to memory cache', { key, error });
     }
 
     // 降級到內存緩存
@@ -215,12 +221,13 @@ export class CacheService {
   async set<T>(key: string, value: T, ttlSeconds: number): Promise<void> {
     try {
       // 優先使用Redis
-      if (this.redis) {
-        await this.redis.setex(key, ttlSeconds, JSON.stringify(value));
+      const redis = this.redisClient.current;
+      if (redis) {
+        await redis.setex(key, ttlSeconds, JSON.stringify(value));
         return;
       }
     } catch (error) {
-      logger.warn('Redis set failed, falling back to memory cache', { key, error });
+      this.disableRedis('Redis set failed, falling back to memory cache', { key, error });
     }
 
     // 降級到內存緩存
@@ -232,11 +239,12 @@ export class CacheService {
    */
   async delete(key: string): Promise<void> {
     try {
-      if (this.redis) {
-        await this.redis.del(key);
+      const redis = this.redisClient.current;
+      if (redis) {
+        await redis.del(key);
       }
     } catch (error) {
-      logger.warn('Redis delete failed', { key, error });
+      this.disableRedis('Redis delete failed, falling back to memory cache', { key, error });
     }
 
     memoryCache.delete(key);

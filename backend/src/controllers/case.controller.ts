@@ -8,8 +8,10 @@ import { CASE_STATUS } from '../utils/constants';
 
 function triggerJudgment(caseId: string, opts: { userId?: string; sessionId?: string | null }) {
   const { sessionId, ...rest } = opts;
-  judgmentService.generateJudgment(caseId, { ...rest, sessionId: sessionId ?? undefined }).catch(err => {
-    logger.error('Async judgment generation failed', { caseId, error: err });
+  setImmediate(() => {
+    judgmentService.generateJudgment(caseId, { ...rest, sessionId: sessionId ?? undefined }).catch(err => {
+      logger.error('Async judgment generation failed', { caseId, error: err });
+    });
   });
 }
 

@@ -11,8 +11,18 @@ import type {
   AIStreamStatus,
 } from '../types/ai-stream';
 import { aiStreamMetricsService } from './ai-stream-metrics.service';
+import {
+  DEFAULT_MAX_EVENTS_PER_SCOPE,
+  DEFAULT_REPLAY_TTL_SECONDS,
+  REDIS_CHANNEL,
+  type StreamScopeKey,
+  buildArchiveBatchKey,
+  buildRedisScopePrefix,
+  buildScopeKey,
+  isTerminalStatus,
+  sortSnapshots,
+} from './ai-stream-runtime-helpers';
 
-type StreamScopeKey = `${AIStreamScopeType}:${string}`;
 type Listener = (event: AIStreamEvent) => void;
 
 export interface AIStreamHandle {
@@ -85,10 +95,6 @@ interface AIStreamDetailOptions {
   source?: AIStreamPersistenceSource;
 }
 
-const DEFAULT_REPLAY_TTL_SECONDS = 24 * 60 * 60;
-const DEFAULT_MAX_EVENTS_PER_SCOPE = 400;
-const REDIS_CHANNEL = 'ai-stream:events';
-
 let prismaLoader: (() => any) | null = null;
 
 function loadPrisma(): any {
@@ -96,26 +102,6 @@ function loadPrisma(): any {
     prismaLoader = () => require('../config/database').default;
   }
   return prismaLoader();
-}
-
-function isTerminalStatus(status: AIStreamStatus): boolean {
-  return status === 'persisted' || status === 'failed' || status === 'cancelled';
-}
-
-function buildScopeKey(scopeType: AIStreamScopeType, scopeId: string): StreamScopeKey {
-  return `${scopeType}:${scopeId}`;
-}
-
-function buildRedisScopePrefix(scopeType: AIStreamScopeType, scopeId: string): string {
-  return `ai-stream:scope:${scopeType}:${scopeId}`;
-}
-
-function sortSnapshots(a: AIStreamSnapshot, b: AIStreamSnapshot): number {
-  return a.updatedAt.localeCompare(b.updatedAt);
-}
-
-function buildArchiveBatchKey(): string {
-  return `ai-stream-archive-${new Date().toISOString()}`;
 }
 
 export class AIStreamService {
@@ -133,7 +119,7 @@ export class AIStreamService {
   constructor(config: AIStreamRedisConfig = {}) {
     this.replayTtlSeconds = config.replayTtlSeconds ?? DEFAULT_REPLAY_TTL_SECONDS;
     this.maxEventsPerScope = config.maxEventsPerScope ?? DEFAULT_MAX_EVENTS_PER_SCOPE;
-    this.redisEnabled = config.enabled ?? Boolean(env.REDIS_URL);
+    this.redisEnabled = config.enabled ?? (env.NODE_ENV !== 'test' && Boolean(env.REDIS_URL));
     this.enableDatabasePersistence = config.persistToDatabase ?? env.NODE_ENV !== 'test';
 
     if (this.redisEnabled && env.REDIS_URL) {
@@ -366,7 +352,7 @@ export class AIStreamService {
     try {
       const prisma = loadPrisma();
       const sessionData = this.buildSessionPersistencePayload(event, snapshot);
-      await prisma.aiStreamSession.upsert({
+      await prisma.aIStreamSession.upsert({
         where: { stream_id: event.streamId },
         create: {
           stream_id: event.streamId,
@@ -377,7 +363,7 @@ export class AIStreamService {
       });
 
       if (event.eventType !== 'stream.heartbeat') {
-        await prisma.aiStreamEventRecord.create({
+        await prisma.aIStreamEventRecord.create({
           data: {
             stream_id: event.streamId,
             request_id: event.requestId,
@@ -683,10 +669,10 @@ export class AIStreamService {
       archivedSessions,
       archivedEvents,
     ] = await Promise.all([
-      prisma.aiStreamSession.count(),
-      prisma.aiStreamSession.count({ where: { updated_at: { gte: since } } }),
-      prisma.aiStreamEventRecord.count({ where: { created_at: { gte: since } } }),
-      prisma.aiStreamSession.findMany({
+      prisma.aIStreamSession.count(),
+      prisma.aIStreamSession.count({ where: { updated_at: { gte: since } } }),
+      prisma.aIStreamEventRecord.count({ where: { created_at: { gte: since } } }),
+      prisma.aIStreamSession.findMany({
         where: {
           updated_at: { gte: since },
           status: { in: ['failed', 'cancelled'] },
@@ -705,28 +691,28 @@ export class AIStreamService {
           updated_at: true,
         },
       }),
-      prisma.aiStreamSession.groupBy({
+      prisma.aIStreamSession.groupBy({
         by: ['status'],
         where: { updated_at: { gte: since } },
         _count: { _all: true },
       }),
-      prisma.aiStreamSession.groupBy({
+      prisma.aIStreamSession.groupBy({
         by: ['scope_type'],
         where: { updated_at: { gte: since } },
         _count: { _all: true },
       }),
-      prisma.aiStreamSession.groupBy({
+      prisma.aIStreamSession.groupBy({
         by: ['backend_mode'],
         where: { updated_at: { gte: since } },
         _count: { _all: true },
       }),
-      prisma.aiStreamSession.count({
+      prisma.aIStreamSession.count({
         where: {
           status: { in: ['created', 'queued', 'started', 'streaming', 'completed'] },
         },
       }),
-      prisma.aiStreamSessionArchive.count({ where: { archived_at: { gte: since } } }),
-      prisma.aiStreamEventArchive.count({ where: { archived_at: { gte: since } } }),
+      prisma.aIStreamSessionArchive.count({ where: { archived_at: { gte: since } } }),
+      prisma.aIStreamEventArchive.count({ where: { archived_at: { gte: since } } }),
     ]);
 
     return {
@@ -803,8 +789,8 @@ export class AIStreamService {
     const fetchLive = async () => {
       const where = { ...baseWhere, updated_at: { gte: since } };
       const [total, items] = await Promise.all([
-        prisma.aiStreamSession.count({ where }),
-        prisma.aiStreamSession.findMany({
+        prisma.aIStreamSession.count({ where }),
+        prisma.aIStreamSession.findMany({
           where,
           orderBy: { updated_at: 'desc' },
           skip: source === 'live' ? offset : 0,
@@ -817,8 +803,8 @@ export class AIStreamService {
     const fetchArchive = async () => {
       const where = { ...baseWhere, archived_at: { gte: since } };
       const [total, items] = await Promise.all([
-        prisma.aiStreamSessionArchive.count({ where }),
-        prisma.aiStreamSessionArchive.findMany({
+        prisma.aIStreamSessionArchive.count({ where }),
+        prisma.aIStreamSessionArchive.findMany({
           where,
           orderBy: { source_updated_at: 'desc' },
           skip: source === 'archive' ? offset : 0,
@@ -905,9 +891,9 @@ export class AIStreamService {
     };
 
     const fetchLive = async () => {
-      const session = await prisma.aiStreamSession.findUnique({ where: { stream_id: streamId } });
+      const session = await prisma.aIStreamSession.findUnique({ where: { stream_id: streamId } });
       if (!session) return null;
-      const events = await prisma.aiStreamEventRecord.findMany({
+      const events = await prisma.aIStreamEventRecord.findMany({
         where: { stream_id: streamId },
         orderBy: { seq: 'asc' },
         take: eventLimit,
@@ -916,9 +902,9 @@ export class AIStreamService {
     };
 
     const fetchArchive = async () => {
-      const session = await prisma.aiStreamSessionArchive.findUnique({ where: { stream_id: streamId } });
+      const session = await prisma.aIStreamSessionArchive.findUnique({ where: { stream_id: streamId } });
       if (!session) return null;
-      const events = await prisma.aiStreamEventArchive.findMany({
+      const events = await prisma.aIStreamEventArchive.findMany({
         where: { stream_id: streamId },
         orderBy: { seq: 'asc' },
         take: eventLimit,
@@ -950,8 +936,8 @@ export class AIStreamService {
 
     if (dryRun) {
       const [candidateEvents, candidateSessions] = await Promise.all([
-        prisma.aiStreamEventRecord.count({ where: oldEventWhere }),
-        prisma.aiStreamSession.count({ where: oldSessionWhere }),
+        prisma.aIStreamEventRecord.count({ where: oldEventWhere }),
+        prisma.aIStreamSession.count({ where: oldSessionWhere }),
       ]);
       return {
         dryRun,
@@ -975,7 +961,7 @@ export class AIStreamService {
     let deletedSessions = 0;
 
     while (true) {
-      const events = await prisma.aiStreamEventRecord.findMany({
+      const events = await prisma.aIStreamEventRecord.findMany({
         where: oldEventWhere,
         orderBy: { created_at: 'asc' },
         take: archiveBatchSize,
@@ -983,7 +969,7 @@ export class AIStreamService {
       if (events.length === 0) break;
 
       if (archiveEnabled) {
-        await prisma.aiStreamEventArchive.createMany({
+        await prisma.aIStreamEventArchive.createMany({
           data: events.map((event: Record<string, unknown>) => ({
             archive_batch_key: archiveBatchKey,
             stream_id: event.stream_id,
@@ -1006,7 +992,7 @@ export class AIStreamService {
         archivedEvents += events.length;
       }
 
-      const deleted = await prisma.aiStreamEventRecord.deleteMany({
+      const deleted = await prisma.aIStreamEventRecord.deleteMany({
         where: { id: { in: events.map((event: Record<string, unknown>) => String(event.id)) } },
       });
       deletedEvents += deleted.count;
@@ -1015,7 +1001,7 @@ export class AIStreamService {
     }
 
     while (true) {
-      const sessions = await prisma.aiStreamSession.findMany({
+      const sessions = await prisma.aIStreamSession.findMany({
         where: oldSessionWhere,
         orderBy: { updated_at: 'asc' },
         take: archiveBatchSize,
@@ -1023,7 +1009,7 @@ export class AIStreamService {
       if (sessions.length === 0) break;
 
       if (archiveEnabled) {
-        await prisma.aiStreamSessionArchive.createMany({
+        await prisma.aIStreamSessionArchive.createMany({
           data: sessions.map((session: Record<string, unknown>) => ({
             archive_batch_key: archiveBatchKey,
             stream_id: session.stream_id,
@@ -1053,7 +1039,7 @@ export class AIStreamService {
         archivedSessions += sessions.length;
       }
 
-      const deleted = await prisma.aiStreamSession.deleteMany({
+      const deleted = await prisma.aIStreamSession.deleteMany({
         where: { id: { in: sessions.map((session: Record<string, unknown>) => String(session.id)) } },
       });
       deletedSessions += deleted.count;

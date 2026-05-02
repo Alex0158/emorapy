@@ -31,12 +31,18 @@ jest.mock('../../../src/config/env', () => ({
 const mockRedisSet = jest.fn();
 const mockRedisDel = jest.fn();
 const mockRedisConnect = jest.fn();
+const mockRedisOn = jest.fn();
+const mockRedisRemoveListener = jest.fn();
+const mockRedisDisconnect = jest.fn();
 jest.mock('ioredis', () => ({
   __esModule: true,
   default: jest.fn(() => ({
     connect: mockRedisConnect,
     set: mockRedisSet,
     del: mockRedisDel,
+    on: mockRedisOn,
+    removeListener: mockRedisRemoveListener,
+    disconnect: mockRedisDisconnect,
   })),
 }));
 
@@ -44,6 +50,7 @@ import { LockService, lockService } from '../../../src/utils/lock';
 
 describe('utils/lock', () => {
   beforeEach(async () => {
+    jest.clearAllMocks();
     mockEnvRef.current = {
       REDIS_URL: undefined,
       NODE_ENV: 'test',
@@ -52,6 +59,9 @@ describe('utils/lock', () => {
     (mockRedisConnect as any).mockResolvedValue(undefined);
     (mockRedisSet as any).mockResolvedValue('OK');
     (mockRedisDel as any).mockResolvedValue(1);
+    (mockRedisOn as any).mockReturnValue(undefined);
+    (mockRedisRemoveListener as any).mockReturnValue(undefined);
+    (mockRedisDisconnect as any).mockReturnValue(undefined);
     // 釋放測試用 key，避免跨用例殘留
     await lockService.release('lock-key');
     await lockService.release('lock-key-2');
@@ -160,7 +170,7 @@ describe('utils/lock', () => {
       (mockRedisDel as any).mockRejectedValue(new Error('del failed'));
       await svc.release('release-key');
       expect(mockRedisDel).toHaveBeenCalledWith('release-key');
-      expect(mockLogger.warn).toHaveBeenCalledWith('Redis unlock failed', expect.objectContaining({ key: 'release-key', error: expect.any(Error) }));
+      expect(mockLogger.warn).toHaveBeenCalledWith('Redis unlock failed, falling back to simple lock', expect.objectContaining({ key: 'release-key', error: expect.any(Error) }));
     });
 
     it('Redis set 返回 null（key 已存在）時 acquire 應返回 false', async () => {
@@ -171,6 +181,22 @@ describe('utils/lock', () => {
       (mockRedisSet as any).mockResolvedValue(null);
       const got = await svc.acquire('existing-key', 60);
       expect(got).toBe(false);
+    });
+
+    it('Redis acquire 失敗後後續請求不應再次觸發 Redis set', async () => {
+      mockEnvRef.current.REDIS_URL = 'redis://localhost';
+      jest.resetModules();
+      const { lockService: svc } = await import('../../../src/utils/lock');
+      await new Promise((r) => setImmediate(r));
+      (mockRedisSet as any).mockRejectedValueOnce(new Error('redis down'));
+
+      const first = await svc.acquire('first-fallback-key', 60);
+      const second = await svc.acquire('second-fallback-key', 60);
+
+      expect(first).toBe(true);
+      expect(second).toBe(true);
+      expect(mockRedisSet).toHaveBeenCalledTimes(1);
+      expect(mockRedisDisconnect).toHaveBeenCalled();
     });
   });
 

@@ -1,11 +1,12 @@
 import OpenAI from 'openai';
 import { env } from './env';
 import logger from './logger';
+import { AI_TIMEOUT } from '../utils/constants';
 
 export const openai = new OpenAI({
   apiKey: env.OPENAI_API_KEY,
   maxRetries: 3,
-  timeout: 60000,
+  timeout: AI_TIMEOUT.OPENAI_REQUEST,
 });
 
 export const AI_CONFIG = {
@@ -40,4 +41,3 @@ if (!env.OPENAI_API_KEY) {
 }
 
 export default openai;
-

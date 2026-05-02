@@ -6,20 +6,18 @@ import { retryWithBackoff } from '../utils/retry';
 import { cacheService, CacheService } from '../utils/cache';
 import { lockService } from '../utils/lock';
 import { fenceUserInput } from '../utils/prompt';
+import { AI_TIMEOUT } from '../utils/constants';
+import {
+  CRISIS_SIGNAL_REGEX,
+  IPV_SIGNAL_REGEX,
+  SAFETY_SIGNAL_REGEX,
+} from './ai-safety-signals';
 
-/**
- * 安全信號關鍵字正則（跨服務共用）
- * 用於摘要安全保留、和好方案安全偵測等場景
- * 新增/修改關鍵字時，此處為唯一來源
- */
-export const SAFETY_SIGNAL_REGEX = /安全注意|安全隱憂|控制行為|暴力|威脅|權力不對等|經濟控制|人身威脅|貶低人格|孤立社交|自傷|自殺/;
-
-/** 親密暴力（IPV）信號子集——用於區分安全介入策略；含常見口語敘述以穩定識別暴力/動手場景（F02-BUG-002 擴充：打人、摔碗） */
-export const IPV_SIGNAL_REGEX =
-  /控制行為|暴力|威脅|權力不對等|經濟控制|人身威脅|貶低人格|孤立社交|打我|打了他|打人|動手|推我|扇巴掌|砸東西|掐|拉扯|摔東西|摔碗|衝過來/;
-
-/** 自傷/自殺危機信號子集——用於區分安全介入策略 */
-export const CRISIS_SIGNAL_REGEX = /自傷|自殺/;
+export {
+  CRISIS_SIGNAL_REGEX,
+  IPV_SIGNAL_REGEX,
+  SAFETY_SIGNAL_REGEX,
+} from './ai-safety-signals';
 
 export interface GenerateOptions {
   model?: string;
@@ -214,7 +212,7 @@ export class AIService {
           throw new Error('AI request aborted');
         }
         const abortController = new AbortController();
-        const timeoutMs = 45000;
+        const timeoutMs = AI_TIMEOUT.OPENAI_REQUEST;
         const timeout = setTimeout(() => abortController.abort(), timeoutMs);
         const onExternalAbort = () => abortController.abort();
         options.signal?.addEventListener('abort', onExternalAbort, { once: true });
@@ -315,7 +313,7 @@ export class AIService {
           throw new Error('AI request aborted');
         }
         const abortController = new AbortController();
-        const timeoutMs = 45000;
+        const timeoutMs = AI_TIMEOUT.OPENAI_REQUEST;
         const timeout = setTimeout(() => abortController.abort(), timeoutMs);
         const onExternalAbort = () => abortController.abort();
         options.signal?.addEventListener('abort', onExternalAbort, { once: true });
@@ -443,11 +441,15 @@ ${fenceUserInput('角色B陳述', defendantStatement)}
 請只返回類別名稱（如：生活習慣衝突），不要返回其他內容。`;
 
     try {
+      const abortController = new AbortController();
+      const timeoutMs = 5000;
+      const timeout = setTimeout(() => abortController.abort(), timeoutMs);
       const response = await this.generateText(prompt, {
         maxTokens: 10,
         temperature: 0.3, // 低溫度，更確定性
         systemPrompt: '你是一位擅長伴侶溝通的關係諮詢師，正在快速識別衝突議題的核心類別。',
-      });
+        signal: abortController.signal,
+      }).finally(() => clearTimeout(timeout));
 
       // 清理響應，提取案件類型
       const caseType = response.trim().replace(/[。.，,]/g, '');
@@ -469,7 +471,7 @@ ${fenceUserInput('角色B陳述', defendantStatement)}
 
       return finalType;
     } catch (error) {
-      logger.error('Failed to detect case type', { error });
+      logger.warn('Failed to detect case type, fallback to default', { error });
       return '其他衝突'; // 默認類型
     }
   }
@@ -830,14 +832,16 @@ severity 評估標準：
 
       const responsibilityRatio = routeType === 'crisis_support'
         ? { plaintiff: 50, defendant: 50 }
-        : await this.computeResponsibilityRatio(
-          content,
-          analysis,
-          plaintiffStatement,
-          defendantStatement,
-          options?.signal,
-          options?.responsibilityHint
-        );
+        : routeType === 'safety_support'
+          ? this.computeSafetySupportRatio(plaintiffStatement, defendantStatement)
+          : await this.computeResponsibilityRatio(
+            content,
+            analysis,
+            plaintiffStatement,
+            defendantStatement,
+            options?.signal,
+            options?.responsibilityHint
+          );
       const summary = await this.generateSummary(content, options?.signal, options?.summaryBrief);
 
       return {
@@ -1310,6 +1314,48 @@ ${content.substring(0, 1200)}
       ? Math.max(0, Math.min(1, confidenceRaw))
       : 0.65;
     return { ...ratio, confidence };
+  }
+
+  /**
+   * safety_support 不再走一般「雙方調整空間」算法。
+   *
+   * DB 仍需要保存數字比例作為兼容欄位；此處僅用於表示安全介入負擔的方向：
+   * - 有害行為方：較高比例，代表行為模式本身必須停止與改變
+   * - 弱勢方：較低比例，代表重點是自我保護與尋求支持，不是適應不安全處境
+   */
+  private computeSafetySupportRatio(
+    plaintiffStatement: string,
+    defendantStatement: string
+  ): { plaintiff: number; defendant: number } {
+    const plaintiffScore = this.scoreSafetyBurden(plaintiffStatement, defendantStatement);
+    const defendantScore = this.scoreSafetyBurden(defendantStatement, plaintiffStatement);
+
+    if (plaintiffScore > defendantScore) return { plaintiff: 80, defendant: 20 };
+    if (defendantScore > plaintiffScore) return { plaintiff: 20, defendant: 80 };
+
+    // Ambiguous but still safety_support: avoid implying a neutral shared-responsibility split.
+    return { plaintiff: 35, defendant: 65 };
+  }
+
+  private scoreSafetyBurden(ownStatement: string, otherStatement: string): number {
+    let score = 0;
+    const own = ownStatement || '';
+    const other = otherStatement || '';
+
+    // Speaker self-admission: "我打了他/她", "我動手", "我控制".
+    if (/(?:^|[，。,；;\s])(?:我|自己)(?:曾經|有|也)?(?:打了|打人|動手|推|扇巴掌|砸|掐|拉扯|摔東西|摔碗|控制|威脅)/.test(own)) {
+      score += 4;
+    }
+
+    // Other party reports being harmed by this speaker: "他/她/對方打我".
+    if (/(?:他|她|對方|另一半|男朋友|女朋友|伴侶|老公|老婆).{0,12}(?:打我|打了我|打人|動手|推我|扇巴掌|砸東西|掐我|拉扯|摔東西|摔碗|控制我|威脅我)/.test(other)) {
+      score += 4;
+    }
+
+    if (IPV_SIGNAL_REGEX.test(own)) score += 1;
+    if (/(?:被|遭到).{0,8}(?:打|推|掐|威脅|控制)/.test(other)) score += 1;
+
+    return score;
   }
 
   /**

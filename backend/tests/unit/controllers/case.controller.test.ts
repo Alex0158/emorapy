@@ -43,6 +43,8 @@ const mockGetJudgmentByCaseId: any = jest.fn();
 const mockGetAuthUserId = jest.fn();
 const mockGetAuthUserIdOptional = jest.fn();
 
+const flushJudgmentTrigger = () => new Promise<void>((resolve) => setImmediate(resolve));
+
 jest.mock('../../../src/services/case.service', () => ({
   caseService: {
     createQuickCase: (body: unknown, sessionId: string | null) =>
@@ -125,6 +127,7 @@ describe('CaseController', () => {
       });
 
       await controller.createQuickCase(req as Request, res as Response, next);
+      await flushJudgmentTrigger();
 
       expect(mockCreateQuickCase).toHaveBeenCalledWith({ description: 'desc' }, 's1');
       expect(mockGenerateJudgment).toHaveBeenCalledWith('c1', { sessionId: 's1' });
@@ -180,7 +183,7 @@ describe('CaseController', () => {
 
       expect(res.status).toHaveBeenCalledWith(201);
       expect(next).not.toHaveBeenCalled();
-      await Promise.resolve();
+      await flushJudgmentTrigger();
       await Promise.resolve();
       expect(logger.error).toHaveBeenCalledWith('Async judgment generation failed', { caseId: 'c1', error: expect.any(Error) });
     });
@@ -193,6 +196,7 @@ describe('CaseController', () => {
       mockCreateCase.mockResolvedValue(case_);
 
       await controller.createCase(req as Request, res as Response, next);
+      await flushJudgmentTrigger();
 
       expect(mockGetAuthUserId).toHaveBeenCalledWith(req);
       expect(mockCreateCase).toHaveBeenCalledWith('u1', { description: 'desc' });
@@ -223,7 +227,7 @@ describe('CaseController', () => {
 
       expect(res.status).toHaveBeenCalledWith(201);
       expect(next).not.toHaveBeenCalled();
-      await Promise.resolve();
+      await flushJudgmentTrigger();
       await Promise.resolve();
       expect(logger.error).toHaveBeenCalledWith('Async judgment generation failed', { caseId: 'c1', error: expect.any(Error) });
     });
@@ -280,6 +284,7 @@ describe('CaseController', () => {
       });
 
       await controller.createCollaborativeCase(req as Request, res as Response, next);
+      await flushJudgmentTrigger();
 
       expect(mockCreateCollaborativeCase).toHaveBeenCalledWith(req.body, 's1');
       expect(mockGenerateJudgment).toHaveBeenCalledWith('c-collab-1', { sessionId: 's1' });
@@ -505,6 +510,7 @@ describe('CaseController', () => {
       mockSubmitCase.mockResolvedValue(case_);
 
       await controller.submitCase(req as Request, res as Response, next);
+      await flushJudgmentTrigger();
 
       expect(mockGetAuthUserId).toHaveBeenCalledWith(req);
       expect(mockSubmitCase).toHaveBeenCalledWith('c1', 'u1');
@@ -525,7 +531,7 @@ describe('CaseController', () => {
 
       expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
       expect(next).not.toHaveBeenCalled();
-      await Promise.resolve();
+      await flushJudgmentTrigger();
       await Promise.resolve();
       expect(logger.error).toHaveBeenCalledWith('Async judgment generation failed', { caseId: 'c1', error: expect.any(Error) });
     });

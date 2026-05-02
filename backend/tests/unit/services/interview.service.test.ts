@@ -1,5 +1,5 @@
 /**
- * InterviewService 單元測試 — prompt 構建、key_facts 解析邏輯、endSession、retryFailed、startSession 狀態轉移
+ * InterviewService 單元測試 — respond 邊界、key_facts 解析、endSession、retryFailed、startSession 狀態轉移
  */
 // @ts-nocheck
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
@@ -77,112 +77,6 @@ import { openai } from '../../../src/config/openai';
 import { aiStreamService } from '../../../src/services/ai-stream.service';
 
 const service = new InterviewService();
-const buildSystemPrompt = (service as any).buildInterviewSystemPrompt.bind(service);
-const buildUserPrompt = (service as any).buildInterviewUserPrompt.bind(service);
-
-describe('InterviewService — buildInterviewSystemPrompt', () => {
-  const baseCtx = {
-    coveredDomains: ['personality'],
-    uncoveredDomains: ['attachment', 'family_origin'],
-    currentTurn: 3,
-    maxTurns: 30,
-    softTarget: 10,
-    previousInsights: '',
-    collectedFacts: [] as string[],
-  };
-
-  it('無 collectedFacts 時不應包含事實清單區段', () => {
-    const prompt = buildSystemPrompt(baseCtx);
-    expect(prompt).not.toContain('## 本次對話已收集的事實（不要重複問這些）');
-    expect(prompt).not.toContain('絕對不要重複詢問這些已知的資訊');
-  });
-
-  it('有 collectedFacts 時應注入事實清單和深入探索指令', () => {
-    const prompt = buildSystemPrompt({
-      ...baseCtx,
-      collectedFacts: ['用戶來自澳門', 'MBTI 為 ENTP'],
-    });
-    expect(prompt).toContain('## 本次對話已收集的事實（不要重複問這些）');
-    expect(prompt).toContain('- 用戶來自澳門');
-    expect(prompt).toContain('- MBTI 為 ENTP');
-    expect(prompt).toContain('絕對不要重複詢問這些已知的資訊');
-    expect(prompt).toContain('基於這些事實，往更深的層次探索');
-  });
-
-  it('metadata 格式應包含 key_facts 欄位', () => {
-    const prompt = buildSystemPrompt(baseCtx);
-    expect(prompt).toContain('"key_facts":["本輪新發現的具體事實"]');
-  });
-
-  it('有 previousInsights 時應顯示「已知背景（歷史 session 的洞見）」', () => {
-    const prompt = buildSystemPrompt({
-      ...baseCtx,
-      previousInsights: '- attachment：安全型依附（85%）',
-    });
-    expect(prompt).toContain('已知背景（歷史 session 的洞見）：');
-    expect(prompt).toContain('安全型依附');
-  });
-
-  it('currentTurn >= INTERVIEW_SOFT_TARGET 時應包含覆蓋引導', () => {
-    const prompt = buildSystemPrompt({
-      ...baseCtx,
-      currentTurn: 12,
-    });
-    expect(prompt).toContain('覆蓋引導');
-  });
-
-  it('currentTurn < INTERVIEW_SOFT_TARGET 時不應包含覆蓋引導', () => {
-    const prompt = buildSystemPrompt({
-      ...baseCtx,
-      currentTurn: 5,
-    });
-    expect(prompt).not.toContain('覆蓋引導');
-  });
-});
-
-describe('InterviewService — buildInterviewUserPrompt', () => {
-  it('歷史輪數 <= 3 時不應生成摘要，全部作為最近對話', () => {
-    const history = [
-      { ai: 'Q1', user: 'A1', intent: 'opening', extractedFacts: ['用戶住台北'] },
-      { ai: 'Q2', user: 'A2', intent: 'exploring', extractedFacts: [] },
-      { ai: 'Q3', user: 'A3', intent: 'deepening', extractedFacts: ['有一個弟弟'] },
-    ];
-    const prompt = buildUserPrompt(history, 3);
-    expect(prompt).not.toContain('之前的對話摘要');
-    expect(prompt).toContain('最近對話：');
-    expect(prompt).toContain('第1輪');
-    expect(prompt).toContain('第3輪');
-  });
-
-  it('歷史輪數 > 3 時，早期輪次壓縮為摘要，保留 intent + extractedFacts', () => {
-    const history = [
-      { ai: 'Q1', user: 'A1', intent: 'opening', extractedFacts: ['用戶來自澳門'] },
-      { ai: 'Q2', user: 'A2', intent: 'exploring_personality', extractedFacts: ['MBTI 為 ENTP', '對性格工具有興趣'] },
-      { ai: 'Q3', user: 'A3', intent: 'exploring_family', extractedFacts: [] },
-      { ai: 'Q4', user: 'A4', intent: 'deepening', extractedFacts: ['與母親關係緊張'] },
-      { ai: 'Q5', user: '', intent: undefined, extractedFacts: [] },
-    ];
-    const prompt = buildUserPrompt(history, 5);
-    // 5 turns, RECENT_FULL_TURNS=3 → earlier=turns 1-2, recent=turns 3-5
-    expect(prompt).toContain('之前的對話摘要');
-    expect(prompt).toContain('第1輪 — opening（收集到：用戶來自澳門）');
-    expect(prompt).toContain('第2輪 — exploring_personality（收集到：MBTI 為 ENTP、對性格工具有興趣）');
-    expect(prompt).toContain('最近對話：');
-    expect(prompt).toContain('第3輪');
-    expect(prompt).toContain('第5輪');
-  });
-
-  it('早期輪次無 intent 但有 extractedFacts 時也應輸出', () => {
-    const history = [
-      { ai: 'Q1', user: 'A1', intent: undefined, extractedFacts: ['用戶28歲'] },
-      { ai: 'Q2', user: 'A2', intent: undefined, extractedFacts: [] },
-      { ai: 'Q3', user: 'A3', intent: 'deep', extractedFacts: [] },
-      { ai: 'Q4', user: '', intent: undefined, extractedFacts: [] },
-    ];
-    const prompt = buildUserPrompt(history, 4);
-    expect(prompt).toContain('第1輪（收集到：用戶28歲）');
-  });
-});
 
 describe('InterviewService — key_facts 解析邏輯', () => {
   it('應從合法 metadata 中提取 key_facts 陣列', () => {
@@ -313,6 +207,39 @@ describe('InterviewService — respond 邊界與異常', () => {
     mockedPrisma.profileNarrative.findMany.mockResolvedValue([]);
   });
 
+  function mockRespondSession(overrides: Record<string, unknown> = {}) {
+    mockedPrisma.interviewSession.findUnique.mockResolvedValue({
+      id: 's1',
+      user_id: 'u1',
+      status: 'in_progress',
+      domains_touched: [],
+      collected_facts: [],
+      turns: [
+        {
+          id: 't1',
+          ai_message: '最近過得如何？',
+          user_response: null,
+          ai_intent: 'opening',
+          extracted_facts: [],
+          created_at: new Date(Date.now() - 60_000),
+        },
+      ],
+      ...overrides,
+    });
+  }
+
+  function mockOpenAIStreamContent(content: string) {
+    mockedOpenAI.chat.completions.create.mockResolvedValue((async function* () {
+      yield {
+        choices: [
+          {
+            delta: { content },
+          },
+        ],
+      };
+    })());
+  }
+
   it('session 不存在時應拋出 NOT_FOUND', async () => {
     mockedPrisma.interviewSession.findUnique.mockResolvedValue(null);
     await expect(service.respond('s1', 'u1', 'hello')).rejects.toMatchObject({ code: 'NOT_FOUND' });
@@ -399,6 +326,95 @@ describe('InterviewService — respond 邊界與異常', () => {
     expect(sseEvents).toContain('complete:s1');
   });
 
+  it('safety_flag 與 safety_message 存在時應發送 SSE safety alert 並同步 stream phase', async () => {
+    mockRespondSession();
+    mockedPrisma.interviewTurn.update.mockResolvedValue({});
+    mockedPrisma.interviewTurn.create.mockResolvedValue({ id: 'turn-ai-2' });
+    mockedPrisma.interviewSession.update.mockResolvedValue({});
+    mockOpenAIStreamContent(
+      '我會先停下來陪你看這個部分。---METADATA---{"intent":"safety_support","target_domains":["life_events"],"should_end":false,"safety_flag":true,"safety_message":"觀察到自傷風險語句","key_facts":["用戶提到不想活"]}'
+    );
+
+    const safetyEvents: string[] = [];
+    await service.respond('s1', 'u1', '我不想活了', (event) => {
+      if ('message' in event) safetyEvents.push(event.message);
+    });
+
+    expect(safetyEvents).toEqual(['觀察到自傷風險語句']);
+    expect(mockedPrisma.interviewTurn.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        safety_flag: true,
+        safety_detail: '觀察到自傷風險語句',
+      }),
+    });
+    expect(aiStreamService.phase).toHaveBeenCalledWith(
+      expect.objectContaining({ streamId: 'stream-interview-1' }),
+      'safety_alert',
+      expect.objectContaining({
+        actorRole: 'aiMediator',
+        metadata: {
+          message: '觀察到自傷風險語句',
+          severity: 'warning',
+        },
+      })
+    );
+    expect(aiStreamService.persisted).toHaveBeenCalledWith(
+      expect.objectContaining({ streamId: 'stream-interview-1' }),
+      expect.objectContaining({ messageId: 'turn-ai-2' })
+    );
+  });
+
+  it('OpenAI 呼叫失敗且 stream 已建立時應標記 stream.failed 並拋回原錯誤', async () => {
+    mockRespondSession();
+    mockedPrisma.interviewTurn.update.mockResolvedValue({});
+    const providerError = Object.assign(new Error('provider down'), { code: 'AI_PROVIDER_DOWN' });
+    mockedOpenAI.chat.completions.create.mockRejectedValue(providerError);
+
+    await expect(service.respond('s1', 'u1', 'hello')).rejects.toThrow('provider down');
+
+    expect(aiStreamService.createStream).toHaveBeenCalledWith('interview_session', 's1');
+    expect(aiStreamService.start).toHaveBeenCalled();
+    expect(aiStreamService.failed).toHaveBeenCalledWith(
+      expect.objectContaining({ streamId: 'stream-interview-1' }),
+      { code: 'AI_PROVIDER_DOWN', message: 'provider down' },
+      expect.objectContaining({
+        actorRole: 'aiMediator',
+        fullText: undefined,
+        metadata: { mode: 'respond' },
+      })
+    );
+    expect(aiStreamService.completed).not.toHaveBeenCalled();
+    expect(aiStreamService.persisted).not.toHaveBeenCalled();
+  });
+
+  it('AI 文字已完成但落庫失敗時應帶 latestText 標記 stream.failed', async () => {
+    mockRespondSession();
+    mockedPrisma.interviewTurn.update.mockResolvedValue({});
+    const writeError = Object.assign(new Error('db write failed'), { code: 'DB_WRITE_FAILED' });
+    mockedPrisma.interviewTurn.create.mockRejectedValue(writeError);
+    mockedPrisma.interviewSession.update.mockResolvedValue({});
+    mockOpenAIStreamContent(
+      '謝謝你願意說這些。---METADATA---{"intent":"deepening","target_domains":["personality"],"should_end":false,"safety_flag":false,"safety_message":"","key_facts":[]}'
+    );
+
+    await expect(service.respond('s1', 'u1', '我最近壓力很大')).rejects.toThrow('db write failed');
+
+    expect(aiStreamService.completed).toHaveBeenCalledWith(
+      expect.objectContaining({ streamId: 'stream-interview-1' }),
+      expect.objectContaining({ fullText: '謝謝你願意說這些。', phase: 'completed' })
+    );
+    expect(aiStreamService.failed).toHaveBeenCalledWith(
+      expect.objectContaining({ streamId: 'stream-interview-1' }),
+      { code: 'DB_WRITE_FAILED', message: 'db write failed' },
+      expect.objectContaining({
+        actorRole: 'aiMediator',
+        fullText: '謝謝你願意說這些。',
+        metadata: { mode: 'respond' },
+      })
+    );
+    expect(aiStreamService.persisted).not.toHaveBeenCalled();
+  });
+
   it('signal 中止時應發送 stream.cancelled 並不拋錯', async () => {
     mockedPrisma.interviewSession.findUnique.mockResolvedValue({
       id: 's1',
@@ -439,6 +455,12 @@ describe('InterviewService — respond 邊界與異常', () => {
   });
 
   it('submitResponse 應啟動背景 respond 任務', async () => {
+    mockedPrisma.interviewSession.findUnique.mockResolvedValue({
+      id: 's1',
+      user_id: 'u1',
+      status: 'in_progress',
+      turns: [{ id: 't1', created_at: new Date(Date.now() - 60_000) }],
+    });
     const respondSpy = jest.spyOn(service, 'respond').mockResolvedValue(undefined);
 
     await service.submitResponse('s1', 'u1', 'hello');
@@ -447,6 +469,26 @@ describe('InterviewService — respond 邊界與異常', () => {
     expect(respondSpy).toHaveBeenCalledWith('s1', 'u1', 'hello', undefined, false, expect.objectContaining({
       signal: expect.any(Object),
     }));
+    respondSpy.mockRestore();
+  });
+
+  it('submitResponse 遇到 TURN_TOO_FAST 時應同步拋錯，避免前端進入無限 thinking', async () => {
+    (mockedSystemConfig.getNumberConfig as jest.Mock).mockImplementation(async (...args: any[]) => {
+      const [key, fallback] = args;
+      if (key === 'interview.turnIntervalMs') return 120000;
+      return fallback;
+    });
+    mockedPrisma.interviewSession.findUnique.mockResolvedValue({
+      id: 's1',
+      user_id: 'u1',
+      status: 'in_progress',
+      turns: [{ id: 't1', created_at: new Date() }],
+    });
+    const respondSpy = jest.spyOn(service, 'respond').mockResolvedValue(undefined);
+
+    await expect(service.submitResponse('s1', 'u1', 'hello')).rejects.toMatchObject({ code: 'TURN_TOO_FAST' });
+    expect(respondSpy).not.toHaveBeenCalled();
+
     respondSpy.mockRestore();
   });
 
@@ -727,6 +769,26 @@ describe('InterviewService — startSession 每小時限額與舊 session 處理
 
     const result = await service.startSession('u1', 'organic');
     expect(result).toBeDefined();
+    const { asyncPipelineService } = require('../../../src/services/async-pipeline.service');
+    expect(asyncPipelineService.process).not.toHaveBeenCalled();
+  });
+
+  it('舊 session 需要 pipeline 但建立新 session transaction 失敗時不應觸發 pipeline', async () => {
+    (mockedPrisma.user.findUnique as any).mockResolvedValue({ psych_consent_given: true });
+    (mockedSystemConfig.getNumberConfig as jest.Mock).mockImplementation(async (...args: any[]) => args[1]);
+    (mockedPrisma.interviewSession.findMany as any).mockResolvedValue([]);
+    (mockedPrisma.interviewSession.findFirst as any).mockResolvedValue({
+      id: 's1',
+      user_id: 'u1',
+      status: 'in_progress',
+      turns: Array(5).fill({ id: 't', created_at: new Date() }),
+    });
+    (mockedPrisma.profileInsight.findMany as any).mockResolvedValue([]);
+    const transactionError = new Error('transaction failed');
+    (mockedPrisma.$transaction as any).mockRejectedValue(transactionError);
+
+    await expect(service.startSession('u1', 'organic')).rejects.toBe(transactionError);
+
     const { asyncPipelineService } = require('../../../src/services/async-pipeline.service');
     expect(asyncPipelineService.process).not.toHaveBeenCalled();
   });

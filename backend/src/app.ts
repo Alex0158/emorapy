@@ -77,7 +77,7 @@ app.use(requestId);
 // CORS 配置（生產環境嚴格限制 origin）
 const corsBaseOptions = {
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Session-Id', 'X-Locale', 'X-Admin-Bootstrap-Token'],
 };
 const isHealthPath = (path: string): boolean =>

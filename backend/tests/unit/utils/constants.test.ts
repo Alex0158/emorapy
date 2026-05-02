@@ -8,6 +8,7 @@ import {
   CASE_TYPES,
   PAIRING_STATUS,
   LOCK_TTL,
+  AI_TIMEOUT,
   SESSION_EXPIRY,
   CACHE_CONFIG,
   LIMITS,
@@ -42,8 +43,18 @@ describe('Constants', () => {
   });
 
   it('LOCK_TTL 應為正數', () => {
-    expect(LOCK_TTL.JUDGMENT_GENERATION).toBe(120);
+    expect(LOCK_TTL.JUDGMENT_GENERATION).toBe(300);
     expect(LOCK_TTL.DEFAULT).toBe(60);
+  });
+
+  it('判決鎖 TTL 應高於端到端判決超時', () => {
+    expect(LOCK_TTL.JUDGMENT_GENERATION * 1000).toBeGreaterThan(AI_TIMEOUT.JUDGMENT_GENERATION);
+  });
+
+  it('AI_TIMEOUT 應包含單次請求與整體判決 budget', () => {
+    expect(AI_TIMEOUT.OPENAI_REQUEST).toBe(90_000);
+    expect(AI_TIMEOUT.JUDGMENT_GENERATION).toBe(180_000);
+    expect(AI_TIMEOUT.JUDGMENT_GENERATION).toBeGreaterThan(AI_TIMEOUT.OPENAI_REQUEST);
   });
 
   it('LOCK_TTL 應包含 CASE_CREATE、EVIDENCE_UPLOAD 等業務鎖', () => {

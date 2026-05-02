@@ -140,6 +140,21 @@ async function validateFileSignature(filePath: string, expectedMimeType: string)
   }
 }
 
+/** 開發環境常混用 localhost / 127.0.0.1 / ::1，應視為同一站點以便簽名與瀏覽器載入頭像 */
+function isSameSiteForSignedFileUrl(a: URL, b: URL): boolean {
+  if (a.protocol !== b.protocol) return false;
+  const defaultPort = (p: string) => (p === 'https:' ? '443' : '80');
+  const portA = a.port || defaultPort(a.protocol);
+  const portB = b.port || defaultPort(b.protocol);
+  if (portA !== portB) return false;
+  const h = (hostname: string) => hostname.toLowerCase();
+  const ha = h(a.hostname);
+  const hb = h(b.hostname);
+  const loopback = new Set(['localhost', '127.0.0.1', '::1']);
+  if (loopback.has(ha) && loopback.has(hb)) return true;
+  return ha === hb;
+}
+
 /**
  * 文件服務類
  */
@@ -152,9 +167,9 @@ export class FileService {
       const parsed = new URL(url, env.FILE_BASE_URL);
       const base = new URL(env.FILE_BASE_URL);
       const isAbsolute = /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(url);
-      const sameOrigin = !isAbsolute || parsed.origin === base.origin;
+      const sameSite = !isAbsolute || isSameSiteForSignedFileUrl(parsed, base);
       const normalizedPath = parsed.pathname.replace(/^\/+/, '');
-      return sameOrigin && normalizedPath.startsWith('uploads/');
+      return sameSite && normalizedPath.startsWith('uploads/');
     } catch {
       return false;
     }

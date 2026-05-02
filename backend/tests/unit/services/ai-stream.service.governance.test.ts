@@ -17,7 +17,7 @@ const mockAiStreamEventArchiveCreateMany = jest.fn();
 jest.mock('../../../src/config/database', () => ({
   __esModule: true,
   default: {
-    aiStreamSession: {
+    aIStreamSession: {
       count: (...args: unknown[]) => mockAiStreamSessionCount(...args),
       findMany: (...args: unknown[]) => mockAiStreamSessionFindMany(...args),
       deleteMany: (...args: unknown[]) => mockAiStreamSessionDeleteMany(...args),
@@ -25,19 +25,19 @@ jest.mock('../../../src/config/database', () => ({
       upsert: jest.fn().mockResolvedValue(undefined),
       findUnique: jest.fn().mockResolvedValue(null),
     },
-    aiStreamSessionArchive: {
+    aIStreamSessionArchive: {
       count: (...args: unknown[]) => mockAiStreamSessionArchiveCount(...args),
       findMany: (...args: unknown[]) => mockAiStreamSessionArchiveFindMany(...args),
       createMany: (...args: unknown[]) => mockAiStreamSessionArchiveCreateMany(...args),
       findUnique: jest.fn().mockResolvedValue(null),
     },
-    aiStreamEventRecord: {
+    aIStreamEventRecord: {
       count: (...args: unknown[]) => mockAiStreamEventCount(...args),
       findMany: (...args: unknown[]) => mockAiStreamEventFindMany(...args),
       deleteMany: (...args: unknown[]) => mockAiStreamEventDeleteMany(...args),
       create: jest.fn().mockResolvedValue(undefined),
     },
-    aiStreamEventArchive: {
+    aIStreamEventArchive: {
       count: (...args: unknown[]) => mockAiStreamEventArchiveCount(...args),
       findMany: (...args: unknown[]) => mockAiStreamEventArchiveFindMany(...args),
       createMany: (...args: unknown[]) => mockAiStreamEventArchiveCreateMany(...args),

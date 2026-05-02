@@ -121,6 +121,13 @@ describe('FileService', () => {
       expect(url).toContain('bar.jpg');
     });
 
+    it('FILE_BASE_URL 為 127.0.0.1 而資源 URL 為 localhost 時仍應簽名（本機混用主機名）', () => {
+      mockEnvRef.FILE_BASE_URL = 'http://127.0.0.1:3001';
+      const url = service.signUrl('http://localhost:3001/uploads/bar.jpg');
+      expect(url).toContain('token=');
+      expect(url).toContain('bar.jpg');
+    });
+
     it('相對路徑應能解析並簽名', () => {
       const url = service.signUrl('/uploads/baz.jpg');
       expect(url).toContain('token=');

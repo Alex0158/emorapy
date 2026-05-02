@@ -71,6 +71,22 @@ describe('judgment utils', () => {
       expect((result as Record<string, unknown>).emotional_analysis).toBeUndefined();
     });
 
+    it('應從 emotional_analysis 暴露非診斷性的 judgment_route 並移除原始內部欄位', () => {
+      const input = {
+        id: '1',
+        plaintiff_ratio: 20,
+        defendant_ratio: 80,
+        emotional_analysis: {
+          route: 'safety_support',
+          severity: 'serious',
+          coreIssue: 'internal clinical note',
+        },
+      };
+      const result = normalizeJudgment(input);
+      expect(result.judgment_route).toBe('safety_support');
+      expect((result as Record<string, unknown>).emotional_analysis).toBeUndefined();
+    });
+
     it('emotional_analysis 為 null 時也應安全移除', () => {
       const input = {
         id: '1',

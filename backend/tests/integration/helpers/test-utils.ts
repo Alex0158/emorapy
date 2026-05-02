@@ -54,6 +54,7 @@ export async function cleanupTestData(): Promise<void> {
     await testPrisma.judgment.deleteMany({});
     await testPrisma.reconciliationPlan.deleteMany({});
     await testPrisma.executionRecord.deleteMany({});
+    await testPrisma.profileSnapshot.deleteMany({});
     await testPrisma.case.deleteMany({});
     await testPrisma.pairing.deleteMany({});
     await testPrisma.quickSession.deleteMany({});
@@ -84,6 +85,9 @@ export async function cleanupSessionData(sessionId: string): Promise<void> {
         where: { case_id: { in: caseIds } },
       });
       await testPrisma.judgment.deleteMany({
+        where: { case_id: { in: caseIds } },
+      });
+      await testPrisma.profileSnapshot.deleteMany({
         where: { case_id: { in: caseIds } },
       });
       await testPrisma.case.deleteMany({

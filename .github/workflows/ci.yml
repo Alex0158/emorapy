@@ -183,6 +183,7 @@ jobs:
           OPENAI_API_KEY: sk-prod-smoke-placeholder
           FRONTEND_URL: http://127.0.0.1:4173
           ALLOWED_ORIGINS: http://127.0.0.1:4173
+          ALLOW_SIMPLE_LOCK: 'true'
           ENABLE_SCHEDULED_JOBS: 'false'
           METRICS_ENABLED: 'false'
         run: npm run start > ../backend-prod-smoke.log 2>&1 &

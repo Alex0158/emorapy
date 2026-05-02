@@ -13,6 +13,7 @@ export interface Judgment {
   defendant_ratio: number;
   // 向後兼容舊字段
   responsibility_ratio?: ResponsibilityRatio;
+  judgment_route?: 'standard' | 'safety_support' | 'crisis_support';
   ai_model: string;
   prompt_version?: string;
   user1_acceptance?: boolean;

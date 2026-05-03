@@ -17,6 +17,7 @@ type AuditItem = {
   sampleIds: string[];
   sampleDetails: AuditSampleDetail[];
   recoveryProposal: RecoveryProposal | null;
+  recoveryTasks: RecoveryTask[];
 };
 
 const DEFAULT_STUCK_MINUTES = 30;
@@ -52,6 +53,30 @@ type RecoveryProposal = {
   notes: string[];
 };
 
+type RecoveryTask = {
+  id: string;
+  proposalId: string;
+  status: 'manual_review_required';
+  severity: RecoveryProposal['severity'];
+  entityType: RecoveryProposal['entityType'];
+  entityId: string;
+  productFlow?: CaseProductFlow;
+  linkedEntityIds: {
+    roomId?: string;
+    caseId?: string;
+    linkedCaseIds?: string[];
+    judgmentId?: string | null;
+    planId?: string;
+    latestStreamId?: string | null;
+  };
+  recommendedAction: string;
+  verificationCommands: string[];
+  guardrails: string[];
+  automaticFixAvailable: false;
+  requiresHumanApproval: true;
+  source: 'ops:product-state:audit';
+};
+
 function cutoffDate(minutes: number): Date {
   return new Date(Date.now() - minutes * 60 * 1000);
 }
@@ -83,6 +108,39 @@ function buildRecoveryProposal(input: {
       ...input.notes,
     ],
   };
+}
+
+function buildRecoveryTasks(
+  proposal: RecoveryProposal | null,
+  sampleDetails: AuditSampleDetail[],
+): RecoveryTask[] {
+  if (!proposal) {
+    return [];
+  }
+
+  return sampleDetails.map((detail) => ({
+    id: `${proposal.id}:${detail.id}`,
+    proposalId: proposal.id,
+    status: 'manual_review_required',
+    severity: proposal.severity,
+    entityType: proposal.entityType,
+    entityId: detail.id,
+    productFlow: detail.productFlow,
+    linkedEntityIds: {
+      roomId: detail.roomId,
+      caseId: detail.caseId,
+      linkedCaseIds: detail.linkedCaseIds,
+      judgmentId: detail.judgmentId,
+      planId: detail.planId,
+      latestStreamId: detail.latestStreamId,
+    },
+    recommendedAction: proposal.recommendedAction,
+    verificationCommands: proposal.verificationCommands,
+    guardrails: proposal.notes,
+    automaticFixAvailable: false,
+    requiresHumanApproval: true,
+    source: 'ops:product-state:audit',
+  }));
 }
 
 function buildCaseSampleDetail(case_: {
@@ -242,135 +300,151 @@ async function collectAuditItems(stuckMinutes = DEFAULT_STUCK_MINUTES): Promise<
     }
   }
 
+  const stuckCaseDetails = stuckCases.map(buildCaseSampleDetail);
+  const stuckCaseProposal = buildRecoveryProposal({
+    id: 'recover-stuck-case-judgment-generation',
+    severity: 'critical',
+    entityType: 'case',
+    entityIds: stuckCases.map((item) => item.id),
+    recommendedAction: '人工核對是否仍有 active AI stream；若無 active stream，使用既有 judgment retry 流程重新生成或標記 judgment_failed。',
+    verificationCommands: [
+      'cd backend && npm run ops:product-state:audit',
+      '查詢對應 case 的 judgment、ai_stream_sessions、ai_stream_events 狀態',
+      '完成人工恢復後再次執行 cd backend && npm run ops:product-state:audit',
+    ],
+    notes: [
+      '不要直接把 in_progress case 更新為 completed。',
+      '如果已有 judgment row，優先核對 case status 是否應與 judgment 對齊。',
+      '如果仍有 streaming / started AI stream，先等待或確認 stream 已失效再處理。',
+    ],
+  });
+
+  const stuckChatRoomDetails = stuckChatRooms.map((item) => ({
+    id: item.id,
+    entityType: 'chat_room' as const,
+    productFlow: 'chat_to_case' as const,
+    status: item.status,
+    sessionBound: Boolean(item.session_id),
+    linkedCaseIds: item.case_links.map((link) => link.case_id),
+    judgmentId: item.case_links[0]?.judgment_id ?? null,
+    updatedAt: item.updated_at,
+  }));
+  const stuckChatRoomProposal = buildRecoveryProposal({
+    id: 'recover-stuck-chat-judgment-request',
+    severity: 'critical',
+    entityType: 'chat_room',
+    entityIds: stuckChatRooms.map((item) => item.id),
+    recommendedAction: '人工核對 room -> chat_to_case_link -> case -> judgment 鏈路；若 case 可重試，走 chat judgment retry/狀態恢復流程。',
+    verificationCommands: [
+      'cd backend && npm run ops:product-state:audit',
+      '查詢 chat_rooms、chat_to_case_links、cases、judgments 對應 row',
+      '完成人工恢復後再次執行 cd backend && npm run ops:product-state:audit',
+    ],
+    notes: [
+      '不要只改 chat_rooms.status，必須同步核對 linked case 與 judgment。',
+      '如果沒有 chat_to_case_link，先確認 requestJudgment 是否在建 case 前崩潰。',
+      '如果 linked case 已 judgment_failed，可允許顯式重試而不是靜默自動重跑。',
+    ],
+  });
+
+  const incompleteChatLinkDetails = incompleteChatLinks.map((item) => ({
+    id: item.id,
+    entityType: 'chat_to_case_link' as const,
+    productFlow: getCaseProductFlow({
+      ...item.case,
+      chat_to_case_links: [{ id: item.id }],
+    }),
+    mode: item.case.mode,
+    status: item.case.status,
+    sessionBound: Boolean(item.case.session_id),
+    roomId: item.room_id,
+    caseId: item.case_id,
+    judgmentId: item.judgment_id,
+    createdAt: item.created_at,
+  }));
+  const incompleteChatLinkProposal = buildRecoveryProposal({
+    id: 'repair-chat-to-case-link-missing-judgment',
+    severity: 'warning',
+    entityType: 'chat_to_case_link',
+    entityIds: incompleteChatLinks.map((item) => item.id),
+    recommendedAction: '人工核對 linked case 的唯一 judgment；確認無歧義後補回 chat_to_case_links.judgment_id。',
+    verificationCommands: [
+      'cd backend && npm run ops:product-state:audit',
+      '查詢 chat_to_case_links.case_id 對應 judgments.case_id',
+      '完成人工補齊後再次執行 cd backend && npm run ops:product-state:audit',
+    ],
+    notes: [
+      '只有在 case_id 對應唯一 judgment 時才可補 judgment_id。',
+      '若 case completed 但無 judgment row，應先按 stuck case 恢復流程處理。',
+      '此類修復涉及資料寫入，必須先記錄工單或待處理任務。',
+    ],
+  });
+
+  const stuckRepairTrackDetails = stuckRepairTracks.map((item) => {
+    const latestStream = latestStreamByTrackId.get(item.id);
+    return {
+      id: item.id,
+      entityType: 'repair_track' as const,
+      status: item.status,
+      planId: item.plan_id,
+      caseId: item.plan.judgment.case_id,
+      judgmentId: item.plan.judgment_id,
+      latestStreamId: latestStream?.stream_id ?? null,
+      latestStreamStatus: latestStream?.status ?? null,
+      latestStreamUpdatedAt: latestStream?.updated_at ?? null,
+      updatedAt: item.updated_at,
+    };
+  });
+  const stuckRepairTrackProposal = buildRecoveryProposal({
+    id: 'recover-stuck-repair-track-replan',
+    severity: 'warning',
+    entityType: 'repair_track',
+    entityIds: stuckRepairTracks.map((item) => item.id),
+    recommendedAction: '人工核對 repair_track 對應最新 AI stream；若 stream 已 failed/cancelled 或不存在，允許用既有 replan retry 流程重試，或按最後可用方案恢復到 solo_active/co_active。',
+    verificationCommands: [
+      'cd backend && npm run ops:product-state:audit',
+      '查詢 repair_tracks、reconciliation_plans、ai_stream_sessions、ai_stream_events 對應 row',
+      '完成人工恢復後再次執行 cd backend && npm run ops:product-state:audit',
+    ],
+    notes: [
+      '不要直接把 replanning track 改回 active；必須先核對最新 stream 狀態與是否已生成 superseded_by_plan_id。',
+      '如果最新 stream 仍為 created/queued/started/streaming/completed，先確認是否仍在有效窗口內或可從 snapshot 恢復。',
+      '如果 stream 已 persisted 但 track 仍卡在 replanning，優先核對新 plan version、step_progresses 與 repair_track_events 是否已寫完。',
+    ],
+  });
+
   return [
     {
       check: `cases stuck in_progress over ${stuckMinutes}m`,
       count: stuckCasesCount,
       sampleIds: stuckCases.map((item) => item.id),
-      sampleDetails: stuckCases.map(buildCaseSampleDetail),
-      recoveryProposal: buildRecoveryProposal({
-        id: 'recover-stuck-case-judgment-generation',
-        severity: 'critical',
-        entityType: 'case',
-        entityIds: stuckCases.map((item) => item.id),
-        recommendedAction: '人工核對是否仍有 active AI stream；若無 active stream，使用既有 judgment retry 流程重新生成或標記 judgment_failed。',
-        verificationCommands: [
-          'cd backend && npm run ops:product-state:audit',
-          '查詢對應 case 的 judgment、ai_stream_sessions、ai_stream_events 狀態',
-          '完成人工恢復後再次執行 cd backend && npm run ops:product-state:audit',
-        ],
-        notes: [
-          '不要直接把 in_progress case 更新為 completed。',
-          '如果已有 judgment row，優先核對 case status 是否應與 judgment 對齊。',
-          '如果仍有 streaming / started AI stream，先等待或確認 stream 已失效再處理。',
-        ],
-      }),
+      sampleDetails: stuckCaseDetails,
+      recoveryProposal: stuckCaseProposal,
+      recoveryTasks: buildRecoveryTasks(stuckCaseProposal, stuckCaseDetails),
     },
     {
       check: `chat rooms stuck judgment_requested over ${stuckMinutes}m`,
       count: stuckChatRoomsCount,
       sampleIds: stuckChatRooms.map((item) => item.id),
-      sampleDetails: stuckChatRooms.map((item) => ({
-        id: item.id,
-        entityType: 'chat_room',
-        productFlow: 'chat_to_case',
-        status: item.status,
-        sessionBound: Boolean(item.session_id),
-        linkedCaseIds: item.case_links.map((link) => link.case_id),
-        judgmentId: item.case_links[0]?.judgment_id ?? null,
-        updatedAt: item.updated_at,
-      })),
-      recoveryProposal: buildRecoveryProposal({
-        id: 'recover-stuck-chat-judgment-request',
-        severity: 'critical',
-        entityType: 'chat_room',
-        entityIds: stuckChatRooms.map((item) => item.id),
-        recommendedAction: '人工核對 room -> chat_to_case_link -> case -> judgment 鏈路；若 case 可重試，走 chat judgment retry/狀態恢復流程。',
-        verificationCommands: [
-          'cd backend && npm run ops:product-state:audit',
-          '查詢 chat_rooms、chat_to_case_links、cases、judgments 對應 row',
-          '完成人工恢復後再次執行 cd backend && npm run ops:product-state:audit',
-        ],
-        notes: [
-          '不要只改 chat_rooms.status，必須同步核對 linked case 與 judgment。',
-          '如果沒有 chat_to_case_link，先確認 requestJudgment 是否在建 case 前崩潰。',
-          '如果 linked case 已 judgment_failed，可允許顯式重試而不是靜默自動重跑。',
-        ],
-      }),
+      sampleDetails: stuckChatRoomDetails,
+      recoveryProposal: stuckChatRoomProposal,
+      recoveryTasks: buildRecoveryTasks(stuckChatRoomProposal, stuckChatRoomDetails),
     },
     {
       check: 'chat_to_case_links missing judgment_id while case completed',
       count: incompleteChatLinksCount,
       sampleIds: incompleteChatLinks.map((item) => item.id),
-      sampleDetails: incompleteChatLinks.map((item) => ({
-        id: item.id,
-        entityType: 'chat_to_case_link',
-        productFlow: getCaseProductFlow({
-          ...item.case,
-          chat_to_case_links: [{ id: item.id }],
-        }),
-        mode: item.case.mode,
-        status: item.case.status,
-        sessionBound: Boolean(item.case.session_id),
-        roomId: item.room_id,
-        caseId: item.case_id,
-        judgmentId: item.judgment_id,
-        createdAt: item.created_at,
-      })),
-      recoveryProposal: buildRecoveryProposal({
-        id: 'repair-chat-to-case-link-missing-judgment',
-        severity: 'warning',
-        entityType: 'chat_to_case_link',
-        entityIds: incompleteChatLinks.map((item) => item.id),
-        recommendedAction: '人工核對 linked case 的唯一 judgment；確認無歧義後補回 chat_to_case_links.judgment_id。',
-        verificationCommands: [
-          'cd backend && npm run ops:product-state:audit',
-          '查詢 chat_to_case_links.case_id 對應 judgments.case_id',
-          '完成人工補齊後再次執行 cd backend && npm run ops:product-state:audit',
-        ],
-        notes: [
-          '只有在 case_id 對應唯一 judgment 時才可補 judgment_id。',
-          '若 case completed 但無 judgment row，應先按 stuck case 恢復流程處理。',
-          '此類修復涉及資料寫入，必須先記錄工單或待處理任務。',
-        ],
-      }),
+      sampleDetails: incompleteChatLinkDetails,
+      recoveryProposal: incompleteChatLinkProposal,
+      recoveryTasks: buildRecoveryTasks(incompleteChatLinkProposal, incompleteChatLinkDetails),
     },
     {
       check: `repair tracks stuck replanning over ${stuckMinutes}m`,
       count: stuckRepairTracksCount,
       sampleIds: stuckRepairTracks.map((item) => item.id),
-      sampleDetails: stuckRepairTracks.map((item) => {
-        const latestStream = latestStreamByTrackId.get(item.id);
-        return {
-          id: item.id,
-          entityType: 'repair_track',
-          status: item.status,
-          planId: item.plan_id,
-          caseId: item.plan.judgment.case_id,
-          judgmentId: item.plan.judgment_id,
-          latestStreamId: latestStream?.stream_id ?? null,
-          latestStreamStatus: latestStream?.status ?? null,
-          latestStreamUpdatedAt: latestStream?.updated_at ?? null,
-          updatedAt: item.updated_at,
-        };
-      }),
-      recoveryProposal: buildRecoveryProposal({
-        id: 'recover-stuck-repair-track-replan',
-        severity: 'warning',
-        entityType: 'repair_track',
-        entityIds: stuckRepairTracks.map((item) => item.id),
-        recommendedAction: '人工核對 repair_track 對應最新 AI stream；若 stream 已 failed/cancelled 或不存在，允許用既有 replan retry 流程重試，或按最後可用方案恢復到 solo_active/co_active。',
-        verificationCommands: [
-          'cd backend && npm run ops:product-state:audit',
-          '查詢 repair_tracks、reconciliation_plans、ai_stream_sessions、ai_stream_events 對應 row',
-          '完成人工恢復後再次執行 cd backend && npm run ops:product-state:audit',
-        ],
-        notes: [
-          '不要直接把 replanning track 改回 active；必須先核對最新 stream 狀態與是否已生成 superseded_by_plan_id。',
-          '如果最新 stream 仍為 created/queued/started/streaming/completed，先確認是否仍在有效窗口內或可從 snapshot 恢復。',
-          '如果 stream 已 persisted 但 track 仍卡在 replanning，優先核對新 plan version、step_progresses 與 repair_track_events 是否已寫完。',
-        ],
-      }),
+      sampleDetails: stuckRepairTrackDetails,
+      recoveryProposal: stuckRepairTrackProposal,
+      recoveryTasks: buildRecoveryTasks(stuckRepairTrackProposal, stuckRepairTrackDetails),
     },
   ];
 }

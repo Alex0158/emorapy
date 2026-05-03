@@ -138,6 +138,30 @@ describe('audit-product-state-consistency', () => {
           automaticFixAvailable: false,
           requiresHumanApproval: true,
         }),
+        recoveryTasks: [
+          expect.objectContaining({
+            id: 'recover-stuck-case-judgment-generation:case-a',
+            proposalId: 'recover-stuck-case-judgment-generation',
+            status: 'manual_review_required',
+            entityType: 'case',
+            entityId: 'case-a',
+            productFlow: 'quick_single',
+            automaticFixAvailable: false,
+            requiresHumanApproval: true,
+            source: 'ops:product-state:audit',
+          }),
+          expect.objectContaining({
+            id: 'recover-stuck-case-judgment-generation:case-b',
+            proposalId: 'recover-stuck-case-judgment-generation',
+            status: 'manual_review_required',
+            entityType: 'case',
+            entityId: 'case-b',
+            productFlow: 'formal_collaborative',
+            automaticFixAvailable: false,
+            requiresHumanApproval: true,
+            source: 'ops:product-state:audit',
+          }),
+        ],
       }),
       expect.objectContaining({
         check: 'chat rooms stuck judgment_requested over 15m',
@@ -160,6 +184,23 @@ describe('audit-product-state-consistency', () => {
           automaticFixAvailable: false,
           requiresHumanApproval: true,
         }),
+        recoveryTasks: [
+          expect.objectContaining({
+            id: 'recover-stuck-chat-judgment-request:room-a',
+            proposalId: 'recover-stuck-chat-judgment-request',
+            status: 'manual_review_required',
+            entityType: 'chat_room',
+            entityId: 'room-a',
+            productFlow: 'chat_to_case',
+            linkedEntityIds: expect.objectContaining({
+              linkedCaseIds: ['case-chat-a'],
+              judgmentId: null,
+            }),
+            automaticFixAvailable: false,
+            requiresHumanApproval: true,
+            source: 'ops:product-state:audit',
+          }),
+        ],
       }),
       expect.objectContaining({
         check: 'chat_to_case_links missing judgment_id while case completed',
@@ -184,6 +225,24 @@ describe('audit-product-state-consistency', () => {
           automaticFixAvailable: false,
           requiresHumanApproval: true,
         }),
+        recoveryTasks: [
+          expect.objectContaining({
+            id: 'repair-chat-to-case-link-missing-judgment:link-a',
+            proposalId: 'repair-chat-to-case-link-missing-judgment',
+            status: 'manual_review_required',
+            entityType: 'chat_to_case_link',
+            entityId: 'link-a',
+            productFlow: 'chat_to_case',
+            linkedEntityIds: expect.objectContaining({
+              roomId: 'room-a',
+              caseId: 'case-chat-a',
+              judgmentId: null,
+            }),
+            automaticFixAvailable: false,
+            requiresHumanApproval: true,
+            source: 'ops:product-state:audit',
+          }),
+        ],
       }),
       expect.objectContaining({
         check: 'repair tracks stuck replanning over 15m',
@@ -208,6 +267,24 @@ describe('audit-product-state-consistency', () => {
           automaticFixAvailable: false,
           requiresHumanApproval: true,
         }),
+        recoveryTasks: [
+          expect.objectContaining({
+            id: 'recover-stuck-repair-track-replan:track-a',
+            proposalId: 'recover-stuck-repair-track-replan',
+            status: 'manual_review_required',
+            entityType: 'repair_track',
+            entityId: 'track-a',
+            linkedEntityIds: expect.objectContaining({
+              caseId: 'case-a',
+              judgmentId: 'judgment-a',
+              planId: 'plan-a',
+              latestStreamId: 'stream-a',
+            }),
+            automaticFixAvailable: false,
+            requiresHumanApproval: true,
+            source: 'ops:product-state:audit',
+          }),
+        ],
       }),
     ]);
     expect(prismaMock.case.count).toHaveBeenCalledWith({
@@ -244,6 +321,7 @@ describe('audit-product-state-consistency', () => {
 
     expect(result.every((item) => item.recoveryProposal === null)).toBe(true);
     expect(result.every((item) => item.sampleDetails.length === 0)).toBe(true);
+    expect(result.every((item) => item.recoveryTasks.length === 0)).toBe(true);
     expect(prismaMock.aIStreamSession.findMany).not.toHaveBeenCalled();
   });
 });

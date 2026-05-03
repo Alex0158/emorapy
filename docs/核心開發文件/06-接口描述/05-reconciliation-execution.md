@@ -58,6 +58,8 @@
 
 任何頁面、通知、chat-to-case、execution 或後續 job 不得自行用 `case.mode` 重寫上述資格判斷。
 
+生成修復方案時的個人化 `caseContext` 載入也不得用 `case.mode !== quick` 判斷；必須透過 `backend/src/utils/case-classifier.ts` 的 user-bound product flow 口徑。純 quick/session-bound 流程不注入個人/關係上下文；`ChatToCaseLink` 優先於 `case.mode`，chat-to-case 可在已登入當事人與 consent 條件成立時納入修復方案個人化上下文。此規則只影響 context injection，不自動放寬伴侶邀請或共同修復資格。
+
 ## 接口契約（字段級）
 
 

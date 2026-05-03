@@ -2,7 +2,6 @@ import prisma from '../config/database';
 import { Prisma } from '../types/prisma-client';
 import { Errors } from '../utils/errors';
 import logger from '../config/logger';
-import { CASE_MODE } from '../utils/constants';
 import { randomUUID } from 'crypto';
 import {
   aiService,
@@ -22,6 +21,7 @@ import {
 } from './repair-journey.service';
 import { getProductSafetyPolicyForJudgment } from './safety-routing.service';
 import { getRepairEligibilityForCase } from './repair-eligibility.service';
+import { isUserBoundProductCase } from '../utils/case-classifier';
 
 export type ReconciliationIntent = 'repair' | 'cool_down' | 'graceful_exit' | 'safety_support';
 export type PlanStylePreference = 'action' | 'conversation' | 'companionship' | 'distance';
@@ -644,6 +644,7 @@ export class ReconciliationService {
                 user2_id: true,
               },
             },
+            chat_to_case_links: { select: { id: true }, take: 1 },
           },
         },
       },
@@ -702,7 +703,7 @@ export class ReconciliationService {
     let personalizationContext: string | undefined;
     let diagnosticContext: string | undefined;
     const caseRecord = judgment.case;
-    if (caseRecord.mode !== CASE_MODE.QUICK) {
+    if (isUserBoundProductCase(caseRecord)) {
       try {
         const caseCtx = await caseContextService.loadCaseContext(caseRecord.id);
         if (caseCtx) {

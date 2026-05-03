@@ -84,6 +84,7 @@ jest.mock('../../../src/services/notification.service', () => ({
 }));
 
 import { ReconciliationService } from '../../../src/services/reconciliation.service';
+import { caseContextService } from '../../../src/services/case-context.service';
 
 const baseJudgment = {
   id: 'judge-1',
@@ -131,6 +132,9 @@ describe('ReconciliationService', () => {
     service = new ReconciliationService();
     mockIsReconciliationPlanContent.mockReturnValue(true);
     prismaMock.reconciliationPlan.count.mockResolvedValue(0);
+    (caseContextService.loadCaseContext as any).mockResolvedValue(null);
+    (caseContextService.formatForReconciliationPlans as any).mockReturnValue(undefined);
+    (caseContextService.formatDiagnosticContext as any).mockReturnValue(undefined);
   });
 
   it('generatePlans 應返回帶 recommended_plan_id 的 bundle', async () => {
@@ -170,6 +174,52 @@ describe('ReconciliationService', () => {
     expect(result.recommended_plan_id).toBe('plan-1');
     expect(result.plans).toHaveLength(1);
     expect(result.plans[0].fit_reason).toBe('適配原因');
+  });
+
+  it('chat-to-case 產品流即使 mode=quick 也應載入修復方案個人化上下文', async () => {
+    const chatToCaseJudgment = {
+      ...baseJudgment,
+      case: {
+        ...baseJudgment.case,
+        mode: 'quick',
+        session_id: 'guest_1704067200000_abcdefghijklmnop',
+        chat_to_case_links: [{ id: 'link-1' }],
+      },
+    };
+    prismaMock.judgment.findUnique.mockResolvedValue(chatToCaseJudgment);
+    prismaMock.reconciliationPlan.findMany.mockResolvedValue([]);
+    (caseContextService.loadCaseContext as any).mockResolvedValue({ userA: {}, userB: null, relationship: null });
+    (caseContextService.formatForReconciliationPlans as any).mockReturnValue('chat-to-case personalization');
+    (caseContextService.formatDiagnosticContext as any).mockReturnValue(undefined);
+    mockGenerateReconciliationPlans.mockResolvedValue([validPlanContent] as never);
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) => {
+      const tx = {
+        reconciliationPlan: {
+          create: jest.fn().mockResolvedValue({
+            ...storedPlan,
+            judgment: chatToCaseJudgment,
+          } as never),
+          updateMany: jest.fn(),
+        },
+        repairTrack: {
+          updateMany: jest.fn(),
+        },
+      };
+      return fn(tx);
+    });
+
+    await service.generatePlans('judge-1', { intent: 'repair' }, 'u1');
+
+    expect(caseContextService.loadCaseContext).toHaveBeenCalledWith('case-1');
+    expect(mockGenerateReconciliationPlans).toHaveBeenCalledWith(
+      '情感需求衝突',
+      { plaintiff: 50, defendant: 50 },
+      '摘要',
+      'chat-to-case personalization',
+      expect.any(String),
+      undefined,
+      expect.objectContaining({ intent: 'repair' }),
+    );
   });
 
   it('已有同方向方案時應直接返回 bundle', async () => {

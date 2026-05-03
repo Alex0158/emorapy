@@ -1,5 +1,5 @@
-# 使用Node.js官方鏡像（使用 LTS 版本以確保兼容性）
-FROM node:20-alpine
+# 使用與 backend/package.json engines 對齊的 Node.js 版本
+FROM node:24-alpine
 
 # 安裝 OpenSSL 和其他必要的系統依賴（Prisma 需要）
 # openssl: OpenSSL 庫
@@ -23,8 +23,13 @@ RUN npx prisma generate
 # 複製源代碼
 COPY . .
 
+# Railway production service uses /backend as the Docker build context. Keep
+# the type-only contracts dependency available without requiring repo-root files.
+RUN mkdir -p ../packages/contracts/types && \
+    cp src/types/contracts/*.d.ts ../packages/contracts/types/
+
 # 構建TypeScript（生產環境，不生成 sourcemap）
-RUN npm run build:prod
+RUN npx tsc --project tsconfig.prod.json
 
 # 清理 devDependencies（可選，減小鏡像大小）
 # 注意：保留 prisma 以便運行遷移
@@ -35,4 +40,3 @@ EXPOSE 3000
 
 # 啟動應用
 CMD ["npm", "start"]
-

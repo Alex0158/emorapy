@@ -22,7 +22,9 @@
     "manual-regression:check:strict": "node scripts/check-manual-regression-status.mjs --require-evidence",
     "manual-regression:summarize": "node scripts/summarize-manual-regression.mjs",
     "manual-regression:mark": "node scripts/mark-manual-regression-result.mjs",
-    "manual-regression:gate": "node scripts/run-manual-regression-gate.mjs"
+    "manual-regression:gate": "node scripts/run-manual-regression-gate.mjs",
+    "ops:release:status": "bash scripts/ops-release-status.sh",
+    "ops:db:status": "bash scripts/ops-db-status.sh"
   },
   "devDependencies": {
     "playwright": "1.58.2"

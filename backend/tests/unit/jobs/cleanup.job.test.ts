@@ -272,7 +272,7 @@ describe('cleanup.job', () => {
       expect(mockLogger.error).toHaveBeenCalledWith('Failed to reset AI daily count', expect.objectContaining({ error: expect.any(Error) }));
     });
 
-    it('followUp7Day 應掃 user-bound formal/collaborative case，並帶 product_flow payload', async () => {
+    it('followUp7Day 應掃 user-bound product case，並帶 product_flow payload', async () => {
       const completedAt = new Date(Date.now() - 49 * 60 * 60 * 1000);
       (mockCaseFindMany as any).mockResolvedValue([
         {
@@ -298,8 +298,9 @@ describe('cleanup.job', () => {
         where: expect.objectContaining({
           status: 'completed',
           OR: [
-            { mode: 'remote' },
-            { mode: 'collaborative', session_id: null },
+            { chat_to_case_links: { some: {} } },
+            { chat_to_case_links: { none: {} }, mode: 'remote' },
+            { chat_to_case_links: { none: {} }, mode: 'collaborative', session_id: null },
           ],
           judgment: {
             reconciliation_plans: { none: {} },

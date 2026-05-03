@@ -11,7 +11,7 @@ import { fileService, signAvatar } from './file.service';
 import { normalizeJudgmentWithSafetyState } from './judgment-normalization.service';
 import { lockService } from '../utils/lock';
 import { LOCK_TTL, SESSION_EXPIRY, CASE_STATUS, CASE_MODE, PAGINATION, FILE_TYPE, PAIRING_STATUS } from '../utils/constants';
-import { getCaseProductFlow, isCaseParticipant, isSessionBoundCase } from '../utils/case-classifier';
+import { buildUserBoundProductCaseWhere, getCaseProductFlow, isCaseParticipant, isSessionBoundCase } from '../utils/case-classifier';
 import {
   buildSafetyAssessmentSnapshotForEvidenceAssertion,
   getFormalCaseCreatePolicy,
@@ -397,6 +397,7 @@ export class CaseService {
 
     const andConditions: Prisma.CaseWhereInput[] = [
       { OR: [{ plaintiff_id: userId }, { defendant_id: userId }] },
+      buildUserBoundProductCaseWhere(),
     ];
 
     if (search) {
@@ -411,7 +412,6 @@ export class CaseService {
 
     const where: Prisma.CaseWhereInput = {
       AND: andConditions,
-      mode: { in: [CASE_MODE.REMOTE, CASE_MODE.COLLABORATIVE] },
       ...(status && status !== 'all' ? { status: status as Prisma.CaseWhereInput['status'] } : {}),
       ...(type && type !== 'all' ? { type: type as Prisma.CaseWhereInput['type'] } : {}),
     };

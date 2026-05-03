@@ -566,7 +566,7 @@ describe('CaseService', () => {
       );
     });
 
-    it('應按 userId 與 mode in [remote, collaborative] 查詢並分頁', async () => {
+    it('應按 userId 與 user-bound product case 查詢並分頁', async () => {
       prismaMock.case.findMany.mockResolvedValue([]);
       prismaMock.case.count.mockResolvedValue(0);
 
@@ -577,8 +577,14 @@ describe('CaseService', () => {
           where: expect.objectContaining({
             AND: expect.arrayContaining([
               expect.objectContaining({ OR: [{ plaintiff_id: 'u1' }, { defendant_id: 'u1' }] }),
+              {
+                OR: [
+                  { chat_to_case_links: { some: {} } },
+                  { chat_to_case_links: { none: {} }, mode: 'remote' },
+                  { chat_to_case_links: { none: {} }, mode: 'collaborative', session_id: null },
+                ],
+              },
             ]),
-            mode: { in: ['remote', 'collaborative'] },
           }),
           skip: 0,
           take: 10,
@@ -588,6 +594,25 @@ describe('CaseService', () => {
         cases: [],
         pagination: { page: 1, page_size: 10, total: 0, total_pages: 0 },
       });
+    });
+
+    it('列表查詢不應用 mode-only 漏掉 quick 底層的 chat-to-case', async () => {
+      prismaMock.case.findMany.mockResolvedValue([]);
+      prismaMock.case.count.mockResolvedValue(0);
+
+      await service.getCaseList('u1', { page: 1, page_size: 10 });
+
+      const call = prismaMock.case.findMany.mock.calls[0][0];
+      expect(call.where).not.toHaveProperty('mode');
+      expect(call.where.AND).toEqual(expect.arrayContaining([
+        {
+          OR: [
+            { chat_to_case_links: { some: {} } },
+            { chat_to_case_links: { none: {} }, mode: 'remote' },
+            { chat_to_case_links: { none: {} }, mode: 'collaborative', session_id: null },
+          ],
+        },
+      ]));
     });
 
     it('有 status、type、search 時應傳入 where', async () => {

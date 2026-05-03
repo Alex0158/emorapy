@@ -19,7 +19,7 @@ import {
 import { systemConfigService } from '../services/system-config.service';
 import { runOpsAlertChecks } from '../services/ops-alerts.service';
 import { aiStreamService } from '../services/ai-stream.service';
-import { buildStaleFormalDraftCaseWhere, buildUserBoundCaseModeWhere, getCaseProductFlow } from '../utils/case-classifier';
+import { buildStaleFormalDraftCaseWhere, buildUserBoundProductCaseWhere, getCaseProductFlow } from '../utils/case-classifier';
 
 type CronExecutionResult = {
   affectedCount?: number;
@@ -320,7 +320,7 @@ export const followUp7Day = createJob('0 10 * * *', async () => {
       const cases = await prisma.case.findMany({
         where: {
           status: CASE_STATUS.COMPLETED,
-          ...buildUserBoundCaseModeWhere(),
+          ...buildUserBoundProductCaseWhere(),
           completed_at: { gte: seventyTwoHoursAgo, lte: fortyEightHoursAgo },
           judgment: {
             reconciliation_plans: { none: {} },

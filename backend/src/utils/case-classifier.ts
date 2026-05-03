@@ -80,6 +80,16 @@ export function buildUserBoundCaseModeWhere() {
   };
 }
 
+export function buildUserBoundProductCaseWhere(): Prisma.CaseWhereInput {
+  return {
+    OR: [
+      buildCaseProductFlowWhere('chat_to_case'),
+      buildCaseProductFlowWhere('formal_remote'),
+      buildCaseProductFlowWhere('formal_collaborative'),
+    ],
+  };
+}
+
 export function buildStaleFormalDraftCaseWhere(cutoff: Date): Prisma.CaseWhereInput {
   return {
     status: CASE_STATUS.DRAFT,

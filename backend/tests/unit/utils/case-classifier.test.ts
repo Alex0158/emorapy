@@ -4,6 +4,7 @@ import {
   buildJudgmentProductFlowWhere,
   buildStaleFormalDraftCaseWhere,
   buildUserBoundCaseModeWhere,
+  buildUserBoundProductCaseWhere,
   getCaseAccessKind,
   getCaseProductFlow,
   hasChatToCaseSource,
@@ -66,6 +67,16 @@ describe('case-classifier', () => {
       OR: [
         { mode: 'remote' },
         { mode: 'collaborative', session_id: null },
+      ],
+    });
+  });
+
+  it('user-bound product case query 應包含 chat-to-case 且排除 session-bound quick/collab', () => {
+    expect(buildUserBoundProductCaseWhere()).toEqual({
+      OR: [
+        { chat_to_case_links: { some: {} } },
+        { chat_to_case_links: { none: {} }, mode: 'remote' },
+        { chat_to_case_links: { none: {} }, mode: 'collaborative', session_id: null },
       ],
     });
   });

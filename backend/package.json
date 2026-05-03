@@ -38,6 +38,7 @@
     "ops:alerts:check": "tsx scripts/check-alerts.ts",
     "ops:migration:report": "tsx scripts/report-prisma-migrations.ts",
     "ops:cost:snapshot": "tsx scripts/cost-snapshot.ts",
+    "ops:product-state:audit": "tsx scripts/audit-product-state-consistency.ts",
     "lint": "biome lint src",
     "format": "prettier --write \"src/**/*.ts\"",
     "prisma:generate": "prisma generate",

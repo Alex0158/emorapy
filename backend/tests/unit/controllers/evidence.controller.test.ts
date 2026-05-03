@@ -357,6 +357,39 @@ describe('evidence.controller', () => {
       expect(next).not.toHaveBeenCalled();
     });
 
+    it('formal collaborative 且 session_id 為 null 時應允許當事人用 JWT 上傳證據', async () => {
+      req.params = { id: caseId };
+      req.files = [{ fieldname: 'files', filename: 'a.jpg', mimetype: 'image/jpeg', size: 100 } as Express.Multer.File];
+      req.headers = { 'x-session-id': 'stale-session-should-not-win' };
+      mockGetAuthUserIdOptional.mockReturnValue('u1');
+      (prisma.case.findUnique as jest.Mock).mockResolvedValue({
+        id: caseId,
+        mode: 'collaborative',
+        session_id: null,
+        plaintiff_id: 'u1',
+        defendant_id: 'u2',
+        status: 'submitted',
+      } as never);
+      (prisma.evidence.count as jest.Mock).mockResolvedValue(0 as never);
+      (prisma.evidence.create as jest.Mock).mockResolvedValue({
+        id: evidenceId,
+        case_id: caseId,
+        file_url: 'http://files/a.jpg',
+      } as never);
+
+      await runUpload(controller, req as Request, res as Response, next);
+
+      expect(mockGetSession).not.toHaveBeenCalled();
+      expect(prisma.evidence.create).toHaveBeenCalled();
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          message: '證據上傳成功',
+        })
+      );
+      expect(next).not.toHaveBeenCalled();
+    });
+
     it('案件狀態不允許上傳時應拋出 CASE_NOT_EDITABLE', async () => {
       req.params = { id: caseId };
       req.files = [{ fieldname: 'files', filename: 'a.jpg', mimetype: 'image/jpeg', size: 100 } as Express.Multer.File];
@@ -670,6 +703,35 @@ describe('evidence.controller', () => {
       await deleteEvidence(req as Request, res as Response, next);
 
       expect(mockGetSession).toHaveBeenCalledWith('s-collab');
+      expect(prisma.evidence.delete).toHaveBeenCalledWith({ where: { id: evidenceId } });
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        data: {},
+        message: '證據已刪除',
+      });
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('formal collaborative 且 session_id 為 null 時應允許當事人用 JWT 刪除證據', async () => {
+      req.params = { id: caseId, evidenceId };
+      req.headers = { 'x-session-id': 'stale-session-should-not-win' };
+      mockGetAuthUserIdOptional.mockReturnValue('u2');
+      (prisma.evidence.findUnique as jest.Mock).mockResolvedValue({
+        id: evidenceId,
+        case_id: caseId,
+        file_url: 'http://x.com/uploads/a.jpg',
+        case: {
+          mode: 'collaborative',
+          session_id: null,
+          plaintiff_id: 'u1',
+          defendant_id: 'u2',
+        },
+      } as never);
+      (prisma.evidence.delete as jest.Mock).mockResolvedValue({} as never);
+
+      await deleteEvidence(req as Request, res as Response, next);
+
+      expect(mockGetSession).not.toHaveBeenCalled();
       expect(prisma.evidence.delete).toHaveBeenCalledWith({ where: { id: evidenceId } });
       expect(res.json).toHaveBeenCalledWith({
         success: true,

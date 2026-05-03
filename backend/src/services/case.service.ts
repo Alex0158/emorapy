@@ -11,6 +11,7 @@ import { fileService, signAvatar } from './file.service';
 import { normalizeJudgment } from '../utils/judgment';
 import { lockService } from '../utils/lock';
 import { LOCK_TTL, SESSION_EXPIRY, CASE_STATUS, CASE_MODE, PAGINATION, FILE_TYPE, PAIRING_STATUS } from '../utils/constants';
+import { isCaseParticipant, isSessionBoundCase } from '../utils/case-classifier';
 
 export interface QuickCaseDto {
   plaintiff_statement: string;
@@ -30,14 +31,6 @@ export interface CreateCaseDto {
 }
 
 export class CaseService {
-  /**
-   * quick 一律為 session-bound；
-   * collaborative 僅在 session_id 存在時視為匿名協作流程。
-   */
-  private isSessionBoundCase(case_: { mode: string; session_id?: string | null }): boolean {
-    return case_.mode === CASE_MODE.QUICK || (case_.mode === CASE_MODE.COLLABORATIVE && Boolean(case_.session_id));
-  }
-
   /**
    * 創建快速體驗案件
    */
@@ -535,7 +528,7 @@ export class CaseService {
     }
 
     // session-bound 模式（quick / collaborative with session_id）：驗證 Session ID
-    if (this.isSessionBoundCase(case_)) {
+    if (isSessionBoundCase(case_)) {
       if (!sessionId || case_.session_id !== sessionId) {
         throw Errors.FORBIDDEN('無權限訪問此案件');
       }
@@ -549,7 +542,7 @@ export class CaseService {
         throw Errors.UNAUTHORIZED('需要認證');
       }
 
-      if (case_.plaintiff_id !== userId && case_.defendant_id !== userId) {
+      if (!isCaseParticipant(case_, userId)) {
         throw Errors.FORBIDDEN('無權限訪問此案件');
       }
     }

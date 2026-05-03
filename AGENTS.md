@@ -13,8 +13,9 @@ This file is the repo-level operating guide for coding agents. It is not a produ
 5. Vercel success means web released, not backend released.
 6. A committed migration file means database change is in code, not that production DB has been migrated.
 7. Any change or discovered drift that must eventually be unified across local/dev and release/prod must be recorded as a pending governance task immediately. This includes database data, schema, migrations, seed data, environment variables, platform config, release wiring, tool auth assumptions, and any other two-side parity requirement. Create or update a Markdown task under `docs/核心開發文件/07-待處理問題與治理/待處理/` with the current state, target release action, verification command, and owner/status notes; do not rely on chat memory.
-8. Never use production database credentials for local development unless the user explicitly asks and the command is read-only or the migration plan is confirmed.
-9. Do not print secrets. Show hosts, project names, aliases, commit SHAs, and masked values only.
+8. Case access and product-flow classification must not be reimplemented ad hoc from `case.mode`. Backend code must use `backend/src/utils/case-classifier.ts` for session-vs-user access decisions, and docs must record any new flow classification rule before frontend or API behavior is changed.
+9. Never use production database credentials for local development unless the user explicitly asks and the command is read-only or the migration plan is confirmed.
+10. Do not print secrets. Show hosts, project names, aliases, commit SHAs, and masked values only.
 
 ## Fixed Ops Entrypoints
 
@@ -23,12 +24,15 @@ Use these commands before improvising platform calls:
 ```bash
 npm run ops:release:status
 npm run ops:db:status
+cd backend && npm run ops:product-state:audit
 npm run docs:check
 ```
 
 `ops:release:status` checks git, Vercel version endpoints, optional backend version endpoint, Vercel inspect, and Railway CLI auth/status if available.
 
 `ops:db:status` checks Prisma migration status for the configured database without printing `DATABASE_URL`.
+
+`ops:product-state:audit` is a read-only backend consistency audit for stuck case/chat conversion states. Findings are not auto-fixed; record follow-up tasks before changing production data.
 
 ## Platform Map
 
@@ -73,6 +77,26 @@ Current Railway production state, last verified 2026-05-03:
 3. Railway CLI can read production deployment state with `railway status --json`.
 4. Latest and active production backend deployments were `SUCCESS` after the Railway Docker build fix.
 5. Use `railway status --json` for the exact active commit, because the backend version endpoint currently does not expose commit SHA.
+
+## Frontend Tech Stack (Migration in Progress)
+
+The frontend is actively migrating from Ant Design to shadcn/ui. During the transition period:
+
+| Layer | Legacy (being replaced) | New (target) |
+| --- | --- | --- |
+| Component library | Ant Design 6 | shadcn/ui + Radix UI |
+| Styling | LESS + Tailwind (mixed) | Tailwind CSS 4 only |
+| Icons | @ant-design/icons | Lucide React |
+| Toast/notifications | antd message | Sonner |
+| Forms | Ant Form | Native + react-hook-form + zod |
+| Color system | Sage green (#84A59D) | Warm coral (oklch-based, see index.css @theme) |
+
+**Rules during migration:**
+1. New pages and migrated pages use shadcn/ui exclusively.
+2. Un-migrated pages keep Ant Design until their turn.
+3. Do not mix Ant Design and shadcn/ui in the same component.
+4. All new UI components go in `src/components/ui/` (shadcn) or `src/components/common/` (branded).
+5. Migration progress is tracked in `docs/核心開發文件/07-待處理問題與治理/待處理/UI-UX升級遷移追蹤-2026-05-03.md`.
 
 ## Local Development
 

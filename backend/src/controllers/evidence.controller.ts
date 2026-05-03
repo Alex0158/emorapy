@@ -6,7 +6,8 @@ import logger from '../config/logger';
 import { sessionService } from '../services/session.service';
 import { getAuthUserIdOptional, getSessionIdFromSources } from '../utils/request';
 import { lockService } from '../utils/lock';
-import { LOCK_TTL, EVIDENCE_UPLOAD_ALLOWED_STATUSES, CASE_MODE } from '../utils/constants';
+import { LOCK_TTL, EVIDENCE_UPLOAD_ALLOWED_STATUSES } from '../utils/constants';
+import { isCaseParticipant, isSessionBoundCase } from '../utils/case-classifier';
 
 export class EvidenceController {
   private preAuthorizeUpload = async (req: Request, _res: Response, next: NextFunction) => {
@@ -27,7 +28,7 @@ export class EvidenceController {
         throw Errors.NOT_FOUND('案件不存在');
       }
 
-      if (case_.mode === CASE_MODE.QUICK || case_.mode === CASE_MODE.COLLABORATIVE) {
+      if (isSessionBoundCase(case_)) {
         if (!sessionId || case_.session_id !== sessionId) {
           throw Errors.FORBIDDEN('無權限上傳證據');
         }
@@ -39,7 +40,7 @@ export class EvidenceController {
         if (!userId) {
           throw Errors.UNAUTHORIZED('需要認證');
         }
-        if (case_.plaintiff_id !== userId && case_.defendant_id !== userId) {
+        if (!isCaseParticipant(case_, userId)) {
           throw Errors.FORBIDDEN('無權限上傳證據');
         }
       }
@@ -179,8 +180,8 @@ export const deleteEvidence = async (req: Request, res: Response, next: NextFunc
 
     const case_ = evidence.case;
 
-    // 匿名體驗模式（quick/collaborative）：驗證 session
-    if (case_.mode === CASE_MODE.QUICK || case_.mode === CASE_MODE.COLLABORATIVE) {
+    // session-bound 模式（quick / collaborative with session_id）：驗證 session
+    if (isSessionBoundCase(case_)) {
       if (!sessionId || case_.session_id !== sessionId) {
         throw Errors.FORBIDDEN('無權限刪除此證據');
       }
@@ -188,7 +189,7 @@ export const deleteEvidence = async (req: Request, res: Response, next: NextFunc
       if (!session) throw Errors.SESSION_EXPIRED();
     } else {
       // 完整模式：需當事人
-      if (!userId || (case_.plaintiff_id !== userId && case_.defendant_id !== userId)) {
+      if (!isCaseParticipant(case_, userId)) {
         throw Errors.FORBIDDEN('無權限刪除此證據');
       }
     }

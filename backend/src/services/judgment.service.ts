@@ -19,6 +19,7 @@ import { ruptureRepairService } from './rupture-repair.service';
 import { clinicalQualityService } from './clinical-quality.service';
 import { env } from '../config/env';
 import { aiStreamService } from './ai-stream.service';
+import { isCaseParticipant, isSessionBoundCase } from '../utils/case-classifier';
 
 // ─── 關係互動層模板匹配（Step 4B）──────────────────
 // 使用雙方洞察的 key/value 查表生成，零額外 AI 成本
@@ -320,14 +321,6 @@ function truncateProfileParts(parts: PrioritizedText[]): {
  * - 唯一約束作為最後防線
  */
 export class JudgmentService {
-  /**
-   * quick 一律為 session-bound；
-   * collaborative 僅在 session_id 存在時視為匿名協作流程。
-   */
-  private isSessionBoundCase(case_: { mode: string; session_id?: string | null }): boolean {
-    return case_.mode === CASE_MODE.QUICK || (case_.mode === CASE_MODE.COLLABORATIVE && Boolean(case_.session_id));
-  }
-
   private readonly contextGovernance = {
     enableProfileContext: env.JUDGMENT_ENABLE_PROFILE_CONTEXT,
     enableCaseContext: env.JUDGMENT_ENABLE_CASE_CONTEXT,
@@ -419,13 +412,13 @@ export class JudgmentService {
         }
 
         // 權限校驗：匿名 quick/collaborative 需匹配 Session；完整模式需當事人
-        if (case_.mode === CASE_MODE.QUICK || case_.mode === CASE_MODE.COLLABORATIVE) {
+        if (isSessionBoundCase(case_)) {
           if (!options?.sessionId || case_.session_id !== options.sessionId) {
             throw Errors.FORBIDDEN('無權限生成判決');
           }
         } else {
           const uid = options?.userId;
-          if (!uid || (case_.plaintiff_id !== uid && case_.defendant_id !== uid)) {
+          if (!isCaseParticipant(case_, uid)) {
             throw Errors.FORBIDDEN('無權限生成判決');
           }
         }
@@ -1131,7 +1124,7 @@ export class JudgmentService {
     }
 
     // session-bound 模式（quick / collaborative with session_id）：驗證 Session ID
-    if (this.isSessionBoundCase(case_)) {
+    if (isSessionBoundCase(case_)) {
       if (!sessionId || case_.session_id !== sessionId) {
         throw Errors.FORBIDDEN('無權限訪問此判決');
       }

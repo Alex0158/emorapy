@@ -1,5 +1,7 @@
 import {
   buildCaseProductFlowWhere,
+  buildCompletedExecutionProductFlowWhere,
+  buildJudgmentProductFlowWhere,
   buildUserBoundCaseModeWhere,
   getCaseAccessKind,
   getCaseProductFlow,
@@ -88,6 +90,34 @@ describe('case-classifier', () => {
       chat_to_case_links: { none: {} },
       mode: 'collaborative',
       session_id: null,
+    });
+  });
+
+  it('judgment 與 completed execution product-flow where 應共用 case product-flow 口徑', () => {
+    expect(buildJudgmentProductFlowWhere('quick_collaborative')).toEqual({
+      case: {
+        is: {
+          chat_to_case_links: { none: {} },
+          mode: 'collaborative',
+          session_id: { not: null },
+        },
+      },
+    });
+    expect(buildCompletedExecutionProductFlowWhere('chat_to_case')).toEqual({
+      status: 'completed',
+      reconciliation_plan: {
+        is: {
+          judgment: {
+            is: {
+              case: {
+                is: {
+                  chat_to_case_links: { some: {} },
+                },
+              },
+            },
+          },
+        },
+      },
     });
   });
 });

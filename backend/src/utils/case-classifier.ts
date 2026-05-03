@@ -119,3 +119,28 @@ export function buildCaseProductFlowWhere(flow: CaseProductFlow): Prisma.CaseWhe
     mode: CASE_MODE.REMOTE,
   };
 }
+
+export function buildJudgmentProductFlowWhere(flow: CaseProductFlow): Prisma.JudgmentWhereInput {
+  return {
+    case: {
+      is: buildCaseProductFlowWhere(flow),
+    },
+  };
+}
+
+export function buildCompletedExecutionProductFlowWhere(flow: CaseProductFlow): Prisma.ExecutionRecordWhereInput {
+  return {
+    status: 'completed',
+    reconciliation_plan: {
+      is: {
+        judgment: {
+          is: {
+            case: {
+              is: buildCaseProductFlowWhere(flow),
+            },
+          },
+        },
+      },
+    },
+  };
+}

@@ -70,6 +70,10 @@ const safetyRoutingServiceMock = {
   decideRoute: jest.fn(),
 };
 
+const safetyAssessmentServiceMock = {
+  recordRouteAssessment: jest.fn(),
+};
+
 const loggerMock = {
   info: jest.fn(),
   warn: jest.fn(),
@@ -112,6 +116,11 @@ jest.mock('../../../src/services/safety-routing.service', () => ({
   safetyRoutingService: safetyRoutingServiceMock,
 }));
 
+jest.mock('../../../src/services/safety-assessment.service', () => ({
+  __esModule: true,
+  safetyAssessmentService: safetyAssessmentServiceMock,
+}));
+
 jest.mock('../../../src/config/logger', () => ({
   __esModule: true,
   default: loggerMock,
@@ -131,6 +140,7 @@ describe('ChatService', () => {
     prismaMock.chatInvite.findFirst.mockResolvedValue(null);
     prismaMock.chatRoom.updateMany.mockResolvedValue({ count: 1 });
     prismaMock.chatParticipant.findFirst.mockResolvedValue(null);
+    safetyAssessmentServiceMock.recordRouteAssessment.mockResolvedValue({ id: 'assessment-1' });
     prismaMock.chatParticipant.findUnique.mockResolvedValue({
       id: 'p-a',
       role_in_room: 'roleA',
@@ -282,6 +292,29 @@ describe('ChatService', () => {
           room_id: 'room-3',
           message_type: 'safety_notice',
           safety_flag: true,
+        }),
+      })
+    );
+    expect(safetyAssessmentServiceMock.recordRouteAssessment).toHaveBeenCalledWith(
+      { subjectType: 'chat_room', subjectId: 'room-3' },
+      'crisis_support',
+      expect.objectContaining({
+        source: 'chat_judgment_policy',
+        reasons: ['hit'],
+        assessedByUserId: 'u1',
+        updateActiveRiskState: true,
+        metadata: expect.objectContaining({
+          outcome: 'blocked',
+          room_id: 'room-3',
+          case_id: null,
+          link_id: null,
+          judgment_id: null,
+          detected_flags: ['自傷/自殺風險'],
+          source_message_range: expect.objectContaining({
+            first_message_id: 'm1',
+            last_message_id: 'm1',
+            total_user_messages: 1,
+          }),
         }),
       })
     );
@@ -942,6 +975,35 @@ describe('ChatService', () => {
         }),
       })
     );
+    expect(safetyAssessmentServiceMock.recordRouteAssessment).toHaveBeenCalledWith(
+      { subjectType: 'chat_room', subjectId: 'room-6' },
+      'safety_support',
+      expect.objectContaining({
+        source: 'chat_judgment_policy',
+        reasons: ['IPV-like signal'],
+        assessedByUserId: 'u1',
+        updateActiveRiskState: true,
+        metadata: expect.objectContaining({
+          outcome: 'judgment_completed',
+          room_id: 'room-6',
+          case_id: 'case-6',
+          link_id: 'link-6',
+          judgment_id: 'judgment-6',
+          detected_flags: ['控制/暴力/威脅風險'],
+          participant_consent: expect.objectContaining({
+            role_b_messages_included: true,
+            role_b_inclusion_consent_asserted: true,
+            role_b_consent_required: true,
+            role_b_participant_id: 'p-b',
+            role_b_user_id: 'u2',
+          }),
+          layer_summary: expect.objectContaining({
+            role_a_messages: 1,
+            role_b_messages: 1,
+          }),
+        }),
+      })
+    );
   });
 
   it('requestJudgment: 納入 B 方訊息時必須先帶 B 方明示同意', async () => {
@@ -1021,6 +1083,7 @@ describe('ChatService', () => {
     prismaMock.chatToCaseLink.create.mockResolvedValueOnce({ id: 'link-gap' });
     judgmentServiceMock.generateJudgment.mockResolvedValueOnce({ id: 'judgment-gap' });
     prismaMock.chatToCaseLink.update.mockResolvedValueOnce({ id: 'link-gap', judgment_id: 'judgment-gap' });
+    safetyAssessmentServiceMock.recordRouteAssessment.mockRejectedValueOnce(new Error('missing safety table'));
 
     await service.requestJudgment('room-gap', { userId: 'u1' });
 
@@ -1037,6 +1100,28 @@ describe('ChatService', () => {
             ]),
           }),
         }),
+      })
+    );
+    expect(safetyAssessmentServiceMock.recordRouteAssessment).toHaveBeenCalledWith(
+      { subjectType: 'chat_room', subjectId: 'room-gap' },
+      'standard',
+      expect.objectContaining({
+        source: 'chat_judgment_policy',
+        updateActiveRiskState: false,
+        metadata: expect.objectContaining({
+          outcome: 'judgment_completed',
+          case_id: 'case-gap',
+          link_id: 'link-gap',
+          judgment_id: 'judgment-gap',
+        }),
+      })
+    );
+    expect(loggerMock.warn).toHaveBeenCalledWith(
+      'Chat route safety assessment persistence failed',
+      expect.objectContaining({
+        roomId: 'room-gap',
+        route: 'standard',
+        outcome: 'judgment_completed',
       })
     );
   });

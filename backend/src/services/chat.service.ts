@@ -19,11 +19,12 @@ import { judgmentService } from './judgment.service';
 import logger from '../config/logger';
 import { lockService } from '../utils/lock';
 import { LOCK_TTL } from '../utils/constants';
-import { safetyRoutingService } from './safety-routing.service';
+import { safetyRoutingService, type JudgmentRoute } from './safety-routing.service';
 import { chatAIOrchestrator } from './chat-ai-orchestrator.service';
 import { chatMetricsService } from './chat-metrics.service';
 import { analyzeMessageLayers, buildChatJudgmentStatement } from './chat-message-analysis';
 import { getChatJudgmentRequestPolicy } from '../utils/product-safety-policy';
+import { safetyAssessmentService } from './safety-assessment.service';
 
 type ActorContext = {
   userId?: string;
@@ -73,6 +74,78 @@ export class ChatService {
   private readonly ROOM_MIN_INTERVAL_MS = 5_000;
   private readonly INVITE_COOLDOWN_MS = 60_000;
   private readonly INVITE_DECLINED_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+
+  private async recordChatRouteSafetyAssessmentBestEffort(input: {
+    roomId: string;
+    route: JudgmentRoute;
+    reasons: string[];
+    detectedFlags: string[];
+    assessedByUserId?: string | null;
+    outcome: 'blocked' | 'judgment_completed';
+    caseId?: string | null;
+    linkId?: string | null;
+    judgmentId?: string | null;
+    firstMessageId?: string | null;
+    lastMessageId?: string | null;
+    totalUserMessages: number;
+    roleAMessageCount: number;
+    roleBMessageCount: number;
+    roleBMessagesIncluded: boolean;
+    roleBConsentAsserted: boolean;
+    roleBParticipantId?: string | null;
+    roleBUserId?: string | null;
+    informationGaps: string[];
+    transformConfidence: string;
+  }) {
+    try {
+      await safetyAssessmentService.recordRouteAssessment(
+        { subjectType: 'chat_room', subjectId: input.roomId },
+        input.route,
+        {
+          source: 'chat_judgment_policy',
+          reasons: input.reasons,
+          assessedByUserId: input.assessedByUserId ?? null,
+          updateActiveRiskState: input.route !== 'standard',
+          metadata: {
+            outcome: input.outcome,
+            room_id: input.roomId,
+            case_id: input.caseId ?? null,
+            link_id: input.linkId ?? null,
+            judgment_id: input.judgmentId ?? null,
+            detected_flags: input.detectedFlags,
+            source_message_range: {
+              first_message_id: input.firstMessageId ?? null,
+              last_message_id: input.lastMessageId ?? null,
+              total_user_messages: input.totalUserMessages,
+            },
+            participant_consent: {
+              role_b_messages_included: input.roleBMessagesIncluded,
+              role_b_inclusion_consent_asserted: input.roleBConsentAsserted,
+              role_b_consent_required: input.roleBMessagesIncluded,
+              role_b_participant_id: input.roleBParticipantId ?? null,
+              role_b_user_id: input.roleBUserId ?? null,
+            },
+            layer_summary: {
+              role_a_messages: input.roleAMessageCount,
+              role_b_messages: input.roleBMessageCount,
+              information_gaps: input.informationGaps,
+              transform_confidence: input.transformConfidence,
+            },
+          },
+        }
+      );
+    } catch (error) {
+      logger.warn('Chat route safety assessment persistence failed', {
+        roomId: input.roomId,
+        route: input.route,
+        outcome: input.outcome,
+        caseId: input.caseId,
+        linkId: input.linkId,
+        judgmentId: input.judgmentId,
+        error,
+      });
+    }
+  }
 
   private checkRoomRateLimit(roomId: string) {
     const now = Date.now();
@@ -1006,6 +1079,28 @@ export class ChatService {
         }).catch(() => undefined);
       }
       if (!requestPolicy.canRequestChatJudgment) {
+        await this.recordChatRouteSafetyAssessmentBestEffort({
+          roomId: room.id,
+          route: preRouteDecision.route,
+          reasons: requestPolicy.reasons,
+          detectedFlags: preRouteDecision.detectedFlags,
+          assessedByUserId: resolvedActor.userId ?? null,
+          outcome: 'blocked',
+          caseId: null,
+          linkId: null,
+          judgmentId: null,
+          firstMessageId: firstMessage?.id ?? null,
+          lastMessageId: lastMessage?.id ?? null,
+          totalUserMessages: userMessages.length,
+          roleAMessageCount: roleAMessages.length,
+          roleBMessageCount: roleBMessages.length,
+          roleBMessagesIncluded: includesRoleBMessages,
+          roleBConsentAsserted,
+          roleBParticipantId: roleBParticipant?.id ?? null,
+          roleBUserId: roleBParticipant?.user_id ?? null,
+          informationGaps: layerAnalysis.informationGaps,
+          transformConfidence: layerAnalysis.confidence,
+        });
         throw Errors.CASE_NOT_READY(requestPolicy.rejectionMessage ?? '目前安全路由不允許由聊天室直接轉判決');
       }
 
@@ -1140,6 +1235,29 @@ export class ChatService {
           }
         });
         chatMetricsService.recordJudgmentSuccess().catch(() => undefined);
+
+        await this.recordChatRouteSafetyAssessmentBestEffort({
+          roomId: room.id,
+          route: preRouteDecision.route,
+          reasons: requestPolicy.reasons,
+          detectedFlags: preRouteDecision.detectedFlags,
+          assessedByUserId: resolvedActor.userId ?? null,
+          outcome: 'judgment_completed',
+          caseId,
+          linkId,
+          judgmentId: judgmentId ?? null,
+          firstMessageId: firstMessage?.id ?? null,
+          lastMessageId: lastMessage?.id ?? null,
+          totalUserMessages: userMessages.length,
+          roleAMessageCount: roleAMessages.length,
+          roleBMessageCount: roleBMessages.length,
+          roleBMessagesIncluded: includesRoleBMessages,
+          roleBConsentAsserted,
+          roleBParticipantId: roleBParticipant?.id ?? null,
+          roleBUserId: roleBParticipant?.user_id ?? null,
+          informationGaps: layerAnalysis.informationGaps,
+          transformConfidence: layerAnalysis.confidence,
+        });
 
         return {
           roomId: room.id,

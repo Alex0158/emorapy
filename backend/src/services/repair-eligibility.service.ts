@@ -1,5 +1,12 @@
 import { isSessionBoundCase } from '../utils/case-classifier';
-import type { ProductSafetyPolicy } from '../utils/product-safety-policy';
+import logger from '../config/logger';
+import { safetyAssessmentService } from './safety-assessment.service';
+import { getProductSafetyPolicyForJudgment } from './safety-routing.service';
+import {
+  getProductSafetyPolicy,
+  type ProductSafetyPolicy,
+  type SafetyAssessmentSnapshot,
+} from '../utils/product-safety-policy';
 
 export interface RepairEligibilityCase {
   mode: string;
@@ -24,7 +31,18 @@ export interface RepairJourneyAccessPolicy {
   canUseCoRepair: boolean;
   canNotifyPartner: boolean;
   forceSoloRepair: boolean;
+  safetySource?: 'active_risk_state' | 'fallback_route' | 'route_policy';
+  riskLevel?: string;
   reasons: string[];
+}
+
+export interface RepairEligibilityJudgment {
+  id?: string;
+  emotional_analysis?: unknown;
+  judgment_content?: string | null;
+  case: RepairEligibilityCase & {
+    id?: string;
+  };
 }
 
 export function getRepairEligibilityForCase(caseRecord: RepairEligibilityCase): RepairEligibilityPolicy {
@@ -104,4 +122,72 @@ export function getRepairJourneyAccessPolicy(
     forceSoloRepair: safetyPolicy.forceSoloRepair || repairEligibility.forceSoloRepair || !canUseCoRepair,
     reasons,
   };
+}
+
+function getRepairJourneySafetyPolicyFromSnapshot(
+  snapshot: SafetyAssessmentSnapshot,
+): Pick<
+  ProductSafetyPolicy,
+  | 'allowedReconciliationIntents'
+  | 'canInvitePartner'
+  | 'canUseCoRepair'
+  | 'canNotifyPartner'
+  | 'forceSoloRepair'
+  | 'reasons'
+> {
+  const routePolicy = getProductSafetyPolicy(snapshot.judgment_route);
+  return {
+    allowedReconciliationIntents: routePolicy.allowedReconciliationIntents,
+    canInvitePartner: snapshot.can_invite_partner,
+    canUseCoRepair: snapshot.can_use_co_repair,
+    canNotifyPartner: snapshot.can_notify_partner,
+    forceSoloRepair: snapshot.force_solo_repair,
+    reasons: snapshot.reasons.length > 0 ? snapshot.reasons : routePolicy.reasons,
+  };
+}
+
+export async function getRepairJourneyAccessPolicyForJudgment(
+  judgment: RepairEligibilityJudgment,
+  repairEligibility: RepairEligibilityPolicy,
+): Promise<RepairJourneyAccessPolicy> {
+  const fallbackSafetyPolicy = getProductSafetyPolicyForJudgment(judgment);
+  const caseId = judgment.case.id;
+  if (!caseId) {
+    return {
+      ...getRepairJourneyAccessPolicy(fallbackSafetyPolicy, repairEligibility),
+      safetySource: 'route_policy',
+    };
+  }
+
+  try {
+    const effective = await safetyAssessmentService.getEffectiveRouteSnapshot(
+      { subjectType: 'case', subjectId: caseId },
+      fallbackSafetyPolicy.route,
+      {
+        fallbackReasons: fallbackSafetyPolicy.reasons,
+        fallbackMetadata: {
+          judgment_id: judgment.id ?? null,
+          case_id: caseId,
+        },
+      },
+    );
+    return {
+      ...getRepairJourneyAccessPolicy(
+        getRepairJourneySafetyPolicyFromSnapshot(effective.snapshot),
+        repairEligibility,
+      ),
+      safetySource: effective.source,
+      riskLevel: effective.snapshot.risk_level,
+    };
+  } catch (error) {
+    logger.warn('Repair journey safety state lookup failed, fallback to route policy', {
+      judgmentId: judgment.id,
+      caseId,
+      error,
+    });
+    return {
+      ...getRepairJourneyAccessPolicy(fallbackSafetyPolicy, repairEligibility),
+      safetySource: 'route_policy',
+    };
+  }
 }

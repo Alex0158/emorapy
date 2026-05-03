@@ -7,6 +7,8 @@ const mockStartPlan = jest.fn();
 const mockResumeTrack = jest.fn();
 const mockGetSnapshots = jest.fn();
 const mockCreateStream = jest.fn();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockGetEffectiveRouteSnapshot: any = jest.fn();
 
 const basePlan = (overrides: Record<string, unknown> = {}) => ({
   id: 'plan-1',
@@ -31,6 +33,7 @@ const basePlan = (overrides: Record<string, unknown> = {}) => ({
     emotional_analysis: null,
     judgment_content: '一般衝突判決',
     case: {
+      id: 'case-1',
       mode: 'remote',
       session_id: null,
       plaintiff_id: 'u1',
@@ -74,8 +77,14 @@ jest.mock('../../../src/services/ai-stream.service', () => ({
     createStream: (...args: unknown[]) => mockCreateStream(...args),
   },
 }));
+jest.mock('../../../src/services/safety-assessment.service', () => ({
+  safetyAssessmentService: {
+    getEffectiveRouteSnapshot: (...args: unknown[]) => mockGetEffectiveRouteSnapshot(...args),
+  },
+}));
 
 import { ExecutionService } from '../../../src/services/execution.service';
+import { buildSafetyAssessmentSnapshotForRoute } from '../../../src/utils/product-safety-policy';
 
 describe('ExecutionService', () => {
   let service: ExecutionService;
@@ -92,6 +101,16 @@ describe('ExecutionService', () => {
       scopeType: 'repair_track',
       scopeId: 'track-1',
     } as never);
+    mockGetEffectiveRouteSnapshot.mockImplementation(async (_scope: unknown, route: unknown, options?: { fallbackReasons?: string[]; fallbackMetadata?: Record<string, unknown> }) => {
+      const fallbackRoute = route === 'safety_support' || route === 'crisis_support' ? route : 'standard';
+      return {
+        source: 'fallback_route',
+        snapshot: buildSafetyAssessmentSnapshotForRoute(fallbackRoute, {
+          reasons: options?.fallbackReasons,
+          metadata: options?.fallbackMetadata,
+        }),
+      };
+    });
   });
 
   it('confirmExecution 應在成功時啟動 repair journey', async () => {
@@ -240,6 +259,57 @@ describe('ExecutionService', () => {
     expect(result.journey_context.primary_cta.action).toBe('continue_today_step');
     expect(result.journey_context.secondary_cta?.action).toBe('review_recommendation');
     expect(result.journey_context.title).toBe('今天只要先做一小步');
+  });
+
+  it('getExecutionStatus 應用 active relationship risk state 覆蓋標準判決路由', async () => {
+    prismaMock.reconciliationPlan.findUnique.mockResolvedValue(basePlan({
+      user2_selected: true,
+      judgment: {
+        emotional_analysis: { route: 'standard' },
+        judgment_content: '一般衝突判決',
+        case: {
+          id: 'case-1',
+          mode: 'remote',
+          session_id: null,
+          plaintiff_id: 'u1',
+          defendant_id: 'u2',
+        },
+      },
+    }));
+    prismaMock.executionRecord.findMany.mockResolvedValue([]);
+    prismaMock.repairTrack.findUnique.mockResolvedValue({
+      id: 'track-1',
+      status: 'co_active',
+      recommended_mode: 'co',
+      current_step_index: 0,
+      needs_replan: false,
+      last_closeness: 'same',
+      last_stress: 'medium',
+      last_needs_help: false,
+      partner_invited_at: null,
+      participant_states: [
+        { user_id: 'u1', commitment_status: 'committed' },
+        { user_id: 'u2', commitment_status: 'committed' },
+      ],
+      step_progresses: [{ step_index: 0, step_title: '今天的一小步', step_content: '先做這一步', fallback_content: '改低壓版本', pause_rule: '先停一下', status: 'active' }],
+      checkins: [],
+    });
+    mockGetEffectiveRouteSnapshot.mockResolvedValue({
+      source: 'active_risk_state',
+      snapshot: buildSafetyAssessmentSnapshotForRoute('safety_support', {
+        reasons: ['active risk state'],
+      }),
+    });
+
+    const result = await service.getExecutionStatus('u1', 'plan-1');
+
+    expect(mockGetEffectiveRouteSnapshot).toHaveBeenCalledWith(
+      { subjectType: 'case', subjectId: 'case-1' },
+      'standard',
+      expect.any(Object),
+    );
+    expect(result.relationship_mode).toBe('solo');
+    expect(result.journey_context.secondary_cta?.action).toBe('review_recommendation');
   });
 
   it('replanTrack 應保留 track 並生成新 plan version', async () => {

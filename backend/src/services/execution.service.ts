@@ -15,8 +15,10 @@ import { aiService } from './ai.service';
 import { aiStreamService, type AIStreamHandle } from './ai-stream.service';
 import { notificationService } from './notification.service';
 import { buildRepairJourneyContext } from './repair-journey.service';
-import { getRepairEligibilityForCase, getRepairJourneyAccessPolicy } from './repair-eligibility.service';
-import { getProductSafetyPolicyForJudgment } from './safety-routing.service';
+import {
+  getRepairEligibilityForCase,
+  getRepairJourneyAccessPolicyForJudgment,
+} from './repair-eligibility.service';
 
 export interface CheckinDto {
   plan_id: string;
@@ -411,21 +413,20 @@ export class ExecutionService {
     return 'initiator';
   }
 
-  private getRepairJourneyAccessForExecution(plan: ExecutionJourneyPlan) {
-    const safetyPolicy = getProductSafetyPolicyForJudgment(plan.judgment);
+  private async getRepairJourneyAccessForExecution(plan: ExecutionJourneyPlan) {
     const repairEligibility = getRepairEligibilityForCase(plan.judgment.case);
-    return getRepairJourneyAccessPolicy(safetyPolicy, repairEligibility);
+    return getRepairJourneyAccessPolicyForJudgment(plan.judgment, repairEligibility);
   }
 
-  private getEffectiveRelationshipModeForExecution(plan: ExecutionJourneyPlan): 'solo' | 'co' {
-    const repairJourneyAccess = this.getRepairJourneyAccessForExecution(plan);
+  private async getEffectiveRelationshipModeForExecution(plan: ExecutionJourneyPlan): Promise<'solo' | 'co'> {
+    const repairJourneyAccess = await this.getRepairJourneyAccessForExecution(plan);
     if (repairJourneyAccess.forceSoloRepair) return 'solo';
     return plan.repair_track?.recommended_mode === 'co' ? 'co' : 'solo';
   }
 
-  private buildJourneyContextForExecution(plan: ExecutionJourneyPlan, userId: string) {
+  private async buildJourneyContextForExecution(plan: ExecutionJourneyPlan, userId: string) {
     const commitment = this.buildCommitmentSummary(plan, userId);
-    const repairJourneyAccess = this.getRepairJourneyAccessForExecution(plan);
+    const repairJourneyAccess = await this.getRepairJourneyAccessForExecution(plan);
     const recommendedMode = repairJourneyAccess.forceSoloRepair
       ? 'solo'
       : (commitment.recommended_mode as 'solo' | 'co');
@@ -781,7 +782,7 @@ export class ExecutionService {
       });
       for (const partner of partnerStates) {
         const partnerJourneyContext = refreshedTrack
-          ? this.buildJourneyContextForExecution(
+          ? await this.buildJourneyContextForExecution(
               {
                 ...refreshedTrack.plan,
                 repair_track: {
@@ -1171,8 +1172,8 @@ export class ExecutionService {
         participant_states: track.participant_states,
       } : null,
     };
-    const journeyContext = this.buildJourneyContextForExecution(planWithTrack, userId);
-    const relationshipMode = this.getEffectiveRelationshipModeForExecution(planWithTrack);
+    const journeyContext = await this.buildJourneyContextForExecution(planWithTrack, userId);
+    const relationshipMode = await this.getEffectiveRelationshipModeForExecution(planWithTrack);
 
     const planContent = parsePlanContent(plan.plan_content);
     const currentStep = track?.step_progresses.find((step) => step.step_index === track.current_step_index)
@@ -1267,7 +1268,7 @@ export class ExecutionService {
     });
 
     if (tracks.length > 0) {
-      return tracks.map((track) => {
+      return Promise.all(tracks.map(async (track) => {
         const progressResult = this.buildTrackProgress(track);
         const planWithTrack = {
           ...track.plan,
@@ -1279,8 +1280,8 @@ export class ExecutionService {
             participant_states: track.participant_states,
           },
         };
-        const journeyContext = this.buildJourneyContextForExecution(planWithTrack, userId);
-        const relationshipMode = this.getEffectiveRelationshipModeForExecution(planWithTrack);
+        const journeyContext = await this.buildJourneyContextForExecution(planWithTrack, userId);
+        const relationshipMode = await this.getEffectiveRelationshipModeForExecution(planWithTrack);
         return {
           track_id: track.id,
           plan_id: track.plan_id,
@@ -1313,7 +1314,7 @@ export class ExecutionService {
           ...this.buildJourneyActions(track),
           ...this.buildLegacyJourneyActions(journeyContext),
         };
-      });
+      }));
     }
 
     const cases = await prisma.case.findMany({
@@ -1343,7 +1344,7 @@ export class ExecutionService {
       },
     });
 
-    return cases.flatMap((caseRecord) => {
+    const legacyPlans = cases.flatMap((caseRecord) => {
       const judgment = caseRecord.judgment;
       if (!judgment) return [];
       return judgment.reconciliation_plans
@@ -1351,54 +1352,57 @@ export class ExecutionService {
           const isUser1 = caseRecord.plaintiff_id === userId;
           return (isUser1 && plan.user1_selected) || (!isUser1 && plan.user2_selected);
         })
-        .map((plan) => {
-          const progressResult = this.calculateLegacyProgress(plan, plan.execution_records);
-          const planWithTrack = {
-            ...plan,
-            repair_track: null,
-            judgment: {
-              emotional_analysis: judgment.emotional_analysis,
-              judgment_content: judgment.judgment_content,
-              case: {
-                mode: caseRecord.mode,
-                session_id: caseRecord.session_id,
-                plaintiff_id: caseRecord.plaintiff_id,
-                defendant_id: caseRecord.defendant_id,
-              },
-            },
-          };
-          const journeyContext = this.buildJourneyContextForExecution(planWithTrack, userId);
-          return {
-            track_id: null,
-            plan_id: plan.id,
-            judgment_id: plan.judgment_id,
-            status: progressResult.status,
-            journey_status: 'draft',
-            relationship_mode: 'solo',
-            records: plan.execution_records,
-            recent_checkins: [],
-            progress: progressResult.progress,
-            plan_summary: this.extractPlanSummary(plan),
-            commitment: {
-              track_status: 'draft',
-              recommended_mode: 'solo',
-            },
-            pulse_summary: {
-              closeness: 'same',
-              stress: 'medium',
-              needs_replan: false,
-              needs_help: false,
-            },
-            ...this.buildJourneyActions({
-              id: `legacy-${plan.id}`,
-              plan_id: plan.id,
-              status: 'draft',
-              updated_at: plan.created_at,
-            }),
-            ...this.buildLegacyJourneyActions(journeyContext),
-          };
-        });
+        .map((plan) => ({ caseRecord, judgment, plan }));
     });
+
+    return Promise.all(legacyPlans.map(async ({ caseRecord, judgment, plan }) => {
+      const progressResult = this.calculateLegacyProgress(plan, plan.execution_records);
+      const planWithTrack = {
+        ...plan,
+        repair_track: null,
+        judgment: {
+          emotional_analysis: judgment.emotional_analysis,
+          judgment_content: judgment.judgment_content,
+          case: {
+            id: caseRecord.id,
+            mode: caseRecord.mode,
+            session_id: caseRecord.session_id,
+            plaintiff_id: caseRecord.plaintiff_id,
+            defendant_id: caseRecord.defendant_id,
+          },
+        },
+      };
+      const journeyContext = await this.buildJourneyContextForExecution(planWithTrack, userId);
+      return {
+        track_id: null,
+        plan_id: plan.id,
+        judgment_id: plan.judgment_id,
+        status: progressResult.status,
+        journey_status: 'draft',
+        relationship_mode: 'solo',
+        records: plan.execution_records,
+        recent_checkins: [],
+        progress: progressResult.progress,
+        plan_summary: this.extractPlanSummary(plan),
+        commitment: {
+          track_status: 'draft',
+          recommended_mode: 'solo',
+        },
+        pulse_summary: {
+          closeness: 'same',
+          stress: 'medium',
+          needs_replan: false,
+          needs_help: false,
+        },
+        ...this.buildJourneyActions({
+          id: `legacy-${plan.id}`,
+          plan_id: plan.id,
+          status: 'draft',
+          updated_at: plan.created_at,
+        }),
+        ...this.buildLegacyJourneyActions(journeyContext),
+      };
+    }));
   }
 }
 

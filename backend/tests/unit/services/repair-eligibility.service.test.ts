@@ -1,11 +1,29 @@
-import { describe, expect, it } from '@jest/globals';
+import { beforeEach, describe, expect, it } from '@jest/globals';
 import { getProductSafetyPolicy } from '../../../src/utils/product-safety-policy';
+
+const mockGetEffectiveRouteSnapshot = jest.fn();
+
+jest.mock('../../../src/services/safety-assessment.service', () => ({
+  safetyAssessmentService: {
+    getEffectiveRouteSnapshot: (...args: unknown[]) => mockGetEffectiveRouteSnapshot(...args),
+  },
+}));
+jest.mock('../../../src/config/logger', () => ({
+  __esModule: true,
+  default: { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() },
+}));
+
 import {
   getRepairEligibilityForCase,
+  getRepairJourneyAccessPolicyForJudgment,
   getRepairJourneyAccessPolicy,
 } from '../../../src/services/repair-eligibility.service';
 
 describe('repair-eligibility.service', () => {
+  beforeEach(() => {
+    mockGetEffectiveRouteSnapshot.mockReset();
+  });
+
   it('session-bound quick case 應強制 solo 並禁止伴侶邀請與通知', () => {
     const policy = getRepairEligibilityForCase({
       mode: 'quick',
@@ -115,5 +133,86 @@ describe('repair-eligibility.service', () => {
     expect(access.canEnterRepairJourney).toBe(false);
     expect(access.forceSoloRepair).toBe(true);
     expect(access.canInvitePartner).toBe(false);
+  });
+
+  it('repair journey access 應優先讀取 case scope active risk state', async () => {
+    mockGetEffectiveRouteSnapshot.mockResolvedValueOnce({
+      source: 'active_risk_state',
+      snapshot: {
+        risk_level: 'high_risk_relationship',
+        judgment_route: 'safety_support',
+        can_invite_partner: false,
+        can_use_co_repair: false,
+        can_notify_partner: false,
+        can_show_responsibility_ratio: false,
+        force_solo_repair: true,
+        reasons: ['active safety state'],
+        metadata: {},
+      },
+    });
+    const eligibility = getRepairEligibilityForCase({
+      mode: 'remote',
+      session_id: null,
+      plaintiff_id: 'u1',
+      defendant_id: 'u2',
+    });
+
+    const access = await getRepairJourneyAccessPolicyForJudgment({
+      id: 'judgment-1',
+      judgment_content: '一般判決內容',
+      emotional_analysis: { route: 'standard' },
+      case: {
+        id: 'case-1',
+        mode: 'remote',
+        session_id: null,
+        plaintiff_id: 'u1',
+        defendant_id: 'u2',
+      },
+    }, eligibility);
+
+    expect(mockGetEffectiveRouteSnapshot).toHaveBeenCalledWith(
+      { subjectType: 'case', subjectId: 'case-1' },
+      'standard',
+      expect.objectContaining({
+        fallbackMetadata: expect.objectContaining({
+          judgment_id: 'judgment-1',
+          case_id: 'case-1',
+        }),
+      }),
+    );
+    expect(access.safetySource).toBe('active_risk_state');
+    expect(access.riskLevel).toBe('high_risk_relationship');
+    expect(access.canInvitePartner).toBe(false);
+    expect(access.canUseCoRepair).toBe(false);
+    expect(access.forceSoloRepair).toBe(true);
+    expect(access.reasons).toEqual(expect.arrayContaining(['active safety state']));
+  });
+
+  it('repair journey access 讀取 active risk state 失敗時應回退 route policy', async () => {
+    mockGetEffectiveRouteSnapshot.mockRejectedValueOnce(new Error('missing table'));
+    const eligibility = getRepairEligibilityForCase({
+      mode: 'remote',
+      session_id: null,
+      plaintiff_id: 'u1',
+      defendant_id: 'u2',
+    });
+
+    const access = await getRepairJourneyAccessPolicyForJudgment({
+      id: 'judgment-2',
+      judgment_content: '一般判決內容',
+      emotional_analysis: { route: 'standard' },
+      case: {
+        id: 'case-2',
+        mode: 'remote',
+        session_id: null,
+        plaintiff_id: 'u1',
+        defendant_id: 'u2',
+      },
+    }, eligibility);
+
+    expect(access.safetySource).toBe('route_policy');
+    expect(access.canInvitePartner).toBe(true);
+    expect(access.canUseCoRepair).toBe(true);
+    expect(access.forceSoloRepair).toBe(false);
   });
 });

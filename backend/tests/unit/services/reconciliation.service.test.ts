@@ -5,6 +5,8 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 const mockGenerateReconciliationPlans = jest.fn();
 const mockIsReconciliationPlanContent = jest.fn();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockGetEffectiveRouteSnapshot: any = jest.fn();
 
 const validPlanContent = {
   title: '方案標題',
@@ -82,9 +84,15 @@ jest.mock('../../../src/services/notification.service', () => ({
     createIfEnabled: jest.fn(),
   },
 }));
+jest.mock('../../../src/services/safety-assessment.service', () => ({
+  safetyAssessmentService: {
+    getEffectiveRouteSnapshot: (...args: unknown[]) => mockGetEffectiveRouteSnapshot(...args),
+  },
+}));
 
 import { ReconciliationService } from '../../../src/services/reconciliation.service';
 import { caseContextService } from '../../../src/services/case-context.service';
+import { buildSafetyAssessmentSnapshotForRoute } from '../../../src/utils/product-safety-policy';
 
 const baseJudgment = {
   id: 'judge-1',
@@ -135,6 +143,16 @@ describe('ReconciliationService', () => {
     (caseContextService.loadCaseContext as any).mockResolvedValue(null);
     (caseContextService.formatForReconciliationPlans as any).mockReturnValue(undefined);
     (caseContextService.formatDiagnosticContext as any).mockReturnValue(undefined);
+    mockGetEffectiveRouteSnapshot.mockImplementation(async (_scope: unknown, route: unknown, options?: { fallbackReasons?: string[]; fallbackMetadata?: Record<string, unknown> }) => {
+      const fallbackRoute = route === 'safety_support' || route === 'crisis_support' ? route : 'standard';
+      return {
+        source: 'fallback_route',
+        snapshot: buildSafetyAssessmentSnapshotForRoute(fallbackRoute, {
+          reasons: options?.fallbackReasons,
+          metadata: options?.fallbackMetadata,
+        }),
+      };
+    });
   });
 
   it('generatePlans 應返回帶 recommended_plan_id 的 bundle', async () => {
@@ -496,6 +514,27 @@ describe('ReconciliationService', () => {
           session_id: 'guest_1',
         },
       },
+    });
+
+    await expect(service.invitePartner('plan-1', 'u1')).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
+    expect(prismaMock.repairTrack.create).not.toHaveBeenCalled();
+  });
+
+  it('active relationship risk state 應覆蓋 judgment route 並拒絕邀請伴侶', async () => {
+    prismaMock.reconciliationPlan.findUnique.mockResolvedValue({
+      ...storedPlan,
+      judgment: {
+        ...baseJudgment,
+        emotional_analysis: { route: 'standard' },
+      },
+    });
+    mockGetEffectiveRouteSnapshot.mockResolvedValueOnce({
+      source: 'active_risk_state',
+      snapshot: buildSafetyAssessmentSnapshotForRoute('safety_support', {
+        reasons: ['active risk state'],
+      }),
     });
 
     await expect(service.invitePartner('plan-1', 'u1')).rejects.toMatchObject({

@@ -20,7 +20,10 @@ import {
   type RepairJourneyViewerRole,
 } from './repair-journey.service';
 import { getProductSafetyPolicyForJudgment } from './safety-routing.service';
-import { getRepairEligibilityForCase, getRepairJourneyAccessPolicy } from './repair-eligibility.service';
+import {
+  getRepairEligibilityForCase,
+  getRepairJourneyAccessPolicyForJudgment,
+} from './repair-eligibility.service';
 import { isUserBoundProductCase } from '../utils/case-classifier';
 
 export type ReconciliationIntent = 'repair' | 'cool_down' | 'graceful_exit' | 'safety_support';
@@ -308,11 +311,10 @@ export class ReconciliationService {
     return 'initiator';
   }
 
-  private buildJourneyContext(plan: PlanRecordForHydration, userId: string) {
+  private async buildJourneyContext(plan: PlanRecordForHydration, userId: string) {
     const commitment = this.buildCommitmentSummary(plan, userId);
-    const safetyPolicy = getProductSafetyPolicyForJudgment(plan.judgment);
     const repairEligibility = getRepairEligibilityForCase(plan.judgment.case);
-    const repairJourneyAccess = getRepairJourneyAccessPolicy(safetyPolicy, repairEligibility);
+    const repairJourneyAccess = await getRepairJourneyAccessPolicyForJudgment(plan.judgment, repairEligibility);
     const trackStatus = (plan.repair_track?.status as RepairTrackStatusValue | undefined) ?? 'draft';
     const effectiveTrackStatus = repairJourneyAccess.forceSoloRepair && trackStatus === 'co_active'
       ? 'solo_active'
@@ -333,8 +335,8 @@ export class ReconciliationService {
     });
   }
 
-  private buildPlanCtaState(plan: PlanRecordForHydration, userId: string) {
-    const journeyContext = this.buildJourneyContext(plan, userId);
+  private async buildPlanCtaState(plan: PlanRecordForHydration, userId: string) {
+    const journeyContext = await this.buildJourneyContext(plan, userId);
     if (journeyContext.secondary_cta) {
       return {
         primary_action: journeyContext.primary_cta.action,
@@ -428,11 +430,11 @@ export class ReconciliationService {
     }
   }
 
-  private buildJourneyEntry(
+  private async buildJourneyEntry(
     plans: PlanRecordForHydration[],
     userId: string,
     versionSummary?: VersionSummary,
-  ): JourneyEntry {
+  ): Promise<JourneyEntry> {
     if (plans.length === 0) {
       return {
         status: 'none',
@@ -479,7 +481,7 @@ export class ReconciliationService {
         needs_replan: track.needs_replan,
       } : null,
       has_superseded_versions: versionSummary?.has_superseded_versions ?? false,
-      journey_context: this.buildJourneyContext(current, userId),
+      journey_context: await this.buildJourneyContext(current, userId),
     };
   }
 
@@ -620,7 +622,7 @@ export class ReconciliationService {
       recommended_plan_id: recommendedPlanId,
       intent,
       applied_preferences: preferences ?? null,
-      journey_entry: this.buildJourneyEntry(plans, userId, versionSummary),
+      journey_entry: await this.buildJourneyEntry(plans, userId, versionSummary),
       version_summary: versionSummary ?? {
         version_group_id: null,
         has_superseded_versions: false,
@@ -663,7 +665,7 @@ export class ReconciliationService {
 
     const safetyPolicy = getProductSafetyPolicyForJudgment(judgment);
     const repairEligibility = getRepairEligibilityForCase(judgment.case);
-    const repairJourneyAccess = getRepairJourneyAccessPolicy(safetyPolicy, repairEligibility);
+    const repairJourneyAccess = await getRepairJourneyAccessPolicyForJudgment(judgment, repairEligibility);
     if (!repairJourneyAccess.canEnterRepairJourney) {
       throw Errors.FORBIDDEN('此案件尚未綁定已登入當事人，不能生成修復旅程');
     }
@@ -734,8 +736,8 @@ export class ReconciliationService {
     } else if (safetyPolicy.route === 'safety_support') {
       safetyContext = '本案件已標記為安全支持路由。禁止共同修復、責任對稱化與伴侶召回，請優先提供個人安全規劃。';
     }
-    if (repairEligibility.forceSoloRepair) {
-      const eligibilityContext = repairEligibility.reasons.join('；');
+    if (repairJourneyAccess.forceSoloRepair) {
+      const eligibilityContext = repairJourneyAccess.reasons.join('；');
       safetyContext = safetyContext
         ? `${safetyContext}\n${eligibilityContext}`
         : eligibilityContext;
@@ -939,21 +941,22 @@ export class ReconciliationService {
     const plan = await this.loadPlanForAction(planId, userId);
     const { emotional_analysis: _ea, ...safeJudgment } = plan.judgment;
     const versionSummary = await this.getVersionSummary(plan.judgment_id, plan.intent, [plan]);
-    const inviteSafetyPolicy = getProductSafetyPolicyForJudgment(plan.judgment);
     const inviteEligibility = getRepairEligibilityForCase(plan.judgment.case);
-    const inviteAccess = getRepairJourneyAccessPolicy(inviteSafetyPolicy, inviteEligibility);
+    const inviteAccess = await getRepairJourneyAccessPolicyForJudgment(plan.judgment, inviteEligibility);
+    const journeyContext = await this.buildJourneyContext(plan, userId);
+    const ctaState = await this.buildPlanCtaState(plan, userId);
     return {
       ...this.hydratePlan(plan, userId),
       judgment: safeJudgment,
       viewer_role: this.getViewerRole(plan, userId),
-      journey_context: this.buildJourneyContext(plan, userId),
+      journey_context: journeyContext,
       invite_context: {
         partner_invited_at: plan.repair_track?.partner_invited_at ?? null,
         partner_status: this.buildCommitmentSummary(plan, userId).partner?.commitment_status ?? 'not_viewed',
         can_invite: inviteAccess.canInvitePartner
           && !!this.getOtherParticipantId(plan.judgment.case, userId),
       },
-      cta_state: this.buildPlanCtaState(plan, userId),
+      cta_state: ctaState,
       track_history_summary: this.buildTrackHistorySummary(plan, versionSummary),
     };
   }
@@ -976,9 +979,8 @@ export class ReconciliationService {
     const isUser1 = caseRecord.plaintiff_id === userId;
     const track = await this.ensureRepairTrack(plan);
     const partnerId = this.getOtherParticipantId(caseRecord, userId);
-    const safetyPolicy = getProductSafetyPolicyForJudgment(plan.judgment);
     const repairEligibility = getRepairEligibilityForCase(caseRecord);
-    const repairJourneyAccess = getRepairJourneyAccessPolicy(safetyPolicy, repairEligibility);
+    const repairJourneyAccess = await getRepairJourneyAccessPolicyForJudgment(plan.judgment, repairEligibility);
 
     if (action === 'committed') {
       await prisma.reconciliationPlan.update({
@@ -1055,7 +1057,7 @@ export class ReconciliationService {
         deferred: 'view_invitation_status',
         declined: 'review_invitation',
       };
-      const journeyContext = this.buildJourneyContext(refreshedPlan, partnerId);
+      const journeyContext = await this.buildJourneyContext(refreshedPlan, partnerId);
       await notificationService.createIfEnabled(partnerId, {
         channel: 'email',
         template_code: templateCodeMap[action as Exclude<PlanRespondAction, 'paused'>],
@@ -1089,9 +1091,8 @@ export class ReconciliationService {
 
   async invitePartner(planId: string, userId: string) {
     const plan = await this.loadPlanForAction(planId, userId);
-    const safetyPolicy = getProductSafetyPolicyForJudgment(plan.judgment);
     const repairEligibility = getRepairEligibilityForCase(plan.judgment.case);
-    const repairJourneyAccess = getRepairJourneyAccessPolicy(safetyPolicy, repairEligibility);
+    const repairJourneyAccess = await getRepairJourneyAccessPolicyForJudgment(plan.judgment, repairEligibility);
     if (!repairJourneyAccess.canInvitePartner) {
       throw Errors.FORBIDDEN('此判決路由不允許邀請伴侶加入修復旅程');
     }
@@ -1146,7 +1147,7 @@ export class ReconciliationService {
           entity_id: track.id,
           cta_label: '查看這個邀請',
           partner_state: 'invited',
-          journey_context: this.buildJourneyContext(partnerPlan, partnerId) as unknown as Prisma.InputJsonValue,
+          journey_context: (await this.buildJourneyContext(partnerPlan, partnerId)) as unknown as Prisma.InputJsonValue,
         },
       });
     }
@@ -1225,9 +1226,8 @@ export class ReconciliationService {
       },
     });
 
-    const safetyPolicy = getProductSafetyPolicyForJudgment(plan.judgment);
     const repairEligibility = getRepairEligibilityForCase(plan.judgment.case);
-    const repairJourneyAccess = getRepairJourneyAccessPolicy(safetyPolicy, repairEligibility);
+    const repairJourneyAccess = await getRepairJourneyAccessPolicyForJudgment(plan.judgment, repairEligibility);
     const dualCommitted = !repairJourneyAccess.forceSoloRepair
       && refreshedTrack?.participant_states.filter((state) => state.commitment_status === 'committed').length === 2;
     const status: RepairTrackStatusValue = dualCommitted ? 'co_active' : 'solo_active';

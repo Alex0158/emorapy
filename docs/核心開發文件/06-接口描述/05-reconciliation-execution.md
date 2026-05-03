@@ -46,17 +46,21 @@
 
 ## 修復資格邊界
 
-修復旅程資格由兩層 policy 同時裁決：
+修復旅程資格由兩層 policy 同時裁決，並優先讀取已持久化的全域安全狀態：
 
-1. 安全路由：`backend/src/services/safety-routing.service.ts`
+1. 全域安全狀態：`backend/src/services/safety-assessment.service.ts`
+   - `backend/src/services/repair-eligibility.service.ts` 的 async resolver 會先用判決 route 建 fallback，再讀 case scope active `RelationshipRiskState`。
+   - 若 active state 存在，`ReconciliationService`、`ExecutionService`、journey context、invite gate、通知 payload 與 execution dashboard 均以 active state 的 `can_invite_partner / can_use_co_repair / can_notify_partner / force_solo_repair` 為準。
+   - 若讀取失敗或 release DB 尚未套用 schema，後端只記 warn 並回退到 route policy；不得把此降級視為 release DB parity 已完成。
+2. 安全路由：`backend/src/services/safety-routing.service.ts`
    - `safety_support / crisis_support` 強制 solo，禁止伴侶邀請、共同修復與伴侶通知。
    - `safety_support / crisis_support` 同時禁止前端展示責任比例；判決接口會透過 `responsibility_ratio_visibility.can_show=false` 給出降級信號。
-2. 產品流資格：`backend/src/services/repair-eligibility.service.ts`
+3. 產品流資格：`backend/src/services/repair-eligibility.service.ts`
    - `quick` 或 `collaborative + session_id` 屬 session-bound case，可生成低壓 solo 方案，但禁止伴侶邀請、共同修復與伴侶通知。
    - 正式單方案件可生成 solo 方案，但不可共同修復或通知另一方。
    - 正式雙方案件才允許共同修復、伴侶邀請與伴侶通知。
    - 沒有任何已登入當事人的案件不能生成修復方案。
-3. 聚合 gate：`backend/src/services/repair-eligibility.service.ts` 的 `getRepairJourneyAccessPolicy`
+4. 聚合 gate：`backend/src/services/repair-eligibility.service.ts` 的 `getRepairJourneyAccessPolicyForJudgment`
    - `canEnterRepairJourney` 必須同時滿足案件可生成修復方案與安全路由允許至少一個 reconciliation intent。
    - `canInvitePartner / canUseCoRepair / canNotifyPartner / forceSoloRepair` 由 safety policy 與 repair eligibility 共同裁決；`ReconciliationService`、`ExecutionService`、通知、後續 job 或前端不得各自用 `forceSoloRepair || canInvitePartner` 手拼一套規則。
    - `ExecutionService` 回傳執行狀態與 dashboard journey context 時必須使用同一聚合 gate；若 `forceSoloRepair=true`，即使舊資料仍是 `co_active` / `recommended_mode=co`，對外旅程 CTA 與 `relationship_mode` 也要降級為 solo。

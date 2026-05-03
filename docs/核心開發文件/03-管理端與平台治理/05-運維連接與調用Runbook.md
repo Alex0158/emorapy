@@ -26,8 +26,8 @@ npm run docs:check
 
 | 責任 | 平台 | 固定線索 | 固定查法 |
 | --- | --- | --- | --- |
-| 主站 Web | Vercel | `.vercel/project.json`、`vercel.json` | `curl https://mother-bear-court.vercel.app/version.json` |
-| Admin Web | Vercel | `frontend-admin/.vercel/project.json`、`frontend-admin/vercel.json` | `curl https://frontend-admin-sigma-virid.vercel.app/version.json` |
+| 主站 Web | Vercel | `vercel.json`、Vercel CLI project link | `curl https://mother-bear-court.vercel.app/version.json` |
+| Admin Web | Vercel | `frontend-admin/vercel.json`、Vercel CLI project link | `curl https://frontend-admin-sigma-virid.vercel.app/version.json` |
 | 後端 API / jobs / metrics | Railway | `railway.json`、`backend/railway.toml` | `BACKEND_BASE_URL=<backend-url> npm run ops:release:status` |
 | DB | Supabase/Postgres + Prisma | `backend/prisma/schema.prisma`、`backend/prisma/migrations`、`supabase/migrations` | `DATABASE_URL=<db-url> npm run ops:db:status` |
 | Source / CI | GitHub + Git | `.github/workflows`、`git` | `git rev-parse HEAD origin/main`、`gh run view <run-id>` |
@@ -77,7 +77,7 @@ cd frontend-admin && npm run dev
 1. Local Postgres：適合離線與快速試驗。
 2. Supabase Dev Postgres：適合資料持久、跨機器共享與避免本機重啟丟資料。
 
-若使用 Supabase Dev DB，仍屬本機開發版，因為應用 runtime 還是在 Localhost。`backend/.env` 應指向 dev DB，不得指向 production DB。
+若使用 Supabase Dev DB，仍屬本機開發版，因為應用 runtime 還是在 Localhost。後端本機 env 應指向 dev DB，不得指向 production DB。
 
 建議本機遠端 dev DB 設定：
 
@@ -187,7 +187,7 @@ DATABASE_URL="postgresql://..." npm run ops:db:status
 或從指定 env file 載入：
 
 ```bash
-ENV_FILE=backend/.env npm run ops:db:status
+ENV_FILE=<backend-local-env-file> npm run ops:db:status
 ```
 
 固定安全規則：
@@ -199,7 +199,7 @@ ENV_FILE=backend/.env npm run ops:db:status
 
 最近核驗結果：
 
-1. `backend/.env` 指向 Supabase direct host `db.pfxrglsjgmpfyiwyxzou.supabase.co`，屬 development env。
+1. 本機後端 env 指向 Supabase direct host `db.pfxrglsjgmpfyiwyxzou.supabase.co`，屬 development env。
 2. Vercel production env 的 `DATABASE_URL` 指向 Supabase pooler host `aws-1-eu-west-2.pooler.supabase.com`。
 3. 兩者都可連通，但 Prisma migration status 均顯示以下 migration 尚未套用：
    - `20260502095500_add_admin_governance_models`
@@ -237,9 +237,9 @@ gh run view <run-id> --json conclusion,status,headSha,url,createdAt,updatedAt
 | `backend/.env.example` | 後端本機 env 範本 | 是 |
 | `frontend/.env.example` | 主站本機 env 範本 | 是 |
 | `frontend-admin/.env.example` | Admin 本機 env 範本 | 是 |
-| `backend/.env` | 本機實際 secret / DB URL | 否 |
-| `frontend/.env` | 本機實際 Web env | 否 |
-| `frontend-admin/.env` | 本機實際 Admin env | 否 |
+| 後端本機 env 文件 | 本機實際 secret / DB URL | 否 |
+| 主站本機 env 文件 | 本機實際 Web env | 否 |
+| Admin 本機 env 文件 | 本機實際 Admin env | 否 |
 | Vercel env | Vercel dashboard / CLI 管理 | 否 |
 | Railway env | Railway dashboard / CLI 管理 | 否 |
 | Supabase DB password / URL | Supabase dashboard 管理 | 否 |

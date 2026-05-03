@@ -11,9 +11,11 @@ ORIGIN="${ORIGIN:-http://127.0.0.1:4173}"
 CLAIM_TEST_EMAIL="${CLAIM_TEST_EMAIL:-claim-smoke-$(date +%s)@example.com}"
 CLAIM_TEST_PASSWORD="${CLAIM_TEST_PASSWORD:-Password123!}"
 CLAIM_TEST_NICKNAME="${CLAIM_TEST_NICKNAME:-Claim Smoke}"
+CLAIM_SMOKE_DISABLE_CREATED_USER="${CLAIM_SMOKE_DISABLE_CREATED_USER:-true}"
 
 HTTP_BODY=""
 HTTP_CODE=""
+REGISTER_USER_ID=""
 
 log() {
   echo "[claim-smoke] $*"
@@ -26,6 +28,63 @@ fail() {
   fi
   exit 1
 }
+
+cleanup_claim_user() {
+  if [ "${CLAIM_SMOKE_DISABLE_CREATED_USER}" != "true" ] || [ -z "${REGISTER_USER_ID}" ]; then
+    return 0
+  fi
+
+  if [ -z "${DATABASE_URL:-}" ]; then
+    if [ ! -f "${BACKEND_DIR}/.env" ]; then
+      log "Cleanup skipped: backend/.env not found and DATABASE_URL is not set"
+      return 0
+    fi
+
+    set -a
+    # shellcheck disable=SC1091
+    . "${BACKEND_DIR}/.env"
+    set +a
+  fi
+
+  (
+    cd "${BACKEND_DIR}"
+    TARGET_USER_ID="${REGISTER_USER_ID}" node <<'NODE'
+const { PrismaClient } = require('@prisma/client');
+
+const prisma = new PrismaClient();
+
+async function main() {
+  const userId = process.env.TARGET_USER_ID;
+  if (!userId) return;
+
+  await prisma.user.updateMany({
+    where: {
+      id: userId,
+      email: {
+        startsWith: 'claim-smoke-',
+      },
+    },
+    data: {
+      is_active: false,
+    },
+  });
+}
+
+main()
+  .catch((error) => {
+    console.error(error.message || String(error));
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
+NODE
+  ) >/dev/null 2>&1 || true
+
+  log "Cleanup: attempted to disable claim smoke user ${REGISTER_USER_ID}"
+}
+
+trap cleanup_claim_user EXIT
 
 request_json() {
   local method="$1"

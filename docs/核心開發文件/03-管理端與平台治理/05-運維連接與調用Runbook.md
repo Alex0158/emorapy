@@ -128,6 +128,8 @@ DATABASE_URL="postgresql://..." npm run prisma:seed
 6. 若本次有 schema 變更，production DB migration state 已確認。
 7. health / ready / smoke 通過。
 
+`scripts/smoke-claim-session-production-like.sh` 預設會在結束時停用本次建立的 `claim-smoke-*` user（`CLAIM_SMOKE_DISABLE_CREATED_USER=true`）。若因特殊排查需要保留 smoke user，必須明確設為 `false`，並在排查後手動停用或刪除。
+
 缺任何一項時，應說「部分已發布」並列明缺口，不應說整體已最新。
 
 ## 5.1 產品狀態一致性與恢復提案

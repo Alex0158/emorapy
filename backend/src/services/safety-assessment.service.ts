@@ -3,7 +3,9 @@ import prisma from '../config/database';
 import {
   type JudgmentRoute,
   type SafetyAssessmentSnapshot,
+  type SafetyRiskLevelForPolicy,
   buildSafetyAssessmentSnapshotForRoute,
+  isJudgmentRoute,
 } from '../utils/product-safety-policy';
 
 export type SafetyAssessmentSubjectTypeForService =
@@ -39,6 +41,22 @@ export type RecordSafetyAssessmentInput = SafetyAssessmentScope & {
 
 type SafetyAssessmentDbClient = typeof prisma;
 
+type ActiveRelationshipRiskState = {
+  id: string;
+  scope_type: SafetyAssessmentSubjectTypeForService;
+  scope_id: string;
+  current_risk_level: SafetyRiskLevelForPolicy;
+  judgment_route: string | null;
+  can_invite_partner: boolean;
+  can_use_co_repair: boolean;
+  can_notify_partner: boolean;
+  can_show_responsibility_ratio: boolean;
+  force_solo_repair: boolean;
+  source_assessment_id: string | null;
+  reasons: string[];
+  metadata: Prisma.JsonValue | null;
+};
+
 function mergeMetadata(
   snapshot: SafetyAssessmentSnapshot,
   extraMetadata?: Record<string, unknown>
@@ -49,8 +67,74 @@ function mergeMetadata(
   } as Prisma.InputJsonValue;
 }
 
+function asMetadataObject(value: Prisma.JsonValue | null): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+  return value as Record<string, unknown>;
+}
+
+function snapshotFromRiskState(
+  state: ActiveRelationshipRiskState,
+  fallbackRoute: JudgmentRoute
+): SafetyAssessmentSnapshot {
+  const route = isJudgmentRoute(state.judgment_route) ? state.judgment_route : fallbackRoute;
+  return {
+    risk_level: state.current_risk_level,
+    judgment_route: route,
+    can_invite_partner: state.can_invite_partner,
+    can_use_co_repair: state.can_use_co_repair,
+    can_notify_partner: state.can_notify_partner,
+    can_show_responsibility_ratio: state.can_show_responsibility_ratio,
+    force_solo_repair: state.force_solo_repair,
+    reasons: state.reasons,
+    metadata: {
+      ...asMetadataObject(state.metadata),
+      kind: 'relationship_risk_state_snapshot',
+      version: 1,
+      relationship_risk_state_id: state.id,
+      source_assessment_id: state.source_assessment_id,
+    },
+  };
+}
+
 export class SafetyAssessmentService {
   constructor(private readonly db: SafetyAssessmentDbClient = prisma) {}
+
+  async getActiveRiskState(scope: SafetyAssessmentScope): Promise<ActiveRelationshipRiskState | null> {
+    return this.db.relationshipRiskState.findFirst({
+      where: {
+        scope_type: scope.subjectType,
+        scope_id: scope.subjectId,
+        is_active: true,
+      },
+      orderBy: {
+        updated_at: 'desc',
+      },
+    }) as Promise<ActiveRelationshipRiskState | null>;
+  }
+
+  async getEffectiveRouteSnapshot(
+    scope: SafetyAssessmentScope,
+    fallbackRoute: JudgmentRoute,
+    options: { fallbackReasons?: string[]; fallbackMetadata?: Record<string, unknown> } = {}
+  ): Promise<{ source: 'active_risk_state' | 'fallback_route'; snapshot: SafetyAssessmentSnapshot }> {
+    const activeState = await this.getActiveRiskState(scope);
+    if (activeState) {
+      return {
+        source: 'active_risk_state',
+        snapshot: snapshotFromRiskState(activeState, fallbackRoute),
+      };
+    }
+
+    return {
+      source: 'fallback_route',
+      snapshot: buildSafetyAssessmentSnapshotForRoute(fallbackRoute, {
+        reasons: options.fallbackReasons,
+        metadata: options.fallbackMetadata,
+      }),
+    };
+  }
 
   async recordAssessment(input: RecordSafetyAssessmentInput) {
     return this.db.$transaction(async (tx) => {

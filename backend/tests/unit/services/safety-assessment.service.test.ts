@@ -10,6 +10,9 @@ const txMock = {
 
 const prismaMock = {
   $transaction: jest.fn(async (callback: (tx: typeof txMock) => unknown) => callback(txMock)),
+  relationshipRiskState: {
+    findFirst: jest.fn(),
+  },
 };
 
 jest.mock('../../../src/config/database', () => ({
@@ -28,7 +31,86 @@ describe('SafetyAssessmentService', () => {
     txMock.safetyAssessment.create.mockResolvedValue({ id: 'assessment-1' });
     txMock.relationshipRiskState.updateMany.mockResolvedValue({ count: 0 });
     txMock.relationshipRiskState.create.mockResolvedValue({ id: 'state-1' });
+    prismaMock.relationshipRiskState.findFirst.mockResolvedValue(null);
     service = new SafetyAssessmentService(prismaMock as never);
+  });
+
+  it('getActiveRiskState 應讀取同 scope active state', async () => {
+    prismaMock.relationshipRiskState.findFirst.mockResolvedValue({ id: 'state-1' });
+
+    await expect(service.getActiveRiskState({ subjectType: 'case', subjectId: 'case-1' })).resolves.toEqual({
+      id: 'state-1',
+    });
+
+    expect(prismaMock.relationshipRiskState.findFirst).toHaveBeenCalledWith({
+      where: {
+        scope_type: 'case',
+        scope_id: 'case-1',
+        is_active: true,
+      },
+      orderBy: {
+        updated_at: 'desc',
+      },
+    });
+  });
+
+  it('getEffectiveRouteSnapshot 有 active state 時應優先使用持久風險狀態', async () => {
+    prismaMock.relationshipRiskState.findFirst.mockResolvedValue({
+      id: 'state-1',
+      scope_type: 'chat_room',
+      scope_id: 'room-1',
+      current_risk_level: 'imminent_crisis',
+      judgment_route: 'crisis_support',
+      can_invite_partner: false,
+      can_use_co_repair: false,
+      can_notify_partner: false,
+      can_show_responsibility_ratio: false,
+      force_solo_repair: true,
+      source_assessment_id: 'assessment-1',
+      reasons: ['active risk'],
+      metadata: { reviewed: true },
+    });
+
+    await expect(
+      service.getEffectiveRouteSnapshot({ subjectType: 'chat_room', subjectId: 'room-1' }, 'standard')
+    ).resolves.toMatchObject({
+      source: 'active_risk_state',
+      snapshot: {
+        risk_level: 'imminent_crisis',
+        judgment_route: 'crisis_support',
+        can_invite_partner: false,
+        force_solo_repair: true,
+        reasons: ['active risk'],
+        metadata: {
+          kind: 'relationship_risk_state_snapshot',
+          relationship_risk_state_id: 'state-1',
+          source_assessment_id: 'assessment-1',
+          reviewed: true,
+        },
+      },
+    });
+  });
+
+  it('getEffectiveRouteSnapshot 無 active state 時應回退 route policy', async () => {
+    await expect(
+      service.getEffectiveRouteSnapshot(
+        { subjectType: 'case', subjectId: 'case-1' },
+        'safety_support',
+        { fallbackReasons: ['fallback'], fallbackMetadata: { case_id: 'case-1' } }
+      )
+    ).resolves.toMatchObject({
+      source: 'fallback_route',
+      snapshot: {
+        risk_level: 'high_risk_relationship',
+        judgment_route: 'safety_support',
+        force_solo_repair: true,
+        reasons: ['fallback'],
+        metadata: {
+          kind: 'product_safety_route_snapshot',
+          case_id: 'case-1',
+        },
+      },
+    });
   });
 
   it('recordAssessment 應建立 assessment 並刷新 active risk state', async () => {

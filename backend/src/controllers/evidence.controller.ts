@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import type { Prisma } from '@prisma/client';
 import prisma from '../config/database';
 import { Errors } from '../utils/errors';
 import { fileService, upload } from '../services/file.service';
@@ -85,9 +86,7 @@ export class EvidenceController {
             { reasons: evidenceSafetyPolicy.reasons }
           );
         }
-        const safetyDescription = evidenceSafetyPolicy.metadata
-          ? JSON.stringify({ safety_assertion: evidenceSafetyPolicy.metadata })
-          : null;
+        const safetyMetadata = evidenceSafetyPolicy.metadata as Prisma.InputJsonValue | null;
 
         const processedFiles: Array<{ filename: string; size: number; mimetype: string }> = [];
         for (const file of files) {
@@ -131,7 +130,7 @@ export class EvidenceController {
                   file_url: fileService.getFileUrl(processed.filename),
                   file_type: processed.mimetype.startsWith('image/') ? 'image' : 'video',
                   file_size: processed.size,
-                  description: safetyDescription,
+                  ...(safetyMetadata ? { safety_metadata: safetyMetadata } : {}),
                 },
               });
               created.push(evidence);

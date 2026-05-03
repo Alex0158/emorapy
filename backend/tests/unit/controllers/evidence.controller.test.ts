@@ -482,7 +482,7 @@ describe('evidence.controller', () => {
       expect(prisma.evidence.create).not.toHaveBeenCalled();
     });
 
-    it('合法的未成年人與敏感內容 safety assertion 應寫入 evidence description metadata', async () => {
+    it('合法的未成年人與敏感內容 safety assertion 應寫入 evidence safety_metadata', async () => {
       req.params = { id: caseId };
       req.files = [{ fieldname: 'files', filename: 'minor.jpg', mimetype: 'image/jpeg', size: 100 } as Express.Multer.File];
       req.body = {
@@ -512,7 +512,9 @@ describe('evidence.controller', () => {
       expect(prisma.evidence.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            description: expect.stringContaining('evidence_safety_assertion'),
+            safety_metadata: expect.objectContaining({
+              kind: 'evidence_safety_assertion',
+            }),
           }),
         })
       );

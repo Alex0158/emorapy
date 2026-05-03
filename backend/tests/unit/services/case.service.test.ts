@@ -403,7 +403,7 @@ describe('CaseService', () => {
       });
     });
 
-    it('正式案件安全聲明通過時應把 metadata 寫入 evidence description', async () => {
+    it('正式案件安全聲明通過時應把 metadata 寫入 case 與 evidence safety_metadata', async () => {
       const evidenceUrls = ['https://example.com/sensitive.jpg'];
       prismaMock.pairing.findUnique.mockResolvedValue({
         id: 'pair-1',
@@ -432,10 +432,21 @@ describe('CaseService', () => {
           expect.objectContaining({
             case_id: 'case-1',
             file_url: evidenceUrls[0],
-            description: expect.stringContaining('formal_case_safety_assertion'),
+            safety_metadata: expect.objectContaining({
+              kind: 'formal_case_safety_assertion',
+            }),
           }),
         ],
       });
+      expect(prismaMock.case.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            safety_metadata: expect.objectContaining({
+              kind: 'formal_case_safety_assertion',
+            }),
+          }),
+        })
+      );
     });
 
     it('傳入 data.sub_type 時應寫入 sub_type', async () => {

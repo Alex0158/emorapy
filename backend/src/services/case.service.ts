@@ -228,9 +228,7 @@ export class CaseService {
         { reasons: formalCasePolicy.reasons }
       );
     }
-    const safetyDescription = formalCasePolicy.metadata
-      ? JSON.stringify({ safety_assertion: formalCasePolicy.metadata })
-      : null;
+    const safetyMetadata = formalCasePolicy.metadata as Prisma.InputJsonValue | null;
 
     const plaintiffStatement = ValidationUtils.validateStatement(
       data.plaintiff_statement,
@@ -280,6 +278,7 @@ export class CaseService {
           status: isReadyForSubmission ? CASE_STATUS.SUBMITTED : CASE_STATUS.DRAFT,
           mode: caseMode,
           submitted_at: isReadyForSubmission ? new Date() : null,
+          ...(safetyMetadata ? { safety_metadata: safetyMetadata } : {}),
         },
       });
 
@@ -291,7 +290,7 @@ export class CaseService {
             file_type: FILE_TYPE.IMAGE,
             file_size: 0,
             user_id: plaintiffId,
-            ...(safetyDescription ? { description: safetyDescription } : {}),
+            ...(safetyMetadata ? { safety_metadata: safetyMetadata } : {}),
           })),
         });
       }

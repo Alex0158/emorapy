@@ -551,6 +551,7 @@ model Case {
   submitted_at        DateTime?
   completed_at        DateTime?
   deleted_at          DateTime?
+  safety_metadata     Json?
   created_by          String?
   updated_by          String?
 
@@ -586,6 +587,7 @@ model Evidence {
   file_size   Int
   checksum    String?
   description String?
+  safety_metadata Json?
   created_at  DateTime @default(now())
 
   case        Case     @relation(fields: [case_id], references: [id], onDelete: Cascade)

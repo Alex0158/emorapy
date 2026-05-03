@@ -8,6 +8,28 @@ export type CaseAccessSubject = {
 };
 
 export type CaseAccessKind = 'session' | 'user';
+export type CaseProductFlow =
+  | 'quick_single'
+  | 'quick_collaborative'
+  | 'formal_remote'
+  | 'formal_collaborative'
+  | 'chat_to_case';
+
+export type CaseProductFlowSubject = CaseAccessSubject & {
+  chat_to_case_links?: unknown[] | null;
+  _count?: {
+    chat_to_case_links?: number | null;
+  } | null;
+};
+
+export function hasChatToCaseSource(
+  case_: Pick<CaseProductFlowSubject, 'chat_to_case_links' | '_count'>
+): boolean {
+  return Boolean(
+    (Array.isArray(case_.chat_to_case_links) && case_.chat_to_case_links.length > 0)
+    || (case_._count?.chat_to_case_links ?? 0) > 0
+  );
+}
 
 export function isSessionBoundCase(case_: Pick<CaseAccessSubject, 'mode' | 'session_id'>): boolean {
   return case_.mode === CASE_MODE.QUICK || (case_.mode === CASE_MODE.COLLABORATIVE && Boolean(case_.session_id));
@@ -24,3 +46,35 @@ export function isCaseParticipant(
   return Boolean(userId && (case_.plaintiff_id === userId || case_.defendant_id === userId));
 }
 
+export function getCaseProductFlow(case_: CaseProductFlowSubject): CaseProductFlow {
+  if (hasChatToCaseSource(case_)) {
+    return 'chat_to_case';
+  }
+
+  if (case_.mode === CASE_MODE.QUICK) {
+    return 'quick_single';
+  }
+
+  if (case_.mode === CASE_MODE.COLLABORATIVE) {
+    return case_.session_id ? 'quick_collaborative' : 'formal_collaborative';
+  }
+
+  return 'formal_remote';
+}
+
+export function isUserBoundProductFlow(flow: CaseProductFlow): boolean {
+  return flow === 'formal_remote' || flow === 'formal_collaborative' || flow === 'chat_to_case';
+}
+
+export function isUserBoundProductCase(case_: CaseProductFlowSubject): boolean {
+  return isUserBoundProductFlow(getCaseProductFlow(case_));
+}
+
+export function buildUserBoundCaseModeWhere() {
+  return {
+    OR: [
+      { mode: CASE_MODE.REMOTE },
+      { mode: CASE_MODE.COLLABORATIVE, session_id: null },
+    ],
+  };
+}

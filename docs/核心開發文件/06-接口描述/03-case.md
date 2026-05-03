@@ -3,14 +3,14 @@
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：03-case
-**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`45d4897`
-**最後核驗日期**：`2026-04-19`
+**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`backend/src/utils/case-classifier.ts`、`frontend/src/services/api`、`frontend-admin/src/services/api`
+**最後核驗 Commit**：`ed72125`
+**最後核驗日期**：`2026-05-03`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**文檔版本**：v2.3  
-**最後更新**：2026-04-19  
-**代碼基準**：`backend/src/routes/case.routes.ts`、`backend/src/controllers/case.controller.ts`、`backend/src/utils/validation.ts`
+**文檔版本**：v2.4
+**最後更新**：2026-05-03
+**代碼基準**：`backend/src/routes/case.routes.ts`、`backend/src/controllers/case.controller.ts`、`backend/src/services/case.service.ts`、`backend/src/utils/case-classifier.ts`、`backend/src/utils/validation.ts`
 
 ---
 
@@ -49,6 +49,13 @@
   - `quick` 與 `collaborative(session_id 有值)`：必須提供匹配的 `session_id`。
   - `remote` 與 `collaborative(session_id=null)`：必須是案件當事人 JWT（`plaintiff_id`/`defendant_id`）。
 - `collaborative full-mode` 不再是「一律 session-only」；當 `session_id=null` 時按正式案件權限處理。
+- 產品流分類必須使用 `backend/src/utils/case-classifier.ts`，不得只用 `case.mode` 推斷：
+  - `quick_single`：`mode=quick` 且沒有 chat-to-case link。
+  - `quick_collaborative`：`mode=collaborative` 且 `session_id` 有值。
+  - `formal_remote`：`mode=remote`。
+  - `formal_collaborative`：`mode=collaborative` 且 `session_id=null`。
+  - `chat_to_case`：存在 `ChatToCaseLink` 時優先於 mode。
+- User-bound case 查詢範圍固定為 `remote` 或 `collaborative(session_id=null)`；後續 notification、analytics、repair reminder 不得只掃 `mode=remote`。
 
 ## 回歸測試最小集
 
@@ -57,6 +64,7 @@
 3. 匿名 session 上傳證據 + 登入上傳證據都可成功。
 4. `/cases/:id/judgment` 在 pending 與 ready 兩種狀態下前端行為正確。
 5. `collaborative + session_id=null` 案件下，當事人 JWT 讀 `GET /cases/:id` 與 `GET /cases/:id/judgment` 必須通過；匿名或非當事人必須拒絕。
+6. notification / repair reminder 應覆蓋 `formal_remote`、`formal_collaborative`、`chat_to_case`，並排除 session-bound quick。
 
 ## 錯誤碼覆蓋矩陣（API -> code -> UI 行為）
 

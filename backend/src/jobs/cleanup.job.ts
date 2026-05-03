@@ -20,6 +20,7 @@ import {
 import { systemConfigService } from '../services/system-config.service';
 import { runOpsAlertChecks } from '../services/ops-alerts.service';
 import { aiStreamService } from '../services/ai-stream.service';
+import { buildUserBoundCaseModeWhere, getCaseProductFlow } from '../utils/case-classifier';
 
 type CronExecutionResult = {
   affectedCount?: number;
@@ -320,7 +321,7 @@ export const followUp7Day = createJob('0 10 * * *', async () => {
       const cases = await prisma.case.findMany({
         where: {
           status: CASE_STATUS.COMPLETED,
-          mode: CASE_MODE.REMOTE,
+          ...buildUserBoundCaseModeWhere(),
           completed_at: { gte: seventyTwoHoursAgo, lte: fortyEightHoursAgo },
           judgment: {
             reconciliation_plans: { none: {} },
@@ -330,6 +331,7 @@ export const followUp7Day = createJob('0 10 * * *', async () => {
           plaintiff: { select: { id: true, notification_enabled: true } },
           defendant: { select: { id: true, notification_enabled: true } },
           judgment: { select: { id: true } },
+          chat_to_case_links: { select: { id: true }, take: 1 },
         },
       });
 
@@ -375,6 +377,7 @@ export const followUp7Day = createJob('0 10 * * *', async () => {
             case_id: c.id,
             judgment_id: c.judgment?.id,
             case_title: c.title,
+            product_flow: getCaseProductFlow(c),
             path: c.judgment?.id ? `/reconciliation/${c.judgment.id}` : null,
             entity_type: c.judgment?.id ? 'judgment' : 'case',
             entity_id: c.judgment?.id ?? c.id,

@@ -3,14 +3,14 @@
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：07-chat
-**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`8147ac3`
-**最後核驗日期**：`2026-04-19`
+**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`backend/src/services/chat.service.ts`、`backend/src/utils/case-classifier.ts`、`frontend/src/services/api`、`frontend-admin/src/services/api`
+**最後核驗 Commit**：`ed72125`
+**最後核驗日期**：`2026-05-03`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**文檔版本**：v2.6  
-**最後更新**：2026-04-19  
-**代碼基準**：`backend/src/routes/chat.routes.ts`、`backend/src/services/chat.service.ts`、`frontend/src/pages/Chat/Room`、`frontend/src/services/api/chat.ts`
+**文檔版本**：v2.7
+**最後更新**：2026-05-03
+**代碼基準**：`backend/src/routes/chat.routes.ts`、`backend/src/services/chat.service.ts`、`backend/src/utils/case-classifier.ts`、`frontend/src/pages/Chat/Room`、`frontend/src/services/api/chat.ts`
 
 ---
 
@@ -43,6 +43,7 @@
 - `request-judgment` 去重機制：記憶體 in-flight map + 分布式 lock + 既有 link 冪等復用。
 - `request-judgment` 超時契約：前端 `requestChatJudgment` 以 `180000ms`（`frontend/src/config/api.ts` 的 `API_CONFIG.chat.judgmentRequestTimeout`）作請求上限；後端對應 `AI_TIMEOUT.JUDGMENT_GENERATION=180000`，且單次 OpenAI 請求 `AI_TIMEOUT.OPENAI_REQUEST=90000`（`backend/src/utils/constants.ts`）。前端超時時不直接判定失敗，需回查 `judgment-status`。
 - `request-judgment` 成功載荷中的 `linkId` 是 chat->case 轉換鏈路主鍵；前端與運維排障需以 `roomId + linkId + caseId` 關聯查詢。
+- `ChatToCaseLink` 是識別 `chat_to_case` 產品流的最高優先級來源；後續 case list、notification、analytics、repair reminder 不得只用 `mode=collaborative` 或 `mode=quick` 推斷聊天室轉判決。
 - 訊息發送限速：同房 30 秒最多 6 條，且最小間隔 5 秒；違規回 `RATE_LIMIT_EXCEEDED`。
 - `history_visibility_mode` 直接決定轉判決可納入訊息的時間窗與可見性。
 - `request-judgment` 的 `included_message_ids` 必須是「可納入判決消息集合」子集：僅允許 `message_type=user_text` 且 `visibility_scope=all`，且在 `share_from_join_time/share_summary_only` 下需同時滿足 `created_at >= roleB.joined_at`；若提交越界 ID，後端返回 `NOT_FOUND`。

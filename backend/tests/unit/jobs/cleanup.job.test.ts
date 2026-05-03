@@ -35,12 +35,20 @@ jest.mock('../../../src/services/ai.service', () => ({
 const mockEvidenceFindMany = jest.fn();
 const mockPairingDeleteMany = jest.fn();
 const mockEmailVerificationDeleteMany = jest.fn();
+const mockCaseFindMany = jest.fn();
+const mockNotificationFindMany = jest.fn();
+const mockNotificationCreateMany = jest.fn();
 jest.mock('../../../src/config/database', () => ({
   __esModule: true,
   default: {
     evidence: { findMany: (...args: unknown[]) => mockEvidenceFindMany(...args) },
     pairing: { deleteMany: (...args: unknown[]) => mockPairingDeleteMany(...args) },
     emailVerification: { deleteMany: (...args: unknown[]) => mockEmailVerificationDeleteMany(...args) },
+    case: { findMany: (...args: unknown[]) => mockCaseFindMany(...args) },
+    notification: {
+      findMany: (...args: unknown[]) => mockNotificationFindMany(...args),
+      createMany: (...args: unknown[]) => mockNotificationCreateMany(...args),
+    },
   },
 }));
 
@@ -86,6 +94,9 @@ describe('cleanup.job', () => {
     (scheduleReturn as any).execute = mockExecute;
     (mockPairingDeleteMany as any).mockResolvedValue({ count: 0 });
     (mockEmailVerificationDeleteMany as any).mockResolvedValue({ count: 0 });
+    (mockCaseFindMany as any).mockResolvedValue([]);
+    (mockNotificationFindMany as any).mockResolvedValue([]);
+    (mockNotificationCreateMany as any).mockResolvedValue({ count: 0 });
   });
 
   describe('startJobs', () => {
@@ -149,6 +160,9 @@ describe('cleanup.job', () => {
     beforeEach(() => {
       (mockPairingDeleteMany as any).mockResolvedValue({ count: 0 });
       (mockEmailVerificationDeleteMany as any).mockResolvedValue({ count: 0 });
+      (mockCaseFindMany as any).mockResolvedValue([]);
+      (mockNotificationFindMany as any).mockResolvedValue([]);
+      (mockNotificationCreateMany as any).mockResolvedValue({ count: 0 });
     });
 
     it('cleanupExpiredSessions 成功時依環境記錄 debug 或 info', async () => {
@@ -250,6 +264,58 @@ describe('cleanup.job', () => {
       (mockResetDailyCallCount as any).mockRejectedValue(new Error('reset failed'));
       await scheduledCallbacks[5]();
       expect(mockLogger.error).toHaveBeenCalledWith('Failed to reset AI daily count', expect.objectContaining({ error: expect.any(Error) }));
+    });
+
+    it('followUp7Day 應掃 user-bound formal/collaborative case，並帶 product_flow payload', async () => {
+      const completedAt = new Date(Date.now() - 49 * 60 * 60 * 1000);
+      (mockCaseFindMany as any).mockResolvedValue([
+        {
+          id: 'case-1',
+          title: '正式協作案件',
+          mode: 'collaborative',
+          session_id: null,
+          plaintiff_id: 'u1',
+          defendant_id: 'u2',
+          plaintiff: { notification_enabled: true },
+          defendant: { notification_enabled: false },
+          judgment: { id: 'judgment-1' },
+          chat_to_case_links: [{ id: 'link-1' }],
+          completed_at: completedAt,
+        },
+      ]);
+      (mockNotificationFindMany as any).mockResolvedValue([]);
+      (mockNotificationCreateMany as any).mockResolvedValue({ count: 1 });
+
+      await scheduledCallbacks[6]();
+
+      expect(mockCaseFindMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: expect.objectContaining({
+          status: 'completed',
+          OR: [
+            { mode: 'remote' },
+            { mode: 'collaborative', session_id: null },
+          ],
+          judgment: {
+            reconciliation_plans: { none: {} },
+          },
+        }),
+        include: expect.objectContaining({
+          chat_to_case_links: { select: { id: true }, take: 1 },
+        }),
+      }));
+      expect(mockNotificationCreateMany).toHaveBeenCalledWith({
+        data: [
+          expect.objectContaining({
+            user_id: 'u1',
+            payload: expect.objectContaining({
+              case_id: 'case-1',
+              judgment_id: 'judgment-1',
+              product_flow: 'chat_to_case',
+            }),
+          }),
+        ],
+        skipDuplicates: true,
+      });
     });
   });
 });

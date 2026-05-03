@@ -33,7 +33,7 @@ npm run docs:check
 
 `ops:db:status` checks Prisma migration status for the configured database without printing `DATABASE_URL`.
 
-`ops:product-state:audit` is a read-only backend consistency audit for stuck case/chat conversion states. Findings are not auto-fixed; record follow-up tasks before changing production data.
+`ops:product-state:audit` is a read-only backend consistency audit for stuck case/chat conversion states. Findings include recovery proposals, but they are not auto-fixed; record follow-up tasks before changing production data.
 
 ## Platform Map
 

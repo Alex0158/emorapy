@@ -36,12 +36,58 @@ describe('audit-product-state-consistency', () => {
     const result = await runProductStateConsistencyAudit(15);
 
     expect(result).toEqual([
-      { check: 'cases stuck in_progress over 15m', count: 2, sampleIds: ['case-a', 'case-b'] },
-      { check: 'chat rooms stuck judgment_requested over 15m', count: 1, sampleIds: ['room-a'] },
-      { check: 'chat_to_case_links missing judgment_id while case completed', count: 1, sampleIds: ['link-a'] },
+      expect.objectContaining({
+        check: 'cases stuck in_progress over 15m',
+        count: 2,
+        sampleIds: ['case-a', 'case-b'],
+        recoveryProposal: expect.objectContaining({
+          id: 'recover-stuck-case-judgment-generation',
+          entityType: 'case',
+          entityIds: ['case-a', 'case-b'],
+          automaticFixAvailable: false,
+          requiresHumanApproval: true,
+        }),
+      }),
+      expect.objectContaining({
+        check: 'chat rooms stuck judgment_requested over 15m',
+        count: 1,
+        sampleIds: ['room-a'],
+        recoveryProposal: expect.objectContaining({
+          id: 'recover-stuck-chat-judgment-request',
+          entityType: 'chat_room',
+          entityIds: ['room-a'],
+          automaticFixAvailable: false,
+          requiresHumanApproval: true,
+        }),
+      }),
+      expect.objectContaining({
+        check: 'chat_to_case_links missing judgment_id while case completed',
+        count: 1,
+        sampleIds: ['link-a'],
+        recoveryProposal: expect.objectContaining({
+          id: 'repair-chat-to-case-link-missing-judgment',
+          entityType: 'chat_to_case_link',
+          entityIds: ['link-a'],
+          automaticFixAvailable: false,
+          requiresHumanApproval: true,
+        }),
+      }),
     ]);
     expect(prismaMock.case.count).toHaveBeenCalledWith({
       where: expect.objectContaining({ status: 'in_progress' }),
     });
+  });
+
+  it('沒有 findings 時不產生 recovery proposal', async () => {
+    prismaMock.case.count.mockResolvedValueOnce(0);
+    prismaMock.case.findMany.mockResolvedValueOnce([]);
+    prismaMock.chatRoom.count.mockResolvedValueOnce(0);
+    prismaMock.chatRoom.findMany.mockResolvedValueOnce([]);
+    prismaMock.chatToCaseLink.count.mockResolvedValueOnce(0);
+    prismaMock.chatToCaseLink.findMany.mockResolvedValueOnce([]);
+
+    const result = await runProductStateConsistencyAudit(30);
+
+    expect(result.every((item) => item.recoveryProposal === null)).toBe(true);
   });
 });

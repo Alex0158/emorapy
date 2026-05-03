@@ -17,10 +17,11 @@
 ```bash
 npm run ops:release:status
 npm run ops:db:status
+cd backend && npm run ops:product-state:audit
 npm run docs:check
 ```
 
-`ops:release:status` 用於查發布版狀態；`ops:db:status` 用於查當前 `DATABASE_URL` 對應的 Prisma migration state；`docs:check` 用於確認正式文檔與台賬仍閉環。
+`ops:release:status` 用於查發布版狀態；`ops:db:status` 用於查當前 `DATABASE_URL` 對應的 Prisma migration state；`ops:product-state:audit` 用於只讀檢查 case / chat-to-case 的卡住狀態並輸出人工 recovery proposal；`docs:check` 用於確認正式文檔與台賬仍閉環。
 
 ## 2. 平台地圖
 
@@ -127,6 +128,28 @@ DATABASE_URL="postgresql://..." npm run prisma:seed
 7. health / ready / smoke 通過。
 
 缺任何一項時，應說「部分已發布」並列明缺口，不應說整體已最新。
+
+## 5.1 產品狀態一致性與恢復提案
+
+排查卡住的判決生成、chat-to-case 轉換或缺失判決連結時，固定先跑：
+
+```bash
+cd backend && npm run ops:product-state:audit
+```
+
+輸出語義：
+
+1. `checks[].count`：該類不一致或卡住狀態的數量。
+2. `checks[].sampleIds`：最多 20 個樣本 ID，供人工查詢。
+3. `checks[].recoveryProposal`：當 count > 0 時提供人工恢復建議；當 count = 0 時為 `null`。
+4. `recoveryProposal.automaticFixAvailable` 固定為 `false`，表示此命令不會、也不應自動修改資料。
+5. `recoveryProposal.requiresHumanApproval` 固定為 `true`，任何 production data 寫入前必須先建立待處理任務或工單。
+
+禁止事項：
+
+1. 不得只憑 audit proposal 直接更新 production row。
+2. 不得只修改 `chat_rooms.status` 而不核對 `chat_to_case_links / cases / judgments`。
+3. 不得把 `cases.status=in_progress` 直接改成 `completed`；必須先確認是否已有唯一 judgment 或仍有 active AI stream。
 
 ## 6. Vercel 固定查法
 

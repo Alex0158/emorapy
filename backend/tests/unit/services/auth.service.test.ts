@@ -21,6 +21,18 @@ const prismaMock: any = {
     findUnique: jest.fn(),
     updateMany: jest.fn(),
   },
+  pairing: {
+    updateMany: jest.fn(),
+  },
+  chatRoom: {
+    updateMany: jest.fn(),
+  },
+  chatParticipant: {
+    updateMany: jest.fn(),
+  },
+  evidence: {
+    updateMany: jest.fn(),
+  },
   user: {
     findUnique: jest.fn(),
     create: jest.fn(),
@@ -77,9 +89,29 @@ describe('AuthService', () => {
         user: {
           update: prismaMock.user.update,
         },
+        case: {
+          updateMany: prismaMock.case.updateMany,
+        },
+        pairing: {
+          updateMany: prismaMock.pairing.updateMany,
+        },
+        chatRoom: {
+          updateMany: prismaMock.chatRoom.updateMany,
+        },
+        chatParticipant: {
+          updateMany: prismaMock.chatParticipant.updateMany,
+        },
+        evidence: {
+          updateMany: prismaMock.evidence.updateMany,
+        },
       };
       return fn(tx);
     });
+    prismaMock.case.updateMany.mockResolvedValue({ count: 0 });
+    prismaMock.pairing.updateMany.mockResolvedValue({ count: 0 });
+    prismaMock.chatRoom.updateMany.mockResolvedValue({ count: 0 });
+    prismaMock.chatParticipant.updateMany.mockResolvedValue({ count: 0 });
+    prismaMock.evidence.updateMany.mockResolvedValue({ count: 0 });
     service = new AuthService();
   });
 
@@ -507,6 +539,14 @@ describe('AuthService', () => {
         case_id: null,
       });
       expect(prismaMock.case.findUnique).not.toHaveBeenCalled();
+      expect(prismaMock.$transaction).toHaveBeenCalled();
+      expect(prismaMock.chatRoom.updateMany).toHaveBeenCalledWith({
+        where: {
+          session_id: 's1',
+          owner_user_id: null,
+        },
+        data: { owner_user_id: 'user-1' },
+      });
     });
 
     it('關聯案件不存在時應返回 null case_id', async () => {
@@ -516,7 +556,7 @@ describe('AuthService', () => {
       await expect(service.claimSession('user-1', 's1')).resolves.toEqual({
         case_id: null,
       });
-      expect(prismaMock.case.updateMany).not.toHaveBeenCalled();
+      expect(prismaMock.case.updateMany).toHaveBeenCalled();
     });
 
     it('關聯案件存在但非 quick 模式時應返回 null case_id', async () => {
@@ -526,42 +566,108 @@ describe('AuthService', () => {
       await expect(service.claimSession('user-1', 's1')).resolves.toEqual({
         case_id: null,
       });
-      expect(prismaMock.case.updateMany).not.toHaveBeenCalled();
+      expect(prismaMock.case.updateMany).toHaveBeenCalledWith({
+        where: {
+          plaintiff_id: null,
+          mode: { in: ['quick', 'collaborative'] },
+          OR: [
+            { session_id: 's1' },
+            { quick_sessions: { some: { id: 's1' } } },
+          ],
+        },
+        data: { plaintiff_id: 'user-1' },
+      });
     });
 
-    it('quick case 已被 claim 時應直接返回既有 case_id', async () => {
+    it('quick case 已被 claim 時仍應接管同 session 其他匿名資產並返回既有 case_id', async () => {
       prismaMock.quickSession.findUnique.mockResolvedValue({ id: 's1', case_id: 'case-1' });
       prismaMock.case.findUnique.mockResolvedValue({
         id: 'case-1',
         mode: 'quick',
         plaintiff_id: 'existing-user',
+        session_id: 's1',
       });
 
       await expect(service.claimSession('user-1', 's1')).resolves.toEqual({
         case_id: 'case-1',
       });
-      expect(prismaMock.case.updateMany).not.toHaveBeenCalled();
+      expect(prismaMock.case.updateMany).toHaveBeenCalled();
+      expect(prismaMock.pairing.updateMany).toHaveBeenCalled();
     });
 
-    it('可用 quick case 應寫入 plaintiff_id 並返回 case_id', async () => {
+    it('可用 quick case 應交易式接管 session 資產並返回 case_id', async () => {
       prismaMock.quickSession.findUnique.mockResolvedValue({ id: 's1', case_id: 'case-1' });
       prismaMock.case.findUnique.mockResolvedValue({
         id: 'case-1',
         mode: 'quick',
         plaintiff_id: null,
+        session_id: 's1',
       });
       prismaMock.case.updateMany.mockResolvedValue({ count: 1 });
+      prismaMock.pairing.updateMany.mockResolvedValue({ count: 1 });
+      prismaMock.chatRoom.updateMany.mockResolvedValue({ count: 1 });
+      prismaMock.chatParticipant.updateMany.mockResolvedValue({ count: 1 });
+      prismaMock.evidence.updateMany.mockResolvedValue({ count: 2 });
 
       await expect(service.claimSession('user-1', 's1')).resolves.toEqual({
         case_id: 'case-1',
       });
       expect(prismaMock.case.updateMany).toHaveBeenCalledWith({
-        where: { id: 'case-1', plaintiff_id: null },
+        where: {
+          plaintiff_id: null,
+          mode: { in: ['quick', 'collaborative'] },
+          OR: [
+            { session_id: 's1' },
+            { quick_sessions: { some: { id: 's1' } } },
+          ],
+        },
         data: { plaintiff_id: 'user-1' },
       });
-      expect(mockLogger.info).toHaveBeenCalledWith('Quick case claimed by user', {
+      expect(prismaMock.pairing.updateMany).toHaveBeenCalledWith({
+        where: {
+          session_id: 's1',
+          user1_id: null,
+        },
+        data: { user1_id: 'user-1' },
+      });
+      expect(prismaMock.chatRoom.updateMany).toHaveBeenCalledWith({
+        where: {
+          session_id: 's1',
+          owner_user_id: null,
+        },
+        data: { owner_user_id: 'user-1' },
+      });
+      expect(prismaMock.chatParticipant.updateMany).toHaveBeenCalledWith({
+        where: {
+          user_id: null,
+          role_in_room: 'roleA',
+          room: { session_id: 's1' },
+        },
+        data: { user_id: 'user-1' },
+      });
+      expect(prismaMock.evidence.updateMany).toHaveBeenCalledWith({
+        where: {
+          user_id: null,
+          case: {
+            OR: [
+              { session_id: 's1' },
+              { quick_sessions: { some: { id: 's1' } } },
+            ],
+          },
+        },
+        data: { user_id: 'user-1' },
+      });
+      expect(mockLogger.info).toHaveBeenCalledWith('Session assets claimed by user', {
         userId: 'user-1',
         caseId: 'case-1',
+        sessionId: 's1',
+        claimed: {
+          cases: 1,
+          pairings: 1,
+          chatRooms: 1,
+          chatParticipants: 1,
+          evidences: 2,
+        },
       });
     });
 
@@ -571,11 +677,45 @@ describe('AuthService', () => {
         id: 'case-1',
         mode: 'quick',
         plaintiff_id: null,
+        session_id: 's1',
       });
       prismaMock.case.updateMany.mockResolvedValue({ count: 0 });
 
       await expect(service.claimSession('user-1', 's1')).resolves.toEqual({
         case_id: 'case-1',
+      });
+    });
+
+    it('session-bound collaborative case 也應可 claim 並返回 case_id', async () => {
+      prismaMock.quickSession.findUnique.mockResolvedValue({ id: 's1', case_id: 'case-1' });
+      prismaMock.case.findUnique.mockResolvedValue({
+        id: 'case-1',
+        mode: 'collaborative',
+        plaintiff_id: null,
+        session_id: 's1',
+      });
+
+      await expect(service.claimSession('user-1', 's1')).resolves.toEqual({
+        case_id: 'case-1',
+      });
+      expect(prismaMock.case.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: expect.objectContaining({
+          mode: { in: ['quick', 'collaborative'] },
+        }),
+      }));
+    });
+
+    it('非同 session 的 collaborative case 不應作為 claim-session 主 case 返回', async () => {
+      prismaMock.quickSession.findUnique.mockResolvedValue({ id: 's1', case_id: 'case-1' });
+      prismaMock.case.findUnique.mockResolvedValue({
+        id: 'case-1',
+        mode: 'collaborative',
+        plaintiff_id: null,
+        session_id: 'other-session',
+      });
+
+      await expect(service.claimSession('user-1', 's1')).resolves.toEqual({
+        case_id: null,
       });
     });
   });

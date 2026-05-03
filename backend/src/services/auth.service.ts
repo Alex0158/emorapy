@@ -363,42 +363,99 @@ export class AuthService {
   }
 
   /**
-   * 關聯快速體驗案件到已註冊用戶
-   * 將 quick 模式案件轉為 remote 模式，建立正式配對
+   * 關聯匿名 session 產生的資產到已註冊用戶。
+   * 這是弱依賴升格動作：外部仍只返回主 case_id，但內部會一併接管
+   * 同 session 下尚未歸屬的 quick/collaborative case、配對、聊天室與證據。
    */
   async claimSession(userId: string, sessionId: string): Promise<{ case_id: string | null }> {
     const session = await prisma.quickSession.findUnique({
       where: { id: sessionId },
     });
 
-    if (!session || !session.case_id) {
+    if (!session) {
       return { case_id: null };
     }
 
-    const quickCase = await prisma.case.findUnique({
-      where: { id: session.case_id },
+    const linkedCase = session.case_id
+      ? await prisma.case.findUnique({ where: { id: session.case_id } })
+      : null;
+
+    const canReturnLinkedCase = Boolean(
+      linkedCase &&
+      (
+        linkedCase.mode === CASE_MODE.QUICK ||
+        (linkedCase.mode === CASE_MODE.COLLABORATIVE && linkedCase.session_id === sessionId)
+      )
+    );
+
+    const claimed = await prisma.$transaction(async (tx) => {
+      const cases = await tx.case.updateMany({
+        where: {
+          plaintiff_id: null,
+          mode: { in: [CASE_MODE.QUICK, CASE_MODE.COLLABORATIVE] },
+          OR: [
+            { session_id: sessionId },
+            { quick_sessions: { some: { id: sessionId } } },
+          ],
+        },
+        data: { plaintiff_id: userId },
+      });
+
+      const pairings = await tx.pairing.updateMany({
+        where: {
+          session_id: sessionId,
+          user1_id: null,
+        },
+        data: { user1_id: userId },
+      });
+
+      const chatRooms = await tx.chatRoom.updateMany({
+        where: {
+          session_id: sessionId,
+          owner_user_id: null,
+        },
+        data: { owner_user_id: userId },
+      });
+
+      const chatParticipants = await tx.chatParticipant.updateMany({
+        where: {
+          user_id: null,
+          role_in_room: 'roleA',
+          room: { session_id: sessionId },
+        },
+        data: { user_id: userId },
+      });
+
+      const evidences = await tx.evidence.updateMany({
+        where: {
+          user_id: null,
+          case: {
+            OR: [
+              { session_id: sessionId },
+              { quick_sessions: { some: { id: sessionId } } },
+            ],
+          },
+        },
+        data: { user_id: userId },
+      });
+
+      return {
+        cases: cases.count,
+        pairings: pairings.count,
+        chatRooms: chatRooms.count,
+        chatParticipants: chatParticipants.count,
+        evidences: evidences.count,
+      };
     });
 
-    if (!quickCase || quickCase.mode !== CASE_MODE.QUICK) {
-      return { case_id: null };
-    }
-
-    if (quickCase.plaintiff_id) {
-      return { case_id: quickCase.id };
-    }
-
-    const { count } = await prisma.case.updateMany({
-      where: { id: quickCase.id, plaintiff_id: null },
-      data: { plaintiff_id: userId },
+    logger.info('Session assets claimed by user', {
+      userId,
+      sessionId,
+      caseId: canReturnLinkedCase ? linkedCase!.id : null,
+      claimed,
     });
 
-    if (count === 0) {
-      return { case_id: quickCase.id };
-    }
-
-    logger.info('Quick case claimed by user', { userId, caseId: quickCase.id });
-
-    return { case_id: quickCase.id };
+    return { case_id: canReturnLinkedCase ? linkedCase!.id : null };
   }
 
   private isValidEmail(email: string): boolean {

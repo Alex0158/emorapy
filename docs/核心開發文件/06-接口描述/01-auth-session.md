@@ -4,13 +4,13 @@
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：01-auth-session
 **取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`45d4897`
-**最後核驗日期**：`2026-04-19`
+**最後核驗 Commit**：`969289b`
+**最後核驗日期**：`2026-05-03`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**文檔版本**：v2.2  
-**最後更新**：2026-04-19  
-**代碼基準**：`backend/src/routes/auth.routes.ts`、`backend/src/routes/session.routes.ts`、`backend/src/utils/validation.ts`、`frontend/src/services/api/auth.ts`、`frontend/src/services/api/session.ts`
+**文檔版本**：v2.3
+**最後更新**：2026-05-03
+**代碼基準**：`backend/src/routes/auth.routes.ts`、`backend/src/services/auth.service.ts`、`backend/src/routes/session.routes.ts`、`backend/src/utils/validation.ts`、`frontend/src/services/api/auth.ts`、`frontend/src/services/api/session.ts`
 
 ---
 
@@ -31,7 +31,7 @@
 | `POST /api/v1/auth/verify-email`           | `email`、`code(6)`、`type`                             | `data.verified:boolean`                     | `INVALID_CODE`、`CODE_EXPIRED`、`RATE_LIMIT_EXCEEDED`   | 依 type 更新驗證狀態        | 認證流程內                                    |
 | `POST /api/v1/auth/reset-password`         | `email`                                              | 成功旗標                                        | `RATE_LIMIT_EXCEEDED`                    | 嘗試生成重設碼；不存在帳號時仍回成功                | `/auth/forgot-password`                  |
 | `POST /api/v1/auth/reset-password-confirm` | `email`、`code(6)`、`new_password`                     | 成功旗標                                        | `INVALID_CODE`、`CODE_EXPIRED`、`WEAK_PASSWORD`、`RATE_LIMIT_EXCEEDED`               | 寫入新密碼 hash 並使既有 token 失效           | `/auth/forgot-password`                  |
-| `POST /api/v1/auth/claim-session`          | `session_id`（需 JWT）                                  | `data.case_id`（可為 null）                     | `VALIDATION_ERROR`、`UNAUTHORIZED`   | quick case 與 user 綁定；無可關聯案件時 no-op | 登入/註冊後隱式                                 |
+| `POST /api/v1/auth/claim-session`          | `session_id`（需 JWT）                                  | `data.case_id`（可為 null）                     | `VALIDATION_ERROR`、`UNAUTHORIZED`   | 交易式接管同 session 尚未歸屬的 quick/collaborative case、temp pairing、chat room、roleA participant、evidence；無可返回主案件時仍可 no-op 接管其他資產 | 登入/註冊後隱式                                 |
 | `POST /api/v1/sessions/quick`              | 無 body                                               | `data.session_id`、`data.expires_at`         | `RATE_LIMIT_EXCEEDED`                                     | 建立匿名 session         | `/quick-experience/create`               |
 | `POST /api/v1/sessions/refresh`            | 無 body                                               | `data.session_id`、`data.expires_at`         | `INVALID_SESSION_ID`、`RATE_LIMIT_EXCEEDED`                                     | 原子旋轉舊 session 或新建 session        | 全站攔截器恢復                                  |
 
@@ -41,6 +41,9 @@
 - `request.ts` 對非 admin API 自動帶 JWT；同時會補 `X-Session-Id`，形成雙憑證併存。
 - Session 類 401/400（`SESSION_EXPIRED`、`SESSION_ID_REQUIRED`、`INVALID_SESSION_ID`）走「清舊 -> refresh -> 重試」策略，避免死循環。
 - `claim-session` 屬提升體驗轉化率的「弱依賴」：失敗不應阻斷登入成功態。
+- `claim-session` 對外只承諾返回 `case_id | null`，但內部必須保持同 session 匿名資產歸戶一致：不能只綁 `cases.plaintiff_id`，而漏掉 `pairings.user1_id`、`chat_rooms.owner_user_id`、`chat_participants.user_id` 或 `evidences.user_id`。
+- `claim-session` 不做 quick -> formal 的隱式升格，不改 `Case.mode`，不建立正式 normal pairing；若未來要升格，必須另開狀態機與 migration / backfill 任務。
+- `claim-session` 只能補尚未歸屬的匿名欄位，不覆蓋既有 user ownership；正式 `collaborative + session_id = null` 不作為匿名 session 主 case 返回。
 - `reset-password` 刻意不暴露用戶是否存在；不存在帳號時仍返回成功，避免枚舉用戶。
 - `sessions/refresh` 若帶合法舊 `X-Session-Id`，後端會做「新建 -> 遷移 `case_id/pairing_id/session_data` -> 刪舊」的原子旋轉；前端必須同步替換本地 `sessionStorage` 與 `caseSessionMap`。
 
@@ -48,7 +51,7 @@
 
 1. 註冊 -> 登入 -> 取得 token 可訪問受保護頁。
 2. 快速體驗建立 session，過期後可刷新恢復。
-3. quick case 建立後登入，`claim-session` 成功綁定；失敗時不影響登入主流程。
+3. quick / session-bound collaborative case 建立後登入，`claim-session` 成功綁定主 case；同 session 的 pairing、chat room、roleA participant、evidence 一併歸戶；失敗時不影響登入主流程。
 4. 驗證碼與重置密碼流程在限流條件下有正確錯誤提示。
 
 ## 錯誤碼覆蓋矩陣（API -> code -> UI 行為）

@@ -69,9 +69,9 @@ Current Railway production state, last verified 2026-05-03:
 
 1. Project: `ingenious-commitment`.
 2. Production backend domain: `https://mother-bear-court-production.up.railway.app`.
-3. Latest production backend deployment for commit `51735f89f577151979abed4aec818c976fe0bee8` failed.
-4. Active production backend deployment is still commit `1b007fa99565e4489f60a5bd9deccdc0b63d4c0e`.
-5. Therefore, do not claim the backend is released at `51735f8` until Railway production is redeployed successfully.
+3. Railway CLI can read production deployment state with `railway status --json`.
+4. Latest and active production backend deployments were `SUCCESS` after the Railway Docker build fix.
+5. Use `railway status --json` for the exact active commit, because the backend version endpoint currently does not expose commit SHA.
 
 ## Local Development
 

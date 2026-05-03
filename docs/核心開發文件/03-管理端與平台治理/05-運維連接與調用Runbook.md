@@ -4,7 +4,7 @@
 **文檔類型**：正式規格
 **覆蓋範圍**：Vercel、Railway、Supabase/Postgres、Git/GitHub 與本機 `.env` 的固定連接、查詢與發布操作口徑
 **取證代碼入口**：`package.json`、`scripts/ops-release-status.sh`、`scripts/ops-db-status.sh`、`backend/.env.example`、`frontend/.env.example`、`frontend-admin/.env.example`、`backend/railway.toml`、`backend/prisma/schema.prisma`、`backend/src/config/database.ts`
-**最後核驗 Commit**：`51735f8`
+**最後核驗 Commit**：`6053d09`
 **最後核驗日期**：`2026-05-03`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -168,13 +168,12 @@ https://mother-bear-court-production.up.railway.app
 
 1. Project：`ingenious-commitment`
 2. Service：`mother-bear-court`
-3. Latest deployment：`0e8dfb66-7ad1-4095-9fca-2bf4d2d6314b`
-4. Latest deployment commit：`51735f89f577151979abed4aec818c976fe0bee8`
-5. Latest deployment status：`FAILED`
-6. Active deployment：`a0d62136-721b-4991-aedf-2a5429d1032b`
-7. Active deployment commit：`1b007fa99565e4489f60a5bd9deccdc0b63d4c0e`
+3. Latest deployment status：`SUCCESS`
+4. Active deployment status：`SUCCESS`
+5. Production backend domain：`https://mother-bear-court-production.up.railway.app`
+6. Railway CLI 可用 `railway status --json` 取得 exact active commit。
 
-因此，當前不能說後端已發布到 `51735f8`；只能說 Railway production live backend 可連通，但仍在舊 active deployment。
+因此，判斷後端是否最新時，應以 `railway status --json` 的 production `mother-bear-court` latest/active deployment commit 與 status 為準；不能只靠 Vercel 或後端 `/version` endpoint 推導。
 
 ## 8. Supabase / DB 固定查法
 
@@ -201,12 +200,13 @@ ENV_FILE=<backend-local-env-file> npm run ops:db:status
 
 1. 本機後端 env 指向 Supabase direct host `db.pfxrglsjgmpfyiwyxzou.supabase.co`，屬 development env。
 2. Vercel production env 的 `DATABASE_URL` 指向 Supabase pooler host `aws-1-eu-west-2.pooler.supabase.com`。
-3. 兩者都可連通，但 Prisma migration status 均顯示以下 migration 尚未套用：
+3. `2026-05-03` 已對 Vercel production env 的 Supabase/Postgres 套用以下 migration：
    - `20260502095500_add_admin_governance_models`
    - `20260502102000_add_judgment_emotional_analysis`
    - `20260502103000_add_reconciliation_repair_models`
+4. Production pooler 與本機後端 env 兩個連線視角均回報 `Database schema is up to date!`。
 
-在套用前，不得說 DB migration 已閉環。
+若之後新增 migration，仍必須重新執行 `ops:db:status`；不能沿用本段歷史結論。
 
 ## 9. Git / CI 固定查法
 

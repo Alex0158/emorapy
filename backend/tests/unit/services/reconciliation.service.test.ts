@@ -239,6 +239,41 @@ describe('ReconciliationService', () => {
     expect(mockGenerateReconciliationPlans).not.toHaveBeenCalled();
   });
 
+  it('session-bound quick case 要求邀請伴侶時應拒絕並保持 solo 邊界', async () => {
+    prismaMock.judgment.findUnique.mockResolvedValue({
+      ...baseJudgment,
+      case: {
+        ...baseJudgment.case,
+        mode: 'quick',
+        session_id: 'guest_1',
+      },
+    });
+
+    await expect(service.generatePlans('judge-1', {
+      intent: 'repair',
+      preferences: { invite_partner: true },
+    }, 'u1')).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+    });
+    expect(mockGenerateReconciliationPlans).not.toHaveBeenCalled();
+  });
+
+  it('無已登入當事人的案件不能生成修復方案', async () => {
+    prismaMock.judgment.findUnique.mockResolvedValue({
+      ...baseJudgment,
+      case: {
+        ...baseJudgment.case,
+        plaintiff_id: null,
+        defendant_id: null,
+      },
+    });
+
+    await expect(service.generatePlans('judge-1', { intent: 'repair' })).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
+    expect(mockGenerateReconciliationPlans).not.toHaveBeenCalled();
+  });
+
   it('selectPlan 應為當前用戶建立承諾與 track', async () => {
     prismaMock.reconciliationPlan.findUnique
       .mockResolvedValueOnce(storedPlan)
@@ -391,6 +426,25 @@ describe('ReconciliationService', () => {
       judgment: {
         ...baseJudgment,
         emotional_analysis: { route: 'safety_support' },
+      },
+    });
+
+    await expect(service.invitePartner('plan-1', 'u1')).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
+    expect(prismaMock.repairTrack.create).not.toHaveBeenCalled();
+  });
+
+  it('session-bound quick 方案應拒絕邀請伴侶加入修復旅程', async () => {
+    prismaMock.reconciliationPlan.findUnique.mockResolvedValue({
+      ...storedPlan,
+      judgment: {
+        ...baseJudgment,
+        case: {
+          ...baseJudgment.case,
+          mode: 'quick',
+          session_id: 'guest_1',
+        },
       },
     });
 

@@ -4,13 +4,13 @@
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：05-reconciliation-execution
 **取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`45d4897`
-**最後核驗日期**：`2026-04-19`
+**最後核驗 Commit**：`77f8660`
+**最後核驗日期**：`2026-05-03`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**文檔版本**：v2.7  
-**最後更新**：2026-04-19  
-**代碼基準**：`backend/src/routes/reconciliation.routes.ts`、`backend/src/routes/execution.routes.ts`、`backend/src/routes/ai-stream.routes.ts`、`backend/src/services/reconciliation.service.ts`、`backend/src/services/execution.service.ts`
+**文檔版本**：v2.8
+**最後更新**：2026-05-03
+**代碼基準**：`backend/src/routes/reconciliation.routes.ts`、`backend/src/routes/execution.routes.ts`、`backend/src/routes/ai-stream.routes.ts`、`backend/src/services/reconciliation.service.ts`、`backend/src/services/repair-eligibility.service.ts`、`backend/src/services/safety-routing.service.ts`、`backend/src/services/execution.service.ts`
 
 ---
 
@@ -44,18 +44,32 @@
 - `reconciliation_plans.version_group_id / superseded_at / superseded_by_plan_id`
   - 方案重生成與 replan 不再刪舊版本，只做 supersede
 
+## 修復資格邊界
+
+修復旅程資格由兩層 policy 同時裁決：
+
+1. 安全路由：`backend/src/services/safety-routing.service.ts`
+   - `safety_support / crisis_support` 強制 solo，禁止伴侶邀請、共同修復與伴侶通知。
+2. 產品流資格：`backend/src/services/repair-eligibility.service.ts`
+   - `quick` 或 `collaborative + session_id` 屬 session-bound case，可生成低壓 solo 方案，但禁止伴侶邀請、共同修復與伴侶通知。
+   - 正式單方案件可生成 solo 方案，但不可共同修復或通知另一方。
+   - 正式雙方案件才允許共同修復、伴侶邀請與伴侶通知。
+   - 沒有任何已登入當事人的案件不能生成修復方案。
+
+任何頁面、通知、chat-to-case、execution 或後續 job 不得自行用 `case.mode` 重寫上述資格判斷。
+
 ## 接口契約（字段級）
 
 
 | API                                               | Request（核心字段）                                                                                                        | Success（前端實際用到）                                                                                                                                                                                                                                                                                                                                                                    | 副作用 / 狀態轉移                                                          | 前端入口                                                     |
 | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------- |
-| `POST /api/v1/judgments/:id/reconciliation-plans` | `intent?` `preferences?{difficulty,duration,types[],pressure_level,pace,style[],invite_partner}` `force_regenerate?` | `data.plans[]` `data.recommended_plan_id` `data.intent` `data.applied_preferences` `data.journey_entry` `data.version_summary`                                                                                                                                                                                                                                                     | 生成或重生成同方向方案集合；force regenerate 改為 supersede 舊版本                     | `/reconciliation/:judgmentId?intent=`*                   |
+| `POST /api/v1/judgments/:id/reconciliation-plans` | `intent?` `preferences?{difficulty,duration,types[],pressure_level,pace,style[],invite_partner}` `force_regenerate?` | `data.plans[]` `data.recommended_plan_id` `data.intent` `data.applied_preferences` `data.journey_entry` `data.version_summary`                                                                                                                                                                                                                                                     | 生成或重生成同方向方案集合；force regenerate 改為 supersede 舊版本；受 safety policy + repair eligibility 共同限制                     | `/reconciliation/:judgmentId?intent=`*                   |
 | `GET /api/v1/judgments/:id/reconciliation-plans`  | `id(uuid)` + optional `difficulty/type/intent`                                                                       | 同上 bundle                                                                                                                                                                                                                                                                                                                                                                          | 無                                                                   | `/reconciliation/:judgmentId`                            |
 | `GET /api/v1/reconciliation-plans/:id`            | `id(uuid)`                                                                                                           | `data.plan`（含 `content`、`fit_reason`、`commitment`、`judgment.case_id`、`viewer_role`、`invite_context`、`cta_state`、`track_history_summary`、`journey_context`）                                                                                                                                                                                                                         | 無                                                                   | `/reconciliation/:judgmentId/:id`                        |
 | `POST /api/v1/reconciliation-plans/:id/select`    | `id(uuid)`                                                                                                           | `data.plan.commitment`                                                                                                                                                                                                                                                                                                                                                             | 當前用戶承諾此方案；必要時初始化 `repair_track`                                     | `/reconciliation/:judgmentId/:id`                        |
 | `POST /api/v1/reconciliation-plans/:id/respond`   | `action(viewed/committed/deferred/declined/paused)` `reason?` `remind_in_hours?`                                     | `data.plan`                                                                                                                                                                                                                                                                                                                                                                        | invitee 查看 / 接受 / 延後回應 / 婉拒 / 暫停回應閉環                                | `/reconciliation/:judgmentId/:id`                        |
 | `GET /api/v1/reconciliation-plans/:id/commitment` | `id(uuid)`                                                                                                           | `data.commitment`                                                                                                                                                                                                                                                                                                                                                                  | 無                                                                   | 詳情頁 / 後續擴展                                               |
-| `POST /api/v1/reconciliation-plans/:id/invite`    | `id(uuid)`                                                                                                           | `data.invitation`                                                                                                                                                                                                                                                                                                                                                                  | 記錄邀請與通知 deep link；若 track 處於 `draft/partner_invited` 會進 `partner_invited`，若已在運行態（如 `solo_active/co_active/paused/replanning`）則保留當前運行態 | `/reconciliation/:judgmentId/:id`                        |
+| `POST /api/v1/reconciliation-plans/:id/invite`    | `id(uuid)`                                                                                                           | `data.invitation`                                                                                                                                                                                                                                                                                                                                                                  | 僅 safety policy + repair eligibility 均允許時記錄邀請與通知 deep link；若 track 處於 `draft/partner_invited` 會進 `partner_invited`，若已在運行態（如 `solo_active/co_active/paused/replanning`）則保留當前運行態 | `/reconciliation/:judgmentId/:id`                        |
 | `POST /api/v1/reconciliation-plans/:id/pause`     | `id(uuid)`                                                                                                           | `data.commitment`                                                                                                                                                                                                                                                                                                                                                                  | 將當前用戶 / track 標記為 `paused`                                          | `/reconciliation/:judgmentId/:id`                        |
 | `POST /api/v1/execution/confirm`                  | `plan_id(uuid)`                                                                                                      | `data.execution`                                                                                                                                                                                                                                                                                                                                                                   | 啟動 repair journey；兼容保留 execution confirm 記錄                         | `/reconciliation/:judgmentId/:id`                        |
 | `POST /api/v1/execution/checkin`                  | `plan_id(uuid)` `step_result?` `closeness?` `stress?` `needs_help?` `notes?` `photos?<=3`                            | `data.execution`                                                                                                                                                                                                                                                                                                                                                                   | 寫入 `repair_checkins`、更新當前步驟 / 旅程狀態 / legacy execution record        | `/execution/:planId/checkin`                             |
@@ -189,6 +203,8 @@
   - `declined`：僅改變邀請回應，不直接刪除旅程
   - `paused`：可由任一方暫停
 3. `invite`
+  - 必須同時通過 safety policy 與 repair eligibility。
+  - session-bound quick/collaborative、正式單方、高風險 safety/crisis 路由一律不可邀請伴侶。
   - 在 `draft/partner_invited` 階段會維持或進入 `partner_invited`。
   - 若已進入運行態（`solo_active/co_active/paused/replanning/completed/closed`），邀請只更新邀請時間與通知，不覆蓋運行態。
 4. `confirm`

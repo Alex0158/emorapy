@@ -50,6 +50,7 @@
 
 1. 安全路由：`backend/src/services/safety-routing.service.ts`
    - `safety_support / crisis_support` 強制 solo，禁止伴侶邀請、共同修復與伴侶通知。
+   - `safety_support / crisis_support` 同時禁止前端展示責任比例；判決接口會透過 `responsibility_ratio_visibility.can_show=false` 給出降級信號。
 2. 產品流資格：`backend/src/services/repair-eligibility.service.ts`
    - `quick` 或 `collaborative + session_id` 屬 session-bound case，可生成低壓 solo 方案，但禁止伴侶邀請、共同修復與伴侶通知。
    - 正式單方案件可生成 solo 方案，但不可共同修復或通知另一方。

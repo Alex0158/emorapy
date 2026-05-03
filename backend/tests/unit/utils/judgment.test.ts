@@ -84,7 +84,28 @@ describe('judgment utils', () => {
       };
       const result = normalizeJudgment(input);
       expect(result.judgment_route).toBe('safety_support');
+      expect(result.responsibility_ratio_visibility).toEqual({
+        can_show: false,
+        reason: '安全支持路由不得展示責任比例，避免把安全風險對稱化',
+      });
       expect((result as Record<string, unknown>).emotional_analysis).toBeUndefined();
+    });
+
+    it('standard route 應標記責任比例可展示', () => {
+      const input = {
+        id: '1',
+        plaintiff_ratio: 50,
+        defendant_ratio: 50,
+        emotional_analysis: {
+          route: 'standard',
+        },
+      };
+      const result = normalizeJudgment(input);
+      expect(result.judgment_route).toBe('standard');
+      expect(result.responsibility_ratio_visibility).toEqual({
+        can_show: true,
+        reason: null,
+      });
     });
 
     it('emotional_analysis 為 null 時也應安全移除', () => {

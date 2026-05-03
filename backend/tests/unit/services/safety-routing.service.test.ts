@@ -175,6 +175,7 @@ describe('SafetyRoutingService', () => {
         canInvitePartner: false,
         canUseCoRepair: false,
         canNotifyPartner: false,
+        canShowResponsibilityRatio: false,
         forceSoloRepair: true,
       });
       expect(policy.allowedReconciliationIntents).not.toContain('repair');
@@ -195,6 +196,7 @@ describe('SafetyRoutingService', () => {
       expect(policy.canInvitePartner).toBe(true);
       expect(policy.canUseCoRepair).toBe(true);
       expect(policy.canNotifyPartner).toBe(true);
+      expect(policy.canShowResponsibilityRatio).toBe(true);
       expect(policy.allowedReconciliationIntents).toContain('repair');
     });
   });

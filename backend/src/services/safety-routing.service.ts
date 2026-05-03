@@ -1,6 +1,18 @@
 import { IPV_SIGNAL_REGEX, CRISIS_SIGNAL_REGEX } from './ai.service';
+import {
+  getProductSafetyPolicy,
+  isJudgmentRoute,
+  type JudgmentRoute,
+  type ProductSafetyPolicy,
+  type ReconciliationIntentForSafetyPolicy,
+} from '../utils/product-safety-policy';
 
-export type JudgmentRoute = 'standard' | 'safety_support' | 'crisis_support';
+export {
+  getProductSafetyPolicy,
+  type JudgmentRoute,
+  type ProductSafetyPolicy,
+  type ReconciliationIntentForSafetyPolicy,
+};
 
 export interface RoutingAnalysisInput {
   severity?: string;
@@ -13,73 +25,15 @@ export interface SafetyRouteDecision {
   detectedFlags: string[];
 }
 
-export type ReconciliationIntentForSafetyPolicy = 'repair' | 'cool_down' | 'graceful_exit' | 'safety_support';
-
-export interface ProductSafetyPolicy {
-  route: JudgmentRoute;
-  isHighRisk: boolean;
-  defaultReconciliationIntent: ReconciliationIntentForSafetyPolicy;
-  allowedReconciliationIntents: ReconciliationIntentForSafetyPolicy[];
-  canInvitePartner: boolean;
-  canUseCoRepair: boolean;
-  canNotifyPartner: boolean;
-  forceSoloRepair: boolean;
-  reasons: string[];
-}
-
-const ROUTE_VALUES = new Set<JudgmentRoute>(['standard', 'safety_support', 'crisis_support']);
-
 function readStoredRoute(emotionalAnalysis?: unknown): JudgmentRoute | null {
   if (!emotionalAnalysis || typeof emotionalAnalysis !== 'object') {
     return null;
   }
   const record = emotionalAnalysis as Record<string, unknown>;
   const route = record.route ?? record.judgment_route;
-  return typeof route === 'string' && ROUTE_VALUES.has(route as JudgmentRoute)
-    ? route as JudgmentRoute
+  return isJudgmentRoute(route)
+    ? route
     : null;
-}
-
-export function getProductSafetyPolicy(route: JudgmentRoute): ProductSafetyPolicy {
-  if (route === 'crisis_support') {
-    return {
-      route,
-      isHighRisk: true,
-      defaultReconciliationIntent: 'safety_support',
-      allowedReconciliationIntents: ['safety_support', 'cool_down', 'graceful_exit'],
-      canInvitePartner: false,
-      canUseCoRepair: false,
-      canNotifyPartner: false,
-      forceSoloRepair: true,
-      reasons: ['危機支持路由不得進入共同修復或伴侶召回'],
-    };
-  }
-
-  if (route === 'safety_support') {
-    return {
-      route,
-      isHighRisk: true,
-      defaultReconciliationIntent: 'safety_support',
-      allowedReconciliationIntents: ['safety_support', 'cool_down', 'graceful_exit'],
-      canInvitePartner: false,
-      canUseCoRepair: false,
-      canNotifyPartner: false,
-      forceSoloRepair: true,
-      reasons: ['安全支持路由不得把關係風險對稱化或推進共同修復'],
-    };
-  }
-
-  return {
-    route,
-    isHighRisk: false,
-    defaultReconciliationIntent: 'repair',
-    allowedReconciliationIntents: ['repair', 'cool_down', 'graceful_exit', 'safety_support'],
-    canInvitePartner: true,
-    canUseCoRepair: true,
-    canNotifyPartner: true,
-    forceSoloRepair: false,
-    reasons: ['標準路由允許一般修復旅程'],
-  };
 }
 
 export function getProductSafetyPolicyForJudgment(input: {

@@ -24,7 +24,7 @@
 
 | API                                          | Request（核心字段）                                       | Success（前端實際用到）                                      | 常見錯誤碼                                                   | 副作用/狀態轉移                    | 前端入口                           |
 | -------------------------------------------- | --------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------- | --------------------------- | ------------------------------ |
-| `POST /api/v1/judgments/generate/:id`        | `id(uuid)` + optional `X-Session-Id`                | `data.judgment.id` `plaintiff_ratio/defendant_ratio` | `RATE_LIMIT_EXCEEDED` `CASE_NOT_READY` `FORBIDDEN` `CONFLICT` `NOT_FOUND` `INVALID_SESSION_ID` `AI_SERVICE_ERROR` | case 進入判決生成流                | `/case/:id/review`             |
+| `POST /api/v1/judgments/generate/:id`        | `id(uuid)` + optional `X-Session-Id`                | `data.judgment.id` `plaintiff_ratio/defendant_ratio` `judgment_route?` `responsibility_ratio_visibility?` | `RATE_LIMIT_EXCEEDED` `CASE_NOT_READY` `FORBIDDEN` `CONFLICT` `NOT_FOUND` `INVALID_SESSION_ID` `AI_SERVICE_ERROR` | case 進入判決生成流                | `/case/:id/review`             |
 | `GET /api/v1/streams/case_judgment/:id`（SSE） | `after_seq?` + optional `X-Session-Id`              | `ready + stream.phase/completed/persisted/failed`    | `UNAUTHORIZED` `FORBIDDEN` `NOT_FOUND` `INVALID_SESSION_ID` `SESSION_EXPIRED`                                 | 暴露判決生成 phase 與 persisted 狀態 | `/quick-experience/result/:id` |
 | `GET /api/v1/judgments/:id`                  | `id(uuid)`                                          | `data.judgment`                                      | `NOT_FOUND` `UNAUTHORIZED` `JUDGMENT_PENDING` `JUDGMENT_FAILED` `INVALID_SESSION_ID` `SESSION_EXPIRED`                                 | 無                           | `/judgment/:id`                |
 | `POST /api/v1/judgments/:id/accept`          | `accepted:boolean` `rating?:0..5`                   | `data.judgment.accepted`                             | `VALIDATION_ERROR` `UNAUTHORIZED` `FORBIDDEN` `NOT_FOUND`                       | 寫入接受/拒絕結果                   | `/judgment/:id`                |
@@ -42,6 +42,7 @@
 - `GET /api/v1/judgments/:id` 的權限檢查實際委派到 `getJudgmentByCaseId(case_id)`；`FORBIDDEN` 會在 controller 層轉為 `NOT_FOUND`，用於避免暴露資源存在性。
 - case 維度判斷規則與 case 模組一致：`quick`/`collaborative(session_id 有值)` 走 session 校驗；`remote`/`collaborative(session_id=null)` 走當事人 JWT 校驗。
 - 判決生成的 `profileContext / caseContext` 注入不得只用 `case.mode === quick` 排除；必須透過 `backend/src/utils/case-classifier.ts` 的產品流口徑判斷。純 quick/session-bound 流程不注入個人/關係上下文；`ChatToCaseLink` 優先於 `case.mode`，chat-to-case 可在有登入當事人與 consent 時走 user-bound context governance。
+- normalized judgment 會 additive 回傳 `responsibility_ratio_visibility`（`can_show/reason`），語義來源是 `backend/src/utils/product-safety-policy.ts`。`safety_support / crisis_support` 不應展示責任比例，前端只能做降級呈現；後端暫保留 `plaintiff_ratio/defendant_ratio` 以維持既有契約，不能把字段存在視為可展示。
 
 ## 回歸測試最小集
 

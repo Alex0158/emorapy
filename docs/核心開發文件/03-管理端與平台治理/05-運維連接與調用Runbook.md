@@ -130,6 +130,15 @@ DATABASE_URL="postgresql://..." npm run prisma:seed
 
 `scripts/smoke-claim-session-production-like.sh` 預設會在結束時停用本次建立的 `claim-smoke-*` user（`CLAIM_SMOKE_DISABLE_CREATED_USER=true`）。若因特殊排查需要保留 smoke user，必須明確設為 `false`，並在排查後手動停用或刪除。
 
+發布後掃描 active smoke / dev 測試帳號：
+
+```bash
+cd backend
+npm run ops:smoke-accounts:check
+```
+
+此命令預設只讀，若發現 `claim-smoke-*`、預設 dev user 或預設 smoke/admin user 仍啟用，會以非 0 exit code 阻斷發版閉環。僅在確認目標 DB 與帳號範圍後，才可用 `SMOKE_ACCOUNT_HYGIENE_DISABLE=true npm run ops:smoke-accounts:check` 停用白名單匹配帳號。
+
 缺任何一項時，應說「部分已發布」並列明缺口，不應說整體已最新。
 
 ## 5.1 產品狀態一致性與恢復提案

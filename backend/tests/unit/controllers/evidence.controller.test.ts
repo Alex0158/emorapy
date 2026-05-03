@@ -82,7 +82,7 @@ describe('evidence.controller', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     controller = new EvidenceController();
-    req = { params: {}, query: {}, headers: {}, files: [] };
+    req = { params: {}, query: {}, headers: {}, body: {}, files: [] };
     res = {
       json: jest.fn().mockReturnThis(),
       status: jest.fn().mockReturnThis(),
@@ -430,6 +430,93 @@ describe('evidence.controller', () => {
       expect(next).toHaveBeenCalledWith(
         expect.objectContaining({ code: 'TOO_MANY_FILES', message: expect.stringContaining('最多') })
       );
+    });
+
+    it('涉及敏感內容但缺少 safety assertion 確認時應拒絕並清理已上傳文件', async () => {
+      req.params = { id: caseId };
+      req.files = [{ fieldname: 'files', filename: 'sensitive.jpg', mimetype: 'image/jpeg', size: 100 } as Express.Multer.File];
+      req.body = {
+        safety_assertion: JSON.stringify({
+          contains_sensitive_content: true,
+        }),
+      };
+      req.query = { session_id: 's1' };
+      (prisma.case.findUnique as jest.Mock).mockResolvedValue({
+        id: caseId,
+        mode: 'quick',
+        session_id: 's1',
+        status: 'draft',
+      } as never);
+      mockGetSession.mockResolvedValue({ id: 's1' } as never);
+
+      await runUpload(controller, req as Request, res as Response, next);
+
+      expect(next).toHaveBeenCalledWith(
+        expect.objectContaining({ code: 'VALIDATION_ERROR', message: expect.stringContaining('敏感內容') })
+      );
+      expect(mockValidateFile).not.toHaveBeenCalled();
+      expect(mockDeleteFile).toHaveBeenCalledWith('sensitive.jpg');
+      expect(prisma.evidence.create).not.toHaveBeenCalled();
+    });
+
+    it('非同意內容 safety assertion 應直接拒絕上傳', async () => {
+      req.params = { id: caseId };
+      req.files = [{ fieldname: 'files', filename: 'bad.jpg', mimetype: 'image/jpeg', size: 100 } as Express.Multer.File];
+      req.body = {
+        contains_nonconsensual_content: 'true',
+      };
+      req.query = { session_id: 's1' };
+      (prisma.case.findUnique as jest.Mock).mockResolvedValue({
+        id: caseId,
+        mode: 'quick',
+        session_id: 's1',
+        status: 'draft',
+      } as never);
+      mockGetSession.mockResolvedValue({ id: 's1' } as never);
+
+      await runUpload(controller, req as Request, res as Response, next);
+
+      expect(next).toHaveBeenCalledWith(
+        expect.objectContaining({ code: 'VALIDATION_ERROR', message: expect.stringContaining('非同意') })
+      );
+      expect(prisma.evidence.create).not.toHaveBeenCalled();
+    });
+
+    it('合法的未成年人與敏感內容 safety assertion 應寫入 evidence description metadata', async () => {
+      req.params = { id: caseId };
+      req.files = [{ fieldname: 'files', filename: 'minor.jpg', mimetype: 'image/jpeg', size: 100 } as Express.Multer.File];
+      req.body = {
+        safety_assertion: JSON.stringify({
+          contains_minor: true,
+          contains_sensitive_content: true,
+          minor_guardian_or_self_upload_confirmed: true,
+          sensitive_content_handling_ack: true,
+        }),
+      };
+      req.query = { session_id: 's1' };
+      (prisma.case.findUnique as jest.Mock).mockResolvedValue({
+        id: caseId,
+        mode: 'quick',
+        session_id: 's1',
+        status: 'draft',
+      } as never);
+      mockGetSession.mockResolvedValue({ id: 's1' } as never);
+      (prisma.evidence.count as jest.Mock).mockResolvedValue(0 as never);
+      (prisma.evidence.create as jest.Mock).mockResolvedValue({
+        id: evidenceId,
+        file_url: 'http://files/minor.jpg',
+      } as never);
+
+      await runUpload(controller, req as Request, res as Response, next);
+
+      expect(prisma.evidence.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            description: expect.stringContaining('evidence_safety_assertion'),
+          }),
+        })
+      );
+      expect(next).not.toHaveBeenCalled();
     });
 
     it('video mimetype 時應調用 processVideo', async () => {

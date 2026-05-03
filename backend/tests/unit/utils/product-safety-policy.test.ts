@@ -1,4 +1,5 @@
 import {
+  getEvidenceSafetyAssertionPolicy,
   getChatJudgmentRequestPolicy,
   getProductSafetyPolicy,
   getResponsibilityRatioVisibilityForRoute,
@@ -38,5 +39,48 @@ describe('product-safety-policy', () => {
     expect(getResponsibilityRatioVisibilityForRoute('safety_support').can_show).toBe(false);
     expect(getProductSafetyPolicy('standard').canShowResponsibilityRatio).toBe(true);
     expect(getResponsibilityRatioVisibilityForRoute('standard').can_show).toBe(true);
+  });
+
+  it('未提供 evidence safety assertion 時應保持舊上傳契約', () => {
+    const policy = getEvidenceSafetyAssertionPolicy({});
+
+    expect(policy.canUpload).toBe(true);
+    expect(policy.assertionProvided).toBe(false);
+    expect(policy.metadata).toBeNull();
+  });
+
+  it('涉及未成年人但缺少合法依據確認時應拒絕', () => {
+    const policy = getEvidenceSafetyAssertionPolicy({
+      contains_minor: 'true',
+    });
+
+    expect(policy.canUpload).toBe(false);
+    expect(policy.rejectionMessage).toContain('未成年人');
+    expect(policy.normalized?.contains_minor).toBe(true);
+  });
+
+  it('涉及敏感內容且已確認處理風險時應產生 metadata', () => {
+    const policy = getEvidenceSafetyAssertionPolicy({
+      safety_assertion: JSON.stringify({
+        contains_sensitive_content: true,
+        sensitive_content_handling_ack: 'true',
+      }),
+    });
+
+    expect(policy.canUpload).toBe(true);
+    expect(policy.metadata).toMatchObject({
+      kind: 'evidence_safety_assertion',
+      version: 1,
+    });
+    expect(policy.normalized?.contains_sensitive_content).toBe(true);
+  });
+
+  it('非同意或非法內容不得上傳為 evidence', () => {
+    const policy = getEvidenceSafetyAssertionPolicy({
+      contains_nonconsensual_content: 'on',
+    });
+
+    expect(policy.canUpload).toBe(false);
+    expect(policy.reasons[0]).toContain('非同意或非法內容');
   });
 });

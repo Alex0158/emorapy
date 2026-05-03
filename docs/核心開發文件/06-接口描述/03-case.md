@@ -30,7 +30,7 @@
 | `POST /api/v1/cases/collaborative`              | `case_id?` `plaintiff_statement?` `defendant_statement?`                | `data.case` `data.phase`         | `VALIDATION_ERROR` `INVALID_SESSION_ID` `NOT_FOUND` `FORBIDDEN` `SESSION_EXPIRED` `CASE_NOT_EDITABLE` | A/B 輪流續寫同案           | `/quick-experience/collaborative` |
 | `POST /api/v1/cases`                            | `pairing_id(uuid)` `plaintiff_statement` `defendant_statement?` `mode?` | `data.case`                      | `VALIDATION_ERROR` `FORBIDDEN`                         | 建立 draft case        | `/case/create`                    |
 | `GET /api/v1/cases`                             | query: `status/type/page/page_size/sort/search`                         | `data.cases[]`（含 `product_flow`） `data.pagination` | `UNAUTHORIZED`                                         | 無                    | `/case/list`                      |
-| `POST /api/v1/cases/:id/evidence`               | path `id(uuid)` + multipart `files[]`                                   | `data.evidences[]`               | `FILE_TOO_LARGE` `TOO_MANY_FILES` `INVALID_FILE_TYPE` `INVALID_FILE_FIELD` `NOT_FOUND` `UNAUTHORIZED` `FORBIDDEN` `INVALID_SESSION_ID` `SESSION_EXPIRED` `CASE_NOT_EDITABLE` | 寫入 evidence 記錄與文件    | FileUpload、快速結果頁                  |
+| `POST /api/v1/cases/:id/evidence`               | path `id(uuid)` + multipart `files[]`; optional `safety_assertion` JSON / inline safety fields | `data.evidences[]`               | `VALIDATION_ERROR` `FILE_TOO_LARGE` `TOO_MANY_FILES` `INVALID_FILE_TYPE` `INVALID_FILE_FIELD` `NOT_FOUND` `UNAUTHORIZED` `FORBIDDEN` `INVALID_SESSION_ID` `SESSION_EXPIRED` `CASE_NOT_EDITABLE` | 寫入 evidence 記錄與文件    | FileUpload、快速結果頁                  |
 | `DELETE /api/v1/cases/:id/evidence/:evidenceId` | `id(uuid)` `evidenceId(uuid)`                                           | 成功旗標                             | `NOT_FOUND` `FORBIDDEN` `INVALID_SESSION_ID` `SESSION_EXPIRED`                                | 刪除 evidence 關聯       | FileUpload                        |
 | `GET /api/v1/cases/:id/judgment`                | `id(uuid)` + optional `X-Session-Id`                                    | `data.judgment`                  | `JUDGMENT_PENDING` `JUDGMENT_FAILED` `NOT_FOUND` `UNAUTHORIZED` `FORBIDDEN` `INVALID_SESSION_ID` `SESSION_EXPIRED`                | 無                    | 快速結果、判決快捷查詢                       |
 | `POST /api/v1/cases/:id/submit`                 | `id(uuid)`                                                              | `data.case.status=submitted`     | `CASE_NOT_EDITABLE` `UNAUTHORIZED`                     | `draft -> submitted` | `/case/:id`                       |
@@ -43,6 +43,7 @@
 - 路由順序強依賴：具體路由必須先於 `/:id`，否則會發生錯配。
 - `validateUuidParam` 用於提前 `next('route')`，避免 `/quick`、`/by-session` 被 UUID 路由吸收。
 - 證據接口授權模型為 `optionalAuthenticate + session`，是「匿名與登入共用」高風險鏈路。
+- 證據上傳已接入 additive `safety_assertion` gate：multipart 可帶 `safety_assertion` JSON string/object，或 inline fields：`contains_minor`、`contains_sensitive_content`、`contains_nonconsensual_content`、`contains_illegal_content`、`minor_guardian_or_self_upload_confirmed`、`sensitive_content_handling_ack`。未提供 assertion 時保留舊版上傳契約；一旦聲明涉及未成年人或敏感內容，後端要求對應確認；聲明含非同意或非法內容時直接返回 `VALIDATION_ERROR` 並清理已上傳文件。通過的 assertion 目前以 transitional metadata 寫入 `Evidence.description`，後續若新增 `SafetyAssessment / EvidenceSafetyMetadata` schema 需 backfill 到正式表。
 - `createQuickCase` / `createCollaborativeCase(phase=submitted)` / `submitCase` 的判決生成均由 controller 以 `setImmediate` 非阻塞觸發；HTTP 成功僅代表提交成功，不等於判決已生成。
 - `/cases/:id/judgment` 在前端語義是「可能尚未生成」，`404/特定 code` 需被當成可恢復狀態而非致命錯誤。
 - `GET /cases/:id`、`GET /cases/:id/judgment` 的授權判定使用同一條規則：
@@ -63,10 +64,11 @@
 1. quick case 與正式 case 各建一筆，確認狀態與可見性隔離。
 2. draft 允許 `PUT`，submitted 後 `PUT` 必須拒絕。
 3. 匿名 session 上傳證據 + 登入上傳證據都可成功。
-4. `/cases/:id/judgment` 在 pending 與 ready 兩種狀態下前端行為正確。
-5. `collaborative + session_id=null` 案件下，當事人 JWT 讀 `GET /cases/:id` 與 `GET /cases/:id/judgment` 必須通過；匿名或非當事人必須拒絕。
-6. notification / repair reminder 應覆蓋 `formal_remote`、`formal_collaborative`、`chat_to_case`，並排除 session-bound quick。
-7. `GET /cases` 與 `GET /cases/:id` 對 chat-to-case case 必須返回 `product_flow=chat_to_case`。
+4. evidence safety assertion：敏感內容缺少確認必須拒絕並清理文件；非同意 / 非法內容必須拒絕；合法未成年人 / 敏感內容 assertion 需寫入 transitional metadata。
+5. `/cases/:id/judgment` 在 pending 與 ready 兩種狀態下前端行為正確。
+6. `collaborative + session_id=null` 案件下，當事人 JWT 讀 `GET /cases/:id` 與 `GET /cases/:id/judgment` 必須通過；匿名或非當事人必須拒絕。
+7. notification / repair reminder 應覆蓋 `formal_remote`、`formal_collaborative`、`chat_to_case`，並排除 session-bound quick。
+8. `GET /cases` 與 `GET /cases/:id` 對 chat-to-case case 必須返回 `product_flow=chat_to_case`。
 
 ## 錯誤碼覆蓋矩陣（API -> code -> UI 行為）
 
@@ -83,6 +85,7 @@
 | `POST /api/v1/cases/:id/evidence`               | `FILE_TOO_LARGE`      | 413  | 提示檔案過大          | 更換檔案後重傳        |
 | `POST /api/v1/cases/:id/evidence`               | `TOO_MANY_FILES`      | 400  | 提示最多 3 份證據       | 刪減檔案後重傳        |
 | `POST /api/v1/cases/:id/evidence`               | `INVALID_FILE_TYPE`   | 400  | 提示格式不支持         | 轉換格式後重傳        |
+| `POST /api/v1/cases/:id/evidence`               | `VALIDATION_ERROR`    | 400  | 提示證據安全聲明缺失或內容不可上傳 | 補確認項或移除不可上傳內容 |
 | `POST /api/v1/cases/:id/evidence`               | `CASE_NOT_EDITABLE`   | 422  | 提示當前狀態不可再上傳       | 回案件頁查看狀態       |
 | `DELETE /api/v1/cases/:id/evidence/:evidenceId` | `FORBIDDEN`           | 403  | 顯示無刪除權限         | 切換正確身份/資源      |
 | `DELETE /api/v1/cases/:id/evidence/:evidenceId` | `SESSION_EXPIRED`     | 401  | 提示匿名會話已失效        | 刷新 session 後重試   |

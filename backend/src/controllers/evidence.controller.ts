@@ -8,6 +8,7 @@ import { getAuthUserIdOptional, getSessionIdFromSources } from '../utils/request
 import { lockService } from '../utils/lock';
 import { LOCK_TTL, EVIDENCE_UPLOAD_ALLOWED_STATUSES } from '../utils/constants';
 import { isCaseParticipant, isSessionBoundCase } from '../utils/case-classifier';
+import { getEvidenceSafetyAssertionPolicy } from '../utils/product-safety-policy';
 
 export class EvidenceController {
   private preAuthorizeUpload = async (req: Request, _res: Response, next: NextFunction) => {
@@ -77,6 +78,17 @@ export class EvidenceController {
           throw Errors.VALIDATION_ERROR('請選擇要上傳的文件');
         }
 
+        const evidenceSafetyPolicy = getEvidenceSafetyAssertionPolicy(req.body);
+        if (!evidenceSafetyPolicy.canUpload) {
+          throw Errors.VALIDATION_ERROR(
+            evidenceSafetyPolicy.rejectionMessage ?? '證據安全聲明未通過',
+            { reasons: evidenceSafetyPolicy.reasons }
+          );
+        }
+        const safetyDescription = evidenceSafetyPolicy.metadata
+          ? JSON.stringify({ safety_assertion: evidenceSafetyPolicy.metadata })
+          : null;
+
         const processedFiles: Array<{ filename: string; size: number; mimetype: string }> = [];
         for (const file of files) {
           await fileService.validateFile(file);
@@ -119,6 +131,7 @@ export class EvidenceController {
                   file_url: fileService.getFileUrl(processed.filename),
                   file_type: processed.mimetype.startsWith('image/') ? 'image' : 'video',
                   file_size: processed.size,
+                  description: safetyDescription,
                 },
               });
               created.push(evidence);

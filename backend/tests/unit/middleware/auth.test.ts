@@ -300,6 +300,29 @@ describe('middleware/auth', () => {
       expect(next).toHaveBeenCalledWith();
     });
 
+    it('session-bound collaborative 的證據文件應可用同 session 授權', async () => {
+      mockValidateSessionId.mockReturnValue(true);
+      mockGetSession.mockResolvedValue({ id: 's1', expires_at: new Date(Date.now() + 3600000) } as never);
+      const req = createReq({ headers: { 'x-session-id': 's1' }, path: '/foo.jpg' });
+
+      await authorizeMedia(req, createRes(), next);
+
+      expect(mockFindFirstEvidence).toHaveBeenCalledWith({
+        where: {
+          file_url: { contains: 'foo.jpg' },
+          case: {
+            OR: [
+              { mode: 'quick', session_id: 's1' },
+              { mode: 'collaborative', session_id: 's1' },
+            ],
+          },
+        },
+        select: { id: true },
+      });
+      expect(req.sessionId).toBe('s1');
+      expect(next).toHaveBeenCalledWith();
+    });
+
     it('無認證且無 Session/Token 應 next(UNAUTHORIZED)', async () => {
       const req = createReq({ headers: {}, query: {} });
       await authorizeMedia(req, createRes(), next);

@@ -2,6 +2,7 @@ import {
   buildCaseProductFlowWhere,
   buildCompletedExecutionProductFlowWhere,
   buildJudgmentProductFlowWhere,
+  buildSessionBoundCaseWhere,
   buildStaleFormalDraftCaseWhere,
   buildUserBoundCaseModeWhere,
   buildUserBoundProductCaseWhere,
@@ -67,6 +68,15 @@ describe('case-classifier', () => {
       OR: [
         { mode: 'remote' },
         { mode: 'collaborative', session_id: null },
+      ],
+    });
+  });
+
+  it('session-bound case query 應覆蓋 quick 與 collaborative 同 session', () => {
+    expect(buildSessionBoundCaseWhere('s1')).toEqual({
+      OR: [
+        { mode: 'quick', session_id: 's1' },
+        { mode: 'collaborative', session_id: 's1' },
       ],
     });
   });

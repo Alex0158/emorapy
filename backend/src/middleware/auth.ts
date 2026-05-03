@@ -11,7 +11,7 @@ import path from 'path';
 import crypto from 'crypto';
 import fs from 'fs/promises';
 import { getRequestId, getSessionIdFromSources } from '../utils/request';
-import { CASE_MODE } from '../utils/constants';
+import { buildSessionBoundCaseWhere } from '../utils/case-classifier';
 
 /**
  * JWT認證中間件（必需認證）
@@ -261,14 +261,14 @@ export const authorizeMedia = async (
       throw Errors.INVALID_SESSION_ID('Header 與 Query 的 Session ID 不一致');
     }
 
-    // 嘗試 Session 驗證（快速體驗）+ 文件歸屬校驗
+    // 嘗試 Session 驗證（session-bound 體驗）+ 文件歸屬校驗
     if (sessionId && validateSessionId(sessionId)) {
       const session = await sessionService.getSession(sessionId);
       if (session) {
         const evidence = await prisma.evidence.findFirst({
           where: {
             file_url: { contains: requestedFile },
-            case: { mode: CASE_MODE.QUICK, session_id: sessionId },
+            case: buildSessionBoundCaseWhere(sessionId),
           },
           select: { id: true },
         });

@@ -80,6 +80,15 @@ export function buildUserBoundCaseModeWhere() {
   };
 }
 
+export function buildSessionBoundCaseWhere(sessionId: string): Prisma.CaseWhereInput {
+  return {
+    OR: [
+      { mode: CASE_MODE.QUICK, session_id: sessionId },
+      { mode: CASE_MODE.COLLABORATIVE, session_id: sessionId },
+    ],
+  };
+}
+
 export function buildUserBoundProductCaseWhere(): Prisma.CaseWhereInput {
   return {
     OR: [

@@ -136,6 +136,15 @@ describe('InterviewService — startSession CONSENT_REQUIRED', () => {
       code: 'CONSENT_REQUIRED',
     });
   });
+
+  it('已知 user.age 小於 18 時應拒絕開始心理訪談', async () => {
+    mockedPrisma.user.findUnique.mockResolvedValue({ psych_consent_given: true, age: 17 });
+    await expect(service.startSession('u1', 'organic')).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+      message: expect.stringContaining('未成年人'),
+    });
+    expect(mockedPrisma.interviewSession.findMany).not.toHaveBeenCalled();
+  });
 });
 
 describe('InterviewService — runtime config 行為', () => {

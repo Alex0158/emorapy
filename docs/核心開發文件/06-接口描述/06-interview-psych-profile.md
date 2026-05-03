@@ -23,7 +23,7 @@
 
 | API | Request（核心字段） | Success（前端實際用到） | 常見錯誤碼 | 副作用/狀態轉移 | 前端入口 |
 |---|---|---|---|---|---|
-| `POST /api/v1/interview/start` | `trigger?`（organic/pre_case/post_judgment/onboarding） | `data.session.id` `data.turns[0].ai_message` | `CONSENT_REQUIRED` `RATE_LIMIT_EXCEEDED` | 建立 session + 首輪問題 | `/profile/index` 等 |
+| `POST /api/v1/interview/start` | `trigger?`（organic/pre_case/post_judgment/onboarding） | `data.session.id` `data.turns[0].ai_message` | `CONSENT_REQUIRED` `FORBIDDEN` `RATE_LIMIT_EXCEEDED` | 建立 session + 首輪問題 | `/profile/index` 等 |
 | `POST /api/v1/interview/:id/respond` | `message(1..2000)` | `202 accepted` + `session_id` | `TURN_TOO_FAST` `MAX_TURNS_REACHED` `CONCURRENT_REQUEST` | 寫入 user turn，啟動 AI 任務 | `/interview/:sessionId` |
 | `POST /api/v1/interview/:id/skip` | 空 body | `202 accepted` + `session_id` | 同 respond | 寫入 skipped turn，啟動 AI 任務 | `/interview/:sessionId` |
 | `POST /api/v1/interview/:id/cancel` | 空 body | `cancelled` `session_id` | `NOT_FOUND` | 中止進行中的 AI 任務 | `/interview/:sessionId` |
@@ -40,6 +40,7 @@
 ## 操作級規則（深水區）
 
 - `start` 的限額採「實質 session」統計（至少 3 turns）以降低誤封鎖。
+- `start` 已接入未成年人硬 gate：若 `users.age` 已知且 `<18`，後端在查詢近期 session / 建立 session 前返回 `FORBIDDEN`，避免未成年人進入心理資料與 AI 訪談鏈路；`age=null` 暫保留舊流程，直到前端補完年齡確認 UX。
 - `start` 目前有兩層限流，且都統一返回 `RATE_LIMIT_EXCEEDED`：路由層 `interviewStartLimiter` 是每小時 DDoS 安全網；服務層則按「實質 session（>=3 turns）」做每日/每小時配額治理。前端仍保留 `START_RATE_LIMIT` 舊別名映射，但當前後端在此鏈路不再實際返回該 code。
 - `respond` 在後端以 lock 保護並發；前端提交與可見輸出已解耦，提交端只負責啟動任務，可見輸出統一來自 `AI Stream`。
 - 訪談頁送出後立即顯示 AI thinking bubble；不再等首 token 才渲染氣泡。
@@ -63,17 +64,19 @@
 ## 回歸測試最小集
 
 1. consent=false 時 `start` 必須拒絕。  
-2. `respond` 連續快速提交觸發 `TURN_TOO_FAST`。  
-3. `AI Stream` 斷線後前端能進入可恢復態（resume/replay）。  
-4. `cancel` 後前端應立即清除 draft 氣泡，並以提示文案收口，不得殘留 cancelled 假回覆。  
-5. `processing_failed` 可經 `retry` 回到處理中；`abandoned` 需由清理任務與恢復入口共同收口。  
-6. delete psych-profile 後 profile 與 feedback 均清空。  
+2. `users.age < 18` 時 `start` 必須拒絕，且不得查近期 session 或建立新 session。  
+3. `respond` 連續快速提交觸發 `TURN_TOO_FAST`。  
+4. `AI Stream` 斷線後前端能進入可恢復態（resume/replay）。  
+5. `cancel` 後前端應立即清除 draft 氣泡，並以提示文案收口，不得殘留 cancelled 假回覆。  
+6. `processing_failed` 可經 `retry` 回到處理中；`abandoned` 需由清理任務與恢復入口共同收口。  
+7. delete psych-profile 後 profile 與 feedback 均清空。  
 
 ## 錯誤碼覆蓋矩陣（API -> code -> UI 行為）
 
 | API | error.code | HTTP | UI 行為 | 重試策略 |
 |---|---|---:|---|---|
 | `POST /api/v1/interview/start` | `CONSENT_REQUIRED` | 403 | 顯示 consent 引導彈窗 | 完成 consent 後重試 |
+| `POST /api/v1/interview/start` | `FORBIDDEN` | 403 | 顯示未成年人暫不開放心理訪談，改引導一般支持資源 | 不自動重試 |
 | `POST /api/v1/interview/start` | `RATE_LIMIT_EXCEEDED` | 429 | 顯示啟動過頻提示；可能來自路由層 DDoS limiter 或服務層日/小時配額 | 冷卻後重試 |
 | `POST /api/v1/interview/:id/respond` | `TURN_TOO_FAST` | 429 | 顯示節流倒數，保留輸入內容 | 倒數後重送 |
 | `POST /api/v1/interview/:id/respond` | `MAX_TURNS_REACHED` | 422 | 顯示達上限並引導結束訪談 | 改走 end 流程 |

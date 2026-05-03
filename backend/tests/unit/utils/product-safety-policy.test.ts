@@ -1,6 +1,7 @@
 import {
   getEvidenceSafetyAssertionPolicy,
   getChatJudgmentRequestPolicy,
+  getPsychInterviewStartPolicy,
   getProductSafetyPolicy,
   getResponsibilityRatioVisibilityForRoute,
 } from '../../../src/utils/product-safety-policy';
@@ -82,5 +83,17 @@ describe('product-safety-policy', () => {
 
     expect(policy.canUpload).toBe(false);
     expect(policy.reasons[0]).toContain('非同意或非法內容');
+  });
+
+  it('已知未成年人不得開始心理訪談', () => {
+    const policy = getPsychInterviewStartPolicy({ age: 17 });
+
+    expect(policy.canStartInterview).toBe(false);
+    expect(policy.rejectionMessage).toContain('未成年人');
+  });
+
+  it('年齡未填或已成年時允許沿用心理訪談舊流程', () => {
+    expect(getPsychInterviewStartPolicy({ age: null }).canStartInterview).toBe(true);
+    expect(getPsychInterviewStartPolicy({ age: 18 }).canStartInterview).toBe(true);
   });
 });

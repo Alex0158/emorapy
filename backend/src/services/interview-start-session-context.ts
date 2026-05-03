@@ -10,6 +10,7 @@ import {
   loadRuntimeInterviewConfig,
   type RuntimeInterviewConfig,
 } from './interview-runtime-config';
+import { getPsychInterviewStartPolicy } from '../utils/product-safety-policy';
 
 export interface ValidatedInterviewStartContext {
   runtimeConfig: RuntimeInterviewConfig;
@@ -23,10 +24,14 @@ export async function loadValidatedInterviewStartContext(
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { psych_consent_given: true },
+    select: { psych_consent_given: true, age: true },
   });
   if (!user?.psych_consent_given) {
     throw Errors.CONSENT_REQUIRED();
+  }
+  const interviewPolicy = getPsychInterviewStartPolicy({ age: user.age });
+  if (!interviewPolicy.canStartInterview) {
+    throw Errors.FORBIDDEN(interviewPolicy.rejectionMessage ?? '目前不可開始心理訪談');
   }
 
   const startLimitWindow = buildInterviewStartRateLimitWindow();

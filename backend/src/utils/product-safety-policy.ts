@@ -47,6 +47,12 @@ export interface EvidenceSafetyAssertionPolicy {
   reasons: string[];
 }
 
+export interface PsychInterviewStartPolicy {
+  canStartInterview: boolean;
+  rejectionMessage: string | null;
+  reasons: string[];
+}
+
 const ROUTE_VALUES = new Set<JudgmentRoute>(['standard', 'safety_support', 'crisis_support']);
 
 export function isJudgmentRoute(value: unknown): value is JudgmentRoute {
@@ -289,5 +295,21 @@ export function getEvidenceSafetyAssertionPolicy(input: unknown): EvidenceSafety
       reasons: ['證據安全聲明已通過後端 gate'],
     },
     reasons: ['證據安全聲明已通過後端 gate'],
+  };
+}
+
+export function getPsychInterviewStartPolicy(input: { age?: number | null }): PsychInterviewStartPolicy {
+  if (typeof input.age === 'number' && input.age < 18) {
+    return {
+      canStartInterview: false,
+      rejectionMessage: '未成年人暫不開放心理訪談，請改用一般支持資源或由監護人協助處理',
+      reasons: ['已知用戶年齡小於 18，禁止進入心理資料與 AI 訪談鏈路'],
+    };
+  }
+
+  return {
+    canStartInterview: true,
+    rejectionMessage: null,
+    reasons: ['未命中未成年人心理訪談限制'],
   };
 }

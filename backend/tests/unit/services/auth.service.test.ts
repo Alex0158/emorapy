@@ -569,10 +569,15 @@ describe('AuthService', () => {
       expect(prismaMock.case.updateMany).toHaveBeenCalledWith({
         where: {
           plaintiff_id: null,
-          mode: { in: ['quick', 'collaborative'] },
           OR: [
-            { session_id: 's1' },
-            { quick_sessions: { some: { id: 's1' } } },
+            {
+              mode: 'quick',
+              OR: [
+                { session_id: 's1' },
+                { quick_sessions: { some: { id: 's1' } } },
+              ],
+            },
+            { mode: 'collaborative', session_id: 's1' },
           ],
         },
         data: { plaintiff_id: 'user-1' },
@@ -615,10 +620,15 @@ describe('AuthService', () => {
       expect(prismaMock.case.updateMany).toHaveBeenCalledWith({
         where: {
           plaintiff_id: null,
-          mode: { in: ['quick', 'collaborative'] },
           OR: [
-            { session_id: 's1' },
-            { quick_sessions: { some: { id: 's1' } } },
+            {
+              mode: 'quick',
+              OR: [
+                { session_id: 's1' },
+                { quick_sessions: { some: { id: 's1' } } },
+              ],
+            },
+            { mode: 'collaborative', session_id: 's1' },
           ],
         },
         data: { plaintiff_id: 'user-1' },
@@ -650,8 +660,14 @@ describe('AuthService', () => {
           user_id: null,
           case: {
             OR: [
-              { session_id: 's1' },
-              { quick_sessions: { some: { id: 's1' } } },
+              {
+                mode: 'quick',
+                OR: [
+                  { session_id: 's1' },
+                  { quick_sessions: { some: { id: 's1' } } },
+                ],
+              },
+              { mode: 'collaborative', session_id: 's1' },
             ],
           },
         },
@@ -700,7 +716,9 @@ describe('AuthService', () => {
       });
       expect(prismaMock.case.updateMany).toHaveBeenCalledWith(expect.objectContaining({
         where: expect.objectContaining({
-          mode: { in: ['quick', 'collaborative'] },
+          OR: expect.arrayContaining([
+            { mode: 'collaborative', session_id: 's1' },
+          ]),
         }),
       }));
     });

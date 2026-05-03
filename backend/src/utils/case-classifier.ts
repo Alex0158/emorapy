@@ -36,6 +36,10 @@ export function isSessionBoundCase(case_: Pick<CaseAccessSubject, 'mode' | 'sess
   return case_.mode === CASE_MODE.QUICK || (case_.mode === CASE_MODE.COLLABORATIVE && Boolean(case_.session_id));
 }
 
+export function isClaimableSessionCase(case_: Pick<CaseAccessSubject, 'mode' | 'session_id'>, sessionId: string): boolean {
+  return case_.mode === CASE_MODE.QUICK || (case_.mode === CASE_MODE.COLLABORATIVE && case_.session_id === sessionId);
+}
+
 export function getCaseAccessKind(case_: Pick<CaseAccessSubject, 'mode' | 'session_id'>): CaseAccessKind {
   return isSessionBoundCase(case_) ? 'session' : 'user';
 }
@@ -85,6 +89,24 @@ export function buildSessionBoundCaseWhere(sessionId: string): Prisma.CaseWhereI
     OR: [
       { mode: CASE_MODE.QUICK, session_id: sessionId },
       { mode: CASE_MODE.COLLABORATIVE, session_id: sessionId },
+    ],
+  };
+}
+
+export function buildClaimableSessionCaseWhere(sessionId: string): Prisma.CaseWhereInput {
+  return {
+    OR: [
+      {
+        mode: CASE_MODE.QUICK,
+        OR: [
+          { session_id: sessionId },
+          { quick_sessions: { some: { id: sessionId } } },
+        ],
+      },
+      {
+        mode: CASE_MODE.COLLABORATIVE,
+        session_id: sessionId,
+      },
     ],
   };
 }

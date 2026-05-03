@@ -1,4 +1,5 @@
 import {
+  buildClaimableSessionCaseWhere,
   buildCaseProductFlowWhere,
   buildCompletedExecutionProductFlowWhere,
   buildJudgmentProductFlowWhere,
@@ -9,6 +10,7 @@ import {
   getCaseAccessKind,
   getCaseProductFlow,
   hasChatToCaseSource,
+  isClaimableSessionCase,
   isCaseParticipant,
   isSessionBoundCase,
   isUserBoundProductCase,
@@ -24,6 +26,13 @@ describe('case-classifier', () => {
     expect(isSessionBoundCase({ mode: 'collaborative', session_id: 's1' })).toBe(true);
     expect(isSessionBoundCase({ mode: 'collaborative', session_id: null })).toBe(false);
     expect(getCaseAccessKind({ mode: 'collaborative', session_id: null })).toBe('user');
+  });
+
+  it('claimable session case 應要求 collaborative 同 session', () => {
+    expect(isClaimableSessionCase({ mode: 'quick', session_id: 'other-session' }, 's1')).toBe(true);
+    expect(isClaimableSessionCase({ mode: 'collaborative', session_id: 's1' }, 's1')).toBe(true);
+    expect(isClaimableSessionCase({ mode: 'collaborative', session_id: 'other-session' }, 's1')).toBe(false);
+    expect(isClaimableSessionCase({ mode: 'remote', session_id: 's1' }, 's1')).toBe(false);
   });
 
   it('remote 走 user 授權', () => {
@@ -76,6 +85,21 @@ describe('case-classifier', () => {
     expect(buildSessionBoundCaseWhere('s1')).toEqual({
       OR: [
         { mode: 'quick', session_id: 's1' },
+        { mode: 'collaborative', session_id: 's1' },
+      ],
+    });
+  });
+
+  it('claimable session case query 應限制正式案件被殘留 session_id 歸戶', () => {
+    expect(buildClaimableSessionCaseWhere('s1')).toEqual({
+      OR: [
+        {
+          mode: 'quick',
+          OR: [
+            { session_id: 's1' },
+            { quick_sessions: { some: { id: 's1' } } },
+          ],
+        },
         { mode: 'collaborative', session_id: 's1' },
       ],
     });

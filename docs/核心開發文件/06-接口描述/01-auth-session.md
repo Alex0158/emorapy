@@ -3,13 +3,13 @@
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：01-auth-session
-**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`969289b`
-**最後核驗日期**：`2026-05-03`
+**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`backend/src/services/auth.service.ts`、`backend/src/utils/case-classifier.ts`、`frontend/src/services/api`、`frontend-admin/src/services/api`
+**最後核驗 Commit**：`88579cb`
+**最後核驗日期**：`2026-05-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**文檔版本**：v2.3
-**最後更新**：2026-05-03
+**文檔版本**：v2.4
+**最後更新**：2026-05-04
 **代碼基準**：`backend/src/routes/auth.routes.ts`、`backend/src/services/auth.service.ts`、`backend/src/routes/session.routes.ts`、`backend/src/utils/validation.ts`、`frontend/src/services/api/auth.ts`、`frontend/src/services/api/session.ts`
 
 ---
@@ -42,6 +42,7 @@
 - Session 類 401/400（`SESSION_EXPIRED`、`SESSION_ID_REQUIRED`、`INVALID_SESSION_ID`）走「清舊 -> refresh -> 重試」策略，避免死循環。
 - `claim-session` 屬提升體驗轉化率的「弱依賴」：失敗不應阻斷登入成功態。
 - `claim-session` 對外只承諾返回 `case_id | null`，但內部必須保持同 session 匿名資產歸戶一致：不能只綁 `cases.plaintiff_id`，而漏掉 `pairings.user1_id`、`chat_rooms.owner_user_id`、`chat_participants.user_id` 或 `evidences.user_id`。
+- `claim-session` 的 case / evidence 歸戶必須使用 `backend/src/utils/case-classifier.ts` 的 `buildClaimableSessionCaseWhere(session_id)`：只允許 quick（`session_id` 或 `quick_sessions` 關聯）與同 session 的 `collaborative(session_id 有值)`；不能因 formal case 殘留 `session_id` 或 `quick_sessions` 關聯而被錯誤歸戶。
 - `claim-session` 不做 quick -> formal 的隱式升格，不改 `Case.mode`，不建立正式 normal pairing；若未來要升格，必須另開狀態機與 migration / backfill 任務。
 - `claim-session` 只能補尚未歸屬的匿名欄位，不覆蓋既有 user ownership；正式 `collaborative + session_id = null` 不作為匿名 session 主 case 返回。
 - `reset-password` 刻意不暴露用戶是否存在；不存在帳號時仍返回成功，避免枚舉用戶。
@@ -52,7 +53,8 @@
 1. 註冊 -> 登入 -> 取得 token 可訪問受保護頁。
 2. 快速體驗建立 session，過期後可刷新恢復。
 3. quick / session-bound collaborative case 建立後登入，`claim-session` 成功綁定主 case；同 session 的 pairing、chat room、roleA participant、evidence 一併歸戶；失敗時不影響登入主流程。
-4. 驗證碼與重置密碼流程在限流條件下有正確錯誤提示。
+4. `claim-session` 不得 claim formal remote / formal collaborative；evidence owner 歸戶也必須套用同一 claimable session case scope。
+5. 驗證碼與重置密碼流程在限流條件下有正確錯誤提示。
 
 ## 錯誤碼覆蓋矩陣（API -> code -> UI 行為）
 

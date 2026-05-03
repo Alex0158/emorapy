@@ -4,8 +4,8 @@ import { generateToken } from '../utils/jwt';
 import { generateVerificationCode } from '../utils/session';
 import { Errors } from '../utils/errors';
 import logger from '../config/logger';
-import { CASE_MODE } from '../utils/constants';
 import { emailService } from './email.service';
+import { buildClaimableSessionCaseWhere, isClaimableSessionCase } from '../utils/case-classifier';
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 分鐘
@@ -380,23 +380,13 @@ export class AuthService {
       ? await prisma.case.findUnique({ where: { id: session.case_id } })
       : null;
 
-    const canReturnLinkedCase = Boolean(
-      linkedCase &&
-      (
-        linkedCase.mode === CASE_MODE.QUICK ||
-        (linkedCase.mode === CASE_MODE.COLLABORATIVE && linkedCase.session_id === sessionId)
-      )
-    );
+    const canReturnLinkedCase = Boolean(linkedCase && isClaimableSessionCase(linkedCase, sessionId));
 
     const claimed = await prisma.$transaction(async (tx) => {
       const cases = await tx.case.updateMany({
         where: {
           plaintiff_id: null,
-          mode: { in: [CASE_MODE.QUICK, CASE_MODE.COLLABORATIVE] },
-          OR: [
-            { session_id: sessionId },
-            { quick_sessions: { some: { id: sessionId } } },
-          ],
+          ...buildClaimableSessionCaseWhere(sessionId),
         },
         data: { plaintiff_id: userId },
       });
@@ -429,12 +419,7 @@ export class AuthService {
       const evidences = await tx.evidence.updateMany({
         where: {
           user_id: null,
-          case: {
-            OR: [
-              { session_id: sessionId },
-              { quick_sessions: { some: { id: sessionId } } },
-            ],
-          },
+          case: buildClaimableSessionCaseWhere(sessionId),
         },
         data: { user_id: userId },
       });

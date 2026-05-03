@@ -86,24 +86,17 @@ cd frontend-admin && npm run dev
 
 若使用 Supabase Dev DB，仍屬本機開發版，因為應用 runtime 還是在 Localhost。後端本機 env 應指向 dev DB，不得指向 production DB。
 
-建議本機遠端 dev DB 設定：
+本機開發版固定使用 Supabase Dev DB + 本機 Redis。標準設定：
 
 ```env
 DATABASE_URL="postgresql://..."
 NODE_ENV=development
 RUN_MIGRATIONS=false
-REDIS_URL=
-ALLOW_SIMPLE_LOCK=true
-```
-
-當前本機開發版已接入本機 Redis：
-
-```env
 REDIS_URL=redis://127.0.0.1:6379
 ALLOW_SIMPLE_LOCK=false
 ```
 
-`REDIS_URL=` + `ALLOW_SIMPLE_LOCK=true` 只可作臨時降級；若再次使用，必須同步記入 `07-待處理問題與治理/待處理/`。
+`REDIS_URL=` + `ALLOW_SIMPLE_LOCK=true` 只可作臨時降級；若再次使用，必須同步記入 `07-待處理問題與治理/待處理/`。Railway development Redis 不是本機開發版必要條件，只作可選 parity 增強；發布版與 staging 仍以 Railway Redis-backed runtime 為正式口徑。
 
 第一次建立 Supabase Dev DB schema 時：
 

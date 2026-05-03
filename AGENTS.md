@@ -7,7 +7,7 @@ This file is the repo-level operating guide for coding agents. It is not a produ
 1. Read `docs/核心開發文件/README.md` before changing product, platform, release, database, or workflow behavior.
 2. For environment and release questions, read `docs/核心開發文件/03-管理端與平台治理/04-兩版本運作規範.md` and `docs/核心開發文件/03-管理端與平台治理/05-運維連接與調用Runbook.md`.
 3. The project has two official version shapes only:
-   - Local development version: localhost apps, no Docker as the application entry.
+   - Local development version: localhost apps, Supabase Dev DB, and local Redis; no Docker as the application entry.
    - Release version: Vercel web apps + Railway backend + Supabase/Postgres database.
 4. CI success means releasable, not released.
 5. Vercel success means web released, not backend released.
@@ -82,7 +82,7 @@ Local development means:
 2. Main web: `cd frontend && npm run dev`
 3. Admin web: `cd frontend-admin && npm run dev`
 4. Database: Supabase dev project `Mother Bear Court Dev` (`lbukyqztkkkztfrfltlh`) unless the user explicitly chooses another dev database.
-5. Redis is part of the current local development baseline. Use an isolated development Redis, currently `redis://127.0.0.1:6379` in the active local `.env`, with `ALLOW_SIMPLE_LOCK=false`. If Redis is unavailable and a temporary fallback is needed, record the drift under `docs/核心開發文件/07-待處理問題與治理/待處理/` before using `REDIS_URL=` and `ALLOW_SIMPLE_LOCK=true`.
+5. Redis is part of the current local development baseline and should run locally, currently `redis://127.0.0.1:6379` in the active local `.env`, with `ALLOW_SIMPLE_LOCK=false`. Do not treat Railway development Redis as required for local development; it is only an optional parity enhancement. If Redis is unavailable and a temporary fallback is needed, record the drift under `docs/核心開發文件/07-待處理問題與治理/待處理/` before using `REDIS_URL=` and `ALLOW_SIMPLE_LOCK=true`.
 
 Do not assume local green status means release is current.
 

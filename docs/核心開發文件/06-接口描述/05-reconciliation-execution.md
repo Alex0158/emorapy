@@ -56,6 +56,9 @@
    - 正式單方案件可生成 solo 方案，但不可共同修復或通知另一方。
    - 正式雙方案件才允許共同修復、伴侶邀請與伴侶通知。
    - 沒有任何已登入當事人的案件不能生成修復方案。
+3. 聚合 gate：`backend/src/services/repair-eligibility.service.ts` 的 `getRepairJourneyAccessPolicy`
+   - `canEnterRepairJourney` 必須同時滿足案件可生成修復方案與安全路由允許至少一個 reconciliation intent。
+   - `canInvitePartner / canUseCoRepair / canNotifyPartner / forceSoloRepair` 由 safety policy 與 repair eligibility 共同裁決；`ReconciliationService`、通知、execution 或前端不得各自用 `forceSoloRepair || canInvitePartner` 手拼一套規則。
 
 任何頁面、通知、chat-to-case、execution 或後續 job 不得自行用 `case.mode` 重寫上述資格判斷。
 

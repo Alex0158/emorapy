@@ -1,4 +1,5 @@
 import { isSessionBoundCase } from '../utils/case-classifier';
+import type { ProductSafetyPolicy } from '../utils/product-safety-policy';
 
 export interface RepairEligibilityCase {
   mode: string;
@@ -10,6 +11,15 @@ export interface RepairEligibilityCase {
 export interface RepairEligibilityPolicy {
   flow: 'session_bound' | 'formal_solo' | 'formal_dual';
   canGeneratePlans: boolean;
+  canInvitePartner: boolean;
+  canUseCoRepair: boolean;
+  canNotifyPartner: boolean;
+  forceSoloRepair: boolean;
+  reasons: string[];
+}
+
+export interface RepairJourneyAccessPolicy {
+  canEnterRepairJourney: boolean;
   canInvitePartner: boolean;
   canUseCoRepair: boolean;
   canNotifyPartner: boolean;
@@ -62,5 +72,36 @@ export function getRepairEligibilityForCase(caseRecord: RepairEligibilityCase): 
     canNotifyPartner: true,
     forceSoloRepair: false,
     reasons: ['正式雙方案件允許共同修復旅程'],
+  };
+}
+
+export function getRepairJourneyAccessPolicy(
+  safetyPolicy: Pick<
+    ProductSafetyPolicy,
+    | 'allowedReconciliationIntents'
+    | 'canInvitePartner'
+    | 'canUseCoRepair'
+    | 'canNotifyPartner'
+    | 'forceSoloRepair'
+    | 'reasons'
+  >,
+  repairEligibility: RepairEligibilityPolicy
+): RepairJourneyAccessPolicy {
+  const canEnterRepairJourney =
+    repairEligibility.canGeneratePlans &&
+    safetyPolicy.allowedReconciliationIntents.length > 0;
+  const canUseCoRepair = safetyPolicy.canUseCoRepair && repairEligibility.canUseCoRepair;
+  const reasons = [
+    ...safetyPolicy.reasons,
+    ...repairEligibility.reasons,
+  ];
+
+  return {
+    canEnterRepairJourney,
+    canInvitePartner: safetyPolicy.canInvitePartner && repairEligibility.canInvitePartner,
+    canUseCoRepair,
+    canNotifyPartner: safetyPolicy.canNotifyPartner && repairEligibility.canNotifyPartner,
+    forceSoloRepair: safetyPolicy.forceSoloRepair || repairEligibility.forceSoloRepair || !canUseCoRepair,
+    reasons,
   };
 }

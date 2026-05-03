@@ -1,5 +1,9 @@
 import { describe, expect, it } from '@jest/globals';
-import { getRepairEligibilityForCase } from '../../../src/services/repair-eligibility.service';
+import { getProductSafetyPolicy } from '../../../src/utils/product-safety-policy';
+import {
+  getRepairEligibilityForCase,
+  getRepairJourneyAccessPolicy,
+} from '../../../src/services/repair-eligibility.service';
 
 describe('repair-eligibility.service', () => {
   it('session-bound quick case 應強制 solo 並禁止伴侶邀請與通知', () => {
@@ -69,5 +73,47 @@ describe('repair-eligibility.service', () => {
 
     expect(policy.canGeneratePlans).toBe(false);
     expect(policy.forceSoloRepair).toBe(true);
+  });
+
+  it('repair journey access 應合併安全路由與案件資格', () => {
+    const eligibility = getRepairEligibilityForCase({
+      mode: 'remote',
+      session_id: null,
+      plaintiff_id: 'u1',
+      defendant_id: 'u2',
+    });
+
+    const access = getRepairJourneyAccessPolicy(
+      getProductSafetyPolicy('safety_support'),
+      eligibility,
+    );
+
+    expect(access.canEnterRepairJourney).toBe(true);
+    expect(access.canInvitePartner).toBe(false);
+    expect(access.canUseCoRepair).toBe(false);
+    expect(access.canNotifyPartner).toBe(false);
+    expect(access.forceSoloRepair).toBe(true);
+    expect(access.reasons).toEqual(expect.arrayContaining([
+      '安全支持路由不得把關係風險對稱化或推進共同修復',
+      '正式雙方案件允許共同修復旅程',
+    ]));
+  });
+
+  it('repair journey access 無登入當事人時不可進入旅程', () => {
+    const eligibility = getRepairEligibilityForCase({
+      mode: 'remote',
+      session_id: null,
+      plaintiff_id: null,
+      defendant_id: null,
+    });
+
+    const access = getRepairJourneyAccessPolicy(
+      getProductSafetyPolicy('standard'),
+      eligibility,
+    );
+
+    expect(access.canEnterRepairJourney).toBe(false);
+    expect(access.forceSoloRepair).toBe(true);
+    expect(access.canInvitePartner).toBe(false);
   });
 });

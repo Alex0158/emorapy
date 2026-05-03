@@ -42,7 +42,7 @@ npm run docs:check
 | --- | --- | --- | --- |
 | Vercel CLI | 已授權 | `vercel whoami` | 可 inspect production deployment，也可 `vercel env pull` 臨時讀取 production env；讀完需清理臨時 env 檔 |
 | GitHub CLI | 已授權 | `gh auth status` | 可查 workflow / run / repo 狀態 |
-| Supabase CLI | 已授權 | `supabase projects list` | linked project ref：`pfxrglsjgmpfyiwyxzou`，名稱：`Mother Bear Court` |
+| Supabase CLI | 已授權 | `supabase projects list` | production ref：`pfxrglsjgmpfyiwyxzou`；dev ref：`nlyzvmbyjxsmqhvfxoxh` |
 | Railway CLI | 已授權 | `railway whoami` | `railway project list` 與 `railway status --json` 可用 |
 
 Railway CLI 若授權失效，重新授權流程：
@@ -77,6 +77,13 @@ cd frontend-admin && npm run dev
 1. Local Postgres：適合離線與快速試驗。
 2. Supabase Dev Postgres：適合資料持久、跨機器共享與避免本機重啟丟資料。
 
+當前固定 Supabase Dev DB：
+
+1. Project name：`Mother Bear Court Dev`
+2. Project ref：`nlyzvmbyjxsmqhvfxoxh`
+3. Region：`eu-west-2`
+4. Direct DB host：`db.nlyzvmbyjxsmqhvfxoxh.supabase.co`
+
 若使用 Supabase Dev DB，仍屬本機開發版，因為應用 runtime 還是在 Localhost。後端本機 env 應指向 dev DB，不得指向 production DB。
 
 建議本機遠端 dev DB 設定：
@@ -85,6 +92,8 @@ cd frontend-admin && npm run dev
 DATABASE_URL="postgresql://..."
 NODE_ENV=development
 RUN_MIGRATIONS=false
+REDIS_URL=
+ALLOW_SIMPLE_LOCK=true
 ```
 
 第一次建立 Supabase Dev DB schema 時：
@@ -198,13 +207,14 @@ ENV_FILE=<backend-local-env-file> npm run ops:db:status
 
 最近核驗結果：
 
-1. 本機後端 env 指向 Supabase direct host `db.pfxrglsjgmpfyiwyxzou.supabase.co`，屬 development env。
-2. Vercel production env 的 `DATABASE_URL` 指向 Supabase pooler host `aws-1-eu-west-2.pooler.supabase.com`。
-3. `2026-05-03` 已對 Vercel production env 的 Supabase/Postgres 套用以下 migration：
+1. 本機後端 env 指向 Supabase dev direct host `db.nlyzvmbyjxsmqhvfxoxh.supabase.co`，屬 development env。
+2. Vercel production env 的 `DATABASE_URL` 指向 Supabase production pooler host `aws-1-eu-west-2.pooler.supabase.com`。
+3. `2026-05-03` 已對 production Supabase/Postgres 套用以下 migration：
    - `20260502095500_add_admin_governance_models`
    - `20260502102000_add_judgment_emotional_analysis`
    - `20260502103000_add_reconciliation_repair_models`
-4. Production pooler 與本機後端 env 兩個連線視角均回報 `Database schema is up to date!`。
+4. `2026-05-03` 已建立 dev Supabase project `Mother Bear Court Dev` 並套用全部 11 個 Prisma migrations。
+5. Production pooler 與 dev DB 兩個連線視角均回報 `Database schema is up to date!`。
 
 若之後新增 migration，仍必須重新執行 `ops:db:status`；不能沿用本段歷史結論。
 

@@ -47,7 +47,7 @@ Last verified: 2026-05-03.
 | --- | --- | --- |
 | Vercel CLI | Authenticated | `vercel whoami` works; production env pull and inspect work. |
 | GitHub CLI | Authenticated | `gh auth status` works for `Alex0158`; repo/workflow scopes available. |
-| Supabase CLI | Authenticated | `supabase projects list` works; linked project ref is `pfxrglsjgmpfyiwyxzou`. |
+| Supabase CLI | Authenticated | `supabase projects list` works; production ref is `pfxrglsjgmpfyiwyxzou`, dev ref is `nlyzvmbyjxsmqhvfxoxh`. |
 | Railway CLI | Authenticated | `railway whoami`, `railway project list`, and `railway status --json` work. |
 
 Railway browserless login flow, if auth expires:
@@ -80,8 +80,8 @@ Local development means:
 1. Backend: `cd backend && npm run dev`
 2. Main web: `cd frontend && npm run dev`
 3. Admin web: `cd frontend-admin && npm run dev`
-4. Database: local Postgres or an explicitly named Supabase dev database.
-5. Redis may be started as a local dependency, but Docker is not the application entrypoint.
+4. Database: Supabase dev project `Mother Bear Court Dev` (`nlyzvmbyjxsmqhvfxoxh`) unless the user explicitly chooses another dev database.
+5. Redis is optional for local development; when Redis is not running, keep `REDIS_URL` empty and `ALLOW_SIMPLE_LOCK=true`.
 
 Do not assume local green status means release is current.
 

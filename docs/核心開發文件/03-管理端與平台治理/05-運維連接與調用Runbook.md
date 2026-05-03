@@ -3,7 +3,7 @@
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：正式規格
 **覆蓋範圍**：Vercel、Railway、Supabase/Postgres、Git/GitHub 與本機 `.env` 的固定連接、查詢與發布操作口徑
-**取證代碼入口**：`package.json`、`scripts/ops-release-status.sh`、`scripts/ops-db-status.sh`、`backend/.env.example`、`frontend/.env.example`、`frontend-admin/.env.example`、`backend/railway.toml`、`backend/prisma/schema.prisma`、`backend/src/config/database.ts`
+**取證代碼入口**：`package.json`、`scripts/ops-release-status.sh`、`scripts/ops-db-status.sh`、`backend/scripts/check-smoke-account-hygiene.ts`、`backend/.env.example`、`frontend/.env.example`、`frontend-admin/.env.example`、`backend/railway.toml`、`backend/prisma/schema.prisma`、`backend/src/config/database.ts`
 **最後核驗 Commit**：`6053d09`
 **最後核驗日期**：`2026-05-03`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
@@ -18,11 +18,12 @@
 npm run ops:release:status
 npm run ops:db:status
 cd backend && npm run ops:product-state:audit
+cd backend && npm run ops:smoke-accounts:check
 cd backend && npm run precheck:pairing:normal-uniqueness
 npm run docs:check
 ```
 
-`ops:release:status` 用於查發布版狀態；`ops:db:status` 用於查當前 `DATABASE_URL` 對應的 Prisma migration state；`ops:product-state:audit` 用於只讀檢查 case / chat-to-case / repair track replanning 的卡住狀態，輸出產品流、repair track AI stream 樣本細節與人工 recovery proposal；`precheck:pairing:normal-uniqueness` 用於只讀檢查一個 user 是否同時出現在多個 `normal pending/active` pairing；`docs:check` 用於確認正式文檔與台賬仍閉環。
+`ops:release:status` 用於查發布版狀態；`ops:db:status` 用於查當前 `DATABASE_URL` 對應的 Prisma migration state；`ops:product-state:audit` 用於只讀檢查 case / chat-to-case / repair track replanning 的卡住狀態，輸出產品流、repair track AI stream 樣本細節與人工 recovery proposal；`ops:smoke-accounts:check` 用於只讀掃描 active smoke/dev 帳號污染；`precheck:pairing:normal-uniqueness` 用於只讀檢查一個 user 是否同時出現在多個 `normal pending/active` pairing；`docs:check` 用於確認正式文檔與台賬仍閉環。
 
 ## 2. 平台地圖
 

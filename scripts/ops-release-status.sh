@@ -61,3 +61,4 @@ fi
 
 print_section "Database"
 echo "Run DATABASE_URL=<dev-or-prod-url> npm run ops:db:status to verify Prisma migration state."
+echo "Run DATABASE_URL=<dev-or-prod-url> npm --prefix backend run ops:smoke-accounts:check to verify active smoke/dev account hygiene."

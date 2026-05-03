@@ -1,7 +1,7 @@
 import prisma from '../config/database';
 import { PsychDomain } from '@prisma/client';
 import logger from '../config/logger';
-import { CASE_MODE } from '../utils/constants';
+import { isUserBoundProductCase } from '../utils/case-classifier';
 
 /**
  * 案件類型 → 相關心理域映射
@@ -80,9 +80,14 @@ export class CaseContextService {
     preloadedCase?: {
       type: string;
       mode: string;
+      session_id?: string | null;
       plaintiff_id: string | null;
       defendant_id: string | null;
       pairing_id: string | null;
+      chat_to_case_links?: unknown[] | null;
+      _count?: {
+        chat_to_case_links?: number | null;
+      } | null;
     }
   ): Promise<CaseContextResult | null> {
     const caseRecord = preloadedCase ?? await prisma.case.findUnique({
@@ -90,13 +95,15 @@ export class CaseContextService {
       select: {
         type: true,
         mode: true,
+        session_id: true,
         plaintiff_id: true,
         defendant_id: true,
         pairing_id: true,
+        chat_to_case_links: { select: { id: true }, take: 1 },
       },
     });
 
-    if (!caseRecord || caseRecord.mode === CASE_MODE.QUICK || !caseRecord.plaintiff_id) {
+    if (!caseRecord || !isUserBoundProductCase(caseRecord) || !caseRecord.plaintiff_id) {
       return null;
     }
 

@@ -41,6 +41,7 @@
 - `repair` / `metrics` 目前為「保留能力」，需維持接口可用但不作前台回歸主路徑。
 - `GET /api/v1/judgments/:id` 的權限檢查實際委派到 `getJudgmentByCaseId(case_id)`；`FORBIDDEN` 會在 controller 層轉為 `NOT_FOUND`，用於避免暴露資源存在性。
 - case 維度判斷規則與 case 模組一致：`quick`/`collaborative(session_id 有值)` 走 session 校驗；`remote`/`collaborative(session_id=null)` 走當事人 JWT 校驗。
+- 判決生成的 `profileContext / caseContext` 注入不得只用 `case.mode === quick` 排除；必須透過 `backend/src/utils/case-classifier.ts` 的產品流口徑判斷。純 quick/session-bound 流程不注入個人/關係上下文；`ChatToCaseLink` 優先於 `case.mode`，chat-to-case 可在有登入當事人與 consent 時走 user-bound context governance。
 
 ## 回歸測試最小集
 

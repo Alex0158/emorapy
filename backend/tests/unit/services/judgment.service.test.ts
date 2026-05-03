@@ -600,6 +600,56 @@ describe('JudgmentService', () => {
         })
       );
     });
+
+    it('chat-to-case 產品流應覆蓋 quick mode 的 context skip 判斷', async () => {
+      prismaMock.judgment.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+      prismaMock.case.findUnique.mockResolvedValueOnce(
+        baseCase({
+          mode: 'quick',
+          plaintiff_id: 'u1',
+          chat_to_case_links: [{ id: 'link-1' }],
+        })
+      );
+      prismaMock.user.findMany.mockResolvedValueOnce([]);
+      aiServiceMock.generateJudgment.mockResolvedValueOnce({
+        content: 'ok',
+        responsibilityRatio: { plaintiff: 60, defendant: 40 },
+        summary: 'sum',
+        emotionalAnalysis: {
+          severity: 'moderate',
+          personA: {},
+          personB: {},
+          interactionCycle: '',
+          triggerPattern: '',
+          coreIssue: '',
+          relationshipStrengths: '',
+          gottmanFlags: [],
+          safetyFlags: [],
+          suggestedApproach: '',
+        },
+      });
+      prismaMock.judgment.create.mockResolvedValueOnce({ id: 'j-chat', case_id: 'case-1' });
+
+      const service = new JudgmentService();
+      await service.generateJudgment('case-1', { sessionId: baseCase().session_id as string });
+
+      expect(prismaMock.judgment.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            emotional_analysis: expect.objectContaining({
+              context_governance: expect.objectContaining({
+                profileContext: expect.objectContaining({
+                  reason: 'plaintiff_consent_missing',
+                }),
+                caseContext: expect.objectContaining({
+                  reason: 'plaintiff_consent_missing',
+                }),
+              }),
+            }),
+          }),
+        })
+      );
+    });
   });
 
   describe('getJudgmentByCaseId', () => {

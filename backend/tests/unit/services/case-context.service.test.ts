@@ -3,9 +3,15 @@
  */
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 
+const mockProfileInsightFindMany = jest.fn();
+const mockRelationshipProfileFindUnique = jest.fn();
+
 jest.mock('../../../src/config/database', () => ({
   __esModule: true,
-  default: {},
+  default: {
+    profileInsight: { findMany: (...args: unknown[]) => mockProfileInsightFindMany(...args) },
+    relationshipProfile: { findUnique: (...args: unknown[]) => mockRelationshipProfileFindUnique(...args) },
+  },
 }));
 jest.mock('../../../src/config/logger', () => ({
   __esModule: true,
@@ -19,6 +25,9 @@ describe('CaseContextService', () => {
   let service: CaseContextService;
 
   beforeEach(() => {
+    jest.clearAllMocks();
+    (mockProfileInsightFindMany as any).mockResolvedValue([]);
+    (mockRelationshipProfileFindUnique as any).mockResolvedValue(null);
     service = new CaseContextService();
   });
 
@@ -128,6 +137,42 @@ describe('CaseContextService', () => {
         pairing_id: 'p1',
       });
       expect(result).toBeNull();
+    });
+
+    it('preloadedCase 是 chat-to-case 時即使 mode=quick 也可載入 user-bound context', async () => {
+      (mockProfileInsightFindMany as any).mockResolvedValueOnce([
+        {
+          domain: 'attachment',
+          key: '依附傾向',
+          value: '焦慮時會追問',
+          confidence: 0.8,
+        },
+      ]);
+
+      const result = await service.loadCaseContext('case-1', {
+        type: '其他衝突',
+        mode: 'quick',
+        session_id: 'guest_1704067200000_abcdefghijklmnop',
+        plaintiff_id: 'u1',
+        defendant_id: null,
+        pairing_id: null,
+        chat_to_case_links: [{ id: 'link-1' }],
+      });
+
+      expect(result).toMatchObject({
+        userA: expect.objectContaining({
+          label: '角色A',
+          attachmentHint: '依附傾向：焦慮時會追問',
+        }),
+        userB: null,
+        relationship: null,
+      });
+      expect(mockProfileInsightFindMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: expect.objectContaining({
+          user_id: 'u1',
+          domain: expect.objectContaining({ in: expect.any(Array) }),
+        }),
+      }));
     });
 
     it('preloadedCase plaintiff_id 為 null 時應返回 null（F01/F05 邊界：無原告不載入）', async () => {

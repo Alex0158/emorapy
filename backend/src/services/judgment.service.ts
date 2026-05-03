@@ -19,7 +19,7 @@ import { ruptureRepairService } from './rupture-repair.service';
 import { clinicalQualityService } from './clinical-quality.service';
 import { env } from '../config/env';
 import { aiStreamService } from './ai-stream.service';
-import { isCaseParticipant, isSessionBoundCase } from '../utils/case-classifier';
+import { isCaseParticipant, isSessionBoundCase, isUserBoundProductCase } from '../utils/case-classifier';
 
 // ─── 關係互動層模板匹配（Step 4B）──────────────────
 // 使用雙方洞察的 key/value 查表生成，零額外 AI 成本
@@ -405,6 +405,9 @@ export class JudgmentService {
         // 2. 獲取案件信息
         const case_ = await prisma.case.findUnique({
           where: { id: caseId },
+          include: {
+            chat_to_case_links: { select: { id: true }, take: 1 },
+          },
         });
 
         if (!case_) {
@@ -493,9 +496,11 @@ export class JudgmentService {
         let responsibilityHint: string | undefined;
         let summaryBrief: string | undefined;
 
-        if (case_.mode === CASE_MODE.QUICK) {
-          governanceAudit.profileContext.reason = 'quick_mode_no_profile_context';
-          governanceAudit.caseContext.reason = 'quick_mode_no_case_context';
+        const shouldInjectUserBoundContext = isUserBoundProductCase(case_);
+
+        if (!shouldInjectUserBoundContext) {
+          governanceAudit.profileContext.reason = 'session_bound_product_no_profile_context';
+          governanceAudit.caseContext.reason = 'session_bound_product_no_case_context';
         } else {
           if (!this.contextGovernance.enableProfileContext) {
             governanceAudit.profileContext.reason = 'feature_flag_disabled';
@@ -593,7 +598,7 @@ export class JudgmentService {
               allParts.push(...plaintiffResult.parts);
 
               let defendantResult: { parts: PrioritizedText[]; insights: InsightRow[]; sources: string[] } | null = null;
-              if (case_.defendant_id && (case_.mode === CASE_MODE.REMOTE || case_.mode === CASE_MODE.COLLABORATIVE)) {
+              if (case_.defendant_id && shouldInjectUserBoundContext) {
                 if (hasConsent(case_.defendant_id)) {
                   defendantResult = await loadPsychProfile(case_.defendant_id, '角色B');
                   defendantResult.sources.forEach((s) => allSources.add(s));
@@ -629,7 +634,7 @@ export class JudgmentService {
                 }
                 allSources.add('user_profile');
               }
-              if (case_.defendant_id && hasConsent(case_.defendant_id) && (case_.mode === CASE_MODE.REMOTE || case_.mode === CASE_MODE.COLLABORATIVE)) {
+              if (case_.defendant_id && hasConsent(case_.defendant_id) && shouldInjectUserBoundContext) {
                 const defBasic = await prisma.userProfile.findUnique({ where: { user_id: case_.defendant_id } });
                 if (defBasic?.mbti_type && !allParts.some(p => p.text.includes('角色B') && p.text.includes('MBTI'))) {
                   allParts.push({ text: `角色B的MBTI：${defBasic.mbti_type}`, priority: ProfilePriority.FIRST_CUT });
@@ -677,9 +682,11 @@ export class JudgmentService {
               const caseCtx = await caseContextService.loadCaseContext(caseId, {
                 type: case_.type,
                 mode: case_.mode,
+                session_id: case_.session_id,
                 plaintiff_id: case_.plaintiff_id,
                 defendant_id: case_.defendant_id,
                 pairing_id: case_.pairing_id,
+                chat_to_case_links: case_.chat_to_case_links,
               });
               if (caseCtx) {
                 emotionalAnalysisHint = this.buildGovernedReferenceContext(

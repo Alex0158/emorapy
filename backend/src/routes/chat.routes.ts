@@ -239,7 +239,12 @@ router.post(
     try {
       const actor = getActorFromRequest(req);
       const result = await chatService.requestJudgment(req.params.roomId, actor, {
-        includedMessageIds: req.body.included_message_ids,
+        includedMessageIds: req.body?.included_message_ids,
+        participantConsent: req.body?.participant_consent
+          ? {
+              roleBIncludedMessages: req.body.participant_consent.role_b_included_messages,
+            }
+          : undefined,
       });
       chatEventsService.publish({
         type: 'room_status',

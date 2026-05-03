@@ -11,6 +11,7 @@ import {
   pairingIdParamSchema,
   caseIdParamSchema,
   quickCaseSchema,
+  requestChatJudgmentSchema,
   createCaseSchema,
   uuidParamSchema,
   uuidEvidenceParamSchema,
@@ -19,6 +20,27 @@ import {
 const validUUID = '550e8400-e29b-41d4-a716-446655440000';
 
 describe('Validation Schemas', () => {
+  describe('requestChatJudgmentSchema', () => {
+    it('應接受 B 方訊息納入同意 assertion', () => {
+      const { error } = requestChatJudgmentSchema.body!.validate({
+        included_message_ids: [validUUID],
+        participant_consent: {
+          role_b_included_messages: true,
+        },
+      });
+      expect(error).toBeUndefined();
+    });
+
+    it('應拒絕 false 的 B 方訊息納入同意 assertion', () => {
+      const { error } = requestChatJudgmentSchema.body!.validate({
+        participant_consent: {
+          role_b_included_messages: false,
+        },
+      });
+      expect(error).toBeDefined();
+    });
+  });
+
   describe('checkinSchema', () => {
     it('應接受有效的 plan_id、notes、photos', () => {
       const { error } = checkinSchema.body!.validate({

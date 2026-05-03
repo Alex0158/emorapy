@@ -360,13 +360,20 @@ describe('chat.routes', () => {
       const res = await request(app)
         .post(`/chat/rooms/${roomId}/request-judgment`)
         .set('x-session-id', sessionId)
-        .send({});
+        .send({ participant_consent: { role_b_included_messages: true } });
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(res.body.data).toHaveProperty('status');
       expect(res.body.data).toHaveProperty('caseId');
       expect(res.body.data).toHaveProperty('judgmentId');
       expect(res.body.data).toHaveProperty('linkId');
+      expect(mockRequestJudgment).toHaveBeenCalledWith(
+        roomId,
+        expect.any(Object),
+        expect.objectContaining({
+          participantConsent: { roleBIncludedMessages: true },
+        }),
+      );
     });
 
     it('leaveRoom 成功時應返回 data.room（F07 邊界）', async () => {

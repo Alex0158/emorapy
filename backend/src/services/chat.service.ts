@@ -52,6 +52,9 @@ type SendMessageInput = {
 
 type RequestJudgmentOptions = {
   includedMessageIds?: string[];
+  participantConsent?: {
+    roleBIncludedMessages?: boolean;
+  };
 };
 
 type RequestJudgmentResult = {
@@ -952,11 +955,16 @@ export class ChatService {
       const roleBMessages = userMessages
         .filter((m) => m.sender_participant.role_in_room === 'roleB')
         .map((m) => m.content);
+      const includesRoleBMessages = roleBMessages.length > 0;
+      const roleBConsentAsserted = options?.participantConsent?.roleBIncludedMessages === true;
       const firstMessage = userMessages[0];
       const lastMessage = userMessages[userMessages.length - 1];
 
       if (roleAMessages.length === 0) {
         throw Errors.CASE_NOT_READY('A 方訊息不足，無法轉判決');
+      }
+      if (includesRoleBMessages && !roleBConsentAsserted) {
+        throw Errors.CASE_NOT_READY('納入 B 方訊息前需要 B 方明示同意');
       }
 
       const plaintiffStatement = buildChatJudgmentStatement(roleAMessages, 30);
@@ -1052,6 +1060,13 @@ export class ChatService {
                 },
                 roleA_messages: roleAMessages.length,
                 roleB_messages: roleBMessages.length,
+                participant_consent: {
+                  role_b_messages_included: includesRoleBMessages,
+                  role_b_inclusion_consent_asserted: roleBConsentAsserted,
+                  role_b_consent_required: includesRoleBMessages,
+                  role_b_participant_id: roleBParticipant?.id ?? null,
+                  role_b_user_id: roleBParticipant?.user_id ?? null,
+                },
                 room_status: room.status,
                 visibility_mode: room.history_visibility_mode,
                 pre_route: preRouteDecision.route,

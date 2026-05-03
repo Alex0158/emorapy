@@ -33,7 +33,7 @@
 | `GET /api/v1/streams/chat_room/:roomId`（SSE） | `after_seq?` + auth/session headers | `ready + stream.*` 事件，含 snapshot/replay/heartbeat | `FORBIDDEN` `INVALID_SESSION_ID` `SESSION_EXPIRED` | Chat AI 主鏈路 | AI stream client |
 | `GET /api/v1/chat/rooms/:roomId/messages` | `cursor?` `limit?<=100` | `data.messages[]` `data.nextCursor` | `FORBIDDEN` `VALIDATION_ERROR` `INVALID_SESSION_ID` `SESSION_EXPIRED` | 無 | 房間頁 |
 | `POST /api/v1/chat/rooms/:roomId/messages` | `content(1..4000)` `visibility_scope?` `reply_to_message_id?` | `data.message` | `FORBIDDEN` `CASE_NOT_EDITABLE` `RATE_LIMIT_EXCEEDED` `NOT_FOUND` `INVALID_SESSION_ID` `SESSION_EXPIRED` | 寫入 message，觸發 AI orchestrator | 房間頁 |
-| `POST /api/v1/chat/rooms/:roomId/request-judgment` | `included_message_ids?[]` | `data.caseId` `judgmentId?` `linkId?` `status` | `FORBIDDEN` `CASE_NOT_READY` `CASE_NOT_EDITABLE` `CONFLICT` `NOT_FOUND` `INVALID_SESSION_ID` `SESSION_EXPIRED` `AI_SERVICE_ERROR` | room -> judgment_requested/completed/failed，可能建 case/link | 房間頁 |
+| `POST /api/v1/chat/rooms/:roomId/request-judgment` | `included_message_ids?[]` `participant_consent?{role_b_included_messages:true}` | `data.caseId` `judgmentId?` `linkId?` `status` | `FORBIDDEN` `CASE_NOT_READY` `CASE_NOT_EDITABLE` `CONFLICT` `NOT_FOUND` `INVALID_SESSION_ID` `SESSION_EXPIRED` `AI_SERVICE_ERROR` | room -> judgment_requested/completed/failed，可能建 case/link | 房間頁 |
 | `GET /api/v1/chat/rooms/:roomId/judgment-status` | 無 body | `data.roomStatus` `data.latestLink` | `FORBIDDEN` `INVALID_SESSION_ID` `SESSION_EXPIRED` | 無 | 房間頁輪詢 |
 | `POST /api/v1/chat/rooms/:roomId/leave` | 無 body | `data.room` | `UNAUTHORIZED` `FORBIDDEN` `INVALID_SESSION_ID` `SESSION_EXPIRED` | B 方 `is_active=false`，room 回 `solo_active` | 房間頁 |
 | `POST /api/v1/chat/rooms/:roomId/kick-b` | 無 body | `data.room` | `FORBIDDEN` `NOT_FOUND` `INVALID_SESSION_ID` `SESSION_EXPIRED` | A 方移除 B，room 回 `solo_active` | 房間頁 |
@@ -45,6 +45,7 @@
 - `request-judgment` 成功載荷中的 `linkId` 是 chat->case 轉換鏈路主鍵；前端與運維排障需以 `roomId + linkId + caseId` 關聯查詢。
 - `ChatToCaseLink` 是識別 `chat_to_case` 產品流的最高優先級來源；後續 case list、notification、analytics、repair reminder 不得只用 `mode=collaborative` 或 `mode=quick` 推斷聊天室轉判決。
 - `request-judgment` 的安全 gate 必須使用 `backend/src/utils/product-safety-policy.ts` 的 `getChatJudgmentRequestPolicy`。`crisis_support` 會寫入 `safety_notice` 並拒絕轉判決；`safety_support` 可轉安全路由判決，但必須寫入 safety notice，且 `ChatToCaseLink.conversion_snapshot.safety_gate` 需保存 `can_request_chat_judgment / should_create_safety_notice / reasons` 供排障。
+- `request-judgment` 若本次納入任何 roleB 的 `user_text`，必須帶 `participant_consent.role_b_included_messages=true`；否則後端返回 `CASE_NOT_READY`，且不建立 case/link。此欄位表示前端已完成 B 方明示同意與訊息範圍確認；後端會在 `ChatToCaseLink.conversion_snapshot.participant_consent` 保存 `role_b_messages_included / role_b_inclusion_consent_asserted / role_b_consent_required / role_b_participant_id / role_b_user_id` 供排障。若只納入 roleA 訊息，允許生成單方視角判決，但 snapshot 仍會保留 information gaps。
 - 訊息發送限速：同房 30 秒最多 6 條，且最小間隔 5 秒；違規回 `RATE_LIMIT_EXCEEDED`。
 - `history_visibility_mode` 直接決定轉判決可納入訊息的時間窗與可見性。
 - `request-judgment` 的 `included_message_ids` 必須是「可納入判決消息集合」子集：僅允許 `message_type=user_text` 且 `visibility_scope=all`，且在 `share_from_join_time/share_summary_only` 下需同時滿足 `created_at >= roleB.joined_at`；若提交越界 ID，後端返回 `NOT_FOUND`。

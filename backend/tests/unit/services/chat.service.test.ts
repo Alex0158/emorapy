@@ -880,7 +880,9 @@ describe('ChatService', () => {
     prismaMock.chatToCaseLink.update.mockResolvedValueOnce({ id: 'link-6', judgment_id: 'judgment-6' });
     prismaMock.chatMessage.create.mockResolvedValue({ id: 'notice-6' });
 
-    const result = await service.requestJudgment('room-6', { userId: 'u1' });
+    const result = await service.requestJudgment('room-6', { userId: 'u1' }, {
+      participantConsent: { roleBIncludedMessages: true },
+    });
 
     expect(result.caseId).toBe('case-6');
     expect(prismaMock.chatToCaseLink.create).toHaveBeenCalledWith(
@@ -920,11 +922,59 @@ describe('ChatService', () => {
               roleAMessages: 1,
               roleBMessages: 1,
             }),
+            participant_consent: expect.objectContaining({
+              role_b_messages_included: true,
+              role_b_inclusion_consent_asserted: true,
+              role_b_consent_required: true,
+              role_b_participant_id: 'p-b',
+              role_b_user_id: 'u2',
+            }),
             conversion_version: 'v2-layered-2026-02',
           }),
         }),
       })
     );
+  });
+
+  it('requestJudgment: 納入 B 方訊息時必須先帶 B 方明示同意', async () => {
+    prismaMock.chatRoom.findFirst.mockResolvedValueOnce({
+      id: 'room-b-consent',
+      status: 'group_active',
+      owner_user_id: 'u1',
+      session_id: null,
+      history_visibility_mode: 'share_summary_only',
+      participants: [
+        { id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true },
+        { id: 'p-b', role_in_room: 'roleB', user_id: 'u2', is_active: true },
+        { id: 'p-ai', role_in_room: 'aiMediator', user_id: null, is_active: true },
+      ],
+    });
+    prismaMock.chatParticipant.findMany.mockResolvedValueOnce([
+      { id: 'p-a', room_id: 'room-b-consent', role_in_room: 'roleA', user_id: 'u1', is_active: true },
+      { id: 'p-b', room_id: 'room-b-consent', role_in_room: 'roleB', user_id: 'u2', is_active: true },
+      { id: 'p-ai', room_id: 'room-b-consent', role_in_room: 'aiMediator', user_id: null, is_active: true },
+    ]);
+    prismaMock.chatMessage.findMany.mockResolvedValueOnce([
+      {
+        id: 'm-a-consent',
+        content: '我想整理我們的對話',
+        created_at: new Date('2026-02-26T10:00:00.000Z'),
+        sender_participant: { role_in_room: 'roleA' },
+      },
+      {
+        id: 'm-b-consent',
+        content: '我也說一下我的看法',
+        created_at: new Date('2026-02-26T10:05:00.000Z'),
+        sender_participant: { role_in_room: 'roleB' },
+      },
+    ]);
+
+    await expect(service.requestJudgment('room-b-consent', { userId: 'u1' })).rejects.toMatchObject({
+      code: 'CASE_NOT_READY',
+    });
+    expect(prismaMock.case.create).not.toHaveBeenCalled();
+    expect(prismaMock.chatToCaseLink.create).not.toHaveBeenCalled();
+    expect(judgmentServiceMock.generateJudgment).not.toHaveBeenCalled();
   });
 
   it('requestJudgment: 單邊陳述時應標記 interaction/fact 高風險缺口', async () => {
@@ -1032,7 +1082,9 @@ describe('ChatService', () => {
     judgmentServiceMock.generateJudgment.mockResolvedValueOnce({ id: 'judgment-en' });
     prismaMock.chatToCaseLink.update.mockResolvedValueOnce({ id: 'link-en', judgment_id: 'judgment-en' });
 
-    await service.requestJudgment('room-en', { userId: 'u1' });
+    await service.requestJudgment('room-en', { userId: 'u1' }, {
+      participantConsent: { roleBIncludedMessages: true },
+    });
 
     const createCallArg = prismaMock.chatToCaseLink.create.mock.calls[0][0];
     const snapshot = createCallArg.data.conversion_snapshot;
@@ -1578,7 +1630,9 @@ describe('ChatService', () => {
       judgment_id: 'judgment-participants-refresh',
     });
 
-    const result = await service.requestJudgment('room-participants-refresh', { userId: 'u1' });
+    const result = await service.requestJudgment('room-participants-refresh', { userId: 'u1' }, {
+      participantConsent: { roleBIncludedMessages: true },
+    });
     expect(result.caseId).toBe('case-participants-refresh');
     expect(prismaMock.case.create).toHaveBeenCalledWith(
       expect.objectContaining({

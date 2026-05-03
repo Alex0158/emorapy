@@ -772,5 +772,8 @@ export const sendChatMessageSchema = {
 export const requestChatJudgmentSchema = {
   body: Joi.object({
     included_message_ids: Joi.array().items(Joi.string().uuid()).min(1).optional(),
+    participant_consent: Joi.object({
+      role_b_included_messages: Joi.boolean().valid(true).optional(),
+    }).optional(),
   }).optional(),
 };

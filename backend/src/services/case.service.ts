@@ -11,7 +11,7 @@ import { fileService, signAvatar } from './file.service';
 import { normalizeJudgmentWithSafetyState } from './judgment-normalization.service';
 import { lockService } from '../utils/lock';
 import { LOCK_TTL, SESSION_EXPIRY, CASE_STATUS, CASE_MODE, PAGINATION, FILE_TYPE, PAIRING_STATUS } from '../utils/constants';
-import { buildUserBoundProductCaseWhere, getCaseProductFlow, isCaseParticipant, isSessionBoundCase } from '../utils/case-classifier';
+import { buildUserBoundProductCaseWhere, getCaseProductFlow, isCaseParticipant, isFormalCaseMode, isSessionBoundCase } from '../utils/case-classifier';
 import {
   buildSafetyAssessmentSnapshotForEvidenceAssertion,
   getFormalCaseCreatePolicy,
@@ -290,7 +290,11 @@ export class CaseService {
       30
     );
 
-    const caseMode = data.mode || CASE_MODE.REMOTE;
+    const caseModeInput = data.mode || CASE_MODE.REMOTE;
+    if (!isFormalCaseMode(caseModeInput)) {
+      throw Errors.VALIDATION_ERROR('正式案件 mode 只能是 remote 或 collaborative');
+    }
+    const caseMode = caseModeInput;
     const hasDefendantStatement = data.defendant_statement && data.defendant_statement.trim().length > 0;
 
     if (caseMode === CASE_MODE.COLLABORATIVE && !hasDefendantStatement) {

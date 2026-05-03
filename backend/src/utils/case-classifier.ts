@@ -15,6 +15,7 @@ export type CaseProductFlow =
   | 'formal_remote'
   | 'formal_collaborative'
   | 'chat_to_case';
+export type FormalCaseMode = 'remote' | 'collaborative';
 
 export type CaseProductFlowSubject = CaseAccessSubject & {
   chat_to_case_links?: unknown[] | null;
@@ -38,6 +39,10 @@ export function isSessionBoundCase(case_: Pick<CaseAccessSubject, 'mode' | 'sess
 
 export function isClaimableSessionCase(case_: Pick<CaseAccessSubject, 'mode' | 'session_id'>, sessionId: string): boolean {
   return case_.mode === CASE_MODE.QUICK || (case_.mode === CASE_MODE.COLLABORATIVE && case_.session_id === sessionId);
+}
+
+export function isFormalCaseMode(mode: string | null | undefined): mode is FormalCaseMode {
+  return mode === CASE_MODE.REMOTE || mode === CASE_MODE.COLLABORATIVE;
 }
 
 export function getCaseAccessKind(case_: Pick<CaseAccessSubject, 'mode' | 'session_id'>): CaseAccessKind {

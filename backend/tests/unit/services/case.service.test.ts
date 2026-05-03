@@ -386,6 +386,28 @@ describe('CaseService', () => {
       expect(prismaMock.case.create).not.toHaveBeenCalled();
     });
 
+    it('正式建案不應接受 quick mode（service 邊界硬化）', async () => {
+      prismaMock.pairing.findUnique.mockResolvedValue({
+        id: 'pair-1',
+        status: 'active',
+        user1_id: 'u1',
+        user2_id: 'u2',
+        user1: {},
+        user2: {},
+      });
+
+      await expect(service.createCase('u1', {
+        pairing_id: 'pair-1',
+        plaintiff_statement: LONG_STATEMENT_50,
+        mode: 'quick',
+      } as any)).rejects.toMatchObject({
+        code: 'VALIDATION_ERROR',
+        message: expect.stringContaining('mode'),
+      });
+
+      expect(prismaMock.case.create).not.toHaveBeenCalled();
+    });
+
     it('傳入 data.evidence_urls 時應 createMany evidence', async () => {
       const evidenceUrls = ['https://example.com/1.jpg', 'https://example.com/2.jpg'];
       prismaMock.pairing.findUnique.mockResolvedValue({

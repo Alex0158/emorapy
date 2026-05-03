@@ -12,6 +12,7 @@ import {
   hasChatToCaseSource,
   isClaimableSessionCase,
   isCaseParticipant,
+  isFormalCaseMode,
   isSessionBoundCase,
   isUserBoundProductCase,
 } from '../../../src/utils/case-classifier';
@@ -38,6 +39,13 @@ describe('case-classifier', () => {
   it('remote 走 user 授權', () => {
     expect(isSessionBoundCase({ mode: 'remote', session_id: 'stale-session' })).toBe(false);
     expect(getCaseAccessKind({ mode: 'remote', session_id: 'stale-session' })).toBe('user');
+  });
+
+  it('formal case mode 只允許 remote / collaborative', () => {
+    expect(isFormalCaseMode('remote')).toBe(true);
+    expect(isFormalCaseMode('collaborative')).toBe(true);
+    expect(isFormalCaseMode('quick')).toBe(false);
+    expect(isFormalCaseMode(undefined)).toBe(false);
   });
 
   it('isCaseParticipant 只接受 plaintiff 或 defendant', () => {

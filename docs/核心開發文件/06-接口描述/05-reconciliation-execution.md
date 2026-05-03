@@ -3,14 +3,14 @@
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：05-reconciliation-execution
-**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`frontend/src/services/api`、`frontend-admin/src/services/api`
+**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`backend/src/services/reconciliation.service.ts`、`backend/src/services/execution.service.ts`、`backend/src/services/repair-eligibility.service.ts`、`backend/src/services/repair-journey.service.ts`、`backend/src/services/safety-assessment.service.ts`、`frontend/src/services/api`、`frontend-admin/src/services/api`
 **最後核驗 Commit**：`77f8660`
 **最後核驗日期**：`2026-05-03`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**文檔版本**：v2.8
+**文檔版本**：v2.9
 **最後更新**：2026-05-03
-**代碼基準**：`backend/src/routes/reconciliation.routes.ts`、`backend/src/routes/execution.routes.ts`、`backend/src/routes/ai-stream.routes.ts`、`backend/src/services/reconciliation.service.ts`、`backend/src/services/repair-eligibility.service.ts`、`backend/src/services/safety-routing.service.ts`、`backend/src/services/execution.service.ts`
+**代碼基準**：`backend/src/routes/reconciliation.routes.ts`、`backend/src/routes/execution.routes.ts`、`backend/src/routes/ai-stream.routes.ts`、`backend/src/services/reconciliation.service.ts`、`backend/src/services/repair-eligibility.service.ts`、`backend/src/services/repair-journey.service.ts`、`backend/src/services/safety-routing.service.ts`、`backend/src/services/execution.service.ts`
 
 ---
 
@@ -59,11 +59,13 @@
    - `quick` 或 `collaborative + session_id` 屬 session-bound case，可生成低壓 solo 方案，但禁止伴侶邀請、共同修復與伴侶通知。
    - 正式單方案件可生成 solo 方案，但不可共同修復或通知另一方。
    - 正式雙方案件才允許共同修復、伴侶邀請與伴侶通知。
+   - `chat_to_case` 必須顯式標記為弱上下文：單方已登入時為 `chat_to_case_single_perspective + weak_contextual`，只能 solo；雙方已登入時為 `chat_to_case_dual_perspective + weak_contextual`，可保留共同修復資格，但前端必須提示這是「先聊再判」而非正式配對原生流程。
    - 沒有任何已登入當事人的案件不能生成修復方案。
 4. 聚合 gate：`backend/src/services/repair-eligibility.service.ts` 的 `getRepairJourneyAccessPolicyForJudgment`
    - `canEnterRepairJourney` 必須同時滿足案件可生成修復方案與安全路由允許至少一個 reconciliation intent。
    - `canInvitePartner / canUseCoRepair / canNotifyPartner / forceSoloRepair` 由 safety policy 與 repair eligibility 共同裁決；`ReconciliationService`、`ExecutionService`、通知、後續 job 或前端不得各自用 `forceSoloRepair || canInvitePartner` 手拼一套規則。
    - `ExecutionService` 回傳執行狀態與 dashboard journey context 時必須使用同一聚合 gate；若 `forceSoloRepair=true`，即使舊資料仍是 `co_active` / `recommended_mode=co`，對外旅程 CTA 與 `relationship_mode` 也要降級為 solo。
+   - `journey_context.repair_access` 是前端展示資格的唯一 additive 來源，包含 `flow / product_flow / relationship_scope / pairing_strength / can_invite_partner / can_use_co_repair / can_notify_partner / force_solo_repair / safety_source / risk_level / reasons`。
 
 任何頁面、通知、chat-to-case、execution 或後續 job 不得自行用 `case.mode` 重寫上述資格判斷。
 
@@ -149,6 +151,13 @@
 - `entry_path`
 - `resume_path`
 - `presentation_bucket`
+- `repair_access`
+  - `flow`：`session_bound / formal_solo / formal_dual`
+  - `product_flow`：`quick_single / quick_collaborative / formal_remote / formal_collaborative / chat_to_case`
+  - `relationship_scope`：`quick_single_solo / quick_collaborative_solo / formal_single_party / formal_dual_party / chat_to_case_single_perspective / chat_to_case_dual_perspective / unclaimed_session_asset`
+  - `pairing_strength`：`none / session_context / weak_contextual / formal_confirmed`
+  - `can_invite_partner / can_use_co_repair / can_notify_partner / force_solo_repair`
+  - `safety_source / risk_level / reasons`
 
 ### `GET /execution/status`
 
@@ -243,6 +252,7 @@
 - 方案旅程頁必須容忍 legacy 陣列形狀或空 bundle，不得因 `plans` 缺失而崩潰。
 - 方案詳情頁：主體是承諾工作台，不是純只讀文檔頁；invitee 打開頁面後需補 `viewed` 閉環。
 - 方案詳情頁與修復看板需優先消費 `journey_context`，不得各頁自己重寫一套 `status -> CTA` 判斷。
+- 前端展示共同修復、邀請伴侶、弱配對 / 單方視角、solo-only 限制時，必須讀 `journey_context.repair_access`；不得自行用 `case.mode`、`session_id` 或是否有 partner user 推斷。
 - 每日一步頁：先問 `done/partial/skipped + closeness + stress + needs_help`，長文本反思退居次要。
 - `journey_status=replanning` 時，前端需提供 `/execution/:planId/replan` 正式調整頁，而不是把重調塞回 checkin 表單。
 - `replan` 頁必須處理 3 種狀態：提交前表單、AI 等待 phase、失敗後回退原版本。

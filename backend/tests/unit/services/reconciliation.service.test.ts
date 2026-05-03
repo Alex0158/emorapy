@@ -226,7 +226,7 @@ describe('ReconciliationService', () => {
       return fn(tx);
     });
 
-    await service.generatePlans('judge-1', { intent: 'repair' }, 'u1');
+    const result = await service.generatePlans('judge-1', { intent: 'repair' }, 'u1');
 
     expect(caseContextService.loadCaseContext).toHaveBeenCalledWith('case-1');
     expect(mockGenerateReconciliationPlans).toHaveBeenCalledWith(
@@ -234,10 +234,15 @@ describe('ReconciliationService', () => {
       { plaintiff: 50, defendant: 50 },
       '摘要',
       'chat-to-case personalization',
-      expect.any(String),
+      undefined,
       undefined,
       expect.objectContaining({ intent: 'repair' }),
     );
+    expect(result.journey_entry.journey_context?.repair_access).toMatchObject({
+      product_flow: 'chat_to_case',
+      relationship_scope: 'chat_to_case_dual_perspective',
+      pairing_strength: 'weak_contextual',
+    });
   });
 
   it('已有同方向方案時應直接返回 bundle', async () => {

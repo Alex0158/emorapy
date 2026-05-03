@@ -33,6 +33,9 @@ describe('repair-eligibility.service', () => {
     });
 
     expect(policy.flow).toBe('session_bound');
+    expect(policy.productFlow).toBe('quick_single');
+    expect(policy.relationshipScope).toBe('quick_single_solo');
+    expect(policy.pairingStrength).toBe('session_context');
     expect(policy.canGeneratePlans).toBe(true);
     expect(policy.forceSoloRepair).toBe(true);
     expect(policy.canInvitePartner).toBe(false);
@@ -48,6 +51,8 @@ describe('repair-eligibility.service', () => {
     });
 
     expect(policy.flow).toBe('session_bound');
+    expect(policy.productFlow).toBe('quick_collaborative');
+    expect(policy.relationshipScope).toBe('quick_collaborative_solo');
     expect(policy.forceSoloRepair).toBe(true);
     expect(policy.canUseCoRepair).toBe(false);
   });
@@ -61,6 +66,8 @@ describe('repair-eligibility.service', () => {
     });
 
     expect(policy.flow).toBe('formal_solo');
+    expect(policy.productFlow).toBe('formal_remote');
+    expect(policy.relationshipScope).toBe('formal_single_party');
     expect(policy.canGeneratePlans).toBe(true);
     expect(policy.forceSoloRepair).toBe(true);
     expect(policy.canInvitePartner).toBe(false);
@@ -75,6 +82,8 @@ describe('repair-eligibility.service', () => {
     });
 
     expect(policy.flow).toBe('formal_dual');
+    expect(policy.relationshipScope).toBe('formal_dual_party');
+    expect(policy.pairingStrength).toBe('formal_confirmed');
     expect(policy.canGeneratePlans).toBe(true);
     expect(policy.forceSoloRepair).toBe(false);
     expect(policy.canInvitePartner).toBe(true);
@@ -93,6 +102,41 @@ describe('repair-eligibility.service', () => {
     expect(policy.forceSoloRepair).toBe(true);
   });
 
+  it('chat-to-case 單方視角應標記弱配對並只允許 solo', () => {
+    const policy = getRepairEligibilityForCase({
+      mode: 'quick',
+      session_id: 'guest_1',
+      plaintiff_id: 'u1',
+      defendant_id: null,
+      chat_to_case_links: [{ id: 'link-1' }],
+    });
+
+    expect(policy.flow).toBe('formal_solo');
+    expect(policy.productFlow).toBe('chat_to_case');
+    expect(policy.relationshipScope).toBe('chat_to_case_single_perspective');
+    expect(policy.pairingStrength).toBe('weak_contextual');
+    expect(policy.canGeneratePlans).toBe(true);
+    expect(policy.forceSoloRepair).toBe(true);
+    expect(policy.canInvitePartner).toBe(false);
+  });
+
+  it('chat-to-case 雙方視角應標記弱配對但保留共同修復資格', () => {
+    const policy = getRepairEligibilityForCase({
+      mode: 'collaborative',
+      session_id: null,
+      plaintiff_id: 'u1',
+      defendant_id: 'u2',
+      chat_to_case_links: [{ id: 'link-1' }],
+    });
+
+    expect(policy.flow).toBe('formal_dual');
+    expect(policy.productFlow).toBe('chat_to_case');
+    expect(policy.relationshipScope).toBe('chat_to_case_dual_perspective');
+    expect(policy.pairingStrength).toBe('weak_contextual');
+    expect(policy.canUseCoRepair).toBe(true);
+    expect(policy.canInvitePartner).toBe(true);
+  });
+
   it('repair journey access 應合併安全路由與案件資格', () => {
     const eligibility = getRepairEligibilityForCase({
       mode: 'remote',
@@ -107,6 +151,8 @@ describe('repair-eligibility.service', () => {
     );
 
     expect(access.canEnterRepairJourney).toBe(true);
+    expect(access.relationshipScope).toBe('formal_dual_party');
+    expect(access.pairingStrength).toBe('formal_confirmed');
     expect(access.canInvitePartner).toBe(false);
     expect(access.canUseCoRepair).toBe(false);
     expect(access.canNotifyPartner).toBe(false);

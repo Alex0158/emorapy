@@ -16,6 +16,7 @@ import { aiStreamService, type AIStreamHandle } from './ai-stream.service';
 import { notificationService } from './notification.service';
 import { buildRepairJourneyContext } from './repair-journey.service';
 import {
+  buildRepairAccessContext,
   getRepairEligibilityForCase,
   getRepairJourneyAccessPolicyForJudgment,
 } from './repair-eligibility.service';
@@ -63,6 +64,10 @@ interface ExecutionJourneyPlan {
       session_id?: string | null;
       plaintiff_id: string | null;
       defendant_id: string | null;
+      chat_to_case_links?: unknown[] | null;
+      _count?: {
+        chat_to_case_links?: number | null;
+      } | null;
     };
   };
   repair_track?: null | {
@@ -82,6 +87,10 @@ interface ExecutionJourneyPlan {
     }>;
   };
 }
+
+const REPAIR_CASE_INCLUDE = {
+  chat_to_case_links: { select: { id: true }, take: 1 },
+} as const;
 
 function parsePlanContent(planContent: string) {
   try {
@@ -170,7 +179,7 @@ export class ExecutionService {
     const plan = await prisma.reconciliationPlan.findUnique({
       where: { id: planId },
       include: {
-        judgment: { include: { case: true } },
+        judgment: { include: { case: { include: REPAIR_CASE_INCLUDE } } },
         repair_track: {
           include: {
             participant_states: true,
@@ -446,6 +455,7 @@ export class ExecutionService {
       isDualCommitted: !repairJourneyAccess.forceSoloRepair && commitment.is_dual_committed,
       statusReason: plan.repair_track?.status_reason ?? null,
       recommendedMode,
+      repairAccess: buildRepairAccessContext(repairJourneyAccess),
     });
   }
 
@@ -502,7 +512,7 @@ export class ExecutionService {
         plan: {
           include: {
             judgment: {
-              include: { case: true },
+              include: { case: { include: REPAIR_CASE_INCLUDE } },
             },
           },
         },
@@ -568,7 +578,7 @@ export class ExecutionService {
           plan: {
             include: {
               judgment: {
-                include: { case: true },
+                include: { case: { include: REPAIR_CASE_INCLUDE } },
               },
             },
           },
@@ -774,7 +784,7 @@ export class ExecutionService {
           plan: {
             include: {
               judgment: {
-                include: { case: true },
+                include: { case: { include: REPAIR_CASE_INCLUDE } },
               },
             },
           },
@@ -1044,7 +1054,7 @@ export class ExecutionService {
         plan: {
           include: {
             judgment: {
-              include: { case: true },
+              include: { case: { include: REPAIR_CASE_INCLUDE } },
             },
           },
         },
@@ -1255,7 +1265,7 @@ export class ExecutionService {
         plan: {
           include: {
             judgment: {
-              include: { case: true },
+              include: { case: { include: REPAIR_CASE_INCLUDE } },
             },
             execution_records: {
               where: { user_id: userId },
@@ -1328,6 +1338,7 @@ export class ExecutionService {
       take: PAGINATION.EXECUTION_LIST_TAKE,
       orderBy: { created_at: 'desc' },
       include: {
+        chat_to_case_links: { select: { id: true }, take: 1 },
         judgment: {
           include: {
             reconciliation_plans: {
@@ -1369,6 +1380,7 @@ export class ExecutionService {
             session_id: caseRecord.session_id,
             plaintiff_id: caseRecord.plaintiff_id,
             defendant_id: caseRecord.defendant_id,
+            chat_to_case_links: caseRecord.chat_to_case_links,
           },
         },
       };

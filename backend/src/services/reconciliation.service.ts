@@ -21,6 +21,7 @@ import {
 } from './repair-journey.service';
 import { getProductSafetyPolicyForJudgment } from './safety-routing.service';
 import {
+  buildRepairAccessContext,
   getRepairEligibilityForCase,
   getRepairJourneyAccessPolicyForJudgment,
 } from './repair-eligibility.service';
@@ -44,6 +45,10 @@ type RepairTrackStatusValue =
   | 'paused'
   | 'completed'
   | 'closed';
+
+const REPAIR_CASE_INCLUDE = {
+  chat_to_case_links: { select: { id: true }, take: 1 },
+} as const;
 
 function sanitizePlanStrings<T>(obj: T): T {
   if (typeof obj === 'string') {
@@ -193,7 +198,9 @@ type PlanRecordForHydration = Prisma.ReconciliationPlanGetPayload<{
   include: {
     judgment: {
       include: {
-        case: true;
+        case: {
+          include: typeof REPAIR_CASE_INCLUDE;
+        };
       };
     };
     repair_track: {
@@ -332,6 +339,7 @@ export class ReconciliationService {
       isDualCommitted: !repairJourneyAccess.forceSoloRepair && commitment.is_dual_committed,
       statusReason: plan.repair_track?.status_reason ?? null,
       recommendedMode: repairJourneyAccess.forceSoloRepair ? 'solo' : commitment.recommended_mode,
+      repairAccess: buildRepairAccessContext(repairJourneyAccess),
     });
   }
 
@@ -551,7 +559,7 @@ export class ReconciliationService {
       include: {
         judgment: {
           include: {
-            case: true,
+            case: { include: REPAIR_CASE_INCLUDE },
           },
         },
         repair_track: {
@@ -680,7 +688,7 @@ export class ReconciliationService {
     const existingPlans = await prisma.reconciliationPlan.findMany({
       where: { judgment_id: judgmentId, intent, superseded_at: null },
       include: {
-        judgment: { include: { case: true } },
+        judgment: { include: { case: { include: REPAIR_CASE_INCLUDE } } },
         repair_track: {
           include: {
             participant_states: true,
@@ -850,7 +858,7 @@ export class ReconciliationService {
             skill_requirement: safePlan.skill_requirement,
           },
           include: {
-            judgment: { include: { case: true } },
+            judgment: { include: { case: { include: REPAIR_CASE_INCLUDE } } },
             repair_track: {
               include: {
                 participant_states: true,
@@ -914,7 +922,7 @@ export class ReconciliationService {
     const plans = await prisma.reconciliationPlan.findMany({
       where,
       include: {
-        judgment: { include: { case: true } },
+        judgment: { include: { case: { include: REPAIR_CASE_INCLUDE } } },
         repair_track: {
           include: {
             participant_states: true,
@@ -1275,7 +1283,7 @@ export class ReconciliationService {
         plan: {
           include: {
             judgment: {
-              include: { case: true },
+              include: { case: { include: REPAIR_CASE_INCLUDE } },
             },
           },
         },

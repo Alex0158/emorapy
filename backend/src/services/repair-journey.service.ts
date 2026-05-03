@@ -27,6 +27,26 @@ export type RepairJourneyPresentationBucket =
   | 'replanning'
   | 'paused'
   | 'completed';
+export type RepairJourneyAccessContext = {
+  flow: 'session_bound' | 'formal_solo' | 'formal_dual';
+  product_flow: 'quick_single' | 'quick_collaborative' | 'formal_remote' | 'formal_collaborative' | 'chat_to_case';
+  relationship_scope:
+    | 'quick_single_solo'
+    | 'quick_collaborative_solo'
+    | 'formal_single_party'
+    | 'formal_dual_party'
+    | 'chat_to_case_single_perspective'
+    | 'chat_to_case_dual_perspective'
+    | 'unclaimed_session_asset';
+  pairing_strength: 'none' | 'session_context' | 'weak_contextual' | 'formal_confirmed';
+  can_invite_partner: boolean;
+  can_use_co_repair: boolean;
+  can_notify_partner: boolean;
+  force_solo_repair: boolean;
+  safety_source?: 'active_risk_state' | 'fallback_route' | 'route_policy';
+  risk_level?: string;
+  reasons: string[];
+};
 
 export interface RepairJourneyContext {
   viewer_role: RepairJourneyViewerRole;
@@ -50,6 +70,7 @@ export interface RepairJourneyContext {
   entry_path: string;
   resume_path: string;
   presentation_bucket: RepairJourneyPresentationBucket;
+  repair_access: RepairJourneyAccessContext | null;
 }
 
 interface BuildRepairJourneyContextInput {
@@ -86,6 +107,7 @@ interface BuildRepairJourneyContextInput {
   isDualCommitted: boolean;
   statusReason?: string | null;
   recommendedMode?: 'solo' | 'co';
+  repairAccess?: RepairJourneyAccessContext | null;
 }
 
 function buildPaths(judgmentId: string, planId: string) {
@@ -154,6 +176,7 @@ export function buildRepairJourneyContext(input: BuildRepairJourneyContextInput)
       entry_path: paths.replan,
       resume_path: paths.replan,
       presentation_bucket: presentationBucket,
+      repair_access: input.repairAccess ?? null,
     };
   }
 
@@ -172,6 +195,7 @@ export function buildRepairJourneyContext(input: BuildRepairJourneyContextInput)
       entry_path: paths.detail,
       resume_path: paths.detail,
       presentation_bucket: presentationBucket,
+      repair_access: input.repairAccess ?? null,
     };
   }
 
@@ -190,6 +214,7 @@ export function buildRepairJourneyContext(input: BuildRepairJourneyContextInput)
       entry_path: paths.detail,
       resume_path: paths.detail,
       presentation_bucket: presentationBucket,
+      repair_access: input.repairAccess ?? null,
     };
   }
 
@@ -214,6 +239,7 @@ export function buildRepairJourneyContext(input: BuildRepairJourneyContextInput)
       entry_path: paths.detail,
       resume_path: paths.detail,
       presentation_bucket: 'partner_waiting',
+      repair_access: input.repairAccess ?? null,
     };
   }
 
@@ -236,6 +262,7 @@ export function buildRepairJourneyContext(input: BuildRepairJourneyContextInput)
       entry_path: paths.checkin,
       resume_path: paths.checkin,
       presentation_bucket: presentationBucket,
+      repair_access: input.repairAccess ?? null,
     };
   }
 
@@ -256,6 +283,7 @@ export function buildRepairJourneyContext(input: BuildRepairJourneyContextInput)
       entry_path: paths.detail,
       resume_path: paths.detail,
       presentation_bucket: 'partner_waiting',
+      repair_access: input.repairAccess ?? null,
     };
   }
 
@@ -274,6 +302,7 @@ export function buildRepairJourneyContext(input: BuildRepairJourneyContextInput)
       entry_path: paths.detail,
       resume_path: paths.detail,
       presentation_bucket: 'partner_waiting',
+      repair_access: input.repairAccess ?? null,
     };
   }
 
@@ -292,6 +321,7 @@ export function buildRepairJourneyContext(input: BuildRepairJourneyContextInput)
       entry_path: paths.detail,
       resume_path: paths.detail,
       presentation_bucket: 'draft',
+      repair_access: input.repairAccess ?? null,
     };
   }
 
@@ -310,6 +340,7 @@ export function buildRepairJourneyContext(input: BuildRepairJourneyContextInput)
       entry_path: paths.bundle,
       resume_path: paths.bundle,
       presentation_bucket: 'draft',
+      repair_access: input.repairAccess ?? null,
     };
   }
 
@@ -329,5 +360,6 @@ export function buildRepairJourneyContext(input: BuildRepairJourneyContextInput)
     entry_path: paths.detail,
     resume_path: input.isDualCommitted ? paths.checkin : paths.detail,
     presentation_bucket: presentationBucket,
+    repair_access: input.repairAccess ?? null,
   };
 }

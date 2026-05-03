@@ -12,8 +12,9 @@ This file is the repo-level operating guide for coding agents. It is not a produ
 4. CI success means releasable, not released.
 5. Vercel success means web released, not backend released.
 6. A committed migration file means database change is in code, not that production DB has been migrated.
-7. Never use production database credentials for local development unless the user explicitly asks and the command is read-only or the migration plan is confirmed.
-8. Do not print secrets. Show hosts, project names, aliases, commit SHAs, and masked values only.
+7. Any change or discovered drift that must eventually be unified across local/dev and release/prod must be recorded as a pending governance task immediately. This includes database data, schema, migrations, seed data, environment variables, platform config, release wiring, tool auth assumptions, and any other two-side parity requirement. Create or update a Markdown task under `docs/核心開發文件/07-待處理問題與治理/待處理/` with the current state, target release action, verification command, and owner/status notes; do not rely on chat memory.
+8. Never use production database credentials for local development unless the user explicitly asks and the command is read-only or the migration plan is confirmed.
+9. Do not print secrets. Show hosts, project names, aliases, commit SHAs, and masked values only.
 
 ## Fixed Ops Entrypoints
 

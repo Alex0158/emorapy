@@ -243,6 +243,14 @@ export const createCaseSchema = {
     type: Joi.string().max(50).optional(),
     sub_type: Joi.string().max(50).optional(),
     mode: Joi.string().valid('remote', 'collaborative').optional().default('remote'),
+    safety_assertion: Joi.alternatives().try(Joi.string().max(2000), Joi.object().max(20)).optional(),
+    safetyAssertion: Joi.alternatives().try(Joi.string().max(2000), Joi.object().max(20)).optional(),
+    contains_minor: Joi.boolean().optional(),
+    contains_sensitive_content: Joi.boolean().optional(),
+    contains_nonconsensual_content: Joi.boolean().optional(),
+    contains_illegal_content: Joi.boolean().optional(),
+    minor_guardian_or_self_upload_confirmed: Joi.boolean().optional(),
+    sensitive_content_handling_ack: Joi.boolean().optional(),
   }),
 };
 

@@ -53,6 +53,14 @@ export interface PsychInterviewStartPolicy {
   reasons: string[];
 }
 
+export interface FormalCaseCreatePolicy {
+  canCreateCase: boolean;
+  rejectionCode: 'FORBIDDEN' | 'VALIDATION_ERROR' | null;
+  rejectionMessage: string | null;
+  metadata: Record<string, unknown> | null;
+  reasons: string[];
+}
+
 const ROUTE_VALUES = new Set<JudgmentRoute>(['standard', 'safety_support', 'crisis_support']);
 
 export function isJudgmentRoute(value: unknown): value is JudgmentRoute {
@@ -311,5 +319,49 @@ export function getPsychInterviewStartPolicy(input: { age?: number | null }): Ps
     canStartInterview: true,
     rejectionMessage: null,
     reasons: ['未命中未成年人心理訪談限制'],
+  };
+}
+
+export function getFormalCaseCreatePolicy(input: {
+  actorAge?: number | null;
+  counterpartyAge?: number | null;
+  safetyAssertionInput?: unknown;
+}): FormalCaseCreatePolicy {
+  if (
+    (typeof input.actorAge === 'number' && input.actorAge < 18) ||
+    (typeof input.counterpartyAge === 'number' && input.counterpartyAge < 18)
+  ) {
+    return {
+      canCreateCase: false,
+      rejectionCode: 'FORBIDDEN',
+      rejectionMessage: '未成年人暫不開放正式案件處理，請改用一般支持資源或由監護人協助處理',
+      metadata: null,
+      reasons: ['正式案件任一已知參與者年齡小於 18'],
+    };
+  }
+
+  const assertionPolicy = getEvidenceSafetyAssertionPolicy(input.safetyAssertionInput);
+  if (!assertionPolicy.canUpload) {
+    return {
+      canCreateCase: false,
+      rejectionCode: 'VALIDATION_ERROR',
+      rejectionMessage: assertionPolicy.rejectionMessage,
+      metadata: null,
+      reasons: assertionPolicy.reasons,
+    };
+  }
+
+  return {
+    canCreateCase: true,
+    rejectionCode: null,
+    rejectionMessage: null,
+    metadata: assertionPolicy.metadata
+      ? {
+          kind: 'formal_case_safety_assertion',
+          version: 1,
+          evidence_assertion: assertionPolicy.metadata,
+        }
+      : null,
+    reasons: ['正式案件建立安全 gate 已通過'],
   };
 }

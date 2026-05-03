@@ -232,6 +232,19 @@ describe('Validation Schemas', () => {
       expect(error).toBeDefined();
     });
 
+    it('應接受正式案件 safety assertion 欄位', () => {
+      const { error } = createCaseSchema.body!.validate({
+        plaintiff_statement: 'a'.repeat(35),
+        pairing_id: validUUID,
+        safety_assertion: {
+          contains_sensitive_content: true,
+          sensitive_content_handling_ack: true,
+        },
+        contains_minor: false,
+      });
+      expect(error).toBeUndefined();
+    });
+
     it('缺少 pairing_id 應拒絕', () => {
       const { error } = createCaseSchema.body!.validate({
         plaintiff_statement: 'a'.repeat(35),

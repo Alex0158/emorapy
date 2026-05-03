@@ -1,5 +1,6 @@
 import {
   getEvidenceSafetyAssertionPolicy,
+  getFormalCaseCreatePolicy,
   getChatJudgmentRequestPolicy,
   getPsychInterviewStartPolicy,
   getProductSafetyPolicy,
@@ -95,5 +96,30 @@ describe('product-safety-policy', () => {
   it('年齡未填或已成年時允許沿用心理訪談舊流程', () => {
     expect(getPsychInterviewStartPolicy({ age: null }).canStartInterview).toBe(true);
     expect(getPsychInterviewStartPolicy({ age: 18 }).canStartInterview).toBe(true);
+  });
+
+  it('正式案件任一已知參與者為未成年人時應拒絕', () => {
+    const policy = getFormalCaseCreatePolicy({ actorAge: 18, counterpartyAge: 17 });
+
+    expect(policy.canCreateCase).toBe(false);
+    expect(policy.rejectionCode).toBe('FORBIDDEN');
+    expect(policy.rejectionMessage).toContain('未成年人');
+  });
+
+  it('正式案件敏感內容 assertion 通過時應產生 case metadata', () => {
+    const policy = getFormalCaseCreatePolicy({
+      actorAge: 30,
+      counterpartyAge: null,
+      safetyAssertionInput: {
+        contains_sensitive_content: true,
+        sensitive_content_handling_ack: true,
+      },
+    });
+
+    expect(policy.canCreateCase).toBe(true);
+    expect(policy.metadata).toMatchObject({
+      kind: 'formal_case_safety_assertion',
+      version: 1,
+    });
   });
 });

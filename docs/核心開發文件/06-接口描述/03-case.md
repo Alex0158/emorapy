@@ -28,7 +28,7 @@
 | `GET /api/v1/cases/by-session`                  | `X-Session-Id`                                                          | `data.case`                      | `SESSION_ID_REQUIRED` `INVALID_SESSION_ID` `SESSION_EXPIRED` `NOT_FOUND` | 無                    | 快速體驗恢復                            |
 | `POST /api/v1/cases/quick`                      | `plaintiff_statement(>=30)` `defendant_statement?` `evidence_urls?<=3`  | `data.case` `data.session_id?`   | `VALIDATION_ERROR`                                     | 建立 quick case        | `/quick-experience/create`        |
 | `POST /api/v1/cases/collaborative`              | `case_id?` `plaintiff_statement?` `defendant_statement?`                | `data.case` `data.phase`         | `VALIDATION_ERROR` `INVALID_SESSION_ID` `NOT_FOUND` `FORBIDDEN` `SESSION_EXPIRED` `CASE_NOT_EDITABLE` | A/B 輪流續寫同案           | `/quick-experience/collaborative` |
-| `POST /api/v1/cases`                            | `pairing_id(uuid)` `plaintiff_statement` `defendant_statement?` `mode?` | `data.case`                      | `VALIDATION_ERROR` `FORBIDDEN`                         | 建立 draft case        | `/case/create`                    |
+| `POST /api/v1/cases`                            | `pairing_id(uuid)` `plaintiff_statement` `defendant_statement?` `mode?`; optional `safety_assertion` / inline safety fields | `data.case`                      | `VALIDATION_ERROR` `FORBIDDEN`                         | 建立 draft/submitted case        | `/case/create`                    |
 | `GET /api/v1/cases`                             | query: `status/type/page/page_size/sort/search`                         | `data.cases[]`（含 `product_flow`） `data.pagination` | `UNAUTHORIZED`                                         | 無                    | `/case/list`                      |
 | `POST /api/v1/cases/:id/evidence`               | path `id(uuid)` + multipart `files[]`; optional `safety_assertion` JSON / inline safety fields | `data.evidences[]`               | `VALIDATION_ERROR` `FILE_TOO_LARGE` `TOO_MANY_FILES` `INVALID_FILE_TYPE` `INVALID_FILE_FIELD` `NOT_FOUND` `UNAUTHORIZED` `FORBIDDEN` `INVALID_SESSION_ID` `SESSION_EXPIRED` `CASE_NOT_EDITABLE` | 寫入 evidence 記錄與文件    | FileUpload、快速結果頁                  |
 | `DELETE /api/v1/cases/:id/evidence/:evidenceId` | `id(uuid)` `evidenceId(uuid)`                                           | 成功旗標                             | `NOT_FOUND` `FORBIDDEN` `INVALID_SESSION_ID` `SESSION_EXPIRED`                                | 刪除 evidence 關聯       | FileUpload                        |
@@ -43,6 +43,7 @@
 - 路由順序強依賴：具體路由必須先於 `/:id`，否則會發生錯配。
 - `validateUuidParam` 用於提前 `next('route')`，避免 `/quick`、`/by-session` 被 UUID 路由吸收。
 - 證據接口授權模型為 `optionalAuthenticate + session`，是「匿名與登入共用」高風險鏈路。
+- 正式案件建立已接入 shared safety gate：若 pairing 任一已知參與者 `age < 18`，`POST /cases` 直接返回 `FORBIDDEN`，不進入 AI 分類與建案；body 可帶與 evidence 相同的 `safety_assertion` / inline safety fields，聲明非同意或非法內容會返回 `VALIDATION_ERROR`。通過的 case-level assertion 若同時建立 `evidence_urls`，會以 transitional metadata 寫入該批 `Evidence.description`；正式 case-level safety metadata 仍需後續 schema 化。
 - 證據上傳已接入 additive `safety_assertion` gate：multipart 可帶 `safety_assertion` JSON string/object，或 inline fields：`contains_minor`、`contains_sensitive_content`、`contains_nonconsensual_content`、`contains_illegal_content`、`minor_guardian_or_self_upload_confirmed`、`sensitive_content_handling_ack`。未提供 assertion 時保留舊版上傳契約；一旦聲明涉及未成年人或敏感內容，後端要求對應確認；聲明含非同意或非法內容時直接返回 `VALIDATION_ERROR` 並清理已上傳文件。通過的 assertion 目前以 transitional metadata 寫入 `Evidence.description`，後續若新增 `SafetyAssessment / EvidenceSafetyMetadata` schema 需 backfill 到正式表。
 - `createQuickCase` / `createCollaborativeCase(phase=submitted)` / `submitCase` 的判決生成均由 controller 以 `setImmediate` 非阻塞觸發；HTTP 成功僅代表提交成功，不等於判決已生成。
 - `/cases/:id/judgment` 在前端語義是「可能尚未生成」，`404/特定 code` 需被當成可恢復狀態而非致命錯誤。
@@ -65,10 +66,11 @@
 2. draft 允許 `PUT`，submitted 後 `PUT` 必須拒絕。
 3. 匿名 session 上傳證據 + 登入上傳證據都可成功。
 4. evidence safety assertion：敏感內容缺少確認必須拒絕並清理文件；非同意 / 非法內容必須拒絕；合法未成年人 / 敏感內容 assertion 需寫入 transitional metadata。
-5. `/cases/:id/judgment` 在 pending 與 ready 兩種狀態下前端行為正確。
-6. `collaborative + session_id=null` 案件下，當事人 JWT 讀 `GET /cases/:id` 與 `GET /cases/:id/judgment` 必須通過；匿名或非當事人必須拒絕。
-7. notification / repair reminder 應覆蓋 `formal_remote`、`formal_collaborative`、`chat_to_case`，並排除 session-bound quick。
-8. `GET /cases` 與 `GET /cases/:id` 對 chat-to-case case 必須返回 `product_flow=chat_to_case`。
+5. formal case safety gate：任一已知參與者 `age < 18` 必須拒絕；非同意 / 非法內容 assertion 必須拒絕；合法敏感內容 assertion + `evidence_urls` 需寫入 transitional metadata。
+6. `/cases/:id/judgment` 在 pending 與 ready 兩種狀態下前端行為正確。
+7. `collaborative + session_id=null` 案件下，當事人 JWT 讀 `GET /cases/:id` 與 `GET /cases/:id/judgment` 必須通過；匿名或非當事人必須拒絕。
+8. notification / repair reminder 應覆蓋 `formal_remote`、`formal_collaborative`、`chat_to_case`，並排除 session-bound quick。
+9. `GET /cases` 與 `GET /cases/:id` 對 chat-to-case case 必須返回 `product_flow=chat_to_case`。
 
 ## 錯誤碼覆蓋矩陣（API -> code -> UI 行為）
 

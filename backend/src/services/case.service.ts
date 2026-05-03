@@ -12,6 +12,7 @@ import { normalizeJudgment } from '../utils/judgment';
 import { lockService } from '../utils/lock';
 import { LOCK_TTL, SESSION_EXPIRY, CASE_STATUS, CASE_MODE, PAGINATION, FILE_TYPE, PAIRING_STATUS } from '../utils/constants';
 import { getCaseProductFlow, isCaseParticipant, isSessionBoundCase } from '../utils/case-classifier';
+import { getFormalCaseCreatePolicy } from '../utils/product-safety-policy';
 
 export interface QuickCaseDto {
   plaintiff_statement: string;
@@ -28,6 +29,14 @@ export interface CreateCaseDto {
   defendant_statement?: string;
   evidence_urls?: string[];
   mode?: 'remote' | 'collaborative';
+  safety_assertion?: unknown;
+  safetyAssertion?: unknown;
+  contains_minor?: unknown;
+  contains_sensitive_content?: unknown;
+  contains_nonconsensual_content?: unknown;
+  contains_illegal_content?: unknown;
+  minor_guardian_or_self_upload_confirmed?: unknown;
+  sensitive_content_handling_ack?: unknown;
 }
 
 export class CaseService {
@@ -203,6 +212,26 @@ export class CaseService {
       throw Errors.FORBIDDEN('無權限訪問此配對');
     }
 
+    const actor = pairing.user1_id === userId ? pairing.user1 : pairing.user2;
+    const counterparty = pairing.user1_id === userId ? pairing.user2 : pairing.user1;
+    const formalCasePolicy = getFormalCaseCreatePolicy({
+      actorAge: actor?.age ?? null,
+      counterpartyAge: counterparty?.age ?? null,
+      safetyAssertionInput: data,
+    });
+    if (!formalCasePolicy.canCreateCase) {
+      if (formalCasePolicy.rejectionCode === 'FORBIDDEN') {
+        throw Errors.FORBIDDEN(formalCasePolicy.rejectionMessage ?? '目前不可建立正式案件');
+      }
+      throw Errors.VALIDATION_ERROR(
+        formalCasePolicy.rejectionMessage ?? '案件安全聲明未通過',
+        { reasons: formalCasePolicy.reasons }
+      );
+    }
+    const safetyDescription = formalCasePolicy.metadata
+      ? JSON.stringify({ safety_assertion: formalCasePolicy.metadata })
+      : null;
+
     const plaintiffStatement = ValidationUtils.validateStatement(
       data.plaintiff_statement,
       '原告陳述',
@@ -262,6 +291,7 @@ export class CaseService {
             file_type: FILE_TYPE.IMAGE,
             file_size: 0,
             user_id: plaintiffId,
+            ...(safetyDescription ? { description: safetyDescription } : {}),
           })),
         });
       }

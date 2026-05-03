@@ -167,6 +167,52 @@ describe('CaseService', () => {
       ).rejects.toMatchObject({ code: 'FORBIDDEN' });
     });
 
+    it('任一正式案件參與者已知未成年時應拒絕建立案件', async () => {
+      prismaMock.pairing.findUnique.mockResolvedValue({
+        id: 'pair-1',
+        status: 'active',
+        user1_id: 'u1',
+        user2_id: 'u2',
+        user1: { age: 17 },
+        user2: { age: 30 },
+      });
+
+      await expect(
+        service.createCase('u1', {
+          pairing_id: 'pair-1',
+          plaintiff_statement: LONG_STATEMENT_50,
+        })
+      ).rejects.toMatchObject({
+        code: 'FORBIDDEN',
+        message: expect.stringContaining('未成年人'),
+      });
+      expect(mockDetectCaseType).not.toHaveBeenCalled();
+      expect(prismaMock.case.create).not.toHaveBeenCalled();
+    });
+
+    it('正式案件聲明非同意內容時應拒絕建立案件', async () => {
+      prismaMock.pairing.findUnique.mockResolvedValue({
+        id: 'pair-1',
+        status: 'active',
+        user1_id: 'u1',
+        user2_id: 'u2',
+        user1: { age: 30 },
+        user2: { age: 31 },
+      });
+
+      await expect(
+        service.createCase('u1', {
+          pairing_id: 'pair-1',
+          plaintiff_statement: LONG_STATEMENT_50,
+          contains_nonconsensual_content: true,
+        })
+      ).rejects.toMatchObject({
+        code: 'VALIDATION_ERROR',
+        message: expect.stringContaining('非同意'),
+      });
+      expect(prismaMock.case.create).not.toHaveBeenCalled();
+    });
+
     it('成功應創建案件並返回', async () => {
       prismaMock.pairing.findUnique.mockResolvedValue({
         id: 'pair-1',
@@ -353,6 +399,41 @@ describe('CaseService', () => {
         data: [
           { case_id: 'case-1', file_url: evidenceUrls[0], file_type: 'image', file_size: 0, user_id: 'u1' },
           { case_id: 'case-1', file_url: evidenceUrls[1], file_type: 'image', file_size: 0, user_id: 'u1' },
+        ],
+      });
+    });
+
+    it('正式案件安全聲明通過時應把 metadata 寫入 evidence description', async () => {
+      const evidenceUrls = ['https://example.com/sensitive.jpg'];
+      prismaMock.pairing.findUnique.mockResolvedValue({
+        id: 'pair-1',
+        status: 'active',
+        user1_id: 'u1',
+        user2_id: 'u2',
+        user1: { age: 30 },
+        user2: { age: 31 },
+      });
+      mockDetectCaseType.mockResolvedValue('其他衝突');
+      prismaMock.case.create.mockResolvedValue({ id: 'case-1', plaintiff_id: 'u1' });
+      prismaMock.evidence.createMany.mockResolvedValue({} as never);
+
+      await service.createCase('u1', {
+        pairing_id: 'pair-1',
+        plaintiff_statement: LONG_STATEMENT_50,
+        evidence_urls: evidenceUrls,
+        safety_assertion: JSON.stringify({
+          contains_sensitive_content: true,
+          sensitive_content_handling_ack: true,
+        }),
+      });
+
+      expect(prismaMock.evidence.createMany).toHaveBeenCalledWith({
+        data: [
+          expect.objectContaining({
+            case_id: 'case-1',
+            file_url: evidenceUrls[0],
+            description: expect.stringContaining('formal_case_safety_assertion'),
+          }),
         ],
       });
     });

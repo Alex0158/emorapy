@@ -227,7 +227,7 @@ export function buildRepairJourneyContext(input: BuildRepairJourneyContextInput)
         ? '這一輪已經是雙方一起進行，不需要一次做到很多，只要先完成今天這一步。'
         : '你已經開始這一輪了，先把今天這一小步走完，比急著做很多更重要。',
       primary_cta: { action: 'continue_today_step', label: '去看今天的一小步', path: paths.checkin },
-      secondary_cta: input.hasPartner && partnerState === 'not_invited'
+      secondary_cta: input.hasPartner && partnerState === 'not_invited' && input.canInvite
         ? { action: 'invite_partner', label: '邀請對方一起試', path: paths.detail }
         : { action: 'review_recommendation', label: '回看這一輪', path: paths.detail },
       urgency: 'high',

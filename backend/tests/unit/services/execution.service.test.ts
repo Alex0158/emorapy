@@ -10,6 +10,7 @@ const mockCreateStream = jest.fn();
 
 const basePlan = (overrides: Record<string, unknown> = {}) => ({
   id: 'plan-1',
+  judgment_id: 'judgment-1',
   user1_selected: true,
   user2_selected: false,
   estimated_duration: 7,
@@ -27,7 +28,11 @@ const basePlan = (overrides: Record<string, unknown> = {}) => ({
   plan_type: 'communication',
   difficulty_level: 'medium',
   judgment: {
+    emotional_analysis: null,
+    judgment_content: '一般衝突判決',
     case: {
+      mode: 'remote',
+      session_id: null,
       plaintiff_id: 'u1',
       defendant_id: 'u2',
     },
@@ -194,6 +199,47 @@ describe('ExecutionService', () => {
       needs_help: false,
     });
     expect(result.track_id).toBe('track-1');
+  });
+
+  it('getExecutionStatus 對安全路由應強制 solo 並移除邀請 CTA', async () => {
+    prismaMock.reconciliationPlan.findUnique.mockResolvedValue(basePlan({
+      user2_selected: true,
+      judgment: {
+        emotional_analysis: { route: 'safety_support' },
+        judgment_content: '存在控制與威脅風險',
+        case: {
+          mode: 'remote',
+          session_id: null,
+          plaintiff_id: 'u1',
+          defendant_id: 'u2',
+        },
+      },
+    }));
+    prismaMock.executionRecord.findMany.mockResolvedValue([]);
+    prismaMock.repairTrack.findUnique.mockResolvedValue({
+      id: 'track-1',
+      status: 'co_active',
+      recommended_mode: 'co',
+      current_step_index: 0,
+      needs_replan: false,
+      last_closeness: 'same',
+      last_stress: 'medium',
+      last_needs_help: false,
+      partner_invited_at: null,
+      participant_states: [
+        { user_id: 'u1', commitment_status: 'committed' },
+        { user_id: 'u2', commitment_status: 'committed' },
+      ],
+      step_progresses: [{ step_index: 0, step_title: '今天的一小步', step_content: '先做這一步', fallback_content: '改低壓版本', pause_rule: '先停一下', status: 'active' }],
+      checkins: [],
+    });
+
+    const result = await service.getExecutionStatus('u1', 'plan-1');
+
+    expect(result.relationship_mode).toBe('solo');
+    expect(result.journey_context.primary_cta.action).toBe('continue_today_step');
+    expect(result.journey_context.secondary_cta?.action).toBe('review_recommendation');
+    expect(result.journey_context.title).toBe('今天只要先做一小步');
   });
 
   it('replanTrack 應保留 track 並生成新 plan version', async () => {

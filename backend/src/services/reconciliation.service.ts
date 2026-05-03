@@ -313,11 +313,15 @@ export class ReconciliationService {
     const safetyPolicy = getProductSafetyPolicyForJudgment(plan.judgment);
     const repairEligibility = getRepairEligibilityForCase(plan.judgment.case);
     const repairJourneyAccess = getRepairJourneyAccessPolicy(safetyPolicy, repairEligibility);
+    const trackStatus = (plan.repair_track?.status as RepairTrackStatusValue | undefined) ?? 'draft';
+    const effectiveTrackStatus = repairJourneyAccess.forceSoloRepair && trackStatus === 'co_active'
+      ? 'solo_active'
+      : trackStatus;
     return buildRepairJourneyContext({
       judgmentId: plan.judgment_id,
       planId: plan.id,
       viewerRole: this.getViewerRole(plan, userId),
-      trackStatus: (plan.repair_track?.status as RepairTrackStatusValue | undefined) ?? 'draft',
+      trackStatus: effectiveTrackStatus,
       currentCommitment: commitment.current_user.commitment_status as CommitmentStatusValue,
       partnerCommitment: (commitment.partner?.commitment_status as CommitmentStatusValue | undefined) ?? null,
       canInvite: repairJourneyAccess.canInvitePartner

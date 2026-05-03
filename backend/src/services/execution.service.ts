@@ -15,6 +15,8 @@ import { aiService } from './ai.service';
 import { aiStreamService, type AIStreamHandle } from './ai-stream.service';
 import { notificationService } from './notification.service';
 import { buildRepairJourneyContext } from './repair-journey.service';
+import { getRepairEligibilityForCase, getRepairJourneyAccessPolicy } from './repair-eligibility.service';
+import { getProductSafetyPolicyForJudgment } from './safety-routing.service';
 
 export interface CheckinDto {
   plan_id: string;
@@ -44,6 +46,39 @@ export interface ReplanTrackAccepted {
 interface ExecutionProgressResult {
   status: 'pending' | 'in_progress' | 'completed';
   progress: number;
+}
+
+interface ExecutionJourneyPlan {
+  id: string;
+  judgment_id: string;
+  user1_selected: boolean;
+  user2_selected: boolean;
+  judgment: {
+    emotional_analysis?: unknown;
+    judgment_content?: string | null;
+    case: {
+      mode: string;
+      session_id?: string | null;
+      plaintiff_id: string | null;
+      defendant_id: string | null;
+    };
+  };
+  repair_track?: null | {
+    status: string;
+    recommended_mode: string;
+    status_reason?: string | null;
+    partner_invited_at?: Date | null;
+    participant_states: Array<{
+      user_id: string;
+      commitment_status: string;
+      viewed_at?: Date | null;
+      committed_at?: Date | null;
+      invited_at?: Date | null;
+      responded_at?: Date | null;
+      deferred_until?: Date | null;
+      response_reason?: string | null;
+    }>;
+  };
 }
 
 function parsePlanContent(planContent: string) {
@@ -290,7 +325,16 @@ export class ExecutionService {
     plan: {
       user1_selected: boolean;
       user2_selected: boolean;
-      judgment: { case: { plaintiff_id: string | null; defendant_id: string | null } };
+      judgment: {
+        emotional_analysis?: unknown;
+        judgment_content?: string | null;
+        case: {
+          mode: string;
+          session_id?: string | null;
+          plaintiff_id: string | null;
+          defendant_id: string | null;
+        };
+      };
       repair_track?: null | {
         status: string;
         recommended_mode: string;
@@ -367,45 +411,40 @@ export class ExecutionService {
     return 'initiator';
   }
 
-  private buildJourneyContextForExecution(
-    plan: {
-      id: string;
-      judgment_id: string;
-      user1_selected: boolean;
-      user2_selected: boolean;
-      judgment: { case: { plaintiff_id: string | null; defendant_id: string | null } };
-      repair_track?: null | {
-        status: string;
-        recommended_mode: string;
-        status_reason?: string | null;
-        partner_invited_at?: Date | null;
-        participant_states: Array<{
-          user_id: string;
-          commitment_status: string;
-          viewed_at?: Date | null;
-          committed_at?: Date | null;
-          invited_at?: Date | null;
-          responded_at?: Date | null;
-          deferred_until?: Date | null;
-          response_reason?: string | null;
-        }>;
-      };
-    },
-    userId: string,
-  ) {
+  private getRepairJourneyAccessForExecution(plan: ExecutionJourneyPlan) {
+    const safetyPolicy = getProductSafetyPolicyForJudgment(plan.judgment);
+    const repairEligibility = getRepairEligibilityForCase(plan.judgment.case);
+    return getRepairJourneyAccessPolicy(safetyPolicy, repairEligibility);
+  }
+
+  private getEffectiveRelationshipModeForExecution(plan: ExecutionJourneyPlan): 'solo' | 'co' {
+    const repairJourneyAccess = this.getRepairJourneyAccessForExecution(plan);
+    if (repairJourneyAccess.forceSoloRepair) return 'solo';
+    return plan.repair_track?.recommended_mode === 'co' ? 'co' : 'solo';
+  }
+
+  private buildJourneyContextForExecution(plan: ExecutionJourneyPlan, userId: string) {
     const commitment = this.buildCommitmentSummary(plan, userId);
+    const repairJourneyAccess = this.getRepairJourneyAccessForExecution(plan);
+    const recommendedMode = repairJourneyAccess.forceSoloRepair
+      ? 'solo'
+      : (commitment.recommended_mode as 'solo' | 'co');
+    const trackStatus = (plan.repair_track?.status as Parameters<typeof buildRepairJourneyContext>[0]['trackStatus']) ?? 'draft';
+    const effectiveTrackStatus = repairJourneyAccess.forceSoloRepair && trackStatus === 'co_active'
+      ? 'solo_active'
+      : trackStatus;
     return buildRepairJourneyContext({
       judgmentId: plan.judgment_id,
       planId: plan.id,
       viewerRole: this.buildViewerRole(plan.judgment.case, plan.repair_track, userId),
-      trackStatus: (plan.repair_track?.status as Parameters<typeof buildRepairJourneyContext>[0]['trackStatus']) ?? 'draft',
+      trackStatus: effectiveTrackStatus,
       currentCommitment: commitment.current_user.commitment_status as Parameters<typeof buildRepairJourneyContext>[0]['currentCommitment'],
       partnerCommitment: (commitment.partner?.commitment_status as Parameters<typeof buildRepairJourneyContext>[0]['partnerCommitment']) ?? null,
-      canInvite: !!commitment.partner,
+      canInvite: repairJourneyAccess.canInvitePartner && !!commitment.partner,
       hasPartner: !!commitment.partner,
-      isDualCommitted: commitment.is_dual_committed,
+      isDualCommitted: !repairJourneyAccess.forceSoloRepair && commitment.is_dual_committed,
       statusReason: plan.repair_track?.status_reason ?? null,
-      recommendedMode: commitment.recommended_mode as 'solo' | 'co',
+      recommendedMode,
     });
   }
 
@@ -1133,6 +1172,7 @@ export class ExecutionService {
       } : null,
     };
     const journeyContext = this.buildJourneyContextForExecution(planWithTrack, userId);
+    const relationshipMode = this.getEffectiveRelationshipModeForExecution(planWithTrack);
 
     const planContent = parsePlanContent(plan.plan_content);
     const currentStep = track?.step_progresses.find((step) => step.step_index === track.current_step_index)
@@ -1150,7 +1190,7 @@ export class ExecutionService {
       superseded_plan_id: plan.superseded_by_plan_id || null,
       status: progressResult.status,
       journey_status: track?.status || 'draft',
-      relationship_mode: track?.recommended_mode || 'solo',
+      relationship_mode: relationshipMode,
       records,
       recent_checkins: track?.checkins || [],
       progress: progressResult.progress,
@@ -1240,13 +1280,14 @@ export class ExecutionService {
           },
         };
         const journeyContext = this.buildJourneyContextForExecution(planWithTrack, userId);
+        const relationshipMode = this.getEffectiveRelationshipModeForExecution(planWithTrack);
         return {
           track_id: track.id,
           plan_id: track.plan_id,
           judgment_id: track.plan.judgment_id,
           status: progressResult.status,
           journey_status: track.status,
-          relationship_mode: track.recommended_mode,
+          relationship_mode: relationshipMode,
           records: track.plan.execution_records,
           recent_checkins: track.checkins,
           progress: progressResult.progress,
@@ -1303,8 +1344,9 @@ export class ExecutionService {
     });
 
     return cases.flatMap((caseRecord) => {
-      if (!caseRecord.judgment) return [];
-      return caseRecord.judgment.reconciliation_plans
+      const judgment = caseRecord.judgment;
+      if (!judgment) return [];
+      return judgment.reconciliation_plans
         .filter((plan) => {
           const isUser1 = caseRecord.plaintiff_id === userId;
           return (isUser1 && plan.user1_selected) || (!isUser1 && plan.user2_selected);
@@ -1315,7 +1357,11 @@ export class ExecutionService {
             ...plan,
             repair_track: null,
             judgment: {
+              emotional_analysis: judgment.emotional_analysis,
+              judgment_content: judgment.judgment_content,
               case: {
+                mode: caseRecord.mode,
+                session_id: caseRecord.session_id,
                 plaintiff_id: caseRecord.plaintiff_id,
                 defendant_id: caseRecord.defendant_id,
               },

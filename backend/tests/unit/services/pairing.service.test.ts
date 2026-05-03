@@ -44,6 +44,9 @@ describe('PairingService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    prismaMock.pairing.findFirst.mockResolvedValue(null);
+    prismaMock.pairing.findUnique.mockResolvedValue(null);
+    prismaMock.pairing.updateMany.mockResolvedValue({ count: 0 });
     service = new PairingService();
   });
 
@@ -184,12 +187,40 @@ describe('PairingService', () => {
 
       expect(result.status).toBe('active');
       expect(prismaMock.pairing.updateMany).toHaveBeenCalledWith({
-        where: { id: 'p1', status: 'pending' },
+        where: {
+          id: 'p1',
+          status: 'pending',
+          pairing_type: 'normal',
+          user2_id: null,
+        },
         data: expect.objectContaining({
           user2_id: 'u2',
           status: 'active',
         }),
       });
+    });
+
+    it('加入者已有其他正式配對時應拋出 ALREADY_PAIRED', async () => {
+      prismaMock.pairing.findUnique.mockResolvedValue({
+        id: 'p1',
+        invite_code: 'ABC123',
+        expires_at: new Date(Date.now() + 3600000),
+        status: 'pending',
+        user1_id: 'u1',
+        user2_id: null,
+        user1: { avatar_url: null },
+        user2: null,
+      });
+      prismaMock.pairing.findFirst.mockResolvedValue({
+        id: 'p-existing',
+        status: 'active',
+        pairing_type: 'normal',
+      });
+
+      await expect(service.joinPairing('u2', 'ABC123')).rejects.toMatchObject({
+        code: 'ALREADY_PAIRED',
+      });
+      expect(prismaMock.pairing.updateMany).not.toHaveBeenCalled();
     });
 
     it('並發加入時 updateMany count=0 應拋出已使用錯誤', async () => {

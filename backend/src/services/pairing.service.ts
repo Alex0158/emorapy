@@ -6,6 +6,7 @@ import { fileService, signAvatar } from './file.service';
 import { lockService } from '../utils/lock';
 import { LOCK_TTL, PAIRING_STATUS, PAIRING_TYPE } from '../utils/constants';
 import { emailService } from './email.service';
+import { buildActiveNormalPairingWhere, NORMAL_PAIRING_ACTIVE_STATUSES } from '../utils/pairing-invariant';
 
 export class PairingService {
   /**
@@ -14,12 +15,7 @@ export class PairingService {
   async createPairing(userId: string) {
     // 1. 檢查是否已有配對
     const existingPairing = await prisma.pairing.findFirst({
-      where: {
-        OR: [
-          { user1_id: userId, status: { in: [PAIRING_STATUS.PENDING, PAIRING_STATUS.ACTIVE] } },
-          { user2_id: userId, status: { in: [PAIRING_STATUS.PENDING, PAIRING_STATUS.ACTIVE] } },
-        ],
-      },
+      where: buildActiveNormalPairingWhere(userId),
     });
 
     if (existingPairing) {
@@ -95,11 +91,23 @@ export class PairingService {
       throw Errors.VALIDATION_ERROR('不能與自己配對');
     }
 
-    // 5. 原子更新：只有 status 仍為 PENDING 才成功（防止並發）
+    // 5. 加入者不能同時存在另一個正式 pending/active pairing
+    const existingPairing = await prisma.pairing.findFirst({
+      where: buildActiveNormalPairingWhere(userId, pairing.id),
+      select: { id: true },
+    });
+
+    if (existingPairing) {
+      throw Errors.ALREADY_PAIRED();
+    }
+
+    // 6. 原子更新：只有 status 仍為 PENDING 且尚未被填入 user2 才成功（防止並發）
     const { count } = await prisma.pairing.updateMany({
       where: {
         id: pairing.id,
         status: PAIRING_STATUS.PENDING,
+        pairing_type: PAIRING_TYPE.NORMAL,
+        user2_id: null,
       },
       data: {
         user2_id: userId,
@@ -143,7 +151,8 @@ export class PairingService {
           { user1_id: userId },
           { user2_id: userId },
         ],
-        status: { in: [PAIRING_STATUS.PENDING, PAIRING_STATUS.ACTIVE] },
+        status: { in: [...NORMAL_PAIRING_ACTIVE_STATUSES] },
+        pairing_type: PAIRING_TYPE.NORMAL,
       },
       include: {
         user1: {
@@ -185,7 +194,8 @@ export class PairingService {
           { user1_id: userId },
           { user2_id: userId },
         ],
-        status: { in: [PAIRING_STATUS.PENDING, PAIRING_STATUS.ACTIVE] },
+        status: { in: [...NORMAL_PAIRING_ACTIVE_STATUSES] },
+        pairing_type: PAIRING_TYPE.NORMAL,
       },
     });
 

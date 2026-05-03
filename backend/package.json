@@ -34,6 +34,7 @@
     "bench:chat:invite-accept-concurrency": "tsx scripts/benchmark-chat-invite-accept-concurrency.ts",
     "bench:chat:concurrency-gate": "tsx scripts/benchmark-chat-concurrency-gate.ts",
     "precheck:chat:active-roles-uniqueness": "tsx scripts/precheck-chat-active-roles-uniqueness.ts",
+    "precheck:pairing:normal-uniqueness": "tsx scripts/precheck-pairing-normal-uniqueness.ts",
     "plan-fix:chat:active-roles-uniqueness": "tsx scripts/plan-fix-chat-active-roles-uniqueness.ts",
     "ops:alerts:check": "tsx scripts/check-alerts.ts",
     "ops:migration:report": "tsx scripts/report-prisma-migrations.ts",

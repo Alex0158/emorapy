@@ -18,10 +18,11 @@
 npm run ops:release:status
 npm run ops:db:status
 cd backend && npm run ops:product-state:audit
+cd backend && npm run precheck:pairing:normal-uniqueness
 npm run docs:check
 ```
 
-`ops:release:status` 用於查發布版狀態；`ops:db:status` 用於查當前 `DATABASE_URL` 對應的 Prisma migration state；`ops:product-state:audit` 用於只讀檢查 case / chat-to-case 的卡住狀態並輸出人工 recovery proposal；`docs:check` 用於確認正式文檔與台賬仍閉環。
+`ops:release:status` 用於查發布版狀態；`ops:db:status` 用於查當前 `DATABASE_URL` 對應的 Prisma migration state；`ops:product-state:audit` 用於只讀檢查 case / chat-to-case 的卡住狀態並輸出人工 recovery proposal；`precheck:pairing:normal-uniqueness` 用於只讀檢查一個 user 是否同時出現在多個 `normal pending/active` pairing；`docs:check` 用於確認正式文檔與台賬仍閉環。
 
 ## 2. 平台地圖
 

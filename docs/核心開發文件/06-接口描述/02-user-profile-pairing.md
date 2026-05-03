@@ -4,13 +4,13 @@
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：02-user-profile-pairing
 **取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`45d4897`
-**最後核驗日期**：`2026-04-19`
+**最後核驗 Commit**：`6ce2549`
+**最後核驗日期**：`2026-05-03`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 **文檔版本**：v2.3  
-**最後更新**：2026-04-19  
-**代碼基準**：`backend/src/routes/user.routes.ts`、`backend/src/routes/profile.routes.ts`、`backend/src/routes/pairing.routes.ts`、`backend/src/utils/validation.ts`
+**最後更新**：2026-05-03
+**代碼基準**：`backend/src/routes/user.routes.ts`、`backend/src/routes/profile.routes.ts`、`backend/src/routes/pairing.routes.ts`、`backend/src/services/pairing.service.ts`、`backend/src/utils/pairing-invariant.ts`、`backend/src/utils/validation.ts`
 
 ---
 
@@ -33,7 +33,7 @@
 | `GET /api/v1/profile/relationship/:pairingId` | `pairingId(uuid)`                                      | `data.profile`                  | `FORBIDDEN` `NOT_FOUND`                             | 無                           | `/profile/pairing`（配對成功態）            |
 | `PUT /api/v1/profile/relationship/:pairingId` | `pairingId(uuid)` + 動態 JSON（最多 60 keys）                | `data.profile`                  | `FORBIDDEN` `VALIDATION_ERROR`                      | Upsert 關係背景                 | `/profile/pairing`（配對成功態）            |
 | `POST /api/v1/pairing/create`                 | 空 body                                                 | `data.pairing.invite_code`      | `UNAUTHORIZED`                                      | 建立 pending pairing          | `/profile/pairing`                   |
-| `POST /api/v1/pairing/join`                   | `invite_code(6)`                                       | `data.pairing.status=active`    | `INVALID_CODE` `CODE_EXPIRED` `RATE_LIMIT_EXCEEDED` | 由 pending -> active         | `/profile/pairing`                   |
+| `POST /api/v1/pairing/join`                   | `invite_code(6)`                                       | `data.pairing.status=active`    | `INVALID_CODE` `CODE_EXPIRED` `ALREADY_PAIRED` `RATE_LIMIT_EXCEEDED` | 由 pending -> active         | `/profile/pairing`                   |
 | `GET /api/v1/pairing/status`                  | JWT header                                             | `data.pairing`（或 404）           | `NOT_FOUND`                                         | 無                           | `/profile/pairing`、`/case/create`    |
 | `POST /api/v1/pairing/cancel`                 | 空 body                                                 | `data.pairing.status=cancelled` | `NOT_FOUND`                                         | active/pending -> cancelled | `/profile/pairing`                   |
 
@@ -43,6 +43,9 @@
 - 頭像上傳已收斂至 `services/api/user.ts` 的 `uploadAvatar(formData)`，由 request 實例與攔截器處理 token。
 - 主 Web request 攔截器在偵測 `FormData` 時會移除預設 `Content-Type`，交由瀏覽器自動附帶 multipart boundary；否則 `POST /api/v1/user/avatar` 會因 boundary 缺失被後端判為 `VALIDATION_ERROR`。
 - `pairing/join` 採獨立 limiter，避免邀請碼暴力猜測。
+- 正式配對 invariant：同一 user 最多只能有一條 `normal` 且 `pending/active` 的 pairing；`quick/temp` pairing 不參與這條限制。
+- `pairing/create` 和 `pairing/join` 均使用 `backend/src/utils/pairing-invariant.ts` 的同一條件。`join` 會在原子更新前檢查加入者是否已有其他正式 pending/active pairing，違反時返回 `ALREADY_PAIRED`。
+- `pairing/join` 的原子更新必須同時限定 `id`、`status=pending`、`pairing_type=normal`、`user2_id=null`，防止並發覆蓋已加入者。
 - `getPairingStatus` 在前端把 `404` 視為 `null`（不是錯誤），這是流程控制關鍵語義。
 - `profile/relationship/:pairingId` 屬配對依賴型接口，未配對時應返回不可訪問語義而非空資料。
 - 前端目前採最小白名單字段接入（stage/duration/communication/methods/strengths/challenges/completion），保存後即時回顯並支援重進重讀。
@@ -68,6 +71,7 @@
 | `GET /api/v1/profile/relationship/:pairingId` | `NOT_FOUND`           | 404  | 顯示資料尚未建立      | 可先引導建立資料   |
 | `POST /api/v1/pairing/join`                   | `INVALID_CODE`        | 400  | 顯示邀請碼錯誤       | 允許重新輸入     |
 | `POST /api/v1/pairing/join`                   | `CODE_EXPIRED`        | 400  | 提示邀請碼過期       | 需重新索取邀請碼   |
+| `POST /api/v1/pairing/join`                   | `ALREADY_PAIRED`      | 409  | 提示需先解除現有正式配對 | 解除或取消後再加入 |
 | `POST /api/v1/pairing/join`                   | `RATE_LIMIT_EXCEEDED` | 429  | 顯示加入過頻        | 冷卻後重試      |
 | `GET /api/v1/pairing/status`                  | `NOT_FOUND`           | 404  | 視為「未配對」而非錯誤頁  | 不需重試       |
 | `POST /api/v1/pairing/cancel`                 | `NOT_FOUND`           | 404  | 視為已解除/無配對     | 不需重試       |

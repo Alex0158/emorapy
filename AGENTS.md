@@ -15,8 +15,9 @@ This file is the repo-level operating guide for coding agents. It is not a produ
 7. Any change or discovered drift that must eventually be unified across local/dev and release/prod must be recorded as a pending governance task immediately. This includes database data, schema, migrations, seed data, environment variables, platform config, release wiring, tool auth assumptions, and any other two-side parity requirement. Create or update a Markdown task under `docs/核心開發文件/07-待處理問題與治理/待處理/` with the current state, target release action, verification command, and owner/status notes; do not rely on chat memory.
 8. Case access and product-flow classification must not be reimplemented ad hoc from `case.mode`. Backend code must use `backend/src/utils/case-classifier.ts` for session-vs-user access decisions, and docs must record any new flow classification rule before frontend or API behavior is changed.
 9. Safety, crisis, repair eligibility, partner invite, co-repair, and partner notification decisions must use the shared safety-routing/product-safety policy in `backend/src/services/safety-routing.service.ts` and the shared repair eligibility policy in `backend/src/services/repair-eligibility.service.ts`. Do not hand-code a second high-risk or repair-flow eligibility rule in reconciliation, chat, notification, execution, or frontend logic.
-10. Never use production database credentials for local development unless the user explicitly asks and the command is read-only or the migration plan is confirmed.
-11. Do not print secrets. Show hosts, project names, aliases, commit SHAs, and masked values only.
+10. Formal pairing invariants must use the shared normal-pairing rule: one user can have at most one `normal` `pending/active` pairing. Before pairing schema migrations, run `cd backend && npm run precheck:pairing:normal-uniqueness`; do not hand-code a second pairing uniqueness rule.
+11. Never use production database credentials for local development unless the user explicitly asks and the command is read-only or the migration plan is confirmed.
+12. Do not print secrets. Show hosts, project names, aliases, commit SHAs, and masked values only.
 
 ## Fixed Ops Entrypoints
 
@@ -26,6 +27,7 @@ Use these commands before improvising platform calls:
 npm run ops:release:status
 npm run ops:db:status
 cd backend && npm run ops:product-state:audit
+cd backend && npm run precheck:pairing:normal-uniqueness
 npm run docs:check
 ```
 
@@ -34,6 +36,8 @@ npm run docs:check
 `ops:db:status` checks Prisma migration status for the configured database without printing `DATABASE_URL`.
 
 `ops:product-state:audit` is a read-only backend consistency audit for stuck case/chat conversion states. Findings include recovery proposals, but they are not auto-fixed; record follow-up tasks before changing production data.
+
+`precheck:pairing:normal-uniqueness` is a read-only backend consistency audit for users that appear in more than one `normal` `pending/active` pairing. Run it before pairing-related migrations or production data fixes.
 
 ## Platform Map
 

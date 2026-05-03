@@ -1,5 +1,5 @@
 import { Prisma } from '../types/prisma-client';
-import { CASE_MODE } from './constants';
+import { CASE_MODE, CASE_STATUS } from './constants';
 
 export type CaseAccessSubject = {
   mode: string;
@@ -77,6 +77,16 @@ export function buildUserBoundCaseModeWhere() {
       { mode: CASE_MODE.REMOTE },
       { mode: CASE_MODE.COLLABORATIVE, session_id: null },
     ],
+  };
+}
+
+export function buildStaleFormalDraftCaseWhere(cutoff: Date): Prisma.CaseWhereInput {
+  return {
+    status: CASE_STATUS.DRAFT,
+    ...buildUserBoundCaseModeWhere(),
+    chat_to_case_links: { none: {} },
+    defendant_statement: null,
+    created_at: { lt: cutoff },
   };
 }
 

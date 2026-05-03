@@ -11,7 +11,6 @@ import path from 'path';
 import {
   CLEANUP_THRESHOLDS,
   CASE_STATUS,
-  CASE_MODE,
   INTERVIEW_STATUS,
   PAIRING_STATUS,
   PAIRING_TYPE,
@@ -20,7 +19,7 @@ import {
 import { systemConfigService } from '../services/system-config.service';
 import { runOpsAlertChecks } from '../services/ops-alerts.service';
 import { aiStreamService } from '../services/ai-stream.service';
-import { buildUserBoundCaseModeWhere, getCaseProductFlow } from '../utils/case-classifier';
+import { buildStaleFormalDraftCaseWhere, buildUserBoundCaseModeWhere, getCaseProductFlow } from '../utils/case-classifier';
 
 type CronExecutionResult = {
   affectedCount?: number;
@@ -640,24 +639,19 @@ export const followUp30Day = createJob('0 10 * * *', async () => {
 });
 
 /**
- * 清理逾時未回應的遠程 draft 案件（每天凌晨 4 點）
- * 將 draft 狀態的遠程案件在 14 天後自動取消，避免永久懸掛
+ * 清理逾時未回應的正式 draft 案件（每天凌晨 4 點）
+ * 將 user-bound formal draft 案件在 14 天後自動取消，避免永久懸掛
  */
 export const cleanupStaleDraftCases = createJob('0 4 * * *', async () => {
   await withCronRunLog('cleanup_stale_draft_cases', async () => {
     try {
       const cutoff = new Date(Date.now() - CLEANUP_THRESHOLDS.STALE_DRAFT_DAYS * 24 * 60 * 60 * 1000);
       const result = await prisma.case.updateMany({
-        where: {
-          status: CASE_STATUS.DRAFT,
-          mode: CASE_MODE.REMOTE,
-          defendant_statement: null,
-          created_at: { lt: cutoff },
-        },
+        where: buildStaleFormalDraftCaseWhere(cutoff),
         data: { status: CASE_STATUS.CANCELLED },
       });
       if (result.count > 0) {
-        logger.info('Stale remote draft cases cancelled', { count: result.count });
+        logger.info('Stale formal draft cases cancelled', { count: result.count });
       }
       return { affectedCount: result.count };
     } catch (error) {

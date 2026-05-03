@@ -36,6 +36,7 @@ const mockEvidenceFindMany = jest.fn();
 const mockPairingDeleteMany = jest.fn();
 const mockEmailVerificationDeleteMany = jest.fn();
 const mockCaseFindMany = jest.fn();
+const mockCaseUpdateMany = jest.fn();
 const mockNotificationFindMany = jest.fn();
 const mockNotificationCreateMany = jest.fn();
 jest.mock('../../../src/config/database', () => ({
@@ -44,7 +45,10 @@ jest.mock('../../../src/config/database', () => ({
     evidence: { findMany: (...args: unknown[]) => mockEvidenceFindMany(...args) },
     pairing: { deleteMany: (...args: unknown[]) => mockPairingDeleteMany(...args) },
     emailVerification: { deleteMany: (...args: unknown[]) => mockEmailVerificationDeleteMany(...args) },
-    case: { findMany: (...args: unknown[]) => mockCaseFindMany(...args) },
+    case: {
+      findMany: (...args: unknown[]) => mockCaseFindMany(...args),
+      updateMany: (...args: unknown[]) => mockCaseUpdateMany(...args),
+    },
     notification: {
       findMany: (...args: unknown[]) => mockNotificationFindMany(...args),
       createMany: (...args: unknown[]) => mockNotificationCreateMany(...args),
@@ -95,6 +99,7 @@ describe('cleanup.job', () => {
     (mockPairingDeleteMany as any).mockResolvedValue({ count: 0 });
     (mockEmailVerificationDeleteMany as any).mockResolvedValue({ count: 0 });
     (mockCaseFindMany as any).mockResolvedValue([]);
+    (mockCaseUpdateMany as any).mockResolvedValue({ count: 0 });
     (mockNotificationFindMany as any).mockResolvedValue([]);
     (mockNotificationCreateMany as any).mockResolvedValue({ count: 0 });
   });
@@ -161,6 +166,7 @@ describe('cleanup.job', () => {
       (mockPairingDeleteMany as any).mockResolvedValue({ count: 0 });
       (mockEmailVerificationDeleteMany as any).mockResolvedValue({ count: 0 });
       (mockCaseFindMany as any).mockResolvedValue([]);
+      (mockCaseUpdateMany as any).mockResolvedValue({ count: 0 });
       (mockNotificationFindMany as any).mockResolvedValue([]);
       (mockNotificationCreateMany as any).mockResolvedValue({ count: 0 });
     });
@@ -316,6 +322,27 @@ describe('cleanup.job', () => {
         ],
         skipDuplicates: true,
       });
+    });
+
+    it('cleanupStaleDraftCases 應清理 user-bound formal draft，排除 quick/session-bound/chat-to-case', async () => {
+      (mockCaseUpdateMany as any).mockResolvedValue({ count: 2 });
+
+      await scheduledCallbacks[8]();
+
+      expect(mockCaseUpdateMany).toHaveBeenCalledWith({
+        where: expect.objectContaining({
+          status: 'draft',
+          OR: [
+            { mode: 'remote' },
+            { mode: 'collaborative', session_id: null },
+          ],
+          chat_to_case_links: { none: {} },
+          defendant_statement: null,
+          created_at: { lt: expect.any(Date) },
+        }),
+        data: { status: 'cancelled' },
+      });
+      expect(mockLogger.info).toHaveBeenCalledWith('Stale formal draft cases cancelled', { count: 2 });
     });
   });
 });

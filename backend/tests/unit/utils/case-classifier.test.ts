@@ -2,6 +2,7 @@ import {
   buildCaseProductFlowWhere,
   buildCompletedExecutionProductFlowWhere,
   buildJudgmentProductFlowWhere,
+  buildStaleFormalDraftCaseWhere,
   buildUserBoundCaseModeWhere,
   getCaseAccessKind,
   getCaseProductFlow,
@@ -118,6 +119,21 @@ describe('case-classifier', () => {
           },
         },
       },
+    });
+  });
+
+  it('stale formal draft where 應覆蓋正式 remote/collaborative 並排除 chat/session-bound', () => {
+    const cutoff = new Date('2026-05-03T00:00:00.000Z');
+
+    expect(buildStaleFormalDraftCaseWhere(cutoff)).toEqual({
+      status: 'draft',
+      OR: [
+        { mode: 'remote' },
+        { mode: 'collaborative', session_id: null },
+      ],
+      chat_to_case_links: { none: {} },
+      defendant_statement: null,
+      created_at: { lt: cutoff },
     });
   });
 });

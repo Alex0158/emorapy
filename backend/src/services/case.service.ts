@@ -11,7 +11,7 @@ import { fileService, signAvatar } from './file.service';
 import { normalizeJudgment } from '../utils/judgment';
 import { lockService } from '../utils/lock';
 import { LOCK_TTL, SESSION_EXPIRY, CASE_STATUS, CASE_MODE, PAGINATION, FILE_TYPE, PAIRING_STATUS } from '../utils/constants';
-import { isCaseParticipant, isSessionBoundCase } from '../utils/case-classifier';
+import { getCaseProductFlow, isCaseParticipant, isSessionBoundCase } from '../utils/case-classifier';
 
 export interface QuickCaseDto {
   plaintiff_statement: string;
@@ -335,6 +335,10 @@ export class CaseService {
               defendant_ratio: true,
             },
           },
+          chat_to_case_links: {
+            select: { id: true },
+            take: 1,
+          },
         },
         orderBy: {
           [sort_by]: sort_order,
@@ -348,6 +352,7 @@ export class CaseService {
     const normalized = cases.map((c) => ({
       ...c,
       judgment: normalizeJudgment(c.judgment),
+      product_flow: getCaseProductFlow(c),
     }));
 
     return {
@@ -520,6 +525,10 @@ export class CaseService {
             },
           },
         },
+        chat_to_case_links: {
+          select: { id: true },
+          take: 1,
+        },
       },
     });
 
@@ -565,7 +574,10 @@ export class CaseService {
     }
     (case_ as { judgment: unknown }).judgment = normalizeJudgment(case_.judgment);
 
-    return case_;
+    return {
+      ...case_,
+      product_flow: getCaseProductFlow(case_),
+    };
   }
 
   /**

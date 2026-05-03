@@ -4,7 +4,7 @@
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：03-case
 **取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`backend/src/utils/case-classifier.ts`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`ed72125`
+**最後核驗 Commit**：`a081936`
 **最後核驗日期**：`2026-05-03`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -29,13 +29,13 @@
 | `POST /api/v1/cases/quick`                      | `plaintiff_statement(>=30)` `defendant_statement?` `evidence_urls?<=3`  | `data.case` `data.session_id?`   | `VALIDATION_ERROR`                                     | 建立 quick case        | `/quick-experience/create`        |
 | `POST /api/v1/cases/collaborative`              | `case_id?` `plaintiff_statement?` `defendant_statement?`                | `data.case` `data.phase`         | `VALIDATION_ERROR` `INVALID_SESSION_ID` `NOT_FOUND` `FORBIDDEN` `SESSION_EXPIRED` `CASE_NOT_EDITABLE` | A/B 輪流續寫同案           | `/quick-experience/collaborative` |
 | `POST /api/v1/cases`                            | `pairing_id(uuid)` `plaintiff_statement` `defendant_statement?` `mode?` | `data.case`                      | `VALIDATION_ERROR` `FORBIDDEN`                         | 建立 draft case        | `/case/create`                    |
-| `GET /api/v1/cases`                             | query: `status/type/page/page_size/sort/search`                         | `data.cases[]` `data.pagination` | `UNAUTHORIZED`                                         | 無                    | `/case/list`                      |
+| `GET /api/v1/cases`                             | query: `status/type/page/page_size/sort/search`                         | `data.cases[]`（含 `product_flow`） `data.pagination` | `UNAUTHORIZED`                                         | 無                    | `/case/list`                      |
 | `POST /api/v1/cases/:id/evidence`               | path `id(uuid)` + multipart `files[]`                                   | `data.evidences[]`               | `FILE_TOO_LARGE` `TOO_MANY_FILES` `INVALID_FILE_TYPE` `INVALID_FILE_FIELD` `NOT_FOUND` `UNAUTHORIZED` `FORBIDDEN` `INVALID_SESSION_ID` `SESSION_EXPIRED` `CASE_NOT_EDITABLE` | 寫入 evidence 記錄與文件    | FileUpload、快速結果頁                  |
 | `DELETE /api/v1/cases/:id/evidence/:evidenceId` | `id(uuid)` `evidenceId(uuid)`                                           | 成功旗標                             | `NOT_FOUND` `FORBIDDEN` `INVALID_SESSION_ID` `SESSION_EXPIRED`                                | 刪除 evidence 關聯       | FileUpload                        |
 | `GET /api/v1/cases/:id/judgment`                | `id(uuid)` + optional `X-Session-Id`                                    | `data.judgment`                  | `JUDGMENT_PENDING` `JUDGMENT_FAILED` `NOT_FOUND` `UNAUTHORIZED` `FORBIDDEN` `INVALID_SESSION_ID` `SESSION_EXPIRED`                | 無                    | 快速結果、判決快捷查詢                       |
 | `POST /api/v1/cases/:id/submit`                 | `id(uuid)`                                                              | `data.case.status=submitted`     | `CASE_NOT_EDITABLE` `UNAUTHORIZED`                     | `draft -> submitted` | `/case/:id`                       |
 | `PUT /api/v1/cases/:id`                         | `id(uuid)` + 至少 1 字段（title/plaintiff/defendant）                         | `data.case`                      | `CASE_NOT_EDITABLE` `VALIDATION_ERROR`                 | 更新 draft 欄位          | `/case/:id/review`                |
-| `GET /api/v1/cases/:id`                         | `id(uuid)` + optional `X-Session-Id`                                    | `data.case`                      | `NOT_FOUND` `UNAUTHORIZED` `FORBIDDEN` `INVALID_SESSION_ID` `SESSION_EXPIRED`                                | 無                    | `/case/:id`、快速結果                  |
+| `GET /api/v1/cases/:id`                         | `id(uuid)` + optional `X-Session-Id`                                    | `data.case`（含 `product_flow`）  | `NOT_FOUND` `UNAUTHORIZED` `FORBIDDEN` `INVALID_SESSION_ID` `SESSION_EXPIRED`                                | 無                    | `/case/:id`、快速結果                  |
 
 
 ## 操作級規則（深水區）
@@ -56,6 +56,7 @@
   - `formal_collaborative`：`mode=collaborative` 且 `session_id=null`。
   - `chat_to_case`：存在 `ChatToCaseLink` 時優先於 mode。
 - User-bound case 查詢範圍固定為 `remote` 或 `collaborative(session_id=null)`；後續 notification、analytics、repair reminder 不得只掃 `mode=remote`。
+- `GET /cases` 與 `GET /cases/:id` 已 additive 回傳 `product_flow`，前端、Admin、analytics 若需要產品來源，應優先讀此字段；不得在 UI 端重寫一份 mode 推斷。
 
 ## 回歸測試最小集
 
@@ -65,6 +66,7 @@
 4. `/cases/:id/judgment` 在 pending 與 ready 兩種狀態下前端行為正確。
 5. `collaborative + session_id=null` 案件下，當事人 JWT 讀 `GET /cases/:id` 與 `GET /cases/:id/judgment` 必須通過；匿名或非當事人必須拒絕。
 6. notification / repair reminder 應覆蓋 `formal_remote`、`formal_collaborative`、`chat_to_case`，並排除 session-bound quick。
+7. `GET /cases` 與 `GET /cases/:id` 對 chat-to-case case 必須返回 `product_flow=chat_to_case`。
 
 ## 錯誤碼覆蓋矩陣（API -> code -> UI 行為）
 

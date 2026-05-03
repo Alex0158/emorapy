@@ -437,6 +437,9 @@ describe('CaseService', () => {
           skip: 0,
           take: 10,
           orderBy: { created_at: 'desc' },
+          include: expect.objectContaining({
+            chat_to_case_links: { select: { id: true }, take: 1 },
+          }),
         })
       );
     });
@@ -542,6 +545,37 @@ describe('CaseService', () => {
         defendant_ratio: 40,
         responsibility_ratio: { plaintiff: 60, defendant: 40 },
       });
+    });
+
+    it('回傳 cases 應帶 product_flow，且 chat_to_case 優先於 mode', async () => {
+      prismaMock.case.findMany.mockResolvedValue([
+        {
+          id: 'case-chat',
+          mode: 'collaborative',
+          session_id: null,
+          plaintiff_id: 'u1',
+          defendant_id: 'u2',
+          judgment: null,
+          chat_to_case_links: [{ id: 'link-1' }],
+        },
+        {
+          id: 'case-formal',
+          mode: 'remote',
+          session_id: null,
+          plaintiff_id: 'u1',
+          defendant_id: 'u2',
+          judgment: null,
+          chat_to_case_links: [],
+        },
+      ]);
+      prismaMock.case.count.mockResolvedValue(2);
+
+      const result = await service.getCaseList('u1', { page: 1, page_size: 10 });
+
+      expect(result.cases).toEqual([
+        expect.objectContaining({ id: 'case-chat', product_flow: 'chat_to_case' }),
+        expect.objectContaining({ id: 'case-formal', product_flow: 'formal_remote' }),
+      ]);
     });
   });
 
@@ -917,6 +951,7 @@ describe('CaseService', () => {
         evidences: [{ file_url: 'http://a.com/1.jpg' }],
         judgment: null,
         pairing: null,
+        chat_to_case_links: [],
       };
       prismaMock.case.findUnique.mockResolvedValue(case_);
       mockGetSession.mockResolvedValue({ id: 's1' });
@@ -924,6 +959,7 @@ describe('CaseService', () => {
       const result = await service.getCaseById('case-1', undefined, 's1');
 
       expect(result).toBeDefined();
+      expect(result).toMatchObject({ product_flow: 'quick_single' });
       expect(mockSignUrl).toHaveBeenCalled();
       expect(mockGetSession).toHaveBeenCalledWith('s1');
     });
@@ -936,6 +972,7 @@ describe('CaseService', () => {
         evidences: [{ file_url: 'http://a.com/1.jpg' }],
         judgment: null,
         pairing: null,
+        chat_to_case_links: [],
       };
       prismaMock.case.findUnique.mockResolvedValue(case_);
       mockGetSession.mockResolvedValue({ id: 's-collab' });
@@ -957,6 +994,7 @@ describe('CaseService', () => {
         evidences: [{ file_url: 'http://a.com/1.jpg' }],
         judgment: null,
         pairing: null,
+        chat_to_case_links: [],
       };
       prismaMock.case.findUnique.mockResolvedValue(case_);
 
@@ -965,6 +1003,28 @@ describe('CaseService', () => {
       expect(result).toBeDefined();
       expect(mockGetSession).not.toHaveBeenCalled();
       expect(mockSignUrl).toHaveBeenCalledWith('http://a.com/1.jpg');
+    });
+
+    it('chat-to-case 詳情應回傳 product_flow=chat_to_case', async () => {
+      const case_ = {
+        id: 'case-chat',
+        mode: 'collaborative',
+        session_id: null,
+        plaintiff_id: 'u1',
+        defendant_id: 'u2',
+        evidences: [],
+        judgment: null,
+        pairing: null,
+        chat_to_case_links: [{ id: 'link-1' }],
+      };
+      prismaMock.case.findUnique.mockResolvedValue(case_);
+
+      const result = await service.getCaseById('case-chat', 'u1');
+
+      expect(result).toMatchObject({
+        id: 'case-chat',
+        product_flow: 'chat_to_case',
+      });
     });
 
     it('remote 模式無 userId 應拋出 UNAUTHORIZED', async () => {

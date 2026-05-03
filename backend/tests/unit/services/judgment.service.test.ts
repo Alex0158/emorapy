@@ -208,6 +208,7 @@ describe('JudgmentService', () => {
 
       expect(aiServiceMock.generateJudgment).toHaveBeenCalled();
       expect(result).toMatchObject({ id: 'j-collab', case_id: 'case-1' });
+      expect(sessionServiceMock.markSessionCompleted).toHaveBeenCalledWith('s-collab');
     });
 
     it('formal collaborative 且 session_id 為 null 時應走 JWT 當事人授權', async () => {

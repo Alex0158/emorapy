@@ -972,8 +972,8 @@ export class JudgmentService {
           }
         });
 
-        // 6. 快速體驗模式：標記Session為已完成（異步，不阻塞）
-        if (case_.mode === CASE_MODE.QUICK && case_.session_id) {
+        // 6. Session-bound 體驗：標記 Session 為已完成（異步，不阻塞）
+        if (isSessionBoundCase(case_) && case_.session_id) {
           sessionService.markSessionCompleted(case_.session_id).catch(err => {
             logger.warn('Failed to mark session completed', {
               error: err,

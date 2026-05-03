@@ -1,4 +1,6 @@
 import { PrismaClient } from '../src/types/prisma-client';
+import { getCaseProductFlow } from '../src/utils/case-classifier';
+import type { CaseProductFlow } from '../src/utils/case-classifier';
 
 try {
   // Load DATABASE_URL for local ops scripts without importing app env validation.
@@ -13,10 +15,26 @@ type AuditItem = {
   check: string;
   count: number;
   sampleIds: string[];
+  sampleDetails: AuditSampleDetail[];
   recoveryProposal: RecoveryProposal | null;
 };
 
 const DEFAULT_STUCK_MINUTES = 30;
+
+type AuditSampleDetail = {
+  id: string;
+  entityType: 'case' | 'chat_room' | 'chat_to_case_link';
+  productFlow?: CaseProductFlow;
+  mode?: string;
+  status?: string;
+  sessionBound?: boolean;
+  roomId?: string;
+  caseId?: string;
+  judgmentId?: string | null;
+  linkedCaseIds?: string[];
+  updatedAt?: Date;
+  createdAt?: Date;
+};
 
 type RecoveryProposal = {
   id: string;
@@ -63,6 +81,25 @@ function buildRecoveryProposal(input: {
   };
 }
 
+function buildCaseSampleDetail(case_: {
+  id: string;
+  mode: string;
+  status?: string;
+  session_id?: string | null;
+  updated_at?: Date;
+  chat_to_case_links?: unknown[] | null;
+}): AuditSampleDetail {
+  return {
+    id: case_.id,
+    entityType: 'case',
+    productFlow: getCaseProductFlow(case_),
+    mode: case_.mode,
+    status: case_.status,
+    sessionBound: Boolean(case_.session_id),
+    updatedAt: case_.updated_at,
+  };
+}
+
 async function collectAuditItems(stuckMinutes = DEFAULT_STUCK_MINUTES): Promise<AuditItem[]> {
   const cutoff = cutoffDate(stuckMinutes);
 
@@ -83,21 +120,56 @@ async function collectAuditItems(stuckMinutes = DEFAULT_STUCK_MINUTES): Promise<
     prisma.case.count({ where: stuckCasesWhere }),
     prisma.case.findMany({
       where: stuckCasesWhere,
-      select: { id: true },
+      select: {
+        id: true,
+        mode: true,
+        status: true,
+        session_id: true,
+        updated_at: true,
+        chat_to_case_links: { select: { id: true }, take: 1 },
+      },
       take: 20,
       orderBy: { updated_at: 'asc' },
     }),
     prisma.chatRoom.count({ where: stuckChatRoomsWhere }),
     prisma.chatRoom.findMany({
       where: stuckChatRoomsWhere,
-      select: { id: true },
+      select: {
+        id: true,
+        status: true,
+        session_id: true,
+        updated_at: true,
+        case_links: {
+          select: {
+            id: true,
+            case_id: true,
+            judgment_id: true,
+          },
+          take: 5,
+          orderBy: { created_at: 'asc' },
+        },
+      },
       take: 20,
       orderBy: { updated_at: 'asc' },
     }),
     prisma.chatToCaseLink.count({ where: incompleteChatLinksWhere }),
     prisma.chatToCaseLink.findMany({
       where: incompleteChatLinksWhere,
-      select: { id: true },
+      select: {
+        id: true,
+        room_id: true,
+        case_id: true,
+        judgment_id: true,
+        created_at: true,
+        case: {
+          select: {
+            id: true,
+            mode: true,
+            status: true,
+            session_id: true,
+          },
+        },
+      },
       take: 20,
       orderBy: { created_at: 'asc' },
     }),
@@ -108,6 +180,7 @@ async function collectAuditItems(stuckMinutes = DEFAULT_STUCK_MINUTES): Promise<
       check: `cases stuck in_progress over ${stuckMinutes}m`,
       count: stuckCasesCount,
       sampleIds: stuckCases.map((item) => item.id),
+      sampleDetails: stuckCases.map(buildCaseSampleDetail),
       recoveryProposal: buildRecoveryProposal({
         id: 'recover-stuck-case-judgment-generation',
         severity: 'critical',
@@ -130,6 +203,16 @@ async function collectAuditItems(stuckMinutes = DEFAULT_STUCK_MINUTES): Promise<
       check: `chat rooms stuck judgment_requested over ${stuckMinutes}m`,
       count: stuckChatRoomsCount,
       sampleIds: stuckChatRooms.map((item) => item.id),
+      sampleDetails: stuckChatRooms.map((item) => ({
+        id: item.id,
+        entityType: 'chat_room',
+        productFlow: 'chat_to_case',
+        status: item.status,
+        sessionBound: Boolean(item.session_id),
+        linkedCaseIds: item.case_links.map((link) => link.case_id),
+        judgmentId: item.case_links[0]?.judgment_id ?? null,
+        updatedAt: item.updated_at,
+      })),
       recoveryProposal: buildRecoveryProposal({
         id: 'recover-stuck-chat-judgment-request',
         severity: 'critical',
@@ -152,6 +235,21 @@ async function collectAuditItems(stuckMinutes = DEFAULT_STUCK_MINUTES): Promise<
       check: 'chat_to_case_links missing judgment_id while case completed',
       count: incompleteChatLinksCount,
       sampleIds: incompleteChatLinks.map((item) => item.id),
+      sampleDetails: incompleteChatLinks.map((item) => ({
+        id: item.id,
+        entityType: 'chat_to_case_link',
+        productFlow: getCaseProductFlow({
+          ...item.case,
+          chat_to_case_links: [{ id: item.id }],
+        }),
+        mode: item.case.mode,
+        status: item.case.status,
+        sessionBound: Boolean(item.case.session_id),
+        roomId: item.room_id,
+        caseId: item.case_id,
+        judgmentId: item.judgment_id,
+        createdAt: item.created_at,
+      })),
       recoveryProposal: buildRecoveryProposal({
         id: 'repair-chat-to-case-link-missing-judgment',
         severity: 'warning',

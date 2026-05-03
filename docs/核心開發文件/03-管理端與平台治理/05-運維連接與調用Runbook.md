@@ -22,7 +22,7 @@ cd backend && npm run precheck:pairing:normal-uniqueness
 npm run docs:check
 ```
 
-`ops:release:status` 用於查發布版狀態；`ops:db:status` 用於查當前 `DATABASE_URL` 對應的 Prisma migration state；`ops:product-state:audit` 用於只讀檢查 case / chat-to-case 的卡住狀態並輸出人工 recovery proposal；`precheck:pairing:normal-uniqueness` 用於只讀檢查一個 user 是否同時出現在多個 `normal pending/active` pairing；`docs:check` 用於確認正式文檔與台賬仍閉環。
+`ops:release:status` 用於查發布版狀態；`ops:db:status` 用於查當前 `DATABASE_URL` 對應的 Prisma migration state；`ops:product-state:audit` 用於只讀檢查 case / chat-to-case 的卡住狀態，輸出產品流樣本細節與人工 recovery proposal；`precheck:pairing:normal-uniqueness` 用於只讀檢查一個 user 是否同時出現在多個 `normal pending/active` pairing；`docs:check` 用於確認正式文檔與台賬仍閉環。
 
 ## 2. 平台地圖
 
@@ -142,9 +142,10 @@ cd backend && npm run ops:product-state:audit
 
 1. `checks[].count`：該類不一致或卡住狀態的數量。
 2. `checks[].sampleIds`：最多 20 個樣本 ID，供人工查詢。
-3. `checks[].recoveryProposal`：當 count > 0 時提供人工恢復建議；當 count = 0 時為 `null`。
-4. `recoveryProposal.automaticFixAvailable` 固定為 `false`，表示此命令不會、也不應自動修改資料。
-5. `recoveryProposal.requiresHumanApproval` 固定為 `true`，任何 production data 寫入前必須先建立待處理任務或工單。
+3. `checks[].sampleDetails`：最多 20 個樣本的產品流與關聯上下文；case 樣本包含 `productFlow / mode / status / sessionBound`，chat-to-case 樣本包含 `roomId / caseId / judgmentId / linkedCaseIds` 等人工排查線索。
+4. `checks[].recoveryProposal`：當 count > 0 時提供人工恢復建議；當 count = 0 時為 `null`。
+5. `recoveryProposal.automaticFixAvailable` 固定為 `false`，表示此命令不會、也不應自動修改資料。
+6. `recoveryProposal.requiresHumanApproval` 固定為 `true`，任何 production data 寫入前必須先建立待處理任務或工單。
 
 禁止事項：
 

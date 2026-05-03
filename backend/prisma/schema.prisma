@@ -86,6 +86,34 @@ enum ReconciliationIntent {
   safety_support
 }
 
+enum SafetyRiskLevel {
+  standard
+  sensitive
+  high_risk_relationship
+  imminent_crisis
+  minor_or_suspected_minor
+  illegal_or_nonconsensual_content
+}
+
+enum SafetyAssessmentSubjectType {
+  user
+  pairing
+  case
+  chat_room
+  repair_track
+  evidence
+}
+
+enum SafetyAssessmentSource {
+  evidence_assertion
+  formal_case_assertion
+  chat_judgment_policy
+  judgment_route
+  repair_policy
+  system_audit
+  admin_review
+}
+
 enum CommitmentStatus {
   not_viewed
   viewed
@@ -530,6 +558,58 @@ model RelationshipProfile {
   pairing                          Pairing   @relation(fields: [pairing_id], references: [id], onDelete: Cascade)
 
   @@map("relationship_profiles")
+}
+
+model SafetyAssessment {
+  id                             String                      @id @default(uuid())
+  subject_type                   SafetyAssessmentSubjectType
+  subject_id                     String
+  source                         SafetyAssessmentSource
+  risk_level                     SafetyRiskLevel             @default(standard)
+  judgment_route                 String?                     @db.VarChar(50)
+  can_invite_partner             Boolean                     @default(true)
+  can_use_co_repair              Boolean                     @default(true)
+  can_notify_partner             Boolean                     @default(true)
+  can_show_responsibility_ratio  Boolean                     @default(true)
+  force_solo_repair              Boolean                     @default(false)
+  reasons                        String[]
+  metadata                       Json?
+  assessed_by_user_id            String?
+  expires_at                     DateTime?
+  resolved_at                    DateTime?
+  created_at                     DateTime                    @default(now())
+  updated_at                     DateTime                    @updatedAt
+
+  @@index([subject_type, subject_id, created_at])
+  @@index([subject_type, subject_id, resolved_at])
+  @@index([risk_level, resolved_at])
+  @@index([source, created_at])
+  @@index([assessed_by_user_id])
+  @@map("safety_assessments")
+}
+
+model RelationshipRiskState {
+  id                             String                      @id @default(uuid())
+  scope_type                     SafetyAssessmentSubjectType
+  scope_id                       String
+  current_risk_level             SafetyRiskLevel             @default(standard)
+  judgment_route                 String?                     @db.VarChar(50)
+  can_invite_partner             Boolean                     @default(true)
+  can_use_co_repair              Boolean                     @default(true)
+  can_notify_partner             Boolean                     @default(true)
+  can_show_responsibility_ratio  Boolean                     @default(true)
+  force_solo_repair              Boolean                     @default(false)
+  source_assessment_id           String?
+  reasons                        String[]
+  metadata                       Json?
+  is_active                      Boolean                     @default(true)
+  created_at                     DateTime                    @default(now())
+  updated_at                     DateTime                    @updatedAt
+
+  @@index([scope_type, scope_id])
+  @@index([current_risk_level, is_active])
+  @@index([source_assessment_id])
+  @@map("relationship_risk_states")
 }
 
 model Case {

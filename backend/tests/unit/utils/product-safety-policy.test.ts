@@ -1,4 +1,5 @@
 import {
+  buildSafetyAssessmentSnapshotForRoute,
   getEvidenceSafetyAssertionPolicy,
   getFormalCaseCreatePolicy,
   getChatJudgmentRequestPolicy,
@@ -41,6 +42,39 @@ describe('product-safety-policy', () => {
     expect(getResponsibilityRatioVisibilityForRoute('safety_support').can_show).toBe(false);
     expect(getProductSafetyPolicy('standard').canShowResponsibilityRatio).toBe(true);
     expect(getResponsibilityRatioVisibilityForRoute('standard').can_show).toBe(true);
+  });
+
+  it('路由安全快照應可直接映射到 SafetyAssessment / RelationshipRiskState 欄位', () => {
+    expect(buildSafetyAssessmentSnapshotForRoute('standard')).toMatchObject({
+      risk_level: 'standard',
+      judgment_route: 'standard',
+      can_invite_partner: true,
+      can_use_co_repair: true,
+      can_notify_partner: true,
+      can_show_responsibility_ratio: true,
+      force_solo_repair: false,
+      metadata: {
+        kind: 'product_safety_route_snapshot',
+        route: 'standard',
+      },
+    });
+
+    expect(buildSafetyAssessmentSnapshotForRoute('safety_support', { reasons: ['safety'] })).toMatchObject({
+      risk_level: 'high_risk_relationship',
+      judgment_route: 'safety_support',
+      can_invite_partner: false,
+      can_use_co_repair: false,
+      can_notify_partner: false,
+      can_show_responsibility_ratio: false,
+      force_solo_repair: true,
+      reasons: ['safety'],
+    });
+
+    expect(buildSafetyAssessmentSnapshotForRoute('crisis_support')).toMatchObject({
+      risk_level: 'imminent_crisis',
+      judgment_route: 'crisis_support',
+      force_solo_repair: true,
+    });
   });
 
   it('未提供 evidence safety assertion 時應保持舊上傳契約', () => {

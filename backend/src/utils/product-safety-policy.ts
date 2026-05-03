@@ -1,5 +1,13 @@
 export type JudgmentRoute = 'standard' | 'safety_support' | 'crisis_support';
 
+export type SafetyRiskLevelForPolicy =
+  | 'standard'
+  | 'sensitive'
+  | 'high_risk_relationship'
+  | 'imminent_crisis'
+  | 'minor_or_suspected_minor'
+  | 'illegal_or_nonconsensual_content';
+
 export type ReconciliationIntentForSafetyPolicy = 'repair' | 'cool_down' | 'graceful_exit' | 'safety_support';
 
 export interface ProductSafetyPolicy {
@@ -59,6 +67,18 @@ export interface FormalCaseCreatePolicy {
   rejectionMessage: string | null;
   metadata: Record<string, unknown> | null;
   reasons: string[];
+}
+
+export interface SafetyAssessmentSnapshot {
+  risk_level: SafetyRiskLevelForPolicy;
+  judgment_route: JudgmentRoute;
+  can_invite_partner: boolean;
+  can_use_co_repair: boolean;
+  can_notify_partner: boolean;
+  can_show_responsibility_ratio: boolean;
+  force_solo_repair: boolean;
+  reasons: string[];
+  metadata: Record<string, unknown>;
 }
 
 const ROUTE_VALUES = new Set<JudgmentRoute>(['standard', 'safety_support', 'crisis_support']);
@@ -130,6 +150,38 @@ export function getProductSafetyPolicy(route: JudgmentRoute): ProductSafetyPolic
     canShowResponsibilityRatio: true,
     forceSoloRepair: false,
     reasons: ['標準路由允許一般修復旅程'],
+  };
+}
+
+export function getSafetyRiskLevelForRoute(route: JudgmentRoute): SafetyRiskLevelForPolicy {
+  if (route === 'crisis_support') return 'imminent_crisis';
+  if (route === 'safety_support') return 'high_risk_relationship';
+  return 'standard';
+}
+
+export function buildSafetyAssessmentSnapshotForRoute(
+  route: JudgmentRoute,
+  options: { reasons?: string[]; metadata?: Record<string, unknown> } = {}
+): SafetyAssessmentSnapshot {
+  const policy = getProductSafetyPolicy(route);
+  return {
+    risk_level: getSafetyRiskLevelForRoute(route),
+    judgment_route: route,
+    can_invite_partner: policy.canInvitePartner,
+    can_use_co_repair: policy.canUseCoRepair,
+    can_notify_partner: policy.canNotifyPartner,
+    can_show_responsibility_ratio: policy.canShowResponsibilityRatio,
+    force_solo_repair: policy.forceSoloRepair,
+    reasons: options.reasons && options.reasons.length > 0 ? options.reasons : policy.reasons,
+    metadata: {
+      kind: 'product_safety_route_snapshot',
+      version: 1,
+      route,
+      is_high_risk: policy.isHighRisk,
+      default_reconciliation_intent: policy.defaultReconciliationIntent,
+      allowed_reconciliation_intents: policy.allowedReconciliationIntents,
+      ...(options.metadata || {}),
+    },
   };
 }
 

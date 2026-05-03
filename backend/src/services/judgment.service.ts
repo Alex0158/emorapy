@@ -1037,7 +1037,7 @@ export class JudgmentService {
       throw Errors.NOT_FOUND('判決不存在');
     }
 
-    if (judgment.case.mode === CASE_MODE.QUICK) {
+    if (isSessionBoundCase(judgment.case)) {
       if (!options?.sessionId || judgment.case.session_id !== options.sessionId) {
         throw Errors.FORBIDDEN('無權限修復此判決');
       }
@@ -1082,7 +1082,7 @@ export class JudgmentService {
       throw Errors.NOT_FOUND('判決不存在');
     }
 
-    if (judgment.case.mode === CASE_MODE.QUICK) {
+    if (isSessionBoundCase(judgment.case)) {
       if (!options?.sessionId || judgment.case.session_id !== options.sessionId) {
         throw Errors.FORBIDDEN('無權限提交此判決指標');
       }

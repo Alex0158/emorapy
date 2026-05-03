@@ -53,6 +53,14 @@ const safetyAssessmentServiceMock = {
   getActiveRiskState: jest.fn(),
 };
 
+const ruptureRepairServiceMock = {
+  repair: jest.fn(),
+};
+
+const clinicalQualityServiceMock = {
+  recordPostResponseMetrics: jest.fn(),
+};
+
 jest.mock('../../../src/config/database', () => ({
   __esModule: true,
   default: prismaMock,
@@ -89,6 +97,16 @@ jest.mock('../../../src/utils/cache', () => ({
 jest.mock('../../../src/services/safety-assessment.service', () => ({
   __esModule: true,
   safetyAssessmentService: safetyAssessmentServiceMock,
+}));
+
+jest.mock('../../../src/services/rupture-repair.service', () => ({
+  __esModule: true,
+  ruptureRepairService: ruptureRepairServiceMock,
+}));
+
+jest.mock('../../../src/services/clinical-quality.service', () => ({
+  __esModule: true,
+  clinicalQualityService: clinicalQualityServiceMock,
 }));
 
 import { JudgmentService } from '../../../src/services/judgment.service';
@@ -138,6 +156,11 @@ describe('JudgmentService', () => {
     cacheServiceMock.set.mockResolvedValue(undefined);
     sessionServiceMock.markSessionCompleted.mockResolvedValue(undefined);
     safetyAssessmentServiceMock.getActiveRiskState.mockResolvedValue(null);
+    ruptureRepairServiceMock.repair.mockResolvedValue({
+      repairedContent: '修復後內容',
+      repairType: 'validation',
+    });
+    clinicalQualityServiceMock.recordPostResponseMetrics.mockResolvedValue(undefined);
   });
 
   describe('generateJudgment', () => {
@@ -659,6 +682,120 @@ describe('JudgmentService', () => {
           }),
         })
       );
+    });
+  });
+
+  describe('repairJudgmentResponse', () => {
+    it('session-bound collaborative 應允許用匹配 sessionId 修復判決', async () => {
+      prismaMock.judgment.findUnique.mockResolvedValueOnce({
+        id: 'j-collab',
+        judgment_content: '原始判決內容',
+        emotional_analysis: { route: 'standard' },
+        case: baseCase({
+          mode: 'collaborative',
+          session_id: 's-collab',
+          plaintiff_id: null,
+          defendant_id: null,
+          type: '溝通衝突',
+        }),
+      });
+      const service = new JudgmentService();
+
+      const result = await service.repairJudgmentResponse('j-collab', '我覺得不貼切', {
+        sessionId: 's-collab',
+      });
+
+      expect(result).toEqual({
+        repairedContent: '修復後內容',
+        repairType: 'validation',
+      });
+      expect(ruptureRepairServiceMock.repair).toHaveBeenCalledWith(expect.objectContaining({
+        judgmentContent: '原始判決內容',
+        userFeedback: '我覺得不貼切',
+        caseType: '溝通衝突',
+        route: 'standard',
+      }));
+    });
+
+    it('session-bound collaborative 不應退回 JWT 當事人授權', async () => {
+      prismaMock.judgment.findUnique.mockResolvedValueOnce({
+        id: 'j-collab',
+        judgment_content: '原始判決內容',
+        emotional_analysis: { route: 'standard' },
+        case: baseCase({
+          mode: 'collaborative',
+          session_id: 's-collab',
+          plaintiff_id: 'u1',
+          defendant_id: 'u2',
+        }),
+      });
+      const service = new JudgmentService();
+
+      await expect(service.repairJudgmentResponse('j-collab', '我覺得不貼切', {
+        userId: 'u1',
+        sessionId: 'wrong-session',
+      })).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      expect(ruptureRepairServiceMock.repair).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('recordClinicalMetrics', () => {
+    it('session-bound collaborative 應允許用匹配 sessionId 提交判決指標', async () => {
+      prismaMock.judgment.findUnique.mockResolvedValueOnce({
+        id: 'j-collab',
+        prompt_version: 'v4.0',
+        emotional_analysis: { route: 'safety_support' },
+        case: baseCase({
+          mode: 'collaborative',
+          session_id: 's-collab',
+          plaintiff_id: null,
+          defendant_id: null,
+          type: '溝通衝突',
+        }),
+      });
+      const service = new JudgmentService();
+
+      const result = await service.recordClinicalMetrics('j-collab', {
+        felt_understood: 4,
+        felt_blamed: 1,
+        willing_to_try: 5,
+      }, { sessionId: 's-collab' });
+
+      expect(result).toEqual({ recorded: true });
+      expect(clinicalQualityServiceMock.recordPostResponseMetrics).toHaveBeenCalledWith({
+        judgmentId: 'j-collab',
+        promptVersion: 'v4.0',
+        caseType: '溝通衝突',
+        route: 'safety_support',
+        feltUnderstood: 4,
+        feltBlamed: 1,
+        willingToTry: 5,
+      });
+    });
+
+    it('session-bound collaborative 指標提交不應退回 JWT 當事人授權', async () => {
+      prismaMock.judgment.findUnique.mockResolvedValueOnce({
+        id: 'j-collab',
+        prompt_version: 'v4.0',
+        emotional_analysis: { route: 'standard' },
+        case: baseCase({
+          mode: 'collaborative',
+          session_id: 's-collab',
+          plaintiff_id: 'u1',
+          defendant_id: 'u2',
+        }),
+      });
+      const service = new JudgmentService();
+
+      await expect(service.recordClinicalMetrics('j-collab', {
+        felt_understood: 4,
+        felt_blamed: 1,
+        willing_to_try: 5,
+      }, {
+        userId: 'u1',
+        sessionId: 'wrong-session',
+      })).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      expect(clinicalQualityServiceMock.recordPostResponseMetrics).not.toHaveBeenCalled();
     });
   });
 

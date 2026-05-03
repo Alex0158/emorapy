@@ -1311,6 +1311,22 @@ describe('CaseService', () => {
   });
 
   describe('getCaseBySessionId', () => {
+    const expectedClaimableSessionCaseWhere = (sessionId: string) => ({
+      OR: [
+        {
+          mode: 'quick',
+          OR: [
+            { session_id: sessionId },
+            { quick_sessions: { some: { id: sessionId } } },
+          ],
+        },
+        {
+          mode: 'collaborative',
+          session_id: sessionId,
+        },
+      ],
+    });
+
     it('無案件應返回 null', async () => {
       prismaMock.case.findFirst.mockResolvedValue(null);
 
@@ -1318,7 +1334,7 @@ describe('CaseService', () => {
 
       expect(result).toBeNull();
       expect(prismaMock.case.findFirst).toHaveBeenCalledWith({
-        where: { session_id: 's1', mode: 'quick' },
+        where: expectedClaimableSessionCaseWhere('s1'),
         include: expect.any(Object),
         orderBy: { created_at: 'desc' },
       });
@@ -1331,6 +1347,7 @@ describe('CaseService', () => {
         mode: 'quick',
         evidences: [{ file_url: 'http://x.com/1.jpg' }],
         judgment: null,
+        chat_to_case_links: [],
       };
       prismaMock.case.findFirst.mockResolvedValue(case_);
 
@@ -1338,6 +1355,26 @@ describe('CaseService', () => {
 
       expect(result).toBeDefined();
       expect(mockSignUrl).toHaveBeenCalledWith('http://x.com/1.jpg');
+      expect(result).toMatchObject({ product_flow: 'quick_single' });
+    });
+
+    it('應用 claimable session scope，支持快速雙人協作回訪', async () => {
+      const case_ = {
+        id: 'case-collab',
+        session_id: 's1',
+        mode: 'collaborative',
+        evidences: [],
+        judgment: null,
+        chat_to_case_links: [],
+      };
+      prismaMock.case.findFirst.mockResolvedValue(case_);
+
+      const result = await service.getCaseBySessionId('s1');
+
+      expect(prismaMock.case.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+        where: expectedClaimableSessionCaseWhere('s1'),
+      }));
+      expect(result).toMatchObject({ id: 'case-collab', product_flow: 'quick_collaborative' });
     });
 
     it('有 judgment 時應 normalizeJudgment 補 responsibility_ratio', async () => {
@@ -1353,6 +1390,7 @@ describe('CaseService', () => {
           defendant_ratio: 30,
           reconciliation_plans: [],
         },
+        chat_to_case_links: [],
       };
       prismaMock.case.findFirst.mockResolvedValue(case_);
 

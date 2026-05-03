@@ -11,7 +11,14 @@ import { fileService, signAvatar } from './file.service';
 import { normalizeJudgmentWithSafetyState } from './judgment-normalization.service';
 import { lockService } from '../utils/lock';
 import { LOCK_TTL, SESSION_EXPIRY, CASE_STATUS, CASE_MODE, PAGINATION, FILE_TYPE, PAIRING_STATUS } from '../utils/constants';
-import { buildUserBoundProductCaseWhere, getCaseProductFlow, isCaseParticipant, isFormalCaseMode, isSessionBoundCase } from '../utils/case-classifier';
+import {
+  buildClaimableSessionCaseWhere,
+  buildUserBoundProductCaseWhere,
+  getCaseProductFlow,
+  isCaseParticipant,
+  isFormalCaseMode,
+  isSessionBoundCase,
+} from '../utils/case-classifier';
 import {
   buildSafetyAssessmentSnapshotForEvidenceAssertion,
   getFormalCaseCreatePolicy,
@@ -682,10 +689,7 @@ export class CaseService {
    */
   async getCaseBySessionId(sessionId: string) {
     const case_ = await prisma.case.findFirst({
-      where: {
-        session_id: sessionId,
-        mode: CASE_MODE.QUICK,
-      },
+      where: buildClaimableSessionCaseWhere(sessionId),
       include: {
         evidences: {
           orderBy: { created_at: 'desc' },
@@ -696,6 +700,10 @@ export class CaseService {
               orderBy: { created_at: 'desc' },
             },
           },
+        },
+        chat_to_case_links: {
+          select: { id: true },
+          take: 1,
         },
       },
       orderBy: { created_at: 'desc' },
@@ -709,7 +717,10 @@ export class CaseService {
       (case_ as { judgment: unknown }).judgment = await normalizeJudgmentWithSafetyState(case_.judgment, { caseId: case_.id });
     }
 
-    return case_;
+    return case_ ? {
+      ...case_,
+      product_flow: getCaseProductFlow(case_),
+    } : null;
   }
 
   /**

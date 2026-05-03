@@ -4,11 +4,11 @@
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：03-case
 **取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`backend/src/services/case.service.ts`、`backend/src/middleware/auth.ts`、`backend/src/jobs/cleanup.job.ts`、`backend/src/utils/case-classifier.ts`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`04bb49b`
+**最後核驗 Commit**：`441778a`
 **最後核驗日期**：`2026-05-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**文檔版本**：v2.8
+**文檔版本**：v2.9
 **最後更新**：2026-05-04
 **代碼基準**：`backend/src/routes/case.routes.ts`、`backend/src/controllers/case.controller.ts`、`backend/src/services/case.service.ts`、`backend/src/utils/case-classifier.ts`、`backend/src/utils/validation.ts`
 
@@ -25,7 +25,7 @@
 
 | API                                             | Request（核心字段）                                                           | Success（前端實際用到）                  | 常見錯誤碼                                                  | 副作用/狀態轉移             | 前端入口                              |
 | ----------------------------------------------- | ----------------------------------------------------------------------- | -------------------------------- | ------------------------------------------------------ | -------------------- | --------------------------------- |
-| `GET /api/v1/cases/by-session`                  | `X-Session-Id`                                                          | `data.case`                      | `SESSION_ID_REQUIRED` `INVALID_SESSION_ID` `SESSION_EXPIRED` `NOT_FOUND` | 無                    | 快速體驗恢復                            |
+| `GET /api/v1/cases/by-session`                  | `X-Session-Id`                                                          | `data.case`（含 `product_flow`）  | `SESSION_ID_REQUIRED` `INVALID_SESSION_ID` `SESSION_EXPIRED` `NOT_FOUND` | 無                    | 快速體驗恢復                            |
 | `POST /api/v1/cases/quick`                      | `plaintiff_statement(>=30)` `defendant_statement?` `evidence_urls?<=3`  | `data.case` `data.session_id?`   | `VALIDATION_ERROR`                                     | 建立 quick case        | `/quick-experience/create`        |
 | `POST /api/v1/cases/collaborative`              | `case_id?` `plaintiff_statement?` `defendant_statement?`                | `data.case` `data.phase`         | `VALIDATION_ERROR` `INVALID_SESSION_ID` `NOT_FOUND` `FORBIDDEN` `SESSION_EXPIRED` `CASE_NOT_EDITABLE` | A/B 輪流續寫同案           | `/quick-experience/collaborative` |
 | `POST /api/v1/cases`                            | `pairing_id(uuid)` `plaintiff_statement` `defendant_statement?` `mode?`; optional `safety_assertion` / inline safety fields | `data.case`                      | `VALIDATION_ERROR` `FORBIDDEN`                         | 建立 draft/submitted case        | `/case/create`                    |
@@ -59,6 +59,7 @@
   - `formal_collaborative`：`mode=collaborative` 且 `session_id=null`。
   - `chat_to_case`：存在 `ChatToCaseLink` 時優先於 mode。
 - User-bound product case 查詢範圍固定使用 `buildUserBoundProductCaseWhere()`：包含 `chat_to_case`、`formal_remote`、`formal_collaborative`，並排除沒有 `ChatToCaseLink` 的 session-bound quick / quick collaborative。`GET /cases` 與修復旅程 choose-direction reminder 必須使用此口徑，避免 quick 底層的 chat-to-case 被 mode-only 查詢漏掉。
+- `GET /cases/by-session` 查詢範圍固定使用 `buildClaimableSessionCaseWhere(session_id)`：覆蓋 quick single、`quick_sessions` 關聯恢復與快速雙人協作，並排除 formal case 殘留 session 關聯造成的錯誤回訪。
 - `GET /cases` 與 `GET /cases/:id` 已 additive 回傳 `product_flow`，前端、Admin、analytics 若需要產品來源，應優先讀此字段；不得在 UI 端重寫一份 mode 推斷。
 - `GET /cases`、`GET /cases/:id`、`GET /cases/by-session` 若返回 judgment，後端會經 `judgment-normalization.service` 補 `responsibility_ratio` 與 `responsibility_ratio_visibility`；當 case scope active `RelationshipRiskState` 比 stored judgment route 更嚴格時，責任比例展示資格以 active state 為準。
 
@@ -76,7 +77,8 @@
 10. notification / repair reminder 應覆蓋 `formal_remote`、`formal_collaborative`、`chat_to_case`，並排除沒有 `ChatToCaseLink` 的 session-bound quick。
 11. `GET /cases` 查詢不得只用 `mode in [remote, collaborative]`；當 chat-to-case case 底層仍是 `mode=quick` 但已有當事人歸戶時，列表仍必須可見。
 12. `GET /cases` 與 `GET /cases/:id` 對 chat-to-case case 必須返回 `product_flow=chat_to_case`。
-13. `GET /cases`、`GET /cases/:id`、`GET /cases/by-session` 返回 judgment 時，active case safety state 應能覆蓋 stored route visibility。
+13. `GET /cases/by-session` 不得只查 `mode=quick + session_id`；必須使用 claimable session case scope，快速雙人協作也應可由同 session 回訪，且返回 `product_flow=quick_collaborative`。
+14. `GET /cases`、`GET /cases/:id`、`GET /cases/by-session` 返回 judgment 時，active case safety state 應能覆蓋 stored route visibility。
 
 ## 錯誤碼覆蓋矩陣（API -> code -> UI 行為）
 

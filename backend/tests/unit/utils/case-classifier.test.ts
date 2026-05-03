@@ -1,4 +1,5 @@
 import {
+  buildCaseProductFlowWhere,
   buildUserBoundCaseModeWhere,
   getCaseAccessKind,
   getCaseProductFlow,
@@ -63,6 +64,30 @@ describe('case-classifier', () => {
         { mode: 'remote' },
         { mode: 'collaborative', session_id: null },
       ],
+    });
+  });
+
+  it('product-flow where 應與 runtime 分類口徑一致', () => {
+    expect(buildCaseProductFlowWhere('chat_to_case')).toEqual({
+      chat_to_case_links: { some: {} },
+    });
+    expect(buildCaseProductFlowWhere('quick_single')).toEqual({
+      chat_to_case_links: { none: {} },
+      mode: 'quick',
+    });
+    expect(buildCaseProductFlowWhere('quick_collaborative')).toEqual({
+      chat_to_case_links: { none: {} },
+      mode: 'collaborative',
+      session_id: { not: null },
+    });
+    expect(buildCaseProductFlowWhere('formal_remote')).toEqual({
+      chat_to_case_links: { none: {} },
+      mode: 'remote',
+    });
+    expect(buildCaseProductFlowWhere('formal_collaborative')).toEqual({
+      chat_to_case_links: { none: {} },
+      mode: 'collaborative',
+      session_id: null,
     });
   });
 });

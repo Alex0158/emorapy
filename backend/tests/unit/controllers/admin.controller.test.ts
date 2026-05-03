@@ -13,6 +13,12 @@ const mockGetNumberConfig = jest.fn();
 const mockGetAdminCostReport = jest.fn();
 const mockUserFindMany = jest.fn();
 const mockUserCount = jest.fn();
+const mockPairingCount = jest.fn();
+const mockCaseCount = jest.fn();
+const mockJudgmentCount = jest.fn();
+const mockReconciliationPlanCount = jest.fn();
+const mockExecutionRecordCount = jest.fn();
+const mockInterviewSessionCount = jest.fn();
 
 jest.mock('../../../src/config/database', () => ({
   __esModule: true,
@@ -29,6 +35,12 @@ jest.mock('../../../src/config/database', () => ({
       findMany: (...args: unknown[]) => mockUserFindMany(...args),
       count: (...args: unknown[]) => mockUserCount(...args),
     },
+    pairing: { count: (...args: unknown[]) => mockPairingCount(...args) },
+    case: { count: (...args: unknown[]) => mockCaseCount(...args) },
+    judgment: { count: (...args: unknown[]) => mockJudgmentCount(...args) },
+    reconciliationPlan: { count: (...args: unknown[]) => mockReconciliationPlanCount(...args) },
+    executionRecord: { count: (...args: unknown[]) => mockExecutionRecordCount(...args) },
+    interviewSession: { count: (...args: unknown[]) => mockInterviewSessionCount(...args) },
   },
 }));
 
@@ -581,6 +593,62 @@ describe('AdminController', () => {
       await adminController.reportCosts(req as Request, res as Response, next);
 
       expect(next).toHaveBeenCalledWith(expect.any(Error));
+    });
+  });
+
+  describe('reportOverview', () => {
+    it('應返回 productFlows，使用共享產品流口徑統計', async () => {
+      (mockUserCount as any).mockResolvedValue(10);
+      (mockPairingCount as any).mockResolvedValue(4);
+      (mockCaseCount as any)
+        .mockResolvedValueOnce(20)
+        .mockResolvedValueOnce(8)
+        .mockResolvedValueOnce(3)
+        .mockResolvedValueOnce(2)
+        .mockResolvedValueOnce(5)
+        .mockResolvedValueOnce(4)
+        .mockResolvedValueOnce(6);
+      (mockJudgmentCount as any).mockResolvedValue(7);
+      (mockReconciliationPlanCount as any).mockResolvedValue(6);
+      (mockExecutionRecordCount as any).mockResolvedValue(5);
+      (mockInterviewSessionCount as any).mockResolvedValue(9);
+
+      await adminController.reportOverview(req as Request, res as Response, next);
+
+      expect(mockCaseCount).toHaveBeenCalledWith({
+        where: { chat_to_case_links: { some: {} } },
+      });
+      expect(mockCaseCount).toHaveBeenCalledWith({
+        where: {
+          chat_to_case_links: { none: {} },
+          mode: 'collaborative',
+          session_id: null,
+        },
+      });
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          data: expect.objectContaining({
+            totals: expect.objectContaining({
+              users: 10,
+              cases: 20,
+              judgments: 7,
+            }),
+            productFlows: [
+              { key: 'quick_single', count: 3, ratio: 3 / 20 },
+              { key: 'quick_collaborative', count: 2, ratio: 2 / 20 },
+              { key: 'formal_remote', count: 5, ratio: 5 / 20 },
+              { key: 'formal_collaborative', count: 4, ratio: 4 / 20 },
+              { key: 'chat_to_case', count: 6, ratio: 6 / 20 },
+            ],
+            conversion: expect.objectContaining({
+              pairingRate: 4 / 10,
+              caseCreationRate: 20 / 4,
+            }),
+          }),
+        })
+      );
+      expect(next).not.toHaveBeenCalled();
     });
   });
 

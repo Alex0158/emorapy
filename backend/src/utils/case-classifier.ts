@@ -1,3 +1,4 @@
+import { Prisma } from '../types/prisma-client';
 import { CASE_MODE } from './constants';
 
 export type CaseAccessSubject = {
@@ -76,5 +77,45 @@ export function buildUserBoundCaseModeWhere() {
       { mode: CASE_MODE.REMOTE },
       { mode: CASE_MODE.COLLABORATIVE, session_id: null },
     ],
+  };
+}
+
+export function buildCaseProductFlowWhere(flow: CaseProductFlow): Prisma.CaseWhereInput {
+  if (flow === 'chat_to_case') {
+    return {
+      chat_to_case_links: { some: {} },
+    };
+  }
+
+  const withoutChatToCase = {
+    chat_to_case_links: { none: {} },
+  };
+
+  if (flow === 'quick_single') {
+    return {
+      ...withoutChatToCase,
+      mode: CASE_MODE.QUICK,
+    };
+  }
+
+  if (flow === 'quick_collaborative') {
+    return {
+      ...withoutChatToCase,
+      mode: CASE_MODE.COLLABORATIVE,
+      session_id: { not: null },
+    };
+  }
+
+  if (flow === 'formal_collaborative') {
+    return {
+      ...withoutChatToCase,
+      mode: CASE_MODE.COLLABORATIVE,
+      session_id: null,
+    };
+  }
+
+  return {
+    ...withoutChatToCase,
+    mode: CASE_MODE.REMOTE,
   };
 }

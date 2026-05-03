@@ -15,6 +15,18 @@ import {
   validateCrossManagedConfigRules,
 } from '../services/admin-config-rules';
 import { Errors } from '../utils/errors';
+import {
+  buildCaseProductFlowWhere,
+  CaseProductFlow,
+} from '../utils/case-classifier';
+
+const CASE_PRODUCT_FLOW_KEYS: CaseProductFlow[] = [
+  'quick_single',
+  'quick_collaborative',
+  'formal_remote',
+  'formal_collaborative',
+  'chat_to_case',
+];
 
 function parsePagination(req: Request) {
   const rawLimit = Number(req.query.limit ?? 20);
@@ -763,6 +775,7 @@ class AdminController {
         reconciliations,
         executionCompleted,
         interviewCompleted,
+        productFlowCounts,
       ] = await Promise.all([
         prisma.user.count(),
         prisma.pairing.count({ where: { status: 'active' } }),
@@ -772,6 +785,11 @@ class AdminController {
         prisma.reconciliationPlan.count(),
         prisma.executionRecord.count({ where: { status: 'completed' } }),
         prisma.interviewSession.count({ where: { status: 'completed' } }),
+        Promise.all(
+          CASE_PRODUCT_FLOW_KEYS.map((flow) => prisma.case.count({
+            where: buildCaseProductFlowWhere(flow),
+          }))
+        ),
       ]);
 
       const conversion = {
@@ -793,6 +811,11 @@ class AdminController {
             executionCompleted,
             interviewCompleted,
           },
+          productFlows: CASE_PRODUCT_FLOW_KEYS.map((key, index) => ({
+            key,
+            count: productFlowCounts[index] ?? 0,
+            ratio: casesTotal > 0 ? (productFlowCounts[index] ?? 0) / casesTotal : 0,
+          })),
           conversion,
         },
       });

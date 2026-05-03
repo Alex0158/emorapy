@@ -3,14 +3,14 @@
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：09-admin
-**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`70e3436`
-**最後核驗日期**：`2026-04-19`
+**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`backend/src/controllers/admin.controller.ts`、`backend/src/utils/case-classifier.ts`、`frontend/src/services/api`、`frontend-admin/src/services/api`
+**最後核驗 Commit**：`0dfcf09`
+**最後核驗日期**：`2026-05-03`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**文檔版本**：v2.5  
-**最後更新**：2026-04-19  
-**代碼基準**：`backend/src/routes/admin.routes.ts`、`backend/src/middleware/adminAuth.ts`、`frontend/src/services/api/admin.ts`
+**文檔版本**：v2.6
+**最後更新**：2026-05-03
+**代碼基準**：`backend/src/routes/admin.routes.ts`、`backend/src/controllers/admin.controller.ts`、`backend/src/middleware/adminAuth.ts`、`backend/src/utils/case-classifier.ts`、`frontend/src/services/api/admin.ts`
 
 ---
 
@@ -62,7 +62,7 @@
 | `DELETE /api/v1/admin/admin-users/:adminUserId` | `adminUserId(uuid)` | `data.item` | `FORBIDDEN` `NOT_FOUND` | `admin:all`，刪除後台帳號 |
 | `POST /api/v1/admin/reports/custom` | `metrics[]`（`dau/mau/judgment_failed`，`1-20`） | `data.metrics{}` | `FORBIDDEN` `VALIDATION_ERROR` | `reports:read` |
 | `GET /api/v1/admin/reports/overview.csv` | 無 | `blob`（CSV：`metric,value`，當前輸出 `users/cases/judgments`） | `FORBIDDEN` | `reports:read` |
-| `GET /api/v1/admin/reports/overview` | 無 | `data.totals(users/activePairings/cases/judgments/reconciliationPlans/executionCompleted/interviewCompleted) data.conversion(pairingRate/caseCreationRate/judgmentCompletionRate/caseCompletionRate)` | `FORBIDDEN` | `reports:read`，已由 admin reports 頁接線 |
+| `GET /api/v1/admin/reports/overview` | 無 | `data.totals(users/activePairings/cases/judgments/reconciliationPlans/executionCompleted/interviewCompleted) data.productFlows array: quick_single, quick_collaborative, formal_remote, formal_collaborative, chat_to_case with count+ratio; data.conversion(pairingRate/caseCreationRate/judgmentCompletionRate/caseCompletionRate)` | `FORBIDDEN` | `reports:read`，已由 admin reports 頁接線 |
 | `GET /api/v1/admin/reports/funnel` | 無 | `data.stages[]`（`register/pairing/case/judgment/execution_complete`） | `FORBIDDEN` | `reports:read`，已由 admin reports 頁接線 |
 | `GET /api/v1/admin/reports/costs` | 無 | `data.generatedAt data.currency data.partial data.reasons[] data.summary data.redis data.railway data.openai` | `FORBIDDEN` | `reports:read`，已由 admin reports 頁接線 |
 | `GET /api/v1/admin/reports/ai-streams` | query `days?(1-90) limit?(1-50)` | `data.windowDays data.retentionPolicy data.totals data.byStatus data.byScopeType data.byBackendMode data.recentFailures[]` | `FORBIDDEN` `VALIDATION_ERROR` | `reports:read`，AI Stream 治理報表，已由 admin reports 頁接線 |
@@ -80,6 +80,7 @@
 - Admin token 與 user token 完全隔離，且優先存於 `sessionStorage`（降低長期暴露）。
 - Admin API 的 401 處理與前台不同：`INVALID_CREDENTIALS` 不清 token，不應觸發全域導轉。
 - CSV 下載鏈路（audit/reports）是運維高風險點，需回歸 responseType 與文件內容。
+- `reports/overview.productFlows[]` 使用 `backend/src/utils/case-classifier.ts` 的產品流口徑，固定輸出 `quick_single / quick_collaborative / formal_remote / formal_collaborative / chat_to_case` 的 `count` 與 `ratio`；Admin/analytics 不得用 `case.mode` 另行推斷四主線分布。
 - `GET /api/v1/admin/reports/ai-streams` 直接讀取 `ai_stream_sessions / ai_stream_events / archives` 聚合結果，主要用於排障、驗收與保留策略校驗；現已由 Admin Reports 頁接線。
 - `GET /api/v1/admin/reports/ai-streams/sessions` 與 `:streamId` 用於直接查看 live/archive 明細，避免只剩匯總報表。
 - `cleanup_ai_stream_persistence` 已加入排程任務，會先 archive 再 delete；如需立即驗證清理策略，可透過既有 `POST /api/v1/admin/jobs/:jobKey/trigger` 手動觸發。

@@ -5,6 +5,7 @@ import { Errors } from '../utils/errors';
 import logger from '../config/logger';
 import crypto from 'crypto';
 import { SESSION_EXPIRY } from '../utils/constants';
+import { buildClaimableSessionCaseWhere } from '../utils/case-classifier';
 
 const maskSessionId = (sessionId: string): string =>
   crypto.createHash('sha256').update(sessionId).digest('hex').slice(0, 12);
@@ -70,7 +71,10 @@ export class SessionService {
 
         if (currentSession.case_id) {
           await tx.case.updateMany({
-            where: { id: currentSession.case_id, session_id: currentSessionId },
+            where: {
+              id: currentSession.case_id,
+              ...buildClaimableSessionCaseWhere(currentSessionId),
+            },
             data: { session_id: newSessionId },
           });
         }
@@ -234,4 +238,3 @@ export class SessionService {
 }
 
 export const sessionService = new SessionService();
-

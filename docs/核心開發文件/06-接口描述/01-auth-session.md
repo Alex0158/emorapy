@@ -3,14 +3,14 @@
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：01-auth-session
-**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`backend/src/services/auth.service.ts`、`backend/src/utils/case-classifier.ts`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`88579cb`
+**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`backend/src/services/auth.service.ts`、`backend/src/services/session.service.ts`、`backend/src/utils/case-classifier.ts`、`frontend/src/services/api`、`frontend-admin/src/services/api`
+**最後核驗 Commit**：`18a5900`
 **最後核驗日期**：`2026-05-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**文檔版本**：v2.4
+**文檔版本**：v2.5
 **最後更新**：2026-05-04
-**代碼基準**：`backend/src/routes/auth.routes.ts`、`backend/src/services/auth.service.ts`、`backend/src/routes/session.routes.ts`、`backend/src/utils/validation.ts`、`frontend/src/services/api/auth.ts`、`frontend/src/services/api/session.ts`
+**代碼基準**：`backend/src/routes/auth.routes.ts`、`backend/src/services/auth.service.ts`、`backend/src/services/session.service.ts`、`backend/src/routes/session.routes.ts`、`backend/src/utils/validation.ts`、`frontend/src/services/api/auth.ts`、`frontend/src/services/api/session.ts`
 
 ---
 
@@ -47,6 +47,7 @@
 - `claim-session` 只能補尚未歸屬的匿名欄位，不覆蓋既有 user ownership；正式 `collaborative + session_id = null` 不作為匿名 session 主 case 返回。
 - `reset-password` 刻意不暴露用戶是否存在；不存在帳號時仍返回成功，避免枚舉用戶。
 - `sessions/refresh` 若帶合法舊 `X-Session-Id`，後端會做「新建 -> 遷移 `case_id/pairing_id/session_data` -> 刪舊」的原子旋轉；前端必須同步替換本地 `sessionStorage` 與 `caseSessionMap`。
+- `sessions/refresh` 遷移 `cases.session_id` 時必須使用 `buildClaimableSessionCaseWhere(old_session_id)`：只搬遷 quick / 同 session collaborative 的匿名關聯，不能因 formal case 殘留 `session_id` 或 `quick_sessions` 關聯而被 session 旋轉帶走。
 
 ## 回歸測試最小集
 
@@ -54,7 +55,8 @@
 2. 快速體驗建立 session，過期後可刷新恢復。
 3. quick / session-bound collaborative case 建立後登入，`claim-session` 成功綁定主 case；同 session 的 pairing、chat room、roleA participant、evidence 一併歸戶；失敗時不影響登入主流程。
 4. `claim-session` 不得 claim formal remote / formal collaborative；evidence owner 歸戶也必須套用同一 claimable session case scope。
-5. 驗證碼與重置密碼流程在限流條件下有正確錯誤提示。
+5. `sessions/refresh` 旋轉帶 `case_id` 的匿名 session 時，case update scope 必須套用 `buildClaimableSessionCaseWhere()`，避免 formal case 被誤遷移到新匿名 session。
+6. 驗證碼與重置密碼流程在限流條件下有正確錯誤提示。
 
 ## 錯誤碼覆蓋矩陣（API -> code -> UI 行為）
 

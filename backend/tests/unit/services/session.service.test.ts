@@ -42,6 +42,22 @@ jest.mock('../../../src/utils/session', () => ({
 
 import { SessionService } from '../../../src/services/session.service';
 
+const buildExpectedClaimableSessionCaseWhere = (sessionId: string) => ({
+  OR: [
+    {
+      mode: 'quick',
+      OR: [
+        { session_id: sessionId },
+        { quick_sessions: { some: { id: sessionId } } },
+      ],
+    },
+    {
+      mode: 'collaborative',
+      session_id: sessionId,
+    },
+  ],
+});
+
 describe('SessionService', () => {
   let service: SessionService;
 
@@ -223,7 +239,10 @@ describe('SessionService', () => {
         message: expect.stringContaining('Session'),
       });
       expect(prismaMock.case.updateMany).toHaveBeenCalledWith({
-        where: { id: 'case-1', session_id: oldId },
+        where: {
+          id: 'case-1',
+          ...buildExpectedClaimableSessionCaseWhere(oldId),
+        },
         data: { session_id: newId },
       });
     });
@@ -248,7 +267,10 @@ describe('SessionService', () => {
       const result = await service.refreshSession(oldId);
       expect(result.session_id).toBe(newId);
       expect(prismaMock.case.updateMany).toHaveBeenCalledWith({
-        where: { id: 'case-1', session_id: oldId },
+        where: {
+          id: 'case-1',
+          ...buildExpectedClaimableSessionCaseWhere(oldId),
+        },
         data: { session_id: newId },
       });
       expect(prismaMock.pairing.updateMany).toHaveBeenCalledWith({

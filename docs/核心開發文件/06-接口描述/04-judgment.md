@@ -3,14 +3,14 @@
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：04-judgment
-**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`frontend/src/services/api`、`frontend-admin/src/services/api`
+**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`backend/src/services/judgment.service.ts`、`backend/src/services/judgment-normalization.service.ts`、`backend/src/services/chat.service.ts`、`frontend/src/services/api`、`frontend-admin/src/services/api`
 **最後核驗 Commit**：`45d4897`
-**最後核驗日期**：`2026-04-19`
+**最後核驗日期**：`2026-05-03`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**文檔版本**：v2.4  
-**最後更新**：2026-04-19  
-**代碼基準**：`backend/src/routes/judgment.routes.ts`、`backend/src/routes/ai-stream.routes.ts`、`backend/src/services/judgment.service.ts`、`frontend/src/services/api/judgment.ts`、`frontend/src/services/aiStream.ts`
+**文檔版本**：v2.5
+**最後更新**：2026-05-03
+**代碼基準**：`backend/src/routes/judgment.routes.ts`、`backend/src/routes/ai-stream.routes.ts`、`backend/src/services/judgment.service.ts`、`backend/src/services/judgment-normalization.service.ts`、`backend/src/services/chat.service.ts`、`frontend/src/services/api/judgment.ts`、`frontend/src/services/aiStream.ts`
 
 ---
 
@@ -42,7 +42,8 @@
 - `GET /api/v1/judgments/:id` 的權限檢查實際委派到 `getJudgmentByCaseId(case_id)`；`FORBIDDEN` 會在 controller 層轉為 `NOT_FOUND`，用於避免暴露資源存在性。
 - case 維度判斷規則與 case 模組一致：`quick`/`collaborative(session_id 有值)` 走 session 校驗；`remote`/`collaborative(session_id=null)` 走當事人 JWT 校驗。
 - 判決生成的 `profileContext / caseContext` 注入不得只用 `case.mode === quick` 排除；必須透過 `backend/src/utils/case-classifier.ts` 的產品流口徑判斷。純 quick/session-bound 流程不注入個人/關係上下文；`ChatToCaseLink` 優先於 `case.mode`，chat-to-case 可在有登入當事人與 consent 時走 user-bound context governance。
-- normalized judgment 會 additive 回傳 `responsibility_ratio_visibility`（`can_show/reason`），語義來源是 `backend/src/utils/product-safety-policy.ts`。`safety_support / crisis_support` 不應展示責任比例，前端只能做降級呈現；後端暫保留 `plaintiff_ratio/defendant_ratio` 以維持既有契約，不能把字段存在視為可展示。
+- normalized judgment 會 additive 回傳 `responsibility_ratio_visibility`（`can_show/reason`）。同步純工具 `normalizeJudgment` 只按 stored route fallback；對外 read path 必須使用 `backend/src/services/judgment-normalization.service.ts`，優先讀 case scope active `RelationshipRiskState`，沒有 active state 或讀取失敗才 fallback 到 stored route。`safety_support / crisis_support` 不應展示責任比例，前端只能做降級呈現；後端暫保留 `plaintiff_ratio/defendant_ratio` 以維持既有契約，不能把字段存在視為可展示。
+- 判決主讀取鏈路已接入 active safety state：`JudgmentService.generateJudgment/getJudgmentByCaseId/acceptJudgment`、case detail/list/session judgment normalization，以及 `ChatService.getJudgmentStatus.latestLink.judgment`。新增 read path 若會暴露 ratio 字段，必須接同一 normalization service。
 
 ## 回歸測試最小集
 
@@ -50,6 +51,7 @@
 2. accept 流程支持 `accepted=true/false` 兩分支。
 3. `generate` 在限流與 AI 異常時返回可識別錯誤碼。
 4. 候選接口基本健康檢查（schema + auth + 404）保持可用。
+5. active `RelationshipRiskState` 比 stored judgment route 更嚴格時，judgment/case/chat status read path 必須返回 `responsibility_ratio_visibility.can_show=false`。
 
 ## 錯誤碼覆蓋矩陣（API -> code -> UI 行為）
 

@@ -1,6 +1,6 @@
 import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
-import { normalizeJudgment } from '../utils/judgment';
+import { normalizeJudgmentWithSafetyState } from './judgment-normalization.service';
 import { Errors } from '../utils/errors';
 import logger from '../config/logger';
 import { aiService } from './ai.service';
@@ -1006,7 +1006,7 @@ export class JudgmentService {
           },
         });
 
-        return normalizeJudgment(judgment);
+        return normalizeJudgmentWithSafetyState(judgment, { caseId });
       },
       120 // 鎖定時間：120秒（足夠AI生成判決）
     ).catch(async (err) => {
@@ -1171,7 +1171,7 @@ export class JudgmentService {
       return null;
     }
 
-    return normalizeJudgment(judgment);
+    return normalizeJudgmentWithSafetyState(judgment, { caseId });
   }
 
   /**
@@ -1218,7 +1218,7 @@ export class JudgmentService {
       },
     });
 
-    return normalizeJudgment(updatedJudgment);
+    return normalizeJudgmentWithSafetyState(updatedJudgment);
   }
 }
 

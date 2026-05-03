@@ -8,7 +8,7 @@ import { pairingService } from './pairing.service';
 import { ValidationUtils } from '../utils/validation';
 import { validateSessionId } from '../utils/session';
 import { fileService, signAvatar } from './file.service';
-import { normalizeJudgment } from '../utils/judgment';
+import { normalizeJudgmentWithSafetyState } from './judgment-normalization.service';
 import { lockService } from '../utils/lock';
 import { LOCK_TTL, SESSION_EXPIRY, CASE_STATUS, CASE_MODE, PAGINATION, FILE_TYPE, PAIRING_STATUS } from '../utils/constants';
 import { getCaseProductFlow, isCaseParticipant, isSessionBoundCase } from '../utils/case-classifier';
@@ -442,11 +442,11 @@ export class CaseService {
       prisma.case.count({ where }),
     ]);
 
-    const normalized = cases.map((c) => ({
+    const normalized = await Promise.all(cases.map(async (c) => ({
       ...c,
-      judgment: normalizeJudgment(c.judgment),
+      judgment: await normalizeJudgmentWithSafetyState(c.judgment, { caseId: c.id }),
       product_flow: getCaseProductFlow(c),
-    }));
+    })));
 
     return {
       cases: normalized,
@@ -665,7 +665,7 @@ export class CaseService {
         user2: signAvatar(pairing.user2) ?? null,
       };
     }
-    (case_ as { judgment: unknown }).judgment = normalizeJudgment(case_.judgment);
+    (case_ as { judgment: unknown }).judgment = await normalizeJudgmentWithSafetyState(case_.judgment, { caseId: case_.id });
 
     return {
       ...case_,
@@ -702,7 +702,7 @@ export class CaseService {
         ...e,
         file_url: fileService.signUrl(e.file_url),
       }));
-      (case_ as { judgment: unknown }).judgment = normalizeJudgment(case_.judgment);
+      (case_ as { judgment: unknown }).judgment = await normalizeJudgmentWithSafetyState(case_.judgment, { caseId: case_.id });
     }
 
     return case_;

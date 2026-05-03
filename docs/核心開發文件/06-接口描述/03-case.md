@@ -8,7 +8,7 @@
 **最後核驗日期**：`2026-05-03`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**文檔版本**：v2.4
+**文檔版本**：v2.5
 **最後更新**：2026-05-03
 **代碼基準**：`backend/src/routes/case.routes.ts`、`backend/src/controllers/case.controller.ts`、`backend/src/services/case.service.ts`、`backend/src/utils/case-classifier.ts`、`backend/src/utils/validation.ts`
 
@@ -59,6 +59,7 @@
   - `chat_to_case`：存在 `ChatToCaseLink` 時優先於 mode。
 - User-bound case 查詢範圍固定為 `remote` 或 `collaborative(session_id=null)`；後續 notification、analytics、repair reminder 不得只掃 `mode=remote`。
 - `GET /cases` 與 `GET /cases/:id` 已 additive 回傳 `product_flow`，前端、Admin、analytics 若需要產品來源，應優先讀此字段；不得在 UI 端重寫一份 mode 推斷。
+- `GET /cases`、`GET /cases/:id`、`GET /cases/by-session` 若返回 judgment，後端會經 `judgment-normalization.service` 補 `responsibility_ratio` 與 `responsibility_ratio_visibility`；當 case scope active `RelationshipRiskState` 比 stored judgment route 更嚴格時，責任比例展示資格以 active state 為準。
 
 ## 回歸測試最小集
 
@@ -71,6 +72,7 @@
 7. `collaborative + session_id=null` 案件下，當事人 JWT 讀 `GET /cases/:id` 與 `GET /cases/:id/judgment` 必須通過；匿名或非當事人必須拒絕。
 8. notification / repair reminder 應覆蓋 `formal_remote`、`formal_collaborative`、`chat_to_case`，並排除 session-bound quick。
 9. `GET /cases` 與 `GET /cases/:id` 對 chat-to-case case 必須返回 `product_flow=chat_to_case`。
+10. `GET /cases`、`GET /cases/:id`、`GET /cases/by-session` 返回 judgment 時，active case safety state 應能覆蓋 stored route visibility。
 
 ## 錯誤碼覆蓋矩陣（API -> code -> UI 行為）
 

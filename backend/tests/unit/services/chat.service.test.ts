@@ -72,6 +72,7 @@ const safetyRoutingServiceMock = {
 
 const safetyAssessmentServiceMock = {
   recordRouteAssessment: jest.fn(),
+  getActiveRiskState: jest.fn(),
 };
 
 const loggerMock = {
@@ -159,6 +160,7 @@ describe('ChatService', () => {
       status: 'solo_active',
       history_visibility_mode: 'share_summary_only',
     });
+    safetyAssessmentServiceMock.getActiveRiskState.mockResolvedValue(null);
   });
 
   it('listMessages 無訊息時應返回 messages 空陣列與 nextCursor null（F07 邊界）', async () => {
@@ -177,6 +179,47 @@ describe('ChatService', () => {
 
     expect(result.messages).toEqual([]);
     expect(result.nextCursor).toBeNull();
+  });
+
+  it('getJudgmentStatus 應套用 case active safety state 隱藏責任比例', async () => {
+    prismaMock.chatRoom.findFirst.mockResolvedValueOnce({
+      id: 'room-1',
+      owner_user_id: 'u1',
+      participants: [{ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true }],
+    });
+    prismaMock.chatToCaseLink.findFirst.mockResolvedValueOnce({
+      id: 'link-1',
+      case: {
+        id: 'case-1',
+        status: 'completed',
+        mode: 'remote',
+        submitted_at: null,
+        completed_at: null,
+      },
+      judgment: {
+        id: 'j1',
+        created_at: new Date('2026-05-03T00:00:00.000Z'),
+        plaintiff_ratio: 60,
+        defendant_ratio: 40,
+      },
+    });
+    prismaMock.chatRoom.findUnique.mockResolvedValueOnce({ status: 'judgment_completed' });
+    safetyAssessmentServiceMock.getActiveRiskState.mockResolvedValueOnce({
+      id: 'state-1',
+      judgment_route: 'safety_support',
+      can_show_responsibility_ratio: false,
+      reasons: ['active case risk'],
+    });
+
+    const result = await service.getJudgmentStatus('room-1', { userId: 'u1' });
+
+    expect(result.latestLink?.judgment).toMatchObject({
+      judgment_route: 'safety_support',
+      responsibility_ratio_visibility: {
+        can_show: false,
+        reason: '安全支持路由不得展示責任比例，避免把安全風險對稱化',
+      },
+    });
   });
 
   it('listMessages: roleB + share_from_join_time 應只取加入後訊息', async () => {

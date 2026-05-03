@@ -20,6 +20,8 @@ const mockSignUrl: any = jest.fn();
 const mockValidateSessionId = jest.fn();
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockRecordAssessment: any = jest.fn();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockGetActiveRiskState: any = jest.fn();
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const prismaMock: any = {
@@ -72,6 +74,7 @@ jest.mock('../../../src/services/ai.service', () => ({
 jest.mock('../../../src/services/safety-assessment.service', () => ({
   safetyAssessmentService: {
     recordAssessment: (...args: unknown[]) => mockRecordAssessment(...args),
+    getActiveRiskState: (...args: unknown[]) => mockGetActiveRiskState(...args),
   },
 }));
 const mockSignAvatar = jest.fn((user: unknown) => user);
@@ -108,6 +111,7 @@ describe('CaseService', () => {
     mockGetPairingBySessionId.mockResolvedValue(null);
     mockAddCaseToSession.mockResolvedValue(undefined);
     mockRecordAssessment.mockResolvedValue({ id: 'assessment-1' });
+    mockGetActiveRiskState.mockResolvedValue(null);
     prismaMock.pairing.delete.mockResolvedValue({} as never);
     // createCase/updateCase use prisma.$transaction with tx; ensure callback runs with tx that delegates to same mocks
     prismaMock.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) => {
@@ -662,6 +666,43 @@ describe('CaseService', () => {
         plaintiff_ratio: 60,
         defendant_ratio: 40,
         responsibility_ratio: { plaintiff: 60, defendant: 40 },
+      });
+      expect(mockGetActiveRiskState).toHaveBeenCalledWith({
+        subjectType: 'case',
+        subjectId: 'case-1',
+      });
+    });
+
+    it('回傳 cases 含 judgment 時應套用 active safety state 隱藏責任比例', async () => {
+      mockGetActiveRiskState.mockResolvedValueOnce({
+        id: 'state-1',
+        judgment_route: 'safety_support',
+        can_show_responsibility_ratio: false,
+        reasons: ['active case risk'],
+      });
+      prismaMock.case.findMany.mockResolvedValue([
+        {
+          id: 'case-1',
+          plaintiff_id: 'u1',
+          defendant_id: 'u2',
+          judgment: {
+            id: 'j1',
+            summary: '摘要',
+            plaintiff_ratio: 60,
+            defendant_ratio: 40,
+          },
+        },
+      ]);
+      prismaMock.case.count.mockResolvedValue(1);
+
+      const result = await service.getCaseList('u1', { page: 1, page_size: 10 });
+
+      expect(result.cases[0].judgment).toMatchObject({
+        judgment_route: 'safety_support',
+        responsibility_ratio_visibility: {
+          can_show: false,
+          reason: '安全支持路由不得展示責任比例，避免把安全風險對稱化',
+        },
       });
     });
 
@@ -1275,6 +1316,10 @@ describe('CaseService', () => {
         plaintiff_ratio: 70,
         defendant_ratio: 30,
         responsibility_ratio: { plaintiff: 70, defendant: 30 },
+      });
+      expect(mockGetActiveRiskState).toHaveBeenCalledWith({
+        subjectType: 'case',
+        subjectId: 'case-1',
       });
     });
   });

@@ -25,6 +25,7 @@ import { chatMetricsService } from './chat-metrics.service';
 import { analyzeMessageLayers, buildChatJudgmentStatement } from './chat-message-analysis';
 import { getChatJudgmentRequestPolicy } from '../utils/product-safety-policy';
 import { safetyAssessmentService } from './safety-assessment.service';
+import { normalizeJudgmentWithSafetyState } from './judgment-normalization.service';
 
 type ActorContext = {
   userId?: string;
@@ -1320,9 +1321,16 @@ export class ChatService {
       select: { status: true },
     });
 
+    const normalizedLatest = latest && latest.judgment
+      ? {
+        ...latest,
+        judgment: await normalizeJudgmentWithSafetyState(latest.judgment, { caseId: latest.case.id }),
+      }
+      : latest;
+
     return {
       roomStatus: room?.status,
-      latestLink: latest,
+      latestLink: normalizedLatest,
     };
   }
 

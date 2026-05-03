@@ -49,6 +49,10 @@ const loggerMock = {
   error: jest.fn(),
 };
 
+const safetyAssessmentServiceMock = {
+  getActiveRiskState: jest.fn(),
+};
+
 jest.mock('../../../src/config/database', () => ({
   __esModule: true,
   default: prismaMock,
@@ -80,6 +84,11 @@ jest.mock('../../../src/utils/cache', () => ({
   __esModule: true,
   cacheService: cacheServiceMock,
   CacheService: CacheServiceMock,
+}));
+
+jest.mock('../../../src/services/safety-assessment.service', () => ({
+  __esModule: true,
+  safetyAssessmentService: safetyAssessmentServiceMock,
 }));
 
 import { JudgmentService } from '../../../src/services/judgment.service';
@@ -128,6 +137,7 @@ describe('JudgmentService', () => {
     cacheServiceMock.get.mockResolvedValue(1);
     cacheServiceMock.set.mockResolvedValue(undefined);
     sessionServiceMock.markSessionCompleted.mockResolvedValue(undefined);
+    safetyAssessmentServiceMock.getActiveRiskState.mockResolvedValue(null);
   });
 
   describe('generateJudgment', () => {
@@ -790,6 +800,36 @@ describe('JudgmentService', () => {
       const service = new JudgmentService();
       const judgment = await service.getJudgmentByCaseId('case-1', undefined, baseCase().session_id as string);
       expect(judgment).toMatchObject({ id: 'j1', case_id: 'case-1' });
+    });
+
+    it('判決存在且 case 有 active safety state 時應隱藏責任比例', async () => {
+      safetyAssessmentServiceMock.getActiveRiskState.mockResolvedValueOnce({
+        id: 'state-1',
+        judgment_route: 'safety_support',
+        can_show_responsibility_ratio: false,
+        reasons: ['active case risk'],
+      });
+      prismaMock.case.findUnique.mockResolvedValueOnce(baseCase());
+      sessionServiceMock.getSession.mockResolvedValueOnce({ id: baseCase().session_id });
+      prismaMock.judgment.findUnique.mockResolvedValueOnce({
+        id: 'j1',
+        case_id: 'case-1',
+        plaintiff_ratio: 60,
+        defendant_ratio: 40,
+        emotional_analysis: { route: 'standard' },
+        reconciliation_plans: [],
+      });
+      const service = new JudgmentService();
+
+      const judgment = await service.getJudgmentByCaseId('case-1', undefined, baseCase().session_id as string);
+
+      expect(judgment).toMatchObject({
+        judgment_route: 'safety_support',
+        responsibility_ratio_visibility: {
+          can_show: false,
+          reason: '安全支持路由不得展示責任比例，避免把安全風險對稱化',
+        },
+      });
     });
   });
 

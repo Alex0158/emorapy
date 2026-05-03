@@ -440,11 +440,19 @@ describe('ChatService', () => {
     prismaMock.chatInvite.findUnique.mockResolvedValueOnce({
       id: 'inv-owner',
       room_id: 'room-owner',
-      status: 'declined',
+      status: 'revoked',
     });
 
     const invite = await service.declineInvite('ABC775', { userId: 'u-owner' });
-    expect(invite?.status).toBe('declined');
+    expect(invite?.status).toBe('revoked');
+    expect(prismaMock.chatInvite.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: 'revoked',
+          invited_user_id: null,
+        }),
+      })
+    );
   });
 
   it('declineInvite: 匿名房主（session）可撤回公開邀請', async () => {
@@ -468,11 +476,11 @@ describe('ChatService', () => {
     prismaMock.chatInvite.findUnique.mockResolvedValueOnce({
       id: 'inv-anon-owner',
       room_id: 'room-anon-owner',
-      status: 'declined',
+      status: 'revoked',
     });
 
     const invite = await service.declineInvite('ABC774', { sessionId: ownerSessionId });
-    expect(invite?.status).toBe('declined');
+    expect(invite?.status).toBe('revoked');
   });
 
   it('declineInvite: 匿名非房主（session）不可撤回公開邀請', async () => {
@@ -1277,6 +1285,32 @@ describe('ChatService', () => {
     ).rejects.toMatchObject({
       code: 'RATE_LIMIT_EXCEEDED',
     });
+    expect(prismaMock.chatInvite.create).not.toHaveBeenCalled();
+  });
+
+  it('createInvite: B 方剛拒絕邀請後應禁止 A 立即再邀', async () => {
+    prismaMock.chatRoom.findFirst.mockResolvedValueOnce({
+      id: 'room-declined-cooldown',
+      status: 'solo_active',
+      owner_user_id: 'u1',
+      history_visibility_mode: 'share_summary_only',
+      participants: [
+        { id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true },
+      ],
+    });
+    prismaMock.chatInvite.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: 'inv-declined',
+        responded_at: new Date(Date.now() - 60_000),
+      });
+
+    await expect(
+      service.createInvite('room-declined-cooldown', { userId: 'u1' }, { expiresInHours: 12 })
+    ).rejects.toMatchObject({
+      code: 'RATE_LIMIT_EXCEEDED',
+    });
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
     expect(prismaMock.chatInvite.create).not.toHaveBeenCalled();
   });
 

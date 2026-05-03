@@ -72,6 +72,7 @@ export class ChatService {
   private readonly ROOM_RATE_MAX = 6;
   private readonly ROOM_MIN_INTERVAL_MS = 5_000;
   private readonly INVITE_COOLDOWN_MS = 60_000;
+  private readonly INVITE_DECLINED_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
   private checkRoomRateLimit(roomId: string) {
     const now = Date.now();
@@ -310,6 +311,20 @@ export class ChatService {
     if (recentInvite) {
       chatMetricsService.recordRateLimit().catch(() => undefined);
       throw Errors.RATE_LIMIT_EXCEEDED('邀請發送過於頻繁，請稍後再試');
+    }
+
+    const recentlyDeclinedInvite = await prisma.chatInvite.findFirst({
+      where: {
+        room_id: room.id,
+        status: ChatInviteStatus.declined,
+        responded_at: { gt: new Date(Date.now() - this.INVITE_DECLINED_COOLDOWN_MS) },
+      },
+      orderBy: { responded_at: 'desc' },
+      select: { id: true, responded_at: true },
+    });
+    if (recentlyDeclinedInvite) {
+      chatMetricsService.recordRateLimit().catch(() => undefined);
+      throw Errors.RATE_LIMIT_EXCEEDED('對方剛婉拒邀請，請先留一些時間再重試');
     }
 
     const expiresInHours = Math.max(1, Math.min(input.expiresInHours ?? 24, 168));
@@ -560,6 +575,7 @@ export class ChatService {
     }
 
     return prisma.$transaction(async (tx) => {
+      const inviteStatus = invite.invited_user_id ? ChatInviteStatus.declined : ChatInviteStatus.revoked;
       const { count } = await tx.chatInvite.updateMany({
         where: {
           id: invite.id,
@@ -570,8 +586,8 @@ export class ChatService {
           ],
         },
         data: {
-          status: ChatInviteStatus.declined,
-          invited_user_id: resolvedActor.userId,
+          status: inviteStatus,
+          invited_user_id: invite.invited_user_id ? resolvedActor.userId : null,
           responded_at: new Date(),
         },
       });

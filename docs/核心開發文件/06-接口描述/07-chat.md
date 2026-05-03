@@ -47,6 +47,7 @@
 - `request-judgment` 的安全 gate 必須使用 `backend/src/utils/product-safety-policy.ts` 的 `getChatJudgmentRequestPolicy`。`crisis_support` 會寫入 `safety_notice` 並拒絕轉判決；`safety_support` 可轉安全路由判決，但必須寫入 safety notice，且 `ChatToCaseLink.conversion_snapshot.safety_gate` 需保存 `can_request_chat_judgment / should_create_safety_notice / reasons` 供排障。
 - `request-judgment` 若本次納入任何 roleB 的 `user_text`，必須帶 `participant_consent.role_b_included_messages=true`；否則後端返回 `CASE_NOT_READY`，且不建立 case/link。此欄位表示前端已完成 B 方明示同意與訊息範圍確認；後端會在 `ChatToCaseLink.conversion_snapshot.participant_consent` 保存 `role_b_messages_included / role_b_inclusion_consent_asserted / role_b_consent_required / role_b_participant_id / role_b_user_id` 供排障。若只納入 roleA 訊息，允許生成單方視角判決，但 snapshot 仍會保留 information gaps。
 - 訊息發送限速：同房 30 秒最多 6 條，且最小間隔 5 秒；違規回 `RATE_LIMIT_EXCEEDED`。
+- 邀請反濫用：同房任一邀請建立後 60 秒內不可再發；若 B 方已拒絕邀請，A 方 24 小時內不可對同房再次發邀請；違規回 `RATE_LIMIT_EXCEEDED`。房主主動撤回公開邀請不觸發 24 小時拒絕冷卻。
 - `history_visibility_mode` 直接決定轉判決可納入訊息的時間窗與可見性。
 - `request-judgment` 的 `included_message_ids` 必須是「可納入判決消息集合」子集：僅允許 `message_type=user_text` 且 `visibility_scope=all`，且在 `share_from_join_time/share_summary_only` 下需同時滿足 `created_at >= roleB.joined_at`；若提交越界 ID，後端返回 `NOT_FOUND`。
 - 前端判決預覽（`ChatJudgmentPanel`）與提交 payload 使用同一白名單口徑：只允許 `user_text` 進入勾選與 `included_message_ids`，AI 與 safety 類訊息不得被帶入轉判決請求。

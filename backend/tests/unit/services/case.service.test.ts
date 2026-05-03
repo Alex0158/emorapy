@@ -18,6 +18,8 @@ const mockDetectCaseType: any = jest.fn();
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockSignUrl: any = jest.fn();
 const mockValidateSessionId = jest.fn();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockRecordAssessment: any = jest.fn();
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const prismaMock: any = {
@@ -67,6 +69,11 @@ jest.mock('../../../src/services/ai.service', () => ({
     detectCaseType: (a: string, b: string) => mockDetectCaseType(a, b),
   },
 }));
+jest.mock('../../../src/services/safety-assessment.service', () => ({
+  safetyAssessmentService: {
+    recordAssessment: (...args: unknown[]) => mockRecordAssessment(...args),
+  },
+}));
 const mockSignAvatar = jest.fn((user: unknown) => user);
 jest.mock('../../../src/services/file.service', () => ({
   fileService: {
@@ -100,6 +107,7 @@ describe('CaseService', () => {
     mockValidateSessionId.mockReturnValue(true);
     mockGetPairingBySessionId.mockResolvedValue(null);
     mockAddCaseToSession.mockResolvedValue(undefined);
+    mockRecordAssessment.mockResolvedValue({ id: 'assessment-1' });
     prismaMock.pairing.delete.mockResolvedValue({} as never);
     // createCase/updateCase use prisma.$transaction with tx; ensure callback runs with tx that delegates to same mocks
     prismaMock.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) => {
@@ -443,6 +451,24 @@ describe('CaseService', () => {
           data: expect.objectContaining({
             safety_metadata: expect.objectContaining({
               kind: 'formal_case_safety_assertion',
+            }),
+          }),
+        })
+      );
+      expect(mockRecordAssessment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          subjectType: 'case',
+          subjectId: 'case-1',
+          source: 'formal_case_assertion',
+          assessedByUserId: 'u1',
+          updateActiveRiskState: true,
+          snapshot: expect.objectContaining({
+            risk_level: 'sensitive',
+            judgment_route: 'standard',
+            metadata: expect.objectContaining({
+              kind: 'evidence_safety_assertion_snapshot',
+              case_id: 'case-1',
+              pairing_id: 'pair-1',
             }),
           }),
         })

@@ -66,6 +66,7 @@ export interface FormalCaseCreatePolicy {
   rejectionCode: 'FORBIDDEN' | 'VALIDATION_ERROR' | null;
   rejectionMessage: string | null;
   metadata: Record<string, unknown> | null;
+  safetyAssertion: EvidenceSafetyAssertion | null;
   reasons: string[];
 }
 
@@ -181,6 +182,47 @@ export function buildSafetyAssessmentSnapshotForRoute(
       default_reconciliation_intent: policy.defaultReconciliationIntent,
       allowed_reconciliation_intents: policy.allowedReconciliationIntents,
       ...(options.metadata || {}),
+    },
+  };
+}
+
+export function buildSafetyAssessmentSnapshotForEvidenceAssertion(
+  assertion: EvidenceSafetyAssertion,
+  options: { reasons?: string[]; metadata?: Record<string, unknown> } = {}
+): SafetyAssessmentSnapshot {
+  const containsIllegalOrNonconsensual =
+    assertion.contains_illegal_content || assertion.contains_nonconsensual_content;
+  const route: JudgmentRoute =
+    containsIllegalOrNonconsensual || assertion.contains_minor
+      ? 'safety_support'
+      : 'standard';
+  const policy = getProductSafetyPolicy(route);
+  const riskLevel: SafetyRiskLevelForPolicy = containsIllegalOrNonconsensual
+    ? 'illegal_or_nonconsensual_content'
+    : assertion.contains_minor
+      ? 'minor_or_suspected_minor'
+      : assertion.contains_sensitive_content
+        ? 'sensitive'
+        : 'standard';
+
+  return {
+    risk_level: riskLevel,
+    judgment_route: route,
+    can_invite_partner: policy.canInvitePartner,
+    can_use_co_repair: policy.canUseCoRepair,
+    can_notify_partner: policy.canNotifyPartner,
+    can_show_responsibility_ratio: policy.canShowResponsibilityRatio,
+    force_solo_repair: policy.forceSoloRepair,
+    reasons: options.reasons && options.reasons.length > 0
+      ? options.reasons
+      : ['證據安全聲明已映射為全域安全狀態'],
+    metadata: {
+      ...(options.metadata || {}),
+      kind: 'evidence_safety_assertion_snapshot',
+      version: 1,
+      assertion,
+      data_handling_sensitive: assertion.contains_sensitive_content,
+      relationship_safety_route: route,
     },
   };
 }
@@ -388,6 +430,7 @@ export function getFormalCaseCreatePolicy(input: {
       rejectionCode: 'FORBIDDEN',
       rejectionMessage: '未成年人暫不開放正式案件處理，請改用一般支持資源或由監護人協助處理',
       metadata: null,
+      safetyAssertion: null,
       reasons: ['正式案件任一已知參與者年齡小於 18'],
     };
   }
@@ -399,6 +442,7 @@ export function getFormalCaseCreatePolicy(input: {
       rejectionCode: 'VALIDATION_ERROR',
       rejectionMessage: assertionPolicy.rejectionMessage,
       metadata: null,
+      safetyAssertion: assertionPolicy.normalized,
       reasons: assertionPolicy.reasons,
     };
   }
@@ -414,6 +458,7 @@ export function getFormalCaseCreatePolicy(input: {
           evidence_assertion: assertionPolicy.metadata,
         }
       : null,
+    safetyAssertion: assertionPolicy.normalized,
     reasons: ['正式案件建立安全 gate 已通過'],
   };
 }

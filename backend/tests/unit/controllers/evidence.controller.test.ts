@@ -16,6 +16,7 @@ const mockSignUrl = jest.fn();
 const mockDeleteFile = jest.fn();
 const mockGetSession = jest.fn();
 const mockGetAuthUserIdOptional = jest.fn();
+const mockRecordAssessment: any = jest.fn();
 
 jest.mock('../../../src/config/database', () => ({
   __esModule: true,
@@ -46,6 +47,11 @@ jest.mock('../../../src/services/file.service', () => ({
 jest.mock('../../../src/services/session.service', () => ({
   sessionService: {
     getSession: (id: string) => mockGetSession(id),
+  },
+}));
+jest.mock('../../../src/services/safety-assessment.service', () => ({
+  safetyAssessmentService: {
+    recordAssessment: (...args: unknown[]) => mockRecordAssessment(...args),
   },
 }));
 jest.mock('../../../src/utils/lock', () => ({
@@ -92,6 +98,7 @@ describe('evidence.controller', () => {
     (mockValidateFile as jest.Mock).mockResolvedValue(undefined as never);
     mockGetFileUrl.mockImplementation((f: unknown) => `http://files/${f}`);
     mockSignUrl.mockImplementation((u: unknown) => String(u ?? '') + ':signed');
+    mockRecordAssessment.mockResolvedValue({ id: 'assessment-1' });
     mockProcessImage.mockImplementation((f: unknown) =>
       Promise.resolve({
         filename: (f as { filename: string }).filename,
@@ -505,6 +512,8 @@ describe('evidence.controller', () => {
       (prisma.evidence.create as jest.Mock).mockResolvedValue({
         id: evidenceId,
         file_url: 'http://files/minor.jpg',
+        file_type: 'image',
+        file_size: 100,
       } as never);
 
       await runUpload(controller, req as Request, res as Response, next);
@@ -515,6 +524,30 @@ describe('evidence.controller', () => {
             safety_metadata: expect.objectContaining({
               kind: 'evidence_safety_assertion',
             }),
+          }),
+        })
+      );
+      expect(mockRecordAssessment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          subjectType: 'case',
+          subjectId: caseId,
+          source: 'evidence_assertion',
+          updateActiveRiskState: true,
+          snapshot: expect.objectContaining({
+            risk_level: 'minor_or_suspected_minor',
+            judgment_route: 'safety_support',
+          }),
+        })
+      );
+      expect(mockRecordAssessment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          subjectType: 'evidence',
+          subjectId: evidenceId,
+          source: 'evidence_assertion',
+          updateActiveRiskState: true,
+          metadata: expect.objectContaining({
+            case_id: caseId,
+            evidence_id: evidenceId,
           }),
         })
       );

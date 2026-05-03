@@ -9,9 +9,75 @@ import { getAuthUserIdOptional, getSessionIdFromSources } from '../utils/request
 import { lockService } from '../utils/lock';
 import { LOCK_TTL, EVIDENCE_UPLOAD_ALLOWED_STATUSES } from '../utils/constants';
 import { isCaseParticipant, isSessionBoundCase } from '../utils/case-classifier';
-import { getEvidenceSafetyAssertionPolicy } from '../utils/product-safety-policy';
+import {
+  buildSafetyAssessmentSnapshotForEvidenceAssertion,
+  getEvidenceSafetyAssertionPolicy,
+  type EvidenceSafetyAssertionPolicy,
+} from '../utils/product-safety-policy';
+import { safetyAssessmentService } from '../services/safety-assessment.service';
 
 export class EvidenceController {
+  private async recordEvidenceSafetyAssessmentsBestEffort(input: {
+    caseId: string;
+    userId?: string | null;
+    policy: EvidenceSafetyAssertionPolicy;
+    evidences: Array<{ id: string; file_type?: string | null; file_size?: number | null }>;
+  }) {
+    if (!input.policy.metadata || !input.policy.normalized || input.evidences.length === 0) {
+      return;
+    }
+
+    const snapshot = buildSafetyAssessmentSnapshotForEvidenceAssertion(input.policy.normalized, {
+      reasons: input.policy.reasons,
+      metadata: {
+        ...input.policy.metadata,
+        case_id: input.caseId,
+        evidence_ids: input.evidences.map((evidence) => evidence.id),
+      },
+    });
+
+    try {
+      await Promise.all([
+        safetyAssessmentService.recordAssessment({
+          subjectType: 'case',
+          subjectId: input.caseId,
+          source: 'evidence_assertion',
+          snapshot,
+          assessedByUserId: input.userId ?? null,
+          metadata: {
+            case_id: input.caseId,
+            evidence_ids: input.evidences.map((evidence) => evidence.id),
+            evidence_count: input.evidences.length,
+          },
+          updateActiveRiskState: snapshot.risk_level !== 'standard',
+        }),
+        ...input.evidences.map((evidence) =>
+          safetyAssessmentService.recordAssessment({
+            subjectType: 'evidence',
+            subjectId: evidence.id,
+            source: 'evidence_assertion',
+            snapshot,
+            assessedByUserId: input.userId ?? null,
+            metadata: {
+              case_id: input.caseId,
+              evidence_id: evidence.id,
+              file_type: evidence.file_type ?? null,
+              file_size: evidence.file_size ?? null,
+            },
+            updateActiveRiskState: snapshot.risk_level !== 'standard',
+          })
+        ),
+      ]);
+    } catch (error) {
+      logger.warn('Evidence safety assessment persistence failed', {
+        caseId: input.caseId,
+        evidenceIds: input.evidences.map((evidence) => evidence.id),
+        riskLevel: snapshot.risk_level,
+        error,
+      });
+    }
+  }
+
   private preAuthorizeUpload = async (req: Request, _res: Response, next: NextFunction) => {
     try {
       const caseId = req.params.id;
@@ -143,6 +209,13 @@ export class EvidenceController {
           ...evidence,
           file_url: fileService.signUrl(evidence.file_url),
         }));
+
+        await this.recordEvidenceSafetyAssessmentsBestEffort({
+          caseId,
+          userId,
+          policy: evidenceSafetyPolicy,
+          evidences,
+        });
 
         logger.info('Evidence uploaded', { caseId, count: signedEvidences.length, hasSession: !!sessionId });
 

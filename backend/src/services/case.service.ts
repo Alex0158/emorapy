@@ -12,7 +12,12 @@ import { normalizeJudgment } from '../utils/judgment';
 import { lockService } from '../utils/lock';
 import { LOCK_TTL, SESSION_EXPIRY, CASE_STATUS, CASE_MODE, PAGINATION, FILE_TYPE, PAIRING_STATUS } from '../utils/constants';
 import { getCaseProductFlow, isCaseParticipant, isSessionBoundCase } from '../utils/case-classifier';
-import { getFormalCaseCreatePolicy } from '../utils/product-safety-policy';
+import {
+  buildSafetyAssessmentSnapshotForEvidenceAssertion,
+  getFormalCaseCreatePolicy,
+  type FormalCaseCreatePolicy,
+} from '../utils/product-safety-policy';
+import { safetyAssessmentService } from './safety-assessment.service';
 
 export interface QuickCaseDto {
   plaintiff_statement: string;
@@ -40,6 +45,55 @@ export interface CreateCaseDto {
 }
 
 export class CaseService {
+  private async recordFormalCaseSafetyAssessmentBestEffort(input: {
+    caseId: string;
+    userId: string;
+    pairingId: string;
+    plaintiffId: string | null;
+    defendantId: string | null;
+    caseMode: string;
+    policy: FormalCaseCreatePolicy;
+  }) {
+    if (!input.policy.metadata || !input.policy.safetyAssertion) {
+      return;
+    }
+
+    const snapshot = buildSafetyAssessmentSnapshotForEvidenceAssertion(input.policy.safetyAssertion, {
+      reasons: input.policy.reasons,
+      metadata: {
+        ...input.policy.metadata,
+        case_id: input.caseId,
+        pairing_id: input.pairingId,
+        case_mode: input.caseMode,
+        plaintiff_id: input.plaintiffId,
+        defendant_id: input.defendantId,
+      },
+    });
+
+    try {
+      await safetyAssessmentService.recordAssessment({
+        subjectType: 'case',
+        subjectId: input.caseId,
+        source: 'formal_case_assertion',
+        snapshot,
+        assessedByUserId: input.userId,
+        metadata: {
+          case_id: input.caseId,
+          pairing_id: input.pairingId,
+          case_mode: input.caseMode,
+        },
+        updateActiveRiskState: snapshot.risk_level !== 'standard',
+      });
+    } catch (error) {
+      logger.warn('Formal case safety assessment persistence failed', {
+        caseId: input.caseId,
+        pairingId: input.pairingId,
+        riskLevel: snapshot.risk_level,
+        error,
+      });
+    }
+  }
+
   /**
    * 創建快速體驗案件
    */
@@ -296,6 +350,16 @@ export class CaseService {
       }
 
       return newCase;
+    });
+
+    await this.recordFormalCaseSafetyAssessmentBestEffort({
+      caseId: case_.id,
+      userId,
+      pairingId: data.pairing_id,
+      plaintiffId,
+      defendantId,
+      caseMode,
+      policy: formalCasePolicy,
     });
 
     return case_;

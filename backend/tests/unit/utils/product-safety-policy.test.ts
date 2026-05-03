@@ -1,4 +1,5 @@
 import {
+  buildSafetyAssessmentSnapshotForEvidenceAssertion,
   buildSafetyAssessmentSnapshotForRoute,
   getEvidenceSafetyAssertionPolicy,
   getFormalCaseCreatePolicy,
@@ -73,6 +74,40 @@ describe('product-safety-policy', () => {
     expect(buildSafetyAssessmentSnapshotForRoute('crisis_support')).toMatchObject({
       risk_level: 'imminent_crisis',
       judgment_route: 'crisis_support',
+      force_solo_repair: true,
+    });
+  });
+
+  it('證據安全聲明快照應區分資料敏感與關係安全風險', () => {
+    expect(buildSafetyAssessmentSnapshotForEvidenceAssertion({
+      contains_minor: false,
+      contains_sensitive_content: true,
+      contains_nonconsensual_content: false,
+      contains_illegal_content: false,
+      minor_guardian_or_self_upload_confirmed: false,
+      sensitive_content_handling_ack: true,
+    })).toMatchObject({
+      risk_level: 'sensitive',
+      judgment_route: 'standard',
+      can_invite_partner: true,
+      force_solo_repair: false,
+      metadata: {
+        kind: 'evidence_safety_assertion_snapshot',
+        data_handling_sensitive: true,
+      },
+    });
+
+    expect(buildSafetyAssessmentSnapshotForEvidenceAssertion({
+      contains_minor: true,
+      contains_sensitive_content: true,
+      contains_nonconsensual_content: false,
+      contains_illegal_content: false,
+      minor_guardian_or_self_upload_confirmed: true,
+      sensitive_content_handling_ack: true,
+    })).toMatchObject({
+      risk_level: 'minor_or_suspected_minor',
+      judgment_route: 'safety_support',
+      can_invite_partner: false,
       force_solo_repair: true,
     });
   });

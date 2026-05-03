@@ -44,6 +44,7 @@
 - `request-judgment` 超時契約：前端 `requestChatJudgment` 以 `180000ms`（`frontend/src/config/api.ts` 的 `API_CONFIG.chat.judgmentRequestTimeout`）作請求上限；後端對應 `AI_TIMEOUT.JUDGMENT_GENERATION=180000`，且單次 OpenAI 請求 `AI_TIMEOUT.OPENAI_REQUEST=90000`（`backend/src/utils/constants.ts`）。前端超時時不直接判定失敗，需回查 `judgment-status`。
 - `request-judgment` 成功載荷中的 `linkId` 是 chat->case 轉換鏈路主鍵；前端與運維排障需以 `roomId + linkId + caseId` 關聯查詢。
 - `ChatToCaseLink` 是識別 `chat_to_case` 產品流的最高優先級來源；後續 case list、notification、analytics、repair reminder 不得只用 `mode=collaborative` 或 `mode=quick` 推斷聊天室轉判決。
+- `request-judgment` 的安全 gate 必須使用 `backend/src/utils/product-safety-policy.ts` 的 `getChatJudgmentRequestPolicy`。`crisis_support` 會寫入 `safety_notice` 並拒絕轉判決；`safety_support` 可轉安全路由判決，但必須寫入 safety notice，且 `ChatToCaseLink.conversion_snapshot.safety_gate` 需保存 `can_request_chat_judgment / should_create_safety_notice / reasons` 供排障。
 - 訊息發送限速：同房 30 秒最多 6 條，且最小間隔 5 秒；違規回 `RATE_LIMIT_EXCEEDED`。
 - `history_visibility_mode` 直接決定轉判決可納入訊息的時間窗與可見性。
 - `request-judgment` 的 `included_message_ids` 必須是「可納入判決消息集合」子集：僅允許 `message_type=user_text` 且 `visibility_scope=all`，且在 `share_from_join_time/share_summary_only` 下需同時滿足 `created_at >= roleB.joined_at`；若提交越界 ID，後端返回 `NOT_FOUND`。

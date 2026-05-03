@@ -889,6 +889,11 @@ describe('ChatService', () => {
           conversion_snapshot: expect.objectContaining({
             pre_route: 'safety_support',
             pre_route_flags: expect.arrayContaining(['控制/暴力/威脅風險']),
+            safety_gate: expect.objectContaining({
+              can_request_chat_judgment: true,
+              should_create_safety_notice: true,
+              reasons: ['IPV-like signal'],
+            }),
             source_message_range: expect.objectContaining({
               first_message_id: 'm1',
               last_message_id: 'm2',

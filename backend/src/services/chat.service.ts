@@ -23,6 +23,7 @@ import { safetyRoutingService } from './safety-routing.service';
 import { chatAIOrchestrator } from './chat-ai-orchestrator.service';
 import { chatMetricsService } from './chat-metrics.service';
 import { analyzeMessageLayers, buildChatJudgmentStatement } from './chat-message-analysis';
+import { getChatJudgmentRequestPolicy } from '../utils/product-safety-policy';
 
 type ActorContext = {
   userId?: string;
@@ -966,35 +967,22 @@ export class ChatService {
         plaintiffStatement,
         defendantStatement: defendantStatement ?? '',
       });
-      if (preRouteDecision.route === 'crisis_support') {
-        if (aiParticipant) {
-          await prisma.chatMessage.create({
-            data: {
-              room_id: room.id,
-              sender_participant_id: aiParticipant.id,
-              message_type: 'safety_notice',
-              visibility_scope: ChatVisibilityScope.all,
-              content: '系統偵測到高風險危機訊號，已先切換安全支持流程，暫不進入一般判決。',
-              safety_flag: true,
-              safety_detail: preRouteDecision.detectedFlags.join('、'),
-            },
-          }).catch(() => undefined);
-        }
-        throw Errors.CASE_NOT_READY('偵測到危機風險，請先進入安全支持流程');
-      }
-
-      if (preRouteDecision.route === 'safety_support' && aiParticipant) {
+      const requestPolicy = getChatJudgmentRequestPolicy(preRouteDecision.route, preRouteDecision.reasons);
+      if (requestPolicy.shouldCreateSafetyNotice && aiParticipant && requestPolicy.noticeMessage) {
         await prisma.chatMessage.create({
           data: {
             room_id: room.id,
             sender_participant_id: aiParticipant.id,
             message_type: 'safety_notice',
             visibility_scope: ChatVisibilityScope.all,
-            content: '系統偵測到可能的安全風險訊號。後續判決將優先採用安全支持路由，避免對稱責任化建議。',
+            content: requestPolicy.noticeMessage,
             safety_flag: true,
             safety_detail: preRouteDecision.detectedFlags.join('、'),
           },
         }).catch(() => undefined);
+      }
+      if (!requestPolicy.canRequestChatJudgment) {
+        throw Errors.CASE_NOT_READY(requestPolicy.rejectionMessage ?? '目前安全路由不允許由聊天室直接轉判決');
       }
 
       let caseType = '其他衝突';
@@ -1069,6 +1057,11 @@ export class ChatService {
                 pre_route: preRouteDecision.route,
                 pre_route_reasons: preRouteDecision.reasons,
                 pre_route_flags: preRouteDecision.detectedFlags,
+                safety_gate: {
+                  can_request_chat_judgment: requestPolicy.canRequestChatJudgment,
+                  should_create_safety_notice: requestPolicy.shouldCreateSafetyNotice,
+                  reasons: requestPolicy.reasons,
+                },
                 emotion_highlights: layerAnalysis.emotionHighlights,
                 fact_highlights: layerAnalysis.factHighlights,
                 interaction_hints: layerAnalysis.interactionHints,

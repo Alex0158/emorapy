@@ -20,6 +20,15 @@ export interface ResponsibilityRatioVisibility {
   reason: string | null;
 }
 
+export interface ChatJudgmentRequestPolicy {
+  route: JudgmentRoute;
+  canRequestChatJudgment: boolean;
+  shouldCreateSafetyNotice: boolean;
+  noticeMessage: string | null;
+  rejectionMessage: string | null;
+  reasons: string[];
+}
+
 const ROUTE_VALUES = new Set<JudgmentRoute>(['standard', 'safety_support', 'crisis_support']);
 
 export function isJudgmentRoute(value: unknown): value is JudgmentRoute {
@@ -89,5 +98,41 @@ export function getProductSafetyPolicy(route: JudgmentRoute): ProductSafetyPolic
     canShowResponsibilityRatio: true,
     forceSoloRepair: false,
     reasons: ['標準路由允許一般修復旅程'],
+  };
+}
+
+export function getChatJudgmentRequestPolicy(
+  route: JudgmentRoute,
+  reasons: string[] = []
+): ChatJudgmentRequestPolicy {
+  if (route === 'crisis_support') {
+    return {
+      route,
+      canRequestChatJudgment: false,
+      shouldCreateSafetyNotice: true,
+      noticeMessage: '系統偵測到高風險危機訊號，已先切換安全支持流程，暫不進入一般判決。',
+      rejectionMessage: '偵測到危機風險，請先進入安全支持流程',
+      reasons: reasons.length > 0 ? reasons : ['危機支持路由不得由聊天室直接轉入一般判決'],
+    };
+  }
+
+  if (route === 'safety_support') {
+    return {
+      route,
+      canRequestChatJudgment: true,
+      shouldCreateSafetyNotice: true,
+      noticeMessage: '系統偵測到可能的安全風險訊號。後續判決將優先採用安全支持路由，避免對稱責任化建議。',
+      rejectionMessage: null,
+      reasons: reasons.length > 0 ? reasons : ['安全支持路由可轉判決，但必須保留安全降級提示'],
+    };
+  }
+
+  return {
+    route,
+    canRequestChatJudgment: true,
+    shouldCreateSafetyNotice: false,
+    noticeMessage: null,
+    rejectionMessage: null,
+    reasons: reasons.length > 0 ? reasons : ['標準路由可由聊天室轉判決'],
   };
 }

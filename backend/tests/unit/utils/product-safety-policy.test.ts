@@ -1,0 +1,42 @@
+import {
+  getChatJudgmentRequestPolicy,
+  getProductSafetyPolicy,
+  getResponsibilityRatioVisibilityForRoute,
+} from '../../../src/utils/product-safety-policy';
+
+describe('product-safety-policy', () => {
+  it('crisis_support 應禁止 chat-to-judgment 並要求 safety notice', () => {
+    const policy = getChatJudgmentRequestPolicy('crisis_support', ['crisis']);
+
+    expect(policy).toMatchObject({
+      route: 'crisis_support',
+      canRequestChatJudgment: false,
+      shouldCreateSafetyNotice: true,
+      rejectionMessage: '偵測到危機風險，請先進入安全支持流程',
+      reasons: ['crisis'],
+    });
+  });
+
+  it('safety_support 可轉安全路由判決，但必須產生 safety notice', () => {
+    const policy = getChatJudgmentRequestPolicy('safety_support');
+
+    expect(policy.canRequestChatJudgment).toBe(true);
+    expect(policy.shouldCreateSafetyNotice).toBe(true);
+    expect(policy.noticeMessage).toContain('安全風險');
+  });
+
+  it('standard 可直接轉判決且不需要 safety notice', () => {
+    const policy = getChatJudgmentRequestPolicy('standard');
+
+    expect(policy.canRequestChatJudgment).toBe(true);
+    expect(policy.shouldCreateSafetyNotice).toBe(false);
+    expect(policy.rejectionMessage).toBeNull();
+  });
+
+  it('product safety policy 與責任比例展示資格應保持一致', () => {
+    expect(getProductSafetyPolicy('safety_support').canShowResponsibilityRatio).toBe(false);
+    expect(getResponsibilityRatioVisibilityForRoute('safety_support').can_show).toBe(false);
+    expect(getProductSafetyPolicy('standard').canShowResponsibilityRatio).toBe(true);
+    expect(getResponsibilityRatioVisibilityForRoute('standard').can_show).toBe(true);
+  });
+});

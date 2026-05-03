@@ -17,8 +17,8 @@ import {
 import { Errors } from '../utils/errors';
 import {
   buildCaseProductFlowWhere,
-  CaseProductFlow,
 } from '../utils/case-classifier';
+import type { CaseProductFlow } from '../utils/case-classifier';
 
 const CASE_PRODUCT_FLOW_KEYS: CaseProductFlow[] = [
   'quick_single',
@@ -27,6 +27,31 @@ const CASE_PRODUCT_FLOW_KEYS: CaseProductFlow[] = [
   'formal_collaborative',
   'chat_to_case',
 ];
+
+function buildJudgmentProductFlowWhere(flow: CaseProductFlow): Prisma.JudgmentWhereInput {
+  return {
+    case: {
+      is: buildCaseProductFlowWhere(flow),
+    },
+  };
+}
+
+function buildExecutionProductFlowWhere(flow: CaseProductFlow): Prisma.ExecutionRecordWhereInput {
+  return {
+    status: 'completed',
+    reconciliation_plan: {
+      is: {
+        judgment: {
+          is: {
+            case: {
+              is: buildCaseProductFlowWhere(flow),
+            },
+          },
+        },
+      },
+    },
+  };
+}
 
 function parsePagination(req: Request) {
   const rawLimit = Number(req.query.limit ?? 20);
@@ -826,12 +851,34 @@ class AdminController {
 
   async reportFunnel(_req: Request, res: Response, next: NextFunction) {
     try {
-      const [registerCount, pairingCount, caseCount, judgmentCount, executionCount] = await Promise.all([
+      const [registerCount, pairingCount, caseCount, judgmentCount, executionCount, productFlowStages] = await Promise.all([
         prisma.user.count(),
         prisma.pairing.count({ where: { status: 'active' } }),
         prisma.case.count(),
         prisma.judgment.count(),
         prisma.executionRecord.count({ where: { status: 'completed' } }),
+        Promise.all(
+          CASE_PRODUCT_FLOW_KEYS.map(async (flow) => {
+            const [flowCaseCount, flowJudgmentCount, flowExecutionCount] = await Promise.all([
+              prisma.case.count({ where: buildCaseProductFlowWhere(flow) }),
+              prisma.judgment.count({ where: buildJudgmentProductFlowWhere(flow) }),
+              prisma.executionRecord.count({ where: buildExecutionProductFlowWhere(flow) }),
+            ]);
+
+            return {
+              key: flow,
+              stages: [
+                { key: 'case', count: flowCaseCount },
+                { key: 'judgment', count: flowJudgmentCount },
+                { key: 'execution_complete', count: flowExecutionCount },
+              ],
+              conversion: {
+                judgmentCompletionRate: flowCaseCount > 0 ? flowJudgmentCount / flowCaseCount : 0,
+                executionCompletionRate: flowJudgmentCount > 0 ? flowExecutionCount / flowJudgmentCount : 0,
+              },
+            };
+          })
+        ),
       ]);
 
       res.json({
@@ -844,6 +891,7 @@ class AdminController {
             { key: 'judgment', count: judgmentCount },
             { key: 'execution_complete', count: executionCount },
           ],
+          productFlowStages,
         },
       });
     } catch (error) {

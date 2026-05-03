@@ -652,6 +652,142 @@ describe('AdminController', () => {
     });
   });
 
+  describe('reportFunnel', () => {
+    it('應返回全局 funnel 與按產品流拆分的 case/judgment/execution funnel', async () => {
+      (mockUserCount as any).mockResolvedValue(12);
+      (mockPairingCount as any).mockResolvedValue(4);
+      (mockCaseCount as any)
+        .mockResolvedValueOnce(10)
+        .mockResolvedValueOnce(1)
+        .mockResolvedValueOnce(2)
+        .mockResolvedValueOnce(3)
+        .mockResolvedValueOnce(4)
+        .mockResolvedValueOnce(5);
+      (mockJudgmentCount as any)
+        .mockResolvedValueOnce(8)
+        .mockResolvedValueOnce(1)
+        .mockResolvedValueOnce(1)
+        .mockResolvedValueOnce(2)
+        .mockResolvedValueOnce(2)
+        .mockResolvedValueOnce(4);
+      (mockExecutionRecordCount as any)
+        .mockResolvedValueOnce(3)
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(1)
+        .mockResolvedValueOnce(1)
+        .mockResolvedValueOnce(2)
+        .mockResolvedValueOnce(3);
+
+      await adminController.reportFunnel(req as Request, res as Response, next);
+
+      expect(mockJudgmentCount).toHaveBeenCalledWith({
+        where: {
+          case: {
+            is: {
+              chat_to_case_links: { none: {} },
+              mode: 'quick',
+            },
+          },
+        },
+      });
+      expect(mockExecutionRecordCount).toHaveBeenCalledWith({
+        where: {
+          status: 'completed',
+          reconciliation_plan: {
+            is: {
+              judgment: {
+                is: {
+                  case: {
+                    is: {
+                      chat_to_case_links: { some: {} },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          data: expect.objectContaining({
+            stages: [
+              { key: 'register', count: 12 },
+              { key: 'pairing', count: 4 },
+              { key: 'case', count: 10 },
+              { key: 'judgment', count: 8 },
+              { key: 'execution_complete', count: 3 },
+            ],
+            productFlowStages: [
+              {
+                key: 'quick_single',
+                stages: [
+                  { key: 'case', count: 1 },
+                  { key: 'judgment', count: 1 },
+                  { key: 'execution_complete', count: 0 },
+                ],
+                conversion: {
+                  judgmentCompletionRate: 1,
+                  executionCompletionRate: 0,
+                },
+              },
+              {
+                key: 'quick_collaborative',
+                stages: [
+                  { key: 'case', count: 2 },
+                  { key: 'judgment', count: 1 },
+                  { key: 'execution_complete', count: 1 },
+                ],
+                conversion: {
+                  judgmentCompletionRate: 1 / 2,
+                  executionCompletionRate: 1,
+                },
+              },
+              {
+                key: 'formal_remote',
+                stages: [
+                  { key: 'case', count: 3 },
+                  { key: 'judgment', count: 2 },
+                  { key: 'execution_complete', count: 1 },
+                ],
+                conversion: {
+                  judgmentCompletionRate: 2 / 3,
+                  executionCompletionRate: 1 / 2,
+                },
+              },
+              {
+                key: 'formal_collaborative',
+                stages: [
+                  { key: 'case', count: 4 },
+                  { key: 'judgment', count: 2 },
+                  { key: 'execution_complete', count: 2 },
+                ],
+                conversion: {
+                  judgmentCompletionRate: 1 / 2,
+                  executionCompletionRate: 1,
+                },
+              },
+              {
+                key: 'chat_to_case',
+                stages: [
+                  { key: 'case', count: 5 },
+                  { key: 'judgment', count: 4 },
+                  { key: 'execution_complete', count: 3 },
+                ],
+                conversion: {
+                  judgmentCompletionRate: 4 / 5,
+                  executionCompletionRate: 3 / 4,
+                },
+              },
+            ],
+          }),
+        })
+      );
+      expect(next).not.toHaveBeenCalled();
+    });
+  });
+
   describe('pagination and audit serialization', () => {
     it('listUsers 無用戶時應返回 items 空陣列與 total 0（F10 邊界）', async () => {
       (mockUserFindMany as any).mockResolvedValue([]);

@@ -82,7 +82,7 @@ Local development means:
 2. Main web: `cd frontend && npm run dev`
 3. Admin web: `cd frontend-admin && npm run dev`
 4. Database: Supabase dev project `Mother Bear Court Dev` (`lbukyqztkkkztfrfltlh`) unless the user explicitly chooses another dev database.
-5. Redis is optional for local development; when Redis is not running, keep `REDIS_URL` empty and `ALLOW_SIMPLE_LOCK=true`.
+5. Redis is part of the current local development baseline. Use an isolated development Redis, currently `redis://127.0.0.1:6379` in the active local `.env`, with `ALLOW_SIMPLE_LOCK=false`. If Redis is unavailable and a temporary fallback is needed, record the drift under `docs/核心開發文件/07-待處理問題與治理/待處理/` before using `REDIS_URL=` and `ALLOW_SIMPLE_LOCK=true`.
 
 Do not assume local green status means release is current.
 

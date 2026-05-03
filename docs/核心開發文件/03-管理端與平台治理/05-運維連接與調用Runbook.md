@@ -96,6 +96,15 @@ REDIS_URL=
 ALLOW_SIMPLE_LOCK=true
 ```
 
+當前本機開發版已接入本機 Redis：
+
+```env
+REDIS_URL=redis://127.0.0.1:6379
+ALLOW_SIMPLE_LOCK=false
+```
+
+`REDIS_URL=` + `ALLOW_SIMPLE_LOCK=true` 只可作臨時降級；若再次使用，必須同步記入 `07-待處理問題與治理/待處理/`。
+
 第一次建立 Supabase Dev DB schema 時：
 
 ```bash

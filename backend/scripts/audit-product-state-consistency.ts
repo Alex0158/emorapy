@@ -23,7 +23,7 @@ const DEFAULT_STUCK_MINUTES = 30;
 
 type AuditSampleDetail = {
   id: string;
-  entityType: 'case' | 'chat_room' | 'chat_to_case_link';
+  entityType: 'case' | 'chat_room' | 'chat_to_case_link' | 'repair_track';
   productFlow?: CaseProductFlow;
   mode?: string;
   status?: string;
@@ -31,6 +31,10 @@ type AuditSampleDetail = {
   roomId?: string;
   caseId?: string;
   judgmentId?: string | null;
+  planId?: string;
+  latestStreamId?: string | null;
+  latestStreamStatus?: string | null;
+  latestStreamUpdatedAt?: Date | null;
   linkedCaseIds?: string[];
   updatedAt?: Date;
   createdAt?: Date;
@@ -39,7 +43,7 @@ type AuditSampleDetail = {
 type RecoveryProposal = {
   id: string;
   severity: 'warning' | 'critical';
-  entityType: 'case' | 'chat_room' | 'chat_to_case_link';
+  entityType: 'case' | 'chat_room' | 'chat_to_case_link' | 'repair_track';
   entityIds: string[];
   recommendedAction: string;
   automaticFixAvailable: false;
@@ -115,8 +119,21 @@ async function collectAuditItems(stuckMinutes = DEFAULT_STUCK_MINUTES): Promise<
     judgment_id: null,
     case: { status: 'completed' },
   } as const;
+  const stuckRepairTracksWhere = {
+    status: 'replanning',
+    updated_at: { lt: cutoff },
+  } as const;
 
-  const [stuckCasesCount, stuckCases, stuckChatRoomsCount, stuckChatRooms, incompleteChatLinksCount, incompleteChatLinks] = await Promise.all([
+  const [
+    stuckCasesCount,
+    stuckCases,
+    stuckChatRoomsCount,
+    stuckChatRooms,
+    incompleteChatLinksCount,
+    incompleteChatLinks,
+    stuckRepairTracksCount,
+    stuckRepairTracks,
+  ] = await Promise.all([
     prisma.case.count({ where: stuckCasesWhere }),
     prisma.case.findMany({
       where: stuckCasesWhere,
@@ -173,7 +190,57 @@ async function collectAuditItems(stuckMinutes = DEFAULT_STUCK_MINUTES): Promise<
       take: 20,
       orderBy: { created_at: 'asc' },
     }),
+    prisma.repairTrack.count({ where: stuckRepairTracksWhere }),
+    prisma.repairTrack.findMany({
+      where: stuckRepairTracksWhere,
+      select: {
+        id: true,
+        plan_id: true,
+        status: true,
+        status_reason: true,
+        updated_at: true,
+        last_replan_at: true,
+        plan: {
+          select: {
+            judgment_id: true,
+            judgment: {
+              select: {
+                case_id: true,
+              },
+            },
+          },
+        },
+      },
+      take: 20,
+      orderBy: { updated_at: 'asc' },
+    }),
   ]);
+
+  const stuckRepairTrackIds = stuckRepairTracks.map((item) => item.id);
+  const latestRepairTrackStreams = stuckRepairTrackIds.length > 0
+    ? await prisma.aIStreamSession.findMany({
+        where: {
+          scope_type: 'repair_track',
+          scope_id: { in: stuckRepairTrackIds },
+        },
+        select: {
+          scope_id: true,
+          stream_id: true,
+          request_id: true,
+          status: true,
+          last_event_type: true,
+          updated_at: true,
+        },
+        orderBy: { updated_at: 'desc' },
+        take: stuckRepairTrackIds.length * 3,
+      })
+    : [];
+  const latestStreamByTrackId = new Map<string, (typeof latestRepairTrackStreams)[number]>();
+  for (const stream of latestRepairTrackStreams) {
+    if (!latestStreamByTrackId.has(stream.scope_id)) {
+      latestStreamByTrackId.set(stream.scope_id, stream);
+    }
+  }
 
   return [
     {
@@ -265,6 +332,43 @@ async function collectAuditItems(stuckMinutes = DEFAULT_STUCK_MINUTES): Promise<
           '只有在 case_id 對應唯一 judgment 時才可補 judgment_id。',
           '若 case completed 但無 judgment row，應先按 stuck case 恢復流程處理。',
           '此類修復涉及資料寫入，必須先記錄工單或待處理任務。',
+        ],
+      }),
+    },
+    {
+      check: `repair tracks stuck replanning over ${stuckMinutes}m`,
+      count: stuckRepairTracksCount,
+      sampleIds: stuckRepairTracks.map((item) => item.id),
+      sampleDetails: stuckRepairTracks.map((item) => {
+        const latestStream = latestStreamByTrackId.get(item.id);
+        return {
+          id: item.id,
+          entityType: 'repair_track',
+          status: item.status,
+          planId: item.plan_id,
+          caseId: item.plan.judgment.case_id,
+          judgmentId: item.plan.judgment_id,
+          latestStreamId: latestStream?.stream_id ?? null,
+          latestStreamStatus: latestStream?.status ?? null,
+          latestStreamUpdatedAt: latestStream?.updated_at ?? null,
+          updatedAt: item.updated_at,
+        };
+      }),
+      recoveryProposal: buildRecoveryProposal({
+        id: 'recover-stuck-repair-track-replan',
+        severity: 'warning',
+        entityType: 'repair_track',
+        entityIds: stuckRepairTracks.map((item) => item.id),
+        recommendedAction: '人工核對 repair_track 對應最新 AI stream；若 stream 已 failed/cancelled 或不存在，允許用既有 replan retry 流程重試，或按最後可用方案恢復到 solo_active/co_active。',
+        verificationCommands: [
+          'cd backend && npm run ops:product-state:audit',
+          '查詢 repair_tracks、reconciliation_plans、ai_stream_sessions、ai_stream_events 對應 row',
+          '完成人工恢復後再次執行 cd backend && npm run ops:product-state:audit',
+        ],
+        notes: [
+          '不要直接把 replanning track 改回 active；必須先核對最新 stream 狀態與是否已生成 superseded_by_plan_id。',
+          '如果最新 stream 仍為 created/queued/started/streaming/completed，先確認是否仍在有效窗口內或可從 snapshot 恢復。',
+          '如果 stream 已 persisted 但 track 仍卡在 replanning，優先核對新 plan version、step_progresses 與 repair_track_events 是否已寫完。',
         ],
       }),
     },

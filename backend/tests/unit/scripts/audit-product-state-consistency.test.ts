@@ -11,6 +11,13 @@ const prismaMock = {
     count: jest.fn(),
     findMany: jest.fn(),
   },
+  repairTrack: {
+    count: jest.fn(),
+    findMany: jest.fn(),
+  },
+  aIStreamSession: {
+    findMany: jest.fn(),
+  },
   $disconnect: jest.fn(),
 };
 
@@ -25,7 +32,7 @@ describe('audit-product-state-consistency', () => {
     jest.clearAllMocks();
   });
 
-  it('返回三類只讀一致性檢查結果', async () => {
+  it('返回四類只讀一致性檢查結果', async () => {
     prismaMock.case.count.mockResolvedValueOnce(2);
     prismaMock.case.findMany.mockResolvedValueOnce([
       {
@@ -69,6 +76,33 @@ describe('audit-product-state-consistency', () => {
           status: 'completed',
           session_id: null,
         },
+      },
+    ]);
+    prismaMock.repairTrack.count.mockResolvedValueOnce(1);
+    prismaMock.repairTrack.findMany.mockResolvedValueOnce([
+      {
+        id: 'track-a',
+        plan_id: 'plan-a',
+        status: 'replanning',
+        status_reason: 'manual',
+        updated_at: new Date('2026-05-03T00:04:00.000Z'),
+        last_replan_at: new Date('2026-05-03T00:04:00.000Z'),
+        plan: {
+          judgment_id: 'judgment-a',
+          judgment: {
+            case_id: 'case-a',
+          },
+        },
+      },
+    ]);
+    prismaMock.aIStreamSession.findMany.mockResolvedValueOnce([
+      {
+        scope_id: 'track-a',
+        stream_id: 'stream-a',
+        request_id: 'request-a',
+        status: 'failed',
+        last_event_type: 'stream.failed',
+        updated_at: new Date('2026-05-03T00:05:00.000Z'),
       },
     ]);
 
@@ -151,9 +185,48 @@ describe('audit-product-state-consistency', () => {
           requiresHumanApproval: true,
         }),
       }),
+      expect.objectContaining({
+        check: 'repair tracks stuck replanning over 15m',
+        count: 1,
+        sampleIds: ['track-a'],
+        sampleDetails: [
+          expect.objectContaining({
+            id: 'track-a',
+            entityType: 'repair_track',
+            status: 'replanning',
+            planId: 'plan-a',
+            caseId: 'case-a',
+            judgmentId: 'judgment-a',
+            latestStreamId: 'stream-a',
+            latestStreamStatus: 'failed',
+          }),
+        ],
+        recoveryProposal: expect.objectContaining({
+          id: 'recover-stuck-repair-track-replan',
+          entityType: 'repair_track',
+          entityIds: ['track-a'],
+          automaticFixAvailable: false,
+          requiresHumanApproval: true,
+        }),
+      }),
     ]);
     expect(prismaMock.case.count).toHaveBeenCalledWith({
       where: expect.objectContaining({ status: 'in_progress' }),
+    });
+    expect(prismaMock.repairTrack.count).toHaveBeenCalledWith({
+      where: expect.objectContaining({ status: 'replanning' }),
+    });
+    expect(prismaMock.aIStreamSession.findMany).toHaveBeenCalledWith({
+      where: {
+        scope_type: 'repair_track',
+        scope_id: { in: ['track-a'] },
+      },
+      select: expect.objectContaining({
+        stream_id: true,
+        status: true,
+      }),
+      orderBy: { updated_at: 'desc' },
+      take: 3,
     });
   });
 
@@ -164,10 +237,13 @@ describe('audit-product-state-consistency', () => {
     prismaMock.chatRoom.findMany.mockResolvedValueOnce([]);
     prismaMock.chatToCaseLink.count.mockResolvedValueOnce(0);
     prismaMock.chatToCaseLink.findMany.mockResolvedValueOnce([]);
+    prismaMock.repairTrack.count.mockResolvedValueOnce(0);
+    prismaMock.repairTrack.findMany.mockResolvedValueOnce([]);
 
     const result = await runProductStateConsistencyAudit(30);
 
     expect(result.every((item) => item.recoveryProposal === null)).toBe(true);
     expect(result.every((item) => item.sampleDetails.length === 0)).toBe(true);
+    expect(prismaMock.aIStreamSession.findMany).not.toHaveBeenCalled();
   });
 });

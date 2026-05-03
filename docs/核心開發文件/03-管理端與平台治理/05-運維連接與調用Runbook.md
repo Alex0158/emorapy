@@ -22,7 +22,7 @@ cd backend && npm run precheck:pairing:normal-uniqueness
 npm run docs:check
 ```
 
-`ops:release:status` 用於查發布版狀態；`ops:db:status` 用於查當前 `DATABASE_URL` 對應的 Prisma migration state；`ops:product-state:audit` 用於只讀檢查 case / chat-to-case 的卡住狀態，輸出產品流樣本細節與人工 recovery proposal；`precheck:pairing:normal-uniqueness` 用於只讀檢查一個 user 是否同時出現在多個 `normal pending/active` pairing；`docs:check` 用於確認正式文檔與台賬仍閉環。
+`ops:release:status` 用於查發布版狀態；`ops:db:status` 用於查當前 `DATABASE_URL` 對應的 Prisma migration state；`ops:product-state:audit` 用於只讀檢查 case / chat-to-case / repair track replanning 的卡住狀態，輸出產品流、repair track AI stream 樣本細節與人工 recovery proposal；`precheck:pairing:normal-uniqueness` 用於只讀檢查一個 user 是否同時出現在多個 `normal pending/active` pairing；`docs:check` 用於確認正式文檔與台賬仍閉環。
 
 ## 2. 平台地圖
 
@@ -132,7 +132,7 @@ DATABASE_URL="postgresql://..." npm run prisma:seed
 
 ## 5.1 產品狀態一致性與恢復提案
 
-排查卡住的判決生成、chat-to-case 轉換或缺失判決連結時，固定先跑：
+排查卡住的判決生成、chat-to-case 轉換、缺失判決連結或 repair replan AI stream 時，固定先跑：
 
 ```bash
 cd backend && npm run ops:product-state:audit
@@ -142,7 +142,7 @@ cd backend && npm run ops:product-state:audit
 
 1. `checks[].count`：該類不一致或卡住狀態的數量。
 2. `checks[].sampleIds`：最多 20 個樣本 ID，供人工查詢。
-3. `checks[].sampleDetails`：最多 20 個樣本的產品流與關聯上下文；case 樣本包含 `productFlow / mode / status / sessionBound`，chat-to-case 樣本包含 `roomId / caseId / judgmentId / linkedCaseIds` 等人工排查線索。
+3. `checks[].sampleDetails`：最多 20 個樣本的產品流與關聯上下文；case 樣本包含 `productFlow / mode / status / sessionBound`，chat-to-case 樣本包含 `roomId / caseId / judgmentId / linkedCaseIds`，repair track 樣本包含 `planId / caseId / judgmentId / latestStreamId / latestStreamStatus` 等人工排查線索。
 4. `checks[].recoveryProposal`：當 count > 0 時提供人工恢復建議；當 count = 0 時為 `null`。
 5. `recoveryProposal.automaticFixAvailable` 固定為 `false`，表示此命令不會、也不應自動修改資料。
 6. `recoveryProposal.requiresHumanApproval` 固定為 `true`，任何 production data 寫入前必須先建立待處理任務或工單。
@@ -152,6 +152,7 @@ cd backend && npm run ops:product-state:audit
 1. 不得只憑 audit proposal 直接更新 production row。
 2. 不得只修改 `chat_rooms.status` 而不核對 `chat_to_case_links / cases / judgments`。
 3. 不得把 `cases.status=in_progress` 直接改成 `completed`；必須先確認是否已有唯一 judgment 或仍有 active AI stream。
+4. 不得把 `repair_tracks.status=replanning` 直接改回 active；必須先核對最新 `ai_stream_sessions / ai_stream_events`、新 plan version 與 step progress 是否已完整落庫。
 
 ## 6. Vercel 固定查法
 

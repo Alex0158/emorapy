@@ -67,6 +67,7 @@ export class ChatService {
   private readonly ROOM_RATE_WINDOW_MS = 30_000;
   private readonly ROOM_RATE_MAX = 6;
   private readonly ROOM_MIN_INTERVAL_MS = 5_000;
+  private readonly INVITE_COOLDOWN_MS = 60_000;
 
   private checkRoomRateLimit(roomId: string) {
     const now = Date.now();
@@ -292,6 +293,19 @@ export class ChatService {
     const activeRoleB = room.participants.find((p) => p.role_in_room === 'roleB' && p.is_active);
     if (activeRoleB) {
       throw Errors.CONFLICT('聊天室已有 B 方成員，無需重複邀請');
+    }
+
+    const recentInvite = await prisma.chatInvite.findFirst({
+      where: {
+        room_id: room.id,
+        created_at: { gt: new Date(Date.now() - this.INVITE_COOLDOWN_MS) },
+      },
+      orderBy: { created_at: 'desc' },
+      select: { id: true },
+    });
+    if (recentInvite) {
+      chatMetricsService.recordRateLimit().catch(() => undefined);
+      throw Errors.RATE_LIMIT_EXCEEDED('邀請發送過於頻繁，請稍後再試');
     }
 
     const expiresInHours = Math.max(1, Math.min(input.expiresInHours ?? 24, 168));

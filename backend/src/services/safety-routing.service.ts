@@ -13,6 +13,95 @@ export interface SafetyRouteDecision {
   detectedFlags: string[];
 }
 
+export type ReconciliationIntentForSafetyPolicy = 'repair' | 'cool_down' | 'graceful_exit' | 'safety_support';
+
+export interface ProductSafetyPolicy {
+  route: JudgmentRoute;
+  isHighRisk: boolean;
+  defaultReconciliationIntent: ReconciliationIntentForSafetyPolicy;
+  allowedReconciliationIntents: ReconciliationIntentForSafetyPolicy[];
+  canInvitePartner: boolean;
+  canUseCoRepair: boolean;
+  canNotifyPartner: boolean;
+  forceSoloRepair: boolean;
+  reasons: string[];
+}
+
+const ROUTE_VALUES = new Set<JudgmentRoute>(['standard', 'safety_support', 'crisis_support']);
+
+function readStoredRoute(emotionalAnalysis?: unknown): JudgmentRoute | null {
+  if (!emotionalAnalysis || typeof emotionalAnalysis !== 'object') {
+    return null;
+  }
+  const record = emotionalAnalysis as Record<string, unknown>;
+  const route = record.route ?? record.judgment_route;
+  return typeof route === 'string' && ROUTE_VALUES.has(route as JudgmentRoute)
+    ? route as JudgmentRoute
+    : null;
+}
+
+export function getProductSafetyPolicy(route: JudgmentRoute): ProductSafetyPolicy {
+  if (route === 'crisis_support') {
+    return {
+      route,
+      isHighRisk: true,
+      defaultReconciliationIntent: 'safety_support',
+      allowedReconciliationIntents: ['safety_support', 'cool_down', 'graceful_exit'],
+      canInvitePartner: false,
+      canUseCoRepair: false,
+      canNotifyPartner: false,
+      forceSoloRepair: true,
+      reasons: ['危機支持路由不得進入共同修復或伴侶召回'],
+    };
+  }
+
+  if (route === 'safety_support') {
+    return {
+      route,
+      isHighRisk: true,
+      defaultReconciliationIntent: 'safety_support',
+      allowedReconciliationIntents: ['safety_support', 'cool_down', 'graceful_exit'],
+      canInvitePartner: false,
+      canUseCoRepair: false,
+      canNotifyPartner: false,
+      forceSoloRepair: true,
+      reasons: ['安全支持路由不得把關係風險對稱化或推進共同修復'],
+    };
+  }
+
+  return {
+    route,
+    isHighRisk: false,
+    defaultReconciliationIntent: 'repair',
+    allowedReconciliationIntents: ['repair', 'cool_down', 'graceful_exit', 'safety_support'],
+    canInvitePartner: true,
+    canUseCoRepair: true,
+    canNotifyPartner: true,
+    forceSoloRepair: false,
+    reasons: ['標準路由允許一般修復旅程'],
+  };
+}
+
+export function getProductSafetyPolicyForJudgment(input: {
+  emotional_analysis?: unknown;
+  judgment_content?: string | null;
+}): ProductSafetyPolicy {
+  const storedRoute = readStoredRoute(input.emotional_analysis);
+  if (storedRoute) {
+    return getProductSafetyPolicy(storedRoute);
+  }
+
+  if (input.judgment_content) {
+    const fallbackDecision = safetyRoutingService.decideRoute({
+      plaintiffStatement: input.judgment_content,
+      defendantStatement: '',
+    });
+    return getProductSafetyPolicy(fallbackDecision.route);
+  }
+
+  return getProductSafetyPolicy('standard');
+}
+
 /**
  * 判決前安全分流：
  * - crisis_support：自傷/自殺風險，優先生命安全
@@ -61,4 +150,3 @@ export class SafetyRoutingService {
 }
 
 export const safetyRoutingService = new SafetyRoutingService();
-

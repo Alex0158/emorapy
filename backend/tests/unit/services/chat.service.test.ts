@@ -128,6 +128,7 @@ describe('ChatService', () => {
     lockServiceMock.withLock.mockImplementation(async (_key: string, fn: any) => fn());
     prismaMock.$transaction.mockImplementation(async (fn: any) => fn(prismaMock));
     prismaMock.chatMessage.count.mockResolvedValue(0);
+    prismaMock.chatInvite.findFirst.mockResolvedValue(null);
     prismaMock.chatRoom.updateMany.mockResolvedValue({ count: 1 });
     prismaMock.chatParticipant.findFirst.mockResolvedValue(null);
     prismaMock.chatParticipant.findUnique.mockResolvedValue({
@@ -1197,6 +1198,29 @@ describe('ChatService', () => {
         }),
       })
     );
+  });
+
+  it('createInvite: 同房間短時間重複邀請應被限流', async () => {
+    prismaMock.chatRoom.findFirst.mockResolvedValueOnce({
+      id: 'room-invite-cooldown',
+      status: 'solo_active',
+      owner_user_id: 'u1',
+      history_visibility_mode: 'share_summary_only',
+      participants: [
+        { id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true },
+      ],
+    });
+    prismaMock.chatInvite.findFirst.mockResolvedValueOnce({
+      id: 'inv-recent',
+      created_at: new Date(),
+    });
+
+    await expect(
+      service.createInvite('room-invite-cooldown', { userId: 'u1' }, { expiresInHours: 12 })
+    ).rejects.toMatchObject({
+      code: 'RATE_LIMIT_EXCEEDED',
+    });
+    expect(prismaMock.chatInvite.create).not.toHaveBeenCalled();
   });
 
   it('createInvite: 房間狀態 CAS 失敗時應拒絕（避免競態）', async () => {

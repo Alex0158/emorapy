@@ -98,6 +98,7 @@ const baseJudgment = {
   defendant_ratio: 50,
   summary: '摘要',
   judgment_content: '判決內容',
+  emotional_analysis: null,
 };
 
 const storedPlan = {
@@ -180,6 +181,62 @@ describe('ReconciliationService', () => {
     expect(mockGenerateReconciliationPlans).not.toHaveBeenCalled();
     expect(result.plans[0].id).toBe('plan-1');
     expect(result.intent).toBe('repair');
+  });
+
+  it('高風險判決未指定 intent 時應默認生成 safety_support 方案', async () => {
+    const safetyJudgment = {
+      ...baseJudgment,
+      emotional_analysis: { route: 'safety_support' },
+      judgment_content: '判決內容',
+    };
+    prismaMock.judgment.findUnique.mockResolvedValue(safetyJudgment);
+    prismaMock.reconciliationPlan.findMany.mockResolvedValue([]);
+    mockGenerateReconciliationPlans.mockResolvedValue([{ ...validPlanContent, risk_note: '安全優先' }] as never);
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) => {
+      const tx = {
+        reconciliationPlan: {
+          create: jest.fn().mockResolvedValue({
+            ...storedPlan,
+            intent: 'safety_support',
+            judgment: safetyJudgment,
+            plan_content: JSON.stringify({ ...validPlanContent, risk_note: '安全優先' }),
+          } as never),
+          updateMany: jest.fn(),
+        },
+        repairTrack: {
+          updateMany: jest.fn(),
+        },
+      };
+      return fn(tx);
+    });
+
+    const result = await service.generatePlans('judge-1', undefined, 'u1');
+
+    expect(prismaMock.reconciliationPlan.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ judgment_id: 'judge-1', intent: 'safety_support' }),
+    }));
+    expect(mockGenerateReconciliationPlans).toHaveBeenCalledWith(
+      '情感需求衝突',
+      { plaintiff: 50, defendant: 50 },
+      '摘要',
+      undefined,
+      expect.stringContaining('安全支持路由'),
+      undefined,
+      expect.objectContaining({ intent: 'safety_support' }),
+    );
+    expect(result.intent).toBe('safety_support');
+  });
+
+  it('高風險判決明確要求 repair 時應拒絕一般共同修復方案', async () => {
+    prismaMock.judgment.findUnique.mockResolvedValue({
+      ...baseJudgment,
+      emotional_analysis: { route: 'crisis_support' },
+    });
+
+    await expect(service.generatePlans('judge-1', { intent: 'repair' }, 'u1')).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+    });
+    expect(mockGenerateReconciliationPlans).not.toHaveBeenCalled();
   });
 
   it('selectPlan 應為當前用戶建立承諾與 track', async () => {
@@ -325,5 +382,21 @@ describe('ReconciliationService', () => {
     expect(prismaMock.repairParticipantState.upsert).toHaveBeenCalled();
     expect(prismaMock.repairTrackEvent.create).toHaveBeenCalled();
     expect(result.commitment.current_user.commitment_status).toBe('viewed');
+  });
+
+  it('安全支持方案應拒絕邀請伴侶加入修復旅程', async () => {
+    prismaMock.reconciliationPlan.findUnique.mockResolvedValue({
+      ...storedPlan,
+      intent: 'safety_support',
+      judgment: {
+        ...baseJudgment,
+        emotional_analysis: { route: 'safety_support' },
+      },
+    });
+
+    await expect(service.invitePartner('plan-1', 'u1')).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
+    expect(prismaMock.repairTrack.create).not.toHaveBeenCalled();
   });
 });

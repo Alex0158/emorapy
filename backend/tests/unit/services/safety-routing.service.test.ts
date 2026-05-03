@@ -3,7 +3,11 @@
  * 對齊 F02-BUG-002 建議驗證方案：打人/動手/推/扇巴掌/拉扯等語句必須進入 safety_support
  */
 import { describe, it, expect } from '@jest/globals';
-import { safetyRoutingService } from '../../../src/services/safety-routing.service';
+import {
+  getProductSafetyPolicy,
+  getProductSafetyPolicyForJudgment,
+  safetyRoutingService,
+} from '../../../src/services/safety-routing.service';
 
 describe('SafetyRoutingService', () => {
   describe('decideRoute - IPV 信號應進入 safety_support（F02-BUG-002 護欄）', () => {
@@ -154,6 +158,44 @@ describe('SafetyRoutingService', () => {
         defendantStatement: undefined as unknown as string,
       });
       expect(result.route).toBe('safety_support');
+    });
+  });
+
+  describe('product safety policy', () => {
+    it('stored safety route 應禁止伴侶邀請與共同修復，並默認 safety_support intent', () => {
+      const policy = getProductSafetyPolicyForJudgment({
+        emotional_analysis: { route: 'safety_support' },
+        judgment_content: '一般內容',
+      });
+
+      expect(policy).toMatchObject({
+        route: 'safety_support',
+        isHighRisk: true,
+        defaultReconciliationIntent: 'safety_support',
+        canInvitePartner: false,
+        canUseCoRepair: false,
+        canNotifyPartner: false,
+        forceSoloRepair: true,
+      });
+      expect(policy.allowedReconciliationIntents).not.toContain('repair');
+    });
+
+    it('沒有 stored route 時應用 judgment_content fallback 判斷危機路由', () => {
+      const policy = getProductSafetyPolicyForJudgment({
+        judgment_content: '判決內容提到自殺念頭，需要先求助',
+      });
+
+      expect(policy.route).toBe('crisis_support');
+      expect(policy.defaultReconciliationIntent).toBe('safety_support');
+    });
+
+    it('standard policy 應允許一般修復與伴侶通知', () => {
+      const policy = getProductSafetyPolicy('standard');
+
+      expect(policy.canInvitePartner).toBe(true);
+      expect(policy.canUseCoRepair).toBe(true);
+      expect(policy.canNotifyPartner).toBe(true);
+      expect(policy.allowedReconciliationIntents).toContain('repair');
     });
   });
 });

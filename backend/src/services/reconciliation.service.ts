@@ -20,6 +20,7 @@ import {
   type RepairJourneyContext,
   type RepairJourneyViewerRole,
 } from './repair-journey.service';
+import { getProductSafetyPolicyForJudgment } from './safety-routing.service';
 
 export type ReconciliationIntent = 'repair' | 'cool_down' | 'graceful_exit' | 'safety_support';
 export type PlanStylePreference = 'action' | 'conversation' | 'companionship' | 'distance';
@@ -308,6 +309,7 @@ export class ReconciliationService {
 
   private buildJourneyContext(plan: PlanRecordForHydration, userId: string) {
     const commitment = this.buildCommitmentSummary(plan, userId);
+    const safetyPolicy = getProductSafetyPolicyForJudgment(plan.judgment);
     return buildRepairJourneyContext({
       judgmentId: plan.judgment_id,
       planId: plan.id,
@@ -315,11 +317,11 @@ export class ReconciliationService {
       trackStatus: (plan.repair_track?.status as RepairTrackStatusValue | undefined) ?? 'draft',
       currentCommitment: commitment.current_user.commitment_status as CommitmentStatusValue,
       partnerCommitment: (commitment.partner?.commitment_status as CommitmentStatusValue | undefined) ?? null,
-      canInvite: !!this.getOtherParticipantId(plan.judgment.case, userId),
+      canInvite: safetyPolicy.canInvitePartner && !!this.getOtherParticipantId(plan.judgment.case, userId),
       hasPartner: !!commitment.partner,
       isDualCommitted: commitment.is_dual_committed,
       statusReason: plan.repair_track?.status_reason ?? null,
-      recommendedMode: commitment.recommended_mode,
+      recommendedMode: safetyPolicy.forceSoloRepair ? 'solo' : commitment.recommended_mode,
     });
   }
 
@@ -489,11 +491,15 @@ export class ReconciliationService {
     const declinedCount = track.participant_states.filter((state) => state.commitment_status === 'declined').length;
     const deferredCount = track.participant_states.filter((state) => state.commitment_status === 'deferred').length;
     const pausedCount = track.participant_states.filter((state) => state.commitment_status === 'paused').length;
-    const nextRecommendedMode = committedCount >= 2 ? 'co' : 'solo';
+    const forceSoloRepair = track.intent === 'safety_support';
+    const nextRecommendedMode = forceSoloRepair ? 'solo' : committedCount >= 2 ? 'co' : 'solo';
     const shouldKeepRuntimeState = ['solo_active', 'co_active', 'paused', 'completed', 'closed', 'replanning'].includes(track.status);
+    const keptRuntimeStatus = forceSoloRepair && track.status === 'co_active' ? 'solo_active' : track.status;
     const nextStatus: RepairTrackStatusValue = shouldKeepRuntimeState
-      ? track.status
-      : committedCount >= 2
+      ? keptRuntimeStatus as RepairTrackStatusValue
+      : forceSoloRepair
+        ? 'draft'
+        : committedCount >= 2
         ? 'draft'
         : invitedAt || track.partner_invited_at
           ? 'partner_invited'
@@ -619,7 +625,6 @@ export class ReconciliationService {
    * 生成和好方案
    */
   async generatePlans(judgmentId: string, input?: GeneratePlansInput, userId?: string) {
-    const intent = input?.intent ?? 'repair';
     const preferences = input?.preferences;
     const forceRegenerate = input?.force_regenerate ?? false;
 
@@ -645,6 +650,15 @@ export class ReconciliationService {
 
     if (userId && judgment.case.plaintiff_id !== userId && judgment.case.defendant_id !== userId) {
       throw Errors.FORBIDDEN('無權限生成和好方案');
+    }
+
+    const safetyPolicy = getProductSafetyPolicyForJudgment(judgment);
+    const intent = input?.intent ?? safetyPolicy.defaultReconciliationIntent;
+    if (!safetyPolicy.allowedReconciliationIntents.includes(intent)) {
+      throw Errors.VALIDATION_ERROR('此判決路由不允許生成一般共同修復方案，請改用安全支持或低壓退出方向');
+    }
+    if (safetyPolicy.forceSoloRepair && preferences?.invite_partner) {
+      throw Errors.VALIDATION_ERROR('安全支持路由不允許邀請伴侶加入修復旅程');
     }
 
     const existingPlans = await prisma.reconciliationPlan.findMany({
@@ -701,6 +715,11 @@ export class ReconciliationService {
     }
 
     let safetyContext: string | undefined;
+    if (safetyPolicy.route === 'crisis_support') {
+      safetyContext = '本案件已標記為危機支持路由。禁止共同修復、責任施壓與伴侶召回，請優先提供個人安全與危機支持方案。';
+    } else if (safetyPolicy.route === 'safety_support') {
+      safetyContext = '本案件已標記為安全支持路由。禁止共同修復、責任對稱化與伴侶召回，請優先提供個人安全規劃。';
+    }
     if (judgment.judgment_content) {
       const content = judgment.judgment_content;
       const hasIPV = IPV_SIGNAL_REGEX.test(content);
@@ -933,6 +952,7 @@ export class ReconciliationService {
     const isUser1 = caseRecord.plaintiff_id === userId;
     const track = await this.ensureRepairTrack(plan);
     const partnerId = this.getOtherParticipantId(caseRecord, userId);
+    const safetyPolicy = getProductSafetyPolicyForJudgment(plan.judgment);
 
     if (action === 'committed') {
       await prisma.reconciliationPlan.update({
@@ -996,7 +1016,7 @@ export class ReconciliationService {
     await this.syncTrackCommitment(track.id);
     const refreshedPlan = await this.loadPlanForAction(planId, userId);
 
-    if (partnerId && action !== 'paused') {
+    if (partnerId && action !== 'paused' && safetyPolicy.canNotifyPartner) {
       const templateCodeMap: Record<Exclude<PlanRespondAction, 'paused'>, string> = {
         viewed: 'repair_journey_partner_viewed',
         committed: 'repair_journey_partner_committed',
@@ -1043,6 +1063,10 @@ export class ReconciliationService {
 
   async invitePartner(planId: string, userId: string) {
     const plan = await this.loadPlanForAction(planId, userId);
+    const safetyPolicy = getProductSafetyPolicyForJudgment(plan.judgment);
+    if (!safetyPolicy.canInvitePartner) {
+      throw Errors.FORBIDDEN('此判決路由不允許邀請伴侶加入修復旅程');
+    }
     const track = await this.ensureRepairTrack(plan);
     const partnerId = this.getOtherParticipantId(plan.judgment.case, userId);
     const invitedAt = new Date();
@@ -1173,7 +1197,9 @@ export class ReconciliationService {
       },
     });
 
-    const dualCommitted = refreshedTrack?.participant_states.filter((state) => state.commitment_status === 'committed').length === 2;
+    const safetyPolicy = getProductSafetyPolicyForJudgment(plan.judgment);
+    const dualCommitted = !safetyPolicy.forceSoloRepair
+      && refreshedTrack?.participant_states.filter((state) => state.commitment_status === 'committed').length === 2;
     const status: RepairTrackStatusValue = dualCommitted ? 'co_active' : 'solo_active';
 
     await prisma.repairTrack.update({
@@ -1268,7 +1294,9 @@ export class ReconciliationService {
       include: { participant_states: true },
     });
     const committedCount = refreshedTrack?.participant_states.filter((state) => state.commitment_status === 'committed').length ?? 1;
-    const nextStatus: RepairTrackStatusValue = committedCount >= 2 ? 'co_active' : 'solo_active';
+    const nextStatus: RepairTrackStatusValue = track.intent === 'safety_support'
+      ? 'solo_active'
+      : committedCount >= 2 ? 'co_active' : 'solo_active';
 
     const updatedTrack = await prisma.repairTrack.update({
       where: { id: track.id },

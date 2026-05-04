@@ -26,6 +26,7 @@
     "ops:release:status": "bash scripts/ops-release-status.sh",
     "ops:release:smoke": "bash scripts/ops-release-smoke.sh",
     "ops:release:gate": "bash scripts/ops-release-gate.sh",
+    "ops:release:gate:evidence": "bash scripts/ops-release-gate-evidence.sh",
     "ops:db:status": "bash scripts/ops-db-status.sh"
   },
   "devDependencies": {

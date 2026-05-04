@@ -26,6 +26,7 @@ Use these commands before improvising platform calls:
 ```bash
 npm run ops:release:status
 npm run ops:release:gate
+npm run ops:release:gate:evidence
 npm run ops:db:status
 cd backend && npm run ops:product-state:audit
 cd backend && npm run precheck:pairing:normal-uniqueness
@@ -35,6 +36,8 @@ npm run docs:check
 `ops:release:status` checks git, Vercel version endpoints, optional backend version endpoint, Vercel inspect, and Railway CLI auth/status if available.
 
 `ops:release:gate` is the stricter release closure gate. It requires explicit `BACKEND_BASE_URL` and `DATABASE_URL` or `ENV_FILE`, then verifies docs, backend build/lint, live release status, main/admin/backend version endpoint `service` and `commitSha` alignment with local `HEAD`, backend health/live/ready, DB migration status, smoke account hygiene, and product-state audit. Do not claim a full release is current if this gate cannot run or fails.
+
+`ops:release:gate:evidence` wraps the same release gate and stores a local ignored transcript under `temp/release-gate-evidence/<run-id>/`. Use it for real release closure evidence; it records secret presence only, not secret values.
 
 `ops:db:status` checks Prisma migration status for the configured database without printing `DATABASE_URL`.
 

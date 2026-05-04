@@ -264,6 +264,18 @@ enum AIRequestLedgerStatus {
   cancelled
 }
 
+enum RecoveryTaskStatus {
+  manual_review_required
+  in_review
+  resolved
+  dismissed
+}
+
+enum RecoveryTaskSeverity {
+  warning
+  critical
+}
+
 enum InsightType {
   trait
   pattern
@@ -1299,6 +1311,36 @@ model AIRequestLedger {
   @@index([status, created_at], map: "idx_ai_request_ledger_status_created")
   @@index([stream_id], map: "idx_ai_request_ledger_stream_id")
   @@map("ai_request_ledger")
+}
+
+model ProductStateRecoveryTask {
+  id                      String               @id @default(uuid())
+  source                  String               @db.VarChar(100)
+  source_task_id          String               @unique @db.VarChar(200)
+  proposal_id             String               @db.VarChar(120)
+  status                  RecoveryTaskStatus   @default(manual_review_required)
+  severity                RecoveryTaskSeverity
+  entity_type             String               @db.VarChar(50)
+  entity_id               String
+  product_flow            String?              @db.VarChar(50)
+  linked_entity_ids       Json?
+  recommended_action      String
+  verification_commands   String[]             @default([])
+  guardrails              String[]             @default([])
+  automatic_fix_available Boolean              @default(false)
+  requires_human_approval Boolean              @default(true)
+  occurrence_count        Int                  @default(1)
+  first_detected_at       DateTime             @default(now())
+  last_detected_at        DateTime             @default(now())
+  resolved_at             DateTime?
+  dismissed_at            DateTime?
+  created_at              DateTime             @default(now())
+  updated_at              DateTime             @updatedAt
+
+  @@index([status, severity, last_detected_at], map: "idx_product_state_recovery_tasks_status_severity_detected")
+  @@index([entity_type, entity_id], map: "idx_product_state_recovery_tasks_entity")
+  @@index([source, proposal_id], map: "idx_product_state_recovery_tasks_source_proposal")
+  @@map("product_state_recovery_tasks")
 }
 
 model ProfileNarrative {

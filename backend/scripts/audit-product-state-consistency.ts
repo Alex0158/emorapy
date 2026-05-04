@@ -1,4 +1,4 @@
-import { PrismaClient } from '../src/types/prisma-client';
+import { Prisma, PrismaClient } from '../src/types/prisma-client';
 import { getCaseProductFlow, isSessionBoundCase } from '../src/utils/case-classifier';
 import type { CaseProductFlow } from '../src/utils/case-classifier';
 
@@ -18,6 +18,12 @@ type AuditItem = {
   sampleDetails: AuditSampleDetail[];
   recoveryProposal: RecoveryProposal | null;
   recoveryTasks: RecoveryTask[];
+};
+
+type PersistRecoveryTaskResult = {
+  foundTaskCount: number;
+  upsertedCount: number;
+  skippedCount: number;
 };
 
 const DEFAULT_STUCK_MINUTES = 30;
@@ -76,6 +82,18 @@ type RecoveryTask = {
   requiresHumanApproval: true;
   source: 'ops:product-state:audit';
 };
+
+function shouldPersistRecoveryTasks(): boolean {
+  return process.argv.includes('--persist') || process.env.PRODUCT_STATE_AUDIT_PERSIST_TASKS === 'true';
+}
+
+function flattenRecoveryTasks(items: AuditItem[]): RecoveryTask[] {
+  return items.flatMap((item) => item.recoveryTasks);
+}
+
+function toPrismaJson(input: unknown): Prisma.InputJsonValue {
+  return JSON.parse(JSON.stringify(input ?? {})) as Prisma.InputJsonValue;
+}
 
 function cutoffDate(minutes: number): Date {
   return new Date(Date.now() - minutes * 60 * 1000);
@@ -453,12 +471,72 @@ export async function runProductStateConsistencyAudit(stuckMinutes = DEFAULT_STU
   return collectAuditItems(stuckMinutes);
 }
 
+export async function persistProductStateRecoveryTasks(
+  items: AuditItem[],
+  detectedAt = new Date(),
+): Promise<PersistRecoveryTaskResult> {
+  const tasks = flattenRecoveryTasks(items);
+  let upsertedCount = 0;
+  let skippedCount = 0;
+
+  for (const task of tasks) {
+    if (!task.requiresHumanApproval || task.automaticFixAvailable) {
+      skippedCount += 1;
+      continue;
+    }
+
+    await prisma.productStateRecoveryTask.upsert({
+      where: { source_task_id: task.id },
+      create: {
+        source: task.source,
+        source_task_id: task.id,
+        proposal_id: task.proposalId,
+        status: 'manual_review_required',
+        severity: task.severity,
+        entity_type: task.entityType,
+        entity_id: task.entityId,
+        product_flow: task.productFlow ?? null,
+        linked_entity_ids: toPrismaJson(task.linkedEntityIds),
+        recommended_action: task.recommendedAction,
+        verification_commands: task.verificationCommands,
+        guardrails: task.guardrails,
+        automatic_fix_available: task.automaticFixAvailable,
+        requires_human_approval: task.requiresHumanApproval,
+        first_detected_at: detectedAt,
+        last_detected_at: detectedAt,
+      },
+      update: {
+        severity: task.severity,
+        product_flow: task.productFlow ?? null,
+        linked_entity_ids: toPrismaJson(task.linkedEntityIds),
+        recommended_action: task.recommendedAction,
+        verification_commands: task.verificationCommands,
+        guardrails: task.guardrails,
+        automatic_fix_available: task.automaticFixAvailable,
+        requires_human_approval: task.requiresHumanApproval,
+        last_detected_at: detectedAt,
+        occurrence_count: { increment: 1 },
+      },
+    });
+    upsertedCount += 1;
+  }
+
+  return {
+    foundTaskCount: tasks.length,
+    upsertedCount,
+    skippedCount,
+  };
+}
+
 async function main() {
   const stuckMinutes = Number(process.env.PRODUCT_STATE_AUDIT_STUCK_MINUTES || DEFAULT_STUCK_MINUTES);
   const items = await runProductStateConsistencyAudit(Number.isFinite(stuckMinutes) && stuckMinutes > 0 ? stuckMinutes : DEFAULT_STUCK_MINUTES);
   const hasFindings = items.some((item) => item.count > 0);
+  const persistedRecoveryTasks = shouldPersistRecoveryTasks()
+    ? await persistProductStateRecoveryTasks(items)
+    : null;
 
-  console.log(JSON.stringify({ ok: !hasFindings, checks: items }, null, 2));
+  console.log(JSON.stringify({ ok: !hasFindings, checks: items, persistedRecoveryTasks }, null, 2));
   process.exitCode = hasFindings ? 1 : 0;
 }
 

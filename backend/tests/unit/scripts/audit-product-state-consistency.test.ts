@@ -18,6 +18,9 @@ const prismaMock = {
   aIStreamSession: {
     findMany: jest.fn(),
   },
+  productStateRecoveryTask: {
+    upsert: jest.fn(),
+  },
   $disconnect: jest.fn(),
 };
 
@@ -25,7 +28,10 @@ jest.mock('../../../src/types/prisma-client', () => ({
   PrismaClient: jest.fn(() => prismaMock),
 }));
 
-import { runProductStateConsistencyAudit } from '../../../scripts/audit-product-state-consistency';
+import {
+  persistProductStateRecoveryTasks,
+  runProductStateConsistencyAudit,
+} from '../../../scripts/audit-product-state-consistency';
 
 describe('audit-product-state-consistency', () => {
   beforeEach(() => {
@@ -324,5 +330,67 @@ describe('audit-product-state-consistency', () => {
     expect(result.every((item) => item.sampleDetails.length === 0)).toBe(true);
     expect(result.every((item) => item.recoveryTasks.length === 0)).toBe(true);
     expect(prismaMock.aIStreamSession.findMany).not.toHaveBeenCalled();
+  });
+
+  it('可將人工 recovery task 候選 upsert 成 DB-backed 任務', async () => {
+    const detectedAt = new Date('2026-05-04T10:00:00.000Z');
+    prismaMock.productStateRecoveryTask.upsert.mockResolvedValue({});
+
+    const result = await persistProductStateRecoveryTasks([
+      {
+        check: 'cases stuck in_progress over 30m',
+        count: 1,
+        sampleIds: ['case-a'],
+        sampleDetails: [],
+        recoveryProposal: null,
+        recoveryTasks: [
+          {
+            id: 'recover-stuck-case-judgment-generation:case-a',
+            proposalId: 'recover-stuck-case-judgment-generation',
+            status: 'manual_review_required',
+            severity: 'critical',
+            entityType: 'case',
+            entityId: 'case-a',
+            productFlow: 'quick_single',
+            linkedEntityIds: { caseId: 'case-a', judgmentId: null },
+            recommendedAction: '人工核對是否仍有 active AI stream',
+            verificationCommands: ['cd backend && npm run ops:product-state:audit'],
+            guardrails: ['不要直接把 in_progress case 更新為 completed。'],
+            automaticFixAvailable: false,
+            requiresHumanApproval: true,
+            source: 'ops:product-state:audit',
+          },
+        ],
+      },
+    ] as any, detectedAt);
+
+    expect(result).toEqual({
+      foundTaskCount: 1,
+      upsertedCount: 1,
+      skippedCount: 0,
+    });
+    expect(prismaMock.productStateRecoveryTask.upsert).toHaveBeenCalledWith({
+      where: { source_task_id: 'recover-stuck-case-judgment-generation:case-a' },
+      create: expect.objectContaining({
+        source: 'ops:product-state:audit',
+        source_task_id: 'recover-stuck-case-judgment-generation:case-a',
+        proposal_id: 'recover-stuck-case-judgment-generation',
+        status: 'manual_review_required',
+        severity: 'critical',
+        entity_type: 'case',
+        entity_id: 'case-a',
+        product_flow: 'quick_single',
+        linked_entity_ids: { caseId: 'case-a', judgmentId: null },
+        first_detected_at: detectedAt,
+        last_detected_at: detectedAt,
+      }),
+      update: expect.objectContaining({
+        severity: 'critical',
+        product_flow: 'quick_single',
+        linked_entity_ids: { caseId: 'case-a', judgmentId: null },
+        occurrence_count: { increment: 1 },
+        last_detected_at: detectedAt,
+      }),
+    });
   });
 });

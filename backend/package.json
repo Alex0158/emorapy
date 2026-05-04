@@ -40,6 +40,7 @@
     "ops:migration:report": "tsx scripts/report-prisma-migrations.ts",
     "ops:cost:snapshot": "tsx scripts/cost-snapshot.ts",
     "ops:product-state:audit": "tsx scripts/audit-product-state-consistency.ts",
+    "ops:product-state:audit:persist": "tsx scripts/audit-product-state-consistency.ts --persist",
     "ops:smoke-accounts:check": "tsx scripts/check-smoke-account-hygiene.ts",
     "lint": "biome lint src",
     "format": "prettier --write \"src/**/*.ts\"",

@@ -7,8 +7,8 @@ import type { AIStreamSnapshot } from '@/types/aiStream';
 const mockGetExecutionStatus = vi.fn();
 const mockReplanTrack = vi.fn();
 const mockNavigate = vi.fn();
-const mockMessageError = vi.fn();
-const mockMessageSuccess = vi.fn();
+const mockToastError = vi.fn();
+const mockToastSuccess = vi.fn();
 const mockUseAIStreamSubscription = vi.fn();
 
 vi.mock('react-router-dom', async () => {
@@ -32,17 +32,12 @@ vi.mock('@/components/common/SEO', () => ({ default: () => null }));
 vi.mock('@/components/common/AnimatedWrapper', () => ({
   default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
-vi.mock('antd', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('antd')>();
-  return {
-    ...actual,
-    message: {
-      ...actual.message,
-      error: (...args: unknown[]) => mockMessageError(...args),
-      success: (...args: unknown[]) => mockMessageSuccess(...args),
-    },
-  };
-});
+vi.mock('sonner', () => ({
+  toast: {
+    error: (...args: unknown[]) => mockToastError(...args),
+    success: (...args: unknown[]) => mockToastSuccess(...args),
+  },
+}));
 
 import ExecutionReplan from './index';
 
@@ -76,8 +71,8 @@ describe('ExecutionReplan', () => {
     mockGetExecutionStatus.mockReset();
     mockReplanTrack.mockReset();
     mockNavigate.mockReset();
-    mockMessageError.mockReset();
-    mockMessageSuccess.mockReset();
+    mockToastError.mockReset();
+    mockToastSuccess.mockReset();
     mockUseAIStreamSubscription.mockReset();
     mockUseAIStreamSubscription.mockReturnValue({
       state: { latestSnapshot: null, phaseHistory: [], latestEvent: null },
@@ -131,7 +126,7 @@ describe('ExecutionReplan', () => {
       });
     });
 
-    expect(mockMessageSuccess).toHaveBeenCalled();
+    expect(mockToastSuccess).toHaveBeenCalled();
     expect(screen.getByRole('heading', { name: '正在重新調整這一輪' })).toBeInTheDocument();
     expect(mockNavigate).not.toHaveBeenCalled();
   });

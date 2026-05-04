@@ -8,9 +8,9 @@ const mockCheckin = vi.fn();
 const mockUploadEvidence = vi.fn();
 const mockGetPlanById = vi.fn();
 const mockNavigate = vi.fn();
-const mockMessageError = vi.fn();
-const mockMessageSuccess = vi.fn();
-const mockMessageWarning = vi.fn();
+const mockToastError = vi.fn();
+const mockToastSuccess = vi.fn();
+const mockToastWarning = vi.fn();
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
@@ -38,18 +38,13 @@ vi.mock('@/components/common/SEO', () => ({ default: () => null }));
 vi.mock('@/components/common/AnimatedWrapper', () => ({
   default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
-vi.mock('antd', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('antd')>();
-  return {
-    ...actual,
-    message: {
-      error: (...args: unknown[]) => mockMessageError(...args),
-      success: (...args: unknown[]) => mockMessageSuccess(...args),
-      warning: (...args: unknown[]) => mockMessageWarning(...args),
-      info: vi.fn(),
-    },
-  };
-});
+vi.mock('sonner', () => ({
+  toast: {
+    error: (...args: unknown[]) => mockToastError(...args),
+    success: (...args: unknown[]) => mockToastSuccess(...args),
+    warning: (...args: unknown[]) => mockToastWarning(...args),
+  },
+}));
 
 import ExecutionCheckIn from './index';
 
@@ -114,9 +109,9 @@ describe('ExecutionCheckIn', () => {
     mockUploadEvidence.mockReset();
     mockGetPlanById.mockReset();
     mockNavigate.mockReset();
-    mockMessageError.mockReset();
-    mockMessageSuccess.mockReset();
-    mockMessageWarning.mockReset();
+    mockToastError.mockReset();
+    mockToastSuccess.mockReset();
+    mockToastWarning.mockReset();
   });
 
   it('顯示今天的一小步與最近脈搏紀錄', async () => {
@@ -149,11 +144,11 @@ describe('ExecutionCheckIn', () => {
       expect(screen.getByRole('button', { name: '記下今天的一小步' })).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole('radio', { name: '做了一部分' }));
-    await user.click(screen.getByRole('radio', { name: '更近一點' }));
-    await user.click(screen.getByRole('radio', { name: '高' }));
+    await user.click(screen.getByRole('button', { name: '做了一部分' }));
+    await user.click(screen.getByRole('button', { name: '更近一點' }));
+    await user.click(screen.getByRole('button', { name: '高' }));
     await user.click(screen.getByRole('radio', { name: '要，幫我降一點難度' }));
-    await user.type(screen.getByLabelText('execCheckIn.notesLabel'), '今天先做到一半。');
+    await user.type(screen.getByRole('textbox'), '今天先做到一半。');
     await user.click(screen.getByRole('button', { name: '記下今天的一小步' }));
 
     await waitFor(() => {

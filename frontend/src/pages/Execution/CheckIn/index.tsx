@@ -1,46 +1,25 @@
 /**
- * 今天的一小步
+ * 今天的一小步（Check-In 頁面）
+ *
+ * 遷移: Ant Form/Radio/TextArea/Upload/Card/Alert/Button/Typography/Spin/Space/message/Icons
+ *       → shadcn + 原生表單 + Tailwind + sonner + Lucide
  */
 
 import { useEffect, useRef, useState } from 'react';
 import { useMountedRef } from '@/hooks/useMountedRef';
 import { useNavigate, useParams } from 'react-router-dom';
-import {
-  Alert,
-  Button,
-  Card,
-  Form,
-  Input,
-  Radio,
-  Space,
-  Spin,
-  Typography,
-  Upload,
-  message,
-} from 'antd';
-import {
-  ArrowLeftOutlined,
-  CheckCircleFilled,
-  UploadOutlined,
-} from '@ant-design/icons';
+import { toast } from 'sonner';
+import { ArrowLeft, CheckCircle, Upload, Loader2, AlertCircle, Info } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { Button } from '@/components/ui/button';
 import { checkin, getExecutionStatus, type ExecutionStatus } from '@/services/api/execution';
 import { uploadEvidence } from '@/services/api/case';
 import { getPlanById } from '@/services/api/reconciliation';
-import type { FormInstance } from 'antd';
 import ProtectedRoute from '@/components/common/ProtectedRoute';
 import SEO from '@/components/common/SEO';
-import AnimatedWrapper from '@/components/common/AnimatedWrapper';
+import { cn } from '@/lib/utils';
 import { getErrorMessage } from '@/utils/apiError';
 import { t } from '@/utils/i18n';
-import './CheckIn.less';
-
-const { Title, Text, Paragraph } = Typography;
-const { TextArea } = Input;
-
-interface ExecutionCheckInProps {
-  formRef?: React.MutableRefObject<FormInstance | null>;
-}
 
 const normalizeExecutionStatus = (payload: ExecutionStatus): ExecutionStatus => ({
   ...payload,
@@ -48,11 +27,10 @@ const normalizeExecutionStatus = (payload: ExecutionStatus): ExecutionStatus => 
   recent_checkins: Array.isArray(payload.recent_checkins) ? payload.recent_checkins : [],
 });
 
-const ExecutionCheckIn = ({ formRef }: ExecutionCheckInProps) => {
+const ExecutionCheckIn = () => {
   const { planId } = useParams<{ planId: string }>();
   const navigate = useNavigate();
   const mountedRef = useMountedRef();
-  const [form] = Form.useForm();
   const [execution, setExecution] = useState<ExecutionStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -60,24 +38,20 @@ const ExecutionCheckIn = ({ formRef }: ExecutionCheckInProps) => {
   const [showSuccessAnim, setShowSuccessAnim] = useState(false);
   const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const staleRef = useRef(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (formRef) formRef.current = form;
-    return () => {
-      if (formRef) formRef.current = null;
-    };
-  }, [form, formRef]);
+  // Form state
+  const [stepResult, setStepResult] = useState<'done' | 'partial' | 'skipped'>('done');
+  const [closeness, setCloseness] = useState<'closer' | 'same' | 'farther'>('same');
+  const [stress, setStress] = useState<'low' | 'medium' | 'high'>('medium');
+  const [needsHelp, setNeedsHelp] = useState(false);
+  const [notes, setNotes] = useState('');
+  const [photos, setPhotos] = useState<File[]>([]);
 
   useEffect(() => {
     staleRef.current = false;
-    if (planId) {
-      void fetchExecution();
-    }
-    return () => {
-      staleRef.current = true;
-      if (successTimeoutRef.current) clearTimeout(successTimeoutRef.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (planId) void fetchExecution();
+    return () => { staleRef.current = true; if (successTimeoutRef.current) clearTimeout(successTimeoutRef.current); };
   }, [planId]);
 
   const fetchExecution = async () => {
@@ -87,112 +61,57 @@ const ExecutionCheckIn = ({ formRef }: ExecutionCheckInProps) => {
       const data = await getExecutionStatus(planId);
       if (staleRef.current) return;
       setExecution(normalizeExecutionStatus(data));
-      form.setFieldsValue({
-        step_result: 'done',
-        closeness: 'same',
-        stress: 'medium',
-        needs_help: false,
-      });
     } catch (error: unknown) {
-      if (!staleRef.current) {
-        message.error(getErrorMessage(error, 'message.getExecutionStatusFail'));
-        setExecution(null);
-      }
-    } finally {
-      if (!staleRef.current) setLoading(false);
-    }
+      if (!staleRef.current) { toast.error(getErrorMessage(error, 'message.getExecutionStatusFail')); setExecution(null); }
+    } finally { if (!staleRef.current) setLoading(false); }
   };
 
-  type CheckInFormValues = {
-    step_result: 'done' | 'partial' | 'skipped';
-    closeness: 'closer' | 'same' | 'farther';
-    stress: 'low' | 'medium' | 'high';
-    needs_help: boolean;
-    notes?: string;
-    photos?: Array<{ originFileObj?: File }> | { fileList?: Array<{ originFileObj?: File }> };
-  };
-
-  const handleSubmit = async (values: CheckInFormValues) => {
+  const handleSubmit = async () => {
     if (!planId || submitting) return;
     setSubmitting(true);
     try {
       let photoUrls: string[] = [];
-      const rawPhotos = values.photos;
-      const photoList = Array.isArray(rawPhotos) ? rawPhotos : rawPhotos?.fileList ?? [];
-      const photoFiles = photoList.filter((file) => file?.originFileObj);
-
-      if (photoFiles.length > 0) {
+      if (photos.length > 0) {
         setUploadingPhotos(true);
         try {
           const plan = await getPlanById(planId);
           if (plan?.judgment?.case_id) {
-            const files = photoFiles.map((file) => file.originFileObj as File);
-            const evidences = await uploadEvidence(plan.judgment.case_id, files);
+            const evidences = await uploadEvidence(plan.judgment.case_id, photos);
             photoUrls = evidences.map((item) => item.file_url);
           }
         } catch (photoErr: unknown) {
-          if (mountedRef.current) {
-            message.warning(getErrorMessage(photoErr, 'message.photoUploadFailContinue'));
-          }
-        } finally {
-          if (mountedRef.current) setUploadingPhotos(false);
-        }
+          if (mountedRef.current) toast.warning(getErrorMessage(photoErr, 'message.photoUploadFailContinue'));
+        } finally { if (mountedRef.current) setUploadingPhotos(false); }
       }
 
-      await checkin({
-        plan_id: planId,
-        notes: values.notes,
-        photos: photoUrls,
-        step_result: values.step_result,
-        closeness: values.closeness,
-        stress: values.stress,
-        needs_help: values.needs_help,
-      });
-
+      await checkin({ plan_id: planId, notes: notes || undefined, photos: photoUrls, step_result: stepResult, closeness, stress, needs_help: needsHelp });
       if (!mountedRef.current) return;
       setShowSuccessAnim(true);
       successTimeoutRef.current = setTimeout(() => {
         successTimeoutRef.current = null;
         if (!mountedRef.current) return;
         setShowSuccessAnim(false);
-        message.success(values.needs_help ? '已記下你的狀態，我們之後會幫你降一點難度。' : t('message.checkinSuccess'));
-        form.resetFields();
+        toast.success(needsHelp ? '已記下你的狀態，我們之後會幫你降一點難度。' : t('message.checkinSuccess'));
+        setNotes(''); setPhotos([]); setStepResult('done'); setCloseness('same'); setStress('medium'); setNeedsHelp(false);
         void fetchExecution();
       }, 1500);
     } catch (error: unknown) {
-      if (mountedRef.current) {
-        message.error(getErrorMessage(error, 'message.checkinFail'));
-      }
-    } finally {
-      if (mountedRef.current) setSubmitting(false);
-    }
+      if (mountedRef.current) toast.error(getErrorMessage(error, 'message.checkinFail'));
+    } finally { if (mountedRef.current) setSubmitting(false); }
   };
 
-  if (loading) {
-    return (
-      <div className="execution-checkin-page">
-        <Form form={form} component={false} />
-        <Spin size="large" description={t('common.loading')} />
-      </div>
-    );
-  }
+  if (loading) return <div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="size-8 animate-spin text-primary" /></div>;
 
   if (!execution) {
     return (
-      <div className="execution-checkin-page">
-        <Form form={form} component={false} />
-        <Alert
-          type="warning"
-          title={t('execCheckIn.notFound')}
-          action={(
-            <Space>
-              <Button size="small" onClick={() => fetchExecution()}>{t('common.retry')}</Button>
-              <Button size="small" type="primary" onClick={() => navigate('/execution/dashboard')}>
-                {t('execCheckIn.backToDashboard')}
-              </Button>
-            </Space>
-          )}
-        />
+      <div className="mx-auto max-w-2xl p-6">
+        <div className="rounded-xl border border-warning/30 bg-warning/5 p-5 space-y-3">
+          <p className="text-sm text-foreground">{t('execCheckIn.notFound')}</p>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => fetchExecution()}>{t('common.retry')}</Button>
+            <Button size="sm" onClick={() => navigate('/execution/dashboard')}>{t('execCheckIn.backToDashboard')}</Button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -202,181 +121,125 @@ const ExecutionCheckIn = ({ formRef }: ExecutionCheckInProps) => {
   return (
     <ProtectedRoute>
       <SEO title={t('execCheckIn.title')} description={t('execCheckIn.description')} />
-      <div className="execution-checkin-page" role="main" aria-label={t('execCheckIn.pageLabel')}>
-        <AnimatedWrapper animation="fade" delay={100}>
-          <div className="page-header" aria-labelledby="checkin-title">
-            <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)} aria-label={t('execCheckIn.backAria')}>
-              {t('execCheckIn.back')}
-            </Button>
-            <Title level={2} id="checkin-title">{t('execCheckIn.heading')}</Title>
-          </div>
-        </AnimatedWrapper>
+      <div className="mx-auto max-w-2xl px-4 py-8" role="main" aria-label={t('execCheckIn.pageLabel')}>
+        {/* Header */}
+        <div className="mb-6 flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => navigate(-1)} aria-label={t('execCheckIn.backAria')}><ArrowLeft className="size-4" />{t('execCheckIn.back')}</Button>
+          <h2 className="text-xl font-bold text-foreground font-heading">{t('execCheckIn.heading')}</h2>
+        </div>
 
-        <AnimatedWrapper animation="slide" direction="down" delay={180}>
-          <Card style={{ marginBottom: 24 }}>
-            <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
-              <Text strong>{execution.plan_summary?.title || '今天的一小步'}</Text>
-              <Text type="secondary">
-                {execution.relationship_mode === 'co' ? '你們正在一起修復' : '目前由你先開始，這也沒關係'}
-              </Text>
-              {execution.journey_status === 'replanning' ? (
-                <Alert
-                  type="warning"
-                  showIcon
-                  message="這一輪需要先重新調整"
-                  description="最近的回饋顯示目前這一步太吃力了，先把它調成更可承受的版本。"
-                  action={(
-                    <Button size="small" type="primary" onClick={() => navigate(`/execution/${planId}/replan`)}>
-                      去調整這一輪
-                    </Button>
-                  )}
-                />
-              ) : null}
-              {execution.journey_status === 'paused' ? (
-                <Alert
-                  type="info"
-                  showIcon
-                  message="這一輪目前暫停中"
-                  description="你可以先回到方案工作台，再決定要不要恢復這一輪。"
-                  action={(
-                    <Button size="small" onClick={() => navigate('/execution/dashboard')}>
-                      回到修復進展
-                    </Button>
-                  )}
-                />
-              ) : null}
-              {execution.current_step && (
-                <div>
-                  <Text strong>今天做什麼</Text>
-                  <Paragraph className="mt-2 mb-2">{execution.current_step.content}</Paragraph>
-                  {execution.current_step.fallback_content ? (
-                    <Alert
-                      type="info"
-                      showIcon
-                      title="如果今天太難"
-                      description={execution.current_step.fallback_content}
-                    />
-                  ) : null}
-                </div>
+        {/* Context Card */}
+        <div className="mb-6 rounded-xl border border-border bg-card p-5 space-y-3">
+          <p className="font-semibold text-foreground">{execution.plan_summary?.title || '今天的一小步'}</p>
+          <p className="text-sm text-muted-foreground">{execution.relationship_mode === 'co' ? '你們正在一起修復' : '目前由你先開始，這也沒關係'}</p>
+
+          {execution.journey_status === 'replanning' && (
+            <div className="flex items-start gap-3 rounded-lg border border-warning/20 bg-warning/5 p-3">
+              <AlertCircle className="size-4 mt-0.5 text-warning shrink-0" />
+              <div className="flex-1"><p className="text-sm text-foreground">這一輪需要先重新調整</p><p className="text-xs text-muted-foreground">最近的回饋顯示目前這一步太吃力了。</p></div>
+              <Button size="sm" onClick={() => navigate(`/execution/${planId}/replan`)}>去調整</Button>
+            </div>
+          )}
+
+          {execution.current_step && (
+            <div className="space-y-2 pt-2">
+              <p className="text-sm font-medium text-foreground">今天做什麼</p>
+              <p className="text-sm text-muted-foreground">{execution.current_step.content}</p>
+              {execution.current_step.fallback_content && (
+                <div className="flex items-start gap-2 rounded-lg bg-primary-light/30 p-3"><Info className="size-4 mt-0.5 text-primary shrink-0" /><p className="text-xs text-muted-foreground">如果今天太難：{execution.current_step.fallback_content}</p></div>
               )}
-              {execution.current_step?.pause_rule ? (
-                <Text type="secondary">如果不舒服時怎麼暫停：{execution.current_step.pause_rule}</Text>
-              ) : null}
-            </Space>
-          </Card>
-        </AnimatedWrapper>
+            </div>
+          )}
+        </div>
 
-        <AnimatedWrapper animation="slide" direction="up" delay={260}>
-          <Card>
-            <Form form={form} layout="vertical" onFinish={handleSubmit} aria-label={t('execCheckIn.formLabel')}>
-              <Form.Item name="step_result" label="今天有做到嗎" rules={[{ required: true, message: '請先選一個狀態' }]}>
-                <Radio.Group optionType="button" buttonStyle="solid">
-                  <Radio.Button value="done">完全做到</Radio.Button>
-                  <Radio.Button value="partial">做了一部分</Radio.Button>
-                  <Radio.Button value="skipped">今天先沒做到</Radio.Button>
-                </Radio.Group>
-              </Form.Item>
+        {/* Check-in Form */}
+        <div className="rounded-xl border border-border bg-card p-5 space-y-5" aria-label={t('execCheckIn.formLabel')}>
+          {/* Step Result */}
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-medium text-foreground">今天有做到嗎</legend>
+            <div className="flex flex-wrap gap-2">
+              {([['done', '完全做到'], ['partial', '做了一部分'], ['skipped', '今天先沒做到']] as const).map(([val, label]) => (
+                <button key={val} type="button" onClick={() => setStepResult(val)} className={cn('rounded-full border px-4 py-2 text-sm transition-colors', stepResult === val ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-border text-muted-foreground hover:border-primary/30')}>{label}</button>
+              ))}
+            </div>
+          </fieldset>
 
-              <Form.Item name="closeness" label="做完後你覺得距離感怎麼樣" rules={[{ required: true, message: '請先選一個感受' }]}>
-                <Radio.Group optionType="button" buttonStyle="solid">
-                  <Radio.Button value="closer">更近一點</Radio.Button>
-                  <Radio.Button value="same">差不多</Radio.Button>
-                  <Radio.Button value="farther">反而更遠</Radio.Button>
-                </Radio.Group>
-              </Form.Item>
+          {/* Closeness */}
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-medium text-foreground">做完後你覺得距離感怎麼樣</legend>
+            <div className="flex flex-wrap gap-2">
+              {([['closer', '更近一點'], ['same', '差不多'], ['farther', '反而更遠']] as const).map(([val, label]) => (
+                <button key={val} type="button" onClick={() => setCloseness(val)} className={cn('rounded-full border px-4 py-2 text-sm transition-colors', closeness === val ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-border text-muted-foreground hover:border-primary/30')}>{label}</button>
+              ))}
+            </div>
+          </fieldset>
 
-              <Form.Item name="stress" label="這一步帶來的壓力感" rules={[{ required: true, message: '請先選一個壓力程度' }]}>
-                <Radio.Group optionType="button" buttonStyle="solid">
-                  <Radio.Button value="low">低</Radio.Button>
-                  <Radio.Button value="medium">中</Radio.Button>
-                  <Radio.Button value="high">高</Radio.Button>
-                </Radio.Group>
-              </Form.Item>
+          {/* Stress */}
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-medium text-foreground">這一步帶來的壓力感</legend>
+            <div className="flex flex-wrap gap-2">
+              {([['low', '低'], ['medium', '中'], ['high', '高']] as const).map(([val, label]) => (
+                <button key={val} type="button" onClick={() => setStress(val)} className={cn('rounded-full border px-4 py-2 text-sm transition-colors', stress === val ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-border text-muted-foreground hover:border-primary/30')}>{label}</button>
+              ))}
+            </div>
+          </fieldset>
 
-              <Form.Item name="needs_help" label="要不要下一次換一個更低壓版本？">
-                <Radio.Group>
-                  <Radio value={false}>先不用，我還可以再試一次</Radio>
-                  <Radio value={true}>要，幫我降一點難度</Radio>
-                </Radio.Group>
-              </Form.Item>
+          {/* Needs Help */}
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-medium text-foreground">要不要下一次換一個更低壓版本？</legend>
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="needsHelp" checked={!needsHelp} onChange={() => setNeedsHelp(false)} className="accent-primary" /><span className="text-sm">先不用，我還可以再試一次</span></label>
+              <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="needsHelp" checked={needsHelp} onChange={() => setNeedsHelp(true)} className="accent-primary" /><span className="text-sm">要，幫我降一點難度</span></label>
+            </div>
+          </fieldset>
 
-              <Form.Item name="notes" label={t('execCheckIn.notesLabel')}>
-                <TextArea
-                  rows={4}
-                  placeholder="如果你想記下剛才發生了什麼、哪裡卡住、哪一句話特別有感覺，可以寫在這裡。"
-                  maxLength={1000}
-                  showCount
-                />
-              </Form.Item>
+          {/* Notes */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">{t('execCheckIn.notesLabel')}</label>
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} maxLength={1000} placeholder="如果你想記下剛才發生了什麼、哪裡卡住..." className="w-full resize-none rounded-lg border border-border bg-background p-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" />
+          </div>
 
-              <Form.Item
-                name="photos"
-                label={t('execCheckIn.photosLabel')}
-                valuePropName="fileList"
-                getValueFromEvent={(e) => e?.fileList}
-              >
-                <Upload listType="picture-card" maxCount={3} beforeUpload={() => false}>
-                  <div>
-                    <UploadOutlined />
-                    <div style={{ marginTop: 8 }}>{t('execCheckIn.uploadBtn')}</div>
-                  </div>
-                </Upload>
-              </Form.Item>
+          {/* Photos */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">{t('execCheckIn.photosLabel')}</label>
+            <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={(e) => setPhotos(Array.from(e.target.files || []).slice(0, 3))} className="hidden" />
+            <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><Upload className="size-4" />{t('execCheckIn.uploadBtn')}</Button>
+            {photos.length > 0 && <p className="text-xs text-muted-foreground">{photos.length} 張照片已選</p>}
+          </div>
 
-              <Form.Item>
-                <Button
-                  type="primary"
-                  htmlType="submit"
-                  size="large"
-                  block
-                  loading={submitting || uploadingPhotos}
-                  className={`submit-btn ${showSuccessAnim ? 'success-state' : ''}`}
-                  style={{ height: 56, borderRadius: 28, fontSize: 18 }}
-                >
-                  <AnimatePresence mode="wait">
-                    {showSuccessAnim ? (
-                      <motion.div
-                        key="success"
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        exit={{ scale: 0 }}
-                        className="flex items-center justify-center gap-2"
-                      >
-                        <CheckCircleFilled className="text-2xl" /> {t('execCheckIn.successInline')}
-                      </motion.div>
-                    ) : (
-                      <motion.div key="normal" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                        {uploadingPhotos ? t('execCheckIn.uploadingPhotos') : '記下今天的一小步'}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </Button>
-              </Form.Item>
-            </Form>
-          </Card>
-        </AnimatedWrapper>
+          {/* Submit */}
+          <Button
+            onClick={handleSubmit}
+            disabled={submitting || uploadingPhotos}
+            className="h-14 w-full rounded-2xl text-base font-semibold"
+          >
+            <AnimatePresence mode="wait">
+              {showSuccessAnim ? (
+                <motion.span key="success" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className="flex items-center gap-2">
+                  <CheckCircle className="size-5" /> {t('execCheckIn.successInline')}
+                </motion.span>
+              ) : (
+                <motion.span key="normal" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                  {uploadingPhotos ? t('execCheckIn.uploadingPhotos') : submitting ? <Loader2 className="size-4 animate-spin" /> : '記下今天的一小步'}
+                </motion.span>
+              )}
+            </AnimatePresence>
+          </Button>
+        </div>
 
+        {/* History */}
         {recentCheckins.length > 0 && (
-          <AnimatedWrapper animation="slide" direction="up" delay={340}>
-            <Card title={t('execCheckIn.historyTitle')} style={{ marginTop: 24 }}>
-              <Space orientation="vertical" style={{ width: '100%' }}>
-                {recentCheckins.map((item) => (
-                  <Card key={item.id} size="small">
-                    <Space orientation="vertical" style={{ width: '100%' }}>
-                      <Text strong>
-                        {item.result === 'done' ? '完全做到' : item.result === 'partial' ? '做了一部分' : '今天先沒做到'}
-                      </Text>
-                      <Text type="secondary">
-                        距離感：{item.closeness} / 壓力：{item.stress} / {item.needs_help ? '需要更低壓版本' : '暫時不用調整'}
-                      </Text>
-                      {item.notes ? <Paragraph className="mb-0">{item.notes}</Paragraph> : null}
-                      <Text type="secondary">{new Date(item.created_at).toLocaleString()}</Text>
-                    </Space>
-                  </Card>
-                ))}
-              </Space>
-            </Card>
-          </AnimatedWrapper>
+          <div className="mt-8 rounded-xl border border-border bg-card p-5 space-y-3">
+            <h4 className="text-sm font-semibold text-foreground">{t('execCheckIn.historyTitle')}</h4>
+            {recentCheckins.map((item) => (
+              <div key={item.id} className="rounded-lg border border-border p-3 space-y-1">
+                <p className="text-sm font-medium text-foreground">{item.result === 'done' ? '完全做到' : item.result === 'partial' ? '做了一部分' : '今天先沒做到'}</p>
+                <p className="text-xs text-muted-foreground">距離感：{item.closeness} / 壓力：{item.stress} / {item.needs_help ? '需要更低壓版本' : '暫時不用調整'}</p>
+                {item.notes && <p className="text-sm text-muted-foreground">{item.notes}</p>}
+                <p className="text-[11px] text-muted-foreground/60">{new Date(item.created_at).toLocaleString()}</p>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </ProtectedRoute>

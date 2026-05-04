@@ -8,6 +8,14 @@ print_section() {
   printf '\n== %s ==\n' "$1"
 }
 
+fetch_required_json() {
+  local label="$1"
+  local url="$2"
+  printf '%s: %s\n' "$label" "$url"
+  curl -fsS "$url"
+  printf '\n'
+}
+
 load_env_file() {
   local file="$1"
   local line key value
@@ -64,6 +72,11 @@ npm --prefix backend run lint
 
 print_section "Live Release Status"
 npm run ops:release:status
+
+print_section "Backend Health"
+fetch_required_json "backend /health/live" "${BACKEND_BASE_URL%/}/health/live"
+fetch_required_json "backend /health/ready" "${BACKEND_BASE_URL%/}/health/ready"
+fetch_required_json "backend /health" "${BACKEND_BASE_URL%/}/health"
 
 print_section "Database Migration State"
 npm run ops:db:status

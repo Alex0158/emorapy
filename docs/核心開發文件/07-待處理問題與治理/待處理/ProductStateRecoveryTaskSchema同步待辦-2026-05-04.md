@@ -2,13 +2,13 @@
 
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：問題治理
-**覆蓋範圍**：product-state recovery task schema、dev/release DB parity、人工恢復任務持久化
-**取證代碼入口**：`backend/prisma/schema.prisma`、`backend/prisma/migrations/20260504173000_add_product_state_recovery_tasks/migration.sql`、`backend/scripts/audit-product-state-consistency.ts`、`backend/tests/unit/scripts/audit-product-state-consistency.test.ts`、`backend/package.json`
-**最後核驗 Commit**：`d43bcc7`
+**覆蓋範圍**：product-state recovery task schema、dev/release DB parity、人工恢復任務持久化與 Admin 後端人工狀態 workflow
+**取證代碼入口**：`backend/prisma/schema.prisma`、`backend/prisma/migrations/20260504173000_add_product_state_recovery_tasks/migration.sql`、`backend/scripts/audit-product-state-consistency.ts`、`backend/tests/unit/scripts/audit-product-state-consistency.test.ts`、`backend/src/services/product-state-recovery-task.service.ts`、`backend/src/controllers/admin.controller.ts`、`backend/src/routes/admin.routes.ts`、`backend/src/utils/validation.ts`、`backend/tests/unit/services/product-state-recovery-task.service.test.ts`、`backend/tests/unit/controllers/admin.controller.test.ts`、`backend/package.json`
+**最後核驗 Commit**：`a2dea6b`
 **最後核驗日期**：`2026-05-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**狀態**：待處理；`product_state_recovery_tasks` migration 已生成並套用 Supabase Dev DB，Release / Production DB 仍需發布前確認
+**狀態**：待處理；`product_state_recovery_tasks` migration 已生成並套用 Supabase Dev DB，Admin 後端列表與人工狀態流轉已落地，Release / Production DB 仍需發布前確認
 **優先級**：P0，涉及 crash recovery 人工任務、dev/release DB schema parity 與 production data 寫入治理
 **責任範圍**：Backend / Database / Admin / Release Ops
 
@@ -21,7 +21,7 @@
 3. `chat_to_case_links` 在 case completed 後缺 `judgment_id`。
 4. repair track 長時間停在 `replanning`。
 
-本輪新增第一層 DB-backed recovery task，不做自動修資料，只把候選任務在顯式 persist 模式下 upsert 到 `product_state_recovery_tasks`，方便後續 Admin timeline / recovery workflow 承接。
+本輪新增第一層 DB-backed recovery task，不做自動修資料，只把候選任務在顯式 persist 模式下 upsert 到 `product_state_recovery_tasks`。後端已提供 Admin 查詢與狀態流轉接口，方便後續 Admin timeline / UI 承接。
 
 ## 已落地
 
@@ -43,6 +43,11 @@ cd backend && npm run ops:product-state:audit:persist
 
 此命令只在 audit 發現 `recoveryTasks` 時 upsert 任務；不會修改 case、chat、judgment、repair track 等業務資料。
 
+4. 新增 Admin 後端 API：
+   - `GET /api/v1/admin/product-state/recovery-tasks`：`ops:read`，可按 status / severity / entity / product_flow / source / proposal 查詢，返回列表與狀態/嚴重度摘要。
+   - `PATCH /api/v1/admin/product-state/recovery-tasks/:taskId/status`：`ops:execute`，只允許標記 `manual_review_required / in_review / resolved / dismissed`，並寫入 `audit_logs(entity_type=product_state_recovery_task, action=update_status)`。
+5. 狀態流轉只修改 `product_state_recovery_tasks.status / resolved_at / dismissed_at`；不修改 case、chat、judgment、repair track 等業務資料。
+
 ## 必須同步的兩邊
 
 1. Supabase Dev DB：`2026-05-04` 已執行 `cd backend && npx prisma migrate deploy --schema prisma/schema.prisma`，`npm run ops:db:status` 回報 `Database schema is up to date!`。
@@ -53,6 +58,7 @@ cd backend && npm run ops:product-state:audit:persist
 ```bash
 npm run ops:db:status
 cd backend && npm test -- --runInBand tests/unit/scripts/audit-product-state-consistency.test.ts
+cd backend && npm test -- --runInBand tests/unit/services/product-state-recovery-task.service.test.ts tests/unit/controllers/admin.controller.test.ts
 cd backend && npm run ops:product-state:audit
 cd backend && npm run ops:product-state:audit:persist
 cd backend && npm run build
@@ -64,4 +70,4 @@ npm run docs:check
 
 - Release DB 套用前，不得在發布版執行 `ops:product-state:audit:persist`。
 - recovery task 是人工 review 任務，不是自動修復機制；任何 production data 寫入仍需獨立人工確認、審計與回滾方案。
-- 若後續新增 Admin API / UI 來處理 `in_review/resolved/dismissed`，必須同步補接口文檔、RBAC、audit log 與測試。
+- Admin 後端 API 已有 RBAC、validation、audit log 與單元測試；後續 Admin UI / timeline 呈現仍需補前端與端到端驗證。

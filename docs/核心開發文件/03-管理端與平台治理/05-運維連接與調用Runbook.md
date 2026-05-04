@@ -3,8 +3,8 @@
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：正式規格
 **覆蓋範圍**：Vercel、Railway、Supabase/Postgres、Git/GitHub 與本機 `.env` 的固定連接、查詢與發布操作口徑
-**取證代碼入口**：`package.json`、`scripts/ops-release-status.sh`、`scripts/ops-release-gate.sh`、`scripts/ops-db-status.sh`、`backend/scripts/audit-product-state-consistency.ts`、`backend/scripts/check-smoke-account-hygiene.ts`、`backend/.env.example`、`frontend/.env.example`、`frontend-admin/.env.example`、`backend/railway.toml`、`backend/prisma/schema.prisma`、`backend/prisma/migrations/20260504164500_add_notification_cancelled_status/migration.sql`、`backend/prisma/migrations/20260504173000_add_product_state_recovery_tasks/migration.sql`、`backend/src/config/database.ts`、`backend/src/config/env.ts`、`backend/src/services/ai-cost-pricing.service.ts`、`backend/src/services/ai-request-ledger.service.ts`、`backend/src/services/notification.service.ts`
-**最後核驗 Commit**：`d43bcc7`
+**取證代碼入口**：`package.json`、`scripts/ops-release-status.sh`、`scripts/ops-release-gate.sh`、`scripts/ops-db-status.sh`、`backend/scripts/audit-product-state-consistency.ts`、`backend/scripts/check-smoke-account-hygiene.ts`、`backend/.env.example`、`frontend/.env.example`、`frontend-admin/.env.example`、`backend/railway.toml`、`backend/prisma/schema.prisma`、`backend/prisma/migrations/20260504164500_add_notification_cancelled_status/migration.sql`、`backend/prisma/migrations/20260504173000_add_product_state_recovery_tasks/migration.sql`、`backend/src/config/database.ts`、`backend/src/config/env.ts`、`backend/src/routes/admin.routes.ts`、`backend/src/controllers/admin.controller.ts`、`backend/src/services/ai-cost-pricing.service.ts`、`backend/src/services/ai-request-ledger.service.ts`、`backend/src/services/notification.service.ts`、`backend/src/services/product-state-recovery-task.service.ts`、`backend/src/utils/validation.ts`
+**最後核驗 Commit**：`a2dea6b`
 **最後核驗日期**：`2026-05-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -177,6 +177,11 @@ cd backend && npm run ops:product-state:audit:persist
 ```
 
 此命令只 upsert `product_state_recovery_tasks`，不改 case / chat / judgment / repair 資料。Release DB 套用 `20260504173000_add_product_state_recovery_tasks` 前，不得在發布版使用 persist 模式。
+
+Admin 後端人工 workflow 已提供兩個只操作 recovery task 自身的接口：
+
+1. `GET /api/v1/admin/product-state/recovery-tasks`：需要 `ops:read`，可按 `status / severity / entity_type / entity_id / product_flow / source / proposal_id` 查詢，返回 `items / total / limit / offset / summary.byStatus / summary.bySeverity`。
+2. `PATCH /api/v1/admin/product-state/recovery-tasks/:taskId/status`：需要 `ops:execute`，只允許把任務標記為 `manual_review_required / in_review / resolved / dismissed`，並寫入 `audit_logs(entity_type=product_state_recovery_task, action=update_status)`；`resolved` 只寫 `resolved_at`，`dismissed` 只寫 `dismissed_at`，不修改任何 case / chat / judgment / repair row。
 
 禁止事項：
 

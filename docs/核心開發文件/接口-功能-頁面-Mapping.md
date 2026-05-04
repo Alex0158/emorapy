@@ -4,11 +4,11 @@
 **文檔類型**：旗艦映射
 **覆蓋範圍**：API -> 功能 -> 頁面 -> 流程節點映射
 **取證代碼入口**：`backend/src/routes`、`frontend/src/router/index.tsx`、`frontend-admin/src/router.tsx`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`72ab409`
+**最後核驗 Commit**：`a2dea6b`
 **最後核驗日期**：`2026-05-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**文檔版本**：v1.12
+**文檔版本**：v1.13
 **最後更新**：2026-05-04
 **目標**：把 API -> 功能 -> 頁面 -> 流程節點建立可回歸的單點追溯。
 
@@ -150,6 +150,8 @@
 | `POST /api/v1/admin/notifications/:notificationId/cancel` | F10 | `/admin/reports` | 取消 pending 通知為 `cancelled` 並寫 audit | M | 已使用 |
 | `POST /api/v1/admin/notifications/bulk-cancel` | F10 | `/admin/reports` | 批量取消 pending 通知為 `cancelled` 並寫 audit | M | 已使用 |
 | `POST /api/v1/admin/notifications/:notificationId/retry` | F10 | `/admin/reports` | 重送 failed 通知並寫 audit | M | 已使用 |
+| `GET /api/v1/admin/product-state/recovery-tasks` | F10 | `/admin/reports` | Product-state 人工恢復任務列表與摘要 | M | 已使用 |
+| `PATCH /api/v1/admin/product-state/recovery-tasks/:taskId/status` | F10 | `/admin/reports` | 更新人工恢復任務狀態並寫 audit | M | 已使用 |
 | `GET /api/v1/admin/runtime/interview` | F10 | `/admin/settings` | 訪談運行參數 | L | 已使用 |
 | `GET /api/v1/admin/reports/overview.csv` | F10 | `/admin/reports` | 報表下載（CSV：metric,value） | M | 已使用 |
 | `POST /api/v1/admin/reports/custom` | F10 | `/admin/reports` | 客製報表（metrics[]: dau/mau/judgment_failed） | M | 已使用 |

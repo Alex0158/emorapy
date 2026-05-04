@@ -1,4 +1,7 @@
-import { getRequiredAIPricingModelsFromEnv } from '../../../scripts/check-ai-pricing-catalog';
+import {
+  getAIPricingMaxAgeDaysFromEnv,
+  getRequiredAIPricingModelsFromEnv,
+} from '../../../scripts/check-ai-pricing-catalog';
 
 describe('check-ai-pricing-catalog', () => {
   it('builds required model list from runtime env defaults and explicit extras', () => {
@@ -16,5 +19,14 @@ describe('check-ai-pricing-catalog', () => {
       'gpt-4o-mini',
       'gpt-4o',
     ]);
+  });
+
+  it('reads pricing max age from env with a safe default', () => {
+    expect(getAIPricingMaxAgeDaysFromEnv({ AI_COST_PRICING_MAX_AGE_DAYS: '14' } as NodeJS.ProcessEnv))
+      .toBe(14);
+    expect(getAIPricingMaxAgeDaysFromEnv({ AI_COST_PRICING_MAX_AGE_DAYS: '-1' } as NodeJS.ProcessEnv))
+      .toBe(30);
+    expect(getAIPricingMaxAgeDaysFromEnv({ AI_COST_PRICING_MAX_AGE_DAYS: 'invalid' } as NodeJS.ProcessEnv))
+      .toBe(30);
   });
 });

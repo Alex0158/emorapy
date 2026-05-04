@@ -18,11 +18,19 @@ export function getRequiredAIPricingModelsFromEnv(env: NodeJS.ProcessEnv = proce
   return [...new Set(configuredModels.map((model) => model.trim()).filter(Boolean))];
 }
 
+export function getAIPricingMaxAgeDaysFromEnv(env: NodeJS.ProcessEnv = process.env): number {
+  const parsed = Number(env.AI_COST_PRICING_MAX_AGE_DAYS ?? 30);
+  if (!Number.isFinite(parsed) || parsed < 0) return 30;
+  return Math.floor(parsed);
+}
+
 async function main() {
   const requiredModels = getRequiredAIPricingModelsFromEnv();
+  const maxAgeDays = getAIPricingMaxAgeDaysFromEnv();
   const report = validateAIRequestPricingCatalog({
     rawJson: process.env.AI_COST_PRICING_JSON,
     requiredModels,
+    maxAgeDays,
   });
 
   console.log(JSON.stringify(report, null, 2));

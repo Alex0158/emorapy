@@ -60,6 +60,9 @@ describe('ai-cost-pricing.service', () => {
       check: 'ai-cost-pricing-catalog',
       source: 'manual-openai-pricing',
       version: '2026-05-04',
+      versionDate: '2026-05-04',
+      versionAgeDays: 0,
+      maxAgeDays: 30,
       configuredModelCount: 1,
       requiredModels: ['gpt-4o-mini', 'gpt-4o'],
       missingModels: ['gpt-4o'],
@@ -84,6 +87,74 @@ describe('ai-cost-pricing.service', () => {
 
     expect(report.ok).toBe(false);
     expect(report.invalidReason).toBe('AI_COST_PRICING_JSON.source is required');
+  });
+
+  it('requires pricing version to start with a valid date', () => {
+    const report = validateAIRequestPricingCatalog({
+      rawJson: JSON.stringify({
+        source: 'manual-openai-pricing',
+        version: 'pricing-v1',
+        models: {
+          'gpt-4o-mini': {
+            inputUsdPer1M: 0.15,
+            outputUsdPer1M: 0.6,
+          },
+        },
+      }),
+      requiredModels: ['gpt-4o-mini'],
+      generatedAt: '2026-05-04T00:00:00.000Z',
+    });
+
+    expect(report.ok).toBe(false);
+    expect(report.versionDate).toBeNull();
+    expect(report.invalidReason).toBe('AI_COST_PRICING_JSON.version must start with YYYY-MM-DD');
+  });
+
+  it('rejects stale pricing version by max age', () => {
+    const report = validateAIRequestPricingCatalog({
+      rawJson: JSON.stringify({
+        source: 'manual-openai-pricing',
+        version: '2026-04-01-openai',
+        models: {
+          'gpt-4o-mini': {
+            inputUsdPer1M: 0.15,
+            outputUsdPer1M: 0.6,
+          },
+        },
+      }),
+      requiredModels: ['gpt-4o-mini'],
+      generatedAt: '2026-05-04T12:00:00.000Z',
+      maxAgeDays: 30,
+    });
+
+    expect(report).toEqual(expect.objectContaining({
+      ok: false,
+      versionDate: '2026-04-01',
+      versionAgeDays: 33,
+      maxAgeDays: 30,
+      invalidReason: 'AI_COST_PRICING_JSON.version is stale',
+    }));
+  });
+
+  it('rejects future pricing version dates', () => {
+    const report = validateAIRequestPricingCatalog({
+      rawJson: JSON.stringify({
+        source: 'manual-openai-pricing',
+        version: '2026-05-05',
+        models: {
+          'gpt-4o-mini': {
+            inputUsdPer1M: 0.15,
+            outputUsdPer1M: 0.6,
+          },
+        },
+      }),
+      requiredModels: ['gpt-4o-mini'],
+      generatedAt: '2026-05-04T12:00:00.000Z',
+    });
+
+    expect(report.ok).toBe(false);
+    expect(report.versionAgeDays).toBe(-1);
+    expect(report.invalidReason).toBe('AI_COST_PRICING_JSON.version date cannot be in the future');
   });
 
   it('calculates request cost only for matching openai models with token usage', () => {

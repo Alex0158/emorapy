@@ -33,6 +33,9 @@ export type AIRequestPricingCatalogValidationReport = {
   check: 'ai-cost-pricing-catalog';
   source: string | null;
   version: string | null;
+  versionDate: string | null;
+  versionAgeDays: number | null;
+  maxAgeDays: number;
   configuredModelCount: number;
   requiredModels: string[];
   missingModels: string[];
@@ -102,15 +105,48 @@ function normalizeRequiredModels(requiredModels: readonly string[]): string[] {
   return [...new Set(requiredModels.map((model) => model.trim()).filter(Boolean))];
 }
 
+function normalizeDateOnly(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function parseVersionDate(version: string | null): string | null {
+  if (!version) return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})(?:$|[-+_.T])/.exec(version);
+  if (!match) return null;
+
+  const [, year, month, day] = match;
+  const parsed = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+  const normalized = normalizeDateOnly(parsed);
+  return normalized === `${year}-${month}-${day}` ? normalized : null;
+}
+
+function getVersionAgeDays(versionDate: string | null, generatedAt: string): number | null {
+  if (!versionDate) return null;
+  const generated = new Date(generatedAt);
+  if (Number.isNaN(generated.getTime())) return null;
+
+  const todayUtc = Date.UTC(
+    generated.getUTCFullYear(),
+    generated.getUTCMonth(),
+    generated.getUTCDate()
+  );
+  const versionUtc = new Date(`${versionDate}T00:00:00.000Z`).getTime();
+  return Math.floor((todayUtc - versionUtc) / 86_400_000);
+}
+
 export function validateAIRequestPricingCatalog(input: {
   rawJson?: string | null;
   requiredModels: readonly string[];
   generatedAt?: string;
+  maxAgeDays?: number;
 }): AIRequestPricingCatalogValidationReport {
   const requiredModels = normalizeRequiredModels(input.requiredModels);
   const rawJson = input.rawJson ?? process.env.AI_COST_PRICING_JSON ?? '';
   const trimmed = rawJson.trim();
   const generatedAt = input.generatedAt ?? new Date().toISOString();
+  const maxAgeDays = Number.isFinite(input.maxAgeDays) && input.maxAgeDays !== undefined
+    ? Math.max(0, Math.floor(input.maxAgeDays))
+    : 30;
 
   if (!trimmed) {
     return {
@@ -118,6 +154,9 @@ export function validateAIRequestPricingCatalog(input: {
       check: 'ai-cost-pricing-catalog',
       source: null,
       version: null,
+      versionDate: null,
+      versionAgeDays: null,
+      maxAgeDays,
       configuredModelCount: 0,
       requiredModels,
       missingModels: requiredModels,
@@ -139,6 +178,9 @@ export function validateAIRequestPricingCatalog(input: {
       check: 'ai-cost-pricing-catalog',
       source: null,
       version: null,
+      versionDate: null,
+      versionAgeDays: null,
+      maxAgeDays,
       configuredModelCount: 0,
       requiredModels,
       missingModels: requiredModels,
@@ -149,6 +191,8 @@ export function validateAIRequestPricingCatalog(input: {
 
   const source = typeof root.source === 'string' && root.source.trim() ? root.source.trim() : null;
   const version = typeof root.version === 'string' && root.version.trim() ? root.version.trim() : null;
+  const versionDate = parseVersionDate(version);
+  const versionAgeDays = getVersionAgeDays(versionDate, generatedAt);
   const catalog = parseAIRequestPricingCatalog(trimmed);
   const configuredModels = catalog ? Object.keys(catalog.models).sort((a, b) => a.localeCompare(b)) : [];
   const missingModels = requiredModels.filter((model) => !configuredModels.includes(model));
@@ -156,14 +200,20 @@ export function validateAIRequestPricingCatalog(input: {
     !catalog ? 'AI_COST_PRICING_JSON must define at least one valid model price'
       : !source ? 'AI_COST_PRICING_JSON.source is required'
         : !version ? 'AI_COST_PRICING_JSON.version is required'
-          : missingModels.length > 0 ? 'AI_COST_PRICING_JSON is missing required runtime models'
-            : null;
+          : !versionDate ? 'AI_COST_PRICING_JSON.version must start with YYYY-MM-DD'
+            : versionAgeDays !== null && versionAgeDays < 0 ? 'AI_COST_PRICING_JSON.version date cannot be in the future'
+              : versionAgeDays !== null && versionAgeDays > maxAgeDays ? 'AI_COST_PRICING_JSON.version is stale'
+                : missingModels.length > 0 ? 'AI_COST_PRICING_JSON is missing required runtime models'
+                  : null;
 
   return {
     ok: invalidReason === null,
     check: 'ai-cost-pricing-catalog',
     source,
     version,
+    versionDate,
+    versionAgeDays,
+    maxAgeDays,
     configuredModelCount: configuredModels.length,
     requiredModels,
     missingModels,

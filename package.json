@@ -24,6 +24,7 @@
     "manual-regression:mark": "node scripts/mark-manual-regression-result.mjs",
     "manual-regression:gate": "node scripts/run-manual-regression-gate.mjs",
     "ops:release:status": "bash scripts/ops-release-status.sh",
+    "ops:release:gate": "bash scripts/ops-release-gate.sh",
     "ops:db:status": "bash scripts/ops-db-status.sh"
   },
   "devDependencies": {

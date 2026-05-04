@@ -3,8 +3,8 @@
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：正式規格
 **覆蓋範圍**：Vercel、Railway、Supabase/Postgres、Git/GitHub 與本機 `.env` 的固定連接、查詢與發布操作口徑
-**取證代碼入口**：`package.json`、`scripts/ops-release-status.sh`、`scripts/ops-db-status.sh`、`backend/scripts/audit-product-state-consistency.ts`、`backend/scripts/check-smoke-account-hygiene.ts`、`backend/.env.example`、`frontend/.env.example`、`frontend-admin/.env.example`、`backend/railway.toml`、`backend/prisma/schema.prisma`、`backend/src/config/database.ts`
-**最後核驗 Commit**：`34e4f5c`
+**取證代碼入口**：`package.json`、`scripts/ops-release-status.sh`、`scripts/ops-release-gate.sh`、`scripts/ops-db-status.sh`、`backend/scripts/audit-product-state-consistency.ts`、`backend/scripts/check-smoke-account-hygiene.ts`、`backend/.env.example`、`frontend/.env.example`、`frontend-admin/.env.example`、`backend/railway.toml`、`backend/prisma/schema.prisma`、`backend/src/config/database.ts`
+**最後核驗 Commit**：`3634bb8`
 **最後核驗日期**：`2026-05-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -16,6 +16,7 @@
 
 ```bash
 npm run ops:release:status
+npm run ops:release:gate
 npm run ops:db:status
 cd backend && npm run ops:product-state:audit
 cd backend && npm run ops:smoke-accounts:check
@@ -23,7 +24,7 @@ cd backend && npm run precheck:pairing:normal-uniqueness
 npm run docs:check
 ```
 
-`ops:release:status` 用於查發布版狀態；`ops:db:status` 用於查當前 `DATABASE_URL` 對應的 Prisma migration state；`ops:product-state:audit` 用於只讀檢查 case / chat-to-case / repair track replanning 的卡住狀態，輸出產品流、session-bound 分類、repair track AI stream 樣本細節、人工 recovery proposal 與逐筆 `recoveryTasks` 候選；`ops:smoke-accounts:check` 用於只讀掃描 active smoke/dev 帳號污染；`precheck:pairing:normal-uniqueness` 用於只讀檢查一個 user 是否同時出現在多個 `normal pending/active` pairing；`docs:check` 用於確認正式文檔與台賬仍閉環。
+`ops:release:status` 用於查發布版狀態；`ops:release:gate` 是發布閉環 gate，要求顯式提供 `BACKEND_BASE_URL` 以及 `DATABASE_URL` 或 `ENV_FILE`，並依序執行 docs contract、backend build/lint、live release status、DB migration state、smoke account hygiene 與 product-state audit；`ops:db:status` 用於查當前 `DATABASE_URL` 對應的 Prisma migration state；`ops:product-state:audit` 用於只讀檢查 case / chat-to-case / repair track replanning 的卡住狀態，輸出產品流、session-bound 分類、repair track AI stream 樣本細節、人工 recovery proposal 與逐筆 `recoveryTasks` 候選；`ops:smoke-accounts:check` 用於只讀掃描 active smoke/dev 帳號污染；`precheck:pairing:normal-uniqueness` 用於只讀檢查一個 user 是否同時出現在多個 `normal pending/active` pairing；`docs:check` 用於確認正式文檔與台賬仍閉環。
 
 ## 2. 平台地圖
 
@@ -128,6 +129,14 @@ DATABASE_URL="postgresql://..." npm run prisma:seed
 5. Railway production backend active deployment 是該 commit，且狀態為 `SUCCESS`。
 6. 若本次有 schema 變更，production DB migration state 已確認。
 7. health / ready / smoke 通過。
+
+固定 gate：
+
+```bash
+BACKEND_BASE_URL=<railway-backend-url> DATABASE_URL="<prod-db-url>" npm run ops:release:gate
+```
+
+如用臨時 env 檔，使用 `ENV_FILE=<path>` 代替直接輸出 `DATABASE_URL`。`ops:release:gate` 故意不自動讀取 `backend/.env`，避免把本機開發版 DB 誤當發布版 DB 完成閉環。
 
 `scripts/smoke-claim-session-production-like.sh` 預設會在結束時停用本次建立的 `claim-smoke-*` user（`CLAIM_SMOKE_DISABLE_CREATED_USER=true`）。若因特殊排查需要保留 smoke user，必須明確設為 `false`，並在排查後手動停用或刪除。
 

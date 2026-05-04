@@ -3,8 +3,8 @@
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：正式規格
 **覆蓋範圍**：Vercel、Railway、Supabase/Postgres、Git/GitHub 與本機 `.env` 的固定連接、查詢與發布操作口徑
-**取證代碼入口**：`package.json`、`scripts/ops-release-status.sh`、`scripts/ops-release-gate.sh`、`scripts/ops-db-status.sh`、`backend/package.json`、`backend/scripts/check-release-db-parity.ts`、`backend/scripts/audit-product-state-consistency.ts`、`backend/scripts/check-smoke-account-hygiene.ts`、`backend/scripts/precheck-pairing-normal-uniqueness.ts`、`backend/.env.example`、`frontend/.env.example`、`frontend-admin/.env.example`、`backend/railway.toml`、`backend/prisma/schema.prisma`、`backend/prisma/migrations/20260504164500_add_notification_cancelled_status/migration.sql`、`backend/prisma/migrations/20260504173000_add_product_state_recovery_tasks/migration.sql`、`backend/prisma/migrations/20260504182000_add_normal_pairing_uniqueness_trigger/migration.sql`、`backend/prisma/migrations/20260504193000_add_case_source_tracking/migration.sql`、`backend/src/config/database.ts`、`backend/src/config/env.ts`、`backend/src/routes/admin.routes.ts`、`backend/src/controllers/admin.controller.ts`、`backend/src/services/ai-cost-pricing.service.ts`、`backend/src/services/ai-request-ledger.service.ts`、`backend/src/services/notification.service.ts`、`backend/src/services/product-state-recovery-task.service.ts`、`backend/src/utils/case-classifier.ts`、`backend/src/utils/pairing-invariant.ts`、`backend/src/utils/validation.ts`
-**最後核驗 Commit**：`abf3c69`
+**取證代碼入口**：`package.json`、`scripts/ops-release-status.sh`、`scripts/ops-release-gate.sh`、`scripts/ops-db-status.sh`、`backend/package.json`、`backend/scripts/check-release-db-parity.ts`、`backend/scripts/check-ai-pricing-catalog.ts`、`backend/scripts/audit-product-state-consistency.ts`、`backend/scripts/check-smoke-account-hygiene.ts`、`backend/scripts/precheck-pairing-normal-uniqueness.ts`、`backend/.env.example`、`frontend/.env.example`、`frontend-admin/.env.example`、`backend/railway.toml`、`backend/prisma/schema.prisma`、`backend/prisma/migrations/20260504164500_add_notification_cancelled_status/migration.sql`、`backend/prisma/migrations/20260504173000_add_product_state_recovery_tasks/migration.sql`、`backend/prisma/migrations/20260504182000_add_normal_pairing_uniqueness_trigger/migration.sql`、`backend/prisma/migrations/20260504193000_add_case_source_tracking/migration.sql`、`backend/src/config/database.ts`、`backend/src/config/env.ts`、`backend/src/routes/admin.routes.ts`、`backend/src/controllers/admin.controller.ts`、`backend/src/services/ai-cost-pricing.service.ts`、`backend/src/services/ai-request-ledger.service.ts`、`backend/src/services/notification.service.ts`、`backend/src/services/product-state-recovery-task.service.ts`、`backend/src/utils/case-classifier.ts`、`backend/src/utils/pairing-invariant.ts`、`backend/src/utils/validation.ts`
+**最後核驗 Commit**：`93a419b`
 **最後核驗日期**：`2026-05-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -21,12 +21,13 @@ npm run ops:db:status
 cd backend && npm run ops:product-state:audit
 cd backend && npm run ops:product-state:audit:persist
 cd backend && npm run ops:release-db:check
+cd backend && npm run ops:ai-pricing:check
 cd backend && npm run ops:smoke-accounts:check
 cd backend && npm run precheck:pairing:normal-uniqueness
 npm run docs:check
 ```
 
-`ops:release:status` 用於查發布版狀態；`ops:release:gate` 是發布閉環 gate，要求顯式提供 `BACKEND_BASE_URL` 以及 `DATABASE_URL` 或 `ENV_FILE`，並依序執行 docs contract、backend build/lint、live release status、主站/Admin/backend version commit 對齊 `git rev-parse HEAD`、backend `/health/live`、`/health/ready`、`/health`、DB migration state、release-blocking DB parity、smoke account hygiene 與 product-state audit；`ops:db:status` 用於查當前 `DATABASE_URL` 對應的 Prisma migration state；`ops:release-db:check` 只讀 `_prisma_migrations`，確認安全元資料、安全狀態、AI request ledger、notification cancelled、recovery tasks、normal pairing trigger 與 case source tracking 這 7 個 release-blocking migrations 已完成且未 failed / rolled back；`ops:product-state:audit` 用於只讀檢查 case / chat-to-case / repair track replanning 的卡住狀態，輸出產品流、session-bound 分類、repair track AI stream 樣本細節、人工 recovery proposal 與逐筆 `recoveryTasks` 候選；`ops:product-state:audit:persist` 只在顯式執行時把 recovery task 候選 upsert 到 `product_state_recovery_tasks`，不自動修業務資料；`ops:smoke-accounts:check` 用於只讀掃描 active smoke/dev 帳號污染；`precheck:pairing:normal-uniqueness` 用於只讀檢查一個 user 是否同時出現在多個 `normal pending/active` pairing；Dev DB 已另由 trigger migration 在 DB 層拒絕 cross-role duplicate；`docs:check` 用於確認正式文檔與台賬仍閉環。
+`ops:release:status` 用於查發布版狀態；`ops:release:gate` 是發布閉環 gate，要求顯式提供 `BACKEND_BASE_URL` 以及 `DATABASE_URL` 或 `ENV_FILE`，並依序執行 docs contract、backend build/lint、live release status、主站/Admin/backend version commit 對齊 `git rev-parse HEAD`、backend `/health/live`、`/health/ready`、`/health`、DB migration state、release-blocking DB parity、AI pricing catalog、smoke account hygiene 與 product-state audit；`ops:db:status` 用於查當前 `DATABASE_URL` 對應的 Prisma migration state；`ops:release-db:check` 只讀 `_prisma_migrations`，確認安全元資料、安全狀態、AI request ledger、notification cancelled、recovery tasks、normal pairing trigger 與 case source tracking 這 7 個 release-blocking migrations 已完成且未 failed / rolled back；`ops:ai-pricing:check` 驗證 `AI_COST_PRICING_JSON` 可解析、帶 `source/version`，且覆蓋 `OPENAI_MODEL / OPENAI_INTERVIEW_MODEL / OPENAI_ANALYSIS_MODEL` 與可選 `AI_COST_REQUIRED_MODELS`；`ops:product-state:audit` 用於只讀檢查 case / chat-to-case / repair track replanning 的卡住狀態，輸出產品流、session-bound 分類、repair track AI stream 樣本細節、人工 recovery proposal 與逐筆 `recoveryTasks` 候選；`ops:product-state:audit:persist` 只在顯式執行時把 recovery task 候選 upsert 到 `product_state_recovery_tasks`，不自動修業務資料；`ops:smoke-accounts:check` 用於只讀掃描 active smoke/dev 帳號污染；`precheck:pairing:normal-uniqueness` 用於只讀檢查一個 user 是否同時出現在多個 `normal pending/active` pairing；Dev DB 已另由 trigger migration 在 DB 層拒絕 cross-role duplicate；`docs:check` 用於確認正式文檔與台賬仍閉環。
 
 ## 2. 平台地圖
 
@@ -326,7 +327,7 @@ gh run view <run-id> --json conclusion,status,headSha,url,createdAt,updatedAt
 後端 AI request ledger 的 request-level 成本歸因由可選 env `AI_COST_PRICING_JSON` 控制，格式固定為：
 
 ```env
-AI_COST_PRICING_JSON={"source":"manual-openai-pricing","version":"YYYY-MM-DD","models":{"gpt-4o-mini":{"inputUsdPer1M":0,"outputUsdPer1M":0}}}
+AI_COST_PRICING_JSON={"source":"manual-openai-pricing","version":"YYYY-MM-DD","models":{"gpt-3.5-turbo":{"inputUsdPer1M":0,"outputUsdPer1M":0},"gpt-4o-mini":{"inputUsdPer1M":0,"outputUsdPer1M":0},"gpt-4o":{"inputUsdPer1M":0,"outputUsdPer1M":0}}}
 ```
 
 運維規則：
@@ -334,7 +335,7 @@ AI_COST_PRICING_JSON={"source":"manual-openai-pricing","version":"YYYY-MM-DD","m
 1. Localhost backend 與 Railway release backend 的 `AI_COST_PRICING_JSON` 必須分別配置；本機 `.env` 不代表發布版已配置。
 2. 未配置、provider/model 未命中或 provider 未回 token usage 時，ledger `cost_usd=null`，Admin costs `openai.ledger.productFlows[].costSource` 會是 `not_allocated`。
 3. 查成本閉環時，若預期應有精準成本但仍看到 `not_allocated`，優先檢查 Railway env 的 `AI_COST_PRICING_JSON` 是否缺失、model key 是否與 runtime model 完全一致、pricing `version` 是否為當前審核版本。
-4. `ops:release:gate` 目前不硬性校驗 pricing catalog；發布前若要聲稱 AI request cost 已精準閉環，需人工補查 env 與 Admin costs response。
+4. `ops:ai-pricing:check` 與 `ops:release:gate` 會硬性校驗 pricing catalog，缺 `source/version`、JSON 無效、或缺少 runtime model 任一項都會阻塞 gate；若新增模型但不是三個標準 env，可用 `AI_COST_REQUIRED_MODELS` 追加必須覆蓋的 model key。
 
 ## 11. Agent 回答口徑
 

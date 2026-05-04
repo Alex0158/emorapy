@@ -3,8 +3,8 @@
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：問題治理
 **覆蓋範圍**：AI request ledger、產品流成本歸因、notification cancelled 狀態、dev/release DB parity
-**取證代碼入口**：`backend/src/services/cost-monitoring.service.ts`、`backend/src/services/ai-request-ledger.service.ts`、`backend/src/services/ai-cost-pricing.service.ts`、`backend/src/services/ai.service.ts`、`backend/src/services/judgment.service.ts`、`backend/src/services/ai-stream.service.ts`、`backend/src/services/interview-ai-response-consumer.ts`、`backend/src/services/notification.service.ts`、`backend/src/controllers/admin.controller.ts`、`backend/src/config/env.ts`、`backend/.env.example`、`backend/prisma/schema.prisma`、`backend/prisma/migrations/20260504143000_add_ai_request_ledger/migration.sql`、`backend/prisma/migrations/20260504164500_add_notification_cancelled_status/migration.sql`
-**最後核驗 Commit**：`659232c`
+**取證代碼入口**：`backend/src/services/cost-monitoring.service.ts`、`backend/src/services/ai-request-ledger.service.ts`、`backend/src/services/ai-cost-pricing.service.ts`、`backend/src/services/ai.service.ts`、`backend/src/services/judgment.service.ts`、`backend/src/services/chat-ai-orchestrator.service.ts`、`backend/src/services/interview.service.ts`、`backend/src/services/execution.service.ts`、`backend/src/services/ai-stream.service.ts`、`backend/src/services/interview-ai-response-consumer.ts`、`backend/src/services/notification.service.ts`、`backend/src/controllers/admin.controller.ts`、`backend/src/config/env.ts`、`backend/src/utils/ai-ledger-source.ts`、`backend/.env.example`、`backend/prisma/schema.prisma`、`backend/prisma/migrations/20260504143000_add_ai_request_ledger/migration.sql`、`backend/prisma/migrations/20260504164500_add_notification_cancelled_status/migration.sql`
+**最後核驗 Commit**：`62948e9`
 **最後核驗日期**：`2026-05-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -35,9 +35,10 @@ Admin 成本報表目前由 `CostMonitoringService` 讀取 OpenAI organization c
    - `AIService.generateText`
    - `AIService.generateTextStream`
    - 正式判決：emotion analysis、draft、responsibility ratio、summary，帶 `case_judgment` stream、product flow、`source_channel` 與 `entry_point`；ledger base 由 `buildCaseSourceTrackingForRead()` 生成，chat-to-case link 優先於落庫 `product_flow`。
-   - 聊天室 AI response，帶 `chat_room` stream。
-   - 心理訪談 AI response stream，帶 `interview_session` stream。
-   - 修復旅程 replan，帶 `repair_track` stream。
+   - 聊天室 AI response，帶 `chat_room` stream、`chat_first / chat_room / chat_room_ai_response` source tracking。
+   - 心理訪談 AI response stream，帶 `interview_session` stream、`profile_interview / profile_interview / interview_ai_response` source tracking。
+   - 修復旅程 replan，帶 `repair_track` stream、`repair_journey / repair_journey / repair_replan_generation` source tracking。
+   - 非案件 runtime 的 AI ledger source tracking 集中於 `buildRuntimeAILedgerSourceTracking()`，不得在各 service 內另手寫 mapping。
 4. Ledger 不保存 prompt 原文，只保存 `prompt_chars`、模型、scope、stream、request kind、token usage 與錯誤摘要；ledger 寫入失敗採 fail-open warning，不阻塞 AI 主流程。
 5. Streaming request 已要求 `stream_options.include_usage=true`，能在 provider 回傳 usage 時記錄 token；若 provider 未回 usage，token 欄位保留 `null`。
 6. `GET /api/v1/admin/reports/costs` 已新增 `openai.ledger`：

@@ -71,6 +71,7 @@ export type AdminRenderableNotification = RenderableNotification & {
 };
 
 type NotificationRecord = Awaited<ReturnType<typeof prisma.notification.findFirst>>;
+const ADMIN_CANCELLED_ERROR_PREFIX = 'admin_cancelled:';
 
 function readString(input: unknown): string | null {
   return typeof input === 'string' && input.trim().length > 0 ? input : null;
@@ -90,6 +91,12 @@ function readProductFlow(payload: Record<string, unknown>): CaseProductFlow | nu
   const journeyContext = readObject(payload.journey_context);
   const repairAccess = readObject(journeyContext.repair_access);
   return isCaseProductFlow(repairAccess.product_flow) ? repairAccess.product_flow : null;
+}
+
+function normalizeAdminReason(reason?: string | null): string {
+  return typeof reason === 'string' && reason.trim().length > 0
+    ? reason.trim().slice(0, 400)
+    : 'no reason provided';
 }
 
 const TEMPLATE_RENDER_DEFAULTS: Record<string, {
@@ -401,18 +408,45 @@ export class NotificationService {
       throw Errors.VALIDATION_ERROR('只有 pending 通知可以取消');
     }
 
-    const normalizedReason = typeof reason === 'string' && reason.trim().length > 0
-      ? reason.trim().slice(0, 400)
-      : 'no reason provided';
+    const normalizedReason = normalizeAdminReason(reason);
     const updated = await prisma.notification.update({
       where: { id: notificationId },
       data: {
         status: NotificationStatus.failed,
-        error_message: `admin_cancelled: ${normalizedReason}`,
+        error_message: `${ADMIN_CANCELLED_ERROR_PREFIX} ${normalizedReason}`,
       },
     });
 
     return this.normalize(updated);
+  }
+
+  async retryFailedByAdmin(notificationId: string, reason?: string | null) {
+    const notification = await prisma.notification.findUnique({
+      where: { id: notificationId },
+    });
+    if (!notification) return null;
+    if (notification.status !== NotificationStatus.failed) {
+      throw Errors.VALIDATION_ERROR('只有 failed 通知可以重送');
+    }
+    if (notification.error_message?.startsWith(ADMIN_CANCELLED_ERROR_PREFIX)) {
+      throw Errors.VALIDATION_ERROR('已由 Admin 取消的通知不可重送');
+    }
+
+    const normalizedReason = normalizeAdminReason(reason);
+    const updated = await prisma.notification.update({
+      where: { id: notificationId },
+      data: {
+        status: NotificationStatus.pending,
+        error_message: null,
+        sent_at: null,
+      },
+    });
+
+    return {
+      notification: this.normalize(updated),
+      previousError: notification.error_message ?? null,
+      reason: normalizedReason,
+    };
   }
 
   async getPending(limit = 50) {

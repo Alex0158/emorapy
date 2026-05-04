@@ -24,6 +24,7 @@ import {
   adminLoginSchema,
   adminNotificationCancelSchema,
   adminNotificationListQuerySchema,
+  adminNotificationRetrySchema,
   adminPaginationQuerySchema,
   adminSearchPaginationQuerySchema,
   adminUpsertConfigSchema,
@@ -236,6 +237,14 @@ router.post(
   requireAdminPermission('ops:execute'),
   validate(adminNotificationCancelSchema),
   adminController.cancelNotification.bind(adminController)
+);
+router.post(
+  '/notifications/:notificationId/retry',
+  generalLimiter,
+  authenticateAdmin,
+  requireAdminPermission('ops:execute'),
+  validate(adminNotificationRetrySchema),
+  adminController.retryNotification.bind(adminController)
 );
 router.get(
   '/runtime/interview',

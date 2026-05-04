@@ -29,6 +29,7 @@ const mockExportOverviewCsv = jest.fn();
 const mockCustomReport = jest.fn();
 const mockListNotifications = jest.fn();
 const mockCancelNotification = jest.fn();
+const mockRetryNotification = jest.fn();
 const mockUpsertAlertRules = jest.fn();
 const mockSetFeatureFlags = jest.fn();
 const mockGetInterviewRuntimeConfig = jest.fn();
@@ -63,6 +64,7 @@ jest.mock('../../../src/controllers/admin.controller', () => ({
     customReport: (req: unknown, res: unknown, next: unknown) => mockCustomReport(req, res, next),
     listNotifications: (req: unknown, res: unknown, next: unknown) => mockListNotifications(req, res, next),
     cancelNotification: (req: unknown, res: unknown, next: unknown) => mockCancelNotification(req, res, next),
+    retryNotification: (req: unknown, res: unknown, next: unknown) => mockRetryNotification(req, res, next),
     upsertAlertRules: (req: unknown, res: unknown, next: unknown) => mockUpsertAlertRules(req, res, next),
     setFeatureFlags: (req: unknown, res: unknown, next: unknown) => mockSetFeatureFlags(req, res, next),
     getInterviewRuntimeConfig: (req: unknown, res: unknown, next: unknown) => mockGetInterviewRuntimeConfig(req, res, next),
@@ -133,6 +135,7 @@ describe('admin.routes', () => {
     mockCustomReport.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true, data: {} }));
     mockListNotifications.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true, data: { items: [], total: 0 } }));
     mockCancelNotification.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true, data: { notification: {} } }));
+    mockRetryNotification.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true, data: { notification: {} } }));
     mockUpsertAlertRules.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true, data: { item: {} } }));
     mockSetFeatureFlags.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true, data: { item: {} } }));
     mockGetInterviewRuntimeConfig.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true, data: { runtime: {} } }));
@@ -302,6 +305,15 @@ describe('admin.routes', () => {
       .send({ reason: 'duplicate' });
     expect(res.status).toBe(200);
     expect(mockCancelNotification).toHaveBeenCalled();
+  });
+
+  it('POST /notifications/:notificationId/retry 應調用 retryNotification', async () => {
+    const app = createApp();
+    const res = await request(app)
+      .post('/notifications/11111111-1111-4111-8111-111111111111/retry')
+      .send({ reason: 'smtp recovered' });
+    expect(res.status).toBe(200);
+    expect(mockRetryNotification).toHaveBeenCalled();
   });
 
   it('GET /admin-users 應調用 listAdminUsers', async () => {

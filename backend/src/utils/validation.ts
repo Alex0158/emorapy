@@ -661,6 +661,15 @@ export const adminNotificationCancelSchema = {
   }),
 };
 
+export const adminNotificationRetrySchema = {
+  params: Joi.object({
+    notificationId: Joi.string().pattern(uuidPattern).required(),
+  }),
+  body: Joi.object({
+    reason: Joi.string().max(500).optional().allow(''),
+  }),
+};
+
 export const adminAlertRulesSchema = {
   body: Joi.object({
     rules: Joi.array()

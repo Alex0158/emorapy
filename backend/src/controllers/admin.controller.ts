@@ -978,6 +978,37 @@ class AdminController {
     }
   }
 
+  async retryNotification(req: Request, res: Response, next: NextFunction) {
+    try {
+      const reason = typeof req.body?.reason === 'string' ? req.body.reason : undefined;
+      const result = await notificationService.retryFailedByAdmin(req.params.notificationId, reason);
+      if (!result) {
+        throw Errors.NOT_FOUND('通知不存在');
+      }
+
+      const { notification, previousError } = result;
+      await adminService.writeAuditLog({
+        actorId: req.admin?.id,
+        actorType: 'admin',
+        entityType: 'notification',
+        entityId: notification.id,
+        action: 'retry_failed',
+        detail: {
+          userId: notification.user_id,
+          templateCode: notification.template_code,
+          dedupKey: notification.dedup_key,
+          reason: result.reason,
+          status: notification.status,
+          previousError,
+        },
+      });
+
+      res.json({ success: true, data: { notification }, message: '已重新排入 pending 通知' });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async upsertAlertRules(req: Request, res: Response, next: NextFunction) {
     try {
       const rulesInput = req.body?.rules;

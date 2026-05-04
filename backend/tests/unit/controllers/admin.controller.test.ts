@@ -1049,6 +1049,105 @@ describe('AdminController', () => {
       expect(mockNotificationUpdate).not.toHaveBeenCalled();
       expect(next).toHaveBeenCalledWith(expect.any(Error));
     });
+
+    it('retryNotification 只重送 failed 並寫入 audit log', async () => {
+      req.params = { notificationId };
+      req.body = { reason: 'smtp recovered' };
+      (mockNotificationFindUnique as any).mockResolvedValue({
+        id: notificationId,
+        user_id: userId,
+        channel: 'push',
+        template_code: 'repair_journey_replan',
+        action_key: null,
+        priority: null,
+        group_key: 'repair:t1',
+        dedup_key: 'repair_replan_t1_u1',
+        status: 'failed',
+        error_message: 'smtp timeout',
+        payload: {},
+        created_at: createdAt,
+        sent_at: createdAt,
+        read_at: null,
+        dismissed_at: null,
+        acted_at: null,
+        snoozed_until: null,
+      });
+      (mockNotificationUpdate as any).mockResolvedValue({
+        id: notificationId,
+        user_id: userId,
+        channel: 'push',
+        template_code: 'repair_journey_replan',
+        action_key: null,
+        priority: null,
+        group_key: 'repair:t1',
+        dedup_key: 'repair_replan_t1_u1',
+        status: 'pending',
+        error_message: null,
+        payload: {},
+        created_at: createdAt,
+        sent_at: null,
+        read_at: null,
+        dismissed_at: null,
+        acted_at: null,
+        snoozed_until: null,
+      });
+      (mockWriteAuditLog as any).mockResolvedValue(undefined);
+
+      await adminController.retryNotification(req as Request, res as Response, next);
+
+      expect(mockNotificationUpdate).toHaveBeenCalledWith({
+        where: { id: notificationId },
+        data: {
+          status: 'pending',
+          error_message: null,
+          sent_at: null,
+        },
+      });
+      expect(mockWriteAuditLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actorId: 'a1',
+          actorType: 'admin',
+          entityType: 'notification',
+          entityId: notificationId,
+          action: 'retry_failed',
+          detail: expect.objectContaining({
+            userId,
+            dedupKey: 'repair_replan_t1_u1',
+            reason: 'smtp recovered',
+            status: 'pending',
+            previousError: 'smtp timeout',
+          }),
+        })
+      );
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          data: {
+            notification: expect.objectContaining({
+              id: notificationId,
+              status: 'pending',
+              error_message: null,
+            }),
+          },
+        })
+      );
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('retryNotification 遇到 Admin 已取消通知應 next(validation error)', async () => {
+      req.params = { notificationId };
+      (mockNotificationFindUnique as any).mockResolvedValue({
+        id: notificationId,
+        user_id: userId,
+        status: 'failed',
+        error_message: 'admin_cancelled: duplicate recall',
+      });
+
+      await adminController.retryNotification(req as Request, res as Response, next);
+
+      expect(mockNotificationUpdate).not.toHaveBeenCalled();
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
+    });
   });
 
   describe('pagination and audit serialization', () => {

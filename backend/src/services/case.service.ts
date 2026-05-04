@@ -19,6 +19,8 @@ import {
   isCaseParticipant,
   isFormalCaseMode,
   isSessionBoundCase,
+  requiresCounterpartyStatementForSubmit,
+  shouldAutoSubmitFormalRemoteResponse,
 } from '../utils/case-classifier';
 import {
   buildSafetyAssessmentSnapshotForEvidenceAssertion,
@@ -494,10 +496,7 @@ export class CaseService {
       throw Errors.CASE_NOT_EDITABLE('案件狀態不允許提交');
     }
 
-    if (
-      (case_.mode === CASE_MODE.REMOTE || case_.mode === CASE_MODE.COLLABORATIVE) &&
-      (!case_.defendant_statement || !case_.defendant_statement.trim())
-    ) {
+    if (requiresCounterpartyStatementForSubmit(case_)) {
       throw Errors.VALIDATION_ERROR('遠程/協作模式需等待被告陳述後才能提交');
     }
 
@@ -573,11 +572,11 @@ export class CaseService {
       updateData.type = caseType;
     }
 
-    const isDefendantResponding =
-      case_.mode === CASE_MODE.REMOTE &&
-      case_.defendant_id === userId &&
-      !case_.defendant_statement &&
-      updateData.defendant_statement;
+    const isDefendantResponding = shouldAutoSubmitFormalRemoteResponse(
+      case_,
+      userId,
+      updateData.defendant_statement
+    );
 
     if (isDefendantResponding) {
       updateData.status = CASE_STATUS.SUBMITTED;

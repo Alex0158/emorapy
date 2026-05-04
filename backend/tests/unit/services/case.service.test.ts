@@ -853,6 +853,33 @@ describe('CaseService', () => {
       });
     });
 
+    it('session-bound collaborative 不應套用正式提交 gate', async () => {
+      const updated = {
+        id: 'case-1',
+        plaintiff_id: 'u1',
+        defendant_id: 'u2',
+        status: 'submitted',
+      };
+      prismaMock.case.findUnique.mockResolvedValue({
+        id: 'case-1',
+        plaintiff_id: 'u1',
+        defendant_id: 'u2',
+        status: 'draft',
+        mode: 'collaborative',
+        session_id: 's1',
+        defendant_statement: null,
+      });
+      prismaMock.case.update.mockResolvedValue(updated);
+
+      const result = await service.submitCase('case-1', 'u1');
+
+      expect(result).toEqual(updated);
+      expect(prismaMock.case.update).toHaveBeenCalledWith({
+        where: { id: 'case-1' },
+        data: expect.objectContaining({ status: 'submitted' }),
+      });
+    });
+
     it('成功應更新為 submitted 並返回', async () => {
       const updated = {
         id: 'case-1',

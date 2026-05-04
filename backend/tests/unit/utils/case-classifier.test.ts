@@ -16,6 +16,8 @@ import {
   isFormalCaseMode,
   isSessionBoundCase,
   isUserBoundProductCase,
+  requiresCounterpartyStatementForSubmit,
+  shouldAutoSubmitFormalRemoteResponse,
 } from '../../../src/utils/case-classifier';
 
 describe('case-classifier', () => {
@@ -47,6 +49,47 @@ describe('case-classifier', () => {
     expect(isFormalCaseMode('collaborative')).toBe(true);
     expect(isFormalCaseMode('quick')).toBe(false);
     expect(isFormalCaseMode(undefined)).toBe(false);
+  });
+
+  it('正式提交 gate 只要求 user-bound formal case 具備對方陳述', () => {
+    expect(requiresCounterpartyStatementForSubmit({
+      mode: 'remote',
+      session_id: null,
+      defendant_statement: null,
+    })).toBe(true);
+    expect(requiresCounterpartyStatementForSubmit({
+      mode: 'collaborative',
+      session_id: null,
+      defendant_statement: '   ',
+    })).toBe(true);
+    expect(requiresCounterpartyStatementForSubmit({
+      mode: 'collaborative',
+      session_id: 's1',
+      defendant_statement: null,
+    })).toBe(false);
+    expect(requiresCounterpartyStatementForSubmit({
+      mode: 'quick',
+      session_id: 's1',
+      defendant_statement: null,
+    })).toBe(false);
+  });
+
+  it('remote 被告首次回覆才應自動提交正式案件', () => {
+    expect(shouldAutoSubmitFormalRemoteResponse({
+      mode: 'remote',
+      defendant_id: 'u2',
+      defendant_statement: null,
+    }, 'u2', 'new statement')).toBe(true);
+    expect(shouldAutoSubmitFormalRemoteResponse({
+      mode: 'collaborative',
+      defendant_id: 'u2',
+      defendant_statement: null,
+    }, 'u2', 'new statement')).toBe(false);
+    expect(shouldAutoSubmitFormalRemoteResponse({
+      mode: 'remote',
+      defendant_id: 'u2',
+      defendant_statement: 'existing',
+    }, 'u2', 'new statement')).toBe(false);
   });
 
   it('isCaseParticipant 只接受 plaintiff 或 defendant', () => {

@@ -69,6 +69,27 @@ export function isFormalCaseMode(mode: string | null | undefined): mode is Forma
   return mode === CASE_MODE.REMOTE || mode === CASE_MODE.COLLABORATIVE;
 }
 
+export function isUserBoundFormalCase(case_: Pick<CaseAccessSubject, 'mode' | 'session_id'>): boolean {
+  return case_.mode === CASE_MODE.REMOTE || (case_.mode === CASE_MODE.COLLABORATIVE && !case_.session_id);
+}
+
+export function requiresCounterpartyStatementForSubmit(
+  case_: Pick<CaseAccessSubject, 'mode' | 'session_id'> & { defendant_statement?: string | null }
+): boolean {
+  return isUserBoundFormalCase(case_) && (!case_.defendant_statement || !case_.defendant_statement.trim());
+}
+
+export function shouldAutoSubmitFormalRemoteResponse(
+  case_: Pick<CaseAccessSubject, 'mode' | 'defendant_id'> & { defendant_statement?: string | null },
+  userId: string,
+  nextDefendantStatement?: unknown
+): boolean {
+  return case_.mode === CASE_MODE.REMOTE
+    && case_.defendant_id === userId
+    && !case_.defendant_statement
+    && Boolean(nextDefendantStatement);
+}
+
 export function getCaseAccessKind(case_: Pick<CaseAccessSubject, 'mode' | 'session_id'>): CaseAccessKind {
   return isSessionBoundCase(case_) ? 'session' : 'user';
 }

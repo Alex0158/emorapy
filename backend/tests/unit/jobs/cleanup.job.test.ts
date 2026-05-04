@@ -224,6 +224,13 @@ describe('cleanup.job', () => {
     it('cleanupTempPairings 有刪除時記錄 info', async () => {
       (mockPairingDeleteMany as any).mockResolvedValue({ count: 3 });
       await scheduledCallbacks[2]();
+      expect(mockPairingDeleteMany).toHaveBeenCalledWith({
+        where: {
+          pairing_type: 'quick',
+          status: 'temp',
+          created_at: { lt: expect.any(Date) },
+        },
+      });
       expect(mockLogger.info).toHaveBeenCalledWith('Temp pairings cleaned', { count: 3 });
     });
 

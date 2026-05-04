@@ -1,5 +1,6 @@
 import {
   buildActiveNormalPairingWhere,
+  buildQuickTempPairingWhere,
   buildSessionBoundQuickPairingWhere,
 } from '../../../src/utils/pairing-invariant';
 
@@ -40,6 +41,25 @@ describe('pairing-invariant', () => {
       session_id: 's1',
       pairing_type: 'quick',
       status: 'temp',
+      id: 'pair-1',
+    });
+  });
+
+  it('quick temp pairing where 可用於排程清理過期 temp pairing', () => {
+    const createdBefore = new Date('2026-05-04T00:00:00.000Z');
+
+    expect(buildQuickTempPairingWhere({ createdBefore })).toEqual({
+      pairing_type: 'quick',
+      status: 'temp',
+      created_at: { lt: createdBefore },
+    });
+  });
+
+  it('quick temp pairing where 可同時限制 session 與 pairing id', () => {
+    expect(buildQuickTempPairingWhere({ sessionId: 's1', pairingId: 'pair-1' })).toEqual({
+      pairing_type: 'quick',
+      status: 'temp',
+      session_id: 's1',
       id: 'pair-1',
     });
   });

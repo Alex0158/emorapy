@@ -12,14 +12,13 @@ import {
   CLEANUP_THRESHOLDS,
   CASE_STATUS,
   INTERVIEW_STATUS,
-  PAIRING_STATUS,
-  PAIRING_TYPE,
   EXECUTION_ACTION,
 } from '../utils/constants';
 import { systemConfigService } from '../services/system-config.service';
 import { runOpsAlertChecks } from '../services/ops-alerts.service';
 import { aiStreamService } from '../services/ai-stream.service';
 import { buildStaleFormalDraftCaseWhere, buildUserBoundProductCaseWhere, getCaseProductFlow } from '../utils/case-classifier';
+import { buildQuickTempPairingWhere } from '../utils/pairing-invariant';
 
 type CronExecutionResult = {
   affectedCount?: number;
@@ -196,11 +195,7 @@ export const cleanupTempPairings = createJob('0 2 * * *', async () => {
     try {
       const expiredAt = new Date(Date.now() - CLEANUP_THRESHOLDS.TEMP_PAIRING_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
       const result = await prisma.pairing.deleteMany({
-        where: {
-          pairing_type: PAIRING_TYPE.QUICK,
-          status: PAIRING_STATUS.TEMP,
-          created_at: { lt: expiredAt },
-        },
+        where: buildQuickTempPairingWhere({ createdBefore: expiredAt }),
       });
       if (result.count > 0) {
         logger.info('Temp pairings cleaned', { count: result.count });

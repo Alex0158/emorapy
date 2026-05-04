@@ -42,3 +42,28 @@ export function buildSessionBoundQuickPairingWhere(
 
   return where;
 }
+
+export function buildQuickTempPairingWhere(options: {
+  sessionId?: string;
+  pairingId?: string;
+  createdBefore?: Date;
+} = {}): Prisma.PairingWhereInput {
+  const where: Prisma.PairingWhereInput = {
+    pairing_type: PAIRING_TYPE.QUICK,
+    status: PAIRING_STATUS.TEMP,
+  };
+
+  if (options.sessionId) {
+    where.session_id = options.sessionId;
+  }
+
+  if (options.pairingId) {
+    where.id = options.pairingId;
+  }
+
+  if (options.createdBefore) {
+    where.created_at = { lt: options.createdBefore };
+  }
+
+  return where;
+}

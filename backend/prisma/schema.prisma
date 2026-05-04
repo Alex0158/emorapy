@@ -256,6 +256,13 @@ enum AIStreamPersistenceStatus {
   cancelled
 }
 
+enum AIRequestLedgerStatus {
+  started
+  succeeded
+  failed
+  cancelled
+}
+
 enum InsightType {
   trait
   pattern
@@ -1258,6 +1265,39 @@ model AIStreamEventArchive {
   @@index([scope_type, scope_id, seq], map: "idx_ai_stream_event_archives_scope_seq")
   @@index([event_type, source_created_at], map: "idx_ai_stream_event_archives_type_created_at")
   @@map("ai_stream_event_archives")
+}
+
+model AIRequestLedger {
+  id              String                @id @default(uuid())
+  request_id      String                @unique @db.VarChar(100)
+  stream_id       String?               @db.VarChar(100)
+  scope_type      String                @default("unknown") @db.VarChar(50)
+  scope_id        String?
+  product_flow    String?               @db.VarChar(50)
+  source_channel  String?               @db.VarChar(50)
+  entry_point     String?               @db.VarChar(50)
+  provider        String                @default("openai") @db.VarChar(50)
+  model           String                @db.VarChar(100)
+  request_kind    String                @default("chat_completion") @db.VarChar(50)
+  prompt_version  String?               @db.VarChar(100)
+  input_tokens    Int?
+  output_tokens   Int?
+  total_tokens    Int?
+  cost_usd        Decimal?              @db.Decimal(12, 6)
+  status          AIRequestLedgerStatus @default(started)
+  retry_count     Int                   @default(0)
+  failure_reason  String?
+  metadata        Json?
+  started_at      DateTime              @default(now())
+  completed_at    DateTime?
+  created_at      DateTime              @default(now())
+  updated_at      DateTime              @updatedAt
+
+  @@index([scope_type, scope_id, created_at], map: "idx_ai_request_ledger_scope_created")
+  @@index([product_flow, created_at], map: "idx_ai_request_ledger_product_flow_created")
+  @@index([status, created_at], map: "idx_ai_request_ledger_status_created")
+  @@index([stream_id], map: "idx_ai_request_ledger_stream_id")
+  @@map("ai_request_ledger")
 }
 
 model ProfileNarrative {

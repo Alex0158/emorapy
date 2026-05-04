@@ -12,6 +12,7 @@ import {
   IPV_SIGNAL_REGEX,
   SAFETY_SIGNAL_REGEX,
 } from './ai-safety-signals';
+import { aiRequestLedgerService, type AIRequestLedgerStartInput } from './ai-request-ledger.service';
 
 export {
   CRISIS_SIGNAL_REGEX,
@@ -28,6 +29,7 @@ export interface GenerateOptions {
   presencePenalty?: number;
   systemPrompt?: string;
   signal?: AbortSignal;
+  ledger?: AIRequestLedgerStartInput;
 }
 
 export interface JudgmentResponse {
@@ -116,6 +118,7 @@ export interface ReconciliationPlan {
 export interface GenerateReconciliationPlanOptions {
   intent?: 'repair' | 'cool_down' | 'graceful_exit' | 'safety_support';
   preferenceSummary?: string;
+  ledger?: AIRequestLedgerStartInput;
 }
 
 export interface GenerateReplannedRepairPlanInput {
@@ -137,6 +140,7 @@ export interface GenerateReplannedRepairPlanInput {
     notes?: string | null;
   }>;
   judgmentSummary?: string;
+  ledger?: AIRequestLedgerStartInput;
 }
 
 export class AIService {
@@ -202,84 +206,127 @@ export class AIService {
     if (this.useMock) {
       return 'Mock AI response for: ' + String(prompt ?? '').substring(0, 50);
     }
-    // 檢查並預留每日配額（分布式鎖確保原子性）
-    await this.reserveDailyQuota();
+    const model = options.model || AI_CONFIG.model;
+    const ledger = await aiRequestLedgerService.start({
+      ...options.ledger,
+      model,
+      requestKind: options.ledger?.requestKind || 'chat_completion',
+      metadata: {
+        ...(options.ledger?.metadata || {}),
+        stream: false,
+        prompt_chars: String(prompt ?? '').length,
+        max_tokens: options.maxTokens || AI_CONFIG.maxTokens,
+        temperature: options.temperature ?? AI_CONFIG.temperature,
+      },
+    });
+    let attemptCount = 0;
+    let quotaReserved = false;
+    let usage: { inputTokens?: number | null; outputTokens?: number | null; totalTokens?: number | null } = {};
 
     // 使用指數退避重試機制
-    return await retryWithBackoff(
-      async () => {
-        if (options.signal?.aborted) {
-          throw new Error('AI request aborted');
-        }
-        const abortController = new AbortController();
-        const timeoutMs = AI_TIMEOUT.OPENAI_REQUEST;
-        const timeout = setTimeout(() => abortController.abort(), timeoutMs);
-        const onExternalAbort = () => abortController.abort();
-        options.signal?.addEventListener('abort', onExternalAbort, { once: true });
-
-        const response = await openai.chat.completions.create(
-          {
-            model: options.model || AI_CONFIG.model,
-            messages: [
-              {
-                role: 'system',
-                content: options.systemPrompt || '你是一個有用的助手。',
-              },
-              {
-                role: 'user',
-                content: prompt,
-              },
-            ],
-            max_tokens: options.maxTokens || AI_CONFIG.maxTokens,
-            temperature: options.temperature ?? AI_CONFIG.temperature,
-            top_p: options.topP ?? AI_CONFIG.topP,
-            frequency_penalty: options.frequencyPenalty ?? AI_CONFIG.frequencyPenalty,
-            presence_penalty: options.presencePenalty ?? AI_CONFIG.presencePenalty,
-          },
-          { signal: abortController.signal as any }
-        ).finally(() => {
-          clearTimeout(timeout);
-          options.signal?.removeEventListener('abort', onExternalAbort);
-        });
-
-        const content = response.choices[0]?.message?.content;
-        if (!content) {
-          throw Errors.AI_SERVICE_ERROR('AI返回空內容');
-        }
-
-        return content;
-      },
-      {
-        maxRetries: 3,
-        initialDelay: 1000,
-        maxDelay: 10000,
-        backoffMultiplier: 2,
-        shouldRetry: (error: unknown) => {
-          const e = error as { name?: string; message?: string; status?: number };
-          const msg = String(e?.message || '');
-          if (e?.name === 'AbortError' || msg.includes('aborted')) {
-            return false;
+    try {
+      // 檢查並預留每日配額（分布式鎖確保原子性）
+      await this.reserveDailyQuota();
+      quotaReserved = true;
+      const content = await retryWithBackoff(
+        async () => {
+          attemptCount += 1;
+          if (options.signal?.aborted) {
+            throw new Error('AI request aborted');
           }
-          if (typeof e?.status === 'number' && e.status >= 400 && e.status < 500) {
-            return false;
+          const abortController = new AbortController();
+          const timeoutMs = AI_TIMEOUT.OPENAI_REQUEST;
+          const timeout = setTimeout(() => abortController.abort(), timeoutMs);
+          const onExternalAbort = () => abortController.abort();
+          options.signal?.addEventListener('abort', onExternalAbort, { once: true });
+
+          const response = await openai.chat.completions.create(
+            {
+              model,
+              messages: [
+                {
+                  role: 'system',
+                  content: options.systemPrompt || '你是一個有用的助手。',
+                },
+                {
+                  role: 'user',
+                  content: prompt,
+                },
+              ],
+              max_tokens: options.maxTokens || AI_CONFIG.maxTokens,
+              temperature: options.temperature ?? AI_CONFIG.temperature,
+              top_p: options.topP ?? AI_CONFIG.topP,
+              frequency_penalty: options.frequencyPenalty ?? AI_CONFIG.frequencyPenalty,
+              presence_penalty: options.presencePenalty ?? AI_CONFIG.presencePenalty,
+            },
+            { signal: abortController.signal as any }
+          ).finally(() => {
+            clearTimeout(timeout);
+            options.signal?.removeEventListener('abort', onExternalAbort);
+          });
+          usage = {
+            inputTokens: response.usage?.prompt_tokens ?? null,
+            outputTokens: response.usage?.completion_tokens ?? null,
+            totalTokens: response.usage?.total_tokens ?? null,
+          };
+
+          const content = response.choices[0]?.message?.content;
+          if (!content) {
+            throw Errors.AI_SERVICE_ERROR('AI返回空內容');
           }
-          return true;
+
+          return content;
         },
-      }
-    ).catch((error: unknown) => {
+        {
+          maxRetries: 3,
+          initialDelay: 1000,
+          maxDelay: 10000,
+          backoffMultiplier: 2,
+          shouldRetry: (error: unknown) => {
+            const e = error as { name?: string; message?: string; status?: number };
+            const msg = String(e?.message || '');
+            if (e?.name === 'AbortError' || msg.includes('aborted')) {
+              return false;
+            }
+            if (typeof e?.status === 'number' && e.status >= 400 && e.status < 500) {
+              return false;
+            }
+            return true;
+          },
+        }
+      );
+      await aiRequestLedgerService.complete({
+        requestId: ledger.requestId,
+        retryCount: Math.max(0, attemptCount - 1),
+        ...usage,
+      });
+      return content;
+    } catch (error: unknown) {
       const e = error as { message?: string; status?: number };
-      const today = new Date().toISOString().split('T')[0];
-      const countKey = CacheService.generateKey('ai:daily:count', today);
-      lockService.withLock(`lock:${countKey}`, async () => {
-        const count = (await this.cache.get<number>(countKey)) || 0;
-        const next = Math.max(0, count - 1);
-        await this.cache.set(countKey, next, 24 * 60 * 60);
-      }, 5).catch((e: unknown) => { logger.warn('Failed to rollback AI daily quota', { error: e }); });
+      if (quotaReserved) {
+        const today = new Date().toISOString().split('T')[0];
+        const countKey = CacheService.generateKey('ai:daily:count', today);
+        lockService.withLock(`lock:${countKey}`, async () => {
+          const count = (await this.cache.get<number>(countKey)) || 0;
+          const next = Math.max(0, count - 1);
+          await this.cache.set(countKey, next, 24 * 60 * 60);
+        }, 5).catch((e: unknown) => { logger.warn('Failed to rollback AI daily quota', { error: e }); });
+      }
 
       logger.error('OpenAI API error after retries', {
         error: e?.message,
         prompt: prompt.substring(0, 100),
       });
+      await aiRequestLedgerService.fail({
+        requestId: ledger.requestId,
+        status: this.isAbortLikeError(error) ? 'cancelled' : 'failed',
+        retryCount: Math.max(0, attemptCount - 1),
+        failureReason: e?.message || String(error),
+        ...usage,
+      });
+      if ((error as { code?: string })?.code === 'AI_SERVICE_ERROR') {
+        throw error;
+      }
 
       if (e?.status === 429) {
         throw Errors.AI_SERVICE_ERROR('AI服務請求過於頻繁，請稍後再試');
@@ -288,7 +335,7 @@ export class AIService {
       } else {
         throw Errors.AI_SERVICE_ERROR('AI服務暫時不可用');
       }
-    });
+    }
   }
 
   /**
@@ -305,82 +352,134 @@ export class AIService {
       }
       return mock;
     }
-    await this.reserveDailyQuota();
-
-    return await retryWithBackoff(
-      async () => {
-        if (options.signal?.aborted) {
-          throw new Error('AI request aborted');
-        }
-        const abortController = new AbortController();
-        const timeoutMs = AI_TIMEOUT.OPENAI_REQUEST;
-        const timeout = setTimeout(() => abortController.abort(), timeoutMs);
-        const onExternalAbort = () => abortController.abort();
-        options.signal?.addEventListener('abort', onExternalAbort, { once: true });
-
-        const stream = await openai.chat.completions.create(
-          {
-            model: options.model || AI_CONFIG.model,
-            messages: [
-              { role: 'system', content: options.systemPrompt || '你是一個有用的助手。' },
-              { role: 'user', content: prompt },
-            ],
-            max_tokens: options.maxTokens || AI_CONFIG.maxTokens,
-            temperature: options.temperature ?? AI_CONFIG.temperature,
-            top_p: options.topP ?? AI_CONFIG.topP,
-            frequency_penalty: options.frequencyPenalty ?? AI_CONFIG.frequencyPenalty,
-            presence_penalty: options.presencePenalty ?? AI_CONFIG.presencePenalty,
-            stream: true,
-          },
-          { signal: abortController.signal as any }
-        ).finally(() => {
-          clearTimeout(timeout);
-          options.signal?.removeEventListener('abort', onExternalAbort);
-        });
-
-        let fullContent = '';
-        for await (const chunk of stream) {
-          const delta = chunk.choices[0]?.delta?.content;
-          if (delta) {
-            fullContent += delta;
-            options.onToken?.(delta);
-          }
-        }
-
-        if (!fullContent.trim()) {
-          throw Errors.AI_SERVICE_ERROR('AI返回空內容');
-        }
-        return fullContent;
+    const model = options.model || AI_CONFIG.model;
+    const ledger = await aiRequestLedgerService.start({
+      ...options.ledger,
+      model,
+      requestKind: options.ledger?.requestKind || 'chat_completion_stream',
+      metadata: {
+        ...(options.ledger?.metadata || {}),
+        stream: true,
+        prompt_chars: String(prompt ?? '').length,
+        max_tokens: options.maxTokens || AI_CONFIG.maxTokens,
+        temperature: options.temperature ?? AI_CONFIG.temperature,
       },
-      {
-        maxRetries: 3,
-        initialDelay: 1000,
-        maxDelay: 10000,
-        backoffMultiplier: 2,
-        shouldRetry: (error: unknown) => {
-          const e = error as { name?: string; message?: string; status?: number };
-          const msg = String(e?.message || '');
-          if (e?.name === 'AbortError' || msg.includes('aborted')) return false;
-          if (typeof e?.status === 'number' && e.status >= 400 && e.status < 500) return false;
-          return true;
+    });
+    let attemptCount = 0;
+    let quotaReserved = false;
+    let usage: { inputTokens?: number | null; outputTokens?: number | null; totalTokens?: number | null } = {};
+
+    try {
+      await this.reserveDailyQuota();
+      quotaReserved = true;
+      const content = await retryWithBackoff(
+        async () => {
+          attemptCount += 1;
+          if (options.signal?.aborted) {
+            throw new Error('AI request aborted');
+          }
+          const abortController = new AbortController();
+          const timeoutMs = AI_TIMEOUT.OPENAI_REQUEST;
+          const timeout = setTimeout(() => abortController.abort(), timeoutMs);
+          const onExternalAbort = () => abortController.abort();
+          options.signal?.addEventListener('abort', onExternalAbort, { once: true });
+
+          const stream = await openai.chat.completions.create(
+            {
+              model,
+              messages: [
+                { role: 'system', content: options.systemPrompt || '你是一個有用的助手。' },
+                { role: 'user', content: prompt },
+              ],
+              max_tokens: options.maxTokens || AI_CONFIG.maxTokens,
+              temperature: options.temperature ?? AI_CONFIG.temperature,
+              top_p: options.topP ?? AI_CONFIG.topP,
+              frequency_penalty: options.frequencyPenalty ?? AI_CONFIG.frequencyPenalty,
+              presence_penalty: options.presencePenalty ?? AI_CONFIG.presencePenalty,
+              stream: true,
+              stream_options: { include_usage: true },
+            },
+            { signal: abortController.signal as any }
+          ).finally(() => {
+            clearTimeout(timeout);
+            options.signal?.removeEventListener('abort', onExternalAbort);
+          });
+
+          let fullContent = '';
+          for await (const chunk of stream) {
+            if (chunk.usage) {
+              usage = {
+                inputTokens: chunk.usage.prompt_tokens ?? null,
+                outputTokens: chunk.usage.completion_tokens ?? null,
+                totalTokens: chunk.usage.total_tokens ?? null,
+              };
+            }
+            const delta = chunk.choices[0]?.delta?.content;
+            if (delta) {
+              fullContent += delta;
+              options.onToken?.(delta);
+            }
+          }
+
+          if (!fullContent.trim()) {
+            throw Errors.AI_SERVICE_ERROR('AI返回空內容');
+          }
+          return fullContent;
         },
-      }
-    ).catch((error: unknown) => {
+        {
+          maxRetries: 3,
+          initialDelay: 1000,
+          maxDelay: 10000,
+          backoffMultiplier: 2,
+          shouldRetry: (error: unknown) => {
+            const e = error as { name?: string; message?: string; status?: number };
+            const msg = String(e?.message || '');
+            if (e?.name === 'AbortError' || msg.includes('aborted')) return false;
+            if (typeof e?.status === 'number' && e.status >= 400 && e.status < 500) return false;
+            return true;
+          },
+        }
+      );
+      await aiRequestLedgerService.complete({
+        requestId: ledger.requestId,
+        retryCount: Math.max(0, attemptCount - 1),
+        ...usage,
+      });
+      return content;
+    } catch (error: unknown) {
       const e = error as { message?: string; status?: number };
-      const today = new Date().toISOString().split('T')[0];
-      const countKey = CacheService.generateKey('ai:daily:count', today);
-      lockService.withLock(`lock:${countKey}`, async () => {
-        const count = (await this.cache.get<number>(countKey)) || 0;
-        const next = Math.max(0, count - 1);
-        await this.cache.set(countKey, next, 24 * 60 * 60);
-      }, 5).catch((err: unknown) => { logger.warn('Failed to rollback AI daily quota', { error: err }); });
+      if (quotaReserved) {
+        const today = new Date().toISOString().split('T')[0];
+        const countKey = CacheService.generateKey('ai:daily:count', today);
+        lockService.withLock(`lock:${countKey}`, async () => {
+          const count = (await this.cache.get<number>(countKey)) || 0;
+          const next = Math.max(0, count - 1);
+          await this.cache.set(countKey, next, 24 * 60 * 60);
+        }, 5).catch((err: unknown) => { logger.warn('Failed to rollback AI daily quota', { error: err }); });
+      }
 
       logger.error('OpenAI API stream error after retries', { error: e?.message, prompt: prompt.substring(0, 100) });
+      await aiRequestLedgerService.fail({
+        requestId: ledger.requestId,
+        status: this.isAbortLikeError(error) ? 'cancelled' : 'failed',
+        retryCount: Math.max(0, attemptCount - 1),
+        failureReason: e?.message || String(error),
+        ...usage,
+      });
+      if ((error as { code?: string })?.code === 'AI_SERVICE_ERROR') {
+        throw error;
+      }
 
       if (e?.status === 429) throw Errors.AI_SERVICE_ERROR('AI服務請求過於頻繁，請稍後再試');
       if (e?.status === 401) throw Errors.AI_SERVICE_ERROR('AI服務認證失敗');
       throw Errors.AI_SERVICE_ERROR('AI服務暫時不可用');
-    });
+    }
+  }
+
+  private isAbortLikeError(error: unknown): boolean {
+    const e = error as { name?: string; message?: string };
+    const msg = String(e?.message || '').toLowerCase();
+    return e?.name === 'AbortError' || msg.includes('aborted');
   }
 
   /**
@@ -486,7 +585,8 @@ ${fenceUserInput('角色B陳述', defendantStatement)}
     plaintiffStatement: string,
     defendantStatement: string,
     signal?: AbortSignal,
-    psychHint?: string
+    psychHint?: string,
+    ledger?: AIRequestLedgerStartInput
   ): Promise<EmotionalAnalysis> {
     if (this.useMock) {
       return DEFAULT_EMOTIONAL_ANALYSIS;
@@ -572,6 +672,10 @@ severity 評估標準：
         temperature: 0.3,
         systemPrompt: '你是一位受過 NVC、EFT、Gottman 訓練的資深伴侶治療師。你正在進行專業的情感動態評估。請只返回 JSON。',
         signal,
+        ledger: ledger ? {
+          ...ledger,
+          requestKind: ledger.requestKind || 'emotional_analysis',
+        } : undefined,
       });
 
       let analysis: EmotionalAnalysis;
@@ -689,6 +793,7 @@ severity 評估標準：
       summaryBrief?: string;
       routeType?: JudgmentRoute;
       prefetchedAnalysis?: EmotionalAnalysis;
+      ledger?: AIRequestLedgerStartInput;
     }
   ): Promise<JudgmentResponse> {
     if (this.useMock) {
@@ -808,7 +913,11 @@ severity 評估標準：
       plaintiffStatement,
       defendantStatement,
       options?.signal,
-      options?.emotionalAnalysisHint
+      options?.emotionalAnalysisHint,
+      options?.ledger ? {
+        ...options.ledger,
+        requestKind: 'emotional_analysis',
+      } : undefined
     );
 
     // Phase 1：基於分析結果生成個性化回應（高溫度、富表達）
@@ -828,6 +937,10 @@ severity 評估標準：
         presencePenalty: 0.3,
         systemPrompt: AIService.SYSTEM_PROMPT,
         signal: options?.signal,
+        ledger: options?.ledger ? {
+          ...options.ledger,
+          requestKind: 'judgment_draft',
+        } : undefined,
       });
 
       const responsibilityRatio = routeType === 'crisis_support'
@@ -840,9 +953,21 @@ severity 評估標準：
             plaintiffStatement,
             defendantStatement,
             options?.signal,
-            options?.responsibilityHint
+            options?.responsibilityHint,
+            options?.ledger ? {
+              ...options.ledger,
+              requestKind: 'responsibility_ratio',
+            } : undefined
           );
-      const summary = await this.generateSummary(content, options?.signal, options?.summaryBrief);
+      const summary = await this.generateSummary(
+        content,
+        options?.signal,
+        options?.summaryBrief,
+        options?.ledger ? {
+          ...options.ledger,
+          requestKind: 'judgment_summary',
+        } : undefined
+      );
 
       return {
         content,
@@ -1187,7 +1312,8 @@ ${severityGuide[analysis.severity]}
     plaintiffStatement: string,
     defendantStatement: string,
     signal?: AbortSignal,
-    relationshipHint?: string
+    relationshipHint?: string,
+    ledger?: AIRequestLedgerStartInput
   ): Promise<{ plaintiff: number; defendant: number }> {
     const structured = await this.assessResponsibilityRatio(
       analysis,
@@ -1195,7 +1321,8 @@ ${severityGuide[analysis.severity]}
       defendantStatement,
       content,
       signal,
-      relationshipHint
+      relationshipHint,
+      ledger
     );
     const extracted = this.extractResponsibilityRatio(content);
     const heuristic = this.deriveRatioFromSignals(
@@ -1226,7 +1353,8 @@ ${severityGuide[analysis.severity]}
     defendantStatement: string,
     content: string,
     signal?: AbortSignal,
-    relationshipHint?: string
+    relationshipHint?: string,
+    ledger?: AIRequestLedgerStartInput
   ): Promise<ResponsibilityAssessment | null> {
     if (this.useMock) return null;
 
@@ -1280,6 +1408,7 @@ ${content.substring(0, 1200)}
         temperature: 0.2,
         systemPrompt: '你是嚴格的 JSON 生成器，只返回 JSON。',
         signal,
+        ledger,
       });
       const parsed = this.parseJsonObject(raw) as ResponsibilityAssessment | null;
       if (!parsed) return null;
@@ -1451,7 +1580,12 @@ ${content.substring(0, 1200)}
   /**
    * 生成摘要
    */
-  async generateSummary(content: string, signal?: AbortSignal, relationshipBrief?: string): Promise<string> {
+  async generateSummary(
+    content: string,
+    signal?: AbortSignal,
+    relationshipBrief?: string,
+    ledger?: AIRequestLedgerStartInput
+  ): Promise<string> {
     if (this.useMock) {
       return '一方用準備驚喜來表達愛，另一方用努力工作來表達愛——但這兩種愛的語言沒有被翻譯成對方能懂的。核心不是遲到，而是「我重不重要」的安全感。建議先建立「遲到時也能感到被在乎」的溝通機制，再慢慢處理過去累積的傷。';
     }
@@ -1482,6 +1616,7 @@ ${content}
         temperature: 0.5,
         systemPrompt: '你是一位溫暖的關係諮詢師，擅長用簡潔有力的語言概括伴侶之間的核心議題和方向。',
         signal,
+        ledger,
       });
       return summary.trim();
     } catch (error) {
@@ -1557,6 +1692,10 @@ ${content}
         maxTokens: 3000,
         temperature: 0.8,
         systemPrompt: AIService.SYSTEM_PROMPT,
+        ledger: options?.ledger ? {
+          ...options.ledger,
+          requestKind: options.ledger.requestKind || 'reconciliation_plan_generation',
+        } : undefined,
       });
 
       // 解析JSON響應
@@ -1678,6 +1817,10 @@ ${recentCheckins || '- 暫無更多回報'}
       maxTokens: 1800,
       temperature: 0.7,
       systemPrompt: AIService.SYSTEM_PROMPT,
+      ledger: input.ledger ? {
+        ...input.ledger,
+        requestKind: input.ledger.requestKind || 'repair_replan_generation',
+      } : undefined,
     });
 
     let plan: ReconciliationPlan;

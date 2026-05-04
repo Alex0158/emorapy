@@ -188,6 +188,18 @@ export class ChatAIOrchestrator {
         temperature: hasRoleB ? 0.55 : 0.65,
         maxTokens: 220,
         onToken: publishToken,
+        ledger: {
+          streamId: streamHandle.streamId,
+          scopeType: streamHandle.scopeType,
+          scopeId: streamHandle.scopeId,
+          requestKind: 'chat_room_ai_response',
+          productFlow: 'chat_first',
+          metadata: {
+            parent_request_id: streamHandle.requestId,
+            message_type: messageType,
+            strategy: hasRoleB ? 'mediation' : 'support',
+          },
+        },
       });
     } catch (err) {
       await aiStreamService.failed(

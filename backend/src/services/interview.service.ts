@@ -140,6 +140,18 @@ export class InterviewService {
             userPrompt,
             signal: options.signal,
             emitTextDelta,
+            ledger: streamHandle ? {
+              streamId: streamHandle.streamId,
+              scopeType: streamHandle.scopeType,
+              scopeId: streamHandle.scopeId,
+              requestKind: 'interview_ai_response',
+              productFlow: 'profile_interview',
+              metadata: {
+                parent_request_id: streamHandle.requestId,
+                current_turn: currentTurn,
+                stream_mode: streamMode,
+              },
+            } : undefined,
             onParseWarning: (warning) => {
               if (warning === 'metadata_json_parse_failed') {
                 logger.warn('Interview: metadata JSON parse failed', { sessionId });

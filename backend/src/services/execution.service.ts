@@ -646,6 +646,21 @@ export class ExecutionService {
           notes: checkin.notes,
         })),
         judgmentSummary: track.plan.judgment.summary || undefined,
+        ledger: {
+          streamId: handle.streamId,
+          scopeType: handle.scopeType,
+          scopeId: handle.scopeId,
+          requestKind: 'repair_replan_generation',
+          productFlow: 'repair_journey',
+          metadata: {
+            parent_request_id: handle.requestId,
+            track_id: track.id,
+            plan_id: track.plan_id,
+            judgment_id: track.plan.judgment_id,
+            replan_mode: dto.mode,
+            replan_reason: dto.reason,
+          },
+        },
       });
 
       await aiStreamService.phase(handle, 'finalizing_plan', {

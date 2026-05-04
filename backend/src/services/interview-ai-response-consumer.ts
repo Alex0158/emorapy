@@ -1,5 +1,8 @@
 import type { InterviewAIResponse } from '../types/interview.types';
 import { Errors } from '../utils/errors';
+import { INTERVIEW_AI_CONFIG } from '../config/openai';
+import type { AIRequestLedgerStartInput } from './ai-request-ledger.service';
+import { aiRequestLedgerService } from './ai-request-ledger.service';
 import { createInterviewAIResponseStream } from './interview-ai-stream-request-utils';
 import {
   applyInterviewAIStreamDelta,
@@ -14,6 +17,7 @@ export interface ConsumeInterviewAIResponseStreamParams {
   signal?: AbortSignal;
   emitTextDelta: (textDelta: string) => void;
   onParseWarning?: (warning: InterviewAIContentParseWarning) => void;
+  ledger?: AIRequestLedgerStartInput;
 }
 
 export interface ConsumedInterviewAIResponse {
@@ -27,6 +31,7 @@ export async function consumeInterviewAIResponseStream({
   signal,
   emitTextDelta,
   onParseWarning,
+  ledger: ledgerInput,
 }: ConsumeInterviewAIResponseStreamParams): Promise<ConsumedInterviewAIResponse> {
   const emitNonEmptyTextDelta = (textDelta: string) => {
     if (textDelta) {
@@ -34,22 +39,58 @@ export async function consumeInterviewAIResponseStream({
     }
   };
 
-  const stream = await createInterviewAIResponseStream({
-    systemPrompt,
-    userPrompt,
-    signal,
+  const ledger = await aiRequestLedgerService.start({
+    ...ledgerInput,
+    model: INTERVIEW_AI_CONFIG.model,
+    requestKind: ledgerInput?.requestKind || 'interview_ai_response_stream',
+    metadata: {
+      ...(ledgerInput?.metadata || {}),
+      stream: true,
+      prompt_chars: userPrompt.length,
+      max_tokens: INTERVIEW_AI_CONFIG.maxTokens,
+      temperature: INTERVIEW_AI_CONFIG.temperature,
+    },
   });
+  let usage: { inputTokens?: number | null; outputTokens?: number | null; totalTokens?: number | null } = {};
 
   const aiContent = createInterviewAIStreamParseState();
 
-  for await (const chunk of stream) {
-    const delta = chunk.choices[0]?.delta?.content;
-    emitNonEmptyTextDelta(applyInterviewAIStreamDelta(aiContent, delta));
+  try {
+    const stream = await createInterviewAIResponseStream({
+      systemPrompt,
+      userPrompt,
+      signal,
+    });
+
+    for await (const chunk of stream) {
+      if (chunk.usage) {
+        usage = {
+          inputTokens: chunk.usage.prompt_tokens ?? null,
+          outputTokens: chunk.usage.completion_tokens ?? null,
+          totalTokens: chunk.usage.total_tokens ?? null,
+        };
+      }
+      const delta = chunk.choices[0]?.delta?.content;
+      emitNonEmptyTextDelta(applyInterviewAIStreamDelta(aiContent, delta));
+    }
+
+    if (!aiContent.fullContent.trim()) {
+      throw Errors.AI_CALL_FAILED('AI 返回空內容');
+    }
+  } catch (error) {
+    await aiRequestLedgerService.fail({
+      requestId: ledger.requestId,
+      status: isAbortLikeError(error) ? 'cancelled' : 'failed',
+      failureReason: error instanceof Error ? error.message : String(error),
+      ...usage,
+    });
+    throw error;
   }
 
-  if (!aiContent.fullContent.trim()) {
-    throw Errors.AI_CALL_FAILED('AI 返回空內容');
-  }
+  await aiRequestLedgerService.complete({
+    requestId: ledger.requestId,
+    ...usage,
+  });
 
   const { text, parsedMeta, pendingTextDelta, warning } =
     parseInterviewAIStreamContent(aiContent);
@@ -59,4 +100,10 @@ export async function consumeInterviewAIResponseStream({
   emitNonEmptyTextDelta(pendingTextDelta);
 
   return { text, parsedMeta };
+}
+
+function isAbortLikeError(error: unknown): boolean {
+  const e = error as { name?: string; message?: string };
+  const msg = String(e?.message || '').toLowerCase();
+  return e?.name === 'AbortError' || msg.includes('aborted');
 }

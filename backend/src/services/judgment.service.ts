@@ -21,6 +21,7 @@ import { env } from '../config/env';
 import { aiStreamService } from './ai-stream.service';
 import {
   canAccessSessionBoundCase,
+  getCaseProductFlow,
   isCaseParticipant,
   isSessionBoundCase,
   isUserBoundProductCase,
@@ -730,6 +731,19 @@ export class JudgmentService {
           reasons: ['default route'],
           detectedFlags: [],
         };
+        const productFlow = getCaseProductFlow(case_);
+        const aiLedgerBase = {
+          streamId: streamHandle.streamId,
+          scopeType: streamHandle.scopeType,
+          scopeId: streamHandle.scopeId,
+          productFlow,
+          metadata: {
+            parent_request_id: streamHandle.requestId,
+            case_id: caseId,
+            case_mode: case_.mode,
+            case_type: case_.type,
+          },
+        };
         let timedOut = false;
         const abortController = new AbortController();
         const timeoutHandle = setTimeout(() => {
@@ -746,7 +760,11 @@ export class JudgmentService {
             case_.plaintiff_statement,
             case_.defendant_statement || '',
             abortController.signal,
-            emotionalAnalysisHint
+            emotionalAnalysisHint,
+            {
+              ...aiLedgerBase,
+              requestKind: 'judgment_emotional_analysis',
+            }
           );
 
           routeDecision = safetyRoutingService.decideRoute({
@@ -774,6 +792,13 @@ export class JudgmentService {
               summaryBrief,
               routeType: routeDecision.route,
               prefetchedAnalysis,
+              ledger: {
+                ...aiLedgerBase,
+                metadata: {
+                  ...aiLedgerBase.metadata,
+                  route: routeDecision.route,
+                },
+              },
             }
           );
 

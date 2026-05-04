@@ -26,6 +26,7 @@ export function buildInterviewAIStreamRequest(params: {
     frequency_penalty: INTERVIEW_AI_CONFIG.frequencyPenalty,
     presence_penalty: INTERVIEW_AI_CONFIG.presencePenalty,
     stream: true,
+    stream_options: { include_usage: true },
   };
 }
 

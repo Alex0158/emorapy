@@ -3,8 +3,8 @@
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：正式規格
 **覆蓋範圍**：Vercel、Railway、Supabase/Postgres、Git/GitHub 與本機 `.env` 的固定連接、查詢與發布操作口徑
-**取證代碼入口**：`package.json`、`scripts/ops-release-status.sh`、`scripts/ops-release-gate.sh`、`scripts/ops-db-status.sh`、`backend/scripts/audit-product-state-consistency.ts`、`backend/scripts/check-smoke-account-hygiene.ts`、`backend/scripts/precheck-pairing-normal-uniqueness.ts`、`backend/.env.example`、`frontend/.env.example`、`frontend-admin/.env.example`、`backend/railway.toml`、`backend/prisma/schema.prisma`、`backend/prisma/migrations/20260504164500_add_notification_cancelled_status/migration.sql`、`backend/prisma/migrations/20260504173000_add_product_state_recovery_tasks/migration.sql`、`backend/prisma/migrations/20260504182000_add_normal_pairing_uniqueness_trigger/migration.sql`、`backend/src/config/database.ts`、`backend/src/config/env.ts`、`backend/src/routes/admin.routes.ts`、`backend/src/controllers/admin.controller.ts`、`backend/src/services/ai-cost-pricing.service.ts`、`backend/src/services/ai-request-ledger.service.ts`、`backend/src/services/notification.service.ts`、`backend/src/services/product-state-recovery-task.service.ts`、`backend/src/utils/pairing-invariant.ts`、`backend/src/utils/validation.ts`
-**最後核驗 Commit**：`8d1526b`
+**取證代碼入口**：`package.json`、`scripts/ops-release-status.sh`、`scripts/ops-release-gate.sh`、`scripts/ops-db-status.sh`、`backend/scripts/audit-product-state-consistency.ts`、`backend/scripts/check-smoke-account-hygiene.ts`、`backend/scripts/precheck-pairing-normal-uniqueness.ts`、`backend/.env.example`、`frontend/.env.example`、`frontend-admin/.env.example`、`backend/railway.toml`、`backend/prisma/schema.prisma`、`backend/prisma/migrations/20260504164500_add_notification_cancelled_status/migration.sql`、`backend/prisma/migrations/20260504173000_add_product_state_recovery_tasks/migration.sql`、`backend/prisma/migrations/20260504182000_add_normal_pairing_uniqueness_trigger/migration.sql`、`backend/prisma/migrations/20260504193000_add_case_source_tracking/migration.sql`、`backend/src/config/database.ts`、`backend/src/config/env.ts`、`backend/src/routes/admin.routes.ts`、`backend/src/controllers/admin.controller.ts`、`backend/src/services/ai-cost-pricing.service.ts`、`backend/src/services/ai-request-ledger.service.ts`、`backend/src/services/notification.service.ts`、`backend/src/services/product-state-recovery-task.service.ts`、`backend/src/utils/case-classifier.ts`、`backend/src/utils/pairing-invariant.ts`、`backend/src/utils/validation.ts`
+**最後核驗 Commit**：`2e4a274`
 **最後核驗日期**：`2026-05-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -277,9 +277,9 @@ ENV_FILE=<backend-local-env-file> npm run ops:db:status
    - `20260502095500_add_admin_governance_models`
    - `20260502102000_add_judgment_emotional_analysis`
    - `20260502103000_add_reconciliation_repair_models`
-4. `2026-05-03` 已刪除舊 dev Supabase project，重建 `Mother Bear Court Dev`（ref：`lbukyqztkkkztfrfltlh`）；`2026-05-04` 已套用至 `20260504182000_add_normal_pairing_uniqueness_trigger`，合計 17 個 Prisma migrations。
+4. `2026-05-03` 已刪除舊 dev Supabase project，重建 `Mother Bear Court Dev`（ref：`lbukyqztkkkztfrfltlh`）；`2026-05-04` 已套用至 `20260504193000_add_case_source_tracking`，合計 18 個 Prisma migrations。
 5. 新 dev DB 未執行 seed；業務資料表為 0 筆資料，只保留 migration history。
-6. Dev DB 目前回報 `Database schema is up to date!`；Production pooler 的舊核驗早於 `20260504143000_add_ai_request_ledger`、`20260504164500_add_notification_cancelled_status`、`20260504173000_add_product_state_recovery_tasks` 與 `20260504182000_add_normal_pairing_uniqueness_trigger`，發布前必須重新以 release `DATABASE_URL` 執行 `ops:db:status` 或 `ops:release:gate`。
+6. Dev DB 目前回報 `Database schema is up to date!`；Production pooler 的舊核驗早於 `20260504143000_add_ai_request_ledger`、`20260504164500_add_notification_cancelled_status`、`20260504173000_add_product_state_recovery_tasks`、`20260504182000_add_normal_pairing_uniqueness_trigger` 與 `20260504193000_add_case_source_tracking`，發布前必須重新以 release `DATABASE_URL` 執行 `ops:db:status` 或 `ops:release:gate`。
 
 若之後新增 migration，仍必須重新執行 `ops:db:status`；不能沿用本段歷史結論。
 

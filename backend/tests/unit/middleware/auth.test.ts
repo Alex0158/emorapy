@@ -312,7 +312,43 @@ describe('middleware/auth', () => {
           file_url: { contains: 'foo.jpg' },
           case: {
             OR: [
-              { mode: 'quick', session_id: 's1' },
+              {
+                mode: 'quick',
+                OR: [
+                  { session_id: 's1' },
+                  { quick_sessions: { some: { id: 's1' } } },
+                ],
+              },
+              { mode: 'collaborative', session_id: 's1' },
+            ],
+          },
+        },
+        select: { id: true },
+      });
+      expect(req.sessionId).toBe('s1');
+      expect(next).toHaveBeenCalledWith();
+    });
+
+    it('legacy quick_sessions 關聯的證據文件應可用同 session 授權', async () => {
+      mockValidateSessionId.mockReturnValue(true);
+      mockGetSession.mockResolvedValue({ id: 's1', expires_at: new Date(Date.now() + 3600000) } as never);
+      mockFindFirstEvidence.mockResolvedValueOnce({ id: 'e1' } as never);
+      const req = createReq({ query: { session_id: 's1' }, path: '/legacy.jpg' });
+
+      await authorizeMedia(req, createRes(), next);
+
+      expect(mockFindFirstEvidence).toHaveBeenCalledWith({
+        where: {
+          file_url: { contains: 'legacy.jpg' },
+          case: {
+            OR: [
+              {
+                mode: 'quick',
+                OR: [
+                  { session_id: 's1' },
+                  { quick_sessions: { some: { id: 's1' } } },
+                ],
+              },
               { mode: 'collaborative', session_id: 's1' },
             ],
           },

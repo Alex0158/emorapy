@@ -116,7 +116,13 @@ export function buildUserBoundCaseModeWhere() {
 export function buildSessionBoundCaseWhere(sessionId: string): Prisma.CaseWhereInput {
   return {
     OR: [
-      { mode: CASE_MODE.QUICK, session_id: sessionId },
+      {
+        mode: CASE_MODE.QUICK,
+        OR: [
+          { session_id: sessionId },
+          { quick_sessions: { some: { id: sessionId } } },
+        ],
+      },
       { mode: CASE_MODE.COLLABORATIVE, session_id: sessionId },
     ],
   };

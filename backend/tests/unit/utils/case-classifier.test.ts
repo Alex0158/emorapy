@@ -93,7 +93,13 @@ describe('case-classifier', () => {
   it('session-bound case query 應覆蓋 quick 與 collaborative 同 session', () => {
     expect(buildSessionBoundCaseWhere('s1')).toEqual({
       OR: [
-        { mode: 'quick', session_id: 's1' },
+        {
+          mode: 'quick',
+          OR: [
+            { session_id: 's1' },
+            { quick_sessions: { some: { id: 's1' } } },
+          ],
+        },
         { mode: 'collaborative', session_id: 's1' },
       ],
     });

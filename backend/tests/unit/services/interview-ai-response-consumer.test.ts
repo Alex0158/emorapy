@@ -7,6 +7,7 @@ jest.mock('../../../src/services/interview-ai-stream-request-utils', () => ({
 
 import { createInterviewAIResponseStream } from '../../../src/services/interview-ai-stream-request-utils';
 import { consumeInterviewAIResponseStream } from '../../../src/services/interview-ai-response-consumer';
+import { aiRequestLedgerService } from '../../../src/services/ai-request-ledger.service';
 
 function createStreamFromContent(chunks: Array<string | null | undefined>) {
   return (async function* () {
@@ -27,6 +28,9 @@ describe('interview-ai-response-consumer', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(aiRequestLedgerService, 'start').mockResolvedValue({ requestId: 'ledger-interview-1' });
+    jest.spyOn(aiRequestLedgerService, 'complete').mockResolvedValue(undefined);
+    jest.spyOn(aiRequestLedgerService, 'fail').mockResolvedValue(undefined);
   });
 
   it('consumeInterviewAIResponseStream 應消費 delimiter 格式回覆、發送正文 delta 並返回 parsedMeta', async () => {
@@ -59,8 +63,58 @@ describe('interview-ai-response-consumer', () => {
       userPrompt: 'user prompt',
       signal: controller.signal,
     });
+    expect(aiRequestLedgerService.start).toHaveBeenCalledWith(expect.objectContaining({
+      productFlow: 'profile_interview',
+      sourceChannel: 'profile_interview',
+      entryPoint: 'interview_ai_response',
+      requestKind: 'interview_ai_response',
+      promptVersion: 'interview-ai-response@v1.0',
+      metadata: expect.objectContaining({
+        stream: true,
+        prompt_chars: 'user prompt'.length,
+      }),
+    }));
+    expect(aiRequestLedgerService.complete).toHaveBeenCalledWith(expect.objectContaining({
+      requestId: 'ledger-interview-1',
+    }));
     expect(emitTextDelta).toHaveBeenCalledTimes(1);
     expect(emitTextDelta).toHaveBeenCalledWith('謝謝你願意說這些。');
+  });
+
+  it('consumeInterviewAIResponseStream 應保留上層傳入的 ledger scope 並補齊預設歸因欄位', async () => {
+    mockedCreateInterviewAIResponseStream.mockResolvedValue(
+      createStreamFromContent(['{"text":"我聽到了。"}'])
+    );
+
+    await consumeInterviewAIResponseStream({
+      systemPrompt: 'system',
+      userPrompt: 'user',
+      emitTextDelta: jest.fn(),
+      ledger: {
+        streamId: 'stream-1',
+        scopeType: 'interview_session',
+        scopeId: 'session-1',
+        metadata: {
+          parent_request_id: 'stream-request-1',
+        },
+      },
+    });
+
+    expect(aiRequestLedgerService.start).toHaveBeenCalledWith(expect.objectContaining({
+      streamId: 'stream-1',
+      scopeType: 'interview_session',
+      scopeId: 'session-1',
+      productFlow: 'profile_interview',
+      sourceChannel: 'profile_interview',
+      entryPoint: 'interview_ai_response',
+      requestKind: 'interview_ai_response',
+      promptVersion: 'interview-ai-response@v1.0',
+      metadata: expect.objectContaining({
+        parent_request_id: 'stream-request-1',
+        stream: true,
+        prompt_chars: 'user'.length,
+      }),
+    }));
   });
 
   it('consumeInterviewAIResponseStream 應在 JSON 格式回覆解析後補發 text delta', async () => {

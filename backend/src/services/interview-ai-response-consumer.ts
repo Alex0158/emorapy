@@ -4,6 +4,8 @@ import { INTERVIEW_AI_CONFIG } from '../config/openai';
 import type { AIRequestLedgerStartInput } from './ai-request-ledger.service';
 import { aiRequestLedgerService } from './ai-request-ledger.service';
 import { createInterviewAIResponseStream } from './interview-ai-stream-request-utils';
+import { buildRuntimeAILedgerSourceTracking } from '../utils/ai-ledger-source';
+import { getAIPromptVersion } from '../utils/ai-prompt-version';
 import {
   applyInterviewAIStreamDelta,
   createInterviewAIStreamParseState,
@@ -38,11 +40,16 @@ export async function consumeInterviewAIResponseStream({
       emitTextDelta(textDelta);
     }
   };
+  const defaultSourceTracking = buildRuntimeAILedgerSourceTracking('profile_interview');
 
   const ledger = await aiRequestLedgerService.start({
     ...ledgerInput,
     model: INTERVIEW_AI_CONFIG.model,
-    requestKind: ledgerInput?.requestKind || 'interview_ai_response_stream',
+    requestKind: ledgerInput?.requestKind || 'interview_ai_response',
+    promptVersion: ledgerInput?.promptVersion || getAIPromptVersion('interview_ai_response'),
+    productFlow: ledgerInput?.productFlow ?? defaultSourceTracking.productFlow,
+    sourceChannel: ledgerInput?.sourceChannel ?? defaultSourceTracking.sourceChannel,
+    entryPoint: ledgerInput?.entryPoint ?? defaultSourceTracking.entryPoint,
     metadata: {
       ...(ledgerInput?.metadata || {}),
       stream: true,

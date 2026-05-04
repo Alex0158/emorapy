@@ -1,5 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
-import { Prisma, NotificationStatus } from '@prisma/client';
+import {
+  Prisma,
+  NotificationStatus,
+  RecoveryTaskSeverity,
+  RecoveryTaskStatus,
+} from '@prisma/client';
 import prisma from '../config/database';
 import { env } from '../config/env';
 import { getPerformanceStats } from '../middleware/performance';
@@ -7,6 +12,7 @@ import { adminJobs, getRuntimeJobsEnabled, jobsStarted, reconcileJobsRuntimeConf
 import { adminService } from '../services/admin.service';
 import { costMonitoringService } from '../services/cost-monitoring.service';
 import { notificationService } from '../services/notification.service';
+import { productStateRecoveryTaskService } from '../services/product-state-recovery-task.service';
 import { systemConfigService } from '../services/system-config.service';
 import { aiStreamService } from '../services/ai-stream.service';
 import {
@@ -1045,6 +1051,73 @@ class AdminController {
       });
 
       res.json({ success: true, data: { notification }, message: '已重新排入 pending 通知' });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async listProductStateRecoveryTasks(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { limit, offset } = parsePagination(req);
+      const status = typeof req.query.status === 'string'
+        ? req.query.status as RecoveryTaskStatus
+        : undefined;
+      const severity = typeof req.query.severity === 'string'
+        ? req.query.severity as RecoveryTaskSeverity
+        : undefined;
+      const entityType = typeof req.query.entity_type === 'string' ? req.query.entity_type : undefined;
+      const entityId = typeof req.query.entity_id === 'string' ? req.query.entity_id : undefined;
+      const productFlow = typeof req.query.product_flow === 'string' ? req.query.product_flow : undefined;
+      const source = typeof req.query.source === 'string' ? req.query.source : undefined;
+      const proposalId = typeof req.query.proposal_id === 'string' ? req.query.proposal_id : undefined;
+
+      const result = await productStateRecoveryTaskService.listForAdmin({
+        status,
+        severity,
+        entityType,
+        entityId,
+        productFlow,
+        source,
+        proposalId,
+        limit,
+        offset,
+      });
+
+      res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async updateProductStateRecoveryTaskStatus(req: Request, res: Response, next: NextFunction) {
+    try {
+      const status = req.body?.status as RecoveryTaskStatus;
+      const reason = typeof req.body?.reason === 'string' ? req.body.reason : undefined;
+      const result = await productStateRecoveryTaskService.updateStatusByAdmin(req.params.taskId, { status });
+      if (!result) {
+        throw Errors.NOT_FOUND('人工恢復任務不存在');
+      }
+
+      await adminService.writeAuditLog({
+        actorId: req.admin?.id,
+        actorType: 'admin',
+        entityType: 'product_state_recovery_task',
+        entityId: result.task.id,
+        action: 'update_status',
+        detail: {
+          previousStatus: result.previousStatus,
+          status: result.task.status,
+          reason: reason || null,
+          source: result.task.source,
+          sourceTaskId: result.task.source_task_id,
+          proposalId: result.task.proposal_id,
+          entityType: result.task.entity_type,
+          entityId: result.task.entity_id,
+          productFlow: result.task.product_flow,
+        },
+      });
+
+      res.json({ success: true, data: { task: result.task }, message: '已更新人工恢復任務狀態' });
     } catch (error) {
       next(error);
     }

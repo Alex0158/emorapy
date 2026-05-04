@@ -1,5 +1,6 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import type { NextFunction, Request, Response } from 'express';
+import { RecoveryTaskSeverity, RecoveryTaskStatus } from '@prisma/client';
 import { adminController } from '../../../src/controllers/admin.controller';
 
 const mockCronRunLogFindMany = jest.fn();
@@ -24,6 +25,11 @@ const mockNotificationFindMany = jest.fn();
 const mockNotificationFindUnique = jest.fn();
 const mockNotificationUpdate = jest.fn();
 const mockNotificationUpdateMany = jest.fn();
+const mockProductStateRecoveryTaskFindMany = jest.fn();
+const mockProductStateRecoveryTaskCount = jest.fn();
+const mockProductStateRecoveryTaskGroupBy = jest.fn();
+const mockProductStateRecoveryTaskFindUnique = jest.fn();
+const mockProductStateRecoveryTaskUpdate = jest.fn();
 
 jest.mock('../../../src/config/database', () => ({
   __esModule: true,
@@ -52,6 +58,13 @@ jest.mock('../../../src/config/database', () => ({
       findUnique: (...args: unknown[]) => mockNotificationFindUnique(...args),
       update: (...args: unknown[]) => mockNotificationUpdate(...args),
       updateMany: (...args: unknown[]) => mockNotificationUpdateMany(...args),
+    },
+    productStateRecoveryTask: {
+      findMany: (...args: unknown[]) => mockProductStateRecoveryTaskFindMany(...args),
+      count: (...args: unknown[]) => mockProductStateRecoveryTaskCount(...args),
+      groupBy: (...args: unknown[]) => mockProductStateRecoveryTaskGroupBy(...args),
+      findUnique: (...args: unknown[]) => mockProductStateRecoveryTaskFindUnique(...args),
+      update: (...args: unknown[]) => mockProductStateRecoveryTaskUpdate(...args),
     },
   },
 }));
@@ -1268,6 +1281,162 @@ describe('AdminController', () => {
 
       expect(mockNotificationUpdate).not.toHaveBeenCalled();
       expect(next).toHaveBeenCalledWith(expect.any(Error));
+    });
+  });
+
+  describe('product state recovery task management', () => {
+    const taskId = '55555555-5555-4555-8555-555555555555';
+    const createdAt = new Date('2026-05-04T08:00:00.000Z');
+
+    it('listProductStateRecoveryTasks 應按 product-state 欄位篩選並返回摘要', async () => {
+      req.query = {
+        status: RecoveryTaskStatus.manual_review_required,
+        severity: RecoveryTaskSeverity.critical,
+        entity_type: 'case',
+        entity_id: 'case-1',
+        product_flow: 'formal_remote',
+        source: 'ops_product_state_audit',
+        proposal_id: 'stuck_case_in_progress',
+        limit: '10',
+        offset: '5',
+      };
+      (mockProductStateRecoveryTaskFindMany as any).mockResolvedValue([
+        {
+          id: taskId,
+          status: RecoveryTaskStatus.manual_review_required,
+          severity: RecoveryTaskSeverity.critical,
+          entity_type: 'case',
+          entity_id: 'case-1',
+          product_flow: 'formal_remote',
+          source: 'ops_product_state_audit',
+          proposal_id: 'stuck_case_in_progress',
+          created_at: createdAt,
+        },
+      ]);
+      (mockProductStateRecoveryTaskCount as any).mockResolvedValue(1);
+      (mockProductStateRecoveryTaskGroupBy as any)
+        .mockResolvedValueOnce([
+          { status: RecoveryTaskStatus.manual_review_required, _count: { _all: 1 } },
+        ])
+        .mockResolvedValueOnce([
+          { severity: RecoveryTaskSeverity.critical, _count: { _all: 1 } },
+        ]);
+
+      await adminController.listProductStateRecoveryTasks(req as Request, res as Response, next);
+
+      const expectedWhere = {
+        status: RecoveryTaskStatus.manual_review_required,
+        severity: RecoveryTaskSeverity.critical,
+        entity_type: 'case',
+        entity_id: 'case-1',
+        product_flow: 'formal_remote',
+        source: 'ops_product_state_audit',
+        proposal_id: 'stuck_case_in_progress',
+      };
+      expect(mockProductStateRecoveryTaskFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expectedWhere,
+          skip: 5,
+          take: 10,
+        })
+      );
+      expect(mockProductStateRecoveryTaskCount).toHaveBeenCalledWith({ where: expectedWhere });
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          data: expect.objectContaining({
+            items: [
+              expect.objectContaining({
+                id: taskId,
+                status: RecoveryTaskStatus.manual_review_required,
+              }),
+            ],
+            total: 1,
+            summary: expect.objectContaining({
+              byStatus: expect.objectContaining({ manual_review_required: 1 }),
+              bySeverity: expect.objectContaining({ critical: 1 }),
+            }),
+          }),
+        })
+      );
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('updateProductStateRecoveryTaskStatus 只更新任務狀態並寫入 audit log', async () => {
+      req.params = { taskId };
+      req.body = { status: RecoveryTaskStatus.resolved, reason: 'manual check completed' };
+      (mockProductStateRecoveryTaskFindUnique as any).mockResolvedValue({
+        id: taskId,
+        status: RecoveryTaskStatus.in_review,
+      });
+      (mockProductStateRecoveryTaskUpdate as any).mockResolvedValue({
+        id: taskId,
+        source: 'ops_product_state_audit',
+        source_task_id: 'stuck_case_in_progress:case:case-1',
+        proposal_id: 'stuck_case_in_progress',
+        status: RecoveryTaskStatus.resolved,
+        severity: RecoveryTaskSeverity.critical,
+        entity_type: 'case',
+        entity_id: 'case-1',
+        product_flow: 'formal_remote',
+        resolved_at: new Date('2026-05-04T09:00:00.000Z'),
+        dismissed_at: null,
+      });
+      (mockWriteAuditLog as any).mockResolvedValue(undefined);
+
+      await adminController.updateProductStateRecoveryTaskStatus(req as Request, res as Response, next);
+
+      expect(mockProductStateRecoveryTaskUpdate).toHaveBeenCalledWith({
+        where: { id: taskId },
+        data: {
+          status: RecoveryTaskStatus.resolved,
+          resolved_at: expect.any(Date),
+          dismissed_at: null,
+        },
+      });
+      expect(mockWriteAuditLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actorId: 'a1',
+          actorType: 'admin',
+          entityType: 'product_state_recovery_task',
+          entityId: taskId,
+          action: 'update_status',
+          detail: expect.objectContaining({
+            previousStatus: RecoveryTaskStatus.in_review,
+            status: RecoveryTaskStatus.resolved,
+            reason: 'manual check completed',
+            source: 'ops_product_state_audit',
+            proposalId: 'stuck_case_in_progress',
+            entityType: 'case',
+            entityId: 'case-1',
+            productFlow: 'formal_remote',
+          }),
+        })
+      );
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          data: {
+            task: expect.objectContaining({
+              id: taskId,
+              status: RecoveryTaskStatus.resolved,
+            }),
+          },
+        })
+      );
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('updateProductStateRecoveryTaskStatus 任務不存在時應 next(not found)', async () => {
+      req.params = { taskId };
+      req.body = { status: RecoveryTaskStatus.dismissed };
+      (mockProductStateRecoveryTaskFindUnique as any).mockResolvedValue(null);
+
+      await adminController.updateProductStateRecoveryTaskStatus(req as Request, res as Response, next);
+
+      expect(mockProductStateRecoveryTaskUpdate).not.toHaveBeenCalled();
+      expect(mockWriteAuditLog).not.toHaveBeenCalled();
+      expect(next).toHaveBeenCalledWith(expect.objectContaining({ code: 'NOT_FOUND' }));
     });
   });
 

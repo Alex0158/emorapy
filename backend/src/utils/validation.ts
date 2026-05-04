@@ -426,7 +426,7 @@ export const notificationIdParamSchema = {
 
 export const notificationListQuerySchema = {
   query: Joi.object({
-    status: Joi.string().valid('pending', 'sent', 'failed').optional(),
+    status: Joi.string().valid('pending', 'sent', 'failed', 'cancelled').optional(),
     state: Joi.string().valid('unread', 'all', 'actionable', 'snoozed', 'archived').optional(),
     template_code: Joi.string().max(50).optional(),
     limit: Joi.number().integer().min(1).max(50).optional(),
@@ -679,6 +679,30 @@ export const adminNotificationRetrySchema = {
     notificationId: Joi.string().pattern(uuidPattern).required(),
   }),
   body: Joi.object({
+    reason: Joi.string().max(500).optional().allow(''),
+  }),
+};
+
+export const adminProductStateRecoveryTaskListQuerySchema = {
+  query: Joi.object({
+    limit: Joi.number().integer().min(1).max(100).optional(),
+    offset: Joi.number().integer().min(0).optional(),
+    status: Joi.string().valid('manual_review_required', 'in_review', 'resolved', 'dismissed').optional(),
+    severity: Joi.string().valid('warning', 'critical').optional(),
+    entity_type: Joi.string().max(50).optional(),
+    entity_id: Joi.string().max(200).optional(),
+    product_flow: Joi.string().max(50).optional(),
+    source: Joi.string().max(100).optional(),
+    proposal_id: Joi.string().max(120).optional(),
+  }),
+};
+
+export const adminProductStateRecoveryTaskStatusSchema = {
+  params: Joi.object({
+    taskId: Joi.string().pattern(uuidPattern).required(),
+  }),
+  body: Joi.object({
+    status: Joi.string().valid('manual_review_required', 'in_review', 'resolved', 'dismissed').required(),
     reason: Joi.string().max(500).optional().allow(''),
   }),
 };

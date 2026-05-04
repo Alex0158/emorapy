@@ -27,6 +27,8 @@ import {
   adminNotificationListQuerySchema,
   adminNotificationRetrySchema,
   adminPaginationQuerySchema,
+  adminProductStateRecoveryTaskListQuerySchema,
+  adminProductStateRecoveryTaskStatusSchema,
   adminSearchPaginationQuerySchema,
   adminUpsertConfigSchema,
   adminUserDetailParamSchema,
@@ -254,6 +256,22 @@ router.post(
   requireAdminPermission('ops:execute'),
   validate(adminNotificationRetrySchema),
   adminController.retryNotification.bind(adminController)
+);
+router.get(
+  '/product-state/recovery-tasks',
+  generalLimiter,
+  authenticateAdmin,
+  requireAdminPermission('ops:read'),
+  validate(adminProductStateRecoveryTaskListQuerySchema),
+  adminController.listProductStateRecoveryTasks.bind(adminController)
+);
+router.patch(
+  '/product-state/recovery-tasks/:taskId/status',
+  generalLimiter,
+  authenticateAdmin,
+  requireAdminPermission('ops:execute'),
+  validate(adminProductStateRecoveryTaskStatusSchema),
+  adminController.updateProductStateRecoveryTaskStatus.bind(adminController)
 );
 router.get(
   '/runtime/interview',

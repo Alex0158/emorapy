@@ -10,6 +10,18 @@ export const NotificationStatus = {
   cancelled: 'cancelled',
 } as const;
 
+export const RecoveryTaskStatus = {
+  manual_review_required: 'manual_review_required',
+  in_review: 'in_review',
+  resolved: 'resolved',
+  dismissed: 'dismissed',
+} as const;
+
+export const RecoveryTaskSeverity = {
+  warning: 'warning',
+  critical: 'critical',
+} as const;
+
 export const PairingStatus = {
   pending: 'pending',
   active: 'active',

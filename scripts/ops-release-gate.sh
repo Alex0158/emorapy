@@ -109,6 +109,7 @@ require_explicit_env() {
 
 require_explicit_env
 
+export CJ_RELEASE_GATE=1
 HEAD_SHA="$(git rev-parse HEAD)"
 
 print_section "Docs Contract"

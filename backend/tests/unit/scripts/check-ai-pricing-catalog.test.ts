@@ -1,6 +1,7 @@
 import {
   getAIPricingMaxAgeDaysFromEnv,
   getRequiredAIPricingModelsFromEnv,
+  shouldLoadLocalDotenvForAIPricingCheck,
 } from '../../../scripts/check-ai-pricing-catalog';
 
 describe('check-ai-pricing-catalog', () => {
@@ -28,5 +29,12 @@ describe('check-ai-pricing-catalog', () => {
       .toBe(30);
     expect(getAIPricingMaxAgeDaysFromEnv({ AI_COST_PRICING_MAX_AGE_DAYS: 'invalid' } as NodeJS.ProcessEnv))
       .toBe(30);
+  });
+
+  it('skips local dotenv in release gate mode', () => {
+    expect(shouldLoadLocalDotenvForAIPricingCheck({} as NodeJS.ProcessEnv)).toBe(true);
+    expect(shouldLoadLocalDotenvForAIPricingCheck({ CJ_RELEASE_GATE: '1' } as NodeJS.ProcessEnv)).toBe(false);
+    expect(shouldLoadLocalDotenvForAIPricingCheck({ AI_PRICING_SKIP_DOTENV: 'true' } as NodeJS.ProcessEnv))
+      .toBe(false);
   });
 });

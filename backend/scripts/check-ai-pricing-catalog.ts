@@ -1,10 +1,16 @@
 import { validateAIRequestPricingCatalog } from '../src/services/ai-cost-pricing.service';
 
-try {
-  // Load local env for direct script usage; release gate should pass ENV_FILE or explicit env.
-  require('dotenv').config();
-} catch {
-  // dotenv is optional in some runtime environments.
+export function shouldLoadLocalDotenvForAIPricingCheck(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.CJ_RELEASE_GATE !== '1' && env.AI_PRICING_SKIP_DOTENV !== 'true';
+}
+
+if (shouldLoadLocalDotenvForAIPricingCheck()) {
+  try {
+    // Load local env for direct script usage. Release gate must use only explicit env.
+    require('dotenv').config();
+  } catch {
+    // dotenv is optional in some runtime environments.
+  }
 }
 
 export function getRequiredAIPricingModelsFromEnv(env: NodeJS.ProcessEnv = process.env): string[] {

@@ -3,8 +3,8 @@
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：正式規格
 **覆蓋範圍**：Vercel、Railway、Supabase/Postgres、Git/GitHub 與本機 `.env` 的固定連接、查詢與發布操作口徑
-**取證代碼入口**：`package.json`、`scripts/ops-release-status.sh`、`scripts/ops-release-gate.sh`、`scripts/ops-db-status.sh`、`backend/scripts/audit-product-state-consistency.ts`、`backend/scripts/check-smoke-account-hygiene.ts`、`backend/.env.example`、`frontend/.env.example`、`frontend-admin/.env.example`、`backend/railway.toml`、`backend/prisma/schema.prisma`、`backend/src/config/database.ts`
-**最後核驗 Commit**：`6c81eaa`
+**取證代碼入口**：`package.json`、`scripts/ops-release-status.sh`、`scripts/ops-release-gate.sh`、`scripts/ops-db-status.sh`、`backend/scripts/audit-product-state-consistency.ts`、`backend/scripts/check-smoke-account-hygiene.ts`、`backend/.env.example`、`frontend/.env.example`、`frontend-admin/.env.example`、`backend/railway.toml`、`backend/prisma/schema.prisma`、`backend/src/config/database.ts`、`backend/src/config/env.ts`、`backend/src/services/ai-cost-pricing.service.ts`、`backend/src/services/ai-request-ledger.service.ts`
+**最後核驗 Commit**：`5bf5da8`
 **最後核驗日期**：`2026-05-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -306,6 +306,19 @@ gh run view <run-id> --json conclusion,status,headSha,url,createdAt,updatedAt
 | Supabase DB password / URL | Supabase dashboard 管理 | 否 |
 
 禁止把 production secret 放進 repo。需要記錄平台資訊時，只記 project name、alias、host、用途與查法，不記密碼或 token。
+
+後端 AI request ledger 的 request-level 成本歸因由可選 env `AI_COST_PRICING_JSON` 控制，格式固定為：
+
+```env
+AI_COST_PRICING_JSON={"source":"manual-openai-pricing","version":"YYYY-MM-DD","models":{"gpt-4o-mini":{"inputUsdPer1M":0,"outputUsdPer1M":0}}}
+```
+
+運維規則：
+
+1. Localhost backend 與 Railway release backend 的 `AI_COST_PRICING_JSON` 必須分別配置；本機 `.env` 不代表發布版已配置。
+2. 未配置、provider/model 未命中或 provider 未回 token usage 時，ledger `cost_usd=null`，Admin costs `openai.ledger.productFlows[].costSource` 會是 `not_allocated`。
+3. 查成本閉環時，若預期應有精準成本但仍看到 `not_allocated`，優先檢查 Railway env 的 `AI_COST_PRICING_JSON` 是否缺失、model key 是否與 runtime model 完全一致、pricing `version` 是否為當前審核版本。
+4. `ops:release:gate` 目前不硬性校驗 pricing catalog；發布前若要聲稱 AI request cost 已精準閉環，需人工補查 env 與 Admin costs response。
 
 ## 11. Agent 回答口徑
 

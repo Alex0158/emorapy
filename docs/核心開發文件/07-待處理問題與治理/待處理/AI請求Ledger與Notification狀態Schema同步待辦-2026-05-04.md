@@ -3,12 +3,12 @@
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：問題治理
 **覆蓋範圍**：AI request ledger、產品流成本歸因、notification cancelled 狀態、dev/release DB parity
-**取證代碼入口**：`backend/src/services/cost-monitoring.service.ts`、`backend/src/services/ai-request-ledger.service.ts`、`backend/src/services/ai.service.ts`、`backend/src/services/ai-stream.service.ts`、`backend/src/services/interview-ai-response-consumer.ts`、`backend/src/services/notification.service.ts`、`backend/src/controllers/admin.controller.ts`、`backend/prisma/schema.prisma`、`backend/prisma/migrations/20260504143000_add_ai_request_ledger/migration.sql`
-**最後核驗 Commit**：`2b5a13e`
+**取證代碼入口**：`backend/src/services/cost-monitoring.service.ts`、`backend/src/services/ai-request-ledger.service.ts`、`backend/src/services/ai-cost-pricing.service.ts`、`backend/src/services/ai.service.ts`、`backend/src/services/ai-stream.service.ts`、`backend/src/services/interview-ai-response-consumer.ts`、`backend/src/services/notification.service.ts`、`backend/src/controllers/admin.controller.ts`、`backend/src/config/env.ts`、`backend/.env.example`、`backend/prisma/schema.prisma`、`backend/prisma/migrations/20260504143000_add_ai_request_ledger/migration.sql`
+**最後核驗 Commit**：`5bf5da8`
 **最後核驗日期**：`2026-05-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**狀態**：部分落地；AI request ledger migration 已生成並套用 Supabase Dev DB，Admin costs 已接入 ledger product-flow token/request breakdown；Release / Production DB、精準 `cost_usd` 歸因與 Notification 正式 cancelled 狀態仍待發布前確認 / schema 決策
+**狀態**：部分落地；AI request ledger migration 已生成並套用 Supabase Dev DB，Admin costs 已接入 ledger product-flow token/request breakdown，且已新增可配置 `AI_COST_PRICING_JSON` 的 request-level `cost_usd` 歸因；Release / Production DB、Release / Production pricing env、價格版本維護流程與 Notification 正式 cancelled 狀態仍待發布前確認 / schema 決策
 **優先級**：P0，涉及 Admin 成本歸因、通知召回治理與 dev/release DB schema parity
 **責任範圍**：Backend / Database / Admin / Release Ops
 
@@ -46,13 +46,19 @@ Admin 成本報表目前由 `CostMonitoringService` 讀取 OpenAI organization c
    - `productFlows[]` 按 ledger `product_flow` 聚合 request / tokens / status
    - `costSource=not_allocated` 時只代表 request/token breakdown，不把 OpenAI organization 成本按比例分攤。
    - 只有 ledger row 自身有 `cost_usd` 時，對應 flow 才會回 `costSource=ledger_cost_usd`。
+7. `AI_COST_PRICING_JSON` 已作為可選 pricing catalog 接入 request ledger：
+   - JSON 需顯式提供 `source / version / models` 與每個模型的 input / output USD per 1M token。
+   - 只有 `provider=openai`、model 命中 catalog 且 token usage 完整時，才寫入 `cost_usd`。
+   - pricing 的 `source / version / model / rates` 會 merge 到 ledger `metadata.pricing`，供後續審計。
+   - 代碼不硬編任何模型價格；未配置或未命中時保持 `cost_usd=null` 與 `costSource=not_allocated`。
 
 ## 必須補的 Schema / Ledger
 
-1. `cost_usd` 已保留欄位且 Admin costs 已能讀取 ledger 自帶成本，但尚未接入模型價格表或 provider cost allocation，現階段不得宣稱成本金額已精準閉環。
-2. 需要定義模型價格來源、快取與歷史價格版本策略，才能把 token usage 轉為可審計的 request-level 成本。
-3. `NotificationStatus` 需評估是否新增 `cancelled` enum 或新增獨立 `cancelled_at / cancelled_by / cancel_reason` 欄位。
-4. 若新增 notification enum / 欄位，必須產生 Prisma migration，並同步 Supabase Dev DB 與 Release / Production DB。
+1. `cost_usd` attribution helper 已落地，但依賴顯式 `AI_COST_PRICING_JSON`；未配置時不能宣稱成本金額已精準閉環。
+2. Release / Production backend env 必須配置同一份經審核的 `AI_COST_PRICING_JSON`，並在發布後確認 Admin costs 的 `costSource` 不再是預期外 `not_allocated`。
+3. 仍需定義價格版本刷新 / 審核 / 失效提醒流程；模型價格不得硬編到代碼，也不得長期沿用未審核的舊版本。
+4. `NotificationStatus` 需評估是否新增 `cancelled` enum 或新增獨立 `cancelled_at / cancelled_by / cancel_reason` 欄位。
+5. 若新增 notification enum / 欄位，必須產生 Prisma migration，並同步 Supabase Dev DB 與 Release / Production DB。
 
 ## DB Parity 狀態
 
@@ -66,6 +72,7 @@ Admin 成本報表目前由 `CostMonitoringService` 讀取 OpenAI organization c
 ```bash
 npm run ops:db:status
 cd backend && npx prisma migrate status
+cd backend && npm test -- --runInBand tests/unit/services/ai-request-ledger.service.test.ts tests/unit/services/ai.service.test.ts tests/unit/services/cost-monitoring.service.test.ts
 cd backend && npm test -- --runInBand tests/unit/services/ai-request-ledger.service.test.ts tests/unit/services/ai.service.test.ts tests/unit/services/chat-ai-orchestrator.service.test.ts
 cd backend && npm test -- --runInBand tests/unit/services/cost-monitoring.service.test.ts tests/unit/controllers/admin.controller.test.ts tests/unit/routes/admin.routes.test.ts
 cd backend && npm test -- --runInBand tests/unit/services/ai-stream.service.persistence.test.ts
@@ -77,6 +84,8 @@ npm run docs:check
 ## Release 注意事項
 
 - 不得把 OpenAI organization usage 直接假分攤到產品流，除非 ledger 已有可追溯的 request/scope/token/cost。
+- `AI_COST_PRICING_JSON` 屬運維配置，不是 schema migration；Local / Railway Release 必須分別配置與核驗，不能用本機 `.env` 推導發布版成本已精準。
+- pricing catalog 必須保留 `source/version`，價格調整需走審核與文檔更新；不得在代碼中補舊價格常量。
 - 不得只在 Dev DB 建表；Release DB migration 狀態必須在發布 gate 前確認。
 - 若新增 `cancelled` enum，所有讀寫 `NotificationStatus` 的 validation、sender、Admin、前台通知列表都要同步處理。
 - migration / backfill 必須記錄為 dev / release 兩邊都要統一的待處理任務，未完成前不得聲稱產品流 AI 成本已準確閉環。

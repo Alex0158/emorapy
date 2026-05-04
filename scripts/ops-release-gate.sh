@@ -135,6 +135,9 @@ print_section "Database Migration State"
 npm run ops:db:status
 npm --prefix backend run ops:release-db:check
 
+print_section "AI Pricing Catalog"
+npm --prefix backend run ops:ai-pricing:check
+
 print_section "Smoke Account Hygiene"
 npm --prefix backend run ops:smoke-accounts:check
 

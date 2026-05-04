@@ -1,10 +1,10 @@
-type PricingEntry = {
+export type PricingEntry = {
   inputUsdPer1M: number;
   outputUsdPer1M: number;
   cachedInputUsdPer1M?: number;
 };
 
-type PricingCatalog = {
+export type PricingCatalog = {
   source: string;
   version: string;
   models: Record<string, PricingEntry>;
@@ -26,6 +26,18 @@ export type AIRequestCostInput = {
   model?: string | null;
   inputTokens?: number | null;
   outputTokens?: number | null;
+};
+
+export type AIRequestPricingCatalogValidationReport = {
+  ok: boolean;
+  check: 'ai-cost-pricing-catalog';
+  source: string | null;
+  version: string | null;
+  configuredModelCount: number;
+  requiredModels: string[];
+  missingModels: string[];
+  invalidReason: string | null;
+  generatedAt: string;
 };
 
 function roundUsd(value: number): number {
@@ -52,7 +64,7 @@ function normalizeEntry(raw: unknown): PricingEntry | null {
   };
 }
 
-function parsePricingCatalog(rawJson = process.env.AI_COST_PRICING_JSON || ''): PricingCatalog | null {
+export function parseAIRequestPricingCatalog(rawJson = process.env.AI_COST_PRICING_JSON || ''): PricingCatalog | null {
   const trimmed = rawJson.trim();
   if (!trimmed) return null;
 
@@ -86,6 +98,80 @@ function parsePricingCatalog(rawJson = process.env.AI_COST_PRICING_JSON || ''): 
   };
 }
 
+function normalizeRequiredModels(requiredModels: readonly string[]): string[] {
+  return [...new Set(requiredModels.map((model) => model.trim()).filter(Boolean))];
+}
+
+export function validateAIRequestPricingCatalog(input: {
+  rawJson?: string | null;
+  requiredModels: readonly string[];
+  generatedAt?: string;
+}): AIRequestPricingCatalogValidationReport {
+  const requiredModels = normalizeRequiredModels(input.requiredModels);
+  const rawJson = input.rawJson ?? process.env.AI_COST_PRICING_JSON ?? '';
+  const trimmed = rawJson.trim();
+  const generatedAt = input.generatedAt ?? new Date().toISOString();
+
+  if (!trimmed) {
+    return {
+      ok: false,
+      check: 'ai-cost-pricing-catalog',
+      source: null,
+      version: null,
+      configuredModelCount: 0,
+      requiredModels,
+      missingModels: requiredModels,
+      invalidReason: 'AI_COST_PRICING_JSON is required',
+      generatedAt,
+    };
+  }
+
+  let root: Record<string, unknown>;
+  try {
+    const parsed: unknown = JSON.parse(trimmed);
+    if (!parsed || typeof parsed !== 'object') {
+      throw new Error('catalog must be a JSON object');
+    }
+    root = parsed as Record<string, unknown>;
+  } catch {
+    return {
+      ok: false,
+      check: 'ai-cost-pricing-catalog',
+      source: null,
+      version: null,
+      configuredModelCount: 0,
+      requiredModels,
+      missingModels: requiredModels,
+      invalidReason: 'AI_COST_PRICING_JSON must be valid JSON object',
+      generatedAt,
+    };
+  }
+
+  const source = typeof root.source === 'string' && root.source.trim() ? root.source.trim() : null;
+  const version = typeof root.version === 'string' && root.version.trim() ? root.version.trim() : null;
+  const catalog = parseAIRequestPricingCatalog(trimmed);
+  const configuredModels = catalog ? Object.keys(catalog.models).sort((a, b) => a.localeCompare(b)) : [];
+  const missingModels = requiredModels.filter((model) => !configuredModels.includes(model));
+  const invalidReason =
+    !catalog ? 'AI_COST_PRICING_JSON must define at least one valid model price'
+      : !source ? 'AI_COST_PRICING_JSON.source is required'
+        : !version ? 'AI_COST_PRICING_JSON.version is required'
+          : missingModels.length > 0 ? 'AI_COST_PRICING_JSON is missing required runtime models'
+            : null;
+
+  return {
+    ok: invalidReason === null,
+    check: 'ai-cost-pricing-catalog',
+    source,
+    version,
+    configuredModelCount: configuredModels.length,
+    requiredModels,
+    missingModels,
+    invalidReason,
+    generatedAt,
+  };
+}
+
 export function calculateAIRequestCost(input: AIRequestCostInput): AIRequestCostResult | null {
   const provider = (input.provider || 'openai').toLowerCase();
   if (provider !== 'openai') return null;
@@ -93,7 +179,7 @@ export function calculateAIRequestCost(input: AIRequestCostInput): AIRequestCost
   const model = input.model?.trim();
   if (!model) return null;
 
-  const catalog = parsePricingCatalog();
+  const catalog = parseAIRequestPricingCatalog();
   const pricing = catalog?.models[model];
   if (!catalog || !pricing) return null;
 

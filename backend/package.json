@@ -41,6 +41,7 @@
     "ops:cost:snapshot": "tsx scripts/cost-snapshot.ts",
     "ops:product-state:audit": "tsx scripts/audit-product-state-consistency.ts",
     "ops:product-state:audit:persist": "tsx scripts/audit-product-state-consistency.ts --persist",
+    "ops:ai-pricing:check": "tsx scripts/check-ai-pricing-catalog.ts",
     "ops:release-db:check": "tsx scripts/check-release-db-parity.ts",
     "ops:smoke-accounts:check": "tsx scripts/check-smoke-account-hygiene.ts",
     "lint": "biome lint src",

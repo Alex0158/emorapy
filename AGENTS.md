@@ -25,6 +25,7 @@ Use these commands before improvising platform calls:
 
 ```bash
 npm run ops:release:status
+npm run ops:release:gate
 npm run ops:db:status
 cd backend && npm run ops:product-state:audit
 cd backend && npm run precheck:pairing:normal-uniqueness
@@ -32,6 +33,8 @@ npm run docs:check
 ```
 
 `ops:release:status` checks git, Vercel version endpoints, optional backend version endpoint, Vercel inspect, and Railway CLI auth/status if available.
+
+`ops:release:gate` is the stricter release closure gate. It requires explicit `BACKEND_BASE_URL` and `DATABASE_URL` or `ENV_FILE`, then verifies docs, backend build/lint, live release status, main/admin/backend version endpoint `service` and `commitSha` alignment with local `HEAD`, backend health/live/ready, DB migration status, smoke account hygiene, and product-state audit. Do not claim a full release is current if this gate cannot run or fails.
 
 `ops:db:status` checks Prisma migration status for the configured database without printing `DATABASE_URL`.
 
@@ -81,7 +84,7 @@ Current Railway production state, last verified 2026-05-03:
 2. Production backend domain: `https://mother-bear-court-production.up.railway.app`.
 3. Railway CLI can read production deployment state with `railway status --json`.
 4. Latest and active production backend deployments were `SUCCESS` after the Railway Docker build fix.
-5. Use `railway status --json` for the exact active commit, because the backend version endpoint currently does not expose commit SHA.
+5. Use `npm run ops:release:gate` for full release closure. The backend version endpoint now exposes `commitSha`; if it is missing, `unknown`, or not aligned with local `HEAD`, treat the backend as not fully verified. `railway status --json` remains the source for Railway deployment/log state.
 
 ## Frontend Tech Stack (Migration in Progress)
 
@@ -123,7 +126,7 @@ A release is complete only when all relevant checks are true:
 2. GitHub CI for that commit is successful.
 3. Main Vercel production `/version.json` reports that commit.
 4. Admin Vercel production `/version.json` reports that commit.
-5. Railway backend production deployment status reports that commit as active and successful.
+5. Railway backend production `/version` reports that commit and Railway deployment status is active/successful when CLI evidence is needed.
 6. Production DB migration state is confirmed if schema changed.
 7. Health/ready/smoke checks pass.
 

@@ -4,7 +4,7 @@
 **文檔類型**：正式規格
 **覆蓋範圍**：Vercel、Railway、Supabase/Postgres、Git/GitHub 與本機 `.env` 的固定連接、查詢與發布操作口徑
 **取證代碼入口**：`package.json`、`scripts/ops-release-status.sh`、`scripts/ops-release-gate.sh`、`scripts/ops-db-status.sh`、`backend/scripts/audit-product-state-consistency.ts`、`backend/scripts/check-smoke-account-hygiene.ts`、`backend/.env.example`、`frontend/.env.example`、`frontend-admin/.env.example`、`backend/railway.toml`、`backend/prisma/schema.prisma`、`backend/src/config/database.ts`
-**最後核驗 Commit**：`428d258`
+**最後核驗 Commit**：`6c81eaa`
 **最後核驗日期**：`2026-05-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -221,7 +221,7 @@ Railway production 後端是否最新，必須以 deployment 狀態或後端 ver
 https://mother-bear-court-production.up.railway.app
 ```
 
-後端 `/health`、`/health/ready`、`/health/live`、`/version` 與 `/api/v1/version` 可作外部連通證據；但當前後端 version endpoint 只回 `version/timestamp`，不回 commit SHA，因此不能單靠 endpoint 嚴格證明 Railway backend 與 git commit 完全一致。
+後端 `/health`、`/health/ready`、`/health/live`、`/version` 與 `/api/v1/version` 可作外部連通證據；`/version` 與 `/api/v1/version` 會回傳 `service / version / commitSha / commitShortSha / timestamp`。若 `commitSha` 為 `unknown`、缺失，或未對齊本機 `HEAD`，不得聲稱 Railway backend 已發布到最新 commit。
 
 `2026-05-03` Railway production backend 實測狀態：
 
@@ -230,9 +230,9 @@ https://mother-bear-court-production.up.railway.app
 3. Latest deployment status：`SUCCESS`
 4. Active deployment status：`SUCCESS`
 5. Production backend domain：`https://mother-bear-court-production.up.railway.app`
-6. Railway CLI 可用 `railway status --json` 取得 exact active commit。
+6. Railway CLI 可用 `railway status --json` 取得 deployment/log 狀態；backend `/version` 可用 `commitSha` 與本機 `HEAD` 對齊。
 
-因此，判斷後端是否最新時，應以 `railway status --json` 的 production `mother-bear-court` latest/active deployment commit 與 status 為準；不能只靠 Vercel 或後端 `/version` endpoint 推導。
+因此，判斷後端是否最新時，優先跑 `BACKEND_BASE_URL=<backend-url> DATABASE_URL="<prod-db-url>" npm run ops:release:gate`；若只做單點排查，至少要核對 backend `/version.commitSha` 與本機 `HEAD`，並在需要 Railway deployment/log 證據時補 `railway status --json`。不能只靠 Vercel 或單純 health endpoint 推導。
 
 ## 8. Supabase / DB 固定查法
 

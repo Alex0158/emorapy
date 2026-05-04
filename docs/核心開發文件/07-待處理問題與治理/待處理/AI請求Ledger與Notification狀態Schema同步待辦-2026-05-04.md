@@ -3,12 +3,12 @@
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：問題治理
 **覆蓋範圍**：AI request ledger、產品流成本歸因、notification cancelled 狀態、dev/release DB parity
-**取證代碼入口**：`backend/src/services/cost-monitoring.service.ts`、`backend/src/services/ai-stream.service.ts`、`backend/src/services/notification.service.ts`、`backend/src/controllers/admin.controller.ts`、`backend/prisma/schema.prisma`
-**最後核驗 Commit**：`6aed23f`
+**取證代碼入口**：`backend/src/services/cost-monitoring.service.ts`、`backend/src/services/ai-request-ledger.service.ts`、`backend/src/services/ai.service.ts`、`backend/src/services/ai-stream.service.ts`、`backend/src/services/interview-ai-response-consumer.ts`、`backend/src/services/notification.service.ts`、`backend/src/controllers/admin.controller.ts`、`backend/prisma/schema.prisma`、`backend/prisma/migrations/20260504143000_add_ai_request_ledger/migration.sql`
+**最後核驗 Commit**：`014ceeb`
 **最後核驗日期**：`2026-05-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**狀態**：待處理；尚未產生 migration
+**狀態**：部分落地；AI request ledger migration 已生成並套用 Supabase Dev DB，Release / Production DB 與 Admin 成本歸因仍待發布前確認；Notification 正式 cancelled 狀態仍待 schema 決策
 **優先級**：P0，涉及 Admin 成本歸因、通知召回治理與 dev/release DB schema parity
 **責任範圍**：Backend / Database / Admin / Release Ops
 
@@ -16,30 +16,42 @@
 
 Admin 成本報表目前由 `CostMonitoringService` 讀取 OpenAI organization costs / usage API，能返回 24h / 7d 總成本與 token 總量，但該 API 回傳的是 organization 聚合，不包含 CJ 內部的 `case/chat/interview/replan` scope、產品流、prompt version、retry 與失敗原因。因此不能用現有資料準確回答「quick / formal / chat-to-case 分別花了多少 AI 成本」。
 
-本輪已先落地不需 schema 的通知管理能力：
+本輪已先落地通知管理能力：
 
 - `GET /api/v1/admin/notifications`：按 status/template/user/dedup 查通知，並沿用 `NotificationService.normalize()` 的 `render_payload.product_flow`。
 - `POST /api/v1/admin/notifications/:notificationId/cancel`：只取消 pending 通知，寫 audit log。
+- `POST /api/v1/admin/notifications/bulk-cancel`：按 template/user/dedup/group 篩選最多 100 條 pending 通知做批量召回，寫 batch audit。
+- `POST /api/v1/admin/notifications/:notificationId/retry`：只允許真正 failed 通知重送；`admin_cancelled:*` 人工取消通知不可 retry。
 
-但目前 `NotificationStatus` 只有 `pending/sent/failed`，沒有 `cancelled`。為了不在未建 migration 的情況下製造 schema drift，取消 pending 暫用 `status=failed + error_message=admin_cancelled:*` 退出發送隊列。
+目前 `NotificationStatus` 仍只有 `pending/sent/failed`，沒有 `cancelled`。取消 pending 暫用 `status=failed + error_message=admin_cancelled:*` 退出發送隊列，正式 cancelled 狀態仍需另做 schema 決策。
+
+## 已落地的 AI Request Ledger（2026-05-04）
+
+1. `20260504143000_add_ai_request_ledger` 已新增：
+   - `AIRequestLedgerStatus`：`started / succeeded / failed / cancelled`
+   - `ai_request_ledger`：`request_id / stream_id / scope_type / scope_id / product_flow / source_channel / entry_point / provider / model / request_kind / prompt_version / tokens / cost_usd / status / retry_count / failure_reason / metadata / timestamps`
+2. `AIRequestLedgerService` 是唯一寫入 helper；AI 入口不得各自拼 ledger JSON。
+3. 已接入主要 runtime：
+   - `AIService.generateText`
+   - `AIService.generateTextStream`
+   - 正式判決：emotion analysis、draft、responsibility ratio、summary，帶 `case_judgment` stream 與 product flow。
+   - 聊天室 AI response，帶 `chat_room` stream。
+   - 心理訪談 AI response stream，帶 `interview_session` stream。
+   - 修復旅程 replan，帶 `repair_track` stream。
+4. Ledger 不保存 prompt 原文，只保存 `prompt_chars`、模型、scope、stream、request kind、token usage 與錯誤摘要；ledger 寫入失敗採 fail-open warning，不阻塞 AI 主流程。
+5. Streaming request 已要求 `stream_options.include_usage=true`，能在 provider 回傳 usage 時記錄 token；若 provider 未回 usage，token 欄位保留 `null`。
 
 ## 必須補的 Schema / Ledger
 
-1. 新增 AI request ledger，例如 `ai_request_ledger`：
-   - `id`
-   - `request_id / stream_id`
-   - `scope_type / scope_id`
-   - `product_flow`
-   - `source_channel / entry_point`
-   - `model / provider / prompt_version`
-   - `input_tokens / output_tokens / total_tokens`
-   - `cost_usd`
-   - `status / retry_count / failure_reason`
-   - `started_at / completed_at / created_at`
-2. AI 生成入口必須在同一 helper / service 寫 ledger，不得各 service 自行拼 JSON。
-3. Admin costs 應在 ledger 存在後新增 product-flow breakdown，並清楚標記 window / source。
-4. `NotificationStatus` 需評估是否新增 `cancelled` enum 或新增獨立 `cancelled_at / cancelled_by / cancel_reason` 欄位。
-5. 若新增 enum / 欄位，必須產生 Prisma migration，並同步 Supabase Dev DB 與 Release / Production DB。
+1. Admin costs 應基於 `ai_request_ledger` 新增 product-flow breakdown，並清楚標記 window / source；不得再用 organization 聚合成本假分攤。
+2. `cost_usd` 已保留欄位，但尚未接入模型價格表或 provider cost allocation，現階段不得宣稱成本金額已精準閉環。
+3. `NotificationStatus` 需評估是否新增 `cancelled` enum 或新增獨立 `cancelled_at / cancelled_by / cancel_reason` 欄位。
+4. 若新增 notification enum / 欄位，必須產生 Prisma migration，並同步 Supabase Dev DB 與 Release / Production DB。
+
+## DB Parity 狀態
+
+1. Supabase Dev DB：`2026-05-04` 已執行 `cd backend && npx prisma migrate deploy --schema prisma/schema.prisma`，`npm run ops:db:status` 回報 `Database schema is up to date!`。
+2. Release / Production DB：尚未確認套用 `20260504143000_add_ai_request_ledger`。發布 backend 前必須用 release `DATABASE_URL` 執行 read-only migration status 或 release gate，不得沿用 Dev DB 結論。
 
 ## 驗證命令
 
@@ -48,9 +60,10 @@ Admin 成本報表目前由 `CostMonitoringService` 讀取 OpenAI organization c
 ```bash
 npm run ops:db:status
 cd backend && npx prisma migrate status
-cd backend && npm test -- --runInBand tests/unit/controllers/admin.controller.test.ts tests/unit/routes/admin.routes.test.ts
+cd backend && npm test -- --runInBand tests/unit/services/ai-request-ledger.service.test.ts tests/unit/services/ai.service.test.ts tests/unit/services/chat-ai-orchestrator.service.test.ts
 cd backend && npm test -- --runInBand tests/unit/services/ai-stream.service.persistence.test.ts
 cd backend && npm run build
+cd backend && npm run lint
 npm run docs:check
 ```
 

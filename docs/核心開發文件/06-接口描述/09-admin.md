@@ -3,12 +3,12 @@
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：09-admin
-**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`backend/src/controllers/admin.controller.ts`、`backend/src/services/notification.service.ts`、`backend/src/utils/case-classifier.ts`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`72ab409`
+**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`backend/src/controllers/admin.controller.ts`、`backend/src/services/cost-monitoring.service.ts`、`backend/src/services/notification.service.ts`、`backend/src/utils/case-classifier.ts`、`frontend/src/services/api`、`frontend-admin/src/services/api`
+**最後核驗 Commit**：`2b5a13e`
 **最後核驗日期**：`2026-05-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**文檔版本**：v2.10
+**文檔版本**：v2.11
 **最後更新**：2026-05-04
 **代碼基準**：`backend/src/routes/admin.routes.ts`、`backend/src/controllers/admin.controller.ts`、`backend/src/middleware/adminAuth.ts`、`backend/src/utils/case-classifier.ts`、`frontend/src/services/api/admin.ts`
 
@@ -64,7 +64,7 @@
 | `GET /api/v1/admin/reports/overview.csv` | 無 | `blob`（CSV：`metric,value`，當前輸出 `users/cases/judgments`） | `FORBIDDEN` | `reports:read` |
 | `GET /api/v1/admin/reports/overview` | 無 | `data.totals(users/activePairings/cases/judgments/reconciliationPlans/executionCompleted/interviewCompleted) data.productFlows array: quick_single, quick_collaborative, formal_remote, formal_collaborative, chat_to_case with count+ratio; data.productFlowOperationalSignals[]`（每組含 `stuckInProgressCases/judgmentFailedCases/attentionCases/notificationRecallReviewRequired`）；`data.conversion(pairingRate/caseCreationRate/judgmentCompletionRate/caseCompletionRate)` | `FORBIDDEN` | `reports:read`，已由 admin reports 頁接線 |
 | `GET /api/v1/admin/reports/funnel` | 無 | `data.stages[]`（`register/pairing/case/judgment/execution_complete`）; `data.productFlowStages[]`（固定 `quick_single / quick_collaborative / formal_remote / formal_collaborative / chat_to_case`，每組含 `case/judgment/execution_complete` 與 `judgmentCompletionRate/executionCompletionRate`） | `FORBIDDEN` | `reports:read`，已由 admin reports 頁接線 |
-| `GET /api/v1/admin/reports/costs` | 無 | `data.generatedAt data.currency data.partial data.reasons[] data.summary data.redis data.railway data.openai` | `FORBIDDEN` | `reports:read`，已由 admin reports 頁接線 |
+| `GET /api/v1/admin/reports/costs` | 無 | `data.generatedAt data.currency data.partial data.reasons[] data.summary data.redis data.railway data.openai`；`data.openai.ledger.source=ai_request_ledger`，含 `requestCount24h/7d`、`input/output/totalTokens24h/7d`、`productFlows[]`（`productFlow/requestCount*/succeededRequests7d/failedRequests7d/cancelledRequests7d/tokens*/costUsd24h/7d/costSource`） | `FORBIDDEN` | `reports:read`，已由 admin reports 頁接線；ledger breakdown 不把 organization cost 假分攤 |
 | `GET /api/v1/admin/reports/ai-streams` | query `days?(1-90) limit?(1-50)` | `data.windowDays data.retentionPolicy data.totals data.byStatus data.byScopeType data.byBackendMode data.recentFailures[]` | `FORBIDDEN` `VALIDATION_ERROR` | `reports:read`，AI Stream 治理報表，已由 admin reports 頁接線 |
 | `GET /api/v1/admin/reports/ai-streams/sessions` | query `days?(1-90) limit?(1-100) offset?(>=0) status? scopeType? scopeId? requestId? streamId? source?(live/archive/all)` | `data.source data.total data.limit data.offset data.items[]` | `FORBIDDEN` `VALIDATION_ERROR` | `reports:read`，AI Stream session 明細查詢 |
 | `GET /api/v1/admin/reports/ai-streams/sessions/:streamId` | params `streamId` + query `eventLimit?(1-1000) source?(live/archive/all)` | `data.source(live/archive) data.session data.events[]` | `FORBIDDEN` `NOT_FOUND` `VALIDATION_ERROR` | `reports:read`，單條 stream 詳情 |
@@ -85,6 +85,7 @@
 - Admin API 的 401 處理與前台不同：`INVALID_CREDENTIALS` 不清 token，不應觸發全域導轉。
 - CSV 下載鏈路（audit/reports）是運維高風險點，需回歸 responseType 與文件內容。
 - `reports/overview.productFlows[]`、`reports/overview.productFlowOperationalSignals[]` 與 `reports/funnel.productFlowStages[]` 使用 `backend/src/utils/case-classifier.ts` 的產品流口徑，固定輸出 `quick_single / quick_collaborative / formal_remote / formal_collaborative / chat_to_case`；Admin/analytics 不得用 `case.mode` 另行推斷四主線分布、營運卡點或漏斗。`productFlowOperationalSignals` 目前以超過 30 分鐘仍在 `in_progress` 的 case 與 `judgment_failed` case 作為保守人工 review / 通知召回複核訊號，不自動改資料或自動重送通知。
+- `reports/costs.openai` 同時保留 OpenAI organization costs/usage API 的聚合成本與 `ai_request_ledger` 的 request/scope/token breakdown；`openai.ledger.productFlows[]` 只代表 CJ 內部 ledger 口徑，`costSource=not_allocated` 時不得把 organization cost 按 token 或 request 數假分攤。只有當 ledger row 自身有 `cost_usd` 時，`costSource=ledger_cost_usd` 才可視為 request-level 成本來源。
 - `GET /api/v1/admin/reports/ai-streams` 直接讀取 `ai_stream_sessions / ai_stream_events / archives` 聚合結果，主要用於排障、驗收與保留策略校驗；現已由 Admin Reports 頁接線。
 - `GET /api/v1/admin/reports/ai-streams/sessions` 與 `:streamId` 用於直接查看 live/archive 明細，避免只剩匯總報表。
 - `GET /api/v1/admin/notifications` 使用 `NotificationService.normalize()` 同一渲染口徑，Admin 不得自行從 template/path 推斷產品流；取消 pending 通知必須走 `POST /admin/notifications/:notificationId/cancel`，批量召回 pending 通知必須走 `POST /admin/notifications/bulk-cancel`，重送真正 failed 通知必須走 `POST /admin/notifications/:notificationId/retry`，三者都由 audit log 記錄操作者、reason、template/dedup/group/user 篩選與結果。批量召回必須提供至少一項篩選條件，單次最多處理 100 條，且後端會先查出通知 id 再按 id 集合更新，避免無條件掃表。由於目前 `NotificationStatus` 無 `cancelled` enum，後端暫用 `failed + admin_cancelled:*` 退出發送隊列，且此類人工取消通知不可被 retry 重新排回 pending；若要正式區分 cancelled，必須另開 schema migration / dev-release DB parity 任務。

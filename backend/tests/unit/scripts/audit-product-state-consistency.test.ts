@@ -39,7 +39,7 @@ describe('audit-product-state-consistency', () => {
         id: 'case-a',
         mode: 'quick',
         status: 'in_progress',
-        session_id: 'session-a',
+        session_id: null,
         updated_at: new Date('2026-05-03T00:00:00.000Z'),
         chat_to_case_links: [],
       },

@@ -1,5 +1,5 @@
 import { PrismaClient } from '../src/types/prisma-client';
-import { getCaseProductFlow } from '../src/utils/case-classifier';
+import { getCaseProductFlow, isSessionBoundCase } from '../src/utils/case-classifier';
 import type { CaseProductFlow } from '../src/utils/case-classifier';
 
 try {
@@ -157,7 +157,7 @@ function buildCaseSampleDetail(case_: {
     productFlow: getCaseProductFlow(case_),
     mode: case_.mode,
     status: case_.status,
-    sessionBound: Boolean(case_.session_id),
+    sessionBound: isSessionBoundCase(case_),
     updatedAt: case_.updated_at,
   };
 }

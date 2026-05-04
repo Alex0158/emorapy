@@ -4,7 +4,7 @@
 **文檔類型**：正式規格
 **覆蓋範圍**：Vercel、Railway、Supabase/Postgres、Git/GitHub 與本機 `.env` 的固定連接、查詢與發布操作口徑
 **取證代碼入口**：`package.json`、`scripts/ops-release-status.sh`、`scripts/ops-release-gate.sh`、`scripts/ops-db-status.sh`、`backend/package.json`、`backend/scripts/check-release-db-parity.ts`、`backend/scripts/check-ai-pricing-catalog.ts`、`backend/scripts/audit-product-state-consistency.ts`、`backend/scripts/check-smoke-account-hygiene.ts`、`backend/scripts/precheck-pairing-normal-uniqueness.ts`、`backend/.env.example`、`frontend/.env.example`、`frontend-admin/.env.example`、`backend/railway.toml`、`backend/prisma/schema.prisma`、`backend/prisma/migrations/20260504164500_add_notification_cancelled_status/migration.sql`、`backend/prisma/migrations/20260504173000_add_product_state_recovery_tasks/migration.sql`、`backend/prisma/migrations/20260504182000_add_normal_pairing_uniqueness_trigger/migration.sql`、`backend/prisma/migrations/20260504193000_add_case_source_tracking/migration.sql`、`backend/src/config/database.ts`、`backend/src/config/env.ts`、`backend/src/routes/admin.routes.ts`、`backend/src/controllers/admin.controller.ts`、`backend/src/services/ai-cost-pricing.service.ts`、`backend/src/services/ai-request-ledger.service.ts`、`backend/src/services/notification.service.ts`、`backend/src/services/product-state-recovery-task.service.ts`、`backend/src/utils/case-classifier.ts`、`backend/src/utils/pairing-invariant.ts`、`backend/src/utils/validation.ts`
-**最後核驗 Commit**：`6324615`
+**最後核驗 Commit**：`9274395`
 **最後核驗日期**：`2026-05-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -337,6 +337,7 @@ AI_COST_PRICING_MAX_AGE_DAYS=30
 2. 未配置、provider/model 未命中或 provider 未回 token usage 時，ledger `cost_usd=null`，Admin costs `openai.ledger.productFlows[].costSource` 會是 `not_allocated`。
 3. 查成本閉環時，若預期應有精準成本但仍看到 `not_allocated`，優先檢查 Railway env 的 `AI_COST_PRICING_JSON` 是否缺失、model key 是否與 runtime model 完全一致、pricing `version` 是否為當前審核版本。
 4. `ops:ai-pricing:check` 與 `ops:release:gate` 會硬性校驗 pricing catalog，缺 `source/version`、JSON 無效、`version` 不以 `YYYY-MM-DD` 開頭、日期在未來、超過 `AI_COST_PRICING_MAX_AGE_DAYS` 或缺少 runtime model 任一項都會阻塞 gate；若新增模型但不是三個標準 env，可用 `AI_COST_REQUIRED_MODELS` 追加必須覆蓋的 model key。
+5. `ops:release:gate` 會設定 `CJ_RELEASE_GATE=1`，此時 `backend/scripts/check-ai-pricing-catalog.ts` 不載入本機 `backend/.env`；發布 pricing 必須來自顯式 env / `ENV_FILE` / 平台 release env，避免本機開發版 pricing 讓發布 gate 假通過。
 
 ## 11. Agent 回答口徑
 

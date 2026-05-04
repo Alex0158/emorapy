@@ -4,11 +4,11 @@
 **文檔類型**：問題治理
 **覆蓋範圍**：AI request ledger、產品流成本歸因、notification cancelled 狀態、dev/release DB parity
 **取證代碼入口**：`backend/src/services/cost-monitoring.service.ts`、`backend/src/services/ai-request-ledger.service.ts`、`backend/src/services/ai-cost-pricing.service.ts`、`backend/src/services/ai.service.ts`、`backend/src/services/judgment.service.ts`、`backend/src/services/clinical-quality.service.ts`、`backend/src/services/chat-ai-orchestrator.service.ts`、`backend/src/services/interview.service.ts`、`backend/src/services/execution.service.ts`、`backend/src/services/ai-stream.service.ts`、`backend/src/services/interview-ai-response-consumer.ts`、`backend/src/services/notification.service.ts`、`backend/src/controllers/admin.controller.ts`、`backend/src/config/env.ts`、`backend/src/utils/ai-ledger-source.ts`、`backend/src/utils/ai-prompt-version.ts`、`backend/scripts/check-release-db-parity.ts`、`backend/scripts/check-ai-pricing-catalog.ts`、`scripts/ops-release-gate.sh`、`backend/.env.example`、`backend/prisma/schema.prisma`、`backend/prisma/migrations/20260504143000_add_ai_request_ledger/migration.sql`、`backend/prisma/migrations/20260504164500_add_notification_cancelled_status/migration.sql`
-**最後核驗 Commit**：`6324615`
+**最後核驗 Commit**：`9274395`
 **最後核驗日期**：`2026-05-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**狀態**：部分落地；AI request ledger migration 與 Notification `cancelled` enum migration 已生成並套用 Supabase Dev DB，Admin costs 已接入 ledger product-flow token/request breakdown，主要 AI runtime 已寫入集中 `prompt_version`，且已新增可配置 `AI_COST_PRICING_JSON` 的 request-level `cost_usd` 歸因；release gate 已新增只讀 `ops:release-db:check` 檢查 release-blocking migrations，並新增 `ops:ai-pricing:check` 硬性校驗 pricing catalog 格式、`source/version`、版本日期新鮮度與 runtime 模型覆蓋；Release / Production DB 仍需拿 release `DATABASE_URL` 實跑，Release / Production pricing env 仍需配置通過 gate，價格審批本身仍需發布前確認
+**狀態**：部分落地；AI request ledger migration 與 Notification `cancelled` enum migration 已生成並套用 Supabase Dev DB，Admin costs 已接入 ledger product-flow token/request breakdown，主要 AI runtime 已寫入集中 `prompt_version`，且已新增可配置 `AI_COST_PRICING_JSON` 的 request-level `cost_usd` 歸因；release gate 已新增只讀 `ops:release-db:check` 檢查 release-blocking migrations，並新增 `ops:ai-pricing:check` 硬性校驗 pricing catalog 格式、`source/version`、版本日期新鮮度與 runtime 模型覆蓋；`ops:release:gate` 已禁止 pricing check 回讀本機 dotenv；Release / Production DB 仍需拿 release `DATABASE_URL` 實跑，Release / Production pricing env 仍需配置通過 gate，價格審批本身仍需發布前確認
 **優先級**：P0，涉及 Admin 成本歸因、通知召回治理與 dev/release DB schema parity
 **責任範圍**：Backend / Database / Admin / Release Ops
 
@@ -53,12 +53,12 @@ Admin 成本報表目前由 `CostMonitoringService` 讀取 OpenAI organization c
    - 只有 `provider=openai`、model 命中 catalog 且 token usage 完整時，才寫入 `cost_usd`。
    - pricing 的 `source / version / model / rates` 會 merge 到 ledger `metadata.pricing`，供後續審計。
    - 代碼不硬編任何模型價格；未配置或未命中時保持 `cost_usd=null` 與 `costSource=not_allocated`。
-   - `ops:ai-pricing:check` / `ops:release:gate` 會硬性檢查 `AI_COST_PRICING_JSON` 是否存在、可解析、帶 `source/version`，`version` 必須以 `YYYY-MM-DD` 開頭、不能是未來日期、預設不得超過 `AI_COST_PRICING_MAX_AGE_DAYS=30`，並覆蓋 `OPENAI_MODEL / OPENAI_INTERVIEW_MODEL / OPENAI_ANALYSIS_MODEL` 與可選 `AI_COST_REQUIRED_MODELS`。
+   - `ops:ai-pricing:check` / `ops:release:gate` 會硬性檢查 `AI_COST_PRICING_JSON` 是否存在、可解析、帶 `source/version`，`version` 必須以 `YYYY-MM-DD` 開頭、不能是未來日期、預設不得超過 `AI_COST_PRICING_MAX_AGE_DAYS=30`，並覆蓋 `OPENAI_MODEL / OPENAI_INTERVIEW_MODEL / OPENAI_ANALYSIS_MODEL` 與可選 `AI_COST_REQUIRED_MODELS`；release gate 模式會設定 `CJ_RELEASE_GATE=1`，不得載入本機 `backend/.env` 補缺發布 pricing。
 
 ## 必須補的 Schema / Ledger
 
 1. `cost_usd` attribution helper 已落地，但依賴顯式 `AI_COST_PRICING_JSON`；未配置時不能宣稱成本金額已精準閉環，且 release gate 會阻塞缺失或未覆蓋 runtime model 的 catalog。
-2. Release / Production backend env 必須配置同一份經審核的 `AI_COST_PRICING_JSON`，並在發布後確認 Admin costs 的 `costSource` 不再是預期外 `not_allocated`；如新增非標準 OpenAI runtime model，必須同步配置 `AI_COST_REQUIRED_MODELS` 或更新檢查規則。
+2. Release / Production backend env 必須配置同一份經審核的 `AI_COST_PRICING_JSON`，並在發布後確認 Admin costs 的 `costSource` 不再是預期外 `not_allocated`；release gate 不會 fallback 到本機 `.env`；如新增非標準 OpenAI runtime model，必須同步配置 `AI_COST_REQUIRED_MODELS` 或更新檢查規則。
 3. 價格版本刷新失效 gate 已落地：`AI_COST_PRICING_MAX_AGE_DAYS` 預設 30 天，過期、未標日期或未來日期會阻塞 release gate；但模型價格的業務審批與真實供應商價格核對仍需發布前由運維/產品確認。
 4. Notification `cancelled` enum 已落地；若未來需要 `cancelled_at / cancelled_by / cancel_reason` 可審計欄位，必須另開 additive schema 任務。
 5. Release / Production DB 仍需套用 `20260504164500_add_notification_cancelled_status`，不得只用 Supabase Dev DB 狀態宣稱發布版 notification cancelled 已閉環。

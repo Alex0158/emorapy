@@ -661,6 +661,19 @@ export const adminNotificationCancelSchema = {
   }),
 };
 
+export const adminNotificationBulkCancelSchema = {
+  body: Joi.object({
+    filters: Joi.object({
+      template_code: Joi.string().max(50).optional(),
+      user_id: Joi.string().pattern(uuidPattern).optional(),
+      dedup_key: Joi.string().max(100).optional(),
+      group_key: Joi.string().max(100).optional(),
+    }).or('template_code', 'user_id', 'dedup_key', 'group_key').required(),
+    reason: Joi.string().max(500).optional().allow(''),
+    limit: Joi.number().integer().min(1).max(100).optional(),
+  }),
+};
+
 export const adminNotificationRetrySchema = {
   params: Joi.object({
     notificationId: Joi.string().pattern(uuidPattern).required(),

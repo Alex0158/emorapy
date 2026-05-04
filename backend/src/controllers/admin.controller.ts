@@ -978,6 +978,47 @@ class AdminController {
     }
   }
 
+  async bulkCancelNotifications(req: Request, res: Response, next: NextFunction) {
+    try {
+      const filters = req.body?.filters ?? {};
+      const reason = typeof req.body?.reason === 'string' ? req.body.reason : undefined;
+      const limit = typeof req.body?.limit === 'number' ? req.body.limit : undefined;
+      const result = await notificationService.bulkCancelPendingByAdmin({
+        templateCode: typeof filters.template_code === 'string' ? filters.template_code : undefined,
+        userId: typeof filters.user_id === 'string' ? filters.user_id : undefined,
+        dedupKey: typeof filters.dedup_key === 'string' ? filters.dedup_key : undefined,
+        groupKey: typeof filters.group_key === 'string' ? filters.group_key : undefined,
+        limit,
+      }, reason);
+      const auditFilters: Prisma.JsonObject = {};
+      if (result.filters.templateCode) auditFilters.templateCode = result.filters.templateCode;
+      if (result.filters.userId) auditFilters.userId = result.filters.userId;
+      if (result.filters.dedupKey) auditFilters.dedupKey = result.filters.dedupKey;
+      if (result.filters.groupKey) auditFilters.groupKey = result.filters.groupKey;
+      if (result.filters.limit) auditFilters.limit = result.filters.limit;
+
+      await adminService.writeAuditLog({
+        actorId: req.admin?.id,
+        actorType: 'admin',
+        entityType: 'notification',
+        entityId: 'bulk_cancel',
+        action: 'bulk_cancel_pending',
+        detail: {
+          filters: auditFilters,
+          reason: result.reason,
+          matchedCount: result.matchedCount,
+          cancelledCount: result.cancelledCount,
+          limit: result.limit,
+          notificationIds: result.notificationIds,
+        },
+      });
+
+      res.json({ success: true, data: result, message: '已批量取消 pending 通知' });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async retryNotification(req: Request, res: Response, next: NextFunction) {
     try {
       const reason = typeof req.body?.reason === 'string' ? req.body.reason : undefined;

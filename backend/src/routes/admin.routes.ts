@@ -22,6 +22,7 @@ import {
   adminJobTriggerSchema,
   adminJobStatsQuerySchema,
   adminLoginSchema,
+  adminNotificationBulkCancelSchema,
   adminNotificationCancelSchema,
   adminNotificationListQuerySchema,
   adminNotificationRetrySchema,
@@ -229,6 +230,14 @@ router.get(
   requireAdminPermission('reports:read'),
   validate(adminNotificationListQuerySchema),
   adminController.listNotifications.bind(adminController)
+);
+router.post(
+  '/notifications/bulk-cancel',
+  generalLimiter,
+  authenticateAdmin,
+  requireAdminPermission('ops:execute'),
+  validate(adminNotificationBulkCancelSchema),
+  adminController.bulkCancelNotifications.bind(adminController)
 );
 router.post(
   '/notifications/:notificationId/cancel',

@@ -29,6 +29,7 @@ const mockExportOverviewCsv = jest.fn();
 const mockCustomReport = jest.fn();
 const mockListNotifications = jest.fn();
 const mockCancelNotification = jest.fn();
+const mockBulkCancelNotifications = jest.fn();
 const mockRetryNotification = jest.fn();
 const mockUpsertAlertRules = jest.fn();
 const mockSetFeatureFlags = jest.fn();
@@ -64,6 +65,7 @@ jest.mock('../../../src/controllers/admin.controller', () => ({
     customReport: (req: unknown, res: unknown, next: unknown) => mockCustomReport(req, res, next),
     listNotifications: (req: unknown, res: unknown, next: unknown) => mockListNotifications(req, res, next),
     cancelNotification: (req: unknown, res: unknown, next: unknown) => mockCancelNotification(req, res, next),
+    bulkCancelNotifications: (req: unknown, res: unknown, next: unknown) => mockBulkCancelNotifications(req, res, next),
     retryNotification: (req: unknown, res: unknown, next: unknown) => mockRetryNotification(req, res, next),
     upsertAlertRules: (req: unknown, res: unknown, next: unknown) => mockUpsertAlertRules(req, res, next),
     setFeatureFlags: (req: unknown, res: unknown, next: unknown) => mockSetFeatureFlags(req, res, next),
@@ -135,6 +137,7 @@ describe('admin.routes', () => {
     mockCustomReport.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true, data: {} }));
     mockListNotifications.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true, data: { items: [], total: 0 } }));
     mockCancelNotification.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true, data: { notification: {} } }));
+    mockBulkCancelNotifications.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true, data: { cancelledCount: 0 } }));
     mockRetryNotification.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true, data: { notification: {} } }));
     mockUpsertAlertRules.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true, data: { item: {} } }));
     mockSetFeatureFlags.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true, data: { item: {} } }));
@@ -305,6 +308,16 @@ describe('admin.routes', () => {
       .send({ reason: 'duplicate' });
     expect(res.status).toBe(200);
     expect(mockCancelNotification).toHaveBeenCalled();
+  });
+
+  it('POST /notifications/bulk-cancel 應調用 bulkCancelNotifications', async () => {
+    const app = createApp();
+    const res = await request(app)
+      .post('/notifications/bulk-cancel')
+      .send({ filters: { template_code: 'repair_journey_replan' }, reason: 'recall' });
+    expect(res.status).toBe(200);
+    expect(mockBulkCancelNotifications).toHaveBeenCalled();
+    expect(mockCancelNotification).not.toHaveBeenCalled();
   });
 
   it('POST /notifications/:notificationId/retry 應調用 retryNotification', async () => {

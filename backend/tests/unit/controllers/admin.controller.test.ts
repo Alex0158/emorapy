@@ -23,6 +23,7 @@ const mockNotificationCount = jest.fn();
 const mockNotificationFindMany = jest.fn();
 const mockNotificationFindUnique = jest.fn();
 const mockNotificationUpdate = jest.fn();
+const mockNotificationUpdateMany = jest.fn();
 
 jest.mock('../../../src/config/database', () => ({
   __esModule: true,
@@ -50,6 +51,7 @@ jest.mock('../../../src/config/database', () => ({
       findMany: (...args: unknown[]) => mockNotificationFindMany(...args),
       findUnique: (...args: unknown[]) => mockNotificationFindUnique(...args),
       update: (...args: unknown[]) => mockNotificationUpdate(...args),
+      updateMany: (...args: unknown[]) => mockNotificationUpdateMany(...args),
     },
   },
 }));
@@ -1047,6 +1049,110 @@ describe('AdminController', () => {
       await adminController.cancelNotification(req as Request, res as Response, next);
 
       expect(mockNotificationUpdate).not.toHaveBeenCalled();
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
+    });
+
+    it('bulkCancelNotifications 應按篩選批量取消 pending 並寫入 audit log', async () => {
+      req.body = {
+        filters: {
+          template_code: 'repair_journey_replan',
+          group_key: 'repair:t1',
+        },
+        reason: 'recall duplicated reminders',
+        limit: 50,
+      };
+      (mockNotificationFindMany as any).mockResolvedValue([
+        {
+          id: notificationId,
+          user_id: userId,
+          template_code: 'repair_journey_replan',
+          dedup_key: 'repair_replan_t1_u1',
+          group_key: 'repair:t1',
+        },
+        {
+          id: '33333333-3333-4333-8333-333333333333',
+          user_id: '44444444-4444-4444-8444-444444444444',
+          template_code: 'repair_journey_replan',
+          dedup_key: 'repair_replan_t1_u2',
+          group_key: 'repair:t1',
+        },
+      ]);
+      (mockNotificationUpdateMany as any).mockResolvedValue({ count: 2 });
+      (mockWriteAuditLog as any).mockResolvedValue(undefined);
+
+      await adminController.bulkCancelNotifications(req as Request, res as Response, next);
+
+      expect(mockNotificationFindMany).toHaveBeenCalledWith({
+        where: {
+          status: 'pending',
+          template_code: 'repair_journey_replan',
+          group_key: 'repair:t1',
+        },
+        orderBy: [{ created_at: 'asc' }, { id: 'asc' }],
+        take: 50,
+        select: {
+          id: true,
+          user_id: true,
+          template_code: true,
+          dedup_key: true,
+          group_key: true,
+        },
+      });
+      expect(mockNotificationUpdateMany).toHaveBeenCalledWith({
+        where: {
+          id: {
+            in: [
+              notificationId,
+              '33333333-3333-4333-8333-333333333333',
+            ],
+          },
+          status: 'pending',
+        },
+        data: {
+          status: 'failed',
+          error_message: 'admin_cancelled: recall duplicated reminders',
+        },
+      });
+      expect(mockWriteAuditLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actorId: 'a1',
+          entityType: 'notification',
+          entityId: 'bulk_cancel',
+          action: 'bulk_cancel_pending',
+          detail: expect.objectContaining({
+            matchedCount: 2,
+            cancelledCount: 2,
+            reason: 'recall duplicated reminders',
+            notificationIds: [
+              notificationId,
+              '33333333-3333-4333-8333-333333333333',
+            ],
+          }),
+        })
+      );
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          data: expect.objectContaining({
+            matchedCount: 2,
+            cancelledCount: 2,
+            notificationIds: [
+              notificationId,
+              '33333333-3333-4333-8333-333333333333',
+            ],
+          }),
+        })
+      );
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('bulkCancelNotifications 無篩選條件時應 next(validation error)', async () => {
+      req.body = { filters: {}, reason: 'unsafe' };
+
+      await adminController.bulkCancelNotifications(req as Request, res as Response, next);
+
+      expect(mockNotificationFindMany).not.toHaveBeenCalled();
+      expect(mockNotificationUpdateMany).not.toHaveBeenCalled();
       expect(next).toHaveBeenCalledWith(expect.any(Error));
     });
 

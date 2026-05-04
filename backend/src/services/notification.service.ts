@@ -24,6 +24,14 @@ export interface AdminNotificationListOptions {
   offset?: number;
 }
 
+export interface AdminNotificationBulkCancelOptions {
+  templateCode?: string;
+  userId?: string;
+  dedupKey?: string;
+  groupKey?: string;
+  limit?: number;
+}
+
 export interface RenderableNotification {
   id: string;
   user_id: string;
@@ -120,6 +128,25 @@ function normalizeNotificationPayloadForCreate(payload?: Prisma.InputJsonValue):
   }
 
   return { ...record, path: normalizedPath } as Prisma.InputJsonValue;
+}
+
+function buildAdminBulkCancelWhere(options: AdminNotificationBulkCancelOptions): Prisma.NotificationWhereInput {
+  const hasFilter = Boolean(options.templateCode || options.userId || options.dedupKey || options.groupKey);
+  if (!hasFilter) {
+    throw Errors.VALIDATION_ERROR('批量取消通知必須提供至少一個篩選條件');
+  }
+
+  return {
+    status: NotificationStatus.pending,
+    ...(options.templateCode ? { template_code: options.templateCode } : {}),
+    ...(options.userId ? { user_id: options.userId } : {}),
+    ...(options.dedupKey ? { dedup_key: options.dedupKey } : {}),
+    ...(options.groupKey ? { group_key: options.groupKey } : {}),
+  };
+}
+
+function normalizeBulkLimit(limit?: number): number {
+  return Math.min(Math.max(Number.isFinite(limit) ? limit ?? 100 : 100, 1), 100);
 }
 
 const TEMPLATE_RENDER_DEFAULTS: Record<string, {
@@ -441,6 +468,58 @@ export class NotificationService {
     });
 
     return this.normalize(updated);
+  }
+
+  async bulkCancelPendingByAdmin(options: AdminNotificationBulkCancelOptions, reason?: string | null) {
+    const where = buildAdminBulkCancelWhere(options);
+    const limit = normalizeBulkLimit(options.limit);
+    const normalizedReason = normalizeAdminReason(reason);
+    const notifications = await prisma.notification.findMany({
+      where,
+      orderBy: [{ created_at: 'asc' }, { id: 'asc' }],
+      take: limit,
+      select: {
+        id: true,
+        user_id: true,
+        template_code: true,
+        dedup_key: true,
+        group_key: true,
+      },
+    });
+
+    const notificationIds = notifications.map((notification) => notification.id);
+    if (notificationIds.length === 0) {
+      return {
+        matchedCount: 0,
+        cancelledCount: 0,
+        limit,
+        reason: normalizedReason,
+        filters: options,
+        notificationIds,
+        items: [],
+      };
+    }
+
+    const updateResult = await prisma.notification.updateMany({
+      where: {
+        id: { in: notificationIds },
+        status: NotificationStatus.pending,
+      },
+      data: {
+        status: NotificationStatus.failed,
+        error_message: `${ADMIN_CANCELLED_ERROR_PREFIX} ${normalizedReason}`,
+      },
+    });
+
+    return {
+      matchedCount: notificationIds.length,
+      cancelledCount: updateResult.count,
+      limit,
+      reason: normalizedReason,
+      filters: options,
+      notificationIds,
+      items: notifications,
+    };
   }
 
   async retryFailedByAdmin(notificationId: string, reason?: string | null) {

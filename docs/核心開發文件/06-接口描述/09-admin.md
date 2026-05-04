@@ -3,8 +3,8 @@
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：09-admin
-**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`backend/src/controllers/admin.controller.ts`、`backend/src/services/cost-monitoring.service.ts`、`backend/src/services/notification.service.ts`、`backend/src/utils/case-classifier.ts`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`2b5a13e`
+**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`backend/src/controllers/admin.controller.ts`、`backend/src/services/cost-monitoring.service.ts`、`backend/src/services/notification.service.ts`、`backend/src/utils/case-classifier.ts`、`backend/prisma/schema.prisma`、`backend/prisma/migrations/20260504164500_add_notification_cancelled_status/migration.sql`、`frontend/src/services/api`、`frontend-admin/src/services/api`
+**最後核驗 Commit**：`6204e7f`
 **最後核驗日期**：`2026-05-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -68,10 +68,10 @@
 | `GET /api/v1/admin/reports/ai-streams` | query `days?(1-90) limit?(1-50)` | `data.windowDays data.retentionPolicy data.totals data.byStatus data.byScopeType data.byBackendMode data.recentFailures[]` | `FORBIDDEN` `VALIDATION_ERROR` | `reports:read`，AI Stream 治理報表，已由 admin reports 頁接線 |
 | `GET /api/v1/admin/reports/ai-streams/sessions` | query `days?(1-90) limit?(1-100) offset?(>=0) status? scopeType? scopeId? requestId? streamId? source?(live/archive/all)` | `data.source data.total data.limit data.offset data.items[]` | `FORBIDDEN` `VALIDATION_ERROR` | `reports:read`，AI Stream session 明細查詢 |
 | `GET /api/v1/admin/reports/ai-streams/sessions/:streamId` | params `streamId` + query `eventLimit?(1-1000) source?(live/archive/all)` | `data.source(live/archive) data.session data.events[]` | `FORBIDDEN` `NOT_FOUND` `VALIDATION_ERROR` | `reports:read`，單條 stream 詳情 |
-| `GET /api/v1/admin/notifications` | query `status?(pending/sent/failed) template_code? user_id? dedup_key? limit? offset?` | `data.items[] data.total data.limit data.offset`；item 包含通知狀態、`dedup_key`、`user{id,email}`、`render_payload.product_flow` | `FORBIDDEN` `VALIDATION_ERROR` | `reports:read`，Admin 通知排查列表 |
-| `POST /api/v1/admin/notifications/:notificationId/cancel` | `notificationId(uuid)` `reason?` | `data.notification` | `FORBIDDEN` `VALIDATION_ERROR` `NOT_FOUND` | `ops:execute`；只允許 pending，會寫 audit log；現階段用 `status=failed + error_message=admin_cancelled:*` 表示取消 |
+| `GET /api/v1/admin/notifications` | query `status?(pending/sent/failed/cancelled) template_code? user_id? dedup_key? limit? offset?` | `data.items[] data.total data.limit data.offset`；item 包含通知狀態、`dedup_key`、`user{id,email}`、`render_payload.product_flow` | `FORBIDDEN` `VALIDATION_ERROR` | `reports:read`，Admin 通知排查列表 |
+| `POST /api/v1/admin/notifications/:notificationId/cancel` | `notificationId(uuid)` `reason?` | `data.notification.status=cancelled` | `FORBIDDEN` `VALIDATION_ERROR` `NOT_FOUND` | `ops:execute`；只允許 pending，會寫 audit log，並以 `status=cancelled + error_message=admin_cancelled:*` 退出發送隊列 |
 | `POST /api/v1/admin/notifications/bulk-cancel` | `filters{template_code?/user_id?/dedup_key?/group_key?}`（至少一項） `reason?` `limit?(1-100)` | `data.matchedCount data.cancelledCount data.notificationIds[] data.items[]` | `FORBIDDEN` `VALIDATION_ERROR` | `ops:execute`；只查最多 100 條 pending 並按 id 集合取消，會寫 batch audit log |
-| `POST /api/v1/admin/notifications/:notificationId/retry` | `notificationId(uuid)` `reason?` | `data.notification` | `FORBIDDEN` `VALIDATION_ERROR` `NOT_FOUND` | `ops:execute`；只允許真正 failed 通知重送，會清空 `error_message/sent_at` 並排回 pending；`admin_cancelled:*` 不可重送 |
+| `POST /api/v1/admin/notifications/:notificationId/retry` | `notificationId(uuid)` `reason?` | `data.notification.status=pending` | `FORBIDDEN` `VALIDATION_ERROR` `NOT_FOUND` | `ops:execute`；只允許真正 failed 通知重送，會清空 `error_message/sent_at` 並排回 pending；`cancelled` 與 legacy `failed + admin_cancelled:*` 不可重送 |
 | `GET /api/v1/admin/runtime/interview` | 無 | `data.defaults data.runtime data.source` | `FORBIDDEN` | `config:read`，訪談運行時設定，已由 admin settings 頁接線 |
 | `GET /api/v1/providers` | query `providerType?` | `data.items[]` | `FORBIDDEN` `VALIDATION_ERROR` | `config:read`，media provider 目錄與配置檢視 |
 | `POST /api/v1/providers/:providerKey/estimate` | `count? durationSeconds? pricingOverride?` | `data.billingUnit data.unitPriceUsd data.unitCount data.totalCostUsd` | `FORBIDDEN` `VALIDATION_ERROR` `NOT_FOUND` | `config:read`，試算 media provider 成本 |
@@ -88,7 +88,7 @@
 - `reports/costs.openai` 同時保留 OpenAI organization costs/usage API 的聚合成本與 `ai_request_ledger` 的 request/scope/token breakdown；`openai.ledger.productFlows[]` 只代表 CJ 內部 ledger 口徑，`costSource=not_allocated` 時不得把 organization cost 按 token 或 request 數假分攤。只有當 ledger row 自身有 `cost_usd` 時，`costSource=ledger_cost_usd` 才可視為 request-level 成本來源。
 - `GET /api/v1/admin/reports/ai-streams` 直接讀取 `ai_stream_sessions / ai_stream_events / archives` 聚合結果，主要用於排障、驗收與保留策略校驗；現已由 Admin Reports 頁接線。
 - `GET /api/v1/admin/reports/ai-streams/sessions` 與 `:streamId` 用於直接查看 live/archive 明細，避免只剩匯總報表。
-- `GET /api/v1/admin/notifications` 使用 `NotificationService.normalize()` 同一渲染口徑，Admin 不得自行從 template/path 推斷產品流；取消 pending 通知必須走 `POST /admin/notifications/:notificationId/cancel`，批量召回 pending 通知必須走 `POST /admin/notifications/bulk-cancel`，重送真正 failed 通知必須走 `POST /admin/notifications/:notificationId/retry`，三者都由 audit log 記錄操作者、reason、template/dedup/group/user 篩選與結果。批量召回必須提供至少一項篩選條件，單次最多處理 100 條，且後端會先查出通知 id 再按 id 集合更新，避免無條件掃表。由於目前 `NotificationStatus` 無 `cancelled` enum，後端暫用 `failed + admin_cancelled:*` 退出發送隊列，且此類人工取消通知不可被 retry 重新排回 pending；若要正式區分 cancelled，必須另開 schema migration / dev-release DB parity 任務。
+- `GET /api/v1/admin/notifications` 使用 `NotificationService.normalize()` 同一渲染口徑，Admin 不得自行從 template/path 推斷產品流；取消 pending 通知必須走 `POST /admin/notifications/:notificationId/cancel`，批量召回 pending 通知必須走 `POST /admin/notifications/bulk-cancel`，重送真正 failed 通知必須走 `POST /admin/notifications/:notificationId/retry`，三者都由 audit log 記錄操作者、reason、template/dedup/group/user 篩選與結果。批量召回必須提供至少一項篩選條件，單次最多處理 100 條，且後端會先查出通知 id 再按 id 集合更新，避免無條件掃表。`NotificationStatus.cancelled` 是正式人工取消狀態；legacy `failed + admin_cancelled:*` 僅作歷史兼容，同樣不可被 retry 重新排回 pending。
 - `cleanup_ai_stream_persistence` 已加入排程任務，會先 archive 再 delete；如需立即驗證清理策略，可透過既有 `POST /api/v1/admin/jobs/:jobKey/trigger` 手動觸發。
 - Admin `Configs` 與 `Settings` 頁目前都以 `listConfigs({ limit: 100, offset: 0 })` 拉取配置列表，避免首屏拉取過大集合；如需翻頁能力須同步回寫前台查詢與本文件契約。
 

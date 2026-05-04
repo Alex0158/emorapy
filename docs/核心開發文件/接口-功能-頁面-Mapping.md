@@ -147,8 +147,8 @@
 | `GET /api/v1/admin/reports/ai-streams/sessions` | F10 | `/admin/reports` | AI Stream Session 明細（days/limit/offset + status/scope/request/source） | L | 已使用 |
 | `GET /api/v1/admin/reports/ai-streams/sessions/:streamId` | F10 | `/admin/reports` | AI Stream 詳情（source=live/archive/all，eventLimit<=1000） | L | 已使用 |
 | `GET /api/v1/admin/notifications` | F10 | `/admin/reports` | 通知排查列表（status/template/user/dedup） | M | 已使用 |
-| `POST /api/v1/admin/notifications/:notificationId/cancel` | F10 | `/admin/reports` | 取消 pending 通知並寫 audit | M | 已使用 |
-| `POST /api/v1/admin/notifications/bulk-cancel` | F10 | `/admin/reports` | 批量取消 pending 通知並寫 audit | M | 已使用 |
+| `POST /api/v1/admin/notifications/:notificationId/cancel` | F10 | `/admin/reports` | 取消 pending 通知為 `cancelled` 並寫 audit | M | 已使用 |
+| `POST /api/v1/admin/notifications/bulk-cancel` | F10 | `/admin/reports` | 批量取消 pending 通知為 `cancelled` 並寫 audit | M | 已使用 |
 | `POST /api/v1/admin/notifications/:notificationId/retry` | F10 | `/admin/reports` | 重送 failed 通知並寫 audit | M | 已使用 |
 | `GET /api/v1/admin/runtime/interview` | F10 | `/admin/settings` | 訪談運行參數 | L | 已使用 |
 | `GET /api/v1/admin/reports/overview.csv` | F10 | `/admin/reports` | 報表下載（CSV：metric,value） | M | 已使用 |

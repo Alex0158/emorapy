@@ -3,12 +3,12 @@
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：問題治理
 **覆蓋範圍**：AI request ledger、產品流成本歸因、notification cancelled 狀態、dev/release DB parity
-**取證代碼入口**：`backend/src/services/cost-monitoring.service.ts`、`backend/src/services/ai-request-ledger.service.ts`、`backend/src/services/ai-cost-pricing.service.ts`、`backend/src/services/ai.service.ts`、`backend/src/services/ai-stream.service.ts`、`backend/src/services/interview-ai-response-consumer.ts`、`backend/src/services/notification.service.ts`、`backend/src/controllers/admin.controller.ts`、`backend/src/config/env.ts`、`backend/.env.example`、`backend/prisma/schema.prisma`、`backend/prisma/migrations/20260504143000_add_ai_request_ledger/migration.sql`
-**最後核驗 Commit**：`5bf5da8`
+**取證代碼入口**：`backend/src/services/cost-monitoring.service.ts`、`backend/src/services/ai-request-ledger.service.ts`、`backend/src/services/ai-cost-pricing.service.ts`、`backend/src/services/ai.service.ts`、`backend/src/services/ai-stream.service.ts`、`backend/src/services/interview-ai-response-consumer.ts`、`backend/src/services/notification.service.ts`、`backend/src/controllers/admin.controller.ts`、`backend/src/config/env.ts`、`backend/.env.example`、`backend/prisma/schema.prisma`、`backend/prisma/migrations/20260504143000_add_ai_request_ledger/migration.sql`、`backend/prisma/migrations/20260504164500_add_notification_cancelled_status/migration.sql`
+**最後核驗 Commit**：`6204e7f`
 **最後核驗日期**：`2026-05-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**狀態**：部分落地；AI request ledger migration 已生成並套用 Supabase Dev DB，Admin costs 已接入 ledger product-flow token/request breakdown，且已新增可配置 `AI_COST_PRICING_JSON` 的 request-level `cost_usd` 歸因；Release / Production DB、Release / Production pricing env、價格版本維護流程與 Notification 正式 cancelled 狀態仍待發布前確認 / schema 決策
+**狀態**：部分落地；AI request ledger migration 與 Notification `cancelled` enum migration 已生成並套用 Supabase Dev DB，Admin costs 已接入 ledger product-flow token/request breakdown，且已新增可配置 `AI_COST_PRICING_JSON` 的 request-level `cost_usd` 歸因；Release / Production DB、Release / Production pricing env 與價格版本維護流程仍待發布前確認
 **優先級**：P0，涉及 Admin 成本歸因、通知召回治理與 dev/release DB schema parity
 **責任範圍**：Backend / Database / Admin / Release Ops
 
@@ -23,7 +23,7 @@ Admin 成本報表目前由 `CostMonitoringService` 讀取 OpenAI organization c
 - `POST /api/v1/admin/notifications/bulk-cancel`：按 template/user/dedup/group 篩選最多 100 條 pending 通知做批量召回，寫 batch audit。
 - `POST /api/v1/admin/notifications/:notificationId/retry`：只允許真正 failed 通知重送；`admin_cancelled:*` 人工取消通知不可 retry。
 
-目前 `NotificationStatus` 仍只有 `pending/sent/failed`，沒有 `cancelled`。取消 pending 暫用 `status=failed + error_message=admin_cancelled:*` 退出發送隊列，正式 cancelled 狀態仍需另做 schema 決策。
+`NotificationStatus` 已新增正式 `cancelled`。取消 pending 會寫 `status=cancelled + error_message=admin_cancelled:*` 退出發送隊列；retry 只允許真正 `failed`，且仍保留對歷史 `failed + admin_cancelled:*` 資料的重送禁止，避免 migration 前的人工取消通知被錯誤重送。
 
 ## 已落地的 AI Request Ledger（2026-05-04）
 
@@ -57,13 +57,13 @@ Admin 成本報表目前由 `CostMonitoringService` 讀取 OpenAI organization c
 1. `cost_usd` attribution helper 已落地，但依賴顯式 `AI_COST_PRICING_JSON`；未配置時不能宣稱成本金額已精準閉環。
 2. Release / Production backend env 必須配置同一份經審核的 `AI_COST_PRICING_JSON`，並在發布後確認 Admin costs 的 `costSource` 不再是預期外 `not_allocated`。
 3. 仍需定義價格版本刷新 / 審核 / 失效提醒流程；模型價格不得硬編到代碼，也不得長期沿用未審核的舊版本。
-4. `NotificationStatus` 需評估是否新增 `cancelled` enum 或新增獨立 `cancelled_at / cancelled_by / cancel_reason` 欄位。
-5. 若新增 notification enum / 欄位，必須產生 Prisma migration，並同步 Supabase Dev DB 與 Release / Production DB。
+4. Notification `cancelled` enum 已落地；若未來需要 `cancelled_at / cancelled_by / cancel_reason` 可審計欄位，必須另開 additive schema 任務。
+5. Release / Production DB 仍需套用 `20260504164500_add_notification_cancelled_status`，不得只用 Supabase Dev DB 狀態宣稱發布版 notification cancelled 已閉環。
 
 ## DB Parity 狀態
 
-1. Supabase Dev DB：`2026-05-04` 已執行 `cd backend && npx prisma migrate deploy --schema prisma/schema.prisma`，`npm run ops:db:status` 回報 `Database schema is up to date!`。
-2. Release / Production DB：尚未確認套用 `20260504143000_add_ai_request_ledger`。發布 backend 前必須用 release `DATABASE_URL` 執行 read-only migration status 或 release gate，不得沿用 Dev DB 結論。
+1. Supabase Dev DB：`2026-05-04` 已執行 `cd backend && npx prisma migrate deploy --schema prisma/schema.prisma`，套用 `20260504143000_add_ai_request_ledger` 與 `20260504164500_add_notification_cancelled_status`；`npm run ops:db:status` 回報 `Database schema is up to date!`。
+2. Release / Production DB：尚未確認套用 `20260504143000_add_ai_request_ledger` 與 `20260504164500_add_notification_cancelled_status`。發布 backend 前必須用 release `DATABASE_URL` 執行 read-only migration status 或 release gate，不得沿用 Dev DB 結論。
 
 ## 驗證命令
 
@@ -75,6 +75,7 @@ cd backend && npx prisma migrate status
 cd backend && npm test -- --runInBand tests/unit/services/ai-request-ledger.service.test.ts tests/unit/services/ai.service.test.ts tests/unit/services/cost-monitoring.service.test.ts
 cd backend && npm test -- --runInBand tests/unit/services/ai-request-ledger.service.test.ts tests/unit/services/ai.service.test.ts tests/unit/services/chat-ai-orchestrator.service.test.ts
 cd backend && npm test -- --runInBand tests/unit/services/cost-monitoring.service.test.ts tests/unit/controllers/admin.controller.test.ts tests/unit/routes/admin.routes.test.ts
+cd backend && npm test -- --runInBand tests/unit/controllers/admin.controller.test.ts tests/unit/routes/admin.routes.test.ts tests/unit/services/notification.service.test.ts tests/unit/controllers/notification.controller.test.ts
 cd backend && npm test -- --runInBand tests/unit/services/ai-stream.service.persistence.test.ts
 cd backend && npm run build
 cd backend && npm run lint
@@ -87,5 +88,5 @@ npm run docs:check
 - `AI_COST_PRICING_JSON` 屬運維配置，不是 schema migration；Local / Railway Release 必須分別配置與核驗，不能用本機 `.env` 推導發布版成本已精準。
 - pricing catalog 必須保留 `source/version`，價格調整需走審核與文檔更新；不得在代碼中補舊價格常量。
 - 不得只在 Dev DB 建表；Release DB migration 狀態必須在發布 gate 前確認。
-- 若新增 `cancelled` enum，所有讀寫 `NotificationStatus` 的 validation、sender、Admin、前台通知列表都要同步處理。
+- `cancelled` enum 已加入；Release DB 套用前，不能發布會寫 `status=cancelled` 的 backend 到指向舊 schema 的環境。
 - migration / backfill 必須記錄為 dev / release 兩邊都要統一的待處理任務，未完成前不得聲稱產品流 AI 成本已準確閉環。

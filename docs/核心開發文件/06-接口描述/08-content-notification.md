@@ -3,8 +3,8 @@
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：08-content-notification
-**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`backend/src/services/notification.service.ts`、`backend/src/utils/case-classifier.ts`、`backend/src/utils/notification-deep-link.ts`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`d80cd8c`
+**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`backend/src/services/notification.service.ts`、`backend/src/utils/case-classifier.ts`、`backend/src/utils/notification-deep-link.ts`、`backend/prisma/schema.prisma`、`backend/prisma/migrations/20260504164500_add_notification_cancelled_status/migration.sql`、`frontend/src/services/api`、`frontend-admin/src/services/api`
+**最後核驗 Commit**：`6204e7f`
 **最後核驗日期**：`2026-05-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -26,7 +26,7 @@
 | `GET /api/v1/content-items` | query `type?` `tags?` `language?` `is_active?` `limit?` | `data.items[]` | （通常無固定業務錯誤碼） | 無 | `/quick-experience/result/:id` |
 | `GET /api/v1/content-items/recommendations/:caseId` | `caseId(uuid)` query `relation?` | `data.items[]`（`caseContentLink + content`） | `VALIDATION_ERROR` `NOT_FOUND` `FORBIDDEN` `UNAUTHORIZED` `SESSION_EXPIRED` | 無 | （候選，未接線） |
 | `POST /api/v1/content-links` | `case_id(uuid)` `content_id(uuid)` `relation?` | `data.link`（upsert） | `VALIDATION_ERROR` `UNAUTHORIZED` `FORBIDDEN` `NOT_FOUND` | 建立/覆蓋 case-content 關聯 | （候選，未接線） |
-| `GET /api/v1/notifications` | query `state?` `status?` `template_code?` `limit?` `cursor?` | `data.notifications[]` `data.next_cursor` `data.has_more` | `UNAUTHORIZED` `VALIDATION_ERROR` | 無 | `/notifications` |
+| `GET /api/v1/notifications` | query `state?` `status?(pending/sent/failed/cancelled)` `template_code?` `limit?` `cursor?` | `data.notifications[]` `data.next_cursor` `data.has_more` | `UNAUTHORIZED` `VALIDATION_ERROR` | 無 | `/notifications` |
 | `GET /api/v1/notifications/unread-count` | JWT header | `data.unread_count` | `UNAUTHORIZED` | 無 | Header bell badge |
 | `POST /api/v1/notifications` | `channel(email|push)` `template_code` `payload?`（`path` 若存在必須為 notification deep-link 白名單相對路由） `dedup_key?` `action_key?` `priority?` `group_key?` | `data.notification` | `UNAUTHORIZED` `VALIDATION_ERROR` | 建立單條通知（系統/運維保留入口）；非法 `payload.path` 會拒絕建立 | （候選，無前台直接入口） |
 | `POST /api/v1/notifications/:id/read` | `id(uuid)` | `data.notification` | `UNAUTHORIZED` `VALIDATION_ERROR` `NOT_FOUND` | 補 `read_at` | `/notifications` |

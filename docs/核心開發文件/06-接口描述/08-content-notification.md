@@ -4,11 +4,11 @@
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：08-content-notification
 **取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`backend/src/services/notification.service.ts`、`backend/src/utils/case-classifier.ts`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`210fc12`
+**最後核驗 Commit**：`6aed23f`
 **最後核驗日期**：`2026-05-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**文檔版本**：v2.6
+**文檔版本**：v2.7
 **最後更新**：2026-05-04
 **代碼基準**：`backend/src/routes/content.routes.ts`、`backend/src/routes/notification.routes.ts`、`backend/src/controllers/content.controller.ts`、`backend/src/controllers/notification.controller.ts`、`backend/src/services/content.service.ts`、`backend/src/services/notification.service.ts`、`backend/src/utils/case-classifier.ts`、`backend/src/utils/validation.ts`、`frontend/src/services/api/content.ts`、`frontend/src/services/api/notifications.ts`
 
@@ -44,7 +44,7 @@
   - `/notifications` 頁拉可分區列表，支持 `actionable / unread / snoozed / archived`
   - `act` 返回標準 deep-link target，前端不再依模板自行猜測跳頁
 - `POST /api/v1/notifications` 仍保留為系統/運維創建入口，前台不直接調用；其渲染內容主要來自 `payload` 而非 top-level `title/body/path` 字段。
-- `NotificationService.normalize()` 必須集中輸出 `render_payload.product_flow`：優先讀 `payload.product_flow`，其次讀 `payload.journey_context.repair_access.product_flow`；取值必須符合 `backend/src/utils/case-classifier.ts` 的 `CASE_PRODUCT_FLOW_KEYS`。前端、Admin 或 analytics 不得從通知模板、path 或 case mode 另行推斷產品流。
+- `NotificationService.normalize()` 必須集中輸出 `render_payload.product_flow`：優先讀 `payload.product_flow`，其次讀 `payload.journey_context.repair_access.product_flow`；取值必須符合 `backend/src/utils/case-classifier.ts` 的 `CASE_PRODUCT_FLOW_KEYS`。前端、Admin 或 analytics 不得從通知模板、path 或 case mode 另行推斷產品流。normalize 亦 additive 輸出 `user_id/dedup_key`，供 Admin 排查與 audit 使用。
 - `GET /api/v1/notifications` 的 `cursor` 為 `notification.id(uuid)`；分頁不是時間戳游標。
 - `GET /api/v1/notifications/unread-count` 只統計「未讀 + 未dismiss + snooze到期或未snooze」的通知。
 - `POST /api/v1/content-links` 必須認證（`authenticate`），且在寫入關聯前會再次用 `caseService.getCaseById(case_id, userId)` 做案件訪問校驗。
@@ -60,6 +60,8 @@
 ## 通知 DTO 補充
 
 - `NotificationItem`
+  - `user_id`
+  - `dedup_key`
   - `priority`
   - `group_key`
   - `snoozed_until`

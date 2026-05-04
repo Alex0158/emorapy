@@ -27,6 +27,7 @@ import { startInterviewResponseStreamLifecycle } from './interview-response-stre
 import { persistInterviewEndSession } from './interview-end-session-persistence';
 import { prepareInterviewProcessingRetry } from './interview-processing-retry';
 import { loadInterviewResumeStatus } from './interview-resume-status';
+import { buildRuntimeAILedgerSourceTracking } from '../utils/ai-ledger-source';
 import {
   ensureInterviewSessionAccess,
   loadOwnedInterviewSession,
@@ -145,7 +146,7 @@ export class InterviewService {
               scopeType: streamHandle.scopeType,
               scopeId: streamHandle.scopeId,
               requestKind: 'interview_ai_response',
-              productFlow: 'profile_interview',
+              ...buildRuntimeAILedgerSourceTracking('profile_interview'),
               metadata: {
                 parent_request_id: streamHandle.requestId,
                 current_turn: currentTurn,

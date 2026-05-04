@@ -135,6 +135,14 @@ describe('ChatAIOrchestrator prompt 選擇', () => {
     expect(generateTextStreamMock).toHaveBeenCalledTimes(1);
     const [, options] = generateTextStreamMock.mock.calls[0];
     expect(options.systemPrompt).toContain('本輪情境：用戶似乎在尋求你對其爭議行為的認同或背書');
+    expect(options.ledger).toMatchObject({
+      productFlow: 'chat_first',
+      sourceChannel: 'chat_room',
+      entryPoint: 'chat_room_ai_response',
+      requestKind: 'chat_room_ai_response',
+      scopeType: 'chat_room',
+      scopeId: 'room-1',
+    });
   });
 
   it('一般訊息應傳入 SUPPORT_SYSTEM_PROMPT（非 validation-seeking）', async () => {

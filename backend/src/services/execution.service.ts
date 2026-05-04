@@ -20,6 +20,7 @@ import {
   getRepairEligibilityForCase,
   getRepairJourneyAccessPolicyForJudgment,
 } from './repair-eligibility.service';
+import { buildRuntimeAILedgerSourceTracking } from '../utils/ai-ledger-source';
 
 export interface CheckinDto {
   plan_id: string;
@@ -651,7 +652,7 @@ export class ExecutionService {
           scopeType: handle.scopeType,
           scopeId: handle.scopeId,
           requestKind: 'repair_replan_generation',
-          productFlow: 'repair_journey',
+          ...buildRuntimeAILedgerSourceTracking('repair_journey'),
           metadata: {
             parent_request_id: handle.requestId,
             track_id: track.id,

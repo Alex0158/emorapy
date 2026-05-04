@@ -4,7 +4,7 @@
 **文檔類型**：問題治理
 **覆蓋範圍**：case product flow source tracking、dev/release DB parity、產品流 analytics backfill
 **取證代碼入口**：`backend/prisma/schema.prisma`、`backend/prisma/migrations/20260504193000_add_case_source_tracking/migration.sql`、`backend/src/utils/case-classifier.ts`、`backend/src/services/case.service.ts`、`backend/src/services/chat.service.ts`、`backend/tests/unit/utils/case-classifier.test.ts`、`backend/tests/unit/services/case.service.test.ts`、`packages/contracts/src/case.ts`
-**最後核驗 Commit**：`2dbde36`
+**最後核驗 Commit**：`302c449`
 **最後核驗日期**：`2026-05-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -47,6 +47,7 @@ backend/prisma/migrations/20260504193000_add_case_source_tracking/migration.sql
 5. `CaseService` 與 `ChatService` 建案時透過 `buildCaseSourceTracking()` 寫入欄位。
 6. `getCaseProductFlow()` 仍保持 compatibility fallback：先看 `ChatToCaseLink`，其次看已落庫的 `product_flow`，最後才用 `mode/session_id` 推斷。
 7. `GET /cases`、`GET /cases/:id` 與 `GET /cases/by-session` 已透過 `buildCaseSourceTrackingForRead()` additive 回傳 `product_flow / source_channel / entry_point`，並在 `packages/contracts/src/case.ts` 補齊型別。
+8. `buildCaseProductFlowWhere()`、Admin overview/funnel、修復提醒與 stale draft cleanup 已改為優先使用 persisted `cases.product_flow`，同時保留 `mode/session_id/chat_to_case_links` fallback；非 chat flow 仍必須排除 `chat_to_case_links`，保持 chat link 優先。
 
 ## 必須同步的兩邊
 

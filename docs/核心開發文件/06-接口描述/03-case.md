@@ -4,11 +4,11 @@
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：03-case
 **取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`backend/src/services/case.service.ts`、`backend/src/controllers/evidence.controller.ts`、`backend/src/middleware/auth.ts`、`backend/src/jobs/cleanup.job.ts`、`backend/src/utils/case-classifier.ts`、`packages/contracts/src/case.ts`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`2dbde36`
+**最後核驗 Commit**：`302c449`
 **最後核驗日期**：`2026-05-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**文檔版本**：v2.13
+**文檔版本**：v2.14
 **最後更新**：2026-05-04
 **代碼基準**：`backend/src/routes/case.routes.ts`、`backend/src/controllers/case.controller.ts`、`backend/src/controllers/evidence.controller.ts`、`backend/src/services/case.service.ts`、`backend/src/utils/case-classifier.ts`、`backend/src/utils/validation.ts`、`packages/contracts/src/case.ts`
 
@@ -54,12 +54,13 @@
   - `quick` 與 `collaborative(session_id 有值)`：必須提供匹配的 `session_id`；quick case 可透過 `case.session_id` 或 `quick_sessions.id` 關聯恢復，具體判定必須使用 `canAccessSessionBoundCase()`。
   - `remote` 與 `collaborative(session_id=null)`：必須是案件當事人 JWT（`plaintiff_id`/`defendant_id`）。
 - `collaborative full-mode` 不再是「一律 session-only」；當 `session_id=null` 時按正式案件權限處理。
-- 產品流分類必須使用 `backend/src/utils/case-classifier.ts`，不得只用 `case.mode` 推斷：
+- 產品流分類與查詢必須使用 `backend/src/utils/case-classifier.ts`，不得只用 `case.mode` 推斷：
   - `quick_single`：`mode=quick` 且沒有 chat-to-case link。
   - `quick_collaborative`：`mode=collaborative` 且 `session_id` 有值。
   - `formal_remote`：`mode=remote`。
   - `formal_collaborative`：`mode=collaborative` 且 `session_id=null`。
   - `chat_to_case`：存在 `ChatToCaseLink` 時優先於 mode。
+- `buildCaseProductFlowWhere()` 查詢口徑已優先使用 `cases.product_flow`，並保留 `mode/session_id/chat_to_case_links` fallback；非 chat flow 必須仍要求 `chat_to_case_links none`，避免 chat-to-case 因落庫欄位或舊資料被錯歸類。
 - User-bound product case 查詢範圍固定使用 `buildUserBoundProductCaseWhere()`：包含 `chat_to_case`、`formal_remote`、`formal_collaborative`，並排除沒有 `ChatToCaseLink` 的 session-bound quick / quick collaborative。`GET /cases` 與修復旅程 choose-direction reminder 必須使用此口徑，避免 quick 底層的 chat-to-case 被 mode-only 查詢漏掉。
 - `GET /cases/by-session` 查詢範圍固定使用 `buildClaimableSessionCaseWhere(session_id)`：覆蓋 quick single、`quick_sessions` 關聯恢復與快速雙人協作，並排除 formal case 殘留 session 關聯造成的錯誤回訪。
 - `GET /cases`、`GET /cases/:id` 與 `GET /cases/by-session` 已 additive 回傳 `product_flow / source_channel / entry_point`，前端、Admin、analytics 若需要產品來源，應優先讀這三個字段；不得在 UI 端重寫一份 mode 推斷。read path 使用 `buildCaseSourceTrackingForRead()`，chat-to-case link 優先於已落庫 `product_flow`。
@@ -80,7 +81,7 @@
 11. `collaborative + session_id=null` 案件下，當事人 JWT 讀 `GET /cases/:id` 與 `GET /cases/:id/judgment` 必須通過；匿名或非當事人必須拒絕。
 12. notification / repair reminder 應覆蓋 `formal_remote`、`formal_collaborative`、`chat_to_case`，並排除沒有 `ChatToCaseLink` 的 session-bound quick。
 13. `GET /cases` 查詢不得只用 `mode in [remote, collaborative]`；當 chat-to-case case 底層仍是 `mode=quick` 但已有當事人歸戶時，列表仍必須可見。
-14. `GET /cases` 與 `GET /cases/:id` 對 chat-to-case case 必須返回 `product_flow=chat_to_case / source_channel=chat_room / entry_point=chat_request_judgment`。
+14. `GET /cases` 與 `GET /cases/:id` 對 chat-to-case case 必須返回 `product_flow=chat_to_case / source_channel=chat_room / entry_point=chat_request_judgment`；Admin overview/funnel、修復提醒與 stale draft cleanup 必須共用同一 product-flow where helper。
 15. `GET /cases/by-session` 不得只查 `mode=quick + session_id`；必須使用 claimable session case scope，快速雙人協作也應可由同 session 回訪，且返回 `product_flow=quick_collaborative` 與對應 `source_channel/entry_point`。
 16. `GET /cases`、`GET /cases/:id`、`GET /cases/by-session` 返回 judgment 時，active case safety state 應能覆蓋 stored route visibility。
 

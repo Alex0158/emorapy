@@ -25,7 +25,6 @@ import SEO from '@/components/common/SEO';
 import { logger } from '@/utils/logger';
 import { getErrorMessage } from '@/utils/apiError';
 import { t, getLocale } from '@/utils/i18n';
-import './Result.less';
 
 import AIAnalyzingAnimation from './components/AIAnalyzingAnimation';
 import ResultHeader from './components/ResultHeader';
@@ -331,21 +330,21 @@ const QuickExperienceResult = () => {
 
   if (isLoading && !judgment) {
     return (
-      <div className="quick-experience-result-state loading-container">
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background px-6 py-10 text-center">
         <AIAnalyzingAnimation tips={tips} currentPhase={streamPhase} phaseHistory={phaseHistory} />
       </div>
     );
   }
 
   if (error && !judgment) return (
-    <div className="quick-experience-result-state error-container">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-6 py-10 text-center">
       <AIErrorState
         title={t('error.fetch.title')}
         description={error}
         footer={(
-          <button className="action-button primary" onClick={() => navigate('/quick-experience/create')} style={{ marginTop: 24 }}>
+          <Button variant="outline" onClick={() => navigate('/quick-experience/create')} className="mt-6">
             {t('error.back')}
-          </button>
+          </Button>
         )}
       />
     </div>
@@ -355,7 +354,7 @@ const QuickExperienceResult = () => {
     const isSessionExpired = isSessionJudgmentErrorCode(judgmentErrorCode);
     const isJudgmentFailed = isJudgmentFailedState(judgmentErrorCode, caseStatus);
     return (
-      <div className="quick-experience-result-state error-container">
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background px-6 py-10 text-center">
         <AIErrorState
           title={isSessionExpired ? t('error.session.title') : isJudgmentFailed ? t('error.judgment.title') : t('error.fetch.title')}
           description={isJudgmentFailed && judgmentFailureReason ? `${t('error.judgment.failureReasonPrefix')}${judgmentFailureReason}` : judgmentError || (isSessionExpired ? t('error.session.expiredHint') : t('message.retryOrLater'))}
@@ -377,9 +376,9 @@ const QuickExperienceResult = () => {
             : <Button onClick={() => { setJudgmentError(null); setJudgmentErrorCode(null); pollingEverStartedRef.current = true; startPolling(); }}>{t('error.retry')}</Button>
           }
           footer={(
-            <button className="action-button secondary" onClick={() => navigate('/quick-experience/create')} style={{ marginTop: 24 }}>
+            <Button variant="outline" onClick={() => navigate('/quick-experience/create')} className="mt-6">
               {t('error.back')}
-            </button>
+            </Button>
           )}
         />
       </div>
@@ -389,7 +388,7 @@ const QuickExperienceResult = () => {
   if (!judgment) {
     const isTimeout = pollingEverStartedRef.current && !isPolling;
     return (
-      <div className="quick-experience-result-state loading-container">
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background px-6 py-10 text-center">
         {isTimeout ? (
           <AIErrorState
             title={t('pending.long.message')}
@@ -415,43 +414,51 @@ const QuickExperienceResult = () => {
         description={`${t('responsibility.title')}: ${t('quickCreate.roleA')} ${responsibilityRatioMemo.plaintiff}%, ${t('quickCreate.roleB')} ${responsibilityRatioMemo.defendant}%`}
         keywords={t('result.keywords')}
       />
-      <div className="quick-experience-result">
-        <a href="#judgment-section" className="skip-link">{t('result.skipToJudgment')}</a>
-        
-        <ResultHeader />
-        <SummarySection summary={judgment.summary} />
-        {shouldShowResponsibilityRatio && <ResponsibilitySection ratio={responsibilityRatioMemo} />}
-        {judgment.judgment_content && <JudgmentSection content={judgment.judgment_content} />}
+      <div className="min-h-screen bg-background pb-24 relative overflow-x-hidden">
+        <a href="#judgment-section" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:rounded-xl focus:bg-primary focus:text-white focus:px-6 focus:py-3 focus:font-semibold">{t('result.skipToJudgment')}</a>
 
-        <EvidenceUploadSection status={evidenceUploadStatus} caseId={id as string} isUploading={isUploading} onUploadFiles={handleEvidenceUpload} />
+        <div className="mx-auto max-w-[900px] px-6">
+          <ResultHeader />
+          <SummarySection summary={judgment.summary} />
+          {shouldShowResponsibilityRatio && <ResponsibilitySection ratio={responsibilityRatioMemo} />}
+          {judgment.judgment_content && <JudgmentSection content={judgment.judgment_content} />}
 
-        <section className="actions-section">
-          <div className="container">
-            <div className="primary-actions">
-              <button
-                className="action-button primary"
+          <EvidenceUploadSection status={evidenceUploadStatus} caseId={id as string} isUploading={isUploading} onUploadFiles={handleEvidenceUpload} />
+
+          <section className="py-5">
+            <div className="flex justify-center gap-4 flex-wrap">
+              <Button
+                size="lg"
                 onClick={() => navigate('/auth/register', { state: registerTargetState })}
+                className="h-16 rounded-full px-10 text-base font-bold shadow-lg transition-all hover:-translate-y-1 hover:shadow-xl"
               >
                 <Lock className="size-4" /> {t('register.action.now')}
-              </button>
-              <button
-                className="action-button secondary"
+              </Button>
+              <Button
+                variant="outline"
+                size="lg"
                 onClick={() => navigate('/auth/login', { state: registerTargetState })}
+                className="h-16 rounded-full px-10 text-base font-bold transition-all hover:-translate-y-1"
               >
                 <Lock className="size-4" /> {t('auth.login.submit')}
-              </button>
-              <button className="action-button secondary" onClick={() => navigate('/quick-experience/create')}>
+              </Button>
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => navigate('/quick-experience/create')}
+                className="h-16 rounded-full px-10 text-base font-bold transition-all hover:-translate-y-1"
+              >
                 <RefreshCw className="size-4" /> {t('quickCreate.recoveredCase.startNew')}
-              </button>
+              </Button>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <RegisterPromptSection
-          show={showRegisterPrompt}
-          onRegister={() => navigate('/auth/register', { state: registerTargetState })}
-          onClose={() => setShowRegisterPrompt(false)}
-        />
+          <RegisterPromptSection
+            show={showRegisterPrompt}
+            onRegister={() => navigate('/auth/register', { state: registerTargetState })}
+            onClose={() => setShowRegisterPrompt(false)}
+          />
+        </div>
       </div>
     </>
   );

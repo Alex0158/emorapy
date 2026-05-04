@@ -1,24 +1,15 @@
 /**
- * 判決書查看器組件（增強版Markdown渲染）
+ * 判決書查看器組件（遷移：Ant Card/Collapse/Button/Tooltip/Typography/Icons → shadcn + Tailwind + Lucide）
  */
 
-import { Card, Typography, Button, Space, Tooltip, Collapse } from 'antd';
-import {
-  SoundOutlined,
-  ShareAltOutlined,
-  StarOutlined,
-  PrinterOutlined,
-  CopyOutlined,
-  RobotOutlined,
-} from '@ant-design/icons';
+import { Volume2, Share2, Star, Printer, Copy, Bot } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { useState, useMemo } from 'react';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { copyToClipboard } from '@/utils/helpers';
-import { message } from 'antd';
 import { t, getLocale } from '@/utils/i18n';
-import './JudgmentViewer.less';
-
-const { Title, Text } = Typography;
 
 interface JudgmentViewerProps {
   content: string;
@@ -28,17 +19,16 @@ interface JudgmentViewerProps {
   showActions?: boolean;
 }
 
-// 簡單解析 Markdown，將其按標題拆分為多個區塊
 const parseMarkdownSections = (content: string, defaultTitle: string) => {
   const lines = content.split('\n');
-  const sections: { title: string; content: string; type: string }[] = [];
+  const sections: { title: string; content: string }[] = [];
   let currentTitle = defaultTitle;
   let currentContent: string[] = [];
 
   lines.forEach(line => {
     if (line.startsWith('## ') || line.startsWith('### ')) {
       if (currentContent.length > 0) {
-        sections.push({ title: currentTitle, content: currentContent.join('\n'), type: 'section' });
+        sections.push({ title: currentTitle, content: currentContent.join('\n') });
       }
       currentTitle = line.replace(/^#+\s/, '');
       currentContent = [];
@@ -48,7 +38,7 @@ const parseMarkdownSections = (content: string, defaultTitle: string) => {
   });
 
   if (currentContent.length > 0) {
-    sections.push({ title: currentTitle, content: currentContent.join('\n'), type: 'section' });
+    sections.push({ title: currentTitle, content: currentContent.join('\n') });
   }
 
   return sections;
@@ -65,20 +55,13 @@ const JudgmentViewer = ({
 
   const sections = useMemo(
     () => parseMarkdownSections(content, t('judgmentViewer.defaultSectionTitle')),
-    [content]
+    [content],
   );
 
   const handleCopy = async () => {
     const success = await copyToClipboard(content);
-    if (success) {
-      message.success(t('common.copied'));
-    } else {
-      message.error(t('common.copyFail'));
-    }
-  };
-
-  const handlePrint = () => {
-    window.print();
+    if (success) toast.success(t('common.copied'));
+    else toast.error(t('common.copyFail'));
   };
 
   const handleVoicePlay = () => {
@@ -89,102 +72,78 @@ const JudgmentViewer = ({
       } else {
         const utterance = new SpeechSynthesisUtterance(content);
         utterance.lang = getLocale().startsWith('zh') ? 'zh-TW' : 'en-US';
-        utterance.rate = 1;
-        utterance.pitch = 1;
-        utterance.volume = 1;
-
         utterance.onend = () => setIsPlaying(false);
-        utterance.onerror = () => {
-          setIsPlaying(false);
-          message.error(t('message.voicePlayFail'));
-        };
-
+        utterance.onerror = () => { setIsPlaying(false); toast.error(t('message.voicePlayFail')); };
         window.speechSynthesis.speak(utterance);
         setIsPlaying(true);
       }
     } else {
-      message.warning(t('message.voiceNotSupported'));
+      toast.warning(t('message.voiceNotSupported'));
     }
   };
 
   return (
-    <Card className="judgment-viewer glassmorphism-2" title={title}>
-      {showActions && (
-        <div className="judgment-actions">
-          <Space>
-            <Tooltip title={t('judgmentViewer.voicePlay')}>
-              <Button
-                type="text"
-                icon={<SoundOutlined />}
-                onClick={handleVoicePlay}
-                className={isPlaying ? 'playing' : ''}
-                aria-label={isPlaying ? t('judgmentViewer.playing') : t('judgmentViewer.play')}
-              >
-                {isPlaying ? t('judgmentViewer.playing') : t('judgmentViewer.play')}
-              </Button>
-            </Tooltip>
-            <Tooltip title={t('judgmentViewer.copy')}>
-              <Button type="text" icon={<CopyOutlined />} onClick={handleCopy} aria-label={t('judgmentViewer.copy')} />
-            </Tooltip>
-            <Tooltip title={t('judgmentViewer.share')}>
-              <Button type="text" icon={<ShareAltOutlined />} onClick={onShare} aria-label={t('judgmentViewer.share')} />
-            </Tooltip>
-            <Tooltip title={t('judgmentViewer.favorite')}>
-              <Button type="text" icon={<StarOutlined />} onClick={onFavorite} aria-label={t('judgmentViewer.favorite')} />
-            </Tooltip>
-            <Tooltip title={t('judgmentViewer.print')}>
-              <Button type="text" icon={<PrinterOutlined />} onClick={handlePrint} aria-label={t('judgmentViewer.print')} />
-            </Tooltip>
-          </Space>
-        </div>
-      )}
+    <div className="rounded-xl border border-border bg-card p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold text-foreground font-heading">{title}</h3>
+        {showActions && (
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon-sm" onClick={handleVoicePlay} aria-label={isPlaying ? t('judgmentViewer.playing') : t('judgmentViewer.play')}>
+              <Volume2 className={`size-4 ${isPlaying ? 'text-primary animate-pulse' : ''}`} />
+            </Button>
+            <Button variant="ghost" size="icon-sm" onClick={handleCopy} aria-label={t('judgmentViewer.copy')}>
+              <Copy className="size-4" />
+            </Button>
+            <Button variant="ghost" size="icon-sm" onClick={onShare} aria-label={t('judgmentViewer.share')}>
+              <Share2 className="size-4" />
+            </Button>
+            <Button variant="ghost" size="icon-sm" onClick={onFavorite} aria-label={t('judgmentViewer.favorite')}>
+              <Star className="size-4" />
+            </Button>
+            <Button variant="ghost" size="icon-sm" onClick={() => window.print()} aria-label={t('judgmentViewer.print')}>
+              <Printer className="size-4" />
+            </Button>
+          </div>
+        )}
+      </div>
 
-      <div className="judgment-content">
-        <Collapse 
-          defaultActiveKey={['0']} 
-          ghost 
-          expandIconPlacement="end"
-          className="judgment-accordion"
-          items={sections.map((section, index) => ({
-            key: String(index),
-            label: (
-              <div className="flex items-center gap-3">
-                <Title level={4} style={{ margin: 0 }}>{section.title}</Title>
-              </div>
-            ),
-            children: (
-              <div className="section-body relative">
-                <ReactMarkdown
-                  components={{
-                    p: ({ children }) => <p className="judgment-paragraph text-lg leading-relaxed text-gray-700">{children}</p>,
-                    ul: ({ children }) => <ul className="judgment-list list-disc pl-6 mb-4">{children}</ul>,
-                    ol: ({ children }) => <ol className="judgment-list list-decimal pl-6 mb-4">{children}</ol>,
-                    li: ({ children }) => <li className="judgment-list-item mb-2">{children}</li>,
-                    strong: ({ children }) => <strong className="judgment-strong font-bold text-gray-900">{children}</strong>,
-                    blockquote: ({ children }) => (
-                      <blockquote className="judgment-blockquote border-l-4 border-primary pl-4 py-1 my-4 bg-gray-50 rounded-r-lg">{children}</blockquote>
-                    ),
-                  }}
-                >
-                  {section.content}
-                </ReactMarkdown>
-                
-                {/* Explainable AI Tag */}
-                <div className="ai-insight-tag mt-4 p-3 bg-blue-50/50 rounded-xl border border-blue-100 flex items-start gap-3">
-                  <RobotOutlined className="text-blue-500 mt-1" />
-                  <div>
-                    <Text strong className="text-blue-700 text-sm block mb-1">{t('judgmentViewer.aiInsightTitle')}</Text>
-                    <Text className="text-blue-600/80 text-sm">
-                      {t('judgmentViewer.aiInsightDesc', { sectionTitle: section.title })}
-                    </Text>
-                  </div>
+      {/* Content Accordion */}
+      <Accordion type="multiple" defaultValue={['0']} className="space-y-2">
+        {sections.map((section, index) => (
+          <AccordionItem key={index} value={String(index)} className="rounded-lg border border-border px-4">
+            <AccordionTrigger className="py-3">
+              <span className="text-base font-semibold text-foreground">{section.title}</span>
+            </AccordionTrigger>
+            <AccordionContent className="pb-4">
+              <ReactMarkdown
+                components={{
+                  p: ({ children }) => <p className="text-sm leading-relaxed text-muted-foreground mb-3">{children}</p>,
+                  ul: ({ children }) => <ul className="list-disc pl-5 mb-3 space-y-1">{children}</ul>,
+                  ol: ({ children }) => <ol className="list-decimal pl-5 mb-3 space-y-1">{children}</ol>,
+                  li: ({ children }) => <li className="text-sm text-muted-foreground">{children}</li>,
+                  strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
+                  blockquote: ({ children }) => (
+                    <blockquote className="border-l-4 border-primary/30 pl-4 py-1 my-3 bg-primary-light/20 rounded-r-lg text-sm italic">{children}</blockquote>
+                  ),
+                }}
+              >
+                {section.content}
+              </ReactMarkdown>
+
+              {/* AI Insight Tag */}
+              <div className="mt-4 flex items-start gap-3 rounded-lg bg-primary-light/30 border border-primary/10 p-3">
+                <Bot className="size-4 text-primary mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-xs font-semibold text-foreground mb-0.5">{t('judgmentViewer.aiInsightTitle')}</p>
+                  <p className="text-xs text-muted-foreground">{t('judgmentViewer.aiInsightDesc', { sectionTitle: section.title })}</p>
                 </div>
               </div>
-            )
-          }))}
-        />
-      </div>
-    </Card>
+            </AccordionContent>
+          </AccordionItem>
+        ))}
+      </Accordion>
+    </div>
   );
 };
 

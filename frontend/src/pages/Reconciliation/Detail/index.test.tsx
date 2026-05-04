@@ -11,8 +11,8 @@ const mockRespondPlan = vi.fn();
 const mockConfirmExecution = vi.fn();
 const mockResumeTrack = vi.fn();
 const mockNavigate = vi.fn();
-const mockMessageError = vi.fn();
-const mockMessageSuccess = vi.fn();
+const mockToastError = vi.fn();
+const mockToastSuccess = vi.fn();
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
@@ -40,18 +40,14 @@ vi.mock('@/components/common/SEO', () => ({ default: () => null }));
 vi.mock('@/components/common/AnimatedWrapper', () => ({
   default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
-vi.mock('antd', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('antd')>();
-  return {
-    ...actual,
-    message: {
-      error: (...args: unknown[]) => mockMessageError(...args),
-      success: (...args: unknown[]) => mockMessageSuccess(...args),
-      info: vi.fn(),
-      warning: vi.fn(),
-    },
-  };
-});
+vi.mock('sonner', () => ({
+  toast: {
+    success: (...args: unknown[]) => mockToastSuccess(...args),
+    error: (...args: unknown[]) => mockToastError(...args),
+    warning: vi.fn(),
+    info: vi.fn(),
+  },
+}));
 
 import ReconciliationDetail from './index';
 
@@ -136,8 +132,8 @@ describe('ReconciliationDetail', () => {
     mockConfirmExecution.mockReset();
     mockResumeTrack.mockReset();
     mockNavigate.mockReset();
-    mockMessageError.mockReset();
-    mockMessageSuccess.mockReset();
+    mockToastError.mockReset();
+    mockToastSuccess.mockReset();
   });
 
   it('顯示承諾工作台與共同承諾狀態', async () => {
@@ -267,7 +263,7 @@ describe('ReconciliationDetail', () => {
       expect(mockSelectPlan).toHaveBeenCalledWith('plan-1');
     });
 
-    await userEvent.click(screen.getByRole('button', { name: /先暫停，不等於放棄/ }));
+    await userEvent.click(screen.getByRole('button', { name: /先暫停/ }));
 
     await waitFor(() => {
       expect(mockPausePlan).toHaveBeenCalledWith('plan-1');

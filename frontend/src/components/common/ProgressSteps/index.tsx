@@ -1,30 +1,37 @@
 /**
- * 進度步驟組件
+ * 進度步驟組件（遷移：Ant Steps → 自定義步驟指示器）
  */
 
-import { Steps } from 'antd';
-import type { StepsProps } from 'antd/es/steps';
-import './ProgressSteps.less';
+import { cn } from '@/lib/utils';
 
-interface ProgressStepsProps extends StepsProps {
+interface ProgressStepsProps {
   current: number;
   items: Array<{
     title: string;
     description?: React.ReactNode;
-    content?: React.ReactNode;
     icon?: React.ReactNode;
   }>;
 }
 
-const ProgressSteps = ({ current, items, ...props }: ProgressStepsProps) => {
-  const normalizedItems = items.map((item) => {
-    if (item.content !== undefined) return item;
-    const { description, ...rest } = item;
-    return { ...rest, content: description };
-  });
+const ProgressSteps = ({ current, items }: ProgressStepsProps) => {
   return (
-    <div className="progress-steps-wrapper">
-      <Steps current={current} items={normalizedItems} {...props} />
+    <div className="flex items-center gap-2">
+      {items.map((item, index) => (
+        <div key={index} className="flex items-center gap-2 flex-1">
+          <div className={cn(
+            'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-colors',
+            index <= current ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground',
+          )}>
+            {item.icon || index + 1}
+          </div>
+          <span className={cn('text-xs truncate', index <= current ? 'text-foreground font-medium' : 'text-muted-foreground')}>
+            {item.title}
+          </span>
+          {index < items.length - 1 && (
+            <div className={cn('h-0.5 flex-1 rounded-full', index < current ? 'bg-primary' : 'bg-muted')} />
+          )}
+        </div>
+      ))}
     </div>
   );
 };

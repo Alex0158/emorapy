@@ -9,7 +9,7 @@ const mockCreateSession = vi.fn();
 const mockGet = vi.fn();
 const mockSet = vi.fn();
 const mockRemove = vi.fn();
-const mockMessageError = vi.fn();
+const mockToastError = vi.fn();
 vi.mock('@/services/api/session', () => ({
   createSession: (...args: unknown[]) => mockCreateSession(...args),
 }));
@@ -20,8 +20,8 @@ vi.mock('@/utils/storage', () => ({
     remove: () => mockRemove(),
   },
 }));
-vi.mock('antd', () => ({
-  message: { error: (...args: unknown[]) => mockMessageError(...args) },
+vi.mock('sonner', () => ({
+  toast: { error: (...args: unknown[]) => mockToastError(...args) },
 }));
 vi.mock('@/utils/i18n', () => ({
   t: (key: string) => key,
@@ -67,7 +67,7 @@ describe('useSession', () => {
         await result.current.createSession();
       })
     ).rejects.toThrow('api-failed');
-    expect(mockMessageError).toHaveBeenCalledWith('api-failed');
+    expect(mockToastError).toHaveBeenCalledWith('api-failed');
     expect(result.current.loading).toBe(false);
   });
 
@@ -80,7 +80,7 @@ describe('useSession', () => {
         await result.current.createSession();
       })
     ).rejects.toMatchObject({ code: 'SERVER_ERROR' });
-    expect(mockMessageError).toHaveBeenCalledWith('message.sessionCreateFail');
+    expect(mockToastError).toHaveBeenCalledWith('message.sessionCreateFail');
     expect(result.current.loading).toBe(false);
   });
 

@@ -6,10 +6,10 @@ import { render, screen } from '@testing-library/react';
 import Loading from './Loading';
 
 describe('Loading', () => {
-  it('應渲染加載容器', () => {
+  it('應渲染加載動畫', () => {
     render(<Loading />);
-    const container = document.querySelector('.loading-container');
-    expect(container).toBeInTheDocument();
+    const spinner = document.querySelector('.animate-spin');
+    expect(spinner).toBeInTheDocument();
   });
 
   it('應顯示加載提示', () => {

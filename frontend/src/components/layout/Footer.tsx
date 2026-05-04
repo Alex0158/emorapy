@@ -1,24 +1,23 @@
 /**
- * 底部Footer
+ * 底部 Footer
+ *
+ * 遷移: Ant Layout.Footer → 原生 footer + Tailwind
  */
 
-import { Layout } from 'antd';
 import { t } from '@/utils/i18n';
-import './Footer.less';
-
-const { Footer: AntFooter } = Layout;
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
   return (
-    <AntFooter className="app-footer">
-      <div className="footer-content">
-        <p>{t('footer.copyright').replace('{year}', String(currentYear))}</p>
-        <p>{t('footer.tagline')}</p>
-      </div>
-    </AntFooter>
+    <footer className="border-t border-border bg-card/50 py-6 text-center max-md:pb-20">
+      <p className="text-sm text-muted-foreground">
+        {t('footer.copyright').replace('{year}', String(currentYear))}
+      </p>
+      <p className="mt-1 text-xs text-muted-foreground/60">
+        {t('footer.tagline')}
+      </p>
+    </footer>
   );
 };
 
 export default Footer;
-

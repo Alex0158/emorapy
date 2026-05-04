@@ -7,7 +7,7 @@ import userEvent from '@testing-library/user-event';
 import FileUpload from './index';
 import { deleteEvidence } from '@/services/api/case';
 
-const mockMessageError = vi.fn();
+const mockToastError = vi.fn();
 
 vi.mock('@/services/api/case', () => ({
   uploadEvidence: vi.fn(),
@@ -15,13 +15,13 @@ vi.mock('@/services/api/case', () => ({
   getCase: vi.fn(),
 }));
 vi.mock('@/utils/i18n', () => ({ t: (key: string) => key }));
-vi.mock('antd', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('antd')>();
-  return {
-    ...actual,
-    message: { ...actual.message, error: (...args: unknown[]) => mockMessageError(...args) },
-  };
-});
+vi.mock('sonner', () => ({
+  toast: {
+    success: vi.fn(),
+    error: (...args: unknown[]) => mockToastError(...args),
+    warning: vi.fn(),
+  },
+}));
 
 describe('FileUpload', () => {
   beforeEach(() => {
@@ -35,8 +35,8 @@ describe('FileUpload', () => {
 
   it('disabled 時應禁用上傳', () => {
     render(<FileUpload disabled />);
-    const upload = document.querySelector('.ant-upload-disabled');
-    expect(upload).toBeInTheDocument();
+    // 新實作中 disabled 時不渲染上傳按鈕（label + hidden input）
+    expect(screen.queryByText('fileUpload.uploadBtn')).not.toBeInTheDocument();
   });
 
   it('應支援 value 與 onChange', () => {
@@ -51,13 +51,19 @@ describe('FileUpload', () => {
       uid: 'e1',
       name: 'photo.jpg',
       status: 'done' as const,
+      url: 'http://example.com/photo.jpg',
       response: { id: 'ev1' },
     };
     vi.mocked(deleteEvidence).mockResolvedValue(undefined);
 
-    render(<FileUpload caseId="c1" value={[fileWithEvidence]} onChange={onChange} />);
+    const { container } = render(<FileUpload caseId="c1" value={[fileWithEvidence]} onChange={onChange} />);
 
-    const removeBtn = screen.getByTitle('Remove file');
+    // 新實作中刪除按鈕是 hover overlay 中含 X icon 的 button
+    const fileItem = container.querySelector('.aspect-square');
+    expect(fileItem).toBeInTheDocument();
+    // 找到 overlay 中的刪除按鈕（第二個 button，第一個是預覽）
+    const buttons = fileItem!.querySelectorAll('button');
+    const removeBtn = buttons[1]; // 第二個按鈕是刪除（X icon）
     await userEvent.click(removeBtn);
 
     expect(screen.getByText('fileUpload.confirmRemoveTitle')).toBeInTheDocument();
@@ -76,21 +82,25 @@ describe('FileUpload', () => {
       uid: 'e1',
       name: 'photo.jpg',
       status: 'done' as const,
+      url: 'http://example.com/photo.jpg',
       response: { id: 'ev1' },
     };
     vi.mocked(deleteEvidence).mockRejectedValue(new Error('刪除失敗'));
 
-    render(<FileUpload caseId="c1" value={[fileWithEvidence]} onChange={onChange} />);
+    const { container } = render(<FileUpload caseId="c1" value={[fileWithEvidence]} onChange={onChange} />);
 
-    const removeBtn = screen.getByTitle('Remove file');
+    const fileItem = container.querySelector('.aspect-square');
+    const buttons = fileItem!.querySelectorAll('button');
+    const removeBtn = buttons[1];
     await userEvent.click(removeBtn);
+
     const confirmBtn = await screen.findByRole('button', { name: 'common.confirm' });
     await userEvent.click(confirmBtn);
 
     await waitFor(() => {
       expect(deleteEvidence).toHaveBeenCalledWith('c1', 'ev1', undefined);
     });
-    expect(mockMessageError).toHaveBeenCalled();
+    expect(mockToastError).toHaveBeenCalled();
     expect(onChange).not.toHaveBeenCalled();
   });
 });

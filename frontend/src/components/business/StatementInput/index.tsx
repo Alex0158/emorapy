@@ -1,18 +1,16 @@
 /**
- * 陳述輸入組件（增強版）
+ * 陳述輸入組件
+ *
+ * 遷移: Ant Input.TextArea/Typography/Tooltip/Icons → 原生 textarea + Lucide + Tailwind
  */
 
-import { Input, Typography, Tooltip } from 'antd';
-import { QuestionCircleOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
+import { HelpCircle, CheckCircle, XCircle } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { validateStatement } from '@/utils/validate';
 import { MAX_STATEMENT_LENGTH, MIN_STATEMENT_LENGTH } from '@/utils/constants';
 import { formatWordCount } from '@/utils/format';
+import { cn } from '@/lib/utils';
 import { t } from '@/utils/i18n';
-import './StatementInput.less';
-
-const { TextArea } = Input;
-const { Text } = Typography;
 
 interface StatementInputProps {
   value: string;
@@ -40,15 +38,12 @@ const StatementInput = ({
   allowEmpty = false,
 }: StatementInputProps) => {
   const [focused, setFocused] = useState(false);
-  const [validation, setValidation] = useState<{ valid: boolean; message?: string }>({
-    valid: false,
-  });
+  const [validation, setValidation] = useState<{ valid: boolean; message?: string }>({ valid: false });
 
   useEffect(() => {
     const trimmed = value.trim();
     if (allowEmpty && trimmed.length === 0) {
       const result = { valid: true, message: undefined };
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- 由 props 推導衍生狀態
       setValidation(result);
       onValidationChange?.(result.valid);
       return;
@@ -63,64 +58,58 @@ const StatementInput = ({
   const isEmptyAllowed = allowEmpty && wordCount === 0;
 
   return (
-    <div className={`statement-input-wrapper ${role} ${focused ? 'focused' : ''}`}>
-      {label && (
-        <div className="statement-label">
-          <Text strong>{label}</Text>
-        </div>
-      )}
+    <div className={cn('space-y-3', role === 'defendant' && 'statement-defendant')}>
+      {label && <p className="text-sm font-semibold text-foreground">{label}</p>}
 
       {showGuide && (
-        <div className={`guide-questions ${focused ? 'visible' : ''}`}>
-          <div className="guide-item">
-            <QuestionCircleOutlined className="guide-icon" />
-            <Text type="secondary">{t('statementInput.guide1')}</Text>
-          </div>
-          <div className="guide-item">
-            <QuestionCircleOutlined className="guide-icon" />
-            <Text type="secondary">{t('statementInput.guide2')}</Text>
-          </div>
-          <div className="guide-item">
-            <QuestionCircleOutlined className="guide-icon" />
-            <Text type="secondary">{t('statementInput.guide3')}</Text>
-          </div>
+        <div className={cn('space-y-1.5 transition-all duration-300', focused ? 'opacity-100 max-h-40' : 'opacity-0 max-h-0 overflow-hidden')}>
+          {['guide1', 'guide2', 'guide3'].map((key) => (
+            <div key={key} className="flex items-center gap-2 text-xs text-muted-foreground">
+              <HelpCircle className="size-3.5 shrink-0" />
+              <span>{t(`statementInput.${key}`)}</span>
+            </div>
+          ))}
         </div>
       )}
 
-      <div className="input-wrapper">
-        <TextArea
+      <div className="relative">
+        <textarea
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           rows={10}
           maxLength={MAX_STATEMENT_LENGTH}
-          showCount
           autoFocus={autoFocus}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
-          className="statement-textarea"
+          className={cn(
+            'w-full resize-none rounded-2xl border bg-white p-5 text-base leading-relaxed text-foreground placeholder:text-muted-foreground/50 transition-all duration-300',
+            'focus:outline-none focus:ring-4',
+            focused
+              ? 'border-primary shadow-[0_8px_32px_oklch(0.65_0.15_25/0.12)] focus:ring-primary/15'
+              : 'border-border shadow-[0_4px_16px_rgba(0,0,0,0.03)] focus:ring-primary/10',
+          )}
         />
 
-        <div className="validation-status">
-          {wordCount > 0 && (
-            <div className={`status-icon ${isComplete ? 'valid' : 'invalid'}`}>
-              {isComplete ? (
-                <Tooltip title={t('statementInput.wordCountOk')}>
-                  <CheckCircleOutlined />
-                </Tooltip>
-              ) : (
-                <Tooltip title={validation.message}>
-                  <CloseCircleOutlined />
-                </Tooltip>
-              )}
-            </div>
-          )}
-        </div>
+        {/* Validation icon */}
+        {wordCount > 0 && (
+          <div className="absolute right-4 top-4">
+            {isComplete ? (
+              <CheckCircle className="size-5 text-success" aria-label={t('statementInput.wordCountOk')} />
+            ) : (
+              <XCircle className="size-5 text-muted-foreground/40" aria-label={validation.message} />
+            )}
+          </div>
+        )}
       </div>
 
-      <div className={`word-count ${isComplete ? 'success' : isEmptyAllowed ? 'default' : wordCount < minLength ? 'warning' : 'default'}`}>
+      {/* Word count / status */}
+      <p className={cn(
+        'text-xs text-right',
+        isComplete ? 'text-success' : isEmptyAllowed ? 'text-muted-foreground' : wordCount < minLength ? 'text-warning' : 'text-muted-foreground',
+      )}>
         {isEmptyAllowed ? t('statementInput.optional') : validation.message || formatWordCount(wordCount, MAX_STATEMENT_LENGTH)}
-      </div>
+      </p>
     </div>
   );
 };

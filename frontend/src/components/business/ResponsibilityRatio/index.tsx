@@ -1,14 +1,11 @@
 /**
- * 責任分比例展示組件
+ * 責任比例展示組件（遷移：Ant Typography → Tailwind）
  */
 
-import { Typography } from 'antd';
 import { COLORS } from '@/utils/constants';
 import { t } from '@/utils/i18n';
 import type { ResponsibilityRatio as ResponsibilityRatioType } from '@/types/common';
-import './ResponsibilityRatio.less';
-
-const { Text } = Typography;
+import { cn } from '@/lib/utils';
 
 interface ResponsibilityRatioProps {
   ratio: ResponsibilityRatioType;
@@ -16,79 +13,36 @@ interface ResponsibilityRatioProps {
   size?: 'small' | 'medium' | 'large';
 }
 
-const ResponsibilityRatio = ({
-  ratio,
-  showLabels = true,
-  size = 'medium',
-}: ResponsibilityRatioProps) => {
+const sizeMap = { small: 'gap-3', medium: 'gap-4', large: 'gap-6' };
+
+const ResponsibilityRatio = ({ ratio, showLabels = true, size = 'medium' }: ResponsibilityRatioProps) => {
   if (!ratio) return null;
   const p = Number(ratio.plaintiff);
   const d = Number(ratio.defendant);
   if (Number.isNaN(p) || Number.isNaN(d) || p < 0 || d < 0) return null;
 
   return (
-    <div className={`responsibility-ratio ${size}`}>
-      {/* 桌面端：圓餅圖 */}
-      <div className="pie-chart desktop-only">
-        <div
-          className="pie-segment"
-          style={{
-            background: `conic-gradient(${COLORS.primary} 0% ${p}%, ${COLORS.secondary} ${p}% 100%)`,
-          }}
-        >
-          <div className="pie-center">
-            <div className="pie-label">
-              <div className="label-item">
-                <span className="label-dot" style={{ background: COLORS.primary }}></span>
-                <span>{t('responsibility.roleA')}: {p}%</span>
-              </div>
-              <div className="label-item">
-                <span className="label-dot" style={{ background: COLORS.secondary }}></span>
-                <span>{t('responsibility.roleB')}: {d}%</span>
-              </div>
-            </div>
-          </div>
+    <div className={cn('flex flex-col items-center', sizeMap[size])}>
+      {/* Progress bar */}
+      <div className="w-full rounded-full overflow-hidden h-4 flex">
+        <div style={{ width: `${p}%`, background: COLORS.primary }} className="flex items-center justify-center text-[10px] font-bold text-white">
+          {p > 10 && `${p}%`}
+        </div>
+        <div style={{ width: `${d}%`, background: COLORS.secondary }} className="flex items-center justify-center text-[10px] font-bold text-white">
+          {d > 10 && `${d}%`}
         </div>
       </div>
 
-      {/* 移動端：進度條 */}
-      <div className="progress-bar mobile-only">
-        <div className="progress-container">
-          <div
-            className="progress-segment plaintiff-progress"
-            style={{
-              width: `${p}%`,
-              background: COLORS.primary,
-            }}
-          >
-            <span className="progress-label">{p}%</span>
-          </div>
-          <div
-            className="progress-segment defendant-progress"
-            style={{
-              width: `${d}%`,
-              background: COLORS.secondary,
-            }}
-          >
-            <span className="progress-label">{d}%</span>
-          </div>
-        </div>
-      </div>
-
-      {/* 比例標註 */}
+      {/* Labels */}
       {showLabels && (
-        <div className="responsibility-labels">
-          <div className="label-item">
-            <span className="label-badge" style={{ background: COLORS.primary }}>
-              {t('responsibility.roleA')}
-            </span>
-            <Text strong>{p}% {t('responsibility.liability')}</Text>
+        <div className="flex items-center justify-center gap-6">
+          <div className="flex items-center gap-2">
+            <span className="inline-block h-3 w-3 rounded-full" style={{ background: COLORS.primary }} />
+            <span className="text-sm font-semibold text-foreground">{t('responsibility.roleA')} {p}%</span>
           </div>
-          <div className="label-item">
-            <span className="label-badge" style={{ background: COLORS.secondary }}>
-              {t('responsibility.roleB')}
-            </span>
-            <Text strong>{d}% {t('responsibility.liability')}</Text>
+          <div className="flex items-center gap-2">
+            <span className="inline-block h-3 w-3 rounded-full" style={{ background: COLORS.secondary }} />
+            <span className="text-sm font-semibold text-foreground">{t('responsibility.roleB')} {d}%</span>
           </div>
         </div>
       )}
@@ -97,4 +51,3 @@ const ResponsibilityRatio = ({
 };
 
 export default ResponsibilityRatio;
-

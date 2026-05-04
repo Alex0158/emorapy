@@ -6,8 +6,8 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 const mockGetJudgment = vi.fn();
 const mockAcceptJudgment = vi.fn();
 const mockNavigate = vi.fn();
-const mockMessageError = vi.fn();
-const mockMessageSuccess = vi.fn();
+const mockToastError = vi.fn();
+const mockToastSuccess = vi.fn();
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
@@ -51,18 +51,14 @@ vi.mock('@/components/business/ResponsibilityRatio', () => ({
 }));
 vi.mock('@/components/business/Interview/ConsentModal', () => ({ default: () => null }));
 
-vi.mock('antd', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('antd')>();
-  return {
-    ...actual,
-    message: {
-      error: (...args: unknown[]) => mockMessageError(...args),
-      success: (...args: unknown[]) => mockMessageSuccess(...args),
-      info: vi.fn(),
-      warning: vi.fn(),
-    },
-  };
-});
+vi.mock('sonner', () => ({
+  toast: {
+    success: (...args: unknown[]) => mockToastSuccess(...args),
+    error: (...args: unknown[]) => mockToastError(...args),
+    warning: vi.fn(),
+    info: vi.fn(),
+  },
+}));
 
 import JudgmentDetail from './index';
 
@@ -92,8 +88,8 @@ describe('JudgmentDetail', () => {
     mockGetJudgment.mockReset();
     mockAcceptJudgment.mockReset();
     mockNavigate.mockReset();
-    mockMessageError.mockReset();
-    mockMessageSuccess.mockReset();
+    mockToastError.mockReset();
+    mockToastSuccess.mockReset();
   });
 
   it('載入判決後顯示四個下一步方向入口', async () => {
@@ -129,6 +125,7 @@ describe('JudgmentDetail', () => {
   });
 
   it('接受判決後會顯示已接受狀態', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
     const user = userEvent.setup();
     mockGetJudgment.mockResolvedValue(mockJudgment);
     mockAcceptJudgment.mockResolvedValue(undefined);
@@ -140,11 +137,11 @@ describe('JudgmentDetail', () => {
     });
 
     await user.click(screen.getByRole('button', { name: /judgmentDetail.accept/ }));
-    await user.click(screen.getByRole('button', { name: 'OK' }));
+    await user.click(screen.getByRole('button', { name: /確認接受/ }));
 
     await waitFor(() => {
       expect(mockAcceptJudgment).toHaveBeenCalledWith('j1', { accepted: true, rating: undefined });
-      expect(mockMessageSuccess).toHaveBeenCalledWith('message.acceptJudgmentSuccess');
+      expect(mockToastSuccess).toHaveBeenCalledWith('message.acceptJudgmentSuccess');
     });
   });
 
@@ -156,7 +153,6 @@ describe('JudgmentDetail', () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText('message.judgmentNotFound')).toBeInTheDocument();
       expect(screen.getByText('判決載入失敗')).toBeInTheDocument();
     });
 

@@ -1,26 +1,33 @@
 /**
- * 確認彈窗組件
+ * 確認彈窗組件（遷移：Ant Modal → shadcn Dialog）
  */
 
-import React, { type MouseEvent } from 'react';
-import { Modal } from 'antd';
-import { ExclamationCircleOutlined } from '@ant-design/icons';
-import type { ModalProps } from 'antd/es/modal';
+import React from 'react';
+import { AlertTriangle, AlertCircle, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { t } from '@/utils/i18n';
 
-interface ConfirmModalProps extends Omit<ModalProps, 'onOk'> {
+interface ConfirmModalProps {
+  open?: boolean;
   onConfirm: () => void | Promise<void>;
+  onCancel?: () => void;
+  title?: React.ReactNode;
   confirmText?: string;
   cancelText?: string;
   type?: 'warning' | 'danger' | 'info';
+  children?: React.ReactNode;
 }
 
 const ConfirmModal = ({
+  open = false,
   onConfirm,
+  onCancel,
+  title,
   confirmText = t('common.confirm'),
   cancelText = t('common.cancel'),
   type = 'warning',
-  ...props
+  children,
 }: ConfirmModalProps) => {
   const [confirming, setConfirming] = React.useState(false);
 
@@ -29,35 +36,39 @@ const ConfirmModal = ({
     setConfirming(true);
     try {
       await onConfirm();
-      props.onCancel?.(undefined as unknown as MouseEvent<HTMLButtonElement>);
     } finally {
       setConfirming(false);
     }
   };
 
+  const Icon = type === 'danger' ? AlertCircle : AlertTriangle;
+
   return (
-    <Modal
-      {...props}
-      onOk={handleConfirm}
-      confirmLoading={confirming}
-      okText={confirmText}
-      cancelText={cancelText}
-      okButtonProps={{
-        danger: type === 'danger',
-        ...props.okButtonProps,
-      }}
-    >
-      {type === 'warning' || type === 'danger' ? (
-        <div style={{ display: 'flex', alignItems: 'start', gap: 12 }}>
-          <ExclamationCircleOutlined style={{ color: type === 'danger' ? '#ff4d4f' : '#faad14', fontSize: 20 }} />
-          <div>{props.children}</div>
+    <Dialog open={open} onOpenChange={(isOpen: boolean) => { if (!isOpen) onCancel?.(); }}>
+      <DialogContent aria-describedby={undefined}>
+        <DialogHeader>
+          <DialogTitle>{title || (type === 'danger' ? '確認操作' : '確認')}</DialogTitle>
+        </DialogHeader>
+        <div className="flex items-start gap-3">
+          {(type === 'warning' || type === 'danger') && (
+            <Icon className={type === 'danger' ? 'size-5 shrink-0 mt-0.5 text-destructive' : 'size-5 shrink-0 mt-0.5 text-warning'} />
+          )}
+          <div className="text-sm text-muted-foreground">{children}</div>
         </div>
-      ) : (
-        props.children
-      )}
-    </Modal>
+        <DialogFooter>
+          <Button variant="outline" onClick={onCancel}>{cancelText}</Button>
+          <Button
+            variant={type === 'danger' ? 'destructive' : 'default'}
+            onClick={handleConfirm}
+            disabled={confirming}
+          >
+            {confirming && <Loader2 className="size-4 animate-spin" />}
+            {confirmText}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
 
 export default ConfirmModal;
-

@@ -5,12 +5,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useApi } from './useApi';
 
-const mockMessageSuccess = vi.fn();
-const mockMessageError = vi.fn();
-vi.mock('antd', () => ({
-  message: {
-    success: (...args: unknown[]) => mockMessageSuccess(...args),
-    error: (...args: unknown[]) => mockMessageError(...args),
+const mockToastSuccess = vi.fn();
+const mockToastError = vi.fn();
+vi.mock('sonner', () => ({
+  toast: {
+    success: (...args: unknown[]) => mockToastSuccess(...args),
+    error: (...args: unknown[]) => mockToastError(...args),
   },
 }));
 
@@ -66,7 +66,7 @@ describe('useApi', () => {
     expect(result.current.data).toBeNull();
   });
 
-  it('showSuccess 與 successMessage 時成功應調用 message.success', async () => {
+  it('showSuccess 與 successMessage 時成功應調用 toast.success', async () => {
     const fn = vi.fn().mockResolvedValue(1);
     const { result } = renderHook(() =>
       useApi(fn, { showSuccess: true, successMessage: '成功' })
@@ -74,7 +74,7 @@ describe('useApi', () => {
     await act(async () => {
       await result.current.execute();
     });
-    expect(mockMessageSuccess).toHaveBeenCalledWith('成功');
+    expect(mockToastSuccess).toHaveBeenCalledWith('成功');
   });
 
   it('reset 應清空 data', async () => {

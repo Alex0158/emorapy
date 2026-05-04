@@ -1,51 +1,37 @@
 /**
  * 配對管理頁面
+ *
+ * 遷移: Ant Card/Button/Typography/Space/Input/Alert/Spin/Form/InputNumber/Select/Divider/message/Icons
+ *       → shadcn + Tailwind + sonner + Lucide
+ * 保留: 所有業務邏輯（pairing CRUD, relationship profile, interview trigger, consent）
+ * 保留: ConsentModal, ConfirmModal 業務組件
  */
 
 import { useState, useEffect, useRef } from 'react';
 import { useMountedRef } from '@/hooks/useMountedRef';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
+import { Copy, CheckCircle, UserPlus, Loader2, AlertCircle, Heart } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
-  Card,
-  Button,
-  Typography,
-  Space,
-  Input,
-  Alert,
-  message,
-  Spin,
-  Form,
-  InputNumber,
-  Select,
-  Divider,
-} from 'antd';
-import {
-  CopyOutlined,
-  CheckCircleOutlined,
-  UserAddOutlined,
-} from '@ant-design/icons';
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 import { createPairing, joinPairing, getPairingStatus, cancelPairing } from '@/services/api/pairing';
 import type { Pairing } from '@/services/api/pairing';
 import {
-  getRelationshipProfile,
-  upsertRelationshipProfile,
-  type RelationshipProfile,
-  type RelationshipProfileInput,
+  getRelationshipProfile, upsertRelationshipProfile,
+  type RelationshipProfile, type RelationshipProfileInput,
 } from '@/services/api/profile';
 import ProtectedRoute from '@/components/common/ProtectedRoute';
 import ConfirmModal from '@/components/common/ConfirmModal';
 import SEO from '@/components/common/SEO';
-import AnimatedWrapper from '@/components/common/AnimatedWrapper';
 import ConsentModal from '@/components/business/Interview/ConsentModal';
 import { usePsychProfileStore } from '@/store/psychProfileStore';
 import { useInterviewStore } from '@/store/interviewStore';
 import { getErrorMessage } from '@/utils/apiError';
 import { getInterviewResumeNavigationPath } from '@/utils/interviewResume';
 import { t } from '@/utils/i18n';
-import { useNavigate } from 'react-router-dom';
-import './Pairing.less';
-
-const { Title, Text, Paragraph } = Typography;
-const { TextArea } = Input;
 
 interface RelationshipFormValues {
   relationship_stage?: string;
@@ -54,7 +40,6 @@ interface RelationshipFormValues {
   preferred_communication_methods?: string[];
   relationship_strengths?: string;
   relationship_challenges?: string;
-  completion_percentage?: number | null;
 }
 
 const toOptionalTrimmed = (value: unknown): string | undefined => {
@@ -72,49 +57,18 @@ const toOptionalNumber = (value: unknown): number | undefined => {
   return undefined;
 };
 
-const toOptionalStringArray = (value: unknown): string[] | undefined => {
-  if (!Array.isArray(value)) return undefined;
-  const cleaned = value
-    .map((item) => toOptionalTrimmed(item))
-    .filter((item): item is string => Boolean(item));
-  return cleaned.length > 0 ? cleaned : undefined;
-};
-
-const toRelationshipFormValues = (
-  profile: RelationshipProfile | null
-): RelationshipFormValues => ({
-  relationship_stage: toOptionalTrimmed(profile?.relationship_stage),
-  relationship_duration_days: toOptionalNumber(profile?.relationship_duration_days),
-  communication_frequency: toOptionalTrimmed(profile?.communication_frequency),
-  preferred_communication_methods: toOptionalStringArray(profile?.preferred_communication_methods) ?? [],
-  relationship_strengths: toOptionalTrimmed(profile?.relationship_strengths),
-  relationship_challenges: toOptionalTrimmed(profile?.relationship_challenges),
-  completion_percentage: toOptionalNumber(profile?.completion_percentage),
-});
-
-const buildRelationshipPayload = (
-  values: RelationshipFormValues
-): RelationshipProfileInput => {
+const buildRelationshipPayload = (values: RelationshipFormValues): RelationshipProfileInput => {
   const payload: RelationshipProfileInput = {};
-
-  const relationshipStage = toOptionalTrimmed(values.relationship_stage);
-  const relationshipDurationDays = toOptionalNumber(values.relationship_duration_days);
-  const communicationFrequency = toOptionalTrimmed(values.communication_frequency);
-  const preferredCommunicationMethods = toOptionalStringArray(values.preferred_communication_methods);
-  const relationshipStrengths = toOptionalTrimmed(values.relationship_strengths);
-  const relationshipChallenges = toOptionalTrimmed(values.relationship_challenges);
-  const completionPercentage = toOptionalNumber(values.completion_percentage);
-
-  if (relationshipStage) payload.relationship_stage = relationshipStage;
-  if (relationshipDurationDays !== undefined) payload.relationship_duration_days = relationshipDurationDays;
-  if (communicationFrequency) payload.communication_frequency = communicationFrequency;
-  if (preferredCommunicationMethods) {
-    payload.preferred_communication_methods = preferredCommunicationMethods;
-  }
-  if (relationshipStrengths) payload.relationship_strengths = relationshipStrengths;
-  if (relationshipChallenges) payload.relationship_challenges = relationshipChallenges;
-  if (completionPercentage !== undefined) payload.completion_percentage = completionPercentage;
-
+  const stage = toOptionalTrimmed(values.relationship_stage);
+  const duration = toOptionalNumber(values.relationship_duration_days);
+  const frequency = toOptionalTrimmed(values.communication_frequency);
+  const strengths = toOptionalTrimmed(values.relationship_strengths);
+  const challenges = toOptionalTrimmed(values.relationship_challenges);
+  if (stage) payload.relationship_stage = stage;
+  if (duration !== undefined) payload.relationship_duration_days = duration;
+  if (frequency) payload.communication_frequency = frequency;
+  if (strengths) payload.relationship_strengths = strengths;
+  if (challenges) payload.relationship_challenges = challenges;
   return payload;
 };
 
@@ -124,16 +78,18 @@ const ProfilePairing = () => {
   const [loadError, setLoadError] = useState(false);
   const [inviteCode, setInviteCode] = useState('');
   const [joining, setJoining] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
   const [consentOpen, setConsentOpen] = useState(false);
   const navigate = useNavigate();
   const { profile, fetchProfile: fetchPsychProfile, giveConsent, consentLoading } = usePsychProfileStore();
   const { startSession, checkResume } = useInterviewStore();
+
   const [relationshipLoading, setRelationshipLoading] = useState(false);
   const [relationshipSaving, setRelationshipSaving] = useState(false);
-  const [relationshipProfile, setRelationshipProfile] = useState<RelationshipProfile | null>(null);
-  const [relationshipForm] = Form.useForm<RelationshipFormValues>();
+  const [, setRelationshipProfile] = useState<RelationshipProfile | null>(null);
+  const [formValues, setFormValues] = useState<RelationshipFormValues>({});
 
   const mountedRef = useMountedRef();
   const staleRef = useRef(false);
@@ -152,162 +108,107 @@ const ProfilePairing = () => {
   }, []);
 
   const fetchPairingStatus = async () => {
-    setLoading(true);
-    setLoadError(false);
+    setLoading(true); setLoadError(false);
     try {
-      const pairingData = await getPairingStatus();
+      const data = await getPairingStatus();
       if (staleRef.current) return;
-      setPairing(pairingData);
+      setPairing(data);
     } catch (error: unknown) {
       if (staleRef.current) return;
-      message.error(getErrorMessage(error, 'message.getPairingFail'));
-      setPairing(null);
-      setLoadError(true);
-    } finally {
-      if (!staleRef.current) setLoading(false);
-    }
+      toast.error(getErrorMessage(error, 'message.getPairingFail'));
+      setPairing(null); setLoadError(true);
+    } finally { if (!staleRef.current) setLoading(false); }
   };
 
   const handleRetry = () => {
     if (retryLockRef.current) return;
-    retryLockRef.current = true;
-    setLoadError(false);
-    fetchPairingStatus().finally(() => {
-      retryLockRef.current = false;
-    });
+    retryLockRef.current = true; setLoadError(false);
+    fetchPairingStatus().finally(() => { retryLockRef.current = false; });
   };
 
   const fetchRelationshipData = async (pairingId: string) => {
     setRelationshipLoading(true);
     try {
-      const relationshipData = await getRelationshipProfile(pairingId);
+      const data = await getRelationshipProfile(pairingId);
       if (staleRef.current) return;
-      setRelationshipProfile(relationshipData);
-      relationshipForm.setFieldsValue(toRelationshipFormValues(relationshipData));
+      setRelationshipProfile(data);
+      setFormValues({
+        relationship_stage: toOptionalTrimmed(data?.relationship_stage),
+        relationship_duration_days: toOptionalNumber(data?.relationship_duration_days),
+        communication_frequency: toOptionalTrimmed(data?.communication_frequency),
+        relationship_strengths: toOptionalTrimmed(data?.relationship_strengths),
+        relationship_challenges: toOptionalTrimmed(data?.relationship_challenges),
+      });
     } catch (error: unknown) {
       if (staleRef.current) return;
-      message.error(getErrorMessage(error, 'message.relationshipProfileLoadFail'));
-      setRelationshipProfile(null);
-      relationshipForm.resetFields();
-    } finally {
-      if (!staleRef.current) setRelationshipLoading(false);
-    }
+      toast.error(getErrorMessage(error, 'message.relationshipProfileLoadFail'));
+    } finally { if (!staleRef.current) setRelationshipLoading(false); }
   };
 
-  const [creating, setCreating] = useState(false);
   const handleCreatePairing = async () => {
     if (createLockRef.current) return;
-    createLockRef.current = true;
-    setCreating(true);
+    createLockRef.current = true; setCreating(true);
     try {
       const newPairing = await createPairing();
       if (!mountedRef.current) return;
-      setPairing(newPairing);
-      message.success(t('message.createPairingSuccess'));
-    } catch (error: unknown) {
-      message.error(getErrorMessage(error, 'message.createPairingFail'));
-    } finally {
-      createLockRef.current = false;
-      setCreating(false);
-    }
+      setPairing(newPairing); toast.success(t('message.createPairingSuccess'));
+    } catch (error: unknown) { toast.error(getErrorMessage(error, 'message.createPairingFail')); }
+    finally { createLockRef.current = false; setCreating(false); }
   };
 
   const handleJoinPairing = async () => {
-    if (!inviteCode.trim()) {
-      message.warning(t('message.enterInviteCode'));
-      return;
-    }
+    if (!inviteCode.trim()) { toast.warning(t('message.enterInviteCode')); return; }
     if (joinLockRef.current) return;
-    joinLockRef.current = true;
-    setJoining(true);
+    joinLockRef.current = true; setJoining(true);
     try {
-      const joinedPairing = await joinPairing(inviteCode.trim());
+      const joined = await joinPairing(inviteCode.trim());
       if (!mountedRef.current) return;
-      setPairing(joinedPairing);
-      message.success(t('message.joinPairingSuccess'));
-      setInviteCode('');
-    } catch (error: unknown) {
-      message.error(getErrorMessage(error, 'message.joinPairingFail'));
-    } finally {
-      joinLockRef.current = false;
-      setJoining(false);
-    }
+      setPairing(joined); toast.success(t('message.joinPairingSuccess')); setInviteCode('');
+    } catch (error: unknown) { toast.error(getErrorMessage(error, 'message.joinPairingFail')); }
+    finally { joinLockRef.current = false; setJoining(false); }
   };
 
   const handleCopyCode = () => {
-    if (pairing?.invite_code) {
-      navigator.clipboard.writeText(pairing.invite_code);
-      message.success(t('message.copyInviteSuccess'));
-    }
+    if (pairing?.invite_code) { navigator.clipboard.writeText(pairing.invite_code); toast.success(t('message.copyInviteSuccess')); }
   };
 
   const handleCancelPairing = async () => {
     setConfirmCancelOpen(false);
     if (cancelLockRef.current) return;
-    cancelLockRef.current = true;
-    setCancelling(true);
+    cancelLockRef.current = true; setCancelling(true);
     try {
       const cancelled = await cancelPairing();
       if (!mountedRef.current) return;
-      setPairing(cancelled);
-      message.success(t('message.cancelPairingSuccess'));
-    } catch (error: unknown) {
-      message.error(getErrorMessage(error, 'message.cancelPairingFail'));
-    } finally {
-      cancelLockRef.current = false;
-      setCancelling(false);
-    }
+      setPairing(cancelled); toast.success(t('message.cancelPairingSuccess'));
+    } catch (error: unknown) { toast.error(getErrorMessage(error, 'message.cancelPairingFail')); }
+    finally { cancelLockRef.current = false; setCancelling(false); }
   };
 
-  const handleSaveRelationshipProfile = async (values: RelationshipFormValues) => {
-    if (!activePairingId) return;
-    if (saveLockRef.current) return;
-    saveLockRef.current = true;
-    setRelationshipSaving(true);
+  const handleSaveRelationshipProfile = async () => {
+    if (!activePairingId || saveLockRef.current) return;
+    saveLockRef.current = true; setRelationshipSaving(true);
     try {
-      const payload = buildRelationshipPayload(values);
-      const savedProfile = await upsertRelationshipProfile(activePairingId, payload);
+      const payload = buildRelationshipPayload(formValues);
+      const saved = await upsertRelationshipProfile(activePairingId, payload);
       if (staleRef.current || !mountedRef.current) return;
-      setRelationshipProfile(savedProfile);
-      relationshipForm.setFieldsValue(toRelationshipFormValues(savedProfile));
-      message.success(t('message.relationshipProfileSaveSuccess'));
+      setRelationshipProfile(saved); toast.success(t('message.relationshipProfileSaveSuccess'));
     } catch (error: unknown) {
       if (staleRef.current) return;
-      message.error(getErrorMessage(error, 'message.relationshipProfileSaveFail'));
-    } finally {
-      if (!staleRef.current) {
-        saveLockRef.current = false;
-        setRelationshipSaving(false);
-      }
-    }
+      toast.error(getErrorMessage(error, 'message.relationshipProfileSaveFail'));
+    } finally { saveLockRef.current = false; if (!staleRef.current) setRelationshipSaving(false); }
   };
 
   useEffect(() => {
-    if (!activePairingId) {
-      relationshipForm.resetFields();
-      setRelationshipProfile(null);
-      return;
-    }
+    if (!activePairingId) { setRelationshipProfile(null); setFormValues({}); return; }
     void fetchRelationshipData(activePairingId);
-  }, [activePairingId, relationshipForm]);
-
-  if (loading) {
-    return (
-      <div className="profile-pairing-page">
-        <Spin size="large" description={t('common.loading')} />
-      </div>
-    );
-  }
+  }, [activePairingId]);
 
   const startInterviewFlow = async () => {
     if (!activePairingId) return;
     const resumeData = await checkResume();
     if (!mountedRef.current) return;
     const resumePath = getInterviewResumeNavigationPath(resumeData);
-    if (resumePath) {
-      navigate(resumePath);
-      return;
-    }
+    if (resumePath) { navigate(resumePath); return; }
     const session = await startSession('onboarding');
     if (!mountedRef.current) return;
     navigate(`/interview/${session.id}`);
@@ -315,53 +216,30 @@ const ProfilePairing = () => {
 
   const handleTriggerAClick = async () => {
     if (!activePairingId) return;
-    if (!profile?.consent_given) {
-      setConsentOpen(true);
-      return;
-    }
-    try {
-      await startInterviewFlow();
-    } catch (error: unknown) {
-      if (mountedRef.current) {
-        message.error(getErrorMessage(error, 'interview.startFail'));
-      }
-    }
+    if (!profile?.consent_given) { setConsentOpen(true); return; }
+    try { await startInterviewFlow(); }
+    catch (error: unknown) { if (mountedRef.current) toast.error(getErrorMessage(error, 'interview.startFail')); }
   };
 
   const handleConsent = async () => {
-    if (!activePairingId) {
-      setConsentOpen(false);
-      return;
-    }
-    try {
-      await giveConsent();
-      if (!mountedRef.current) return;
-      setConsentOpen(false);
-      await startInterviewFlow();
-    } catch (error: unknown) {
-      if (mountedRef.current) {
-        message.error(getErrorMessage(error, 'interview.startFail'));
-      }
-    }
+    if (!activePairingId) { setConsentOpen(false); return; }
+    try { await giveConsent(); if (!mountedRef.current) return; setConsentOpen(false); await startInterviewFlow(); }
+    catch (error: unknown) { if (mountedRef.current) toast.error(getErrorMessage(error, 'interview.startFail')); }
   };
+
+  if (loading) return <div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="size-8 animate-spin text-primary" /></div>;
 
   if (loadError) {
     return (
       <ProtectedRoute>
-        <div className="profile-pairing-page" role="main" aria-label={t('pairing.pageLabel')}>
-          <Alert
-            title={t('message.getPairingFail')}
-            type="error"
-            showIcon
-            action={
-              <Space>
-                <Button size="small" onClick={handleRetry}>{t('common.retry')}</Button>
-                <Button size="small" type="primary" onClick={() => navigate('/profile/settings')}>
-                  {t('pairing.goToSettings')}
-                </Button>
-              </Space>
-            }
-          />
+        <div className="mx-auto max-w-lg p-6" role="main" aria-label={t('pairing.pageLabel')}>
+          <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-5 space-y-3">
+            <div className="flex items-start gap-3"><AlertCircle className="mt-0.5 size-5 shrink-0 text-destructive" /><p className="text-sm text-foreground">{t('message.getPairingFail')}</p></div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={handleRetry}>{t('common.retry')}</Button>
+              <Button size="sm" onClick={() => navigate('/profile/settings')}>{t('pairing.goToSettings')}</Button>
+            </div>
+          </div>
         </div>
       </ProtectedRoute>
     );
@@ -369,255 +247,137 @@ const ProfilePairing = () => {
 
   return (
     <ProtectedRoute>
-      <SEO
-        title={t('pairing.title')}
-        description={t('pairing.description')}
-      />
-      <div className="profile-pairing-page" role="main" aria-label={t('pairing.pageLabel')}>
+      <SEO title={t('pairing.title')} description={t('pairing.description')} />
+      <div className="mx-auto max-w-2xl px-4 py-8 md:px-6" role="main" aria-label={t('pairing.pageLabel')}>
+        {/* Interview Trigger Banner */}
         {activePairingId && !profile?.consent_given && (
-          <AnimatedWrapper animation="fade" delay={50}>
-            <Alert
-              title={t('trigger.bannerTitle')}
-              description={t('trigger.bannerDesc')}
-              type="info"
-              showIcon
-              action={
-                <Button size="small" type="primary" onClick={handleTriggerAClick}>
-                  {t('trigger.bannerOk')}
-                </Button>
-              }
-              closable
-              style={{ marginBottom: 16 }}
-            />
-          </AnimatedWrapper>
+          <div className="mb-6 flex items-start gap-3 rounded-xl border border-primary/20 bg-primary-light/50 p-4">
+            <Heart className="mt-0.5 size-5 shrink-0 text-primary" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-foreground">{t('trigger.bannerTitle')}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{t('trigger.bannerDesc')}</p>
+            </div>
+            <Button size="sm" onClick={handleTriggerAClick}>{t('trigger.bannerOk')}</Button>
+          </div>
         )}
 
-        <ConsentModal
-          open={consentOpen}
-          onConsent={handleConsent}
-          onCancel={() => setConsentOpen(false)}
-          loading={consentLoading}
-        />
+        <ConsentModal open={consentOpen} onConsent={handleConsent} onCancel={() => setConsentOpen(false)} loading={consentLoading} />
 
-        <AnimatedWrapper animation="fade" delay={100}>
-          <Title level={2} id="pairing-title">
-            {t('pairing.heading')}
-          </Title>
-        </AnimatedWrapper>
+        <h2 className="mb-6 text-2xl font-bold text-foreground font-heading">{t('pairing.heading')}</h2>
 
-        {pairing && pairing.status === 'active' ? (
-          <AnimatedWrapper animation="slide" direction="up" delay={200}>
-            <Card role="article" aria-labelledby="pairing-title">
-            <Alert
-              title={t('pairing.pairedTitle')}
-              description={t('pairing.pairedDesc')}
-              type="success"
-              showIcon
-            />
-            <Space orientation="vertical" style={{ marginTop: 24, width: '100%' }}>
-              <Text strong>{t('pairing.pairingInfo')}</Text>
-              <Text>{t('pairing.pairingId')}{pairing.id}</Text>
-              {pairing.user1 && <Text>{t('pairing.user1')}{pairing.user1.nickname || pairing.user1.id}</Text>}
-              {pairing.user2 && <Text>{t('pairing.user2')}{pairing.user2.nickname || pairing.user2.id}</Text>}
-              <Divider style={{ margin: '12px 0' }} />
-              <Text strong>{t('pairing.relationshipTitle')}</Text>
-              <Paragraph type="secondary" style={{ marginBottom: 8 }}>
-                {t('pairing.relationshipDesc')}
-              </Paragraph>
-              {relationshipProfile?.last_updated_at && (
-                <Text type="secondary">
-                  {t('pairing.relationshipLastUpdated', {
-                    time: new Date(relationshipProfile.last_updated_at).toLocaleString(),
-                  })}
-                </Text>
-              )}
+        {/* Active Pairing */}
+        {pairing && pairing.status === 'active' && (
+          <div className="rounded-xl border border-border bg-card p-6 space-y-6">
+            <div className="flex items-start gap-3 rounded-lg bg-success/5 border border-success/20 p-3">
+              <CheckCircle className="mt-0.5 size-5 text-success" />
+              <div><p className="text-sm font-medium text-foreground">{t('pairing.pairedTitle')}</p><p className="text-xs text-muted-foreground">{t('pairing.pairedDesc')}</p></div>
+            </div>
+
+            <div className="space-y-2 text-sm">
+              <p className="font-medium text-foreground">{t('pairing.pairingInfo')}</p>
+              <p className="text-muted-foreground">{t('pairing.pairingId')}{pairing.id}</p>
+              {pairing.user1 && <p className="text-muted-foreground">{t('pairing.user1')}{pairing.user1.nickname || pairing.user1.id}</p>}
+              {pairing.user2 && <p className="text-muted-foreground">{t('pairing.user2')}{pairing.user2.nickname || pairing.user2.id}</p>}
+            </div>
+
+            <div className="border-t border-border pt-6 space-y-4">
+              <p className="text-base font-semibold text-foreground">{t('pairing.relationshipTitle')}</p>
+              <p className="text-sm text-muted-foreground">{t('pairing.relationshipDesc')}</p>
+
               {relationshipLoading ? (
-                <Spin size="small" />
+                <Loader2 className="size-5 animate-spin text-primary" />
               ) : (
-                <Form<RelationshipFormValues>
-                  form={relationshipForm}
-                  layout="vertical"
-                  onFinish={handleSaveRelationshipProfile}
-                  style={{ width: '100%' }}
-                >
-                  <Form.Item
-                    label={t('pairing.relationshipStage')}
-                    name="relationship_stage"
-                  >
-                    <Select
-                      allowClear
-                      placeholder={t('pairing.relationshipStagePlaceholder')}
-                      options={[
-                        { value: 'newly_dating', label: t('pairing.relationshipStageNewlyDating') },
-                        { value: 'stable', label: t('pairing.relationshipStageStable') },
-                        { value: 'engaged', label: t('pairing.relationshipStageEngaged') },
-                        { value: 'married', label: t('pairing.relationshipStageMarried') },
-                        { value: 'separated', label: t('pairing.relationshipStageSeparated') },
-                        { value: 'other', label: t('pairing.relationshipStageOther') },
-                      ]}
-                    />
-                  </Form.Item>
-
-                  <Form.Item
-                    label={t('pairing.relationshipDurationDays')}
-                    name="relationship_duration_days"
-                  >
-                    <InputNumber
-                      min={0}
-                      max={36500}
-                      style={{ width: '100%' }}
-                      placeholder={t('pairing.relationshipDurationDaysPlaceholder')}
-                    />
-                  </Form.Item>
-
-                  <Form.Item
-                    label={t('pairing.communicationFrequency')}
-                    name="communication_frequency"
-                  >
-                    <Input placeholder={t('pairing.communicationFrequencyPlaceholder')} />
-                  </Form.Item>
-
-                  <Form.Item
-                    label={t('pairing.preferredCommunicationMethods')}
-                    name="preferred_communication_methods"
-                  >
-                    <Select
-                      mode="tags"
-                      tokenSeparators={[',']}
-                      placeholder={t('pairing.preferredCommunicationMethodsPlaceholder')}
-                    />
-                  </Form.Item>
-
-                  <Form.Item
-                    label={t('pairing.relationshipStrengths')}
-                    name="relationship_strengths"
-                  >
-                    <TextArea
-                      rows={3}
-                      showCount
-                      maxLength={1000}
-                      placeholder={t('pairing.relationshipStrengthsPlaceholder')}
-                    />
-                  </Form.Item>
-
-                  <Form.Item
-                    label={t('pairing.relationshipChallenges')}
-                    name="relationship_challenges"
-                  >
-                    <TextArea
-                      rows={3}
-                      showCount
-                      maxLength={1000}
-                      placeholder={t('pairing.relationshipChallengesPlaceholder')}
-                    />
-                  </Form.Item>
-
-                  <Form.Item
-                    label={t('pairing.completionPercentage')}
-                    name="completion_percentage"
-                    rules={[{ type: 'number', min: 0, max: 100 }]}
-                  >
-                    <InputNumber
-                      min={0}
-                      max={100}
-                      style={{ width: '100%' }}
-                      placeholder={t('pairing.completionPercentagePlaceholder')}
-                    />
-                  </Form.Item>
-
-                  <Button type="primary" htmlType="submit" loading={relationshipSaving}>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">{t('pairing.relationshipStage')}</label>
+                    <Select value={formValues.relationship_stage || ''} onValueChange={(v: string) => setFormValues((p) => ({ ...p, relationship_stage: v }))}>
+                      <SelectTrigger><SelectValue placeholder={t('pairing.relationshipStagePlaceholder')} /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="newly_dating">{t('pairing.relationshipStageNewlyDating')}</SelectItem>
+                        <SelectItem value="stable">{t('pairing.relationshipStageStable')}</SelectItem>
+                        <SelectItem value="engaged">{t('pairing.relationshipStageEngaged')}</SelectItem>
+                        <SelectItem value="married">{t('pairing.relationshipStageMarried')}</SelectItem>
+                        <SelectItem value="separated">{t('pairing.relationshipStageSeparated')}</SelectItem>
+                        <SelectItem value="other">{t('pairing.relationshipStageOther')}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">{t('pairing.relationshipDurationDays')}</label>
+                    <Input type="number" min={0} max={36500} placeholder={t('pairing.relationshipDurationDaysPlaceholder')} value={formValues.relationship_duration_days ?? ''} onChange={(e) => setFormValues((p) => ({ ...p, relationship_duration_days: e.target.value ? Number(e.target.value) : null }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">{t('pairing.communicationFrequency')}</label>
+                    <Input placeholder={t('pairing.communicationFrequencyPlaceholder')} value={formValues.communication_frequency || ''} onChange={(e) => setFormValues((p) => ({ ...p, communication_frequency: e.target.value }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">{t('pairing.relationshipStrengths')}</label>
+                    <textarea rows={3} maxLength={1000} placeholder={t('pairing.relationshipStrengthsPlaceholder')} value={formValues.relationship_strengths || ''} onChange={(e) => setFormValues((p) => ({ ...p, relationship_strengths: e.target.value }))} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">{t('pairing.relationshipChallenges')}</label>
+                    <textarea rows={3} maxLength={1000} placeholder={t('pairing.relationshipChallengesPlaceholder')} value={formValues.relationship_challenges || ''} onChange={(e) => setFormValues((p) => ({ ...p, relationship_challenges: e.target.value }))} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
+                  </div>
+                  <Button onClick={handleSaveRelationshipProfile} disabled={relationshipSaving}>
+                    {relationshipSaving && <Loader2 className="size-4 animate-spin" />}
                     {t('pairing.saveRelationshipProfile')}
                   </Button>
-                </Form>
+                </div>
               )}
-              <Button danger onClick={() => setConfirmCancelOpen(true)} loading={cancelling}>
+            </div>
+
+            <div className="border-t border-border pt-4">
+              <Button variant="destructive" size="sm" onClick={() => setConfirmCancelOpen(true)} disabled={cancelling}>
                 {t('pairing.cancelPairing')}
               </Button>
-              <ConfirmModal
-                open={confirmCancelOpen}
-                onCancel={() => setConfirmCancelOpen(false)}
-                onConfirm={handleCancelPairing}
-                title={t('pairing.confirmCancelTitle')}
-                type="danger"
-                confirmText={t('pairing.cancelPairing')}
-              >
-                {t('pairing.confirmCancelDesc')}
-              </ConfirmModal>
-            </Space>
-          </Card>
-          </AnimatedWrapper>
-        ) : pairing && pairing.status === 'pending' ? (
-          <AnimatedWrapper animation="slide" direction="up" delay={200}>
-            <Card>
-            <Alert
-              title={t('pairing.pendingTitle')}
-              description={t('pairing.pendingDesc')}
-              type="info"
-              showIcon
-            />
-            <Space orientation="vertical" style={{ marginTop: 24, width: '100%' }}>
-              <Text strong>{t('pairing.inviteCode')}</Text>
-              <Space>
-                <Input
-                  value={pairing.invite_code}
-                  readOnly
-                  style={{ width: 200, fontFamily: 'monospace', fontSize: 18, textAlign: 'center' }}
-                />
-                <Button icon={<CopyOutlined />} onClick={handleCopyCode}>
-                  {t('pairing.copy')}
-                </Button>
-              </Space>
-              <Paragraph type="secondary">
-                {t('pairing.inviteHint')}
-              </Paragraph>
-            </Space>
-          </Card>
-          </AnimatedWrapper>
-        ) : (
-          <AnimatedWrapper animation="slide" direction="up" delay={200}>
-            <Card>
-            <Space orientation="vertical" size="large" style={{ width: '100%' }}>
-              <div>
-                <Title level={4}>{t('pairing.createTitle')}</Title>
-                <Paragraph>
-                  {t('pairing.createDesc')}
-                </Paragraph>
-                <Button
-                  type="primary"
-                  icon={<UserAddOutlined />}
-                  onClick={handleCreatePairing}
-                  loading={creating}
-                >
-                  {t('pairing.createButton')}
-                </Button>
-              </div>
+            </div>
+            <ConfirmModal open={confirmCancelOpen} onCancel={() => setConfirmCancelOpen(false)} onConfirm={handleCancelPairing} title={t('pairing.confirmCancelTitle')} type="danger" confirmText={t('pairing.cancelPairing')}>
+              {t('pairing.confirmCancelDesc')}
+            </ConfirmModal>
+          </div>
+        )}
 
-              <div style={{ borderTop: '1px solid #d9d9d9', paddingTop: 24 }}>
-                <Title level={4}>{t('pairing.joinTitle')}</Title>
-                <Paragraph>
-                  {t('pairing.joinDesc')}
-                </Paragraph>
-                <Space>
-                  <Input
-                    placeholder={t('pairing.joinPlaceholder')}
-                    value={inviteCode}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInviteCode(e.target.value.toUpperCase())}
-                    maxLength={6}
-                    style={{ width: 200, fontFamily: 'monospace', fontSize: 18, textAlign: 'center' }}
-                  />
-                  <Button
-                    type="primary"
-                    icon={<CheckCircleOutlined />}
-                    onClick={handleJoinPairing}
-                    loading={joining}
-                  >
-                    {t('pairing.joinButton')}
-                  </Button>
-                </Space>
+        {/* Pending Pairing */}
+        {pairing && pairing.status === 'pending' && (
+          <div className="rounded-xl border border-border bg-card p-6 space-y-6">
+            <div className="flex items-start gap-3 rounded-lg bg-primary-light/50 border border-primary/20 p-3">
+              <AlertCircle className="mt-0.5 size-5 text-primary" />
+              <div><p className="text-sm font-medium text-foreground">{t('pairing.pendingTitle')}</p><p className="text-xs text-muted-foreground">{t('pairing.pendingDesc')}</p></div>
+            </div>
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-foreground">{t('pairing.inviteCode')}</p>
+              <div className="flex items-center gap-2">
+                <Input value={pairing.invite_code} readOnly className="w-[200px] text-center font-mono text-lg tracking-widest" />
+                <Button variant="outline" onClick={handleCopyCode}><Copy className="size-4" />{t('pairing.copy')}</Button>
               </div>
-            </Space>
-          </Card>
-          </AnimatedWrapper>
+              <p className="text-xs text-muted-foreground">{t('pairing.inviteHint')}</p>
+            </div>
+          </div>
+        )}
+
+        {/* No Pairing */}
+        {(!pairing || (pairing.status !== 'active' && pairing.status !== 'pending')) && (
+          <div className="rounded-xl border border-border bg-card p-6 space-y-8">
+            <div className="space-y-3">
+              <h4 className="text-base font-semibold text-foreground">{t('pairing.createTitle')}</h4>
+              <p className="text-sm text-muted-foreground">{t('pairing.createDesc')}</p>
+              <Button onClick={handleCreatePairing} disabled={creating}>
+                {creating ? <Loader2 className="size-4 animate-spin" /> : <UserPlus className="size-4" />}
+                {t('pairing.createButton')}
+              </Button>
+            </div>
+            <div className="border-t border-border pt-6 space-y-3">
+              <h4 className="text-base font-semibold text-foreground">{t('pairing.joinTitle')}</h4>
+              <p className="text-sm text-muted-foreground">{t('pairing.joinDesc')}</p>
+              <div className="flex items-center gap-2">
+                <Input placeholder={t('pairing.joinPlaceholder')} value={inviteCode} onChange={(e) => setInviteCode(e.target.value.toUpperCase())} maxLength={6} className="w-[200px] text-center font-mono text-lg tracking-widest" />
+                <Button onClick={handleJoinPairing} disabled={joining}>
+                  {joining ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle className="size-4" />}
+                  {t('pairing.joinButton')}
+                </Button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </ProtectedRoute>

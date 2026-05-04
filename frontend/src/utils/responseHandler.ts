@@ -3,7 +3,7 @@
  */
 
 import type { ApiResponse } from '@/types/common';
-import { message } from 'antd';
+import { toast } from 'sonner';
 import { getErrorMessage } from '@/utils/apiError';
 
 /**
@@ -24,7 +24,7 @@ export function handleApiResponse<T>(response: ApiResponse<T>): T {
  */
 export function handleApiError(error: unknown, showMessage: boolean = true): void {
   if (showMessage) {
-    message.error(getErrorMessage(error, 'common.unknownError'));
+    toast.error(getErrorMessage(error, 'common.unknownError'));
   }
 }
 

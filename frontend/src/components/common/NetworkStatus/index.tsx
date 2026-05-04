@@ -1,12 +1,14 @@
 /**
  * 網絡狀態監控組件
+ *
+ * 遷移: Ant Alert/message/Icons → shadcn Alert + sonner + Lucide
  */
 
 import { useEffect, useState, useRef } from 'react';
-import { Alert, message } from 'antd';
-import { DisconnectOutlined } from '@ant-design/icons';
+import { toast } from 'sonner';
+import { WifiOff } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { t } from '@/utils/i18n';
-import './NetworkStatus.less';
 
 const NetworkStatus = () => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -17,7 +19,7 @@ const NetworkStatus = () => {
       setIsOnline(true);
       if (wasOfflineRef.current) {
         wasOfflineRef.current = false;
-        message.success(t('networkStatus.restored'));
+        toast.success(t('networkStatus.restored'));
       }
     };
 
@@ -35,20 +37,15 @@ const NetworkStatus = () => {
     };
   }, []);
 
-  if (isOnline) {
-    return null;
-  }
+  if (isOnline) return null;
 
   return (
-    <div className="network-status">
-      <Alert
-        title={t('networkStatus.offline')}
-        description={t('networkStatus.offlineDesc')}
-        type="warning"
-        icon={<DisconnectOutlined />}
-        showIcon
-        closable={false}
-      />
+    <div className="fixed inset-x-0 top-0 z-[100] p-3">
+      <Alert className="border-warning/30 bg-warning/5">
+        <WifiOff className="size-4" />
+        <AlertTitle>{t('networkStatus.offline')}</AlertTitle>
+        <AlertDescription>{t('networkStatus.offlineDesc')}</AlertDescription>
+      </Alert>
     </div>
   );
 };

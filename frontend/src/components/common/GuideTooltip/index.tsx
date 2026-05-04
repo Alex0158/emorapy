@@ -1,12 +1,10 @@
 /**
- * 引導提示組件（首次使用時顯示）
+ * 引導提示組件（遷移：Ant Tooltip/Button → shadcn Popover + Tailwind）
  */
 
-import { Tooltip, Button } from 'antd';
-import { CloseOutlined } from '@ant-design/icons';
+import { X } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { localStore } from '@/utils/storage';
-import './GuideTooltip.less';
 
 interface GuideTooltipProps {
   children: React.ReactNode;
@@ -16,22 +14,12 @@ interface GuideTooltipProps {
   showOnce?: boolean;
 }
 
-const GuideTooltip = ({
-  children,
-  content,
-  storageKey,
-  placement = 'top',
-  showOnce = true,
-}: GuideTooltipProps) => {
+const GuideTooltip = ({ children, content, storageKey, showOnce = true }: GuideTooltipProps) => {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
     if (showOnce) {
-      const hasSeen = localStore.get<boolean>(storageKey);
-      if (!hasSeen) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- 由 storage 推導初始可見性
-        setVisible(true);
-      }
+      if (!localStore.get<boolean>(storageKey)) setVisible(true);
     } else {
       setVisible(true);
     }
@@ -39,37 +27,20 @@ const GuideTooltip = ({
 
   const handleClose = () => {
     setVisible(false);
-    if (showOnce) {
-      localStore.set(storageKey, true);
-    }
+    if (showOnce) localStore.set(storageKey, true);
   };
 
-  if (!visible) {
-    return <>{children}</>;
-  }
+  if (!visible) return <>{children}</>;
 
   return (
-    <Tooltip
-      open={visible}
-      title={
-        <div className="guide-tooltip-content">
-          <span>{content}</span>
-          <Button
-            type="text"
-            size="small"
-            icon={<CloseOutlined />}
-            onClick={handleClose}
-            className="guide-tooltip-close"
-          />
-        </div>
-      }
-      placement={placement}
-      classNames={{ root: 'guide-tooltip-overlay' }}
-    >
+    <div className="relative inline-block">
       {children}
-    </Tooltip>
+      <div className="absolute -top-10 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-lg bg-foreground px-3 py-1.5 text-xs text-background shadow-lg whitespace-nowrap">
+        <span>{content}</span>
+        <button onClick={handleClose} className="text-background/70 hover:text-background"><X className="size-3" /></button>
+      </div>
+    </div>
   );
 };
 
 export default GuideTooltip;
-

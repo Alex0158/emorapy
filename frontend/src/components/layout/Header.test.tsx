@@ -38,38 +38,31 @@ vi.mock('@/utils/adminEntry', () => ({
   getAdminLoginUrl: () => mockGetAdminLoginUrl(),
 }));
 
-vi.mock('antd', () => {
-  const Layout = {
-    Header: ({ children, className }: { children: React.ReactNode; className?: string }) => (
-      <header className={className}>{children}</header>
-    ),
-  };
-
-  const Menu = ({ items }: { items: Array<{ key: string; label: React.ReactNode; disabled?: boolean }> }) => (
-    <nav>
-      {items.map((item) => (
-        <div key={item.key} aria-disabled={item.disabled ? 'true' : 'false'}>
-          {item.label}
-        </div>
-      ))}
-    </nav>
-  );
-
-  const Button = ({ children, onClick, 'aria-label': ariaLabel }: { children?: React.ReactNode; onClick?: () => void; 'aria-label'?: string }) => (
-    <button type="button" onClick={onClick} aria-label={ariaLabel}>
-      {children}
-    </button>
-  );
-  const Dropdown = ({ children }: { children: React.ReactNode }) => <div>{children}</div>;
-  const Avatar = () => <div />;
-  const Space = ({ children, className }: { children: React.ReactNode; className?: string }) => <div className={className}>{children}</div>;
-  const Select = () => <select aria-label="locale-select" />;
-  const Badge = ({ children, count }: { children: React.ReactNode; count?: number }) => (
-    <div data-testid="notification-badge" data-count={count ?? 0}>{children}</div>
-  );
-
-  return { Layout, Menu, Button, Dropdown, Avatar, Space, Select, Badge };
-});
+vi.mock('@/utils/i18n', () => ({
+  t: (key: string) => {
+    const map: Record<string, string> = {
+      'nav.home': '首頁',
+      'nav.quickExperience': '快速體驗',
+      'nav.chat': '聊天',
+      'nav.login': '登錄',
+      'nav.register': '註冊',
+      'nav.logo': 'CJ',
+      'nav.opsConsole': '運維後台',
+      'nav.notifications': '通知中心',
+      'nav.myCases': '我的案件',
+      'nav.execution': '執行',
+      'nav.profile': '個人資料',
+      'nav.settings': '設置',
+      'nav.logout': '登出',
+      'auth.locale.zhTW': '繁體中文',
+      'auth.locale.enUS': 'English',
+    };
+    return map[key] ?? key;
+  },
+  getLocale: () => 'zh-TW',
+  onLocaleChange: () => () => {},
+  setLocale: vi.fn(),
+}));
 
 vi.mock('./VersionPopover', () => ({
   default: () => <div>version-popover</div>,

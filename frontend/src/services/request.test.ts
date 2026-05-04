@@ -8,8 +8,8 @@ const {
 	mockInterceptorsRequestUse,
 	mockInterceptorsResponseUse,
 	mockSessionGet,
-	mockMessageError,
-	mockMessageWarning,
+	mockToastError,
+	mockToastWarning,
 	mockSessionStoreState,
 	mockTriggerRequestLogout,
 } = vi.hoisted(() => ({
@@ -17,8 +17,8 @@ const {
 	mockInterceptorsRequestUse: vi.fn(),
 	mockInterceptorsResponseUse: vi.fn(),
 	mockSessionGet: vi.fn(() => null),
-	mockMessageError: vi.fn(),
-	mockMessageWarning: vi.fn(),
+	mockToastError: vi.fn(),
+	mockToastWarning: vi.fn(),
 	mockSessionStoreState: {
 		clearSession: vi.fn(),
 		refreshSession: vi.fn(),
@@ -74,10 +74,10 @@ vi.mock("@/services/requestAuthBridge", () => ({
 	triggerRequestLogout: () => mockTriggerRequestLogout(),
 }));
 
-vi.mock("antd", () => ({
-	message: {
-		error: (...args: unknown[]) => mockMessageError(...args),
-		warning: (...args: unknown[]) => mockMessageWarning(...args),
+vi.mock("sonner", () => ({
+	toast: {
+		error: (...args: unknown[]) => mockToastError(...args),
+		warning: (...args: unknown[]) => mockToastWarning(...args),
 	},
 }));
 
@@ -97,8 +97,8 @@ describe("request", () => {
 		mockRequest.mockReset();
 		mockSessionGet.mockReset();
 		mockSessionGet.mockReturnValue(null);
-		mockMessageError.mockClear();
-		mockMessageWarning.mockClear();
+		mockToastError.mockClear();
+		mockToastWarning.mockClear();
 		mockSessionStoreState.clearSession.mockClear();
 		mockSessionStoreState.refreshSession.mockClear();
 		mockTriggerRequestLogout.mockClear();
@@ -320,7 +320,7 @@ describe("request", () => {
 				true,
 				undefined,
 			);
-			expect(mockMessageWarning).toHaveBeenCalled();
+			expect(mockToastWarning).toHaveBeenCalled();
 		});
 
 		it("400 + INVALID_SESSION_ID 應把失敗請求的 X-Session-Id 傳給 refresh", async () => {
@@ -407,7 +407,7 @@ describe("request", () => {
 					message: "bad",
 				}),
 			).rejects.toMatchObject({ code: "SESSION_ID_REQUIRED" });
-			expect(mockMessageWarning).toHaveBeenCalledWith(
+			expect(mockToastWarning).toHaveBeenCalledWith(
 				"common.sessionExpiredRefreshed",
 			);
 		});
@@ -427,7 +427,7 @@ describe("request", () => {
 					message: "bad",
 				}),
 			).rejects.toMatchObject({ code: "INVALID_SESSION_ID" });
-			expect(mockMessageError).toHaveBeenCalledWith(
+			expect(mockToastError).toHaveBeenCalledWith(
 				"error.session.expiredHint",
 			);
 		});
@@ -445,7 +445,7 @@ describe("request", () => {
 					message: "bad",
 				}),
 			).rejects.toMatchObject({ code: "INVALID_SESSION_ID" });
-			expect(mockMessageError).toHaveBeenCalledWith(
+			expect(mockToastError).toHaveBeenCalledWith(
 				"error.session.expiredHint",
 			);
 		});
@@ -462,7 +462,7 @@ describe("request", () => {
 					message: "bad",
 				}),
 			).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
-			expect(mockMessageError).toHaveBeenCalledWith("common.validationError");
+			expect(mockToastError).toHaveBeenCalledWith("common.validationError");
 		});
 
 		it("401 + SESSION_EXPIRED 且 refresh 失敗應 error", async () => {
@@ -478,7 +478,7 @@ describe("request", () => {
 					message: "expired",
 				}),
 			).rejects.toMatchObject({ code: "SESSION_EXPIRED" });
-			expect(mockMessageError).toHaveBeenCalled();
+			expect(mockToastError).toHaveBeenCalled();
 		});
 
 		it("401 + SESSION_EXPIRED refresh 失敗且無 message 時應顯示 expiredHint", async () => {
@@ -494,7 +494,7 @@ describe("request", () => {
 					message: "expired",
 				}),
 			).rejects.toMatchObject({ code: "SESSION_EXPIRED" });
-			expect(mockMessageError).toHaveBeenCalledWith(
+			expect(mockToastError).toHaveBeenCalledWith(
 				"error.session.expiredHint",
 			);
 		});
@@ -511,7 +511,7 @@ describe("request", () => {
 					message: "expired",
 				}),
 			).rejects.toMatchObject({ code: "INVALID_SESSION_ID" });
-			expect(mockMessageWarning).toHaveBeenCalledWith(
+			expect(mockToastWarning).toHaveBeenCalledWith(
 				"common.sessionExpiredRefreshed",
 			);
 		});
@@ -531,7 +531,7 @@ describe("request", () => {
 					message: "expired",
 				}),
 			).rejects.toMatchObject({ code: "SESSION_EXPIRED" });
-			expect(mockMessageError).toHaveBeenCalledWith(
+			expect(mockToastError).toHaveBeenCalledWith(
 				"error.session.expiredHint",
 			);
 		});
@@ -687,7 +687,7 @@ describe("request", () => {
 			expect(window.sessionStorage.getItem("admin_token")).toBeNull();
 			expect(dispatchSpy).toHaveBeenCalledWith(expect.any(Event));
 			expect(mockTriggerRequestLogout).not.toHaveBeenCalled();
-			expect(mockMessageError).toHaveBeenCalledWith("admin.login.urlMissing");
+			expect(mockToastError).toHaveBeenCalledWith("admin.login.urlMissing");
 			dispatchSpy.mockRestore();
 		});
 
@@ -711,7 +711,7 @@ describe("request", () => {
 			expect(localStorage.getItem("admin_token")).toBe("admin-token-local");
 			expect(window.sessionStorage.getItem("admin_token")).toBe("admin-token-session");
 			expect(dispatchSpy).not.toHaveBeenCalled();
-			expect(mockMessageError).not.toHaveBeenCalledWith("admin.login.urlMissing");
+			expect(mockToastError).not.toHaveBeenCalledWith("admin.login.urlMissing");
 			dispatchSpy.mockRestore();
 		});
 
@@ -727,7 +727,7 @@ describe("request", () => {
 					message: "forbidden",
 				}),
 			).rejects.toMatchObject({ code: "FORBIDDEN" });
-			expect(mockMessageError).toHaveBeenCalledWith("common.forbidden");
+			expect(mockToastError).toHaveBeenCalledWith("common.forbidden");
 		});
 
 		it("403 admin API 應抑制全域錯誤提示", async () => {
@@ -742,7 +742,7 @@ describe("request", () => {
 					message: "forbidden",
 				}),
 			).rejects.toMatchObject({ code: "FORBIDDEN" });
-			expect(mockMessageError).not.toHaveBeenCalled();
+			expect(mockToastError).not.toHaveBeenCalled();
 		});
 
 		it("403 config.url 為無效 URL 時 isAdminApiRequest 應 catch 並回退為非 admin 並提示 forbidden", async () => {
@@ -757,7 +757,7 @@ describe("request", () => {
 					message: "forbidden",
 				}),
 			).rejects.toMatchObject({ code: "FORBIDDEN" });
-			expect(mockMessageError).toHaveBeenCalledWith("common.forbidden");
+			expect(mockToastError).toHaveBeenCalledWith("common.forbidden");
 		});
 
 		it("404 by-session 應抑制全域錯誤提示", async () => {
@@ -772,7 +772,7 @@ describe("request", () => {
 					message: "not found",
 				}),
 			).rejects.toMatchObject({ code: "NOT_FOUND" });
-			expect(mockMessageError).not.toHaveBeenCalled();
+			expect(mockToastError).not.toHaveBeenCalled();
 		});
 
 		it("404 cases/:id 且帶 session 應抑制全域錯誤提示", async () => {
@@ -791,7 +791,7 @@ describe("request", () => {
 					message: "not found",
 				}),
 			).rejects.toMatchObject({ code: "NOT_FOUND" });
-			expect(mockMessageError).not.toHaveBeenCalled();
+			expect(mockToastError).not.toHaveBeenCalled();
 		});
 
 		it("404 一般路徑應顯示 notFound 錯誤", async () => {
@@ -806,7 +806,7 @@ describe("request", () => {
 					message: "not found",
 				}),
 			).rejects.toMatchObject({ code: "NOT_FOUND" });
-			expect(mockMessageError).toHaveBeenCalled();
+			expect(mockToastError).toHaveBeenCalled();
 		});
 
 		it("404 缺少 errorData.code 時應回退為 HTTP_404", async () => {
@@ -835,7 +835,7 @@ describe("request", () => {
 					message: "conflict",
 				}),
 			).rejects.toMatchObject({ code: "JUDGMENT_FAILED" });
-			expect(mockMessageError).not.toHaveBeenCalled();
+			expect(mockToastError).not.toHaveBeenCalled();
 		});
 
 		it("409 一般衝突應提示 conflict", async () => {
@@ -850,7 +850,7 @@ describe("request", () => {
 					message: "conflict",
 				}),
 			).rejects.toMatchObject({ code: "CONFLICT" });
-			expect(mockMessageError).toHaveBeenCalledWith("common.conflict");
+			expect(mockToastError).toHaveBeenCalledWith("common.conflict");
 		});
 
 		it("409 缺少 config.url 時仍應走 conflict 分支", async () => {
@@ -865,7 +865,7 @@ describe("request", () => {
 					message: "conflict",
 				}),
 			).rejects.toMatchObject({ code: "CONFLICT" });
-			expect(mockMessageError).toHaveBeenCalledWith("common.conflict");
+			expect(mockToastError).toHaveBeenCalledWith("common.conflict");
 		});
 
 		it("422 應提示 validationError", async () => {
@@ -880,7 +880,7 @@ describe("request", () => {
 					message: "validation",
 				}),
 			).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
-			expect(mockMessageError).toHaveBeenCalledWith("common.validationError");
+			expect(mockToastError).toHaveBeenCalledWith("common.validationError");
 		});
 
 		it("413 應提示 fileTooLarge", async () => {
@@ -895,7 +895,7 @@ describe("request", () => {
 					message: "payload too large",
 				}),
 			).rejects.toMatchObject({ code: "FILE_TOO_LARGE" });
-			expect(mockMessageError).toHaveBeenCalledWith("common.fileTooLarge");
+			expect(mockToastError).toHaveBeenCalledWith("common.fileTooLarge");
 		});
 
 		it("429 /uploads 應走 fileRateLimit 分支", async () => {
@@ -910,7 +910,7 @@ describe("request", () => {
 					message: "rate",
 				}),
 			).rejects.toMatchObject({ code: "RATE_LIMIT" });
-			expect(mockMessageError).toHaveBeenCalledWith("common.fileRateLimit");
+			expect(mockToastError).toHaveBeenCalledWith("common.fileRateLimit");
 		});
 
 		it("429 非 uploads 應走 rateLimit 分支", async () => {
@@ -925,7 +925,7 @@ describe("request", () => {
 					message: "rate",
 				}),
 			).rejects.toMatchObject({ code: "RATE_LIMIT" });
-			expect(mockMessageError).toHaveBeenCalledWith("common.rateLimit");
+			expect(mockToastError).toHaveBeenCalledWith("common.rateLimit");
 		});
 
 		it("429 缺少 config.url 時也應走 rateLimit 分支", async () => {
@@ -940,7 +940,7 @@ describe("request", () => {
 					message: "rate",
 				}),
 			).rejects.toMatchObject({ code: "RATE_LIMIT" });
-			expect(mockMessageError).toHaveBeenCalledWith("common.rateLimit");
+			expect(mockToastError).toHaveBeenCalledWith("common.rateLimit");
 		});
 
 		it("500 應提示 serverError", async () => {
@@ -955,7 +955,7 @@ describe("request", () => {
 					message: "server",
 				}),
 			).rejects.toMatchObject({ code: "SERVER_ERROR" });
-			expect(mockMessageError).toHaveBeenCalledWith("common.serverError");
+			expect(mockToastError).toHaveBeenCalledWith("common.serverError");
 		});
 
 		it("503 應提示 serviceUnavailable", async () => {
@@ -970,7 +970,7 @@ describe("request", () => {
 					message: "unavailable",
 				}),
 			).rejects.toMatchObject({ code: "SERVICE_UNAVAILABLE" });
-			expect(mockMessageError).toHaveBeenCalledWith(
+			expect(mockToastError).toHaveBeenCalledWith(
 				"common.serviceUnavailable",
 			);
 		});
@@ -1005,7 +1005,7 @@ describe("request", () => {
 					message: "unauth",
 				}),
 			).rejects.toMatchObject({ code: "UNAUTHORIZED" });
-			expect(mockMessageError).toHaveBeenCalledWith("common.unauthorized");
+			expect(mockToastError).toHaveBeenCalledWith("common.unauthorized");
 			history.pushState({}, "", "/");
 			consoleSpy.mockRestore();
 		});

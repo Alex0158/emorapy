@@ -1,10 +1,12 @@
-import React from 'react';
-import { Modal, Typography, Space, Button, Checkbox } from 'antd';
-import { SafetyOutlined } from '@ant-design/icons';
-import { t } from '@/utils/i18n';
-import './index.less';
+/**
+ * 訪談同意確認彈窗（遷移：Ant Modal → shadcn Dialog）
+ */
 
-const { Title, Paragraph, Text } = Typography;
+import React from 'react';
+import { Shield, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { t } from '@/utils/i18n';
 
 interface ConsentModalProps {
   open: boolean;
@@ -21,28 +23,21 @@ const ConsentModal: React.FC<ConsentModalProps> = ({ open, onConsent, onCancel, 
   }, [open]);
 
   return (
-    <Modal
-      open={open}
-      onCancel={onCancel}
-      footer={null}
-      width={520}
-      className="consent-modal"
-      closable
-    >
-      <div className="consent-modal__content">
-        <Space orientation="vertical" size="large" style={{ width: '100%' }}>
-          <div className="consent-modal__header">
-            <SafetyOutlined style={{ fontSize: 32, color: '#52c41a' }} />
-            <Title level={4} style={{ margin: 0 }}>{t('consent.beforeStart')}</Title>
+    <Dialog open={open} onOpenChange={(isOpen: boolean) => { if (!isOpen) onCancel(); }}>
+      <DialogContent className="max-w-lg" aria-describedby={undefined}>
+        <DialogHeader>
+          <div className="flex items-center gap-3">
+            <Shield className="size-7 text-success" />
+            <DialogTitle>{t('consent.beforeStart')}</DialogTitle>
           </div>
+        </DialogHeader>
 
-          <Paragraph>{t('consent.description')}</Paragraph>
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">{t('consent.description')}</p>
 
-          <div className="consent-modal__points">
-            <Paragraph>
-              <Text strong>{t('consent.promise')}</Text>
-            </Paragraph>
-            <ul>
+          <div>
+            <p className="text-sm font-semibold text-foreground mb-2">{t('consent.promise')}</p>
+            <ul className="space-y-1.5 text-sm text-muted-foreground list-disc pl-5">
               <li>{t('consent.point1')}</li>
               <li>{t('consent.point2')}</li>
               <li>{t('consent.point3')}</li>
@@ -51,27 +46,26 @@ const ConsentModal: React.FC<ConsentModalProps> = ({ open, onConsent, onCancel, 
             </ul>
           </div>
 
-          <Checkbox
-            checked={agreed}
-            onChange={(e) => setAgreed(e.target.checked)}
-          >
-            {t('consent.agree')}
-          </Checkbox>
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={agreed}
+              onChange={(e) => setAgreed(e.target.checked)}
+              className="h-4 w-4 rounded border-border text-primary accent-primary"
+            />
+            <span className="text-sm text-foreground">{t('consent.agree')}</span>
+          </label>
+        </div>
 
-          <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
-            <Button onClick={onCancel}>{t('consent.notNow')}</Button>
-            <Button
-              type="primary"
-              onClick={onConsent}
-              disabled={!agreed || loading}
-              loading={loading}
-            >
-              {t('consent.start')}
-            </Button>
-          </Space>
-        </Space>
-      </div>
-    </Modal>
+        <DialogFooter>
+          <Button variant="outline" onClick={onCancel}>{t('consent.notNow')}</Button>
+          <Button onClick={onConsent} disabled={!agreed || loading}>
+            {loading && <Loader2 className="size-4 animate-spin" />}
+            {t('consent.start')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
 

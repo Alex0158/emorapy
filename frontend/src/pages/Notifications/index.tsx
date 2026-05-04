@@ -1,68 +1,47 @@
+/**
+ * 通知中心頁面
+ *
+ * 遷移: Ant Alert/Button/Card/Empty/Segmented/Space/Spin/Tag/Typography/message/Icons
+ *       → shadcn + Tailwind + sonner + Lucide
+ */
+
 import { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Alert,
-  Button,
-  Card,
-  Empty,
-  Segmented,
-  Space,
-  Spin,
-  Tag,
-  Typography,
-  message,
-} from 'antd';
-import { BellOutlined, ClockCircleOutlined, DeleteOutlined, RightOutlined } from '@ant-design/icons';
+import { toast } from 'sonner';
+import { Bell, Clock, Trash2, ChevronRight, Loader2, AlertCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ProtectedRoute from '@/components/common/ProtectedRoute';
 import SEO from '@/components/common/SEO';
-import AnimatedWrapper from '@/components/common/AnimatedWrapper';
+import { EmptyState } from '@/components/common/EmptyState';
+import { cn } from '@/lib/utils';
 import { useNotificationStore } from '@/store/notificationStore';
 import type { NotificationFeedState, NotificationItem } from '@/services/api/notifications';
-
-const { Title, Paragraph, Text } = Typography;
 
 const stateOptions: Array<{ label: string; value: NotificationFeedState }> = [
   { label: '待處理', value: 'actionable' },
   { label: '未讀', value: 'unread' },
   { label: '全部', value: 'all' },
-  { label: '稍後提醒我', value: 'snoozed' },
+  { label: '稍後提醒', value: 'snoozed' },
   { label: '已封存', value: 'archived' },
 ];
 
 function sectionTitle(notification: NotificationItem, activeState: NotificationFeedState): string {
-  if (activeState === 'snoozed' || notification.snoozed_until) {
-    return '稍後提醒我';
-  }
-  if (!notification.actionable || notification.acted_at || notification.dismissed_at) {
-    return '已完成與較早通知';
-  }
-  if (notification.journey_context?.presentation_bucket === 'partner_waiting') {
-    return '等對方 / 等時間';
-  }
-  if (notification.priority === 'now' || notification.render_payload.priority === 'now') {
-    return '現在要處理';
-  }
+  if (activeState === 'snoozed' || notification.snoozed_until) return '稍後提醒我';
+  if (!notification.actionable || notification.acted_at || notification.dismissed_at) return '已完成與較早通知';
+  if (notification.journey_context?.presentation_bucket === 'partner_waiting') return '等對方 / 等時間';
+  if (notification.priority === 'now' || notification.render_payload.priority === 'now') return '現在要處理';
   return '等對方 / 等時間';
 }
 
 const NotificationsPage = () => {
   const navigate = useNavigate();
   const {
-    items,
-    unreadCount,
-    activeState,
-    hasMore,
-    isLoading,
-    isLoadingMore,
-    error,
-    fetchNotifications,
-    fetchUnreadCount,
-    markRead,
-    markAllRead,
-    dismiss,
-    snooze,
-    act,
-    clearError,
+    items, unreadCount, activeState, hasMore,
+    isLoading, isLoadingMore, error,
+    fetchNotifications, fetchUnreadCount,
+    markRead, markAllRead, dismiss, snooze, act, clearError,
   } = useNotificationStore();
 
   useEffect(() => {
@@ -79,173 +58,160 @@ const NotificationsPage = () => {
   }, [activeState, items]);
 
   const handleOpen = async (notification: NotificationItem) => {
-    if (notification.unread) {
-      await markRead(notification.id);
-    }
+    if (notification.unread) await markRead(notification.id);
     const path = notification.journey_context?.entry_path || notification.render_payload.path;
-    if (path) {
-      navigate(path);
-    }
+    if (path) navigate(path);
   };
 
   const handleAct = async (notification: NotificationItem) => {
     const target = await act(notification.id, notification.action_key ?? undefined);
     const path = target?.path || notification.journey_context?.primary_cta.path || notification.render_payload.path;
-    if (path) {
-      navigate(path);
-    }
+    if (path) navigate(path);
   };
 
   const handleDismiss = async (notificationId: string) => {
     await dismiss(notificationId);
-    message.success('已封存這則通知');
+    toast.success('已封存這則通知');
   };
 
   const handleSnooze = async (notificationId: string) => {
     await snooze(notificationId, 24);
-    message.success('已稍後提醒你這則通知');
+    toast.success('已稍後提醒你這則通知');
   };
 
   return (
     <ProtectedRoute>
       <SEO title="通知中心" description="查看修復旅程、邀請與重調相關通知" />
-      <div className="case-list-page" role="main" aria-label="通知中心">
-        <AnimatedWrapper animation="fade" delay={80}>
-          <div className="page-header">
-            <Title level={2} style={{ marginBottom: 8 }}>
-              <Space>
-                <BellOutlined />
-                <span>通知中心</span>
-              </Space>
-            </Title>
-            <Paragraph type="secondary">
-              這裡會把 repair journey 的邀請、等待回應、重新調整與恢復入口集中起來，讓你不用自己回頭找流程。
-            </Paragraph>
-            <Space wrap>
-              <Segmented
-                options={stateOptions}
-                value={activeState}
-                onChange={(value) => void fetchNotifications(value as NotificationFeedState)}
-              />
-              <Button onClick={() => void fetchNotifications(activeState)}>刷新</Button>
-              <Button onClick={() => void markAllRead()} disabled={unreadCount <= 0}>
-                全部標為已讀
-              </Button>
-              <Tag color={unreadCount > 0 ? 'processing' : 'default'}>未讀 {unreadCount}</Tag>
-            </Space>
-          </div>
-        </AnimatedWrapper>
-
-        {error ? (
-          <Alert
-            type="error"
-            showIcon
-            message={error}
-            action={(
-              <Button size="small" type="primary" onClick={() => { clearError(); void fetchNotifications(activeState); }}>
-                重試
-              </Button>
+      <div className="mx-auto max-w-3xl px-4 py-8" role="main" aria-label="通知中心">
+        {/* Header */}
+        <header className="mb-6">
+          <div className="flex items-center gap-2 mb-2">
+            <Bell className="size-5 text-primary" />
+            <h2 className="text-2xl font-bold text-foreground font-heading">通知中心</h2>
+            {unreadCount > 0 && (
+              <Badge variant="destructive" className="text-[10px]">{unreadCount}</Badge>
             )}
-            style={{ marginBottom: 16 }}
-          />
-        ) : null}
+          </div>
+          <p className="text-sm text-muted-foreground mb-4">
+            這裡會把 repair journey 的邀請、等待回應、重新調整與恢復入口集中起來。
+          </p>
 
+          {/* Tabs + Actions */}
+          <div className="flex flex-wrap items-center gap-3">
+            <Tabs value={activeState} onValueChange={(v: string) => void fetchNotifications(v as NotificationFeedState)}>
+              <TabsList>
+                {stateOptions.map((opt) => (
+                  <TabsTrigger key={opt.value} value={opt.value} className="text-xs">
+                    {opt.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => void fetchNotifications(activeState)}>刷新</Button>
+              <Button variant="outline" size="sm" onClick={() => void markAllRead()} disabled={unreadCount <= 0}>全部已讀</Button>
+            </div>
+          </div>
+        </header>
+
+        {/* Error */}
+        {error && (
+          <div className="mb-4 flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4">
+            <AlertCircle className="mt-0.5 size-5 shrink-0 text-destructive" />
+            <div className="flex-1">
+              <p className="text-sm text-foreground">{error}</p>
+            </div>
+            <Button size="sm" onClick={() => { clearError(); void fetchNotifications(activeState); }}>重試</Button>
+          </div>
+        )}
+
+        {/* Loading */}
         {isLoading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0' }}>
-            <Spin size="large" />
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="size-6 animate-spin text-primary" />
           </div>
         ) : items.length === 0 ? (
-          <Card>
-            <Empty
-              description={activeState === 'archived'
-                ? '目前沒有已封存的通知'
-                : activeState === 'snoozed'
-                  ? '目前沒有稍後提醒的通知'
-                  : '目前沒有需要你處理的通知'}
-            />
-          </Card>
+          <EmptyState variant="notifications" />
         ) : (
-          <Space orientation="vertical" size="large" style={{ width: '100%' }}>
+          <div className="space-y-6">
             {Object.entries(sections).map(([title, sectionItems]) => (
-              <AnimatedWrapper key={title} animation="slide" direction="up" delay={120}>
-                <Card title={title}>
-                  <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
-                    {sectionItems.map((notification) => (
-                      <Card key={notification.id} size="small">
-                        <div
-                          role="button"
-                          tabIndex={0}
-                          style={{ width: '100%', cursor: (notification.journey_context?.entry_path || notification.render_payload.path) ? 'pointer' : 'default' }}
-                          onClick={() => void handleOpen(notification)}
-                          onKeyDown={(event) => {
-                            if (event.key === 'Enter' || event.key === ' ') {
-                              event.preventDefault();
-                              void handleOpen(notification);
-                            }
-                          }}
-                        >
-                          <Space orientation="vertical" size="small" style={{ width: '100%' }}>
-                            <Space wrap>
-                              <Text strong>{notification.render_payload.title}</Text>
-                              {notification.unread ? <Tag color="processing">未讀</Tag> : null}
-                              {notification.acted_at ? <Tag color="success">已處理</Tag> : null}
-                              {notification.dismissed_at ? <Tag>已封存</Tag> : null}
-                              {notification.snoozed_until ? <Tag color="gold">稍後提醒</Tag> : null}
-                            </Space>
-                            <Paragraph style={{ marginBottom: 0 }}>{notification.render_payload.body}</Paragraph>
-                            <Space wrap>
-                              <Text type="secondary">{new Date(notification.created_at).toLocaleString()}</Text>
-                              {notification.render_payload.journey_status ? (
-                                <Tag color="blue">{notification.render_payload.journey_status}</Tag>
-                              ) : null}
-                              {notification.render_payload.partner_state ? (
-                                <Tag>{notification.render_payload.partner_state}</Tag>
-                              ) : null}
-                              {(notification.priority || notification.render_payload.priority) ? (
-                                <Tag color={(notification.priority || notification.render_payload.priority) === 'now' ? 'red' : 'default'}>
-                                  {(notification.priority || notification.render_payload.priority) === 'now' ? '現在處理' : '可稍後處理'}
-                                </Tag>
-                              ) : null}
-                              {notification.render_payload.path ? (
-                                <Text type="secondary">
-                                  進入對應頁面 <RightOutlined />
-                                </Text>
-                              ) : null}
-                            </Space>
-                          </Space>
+              <div key={title}>
+                <h3 className="mb-3 text-sm font-semibold text-muted-foreground">{title}</h3>
+                <div className="space-y-2">
+                  {sectionItems.map((notification) => (
+                    <div
+                      key={notification.id}
+                      className="rounded-xl border border-border bg-card p-4 transition-all hover:shadow-sm"
+                    >
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        className={cn(
+                          'w-full text-left',
+                          (notification.journey_context?.entry_path || notification.render_payload.path) && 'cursor-pointer',
+                        )}
+                        onClick={() => void handleOpen(notification)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); void handleOpen(notification); } }}
+                      >
+                        <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                          <span className="text-sm font-semibold text-foreground">{notification.render_payload.title}</span>
+                          {notification.unread && <Badge variant="default" className="text-[10px]">未讀</Badge>}
+                          {notification.acted_at && <Badge variant="secondary" className="text-[10px] bg-success/10 text-success">已處理</Badge>}
+                          {notification.dismissed_at && <Badge variant="outline" className="text-[10px]">已封存</Badge>}
+                          {notification.snoozed_until && <Badge variant="outline" className="text-[10px] text-warning">稍後提醒</Badge>}
                         </div>
-                        <Space wrap style={{ marginTop: 12 }}>
-                          {notification.actionable && (notification.journey_context?.primary_cta.label || notification.render_payload.cta_label) ? (
-                            <Button key="act" type="primary" size="small" onClick={() => void handleAct(notification)}>
-                              {notification.journey_context?.primary_cta.label || notification.render_payload.cta_label}
-                            </Button>
-                          ) : null}
-                          {notification.actionable && !notification.snoozed_until ? (
-                            <Button key="snooze" size="small" icon={<ClockCircleOutlined />} onClick={() => void handleSnooze(notification.id)}>
-                              稍後提醒我
-                            </Button>
-                          ) : null}
-                          {notification.dismissed_at || notification.actionable ? null : (
-                            <Button key="dismiss" size="small" icon={<DeleteOutlined />} onClick={() => void handleDismiss(notification.id)}>
-                              封存
-                            </Button>
+                        <p className="text-sm text-muted-foreground mb-2">{notification.render_payload.body}</p>
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                          <span>{new Date(notification.created_at).toLocaleString()}</span>
+                          {notification.render_payload.journey_status && (
+                            <Badge variant="outline" className="text-[10px]">{notification.render_payload.journey_status}</Badge>
                           )}
-                        </Space>
-                      </Card>
-                    ))}
-                  </Space>
-                </Card>
-              </AnimatedWrapper>
+                          {(notification.priority || notification.render_payload.priority) === 'now' && (
+                            <Badge variant="destructive" className="text-[10px]">現在處理</Badge>
+                          )}
+                          {notification.render_payload.path && (
+                            <span className="flex items-center gap-0.5 text-primary">
+                              進入 <ChevronRight className="size-3" />
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {notification.actionable && (notification.journey_context?.primary_cta.label || notification.render_payload.cta_label) && (
+                          <Button size="sm" onClick={() => void handleAct(notification)}>
+                            {notification.journey_context?.primary_cta.label || notification.render_payload.cta_label}
+                          </Button>
+                        )}
+                        {notification.actionable && !notification.snoozed_until && (
+                          <Button variant="outline" size="sm" onClick={() => void handleSnooze(notification.id)}>
+                            <Clock className="size-3" />
+                            稍後提醒
+                          </Button>
+                        )}
+                        {!notification.dismissed_at && !notification.actionable && (
+                          <Button variant="ghost" size="sm" onClick={() => void handleDismiss(notification.id)}>
+                            <Trash2 className="size-3" />
+                            封存
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             ))}
 
-            {hasMore ? (
-              <div style={{ display: 'flex', justifyContent: 'center' }}>
-                <Button loading={isLoadingMore} onClick={() => void fetchNotifications(activeState, { append: true })}>
+            {hasMore && (
+              <div className="flex justify-center pt-4">
+                <Button variant="outline" disabled={isLoadingMore} onClick={() => void fetchNotifications(activeState, { append: true })}>
+                  {isLoadingMore && <Loader2 className="size-4 animate-spin" />}
                   載入更多
                 </Button>
               </div>
-            ) : null}
-          </Space>
+            )}
+          </div>
         )}
       </div>
     </ProtectedRoute>

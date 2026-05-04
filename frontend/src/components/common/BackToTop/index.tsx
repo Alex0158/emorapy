@@ -3,45 +3,39 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Button } from 'antd';
-import { ArrowUpOutlined } from '@ant-design/icons';
-import { throttle } from '@/utils/helpers';
+import { ArrowUp } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { t } from '@/utils/i18n';
-import './BackToTop.less';
 
 const BackToTop = () => {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    const handleScroll = throttle(() => {
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-      setVisible(scrollTop > 300);
-    }, 100);
-
-    window.addEventListener('scroll', handleScroll);
+    let ticking = false;
+    const handleScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        setVisible(window.scrollY > 300);
+        ticking = false;
+      });
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
-
-  const scrollToTop = () => {
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth',
-    });
-  };
 
   if (!visible) return null;
 
   return (
     <Button
-      type="primary"
-      shape="circle"
-      icon={<ArrowUpOutlined />}
-      className="back-to-top"
-      onClick={scrollToTop}
+      size="icon"
+      onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
       aria-label={t('common.backToTop')}
-    />
+      className="fixed bottom-20 right-4 z-40 size-10 rounded-full shadow-lg md:bottom-8"
+    >
+      <ArrowUp className="size-4" />
+    </Button>
   );
 };
 
 export default BackToTop;
-

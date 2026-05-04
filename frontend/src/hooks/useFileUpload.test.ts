@@ -7,15 +7,15 @@ import { useFileUpload } from './useFileUpload';
 
 const mockValidateFiles = vi.fn();
 const mockGetFilePreviewUrl = vi.fn();
-const mockMessageError = vi.fn();
+const mockToastError = vi.fn();
 
 vi.mock('@/utils/fileValidation', () => ({
   validateFiles: (...args: unknown[]) => mockValidateFiles(...args),
   getFilePreviewUrl: (...args: unknown[]) => mockGetFilePreviewUrl(...args),
 }));
 
-vi.mock('antd', () => ({
-  message: { error: (...args: unknown[]) => mockMessageError(...args) },
+vi.mock('sonner', () => ({
+  toast: { error: (...args: unknown[]) => mockToastError(...args) },
 }));
 
 describe('useFileUpload', () => {
@@ -42,7 +42,7 @@ describe('useFileUpload', () => {
     expect(mockValidateFiles).toHaveBeenCalledWith([file], 0);
   });
 
-  it('addFiles 驗證失敗應不添加並調用 message.error', async () => {
+  it('addFiles 驗證失敗應不添加並調用 toast.error', async () => {
     mockValidateFiles.mockReturnValue({ valid: false, error: '不支持的文件類型' });
     const file = new File(['x'], 'a.pdf', { type: 'application/pdf' });
     const { result } = renderHook(() => useFileUpload(3));
@@ -50,7 +50,7 @@ describe('useFileUpload', () => {
       await result.current.addFiles([file]);
     });
     expect(result.current.files).toHaveLength(0);
-    expect(mockMessageError).toHaveBeenCalledWith('不支持的文件類型');
+    expect(mockToastError).toHaveBeenCalledWith('不支持的文件類型');
   });
 
   it('removeFile 應移除指定索引的文件', async () => {

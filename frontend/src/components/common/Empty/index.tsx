@@ -1,27 +1,24 @@
 /**
- * 空狀態組件
+ * 空狀態組件（舊包裝器，保留向下兼容）
+ * 新代碼應直接使用 @/components/common/EmptyState
  */
 
-import { Empty as AntEmpty } from 'antd';
-import type { EmptyProps } from 'antd/es/empty';
+import { Inbox } from 'lucide-react';
 import { t } from '@/utils/i18n';
 
-interface EmptyStateProps extends EmptyProps {
+interface EmptyProps {
   description?: string;
-  action?: React.ReactNode;
+  children?: React.ReactNode;
 }
 
-const Empty = ({ description = t('common.noData'), action, ...props }: EmptyStateProps) => {
+const Empty = ({ description = t('common.noData'), children }: EmptyProps) => {
   return (
-    <AntEmpty
-      description={description}
-      image={AntEmpty.PRESENTED_IMAGE_SIMPLE}
-      {...props}
-    >
-      {action}
-    </AntEmpty>
+    <div className="flex flex-col items-center justify-center py-12 text-center">
+      <Inbox className="size-10 text-muted-foreground/40 mb-3" />
+      <p className="text-sm text-muted-foreground">{description}</p>
+      {children && <div className="mt-4">{children}</div>}
+    </div>
   );
 };
 
 export default Empty;
-

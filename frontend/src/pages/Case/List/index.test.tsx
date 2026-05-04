@@ -2,49 +2,27 @@
  * Case List 頁面單元測試
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import CaseList from './index';
 
 const mockGetCaseList = vi.fn();
 const mockNavigate = vi.fn();
-const mockMessageError = vi.fn();
+const mockToastError = vi.fn();
 
 vi.mock('@/services/api/case', () => ({
   getCaseList: (...args: unknown[]) => mockGetCaseList(...args),
 }));
-vi.mock('antd', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('antd')>();
-  return {
-    ...actual,
-    message: {
-      error: (...args: unknown[]) => mockMessageError(...args),
-      success: vi.fn(),
-      info: vi.fn(),
-      warning: vi.fn(),
-    },
-    Pagination: (props: { onChange?: (page: number, pageSize: number) => void; total?: number; pageSize?: number; current?: number; [k: string]: unknown }) => (
-      <div data-testid="mock-pagination" role="navigation" aria-label={props['aria-label']}>
-        <span data-testid="pagination-info">
-          {props.current}/{Math.ceil(Number(props.total ?? 0) / Number(props.pageSize ?? 10))}
-        </span>
-        {Number(props.total ?? 0) > Number(props.pageSize ?? 10) && (
-          <button
-            type="button"
-            data-testid="pagination-goto-page-2"
-            onClick={() => {
-              const pageSize = Number(props.pageSize) || 10;
-              props.onChange?.(2, pageSize);
-            }}
-          >
-            Go to page 2
-          </button>
-        )}
-      </div>
-    ),
-  };
-});
+
+vi.mock('sonner', () => ({
+  toast: {
+    error: (...args: unknown[]) => mockToastError(...args),
+    success: vi.fn(),
+    info: vi.fn(),
+    warning: vi.fn(),
+  },
+}));
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
@@ -57,6 +35,17 @@ vi.mock('react-router-dom', async () => {
 vi.mock('@/components/common/SEO', () => ({ default: () => null }));
 vi.mock('@/components/common/AnimatedWrapper', () => ({
   default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+}));
+
+vi.mock('@/components/common/EmptyState', () => ({
+  EmptyState: ({ actionLabel, onAction }: { actionLabel?: string; onAction?: () => void }) => (
+    <div>
+      <p>caseList.empty</p>
+      {actionLabel && onAction && (
+        <button onClick={onAction}>{actionLabel}</button>
+      )}
+    </div>
+  ),
 }));
 
 vi.mock('@/hooks/usePerformance', () => ({
@@ -117,7 +106,7 @@ describe('Case List', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('獲取失敗');
+      expect(mockToastError).toHaveBeenCalledWith('獲取失敗');
     });
   });
 
@@ -129,7 +118,7 @@ describe('Case List', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.getCaseListFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.getCaseListFail');
     });
   });
 
@@ -141,7 +130,7 @@ describe('Case List', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.getCaseListFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.getCaseListFail');
     });
   });
 
@@ -189,7 +178,7 @@ describe('Case List', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('無權限查看案件列表');
+      expect(mockToastError).toHaveBeenCalledWith('無權限查看案件列表');
     });
   });
 
@@ -201,7 +190,7 @@ describe('Case List', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.getCaseListFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.getCaseListFail');
     });
   });
 
@@ -282,7 +271,7 @@ describe('Case List', () => {
     expect(mockGetCaseList).toHaveBeenCalledTimes(2);
     const retryBtn = screen.getByTestId('case-list-load-retry');
     await waitFor(() => {
-      expect(retryBtn.closest('button')).not.toHaveClass('ant-btn-loading');
+      expect(retryBtn).not.toBeDisabled();
     });
     fireEvent.click(retryBtn);
     await waitFor(() => {
@@ -291,7 +280,6 @@ describe('Case List', () => {
     });
   });
 
-  // Ant Design Select 在 jsdom 下 option 點擊/鍵盤選擇不穩定，建議以 E2E 覆蓋篩選行為
   it.skip('getCaseList 失敗後變更狀態篩選應重新呼叫 getCaseList，成功後應顯示案件列表（F03 錯誤恢復：失敗不阻塞重試）', async () => {
     const user = userEvent.setup();
     mockGetCaseList
@@ -311,10 +299,8 @@ describe('Case List', () => {
     expect(mockGetCaseList).toHaveBeenCalledTimes(1);
     const statusFilterSelect = screen.getByRole('combobox', { name: 'caseList.ariaStatusFilter' });
     await user.click(statusFilterSelect);
-    const listbox = await screen.findByRole('listbox');
-    const draftOption = within(listbox).getByRole('option', { name: 'caseList.statusDraft' });
-    fireEvent.mouseDown(draftOption);
-    fireEvent.click(draftOption);
+    const draftOption = await screen.findByText('caseList.statusDraft');
+    await user.click(draftOption);
     await waitFor(
       () => {
         expect(mockGetCaseList).toHaveBeenCalledTimes(2);
@@ -402,10 +388,8 @@ describe('Case List', () => {
     });
     const statusFilterSelect = screen.getByRole('combobox', { name: 'caseList.ariaStatusFilter' });
     await user.click(statusFilterSelect);
-    const listbox = await screen.findByRole('listbox');
-    const draftOption = within(listbox).getByRole('option', { name: 'caseList.statusDraft' });
-    fireEvent.mouseDown(draftOption);
-    fireEvent.click(draftOption);
+    const draftOption = await screen.findByText('caseList.statusDraft');
+    await user.click(draftOption);
     await waitFor(
       () => {
         expect(mockGetCaseList).toHaveBeenLastCalledWith(
@@ -432,10 +416,8 @@ describe('Case List', () => {
     });
     const typeFilterSelect = screen.getByRole('combobox', { name: 'caseList.ariaTypeFilter' });
     await user.click(typeFilterSelect);
-    const listbox = await screen.findByRole('listbox');
-    const lifeOption = within(listbox).getByRole('option', { name: 'caseList.typeLife' });
-    fireEvent.mouseDown(lifeOption);
-    fireEvent.click(lifeOption);
+    const lifeOption = await screen.findByText('caseList.typeLife');
+    await user.click(lifeOption);
     await waitFor(
       () => {
         expect(mockGetCaseList).toHaveBeenLastCalledWith(
@@ -462,10 +444,8 @@ describe('Case List', () => {
     });
     const sortSelect = screen.getByRole('combobox', { name: 'caseList.ariaSort' });
     await user.click(sortSelect);
-    const listbox = await screen.findByRole('listbox');
-    const oldestOption = within(listbox).getByRole('option', { name: 'caseList.sortOldest' });
-    fireEvent.mouseDown(oldestOption);
-    fireEvent.click(oldestOption);
+    const oldestOption = await screen.findByText('caseList.sortOldest');
+    await user.click(oldestOption);
     await waitFor(
       () => {
         expect(mockGetCaseList).toHaveBeenCalledWith(
@@ -490,7 +470,7 @@ describe('Case List', () => {
     await waitFor(() => {
       expect(mockGetCaseList).toHaveBeenCalled();
     });
-    const searchInput = screen.getByRole('searchbox', { name: 'caseList.ariaSearch' });
+    const searchInput = screen.getByRole('textbox', { name: 'caseList.ariaSearch' });
     await user.type(searchInput, 'test');
     await waitFor(() => {
       expect(mockGetCaseList).toHaveBeenCalledWith(
@@ -564,8 +544,9 @@ describe('Case List', () => {
       await waitFor(() => {
         expect(screen.getByText('Case 1')).toBeInTheDocument();
       });
-      const gotoPage2Btn = screen.getByTestId('pagination-goto-page-2');
-      fireEvent.click(gotoPage2Btn);
+      // The new pagination uses a "next" button rendered by shadcn Button
+      const nextBtn = screen.getByRole('button', { name: 'common.next' });
+      fireEvent.click(nextBtn);
       await waitFor(
         () => {
           expect(mockGetCaseList).toHaveBeenCalledWith(

@@ -1,41 +1,28 @@
-import { Collapse, Typography } from 'antd';
-import AnimatedWrapper from '@/components/common/AnimatedWrapper';
-import { QuestionCircleOutlined } from '@ant-design/icons';
+import { HelpCircle } from 'lucide-react';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { t } from '@/utils/i18n';
 
-const { Text } = Typography;
-
-type Props = {
-  summary?: string | null;
-};
+type Props = { summary?: string | null };
 
 const SummarySection = ({ summary }: Props) => {
   return (
-    <AnimatedWrapper animation="slide" direction="up" delay={200} trigger="intersection">
-      <section className="summary-section" aria-labelledby="summary-title">
-        <div className="container">
-          <Collapse
-            defaultActiveKey={['summary']}
-            items={[
-              {
-                key: 'summary',
-                label: <span id="summary-title">{t('summary.title')}</span>,
-                children: (
-                  <div className="summary-content">
-                    {summary && (
-                      <div className="summary-item" role="article">
-                        <QuestionCircleOutlined className="summary-icon" aria-hidden="true" />
-                        <Text className="summary-text">{summary}</Text>
-                      </div>
-                    )}
-                  </div>
-                ),
-              },
-            ]}
-          />
-        </div>
-      </section>
-    </AnimatedWrapper>
+    <section className="mb-6" aria-labelledby="summary-title">
+      <Accordion type="single" defaultValue="summary" collapsible>
+        <AccordionItem value="summary" className="rounded-xl border border-border px-4">
+          <AccordionTrigger className="py-3">
+            <span id="summary-title" className="text-base font-semibold">{t('summary.title')}</span>
+          </AccordionTrigger>
+          <AccordionContent className="pb-4">
+            {summary && (
+              <div className="flex items-start gap-3" role="article">
+                <HelpCircle className="size-4 shrink-0 mt-0.5 text-muted-foreground" aria-hidden />
+                <p className="text-sm text-muted-foreground leading-relaxed">{summary}</p>
+              </div>
+            )}
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
+    </section>
   );
 };
 

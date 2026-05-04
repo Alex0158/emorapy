@@ -6,9 +6,9 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 const mockNavigate = vi.fn();
-const mockMessageError = vi.fn();
-const mockMessageInfo = vi.fn();
-const mockMessageSuccess = vi.fn();
+const mockToastError = vi.fn();
+const mockToastInfo = vi.fn();
+const mockToastSuccess = vi.fn();
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
   return { ...actual, useNavigate: () => mockNavigate };
@@ -50,24 +50,20 @@ vi.mock('@/types/interview', () => ({
   getDomainLabel: (d: string) => d,
 }));
 vi.mock('@/components/common/SEO', () => ({ default: () => null }));
-vi.mock('@/components/common/AnimatedWrapper', () => ({
-  default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+vi.mock('sonner', () => ({
+  toast: {
+    success: (...args: unknown[]) => mockToastSuccess(...args),
+    error: (...args: unknown[]) => mockToastError(...args),
+    info: (...args: unknown[]) => mockToastInfo(...args),
+    warning: vi.fn(),
+  },
 }));
 vi.mock('@/components/business/Interview/RichnessRing', () => ({
   default: ({ score }: { score: number }) => <div data-testid="richness-ring">score:{score}</div>,
 }));
-vi.mock('antd', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('antd')>();
-  return {
-    ...actual,
-    message: {
-      ...actual.message,
-      error: (...args: unknown[]) => mockMessageError(...args),
-      info: (...args: unknown[]) => mockMessageInfo(...args),
-      success: (...args: unknown[]) => mockMessageSuccess(...args),
-    },
-  };
-});
+vi.mock('@/components/common/EmptyState', () => ({
+  EmptyState: ({ title, actionLabel, onAction }: any) => <div>{title}{actionLabel && <button onClick={onAction}>{actionLabel}</button>}</div>,
+}));
 
 import MyStory from './index';
 
@@ -103,8 +99,8 @@ describe('MyStory', () => {
   it('有 error 且無 profile 時應顯示錯誤提示', () => {
     mockPsychState.error = 'load failed';
     renderPage();
-    expect(screen.getByText('common.loadFailed')).toBeInTheDocument();
     expect(screen.getByText('load failed')).toBeInTheDocument();
+    expect(screen.getByText('common.retry')).toBeInTheDocument();
   });
 
   it('storeError 時點擊 retry 應呼叫 fetchProfile（F06 錯誤恢復：重試載入）', () => {
@@ -217,7 +213,7 @@ describe('MyStory', () => {
     unmount();
     resolveRetry!(undefined);
     await Promise.resolve();
-    expect(mockMessageInfo).not.toHaveBeenCalled();
+    expect(mockToastInfo).not.toHaveBeenCalled();
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
@@ -254,7 +250,7 @@ describe('MyStory', () => {
     fireEvent.click(retryBtn);
     await waitFor(() => {
       expect(mockRetryFailed).toHaveBeenCalledWith('fs1');
-      expect(mockMessageInfo).toHaveBeenCalledWith('psychProfile.retryProcessing');
+      expect(mockToastInfo).toHaveBeenCalledWith('psychProfile.retryProcessing');
       expect(mockNavigate).toHaveBeenCalledWith('/interview/fs1/result');
     });
   });
@@ -282,7 +278,7 @@ describe('MyStory', () => {
     unmount();
     resolveDelete!(undefined);
     await Promise.resolve();
-    expect(mockMessageSuccess).not.toHaveBeenCalled();
+    expect(mockToastSuccess).not.toHaveBeenCalled();
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
@@ -379,7 +375,7 @@ describe('MyStory', () => {
     renderPage();
     fireEvent.click(screen.getByText('psychProfile.continueChat'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('啟動訪談失敗');
+      expect(mockToastError).toHaveBeenCalledWith('啟動訪談失敗');
     });
   });
 
@@ -395,7 +391,7 @@ describe('MyStory', () => {
     renderPage();
     fireEvent.click(screen.getByText('psychProfile.continueChat'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('interview.startFail');
+      expect(mockToastError).toHaveBeenCalledWith('interview.startFail');
     });
   });
 
@@ -412,7 +408,7 @@ describe('MyStory', () => {
     };
     renderPage();
     fireEvent.click(screen.getByText('psychProfile.continueChat'));
-    await waitFor(() => expect(mockMessageError).toHaveBeenCalledWith('網路錯誤'));
+    await waitFor(() => expect(mockToastError).toHaveBeenCalledWith('網路錯誤'));
     fireEvent.click(screen.getByText('psychProfile.continueChat'));
     await waitFor(() => {
       expect(mockStartSession).toHaveBeenCalledTimes(2);
@@ -432,7 +428,7 @@ describe('MyStory', () => {
     renderPage();
     fireEvent.click(screen.getByText('psychProfile.continueChat'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('interview.startFail');
+      expect(mockToastError).toHaveBeenCalledWith('interview.startFail');
     });
   });
 
@@ -448,7 +444,7 @@ describe('MyStory', () => {
     renderPage();
     fireEvent.click(screen.getByText('psychProfile.continueChat'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('interview.startFail');
+      expect(mockToastError).toHaveBeenCalledWith('interview.startFail');
     });
   });
 
@@ -465,7 +461,7 @@ describe('MyStory', () => {
     const retryBtn = await screen.findByRole('button', { name: 'psychProfile.retryProcessing' });
     fireEvent.click(retryBtn);
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('重試處理失敗');
+      expect(mockToastError).toHaveBeenCalledWith('重試處理失敗');
     });
   });
 
@@ -482,7 +478,7 @@ describe('MyStory', () => {
     const retryBtn = await screen.findByRole('button', { name: 'psychProfile.retryProcessing' });
     fireEvent.click(retryBtn);
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('interview.retryFail');
+      expect(mockToastError).toHaveBeenCalledWith('interview.retryFail');
     });
   });
 
@@ -499,7 +495,7 @@ describe('MyStory', () => {
     const retryBtn = await screen.findByRole('button', { name: 'psychProfile.retryProcessing' });
     fireEvent.click(retryBtn);
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('interview.retryFail');
+      expect(mockToastError).toHaveBeenCalledWith('interview.retryFail');
     });
   });
 
@@ -516,7 +512,7 @@ describe('MyStory', () => {
     const retryBtn = await screen.findByRole('button', { name: 'psychProfile.retryProcessing' });
     fireEvent.click(retryBtn);
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('interview.retryFail');
+      expect(mockToastError).toHaveBeenCalledWith('interview.retryFail');
     });
   });
 
@@ -534,7 +530,7 @@ describe('MyStory', () => {
     renderPage();
     const retryBtn = await screen.findByRole('button', { name: 'psychProfile.retryProcessing' });
     fireEvent.click(retryBtn);
-    await waitFor(() => expect(mockMessageError).toHaveBeenCalledWith('第一次重試失敗'));
+    await waitFor(() => expect(mockToastError).toHaveBeenCalledWith('第一次重試失敗'));
     fireEvent.click(retryBtn);
     await waitFor(() => {
       expect(mockRetryFailed).toHaveBeenCalledTimes(2);
@@ -579,7 +575,7 @@ describe('MyStory', () => {
     });
     fireEvent.click(screen.getByText('psychProfile.confirmDelete'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('刪除資料失敗');
+      expect(mockToastError).toHaveBeenCalledWith('刪除資料失敗');
     });
   });
 
@@ -598,7 +594,7 @@ describe('MyStory', () => {
     });
     fireEvent.click(screen.getByText('psychProfile.confirmDelete'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('psychProfile.deleteFail');
+      expect(mockToastError).toHaveBeenCalledWith('psychProfile.deleteFail');
     });
   });
 
@@ -616,7 +612,7 @@ describe('MyStory', () => {
     fireEvent.click(screen.getByText('psychProfile.deleteAllData'));
     await waitFor(() => expect(screen.getByText('psychProfile.deleteConfirmTitle')).toBeInTheDocument());
     fireEvent.click(screen.getByText('psychProfile.confirmDelete'));
-    await waitFor(() => expect(mockMessageError).toHaveBeenCalledWith('暫無法刪除'));
+    await waitFor(() => expect(mockToastError).toHaveBeenCalledWith('暫無法刪除'));
     await waitFor(() => expect(screen.getByRole('button', { name: 'psychProfile.confirmDelete' })).toBeEnabled());
     fireEvent.click(screen.getByRole('button', { name: 'psychProfile.confirmDelete' }));
     await waitFor(() => {
@@ -641,7 +637,7 @@ describe('MyStory', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'psychProfile.confirmDelete' })).toBeEnabled());
     fireEvent.click(screen.getByRole('button', { name: 'psychProfile.confirmDelete' }));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('psychProfile.deleteFail');
+      expect(mockToastError).toHaveBeenCalledWith('psychProfile.deleteFail');
     });
   });
 
@@ -660,7 +656,7 @@ describe('MyStory', () => {
     });
     fireEvent.click(screen.getByText('psychProfile.confirmDelete'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('psychProfile.deleteFail');
+      expect(mockToastError).toHaveBeenCalledWith('psychProfile.deleteFail');
     });
   });
 });

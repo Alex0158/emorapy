@@ -8,7 +8,7 @@ import { useAuth, useRequireAuth } from './useAuth';
 const mockCheckAuth = vi.fn();
 const mockLogout = vi.fn();
 const mockNavigate = vi.fn();
-const mockMessageSuccess = vi.fn();
+const mockToastSuccess = vi.fn();
 
 let mockAuthState = {
   user: { id: 'u1', email: 'u@example.com' } as Record<string, unknown> | null,
@@ -25,8 +25,8 @@ vi.mock('react-router-dom', () => ({
   useNavigate: () => mockNavigate,
 }));
 
-vi.mock('antd', () => ({
-  message: { success: (...args: unknown[]) => mockMessageSuccess(...args) },
+vi.mock('sonner', () => ({
+  toast: { success: (...args: unknown[]) => mockToastSuccess(...args) },
 }));
 
 vi.mock('@/utils/i18n', () => ({
@@ -51,13 +51,13 @@ describe('useAuth', () => {
     expect(typeof result.current.logout).toBe('function');
   });
 
-  it('logout 應調用 store.logout、message.success、navigate("/")', () => {
+  it('logout 應調用 store.logout、toast.success、navigate("/")', () => {
     const { result } = renderHook(() => useAuth());
     act(() => {
       result.current.logout();
     });
     expect(mockLogout).toHaveBeenCalled();
-    expect(mockMessageSuccess).toHaveBeenCalledWith('common.logoutSuccess');
+    expect(mockToastSuccess).toHaveBeenCalledWith('common.logoutSuccess');
     expect(mockNavigate).toHaveBeenCalledWith('/');
   });
 });

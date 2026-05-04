@@ -5,7 +5,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
-import { message } from 'antd';
+import { toast } from 'sonner';
 import { t } from '@/utils/i18n';
 
 /**
@@ -24,7 +24,7 @@ export function useAuth() {
 
   const handleLogout = () => {
     logout();
-    message.success(t('common.logoutSuccess'));
+    toast.success(t('common.logoutSuccess'));
     navigate('/');
   };
 

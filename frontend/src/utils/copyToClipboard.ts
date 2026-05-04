@@ -2,7 +2,7 @@
  * 剪貼板工具
  */
 
-import { message } from 'antd';
+import { toast } from 'sonner';
 import { t } from '@/utils/i18n';
 
 /**
@@ -12,7 +12,7 @@ export async function copyToClipboard(text: string): Promise<boolean> {
   try {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       await navigator.clipboard.writeText(text);
-      message.success(t('common.copied'));
+      toast.success(t('common.copied'));
       return true;
     } else {
       // 降級方案
@@ -26,15 +26,15 @@ export async function copyToClipboard(text: string): Promise<boolean> {
       document.body.removeChild(textArea);
 
       if (success) {
-        message.success(t('common.copied'));
+        toast.success(t('common.copied'));
         return true;
       } else {
-        message.error(t('common.copyFail'));
+        toast.error(t('common.copyFail'));
         return false;
       }
     }
   } catch {
-    message.error(t('common.copyFail'));
+    toast.error(t('common.copyFail'));
     return false;
   }
 }

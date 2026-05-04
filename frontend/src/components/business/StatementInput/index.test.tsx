@@ -48,8 +48,9 @@ describe('StatementInput', () => {
     const onChange = vi.fn();
     render(<StatementInput value="這是一段不足三十字的短敘述" onChange={onChange} />); // 13 chars < 30
     expect(screen.getByText(/至少30字，當前13字/)).toBeInTheDocument();
-    const wordCountEl = document.querySelector('.word-count.warning');
-    expect(wordCountEl).toBeInTheDocument();
+    // Word count <p> now uses Tailwind text-warning class
+    const wordCountEl = screen.getByText(/至少30字，當前13字/).closest('p');
+    expect(wordCountEl).toHaveClass('text-warning');
   });
 
   it('exactly 29 字時應仍顯示驗證錯誤', () => {
@@ -62,8 +63,12 @@ describe('StatementInput', () => {
     const onChange = vi.fn();
     const validStatement = '這是一段超過三十字的原告敘述，用於覆蓋快速體驗當前真實提交流程。'; // ≥30 chars
     render(<StatementInput value={validStatement} onChange={onChange} />);
-    expect(document.querySelector('.word-count.success')).toBeInTheDocument();
-    expect(document.querySelector('.status-icon.valid')).toBeInTheDocument();
+    // Word count <p> uses Tailwind text-success class
+    const paragraphs = document.querySelectorAll('p');
+    const wordCountP = Array.from(paragraphs).find(p => p.classList.contains('text-success'));
+    expect(wordCountP).toBeInTheDocument();
+    // Validation icon uses CheckCircle with aria-label
+    expect(screen.getByLabelText('字數OK')).toBeInTheDocument();
   });
 
   it('allowEmpty 且 value 為空時應顯示 optional', () => {

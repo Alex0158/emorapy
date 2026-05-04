@@ -3,7 +3,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import { message } from 'antd';
+import { toast } from 'sonner';
 import { getErrorMessage, isNetworkError, isAuthError } from '@/utils/apiError';
 
 interface UseApiOptions {
@@ -34,7 +34,7 @@ export function useApi<T, P extends unknown[] = unknown[]>(
         setData(result);
 
         if (showSuccess && successMessage) {
-          message.success(successMessage);
+          toast.success(successMessage);
         }
 
         return result;
@@ -45,7 +45,7 @@ export function useApi<T, P extends unknown[] = unknown[]>(
         if (showError) {
           // 網絡錯誤和認證錯誤已在request攔截器中處理
           if (!isNetworkError(err) && !isAuthError(err)) {
-            message.error(errorMessage);
+            toast.error(errorMessage);
           }
         }
 

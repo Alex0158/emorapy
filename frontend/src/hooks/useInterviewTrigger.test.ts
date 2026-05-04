@@ -9,9 +9,9 @@ vi.mock('react-router-dom', () => ({
   useNavigate: () => mockNavigate,
 }));
 
-const mockMessageError = vi.fn();
-vi.mock('antd', () => ({
-  message: { error: (...args: unknown[]) => mockMessageError(...args) },
+const mockToastError = vi.fn();
+vi.mock('sonner', () => ({
+  toast: { error: (...args: unknown[]) => mockToastError(...args) },
 }));
 
 vi.mock('@/utils/i18n', () => ({
@@ -114,7 +114,7 @@ describe('useInterviewTrigger', () => {
     await act(async () => {
       await result.current.triggerInterview();
     });
-    expect(mockMessageError).toHaveBeenCalledWith('interview.startFail');
+    expect(mockToastError).toHaveBeenCalledWith('interview.startFail');
   });
 
   it('handleConsent 成功後應同意並啟動 session', async () => {
@@ -137,6 +137,6 @@ describe('useInterviewTrigger', () => {
     await act(async () => {
       await result.current.handleConsent();
     });
-    expect(mockMessageError).toHaveBeenCalledWith('interview.startFail');
+    expect(mockToastError).toHaveBeenCalledWith('interview.startFail');
   });
 });

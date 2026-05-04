@@ -23,10 +23,12 @@ beforeEach(() => {
 });
 
 describe('LazyImage', () => {
-  it('應渲染容器與 placeholder（未進入視口時）', () => {
+  it('應渲染容器與 loading 狀態（未進入視口時）', () => {
     const { container } = render(<LazyImage src="https://example.com/img.jpg" alt="圖片" />);
-    expect(container.querySelector('.lazy-image-container')).toBeInTheDocument();
-    expect(container.querySelector('.lazy-image-placeholder')).toBeInTheDocument();
+    // Container uses cn() with 'relative overflow-hidden'
+    expect(container.querySelector('.relative.overflow-hidden')).toBeInTheDocument();
+    // Loading indicator should be present (Loader2 with animate-spin)
+    expect(container.querySelector('.animate-spin')).toBeInTheDocument();
   });
 
   it('有 placeholder 時應顯示 placeholder 圖片', () => {
@@ -37,7 +39,7 @@ describe('LazyImage', () => {
         placeholder="https://example.com/placeholder.jpg"
       />
     );
-    const placeholderImg = container.querySelector('.placeholder-image');
+    const placeholderImg = container.querySelector('img');
     expect(placeholderImg).toBeInTheDocument();
     expect(placeholderImg?.getAttribute('src')).toBe('https://example.com/placeholder.jpg');
   });
@@ -48,7 +50,7 @@ describe('LazyImage', () => {
     act(() => {
       observeCallback([{ isIntersecting: true }]);
     });
-    const img = container.querySelector('.lazy-image');
+    const img = container.querySelector('img.transition-opacity');
     expect(img).toBeInTheDocument();
     expect(img?.getAttribute('src')).toBe('https://example.com/img.jpg');
     expect(img?.getAttribute('alt')).toBe('圖');
@@ -58,6 +60,6 @@ describe('LazyImage', () => {
     const { container } = render(
       <LazyImage src="https://example.com/img.jpg" alt="圖" className="custom" />
     );
-    expect(container.querySelector('.lazy-image-container.custom')).toBeInTheDocument();
+    expect(container.querySelector('.relative.overflow-hidden.custom')).toBeInTheDocument();
   });
 });

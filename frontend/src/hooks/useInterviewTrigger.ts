@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { message } from 'antd';
+import { toast } from 'sonner';
 import { usePsychProfileStore } from '@/store/psychProfileStore';
 import { useInterviewStore } from '@/store/interviewStore';
 import { getInterviewResumeNavigationPath } from '@/utils/interviewResume';
@@ -34,7 +34,7 @@ export function useInterviewTrigger(trigger: TriggerType) {
     try {
       await startFlow();
     } catch {
-      message.error(t('interview.startFail'));
+      toast.error(t('interview.startFail'));
     }
   }, [profileConsent, startFlow]);
 
@@ -45,7 +45,7 @@ export function useInterviewTrigger(trigger: TriggerType) {
       setConsentOpen(false);
       await startFlow();
     } catch {
-      message.error(t('interview.startFail'));
+      toast.error(t('interview.startFail'));
     }
   }, [giveConsent, startFlow]);
 

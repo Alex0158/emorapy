@@ -1,7 +1,7 @@
 /**
  * ConfirmModal 組件單元測試
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import ConfirmModal from './index';
 
@@ -12,18 +12,9 @@ vi.mock('@/utils/i18n', () => ({
 }));
 
 describe('ConfirmModal', () => {
-  beforeEach(() => {
-    // antd Modal / testing-library use getComputedStyle in jsdom which is not fully implemented
-    const stubStyle = { getPropertyValue: () => '' };
-    Object.defineProperty(window, 'getComputedStyle', {
-      value: () => stubStyle,
-      configurable: true,
-    });
-  });
-
   it('應渲染並顯示 children', () => {
     render(
-      <ConfirmModal open onConfirm={vi.fn()} onCancel={vi.fn()}>
+      <ConfirmModal open onConfirm={vi.fn()} onCancel={vi.fn()} title="提示">
         確定要刪除嗎？
       </ConfirmModal>
     );
@@ -32,13 +23,13 @@ describe('ConfirmModal', () => {
 
   it('預設應顯示確認與取消按鈕文字', () => {
     render(
-      <ConfirmModal open onConfirm={vi.fn()} onCancel={vi.fn()}>
+      <ConfirmModal open onConfirm={vi.fn()} onCancel={vi.fn()} title="提示">
         內容
       </ConfirmModal>
     );
-    // Modal has Close + cancel + confirm; exclude Close to get ok/cancel (i18n t() may render key or translation)
-    const buttons = screen.getAllByRole('button').filter((b) => b.getAttribute('aria-label') !== 'Close');
-    expect(buttons).toHaveLength(2);
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByText('確認')).toBeInTheDocument();
+    expect(screen.getByText('取消')).toBeInTheDocument();
   });
 
   it('應支援自定義 confirmText 與 cancelText', () => {
@@ -49,33 +40,35 @@ describe('ConfirmModal', () => {
         onCancel={vi.fn()}
         confirmText="刪除"
         cancelText="返回"
+        title="提示"
       >
         內容
       </ConfirmModal>
     );
-    const buttons = screen.getAllByRole('button').filter((b) => b.getAttribute('aria-label') !== 'Close');
-    expect(buttons).toHaveLength(2);
-    const texts = buttons.map((b) => (b.textContent ?? '').trim());
-    expect(texts.some((t) => t.replace(/\s/g, '') === '刪除')).toBe(true);
-    expect(texts.some((t) => t.replace(/\s/g, '') === '返回')).toBe(true);
+    expect(screen.getByText('刪除')).toBeInTheDocument();
+    expect(screen.getByText('返回')).toBeInTheDocument();
   });
 
   it('type 為 warning 時應顯示警示圖標', () => {
     render(
-      <ConfirmModal open onConfirm={vi.fn()} onCancel={vi.fn()} type="warning">
+      <ConfirmModal open onConfirm={vi.fn()} onCancel={vi.fn()} type="warning" title="警告">
         內容
       </ConfirmModal>
     );
-    // Modal renders in a portal so query document
-    expect(document.querySelector('[class*="exclamation-circle"]')).toBeInTheDocument();
+    // AlertTriangle from lucide renders an SVG with class containing "text-warning"
+    // Dialog renders in a portal, so query document directly
+    const svg = document.body.querySelector('svg[class*="text-warning"]');
+    expect(svg).toBeInTheDocument();
   });
 
   it('type 為 danger 時應顯示警示圖標', () => {
     render(
-      <ConfirmModal open onConfirm={vi.fn()} onCancel={vi.fn()} type="danger">
+      <ConfirmModal open onConfirm={vi.fn()} onCancel={vi.fn()} type="danger" title="危險">
         內容
       </ConfirmModal>
     );
-    expect(document.querySelector('[class*="exclamation-circle"]')).toBeInTheDocument();
+    // AlertCircle from lucide renders an SVG with class containing "text-destructive"
+    const svg = document.body.querySelector('svg[class*="text-destructive"]');
+    expect(svg).toBeInTheDocument();
   });
 });

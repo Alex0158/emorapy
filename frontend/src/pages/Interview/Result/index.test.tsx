@@ -9,25 +9,20 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 const mockNavigate = vi.fn();
 const mockGetSession = vi.fn();
 const mockRetryFailed = vi.fn();
-const mockMessageError = vi.fn();
-const mockMessageInfo = vi.fn();
+const mockToastError = vi.fn();
+const mockToastInfo = vi.fn();
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
   return { ...actual, useNavigate: () => mockNavigate };
 });
-vi.mock('antd', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('antd')>();
-  return {
-    ...actual,
-    message: {
-      ...actual.message,
-      error: (...args: unknown[]) => mockMessageError(...args),
-      info: (...args: unknown[]) => mockMessageInfo(...args),
-      success: vi.fn(),
-    },
-  };
-});
+vi.mock('sonner', () => ({
+  toast: {
+    error: (...args: unknown[]) => mockToastError(...args),
+    info: (...args: unknown[]) => mockToastInfo(...args),
+    success: vi.fn(),
+  },
+}));
 
 let mockStoreState = {
   currentSession: null as Record<string, unknown> | null,
@@ -196,7 +191,7 @@ describe('InterviewResult', () => {
     renderWithRouter();
     fireEvent.click(screen.getByText('interview.result.retry'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('重試失敗');
+      expect(mockToastError).toHaveBeenCalledWith('重試失敗');
     });
   });
 
@@ -206,7 +201,7 @@ describe('InterviewResult', () => {
     renderWithRouter();
     fireEvent.click(screen.getByText('interview.result.retry'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('interview.retryFail');
+      expect(mockToastError).toHaveBeenCalledWith('interview.retryFail');
     });
   });
 
@@ -219,7 +214,7 @@ describe('InterviewResult', () => {
     await waitFor(() => {
       expect(mockRetryFailed).toHaveBeenCalledWith('test-session');
       expect(mockGetSession).toHaveBeenCalledWith('test-session');
-      expect(mockMessageError).toHaveBeenCalledWith('get session failed');
+      expect(mockToastError).toHaveBeenCalledWith('get session failed');
     });
   });
 
@@ -232,7 +227,7 @@ describe('InterviewResult', () => {
     await waitFor(() => {
       expect(mockRetryFailed).toHaveBeenCalledWith('test-session');
       expect(mockGetSession).toHaveBeenCalledWith('test-session');
-      expect(mockMessageError).toHaveBeenCalledWith('interview.retryFail');
+      expect(mockToastError).toHaveBeenCalledWith('interview.retryFail');
     });
   });
 
@@ -245,7 +240,7 @@ describe('InterviewResult', () => {
     await waitFor(() => {
       expect(mockRetryFailed).toHaveBeenCalledWith('test-session');
       expect(mockGetSession).toHaveBeenCalledWith('test-session');
-      expect(mockMessageError).toHaveBeenCalledWith('interview.retryFail');
+      expect(mockToastError).toHaveBeenCalledWith('interview.retryFail');
     });
   });
 
@@ -255,7 +250,7 @@ describe('InterviewResult', () => {
     renderWithRouter();
     fireEvent.click(screen.getByText('interview.result.retry'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('interview.retryFail');
+      expect(mockToastError).toHaveBeenCalledWith('interview.retryFail');
     });
   });
 
@@ -265,7 +260,7 @@ describe('InterviewResult', () => {
     renderWithRouter();
     fireEvent.click(screen.getByText('interview.result.retry'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('interview.retryFail');
+      expect(mockToastError).toHaveBeenCalledWith('interview.retryFail');
     });
   });
 
@@ -283,7 +278,7 @@ describe('InterviewResult', () => {
     unmount();
     resolveRetryFailed!();
     await Promise.resolve();
-    expect(mockMessageInfo).not.toHaveBeenCalled();
+    expect(mockToastInfo).not.toHaveBeenCalled();
   });
 
   it('processing_failed 時 retryFailed 失敗後應仍可再次點擊 retry，成功時應顯示 retryProcessing（F06 錯誤恢復：失敗不阻塞重試）', async () => {
@@ -293,11 +288,11 @@ describe('InterviewResult', () => {
     renderWithRouter();
     const retryBtn = screen.getByText('interview.result.retry');
     fireEvent.click(retryBtn);
-    await waitFor(() => expect(mockMessageError).toHaveBeenCalledWith('network error'));
+    await waitFor(() => expect(mockToastError).toHaveBeenCalledWith('network error'));
     fireEvent.click(retryBtn);
     await waitFor(() => {
       expect(mockRetryFailed).toHaveBeenCalledTimes(2);
-      expect(mockMessageInfo).toHaveBeenCalledWith('interview.retryProcessing');
+      expect(mockToastInfo).toHaveBeenCalledWith('interview.retryProcessing');
     });
   });
 

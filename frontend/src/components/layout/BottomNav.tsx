@@ -1,8 +1,14 @@
+/**
+ * 移動端底部導航
+ *
+ * 遷移: Ant Design Icons → Lucide + Tailwind（md:hidden 保持只在移動端顯示）
+ */
+
 import { useLocation, useNavigate } from 'react-router-dom';
-import { HomeOutlined, PlusCircleOutlined, MessageOutlined, UserOutlined, FileTextOutlined } from '@ant-design/icons';
+import { Home, PlusCircle, MessageCircle, User, FileText } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
+import { cn } from '@/lib/utils';
 import { t } from '@/utils/i18n';
-import './BottomNav.less';
 
 const BottomNav = () => {
   const location = useLocation();
@@ -11,35 +17,43 @@ const BottomNav = () => {
 
   const navItems = isAuthenticated
     ? [
-        { key: '/', icon: <HomeOutlined />, label: t('nav.home') },
-        { key: '/case/list', icon: <FileTextOutlined />, label: t('nav.myCases') },
-        { key: '/case/create', icon: <PlusCircleOutlined className="text-2xl text-primary" />, label: t('nav.createCase'), isPrimary: true },
-        { key: '/chat/room', icon: <MessageOutlined />, label: t('nav.chat') },
-        { key: '/profile/index', icon: <UserOutlined />, label: t('nav.profile') },
+        { key: '/', icon: Home, label: t('nav.home') },
+        { key: '/case/list', icon: FileText, label: t('nav.myCases') },
+        { key: '/case/create', icon: PlusCircle, label: t('nav.createCase'), isPrimary: true },
+        { key: '/chat/room', icon: MessageCircle, label: t('nav.chat') },
+        { key: '/profile/index', icon: User, label: t('nav.profile') },
       ]
     : [
-        { key: '/', icon: <HomeOutlined />, label: t('nav.home') },
-        { key: '/quick-experience/create', icon: <PlusCircleOutlined className="text-2xl text-primary" />, label: t('nav.quickExperience'), isPrimary: true },
-        { key: '/chat/room', icon: <MessageOutlined />, label: t('nav.chat') },
-        { key: '/auth/login', icon: <UserOutlined />, label: t('nav.login') },
+        { key: '/', icon: Home, label: t('nav.home') },
+        { key: '/quick-experience/create', icon: PlusCircle, label: t('nav.quickExperience'), isPrimary: true },
+        { key: '/chat/room', icon: MessageCircle, label: t('nav.chat') },
+        { key: '/auth/login', icon: User, label: t('nav.login') },
       ];
 
   return (
-    <div className="bottom-nav md:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-around border-t border-border bg-card/95 px-2 py-2 backdrop-blur-sm md:hidden">
       {navItems.map((item) => {
+        const Icon = item.icon;
         const isActive = location.pathname === item.key || (item.key !== '/' && location.pathname.startsWith(item.key));
         return (
-          <div
+          <button
             key={item.key}
-            className={`nav-item ${isActive ? 'active' : ''} ${item.isPrimary ? 'primary-item' : ''}`}
+            type="button"
             onClick={() => navigate(item.key)}
+            className={cn(
+              'flex flex-col items-center gap-0.5 rounded-lg px-3 py-1.5 transition-colors',
+              item.isPrimary && 'relative -top-2',
+              isActive ? 'text-primary' : 'text-muted-foreground',
+            )}
+            aria-label={item.label}
+            aria-current={isActive ? 'page' : undefined}
           >
-            <div className="icon-wrapper">{item.icon}</div>
-            <span className="label">{item.label}</span>
-          </div>
+            <Icon className={cn('size-5', item.isPrimary && 'size-7 text-primary')} />
+            <span className="text-[10px] font-medium">{item.label}</span>
+          </button>
         );
       })}
-    </div>
+    </nav>
   );
 };
 

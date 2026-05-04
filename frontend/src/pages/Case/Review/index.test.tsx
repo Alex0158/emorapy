@@ -37,17 +37,14 @@ vi.mock('@/components/common/AnimatedWrapper', () => ({
 }));
 vi.mock('@/components/business/MediatorAvatar', () => ({ default: () => <div>MediatorAvatar</div> }));
 vi.mock('@/utils/logger', () => ({ logger: { error: vi.fn() } }));
-vi.mock('antd', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('antd')>();
-  return {
-    ...actual,
-    message: {
-      error: (...args: unknown[]) => mockMessageError(...args),
-      success: (...args: unknown[]) => mockMessageSuccess(...args),
-      warning: (...args: unknown[]) => mockMessageWarning(...args),
-    },
-  };
-});
+vi.mock('sonner', () => ({
+  toast: {
+    error: (...args: unknown[]) => mockMessageError(...args),
+    success: (...args: unknown[]) => mockMessageSuccess(...args),
+    warning: (...args: unknown[]) => mockMessageWarning(...args),
+    info: vi.fn(),
+  },
+}));
 
 import CaseReview from './index';
 

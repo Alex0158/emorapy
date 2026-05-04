@@ -6,7 +6,7 @@ import { MemoryRouter } from 'react-router-dom';
 const mockNavigate = vi.fn();
 const mockGetAllExecutionStatuses = vi.fn();
 const mockResumeTrack = vi.fn();
-const mockMessageError = vi.fn();
+const mockToastError = vi.fn();
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
@@ -29,16 +29,30 @@ vi.mock('@/components/common/AnimatedWrapper', () => ({
   default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 vi.mock('@/utils/i18n', () => ({ t: (key: string) => key }));
-vi.mock('antd', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('antd')>();
-  return {
-    ...actual,
-    message: {
-      ...actual.message,
-      error: (...args: unknown[]) => mockMessageError(...args),
-    },
-  };
-});
+vi.mock('sonner', () => ({
+  toast: {
+    error: (...args: unknown[]) => mockToastError(...args),
+    success: vi.fn(),
+    warning: vi.fn(),
+    info: vi.fn(),
+  },
+}));
+
+vi.mock('framer-motion', () => ({
+  motion: {
+    div: ({ children, ...props }: { children?: React.ReactNode; [key: string]: unknown }) => <div {...props}>{children}</div>,
+  },
+  AnimatePresence: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
+}));
+
+vi.mock('@/components/common/EmptyState', () => ({
+  EmptyState: ({ variant, actionLabel, onAction }: { variant?: string; actionLabel?: string; onAction?: () => void }) => (
+    <div data-testid="empty-state" data-variant={variant}>
+      <p>execDashboard.empty</p>
+      {actionLabel && <button onClick={onAction}>{actionLabel}</button>}
+    </div>
+  ),
+}));
 
 import ExecutionDashboard from './index';
 
@@ -47,7 +61,7 @@ describe('ExecutionDashboard', () => {
     mockNavigate.mockReset();
     mockGetAllExecutionStatuses.mockReset();
     mockResumeTrack.mockReset();
-    mockMessageError.mockReset();
+    mockToastError.mockReset();
   });
 
   it('空資料時顯示空狀態', async () => {

@@ -30,7 +30,7 @@ describe('SafetyAlert', () => {
   });
 
   it('有 onDismiss 時應可關閉', () => {
-    const { container } = render(<SafetyAlert message="test" onDismiss={vi.fn()} />);
-    expect(container.querySelector('.ant-alert-close-icon')).toBeInTheDocument();
+    render(<SafetyAlert message="test" onDismiss={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Dismiss' })).toBeInTheDocument();
   });
 });

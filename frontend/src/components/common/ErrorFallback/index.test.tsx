@@ -69,12 +69,12 @@ describe('ErrorFallback', () => {
     expect(mockReload).toHaveBeenCalled();
   });
 
-  it('應有 error-fallback 類名', () => {
+  it('應渲染錯誤容器', () => {
     const { container } = render(
       <MemoryRouter>
         <ErrorFallback />
       </MemoryRouter>
     );
-    expect(container.querySelector('.error-fallback')).toBeInTheDocument();
+    expect(container.querySelector('.min-h-\\[60vh\\]')).toBeInTheDocument();
   });
 });

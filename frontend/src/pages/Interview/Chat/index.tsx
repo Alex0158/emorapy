@@ -1,8 +1,16 @@
+/**
+ * 訪談聊天主頁面
+ *
+ * 遷移: Ant Typography/Button/Spin/message/Icons → shadcn Button + Tailwind + sonner + Lucide
+ * 保留: 所有業務邏輯（AI stream subscription, session lifecycle, canonical sync guard）
+ */
+
 import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { useMountedRef } from '@/hooks/useMountedRef';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Typography, Button, Spin, message } from 'antd';
-import { ArrowLeftOutlined } from '@ant-design/icons';
+import { toast } from 'sonner';
+import { ArrowLeft, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import ChatBubble from '@/components/business/Interview/ChatBubble';
 import InterviewInput from '@/components/business/Interview/InterviewInput';
 import SafetyAlert from '@/components/business/Interview/SafetyAlert';
@@ -25,9 +33,6 @@ import {
   shouldShowFallbackReloadButton,
   shouldShowRateLimitHint,
 } from './interviewChatUtils';
-import './index.less';
-
-const { Title, Text } = Typography;
 
 const InterviewChat: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -92,9 +97,6 @@ const InterviewChat: React.FC = () => {
       const latest = [...snapshots].sort((a, b) => a.lastSeq - b.lastSeq).at(-1);
       if (!latest) return;
 
-      // Reconnect can miss the terminal live event and only replay the latest
-      // persisted snapshot. Recover the canonical session so the page does not
-      // stay stuck in the optimistic streaming state forever.
       if (latest.status === 'persisted') {
         applyShouldEnd(latest.metadata?.shouldEnd === true);
         finishStreaming();
@@ -151,7 +153,7 @@ const InterviewChat: React.FC = () => {
     },
   });
 
-  // Session bootstrapping: load session on mount, cancel stream on unmount
+  // Session bootstrapping
   useEffect(() => {
     let stale = false;
     if (sessionId) {
@@ -171,7 +173,7 @@ const InterviewChat: React.FC = () => {
     };
   }, [sessionId, getSession, cancelStream, mountedRef]);
 
-  // Chat scroll behavior: scroll to bottom when turns or streaming text change
+  // Auto-scroll
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [turns, streamingText, mirroredDraft]);
@@ -186,17 +188,17 @@ const InterviewChat: React.FC = () => {
       }
       await endSession(sessionId);
       if (!mountedRef.current) return;
-      message.success(t('interview.endSuccess'));
+      toast.success(t('interview.endSuccess'));
       navigate(`/interview/${sessionId}/result`, { replace: true });
     } catch (error: unknown) {
       if (!mountedRef.current) return;
-      message.error(getApiErrorMessage(error, 'interview.endFail'));
+      toast.error(getApiErrorMessage(error, 'interview.endFail'));
     } finally {
       endingRef.current = false;
     }
   }, [sessionId, endSession, navigate, isStreaming, cancelStream, mountedRef]);
 
-  // Session termination behavior: auto-end when shouldEnd is true and not streaming
+  // Auto-end when shouldEnd is true
   useEffect(() => {
     if (shouldEnd && sessionId && currentSession?.status === 'in_progress' && !isStreaming) {
       handleEnd();
@@ -249,9 +251,7 @@ const InterviewChat: React.FC = () => {
       });
   }, [sessionId, getSession, mountedRef]);
 
-  // P03 regression guard: if SSE misses the terminal event, keep reconciling
-  // the canonical session for a bounded window so the optimistic streaming
-  // shell can self-heal without a manual reload.
+  // P03 regression guard: canonical sync during streaming
   useEffect(() => {
     if (!sessionId || !currentSession?.id || !isStreaming) {
       canonicalSyncLockRef.current = false;
@@ -290,29 +290,31 @@ const InterviewChat: React.FC = () => {
   const recoveryBadgeText = t('interview.recoveringBadge');
   const draftFallbackText = t('interview.thinking');
 
+  // Loading state
   if (loading && !currentSession) {
     return (
-      <div className="interview-chat__loading">
-        <Spin size="large" />
-        <Text type="secondary">{t('interview.loadingChat')}</Text>
+      <div className="flex min-h-[80vh] flex-col items-center justify-center gap-3">
+        <Loader2 className="size-8 animate-spin text-primary" />
+        <span className="text-sm text-muted-foreground">{t('interview.loadingChat')}</span>
       </div>
     );
   }
 
+  // Initial load error
   if (initialLoadError && !currentSession) {
     return (
-      <div className="interview-chat__loading">
+      <div className="flex min-h-[80vh] flex-col items-center justify-center p-6">
         <AIErrorState
-          className="interview-chat__load-error"
+          className="w-full max-w-md"
           title={t('interview.loadFail')}
           description={initialLoadError}
           actions={(
-            <Button type="primary" onClick={handleInitialLoadRetry} data-testid="interview-chat-load-retry">
+            <Button size="sm" onClick={handleInitialLoadRetry} data-testid="interview-chat-load-retry">
               {t('common.retry')}
             </Button>
           )}
           footer={(
-            <Button onClick={() => navigate('/profile/index')}>
+            <Button variant="ghost" size="sm" onClick={() => navigate('/profile/index')}>
               {t('interview.backToProfile')}
             </Button>
           )}
@@ -322,28 +324,32 @@ const InterviewChat: React.FC = () => {
   }
 
   return (
-    <div className="interview-chat">
-      <div className="interview-chat__header">
-        <Button
-          type="text"
-          icon={<ArrowLeftOutlined />}
+    <div className="flex h-[100dvh] flex-col bg-background">
+      {/* Header */}
+      <header className="flex shrink-0 items-center gap-3 border-b border-border bg-card/80 px-4 py-3 backdrop-blur-sm">
+        <button
           onClick={() => navigate('/profile/index')}
-        />
-        <div className="interview-chat__header-info">
-          <Title level={5} style={{ margin: 0 }}>{t('interview.title')}</Title>
-          <Text type="secondary">
+          className="text-muted-foreground hover:text-foreground transition-colors"
+          aria-label={t('common.back')}
+        >
+          <ArrowLeft className="size-5" />
+        </button>
+        <div className="flex-1 min-w-0">
+          <h5 className="text-sm font-semibold text-foreground truncate">{t('interview.title')}</h5>
+          <p className="text-xs text-muted-foreground truncate">
             {t('interview.domainsExplored').replace('{count}', String(currentSession?.domains_touched?.length || 0))}
             {turns.length > 1 && ` · ${t('interview.turnsProgress').replace('{count}', String(turns.length - 1))}`}
-          </Text>
+          </p>
         </div>
         {isSessionActive && turns.length >= 3 && (
-          <Button size="small" onClick={handleEnd}>
+          <Button variant="outline" size="sm" onClick={handleEnd}>
             {t('interview.pauseChat')}
           </Button>
         )}
-      </div>
+      </header>
 
-      <div className="interview-chat__messages">
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
         {turns.map((turn) => (
           <React.Fragment key={turn.id}>
             {turn.ai_message && (
@@ -368,21 +374,21 @@ const InterviewChat: React.FC = () => {
             text={bubbleDraft.text}
             fallbackText={draftFallbackText}
             status={bubbleDraft.status}
-            wrapperClassName="chat-bubble chat-bubble--ai"
-            itemClassName="chat-bubble__streaming-shell"
-            bodyClassName="chat-bubble__content"
-            contentClassName="chat-bubble__text"
-            cursorClassName="chat-bubble__cursor"
-            thinkingClassName="chat-bubble__thinking"
-            thinkingDotsClassName="chat-bubble__thinking-dots"
+            wrapperClassName="flex gap-3 max-w-[85%]"
+            itemClassName=""
+            bodyClassName=""
+            contentClassName="rounded-2xl px-4 py-3 text-sm leading-relaxed bg-card border border-border text-foreground rounded-tl-md shadow-xs"
+            cursorClassName="ml-0.5 inline-block w-[2px] h-4 bg-current animate-[blink_1s_infinite]"
+            thinkingClassName="text-muted-foreground"
+            thinkingDotsClassName="animate-pulse"
             head={isRecoveringDraft ? (
               <AIRecoveryBadge
                 text={recoveryBadgeText}
-                className="chat-bubble__recovery-badge"
+                className="mb-1"
               />
             ) : undefined}
             avatar={(
-              <div className="chat-bubble__avatar">
+              <div className="shrink-0 pt-1">
                 <MediatorAvatar size="small" />
               </div>
             )}
@@ -391,90 +397,100 @@ const InterviewChat: React.FC = () => {
         <div ref={chatEndRef} />
       </div>
 
+      {/* Safety Alert */}
       {safetyAlert && (
-        <SafetyAlert
-          message={safetyAlert.message}
-          severity={safetyAlert.severity}
-          onDismiss={dismissSafetyAlert}
-        />
+        <div className="px-4 pb-2">
+          <SafetyAlert
+            message={safetyAlert.message}
+            severity={safetyAlert.severity}
+            onDismiss={dismissSafetyAlert}
+          />
+        </div>
       )}
 
+      {/* Error State */}
       {error && !safetyAlert && (
-        <AIErrorState
-          className="interview-chat__error"
-          title={getErrorMessage(error, errorCode)}
-          description={shouldShowRateLimitHint(errorCode)
-            ? t('interview.error.rateLimitHint')
-            : undefined}
-          actions={(
-            <>
-              {errorCode === 'MAX_TURNS_REACHED' && sessionId && (
-                <Button size="small" type="primary" onClick={handleEnd}>
-                  {t('interview.viewResult')}
-                </Button>
-              )}
-              {errorCode === 'SESSION_COMPLETED' && sessionId && (
-                <Button size="small" type="primary" onClick={() => navigate(`/interview/${sessionId}/result`, { replace: true })}>
-                  {t('interview.viewResult')}
-                </Button>
-              )}
-              {errorCode === 'NOT_FOUND' && (
-                <Button size="small" onClick={() => navigate('/profile/index')}>
-                  {t('interview.backToProfile')}
-                </Button>
-              )}
-              {errorCode === 'CONSENT_REQUIRED' && (
-                <Button size="small" onClick={() => navigate('/profile/index')}>
-                  {t('interview.backToProfile')}
-                </Button>
-              )}
-              {errorCode === 'AI_CALL_FAILED' && sessionId && (
-                <Button size="small" onClick={handleReload}>
-                  {t('interview.reloadConversation')}
-                </Button>
-              )}
-              {errorCode === 'CONCURRENT_REQUEST' && sessionId && (
-                <Button size="small" onClick={handleReload}>
-                  {t('interview.reloadConversation')}
-                </Button>
-              )}
-              {errorCode === 'CONNECTION_LOST' && sessionId && (
-                <Button size="small" onClick={handleReload}>
-                  {t('interview.reloadConversation')}
-                </Button>
-              )}
-              {sessionId &&
-                shouldShowFallbackReloadButton(errorCode) && (
-                  <Button size="small" onClick={handleReload} data-testid="interview-chat-reload-fallback">
+        <div className="px-4 pb-2">
+          <AIErrorState
+            title={getErrorMessage(error, errorCode)}
+            description={shouldShowRateLimitHint(errorCode)
+              ? t('interview.error.rateLimitHint')
+              : undefined}
+            actions={(
+              <>
+                {errorCode === 'MAX_TURNS_REACHED' && sessionId && (
+                  <Button size="sm" onClick={handleEnd}>
+                    {t('interview.viewResult')}
+                  </Button>
+                )}
+                {errorCode === 'SESSION_COMPLETED' && sessionId && (
+                  <Button size="sm" onClick={() => navigate(`/interview/${sessionId}/result`, { replace: true })}>
+                    {t('interview.viewResult')}
+                  </Button>
+                )}
+                {errorCode === 'NOT_FOUND' && (
+                  <Button size="sm" variant="outline" onClick={() => navigate('/profile/index')}>
+                    {t('interview.backToProfile')}
+                  </Button>
+                )}
+                {errorCode === 'CONSENT_REQUIRED' && (
+                  <Button size="sm" variant="outline" onClick={() => navigate('/profile/index')}>
+                    {t('interview.backToProfile')}
+                  </Button>
+                )}
+                {errorCode === 'AI_CALL_FAILED' && sessionId && (
+                  <Button size="sm" variant="outline" onClick={handleReload}>
                     {t('interview.reloadConversation')}
                   </Button>
                 )}
-            </>
-          )}
-        />
+                {errorCode === 'CONCURRENT_REQUEST' && sessionId && (
+                  <Button size="sm" variant="outline" onClick={handleReload}>
+                    {t('interview.reloadConversation')}
+                  </Button>
+                )}
+                {errorCode === 'CONNECTION_LOST' && sessionId && (
+                  <Button size="sm" variant="outline" onClick={handleReload}>
+                    {t('interview.reloadConversation')}
+                  </Button>
+                )}
+                {sessionId &&
+                  shouldShowFallbackReloadButton(errorCode) && (
+                    <Button size="sm" variant="outline" onClick={handleReload} data-testid="interview-chat-reload-fallback">
+                      {t('interview.reloadConversation')}
+                    </Button>
+                  )}
+              </>
+            )}
+          />
+        </div>
       )}
 
+      {/* Input */}
       {isSessionActive && !isTerminalError && (
-        <InterviewInput
-          onSend={handleSend}
-          onStop={() => {
-            void cancelStream(sessionId).then(() => {
-              message.info(t('interview.cancelled'));
-            });
-          }}
-          onSkip={handleSkip}
-          disabled={loading}
-          isStreaming={isStreaming}
-          placeholder={t('interview.sendPlaceholder')}
-        />
+        <div className="shrink-0 border-t border-border bg-card/80 px-4 py-3 backdrop-blur-sm">
+          <InterviewInput
+            onSend={handleSend}
+            onStop={() => {
+              void cancelStream(sessionId).then(() => {
+                toast.info(t('interview.cancelled'));
+              });
+            }}
+            onSkip={handleSkip}
+            disabled={loading}
+            isStreaming={isStreaming}
+            placeholder={t('interview.sendPlaceholder')}
+          />
+        </div>
       )}
 
+      {/* Processing state */}
       {!isSessionActive && currentSession?.status === 'processing' && (
-        <div className="interview-chat__processing">
-          <Spin />
-          <Text type="secondary">{t('interview.processing')}</Text>
+        <div className="flex shrink-0 items-center justify-center gap-3 border-t border-border bg-card px-4 py-4">
+          <Loader2 className="size-4 animate-spin text-primary" />
+          <span className="text-sm text-muted-foreground">{t('interview.processing')}</span>
           <Button
-            type="link"
+            variant="link"
+            size="sm"
             onClick={() => navigate(`/interview/${sessionId}/result`, { replace: true })}
           >
             {t('interview.viewResult')}
@@ -482,9 +498,10 @@ const InterviewChat: React.FC = () => {
         </div>
       )}
 
+      {/* Completed state */}
       {currentSession?.status === 'completed' && (
-        <div className="interview-chat__completed">
-          <Button type="primary" onClick={() => navigate(`/interview/${sessionId}/result`, { replace: true })}>
+        <div className="flex shrink-0 items-center justify-center border-t border-border bg-card px-4 py-4">
+          <Button onClick={() => navigate(`/interview/${sessionId}/result`, { replace: true })}>
             {t('interview.viewResult')}
           </Button>
         </div>

@@ -1,10 +1,15 @@
-import React from 'react';
-import { Alert, Typography, Space } from 'antd';
-import { HeartOutlined, PhoneOutlined } from '@ant-design/icons';
-import { t } from '@/utils/i18n';
-import './index.less';
+/**
+ * 安全警示組件
+ *
+ * 在訪談中偵測到風險信號時顯示。
+ * 遷移: Ant Alert/Space/Typography/Icons → shadcn Alert + Tailwind + Lucide
+ */
 
-const { Text, Link } = Typography;
+import React from 'react';
+import { Heart, Phone, X } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { cn } from '@/lib/utils';
+import { t } from '@/utils/i18n';
 
 interface SafetyAlertProps {
   message: string;
@@ -18,38 +23,48 @@ const CRISIS_RESOURCES = [
   { nameKey: 'safety.crisis.teacherLine' as const, phone: '1980' },
 ];
 
+const severityStyles = {
+  info: 'border-primary/30 bg-primary-light/50',
+  warning: 'border-warning/30 bg-warning/5',
+  critical: 'border-destructive/30 bg-destructive/5',
+} as const;
+
 const SafetyAlert: React.FC<SafetyAlertProps> = ({ message: alertMessage, severity = 'info', onDismiss }) => {
-  const typeMap = { info: 'info', warning: 'warning', critical: 'error' } as const;
   const isCritical = severity === 'critical';
 
   return (
-    <div className="safety-alert">
-      <Alert
-        type={typeMap[severity] || 'info'}
-        showIcon
-        icon={<HeartOutlined />}
-        title={
-          <Text strong>{t('safety.title')}</Text>
-        }
-        description={
-          <Space orientation="vertical" size="small">
-            <Text>{alertMessage}</Text>
-            {isCritical && (
-              <div className="safety-alert__resources">
-                <Text type="secondary">{t('safety.resources')}：</Text>
-                {CRISIS_RESOURCES.map((r) => (
-                  <Space key={r.phone} size={4}>
-                    <PhoneOutlined />
-                    <Link href={`tel:${r.phone}`}>{t(r.nameKey)} {r.phone}</Link>
-                  </Space>
-                ))}
-              </div>
-            )}
-          </Space>
-        }
-        closable={!!onDismiss}
-        onClose={onDismiss}
-      />
+    <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+      <Alert className={cn('relative', severityStyles[severity])}>
+        <Heart className="size-4 text-primary" />
+        <AlertTitle className="font-semibold">{t('safety.title')}</AlertTitle>
+        <AlertDescription className="mt-2 space-y-3">
+          <p className="text-sm text-foreground/80">{alertMessage}</p>
+          {isCritical && (
+            <div className="space-y-1.5 pt-1">
+              <p className="text-xs font-medium text-muted-foreground">{t('safety.resources')}：</p>
+              {CRISIS_RESOURCES.map((r) => (
+                <a
+                  key={r.phone}
+                  href={`tel:${r.phone}`}
+                  className="flex items-center gap-2 text-sm text-primary hover:underline"
+                >
+                  <Phone className="size-3" />
+                  <span>{t(r.nameKey)} {r.phone}</span>
+                </a>
+              ))}
+            </div>
+          )}
+        </AlertDescription>
+        {onDismiss && (
+          <button
+            onClick={onDismiss}
+            className="absolute right-3 top-3 text-muted-foreground hover:text-foreground transition-colors"
+            aria-label="Dismiss"
+          >
+            <X className="size-4" />
+          </button>
+        )}
+      </Alert>
     </div>
   );
 };

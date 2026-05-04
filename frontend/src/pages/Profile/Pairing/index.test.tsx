@@ -17,9 +17,9 @@ const mockJoinPairing = vi.fn();
 const mockCancelPairing = vi.fn();
 const mockGetRelationshipProfile = vi.fn();
 const mockUpsertRelationshipProfile = vi.fn();
-const mockMessageError = vi.fn();
-const mockMessageSuccess = vi.fn();
-const consoleError = console.error;
+const mockToastError = vi.fn();
+const mockToastSuccess = vi.fn();
+const mockToastWarning = vi.fn();
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
   return { ...actual, useNavigate: () => mockNavigate };
@@ -67,18 +67,14 @@ vi.mock('@/components/common/ConfirmModal', () => ({
     ) : null,
 }));
 vi.mock('@/utils/i18n', () => ({ t: (key: string) => key }));
-vi.mock('antd', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('antd')>();
-  return {
-    ...actual,
-    message: {
-      error: (...args: unknown[]) => mockMessageError(...args),
-      success: (...args: unknown[]) => mockMessageSuccess(...args),
-      warning: vi.fn(),
-      info: vi.fn(),
-    },
-  };
-});
+vi.mock('sonner', () => ({
+  toast: {
+    error: (...args: unknown[]) => mockToastError(...args),
+    success: (...args: unknown[]) => mockToastSuccess(...args),
+    warning: (...args: unknown[]) => mockToastWarning(...args),
+    info: vi.fn(),
+  },
+}));
 
 describe('ProfilePairing', () => {
   const activePairing: Pairing = {
@@ -92,19 +88,6 @@ describe('ProfilePairing', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    const consoleErrorSpy = vi.isMockFunction(console.error)
-      ? console.error
-      : vi.spyOn(console, 'error');
-    vi.mocked(consoleErrorSpy).mockImplementation((...args: unknown[]) => {
-      const [firstArg] = args;
-      if (
-        typeof firstArg === 'string' &&
-        firstArg.includes('Instance created by `useForm` is not connected to any Form element')
-      ) {
-        return;
-      }
-      consoleError(...args);
-    });
     mockGetPairingStatus.mockReset();
     mockGetPairingStatus.mockResolvedValue(null);
     mockCreatePairing.mockReset();
@@ -199,7 +182,7 @@ describe('ProfilePairing', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('獲取失敗');
+      expect(mockToastError).toHaveBeenCalledWith('獲取失敗');
     });
   });
 
@@ -211,7 +194,7 @@ describe('ProfilePairing', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('帳號已停權，無法使用配對功能');
+      expect(mockToastError).toHaveBeenCalledWith('帳號已停權，無法使用配對功能');
     });
   });
 
@@ -223,7 +206,7 @@ describe('ProfilePairing', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.getPairingFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.getPairingFail');
     });
   });
 
@@ -235,7 +218,7 @@ describe('ProfilePairing', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.getPairingFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.getPairingFail');
     });
   });
 
@@ -247,7 +230,7 @@ describe('ProfilePairing', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.getPairingFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.getPairingFail');
     });
   });
 
@@ -331,7 +314,7 @@ describe('ProfilePairing', () => {
       expect(mockGetPairingStatus).toHaveBeenCalledTimes(2);
     });
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('重試時服務不可用');
+      expect(mockToastError).toHaveBeenCalledWith('重試時服務不可用');
     });
   });
 
@@ -351,7 +334,7 @@ describe('ProfilePairing', () => {
       expect(mockGetPairingStatus).toHaveBeenCalledTimes(2);
     });
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.getPairingFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.getPairingFail');
     });
   });
 
@@ -407,7 +390,7 @@ describe('ProfilePairing', () => {
     unmount();
     resolveStartSession!({ id: 'test-session-id' });
     await Promise.resolve();
-    expect(mockMessageSuccess).not.toHaveBeenCalled();
+    expect(mockToastSuccess).not.toHaveBeenCalled();
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
@@ -429,7 +412,7 @@ describe('ProfilePairing', () => {
     fireEvent.click(screen.getByText('consent.agree'));
     fireEvent.click(screen.getByText('consent.start'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('啟動訪談失敗');
+      expect(mockToastError).toHaveBeenCalledWith('啟動訪談失敗');
     });
   });
 
@@ -451,7 +434,7 @@ describe('ProfilePairing', () => {
     fireEvent.click(screen.getByText('consent.agree'));
     fireEvent.click(screen.getByText('consent.start'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('interview.startFail');
+      expect(mockToastError).toHaveBeenCalledWith('interview.startFail');
     });
   });
 
@@ -473,7 +456,7 @@ describe('ProfilePairing', () => {
     fireEvent.click(screen.getByText('consent.agree'));
     fireEvent.click(screen.getByText('consent.start'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('interview.startFail');
+      expect(mockToastError).toHaveBeenCalledWith('interview.startFail');
     });
   });
 
@@ -495,7 +478,7 @@ describe('ProfilePairing', () => {
     fireEvent.click(screen.getByText('consent.agree'));
     fireEvent.click(screen.getByText('consent.start'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('interview.startFail');
+      expect(mockToastError).toHaveBeenCalledWith('interview.startFail');
     });
   });
 
@@ -577,7 +560,7 @@ describe('ProfilePairing', () => {
     unmount();
     resolveConsent!(undefined);
     await Promise.resolve();
-    expect(mockMessageError).not.toHaveBeenCalled();
+    expect(mockToastError).not.toHaveBeenCalled();
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
@@ -607,7 +590,7 @@ describe('ProfilePairing', () => {
     unmount();
     rejectConsent!(new Error('同意提交失敗'));
     await Promise.resolve();
-    expect(mockMessageError).not.toHaveBeenCalled();
+    expect(mockToastError).not.toHaveBeenCalled();
   });
 
   it('createPairing 失敗且錯誤無 message 時應顯示 message.createPairingFail', async () => {
@@ -622,7 +605,7 @@ describe('ProfilePairing', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /pairing\.createButton/ }));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.createPairingFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.createPairingFail');
     });
   });
 
@@ -638,7 +621,7 @@ describe('ProfilePairing', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /pairing\.createButton/ }));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.createPairingFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.createPairingFail');
     });
   });
 
@@ -654,7 +637,7 @@ describe('ProfilePairing', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /pairing\.createButton/ }));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('您已有進行中的配對');
+      expect(mockToastError).toHaveBeenCalledWith('您已有進行中的配對');
     });
   });
 
@@ -670,7 +653,7 @@ describe('ProfilePairing', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /pairing\.createButton/ }));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.createPairingFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.createPairingFail');
     });
   });
 
@@ -692,7 +675,7 @@ describe('ProfilePairing', () => {
     unmount();
     resolveCreate!(activePairing);
     await Promise.resolve();
-    expect(mockMessageSuccess).not.toHaveBeenCalled();
+    expect(mockToastSuccess).not.toHaveBeenCalled();
   });
 
   it('createPairing 失敗後應仍可再次點擊建立配對，成功後應顯示配對狀態（F08 錯誤恢復：失敗不阻塞重試）', async () => {
@@ -711,15 +694,15 @@ describe('ProfilePairing', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /pairing\.createButton/ }));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('暫時無法建立');
+      expect(mockToastError).toHaveBeenCalledWith('暫時無法建立');
     });
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /pairing\.createButton/ })).not.toHaveClass('ant-btn-loading');
+      expect(screen.getByRole('button', { name: /pairing\.createButton/ })).not.toBeDisabled();
     });
     fireEvent.click(screen.getByRole('button', { name: /pairing\.createButton/ }));
     await waitFor(() => {
       expect(mockCreatePairing).toHaveBeenCalledTimes(2);
-      expect(mockMessageSuccess).toHaveBeenCalledWith('message.createPairingSuccess');
+      expect(mockToastSuccess).toHaveBeenCalledWith('message.createPairingSuccess');
       expect(screen.getByText('pairing.inviteCode')).toBeInTheDocument();
     });
   });
@@ -745,7 +728,7 @@ describe('ProfilePairing', () => {
     unmount();
     resolveJoin!(activePairing);
     await Promise.resolve();
-    expect(mockMessageSuccess).not.toHaveBeenCalled();
+    expect(mockToastSuccess).not.toHaveBeenCalled();
   });
 
   it('joinPairing 失敗後應仍可再次點擊加入，成功後應顯示配對狀態（F08 錯誤恢復：失敗不阻塞重試）', async () => {
@@ -767,15 +750,15 @@ describe('ProfilePairing', () => {
     await waitFor(() => expect(joinInput).toHaveValue('ABC123'));
     fireEvent.click(screen.getByRole('button', { name: /pairing\.joinButton/ }));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('網路暫時不穩');
+      expect(mockToastError).toHaveBeenCalledWith('網路暫時不穩');
     });
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /pairing\.joinButton/ })).not.toHaveClass('ant-btn-loading');
+      expect(screen.getByRole('button', { name: /pairing\.joinButton/ })).not.toBeDisabled();
     });
     fireEvent.click(screen.getByRole('button', { name: /pairing\.joinButton/ }));
     await waitFor(() => {
       expect(mockJoinPairing).toHaveBeenCalledTimes(2);
-      expect(mockMessageSuccess).toHaveBeenCalledWith('message.joinPairingSuccess');
+      expect(mockToastSuccess).toHaveBeenCalledWith('message.joinPairingSuccess');
       expect(screen.getByText('pairing.inviteCode')).toBeInTheDocument();
     });
   });
@@ -795,7 +778,7 @@ describe('ProfilePairing', () => {
     await waitFor(() => expect(joinInput).toHaveValue('ABC123'));
     fireEvent.click(screen.getByRole('button', { name: /pairing\.joinButton/ }));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.joinPairingFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.joinPairingFail');
     });
   });
 
@@ -814,7 +797,7 @@ describe('ProfilePairing', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /pairing\.joinButton/ }));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.joinPairingFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.joinPairingFail');
     });
   });
 
@@ -833,7 +816,7 @@ describe('ProfilePairing', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /pairing\.joinButton/ }));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('此邀請碼已失效');
+      expect(mockToastError).toHaveBeenCalledWith('此邀請碼已失效');
     });
   });
 
@@ -852,7 +835,7 @@ describe('ProfilePairing', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /pairing\.joinButton/ }));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.joinPairingFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.joinPairingFail');
     });
   });
 
@@ -865,7 +848,7 @@ describe('ProfilePairing', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.relationshipProfileLoadFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.relationshipProfileLoadFail');
     });
   });
 
@@ -878,7 +861,7 @@ describe('ProfilePairing', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.relationshipProfileLoadFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.relationshipProfileLoadFail');
     });
   });
 
@@ -891,7 +874,7 @@ describe('ProfilePairing', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('無權限查看此配對的關係檔案');
+      expect(mockToastError).toHaveBeenCalledWith('無權限查看此配對的關係檔案');
     });
   });
 
@@ -904,7 +887,7 @@ describe('ProfilePairing', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.relationshipProfileLoadFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.relationshipProfileLoadFail');
     });
   });
 
@@ -928,7 +911,7 @@ describe('ProfilePairing', () => {
     fireEvent.change(strengthsInput, { target: { value: '新內容' } });
     fireEvent.click(screen.getByRole('button', { name: 'pairing.saveRelationshipProfile' }));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('保存失敗');
+      expect(mockToastError).toHaveBeenCalledWith('保存失敗');
     });
   });
 
@@ -952,7 +935,7 @@ describe('ProfilePairing', () => {
     fireEvent.change(strengthsInput, { target: { value: '新內容' } });
     fireEvent.click(screen.getByRole('button', { name: 'pairing.saveRelationshipProfile' }));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.relationshipProfileSaveFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.relationshipProfileSaveFail');
     });
   });
 
@@ -976,7 +959,7 @@ describe('ProfilePairing', () => {
     fireEvent.change(strengthsInput, { target: { value: '新內容' } });
     fireEvent.click(screen.getByRole('button', { name: 'pairing.saveRelationshipProfile' }));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.relationshipProfileSaveFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.relationshipProfileSaveFail');
     });
   });
 
@@ -1010,7 +993,7 @@ describe('ProfilePairing', () => {
       completion_percentage: 70,
     });
     await Promise.resolve();
-    expect(mockMessageSuccess).not.toHaveBeenCalled();
+    expect(mockToastSuccess).not.toHaveBeenCalled();
   });
 
   it('upsertRelationshipProfile 失敗後應仍可再次點擊保存，成功後應顯示成功（F08 錯誤恢復：失敗不阻塞重試）', async () => {
@@ -1040,15 +1023,15 @@ describe('ProfilePairing', () => {
     fireEvent.change(strengthsInput, { target: { value: '新內容' } });
     fireEvent.click(screen.getByRole('button', { name: 'pairing.saveRelationshipProfile' }));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('暫時無法保存');
+      expect(mockToastError).toHaveBeenCalledWith('暫時無法保存');
     });
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'pairing.saveRelationshipProfile' })).not.toHaveClass('ant-btn-loading');
+      expect(screen.getByRole('button', { name: 'pairing.saveRelationshipProfile' })).not.toBeDisabled();
     });
     fireEvent.click(screen.getByRole('button', { name: 'pairing.saveRelationshipProfile' }));
     await waitFor(() => {
       expect(mockUpsertRelationshipProfile).toHaveBeenCalledTimes(2);
-      expect(mockMessageSuccess).toHaveBeenCalledWith('message.relationshipProfileSaveSuccess');
+      expect(mockToastSuccess).toHaveBeenCalledWith('message.relationshipProfileSaveSuccess');
     });
   });
 
@@ -1072,7 +1055,7 @@ describe('ProfilePairing', () => {
     fireEvent.change(strengthsInput, { target: { value: '新內容' } });
     fireEvent.click(screen.getByRole('button', { name: 'pairing.saveRelationshipProfile' }));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('此配對已鎖定，無法編輯');
+      expect(mockToastError).toHaveBeenCalledWith('此配對已鎖定，無法編輯');
     });
   });
 
@@ -1096,7 +1079,7 @@ describe('ProfilePairing', () => {
     fireEvent.change(strengthsInput, { target: { value: '新內容' } });
     fireEvent.click(screen.getByRole('button', { name: 'pairing.saveRelationshipProfile' }));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.relationshipProfileSaveFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.relationshipProfileSaveFail');
     });
   });
 
@@ -1134,7 +1117,7 @@ describe('ProfilePairing', () => {
       completion_percentage: 70,
     });
     await waitFor(() => {
-      expect(mockMessageError).not.toHaveBeenCalled();
+      expect(mockToastError).not.toHaveBeenCalled();
     });
   });
 
@@ -1163,7 +1146,7 @@ describe('ProfilePairing', () => {
     unmount();
     resolveCancel!({ ...activePairing, status: 'cancelled' });
     await Promise.resolve();
-    expect(mockMessageSuccess).not.toHaveBeenCalled();
+    expect(mockToastSuccess).not.toHaveBeenCalled();
   });
 
   it('cancelPairing FORBIDDEN 時若有 message 應顯示該 message（F08 權限邊界）', async () => {
@@ -1185,7 +1168,7 @@ describe('ProfilePairing', () => {
     fireEvent.click(screen.getByRole('button', { name: 'pairing.cancelPairing' }));
     fireEvent.click(screen.getByText('Confirm Cancel'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('此配對已無法取消');
+      expect(mockToastError).toHaveBeenCalledWith('此配對已無法取消');
     });
   });
 
@@ -1208,7 +1191,7 @@ describe('ProfilePairing', () => {
     fireEvent.click(screen.getByRole('button', { name: 'pairing.cancelPairing' }));
     fireEvent.click(screen.getByText('Confirm Cancel'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.cancelPairingFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.cancelPairingFail');
     });
   });
 
@@ -1231,7 +1214,7 @@ describe('ProfilePairing', () => {
     fireEvent.click(screen.getByRole('button', { name: 'pairing.cancelPairing' }));
     fireEvent.click(screen.getByText('Confirm Cancel'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.cancelPairingFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.cancelPairingFail');
     });
   });
 
@@ -1254,7 +1237,7 @@ describe('ProfilePairing', () => {
     fireEvent.click(screen.getByRole('button', { name: 'pairing.cancelPairing' }));
     fireEvent.click(screen.getByText('Confirm Cancel'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.cancelPairingFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.cancelPairingFail');
     });
   });
 
@@ -1280,7 +1263,7 @@ describe('ProfilePairing', () => {
     fireEvent.click(screen.getByRole('button', { name: 'pairing.cancelPairing' }));
     fireEvent.click(screen.getByText('Confirm Cancel'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('暫時無法取消');
+      expect(mockToastError).toHaveBeenCalledWith('暫時無法取消');
     });
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'pairing.cancelPairing' })).toBeInTheDocument();
@@ -1289,7 +1272,7 @@ describe('ProfilePairing', () => {
     fireEvent.click(screen.getByText('Confirm Cancel'));
     await waitFor(() => {
       expect(mockCancelPairing).toHaveBeenCalledTimes(2);
-      expect(mockMessageSuccess).toHaveBeenCalledWith('message.cancelPairingSuccess');
+      expect(mockToastSuccess).toHaveBeenCalledWith('message.cancelPairingSuccess');
     });
   });
 

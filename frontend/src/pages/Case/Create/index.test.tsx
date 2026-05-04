@@ -10,9 +10,10 @@ import { validateStatement } from '@/utils/validate';
 
 const mockNavigate = vi.fn();
 const mockGetPairingStatus = vi.fn();
-const mockMessageError = vi.fn();
-const mockMessageWarning = vi.fn();
-const mockMessageSuccess = vi.fn();
+const mockToastError = vi.fn();
+const mockToastWarning = vi.fn();
+const mockToastSuccess = vi.fn();
+const mockToastInfo = vi.fn();
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
@@ -72,21 +73,69 @@ vi.mock('@/components/business/FileUpload', () => ({
 vi.mock('@/utils/i18n', () => ({
   t: (key: string) => key,
 }));
-vi.mock('antd', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('antd')>();
-  return {
-    ...actual,
-    message: {
-      error: (...args: unknown[]) => mockMessageError(...args),
-      warning: (...args: unknown[]) => mockMessageWarning(...args),
-      success: (...args: unknown[]) => mockMessageSuccess(...args),
+
+vi.mock('sonner', () => ({
+  toast: {
+    error: (...args: unknown[]) => mockToastError(...args),
+    warning: (...args: unknown[]) => mockToastWarning(...args),
+    success: (...args: unknown[]) => mockToastSuccess(...args),
+    info: (...args: unknown[]) => mockToastInfo(...args),
+  },
+}));
+
+vi.mock('framer-motion', () => ({
+  motion: {
+    div: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => {
+      // Filter out framer-motion specific props
+      const { variants, initial, animate, exit, transition, ...domProps } = props;
+      return <div {...domProps}>{children}</div>;
     },
-  };
-});
+  },
+  AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
 
 const changeText = (element: HTMLElement, value: string) => {
   fireEvent.change(element, { target: { value } });
 };
+
+/**
+ * Helper: Navigate to the last step (evidence + submit) in remote mode.
+ * Assumes pairing is active and wizard is rendered at step 0.
+ * In remote mode: Step 0 → Step 1 (plaintiff) → Step 2 (evidence+submit)
+ */
+async function navigateToLastStepRemote() {
+  // Click "Next" on step 0 to go to step 1 (plaintiff)
+  const nextBtn = screen.getByRole('button', { name: 'quickCreate.step.next' });
+  fireEvent.click(nextBtn);
+
+  // Now on step 1 (plaintiff), click "Next" to go to last step (evidence+submit)
+  await waitFor(() => {
+    const nextBtns = screen.getAllByRole('button', { name: 'quickCreate.step.next' });
+    fireEvent.click(nextBtns[0]);
+  });
+}
+
+/**
+ * Helper: Navigate to the last step in collaborative mode.
+ * Collaborative: Step 0 → Step 1 (plaintiff) → Step 2 (defendant) → Step 3 (evidence+submit)
+ */
+async function navigateToLastStepCollaborative() {
+  // Click "Next" on step 0
+  const nextBtn = screen.getByRole('button', { name: 'quickCreate.step.next' });
+  fireEvent.click(nextBtn);
+
+  // Step 1: plaintiff → next
+  await waitFor(() => {
+    const nextBtns = screen.getAllByRole('button', { name: 'quickCreate.step.next' });
+    fireEvent.click(nextBtns[0]);
+  });
+
+  // Step 2: defendant → next
+  await waitFor(() => {
+    const nextBtns = screen.getAllByRole('button', { name: 'quickCreate.step.next' });
+    fireEvent.click(nextBtns[0]);
+  });
+}
 
 describe('Case Create', () => {
   beforeEach(() => {
@@ -224,7 +273,7 @@ describe('Case Create', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/profile/pairing');
   });
 
-  it('配對 active 時應顯示表單且提交按鈕初始為 disabled', async () => {
+  it('配對 active 時應顯示表單且無法在原告未填時前進到提交步驟', async () => {
     render(
       <MemoryRouter>
         <CaseCreate />
@@ -233,8 +282,14 @@ describe('Case Create', () => {
     await waitFor(() => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
-    const submitBtn = screen.getByRole('button', { name: 'caseCreate.submitBtn' });
-    expect(submitBtn).toBeDisabled();
+    // Navigate to step 1 (plaintiff)
+    fireEvent.click(screen.getByRole('button', { name: 'quickCreate.step.next' }));
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder')).toBeInTheDocument();
+    });
+    // The Next button on step 1 should be disabled because plaintiff is invalid
+    const nextBtns = screen.getAllByRole('button', { name: 'quickCreate.step.next' });
+    expect(nextBtns[0]).toBeDisabled();
   });
 
   it('表單填妥提交成功後應導向 /case/:id', async () => {
@@ -248,9 +303,15 @@ describe('Case Create', () => {
     await waitFor(() => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
-    const textboxes = screen.getAllByRole('textbox');
-    const plaintiffInput = textboxes[0];
-    changeText(plaintiffInput, '原告陳述內容至少一字觸發驗證');
+    // Navigate to step 1 (plaintiff)
+    fireEvent.click(screen.getByRole('button', { name: 'quickCreate.step.next' }));
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder')).toBeInTheDocument();
+    });
+    // Fill plaintiff statement
+    changeText(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder'), '原告陳述內容至少一字觸發驗證');
+    // Navigate to last step (evidence+submit)
+    fireEvent.click(screen.getAllByRole('button', { name: 'quickCreate.step.next' })[0]);
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).not.toBeDisabled();
     });
@@ -299,7 +360,7 @@ describe('Case Create', () => {
     await Promise.resolve();
   });
 
-  it('createCase 成功但組件已卸載時不應呼叫 message.success 或 navigate（useMountedRef 回歸：避免 F01-BUG-001 同類問題）', async () => {
+  it('createCase 成功但組件已卸載時不應呼叫 toast.success 或 navigate（useMountedRef 回歸：避免 F01-BUG-001 同類問題）', async () => {
     let resolveCreate: (v: unknown) => void;
     vi.mocked(validateStatement).mockReturnValue({ valid: true });
     vi.mocked(createCase).mockImplementation(
@@ -313,8 +374,14 @@ describe('Case Create', () => {
     await waitFor(() => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
-    const textboxes = screen.getAllByRole('textbox');
-    changeText(textboxes[0], '原告陳述內容至少一字觸發驗證');
+    // Navigate to step 1 (plaintiff)
+    fireEvent.click(screen.getByRole('button', { name: 'quickCreate.step.next' }));
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder')).toBeInTheDocument();
+    });
+    changeText(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder'), '原告陳述內容至少一字觸發驗證');
+    // Navigate to last step
+    fireEvent.click(screen.getAllByRole('button', { name: 'quickCreate.step.next' })[0]);
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).not.toBeDisabled();
     });
@@ -325,7 +392,7 @@ describe('Case Create', () => {
     unmount();
     resolveCreate!({ id: 'new-case-123' });
     await Promise.resolve();
-    expect(mockMessageSuccess).not.toHaveBeenCalled();
+    expect(mockToastSuccess).not.toHaveBeenCalled();
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
@@ -342,8 +409,14 @@ describe('Case Create', () => {
     await waitFor(() => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
-    const textboxes = screen.getAllByRole('textbox');
-    changeText(textboxes[0], '原告陳述內容至少一字觸發驗證');
+    // Navigate to step 1
+    fireEvent.click(screen.getByRole('button', { name: 'quickCreate.step.next' }));
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder')).toBeInTheDocument();
+    });
+    changeText(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder'), '原告陳述內容至少一字觸發驗證');
+    // Navigate to last step
+    fireEvent.click(screen.getAllByRole('button', { name: 'quickCreate.step.next' })[0]);
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).not.toBeDisabled();
     });
@@ -371,14 +444,20 @@ describe('Case Create', () => {
     await waitFor(() => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
-    const textboxes = screen.getAllByRole('textbox');
-    changeText(textboxes[0], '原告陳述內容至少一字觸發驗證');
+    // Navigate to step 1
+    fireEvent.click(screen.getByRole('button', { name: 'quickCreate.step.next' }));
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder')).toBeInTheDocument();
+    });
+    changeText(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder'), '原告陳述內容至少一字觸發驗證');
+    // Navigate to last step
+    fireEvent.click(screen.getAllByRole('button', { name: 'quickCreate.step.next' })[0]);
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).not.toBeDisabled();
     });
     fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.createCaseFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.createCaseFail');
     });
   });
 
@@ -393,14 +472,20 @@ describe('Case Create', () => {
     await waitFor(() => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
-    const textboxes = screen.getAllByRole('textbox');
-    changeText(textboxes[0], '原告陳述內容至少一字觸發驗證');
+    // Navigate to step 1
+    fireEvent.click(screen.getByRole('button', { name: 'quickCreate.step.next' }));
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder')).toBeInTheDocument();
+    });
+    changeText(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder'), '原告陳述內容至少一字觸發驗證');
+    // Navigate to last step
+    fireEvent.click(screen.getAllByRole('button', { name: 'quickCreate.step.next' })[0]);
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).not.toBeDisabled();
     });
     fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.createCaseFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.createCaseFail');
     });
     expect(mockNavigate).not.toHaveBeenCalledWith(expect.stringContaining('/case/'));
   });
@@ -416,14 +501,20 @@ describe('Case Create', () => {
     await waitFor(() => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
-    const textboxes = screen.getAllByRole('textbox');
-    changeText(textboxes[0], '原告陳述內容至少一字觸發驗證');
+    // Navigate to step 1
+    fireEvent.click(screen.getByRole('button', { name: 'quickCreate.step.next' }));
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder')).toBeInTheDocument();
+    });
+    changeText(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder'), '原告陳述內容至少一字觸發驗證');
+    // Navigate to last step
+    fireEvent.click(screen.getAllByRole('button', { name: 'quickCreate.step.next' })[0]);
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).not.toBeDisabled();
     });
     fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('陳述內容含敏感詞彙，請修正後再試');
+      expect(mockToastError).toHaveBeenCalledWith('陳述內容含敏感詞彙，請修正後再試');
     });
     expect(mockNavigate).not.toHaveBeenCalledWith(expect.stringContaining('/case/'));
   });
@@ -441,13 +532,20 @@ describe('Case Create', () => {
     await waitFor(() => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
-    changeText(screen.getAllByRole('textbox')[0], '原告陳述內容至少一字觸發驗證');
+    // Navigate to step 1
+    fireEvent.click(screen.getByRole('button', { name: 'quickCreate.step.next' }));
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder')).toBeInTheDocument();
+    });
+    changeText(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder'), '原告陳述內容至少一字觸發驗證');
+    // Navigate to last step
+    fireEvent.click(screen.getAllByRole('button', { name: 'quickCreate.step.next' })[0]);
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).not.toBeDisabled();
     });
     fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     expect(await screen.findByText('暫時無法建立')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'common.retry' }));
+    fireEvent.click(screen.getByText('common.retry'));
     await waitFor(() => {
       expect(createCase).toHaveBeenCalledTimes(2);
       expect(mockNavigate).toHaveBeenCalledWith('/case/retry-inline-case');
@@ -465,15 +563,34 @@ describe('Case Create', () => {
     await waitFor(() => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
-    const plaintiffInput = screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder');
-    changeText(plaintiffInput, '原告陳述內容至少一字觸發驗證');
+    // Navigate to step 1
+    fireEvent.click(screen.getByRole('button', { name: 'quickCreate.step.next' }));
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder')).toBeInTheDocument();
+    });
+    changeText(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder'), '原告陳述內容至少一字觸發驗證');
+    // Navigate to last step
+    fireEvent.click(screen.getAllByRole('button', { name: 'quickCreate.step.next' })[0]);
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).not.toBeDisabled();
     });
     fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     expect(await screen.findByText('暫時無法建立')).toBeInTheDocument();
-    changeText(plaintiffInput, '原告陳述內容至少一字觸發驗證補充');
+    // Go back to plaintiff step: click the bottom "prev" button (last one in the list)
+    const prevBtns = screen.getAllByRole('button', { name: 'quickCreate.step.prev' });
+    fireEvent.click(prevBtns[prevBtns.length - 1]);
     await waitFor(() => {
+      expect(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder')).toBeInTheDocument();
+    });
+    changeText(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder'), '原告陳述內容至少一字觸發驗證補充');
+    // Navigate back to last step - error should be cleared
+    await waitFor(() => {
+      const nextBtns = screen.getAllByRole('button', { name: 'quickCreate.step.next' });
+      expect(nextBtns[0]).not.toBeDisabled();
+    });
+    fireEvent.click(screen.getAllByRole('button', { name: 'quickCreate.step.next' })[0]);
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).toBeInTheDocument();
       expect(screen.queryByText('暫時無法建立')).not.toBeInTheDocument();
     });
   });
@@ -491,14 +608,20 @@ describe('Case Create', () => {
     await waitFor(() => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
-    const textboxes = screen.getAllByRole('textbox');
-    changeText(textboxes[0], '原告陳述內容至少一字觸發驗證');
+    // Navigate to step 1
+    fireEvent.click(screen.getByRole('button', { name: 'quickCreate.step.next' }));
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder')).toBeInTheDocument();
+    });
+    changeText(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder'), '原告陳述內容至少一字觸發驗證');
+    // Navigate to last step
+    fireEvent.click(screen.getAllByRole('button', { name: 'quickCreate.step.next' })[0]);
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).not.toBeDisabled();
     });
     fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('暫時無法建立');
+      expect(mockToastError).toHaveBeenCalledWith('暫時無法建立');
     });
     fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     await waitFor(() => {
@@ -518,14 +641,20 @@ describe('Case Create', () => {
     await waitFor(() => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
-    const textboxes = screen.getAllByRole('textbox');
-    changeText(textboxes[0], '原告陳述內容至少一字觸發驗證');
+    // Navigate to step 1
+    fireEvent.click(screen.getByRole('button', { name: 'quickCreate.step.next' }));
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder')).toBeInTheDocument();
+    });
+    changeText(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder'), '原告陳述內容至少一字觸發驗證');
+    // Navigate to last step
+    fireEvent.click(screen.getAllByRole('button', { name: 'quickCreate.step.next' })[0]);
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).not.toBeDisabled();
     });
     fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('配對已達案件上限');
+      expect(mockToastError).toHaveBeenCalledWith('配對已達案件上限');
     });
     expect(mockNavigate).not.toHaveBeenCalledWith(expect.stringContaining('/case/'));
   });
@@ -541,13 +670,20 @@ describe('Case Create', () => {
     await waitFor(() => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
-    changeText(screen.getAllByRole('textbox')[0], '原告陳述內容至少一字觸發驗證');
+    // Navigate to step 1
+    fireEvent.click(screen.getByRole('button', { name: 'quickCreate.step.next' }));
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder')).toBeInTheDocument();
+    });
+    changeText(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder'), '原告陳述內容至少一字觸發驗證');
+    // Navigate to last step
+    fireEvent.click(screen.getAllByRole('button', { name: 'quickCreate.step.next' })[0]);
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).not.toBeDisabled();
     });
     fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.createCaseFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.createCaseFail');
     });
     expect(mockNavigate).not.toHaveBeenCalledWith(expect.stringContaining('/case/'));
   });
@@ -563,7 +699,14 @@ describe('Case Create', () => {
     await waitFor(() => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
-    changeText(screen.getAllByRole('textbox')[0], '原告陳述內容至少一字觸發驗證');
+    // Navigate to step 1
+    fireEvent.click(screen.getByRole('button', { name: 'quickCreate.step.next' }));
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder')).toBeInTheDocument();
+    });
+    changeText(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder'), '原告陳述內容至少一字觸發驗證');
+    // Navigate to last step
+    fireEvent.click(screen.getAllByRole('button', { name: 'quickCreate.step.next' })[0]);
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).not.toBeDisabled();
     });
@@ -587,15 +730,22 @@ describe('Case Create', () => {
     await waitFor(() => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
-    fireEvent.click(screen.getByTestId('add-evidence'));
-    changeText(screen.getAllByRole('textbox')[0], '原告陳述內容至少一字觸發驗證');
+    // Navigate to step 1
+    fireEvent.click(screen.getByRole('button', { name: 'quickCreate.step.next' }));
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).not.toBeDisabled();
+      expect(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder')).toBeInTheDocument();
     });
+    changeText(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder'), '原告陳述內容至少一字觸發驗證');
+    // Navigate to last step
+    fireEvent.click(screen.getAllByRole('button', { name: 'quickCreate.step.next' })[0]);
+    await waitFor(() => {
+      expect(screen.getByTestId('add-evidence')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByTestId('add-evidence'));
     fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     await waitFor(() => {
-      expect(mockMessageSuccess).toHaveBeenCalledWith('caseCreate.remoteCreateSuccess');
-      expect(mockMessageWarning).toHaveBeenCalledWith('upload failed');
+      expect(mockToastSuccess).toHaveBeenCalledWith('caseCreate.remoteCreateSuccess');
+      expect(mockToastWarning).toHaveBeenCalledWith('upload failed');
       expect(mockNavigate).toHaveBeenCalledWith('/case/new-case-456');
     });
   });
@@ -612,14 +762,21 @@ describe('Case Create', () => {
     await waitFor(() => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
-    fireEvent.click(screen.getByTestId('add-evidence'));
-    changeText(screen.getAllByRole('textbox')[0], '原告陳述內容至少一字觸發驗證');
+    // Navigate to step 1
+    fireEvent.click(screen.getByRole('button', { name: 'quickCreate.step.next' }));
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).not.toBeDisabled();
+      expect(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder')).toBeInTheDocument();
     });
+    changeText(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder'), '原告陳述內容至少一字觸發驗證');
+    // Navigate to last step
+    fireEvent.click(screen.getAllByRole('button', { name: 'quickCreate.step.next' })[0]);
+    await waitFor(() => {
+      expect(screen.getByTestId('add-evidence')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByTestId('add-evidence'));
     fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     await waitFor(() => {
-      expect(mockMessageWarning).toHaveBeenCalledWith('檔案類型不允許');
+      expect(mockToastWarning).toHaveBeenCalledWith('檔案類型不允許');
       expect(mockNavigate).toHaveBeenCalledWith('/case/new-case-fb');
     });
   });
@@ -636,14 +793,21 @@ describe('Case Create', () => {
     await waitFor(() => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
-    fireEvent.click(screen.getByTestId('add-evidence'));
-    changeText(screen.getAllByRole('textbox')[0], '原告陳述內容至少一字觸發驗證');
+    // Navigate to step 1
+    fireEvent.click(screen.getByRole('button', { name: 'quickCreate.step.next' }));
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).not.toBeDisabled();
+      expect(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder')).toBeInTheDocument();
     });
+    changeText(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder'), '原告陳述內容至少一字觸發驗證');
+    // Navigate to last step
+    fireEvent.click(screen.getAllByRole('button', { name: 'quickCreate.step.next' })[0]);
+    await waitFor(() => {
+      expect(screen.getByTestId('add-evidence')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByTestId('add-evidence'));
     fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     await waitFor(() => {
-      expect(mockMessageWarning).toHaveBeenCalledWith('message.evidenceUploadFailCaseCreated');
+      expect(mockToastWarning).toHaveBeenCalledWith('message.evidenceUploadFailCaseCreated');
       expect(mockNavigate).toHaveBeenCalledWith('/case/new-case-forbidden');
     });
   });
@@ -660,14 +824,21 @@ describe('Case Create', () => {
     await waitFor(() => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
-    fireEvent.click(screen.getByTestId('add-evidence'));
-    changeText(screen.getAllByRole('textbox')[0], '原告陳述內容至少一字觸發驗證');
+    // Navigate to step 1
+    fireEvent.click(screen.getByRole('button', { name: 'quickCreate.step.next' }));
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).not.toBeDisabled();
+      expect(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder')).toBeInTheDocument();
     });
+    changeText(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder'), '原告陳述內容至少一字觸發驗證');
+    // Navigate to last step
+    fireEvent.click(screen.getAllByRole('button', { name: 'quickCreate.step.next' })[0]);
+    await waitFor(() => {
+      expect(screen.getByTestId('add-evidence')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByTestId('add-evidence'));
     fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     await waitFor(() => {
-      expect(mockMessageWarning).toHaveBeenCalledWith('message.evidenceUploadFailCaseCreated');
+      expect(mockToastWarning).toHaveBeenCalledWith('message.evidenceUploadFailCaseCreated');
       expect(mockNavigate).toHaveBeenCalledWith('/case/new-case-789');
     });
   });
@@ -684,19 +855,26 @@ describe('Case Create', () => {
     await waitFor(() => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
-    fireEvent.click(screen.getByTestId('add-evidence'));
-    changeText(screen.getAllByRole('textbox')[0], '原告陳述內容至少一字觸發驗證');
+    // Navigate to step 1
+    fireEvent.click(screen.getByRole('button', { name: 'quickCreate.step.next' }));
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).not.toBeDisabled();
+      expect(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder')).toBeInTheDocument();
     });
+    changeText(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder'), '原告陳述內容至少一字觸發驗證');
+    // Navigate to last step
+    fireEvent.click(screen.getAllByRole('button', { name: 'quickCreate.step.next' })[0]);
+    await waitFor(() => {
+      expect(screen.getByTestId('add-evidence')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByTestId('add-evidence'));
     fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     await waitFor(() => {
-      expect(mockMessageWarning).toHaveBeenCalledWith('message.evidenceUploadFailCaseCreated');
+      expect(mockToastWarning).toHaveBeenCalledWith('message.evidenceUploadFailCaseCreated');
       expect(mockNavigate).toHaveBeenCalledWith('/case/new-case-empty-msg');
     });
   });
 
-  it('remote 模式下原告不足 30 字時提交按鈕應 disabled（邊界：validateStatement 30 字規則）', async () => {
+  it('remote 模式下原告不足 30 字時無法前進到提交步驟（邊界：validateStatement 30 字規則）', async () => {
     vi.mocked(validateStatement).mockImplementation((s: string) => ({
       valid: (s?.trim?.() ?? '').length >= 30,
     }));
@@ -708,10 +886,16 @@ describe('Case Create', () => {
     await waitFor(() => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
-    const textboxes = screen.getAllByRole('textbox');
-    changeText(textboxes[1], 'a'.repeat(29)); // plaintiff
+    // Navigate to step 1
+    fireEvent.click(screen.getByRole('button', { name: 'quickCreate.step.next' }));
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).toBeDisabled();
+      expect(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder')).toBeInTheDocument();
+    });
+    changeText(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder'), 'a'.repeat(29));
+    // The Next button on plaintiff step should be disabled (can't reach submit)
+    await waitFor(() => {
+      const nextBtns = screen.getAllByRole('button', { name: 'quickCreate.step.next' });
+      expect(nextBtns[0]).toBeDisabled();
     });
   });
 
@@ -727,14 +911,20 @@ describe('Case Create', () => {
     await waitFor(() => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
-    const textboxes = screen.getAllByRole('textbox');
-    changeText(textboxes[1], 'a'.repeat(30)); // plaintiff exactly 30
+    // Navigate to step 1
+    fireEvent.click(screen.getByRole('button', { name: 'quickCreate.step.next' }));
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder')).toBeInTheDocument();
+    });
+    changeText(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder'), 'a'.repeat(30));
+    // Navigate to last step
+    fireEvent.click(screen.getAllByRole('button', { name: 'quickCreate.step.next' })[0]);
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).not.toBeDisabled();
     });
   });
 
-  it('collaborative 模式下原告 exactly 29 字時提交按鈕應 disabled', async () => {
+  it('collaborative 模式下原告 exactly 29 字時無法前進到被告步驟', async () => {
     vi.mocked(validateStatement).mockImplementation((s: string) => ({
       valid: (s?.trim?.() ?? '').length >= 30,
     }));
@@ -746,17 +936,22 @@ describe('Case Create', () => {
     await waitFor(() => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
-    const radios = screen.getAllByRole('radio');
-    fireEvent.click(radios[1]); // collaborative
-    const textboxes = screen.getAllByRole('textbox');
-    changeText(textboxes[1], 'a'.repeat(29));
-    changeText(textboxes[2], 'a'.repeat(30)); // defendant 足
+    // Select collaborative mode
+    fireEvent.click(screen.getByText('caseCreate.modeCollaborativeLabel'));
+    // Navigate to step 1 (plaintiff)
+    fireEvent.click(screen.getByRole('button', { name: 'quickCreate.step.next' }));
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).toBeDisabled();
+      expect(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder')).toBeInTheDocument();
+    });
+    changeText(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder'), 'a'.repeat(29));
+    // The Next button on plaintiff step should be disabled (can't reach defendant or submit step)
+    await waitFor(() => {
+      const nextBtns = screen.getAllByRole('button', { name: 'quickCreate.step.next' });
+      expect(nextBtns[0]).toBeDisabled();
     });
   });
 
-  it('collaborative 模式下只有原告陳述時提交按鈕應 disabled', async () => {
+  it('collaborative 模式下只有原告陳述時無法前進到提交步驟（被告步驟 Next 按鈕 disabled）', async () => {
     vi.mocked(validateStatement).mockImplementation((s: string) => ({
       valid: (s?.trim?.()?.length ?? 0) >= 30,
     }));
@@ -768,13 +963,23 @@ describe('Case Create', () => {
     await waitFor(() => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
-    const radios = screen.getAllByRole('radio');
-    fireEvent.click(radios[1]); // collaborative 為第二個選項
-    const textboxes = screen.getAllByRole('textbox');
-    const plaintiffInput = textboxes[1]; // [0]=title, [1]=plaintiff, [2]=defendant
-    changeText(plaintiffInput, 'a'.repeat(30));
+    // Select collaborative mode
+    fireEvent.click(screen.getByText('caseCreate.modeCollaborativeLabel'));
+    // Navigate to step 1 (plaintiff)
+    fireEvent.click(screen.getByRole('button', { name: 'quickCreate.step.next' }));
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).toBeDisabled();
+      expect(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder')).toBeInTheDocument();
+    });
+    changeText(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder'), 'a'.repeat(30));
+    // Navigate to step 2 (defendant)
+    fireEvent.click(screen.getAllByRole('button', { name: 'quickCreate.step.next' })[0]);
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('caseCreate.defendantPlaceholder')).toBeInTheDocument();
+    });
+    // Don't fill defendant - Next button should be disabled because defendantValid is false
+    await waitFor(() => {
+      const nextBtns = screen.getAllByRole('button', { name: 'quickCreate.step.next' });
+      expect(nextBtns[0]).toBeDisabled();
     });
   });
 
@@ -791,13 +996,23 @@ describe('Case Create', () => {
     await waitFor(() => {
       expect(screen.getByText('caseCreate.heading')).toBeInTheDocument();
     });
-    const radios = screen.getAllByRole('radio');
-    fireEvent.click(radios[1]); // collaborative 為第二個選項
-    const textboxes = screen.getAllByRole('textbox');
-    // textboxes[0]=標題, [1]=原告陳述, [2]=被告陳述；validateStatement 需至少 30 字
+    // Select collaborative mode
+    fireEvent.click(screen.getByText('caseCreate.modeCollaborativeLabel'));
     const validStatement = 'a'.repeat(30);
-    changeText(textboxes[1], validStatement);
-    changeText(textboxes[2], validStatement);
+    // Navigate to step 1 (plaintiff)
+    fireEvent.click(screen.getByRole('button', { name: 'quickCreate.step.next' }));
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder')).toBeInTheDocument();
+    });
+    changeText(screen.getByPlaceholderText('caseCreate.plaintiffPlaceholder'), validStatement);
+    // Navigate to step 2 (defendant)
+    fireEvent.click(screen.getAllByRole('button', { name: 'quickCreate.step.next' })[0]);
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('caseCreate.defendantPlaceholder')).toBeInTheDocument();
+    });
+    changeText(screen.getByPlaceholderText('caseCreate.defendantPlaceholder'), validStatement);
+    // Navigate to last step (evidence+submit)
+    fireEvent.click(screen.getAllByRole('button', { name: 'quickCreate.step.next' })[0]);
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).not.toBeDisabled();
     });

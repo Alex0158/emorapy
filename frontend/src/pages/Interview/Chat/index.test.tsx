@@ -79,18 +79,13 @@ vi.mock('@/components/business/MediatorAvatar', () => ({
   default: () => <div data-testid="mediator-avatar" />,
 }));
 
-vi.mock('antd', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('antd')>();
-  return {
-    ...actual,
-    message: {
-      ...actual.message,
-      error: (...args: unknown[]) => mockMessageError(...args),
-      success: (...args: unknown[]) => mockMessageSuccess(...args),
-      info: (...args: unknown[]) => mockMessageInfo(...args),
-    },
-  };
-});
+vi.mock('sonner', () => ({
+  toast: {
+    error: (...args: unknown[]) => mockMessageError(...args),
+    success: (...args: unknown[]) => mockMessageSuccess(...args),
+    info: (...args: unknown[]) => mockMessageInfo(...args),
+  },
+}));
 
 import InterviewChat from './index';
 

@@ -1,13 +1,15 @@
+/**
+ * 訪談反饋卡片（遷移：Ant Card/Typography/Tag/Space/Button/Icons → shadcn + Tailwind + Lucide）
+ */
+
 import React from 'react';
-import { Card, Typography, Tag, Space, Button } from 'antd';
-import { SmileOutlined, RightOutlined, BookOutlined } from '@ant-design/icons';
+import { Smile, ChevronRight, BookOpen } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import RichnessRing from '../RichnessRing';
 import type { FeedbackCard as FeedbackCardType, PsychDomain } from '@/types/interview';
 import { getDomainLabel } from '@/types/interview';
 import { t } from '@/utils/i18n';
-import './index.less';
-
-const { Title, Paragraph, Text } = Typography;
 
 interface FeedbackCardProps {
   feedback: FeedbackCardType;
@@ -28,88 +30,83 @@ const FeedbackCardComponent: React.FC<FeedbackCardProps> = ({
 }) => {
   const getPrimaryAction = () => {
     switch (trigger) {
-      case 'post_judgment':
-        return { text: t('feedback.backToJudgment'), onClick: onBackToJudgment ?? onGoHome };
-      case 'pre_case':
-        return { text: t('feedback.continueSubmit'), onClick: onBackToCase ?? onGoHome };
-      case 'onboarding':
-      case 'organic':
-      default:
-        return { text: t('feedback.backToHome'), onClick: onGoHome };
+      case 'post_judgment': return { text: t('feedback.backToJudgment'), onClick: onBackToJudgment ?? onGoHome };
+      case 'pre_case': return { text: t('feedback.continueSubmit'), onClick: onBackToCase ?? onGoHome };
+      default: return { text: t('feedback.backToHome'), onClick: onGoHome };
     }
   };
 
   const primaryAction = getPrimaryAction();
 
   return (
-    <Card className="feedback-card" variant="outlined">
-      <Space orientation="vertical" size="large" style={{ width: '100%' }}>
-        <div className="feedback-card__header">
-          <SmileOutlined style={{ fontSize: 28, color: '#52c41a' }} />
-          <Title level={4} style={{ margin: 0 }}>{t('interview.result.doneTitle')}</Title>
+    <div className="rounded-xl border border-border bg-card p-6 space-y-5">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <Smile className="size-7 text-success" />
+        <h4 className="text-lg font-semibold text-foreground">{t('interview.result.doneTitle')}</h4>
+      </div>
+
+      {/* Summary */}
+      <p className="text-sm text-muted-foreground leading-relaxed">{feedback.summary}</p>
+
+      {/* Explored Domains */}
+      <div>
+        <p className="text-xs font-medium text-muted-foreground mb-2">{t('psychProfile.exploredDomains')}：</p>
+        <div className="flex flex-wrap gap-1.5">
+          {(feedback.domains_explored ?? []).map((d) => (
+            <Badge key={d} variant="secondary" className="text-xs">{getDomainLabel(d as PsychDomain)}</Badge>
+          ))}
         </div>
+      </div>
 
-        <Paragraph className="feedback-card__summary">{feedback.summary}</Paragraph>
-
+      {/* Unexplored Domains */}
+      {(feedback.domains_unexplored ?? []).length > 0 && (
         <div>
-          <Text type="secondary">{t('psychProfile.exploredDomains')}：</Text>
-          <div className="feedback-card__domains">
-            {(feedback.domains_explored ?? []).map((d) => (
-              <Tag key={d} color="blue">{getDomainLabel(d as PsychDomain)}</Tag>
+          <p className="text-xs font-medium text-muted-foreground mb-2">{t('psychProfile.unexploredDomains')}：</p>
+          <div className="flex flex-wrap gap-1.5">
+            {(feedback.domains_unexplored ?? []).map((d) => (
+              <Badge key={d} variant="outline" className="text-xs">{getDomainLabel(d as PsychDomain)}</Badge>
             ))}
           </div>
         </div>
+      )}
 
-        {(feedback.domains_unexplored ?? []).length > 0 && (
-          <div>
-            <Text type="secondary">{t('psychProfile.unexploredDomains')}：</Text>
-            <div className="feedback-card__domains">
-              {(feedback.domains_unexplored ?? []).map((d) => (
-                <Tag key={d} color="default">{getDomainLabel(d as PsychDomain)}</Tag>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {(feedback.key_insights ?? []).length > 0 && (
-          <div>
-            <Text type="secondary">{t('psychProfile.keyInsights')}：</Text>
-            <ul className="feedback-card__insights">
-              {(feedback.key_insights ?? []).map((insight, i) => (
-                <li key={i}>{insight}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        <div className="feedback-card__richness">
-          <RichnessRing score={feedback.richness_score} size={64} />
+      {/* Key Insights */}
+      {(feedback.key_insights ?? []).length > 0 && (
+        <div>
+          <p className="text-xs font-medium text-muted-foreground mb-2">{t('psychProfile.keyInsights')}：</p>
+          <ul className="list-disc pl-5 space-y-1 text-sm text-foreground">
+            {(feedback.key_insights ?? []).map((insight, i) => <li key={i}>{insight}</li>)}
+          </ul>
         </div>
+      )}
 
-        <Paragraph type="secondary" italic className="feedback-card__encouragement">
-          {feedback.encouragement}
-        </Paragraph>
+      {/* Richness Ring */}
+      <div className="flex justify-center py-2">
+        <RichnessRing score={feedback.richness_score} size={64} />
+      </div>
 
-        {feedback.continuation_hint && (
-          <Paragraph className="feedback-card__continuation-hint">
-            {feedback.continuation_hint}
-          </Paragraph>
+      {/* Encouragement */}
+      <p className="text-sm italic text-muted-foreground">{feedback.encouragement}</p>
+
+      {feedback.continuation_hint && (
+        <p className="text-sm text-foreground">{feedback.continuation_hint}</p>
+      )}
+
+      {/* Actions */}
+      <div className="flex flex-wrap gap-2 pt-2">
+        {primaryAction.onClick && (
+          <Button onClick={primaryAction.onClick}>
+            {primaryAction.text}<ChevronRight className="size-4" />
+          </Button>
         )}
-
-        <Space>
-          {primaryAction.onClick && (
-            <Button type="primary" onClick={primaryAction.onClick} icon={<RightOutlined />}>
-              {primaryAction.text}
-            </Button>
-          )}
-          {onViewProfile && (
-            <Button icon={<BookOutlined />} onClick={onViewProfile}>
-              {t('feedback.viewMyStory')}
-            </Button>
-          )}
-        </Space>
-      </Space>
-    </Card>
+        {onViewProfile && (
+          <Button variant="outline" onClick={onViewProfile}>
+            <BookOpen className="size-4" />{t('feedback.viewMyStory')}
+          </Button>
+        )}
+      </div>
+    </div>
   );
 };
 

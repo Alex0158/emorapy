@@ -1,5 +1,7 @@
 /**
  * Register 頁面單元測試
+ *
+ * 遷移: antd message → sonner toast
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
@@ -9,9 +11,9 @@ const mockRegister = vi.fn();
 const mockNavigate = vi.fn();
 const mockSendVerificationCode = vi.fn();
 const mockVerifyEmail = vi.fn();
-const mockMessageSuccess = vi.fn();
-const mockMessageError = vi.fn();
-const mockMessageWarning = vi.fn();
+const mockToastSuccess = vi.fn();
+const mockToastError = vi.fn();
+const mockToastWarning = vi.fn();
 
 vi.mock('@/store/authStore', () => ({
   useAuthStore: () => ({ register: mockRegister, isLoading: false }),
@@ -21,26 +23,28 @@ vi.mock('react-router-dom', async () => {
   return { ...actual, useNavigate: () => mockNavigate };
 });
 vi.mock('@/components/common/SEO', () => ({ default: () => null }));
-vi.mock('@/components/common/AnimatedWrapper', () => ({
-  default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-}));
-vi.mock('@/components/business/MediatorAvatar', () => ({ default: () => <div data-testid="mediator-avatar" /> }));
 vi.mock('@/utils/i18n', () => ({ t: (key: string) => key }));
 vi.mock('@/services/api/auth', () => ({
   sendVerificationCode: (...args: unknown[]) => mockSendVerificationCode(...args),
   verifyEmail: (...args: unknown[]) => mockVerifyEmail(...args),
 }));
-vi.mock('antd', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('antd')>();
-  return {
-    ...actual,
-    message: {
-      success: (...args: unknown[]) => mockMessageSuccess(...args),
-      error: (...args: unknown[]) => mockMessageError(...args),
-      warning: (...args: unknown[]) => mockMessageWarning(...args),
-    },
-  };
-});
+vi.mock('sonner', () => ({
+  toast: {
+    success: (...args: unknown[]) => mockToastSuccess(...args),
+    error: (...args: unknown[]) => mockToastError(...args),
+    warning: (...args: unknown[]) => mockToastWarning(...args),
+  },
+}));
+vi.mock('framer-motion', () => ({
+  motion: {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    form: ({ children, ...props }: any) => <form {...props}>{children}</form>,
+  },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  AnimatePresence: ({ children }: any) => <>{children}</>,
+}));
 
 import Register from './index';
 
@@ -106,7 +110,7 @@ describe('Register', () => {
   it('Step 0 → 1: sendCode 成功應轉到驗證步驟', async () => {
     await advanceToStep1();
     expect(mockSendVerificationCode).toHaveBeenCalledWith('test@example.com', 'register');
-    expect(mockMessageSuccess).toHaveBeenCalledWith('message.codeSent');
+    expect(mockToastSuccess).toHaveBeenCalledWith('message.codeSent');
   });
 
   it('Step 0: sendCode 失敗應顯示錯誤訊息', async () => {
@@ -117,7 +121,7 @@ describe('Register', () => {
     });
     fireEvent.click(screen.getByText('auth.register.sendCode'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('發送失敗');
+      expect(mockToastError).toHaveBeenCalledWith('發送失敗');
     });
     expect(screen.getByText('auth.register.sendCode')).toBeInTheDocument();
   });
@@ -132,15 +136,15 @@ describe('Register', () => {
     });
     fireEvent.click(screen.getByText('auth.register.sendCode'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('暫時無法發送');
+      expect(mockToastError).toHaveBeenCalledWith('暫時無法發送');
     });
     await waitFor(() => {
-      expect(screen.getByText('auth.register.sendCode')).not.toHaveClass('ant-btn-loading');
+      expect(screen.getByText('auth.register.sendCode')).not.toBeDisabled();
     });
     fireEvent.click(screen.getByText('auth.register.sendCode'));
     await waitFor(() => {
       expect(mockSendVerificationCode).toHaveBeenCalledTimes(2);
-      expect(mockMessageSuccess).toHaveBeenCalledWith('message.codeSent');
+      expect(mockToastSuccess).toHaveBeenCalledWith('message.codeSent');
     });
     expect(screen.getByText('auth.register.codeSentTo')).toBeInTheDocument();
   });
@@ -153,7 +157,7 @@ describe('Register', () => {
     });
     fireEvent.click(screen.getByText('auth.register.sendCode'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('發送失敗');
+      expect(mockToastError).toHaveBeenCalledWith('發送失敗');
     });
     const loginBtn = screen.getByText('auth.register.loginNow');
     expect(loginBtn).toBeInTheDocument();
@@ -169,7 +173,7 @@ describe('Register', () => {
     });
     fireEvent.click(screen.getByText('auth.register.sendCode'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.sendCodeFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.sendCodeFail');
     });
   });
 
@@ -181,7 +185,7 @@ describe('Register', () => {
     });
     fireEvent.click(screen.getByText('auth.register.sendCode'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.sendCodeFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.sendCodeFail');
     });
   });
 
@@ -193,7 +197,7 @@ describe('Register', () => {
     });
     fireEvent.click(screen.getByText('auth.register.sendCode'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.sendCodeFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.sendCodeFail');
     });
   });
 
@@ -222,7 +226,7 @@ describe('Register', () => {
   it('Step 1 → 2: verifyEmail 成功應轉到密碼步驟', async () => {
     await advanceToStep2();
     expect(mockVerifyEmail).toHaveBeenCalledWith('test@example.com', '123456', 'register');
-    expect(mockMessageSuccess).toHaveBeenCalledWith('message.verifySuccess');
+    expect(mockToastSuccess).toHaveBeenCalledWith('message.verifySuccess');
   });
 
   it('Step 1: verifyEmail 返回 false 應顯示錯誤', async () => {
@@ -235,7 +239,7 @@ describe('Register', () => {
     }
     fireEvent.click(screen.getByText('auth.register.verifyAndContinue'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.codeError');
+      expect(mockToastError).toHaveBeenCalledWith('message.codeError');
     });
   });
 
@@ -249,7 +253,7 @@ describe('Register', () => {
     }
     fireEvent.click(screen.getByText('auth.register.verifyAndContinue'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.verifyFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.verifyFail');
     });
   });
 
@@ -263,7 +267,7 @@ describe('Register', () => {
     }
     fireEvent.click(screen.getByText('auth.register.verifyAndContinue'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.verifyFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.verifyFail');
     });
   });
 
@@ -277,7 +281,7 @@ describe('Register', () => {
     }
     fireEvent.click(screen.getByText('auth.register.verifyAndContinue'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('驗證碼已過期');
+      expect(mockToastError).toHaveBeenCalledWith('驗證碼已過期');
     });
   });
 
@@ -291,7 +295,7 @@ describe('Register', () => {
     }
     fireEvent.click(screen.getByText('auth.register.verifyAndContinue'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.verifyFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.verifyFail');
     });
   });
 
@@ -307,15 +311,15 @@ describe('Register', () => {
     }
     fireEvent.click(screen.getByText('auth.register.verifyAndContinue'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('驗證服務暫時不可用');
+      expect(mockToastError).toHaveBeenCalledWith('驗證服務暫時不可用');
     });
     await waitFor(() => {
-      expect(screen.getByText('auth.register.verifyAndContinue')).not.toHaveClass('ant-btn-loading');
+      expect(screen.getByText('auth.register.verifyAndContinue')).not.toBeDisabled();
     });
     fireEvent.click(screen.getByText('auth.register.verifyAndContinue'));
     await waitFor(() => {
       expect(mockVerifyEmail).toHaveBeenCalledTimes(2);
-      expect(mockMessageSuccess).toHaveBeenCalledWith('message.verifySuccess');
+      expect(mockToastSuccess).toHaveBeenCalledWith('message.verifySuccess');
     });
     expect(screen.getByPlaceholderText('auth.register.passwordPlaceholder')).toBeInTheDocument();
   });
@@ -330,7 +334,7 @@ describe('Register', () => {
     }
     fireEvent.click(screen.getByText('auth.register.verifyAndContinue'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalled();
+      expect(mockToastError).toHaveBeenCalled();
     });
     const loginBtn = screen.getByText('auth.register.loginNow');
     expect(loginBtn).toBeInTheDocument();
@@ -338,7 +342,7 @@ describe('Register', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/auth/login', { state: { from: { pathname: '/profile/pairing' } } });
   });
 
-  it('register 成功但組件已卸載時不應呼叫 message.success 或 navigate（useMountedRef 回歸：避免 F01-BUG-001 同類問題）', async () => {
+  it('register 成功但組件已卸載時不應呼叫 toast.success 或 navigate（useMountedRef 回歸：避免 F01-BUG-001 同類問題）', async () => {
     mockSendVerificationCode.mockResolvedValue(undefined);
     mockVerifyEmail.mockResolvedValue(true);
     let resolveRegister: () => void;
@@ -372,16 +376,16 @@ describe('Register', () => {
     await waitFor(() => {
       expect(mockRegister).toHaveBeenCalledWith('test@example.com', 'Password123', undefined);
     });
-    mockMessageSuccess.mockClear();
+    mockToastSuccess.mockClear();
     mockNavigate.mockClear();
     unmount();
     resolveRegister!();
     await Promise.resolve();
-    expect(mockMessageSuccess).not.toHaveBeenCalled();
+    expect(mockToastSuccess).not.toHaveBeenCalled();
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
-  it('register 失敗但組件已卸載時不應呼叫 message.error（useMountedRef 回歸：避免卸載後誤提示）', async () => {
+  it('register 失敗但組件已卸載時不應呼叫 toast.error（useMountedRef 回歸：避免卸載後誤提示）', async () => {
     mockSendVerificationCode.mockResolvedValue(undefined);
     mockVerifyEmail.mockResolvedValue(true);
     let rejectRegister: (reason?: unknown) => void;
@@ -420,7 +424,7 @@ describe('Register', () => {
       rejectRegister!(new Error('註冊失敗'));
       await Promise.resolve();
     });
-    expect(mockMessageError).not.toHaveBeenCalled();
+    expect(mockToastError).not.toHaveBeenCalled();
   });
 
   it('Step 2: register 成功應導航至 /profile/pairing', async () => {
@@ -436,7 +440,7 @@ describe('Register', () => {
     await waitFor(() => {
       expect(mockRegister).toHaveBeenCalledWith('test@example.com', 'Password123', undefined);
     });
-    expect(mockMessageSuccess).toHaveBeenCalledWith('message.registerSuccess');
+    expect(mockToastSuccess).toHaveBeenCalledWith('message.registerSuccess');
     expect(mockNavigate).toHaveBeenCalledWith('/profile/pairing', { replace: true });
   });
 
@@ -553,7 +557,7 @@ describe('Register', () => {
     });
     fireEvent.click(screen.getByText('auth.register.finishRegister'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('註冊失敗');
+      expect(mockToastError).toHaveBeenCalledWith('註冊失敗');
     });
   });
 
@@ -570,15 +574,15 @@ describe('Register', () => {
     });
     fireEvent.click(screen.getByText('auth.register.finishRegister'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalled();
+      expect(mockToastError).toHaveBeenCalled();
     });
     await waitFor(() => {
-      expect(screen.getByText('auth.register.finishRegister')).not.toHaveClass('ant-btn-loading');
+      expect(screen.getByText('auth.register.finishRegister')).not.toBeDisabled();
     });
     fireEvent.click(screen.getByText('auth.register.finishRegister'));
     await waitFor(() => {
       expect(mockRegister).toHaveBeenCalledTimes(2);
-      expect(mockMessageSuccess).toHaveBeenCalledWith('message.registerSuccess');
+      expect(mockToastSuccess).toHaveBeenCalledWith('message.registerSuccess');
     });
     expect(mockNavigate).toHaveBeenCalledWith('/profile/pairing', { replace: true });
   });
@@ -594,7 +598,7 @@ describe('Register', () => {
     });
     fireEvent.click(screen.getByText('auth.register.finishRegister'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalled();
+      expect(mockToastError).toHaveBeenCalled();
     });
     const loginBtn = screen.getByText('auth.register.loginNow');
     expect(loginBtn).toBeInTheDocument();
@@ -613,7 +617,7 @@ describe('Register', () => {
     });
     fireEvent.click(screen.getByText('auth.register.finishRegister'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.registerFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.registerFail');
     });
   });
 
@@ -628,7 +632,7 @@ describe('Register', () => {
     });
     fireEvent.click(screen.getByText('auth.register.finishRegister'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.registerFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.registerFail');
     });
   });
 
@@ -643,7 +647,7 @@ describe('Register', () => {
     });
     fireEvent.click(screen.getByText('auth.register.finishRegister'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('此郵箱已被註冊');
+      expect(mockToastError).toHaveBeenCalledWith('此郵箱已被註冊');
     });
     expect(mockNavigate).not.toHaveBeenCalledWith('/profile/pairing');
   });
@@ -659,7 +663,7 @@ describe('Register', () => {
     });
     fireEvent.click(screen.getByText('auth.register.finishRegister'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.registerFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.registerFail');
     });
   });
 

@@ -3,44 +3,34 @@
  */
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { Form } from 'antd';
 import FormItem from './index';
 
 describe('FormItem', () => {
-  it('應渲染 children', () => {
+  it('應渲染 children 和 label', () => {
     render(
-      <Form>
-        <FormItem name="field" label="標籤">
-          <input data-testid="input" />
-        </FormItem>
-      </Form>
+      <FormItem name="field" label="標籤">
+        <input data-testid="input" />
+      </FormItem>
     );
     expect(screen.getByTestId('input')).toBeInTheDocument();
     expect(screen.getByText('標籤')).toBeInTheDocument();
   });
 
-  it('預設應有 error-inline 類名', () => {
+  it('應有 mb-4 間距類名', () => {
     const { container } = render(
-      <Form>
-        <FormItem name="a" label="A">
-          <input />
-        </FormItem>
-      </Form>
+      <FormItem name="a" label="A">
+        <input />
+      </FormItem>
     );
-    const item = container.querySelector('.enhanced-form-item.error-inline');
-    expect(item).toBeInTheDocument();
+    expect(container.firstElementChild?.className).toContain('mb-4');
   });
 
-  it('showErrorInline 為 false 時不應有 error-inline 類名', () => {
-    const { container } = render(
-      <Form>
-        <FormItem name="a" label="A" showErrorInline={false}>
-          <input />
-        </FormItem>
-      </Form>
+  it('required 時顯示 * 標記', () => {
+    render(
+      <FormItem name="a" label="A" required>
+        <input />
+      </FormItem>
     );
-    const item = container.querySelector('.enhanced-form-item');
-    expect(item).toBeInTheDocument();
-    expect(item?.classList.contains('error-inline')).toBe(false);
+    expect(screen.getByText('*')).toBeInTheDocument();
   });
 });

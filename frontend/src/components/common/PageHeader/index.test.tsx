@@ -24,15 +24,14 @@ describe('PageHeader', () => {
   });
 
   it('應渲染 icon 當有提供時', () => {
-    const { container } = render(
+    render(
       <PageHeader title="標題" icon={<span data-testid="icon">🔖</span>} />
     );
     expect(screen.getByTestId('icon')).toBeInTheDocument();
-    expect(container.querySelector('.page-header-icon')).toBeInTheDocument();
   });
 
-  it('應有 page-header 類名', () => {
-    const { container } = render(<PageHeader title="標題" />);
-    expect(container.querySelector('.page-header')).toBeInTheDocument();
+  it('title 應使用 h2 標籤', () => {
+    render(<PageHeader title="標題" />);
+    expect(screen.getByRole('heading', { level: 2, name: '標題' })).toBeInTheDocument();
   });
 });

@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { execSync } from 'node:child_process';
 import { defineConfig, type Plugin, type ViteDevServer } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 import path from 'path';
 import pkg from './package.json';
 
@@ -71,10 +72,11 @@ export default defineConfig(({ mode }) => {
   };
 
   return {
-    plugins: [react(), versionManifestPlugin()],
+    plugins: [react(), tailwindcss(), versionManifestPlugin()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),
+        '@/lib': path.resolve(__dirname, './src/lib'),
         '@cj/contracts': path.resolve(__dirname, '../packages/contracts/src'),
         '@cj/api-client': path.resolve(__dirname, '../packages/api-client/src'),
       },

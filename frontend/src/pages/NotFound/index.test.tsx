@@ -29,7 +29,7 @@ describe('NotFound', () => {
         <NotFound />
       </MemoryRouter>
     );
-    expect(screen.getByText('404')).toBeInTheDocument();
+    expect(screen.getAllByText(/404/).length).toBeGreaterThan(0);
     expect(screen.getByText('抱歉，您訪問的頁面不存在。')).toBeInTheDocument();
   });
 

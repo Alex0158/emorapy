@@ -21,14 +21,16 @@ describe('Skeleton', () => {
     expect(container.querySelector('.skeleton-list')).toBeInTheDocument();
   });
 
-  it('type 為 text 時應渲染 AntSkeleton', () => {
+  it('type 為 text 時應渲染骨架元素', () => {
     const { container } = render(<Skeleton type="text" rows={2} />);
-    expect(container.querySelector('.ant-skeleton')).toBeInTheDocument();
+    const skeletons = container.querySelectorAll('[data-slot="skeleton"]');
+    expect(skeletons.length).toBe(2);
   });
 
   it('rows 應影響 list 的項目數', () => {
     const { container } = render(<Skeleton type="list" rows={4} />);
     const list = container.querySelector('.skeleton-list');
-    expect(list?.querySelectorAll('.ant-skeleton')).toHaveLength(4);
+    const items = list?.querySelectorAll('[data-slot="skeleton"]');
+    expect(items).toHaveLength(4);
   });
 });

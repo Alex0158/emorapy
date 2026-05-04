@@ -8,15 +8,16 @@ import ResponsibilityRatio from './index';
 describe('ResponsibilityRatio', () => {
   it('應渲染責任比例', () => {
     render(<ResponsibilityRatio ratio={{ plaintiff: 60, defendant: 40 }} />);
-    expect(screen.getByText(/角色A: 60%/)).toBeInTheDocument();
-    expect(screen.getByText(/角色B: 40%/)).toBeInTheDocument();
+    expect(screen.getByText(/角色A 60%/)).toBeInTheDocument();
+    expect(screen.getByText(/角色B 40%/)).toBeInTheDocument();
   });
 
   it('size="small" 時應套用 small class', () => {
-    render(
+    const { container } = render(
       <ResponsibilityRatio ratio={{ plaintiff: 50, defendant: 50 }} size="small" />
     );
-    expect(document.querySelector('.responsibility-ratio.small')).toBeInTheDocument();
+    // Now uses Tailwind: size="small" applies gap-3 class
+    expect(container.firstChild).toHaveClass('gap-3');
   });
 
   it('showLabels={false} 時不應渲染 responsibility-labels', () => {

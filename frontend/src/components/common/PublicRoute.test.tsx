@@ -120,7 +120,7 @@ describe('PublicRoute', () => {
       </MemoryRouter>
     );
     expect(screen.queryByText('Login form')).not.toBeInTheDocument();
-    expect(document.querySelector('.ant-spin')).toBeInTheDocument();
+    expect(document.querySelector('.animate-spin')).toBeInTheDocument();
   });
 
   it('hydration 超時後應繼續渲染（已認證則重定向）', () => {
@@ -136,7 +136,7 @@ describe('PublicRoute', () => {
         </Routes>
       </MemoryRouter>
     );
-    expect(document.querySelector('.ant-spin')).toBeInTheDocument();
+    expect(document.querySelector('.animate-spin')).toBeInTheDocument();
     act(() => { vi.advanceTimersByTime(5000); });
     expect(screen.getByTestId('list')).toBeInTheDocument();
   });
@@ -151,10 +151,10 @@ describe('PublicRoute', () => {
         </PublicRoute>
       </MemoryRouter>
     );
-    expect(document.querySelector('.ant-spin')).toBeInTheDocument();
+    expect(document.querySelector('.animate-spin')).toBeInTheDocument();
     act(() => { vi.advanceTimersByTime(5000); });
     expect(screen.getByTestId('login-form')).toBeInTheDocument();
     expect(screen.getByText('Login form')).toBeInTheDocument();
-    expect(document.querySelector('.ant-spin')).not.toBeInTheDocument();
+    expect(document.querySelector('.animate-spin')).not.toBeInTheDocument();
   });
 });

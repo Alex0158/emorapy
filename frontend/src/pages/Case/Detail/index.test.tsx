@@ -10,9 +10,10 @@ const mockGetCase = vi.fn();
 const mockSubmitCase = vi.fn();
 const mockUpdateCase = vi.fn();
 const mockNavigate = vi.fn();
-const mockMessageError = vi.fn();
-const mockMessageSuccess = vi.fn();
-const mockMessageWarning = vi.fn();
+const mockToastError = vi.fn();
+const mockToastSuccess = vi.fn();
+const mockToastWarning = vi.fn();
+const mockToastInfo = vi.fn();
 const mockLoggerError = vi.fn();
 
 vi.mock('react-router-dom', async () => {
@@ -43,9 +44,6 @@ vi.mock('@/utils/logger', () => ({
   },
 }));
 vi.mock('@/components/common/SEO', () => ({ default: () => null }));
-vi.mock('@/components/common/AnimatedWrapper', () => ({
-  default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-}));
 vi.mock('@/components/business/StatementInput', () => ({
   default: ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
     <input
@@ -56,18 +54,14 @@ vi.mock('@/components/business/StatementInput', () => ({
     />
   ),
 }));
-vi.mock('antd', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('antd')>();
-  return {
-    ...actual,
-    message: {
-      error: (...args: unknown[]) => mockMessageError(...args),
-      success: (...args: unknown[]) => mockMessageSuccess(...args),
-      info: vi.fn(),
-      warning: (...args: unknown[]) => mockMessageWarning(...args),
-    },
-  };
-});
+vi.mock('sonner', () => ({
+  toast: {
+    error: (...args: unknown[]) => mockToastError(...args),
+    success: (...args: unknown[]) => mockToastSuccess(...args),
+    info: (...args: unknown[]) => mockToastInfo(...args),
+    warning: (...args: unknown[]) => mockToastWarning(...args),
+  },
+}));
 
 import CaseDetail from './index';
 import { validateStatement } from '@/utils/validate';
@@ -111,17 +105,17 @@ describe('CaseDetail', () => {
     });
   });
 
-  it('loading 時應顯示 loading', () => {
+  it('loading 時應顯示 loading spinner', () => {
     mockGetCase.mockImplementation(() => new Promise(() => {}));
-    renderPage();
-    expect(screen.getByText('common.loading')).toBeInTheDocument();
+    const { container } = renderPage();
+    expect(container.querySelector('.animate-spin')).toBeInTheDocument();
   });
 
   it('getCase NOT_FOUND 時應顯示錯誤並排程導航', async () => {
     mockGetCase.mockRejectedValue({ code: 'NOT_FOUND', message: 'Not found' });
     renderPage();
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('common.caseNotFound');
+      expect(mockToastError).toHaveBeenCalledWith('common.caseNotFound');
     });
   });
 
@@ -141,7 +135,7 @@ describe('CaseDetail', () => {
     mockGetCase.mockRejectedValue({ code: 'FORBIDDEN' });
     renderPage();
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.noPermissionViewCase');
+      expect(mockToastError).toHaveBeenCalledWith('message.noPermissionViewCase');
     });
   });
 
@@ -149,7 +143,7 @@ describe('CaseDetail', () => {
     mockGetCase.mockRejectedValue({ code: 'FORBIDDEN', message: '此案件已移交他方，您無權查看' });
     renderPage();
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('此案件已移交他方，您無權查看');
+      expect(mockToastError).toHaveBeenCalledWith('此案件已移交他方，您無權查看');
     });
   });
 
@@ -157,7 +151,7 @@ describe('CaseDetail', () => {
     mockGetCase.mockRejectedValue({ code: 'UNAUTHORIZED', message: 'Unauthorized' });
     renderPage();
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.pleaseLogin');
+      expect(mockToastError).toHaveBeenCalledWith('message.pleaseLogin');
     });
   });
 
@@ -165,7 +159,7 @@ describe('CaseDetail', () => {
     mockGetCase.mockRejectedValue({ code: 'HTTP_403' });
     renderPage();
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.noPermissionViewCase');
+      expect(mockToastError).toHaveBeenCalledWith('message.noPermissionViewCase');
     });
   });
 
@@ -173,7 +167,7 @@ describe('CaseDetail', () => {
     mockGetCase.mockRejectedValue({ code: 'HTTP_401' });
     renderPage();
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.pleaseLogin');
+      expect(mockToastError).toHaveBeenCalledWith('message.pleaseLogin');
     });
   });
 
@@ -181,7 +175,7 @@ describe('CaseDetail', () => {
     mockGetCase.mockRejectedValue({ code: 'SERVER_ERROR' });
     renderPage();
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('common.getCaseFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.getCaseFail');
     });
   });
 
@@ -189,7 +183,7 @@ describe('CaseDetail', () => {
     mockGetCase.mockRejectedValue({ code: 'SERVER_ERROR', message: '' });
     renderPage();
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('common.getCaseFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.getCaseFail');
     });
   });
 
@@ -197,7 +191,7 @@ describe('CaseDetail', () => {
     mockGetCase.mockRejectedValue(new Error('資料庫連線逾時，請稍後再試'));
     renderPage();
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('資料庫連線逾時，請稍後再試');
+      expect(mockToastError).toHaveBeenCalledWith('資料庫連線逾時，請稍後再試');
     });
   });
 
@@ -252,7 +246,7 @@ describe('CaseDetail', () => {
     renderPage();
     await waitFor(() => expect(screen.getByText('common.retry')).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: 'common.retry' }));
-    await waitFor(() => expect(mockMessageError).toHaveBeenCalledWith('第二次仍失敗'));
+    await waitFor(() => expect(mockToastError).toHaveBeenCalledWith('第二次仍失敗'));
     await waitFor(() => expect(screen.getByText('common.retry')).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: 'common.retry' }));
     await waitFor(() => {
@@ -269,11 +263,11 @@ describe('CaseDetail', () => {
     await waitFor(() => {
       expect(screen.getByText('common.retry')).toBeInTheDocument();
     });
-    expect(mockMessageError).toHaveBeenCalledWith('網絡錯誤');
-    mockMessageError.mockClear();
+    expect(mockToastError).toHaveBeenCalledWith('網絡錯誤');
+    mockToastError.mockClear();
     fireEvent.click(screen.getByRole('button', { name: 'common.retry' }));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('重試時服務不可用');
+      expect(mockToastError).toHaveBeenCalledWith('重試時服務不可用');
     });
   });
 
@@ -285,10 +279,10 @@ describe('CaseDetail', () => {
     await waitFor(() => {
       expect(screen.getByText('common.retry')).toBeInTheDocument();
     });
-    mockMessageError.mockClear();
+    mockToastError.mockClear();
     fireEvent.click(screen.getByRole('button', { name: 'common.retry' }));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('common.getCaseFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.getCaseFail');
     });
   });
 
@@ -332,7 +326,7 @@ describe('CaseDetail', () => {
 
     await waitFor(() => {
       expect(mockSubmitCase).toHaveBeenCalledWith('c1');
-      expect(mockMessageSuccess).toHaveBeenCalledWith('message.submitCaseSuccess');
+      expect(mockToastSuccess).toHaveBeenCalledWith('message.submitCaseSuccess');
       expect(mockNavigate).toHaveBeenCalledWith('/case/c1/review');
     });
   });
@@ -356,7 +350,7 @@ describe('CaseDetail', () => {
     unmount();
     resolveSubmit!({ ...mockCase, status: 'submitted' });
     await Promise.resolve();
-    expect(mockMessageSuccess).not.toHaveBeenCalled();
+    expect(mockToastSuccess).not.toHaveBeenCalled();
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
@@ -525,7 +519,7 @@ describe('CaseDetail', () => {
     fireEvent.click(await screen.findByText('caseDetail.submitCase'));
 
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.submitCaseFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.submitCaseFail');
     });
   });
 
@@ -543,7 +537,7 @@ describe('CaseDetail', () => {
     fireEvent.click(await screen.findByText('caseDetail.submitCase'));
 
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.noPermissionSubmitCase');
+      expect(mockToastError).toHaveBeenCalledWith('message.noPermissionSubmitCase');
     });
   });
 
@@ -561,7 +555,7 @@ describe('CaseDetail', () => {
     fireEvent.click(await screen.findByText('caseDetail.submitCase'));
 
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('此案件已超過提交期限');
+      expect(mockToastError).toHaveBeenCalledWith('此案件已超過提交期限');
     });
   });
 
@@ -579,7 +573,7 @@ describe('CaseDetail', () => {
     fireEvent.click(await screen.findByText('caseDetail.submitCase'));
 
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('案件欄位驗證失敗：標題不可為空');
+      expect(mockToastError).toHaveBeenCalledWith('案件欄位驗證失敗：標題不可為空');
     });
   });
 
@@ -597,7 +591,7 @@ describe('CaseDetail', () => {
     fireEvent.click(await screen.findByText('caseDetail.submitCase'));
 
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.submitCaseFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.submitCaseFail');
     });
   });
 
@@ -615,7 +609,7 @@ describe('CaseDetail', () => {
     fireEvent.click(await screen.findByText('caseDetail.submitCase'));
 
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.submitCaseFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.submitCaseFail');
     });
   });
 
@@ -635,16 +629,16 @@ describe('CaseDetail', () => {
     const submitBtn = await screen.findByText('caseDetail.submitCase');
     fireEvent.click(submitBtn);
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('服務暫時不可用');
+      expect(mockToastError).toHaveBeenCalledWith('服務暫時不可用');
     });
     await waitFor(() => {
       const btn = screen.getByText('caseDetail.submitCase').closest('button');
-      expect(btn).not.toHaveClass('ant-btn-loading');
+      expect(btn).not.toBeDisabled();
     });
     fireEvent.click(screen.getByText('caseDetail.submitCase'));
     await waitFor(() => {
       expect(mockSubmitCase).toHaveBeenCalledTimes(2);
-      expect(mockMessageSuccess).toHaveBeenCalledWith('message.submitCaseSuccess');
+      expect(mockToastSuccess).toHaveBeenCalledWith('message.submitCaseSuccess');
       expect(mockNavigate).toHaveBeenCalledWith('/case/c1/review');
     });
   });
@@ -757,7 +751,7 @@ describe('CaseDetail', () => {
     fireEvent.click(submitResponseBtn);
 
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('caseDetail.defendantRespondFail');
+      expect(mockToastError).toHaveBeenCalledWith('caseDetail.defendantRespondFail');
     });
   });
 
@@ -779,7 +773,7 @@ describe('CaseDetail', () => {
     fireEvent.click(submitResponseBtn);
 
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('caseDetail.defendantRespondFail');
+      expect(mockToastError).toHaveBeenCalledWith('caseDetail.defendantRespondFail');
     });
   });
 
@@ -801,7 +795,7 @@ describe('CaseDetail', () => {
     fireEvent.click(submitResponseBtn);
 
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('陳述內容含敏感詞彙，請修正後再試');
+      expect(mockToastError).toHaveBeenCalledWith('陳述內容含敏感詞彙，請修正後再試');
     });
   });
 
@@ -824,16 +818,16 @@ describe('CaseDetail', () => {
     const submitResponseBtn = await screen.findByText('caseDetail.submitResponse');
     fireEvent.click(submitResponseBtn);
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('網路暫時不穩');
+      expect(mockToastError).toHaveBeenCalledWith('網路暫時不穩');
     });
     await waitFor(() => {
       const btn = screen.getByText('caseDetail.submitResponse').closest('button');
-      expect(btn).not.toHaveClass('ant-btn-loading');
+      expect(btn).not.toBeDisabled();
     });
     fireEvent.click(screen.getByText('caseDetail.submitResponse'));
     await waitFor(() => {
       expect(mockUpdateCase).toHaveBeenCalledTimes(2);
-      expect(mockMessageSuccess).toHaveBeenCalledWith('caseDetail.defendantRespondSuccess');
+      expect(mockToastSuccess).toHaveBeenCalledWith('caseDetail.defendantRespondSuccess');
       expect(mockNavigate).toHaveBeenCalledWith('/case/c1/review');
     });
   });
@@ -856,7 +850,7 @@ describe('CaseDetail', () => {
     fireEvent.click(submitResponseBtn);
 
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('此案件已鎖定，無法回覆');
+      expect(mockToastError).toHaveBeenCalledWith('此案件已鎖定，無法回覆');
     });
   });
 
@@ -878,7 +872,7 @@ describe('CaseDetail', () => {
     fireEvent.click(submitResponseBtn);
 
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('caseDetail.defendantRespondFail');
+      expect(mockToastError).toHaveBeenCalledWith('caseDetail.defendantRespondFail');
     });
   });
 
@@ -930,7 +924,7 @@ describe('CaseDetail', () => {
     fireEvent.click(submitResponseBtn);
 
     await waitFor(() => {
-      expect(mockMessageSuccess).toHaveBeenCalledWith('caseDetail.defendantRespondSuccess');
+      expect(mockToastSuccess).toHaveBeenCalledWith('caseDetail.defendantRespondSuccess');
     });
     expect(mockNavigate).not.toHaveBeenCalled();
   });
@@ -978,7 +972,7 @@ describe('CaseDetail', () => {
 
     await waitFor(() => {
       expect(mockGetJudgmentByCaseId).toHaveBeenCalledWith('c1');
-      expect(mockMessageWarning).toHaveBeenCalledWith('message.judgmentNotReady');
+      expect(mockToastWarning).toHaveBeenCalledWith('message.judgmentNotReady');
     });
   });
 
@@ -992,7 +986,7 @@ describe('CaseDetail', () => {
 
     await waitFor(() => {
       expect(mockGetJudgmentByCaseId).toHaveBeenCalledWith('c1');
-      expect(mockMessageError).toHaveBeenCalledWith('取得判決失敗');
+      expect(mockToastError).toHaveBeenCalledWith('取得判決失敗');
     });
   });
 
@@ -1006,7 +1000,7 @@ describe('CaseDetail', () => {
 
     await waitFor(() => {
       expect(mockGetJudgmentByCaseId).toHaveBeenCalledWith('c1');
-      expect(mockMessageError).toHaveBeenCalledWith('message.getJudgmentFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.getJudgmentFail');
     });
   });
 
@@ -1020,7 +1014,7 @@ describe('CaseDetail', () => {
 
     await waitFor(() => {
       expect(mockGetJudgmentByCaseId).toHaveBeenCalledWith('c1');
-      expect(mockMessageError).toHaveBeenCalledWith('message.getJudgmentFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.getJudgmentFail');
     });
   });
 
@@ -1034,7 +1028,7 @@ describe('CaseDetail', () => {
 
     await waitFor(() => {
       expect(mockGetJudgmentByCaseId).toHaveBeenCalledWith('c1');
-      expect(mockMessageError).toHaveBeenCalledWith('無權限查看此判決');
+      expect(mockToastError).toHaveBeenCalledWith('無權限查看此判決');
     });
   });
 
@@ -1048,7 +1042,7 @@ describe('CaseDetail', () => {
 
     await waitFor(() => {
       expect(mockGetJudgmentByCaseId).toHaveBeenCalledWith('c1');
-      expect(mockMessageError).toHaveBeenCalledWith('message.getJudgmentFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.getJudgmentFail');
     });
   });
 
@@ -1062,7 +1056,7 @@ describe('CaseDetail', () => {
 
     fireEvent.click(await screen.findByText('caseDetail.viewJudgment'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('網絡暫不可用');
+      expect(mockToastError).toHaveBeenCalledWith('網絡暫不可用');
     });
     expect(mockGetJudgmentByCaseId).toHaveBeenCalledTimes(1);
 

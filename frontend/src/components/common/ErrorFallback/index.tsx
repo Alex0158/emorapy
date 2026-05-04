@@ -1,12 +1,11 @@
 /**
- * 錯誤回退組件
+ * 錯誤回退組件（路由級 ErrorBoundary 使用）
  */
 
-import { Result, Button } from 'antd';
 import { useNavigate } from 'react-router-dom';
-import { HomeOutlined, ReloadOutlined } from '@ant-design/icons';
+import { AlertCircle, Home, RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { t } from '@/utils/i18n';
-import './ErrorFallback.less';
 
 interface ErrorFallbackProps {
   error?: Error;
@@ -17,37 +16,17 @@ const ErrorFallback = ({ error, resetError }: ErrorFallbackProps) => {
   const navigate = useNavigate();
   const isDev = import.meta.env.DEV;
 
-  const handleGoHome = () => {
-    navigate('/');
-    if (resetError) {
-      resetError();
-    }
-  };
-
-  const handleReload = () => {
-    window.location.reload();
-  };
-
-  const fallbackMsg = t('error.appCrash');
-
   return (
-    <div className="error-fallback">
-      <Result
-        status="error"
-        title={t('error.occurred')}
-        subTitle={isDev ? (error?.message || fallbackMsg) : fallbackMsg}
-        extra={[
-          <Button type="primary" key="home" icon={<HomeOutlined />} onClick={handleGoHome}>
-            {t('common.backHome')}
-          </Button>,
-          <Button key="reload" icon={<ReloadOutlined />} onClick={handleReload}>
-            {t('common.reload')}
-          </Button>,
-        ]}
-      />
+    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-4 text-center">
+      <AlertCircle className="size-12 text-destructive" />
+      <h2 className="text-xl font-bold text-foreground">{t('error.occurred')}</h2>
+      <p className="text-sm text-muted-foreground max-w-md">{isDev ? (error?.message || t('error.appCrash')) : t('error.appCrash')}</p>
+      <div className="flex gap-2">
+        <Button onClick={() => { navigate('/'); resetError?.(); }}><Home className="size-4" />{t('common.backHome')}</Button>
+        <Button variant="outline" onClick={() => window.location.reload()}><RefreshCw className="size-4" />{t('common.reload')}</Button>
+      </div>
     </div>
   );
 };
 
 export default ErrorFallback;
-

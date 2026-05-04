@@ -1,12 +1,18 @@
 /**
- * 文件上傳組件（增強版）
+ * 文件上傳組件
+ *
+ * 遷移: Ant Upload/Progress/Typography/message/Icons → 原生 file input + Tailwind + sonner + Lucide
+ * 保留: 所有業務邏輯（驗證、上傳、刪除、預覽、簽名URL刷新）
+ * 保留: UploadFile 類型接口兼容（遷移期間保持向下兼容）
  */
 
-import { Upload, message, Progress, Typography } from 'antd';
-import { UploadOutlined } from '@ant-design/icons';
-import type { UploadFile, UploadProps } from 'antd/es/upload/interface';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
+import { toast } from 'sonner';
+import { Upload, X, Eye, Loader2 } from 'lucide-react';
+import type { UploadFile } from 'antd/es/upload/interface';
+import { Progress } from '@/components/ui/progress';
 import ConfirmModal from '@/components/common/ConfirmModal';
+import { cn } from '@/lib/utils';
 import {
   MAX_FILE_SIZE,
   MAX_IMAGE_COUNT,
@@ -16,9 +22,6 @@ import {
 import { formatFileSize } from '@/utils/format';
 import { uploadEvidence, deleteEvidence, getCase } from '@/services/api/case';
 import { t } from '@/utils/i18n';
-import './FileUpload.less';
-
-const { Text } = Typography;
 
 const FILE_UPLOAD_ERROR_CODE_MAP: Record<string, string> = {
   NETWORK_ERROR: 'common.networkError',
@@ -30,18 +33,8 @@ const FILE_UPLOAD_ERROR_CODE_MAP: Record<string, string> = {
 };
 
 const getLocalizedUploadError = (error: unknown, fallbackKey: string) => {
-  const code =
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    typeof (error as { code?: unknown }).code === 'string'
-      ? (error as { code: string }).code
-      : undefined;
-
-  if (code && FILE_UPLOAD_ERROR_CODE_MAP[code]) {
-    return t(FILE_UPLOAD_ERROR_CODE_MAP[code]);
-  }
-
+  const code = typeof error === 'object' && error !== null && 'code' in error && typeof (error as { code?: unknown }).code === 'string' ? (error as { code: string }).code : undefined;
+  if (code && FILE_UPLOAD_ERROR_CODE_MAP[code]) return t(FILE_UPLOAD_ERROR_CODE_MAP[code]);
   return t(fallbackKey);
 };
 
@@ -51,10 +44,10 @@ interface FileUploadProps {
   maxCount?: number;
   accept?: string;
   disabled?: boolean;
-  caseId?: string; // 案件ID，如果提供則實際上傳文件
-  sessionId?: string; // Session ID（快速體驗模式）
-  onUploadComplete?: (evidences: Array<{ id: string; file_url: string; file_type: string }>) => void; // 上傳完成回調
-  confirmBeforeRemove?: boolean; // 刪除證據前是否二次確認，默認 true（caseId 時）
+  caseId?: string;
+  sessionId?: string;
+  onUploadComplete?: (evidences: Array<{ id: string; file_url: string; file_type: string }>) => void;
+  confirmBeforeRemove?: boolean;
 }
 
 const FileUpload = ({
@@ -71,23 +64,16 @@ const FileUpload = ({
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
   const [pendingRemoveFile, setPendingRemoveFile] = useState<UploadFile | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 簽名 URL 過期時重新獲取
   const refreshEvidenceUrls = useCallback(async (): Promise<UploadFile[] | null> => {
     if (!caseId) return null;
     try {
       const caseData = await getCase(caseId);
       const evidences = caseData.evidences;
-      if (!Array.isArray(evidences) || evidences.length === 0) {
-        return null;
-      }
+      if (!Array.isArray(evidences) || evidences.length === 0) return null;
       const urlMap = new Map<string, string>();
-      evidences.forEach((e: { id?: string; file_url?: string }) => {
-        if (e?.id && e?.file_url) {
-          urlMap.set(e.id, e.file_url);
-        }
-      });
-
+      evidences.forEach((e: { id?: string; file_url?: string }) => { if (e?.id && e?.file_url) urlMap.set(e.id, e.file_url); });
       type ItemWithResponse = { response?: { id?: string }; uid: string };
       const updated = value.map((item) => {
         const evidenceId = (item as ItemWithResponse)?.response?.id || item.uid;
@@ -97,257 +83,167 @@ const FileUpload = ({
       onChange?.(updated);
       return updated;
     } catch {
-      message.warning(t('fileUpload.linkExpiredRefresh'));
+      toast.warning(t('fileUpload.linkExpiredRefresh'));
       return null;
     }
   }, [caseId, value, onChange]);
 
-  // 實際上傳文件
-  const handleActualUpload = useCallback(
-    async (files: File[]) => {
-      if (!caseId) {
-        return;
-      }
+  const handleActualUpload = useCallback(async (files: File[]) => {
+    if (!caseId) return;
+    try {
+      setUploading(true);
+      const evidences = await uploadEvidence(caseId, files, sessionId);
+      const newFileList: UploadFile[] = files.reduce<UploadFile[]>((acc, file, index) => {
+        const evidence = evidences[index];
+        if (!evidence) return acc;
+        acc.push({ uid: evidence.id || file.name + Date.now(), name: file.name, status: 'done', url: evidence.file_url, response: evidence } as UploadFile);
+        return acc;
+      }, []);
+      const updatedFileList = [...value, ...newFileList];
+      onChange?.(updatedFileList);
+      onUploadComplete?.(evidences);
+      toast.success(t('fileUpload.uploadSuccessCount').replace('{count}', String(newFileList.length)));
+    } catch (error: unknown) {
+      toast.error(getLocalizedUploadError(error, 'fileUpload.uploadFail'));
+      throw error;
+    } finally { setUploading(false); }
+  }, [caseId, sessionId, value, onChange, onUploadComplete]);
 
-      try {
-        setUploading(true);
-        const evidences = await uploadEvidence(caseId, files, sessionId);
-        
-        const newFileList: UploadFile[] = files.reduce<UploadFile[]>((acc, file, index) => {
-          const evidence = evidences[index];
-          if (!evidence) return acc;
-          acc.push({
-            uid: evidence.id || file.name + Date.now(),
-            name: file.name,
-            status: 'done',
-            url: evidence.file_url,
-            response: evidence,
-          } as UploadFile);
-          return acc;
-        }, []);
-
-        const updatedFileList = [...value, ...newFileList];
-        onChange?.(updatedFileList);
-        onUploadComplete?.(evidences);
-        const successCount = newFileList.length;
-        message.success(t('fileUpload.uploadSuccessCount').replace('{count}', String(successCount)));
-      } catch (error: unknown) {
-        const msg = getLocalizedUploadError(error, 'fileUpload.uploadFail');
-        message.error(msg);
-        throw error;
-      } finally {
-        setUploading(false);
-      }
-    },
-    [caseId, sessionId, value, onChange, onUploadComplete]
-  );
-
-  const beforeUpload: UploadProps['beforeUpload'] = (file) => {
-    // 檢查文件類型
+  const validateFile = (file: File): boolean => {
     const isImage = ALLOWED_IMAGE_TYPES.includes(file.type);
     const isVideo = ALLOWED_VIDEO_TYPES.includes(file.type);
+    if (!isImage && !isVideo) { toast.error(t('fileUpload.formatNotAllowed')); return false; }
+    if (file.size === 0) { toast.error(t('fileUpload.emptyFile')); return false; }
+    if (file.size > MAX_FILE_SIZE) { toast.error(t('fileUpload.sizeLimit').replace('{size}', formatFileSize(MAX_FILE_SIZE))); return false; }
+    if (value.length >= maxCount) { toast.error(t('fileUpload.countLimit').replace('{count}', String(maxCount))); return false; }
+    return true;
+  };
 
-    if (!isImage && !isVideo) {
-      message.error(t('fileUpload.formatNotAllowed'));
-      return Upload.LIST_IGNORE;
-    }
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
 
-    if (file.size === 0) {
-      message.error(t('fileUpload.emptyFile'));
-      return Upload.LIST_IGNORE;
-    }
+    const validFiles = files.filter(validateFile);
+    if (validFiles.length === 0) return;
 
-    if (file.size > MAX_FILE_SIZE) {
-      message.error(t('fileUpload.sizeLimit').replace('{size}', formatFileSize(MAX_FILE_SIZE)));
-      return Upload.LIST_IGNORE;
-    }
-
-    // 檢查文件數量
-    if (value.length >= maxCount) {
-      message.error(t('fileUpload.countLimit').replace('{count}', String(maxCount)));
-      return Upload.LIST_IGNORE;
-    }
-
-    // 如果有caseId，則實際上傳；否則只做本地預覽
     if (caseId) {
-      // 實際上傳模式：阻止自動上傳，稍後統一處理
-      return false;
-    } else {
-      // 本地預覽模式：阻止自動上傳
-      return false;
-    }
-  };
-
-  const handleChange: UploadProps['onChange'] = async (info) => {
-    const { fileList, file } = info;
-
-    // 如果是新文件且狀態為uploading，開始上傳
-    if (file.status === 'uploading' && file.originFileObj && caseId) {
+      setUploadProgress(Object.fromEntries(validFiles.map((f) => [f.name, 50])));
       try {
-        setUploadProgress((prev) => ({
-          ...prev,
-          [file.uid]: 50, // 開始上傳
-        }));
-
-        // 實際上傳文件
-        await handleActualUpload([file.originFileObj]);
-
-        setUploadProgress((prev) => {
-          const newProgress = { ...prev };
-          delete newProgress[file.uid];
-          return newProgress;
-        });
-      } catch {
-        // 上傳失敗，從列表中移除
-        const newFileList = fileList.filter((item) => item.uid !== file.uid);
-        onChange?.(newFileList);
-        setUploadProgress((prev) => {
-          const newProgress = { ...prev };
-          delete newProgress[file.uid];
-          return newProgress;
-        });
-        return;
+        await handleActualUpload(validFiles);
+      } finally {
+        setUploadProgress({});
       }
+    } else {
+      const newFiles: UploadFile[] = validFiles.map((file) => ({
+        uid: `${file.name}-${Date.now()}-${Math.random()}`,
+        name: file.name,
+        status: 'done' as const,
+        url: URL.createObjectURL(file),
+        originFileObj: file as unknown as UploadFile['originFileObj'],
+      } as UploadFile));
+      onChange?.([...value, ...newFiles]);
     }
 
-    // 本地預覽模式：只更新文件列表
-    if (!caseId) {
-      // 為本地文件創建預覽URL
-      const updatedFileList = fileList.map((item) => {
-        if (item.originFileObj && !item.url && !item.preview) {
-          const url = URL.createObjectURL(item.originFileObj);
-          return {
-            ...item,
-            url,
-            preview: url,
-          };
-        }
-        return item;
-      });
-      onChange?.(updatedFileList);
-      return;
-    }
-
-    // 實際上傳模式：更新文件列表
-    onChange?.(fileList);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const performRemove = useCallback(
-    async (file: UploadFile) => {
-      if (caseId) {
-        type FileWithResponse = { response?: { id?: string }; uid: string };
-        const evidenceId = (file as FileWithResponse)?.response?.id || file.uid;
-        if (evidenceId) {
-          try {
-            await deleteEvidence(caseId, evidenceId, sessionId);
-          } catch (err: unknown) {
-            const msg = getLocalizedUploadError(err, 'fileUpload.deleteEvidenceFail');
-            message.error(msg);
-            return false;
-          }
-        }
+  const performRemove = useCallback(async (file: UploadFile) => {
+    if (caseId) {
+      type FileWithResponse = { response?: { id?: string }; uid: string };
+      const evidenceId = (file as FileWithResponse)?.response?.id || file.uid;
+      if (evidenceId) {
+        try { await deleteEvidence(caseId, evidenceId, sessionId); }
+        catch (err: unknown) { toast.error(getLocalizedUploadError(err, 'fileUpload.deleteEvidenceFail')); return false; }
       }
-      const newFileList = value.filter((item) => item.uid !== file.uid);
-      onChange?.(newFileList);
-      return true;
-    },
-    [caseId, sessionId, value, onChange]
-  );
+    }
+    onChange?.(value.filter((item) => item.uid !== file.uid));
+    return true;
+  }, [caseId, sessionId, value, onChange]);
 
   const handleRemove = (file: UploadFile) => {
-    if (confirmBeforeRemove && caseId) {
-      setPendingRemoveFile(file);
-      return false;
-    }
+    if (confirmBeforeRemove && caseId) { setPendingRemoveFile(file); return; }
     void performRemove(file);
-    return false; // 由 performRemove 透過 onChange 更新列表
-  };
-
-  const handleConfirmRemove = async () => {
-    if (!pendingRemoveFile) return;
-    const file = pendingRemoveFile;
-    setPendingRemoveFile(null);
-    await performRemove(file);
   };
 
   const handlePreview = async (file: UploadFile) => {
-    const targetUrl = file.url || file.preview;
+    const targetUrl = file.url || (file as { preview?: string }).preview;
     if (!targetUrl) return;
-
-    const probe = async (url: string) => {
-      try {
-        const resp = await fetch(url, { method: 'HEAD' });
-        return resp.ok;
-      } catch {
-        return false;
-      }
-    };
-
-    const valid = await probe(targetUrl);
-    if (valid) {
-      window.open(targetUrl, '_blank');
-      return;
-    }
-
-    // 簽名失效時嘗試重新換簽
+    const probe = async (url: string) => { try { return (await fetch(url, { method: 'HEAD' })).ok; } catch { return false; } };
+    if (await probe(targetUrl)) { window.open(targetUrl, '_blank'); return; }
     const refreshedList = await refreshEvidenceUrls();
     type ItemWithResponse = { response?: { id?: string }; uid: string };
-    const refreshedUrl = refreshedList?.find(
-      (item) =>
-        ((item as ItemWithResponse)?.response?.id || item.uid) === ((file as ItemWithResponse)?.response?.id || file.uid)
-    )?.url;
-    if (refreshedUrl && refreshedUrl !== targetUrl) {
-      window.open(refreshedUrl, '_blank');
-      return;
-    }
-
-    message.error(t('fileUpload.linkInvalid'));
+    const refreshedUrl = refreshedList?.find((item) => ((item as ItemWithResponse)?.response?.id || item.uid) === ((file as ItemWithResponse)?.response?.id || file.uid))?.url;
+    if (refreshedUrl && refreshedUrl !== targetUrl) { window.open(refreshedUrl, '_blank'); return; }
+    toast.error(t('fileUpload.linkInvalid'));
   };
 
   return (
-    <div className="file-upload-wrapper">
-      <Upload
-        fileList={value}
-        beforeUpload={beforeUpload}
-        onChange={handleChange}
-        onRemove={handleRemove}
-        onPreview={handlePreview}
-        accept={accept}
-        disabled={disabled}
-        listType="picture-card"
-        maxCount={maxCount}
-        className="evidence-upload"
-      >
-        {value.length < maxCount && (
-          <div className="upload-button">
-            <UploadOutlined />
-            <div style={{ marginTop: 8 }}>{t('fileUpload.uploadBtn')}</div>
-          </div>
-        )}
-      </Upload>
-
-      {uploading && Object.keys(uploadProgress).length > 0 && (
-        <div className="upload-progress">
-          {Object.entries(uploadProgress).map(([uid, percent]) => (
-            <div key={uid} className="progress-item">
-              <Progress percent={percent} size="small" />
+    <div className="space-y-3">
+      {/* File Grid */}
+      <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+        {value.map((file) => (
+          <div key={file.uid} className="group relative aspect-square rounded-lg border border-border bg-muted/30 overflow-hidden">
+            {file.url ? (
+              <img src={file.url} alt={file.name} className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full items-center justify-center text-xs text-muted-foreground">{file.name}</div>
+            )}
+            {/* Hover overlay */}
+            <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+              <button type="button" onClick={() => handlePreview(file)} className="rounded-full bg-white/20 p-1.5 text-white hover:bg-white/40">
+                <Eye className="size-4" />
+              </button>
+              {!disabled && (
+                <button type="button" onClick={() => handleRemove(file)} className="rounded-full bg-white/20 p-1.5 text-white hover:bg-white/40">
+                  <X className="size-4" />
+                </button>
+              )}
             </div>
+          </div>
+        ))}
+
+        {/* Upload Button */}
+        {value.length < maxCount && !disabled && (
+          <label className={cn(
+            'flex aspect-square cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-border transition-colors hover:border-primary/50 hover:bg-primary-light/20',
+            uploading && 'pointer-events-none opacity-50',
+          )}>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={accept}
+              multiple
+              onChange={handleFileSelect}
+              className="hidden"
+              disabled={disabled || uploading}
+            />
+            {uploading ? <Loader2 className="size-6 animate-spin text-primary" /> : <Upload className="size-6 text-muted-foreground" />}
+            <span className="text-xs text-muted-foreground">{t('fileUpload.uploadBtn')}</span>
+          </label>
+        )}
+      </div>
+
+      {/* Upload Progress */}
+      {uploading && Object.keys(uploadProgress).length > 0 && (
+        <div className="space-y-2">
+          {Object.entries(uploadProgress).map(([uid, percent]) => (
+            <Progress key={uid} value={percent} className="h-1.5" />
           ))}
         </div>
       )}
 
+      {/* File Count */}
       {value.length > 0 && (
-        <div className="file-list-info">
-          <Text type="secondary">
-            {t('fileUpload.uploadedCount').replace('{current}', String(value.length)).replace('{max}', String(maxCount))}
-          </Text>
-        </div>
+        <p className="text-xs text-muted-foreground">
+          {t('fileUpload.uploadedCount').replace('{current}', String(value.length)).replace('{max}', String(maxCount))}
+        </p>
       )}
 
+      {/* Confirm Remove Modal */}
       <ConfirmModal
         open={!!pendingRemoveFile}
         onCancel={() => setPendingRemoveFile(null)}
-        onConfirm={handleConfirmRemove}
+        onConfirm={async () => { if (pendingRemoveFile) { setPendingRemoveFile(null); await performRemove(pendingRemoveFile); } }}
         title={t('fileUpload.confirmRemoveTitle')}
         type="danger"
         confirmText={t('common.confirm')}

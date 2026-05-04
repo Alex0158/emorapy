@@ -1,21 +1,13 @@
-import { Typography } from 'antd';
 import MediatorAvatar from '@/components/business/MediatorAvatar';
-import AnimatedWrapper from '@/components/common/AnimatedWrapper';
 import { t } from '@/utils/i18n';
-
-const { Title, Text } = Typography;
 
 const ResultHeader = () => {
   return (
-    <AnimatedWrapper animation="fade" delay={100}>
-      <section className="result-header" aria-labelledby="result-title">
-        <MediatorAvatar size="large" animated />
-        <Title level={1} id="result-title" className="result-title">
-          {t('result.title')}
-        </Title>
-        <Text className="result-subtitle">{t('result.subtitle')}</Text>
-      </section>
-    </AnimatedWrapper>
+    <section className="mb-8 text-center" aria-labelledby="result-title">
+      <MediatorAvatar size="large" animated />
+      <h1 id="result-title" className="mt-4 text-3xl font-bold text-foreground font-heading">{t('result.title')}</h1>
+      <p className="mt-2 text-base text-muted-foreground">{t('result.subtitle')}</p>
+    </section>
   );
 };
 

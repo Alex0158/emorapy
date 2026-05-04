@@ -3,7 +3,7 @@
  */
 
 import { Navigate, useLocation } from 'react-router-dom';
-import { Spin } from 'antd';
+import { Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/authStore';
 
@@ -37,8 +37,8 @@ export default function ProtectedRoute({
 
   if (!_hasHydrated && !timedOut) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <Spin size="large" />
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="size-8 animate-spin text-primary" />
       </div>
     );
   }

@@ -23,22 +23,18 @@ vi.mock('@/utils/storage', () => ({
   caseSessionMap: { set: (...args: unknown[]) => mockCaseSessionMapSet(...args) },
 }));
 
-const mockMessageError = vi.fn();
-const mockMessageWarning = vi.fn();
-const mockMessageSuccess = vi.fn();
-vi.mock('antd', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('antd')>();
-  return {
-    ...actual,
-    Steps: ({ current }: { current: number }) => <div data-testid="steps-mock">step-{current}</div>,
-    message: {
-      error: (...args: unknown[]) => mockMessageError(...args),
-      warning: (...args: unknown[]) => mockMessageWarning(...args),
-      success: (...args: unknown[]) => mockMessageSuccess(...args),
-      info: vi.fn(),
-    },
-  };
-});
+const mockToastError = vi.fn();
+const mockToastWarning = vi.fn();
+const mockToastSuccess = vi.fn();
+const mockToastInfo = vi.fn();
+vi.mock('sonner', () => ({
+  toast: {
+    error: (...args: unknown[]) => mockToastError(...args),
+    warning: (...args: unknown[]) => mockToastWarning(...args),
+    success: (...args: unknown[]) => mockToastSuccess(...args),
+    info: (...args: unknown[]) => mockToastInfo(...args),
+  },
+}));
 vi.mock('@/utils/i18n', () => ({
   t: (key: string) => key,
 }));
@@ -192,7 +188,7 @@ describe('CollaborativeCreate', () => {
       phase: 'submitted',
     });
     await Promise.resolve();
-    expect(mockMessageSuccess).not.toHaveBeenCalled();
+    expect(mockToastSuccess).not.toHaveBeenCalled();
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
@@ -262,7 +258,7 @@ describe('CollaborativeCreate', () => {
     fireEvent.change(textarea, { target: { value: validRoleA } });
     fireEvent.click(screen.getByText('collaborative.roleASubmit'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('暫時無法建立');
+      expect(mockToastError).toHaveBeenCalledWith('暫時無法建立');
     });
     await waitFor(() => {
       expect(screen.getByText('collaborative.roleASubmit')).toBeInTheDocument();
@@ -282,7 +278,7 @@ describe('CollaborativeCreate', () => {
     fireEvent.change(textarea, { target: { value: validRoleA } });
     fireEvent.click(screen.getByText('collaborative.roleASubmit'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.submitFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.submitFail');
     });
     expect(screen.getByText('collaborative.roleATitle')).toBeInTheDocument();
     fireEvent.click(screen.getByText('collaborative.back'));
@@ -299,7 +295,7 @@ describe('CollaborativeCreate', () => {
     fireEvent.change(textarea, { target: { value: validRoleA } });
     fireEvent.click(screen.getByText('collaborative.roleASubmit'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('建立失敗');
+      expect(mockToastError).toHaveBeenCalledWith('建立失敗');
     });
     expect(screen.getByText('collaborative.roleATitle')).toBeInTheDocument();
   });
@@ -348,7 +344,7 @@ describe('CollaborativeCreate', () => {
     fireEvent.change(textarea, { target: { value: validRoleA } });
     fireEvent.click(screen.getByText('collaborative.roleASubmit'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.submitFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.submitFail');
     });
   });
 
@@ -360,7 +356,7 @@ describe('CollaborativeCreate', () => {
     fireEvent.change(textarea, { target: { value: validRoleA } });
     fireEvent.click(screen.getByText('collaborative.roleASubmit'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.submitFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.submitFail');
     });
   });
 
@@ -372,7 +368,7 @@ describe('CollaborativeCreate', () => {
     fireEvent.change(textarea, { target: { value: validRoleA } });
     fireEvent.click(screen.getByText('collaborative.roleASubmit'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('已達協作案件上限');
+      expect(mockToastError).toHaveBeenCalledWith('已達協作案件上限');
     });
   });
 
@@ -384,7 +380,7 @@ describe('CollaborativeCreate', () => {
     fireEvent.change(textarea, { target: { value: validRoleA } });
     fireEvent.click(screen.getByText('collaborative.roleASubmit'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.submitFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.submitFail');
     });
   });
 
@@ -437,7 +433,7 @@ describe('CollaborativeCreate', () => {
     fireEvent.change(textareaB, { target: { value: validRoleB } });
     fireEvent.click(screen.getByText('collaborative.submitBtn'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('提交失敗');
+      expect(mockToastError).toHaveBeenCalledWith('提交失敗');
     });
     expect(screen.getByText('collaborative.roleBTitle')).toBeInTheDocument();
   });
@@ -522,7 +518,7 @@ describe('CollaborativeCreate', () => {
     rejectA!(new Error('卸載後失敗'));
     await Promise.resolve();
     await Promise.resolve();
-    expect(mockMessageError).not.toHaveBeenCalled();
+    expect(mockToastError).not.toHaveBeenCalled();
   });
 
   it('role_b 失敗後若組件已卸載不應再呼叫 message.error（useMountedRef 回歸）', async () => {
@@ -555,7 +551,7 @@ describe('CollaborativeCreate', () => {
     rejectB!(new Error('卸載後失敗'));
     await Promise.resolve();
     await Promise.resolve();
-    expect(mockMessageError).not.toHaveBeenCalled();
+    expect(mockToastError).not.toHaveBeenCalled();
   });
 
   it('role_b 提交失敗時應仍可點擊返回並導向 handoff（F02 錯誤恢復：失敗不阻塞導航出口）', async () => {
@@ -580,7 +576,7 @@ describe('CollaborativeCreate', () => {
     fireEvent.change(textareaB, { target: { value: validRoleB } });
     fireEvent.click(screen.getByText('collaborative.submitBtn'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('提交失敗');
+      expect(mockToastError).toHaveBeenCalledWith('提交失敗');
     });
     expect(screen.getByText('collaborative.roleBTitle')).toBeInTheDocument();
     fireEvent.click(screen.getByText('collaborative.back'));
@@ -618,7 +614,7 @@ describe('CollaborativeCreate', () => {
     fireEvent.change(textareaB, { target: { value: validRoleB } });
     fireEvent.click(screen.getByText('collaborative.submitBtn'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('暫時無法提交');
+      expect(mockToastError).toHaveBeenCalledWith('暫時無法提交');
     });
     await waitFor(() => {
       expect(screen.getByText('collaborative.submitBtn')).toBeInTheDocument();
@@ -652,7 +648,7 @@ describe('CollaborativeCreate', () => {
     fireEvent.change(textareaB, { target: { value: validRoleB } });
     fireEvent.click(screen.getByText('collaborative.submitBtn'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.submitFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.submitFail');
     });
   });
 
@@ -678,7 +674,7 @@ describe('CollaborativeCreate', () => {
     fireEvent.change(textareaB, { target: { value: validRoleB } });
     fireEvent.click(screen.getByText('collaborative.submitBtn'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.submitFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.submitFail');
     });
   });
 
@@ -704,7 +700,7 @@ describe('CollaborativeCreate', () => {
     fireEvent.change(textareaB, { target: { value: validRoleB } });
     fireEvent.click(screen.getByText('collaborative.submitBtn'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.submitFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.submitFail');
     });
     fireEvent.click(screen.getByText('collaborative.back'));
     await waitFor(() => {
@@ -734,7 +730,7 @@ describe('CollaborativeCreate', () => {
     fireEvent.change(textareaB, { target: { value: validRoleB } });
     fireEvent.click(screen.getByText('collaborative.submitBtn'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('此 session 已逾時，請重新開始');
+      expect(mockToastError).toHaveBeenCalledWith('此 session 已逾時，請重新開始');
     });
   });
 
@@ -760,7 +756,7 @@ describe('CollaborativeCreate', () => {
     fireEvent.change(textareaB, { target: { value: validRoleB } });
     fireEvent.click(screen.getByText('collaborative.submitBtn'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.submitFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.submitFail');
     });
   });
 

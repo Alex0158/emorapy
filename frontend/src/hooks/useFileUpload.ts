@@ -3,7 +3,7 @@
  */
 
 import { useState, useCallback, useRef } from 'react';
-import { message } from 'antd';
+import { toast } from 'sonner';
 import { validateFiles, getFilePreviewUrl } from '@/utils/fileValidation';
 import { t } from '@/utils/i18n';
 
@@ -27,12 +27,12 @@ export function useFileUpload(maxCount: number = 3) {
         const currentCount = files.length;
         const validation = validateFiles(newFiles, currentCount);
         if (!validation.valid) {
-          message.error(validation.error);
+          toast.error(validation.error);
           return;
         }
 
         if (currentCount + newFiles.length > maxCount) {
-          message.error(t('fileUpload.countLimit').replace('{count}', String(maxCount)));
+          toast.error(t('fileUpload.countLimit').replace('{count}', String(maxCount)));
           return;
         }
 

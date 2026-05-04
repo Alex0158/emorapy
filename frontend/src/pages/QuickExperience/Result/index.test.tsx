@@ -8,7 +8,7 @@ import QuickExperienceResult from './index';
 
 const {
   mockNavigate,
-  mockMessage,
+  mockToast,
   mockStartPolling,
   mockStopPolling,
   mockGetJudgmentByCaseId,
@@ -23,7 +23,7 @@ const {
   usePollingTestHelper,
 } = vi.hoisted(() => ({
   mockNavigate: vi.fn(),
-  mockMessage: {
+  mockToast: {
     success: vi.fn(),
     warning: vi.fn(),
     error: vi.fn(),
@@ -58,38 +58,9 @@ vi.mock('react-router-dom', async (importOriginal) => {
     useNavigate: () => mockNavigate,
   };
 });
-	vi.mock('antd', () => {
-	  return {
-	    Typography: { Text: ({ children }: { children: unknown }) => <span>{children}</span> },
-	    Spin: ({ description }: { description?: string }) => <div>{description || 'spin'}</div>,
-	    Alert: ({
-	      title,
-	      message,
-	      description,
-	      action,
-	    }: {
-	      title?: unknown;
-	      message?: unknown;
-	      description?: unknown;
-	      action?: unknown;
-	    }) => (
-	      <div>
-	        <div>{title ?? message}</div>
-	        <div>{description}</div>
-	        <div>{action}</div>
-	      </div>
-	    ),
-    Button: ({
-      children,
-      onClick,
-    }: {
-      children: React.ReactNode;
-      onClick?: () => void;
-    }) => <button onClick={onClick}>{children}</button>,
-    Space: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-    message: mockMessage,
-  };
-});
+vi.mock('sonner', () => ({
+  toast: mockToast,
+}));
 vi.mock('@/store/judgmentStore', () => ({
   useJudgmentStore: () => mockUseJudgmentStore,
 }));
@@ -331,7 +302,7 @@ describe('QuickExperienceResult', () => {
     mockGetCase.mockRejectedValueOnce({ code: 'NOT_FOUND' });
     renderWithRoute('/quick-experience/result/case-1');
     await waitFor(() => {
-      expect(mockMessage.warning).toHaveBeenCalledWith('message.caseNotFoundOrExpired');
+      expect(mockToast.warning).toHaveBeenCalledWith('message.caseNotFoundOrExpired');
       expect(mockCaseSessionMapRemove).toHaveBeenCalledWith('case-1');
       expect(mockNavigate).toHaveBeenCalledWith('/quick-experience/create', { replace: true });
     });
@@ -341,7 +312,7 @@ describe('QuickExperienceResult', () => {
     mockGetCase.mockRejectedValueOnce({ code: 'HTTP_404' });
     renderWithRoute('/quick-experience/result/case-1');
     await waitFor(() => {
-      expect(mockMessage.warning).toHaveBeenCalledWith('message.caseNotFoundOrExpired');
+      expect(mockToast.warning).toHaveBeenCalledWith('message.caseNotFoundOrExpired');
       expect(mockCaseSessionMapRemove).toHaveBeenCalledWith('case-1');
       expect(mockNavigate).toHaveBeenCalledWith('/quick-experience/create', { replace: true });
     });
@@ -433,7 +404,7 @@ describe('QuickExperienceResult', () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(mockNavigate).not.toHaveBeenCalled();
-    expect(mockMessage.warning).not.toHaveBeenCalled();
+    expect(mockToast.warning).not.toHaveBeenCalled();
   });
 
   it('輪詢獲取判決成功但組件已卸載時不應 setState（useMountedRef 回歸：避免 F01-BUG-001 同類問題）', async () => {
@@ -461,7 +432,7 @@ describe('QuickExperienceResult', () => {
     });
     await Promise.resolve();
     await Promise.resolve();
-    expect(mockMessage.success).not.toHaveBeenCalled();
+    expect(mockToast.success).not.toHaveBeenCalled();
   });
 
   it('judgment_failed 時 retry 成功但組件已卸載時不應呼叫 message.success（useMountedRef 回歸：避免 F01-BUG-001 同類問題）', async () => {
@@ -484,7 +455,7 @@ describe('QuickExperienceResult', () => {
     unmount();
     resolveGenerate!({});
     await Promise.resolve();
-    expect(mockMessage.success).not.toHaveBeenCalled();
+    expect(mockToast.success).not.toHaveBeenCalled();
   });
 
   it('判決失敗時點擊重試應調用 generateJudgment 並重啟輪詢', async () => {
@@ -583,7 +554,7 @@ describe('QuickExperienceResult', () => {
   it('無案件 id 時應提示並導回 create', async () => {
     renderNoParamRoute('/quick-experience/result');
     await waitFor(() => {
-      expect(mockMessage.error).toHaveBeenCalledWith('message.caseIdMissing');
+      expect(mockToast.error).toHaveBeenCalledWith('message.caseIdMissing');
       expect(mockNavigate).toHaveBeenCalledWith('/quick-experience/create');
     });
   });
@@ -628,7 +599,7 @@ describe('QuickExperienceResult', () => {
     const retryBtn = await screen.findByText('error.retry');
     fireEvent.click(retryBtn);
     await waitFor(() => {
-      expect(mockMessage.error).toHaveBeenCalledWith('message.retryFail');
+      expect(mockToast.error).toHaveBeenCalledWith('message.retryFail');
     });
   });
 
@@ -643,7 +614,7 @@ describe('QuickExperienceResult', () => {
     const retryBtn = await screen.findByText('error.retry');
     fireEvent.click(retryBtn);
     await waitFor(() => {
-      expect(mockMessage.error).toHaveBeenCalledWith('message.retryFail');
+      expect(mockToast.error).toHaveBeenCalledWith('message.retryFail');
     });
   });
 
@@ -659,7 +630,7 @@ describe('QuickExperienceResult', () => {
     renderWithRoute('/quick-experience/result/case-1');
     fireEvent.click(await screen.findByText('error.retry'));
     await waitFor(() => {
-      expect(mockMessage.error).toHaveBeenCalledWith('message.retryFail');
+      expect(mockToast.error).toHaveBeenCalledWith('message.retryFail');
     });
   });
 
@@ -675,7 +646,7 @@ describe('QuickExperienceResult', () => {
     renderWithRoute('/quick-experience/result/case-1');
     fireEvent.click(await screen.findByText('error.retry'));
     await waitFor(() => {
-      expect(mockMessage.error).toHaveBeenCalledWith('retry exploded');
+      expect(mockToast.error).toHaveBeenCalledWith('retry exploded');
     });
   });
 
@@ -830,7 +801,7 @@ describe('QuickExperienceResult', () => {
     const uploadBtn = await screen.findByText('upload-evidence');
     fireEvent.click(uploadBtn);
     await waitFor(() => {
-      expect(mockMessage.error).toHaveBeenCalled();
+      expect(mockToast.error).toHaveBeenCalled();
     });
     expect(mockUploadEvidence).not.toHaveBeenCalled();
   });
@@ -839,7 +810,7 @@ describe('QuickExperienceResult', () => {
     renderWithRoute('/quick-experience/result/case-1');
     fireEvent.click(await screen.findByText('upload-empty'));
     await waitFor(() => {
-      expect(mockMessage.warning).toHaveBeenCalledWith('message.selectFile');
+      expect(mockToast.warning).toHaveBeenCalledWith('message.selectFile');
     });
   });
 
@@ -860,7 +831,7 @@ describe('QuickExperienceResult', () => {
     unmount();
     resolveUpload!();
     await Promise.resolve();
-    expect(mockMessage.success).not.toHaveBeenCalled();
+    expect(mockToast.success).not.toHaveBeenCalled();
   });
 
   it('證據上傳成功時應調用 uploadEvidence、清除 pending 標記並呼叫 fetchCase 刷新案件', async () => {
@@ -894,9 +865,9 @@ describe('QuickExperienceResult', () => {
     renderWithRoute('/quick-experience/result/case-1');
     fireEvent.click(await screen.findByText('upload-evidence'));
     await waitFor(() => {
-      expect(mockMessage.success).toHaveBeenCalledWith('message.evidenceUploadSuccess');
+      expect(mockToast.success).toHaveBeenCalledWith('message.evidenceUploadSuccess');
     });
-    expect(mockMessage.error).not.toHaveBeenCalled();
+    expect(mockToast.error).not.toHaveBeenCalled();
     expect(await screen.findByText('evidence-status-success')).toBeInTheDocument();
   });
 
@@ -905,7 +876,7 @@ describe('QuickExperienceResult', () => {
     renderWithRoute('/quick-experience/result/case-1');
     fireEvent.click(await screen.findByText('upload-evidence'));
     await waitFor(() => {
-      expect(mockMessage.error).toHaveBeenCalledWith('message.evidenceUploadFail');
+      expect(mockToast.error).toHaveBeenCalledWith('message.evidenceUploadFail');
     });
   });
 
@@ -914,7 +885,7 @@ describe('QuickExperienceResult', () => {
     renderWithRoute('/quick-experience/result/case-1');
     fireEvent.click(await screen.findByText('upload-evidence'));
     await waitFor(() => {
-      expect(mockMessage.error).toHaveBeenCalledWith('此案件已無法補交證據');
+      expect(mockToast.error).toHaveBeenCalledWith('此案件已無法補交證據');
     });
   });
 
@@ -923,7 +894,7 @@ describe('QuickExperienceResult', () => {
     renderWithRoute('/quick-experience/result/case-1');
     fireEvent.click(await screen.findByText('upload-evidence'));
     await waitFor(() => {
-      expect(mockMessage.error).toHaveBeenCalledWith('message.evidenceUploadFail');
+      expect(mockToast.error).toHaveBeenCalledWith('message.evidenceUploadFail');
     });
   });
 
@@ -932,7 +903,7 @@ describe('QuickExperienceResult', () => {
     renderWithRoute('/quick-experience/result/case-1');
     fireEvent.click(await screen.findByText('upload-evidence'));
     await waitFor(() => {
-      expect(mockMessage.error).toHaveBeenCalledWith('message.evidenceUploadFail');
+      expect(mockToast.error).toHaveBeenCalledWith('message.evidenceUploadFail');
     });
   });
 
@@ -950,11 +921,11 @@ describe('QuickExperienceResult', () => {
     const uploadBtn = await screen.findByText('upload-evidence');
     fireEvent.click(uploadBtn);
     await waitFor(() => {
-      expect(mockMessage.error).toHaveBeenCalled();
+      expect(mockToast.error).toHaveBeenCalled();
     });
     fireEvent.click(uploadBtn);
     await waitFor(() => {
-      expect(mockMessage.success).toHaveBeenCalledWith('message.evidenceUploadSuccess');
+      expect(mockToast.success).toHaveBeenCalledWith('message.evidenceUploadSuccess');
     });
     expect(mockUploadEvidence).toHaveBeenCalledTimes(2);
   });
@@ -1098,7 +1069,7 @@ describe('QuickExperienceResult', () => {
     fireEvent.click(await screen.findByText('upload-evidence'));
 
     await waitFor(() => {
-      expect(mockMessage.error).toHaveBeenCalledWith('message.sessionIdMissing');
+      expect(mockToast.error).toHaveBeenCalledWith('message.sessionIdMissing');
     });
     expect(mockUploadEvidence).not.toHaveBeenCalled();
   });
@@ -1110,7 +1081,7 @@ describe('QuickExperienceResult', () => {
     const uploadBtn = await screen.findByText('upload-evidence');
     fireEvent.click(uploadBtn);
     await waitFor(() => {
-      expect(mockMessage.error).toHaveBeenCalled();
+      expect(mockToast.error).toHaveBeenCalled();
     });
     expect(setSpy).toHaveBeenCalledWith('pending_evidence_case-1', 'true');
   });

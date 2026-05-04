@@ -1,213 +1,254 @@
 /**
  * 登錄頁面
+ *
+ * 遷移: Ant Design Form/Input/Button → shadcn/ui + 原生表單
+ * 保留: 所有業務邏輯（login, redirect, email verification）
  */
 
-import {
-	EyeInvisibleOutlined,
-	EyeTwoTone,
-	LockOutlined,
-	UserOutlined,
-} from "@ant-design/icons";
-import {
-	Button,
-	Checkbox,
-	Form,
-	Input,
-	message,
-	Space,
-	Typography,
-} from "antd";
-import { useState, useRef } from "react";
-import { useMountedRef } from "@/hooks/useMountedRef";
-import { useLocation, useNavigate } from "react-router-dom";
-import AnimatedWrapper from "@/components/common/AnimatedWrapper";
-import SEO from "@/components/common/SEO";
-import { sendVerificationCode } from "@/services/api/auth";
-import { useAuthStore } from "@/store/authStore";
-import { getErrorMessage } from "@/utils/apiError";
-import { t } from "@/utils/i18n";
-import "./Login.less";
-
-const { Title, Text } = Typography;
+import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
+import { useState, useRef, type FormEvent } from 'react';
+import { useMountedRef } from '@/hooks/useMountedRef';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
+import { motion } from 'framer-motion';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import SEO from '@/components/common/SEO';
+import { sendVerificationCode } from '@/services/api/auth';
+import { useAuthStore } from '@/store/authStore';
+import { getErrorMessage } from '@/utils/apiError';
+import { t } from '@/utils/i18n';
 
 interface LocationState {
-	from?: { pathname: string };
+  from?: { pathname: string };
 }
 
 const Login = () => {
-	const navigate = useNavigate();
-	const location = useLocation();
-	const { login, isLoading } = useAuthStore();
-	const [form] = Form.useForm();
-	const [rememberMe, setRememberMe] = useState(false);
-	const mountedRef = useMountedRef();
-	const loginLockRef = useRef(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { login, isLoading } = useAuthStore();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const mountedRef = useMountedRef();
+  const loginLockRef = useRef(false);
 
-	const VALID_REDIRECT_PREFIXES = [
-		"/case", "/judgment", "/reconciliation", "/execution",
-		"/profile", "/interview", "/quick-experience", "/chat",
-	];
-	const state = location.state as LocationState | null;
-	const rawFrom = state?.from?.pathname || "/case/list";
-	const isValidRedirect =
-		rawFrom === "/" ||
-		VALID_REDIRECT_PREFIXES.some((prefix) => rawFrom.startsWith(prefix));
-	const from = isValidRedirect ? rawFrom : "/case/list";
+  const VALID_REDIRECT_PREFIXES = [
+    '/case', '/judgment', '/reconciliation', '/execution',
+    '/profile', '/interview', '/quick-experience', '/chat',
+  ];
+  const state = location.state as LocationState | null;
+  const rawFrom = state?.from?.pathname || '/case/list';
+  const isValidRedirect =
+    rawFrom === '/' ||
+    VALID_REDIRECT_PREFIXES.some((prefix) => rawFrom.startsWith(prefix));
+  const from = isValidRedirect ? rawFrom : '/case/list';
 
-	const handleSubmit = async (values: { email: string; password: string }) => {
-		if (loginLockRef.current) return;
-		loginLockRef.current = true;
-		try {
-			await login(values.email, values.password, rememberMe);
-			if (!mountedRef.current) return;
-			message.success(t("message.loginSuccess"));
-			navigate(from, { replace: true });
-		} catch (error: unknown) {
-			const err =
-				error && typeof error === "object"
-					? (error as { code?: string; message?: string })
-					: null;
-			const code = err?.code;
-			const msgStr = getErrorMessage(error, "message.loginFail");
-			const looksLikeEmailNotVerified =
-				code === "EMAIL_NOT_VERIFIED" ||
-				/郵箱驗證|email verification|not verified/i.test(msgStr);
+  const validate = (): boolean => {
+    const newErrors: { email?: string; password?: string } = {};
+    if (!email) {
+      newErrors.email = t('auth.login.emailRequired');
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      newErrors.email = t('auth.login.emailInvalid');
+    }
+    if (!password) {
+      newErrors.password = t('auth.login.passwordRequired');
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
-			if (!mountedRef.current) return;
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!validate()) return;
+    if (loginLockRef.current) return;
+    loginLockRef.current = true;
+    try {
+      await login(email, password, rememberMe);
+      if (!mountedRef.current) return;
+      toast.success(t('message.loginSuccess'));
+      navigate(from, { replace: true });
+    } catch (error: unknown) {
+      const err =
+        error && typeof error === 'object'
+          ? (error as { code?: string; message?: string })
+          : null;
+      const code = err?.code;
+      const msgStr = getErrorMessage(error, 'message.loginFail');
+      const looksLikeEmailNotVerified =
+        code === 'EMAIL_NOT_VERIFIED' ||
+        /郵箱驗證|email verification|not verified/i.test(msgStr);
 
-			if (looksLikeEmailNotVerified) {
-				message.warning(t("message.emailNotVerified"));
-				try {
-					await sendVerificationCode(values.email, "verify_email");
-				} catch (sendErr: unknown) {
-					if (!mountedRef.current) return;
-					message.error(getErrorMessage(sendErr, "message.resendVerifyFail"));
-				}
-			} else {
-				message.error(msgStr);
-			}
-		} finally {
-			loginLockRef.current = false;
-		}
-	};
+      if (!mountedRef.current) return;
 
-	return (
-		<>
-			<SEO
-				title={t("auth.login.title")}
-				description={t("auth.login.description")}
-				keywords={t("auth.login.keywords")}
-			/>
-			<div
-				className="auth-page login-page"
-				role="main"
-				aria-label={t("auth.login.pageLabel")}
-			>
-				<AnimatedWrapper animation="fade" delay={100}>
-					<div className="auth-header mb-8" aria-labelledby="auth-title">
-						<Title level={2} id="auth-title" className="auth-title font-heading">
-							{t("auth.login.welcome")}
-						</Title>
-						<Text type="secondary" className="auth-subtitle text-lg">
-							{t("auth.login.subtitle")}
-						</Text>
-					</div>
+      if (looksLikeEmailNotVerified) {
+        toast.warning(t('message.emailNotVerified'));
+        try {
+          await sendVerificationCode(email, 'verify_email');
+        } catch (sendErr: unknown) {
+          if (!mountedRef.current) return;
+          toast.error(getErrorMessage(sendErr, 'message.resendVerifyFail'));
+        }
+      } else {
+        toast.error(msgStr);
+      }
+    } finally {
+      loginLockRef.current = false;
+    }
+  };
 
-					<Form
-						form={form}
-						name="login"
-						onFinish={handleSubmit}
-						autoComplete="off"
-						layout="vertical"
-						size="large"
-						className="auth-form"
-						aria-label={t("auth.login.formLabel")}
-					>
-						<Form.Item
-							name="email"
-							rules={[
-								{ required: true, message: t("auth.login.emailRequired") },
-								{ type: "email", message: t("auth.login.emailInvalid") },
-							]}
-						>
-							<Input
-								prefix={<UserOutlined className="text-gray-400" />}
-								placeholder={t("auth.login.email")}
-								autoComplete="email"
-								className="floating-input"
-							/>
-						</Form.Item>
+  return (
+    <>
+      <SEO
+        title={t('auth.login.title')}
+        description={t('auth.login.description')}
+        keywords={t('auth.login.keywords')}
+      />
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+        className="w-full"
+        role="main"
+        aria-label={t('auth.login.pageLabel')}
+      >
+        {/* Header */}
+        <div className="mb-8">
+          <h2 className="text-3xl font-bold tracking-tight text-foreground font-heading">
+            {t('auth.login.welcome')}
+          </h2>
+          <p className="mt-2 text-base text-muted-foreground">
+            {t('auth.login.subtitle')}
+          </p>
+        </div>
 
-						<Form.Item
-							name="password"
-							rules={[
-								{ required: true, message: t("auth.login.passwordRequired") },
-							]}
-						>
-							<Input.Password
-								prefix={<LockOutlined className="text-gray-400" />}
-								placeholder={t("auth.login.password")}
-								iconRender={(visible) =>
-									visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />
-								}
-								autoComplete="current-password"
-								className="floating-input"
-							/>
-						</Form.Item>
+        {/* Form */}
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-5"
+          aria-label={t('auth.login.formLabel')}
+          noValidate
+        >
+          {/* Email */}
+          <div className="space-y-2">
+            <Label htmlFor="login-email" className="sr-only">
+              {t('auth.login.email')}
+            </Label>
+            <div className="relative">
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <Input
+                id="login-email"
+                type="email"
+                placeholder={t('auth.login.email')}
+                autoComplete="email"
+                value={email}
+                onChange={(e) => { setEmail(e.target.value); setErrors((prev) => ({ ...prev, email: undefined })); }}
+                className="h-12 rounded-2xl border-black/5 bg-white/70 pl-11 text-base shadow-[inset_0_2px_8px_rgba(0,0,0,0.01)] transition-all duration-300 placeholder:text-muted-foreground/60 hover:bg-white/90 hover:border-black/8 focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/15"
+                aria-invalid={!!errors.email}
+                aria-describedby={errors.email ? 'login-email-error' : undefined}
+              />
+            </div>
+            {errors.email && (
+              <p id="login-email-error" className="text-sm text-destructive pl-1">
+                {errors.email}
+              </p>
+            )}
+          </div>
 
-						<Form.Item className="mb-6">
-							<Space
-								style={{ width: "100%", justifyContent: "space-between" }}
-							>
-								<Checkbox
-									checked={rememberMe}
-									onChange={(e) => setRememberMe(e.target.checked)}
-								>
-									{t("auth.login.rememberMe")}
-								</Checkbox>
-								<Button
-									type="link"
-									onClick={() =>
-										navigate("/auth/forgot-password", { state: { from: { pathname: from } } })
-									}
-									className="forgot-password-link px-0"
-								>
-									{t("auth.login.forgotPassword")}
-								</Button>
-							</Space>
-						</Form.Item>
+          {/* Password */}
+          <div className="space-y-2">
+            <Label htmlFor="login-password" className="sr-only">
+              {t('auth.login.password')}
+            </Label>
+            <div className="relative">
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <Input
+                id="login-password"
+                type={showPassword ? 'text' : 'password'}
+                placeholder={t('auth.login.password')}
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => { setPassword(e.target.value); setErrors((prev) => ({ ...prev, password: undefined })); }}
+                className="h-12 rounded-2xl border-black/5 bg-white/70 pl-11 pr-11 text-base shadow-[inset_0_2px_8px_rgba(0,0,0,0.01)] transition-all duration-300 placeholder:text-muted-foreground/60 hover:bg-white/90 hover:border-black/8 focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/15"
+                aria-invalid={!!errors.password}
+                aria-describedby={errors.password ? 'login-password-error' : undefined}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </button>
+            </div>
+            {errors.password && (
+              <p id="login-password-error" className="text-sm text-destructive pl-1">
+                {errors.password}
+              </p>
+            )}
+          </div>
 
-						<Form.Item className="mb-6">
-							<Button
-								type="primary"
-								htmlType="submit"
-								block
-								loading={isLoading}
-								className="auth-submit-button h-12 text-lg rounded-full shadow-md hover:shadow-lg transition-all"
-							>
-								{t("auth.login.submit")}
-							</Button>
-						</Form.Item>
-					</Form>
+          {/* Remember me + Forgot password */}
+          <div className="flex items-center justify-between">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="h-4 w-4 rounded border-border text-primary focus:ring-primary/30 accent-primary"
+              />
+              <span className="text-sm text-muted-foreground">
+                {t('auth.login.rememberMe')}
+              </span>
+            </label>
+            <button
+              type="button"
+              onClick={() => navigate('/auth/forgot-password', { state: { from: { pathname: from } } })}
+              className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
+            >
+              {t('auth.login.forgotPassword')}
+            </button>
+          </div>
 
-					<div className="auth-divider my-6 text-center">
-						<Text type="secondary">{t("auth.login.noAccount")}</Text>
-					</div>
+          {/* Submit */}
+          <Button
+            type="submit"
+            disabled={isLoading}
+            className="h-[52px] w-full rounded-2xl bg-gradient-to-br from-primary to-primary-hover text-base font-semibold shadow-[0_8px_20px_oklch(0.65_0.15_25/0.25)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_24px_oklch(0.65_0.15_25/0.3)] active:translate-y-0"
+          >
+            {isLoading ? (
+              <span className="flex items-center gap-2">
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                {t('common.loading')}
+              </span>
+            ) : (
+              t('auth.login.submit')
+            )}
+          </Button>
+        </form>
 
-						<Button
-							type="default"
-							block
-							onClick={() =>
-								navigate("/auth/register", { state: { from: { pathname: from } } })
-							}
-							className="auth-switch-link h-12 text-lg rounded-full"
-						>
-							{t("auth.login.registerNow")}
-						</Button>
-				</AnimatedWrapper>
-			</div>
-		</>
-	);
+        {/* Divider */}
+        <div className="my-6 text-center">
+          <span className="text-sm text-muted-foreground">
+            {t('auth.login.noAccount')}
+          </span>
+        </div>
+
+        {/* Switch to Register */}
+        <Button
+          variant="outline"
+          onClick={() => navigate('/auth/register', { state: { from: { pathname: from } } })}
+          className="h-[52px] w-full rounded-2xl border-black/5 bg-white/50 text-base font-semibold text-foreground transition-all duration-300 hover:border-primary/30 hover:bg-white hover:text-primary hover:shadow-sm"
+        >
+          {t('auth.login.registerNow')}
+        </Button>
+      </motion.div>
+    </>
+  );
 };
 
 export default Login;

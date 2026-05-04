@@ -126,7 +126,7 @@ describe('ProtectedRoute', () => {
       </MemoryRouter>
     );
     expect(screen.queryByText('Content')).not.toBeInTheDocument();
-    expect(document.querySelector('.ant-spin')).toBeInTheDocument();
+    expect(document.querySelector('.animate-spin')).toBeInTheDocument();
   });
 
   it('hydration 超時後應重定向至登錄且不渲染 children', () => {
@@ -142,7 +142,7 @@ describe('ProtectedRoute', () => {
         </Routes>
       </MemoryRouter>
     );
-    expect(document.querySelector('.ant-spin')).toBeInTheDocument();
+    expect(document.querySelector('.animate-spin')).toBeInTheDocument();
     expect(screen.queryByTestId('protected')).not.toBeInTheDocument();
     act(() => { vi.advanceTimersByTime(5000); });
     expect(screen.getByTestId('login')).toBeInTheDocument();

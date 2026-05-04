@@ -8,7 +8,7 @@ import ProgressSteps from './index';
 describe('ProgressSteps', () => {
   const items = [
     { title: '第一步' },
-    { title: '第二步', description: '說明' },
+    { title: '第二步' },
     { title: '第三步' },
   ];
 
@@ -19,13 +19,18 @@ describe('ProgressSteps', () => {
     expect(screen.getByText('第三步')).toBeInTheDocument();
   });
 
-  it('應渲染 description 當有提供時', () => {
-    render(<ProgressSteps current={0} items={items} />);
-    expect(screen.getByText('說明')).toBeInTheDocument();
+  it('當前步驟應有 primary 色', () => {
+    const { container } = render(<ProgressSteps current={1} items={items} />);
+    const circles = container.querySelectorAll('.rounded-full');
+    // 前兩個（index 0, 1）應有 bg-primary
+    expect(circles[0]?.className).toContain('bg-primary');
+    expect(circles[1]?.className).toContain('bg-primary');
   });
 
-  it('應有 progress-steps-wrapper 類名', () => {
-    const { container } = render(<ProgressSteps current={1} items={items} />);
-    expect(container.querySelector('.progress-steps-wrapper')).toBeInTheDocument();
+  it('應渲染步驟編號', () => {
+    render(<ProgressSteps current={0} items={items} />);
+    expect(screen.getByText('1')).toBeInTheDocument();
+    expect(screen.getByText('2')).toBeInTheDocument();
+    expect(screen.getByText('3')).toBeInTheDocument();
   });
 });

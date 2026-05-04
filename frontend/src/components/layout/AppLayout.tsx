@@ -1,30 +1,27 @@
 /**
- * 應用主布局（完整布局：Header + Footer）
+ * 應用主布局（Header + Content + Footer + BottomNav）
+ *
+ * 遷移: Ant Layout → 原生 div + Tailwind flex
  */
 
 import { Outlet } from 'react-router-dom';
-import { Layout } from 'antd';
 import Header from './Header';
 import Footer from './Footer';
 import BottomNav from './BottomNav';
 import ScrollToTop from '@/components/common/ScrollToTop';
-import './AppLayout.less';
-
-const { Content } = Layout;
 
 const AppLayout = () => {
   return (
-    <Layout className="app-layout min-h-screen bg-background">
+    <div className="flex min-h-screen flex-col bg-background">
       <ScrollToTop />
       <Header />
-      <Content className="app-content">
+      <main className="flex-1">
         <Outlet />
-      </Content>
+      </main>
       <Footer />
       <BottomNav />
-    </Layout>
+    </div>
   );
 };
 
 export default AppLayout;
-

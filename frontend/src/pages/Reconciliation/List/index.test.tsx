@@ -150,10 +150,11 @@ describe('ReconciliationList', () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: '看看最適合你們的下一步' })).toBeInTheDocument();
+      expect(screen.getAllByRole('button', { name: '看看最適合你們的下一步' }).length).toBeGreaterThan(0);
     });
 
-    await userEvent.click(screen.getByRole('button', { name: '看看最適合你們的下一步' }));
+    const generateButtons = screen.getAllByRole('button', { name: '看看最適合你們的下一步' });
+    await userEvent.click(generateButtons[0]);
 
     await waitFor(() => {
       expect(mockGeneratePlans).toHaveBeenCalledWith('j1', {

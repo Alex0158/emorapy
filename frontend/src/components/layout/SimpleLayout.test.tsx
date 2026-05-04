@@ -24,7 +24,7 @@ describe('SimpleLayout', () => {
         <SimpleLayout />
       </MemoryRouter>
     );
-    expect(screen.getByText('nav.logo')).toBeInTheDocument();
+    expect(screen.getByText(/nav\.logo/)).toBeInTheDocument();
     expect(screen.getByTestId('outlet')).toBeInTheDocument();
   });
 });

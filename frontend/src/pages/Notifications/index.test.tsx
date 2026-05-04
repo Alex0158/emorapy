@@ -171,7 +171,7 @@ describe('NotificationsPage', () => {
 
     renderPage();
 
-    const snoozeButtons = screen.getAllByRole('button', { name: /稍後提醒我/ });
+    const snoozeButtons = screen.getAllByRole('button', { name: /稍後提醒/ });
     await userEvent.click(snoozeButtons[snoozeButtons.length - 1]);
 
     await waitFor(() => {

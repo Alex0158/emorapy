@@ -9,8 +9,8 @@ import ProfileIndex from './index';
 
 const mockGetProfile = vi.fn();
 const mockUpdateProfile = vi.fn();
-const mockMessageError = vi.fn();
-const mockMessageSuccess = vi.fn();
+const mockToastError = vi.fn();
+const mockToastSuccess = vi.fn();
 const mockNavigate = vi.fn();
 const { mockUsePsychProfileStore, mockUseInterviewStore, mockStartSession, mockCheckResume } = vi.hoisted(() => ({
   mockUsePsychProfileStore: vi.fn(),
@@ -43,8 +43,13 @@ vi.mock('@/components/common/ProtectedRoute', () => ({
   default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 vi.mock('@/components/common/SEO', () => ({ default: () => null }));
-vi.mock('@/components/common/AnimatedWrapper', () => ({
-  default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+vi.mock('sonner', () => ({
+  toast: {
+    success: (...args: unknown[]) => mockToastSuccess(...args),
+    error: (...args: unknown[]) => mockToastError(...args),
+    info: vi.fn(),
+    warning: vi.fn(),
+  },
 }));
 vi.mock('@/components/business/Interview/RichnessRing', () => ({
   default: () => <div data-testid="richness-ring" />,
@@ -53,18 +58,6 @@ vi.mock('@/components/business/Interview/ConsentModal', () => ({
   default: () => null,
 }));
 vi.mock('@/utils/i18n', () => ({ t: (key: string) => key }));
-vi.mock('antd', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('antd')>();
-  return {
-    ...actual,
-    message: {
-      error: (...args: unknown[]) => mockMessageError(...args),
-      success: (...args: unknown[]) => mockMessageSuccess(...args),
-      info: vi.fn(),
-      warning: vi.fn(),
-    },
-  };
-});
 
 const mockProfile = {
   id: 'u1',
@@ -109,7 +102,7 @@ describe('ProfileIndex', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('取得失敗');
+      expect(mockToastError).toHaveBeenCalledWith('取得失敗');
     });
     expect(await screen.findByText('取得失敗')).toBeInTheDocument();
     expect(screen.getByText('common.back')).toBeInTheDocument();
@@ -123,7 +116,7 @@ describe('ProfileIndex', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.getProfileIndexFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.getProfileIndexFail');
     });
   });
 
@@ -135,7 +128,7 @@ describe('ProfileIndex', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.getProfileIndexFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.getProfileIndexFail');
     });
   });
 
@@ -147,7 +140,7 @@ describe('ProfileIndex', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('帳號已被停權，無法查看個人資料');
+      expect(mockToastError).toHaveBeenCalledWith('帳號已被停權，無法查看個人資料');
     });
   });
 
@@ -159,7 +152,7 @@ describe('ProfileIndex', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.getProfileIndexFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.getProfileIndexFail');
     });
   });
 
@@ -173,7 +166,7 @@ describe('ProfileIndex', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('網絡錯誤');
+      expect(mockToastError).toHaveBeenCalledWith('網絡錯誤');
     });
     const nicknameInput = await screen.findByPlaceholderText('profileIndex.nicknamePlaceholder');
     await user.clear(nicknameInput);
@@ -182,7 +175,7 @@ describe('ProfileIndex', () => {
     await user.click(saveBtn);
     await waitFor(() => {
       expect(mockUpdateProfile).toHaveBeenCalledWith(expect.objectContaining({ nickname: 'Updated' }));
-      expect(mockMessageSuccess).toHaveBeenCalledWith('message.profileUpdateSuccess');
+      expect(mockToastSuccess).toHaveBeenCalledWith('message.profileUpdateSuccess');
     });
   });
 
@@ -196,7 +189,7 @@ describe('ProfileIndex', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('網絡錯誤');
+      expect(mockToastError).toHaveBeenCalledWith('網絡錯誤');
     });
     const retryBtn = screen.getByTestId('profile-index-load-retry');
     expect(retryBtn).toBeInTheDocument();
@@ -254,7 +247,7 @@ describe('ProfileIndex', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('網絡錯誤');
+      expect(mockToastError).toHaveBeenCalledWith('網絡錯誤');
     });
     let retryBtn = screen.getByTestId('profile-index-load-retry');
     await userEvent.click(retryBtn);
@@ -278,7 +271,7 @@ describe('ProfileIndex', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('網絡錯誤');
+      expect(mockToastError).toHaveBeenCalledWith('網絡錯誤');
     });
     const manageLink = await screen.findByText('psychProfile.manageMyData');
     expect(manageLink).toBeInTheDocument();
@@ -298,11 +291,11 @@ describe('ProfileIndex', () => {
     );
     const saveBtn = await screen.findByRole('button', { name: 'profileIndex.saveAria' });
     await user.click(saveBtn);
-    await waitFor(() => expect(mockMessageError).toHaveBeenCalledWith('儲存失敗'));
+    await waitFor(() => expect(mockToastError).toHaveBeenCalledWith('儲存失敗'));
     await user.click(saveBtn);
     await waitFor(() => {
       expect(mockUpdateProfile).toHaveBeenCalledTimes(2);
-      expect(mockMessageSuccess).toHaveBeenCalledWith('message.profileUpdateSuccess');
+      expect(mockToastSuccess).toHaveBeenCalledWith('message.profileUpdateSuccess');
     });
   });
 
@@ -316,7 +309,7 @@ describe('ProfileIndex', () => {
     const saveBtn = await screen.findByRole('button', { name: 'profileIndex.saveAria' });
     await userEvent.click(saveBtn);
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.updateFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.updateFail');
     });
   });
 
@@ -330,7 +323,7 @@ describe('ProfileIndex', () => {
     const saveBtn = await screen.findByRole('button', { name: 'profileIndex.saveAria' });
     await userEvent.click(saveBtn);
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.updateFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.updateFail');
     });
   });
 
@@ -344,7 +337,7 @@ describe('ProfileIndex', () => {
     const saveBtn = await screen.findByRole('button', { name: 'profileIndex.saveAria' });
     await userEvent.click(saveBtn);
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.updateFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.updateFail');
     });
   });
 
@@ -358,7 +351,7 @@ describe('ProfileIndex', () => {
     const saveBtn = await screen.findByRole('button', { name: 'profileIndex.saveAria' });
     await userEvent.click(saveBtn);
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('帳號已鎖定，無法更新資料');
+      expect(mockToastError).toHaveBeenCalledWith('帳號已鎖定，無法更新資料');
     });
   });
 
@@ -378,7 +371,7 @@ describe('ProfileIndex', () => {
     unmount();
     resolveUpdate!(mockProfile);
     await Promise.resolve();
-    expect(mockMessageSuccess).not.toHaveBeenCalled();
+    expect(mockToastSuccess).not.toHaveBeenCalled();
   });
 
   it('updateProfile 失敗但組件已卸載時不應呼叫 message.error（useMountedRef 回歸：避免卸載後誤提示）', async () => {
@@ -399,7 +392,7 @@ describe('ProfileIndex', () => {
       rejectUpdate!(new Error('儲存失敗'));
       await Promise.resolve();
     });
-    expect(mockMessageError).not.toHaveBeenCalled();
+    expect(mockToastError).not.toHaveBeenCalled();
   });
 
   it('updateProfile 成功應顯示 profileUpdateSuccess（F08 主流程）', async () => {
@@ -412,7 +405,7 @@ describe('ProfileIndex', () => {
     const saveBtn = await screen.findByRole('button', { name: 'profileIndex.saveAria' });
     await userEvent.click(saveBtn);
     await waitFor(() => {
-      expect(mockMessageSuccess).toHaveBeenCalledWith('message.profileUpdateSuccess');
+      expect(mockToastSuccess).toHaveBeenCalledWith('message.profileUpdateSuccess');
     });
   });
 
@@ -462,7 +455,7 @@ describe('ProfileIndex', () => {
     unmount();
     resolveStartSession!({ id: 'sess-1' });
     await Promise.resolve();
-    expect(mockMessageSuccess).not.toHaveBeenCalled();
+    expect(mockToastSuccess).not.toHaveBeenCalled();
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
@@ -555,7 +548,7 @@ describe('ProfileIndex', () => {
       rejectStartSession!(new Error('啟動訪談失敗'));
       await Promise.resolve();
     });
-    expect(mockMessageError).not.toHaveBeenCalled();
+    expect(mockToastError).not.toHaveBeenCalled();
   });
 
   it('繼續聊天 startSession 失敗後應仍可再次點擊繼續聊天，成功後應導航（F08 錯誤恢復：失敗不阻塞重試）', async () => {
@@ -582,7 +575,7 @@ describe('ProfileIndex', () => {
 
     const continueBtn = await screen.findByText('psychProfile.continueChat');
     await userEvent.click(continueBtn);
-    await waitFor(() => expect(mockMessageError).toHaveBeenCalledWith('網路錯誤'));
+    await waitFor(() => expect(mockToastError).toHaveBeenCalledWith('網路錯誤'));
     await userEvent.click(continueBtn);
     await waitFor(() => {
       expect(mockStartSession).toHaveBeenCalledTimes(2);
@@ -614,7 +607,7 @@ describe('ProfileIndex', () => {
     await userEvent.click(continueBtn);
 
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('啟動訪談失敗');
+      expect(mockToastError).toHaveBeenCalledWith('啟動訪談失敗');
     });
   });
 
@@ -642,7 +635,7 @@ describe('ProfileIndex', () => {
     await userEvent.click(continueBtn);
 
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('interview.startFail');
+      expect(mockToastError).toHaveBeenCalledWith('interview.startFail');
     });
   });
 
@@ -670,7 +663,7 @@ describe('ProfileIndex', () => {
     await userEvent.click(continueBtn);
 
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('interview.startFail');
+      expect(mockToastError).toHaveBeenCalledWith('interview.startFail');
     });
   });
 
@@ -698,7 +691,7 @@ describe('ProfileIndex', () => {
     await userEvent.click(continueBtn);
 
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('interview.startFail');
+      expect(mockToastError).toHaveBeenCalledWith('interview.startFail');
     });
   });
 

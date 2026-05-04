@@ -1,12 +1,8 @@
 /**
- * 頁面標題組件
+ * 頁面標題組件（遷移：Ant Typography → Tailwind）
  */
 
-import { Typography } from 'antd';
 import type { ReactNode } from 'react';
-import './PageHeader.less';
-
-const { Title, Text } = Typography;
 
 interface PageHeaderProps {
   title: string;
@@ -17,22 +13,17 @@ interface PageHeaderProps {
 
 const PageHeader = ({ title, subtitle, extra, icon }: PageHeaderProps) => {
   return (
-    <div className="page-header">
-      <div className="page-header-content">
-        <div className="page-header-title">
-          {icon && <span className="page-header-icon">{icon}</span>}
-          <div>
-            <Title level={2} className="page-header-title-text">
-              {title}
-            </Title>
-            {subtitle && <Text type="secondary">{subtitle}</Text>}
-          </div>
+    <div className="mb-6 flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        {icon && <span className="text-primary">{icon}</span>}
+        <div>
+          <h2 className="text-2xl font-bold text-foreground font-heading">{title}</h2>
+          {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
         </div>
-        {extra && <div className="page-header-extra">{extra}</div>}
       </div>
+      {extra && <div>{extra}</div>}
     </div>
   );
 };
 
 export default PageHeader;
-

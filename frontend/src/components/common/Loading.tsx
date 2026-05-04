@@ -1,18 +1,17 @@
 /**
- * 加載組件
+ * 加載組件（已遷移到 Lucide Loader2）
  */
 
-import { Spin } from 'antd';
+import { Loader2 } from 'lucide-react';
 import { t } from '@/utils/i18n';
-import './Loading.less';
 
 const Loading = () => {
   return (
-    <div className="loading-container">
-      <Spin size="large" description={t('common.loading')} />
+    <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3">
+      <Loader2 className="size-8 animate-spin text-primary" />
+      <span className="text-sm text-muted-foreground">{t('common.loading')}</span>
     </div>
   );
 };
 
 export default Loading;
-

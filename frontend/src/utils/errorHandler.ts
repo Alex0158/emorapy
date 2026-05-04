@@ -2,7 +2,7 @@
  * 錯誤處理工具
  */
 
-import { message } from 'antd';
+import { toast } from 'sonner';
 import type { ApiError } from '@/types/common';
 import { t } from '@/utils/i18n';
 
@@ -57,7 +57,7 @@ export const handleApiError = (error: ApiError | Error | unknown): void => {
     }
   }
 
-  message.error(errorMessage);
+  toast.error(errorMessage);
 };
 
 /**
@@ -66,7 +66,7 @@ export const handleApiError = (error: ApiError | Error | unknown): void => {
 export const handleValidationError = (errors: Record<string, string[]>): void => {
   const firstError = Object.values(errors)[0]?.[0];
   if (firstError) {
-    message.error(firstError);
+    toast.error(firstError);
   }
 };
 
@@ -74,13 +74,13 @@ export const handleValidationError = (errors: Record<string, string[]>): void =>
  * 處理網絡錯誤
  */
 export const handleNetworkError = (): void => {
-  message.error(t('common.networkError'));
+  toast.error(t('common.networkError'));
 };
 
 /**
  * 處理超時錯誤
  */
 export const handleTimeoutError = (): void => {
-  message.error(t('common.timeoutError'));
+  toast.error(t('common.timeoutError'));
 };
 

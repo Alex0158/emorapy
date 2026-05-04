@@ -1,15 +1,18 @@
+/**
+ * 訪談結果頁面（遷移：Ant Spin/Typography/Button/Result/message → shadcn + Tailwind + sonner + Lucide）
+ */
+
 import React, { useEffect, useState, useRef } from 'react';
 import { useMountedRef } from '@/hooks/useMountedRef';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Spin, Typography, Button, Result, message } from 'antd';
+import { toast } from 'sonner';
+import { Loader2, Info, AlertCircle, AlertTriangle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { useInterviewStore } from '@/store/interviewStore';
 import FeedbackCardComponent from '@/components/business/Interview/FeedbackCard';
 import type { FeedbackCard } from '@/types/interview';
 import { getErrorMessage } from '@/utils/apiError';
 import { t } from '@/utils/i18n';
-import './index.less';
-
-const { Text } = Typography;
 
 const POLLING_INTERVAL_MS = 3000;
 const POLLING_TIMEOUT_MS = 60_000;
@@ -25,179 +28,116 @@ const InterviewResult: React.FC = () => {
   const mountedRef = useMountedRef();
 
   useEffect(() => {
-    if (sessionId && (!currentSession || currentSession.id !== sessionId)) {
-      getSession(sessionId);
-    }
+    if (sessionId && (!currentSession || currentSession.id !== sessionId)) getSession(sessionId);
   }, [sessionId]);
 
   useEffect(() => {
     if (currentSession?.status === 'processing' && !pollingTimedOut) {
-      if (pollingStartRef.current === 0) {
-        pollingStartRef.current = Date.now();
-      }
-
+      if (pollingStartRef.current === 0) pollingStartRef.current = Date.now();
       let active = true;
       let consecutiveErrors = 0;
       const timer = setInterval(() => {
         if (!active) return;
-        const elapsed = Date.now() - pollingStartRef.current;
-        if (elapsed >= POLLING_TIMEOUT_MS) {
-          setPollingTimedOut(true);
-          return;
-        }
-        if (sessionId) {
-          getSession(sessionId)
-            .then(() => { if (active) consecutiveErrors = 0; })
-            .catch(() => {
-              if (!active) return;
-              consecutiveErrors++;
-              if (consecutiveErrors >= 5) setPollingTimedOut(true);
-            });
-        }
+        if (Date.now() - pollingStartRef.current >= POLLING_TIMEOUT_MS) { setPollingTimedOut(true); return; }
+        if (sessionId) getSession(sessionId).then(() => { if (active) consecutiveErrors = 0; }).catch(() => { if (!active) return; consecutiveErrors++; if (consecutiveErrors >= 5) setPollingTimedOut(true); });
       }, POLLING_INTERVAL_MS);
-
       return () => { active = false; clearInterval(timer); };
-    } else if (currentSession?.status !== 'processing') {
-      pollingStartRef.current = 0;
-      setPollingTimedOut(false);
-    }
+    } else if (currentSession?.status !== 'processing') { pollingStartRef.current = 0; setPollingTimedOut(false); }
   }, [currentSession?.status, sessionId, pollingTimedOut]);
 
   if (loading && !currentSession) {
     return (
-      <div className="interview-result__loading">
-        <Spin size="large" />
-        <Text type="secondary">{t('interview.result.loading')}</Text>
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3">
+        <Loader2 className="size-8 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">{t('interview.result.loading')}</p>
       </div>
     );
   }
 
   if (currentSession?.status === 'processing' && !pollingTimedOut) {
     return (
-      <div className="interview-result__loading">
-        <Spin size="large" />
-        <Text type="secondary">{t('interview.result.processingTitle')}</Text>
-        <Text type="secondary">{t('interview.result.processingHint')}</Text>
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3">
+        <Loader2 className="size-8 animate-spin text-primary" />
+        <p className="text-sm font-medium text-foreground">{t('interview.result.processingTitle')}</p>
+        <p className="text-xs text-muted-foreground">{t('interview.result.processingHint')}</p>
       </div>
     );
   }
 
   if (pollingTimedOut && currentSession?.status === 'processing') {
     return (
-      <div className="interview-result">
-        <Result
-          status="info"
-          title={t('interview.result.processingSlowTitle')}
-          subTitle={t('interview.result.processingSlowSub')}
-          extra={
-            <>
-              <Button type="primary" onClick={() => {
-                setPollingTimedOut(false);
-                pollingStartRef.current = Date.now();
-                if (sessionId) getSession(sessionId);
-              }}>
-                {t('interview.result.keepWaiting')}
-              </Button>
-              <Button onClick={() => navigate('/profile/index')} style={{ marginLeft: 8 }}>
-                {t('interview.result.backProfile')}
-              </Button>
-            </>
-          }
-        />
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-4 text-center">
+        <Info className="size-12 text-primary" />
+        <h2 className="text-xl font-bold text-foreground">{t('interview.result.processingSlowTitle')}</h2>
+        <p className="text-sm text-muted-foreground max-w-sm">{t('interview.result.processingSlowSub')}</p>
+        <div className="flex gap-2">
+          <Button onClick={() => { setPollingTimedOut(false); pollingStartRef.current = Date.now(); if (sessionId) getSession(sessionId); }}>{t('interview.result.keepWaiting')}</Button>
+          <Button variant="outline" onClick={() => navigate('/profile/index')}>{t('interview.result.backProfile')}</Button>
+        </div>
       </div>
     );
   }
 
   const handleRetry = async () => {
     if (!sessionId || retryLockRef.current) return;
-    retryLockRef.current = true;
-    setRetrying(true);
+    retryLockRef.current = true; setRetrying(true);
     try {
       await retryFailed(sessionId);
       if (!mountedRef.current) return;
-      message.info(t('interview.retryProcessing'));
+      toast.info(t('interview.retryProcessing'));
       await getSession(sessionId);
     } catch (error: unknown) {
       if (!mountedRef.current) return;
-      message.error(getErrorMessage(error, 'interview.retryFail'));
-    } finally {
-      retryLockRef.current = false;
-      if (mountedRef.current) setRetrying(false);
-    }
+      toast.error(getErrorMessage(error, 'interview.retryFail'));
+    } finally { retryLockRef.current = false; if (mountedRef.current) setRetrying(false); }
   };
 
   if (!currentSession && storeError && sessionId) {
     return (
-      <div className="interview-result">
-        <Result
-          status="error"
-          title={t('interview.loadFail')}
-          subTitle={storeError}
-          extra={
-            <>
-              <Button type="primary" onClick={() => sessionId && getSession(sessionId)} data-testid="interview-result-load-retry">
-                {t('common.retry')}
-              </Button>
-              <Button onClick={() => navigate('/profile/index')} style={{ marginLeft: 8 }}>
-                {t('interview.result.backProfile')}
-              </Button>
-            </>
-          }
-        />
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-4 text-center">
+        <AlertCircle className="size-12 text-destructive" />
+        <h2 className="text-xl font-bold text-foreground">{t('interview.loadFail')}</h2>
+        <p className="text-sm text-muted-foreground max-w-sm">{storeError}</p>
+        <div className="flex gap-2">
+          <Button onClick={() => sessionId && getSession(sessionId)} data-testid="interview-result-load-retry">{t('common.retry')}</Button>
+          <Button variant="outline" onClick={() => navigate('/profile/index')}>{t('interview.result.backProfile')}</Button>
+        </div>
       </div>
     );
   }
 
   if (currentSession?.status === 'processing_failed') {
     return (
-      <div className="interview-result">
-        <Result
-          status="warning"
-          title={t('interview.result.failedTitle')}
-          subTitle={t('interview.result.failedSub')}
-          extra={
-            <>
-              <Button type="primary" loading={retrying} onClick={handleRetry}>
-                {t('interview.result.retry')}
-              </Button>
-              <Button onClick={() => navigate('/profile/index')} style={{ marginLeft: 8 }}>
-                {t('interview.result.backProfile')}
-              </Button>
-            </>
-          }
-        />
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-4 text-center">
+        <AlertTriangle className="size-12 text-warning" />
+        <h2 className="text-xl font-bold text-foreground">{t('interview.result.failedTitle')}</h2>
+        <p className="text-sm text-muted-foreground max-w-sm">{t('interview.result.failedSub')}</p>
+        <div className="flex gap-2">
+          <Button onClick={handleRetry} disabled={retrying}>{retrying && <Loader2 className="size-4 animate-spin" />}{t('interview.result.retry')}</Button>
+          <Button variant="outline" onClick={() => navigate('/profile/index')}>{t('interview.result.backProfile')}</Button>
+        </div>
       </div>
     );
   }
 
   let feedback: FeedbackCard | null = null;
   if (currentSession?.feedback_card) {
-    try {
-      feedback = JSON.parse(currentSession.feedback_card);
-    } catch {
-      feedback = null;
-    }
+    try { feedback = JSON.parse(currentSession.feedback_card); } catch { feedback = null; }
   }
 
   if (!feedback) {
     return (
-      <div className="interview-result">
-        <Result
-          status="info"
-          title={t('interview.result.doneTitle')}
-          subTitle={t('interview.result.doneSub')}
-          extra={
-            <Button type="primary" onClick={() => navigate('/profile/index')}>
-              {t('interview.result.backProfile')}
-            </Button>
-          }
-        />
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-4 text-center">
+        <Info className="size-12 text-primary" />
+        <h2 className="text-xl font-bold text-foreground">{t('interview.result.doneTitle')}</h2>
+        <p className="text-sm text-muted-foreground">{t('interview.result.doneSub')}</p>
+        <Button onClick={() => navigate('/profile/index')}>{t('interview.result.backProfile')}</Button>
       </div>
     );
   }
 
   return (
-    <div className="interview-result">
+    <div className="mx-auto max-w-2xl px-4 py-8">
       <FeedbackCardComponent
         feedback={feedback}
         trigger={currentSession?.trigger}

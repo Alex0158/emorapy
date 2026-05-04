@@ -22,6 +22,7 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
+      "@/lib/*": ["src/lib/*"],
       "@cj/contracts": ["../packages/contracts/src/index.ts"],
       "@cj/contracts/*": ["../packages/contracts/src/*"],
       "@cj/api-client": ["../packages/api-client/src/index.ts"],

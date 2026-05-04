@@ -1,19 +1,39 @@
 /**
  * 頂部導航欄
+ *
+ * 遷移: Ant Layout.Header/Menu/Button/Dropdown/Avatar/Badge/Select/Icons
+ *       → shadcn DropdownMenu + Select + Button + Avatar + Tailwind + Lucide
+ * 保留: 所有導航邏輯、unread count、locale 切換、admin 連結
  */
 
-import { Layout, Menu, Button, Dropdown, Avatar, Space, Select, Badge } from 'antd';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { HomeOutlined, LoginOutlined, UserOutlined, LogoutOutlined, SettingOutlined, GlobalOutlined, FileTextOutlined, CheckSquareOutlined, MessageOutlined, BellOutlined } from '@ant-design/icons';
+import {
+  Home, LogIn, User, LogOut, Settings, Globe, FileText,
+  CheckSquare, MessageCircle, Bell,
+} from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useAuthStore } from '@/store/authStore';
 import { useNotificationStore } from '@/store/notificationStore';
 import { getAdminLoginUrl } from '@/utils/adminEntry';
+import { cn } from '@/lib/utils';
 import { t, getLocale, onLocaleChange, setLocale, type Locale } from '@/utils/i18n';
 import VersionPopover from './VersionPopover';
-import './Header.less';
-
-const { Header: AntHeader } = Layout;
 
 const NAV_PREFIX_MAP: Record<string, string> = {
   '/case': '/case/list',
@@ -23,6 +43,7 @@ const NAV_PREFIX_MAP: Record<string, string> = {
   '/profile': '/profile/index',
   '/chat': '/chat/room',
 };
+
 const Header = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -32,13 +53,13 @@ const Header = () => {
   const adminLoginUrl = getAdminLoginUrl();
   const [locale, setLocalLocale] = useState<Locale>(getLocale());
 
-  const selectedKeys = useMemo(() => {
+  const activeKey = useMemo(() => {
     const { pathname } = location;
-    if (pathname === '/') return ['/'];
+    if (pathname === '/') return '/';
     for (const [prefix, key] of Object.entries(NAV_PREFIX_MAP)) {
-      if (pathname.startsWith(prefix)) return [key];
+      if (pathname.startsWith(prefix)) return key;
     }
-    return [pathname];
+    return pathname;
   }, [location]);
 
   useEffect(() => {
@@ -49,160 +70,167 @@ const Header = () => {
   useEffect(() => {
     if (!isAuthenticated) return;
     void fetchUnreadCount();
-    const handleFocus = () => {
-      void fetchUnreadCount();
-    };
+    const handleFocus = () => { void fetchUnreadCount(); };
     window.addEventListener('focus', handleFocus);
-    return () => {
-      window.removeEventListener('focus', handleFocus);
-    };
+    return () => { window.removeEventListener('focus', handleFocus); };
   }, [fetchUnreadCount, isAuthenticated]);
 
-  const handleLocaleChange = useCallback((value: Locale) => {
-    // 先更新本地 state，避免 UI 因重渲染時序看起來像「沒切換」
-    setLocalLocale(value);
-    setLocale(value);
+  const handleLocaleChange = useCallback((value: string) => {
+    setLocalLocale(value as Locale);
+    setLocale(value as Locale);
   }, []);
 
-  const menuItems = [
-    {
-      key: '/',
-      icon: <HomeOutlined />,
-      label: <Link to="/">{t('nav.home')}</Link>,
-    },
-    ...(!isAuthenticated
-      ? [
-          {
-            key: '/quick-experience/create',
-            label: <Link to="/quick-experience/create">{t('nav.quickExperience')}</Link>,
-          },
-          {
-            key: '/chat/room',
-            icon: <MessageOutlined />,
-            label: <Link to="/chat/room">{t('nav.chat')}</Link>,
-          },
-          {
-            key: '/admin-login',
-            icon: <SettingOutlined />,
-            disabled: !adminLoginUrl,
-            label: adminLoginUrl ? (
-              <a href={adminLoginUrl} target="_blank" rel="noopener noreferrer">
-                {t('nav.opsConsole')}
-              </a>
-            ) : (
-              <span>{t('nav.opsConsole')}</span>
-            ),
-          },
-        ]
-      : [
-          {
-            key: '/case/list',
-            icon: <FileTextOutlined />,
-            label: <Link to="/case/list">{t('nav.myCases')}</Link>,
-          },
-          {
-            key: '/execution/dashboard',
-            icon: <CheckSquareOutlined />,
-            label: <Link to="/execution/dashboard">{t('nav.execution')}</Link>,
-          },
-          {
-            key: '/chat/room',
-            icon: <MessageOutlined />,
-            label: <Link to="/chat/room">{t('nav.chat')}</Link>,
-          },
-        ]),
-  ];
-
-  const userMenuItems = [
-    {
-      key: 'profile',
-      icon: <UserOutlined />,
-      label: t('nav.profile'),
-      onClick: () => navigate('/profile/index'),
-    },
-    {
-      key: 'settings',
-      icon: <SettingOutlined />,
-      label: t('nav.settings'),
-      onClick: () => navigate('/profile/settings'),
-    },
-    {
-      type: 'divider' as const,
-    },
-    {
-      key: 'logout',
-      icon: <LogoutOutlined />,
-      label: t('nav.logout'),
-      onClick: () => {
-        logout();
-        navigate('/');
-      },
-    },
-  ];
+  const navLinks = isAuthenticated
+    ? [
+        { key: '/case/list', icon: FileText, label: t('nav.myCases') },
+        { key: '/execution/dashboard', icon: CheckSquare, label: t('nav.execution') },
+        { key: '/chat/room', icon: MessageCircle, label: t('nav.chat') },
+      ]
+    : [
+        { key: '/quick-experience/create', label: t('nav.quickExperience') },
+        { key: '/chat/room', icon: MessageCircle, label: t('nav.chat') },
+      ];
 
   return (
-    <AntHeader className="app-header">
-      <div className="header-content">
-        <Link to="/" className="logo">
-          <span className="logo-text">✨ {t('nav.logo')}</span>
+    <header className="sticky top-0 z-40 border-b border-border/50 bg-card/90 backdrop-blur-xl max-md:hidden">
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
+        {/* Logo */}
+        <Link to="/" className="flex items-center gap-1.5 text-base font-bold tracking-tight text-foreground font-heading">
+          <span>✨</span>
+          <span>{t('nav.logo')}</span>
         </Link>
 
-        <Menu
-          mode="horizontal"
-          selectedKeys={selectedKeys}
-          items={menuItems}
-          className="header-menu"
-        />
+        {/* Nav Links */}
+        <nav className="flex items-center gap-1">
+          <NavLink to="/" active={activeKey === '/'}>
+            <Home className="size-4" />
+            <span>{t('nav.home')}</span>
+          </NavLink>
+          {navLinks.map((link) => (
+            <NavLink key={link.key} to={link.key} active={activeKey === link.key}>
+              {link.icon && <link.icon className="size-4" />}
+              <span>{link.label}</span>
+            </NavLink>
+          ))}
+          {!isAuthenticated && (
+            adminLoginUrl ? (
+              <a
+                href={adminLoginUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                <Settings className="size-4" />
+                <span>{t('nav.opsConsole')}</span>
+              </a>
+            ) : (
+              <span className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-muted-foreground/50 cursor-not-allowed">
+                <Settings className="size-4" />
+                <span>{t('nav.opsConsole')}</span>
+              </span>
+            )
+          )}
+        </nav>
 
-        <div className="header-actions">
+        {/* Actions */}
+        <div className="flex items-center gap-2">
           <VersionPopover />
-          {isAuthenticated ? (
-            <Badge count={unreadCount} size="small" offset={[-2, 2]}>
-              <Button
-                type="text"
-                icon={<BellOutlined />}
-                aria-label={t('nav.notifications')}
+
+          {/* Notifications */}
+          {isAuthenticated && (
+            <div data-testid="notification-badge" data-count={unreadCount}>
+              <button
                 onClick={() => navigate('/notifications')}
-              />
-            </Badge>
-          ) : null}
-          <Select
-            value={locale}
-            onChange={handleLocaleChange}
-            size="small"
-            className="locale-select"
-            suffixIcon={<GlobalOutlined />}
-            getPopupContainer={(triggerNode) => triggerNode.parentElement ?? document.body}
-            options={[
-              { value: 'zh-TW', label: t('auth.locale.zhTW') },
-              { value: 'en-US', label: t('auth.locale.enUS') },
-            ]}
-          />
+                className="relative rounded-lg p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                aria-label={t('nav.notifications')}
+              >
+                <Bell className="size-4" />
+                {unreadCount > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-white">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </button>
+            </div>
+          )}
+
+          {/* Locale */}
+          <Select value={locale} onValueChange={handleLocaleChange}>
+            <SelectTrigger className="h-8 w-[100px] text-xs border-0 bg-transparent">
+              <Globe className="size-3.5 text-muted-foreground" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="zh-TW">{t('auth.locale.zhTW')}</SelectItem>
+              <SelectItem value="en-US">{t('auth.locale.enUS')}</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* User Menu */}
           {isAuthenticated ? (
-            <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
-              <Space className="user-info" style={{ cursor: 'pointer' }}>
-                <Avatar
-                  src={user?.avatar_url}
-                  icon={<UserOutlined />}
-                  size="small"
-                />
-                <span>{user?.nickname || user?.email}</span>
-              </Space>
-            </Dropdown>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-accent">
+                  <Avatar className="size-7">
+                    <AvatarImage src={user?.avatar_url} />
+                    <AvatarFallback className="text-xs">
+                      {(user?.nickname || user?.email || '?')[0].toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="text-sm font-medium text-foreground max-w-[100px] truncate">
+                    {user?.nickname || user?.email}
+                  </span>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={() => navigate('/profile/index')}>
+                  <User className="size-4" />
+                  {t('nav.profile')}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/profile/settings')}>
+                  <Settings className="size-4" />
+                  {t('nav.settings')}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => { logout(); navigate('/'); }}>
+                  <LogOut className="size-4" />
+                  {t('nav.logout')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           ) : (
-            <>
-              <Button type="link" icon={<LoginOutlined />}>
-                <Link to="/auth/login">{t('nav.login')}</Link>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" asChild>
+                <Link to="/auth/login" className="gap-1.5">
+                  <LogIn className="size-4" />
+                  {t('nav.login')}
+                </Link>
               </Button>
-              <Button type="primary">
+              <Button size="sm" asChild>
                 <Link to="/auth/register">{t('nav.register')}</Link>
               </Button>
-            </>
+            </div>
           )}
         </div>
       </div>
-    </AntHeader>
+    </header>
   );
 };
+
+function NavLink({ to, active, children }: { to: string; active: boolean; children: React.ReactNode }) {
+  return (
+    <Link
+      to={to}
+      className={cn(
+        'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors',
+        active
+          ? 'bg-primary/10 font-medium text-primary'
+          : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+      )}
+    >
+      {children}
+    </Link>
+  );
+}
 
 export default Header;

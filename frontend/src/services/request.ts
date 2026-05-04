@@ -2,7 +2,7 @@
  * HTTP請求封裝
  */
 
-import { message } from "antd";
+import { toast } from 'sonner';
 import type {
 	AxiosError,
 	AxiosInstance,
@@ -238,22 +238,22 @@ request.interceptors.response.use(
 								.getState()
 								.refreshSession(true, staleSessionId);
 							if (refreshed) {
-								message.warning(
+								toast.warning(
 									errorData?.message || t("common.sessionExpiredRefreshed"),
 								);
 							} else {
-								message.error(
+								toast.error(
 									errorData?.message || t("error.session.expiredHint"),
 								);
 							}
 						} catch {
-							message.error(
+							toast.error(
 								errorData?.message || t("error.session.expiredHint"),
 							);
 						}
 						break;
 					}
-					message.error(errorData?.message || t("common.validationError"));
+					toast.error(errorData?.message || t("common.validationError"));
 					break;
 				}
 
@@ -277,17 +277,17 @@ request.interceptors.response.use(
 								.getState()
 								.refreshSession(true, staleSessionId);
 							if (refreshed && !suppressGlobalSessionToast) {
-								message.warning(
+								toast.warning(
 									errorData?.message || t("common.sessionExpiredRefreshed"),
 								);
 							} else if (!suppressGlobalSessionToast) {
-								message.error(
+								toast.error(
 									errorData?.message || t("error.session.expiredHint"),
 								);
 							}
 						} catch {
 							if (!suppressGlobalSessionToast) {
-								message.error(
+								toast.error(
 									errorData?.message || t("error.session.expiredHint"),
 								);
 							}
@@ -303,7 +303,7 @@ request.interceptors.response.use(
 							if (adminLoginUrl) {
 								safeNavigate(adminLoginUrl);
 							} else {
-								message.error(t("admin.login.urlMissing"));
+								toast.error(t("admin.login.urlMissing"));
 							}
 						}
 					} else {
@@ -317,14 +317,14 @@ request.interceptors.response.use(
 					}
 					// Admin API 的 401 由頁面門禁/導轉處理，避免與頁面錯誤提示重複彈窗。
 					if (!isAdminRequest) {
-						message.error(errorData?.message || t("common.unauthorized"));
+						toast.error(errorData?.message || t("common.unauthorized"));
 					}
 					break;
 				}
 
 				case 403:
 					if (!isAdminApiRequest(String(response.config?.url || ""))) {
-						message.error(errorData?.message || t("common.forbidden"));
+						toast.error(errorData?.message || t("common.forbidden"));
 					}
 					break;
 
@@ -333,7 +333,7 @@ request.interceptors.response.use(
 						// quick case 回收與 session-bound case 404 由頁面處理，不全局彈窗
 						break;
 					}
-					message.error(errorData?.message || t("common.notFound"));
+					toast.error(errorData?.message || t("common.notFound"));
 					break;
 				}
 
@@ -342,33 +342,33 @@ request.interceptors.response.use(
 						// 快速體驗結果頁會自行顯示重試，不全局彈窗
 						break;
 					}
-					message.error(errorData?.message || t("common.conflict"));
+					toast.error(errorData?.message || t("common.conflict"));
 					break;
 				}
 
 				case 422:
-					message.error(errorData?.message || t("common.validationError"));
+					toast.error(errorData?.message || t("common.validationError"));
 					break;
 
 				case 413:
-					message.error(errorData?.message || t("common.fileTooLarge"));
+					toast.error(errorData?.message || t("common.fileTooLarge"));
 					break;
 
 				case 429:
 					if (isUploadRequest(response.config)) {
-						message.error(errorData?.message || t("common.fileRateLimit"));
+						toast.error(errorData?.message || t("common.fileRateLimit"));
 					} else {
-						message.error(errorData?.message || t("common.rateLimit"));
+						toast.error(errorData?.message || t("common.rateLimit"));
 					}
 					break;
 
 				case 503:
-					message.error(errorData?.message || t("common.serviceUnavailable"));
+					toast.error(errorData?.message || t("common.serviceUnavailable"));
 					break;
 
 				case 500:
 				default:
-					message.error(errorData?.message || t("common.serverError"));
+					toast.error(errorData?.message || t("common.serverError"));
 			}
 
 			return Promise.reject({
@@ -380,7 +380,7 @@ request.interceptors.response.use(
 
 		// 網絡錯誤
 		if (error.request) {
-			message.error(t("common.networkError"));
+			toast.error(t("common.networkError"));
 			return Promise.reject({
 				code: "NETWORK_ERROR",
 				message: t("common.networkError"),
@@ -388,7 +388,7 @@ request.interceptors.response.use(
 		}
 
 		// 其他錯誤
-		message.error(t("common.unknownError"));
+		toast.error(t("common.unknownError"));
 		return Promise.reject({
 			code: "UNKNOWN_ERROR",
 			message: error.message,

@@ -35,18 +35,14 @@ vi.mock('@/components/common/AnimatedWrapper', () => ({
   default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 vi.mock('@/utils/i18n', () => ({ t: (key: string) => key }));
-vi.mock('antd', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('antd')>();
-  return {
-    ...actual,
-    message: {
-      error: (...args: unknown[]) => mockMessageError(...args),
-      success: (...args: unknown[]) => mockMessageSuccess(...args),
-      info: vi.fn(),
-      warning: vi.fn(),
-    },
-  };
-});
+vi.mock('sonner', () => ({
+  toast: {
+    error: (...args: unknown[]) => mockMessageError(...args),
+    success: (...args: unknown[]) => mockMessageSuccess(...args),
+    info: vi.fn(),
+    warning: vi.fn(),
+  },
+}));
 
 describe('ProfileSettings', () => {
   beforeEach(() => {

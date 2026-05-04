@@ -1,38 +1,21 @@
-import { Typography, message } from 'antd';
-import AnimatedWrapper from '@/components/common/AnimatedWrapper';
+import { toast } from 'sonner';
 import JudgmentViewer from '@/components/business/JudgmentViewer';
 import { t } from '@/utils/i18n';
 
-const { Title } = Typography;
-
-type Props = {
-  content: string;
-};
+type Props = { content: string };
 
 const JudgmentSection = ({ content }: Props) => {
   return (
-    <AnimatedWrapper animation="fade" delay={400} trigger="intersection">
-      <section id="judgment-section" className="judgment-section" aria-labelledby="judgment-title">
-        <div className="container">
-          <Title level={3} id="judgment-title" className="section-title">
-            {t('judgment.title')}
-          </Title>
-          <div className="judgment-viewer-wrapper">
-            <JudgmentViewer
-              content={content}
-              title={undefined}
-              onShare={() => {
-                message.info(t('message.shareComingSoon'));
-              }}
-              onFavorite={() => {
-                message.info(t('message.favoriteNeedRegister'));
-              }}
-              showActions={true}
-            />
-          </div>
-        </div>
-      </section>
-    </AnimatedWrapper>
+    <section id="judgment-section" className="mb-6" aria-labelledby="judgment-title">
+      <h3 id="judgment-title" className="mb-4 text-lg font-semibold text-foreground font-heading">{t('judgment.title')}</h3>
+      <JudgmentViewer
+        content={content}
+        title={undefined}
+        onShare={() => toast.info(t('message.shareComingSoon'))}
+        onFavorite={() => toast.info(t('message.favoriteNeedRegister'))}
+        showActions={true}
+      />
+    </section>
   );
 };
 

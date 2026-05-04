@@ -4,12 +4,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { copyToClipboard } from './copyToClipboard';
 
-const mockMessageSuccess = vi.fn();
-const mockMessageError = vi.fn();
-vi.mock('antd', () => ({
-  message: {
-    success: (...args: unknown[]) => mockMessageSuccess(...args),
-    error: (...args: unknown[]) => mockMessageError(...args),
+const mockToastSuccess = vi.fn();
+const mockToastError = vi.fn();
+vi.mock('sonner', () => ({
+  toast: {
+    success: (...args: unknown[]) => mockToastSuccess(...args),
+    error: (...args: unknown[]) => mockToastError(...args),
   },
 }));
 
@@ -37,7 +37,7 @@ describe('copyToClipboard', () => {
     });
     const result = await copyToClipboard('hello');
     expect(writeText).toHaveBeenCalledWith('hello');
-    expect(mockMessageSuccess).toHaveBeenCalledWith('已複製到剪貼板');
+    expect(mockToastSuccess).toHaveBeenCalledWith('已複製到剪貼板');
     expect(result).toBe(true);
   });
 
@@ -48,7 +48,7 @@ describe('copyToClipboard', () => {
       writable: true,
     });
     const result = await copyToClipboard('hello');
-    expect(mockMessageError).toHaveBeenCalledWith('複製失敗');
+    expect(mockToastError).toHaveBeenCalledWith('複製失敗');
     expect(result).toBe(false);
   });
 
@@ -59,7 +59,7 @@ describe('copyToClipboard', () => {
     });
     document.execCommand = vi.fn().mockReturnValue(true);
     const result = await copyToClipboard('fallback text');
-    expect(mockMessageSuccess).toHaveBeenCalledWith('已複製到剪貼板');
+    expect(mockToastSuccess).toHaveBeenCalledWith('已複製到剪貼板');
     expect(result).toBe(true);
   });
 
@@ -70,7 +70,7 @@ describe('copyToClipboard', () => {
     });
     document.execCommand = vi.fn().mockReturnValue(false);
     const result = await copyToClipboard('fallback text');
-    expect(mockMessageError).toHaveBeenCalledWith('複製失敗');
+    expect(mockToastError).toHaveBeenCalledWith('複製失敗');
     expect(result).toBe(false);
   });
 });

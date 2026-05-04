@@ -17,7 +17,7 @@ vi.mock('framer-motion', () => ({
 
 const {
   mockNavigate,
-  mockMessage,
+  mockToast,
   mockCreateSession,
   mockSetSession,
   mockCreateQuickCase,
@@ -34,7 +34,7 @@ const {
   mockLoggerWarn,
 } = vi.hoisted(() => ({
   mockNavigate: vi.fn(),
-  mockMessage: {
+  mockToast: {
     success: vi.fn(),
     warning: vi.fn(),
     error: vi.fn(),
@@ -68,34 +68,11 @@ vi.mock('react-router-dom', async (importOriginal) => {
   };
 });
 
-vi.mock('antd', () => ({
-  Alert: ({
-    title,
-    message,
-  }: {
-    title?: React.ReactNode;
-    message?: React.ReactNode;
-  }) => <div>{title ?? message}</div>,
-  Button: ({
-    children,
-    onClick,
-    disabled,
-  }: {
-    children: React.ReactNode;
-    onClick?: () => void;
-    disabled?: boolean;
-  }) => (
-    <button type="button" onClick={onClick} disabled={disabled}>
-      {children}
-    </button>
-  ),
-  Progress: ({ percent }: { percent: number }) => <div data-testid="progress">{percent}</div>,
-  Typography: {
-    Title: ({ children }: { children: React.ReactNode }) => <h2>{children}</h2>,
-    Text: ({ children, className }: { children: React.ReactNode; className?: string }) => <span className={className}>{children}</span>,
-  },
-  message: mockMessage,
+vi.mock('sonner', () => ({
+  toast: mockToast,
 }));
+
+vi.mock('antd/es/upload/interface', () => ({}));
 
 vi.mock('@/store/sessionStore', () => ({
   useSessionStore: () => ({
@@ -350,7 +327,7 @@ describe('QuickExperienceCreate', () => {
       await vi.advanceTimersByTimeAsync(650);
     });
 
-    expect(mockMessage.success).toHaveBeenCalledWith('message.defendantDraftDone');
+    expect(mockToast.success).toHaveBeenCalledWith('message.defendantDraftDone');
     expect((screen.getByLabelText('defendant') as HTMLTextAreaElement).value).toBe('quickCreate.defendantDraftTemplate');
   });
 
@@ -449,13 +426,13 @@ describe('QuickExperienceCreate', () => {
     mockCreateQuickCase.mockRejectedValueOnce(new Error('create failed'));
     fireEvent.click(screen.getByText('quickCreate.submitAndAnalyze'));
     await waitFor(() => {
-      expect(mockMessage.error).toHaveBeenCalledWith('create failed');
+      expect(mockToast.error).toHaveBeenCalledWith('create failed');
     });
 
     mockCreateQuickCase.mockRejectedValueOnce('unknown');
     fireEvent.click(screen.getByText('quickCreate.submitAndAnalyze'));
     await waitFor(() => {
-      expect(mockMessage.error).toHaveBeenCalledWith('message.submitFail');
+      expect(mockToast.error).toHaveBeenCalledWith('message.submitFail');
     });
   });
 
@@ -467,7 +444,7 @@ describe('QuickExperienceCreate', () => {
     fireEvent.click(screen.getByText('quickCreate.submitAndAnalyze'));
 
     await waitFor(() => {
-      expect(mockMessage.error).toHaveBeenCalledWith('message.submitFail');
+      expect(mockToast.error).toHaveBeenCalledWith('message.submitFail');
     });
     expect(mockNavigate).not.toHaveBeenCalledWith(expect.stringContaining('/quick-experience/result/'));
   });
@@ -478,7 +455,7 @@ describe('QuickExperienceCreate', () => {
     await moveToStepThree();
     fireEvent.click(screen.getByText('quickCreate.submitAndAnalyze'));
     await waitFor(() => {
-      expect(mockMessage.error).toHaveBeenCalledWith('message.submitFail');
+      expect(mockToast.error).toHaveBeenCalledWith('message.submitFail');
     });
     expect(mockNavigate).not.toHaveBeenCalledWith(expect.stringContaining('/quick-experience/result/'));
   });
@@ -490,10 +467,10 @@ describe('QuickExperienceCreate', () => {
 
     fireEvent.click(screen.getByText('quickCreate.submitAndAnalyze'));
     await waitFor(() => {
-      expect(mockMessage.error).toHaveBeenCalled();
+      expect(mockToast.error).toHaveBeenCalled();
     });
 
-    const closeBtn = screen.getByText('quickCreate.close');
+    const closeBtn = screen.getByLabelText('quickCreate.close');
     expect(closeBtn).toBeInTheDocument();
     fireEvent.click(closeBtn);
     expect(mockNavigate).toHaveBeenCalledWith('/');
@@ -508,7 +485,7 @@ describe('QuickExperienceCreate', () => {
 
     fireEvent.click(screen.getByText('quickCreate.submitAndAnalyze'));
     await waitFor(() => {
-      expect(mockMessage.error).toHaveBeenCalledWith('網路錯誤');
+      expect(mockToast.error).toHaveBeenCalledWith('網路錯誤');
     });
 
     fireEvent.click(screen.getByText('quickCreate.submitAndAnalyze'));

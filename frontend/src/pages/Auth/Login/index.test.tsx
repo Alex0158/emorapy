@@ -1,5 +1,7 @@
 /**
  * Login 頁面單元測試
+ *
+ * 遷移: antd message → sonner toast
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
@@ -7,9 +9,9 @@ import { MemoryRouter } from 'react-router-dom';
 
 const mockLogin = vi.fn();
 const mockNavigate = vi.fn();
-const mockMessageSuccess = vi.fn();
-const mockMessageError = vi.fn();
-const mockMessageWarning = vi.fn();
+const mockToastSuccess = vi.fn();
+const mockToastError = vi.fn();
+const mockToastWarning = vi.fn();
 
 vi.mock('@/store/authStore', () => ({
   useAuthStore: () => ({ login: mockLogin, isLoading: false }),
@@ -28,21 +30,15 @@ vi.mock('@/utils/i18n', () => ({
 }));
 
 vi.mock('@/components/common/SEO', () => ({ default: () => null }));
-vi.mock('@/components/common/AnimatedWrapper', () => ({
-  default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+
+vi.mock('sonner', () => ({
+  toast: {
+    success: (...args: unknown[]) => mockToastSuccess(...args),
+    error: (...args: unknown[]) => mockToastError(...args),
+    warning: (...args: unknown[]) => mockToastWarning(...args),
+  },
 }));
-vi.mock('@/components/business/MediatorAvatar', () => ({ default: () => <div data-testid="mediator-avatar" /> }));
-vi.mock('antd', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('antd')>();
-  return {
-    ...actual,
-    message: {
-      success: (...args: unknown[]) => mockMessageSuccess(...args),
-      error: (...args: unknown[]) => mockMessageError(...args),
-      warning: (...args: unknown[]) => mockMessageWarning(...args),
-    },
-  };
-});
+
 vi.mock('@/services/api/auth', () => ({
   sendVerificationCode: vi.fn(),
 }));
@@ -93,7 +89,7 @@ describe('Login', () => {
     expect(main).toBeInTheDocument();
   });
 
-  it('登入成功但組件已卸載時不應呼叫 message.success 或 navigate（useMountedRef 回歸：避免 F01-BUG-001 同類問題）', async () => {
+  it('登入成功但組件已卸載時不應呼叫 toast.success 或 navigate（useMountedRef 回歸：避免 F01-BUG-001 同類問題）', async () => {
     let resolveLogin: () => void;
     mockLogin.mockImplementation(
       () => new Promise<void>((resolve) => { resolveLogin = resolve; })
@@ -114,11 +110,11 @@ describe('Login', () => {
     unmount();
     resolveLogin!();
     await Promise.resolve();
-    expect(mockMessageSuccess).not.toHaveBeenCalled();
+    expect(mockToastSuccess).not.toHaveBeenCalled();
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
-  it('登入失敗且組件已卸載時不應呼叫 message.error 或 warning（useMountedRef 回歸：避免卸載後誤提示）', async () => {
+  it('登入失敗且組件已卸載時不應呼叫 toast.error 或 warning（useMountedRef 回歸：避免卸載後誤提示）', async () => {
     let rejectLogin: (reason?: unknown) => void;
     mockLogin.mockImplementation(
       () => new Promise((_, reject) => { rejectLogin = reject; })
@@ -139,8 +135,8 @@ describe('Login', () => {
     unmount();
     rejectLogin!({ message: '帳號或密碼錯誤' });
     await Promise.resolve();
-    expect(mockMessageError).not.toHaveBeenCalled();
-    expect(mockMessageWarning).not.toHaveBeenCalled();
+    expect(mockToastError).not.toHaveBeenCalled();
+    expect(mockToastWarning).not.toHaveBeenCalled();
   });
 
   it('登入成功應顯示成功訊息並導航', async () => {
@@ -159,7 +155,7 @@ describe('Login', () => {
       expect(mockLogin).toHaveBeenCalledWith('test@example.com', 'password123', false);
     });
     await waitFor(() => {
-      expect(mockMessageSuccess).toHaveBeenCalledWith('message.loginSuccess');
+      expect(mockToastSuccess).toHaveBeenCalledWith('message.loginSuccess');
     });
     expect(mockNavigate).toHaveBeenCalledWith('/case/list', { replace: true });
   });
@@ -180,7 +176,7 @@ describe('Login', () => {
       expect(mockLogin).toHaveBeenCalled();
     });
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('帳號或密碼錯誤');
+      expect(mockToastError).toHaveBeenCalledWith('帳號或密碼錯誤');
     });
   });
 
@@ -197,15 +193,15 @@ describe('Login', () => {
     fireEvent.change(screen.getByPlaceholderText('auth.login.password'), { target: { value: 'password123' } });
     fireEvent.click(screen.getByText('auth.login.submit'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalled();
+      expect(mockToastError).toHaveBeenCalled();
     });
     await waitFor(() => {
-      expect(screen.getByText('auth.login.submit')).not.toHaveClass('ant-btn-loading');
+      expect(screen.getByText('auth.login.submit')).not.toBeDisabled();
     });
     fireEvent.click(screen.getByText('auth.login.submit'));
     await waitFor(() => {
       expect(mockLogin).toHaveBeenCalledTimes(2);
-      expect(mockMessageSuccess).toHaveBeenCalledWith('message.loginSuccess');
+      expect(mockToastSuccess).toHaveBeenCalledWith('message.loginSuccess');
     });
     expect(mockNavigate).toHaveBeenCalledWith('/case/list', { replace: true });
   });
@@ -221,7 +217,7 @@ describe('Login', () => {
     fireEvent.change(screen.getByPlaceholderText('auth.login.password'), { target: { value: 'wrong' } });
     fireEvent.click(screen.getByText('auth.login.submit'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('帳號或密碼錯誤');
+      expect(mockToastError).toHaveBeenCalledWith('帳號或密碼錯誤');
     });
     const registerBtn = screen.getByText('auth.login.registerNow');
     expect(registerBtn).toBeInTheDocument();
@@ -240,7 +236,7 @@ describe('Login', () => {
     fireEvent.change(screen.getByPlaceholderText('auth.login.password'), { target: { value: 'wrong' } });
     fireEvent.click(screen.getByText('auth.login.submit'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('帳號或密碼錯誤');
+      expect(mockToastError).toHaveBeenCalledWith('帳號或密碼錯誤');
     });
     const forgotBtn = screen.getByText('auth.login.forgotPassword');
     expect(forgotBtn).toBeInTheDocument();
@@ -259,7 +255,7 @@ describe('Login', () => {
     fireEvent.change(screen.getByPlaceholderText('auth.login.password'), { target: { value: 'p' } });
     fireEvent.click(screen.getByText('auth.login.submit'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.loginFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.loginFail');
     });
   });
 
@@ -274,7 +270,7 @@ describe('Login', () => {
     fireEvent.change(screen.getByPlaceholderText('auth.login.password'), { target: { value: 'p' } });
     fireEvent.click(screen.getByText('auth.login.submit'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.loginFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.loginFail');
     });
   });
 
@@ -289,7 +285,7 @@ describe('Login', () => {
     fireEvent.change(screen.getByPlaceholderText('auth.login.password'), { target: { value: 'password123' } });
     fireEvent.click(screen.getByText('auth.login.submit'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('此帳號已被停權');
+      expect(mockToastError).toHaveBeenCalledWith('此帳號已被停權');
     });
   });
 
@@ -304,7 +300,7 @@ describe('Login', () => {
     fireEvent.change(screen.getByPlaceholderText('auth.login.password'), { target: { value: 'password123' } });
     fireEvent.click(screen.getByText('auth.login.submit'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.loginFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.loginFail');
     });
   });
 
@@ -392,7 +388,7 @@ describe('Login', () => {
     fireEvent.change(screen.getByPlaceholderText('auth.login.password'), { target: { value: 'password123' } });
     fireEvent.click(screen.getByText('auth.login.submit'));
     await waitFor(() => {
-      expect(mockMessageWarning).toHaveBeenCalledWith('message.emailNotVerified');
+      expect(mockToastWarning).toHaveBeenCalledWith('message.emailNotVerified');
     });
     expect(mockSendVerificationCode).toHaveBeenCalledWith('test@example.com', 'verify_email');
   });
@@ -411,10 +407,10 @@ describe('Login', () => {
     fireEvent.change(screen.getByPlaceholderText('auth.login.password'), { target: { value: 'password123' } });
     fireEvent.click(screen.getByText('auth.login.submit'));
     await waitFor(() => {
-      expect(mockMessageWarning).toHaveBeenCalledWith('message.emailNotVerified');
+      expect(mockToastWarning).toHaveBeenCalledWith('message.emailNotVerified');
     });
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.resendVerifyFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.resendVerifyFail');
     });
   });
 
@@ -432,10 +428,10 @@ describe('Login', () => {
     fireEvent.change(screen.getByPlaceholderText('auth.login.password'), { target: { value: 'password123' } });
     fireEvent.click(screen.getByText('auth.login.submit'));
     await waitFor(() => {
-      expect(mockMessageWarning).toHaveBeenCalledWith('message.emailNotVerified');
+      expect(mockToastWarning).toHaveBeenCalledWith('message.emailNotVerified');
     });
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.resendVerifyFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.resendVerifyFail');
     });
   });
 
@@ -453,10 +449,10 @@ describe('Login', () => {
     fireEvent.change(screen.getByPlaceholderText('auth.login.password'), { target: { value: 'password123' } });
     fireEvent.click(screen.getByText('auth.login.submit'));
     await waitFor(() => {
-      expect(mockMessageWarning).toHaveBeenCalledWith('message.emailNotVerified');
+      expect(mockToastWarning).toHaveBeenCalledWith('message.emailNotVerified');
     });
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('已達今日發送上限');
+      expect(mockToastError).toHaveBeenCalledWith('已達今日發送上限');
     });
   });
 
@@ -474,7 +470,7 @@ describe('Login', () => {
     fireEvent.change(screen.getByPlaceholderText('auth.login.password'), { target: { value: 'password123' } });
     fireEvent.click(screen.getByText('auth.login.submit'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('發送失敗');
+      expect(mockToastError).toHaveBeenCalledWith('發送失敗');
     });
     const registerBtn = screen.getByText('auth.login.registerNow');
     expect(registerBtn).toBeInTheDocument();

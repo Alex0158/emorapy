@@ -9,10 +9,13 @@ import {
   isErrorResponse,
 } from './responseHandler';
 
-const mockMessageError = vi.fn();
-vi.mock('antd', () => ({
-  message: {
-    error: (...args: unknown[]) => mockMessageError(...args),
+const mockToastError = vi.fn();
+vi.mock('sonner', () => ({
+  toast: {
+    error: (...args: unknown[]) => mockToastError(...args),
+    success: vi.fn(),
+    warning: vi.fn(),
+    info: vi.fn(),
   },
 }));
 
@@ -41,35 +44,34 @@ describe('responseHandler', () => {
   });
 
   describe('handleApiError', () => {
-    it('預設 showMessage 為 true 應調用 message.error', () => {
+    it('預設 showMessage 為 true 應調用 toast.error', () => {
       handleApiError(new Error('err'));
-      expect(mockMessageError).toHaveBeenCalledWith('err');
+      expect(mockToastError).toHaveBeenCalledWith('err');
     });
 
-    it('showMessage 為 true 時應調用 message.error', () => {
+    it('showMessage 為 true 時應調用 toast.error', () => {
       handleApiError(new Error('err'), true);
-      expect(mockMessageError).toHaveBeenCalledWith('err');
+      expect(mockToastError).toHaveBeenCalledWith('err');
     });
 
-    it('showMessage 為 false 時不應調用 message.error', () => {
+    it('showMessage 為 false 時不應調用 toast.error', () => {
       handleApiError(new Error('err'), false);
-      expect(mockMessageError).not.toHaveBeenCalled();
+      expect(mockToastError).not.toHaveBeenCalled();
     });
 
     it('物件帶 message 時應顯示該 message', () => {
       handleApiError({ message: 'custom' }, true);
-      expect(mockMessageError).toHaveBeenCalledWith('custom');
+      expect(mockToastError).toHaveBeenCalledWith('custom');
     });
 
     it('物件帶 error.message 時應顯示', () => {
       handleApiError({ error: { message: 'nested' } }, true);
-      expect(mockMessageError).toHaveBeenCalledWith('nested');
+      expect(mockToastError).toHaveBeenCalledWith('nested');
     });
 
     it('無法取得 message 時應顯示默認', () => {
       handleApiError({}, true);
-      // 使用 i18n common.unknownError
-      expect(mockMessageError).toHaveBeenCalledWith('發生未知錯誤，請稍後再試');
+      expect(mockToastError).toHaveBeenCalledWith('發生未知錯誤，請稍後再試');
     });
   });
 

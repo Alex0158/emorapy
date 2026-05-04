@@ -1,20 +1,212 @@
 @import "tailwindcss";
+@plugin "tailwindcss-animate";
+
+/*
+ * Mother Bear Court - Design Token System
+ * 溫暖珊瑚/蜜金色系 — 親和、信任、希望
+ *
+ * shadcn/ui 兼容的 CSS custom properties
+ * 使用 HSL 格式以支持 opacity utilities
+ */
 
 @theme {
-  --color-primary: #84A59D;
-  --color-primary-hover: #6B8E85;
-  --color-accent: #E27D60;
-  --color-accent-hover: #C86A4F;
-  --color-background: #FDFDFD;
-  --color-surface: #FFFFFF;
-  --color-text-main: #2D3142;
-  --color-text-muted: #6B7280;
+  /* === 品牌色 === */
+  --color-primary: oklch(0.65 0.15 25);
+  --color-primary-foreground: #FFFFFF;
+  --color-primary-hover: oklch(0.58 0.15 22);
+  --color-primary-light: oklch(0.95 0.03 25);
 
+  --color-secondary: oklch(0.75 0.14 75);
+  --color-secondary-foreground: #FFFFFF;
+  --color-secondary-hover: oklch(0.68 0.14 72);
+
+  --color-accent: oklch(0.96 0.02 60);
+  --color-accent-foreground: #2C2420;
+
+  /* === 語義色 === */
+  --color-success: oklch(0.62 0.15 155);
+  --color-success-foreground: #FFFFFF;
+  --color-warning: oklch(0.75 0.14 75);
+  --color-warning-foreground: #2C2420;
+  --color-destructive: oklch(0.58 0.2 25);
+  --color-destructive-foreground: #FFFFFF;
+
+  /* === 中性色（暖灰） === */
+  --color-background: #FBF9F7;
+  --color-foreground: #2C2420;
+  --color-surface: #FFFFFF;
+  --color-muted: #F5F1ED;
+  --color-muted-foreground: #7A6E64;
+  --color-border: #E8E0D8;
+  --color-input: #E8E0D8;
+  --color-ring: oklch(0.65 0.15 25);
+
+  /* === 卡片 === */
+  --color-card: #FFFFFF;
+  --color-card-foreground: #2C2420;
+
+  /* === 彈出層 === */
+  --color-popover: #FFFFFF;
+  --color-popover-foreground: #2C2420;
+
+  /* === 舊系統兼容（遷移期間保留） === */
+  --color-text-main: #2C2420;
+  --color-text-muted: #7A6E64;
+
+  /* === 字體 === */
   --font-heading: "Plus Jakarta Sans", "Outfit", sans-serif;
   --font-body: "Inter", "Noto Sans TC", sans-serif;
 
-  --radius-xl: 16px;
+  /* === 圓角 === */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
   --radius-2xl: 24px;
+  --radius-full: 9999px;
+
+  /* === 陰影 === */
+  --shadow-xs: 0 1px 2px rgba(44, 36, 32, 0.04);
+  --shadow-sm: 0 2px 8px rgba(44, 36, 32, 0.06);
+  --shadow-md: 0 8px 24px rgba(44, 36, 32, 0.08);
+  --shadow-lg: 0 16px 48px rgba(44, 36, 32, 0.10);
+  --shadow-xl: 0 24px 64px rgba(44, 36, 32, 0.12);
+
+  /* === 動畫 === */
+  --animate-duration-fast: 150ms;
+  --animate-duration-normal: 250ms;
+  --animate-duration-slow: 400ms;
+  --animate-easing: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* 全局樣式已移至 assets/styles/global.less */
+/* === 全局基礎樣式 === */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    border-color: var(--color-border);
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    font-family: var(--font-body);
+    color: var(--color-foreground);
+    background-color: var(--color-background);
+    line-height: 1.7;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+    line-height: 1.3;
+    font-weight: 600;
+    color: var(--color-foreground);
+  }
+
+  ::selection {
+    background-color: oklch(0.65 0.15 25 / 0.15);
+  }
+
+  /* 滾動條（Webkit） */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: var(--radius-full);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-muted-foreground);
+  }
+
+  /* Focus ring 品牌化 */
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+
+  /* 減少動畫偏好 */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* === shadcn/ui 動畫 keyframes === */
+@layer utilities {
+  @keyframes accordion-down {
+    from { height: 0; }
+    to { height: var(--radix-accordion-content-height); }
+  }
+
+  @keyframes accordion-up {
+    from { height: var(--radix-accordion-content-height); }
+    to { height: 0; }
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes fade-out {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
+
+  @keyframes slide-in-from-top {
+    from { transform: translateY(-100%); }
+    to { transform: translateY(0); }
+  }
+
+  @keyframes slide-in-from-bottom {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+
+  @keyframes slide-in-from-left {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(0); }
+  }
+
+  @keyframes slide-in-from-right {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+  }
+
+  .animate-accordion-down {
+    animation: accordion-down var(--animate-duration-normal) var(--animate-easing);
+  }
+
+  .animate-accordion-up {
+    animation: accordion-up var(--animate-duration-normal) var(--animate-easing);
+  }
+}
+
+/* 列印樣式 */
+@media print {
+  body {
+    background: white;
+    color: black;
+  }
+
+  nav, footer, .no-print {
+    display: none !important;
+  }
+}

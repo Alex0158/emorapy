@@ -5,8 +5,9 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useMountedRef } from '@/hooks/useMountedRef';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { message, Space, Button } from 'antd';
-import { LockOutlined, RetweetOutlined } from '@ant-design/icons';
+import { toast } from 'sonner';
+import { Lock, RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { useAIStreamSubscription } from '@/hooks/useAIStreamSubscription';
 import AIErrorState from '@/components/common/AIErrorState';
 import { useJudgmentStore } from '@/store/judgmentStore';
@@ -146,7 +147,7 @@ const QuickExperienceResult = () => {
 
     if (!id) {
       if (mountedRef.current) {
-        message.error(t('message.caseIdMissing'));
+        toast.error(t('message.caseIdMissing'));
         navigate('/quick-experience/create');
       }
       return null;
@@ -223,7 +224,7 @@ const QuickExperienceResult = () => {
       const err = error as { code?: string };
       if (err?.code === 'NOT_FOUND' || err?.code === 'HTTP_404') {
         caseSessionMap.remove(caseId);
-        message.warning(t('message.caseNotFoundOrExpired'));
+        toast.warning(t('message.caseNotFoundOrExpired'));
         navigate('/quick-experience/create', { replace: true });
         return null;
       }
@@ -255,12 +256,12 @@ const QuickExperienceResult = () => {
       const { generateJudgment } = await import('@/services/api/judgment');
       await generateJudgment(caseId, caseSessionId ?? undefined);
       if (!mountedRef.current) return;
-      message.success(t('message.judgmentRegenSuccess'));
+      toast.success(t('message.judgmentRegenSuccess'));
       startPolling();
     } catch (error: unknown) {
       if (!mountedRef.current) return;
       const msg = getErrorMessage(error, 'message.retryFail');
-      message.error(msg);
+      toast.error(msg);
       setJudgmentError(msg);
     } finally {
       retryJudgmentLockRef.current = false;
@@ -270,7 +271,7 @@ const QuickExperienceResult = () => {
   const handleEvidenceUpload = async (fileList: File[]) => {
     const caseId = id as string;
     const filesToUpload = fileList.filter((file) => file instanceof File);
-    if (filesToUpload.length === 0) return message.warning(t('message.selectFile'));
+    if (filesToUpload.length === 0) return toast.warning(t('message.selectFile'));
 
     setIsUploading(true); setEvidenceUploadStatus('pending');
     try {
@@ -282,7 +283,7 @@ const QuickExperienceResult = () => {
       });
       if (!sessionIdToUse) {
         if (mountedRef.current) {
-          message.error(t('message.sessionIdMissing'));
+          toast.error(t('message.sessionIdMissing'));
           setEvidenceUploadStatus('failed');
           setIsUploading(false);
         }
@@ -290,7 +291,7 @@ const QuickExperienceResult = () => {
       }
       await uploadEvidence(caseId, filesToUpload, sessionIdToUse);
       if (!mountedRef.current) return;
-      message.success(t('message.evidenceUploadSuccess'));
+      toast.success(t('message.evidenceUploadSuccess'));
       setEvidenceUploadStatus('success');
       storageRemoveItem(getPendingEvidenceStorageKey(caseId));
       try {
@@ -300,7 +301,7 @@ const QuickExperienceResult = () => {
       }
     } catch (error: unknown) {
       if (!mountedRef.current) return;
-      message.error(getErrorMessage(error, 'message.evidenceUploadFail'));
+      toast.error(getErrorMessage(error, 'message.evidenceUploadFail'));
       setEvidenceUploadStatus('failed');
       storageSetItem(getPendingEvidenceStorageKey(caseId), 'true');
     } finally {
@@ -360,8 +361,8 @@ const QuickExperienceResult = () => {
           description={isJudgmentFailed && judgmentFailureReason ? `${t('error.judgment.failureReasonPrefix')}${judgmentFailureReason}` : judgmentError || (isSessionExpired ? t('error.session.expiredHint') : t('message.retryOrLater'))}
           actions={
             isSessionExpired ? (
-              <Space>
-                <Button type="primary" onClick={() => navigate('/auth/login', { state: registerTargetState })}>
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={() => navigate('/auth/login', { state: registerTargetState })}>
                   {t('auth.login.submit')}
                 </Button>
                 <Button onClick={() => navigate('/auth/register', { state: registerTargetState })}>
@@ -370,10 +371,10 @@ const QuickExperienceResult = () => {
                 <Button onClick={() => navigate('/quick-experience/create')}>
                   {t('result.restart')}
                 </Button>
-              </Space>
+              </div>
             )
-            : isJudgmentFailed ? <Button type="primary" onClick={handleRetryJudgment}>{t('error.retry')}</Button>
-            : <Button type="primary" onClick={() => { setJudgmentError(null); setJudgmentErrorCode(null); pollingEverStartedRef.current = true; startPolling(); }}>{t('error.retry')}</Button>
+            : isJudgmentFailed ? <Button onClick={handleRetryJudgment}>{t('error.retry')}</Button>
+            : <Button onClick={() => { setJudgmentError(null); setJudgmentErrorCode(null); pollingEverStartedRef.current = true; startPolling(); }}>{t('error.retry')}</Button>
           }
           footer={(
             <button className="action-button secondary" onClick={() => navigate('/quick-experience/create')} style={{ marginTop: 24 }}>
@@ -395,11 +396,11 @@ const QuickExperienceResult = () => {
             description={t('pending.long.desc')}
             type="warning"
             actions={
-              <Space>
-                <Button type="primary" onClick={() => { pollingEverStartedRef.current = true; startPolling(); }}>{t('pending.long.action.wait')}</Button>
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={() => { pollingEverStartedRef.current = true; startPolling(); }}>{t('pending.long.action.wait')}</Button>
                 <Button onClick={handleRetryJudgment}>{t('pending.long.action.regen')}</Button>
                 <Button onClick={() => navigate('/quick-experience/create')}>{t('pending.long.action.back')}</Button>
-              </Space>
+              </div>
             }
           />
         ) : <AIAnalyzingAnimation tips={tips} currentPhase={streamPhase} phaseHistory={phaseHistory} />}
@@ -431,16 +432,16 @@ const QuickExperienceResult = () => {
                 className="action-button primary"
                 onClick={() => navigate('/auth/register', { state: registerTargetState })}
               >
-                <LockOutlined style={{ marginRight: 8 }} /> {t('register.action.now')}
+                <Lock className="size-4" /> {t('register.action.now')}
               </button>
               <button
                 className="action-button secondary"
                 onClick={() => navigate('/auth/login', { state: registerTargetState })}
               >
-                <LockOutlined style={{ marginRight: 8 }} /> {t('auth.login.submit')}
+                <Lock className="size-4" /> {t('auth.login.submit')}
               </button>
               <button className="action-button secondary" onClick={() => navigate('/quick-experience/create')}>
-                <RetweetOutlined style={{ marginRight: 8 }} /> {t('quickCreate.recoveredCase.startNew')}
+                <RefreshCw className="size-4" /> {t('quickCreate.recoveredCase.startNew')}
               </button>
             </div>
           </div>

@@ -1,39 +1,28 @@
 /**
  * 審理中頁面
+ *
+ * 遷移: Ant Card/Button/Typography/Spin/Progress/Alert/Space/Icons/message → shadcn + Tailwind + sonner + Lucide
+ * 保留: 所有業務邏輯（polling, retry judgment, case status routing）
  */
 
 import { useState, useEffect, useRef } from 'react';
 import { useMountedRef } from '@/hooks/useMountedRef';
 import { useParams, useNavigate } from 'react-router-dom';
-import {
-  Card,
-  Button,
-  Typography,
-  Space,
-  Spin,
-  Progress,
-  message,
-  Alert,
-} from 'antd';
-import {
-  ArrowLeftOutlined,
-  ReloadOutlined,
-} from '@ant-design/icons';
+import { toast } from 'sonner';
+import { ArrowLeft, RefreshCw, Loader2, CheckCircle, AlertCircle, Info } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import { getCase } from '@/services/api/case';
 import { getJudgmentByCaseId, generateJudgment } from '@/services/api/judgment';
 import type { Case } from '@/types/case';
 import type { Judgment } from '@/types/judgment';
 import MediatorAvatar from '@/components/business/MediatorAvatar';
 import SEO from '@/components/common/SEO';
-import AnimatedWrapper from '@/components/common/AnimatedWrapper';
 import { usePolling } from '@/hooks/usePolling';
 import { POLLING_INTERVAL } from '@/utils/constants';
 import { getErrorMessage } from '@/utils/apiError';
 import { t } from '@/utils/i18n';
 import { logger } from '@/utils/logger';
-import './Review.less';
-
-const { Title, Text, Paragraph } = Typography;
 
 const CaseReview = () => {
   const { id } = useParams<{ id: string }>();
@@ -47,17 +36,15 @@ const CaseReview = () => {
   const mountedRef = useMountedRef();
   const retryLockRef = useRef(false);
   const fetchLockRef = useRef(false);
-
   const staleRef = useRef(false);
+
   useEffect(() => {
     staleRef.current = false;
     setCase_(null);
     setJudgment(null);
-    if (id) {
-      fetchCase();
-    }
+    if (id) fetchCase();
     return () => { staleRef.current = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- 僅在 id 變化時拉取
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const fetchCase = async () => {
@@ -77,18 +64,17 @@ const CaseReview = () => {
         const errorMessage = getErrorMessage(error, 'message.noPermissionViewCase');
         setLoadErrorTitle(t('message.noPermissionViewCase'));
         setLoadErrorDescription(errorMessage === t('message.noPermissionViewCase') ? null : errorMessage);
-        message.error(errorMessage);
+        toast.error(errorMessage);
         navigate('/case/list', { replace: true });
       } else if (err?.code === 'NOT_FOUND' || err?.code === 'HTTP_404') {
-        const errorMessage = t('common.caseNotFound');
-        setLoadErrorTitle(errorMessage);
+        setLoadErrorTitle(t('common.caseNotFound'));
         setLoadErrorDescription(null);
-        message.error(errorMessage);
+        toast.error(t('common.caseNotFound'));
       } else {
         const errorMessage = getErrorMessage(error, 'common.getCaseFail');
         setLoadErrorTitle(t('common.getCaseFail'));
         setLoadErrorDescription(errorMessage === t('common.getCaseFail') ? null : errorMessage);
-        message.error(errorMessage);
+        toast.error(errorMessage);
       }
     } finally {
       fetchLockRef.current = false;
@@ -101,50 +87,30 @@ const CaseReview = () => {
     try {
       const judgmentData = await getJudgmentByCaseId(id);
       if (staleRef.current) return false;
-      if (judgmentData) {
-        setJudgment(judgmentData);
-        return true;
-      }
+      if (judgmentData) { setJudgment(judgmentData); return true; }
       return false;
     } catch (error: unknown) {
       if (staleRef.current) return false;
       const err = error as { code?: string };
-      if (err?.code === 'JUDGMENT_NOT_FOUND' || err?.code === 'HTTP_404') {
-        return false;
-      }
+      if (err?.code === 'JUDGMENT_NOT_FOUND' || err?.code === 'HTTP_404') return false;
       logger.error('Failed to fetch judgment', error);
       return false;
     }
   };
 
-  const { startPolling, stopPolling, isPolling } = usePolling(
-    fetchJudgment,
-    POLLING_INTERVAL,
-    (data) => data === true
-  );
+  const { startPolling, stopPolling, isPolling } = usePolling(fetchJudgment, POLLING_INTERVAL, (data) => data === true);
 
   useEffect(() => {
     if (!case_) return;
-    if (case_.status === 'completed' || case_.status === 'judgment_failed') {
-      fetchJudgment();
-    } else if (case_.status === 'submitted' || case_.status === 'in_progress') {
-      startPolling();
-    } else if (case_.status === 'draft') {
-      message.warning(t('review.caseNotSubmitted'));
-      navigate(`/case/${id}`, { replace: true });
-    } else if (case_.status === 'cancelled') {
-      message.warning(t('review.caseCancelled'));
-      navigate(`/case/list`, { replace: true });
-    }
+    if (case_.status === 'completed' || case_.status === 'judgment_failed') { fetchJudgment(); }
+    else if (case_.status === 'submitted' || case_.status === 'in_progress') { startPolling(); }
+    else if (case_.status === 'draft') { toast.warning(t('review.caseNotSubmitted')); navigate(`/case/${id}`, { replace: true }); }
+    else if (case_.status === 'cancelled') { toast.warning(t('review.caseCancelled')); navigate(`/case/list`, { replace: true }); }
     return () => stopPolling();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchJudgment 不進 deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [case_, startPolling, stopPolling]);
 
-  useEffect(() => {
-    if (judgment) {
-      stopPolling();
-    }
-  }, [judgment, stopPolling]);
+  useEffect(() => { if (judgment) stopPolling(); }, [judgment, stopPolling]);
 
   const handleRetryJudgment = async () => {
     if (!id || retrying || retryLockRef.current) return;
@@ -154,28 +120,23 @@ const CaseReview = () => {
       const newJudgment = await generateJudgment(id);
       if (!mountedRef.current) return;
       setJudgment(newJudgment);
-      message.success(t('review.retrySuccess'));
+      toast.success(t('review.retrySuccess'));
     } catch (error: unknown) {
       if (!mountedRef.current) return;
-      const err = error as { code?: string; message?: string };
+      const err = error as { code?: string };
       if (err?.code === 'JUDGMENT_EXISTS') {
         try {
           const judgmentData = await getJudgmentByCaseId(id);
           if (!mountedRef.current) return;
-          if (judgmentData) {
-            setJudgment(judgmentData);
-          } else {
-            message.error(t('review.retryFail'));
-            if (id) fetchCase();
-          }
+          if (judgmentData) setJudgment(judgmentData);
+          else { toast.error(t('review.retryFail')); if (id) fetchCase(); }
         } catch (fetchErr: unknown) {
           if (!mountedRef.current) return;
-          const msg = getErrorMessage(fetchErr, 'review.retryFail');
-          message.error(msg);
+          toast.error(getErrorMessage(fetchErr, 'review.retryFail'));
           if (id) fetchCase();
         }
       } else {
-        message.error(getErrorMessage(error, 'review.retryFail'));
+        toast.error(getErrorMessage(error, 'review.retryFail'));
         if (id) fetchCase();
       }
     } finally {
@@ -184,144 +145,118 @@ const CaseReview = () => {
     }
   };
 
+  // Loading
   if (loading) {
     return (
-      <div className="case-review-page">
-        <Spin size="large" description={t('common.loading')} />
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <Loader2 className="size-8 animate-spin text-primary" />
       </div>
     );
   }
 
+  // Case not found / error
   if (!case_) {
     return (
-      <div className="case-review-page">
-        <Alert
-          title={loadErrorTitle || t('common.caseNotFound')}
-          description={loadErrorDescription || undefined}
-          type="error"
-          action={
-            <Space>
-              <Button size="small" onClick={() => navigate('/case/list')}>
-                {t('caseDetail.backList')}
-              </Button>
-              <Button size="small" type="primary" onClick={() => id && fetchCase()}>
-                {t('common.retry')}
-              </Button>
-            </Space>
-          }
-        />
+      <div className="mx-auto max-w-lg p-6">
+        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-5 space-y-3">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="mt-0.5 size-5 shrink-0 text-destructive" />
+            <div>
+              <p className="font-medium text-foreground">{loadErrorTitle || t('common.caseNotFound')}</p>
+              {loadErrorDescription && <p className="mt-1 text-sm text-muted-foreground">{loadErrorDescription}</p>}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => navigate('/case/list')}>{t('caseDetail.backList')}</Button>
+            <Button size="sm" onClick={() => id && fetchCase()}>{t('common.retry')}</Button>
+          </div>
+        </div>
       </div>
     );
   }
 
+  // Judgment ready
   if (judgment) {
     return (
-      <div className="case-review-page">
-        <Card>
-          <Alert
-            title={t('review.judgmentReady')}
-            description={t('review.judgmentReadyDesc')}
-            type="success"
-            showIcon
-            action={
-              <Button type="primary" onClick={() => navigate(`/judgment/${judgment.id}`)}>
-                {t('review.viewJudgment')}
-              </Button>
-            }
-          />
-        </Card>
+      <div className="mx-auto max-w-lg p-6">
+        <div className="rounded-xl border border-success/30 bg-success/5 p-5 space-y-4">
+          <div className="flex items-start gap-3">
+            <CheckCircle className="mt-0.5 size-5 text-success" />
+            <div>
+              <p className="font-medium text-foreground">{t('review.judgmentReady')}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{t('review.judgmentReadyDesc')}</p>
+            </div>
+          </div>
+          <Button onClick={() => navigate(`/judgment/${judgment.id}`)}>{t('review.viewJudgment')}</Button>
+        </div>
       </div>
     );
   }
 
+  // Judgment failed
   if (case_.status === 'judgment_failed') {
     return (
-      <div className="case-review-page">
-        <Card>
-          <Space orientation="vertical" size="large" style={{ width: '100%' }}>
-            <Alert
-              title={t('review.judgmentFailed')}
-              description={case_.judgment_failure_reason || t('review.judgmentFailedDesc')}
-              type="error"
-              showIcon
-            />
-            <Space>
-              <Button
-                type="primary"
-                icon={<ReloadOutlined />}
-                loading={retrying}
-                onClick={handleRetryJudgment}
-              >
-                {t('review.retryJudgment')}
-              </Button>
-              <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(`/case/${id}`)}>
-                {t('review.backToCase')}
-              </Button>
-            </Space>
-          </Space>
-        </Card>
-      </div>
-    );
-  }
-
-  return (
-    <>
-      <SEO
-        title={t('review.title')}
-        description={t('review.description')}
-      />
-      <div className="case-review-page" role="main" aria-label={t('review.pageLabel')}>
-        <AnimatedWrapper animation="fade" delay={100}>
-          <div className="review-header" aria-labelledby="review-title">
-            <MediatorAvatar size="large" animated />
-            <Title level={2} id="review-title">
-              {t('review.aiReviewing')}
-            </Title>
-            <Paragraph type="secondary">
-              {t('review.analyzingHint')}
-            </Paragraph>
+      <div className="mx-auto max-w-lg p-6">
+        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-5 space-y-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="mt-0.5 size-5 text-destructive" />
+            <div>
+              <p className="font-medium text-foreground">{t('review.judgmentFailed')}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{case_.judgment_failure_reason || t('review.judgmentFailedDesc')}</p>
+            </div>
           </div>
-        </AnimatedWrapper>
-
-        <AnimatedWrapper animation="slide" direction="up" delay={200} trigger="intersection">
-          <Card>
-          <Space orientation="vertical" size="large" style={{ width: '100%' }}>
-            <div className="progress-section">
-              <Progress
-                percent={isPolling ? 75 : 100}
-                status={isPolling ? 'active' : 'success'}
-                strokeColor={{
-                  '0%': '#ff8c42',
-                  '100%': '#5b9bd5',
-                }}
-              />
-              <Text type="secondary" style={{ display: 'block', marginTop: 16, textAlign: 'center' }}>
-                {isPolling ? t('review.aiAnalyzing') : t('review.done')}
-              </Text>
-            </div>
-
-            <Alert
-              title={t('review.etaTitle')}
-              description={t('review.etaDesc')}
-              type="info"
-              showIcon
-            />
-
-            <div className="case-info">
-              <Text strong>{t('review.caseTitle')}：</Text>
-              <Text>{case_.title}</Text>
-            </div>
-          </Space>
-          </Card>
-        </AnimatedWrapper>
-
-        <AnimatedWrapper animation="slide" direction="up" delay={300} trigger="intersection">
-          <div className="action-section">
-            <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(`/case/${id}`)}>
+          <div className="flex gap-2">
+            <Button onClick={handleRetryJudgment} disabled={retrying}>
+              {retrying ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+              {t('review.retryJudgment')}
+            </Button>
+            <Button variant="outline" onClick={() => navigate(`/case/${id}`)}>
+              <ArrowLeft className="size-4" />
               {t('review.backToCase')}
             </Button>
           </div>
-        </AnimatedWrapper>
+        </div>
+      </div>
+    );
+  }
+
+  // Polling / reviewing state
+  return (
+    <>
+      <SEO title={t('review.title')} description={t('review.description')} />
+      <div className="mx-auto max-w-lg px-4 py-12 text-center" role="main" aria-label={t('review.pageLabel')}>
+        <MediatorAvatar size="large" animated />
+        <h2 className="mt-6 text-2xl font-bold text-foreground font-heading">{t('review.aiReviewing')}</h2>
+        <p className="mt-2 text-sm text-muted-foreground">{t('review.analyzingHint')}</p>
+
+        <div className="mt-8 rounded-xl border border-border bg-card p-6 space-y-6">
+          <div>
+            <Progress value={isPolling ? 65 : 100} className="h-2" />
+            <p className="mt-3 text-sm text-muted-foreground">
+              {isPolling ? t('review.aiAnalyzing') : t('review.done')}
+            </p>
+          </div>
+
+          <div className="flex items-start gap-2 rounded-lg bg-primary-light/30 p-3 text-left">
+            <Info className="mt-0.5 size-4 shrink-0 text-primary" />
+            <div>
+              <p className="text-xs font-medium text-foreground">{t('review.etaTitle')}</p>
+              <p className="text-xs text-muted-foreground">{t('review.etaDesc')}</p>
+            </div>
+          </div>
+
+          <div className="text-left">
+            <span className="text-sm font-medium text-foreground">{t('review.caseTitle')}：</span>
+            <span className="text-sm text-muted-foreground">{case_.title}</span>
+          </div>
+        </div>
+
+        <div className="mt-6">
+          <Button variant="ghost" onClick={() => navigate(`/case/${id}`)}>
+            <ArrowLeft className="size-4" />
+            {t('review.backToCase')}
+          </Button>
+        </div>
       </div>
     </>
   );

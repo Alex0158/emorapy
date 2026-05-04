@@ -1,61 +1,53 @@
 /**
  * Toast 組件單元測試
+ *
+ * Toast 組件現在直接 re-export sonner 的 toast，
+ * 測試驗證匯出正確。
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { toast } from './index';
+import { describe, it, expect, vi } from 'vitest';
 
-const mockSuccess = vi.fn();
-const mockError = vi.fn();
-const mockInfo = vi.fn();
-const mockWarning = vi.fn();
-const mockLoading = vi.fn();
-const mockOpen = vi.fn();
-const mockDestroy = vi.fn();
-
-vi.mock('antd', () => ({
-  message: {
-    success: (...args: unknown[]) => mockSuccess(...args),
-    error: (...args: unknown[]) => mockError(...args),
-    info: (...args: unknown[]) => mockInfo(...args),
-    warning: (...args: unknown[]) => mockWarning(...args),
-    loading: (...args: unknown[]) => mockLoading(...args),
-    open: (...args: unknown[]) => mockOpen(...args),
-    destroy: (...args: unknown[]) => mockDestroy(...args),
-  },
+const mockToast = vi.hoisted(() => ({
+  success: vi.fn(),
+  error: vi.fn(),
+  info: vi.fn(),
+  warning: vi.fn(),
+  loading: vi.fn(),
+  dismiss: vi.fn(),
 }));
 
+vi.mock('sonner', () => ({
+  toast: mockToast,
+}));
+
+import { toast } from './index';
+
 describe('toast', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+  it('應 re-export sonner 的 toast', () => {
+    expect(toast).toBe(mockToast);
   });
 
-  it('toast.success 應調用 message.success', () => {
+  it('toast.success 應可調用', () => {
     toast.success('成功');
-    expect(mockSuccess).toHaveBeenCalledWith('成功', undefined);
+    expect(mockToast.success).toHaveBeenCalledWith('成功');
   });
 
-  it('toast.error 應調用 message.error', () => {
+  it('toast.error 應可調用', () => {
     toast.error('錯誤');
-    expect(mockError).toHaveBeenCalledWith('錯誤', undefined);
+    expect(mockToast.error).toHaveBeenCalledWith('錯誤');
   });
 
-  it('toast.info 應調用 message.info', () => {
+  it('toast.info 應可調用', () => {
     toast.info('提示');
-    expect(mockInfo).toHaveBeenCalledWith('提示', undefined);
+    expect(mockToast.info).toHaveBeenCalledWith('提示');
   });
 
-  it('toast.warning 應調用 message.warning', () => {
+  it('toast.warning 應可調用', () => {
     toast.warning('警告');
-    expect(mockWarning).toHaveBeenCalledWith('警告', undefined);
+    expect(mockToast.warning).toHaveBeenCalledWith('警告');
   });
 
-  it('toast.loading 應調用 message.loading', () => {
+  it('toast.loading 應可調用', () => {
     toast.loading('加載中');
-    expect(mockLoading).toHaveBeenCalledWith('加載中', undefined);
-  });
-
-  it('toast.destroy 應調用 message.destroy', () => {
-    toast.destroy('key');
-    expect(mockDestroy).toHaveBeenCalledWith('key');
+    expect(mockToast.loading).toHaveBeenCalledWith('加載中');
   });
 });

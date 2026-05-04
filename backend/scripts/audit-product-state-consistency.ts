@@ -356,7 +356,7 @@ async function collectAuditItems(stuckMinutes = DEFAULT_STUCK_MINUTES): Promise<
     }),
     mode: item.case.mode,
     status: item.case.status,
-    sessionBound: Boolean(item.case.session_id),
+    sessionBound: isSessionBoundCase(item.case),
     roomId: item.room_id,
     caseId: item.case_id,
     judgmentId: item.judgment_id,

@@ -4,7 +4,7 @@
 **文檔類型**：正式規格
 **覆蓋範圍**：Vercel、Railway、Supabase/Postgres、Git/GitHub 與本機 `.env` 的固定連接、查詢與發布操作口徑
 **取證代碼入口**：`package.json`、`scripts/ops-release-status.sh`、`scripts/ops-db-status.sh`、`backend/scripts/audit-product-state-consistency.ts`、`backend/scripts/check-smoke-account-hygiene.ts`、`backend/.env.example`、`frontend/.env.example`、`frontend-admin/.env.example`、`backend/railway.toml`、`backend/prisma/schema.prisma`、`backend/src/config/database.ts`
-**最後核驗 Commit**：`30860b8`
+**最後核驗 Commit**：`34e4f5c`
 **最後核驗日期**：`2026-05-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -154,7 +154,7 @@ cd backend && npm run ops:product-state:audit
 
 1. `checks[].count`：該類不一致或卡住狀態的數量。
 2. `checks[].sampleIds`：最多 20 個樣本 ID，供人工查詢。
-3. `checks[].sampleDetails`：最多 20 個樣本的產品流與關聯上下文；case 樣本包含 `productFlow / mode / status / sessionBound`，其中 `sessionBound` 必須使用 `case-classifier` 的 `isSessionBoundCase()`，不得只看裸 `session_id`；chat-to-case 樣本包含 `roomId / caseId / judgmentId / linkedCaseIds`，repair track 樣本包含 `planId / caseId / judgmentId / latestStreamId / latestStreamStatus` 等人工排查線索。
+3. `checks[].sampleDetails`：最多 20 個樣本的產品流與關聯上下文；case 與 `chat_to_case_link` linked case 樣本包含 `productFlow / mode / status / sessionBound`，其中 `sessionBound` 必須使用 `case-classifier` 的 `isSessionBoundCase()`，不得只看裸 `session_id`；chat-to-case 樣本包含 `roomId / caseId / judgmentId / linkedCaseIds`，repair track 樣本包含 `planId / caseId / judgmentId / latestStreamId / latestStreamStatus` 等人工排查線索。
 4. `checks[].recoveryProposal`：當 count > 0 時提供該類問題的人工恢復建議；當 count = 0 時為 `null`。
 5. `checks[].recoveryTasks[]`：當 count > 0 時為每個 sample 生成機器可讀的人工任務候選，包含 `id / proposalId / status / severity / entityType / entityId / productFlow / linkedEntityIds / recommendedAction / verificationCommands / guardrails / source`。
 6. `recoveryTasks[].status` 固定為 `manual_review_required`；`automaticFixAvailable=false` 且 `requiresHumanApproval=true`，表示此命令不會、也不應自動修改資料。

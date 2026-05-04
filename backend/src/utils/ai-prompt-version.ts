@@ -8,11 +8,13 @@ export type AIPromptVersionKey =
   | 'reconciliation_plan_generation'
   | 'repair_replan_generation';
 
+export const STORED_JUDGMENT_PROMPT_VERSION = 'v4.0';
+
 export const AI_PROMPT_VERSIONS: Record<AIPromptVersionKey, string> = {
   chat_room_ai_response: 'chat-room-ai-response@v1.0',
   interview_ai_response: 'interview-ai-response@v1.0',
   judgment_emotional_analysis: 'judgment-emotional-analysis@v1.0',
-  judgment_draft: 'judgment-draft@v4.0',
+  judgment_draft: `judgment-draft@${STORED_JUDGMENT_PROMPT_VERSION}`,
   judgment_responsibility_ratio: 'judgment-responsibility-ratio@v1.0',
   judgment_summary: 'judgment-summary@v1.0',
   reconciliation_plan_generation: 'reconciliation-plan-generation@v1.0',
@@ -21,4 +23,8 @@ export const AI_PROMPT_VERSIONS: Record<AIPromptVersionKey, string> = {
 
 export function getAIPromptVersion(key: AIPromptVersionKey): string {
   return AI_PROMPT_VERSIONS[key];
+}
+
+export function getStoredJudgmentPromptVersion(): string {
+  return STORED_JUDGMENT_PROMPT_VERSION;
 }

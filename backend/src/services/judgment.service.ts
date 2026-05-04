@@ -26,6 +26,7 @@ import {
   isSessionBoundCase,
   isUserBoundProductCase,
 } from '../utils/case-classifier';
+import { getStoredJudgmentPromptVersion } from '../utils/ai-prompt-version';
 
 // ─── 關係互動層模板匹配（Step 4B）──────────────────
 // 使用雙方洞察的 key/value 查表生成，零額外 AI 成本
@@ -974,7 +975,7 @@ export class JudgmentService {
               defendant_ratio: responsibilityRatio.defendant,
               emotional_analysis: (emotionalAnalysisData ?? undefined) as Prisma.InputJsonValue | undefined,
               ai_model: AI_CONFIG.model,
-              prompt_version: 'v4.0',
+              prompt_version: getStoredJudgmentPromptVersion(),
             },
           });
 

@@ -1,8 +1,9 @@
 /**
- * 管理員權限路由守衛
+ * 管理員權限路由守衛（遷移：Ant Alert → shadcn Alert）
  */
 
-import { Alert } from 'antd';
+import { AlertCircle, AlertTriangle, Loader2 } from 'lucide-react';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useAdminAccess } from '@/hooks/useAdminAccess';
 import { useAdminToken } from '@/hooks/useAdminToken';
 import { deriveAdminTokenStatus } from '@/utils/adminTokenState';
@@ -27,17 +28,12 @@ const ADMIN_ERROR_CODE_I18N_KEYS: Record<string, string> = {
 
 const getPermissionLabel = (permission: string) => {
   const labelKey = ADMIN_PERMISSION_LABEL_KEYS[permission];
-  if (labelKey) {
-    return t(labelKey);
-  }
-  return t('admin.ops.permission.code', { code: permission });
+  return labelKey ? t(labelKey) : t('admin.ops.permission.code', { code: permission });
 };
 
 const getIdentityErrorMessage = (error: { code?: string; message?: string } | null) => {
   const code = error?.code;
-  if (code && ADMIN_ERROR_CODE_I18N_KEYS[code]) {
-    return t(ADMIN_ERROR_CODE_I18N_KEYS[code]);
-  }
+  if (code && ADMIN_ERROR_CODE_I18N_KEYS[code]) return t(ADMIN_ERROR_CODE_I18N_KEYS[code]);
   return t('admin.ops.identityFailedDesc');
 };
 
@@ -48,68 +44,36 @@ interface AdminPermissionRouteProps {
   permissionMode?: 'any' | 'all';
 }
 
-export default function AdminPermissionRoute({
-  children,
-  requiredPermissions,
-  allowMissingToken = false,
-  permissionMode = 'any',
-}: AdminPermissionRouteProps) {
+export default function AdminPermissionRoute({ children, requiredPermissions, allowMissingToken = false, permissionMode = 'any' }: AdminPermissionRouteProps) {
   const adminToken = useAdminToken();
   const { tokenPresent, tokenReady } = deriveAdminTokenStatus(adminToken);
-  const { adminMeQuery, hasPermission, missingPermissions } = useAdminAccess(
-    requiredPermissions,
-    tokenReady,
-    permissionMode
-  );
+  const { adminMeQuery, hasPermission, missingPermissions } = useAdminAccess(requiredPermissions, tokenReady, permissionMode);
 
   if (!tokenPresent) {
-    if (allowMissingToken) {
-      return <>{children}</>;
-    }
-    return <Alert showIcon type="warning" title={t('admin.ops.tokenRequired')} />;
+    if (allowMissingToken) return <>{children}</>;
+    return <Alert className="border-warning/30 bg-warning/5"><AlertTriangle className="size-4" /><AlertTitle>{t('admin.ops.tokenRequired')}</AlertTitle></Alert>;
   }
 
   if (!tokenReady) {
-    if (allowMissingToken) {
-      return <>{children}</>;
-    }
-    return <Alert showIcon type="error" title={t('admin.ops.invalidTokenFormat')} />;
+    if (allowMissingToken) return <>{children}</>;
+    return <Alert className="border-destructive/30 bg-destructive/5"><AlertCircle className="size-4" /><AlertTitle>{t('admin.ops.invalidTokenFormat')}</AlertTitle></Alert>;
   }
 
   if (adminMeQuery.isLoading) {
-    return <Alert showIcon type="info" title={t('admin.ops.verifyingAccess')} />;
+    return <Alert className="border-primary/30 bg-primary-light/50"><Loader2 className="size-4 animate-spin" /><AlertTitle>{t('admin.ops.verifyingAccess')}</AlertTitle></Alert>;
   }
 
   if (adminMeQuery.error) {
     const queryError = adminMeQuery.error as { code?: string; message?: string } | null;
     const errorCode = queryError?.code;
-    if (errorCode === 'FORBIDDEN') {
-      return <Alert showIcon type="warning" title={t('admin.ops.accessDenied')} />;
-    }
-    if (errorCode === 'NETWORK_ERROR') {
-      return <Alert showIcon type="error" title={t('common.networkError')} />;
-    }
-    return (
-      <Alert
-        showIcon
-        type="error"
-        title={t('admin.ops.identityFailed')}
-        description={getIdentityErrorMessage(queryError)}
-      />
-    );
+    if (errorCode === 'FORBIDDEN') return <Alert className="border-warning/30 bg-warning/5"><AlertTriangle className="size-4" /><AlertTitle>{t('admin.ops.accessDenied')}</AlertTitle></Alert>;
+    if (errorCode === 'NETWORK_ERROR') return <Alert className="border-destructive/30 bg-destructive/5"><AlertCircle className="size-4" /><AlertTitle>{t('common.networkError')}</AlertTitle></Alert>;
+    return <Alert className="border-destructive/30 bg-destructive/5"><AlertCircle className="size-4" /><AlertTitle>{t('admin.ops.identityFailed')}</AlertTitle><AlertDescription>{getIdentityErrorMessage(queryError)}</AlertDescription></Alert>;
   }
 
   if (!hasPermission) {
-    const requiredLabel = (missingPermissions.length > 0 ? missingPermissions : requiredPermissions)
-      .map(getPermissionLabel)
-      .join(', ');
-    return (
-      <Alert
-        showIcon
-        type="warning"
-        title={t('admin.ops.accessDeniedWithPermissions', { permissions: requiredLabel })}
-      />
-    );
+    const requiredLabel = (missingPermissions.length > 0 ? missingPermissions : requiredPermissions).map(getPermissionLabel).join(', ');
+    return <Alert className="border-warning/30 bg-warning/5"><AlertTriangle className="size-4" /><AlertTitle>{t('admin.ops.accessDeniedWithPermissions', { permissions: requiredLabel })}</AlertTitle></Alert>;
   }
 
   return <>{children}</>;

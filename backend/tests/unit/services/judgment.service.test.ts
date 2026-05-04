@@ -704,6 +704,46 @@ describe('JudgmentService', () => {
         })
       );
     });
+
+    it('case judgment AI ledger 應帶 source_channel / entry_point，且 chat link 優先', async () => {
+      prismaMock.judgment.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+      prismaMock.case.findUnique.mockResolvedValueOnce(
+        baseCase({
+          mode: 'quick',
+          product_flow: 'formal_remote',
+          chat_to_case_links: [{ id: 'link-1' }],
+        })
+      );
+      aiServiceMock.generateJudgment.mockResolvedValueOnce({
+        content: 'ok',
+        responsibilityRatio: { plaintiff: 60, defendant: 40 },
+        summary: 'sum',
+      });
+      prismaMock.judgment.create.mockResolvedValueOnce({ id: 'j-ledger', case_id: 'case-1' });
+
+      const service = new JudgmentService();
+      await service.generateJudgment('case-1', { sessionId: baseCase().session_id as string });
+
+      const emotionalLedger = aiServiceMock.analyzeEmotionalDynamics.mock.calls[0][4];
+      expect(emotionalLedger).toMatchObject({
+        productFlow: 'chat_to_case',
+        sourceChannel: 'chat_room',
+        entryPoint: 'chat_request_judgment',
+        requestKind: 'judgment_emotional_analysis',
+      });
+
+      const judgmentOptions = aiServiceMock.generateJudgment.mock.calls[0][3];
+      expect(judgmentOptions.ledger).toMatchObject({
+        productFlow: 'chat_to_case',
+        sourceChannel: 'chat_room',
+        entryPoint: 'chat_request_judgment',
+        metadata: expect.objectContaining({
+          case_id: 'case-1',
+          case_mode: 'quick',
+          route: 'standard',
+        }),
+      });
+    });
   });
 
   describe('repairJudgmentResponse', () => {

@@ -20,8 +20,8 @@ import { clinicalQualityService } from './clinical-quality.service';
 import { env } from '../config/env';
 import { aiStreamService } from './ai-stream.service';
 import {
+  buildCaseSourceTrackingForRead,
   canAccessSessionBoundCase,
-  getCaseProductFlow,
   isCaseParticipant,
   isSessionBoundCase,
   isUserBoundProductCase,
@@ -731,12 +731,14 @@ export class JudgmentService {
           reasons: ['default route'],
           detectedFlags: [],
         };
-        const productFlow = getCaseProductFlow(case_);
+        const caseSourceTracking = buildCaseSourceTrackingForRead(case_);
         const aiLedgerBase = {
           streamId: streamHandle.streamId,
           scopeType: streamHandle.scopeType,
           scopeId: streamHandle.scopeId,
-          productFlow,
+          productFlow: caseSourceTracking.product_flow,
+          sourceChannel: caseSourceTracking.source_channel,
+          entryPoint: caseSourceTracking.entry_point,
           metadata: {
             parent_request_id: streamHandle.requestId,
             case_id: caseId,

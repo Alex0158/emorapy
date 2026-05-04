@@ -142,6 +142,9 @@ npm --prefix backend run ops:ai-pricing:check
 print_section "Smoke Account Hygiene"
 npm --prefix backend run ops:smoke-accounts:check
 
+print_section "Release Smoke"
+npm run ops:release:smoke
+
 print_section "Product State Audit"
 npm --prefix backend run ops:product-state:audit
 

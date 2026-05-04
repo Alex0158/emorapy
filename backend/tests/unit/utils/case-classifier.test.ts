@@ -7,6 +7,7 @@ import {
   buildStaleFormalDraftCaseWhere,
   buildUserBoundCaseModeWhere,
   buildUserBoundProductCaseWhere,
+  canAccessSessionBoundCase,
   getCaseAccessKind,
   getCaseProductFlow,
   hasChatToCaseSource,
@@ -111,6 +112,30 @@ describe('case-classifier', () => {
         { mode: 'collaborative', session_id: 's1' },
       ],
     });
+  });
+
+  it('session-bound case access 應允許 quick 透過 quick_sessions 關聯恢復', () => {
+    expect(canAccessSessionBoundCase({
+      mode: 'quick',
+      session_id: null,
+      quick_sessions: [{ id: 's1' }],
+    }, 's1')).toBe(true);
+  });
+
+  it('session-bound case access 不應讓 collaborative 使用 quick_sessions 關聯越權', () => {
+    expect(canAccessSessionBoundCase({
+      mode: 'collaborative',
+      session_id: 's2',
+      quick_sessions: [{ id: 's1' }],
+    }, 's1')).toBe(false);
+  });
+
+  it('session-bound case access 不應讓 formal remote 因殘留 session_id 通過', () => {
+    expect(canAccessSessionBoundCase({
+      mode: 'remote',
+      session_id: 's1',
+      quick_sessions: [{ id: 's1' }],
+    }, 's1')).toBe(false);
   });
 
   it('user-bound product case query 應包含 chat-to-case 且排除 session-bound quick/collab', () => {

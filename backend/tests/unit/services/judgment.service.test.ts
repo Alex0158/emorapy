@@ -186,6 +186,26 @@ describe('JudgmentService', () => {
       await expect(service.generateJudgment('case-1', { sessionId: 's-fake' })).rejects.toMatchObject({ code: 'FORBIDDEN' });
     });
 
+    it('quick 模式可透過 quick_sessions 關聯生成判決並完成該 session', async () => {
+      prismaMock.judgment.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+      prismaMock.case.findUnique.mockResolvedValueOnce(baseCase({
+        session_id: null,
+        quick_sessions: [{ id: 's1' }],
+      }));
+      aiServiceMock.generateJudgment.mockResolvedValueOnce({
+        content: 'ok',
+        responsibilityRatio: { plaintiff: 55, defendant: 45 },
+        summary: 'sum',
+      });
+      prismaMock.judgment.create.mockResolvedValueOnce({ id: 'j-quick', case_id: 'case-1' });
+
+      const service = new JudgmentService();
+      const result = await service.generateJudgment('case-1', { sessionId: 's1' });
+
+      expect(result).toMatchObject({ id: 'j-quick', case_id: 'case-1' });
+      expect(sessionServiceMock.markSessionCompleted).toHaveBeenCalledWith('s1');
+    });
+
     it('collaborative 模式使用匹配 sessionId 時應允許生成判決', async () => {
       prismaMock.judgment.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
       prismaMock.case.findUnique.mockResolvedValueOnce(

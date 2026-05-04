@@ -19,7 +19,12 @@ import { ruptureRepairService } from './rupture-repair.service';
 import { clinicalQualityService } from './clinical-quality.service';
 import { env } from '../config/env';
 import { aiStreamService } from './ai-stream.service';
-import { isCaseParticipant, isSessionBoundCase, isUserBoundProductCase } from '../utils/case-classifier';
+import {
+  canAccessSessionBoundCase,
+  isCaseParticipant,
+  isSessionBoundCase,
+  isUserBoundProductCase,
+} from '../utils/case-classifier';
 
 // ─── 關係互動層模板匹配（Step 4B）──────────────────
 // 使用雙方洞察的 key/value 查表生成，零額外 AI 成本
@@ -407,6 +412,7 @@ export class JudgmentService {
           where: { id: caseId },
           include: {
             chat_to_case_links: { select: { id: true }, take: 1 },
+            quick_sessions: { select: { id: true } },
           },
         });
 
@@ -416,7 +422,7 @@ export class JudgmentService {
 
         // 權限校驗：匿名 quick/collaborative 需匹配 Session；完整模式需當事人
         if (isSessionBoundCase(case_)) {
-          if (!options?.sessionId || case_.session_id !== options.sessionId) {
+          if (!canAccessSessionBoundCase(case_, options?.sessionId)) {
             throw Errors.FORBIDDEN('無權限生成判決');
           }
         } else {
@@ -973,8 +979,9 @@ export class JudgmentService {
         });
 
         // 6. Session-bound 體驗：標記 Session 為已完成（異步，不阻塞）
-        if (isSessionBoundCase(case_) && case_.session_id) {
-          sessionService.markSessionCompleted(case_.session_id).catch(err => {
+        const completedSessionId = isSessionBoundCase(case_) ? options?.sessionId ?? case_.session_id : null;
+        if (completedSessionId) {
+          sessionService.markSessionCompleted(completedSessionId).catch(err => {
             logger.warn('Failed to mark session completed', {
               error: err,
             });
@@ -1030,7 +1037,7 @@ export class JudgmentService {
   ): Promise<{ repairedContent: string; repairType: 'validation' | 'apology_tone_fix' | 'strategy_reset' }> {
     const judgment = await prisma.judgment.findUnique({
       where: { id: judgmentId },
-      include: { case: true },
+      include: { case: { include: { quick_sessions: { select: { id: true } } } } },
     });
 
     if (!judgment) {
@@ -1038,7 +1045,7 @@ export class JudgmentService {
     }
 
     if (isSessionBoundCase(judgment.case)) {
-      if (!options?.sessionId || judgment.case.session_id !== options.sessionId) {
+      if (!canAccessSessionBoundCase(judgment.case, options?.sessionId)) {
         throw Errors.FORBIDDEN('無權限修復此判決');
       }
     } else {
@@ -1075,7 +1082,7 @@ export class JudgmentService {
   ): Promise<{ recorded: true }> {
     const judgment = await prisma.judgment.findUnique({
       where: { id: judgmentId },
-      include: { case: true },
+      include: { case: { include: { quick_sessions: { select: { id: true } } } } },
     });
 
     if (!judgment) {
@@ -1083,7 +1090,7 @@ export class JudgmentService {
     }
 
     if (isSessionBoundCase(judgment.case)) {
-      if (!options?.sessionId || judgment.case.session_id !== options.sessionId) {
+      if (!canAccessSessionBoundCase(judgment.case, options?.sessionId)) {
         throw Errors.FORBIDDEN('無權限提交此判決指標');
       }
     } else {
@@ -1117,6 +1124,9 @@ export class JudgmentService {
     const case_ = await prisma.case.findUnique({
       where: { id: caseId },
       include: {
+        quick_sessions: {
+          select: { id: true },
+        },
         pairing: {
           select: {
             user1_id: true,
@@ -1132,7 +1142,7 @@ export class JudgmentService {
 
     // session-bound 模式（quick / collaborative with session_id）：驗證 Session ID
     if (isSessionBoundCase(case_)) {
-      if (!sessionId || case_.session_id !== sessionId) {
+      if (!sessionId || !canAccessSessionBoundCase(case_, sessionId)) {
         throw Errors.FORBIDDEN('無權限訪問此判決');
       }
 

@@ -14,6 +14,7 @@ import { LOCK_TTL, SESSION_EXPIRY, CASE_STATUS, CASE_MODE, PAGINATION, FILE_TYPE
 import {
   buildClaimableSessionCaseWhere,
   buildUserBoundProductCaseWhere,
+  canAccessSessionBoundCase,
   getCaseProductFlow,
   isCaseParticipant,
   isFormalCaseMode,
@@ -633,6 +634,9 @@ export class CaseService {
           select: { id: true },
           take: 1,
         },
+        quick_sessions: {
+          select: { id: true },
+        },
       },
     });
 
@@ -642,7 +646,7 @@ export class CaseService {
 
     // session-bound 模式（quick / collaborative with session_id）：驗證 Session ID
     if (isSessionBoundCase(case_)) {
-      if (!sessionId || case_.session_id !== sessionId) {
+      if (!sessionId || !canAccessSessionBoundCase(case_, sessionId)) {
         throw Errors.FORBIDDEN('無權限訪問此案件');
       }
       const session = await sessionService.getSession(sessionId);

@@ -364,6 +364,32 @@ describe('evidence.controller', () => {
       expect(next).not.toHaveBeenCalled();
     });
 
+    it('quick 模式可透過 quick_sessions 關聯上傳證據', async () => {
+      req.params = { id: caseId };
+      req.files = [{ fieldname: 'files', filename: 'a.jpg', mimetype: 'image/jpeg', size: 100 } as Express.Multer.File];
+      req.query = { session_id: 's1' };
+      (prisma.case.findUnique as jest.Mock).mockResolvedValue({
+        id: caseId,
+        mode: 'quick',
+        session_id: null,
+        quick_sessions: [{ id: 's1' }],
+        status: 'submitted',
+      } as never);
+      mockGetSession.mockResolvedValue({ id: 's1' } as never);
+      (prisma.evidence.count as jest.Mock).mockResolvedValue(0 as never);
+      (prisma.evidence.create as jest.Mock).mockResolvedValue({
+        id: evidenceId,
+        case_id: caseId,
+        file_url: 'http://files/a.jpg',
+      } as never);
+
+      await runUpload(controller, req as Request, res as Response, next);
+
+      expect(mockGetSession).toHaveBeenCalledWith('s1');
+      expect(prisma.evidence.create).toHaveBeenCalled();
+      expect(next).not.toHaveBeenCalled();
+    });
+
     it('formal collaborative 且 session_id 為 null 時應允許當事人用 JWT 上傳證據', async () => {
       req.params = { id: caseId };
       req.files = [{ fieldname: 'files', filename: 'a.jpg', mimetype: 'image/jpeg', size: 100 } as Express.Multer.File];
@@ -831,6 +857,28 @@ describe('evidence.controller', () => {
         data: {},
         message: '證據已刪除',
       });
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('quick 模式可透過 quick_sessions 關聯刪除證據', async () => {
+      req.params = { evidenceId };
+      req.query = { session_id: 's1' };
+      (prisma.evidence.findUnique as jest.Mock).mockResolvedValue({
+        id: evidenceId,
+        file_url: 'http://x.com/uploads/a.jpg',
+        case: {
+          mode: 'quick',
+          session_id: null,
+          quick_sessions: [{ id: 's1' }],
+        },
+      } as never);
+      mockGetSession.mockResolvedValue({ id: 's1' } as never);
+      (prisma.evidence.delete as jest.Mock).mockResolvedValue({} as never);
+
+      await deleteEvidence(req as Request, res as Response, next);
+
+      expect(mockGetSession).toHaveBeenCalledWith('s1');
+      expect(prisma.evidence.delete).toHaveBeenCalledWith({ where: { id: evidenceId } });
       expect(next).not.toHaveBeenCalled();
     });
 

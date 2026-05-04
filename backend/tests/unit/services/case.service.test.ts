@@ -1170,6 +1170,27 @@ describe('CaseService', () => {
       expect(mockGetSession).toHaveBeenCalledWith('s1');
     });
 
+    it('quick 模式可透過 quick_sessions 關聯恢復 session-bound 詳情訪問', async () => {
+      const case_ = {
+        id: 'case-1',
+        mode: 'quick',
+        session_id: null,
+        evidences: [{ file_url: 'http://a.com/1.jpg' }],
+        judgment: null,
+        pairing: null,
+        chat_to_case_links: [],
+        quick_sessions: [{ id: 's1' }],
+      };
+      prismaMock.case.findUnique.mockResolvedValue(case_);
+      mockGetSession.mockResolvedValue({ id: 's1' });
+
+      const result = await service.getCaseById('case-1', undefined, 's1');
+
+      expect(result).toMatchObject({ id: 'case-1', product_flow: 'quick_single' });
+      expect(mockGetSession).toHaveBeenCalledWith('s1');
+      expect(mockSignUrl).toHaveBeenCalledWith('http://a.com/1.jpg');
+    });
+
     it('collaborative 模式應允許以 sessionId 讀取案件', async () => {
       const case_ = {
         id: 'case-1',

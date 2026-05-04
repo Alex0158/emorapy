@@ -3,14 +3,14 @@
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：03-case
-**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`backend/src/services/case.service.ts`、`backend/src/middleware/auth.ts`、`backend/src/jobs/cleanup.job.ts`、`backend/src/utils/case-classifier.ts`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`441778a`
+**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`backend/src/services/case.service.ts`、`backend/src/controllers/evidence.controller.ts`、`backend/src/middleware/auth.ts`、`backend/src/jobs/cleanup.job.ts`、`backend/src/utils/case-classifier.ts`、`frontend/src/services/api`、`frontend-admin/src/services/api`
+**最後核驗 Commit**：`78933fc`
 **最後核驗日期**：`2026-05-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**文檔版本**：v2.9
+**文檔版本**：v2.10
 **最後更新**：2026-05-04
-**代碼基準**：`backend/src/routes/case.routes.ts`、`backend/src/controllers/case.controller.ts`、`backend/src/services/case.service.ts`、`backend/src/utils/case-classifier.ts`、`backend/src/utils/validation.ts`
+**代碼基準**：`backend/src/routes/case.routes.ts`、`backend/src/controllers/case.controller.ts`、`backend/src/controllers/evidence.controller.ts`、`backend/src/services/case.service.ts`、`backend/src/utils/case-classifier.ts`、`backend/src/utils/validation.ts`
 
 ---
 
@@ -42,14 +42,14 @@
 
 - 路由順序強依賴：具體路由必須先於 `/:id`，否則會發生錯配。
 - `validateUuidParam` 用於提前 `next('route')`，避免 `/quick`、`/by-session` 被 UUID 路由吸收。
-- 證據接口授權模型為 `optionalAuthenticate + session`，是「匿名與登入共用」高風險鏈路；上傳 / 刪除 / 靜態媒體讀取均必須使用 session-bound 口徑，`quick` 與 `collaborative(session_id 有值)` 同 session 可訪問，不能只判 `mode=quick`。
+- 證據接口授權模型為 `optionalAuthenticate + session`，是「匿名與登入共用」高風險鏈路；上傳 / 刪除 / 靜態媒體讀取均必須使用 session-bound 口徑，`quick` 與 `collaborative(session_id 有值)` 同 session 可訪問，不能只判 `mode=quick`，也不能只裸比對 `case.session_id`。
 - `POST /cases` 是正式建案入口，`mode` 只允許 `remote` 或 `collaborative`；此白名單同時存在於 route Joi schema 與 `CaseService.createCase` service 邊界，不能讓 `quick` 或其他非法值直接落入 `Case.mode`。
 - 正式案件建立已接入 shared safety gate：若 pairing 任一已知參與者 `age < 18`，`POST /cases` 直接返回 `FORBIDDEN`，不進入 AI 分類與建案；body 可帶與 evidence 相同的 `safety_assertion` / inline safety fields，聲明非同意或非法內容會返回 `VALIDATION_ERROR`。通過的 case-level assertion 會寫入 `Case.safety_metadata`；若同時建立 `evidence_urls`，同一 metadata 也會寫入該批 `Evidence.safety_metadata`。有 assertion metadata 時會 best-effort 寫入 case scope `SafetyAssessment`，敏感資料風險映射為 `risk_level=sensitive + judgment_route=standard`，不自動禁用共同修復。
 - 證據上傳已接入 additive `safety_assertion` gate：multipart 可帶 `safety_assertion` JSON string/object，或 inline fields：`contains_minor`、`contains_sensitive_content`、`contains_nonconsensual_content`、`contains_illegal_content`、`minor_guardian_or_self_upload_confirmed`、`sensitive_content_handling_ack`。未提供 assertion 時保留舊版上傳契約；一旦聲明涉及未成年人或敏感內容，後端要求對應確認；聲明含非同意或非法內容時直接返回 `VALIDATION_ERROR` 並清理已上傳文件。通過的 assertion 寫入 `Evidence.safety_metadata`，並 best-effort 寫入 case scope 與 evidence scope `SafetyAssessment`；未成年人內容映射為 `minor_or_suspected_minor + safety_support`，敏感但合法內容只映射為資料處理敏感風險。migration `20260503224500_add_safety_metadata_columns` 會 best-effort backfill 早期 `Evidence.description` transitional JSON。
 - `createQuickCase` / `createCollaborativeCase(phase=submitted)` / `submitCase` 的判決生成均由 controller 以 `setImmediate` 非阻塞觸發；HTTP 成功僅代表提交成功，不等於判決已生成。
 - `/cases/:id/judgment` 在前端語義是「可能尚未生成」，`404/特定 code` 需被當成可恢復狀態而非致命錯誤。
 - `GET /cases/:id`、`GET /cases/:id/judgment` 的授權判定使用同一條規則：
-  - `quick` 與 `collaborative(session_id 有值)`：必須提供匹配的 `session_id`。
+  - `quick` 與 `collaborative(session_id 有值)`：必須提供匹配的 `session_id`；quick case 可透過 `case.session_id` 或 `quick_sessions.id` 關聯恢復，具體判定必須使用 `canAccessSessionBoundCase()`。
   - `remote` 與 `collaborative(session_id=null)`：必須是案件當事人 JWT（`plaintiff_id`/`defendant_id`）。
 - `collaborative full-mode` 不再是「一律 session-only」；當 `session_id=null` 時按正式案件權限處理。
 - 產品流分類必須使用 `backend/src/utils/case-classifier.ts`，不得只用 `case.mode` 推斷：
@@ -73,6 +73,7 @@
 6. evidence safety assertion：敏感內容缺少確認必須拒絕並清理文件；非同意 / 非法內容必須拒絕；合法未成年人 / 敏感內容 assertion 需寫入 `Evidence.safety_metadata`，並 best-effort 寫入 case / evidence scope `SafetyAssessment`。
 7. formal case safety gate：任一已知參與者 `age < 18` 必須拒絕；非同意 / 非法內容 assertion 必須拒絕；合法敏感內容 assertion 需寫入 `Case.safety_metadata`，若帶 `evidence_urls` 也需寫入 `Evidence.safety_metadata`，並 best-effort 寫入 case scope `SafetyAssessment`。
 8. `/cases/:id/judgment` 在 pending 與 ready 兩種狀態下前端行為正確。
+9. `GET /cases/:id`、evidence upload/delete 對 legacy quick case 必須支持 `quick_sessions.id` 關聯恢復，同時不得讓 formal remote 或 collaborative 非匹配 session 因殘留關聯越權。
 9. `collaborative + session_id=null` 案件下，當事人 JWT 讀 `GET /cases/:id` 與 `GET /cases/:id/judgment` 必須通過；匿名或非當事人必須拒絕。
 10. notification / repair reminder 應覆蓋 `formal_remote`、`formal_collaborative`、`chat_to_case`，並排除沒有 `ChatToCaseLink` 的 session-bound quick。
 11. `GET /cases` 查詢不得只用 `mode in [remote, collaborative]`；當 chat-to-case case 底層仍是 `mode=quick` 但已有當事人歸戶時，列表仍必須可見。

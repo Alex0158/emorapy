@@ -8,7 +8,7 @@ import { sessionService } from '../services/session.service';
 import { getAuthUserIdOptional, getSessionIdFromSources } from '../utils/request';
 import { lockService } from '../utils/lock';
 import { LOCK_TTL, EVIDENCE_UPLOAD_ALLOWED_STATUSES } from '../utils/constants';
-import { isCaseParticipant, isSessionBoundCase } from '../utils/case-classifier';
+import { canAccessSessionBoundCase, isCaseParticipant, isSessionBoundCase } from '../utils/case-classifier';
 import {
   buildSafetyAssessmentSnapshotForEvidenceAssertion,
   getEvidenceSafetyAssertionPolicy,
@@ -90,6 +90,11 @@ export class EvidenceController {
 
       const case_ = await prisma.case.findUnique({
         where: { id: caseId },
+        include: {
+          quick_sessions: {
+            select: { id: true },
+          },
+        },
       });
 
       if (!case_) {
@@ -97,7 +102,7 @@ export class EvidenceController {
       }
 
       if (isSessionBoundCase(case_)) {
-        if (!sessionId || case_.session_id !== sessionId) {
+        if (!sessionId || !canAccessSessionBoundCase(case_, sessionId)) {
           throw Errors.FORBIDDEN('無權限上傳證據');
         }
         const session = await sessionService.getSession(sessionId);
@@ -252,7 +257,13 @@ export const deleteEvidence = async (req: Request, res: Response, next: NextFunc
     const evidence = await prisma.evidence.findUnique({
       where: { id: evidenceId },
       include: {
-        case: true,
+        case: {
+          include: {
+            quick_sessions: {
+              select: { id: true },
+            },
+          },
+        },
       },
     });
 
@@ -267,7 +278,7 @@ export const deleteEvidence = async (req: Request, res: Response, next: NextFunc
 
     // session-bound 模式（quick / collaborative with session_id）：驗證 session
     if (isSessionBoundCase(case_)) {
-      if (!sessionId || case_.session_id !== sessionId) {
+      if (!sessionId || !canAccessSessionBoundCase(case_, sessionId)) {
         throw Errors.FORBIDDEN('無權限刪除此證據');
       }
       const session = await sessionService.getSession(sessionId);

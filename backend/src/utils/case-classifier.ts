@@ -24,6 +24,10 @@ export type CaseProductFlowSubject = CaseAccessSubject & {
   } | null;
 };
 
+export type SessionBoundCaseAccessSubject = Pick<CaseAccessSubject, 'mode' | 'session_id'> & {
+  quick_sessions?: Array<{ id?: string | null }> | null;
+};
+
 export function hasChatToCaseSource(
   case_: Pick<CaseProductFlowSubject, 'chat_to_case_links' | '_count'>
 ): boolean {
@@ -39,6 +43,26 @@ export function isSessionBoundCase(case_: Pick<CaseAccessSubject, 'mode' | 'sess
 
 export function isClaimableSessionCase(case_: Pick<CaseAccessSubject, 'mode' | 'session_id'>, sessionId: string): boolean {
   return case_.mode === CASE_MODE.QUICK || (case_.mode === CASE_MODE.COLLABORATIVE && case_.session_id === sessionId);
+}
+
+export function canAccessSessionBoundCase(
+  case_: SessionBoundCaseAccessSubject,
+  sessionId?: string | null
+): boolean {
+  if (!sessionId) {
+    return false;
+  }
+
+  if (case_.mode === CASE_MODE.COLLABORATIVE) {
+    return case_.session_id === sessionId;
+  }
+
+  if (case_.mode !== CASE_MODE.QUICK) {
+    return false;
+  }
+
+  return case_.session_id === sessionId
+    || Boolean(case_.quick_sessions?.some((session) => session.id === sessionId));
 }
 
 export function isFormalCaseMode(mode: string | null | undefined): mode is FormalCaseMode {

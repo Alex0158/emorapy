@@ -26,7 +26,10 @@ import {
   isSessionBoundCase,
   isUserBoundProductCase,
 } from '../utils/case-classifier';
-import { getStoredJudgmentPromptVersion } from '../utils/ai-prompt-version';
+import {
+  getJudgmentMetricsPromptVersion,
+  getStoredJudgmentPromptVersion,
+} from '../utils/ai-prompt-version';
 
 // ─── 關係互動層模板匹配（Step 4B）──────────────────
 // 使用雙方洞察的 key/value 查表生成，零額外 AI 成本
@@ -1133,7 +1136,7 @@ export class JudgmentService {
 
     await clinicalQualityService.recordPostResponseMetrics({
       judgmentId: judgment.id,
-      promptVersion: judgment.prompt_version || 'unknown',
+      promptVersion: getJudgmentMetricsPromptVersion(judgment.prompt_version),
       caseType: judgment.case.type || 'unknown',
       route,
       feltUnderstood: metrics.felt_understood,

@@ -858,6 +858,31 @@ describe('JudgmentService', () => {
       })).rejects.toMatchObject({ code: 'FORBIDDEN' });
       expect(clinicalQualityServiceMock.recordPostResponseMetrics).not.toHaveBeenCalled();
     });
+
+    it('legacy 判決沒有 prompt_version 時應使用集中未知版本分桶', async () => {
+      prismaMock.judgment.findUnique.mockResolvedValueOnce({
+        id: 'j-legacy',
+        prompt_version: null,
+        emotional_analysis: { route: 'standard' },
+        case: baseCase({
+          mode: 'quick',
+          session_id: 's-legacy',
+          type: '其他衝突',
+        }),
+      });
+      const service = new JudgmentService();
+
+      await expect(service.recordClinicalMetrics('j-legacy', {
+        felt_understood: 4,
+        felt_blamed: 1,
+        willing_to_try: 5,
+      }, { sessionId: 's-legacy' })).resolves.toEqual({ recorded: true });
+
+      expect(clinicalQualityServiceMock.recordPostResponseMetrics).toHaveBeenCalledWith(expect.objectContaining({
+        judgmentId: 'j-legacy',
+        promptVersion: 'judgment-prompt-version-unknown',
+      }));
+    });
   });
 
   describe('getJudgmentByCaseId', () => {

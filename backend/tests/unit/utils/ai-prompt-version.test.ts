@@ -1,7 +1,9 @@
 import {
   AI_PROMPT_VERSIONS,
   getAIPromptVersion,
+  getJudgmentMetricsPromptVersion,
   getStoredJudgmentPromptVersion,
+  UNKNOWN_JUDGMENT_PROMPT_VERSION,
 } from '../../../src/utils/ai-prompt-version';
 
 describe('ai-prompt-version', () => {
@@ -21,5 +23,12 @@ describe('ai-prompt-version', () => {
       'reconciliation_plan_generation',
       'repair_replan_generation',
     ]);
+  });
+
+  it('應集中管理判決品質指標 prompt version fallback', () => {
+    expect(getJudgmentMetricsPromptVersion('v4.0')).toBe('v4.0');
+    expect(getJudgmentMetricsPromptVersion('  v4.0  ')).toBe('v4.0');
+    expect(getJudgmentMetricsPromptVersion(null)).toBe(UNKNOWN_JUDGMENT_PROMPT_VERSION);
+    expect(getJudgmentMetricsPromptVersion('')).toBe(UNKNOWN_JUDGMENT_PROMPT_VERSION);
   });
 });

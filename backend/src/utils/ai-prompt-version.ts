@@ -9,6 +9,7 @@ export type AIPromptVersionKey =
   | 'repair_replan_generation';
 
 export const STORED_JUDGMENT_PROMPT_VERSION = 'v4.0';
+export const UNKNOWN_JUDGMENT_PROMPT_VERSION = 'judgment-prompt-version-unknown';
 
 export const AI_PROMPT_VERSIONS: Record<AIPromptVersionKey, string> = {
   chat_room_ai_response: 'chat-room-ai-response@v1.0',
@@ -27,4 +28,9 @@ export function getAIPromptVersion(key: AIPromptVersionKey): string {
 
 export function getStoredJudgmentPromptVersion(): string {
   return STORED_JUDGMENT_PROMPT_VERSION;
+}
+
+export function getJudgmentMetricsPromptVersion(promptVersion?: string | null): string {
+  const normalized = typeof promptVersion === 'string' ? promptVersion.trim() : '';
+  return normalized || UNKNOWN_JUDGMENT_PROMPT_VERSION;
 }

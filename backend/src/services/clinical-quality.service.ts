@@ -1,10 +1,11 @@
 import { cacheService, CacheService } from '../utils/cache';
 import logger from '../config/logger';
 import type { JudgmentRoute } from './safety-routing.service';
+import { getJudgmentMetricsPromptVersion } from '../utils/ai-prompt-version';
 
 export interface ClinicalQualityMetricsInput {
   judgmentId: string;
-  promptVersion: string;
+  promptVersion?: string | null;
   caseType?: string;
   route?: JudgmentRoute;
   feltUnderstood: number;
@@ -20,7 +21,8 @@ export class ClinicalQualityService {
   async recordPostResponseMetrics(input: ClinicalQualityMetricsInput): Promise<void> {
     const bucketDate = new Date().toISOString().slice(0, 10);
     const route = input.route || 'standard';
-    const scope = `${bucketDate}:${input.promptVersion}:${route}:${input.caseType || 'unknown'}`;
+    const promptVersion = getJudgmentMetricsPromptVersion(input.promptVersion);
+    const scope = `${bucketDate}:${promptVersion}:${route}:${input.caseType || 'unknown'}`;
     const key = CacheService.generateKey('clinical:metrics:aggregate', scope);
 
     const current = (await cacheService.get<{
@@ -47,7 +49,7 @@ export class ClinicalQualityService {
     logger.info('Clinical quality metrics recorded', {
       judgmentId: input.judgmentId,
       route,
-      promptVersion: input.promptVersion,
+      promptVersion,
       caseType: input.caseType,
       metrics: {
         feltUnderstood: input.feltUnderstood,
@@ -65,4 +67,3 @@ export class ClinicalQualityService {
 }
 
 export const clinicalQualityService = new ClinicalQualityService();
-

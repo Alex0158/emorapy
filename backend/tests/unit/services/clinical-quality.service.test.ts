@@ -99,5 +99,23 @@ describe('ClinicalQualityService', () => {
         expect.stringMatching(/:standard:unknown$/)
       );
     });
+
+    it('promptVersion 缺失時應使用集中未知版本分桶（F04 邊界：legacy 判決）', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (mockGet as any).mockResolvedValue(null);
+
+      await clinicalQualityService.recordPostResponseMetrics({
+        judgmentId: 'j4',
+        promptVersion: '   ',
+        feltUnderstood: 3,
+        feltBlamed: 2,
+        willingToTry: 3,
+      });
+
+      expect(mockGenerateKey).toHaveBeenCalledWith(
+        'clinical:metrics:aggregate',
+        expect.stringContaining(':judgment-prompt-version-unknown:')
+      );
+    });
   });
 });

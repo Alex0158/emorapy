@@ -2,6 +2,10 @@
  * cleanup.job 單元測試（mock cron、sessionService、aiService、prisma、env、fs）
  */
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
+import {
+  buildStaleFormalDraftCaseWhere,
+  buildUserBoundProductCaseWhere,
+} from '../../../src/utils/case-classifier';
 
 const mockStart = jest.fn();
 const mockStop = jest.fn();
@@ -304,11 +308,7 @@ describe('cleanup.job', () => {
       expect(mockCaseFindMany).toHaveBeenCalledWith(expect.objectContaining({
         where: expect.objectContaining({
           status: 'completed',
-          OR: [
-            { chat_to_case_links: { some: {} } },
-            { chat_to_case_links: { none: {} }, mode: 'remote' },
-            { chat_to_case_links: { none: {} }, mode: 'collaborative', session_id: null },
-          ],
+          OR: buildUserBoundProductCaseWhere().OR,
           judgment: {
             reconciliation_plans: { none: {} },
           },
@@ -338,16 +338,7 @@ describe('cleanup.job', () => {
       await scheduledCallbacks[8]();
 
       expect(mockCaseUpdateMany).toHaveBeenCalledWith({
-        where: expect.objectContaining({
-          status: 'draft',
-          OR: [
-            { mode: 'remote' },
-            { mode: 'collaborative', session_id: null },
-          ],
-          chat_to_case_links: { none: {} },
-          defendant_statement: null,
-          created_at: { lt: expect.any(Date) },
-        }),
+        where: buildStaleFormalDraftCaseWhere(expect.any(Date) as unknown as Date),
         data: { status: 'cancelled' },
       });
       expect(mockLogger.info).toHaveBeenCalledWith('Stale formal draft cases cancelled', { count: 2 });

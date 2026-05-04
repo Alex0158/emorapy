@@ -224,51 +224,66 @@ export function buildUserBoundProductCaseWhere(): Prisma.CaseWhereInput {
 
 export function buildStaleFormalDraftCaseWhere(cutoff: Date): Prisma.CaseWhereInput {
   return {
-    status: CASE_STATUS.DRAFT,
-    ...buildUserBoundCaseModeWhere(),
-    chat_to_case_links: { none: {} },
-    defendant_statement: null,
-    created_at: { lt: cutoff },
+    AND: [
+      { status: CASE_STATUS.DRAFT },
+      {
+        OR: [
+          buildCaseProductFlowWhere('formal_remote'),
+          buildCaseProductFlowWhere('formal_collaborative'),
+        ],
+      },
+      { defendant_statement: null },
+      { created_at: { lt: cutoff } },
+    ],
   };
 }
 
 export function buildCaseProductFlowWhere(flow: CaseProductFlow): Prisma.CaseWhereInput {
   if (flow === 'chat_to_case') {
     return {
-      chat_to_case_links: { some: {} },
+      OR: [
+        { product_flow: 'chat_to_case' },
+        { chat_to_case_links: { some: {} } },
+      ],
     };
   }
 
-  const withoutChatToCase = {
-    chat_to_case_links: { none: {} },
-  };
+  const fallbackWhere = (() => {
+    if (flow === 'quick_single') {
+      return {
+        mode: CASE_MODE.QUICK,
+      };
+    }
 
-  if (flow === 'quick_single') {
+    if (flow === 'quick_collaborative') {
+      return {
+        mode: CASE_MODE.COLLABORATIVE,
+        session_id: { not: null },
+      };
+    }
+
+    if (flow === 'formal_collaborative') {
+      return {
+        mode: CASE_MODE.COLLABORATIVE,
+        session_id: null,
+      };
+    }
+
     return {
-      ...withoutChatToCase,
-      mode: CASE_MODE.QUICK,
+      mode: CASE_MODE.REMOTE,
     };
-  }
-
-  if (flow === 'quick_collaborative') {
-    return {
-      ...withoutChatToCase,
-      mode: CASE_MODE.COLLABORATIVE,
-      session_id: { not: null },
-    };
-  }
-
-  if (flow === 'formal_collaborative') {
-    return {
-      ...withoutChatToCase,
-      mode: CASE_MODE.COLLABORATIVE,
-      session_id: null,
-    };
-  }
+  })();
 
   return {
-    ...withoutChatToCase,
-    mode: CASE_MODE.REMOTE,
+    AND: [
+      { chat_to_case_links: { none: {} } },
+      {
+        OR: [
+          { product_flow: flow },
+          fallbackWhere,
+        ],
+      },
+    ],
   };
 }
 

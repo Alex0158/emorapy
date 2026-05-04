@@ -2,6 +2,12 @@ import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import type { NextFunction, Request, Response } from 'express';
 import { RecoveryTaskSeverity, RecoveryTaskStatus } from '@prisma/client';
 import { adminController } from '../../../src/controllers/admin.controller';
+import {
+  buildCaseProductFlowScopedWhere,
+  buildCaseProductFlowWhere,
+  buildCompletedExecutionProductFlowWhere,
+  buildJudgmentProductFlowWhere,
+} from '../../../src/utils/case-classifier';
 
 const mockCronRunLogFindMany = jest.fn();
 const mockSystemConfigFindMany = jest.fn();
@@ -651,40 +657,21 @@ describe('AdminController', () => {
       await adminController.reportOverview(req as Request, res as Response, next);
 
       expect(mockCaseCount).toHaveBeenCalledWith({
-        where: { chat_to_case_links: { some: {} } },
+        where: buildCaseProductFlowWhere('chat_to_case'),
       });
       expect(mockCaseCount).toHaveBeenCalledWith({
-        where: {
-          chat_to_case_links: { none: {} },
-          mode: 'collaborative',
-          session_id: null,
-        },
+        where: buildCaseProductFlowWhere('formal_collaborative'),
       });
       expect(mockCaseCount).toHaveBeenCalledWith({
-        where: {
-          AND: [
-            {
-              chat_to_case_links: { none: {} },
-              mode: 'remote',
-            },
-            {
-              status: 'in_progress',
-              updated_at: { lt: expect.any(Date) },
-            },
-          ],
-        },
+        where: buildCaseProductFlowScopedWhere('formal_remote', {
+          status: 'in_progress',
+          updated_at: { lt: expect.any(Date) as unknown as Date },
+        }),
       });
       expect(mockCaseCount).toHaveBeenCalledWith({
-        where: {
-          AND: [
-            {
-              chat_to_case_links: { some: {} },
-            },
-            {
-              status: 'judgment_failed',
-            },
-          ],
-        },
+        where: buildCaseProductFlowScopedWhere('chat_to_case', {
+          status: 'judgment_failed',
+        }),
       });
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -779,32 +766,10 @@ describe('AdminController', () => {
       await adminController.reportFunnel(req as Request, res as Response, next);
 
       expect(mockJudgmentCount).toHaveBeenCalledWith({
-        where: {
-          case: {
-            is: {
-              chat_to_case_links: { none: {} },
-              mode: 'quick',
-            },
-          },
-        },
+        where: buildJudgmentProductFlowWhere('quick_single'),
       });
       expect(mockExecutionRecordCount).toHaveBeenCalledWith({
-        where: {
-          status: 'completed',
-          reconciliation_plan: {
-            is: {
-              judgment: {
-                is: {
-                  case: {
-                    is: {
-                      chat_to_case_links: { some: {} },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
+        where: buildCompletedExecutionProductFlowWhere('chat_to_case'),
       });
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({

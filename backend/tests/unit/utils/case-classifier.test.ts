@@ -247,34 +247,88 @@ describe('case-classifier', () => {
   it('user-bound product case query 應包含 chat-to-case 且排除 session-bound quick/collab', () => {
     expect(buildUserBoundProductCaseWhere()).toEqual({
       OR: [
-        { chat_to_case_links: { some: {} } },
-        { chat_to_case_links: { none: {} }, mode: 'remote' },
-        { chat_to_case_links: { none: {} }, mode: 'collaborative', session_id: null },
+        {
+          OR: [
+            { product_flow: 'chat_to_case' },
+            { chat_to_case_links: { some: {} } },
+          ],
+        },
+        {
+          AND: [
+            { chat_to_case_links: { none: {} } },
+            {
+              OR: [
+                { product_flow: 'formal_remote' },
+                { mode: 'remote' },
+              ],
+            },
+          ],
+        },
+        {
+          AND: [
+            { chat_to_case_links: { none: {} } },
+            {
+              OR: [
+                { product_flow: 'formal_collaborative' },
+                { mode: 'collaborative', session_id: null },
+              ],
+            },
+          ],
+        },
       ],
     });
   });
 
   it('product-flow where 應與 runtime 分類口徑一致', () => {
     expect(buildCaseProductFlowWhere('chat_to_case')).toEqual({
-      chat_to_case_links: { some: {} },
+      OR: [
+        { product_flow: 'chat_to_case' },
+        { chat_to_case_links: { some: {} } },
+      ],
     });
     expect(buildCaseProductFlowWhere('quick_single')).toEqual({
-      chat_to_case_links: { none: {} },
-      mode: 'quick',
+      AND: [
+        { chat_to_case_links: { none: {} } },
+        {
+          OR: [
+            { product_flow: 'quick_single' },
+            { mode: 'quick' },
+          ],
+        },
+      ],
     });
     expect(buildCaseProductFlowWhere('quick_collaborative')).toEqual({
-      chat_to_case_links: { none: {} },
-      mode: 'collaborative',
-      session_id: { not: null },
+      AND: [
+        { chat_to_case_links: { none: {} } },
+        {
+          OR: [
+            { product_flow: 'quick_collaborative' },
+            { mode: 'collaborative', session_id: { not: null } },
+          ],
+        },
+      ],
     });
     expect(buildCaseProductFlowWhere('formal_remote')).toEqual({
-      chat_to_case_links: { none: {} },
-      mode: 'remote',
+      AND: [
+        { chat_to_case_links: { none: {} } },
+        {
+          OR: [
+            { product_flow: 'formal_remote' },
+            { mode: 'remote' },
+          ],
+        },
+      ],
     });
     expect(buildCaseProductFlowWhere('formal_collaborative')).toEqual({
-      chat_to_case_links: { none: {} },
-      mode: 'collaborative',
-      session_id: null,
+      AND: [
+        { chat_to_case_links: { none: {} } },
+        {
+          OR: [
+            { product_flow: 'formal_collaborative' },
+            { mode: 'collaborative', session_id: null },
+          ],
+        },
+      ],
     });
   });
 
@@ -282,9 +336,15 @@ describe('case-classifier', () => {
     expect(buildJudgmentProductFlowWhere('quick_collaborative')).toEqual({
       case: {
         is: {
-          chat_to_case_links: { none: {} },
-          mode: 'collaborative',
-          session_id: { not: null },
+          AND: [
+            { chat_to_case_links: { none: {} } },
+            {
+              OR: [
+                { product_flow: 'quick_collaborative' },
+                { mode: 'collaborative', session_id: { not: null } },
+              ],
+            },
+          ],
         },
       },
     });
@@ -296,7 +356,10 @@ describe('case-classifier', () => {
             is: {
               case: {
                 is: {
-                  chat_to_case_links: { some: {} },
+                  OR: [
+                    { product_flow: 'chat_to_case' },
+                    { chat_to_case_links: { some: {} } },
+                  ],
                 },
               },
             },
@@ -315,8 +378,15 @@ describe('case-classifier', () => {
     })).toEqual({
       AND: [
         {
-          chat_to_case_links: { none: {} },
-          mode: 'remote',
+          AND: [
+            { chat_to_case_links: { none: {} } },
+            {
+              OR: [
+                { product_flow: 'formal_remote' },
+                { mode: 'remote' },
+              ],
+            },
+          ],
         },
         {
           status: 'in_progress',
@@ -330,14 +400,37 @@ describe('case-classifier', () => {
     const cutoff = new Date('2026-05-03T00:00:00.000Z');
 
     expect(buildStaleFormalDraftCaseWhere(cutoff)).toEqual({
-      status: 'draft',
-      OR: [
-        { mode: 'remote' },
-        { mode: 'collaborative', session_id: null },
+      AND: [
+        { status: 'draft' },
+        {
+          OR: [
+            {
+              AND: [
+                { chat_to_case_links: { none: {} } },
+                {
+                  OR: [
+                    { product_flow: 'formal_remote' },
+                    { mode: 'remote' },
+                  ],
+                },
+              ],
+            },
+            {
+              AND: [
+                { chat_to_case_links: { none: {} } },
+                {
+                  OR: [
+                    { product_flow: 'formal_collaborative' },
+                    { mode: 'collaborative', session_id: null },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+        { defendant_statement: null },
+        { created_at: { lt: cutoff } },
       ],
-      chat_to_case_links: { none: {} },
-      defendant_statement: null,
-      created_at: { lt: cutoff },
     });
   });
 });

@@ -2,6 +2,7 @@
  * CaseService 單元測試（mock Prisma、sessionService、pairingService、aiService、fileService）
  */
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
+import { buildUserBoundProductCaseWhere } from '../../../src/utils/case-classifier';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockCreateSession: any = jest.fn();
@@ -599,13 +600,7 @@ describe('CaseService', () => {
           where: expect.objectContaining({
             AND: expect.arrayContaining([
               expect.objectContaining({ OR: [{ plaintiff_id: 'u1' }, { defendant_id: 'u1' }] }),
-              {
-                OR: [
-                  { chat_to_case_links: { some: {} } },
-                  { chat_to_case_links: { none: {} }, mode: 'remote' },
-                  { chat_to_case_links: { none: {} }, mode: 'collaborative', session_id: null },
-                ],
-              },
+              buildUserBoundProductCaseWhere(),
             ]),
           }),
           skip: 0,
@@ -627,13 +622,7 @@ describe('CaseService', () => {
       const call = prismaMock.case.findMany.mock.calls[0][0];
       expect(call.where).not.toHaveProperty('mode');
       expect(call.where.AND).toEqual(expect.arrayContaining([
-        {
-          OR: [
-            { chat_to_case_links: { some: {} } },
-            { chat_to_case_links: { none: {} }, mode: 'remote' },
-            { chat_to_case_links: { none: {} }, mode: 'collaborative', session_id: null },
-          ],
-        },
+        buildUserBoundProductCaseWhere(),
       ]));
     });
 

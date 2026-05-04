@@ -5,8 +5,8 @@
 
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { lazy, Suspense, useEffect } from 'react';
-import { Button, Result, Space } from 'antd';
-import { HomeOutlined, RocketOutlined } from '@ant-design/icons';
+import { Home as HomeIcon, Rocket, AlertTriangle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import AppLayout from '@/components/layout/AppLayout';
 import SimpleLayout from '@/components/layout/SimpleLayout';
 import AuthLayout from '@/components/layout/AuthLayout';
@@ -57,21 +57,15 @@ export const AdminRedirect = () => {
   }, [adminLoginUrl]);
   if (!adminLoginUrl) {
     return (
-      <Result
-        status="warning"
-        title={t('admin.redirect.title')}
-        subTitle={t('admin.login.urlMissing')}
-        extra={
-          <Space wrap>
-            <Button type="primary" icon={<HomeOutlined />} onClick={() => window.location.assign('/')}>
-              {t('notFound.backHome')}
-            </Button>
-            <Button icon={<RocketOutlined />} onClick={() => window.location.assign('/quick-experience/create')}>
-              {t('notFound.goQuickExperience')}
-            </Button>
-          </Space>
-        }
-      />
+      <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 px-4 text-center">
+        <AlertTriangle className="size-12 text-warning" />
+        <h2 className="text-xl font-bold text-foreground">{t('admin.redirect.title')}</h2>
+        <p className="text-sm text-muted-foreground">{t('admin.login.urlMissing')}</p>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={() => window.location.assign('/')}><HomeIcon className="size-4" />{t('notFound.backHome')}</Button>
+          <Button variant="outline" onClick={() => window.location.assign('/quick-experience/create')}><Rocket className="size-4" />{t('notFound.goQuickExperience')}</Button>
+        </div>
+      </div>
     );
   }
   return <Loading />;

@@ -779,8 +779,18 @@ describe('CaseService', () => {
       const result = await service.getCaseList('u1', { page: 1, page_size: 10 });
 
       expect(result.cases).toEqual([
-        expect.objectContaining({ id: 'case-chat', product_flow: 'chat_to_case' }),
-        expect.objectContaining({ id: 'case-formal', product_flow: 'formal_remote' }),
+        expect.objectContaining({
+          id: 'case-chat',
+          product_flow: 'chat_to_case',
+          source_channel: 'chat_room',
+          entry_point: 'chat_request_judgment',
+        }),
+        expect.objectContaining({
+          id: 'case-formal',
+          product_flow: 'formal_remote',
+          source_channel: 'formal_case',
+          entry_point: 'formal_remote_case_create',
+        }),
       ]);
     });
   });
@@ -1192,7 +1202,11 @@ describe('CaseService', () => {
       const result = await service.getCaseById('case-1', undefined, 's1');
 
       expect(result).toBeDefined();
-      expect(result).toMatchObject({ product_flow: 'quick_single' });
+      expect(result).toMatchObject({
+        product_flow: 'quick_single',
+        source_channel: 'quick_experience',
+        entry_point: 'quick_single_case_create',
+      });
       expect(mockSignUrl).toHaveBeenCalled();
       expect(mockGetSession).toHaveBeenCalledWith('s1');
     });
@@ -1278,6 +1292,8 @@ describe('CaseService', () => {
       expect(result).toMatchObject({
         id: 'case-chat',
         product_flow: 'chat_to_case',
+        source_channel: 'chat_room',
+        entry_point: 'chat_request_judgment',
       });
     });
 
@@ -1403,7 +1419,11 @@ describe('CaseService', () => {
 
       expect(result).toBeDefined();
       expect(mockSignUrl).toHaveBeenCalledWith('http://x.com/1.jpg');
-      expect(result).toMatchObject({ product_flow: 'quick_single' });
+      expect(result).toMatchObject({
+        product_flow: 'quick_single',
+        source_channel: 'quick_experience',
+        entry_point: 'quick_single_case_create',
+      });
     });
 
     it('應用 claimable session scope，支持快速雙人協作回訪', async () => {

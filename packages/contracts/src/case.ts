@@ -8,6 +8,13 @@ export type CaseStatus =
 
 export type CaseMode = 'remote' | 'collaborative' | 'quick';
 
+export type CaseProductFlow =
+  | 'quick_single'
+  | 'quick_collaborative'
+  | 'formal_remote'
+  | 'formal_collaborative'
+  | 'chat_to_case';
+
 export type CaseType =
   | '生活習慣衝突'
   | '消費決策衝突'
@@ -59,6 +66,9 @@ export interface Case {
   judgment_failure_reason?: string;
   mode: CaseMode;
   session_id?: string;
+  product_flow?: CaseProductFlow;
+  source_channel?: string;
+  entry_point?: string;
   evidences?: Evidence[];
   judgment?: CaseJudgmentSummary | null;
   pairing?: CasePairing | null;

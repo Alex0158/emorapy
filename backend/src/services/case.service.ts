@@ -14,9 +14,9 @@ import { LOCK_TTL, SESSION_EXPIRY, CASE_STATUS, CASE_MODE, PAGINATION, FILE_TYPE
 import {
   buildClaimableSessionCaseWhere,
   buildCaseSourceTracking,
+  buildCaseSourceTrackingForRead,
   buildUserBoundProductCaseWhere,
   canAccessSessionBoundCase,
-  getCaseProductFlow,
   isCaseParticipant,
   isFormalCaseMode,
   isSessionBoundCase,
@@ -462,7 +462,7 @@ export class CaseService {
     const normalized = await Promise.all(cases.map(async (c) => ({
       ...c,
       judgment: await normalizeJudgmentWithSafetyState(c.judgment, { caseId: c.id }),
-      product_flow: getCaseProductFlow(c),
+      ...buildCaseSourceTrackingForRead(c),
     })));
 
     return {
@@ -686,7 +686,7 @@ export class CaseService {
 
     return {
       ...case_,
-      product_flow: getCaseProductFlow(case_),
+      ...buildCaseSourceTrackingForRead(case_),
     };
   }
 
@@ -725,7 +725,7 @@ export class CaseService {
 
     return case_ ? {
       ...case_,
-      product_flow: getCaseProductFlow(case_),
+      ...buildCaseSourceTrackingForRead(case_),
     } : null;
   }
 

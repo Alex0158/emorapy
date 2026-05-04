@@ -1,6 +1,7 @@
 import {
   CASE_PRODUCT_FLOW_KEYS,
   buildCaseSourceTracking,
+  buildCaseSourceTrackingForRead,
   buildClaimableSessionCaseWhere,
   buildCaseProductFlowScopedWhere,
   buildCaseProductFlowWhere,
@@ -153,6 +154,19 @@ describe('case-classifier', () => {
       entry_point: 'quick_single_case_create',
     });
     expect(buildCaseSourceTracking('chat_to_case')).toEqual({
+      product_flow: 'chat_to_case',
+      source_channel: 'chat_room',
+      entry_point: 'chat_request_judgment',
+    });
+  });
+
+  it('buildCaseSourceTrackingForRead 應用 chat link 優先的 read 口徑', () => {
+    expect(buildCaseSourceTrackingForRead({
+      mode: 'remote',
+      session_id: null,
+      product_flow: 'formal_remote',
+      chat_to_case_links: [{ id: 'link-1' }],
+    })).toEqual({
       product_flow: 'chat_to_case',
       source_channel: 'chat_room',
       entry_point: 'chat_request_judgment',

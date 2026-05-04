@@ -166,6 +166,10 @@ export function buildCaseSourceTracking(flow: CaseProductFlow) {
   };
 }
 
+export function buildCaseSourceTrackingForRead(case_: CaseProductFlowSubject) {
+  return buildCaseSourceTracking(getCaseProductFlow(case_));
+}
+
 export function buildUserBoundCaseModeWhere() {
   return {
     OR: [

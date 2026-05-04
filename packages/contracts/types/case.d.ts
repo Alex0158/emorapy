@@ -1,5 +1,6 @@
 export type CaseStatus = 'draft' | 'submitted' | 'in_progress' | 'completed' | 'cancelled' | 'judgment_failed';
 export type CaseMode = 'remote' | 'collaborative' | 'quick';
+export type CaseProductFlow = 'quick_single' | 'quick_collaborative' | 'formal_remote' | 'formal_collaborative' | 'chat_to_case';
 export type CaseType = '生活習慣衝突' | '消費決策衝突' | '社交關係衝突' | '價值觀衝突' | '情感需求衝突' | '其他衝突';
 export interface CaseJudgmentSummary {
     id: string;
@@ -40,6 +41,9 @@ export interface Case {
     judgment_failure_reason?: string;
     mode: CaseMode;
     session_id?: string;
+    product_flow?: CaseProductFlow;
+    source_channel?: string;
+    entry_point?: string;
     evidences?: Evidence[];
     judgment?: CaseJudgmentSummary | null;
     pairing?: CasePairing | null;

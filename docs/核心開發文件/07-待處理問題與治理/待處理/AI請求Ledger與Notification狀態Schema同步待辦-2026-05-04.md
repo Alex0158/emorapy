@@ -4,7 +4,7 @@
 **文檔類型**：問題治理
 **覆蓋範圍**：AI request ledger、產品流成本歸因、notification cancelled 狀態、dev/release DB parity
 **取證代碼入口**：`backend/src/services/cost-monitoring.service.ts`、`backend/src/services/ai-request-ledger.service.ts`、`backend/src/services/ai-cost-pricing.service.ts`、`backend/src/services/ai.service.ts`、`backend/src/services/judgment.service.ts`、`backend/src/services/clinical-quality.service.ts`、`backend/src/services/chat-ai-orchestrator.service.ts`、`backend/src/services/interview.service.ts`、`backend/src/services/execution.service.ts`、`backend/src/services/ai-stream.service.ts`、`backend/src/services/interview-ai-response-consumer.ts`、`backend/src/services/notification.service.ts`、`backend/src/controllers/admin.controller.ts`、`backend/src/config/env.ts`、`backend/src/utils/ai-ledger-source.ts`、`backend/src/utils/ai-prompt-version.ts`、`backend/.env.example`、`backend/prisma/schema.prisma`、`backend/prisma/migrations/20260504143000_add_ai_request_ledger/migration.sql`、`backend/prisma/migrations/20260504164500_add_notification_cancelled_status/migration.sql`
-**最後核驗 Commit**：`ee3ccf6`
+**最後核驗 Commit**：`449c48e`
 **最後核驗日期**：`2026-05-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -45,7 +45,7 @@ Admin 成本報表目前由 `CostMonitoringService` 讀取 OpenAI organization c
 6. `GET /api/v1/admin/reports/costs` 已新增 `openai.ledger`：
    - `source=ai_request_ledger`
    - 24h / 7d request count、input / output / total tokens
-   - `productFlows[]` 按 ledger `product_flow` 聚合 request / tokens / status
+   - `productFlows[]` 按 ledger `product_flow` 聚合 request / tokens / status；聚合前使用 `getAIRequestLedgerProductFlow()` 正規化，缺失或空白 `product_flow` 固定落入 `unknown`，避免 Admin 報表各處自行手寫 fallback。
    - `costSource=not_allocated` 時只代表 request/token breakdown，不把 OpenAI organization 成本按比例分攤。
    - 只有 ledger row 自身有 `cost_usd` 時，對應 flow 才會回 `costSource=ledger_cost_usd`。
 7. `AI_COST_PRICING_JSON` 已作為可選 pricing catalog 接入 request ledger：
@@ -78,6 +78,7 @@ cd backend && npm test -- --runInBand tests/unit/services/ai-request-ledger.serv
 cd backend && npm test -- --runInBand tests/unit/utils/ai-prompt-version.test.ts tests/unit/services/ai.service.test.ts tests/unit/services/chat-ai-orchestrator.service.test.ts tests/unit/services/interview.service.test.ts tests/unit/services/execution.service.test.ts
 cd backend && npm test -- --runInBand tests/unit/utils/ai-prompt-version.test.ts tests/unit/services/judgment.service.test.ts tests/unit/services/ai.service.test.ts
 cd backend && npm test -- --runInBand tests/unit/utils/ai-prompt-version.test.ts tests/unit/services/clinical-quality.service.test.ts tests/unit/services/judgment.service.test.ts
+cd backend && npm test -- --runInBand tests/unit/utils/ai-ledger-source.test.ts tests/unit/services/cost-monitoring.service.test.ts
 cd backend && npm test -- --runInBand tests/unit/services/interview.service.test.ts tests/unit/services/interview-ai-response-consumer.test.ts tests/unit/services/ai-request-ledger.service.test.ts tests/unit/utils/ai-ledger-source.test.ts tests/unit/utils/ai-prompt-version.test.ts
 cd backend && npm test -- --runInBand tests/unit/services/ai-request-ledger.service.test.ts tests/unit/services/ai.service.test.ts tests/unit/services/chat-ai-orchestrator.service.test.ts
 cd backend && npm test -- --runInBand tests/unit/services/cost-monitoring.service.test.ts tests/unit/controllers/admin.controller.test.ts tests/unit/routes/admin.routes.test.ts

@@ -7,6 +7,7 @@ import { cacheService, CacheService } from '../utils/cache';
 import { lockService } from '../utils/lock';
 import { fenceUserInput } from '../utils/prompt';
 import { AI_TIMEOUT } from '../utils/constants';
+import { getAIPromptVersion } from '../utils/ai-prompt-version';
 import {
   CRISIS_SIGNAL_REGEX,
   IPV_SIGNAL_REGEX,
@@ -683,6 +684,7 @@ severity 評估標準：
         ledger: ledger ? {
           ...ledger,
           requestKind: ledger.requestKind || 'emotional_analysis',
+          promptVersion: ledger.promptVersion || getAIPromptVersion('judgment_emotional_analysis'),
         } : undefined,
       });
 
@@ -925,6 +927,7 @@ severity 評估標準：
       options?.ledger ? {
         ...options.ledger,
         requestKind: 'emotional_analysis',
+        promptVersion: options.ledger.promptVersion || getAIPromptVersion('judgment_emotional_analysis'),
       } : undefined
     );
 
@@ -948,6 +951,7 @@ severity 評估標準：
         ledger: options?.ledger ? {
           ...options.ledger,
           requestKind: 'judgment_draft',
+          promptVersion: options.ledger.promptVersion || getAIPromptVersion('judgment_draft'),
         } : undefined,
       });
 
@@ -965,6 +969,7 @@ severity 評估標準：
             options?.ledger ? {
               ...options.ledger,
               requestKind: 'responsibility_ratio',
+              promptVersion: options.ledger.promptVersion || getAIPromptVersion('judgment_responsibility_ratio'),
             } : undefined
           );
       const summary = await this.generateSummary(
@@ -974,6 +979,7 @@ severity 評估標準：
         options?.ledger ? {
           ...options.ledger,
           requestKind: 'judgment_summary',
+          promptVersion: options.ledger.promptVersion || getAIPromptVersion('judgment_summary'),
         } : undefined
       );
 
@@ -1624,7 +1630,10 @@ ${content}
         temperature: 0.5,
         systemPrompt: '你是一位溫暖的關係諮詢師，擅長用簡潔有力的語言概括伴侶之間的核心議題和方向。',
         signal,
-        ledger,
+        ledger: ledger ? {
+          ...ledger,
+          promptVersion: ledger.promptVersion || getAIPromptVersion('judgment_summary'),
+        } : undefined,
       });
       return summary.trim();
     } catch (error) {
@@ -1703,6 +1712,7 @@ ${content}
         ledger: options?.ledger ? {
           ...options.ledger,
           requestKind: options.ledger.requestKind || 'reconciliation_plan_generation',
+          promptVersion: options.ledger.promptVersion || getAIPromptVersion('reconciliation_plan_generation'),
         } : undefined,
       });
 
@@ -1828,6 +1838,7 @@ ${recentCheckins || '- 暫無更多回報'}
       ledger: input.ledger ? {
         ...input.ledger,
         requestKind: input.ledger.requestKind || 'repair_replan_generation',
+        promptVersion: input.ledger.promptVersion || getAIPromptVersion('repair_replan_generation'),
       } : undefined,
     });
 

@@ -21,6 +21,7 @@ import {
   getRepairJourneyAccessPolicyForJudgment,
 } from './repair-eligibility.service';
 import { buildRuntimeAILedgerSourceTracking } from '../utils/ai-ledger-source';
+import { getAIPromptVersion } from '../utils/ai-prompt-version';
 
 export interface CheckinDto {
   plan_id: string;
@@ -652,6 +653,7 @@ export class ExecutionService {
           scopeType: handle.scopeType,
           scopeId: handle.scopeId,
           requestKind: 'repair_replan_generation',
+          promptVersion: getAIPromptVersion('repair_replan_generation'),
           ...buildRuntimeAILedgerSourceTracking('repair_journey'),
           metadata: {
             parent_request_id: handle.requestId,

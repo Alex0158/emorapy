@@ -47,6 +47,19 @@ jest.mock('../../../src/utils/retry', () => ({
   retryWithBackoff: (...args: unknown[]) => retryWithBackoffMock(...args),
 }));
 
+let aiLedgerCounter = 0;
+const mockAiLedgerStart = jest.fn(async (_input: unknown) => ({ requestId: `ledger-${++aiLedgerCounter}` }));
+const mockAiLedgerComplete = jest.fn(async (_input: unknown) => undefined);
+const mockAiLedgerFail = jest.fn(async (_input: unknown) => undefined);
+jest.mock('../../../src/services/ai-request-ledger.service', () => ({
+  __esModule: true,
+  aiRequestLedgerService: {
+    start: (input: unknown) => mockAiLedgerStart(input),
+    complete: (input: unknown) => mockAiLedgerComplete(input),
+    fail: (input: unknown) => mockAiLedgerFail(input),
+  },
+}));
+
 import { AIService, IPV_SIGNAL_REGEX } from '../../../src/services/ai.service';
 
 describe('IPV_SIGNAL_REGEX', () => {
@@ -187,6 +200,7 @@ describe('AIService (non-useMock)', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    aiLedgerCounter = 0;
     mockEnvRef.AI_MOCK = false;
     mockEnvRef.OPENAI_API_KEY = 'sk-prod-real-key-not-dev';
     mockEnvRef.OPENAI_DAILY_LIMIT = 100;
@@ -385,11 +399,37 @@ describe('AIService (non-useMock)', () => {
       const result = await service.generateJudgment(
         '生活習慣衝突',
         '我覺得家務分配一直很不平均。',
-        '我最近工作很忙。'
+        '我最近工作很忙。',
+        {
+          ledger: {
+            scopeType: 'case',
+            scopeId: 'case-1',
+            productFlow: 'formal_remote',
+          },
+        }
       );
 
       expect(result.responsibilityRatio).toEqual({ plaintiff: 40, defendant: 60 });
       expect(result.summary).toBe('摘要內容');
+      const ledgerStarts = mockAiLedgerStart.mock.calls.map((call) => call[0]);
+      expect(ledgerStarts).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          requestKind: 'emotional_analysis',
+          promptVersion: 'judgment-emotional-analysis@v1.0',
+        }),
+        expect.objectContaining({
+          requestKind: 'judgment_draft',
+          promptVersion: 'judgment-draft@v4.0',
+        }),
+        expect.objectContaining({
+          requestKind: 'responsibility_ratio',
+          promptVersion: 'judgment-responsibility-ratio@v1.0',
+        }),
+        expect.objectContaining({
+          requestKind: 'judgment_summary',
+          promptVersion: 'judgment-summary@v1.0',
+        }),
+      ]));
     });
 
     it('結構化評估失敗時應回退為文案抽取+規則校準', async () => {

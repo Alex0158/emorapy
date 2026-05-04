@@ -1,0 +1,24 @@
+export type AIPromptVersionKey =
+  | 'chat_room_ai_response'
+  | 'interview_ai_response'
+  | 'judgment_emotional_analysis'
+  | 'judgment_draft'
+  | 'judgment_responsibility_ratio'
+  | 'judgment_summary'
+  | 'reconciliation_plan_generation'
+  | 'repair_replan_generation';
+
+export const AI_PROMPT_VERSIONS: Record<AIPromptVersionKey, string> = {
+  chat_room_ai_response: 'chat-room-ai-response@v1.0',
+  interview_ai_response: 'interview-ai-response@v1.0',
+  judgment_emotional_analysis: 'judgment-emotional-analysis@v1.0',
+  judgment_draft: 'judgment-draft@v4.0',
+  judgment_responsibility_ratio: 'judgment-responsibility-ratio@v1.0',
+  judgment_summary: 'judgment-summary@v1.0',
+  reconciliation_plan_generation: 'reconciliation-plan-generation@v1.0',
+  repair_replan_generation: 'repair-replan-generation@v1.0',
+};
+
+export function getAIPromptVersion(key: AIPromptVersionKey): string {
+  return AI_PROMPT_VERSIONS[key];
+}

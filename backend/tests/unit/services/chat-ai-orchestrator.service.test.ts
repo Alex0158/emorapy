@@ -140,6 +140,7 @@ describe('ChatAIOrchestrator prompt 選擇', () => {
       sourceChannel: 'chat_room',
       entryPoint: 'chat_room_ai_response',
       requestKind: 'chat_room_ai_response',
+      promptVersion: 'chat-room-ai-response@v1.0',
       scopeType: 'chat_room',
       scopeId: 'room-1',
     });

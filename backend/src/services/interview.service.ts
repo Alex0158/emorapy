@@ -28,6 +28,7 @@ import { persistInterviewEndSession } from './interview-end-session-persistence'
 import { prepareInterviewProcessingRetry } from './interview-processing-retry';
 import { loadInterviewResumeStatus } from './interview-resume-status';
 import { buildRuntimeAILedgerSourceTracking } from '../utils/ai-ledger-source';
+import { getAIPromptVersion } from '../utils/ai-prompt-version';
 import {
   ensureInterviewSessionAccess,
   loadOwnedInterviewSession,
@@ -146,6 +147,7 @@ export class InterviewService {
               scopeType: streamHandle.scopeType,
               scopeId: streamHandle.scopeId,
               requestKind: 'interview_ai_response',
+              promptVersion: getAIPromptVersion('interview_ai_response'),
               ...buildRuntimeAILedgerSourceTracking('profile_interview'),
               metadata: {
                 parent_request_id: streamHandle.requestId,

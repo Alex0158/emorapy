@@ -3,8 +3,8 @@
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：問題治理
 **覆蓋範圍**：AI request ledger、產品流成本歸因、notification cancelled 狀態、dev/release DB parity
-**取證代碼入口**：`backend/src/services/cost-monitoring.service.ts`、`backend/src/services/ai-request-ledger.service.ts`、`backend/src/services/ai-cost-pricing.service.ts`、`backend/src/services/ai.service.ts`、`backend/src/services/ai-stream.service.ts`、`backend/src/services/interview-ai-response-consumer.ts`、`backend/src/services/notification.service.ts`、`backend/src/controllers/admin.controller.ts`、`backend/src/config/env.ts`、`backend/.env.example`、`backend/prisma/schema.prisma`、`backend/prisma/migrations/20260504143000_add_ai_request_ledger/migration.sql`、`backend/prisma/migrations/20260504164500_add_notification_cancelled_status/migration.sql`
-**最後核驗 Commit**：`6204e7f`
+**取證代碼入口**：`backend/src/services/cost-monitoring.service.ts`、`backend/src/services/ai-request-ledger.service.ts`、`backend/src/services/ai-cost-pricing.service.ts`、`backend/src/services/ai.service.ts`、`backend/src/services/judgment.service.ts`、`backend/src/services/ai-stream.service.ts`、`backend/src/services/interview-ai-response-consumer.ts`、`backend/src/services/notification.service.ts`、`backend/src/controllers/admin.controller.ts`、`backend/src/config/env.ts`、`backend/.env.example`、`backend/prisma/schema.prisma`、`backend/prisma/migrations/20260504143000_add_ai_request_ledger/migration.sql`、`backend/prisma/migrations/20260504164500_add_notification_cancelled_status/migration.sql`
+**最後核驗 Commit**：`659232c`
 **最後核驗日期**：`2026-05-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -34,7 +34,7 @@ Admin 成本報表目前由 `CostMonitoringService` 讀取 OpenAI organization c
 3. 已接入主要 runtime：
    - `AIService.generateText`
    - `AIService.generateTextStream`
-   - 正式判決：emotion analysis、draft、responsibility ratio、summary，帶 `case_judgment` stream 與 product flow。
+   - 正式判決：emotion analysis、draft、responsibility ratio、summary，帶 `case_judgment` stream、product flow、`source_channel` 與 `entry_point`；ledger base 由 `buildCaseSourceTrackingForRead()` 生成，chat-to-case link 優先於落庫 `product_flow`。
    - 聊天室 AI response，帶 `chat_room` stream。
    - 心理訪談 AI response stream，帶 `interview_session` stream。
    - 修復旅程 replan，帶 `repair_track` stream。

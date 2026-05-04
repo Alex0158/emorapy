@@ -3,8 +3,8 @@
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：問題治理
 **覆蓋範圍**：case product flow source tracking、dev/release DB parity、產品流 analytics backfill
-**取證代碼入口**：`backend/prisma/schema.prisma`、`backend/prisma/migrations/20260504193000_add_case_source_tracking/migration.sql`、`backend/src/utils/case-classifier.ts`、`backend/src/services/case.service.ts`、`backend/src/services/chat.service.ts`、`backend/tests/unit/utils/case-classifier.test.ts`、`backend/tests/unit/services/case.service.test.ts`、`packages/contracts/src/case.ts`
-**最後核驗 Commit**：`302c449`
+**取證代碼入口**：`backend/prisma/schema.prisma`、`backend/prisma/migrations/20260504193000_add_case_source_tracking/migration.sql`、`backend/src/utils/case-classifier.ts`、`backend/src/services/case.service.ts`、`backend/src/services/chat.service.ts`、`backend/src/services/judgment.service.ts`、`backend/tests/unit/utils/case-classifier.test.ts`、`backend/tests/unit/services/case.service.test.ts`、`backend/tests/unit/services/judgment.service.test.ts`、`packages/contracts/src/case.ts`
+**最後核驗 Commit**：`659232c`
 **最後核驗日期**：`2026-05-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -48,6 +48,7 @@ backend/prisma/migrations/20260504193000_add_case_source_tracking/migration.sql
 6. `getCaseProductFlow()` 仍保持 compatibility fallback：先看 `ChatToCaseLink`，其次看已落庫的 `product_flow`，最後才用 `mode/session_id` 推斷。
 7. `GET /cases`、`GET /cases/:id` 與 `GET /cases/by-session` 已透過 `buildCaseSourceTrackingForRead()` additive 回傳 `product_flow / source_channel / entry_point`，並在 `packages/contracts/src/case.ts` 補齊型別。
 8. `buildCaseProductFlowWhere()`、Admin overview/funnel、修復提醒與 stale draft cleanup 已改為優先使用 persisted `cases.product_flow`，同時保留 `mode/session_id/chat_to_case_links` fallback；非 chat flow 仍必須排除 `chat_to_case_links`，保持 chat link 優先。
+9. `JudgmentService` 正式判決 emotion/draft/ratio/summary AI ledger 已改用 `buildCaseSourceTrackingForRead()`，寫入 `product_flow / source_channel / entry_point`；若 case 已被 chat-to-case link 關聯，ledger 同樣以 link 優先，不被舊 `cases.product_flow` 覆蓋。
 
 ## 必須同步的兩邊
 
@@ -58,6 +59,7 @@ backend/prisma/migrations/20260504193000_add_case_source_tracking/migration.sql
 
 ```bash
 cd backend && npm test -- --runInBand tests/unit/utils/case-classifier.test.ts tests/unit/services/case.service.test.ts tests/unit/services/chat.service.test.ts
+cd backend && npm test -- --runInBand tests/unit/services/judgment.service.test.ts tests/unit/services/ai-request-ledger.service.test.ts tests/unit/services/ai.service.test.ts tests/unit/services/cost-monitoring.service.test.ts
 cd backend && npx prisma migrate deploy --schema prisma/schema.prisma
 npm run ops:db:status
 cd backend && npm run build

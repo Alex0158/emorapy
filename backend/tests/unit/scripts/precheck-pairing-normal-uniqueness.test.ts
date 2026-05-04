@@ -49,7 +49,7 @@ describe('precheck-pairing-normal-uniqueness', () => {
     });
   });
 
-  it('同一 user 出現在多個正式 pending/active pairing 時報告衝突', () => {
+  it('同一 user 跨 user1/user2 出現在多個正式 pending/active pairing 時報告衝突', () => {
     const report = buildPairingNormalUniquenessReport([
       {
         id: 'p1',
@@ -61,8 +61,8 @@ describe('precheck-pairing-normal-uniqueness', () => {
       },
       {
         id: 'p2',
-        user1_id: 'u3',
-        user2_id: 'u2',
+        user1_id: 'u2',
+        user2_id: 'u3',
         status: 'pending',
         pairing_type: 'normal',
         created_at: new Date('2026-05-03T00:01:00.000Z'),
@@ -84,7 +84,7 @@ describe('precheck-pairing-normal-uniqueness', () => {
         },
         {
           pairingId: 'p2',
-          role: 'user2',
+          role: 'user1',
           status: 'pending',
           createdAt: '2026-05-03T00:01:00.000Z',
         },

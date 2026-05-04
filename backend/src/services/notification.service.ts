@@ -2,6 +2,7 @@ import prisma from '../config/database';
 import { Prisma, NotificationChannel, NotificationStatus } from '@prisma/client';
 import logger from '../config/logger';
 import { isCaseProductFlow, type CaseProductFlow } from '../utils/case-classifier';
+import { Errors } from '../utils/errors';
 
 export type NotificationFeedState = 'unread' | 'all' | 'actionable' | 'snoozed' | 'archived';
 
@@ -13,13 +14,24 @@ export interface NotificationListOptions {
   cursor?: string;
 }
 
+export interface AdminNotificationListOptions {
+  status?: NotificationStatus;
+  templateCode?: string;
+  userId?: string;
+  dedupKey?: string;
+  limit?: number;
+  offset?: number;
+}
+
 export interface RenderableNotification {
   id: string;
+  user_id: string;
   channel: NotificationChannel;
   template_code: string;
   action_key: string | null;
   priority: string | null;
   group_key: string | null;
+  dedup_key: string | null;
   status: NotificationStatus;
   error_message: string | null;
   created_at: Date;
@@ -50,6 +62,13 @@ export interface RenderableNotification {
     product_flow: CaseProductFlow | null;
   };
 }
+
+export type AdminRenderableNotification = RenderableNotification & {
+  user: {
+    id: string;
+    email: string | null;
+  };
+};
 
 type NotificationRecord = Awaited<ReturnType<typeof prisma.notification.findFirst>>;
 
@@ -222,11 +241,13 @@ export class NotificationService {
 
     return {
       id: notification.id,
+      user_id: notification.user_id,
       channel: notification.channel,
       template_code: notification.template_code,
       action_key: actionKey,
       priority: readString(notification.priority) || defaults?.priority || null,
       group_key: readString(notification.group_key),
+      dedup_key: readString(notification.dedup_key),
       status: notification.status,
       error_message: notification.error_message,
       created_at: notification.created_at,
@@ -285,6 +306,51 @@ export class NotificationService {
     };
   }
 
+  private buildAdminWhere(options: AdminNotificationListOptions = {}): Prisma.NotificationWhereInput {
+    return {
+      ...(options.status ? { status: options.status } : {}),
+      ...(options.templateCode ? { template_code: options.templateCode } : {}),
+      ...(options.userId ? { user_id: options.userId } : {}),
+      ...(options.dedupKey ? { dedup_key: options.dedupKey } : {}),
+    };
+  }
+
+  async listForAdmin(options: AdminNotificationListOptions = {}) {
+    const limit = Math.min(Math.max(options.limit ?? 20, 1), 100);
+    const offset = Math.max(options.offset ?? 0, 0);
+    const where = this.buildAdminWhere(options);
+    const [total, notifications] = await Promise.all([
+      prisma.notification.count({ where }),
+      prisma.notification.findMany({
+        where,
+        orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
+        skip: offset,
+        take: limit,
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    return {
+      items: notifications.map((notification): AdminRenderableNotification => ({
+        ...this.normalize(notification),
+        user: {
+          id: notification.user.id,
+          email: notification.user.email,
+        },
+      })),
+      total,
+      limit,
+      offset,
+    };
+  }
+
   async create(
     userId: string,
     data: {
@@ -324,6 +390,29 @@ export class NotificationService {
       where: { id },
       data: { status: NotificationStatus.failed, error_message: errorMessage },
     });
+  }
+
+  async cancelPendingByAdmin(notificationId: string, reason?: string | null) {
+    const notification = await prisma.notification.findUnique({
+      where: { id: notificationId },
+    });
+    if (!notification) return null;
+    if (notification.status !== NotificationStatus.pending) {
+      throw Errors.VALIDATION_ERROR('只有 pending 通知可以取消');
+    }
+
+    const normalizedReason = typeof reason === 'string' && reason.trim().length > 0
+      ? reason.trim().slice(0, 400)
+      : 'no reason provided';
+    const updated = await prisma.notification.update({
+      where: { id: notificationId },
+      data: {
+        status: NotificationStatus.failed,
+        error_message: `admin_cancelled: ${normalizedReason}`,
+      },
+    });
+
+    return this.normalize(updated);
   }
 
   async getPending(limit = 50) {

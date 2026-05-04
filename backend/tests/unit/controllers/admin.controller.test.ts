@@ -19,6 +19,10 @@ const mockJudgmentCount = jest.fn();
 const mockReconciliationPlanCount = jest.fn();
 const mockExecutionRecordCount = jest.fn();
 const mockInterviewSessionCount = jest.fn();
+const mockNotificationCount = jest.fn();
+const mockNotificationFindMany = jest.fn();
+const mockNotificationFindUnique = jest.fn();
+const mockNotificationUpdate = jest.fn();
 
 jest.mock('../../../src/config/database', () => ({
   __esModule: true,
@@ -41,6 +45,12 @@ jest.mock('../../../src/config/database', () => ({
     reconciliationPlan: { count: (...args: unknown[]) => mockReconciliationPlanCount(...args) },
     executionRecord: { count: (...args: unknown[]) => mockExecutionRecordCount(...args) },
     interviewSession: { count: (...args: unknown[]) => mockInterviewSessionCount(...args) },
+    notification: {
+      count: (...args: unknown[]) => mockNotificationCount(...args),
+      findMany: (...args: unknown[]) => mockNotificationFindMany(...args),
+      findUnique: (...args: unknown[]) => mockNotificationFindUnique(...args),
+      update: (...args: unknown[]) => mockNotificationUpdate(...args),
+    },
   },
 }));
 
@@ -858,6 +868,186 @@ describe('AdminController', () => {
         })
       );
       expect(next).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('notification management', () => {
+    const notificationId = '11111111-1111-4111-8111-111111111111';
+    const userId = '22222222-2222-4222-8222-222222222222';
+    const createdAt = new Date('2026-05-04T00:00:00.000Z');
+
+    it('listNotifications 應按 status/template/user/dedup 篩選並返回 render payload', async () => {
+      req.query = {
+        status: 'pending',
+        template_code: 'repair_journey_replan',
+        user_id: userId,
+        dedup_key: 'repair_replan_t1_u1',
+        limit: '10',
+        offset: '5',
+      };
+      (mockNotificationCount as any).mockResolvedValue(1);
+      (mockNotificationFindMany as any).mockResolvedValue([
+        {
+          id: notificationId,
+          user_id: userId,
+          channel: 'push',
+          template_code: 'repair_journey_replan',
+          action_key: null,
+          priority: null,
+          group_key: 'repair:t1',
+          dedup_key: 'repair_replan_t1_u1',
+          status: 'pending',
+          error_message: null,
+          payload: {
+            repair_track_id: 'track-1',
+            journey_context: { repair_access: { product_flow: 'formal_remote' } },
+          },
+          created_at: createdAt,
+          sent_at: null,
+          read_at: null,
+          dismissed_at: null,
+          acted_at: null,
+          snoozed_until: null,
+          user: { id: userId, email: 'u1@example.com' },
+        },
+      ]);
+
+      await adminController.listNotifications(req as Request, res as Response, next);
+
+      expect(mockNotificationCount).toHaveBeenCalledWith({
+        where: {
+          status: 'pending',
+          template_code: 'repair_journey_replan',
+          user_id: userId,
+          dedup_key: 'repair_replan_t1_u1',
+        },
+      });
+      expect(mockNotificationFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          skip: 5,
+          take: 10,
+          include: { user: { select: { id: true, email: true } } },
+        })
+      );
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          data: expect.objectContaining({
+            total: 1,
+            limit: 10,
+            offset: 5,
+            items: [
+              expect.objectContaining({
+                id: notificationId,
+                user_id: userId,
+                dedup_key: 'repair_replan_t1_u1',
+                user: { id: userId, email: 'u1@example.com' },
+                render_payload: expect.objectContaining({
+                  product_flow: 'formal_remote',
+                  track_id: 'track-1',
+                }),
+              }),
+            ],
+          }),
+        })
+      );
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('cancelNotification 只取消 pending 並寫入 audit log', async () => {
+      req.params = { notificationId };
+      req.body = { reason: 'duplicate recall' };
+      (mockNotificationFindUnique as any).mockResolvedValue({
+        id: notificationId,
+        user_id: userId,
+        channel: 'push',
+        template_code: 'repair_journey_replan',
+        action_key: null,
+        priority: null,
+        group_key: 'repair:t1',
+        dedup_key: 'repair_replan_t1_u1',
+        status: 'pending',
+        error_message: null,
+        payload: {},
+        created_at: createdAt,
+        sent_at: null,
+        read_at: null,
+        dismissed_at: null,
+        acted_at: null,
+        snoozed_until: null,
+      });
+      (mockNotificationUpdate as any).mockResolvedValue({
+        id: notificationId,
+        user_id: userId,
+        channel: 'push',
+        template_code: 'repair_journey_replan',
+        action_key: null,
+        priority: null,
+        group_key: 'repair:t1',
+        dedup_key: 'repair_replan_t1_u1',
+        status: 'failed',
+        error_message: 'admin_cancelled: duplicate recall',
+        payload: {},
+        created_at: createdAt,
+        sent_at: null,
+        read_at: null,
+        dismissed_at: null,
+        acted_at: null,
+        snoozed_until: null,
+      });
+      (mockWriteAuditLog as any).mockResolvedValue(undefined);
+
+      await adminController.cancelNotification(req as Request, res as Response, next);
+
+      expect(mockNotificationUpdate).toHaveBeenCalledWith({
+        where: { id: notificationId },
+        data: {
+          status: 'failed',
+          error_message: 'admin_cancelled: duplicate recall',
+        },
+      });
+      expect(mockWriteAuditLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actorId: 'a1',
+          actorType: 'admin',
+          entityType: 'notification',
+          entityId: notificationId,
+          action: 'cancel_pending',
+          detail: expect.objectContaining({
+            userId,
+            dedupKey: 'repair_replan_t1_u1',
+            reason: 'duplicate recall',
+            status: 'failed',
+          }),
+        })
+      );
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          data: {
+            notification: expect.objectContaining({
+              id: notificationId,
+              status: 'failed',
+              error_message: 'admin_cancelled: duplicate recall',
+            }),
+          },
+        })
+      );
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('cancelNotification 遇到非 pending 通知應 next(validation error)', async () => {
+      req.params = { notificationId };
+      (mockNotificationFindUnique as any).mockResolvedValue({
+        id: notificationId,
+        user_id: userId,
+        status: 'sent',
+      });
+
+      await adminController.cancelNotification(req as Request, res as Response, next);
+
+      expect(mockNotificationUpdate).not.toHaveBeenCalled();
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
     });
   });
 

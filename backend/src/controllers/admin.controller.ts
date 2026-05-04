@@ -1,11 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
-import { Prisma } from '@prisma/client';
+import { Prisma, NotificationStatus } from '@prisma/client';
 import prisma from '../config/database';
 import { env } from '../config/env';
 import { getPerformanceStats } from '../middleware/performance';
 import { adminJobs, getRuntimeJobsEnabled, jobsStarted, reconcileJobsRuntimeConfig, runAdminJobNow } from '../jobs/cleanup.job';
 import { adminService } from '../services/admin.service';
 import { costMonitoringService } from '../services/cost-monitoring.service';
+import { notificationService } from '../services/notification.service';
 import { systemConfigService } from '../services/system-config.service';
 import { aiStreamService } from '../services/ai-stream.service';
 import {
@@ -919,6 +920,59 @@ class AdminController {
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
       res.setHeader('Content-Disposition', 'attachment; filename="admin-overview.csv"');
       res.status(200).send(lines.join('\n'));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async listNotifications(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { limit, offset } = parsePagination(req);
+      const status = typeof req.query.status === 'string'
+        ? req.query.status as NotificationStatus
+        : undefined;
+      const templateCode = typeof req.query.template_code === 'string' ? req.query.template_code : undefined;
+      const userId = typeof req.query.user_id === 'string' ? req.query.user_id : undefined;
+      const dedupKey = typeof req.query.dedup_key === 'string' ? req.query.dedup_key : undefined;
+      const result = await notificationService.listForAdmin({
+        status,
+        templateCode,
+        userId,
+        dedupKey,
+        limit,
+        offset,
+      });
+
+      res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async cancelNotification(req: Request, res: Response, next: NextFunction) {
+    try {
+      const reason = typeof req.body?.reason === 'string' ? req.body.reason : undefined;
+      const notification = await notificationService.cancelPendingByAdmin(req.params.notificationId, reason);
+      if (!notification) {
+        throw Errors.NOT_FOUND('通知不存在');
+      }
+
+      await adminService.writeAuditLog({
+        actorId: req.admin?.id,
+        actorType: 'admin',
+        entityType: 'notification',
+        entityId: notification.id,
+        action: 'cancel_pending',
+        detail: {
+          userId: notification.user_id,
+          templateCode: notification.template_code,
+          dedupKey: notification.dedup_key,
+          reason: reason || null,
+          status: notification.status,
+        },
+      });
+
+      res.json({ success: true, data: { notification }, message: '已取消 pending 通知' });
     } catch (error) {
       next(error);
     }

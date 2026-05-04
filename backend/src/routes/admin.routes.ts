@@ -22,6 +22,8 @@ import {
   adminJobTriggerSchema,
   adminJobStatsQuerySchema,
   adminLoginSchema,
+  adminNotificationCancelSchema,
+  adminNotificationListQuerySchema,
   adminPaginationQuerySchema,
   adminSearchPaginationQuerySchema,
   adminUpsertConfigSchema,
@@ -218,6 +220,22 @@ router.post(
   requireAdminPermission('reports:read'),
   validate(adminCustomReportSchema),
   adminController.customReport.bind(adminController)
+);
+router.get(
+  '/notifications',
+  generalLimiter,
+  authenticateAdmin,
+  requireAdminPermission('reports:read'),
+  validate(adminNotificationListQuerySchema),
+  adminController.listNotifications.bind(adminController)
+);
+router.post(
+  '/notifications/:notificationId/cancel',
+  generalLimiter,
+  authenticateAdmin,
+  requireAdminPermission('ops:execute'),
+  validate(adminNotificationCancelSchema),
+  adminController.cancelNotification.bind(adminController)
 );
 router.get(
   '/runtime/interview',

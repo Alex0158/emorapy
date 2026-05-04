@@ -128,6 +128,8 @@ describe('routes/health.routes', () => {
       expect(res.body).toHaveProperty('checks');
       expect(res.body).toHaveProperty('responseTime');
       expect(res.body).toHaveProperty('version');
+      expect(res.body).toHaveProperty('commitSha');
+      expect(res.body).toHaveProperty('commitShortSha');
     });
 
     it('lock backend 為 simple-lock-degraded 時應標記 degraded（F10 邊界）', async () => {
@@ -221,6 +223,22 @@ describe('routes/health.routes', () => {
       const res = await request(app).get('/health/live');
       expect(res.status).toBe(200);
       expect(res.body).toEqual({ status: 'alive' });
+    });
+  });
+
+  describe('GET /version', () => {
+    it('應返回 backend version manifest，包含 commitSha 與 commitShortSha', async () => {
+      process.env.CJ_COMMIT_SHA = '1234567890abcdef';
+      const app = createApp();
+      const res = await request(app).get('/version');
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({
+        service: 'backend',
+        commitSha: '1234567890abcdef',
+        commitShortSha: '1234567',
+      });
+      expect(res.body.version).toEqual(expect.any(String));
+      expect(res.body.timestamp).toEqual(expect.any(String));
     });
   });
 

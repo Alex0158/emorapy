@@ -8,18 +8,13 @@ import logger from '../config/logger';
 import { env } from '../config/env';
 import { jobsStarted } from '../jobs/cleanup.job';
 import { lockService } from '../utils/lock';
-import packageJson from '../../package.json';
+import { buildBackendVersionManifest } from '../utils/version';
 
 const router = Router();
-const backendVersion = packageJson.version || '1.0.0';
 
 router.get('/version', (_req: Request, res: Response) => {
   res.setHeader('Cache-Control', 'no-store');
-  res.status(200).json({
-    service: 'backend',
-    version: backendVersion,
-    timestamp: new Date().toISOString(),
-  });
+  res.status(200).json(buildBackendVersionManifest());
 });
 
 /**
@@ -86,13 +81,16 @@ router.get('/health', async (req: Request, res: Response) => {
 
     const isHealthy = !degraded && Object.values(checks).every(check => check.status === 'healthy' || check.status === 'skipped');
 
+    const versionManifest = buildBackendVersionManifest();
     const response = {
       status: isHealthy ? 'healthy' : 'degraded',
       timestamp: new Date().toISOString(),
       uptime: Math.floor(process.uptime()),
       checks,
       responseTime: totalResponseTime,
-      version: backendVersion,
+      version: versionManifest.version,
+      commitSha: versionManifest.commitSha,
+      commitShortSha: versionManifest.commitShortSha,
     };
 
     if (isHealthy) {

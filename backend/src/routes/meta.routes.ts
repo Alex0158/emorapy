@@ -3,10 +3,9 @@
  */
 
 import { Router, Response } from 'express';
-import packageJson from '../../package.json';
+import { buildBackendVersionManifest } from '../utils/version';
 
 const router = Router();
-const backendVersion = packageJson.version || '1.0.0';
 
 /**
  * @route   GET /api/v1/version
@@ -15,11 +14,7 @@ const backendVersion = packageJson.version || '1.0.0';
  */
 router.get('/version', (_req, res: Response) => {
   res.setHeader('Cache-Control', 'no-store');
-  res.status(200).json({
-    service: 'backend',
-    version: backendVersion,
-    timestamp: new Date().toISOString(),
-  });
+  res.status(200).json(buildBackendVersionManifest());
 });
 
 export default router;

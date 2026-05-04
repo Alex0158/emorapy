@@ -21,7 +21,11 @@ jest.mock('../../../src/config/logger', () => ({
   default: { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() },
 }));
 
-import { clinicalQualityService } from '../../../src/services/clinical-quality.service';
+import {
+  clinicalQualityService,
+  getClinicalQualityCaseType,
+  UNKNOWN_CLINICAL_QUALITY_CASE_TYPE,
+} from '../../../src/services/clinical-quality.service';
 
 describe('ClinicalQualityService', () => {
   beforeEach(() => {
@@ -116,6 +120,31 @@ describe('ClinicalQualityService', () => {
         'clinical:metrics:aggregate',
         expect.stringContaining(':judgment-prompt-version-unknown:')
       );
+    });
+
+    it('caseType 空白時應使用集中未知類型分桶（F04 邊界：legacy case）', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (mockGet as any).mockResolvedValue(null);
+
+      await clinicalQualityService.recordPostResponseMetrics({
+        judgmentId: 'j5',
+        promptVersion: 'v1',
+        caseType: '   ',
+        feltUnderstood: 3,
+        feltBlamed: 2,
+        willingToTry: 3,
+      });
+
+      expect(mockGenerateKey).toHaveBeenCalledWith(
+        'clinical:metrics:aggregate',
+        expect.stringMatching(/:standard:unknown$/)
+      );
+    });
+
+    it('應集中管理 clinical quality caseType fallback', () => {
+      expect(getClinicalQualityCaseType('  溝通衝突  ')).toBe('溝通衝突');
+      expect(getClinicalQualityCaseType(null)).toBe(UNKNOWN_CLINICAL_QUALITY_CASE_TYPE);
+      expect(getClinicalQualityCaseType('')).toBe(UNKNOWN_CLINICAL_QUALITY_CASE_TYPE);
     });
   });
 });

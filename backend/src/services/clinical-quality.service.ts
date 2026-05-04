@@ -3,10 +3,12 @@ import logger from '../config/logger';
 import type { JudgmentRoute } from './safety-routing.service';
 import { getJudgmentMetricsPromptVersion } from '../utils/ai-prompt-version';
 
+export const UNKNOWN_CLINICAL_QUALITY_CASE_TYPE = 'unknown';
+
 export interface ClinicalQualityMetricsInput {
   judgmentId: string;
   promptVersion?: string | null;
-  caseType?: string;
+  caseType?: string | null;
   route?: JudgmentRoute;
   feltUnderstood: number;
   feltBlamed: number;
@@ -22,7 +24,8 @@ export class ClinicalQualityService {
     const bucketDate = new Date().toISOString().slice(0, 10);
     const route = input.route || 'standard';
     const promptVersion = getJudgmentMetricsPromptVersion(input.promptVersion);
-    const scope = `${bucketDate}:${promptVersion}:${route}:${input.caseType || 'unknown'}`;
+    const caseType = getClinicalQualityCaseType(input.caseType);
+    const scope = `${bucketDate}:${promptVersion}:${route}:${caseType}`;
     const key = CacheService.generateKey('clinical:metrics:aggregate', scope);
 
     const current = (await cacheService.get<{
@@ -50,7 +53,7 @@ export class ClinicalQualityService {
       judgmentId: input.judgmentId,
       route,
       promptVersion,
-      caseType: input.caseType,
+      caseType,
       metrics: {
         feltUnderstood: input.feltUnderstood,
         feltBlamed: input.feltBlamed,
@@ -67,3 +70,8 @@ export class ClinicalQualityService {
 }
 
 export const clinicalQualityService = new ClinicalQualityService();
+
+export function getClinicalQualityCaseType(caseType?: string | null): string {
+  const normalized = typeof caseType === 'string' ? caseType.trim() : '';
+  return normalized || UNKNOWN_CLINICAL_QUALITY_CASE_TYPE;
+}

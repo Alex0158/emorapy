@@ -883,6 +883,31 @@ describe('JudgmentService', () => {
         promptVersion: 'judgment-prompt-version-unknown',
       }));
     });
+
+    it('legacy case 沒有 type 時應把原值交由 ClinicalQualityService 分桶', async () => {
+      prismaMock.judgment.findUnique.mockResolvedValueOnce({
+        id: 'j-legacy-type',
+        prompt_version: 'v4.0',
+        emotional_analysis: { route: 'standard' },
+        case: baseCase({
+          mode: 'quick',
+          session_id: 's-legacy-type',
+          type: null,
+        }),
+      });
+      const service = new JudgmentService();
+
+      await expect(service.recordClinicalMetrics('j-legacy-type', {
+        felt_understood: 4,
+        felt_blamed: 1,
+        willing_to_try: 5,
+      }, { sessionId: 's-legacy-type' })).resolves.toEqual({ recorded: true });
+
+      expect(clinicalQualityServiceMock.recordPostResponseMetrics).toHaveBeenCalledWith(expect.objectContaining({
+        judgmentId: 'j-legacy-type',
+        caseType: null,
+      }));
+    });
   });
 
   describe('getJudgmentByCaseId', () => {

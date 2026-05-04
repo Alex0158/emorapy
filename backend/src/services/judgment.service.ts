@@ -1137,7 +1137,7 @@ export class JudgmentService {
     await clinicalQualityService.recordPostResponseMetrics({
       judgmentId: judgment.id,
       promptVersion: getJudgmentMetricsPromptVersion(judgment.prompt_version),
-      caseType: judgment.case.type || 'unknown',
+      caseType: judgment.case.type,
       route,
       feltUnderstood: metrics.felt_understood,
       feltBlamed: metrics.felt_blamed,

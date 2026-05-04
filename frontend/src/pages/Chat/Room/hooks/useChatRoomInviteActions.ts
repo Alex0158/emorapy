@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { message } from "antd";
+import { toast } from 'sonner';
 import { t } from "@/utils/i18n";
 import { createChatInvite } from "@/services/api/chat";
 import type { ChatRoom } from "@/types/chat";
@@ -54,7 +54,7 @@ export function useChatRoomInviteActions({
 			setLastInviteCode(invite.invite_code || "");
 			setErrorText("");
 			void refreshRoomSafely(targetRoomId).catch(() => undefined);
-			message.success(t("chat.message.createInviteSuccess"));
+			toast.success(t("chat.message.createInviteSuccess"));
 		} catch (error) {
 			if (!shouldApplyInviteResult(targetRoomId)) return;
 			const feedback = getRoomMutationErrorFeedback(

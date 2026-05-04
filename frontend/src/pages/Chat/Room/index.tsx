@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMountedRef } from '@/hooks/useMountedRef';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { Card, Space, Spin, message } from 'antd';
+import { toast } from 'sonner';
+import { Loader2 } from 'lucide-react';
 import { t } from '@/utils/i18n';
 import { useAIStreamSubscription } from '@/hooks/useAIStreamSubscription';
 import { draftFromSnapshot, reduceDraftWithEvent, type AIStreamDraft } from '@/utils/aiStreamState';
@@ -94,9 +95,9 @@ const ChatRoomPage = () => {
 
   const showChatActionFeedback = useCallback((feedback: { level: 'warning' | 'error'; message: string }) => {
     if (feedback.level === 'warning') {
-      message.warning(feedback.message);
+      toast.warning(feedback.message);
     } else {
-      message.error(feedback.message);
+      toast.error(feedback.message);
     }
   }, []);
 
@@ -132,9 +133,9 @@ const ChatRoomPage = () => {
 
     const feedback = getRoomStatusNoticeFeedback(event);
     if (feedback?.level === 'success') {
-      message.success(feedback.message);
+      toast.success(feedback.message);
     } else if (feedback?.level === 'info') {
-      message.info(feedback.message);
+      toast.info(feedback.message);
     }
 
     lastRoomStatusNoticeAtRef.current = at ?? String(Date.now());
@@ -151,7 +152,7 @@ const ChatRoomPage = () => {
   const scrollToMessage = useCallback((targetMessageId: string) => {
     const absIndex = messageIndexByIdRef.current.get(targetMessageId);
     if (absIndex === undefined) {
-      message.info(t('chat.message.referenceNotLoaded'));
+      toast.info(t('chat.message.referenceNotLoaded'));
       return;
     }
     virtuosoRef.current?.scrollToIndex({ index: absIndex, align: 'center', behavior: 'smooth' });
@@ -527,14 +528,14 @@ const ChatRoomPage = () => {
 
   return (
     <div className="chat-room-page">
-      <Card className="chat-room-page__panel">
+      <div className="chat-room-page__panel">
         {loading ? (
           <div className="chat-room-page__loading">
-            <Spin />
+            <Loader2 className="size-8 animate-spin text-primary" />
           </div>
         ) : (
           <>
-            <Space orientation="vertical" size={12} style={{ width: '100%' }}>
+            <div className="flex flex-col gap-3 w-full">
               <ChatRoomHeader
                 roomId={routeRoomId!}
                 room={room}
@@ -615,10 +616,10 @@ const ChatRoomPage = () => {
                 sending={sending}
                 onSend={handleSendMessage}
               />
-            </Space>
+            </div>
           </>
         )}
-      </Card>
+      </div>
 
       <ChatJudgmentPanel
         open={previewVisible}

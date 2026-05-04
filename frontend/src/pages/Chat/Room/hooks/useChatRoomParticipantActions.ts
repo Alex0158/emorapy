@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { message } from "antd";
+import { toast } from 'sonner';
 import { getErrorMessage } from "@/utils/apiError";
 import { t } from "@/utils/i18n";
 import { kickChatParticipantB, leaveChatRoom } from "@/services/api/chat";
@@ -42,11 +42,11 @@ export function useChatRoomParticipantActions({
 		try {
 			await leaveChatRoom(targetRoomId);
 			if (!shouldApplyActionResult(targetRoomId)) return;
-			message.success(t("chat.message.leaveRoomSuccess"));
+			toast.success(t("chat.message.leaveRoomSuccess"));
 			navigateToRoomEntry();
 		} catch (error) {
 			if (!shouldApplyActionResult(targetRoomId)) return;
-			message.error(getErrorMessage(error, "chat.message.leaveRoomFail"));
+			toast.error(getErrorMessage(error, "chat.message.leaveRoomFail"));
 		} finally {
 			if (leaveRoomInFlightRoomIdRef.current === targetRoomId) {
 				leaveRoomInFlightRoomIdRef.current = null;
@@ -68,11 +68,11 @@ export function useChatRoomParticipantActions({
 		try {
 			await kickChatParticipantB(targetRoomId);
 			if (!shouldApplyActionResult(targetRoomId)) return;
-			message.success(t("chat.message.kickSuccess"));
+			toast.success(t("chat.message.kickSuccess"));
 			void refreshRoomSafely(targetRoomId).catch(() => undefined);
 		} catch (error) {
 			if (!shouldApplyActionResult(targetRoomId)) return;
-			message.error(getErrorMessage(error, "chat.message.kickFail"));
+			toast.error(getErrorMessage(error, "chat.message.kickFail"));
 		} finally {
 			if (kickBInFlightRoomIdRef.current === targetRoomId) {
 				kickBInFlightRoomIdRef.current = null;

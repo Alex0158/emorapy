@@ -451,6 +451,12 @@ const zhTW = {
 		"chat.message.leaveRoomFail": "離開失敗",
 		"chat.message.kickSuccess": "已移除 B 方",
 		"chat.message.kickFail": "移除失敗",
+		"chat.toast.createRoomFail": "建立聊天室失敗",
+		"chat.toast.inviteCodeRequired": "請先輸入邀請碼",
+		"chat.toast.joinSuccess": "加入聊天室成功",
+		"chat.toast.joinFail": "加入聊天室失敗",
+		"chat.toast.declineSuccess": "已拒絕邀請",
+		"chat.toast.declineFail": "拒絕邀請失敗",
 	// 快速體驗創建頁（QuickExperience/Create）
 	"quickCreate.title": "快速體驗 - 創建案件",
 	"quickCreate.description": "填寫雙方陳述，立即獲得AI判決",

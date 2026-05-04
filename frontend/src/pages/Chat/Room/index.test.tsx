@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import { message as antdMessage } from 'antd';
+import { toast } from 'sonner';
 import ChatRoomPage from './index';
 import { setLocale } from '@/utils/i18n';
 import { useAuthStore } from '@/store/authStore';
@@ -116,6 +116,15 @@ vi.mock('@/services/aiStream', () => ({
   connectAIStream: (...args: unknown[]) => mockConnectAIStream(...args),
 }));
 
+vi.mock('sonner', () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+    warning: vi.fn(),
+    info: vi.fn(),
+  },
+}));
+
 const LoginCapture = () => {
   const location = useLocation();
   return <div data-testid="login-from">{location.state?.from?.pathname ?? 'none'}</div>;
@@ -196,10 +205,6 @@ describe('ChatRoomPage', () => {
     vi.clearAllMocks();
     localStorage.clear();
     useAuthStore.setState({ user: { id: 'u1' } as any, isAuthenticated: true, _hasHydrated: true } as any);
-    vi.spyOn(antdMessage, 'success').mockImplementation(() => undefined as any);
-    vi.spyOn(antdMessage, 'error').mockImplementation(() => undefined as any);
-    vi.spyOn(antdMessage, 'warning').mockImplementation(() => undefined as any);
-    vi.spyOn(antdMessage, 'info').mockImplementation(() => undefined as any);
     mockConnectChatStream.mockResolvedValue(() => undefined);
     mockConnectAIStream.mockResolvedValue(() => undefined);
     mockGetChatRoom.mockResolvedValue({
@@ -255,7 +260,7 @@ describe('ChatRoomPage', () => {
     unmount();
     resolveCreate!({ id: 'new-room' });
     await Promise.resolve();
-    expect(antdMessage.success).not.toHaveBeenCalled();
+    expect(toast.success).not.toHaveBeenCalled();
   });
 
   it('建立聊天室快速連點只會送出一次請求', async () => {
@@ -397,7 +402,7 @@ describe('ChatRoomPage', () => {
 
     const btn = screen.getByRole('button', { name: '建立聊天室' });
     await waitFor(() => {
-      expect(btn).not.toHaveClass('ant-btn-loading');
+      expect(btn).not.toBeDisabled();
     });
     fireEvent.click(btn);
     await waitFor(() => {
@@ -712,7 +717,7 @@ describe('ChatRoomPage', () => {
     fireEvent.click(screen.getByRole('button', { name: '發起判決' }));
     await screen.findByText('轉判決前確認');
 
-    fireEvent.click(screen.getByRole('button', { name: 'go room' }));
+    fireEvent.click(screen.getByRole('button', { name: 'go room', hidden: true }));
     await screen.findByText(/聊天室：room-b/);
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
@@ -766,7 +771,7 @@ describe('ChatRoomPage', () => {
     unmount();
     resolveDecline!({ id: 'invite-1', status: 'declined' });
     await Promise.resolve();
-    expect(antdMessage.success).not.toHaveBeenCalled();
+    expect(toast.success).not.toHaveBeenCalled();
   });
 
   it('declineChatInvite 失敗且有 message 應顯示該 message（F07 錯誤處理約定）', async () => {
@@ -787,7 +792,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(antdMessage.error).toHaveBeenCalledWith('此邀請已無法拒絕');
+      expect(toast.error).toHaveBeenCalledWith('此邀請已無法拒絕');
     });
   });
 
@@ -809,7 +814,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(antdMessage.error).toHaveBeenCalledWith('拒絕邀請失敗');
+      expect(toast.error).toHaveBeenCalledWith('拒絕邀請失敗');
     });
   });
 
@@ -831,7 +836,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(antdMessage.error).toHaveBeenCalledWith('拒絕邀請失敗');
+      expect(toast.error).toHaveBeenCalledWith('拒絕邀請失敗');
     });
   });
 
@@ -853,7 +858,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(antdMessage.error).toHaveBeenCalledWith('拒絕邀請失敗');
+      expect(toast.error).toHaveBeenCalledWith('拒絕邀請失敗');
     });
   });
 
@@ -876,7 +881,7 @@ describe('ChatRoomPage', () => {
       fireEvent.click(screen.getByRole('button', { name: '拒絕邀請' }));
     });
     await waitFor(() => {
-      expect(antdMessage.error).toHaveBeenCalledWith('暫時無法拒絕');
+      expect(toast.error).toHaveBeenCalledWith('暫時無法拒絕');
     });
 
     await act(async () => {
@@ -884,7 +889,7 @@ describe('ChatRoomPage', () => {
     });
     await waitFor(() => {
       expect(mockDeclineChatInvite).toHaveBeenCalledTimes(2);
-      expect(antdMessage.success).toHaveBeenCalledWith('已拒絕邀請');
+      expect(toast.success).toHaveBeenCalledWith('已拒絕邀請');
     });
   });
 
@@ -930,7 +935,7 @@ describe('ChatRoomPage', () => {
       await Promise.resolve();
     });
 
-    expect(antdMessage.success).not.toHaveBeenCalledWith('已拒絕邀請');
+    expect(toast.success).not.toHaveBeenCalledWith('已拒絕邀請');
     expect(screen.getByText(/聊天室：room-b/)).toBeInTheDocument();
   });
 
@@ -1037,7 +1042,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(antdMessage.error).toHaveBeenCalledWith('邀請碼已失效或已被使用');
+      expect(toast.error).toHaveBeenCalledWith('邀請碼已失效或已被使用');
     });
   });
 
@@ -1059,7 +1064,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(antdMessage.error).toHaveBeenCalledWith('加入聊天室失敗');
+      expect(toast.error).toHaveBeenCalledWith('加入聊天室失敗');
     });
   });
 
@@ -1081,7 +1086,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(antdMessage.error).toHaveBeenCalledWith('加入聊天室失敗');
+      expect(toast.error).toHaveBeenCalledWith('加入聊天室失敗');
     });
   });
 
@@ -1103,7 +1108,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(antdMessage.error).toHaveBeenCalledWith('加入聊天室失敗');
+      expect(toast.error).toHaveBeenCalledWith('加入聊天室失敗');
     });
   });
 
@@ -1131,7 +1136,7 @@ describe('ChatRoomPage', () => {
     unmount();
     resolveAccept!({ id: 'room-joined' });
     await Promise.resolve();
-    expect(antdMessage.success).not.toHaveBeenCalled();
+    expect(toast.success).not.toHaveBeenCalled();
   });
 
   it('路由切換後舊入口 acceptChatInvite 成功不應導向加入房間（entry action 競態回歸）', async () => {
@@ -1174,7 +1179,7 @@ describe('ChatRoomPage', () => {
       await Promise.resolve();
     });
 
-    expect(antdMessage.success).not.toHaveBeenCalledWith('加入聊天室成功');
+    expect(toast.success).not.toHaveBeenCalledWith('加入聊天室成功');
     expect(screen.queryByText(/joined-after-route-change/)).not.toBeInTheDocument();
     expect(screen.getByText(/聊天室：room-b/)).toBeInTheDocument();
   });
@@ -1199,7 +1204,7 @@ describe('ChatRoomPage', () => {
       fireEvent.click(screen.getByRole('button', { name: '用邀請碼加入' }));
     });
     await waitFor(() => {
-      expect(antdMessage.error).toHaveBeenCalledWith('暫時無法加入');
+      expect(toast.error).toHaveBeenCalledWith('暫時無法加入');
     });
 
     await act(async () => {
@@ -1207,7 +1212,7 @@ describe('ChatRoomPage', () => {
     });
     await waitFor(() => {
       expect(mockAcceptChatInvite).toHaveBeenCalledTimes(2);
-      expect(antdMessage.success).toHaveBeenCalledWith('加入聊天室成功');
+      expect(toast.success).toHaveBeenCalledWith('加入聊天室成功');
     });
   });
 
@@ -1236,7 +1241,7 @@ describe('ChatRoomPage', () => {
       fireEvent.change(screen.getByPlaceholderText('輸入訊息...'), {
         target: { value: 'hello' },
       });
-      fireEvent.click(screen.getByRole('button', { name: /送\s*出/ }));
+      fireEvent.click(screen.getByRole('button', { name: '送出' }));
     });
 
     await waitFor(() => {
@@ -1276,7 +1281,7 @@ describe('ChatRoomPage', () => {
       fireEvent.change(screen.getByPlaceholderText('輸入訊息...'), {
         target: { value: 'room-a-pending' },
       });
-      fireEvent.click(screen.getByRole('button', { name: /送\s*出/ }));
+      fireEvent.click(screen.getByRole('button', { name: '送出' }));
     });
     await waitFor(() => {
       expect(mockSendChatMessage).toHaveBeenCalledWith(
@@ -1291,7 +1296,7 @@ describe('ChatRoomPage', () => {
       fireEvent.change(screen.getByPlaceholderText('輸入訊息...'), {
         target: { value: 'room-b-message' },
       });
-      fireEvent.click(screen.getByRole('button', { name: /送\s*出/ }));
+      fireEvent.click(screen.getByRole('button', { name: '送出' }));
     });
 
     await waitFor(() => {
@@ -1353,7 +1358,7 @@ describe('ChatRoomPage', () => {
       fireEvent.change(screen.getByPlaceholderText('輸入訊息...'), {
         target: { value: 'hello' },
       });
-      fireEvent.click(screen.getByRole('button', { name: /送\s*出/ }));
+      fireEvent.click(screen.getByRole('button', { name: '送出' }));
     });
 
     await waitFor(() => {
@@ -1414,7 +1419,7 @@ describe('ChatRoomPage', () => {
       fireEvent.change(screen.getByPlaceholderText('輸入訊息...'), {
         target: { value: 'hello' },
       });
-      fireEvent.click(screen.getByRole('button', { name: /送\s*出/ }));
+      fireEvent.click(screen.getByRole('button', { name: '送出' }));
     });
 
     await screen.findByText('思考中...');
@@ -1504,17 +1509,17 @@ describe('ChatRoomPage', () => {
       fireEvent.change(screen.getByPlaceholderText('輸入訊息...'), {
         target: { value: 'first' },
       });
-      fireEvent.click(screen.getByRole('button', { name: /送\s*出/ }));
+      fireEvent.click(screen.getByRole('button', { name: '送出' }));
     });
     await waitFor(() => {
-      expect(antdMessage.error).toHaveBeenCalledWith('網路暫時不穩');
+      expect(toast.error).toHaveBeenCalledWith('網路暫時不穩');
     });
 
     await act(async () => {
       fireEvent.change(screen.getByPlaceholderText('輸入訊息...'), {
         target: { value: '重試的訊息' },
       });
-      fireEvent.click(screen.getByRole('button', { name: /送\s*出/ }));
+      fireEvent.click(screen.getByRole('button', { name: '送出' }));
     });
     await waitFor(() => {
       expect(mockSendChatMessage).toHaveBeenCalledTimes(2);
@@ -1540,11 +1545,11 @@ describe('ChatRoomPage', () => {
       fireEvent.change(screen.getByPlaceholderText('輸入訊息...'), {
         target: { value: 'test message' },
       });
-      fireEvent.click(screen.getByRole('button', { name: /送\s*出/ }));
+      fireEvent.click(screen.getByRole('button', { name: '送出' }));
     });
 
     await waitFor(() => {
-      expect(antdMessage.error).toHaveBeenCalledWith('訊息發送失敗：房間已封存');
+      expect(toast.error).toHaveBeenCalledWith('訊息發送失敗：房間已封存');
     });
   });
 
@@ -1566,11 +1571,11 @@ describe('ChatRoomPage', () => {
       fireEvent.change(screen.getByPlaceholderText('輸入訊息...'), {
         target: { value: 'test message' },
       });
-      fireEvent.click(screen.getByRole('button', { name: /送\s*出/ }));
+      fireEvent.click(screen.getByRole('button', { name: '送出' }));
     });
 
     await waitFor(() => {
-      expect(antdMessage.error).toHaveBeenCalledWith('送出訊息失敗');
+      expect(toast.error).toHaveBeenCalledWith('送出訊息失敗');
     });
   });
 
@@ -1592,11 +1597,11 @@ describe('ChatRoomPage', () => {
       fireEvent.change(screen.getByPlaceholderText('輸入訊息...'), {
         target: { value: 'test message' },
       });
-      fireEvent.click(screen.getByRole('button', { name: /送\s*出/ }));
+      fireEvent.click(screen.getByRole('button', { name: '送出' }));
     });
 
     await waitFor(() => {
-      expect(antdMessage.error).toHaveBeenCalledWith('送出訊息失敗');
+      expect(toast.error).toHaveBeenCalledWith('送出訊息失敗');
     });
   });
 
@@ -1617,11 +1622,11 @@ describe('ChatRoomPage', () => {
       fireEvent.change(screen.getByPlaceholderText('輸入訊息...'), {
         target: { value: 'test message' },
       });
-      fireEvent.click(screen.getByRole('button', { name: /送\s*出/ }));
+      fireEvent.click(screen.getByRole('button', { name: '送出' }));
     });
 
     await waitFor(() => {
-      expect(antdMessage.warning).toHaveBeenCalledWith('目前沒有發言權限');
+      expect(toast.warning).toHaveBeenCalledWith('目前沒有發言權限');
     });
   });
 
@@ -1751,9 +1756,9 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(antdMessage.warning).toHaveBeenCalledWith('Session 已過期或不一致，請刷新後重試');
+      expect(toast.warning).toHaveBeenCalledWith('Session 已過期或不一致，請刷新後重試');
     });
-    expect(antdMessage.error).not.toHaveBeenCalledWith('建立邀請失敗');
+    expect(toast.error).not.toHaveBeenCalledWith('建立邀請失敗');
   });
 
   it('createChatInvite SESSION_EXPIRED 時應顯示 invalidSession 提示而非 createInviteFail', async () => {
@@ -1773,9 +1778,9 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(antdMessage.warning).toHaveBeenCalledWith('Session 已過期或不一致，請刷新後重試');
+      expect(toast.warning).toHaveBeenCalledWith('Session 已過期或不一致，請刷新後重試');
     });
-    expect(antdMessage.error).not.toHaveBeenCalledWith('建立邀請失敗');
+    expect(toast.error).not.toHaveBeenCalledWith('建立邀請失敗');
   });
 
   it('createChatInvite 失敗且有 message（非 CONFLICT）應顯示該 message（F07 錯誤處理約定）', async () => {
@@ -1795,7 +1800,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(antdMessage.error).toHaveBeenCalledWith('此房間已達邀請上限');
+      expect(toast.error).toHaveBeenCalledWith('此房間已達邀請上限');
     });
   });
 
@@ -1816,7 +1821,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(antdMessage.error).toHaveBeenCalledWith('建立邀請失敗');
+      expect(toast.error).toHaveBeenCalledWith('建立邀請失敗');
     });
   });
 
@@ -1837,7 +1842,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(antdMessage.error).toHaveBeenCalledWith('建立邀請失敗');
+      expect(toast.error).toHaveBeenCalledWith('建立邀請失敗');
     });
   });
 
@@ -1858,7 +1863,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(antdMessage.error).toHaveBeenCalledWith('建立邀請失敗');
+      expect(toast.error).toHaveBeenCalledWith('建立邀請失敗');
     });
   });
 
@@ -1882,9 +1887,9 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(antdMessage.warning).toHaveBeenCalledWith('Session 已過期或不一致，請刷新後重試');
+      expect(toast.warning).toHaveBeenCalledWith('Session 已過期或不一致，請刷新後重試');
     });
-    expect(antdMessage.error).not.toHaveBeenCalledWith('建立邀請失敗');
+    expect(toast.error).not.toHaveBeenCalledWith('建立邀請失敗');
   });
 
   it('createChatInvite 成功但組件已卸載時不應呼叫 message.success（useMountedRef 回歸：避免 F01-BUG-001 同類問題）', async () => {
@@ -1910,7 +1915,7 @@ describe('ChatRoomPage', () => {
     unmount();
     resolveCreateInvite!({ id: 'i1', invite_code: 'ABC123' });
     await Promise.resolve();
-    expect(antdMessage.success).not.toHaveBeenCalled();
+    expect(toast.success).not.toHaveBeenCalled();
   });
 
   it('createChatInvite 失敗但組件已卸載時不應呼叫 message.error 或 warning（P1-04）', async () => {
@@ -1936,8 +1941,8 @@ describe('ChatRoomPage', () => {
     unmount();
     rejectCreateInvite!(new Error('離線時無法建立邀請'));
     await Promise.resolve();
-    expect(antdMessage.error).not.toHaveBeenCalled();
-    expect(antdMessage.warning).not.toHaveBeenCalled();
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(toast.warning).not.toHaveBeenCalled();
   });
 
   it('createChatInvite 失敗後應仍可再次點擊建立邀請，成功後應顯示成功（F07 錯誤恢復：失敗不阻塞重試）', async () => {
@@ -1958,7 +1963,7 @@ describe('ChatRoomPage', () => {
       fireEvent.click(inviteBtn);
     });
     await waitFor(() => {
-      expect(antdMessage.error).toHaveBeenCalledWith('暫時無法建立');
+      expect(toast.error).toHaveBeenCalledWith('暫時無法建立');
     });
 
     await act(async () => {
@@ -1966,7 +1971,7 @@ describe('ChatRoomPage', () => {
     });
     await waitFor(() => {
       expect(mockCreateChatInvite).toHaveBeenCalledTimes(2);
-      expect(antdMessage.success).toHaveBeenCalledWith('邀請建立成功');
+      expect(toast.success).toHaveBeenCalledWith('邀請建立成功');
     });
   });
 
@@ -2033,7 +2038,7 @@ describe('ChatRoomPage', () => {
       await Promise.resolve();
     });
 
-    expect(antdMessage.success).not.toHaveBeenCalledWith('邀請建立成功');
+    expect(toast.success).not.toHaveBeenCalledWith('邀請建立成功');
     expect(screen.queryByText('邀請碼：OLD123')).not.toBeInTheDocument();
     expect(screen.getByText(/聊天室：room-b/)).toBeInTheDocument();
   });
@@ -2097,13 +2102,13 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(antdMessage.success).toHaveBeenCalledWith('邀請建立成功');
+      expect(toast.success).toHaveBeenCalledWith('邀請建立成功');
       expect(screen.getByText('邀請碼：OK123')).toBeInTheDocument();
     });
     await waitFor(() => {
       expect(mockGetChatRoom.mock.calls.length).toBeGreaterThan(beforeCalls);
     });
-    expect(antdMessage.error).not.toHaveBeenCalledWith('建立邀請失敗');
+    expect(toast.error).not.toHaveBeenCalledWith('建立邀請失敗');
   });
 
   it('SSE close 時會顯示重連提示', async () => {
@@ -2378,7 +2383,7 @@ describe('ChatRoomPage', () => {
 
     const retryBtn = screen.getByTestId('chat-room-load-retry');
     await waitFor(() => {
-      expect(retryBtn.closest('button')).not.toHaveClass('ant-btn-loading');
+      expect(retryBtn.closest('button')).not.toBeDisabled();
     });
     fireEvent.click(retryBtn);
     await waitFor(() => {
@@ -2485,7 +2490,7 @@ describe('ChatRoomPage', () => {
 	    await screen.findByText('聊天室：room-1');
 	    expect(screen.getByRole('button', { name: '建立邀請' })).toBeDisabled();
 	    expect(screen.getByRole('button', { name: '發起判決' })).toBeDisabled();
-	    expect(screen.getByRole('button', { name: /送\s*出/ })).toBeDisabled();
+	    expect(screen.getByRole('button', { name: '送出' })).toBeDisabled();
 
     await act(async () => {
       fireEvent.change(screen.getByPlaceholderText('輸入訊息...'), {
@@ -2548,11 +2553,10 @@ describe('ChatRoomPage', () => {
     fireEvent.click(screen.getByRole('button', { name: '發起判決' }));
     await screen.findByText('轉判決前確認');
     const dialog = await screen.findByRole('dialog');
-    const confirm = within(dialog).getAllByRole('button').at(-1);
-    expect(confirm).toBeTruthy();
+    const confirm = within(dialog).getByRole('button', { name: '確認' });
 
     await act(async () => {
-      fireEvent.click(confirm!);
+      fireEvent.click(confirm);
     });
 
     await waitFor(() => {
@@ -2610,11 +2614,10 @@ describe('ChatRoomPage', () => {
     fireEvent.click(screen.getByRole('button', { name: '發起判決' }));
     await screen.findByText('轉判決前確認');
     const dialog = await screen.findByRole('dialog');
-    const confirm = within(dialog).getAllByRole('button').at(-1);
-    expect(confirm).toBeTruthy();
+    const confirm = within(dialog).getByRole('button', { name: '確認' });
 
     await act(async () => {
-      fireEvent.click(confirm!);
+      fireEvent.click(confirm);
     });
 
     await waitFor(() => {
@@ -2655,8 +2658,7 @@ describe('ChatRoomPage', () => {
     fireEvent.click(screen.getByRole('button', { name: '發起判決' }));
     await screen.findByText('轉判決前確認');
     const dialog = await screen.findByRole('dialog');
-    const dialogButtons = within(dialog).getAllByRole('button');
-    const confirm = dialogButtons[dialogButtons.length - 1];
+    const confirm = within(dialog).getByRole('button', { name: '確認' });
     fireEvent.click(confirm);
     await waitFor(() => {
       expect(mockRequestChatJudgment).toHaveBeenCalled();
@@ -2664,7 +2666,7 @@ describe('ChatRoomPage', () => {
     unmount();
     resolveRequest!({ roomId: 'room-1', status: 'judgment_requested' });
     await Promise.resolve();
-    expect(antdMessage.success).not.toHaveBeenCalled();
+    expect(toast.success).not.toHaveBeenCalled();
   });
 
   it('requestChatJudgment 失敗但組件已卸載時不應呼叫 message.error 或 warning（P1-04）', async () => {
@@ -2697,8 +2699,7 @@ describe('ChatRoomPage', () => {
     fireEvent.click(screen.getByRole('button', { name: '發起判決' }));
     await screen.findByText('轉判決前確認');
     const dialog = await screen.findByRole('dialog');
-    const dialogButtons = within(dialog).getAllByRole('button');
-    const confirm = dialogButtons[dialogButtons.length - 1];
+    const confirm = within(dialog).getByRole('button', { name: '確認' });
     fireEvent.click(confirm);
     await waitFor(() => {
       expect(mockRequestChatJudgment).toHaveBeenCalled();
@@ -2706,8 +2707,8 @@ describe('ChatRoomPage', () => {
     unmount();
     rejectRequest!(new Error('判決服務暫時不可用'));
     await Promise.resolve();
-    expect(antdMessage.error).not.toHaveBeenCalled();
-    expect(antdMessage.warning).not.toHaveBeenCalled();
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(toast.warning).not.toHaveBeenCalled();
   });
 
   it('發起判決快速連點只會送出一次請求', async () => {
@@ -2751,8 +2752,7 @@ describe('ChatRoomPage', () => {
 
 	    await screen.findByText('轉判決前確認');
 		    const dialog = await screen.findByRole('dialog');
-		    const dialogButtons = within(dialog).getAllByRole('button');
-		    const confirm = dialogButtons[dialogButtons.length - 1];
+		    const confirm = within(dialog).getByRole('button', { name: '確認' });
 		    await act(async () => {
 		      fireEvent.click(confirm);
 		      fireEvent.click(confirm);
@@ -2795,8 +2795,7 @@ describe('ChatRoomPage', () => {
     fireEvent.click(screen.getByRole('button', { name: '發起判決' }));
     await screen.findByText('轉判決前確認');
     const dialog = await screen.findByRole('dialog');
-    const dialogButtons = within(dialog).getAllByRole('button');
-    const confirm = dialogButtons[dialogButtons.length - 1];
+    const confirm = within(dialog).getByRole('button', { name: '確認' });
 
     await act(async () => {
       fireEvent.click(confirm);
@@ -2804,7 +2803,7 @@ describe('ChatRoomPage', () => {
 
     await waitFor(() => {
       expect(mockRequestChatJudgment).toHaveBeenCalledTimes(1);
-      expect(antdMessage.success).toHaveBeenCalledWith('已發起判決，正在等待結果');
+      expect(toast.success).toHaveBeenCalledWith('已發起判決，正在等待結果');
     });
 
     expect(screen.getByRole('button', { name: /發起判決/ })).toBeDisabled();
@@ -2927,17 +2926,21 @@ describe('ChatRoomPage', () => {
     await screen.findByText('聊天室：room-1');
     fireEvent.click(screen.getByRole('button', { name: '發起判決' }));
     await screen.findByText('轉判決前確認');
-    const dialog = await screen.findByRole('dialog');
-    const dialogButtons = within(dialog).getAllByRole('button');
-    const confirm = dialogButtons[dialogButtons.length - 1];
+    let dialog = await screen.findByRole('dialog');
+    let confirm = within(dialog).getByRole('button', { name: '確認' });
     fireEvent.click(confirm);
     await waitFor(() => {
-      expect(antdMessage.error).toHaveBeenCalledWith('服務暫時不可用');
+      expect(toast.error).toHaveBeenCalledWith('服務暫時不可用');
     });
+
+    fireEvent.click(screen.getByRole('button', { name: '發起判決' }));
+    await screen.findByText('轉判決前確認');
+    dialog = await screen.findByRole('dialog');
+    confirm = within(dialog).getByRole('button', { name: '確認' });
     fireEvent.click(confirm);
     await waitFor(() => {
       expect(mockRequestChatJudgment).toHaveBeenCalledTimes(2);
-      expect(antdMessage.success).toHaveBeenCalled();
+      expect(toast.success).toHaveBeenCalled();
     });
   });
 
@@ -2970,14 +2973,13 @@ describe('ChatRoomPage', () => {
     fireEvent.click(screen.getByRole('button', { name: '發起判決' }));
     await screen.findByText('轉判決前確認');
     const dialog = await screen.findByRole('dialog');
-    const dialogButtons = within(dialog).getAllByRole('button');
-    const confirm = dialogButtons[dialogButtons.length - 1];
+    const confirm = within(dialog).getByRole('button', { name: '確認' });
     await act(async () => {
       fireEvent.click(confirm);
     });
 
     await waitFor(() => {
-      expect(antdMessage.error).toHaveBeenCalledWith('判決服務暫時不可用，請稍後再試');
+      expect(toast.error).toHaveBeenCalledWith('判決服務暫時不可用，請稍後再試');
     });
   });
 
@@ -3010,14 +3012,13 @@ describe('ChatRoomPage', () => {
     fireEvent.click(screen.getByRole('button', { name: '發起判決' }));
     await screen.findByText('轉判決前確認');
     const dialog = await screen.findByRole('dialog');
-    const dialogButtons = within(dialog).getAllByRole('button');
-    const confirm = dialogButtons[dialogButtons.length - 1];
+    const confirm = within(dialog).getByRole('button', { name: '確認' });
     await act(async () => {
       fireEvent.click(confirm);
     });
 
     await waitFor(() => {
-      expect(antdMessage.error).toHaveBeenCalledWith('發起判決失敗');
+      expect(toast.error).toHaveBeenCalledWith('發起判決失敗');
     });
   });
 
@@ -3050,14 +3051,13 @@ describe('ChatRoomPage', () => {
     fireEvent.click(screen.getByRole('button', { name: '發起判決' }));
     await screen.findByText('轉判決前確認');
     const dialog = await screen.findByRole('dialog');
-    const dialogButtons = within(dialog).getAllByRole('button');
-    const confirm = dialogButtons[dialogButtons.length - 1];
+    const confirm = within(dialog).getByRole('button', { name: '確認' });
     await act(async () => {
       fireEvent.click(confirm);
     });
 
     await waitFor(() => {
-      expect(antdMessage.error).toHaveBeenCalledWith('發起判決失敗');
+      expect(toast.error).toHaveBeenCalledWith('發起判決失敗');
     });
   });
 
@@ -3090,14 +3090,13 @@ describe('ChatRoomPage', () => {
     fireEvent.click(screen.getByRole('button', { name: '發起判決' }));
     await screen.findByText('轉判決前確認');
     const dialog = await screen.findByRole('dialog');
-    const dialogButtons = within(dialog).getAllByRole('button');
-    const confirm = dialogButtons[dialogButtons.length - 1];
+    const confirm = within(dialog).getByRole('button', { name: '確認' });
     await act(async () => {
       fireEvent.click(confirm);
     });
 
     await waitFor(() => {
-      expect(antdMessage.error).toHaveBeenCalledWith('發起判決失敗');
+      expect(toast.error).toHaveBeenCalledWith('發起判決失敗');
     });
   });
 
@@ -3138,7 +3137,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(antdMessage.error).toHaveBeenCalledWith('房間已鎖定，無法離開');
+      expect(toast.error).toHaveBeenCalledWith('房間已鎖定，無法離開');
     });
   });
 
@@ -3179,7 +3178,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(antdMessage.error).toHaveBeenCalledWith('離開失敗');
+      expect(toast.error).toHaveBeenCalledWith('離開失敗');
     });
   });
 
@@ -3220,7 +3219,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(antdMessage.error).toHaveBeenCalledWith('離開失敗');
+      expect(toast.error).toHaveBeenCalledWith('離開失敗');
     });
   });
 
@@ -3264,7 +3263,7 @@ describe('ChatRoomPage', () => {
     unmount();
     resolveLeave!();
     await Promise.resolve();
-    expect(antdMessage.success).not.toHaveBeenCalled();
+    expect(toast.success).not.toHaveBeenCalled();
   });
 
   it('leaveChatRoom 失敗但組件已卸載時不應呼叫 message.error（P1-04）', async () => {
@@ -3307,7 +3306,7 @@ describe('ChatRoomPage', () => {
     unmount();
     rejectLeave!(new Error('離開失敗'));
     await Promise.resolve();
-    expect(antdMessage.error).not.toHaveBeenCalled();
+    expect(toast.error).not.toHaveBeenCalled();
   });
 
   it('leaveChatRoom 失敗後應仍可再次點擊離開，成功後應顯示成功（F07 錯誤恢復：失敗不阻塞重試）', async () => {
@@ -3349,7 +3348,7 @@ describe('ChatRoomPage', () => {
       fireEvent.click(leaveBtn);
     });
     await waitFor(() => {
-      expect(antdMessage.error).toHaveBeenCalledWith('暫時無法離開');
+      expect(toast.error).toHaveBeenCalledWith('暫時無法離開');
     });
 
     await act(async () => {
@@ -3357,7 +3356,7 @@ describe('ChatRoomPage', () => {
     });
     await waitFor(() => {
       expect(mockLeaveChatRoom).toHaveBeenCalledTimes(2);
-      expect(antdMessage.success).toHaveBeenCalledWith('已離開聊天室');
+      expect(toast.success).toHaveBeenCalledWith('已離開聊天室');
     });
   });
 
@@ -3389,7 +3388,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(antdMessage.success).toHaveBeenCalledWith('已離開聊天室');
+      expect(toast.success).toHaveBeenCalledWith('已離開聊天室');
     });
   });
 
@@ -3431,7 +3430,7 @@ describe('ChatRoomPage', () => {
       await Promise.resolve();
     });
 
-    expect(antdMessage.success).not.toHaveBeenCalledWith('已離開聊天室');
+    expect(toast.success).not.toHaveBeenCalledWith('已離開聊天室');
     expect(screen.queryByText('entry page')).not.toBeInTheDocument();
     expect(screen.getByText(/聊天室：room-b/)).toBeInTheDocument();
   });
@@ -3471,7 +3470,7 @@ describe('ChatRoomPage', () => {
     unmount();
     resolveKick!({});
     await Promise.resolve();
-    expect(antdMessage.success).not.toHaveBeenCalled();
+    expect(toast.success).not.toHaveBeenCalled();
   });
 
   it('kickChatParticipantB 失敗且有 message 應顯示該 message（F07 錯誤處理約定）', async () => {
@@ -3504,7 +3503,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(antdMessage.error).toHaveBeenCalledWith('B 方正在參與判決流程，暫時無法移除');
+      expect(toast.error).toHaveBeenCalledWith('B 方正在參與判決流程，暫時無法移除');
     });
   });
 
@@ -3538,7 +3537,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(antdMessage.error).toHaveBeenCalledWith('移除失敗');
+      expect(toast.error).toHaveBeenCalledWith('移除失敗');
     });
   });
 
@@ -3572,7 +3571,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(antdMessage.error).toHaveBeenCalledWith('移除失敗');
+      expect(toast.error).toHaveBeenCalledWith('移除失敗');
     });
   });
 
@@ -3606,7 +3605,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(antdMessage.error).toHaveBeenCalledWith('移除失敗');
+      expect(toast.error).toHaveBeenCalledWith('移除失敗');
     });
   });
 
@@ -3644,7 +3643,7 @@ describe('ChatRoomPage', () => {
       fireEvent.click(kickBtn);
     });
     await waitFor(() => {
-      expect(antdMessage.error).toHaveBeenCalledWith('暫時無法移除');
+      expect(toast.error).toHaveBeenCalledWith('暫時無法移除');
     });
 
     await act(async () => {
@@ -3652,7 +3651,7 @@ describe('ChatRoomPage', () => {
     });
     await waitFor(() => {
       expect(mockKickChatParticipantB).toHaveBeenCalledTimes(2);
-      expect(antdMessage.success).toHaveBeenCalledWith('已移除 B 方');
+      expect(toast.success).toHaveBeenCalledWith('已移除 B 方');
     });
   });
 
@@ -3683,7 +3682,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(antdMessage.success).toHaveBeenCalledWith('已移除 B 方');
+      expect(toast.success).toHaveBeenCalledWith('已移除 B 方');
     });
   });
 
@@ -3724,7 +3723,7 @@ describe('ChatRoomPage', () => {
       await Promise.resolve();
     });
 
-    expect(antdMessage.success).not.toHaveBeenCalledWith('已移除 B 方');
+    expect(toast.success).not.toHaveBeenCalledWith('已移除 B 方');
     expect(screen.getByText(/聊天室：room-b/)).toBeInTheDocument();
   });
 
@@ -3750,12 +3749,12 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(antdMessage.success).toHaveBeenCalledWith('已移除 B 方');
+      expect(toast.success).toHaveBeenCalledWith('已移除 B 方');
     });
     await act(async () => {
       await Promise.resolve();
     });
-    expect(antdMessage.error).not.toHaveBeenCalledWith('移除失敗');
+    expect(toast.error).not.toHaveBeenCalledWith('移除失敗');
   });
 
   it('loadMoreHistory（listChatMessages 帶 cursor）FORBIDDEN 且無 message 時應使用 loadMoreFail（F07 權限邊界 fallback）', async () => {
@@ -3792,7 +3791,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(antdMessage.error).toHaveBeenCalledWith('載入更多訊息失敗');
+      expect(toast.error).toHaveBeenCalledWith('載入更多訊息失敗');
     });
   });
 
@@ -3830,7 +3829,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(antdMessage.error).toHaveBeenCalledWith('載入更多訊息失敗');
+      expect(toast.error).toHaveBeenCalledWith('載入更多訊息失敗');
     });
   });
 

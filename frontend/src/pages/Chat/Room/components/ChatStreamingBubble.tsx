@@ -2,7 +2,7 @@
  * AI streaming response placeholder
  */
 
-import { Tag } from 'antd';
+import { Badge } from '@/components/ui/badge';
 import AIStreamingBubble, { type AIStreamingBubbleStatus } from '@/components/common/AIStreamingBubble';
 import { t } from '@/utils/i18n';
 
@@ -26,7 +26,7 @@ export default function ChatStreamingBubble({ text, status = 'thinking' }: ChatS
       thinkingDotsClassName="chat-room-page__thinking-dots"
       head={(
         <div className="chat-room-page__message-head">
-          <Tag color="default">{t('chat.role.aiMediator')}</Tag>
+          <Badge variant="secondary" className="text-[10px]">{t('chat.role.aiMediator')}</Badge>
         </div>
       )}
     />

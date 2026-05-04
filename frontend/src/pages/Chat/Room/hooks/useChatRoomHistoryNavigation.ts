@@ -5,7 +5,7 @@ import {
 	type Dispatch,
 	type SetStateAction,
 } from "react";
-import { message } from "antd";
+import { toast } from 'sonner';
 import { getErrorMessage } from "@/utils/apiError";
 import { t } from "@/utils/i18n";
 import { listChatMessages } from "@/services/api/chat";
@@ -119,7 +119,7 @@ export function useChatRoomHistoryNavigation({
 				})
 			) {
 				historyCacheFullNoticeAtRef.current = now;
-				message.info(t("chat.message.historyCacheFull"));
+				toast.info(t("chat.message.historyCacheFull"));
 			}
 			return;
 		}
@@ -156,7 +156,7 @@ export function useChatRoomHistoryNavigation({
 			setHasMoreHistory(Boolean(result.nextCursor));
 		} catch (error) {
 			if (!mountedRef.current || !isRoomTargetActive(targetRoomId)) return;
-			message.error(getErrorMessage(error, "chat.message.loadMoreFail"));
+			toast.error(getErrorMessage(error, "chat.message.loadMoreFail"));
 		} finally {
 			if (mountedRef.current && isRoomTargetActive(targetRoomId)) {
 				setLoadingMoreHistory(false);
@@ -305,7 +305,7 @@ export function useChatRoomHistoryNavigation({
 			}
 			case "missing-history":
 			case "limit-reached":
-				message.info(t("chat.message.referenceNotLoaded"));
+				toast.info(t("chat.message.referenceNotLoaded"));
 				setPendingAnchorMessageId(null);
 				anchorJumpOriginRef.current = null;
 				return;

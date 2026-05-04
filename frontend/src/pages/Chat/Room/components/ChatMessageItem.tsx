@@ -2,13 +2,11 @@
  * Single chat message item
  */
 
-import { Alert, Button, Space, Tag, Typography } from 'antd';
-import { LinkOutlined, RollbackOutlined } from '@ant-design/icons';
+import { Reply, Link2, AlertTriangle } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { copyToClipboard } from '@/utils/copyToClipboard';
 import { t } from '@/utils/i18n';
 import type { ChatMessage } from '@/types/chat';
-
-const { Text, Paragraph } = Typography;
 
 interface ChatMessageItemProps {
   msg: ChatMessage;
@@ -32,84 +30,32 @@ interface ChatMessageItemProps {
 }
 
 export default function ChatMessageItem({
-  msg,
-  roleLabel,
-  side,
-  isGroupStart,
-  isGroupEnd,
-  showDayDivider,
-  currentDay,
-  linkUrl,
-  replyTargetContent,
-  disableSendMessage,
-  onReply,
-  onAnchorTarget,
-  setMessageAnchor,
-  getVisibilityScopeLabel,
-  getMessageTypeLabel,
-  getAiStrategyLabel,
-  isReplyTarget,
-  isHighlighted,
+  msg, roleLabel, side, isGroupStart, isGroupEnd, showDayDivider, currentDay,
+  linkUrl, replyTargetContent, disableSendMessage, onReply, onAnchorTarget,
+  setMessageAnchor, getVisibilityScopeLabel, getMessageTypeLabel, getAiStrategyLabel,
+  isReplyTarget, isHighlighted,
 }: ChatMessageItemProps) {
   const anchorId = `msg-${msg.id}`;
 
-  const handleReplyClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onReply(msg);
-  };
-
-  const handleCopyLinkClick = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setMessageAnchor(msg.id, { replace: true });
-    if (linkUrl) await copyToClipboard(linkUrl);
-  };
-
-  const handleReplyPreviewClick = () => {
-    const targetId = msg.reply_to_message_id!;
-    setMessageAnchor(targetId, { replace: true });
-    onAnchorTarget(targetId);
-  };
-
-  const handleReplyPreviewKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      const targetId = msg.reply_to_message_id!;
-      setMessageAnchor(targetId, { replace: true });
-      onAnchorTarget(targetId);
-    }
-  };
+  const handleReplyClick = (e: React.MouseEvent) => { e.stopPropagation(); onReply(msg); };
+  const handleCopyLinkClick = async (e: React.MouseEvent) => { e.stopPropagation(); setMessageAnchor(msg.id, { replace: true }); if (linkUrl) await copyToClipboard(linkUrl); };
+  const handleReplyPreviewClick = () => { const targetId = msg.reply_to_message_id!; setMessageAnchor(targetId, { replace: true }); onAnchorTarget(targetId); };
+  const handleReplyPreviewKeyDown = (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleReplyPreviewClick(); } };
 
   const actionButtons = msg.message_type !== 'safety_notice' ? (
     <>
-      <Button
-        size="small"
-        type="text"
-        icon={<RollbackOutlined />}
-        disabled={disableSendMessage}
-        aria-label={t('chat.reply')}
-        onClick={handleReplyClick}
-      >
-        {isGroupStart ? t('chat.reply') : undefined}
-      </Button>
-      <Button
-        size="small"
-        type="text"
-        icon={<LinkOutlined />}
-        aria-label={t('chat.copyLink')}
-        onClick={handleCopyLinkClick}
-      >
-        {isGroupStart ? t('chat.copyLink') : undefined}
-      </Button>
+      <button type="button" disabled={disableSendMessage} aria-label={t('chat.reply')} onClick={handleReplyClick} className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-50">
+        <Reply className="size-3" />{isGroupStart ? t('chat.reply') : null}
+      </button>
+      <button type="button" aria-label={t('chat.copyLink')} onClick={handleCopyLinkClick} className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:text-foreground hover:bg-accent">
+        <Link2 className="size-3" />{isGroupStart ? t('chat.copyLink') : null}
+      </button>
     </>
   ) : null;
 
   return (
     <div>
-      {showDayDivider ? (
-        <div className="chat-room-page__date-divider">
-          <Text type="secondary">{currentDay}</Text>
-        </div>
-      ) : null}
+      {showDayDivider && <div className="chat-room-page__date-divider"><span className="text-xs text-muted-foreground">{currentDay}</span></div>}
 
       <div className={`chat-room-page__message-row chat-room-page__message-row--${side}`}>
         <div
@@ -125,58 +71,40 @@ export default function ChatMessageItem({
         >
           {isGroupStart ? (
             <div className="chat-room-page__message-head">
-              <Space size={6} wrap align="center">
-                <Tag color="default">{roleLabel}</Tag>
-                <Tag color="purple">{getVisibilityScopeLabel(msg.visibility_scope)}</Tag>
-                {(msg.message_type !== 'user_text' || msg.ai_strategy) ? (
-                  <span className="chat-room-page__message-strategy">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <Badge variant="secondary" className="text-[10px]">{roleLabel}</Badge>
+                <Badge variant="outline" className="text-[10px]">{getVisibilityScopeLabel(msg.visibility_scope)}</Badge>
+                {(msg.message_type !== 'user_text' || msg.ai_strategy) && (
+                  <span className="text-[10px] text-muted-foreground">
                     {msg.message_type !== 'user_text' ? getMessageTypeLabel(msg.message_type) : ''}
                     {msg.message_type !== 'user_text' && msg.ai_strategy ? ' · ' : ''}
                     {msg.ai_strategy ? getAiStrategyLabel(msg.ai_strategy) : ''}
                   </span>
-                ) : null}
-              </Space>
-              <div className="chat-room-page__message-actions">
-                {actionButtons}
+                )}
               </div>
+              <div className="chat-room-page__message-actions">{actionButtons}</div>
             </div>
           ) : (
-            <div className="chat-room-page__message-actions chat-room-page__message-actions--floating">
-              {actionButtons}
-            </div>
+            <div className="chat-room-page__message-actions chat-room-page__message-actions--floating">{actionButtons}</div>
           )}
 
-          {msg.reply_to_message_id ? (
-            <div
-              className="chat-room-page__reply-preview"
-              role="button"
-              tabIndex={0}
-              onClick={handleReplyPreviewClick}
-              onKeyDown={handleReplyPreviewKeyDown}
-            >
-              <Text type="secondary">{t('chat.replyReference')}</Text>
-              <Paragraph className="chat-room-page__reply-preview-content">
-                {replyTargetContent ?? t('chat.replyReferenceMissing')}
-              </Paragraph>
+          {msg.reply_to_message_id && (
+            <div className="chat-room-page__reply-preview" role="button" tabIndex={0} onClick={handleReplyPreviewClick} onKeyDown={handleReplyPreviewKeyDown}>
+              <span className="text-xs text-muted-foreground">{t('chat.replyReference')}</span>
+              <p className="chat-room-page__reply-preview-content text-xs">{replyTargetContent ?? t('chat.replyReferenceMissing')}</p>
             </div>
-          ) : null}
+          )}
 
           {msg.message_type === 'safety_notice' ? (
-            <Alert
-              type="warning"
-              showIcon
-              title={t('chat.safetyMessageTitle')}
-              description={msg.content}
-            />
+            <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3">
+              <AlertTriangle className="size-4 mt-0.5 text-warning shrink-0" />
+              <div><p className="text-xs font-medium text-foreground">{t('chat.safetyMessageTitle')}</p><p className="text-xs text-muted-foreground mt-1">{msg.content}</p></div>
+            </div>
           ) : (
-            <Paragraph className="chat-room-page__message-content">{msg.content}</Paragraph>
+            <p className="chat-room-page__message-content">{msg.content}</p>
           )}
 
-          {isGroupEnd ? (
-            <div className="chat-room-page__message-foot">
-              <Text type="secondary">{new Date(msg.created_at).toLocaleString()}</Text>
-            </div>
-          ) : null}
+          {isGroupEnd && <div className="chat-room-page__message-foot"><span className="text-[10px] text-muted-foreground">{new Date(msg.created_at).toLocaleString()}</span></div>}
         </div>
       </div>
     </div>

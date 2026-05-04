@@ -1271,6 +1271,12 @@ const enUS: Record<string, string> = {
 		"chat.message.leaveRoomFail": "Failed to leave room",
 		"chat.message.kickSuccess": "Side B removed",
 		"chat.message.kickFail": "Failed to remove Side B",
+		"chat.toast.createRoomFail": "Failed to create room",
+		"chat.toast.inviteCodeRequired": "Please enter invite code",
+		"chat.toast.joinSuccess": "Joined room successfully",
+		"chat.toast.joinFail": "Failed to join room",
+		"chat.toast.declineSuccess": "Invite declined",
+		"chat.toast.declineFail": "Failed to decline invite",
 
 	// Network Status
 	"networkStatus.offline": "Network disconnected",

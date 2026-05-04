@@ -2,7 +2,9 @@
  * Chat room alerts - error, invite success, safety banner
  */
 
-import { Alert, Button } from 'antd';
+import { AlertCircle, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { t } from '@/utils/i18n';
 
 interface ChatRoomAlertsProps {
@@ -14,46 +16,31 @@ interface ChatRoomAlertsProps {
   onRetryLoad: () => void;
 }
 
-export default function ChatRoomAlerts({
-  errorText,
-  lastInviteCode,
-  latestSafetyContent,
-  hasRoom,
-  roomId,
-  onRetryLoad,
-}: ChatRoomAlertsProps) {
+export default function ChatRoomAlerts({ errorText, lastInviteCode, latestSafetyContent, hasRoom, roomId, onRetryLoad }: ChatRoomAlertsProps) {
   return (
     <>
-      {errorText ? (
-        <Alert
-          type="error"
-          showIcon
-          title={errorText}
-          action={
-            !hasRoom && roomId ? (
-              <Button size="small" onClick={onRetryLoad} data-testid="chat-room-load-retry">
-                {t('common.retry')}
-              </Button>
-            ) : null
-          }
-        />
-      ) : null}
-      {lastInviteCode ? (
-        <Alert
-          type="success"
-          showIcon
-          title={t('chat.inviteCodeLabel').replace('{code}', lastInviteCode)}
-        />
-      ) : null}
-      {latestSafetyContent ? (
-        <Alert
-          className="chat-room-page__safety-banner"
-          type="warning"
-          showIcon
-          title={t('chat.safetyBannerTitle')}
-          description={latestSafetyContent}
-        />
-      ) : null}
+      {errorText && (
+        <Alert className="border-destructive/30 bg-destructive/5 mb-3">
+          <AlertCircle className="size-4" />
+          <AlertTitle>{errorText}</AlertTitle>
+          {!hasRoom && roomId && (
+            <AlertDescription><Button variant="outline" size="sm" onClick={onRetryLoad} data-testid="chat-room-load-retry">{t('common.retry')}</Button></AlertDescription>
+          )}
+        </Alert>
+      )}
+      {lastInviteCode && (
+        <Alert className="border-success/30 bg-success/5 mb-3">
+          <CheckCircle className="size-4" />
+          <AlertTitle>{t('chat.inviteCodeLabel').replace('{code}', lastInviteCode)}</AlertTitle>
+        </Alert>
+      )}
+      {latestSafetyContent && (
+        <Alert className="border-warning/30 bg-warning/5 mb-3">
+          <AlertTriangle className="size-4" />
+          <AlertTitle>{t('chat.safetyBannerTitle')}</AlertTitle>
+          <AlertDescription>{latestSafetyContent}</AlertDescription>
+        </Alert>
+      )}
     </>
   );
 }

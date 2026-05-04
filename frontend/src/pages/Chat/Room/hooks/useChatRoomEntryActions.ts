@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { message } from "antd";
+import { toast } from 'sonner';
 import { getErrorMessage } from "@/utils/apiError";
 import { t } from "@/utils/i18n";
 import {
@@ -68,7 +68,7 @@ export function useChatRoomEntryActions({
 			navigateToCreatedRoom(created);
 		} catch (error) {
 			if (!shouldApplyEntryResult()) return;
-			setErrorText(getErrorMessage(error, "chat.message.createRoomFail"));
+			setErrorText(getErrorMessage(error, "chat.toast.createRoomFail"));
 		} finally {
 			if (mountedRef.current) {
 				setCreatingRoom(false);
@@ -91,7 +91,7 @@ export function useChatRoomEntryActions({
 		if (entryActionInFlightRef.current) return;
 		const inviteCode = inviteCodeInput.trim();
 		if (!inviteCode) {
-			message.warning(t("chat.message.inviteCodeRequired"));
+			toast.warning(t("chat.toast.inviteCodeRequired"));
 			return;
 		}
 		if (!beginEntryAction("accept")) return;
@@ -100,11 +100,11 @@ export function useChatRoomEntryActions({
 			const joined = await acceptChatInvite(inviteCode);
 			if (!shouldApplyEntryResult()) return;
 			setErrorText("");
-			message.success(t("chat.message.joinSuccess"));
+			toast.success(t("chat.toast.joinSuccess"));
 			navigateToJoinedRoom(joined.id);
 		} catch (error) {
 			if (!shouldApplyEntryResult()) return;
-			message.error(getErrorMessage(error, "chat.message.joinFail"));
+			toast.error(getErrorMessage(error, "chat.toast.joinFail"));
 		} finally {
 			if (mountedRef.current) {
 				setJoiningInvite(false);
@@ -125,7 +125,7 @@ export function useChatRoomEntryActions({
 		if (entryActionInFlightRef.current) return;
 		const inviteCode = inviteCodeInput.trim();
 		if (!inviteCode) {
-			message.warning(t("chat.message.inviteCodeRequired"));
+			toast.warning(t("chat.toast.inviteCodeRequired"));
 			return;
 		}
 		if (!beginEntryAction("decline")) return;
@@ -134,10 +134,10 @@ export function useChatRoomEntryActions({
 			await declineChatInvite(inviteCode);
 			if (!shouldApplyEntryResult()) return;
 			setErrorText("");
-			message.success(t("chat.message.declineSuccess"));
+			toast.success(t("chat.toast.declineSuccess"));
 		} catch (error) {
 			if (!shouldApplyEntryResult()) return;
-			message.error(getErrorMessage(error, "chat.message.declineFail"));
+			toast.error(getErrorMessage(error, "chat.toast.declineFail"));
 		} finally {
 			if (mountedRef.current) {
 				setDecliningInvite(false);

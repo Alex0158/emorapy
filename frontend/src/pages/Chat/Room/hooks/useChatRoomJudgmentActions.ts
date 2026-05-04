@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { message } from "antd";
+import { toast } from 'sonner';
 import { getChatJudgmentStatus, requestChatJudgment } from "@/services/api/chat";
 import { t } from "@/utils/i18n";
 import type { ChatRoom } from "@/types/chat";
@@ -88,7 +88,7 @@ export function useChatRoomJudgmentActions({
 				if (timeoutDecision.type === "timeout") {
 					clearJudgmentPolling();
 					clearJudgmentRequestForRoom(targetRoomId);
-					message.warning(t("chat.message.judgmentPollingTimeout"));
+					toast.warning(t("chat.message.judgmentPollingTimeout"));
 					return;
 				}
 				const status = await getChatJudgmentStatus(targetRoomId);
@@ -101,7 +101,7 @@ export function useChatRoomJudgmentActions({
 				});
 				if (decision.type === "ready") {
 					clearJudgmentPolling();
-					message.success(t("chat.message.judgmentReady"));
+					toast.success(t("chat.message.judgmentReady"));
 					clearJudgmentRequestForRoom(targetRoomId);
 					navigateToJudgment(decision.judgmentId);
 					return;
@@ -109,7 +109,7 @@ export function useChatRoomJudgmentActions({
 				if (decision.type === "failed") {
 					clearJudgmentPolling();
 					clearJudgmentRequestForRoom(targetRoomId);
-					message.warning(t("chat.message.judgmentFailed"));
+					toast.warning(t("chat.message.judgmentFailed"));
 				}
 			} catch {
 				// keep polling, avoid interrupting user flow
@@ -163,7 +163,7 @@ export function useChatRoomJudgmentActions({
 			const result = await requestChatJudgment(targetRoomId, payload);
 			if (!shouldApplyJudgmentResult(targetRoomId)) return;
 			setErrorText("");
-			message.success(t("chat.message.judgmentRequested"));
+			toast.success(t("chat.message.judgmentRequested"));
 			if (result.judgmentId) {
 				navigateToJudgment(result.judgmentId);
 				return;

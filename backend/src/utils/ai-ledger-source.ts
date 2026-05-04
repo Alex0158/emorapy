@@ -3,6 +3,8 @@ export type RuntimeAILedgerProductFlow =
   | 'profile_interview'
   | 'repair_journey';
 
+export const UNKNOWN_AI_LEDGER_PRODUCT_FLOW = 'unknown';
+
 export interface AILedgerSourceTracking {
   productFlow: RuntimeAILedgerProductFlow;
   sourceChannel: string;
@@ -31,4 +33,9 @@ export function buildRuntimeAILedgerSourceTracking(
     productFlow,
     ...RUNTIME_AI_LEDGER_SOURCE[productFlow],
   };
+}
+
+export function getAIRequestLedgerProductFlow(productFlow?: string | null): string {
+  const normalized = typeof productFlow === 'string' ? productFlow.trim() : '';
+  return normalized || UNKNOWN_AI_LEDGER_PRODUCT_FLOW;
 }

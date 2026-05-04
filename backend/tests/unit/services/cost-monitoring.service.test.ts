@@ -212,6 +212,44 @@ describe('cost-monitoring.service', () => {
     expect(report.openai.costUsd7d).toBe(2.5);
   });
 
+  it('ai_request_ledger product_flow 缺失時應使用集中 unknown 分桶', async () => {
+    const now = new Date();
+    aiRequestLedgerFindManyMock.mockResolvedValueOnce([
+      {
+        product_flow: null,
+        status: 'succeeded',
+        input_tokens: 10,
+        output_tokens: 5,
+        total_tokens: 15,
+        cost_usd: null,
+        created_at: now,
+      },
+      {
+        product_flow: '   ',
+        status: 'cancelled',
+        input_tokens: 4,
+        output_tokens: 0,
+        total_tokens: 4,
+        cost_usd: null,
+        created_at: now,
+      },
+    ]);
+
+    const { costMonitoringService } = await import('../../../src/services/cost-monitoring.service');
+    const report = await costMonitoringService.getAdminCostReport();
+
+    expect(report.openai.ledger.productFlows).toEqual([
+      expect.objectContaining({
+        productFlow: 'unknown',
+        requestCount24h: 2,
+        requestCount7d: 2,
+        succeededRequests7d: 1,
+        cancelledRequests7d: 1,
+        totalTokens7d: 19,
+      }),
+    ]);
+  });
+
   it('ai_request_ledger 查詢失敗時應降級為 partial', async () => {
     aiRequestLedgerFindManyMock.mockRejectedValueOnce(new Error('missing table'));
 

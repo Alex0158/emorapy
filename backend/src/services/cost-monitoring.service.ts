@@ -1,4 +1,5 @@
 import Redis from 'ioredis';
+import { getAIRequestLedgerProductFlow } from '../utils/ai-ledger-source';
 
 type DataStatus = 'ok' | 'partial' | 'unavailable';
 const EXTERNAL_API_TIMEOUT_MS = 8000;
@@ -495,7 +496,7 @@ async function readAIRequestLedgerBreakdown(): Promise<AdminCostReport['openai']
   };
 
   for (const row of rows) {
-    const flow = row.product_flow || 'unknown';
+    const flow = getAIRequestLedgerProductFlow(row.product_flow);
     const point = getFlow(flow);
     const createdAtMs = new Date(row.created_at).getTime();
     const is24h = Number.isFinite(createdAtMs) && createdAtMs >= since24hMs;

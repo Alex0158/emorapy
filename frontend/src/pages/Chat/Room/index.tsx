@@ -43,7 +43,7 @@ import { useChatRoomMessageActions } from './hooks/useChatRoomMessageActions';
 import { useChatRoomParticipantActions } from './hooks/useChatRoomParticipantActions';
 import { useChatRoomRouteLoader } from './hooks/useChatRoomRouteLoader';
 import { useChatRoomUiState } from './hooks/useChatRoomUiState';
-import './index.less';
+import './index.css';
 
 const ChatRoomPage = () => {
   const navigate = useNavigate();

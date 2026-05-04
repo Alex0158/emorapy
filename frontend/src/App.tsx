@@ -17,7 +17,6 @@ import { logPageLoadTime } from './utils/performance';
 import { initSEO } from './utils/seo';
 import { useAuthStore } from './store/authStore';
 import { getLocale, onLocaleChange, t } from './utils/i18n';
-import './App.less';
 
 // 配置Ant Design主題
 const theme = {

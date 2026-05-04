@@ -11,7 +11,7 @@ import {
   LockOutlined,
 } from '@ant-design/icons';
 import { t } from '@/utils/i18n';
-import './FlowSimulation.less';
+import './FlowSimulation.css';
 
 /* ─── Locale-aware content (from i18n) ─── */
 

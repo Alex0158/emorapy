@@ -1,16 +1,15 @@
-@import '@/assets/styles/variables.less';
 
 .home-page {
   .skip-link {
     position: absolute;
     top: -40px;
     left: 0;
-    background: @color-primary;
-    color: @color-white;
-    padding: @spacing-sm @spacing-md;
+    background: oklch(0.65 0.15 25);
+    color: #ffffff;
+    padding: 8px 16px;
     text-decoration: none;
     z-index: 1000;
-    border-radius: @border-radius-sm;
+    border-radius: 8px;
     transition: top 0.3s;
 
     &:focus {
@@ -20,7 +19,7 @@
 
   .adaptive-hero-section {
     padding: 60px 20px;
-    background: linear-gradient(135deg, @home-hero-bg-start 0%, @home-hero-bg-end 100%);
+    background: linear-gradient(135deg, #FBF9F7 0%, #F4F1ED 100%);
     min-height: 60vh;
     display: flex;
     align-items: center;
@@ -31,11 +30,11 @@
     min-height: 90vh;
     display: flex;
     align-items: center;
-    padding: @spacing-xxl @spacing-lg;
+    padding: 48px 24px;
     position: relative;
     overflow: hidden;
-    background: linear-gradient(160deg, @home-hero-bg-start 0%, @home-hero-bg-end 50%, rgba(132, 165, 157, 0.05) 100%);
-    color: @color-text-primary;
+    background: linear-gradient(160deg, #FBF9F7 0%, #F4F1ED 50%, rgba(132, 165, 157, 0.05) 100%);
+    color: #2C2420;
 
     &::before {
       content: '';
@@ -55,7 +54,7 @@
       display: grid;
       grid-template-columns: 1fr 1fr;
       align-items: center;
-      gap: @spacing-xxl;
+      gap: 48px;
       position: relative;
       z-index: 1;
     }
@@ -73,37 +72,37 @@
 
     .hero-title {
       font-size: clamp(32px, 5vw, 56px);
-      font-weight: @font-weight-bold;
+      font-weight: 700;
       line-height: 1.12;
       letter-spacing: -0.02em;
-      margin-bottom: @spacing-lg;
-      color: @color-text-primary;
-      font-family: @font-family-heading;
+      margin-bottom: 24px;
+      color: #2C2420;
+      font-family: "Plus Jakarta Sans", "Outfit", sans-serif;
 
       .text-primary {
-        color: @color-primary;
+        color: oklch(0.65 0.15 25);
       }
     }
 
     .hero-subtitle {
       font-size: clamp(16px, 2vw, 22px);
-      font-weight: @font-weight-regular;
+      font-weight: 400;
       line-height: 1.5;
-      margin-bottom: @spacing-xl;
-      color: @color-text-secondary;
+      margin-bottom: 32px;
+      color: #6B7280;
     }
 
     .hero-actions {
       display: flex;
-      gap: @spacing-md;
+      gap: 16px;
       flex-wrap: wrap;
 
       .primary-button {
         height: 52px;
-        font-size: @font-size-lg;
+        font-size: 18px;
         padding: 0 32px;
-        border-radius: @border-radius-xl;
-        font-weight: @font-weight-medium;
+        border-radius: 24px;
+        font-weight: 500;
         transition: transform 0.2s ease, box-shadow 0.2s ease;
 
         &:hover {
@@ -123,21 +122,21 @@
 
       .hero-btn-secondary {
         height: 52px;
-        font-size: @font-size-lg;
+        font-size: 18px;
         padding: 0 32px;
-        border-radius: @border-radius-xl;
-        border: 2px solid @color-text-secondary;
-        color: @color-text-primary;
+        border-radius: 24px;
+        border: 2px solid #6B7280;
+        color: #2C2420;
         background: transparent;
 
         &:hover {
-          border-color: @color-primary;
-          color: @color-primary;
+          border-color: oklch(0.65 0.15 25);
+          color: oklch(0.65 0.15 25);
           transform: translateY(-2px);
         }
 
         &:focus-visible {
-          outline: 3px solid @color-primary;
+          outline: 3px solid oklch(0.65 0.15 25);
           outline-offset: 2px;
         }
       }
@@ -145,8 +144,8 @@
   }
 
   .features-section {
-    padding: 96px @spacing-lg;
-    background: linear-gradient(180deg, @home-section-alt-bg 0%, fade(@color-primary, 4%) 100%);
+    padding: 96px 24px;
+    background: linear-gradient(180deg, #FBF9F7 0%, oklch(0.65 0.15 25 / 0.04) 100%);
     position: relative;
 
     .container {
@@ -155,12 +154,12 @@
     }
 
     .section-title {
-      font-family: @font-family-heading;
+      font-family: "Plus Jakarta Sans", "Outfit", sans-serif;
       text-align: center;
-      font-size: clamp(24px, 3vw, @font-size-xxxl);
-      font-weight: @font-weight-bold;
+      font-size: clamp(24px, 3vw, 32px);
+      font-weight: 700;
       margin-bottom: 56px;
-      color: @color-text-primary;
+      color: #2C2420;
       position: relative;
 
       &::after {
@@ -171,7 +170,7 @@
         transform: translateX(-50%);
         width: 56px;
         height: 4px;
-        background: linear-gradient(90deg, transparent 0%, @color-primary 50%, transparent 100%);
+        background: linear-gradient(90deg, transparent 0%, oklch(0.65 0.15 25) 50%, transparent 100%);
         border-radius: 2px;
       }
     }
@@ -179,19 +178,19 @@
     .features-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: @spacing-xl;
+      gap: 32px;
       align-items: stretch;
     }
   }
 
   .home-feature-card {
     text-align: center;
-    padding: @spacing-xxl @spacing-xl;
+    padding: 48px 32px;
     background: rgba(255, 255, 255, 0.85);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border-radius: @border-radius-xl;
-    border: 1px solid fade(@color-primary, 14%);
+    border-radius: 24px;
+    border: 1px solid oklch(0.65 0.15 25 / 0.14);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(255, 255, 255, 0.6) inset;
     transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.28s ease, border-color 0.28s ease;
     cursor: default;
@@ -200,21 +199,21 @@
     &:focus-within {
       transform: translateY(-6px);
       box-shadow: 0 16px 48px -12px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.8) inset;
-      border-color: fade(@color-primary, 28%);
+      border-color: oklch(0.65 0.15 25 / 0.28);
     }
 
     &:focus-visible {
-      outline: 3px solid fade(@color-primary, 45%);
+      outline: 3px solid oklch(0.65 0.15 25 / 0.45);
       outline-offset: 2px;
     }
 
     .feature-icon {
       width: 72px;
       height: 72px;
-      margin: 0 auto @spacing-lg;
+      margin: 0 auto 24px;
       border-radius: 50%;
-      background: fade(@color-primary, 12%);
-      color: @color-primary;
+      background: oklch(0.65 0.15 25 / 0.12);
+      color: oklch(0.65 0.15 25);
       font-size: 32px;
       display: flex;
       align-items: center;
@@ -224,7 +223,7 @@
 
     &:hover .feature-icon {
       transform: scale(1.08);
-      background: fade(@color-primary, 18%);
+      background: oklch(0.65 0.15 25 / 0.18);
     }
 
     &:first-child .feature-icon {
@@ -234,24 +233,24 @@
     }
 
     h3 {
-      font-family: @font-family-heading;
-      font-size: @font-size-xl;
-      font-weight: @font-weight-bold;
-      margin-bottom: @spacing-sm;
-      color: @color-text-primary;
+      font-family: "Plus Jakarta Sans", "Outfit", sans-serif;
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: #2C2420;
     }
 
     p {
-      color: @color-text-secondary;
-      font-size: @font-size-sm;
+      color: #6B7280;
+      font-size: 14px;
       line-height: 1.65;
       margin: 0;
     }
   }
 
   .process-section {
-    padding: 96px @spacing-lg;
-    background: @home-section-bg;
+    padding: 96px 24px;
+    background: #FFFFFF;
     position: relative;
 
     .container {
@@ -261,10 +260,10 @@
 
     .section-title {
       text-align: center;
-      font-size: clamp(24px, 3vw, @font-size-xxxl);
-      font-weight: @font-weight-bold;
+      font-size: clamp(24px, 3vw, 32px);
+      font-weight: 700;
       margin-bottom: 56px;
-      color: @color-text-primary;
+      color: #2C2420;
       position: relative;
 
       &::after {
@@ -275,7 +274,7 @@
         transform: translateX(-50%);
         width: 48px;
         height: 4px;
-        background: @color-primary;
+        background: oklch(0.65 0.15 25);
         border-radius: 2px;
       }
     }
@@ -290,7 +289,7 @@
     .process-step {
       position: relative;
       text-align: center;
-      padding: 0 @spacing-md;
+      padding: 0 16px;
       transition: transform 0.2s ease;
 
       &:hover {
@@ -304,7 +303,7 @@
         left: 50%;
         width: 50%;
         height: 2px;
-        background: linear-gradient(90deg, @color-primary 0%, rgba(255, 140, 66, 0.35) 100%);
+        background: linear-gradient(90deg, oklch(0.65 0.15 25) 0%, rgba(255, 140, 66, 0.35) 100%);
         z-index: 0;
       }
 
@@ -316,14 +315,14 @@
         width: 64px;
         height: 64px;
         border-radius: 50%;
-        background: @color-primary;
-        color: @color-white;
-        font-size: @font-size-xxxl;
-        font-weight: @font-weight-bold;
+        background: oklch(0.65 0.15 25);
+        color: #ffffff;
+        font-size: 32px;
+        font-weight: 700;
         display: flex;
         align-items: center;
         justify-content: center;
-        margin: 0 auto @spacing-md;
+        margin: 0 auto 16px;
         position: relative;
         z-index: 1;
         transition: box-shadow 0.25s ease;
@@ -334,15 +333,15 @@
       }
 
       h3 {
-        font-size: @font-size-lg;
-        font-weight: @font-weight-bold;
-        margin-bottom: @spacing-sm;
-        color: @color-text-primary;
+        font-size: 18px;
+        font-weight: 700;
+        margin-bottom: 8px;
+        color: #2C2420;
       }
 
       p {
-        color: @color-text-secondary;
-        font-size: @font-size-sm;
+        color: #6B7280;
+        font-size: 14px;
         line-height: 1.6;
         margin: 0;
       }
@@ -350,8 +349,8 @@
   }
 
   .cta-section {
-    padding: 80px @spacing-lg;
-    background: @home-section-alt-bg;
+    padding: 80px 24px;
+    background: #FBF9F7;
     text-align: center;
 
     .cta-inner {
@@ -361,24 +360,24 @@
 
     .cta-title {
       font-size: clamp(22px, 2.5vw, 28px);
-      font-weight: @font-weight-bold;
-      color: @color-text-primary;
-      margin-bottom: @spacing-md;
+      font-weight: 700;
+      color: #2C2420;
+      margin-bottom: 16px;
     }
 
     .cta-desc {
-      font-size: @font-size-md;
-      color: @color-text-secondary;
-      margin-bottom: @spacing-xl;
+      font-size: 16px;
+      color: #6B7280;
+      margin-bottom: 32px;
       line-height: 1.5;
     }
 
     .cta-button {
       height: 52px;
-      font-size: @font-size-lg;
+      font-size: 18px;
       padding: 0 40px;
-      border-radius: @border-radius-md;
-      font-weight: @font-weight-medium;
+      border-radius: 12px;
+      font-weight: 500;
       transition: transform 0.2s ease, box-shadow 0.2s ease;
 
       &:hover {
@@ -397,10 +396,10 @@
     filter: drop-shadow(0 20px 40px rgba(255, 140, 66, 0.15));
   }
 
-  @media (max-width: @breakpoint-tablet) {
+  @media (max-width: 1024px) {
     .hero-section .hero-content {
       grid-template-columns: 1fr;
-      gap: @spacing-xl;
+      gap: 32px;
     }
 
     .hero-section .hero-image {
@@ -413,12 +412,12 @@
 
     .features-section .features-grid {
       grid-template-columns: repeat(2, 1fr);
-      gap: @spacing-lg;
+      gap: 24px;
     }
 
     .process-section .process-timeline {
       grid-template-columns: 1fr;
-      gap: @spacing-xl;
+      gap: 32px;
     }
 
     .process-section .process-step::before {
@@ -430,14 +429,14 @@
     }
 
     .process-section .process-step .step-number {
-      margin-bottom: @spacing-sm;
+      margin-bottom: 8px;
     }
   }
 
-  @media (max-width: @breakpoint-mobile) {
+  @media (max-width: 768px) {
     .hero-section {
       min-height: auto;
-      padding: 48px @spacing-md;
+      padding: 48px 16px;
     }
 
     .hero-section .hero-actions {
@@ -451,16 +450,16 @@
 
     .features-section,
     .process-section {
-      padding: 64px @spacing-md;
+      padding: 64px 16px;
     }
 
     .features-section .features-grid {
       grid-template-columns: 1fr;
-      gap: @spacing-md;
+      gap: 16px;
     }
 
     .home-feature-card {
-      padding: @spacing-xl @spacing-lg;
+      padding: 32px 24px;
     }
 
     .home-feature-card:first-child .feature-icon {
@@ -474,7 +473,7 @@
     }
 
     .cta-section {
-      padding: 64px @spacing-md;
+      padding: 64px 16px;
     }
   }
 

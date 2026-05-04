@@ -18,7 +18,7 @@ import FlowSimulation from './components/FlowSimulation';
 import AdaptiveDashboard from './components/AdaptiveDashboard';
 import { useAuthStore } from '@/store/authStore';
 import { t } from '@/utils/i18n';
-import './Home.less';
+import './Home.css';
 
 const Home = () => {
   const navigate = useNavigate();

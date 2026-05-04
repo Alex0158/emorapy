@@ -987,7 +987,7 @@ describe('AdminController', () => {
         priority: null,
         group_key: 'repair:t1',
         dedup_key: 'repair_replan_t1_u1',
-        status: 'failed',
+        status: 'cancelled',
         error_message: 'admin_cancelled: duplicate recall',
         payload: {},
         created_at: createdAt,
@@ -1004,7 +1004,7 @@ describe('AdminController', () => {
       expect(mockNotificationUpdate).toHaveBeenCalledWith({
         where: { id: notificationId },
         data: {
-          status: 'failed',
+          status: 'cancelled',
           error_message: 'admin_cancelled: duplicate recall',
         },
       });
@@ -1019,7 +1019,7 @@ describe('AdminController', () => {
             userId,
             dedupKey: 'repair_replan_t1_u1',
             reason: 'duplicate recall',
-            status: 'failed',
+            status: 'cancelled',
           }),
         })
       );
@@ -1029,7 +1029,7 @@ describe('AdminController', () => {
           data: {
             notification: expect.objectContaining({
               id: notificationId,
-              status: 'failed',
+              status: 'cancelled',
               error_message: 'admin_cancelled: duplicate recall',
             }),
           },
@@ -1109,7 +1109,7 @@ describe('AdminController', () => {
           status: 'pending',
         },
         data: {
-          status: 'failed',
+          status: 'cancelled',
           error_message: 'admin_cancelled: recall duplicated reminders',
         },
       });
@@ -1241,6 +1241,21 @@ describe('AdminController', () => {
     });
 
     it('retryNotification 遇到 Admin 已取消通知應 next(validation error)', async () => {
+      req.params = { notificationId };
+      (mockNotificationFindUnique as any).mockResolvedValue({
+        id: notificationId,
+        user_id: userId,
+        status: 'cancelled',
+        error_message: 'admin_cancelled: duplicate recall',
+      });
+
+      await adminController.retryNotification(req as Request, res as Response, next);
+
+      expect(mockNotificationUpdate).not.toHaveBeenCalled();
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
+    });
+
+    it('retryNotification 遇到 legacy admin_cancelled failed 通知仍不可重送', async () => {
       req.params = { notificationId };
       (mockNotificationFindUnique as any).mockResolvedValue({
         id: notificationId,

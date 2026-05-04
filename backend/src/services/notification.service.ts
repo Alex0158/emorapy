@@ -462,7 +462,7 @@ export class NotificationService {
     const updated = await prisma.notification.update({
       where: { id: notificationId },
       data: {
-        status: NotificationStatus.failed,
+        status: NotificationStatus.cancelled,
         error_message: `${ADMIN_CANCELLED_ERROR_PREFIX} ${normalizedReason}`,
       },
     });
@@ -506,7 +506,7 @@ export class NotificationService {
         status: NotificationStatus.pending,
       },
       data: {
-        status: NotificationStatus.failed,
+        status: NotificationStatus.cancelled,
         error_message: `${ADMIN_CANCELLED_ERROR_PREFIX} ${normalizedReason}`,
       },
     });
@@ -527,6 +527,9 @@ export class NotificationService {
       where: { id: notificationId },
     });
     if (!notification) return null;
+    if (notification.status === NotificationStatus.cancelled) {
+      throw Errors.VALIDATION_ERROR('已由 Admin 取消的通知不可重送');
+    }
     if (notification.status !== NotificationStatus.failed) {
       throw Errors.VALIDATION_ERROR('只有 failed 通知可以重送');
     }

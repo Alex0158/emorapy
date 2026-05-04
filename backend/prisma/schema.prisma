@@ -203,6 +203,7 @@ enum NotificationStatus {
   pending
   sent
   failed
+  cancelled
 }
 
 enum AdminRoleKey {

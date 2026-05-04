@@ -95,7 +95,7 @@ jest.mock('@prisma/client', () => ({
   PrismaClient: jest.fn(() => mockPrismaClient),
   Prisma: { PrismaClientKnownRequestError: class extends Error { code: string; meta?: unknown; constructor(m: string, o: { code: string; meta?: unknown }) { super(m); this.code = o.code; this.meta = o.meta; } } },
   NotificationChannel: { email: 'email', push: 'push' },
-  NotificationStatus: { pending: 'pending', sent: 'sent', failed: 'failed' },
+  NotificationStatus: { pending: 'pending', sent: 'sent', failed: 'failed', cancelled: 'cancelled' },
   PsychDomain: {
     attachment: 'attachment',
     family_origin: 'family_origin',

@@ -7,6 +7,7 @@ export const NotificationStatus = {
   pending: 'pending',
   sent: 'sent',
   failed: 'failed',
+  cancelled: 'cancelled',
 } as const;
 
 export const PairingStatus = {

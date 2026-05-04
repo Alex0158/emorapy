@@ -128,9 +128,9 @@ describe('ReconciliationList', () => {
       expect(mockGetPlans).toHaveBeenCalledWith('j1', { intent: 'cool_down' });
     });
 
-    expect(screen.getByText('我想先降溫，不急著決定')).toBeInTheDocument();
+    expect(screen.getByText('reconList.intent.coolDown.title')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '方案 p1' })).toBeInTheDocument();
-    expect(screen.getByText('你也可以考慮這兩個備選')).toBeInTheDocument();
+    expect(screen.getByText('reconList.alternateTitle')).toBeInTheDocument();
   });
 
   it('空結果時可用預設偏好重新生成主推薦', async () => {
@@ -150,10 +150,10 @@ describe('ReconciliationList', () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getAllByRole('button', { name: '看看最適合你們的下一步' }).length).toBeGreaterThan(0);
+      expect(screen.getAllByRole('button', { name: 'reconList.generateBtn' }).length).toBeGreaterThan(0);
     });
 
-    const generateButtons = screen.getAllByRole('button', { name: '看看最適合你們的下一步' });
+    const generateButtons = screen.getAllByRole('button', { name: 'reconList.generateBtn' });
     await userEvent.click(generateButtons[0]);
 
     await waitFor(() => {
@@ -184,10 +184,10 @@ describe('ReconciliationList', () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /我願意先從這個開始/ })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /reconList\.commitFromThis/ })).toBeInTheDocument();
     });
 
-    await userEvent.click(screen.getByRole('button', { name: /我願意先從這個開始/ }));
+    await userEvent.click(screen.getByRole('button', { name: /reconList\.commitFromThis/ }));
 
     await waitFor(() => {
       expect(mockSelectPlan).toHaveBeenCalledWith('p1');

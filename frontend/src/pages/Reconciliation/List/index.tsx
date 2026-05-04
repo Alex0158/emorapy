@@ -30,11 +30,11 @@ import { t } from '@/utils/i18n';
 import { safeParsePlanContent } from '@/utils/planContent';
 import { getDifficultyText, getPlanTypeText } from '@/utils/statusTags';
 
-const intentMeta: Record<ReconciliationIntent, { title: string; subtitle: string }> = {
-  repair: { title: '我想試著修復', subtitle: '先選一個最適合你們現在狀態的靠近方式，而不是把所有事一次解決。' },
-  cool_down: { title: '我想先降溫，不急著決定', subtitle: '先穩住情緒和距離感，再決定要不要往下一步走。' },
-  graceful_exit: { title: '我想體面地結束 / 拉開距離', subtitle: '有時候好好收尾，也是一種對彼此的尊重和照顧。' },
-  safety_support: { title: '我需要安全支持', subtitle: '先讓自己回到更安全、更穩的狀態，比任何關係決定都重要。' },
+const intentMeta: Record<ReconciliationIntent, { title: () => string; subtitle: () => string }> = {
+  repair: { title: () => t('reconList.intent.repair.title'), subtitle: () => t('reconList.intent.repair.subtitle') },
+  cool_down: { title: () => t('reconList.intent.coolDown.title'), subtitle: () => t('reconList.intent.coolDown.subtitle') },
+  graceful_exit: { title: () => t('reconList.intent.gracefulExit.title'), subtitle: () => t('reconList.intent.gracefulExit.subtitle') },
+  safety_support: { title: () => t('reconList.intent.safetySupport.title'), subtitle: () => t('reconList.intent.safetySupport.subtitle') },
 };
 
 const defaultPreferences: PlanPreferences = { pressure_level: 'low', pace: 'today', style: ['action'], invite_partner: true };
@@ -113,7 +113,7 @@ const ReconciliationList = () => {
       const bundle = await generatePlans(judgmentId, { intent, preferences, force_regenerate: force });
       if (!mountedRef.current) return;
       setPlans(normalizePlans(bundle)); setRecommendedPlanId(normalizeRecommendedPlanId(bundle)); setJourneyEntry(normalizeJourneyEntry(bundle));
-      toast.success(force ? '已根據你現在的狀態重新適配。' : '已整理出最適合你們的下一步。');
+      toast.success(force ? t('reconList.regenerateSuccess') : t('reconList.generateSuccess'));
     } catch (error: unknown) {
       if (mountedRef.current) toast.error(getErrorMessage(error, 'message.generatePlansFail'));
     } finally { generatingLockRef.current = false; if (mountedRef.current) setGenerating(false); }
@@ -125,7 +125,7 @@ const ReconciliationList = () => {
     try {
       await selectPlan(planId);
       if (!mountedRef.current) return;
-      toast.success('已記下你的承諾，接下來可以邀請對方一起試。');
+      toast.success(t('reconList.commitSuccess'));
       navigate(`/reconciliation/${judgmentId}/${planId}`);
     } catch (error: unknown) {
       if (mountedRef.current) toast.error(getErrorMessage(error, 'message.selectPlanFail'));
@@ -161,42 +161,42 @@ const ReconciliationList = () => {
         {/* Header */}
         <div className="mb-8 text-center">
           <MediatorAvatar size="medium" animated />
-          <h2 className="mt-4 text-2xl font-bold text-foreground font-heading md:text-3xl">{intentMeta[intent].title}</h2>
-          <p className="mt-2 text-base text-muted-foreground max-w-2xl mx-auto">{intentMeta[intent].subtitle}</p>
-          <Badge variant="secondary" className="mt-3"><Compass className="size-3 mr-1" />理解問題 → 選方向 → 選下一步 → 一起開始 → 持續修復</Badge>
+          <h2 className="mt-4 text-2xl font-bold text-foreground font-heading md:text-3xl">{intentMeta[intent].title()}</h2>
+          <p className="mt-2 text-base text-muted-foreground max-w-2xl mx-auto">{intentMeta[intent].subtitle()}</p>
+          <Badge variant="secondary" className="mt-3"><Compass className="size-3 mr-1" />{t('reconList.journeySteps')}</Badge>
         </div>
 
         {/* Preferences */}
         <div className="mb-8 rounded-xl border border-border bg-card p-6 space-y-5">
           <div>
-            <h4 className="text-base font-semibold text-foreground mb-1">先告訴我，你想要什麼樣的節奏</h4>
-            <p className="text-sm text-muted-foreground">這些偏好不會把你綁死，它只是幫我把第一個主推薦調得更貼近你們現在的狀態。</p>
+            <h4 className="text-base font-semibold text-foreground mb-1">{t('reconList.preferencesTitle')}</h4>
+            <p className="text-sm text-muted-foreground">{t('reconList.preferencesDesc')}</p>
           </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <span className="text-sm font-medium text-foreground">壓力承受度</span>
+              <span className="text-sm font-medium text-foreground">{t('reconList.pressureLevel')}</span>
               <Select value={preferences.pressure_level} onValueChange={(v: string) => setPreferences((prev) => ({ ...prev, pressure_level: v as PlanPreferences['pressure_level'] }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="low">越低壓越好</SelectItem>
-                  <SelectItem value="medium">可以有一點深度</SelectItem>
-                  <SelectItem value="high">我願意面對比較難的步驟</SelectItem>
+                  <SelectItem value="low">{t('reconList.pressureLow')}</SelectItem>
+                  <SelectItem value="medium">{t('reconList.pressureMedium')}</SelectItem>
+                  <SelectItem value="high">{t('reconList.pressureHigh')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <span className="text-sm font-medium text-foreground">希望節奏</span>
+              <span className="text-sm font-medium text-foreground">{t('reconList.paceLabel')}</span>
               <Select value={preferences.pace} onValueChange={(v: string) => setPreferences((prev) => ({ ...prev, pace: v as PlanPreferences['pace'] }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="today">今天就能開始</SelectItem>
-                  <SelectItem value="this_week">這週內慢慢開始</SelectItem>
-                  <SelectItem value="ease_in">先看看，慢一點也可以</SelectItem>
+                  <SelectItem value="today">{t('reconList.paceToday')}</SelectItem>
+                  <SelectItem value="this_week">{t('reconList.paceThisWeek')}</SelectItem>
+                  <SelectItem value="ease_in">{t('reconList.paceEaseIn')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <span className="text-sm font-medium text-foreground">是否想邀請對方一起加入</span>
+              <span className="text-sm font-medium text-foreground">{t('reconList.invitePartnerLabel')}</span>
               <div className="flex items-center gap-3 pt-1">
                 <button
                   type="button" role="switch" aria-checked={preferences.invite_partner}
@@ -205,18 +205,18 @@ const ReconciliationList = () => {
                 >
                   <span className={cn('inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform', preferences.invite_partner ? 'translate-x-5' : 'translate-x-0')} />
                 </button>
-                <span className="text-sm text-muted-foreground">{preferences.invite_partner ? '可以，之後再用低壓方式邀請' : '先不要，我想自己先試'}</span>
+                <span className="text-sm text-muted-foreground">{preferences.invite_partner ? t('reconList.invitePartnerYes') : t('reconList.invitePartnerNo')}</span>
               </div>
             </div>
           </div>
           <div className="flex flex-wrap gap-2 pt-2">
             <Button onClick={() => handleGeneratePlans(plans.length > 0)} disabled={generating}>
               {generating ? <Loader2 className="size-4 animate-spin" /> : <Heart className="size-4" />}
-              {plans.length > 0 ? '重新適配一次' : '看看最適合你們的下一步'}
+              {plans.length > 0 ? t('reconList.regenerateBtn') : t('reconList.generateBtn')}
             </Button>
             {plans.length > 0 && (
               <Button variant="outline" onClick={() => handleGeneratePlans(true)} disabled={generating}>
-                <RefreshCw className="size-4" />強制重新生成
+                <RefreshCw className="size-4" />{t('reconList.forceRegenerate')}
               </Button>
             )}
           </div>
@@ -238,7 +238,7 @@ const ReconciliationList = () => {
         {(loading || generating) && (
           <div className="flex items-center justify-center py-12 gap-3">
             <Loader2 className="size-6 animate-spin text-primary" />
-            <span className="text-sm text-muted-foreground">{generating ? '正在整理更貼近的方案...' : t('common.loading')}</span>
+            <span className="text-sm text-muted-foreground">{generating ? t('reconList.generatingHint') : t('common.loading')}</span>
           </div>
         )}
 
@@ -247,18 +247,18 @@ const ReconciliationList = () => {
           <div className="mb-6 flex items-start gap-3 rounded-xl border border-primary/20 bg-primary-light/50 p-4">
             <Compass className="mt-0.5 size-5 shrink-0 text-primary" />
             <div className="flex-1">
-              <p className="text-sm font-medium text-foreground">{journeyEntry.journey_context?.title || '你們已經有一輪正在進行中的旅程'}</p>
-              <p className="mt-1 text-xs text-muted-foreground">{journeyEntry.journey_context?.body || '你可以直接回到現在這一輪。'}</p>
+              <p className="text-sm font-medium text-foreground">{journeyEntry.journey_context?.title || t('reconList.journeyActiveTitle')}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{journeyEntry.journey_context?.body || t('reconList.journeyActiveBody')}</p>
             </div>
             <Button size="sm" onClick={handleJourneyContinue}>
-              {journeyEntry.journey_context?.primary_cta.label || '回到這一輪'}
+              {journeyEntry.journey_context?.primary_cta.label || t('reconList.journeyActiveCta')}
             </Button>
           </div>
         )}
 
         {/* Plans */}
         {!loading && !generating && !recommendedPlan && (
-          <EmptyState variant="executions" title="還沒有主推薦" description="先按上方按鈕讓我根據你選的方向與節奏整理一次。" actionLabel="看看最適合你們的下一步" onAction={() => handleGeneratePlans(false)} />
+          <EmptyState variant="executions" title={t('reconList.emptyTitle')} description={t('reconList.emptyDesc')} actionLabel={t('reconList.generateBtn')} onAction={() => handleGeneratePlans(false)} />
         )}
 
         {!loading && !generating && recommendedPlan && (
@@ -266,7 +266,7 @@ const ReconciliationList = () => {
             {/* Recommended Plan */}
             <div className="rounded-2xl border-2 border-primary/20 bg-card p-6 shadow-sm space-y-5">
               <div className="flex flex-wrap gap-2">
-                <Badge className="bg-success/10 text-success border-success/30">主推薦</Badge>
+                <Badge className="bg-success/10 text-success border-success/30">{t('reconList.recommended')}</Badge>
                 <Badge variant="outline">{getPlanTypeText(recommendedPlan.plan_type)}</Badge>
                 <Badge variant="outline">{getDifficultyText(recommendedPlan.difficulty_level)}</Badge>
               </div>
@@ -276,27 +276,27 @@ const ReconciliationList = () => {
               </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="rounded-lg bg-muted/50 p-4">
-                  <p className="text-xs font-semibold text-foreground mb-1">為什麼我先推薦這個</p>
-                  <p className="text-sm text-muted-foreground">{recommendedPlan.fit_reason || safeParsePlanContent(recommendedPlan.plan_content).fit_reason || '它最貼近你們現在想走的方向和節奏。'}</p>
+                  <p className="text-xs font-semibold text-foreground mb-1">{t('reconList.whyRecommend')}</p>
+                  <p className="text-sm text-muted-foreground">{recommendedPlan.fit_reason || safeParsePlanContent(recommendedPlan.plan_content).fit_reason || t('reconList.defaultFitReason')}</p>
                 </div>
                 <div className="rounded-lg bg-muted/50 p-4">
-                  <p className="text-xs font-semibold text-foreground mb-1">今天就能開始的第一步</p>
+                  <p className="text-xs font-semibold text-foreground mb-1">{t('reconList.firstStepToday')}</p>
                   <p className="text-sm text-muted-foreground">{recommendedPlan.first_step || safeParsePlanContent(recommendedPlan.plan_content).first_step}</p>
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
                 <Button onClick={() => handleCommitPlan(recommendedPlan.id)}>
                   <CheckCircle className="size-4" />
-                  {recommendedPlan.commitment?.current_user.commitment_status === 'committed' ? '我已準備好，查看工作台' : '我願意先從這個開始'}
+                  {recommendedPlan.commitment?.current_user.commitment_status === 'committed' ? t('reconList.viewWorkbench') : t('reconList.commitFromThis')}
                 </Button>
-                <Button variant="outline" onClick={() => navigate(`/reconciliation/${judgmentId}/${recommendedPlan.id}`)}>查看完整方案</Button>
+                <Button variant="outline" onClick={() => navigate(`/reconciliation/${judgmentId}/${recommendedPlan.id}`)}>{t('reconList.viewFullPlan')}</Button>
               </div>
             </div>
 
             {/* Alternate Plans */}
             {alternatePlans.length > 0 && (
               <div>
-                <h4 className="mb-4 text-base font-semibold text-foreground">你也可以考慮這兩個備選</h4>
+                <h4 className="mb-4 text-base font-semibold text-foreground">{t('reconList.alternateTitle')}</h4>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   {alternatePlans.map((plan) => {
                     const parsed = plan.content || safeParsePlanContent(plan.plan_content);
@@ -310,8 +310,8 @@ const ReconciliationList = () => {
                         <p className="text-sm text-muted-foreground line-clamp-3">{parsed.description}</p>
                         <p className="text-xs text-muted-foreground">{plan.fit_reason || parsed.fit_reason}</p>
                         <div className="flex gap-2">
-                          <Button variant="outline" size="sm" onClick={() => navigate(`/reconciliation/${judgmentId}/${plan.id}`)}>查看詳情</Button>
-                          <Button size="sm" onClick={() => handleCommitPlan(plan.id)}>我想試這個</Button>
+                          <Button variant="outline" size="sm" onClick={() => navigate(`/reconciliation/${judgmentId}/${plan.id}`)}>{t('reconList.viewDetail')}</Button>
+                          <Button size="sm" onClick={() => handleCommitPlan(plan.id)}>{t('reconList.tryThis')}</Button>
                         </div>
                       </div>
                     );

@@ -91,7 +91,7 @@ const ExecutionCheckIn = () => {
         successTimeoutRef.current = null;
         if (!mountedRef.current) return;
         setShowSuccessAnim(false);
-        toast.success(needsHelp ? '已記下你的狀態，我們之後會幫你降一點難度。' : t('message.checkinSuccess'));
+        toast.success(needsHelp ? t('execCheckIn.successNeedsHelp') : t('message.checkinSuccess'));
         setNotes(''); setPhotos([]); setStepResult('done'); setCloseness('same'); setStress('medium'); setNeedsHelp(false);
         void fetchExecution();
       }, 1500);
@@ -130,23 +130,23 @@ const ExecutionCheckIn = () => {
 
         {/* Context Card */}
         <div className="mb-6 rounded-xl border border-border bg-card p-5 space-y-3">
-          <p className="font-semibold text-foreground">{execution.plan_summary?.title || '今天的一小步'}</p>
-          <p className="text-sm text-muted-foreground">{execution.relationship_mode === 'co' ? '你們正在一起修復' : '目前由你先開始，這也沒關係'}</p>
+          <p className="font-semibold text-foreground">{execution.plan_summary?.title || t('execCheckIn.defaultTitle')}</p>
+          <p className="text-sm text-muted-foreground">{execution.relationship_mode === 'co' ? t('execCheckIn.modeCoDesc') : t('execCheckIn.modeSoloDesc')}</p>
 
           {execution.journey_status === 'replanning' && (
             <div className="flex items-start gap-3 rounded-lg border border-warning/20 bg-warning/5 p-3">
               <AlertCircle className="size-4 mt-0.5 text-warning shrink-0" />
-              <div className="flex-1"><p className="text-sm text-foreground">這一輪需要先重新調整</p><p className="text-xs text-muted-foreground">最近的回饋顯示目前這一步太吃力了。</p></div>
-              <Button size="sm" onClick={() => navigate(`/execution/${planId}/replan`)}>去調整</Button>
+              <div className="flex-1"><p className="text-sm text-foreground">{t('execCheckIn.replanNeeded')}</p><p className="text-xs text-muted-foreground">{t('execCheckIn.replanReason')}</p></div>
+              <Button size="sm" onClick={() => navigate(`/execution/${planId}/replan`)}>{t('execCheckIn.goReplan')}</Button>
             </div>
           )}
 
           {execution.current_step && (
             <div className="space-y-2 pt-2">
-              <p className="text-sm font-medium text-foreground">今天做什麼</p>
+              <p className="text-sm font-medium text-foreground">{t('execCheckIn.todayTask')}</p>
               <p className="text-sm text-muted-foreground">{execution.current_step.content}</p>
               {execution.current_step.fallback_content && (
-                <div className="flex items-start gap-2 rounded-lg bg-primary-light/30 p-3"><Info className="size-4 mt-0.5 text-primary shrink-0" /><p className="text-xs text-muted-foreground">如果今天太難：{execution.current_step.fallback_content}</p></div>
+                <div className="flex items-start gap-2 rounded-lg bg-primary-light/30 p-3"><Info className="size-4 mt-0.5 text-primary shrink-0" /><p className="text-xs text-muted-foreground">{t('execCheckIn.fallbackHint')}{execution.current_step.fallback_content}</p></div>
               )}
             </div>
           )}
@@ -156,47 +156,47 @@ const ExecutionCheckIn = () => {
         <div className="rounded-xl border border-border bg-card p-5 space-y-5" aria-label={t('execCheckIn.formLabel')}>
           {/* Step Result */}
           <fieldset className="space-y-2">
-            <legend className="text-sm font-medium text-foreground">今天有做到嗎</legend>
+            <legend className="text-sm font-medium text-foreground">{t('execCheckIn.stepResultLabel')}</legend>
             <div className="flex flex-wrap gap-2">
-              {([['done', '完全做到'], ['partial', '做了一部分'], ['skipped', '今天先沒做到']] as const).map(([val, label]) => (
-                <button key={val} type="button" onClick={() => setStepResult(val)} className={cn('rounded-full border px-4 py-2 text-sm transition-colors', stepResult === val ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-border text-muted-foreground hover:border-primary/30')}>{label}</button>
+              {([['done', t('execCheckIn.stepResult.done')], ['partial', t('execCheckIn.stepResult.partial')], ['skipped', t('execCheckIn.stepResult.skipped')]] as const).map(([val, label]) => (
+                <button key={val} type="button" onClick={() => setStepResult(val as 'done' | 'partial' | 'skipped')} className={cn('rounded-full border px-4 py-2 text-sm transition-colors', stepResult === val ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-border text-muted-foreground hover:border-primary/30')}>{label}</button>
               ))}
             </div>
           </fieldset>
 
           {/* Closeness */}
           <fieldset className="space-y-2">
-            <legend className="text-sm font-medium text-foreground">做完後你覺得距離感怎麼樣</legend>
+            <legend className="text-sm font-medium text-foreground">{t('execCheckIn.closenessLabel')}</legend>
             <div className="flex flex-wrap gap-2">
-              {([['closer', '更近一點'], ['same', '差不多'], ['farther', '反而更遠']] as const).map(([val, label]) => (
-                <button key={val} type="button" onClick={() => setCloseness(val)} className={cn('rounded-full border px-4 py-2 text-sm transition-colors', closeness === val ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-border text-muted-foreground hover:border-primary/30')}>{label}</button>
+              {([['closer', t('execCheckIn.closeness.closer')], ['same', t('execCheckIn.closeness.same')], ['farther', t('execCheckIn.closeness.farther')]] as const).map(([val, label]) => (
+                <button key={val} type="button" onClick={() => setCloseness(val as 'closer' | 'same' | 'farther')} className={cn('rounded-full border px-4 py-2 text-sm transition-colors', closeness === val ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-border text-muted-foreground hover:border-primary/30')}>{label}</button>
               ))}
             </div>
           </fieldset>
 
           {/* Stress */}
           <fieldset className="space-y-2">
-            <legend className="text-sm font-medium text-foreground">這一步帶來的壓力感</legend>
+            <legend className="text-sm font-medium text-foreground">{t('execCheckIn.stressLabel')}</legend>
             <div className="flex flex-wrap gap-2">
-              {([['low', '低'], ['medium', '中'], ['high', '高']] as const).map(([val, label]) => (
-                <button key={val} type="button" onClick={() => setStress(val)} className={cn('rounded-full border px-4 py-2 text-sm transition-colors', stress === val ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-border text-muted-foreground hover:border-primary/30')}>{label}</button>
+              {([['low', t('execCheckIn.stress.low')], ['medium', t('execCheckIn.stress.medium')], ['high', t('execCheckIn.stress.high')]] as const).map(([val, label]) => (
+                <button key={val} type="button" onClick={() => setStress(val as 'low' | 'medium' | 'high')} className={cn('rounded-full border px-4 py-2 text-sm transition-colors', stress === val ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-border text-muted-foreground hover:border-primary/30')}>{label}</button>
               ))}
             </div>
           </fieldset>
 
           {/* Needs Help */}
           <fieldset className="space-y-2">
-            <legend className="text-sm font-medium text-foreground">要不要下一次換一個更低壓版本？</legend>
+            <legend className="text-sm font-medium text-foreground">{t('execCheckIn.needsHelpLabel')}</legend>
             <div className="space-y-2">
-              <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="needsHelp" checked={!needsHelp} onChange={() => setNeedsHelp(false)} className="accent-primary" /><span className="text-sm">先不用，我還可以再試一次</span></label>
-              <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="needsHelp" checked={needsHelp} onChange={() => setNeedsHelp(true)} className="accent-primary" /><span className="text-sm">要，幫我降一點難度</span></label>
+              <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="needsHelp" checked={!needsHelp} onChange={() => setNeedsHelp(false)} className="accent-primary" /><span className="text-sm">{t('execCheckIn.needsHelp.no')}</span></label>
+              <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="needsHelp" checked={needsHelp} onChange={() => setNeedsHelp(true)} className="accent-primary" /><span className="text-sm">{t('execCheckIn.needsHelp.yes')}</span></label>
             </div>
           </fieldset>
 
           {/* Notes */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">{t('execCheckIn.notesLabel')}</label>
-            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} maxLength={1000} placeholder="如果你想記下剛才發生了什麼、哪裡卡住..." className="w-full resize-none rounded-lg border border-border bg-background p-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" />
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} maxLength={1000} placeholder={t('execCheckIn.notesPlaceholder')} className="w-full resize-none rounded-lg border border-border bg-background p-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" />
           </div>
 
           {/* Photos */}
@@ -204,7 +204,7 @@ const ExecutionCheckIn = () => {
             <label className="text-sm font-medium text-foreground">{t('execCheckIn.photosLabel')}</label>
             <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={(e) => setPhotos(Array.from(e.target.files || []).slice(0, 3))} className="hidden" />
             <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><Upload className="size-4" />{t('execCheckIn.uploadBtn')}</Button>
-            {photos.length > 0 && <p className="text-xs text-muted-foreground">{photos.length} 張照片已選</p>}
+            {photos.length > 0 && <p className="text-xs text-muted-foreground">{t('execCheckIn.photosSelected').replace('{count}', String(photos.length))}</p>}
           </div>
 
           {/* Submit */}
@@ -220,7 +220,7 @@ const ExecutionCheckIn = () => {
                 </motion.span>
               ) : (
                 <motion.span key="normal" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                  {uploadingPhotos ? t('execCheckIn.uploadingPhotos') : submitting ? <Loader2 className="size-4 animate-spin" /> : '記下今天的一小步'}
+                  {uploadingPhotos ? t('execCheckIn.uploadingPhotos') : submitting ? <Loader2 className="size-4 animate-spin" /> : t('execCheckIn.submitBtn')}
                 </motion.span>
               )}
             </AnimatePresence>
@@ -233,8 +233,8 @@ const ExecutionCheckIn = () => {
             <h4 className="text-sm font-semibold text-foreground">{t('execCheckIn.historyTitle')}</h4>
             {recentCheckins.map((item) => (
               <div key={item.id} className="rounded-lg border border-border p-3 space-y-1">
-                <p className="text-sm font-medium text-foreground">{item.result === 'done' ? '完全做到' : item.result === 'partial' ? '做了一部分' : '今天先沒做到'}</p>
-                <p className="text-xs text-muted-foreground">距離感：{item.closeness} / 壓力：{item.stress} / {item.needs_help ? '需要更低壓版本' : '暫時不用調整'}</p>
+                <p className="text-sm font-medium text-foreground">{item.result === 'done' ? t('execCheckIn.stepResult.done') : item.result === 'partial' ? t('execCheckIn.stepResult.partial') : t('execCheckIn.stepResult.skipped')}</p>
+                <p className="text-xs text-muted-foreground">{t('execCheckIn.historyCloseness')}{item.closeness} / {t('execCheckIn.historyStress')}{item.stress} / {item.needs_help ? t('execCheckIn.historyNeedsHelp') : t('execCheckIn.historyNoHelp')}</p>
                 {item.notes && <p className="text-sm text-muted-foreground">{item.notes}</p>}
                 <p className="text-[11px] text-muted-foreground/60">{new Date(item.created_at).toLocaleString()}</p>
               </div>

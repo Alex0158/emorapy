@@ -35,10 +35,10 @@ function getPasswordStrength(password: string): { score: number; label: string; 
   if (/\d/.test(password)) score += 15;
   if (/[^A-Za-z0-9]/.test(password)) score += 15;
 
-  if (score < 30) return { score, label: '弱', color: 'bg-destructive' };
-  if (score < 60) return { score, label: '中', color: 'bg-warning' };
-  if (score < 80) return { score, label: '強', color: 'bg-success' };
-  return { score: Math.min(score, 100), label: '非常強', color: 'bg-success' };
+  if (score < 30) return { score, label: t('password.strength.weak'), color: 'bg-destructive' };
+  if (score < 60) return { score, label: t('password.strength.medium'), color: 'bg-warning' };
+  if (score < 80) return { score, label: t('password.strength.strong'), color: 'bg-success' };
+  return { score: Math.min(score, 100), label: t('password.strength.veryStrong'), color: 'bg-success' };
 }
 
 const stepVariants = {
@@ -375,7 +375,7 @@ const Register = () => {
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
                   >
                     {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                   </button>
@@ -391,7 +391,7 @@ const Register = () => {
                       />
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      密碼強度：<span className="font-medium">{passwordStrength.label}</span>
+                      {t('password.strengthLabel')}<span className="font-medium">{passwordStrength.label}</span>
                     </p>
                   </div>
                 )}

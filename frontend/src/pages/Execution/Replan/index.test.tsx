@@ -32,6 +32,7 @@ vi.mock('@/components/common/SEO', () => ({ default: () => null }));
 vi.mock('@/components/common/AnimatedWrapper', () => ({
   default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
+vi.mock('@/utils/i18n', () => ({ t: (key: string) => key }));
 vi.mock('sonner', () => ({
   toast: {
     error: (...args: unknown[]) => mockToastError(...args),
@@ -114,10 +115,10 @@ describe('ExecutionReplan', () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: '重新調整這一輪' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'execReplan.heading' })).toBeInTheDocument();
     });
 
-    await userEvent.click(screen.getByRole('button', { name: /重新調整這一輪/ }));
+    await userEvent.click(screen.getByRole('button', { name: /execReplan\.submitBtn/ }));
 
     await waitFor(() => {
       expect(mockReplanTrack).toHaveBeenCalledWith('track-1', {
@@ -127,7 +128,7 @@ describe('ExecutionReplan', () => {
     });
 
     expect(mockToastSuccess).toHaveBeenCalled();
-    expect(screen.getByRole('heading', { name: '正在重新調整這一輪' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'execReplan.waitingTitle' })).toBeInTheDocument();
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 

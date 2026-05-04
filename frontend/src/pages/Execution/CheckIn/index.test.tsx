@@ -123,7 +123,7 @@ describe('ExecutionCheckIn', () => {
       expect(mockGetExecutionStatus).toHaveBeenCalledWith('plan-1');
     });
 
-    expect(screen.getByText('今天做什麼')).toBeInTheDocument();
+    expect(screen.getByText('execCheckIn.heading')).toBeInTheDocument();
     expect(screen.getByText('先傳一句不逼回應的訊息')).toBeInTheDocument();
     expect(screen.getByText('execCheckIn.historyTitle')).toBeInTheDocument();
     expect(screen.getByText('今天只做到一半')).toBeInTheDocument();
@@ -141,15 +141,15 @@ describe('ExecutionCheckIn', () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: '記下今天的一小步' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'execCheckIn.submitBtn' })).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole('button', { name: '做了一部分' }));
-    await user.click(screen.getByRole('button', { name: '更近一點' }));
-    await user.click(screen.getByRole('button', { name: '高' }));
-    await user.click(screen.getByRole('radio', { name: '要，幫我降一點難度' }));
+    await user.click(screen.getByRole('button', { name: 'execCheckIn.stepResult.partial' }));
+    await user.click(screen.getByRole('button', { name: 'execCheckIn.closeness.closer' }));
+    await user.click(screen.getByRole('button', { name: 'execCheckIn.stress.high' }));
+    await user.click(screen.getByRole('radio', { name: 'execCheckIn.needsHelp.yes' }));
     await user.type(screen.getByRole('textbox'), '今天先做到一半。');
-    await user.click(screen.getByRole('button', { name: '記下今天的一小步' }));
+    await user.click(screen.getByRole('button', { name: 'execCheckIn.submitBtn' }));
 
     await waitFor(() => {
       expect(mockCheckin).toHaveBeenCalledWith({
@@ -182,7 +182,7 @@ describe('ExecutionCheckIn', () => {
     await userEvent.click(screen.getByRole('button', { name: 'common.retry' }));
 
     await waitFor(() => {
-      expect(screen.getByText('今天做什麼')).toBeInTheDocument();
+      expect(screen.getByText('execCheckIn.heading')).toBeInTheDocument();
     });
   });
 });

@@ -27,36 +27,36 @@ import {
   getPlanTypeText,
 } from '@/utils/statusTags';
 
-const journeyStatusLabelMap: Record<string, string> = {
-  draft: '還在準備中',
-  partner_invited: '已邀請對方',
-  solo_active: '由你先開始',
-  co_active: '你們正在一起修復',
-  replanning: '需要重新調整',
-  paused: '暫停中',
-  completed: '這一輪已完成',
-  closed: '已結束',
+const journeyStatusLabelMap: Record<string, () => string> = {
+  draft: () => t('execDashboard.status.draft'),
+  partner_invited: () => t('execDashboard.status.partnerInvited'),
+  solo_active: () => t('execDashboard.status.soloActive'),
+  co_active: () => t('execDashboard.status.coActive'),
+  replanning: () => t('execDashboard.status.replanning'),
+  paused: () => t('execDashboard.status.paused'),
+  completed: () => t('execDashboard.status.completed'),
+  closed: () => t('execDashboard.status.closed'),
 };
 
 const sectionOrder = ['draft', 'partner_invited', 'active', 'replanning', 'paused', 'completed'] as const;
 
-const sectionMeta: Record<(typeof sectionOrder)[number], { title: string; matcher: (status: string) => boolean }> = {
-  draft: { title: '等你決定', matcher: (status) => status === 'draft' },
-  partner_invited: { title: '等對方 / 等時間', matcher: (status) => status === 'partner_waiting' || status === 'partner_invited' },
-  active: { title: '今天的一小步', matcher: (status) => status === 'active' || status === 'solo_active' || status === 'co_active' },
-  replanning: { title: '需要重新調整', matcher: (status) => status === 'replanning' },
-  paused: { title: '暫停中', matcher: (status) => status === 'paused' },
-  completed: { title: '已完成', matcher: (status) => status === 'completed' || status === 'closed' },
+const sectionMeta: Record<(typeof sectionOrder)[number], { title: () => string; matcher: (status: string) => boolean }> = {
+  draft: { title: () => t('execDashboard.section.draft'), matcher: (status) => status === 'draft' },
+  partner_invited: { title: () => t('execDashboard.section.partnerWaiting'), matcher: (status) => status === 'partner_waiting' || status === 'partner_invited' },
+  active: { title: () => t('execDashboard.section.active'), matcher: (status) => status === 'active' || status === 'solo_active' || status === 'co_active' },
+  replanning: { title: () => t('execDashboard.section.replanning'), matcher: (status) => status === 'replanning' },
+  paused: { title: () => t('execDashboard.section.paused'), matcher: (status) => status === 'paused' },
+  completed: { title: () => t('execDashboard.section.completed'), matcher: (status) => status === 'completed' || status === 'closed' },
 };
 
-const primaryCtaLabelMap: Record<string, string> = {
-  commit_plan: '回到承諾工作台',
-  view_invitation_status: '查看邀請進度',
-  continue_today_step: '去看今天的一小步',
-  replan_track: '重新調整這一輪',
-  resume_track: '恢復這一輪',
-  review_completed_journey: '回看這一輪',
-  review_history: '回看這一輪',
+const primaryCtaLabelMap: Record<string, () => string> = {
+  commit_plan: () => t('execDashboard.cta.commitPlan'),
+  view_invitation_status: () => t('execDashboard.cta.viewInvitation'),
+  continue_today_step: () => t('execDashboard.cta.continueStep'),
+  replan_track: () => t('execDashboard.cta.replan'),
+  resume_track: () => t('execDashboard.cta.resume'),
+  review_completed_journey: () => t('execDashboard.cta.reviewJourney'),
+  review_history: () => t('execDashboard.cta.reviewHistory'),
 };
 
 // 卡片狀態差異化樣式
@@ -109,7 +109,7 @@ const ExecutionDashboard = () => {
   const sections = useMemo(() => (
     sectionOrder.map((key) => ({
       key,
-      title: sectionMeta[key].title,
+      title: sectionMeta[key].title(),
       items: executions.filter((item) => sectionMeta[key].matcher(item.presentation_bucket || item.journey_status)),
     })).filter((section) => section.items.length > 0)
   ), [executions]);
@@ -215,7 +215,7 @@ const ExecutionDashboard = () => {
                           {item.journey_context?.title || item.plan_summary?.title || t('execDashboard.planFallbackTitle').replace('{id}', item.plan_id.slice(0, 8))}
                         </span>
                         <Badge variant="secondary" className="shrink-0 text-[10px]">
-                          {item.relationship_mode === 'co' ? '共修' : '單人'}
+                          {item.relationship_mode === 'co' ? t('execDashboard.modeCo') : t('execDashboard.modeSolo')}
                         </Badge>
                       </div>
 
@@ -228,7 +228,7 @@ const ExecutionDashboard = () => {
                           </>
                         )}
                         <Badge variant="outline" className="text-[10px]">
-                          {journeyStatusLabelMap[item.journey_status] || item.journey_status}
+                          {journeyStatusLabelMap[item.journey_status]?.() || item.journey_status}
                         </Badge>
                       </div>
 
@@ -247,12 +247,12 @@ const ExecutionDashboard = () => {
                       {/* Pulse */}
                       {item.pulse_summary && (
                         <p className="mb-2 text-[11px] text-muted-foreground">
-                          距離感：{item.pulse_summary.closeness} / 壓力：{item.pulse_summary.stress}
-                          {item.pulse_summary.needs_replan ? ' / 建議重新調整' : ''}
+                          {t('execDashboard.closeness')}{item.pulse_summary.closeness} / {t('execDashboard.stress')}{item.pulse_summary.stress}
+                          {item.pulse_summary.needs_replan ? ` / ${t('execDashboard.suggestReplan')}` : ''}
                         </p>
                       )}
                       {item.status_reason && (
-                        <p className="mb-2 text-[11px] text-muted-foreground">目前狀態：{item.status_reason}</p>
+                        <p className="mb-2 text-[11px] text-muted-foreground">{t('execDashboard.currentStatus')}{item.status_reason}</p>
                       )}
 
                       {/* CTA */}
@@ -264,7 +264,7 @@ const ExecutionDashboard = () => {
                           className="w-full justify-between text-primary hover:text-primary-hover"
                         >
                           <span className="text-xs">
-                            {item.journey_context?.primary_cta.label || primaryCtaLabelMap[item.primary_cta || 'continue_today_step'] || '查看這一輪'}
+                            {item.journey_context?.primary_cta.label || primaryCtaLabelMap[item.primary_cta || 'continue_today_step']?.() || t('execDashboard.cta.viewJourney')}
                           </span>
                           <ChevronRight className="size-4" />
                         </Button>

@@ -19,9 +19,13 @@ import { useAIStreamSubscription } from '@/hooks/useAIStreamSubscription';
 import type { AIStreamEvent, AIStreamPhase, AIStreamSnapshot } from '@/types/aiStream';
 import { cn } from '@/lib/utils';
 
-const reasonLabelMap = { needs_help: '我需要更低壓一點的版本', farther: '最近互動後反而變得更遠', high_stress: '這一步帶來太高壓力', manual: '我想主動重新調整' } as const;
-const modeLabelMap = { lower_pressure: '先降壓', slower_pace: '先放慢節奏', solo_first: '先由我自己開始' } as const;
-const phaseLabelMap: Record<string, string> = { collecting_context: '整理這一輪的上下文', analyzing_recent_pulse: '理解最近的距離感與壓力', drafting_adjustment: '正在重寫更貼近現在狀態的版本', finalizing_plan: '整理成新的下一步', persisted: '新版本已準備好' };
+import { t } from '@/utils/i18n';
+
+type ReasonKey = 'needs_help' | 'farther' | 'high_stress' | 'manual';
+type ModeKey = 'lower_pressure' | 'slower_pace' | 'solo_first';
+const reasonLabelMap: Record<ReasonKey, () => string> = { needs_help: () => t('execReplan.reason.needsHelp'), farther: () => t('execReplan.reason.farther'), high_stress: () => t('execReplan.reason.highStress'), manual: () => t('execReplan.reason.manual') };
+const modeLabelMap: Record<ModeKey, () => string> = { lower_pressure: () => t('execReplan.mode.lowerPressure'), slower_pace: () => t('execReplan.mode.slowerPace'), solo_first: () => t('execReplan.mode.soloFirst') };
+const phaseLabelMap: Record<string, () => string> = { collecting_context: () => t('execReplan.phase.collectingContext'), analyzing_recent_pulse: () => t('execReplan.phase.analyzingPulse'), drafting_adjustment: () => t('execReplan.phase.draftingAdjustment'), finalizing_plan: () => t('execReplan.phase.finalizingPlan'), persisted: () => t('execReplan.phase.persisted') };
 
 interface ReplanStreamState { latestSnapshot: AIStreamSnapshot | null; phaseHistory: AIStreamPhase[]; latestEvent: AIStreamEvent | null; }
 const initialStreamState: ReplanStreamState = { latestSnapshot: null, phaseHistory: [], latestEvent: null };
@@ -50,7 +54,7 @@ const ExecutionReplan = () => {
   const [execution, setExecution] = useState<ExecutionStatus | null>(null);
   const [waitingForAI, setWaitingForAI] = useState(false);
   const [streamError, setStreamError] = useState<string | null>(null);
-  const [formValues, setFormValues] = useState<{ reason: keyof typeof reasonLabelMap; mode: keyof typeof modeLabelMap }>({ reason: 'manual', mode: 'lower_pressure' });
+  const [formValues, setFormValues] = useState<{ reason: ReasonKey; mode: ModeKey }>({ reason: 'manual', mode: 'lower_pressure' });
 
   useEffect(() => {
     if (!planId) return;
@@ -59,7 +63,7 @@ const ExecutionReplan = () => {
       try {
         const data = await getExecutionStatus(planId);
         setExecution(data);
-        setFormValues({ reason: (data.status_reason && data.status_reason in reasonLabelMap ? data.status_reason : 'manual') as keyof typeof reasonLabelMap, mode: (data.replan_recommendation && data.replan_recommendation in modeLabelMap ? data.replan_recommendation : 'lower_pressure') as keyof typeof modeLabelMap });
+        setFormValues({ reason: (data.status_reason && data.status_reason in reasonLabelMap ? data.status_reason : 'manual') as ReasonKey, mode: (data.replan_recommendation && data.replan_recommendation in modeLabelMap ? data.replan_recommendation : 'lower_pressure') as ModeKey });
         setWaitingForAI(data.journey_status === 'replanning' || Boolean(data.active_replan_stream_id));
       } catch (error: unknown) { toast.error(getErrorMessage(error, 'message.getExecutionStatusFail')); setExecution(null); }
       finally { setLoading(false); }
@@ -83,7 +87,7 @@ const ExecutionReplan = () => {
 
   useEffect(() => {
     if (streamState.latestSnapshot?.status === 'persisted' && nextPlanId) {
-      toast.success('這一輪已經重新調整好了，先從更容易開始的版本繼續。');
+      toast.success(t('execReplan.successPersisted'));
       navigate(`/execution/${nextPlanId}/checkin`);
     }
   }, [navigate, nextPlanId, streamState.latestSnapshot?.status]);
@@ -91,21 +95,21 @@ const ExecutionReplan = () => {
   const handleSubmit = async () => {
     if (!execution?.track_id || submitting) return;
     setSubmitting(true); setStreamError(null);
-    try { await replanTrack(execution.track_id, formValues); setWaitingForAI(true); toast.success('已開始重新調整這一輪。'); }
+    try { await replanTrack(execution.track_id, formValues); setWaitingForAI(true); toast.success(t('execReplan.submitSuccess')); }
     catch (error: unknown) { toast.error(getErrorMessage(error, 'message.operationFail')); }
     finally { setSubmitting(false); }
   };
 
   if (loading) return <ProtectedRoute><div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="size-8 animate-spin text-primary" /></div></ProtectedRoute>;
 
-  if (!execution) return <ProtectedRoute><div className="mx-auto max-w-lg p-6"><AIErrorState title="目前無法讀取這一輪修復旅程" description="請稍後再試。" actions={<Button size="sm" onClick={() => navigate('/execution/dashboard')}>回到修復進展</Button>} /></div></ProtectedRoute>;
+  if (!execution) return <ProtectedRoute><div className="mx-auto max-w-lg p-6"><AIErrorState title={t('execReplan.loadFailTitle')} description={t('execReplan.loadFailDesc')} actions={<Button size="sm" onClick={() => navigate('/execution/dashboard')}>{t('execReplan.backToDashboard')}</Button>} /></div></ProtectedRoute>;
 
   if (!execution.track_id && execution.superseded_plan_id) return (
-    <ProtectedRoute><div className="mx-auto max-w-lg p-6"><div className="rounded-xl border border-success/30 bg-success/5 p-5 space-y-3"><div className="flex items-start gap-3"><CheckCircle className="size-5 text-success mt-0.5" /><div><p className="font-medium text-foreground">這一輪已經有更新版本</p><p className="text-sm text-muted-foreground mt-1">原本這個版本已被新的調整版取代。</p></div></div><Button size="sm" onClick={() => navigate(`/execution/${execution.superseded_plan_id}/checkin`)}>前往最新版本</Button></div></div></ProtectedRoute>
+    <ProtectedRoute><div className="mx-auto max-w-lg p-6"><div className="rounded-xl border border-success/30 bg-success/5 p-5 space-y-3"><div className="flex items-start gap-3"><CheckCircle className="size-5 text-success mt-0.5" /><div><p className="font-medium text-foreground">{t('execReplan.supersededTitle')}</p><p className="text-sm text-muted-foreground mt-1">{t('execReplan.supersededDesc')}</p></div></div><Button size="sm" onClick={() => navigate(`/execution/${execution.superseded_plan_id}/checkin`)}>{t('execReplan.goToLatest')}</Button></div></div></ProtectedRoute>
   );
 
   if (!execution.track_id) return (
-    <ProtectedRoute><div className="mx-auto max-w-lg p-6"><div className="rounded-xl border border-warning/30 bg-warning/5 p-5 space-y-3"><p className="text-sm text-foreground">目前沒有可重新調整的修復旅程</p><Button size="sm" onClick={() => navigate('/execution/dashboard')}>回到修復進展</Button></div></div></ProtectedRoute>
+    <ProtectedRoute><div className="mx-auto max-w-lg p-6"><div className="rounded-xl border border-warning/30 bg-warning/5 p-5 space-y-3"><p className="text-sm text-foreground">{t('execReplan.noTrack')}</p><Button size="sm" onClick={() => navigate('/execution/dashboard')}>{t('execReplan.backToDashboard')}</Button></div></div></ProtectedRoute>
   );
 
   const waitingSnapshot = streamState.latestSnapshot;
@@ -114,60 +118,60 @@ const ExecutionReplan = () => {
 
   return (
     <ProtectedRoute>
-      <SEO title="重新調整這一輪修復旅程" description="把這一輪調成更能承受的版本" />
+      <SEO title={t('execReplan.seoTitle')} description={t('execReplan.seoDesc')} />
       <div className="mx-auto max-w-2xl px-4 py-8" role="main">
         <div className="mb-6 flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => navigate(-1)}><ArrowLeft className="size-4" />返回</Button>
-          <h2 className="text-xl font-bold text-foreground font-heading">重新調整這一輪</h2>
+          <Button variant="ghost" size="sm" onClick={() => navigate(-1)}><ArrowLeft className="size-4" />{t('common.back')}</Button>
+          <h2 className="text-xl font-bold text-foreground font-heading">{t('execReplan.heading')}</h2>
         </div>
 
         {/* Context */}
         <div className="mb-6 rounded-xl border border-border bg-card p-5 space-y-3">
-          <p className="font-semibold text-foreground">{execution.plan_summary?.title || '這一輪修復旅程'}</p>
-          <p className="text-sm text-muted-foreground">這不是從頭來過，而是把這一輪調成更貼近你們現在狀態的版本。</p>
+          <p className="font-semibold text-foreground">{execution.plan_summary?.title || t('execReplan.defaultTitle')}</p>
+          <p className="text-sm text-muted-foreground">{t('execReplan.contextDesc')}</p>
           {execution.current_step?.content && (
-            <div className="flex items-start gap-2 rounded-lg bg-primary-light/30 p-3"><Info className="size-4 mt-0.5 text-primary shrink-0" /><div><p className="text-xs font-medium">目前最卡的地方</p><p className="text-xs text-muted-foreground">{execution.current_step.content}</p></div></div>
+            <div className="flex items-start gap-2 rounded-lg bg-primary-light/30 p-3"><Info className="size-4 mt-0.5 text-primary shrink-0" /><div><p className="text-xs font-medium">{t('execReplan.stuckPoint')}</p><p className="text-xs text-muted-foreground">{execution.current_step.content}</p></div></div>
           )}
-          {isRecovering && <AIRecoveryBadge text="連線剛剛中斷了，正在恢復這一輪重調進度…" />}
+          {isRecovering && <AIRecoveryBadge text={t('execReplan.recovering')} />}
         </div>
 
         {isWaitingState ? (
           <div className="rounded-xl border border-border bg-card p-5 space-y-5">
-            <div><h4 className="text-base font-semibold text-foreground">正在重新調整這一輪</h4><p className="text-sm text-muted-foreground mt-1">完成後會直接帶你回到新的下一步。</p></div>
-            <AIPhaseTimeline currentPhase={waitingPhase} phaseHistory={streamState.phaseHistory} getLabel={(phase) => phaseLabelMap[phase] || phase} />
+            <div><h4 className="text-base font-semibold text-foreground">{t('execReplan.waitingTitle')}</h4><p className="text-sm text-muted-foreground mt-1">{t('execReplan.waitingDesc')}</p></div>
+            <AIPhaseTimeline currentPhase={waitingPhase} phaseHistory={streamState.phaseHistory} getLabel={(phase) => phaseLabelMap[phase]?.() || phase} />
             {waitingSnapshot?.text && (
               <div className={cn('rounded-lg p-3 text-sm', waitingSnapshot.status === 'failed' ? 'bg-destructive/5 border border-destructive/20' : waitingSnapshot.status === 'persisted' ? 'bg-success/5 border border-success/20' : 'bg-primary-light/30')}>
-                <p className="font-medium text-foreground mb-1">{waitingSnapshot.status === 'persisted' ? '新版本已經準備好' : '調整摘要'}</p>
+                <p className="font-medium text-foreground mb-1">{waitingSnapshot.status === 'persisted' ? t('execReplan.newVersionReady') : t('execReplan.adjustmentSummary')}</p>
                 <p className="text-muted-foreground">{waitingSnapshot.text}</p>
               </div>
             )}
             {(waitingSnapshot?.status === 'failed' || streamError) ? (
-              <AIErrorState title="這一輪重新調整失敗了" description={streamError || waitingSnapshot?.error?.message || '原本的版本還保留著，你可以稍後重試。'} actions={<div className="flex gap-2"><Button size="sm" onClick={() => void handleSubmit()} disabled={submitting}>{submitting && <Loader2 className="size-3 animate-spin" />}重新試一次</Button><Button variant="outline" size="sm" onClick={() => navigate(`/execution/${execution.plan_id}/checkin`)}>回到原本的一小步</Button></div>} />
+              <AIErrorState title={t('execReplan.failedTitle')} description={streamError || waitingSnapshot?.error?.message || t('execReplan.failedDesc')} actions={<div className="flex gap-2"><Button size="sm" onClick={() => void handleSubmit()} disabled={submitting}>{submitting && <Loader2 className="size-3 animate-spin" />}{t('execReplan.retryBtn')}</Button><Button variant="outline" size="sm" onClick={() => navigate(`/execution/${execution.plan_id}/checkin`)}>{t('execReplan.backToStep')}</Button></div>} />
             ) : (
-              <div className="flex items-start gap-2 rounded-lg bg-primary-light/20 p-3"><Info className="size-4 mt-0.5 text-primary shrink-0" /><p className="text-xs text-muted-foreground">如果現在先離開也沒關係，之後回來都會接到目前進度。</p></div>
+              <div className="flex items-start gap-2 rounded-lg bg-primary-light/20 p-3"><Info className="size-4 mt-0.5 text-primary shrink-0" /><p className="text-xs text-muted-foreground">{t('execReplan.leaveHint')}</p></div>
             )}
           </div>
         ) : (
           <div className="rounded-xl border border-border bg-card p-5 space-y-6">
             <fieldset className="space-y-3">
-              <legend className="text-sm font-semibold text-foreground">這一輪最主要卡在哪裡</legend>
+              <legend className="text-sm font-semibold text-foreground">{t('execReplan.reasonLabel')}</legend>
               <div className="space-y-2">
-                {Object.entries(reasonLabelMap).map(([value, label]) => (
-                  <label key={value} className="flex items-center gap-2 cursor-pointer"><input type="radio" name="reason" value={value} checked={formValues.reason === value} onChange={() => setFormValues((p) => ({ ...p, reason: value as keyof typeof reasonLabelMap }))} className="accent-primary" /><span className="text-sm">{label}</span></label>
+                {Object.entries(reasonLabelMap).map(([value, labelFn]) => (
+                  <label key={value} className="flex items-center gap-2 cursor-pointer"><input type="radio" name="reason" value={value} checked={formValues.reason === value} onChange={() => setFormValues((p) => ({ ...p, reason: value as ReasonKey }))} className="accent-primary" /><span className="text-sm">{labelFn()}</span></label>
                 ))}
               </div>
             </fieldset>
             <fieldset className="space-y-3">
-              <legend className="text-sm font-semibold text-foreground">你希望我怎麼調整</legend>
+              <legend className="text-sm font-semibold text-foreground">{t('execReplan.modeLabel')}</legend>
               <div className="space-y-2">
-                {Object.entries(modeLabelMap).map(([value, label]) => (
-                  <label key={value} className="flex items-center gap-2 cursor-pointer"><input type="radio" name="mode" value={value} checked={formValues.mode === value} onChange={() => setFormValues((p) => ({ ...p, mode: value as keyof typeof modeLabelMap }))} className="accent-primary" /><span className="text-sm">{label}</span></label>
+                {Object.entries(modeLabelMap).map(([value, labelFn]) => (
+                  <label key={value} className="flex items-center gap-2 cursor-pointer"><input type="radio" name="mode" value={value} checked={formValues.mode === value} onChange={() => setFormValues((p) => ({ ...p, mode: value as ModeKey }))} className="accent-primary" /><span className="text-sm">{labelFn()}</span></label>
                 ))}
               </div>
             </fieldset>
             <div className="flex gap-2">
-              <Button onClick={() => void handleSubmit()} disabled={submitting}><RefreshCw className="size-4" />{submitting && <Loader2 className="size-4 animate-spin" />}重新調整這一輪</Button>
-              <Button variant="outline" onClick={() => navigate(`/execution/${execution.plan_id}/checkin`)}>先回到今天的一小步</Button>
+              <Button onClick={() => void handleSubmit()} disabled={submitting}><RefreshCw className="size-4" />{submitting && <Loader2 className="size-4 animate-spin" />}{t('execReplan.submitBtn')}</Button>
+              <Button variant="outline" onClick={() => navigate(`/execution/${execution.plan_id}/checkin`)}>{t('execReplan.backToStep')}</Button>
             </div>
           </div>
         )}

@@ -23,9 +23,9 @@ import { getErrorMessage } from '@/utils/apiError';
 import { safeParsePlanContent } from '@/utils/planContent';
 import { t } from '@/utils/i18n';
 
-const commitmentLabelMap: Record<string, string> = {
-  not_viewed: '還沒開始', viewed: '已看過', deferred: '需要一點時間',
-  committed: '願意一起試', declined: '暫時不想加入', paused: '暫停中',
+const commitmentLabelMap: Record<string, () => string> = {
+  not_viewed: () => t('reconDetail.commitment.notViewed'), viewed: () => t('reconDetail.commitment.viewed'), deferred: () => t('reconDetail.commitment.deferred'),
+  committed: () => t('reconDetail.commitment.committed'), declined: () => t('reconDetail.commitment.declined'), paused: () => t('reconDetail.commitment.paused'),
 };
 
 type PlanDetail = Awaited<ReturnType<typeof getPlanById>>;
@@ -71,28 +71,28 @@ const ReconciliationDetail = () => {
 
   const handleCommit = async () => {
     if (!id) return; setSelecting(true);
-    try { await selectPlan(id); if (!mountedRef.current) return; toast.success('已記下你的承諾。你可以先自己開始，也可以邀請對方一起試。'); await fetchPlan(); }
+    try { await selectPlan(id); if (!mountedRef.current) return; toast.success(t('reconDetail.commitSuccess')); await fetchPlan(); }
     catch (error: unknown) { if (mountedRef.current) toast.error(getErrorMessage(error, 'message.selectPlanFail')); }
     finally { if (mountedRef.current) setSelecting(false); }
   };
 
   const handleInvite = async () => {
     if (!id) return; setInviting(true);
-    try { await invitePartner(id); if (!mountedRef.current) return; toast.success('已送出低壓邀請，讓對方知道你想一起試試看。'); await fetchPlan(); }
+    try { await invitePartner(id); if (!mountedRef.current) return; toast.success(t('reconDetail.inviteSuccess')); await fetchPlan(); }
     catch (error: unknown) { if (mountedRef.current) toast.error(getErrorMessage(error, 'message.operationFail')); }
     finally { if (mountedRef.current) setInviting(false); }
   };
 
   const handleStart = async () => {
     if (!id) return; setStarting(true);
-    try { await confirmExecution(id); if (!mountedRef.current) return; toast.success('今天的第一步已準備好了。'); navigate(`/execution/${id}/checkin`); }
+    try { await confirmExecution(id); if (!mountedRef.current) return; toast.success(t('reconDetail.startSuccess')); navigate(`/execution/${id}/checkin`); }
     catch (error: unknown) { if (mountedRef.current) toast.error(getErrorMessage(error, 'message.startExecutionFail')); }
     finally { if (mountedRef.current) setStarting(false); }
   };
 
   const handlePause = async () => {
     if (!id) return; setPausing(true);
-    try { await pausePlan(id); if (!mountedRef.current) return; toast.success('已暫停這一輪，不代表之前的努力白費。'); await fetchPlan(); }
+    try { await pausePlan(id); if (!mountedRef.current) return; toast.success(t('reconDetail.pauseSuccess')); await fetchPlan(); }
     catch (error: unknown) { if (mountedRef.current) toast.error(getErrorMessage(error, 'message.operationFail')); }
     finally { if (mountedRef.current) setPausing(false); }
   };
@@ -102,7 +102,7 @@ const ReconciliationDetail = () => {
     try {
       if (options) await respondPlan(id, action, options); else await respondPlan(id, action);
       if (!mountedRef.current) return;
-      toast.success(action === 'committed' ? '已記下你願意一起試的決定。' : action === 'deferred' ? '已記下你需要一點時間。' : '已記下你暫時不加入的選擇。');
+      toast.success(action === 'committed' ? t('reconDetail.respondCommitted') : action === 'deferred' ? t('reconDetail.respondDeferred') : t('reconDetail.respondDeclined'));
       await fetchPlan();
     } catch (error: unknown) { if (mountedRef.current) toast.error(getErrorMessage(error, 'message.operationFail')); }
     finally { if (mountedRef.current) setSelecting(false); }
@@ -110,7 +110,7 @@ const ReconciliationDetail = () => {
 
   const handleResume = async () => {
     if (!plan?.commitment?.track_id) return; setResuming(true);
-    try { const result = await resumeTrack(plan.commitment.track_id); if (!mountedRef.current) return; toast.success('已恢復這一輪修復旅程。'); navigate(`/execution/${result.plan_id}/checkin`); }
+    try { const result = await resumeTrack(plan.commitment.track_id); if (!mountedRef.current) return; toast.success(t('reconDetail.resumeSuccess')); navigate(`/execution/${result.plan_id}/checkin`); }
     catch (error: unknown) { if (mountedRef.current) toast.error(getErrorMessage(error, 'message.operationFail')); }
     finally { if (mountedRef.current) setResuming(false); }
   };
@@ -152,7 +152,7 @@ const ReconciliationDetail = () => {
         <div className="rounded-xl border border-border bg-card p-6 mb-6 space-y-5">
           <div className="flex flex-wrap gap-2">
             <Badge variant="secondary">{plan.intent}</Badge>
-            <Badge variant="outline">{plan.commitment?.recommended_mode === 'co' ? '雙方共修模式' : '單人先行模式'}</Badge>
+            <Badge variant="outline">{plan.commitment?.recommended_mode === 'co' ? t('reconDetail.modeCo') : t('reconDetail.modeSolo')}</Badge>
           </div>
           <div>
             <h2 className="text-2xl font-bold text-foreground font-heading" id="plan-title">{parsed.title}</h2>
@@ -160,8 +160,8 @@ const ReconciliationDetail = () => {
           </div>
           <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 pt-2 border-t border-border">
             <div><dt className="text-xs font-medium text-muted-foreground">為什麼是這個方案</dt><dd className="mt-1 text-sm text-foreground">{plan.fit_reason || parsed.fit_reason}</dd></div>
-            <div><dt className="text-xs font-medium text-muted-foreground">預計時長</dt><dd className="mt-1 text-sm text-foreground">{plan.estimated_duration != null ? `${plan.estimated_duration} 天` : '未定'}</dd></div>
-            <div><dt className="text-xs font-medium text-muted-foreground">先不要用在什麼情況</dt><dd className="mt-1 text-sm text-foreground">{(plan.do_not_use_when || parsed.do_not_use_when).join('、') || '目前沒有額外限制'}</dd></div>
+            <div><dt className="text-xs font-medium text-muted-foreground">{t('reconDetail.estimatedDurationLabel')}</dt><dd className="mt-1 text-sm text-foreground">{plan.estimated_duration != null ? t('reconDetail.durationDays').replace('{n}', String(plan.estimated_duration)) : t('reconDetail.durationTbd')}</dd></div>
+            <div><dt className="text-xs font-medium text-muted-foreground">{t('reconDetail.doNotUseWhenLabel')}</dt><dd className="mt-1 text-sm text-foreground">{(plan.do_not_use_when || parsed.do_not_use_when).join('、') || t('reconDetail.noRestrictions')}</dd></div>
             <div><dt className="text-xs font-medium text-muted-foreground">卡住時怎麼降難度</dt><dd className="mt-1 text-sm text-foreground">{plan.fallback_step || parsed.fallback_step}</dd></div>
           </dl>
         </div>
@@ -187,13 +187,13 @@ const ReconciliationDetail = () => {
             <div className="rounded-lg bg-muted/50 p-4 space-y-2">
               <span className="text-xs font-medium text-muted-foreground">你目前的狀態</span>
               <Badge variant={currentStatus === 'committed' ? 'default' : 'secondary'} className={currentStatus === 'committed' ? 'bg-success/10 text-success' : ''}>
-                {commitmentLabelMap[currentStatus] || currentStatus}
+                {commitmentLabelMap[currentStatus]?.() || currentStatus}
               </Badge>
             </div>
             <div className="rounded-lg bg-muted/50 p-4 space-y-2">
               <span className="text-xs font-medium text-muted-foreground">對方目前的狀態</span>
               <Badge variant="secondary">
-                {commitmentLabelMap[partnerStatus] || partnerStatus}
+                {commitmentLabelMap[partnerStatus]?.() || partnerStatus}
               </Badge>
             </div>
           </div>
@@ -202,8 +202,8 @@ const ReconciliationDetail = () => {
           <div className={`flex items-start gap-3 rounded-lg p-3 ${dualCommitted ? 'bg-success/5 border border-success/20' : 'bg-primary-light/30'}`}>
             <Info className="mt-0.5 size-4 shrink-0 text-primary" />
             <div>
-              <p className="text-sm font-medium text-foreground">{journeyContext?.title || (dualCommitted ? '你們正在一起修復' : '現在也可以由你先開始')}</p>
-              <p className="text-xs text-muted-foreground">{journeyContext?.body || (dualCommitted ? '雙方都已經願意試，接下來會以共修模式推進。' : '如果對方還沒準備好，你也可以先從一個低壓的小步驟開始。')}</p>
+              <p className="text-sm font-medium text-foreground">{journeyContext?.title || (dualCommitted ? t('reconDetail.dualCommittedTitle') : t('reconDetail.soloStartTitle'))}</p>
+              <p className="text-xs text-muted-foreground">{journeyContext?.body || (dualCommitted ? t('reconDetail.dualCommittedBody') : t('reconDetail.soloStartBody'))}</p>
             </div>
           </div>
 

@@ -130,14 +130,14 @@ describe('ExecutionDashboard', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('今天的一小步')).toBeInTheDocument();
-      expect(screen.getByText('已完成')).toBeInTheDocument();
+      expect(screen.getByText('execDashboard.section.active')).toBeInTheDocument();
+      expect(screen.getByText('execDashboard.section.completed')).toBeInTheDocument();
     });
 
     expect(screen.getByText('今天先低壓靠近')).toBeInTheDocument();
     expect(screen.getByText('一起恢復安全感')).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: /去看今天的一小步/ }));
+    await userEvent.click(screen.getByRole('button', { name: /execDashboard\.cta\.continueStep/ }));
 
     expect(mockNavigate).toHaveBeenCalledWith('/execution/plan-1/checkin');
   });
@@ -171,10 +171,10 @@ describe('ExecutionDashboard', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /恢復這一輪/ })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /execDashboard\.cta\.resume/ })).toBeInTheDocument();
     });
 
-    await userEvent.click(screen.getByRole('button', { name: /恢復這一輪/ }));
+    await userEvent.click(screen.getByRole('button', { name: /execDashboard\.cta\.resume/ }));
 
     await waitFor(() => {
       expect(mockResumeTrack).toHaveBeenCalledWith('track-1');

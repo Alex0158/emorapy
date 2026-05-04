@@ -1,5 +1,6 @@
 import {
   CASE_PRODUCT_FLOW_KEYS,
+  buildCaseSourceTracking,
   buildClaimableSessionCaseWhere,
   buildCaseProductFlowScopedWhere,
   buildCaseProductFlowWhere,
@@ -129,6 +130,33 @@ describe('case-classifier', () => {
     ]);
     expect(isCaseProductFlow('chat_to_case')).toBe(true);
     expect(isCaseProductFlow('unknown')).toBe(false);
+  });
+
+  it('persisted product_flow 可作非 chat case 的穩定來源，chat link 仍優先', () => {
+    expect(getCaseProductFlow({
+      mode: 'remote',
+      session_id: null,
+      product_flow: 'formal_collaborative',
+    })).toBe('formal_collaborative');
+    expect(getCaseProductFlow({
+      mode: 'remote',
+      session_id: null,
+      product_flow: 'formal_remote',
+      chat_to_case_links: [{ id: 'link-1' }],
+    })).toBe('chat_to_case');
+  });
+
+  it('buildCaseSourceTracking 應輸出穩定 source_channel 與 entry_point', () => {
+    expect(buildCaseSourceTracking('quick_single')).toEqual({
+      product_flow: 'quick_single',
+      source_channel: 'quick_experience',
+      entry_point: 'quick_single_case_create',
+    });
+    expect(buildCaseSourceTracking('chat_to_case')).toEqual({
+      product_flow: 'chat_to_case',
+      source_channel: 'chat_room',
+      entry_point: 'chat_request_judgment',
+    });
   });
 
   it('user-bound product case 應包含正式與 chat-to-case，排除 session-bound quick', () => {

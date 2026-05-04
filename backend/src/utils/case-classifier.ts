@@ -26,6 +26,7 @@ export const CASE_PRODUCT_FLOW_KEYS: readonly CaseProductFlow[] = [
 ];
 
 export type CaseProductFlowSubject = CaseAccessSubject & {
+  product_flow?: string | null;
   chat_to_case_links?: unknown[] | null;
   _count?: {
     chat_to_case_links?: number | null;
@@ -114,6 +115,10 @@ export function getCaseProductFlow(case_: CaseProductFlowSubject): CaseProductFl
     return 'chat_to_case';
   }
 
+  if (isCaseProductFlow(case_.product_flow)) {
+    return case_.product_flow;
+  }
+
   if (case_.mode === CASE_MODE.QUICK) {
     return 'quick_single';
   }
@@ -135,6 +140,30 @@ export function isUserBoundProductFlow(flow: CaseProductFlow): boolean {
 
 export function isUserBoundProductCase(case_: CaseProductFlowSubject): boolean {
   return isUserBoundProductFlow(getCaseProductFlow(case_));
+}
+
+export function getCaseSourceChannel(flow: CaseProductFlow): string {
+  if (flow === 'chat_to_case') {
+    return 'chat_room';
+  }
+
+  if (flow === 'quick_single' || flow === 'quick_collaborative') {
+    return 'quick_experience';
+  }
+
+  return 'formal_case';
+}
+
+export function getCaseEntryPoint(flow: CaseProductFlow): string {
+  return `${flow}_case_create`;
+}
+
+export function buildCaseSourceTracking(flow: CaseProductFlow) {
+  return {
+    product_flow: flow,
+    source_channel: getCaseSourceChannel(flow),
+    entry_point: flow === 'chat_to_case' ? 'chat_request_judgment' : getCaseEntryPoint(flow),
+  };
 }
 
 export function buildUserBoundCaseModeWhere() {

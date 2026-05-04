@@ -26,6 +26,7 @@ import { analyzeMessageLayers, buildChatJudgmentStatement } from './chat-message
 import { getChatJudgmentRequestPolicy } from '../utils/product-safety-policy';
 import { safetyAssessmentService } from './safety-assessment.service';
 import { normalizeJudgmentWithSafetyState } from './judgment-normalization.service';
+import { buildCaseSourceTracking } from '../utils/case-classifier';
 
 type ActorContext = {
   userId?: string;
@@ -1153,6 +1154,7 @@ export class ChatService {
               status: CaseStatus.submitted,
               mode,
               session_id: mode === CaseMode.quick ? room.session_id : null,
+              ...buildCaseSourceTracking('chat_to_case'),
               submitted_at: new Date(),
             },
           });

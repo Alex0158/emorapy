@@ -646,6 +646,9 @@ model Case {
   judgment_failure_reason String?    @db.VarChar(500)
   mode                CaseMode       @default(remote)
   session_id          String?        @db.VarChar(100)
+  product_flow        String?        @db.VarChar(50)
+  source_channel      String?        @db.VarChar(50)
+  entry_point         String?        @db.VarChar(50)
   created_at          DateTime       @default(now())
   updated_at          DateTime       @updatedAt
   submitted_at        DateTime?
@@ -674,6 +677,9 @@ model Case {
   @@index([submitted_at])
   @@index([mode])
   @@index([status, mode, created_at])
+  @@index([product_flow, created_at], map: "idx_cases_product_flow_created")
+  @@index([source_channel, created_at], map: "idx_cases_source_channel_created")
+  @@index([entry_point, created_at], map: "idx_cases_entry_point_created")
   @@map("cases")
 }
 

@@ -13,6 +13,7 @@ import { lockService } from '../utils/lock';
 import { LOCK_TTL, SESSION_EXPIRY, CASE_STATUS, CASE_MODE, PAGINATION, FILE_TYPE, PAIRING_STATUS } from '../utils/constants';
 import {
   buildClaimableSessionCaseWhere,
+  buildCaseSourceTracking,
   buildUserBoundProductCaseWhere,
   canAccessSessionBoundCase,
   getCaseProductFlow,
@@ -207,6 +208,7 @@ export class CaseService {
             status: CASE_STATUS.SUBMITTED,
             mode: CASE_MODE.QUICK,
             session_id: sessionIdToUse,
+            ...buildCaseSourceTracking('quick_single'),
             submitted_at: new Date(),
           },
         });
@@ -345,6 +347,7 @@ export class CaseService {
           defendant_statement: defendantStatementValidated,
           status: isReadyForSubmission ? CASE_STATUS.SUBMITTED : CASE_STATUS.DRAFT,
           mode: caseMode,
+          ...buildCaseSourceTracking(caseMode === CASE_MODE.COLLABORATIVE ? 'formal_collaborative' : 'formal_remote'),
           submitted_at: isReadyForSubmission ? new Date() : null,
           ...(safetyMetadata ? { safety_metadata: safetyMetadata } : {}),
         },
@@ -829,6 +832,7 @@ export class CaseService {
         status: CASE_STATUS.DRAFT,
         mode: CASE_MODE.COLLABORATIVE,
         session_id: finalSessionId,
+        ...buildCaseSourceTracking('quick_collaborative'),
       },
     });
 

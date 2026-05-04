@@ -1,6 +1,7 @@
 import {
   CASE_PRODUCT_FLOW_KEYS,
   buildClaimableSessionCaseWhere,
+  buildCaseProductFlowScopedWhere,
   buildCaseProductFlowWhere,
   buildCompletedExecutionProductFlowWhere,
   buildJudgmentProductFlowWhere,
@@ -260,6 +261,26 @@ describe('case-classifier', () => {
           },
         },
       },
+    });
+  });
+
+  it('product-flow scoped where 應以 AND 合併共用產品流口徑與額外條件', () => {
+    const cutoff = new Date('2026-05-04T00:00:00.000Z');
+
+    expect(buildCaseProductFlowScopedWhere('formal_remote', {
+      status: 'in_progress',
+      updated_at: { lt: cutoff },
+    })).toEqual({
+      AND: [
+        {
+          chat_to_case_links: { none: {} },
+          mode: 'remote',
+        },
+        {
+          status: 'in_progress',
+          updated_at: { lt: cutoff },
+        },
+      ],
     });
   });
 

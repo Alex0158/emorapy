@@ -607,7 +607,17 @@ describe('AdminController', () => {
         .mockResolvedValueOnce(2)
         .mockResolvedValueOnce(5)
         .mockResolvedValueOnce(4)
-        .mockResolvedValueOnce(6);
+        .mockResolvedValueOnce(6)
+        .mockResolvedValueOnce(1)
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(2)
+        .mockResolvedValueOnce(3)
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(1)
+        .mockResolvedValueOnce(1)
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(4);
       (mockJudgmentCount as any).mockResolvedValue(7);
       (mockReconciliationPlanCount as any).mockResolvedValue(6);
       (mockExecutionRecordCount as any).mockResolvedValue(5);
@@ -625,6 +635,32 @@ describe('AdminController', () => {
           session_id: null,
         },
       });
+      expect(mockCaseCount).toHaveBeenCalledWith({
+        where: {
+          AND: [
+            {
+              chat_to_case_links: { none: {} },
+              mode: 'remote',
+            },
+            {
+              status: 'in_progress',
+              updated_at: { lt: expect.any(Date) },
+            },
+          ],
+        },
+      });
+      expect(mockCaseCount).toHaveBeenCalledWith({
+        where: {
+          AND: [
+            {
+              chat_to_case_links: { some: {} },
+            },
+            {
+              status: 'judgment_failed',
+            },
+          ],
+        },
+      });
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
           success: true,
@@ -640,6 +676,43 @@ describe('AdminController', () => {
               { key: 'formal_remote', count: 5, ratio: 5 / 20 },
               { key: 'formal_collaborative', count: 4, ratio: 4 / 20 },
               { key: 'chat_to_case', count: 6, ratio: 6 / 20 },
+            ],
+            productFlowOperationalSignals: [
+              {
+                key: 'quick_single',
+                stuckInProgressCases: 1,
+                judgmentFailedCases: 0,
+                attentionCases: 1,
+                notificationRecallReviewRequired: true,
+              },
+              {
+                key: 'quick_collaborative',
+                stuckInProgressCases: 0,
+                judgmentFailedCases: 2,
+                attentionCases: 2,
+                notificationRecallReviewRequired: true,
+              },
+              {
+                key: 'formal_remote',
+                stuckInProgressCases: 3,
+                judgmentFailedCases: 0,
+                attentionCases: 3,
+                notificationRecallReviewRequired: true,
+              },
+              {
+                key: 'formal_collaborative',
+                stuckInProgressCases: 1,
+                judgmentFailedCases: 1,
+                attentionCases: 2,
+                notificationRecallReviewRequired: true,
+              },
+              {
+                key: 'chat_to_case',
+                stuckInProgressCases: 0,
+                judgmentFailedCases: 4,
+                attentionCases: 4,
+                notificationRecallReviewRequired: true,
+              },
             ],
             conversion: expect.objectContaining({
               pairingRate: 4 / 10,

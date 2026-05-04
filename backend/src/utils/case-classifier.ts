@@ -239,6 +239,15 @@ export function buildCaseProductFlowWhere(flow: CaseProductFlow): Prisma.CaseWhe
   };
 }
 
+export function buildCaseProductFlowScopedWhere(flow: CaseProductFlow, extraWhere: Prisma.CaseWhereInput): Prisma.CaseWhereInput {
+  return {
+    AND: [
+      buildCaseProductFlowWhere(flow),
+      extraWhere,
+    ],
+  };
+}
+
 export function buildJudgmentProductFlowWhere(flow: CaseProductFlow): Prisma.JudgmentWhereInput {
   return {
     case: {

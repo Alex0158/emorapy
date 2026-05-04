@@ -17,10 +17,13 @@ import {
 import { Errors } from '../utils/errors';
 import {
   CASE_PRODUCT_FLOW_KEYS,
+  buildCaseProductFlowScopedWhere,
   buildCaseProductFlowWhere,
   buildCompletedExecutionProductFlowWhere,
   buildJudgmentProductFlowWhere,
 } from '../utils/case-classifier';
+
+const PRODUCT_FLOW_STUCK_IN_PROGRESS_MINUTES = 30;
 
 function parsePagination(req: Request) {
   const rawLimit = Number(req.query.limit ?? 20);
@@ -760,6 +763,7 @@ class AdminController {
 
   async reportOverview(_req: Request, res: Response, next: NextFunction) {
     try {
+      const productFlowStuckCutoff = new Date(Date.now() - PRODUCT_FLOW_STUCK_IN_PROGRESS_MINUTES * 60 * 1000);
       const [
         users,
         pairings,
@@ -770,6 +774,7 @@ class AdminController {
         executionCompleted,
         interviewCompleted,
         productFlowCounts,
+        productFlowOperationalSignals,
       ] = await Promise.all([
         prisma.user.count(),
         prisma.pairing.count({ where: { status: 'active' } }),
@@ -783,6 +788,34 @@ class AdminController {
           CASE_PRODUCT_FLOW_KEYS.map((flow) => prisma.case.count({
             where: buildCaseProductFlowWhere(flow),
           }))
+        ),
+        Promise.all(
+          CASE_PRODUCT_FLOW_KEYS.map(async (flow) => {
+            const [stuckInProgressCasesRaw, judgmentFailedCasesRaw] = await Promise.all([
+              prisma.case.count({
+                where: buildCaseProductFlowScopedWhere(flow, {
+                  status: 'in_progress',
+                  updated_at: { lt: productFlowStuckCutoff },
+                }),
+              }),
+              prisma.case.count({
+                where: buildCaseProductFlowScopedWhere(flow, {
+                  status: 'judgment_failed',
+                }),
+              }),
+            ]);
+            const stuckInProgressCases = stuckInProgressCasesRaw ?? 0;
+            const judgmentFailedCases = judgmentFailedCasesRaw ?? 0;
+            const attentionCases = stuckInProgressCases + judgmentFailedCases;
+
+            return {
+              key: flow,
+              stuckInProgressCases,
+              judgmentFailedCases,
+              attentionCases,
+              notificationRecallReviewRequired: attentionCases > 0,
+            };
+          })
         ),
       ]);
 
@@ -810,6 +843,7 @@ class AdminController {
             count: productFlowCounts[index] ?? 0,
             ratio: casesTotal > 0 ? (productFlowCounts[index] ?? 0) / casesTotal : 0,
           })),
+          productFlowOperationalSignals,
           conversion,
         },
       });

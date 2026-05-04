@@ -8,6 +8,24 @@ type DailyPoint = {
   value: number;
 };
 
+type AIRequestLedgerProductFlowPoint = {
+  productFlow: string;
+  requestCount24h: number;
+  requestCount7d: number;
+  succeededRequests7d: number;
+  failedRequests7d: number;
+  cancelledRequests7d: number;
+  inputTokens24h: number;
+  outputTokens24h: number;
+  totalTokens24h: number;
+  inputTokens7d: number;
+  outputTokens7d: number;
+  totalTokens7d: number;
+  costUsd24h: number | null;
+  costUsd7d: number | null;
+  costSource: 'ledger_cost_usd' | 'not_allocated';
+};
+
 export type AdminCostReport = {
   generatedAt: string;
   currency: 'USD';
@@ -44,8 +62,48 @@ export type AdminCostReport = {
     outputTokens24h: number;
     dailyCostUsd: DailyPoint[];
     note?: string;
+    ledger: {
+      status: DataStatus;
+      source: 'ai_request_ledger';
+      costSource: 'ledger_cost_usd' | 'not_allocated';
+      requestCount24h: number;
+      requestCount7d: number;
+      inputTokens24h: number;
+      outputTokens24h: number;
+      totalTokens24h: number;
+      inputTokens7d: number;
+      outputTokens7d: number;
+      totalTokens7d: number;
+      productFlows: AIRequestLedgerProductFlowPoint[];
+      note?: string;
+    };
   };
 };
+
+type AIRequestLedgerRow = {
+  product_flow: string | null;
+  status: string;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  total_tokens: number | null;
+  cost_usd: number | string | { toString(): string } | null;
+  created_at: Date;
+};
+
+type CostMonitoringPrisma = {
+  aiRequestLedger: {
+    findMany(args: unknown): Promise<AIRequestLedgerRow[]>;
+  };
+};
+
+let prismaLoader: (() => CostMonitoringPrisma) | null = null;
+
+function loadPrisma(): CostMonitoringPrisma {
+  if (!prismaLoader) {
+    prismaLoader = () => require('../config/database').default as CostMonitoringPrisma;
+  }
+  return prismaLoader();
+}
 
 function toNumber(value: unknown): number {
   const parsed = Number(value);
@@ -55,6 +113,12 @@ function toNumber(value: unknown): number {
 function round(value: number, fraction = 4): number {
   const factor = 10 ** fraction;
   return Math.round(value * factor) / factor;
+}
+
+function decimalToNumber(value: AIRequestLedgerRow['cost_usd']): number | null {
+  if (value === null || value === undefined) return null;
+  const parsed = Number(typeof value === 'object' ? value.toString() : value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = EXTERNAL_API_TIMEOUT_MS) {
@@ -362,6 +426,133 @@ async function fetchOpenAICostsFromApi(): Promise<{
   };
 }
 
+function emptyLedgerReport(note?: string): AdminCostReport['openai']['ledger'] {
+  return {
+    status: 'ok',
+    source: 'ai_request_ledger',
+    costSource: 'not_allocated',
+    requestCount24h: 0,
+    requestCount7d: 0,
+    inputTokens24h: 0,
+    outputTokens24h: 0,
+    totalTokens24h: 0,
+    inputTokens7d: 0,
+    outputTokens7d: 0,
+    totalTokens7d: 0,
+    productFlows: [],
+    note,
+  };
+}
+
+async function readAIRequestLedgerBreakdown(): Promise<AdminCostReport['openai']['ledger']> {
+  const now = Date.now();
+  const since7d = new Date(now - 7 * 24 * 60 * 60 * 1000);
+  const since24hMs = now - 24 * 60 * 60 * 1000;
+
+  const rows = await loadPrisma().aiRequestLedger.findMany({
+    where: { created_at: { gte: since7d } },
+    select: {
+      product_flow: true,
+      status: true,
+      input_tokens: true,
+      output_tokens: true,
+      total_tokens: true,
+      cost_usd: true,
+      created_at: true,
+    },
+  });
+
+  if (rows.length === 0) {
+    return emptyLedgerReport('no ai_request_ledger rows in the last 7 days');
+  }
+
+  const byFlow = new Map<string, AIRequestLedgerProductFlowPoint>();
+  const totals = emptyLedgerReport();
+  let hasAllocatedCost = false;
+
+  const getFlow = (flow: string) => {
+    const existing = byFlow.get(flow);
+    if (existing) return existing;
+    const created: AIRequestLedgerProductFlowPoint = {
+      productFlow: flow,
+      requestCount24h: 0,
+      requestCount7d: 0,
+      succeededRequests7d: 0,
+      failedRequests7d: 0,
+      cancelledRequests7d: 0,
+      inputTokens24h: 0,
+      outputTokens24h: 0,
+      totalTokens24h: 0,
+      inputTokens7d: 0,
+      outputTokens7d: 0,
+      totalTokens7d: 0,
+      costUsd24h: null,
+      costUsd7d: null,
+      costSource: 'not_allocated',
+    };
+    byFlow.set(flow, created);
+    return created;
+  };
+
+  for (const row of rows) {
+    const flow = row.product_flow || 'unknown';
+    const point = getFlow(flow);
+    const createdAtMs = new Date(row.created_at).getTime();
+    const is24h = Number.isFinite(createdAtMs) && createdAtMs >= since24hMs;
+    const inputTokens = Math.max(0, Math.round(toNumber(row.input_tokens)));
+    const outputTokens = Math.max(0, Math.round(toNumber(row.output_tokens)));
+    const totalTokens = Math.max(0, Math.round(toNumber(row.total_tokens)));
+    const costUsd = decimalToNumber(row.cost_usd);
+
+    point.requestCount7d += 1;
+    totals.requestCount7d += 1;
+    if (row.status === 'succeeded') point.succeededRequests7d += 1;
+    if (row.status === 'failed') point.failedRequests7d += 1;
+    if (row.status === 'cancelled') point.cancelledRequests7d += 1;
+
+    point.inputTokens7d += inputTokens;
+    point.outputTokens7d += outputTokens;
+    point.totalTokens7d += totalTokens;
+    totals.inputTokens7d += inputTokens;
+    totals.outputTokens7d += outputTokens;
+    totals.totalTokens7d += totalTokens;
+
+    if (costUsd !== null) {
+      hasAllocatedCost = true;
+      point.costSource = 'ledger_cost_usd';
+      point.costUsd7d = round((point.costUsd7d || 0) + costUsd, 6);
+      totals.costSource = 'ledger_cost_usd';
+    }
+
+    if (is24h) {
+      point.requestCount24h += 1;
+      totals.requestCount24h += 1;
+      point.inputTokens24h += inputTokens;
+      point.outputTokens24h += outputTokens;
+      point.totalTokens24h += totalTokens;
+      totals.inputTokens24h += inputTokens;
+      totals.outputTokens24h += outputTokens;
+      totals.totalTokens24h += totalTokens;
+      if (costUsd !== null) {
+        point.costUsd24h = round((point.costUsd24h || 0) + costUsd, 6);
+      }
+    }
+  }
+
+  totals.status = 'ok';
+  totals.productFlows = Array.from(byFlow.values())
+    .map((point) => ({
+      ...point,
+      costUsd24h: point.costUsd24h === null ? null : round(point.costUsd24h, 6),
+      costUsd7d: point.costUsd7d === null ? null : round(point.costUsd7d, 6),
+    }))
+    .sort((a, b) => b.totalTokens7d - a.totalTokens7d || a.productFlow.localeCompare(b.productFlow));
+  totals.note = hasAllocatedCost
+    ? 'cost_usd is sourced from ai_request_ledger only'
+    : 'request and token breakdown is from ai_request_ledger; cost_usd is not allocated yet';
+  return totals;
+}
+
 class CostMonitoringService {
   async getAdminCostReport(): Promise<AdminCostReport> {
     const reasons: string[] = [];
@@ -416,7 +607,16 @@ class CostMonitoringService {
       reasons.push(`openai: ${error instanceof Error ? error.message : String(error)}`);
     }
 
-    const partial = [redis.status, railway.status, openai.status].some((status) => status !== 'ok');
+    let ledger = emptyLedgerReport('not loaded');
+    try {
+      ledger = await readAIRequestLedgerBreakdown();
+      if (ledger.status !== 'ok' && ledger.note) reasons.push(`openai ledger: ${ledger.note}`);
+    } catch (error) {
+      ledger = { ...emptyLedgerReport('request failed'), status: 'partial' };
+      reasons.push(`openai ledger: ${error instanceof Error ? error.message : String(error)}`);
+    }
+
+    const partial = [redis.status, railway.status, openai.status, ledger.status].some((status) => status !== 'ok');
 
     return {
       generatedAt: new Date().toISOString(),
@@ -430,15 +630,17 @@ class CostMonitoringService {
         railwayEgressGb7d: railway.egressGb7d,
         openaiCostUsd24h: openai.costUsd24h,
         openaiCostUsd7d: openai.costUsd7d,
-        openaiInputTokens24h: openai.inputTokens24h,
-        openaiOutputTokens24h: openai.outputTokens24h,
+        openaiInputTokens24h: ledger.status === 'ok' ? ledger.inputTokens24h : openai.inputTokens24h,
+        openaiOutputTokens24h: ledger.status === 'ok' ? ledger.outputTokens24h : openai.outputTokens24h,
       },
       redis,
       railway,
-      openai,
+      openai: {
+        ...openai,
+        ledger,
+      },
     };
   }
 }
 
 export const costMonitoringService = new CostMonitoringService();
-

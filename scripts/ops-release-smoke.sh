@@ -5,8 +5,11 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 MAIN_WEB_URL="${MAIN_WEB_URL:-https://mother-bear-court.vercel.app}"
+ADMIN_WEB_URL="${ADMIN_WEB_URL:-https://frontend-admin-sigma-virid.vercel.app}"
 FRONTEND_BASE_URL="${FRONTEND_BASE_URL:-${MAIN_WEB_URL}}"
+ADMIN_BASE_URL="${ADMIN_BASE_URL:-${ADMIN_WEB_URL}}"
 ORIGIN="${ORIGIN:-${FRONTEND_BASE_URL}}"
+ADMIN_ORIGIN="${ADMIN_ORIGIN:-${ADMIN_BASE_URL}}"
 API_BASE_URL="${API_BASE_URL:-}"
 ADMIN_EMAIL="${ADMIN_EMAIL:-${RELEASE_SMOKE_ADMIN_EMAIL:-}}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-${RELEASE_SMOKE_ADMIN_PASSWORD:-}}"
@@ -36,13 +39,17 @@ require_non_empty "ADMIN_PASSWORD or RELEASE_SMOKE_ADMIN_PASSWORD" "$ADMIN_PASSW
 
 echo "[release-smoke] backend=${BACKEND_BASE_URL}"
 echo "[release-smoke] frontend=${FRONTEND_BASE_URL}"
+echo "[release-smoke] admin=${ADMIN_BASE_URL}"
 echo "[release-smoke] origin=${ORIGIN}"
+echo "[release-smoke] admin_origin=${ADMIN_ORIGIN}"
 echo "[release-smoke] admin_email=${ADMIN_EMAIL}"
 
 BACKEND_BASE_URL="$BACKEND_BASE_URL" \
 API_BASE_URL="$API_BASE_URL" \
 FRONTEND_BASE_URL="$FRONTEND_BASE_URL" \
+ADMIN_BASE_URL="$ADMIN_BASE_URL" \
 ORIGIN="$ORIGIN" \
+ADMIN_ORIGIN="$ADMIN_ORIGIN" \
 ADMIN_EMAIL="$ADMIN_EMAIL" \
 ADMIN_PASSWORD="$ADMIN_PASSWORD" \
 bash "$ROOT/scripts/smoke-production-like.sh"

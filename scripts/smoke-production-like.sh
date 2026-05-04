@@ -5,8 +5,10 @@ set -euo pipefail
 BACKEND_BASE_URL="${BACKEND_BASE_URL:-http://127.0.0.1:3001}"
 API_BASE_URL="${API_BASE_URL:-${BACKEND_BASE_URL}/api/v1}"
 FRONTEND_BASE_URL="${FRONTEND_BASE_URL:-http://127.0.0.1:4173}"
+ADMIN_BASE_URL="${ADMIN_BASE_URL:-${FRONTEND_BASE_URL}}"
 # 測試 production-like 後端時，ORIGIN 須為該後端 ALLOWED_ORIGINS 之一，否則 CORS 會 403
 ORIGIN="${ORIGIN:-${FRONTEND_BASE_URL}}"
+ADMIN_ORIGIN="${ADMIN_ORIGIN:-${ADMIN_BASE_URL}}"
 ADMIN_EMAIL="${ADMIN_EMAIL:-admin-smoke@example.com}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-AdminPass1234}"
 
@@ -88,7 +90,9 @@ try {
 log "Backend base URL: ${BACKEND_BASE_URL}"
 log "API base URL: ${API_BASE_URL}"
 log "Frontend base URL: ${FRONTEND_BASE_URL}"
+log "Admin base URL: ${ADMIN_BASE_URL}"
 log "Origin header: ${ORIGIN}"
+log "Admin origin header: ${ADMIN_ORIGIN}"
 
 log "1) Health checks"
 request_json "GET" "${BACKEND_BASE_URL}/health" "" -H "Origin: ${ORIGIN}"
@@ -123,12 +127,12 @@ request_json "GET" "${API_BASE_URL}/cases/${CASE_ID}" "" -H "Origin: ${ORIGIN}" 
 expect_status "200"
 
 log "5) Check frontend admin login route"
-request_json "GET" "${FRONTEND_BASE_URL}/admin/login" ""
+request_json "GET" "${ADMIN_BASE_URL}/admin/login" ""
 expect_status "200"
 
 log "6) Admin login API"
 ADMIN_LOGIN_PAYLOAD="{\"email\":\"${ADMIN_EMAIL}\",\"password\":\"${ADMIN_PASSWORD}\"}"
-request_json "POST" "${API_BASE_URL}/admin/login" "${ADMIN_LOGIN_PAYLOAD}" -H "Origin: ${ORIGIN}"
+request_json "POST" "${API_BASE_URL}/admin/login" "${ADMIN_LOGIN_PAYLOAD}" -H "Origin: ${ADMIN_ORIGIN}"
 expect_status "200"
 ADMIN_TOKEN="$(json_read "${HTTP_BODY}" "data.token")"
 if [ -z "${ADMIN_TOKEN}" ]; then
@@ -136,7 +140,7 @@ if [ -z "${ADMIN_TOKEN}" ]; then
 fi
 
 log "7) Admin me API"
-request_json "GET" "${API_BASE_URL}/admin/me" "" -H "Origin: ${ORIGIN}" -H "Authorization: Bearer ${ADMIN_TOKEN}"
+request_json "GET" "${API_BASE_URL}/admin/me" "" -H "Origin: ${ADMIN_ORIGIN}" -H "Authorization: Bearer ${ADMIN_TOKEN}"
 expect_status "200"
 
 log "PASS: production-like smoke checks completed"

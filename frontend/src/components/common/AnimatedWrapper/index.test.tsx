@@ -18,6 +18,7 @@ describe('AnimatedWrapper', () => {
       </AnimatedWrapper>
     );
     expect(screen.getByText('x')).toBeInTheDocument();
-    expect(container.querySelector('.animated-wrapper')).toBeInTheDocument();
+    expect(container.firstElementChild).toBeInTheDocument();
+    expect(container.firstElementChild).toHaveStyle({ opacity: '0' });
   });
 });

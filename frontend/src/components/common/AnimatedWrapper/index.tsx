@@ -1,10 +1,10 @@
 /**
- * 動畫包裝組件
+ * 動畫包裝組件（遷移：LESS → inline transition styles）
  */
 
 import React, { type ReactNode } from 'react';
 import { useFadeIn, useSlideIn, useIntersectionAnimation } from '@/hooks/useAnimation';
-import './AnimatedWrapper.less';
+import { cn } from '@/lib/utils';
 
 interface AnimatedWrapperProps {
   children: ReactNode;
@@ -43,22 +43,28 @@ const AnimatedWrapper: React.FC<AnimatedWrapperProps> = ({
     isVisible = fadeIn.isVisible;
   }
 
-  const getAnimationClass = () => {
-    if (!isVisible) return '';
-    return `animated-wrapper--${animation} animated-wrapper--${direction}`;
-  };
-
   if (animation === 'none') {
     return <div className={className}>{children}</div>;
   }
 
+  const getTransform = () => {
+    if (isVisible) return 'none';
+    if (animation === 'scale') return 'scale(0.95)';
+    if (direction === 'up') return 'translateY(20px)';
+    if (direction === 'down') return 'translateY(-20px)';
+    if (direction === 'left') return 'translateX(20px)';
+    if (direction === 'right') return 'translateX(-20px)';
+    return 'none';
+  };
+
   return (
     <div
       ref={animationRef as React.RefObject<HTMLDivElement>}
-      className={`animated-wrapper ${getAnimationClass()} ${className}`}
+      className={cn(className)}
       style={{
-        transitionDuration: `${duration}ms`,
-        transitionDelay: `${delay}ms`,
+        opacity: isVisible ? 1 : 0,
+        transform: getTransform(),
+        transition: `opacity ${duration}ms ease ${delay}ms, transform ${duration}ms ease ${delay}ms`,
       }}
     >
       {children}
@@ -67,4 +73,3 @@ const AnimatedWrapper: React.FC<AnimatedWrapperProps> = ({
 };
 
 export default AnimatedWrapper;
-

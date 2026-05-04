@@ -14,6 +14,7 @@ jest.mock('../../../src/config/logger', () => ({
 }));
 
 import {
+  buildRepairAccessContext,
   getRepairEligibilityForCase,
   getRepairJourneyAccessPolicyForJudgment,
   getRepairJourneyAccessPolicy,
@@ -161,6 +162,36 @@ describe('repair-eligibility.service', () => {
       '安全支持路由不得把關係風險對稱化或推進共同修復',
       '正式雙方案件允許共同修復旅程',
     ]));
+  });
+
+  it('repair access context 應輸出前端使用的 snake_case 固定契約', () => {
+    const eligibility = getRepairEligibilityForCase({
+      mode: 'collaborative',
+      session_id: null,
+      plaintiff_id: 'u1',
+      defendant_id: 'u2',
+      chat_to_case_links: [{ id: 'link-1' }],
+    });
+    const access = getRepairJourneyAccessPolicy(
+      getProductSafetyPolicy('standard'),
+      eligibility,
+    );
+
+    expect(buildRepairAccessContext(access)).toEqual({
+      flow: 'formal_dual',
+      product_flow: 'chat_to_case',
+      relationship_scope: 'chat_to_case_dual_perspective',
+      pairing_strength: 'weak_contextual',
+      can_invite_partner: true,
+      can_use_co_repair: true,
+      can_notify_partner: true,
+      force_solo_repair: false,
+      safety_source: undefined,
+      risk_level: undefined,
+      reasons: expect.arrayContaining([
+        '聊天室轉判決屬弱配對上下文；可共同修復但前端需標示為先聊再判的弱配對視角',
+      ]),
+    });
   });
 
   it('repair journey access 無登入當事人時不可進入旅程', () => {

@@ -1,3 +1,7 @@
+import type { RepairJourneyAccessContext } from './repair-eligibility.service';
+
+export type { RepairJourneyAccessContext } from './repair-eligibility.service';
+
 export type RepairJourneyViewerRole = 'initiator' | 'invitee' | 'solo';
 export type RepairJourneyTask =
   | 'choose_direction'
@@ -27,27 +31,6 @@ export type RepairJourneyPresentationBucket =
   | 'replanning'
   | 'paused'
   | 'completed';
-export type RepairJourneyAccessContext = {
-  flow: 'session_bound' | 'formal_solo' | 'formal_dual';
-  product_flow: 'quick_single' | 'quick_collaborative' | 'formal_remote' | 'formal_collaborative' | 'chat_to_case';
-  relationship_scope:
-    | 'quick_single_solo'
-    | 'quick_collaborative_solo'
-    | 'formal_single_party'
-    | 'formal_dual_party'
-    | 'chat_to_case_single_perspective'
-    | 'chat_to_case_dual_perspective'
-    | 'unclaimed_session_asset';
-  pairing_strength: 'none' | 'session_context' | 'weak_contextual' | 'formal_confirmed';
-  can_invite_partner: boolean;
-  can_use_co_repair: boolean;
-  can_notify_partner: boolean;
-  force_solo_repair: boolean;
-  safety_source?: 'active_risk_state' | 'fallback_route' | 'route_policy';
-  risk_level?: string;
-  reasons: string[];
-};
-
 export interface RepairJourneyContext {
   viewer_role: RepairJourneyViewerRole;
   journey_task: RepairJourneyTask;

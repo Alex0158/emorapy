@@ -62,7 +62,21 @@ export interface RepairJourneyAccessPolicy {
   reasons: string[];
 }
 
-export function buildRepairAccessContext(policy: RepairJourneyAccessPolicy) {
+export type RepairJourneyAccessContext = {
+  flow: RepairEligibilityPolicy['flow'];
+  product_flow: CaseProductFlow;
+  relationship_scope: RepairRelationshipScope;
+  pairing_strength: RepairPairingStrength;
+  can_invite_partner: boolean;
+  can_use_co_repair: boolean;
+  can_notify_partner: boolean;
+  force_solo_repair: boolean;
+  safety_source?: RepairJourneyAccessPolicy['safetySource'];
+  risk_level?: string;
+  reasons: string[];
+};
+
+export function buildRepairAccessContext(policy: RepairJourneyAccessPolicy): RepairJourneyAccessContext {
   return {
     flow: policy.flow,
     product_flow: policy.productFlow,

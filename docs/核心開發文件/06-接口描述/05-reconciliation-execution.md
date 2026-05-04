@@ -4,12 +4,12 @@
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：05-reconciliation-execution
 **取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`backend/src/services/reconciliation.service.ts`、`backend/src/services/execution.service.ts`、`backend/src/services/repair-eligibility.service.ts`、`backend/src/services/repair-journey.service.ts`、`backend/src/services/safety-assessment.service.ts`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`77f8660`
-**最後核驗日期**：`2026-05-03`
+**最後核驗 Commit**：`d36c41d`
+**最後核驗日期**：`2026-05-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**文檔版本**：v2.9
-**最後更新**：2026-05-03
+**文檔版本**：v2.10
+**最後更新**：2026-05-04
 **代碼基準**：`backend/src/routes/reconciliation.routes.ts`、`backend/src/routes/execution.routes.ts`、`backend/src/routes/ai-stream.routes.ts`、`backend/src/services/reconciliation.service.ts`、`backend/src/services/repair-eligibility.service.ts`、`backend/src/services/repair-journey.service.ts`、`backend/src/services/safety-routing.service.ts`、`backend/src/services/execution.service.ts`
 
 ---
@@ -66,6 +66,7 @@
    - `canInvitePartner / canUseCoRepair / canNotifyPartner / forceSoloRepair` 由 safety policy 與 repair eligibility 共同裁決；`ReconciliationService`、`ExecutionService`、通知、後續 job 或前端不得各自用 `forceSoloRepair || canInvitePartner` 手拼一套規則。
    - `ExecutionService` 回傳執行狀態與 dashboard journey context 時必須使用同一聚合 gate；若 `forceSoloRepair=true`，即使舊資料仍是 `co_active` / `recommended_mode=co`，對外旅程 CTA 與 `relationship_mode` 也要降級為 solo。
    - `journey_context.repair_access` 是前端展示資格的唯一 additive 來源，包含 `flow / product_flow / relationship_scope / pairing_strength / can_invite_partner / can_use_co_repair / can_notify_partner / force_solo_repair / safety_source / risk_level / reasons`。
+   - `journey_context.repair_access` 的 TypeScript 契約必須由 `repair-eligibility.service.ts` 輸出的 `RepairJourneyAccessContext` 定義；`repair-journey.service.ts` 只 re-export / 消費此型別，不得另手寫一份 `product_flow / relationship_scope / pairing_strength` union。
 
 任何頁面、通知、chat-to-case、execution 或後續 job 不得自行用 `case.mode` 重寫上述資格判斷。
 

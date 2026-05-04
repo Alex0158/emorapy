@@ -3,8 +3,8 @@
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：正式規格
 **覆蓋範圍**：Vercel、Railway、Supabase/Postgres、Git/GitHub 與本機 `.env` 的固定連接、查詢與發布操作口徑
-**取證代碼入口**：`package.json`、`scripts/ops-release-status.sh`、`scripts/ops-release-gate.sh`、`scripts/ops-db-status.sh`、`backend/package.json`、`backend/scripts/check-release-db-parity.ts`、`backend/scripts/check-ai-pricing-catalog.ts`、`backend/scripts/audit-product-state-consistency.ts`、`backend/scripts/check-smoke-account-hygiene.ts`、`backend/scripts/precheck-pairing-normal-uniqueness.ts`、`backend/.env.example`、`frontend/.env.example`、`frontend-admin/.env.example`、`backend/railway.toml`、`backend/prisma/schema.prisma`、`backend/prisma/migrations/20260504164500_add_notification_cancelled_status/migration.sql`、`backend/prisma/migrations/20260504173000_add_product_state_recovery_tasks/migration.sql`、`backend/prisma/migrations/20260504182000_add_normal_pairing_uniqueness_trigger/migration.sql`、`backend/prisma/migrations/20260504193000_add_case_source_tracking/migration.sql`、`backend/src/config/database.ts`、`backend/src/config/env.ts`、`backend/src/routes/admin.routes.ts`、`backend/src/controllers/admin.controller.ts`、`backend/src/services/ai-cost-pricing.service.ts`、`backend/src/services/ai-request-ledger.service.ts`、`backend/src/services/notification.service.ts`、`backend/src/services/product-state-recovery-task.service.ts`、`backend/src/utils/case-classifier.ts`、`backend/src/utils/pairing-invariant.ts`、`backend/src/utils/validation.ts`
-**最後核驗 Commit**：`9274395`
+**取證代碼入口**：`package.json`、`scripts/ops-release-status.sh`、`scripts/ops-release-gate.sh`、`scripts/ops-release-smoke.sh`、`scripts/smoke-production-like.sh`、`scripts/smoke-claim-session-production-like.sh`、`scripts/ops-db-status.sh`、`backend/package.json`、`backend/scripts/check-release-db-parity.ts`、`backend/scripts/check-ai-pricing-catalog.ts`、`backend/scripts/audit-product-state-consistency.ts`、`backend/scripts/check-smoke-account-hygiene.ts`、`backend/scripts/precheck-pairing-normal-uniqueness.ts`、`backend/.env.example`、`frontend/.env.example`、`frontend-admin/.env.example`、`backend/railway.toml`、`backend/prisma/schema.prisma`、`backend/prisma/migrations/20260504164500_add_notification_cancelled_status/migration.sql`、`backend/prisma/migrations/20260504173000_add_product_state_recovery_tasks/migration.sql`、`backend/prisma/migrations/20260504182000_add_normal_pairing_uniqueness_trigger/migration.sql`、`backend/prisma/migrations/20260504193000_add_case_source_tracking/migration.sql`、`backend/src/config/database.ts`、`backend/src/config/env.ts`、`backend/src/routes/admin.routes.ts`、`backend/src/controllers/admin.controller.ts`、`backend/src/services/ai-cost-pricing.service.ts`、`backend/src/services/ai-request-ledger.service.ts`、`backend/src/services/notification.service.ts`、`backend/src/services/product-state-recovery-task.service.ts`、`backend/src/utils/case-classifier.ts`、`backend/src/utils/pairing-invariant.ts`、`backend/src/utils/validation.ts`
+**最後核驗 Commit**：`8f726be`
 **最後核驗日期**：`2026-05-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -17,6 +17,7 @@
 ```bash
 npm run ops:release:status
 npm run ops:release:gate
+npm run ops:release:smoke
 npm run ops:db:status
 cd backend && npm run ops:product-state:audit
 cd backend && npm run ops:product-state:audit:persist
@@ -27,7 +28,7 @@ cd backend && npm run precheck:pairing:normal-uniqueness
 npm run docs:check
 ```
 
-`ops:release:status` 用於查發布版狀態；`ops:release:gate` 是發布閉環 gate，要求顯式提供 `BACKEND_BASE_URL` 以及 `DATABASE_URL` 或 `ENV_FILE`，並依序執行 docs contract、backend build/lint、live release status、主站/Admin/backend version commit 對齊 `git rev-parse HEAD`、backend `/health/live`、`/health/ready`、`/health`、DB migration state、release-blocking DB parity、AI pricing catalog、smoke account hygiene 與 product-state audit；`ops:db:status` 用於查當前 `DATABASE_URL` 對應的 Prisma migration state；`ops:release-db:check` 只讀 `_prisma_migrations`，確認安全元資料、安全狀態、AI request ledger、notification cancelled、recovery tasks、normal pairing trigger 與 case source tracking 這 7 個 release-blocking migrations 已完成且未 failed / rolled back；`ops:ai-pricing:check` 驗證 `AI_COST_PRICING_JSON` 可解析、帶 `source/version`、`version` 日期未來/過期檢查通過，且覆蓋 `OPENAI_MODEL / OPENAI_INTERVIEW_MODEL / OPENAI_ANALYSIS_MODEL` 與可選 `AI_COST_REQUIRED_MODELS`；`ops:product-state:audit` 用於只讀檢查 case / chat-to-case / repair track replanning 的卡住狀態，輸出產品流、session-bound 分類、repair track AI stream 樣本細節、人工 recovery proposal 與逐筆 `recoveryTasks` 候選；`ops:product-state:audit:persist` 只在顯式執行時把 recovery task 候選 upsert 到 `product_state_recovery_tasks`，不自動修業務資料；`ops:smoke-accounts:check` 用於只讀掃描 active smoke/dev 帳號污染；`precheck:pairing:normal-uniqueness` 用於只讀檢查一個 user 是否同時出現在多個 `normal pending/active` pairing；Dev DB 已另由 trigger migration 在 DB 層拒絕 cross-role duplicate；`docs:check` 用於確認正式文檔與台賬仍閉環。
+`ops:release:status` 用於查發布版狀態；`ops:release:gate` 是發布閉環 gate，要求顯式提供 `BACKEND_BASE_URL` 以及 `DATABASE_URL` 或 `ENV_FILE`，並依序執行 docs contract、backend build/lint、live release status、主站/Admin/backend version commit 對齊 `git rev-parse HEAD`、backend `/health/live`、`/health/ready`、`/health`、DB migration state、release-blocking DB parity、AI pricing catalog、smoke account hygiene、mutating release smoke 與 product-state audit；`ops:release:smoke` 會串行執行 `scripts/smoke-production-like.sh` 與 `scripts/smoke-claim-session-production-like.sh`，必須顯式設定 `RUN_MUTATING_RELEASE_SMOKE=true`、release `DATABASE_URL` 與 smoke admin credentials；`ops:db:status` 用於查當前 `DATABASE_URL` 對應的 Prisma migration state；`ops:release-db:check` 只讀 `_prisma_migrations`，確認安全元資料、安全狀態、AI request ledger、notification cancelled、recovery tasks、normal pairing trigger 與 case source tracking 這 7 個 release-blocking migrations 已完成且未 failed / rolled back；`ops:ai-pricing:check` 驗證 `AI_COST_PRICING_JSON` 可解析、帶 `source/version`、`version` 日期未來/過期檢查通過，且覆蓋 `OPENAI_MODEL / OPENAI_INTERVIEW_MODEL / OPENAI_ANALYSIS_MODEL` 與可選 `AI_COST_REQUIRED_MODELS`；`ops:product-state:audit` 用於只讀檢查 case / chat-to-case / repair track replanning 的卡住狀態，輸出產品流、session-bound 分類、repair track AI stream 樣本細節、人工 recovery proposal 與逐筆 `recoveryTasks` 候選；`ops:product-state:audit:persist` 只在顯式執行時把 recovery task 候選 upsert 到 `product_state_recovery_tasks`，不自動修業務資料；`ops:smoke-accounts:check` 用於只讀掃描 active smoke/dev 帳號污染；`precheck:pairing:normal-uniqueness` 用於只讀檢查一個 user 是否同時出現在多個 `normal pending/active` pairing；Dev DB 已另由 trigger migration 在 DB 層拒絕 cross-role duplicate；`docs:check` 用於確認正式文檔與台賬仍閉環。
 
 ## 2. 平台地圖
 
@@ -136,10 +137,17 @@ DATABASE_URL="postgresql://..." npm run prisma:seed
 固定 gate：
 
 ```bash
-BACKEND_BASE_URL=<railway-backend-url> DATABASE_URL="<prod-db-url>" npm run ops:release:gate
+RUN_MUTATING_RELEASE_SMOKE=true \
+BACKEND_BASE_URL=<railway-backend-url> \
+DATABASE_URL="<prod-db-url>" \
+RELEASE_SMOKE_ADMIN_EMAIL=<admin-email> \
+RELEASE_SMOKE_ADMIN_PASSWORD=<admin-password> \
+npm run ops:release:gate
 ```
 
 如用臨時 env 檔，使用 `ENV_FILE=<path>` 代替直接輸出 `DATABASE_URL`。`ops:release:gate` 故意不自動讀取 `backend/.env`，避免把本機開發版 DB 誤當發布版 DB 完成閉環。
+
+`RUN_MUTATING_RELEASE_SMOKE=true` 是故意的顯式開關：release smoke 會建立 quick session / quick case、登入 smoke admin、註冊 `claim-smoke-*` user、讀 release DB verification code 並驗證 claim-session 歸戶。未設定此開關時，完整 release gate 必須失敗，不得把健康檢查當作主鏈路 smoke。
 
 `scripts/smoke-claim-session-production-like.sh` 預設會在結束時停用本次建立的 `claim-smoke-*` user（`CLAIM_SMOKE_DISABLE_CREATED_USER=true`）。若因特殊排查需要保留 smoke user，必須明確設為 `false`，並在排查後手動停用或刪除。
 

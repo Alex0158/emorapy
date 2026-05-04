@@ -120,6 +120,20 @@ describe('NotificationService', () => {
       expect(result.items[0]?.render_payload.product_flow).toBe('chat_to_case');
     });
 
+    it('通知列表遇到非法 payload.path 應保守輸出 null', async () => {
+      prismaMock.notification.findMany.mockResolvedValue([
+        baseNotification({
+          payload: {
+            path: 'https://evil.example/phishing',
+          },
+        }),
+      ]);
+
+      const result = await service.list('u1');
+
+      expect(result.items[0]?.render_payload.path).toBeNull();
+    });
+
     it('通知列表應從 journey_context.repair_access fallback 輸出產品流', async () => {
       prismaMock.notification.findMany.mockResolvedValue([
         baseNotification({
@@ -190,6 +204,42 @@ describe('NotificationService', () => {
           status: NotificationStatus.pending,
         }),
       });
+    });
+
+    it('應接受並修剪已允許的 payload.path', async () => {
+      prismaMock.notification.create.mockResolvedValue({});
+
+      await service.create('u1', {
+        template_code: 'T1',
+        channel: NotificationChannel.push,
+        payload: { path: '  /execution/plan-1/checkin  ' },
+      });
+
+      expect(prismaMock.notification.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          payload: { path: '/execution/plan-1/checkin' },
+        }),
+      });
+    });
+
+    it('應拒絕外部 payload.path', async () => {
+      await expect(service.create('u1', {
+        template_code: 'T1',
+        channel: NotificationChannel.push,
+        payload: { path: 'https://evil.example/phishing' },
+      })).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+
+      expect(prismaMock.notification.create).not.toHaveBeenCalled();
+    });
+
+    it('應拒絕未列入前台路由白名單的 payload.path', async () => {
+      await expect(service.create('u1', {
+        template_code: 'T1',
+        channel: NotificationChannel.push,
+        payload: { path: '/admin/reports' },
+      })).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+
+      expect(prismaMock.notification.create).not.toHaveBeenCalled();
     });
   });
 

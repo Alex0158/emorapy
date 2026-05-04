@@ -3,6 +3,7 @@ import { Prisma, NotificationChannel, NotificationStatus } from '@prisma/client'
 import logger from '../config/logger';
 import { isCaseProductFlow, type CaseProductFlow } from '../utils/case-classifier';
 import { Errors } from '../utils/errors';
+import { normalizeNotificationDeepLinkPath } from '../utils/notification-deep-link';
 
 export type NotificationFeedState = 'unread' | 'all' | 'actionable' | 'snoozed' | 'archived';
 
@@ -97,6 +98,28 @@ function normalizeAdminReason(reason?: string | null): string {
   return typeof reason === 'string' && reason.trim().length > 0
     ? reason.trim().slice(0, 400)
     : 'no reason provided';
+}
+
+function normalizeNotificationPayloadForCreate(payload?: Prisma.InputJsonValue): Prisma.InputJsonValue {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return {};
+  }
+
+  const record = payload as Record<string, unknown>;
+  if (!Object.prototype.hasOwnProperty.call(record, 'path')) {
+    return payload;
+  }
+
+  if (record.path === null || record.path === undefined || record.path === '') {
+    return { ...record, path: null } as Prisma.InputJsonValue;
+  }
+
+  const normalizedPath = normalizeNotificationDeepLinkPath(record.path);
+  if (!normalizedPath) {
+    throw Errors.VALIDATION_ERROR('notification payload.path 必須為已允許的前台相對路由');
+  }
+
+  return { ...record, path: normalizedPath } as Prisma.InputJsonValue;
 }
 
 const TEMPLATE_RENDER_DEFAULTS: Record<string, {
@@ -230,7 +253,7 @@ export class NotificationService {
     const actionKey = readString(notification.action_key) || defaults?.actionKey || null;
     const title = readString(payload.title) || defaults?.title || '通知';
     const body = readString(payload.body) || defaults?.body(payload) || '你有一則新的通知。';
-    const path = readString(payload.path);
+    const path = normalizeNotificationDeepLinkPath(payload.path);
     const ctaLabel = readString(payload.cta_label) || defaults?.ctaLabel || null;
     const entityType =
       readString(payload.entity_type)
@@ -377,7 +400,7 @@ export class NotificationService {
         action_key: data.action_key,
         priority: data.priority,
         group_key: data.group_key,
-        payload: data.payload || {},
+        payload: normalizeNotificationPayloadForCreate(data.payload),
         channel: data.channel,
         dedup_key: data.dedup_key,
         status: NotificationStatus.pending,

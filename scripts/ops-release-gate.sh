@@ -133,6 +133,7 @@ fetch_required_json "backend /health" "${BACKEND_BASE_URL%/}/health"
 
 print_section "Database Migration State"
 npm run ops:db:status
+npm --prefix backend run ops:release-db:check
 
 print_section "Smoke Account Hygiene"
 npm --prefix backend run ops:smoke-accounts:check

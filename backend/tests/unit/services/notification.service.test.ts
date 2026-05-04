@@ -30,6 +30,26 @@ import { NotificationService } from '../../../src/services/notification.service'
 describe('NotificationService', () => {
   let service: NotificationService;
 
+  const baseNotification = (overrides: Record<string, unknown> = {}) => ({
+    id: 'n1',
+    user_id: 'u1',
+    template_code: 'repair_journey_choose_direction',
+    action_key: null,
+    priority: null,
+    group_key: null,
+    status: NotificationStatus.pending,
+    error_message: null,
+    payload: {},
+    channel: NotificationChannel.email,
+    created_at: new Date('2026-05-04T00:00:00.000Z'),
+    sent_at: null,
+    read_at: null,
+    dismissed_at: null,
+    acted_at: null,
+    snoozed_until: null,
+    ...overrides,
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     service = new NotificationService();
@@ -83,6 +103,39 @@ describe('NotificationService', () => {
         nextCursor: null,
         hasMore: false,
       });
+    });
+
+    it('通知列表應從 payload.product_flow 輸出產品流', async () => {
+      prismaMock.notification.findMany.mockResolvedValue([
+        baseNotification({
+          payload: {
+            product_flow: 'chat_to_case',
+            path: '/reconciliation/judge-1',
+          },
+        }),
+      ]);
+
+      const result = await service.list('u1');
+
+      expect(result.items[0]?.render_payload.product_flow).toBe('chat_to_case');
+    });
+
+    it('通知列表應從 journey_context.repair_access fallback 輸出產品流', async () => {
+      prismaMock.notification.findMany.mockResolvedValue([
+        baseNotification({
+          payload: {
+            journey_context: {
+              repair_access: {
+                product_flow: 'formal_collaborative',
+              },
+            },
+          },
+        }),
+      ]);
+
+      const result = await service.list('u1');
+
+      expect(result.items[0]?.render_payload.product_flow).toBe('formal_collaborative');
     });
   });
 

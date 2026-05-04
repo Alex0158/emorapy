@@ -1,6 +1,7 @@
 import prisma from '../config/database';
 import { Prisma, NotificationChannel, NotificationStatus } from '@prisma/client';
 import logger from '../config/logger';
+import { isCaseProductFlow, type CaseProductFlow } from '../utils/case-classifier';
 
 export type NotificationFeedState = 'unread' | 'all' | 'actionable' | 'snoozed' | 'archived';
 
@@ -46,6 +47,7 @@ export interface RenderableNotification {
     priority: string | null;
     partner_state: string | null;
     reason_code: string | null;
+    product_flow: CaseProductFlow | null;
   };
 }
 
@@ -59,6 +61,16 @@ function readObject(input: unknown): Record<string, unknown> {
   return input && typeof input === 'object' && !Array.isArray(input)
     ? input as Record<string, unknown>
     : {};
+}
+
+function readProductFlow(payload: Record<string, unknown>): CaseProductFlow | null {
+  if (isCaseProductFlow(payload.product_flow)) {
+    return payload.product_flow;
+  }
+
+  const journeyContext = readObject(payload.journey_context);
+  const repairAccess = readObject(journeyContext.repair_access);
+  return isCaseProductFlow(repairAccess.product_flow) ? repairAccess.product_flow : null;
 }
 
 const TEMPLATE_RENDER_DEFAULTS: Record<string, {
@@ -188,6 +200,7 @@ export class NotificationService {
     const payload = readObject(notification.payload);
     const journeyContext = readObject(payload.journey_context);
     const defaults = TEMPLATE_RENDER_DEFAULTS[notification.template_code];
+    const productFlow = readProductFlow(payload);
     const actionKey = readString(notification.action_key) || defaults?.actionKey || null;
     const title = readString(payload.title) || defaults?.title || '通知';
     const body = readString(payload.body) || defaults?.body(payload) || '你有一則新的通知。';
@@ -243,6 +256,7 @@ export class NotificationService {
         priority: readString(notification.priority) || defaults?.priority || null,
         partner_state: readString(payload.partner_state),
         reason_code: readString(payload.reason_code),
+        product_flow: productFlow,
       },
     };
   }

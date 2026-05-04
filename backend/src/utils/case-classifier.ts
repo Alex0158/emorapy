@@ -17,6 +17,14 @@ export type CaseProductFlow =
   | 'chat_to_case';
 export type FormalCaseMode = 'remote' | 'collaborative';
 
+export const CASE_PRODUCT_FLOW_KEYS: readonly CaseProductFlow[] = [
+  'quick_single',
+  'quick_collaborative',
+  'formal_remote',
+  'formal_collaborative',
+  'chat_to_case',
+];
+
 export type CaseProductFlowSubject = CaseAccessSubject & {
   chat_to_case_links?: unknown[] | null;
   _count?: {
@@ -115,6 +123,10 @@ export function getCaseProductFlow(case_: CaseProductFlowSubject): CaseProductFl
   }
 
   return 'formal_remote';
+}
+
+export function isCaseProductFlow(value: unknown): value is CaseProductFlow {
+  return typeof value === 'string' && CASE_PRODUCT_FLOW_KEYS.includes(value as CaseProductFlow);
 }
 
 export function isUserBoundProductFlow(flow: CaseProductFlow): boolean {

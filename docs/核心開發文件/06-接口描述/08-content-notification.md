@@ -3,14 +3,14 @@
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：08-content-notification
-**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`45d4897`
-**最後核驗日期**：`2026-04-19`
+**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`backend/src/services/notification.service.ts`、`backend/src/utils/case-classifier.ts`、`frontend/src/services/api`、`frontend-admin/src/services/api`
+**最後核驗 Commit**：`210fc12`
+**最後核驗日期**：`2026-05-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**文檔版本**：v2.5  
-**最後更新**：2026-04-19  
-**代碼基準**：`backend/src/routes/content.routes.ts`、`backend/src/routes/notification.routes.ts`、`backend/src/controllers/content.controller.ts`、`backend/src/controllers/notification.controller.ts`、`backend/src/services/content.service.ts`、`backend/src/services/notification.service.ts`、`backend/src/utils/validation.ts`、`frontend/src/services/api/content.ts`、`frontend/src/services/api/notifications.ts`
+**文檔版本**：v2.6
+**最後更新**：2026-05-04
+**代碼基準**：`backend/src/routes/content.routes.ts`、`backend/src/routes/notification.routes.ts`、`backend/src/controllers/content.controller.ts`、`backend/src/controllers/notification.controller.ts`、`backend/src/services/content.service.ts`、`backend/src/services/notification.service.ts`、`backend/src/utils/case-classifier.ts`、`backend/src/utils/validation.ts`、`frontend/src/services/api/content.ts`、`frontend/src/services/api/notifications.ts`
 
 ---
 
@@ -44,6 +44,7 @@
   - `/notifications` 頁拉可分區列表，支持 `actionable / unread / snoozed / archived`
   - `act` 返回標準 deep-link target，前端不再依模板自行猜測跳頁
 - `POST /api/v1/notifications` 仍保留為系統/運維創建入口，前台不直接調用；其渲染內容主要來自 `payload` 而非 top-level `title/body/path` 字段。
+- `NotificationService.normalize()` 必須集中輸出 `render_payload.product_flow`：優先讀 `payload.product_flow`，其次讀 `payload.journey_context.repair_access.product_flow`；取值必須符合 `backend/src/utils/case-classifier.ts` 的 `CASE_PRODUCT_FLOW_KEYS`。前端、Admin 或 analytics 不得從通知模板、path 或 case mode 另行推斷產品流。
 - `GET /api/v1/notifications` 的 `cursor` 為 `notification.id(uuid)`；分頁不是時間戳游標。
 - `GET /api/v1/notifications/unread-count` 只統計「未讀 + 未dismiss + snooze到期或未snooze」的通知。
 - `POST /api/v1/content-links` 必須認證（`authenticate`），且在寫入關聯前會再次用 `caseService.getCaseById(case_id, userId)` 做案件訪問校驗。
@@ -67,12 +68,14 @@
   - `priority`
   - `partner_state`
   - `reason_code`
+  - `product_flow`
 
 ## 回歸測試最小集
 
 1. 快速結果頁 `content-items` 正常渲染與語言切換。  
 2. Header bell 讀取 `unread-count`，登入態能正確顯示未讀數。  
 3. `/notifications` 能完成 `read / read-all / dismiss / snooze / act` 操作並深鏈回旅程。  
+4. 通知 render payload 應從 `payload.product_flow` 或 `journey_context.repair_access.product_flow` 輸出固定五類產品流，非法值應回退為 `null`。
 
 ## 錯誤碼覆蓋矩陣（API -> code -> UI 行為）
 

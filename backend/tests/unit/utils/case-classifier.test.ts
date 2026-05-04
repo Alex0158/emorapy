@@ -1,4 +1,5 @@
 import {
+  CASE_PRODUCT_FLOW_KEYS,
   buildClaimableSessionCaseWhere,
   buildCaseProductFlowWhere,
   buildCompletedExecutionProductFlowWhere,
@@ -13,6 +14,7 @@ import {
   hasChatToCaseSource,
   isClaimableSessionCase,
   isCaseParticipant,
+  isCaseProductFlow,
   isFormalCaseMode,
   isSessionBoundCase,
   isUserBoundProductCase,
@@ -114,6 +116,18 @@ describe('case-classifier', () => {
     expect(getCaseProductFlow({ mode: 'collaborative', session_id: 's1' })).toBe('quick_collaborative');
     expect(getCaseProductFlow({ mode: 'remote', session_id: null })).toBe('formal_remote');
     expect(getCaseProductFlow({ mode: 'collaborative', session_id: null })).toBe('formal_collaborative');
+  });
+
+  it('CASE_PRODUCT_FLOW_KEYS 應覆蓋固定五類產品流', () => {
+    expect(CASE_PRODUCT_FLOW_KEYS).toEqual([
+      'quick_single',
+      'quick_collaborative',
+      'formal_remote',
+      'formal_collaborative',
+      'chat_to_case',
+    ]);
+    expect(isCaseProductFlow('chat_to_case')).toBe(true);
+    expect(isCaseProductFlow('unknown')).toBe(false);
   });
 
   it('user-bound product case 應包含正式與 chat-to-case，排除 session-bound quick', () => {

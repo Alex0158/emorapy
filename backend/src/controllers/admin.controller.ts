@@ -16,19 +16,11 @@ import {
 } from '../services/admin-config-rules';
 import { Errors } from '../utils/errors';
 import {
+  CASE_PRODUCT_FLOW_KEYS,
   buildCaseProductFlowWhere,
   buildCompletedExecutionProductFlowWhere,
   buildJudgmentProductFlowWhere,
 } from '../utils/case-classifier';
-import type { CaseProductFlow } from '../utils/case-classifier';
-
-const CASE_PRODUCT_FLOW_KEYS: CaseProductFlow[] = [
-  'quick_single',
-  'quick_collaborative',
-  'formal_remote',
-  'formal_collaborative',
-  'chat_to_case',
-];
 
 function parsePagination(req: Request) {
   const rawLimit = Number(req.query.limit ?? 20);

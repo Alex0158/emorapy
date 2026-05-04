@@ -34,6 +34,7 @@ interface EnvConfig {
   OPENAI_MODEL: string;
   OPENAI_MAX_TOKENS: number;
   OPENAI_DAILY_LIMIT: number;
+  AI_COST_PRICING_JSON?: string;
   
   // 郵件配置
   SMTP_HOST?: string;
@@ -174,6 +175,7 @@ function getEnvConfig(): EnvConfig {
     OPENAI_MODEL: process.env.OPENAI_MODEL || 'gpt-3.5-turbo',
     OPENAI_MAX_TOKENS: parseInt(process.env.OPENAI_MAX_TOKENS || '2000', 10),
     OPENAI_DAILY_LIMIT: parseInt(process.env.OPENAI_DAILY_LIMIT || '1000', 10),
+    AI_COST_PRICING_JSON: process.env.AI_COST_PRICING_JSON,
     
     SMTP_HOST: process.env.SMTP_HOST,
     SMTP_PORT: process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : undefined,

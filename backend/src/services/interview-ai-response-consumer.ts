@@ -80,6 +80,8 @@ export async function consumeInterviewAIResponseStream({
   } catch (error) {
     await aiRequestLedgerService.fail({
       requestId: ledger.requestId,
+      provider: ledgerInput?.provider || 'openai',
+      model: INTERVIEW_AI_CONFIG.model,
       status: isAbortLikeError(error) ? 'cancelled' : 'failed',
       failureReason: error instanceof Error ? error.message : String(error),
       ...usage,
@@ -89,6 +91,8 @@ export async function consumeInterviewAIResponseStream({
 
   await aiRequestLedgerService.complete({
     requestId: ledger.requestId,
+    provider: ledgerInput?.provider || 'openai',
+    model: INTERVIEW_AI_CONFIG.model,
     ...usage,
   });
 

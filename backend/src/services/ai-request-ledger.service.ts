@@ -3,6 +3,7 @@ import logger from '../config/logger';
 import { env } from '../config/env';
 import { AI_CONFIG } from '../config/openai';
 import type { Prisma } from '../types/prisma-client';
+import { calculateAIRequestCost } from './ai-cost-pricing.service';
 
 type AIRequestLedgerStatus = 'started' | 'succeeded' | 'failed' | 'cancelled';
 
@@ -30,6 +31,8 @@ export interface AIRequestLedgerStartInput {
 export interface AIRequestLedgerFinishInput extends TokenUsage {
   requestId: string;
   status?: Exclude<AIRequestLedgerStatus, 'started'>;
+  provider?: string | null;
+  model?: string | null;
   retryCount?: number;
   failureReason?: string | null;
   metadata?: Record<string, unknown> | null;
@@ -67,6 +70,7 @@ function normalizeFailureReason(reason?: string | null): string | null {
 
 export class AIRequestLedgerService {
   private readonly enabled: boolean;
+  private readonly startedMetadata = new Map<string, Record<string, unknown>>();
 
   constructor(options: { enabled?: boolean } = {}) {
     this.enabled = options.enabled ?? env.NODE_ENV !== 'test';
@@ -74,6 +78,9 @@ export class AIRequestLedgerService {
 
   async start(input: AIRequestLedgerStartInput = {}): Promise<{ requestId: string }> {
     const requestId = truncate(input.requestId, 100) || randomUUID();
+    if (input.metadata) {
+      this.startedMetadata.set(requestId, input.metadata);
+    }
     if (!this.enabled) {
       return { requestId };
     }
@@ -133,6 +140,20 @@ export class AIRequestLedgerService {
     if (!this.enabled) return;
 
     try {
+      const cost = calculateAIRequestCost({
+        provider: input.provider,
+        model: input.model,
+        inputTokens: input.inputTokens,
+        outputTokens: input.outputTokens,
+      });
+      const baseMetadata = input.metadata || this.startedMetadata.get(input.requestId) || null;
+      const metadata = cost
+        ? {
+            ...(baseMetadata || {}),
+            pricing: cost.pricing,
+          }
+        : baseMetadata;
+
       await loadPrisma().aiRequestLedger.update({
         where: { request_id: input.requestId },
         data: {
@@ -140,9 +161,10 @@ export class AIRequestLedgerService {
           input_tokens: input.inputTokens ?? null,
           output_tokens: input.outputTokens ?? null,
           total_tokens: input.totalTokens ?? null,
+          cost_usd: cost?.costUsd ?? null,
           retry_count: Math.max(0, input.retryCount ?? 0),
           failure_reason: normalizeFailureReason(input.failureReason),
-          metadata: sanitizeMetadata(input.metadata),
+          metadata: sanitizeMetadata(metadata),
           completed_at: new Date(),
         },
       });
@@ -152,6 +174,8 @@ export class AIRequestLedgerService {
         status: input.status,
         error: error instanceof Error ? error.message : String(error),
       });
+    } finally {
+      this.startedMetadata.delete(input.requestId);
     }
   }
 }

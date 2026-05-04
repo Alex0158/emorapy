@@ -1,4 +1,4 @@
-import { describe, it, expect, jest, beforeEach } from '@jest/globals';
+import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
 
 const mockUpsert = jest.fn<(...args: unknown[]) => Promise<unknown>>();
 const mockUpdate = jest.fn<(...args: unknown[]) => Promise<unknown>>();
@@ -30,10 +30,18 @@ jest.mock('../../../src/config/database', () => ({
 import { AIRequestLedgerService } from '../../../src/services/ai-request-ledger.service';
 
 describe('AIRequestLedgerService', () => {
+  const originalEnv = process.env;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    process.env = { ...originalEnv };
+    delete process.env.AI_COST_PRICING_JSON;
     mockUpsert.mockResolvedValue({});
     mockUpdate.mockResolvedValue({});
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
   });
 
   it('starts a ledger row without prompt content and sanitizes metadata', async () => {
@@ -90,6 +98,7 @@ describe('AIRequestLedgerService', () => {
         input_tokens: 10,
         output_tokens: 20,
         total_tokens: 30,
+        cost_usd: null,
         retry_count: 1,
         failure_reason: null,
         completed_at: expect.any(Date),
@@ -110,5 +119,49 @@ describe('AIRequestLedgerService', () => {
       'AI request ledger finish failed',
       expect.objectContaining({ requestId: 'req-3' })
     );
+  });
+
+  it('calculates cost_usd only when explicit pricing catalog matches the model', async () => {
+    process.env.AI_COST_PRICING_JSON = JSON.stringify({
+      source: 'manual-test-pricing',
+      version: '2026-05-04-test',
+      models: {
+        'gpt-4o-mini': {
+          inputUsdPer1M: 0.15,
+          outputUsdPer1M: 0.6,
+        },
+      },
+    });
+    const service = new AIRequestLedgerService({ enabled: true });
+
+    await service.start({
+      requestId: 'req-priced',
+      model: 'gpt-4o-mini',
+      metadata: { prompt_chars: 500 },
+    });
+    await service.complete({
+      requestId: 'req-priced',
+      model: 'gpt-4o-mini',
+      inputTokens: 1_000_000,
+      outputTokens: 500_000,
+    });
+
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      where: { request_id: 'req-priced' },
+      data: expect.objectContaining({
+        status: 'succeeded',
+        cost_usd: 0.45,
+        metadata: {
+          prompt_chars: 500,
+          pricing: {
+            source: 'manual-test-pricing',
+            version: '2026-05-04-test',
+            model: 'gpt-4o-mini',
+            inputUsdPer1M: 0.15,
+            outputUsdPer1M: 0.6,
+          },
+        },
+      }),
+    }));
   });
 });

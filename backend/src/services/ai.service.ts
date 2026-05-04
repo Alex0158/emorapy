@@ -297,6 +297,8 @@ export class AIService {
       );
       await aiRequestLedgerService.complete({
         requestId: ledger.requestId,
+        provider: options.ledger?.provider || 'openai',
+        model,
         retryCount: Math.max(0, attemptCount - 1),
         ...usage,
       });
@@ -319,6 +321,8 @@ export class AIService {
       });
       await aiRequestLedgerService.fail({
         requestId: ledger.requestId,
+        provider: options.ledger?.provider || 'openai',
+        model,
         status: this.isAbortLikeError(error) ? 'cancelled' : 'failed',
         retryCount: Math.max(0, attemptCount - 1),
         failureReason: e?.message || String(error),
@@ -442,6 +446,8 @@ export class AIService {
       );
       await aiRequestLedgerService.complete({
         requestId: ledger.requestId,
+        provider: options.ledger?.provider || 'openai',
+        model,
         retryCount: Math.max(0, attemptCount - 1),
         ...usage,
       });
@@ -461,6 +467,8 @@ export class AIService {
       logger.error('OpenAI API stream error after retries', { error: e?.message, prompt: prompt.substring(0, 100) });
       await aiRequestLedgerService.fail({
         requestId: ledger.requestId,
+        provider: options.ledger?.provider || 'openai',
+        model,
         status: this.isAbortLikeError(error) ? 'cancelled' : 'failed',
         retryCount: Math.max(0, attemptCount - 1),
         failureReason: e?.message || String(error),

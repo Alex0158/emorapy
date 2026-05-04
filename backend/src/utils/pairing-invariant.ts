@@ -25,3 +25,20 @@ export function buildActiveNormalPairingWhere(
 
   return where;
 }
+
+export function buildSessionBoundQuickPairingWhere(
+  sessionId: string,
+  pairingId?: string
+): Prisma.PairingWhereInput {
+  const where: Prisma.PairingWhereInput = {
+    session_id: sessionId,
+    pairing_type: PAIRING_TYPE.QUICK,
+    status: PAIRING_STATUS.TEMP,
+  };
+
+  if (pairingId) {
+    where.id = pairingId;
+  }
+
+  return where;
+}

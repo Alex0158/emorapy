@@ -6,6 +6,7 @@ import logger from '../config/logger';
 import crypto from 'crypto';
 import { SESSION_EXPIRY } from '../utils/constants';
 import { buildClaimableSessionCaseWhere } from '../utils/case-classifier';
+import { buildSessionBoundQuickPairingWhere } from '../utils/pairing-invariant';
 
 const maskSessionId = (sessionId: string): string =>
   crypto.createHash('sha256').update(sessionId).digest('hex').slice(0, 12);
@@ -81,7 +82,7 @@ export class SessionService {
 
         if (currentSession.pairing_id) {
           await tx.pairing.updateMany({
-            where: { id: currentSession.pairing_id, session_id: currentSessionId },
+            where: buildSessionBoundQuickPairingWhere(currentSessionId, currentSession.pairing_id),
             data: { session_id: newSessionId },
           });
         }

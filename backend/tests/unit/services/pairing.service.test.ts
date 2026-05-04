@@ -285,6 +285,13 @@ describe('PairingService', () => {
       const result = await service.createTempPairing('s1');
 
       expect(result).toEqual(existing);
+      expect(prismaMock.pairing.findFirst).toHaveBeenCalledWith({
+        where: {
+          session_id: 's1',
+          pairing_type: 'quick',
+          status: 'temp',
+        },
+      });
       expect(prismaMock.pairing.create).not.toHaveBeenCalled();
     });
 
@@ -351,6 +358,13 @@ describe('PairingService', () => {
 
       const result = await service.getPairingBySessionId('s1');
       expect(result).toBeNull();
+      expect(prismaMock.pairing.findFirst).toHaveBeenCalledWith({
+        where: {
+          session_id: 's1',
+          pairing_type: 'quick',
+          status: 'temp',
+        },
+      });
     });
 
     it('有配對應返回配對', async () => {

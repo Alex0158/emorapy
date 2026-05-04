@@ -3,13 +3,13 @@
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：02-user-profile-pairing
-**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`6ce2549`
-**最後核驗日期**：`2026-05-03`
+**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`backend/src/services/pairing.service.ts`、`backend/src/services/auth.service.ts`、`backend/src/services/session.service.ts`、`backend/src/utils/pairing-invariant.ts`、`frontend/src/services/api`、`frontend-admin/src/services/api`
+**最後核驗 Commit**：`2e0cea7`
+**最後核驗日期**：`2026-05-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**文檔版本**：v2.3  
-**最後更新**：2026-05-03
+**文檔版本**：v2.4
+**最後更新**：2026-05-04
 **代碼基準**：`backend/src/routes/user.routes.ts`、`backend/src/routes/profile.routes.ts`、`backend/src/routes/pairing.routes.ts`、`backend/src/services/pairing.service.ts`、`backend/src/utils/pairing-invariant.ts`、`backend/src/utils/validation.ts`
 
 ---
@@ -46,6 +46,7 @@
 - 正式配對 invariant：同一 user 最多只能有一條 `normal` 且 `pending/active` 的 pairing；`quick/temp` pairing 不參與這條限制。
 - `pairing/create` 和 `pairing/join` 均使用 `backend/src/utils/pairing-invariant.ts` 的同一條件。`join` 會在原子更新前檢查加入者是否已有其他正式 pending/active pairing，違反時返回 `ALREADY_PAIRED`。
 - `pairing/join` 的原子更新必須同時限定 `id`、`status=pending`、`pairing_type=normal`、`user2_id=null`，防止並發覆蓋已加入者。
+- 匿名 quick/temp pairing 的查詢、claim 與 session refresh 必須使用 `buildSessionBoundQuickPairingWhere(session_id, pairing_id?)`：固定 `pairing_type=quick + status=temp + session_id`，避免 normal pairing 因歷史殘留 `session_id` 被匿名流程接管或旋轉。
 - `getPairingStatus` 在前端把 `404` 視為 `null`（不是錯誤），這是流程控制關鍵語義。
 - `profile/relationship/:pairingId` 屬配對依賴型接口，未配對時應返回不可訪問語義而非空資料。
 - 前端目前採最小白名單字段接入（stage/duration/communication/methods/strengths/challenges/completion），保存後即時回顯並支援重進重讀。
@@ -57,6 +58,7 @@
 3. 頭像上傳成功後頁面立即回填新 URL。
 4. `pairing/status` 返回 404 時前端不應崩潰（應顯示未配對態）。
 5. 配對成功後可讀取並保存 relationship profile（刷新或重進頁面可回顯）。
+6. quick/temp pairing 查詢、`claim-session` 歸戶與 `sessions/refresh` 旋轉不得影響 normal pending/active/cancelled pairing。
 
 ## 錯誤碼覆蓋矩陣（API -> code -> UI 行為）
 

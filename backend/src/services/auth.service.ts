@@ -6,6 +6,7 @@ import { Errors } from '../utils/errors';
 import logger from '../config/logger';
 import { emailService } from './email.service';
 import { buildClaimableSessionCaseWhere, isClaimableSessionCase } from '../utils/case-classifier';
+import { buildSessionBoundQuickPairingWhere } from '../utils/pairing-invariant';
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 分鐘
@@ -393,7 +394,7 @@ export class AuthService {
 
       const pairings = await tx.pairing.updateMany({
         where: {
-          session_id: sessionId,
+          ...buildSessionBoundQuickPairingWhere(sessionId),
           user1_id: null,
         },
         data: { user1_id: userId },

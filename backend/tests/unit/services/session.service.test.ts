@@ -274,7 +274,12 @@ describe('SessionService', () => {
         data: { session_id: newId },
       });
       expect(prismaMock.pairing.updateMany).toHaveBeenCalledWith({
-        where: { id: 'pair-1', session_id: oldId },
+        where: {
+          id: 'pair-1',
+          session_id: oldId,
+          pairing_type: 'quick',
+          status: 'temp',
+        },
         data: { session_id: newId },
       });
     });

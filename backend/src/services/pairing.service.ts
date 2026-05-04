@@ -6,7 +6,11 @@ import { fileService, signAvatar } from './file.service';
 import { lockService } from '../utils/lock';
 import { LOCK_TTL, PAIRING_STATUS, PAIRING_TYPE } from '../utils/constants';
 import { emailService } from './email.service';
-import { buildActiveNormalPairingWhere, NORMAL_PAIRING_ACTIVE_STATUSES } from '../utils/pairing-invariant';
+import {
+  buildActiveNormalPairingWhere,
+  buildSessionBoundQuickPairingWhere,
+  NORMAL_PAIRING_ACTIVE_STATUSES,
+} from '../utils/pairing-invariant';
 
 export class PairingService {
   /**
@@ -225,10 +229,7 @@ export class PairingService {
   async createTempPairing(sessionId: string) {
     return lockService.withLock(`pairing:quick:${sessionId}`, async () => {
       const existingPairing = await prisma.pairing.findFirst({
-        where: {
-          session_id: sessionId,
-          pairing_type: PAIRING_TYPE.QUICK,
-        },
+        where: buildSessionBoundQuickPairingWhere(sessionId),
       });
 
       if (existingPairing) {
@@ -270,10 +271,7 @@ export class PairingService {
    */
   async getPairingBySessionId(sessionId: string) {
     const pairing = await prisma.pairing.findFirst({
-      where: {
-        session_id: sessionId,
-        pairing_type: PAIRING_TYPE.QUICK,
-      },
+      where: buildSessionBoundQuickPairingWhere(sessionId),
     });
 
     return pairing;

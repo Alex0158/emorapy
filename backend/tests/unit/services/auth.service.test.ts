@@ -636,6 +636,8 @@ describe('AuthService', () => {
       expect(prismaMock.pairing.updateMany).toHaveBeenCalledWith({
         where: {
           session_id: 's1',
+          pairing_type: 'quick',
+          status: 'temp',
           user1_id: null,
         },
         data: { user1_id: 'user-1' },

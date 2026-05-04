@@ -76,10 +76,10 @@ railway status --json
 本機開發版固定由 Localhost 應用構成：
 
 ```bash
-cd backend && npm run dev
-cd frontend && npm run dev
-cd frontend-admin && npm run dev
+./scripts/start-dev.sh
 ```
+
+等效手動啟動時，需先確保 `redis://127.0.0.1:6379` 可用，並用 `CJ_COMMIT_SHA=$(git rev-parse HEAD)` 啟動 backend，避免本機 `/version.commitSha` 回 `unknown`。固定端口為 backend `3001`、主站 `5173`、Admin `5175`、Redis `6379`。
 
 本機 DB 可使用兩種方式：
 
@@ -293,6 +293,7 @@ ENV_FILE=<backend-local-env-file> npm run ops:db:status
 4. `2026-05-03` 已刪除舊 dev Supabase project，重建 `Mother Bear Court Dev`（ref：`lbukyqztkkkztfrfltlh`）；`2026-05-04` 已套用至 `20260504193000_add_case_source_tracking`，合計 18 個 Prisma migrations。
 5. 新 dev DB 未執行 seed；業務資料表為 0 筆資料，只保留 migration history。
 6. Dev DB 目前回報 `Database schema is up to date!`，且 `ops:release-db:check` 回報 7/7 個 release-blocking migrations 已完成；Production pooler 的舊核驗早於 `20260504143000_add_ai_request_ledger`、`20260504164500_add_notification_cancelled_status`、`20260504173000_add_product_state_recovery_tasks`、`20260504182000_add_normal_pairing_uniqueness_trigger` 與 `20260504193000_add_case_source_tracking`，發布前必須重新以 release `DATABASE_URL` 執行 `ops:db:status` + `ops:release-db:check` 或完整 `ops:release:gate`。
+7. `2026-05-04` 本機服務已按 `1b7426b` 後的啟動口徑核驗：Redis `PONG`，backend `3001`、主站 `5173`、Admin `5175` 均 listening；三端 version endpoint 可對齊當前 HEAD。development `/health` 若只因 scheduled jobs disabled 顯示 `degraded`，不視為本機阻塞。
 
 若之後新增 migration，仍必須重新執行 `ops:db:status`；不能沿用本段歷史結論。
 

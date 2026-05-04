@@ -54,4 +54,7 @@ DATABASE_URL="$DATABASE_URL" \
 CLAIM_SMOKE_DISABLE_CREATED_USER="${CLAIM_SMOKE_DISABLE_CREATED_USER:-true}" \
 bash "$ROOT/scripts/smoke-claim-session-production-like.sh"
 
+echo "[release-smoke] post-smoke account hygiene"
+npm --prefix backend run ops:smoke-accounts:check
+
 echo "[release-smoke] ok"

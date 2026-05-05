@@ -13,6 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import { logger } from '@/utils/logger';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
+import { CelebrationOverlay, useCelebration } from '@/components/common/CelebrationOverlay';
 import { Loader2, ArrowLeft, Info, Heart, AlertCircle, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -59,6 +60,7 @@ const CaseCreate = () => {
 
   const mountedRef = useMountedRef();
   const submitLockRef = useRef(false);
+  const { celebrating, celebrate, onComplete: onCelebrationComplete } = useCelebration();
 
   const {
     triggerInterview: handlePreCaseChat,
@@ -157,6 +159,7 @@ const CaseCreate = () => {
 
       const newCase = await createCase(caseData);
       if (!mountedRef.current) return;
+      celebrate();
       toast.success(isRemote ? t('caseCreate.remoteCreateSuccess') : t('message.createCaseSuccess'));
 
       const filesToUpload: File[] = evidenceFiles
@@ -536,6 +539,7 @@ const CaseCreate = () => {
           onCancel={() => setConsentOpen(false)}
           loading={consentLoading}
         />
+        <CelebrationOverlay show={celebrating} onComplete={onCelebrationComplete} />
       </div>
     </>
   );

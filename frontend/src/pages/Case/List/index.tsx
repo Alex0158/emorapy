@@ -23,6 +23,7 @@ import {
 import { getCaseList } from '@/services/api/case';
 import type { Case } from '@/types/case';
 import SEO from '@/components/common/SEO';
+import { StaggerContainer, StaggerItem } from '@/components/common/PageTransition';
 import { EmptyState } from '@/components/common/EmptyState';
 import { useDebounce } from '@/hooks/usePerformance';
 import { formatDate } from '@/utils/formatDate';
@@ -240,9 +241,9 @@ const CaseList = () => {
 
         {/* Case List */}
         {cases.length > 0 && !loading && (
-          <ul className="space-y-2" role="list" aria-labelledby="case-list-page-title">
+          <StaggerContainer className="space-y-2">
             {cases.map((case_) => (
-              <li key={case_.id} role="listitem">
+              <StaggerItem key={case_.id}>
                 <button
                   type="button"
                   onClick={() => navigate(`/case/${case_.id}`)}
@@ -266,9 +267,9 @@ const CaseList = () => {
                     <ChevronRight className="size-4" aria-hidden />
                   </div>
                 </button>
-              </li>
+              </StaggerItem>
             ))}
-          </ul>
+          </StaggerContainer>
         )}
 
         {/* Pagination */}

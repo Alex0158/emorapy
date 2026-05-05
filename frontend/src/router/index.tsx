@@ -11,6 +11,7 @@ import AppLayout from '@/components/layout/AppLayout';
 import SimpleLayout from '@/components/layout/SimpleLayout';
 import AuthLayout from '@/components/layout/AuthLayout';
 import Loading from '@/components/common/Loading';
+import { PageTransition } from '@/components/common/PageTransition';
 import ProtectedRoute from '@/components/common/ProtectedRoute';
 import PublicRoute from '@/components/common/PublicRoute';
 import { getAdminLoginUrl } from '@/utils/adminEntry';
@@ -73,7 +74,11 @@ export const AdminRedirect = () => {
 
 // 路由懶加載包裝器（導出供測試覆蓋）
 export const LazyWrapper = ({ children }: { children: React.ReactNode }) => (
-  <Suspense fallback={<Loading />}>{children}</Suspense>
+  <Suspense fallback={<Loading />}>
+    <PageTransition variant="slideUp" duration={0.2}>
+      {children}
+    </PageTransition>
+  </Suspense>
 );
 
 export const router = createBrowserRouter([

@@ -49,7 +49,7 @@ function StarRating({ value, onChange, disabled }: { value: number; onChange: (v
           className={cn('transition-colors', disabled ? 'cursor-not-allowed' : 'cursor-pointer hover:scale-110')}
           aria-label={`${star} star`}
         >
-          <Star className={cn('size-7', star <= value ? 'fill-primary text-primary' : 'text-muted-foreground/30')} />
+          <Star className={cn('size-8', star <= value ? 'fill-primary text-primary' : 'text-muted-foreground/30')} />
         </button>
       ))}
     </div>

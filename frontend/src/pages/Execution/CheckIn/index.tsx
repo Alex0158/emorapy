@@ -159,7 +159,7 @@ const ExecutionCheckIn = () => {
             <legend className="text-sm font-medium text-foreground">{t('execCheckIn.stepResultLabel')}</legend>
             <div className="flex flex-wrap gap-2">
               {([['done', t('execCheckIn.stepResult.done')], ['partial', t('execCheckIn.stepResult.partial')], ['skipped', t('execCheckIn.stepResult.skipped')]] as const).map(([val, label]) => (
-                <button key={val} type="button" onClick={() => setStepResult(val as 'done' | 'partial' | 'skipped')} className={cn('rounded-full border px-4 py-2 text-sm transition-colors', stepResult === val ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-border text-muted-foreground hover:border-primary/30')}>{label}</button>
+                <button key={val} type="button" aria-pressed={stepResult === val} onClick={() => setStepResult(val as 'done' | 'partial' | 'skipped')} className={cn('rounded-full border px-4 py-2.5 min-h-[44px] text-sm transition-colors', stepResult === val ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-border text-muted-foreground hover:border-primary/30')}>{label}</button>
               ))}
             </div>
           </fieldset>
@@ -169,7 +169,7 @@ const ExecutionCheckIn = () => {
             <legend className="text-sm font-medium text-foreground">{t('execCheckIn.closenessLabel')}</legend>
             <div className="flex flex-wrap gap-2">
               {([['closer', t('execCheckIn.closeness.closer')], ['same', t('execCheckIn.closeness.same')], ['farther', t('execCheckIn.closeness.farther')]] as const).map(([val, label]) => (
-                <button key={val} type="button" onClick={() => setCloseness(val as 'closer' | 'same' | 'farther')} className={cn('rounded-full border px-4 py-2 text-sm transition-colors', closeness === val ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-border text-muted-foreground hover:border-primary/30')}>{label}</button>
+                <button key={val} type="button" aria-pressed={closeness === val} onClick={() => setCloseness(val as 'closer' | 'same' | 'farther')} className={cn('rounded-full border px-4 py-2.5 min-h-[44px] text-sm transition-colors', closeness === val ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-border text-muted-foreground hover:border-primary/30')}>{label}</button>
               ))}
             </div>
           </fieldset>
@@ -179,7 +179,7 @@ const ExecutionCheckIn = () => {
             <legend className="text-sm font-medium text-foreground">{t('execCheckIn.stressLabel')}</legend>
             <div className="flex flex-wrap gap-2">
               {([['low', t('execCheckIn.stress.low')], ['medium', t('execCheckIn.stress.medium')], ['high', t('execCheckIn.stress.high')]] as const).map(([val, label]) => (
-                <button key={val} type="button" onClick={() => setStress(val as 'low' | 'medium' | 'high')} className={cn('rounded-full border px-4 py-2 text-sm transition-colors', stress === val ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-border text-muted-foreground hover:border-primary/30')}>{label}</button>
+                <button key={val} type="button" aria-pressed={stress === val} onClick={() => setStress(val as 'low' | 'medium' | 'high')} className={cn('rounded-full border px-4 py-2.5 min-h-[44px] text-sm transition-colors', stress === val ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-border text-muted-foreground hover:border-primary/30')}>{label}</button>
               ))}
             </div>
           </fieldset>

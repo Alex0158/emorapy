@@ -138,14 +138,14 @@ export class CaseService {
     // 2-4. 使用統一驗證工具
     const plaintiffStatement = ValidationUtils.validateStatement(
       data.plaintiff_statement,
-      '原告陳述',
+      '發起方陳述',
       30
     );
     let defendantStatement: string | null = null;
     if (data.defendant_statement && data.defendant_statement.trim().length > 0) {
       defendantStatement = ValidationUtils.validateStatement(
         data.defendant_statement,
-        '被告陳述',
+        '回應方陳述',
         10
       );
     }
@@ -298,7 +298,7 @@ export class CaseService {
 
     const plaintiffStatement = ValidationUtils.validateStatement(
       data.plaintiff_statement,
-      '原告陳述',
+      '發起方陳述',
       30
     );
 
@@ -331,7 +331,7 @@ export class CaseService {
 
     const isReadyForSubmission = caseMode === CASE_MODE.COLLABORATIVE || hasDefendantStatement;
     const defendantStatementValidated = hasDefendantStatement
-      ? ValidationUtils.validateStatement(data.defendant_statement!, '被告陳述', 30)
+      ? ValidationUtils.validateStatement(data.defendant_statement!, '回應方陳述', 30)
       : null;
 
     const case_ = await prisma.$transaction(async (tx) => {
@@ -500,7 +500,7 @@ export class CaseService {
     }
 
     if (requiresCounterpartyStatementForSubmit(case_)) {
-      throw Errors.VALIDATION_ERROR('遠程/協作模式需等待被告陳述後才能提交');
+      throw Errors.VALIDATION_ERROR('遠程/協作模式需等待回應方陳述後才能提交');
     }
 
     const updatedCase = await prisma.case.update({
@@ -547,11 +547,11 @@ export class CaseService {
 
     if (data.plaintiff_statement !== undefined) {
       if (!isPlaintiff) {
-        throw Errors.FORBIDDEN('只有原告可以修改原告陳述');
+        throw Errors.FORBIDDEN('只有發起方可以修改發起方陳述');
       }
       updateData.plaintiff_statement = ValidationUtils.validateStatement(
         data.plaintiff_statement,
-        '原告陳述',
+        '發起方陳述',
         30
       );
       const caseType = await aiService.detectCaseType(
@@ -563,10 +563,10 @@ export class CaseService {
 
     if (data.defendant_statement !== undefined) {
       if (!isDefendant) {
-        throw Errors.FORBIDDEN('只有被告可以修改被告陳述');
+        throw Errors.FORBIDDEN('只有回應方可以修改回應方陳述');
       }
       updateData.defendant_statement = data.defendant_statement
-        ? ValidationUtils.validateStatement(data.defendant_statement, '被告陳述', 30)
+        ? ValidationUtils.validateStatement(data.defendant_statement, '回應方陳述', 30)
         : null;
       const caseType = await aiService.detectCaseType(
         case_.plaintiff_statement,

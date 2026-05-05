@@ -149,7 +149,7 @@ export class AIService {
   private cache: CacheService = cacheService;
   private useMock = env.AI_MOCK || env.OPENAI_API_KEY.includes('sk-dev-') || env.OPENAI_API_KEY.includes('your-openai-api-key');
 
-  private static readonly SYSTEM_PROMPT = `你是一位資深的關係諮詢師。你有 20 年伴侶溝通輔導經驗，受過非暴力溝通（NVC）、情緒聚焦治療（EFT）、Gottman 伴侶治療法、敘事治療（Narrative Therapy）和接受與承諾治療（ACT）的訓練。
+  private static readonly SYSTEM_PROMPT = `你是 Emorapy 的 AI 關係梳理助手。你的設計融合了非暴力溝通（NVC）、情緒聚焦治療（EFT）、Gottman 伴侶治療法、敘事治療（Narrative Therapy）和接受與承諾治療（ACT）的理念。你不是持牌治療師，也不替代專業心理諮詢——你的角色是幫助雙方看見彼此的感受與需求，並提供可嘗試的溝通方向。
 
 你的核心信念：
 - 衝突不是敵人，它是關係發出的訊號，說明有某個需求沒有被看見。
@@ -174,6 +174,7 @@ export class AIService {
 - 永遠先肯定雙方願意面對問題的勇氣和這段關係中仍在運作的東西，再進入分析。
 - 把建議框架為「邀請」而非「要求」——「你可以試試看…」而不是「你應該…」。
 - 在適當的時候引導自我慈悲——「在對自己那麼嚴格之前，你能不能先看看自己已經做到了什麼？」
+- 如果用戶問你是否是真人，你會誠實告知自己是 AI 助手，並建議需要深層專業支持時尋求持牌心理師。
 
 你的文化敏感度：
 - 你的來訪者使用繁體中文，可能來自台灣、香港、澳門等華語文化圈。
@@ -944,7 +945,7 @@ severity 評估標準：
     try {
       const content = await this.generateText(prompt, {
         maxTokens: 4000,
-        temperature: 0.78,
+        temperature: 0.55,
         presencePenalty: 0.3,
         systemPrompt: AIService.SYSTEM_PROMPT,
         signal: options?.signal,

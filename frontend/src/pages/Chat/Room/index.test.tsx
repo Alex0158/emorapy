@@ -714,8 +714,8 @@ describe('ChatRoomPage', () => {
     });
     expect(screen.getByDisplayValue('room-a draft')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: '發起判決' }));
-    await screen.findByText('轉判決前確認');
+    fireEvent.click(screen.getByRole('button', { name: '發起梳理' }));
+    await screen.findByText('轉梳理前確認');
 
     fireEvent.click(screen.getByRole('button', { name: 'go room', hidden: true }));
     await screen.findByText(/聊天室：room-b/);
@@ -2470,7 +2470,7 @@ describe('ChatRoomPage', () => {
     expect(screen.getByText(/聊天室：room-b/)).toBeInTheDocument();
   });
 
-  it('房間終態時應禁用建立邀請/發起判決/發送訊息', async () => {
+  it('房間終態時應禁用建立邀請/發起梳理/發送訊息', async () => {
     mockGetChatRoom.mockResolvedValueOnce({
       id: 'room-1',
       status: 'judgment_completed',
@@ -2489,7 +2489,7 @@ describe('ChatRoomPage', () => {
 	    });
 	    await screen.findByText('聊天室：room-1');
 	    expect(screen.getByRole('button', { name: '建立邀請' })).toBeDisabled();
-	    expect(screen.getByRole('button', { name: '發起判決' })).toBeDisabled();
+	    expect(screen.getByRole('button', { name: '發起梳理' })).toBeDisabled();
 	    expect(screen.getByRole('button', { name: '送出' })).toBeDisabled();
 
     await act(async () => {
@@ -2501,7 +2501,7 @@ describe('ChatRoomPage', () => {
     expect(mockSendChatMessage).not.toHaveBeenCalled();
   });
 
-  it('未登入時 chat 發起判決成功後應先被導向 login，並保留 judgment 回跳目標（F07 -> F04 handoff）', async () => {
+  it('未登入時 chat 發起梳理成功後應先被導向 login，並保留 judgment 回跳目標（F07 -> F04 handoff）', async () => {
     useAuthStore.setState({ user: null, isAuthenticated: false, _hasHydrated: true } as any);
     localStorage.setItem('cj_session_id', 'guest_owner_123');
     mockGetChatRoom.mockResolvedValue({
@@ -2550,8 +2550,8 @@ describe('ChatRoomPage', () => {
 
     await waitFor(() => expect(mockGetChatRoom).toHaveBeenCalledWith('room-1'));
     await screen.findByText('聊天室：room-1');
-    fireEvent.click(screen.getByRole('button', { name: '發起判決' }));
-    await screen.findByText('轉判決前確認');
+    fireEvent.click(screen.getByRole('button', { name: '發起梳理' }));
+    await screen.findByText('轉梳理前確認');
     const dialog = await screen.findByRole('dialog');
     const confirm = within(dialog).getByRole('button', { name: '確認' });
 
@@ -2564,7 +2564,7 @@ describe('ChatRoomPage', () => {
     });
   });
 
-  it('發起判決時只應提交 user_text 訊息 id，不應把 AI 訊息帶進 included_message_ids（P04 回歸）', async () => {
+  it('發起梳理時只應提交 user_text 訊息 id，不應把 AI 訊息帶進 included_message_ids（P04 回歸）', async () => {
     mockRequestChatJudgment.mockResolvedValue({
       judgmentId: 'judgment-user-only',
       roomId: 'room-1',
@@ -2611,8 +2611,8 @@ describe('ChatRoomPage', () => {
 
     await waitFor(() => expect(mockGetChatRoom).toHaveBeenCalledWith('room-1'));
     await screen.findByText('聊天室：room-1');
-    fireEvent.click(screen.getByRole('button', { name: '發起判決' }));
-    await screen.findByText('轉判決前確認');
+    fireEvent.click(screen.getByRole('button', { name: '發起梳理' }));
+    await screen.findByText('轉梳理前確認');
     const dialog = await screen.findByRole('dialog');
     const confirm = within(dialog).getByRole('button', { name: '確認' });
 
@@ -2655,8 +2655,8 @@ describe('ChatRoomPage', () => {
     );
     await waitFor(() => expect(mockGetChatRoom).toHaveBeenCalledWith('room-1'));
     await screen.findByText('聊天室：room-1');
-    fireEvent.click(screen.getByRole('button', { name: '發起判決' }));
-    await screen.findByText('轉判決前確認');
+    fireEvent.click(screen.getByRole('button', { name: '發起梳理' }));
+    await screen.findByText('轉梳理前確認');
     const dialog = await screen.findByRole('dialog');
     const confirm = within(dialog).getByRole('button', { name: '確認' });
     fireEvent.click(confirm);
@@ -2696,8 +2696,8 @@ describe('ChatRoomPage', () => {
     );
     await waitFor(() => expect(mockGetChatRoom).toHaveBeenCalledWith('room-1'));
     await screen.findByText('聊天室：room-1');
-    fireEvent.click(screen.getByRole('button', { name: '發起判決' }));
-    await screen.findByText('轉判決前確認');
+    fireEvent.click(screen.getByRole('button', { name: '發起梳理' }));
+    await screen.findByText('轉梳理前確認');
     const dialog = await screen.findByRole('dialog');
     const confirm = within(dialog).getByRole('button', { name: '確認' });
     fireEvent.click(confirm);
@@ -2711,7 +2711,7 @@ describe('ChatRoomPage', () => {
     expect(toast.warning).not.toHaveBeenCalled();
   });
 
-  it('發起判決快速連點只會送出一次請求', async () => {
+  it('發起梳理快速連點只會送出一次請求', async () => {
     mockRequestChatJudgment.mockResolvedValue({
       roomId: 'room-1',
       caseId: 'case-1',
@@ -2744,13 +2744,13 @@ describe('ChatRoomPage', () => {
 	    });
 		    await screen.findByText('聊天室：room-1');
 
-		    const button = screen.getByRole('button', { name: '發起判決' });
+		    const button = screen.getByRole('button', { name: '發起梳理' });
 		    await act(async () => {
 		      fireEvent.click(button);
 		      fireEvent.click(button);
 		    });
 
-	    await screen.findByText('轉判決前確認');
+	    await screen.findByText('轉梳理前確認');
 		    const dialog = await screen.findByRole('dialog');
 		    const confirm = within(dialog).getByRole('button', { name: '確認' });
 		    await act(async () => {
@@ -2762,7 +2762,7 @@ describe('ChatRoomPage', () => {
 		    });
 		  });
 
-  it('requestChatJudgment 成功但尚無 judgmentId 時應保持 pending，避免再次發起判決', async () => {
+  it('requestChatJudgment 成功但尚無 judgmentId 時應保持 pending，避免再次發起梳理', async () => {
     mockRequestChatJudgment.mockResolvedValue({
       roomId: 'room-1',
       caseId: 'case-1',
@@ -2792,8 +2792,8 @@ describe('ChatRoomPage', () => {
 
     await waitFor(() => expect(mockGetChatRoom).toHaveBeenCalledWith('room-1'));
     await screen.findByText('聊天室：room-1');
-    fireEvent.click(screen.getByRole('button', { name: '發起判決' }));
-    await screen.findByText('轉判決前確認');
+    fireEvent.click(screen.getByRole('button', { name: '發起梳理' }));
+    await screen.findByText('轉梳理前確認');
     const dialog = await screen.findByRole('dialog');
     const confirm = within(dialog).getByRole('button', { name: '確認' });
 
@@ -2803,11 +2803,11 @@ describe('ChatRoomPage', () => {
 
     await waitFor(() => {
       expect(mockRequestChatJudgment).toHaveBeenCalledTimes(1);
-      expect(toast.success).toHaveBeenCalledWith('已發起判決，正在等待結果');
+      expect(toast.success).toHaveBeenCalledWith('已發起梳理，正在等待結果');
     });
 
-    expect(screen.getByRole('button', { name: /發起判決/ })).toBeDisabled();
-    fireEvent.click(screen.getByRole('button', { name: /發起判決/ }));
+    expect(screen.getByRole('button', { name: /發起梳理/ })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: /發起梳理/ }));
     expect(mockRequestChatJudgment).toHaveBeenCalledTimes(1);
   });
 
@@ -2895,7 +2895,7 @@ describe('ChatRoomPage', () => {
     expect(screen.getByText(/聊天室：room-b/)).toBeInTheDocument();
   });
 
-  it('requestChatJudgment 失敗後應仍可再次點擊確認發起判決，成功後應導向判決頁（F07 錯誤恢復：失敗不阻塞重試）', async () => {
+  it('requestChatJudgment 失敗後應仍可再次點擊確認發起梳理，成功後應導向判決頁（F07 錯誤恢復：失敗不阻塞重試）', async () => {
     mockRequestChatJudgment
       .mockRejectedValueOnce(new Error('服務暫時不可用'))
       .mockResolvedValueOnce({ judgmentId: 'judgment-retry-1', roomId: 'room-1', status: 'judgment_requested' });
@@ -2924,8 +2924,8 @@ describe('ChatRoomPage', () => {
 
     await waitFor(() => expect(mockGetChatRoom).toHaveBeenCalledWith('room-1'));
     await screen.findByText('聊天室：room-1');
-    fireEvent.click(screen.getByRole('button', { name: '發起判決' }));
-    await screen.findByText('轉判決前確認');
+    fireEvent.click(screen.getByRole('button', { name: '發起梳理' }));
+    await screen.findByText('轉梳理前確認');
     let dialog = await screen.findByRole('dialog');
     let confirm = within(dialog).getByRole('button', { name: '確認' });
     fireEvent.click(confirm);
@@ -2933,8 +2933,8 @@ describe('ChatRoomPage', () => {
       expect(toast.error).toHaveBeenCalledWith('服務暫時不可用');
     });
 
-    fireEvent.click(screen.getByRole('button', { name: '發起判決' }));
-    await screen.findByText('轉判決前確認');
+    fireEvent.click(screen.getByRole('button', { name: '發起梳理' }));
+    await screen.findByText('轉梳理前確認');
     dialog = await screen.findByRole('dialog');
     confirm = within(dialog).getByRole('button', { name: '確認' });
     fireEvent.click(confirm);
@@ -2970,8 +2970,8 @@ describe('ChatRoomPage', () => {
 
     await waitFor(() => expect(mockGetChatRoom).toHaveBeenCalledWith('room-1'));
     await screen.findByText('聊天室：room-1');
-    fireEvent.click(screen.getByRole('button', { name: '發起判決' }));
-    await screen.findByText('轉判決前確認');
+    fireEvent.click(screen.getByRole('button', { name: '發起梳理' }));
+    await screen.findByText('轉梳理前確認');
     const dialog = await screen.findByRole('dialog');
     const confirm = within(dialog).getByRole('button', { name: '確認' });
     await act(async () => {
@@ -3009,8 +3009,8 @@ describe('ChatRoomPage', () => {
 
     await waitFor(() => expect(mockGetChatRoom).toHaveBeenCalledWith('room-1'));
     await screen.findByText('聊天室：room-1');
-    fireEvent.click(screen.getByRole('button', { name: '發起判決' }));
-    await screen.findByText('轉判決前確認');
+    fireEvent.click(screen.getByRole('button', { name: '發起梳理' }));
+    await screen.findByText('轉梳理前確認');
     const dialog = await screen.findByRole('dialog');
     const confirm = within(dialog).getByRole('button', { name: '確認' });
     await act(async () => {
@@ -3018,7 +3018,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('發起判決失敗');
+      expect(toast.error).toHaveBeenCalledWith('發起梳理失敗');
     });
   });
 
@@ -3048,8 +3048,8 @@ describe('ChatRoomPage', () => {
 
     await waitFor(() => expect(mockGetChatRoom).toHaveBeenCalledWith('room-1'));
     await screen.findByText('聊天室：room-1');
-    fireEvent.click(screen.getByRole('button', { name: '發起判決' }));
-    await screen.findByText('轉判決前確認');
+    fireEvent.click(screen.getByRole('button', { name: '發起梳理' }));
+    await screen.findByText('轉梳理前確認');
     const dialog = await screen.findByRole('dialog');
     const confirm = within(dialog).getByRole('button', { name: '確認' });
     await act(async () => {
@@ -3057,7 +3057,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('發起判決失敗');
+      expect(toast.error).toHaveBeenCalledWith('發起梳理失敗');
     });
   });
 
@@ -3087,8 +3087,8 @@ describe('ChatRoomPage', () => {
 
     await waitFor(() => expect(mockGetChatRoom).toHaveBeenCalledWith('room-1'));
     await screen.findByText('聊天室：room-1');
-    fireEvent.click(screen.getByRole('button', { name: '發起判決' }));
-    await screen.findByText('轉判決前確認');
+    fireEvent.click(screen.getByRole('button', { name: '發起梳理' }));
+    await screen.findByText('轉梳理前確認');
     const dialog = await screen.findByRole('dialog');
     const confirm = within(dialog).getByRole('button', { name: '確認' });
     await act(async () => {
@@ -3096,7 +3096,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('發起判決失敗');
+      expect(toast.error).toHaveBeenCalledWith('發起梳理失敗');
     });
   });
 

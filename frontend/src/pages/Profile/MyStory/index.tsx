@@ -141,6 +141,9 @@ const MyStory: React.FC = () => {
           <h2 className="text-2xl font-bold text-foreground font-heading">{t('psychProfile.myStoryTitle')}</h2>
         </div>
 
+        {/* Disclaimer */}
+        <p className="mb-4 text-xs text-muted-foreground/80">{t('psychProfile.disclaimer')}</p>
+
         {/* Overview */}
         <div className="mb-8 rounded-xl border border-border bg-card p-6">
           <div className="flex flex-col gap-6 md:flex-row md:items-start md:gap-10">

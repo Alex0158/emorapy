@@ -15,9 +15,9 @@ describe('JudgmentViewer', () => {
   });
 
   it('應渲染 content 與預設標題', () => {
-    render(<JudgmentViewer content="判決正文" />);
-    expect(screen.getByText('判決書')).toBeInTheDocument();
-    expect(screen.getByText('判決正文')).toBeInTheDocument();
+    render(<JudgmentViewer content="梳理正文" />);
+    expect(screen.getByText('梳理報告')).toBeInTheDocument();
+    expect(screen.getByText('梳理正文')).toBeInTheDocument();
   });
 
   it('應支援自定義 title', () => {

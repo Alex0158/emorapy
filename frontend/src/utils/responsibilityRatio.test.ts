@@ -15,18 +15,18 @@ describe('responsibilityRatio', () => {
       setLocale('zh-TW');
     });
 
-    it('應格式化為 "原告 X% : 被告 Y%"', () => {
+    it('應格式化為 "你 X% : 對方 Y%"', () => {
       expect(formatResponsibilityRatio({ plaintiff: 60, defendant: 40 })).toBe(
-        '原告 60% : 被告 40%'
+        '你 60% : 對方 40%'
       );
     });
 
     it('支援 0:100 與 100:0', () => {
       expect(formatResponsibilityRatio({ plaintiff: 0, defendant: 100 })).toBe(
-        '原告 0% : 被告 100%'
+        '你 0% : 對方 100%'
       );
       expect(formatResponsibilityRatio({ plaintiff: 100, defendant: 0 })).toBe(
-        '原告 100% : 被告 0%'
+        '你 100% : 對方 0%'
       );
     });
   });

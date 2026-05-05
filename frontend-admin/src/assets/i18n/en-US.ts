@@ -152,7 +152,7 @@ const enUS: Record<string, string> = {
   'admin.reports.overview': 'Overview',
   'admin.reports.users': 'Users',
   'admin.reports.cases': 'Cases',
-  'admin.reports.judgments': 'Judgments',
+  'admin.reports.judgments': 'Analyses',
   'admin.reports.pairingRate': 'Pairing rate',
   'admin.reports.exportCsv': 'Export CSV',
   'admin.reports.funnel': 'Funnel',

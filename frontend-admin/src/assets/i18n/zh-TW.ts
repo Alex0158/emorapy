@@ -152,7 +152,7 @@ const zhTW: Record<string, string> = {
   'admin.reports.overview': '總覽',
   'admin.reports.users': '用戶數',
   'admin.reports.cases': '案件數',
-  'admin.reports.judgments': '判決數',
+  'admin.reports.judgments': '梳理數',
   'admin.reports.pairingRate': '配對率',
   'admin.reports.exportCsv': '匯出 CSV',
   'admin.reports.funnel': '轉化漏斗',

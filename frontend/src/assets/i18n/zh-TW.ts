@@ -531,7 +531,7 @@ const zhTW = {
 	"message.submitFail": "提交失敗，請稍後再試",
 	"message.evidenceUploadFailCaseCreated": "證據上傳失敗，但案件已創建",
 	// 404 頁面（NotFound）
-	"notFound.title": "404",
+	"notFound.title": "頁面不存在",
 	"notFound.subTitle": "抱歉，您訪問的頁面不存在。",
 	"notFound.backHome": "返回首頁",
 	"notFound.backPrevious": "返回上一頁",

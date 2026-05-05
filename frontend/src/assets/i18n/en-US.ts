@@ -673,7 +673,7 @@ const enUS: Record<string, string> = {
 	"quickCreate.sessionInitRetry": "Retry session setup",
 
 	// 404
-	"notFound.title": "404",
+	"notFound.title": "Page Not Found",
 	"notFound.subTitle": "Sorry, the page you visited does not exist.",
 	"notFound.backHome": "Back to Home",
 	"notFound.backPrevious": "Go Back",

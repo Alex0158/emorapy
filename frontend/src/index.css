@@ -2,6 +2,28 @@
 @plugin "tailwindcss-animate";
 
 /*
+ * Font fallback declarations — minimize CLS during web font swap
+ * Metrics matched to Google Fonts via https://screenspan.net/fallback
+ */
+@font-face {
+  font-family: "Inter Fallback";
+  src: local("Arial");
+  size-adjust: 107%;
+  ascent-override: 90%;
+  descent-override: 22%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Jakarta Fallback";
+  src: local("Arial");
+  size-adjust: 108%;
+  ascent-override: 92%;
+  descent-override: 22%;
+  line-gap-override: 0%;
+}
+
+/*
  * Mother Bear Court - Design Token System
  * 溫暖珊瑚/蜜金色系 — 親和、信任、希望
  *
@@ -54,8 +76,8 @@
   --color-text-muted: #7A6E64;
 
   /* === 字體 === */
-  --font-heading: "Plus Jakarta Sans", "Outfit", sans-serif;
-  --font-body: "Inter", "Noto Sans TC", sans-serif;
+  --font-heading: "Plus Jakarta Sans", "Jakarta Fallback", sans-serif;
+  --font-body: "Inter", "Inter Fallback", "Noto Sans TC", sans-serif;
 
   /* === 圓角 === */
   --radius-sm: 6px;

@@ -67,7 +67,7 @@ const Home = () => {
             </div>
 
             <div className="hero-content">
-              <AnimatedWrapper animation="slide" direction="right" delay={150} duration={400} className="hero-text">
+              <AnimatedWrapper animation="slide" direction="right" delay={0} duration={300} className="hero-text">
                 <h1 className="hero-title">{t('home.hero.heading')}</h1>
                 <p className="hero-subtitle">{t('home.hero.subtitle')}</p>
                 <div className="hero-actions" role="group" aria-label={t('home.ariaHeroActions')}>
@@ -91,7 +91,7 @@ const Home = () => {
                   </Button>
                 </div>
               </AnimatedWrapper>
-              <AnimatedWrapper animation="fade" delay={250} duration={400} className="hero-image">
+              <AnimatedWrapper animation="fade" delay={100} duration={300} className="hero-image">
                 <MediatorAvatar size="large" animated />
               </AnimatedWrapper>
             </div>

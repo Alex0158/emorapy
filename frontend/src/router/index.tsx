@@ -9,9 +9,8 @@ import { Home as HomeIcon, Rocket, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/components/layout/AppLayout';
 import SimpleLayout from '@/components/layout/SimpleLayout';
-import AuthLayout from '@/components/layout/AuthLayout';
+const AuthLayout = lazy(() => import('@/components/layout/AuthLayout'));
 import Loading from '@/components/common/Loading';
-import { PageTransition } from '@/components/common/PageTransition';
 import ProtectedRoute from '@/components/common/ProtectedRoute';
 import PublicRoute from '@/components/common/PublicRoute';
 import { getAdminLoginUrl } from '@/utils/adminEntry';
@@ -73,11 +72,12 @@ export const AdminRedirect = () => {
 };
 
 // 路由懶加載包裝器（導出供測試覆蓋）
+// 使用純 CSS 動畫避免 framer-motion 進入初始 bundle
 export const LazyWrapper = ({ children }: { children: React.ReactNode }) => (
   <Suspense fallback={<Loading />}>
-    <PageTransition variant="slideUp" duration={0.2}>
+    <div className="animate-in fade-in slide-in-from-bottom-1 duration-200 fill-mode-both">
       {children}
-    </PageTransition>
+    </div>
   </Suspense>
 );
 
@@ -322,7 +322,7 @@ export const router = createBrowserRouter([
   },
   {
     path: '/auth',
-    element: <AuthLayout />,
+    element: <Suspense fallback={<Loading />}><AuthLayout /></Suspense>,
     children: [
       {
         index: true,

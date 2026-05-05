@@ -8,6 +8,7 @@
  */
 
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { motion } from 'framer-motion';
 import { useMountedRef } from '@/hooks/useMountedRef';
 import { useParams, useNavigate } from 'react-router-dom';
 import { logger } from '@/utils/logger';
@@ -184,7 +185,7 @@ const JudgmentDetail = () => {
   return (
     <>
       <SEO title={t('judgmentDetail.pageTitle')} description={t('judgmentDetail.description')} />
-      <div className="mx-auto max-w-4xl px-4 py-8 md:px-6" role="main" aria-label={t('judgmentDetail.pageLabel')}>
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} className="mx-auto max-w-4xl px-4 py-8 md:px-6" role="main" aria-label={t('judgmentDetail.pageLabel')}>
         {/* Back */}
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="mb-6" aria-label={t('judgmentDetail.backAria')}>
           <ArrowLeft className="size-4" />{t('judgmentDetail.back')}
@@ -297,7 +298,7 @@ const JudgmentDetail = () => {
         </Dialog>
 
         <ConsentModal open={consentOpen} onConsent={handleConsent} onCancel={() => setConsentOpen(false)} loading={consentLoading} />
-      </div>
+      </motion.div>
     </>
   );
 };

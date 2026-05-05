@@ -8,6 +8,7 @@
  */
 
 import { useState, useEffect, useRef, type ChangeEvent } from 'react';
+import { motion } from 'framer-motion';
 import { useMountedRef } from '@/hooks/useMountedRef';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -135,7 +136,7 @@ const ProfileIndex = () => {
   return (
     <ProtectedRoute>
       <SEO title={t('profileIndex.title')} description={t('profileIndex.description')} />
-      <div className="mx-auto max-w-2xl px-4 py-8 md:px-6" role="main" aria-label={t('profileIndex.pageLabel')}>
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} className="mx-auto max-w-2xl px-4 py-8 md:px-6" role="main" aria-label={t('profileIndex.pageLabel')}>
         <h2 className="mb-6 text-2xl font-bold text-foreground font-heading">{t('profileIndex.heading')}</h2>
 
         {/* Error */}
@@ -259,7 +260,7 @@ const ProfileIndex = () => {
           onCancel={() => setConsentOpen(false)}
           loading={consentLoading}
         />
-      </div>
+      </motion.div>
     </ProtectedRoute>
   );
 };

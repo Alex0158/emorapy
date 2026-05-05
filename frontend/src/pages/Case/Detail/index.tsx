@@ -8,6 +8,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
+import { motion } from 'framer-motion';
 import { useMountedRef } from '@/hooks/useMountedRef';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -150,7 +151,7 @@ const CaseDetail = () => {
   return (
     <>
       <SEO title={`${case_.title}${t('caseDetail.titleSuffix')}`} description={case_.plaintiff_statement?.substring(0, 100) || ''} />
-      <div className="mx-auto max-w-4xl px-4 py-8 md:px-6" role="main" aria-label={t('caseDetail.pageLabel')}>
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} className="mx-auto max-w-4xl px-4 py-8 md:px-6" role="main" aria-label={t('caseDetail.pageLabel')}>
         {/* Back + Edit */}
         <div className="mb-6 flex items-center justify-between">
           <Button variant="ghost" size="sm" onClick={() => navigate('/case/list')} aria-label={t('caseDetail.backListAria')}>
@@ -278,7 +279,7 @@ const CaseDetail = () => {
             </div>
           </div>
         )}
-      </div>
+      </motion.div>
     </>
   );
 };

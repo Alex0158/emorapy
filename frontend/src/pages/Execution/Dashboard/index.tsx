@@ -157,7 +157,7 @@ const ExecutionDashboard = () => {
   return (
     <ProtectedRoute>
       <SEO title={t('execDashboard.title')} description={t('execDashboard.description')} />
-      <div className="mx-auto max-w-5xl px-4 py-8 md:px-6" role="main" aria-label={t('execDashboard.pageLabel')}>
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} className="mx-auto max-w-5xl px-4 py-8 md:px-6" role="main" aria-label={t('execDashboard.pageLabel')}>
         {/* Header */}
         <header className="mb-8">
           <h2 className="text-2xl font-bold tracking-tight text-foreground font-heading">
@@ -276,7 +276,7 @@ const ExecutionDashboard = () => {
             ))}
           </div>
         )}
-      </div>
+      </motion.div>
     </ProtectedRoute>
   );
 };

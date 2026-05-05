@@ -8,6 +8,7 @@
  */
 
 import React, { useEffect, useRef, useState } from 'react';
+import { motion } from 'framer-motion';
 import { useMountedRef } from '@/hooks/useMountedRef';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -119,7 +120,7 @@ const MyStory: React.FC = () => {
   return (
     <>
       <SEO title={t('psychProfile.myStoryTitle')} description={t('psychProfile.myStoryDesc')} />
-      <div className="mx-auto max-w-4xl px-4 py-8 md:px-6" role="main">
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} className="mx-auto max-w-4xl px-4 py-8 md:px-6" role="main">
         {/* Failed session alert */}
         {failedSessionId && (
           <div className="mb-6 flex items-start gap-3 rounded-xl border border-warning/30 bg-warning/5 p-4">
@@ -267,7 +268,7 @@ const MyStory: React.FC = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
+      </motion.div>
     </>
   );
 };

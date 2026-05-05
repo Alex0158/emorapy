@@ -6,6 +6,7 @@
  */
 
 import { useEffect, useMemo } from 'react';
+import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Bell, Clock, Trash2, ChevronRight, Loader2, AlertCircle } from 'lucide-react';
@@ -82,7 +83,7 @@ const NotificationsPage = () => {
   return (
     <ProtectedRoute>
       <SEO title="通知中心" description="查看修復旅程、邀請與重調相關通知" />
-      <div className="mx-auto max-w-3xl px-4 py-8" role="main" aria-label="通知中心">
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} className="mx-auto max-w-3xl px-4 py-8" role="main" aria-label="通知中心">
         {/* Header */}
         <header className="mb-6">
           <div className="flex items-center gap-2 mb-2">
@@ -213,7 +214,7 @@ const NotificationsPage = () => {
             )}
           </div>
         )}
-      </div>
+      </motion.div>
     </ProtectedRoute>
   );
 };

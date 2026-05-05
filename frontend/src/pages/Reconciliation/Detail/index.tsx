@@ -7,6 +7,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
+import { motion } from 'framer-motion';
 import { useMountedRef } from '@/hooks/useMountedRef';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -142,7 +143,7 @@ const ReconciliationDetail = () => {
   return (
     <ProtectedRoute>
       <SEO title={t('reconDetail.pageTitle')} description={parsed.description.substring(0, 100)} />
-      <div className="mx-auto max-w-5xl px-4 py-8 md:px-6" role="main" aria-label={t('reconDetail.pageLabel')}>
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} className="mx-auto max-w-5xl px-4 py-8 md:px-6" role="main" aria-label={t('reconDetail.pageLabel')}>
         {/* Back */}
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="mb-6" aria-label={t('reconDetail.backAria')}>
           <ArrowLeft className="size-4" />{t('reconDetail.back')}
@@ -244,7 +245,7 @@ const ReconciliationDetail = () => {
             <Button variant="ghost" onClick={() => judgmentId && navigate(`/reconciliation/${judgmentId}`)}><Heart className="size-4" />重新看看其他方向</Button>
           </div>
         </div>
-      </div>
+      </motion.div>
     </ProtectedRoute>
   );
 };

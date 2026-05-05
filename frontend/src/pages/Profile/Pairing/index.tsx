@@ -8,6 +8,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
+import { motion } from 'framer-motion';
 import { useMountedRef } from '@/hooks/useMountedRef';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -248,7 +249,7 @@ const ProfilePairing = () => {
   return (
     <ProtectedRoute>
       <SEO title={t('pairing.title')} description={t('pairing.description')} />
-      <div className="mx-auto max-w-2xl px-4 py-8 md:px-6" role="main" aria-label={t('pairing.pageLabel')}>
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} className="mx-auto max-w-2xl px-4 py-8 md:px-6" role="main" aria-label={t('pairing.pageLabel')}>
         {/* Interview Trigger Banner */}
         {activePairingId && !profile?.consent_given && (
           <div className="mb-6 flex items-start gap-3 rounded-xl border border-primary/20 bg-primary-light/50 p-4">
@@ -379,7 +380,7 @@ const ProfilePairing = () => {
             </div>
           </div>
         )}
-      </div>
+      </motion.div>
     </ProtectedRoute>
   );
 };

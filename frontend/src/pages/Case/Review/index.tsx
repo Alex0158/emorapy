@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
+import { motion } from 'framer-motion';
 import { useMountedRef } from '@/hooks/useMountedRef';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -224,7 +225,7 @@ const CaseReview = () => {
   return (
     <>
       <SEO title={t('review.title')} description={t('review.description')} />
-      <div className="mx-auto max-w-lg px-4 py-12 text-center" role="main" aria-label={t('review.pageLabel')}>
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} className="mx-auto max-w-lg px-4 py-12 text-center" role="main" aria-label={t('review.pageLabel')}>
         <MediatorAvatar size="large" animated />
         <h2 className="mt-6 text-2xl font-bold text-foreground font-heading">{t('review.aiReviewing')}</h2>
         <p className="mt-2 text-sm text-muted-foreground">{t('review.analyzingHint')}</p>
@@ -257,7 +258,7 @@ const CaseReview = () => {
             {t('review.backToCase')}
           </Button>
         </div>
-      </div>
+      </motion.div>
     </>
   );
 };

@@ -100,7 +100,7 @@ export class EmailService {
       const html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #333;">配對成功</h2>
-          <p style="font-size: 16px; color: #666;">你們的配對已生效，現在可以創建案件並獲取判決。</p>
+          <p style="font-size: 16px; color: #666;">你們的配對已生效，現在可以創建案件並獲取梳理分析。</p>
         </div>
       `;
       const fromAddr = env.EMAIL_FROM || env.SMTP_USER;
@@ -140,11 +140,11 @@ export class EmailService {
       const fromAddr = env.EMAIL_FROM || env.SMTP_USER;
       if (!fromAddr) return;
       const safeEmail = this.sanitizeEmail(user.email);
-      const subject = '判決完成通知 - CJ 平台';
+      const subject = '分析完成通知 - Emorapy';
       const html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #333;">判決已生成</h2>
-          <p style="font-size: 16px; color: #666;">您提交的案件判決已生成，請登錄查看詳細內容。</p>
+          <h2 style="color: #333;">梳理分析已完成</h2>
+          <p style="font-size: 16px; color: #666;">您提交的案件已完成梳理分析，請登錄查看詳細內容。</p>
         </div>
       `;
       await this.transporter.sendMail({

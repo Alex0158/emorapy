@@ -154,7 +154,7 @@ export class CaseController {
           success: false,
           error: {
             code: 'JUDGMENT_PENDING',
-            message: '判決生成中，請稍後再試',
+            message: '分析生成中，請稍後再試',
           },
         });
         return;

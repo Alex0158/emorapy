@@ -20,7 +20,7 @@ export class JudgmentController {
       res.json({
         success: true,
         data: { judgment },
-        message: '判決已生成',
+        message: '分析已完成',
       });
     } catch (error) {
       next(error);
@@ -41,7 +41,7 @@ export class JudgmentController {
       });
 
       if (!judgment) {
-        throw Errors.NOT_FOUND('判決不存在');
+        throw Errors.NOT_FOUND('梳理結果不存在');
       }
 
       const userId = getAuthUserIdOptional(req);
@@ -60,7 +60,7 @@ export class JudgmentController {
       } catch (accessErr: unknown) {
         const code = (accessErr as { code?: string })?.code;
         if (code === 'FORBIDDEN') {
-          throw Errors.NOT_FOUND('判決不存在');
+          throw Errors.NOT_FOUND('梳理結果不存在');
         }
         throw accessErr;
       }
@@ -70,7 +70,7 @@ export class JudgmentController {
           success: false,
           error: {
             code: 'JUDGMENT_PENDING',
-            message: '判決生成中，請稍後再試',
+            message: '分析生成中，請稍後再試',
           },
         });
         return;
@@ -104,7 +104,7 @@ export class JudgmentController {
       res.json({
         success: true,
         data: { judgment },
-        message: accepted ? '判決已接受' : '判決已拒絕',
+        message: accepted ? '已接受梳理結果' : '已拒絕梳理結果',
       });
     } catch (error) {
       next(error);

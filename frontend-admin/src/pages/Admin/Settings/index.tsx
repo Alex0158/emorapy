@@ -1,20 +1,45 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  Alert,
-  Button,
-  Card,
-  Form,
-  Input,
-  Modal,
-  Popconfirm,
-  Select,
-  Space,
-  Switch,
-  Table,
-  Typography,
-  message,
-} from 'antd';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useAdminMe } from '@/hooks/useAdminMe';
 import { adminApi } from '@/services/api/admin';
 import type {
@@ -28,16 +53,29 @@ import JsonConfigCard from './JsonConfigCard';
 import MediaProviderSettingsCard from './MediaProviderSettingsCard';
 import type { AdminUserFormValues, MediaProviderFormValues } from './types';
 
-const { Title, Text } = Typography;
-
 export default function AdminSettingsPage() {
   const queryClient = useQueryClient();
   const [editingAdmin, setEditingAdmin] = useState<AdminAdminUserItem | null>(null);
   const [pendingAdminActionKey, setPendingAdminActionKey] = useState('');
-  const [adminEditForm] = Form.useForm();
-  const [alertRulesForm] = Form.useForm<{ rules: string }>();
-  const [featureFlagsForm] = Form.useForm<{ flags: string }>();
-  const [mediaProviderForm] = Form.useForm<MediaProviderFormValues>();
+
+  // Admin edit dialog form state
+  const [editFormName, setEditFormName] = useState('');
+  const [editFormRoleKey, setEditFormRoleKey] = useState<'super_admin' | 'ops' | 'marketing' | 'support'>('ops');
+  const [editFormIsActive, setEditFormIsActive] = useState(true);
+  const [editFormPassword, setEditFormPassword] = useState('');
+
+  // Create admin form state
+  const [createEmail, setCreateEmail] = useState('');
+  const [createName, setCreateName] = useState('');
+  const [createPassword, setCreatePassword] = useState('');
+  const [createRoleKey, setCreateRoleKey] = useState<'super_admin' | 'ops' | 'marketing' | 'support'>('ops');
+
+  // JSON config state
+  const [alertRulesValue, setAlertRulesValue] = useState('');
+  const [featureFlagsValue, setFeatureFlagsValue] = useState('');
+
+  // Media provider form state
+  const [mediaProviderFormValues, setMediaProviderFormValues] = useState<MediaProviderFormValues>({});
   const [selectedMediaProviderKey, setSelectedMediaProviderKey] = useState('');
   const [mediaProviderTestResult, setMediaProviderTestResult] =
     useState<AdminMediaProviderTestResult | null>(null);
@@ -90,7 +128,7 @@ export default function AdminSettingsPage() {
   useEffect(() => {
     if (!selectedMediaProvider?.providerType) return;
     const providerConfig = getMediaProviderConfigValue(selectedMediaProvider.providerKey) || {};
-    mediaProviderForm.setFieldsValue({
+    setMediaProviderFormValues({
       providerKey: selectedMediaProvider.providerKey,
       apiKey: '',
       baseUrl:
@@ -129,33 +167,33 @@ export default function AdminSettingsPage() {
           ? 'A calm neutral composition'
           : 'A cinematic short clip',
     });
-  }, [selectedMediaProvider, mediaProviderForm, getMediaProviderConfigValue]);
+  }, [selectedMediaProvider, getMediaProviderConfigValue]);
 
   useEffect(() => {
     const items = configsQuery.data?.items || [];
     const alertRuleConfig = items.find((item) => item.key === 'admin.alert.rules');
     const featureFlagsConfig = items.find((item) => item.key === 'feature.flags');
-    alertRulesForm.setFieldsValue({
-      rules: JSON.stringify(alertRuleConfig?.value || [], null, 2),
-    });
-    featureFlagsForm.setFieldsValue({
-      flags: JSON.stringify(featureFlagsConfig?.value || {}, null, 2),
-    });
-  }, [configsQuery.data, alertRulesForm, featureFlagsForm]);
+    setAlertRulesValue(JSON.stringify(alertRuleConfig?.value || [], null, 2));
+    setFeatureFlagsValue(JSON.stringify(featureFlagsConfig?.value || {}, null, 2));
+  }, [configsQuery.data]);
 
   const createAdminUserMutation = useMutation({
     mutationFn: (values: AdminUserFormValues) => adminApi.createAdminUser(values),
     onSuccess: () => {
-      message.success(t('admin.settings.adminUsers.createSuccess'));
+      toast.success(t('admin.settings.adminUsers.createSuccess'));
       void queryClient.invalidateQueries({ queryKey: ['admin', 'admin-users'] });
+      setCreateEmail('');
+      setCreateName('');
+      setCreatePassword('');
+      setCreateRoleKey('ops');
     },
     onError: (error: unknown) => {
       const err = error as { code?: string } | null;
       if (err?.code === 'FORBIDDEN') {
-        message.error(t('admin.ops.accessDenied'));
+        toast.error(t('admin.ops.accessDenied'));
         return;
       }
-      message.error(t('admin.settings.adminUsers.createFailed'));
+      toast.error(t('admin.settings.adminUsers.createFailed'));
     },
   });
 
@@ -174,57 +212,57 @@ export default function AdminSettingsPage() {
         password: payload.password,
       }),
     onSuccess: () => {
-      message.success(t('admin.settings.adminUsers.updateSuccess'));
+      toast.success(t('admin.settings.adminUsers.updateSuccess'));
       void queryClient.invalidateQueries({ queryKey: ['admin', 'admin-users'] });
       setEditingAdmin(null);
     },
     onError: (error: unknown) => {
       const err = error as { code?: string } | null;
       if (err?.code === 'FORBIDDEN') {
-        message.error(t('admin.ops.accessDenied'));
+        toast.error(t('admin.ops.accessDenied'));
         return;
       }
-      message.error(t('admin.settings.adminUsers.updateFailed'));
+      toast.error(t('admin.settings.adminUsers.updateFailed'));
     },
   });
   const deleteAdminUserMutation = useMutation({
     mutationFn: (id: string) => adminApi.deleteAdminUser(id),
     onSuccess: () => {
-      message.success(t('admin.settings.adminUsers.deleteSuccess'));
+      toast.success(t('admin.settings.adminUsers.deleteSuccess'));
       void queryClient.invalidateQueries({ queryKey: ['admin', 'admin-users'] });
     },
     onError: (error: unknown) => {
       const err = error as { code?: string } | null;
       if (err?.code === 'FORBIDDEN') {
-        message.error(t('admin.ops.accessDenied'));
+        toast.error(t('admin.ops.accessDenied'));
         return;
       }
-      message.error(t('admin.settings.adminUsers.deleteFailed'));
+      toast.error(t('admin.settings.adminUsers.deleteFailed'));
     },
   });
 
   const alertRulesMutation = useMutation({
     mutationFn: (rules: unknown[]) => adminApi.upsertAlertRules(rules),
-    onSuccess: () => message.success(t('admin.settings.alerts.saveSuccess')),
+    onSuccess: () => toast.success(t('admin.settings.alerts.saveSuccess')),
     onError: (error: unknown) => {
       const err = error as { code?: string } | null;
       if (err?.code === 'FORBIDDEN') {
-        message.error(t('admin.ops.accessDenied'));
+        toast.error(t('admin.ops.accessDenied'));
         return;
       }
-      message.error(t('admin.settings.alerts.saveFailed'));
+      toast.error(t('admin.settings.alerts.saveFailed'));
     },
   });
   const featureFlagsMutation = useMutation({
     mutationFn: (flags: Record<string, unknown>) => adminApi.setFeatureFlags(flags),
-    onSuccess: () => message.success(t('admin.settings.flags.saveSuccess')),
+    onSuccess: () => toast.success(t('admin.settings.flags.saveSuccess')),
     onError: (error: unknown) => {
       const err = error as { code?: string } | null;
       if (err?.code === 'FORBIDDEN') {
-        message.error(t('admin.ops.accessDenied'));
+        toast.error(t('admin.ops.accessDenied'));
         return;
       }
-      message.error(t('admin.settings.flags.saveFailed'));
+      toast.error(t('admin.settings.flags.saveFailed'));
     },
   });
 
@@ -242,16 +280,16 @@ export default function AdminSettingsPage() {
       isSensitive: true,
     }),
     onSuccess: () => {
-      message.success(t('admin.settings.mediaProviders.saveSuccess'));
+      toast.success(t('admin.settings.mediaProviders.saveSuccess'));
       void queryClient.invalidateQueries({ queryKey: ['admin', 'configs', 'settings'] });
     },
     onError: (error: unknown) => {
       const err = error as { code?: string } | null;
       if (err?.code === 'FORBIDDEN') {
-        message.error(t('admin.ops.accessDenied'));
+        toast.error(t('admin.ops.accessDenied'));
         return;
       }
-      message.error(t('admin.settings.mediaProviders.saveFailed'));
+      toast.error(t('admin.settings.mediaProviders.saveFailed'));
     },
   });
 
@@ -265,22 +303,22 @@ export default function AdminSettingsPage() {
     }) => adminApi.testMediaProvider(providerKey, payload),
     onSuccess: (result) => {
       setMediaProviderTestResult(result);
-      message.success(t('admin.settings.mediaProviders.testSuccess'));
+      toast.success(t('admin.settings.mediaProviders.testSuccess'));
     },
     onError: (error: unknown) => {
       const err = error as { code?: string } | null;
       setMediaProviderTestResult(null);
       if (err?.code === 'FORBIDDEN') {
-        message.error(t('admin.ops.accessDenied'));
+        toast.error(t('admin.ops.accessDenied'));
         return;
       }
-      message.error(t('admin.settings.mediaProviders.testFailed'));
+      toast.error(t('admin.settings.mediaProviders.testFailed'));
     },
   });
 
-  const handleSaveMediaProvider = async () => {
+  const handleSaveMediaProvider = () => {
     if (!selectedMediaProvider) return;
-    const values = await mediaProviderForm.validateFields();
+    const values = mediaProviderFormValues;
     const currentConfig = getMediaProviderConfigValue(selectedMediaProvider.providerKey) || {};
     const updatedConfig: Record<string, unknown> = { ...currentConfig };
     if (typeof values.apiKey === 'string' && values.apiKey.trim()) {
@@ -303,7 +341,7 @@ export default function AdminSettingsPage() {
       updatedConfig.sourceImageUrl = values.sourceImageUrl.trim();
     }
     if (!updatedConfig.apiKey && !currentConfig.apiKey) {
-      message.error(t('admin.settings.mediaProviders.apiKeyRequired'));
+      toast.error(t('admin.settings.mediaProviders.apiKeyRequired'));
       return;
     }
 
@@ -313,9 +351,9 @@ export default function AdminSettingsPage() {
     });
   };
 
-  const handleTestMediaProvider = async () => {
+  const handleTestMediaProvider = () => {
     if (!selectedMediaProvider) return;
-    const values = await mediaProviderForm.validateFields();
+    const values = mediaProviderFormValues;
     const payload: AdminMediaProviderTestInput = {
       apiKey:
         typeof values.apiKey === 'string' && values.apiKey.trim()
@@ -358,21 +396,64 @@ export default function AdminSettingsPage() {
     });
   };
 
+  const handleCreateAdmin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!createEmail.trim()) {
+      toast.error(t('admin.settings.adminUsers.emailRequired'));
+      return;
+    }
+    if (!createName.trim()) return;
+    if (!createPassword || createPassword.length < 10) {
+      toast.error(t('admin.settings.adminUsers.passwordMinLength'));
+      return;
+    }
+    createAdminUserMutation.mutate({
+      email: createEmail.trim(),
+      name: createName.trim(),
+      password: createPassword,
+      roleKey: createRoleKey,
+    });
+  };
+
+  const handleEditSave = () => {
+    if (!editingAdmin) return;
+    if (!editFormName.trim()) {
+      toast.error(t('admin.settings.adminUsers.nameRequired'));
+      return;
+    }
+    if (editFormPassword.trim() && editFormPassword.length < 10) {
+      toast.error(t('admin.settings.adminUsers.passwordMinLength'));
+      return;
+    }
+    updateAdminUserMutation.mutate({
+      id: editingAdmin.id,
+      name: editFormName,
+      roleKey: editFormRoleKey,
+      isActive: editFormIsActive,
+      password: editFormPassword?.trim() ? editFormPassword : undefined,
+    });
+  };
+
   return (
-    <Space orientation="vertical" size="large" style={{ width: '100%' }}>
+    <div className="space-y-6">
       <div>
-        <Title level={3} style={{ marginBottom: 0 }}>
+        <h3 className="text-xl font-bold">
           {t('admin.settings.heading')}
-        </Title>
-        <Text type="secondary">{t('admin.settings.subtitle')}</Text>
+        </h3>
+        <p className="text-sm text-muted-foreground">{t('admin.settings.subtitle')}</p>
       </div>
 
       {(adminUsersQuery.error || configsQuery.error) && (
-        <Alert showIcon type="error" title={t('admin.settings.loadFailed')} />
+        <div className="flex items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+          <span>{t('admin.settings.loadFailed')}</span>
+        </div>
       )}
 
       <MediaProviderSettingsCard
-        form={mediaProviderForm}
+        formValues={mediaProviderFormValues}
+        onFormChange={(partial) =>
+          setMediaProviderFormValues((prev) => ({ ...prev, ...partial }))
+        }
         catalog={mediaProviderCatalog}
         selectedProvider={selectedMediaProvider}
         selectedProviderKey={selectedMediaProviderKey}
@@ -388,138 +469,190 @@ export default function AdminSettingsPage() {
         getConfigValue={getMediaProviderConfigValue}
       />
 
-      <Card title={t('admin.settings.adminUsers.title')}>
-        <Form<AdminUserFormValues>
-          layout="inline"
-          onFinish={(values) => createAdminUserMutation.mutate(values)}
-        >
-          <Form.Item
-            name="email"
-            rules={[
-              { required: true, message: t('admin.settings.adminUsers.emailRequired') },
-              { type: 'email', message: t('admin.settings.adminUsers.emailInvalid') },
-            ]}
-          >
-            <Input placeholder={t('admin.settings.adminUsers.email')} />
-          </Form.Item>
-          <Form.Item name="name" rules={[{ required: true }]}>
-            <Input placeholder={t('admin.settings.adminUsers.name')} />
-          </Form.Item>
-          <Form.Item
-            name="password"
-            rules={[
-              { required: true, message: t('admin.settings.adminUsers.passwordRequired') },
-              {
-                min: 10,
-                message: t('admin.settings.adminUsers.passwordMinLength'),
-              },
-            ]}
-          >
-            <Input.Password placeholder={t('admin.settings.adminUsers.password')} />
-          </Form.Item>
-          <Form.Item name="roleKey" initialValue="ops" rules={[{ required: true }]}>
-            <Select
-              options={[
-                { label: 'super_admin', value: 'super_admin' },
-                { label: 'ops', value: 'ops' },
-                { label: 'marketing', value: 'marketing' },
-                { label: 'support', value: 'support' },
-              ]}
-            />
-          </Form.Item>
-          <Button
-            type="primary"
-            htmlType="submit"
-            loading={createAdminUserMutation.isPending}
-          >
-            {t('admin.settings.adminUsers.create')}
-          </Button>
-        </Form>
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('admin.settings.adminUsers.title')}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <form onSubmit={handleCreateAdmin} className="flex flex-wrap items-end gap-3">
+            <div className="space-y-1">
+              <Label>{t('admin.settings.adminUsers.email')}</Label>
+              <Input
+                type="email"
+                placeholder={t('admin.settings.adminUsers.email')}
+                value={createEmail}
+                onChange={(e) => setCreateEmail(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>{t('admin.settings.adminUsers.name')}</Label>
+              <Input
+                placeholder={t('admin.settings.adminUsers.name')}
+                value={createName}
+                onChange={(e) => setCreateName(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>{t('admin.settings.adminUsers.password')}</Label>
+              <Input
+                type="password"
+                placeholder={t('admin.settings.adminUsers.password')}
+                value={createPassword}
+                onChange={(e) => setCreatePassword(e.target.value)}
+                required
+                minLength={10}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>{t('admin.settings.adminUsers.role')}</Label>
+              <Select
+                value={createRoleKey}
+                onValueChange={(v: string) => setCreateRoleKey(v as typeof createRoleKey)}
+              >
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="super_admin">super_admin</SelectItem>
+                  <SelectItem value="ops">ops</SelectItem>
+                  <SelectItem value="marketing">marketing</SelectItem>
+                  <SelectItem value="support">support</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              type="submit"
+              disabled={createAdminUserMutation.isPending}
+            >
+              {createAdminUserMutation.isPending && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              {t('admin.settings.adminUsers.create')}
+            </Button>
+          </form>
 
-        <Table<AdminAdminUserItem>
-          style={{ marginTop: 16 }}
-          rowKey="id"
-          loading={adminUsersQuery.isLoading}
-          dataSource={adminUsersQuery.data?.items || []}
-          columns={[
-            { title: t('admin.settings.adminUsers.email'), dataIndex: 'email' },
-            { title: t('admin.settings.adminUsers.name'), dataIndex: 'name' },
-            {
-              title: t('admin.settings.adminUsers.role'),
-              render: (_, row) => row.role.key,
-            },
-            {
-              title: t('admin.settings.adminUsers.active'),
-              render: (_, row) => (
-                <Space>
-                  <Popconfirm
-                    title={
-                      row.is_active
-                        ? t('admin.settings.adminUsers.confirmDeactivate')
-                        : t('admin.settings.adminUsers.confirmActivate')
-                    }
-                    okText={t('common.confirm')}
-                    cancelText={t('common.cancel')}
-                    onConfirm={() => {
-                      setPendingAdminActionKey(`${row.id}:toggle`);
-                      updateAdminUserMutation.mutate(
-                        { id: row.id, isActive: !row.is_active },
-                        { onSettled: () => setPendingAdminActionKey('') }
-                      );
-                    }}
-                  >
-                    <Switch
-                      checked={row.is_active}
-                      loading={pendingAdminActionKey === `${row.id}:toggle`}
-                    />
-                  </Popconfirm>
-                  <Button
-                    size="small"
-                    onClick={() => {
-                      setEditingAdmin(row);
-                      adminEditForm.setFieldsValue({
-                        name: row.name,
-                        roleKey: row.role.key,
-                        isActive: row.is_active,
-                        password: '',
-                      });
-                    }}
-                  >
-                    {t('admin.settings.adminUsers.edit')}
-                  </Button>
-                  <Popconfirm
-                    title={t('admin.settings.adminUsers.confirmDelete')}
-                    description={t('admin.settings.adminUsers.deleteAuditHint')}
-                    okText={t('common.confirm')}
-                    cancelText={t('common.cancel')}
-                    onConfirm={() => {
-                      setPendingAdminActionKey(`${row.id}:delete`);
-                      deleteAdminUserMutation.mutate(row.id, {
-                        onSettled: () => setPendingAdminActionKey(''),
-                      });
-                    }}
-                    disabled={row.id === currentAdminId}
-                  >
-                    <Button
-                      size="small"
-                      danger
-                      loading={pendingAdminActionKey === `${row.id}:delete`}
-                      disabled={row.id === currentAdminId}
-                    >
-                      {t('admin.settings.adminUsers.delete')}
-                    </Button>
-                  </Popconfirm>
-                </Space>
-              ),
-            },
-          ]}
-        />
+          {adminUsersQuery.isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t('admin.settings.adminUsers.email')}</TableHead>
+                  <TableHead>{t('admin.settings.adminUsers.name')}</TableHead>
+                  <TableHead>{t('admin.settings.adminUsers.role')}</TableHead>
+                  <TableHead>{t('admin.settings.adminUsers.active')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(adminUsersQuery.data?.items || []).map((row) => (
+                  <TableRow key={row.id}>
+                    <TableCell>{row.email}</TableCell>
+                    <TableCell>{row.name}</TableCell>
+                    <TableCell>{row.role.key}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <button type="button" className="inline-flex items-center">
+                              <Switch
+                                checked={row.is_active}
+                                disabled={pendingAdminActionKey === `${row.id}:toggle`}
+                              />
+                            </button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>
+                                {row.is_active
+                                  ? t('admin.settings.adminUsers.confirmDeactivate')
+                                  : t('admin.settings.adminUsers.confirmActivate')}
+                              </AlertDialogTitle>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => {
+                                  setPendingAdminActionKey(`${row.id}:toggle`);
+                                  updateAdminUserMutation.mutate(
+                                    { id: row.id, isActive: !row.is_active },
+                                    { onSettled: () => setPendingAdminActionKey('') }
+                                  );
+                                }}
+                              >
+                                {t('common.confirm')}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setEditingAdmin(row);
+                            setEditFormName(row.name);
+                            setEditFormRoleKey(row.role.key as typeof editFormRoleKey);
+                            setEditFormIsActive(row.is_active);
+                            setEditFormPassword('');
+                          }}
+                        >
+                          {t('admin.settings.adminUsers.edit')}
+                        </Button>
+
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              disabled={row.id === currentAdminId || pendingAdminActionKey === `${row.id}:delete`}
+                            >
+                              {pendingAdminActionKey === `${row.id}:delete` && (
+                                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                              )}
+                              {t('admin.settings.adminUsers.delete')}
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>
+                                {t('admin.settings.adminUsers.confirmDelete')}
+                              </AlertDialogTitle>
+                              <AlertDialogDescription>
+                                {t('admin.settings.adminUsers.deleteAuditHint')}
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => {
+                                  setPendingAdminActionKey(`${row.id}:delete`);
+                                  deleteAdminUserMutation.mutate(row.id, {
+                                    onSettled: () => setPendingAdminActionKey(''),
+                                  });
+                                }}
+                              >
+                                {t('common.confirm')}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
       </Card>
 
       <JsonConfigCard
         title={t('admin.settings.alerts.title')}
         subtitle={t('admin.settings.alerts.subtitle')}
-        form={alertRulesForm}
         fieldName="rules"
         requiredMessage={t('admin.settings.alerts.rulesJsonArrayRequired')}
         placeholder='[{"key":"jobs.failure_rate","threshold":0.2}]'
@@ -527,12 +660,12 @@ export default function AdminSettingsPage() {
         valueKind="array"
         saveLabel={t('admin.settings.alerts.save')}
         onSave={(value) => alertRulesMutation.mutate(value as unknown[])}
+        initialValue={alertRulesValue}
       />
 
       <JsonConfigCard
         title={t('admin.settings.flags.title')}
         subtitle={t('admin.settings.flags.subtitle')}
-        form={featureFlagsForm}
         fieldName="flags"
         requiredMessage={t('admin.settings.flags.flagsJsonObjectRequired')}
         placeholder='{"adminOpsBeta": true}'
@@ -540,81 +673,71 @@ export default function AdminSettingsPage() {
         valueKind="object"
         saveLabel={t('admin.settings.flags.save')}
         onSave={(value) => featureFlagsMutation.mutate(value as Record<string, unknown>)}
+        initialValue={featureFlagsValue}
       />
-      <Modal
-        title={t('admin.settings.adminUsers.editTitle')}
-        open={editingAdmin !== null}
-        onCancel={() => setEditingAdmin(null)}
-        onOk={async () => {
-          if (!editingAdmin) return;
-          const values = await adminEditForm.validateFields();
-          updateAdminUserMutation.mutate({
-            id: editingAdmin.id,
-            name: values.name,
-            roleKey: values.roleKey,
-            isActive: values.isActive,
-            password: values.password?.trim() ? values.password : undefined,
-          });
-        }}
-        confirmLoading={updateAdminUserMutation.isPending}
-      >
-        <Form form={adminEditForm} layout="vertical">
-          <Form.Item
-            name="name"
-            label={t('admin.settings.adminUsers.nameLabel')}
-            rules={[
-              {
-                required: true,
-                message: t('admin.settings.adminUsers.nameRequired'),
-              },
-            ]}
-          >
-            <Input />
-          </Form.Item>
-          <Form.Item
-            name="roleKey"
-            label={t('admin.settings.adminUsers.roleLabel')}
-            rules={[
-              {
-                required: true,
-                message: t('admin.settings.adminUsers.roleRequired'),
-              },
-            ]}
-          >
-            <Select
-              options={[
-                { label: 'super_admin', value: 'super_admin' },
-                { label: 'ops', value: 'ops' },
-                { label: 'marketing', value: 'marketing' },
-                { label: 'support', value: 'support' },
-              ]}
-            />
-          </Form.Item>
-          <Form.Item
-            name="isActive"
-            label={t('admin.settings.adminUsers.activeLabel')}
-            valuePropName="checked"
-          >
-            <Switch />
-          </Form.Item>
-          <Form.Item
-            name="password"
-            label={t('admin.settings.adminUsers.resetPasswordLabel')}
-            rules={[
-              {
-                validator: async (_, value: string | undefined) => {
-                  if (!value || value.trim().length === 0) return;
-                  if (value.length < 10) {
-                    throw new Error(t('admin.settings.adminUsers.passwordMinLength'));
-                  }
-                },
-              },
-            ]}
-          >
-            <Input.Password />
-          </Form.Item>
-        </Form>
-      </Modal>
-    </Space>
+
+      <Dialog open={editingAdmin !== null} onOpenChange={(open: boolean) => { if (!open) setEditingAdmin(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('admin.settings.adminUsers.editTitle')}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>{t('admin.settings.adminUsers.nameLabel')}</Label>
+              <Input
+                value={editFormName}
+                onChange={(e) => setEditFormName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{t('admin.settings.adminUsers.roleLabel')}</Label>
+              <Select
+                value={editFormRoleKey}
+                onValueChange={(v: string) => setEditFormRoleKey(v as typeof editFormRoleKey)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="super_admin">super_admin</SelectItem>
+                  <SelectItem value="ops">ops</SelectItem>
+                  <SelectItem value="marketing">marketing</SelectItem>
+                  <SelectItem value="support">support</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-3">
+              <Label>{t('admin.settings.adminUsers.activeLabel')}</Label>
+              <Switch
+                checked={editFormIsActive}
+                onCheckedChange={setEditFormIsActive}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{t('admin.settings.adminUsers.resetPasswordLabel')}</Label>
+              <Input
+                type="password"
+                value={editFormPassword}
+                onChange={(e) => setEditFormPassword(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingAdmin(null)}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              onClick={handleEditSave}
+              disabled={updateAdminUserMutation.isPending}
+            >
+              {updateAdminUserMutation.isPending && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              {t('common.confirm')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }

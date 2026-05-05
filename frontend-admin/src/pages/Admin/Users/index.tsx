@@ -1,23 +1,35 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  Alert,
-  Button,
-  Card,
-  Drawer,
-  Input,
-  Popconfirm,
-  Space,
-  Table,
-  Typography,
-  message,
-} from 'antd';
+import { AlertCircle, AlertTriangle, Loader2 } from 'lucide-react';
 import { useState } from 'react';
+import { toast } from 'sonner';
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { useAdminAccess } from '@/hooks/useAdminAccess';
 import { adminApi } from '@/services/api/admin';
 import type { AdminAppUserItem } from '@/types/admin';
 import { t } from '@/utils/i18n';
-
-const { Title, Text } = Typography;
 
 function isUserCurrentlyLocked(lockedUntil: string | null): boolean {
   if (!lockedUntil) return false;
@@ -55,16 +67,16 @@ export default function AdminUsersPage() {
         lockMinutes: payload.lockMinutes,
       }),
     onSuccess: () => {
-      message.success(t('admin.users.updateSuccess'));
+      toast.success(t('admin.users.updateSuccess'));
       void queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
     },
     onError: (error: unknown) => {
       const err = error as { code?: string } | null;
       if (err?.code === 'FORBIDDEN') {
-        message.error(t('admin.ops.accessDenied'));
+        toast.error(t('admin.ops.accessDenied'));
         return;
       }
-      message.error(t('admin.users.updateFailed'));
+      toast.error(t('admin.users.updateFailed'));
     },
   });
 
@@ -90,127 +102,199 @@ export default function AdminUsersPage() {
   };
 
   return (
-    <Space orientation="vertical" size="large" style={{ width: '100%' }}>
+    <div className="flex flex-col gap-6 w-full">
       <div>
-        <Title level={3} style={{ marginBottom: 0 }}>
-          {t('admin.users.heading')}
-        </Title>
-        <Text type="secondary">{t('admin.users.subtitle')}</Text>
+        <h3 className="text-xl font-semibold">{t('admin.users.heading')}</h3>
+        <p className="text-sm text-muted-foreground">{t('admin.users.subtitle')}</p>
       </div>
+
       {usersQuery.error && (
-        <Alert showIcon type="error" title={t('admin.users.loadFailed')} />
+        <div className="flex items-center gap-2 rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
+          <AlertCircle className="h-4 w-4" />
+          {t('admin.users.loadFailed')}
+        </div>
       )}
+
       {!canWriteUsers && (
-        <Alert showIcon type="warning" title={t('admin.users.writeDenied')} />
+        <div className="flex items-center gap-2 rounded-md border border-yellow-500 bg-yellow-50 p-3 text-sm text-yellow-700 dark:bg-yellow-950 dark:text-yellow-400">
+          <AlertTriangle className="h-4 w-4" />
+          {t('admin.users.writeDenied')}
+        </div>
       )}
+
       <Card>
-        <Space orientation="vertical" style={{ width: '100%' }}>
-          <Input.Search
+        <CardContent className="pt-6 space-y-4">
+          <Input
             value={q}
             onChange={(event) => setQ(event.target.value)}
             placeholder={t('admin.users.search')}
           />
-          <Table<AdminAppUserItem>
-            rowKey="id"
-            loading={usersQuery.isLoading}
-            dataSource={usersQuery.data?.items || []}
-            columns={[
-              { title: t('admin.users.email'), dataIndex: 'email' },
-              { title: t('admin.users.nickname'), dataIndex: 'nickname' },
-              {
-                title: t('admin.users.active'),
-                render: (_, row) =>
-                  row.is_active ? t('admin.users.activeYes') : t('admin.users.activeNo'),
-              },
-              {
-                title: t('admin.users.actions'),
-                render: (_, row) => {
-                  const isLocked = isUserCurrentlyLocked(row.locked_until ?? null);
-                  return (
-                    <Space>
-                      <Button size="small" onClick={() => setSelectedUserId(row.id)}>
-                        {t('admin.users.detail')}
-                      </Button>
-                      <Popconfirm
-                        title={
-                          isLocked
-                            ? t('admin.users.confirmUnlock')
-                            : t('admin.users.confirmLock30m')
-                        }
-                        description={t('admin.users.auditHint')}
-                        okText={t('common.confirm')}
-                        cancelText={t('common.cancel')}
-                        onConfirm={() =>
-                          handleStatusAction(row, isLocked ? 'unlock' : 'lock', 30)
-                        }
-                      >
-                        <Button
-                          size="small"
-                          disabled={!canWriteUsers}
-                          loading={
-                            pendingActionKey ===
-                            `${row.id}:${isLocked ? 'unlock' : 'lock'}`
-                          }
-                        >
-                          {isLocked
-                            ? t('admin.users.unlock')
-                            : t('admin.users.lock30m')}
-                        </Button>
-                      </Popconfirm>
-                      <Popconfirm
-                        title={
-                          row.is_active
-                            ? t('admin.users.confirmDeactivate')
-                            : t('admin.users.confirmActivate')
-                        }
-                        description={t('admin.users.auditHint')}
-                        okText={t('common.confirm')}
-                        cancelText={t('common.cancel')}
-                        onConfirm={() =>
-                          handleStatusAction(
-                            row,
-                            row.is_active ? 'deactivate' : 'activate'
-                          )
-                        }
-                      >
-                        <Button
-                          size="small"
-                          disabled={!canWriteUsers}
-                          loading={
-                            pendingActionKey ===
-                            `${row.id}:${row.is_active ? 'deactivate' : 'activate'}`
-                          }
-                        >
-                          {row.is_active
-                            ? t('admin.users.deactivate')
-                            : t('admin.users.activate')}
-                        </Button>
-                      </Popconfirm>
-                    </Space>
-                  );
-                },
-              },
-            ]}
-          />
-        </Space>
+
+          {usersQuery.isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t('admin.users.email')}</TableHead>
+                  <TableHead>{t('admin.users.nickname')}</TableHead>
+                  <TableHead>{t('admin.users.active')}</TableHead>
+                  <TableHead>{t('admin.users.actions')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(usersQuery.data?.items || []).length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                      {t('common.noData')}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  (usersQuery.data?.items || []).map((row) => {
+                    const isLocked = isUserCurrentlyLocked(row.locked_until ?? null);
+                    return (
+                      <TableRow key={row.id}>
+                        <TableCell>{row.email}</TableCell>
+                        <TableCell>{row.nickname}</TableCell>
+                        <TableCell>
+                          {row.is_active ? t('admin.users.activeYes') : t('admin.users.activeNo')}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setSelectedUserId(row.id)}
+                            >
+                              {t('admin.users.detail')}
+                            </Button>
+
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={
+                                    !canWriteUsers ||
+                                    pendingActionKey === `${row.id}:${isLocked ? 'unlock' : 'lock'}`
+                                  }
+                                >
+                                  {pendingActionKey === `${row.id}:${isLocked ? 'unlock' : 'lock'}` && (
+                                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                  )}
+                                  {isLocked ? t('admin.users.unlock') : t('admin.users.lock30m')}
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>
+                                    {isLocked
+                                      ? t('admin.users.confirmUnlock')
+                                      : t('admin.users.confirmLock30m')}
+                                  </AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    {t('admin.users.auditHint')}
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() =>
+                                      handleStatusAction(row, isLocked ? 'unlock' : 'lock', 30)
+                                    }
+                                  >
+                                    {t('common.confirm')}
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={
+                                    !canWriteUsers ||
+                                    pendingActionKey ===
+                                      `${row.id}:${row.is_active ? 'deactivate' : 'activate'}`
+                                  }
+                                >
+                                  {pendingActionKey ===
+                                    `${row.id}:${row.is_active ? 'deactivate' : 'activate'}` && (
+                                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                  )}
+                                  {row.is_active
+                                    ? t('admin.users.deactivate')
+                                    : t('admin.users.activate')}
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>
+                                    {row.is_active
+                                      ? t('admin.users.confirmDeactivate')
+                                      : t('admin.users.confirmActivate')}
+                                  </AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    {t('admin.users.auditHint')}
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() =>
+                                      handleStatusAction(
+                                        row,
+                                        row.is_active ? 'deactivate' : 'activate'
+                                      )
+                                    }
+                                  >
+                                    {t('common.confirm')}
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
       </Card>
-      <Drawer
-        open={selectedUserId.length > 0}
-        title={t('admin.users.detail')}
-        size="large"
-        onClose={() => setSelectedUserId('')}
-      >
-        {detailQuery.isLoading && <Text type="secondary">{t('common.loading')}</Text>}
-        {detailQuery.error && (
-          <Alert showIcon type="error" title={t('admin.users.detailLoadFailed')} />
-        )}
-        {!detailQuery.isLoading && !detailQuery.error && !hasUserDetail && (
-          <Text type="secondary">{t('common.noData')}</Text>
-        )}
-        {!detailQuery.isLoading && !detailQuery.error && hasUserDetail && (
-          <pre>{JSON.stringify(detailQuery.data?.user, null, 2)}</pre>
-        )}
-      </Drawer>
-    </Space>
+
+      <Sheet open={selectedUserId.length > 0} onOpenChange={(open: boolean) => { if (!open) setSelectedUserId(''); }}>
+        <SheetContent side="right" className="w-[540px] sm:max-w-[540px]">
+          <SheetHeader>
+            <SheetTitle>{t('admin.users.detail')}</SheetTitle>
+          </SheetHeader>
+          <div className="mt-4">
+            {detailQuery.isLoading && (
+              <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
+            )}
+            {detailQuery.error && (
+              <div className="flex items-center gap-2 rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
+                <AlertCircle className="h-4 w-4" />
+                {t('admin.users.detailLoadFailed')}
+              </div>
+            )}
+            {!detailQuery.isLoading && !detailQuery.error && !hasUserDetail && (
+              <p className="text-sm text-muted-foreground">{t('common.noData')}</p>
+            )}
+            {!detailQuery.isLoading && !detailQuery.error && hasUserDetail && (
+              <pre className="text-sm whitespace-pre-wrap break-all">
+                {JSON.stringify(detailQuery.data?.user, null, 2)}
+              </pre>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+    </div>
   );
 }

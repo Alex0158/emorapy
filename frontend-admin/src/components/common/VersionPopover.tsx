@@ -1,17 +1,17 @@
-import { InfoCircleOutlined } from '@ant-design/icons';
-import { Button, Popover, Spin, Typography } from 'antd';
+import { Info, Loader2 } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
 import { getVersionSnapshot, type VersionRow } from '@/utils/versionInfo';
-
-const { Text } = Typography;
 
 function VersionRowItem({ row }: { row: VersionRow }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-      <Text type="secondary">{row.name}</Text>
-      <Text strong={row.status === 'ok'} type={row.status === 'error' ? 'danger' : undefined}>
+    <div className="flex justify-between gap-3">
+      <span className="text-xs text-muted-foreground">{row.name}</span>
+      <span className={cn('text-xs', row.status === 'ok' && 'font-semibold', row.status === 'error' && 'text-destructive')}>
         {row.version}
-      </Text>
+      </span>
     </div>
   );
 }
@@ -35,22 +35,20 @@ export default function VersionPopover() {
   const content = useMemo(() => {
     if (loading && rows.length === 0) {
       return (
-        <div style={{ minWidth: 240, minHeight: 32, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-          <Spin size="small" />
+        <div className="flex min-h-8 min-w-60 items-center justify-center">
+          <Loader2 className="size-4 animate-spin" />
         </div>
       );
     }
 
     return (
-      <div style={{ minWidth: 260, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div className="flex min-w-64 flex-col gap-2">
         {rows.map((row) => (
           <div key={row.name}>
             <VersionRowItem row={row} />
-            {row.message ? (
-              <Text type="secondary" style={{ display: 'block', marginTop: 2, fontSize: 12 }}>
-                {row.message}
-              </Text>
-            ) : null}
+            {row.message && (
+              <p className="mt-0.5 text-[11px] text-muted-foreground">{row.message}</p>
+            )}
           </div>
         ))}
       </div>
@@ -58,22 +56,16 @@ export default function VersionPopover() {
   }, [loading, rows]);
 
   return (
-    <Popover
-      trigger="hover"
-      placement="rightTop"
-      content={content}
-      title="版本資訊"
-      open={open}
-      onOpenChange={(nextOpen) => {
-        setOpen(nextOpen);
-        if (nextOpen) {
-          void loadVersions();
-        }
-      }}
-    >
-      <Button type="text" size="small" icon={<InfoCircleOutlined />}>
-        版本
-      </Button>
+    <Popover open={open} onOpenChange={(nextOpen: boolean) => { setOpen(nextOpen); if (nextOpen) void loadVersions(); }}>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="sm">
+          <Info className="size-3.5" />版本
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-auto">
+        <p className="mb-2 text-sm font-medium">版本資訊</p>
+        {content}
+      </PopoverContent>
     </Popover>
   );
 }

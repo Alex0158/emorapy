@@ -1,64 +1,20 @@
-import { Layout, Menu, Typography } from 'antd';
 import { Link, Navigate, Outlet, useLocation } from 'react-router-dom';
-import {
-  AlertOutlined,
-  DashboardOutlined,
-  FileTextOutlined,
-  HeartOutlined,
-  HistoryOutlined,
-  SettingOutlined,
-  TeamOutlined,
-  ToolOutlined,
-} from '@ant-design/icons';
+import { LayoutDashboard, Wrench, Heart, Settings, Users, History, FileText, AlertTriangle } from 'lucide-react';
 import { useAdminToken } from '@/hooks/useAdminToken';
 import { deriveAdminTokenStatus } from '@/utils/adminTokenState';
 import { t } from '@/utils/i18n';
+import { cn } from '@/lib/utils';
 import VersionPopover from '@/components/common/VersionPopover';
 
-const { Sider, Content } = Layout;
-const { Title, Text } = Typography;
-
-const adminMenuItems = [
-  {
-    key: '/admin/ops/jobs',
-    icon: <DashboardOutlined />,
-    label: <Link to="/admin/ops/jobs">{t('admin.nav.ops')}</Link>,
-  },
-  {
-    key: '/admin/jobs',
-    icon: <ToolOutlined />,
-    label: <Link to="/admin/jobs">{t('admin.nav.jobs')}</Link>,
-  },
-  {
-    key: '/admin/health',
-    icon: <HeartOutlined />,
-    label: <Link to="/admin/health">{t('admin.nav.health')}</Link>,
-  },
-  {
-    key: '/admin/configs',
-    icon: <SettingOutlined />,
-    label: <Link to="/admin/configs">{t('admin.nav.configs')}</Link>,
-  },
-  {
-    key: '/admin/users',
-    icon: <TeamOutlined />,
-    label: <Link to="/admin/users">{t('admin.nav.users')}</Link>,
-  },
-  {
-    key: '/admin/audit-logs',
-    icon: <HistoryOutlined />,
-    label: <Link to="/admin/audit-logs">{t('admin.nav.audit')}</Link>,
-  },
-  {
-    key: '/admin/reports',
-    icon: <FileTextOutlined />,
-    label: <Link to="/admin/reports">{t('admin.nav.reports')}</Link>,
-  },
-  {
-    key: '/admin/settings',
-    icon: <AlertOutlined />,
-    label: <Link to="/admin/settings">{t('admin.nav.settings')}</Link>,
-  },
+const navItems = [
+  { path: '/admin/ops/jobs', icon: LayoutDashboard, labelKey: 'admin.nav.ops' },
+  { path: '/admin/jobs', icon: Wrench, labelKey: 'admin.nav.jobs' },
+  { path: '/admin/health', icon: Heart, labelKey: 'admin.nav.health' },
+  { path: '/admin/configs', icon: Settings, labelKey: 'admin.nav.configs' },
+  { path: '/admin/users', icon: Users, labelKey: 'admin.nav.users' },
+  { path: '/admin/audit-logs', icon: History, labelKey: 'admin.nav.audit' },
+  { path: '/admin/reports', icon: FileText, labelKey: 'admin.nav.reports' },
+  { path: '/admin/settings', icon: AlertTriangle, labelKey: 'admin.nav.settings' },
 ];
 
 export default function AdminSectionLayout() {
@@ -70,37 +26,40 @@ export default function AdminSectionLayout() {
     return <Navigate to="/admin/login" replace />;
   }
 
-  const selected =
-    adminMenuItems.find((item) => location.pathname.startsWith(item.key))?.key ||
-    '/admin/ops/jobs';
-
   return (
-    <Layout style={{ background: 'transparent', marginTop: 16 }}>
-      <Sider
-        width={240}
-        breakpoint="lg"
-        collapsedWidth={0}
-        style={{ background: 'transparent', marginRight: 16 }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: 8 }}>
+    <div className="flex gap-4 mt-4">
+      <aside className="w-60 shrink-0 hidden lg:block">
+        <div className="flex items-start justify-between gap-2 mb-3">
           <div>
-            <Title level={4} style={{ marginBottom: 4 }}>
-              {t('admin.nav.title')}
-            </Title>
-            <Text type="secondary">{t('admin.nav.subtitle')}</Text>
+            <h4 className="text-base font-semibold text-foreground">{t('admin.nav.title')}</h4>
+            <p className="text-xs text-muted-foreground">{t('admin.nav.subtitle')}</p>
           </div>
           <VersionPopover />
         </div>
-        <Menu
-          mode="inline"
-          selectedKeys={[selected]}
-          items={adminMenuItems}
-          style={{ marginTop: 12 }}
-        />
-      </Sider>
-      <Content>
+        <nav className="space-y-1">
+          {navItems.map(({ path, icon: Icon, labelKey }) => {
+            const isActive = location.pathname.startsWith(path);
+            return (
+              <Link
+                key={path}
+                to={path}
+                className={cn(
+                  'flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors',
+                  isActive
+                    ? 'bg-primary/10 text-primary font-medium'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                )}
+              >
+                <Icon className="size-4" />
+                {t(labelKey)}
+              </Link>
+            );
+          })}
+        </nav>
+      </aside>
+      <main className="flex-1 min-w-0">
         <Outlet />
-      </Content>
-    </Layout>
+      </main>
+    </div>
   );
 }

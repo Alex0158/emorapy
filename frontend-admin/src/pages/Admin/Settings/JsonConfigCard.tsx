@@ -1,15 +1,16 @@
-import type { FormInstance } from 'antd';
-import { Button, Card, Form, Input, Space, Typography, message } from 'antd';
+import { useState } from 'react';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { t } from '@/utils/i18n';
-
-const { Text } = Typography;
 
 type JsonValueKind = 'array' | 'object';
 
 interface JsonConfigCardProps {
   title: string;
   subtitle: string;
-  form: FormInstance;
   fieldName: string;
   requiredMessage: string;
   placeholder: string;
@@ -17,6 +18,7 @@ interface JsonConfigCardProps {
   valueKind: JsonValueKind;
   saveLabel: string;
   onSave: (value: unknown) => void;
+  initialValue?: string;
 }
 
 function parseJsonByKind(raw: string, kind: JsonValueKind): unknown {
@@ -34,7 +36,6 @@ function parseJsonByKind(raw: string, kind: JsonValueKind): unknown {
 export default function JsonConfigCard({
   title,
   subtitle,
-  form,
   fieldName,
   requiredMessage,
   placeholder,
@@ -42,38 +43,53 @@ export default function JsonConfigCard({
   valueKind,
   saveLabel,
   onSave,
+  initialValue,
 }: JsonConfigCardProps) {
-  const handleSave = async () => {
-    const values = await form.validateFields();
-    const raw = String((values as Record<string, unknown>)[fieldName] ?? '');
+  const [value, setValue] = useState(initialValue ?? '');
+
+  // Allow parent to update value via initialValue prop
+  const [prevInitial, setPrevInitial] = useState(initialValue);
+  if (initialValue !== prevInitial) {
+    setPrevInitial(initialValue);
+    setValue(initialValue ?? '');
+  }
+
+  const handleSave = () => {
+    if (!value.trim()) {
+      toast.error(requiredMessage);
+      return;
+    }
     try {
-      onSave(parseJsonByKind(raw, valueKind));
+      onSave(parseJsonByKind(value, valueKind));
     } catch {
-      message.error(requiredMessage);
+      toast.error(requiredMessage);
     }
   };
 
   return (
-    <Card title={title}>
-      <Space orientation="vertical" style={{ width: '100%' }}>
-        <Text type="secondary">{subtitle}</Text>
-        <Form form={form} layout="vertical">
-          <Form.Item
-            name={fieldName}
-            rules={[
-              {
-                required: true,
-                message: requiredMessage,
-              },
-            ]}
-          >
-            <Input.TextArea rows={8} placeholder={placeholder} />
-          </Form.Item>
-          <Button loading={loading} onClick={handleSave}>
-            {saveLabel || t('common.save')}
-          </Button>
-        </Form>
-      </Space>
+    <Card>
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-sm text-muted-foreground">{subtitle}</p>
+        <div className="space-y-2">
+          <Label htmlFor={fieldName}>{title}</Label>
+          <Textarea
+            id={fieldName}
+            rows={8}
+            placeholder={placeholder}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+          />
+        </div>
+        <Button
+          disabled={loading}
+          onClick={handleSave}
+        >
+          {loading ? `${saveLabel || t('common.save')}...` : saveLabel || t('common.save')}
+        </Button>
+      </CardContent>
     </Card>
   );
 }

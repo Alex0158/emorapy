@@ -1,23 +1,9 @@
 import { RouterProvider } from 'react-router-dom';
-import { ConfigProvider } from 'antd';
-import zhCN from 'antd/locale/zh_CN';
-import enUS from 'antd/locale/en_US';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { Toaster } from '@/components/ui/sonner';
 import { router } from './router';
 import { getLocale, onLocaleChange } from '@/utils/i18n';
-import '@/App.less';
-
-const theme = {
-  token: {
-    colorPrimary: '#FF8C42',
-    colorSuccess: '#52C41A',
-    colorWarning: '#FAAD14',
-    colorError: '#FF4D4F',
-    colorInfo: '#1890FF',
-    borderRadius: 8,
-  },
-};
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -38,15 +24,12 @@ function App() {
     return unsubscribe;
   }, []);
 
-  const antdLocale = useMemo(() => (locale === 'en-US' ? enUS : zhCN), [locale]);
-
   return (
     <QueryClientProvider client={queryClient}>
-      <ConfigProvider theme={theme} locale={antdLocale}>
-        <Suspense fallback={<div style={{ padding: 24 }}>Loading...</div>}>
-          <RouterProvider key={locale} router={router} />
-        </Suspense>
-      </ConfigProvider>
+      <Suspense fallback={<div className="p-6">Loading...</div>}>
+        <RouterProvider key={locale} router={router} />
+      </Suspense>
+      <Toaster />
     </QueryClientProvider>
   );
 }

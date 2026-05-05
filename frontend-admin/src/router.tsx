@@ -1,6 +1,6 @@
 import { Suspense, lazy, type ReactNode } from 'react';
 import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom';
-import { Spin } from 'antd';
+import { Loader2 } from 'lucide-react';
 import AdminPermissionRoute from '@/components/common/AdminPermissionRoute';
 import AdminSectionLayout from '@/components/common/AdminSectionLayout';
 
@@ -18,8 +18,8 @@ function LazyWrapper({ children }: { children: ReactNode }) {
   return (
     <Suspense
       fallback={
-        <div style={{ textAlign: 'center', padding: '50px' }}>
-          <Spin size="large" />
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="size-8 animate-spin text-primary" />
         </div>
       }
     >

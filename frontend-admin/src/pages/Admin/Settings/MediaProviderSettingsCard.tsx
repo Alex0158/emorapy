@@ -1,16 +1,17 @@
-import type { FormInstance } from 'antd';
+import { AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
 import {
-  Alert,
-  Button,
-  Card,
-  Form,
-  Input,
-  InputNumber,
   Select,
-  Space,
-  Tag,
-  Typography,
-} from 'antd';
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type {
   AdminMediaProviderCatalogItem,
   AdminMediaProviderTestResult,
@@ -18,10 +19,9 @@ import type {
 import { t } from '@/utils/i18n';
 import type { MediaProviderFormValues } from './types';
 
-const { Text } = Typography;
-
 interface MediaProviderSettingsCardProps {
-  form: FormInstance<MediaProviderFormValues>;
+  formValues: MediaProviderFormValues;
+  onFormChange: (values: Partial<MediaProviderFormValues>) => void;
   catalog: AdminMediaProviderCatalogItem[];
   selectedProvider?: AdminMediaProviderCatalogItem;
   selectedProviderKey: string;
@@ -40,26 +40,29 @@ function renderCurrentProviderState(
 ) {
   const isConfigured = Boolean(getConfigValue(provider.providerKey)?.apiKey);
   return (
-    <Space direction="vertical" size={4}>
-      <Space>
-        <Tag color={provider.providerType === 'image' ? 'blue' : 'purple'}>
+    <div className="space-y-1 mb-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant={provider.providerType === 'image' ? 'default' : 'secondary'}>
           {provider.providerType}
-        </Tag>
-        <Text>{t('admin.settings.mediaProviders.defaultModel')}</Text>
-        <Text code>{provider.defaultModel || '-'}</Text>
-        <Text>
+        </Badge>
+        <span className="text-sm">{t('admin.settings.mediaProviders.defaultModel')}</span>
+        <code className="rounded bg-muted px-1.5 py-0.5 text-xs font-mono">
+          {provider.defaultModel || '-'}
+        </code>
+        <span className="text-sm">
           {isConfigured
             ? t('admin.settings.mediaProviders.configured')
             : t('admin.settings.mediaProviders.notConfigured')}
-        </Text>
-      </Space>
-      <Text type="secondary">{provider.description || ''}</Text>
-    </Space>
+        </span>
+      </div>
+      <p className="text-sm text-muted-foreground">{provider.description || ''}</p>
+    </div>
   );
 }
 
 export default function MediaProviderSettingsCard({
-  form,
+  formValues,
+  onFormChange,
   catalog,
   selectedProvider,
   selectedProviderKey,
@@ -72,124 +75,180 @@ export default function MediaProviderSettingsCard({
   getConfigValue,
 }: MediaProviderSettingsCardProps) {
   return (
-    <Card title={t('admin.settings.mediaProviders.title')}>
-      <Space direction="vertical" size="large" style={{ width: '100%' }}>
-        <Text type="secondary">{t('admin.settings.mediaProviders.subtitle')}</Text>
-        <Form form={form} layout="vertical">
-          <Form.Item
-            name="providerKey"
-            label={t('admin.settings.mediaProviders.provider')}
-            rules={[
-              {
-                required: true,
-                message: t('admin.settings.mediaProviders.selectProviderRequired'),
-              },
-            ]}
-          >
-            <Select
-              placeholder={t('admin.settings.mediaProviders.selectProvider')}
-              value={selectedProviderKey}
-              onChange={onProviderChange}
-              options={catalog.map((provider) => ({
-                label: `${provider.displayName} (${provider.providerType})`,
-                value: provider.providerKey,
-              }))}
-            />
-          </Form.Item>
+    <Card>
+      <CardHeader>
+        <CardTitle>{t('admin.settings.mediaProviders.title')}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <p className="text-sm text-muted-foreground">
+          {t('admin.settings.mediaProviders.subtitle')}
+        </p>
 
-          {selectedProvider && (
-            <>
-              {renderCurrentProviderState(selectedProvider, getConfigValue)}
-              <Form.Item
-                name="apiKey"
-                label={
-                  selectedProvider.secretLabel ||
-                  t('admin.settings.mediaProviders.apiKey')
-                }
-                extra={t('admin.settings.mediaProviders.apiKeyHelp')}
-              >
-                <Input.Password placeholder="sk-..." />
-              </Form.Item>
-              <Form.Item name="baseUrl" label={t('admin.settings.mediaProviders.baseUrl')}>
-                <Input placeholder={selectedProvider.defaultBaseUrl || ''} />
-              </Form.Item>
-              <Form.Item
-                name="timeoutMs"
-                label={t('admin.settings.mediaProviders.timeoutMs')}
-              >
-                <InputNumber min={500} max={120000} style={{ width: '100%' }} />
-              </Form.Item>
-              <Form.Item name="model" label={t('admin.settings.mediaProviders.model')}>
-                <Input placeholder={selectedProvider.defaultModel || ''} />
-              </Form.Item>
-              {selectedProvider.providerType === 'video' && (
-                <Form.Item
-                  name="sourceImageUrl"
-                  label={t('admin.settings.mediaProviders.sourceImage')}
-                  extra={t('admin.settings.mediaProviders.sourceImageHelp')}
-                >
-                  <Input placeholder="https://your-domain.example/image.jpg" />
-                </Form.Item>
-              )}
-              {selectedProvider.providerType === 'image' ? (
-                <Form.Item
-                  name="count"
-                  label={t('admin.settings.mediaProviders.count')}
-                >
-                  <InputNumber min={1} max={20} style={{ width: '100%' }} />
-                </Form.Item>
-              ) : (
-                <Form.Item
-                  name="durationSeconds"
-                  label={t('admin.settings.mediaProviders.duration')}
-                >
-                  <InputNumber min={1} max={240} style={{ width: '100%' }} />
-                </Form.Item>
-              )}
-              <Form.Item
-                name="prompt"
-                label={t('admin.settings.mediaProviders.prompt')}
-                extra={t('admin.settings.mediaProviders.promptHelp')}
-              >
-                <Input.TextArea rows={3} />
-              </Form.Item>
-              <Space>
-                <Button type="primary" loading={saveLoading} onClick={onSave}>
-                  {t('admin.settings.mediaProviders.save')}
-                </Button>
-                <Button loading={testLoading} onClick={onTest}>
-                  {t('admin.settings.mediaProviders.test')}
-                </Button>
-              </Space>
-            </>
-          )}
-        </Form>
+        <div className="space-y-2">
+          <Label>{t('admin.settings.mediaProviders.provider')}</Label>
+          <Select
+            value={selectedProviderKey}
+            onValueChange={onProviderChange}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={t('admin.settings.mediaProviders.selectProvider')} />
+            </SelectTrigger>
+            <SelectContent>
+              {catalog.map((provider) => (
+                <SelectItem key={provider.providerKey} value={provider.providerKey}>
+                  {provider.displayName} ({provider.providerType})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {selectedProvider && (
+          <>
+            {renderCurrentProviderState(selectedProvider, getConfigValue)}
+
+            <div className="space-y-2">
+              <Label>
+                {selectedProvider.secretLabel ||
+                  t('admin.settings.mediaProviders.apiKey')}
+              </Label>
+              <Input
+                type="password"
+                placeholder="sk-..."
+                value={formValues.apiKey ?? ''}
+                onChange={(e) => onFormChange({ apiKey: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                {t('admin.settings.mediaProviders.apiKeyHelp')}
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>{t('admin.settings.mediaProviders.baseUrl')}</Label>
+              <Input
+                placeholder={selectedProvider.defaultBaseUrl || ''}
+                value={formValues.baseUrl ?? ''}
+                onChange={(e) => onFormChange({ baseUrl: e.target.value })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>{t('admin.settings.mediaProviders.timeoutMs')}</Label>
+              <Input
+                type="number"
+                min={500}
+                max={120000}
+                value={formValues.timeoutMs ?? ''}
+                onChange={(e) => onFormChange({ timeoutMs: Number(e.target.value) || undefined })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>{t('admin.settings.mediaProviders.model')}</Label>
+              <Input
+                placeholder={selectedProvider.defaultModel || ''}
+                value={formValues.model ?? ''}
+                onChange={(e) => onFormChange({ model: e.target.value })}
+              />
+            </div>
+
+            {selectedProvider.providerType === 'video' && (
+              <div className="space-y-2">
+                <Label>{t('admin.settings.mediaProviders.sourceImage')}</Label>
+                <Input
+                  placeholder="https://your-domain.example/image.jpg"
+                  value={formValues.sourceImageUrl ?? ''}
+                  onChange={(e) => onFormChange({ sourceImageUrl: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {t('admin.settings.mediaProviders.sourceImageHelp')}
+                </p>
+              </div>
+            )}
+
+            {selectedProvider.providerType === 'image' ? (
+              <div className="space-y-2">
+                <Label>{t('admin.settings.mediaProviders.count')}</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={formValues.count ?? ''}
+                  onChange={(e) => onFormChange({ count: Number(e.target.value) || undefined })}
+                />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label>{t('admin.settings.mediaProviders.duration')}</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={240}
+                  value={formValues.durationSeconds ?? ''}
+                  onChange={(e) => onFormChange({ durationSeconds: Number(e.target.value) || undefined })}
+                />
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label>{t('admin.settings.mediaProviders.prompt')}</Label>
+              <Textarea
+                rows={3}
+                value={formValues.prompt ?? ''}
+                onChange={(e) => onFormChange({ prompt: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                {t('admin.settings.mediaProviders.promptHelp')}
+              </p>
+            </div>
+
+            <div className="flex gap-2">
+              <Button disabled={saveLoading} onClick={onSave}>
+                {saveLoading
+                  ? `${t('admin.settings.mediaProviders.save')}...`
+                  : t('admin.settings.mediaProviders.save')}
+              </Button>
+              <Button variant="outline" disabled={testLoading} onClick={onTest}>
+                {testLoading
+                  ? `${t('admin.settings.mediaProviders.test')}...`
+                  : t('admin.settings.mediaProviders.test')}
+              </Button>
+            </div>
+          </>
+        )}
 
         {testResult && (
-          <Space direction="vertical" style={{ width: '100%' }}>
-            <Alert
-              type={testResult.success ? 'success' : 'error'}
-              message={testResult.message}
-              description={`${t('admin.settings.mediaProviders.latency')}: ${testResult.latencyMs}ms`}
-              showIcon
-            />
+          <div className="space-y-3">
+            <div
+              className={`flex items-start gap-2 rounded-md border p-3 text-sm ${
+                testResult.success
+                  ? 'border-green-500/50 bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400'
+                  : 'border-destructive/50 bg-destructive/10 text-destructive'
+              }`}
+            >
+              {testResult.success ? (
+                <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
+              ) : (
+                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+              )}
+              <div>
+                <p>{testResult.message}</p>
+                <p className="text-xs mt-1">
+                  {t('admin.settings.mediaProviders.latency')}: {testResult.latencyMs}ms
+                </p>
+              </div>
+            </div>
             {testResult.detail !== undefined && (
               <pre
-                style={{
-                  background: '#f5f5f5',
-                  padding: 12,
-                  borderRadius: 6,
-                  maxHeight: 180,
-                  overflow: 'auto',
-                }}
+                className="rounded-md bg-muted p-3 text-xs max-h-[180px] overflow-auto"
                 translate="no"
               >
                 {JSON.stringify(testResult.detail, null, 2)}
               </pre>
             )}
-          </Space>
+          </div>
         )}
-      </Space>
+      </CardContent>
     </Card>
   );
 }

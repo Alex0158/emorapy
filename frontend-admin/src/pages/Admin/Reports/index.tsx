@@ -1,26 +1,30 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import {
-  Alert,
-  Button,
-  Card,
-  Descriptions,
-  Divider,
-  Input,
-  InputNumber,
-  Select,
-  Space,
-  Statistic,
-  Table,
-  Tag,
-  Typography,
-  message,
-} from 'antd';
+import { AlertCircle, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import dayjs from 'dayjs';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { adminApi } from '@/services/api/admin';
 import { t } from '@/utils/i18n';
-
-const { Title, Text } = Typography;
 
 export default function AdminReportsPage() {
   const [metricsInput, setMetricsInput] = useState('dau,mau,judgment_failed');
@@ -84,97 +88,121 @@ export default function AdminReportsPage() {
       anchor.click();
       window.URL.revokeObjectURL(url);
     } catch {
-      message.error(t('admin.reports.loadFailed'));
+      toast.error(t('admin.reports.loadFailed'));
     }
   };
 
   return (
-    <Space orientation="vertical" size="large" style={{ width: '100%' }}>
+    <div className="space-y-6 w-full">
       <div>
-        <Title level={3} style={{ marginBottom: 0 }}>
-          {t('admin.reports.heading')}
-        </Title>
-        <Text type="secondary">{t('admin.reports.subtitle')}</Text>
+        <h3 className="text-xl font-semibold">{t('admin.reports.heading')}</h3>
+        <p className="text-sm text-muted-foreground">{t('admin.reports.subtitle')}</p>
       </div>
       {(overviewQuery.error || funnelQuery.error || costQuery.error || aiStreamOverviewQuery.error || aiStreamSessionsQuery.error || aiStreamDetailQuery.error) && (
-        <Alert showIcon type="error" title={t('admin.reports.loadFailed')} />
+        <div className="flex items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+          <AlertCircle className="size-4" />
+          {t('admin.reports.loadFailed')}
+        </div>
       )}
-      <Card title={t('admin.reports.overview')}>
-        <Space wrap size="large">
-          <Statistic title={t('admin.reports.users')} value={overviewQuery.data?.totals.users || 0} />
-          <Statistic title={t('admin.reports.cases')} value={overviewQuery.data?.totals.cases || 0} />
-          <Statistic
-            title={t('admin.reports.judgments')}
-            value={overviewQuery.data?.totals.judgments || 0}
-          />
-          <Statistic
-            title={t('admin.reports.pairingRate')}
-            value={overviewQuery.data?.conversion.pairingRate || 0}
-            precision={4}
-          />
-        </Space>
-        <Button style={{ marginTop: 12 }} onClick={exportOverviewCsv}>
-          {t('admin.reports.exportCsv')}
-        </Button>
+
+      {/* Overview */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('admin.reports.overview')}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-6">
+            <div>
+              <p className="text-sm text-muted-foreground">{t('admin.reports.users')}</p>
+              <p className="text-2xl font-bold">{overviewQuery.data?.totals.users || 0}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">{t('admin.reports.cases')}</p>
+              <p className="text-2xl font-bold">{overviewQuery.data?.totals.cases || 0}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">{t('admin.reports.judgments')}</p>
+              <p className="text-2xl font-bold">{overviewQuery.data?.totals.judgments || 0}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">{t('admin.reports.pairingRate')}</p>
+              <p className="text-2xl font-bold">{(overviewQuery.data?.conversion.pairingRate || 0).toFixed(4)}</p>
+            </div>
+          </div>
+          <Button variant="outline" className="mt-3" onClick={exportOverviewCsv}>
+            {t('admin.reports.exportCsv')}
+          </Button>
+        </CardContent>
       </Card>
-      <Card title={t('admin.reports.funnel')}>
-        <pre style={{ margin: 0 }}>{JSON.stringify(funnelQuery.data?.stages || [], null, 2)}</pre>
+
+      {/* Funnel */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('admin.reports.funnel')}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <pre className="m-0 text-xs">{JSON.stringify(funnelQuery.data?.stages || [], null, 2)}</pre>
+        </CardContent>
       </Card>
-      <Card title={t('admin.reports.custom')}>
-        <Space orientation="vertical" style={{ width: '100%' }}>
+
+      {/* Custom Report */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('admin.reports.custom')}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
           <Input
             value={metricsInput}
             onChange={(event) => setMetricsInput(event.target.value)}
             placeholder="dau,mau,judgment_failed"
           />
-          <Button onClick={runCustomReport} loading={customMutation.isPending}>
+          <Button variant="outline" onClick={runCustomReport} disabled={customMutation.isPending}>
+            {customMutation.isPending && <Loader2 className="mr-2 size-4 animate-spin" />}
             {t('admin.reports.runCustom')}
           </Button>
-          <pre style={{ margin: 0 }}>{JSON.stringify(customMutation.data?.metrics || {}, null, 2)}</pre>
-        </Space>
+          <pre className="m-0 text-xs">{JSON.stringify(customMutation.data?.metrics || {}, null, 2)}</pre>
+        </CardContent>
       </Card>
-      <Card title={t('admin.reports.costs')}>
-        <Space orientation="vertical" style={{ width: '100%' }} size="middle">
-          {costQuery.data?.partial ? (
-            <Alert
-              showIcon
-              type="warning"
-              title={t('admin.reports.costsPartial')}
-              description={(costQuery.data.reasons || []).join('；') || '-'}
-            />
-          ) : null}
-          <Space wrap size="large">
-            <Statistic
-              title={t('admin.reports.redisMemoryMb')}
-              value={costQuery.data?.summary.redisMemoryMb || 0}
-              suffix="MB"
-              precision={2}
-            />
-            <Statistic
-              title={t('admin.reports.railwayEgress24h')}
-              value={costQuery.data?.summary.railwayEgressGb24h || 0}
-              suffix="GB"
-              precision={3}
-            />
-            <Statistic
-              title={t('admin.reports.openaiCost24h')}
-              value={costQuery.data?.summary.openaiCostUsd24h || 0}
-              prefix="$"
-              precision={4}
-            />
-            <Statistic
-              title={t('admin.reports.openaiCost7d')}
-              value={costQuery.data?.summary.openaiCostUsd7d || 0}
-              prefix="$"
-              precision={4}
-            />
-          </Space>
-          <Space wrap>
-            <Tag>{`Redis: ${costQuery.data?.redis.status || 'unknown'}`}</Tag>
-            <Tag>{`Railway: ${costQuery.data?.railway.status || 'unknown'}`}</Tag>
-            <Tag>{`OpenAI: ${costQuery.data?.openai.status || 'unknown'}`}</Tag>
-          </Space>
-          <pre style={{ margin: 0 }}>
+
+      {/* Costs */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('admin.reports.costs')}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {costQuery.data?.partial && (
+            <div className="flex items-start gap-2 rounded-md border border-yellow-500/50 bg-yellow-500/10 p-3 text-sm text-yellow-700 dark:text-yellow-400">
+              <AlertCircle className="size-4 mt-0.5 shrink-0" />
+              <div>
+                <p className="font-medium">{t('admin.reports.costsPartial')}</p>
+                <p className="text-xs">{(costQuery.data.reasons || []).join('; ') || '-'}</p>
+              </div>
+            </div>
+          )}
+          <div className="flex flex-wrap gap-6">
+            <div>
+              <p className="text-sm text-muted-foreground">{t('admin.reports.redisMemoryMb')}</p>
+              <p className="text-2xl font-bold">{(costQuery.data?.summary.redisMemoryMb || 0).toFixed(2)} MB</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">{t('admin.reports.railwayEgress24h')}</p>
+              <p className="text-2xl font-bold">{(costQuery.data?.summary.railwayEgressGb24h || 0).toFixed(3)} GB</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">{t('admin.reports.openaiCost24h')}</p>
+              <p className="text-2xl font-bold">${(costQuery.data?.summary.openaiCostUsd24h || 0).toFixed(4)}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">{t('admin.reports.openaiCost7d')}</p>
+              <p className="text-2xl font-bold">${(costQuery.data?.summary.openaiCostUsd7d || 0).toFixed(4)}</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="secondary">{`Redis: ${costQuery.data?.redis.status || 'unknown'}`}</Badge>
+            <Badge variant="secondary">{`Railway: ${costQuery.data?.railway.status || 'unknown'}`}</Badge>
+            <Badge variant="secondary">{`OpenAI: ${costQuery.data?.openai.status || 'unknown'}`}</Badge>
+          </div>
+          <pre className="m-0 text-xs">
             {JSON.stringify(
               {
                 railwayDailyEgressGb: costQuery.data?.railway.dailyEgressGb || [],
@@ -188,169 +216,233 @@ export default function AdminReportsPage() {
               2
             )}
           </pre>
-        </Space>
+        </CardContent>
       </Card>
-      <Card title={t('admin.reports.aiStreams')}>
-        <Space direction="vertical" style={{ width: '100%' }} size="large">
-          <Space wrap>
-            <InputNumber
-              min={1}
-              max={90}
-              value={aiStreamDays}
-              onChange={(value) => setAIStreamDays(Number(value || 7))}
-              addonBefore={t('admin.reports.aiStreamsWindowDays')}
-            />
+
+      {/* AI Streams */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('admin.reports.aiStreams')}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Filters */}
+          <div className="flex flex-wrap gap-2 items-center">
+            <div className="flex items-center gap-1">
+              <span className="text-sm text-muted-foreground">{t('admin.reports.aiStreamsWindowDays')}</span>
+              <Input
+                type="number"
+                min={1}
+                max={90}
+                className="w-20"
+                value={aiStreamDays}
+                onChange={(event) => setAIStreamDays(Number(event.target.value) || 7)}
+              />
+            </div>
+            <Select value={aiStreamSource} onValueChange={(value: string) => setAIStreamSource(value as 'live' | 'archive' | 'all')}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('admin.reports.aiStreamsSourceAll')}</SelectItem>
+                <SelectItem value="live">{t('admin.reports.aiStreamsSourceLive')}</SelectItem>
+                <SelectItem value="archive">{t('admin.reports.aiStreamsSourceArchive')}</SelectItem>
+              </SelectContent>
+            </Select>
             <Select
-              style={{ minWidth: 180 }}
-              value={aiStreamSource}
-              onChange={(value) => setAIStreamSource(value)}
-              options={[
-                { value: 'all', label: t('admin.reports.aiStreamsSourceAll') },
-                { value: 'live', label: t('admin.reports.aiStreamsSourceLive') },
-                { value: 'archive', label: t('admin.reports.aiStreamsSourceArchive') },
-              ]}
-            />
-            <Select
-              allowClear
-              style={{ minWidth: 180 }}
-              placeholder={t('admin.reports.aiStreamsStatusFilter')}
-              value={aiStreamStatus}
-              onChange={(value) => setAIStreamStatus(value)}
-              options={[
-                'created',
-                'queued',
-                'started',
-                'streaming',
-                'completed',
-                'persisted',
-                'failed',
-                'cancelled',
-              ].map((status) => ({ value: status, label: status }))}
-            />
-          </Space>
+              value={aiStreamStatus || '__all__'}
+              onValueChange={(value: string) => setAIStreamStatus(value === '__all__' ? undefined : value)}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder={t('admin.reports.aiStreamsStatusFilter')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">{t('admin.reports.aiStreamsStatusFilter')}</SelectItem>
+                {['created', 'queued', 'started', 'streaming', 'completed', 'persisted', 'failed', 'cancelled'].map((status) => (
+                  <SelectItem key={status} value={status}>{status}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-          <Space wrap size="large">
-            <Statistic title={t('admin.reports.aiStreamsTotalSessions')} value={aiStreamOverviewQuery.data?.totals.totalSessions || 0} />
-            <Statistic title={t('admin.reports.aiStreamsRecentSessions')} value={aiStreamOverviewQuery.data?.totals.recentSessions || 0} />
-            <Statistic title={t('admin.reports.aiStreamsRecentEvents')} value={aiStreamOverviewQuery.data?.totals.recentEvents || 0} />
-            <Statistic title={t('admin.reports.aiStreamsActiveSessions')} value={aiStreamOverviewQuery.data?.totals.activeSessions || 0} />
-            <Statistic title={t('admin.reports.aiStreamsArchivedSessions')} value={aiStreamOverviewQuery.data?.totals.archivedSessions || 0} />
-            <Statistic title={t('admin.reports.aiStreamsArchivedEvents')} value={aiStreamOverviewQuery.data?.totals.archivedEvents || 0} />
-          </Space>
+          {/* Stats */}
+          <div className="flex flex-wrap gap-6">
+            <div>
+              <p className="text-sm text-muted-foreground">{t('admin.reports.aiStreamsTotalSessions')}</p>
+              <p className="text-2xl font-bold">{aiStreamOverviewQuery.data?.totals.totalSessions || 0}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">{t('admin.reports.aiStreamsRecentSessions')}</p>
+              <p className="text-2xl font-bold">{aiStreamOverviewQuery.data?.totals.recentSessions || 0}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">{t('admin.reports.aiStreamsRecentEvents')}</p>
+              <p className="text-2xl font-bold">{aiStreamOverviewQuery.data?.totals.recentEvents || 0}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">{t('admin.reports.aiStreamsActiveSessions')}</p>
+              <p className="text-2xl font-bold">{aiStreamOverviewQuery.data?.totals.activeSessions || 0}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">{t('admin.reports.aiStreamsArchivedSessions')}</p>
+              <p className="text-2xl font-bold">{aiStreamOverviewQuery.data?.totals.archivedSessions || 0}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">{t('admin.reports.aiStreamsArchivedEvents')}</p>
+              <p className="text-2xl font-bold">{aiStreamOverviewQuery.data?.totals.archivedEvents || 0}</p>
+            </div>
+          </div>
 
-          <Descriptions bordered size="small" column={2} title={t('admin.reports.aiStreamsRetention')}>
-            <Descriptions.Item label={t('admin.reports.aiStreamsBackendMode')}>
-              {aiStreamOverviewQuery.data?.retentionPolicy.backendMode || '-'}
-            </Descriptions.Item>
-            <Descriptions.Item label={t('admin.reports.aiStreamsArchiveEnabled')}>
-              {String(aiStreamOverviewQuery.data?.retentionPolicy.archiveEnabled ?? false)}
-            </Descriptions.Item>
-            <Descriptions.Item label={t('admin.reports.aiStreamsSessionRetention')}>
-              {aiStreamOverviewQuery.data?.retentionPolicy.sessionRetentionDays || 0}
-            </Descriptions.Item>
-            <Descriptions.Item label={t('admin.reports.aiStreamsEventRetention')}>
-              {aiStreamOverviewQuery.data?.retentionPolicy.eventRetentionDays || 0}
-            </Descriptions.Item>
-            <Descriptions.Item label={t('admin.reports.aiStreamsArchiveBatchSize')}>
-              {aiStreamOverviewQuery.data?.retentionPolicy.archiveBatchSize || 0}
-            </Descriptions.Item>
-          </Descriptions>
+          {/* Retention Policy */}
+          <div>
+            <h4 className="text-sm font-semibold mb-2">{t('admin.reports.aiStreamsRetention')}</h4>
+            <div className="grid grid-cols-2 gap-2 rounded-md border p-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">{t('admin.reports.aiStreamsBackendMode')}</span>
+                <span>{aiStreamOverviewQuery.data?.retentionPolicy.backendMode || '-'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">{t('admin.reports.aiStreamsArchiveEnabled')}</span>
+                <span>{String(aiStreamOverviewQuery.data?.retentionPolicy.archiveEnabled ?? false)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">{t('admin.reports.aiStreamsSessionRetention')}</span>
+                <span>{aiStreamOverviewQuery.data?.retentionPolicy.sessionRetentionDays || 0}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">{t('admin.reports.aiStreamsEventRetention')}</span>
+                <span>{aiStreamOverviewQuery.data?.retentionPolicy.eventRetentionDays || 0}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">{t('admin.reports.aiStreamsArchiveBatchSize')}</span>
+                <span>{aiStreamOverviewQuery.data?.retentionPolicy.archiveBatchSize || 0}</span>
+              </div>
+            </div>
+          </div>
 
-          <Space wrap>
+          {/* Tags by status/scope/backend */}
+          <div className="flex flex-wrap gap-2">
             {(aiStreamOverviewQuery.data?.byStatus || []).map((item) => (
-              <Tag key={`status-${item.status}`}>{`${item.status}: ${item.count}`}</Tag>
+              <Badge key={`status-${item.status}`} variant="secondary">{`${item.status}: ${item.count}`}</Badge>
             ))}
-          </Space>
-          <Space wrap>
+          </div>
+          <div className="flex flex-wrap gap-2">
             {(aiStreamOverviewQuery.data?.byScopeType || []).map((item) => (
-              <Tag key={`scope-${item.scopeType}`}>{`${item.scopeType}: ${item.count}`}</Tag>
+              <Badge key={`scope-${item.scopeType}`} variant="secondary">{`${item.scopeType}: ${item.count}`}</Badge>
             ))}
-          </Space>
-          <Space wrap>
+          </div>
+          <div className="flex flex-wrap gap-2">
             {(aiStreamOverviewQuery.data?.byBackendMode || []).map((item) => (
-              <Tag key={`backend-${item.backendMode}`}>{`${item.backendMode}: ${item.count}`}</Tag>
+              <Badge key={`backend-${item.backendMode}`} variant="secondary">{`${item.backendMode}: ${item.count}`}</Badge>
             ))}
-          </Space>
+          </div>
 
-          <Table
-            rowKey="streamId"
-            size="small"
-            pagination={false}
-            dataSource={aiStreamSessionsQuery.data?.items || []}
-            onRow={(record) => ({
-              onClick: () => setSelectedStreamId(record.streamId),
-            })}
-            columns={[
-              {
-                title: t('admin.reports.aiStreamsColStream'),
-                dataIndex: 'streamId',
-                render: (value: string, record) => (
-                  <Button type="link" onClick={() => setSelectedStreamId(record.streamId)}>
-                    {value}
-                  </Button>
-                ),
-              },
-              { title: t('admin.reports.aiStreamsColScope'), render: (_, record) => `${record.scopeType}:${record.scopeId}` },
-              { title: t('admin.reports.aiStreamsColStatus'), dataIndex: 'status', render: (value: string) => <Tag>{value}</Tag> },
-              { title: t('admin.reports.aiStreamsColSource'), dataIndex: 'source' },
-              { title: t('admin.reports.aiStreamsColSeq'), dataIndex: 'lastSeq' },
-              { title: t('admin.reports.aiStreamsColUpdatedAt'), dataIndex: 'updatedAt', render: (value: string) => dayjs(value).format('YYYY-MM-DD HH:mm:ss') },
-            ]}
-          />
+          {/* Sessions Table */}
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t('admin.reports.aiStreamsColStream')}</TableHead>
+                <TableHead>{t('admin.reports.aiStreamsColScope')}</TableHead>
+                <TableHead>{t('admin.reports.aiStreamsColStatus')}</TableHead>
+                <TableHead>{t('admin.reports.aiStreamsColSource')}</TableHead>
+                <TableHead>{t('admin.reports.aiStreamsColSeq')}</TableHead>
+                <TableHead>{t('admin.reports.aiStreamsColUpdatedAt')}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(aiStreamSessionsQuery.data?.items || []).map((record) => (
+                <TableRow
+                  key={record.streamId}
+                  className="cursor-pointer"
+                  onClick={() => setSelectedStreamId(record.streamId)}
+                >
+                  <TableCell>
+                    <button
+                      className="text-primary underline-offset-4 hover:underline text-sm"
+                      onClick={(e) => { e.stopPropagation(); setSelectedStreamId(record.streamId); }}
+                    >
+                      {record.streamId}
+                    </button>
+                  </TableCell>
+                  <TableCell>{`${record.scopeType}:${record.scopeId}`}</TableCell>
+                  <TableCell><Badge variant="outline">{record.status}</Badge></TableCell>
+                  <TableCell>{record.source}</TableCell>
+                  <TableCell>{record.lastSeq}</TableCell>
+                  <TableCell>{dayjs(record.updatedAt).format('YYYY-MM-DD HH:mm:ss')}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
 
-          <Divider style={{ margin: 0 }} />
+          <Separator />
 
+          {/* Stream Detail */}
           {selectedStreamId ? (
-            <Space direction="vertical" style={{ width: '100%' }} size="middle">
-              <Title level={5} style={{ margin: 0 }}>
-                {t('admin.reports.aiStreamsDetail')}
-              </Title>
+            <div className="space-y-4">
+              <h5 className="text-base font-semibold">{t('admin.reports.aiStreamsDetail')}</h5>
               {aiStreamDetailQuery.data ? (
                 <>
-                  <Descriptions bordered size="small" column={2}>
-                    <Descriptions.Item label={t('admin.reports.aiStreamsColStream')}>
-                      {aiStreamDetailQuery.data.session.streamId}
-                    </Descriptions.Item>
-                    <Descriptions.Item label={t('admin.reports.aiStreamsColSource')}>
-                      {aiStreamDetailQuery.data.source}
-                    </Descriptions.Item>
-                    <Descriptions.Item label={t('admin.reports.aiStreamsColScope')}>
-                      {`${aiStreamDetailQuery.data.session.scopeType}:${aiStreamDetailQuery.data.session.scopeId}`}
-                    </Descriptions.Item>
-                    <Descriptions.Item label={t('admin.reports.aiStreamsColStatus')}>
-                      {aiStreamDetailQuery.data.session.status}
-                    </Descriptions.Item>
-                    <Descriptions.Item label={t('admin.reports.aiStreamsColSeq')}>
-                      {aiStreamDetailQuery.data.session.lastSeq}
-                    </Descriptions.Item>
-                    <Descriptions.Item label={t('admin.reports.aiStreamsBackendMode')}>
-                      {aiStreamDetailQuery.data.session.backendMode || '-'}
-                    </Descriptions.Item>
-                    <Descriptions.Item label={t('admin.reports.aiStreamsMessageId')}>
-                      {aiStreamDetailQuery.data.session.messageId || '-'}
-                    </Descriptions.Item>
-                    <Descriptions.Item label={t('admin.reports.aiStreamsUpdatedAt')}>
-                      {dayjs(aiStreamDetailQuery.data.session.updatedAt).format('YYYY-MM-DD HH:mm:ss')}
-                    </Descriptions.Item>
-                  </Descriptions>
-                  <Card size="small" title={t('admin.reports.aiStreamsTextSnapshot')}>
-                    <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{aiStreamDetailQuery.data.session.text || '-'}</pre>
+                  <div className="grid grid-cols-2 gap-2 rounded-md border p-3 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">{t('admin.reports.aiStreamsColStream')}</span>
+                      <span>{aiStreamDetailQuery.data.session.streamId}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">{t('admin.reports.aiStreamsColSource')}</span>
+                      <span>{aiStreamDetailQuery.data.source}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">{t('admin.reports.aiStreamsColScope')}</span>
+                      <span>{`${aiStreamDetailQuery.data.session.scopeType}:${aiStreamDetailQuery.data.session.scopeId}`}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">{t('admin.reports.aiStreamsColStatus')}</span>
+                      <span>{aiStreamDetailQuery.data.session.status}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">{t('admin.reports.aiStreamsColSeq')}</span>
+                      <span>{aiStreamDetailQuery.data.session.lastSeq}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">{t('admin.reports.aiStreamsBackendMode')}</span>
+                      <span>{aiStreamDetailQuery.data.session.backendMode || '-'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">{t('admin.reports.aiStreamsMessageId')}</span>
+                      <span>{aiStreamDetailQuery.data.session.messageId || '-'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">{t('admin.reports.aiStreamsUpdatedAt')}</span>
+                      <span>{dayjs(aiStreamDetailQuery.data.session.updatedAt).format('YYYY-MM-DD HH:mm:ss')}</span>
+                    </div>
+                  </div>
+                  <Card>
+                    <CardHeader className="py-3">
+                      <CardTitle className="text-sm">{t('admin.reports.aiStreamsTextSnapshot')}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <pre className="m-0 whitespace-pre-wrap text-xs">{aiStreamDetailQuery.data.session.text || '-'}</pre>
+                    </CardContent>
                   </Card>
-                  <Card size="small" title={t('admin.reports.aiStreamsEvents')}>
-                    <pre style={{ margin: 0, maxHeight: 360, overflow: 'auto' }}>
-                      {JSON.stringify(aiStreamDetailQuery.data.events, null, 2)}
-                    </pre>
+                  <Card>
+                    <CardHeader className="py-3">
+                      <CardTitle className="text-sm">{t('admin.reports.aiStreamsEvents')}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <pre className="m-0 max-h-[360px] overflow-auto text-xs">
+                        {JSON.stringify(aiStreamDetailQuery.data.events, null, 2)}
+                      </pre>
+                    </CardContent>
                   </Card>
                 </>
               ) : (
-                <Text type="secondary">{t('admin.reports.aiStreamsPickStream')}</Text>
+                <p className="text-sm text-muted-foreground">{t('admin.reports.aiStreamsPickStream')}</p>
               )}
-            </Space>
+            </div>
           ) : (
-            <Text type="secondary">{t('admin.reports.aiStreamsPickStream')}</Text>
+            <p className="text-sm text-muted-foreground">{t('admin.reports.aiStreamsPickStream')}</p>
           )}
-        </Space>
+        </CardContent>
       </Card>
-    </Space>
+    </div>
   );
 }

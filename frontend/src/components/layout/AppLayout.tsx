@@ -19,6 +19,8 @@ const AppLayout = () => {
         <Outlet />
       </main>
       <Footer />
+      {/* BottomNav 佔位：fixed 定位不影響文檔流，用 padding 預留空間避免 CLS */}
+      <div className="h-[60px] md:hidden" aria-hidden="true" />
       <BottomNav />
     </div>
   );

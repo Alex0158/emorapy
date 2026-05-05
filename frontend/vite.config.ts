@@ -66,7 +66,7 @@ export default defineConfig(({ mode }) => {
     if (id.includes('/zustand/') || id.includes('/@tanstack/react-query/')) {
       return 'state-vendor';
     }
-    if (id.includes('/axios/') || id.includes('/dayjs/') || id.includes('/react-markdown/')) {
+    if (id.includes('/axios/') || id.includes('/dayjs/')) {
       return 'utils-vendor';
     }
     return undefined;

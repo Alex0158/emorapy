@@ -9,7 +9,7 @@ import { t } from '@/utils/i18n';
 const Footer = () => {
   const currentYear = new Date().getFullYear();
   return (
-    <footer className="border-t border-border bg-card/50 py-6 text-center max-md:pb-20">
+    <footer className="border-t border-border bg-card/50 py-6 text-center">
       <p className="text-sm text-muted-foreground">
         {t('footer.copyright').replace('{year}', String(currentYear))}
       </p>

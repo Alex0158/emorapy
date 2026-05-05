@@ -89,25 +89,44 @@ Current Railway production state, last verified 2026-05-03:
 4. Latest and active production backend deployments were `SUCCESS` after the Railway Docker build fix.
 5. Use `npm run ops:release:gate` for full release closure. The backend version endpoint now exposes `commitSha`; if it is missing, `unknown`, or not aligned with local `HEAD`, treat the backend as not fully verified. `railway status --json` remains the source for Railway deployment/log state.
 
-## Frontend Tech Stack (Migration in Progress)
+## Frontend Tech Stack (Migration Complete ✅ 2026-05-05)
 
-The frontend is actively migrating from Ant Design to shadcn/ui. During the transition period:
+Both `frontend/` and `frontend-admin/` have been fully migrated. Ant Design is **completely removed** from the project.
 
-| Layer | Legacy (being replaced) | New (target) |
-| --- | --- | --- |
-| Component library | Ant Design 6 | shadcn/ui + Radix UI |
-| Styling | LESS + Tailwind (mixed) | Tailwind CSS 4 only |
-| Icons | @ant-design/icons | Lucide React |
-| Toast/notifications | antd message | Sonner |
-| Forms | Ant Form | Native + react-hook-form + zod |
-| Color system | Sage green (#84A59D) | Warm coral (oklch-based, see index.css @theme) |
+| Layer | Stack |
+| --- | --- |
+| Component library | shadcn/ui + Radix UI |
+| Styling | Tailwind CSS 4 only |
+| Icons | Lucide React |
+| Toast/notifications | Sonner |
+| Forms | Native + react-hook-form + zod |
+| Color system | Warm coral (oklch-based, see index.css @theme) |
+| Fonts | Self-hosted (Inter + Plus Jakarta Sans woff2) + Google Fonts (Noto Sans TC async) |
 
-**Rules during migration:**
-1. New pages and migrated pages use shadcn/ui exclusively.
-2. Un-migrated pages keep Ant Design until their turn.
-3. Do not mix Ant Design and shadcn/ui in the same component.
-4. All new UI components go in `src/components/ui/` (shadcn) or `src/components/common/` (branded).
-5. Migration progress is tracked in `docs/核心開發文件/07-待處理問題與治理/待處理/UI-UX升級遷移追蹤-2026-05-03.md`.
+**Rules (enforced):**
+1. **禁止引入 antd** — Ant Design 已完全移除，不得重新引入。
+2. All UI components in `src/components/ui/` (shadcn) or `src/components/common/` (branded).
+3. Use Tailwind classes for styling. No CSS modules, no LESS, no inline styles.
+4. Icons from `lucide-react` only.
+5. Toast via `sonner` (`toast.success/error/warning`).
+
+## AI Alignment Rules (2026-05-05)
+
+User-facing terminology must follow these conventions:
+
+| Internal (code/API/DB) | User-facing (i18n) |
+| --- | --- |
+| judgment | 梳理結果 / Analysis |
+| plaintiff | 發起方 / You |
+| defendant | 回應方 / Partner |
+| responsibility ratio | 調整方向 / Adjustment Direction |
+
+**Rules:**
+1. API routes, DB columns, TypeScript types keep internal names (`judgment`, `plaintiff`, `defendant`).
+2. All user-visible text (i18n values, error messages, emails) must use the new terms.
+3. AI System Prompts identify as "Emorapy AI 助手", never pretend to be a human therapist.
+4. Chat AI does not presume monogamous relationship structure — ask about relationship agreements first.
+5. Judgment generation temperature: 0.55 (consistency over creativity).
 
 ## Local Development
 

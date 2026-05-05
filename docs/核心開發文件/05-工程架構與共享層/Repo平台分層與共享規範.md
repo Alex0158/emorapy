@@ -53,7 +53,7 @@
 
 `apps/web` 應承擔：
 
-- Ant Design 與 Web-only UI
+- Web-only UI、瀏覽器互動與 Tailwind / shadcn 現行視覺系統投影
 - Browser router
 - Web storage adapter
 - 瀏覽器事件與頁面導轉

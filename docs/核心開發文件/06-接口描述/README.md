@@ -4,8 +4,8 @@
 **文檔類型**：接口詳規
 **覆蓋範圍**：06-接口描述 子域入口與閱讀順序
 **取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`45d4897`
-**最後核驗日期**：`2026-04-19`
+**最後核驗 Commit**：`adda512`
+**最後核驗日期**：`2026-05-05`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 本子域承接 `CJ` 的模組級接口契約、常見錯誤碼、副作用與最小回歸集。
@@ -27,12 +27,13 @@
 
 1. 某個接口是否在用、候選廢棄或已確認廢棄。該狀態以 [../全接口清單-主文檔.md](../全接口清單-主文檔.md) 為準；本目錄內若附帶模組級狀態摘要，只作閱讀輔助。
 2. 某個功能或頁面的正式存在性
-3. 跨端主流程的高位正文
+3. 跨端產品核心、平台投影或 Web / App parity；這些分別回 [../00-跨端產品核心/README.md](../00-跨端產品核心/README.md)、[../10-Web端/README.md](../10-Web端/README.md)、[../20-App端/README.md](../20-App端/README.md) 與 [../50-跨端Mapping與Parity/README.md](../50-跨端Mapping與Parity/README.md)
 
 使用順序：
 
 1. 先查 [../全接口清單-主文檔.md](../全接口清單-主文檔.md) 確認接口狀態。
 2. 再進入本目錄查看模組內契約、業務規則、限流與回歸風險。
 3. 若要做影響分析，回查 [../接口-功能-頁面-Mapping.md](../接口-功能-頁面-Mapping.md)。
+4. 若接口變更會造成 Web / App / Backend / DB 一致性差異，必須同步回查 [../50-跨端Mapping與Parity/00-跨端Parity總覽.md](../50-跨端Mapping與Parity/00-跨端Parity總覽.md)。
 
 本目錄從屬於接口主冊，不替代主註冊表。

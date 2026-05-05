@@ -125,7 +125,7 @@ const ReconciliationDetail = () => {
           <div className="flex items-start gap-3"><AlertCircle className="mt-0.5 size-5 shrink-0 text-destructive" /><p className="text-sm text-foreground">{loadError || t('message.planNotFound')}</p></div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => fetchPlan()}>{t('common.retry')}</Button>
-            <Button size="sm" onClick={() => judgmentId && navigate(`/reconciliation/${judgmentId}`)}>返回方案頁</Button>
+            <Button size="sm" onClick={() => judgmentId && navigate(`/reconciliation/${judgmentId}`)}>{t('reconDetail.backToPlans')}</Button>
           </div>
         </div>
       </div>

@@ -18,6 +18,7 @@ export const CORE_DOCS_ROOT_FILES = [
 ];
 
 export const CORE_DOCS_ROOT_DIRS = [
+  '00-跨端產品核心',
   '01-認證與會話',
   '02-用戶端核心流程',
   '03-管理端與平台治理',
@@ -26,6 +27,9 @@ export const CORE_DOCS_ROOT_DIRS = [
   '06-接口描述',
   '07-待處理問題與治理',
   '08-測試規範與驗收',
+  '10-Web端',
+  '20-App端',
+  '50-跨端Mapping與Parity',
   '90-證據與盤點',
   '99-歷史降級索引',
   '文件收斂',
@@ -33,11 +37,15 @@ export const CORE_DOCS_ROOT_DIRS = [
 ];
 
 export const FORMAL_DOMAIN_DIRS = [
+  '00-跨端產品核心',
   '01-認證與會話',
   '02-用戶端核心流程',
   '03-管理端與平台治理',
   '04-共用機制',
   '05-工程架構與共享層',
+  '10-Web端',
+  '20-App端',
+  '50-跨端Mapping與Parity',
 ];
 
 export const MANUAL_REGRESSION_EVIDENCE_SEGMENTS = [

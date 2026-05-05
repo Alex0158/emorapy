@@ -149,6 +149,14 @@ function classifyFormalDomain(relativePath) {
       'frontend/src/services/api/auth.ts',
       'frontend/src/services/api/session.ts',
     ],
+    '00-跨端產品核心': [
+      'backend/prisma/schema.prisma',
+      'backend/src/routes',
+      'frontend/src/router/index.tsx',
+      'frontend-admin/src/router.tsx',
+      'mobile/tsconfig.json',
+      'packages/contracts/src',
+    ],
     '02-用戶端核心流程': [
       'frontend/src/router/index.tsx',
       'frontend/src/pages',
@@ -212,15 +220,47 @@ function classifyFormalDomain(relativePath) {
       'e2e/**/*.ts',
       'scripts',
     ],
+    '10-Web端': [
+      'frontend/src/router/index.tsx',
+      'frontend/src/pages',
+      'frontend-admin/src/router.tsx',
+      'frontend-admin/src/pages',
+      'backend/src/routes',
+      'scripts/start-dev.sh',
+    ],
+    '20-App端': [
+      'mobile/package.json',
+      'mobile/tsconfig.json',
+      'mobile/app/_layout.tsx',
+      'mobile/app/(tabs)/_layout.tsx',
+      'mobile/components/Themed.tsx',
+      'mobile/constants/Colors.ts',
+      'packages/contracts/src',
+      'packages/api-client/src',
+    ],
+    '50-跨端Mapping與Parity': [
+      'backend/src/routes',
+      'backend/prisma/schema.prisma',
+      'frontend/src/router/index.tsx',
+      'frontend-admin/src/router.tsx',
+      'mobile/tsconfig.json',
+      'packages/contracts/src',
+      'packages/api-client/src',
+    ],
   };
 
   const domainTypeMap = {
+    '00-跨端產品核心': '跨端核心',
     '06-接口描述': '接口詳規',
     '07-待處理問題與治理': '問題治理',
     '08-測試規範與驗收': '測試規範',
+    '10-Web端': 'Web端規格',
+    '20-App端': 'App端規格',
+    '50-跨端Mapping與Parity': '跨端映射',
   };
 
   const domainCoverageMap = {
+    '00-跨端產品核心': '跨 Web / App 的產品能力、角色、流程、狀態與一致性規則',
     '01-認證與會話': '身份、session、JWT 與會話升格主鏈路',
     '02-用戶端核心流程': '前台用戶主流程、頁面責任與跨頁狀態遷移',
     '03-管理端與平台治理': 'admin 平台治理、環境部署與運維基線',
@@ -229,6 +269,9 @@ function classifyFormalDomain(relativePath) {
     '06-接口描述': '接口字段契約、錯誤碼、守衛與頁面對接',
     '07-待處理問題與治理': '未落地設計、活躍治理項與需要追蹤的偏差',
     '08-測試規範與驗收': '長期測試規範、驗收口徑與回歸門檻',
+    '10-Web端': 'Web / Admin Web 凍結基線、平台投影與已實作狀態',
+    '20-App端': 'Expo App 基線、原生能力邊界與 App 開發投影',
+    '50-跨端Mapping與Parity': '跨端能力到 Web / App / Backend / API / DB / 共享層的映射與缺口',
   };
 
   return {
@@ -416,7 +459,7 @@ export async function classifyCoreDoc(repoRoot, absolutePath) {
       status: '已核驗',
       isCurrentSsot: true,
     };
-  } else if (/^(0[1-8]-[^/]+)\//.test(relativePath)) {
+  } else if (/^(?:0[0-8]|10|20|50)-[^/]+\//.test(relativePath)) {
     base = classifyFormalDomain(relativePath);
   } else if (relativePath.startsWith('測試/')) {
     base = classifyTestingDoc(relativePath);

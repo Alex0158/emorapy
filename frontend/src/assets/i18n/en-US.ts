@@ -249,6 +249,7 @@ const enUS: Record<string, string> = {
 	"common.back": "Back",
 	"common.confirm": "Confirm",
 	"common.cancel": "Cancel",
+	"common.loadMore": "Load more",
 	"common.backToTop": "Back to top",
 	"common.copied": "Copied to clipboard",
 	"common.copyFail": "Copy failed",
@@ -844,6 +845,8 @@ const enUS: Record<string, string> = {
 	"judgmentDetail.rejectModalTitle": "Reject Analysis",
 	"judgmentDetail.rejectModalConfirm":
 		"Are you sure? You can request a re-review.",
+	"judgmentDetail.confirmAccept": "Confirm Accept",
+	"judgmentDetail.confirmReject": "Confirm Reject",
 	"judgmentDetail.docTitle": "Analysis Document",
 
 	// Execution Dashboard
@@ -1733,6 +1736,7 @@ const enUS: Record<string, string> = {
 	"reconDetail.dualCommittedBody": "Both of you are willing to try. Co-repair mode will be used going forward.",
 	"reconDetail.soloStartTitle": "You can also start on your own",
 	"reconDetail.soloStartBody": "If your partner isn't ready yet, you can start with a low-pressure step to rebuild safety and closeness.",
+	"reconDetail.backToPlans": "Back to Plans",
 
 	// Reconciliation List - intent meta
 	"reconList.intent.repair.title": "I want to try repairing",

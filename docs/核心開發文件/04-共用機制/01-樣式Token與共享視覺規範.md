@@ -4,7 +4,7 @@
 **文檔類型**：正式規格
 **覆蓋範圍**：前後台共享元件、樣式 token 與流式通用機制：01-樣式Token與共享視覺規範
 **取證代碼入口**：`frontend/src/App.tsx`、`frontend-admin/src/App.tsx`、`frontend/src/components/common`、`frontend/src/services/request.ts`、`frontend/src/services/sseRequest.ts`、`frontend/src/services/aiStream.ts`、`frontend-admin/src/services/request.ts`、`packages/contracts/src`、`packages/api-client/src`
-**最後核驗 Commit**：`b410d9d`
+**最後核驗 Commit**：`adda512`
 **最後核驗日期**：`2026-05-05`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -16,6 +16,7 @@
 2. Admin Web 的設計 token 定義在 `frontend-admin/src/index.css`（同樣結構）
 3. **Ant Design 已完全移除**——不再有 `ConfigProvider` 或 antd theme token
 4. 字體：Inter + Plus Jakarta Sans 自託管 (`public/fonts/`)，Noto Sans TC 從 Google Fonts 異步加載
+5. 當前裁決為「runtime/source UI 已歸零 Ant Design 與 `.less` 源文件」；`vite.config`、測試 mock、`less` devDependency 或舊註釋中的字串殘留不代表 UI runtime 仍依賴 Ant Design，但必須在待處理任務中追蹤清理。
 
 ## 1. Token 責任邊界
 
@@ -48,6 +49,7 @@
 3. 禁止使用 inline `style` 承擔陰影、圓角、背景等長期視覺真相（使用 Tailwind classes）
 4. 不得把主 Web 與 Admin 都會依賴的 token 再分散到多個頁面檔內各自命名
 5. 禁止使用 LESS/SCSS — 純 CSS + Tailwind only
+6. 禁止把 `antd`、`@ant-design/icons`、`.less` 重新引入 runtime 或源樣式；工具鏈/測試中的歷史字串只能作短期遷移殘留，需有待辦追蹤。
 
 ## 3. 收斂原則
 

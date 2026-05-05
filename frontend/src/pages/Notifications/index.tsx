@@ -123,7 +123,7 @@ const NotificationsPage = () => {
             <div className="flex-1">
               <p className="text-sm text-foreground">{error}</p>
             </div>
-            <Button size="sm" onClick={() => { clearError(); void fetchNotifications(activeState); }}>重試</Button>
+            <Button size="sm" onClick={() => { clearError(); void fetchNotifications(activeState); }}>{t('common.retry')}</Button>
           </div>
         )}
 
@@ -205,7 +205,7 @@ const NotificationsPage = () => {
               <div className="flex justify-center pt-4">
                 <Button variant="outline" disabled={isLoadingMore} onClick={() => void fetchNotifications(activeState, { append: true })}>
                   {isLoadingMore && <Loader2 className="size-4 animate-spin" />}
-                  載入更多
+                  {t('common.loadMore')}
                 </Button>
               </div>
             )}

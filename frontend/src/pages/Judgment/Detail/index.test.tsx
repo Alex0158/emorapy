@@ -137,7 +137,7 @@ describe('JudgmentDetail', () => {
     });
 
     await user.click(screen.getByRole('button', { name: /judgmentDetail.accept/ }));
-    await user.click(screen.getByRole('button', { name: /確認接受/ }));
+    await user.click(screen.getByRole('button', { name: /judgmentDetail.confirmAccept/ }));
 
     await waitFor(() => {
       expect(mockAcceptJudgment).toHaveBeenCalledWith('j1', { accepted: true, rating: undefined });

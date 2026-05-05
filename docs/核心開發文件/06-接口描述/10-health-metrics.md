@@ -4,12 +4,12 @@
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：10-health-metrics
 **取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`45d4897`
-**最後核驗日期**：`2026-04-19`
+**最後核驗 Commit**：`adda512`
+**最後核驗日期**：`2026-05-05`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**文檔版本**：v2.3  
-**最後更新**：2026-04-19  
+**文檔版本**：v2.4
+**最後更新**：2026-05-05
 **代碼基準**：`backend/src/routes/health.routes.ts`、`backend/src/routes/metrics.routes.ts`、`backend/src/routes/meta.routes.ts`、`backend/src/config/env.ts`
 
 ---
@@ -25,16 +25,17 @@
 
 | API | Request | Success（核心字段） | 常見錯誤碼/狀態 | 副作用 |
 |---|---|---|---|---|
-| `GET /api/v1/version` | 無 | `service` `version` `timestamp` | 200 或 500 | 無 |
-| `GET /version` | 無 | `service` `version` `timestamp` | 200 或 500 | 無 |
-| `GET /health` | 無 | `status` `checks{database/environment/lock/cron}` `responseTime` | 200（healthy/degraded）或 500 | 無 |
+| `GET /api/v1/version` | 無 | `service` `version` `commitSha` `commitShortSha` `timestamp` | 200 或 500 | 無 |
+| `GET /version` | 無 | `service` `version` `commitSha` `commitShortSha` `timestamp` | 200 或 500 | 無 |
+| `GET /health` | 無 | `status` `checks{database/environment/lock/cron}` `responseTime` `version` `commitSha` `commitShortSha` | 200（healthy/degraded）或 500 | 無 |
 | `GET /health/ready` | 無 | `status=ready` | 503（not ready） | 無 |
 | `GET /health/live` | 無 | `status=alive` | 通常固定 200 | 無 |
 | `GET /metrics` | header `X-Metrics-Token?`（prod） | Prometheus text body | 404（disabled）/403（forbidden）/500（unavailable） | 無 |
 
 ## 操作級規則（深水區）
 
-- `/version` 與 `/api/v1/version` 都回傳原始 `{ service, version, timestamp }`，版本來源為 `backend/package.json`；前端與 Admin 版本面板目前實際請求的是 `VITE_API_BASE_URL + '/version'`。
+- `/version` 與 `/api/v1/version` 都回傳 `{ service, version, commitSha, commitShortSha, timestamp }`；`version` 來源為 `backend/package.json`，`commitSha` 來源依序為 `CJ_COMMIT_SHA`、`VERCEL_GIT_COMMIT_SHA`、`GITHUB_SHA`、`git rev-parse HEAD`，無法解析時為 `unknown`。前端與 Admin 版本面板目前實際請求的是 `VITE_API_BASE_URL + '/version'`。
+- `/health` 也會帶 `version / commitSha / commitShortSha`，用於部署探針在同一 payload 內比對服務健康與後端代碼版本；`/health` 的 HTTP 200 不代表完全 healthy，仍要看 `status` 與 `checks`。
 - `/api/v1/version` 屬 API 命名空間兼容入口；root alias `/version` 雖保留了探針語義，但當前也承接版本面板的真實流量。
 - `/health` 即使 degraded 仍回 200，判斷健康要看 payload `status`，不能只看 HTTP code。
 - `/health/ready` 專用於就緒檢查；DB 不可用時 503。
@@ -46,9 +47,9 @@
 
 ## 回歸測試最小集
 
-1. `GET /version` 返回 `version` 且與 `backend/package.json` 一致，供版本面板直接消費。  
-2. `GET /api/v1/version` 與 `/version` 的版本值一致。  
-3. 正常環境 `/health` 返回 `status=healthy`。  
+1. `GET /version` 返回 `version / commitSha / commitShortSha`，其中 `version` 與 `backend/package.json` 一致，供版本面板直接消費。
+2. `GET /api/v1/version` 與 `/version` 的 payload 字段和值一致。
+3. 正常環境 `/health` 返回 `status=healthy`，且帶後端 version manifest 字段。
 4. 故障注入下 `/health` 返回 `degraded` 並含問題項。  
 5. 生產配置下，無 token 請求 `/metrics` 返回 403。  
 6. `METRICS_ENABLED=false` 時 `/metrics` 返回 404。  

@@ -711,6 +711,8 @@ const zhTW = {
 	"judgmentDetail.rejectModalTitle": "拒絕梳理結果",
 	"judgmentDetail.rejectModalConfirm":
 		"確定要拒絕此梳理結果嗎？您可以申請重新分析。",
+	"judgmentDetail.confirmAccept": "確認接受",
+	"judgmentDetail.confirmReject": "確認不接受",
 	"judgmentDetail.docTitle": "梳理報告",
 	"message.getJudgmentDetailFail": "獲取梳理詳情失敗",
 	"message.acceptJudgmentSuccess": "已接受梳理結果",
@@ -1166,6 +1168,7 @@ const zhTW = {
 	"common.clear": "清空",
 	"common.back": "返回",
 	"common.cancel": "取消",
+	"common.loadMore": "載入更多",
 	"common.copied": "已複製到剪貼板",
 	"common.copyFail": "複製失敗",
 	"common.logoutSuccess": "已退出登錄",
@@ -1636,6 +1639,7 @@ const zhTW = {
 	"reconDetail.dualCommittedBody": "雙方都已經願意試，接下來會以共修模式推進。",
 	"reconDetail.soloStartTitle": "現在也可以由你先開始",
 	"reconDetail.soloStartBody": "如果對方還沒準備好，你也可以先從一個低壓的小步驟開始。",
+	"reconDetail.backToPlans": "返回方案頁",
 
 	// Reconciliation List - intent meta
 	"reconList.intent.repair.title": "我想試著修復",

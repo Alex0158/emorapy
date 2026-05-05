@@ -275,9 +275,9 @@ const JudgmentDetail = () => {
             <p className="text-sm text-muted-foreground">{t('judgmentDetail.acceptModalConfirm')}</p>
             {rating > 0 && <p className="text-sm font-medium text-primary">{t('judgmentDetail.acceptModalRating').replace('{rating}', String(rating))}</p>}
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowAcceptModal(false)}>取消</Button>
+              <Button variant="outline" onClick={() => setShowAcceptModal(false)}>{t('common.cancel')}</Button>
               <Button onClick={handleAccept} disabled={accepting}>
-                {accepting && <Loader2 className="size-4 animate-spin" />}確認接受
+                {accepting && <Loader2 className="size-4 animate-spin" />}{t('judgmentDetail.confirmAccept')}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -289,9 +289,9 @@ const JudgmentDetail = () => {
             <DialogHeader><DialogTitle>{t('judgmentDetail.rejectModalTitle')}</DialogTitle></DialogHeader>
             <p className="text-sm text-muted-foreground">{t('judgmentDetail.rejectModalConfirm')}</p>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowRejectModal(false)}>取消</Button>
+              <Button variant="outline" onClick={() => setShowRejectModal(false)}>{t('common.cancel')}</Button>
               <Button variant="destructive" onClick={handleReject} disabled={accepting}>
-                {accepting && <Loader2 className="size-4 animate-spin" />}確認不接受
+                {accepting && <Loader2 className="size-4 animate-spin" />}{t('judgmentDetail.confirmReject')}
               </Button>
             </DialogFooter>
           </DialogContent>

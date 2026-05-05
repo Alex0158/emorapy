@@ -43,6 +43,7 @@ const FORMAL_DOC_ROOT_FILES = [
   '術語表.md',
 ];
 const FORMAL_DOC_DOMAIN_DIRS = [
+  '00-跨端產品核心',
   '01-認證與會話',
   '02-用戶端核心流程',
   '03-管理端與平台治理',
@@ -51,11 +52,15 @@ const FORMAL_DOC_DOMAIN_DIRS = [
   '06-接口描述',
   '07-待處理問題與治理',
   '08-測試規範與驗收',
+  '10-Web端',
+  '20-App端',
+  '50-跨端Mapping與Parity',
 ];
 const FORMAL_DOC_AUDIT_LEDGER_PATH = '文件收斂/03-CJ-核心開發文件逐文件代碼校驗總台賬-2026-04-18.md';
 const FORMAL_DOC_CLOSED_LEDGER_STATUSES = new Set(['已修正', '已核驗']);
 const FORMAL_DOC_LEDGER_STATUS_KEYS = ['已修正', '已核驗', '證據已核對', '已降級'];
 const FORMAL_DOC_LEDGER_DOMAIN_KEYS = [
+  '00-跨端產品核心',
   '01-認證與會話',
   '02-用戶端核心流程',
   '03-管理端與平台治理',
@@ -64,6 +69,9 @@ const FORMAL_DOC_LEDGER_DOMAIN_KEYS = [
   '06-接口描述',
   '07-待處理問題與治理',
   '08-測試規範與驗收',
+  '10-Web端',
+  '20-App端',
+  '50-跨端Mapping與Parity',
   '90-證據與盤點',
   '99-歷史降級索引',
   '測試',
@@ -71,9 +79,6 @@ const FORMAL_DOC_LEDGER_DOMAIN_KEYS = [
   '文件收斂',
 ];
 const FORMAL_DOC_MISSING_PATH_ALLOWLIST = {
-  '04-共用機制/01-樣式Token與共享視覺規範.md': [
-    { path: 'frontend/src/styles/theme.ts', marker: '目前不存在 `frontend/src/styles/theme.ts`' },
-  ],
   '05-工程架構與共享層/Repo平台分層與共享規範.md': [
     { path: 'packages/domain', marker: '建立 `packages/domain`' },
   ],

@@ -26,7 +26,6 @@ const BottomNav = () => {
     : [
         { key: '/', icon: Home, label: t('nav.home') },
         { key: '/quick-experience/create', icon: PlusCircle, label: t('nav.quickExperience'), isPrimary: true },
-        { key: '/chat/room', icon: MessageCircle, label: t('nav.chat') },
         { key: '/auth/login', icon: User, label: t('nav.login') },
       ];
 

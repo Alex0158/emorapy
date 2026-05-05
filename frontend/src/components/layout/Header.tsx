@@ -8,8 +8,8 @@
 
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  Home, LogIn, User, LogOut, Settings, Globe, FileText,
-  CheckSquare, MessageCircle, Bell,
+  Home, LogIn, User, LogOut, Globe, FileText,
+  CheckSquare, MessageCircle, Bell, Settings,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -30,7 +30,6 @@ import {
 } from '@/components/ui/select';
 import { useAuthStore } from '@/store/authStore';
 import { useNotificationStore } from '@/store/notificationStore';
-import { getAdminLoginUrl } from '@/utils/adminEntry';
 import { cn } from '@/lib/utils';
 import { t, getLocale, onLocaleChange, setLocale, type Locale } from '@/utils/i18n';
 import VersionPopover from './VersionPopover';
@@ -50,7 +49,6 @@ const Header = () => {
   const { isAuthenticated, user, logout } = useAuthStore();
   const unreadCount = useNotificationStore((state) => state.unreadCount);
   const fetchUnreadCount = useNotificationStore((state) => state.fetchUnreadCount);
-  const adminLoginUrl = getAdminLoginUrl();
   const [locale, setLocalLocale] = useState<Locale>(getLocale());
 
   const activeKey = useMemo(() => {
@@ -87,8 +85,7 @@ const Header = () => {
         { key: '/chat/room', icon: MessageCircle, label: t('nav.chat') },
       ]
     : [
-        { key: '/quick-experience/create', label: t('nav.quickExperience') },
-        { key: '/chat/room', icon: MessageCircle, label: t('nav.chat') },
+        { key: '/quick-experience/create', icon: undefined, label: t('nav.quickExperience') },
       ];
 
   return (
@@ -112,24 +109,6 @@ const Header = () => {
               <span>{link.label}</span>
             </NavLink>
           ))}
-          {!isAuthenticated && (
-            adminLoginUrl ? (
-              <a
-                href={adminLoginUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              >
-                <Settings className="size-4" />
-                <span>{t('nav.opsConsole')}</span>
-              </a>
-            ) : (
-              <span className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-muted-foreground/50 cursor-not-allowed">
-                <Settings className="size-4" />
-                <span>{t('nav.opsConsole')}</span>
-              </span>
-            )
-          )}
         </nav>
 
         {/* Actions */}

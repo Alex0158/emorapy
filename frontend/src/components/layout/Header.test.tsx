@@ -97,27 +97,6 @@ describe('Header', () => {
     expect(screen.getByText('登錄')).toBeInTheDocument();
   });
 
-  it('有 admin URL 時應渲染可用連結', () => {
-    render(
-      <MemoryRouter>
-        <Header />
-      </MemoryRouter>
-    );
-    const link = screen.getByRole('link', { name: /運維/ });
-    expect(link).toHaveAttribute('href', 'https://admin.example.com/admin/login');
-  });
-
-  it('無 admin URL 時不應渲染可點擊連結', () => {
-    mockGetAdminLoginUrl.mockReturnValue(null);
-    render(
-      <MemoryRouter>
-        <Header />
-      </MemoryRouter>
-    );
-    expect(screen.queryByRole('link', { name: /運維/ })).toBeNull();
-    expect(screen.getByText(/運維/)).toBeInTheDocument();
-  });
-
   it('登入後應顯示通知入口並拉取未讀數', async () => {
     mockAuthState.isAuthenticated = true;
     mockAuthState.user = { email: 'user@example.com', nickname: 'CJ' };

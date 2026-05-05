@@ -7,14 +7,14 @@
  * 新增: 環境動畫光暈背景（Hero 區域）
  */
 
-import { useMemo } from 'react';
+import { lazy, Suspense, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Rocket, Heart, Lightbulb, CheckCircle, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import MediatorAvatar from '@/components/business/MediatorAvatar';
 import SEO from '@/components/common/SEO';
 import AnimatedWrapper from '@/components/common/AnimatedWrapper';
-import FlowSimulation from './components/FlowSimulation';
+const FlowSimulation = lazy(() => import('./components/FlowSimulation'));
 import AdaptiveDashboard from './components/AdaptiveDashboard';
 import { useAuthStore } from '@/store/authStore';
 import { t } from '@/utils/i18n';
@@ -98,7 +98,9 @@ const Home = () => {
           </section>
         )}
 
-        <FlowSimulation />
+        <Suspense fallback={null}>
+          <FlowSimulation />
+        </Suspense>
 
         <section className="features-section" aria-labelledby="features-title">
           <div className="container">

@@ -69,16 +69,7 @@ export default defineConfig(({ mode }) => {
     if (id.includes('/axios/') || id.includes('/dayjs/') || id.includes('/react-markdown/')) {
       return 'utils-vendor';
     }
-    if (id.includes('/rc-table/')) {
-      return 'antd-table-vendor';
-    }
-    if (id.includes('/rc-picker/')) {
-      return 'antd-date-vendor';
-    }
-    if (id.includes('/rc-field-form/')) {
-      return 'antd-form-vendor';
-    }
-    if (id.includes('/antd/')) {
+    if (id.includes('/antd/') || id.includes('/rc-table/') || id.includes('/rc-picker/') || id.includes('/rc-field-form/')) {
       return 'antd-vendor';
     }
     return undefined;
@@ -128,7 +119,7 @@ export default defineConfig(({ mode }) => {
       } as any : undefined,
     },
     optimizeDeps: {
-      include: ['react', 'react-dom', 'react-router-dom', 'antd', 'axios', 'zustand'],
+      include: ['react', 'react-dom', 'react-router-dom', 'axios', 'zustand'],
     },
     define: {
       // 確保環境變量在構建時被正確替換

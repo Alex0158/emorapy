@@ -18,22 +18,23 @@ import SEO from '@/components/common/SEO';
 import { EmptyState } from '@/components/common/EmptyState';
 import { cn } from '@/lib/utils';
 import { useNotificationStore } from '@/store/notificationStore';
+import { t } from '@/utils/i18n';
 import type { NotificationFeedState, NotificationItem } from '@/services/api/notifications';
 
-const stateOptions: Array<{ label: string; value: NotificationFeedState }> = [
-  { label: '待處理', value: 'actionable' },
-  { label: '未讀', value: 'unread' },
-  { label: '全部', value: 'all' },
-  { label: '稍後提醒', value: 'snoozed' },
-  { label: '已封存', value: 'archived' },
+const getStateOptions = (): Array<{ label: string; value: NotificationFeedState }> => [
+  { label: t('notifications.tab.actionable'), value: 'actionable' },
+  { label: t('notifications.tab.unread'), value: 'unread' },
+  { label: t('notifications.tab.all'), value: 'all' },
+  { label: t('notifications.tab.snoozed'), value: 'snoozed' },
+  { label: t('notifications.tab.archived'), value: 'archived' },
 ];
 
 function sectionTitle(notification: NotificationItem, activeState: NotificationFeedState): string {
-  if (activeState === 'snoozed' || notification.snoozed_until) return '稍後提醒我';
-  if (!notification.actionable || notification.acted_at || notification.dismissed_at) return '已完成與較早通知';
-  if (notification.journey_context?.presentation_bucket === 'partner_waiting') return '等對方 / 等時間';
-  if (notification.priority === 'now' || notification.render_payload.priority === 'now') return '現在要處理';
-  return '等對方 / 等時間';
+  if (activeState === 'snoozed' || notification.snoozed_until) return t('notifications.section.snoozed');
+  if (!notification.actionable || notification.acted_at || notification.dismissed_at) return t('notifications.section.completed');
+  if (notification.journey_context?.presentation_bucket === 'partner_waiting') return t('notifications.section.partnerWaiting');
+  if (notification.priority === 'now' || notification.render_payload.priority === 'now') return t('notifications.section.now');
+  return t('notifications.section.partnerWaiting');
 }
 
 const NotificationsPage = () => {
@@ -72,36 +73,36 @@ const NotificationsPage = () => {
 
   const handleDismiss = async (notificationId: string) => {
     await dismiss(notificationId);
-    toast.success('已封存這則通知');
+    toast.success(t('notifications.toast.dismissed'));
   };
 
   const handleSnooze = async (notificationId: string) => {
     await snooze(notificationId, 24);
-    toast.success('已稍後提醒你這則通知');
+    toast.success(t('notifications.toast.snoozed'));
   };
 
   return (
     <ProtectedRoute>
-      <SEO title="通知中心" description="查看修復旅程、邀請與重調相關通知" />
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} className="mx-auto max-w-3xl px-4 py-8" role="main" aria-label="通知中心">
+      <SEO title={t("notifications.seo.title")} description={t("notifications.seo.desc")} />
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} className="mx-auto max-w-3xl px-4 py-8" role="main" aria-label={t("notifications.pageLabel")}>
         {/* Header */}
         <header className="mb-6">
           <div className="flex items-center gap-2 mb-2">
             <Bell className="size-5 text-primary" />
-            <h2 className="text-2xl font-bold text-foreground font-heading">通知中心</h2>
+            <h2 className="text-2xl font-bold text-foreground font-heading">{t("notifications.heading")}</h2>
             {unreadCount > 0 && (
               <Badge variant="destructive" className="text-[10px]">{unreadCount}</Badge>
             )}
           </div>
           <p className="text-sm text-muted-foreground mb-4">
-            這裡會把 repair journey 的邀請、等待回應、重新調整與恢復入口集中起來。
+            {t("notifications.subtitle")}
           </p>
 
           {/* Tabs + Actions */}
           <div className="flex flex-wrap items-center gap-3">
             <Tabs value={activeState} onValueChange={(v: string) => void fetchNotifications(v as NotificationFeedState)}>
               <TabsList>
-                {stateOptions.map((opt) => (
+                {getStateOptions().map((opt) => (
                   <TabsTrigger key={opt.value} value={opt.value} className="text-xs">
                     {opt.label}
                   </TabsTrigger>
@@ -109,8 +110,8 @@ const NotificationsPage = () => {
               </TabsList>
             </Tabs>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => void fetchNotifications(activeState)}>刷新</Button>
-              <Button variant="outline" size="sm" onClick={() => void markAllRead()} disabled={unreadCount <= 0}>全部已讀</Button>
+              <Button variant="outline" size="sm" onClick={() => void fetchNotifications(activeState)}>{t("notifications.action.refresh")}</Button>
+              <Button variant="outline" size="sm" onClick={() => void markAllRead()} disabled={unreadCount <= 0}>{t("notifications.action.markAllRead")}</Button>
             </div>
           </div>
         </header>
@@ -156,10 +157,10 @@ const NotificationsPage = () => {
                       >
                         <div className="flex flex-wrap items-center gap-2 mb-1.5">
                           <span className="text-sm font-semibold text-foreground">{notification.render_payload.title}</span>
-                          {notification.unread && <Badge variant="default" className="text-[10px]">未讀</Badge>}
-                          {notification.acted_at && <Badge variant="secondary" className="text-[10px] bg-success/10 text-success">已處理</Badge>}
-                          {notification.dismissed_at && <Badge variant="outline" className="text-[10px]">已封存</Badge>}
-                          {notification.snoozed_until && <Badge variant="outline" className="text-[10px] text-warning">稍後提醒</Badge>}
+                          {notification.unread && <Badge variant="default" className="text-[10px]">{t("notifications.badge.unread")}</Badge>}
+                          {notification.acted_at && <Badge variant="secondary" className="text-[10px] bg-success/10 text-success">{t("notifications.badge.acted")}</Badge>}
+                          {notification.dismissed_at && <Badge variant="outline" className="text-[10px]">{t("notifications.badge.dismissed")}</Badge>}
+                          {notification.snoozed_until && <Badge variant="outline" className="text-[10px] text-warning">{t("notifications.badge.snoozed")}</Badge>}
                         </div>
                         <p className="text-sm text-muted-foreground mb-2">{notification.render_payload.body}</p>
                         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -168,11 +169,11 @@ const NotificationsPage = () => {
                             <Badge variant="outline" className="text-[10px]">{notification.render_payload.journey_status}</Badge>
                           )}
                           {(notification.priority || notification.render_payload.priority) === 'now' && (
-                            <Badge variant="destructive" className="text-[10px]">現在處理</Badge>
+                            <Badge variant="destructive" className="text-[10px]">{t("notifications.badge.now")}</Badge>
                           )}
                           {notification.render_payload.path && (
                             <span className="flex items-center gap-0.5 text-primary">
-                              進入 <ChevronRight className="size-3" />
+                              {t("notifications.goTo")} <ChevronRight className="size-3" />
                             </span>
                           )}
                         </div>
@@ -187,15 +188,11 @@ const NotificationsPage = () => {
                         )}
                         {notification.actionable && !notification.snoozed_until && (
                           <Button variant="outline" size="sm" onClick={() => void handleSnooze(notification.id)}>
-                            <Clock className="size-3" />
-                            稍後提醒
-                          </Button>
+                            <Clock className="size-3" />{t("notifications.action.snooze")}                          </Button>
                         )}
                         {!notification.dismissed_at && !notification.actionable && (
                           <Button variant="ghost" size="sm" onClick={() => void handleDismiss(notification.id)}>
-                            <Trash2 className="size-3" />
-                            封存
-                          </Button>
+                            <Trash2 className="size-3" />{t("notifications.action.dismiss")}                          </Button>
                         )}
                       </div>
                     </div>

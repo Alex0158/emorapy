@@ -349,7 +349,7 @@ const InterviewChat: React.FC = () => {
       </header>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4" role="log" aria-live="polite" aria-label={t('interview.messagesLog')}>
         {turns.map((turn) => (
           <React.Fragment key={turn.id}>
             {turn.ai_message && (

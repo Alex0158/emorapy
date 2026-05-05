@@ -22,7 +22,7 @@ import { MAX_IMAGE_COUNT, MIN_DEFENDANT_LENGTH } from '@/utils/constants';
 import { localStore, sessionStorage, caseSessionMap } from '@/utils/storage';
 import StatementInput from '@/components/business/StatementInput';
 import FileUpload from '@/components/business/FileUpload';
-import type { UploadFile } from 'antd/es/upload/interface';
+import type { UploadFile } from '@/types/upload';
 import SEO from '@/components/common/SEO';
 import { getErrorMessage } from '@/utils/apiError';
 import { t } from '@/utils/i18n';

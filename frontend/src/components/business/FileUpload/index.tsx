@@ -9,7 +9,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { Upload, X, Eye, Loader2 } from 'lucide-react';
-import type { UploadFile } from 'antd/es/upload/interface';
+import type { UploadFile } from '@/types/upload';
 import { Progress } from '@/components/ui/progress';
 import ConfirmModal from '@/components/common/ConfirmModal';
 import { cn } from '@/lib/utils';

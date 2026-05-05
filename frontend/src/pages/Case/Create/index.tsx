@@ -26,7 +26,7 @@ import { useInterviewTrigger } from '@/hooks/useInterviewTrigger';
 import MediatorAvatar from '@/components/business/MediatorAvatar';
 import StatementInput from '@/components/business/StatementInput';
 import ConsentModal from '@/components/business/Interview/ConsentModal';
-import type { UploadFile } from 'antd/es/upload/interface';
+import type { UploadFile } from '@/types/upload';
 import FileUpload from '@/components/business/FileUpload';
 import SEO from '@/components/common/SEO';
 import { cn } from '@/lib/utils';

@@ -69,9 +69,6 @@ export default defineConfig(({ mode }) => {
     if (id.includes('/axios/') || id.includes('/dayjs/') || id.includes('/react-markdown/')) {
       return 'utils-vendor';
     }
-    if (id.includes('/antd/') || id.includes('/rc-table/') || id.includes('/rc-picker/') || id.includes('/rc-field-form/')) {
-      return 'antd-vendor';
-    }
     return undefined;
   };
 

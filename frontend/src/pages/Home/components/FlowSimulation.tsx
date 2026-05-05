@@ -1,15 +1,6 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  CheckCircleFilled,
-  FileTextOutlined,
-  HeartOutlined,
-  MessageOutlined,
-  SolutionOutlined,
-  SyncOutlined,
-  SendOutlined,
-  LockOutlined,
-} from '@ant-design/icons';
+import { CheckCircle2, FileText, Heart, MessageCircle, ClipboardList, RefreshCw, Send, Lock } from 'lucide-react';
 import { t } from '@/utils/i18n';
 import './FlowSimulation.css';
 
@@ -690,17 +681,17 @@ const PhoneSimulator = ({
                           <AnimatePresence mode="wait">
                             {buttonState === 'idle' && (
                               <motion.span key="idle" className="btn-content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, display: 'none' }}>
-                                {content.s0a.button} <SendOutlined />
+                                {content.s0a.button} <Send className="size-4" />
                               </motion.span>
                             )}
                             {buttonState === 'loading' && (
                               <motion.span key="loading" className="btn-content" initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0, display: 'none' }}>
-                                <SyncOutlined spin />
+                                <RefreshCw className="size-4 animate-spin" />
                               </motion.span>
                             )}
                             {buttonState === 'success' && (
                               <motion.span key="success" className="btn-content" initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
-                                <CheckCircleFilled />
+                                <CheckCircle2 className="size-4" />
                               </motion.span>
                             )}
                           </AnimatePresence>
@@ -780,7 +771,7 @@ const PhoneSimulator = ({
                             <motion.div className="skel-line" style={{ width: '85%' }} animate={{ opacity: [0.4, 0.8, 0.4] }} transition={{ repeat: Infinity, duration: 1.5, delay: 0.4 }} />
                           </div>
                           <div className="skel-lock">
-                            <LockOutlined /> {content.s1a.skelLock}
+                            <Lock className="size-4" /> {content.s1a.skelLock}
                           </div>
                         </motion.div>
                       </div>
@@ -836,17 +827,17 @@ const PhoneSimulator = ({
                           <AnimatePresence mode="wait">
                             {buttonState === 'idle' && (
                               <motion.span key="idle" className="btn-content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, display: 'none' }}>
-                                {content.s1b.button} <SendOutlined />
+                                {content.s1b.button} <Send className="size-4" />
                               </motion.span>
                             )}
                             {buttonState === 'loading' && (
                               <motion.span key="loading" className="btn-content" initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0, display: 'none' }}>
-                                <SyncOutlined spin />
+                                <RefreshCw className="size-4 animate-spin" />
                               </motion.span>
                             )}
                             {buttonState === 'success' && (
                               <motion.span key="success" className="btn-content" initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
-                                <CheckCircleFilled />
+                                <CheckCircle2 className="size-4" />
                               </motion.span>
                             )}
                           </AnimatePresence>
@@ -887,7 +878,7 @@ const PhoneSimulator = ({
                         transition={{ delay: 0.5 }}
                         className="analyzing-row dark-glass-card"
                       >
-                        <SyncOutlined spin className="spin-icon" /> <DecryptedText text={content.s2.rows[0]} delay={0.5} />
+                        <RefreshCw className="size-4 animate-spin spin-icon" /> <DecryptedText text={content.s2.rows[0]} delay={0.5} />
                       </motion.div>
                       <motion.div
                         initial={{ opacity: 0, x: -20 }}
@@ -895,7 +886,7 @@ const PhoneSimulator = ({
                         transition={{ delay: 2.5 }}
                         className="analyzing-row dark-glass-card"
                       >
-                        <SyncOutlined spin className="spin-icon" /> <DecryptedText text={content.s2.rows[1]} delay={2.5} />
+                        <RefreshCw className="size-4 animate-spin spin-icon" /> <DecryptedText text={content.s2.rows[1]} delay={2.5} />
                       </motion.div>
                       <motion.div
                         initial={{ opacity: 0, x: -20 }}
@@ -903,7 +894,7 @@ const PhoneSimulator = ({
                         transition={{ delay: 4.5 }}
                         className="analyzing-row dark-glass-card"
                       >
-                        <SyncOutlined spin className="spin-icon" /> <DecryptedText text={content.s2.rows[2]} delay={4.5} />
+                        <RefreshCw className="size-4 animate-spin spin-icon" /> <DecryptedText text={content.s2.rows[2]} delay={4.5} />
                       </motion.div>
                     </div>
 
@@ -913,7 +904,7 @@ const PhoneSimulator = ({
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 5.5 }}
                     >
-                      <CheckCircleFilled /> {content.s2.badge}
+                      <CheckCircle2 className="size-4" /> {content.s2.badge}
                     </motion.div>
                   </div>
                 </motion.div>
@@ -940,7 +931,7 @@ const PhoneSimulator = ({
                     >
                       <div className="ai-avatar-wrapper">
                         <div className="ai-avatar pulse-glow">
-                          <HeartOutlined />
+                          <Heart className="size-4" />
                         </div>
                       </div>
                       <h3>{content.s3.feedbackTitle}</h3>
@@ -1032,7 +1023,7 @@ const PhoneSimulator = ({
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: 0.8 + idx * 0.7, type: "spring" }}
                           >
-                            <div className="task-checkbox"><CheckCircleFilled /></div>
+                            <div className="task-checkbox"><CheckCircle2 className="size-4" /></div>
                             <div className="task-content">
                               <strong>{task.title}</strong>
                               <span>{task.desc}</span>
@@ -1076,11 +1067,11 @@ const FlowSimulation = () => {
 
   const steps = useMemo<Step[]>(
     () => [
-      { title: c.steps[0].title, subtitle: c.steps[0].subtitle, icon: <FileTextOutlined /> },
-      { title: c.steps[1].title, subtitle: c.steps[1].subtitle, icon: <MessageOutlined /> },
-      { title: c.steps[2].title, subtitle: c.steps[2].subtitle, icon: <SyncOutlined /> },
-      { title: c.steps[3].title, subtitle: c.steps[3].subtitle, icon: <HeartOutlined /> },
-      { title: c.steps[4].title, subtitle: c.steps[4].subtitle, icon: <SolutionOutlined /> },
+      { title: c.steps[0].title, subtitle: c.steps[0].subtitle, icon: <FileText className="size-4" /> },
+      { title: c.steps[1].title, subtitle: c.steps[1].subtitle, icon: <MessageCircle className="size-4" /> },
+      { title: c.steps[2].title, subtitle: c.steps[2].subtitle, icon: <RefreshCw className="size-4" /> },
+      { title: c.steps[3].title, subtitle: c.steps[3].subtitle, icon: <Heart className="size-4" /> },
+      { title: c.steps[4].title, subtitle: c.steps[4].subtitle, icon: <ClipboardList className="size-4" /> },
     ],
     [c]
   );
@@ -1230,7 +1221,7 @@ const FlowSimulation = () => {
                           </svg>
                         )}
                         <span className={`step-icon ${isActive ? 'is-active' : ''}`} aria-hidden="true">
-                          {isCompleted ? <CheckCircleFilled /> : step.icon}
+                          {isCompleted ? <CheckCircle2 className="size-4" /> : step.icon}
                         </span>
                       </div>
                       <div className="step-text">
@@ -1272,7 +1263,7 @@ const FlowSimulation = () => {
                     transition={{ duration: 1.5, repeat: Infinity }}
                   />
                 ) : (
-                  <SyncOutlined />
+                  <RefreshCw className="size-4" />
                 )}
               </motion.div>
               <div className="stream-line right">

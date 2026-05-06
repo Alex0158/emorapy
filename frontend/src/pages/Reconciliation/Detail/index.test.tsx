@@ -136,7 +136,7 @@ describe('ReconciliationDetail', () => {
     mockToastSuccess.mockReset();
   });
 
-  it('顯示承諾工作台與共同承諾狀態', async () => {
+  it('顯示承諾工作台與reconDetail.commitmentTitle', async () => {
     mockGetPlanById.mockResolvedValue(createPlan());
 
     renderPage();
@@ -146,8 +146,8 @@ describe('ReconciliationDetail', () => {
     });
 
     expect(screen.getByRole('heading', { name: '一起恢復安全感' })).toBeInTheDocument();
-    expect(screen.getByText('共同承諾狀態')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /我願意先開始/ })).toBeInTheDocument();
+    expect(screen.getByText('reconDetail.commitmentTitle')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /reconDetail.actionSoloStart/ })).toBeInTheDocument();
   });
 
   it('已承諾但尚未雙方共修時可邀請對方或開始第一步', async () => {
@@ -183,16 +183,16 @@ describe('ReconciliationDetail', () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /邀請對方一起試/ })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /reconDetail.actionInvite/ })).toBeInTheDocument();
     });
 
-    await userEvent.click(screen.getByRole('button', { name: /邀請對方一起試/ }));
+    await userEvent.click(screen.getByRole('button', { name: /reconDetail.actionInvite/ }));
 
     await waitFor(() => {
       expect(mockInvitePartner).toHaveBeenCalledWith('plan-1');
     });
 
-    await userEvent.click(screen.getByRole('button', { name: /從今天開始/ }));
+    await userEvent.click(screen.getByRole('button', { name: /reconDetail.actionStartToday/ }));
 
     await waitFor(() => {
       expect(mockConfirmExecution).toHaveBeenCalledWith('plan-1');
@@ -254,16 +254,16 @@ describe('ReconciliationDetail', () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /我願意先開始/ })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /reconDetail.actionSoloStart/ })).toBeInTheDocument();
     });
 
-    await userEvent.click(screen.getByRole('button', { name: /我願意先開始/ }));
+    await userEvent.click(screen.getByRole('button', { name: /reconDetail.actionSoloStart/ }));
 
     await waitFor(() => {
       expect(mockSelectPlan).toHaveBeenCalledWith('plan-1');
     });
 
-    await userEvent.click(screen.getByRole('button', { name: /先暫停/ }));
+    await userEvent.click(screen.getByRole('button', { name: /reconDetail.actionPause/ }));
 
     await waitFor(() => {
       expect(mockPausePlan).toHaveBeenCalledWith('plan-1');
@@ -366,10 +366,10 @@ describe('ReconciliationDetail', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /我願意一起試/ })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /reconDetail.actionCommit/ })).toBeInTheDocument();
     });
 
-    await userEvent.click(screen.getByRole('button', { name: /我願意一起試/ }));
+    await userEvent.click(screen.getByRole('button', { name: /reconDetail.actionCommit/ }));
 
     await waitFor(() => {
       expect(mockRespondPlan).toHaveBeenCalledWith('plan-1', 'committed');

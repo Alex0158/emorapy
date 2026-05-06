@@ -20,6 +20,8 @@ const ROOT_DOC_OVERRIDES = {
       'backend/src/app.ts',
       'frontend/src/router/index.tsx',
       'frontend-admin/src/router.tsx',
+      'mobile/app/_layout.tsx',
+      'mobile/src/platform',
       'scripts/check-docs-structure.mjs',
     ],
     verificationMethod: '核對根層目錄契約、主文檔清單與路由掛載現況一致',
@@ -140,6 +142,7 @@ function classifyFormalDomain(relativePath) {
   const domain = segments[0];
   const filename = segments.at(-1);
   const basename = filename.replace(/\.md$/, '');
+  const isReadme = filename === 'README.md';
 
   const domainEvidenceMap = {
     '01-認證與會話': [
@@ -190,16 +193,19 @@ function classifyFormalDomain(relativePath) {
     ],
     '05-工程架構與共享層': [
       'package.json',
+      'scripts/start-dev.sh',
       'frontend/tsconfig.app.json',
       'frontend-admin/tsconfig.app.json',
       'backend/tsconfig.json',
+      'mobile/package.json',
       'mobile/tsconfig.json',
       'packages/contracts/package.json',
       'packages/api-client/package.json',
       'backend/src',
       'frontend/src',
       'frontend-admin/src',
-      'mobile/src',
+      'mobile/app',
+      'mobile/src/platform',
     ],
     '06-接口描述': [
       'backend/src/app.ts',
@@ -233,8 +239,12 @@ function classifyFormalDomain(relativePath) {
       'mobile/tsconfig.json',
       'mobile/app/_layout.tsx',
       'mobile/app/(tabs)/_layout.tsx',
+      'mobile/app/(tabs)/index.tsx',
+      'mobile/app/(tabs)/two.tsx',
+      'mobile/app/modal.tsx',
       'mobile/components/Themed.tsx',
       'mobile/constants/Colors.ts',
+      'mobile/src/platform',
       'packages/contracts/src',
       'packages/api-client/src',
     ],
@@ -243,7 +253,9 @@ function classifyFormalDomain(relativePath) {
       'backend/prisma/schema.prisma',
       'frontend/src/router/index.tsx',
       'frontend-admin/src/router.tsx',
+      'mobile/app',
       'mobile/tsconfig.json',
+      'mobile/src/platform',
       'packages/contracts/src',
       'packages/api-client/src',
     ],
@@ -274,11 +286,44 @@ function classifyFormalDomain(relativePath) {
     '50-跨端Mapping與Parity': '跨端能力到 Web / App / Backend / API / DB / 共享層的映射與缺口',
   };
 
+  const formalDocOverrides = {
+    '07-待處理問題與治理/待處理/App跨端Parity落地待辦-2026-05-05.md': {
+      docType: '問題治理',
+      domain: '07-待處理問題與治理',
+      coverage:
+        'App 版承接跨端產品核心、共享 contracts / api-client、原生能力與 Web 基線 Parity 的待處理任務',
+      evidenceSources: [
+        'mobile/package.json',
+        'mobile/tsconfig.json',
+        'mobile/app/_layout.tsx',
+        'mobile/app/(tabs)/_layout.tsx',
+        'mobile/app/(tabs)/index.tsx',
+        'mobile/app/(tabs)/two.tsx',
+        'mobile/app/modal.tsx',
+        'mobile/src/platform/storage/types.ts',
+        'mobile/src/platform/notifications/types.ts',
+        'mobile/src/platform/upload/types.ts',
+        'packages/contracts/src',
+        'packages/api-client/src',
+        'frontend/src/router/index.tsx',
+        'backend/src/routes',
+      ],
+      verificationMethod:
+        '核對 App 版承接跨端產品核心、shared contracts / api-client、Expo 模板 navigation、原生能力 types-only 骨架與 Web 基線 parity 的代碼待閉環項',
+      status: '已核驗',
+      isCurrentSsot: true,
+    },
+  };
+
+  if (formalDocOverrides[relativePath]) {
+    return formalDocOverrides[relativePath];
+  }
+
   return {
-    docType: domainTypeMap[domain] || (filename === 'README.md' ? '域索引' : '正式規格'),
+    docType: isReadme ? '域索引' : domainTypeMap[domain] || '正式規格',
     domain,
     coverage:
-      filename === 'README.md'
+      isReadme
         ? `${domain} 子域入口與閱讀順序`
         : filename.startsWith('00-')
           ? `${domainCoverageMap[domain]}總覽`
@@ -408,7 +453,16 @@ function classifyGovernanceDoc(relativePath) {
     docType: filename === 'README.md' ? '治理索引' : isActive ? '文檔治理' : '治理記錄',
     domain: '文件收斂',
     coverage: `文檔治理/台賬：${basename}`,
-    evidenceSources: ['scripts/check-docs-structure.mjs', 'scripts/check-docs-truth.mjs', 'docs/核心開發文件'],
+    evidenceSources: [
+      'package.json',
+      'scripts/check-docs-structure.mjs',
+      'scripts/check-docs-truth.mjs',
+      'scripts/confirm-docs-audit-sync.mjs',
+      'scripts/sync-core-docs-metadata.mjs',
+      'scripts/generate-core-docs-audit-ledger.mjs',
+      'scripts/lib/core-docs-audit.mjs',
+      'docs/核心開發文件',
+    ],
     verificationMethod: '核對目錄契約、台賬覆蓋與治理規則是否自洽',
     status: isActive ? '已核驗' : '已降級',
     isCurrentSsot: false,

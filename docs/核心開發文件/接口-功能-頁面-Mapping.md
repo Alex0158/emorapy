@@ -4,12 +4,12 @@
 **文檔類型**：旗艦映射
 **覆蓋範圍**：API -> 功能 -> 頁面 -> 流程節點映射
 **取證代碼入口**：`backend/src/routes`、`frontend/src/router/index.tsx`、`frontend-admin/src/router.tsx`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`a2dea6b`
-**最後核驗日期**：`2026-05-04`
+**最後核驗 Commit**：`1295216`
+**最後核驗日期**：`2026-05-05`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**文檔版本**：v1.13
-**最後更新**：2026-05-04
+**文檔版本**：v1.14
+**最後更新**：2026-05-05
 **目標**：把 API -> 功能 -> 頁面 -> 流程節點建立可回歸的單點追溯。
 
 ---
@@ -21,6 +21,8 @@
 - `狀態` 與 `全接口清單-主文檔` 保持一致（已使用/候選廢棄）。
 - 前台「完成度」以 `功能特性清單.md` 的口徑為準（`已完成/跨功能依賴/待驗證`），不覆蓋 API 狀態欄。
 - `F01-F10` 為主功能；`F11-F14` 為平台輔助能力附錄（同時包含候選與已使用運維接口）。
+- `主要頁面` 欄目前表示 Web/Admin route 或外部 Admin 子頁責任；App screen / native navigation 尚未落入此表，應由 `20-App端/01-App導航與平台Adapter基線.md` 與 `50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md` 追蹤。
+- API 契約、資料 shape、授權、限流或錯誤碼若會同時影響 Web 與 App，除更新本表外，必須同步更新 `50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md` 或新增待處理 parity 任務。
 - `GET /cases/:id`、`GET /cases/:id/judgment` 的授權分流以現碼為準：`quick`/`collaborative(session_id 有值)` 走 session；`remote`/`collaborative(session_id=null)` 走當事人 JWT。
 - 風險等級：
   - `H`：跨多場景、涉及身份/狀態遷移/SSE/文件。
@@ -202,3 +204,5 @@
 - 功能 -> 頁面：見 `功能特性清單.md` 的「頁面 × API 小功能點」。
 - 頁面 -> 路由守衛：見 `頁面清單.md`。守衛與直連行為（未登入強制跳轉、admin 無 token 重定向）以 `頁面清單.md` 與 `02-用戶端核心流程/00-用戶端核心流程總覽.md` 為準。
 - 流程 -> API：見 `業務流程整合.md`（下一文檔）。
+- 跨端產品語義：見 `00-跨端產品核心/00-跨端產品核心總覽.md`。
+- App 承接與 Web/App parity：總覽見 `20-App端/00-App端總覽.md` 與 `50-跨端Mapping與Parity/00-跨端Parity總覽.md`；App screen / native navigation / platform adapter 落地見 `20-App端/01-App導航與平台Adapter基線.md`，首輪能力到 Backend / API / DB / shared package 的工程對照見 `50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md`。

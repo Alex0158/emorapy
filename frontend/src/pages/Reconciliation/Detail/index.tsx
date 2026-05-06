@@ -160,39 +160,39 @@ const ReconciliationDetail = () => {
             <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{parsed.description}</p>
           </div>
           <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 pt-2 border-t border-border">
-            <div><dt className="text-xs font-medium text-muted-foreground">為什麼是這個方案</dt><dd className="mt-1 text-sm text-foreground">{plan.fit_reason || parsed.fit_reason}</dd></div>
+            <div><dt className="text-xs font-medium text-muted-foreground">{t('reconDetail.fitReasonLabel')}</dt><dd className="mt-1 text-sm text-foreground">{plan.fit_reason || parsed.fit_reason}</dd></div>
             <div><dt className="text-xs font-medium text-muted-foreground">{t('reconDetail.estimatedDurationLabel')}</dt><dd className="mt-1 text-sm text-foreground">{plan.estimated_duration != null ? t('reconDetail.durationDays').replace('{n}', String(plan.estimated_duration)) : t('reconDetail.durationTbd')}</dd></div>
             <div><dt className="text-xs font-medium text-muted-foreground">{t('reconDetail.doNotUseWhenLabel')}</dt><dd className="mt-1 text-sm text-foreground">{(plan.do_not_use_when || parsed.do_not_use_when).join('、') || t('reconDetail.noRestrictions')}</dd></div>
-            <div><dt className="text-xs font-medium text-muted-foreground">卡住時怎麼降難度</dt><dd className="mt-1 text-sm text-foreground">{plan.fallback_step || parsed.fallback_step}</dd></div>
+            <div><dt className="text-xs font-medium text-muted-foreground">{t('reconDetail.fallbackLabel')}</dt><dd className="mt-1 text-sm text-foreground">{plan.fallback_step || parsed.fallback_step}</dd></div>
           </dl>
         </div>
 
         {/* Steps */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 mb-6">
           <div className="rounded-xl border border-border bg-card p-5 space-y-3">
-            <h4 className="text-base font-semibold text-foreground">對你來說第一步是什麼</h4>
+            <h4 className="text-base font-semibold text-foreground">{t('reconDetail.firstStepTitle')}</h4>
             <p className="text-sm text-muted-foreground">{plan.first_step || parsed.first_step || parsed.steps[0]}</p>
-            <p className="text-xs text-muted-foreground/70">如果覺得太難：{plan.fallback_step || parsed.fallback_step}</p>
+            <p className="text-xs text-muted-foreground/70">{t('reconDetail.firstStepFallback')}{plan.fallback_step || parsed.fallback_step}</p>
           </div>
           <div className="rounded-xl border border-border bg-card p-5 space-y-3">
-            <h4 className="text-base font-semibold text-foreground">如果對方還沒準備好</h4>
-            <p className="text-sm text-muted-foreground">你仍然可以先從一個低壓步驟開始，先把氣氛和安全感慢慢拉回來。</p>
-            <p className="text-xs text-muted-foreground/70">不舒服時怎麼暫停：{plan.pause_rule || parsed.pause_rule}</p>
+            <h4 className="text-base font-semibold text-foreground">{t('reconDetail.partnerNotReadyTitle')}</h4>
+            <p className="text-sm text-muted-foreground">{t('reconDetail.partnerNotReadyBody')}</p>
+            <p className="text-xs text-muted-foreground/70">{t('reconDetail.pauseRuleHint')}{plan.pause_rule || parsed.pause_rule}</p>
           </div>
         </div>
 
         {/* Commitment Status */}
         <div className="rounded-xl border border-border bg-card p-6 space-y-5">
-          <h4 className="text-base font-semibold text-foreground">共同承諾狀態</h4>
+          <h4 className="text-base font-semibold text-foreground">{t('reconDetail.commitmentTitle')}</h4>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="rounded-lg bg-muted/50 p-4 space-y-2">
-              <span className="text-xs font-medium text-muted-foreground">你目前的狀態</span>
+              <span className="text-xs font-medium text-muted-foreground">{t('reconDetail.yourStatus')}</span>
               <Badge variant={currentStatus === 'committed' ? 'default' : 'secondary'} className={currentStatus === 'committed' ? 'bg-success/10 text-success' : ''}>
                 {commitmentLabelMap[currentStatus]?.() || currentStatus}
               </Badge>
             </div>
             <div className="rounded-lg bg-muted/50 p-4 space-y-2">
-              <span className="text-xs font-medium text-muted-foreground">對方目前的狀態</span>
+              <span className="text-xs font-medium text-muted-foreground">{t('reconDetail.partnerStatus')}</span>
               <Badge variant="secondary">
                 {commitmentLabelMap[partnerStatus]?.() || partnerStatus}
               </Badge>
@@ -211,7 +211,7 @@ const ReconciliationDetail = () => {
           {plan.track_history_summary?.has_superseded_versions && (
             <div className="flex items-start gap-3 rounded-lg bg-warning/5 border border-warning/20 p-3">
               <AlertCircle className="mt-0.5 size-4 shrink-0 text-warning" />
-              <p className="text-xs text-muted-foreground">這一輪之前已做過 {plan.track_history_summary.superseded_versions_count} 次版本調整，現在看到的是最新版本。</p>
+              <p className="text-xs text-muted-foreground">{t('reconDetail.versionHistory').replace('{count}', String(plan.track_history_summary.superseded_versions_count))}</p>
             </div>
           )}
 
@@ -219,30 +219,30 @@ const ReconciliationDetail = () => {
           <div className="flex flex-wrap gap-2 pt-2">
             {viewerRole === 'invitee' && currentStatus !== 'committed' && currentStatus !== 'declined' && (
               <>
-                <Button disabled={selecting} onClick={() => handleRespond('committed')}><CheckCircle className="size-4" />我願意一起試</Button>
-                <Button variant="outline" disabled={selecting} onClick={() => handleRespond('deferred', { reason: 'need_time', remind_in_hours: 72 })}>我需要一點時間</Button>
-                <Button variant="ghost" disabled={selecting} onClick={() => handleRespond('declined', { reason: 'needs_space' })}>暫時先不要</Button>
+                <Button disabled={selecting} onClick={() => handleRespond('committed')}><CheckCircle className="size-4" />{t('reconDetail.actionCommit')}</Button>
+                <Button variant="outline" disabled={selecting} onClick={() => handleRespond('deferred', { reason: 'need_time', remind_in_hours: 72 })}>{t('reconDetail.actionDefer')}</Button>
+                <Button variant="ghost" disabled={selecting} onClick={() => handleRespond('declined', { reason: 'needs_space' })}>{t('reconDetail.actionDecline')}</Button>
               </>
             )}
             {viewerRole !== 'invitee' && currentStatus !== 'committed' && currentStatus !== 'declined' && (
-              <Button disabled={selecting} onClick={handleCommit}><CheckCircle className="size-4" />我願意先開始</Button>
+              <Button disabled={selecting} onClick={handleCommit}><CheckCircle className="size-4" />{t('reconDetail.actionSoloStart')}</Button>
             )}
             {currentStatus === 'committed' && trackStatus !== 'replanning' && trackStatus !== 'paused' && (
-              <Button disabled={starting} onClick={handleStart}><Play className="size-4" />從今天開始</Button>
+              <Button disabled={starting} onClick={handleStart}><Play className="size-4" />{t('reconDetail.actionStartToday')}</Button>
             )}
             {currentStatus === 'committed' && !dualCommitted && viewerRole !== 'invitee' && plan.invite_context?.can_invite && (
-              <Button variant="outline" disabled={inviting} onClick={handleInvite}><Send className="size-4" />邀請對方一起試</Button>
+              <Button variant="outline" disabled={inviting} onClick={handleInvite}><Send className="size-4" />{t('reconDetail.actionInvite')}</Button>
             )}
             {trackStatus === 'replanning' && (
-              <Button onClick={() => navigate(`/execution/${id}/replan`)}><Play className="size-4" />重新調整這一輪</Button>
+              <Button onClick={() => navigate(`/execution/${id}/replan`)}><Play className="size-4" />{t('reconDetail.actionReplan')}</Button>
             )}
             {(trackStatus === 'paused' || currentStatus === 'paused') && plan.commitment?.track_id && (
-              <Button disabled={resuming} onClick={handleResume}><Play className="size-4" />恢復這一輪</Button>
+              <Button disabled={resuming} onClick={handleResume}><Play className="size-4" />{t('reconDetail.actionResume')}</Button>
             )}
             {currentStatus === 'committed' && trackStatus !== 'paused' && (
-              <Button variant="outline" disabled={pausing} onClick={handlePause}><Pause className="size-4" />先暫停</Button>
+              <Button variant="outline" disabled={pausing} onClick={handlePause}><Pause className="size-4" />{t('reconDetail.actionPause')}</Button>
             )}
-            <Button variant="ghost" onClick={() => judgmentId && navigate(`/reconciliation/${judgmentId}`)}><Heart className="size-4" />重新看看其他方向</Button>
+            <Button variant="ghost" onClick={() => judgmentId && navigate(`/reconciliation/${judgmentId}`)}><Heart className="size-4" />{t('reconDetail.actionExploreOther')}</Button>
           </div>
         </div>
       </motion.div>

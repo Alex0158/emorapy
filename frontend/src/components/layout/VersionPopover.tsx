@@ -3,6 +3,7 @@
  */
 
 import { Info, Loader2 } from 'lucide-react';
+import { t } from '@/utils/i18n';
 import { useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -35,11 +36,11 @@ export default function VersionPopover() {
     <Popover>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="sm" className="text-xs gap-1" onClick={() => void loadVersions()}>
-          <Info className="size-3.5" />版本
+          <Info className="size-3.5" />{t('common.version')}
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-56">
-        <p className="text-xs font-semibold text-foreground mb-2">版本資訊</p>
+        <p className="text-xs font-semibold text-foreground mb-2">{t('common.versionInfo')}</p>
         {loading && rows.length === 0 ? (
           <div className="flex justify-center py-2"><Loader2 className="size-4 animate-spin text-muted-foreground" /></div>
         ) : (

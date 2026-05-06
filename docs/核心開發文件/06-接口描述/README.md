@@ -1,10 +1,10 @@
 # 接口描述
 
 <!-- CORE_DOC_AUDIT_METADATA:START -->
-**文檔類型**：接口詳規
+**文檔類型**：域索引
 **覆蓋範圍**：06-接口描述 子域入口與閱讀順序
 **取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`adda512`
+**最後核驗 Commit**：`1295216`
 **最後核驗日期**：`2026-05-05`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -27,13 +27,14 @@
 
 1. 某個接口是否在用、候選廢棄或已確認廢棄。該狀態以 [../全接口清單-主文檔.md](../全接口清單-主文檔.md) 為準；本目錄內若附帶模組級狀態摘要，只作閱讀輔助。
 2. 某個功能或頁面的正式存在性
-3. 跨端產品核心、平台投影或 Web / App parity；這些分別回 [../00-跨端產品核心/README.md](../00-跨端產品核心/README.md)、[../10-Web端/README.md](../10-Web端/README.md)、[../20-App端/README.md](../20-App端/README.md) 與 [../50-跨端Mapping與Parity/README.md](../50-跨端Mapping與Parity/README.md)
+3. 跨端產品核心、平台投影或 Web / App parity；這些分別回 [../00-跨端產品核心/README.md](../00-跨端產品核心/README.md)、[../10-Web端/README.md](../10-Web端/README.md)、[../20-App端/README.md](../20-App端/README.md) 與 [../50-跨端Mapping與Parity/README.md](../50-跨端Mapping與Parity/README.md)。若涉及 App screen / native navigation / platform adapter，直接補看 [../20-App端/01-App導航與平台Adapter基線.md](../20-App端/01-App導航與平台Adapter基線.md)；若涉及 App 首輪能力到 Backend / API / DB / shared package 的落點，直接補看 [../50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md](../50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md)
 
 使用順序：
 
 1. 先查 [../全接口清單-主文檔.md](../全接口清單-主文檔.md) 確認接口狀態。
 2. 再進入本目錄查看模組內契約、業務規則、限流與回歸風險。
 3. 若要做影響分析，回查 [../接口-功能-頁面-Mapping.md](../接口-功能-頁面-Mapping.md)。
-4. 若接口變更會造成 Web / App / Backend / DB 一致性差異，必須同步回查 [../50-跨端Mapping與Parity/00-跨端Parity總覽.md](../50-跨端Mapping與Parity/00-跨端Parity總覽.md)。
+4. 若接口變更會造成 Web / App / Backend / DB 一致性差異，必須同步回查 [../50-跨端Mapping與Parity/00-跨端Parity總覽.md](../50-跨端Mapping與Parity/00-跨端Parity總覽.md) 與 [../50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md](../50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md)。
+5. 若接口變更會新增或改變 App Push token、Deep Link、Upload、SecureStore/session restore、telemetry 或 App-only response shape，不得只改本目錄；必須同步更新 App / Parity 文件或新增 `07-待處理問題與治理/待處理/` 任務。
 
 本目錄從屬於接口主冊，不替代主註冊表。

@@ -314,6 +314,17 @@ function extractFormalMetadataEvidencePathRefs(content) {
   return [...refs].sort();
 }
 
+function extractFormalMetadataField(content, label) {
+  const metadataBlockMatch = content.match(
+    /<!-- CORE_DOC_AUDIT_METADATA:START -->[\s\S]*?<!-- CORE_DOC_AUDIT_METADATA:END -->/
+  );
+  if (!metadataBlockMatch) {
+    return '';
+  }
+  const fieldRe = new RegExp(`\\*\\*${escapeRegExp(label)}\\*\\*[：:]\\s*` + '`?([^`\\n]+)`?');
+  return metadataBlockMatch[0].match(fieldRe)?.[1]?.trim() || '';
+}
+
 function extractTableFirstColumnMarkdownNames(content) {
   const names = [];
   for (const line of content.split('\n')) {
@@ -331,6 +342,7 @@ function extractTableFirstColumnMarkdownNames(content) {
 
 function parseAuditLedgerStatusRows(content) {
   const statusByPath = new Map();
+  const docTypeByPath = new Map();
   const duplicatePaths = [];
   const rows = [];
 
@@ -340,6 +352,7 @@ function parseAuditLedgerStatusRows(content) {
     }
     const cells = line.split('|').map((cell) => cell.trim());
     const pathCell = cells[1] || '';
+    const docTypeCell = cells[2] || '';
     const domainCell = cells[3] || '';
     const statusCell = cells[6] || '';
     if (!pathCell.startsWith('`') || !pathCell.endsWith('`')) {
@@ -351,10 +364,11 @@ function parseAuditLedgerStatusRows(content) {
       continue;
     }
     statusByPath.set(docPath, statusCell);
-    rows.push({ docPath, domain: domainCell, status: statusCell });
+    docTypeByPath.set(docPath, docTypeCell);
+    rows.push({ docPath, docType: docTypeCell, domain: domainCell, status: statusCell });
   }
 
-  return { statusByPath, duplicatePaths, rows };
+  return { statusByPath, docTypeByPath, duplicatePaths, rows };
 }
 
 function parseAuditLedgerSummaryStats(content) {
@@ -1122,6 +1136,7 @@ async function main() {
   const formalAuditLedgerDoc = await readDoc(FORMAL_DOC_AUDIT_LEDGER_PATH);
   const {
     statusByPath: formalLedgerStatusByPath,
+    docTypeByPath: formalLedgerDocTypeByPath,
     duplicatePaths: formalLedgerDuplicatePaths,
     rows: formalLedgerRows,
   } =
@@ -1183,6 +1198,7 @@ async function main() {
   const formalAuditRows = [];
   for (const relativePath of formalDocFiles) {
     const docContent = await readDoc(relativePath);
+    const metadataDocType = extractFormalMetadataField(docContent, '文檔類型');
     if (!docContent.includes('CORE_DOC_AUDIT_METADATA:START')) {
       issues.push(`[truth/formal-metadata] missing metadata header in ${relativePath}`);
     }
@@ -1191,6 +1207,20 @@ async function main() {
     }
     if (/\*\*文檔類型\*\*[：:]\s*`?(?:未標註|待補|TBD)`?/i.test(docContent)) {
       issues.push(`[truth/formal-metadata] placeholder 文檔類型 found in ${relativePath}`);
+    }
+    if (
+      FORMAL_DOC_DOMAIN_DIRS.some((domain) => relativePath === `${domain}/README.md`) &&
+      metadataDocType !== '域索引'
+    ) {
+      issues.push(
+        `[truth/formal-metadata] domain README must be typed as 域索引 in ${relativePath}: ${metadataDocType || '(missing)'}`
+      );
+    }
+    const ledgerDocType = formalLedgerDocTypeByPath.get(relativePath);
+    if (metadataDocType && ledgerDocType && metadataDocType !== ledgerDocType) {
+      issues.push(
+        `[truth/formal-ledger] metadata 文檔類型 mismatch for ${relativePath}: metadata=${metadataDocType}, ledger=${ledgerDocType}`
+      );
     }
     if (!/\*\*覆蓋範圍\*\*[：:]\s*\S+/.test(docContent)) {
       issues.push(`[truth/formal-metadata] missing 覆蓋範圍 in ${relativePath}`);

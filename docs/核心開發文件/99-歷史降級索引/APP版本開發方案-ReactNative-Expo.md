@@ -5,8 +5,8 @@
 **來源時間**：2026-04-18
 **上下文**：非現行 SSOT；僅保留歷史方案與遷移索引
 **SSOT 屬性**：非現行 SSOT（僅作證據/歷史/治理參考）
-**最後核驗 Commit**：`bd66c2d`
-**最後核驗日期**：`2026-04-18`
+**最後核驗 Commit**：`1295216`
+**最後核驗日期**：`2026-05-06`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 **文檔版本**：v1.0  
@@ -15,9 +15,21 @@
 
 ---
 
-> 本文件是 `2026-03-15` 的移動端歷史方案快照。現行工程結構與工作區約束請回到 [../05-工程架構與共享層/README.md](../05-工程架構與共享層/README.md) 與 `mobile/` 實際代碼，不要把本文直接當作當前 implementation contract。
+> 本文件是 `2026-03-15` 的移動端歷史方案快照，只能用來回看當時為何選擇 React Native + Expo。現行 App 開發不得直接採用本文的快速啟動指令、目錄建議、包版本、工具成本估算或 implementation contract。
+>
+> 現行入口固定為 [../20-App端/README.md](../20-App端/README.md)、[../20-App端/01-App導航與平台Adapter基線.md](../20-App端/01-App導航與平台Adapter基線.md)、[../50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md](../50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md) 與 [../07-待處理問題與治理/待處理/App跨端Parity落地待辦-2026-05-05.md](../07-待處理問題與治理/待處理/App跨端Parity落地待辦-2026-05-05.md)。
 
 ---
+
+## 現行替代口徑
+
+本文中的穩定結論只剩一項：App 技術方向曾選擇 React Native + Expo。其餘落地細節一律以現碼與現行核心文件為準。
+
+1. `mobile/` 已存在，不能再按本文 `npx create-expo-app ... cj-mobile` 新建第二套 App。
+2. `mobile/app` 當前仍是 Expo Router 模板骨架，不能視為 CJ 產品 navigation 已完成。
+3. `mobile/src/platform` 目前只具備 storage / notifications / upload 的 types-only 邊界，不能視為 SecureStore、Push 或 upload runtime adapter 已完成。
+4. App 需要新增 API、DB 欄位、shared enum、Deep Link、Push token 或 upload 授權時，必須先更新 `20-App端/01-App導航與平台Adapter基線.md` 與 `50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md`，必要時新增待辦。
+5. 本文後續段落若與上述入口或現碼衝突，一律以現碼與現行核心文件為準。
 
 ## 一、方案概述
 
@@ -223,4 +235,4 @@ React Native 可使用 `fetch` + `ReadableStream`（RN 0.72+）或 `@microsoft/f
 
 ---
 
-**文檔維護**：本方案隨專案演進可更新，建議在啟動 APP 開發前再次確認工具版本與相容性。
+**文檔維護**：本文已降級為只讀歷史快照，不再隨專案演進更新為現行方案。若其中內容需要重新成為正式規則，必須先回寫到 `20-App端/`、`50-跨端Mapping與Parity/` 或對應正式子域。

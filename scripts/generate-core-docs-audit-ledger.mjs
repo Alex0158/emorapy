@@ -9,7 +9,6 @@ import {
 import { CORE_DOCS_SEGMENTS, joinRepoPath } from './lib/docs-paths.mjs';
 
 const repoRoot = path.resolve(new URL('.', import.meta.url).pathname, '..');
-const auditDate = '2026-04-18';
 const ledgerRelativePath = path.posix.join(
   ...CORE_DOCS_SEGMENTS,
   '文件收斂',
@@ -61,6 +60,26 @@ const correctedDocs = new Set([
   '測試/回歸與驗收/發版前回歸記錄-2026-03-17.md',
 ]);
 
+function parseArgs(argv) {
+  return {
+    dryRun: argv.includes('--dry-run'),
+    list: argv.includes('--list'),
+  };
+}
+
+function getShanghaiDateYmd() {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+  const partMap = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${partMap.year}-${partMap.month}-${partMap.day}`;
+}
+
+const auditDate = getShanghaiDateYmd();
+
 function getHeadCommit() {
   return execFileSync('git', ['rev-parse', '--short', 'HEAD'], {
     cwd: repoRoot,
@@ -92,7 +111,7 @@ function escapeCell(value) {
   return String(value).replace(/\|/g, '\\|').replace(/\n/g, '<br>');
 }
 
-async function main() {
+async function buildLedgerContent() {
   const headCommit = getHeadCommit();
   const files = await walkCoreDocsFiles(repoRoot);
   const entries = [];
@@ -177,8 +196,49 @@ async function main() {
   lines.push('3. `docs:check` 需持續保持綠燈；若新增 route / page / enum 未回寫，CI 應直接失敗。');
   lines.push('');
 
-  await fs.writeFile(ledgerPath, `${lines.join('\n')}\n`, 'utf8');
-  console.log(`[core-docs-ledger] wrote ${path.relative(repoRoot, ledgerPath)} with ${entries.length} entries`);
+  return {
+    content: `${lines.join('\n')}\n`,
+    entryCount: entries.length,
+    entries,
+    countsByStatus,
+    countsByDomain,
+  };
+}
+
+async function main() {
+  const args = parseArgs(process.argv.slice(2));
+  const nextLedger = await buildLedgerContent();
+  if (args.dryRun) {
+    let currentContent = '';
+    try {
+      currentContent = await fs.readFile(ledgerPath, 'utf8');
+    } catch {
+      currentContent = '';
+    }
+    const changed = currentContent !== nextLedger.content;
+    console.log(
+      `[core-docs-ledger] dry-run ${changed ? 'would update' : 'no changes'} ${path.relative(repoRoot, ledgerPath)} with ${nextLedger.entryCount} entries`
+    );
+    const statusSummary = Object.entries(nextLedger.countsByStatus)
+      .sort((left, right) => left[0].localeCompare(right[0], 'zh-Hans-CN'))
+      .map(([status, count]) => `${status}:${count}`)
+      .join(', ');
+    const domainSummary = Object.entries(nextLedger.countsByDomain)
+      .sort((left, right) => left[0].localeCompare(right[0], 'zh-Hans-CN'))
+      .map(([domain, count]) => `${domain}:${count}`)
+      .join(', ');
+    console.log(`[core-docs-ledger] dry-run statuses ${statusSummary}`);
+    console.log(`[core-docs-ledger] dry-run domains ${domainSummary}`);
+    if (args.list) {
+      for (const entry of nextLedger.entries) {
+        console.log(`[core-docs-ledger] ${entry.status} ${entry.domain} ${entry.docType}: ${entry.relativePath}`);
+      }
+    }
+    return;
+  }
+
+  await fs.writeFile(ledgerPath, nextLedger.content, 'utf8');
+  console.log(`[core-docs-ledger] wrote ${path.relative(repoRoot, ledgerPath)} with ${nextLedger.entryCount} entries`);
 }
 
 main().catch((error) => {

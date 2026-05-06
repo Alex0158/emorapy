@@ -30,6 +30,7 @@ npm run ops:release:gate:evidence
 npm run ops:db:status
 cd backend && npm run ops:product-state:audit
 cd backend && npm run precheck:pairing:normal-uniqueness
+npm run docs:audit:dry-run:current
 npm run docs:check
 ```
 
@@ -165,4 +166,17 @@ Long-lived engineering docs belong in `docs/核心開發文件/`. After changing
 npm run docs:check
 ```
 
+Before running broad metadata or ledger generation such as `npm run docs:audit:sync`, first run `npm run docs:audit:dry-run` and review the current/non-current and domain impact count. `docs:audit:sync` intentionally requires `DOCS_AUDIT_SYNC_CONFIRMED=1`; do not set it unless the broad rewrite is intended. For routine formal-doc work, prefer `npm run docs:audit:dry-run:current`.
+
 Do not create competing active specs outside the core docs tree unless the file is a standard repo control file such as this `AGENTS.md`.
+
+Current core-doc architecture:
+
+1. Cross-platform product truth: `docs/核心開發文件/00-跨端產品核心/`.
+2. Platform projections: `docs/核心開發文件/10-Web端/` and `docs/核心開發文件/20-App端/`.
+3. Cross-platform parity tracking: `docs/核心開發文件/50-跨端Mapping與Parity/`.
+4. Root flagship files remain active registers for function, page, API, mapping, flow, and terminology, but Web/Admin evidence in those files must not be treated as proof that App is implemented.
+
+For App work, always read `docs/核心開發文件/20-App端/01-App導航與平台Adapter基線.md` before changing `mobile/app` or `mobile/src/platform`, and read `docs/核心開發文件/50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md` before changing shared contracts, API clients, backend routes, DB schema, auth/session behavior, deep links, notifications, uploads, or telemetry for App parity.
+
+When changing product capability semantics, platform-specific behavior, API/data contracts, navigation, auth, DB schema, shared packages, or release/development parity, update the relevant layer above and create/update a pending task under `docs/核心開發文件/07-待處理問題與治理/待處理/` if any side remains incomplete.

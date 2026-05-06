@@ -3,9 +3,9 @@
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：核心入口
 **覆蓋範圍**：核心開發文件閱讀順序、SSOT 邊界與 repo 級文檔治理口徑
-**取證代碼入口**：`backend/src/app.ts`、`frontend/src/router/index.tsx`、`frontend-admin/src/router.tsx`、`scripts/check-docs-structure.mjs`
-**最後核驗 Commit**：`1351c20`
-**最後核驗日期**：`2026-04-19`
+**取證代碼入口**：`backend/src/app.ts`、`frontend/src/router/index.tsx`、`frontend-admin/src/router.tsx`、`mobile/app/_layout.tsx`、`mobile/src/platform`、`scripts/check-docs-structure.mjs`
+**最後核驗 Commit**：`1295216`
+**最後核驗日期**：`2026-05-06`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 本目錄是 `CJ` 項目唯一有效的工程與產品正式文檔依據。
@@ -36,12 +36,12 @@
 1. 根層旗艦總覽文檔
 2. [00-跨端產品核心/README.md](./00-跨端產品核心/README.md)（需要理解 Web / App 共用產品能力、角色、流程與狀態機時）
 3. [10-Web端/README.md](./10-Web端/README.md)（需要查看當前 Web / Admin Web 凍結基線時）
-4. [20-App端/README.md](./20-App端/README.md)（需要啟動或評估 App 版開發時）
-5. [50-跨端Mapping與Parity/README.md](./50-跨端Mapping與Parity/README.md)（需要判斷 Web / App / Backend / API / DB 是否一致時）
+4. [20-App端/README.md](./20-App端/README.md)（需要啟動或評估 App 版開發時；App navigation / platform adapter 先看 `20-App端/01-App導航與平台Adapter基線.md`）
+5. [50-跨端Mapping與Parity/README.md](./50-跨端Mapping與Parity/README.md)（需要判斷 Web / App / Backend / API / DB 是否一致時；App 首輪工程落點先看 `50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md`）
 6. 對應正式子域 README 與 `00-*總覽.md`
 7. `06-接口描述/`
 8. [07-待處理問題與治理/README.md](./07-待處理問題與治理/README.md)（需要決定先修什麼、先治理什麼時）
-9. [08-測試規範與驗收/README.md](./08-測試規範與驗收/README.md)（涉及測試策略、覆蓋口徑、驗收標準時）
+9. [08-測試規範與驗收/README.md](./08-測試規範與驗收/README.md)（涉及測試策略、覆蓋口徑、驗收標準時；App 測試/證據進場先看 `08-測試規範與驗收/03-App測試與證據接入基線.md`）
 10. [測試/README.md](./測試/README.md)（需要活躍案例、回歸包與執行入口時）
 11. [90-證據與盤點/README.md](./90-證據與盤點/README.md)（需要證據鏈、環境核驗、頁面快照時）
 12. [99-歷史降級索引/README.md](./99-歷史降級索引/README.md)（只在需要回溯歷史材料時）
@@ -59,7 +59,7 @@
 | --- | --- |
 | `README.md` | 主入口與目錄使用方式 |
 | `功能特性清單.md` | 功能存在、能力邊界與產品能力基線 |
-| `頁面清單.md` | Web / Admin / Mobile 頁面入口、守衛與落點基線 |
+| `頁面清單.md` | Web / Admin Web 頁面入口、守衛與落點基線；App route 另由 `20-App端/` 與 `50-跨端Mapping與Parity/` 承接 |
 | `全接口清單-主文檔.md` | API 註冊總表與狀態唯一來源 |
 | `接口-功能-頁面-Mapping.md` | API / 功能 / 頁面交叉追溯矩陣，用於影響分析 |
 | `業務流程整合.md` | 跨入口、跨角色主流程總覽 |
@@ -83,15 +83,15 @@
 | --- | --- |
 | `00-跨端產品核心/` | Web / App 共用的產品能力、角色、流程、狀態機與一致性規則；跨端產品語義最高 SSOT |
 | `10-Web端/` | Web / Admin Web 凍結基線、平台投影與已實作狀態；作為 App 開發對照，不重新定義產品核心 |
-| `20-App端/` | Expo App 開發入口、App 平台投影、原生能力邊界與待閉環事項 |
-| `50-跨端Mapping與Parity/` | 產品能力到 Web / App / Backend / API / DB / 共享層的映射與 Parity 缺口台帳 |
+| `20-App端/` | Expo App 開發入口、App 平台投影、navigation 替換、原生 platform adapter 邊界與待閉環事項 |
+| `50-跨端Mapping與Parity/` | 產品能力到 Web / App / Backend / API / DB / 共享層的映射、App 首輪工程落點與 Parity 缺口台帳 |
 
 ### 正式核心子目錄
 
 | 目錄 | 定位 |
 | --- | --- |
 | `01-認證與會話/` | 註冊、登入、會話、身份來源與入口守衛的正式規格入口 |
-| `02-用戶端核心流程/` | Web / Mobile 主要用戶流，包括快速體驗、正式案件、聊天室、Repair Journey、心理訪談等 |
+| `02-用戶端核心流程/` | 目前以前台 Web 主流程為主要取證，承接快速體驗、正式案件、聊天室、Repair Journey、心理訪談等；App 投影需回跳 `20-App端/` 與 `50-跨端Mapping與Parity/` |
 | `03-管理端與平台治理/` | Admin Web、平台治理、健康檢查、配置與運營能力 |
 | `04-共用機制/` | 跨 Web / Admin / Mobile / Backend 的共用規則與共享機制 |
 | `05-工程架構與共享層/` | repo 分層、共享 package、跨端契約與工程落點規則 |
@@ -135,7 +135,7 @@
 2. **平台投影文件**：由 `10-Web端/` 與 `20-App端/` 承接，只描述該端如何實作或承接跨端核心，不得自行改寫產品規則。
 3. **跨端映射與缺口**：由 `50-跨端Mapping與Parity/` 承接，追蹤 Web / App / Backend / API / DB / 共享層的一致性、差異與待處理任務。
 
-Web 版本若被定格，`10-Web端/` 是「已實作基線」；App 版本開發時應以 `00-跨端產品核心/` 為最高產品裁決，以 `50-跨端Mapping與Parity/` 管理差異，不應把 Web UI 現狀直接複製成 App 產品規則。
+Web 版本若被定格，`10-Web端/` 是「已實作基線」；App 版本開發時應以 `00-跨端產品核心/` 為最高產品裁決，以 `20-App端/01-App導航與平台Adapter基線.md` 管理 App navigation / native adapter 落地，以 `50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md` 管理 Web / App / Backend / API / DB / shared 差異，以 `08-測試規範與驗收/03-App測試與證據接入基線.md` 管理 App smoke / regression / CI / evidence 進場，不應把 Web UI 現狀或 Web/Admin 測試通過直接複製成 App 產品規則或 App 驗收結論。
 
 ---
 

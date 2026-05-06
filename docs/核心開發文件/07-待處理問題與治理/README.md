@@ -1,11 +1,11 @@
 # 待處理問題與治理
 
 <!-- CORE_DOC_AUDIT_METADATA:START -->
-**文檔類型**：問題治理
+**文檔類型**：域索引
 **覆蓋範圍**：07-待處理問題與治理 子域入口與閱讀順序
 **取證代碼入口**：`backend/src`、`frontend/src`、`frontend-admin/src`、`docs/核心開發文件`
-**最後核驗 Commit**：`4d14e4f`
-**最後核驗日期**：`2026-04-19`
+**最後核驗 Commit**：`1295216`
+**最後核驗日期**：`2026-05-05`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 本子域承接 `CJ` 的活躍問題、優先級與治理狀態，但根層只保留活躍入口與已處理台帳入口。
@@ -53,3 +53,13 @@
 2. 若已有專題文件，再進對應狀態子目錄
 3. 再回到根層旗艦文檔與 `06-接口描述/` 核對正式口徑
 4. 最後再看實際代碼與補充證據
+
+## 自動生成待辦口徑
+
+以下差異不得只停留在口頭或單份正文中；若尚未雙邊閉環，必須新增或更新 `待處理/` 任務：
+
+1. dev / release、docs / code、schema / runtime、Web / App 任一側存在必須統一的差異。
+2. API、DB schema、shared contracts、api-client、auth/session、Deep Link、notification、upload、telemetry 變更會影響 App parity。
+3. `mobile/app` 從模板 navigation 推進到 CJ App screen，或 `mobile/src/platform` 從 types-only 推進到 runtime adapter。
+
+App 相關待辦必須同時反引 [../20-App端/01-App導航與平台Adapter基線.md](../20-App端/01-App導航與平台Adapter基線.md) 與 [../50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md](../50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md)，避免只記錄「App 未完成」而沒有工程落點。

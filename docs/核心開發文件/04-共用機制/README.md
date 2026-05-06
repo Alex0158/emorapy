@@ -8,7 +8,7 @@
 **最後核驗日期**：`2026-05-03`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-本子域承接跨主 Web、Admin token 體系、共享契約與部分跨端邏輯的正式規則與共用機制。
+本子域承接跨主 Web、Admin token 體系、共享契約與部分跨端邏輯的正式規則與共用機制。當共用機制需要投影到 App 端時，必須經由 App navigation / platform adapter 基線與 App 首輪工程落點 Mapping 裁決，不得直接把 Web/Admin helper 當作 App runtime。
 
 當前正式文檔：
 
@@ -26,6 +26,7 @@
 1. 單一業務流的完整產品正文
 2. 單一接口是否在用
 3. 工程包結構、workspace 與共享 package 落點
+4. App 原生 platform adapter、native storage、Push、Deep Link、upload provider 或 App lifecycle 的 runtime 實作
 
 閱讀順序：
 
@@ -34,3 +35,4 @@
 3. 再讀 [../06-接口描述/README.md](../06-接口描述/README.md) 中對應模組的共用約束
 4. 若屬共享視覺 token、theme 邊界與樣式收斂，讀 [01-樣式Token與共享視覺規範.md](./01-樣式Token與共享視覺規範.md)
 5. 若屬跨端工程規則，再進 [../05-工程架構與共享層/README.md](../05-工程架構與共享層/README.md)
+6. 若屬 App 端共用機制、native adapter 或 shared contracts / api-client 消費，再進 [../20-App端/01-App導航與平台Adapter基線.md](../20-App端/01-App導航與平台Adapter基線.md) 與 [../50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md](../50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md)

@@ -18,6 +18,7 @@ Web 端基線以當前 repo 的 `frontend/`、`frontend-admin/`、`backend/`、`
 2. Web 已有但不適合 App 原樣搬遷的能力，應記為平台差異。
 3. Web 沒有閉環但跨端產品核心要求存在的能力，應記為代碼待處理任務。
 4. Web 平台專屬實作不得反向污染跨端核心。
+5. Web -> App 轉譯必須通過 `20-App端/01-App導航與平台Adapter基線.md` 與 `50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md`，不得把本基線當成 App navigation 或 native adapter 設計。
 
 ## 2. Web 應用邊界
 
@@ -65,7 +66,7 @@ App 開發時應優先對照：
 1. 路由與頁面責任：`頁面清單.md`。
 2. API 使用面：`全接口清單-主文檔.md` 與 `06-接口描述/`。
 3. 功能到頁面與接口映射：`接口-功能-頁面-Mapping.md`。
-4. 跨端差異：`50-跨端Mapping與Parity/`。
+4. App navigation / platform adapter：`20-App端/01-App導航與平台Adapter基線.md`。
+5. 跨端差異與工程落點：`50-跨端Mapping與Parity/00-跨端Parity總覽.md` 與 `50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md`。
 
 若 App 因原生權限、推播、Deep Link、SecureStore 或離線/恢復流程需要新增平台行為，應先在 App 端文件描述，再在 Parity 文件裁決是否屬於產品核心差異。
-

@@ -3,9 +3,9 @@
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：正式規格
 **覆蓋範圍**：工作區結構、共享層與工程約束：Repo平台分層與共享規範
-**取證代碼入口**：`package.json`、`frontend/tsconfig.app.json`、`frontend-admin/tsconfig.app.json`、`backend/tsconfig.json`、`mobile/tsconfig.json`、`packages/contracts/package.json`、`packages/api-client/package.json`、`backend/src`、`frontend/src`、`frontend-admin/src`、`mobile/src`
-**最後核驗 Commit**：`963c0d3`
-**最後核驗日期**：`2026-04-19`
+**取證代碼入口**：`package.json`、`scripts/start-dev.sh`、`frontend/tsconfig.app.json`、`frontend-admin/tsconfig.app.json`、`backend/tsconfig.json`、`mobile/package.json`、`mobile/tsconfig.json`、`packages/contracts/package.json`、`packages/api-client/package.json`、`backend/src`、`frontend/src`、`frontend-admin/src`、`mobile/app`、`mobile/src/platform`
+**最後核驗 Commit**：`1295216`
+**最後核驗日期**：`2026-05-05`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 ## 1. 目的
@@ -75,8 +75,10 @@
 
 - 預設所有功能放在跨平台共用檔案
 - 只有在必要時才建立 `*.ios.ts`、`*.android.ts`、`*.ios.tsx`、`*.android.tsx`
-- 平台差異優先收斂在 `mobile/` 內的平台適配層；正式 `src/platform` 骨架尚未落地
+- 平台差異優先收斂在 `mobile/` 內的平台適配層；`mobile/src/platform` 已有 storage、notifications、upload 的 types-only 骨架，但 runtime adapter 尚未落地
 - 業務流程、路由結構、型別契約與資料層邏輯應盡量共用
+
+App 的路由結構不得直接照搬 Web route。`mobile/app` 的模板替換、Deep Link、session restore 與原生能力入口以 [../20-App端/01-App導航與平台Adapter基線.md](../20-App端/01-App導航與平台Adapter基線.md) 為 gate；若同時牽動 Backend / API / DB / shared package，以 [../50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md](../50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md) 作工程對照。
 
 ## 6. 推進順序
 
@@ -91,7 +93,7 @@
 - 建立 `packages/contracts`
 - 建立 `packages/api-client`
 - 保持 `mobile/`、`backend/` 不進 root workspace；`packages/*` 已進入 root workspace，但不做大規模 app 目錄搬移
-- 不在本輪建立 mobile feature/platform 骨架，避免未驗證的 mobile 結構變更混入共享層基線
+- App 只保留 Expo Router 模板與 `mobile/src/platform` types-only 骨架，不在本輪建立 CJ mobile feature 或 runtime platform adapter
 
 這代表 repo 已開始進入平台分層模式，但仍保留既有目錄穩定性。
 
@@ -106,6 +108,7 @@
 - `frontend-admin/tsconfig.app.json` 已接上 `@cj/contracts` 與 `@cj/api-client` alias
 - `frontend-admin/package.json` 已聲明 `@cj/contracts` 與 `@cj/api-client` workspace dependencies
 - `mobile/tsconfig.json` 已預留共享 package alias
+- `mobile/src/platform/storage/types.ts`、`mobile/src/platform/notifications/types.ts`、`mobile/src/platform/upload/types.ts` 已建立平台 adapter 型別邊界，但沒有 runtime 實作
 - `frontend/` 與 `frontend-admin/` 不保留 app-local package-lock；CI/Vercel 必須從 root workspace 安裝
 - Vercel build 必須先跑 shared artifacts，再執行 `npm run build --workspace frontend-admin`
 - root 腳本若以 bare import 使用工具，必須由 root manifest 聲明依賴
@@ -122,7 +125,7 @@
 
 - `backend/src` 目前仍有 `rootDir` 限制，不能直接安全地引用 `packages/contracts` 原始碼作為正式來源；應消費 `types/` declaration artifact
 - `frontend/src/types/common.ts` 目前只做部分共享對齊，仍保留相容性包裝，避免一次影響既有大量 API 使用點
-- `mobile/` 尚未正式消費共享 contracts，目前只保留既有 Expo 目錄與 alias 準備
+- `mobile/` 尚未正式消費共享 contracts，目前只保留既有 Expo 目錄、alias 準備與 types-only 平台骨架
 - `frontend-admin/` 仍維持本地 domain API request stack，僅局部接入共享 contracts DTO 與 shared transport baseline
 
 ## 10. 下一步建議
@@ -131,4 +134,5 @@
 
 1. 讓 `packages/contracts` 產生穩定的 declaration/build 輸出，供 backend 安全引用
 2. 繼續把 `frontend/src/services/request.ts` 可抽離部分下沉到 `packages/api-client`
-3. 建立 `packages/domain`，開始收斂 query keys、formatter、permission 與純業務邏輯
+3. 為 `mobile/src/platform` 補齊 SecureStore、Push notification、upload / ImagePicker 等 runtime adapter；動手前先對齊 `20-App端/01-App導航與平台Adapter基線.md`，並在 `50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md` 與 Parity 待辦中裁決 API / DB / shared 影響
+4. 建立 `packages/domain`，開始收斂 query keys、formatter、permission 與純業務邏輯

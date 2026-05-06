@@ -15,11 +15,13 @@
 1. [00-Web端凍結基線總覽.md](./00-Web端凍結基線總覽.md)
 2. [../頁面清單.md](../頁面清單.md)
 3. [../接口-功能-頁面-Mapping.md](../接口-功能-頁面-Mapping.md)
-4. [../50-跨端Mapping與Parity/00-跨端Parity總覽.md](../50-跨端Mapping與Parity/00-跨端Parity總覽.md)
+4. [../20-App端/01-App導航與平台Adapter基線.md](../20-App端/01-App導航與平台Adapter基線.md)
+5. [../50-跨端Mapping與Parity/00-跨端Parity總覽.md](../50-跨端Mapping與Parity/00-跨端Parity總覽.md)
+6. [../50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md](../50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md)
 
 ## 維護規則
 
 1. Web 端文件只描述 `frontend/` 與 `frontend-admin/` 的平台投影。
 2. 產品核心變更應先回寫 `00-跨端產品核心/`，再更新 Web 端差異。
 3. Web 凍結後若仍修 bug 或治理缺口，必須更新本目錄的凍結基線與待處理任務狀態。
-
+4. App 開發使用 Web 基線時，必須通過 App navigation / adapter 基線與 App 首輪工程落點 Mapping 做轉譯，不得直接把 Web route、guard、storage 或 Admin 入口當成 App 方案。

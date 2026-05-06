@@ -30,6 +30,7 @@
 1. 普通用戶主流程與情境案例正文
 2. API 主冊狀態判定
 3. 營銷、品牌與對外敘事材料
+4. 普通用戶 App 端的 navigation、Push、Deep Link、SecureStore 或原生能力承接
 
 閱讀順序：
 
@@ -41,3 +42,4 @@
 6. 若需要環境、部署、回滾與 smoke 基線，先讀 [01-環境與部署基線.md](./01-環境與部署基線.md) 與 [02-發布與回滾檢查表.md](./02-發布與回滾檢查表.md)
 7. 若需要告警、metrics、chat stage gate 與 benchmark / migration drill 基線，再讀 [03-運維告警與AI-Chat治理基線.md](./03-運維告警與AI-Chat治理基線.md)
 8. 若需要環境核驗與運行證據，再進 [../90-證據與盤點/環境與發版驗證/README.md](../90-證據與盤點/環境與發版驗證/README.md)
+9. 若治理能力新增 App-visible notification、Deep Link、telemetry 或 App runtime gate，需同步回查 [../20-App端/01-App導航與平台Adapter基線.md](../20-App端/01-App導航與平台Adapter基線.md)、[../50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md](../50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md) 與 `07-待處理問題與治理/`

@@ -5,8 +5,8 @@
 **來源時間**：2026-04-18
 **上下文**：非現行 SSOT；僅作證據留存
 **SSOT 屬性**：非現行 SSOT（僅作證據/歷史/治理參考）
-**最後核驗 Commit**：`bd66c2d`
-**最後核驗日期**：`2026-04-18`
+**最後核驗 Commit**：`1295216`
+**最後核驗日期**：`2026-05-06`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 本目錄承接仍需保留在 `核心開發文件/` 主目錄中的附錄、證據與對賬材料。
@@ -37,3 +37,16 @@
 4. 手動回歸是否真正完成，以 `npm run manual-regression:check` / `check:strict` 為準，不以目錄是否存在為準
 
 不要反過來做：不要先讀本目錄，再反推正式規格。
+
+## App 證據口徑
+
+目前 `頁面HTML快照/` 與既有手動回歸證據主要覆蓋 Web 前台與 Admin Web。它們不能被解讀為 App 版 navigation、Deep Link、SecureStore、Push、upload adapter 或 App 原生回歸已完成。
+
+若 App 開始替換 Expo 模板、接入平台 adapter 或新增 App smoke / regression 證據，必須先回到：
+
+1. [../20-App端/01-App導航與平台Adapter基線.md](../20-App端/01-App導航與平台Adapter基線.md)
+2. [../50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md](../50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md)
+3. [../08-測試規範與驗收/03-App測試與證據接入基線.md](../08-測試規範與驗收/03-App測試與證據接入基線.md)
+4. [../07-待處理問題與治理/待處理/App跨端Parity落地待辦-2026-05-05.md](../07-待處理問題與治理/待處理/App跨端Parity落地待辦-2026-05-05.md)
+
+App 證據應證明對應 platform adapter、API / DB / shared package 影響已閉環；若只證明某個 screen 可以啟動，不能升格為跨端 Parity 完成。

@@ -206,6 +206,11 @@ enum NotificationStatus {
   cancelled
 }
 
+enum PushPlatform {
+  ios
+  android
+}
+
 enum AdminRoleKey {
   super_admin
   ops
@@ -342,53 +347,55 @@ enum ChatInviteStatus {
 
 // 模型定義
 model User {
-  id                   String              @id @default(uuid())
-  email                String              @unique
-  password_hash        String
-  nickname             String?
-  avatar_url           String?
-  avatar_mime          String?
-  gender               Gender?
-  age                  Int?
-  relationship_status  RelationshipStatus  @default(single)
-  language             Language            @default(zh)
-  timezone             String?
-  notification_enabled Boolean             @default(true)
-  privacy_level        Privacy             @default(private)
-  last_login_at        DateTime?
-  is_active            Boolean             @default(true)
-  email_verified       Boolean             @default(false)
+  id                    String             @id @default(uuid())
+  email                 String             @unique
+  password_hash         String
+  nickname              String?
+  avatar_url            String?
+  avatar_mime           String?
+  gender                Gender?
+  age                   Int?
+  relationship_status   RelationshipStatus @default(single)
+  language              Language           @default(zh)
+  timezone              String?
+  notification_enabled  Boolean            @default(true)
+  privacy_level         Privacy            @default(private)
+  last_login_at         DateTime?
+  is_active             Boolean            @default(true)
+  email_verified        Boolean            @default(false)
   login_failed_attempts Int                @default(0)
-  locked_until         DateTime?
-  token_version        Int                 @default(0)
-  deleted_at           DateTime?
-  created_by           String?
-  updated_by           String?
-  created_at           DateTime            @default(now())
-  updated_at           DateTime            @updatedAt
+  locked_until          DateTime?
+  token_version         Int                @default(0)
+  deleted_at            DateTime?
+  created_by            String?
+  updated_by            String?
+  created_at            DateTime           @default(now())
+  updated_at            DateTime           @updatedAt
 
-  profile              UserProfile?
-  cases_as_plaintiff   Case[]              @relation("PlaintiffCases")
-  cases_as_defendant   Case[]              @relation("DefendantCases")
-  evidences            Evidence[]
-  execution_records    ExecutionRecord[]
+  profile                   UserProfile?
+  cases_as_plaintiff        Case[]                   @relation("PlaintiffCases")
+  cases_as_defendant        Case[]                   @relation("DefendantCases")
+  evidences                 Evidence[]
+  execution_records         ExecutionRecord[]
   repair_participant_states RepairParticipantState[]
-  repair_checkins      RepairCheckIn[]
-  repair_track_events  RepairTrackEvent[]
-  pairings_as_user1    Pairing[]           @relation("User1Pairings")
-  pairings_as_user2    Pairing[]           @relation("User2Pairings")
-  notifications        Notification[]
+  repair_checkins           RepairCheckIn[]
+  repair_track_events       RepairTrackEvent[]
+  pairings_as_user1         Pairing[]                @relation("User1Pairings")
+  pairings_as_user2         Pairing[]                @relation("User2Pairings")
+  notifications             Notification[]
+  push_device_tokens        PushDeviceToken[]
+  app_telemetry_events      AppTelemetryEvent[]
 
   // v2.0: 心理畫像
-  psych_consent_given  Boolean             @default(false)
-  psych_consent_at     DateTime?
-  interview_sessions   InterviewSession[]
-  profile_narratives   ProfileNarrative[]
-  profile_insights     ProfileInsight[]
-  profile_snapshots    ProfileSnapshot[]
-  chat_rooms_owned     ChatRoom[]           @relation("ChatRoomOwner")
-  chat_participants    ChatParticipant[]
-  chat_invites_received ChatInvite[]        @relation("ChatInvitee")
+  psych_consent_given   Boolean            @default(false)
+  psych_consent_at      DateTime?
+  interview_sessions    InterviewSession[]
+  profile_narratives    ProfileNarrative[]
+  profile_insights      ProfileInsight[]
+  profile_snapshots     ProfileSnapshot[]
+  chat_rooms_owned      ChatRoom[]         @relation("ChatRoomOwner")
+  chat_participants     ChatParticipant[]
+  chat_invites_received ChatInvite[]       @relation("ChatInvitee")
 
   @@index([is_active])
   @@index([email_verified])
@@ -396,18 +403,18 @@ model User {
 }
 
 model AdminUser {
-  id            String      @id @default(uuid())
-  email         String      @unique
+  id            String    @id @default(uuid())
+  email         String    @unique
   password_hash String
   name          String
   role_id       String
-  is_active     Boolean     @default(true)
+  is_active     Boolean   @default(true)
   last_login_at DateTime?
   deleted_at    DateTime?
-  created_at    DateTime    @default(now())
-  updated_at    DateTime    @updatedAt
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
 
-  role          AdminRole   @relation(fields: [role_id], references: [id], onDelete: Restrict)
+  role          AdminRole    @relation(fields: [role_id], references: [id], onDelete: Restrict)
   cron_run_logs CronRunLog[]
 
   @@index([role_id])
@@ -416,14 +423,14 @@ model AdminUser {
 }
 
 model AdminRole {
-  id          String      @id @default(uuid())
+  id          String       @id @default(uuid())
   key         AdminRoleKey @unique
   name        String
   description String?
   permissions Json
-  is_system   Boolean     @default(true)
-  created_at  DateTime    @default(now())
-  updated_at  DateTime    @updatedAt
+  is_system   Boolean      @default(true)
+  created_at  DateTime     @default(now())
+  updated_at  DateTime     @updatedAt
 
   admin_users AdminUser[]
 
@@ -446,19 +453,19 @@ model SystemConfig {
 }
 
 model CronRunLog {
-  id                     String        @id @default(uuid())
-  job_name               String        @db.VarChar(100)
-  status                 CronRunStatus @default(running)
-  started_at             DateTime      @default(now())
-  finished_at            DateTime?
-  duration_ms            Int?
-  affected_count         Int?
-  detail                 Json?
-  triggered_by_admin_id  String?
-  error_message          String?
-  created_at             DateTime      @default(now())
+  id                    String        @id @default(uuid())
+  job_name              String        @db.VarChar(100)
+  status                CronRunStatus @default(running)
+  started_at            DateTime      @default(now())
+  finished_at           DateTime?
+  duration_ms           Int?
+  affected_count        Int?
+  detail                Json?
+  triggered_by_admin_id String?
+  error_message         String?
+  created_at            DateTime      @default(now())
 
-  triggered_by_admin     AdminUser?    @relation(fields: [triggered_by_admin_id], references: [id], onDelete: SetNull)
+  triggered_by_admin AdminUser? @relation(fields: [triggered_by_admin_id], references: [id], onDelete: SetNull)
 
   @@index([job_name, started_at])
   @@index([status, started_at])
@@ -468,70 +475,70 @@ model CronRunLog {
 /// v2.0: 下列個人資料欄位已被 ProfileNarrative / ProfileInsight 系統取代（按心理領域分析）。
 /// 保留欄位以維持向後相容；新功能應透過 ProfileInsight 取得資料。
 model UserProfile {
-  id                        String   @id @default(uuid())
-  user_id                   String   @unique
+  id                       String   @id @default(uuid())
+  user_id                  String   @unique
   /// @deprecated → ProfileInsight domain: education_cognition
-  education_level           String?
+  education_level          String?
   /// @deprecated → ProfileInsight domain: education_cognition
-  major_field               String?
+  major_field              String?
   /// @deprecated → ProfileInsight domain: education_cognition
-  university                String?
+  university               String?
   /// @deprecated → ProfileInsight domain: cultural_background
-  ethnicity                 String?
+  ethnicity                String?
   /// @deprecated → ProfileInsight domain: cultural_background
-  cultural_identity         String[]
+  cultural_identity        String[]
   /// @deprecated → ProfileInsight domain: family_origin
-  upbringing_environment    String?
+  upbringing_environment   String?
   /// @deprecated → ProfileInsight domain: belief_values
-  religion                  String?
+  religion                 String?
   /// @deprecated → ProfileInsight domain: belief_values
-  religious_practice_level  String?
+  religious_practice_level String?
   /// @deprecated → ProfileInsight domain: family_origin
-  family_structure          String?
+  family_structure         String?
   /// @deprecated → ProfileInsight domain: family_origin
-  parents_relationship      String?
+  parents_relationship     String?
   /// @deprecated → ProfileInsight domain: family_origin
-  family_economic_status    String?
+  family_economic_status   String?
   /// @deprecated → ProfileInsight domain: personality
-  mbti_type                 String?
+  mbti_type                String?
   /// @deprecated → ProfileInsight domain: personality
-  big_five_personality      Json?
+  big_five_personality     Json?
   /// @deprecated → ProfileInsight domain: personality
-  communication_style       String?
-  occupation                String?
+  communication_style      String?
+  occupation               String?
   /// @deprecated → ProfileInsight domain: personality, belief_values
-  interests                 String[]
+  interests                String[]
   /// @deprecated → ProfileInsight domain: belief_values
-  core_values               String[]
-  profile_visibility        Privacy  @default(private)
-  created_at                DateTime @default(now())
-  updated_at                DateTime @updatedAt
+  core_values              String[]
+  profile_visibility       Privacy  @default(private)
+  created_at               DateTime @default(now())
+  updated_at               DateTime @updatedAt
 
-  user                      User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@map("user_profiles")
 }
 
 model Pairing {
-  id             String         @id @default(uuid())
-  user1_id       String?
-  user2_id       String?
-  invite_code    String?        @unique @db.VarChar(6)
-  status         PairingStatus  @default(pending)
-  pairing_type   PairingType    @default(normal)
-  session_id     String?        @db.VarChar(100)
-  created_at     DateTime       @default(now())
-  confirmed_at   DateTime?
-  cancelled_at   DateTime?
-  expires_at     DateTime?
-  deleted_at     DateTime?
-  created_by     String?
-  updated_by     String?
+  id           String        @id @default(uuid())
+  user1_id     String?
+  user2_id     String?
+  invite_code  String?       @unique @db.VarChar(6)
+  status       PairingStatus @default(pending)
+  pairing_type PairingType   @default(normal)
+  session_id   String?       @db.VarChar(100)
+  created_at   DateTime      @default(now())
+  confirmed_at DateTime?
+  cancelled_at DateTime?
+  expires_at   DateTime?
+  deleted_at   DateTime?
+  created_by   String?
+  updated_by   String?
 
-  cases          Case[]
-  user1          User?          @relation("User1Pairings", fields: [user1_id], references: [id])
-  user2          User?          @relation("User2Pairings", fields: [user2_id], references: [id])
-  quick_sessions QuickSession[]
+  cases                Case[]
+  user1                User?                @relation("User1Pairings", fields: [user1_id], references: [id])
+  user2                User?                @relation("User2Pairings", fields: [user2_id], references: [id])
+  quick_sessions       QuickSession[]
   relationship_profile RelationshipProfile?
 
   @@index([user1_id])
@@ -544,61 +551,61 @@ model Pairing {
 }
 
 model RelationshipProfile {
-  id                               String   @id @default(uuid())
-  pairing_id                       String   @unique
-  relationship_duration_days       Int?
-  relationship_stage               String?
-  milestones                       Json?
-  user1_location                   String?
-  user2_location                   String?
-  is_long_distance                 Boolean  @default(false)
-  distance_km                      Int?
-  meeting_frequency                String?
-  user1_bottom_lines               String[]
-  user2_bottom_lines               String[]
-  common_bottom_lines              String[]
-  historical_red_flags             Json?
-  user1_preferences                Json?
-  user2_preferences                Json?
-  common_preferences               Json?
-  dislikes                         Json?
-  communication_frequency          String?
-  preferred_communication_methods  String[]
-  conflict_communication_style     String?
-  relationship_strengths           String[]
-  relationship_challenges          String[]
-  historical_case_types            Json?
-  historical_responsibility_trends Json?
+  id                                 String   @id @default(uuid())
+  pairing_id                         String   @unique
+  relationship_duration_days         Int?
+  relationship_stage                 String?
+  milestones                         Json?
+  user1_location                     String?
+  user2_location                     String?
+  is_long_distance                   Boolean  @default(false)
+  distance_km                        Int?
+  meeting_frequency                  String?
+  user1_bottom_lines                 String[]
+  user2_bottom_lines                 String[]
+  common_bottom_lines                String[]
+  historical_red_flags               Json?
+  user1_preferences                  Json?
+  user2_preferences                  Json?
+  common_preferences                 Json?
+  dislikes                           Json?
+  communication_frequency            String?
+  preferred_communication_methods    String[]
+  conflict_communication_style       String?
+  relationship_strengths             String[]
+  relationship_challenges            String[]
+  historical_case_types              Json?
+  historical_responsibility_trends   Json?
   reconciliation_plan_execution_rate Float?
-  relationship_improvement_trend   String?
-  completion_percentage            Int       @default(0)
-  last_updated_at                  DateTime  @default(now())
-  created_at                       DateTime  @default(now())
+  relationship_improvement_trend     String?
+  completion_percentage              Int      @default(0)
+  last_updated_at                    DateTime @default(now())
+  created_at                         DateTime @default(now())
 
-  pairing                          Pairing   @relation(fields: [pairing_id], references: [id], onDelete: Cascade)
+  pairing Pairing @relation(fields: [pairing_id], references: [id], onDelete: Cascade)
 
   @@map("relationship_profiles")
 }
 
 model SafetyAssessment {
-  id                             String                      @id @default(uuid())
-  subject_type                   SafetyAssessmentSubjectType
-  subject_id                     String
-  source                         SafetyAssessmentSource
-  risk_level                     SafetyRiskLevel             @default(standard)
-  judgment_route                 String?                     @db.VarChar(50)
-  can_invite_partner             Boolean                     @default(true)
-  can_use_co_repair              Boolean                     @default(true)
-  can_notify_partner             Boolean                     @default(true)
-  can_show_responsibility_ratio  Boolean                     @default(true)
-  force_solo_repair              Boolean                     @default(false)
-  reasons                        String[]
-  metadata                       Json?
-  assessed_by_user_id            String?
-  expires_at                     DateTime?
-  resolved_at                    DateTime?
-  created_at                     DateTime                    @default(now())
-  updated_at                     DateTime                    @updatedAt
+  id                            String                      @id @default(uuid())
+  subject_type                  SafetyAssessmentSubjectType
+  subject_id                    String
+  source                        SafetyAssessmentSource
+  risk_level                    SafetyRiskLevel             @default(standard)
+  judgment_route                String?                     @db.VarChar(50)
+  can_invite_partner            Boolean                     @default(true)
+  can_use_co_repair             Boolean                     @default(true)
+  can_notify_partner            Boolean                     @default(true)
+  can_show_responsibility_ratio Boolean                     @default(true)
+  force_solo_repair             Boolean                     @default(false)
+  reasons                       String[]
+  metadata                      Json?
+  assessed_by_user_id           String?
+  expires_at                    DateTime?
+  resolved_at                   DateTime?
+  created_at                    DateTime                    @default(now())
+  updated_at                    DateTime                    @updatedAt
 
   @@index([subject_type, subject_id, created_at])
   @@index([subject_type, subject_id, resolved_at])
@@ -609,22 +616,22 @@ model SafetyAssessment {
 }
 
 model RelationshipRiskState {
-  id                             String                      @id @default(uuid())
-  scope_type                     SafetyAssessmentSubjectType
-  scope_id                       String
-  current_risk_level             SafetyRiskLevel             @default(standard)
-  judgment_route                 String?                     @db.VarChar(50)
-  can_invite_partner             Boolean                     @default(true)
-  can_use_co_repair              Boolean                     @default(true)
-  can_notify_partner             Boolean                     @default(true)
-  can_show_responsibility_ratio  Boolean                     @default(true)
-  force_solo_repair              Boolean                     @default(false)
-  source_assessment_id           String?
-  reasons                        String[]
-  metadata                       Json?
-  is_active                      Boolean                     @default(true)
-  created_at                     DateTime                    @default(now())
-  updated_at                     DateTime                    @updatedAt
+  id                            String                      @id @default(uuid())
+  scope_type                    SafetyAssessmentSubjectType
+  scope_id                      String
+  current_risk_level            SafetyRiskLevel             @default(standard)
+  judgment_route                String?                     @db.VarChar(50)
+  can_invite_partner            Boolean                     @default(true)
+  can_use_co_repair             Boolean                     @default(true)
+  can_notify_partner            Boolean                     @default(true)
+  can_show_responsibility_ratio Boolean                     @default(true)
+  force_solo_repair             Boolean                     @default(false)
+  source_assessment_id          String?
+  reasons                       String[]
+  metadata                      Json?
+  is_active                     Boolean                     @default(true)
+  created_at                    DateTime                    @default(now())
+  updated_at                    DateTime                    @updatedAt
 
   @@index([scope_type, scope_id])
   @@index([current_risk_level, is_active])
@@ -633,40 +640,40 @@ model RelationshipRiskState {
 }
 
 model Case {
-  id                  String         @id @default(uuid())
-  pairing_id          String
-  title               String         @db.VarChar(200)
-  type                String         @db.VarChar(50)
-  sub_type            String?        @db.VarChar(50)
-  plaintiff_id        String?
-  defendant_id        String?
-  plaintiff_statement String
-  defendant_statement String?
-  status              CaseStatus     @default(draft)
+  id                      String     @id @default(uuid())
+  pairing_id              String
+  title                   String     @db.VarChar(200)
+  type                    String     @db.VarChar(50)
+  sub_type                String?    @db.VarChar(50)
+  plaintiff_id            String?
+  defendant_id            String?
+  plaintiff_statement     String
+  defendant_statement     String?
+  status                  CaseStatus @default(draft)
   judgment_failure_reason String?    @db.VarChar(500)
-  mode                CaseMode       @default(remote)
-  session_id          String?        @db.VarChar(100)
-  product_flow        String?        @db.VarChar(50)
-  source_channel      String?        @db.VarChar(50)
-  entry_point         String?        @db.VarChar(50)
-  created_at          DateTime       @default(now())
-  updated_at          DateTime       @updatedAt
-  submitted_at        DateTime?
-  completed_at        DateTime?
-  deleted_at          DateTime?
-  safety_metadata     Json?
-  created_by          String?
-  updated_by          String?
+  mode                    CaseMode   @default(remote)
+  session_id              String?    @db.VarChar(100)
+  product_flow            String?    @db.VarChar(50)
+  source_channel          String?    @db.VarChar(50)
+  entry_point             String?    @db.VarChar(50)
+  created_at              DateTime   @default(now())
+  updated_at              DateTime   @updatedAt
+  submitted_at            DateTime?
+  completed_at            DateTime?
+  deleted_at              DateTime?
+  safety_metadata         Json?
+  created_by              String?
+  updated_by              String?
 
-  defendant           User?          @relation("DefendantCases", fields: [defendant_id], references: [id])
-  pairing             Pairing        @relation(fields: [pairing_id], references: [id])
-  plaintiff           User?          @relation("PlaintiffCases", fields: [plaintiff_id], references: [id])
-  evidences           Evidence[]
-  judgment            Judgment?
-  quick_sessions      QuickSession[]
-  case_content_links  CaseContentLink[]
-  profile_snapshots   ProfileSnapshot[]
-  chat_to_case_links  ChatToCaseLink[]
+  defendant          User?             @relation("DefendantCases", fields: [defendant_id], references: [id])
+  pairing            Pairing           @relation(fields: [pairing_id], references: [id])
+  plaintiff          User?             @relation("PlaintiffCases", fields: [plaintiff_id], references: [id])
+  evidences          Evidence[]
+  judgment           Judgment?
+  quick_sessions     QuickSession[]
+  case_content_links CaseContentLink[]
+  profile_snapshots  ProfileSnapshot[]
+  chat_to_case_links ChatToCaseLink[]
 
   @@index([pairing_id])
   @@index([plaintiff_id])
@@ -684,20 +691,20 @@ model Case {
 }
 
 model Evidence {
-  id          String   @id @default(uuid())
-  case_id     String
-  user_id     String?
-  file_url    String   @db.VarChar(500)
-  mime_type   String?
-  file_type   FileType
-  file_size   Int
-  checksum    String?
-  description String?
+  id              String   @id @default(uuid())
+  case_id         String
+  user_id         String?
+  file_url        String   @db.VarChar(500)
+  mime_type       String?
+  file_type       FileType
+  file_size       Int
+  checksum        String?
+  description     String?
   safety_metadata Json?
-  created_at  DateTime @default(now())
+  created_at      DateTime @default(now())
 
-  case        Case     @relation(fields: [case_id], references: [id], onDelete: Cascade)
-  user        User?    @relation(fields: [user_id], references: [id])
+  case Case  @relation(fields: [case_id], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [user_id], references: [id])
 
   @@index([case_id])
   @@index([user_id])
@@ -706,21 +713,21 @@ model Evidence {
 }
 
 model Judgment {
-  id                   String               @id @default(uuid())
-  case_id              String               @unique
-  judgment_content     String
-  summary              String?
-  plaintiff_ratio      Float
-  defendant_ratio      Float
-  emotional_analysis   Json?
-  ai_model             String               @default("gpt-3.5-turbo") @db.VarChar(50)
-  prompt_version       String               @default("v1.0") @db.VarChar(20)
-  user1_acceptance     Boolean?
-  user2_acceptance     Boolean?
-  user1_rating         Int?
-  user2_rating         Int?
-  created_at           DateTime             @default(now())
-  updated_at           DateTime             @updatedAt
+  id                 String   @id @default(uuid())
+  case_id            String   @unique
+  judgment_content   String
+  summary            String?
+  plaintiff_ratio    Float
+  defendant_ratio    Float
+  emotional_analysis Json?
+  ai_model           String   @default("gpt-3.5-turbo") @db.VarChar(50)
+  prompt_version     String   @default("v1.0") @db.VarChar(20)
+  user1_acceptance   Boolean?
+  user2_acceptance   Boolean?
+  user1_rating       Int?
+  user2_rating       Int?
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
 
   case                 Case                 @relation(fields: [case_id], references: [id], onDelete: Cascade)
   reconciliation_plans ReconciliationPlan[]
@@ -734,27 +741,27 @@ model Judgment {
 }
 
 model ReconciliationPlan {
-  id                 String            @id @default(uuid())
-  judgment_id        String
-  intent             ReconciliationIntent @default(repair)
-  version_group_id   String?
-  superseded_at      DateTime?
+  id                    String               @id @default(uuid())
+  judgment_id           String
+  intent                ReconciliationIntent @default(repair)
+  version_group_id      String?
+  superseded_at         DateTime?
   superseded_by_plan_id String?
-  plan_content       String
-  plan_type          PlanType
-  difficulty_level   Difficulty
-  estimated_duration Int?
-  time_cost          Int
-  money_cost         Int
-  emotion_cost       Int
-  skill_requirement  Int
-  user1_selected     Boolean           @default(false)
-  user2_selected     Boolean           @default(false)
-  created_at         DateTime          @default(now())
+  plan_content          String
+  plan_type             PlanType
+  difficulty_level      Difficulty
+  estimated_duration    Int?
+  time_cost             Int
+  money_cost            Int
+  emotion_cost          Int
+  skill_requirement     Int
+  user1_selected        Boolean              @default(false)
+  user2_selected        Boolean              @default(false)
+  created_at            DateTime             @default(now())
 
-  execution_records  ExecutionRecord[]
-  judgment           Judgment          @relation(fields: [judgment_id], references: [id], onDelete: Cascade)
-  repair_track       RepairTrack?
+  execution_records ExecutionRecord[]
+  judgment          Judgment          @relation(fields: [judgment_id], references: [id], onDelete: Cascade)
+  repair_track      RepairTrack?
 
   @@index([judgment_id])
   @@index([intent])
@@ -766,32 +773,32 @@ model ReconciliationPlan {
 }
 
 model RepairTrack {
-  id                String             @id @default(uuid())
-  plan_id           String             @unique
-  intent            ReconciliationIntent
-  status            RepairTrackStatus  @default(draft)
-  recommended_mode  RepairMode         @default(solo)
-  current_step_index Int               @default(0)
-  needs_replan      Boolean            @default(false)
-  status_reason     String?
-  closed_reason     String?
-  last_closeness    ClosenessLevel?
-  last_stress       StressLevel?
-  last_needs_help   Boolean?
-  last_replan_at    DateTime?
+  id                 String               @id @default(uuid())
+  plan_id            String               @unique
+  intent             ReconciliationIntent
+  status             RepairTrackStatus    @default(draft)
+  recommended_mode   RepairMode           @default(solo)
+  current_step_index Int                  @default(0)
+  needs_replan       Boolean              @default(false)
+  status_reason      String?
+  closed_reason      String?
+  last_closeness     ClosenessLevel?
+  last_stress        StressLevel?
+  last_needs_help    Boolean?
+  last_replan_at     DateTime?
   partner_invited_at DateTime?
-  started_at        DateTime?
-  paused_at         DateTime?
-  completed_at      DateTime?
-  closed_at         DateTime?
-  created_at        DateTime           @default(now())
-  updated_at        DateTime           @updatedAt
+  started_at         DateTime?
+  paused_at          DateTime?
+  completed_at       DateTime?
+  closed_at          DateTime?
+  created_at         DateTime             @default(now())
+  updated_at         DateTime             @updatedAt
 
-  plan              ReconciliationPlan @relation(fields: [plan_id], references: [id], onDelete: Cascade)
+  plan               ReconciliationPlan       @relation(fields: [plan_id], references: [id], onDelete: Cascade)
   participant_states RepairParticipantState[]
-  step_progresses   RepairStepProgress[]
-  checkins          RepairCheckIn[]
-  events            RepairTrackEvent[]
+  step_progresses    RepairStepProgress[]
+  checkins           RepairCheckIn[]
+  events             RepairTrackEvent[]
 
   @@index([status])
   @@index([intent])
@@ -799,10 +806,10 @@ model RepairTrack {
 }
 
 model RepairParticipantState {
-  id                String            @id @default(uuid())
+  id                String           @id @default(uuid())
   repair_track_id   String
   user_id           String
-  commitment_status CommitmentStatus  @default(not_viewed)
+  commitment_status CommitmentStatus @default(not_viewed)
   response_reason   String?
   deferred_until    DateTime?
   last_notified_at  DateTime?
@@ -812,11 +819,11 @@ model RepairParticipantState {
   committed_at      DateTime?
   paused_at         DateTime?
   declined_at       DateTime?
-  created_at        DateTime          @default(now())
-  updated_at        DateTime          @updatedAt
+  created_at        DateTime         @default(now())
+  updated_at        DateTime         @updatedAt
 
-  repair_track      RepairTrack       @relation(fields: [repair_track_id], references: [id], onDelete: Cascade)
-  user              User              @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  repair_track RepairTrack @relation(fields: [repair_track_id], references: [id], onDelete: Cascade)
+  user         User        @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@unique([repair_track_id, user_id])
   @@index([user_id, commitment_status])
@@ -824,20 +831,20 @@ model RepairParticipantState {
 }
 
 model RepairStepProgress {
-  id                String            @id @default(uuid())
-  repair_track_id   String
-  step_index        Int
-  step_title        String
-  step_content      String
-  fallback_content  String?
-  pause_rule        String?
-  status            RepairStepStatus  @default(pending)
-  completed_by      String?
-  completed_at      DateTime?
-  created_at        DateTime          @default(now())
-  updated_at        DateTime          @updatedAt
+  id               String           @id @default(uuid())
+  repair_track_id  String
+  step_index       Int
+  step_title       String
+  step_content     String
+  fallback_content String?
+  pause_rule       String?
+  status           RepairStepStatus @default(pending)
+  completed_by     String?
+  completed_at     DateTime?
+  created_at       DateTime         @default(now())
+  updated_at       DateTime         @updatedAt
 
-  repair_track      RepairTrack       @relation(fields: [repair_track_id], references: [id], onDelete: Cascade)
+  repair_track RepairTrack @relation(fields: [repair_track_id], references: [id], onDelete: Cascade)
 
   @@unique([repair_track_id, step_index])
   @@index([repair_track_id, status])
@@ -845,21 +852,21 @@ model RepairStepProgress {
 }
 
 model RepairCheckIn {
-  id                String             @id @default(uuid())
-  repair_track_id   String
-  user_id           String
-  step_index        Int
-  result            RepairCheckInResult
-  closeness         ClosenessLevel
-  stress            StressLevel
-  needs_help        Boolean            @default(false)
-  notes             String?
-  photos_urls       String[]
-  created_at        DateTime           @default(now())
-  updated_at        DateTime           @updatedAt
+  id              String              @id @default(uuid())
+  repair_track_id String
+  user_id         String
+  step_index      Int
+  result          RepairCheckInResult
+  closeness       ClosenessLevel
+  stress          StressLevel
+  needs_help      Boolean             @default(false)
+  notes           String?
+  photos_urls     String[]
+  created_at      DateTime            @default(now())
+  updated_at      DateTime            @updatedAt
 
-  repair_track      RepairTrack        @relation(fields: [repair_track_id], references: [id], onDelete: Cascade)
-  user              User               @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  repair_track RepairTrack @relation(fields: [repair_track_id], references: [id], onDelete: Cascade)
+  user         User        @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@index([repair_track_id, created_at])
   @@index([user_id, created_at])
@@ -867,15 +874,15 @@ model RepairCheckIn {
 }
 
 model RepairTrackEvent {
-  id              String      @id @default(uuid())
+  id              String   @id @default(uuid())
   repair_track_id String
   user_id         String?
   event_type      String
   payload         Json?
-  created_at      DateTime    @default(now())
+  created_at      DateTime @default(now())
 
-  repair_track    RepairTrack @relation(fields: [repair_track_id], references: [id], onDelete: Cascade)
-  user            User?       @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  repair_track RepairTrack @relation(fields: [repair_track_id], references: [id], onDelete: Cascade)
+  user         User?       @relation(fields: [user_id], references: [id], onDelete: SetNull)
 
   @@index([repair_track_id, created_at])
   @@index([event_type, created_at])
@@ -883,18 +890,18 @@ model RepairTrackEvent {
 }
 
 model ExecutionRecord {
-  id                     String             @id @default(uuid())
+  id                     String          @id @default(uuid())
   reconciliation_plan_id String
   user_id                String
   action                 ExecutionAction
-  status                 ExecutionStatus    @default(pending)
+  status                 ExecutionStatus @default(pending)
   notes                  String?
   photos_urls            String[]
-  created_at             DateTime           @default(now())
-  updated_at             DateTime           @updatedAt
+  created_at             DateTime        @default(now())
+  updated_at             DateTime        @updatedAt
 
-  reconciliation_plan    ReconciliationPlan @relation(fields: [reconciliation_plan_id], references: [id], onDelete: Cascade)
-  user                   User               @relation(fields: [user_id], references: [id])
+  reconciliation_plan ReconciliationPlan @relation(fields: [reconciliation_plan_id], references: [id], onDelete: Cascade)
+  user                User               @relation(fields: [user_id], references: [id])
 
   @@index([reconciliation_plan_id])
   @@index([user_id])
@@ -912,8 +919,8 @@ model QuickSession {
   expires_at       DateTime
   last_accessed_at DateTime @default(now())
 
-  case             Case?    @relation(fields: [case_id], references: [id], onDelete: SetNull)
-  pairing          Pairing? @relation(fields: [pairing_id], references: [id], onDelete: SetNull)
+  case    Case?    @relation(fields: [case_id], references: [id], onDelete: SetNull)
+  pairing Pairing? @relation(fields: [pairing_id], references: [id], onDelete: SetNull)
 
   @@index([expires_at])
   @@index([pairing_id])
@@ -930,11 +937,11 @@ model ChatRoom {
   created_at              DateTime                  @default(now())
   updated_at              DateTime                  @updatedAt
 
-  owner                   User?                     @relation("ChatRoomOwner", fields: [owner_user_id], references: [id], onDelete: SetNull)
-  participants            ChatParticipant[]
-  messages                ChatMessage[]
-  invites                 ChatInvite[]
-  case_links              ChatToCaseLink[]
+  owner        User?             @relation("ChatRoomOwner", fields: [owner_user_id], references: [id], onDelete: SetNull)
+  participants ChatParticipant[]
+  messages     ChatMessage[]
+  invites      ChatInvite[]
+  case_links   ChatToCaseLink[]
 
   @@index([owner_user_id])
   @@index([session_id])
@@ -943,20 +950,20 @@ model ChatRoom {
 }
 
 model ChatParticipant {
-  id                        String              @id @default(uuid())
-  room_id                   String
-  participant_type          ChatParticipantType @default(user)
-  user_id                   String?
-  role_in_room              ChatRoleInRoom
-  joined_at                 DateTime            @default(now())
-  left_at                   DateTime?
-  is_active                 Boolean             @default(true)
+  id               String              @id @default(uuid())
+  room_id          String
+  participant_type ChatParticipantType @default(user)
+  user_id          String?
+  role_in_room     ChatRoleInRoom
+  joined_at        DateTime            @default(now())
+  left_at          DateTime?
+  is_active        Boolean             @default(true)
 
-  room                      ChatRoom            @relation(fields: [room_id], references: [id], onDelete: Cascade)
-  user                      User?               @relation(fields: [user_id], references: [id], onDelete: SetNull)
-  sent_messages             ChatMessage[]
-  sent_invites              ChatInvite[]        @relation("ChatInviteSender")
-  triggered_case_links      ChatToCaseLink[]    @relation("ChatCaseTrigger")
+  room                 ChatRoom         @relation(fields: [room_id], references: [id], onDelete: Cascade)
+  user                 User?            @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  sent_messages        ChatMessage[]
+  sent_invites         ChatInvite[]     @relation("ChatInviteSender")
+  triggered_case_links ChatToCaseLink[] @relation("ChatCaseTrigger")
 
   @@index([room_id, role_in_room])
   @@index([user_id])
@@ -965,23 +972,23 @@ model ChatParticipant {
 }
 
 model ChatMessage {
-  id                        String              @id @default(uuid())
-  room_id                   String
-  sender_participant_id     String
-  reply_to_message_id       String?
-  content                   String
-  message_type              ChatMessageType     @default(user_text)
-  visibility_scope          ChatVisibilityScope @default(all)
-  ai_strategy               String?
-  ai_confidence             Float?
-  safety_flag               Boolean             @default(false)
-  safety_detail             String?
-  created_at                DateTime            @default(now())
+  id                    String              @id @default(uuid())
+  room_id               String
+  sender_participant_id String
+  reply_to_message_id   String?
+  content               String
+  message_type          ChatMessageType     @default(user_text)
+  visibility_scope      ChatVisibilityScope @default(all)
+  ai_strategy           String?
+  ai_confidence         Float?
+  safety_flag           Boolean             @default(false)
+  safety_detail         String?
+  created_at            DateTime            @default(now())
 
-  room                      ChatRoom            @relation(fields: [room_id], references: [id], onDelete: Cascade)
-  sender_participant        ChatParticipant     @relation(fields: [sender_participant_id], references: [id], onDelete: Restrict)
-  reply_to_message          ChatMessage?        @relation("ChatMessageReply", fields: [reply_to_message_id], references: [id], onDelete: SetNull)
-  replies                   ChatMessage[]       @relation("ChatMessageReply")
+  room               ChatRoom        @relation(fields: [room_id], references: [id], onDelete: Cascade)
+  sender_participant ChatParticipant @relation(fields: [sender_participant_id], references: [id], onDelete: Restrict)
+  reply_to_message   ChatMessage?    @relation("ChatMessageReply", fields: [reply_to_message_id], references: [id], onDelete: SetNull)
+  replies            ChatMessage[]   @relation("ChatMessageReply")
 
   @@index([room_id, created_at])
   @@index([sender_participant_id])
@@ -991,19 +998,19 @@ model ChatMessage {
 }
 
 model ChatInvite {
-  id                        String            @id @default(uuid())
-  room_id                   String
-  inviter_participant_id    String
-  invited_user_id           String?
-  invite_code               String?           @unique @db.VarChar(12)
-  status                    ChatInviteStatus  @default(pending)
-  expires_at                DateTime?
-  created_at                DateTime          @default(now())
-  responded_at              DateTime?
+  id                     String           @id @default(uuid())
+  room_id                String
+  inviter_participant_id String
+  invited_user_id        String?
+  invite_code            String?          @unique @db.VarChar(12)
+  status                 ChatInviteStatus @default(pending)
+  expires_at             DateTime?
+  created_at             DateTime         @default(now())
+  responded_at           DateTime?
 
-  room                      ChatRoom          @relation(fields: [room_id], references: [id], onDelete: Cascade)
-  inviter_participant       ChatParticipant   @relation("ChatInviteSender", fields: [inviter_participant_id], references: [id], onDelete: Restrict)
-  invited_user              User?             @relation("ChatInvitee", fields: [invited_user_id], references: [id], onDelete: SetNull)
+  room                ChatRoom        @relation(fields: [room_id], references: [id], onDelete: Cascade)
+  inviter_participant ChatParticipant @relation("ChatInviteSender", fields: [inviter_participant_id], references: [id], onDelete: Restrict)
+  invited_user        User?           @relation("ChatInvitee", fields: [invited_user_id], references: [id], onDelete: SetNull)
 
   @@index([room_id, status])
   @@index([invited_user_id, status])
@@ -1012,18 +1019,18 @@ model ChatInvite {
 }
 
 model ChatToCaseLink {
-  id                           String            @id @default(uuid())
-  room_id                      String
-  case_id                      String
-  judgment_id                  String?
-  triggered_by_participant_id  String?
-  conversion_snapshot          Json?
-  created_at                   DateTime          @default(now())
+  id                          String   @id @default(uuid())
+  room_id                     String
+  case_id                     String
+  judgment_id                 String?
+  triggered_by_participant_id String?
+  conversion_snapshot         Json?
+  created_at                  DateTime @default(now())
 
-  room                         ChatRoom          @relation(fields: [room_id], references: [id], onDelete: Cascade)
-  case                         Case              @relation(fields: [case_id], references: [id], onDelete: Cascade)
-  judgment                     Judgment?         @relation(fields: [judgment_id], references: [id], onDelete: SetNull)
-  triggered_by_participant     ChatParticipant?  @relation("ChatCaseTrigger", fields: [triggered_by_participant_id], references: [id], onDelete: SetNull)
+  room                     ChatRoom         @relation(fields: [room_id], references: [id], onDelete: Cascade)
+  case                     Case             @relation(fields: [case_id], references: [id], onDelete: Cascade)
+  judgment                 Judgment?        @relation(fields: [judgment_id], references: [id], onDelete: SetNull)
+  triggered_by_participant ChatParticipant? @relation("ChatCaseTrigger", fields: [triggered_by_participant_id], references: [id], onDelete: SetNull)
 
   @@index([room_id, created_at])
   @@index([case_id])
@@ -1033,13 +1040,13 @@ model ChatToCaseLink {
 }
 
 model EmailVerification {
-  id         String            @id @default(uuid())
-  email      String            @db.VarChar(255)
-  code       String            @db.VarChar(6)
+  id         String           @id @default(uuid())
+  email      String           @db.VarChar(255)
+  code       String           @db.VarChar(6)
   type       VerificationType
   expires_at DateTime
-  used       Boolean           @default(false)
-  created_at DateTime          @default(now())
+  used       Boolean          @default(false)
+  created_at DateTime         @default(now())
 
   @@index([email, type, used])
   @@index([code])
@@ -1048,17 +1055,17 @@ model EmailVerification {
 }
 
 model ContentItem {
-  id          String       @id @default(uuid())
-  title       String       @db.VarChar(200)
-  content     String
+  id           String      @id @default(uuid())
+  title        String      @db.VarChar(200)
+  content      String
   content_type ContentType
-  tags        String[]
-  language    Language     @default(en)
-  is_active   Boolean      @default(true)
-  created_at  DateTime     @default(now())
-  updated_at  DateTime     @updatedAt
+  tags         String[]
+  language     Language    @default(en)
+  is_active    Boolean     @default(true)
+  created_at   DateTime    @default(now())
+  updated_at   DateTime    @updatedAt
 
-  case_links  CaseContentLink[]
+  case_links CaseContentLink[]
 
   @@index([content_type])
   @@index([is_active])
@@ -1068,11 +1075,11 @@ model ContentItem {
 model CaseContentLink {
   case_id    String
   content_id String
-  relation   String    @default("recommend") @db.VarChar(30)
-  created_at DateTime  @default(now())
+  relation   String   @default("recommend") @db.VarChar(30)
+  created_at DateTime @default(now())
 
-  case       Case      @relation(fields: [case_id], references: [id], onDelete: Cascade)
-  content    ContentItem @relation(fields: [content_id], references: [id], onDelete: Cascade)
+  case    Case        @relation(fields: [case_id], references: [id], onDelete: Cascade)
+  content ContentItem @relation(fields: [content_id], references: [id], onDelete: Cascade)
 
   @@id([case_id, content_id, relation])
   @@index([relation])
@@ -1080,34 +1087,88 @@ model CaseContentLink {
 }
 
 model Notification {
-  id            String               @id @default(uuid())
-  user_id       String
-  channel       NotificationChannel
-  template_code String               @db.VarChar(50)
-  action_key    String?              @db.VarChar(50)
-  priority      String?              @db.VarChar(20)
-  group_key     String?              @db.VarChar(100)
-  payload       Json?
-  dedup_key     String?              @db.VarChar(100)
-  sent_at       DateTime?
-  read_at       DateTime?
-  dismissed_at  DateTime?
-  acted_at      DateTime?
-  snoozed_until DateTime?
-  status        NotificationStatus   @default(pending)
-  error_message String?
-  created_at    DateTime             @default(now())
+  id                      String              @id @default(uuid())
+  user_id                 String
+  channel                 NotificationChannel
+  template_code           String              @db.VarChar(50)
+  action_key              String?             @db.VarChar(50)
+  priority                String?             @db.VarChar(20)
+  group_key               String?             @db.VarChar(100)
+  payload                 Json?
+  dedup_key               String?             @db.VarChar(100)
+  sent_at                 DateTime?
+  read_at                 DateTime?
+  dismissed_at            DateTime?
+  acted_at                DateTime?
+  snoozed_until           DateTime?
+  status                  NotificationStatus  @default(pending)
+  error_message           String?
+  push_provider           String?             @db.VarChar(30)
+  push_ticket_id          String?             @db.VarChar(100)
+  push_ticket_status      String?             @db.VarChar(20)
+  push_receipt_status     String?             @db.VarChar(20)
+  push_receipt_checked_at DateTime?
+  push_receipt_error      String?
+  created_at              DateTime            @default(now())
 
-  user          User                 @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
+  @@unique([dedup_key, template_code])
   @@index([user_id])
   @@index([status])
+  @@index([push_ticket_id])
+  @@index([channel, status, push_receipt_status])
   @@index([user_id, read_at])
   @@index([user_id, dismissed_at])
   @@index([user_id, acted_at])
   @@index([user_id, snoozed_until])
-  @@unique([dedup_key, template_code])
   @@map("notifications")
+}
+
+model PushDeviceToken {
+  id           String       @id @default(uuid())
+  user_id      String
+  token        String       @unique @db.VarChar(255)
+  platform     PushPlatform
+  device_id    String?      @db.VarChar(128)
+  app_version  String?      @db.VarChar(40)
+  build_number String?      @db.VarChar(40)
+  revoked_at   DateTime?
+  last_seen_at DateTime     @default(now())
+  created_at   DateTime     @default(now())
+  updated_at   DateTime     @updatedAt
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([user_id, revoked_at])
+  @@index([device_id])
+  @@map("push_device_tokens")
+}
+
+model AppTelemetryEvent {
+  id           String   @id @default(uuid())
+  name         String   @db.VarChar(80)
+  severity     String   @default("info") @db.VarChar(20)
+  route        String?  @db.VarChar(200)
+  request_id   String?  @db.VarChar(120)
+  app_version  String?  @db.VarChar(40)
+  platform     String?  @db.VarChar(20)
+  build_number String?  @db.VarChar(40)
+  context      Json?
+  user_id      String?
+  session_hash String?  @db.VarChar(64)
+  created_at   DateTime @default(now())
+
+  user User? @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@index([created_at])
+  @@index([name, created_at])
+  @@index([severity, created_at])
+  @@index([platform, created_at])
+  @@index([user_id, created_at])
+  @@index([session_hash, created_at])
+  @@map("app_telemetry_events")
 }
 
 model AuditLog {
@@ -1143,8 +1204,8 @@ model InterviewSession {
   created_at       DateTime         @default(now())
   updated_at       DateTime         @updatedAt
 
-  user             User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  turns            InterviewTurn[]
+  user  User            @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  turns InterviewTurn[]
 
   // 每用戶僅 1 個 in_progress：需在遷移中以 raw SQL 建立部分唯一索引
   // CREATE UNIQUE INDEX ux_interview_sessions_user_in_progress ON interview_sessions(user_id) WHERE status = 'in_progress';
@@ -1155,21 +1216,21 @@ model InterviewSession {
 }
 
 model InterviewTurn {
-  id                 String        @id @default(uuid())
-  session_id         String
-  turn_order         Int
-  ai_message         String
-  ai_intent          String?
-  ai_target_domains  PsychDomain[]   @default([])
-  extracted_facts    String[]        @default([])
-  user_response      String?
-  skipped            Boolean       @default(false)
-  safety_flag        Boolean       @default(false)
-  safety_detail      String?
+  id                  String        @id @default(uuid())
+  session_id          String
+  turn_order          Int
+  ai_message          String
+  ai_intent           String?
+  ai_target_domains   PsychDomain[] @default([])
+  extracted_facts     String[]      @default([])
+  user_response       String?
+  skipped             Boolean       @default(false)
+  safety_flag         Boolean       @default(false)
+  safety_detail       String?
   response_word_count Int?
-  created_at         DateTime      @default(now())
+  created_at          DateTime      @default(now())
 
-  session            InterviewSession @relation(fields: [session_id], references: [id], onDelete: Cascade)
+  session InterviewSession @relation(fields: [session_id], references: [id], onDelete: Cascade)
 
   @@unique([session_id, turn_order], name: "ux_interview_turns_session_order")
   @@map("interview_turns")
@@ -1206,21 +1267,21 @@ model AIStreamSession {
 }
 
 model AIStreamEventRecord {
-  id          String   @id @default(uuid())
-  stream_id   String
-  request_id  String
-  scope_type  String   @db.VarChar(50)
-  scope_id    String
-  seq         Int
-  event_type  String   @db.VarChar(50)
-  actor_role  String?  @db.VarChar(50)
-  message_id  String?
-  delta_text  String?
-  full_text   String?
-  phase       String?  @db.VarChar(50)
-  metadata    Json?
-  error       Json?
-  created_at  DateTime @default(now())
+  id         String   @id @default(uuid())
+  stream_id  String
+  request_id String
+  scope_type String   @db.VarChar(50)
+  scope_id   String
+  seq        Int
+  event_type String   @db.VarChar(50)
+  actor_role String?  @db.VarChar(50)
+  message_id String?
+  delta_text String?
+  full_text  String?
+  phase      String?  @db.VarChar(50)
+  metadata   Json?
+  error      Json?
+  created_at DateTime @default(now())
 
   @@unique([stream_id, seq], name: "ux_ai_stream_events_stream_seq")
   @@index([scope_type, scope_id, seq], map: "idx_ai_stream_events_scope_seq")
@@ -1287,30 +1348,30 @@ model AIStreamEventArchive {
 }
 
 model AIRequestLedger {
-  id              String                @id @default(uuid())
-  request_id      String                @unique @db.VarChar(100)
-  stream_id       String?               @db.VarChar(100)
-  scope_type      String                @default("unknown") @db.VarChar(50)
-  scope_id        String?
-  product_flow    String?               @db.VarChar(50)
-  source_channel  String?               @db.VarChar(50)
-  entry_point     String?               @db.VarChar(50)
-  provider        String                @default("openai") @db.VarChar(50)
-  model           String                @db.VarChar(100)
-  request_kind    String                @default("chat_completion") @db.VarChar(50)
-  prompt_version  String?               @db.VarChar(100)
-  input_tokens    Int?
-  output_tokens   Int?
-  total_tokens    Int?
-  cost_usd        Decimal?              @db.Decimal(12, 6)
-  status          AIRequestLedgerStatus @default(started)
-  retry_count     Int                   @default(0)
-  failure_reason  String?
-  metadata        Json?
-  started_at      DateTime              @default(now())
-  completed_at    DateTime?
-  created_at      DateTime              @default(now())
-  updated_at      DateTime              @updatedAt
+  id             String                @id @default(uuid())
+  request_id     String                @unique @db.VarChar(100)
+  stream_id      String?               @db.VarChar(100)
+  scope_type     String                @default("unknown") @db.VarChar(50)
+  scope_id       String?
+  product_flow   String?               @db.VarChar(50)
+  source_channel String?               @db.VarChar(50)
+  entry_point    String?               @db.VarChar(50)
+  provider       String                @default("openai") @db.VarChar(50)
+  model          String                @db.VarChar(100)
+  request_kind   String                @default("chat_completion") @db.VarChar(50)
+  prompt_version String?               @db.VarChar(100)
+  input_tokens   Int?
+  output_tokens  Int?
+  total_tokens   Int?
+  cost_usd       Decimal?              @db.Decimal(12, 6)
+  status         AIRequestLedgerStatus @default(started)
+  retry_count    Int                   @default(0)
+  failure_reason String?
+  metadata       Json?
+  started_at     DateTime              @default(now())
+  completed_at   DateTime?
+  created_at     DateTime              @default(now())
+  updated_at     DateTime              @updatedAt
 
   @@index([scope_type, scope_id, created_at], map: "idx_ai_request_ledger_scope_created")
   @@index([product_flow, created_at], map: "idx_ai_request_ledger_product_flow_created")
@@ -1363,8 +1424,8 @@ model ProfileNarrative {
   created_at      DateTime    @default(now())
   updated_at      DateTime    @updatedAt
 
-  user            User        @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  insights        ProfileInsight[]
+  user     User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  insights ProfileInsight[]
 
   @@index([user_id, domain, is_latest])
   // 每用戶每域僅 1 個 is_latest=true：需在遷移中以 raw SQL 建立部分唯一索引
@@ -1388,8 +1449,8 @@ model ProfileInsight {
   created_at    DateTime    @default(now())
   updated_at    DateTime    @updatedAt
 
-  user          User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  narrative     ProfileNarrative? @relation(fields: [narrative_id], references: [id], onDelete: SetNull)
+  user      User              @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  narrative ProfileNarrative? @relation(fields: [narrative_id], references: [id], onDelete: SetNull)
 
   @@index([user_id, domain, is_active])
   @@index([user_id, key, is_active])
@@ -1398,16 +1459,16 @@ model ProfileInsight {
 }
 
 model ProfileSnapshot {
-  id              String   @id @default(uuid())
-  user_id         String
-  case_id         String
-  snapshot_data   Json
+  id             String   @id @default(uuid())
+  user_id        String
+  case_id        String
+  snapshot_data  Json
   // CHECK (richness_score BETWEEN 0 AND 1) — 需在遷移中以 raw SQL 建立
-  richness_score  Float    @default(0)
-  created_at      DateTime @default(now())
+  richness_score Float    @default(0)
+  created_at     DateTime @default(now())
 
-  user            User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  case            Case     @relation(fields: [case_id], references: [id], onDelete: Restrict)
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  case Case @relation(fields: [case_id], references: [id], onDelete: Restrict)
 
   @@unique([case_id, user_id])
   @@index([user_id])

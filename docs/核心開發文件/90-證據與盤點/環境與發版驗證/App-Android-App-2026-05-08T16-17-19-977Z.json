@@ -1,0 +1,147 @@
+{
+  "type": "app-android-apk-install-launch-smoke",
+  "generated_at": "2026-05-08T16:17:19.870Z",
+  "started_at": "2026-05-08T16:17:13.694Z",
+  "working_directory": "/Users/alex/Desktop/CJ/mother-bear-court/mobile",
+  "node_version": "v25.8.1",
+  "app_android_package": "com.cj.motherbearcourt",
+  "device": {
+    "serial": "emulator-5554",
+    "boot_completed": "1",
+    "build_version_release": "16",
+    "build_version_sdk": "36",
+    "product_model": "sdk_gphone64_arm64",
+    "product_cpu_abi": "arm64-v8a"
+  },
+  "apk": {
+    "path": "mobile/android/app/build/outputs/apk/release/app-release.apk",
+    "bytes": 95233642,
+    "sha256": "9274ab680900b6f8052a23e576eec74a7204cfa5536e5a4c4832c6298b275677"
+  },
+  "launch": {
+    "activity": "com.cj.motherbearcourt/.MainActivity",
+    "pid": "5972",
+    "top_activity_confirmed": true,
+    "focused_window_confirmed": true
+  },
+  "build_policy": {
+    "local_smoke_sentry_auto_upload_disabled": true,
+    "formal_sentry_upload_still_requires_sentry_org_project_and_token": true
+  },
+  "summary": {
+    "built": true,
+    "installed": true,
+    "launched": true,
+    "blocked": false,
+    "duration_ms": 6283
+  },
+  "commands": {
+    "adb_start": {
+      "command": "/Users/alex/Library/Android/sdk/platform-tools/adb",
+      "args": [
+        "start-server"
+      ],
+      "exit_code": 0,
+      "signal": null,
+      "duration_ms": 10,
+      "stdout_tail": "",
+      "stderr_tail": ""
+    },
+    "install": {
+      "command": "/Users/alex/Library/Android/sdk/platform-tools/adb",
+      "args": [
+        "-s",
+        "emulator-5554",
+        "install",
+        "-r",
+        "/Users/alex/Desktop/CJ/mother-bear-court/mobile/android/app/build/outputs/apk/release/app-release.apk"
+      ],
+      "exit_code": 0,
+      "signal": null,
+      "duration_ms": 803,
+      "stdout_tail": "Performing Streamed Install\nSuccess\n",
+      "stderr_tail": ""
+    },
+    "resolve_activity": {
+      "command": "/Users/alex/Library/Android/sdk/platform-tools/adb",
+      "args": [
+        "-s",
+        "emulator-5554",
+        "shell",
+        "cmd",
+        "package",
+        "resolve-activity",
+        "--brief",
+        "com.cj.motherbearcourt"
+      ],
+      "exit_code": 0,
+      "signal": null,
+      "duration_ms": 47,
+      "stdout_tail": "priority=0 preferredOrder=0 match=0x108000 specificIndex=-1 isDefault=false\ncom.cj.motherbearcourt/.MainActivity\n",
+      "stderr_tail": ""
+    },
+    "launch": {
+      "command": "/Users/alex/Library/Android/sdk/platform-tools/adb",
+      "args": [
+        "-s",
+        "emulator-5554",
+        "shell",
+        "am",
+        "start",
+        "-n",
+        "com.cj.motherbearcourt/.MainActivity"
+      ],
+      "exit_code": 0,
+      "signal": null,
+      "duration_ms": 125,
+      "stdout_tail": "Starting: Intent { cmp=com.cj.motherbearcourt/.MainActivity }\n",
+      "stderr_tail": ""
+    },
+    "pidof": {
+      "command": "/Users/alex/Library/Android/sdk/platform-tools/adb",
+      "args": [
+        "-s",
+        "emulator-5554",
+        "shell",
+        "pidof",
+        "com.cj.motherbearcourt"
+      ],
+      "exit_code": 0,
+      "signal": null,
+      "duration_ms": 23,
+      "stdout_tail": "5972\n",
+      "stderr_tail": ""
+    },
+    "activity": {
+      "command": "/Users/alex/Library/Android/sdk/platform-tools/adb",
+      "args": [
+        "-s",
+        "emulator-5554",
+        "shell",
+        "dumpsys",
+        "activity",
+        "activities"
+      ],
+      "exit_code": 0,
+      "signal": null,
+      "duration_ms": 20,
+      "stdout_tail": "  mIsLeashInitialized=true mHasPendingPosition=false\n        mWin=Window{e083b19 u0 InputMethod}\n        mAdapter=ControlAdapter mCapturedLeash=Surface(name=Surface(name=e083b19 InputMethod#87)/@0x5a1148e - animation-leash of insets_animation#305)/@0xbef609d\n        mControlTarget=Window{c678d8 u0 com.cj.motherbearcourt/com.cj.motherbearcourt.MainActivity}\n        mImeShowing=false mLastDrawn=false\n      InsetsSourceProvider\n        mSource=InsetsSource id=d10d0024 type=systemGestures frame=[1002,0][1080,2424] visible=true flags= sideHint=RIGHT boundingRects=null\n        mSourceFrame=Rect(1002, 0 - 1080, 2424)\n        mIsLeashInitialized=false mHasPendingPosition=false\n        mWin=Window{c491756 u0 Taskbar}\n      InsetsSourceProvider\n        mSource=InsetsSource id=d10d0006 type=tappableElement frame=[0,0][0,0] visible=true flags= sideHint=NONE boundingRects=null\n        mSourceFrame=Rect(0, 0 - 0, 0)\n        mOverrideFrames={2031=Rect(0, 0 - 0, 0)}\n        mIsLeashInitialized=false mHasPendingPosition=false\n        mWin=Window{c491756 u0 Taskbar}\n      InsetsSourceProvider\n        mSource=InsetsSource id=d10d0005 type=mandatorySystemGestures frame=[0,2340][1080,2424] visible=true flags= sideHint=BOTTOM boundingRects=null\n        mSourceFrame=Rect(0, 2340 - 1080, 2424)\n        mIsLeashInitialized=false mHasPendingPosition=false\n        mWin=Window{c491756 u0 Taskbar}\n      InsetsSourceProvider\n        mSource=InsetsSource id=d10d0004 type=systemGestures frame=[0,0][78,2424] visible=true flags= sideHint=LEFT boundingRects=null\n        mSourceFrame=Rect(0, 0 - 78, 2424)\n        mIsLeashInitialized=false mHasPendingPosition=false\n        mWin=Window{c491756 u0 Taskbar}\n      InsetsSourceProvider\n        mSource=InsetsSource id=d10d0001 type=navigationBars frame=[0,2361][1080,2424] visible=true flags=SUPPRESS_SCRIM|ANIMATE_RESIZING sideHint=BOTTOM boundingRects=null\n        mSourceFrame=Rect(0, 2361 - 1080, 2424)\n        mControl=InsetsSourceControl mId=d10d0001 mType=navigationBars mLeash=Surface(name=Surface(name=c491756 Taskbar#81)/@0x9831621 - animation-leash of insets_animation#302)/@0xaca2912 mInitiallyVisible=true mSurfacePosition=Point(0, 2361) mInsetsHint=Insets{left=0, top=0, right=0, bottom=63} mSkipAnimationOnce=false mImeStatsToken=null\n        mInsetsHint=Insets{left=0, top=0, right=0, bottom=63}\n        mIsLeashInitialized=true mHasPendingPosition=false\n        mWin=Window{c491756 u0 Taskbar}\n        mAdapter=ControlAdapter mCapturedLeash=Surface(name=Surface(name=c491756 Taskbar#81)/@0x9831621 - animation-leash of insets_animation#302)/@0xaca2912\n        mControlTarget=Window{c678d8 u0 com.cj.motherbearcourt/com.cj.motherbearcourt.MainActivity}\n      InsetsSourceProvider\n        mSource=InsetsSource id=b1530006 type=tappableElement frame=[0,0][1080,142] visible=true flags= sideHint=TOP boundingRects=null\n        mSourceFrame=Rect(0, 0 - 1080, 142)\n        mIsLeashInitialized=false mHasPendingPosition=false\n        mWin=Window{54730ff u0 StatusBar}\n      InsetsSourceProvider\n        mSource=InsetsSource id=b1530005 type=mandatorySystemGestures frame=[0,0][1080,174] visible=true flags= sideHint=TOP boundingRects=null\n        mSourceFrame=Rect(0, 0 - 1080, 174)\n        mIsLeashInitialized=false mHasPendingPosition=false\n        mWin=Window{54730ff u0 StatusBar}\n      InsetsSourceProvider\n        mSource=InsetsSource id=b1530000 type=statusBars frame=[0,0][1080,142] visible=true flags= sideHint=TOP boundingRects=null\n        mSourceFrame=Rect(0, 0 - 1080, 142)\n        mControl=InsetsSourceControl mId=b1530000 mType=statusBars mLeash=Surface(name=Surface(name=54730ff StatusBar#76)/@0xad614f - animation-leash of insets_animation#303)/@0x68328e3 mInitiallyVisible=true mSurfacePosition=Point(0, 0) mInsetsHint=Insets{left=0, top=142, right=0, bottom=0} mSkipAnimationOnce=false mImeStatsToken=null\n        mInsetsHint=Insets{left=0, top=142, right=0, bottom=0}\n        mIsLeashInitialized=true mHasPendingPosition=false\n        mWin=Window{54730ff u0 StatusBar}\n        mAdapter=ControlAdapter mCapturedLeash=Surface(name=Surface(name=54730ff StatusBar#76)/@0xad614f - animation-leash of insets_animation#303)/@0x68328e3\n        mControlTarget=Window{c678d8 u0 com.cj.motherbearcourt/com.cj.motherbearcourt.MainActivity}\n  InsetsPolicy\n    status: WINDOW_STATE_SHOWING\n    nav: WINDOW_STATE_SHOWING\n\n  DisplayWindowSettingsProvider\n    SettingsEntry{mWindowingMode=0, mUserRotationMode=null, mUserRotation=null, mForcedWidth=0, mForcedHeight=0, mForcedDensity=0, mForcedDensityRatio=0.0, mForcedScalingMode=null, mRemoveContentMode=0, mShouldShowWithInsecureKeyguard=null, mShouldShowSystemDecors=null, mIsHomeSupported=null, mShouldShowIme=null, mFixedToUserRotation=null, mIgnoreOrientationRequest=null, mIgnoreDisplayCutout=null, mDontMoveToTop=null, mForceAppsUniversalResizable=null}\n\n  KeyguardController:\n    mKeyguardShowing=false\n    mAodShowing=false\n    mKeyguardGoingAway=false\n   KeyguardShowing=false AodShowing=false KeyguardGoingAway=false DismissalRequested=false  Occluded=false DismissingKeyguardActivity=null TurnScreenOnActivity=null at display=0\n    mDismissalRequested=false\n\n  LockTaskController:\n    mLockTaskModeState=NONE\n    mLockTaskModeTasks=\n    mLockTaskPackages (userId:packages)=\n\n  mCurTaskIdForUser={0=39}\n  mUserRootTaskInFront={}\n  mVisibilityTransactionDepth=0\n  isHomeRecentsComponent=true\n  mNoHistoryActivities=[]\n\n  TaskOrganizerController:\n      android.window.ITaskOrganizer$Stub$Proxy@f6cd504 uid=10191 (active):\n        (fullscreen) Task{58dcde8 #1 type=home}\n        (fullscreen) Task{852c123 #3 name=SplitRoot type=undefined}\n        (multi-window) Task{6271620 #4 name=main type=undefined}\n        (multi-window) Task{4225bd9 #5 name=side type=undefined}\n        (fullscreen) Task{7db7d2d #39 type=standard A=10223:com.cj.motherbearcourt}\n\n  VisibleActivityProcess:[ ProcessRecord{caa4ab5 5972:com.cj.motherbearcourt/u0a223}]\n  NumNonAppVisibleWindowUidMap:[ 10193:1 10191:3]\n",
+      "stderr_tail": ""
+    },
+    "window": {
+      "command": "/Users/alex/Library/Android/sdk/platform-tools/adb",
+      "args": [
+        "-s",
+        "emulator-5554",
+        "shell",
+        "dumpsys",
+        "window"
+      ],
+      "exit_code": 0,
+      "signal": null,
+      "duration_ms": 21,
+      "stdout_tail": "se\n    ContainerAnimator:\n      mLeash=Surface(name=Surface(name=e083b19 InputMethod#87)/@0x5a1148e - animation-leash of insets_animation#305)/@0xbef609d mAnimationType=insets_animation\n      Animation: com.android.server.wm.InsetsSourceProvider$ControlAdapter@6ab0655\n        ControlAdapter mCapturedLeash=Surface(name=Surface(name=e083b19 InputMethod#87)/@0x5a1148e - animation-leash of insets_animation#305)/@0xbef609d\n    WindowStateAnimator{53e4a88 InputMethod}:\n    isOnScreen=false\n    isVisible=false\n    keepClearAreas: restricted=[], unrestricted=[]\n    mPrepareSyncSeqId=0\n    mBufferSeqId=0\n  Window #8 Window{c678d8 u0 com.cj.motherbearcourt/com.cj.motherbearcourt.MainActivity}:\n    mDisplayId=0 taskId=39 mSession=Session{cdcd98d 5972:u0a10223} mClient=android.os.BinderProxy@fcb9bbb\n    mOwnerUid=10223 showForAllUsers=false package=com.cj.motherbearcourt appop=NONE\n    mAttrs={(0,0)(fillxfill) sim={adjust=resize forwardNavigation} layoutInDisplayCutoutMode=always ty=BASE_APPLICATION wanim=0x103030d\n      fl=LAYOUT_IN_SCREEN LAYOUT_INSET_DECOR SPLIT_TOUCH HARDWARE_ACCELERATED DRAWS_SYSTEM_BAR_BACKGROUNDS\n      pfl=NO_MOVE_ANIMATION EDGE_TO_EDGE_ENFORCED FORCE_DRAW_STATUS_BAR_BACKGROUND FIT_INSETS_CONTROLLED\n      vsysui=LIGHT_NAVIGATION_BAR\n      apr=LIGHT_STATUS_BARS LIGHT_NAVIGATION_BARS\n      bhv=SHOW_TRANSIENT_BARS_BY_SWIPE\n      fitSides=\n      frameRateBoostOnTouch=true\n      dvrrWindowFrameRateHint=true}\n    Requested w=1080 h=2424 mLayoutSeq=307\n    mHasSurface=true isReadyForDisplay()=true mWindowRemovalAllowed=false\n    WindowStateAnimator{a9dc45e com.cj.motherbearcourt/com.cj.motherbearcourt.MainActivity}:\n      Surface: shown=true    isOnScreen=true\n    isVisible=true\n    keepClearAreas: restricted=[], unrestricted=[]\n    mPrepareSyncSeqId=0\n    mBufferSeqId=0\n  Window #9 Window{1142ac1 u0 com.google.android.apps.nexuslauncher/com.google.android.apps.nexuslauncher.NexusLauncherActivity}:\n    mDisplayId=0 taskId=2 mSession=Session{78552a3 1142:u0a10193} mClient=android.os.BinderProxy@24afa8\n    mOwnerUid=10193 showForAllUsers=false package=com.google.android.apps.nexuslauncher appop=NONE\n    mAttrs={(0,0)(fillxfill) sim={adjust=nothing} layoutInDisplayCutoutMode=always ty=BASE_APPLICATION fmt=TRANSPARENT wanim=0x1030301\n      fl=LAYOUT_IN_SCREEN LAYOUT_INSET_DECOR SHOW_WALLPAPER SPLIT_TOUCH HARDWARE_ACCELERATED DRAWS_SYSTEM_BAR_BACKGROUNDS\n      pfl=NO_MOVE_ANIMATION OPTIMIZE_MEASURE EDGE_TO_EDGE_ENFORCED FORCE_DRAW_STATUS_BAR_BACKGROUND FIT_INSETS_CONTROLLED\n      vsysui=LAYOUT_STABLE LAYOUT_HIDE_NAVIGATION LAYOUT_FULLSCREEN\n      bhv=DEFAULT\n      fitSides=\n      frameRateBoostOnTouch=true\n      dvrrWindowFrameRateHint=true}\n    Requested w=1080 h=2424 mLayoutSeq=295\n    mHasSurface=false isReadyForDisplay()=false mWindowRemovalAllowed=false\n    WindowStateAnimator{be66999 com.google.android.apps.nexuslauncher/com.google.android.apps.nexuslauncher.NexusLauncherActivity}:\n    mWallpaperX=0.0 mWallpaperY=0.5\n    mWallpaperXStep=0.33333334 mWallpaperYStep=1.0\n    mWallpaperZoomOut=0.0\n    isOnScreen=false\n    isVisible=false\n    keepClearAreas: restricted=[], unrestricted=[]\n    mPrepareSyncSeqId=0\n    mBufferSeqId=0\n  Window #10 Window{eb92e44 u0 com.android.systemui.wallpapers.ImageWallpaper}:\n    mDisplayId=0 mSession=Session{90c9168 984:u0a10191} mClient=android.os.BinderProxy@235357\n    mOwnerUid=10191 showForAllUsers=true package=com.android.systemui appop=NONE\n    mAttrs={(0,0)(2183x2424) gr=TOP START CENTER layoutInDisplayCutoutMode=always ty=WALLPAPER fmt=RGBX_8888 wanim=0x103031d\n      fl=NOT_FOCUSABLE NOT_TOUCHABLE LAYOUT_IN_SCREEN LAYOUT_NO_LIMITS SCALED LAYOUT_INSET_DECOR\n      pfl=WANTS_OFFSET_NOTIFICATIONS SHOW_FOR_ALL_USERS\n      bhv=DEFAULT\n      frameRateBoostOnTouch=true\n      dvrrWindowFrameRateHint=true}\n    Requested w=922 h=1024 mLayoutSeq=301\n    mIsImWindow=false mIsWallpaper=true mIsFloatingLayer=true\n    mHasSurface=true isReadyForDisplay()=false mWindowRemovalAllowed=false\n    WindowStateAnimator{a44baa5 com.android.systemui.wallpapers.ImageWallpaper}:\n      Surface: shown=false    mHScale=2.3676789 mVScale=2.3671875\n    mWallpaperX=0.0 mWallpaperY=0.5\n    mWallpaperXStep=0.33333334 mWallpaperYStep=1.0\n    mWallpaperZoomOut=0.0\n    isOnScreen=false\n    isVisible=false\n    keepClearAreas: restricted=[], unrestricted=[]\n    mPrepareSyncSeqId=0\n    mBufferSeqId=0\n\n  mGlobalConfiguration={1.0 310mcc260mnc [en_US] ldltr sw411dp w411dp h923dp 420dpi nrml long compactNeeded port finger -keyb/v/h -nav/h winConfig={ mBounds=Rect(0, 0 - 1080, 2424) mAppBounds=Rect(0, 0 - 1080, 2424) mMaxBounds=Rect(0, 0 - 1080, 2424) mDisplayRotation=ROTATION_0 mWindowingMode=fullscreen mActivityType=undefined mAlwaysOnTop=undefined mRotation=ROTATION_0} as.3 s.49 fontWeightAdjustment=0}\n  mHasPermanentDpad=false\n  mTopFocusedDisplayId=0\n  Minimum task size of display#0 220\n  mBlurEnabled=true\n  mDisableSecureWindows=false\n mHighResSnapshotScale=0.8\n mSnapshotEnabled=true\n SnapshotCache Task\n mHighResSnapshotScale=0.6\n mSnapshotEnabled=true\n SnapshotCache Activity\n   UserSavedFile userId=0\nWINDOW MANAGER TRACE (dumpsys window trace)\nStatus: Disabled\nSessions logging 'on frame': 0\nSessions logging 'on transaction': 0\n\nDeprecated legacy command. Use Perfetto commands instead.\nWINDOW MANAGER HIGH REFRESH RATE BLACKLIST (dumpsys window refresh)\nHigh Refresh Rate Denylist\n  Packages:\nINSTALLED PACKAGES HAVING APP-SPECIFIC CONFIGURATIONS\nCurrent user ID : 0\nWINDOW MANAGER CONSTANTS (dumpsys window constants):\n  system_gesture_exclusion_log_debounce_millis=1500\n  system_gesture_exclusion_limit_dp=200\n  system_gestures_excluded_by_pre_q_sticky_immersive=false\n  ignore_activity_orientation_request_screens=none\n\nSystemPerformanceHinter:\n  Active sessions (0):\nTrustedPresentationListenerController:\n  Active unique listeners (0):\nSensitiveContentPackages:\n  Packages that should block screen capture (0):\nScreenRecordingCallbackController:\n  Registered callbacks:\n  Last invoked states:\n",
+      "stderr_tail": ""
+    }
+  }
+}

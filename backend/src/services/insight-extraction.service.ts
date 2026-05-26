@@ -12,7 +12,7 @@ const PSYCH_DOMAINS = Object.values(PsychDomain).join('、');
 export class InsightExtractionService {
   /**
    * 依最新敘事用 AI 萃取出洞見，upsert ProfileInsight
-   * 使用 ANALYSIS_AI_CONFIG (gpt-4o) 以確保深度分析品質
+   * 使用 ANALYSIS_AI_CONFIG (gpt-4o) 以確保整理品質
    */
   async extractInsights(userId: string, sessionId: string): Promise<void> {
     const narratives = await prisma.profileNarrative.findMany({
@@ -36,7 +36,7 @@ export class InsightExtractionService {
       .map((n) => `[領域: ${n.domain}]\n${n.ai_summary || n.raw_narrative}`)
       .join('\n\n');
 
-    const prompt = `你是一位具有關係諮詢背景的臨床心理評估助手。請根據以下心理訪談敘事摘要，萃取出結構化心理洞見。
+    const prompt = `你是 Emorapy 的 AI 關係敘事整理助手。請根據以下自我探索敘事摘要，萃取出結構化心理洞見。
 
 ## 萃取規則
 1. 每條洞見必須有明確的對話證據支撐，不可僅靠推測
@@ -67,7 +67,7 @@ ${fenceUserInput('敘事摘要', combined)}
         maxTokens: ANALYSIS_AI_CONFIG.maxTokens,
         temperature: ANALYSIS_AI_CONFIG.temperature,
         topP: ANALYSIS_AI_CONFIG.topP,
-        systemPrompt: '你是一位受過臨床心理學訓練的心理評估專家。你只回傳 JSON，不附帶其他文字。',
+        systemPrompt: '你是關係敘事與自我探索資料的整理助手。你只回傳 JSON，不附帶其他文字，不自稱臨床心理師或治療師。',
       });
       const jsonMatch = raw.match(/\[[\s\S]*\]/);
       let list: InsightExtractionResult[] = [];

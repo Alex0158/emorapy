@@ -30,7 +30,7 @@ vi.mock('@/services/api/reconciliation', () => ({
   getPlanById: (...args: unknown[]) => mockGetPlanById(...args),
 }));
 
-vi.mock('@/utils/i18n', () => ({ t: (key: string) => key }));
+vi.mock('@/utils/i18n', () => ({ getLocale: () => 'zh-TW', t: (key: string) => key }));
 vi.mock('@/components/common/ProtectedRoute', () => ({
   default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));

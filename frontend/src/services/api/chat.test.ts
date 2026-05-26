@@ -14,207 +14,171 @@ import {
   sendChatMessage,
 } from './chat';
 
-const mockGet = vi.fn();
-const mockPost = vi.fn();
+const mocks = vi.hoisted(() => ({
+  acceptInvite: vi.fn(),
+  createInvite: vi.fn(),
+  createRoom: vi.fn(),
+  declineInvite: vi.fn(),
+  getJudgmentStatus: vi.fn(),
+  getRoom: vi.fn(),
+  kickParticipantB: vi.fn(),
+  leaveRoom: vi.fn(),
+  listMessages: vi.fn(),
+  requestJudgment: vi.fn(),
+  sendMessage: vi.fn(),
+  createM3ApiClient: vi.fn(() => ({
+    chat: {
+      acceptInvite: mocks.acceptInvite,
+      createInvite: mocks.createInvite,
+      createRoom: mocks.createRoom,
+      declineInvite: mocks.declineInvite,
+      getJudgmentStatus: mocks.getJudgmentStatus,
+      getRoom: mocks.getRoom,
+      kickParticipantB: mocks.kickParticipantB,
+      leaveRoom: mocks.leaveRoom,
+      listMessages: mocks.listMessages,
+      requestJudgment: mocks.requestJudgment,
+      sendMessage: mocks.sendMessage,
+    },
+  })),
+}));
+
+vi.mock('@cj/api-client', () => ({
+  createM3ApiClient: (...args: unknown[]) => mocks.createM3ApiClient(...args),
+}));
+
 vi.mock('../request', () => ({
-  default: {
-    get: (...args: unknown[]) => mockGet(...args),
-    post: (...args: unknown[]) => mockPost(...args),
-  },
+  default: { requestName: 'web-request-adapter' },
 }));
 
 describe('chat API', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
+    mocks.createM3ApiClient.mockReturnValue({
+      chat: {
+        acceptInvite: mocks.acceptInvite,
+        createInvite: mocks.createInvite,
+        createRoom: mocks.createRoom,
+        declineInvite: mocks.declineInvite,
+        getJudgmentStatus: mocks.getJudgmentStatus,
+        getRoom: mocks.getRoom,
+        kickParticipantB: mocks.kickParticipantB,
+        leaveRoom: mocks.leaveRoom,
+        listMessages: mocks.listMessages,
+        requestJudgment: mocks.requestJudgment,
+        sendMessage: mocks.sendMessage,
+      },
+    });
   });
 
-  it('createChatRoom 應 POST /chat/rooms', async () => {
-    mockPost.mockResolvedValueOnce({ data: { data: { room: { id: 'r1' } } } });
+  it('createChatRoom 應委派 shared M3 chat client 並保留預設 history_visibility_mode', async () => {
+    mocks.createRoom.mockResolvedValueOnce({ id: 'r1' });
     const result = await createChatRoom();
-    expect(mockPost).toHaveBeenCalledWith('/chat/rooms', {
-      history_visibility_mode: 'share_summary_only',
-    });
+    expect(mocks.createRoom).toHaveBeenCalledWith('share_summary_only');
     expect(result).toMatchObject({ id: 'r1' });
   });
 
-  it('createChatRoom 回應缺少 room 時應拋錯', async () => {
-    mockPost.mockResolvedValueOnce({ data: { data: {} } });
+  it('createChatRoom 應保留呼叫端指定的 history_visibility_mode', async () => {
+    mocks.createRoom.mockResolvedValueOnce({ id: 'r1' });
+    await createChatRoom('share_full_history');
+    expect(mocks.createRoom).toHaveBeenCalledWith('share_full_history');
+  });
+
+  it('createChatRoom 應透傳 shared client 錯誤', async () => {
+    mocks.createRoom.mockRejectedValueOnce(new Error('Invalid chat room response from server'));
     await expect(createChatRoom()).rejects.toThrow('Invalid chat room response from server');
   });
 
-  it('createChatRoom 後端回傳 room 為 null 時應拋錯（F07 邊界：API 回傳不完整時防禦）', async () => {
-    mockPost.mockResolvedValueOnce({ data: { data: { room: null } } });
-    await expect(createChatRoom()).rejects.toThrow('Invalid chat room response from server');
-  });
-
-  it('getChatRoom 應 GET /chat/rooms/:id', async () => {
-    mockGet.mockResolvedValueOnce({ data: { data: { room: { id: 'r2' } } } });
+  it('getChatRoom 應委派 shared M3 getRoom', async () => {
+    mocks.getRoom.mockResolvedValueOnce({ id: 'r2' });
     const result = await getChatRoom('r2');
-    expect(mockGet).toHaveBeenCalledWith('/chat/rooms/r2');
+    expect(mocks.getRoom).toHaveBeenCalledWith('r2');
     expect(result).toMatchObject({ id: 'r2' });
   });
 
-  it('getChatRoom 後端回傳 room 為 null 時應拋錯（F07 邊界：API 回傳不完整時防禦）', async () => {
-    mockGet.mockResolvedValueOnce({ data: { data: { room: null } } });
-    await expect(getChatRoom('r2')).rejects.toThrow('Invalid chat room response from server');
-  });
-
-  it('createChatInvite 應 POST /chat/rooms/:id/invites', async () => {
-    mockPost.mockResolvedValueOnce({ data: { data: { invite: { id: 'i1', invite_code: 'ABC123' } } } });
+  it('createChatInvite 應委派 shared M3 createInvite', async () => {
+    mocks.createInvite.mockResolvedValueOnce({ id: 'i1', invite_code: 'ABC123' });
     const result = await createChatInvite('r1', { expires_in_hours: 12 });
-    expect(mockPost).toHaveBeenCalledWith('/chat/rooms/r1/invites', { expires_in_hours: 12 });
+    expect(mocks.createInvite).toHaveBeenCalledWith('r1', { expires_in_hours: 12 });
     expect(result).toMatchObject({ id: 'i1', invite_code: 'ABC123' });
   });
 
-  it('createChatInvite 後端回傳 invite 為 null 時應拋錯（F07 邊界：API 回傳不完整時防禦）', async () => {
-    mockPost.mockResolvedValueOnce({ data: { data: { invite: null } } });
-    await expect(createChatInvite('r1')).rejects.toThrow('Invalid chat invite response from server');
+  it('createChatInvite 未傳 payload 時應委派空物件', async () => {
+    mocks.createInvite.mockResolvedValueOnce({ id: 'i1' });
+    await createChatInvite('r1');
+    expect(mocks.createInvite).toHaveBeenCalledWith('r1', {});
   });
 
-  it('acceptChatInvite 應 POST /chat/invites/:code/accept', async () => {
-    mockPost.mockResolvedValueOnce({ data: { data: { room: { id: 'r3' } } } });
+  it('acceptChatInvite 應委派 shared M3 acceptInvite', async () => {
+    mocks.acceptInvite.mockResolvedValueOnce({ id: 'r3' });
     const result = await acceptChatInvite('CODE01');
-    expect(mockPost).toHaveBeenCalledWith('/chat/invites/CODE01/accept');
+    expect(mocks.acceptInvite).toHaveBeenCalledWith('CODE01');
     expect(result).toMatchObject({ id: 'r3' });
   });
 
-  it('acceptChatInvite 後端回傳 room 為 null 時應拋錯（F07 邊界：API 回傳不完整時防禦）', async () => {
-    mockPost.mockResolvedValueOnce({ data: { data: { room: null } } });
-    await expect(acceptChatInvite('CODE01')).rejects.toThrow('Invalid accept invite response from server');
-  });
-
-  it('API 路徑參數應做 encodeURIComponent', async () => {
-    mockGet.mockResolvedValueOnce({ data: { data: { room: { id: 'r/a' } } } });
-    await getChatRoom('r/a');
-    expect(mockGet).toHaveBeenCalledWith('/chat/rooms/r%2Fa');
-  });
-
-  it('declineChatInvite 應 POST /chat/invites/:code/decline', async () => {
-    mockPost.mockResolvedValueOnce({ data: { data: { invite: { id: 'i2', status: 'declined' } } } });
+  it('declineChatInvite 應委派 shared M3 declineInvite', async () => {
+    mocks.declineInvite.mockResolvedValueOnce({ id: 'i2', status: 'declined' });
     const result = await declineChatInvite('CODE02');
-    expect(mockPost).toHaveBeenCalledWith('/chat/invites/CODE02/decline');
+    expect(mocks.declineInvite).toHaveBeenCalledWith('CODE02');
     expect(result).toMatchObject({ id: 'i2', status: 'declined' });
   });
 
-  it('declineChatInvite 後端回傳 invite 為 null 時應拋錯（F07 邊界：API 回傳不完整時防禦）', async () => {
-    mockPost.mockResolvedValueOnce({ data: { data: { invite: null } } });
-    await expect(declineChatInvite('CODE02')).rejects.toThrow('Invalid decline invite response from server');
-  });
-
-  it('leaveChatRoom 應 POST /chat/rooms/:id/leave 並返回 room', async () => {
-    mockPost.mockResolvedValueOnce({ data: { data: { room: { id: 'r1', status: 'left' } } } });
+  it('leaveChatRoom 應委派 shared M3 leaveRoom', async () => {
+    mocks.leaveRoom.mockResolvedValueOnce({ id: 'r1', status: 'left' });
     const result = await leaveChatRoom('r1');
-    expect(mockPost).toHaveBeenCalledWith('/chat/rooms/r1/leave');
+    expect(mocks.leaveRoom).toHaveBeenCalledWith('r1');
     expect(result).toMatchObject({ id: 'r1', status: 'left' });
   });
 
-  it('leaveChatRoom 後端回傳 room 為 null 時應拋錯（F07 邊界：API 回傳不完整時防禦）', async () => {
-    mockPost.mockResolvedValueOnce({ data: { data: { room: null } } });
-    await expect(leaveChatRoom('r1')).rejects.toThrow('Invalid leave room response');
-  });
-
-  it('kickChatParticipantB 應 POST /chat/rooms/:id/kick-b 並返回 room', async () => {
-    mockPost.mockResolvedValueOnce({ data: { data: { room: { id: 'r1', status: 'active' } } } });
+  it('kickChatParticipantB 應委派 shared M3 kickParticipantB', async () => {
+    mocks.kickParticipantB.mockResolvedValueOnce({ id: 'r1', status: 'active' });
     const result = await kickChatParticipantB('r1');
-    expect(mockPost).toHaveBeenCalledWith('/chat/rooms/r1/kick-b');
+    expect(mocks.kickParticipantB).toHaveBeenCalledWith('r1');
     expect(result).toMatchObject({ id: 'r1', status: 'active' });
   });
 
-  it('kickChatParticipantB 後端回傳 room 為 null 時應拋錯（F07 邊界：API 回傳不完整時防禦）', async () => {
-    mockPost.mockResolvedValueOnce({ data: { data: { room: null } } });
-    await expect(kickChatParticipantB('r1')).rejects.toThrow('Invalid kick response');
-  });
-
-  it('listChatMessages 應返回 messages 與 nextCursor', async () => {
-    mockGet.mockResolvedValueOnce({
-      data: { data: { messages: [{ id: 'm1', content: 'hello' }], nextCursor: 'cursor-1' } },
+  it('listChatMessages 應委派 shared M3 listMessages 並返回 shared normalize 結果', async () => {
+    mocks.listMessages.mockResolvedValueOnce({
+      messages: [{ id: 'm1', content: 'hello' }],
+      nextCursor: 'cursor-1',
     });
     const result = await listChatMessages('r1', { limit: 30 });
-    expect(mockGet).toHaveBeenCalledWith('/chat/rooms/r1/messages', { params: { limit: 30 } });
+    expect(mocks.listMessages).toHaveBeenCalledWith('r1', { limit: 30 });
     expect(result.messages).toHaveLength(1);
     expect(result.nextCursor).toBe('cursor-1');
   });
 
-  it('listChatMessages 後端回傳 messages 為非陣列時應返回空陣列（F07 邊界：API 回傳不完整時防禦）', async () => {
-    mockGet.mockResolvedValueOnce({
-      data: { data: { messages: { items: [] }, nextCursor: null } },
-    });
-    const result = await listChatMessages('r1');
-    expect(result.messages).toEqual([]);
-    expect(result.nextCursor).toBeNull();
+  it('listChatMessages 未傳 params 時應委派空物件', async () => {
+    mocks.listMessages.mockResolvedValueOnce({ messages: [], nextCursor: null });
+    await listChatMessages('r1');
+    expect(mocks.listMessages).toHaveBeenCalledWith('r1', {});
   });
 
-  it('listChatMessages 後端回傳 nextCursor 為 undefined 時應正規化為 null（F07 邊界：API 回傳不完整時防禦）', async () => {
-    mockGet.mockResolvedValueOnce({
-      data: { data: { messages: [], nextCursor: undefined } },
-    });
-    const result = await listChatMessages('r1');
-    expect(result.messages).toEqual([]);
-    expect(result.nextCursor).toBeNull();
-  });
-
-  it('listChatMessages 後端回傳 data 為 null 時應拋錯（F07 邊界：API 回傳不完整時防禦）', async () => {
-    mockGet.mockResolvedValueOnce({ data: { data: null } });
-    await expect(listChatMessages('r1')).rejects.toThrow('Invalid chat messages response from server');
-  });
-
-  it('sendChatMessage 應 POST /chat/rooms/:id/messages', async () => {
-    mockPost.mockResolvedValueOnce({ data: { data: { message: { id: 'm2', content: 'ok' } } } });
+  it('sendChatMessage 應委派 shared M3 sendMessage', async () => {
+    mocks.sendMessage.mockResolvedValueOnce({ id: 'm2', content: 'ok' });
     const result = await sendChatMessage('r1', { content: 'ok' });
-    expect(mockPost).toHaveBeenCalledWith('/chat/rooms/r1/messages', { content: 'ok' });
+    expect(mocks.sendMessage).toHaveBeenCalledWith('r1', { content: 'ok' });
     expect(result).toMatchObject({ id: 'm2' });
   });
 
-  it('sendChatMessage 後端回傳 message 為 null 時應拋錯（F07 邊界：API 回傳不完整時防禦）', async () => {
-    mockPost.mockResolvedValueOnce({ data: { data: { message: null } } });
-    await expect(sendChatMessage('r1', { content: 'hi' })).rejects.toThrow(
-      'Invalid send message response from server'
-    );
-  });
-
-  it('sendChatMessage 後端回傳 message 為 undefined 時應拋錯（F07 邊界：API 回傳不完整時防禦）', async () => {
-    mockPost.mockResolvedValueOnce({ data: { data: { message: undefined } } });
-    await expect(sendChatMessage('r1', { content: 'hi' })).rejects.toThrow(
-      'Invalid send message response from server'
-    );
-  });
-
-  it('requestChatJudgment 應 POST /chat/rooms/:id/request-judgment', async () => {
-    mockPost.mockResolvedValueOnce({ data: { data: { roomId: 'r1', caseId: 'c1', status: 'judgment_requested' } } });
+  it('requestChatJudgment 應委派 shared M3 requestJudgment', async () => {
+    mocks.requestJudgment.mockResolvedValueOnce({ roomId: 'r1', caseId: 'c1', status: 'judgment_requested' });
     const result = await requestChatJudgment('r1', { included_message_ids: ['m1', 'm2'] });
-    expect(mockPost).toHaveBeenCalledWith(
-      '/chat/rooms/r1/request-judgment',
-      { included_message_ids: ['m1', 'm2'] },
-      { timeout: 180000 }
-    );
+    expect(mocks.requestJudgment).toHaveBeenCalledWith('r1', { included_message_ids: ['m1', 'm2'] });
     expect(result).toMatchObject({ roomId: 'r1', caseId: 'c1' });
   });
 
-  it('requestChatJudgment 未傳 included_message_ids 時也應保留長超時配置（P04 超時回歸）', async () => {
-    mockPost.mockResolvedValueOnce({ data: { data: { roomId: 'r1', caseId: 'c1', status: 'judgment_requested' } } });
+  it('requestChatJudgment 未傳 payload 時應委派空物件，長超時由 shared M3 contract 保護', async () => {
+    mocks.requestJudgment.mockResolvedValueOnce({ roomId: 'r1', caseId: 'c1', status: 'judgment_requested' });
     await requestChatJudgment('r1');
-    expect(mockPost).toHaveBeenCalledWith(
-      '/chat/rooms/r1/request-judgment',
-      {},
-      { timeout: 180000 }
-    );
+    expect(mocks.requestJudgment).toHaveBeenCalledWith('r1', {});
   });
 
-  it('requestChatJudgment 後端回傳 data 為 null 時應拋錯（F07 邊界：API 回傳不完整時防禦）', async () => {
-    mockPost.mockResolvedValueOnce({ data: { data: null } });
-    await expect(requestChatJudgment('r1')).rejects.toThrow('Invalid judgment request response from server');
-  });
-
-  it('getChatJudgmentStatus 應 GET /chat/rooms/:id/judgment-status', async () => {
-    mockGet.mockResolvedValueOnce({ data: { data: { roomStatus: 'judgment_requested' } } });
+  it('getChatJudgmentStatus 應委派 shared M3 getJudgmentStatus', async () => {
+    mocks.getJudgmentStatus.mockResolvedValueOnce({ roomStatus: 'judgment_requested' });
     const result = await getChatJudgmentStatus('r1');
-    expect(mockGet).toHaveBeenCalledWith('/chat/rooms/r1/judgment-status');
+    expect(mocks.getJudgmentStatus).toHaveBeenCalledWith('r1');
     expect(result).toMatchObject({ roomStatus: 'judgment_requested' });
-  });
-
-  it('getChatJudgmentStatus 後端回傳 data 為 null 時應拋錯（F07 邊界：API 回傳不完整時防禦）', async () => {
-    mockGet.mockResolvedValueOnce({ data: { data: null } });
-    await expect(getChatJudgmentStatus('r1')).rejects.toThrow('Invalid judgment status response from server');
   });
 
   it('connectChatStream 當 localStorage 拋錯時應以 token=null 繼續請求', async () => {

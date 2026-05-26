@@ -177,20 +177,50 @@ export class ChatService {
       return tempPairing.id;
     }
 
-    // 單人登入房先建立專屬 pending pairing，避免跨聊天室共用同一 pairing 導致資料耦合。
+    // 單人登入房復用 owner 既有 active/pending normal pairing；DB invariant
+    // guarantees a user cannot appear in two live normal pairings.
     if (!roleBUserId) {
-      const created = await prisma.pairing.create({
-        data: {
-          user1_id: room.owner_user_id,
-          user2_id: null,
-          invite_code: null,
-          status: PairingStatus.pending,
-          pairing_type: PairingType.normal,
-          expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000),
-          confirmed_at: null,
-        },
+      const liveOwnerPairingWhere: Prisma.PairingWhereInput = {
+        pairing_type: PairingType.normal,
+        status: { in: [PairingStatus.pending, PairingStatus.active] },
+        OR: [
+          { user1_id: room.owner_user_id },
+          { user2_id: room.owner_user_id },
+        ],
+      };
+      const existingLiveOwnerPairing = await prisma.pairing.findFirst({
+        where: liveOwnerPairingWhere,
+        orderBy: { created_at: 'desc' },
       });
-      return created.id;
+      if (existingLiveOwnerPairing) {
+        return existingLiveOwnerPairing.id;
+      }
+      try {
+        const created = await prisma.pairing.create({
+          data: {
+            user1_id: room.owner_user_id,
+            user2_id: null,
+            invite_code: null,
+            status: PairingStatus.pending,
+            pairing_type: PairingType.normal,
+            expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000),
+            confirmed_at: null,
+          },
+        });
+        return created.id;
+      } catch (error) {
+        const known = error as Prisma.PrismaClientKnownRequestError | undefined;
+        if (known?.code === 'P2002') {
+          const racedPairing = await prisma.pairing.findFirst({
+            where: liveOwnerPairingWhere,
+            orderBy: { created_at: 'desc' },
+          });
+          if (racedPairing) {
+            return racedPairing.id;
+          }
+        }
+        throw error;
+      }
     }
 
     const existing = await prisma.pairing.findFirst({

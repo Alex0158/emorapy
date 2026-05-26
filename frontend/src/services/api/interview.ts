@@ -12,32 +12,34 @@
  *   POST /:id/retry
  */
 
+import { createM2ApiClient } from '@cj/api-client';
 import request from '../request';
-import type { InterviewResumeStatus } from '@/types/interview';
-import type { ApiResponse } from '@/types/common';
+import type { InterviewTrigger } from '@/types/interview';
+
+const sharedInterviewApi = createM2ApiClient(request).interview;
 
 export const interviewApi = {
-  startSession: (trigger: string = 'organic') =>
-    request.post('/interview/start', { trigger }),
+  startSession: (trigger: InterviewTrigger = 'organic') =>
+    sharedInterviewApi.startSession(trigger),
 
   checkResume: () =>
-    request.get<ApiResponse<InterviewResumeStatus | null>>('/interview/resume'),
+    sharedInterviewApi.checkResume(),
 
   getSession: (sessionId: string) =>
-    request.get(`/interview/${sessionId}`),
+    sharedInterviewApi.getSession(sessionId),
 
   respond: (sessionId: string, message: string) =>
-    request.post(`/interview/${sessionId}/respond`, { message }),
+    sharedInterviewApi.respond(sessionId, message),
 
   skip: (sessionId: string) =>
-    request.post(`/interview/${sessionId}/skip`),
+    sharedInterviewApi.skip(sessionId),
 
   cancel: (sessionId: string) =>
-    request.post(`/interview/${sessionId}/cancel`),
+    sharedInterviewApi.cancel(sessionId),
 
   endSession: (sessionId: string) =>
-    request.post(`/interview/${sessionId}/end`),
+    sharedInterviewApi.endSession(sessionId),
 
   retryFailed: (sessionId: string) =>
-    request.post(`/interview/${sessionId}/retry`),
+    sharedInterviewApi.retryFailed(sessionId),
 };

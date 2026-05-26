@@ -57,7 +57,7 @@ describe('interviewStore', () => {
         status: 'in_progress',
         turns: [{ id: 't1', turn_order: 1, ai_message: 'hi' }],
       };
-      mockStartSession.mockResolvedValue({ data: { data: session } });
+      mockStartSession.mockResolvedValue(session);
       const result = await useInterviewStore.getState().startSession('organic');
       const state = useInterviewStore.getState();
       expect(result).toEqual(session);
@@ -67,7 +67,7 @@ describe('interviewStore', () => {
     });
 
     it('API 返回 null session 時應拋錯', async () => {
-      mockStartSession.mockResolvedValue({ data: { data: null } });
+      mockStartSession.mockResolvedValue(null);
       await expect(useInterviewStore.getState().startSession()).rejects.toThrow();
       expect(useInterviewStore.getState().error).toBeTruthy();
       expect(useInterviewStore.getState().loading).toBe(false);
@@ -88,7 +88,7 @@ describe('interviewStore', () => {
         safetyAlert: { message: 'old', severity: 'warning' },
       });
       const session = { id: 's1', status: 'in_progress', turns: [] };
-      mockStartSession.mockResolvedValue({ data: { data: session } });
+      mockStartSession.mockResolvedValue(session);
       await useInterviewStore.getState().startSession('organic');
       const state = useInterviewStore.getState();
       expect(state.shouldEnd).toBe(false);
@@ -101,20 +101,16 @@ describe('interviewStore', () => {
 
   describe('checkResume', () => {
     it('成功時應返回 resume data', async () => {
-      mockCheckResume.mockResolvedValue({ data: { data: { has_pending: true, session_id: 's1' } } });
+      mockCheckResume.mockResolvedValue({ has_pending: true, session_id: 's1' });
       const result = await useInterviewStore.getState().checkResume();
       expect(result).toEqual({ has_pending: true, session_id: 's1' });
     });
 
     it('成功時應保留 failed resume data', async () => {
       mockCheckResume.mockResolvedValue({
-        data: {
-          data: {
-            has_pending: false,
-            has_failed: true,
-            failed_session_id: 'fs1',
-          },
-        },
+        has_pending: false,
+        has_failed: true,
+        failed_session_id: 'fs1',
       });
       const result = await useInterviewStore.getState().checkResume();
       expect(result).toEqual({
@@ -131,7 +127,7 @@ describe('interviewStore', () => {
     });
 
     it('API 返回 undefined 時應返回 { has_pending: false }', async () => {
-      mockCheckResume.mockResolvedValue({ data: {} });
+      mockCheckResume.mockResolvedValue(undefined);
       const result = await useInterviewStore.getState().checkResume();
       expect(result).toEqual({ has_pending: false });
     });
@@ -164,14 +160,14 @@ describe('interviewStore', () => {
   describe('getSession', () => {
     it('成功時應設置 currentSession 和 turns', async () => {
       const session = { id: 's2', status: 'completed', turns: [] };
-      mockGetSession.mockResolvedValue({ data: { data: session } });
+      mockGetSession.mockResolvedValue(session);
       await useInterviewStore.getState().getSession('s2');
       expect(useInterviewStore.getState().currentSession).toEqual(session);
       expect(useInterviewStore.getState().loading).toBe(false);
     });
 
     it('API 返回 null session 時應拋錯', async () => {
-      mockGetSession.mockResolvedValue({ data: {} });
+      mockGetSession.mockResolvedValue(null);
       await expect(useInterviewStore.getState().getSession('s2')).rejects.toThrow();
       expect(useInterviewStore.getState().error).toBeTruthy();
     });
@@ -192,7 +188,7 @@ describe('interviewStore', () => {
         safetyAlert: { message: 'old', severity: 'info' },
       });
       const session = { id: 's2', status: 'in_progress', turns: [] };
-      mockGetSession.mockResolvedValue({ data: { data: session } });
+      mockGetSession.mockResolvedValue(session);
       await useInterviewStore.getState().getSession('s2');
       const state = useInterviewStore.getState();
       expect(state.shouldEnd).toBe(false);
@@ -225,13 +221,9 @@ describe('interviewStore', () => {
         shouldEnd: false,
       });
       mockGetSession.mockResolvedValue({
-        data: {
-          data: {
-            id: 's-sync',
-            status: 'in_progress',
-            turns: [{ id: 'turn-sync', ai_message: 'canonical' }],
-          },
-        },
+        id: 's-sync',
+        status: 'in_progress',
+        turns: [{ id: 'turn-sync', ai_message: 'canonical' }],
       });
 
       await useInterviewStore.getState().syncSessionSilently('s-sync');
@@ -263,31 +255,27 @@ describe('interviewStore', () => {
         streamingStatus: 'thinking',
       });
       mockGetSession.mockResolvedValue({
-        data: {
-          data: {
-            id: 's-sync',
-            status: 'in_progress',
-            turns: [
-              {
-                id: 'turn-1',
-                turn_order: 1,
-                ai_message: '第一題',
-                user_response: '我需要冷靜',
-                skipped: false,
-                safety_flag: false,
-                created_at: '2026-04-18T00:00:00.000Z',
-              },
-              {
-                id: 'turn-2',
-                turn_order: 2,
-                ai_message: '第二題',
-                skipped: false,
-                safety_flag: false,
-                created_at: '2026-04-18T00:00:10.000Z',
-              },
-            ],
+        id: 's-sync',
+        status: 'in_progress',
+        turns: [
+          {
+            id: 'turn-1',
+            turn_order: 1,
+            ai_message: '第一題',
+            user_response: '我需要冷靜',
+            skipped: false,
+            safety_flag: false,
+            created_at: '2026-04-18T00:00:00.000Z',
           },
-        },
+          {
+            id: 'turn-2',
+            turn_order: 2,
+            ai_message: '第二題',
+            skipped: false,
+            safety_flag: false,
+            created_at: '2026-04-18T00:00:10.000Z',
+          },
+        ],
       });
 
       await useInterviewStore.getState().syncSessionSilently('s-sync');

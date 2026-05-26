@@ -142,7 +142,7 @@ ${fenceUserInput('敘事內容', n.raw_narrative ?? '')}
           maxTokens: 400,
           temperature: ANALYSIS_AI_CONFIG.temperature,
           topP: ANALYSIS_AI_CONFIG.topP,
-          systemPrompt: '你是一位受過臨床心理學訓練的心理評估助手，擅長從對話中萃取關鍵心理敘事。',
+          systemPrompt: '你是關係敘事與自我探索資料的整理助手，擅長從對話中萃取關鍵心理敘事，不自稱臨床心理師或治療師。',
         });
         await prisma.profileNarrative.update({
           where: { id: n.id },

@@ -446,6 +446,101 @@ export const notificationSnoozeSchema = {
   }).optional(),
 };
 
+export const pushDeviceTokenRegistrationSchema = {
+  body: Joi.object({
+    token: Joi.string().trim().min(1).max(255).required(),
+    platform: Joi.string().valid('ios', 'android').required(),
+    device_id: Joi.string().trim().max(128).allow(null, '').optional(),
+    app_version: Joi.string().trim().max(40).allow(null, '').optional(),
+    build_number: Joi.string().trim().max(40).allow(null, '').optional(),
+  }),
+};
+
+export const pushDeviceTokenRevokeSchema = {
+  body: Joi.object({
+    token: Joi.string().trim().min(1).max(255).optional(),
+    device_id: Joi.string().trim().min(1).max(128).optional(),
+  }).or('token', 'device_id'),
+};
+
+const appTelemetryContextValueSchema = Joi.alternatives().try(
+  Joi.string().max(500),
+  Joi.number(),
+  Joi.boolean(),
+  Joi.valid(null)
+);
+
+const appTelemetryEventItemSchema = Joi.object({
+  name: Joi.string().trim().pattern(/^[A-Za-z0-9_.:-]+$/).min(1).max(80).required(),
+  severity: Joi.string().valid('info', 'warning', 'error').optional(),
+  route: Joi.string().trim().max(200).allow(null, '').optional(),
+  request_id: Joi.string().trim().max(120).allow(null, '').optional(),
+  app_version: Joi.string().trim().max(40).allow(null, '').optional(),
+  platform: Joi.string().valid('ios', 'android', 'web').allow(null).optional(),
+  build_number: Joi.string().trim().max(40).allow(null, '').optional(),
+  context: Joi.object()
+    .pattern(Joi.string().max(80), appTelemetryContextValueSchema)
+    .max(30)
+    .optional(),
+});
+
+export const appTelemetryEventSchema = {
+  body: Joi.object({
+    events: Joi.array()
+      .items(appTelemetryEventItemSchema)
+      .min(1)
+      .max(20)
+      .required(),
+  }),
+};
+
+const otlpAttributeValueSchema = Joi.object({
+  stringValue: Joi.string().max(500).optional(),
+  intValue: Joi.alternatives().try(Joi.number(), Joi.string().max(80)).optional(),
+  doubleValue: Joi.alternatives().try(Joi.number(), Joi.string().max(80)).optional(),
+  boolValue: Joi.boolean().optional(),
+}).or('stringValue', 'intValue', 'doubleValue', 'boolValue');
+
+const otlpKeyValueSchema = Joi.object({
+  key: Joi.string().trim().max(80).required(),
+  value: otlpAttributeValueSchema.required(),
+});
+
+const otlpSpanSchema = Joi.object({
+  traceId: Joi.string().trim().pattern(/^[A-Fa-f0-9]{16,64}$/).optional(),
+  spanId: Joi.string().trim().pattern(/^[A-Fa-f0-9]{8,32}$/).optional(),
+  name: Joi.string().trim().min(1).max(160).required(),
+  startTimeUnixNano: Joi.alternatives().try(Joi.string().trim().pattern(/^\d{1,30}$/), Joi.number().min(0)).optional(),
+  endTimeUnixNano: Joi.alternatives().try(Joi.string().trim().pattern(/^\d{1,30}$/), Joi.number().min(0)).optional(),
+  attributes: Joi.array().items(otlpKeyValueSchema).max(30).optional(),
+  status: Joi.object({
+    code: Joi.alternatives().try(
+      Joi.number().valid(0, 1, 2),
+      Joi.string().valid('0', '1', '2', 'STATUS_CODE_UNSET', 'STATUS_CODE_OK', 'STATUS_CODE_ERROR')
+    ).optional(),
+  }).unknown(false).optional(),
+}).unknown(false);
+
+const otlpScopeSpanSchema = Joi.object({
+  scope: Joi.object({
+    name: Joi.string().trim().max(120).optional(),
+  }).unknown(true).optional(),
+  spans: Joi.array().items(otlpSpanSchema).min(1).max(50).required(),
+}).unknown(false);
+
+const otlpResourceSpanSchema = Joi.object({
+  resource: Joi.object({
+    attributes: Joi.array().items(otlpKeyValueSchema).max(50).optional(),
+  }).unknown(true).optional(),
+  scopeSpans: Joi.array().items(otlpScopeSpanSchema).min(1).max(10).required(),
+}).unknown(false);
+
+export const appTelemetryOtlpTraceSchema = {
+  body: Joi.object({
+    resourceSpans: Joi.array().items(otlpResourceSpanSchema).min(1).max(10).required(),
+  }),
+};
+
 export const createContentLinkSchema = {
   body: Joi.object({
     case_id: Joi.string().uuid().required(),
@@ -578,6 +673,15 @@ export const adminAIStreamReportQuerySchema = {
   query: Joi.object({
     days: Joi.number().integer().min(1).max(90).optional(),
     limit: Joi.number().integer().min(1).max(50).optional(),
+  }),
+};
+
+export const adminAppTelemetryReportQuerySchema = {
+  query: Joi.object({
+    days: Joi.number().integer().min(1).max(90).optional(),
+    limit: Joi.number().integer().min(1).max(100).optional(),
+    severity: Joi.string().valid('info', 'warning', 'error').optional(),
+    platform: Joi.string().valid('ios', 'android', 'web').optional(),
   }),
 };
 

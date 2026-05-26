@@ -3,7 +3,7 @@
  *
  * 遷移: Ant Button/Icons → shadcn Button + Lucide
  * 保留: FlowSimulation, AdaptiveDashboard 子組件（後續單獨遷移）
- * 保留: Home.less（子組件和 section 佈局仍依賴，後續遷移為 Tailwind）
+ * 保留: Home.css（子組件和 section 佈局）
  * 新增: 環境動畫光暈背景（Hero 區域）
  */
 

@@ -1,0 +1,55 @@
+{
+  "status": "passed",
+  "artifact_type": "ai-pricing-release-env-pass",
+  "generated_at": "2026-05-16T06:16:01.391Z",
+  "operator": "Codex with user-authorized Railway production env access",
+  "target": {
+    "classification": "production",
+    "name": "Railway production mother-bear-court backend",
+    "backend_base_url": "https://mother-bear-court-production.up.railway.app",
+    "non_local_postgresql": true
+  },
+  "pricing_gate": {
+    "status": "passed",
+    "command": "railway run -e production -s mother-bear-court -- npm --prefix . run ops:ai-pricing:check",
+    "source": "official-openai-api-pricing-pages-reviewed-2026-05-16",
+    "version": "2026-05-16-openai-api-pricing-review",
+    "version_age_days": 0,
+    "max_age_days": 30,
+    "required_models": [
+      "gpt-3.5-turbo",
+      "gpt-4o-mini",
+      "gpt-4o"
+    ],
+    "missing_models": [],
+    "configured_model_count": 3
+  },
+  "release_db_evidence": {
+    "status": "passed",
+    "command": "npm --prefix backend run ops:release-db:evidence",
+    "artifact_path": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-Release-DB-Parity-2026-05-16T06-01-03-039Z.json",
+    "target_database_classification": "release",
+    "non_local_postgresql": true
+  },
+  "business_approval": {
+    "status": "approved",
+    "approved_by_role": "user-authorized release owner",
+    "approved_at": "2026-05-16T06:16:01.391Z",
+    "pricing_version": "2026-05-16-openai-api-pricing-review",
+    "notes": "AI_COST_PRICING_JSON was configured through Railway production env. This artifact records only non-secret pricing gate metadata and does not include raw env secrets, API keys, database URLs, or DB hostnames."
+  },
+  "artifacts": [
+    {
+      "type": "release_db_parity",
+      "path": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-Release-DB-Parity-2026-05-16T06-01-03-039Z.json",
+      "description": "Structured non-local release DB parity evidence with 14/14 release-blocking migrations applied"
+    }
+  ],
+  "non_claims": [
+    "no_raw_price_values_in_repo",
+    "no_secret_or_database_url_in_artifact",
+    "no_local_env_as_release_env_claim",
+    "no_dry_run_as_release_db_pass",
+    "no_admin_cost_precision_claim_without_pricing_gate_and_db_evidence"
+  ]
+}

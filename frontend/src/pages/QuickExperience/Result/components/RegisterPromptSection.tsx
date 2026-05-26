@@ -18,7 +18,7 @@ const RegisterPromptSection = ({ show, onRegister, onClose }: Props) => {
             <Button variant="ghost" size="sm" onClick={onClose} aria-label={t('register.action.later')}>{t('register.action.later')}</Button>
           </div>
         </div>
-        <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="size-4" /></button>
+        <button type="button" onClick={onClose} aria-label={t('common.dismiss')} className="text-muted-foreground hover:text-foreground"><X className="size-4" /></button>
       </div>
     </section>
   );

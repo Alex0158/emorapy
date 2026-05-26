@@ -1,0 +1,92 @@
+{
+  "id": "admin_login",
+  "url": "http://127.0.0.1:5175/admin/login",
+  "title": "管理員登入",
+  "notes": "Admin login route fields and submit controls sampled.",
+  "keyboardTraces": [
+    {
+      "label": "admin-login",
+      "trace": [
+        {
+          "key": "Tab",
+          "active": {
+            "tag": "body",
+            "type": null,
+            "role": null,
+            "ariaLabel": null,
+            "text": "",
+            "placeholder": null,
+            "id": null,
+            "className": "",
+            "visibleBox": {
+              "x": 0,
+              "y": 0,
+              "width": 1440,
+              "height": 128
+            }
+          }
+        },
+        {
+          "key": "Tab",
+          "active": {
+            "tag": "body",
+            "type": null,
+            "role": null,
+            "ariaLabel": null,
+            "text": "",
+            "placeholder": null,
+            "id": null,
+            "className": "",
+            "visibleBox": {
+              "x": 0,
+              "y": 0,
+              "width": 1440,
+              "height": 128
+            }
+          }
+        },
+        {
+          "key": "Tab",
+          "active": {
+            "tag": "body",
+            "type": null,
+            "role": null,
+            "ariaLabel": null,
+            "text": "",
+            "placeholder": null,
+            "id": null,
+            "className": "",
+            "visibleBox": {
+              "x": 0,
+              "y": 0,
+              "width": 1440,
+              "height": 128
+            }
+          }
+        },
+        {
+          "key": "Shift+Tab",
+          "active": {
+            "tag": "body",
+            "type": null,
+            "role": null,
+            "ariaLabel": null,
+            "text": "管理員登入請使用管理員帳號登入後台電子郵件密碼登入",
+            "placeholder": null,
+            "id": null,
+            "className": "",
+            "visibleBox": {
+              "x": 0,
+              "y": 40,
+              "width": 1440,
+              "height": 318
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "screenshot": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-A11Y-Manual-Artifacts-2026-05-16T06-14-43-528Z/admin_login.png",
+  "accessibilitySnapshot": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-A11Y-Manual-Artifacts-2026-05-16T06-14-43-528Z/admin_login-accessibility.json",
+  "generatedAt": "2026-05-16T06:14:54.222Z"
+}

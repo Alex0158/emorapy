@@ -137,7 +137,7 @@ const MyStory: React.FC = () => {
 
         {/* Header */}
         <div className="mb-8 flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/profile/index')}><ArrowLeft className="size-5" /></Button>
+          <Button variant="ghost" size="icon" onClick={() => navigate('/profile/index')} aria-label={t('common.back')}><ArrowLeft className="size-5" /></Button>
           <h2 className="text-2xl font-bold text-foreground font-heading">{t('psychProfile.myStoryTitle')}</h2>
         </div>
 

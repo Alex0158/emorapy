@@ -124,6 +124,7 @@ export default function AdminConfigsPage() {
               <Label htmlFor="config-key">{t('admin.configs.key')}</Label>
               <Input
                 id="config-key"
+                autoComplete="off"
                 value={formValues.key}
                 onChange={(e) => setFormValues((prev) => ({ ...prev, key: e.target.value }))}
                 disabled={!canWriteConfigs}
@@ -136,6 +137,7 @@ export default function AdminConfigsPage() {
               <Textarea
                 id="config-value"
                 rows={4}
+                autoComplete="off"
                 value={formValues.value}
                 onChange={(e) => setFormValues((prev) => ({ ...prev, value: e.target.value }))}
                 disabled={!canWriteConfigs}
@@ -147,6 +149,7 @@ export default function AdminConfigsPage() {
               <Label htmlFor="config-description">{t('admin.configs.description')}</Label>
               <Input
                 id="config-description"
+                autoComplete="off"
                 value={formValues.description}
                 onChange={(e) =>
                   setFormValues((prev) => ({ ...prev, description: e.target.value }))

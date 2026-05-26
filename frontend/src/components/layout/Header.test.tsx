@@ -43,6 +43,11 @@ vi.mock('@/utils/i18n', () => ({
     const map: Record<string, string> = {
       'nav.home': '首頁',
       'nav.quickExperience': '快速體驗',
+      'nav.quickCheck': '快速判斷',
+      'nav.formalHandling': '正式處理',
+      'nav.submitFormal': '正式提交',
+      'nav.chatToJudgment': '先聊再判',
+      'nav.understandYou': '懂你',
       'nav.chat': '聊天',
       'nav.login': '登錄',
       'nav.register': '註冊',
@@ -78,14 +83,14 @@ describe('Header', () => {
     mockNotificationState.fetchUnreadCount.mockResolvedValue(0);
   });
 
-  it('應渲染首頁與快速體驗連結', () => {
+  it('應渲染首頁與快速判斷連結', () => {
     render(
       <MemoryRouter>
         <Header />
       </MemoryRouter>
     );
     expect(screen.getByText('首頁')).toBeInTheDocument();
-    expect(screen.getByText('快速體驗')).toBeInTheDocument();
+    expect(screen.getByText('快速判斷')).toBeInTheDocument();
   });
 
   it('未登入時應顯示登入按鈕', () => {

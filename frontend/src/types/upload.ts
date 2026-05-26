@@ -1,4 +1,4 @@
-/** 文件上傳項目（替代 antd UploadFile） */
+/** 文件上傳項目。 */
 export interface UploadFile<T = unknown> {
   uid: string;
   name: string;

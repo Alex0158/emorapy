@@ -39,6 +39,12 @@ jest.mock('../../../src/utils/lock', () => ({
     getBackendStatus: () => mockGetBackendStatus(),
   },
 }));
+const mockGetAIStreamBackendMode = jest.fn();
+jest.mock('../../../src/services/ai-stream.service', () => ({
+  aiStreamService: {
+    getBackendMode: () => mockGetAIStreamBackendMode(),
+  },
+}));
 
 import healthRouter from '../../../src/routes/health.routes';
 
@@ -57,6 +63,7 @@ describe('routes/health.routes', () => {
     mockLogger.info.mockClear();
     mockLogger.warn.mockClear();
     mockGetBackendStatus.mockReturnValue('redis');
+    mockGetAIStreamBackendMode.mockReturnValue('redis');
     mockEnvRef.current = { NODE_ENV: 'test' };
     mockJobsStartedRef.current = true;
     process.env = { ...origEnv };
@@ -141,6 +148,30 @@ describe('routes/health.routes', () => {
       expect(res.body.checks.lock).toEqual({
         status: 'degraded',
         message: 'Lock backend degraded: simple-lock in production',
+      });
+    });
+
+    it('production 且 AI Stream backend 非 redis 時應標記 degraded', async () => {
+      mockEnvRef.current = { NODE_ENV: 'production' };
+      mockGetAIStreamBackendMode.mockReturnValueOnce('memory');
+      const app = createApp();
+      const res = await request(app).get('/health');
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('degraded');
+      expect(res.body.checks.aiStream).toEqual({
+        status: 'degraded',
+        message: 'AI Stream backend: memory',
+      });
+    });
+
+    it('test 中 AI Stream backend mode 仍應出現在 health payload', async () => {
+      mockGetAIStreamBackendMode.mockReturnValueOnce('memory');
+      const app = createApp();
+      const res = await request(app).get('/health');
+      expect(res.status).toBe(200);
+      expect(res.body.checks.aiStream).toEqual({
+        status: 'healthy',
+        message: 'AI Stream backend: memory',
       });
     });
 

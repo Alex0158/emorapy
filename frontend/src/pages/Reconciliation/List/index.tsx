@@ -177,7 +177,7 @@ const ReconciliationList = () => {
             <div className="space-y-2">
               <span className="text-sm font-medium text-foreground">{t('reconList.pressureLevel')}</span>
               <Select value={preferences.pressure_level} onValueChange={(v: string) => setPreferences((prev) => ({ ...prev, pressure_level: v as PlanPreferences['pressure_level'] }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger aria-label={t('reconList.pressureLevel')}><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="low">{t('reconList.pressureLow')}</SelectItem>
                   <SelectItem value="medium">{t('reconList.pressureMedium')}</SelectItem>
@@ -188,7 +188,7 @@ const ReconciliationList = () => {
             <div className="space-y-2">
               <span className="text-sm font-medium text-foreground">{t('reconList.paceLabel')}</span>
               <Select value={preferences.pace} onValueChange={(v: string) => setPreferences((prev) => ({ ...prev, pace: v as PlanPreferences['pace'] }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger aria-label={t('reconList.paceLabel')}><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="today">{t('reconList.paceToday')}</SelectItem>
                   <SelectItem value="this_week">{t('reconList.paceThisWeek')}</SelectItem>
@@ -201,6 +201,7 @@ const ReconciliationList = () => {
               <div className="flex items-center gap-3 pt-1">
                 <button
                   type="button" role="switch" aria-checked={preferences.invite_partner}
+                  aria-label={t('reconList.invitePartnerLabel')}
                   onClick={() => setPreferences((prev) => ({ ...prev, invite_partner: !prev.invite_partner }))}
                   className={cn('relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors', preferences.invite_partner ? 'bg-primary' : 'bg-muted')}
                 >

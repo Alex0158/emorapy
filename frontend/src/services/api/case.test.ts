@@ -15,17 +15,72 @@ import {
   createCollaborativeCase,
 } from './case';
 
-const mockGet = vi.fn();
-const mockPost = vi.fn();
-const mockPut = vi.fn();
-const mockDelete = vi.fn();
+const mocks = vi.hoisted(() => {
+  const get = vi.fn();
+  const post = vi.fn();
+  const put = vi.fn();
+  const deleteRequest = vi.fn();
+  const quickCreateQuickCase = vi.fn();
+  const quickGetCase = vi.fn();
+  const quickGetCaseBySessionId = vi.fn();
+  const quickCreateCollaborativeCase = vi.fn();
+  const formalCreate = vi.fn();
+  const formalList = vi.fn();
+  const formalSubmit = vi.fn();
+  const formalUpdate = vi.fn();
+  const mediaUploadEvidence = vi.fn();
+  const mediaDeleteEvidence = vi.fn();
+  return {
+    get,
+    post,
+    put,
+    deleteRequest,
+    quickCreateQuickCase,
+    quickGetCase,
+    quickGetCaseBySessionId,
+    quickCreateCollaborativeCase,
+    formalCreate,
+    formalList,
+    formalSubmit,
+    formalUpdate,
+    mediaUploadEvidence,
+    mediaDeleteEvidence,
+    request: {
+      get: (...args: unknown[]) => get(...args),
+      post: (...args: unknown[]) => post(...args),
+      put: (...args: unknown[]) => put(...args),
+      delete: (...args: unknown[]) => deleteRequest(...args),
+    },
+  };
+});
+
 vi.mock('../request', () => ({
-  default: {
-    get: (...args: unknown[]) => mockGet(...args),
-    post: (...args: unknown[]) => mockPost(...args),
-    put: (...args: unknown[]) => mockPut(...args),
-    delete: (...args: unknown[]) => mockDelete(...args),
-  },
+  default: mocks.request,
+}));
+
+vi.mock('@cj/api-client', () => ({
+  createM1ApiClient: vi.fn(() => ({
+    quick: {
+      createQuickCase: (...args: unknown[]) => mocks.quickCreateQuickCase(...args),
+      getCase: (...args: unknown[]) => mocks.quickGetCase(...args),
+      getCaseBySessionId: (...args: unknown[]) => mocks.quickGetCaseBySessionId(...args),
+      createCollaborativeCase: (...args: unknown[]) => mocks.quickCreateCollaborativeCase(...args),
+    },
+  })),
+  createM4ApiClient: vi.fn(() => ({
+    cases: {
+      create: (...args: unknown[]) => mocks.formalCreate(...args),
+      list: (...args: unknown[]) => mocks.formalList(...args),
+      submit: (...args: unknown[]) => mocks.formalSubmit(...args),
+      update: (...args: unknown[]) => mocks.formalUpdate(...args),
+    },
+  })),
+  createM5ApiClient: vi.fn(() => ({
+    media: {
+      uploadEvidence: (...args: unknown[]) => mocks.mediaUploadEvidence(...args),
+      deleteEvidence: (...args: unknown[]) => mocks.mediaDeleteEvidence(...args),
+    },
+  })),
 }));
 
 const mockCase = {
@@ -47,21 +102,24 @@ describe('case API', () => {
   });
 
   describe('createQuickCase', () => {
-    it('應 POST /cases/quick 並返回 case 與可選 session', async () => {
-      mockPost.mockResolvedValue({
-        data: { data: { case: mockCase, session_id: 's1', session_expires_at: '2025-12-31T00:00:00Z' } },
+    it('應透過 shared M1 quick client 建立 quick case', async () => {
+      mocks.quickCreateQuickCase.mockResolvedValue({
+        case: mockCase,
+        session_id: 's1',
+        session_expires_at: '2025-12-31T00:00:00Z',
       });
-      const result = await createQuickCase({
+      const input = {
         plaintiff_statement: '原告',
         defendant_statement: '被告',
-      });
-      expect(mockPost).toHaveBeenCalledWith('/cases/quick', expect.any(Object));
+      };
+      const result = await createQuickCase(input);
+      expect(mocks.quickCreateQuickCase).toHaveBeenCalledWith(input);
       expect(result.case).toEqual(mockCase);
       expect(result.session_id).toBe('s1');
     });
 
-    it('後端回傳 case 為 null 時應拋錯（F01 邊界：API 回傳不完整時防禦）', async () => {
-      mockPost.mockResolvedValue({ data: { data: { case: null, session_id: 's1' } } });
+    it('shared client 拋錯時應保留錯誤傳遞', async () => {
+      mocks.quickCreateQuickCase.mockRejectedValue(new Error('Invalid case response from server'));
       await expect(
         createQuickCase({ plaintiff_statement: '原告', defendant_statement: '被告' })
       ).rejects.toThrow('Invalid case response from server');
@@ -69,18 +127,19 @@ describe('case API', () => {
   });
 
   describe('createCase', () => {
-    it('應 POST /cases 並返回 case', async () => {
-      mockPost.mockResolvedValue({ data: { data: { case: mockCase } } });
-      const result = await createCase({
+    it('應透過 shared M4 formal case client 建立 case', async () => {
+      mocks.formalCreate.mockResolvedValue(mockCase);
+      const input = {
         plaintiff_statement: '原告',
         defendant_statement: '被告',
-      });
-      expect(mockPost).toHaveBeenCalledWith('/cases', expect.any(Object));
+      };
+      const result = await createCase(input);
+      expect(mocks.formalCreate).toHaveBeenCalledWith(input);
       expect(result).toEqual(mockCase);
     });
 
-    it('後端回傳 case 為 null 時應拋錯（F03 邊界：API 回傳不完整時防禦）', async () => {
-      mockPost.mockResolvedValue({ data: { data: { case: null } } });
+    it('shared formal client 拋錯時應保留錯誤傳遞', async () => {
+      mocks.formalCreate.mockRejectedValue(new Error('Invalid case response from server'));
       await expect(
         createCase({ plaintiff_statement: '原告', defendant_statement: '被告' })
       ).rejects.toThrow('Invalid case response from server');
@@ -88,156 +147,94 @@ describe('case API', () => {
   });
 
   describe('getCase', () => {
-    it('應 GET /cases/:id 並返回 case', async () => {
-      mockGet.mockResolvedValue({ data: { data: { case: mockCase } } });
+    it('應透過 shared M1 quick client 取得 case', async () => {
+      mocks.quickGetCase.mockResolvedValue(mockCase);
       const result = await getCase('c1');
-      expect(mockGet).toHaveBeenCalledWith('/cases/c1', undefined);
+      expect(mocks.quickGetCase).toHaveBeenCalledWith('c1', undefined);
       expect(result).toEqual(mockCase);
     });
 
-    it('有 sessionId 時應帶入 X-Session-Id header', async () => {
-      mockGet.mockResolvedValue({ data: { data: { case: mockCase } } });
+    it('有 sessionId 時應交給 shared client 帶入 X-Session-Id header', async () => {
+      mocks.quickGetCase.mockResolvedValue(mockCase);
       await getCase('c1', 's-session');
-      expect(mockGet).toHaveBeenCalledWith('/cases/c1', {
-        headers: { 'X-Session-Id': 's-session' },
-      });
+      expect(mocks.quickGetCase).toHaveBeenCalledWith('c1', 's-session');
     });
 
-    it('回應缺少 case 或 case 為 null 時應拋錯（F01/F03 邊界：API 回傳不完整時防禦）', async () => {
-      mockGet.mockResolvedValue({ data: { data: { case: null } } });
-      await expect(getCase('c1')).rejects.toThrow('Invalid case response from server');
-    });
-
-    it('後端回傳 case 為 undefined 時應拋錯（F01/F03 邊界：API 回傳不完整時防禦）', async () => {
-      mockGet.mockResolvedValue({ data: { data: { case: undefined } } });
+    it('shared client 拋錯時應保留錯誤傳遞', async () => {
+      mocks.quickGetCase.mockRejectedValue(new Error('Invalid case response from server'));
       await expect(getCase('c1')).rejects.toThrow('Invalid case response from server');
     });
   });
 
   describe('getCaseBySessionId', () => {
     it('成功時應返回 case', async () => {
-      mockGet.mockResolvedValue({ data: { data: { case: mockCase } } });
+      mocks.quickGetCaseBySessionId.mockResolvedValue(mockCase);
       const result = await getCaseBySessionId('s1');
-      expect(mockGet).toHaveBeenCalledWith('/cases/by-session', {
-        headers: { 'X-Session-Id': 's1' },
-      });
+      expect(mocks.quickGetCaseBySessionId).toHaveBeenCalledWith('s1');
       expect(result).toEqual(mockCase);
     });
 
-    it('NOT_FOUND 或 HTTP_404 時應返回 null', async () => {
-      mockGet.mockRejectedValue({ code: 'NOT_FOUND' });
-      const result = await getCaseBySessionId('s1');
+    it('無關聯案件時應返回 null', async () => {
+      mocks.quickGetCaseBySessionId.mockResolvedValue(null);
+      const result = await getCaseBySessionId('missing-session');
       expect(result).toBeNull();
     });
 
-    it('HTTP_404 時也應返回 null', async () => {
-      mockGet.mockRejectedValue({ code: 'HTTP_404' });
-      const result = await getCaseBySessionId('s1');
-      expect(result).toBeNull();
-    });
-
-    it('後端回傳 200 且 case 為 null 時應返回 null（F01 邊界：無關聯案件）', async () => {
-      mockGet.mockResolvedValue({ data: { data: { case: null } } });
-      const result = await getCaseBySessionId('s1');
-      expect(result).toBeNull();
-    });
-
-    it('後端回傳 200 且 case 為 undefined 時應返回 null（F01 邊界：API 回傳不完整時防禦，無關聯案件語義）', async () => {
-      mockGet.mockResolvedValue({ data: { data: { case: undefined } } });
-      const result = await getCaseBySessionId('s1');
-      expect(result).toBeNull();
-    });
-
-    it('其他錯誤應拋出', async () => {
-      mockGet.mockRejectedValue(new Error('Server error'));
+    it('shared client 拋錯時應保留錯誤傳遞', async () => {
+      mocks.quickGetCaseBySessionId.mockRejectedValue(new Error('Server error'));
       await expect(getCaseBySessionId('s1')).rejects.toThrow('Server error');
     });
   });
 
   describe('getCaseList', () => {
-    it('後端回傳 data 為 null 時應拋錯（F03 邊界：API 回傳不完整時防禦）', async () => {
-      mockGet.mockResolvedValue({ data: { data: null } });
-      await expect(getCaseList()).rejects.toThrow('Invalid case list response from server');
-    });
-
-    it('應 GET /cases 並返回 cases 與 pagination', async () => {
+    it('應透過 shared M4 formal case client 取得 case list', async () => {
       const pagination = { page: 1, page_size: 10, total: 1, total_pages: 1 };
-      mockGet.mockResolvedValue({ data: { data: { cases: [mockCase], pagination } } });
+      mocks.formalList.mockResolvedValue({ cases: [mockCase], pagination });
       const result = await getCaseList({ page: 1, page_size: 10 });
-      expect(mockGet).toHaveBeenCalledWith('/cases', { params: { page: 1, page_size: 10 } });
+      expect(mocks.formalList).toHaveBeenCalledWith({ page: 1, page_size: 10 });
       expect(result.cases).toEqual([mockCase]);
       expect(result.pagination).toEqual(pagination);
     });
 
-    it('無 params 時應傳空 params', async () => {
-      mockGet.mockResolvedValue({ data: { data: { cases: [], pagination: { page: 1, page_size: 10, total: 0, total_pages: 0 } } } });
+    it('無 params 時應傳 undefined', async () => {
+      mocks.formalList.mockResolvedValue({
+        cases: [],
+        pagination: { page: 1, page_size: 10, total: 0, total_pages: 0 },
+      });
       await getCaseList();
-      expect(mockGet).toHaveBeenCalledWith('/cases', { params: undefined });
+      expect(mocks.formalList).toHaveBeenCalledWith(undefined);
     });
 
-    it('後端回傳 cases 為非陣列時應返回空陣列（F03 邊界：API 回傳不完整時防禦）', async () => {
-      mockGet.mockResolvedValue({
-        data: { data: { cases: { items: [] }, pagination: { page: 1, page_size: 10, total: 0, total_pages: 0 } } },
-      });
-      const result = await getCaseList();
-      expect(result.cases).toEqual([]);
-    });
-
-    it('後端回傳 pagination 為 null 或 undefined 時應返回預設 pagination（F03 邊界：API 回傳不完整時防禦）', async () => {
-      mockGet.mockResolvedValue({ data: { data: { cases: [mockCase], pagination: null } } });
-      const result = await getCaseList({ page: 1, page_size: 10 });
-      expect(result.cases).toEqual([mockCase]);
-      expect(result.pagination).toEqual({ page: 1, page_size: 10, total: 0, total_pages: 0 });
-    });
-
-    it('後端回傳 pagination 為 undefined 時應返回預設 pagination', async () => {
-      mockGet.mockResolvedValue({ data: { data: { cases: [], pagination: undefined } } });
-      const result = await getCaseList();
-      expect(result.pagination).toEqual({ page: 1, page_size: 10, total: 0, total_pages: 0 });
-    });
-
-    it('後端回傳 pagination 部分欄位為 undefined 時應補齊預設值', async () => {
-      mockGet.mockResolvedValue({
-        data: { data: { cases: [], pagination: { page: 2, page_size: undefined, total: undefined, total_pages: undefined } } },
-      });
-      const result = await getCaseList();
-      expect(result.pagination).toEqual({ page: 2, page_size: 10, total: 0, total_pages: 0 });
-    });
-
-    it('後端回傳 pagination 為非物件（如字串）時應返回預設 pagination（F03 邊界：API 回傳不完整時防禦）', async () => {
-      mockGet.mockResolvedValue({
-        data: { data: { cases: [mockCase], pagination: 'invalid' as unknown as { page: number; page_size: number; total: number; total_pages: number } } },
-      });
-      const result = await getCaseList();
-      expect(result.cases).toEqual([mockCase]);
-      expect(result.pagination).toEqual({ page: 1, page_size: 10, total: 0, total_pages: 0 });
+    it('shared formal client 拋錯時應保留錯誤傳遞', async () => {
+      mocks.formalList.mockRejectedValue(new Error('Invalid case list response from server'));
+      await expect(getCaseList()).rejects.toThrow('Invalid case list response from server');
     });
   });
 
   describe('submitCase', () => {
-    it('應 POST /cases/:id/submit', async () => {
-      mockPost.mockResolvedValue({ data: { data: { case: mockCase } } });
+    it('應透過 shared M4 formal case client submit case', async () => {
+      mocks.formalSubmit.mockResolvedValue(mockCase);
       const result = await submitCase('c1');
-      expect(mockPost).toHaveBeenCalledWith('/cases/c1/submit');
+      expect(mocks.formalSubmit).toHaveBeenCalledWith('c1');
       expect(result).toEqual(mockCase);
     });
 
-    it('後端回傳 case 為 null 時應拋錯（F03 邊界：API 回傳不完整時防禦）', async () => {
-      mockPost.mockResolvedValue({ data: { data: { case: null } } });
+    it('shared formal client 拋錯時應保留錯誤傳遞', async () => {
+      mocks.formalSubmit.mockRejectedValue(new Error('Invalid case response from server'));
       await expect(submitCase('c1')).rejects.toThrow('Invalid case response from server');
     });
   });
 
   describe('updateCase', () => {
-    it('應 PUT /cases/:id 並返回 case', async () => {
-      mockPut.mockResolvedValue({ data: { data: { case: { ...mockCase, title: 'Updated' } } } });
+    it('應透過 shared M4 formal case client update case', async () => {
+      mocks.formalUpdate.mockResolvedValue({ ...mockCase, title: 'Updated' });
       const result = await updateCase('c1', { title: 'Updated' });
-      expect(mockPut).toHaveBeenCalledWith('/cases/c1', { title: 'Updated' });
+      expect(mocks.formalUpdate).toHaveBeenCalledWith('c1', { title: 'Updated' });
       expect(result.title).toBe('Updated');
     });
 
-    it('後端回傳 case 為 null 時應拋錯（F03 邊界：API 回傳不完整時防禦，被告回覆）', async () => {
-      mockPut.mockResolvedValue({ data: { data: { case: null } } });
+    it('shared formal client 拋錯時應保留錯誤傳遞', async () => {
+      mocks.formalUpdate.mockRejectedValue(new Error('Invalid case response from server'));
       await expect(updateCase('c1', { defendant_statement: '被告陳述' })).rejects.toThrow(
         'Invalid case response from server'
       );
@@ -245,61 +242,62 @@ describe('case API', () => {
   });
 
   describe('uploadEvidence', () => {
-    it('應 POST /cases/:id/evidence 並傳 FormData', async () => {
+    it('應組 FormData 並透過 shared M5 media client 上傳', async () => {
       const files = [new File(['x'], 'a.jpg', { type: 'image/jpeg' })];
       const evidences = [{ id: 'e1', file_url: 'https://example.com/a.jpg', file_type: 'image' }];
-      mockPost.mockResolvedValue({ data: { data: { evidences } } });
+      mocks.mediaUploadEvidence.mockResolvedValue(evidences);
       const result = await uploadEvidence('c1', files);
-      expect(mockPost).toHaveBeenCalledWith('/cases/c1/evidence', expect.any(FormData), expect.any(Object));
+      expect(mocks.mediaUploadEvidence).toHaveBeenCalledWith('c1', expect.any(FormData), undefined);
+      const formData = mocks.mediaUploadEvidence.mock.calls[0][1] as FormData;
+      expect(formData.getAll('files')).toEqual(files);
       expect(result).toEqual(evidences);
     });
 
-    it('後端回傳 evidences 為非陣列時應返回空陣列（F03/F05 邊界：API 回傳不完整時防禦）', async () => {
+    it('shared client 回傳空陣列時應保留結果（F03/F05 邊界：API 回傳不完整時防禦）', async () => {
       const files = [new File(['x'], 'a.jpg', { type: 'image/jpeg' })];
-      mockPost.mockResolvedValue({ data: { data: { evidences: { items: [] } } } });
+      mocks.mediaUploadEvidence.mockResolvedValue([]);
       const result = await uploadEvidence('c1', files);
       expect(result).toEqual([]);
     });
 
-    it('後端回傳 evidences 為 null 時應拋錯（F03/F05 邊界：API 回傳不完整時防禦）', async () => {
+    it('shared client 判定 evidence payload 無效時應保留錯誤傳遞（F03/F05 邊界）', async () => {
       const files = [new File(['x'], 'a.jpg', { type: 'image/jpeg' })];
-      mockPost.mockResolvedValue({ data: { data: { evidences: null } } });
+      mocks.mediaUploadEvidence.mockRejectedValue(new Error('Invalid evidence response from server'));
       await expect(uploadEvidence('c1', files)).rejects.toThrow('Invalid evidence response from server');
     });
 
-    it('有 sessionId 時應傳 header', async () => {
+    it('有 sessionId 時應交給 shared client 帶入 X-Session-Id header', async () => {
       const files = [new File(['x'], 'b.jpg', { type: 'image/jpeg' })];
-      mockPost.mockResolvedValue({ data: { data: { evidences: [] } } });
+      mocks.mediaUploadEvidence.mockResolvedValue([]);
       await uploadEvidence('c1', files, 's1');
-      expect(mockPost).toHaveBeenCalledWith(
-        '/cases/c1/evidence',
-        expect.any(FormData),
-        expect.objectContaining({
-          headers: expect.objectContaining({ 'X-Session-Id': 's1' }),
-        })
-      );
+      expect(mocks.mediaUploadEvidence).toHaveBeenCalledWith('c1', expect.any(FormData), 's1');
     });
   });
 
   describe('deleteEvidence', () => {
-    it('應 DELETE /cases/:caseId/evidence/:evidenceId', async () => {
-      mockDelete.mockResolvedValue({ data: {} });
+    it('應透過 shared M5 media client 刪除 evidence', async () => {
+      mocks.mediaDeleteEvidence.mockResolvedValue(undefined);
       await deleteEvidence('c1', 'e1');
-      expect(mockDelete).toHaveBeenCalledWith('/cases/c1/evidence/e1', {});
+      expect(mocks.mediaDeleteEvidence).toHaveBeenCalledWith('c1', 'e1', undefined);
     });
 
-    it('有 sessionId 時應傳 header', async () => {
-      mockDelete.mockResolvedValue({ data: {} });
+    it('有 sessionId 時應交給 shared client 帶入 X-Session-Id header', async () => {
+      mocks.mediaDeleteEvidence.mockResolvedValue(undefined);
       await deleteEvidence('c1', 'e1', 's1');
-      expect(mockDelete).toHaveBeenCalledWith('/cases/c1/evidence/e1', {
-        headers: { 'X-Session-Id': 's1' },
-      });
+      expect(mocks.mediaDeleteEvidence).toHaveBeenCalledWith('c1', 'e1', 's1');
     });
 
-    it('無 sessionId 時應傳空 config', async () => {
-      mockDelete.mockResolvedValue({ data: {} });
+    it('shared client 拋錯時應保留錯誤傳遞', async () => {
+      mocks.mediaDeleteEvidence.mockRejectedValue(new Error('Invalid evidence delete response from server'));
+      await expect(deleteEvidence('c1', 'e2', undefined)).rejects.toThrow(
+        'Invalid evidence delete response from server'
+      );
+    });
+
+    it('無 sessionId 時應傳 undefined', async () => {
+      mocks.mediaDeleteEvidence.mockResolvedValue(undefined);
       await deleteEvidence('c1', 'e2', undefined);
-      expect(mockDelete).toHaveBeenCalledWith('/cases/c1/evidence/e2', {});
+      expect(mocks.mediaDeleteEvidence).toHaveBeenCalledWith('c1', 'e2', undefined);
     });
   });
 
@@ -311,34 +309,25 @@ describe('case API', () => {
       phase: 'a_done' as const,
     };
 
-    it('應 POST /cases/collaborative 並返回結果', async () => {
-      mockPost.mockResolvedValue({ data: { data: collabResponse } });
-      const result = await createCollaborativeCase({ plaintiff_statement: '原告陳述' });
-      expect(mockPost).toHaveBeenCalledWith('/cases/collaborative', { plaintiff_statement: '原告陳述' }, undefined);
+    it('應透過 shared M1 quick client 建立 collaborative case', async () => {
+      mocks.quickCreateCollaborativeCase.mockResolvedValue(collabResponse);
+      const input = { plaintiff_statement: '原告陳述' };
+      const result = await createCollaborativeCase(input);
+      expect(mocks.quickCreateCollaborativeCase).toHaveBeenCalledWith(input, undefined);
       expect(result.case).toEqual(mockCase);
       expect(result.session_id).toBe('cs1');
       expect(result.phase).toBe('a_done');
     });
 
-    it('有 sessionId 時應帶入 X-Session-Id header', async () => {
-      mockPost.mockResolvedValue({ data: { data: collabResponse } });
-      await createCollaborativeCase({ case_id: 'c1', defendant_statement: '被告陳述' }, 'existing-session');
-      expect(mockPost).toHaveBeenCalledWith(
-        '/cases/collaborative',
-        { case_id: 'c1', defendant_statement: '被告陳述' },
-        { headers: { 'X-Session-Id': 'existing-session' } },
-      );
+    it('有 sessionId 時應交給 shared client 帶入 X-Session-Id header', async () => {
+      mocks.quickCreateCollaborativeCase.mockResolvedValue(collabResponse);
+      const input = { case_id: 'c1', defendant_statement: '被告陳述' };
+      await createCollaborativeCase(input, 'existing-session');
+      expect(mocks.quickCreateCollaborativeCase).toHaveBeenCalledWith(input, 'existing-session');
     });
 
-    it('回傳無 case 時應拋出錯誤', async () => {
-      mockPost.mockResolvedValue({ data: { data: { session_id: 'x' } } });
-      await expect(createCollaborativeCase({ plaintiff_statement: 'test' })).rejects.toThrow('Invalid collaborative case response');
-    });
-
-    it('後端回傳 case 為 null 時應拋錯（F02 邊界：API 回傳不完整時防禦）', async () => {
-      mockPost.mockResolvedValue({
-        data: { data: { case: null, session_id: 'cs1', session_expires_at: '2026-12-31T00:00:00Z', phase: 'a_done' } },
-      });
+    it('shared client 拋錯時應保留錯誤傳遞', async () => {
+      mocks.quickCreateCollaborativeCase.mockRejectedValue(new Error('Invalid collaborative case response from server'));
       await expect(createCollaborativeCase({ plaintiff_statement: '原告' })).rejects.toThrow(
         'Invalid collaborative case response from server'
       );

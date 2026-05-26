@@ -11,7 +11,7 @@ const mockStart = jest.fn();
 const mockStop = jest.fn();
 const mockExecute = jest.fn();
 const scheduleReturn = { start: mockStart, stop: mockStop, execute: mockExecute };
-/** 依註冊順序：cleanupExpiredSessions, cleanupOrphanUploads, cleanupTempPairings, cleanupAbandonedInterviewSessions, cleanupExpiredVerifications, resetAIDailyCount, followUp7Day, followUp30Day, cleanupStaleDraftCases, cleanupStuckProcessingSessions */
+/** 依註冊順序保存 createTask callback；新增任務時請避免改動既有 callback 的相對順序。 */
 const scheduledCallbacks: Array<() => void | Promise<void>> = [];
 
 jest.mock('node-cron', () => ({
@@ -34,6 +34,24 @@ const mockResetDailyCallCount = jest.fn();
 jest.mock('../../../src/services/ai.service', () => ({
   __esModule: true,
   aiService: { resetDailyCallCount: (...args: unknown[]) => mockResetDailyCallCount(...args) },
+}));
+
+const mockDispatchPendingPushNotifications = jest.fn();
+const mockPollPushNotificationReceipts = jest.fn();
+jest.mock('../../../src/services/notification.service', () => ({
+  __esModule: true,
+  notificationService: {
+    dispatchPendingPushNotifications: (...args: unknown[]) => mockDispatchPendingPushNotifications(...args),
+    pollPushNotificationReceipts: (...args: unknown[]) => mockPollPushNotificationReceipts(...args),
+  },
+}));
+
+const mockCleanupExpiredAppTelemetryEvents = jest.fn();
+jest.mock('../../../src/services/app-telemetry.service', () => ({
+  __esModule: true,
+  appTelemetryService: {
+    cleanupExpiredEvents: (...args: unknown[]) => mockCleanupExpiredAppTelemetryEvents(...args),
+  },
 }));
 
 const mockEvidenceFindMany = jest.fn();
@@ -106,6 +124,13 @@ describe('cleanup.job', () => {
     (mockCaseUpdateMany as any).mockResolvedValue({ count: 0 });
     (mockNotificationFindMany as any).mockResolvedValue([]);
     (mockNotificationCreateMany as any).mockResolvedValue({ count: 0 });
+    (mockCleanupExpiredAppTelemetryEvents as any).mockResolvedValue({
+      deletedCount: 0,
+      cutoff: new Date().toISOString(),
+      retentionDays: 30,
+    });
+    (mockDispatchPendingPushNotifications as any).mockResolvedValue({ sentCount: 0, failedCount: 0, scannedCount: 0, ticketCount: 0 });
+    (mockPollPushNotificationReceipts as any).mockResolvedValue({ scannedCount: 0, receiptCount: 0, okCount: 0, failedCount: 0, pendingCount: 0 });
   });
 
   describe('startJobs', () => {
@@ -173,6 +198,11 @@ describe('cleanup.job', () => {
       (mockCaseUpdateMany as any).mockResolvedValue({ count: 0 });
       (mockNotificationFindMany as any).mockResolvedValue([]);
       (mockNotificationCreateMany as any).mockResolvedValue({ count: 0 });
+      (mockCleanupExpiredAppTelemetryEvents as any).mockResolvedValue({
+        deletedCount: 0,
+        cutoff: new Date().toISOString(),
+        retentionDays: 30,
+      });
     });
 
     it('cleanupExpiredSessions 成功時依環境記錄 debug 或 info', async () => {
@@ -342,6 +372,50 @@ describe('cleanup.job', () => {
         data: { status: 'cancelled' },
       });
       expect(mockLogger.info).toHaveBeenCalledWith('Stale formal draft cases cancelled', { count: 2 });
+    });
+
+    it('cleanupAppTelemetry 應清理過期 App telemetry 並記錄 info', async () => {
+      (mockCleanupExpiredAppTelemetryEvents as any).mockResolvedValue({
+        deletedCount: 4,
+        cutoff: '2026-04-08T00:00:00.000Z',
+        retentionDays: 30,
+      });
+
+      await scheduledCallbacks[scheduledCallbacks.length - 3]();
+
+      expect(mockCleanupExpiredAppTelemetryEvents).toHaveBeenCalledWith(30);
+      expect(mockLogger.info).toHaveBeenCalledWith('App telemetry cleaned', {
+        deletedCount: 4,
+        cutoff: '2026-04-08T00:00:00.000Z',
+        retentionDays: 30,
+      });
+    });
+
+    it('dispatchPendingPushNotifications 應派送 pending push notification 並回寫 cron detail', async () => {
+      (mockDispatchPendingPushNotifications as any).mockResolvedValue({
+        scannedCount: 3,
+        sentCount: 2,
+        failedCount: 1,
+        ticketCount: 2,
+      });
+
+      await scheduledCallbacks[scheduledCallbacks.length - 2]();
+
+      expect(mockDispatchPendingPushNotifications).toHaveBeenCalledWith(50);
+    });
+
+    it('pollPushNotificationReceipts 應輪詢 Expo push receipts 並回寫 cron detail', async () => {
+      (mockPollPushNotificationReceipts as any).mockResolvedValue({
+        scannedCount: 3,
+        receiptCount: 2,
+        okCount: 1,
+        failedCount: 1,
+        pendingCount: 1,
+      });
+
+      await scheduledCallbacks[scheduledCallbacks.length - 1]();
+
+      expect(mockPollPushNotificationReceipts).toHaveBeenCalledWith(100);
     });
   });
 });

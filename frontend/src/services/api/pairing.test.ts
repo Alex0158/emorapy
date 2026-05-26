@@ -10,13 +10,34 @@ import {
   type Pairing,
 } from './pairing';
 
-const mockGet = vi.fn();
-const mockPost = vi.fn();
+const mocks = vi.hoisted(() => {
+  const create = vi.fn();
+  const join = vi.fn();
+  const getStatus = vi.fn();
+  const cancel = vi.fn();
+  return {
+    create,
+    join,
+    getStatus,
+    cancel,
+    createM4ApiClient: vi.fn(() => ({
+      pairing: {
+        create,
+        join,
+        getStatus,
+        cancel,
+      },
+    })),
+    request: { request: true },
+  };
+});
+
 vi.mock('../request', () => ({
-  default: {
-    get: (...args: unknown[]) => mockGet(...args),
-    post: (...args: unknown[]) => mockPost(...args),
-  },
+  default: mocks.request,
+}));
+
+vi.mock('@cj/api-client', () => ({
+  createM4ApiClient: (...args: unknown[]) => mocks.createM4ApiClient(...args),
 }));
 
 const mockPairing: Pairing = {
@@ -32,91 +53,62 @@ describe('pairing API', () => {
   });
 
   describe('createPairing', () => {
-    it('應 POST /pairing/create 並返回 Pairing', async () => {
-      mockPost.mockResolvedValue({ data: { data: { pairing: mockPairing } } });
+    it('應透過 shared M4 pairing client 建立配對', async () => {
+      mocks.create.mockResolvedValue(mockPairing);
       const result = await createPairing();
-      expect(mockPost).toHaveBeenCalledWith('/pairing/create');
+      expect(mocks.create).toHaveBeenCalledWith();
       expect(result).toEqual(mockPairing);
     });
 
-    it('回應缺少 pairing 時應拋錯', async () => {
-      mockPost.mockResolvedValue({ data: { data: {} } });
-      await expect(createPairing()).rejects.toThrow('Invalid pairing response from server');
-    });
-
-    it('後端回傳 pairing 為 null 時應拋錯（F08 邊界：API 回傳不完整時防禦）', async () => {
-      mockPost.mockResolvedValue({ data: { data: { pairing: null } } });
+    it('shared client 拋錯時應保留錯誤傳遞', async () => {
+      mocks.create.mockRejectedValue(new Error('Invalid pairing response from server'));
       await expect(createPairing()).rejects.toThrow('Invalid pairing response from server');
     });
   });
 
   describe('joinPairing', () => {
-    it('應 POST /pairing/join 並傳 invite_code', async () => {
-      mockPost.mockResolvedValue({ data: { data: { pairing: mockPairing } } });
+    it('應透過 shared M4 pairing client 加入配對', async () => {
+      mocks.join.mockResolvedValue(mockPairing);
       const result = await joinPairing('ABC123');
-      expect(mockPost).toHaveBeenCalledWith('/pairing/join', { invite_code: 'ABC123' });
+      expect(mocks.join).toHaveBeenCalledWith('ABC123');
       expect(result).toEqual(mockPairing);
     });
 
-    it('回應缺少 pairing 時應拋錯', async () => {
-      mockPost.mockResolvedValue({ data: { data: {} } });
-      await expect(joinPairing('ABC123')).rejects.toThrow('Invalid pairing response from server');
-    });
-
-    it('後端回傳 pairing 為 null 時應拋錯（F08 邊界：API 回傳不完整時防禦）', async () => {
-      mockPost.mockResolvedValue({ data: { data: { pairing: null } } });
+    it('shared client 拋錯時應保留錯誤傳遞', async () => {
+      mocks.join.mockRejectedValue(new Error('Invalid pairing response from server'));
       await expect(joinPairing('ABC123')).rejects.toThrow('Invalid pairing response from server');
     });
   });
 
   describe('getPairingStatus', () => {
     it('成功時應返回 Pairing', async () => {
-      mockGet.mockResolvedValue({ data: { data: { pairing: mockPairing } } });
+      mocks.getStatus.mockResolvedValue(mockPairing);
       const result = await getPairingStatus();
-      expect(mockGet).toHaveBeenCalledWith('/pairing/status');
+      expect(mocks.getStatus).toHaveBeenCalledWith();
       expect(result).toEqual(mockPairing);
     });
 
-    it('NOT_FOUND 或 HTTP_404 時應返回 null', async () => {
-      mockGet.mockRejectedValue({ code: 'NOT_FOUND' });
-      expect(await getPairingStatus()).toBeNull();
-      mockGet.mockRejectedValue({ code: 'HTTP_404' });
+    it('無配對狀態時應返回 null', async () => {
+      mocks.getStatus.mockResolvedValue(null);
       expect(await getPairingStatus()).toBeNull();
     });
 
-    it('其他錯誤應拋出', async () => {
-      mockGet.mockRejectedValue(new Error('Server error'));
+    it('shared client 拋錯時應保留錯誤傳遞', async () => {
+      mocks.getStatus.mockRejectedValue(new Error('Server error'));
       await expect(getPairingStatus()).rejects.toThrow('Server error');
-    });
-
-    it('後端回傳 200 且 pairing 為 null 時應返回 null（F08 邊界：無配對狀態）', async () => {
-      mockGet.mockResolvedValue({ data: { data: { pairing: null } } });
-      const result = await getPairingStatus();
-      expect(result).toBeNull();
-    });
-
-    it('後端回傳 200 且 pairing 為 undefined 時應返回 null（F08 邊界：API 回傳不完整時防禦，無配對狀態語義）', async () => {
-      mockGet.mockResolvedValue({ data: { data: { pairing: undefined } } });
-      const result = await getPairingStatus();
-      expect(result).toBeNull();
     });
   });
 
   describe('cancelPairing', () => {
-    it('應 POST /pairing/cancel 並返回 Pairing', async () => {
-      mockPost.mockResolvedValue({ data: { data: { pairing: { ...mockPairing, status: 'cancelled' } } } });
+    it('應透過 shared M4 pairing client 解除配對', async () => {
+      mocks.cancel.mockResolvedValue({ ...mockPairing, status: 'cancelled' });
       const result = await cancelPairing();
-      expect(mockPost).toHaveBeenCalledWith('/pairing/cancel');
+      expect(mocks.cancel).toHaveBeenCalledWith();
       expect(result.status).toBe('cancelled');
     });
 
-    it('回應缺少 pairing 時應拋錯', async () => {
-      mockPost.mockResolvedValue({ data: { data: {} } });
-      await expect(cancelPairing()).rejects.toThrow('Invalid pairing response from server');
-    });
-
-    it('後端回傳 pairing 為 null 時應拋錯（F08 邊界：API 回傳不完整時防禦）', async () => {
-      mockPost.mockResolvedValue({ data: { data: { pairing: null } } });
+    it('shared client 拋錯時應保留錯誤傳遞', async () => {
+      mocks.cancel.mockRejectedValue(new Error('Invalid pairing response from server'));
       await expect(cancelPairing()).rejects.toThrow('Invalid pairing response from server');
     });
   });

@@ -1,0 +1,604 @@
+{
+  "title": "Emorapy - 關係修復室",
+  "lang": "zh-TW",
+  "headings": [
+    {
+      "level": 4,
+      "text": "聊天室：room-a11y-manual",
+      "box": {
+        "x": 270,
+        "y": 81,
+        "width": 210,
+        "height": 24
+      }
+    },
+    {
+      "level": 2,
+      "text": "轉梳理前確認",
+      "box": {
+        "x": 498,
+        "y": 395,
+        "width": 445,
+        "height": 17
+      }
+    }
+  ],
+  "landmarks": [
+    {
+      "tag": "header",
+      "role": null,
+      "label": "✨Emorapy首頁快速判斷版本繁體中文登錄註冊",
+      "box": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 57
+      }
+    },
+    {
+      "tag": "nav",
+      "role": null,
+      "label": "首頁快速判斷",
+      "box": {
+        "x": 533,
+        "y": 12,
+        "width": 158,
+        "height": 32
+      }
+    },
+    {
+      "tag": "main",
+      "role": null,
+      "label": "聊天室：room-a11y-manual邀請中我的身份：A 方返回聊天室入口建立邀請發起梳理邀請碼：A11Y162026/5/16未知所有人可見回覆複製連結A11Y manual chat message2026/5/16 下午2:14:51AI思考中......所有人可見",
+      "box": {
+        "x": 0,
+        "y": 57,
+        "width": 1440,
+        "height": 908
+      }
+    },
+    {
+      "tag": "footer",
+      "role": null,
+      "label": "© 2026 關係修復室釐清爭點，重建對話，逐步修復關係",
+      "box": {
+        "x": 0,
+        "y": 965,
+        "width": 1440,
+        "height": 89
+      }
+    },
+    {
+      "tag": "nav",
+      "role": null,
+      "label": "首頁快速判斷登錄",
+      "box": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      }
+    }
+  ],
+  "focusable": [
+    {
+      "tag": "span",
+      "role": null,
+      "type": null,
+      "label": "",
+      "text": "",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      }
+    },
+    {
+      "tag": "a",
+      "role": null,
+      "type": null,
+      "label": "✨Emorapy",
+      "text": "✨Emorapy",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 160,
+        "y": 16,
+        "width": 93,
+        "height": 24
+      }
+    },
+    {
+      "tag": "a",
+      "role": null,
+      "type": null,
+      "label": "首頁",
+      "text": "首頁",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 533,
+        "y": 12,
+        "width": 74,
+        "height": 32
+      }
+    },
+    {
+      "tag": "a",
+      "role": null,
+      "type": null,
+      "label": "快速判斷",
+      "text": "快速判斷",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 611,
+        "y": 12,
+        "width": 80,
+        "height": 32
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": "button",
+      "label": "版本",
+      "text": "版本",
+      "disabled": false,
+      "ariaExpanded": "false",
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 972,
+        "y": 12,
+        "width": 62,
+        "height": 32
+      }
+    },
+    {
+      "tag": "button",
+      "role": "combobox",
+      "type": "button",
+      "label": "切換語言",
+      "text": "繁體中文",
+      "disabled": false,
+      "ariaExpanded": "false",
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 1042,
+        "y": 10,
+        "width": 100,
+        "height": 36
+      }
+    },
+    {
+      "tag": "a",
+      "role": null,
+      "type": null,
+      "label": "登錄",
+      "text": "登錄",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 1150,
+        "y": 12,
+        "width": 70,
+        "height": 32
+      }
+    },
+    {
+      "tag": "a",
+      "role": null,
+      "type": null,
+      "label": "註冊",
+      "text": "註冊",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 1228,
+        "y": 12,
+        "width": 52,
+        "height": 32
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": null,
+      "label": "返回聊天室入口",
+      "text": "返回聊天室入口",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 270,
+        "y": 145,
+        "width": 140,
+        "height": 32
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": null,
+      "label": "建立邀請",
+      "text": "建立邀請",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 418,
+        "y": 145,
+        "width": 82,
+        "height": 32
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": null,
+      "label": "發起梳理",
+      "text": "發起梳理",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 508,
+        "y": 145,
+        "width": 80,
+        "height": 32
+      }
+    },
+    {
+      "tag": "div",
+      "role": null,
+      "type": null,
+      "label": "2026/5/16未知所有人可見回覆複製連結A11Y manual chat message2026/5/16 下午2:14:51AI思考中......",
+      "text": "2026/5/16未知所有人可見回覆複製連結A11Y manual chat message2026/5/16 下午2:14:51AI思考中......",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 271,
+        "y": 280,
+        "width": 898,
+        "height": 548
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": "button",
+      "label": "回覆",
+      "text": "回覆",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 718,
+        "y": 333,
+        "width": 52,
+        "height": 20
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": "button",
+      "label": "複製連結",
+      "text": "複製連結",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 770,
+        "y": 333,
+        "width": 76,
+        "height": 20
+      }
+    },
+    {
+      "tag": "div",
+      "role": null,
+      "type": null,
+      "label": "AI思考中......",
+      "text": "AI思考中......",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 283,
+        "y": 425,
+        "width": 874,
+        "height": 90
+      }
+    },
+    {
+      "tag": "button",
+      "role": "combobox",
+      "type": "button",
+      "label": "訊息可見範圍",
+      "text": "所有人可見",
+      "disabled": false,
+      "ariaExpanded": "false",
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 270,
+        "y": 861,
+        "width": 180,
+        "height": 36
+      }
+    },
+    {
+      "tag": "input",
+      "role": null,
+      "type": null,
+      "label": "輸入訊息...",
+      "text": "",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 270,
+        "y": 905,
+        "width": 852,
+        "height": 36
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": null,
+      "label": "送出",
+      "text": "",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 1130,
+        "y": 905,
+        "width": 40,
+        "height": 36
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": "button",
+      "label": "首頁",
+      "text": "首頁",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": "button",
+      "label": "快速判斷",
+      "text": "快速判斷",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": "button",
+      "label": "登錄",
+      "text": "登錄",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      }
+    },
+    {
+      "tag": "div",
+      "role": "dialog",
+      "type": null,
+      "label": "轉梳理前確認",
+      "text": "轉梳理前確認只納入「所有人可見」訊息。2026/5/16 下午2:14:51未知: A11Y manual chat message全選全不選已選 1/1取消確認Close",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 473,
+        "y": 371,
+        "width": 493,
+        "height": 259
+      }
+    },
+    {
+      "tag": "input",
+      "role": null,
+      "type": "checkbox",
+      "label": "checkbox",
+      "text": "",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 503,
+        "y": 512,
+        "width": 13,
+        "height": 13
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": null,
+      "label": "全選",
+      "text": "全選",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 498,
+        "y": 573,
+        "width": 50,
+        "height": 31
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": null,
+      "label": "全不選",
+      "text": "全不選",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 555,
+        "y": 573,
+        "width": 64,
+        "height": 31
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": null,
+      "label": "取消",
+      "text": "取消",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 817,
+        "y": 571,
+        "width": 60,
+        "height": 35
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": null,
+      "label": "確認",
+      "text": "確認",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 885,
+        "y": 571,
+        "width": 58,
+        "height": 35
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": "button",
+      "label": "Close",
+      "text": "Close",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 935,
+        "y": 387,
+        "width": 15,
+        "height": 15
+      }
+    },
+    {
+      "tag": "span",
+      "role": null,
+      "type": null,
+      "label": "",
+      "text": "",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 0,
+        "y": 1054,
+        "width": 0,
+        "height": 0
+      }
+    }
+  ],
+  "statusRegions": [
+    {
+      "tag": "div",
+      "role": "alert",
+      "ariaLive": null,
+      "text": "邀請碼：A11Y16",
+      "box": {
+        "x": 270,
+        "y": 189,
+        "width": 900,
+        "height": 46
+      }
+    },
+    {
+      "tag": "div",
+      "role": null,
+      "ariaLive": "polite",
+      "text": "AI思考中......",
+      "box": {
+        "x": 283,
+        "y": 425,
+        "width": 874,
+        "height": 90
+      }
+    }
+  ]
+}

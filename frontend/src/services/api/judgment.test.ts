@@ -9,13 +9,34 @@ import {
   acceptJudgment,
 } from './judgment';
 
-const mockGet = vi.fn();
-const mockPost = vi.fn();
+const mocks = vi.hoisted(() => {
+  const generate = vi.fn();
+  const get = vi.fn();
+  const getByCaseId = vi.fn();
+  const accept = vi.fn();
+  return {
+    generate,
+    get,
+    getByCaseId,
+    accept,
+    createM4ApiClient: vi.fn(() => ({
+      judgment: {
+        generate,
+        get,
+        getByCaseId,
+        accept,
+      },
+    })),
+    request: { request: true },
+  };
+});
+
 vi.mock('../request', () => ({
-  default: {
-    get: (...args: unknown[]) => mockGet(...args),
-    post: (...args: unknown[]) => mockPost(...args),
-  },
+  default: mocks.request,
+}));
+
+vi.mock('@cj/api-client', () => ({
+  createM4ApiClient: (...args: unknown[]) => mocks.createM4ApiClient(...args),
 }));
 
 const mockJudgment = {
@@ -36,118 +57,78 @@ describe('judgment API', () => {
   });
 
   describe('generateJudgment', () => {
-    it('應 POST /judgments/generate/:caseId 並返回 Judgment', async () => {
-      mockPost.mockResolvedValue({ data: { data: { judgment: mockJudgment } } });
+    it('應透過 shared M4 judgment client 生成 Judgment', async () => {
+      mocks.generate.mockResolvedValue(mockJudgment);
       const result = await generateJudgment('c1');
-      expect(mockPost).toHaveBeenCalledWith('/judgments/generate/c1', undefined, undefined);
+      expect(mocks.generate).toHaveBeenCalledWith('c1', undefined);
       expect(result).toEqual(mockJudgment);
     });
 
-    it('有 sessionId 時應帶入 X-Session-Id header', async () => {
-      mockPost.mockResolvedValue({ data: { data: { judgment: mockJudgment } } });
+    it('有 sessionId 時應交給 shared client 帶入 X-Session-Id header', async () => {
+      mocks.generate.mockResolvedValue(mockJudgment);
       await generateJudgment('c1', 's-1');
-      expect(mockPost).toHaveBeenCalledWith(
-        '/judgments/generate/c1',
-        undefined,
-        { headers: { 'X-Session-Id': 's-1' } }
-      );
+      expect(mocks.generate).toHaveBeenCalledWith('c1', 's-1');
     });
 
-    it('回應缺少 judgment 時應拋錯', async () => {
-      mockPost.mockResolvedValue({ data: { data: {} } });
-      await expect(generateJudgment('c1')).rejects.toThrow('Invalid judgment response from server');
-    });
-
-    it('後端回傳 judgment 為 null 時應拋錯（F04 邊界：API 回傳不完整時防禦）', async () => {
-      mockPost.mockResolvedValue({ data: { data: { judgment: null } } });
+    it('shared client 拋錯時應保留錯誤傳遞', async () => {
+      mocks.generate.mockRejectedValue(new Error('Invalid judgment response from server'));
       await expect(generateJudgment('c1')).rejects.toThrow('Invalid judgment response from server');
     });
   });
 
   describe('getJudgment', () => {
-    it('應 GET /judgments/:id 並返回 Judgment', async () => {
-      mockGet.mockResolvedValue({ data: { data: { judgment: mockJudgment } } });
+    it('應透過 shared M4 judgment client 取得 Judgment', async () => {
+      mocks.get.mockResolvedValue(mockJudgment);
       const result = await getJudgment('j1');
-      expect(mockGet).toHaveBeenCalledWith('/judgments/j1');
+      expect(mocks.get).toHaveBeenCalledWith('j1');
       expect(result).toEqual(mockJudgment);
     });
 
-    it('回應缺少 judgment 時應拋錯', async () => {
-      mockGet.mockResolvedValue({ data: { data: {} } });
-      await expect(getJudgment('j1')).rejects.toThrow('Invalid judgment response from server');
-    });
-
-    it('後端回傳 judgment 為 null 時應拋錯（F04 邊界：API 回傳不完整時防禦）', async () => {
-      mockGet.mockResolvedValue({ data: { data: { judgment: null } } });
+    it('shared client 拋錯時應保留錯誤傳遞', async () => {
+      mocks.get.mockRejectedValue(new Error('Invalid judgment response from server'));
       await expect(getJudgment('j1')).rejects.toThrow('Invalid judgment response from server');
     });
   });
 
   describe('getJudgmentByCaseId', () => {
     it('成功時應返回 Judgment', async () => {
-      mockGet.mockResolvedValue({ data: { data: { judgment: mockJudgment } } });
+      mocks.getByCaseId.mockResolvedValue(mockJudgment);
       const result = await getJudgmentByCaseId('c1');
-      expect(mockGet).toHaveBeenCalledWith('/cases/c1/judgment', {
-        metadata: { suppressGlobalSessionToast: true },
-      });
+      expect(mocks.getByCaseId).toHaveBeenCalledWith('c1', undefined);
       expect(result).toEqual(mockJudgment);
     });
 
-    it('有 sessionId 時應帶入 X-Session-Id header', async () => {
-      mockGet.mockResolvedValue({ data: { data: { judgment: mockJudgment } } });
+    it('有 sessionId 時應交給 shared client 帶入 X-Session-Id header 與 suppress toast metadata', async () => {
+      mocks.getByCaseId.mockResolvedValue(mockJudgment);
       await getJudgmentByCaseId('c1', 's-2');
-      expect(mockGet).toHaveBeenCalledWith('/cases/c1/judgment', {
-        headers: { 'X-Session-Id': 's-2' },
-        metadata: { suppressGlobalSessionToast: true },
-      });
+      expect(mocks.getByCaseId).toHaveBeenCalledWith('c1', 's-2');
     });
 
-    it('JUDGMENT_PENDING / JUDGMENT_NOT_FOUND / HTTP_404 時應返回 null', async () => {
-      for (const code of ['JUDGMENT_PENDING', 'JUDGMENT_NOT_FOUND', 'HTTP_404']) {
-        mockGet.mockRejectedValueOnce({ code });
-        const result = await getJudgmentByCaseId('c1');
-        expect(result).toBeNull();
-      }
-    });
-
-    it('後端回傳 200 且 judgment 為 null 時應返回 null（F01 邊界：pending 語義，不拋錯）', async () => {
-      mockGet.mockResolvedValue({ data: { data: { judgment: null } } });
+    it('判決尚未生成時應返回 null', async () => {
+      mocks.getByCaseId.mockResolvedValue(null);
       const result = await getJudgmentByCaseId('c1');
       expect(result).toBeNull();
     });
 
-    it('後端回傳 200 且 judgment 為 undefined 時應返回 null（F01/F04 邊界：API 回傳不完整時防禦，pending 語義）', async () => {
-      mockGet.mockResolvedValue({ data: { data: { judgment: undefined } } });
-      const result = await getJudgmentByCaseId('c1');
-      expect(result).toBeNull();
-    });
-
-    it('其他錯誤應拋出', async () => {
-      mockGet.mockRejectedValue(new Error('Server error'));
+    it('shared client 拋錯時應保留錯誤傳遞', async () => {
+      mocks.getByCaseId.mockRejectedValue(new Error('Server error'));
       await expect(getJudgmentByCaseId('c1')).rejects.toThrow('Server error');
     });
   });
 
   describe('acceptJudgment', () => {
-    it('應 POST /judgments/:id/accept 並返回 Judgment', async () => {
-      mockPost.mockResolvedValue({ data: { data: { judgment: mockJudgment } } });
+    it('應透過 shared M4 judgment client 接受 Judgment', async () => {
+      mocks.accept.mockResolvedValue(mockJudgment);
       const result = await acceptJudgment('j1', { accepted: true, rating: 5 });
-      expect(mockPost).toHaveBeenCalledWith('/judgments/j1/accept', {
+      expect(mocks.accept).toHaveBeenCalledWith('j1', {
         accepted: true,
         rating: 5,
       });
       expect(result).toEqual(mockJudgment);
     });
 
-    it('回應缺少 judgment 時應拋錯', async () => {
-      mockPost.mockResolvedValue({ data: { data: {} } });
-      await expect(acceptJudgment('j1', { accepted: true })).rejects.toThrow(
-        'Invalid judgment response from server'
-      );
-    });
-
-    it('後端回傳 judgment 為 null 時應拋錯（F04 邊界：API 回傳不完整時防禦）', async () => {
-      mockPost.mockResolvedValue({ data: { data: { judgment: null } } });
+    it('shared client 拋錯時應保留錯誤傳遞', async () => {
+      mocks.accept.mockRejectedValue(new Error('Invalid judgment response from server'));
       await expect(acceptJudgment('j1', { accepted: true })).rejects.toThrow(
         'Invalid judgment response from server'
       );

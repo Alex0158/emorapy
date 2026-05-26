@@ -439,7 +439,7 @@ describe('CaseController', () => {
       expect(res.status).toHaveBeenCalledWith(202);
       expect(res.json).toHaveBeenCalledWith({
         success: false,
-        error: { code: 'JUDGMENT_PENDING', message: '判決生成中，請稍後再試' },
+        error: { code: 'JUDGMENT_PENDING', message: '分析生成中，請稍後再試' },
       });
     });
 

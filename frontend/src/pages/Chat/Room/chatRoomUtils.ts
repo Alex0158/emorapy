@@ -412,20 +412,31 @@ export function getMessageTypeLabel(
 	messageType: string | null | undefined,
 ): string {
 	if (!messageType) return t("common.na");
-	const translated = t(`chat.messageType.${messageType}`);
-	return translated === `chat.messageType.${messageType}`
-		? messageType
-		: translated;
+	if (![
+		"user_text",
+		"ai_text",
+		"ai_reflection",
+		"ai_mediation",
+		"ai_summary",
+		"system_event",
+		"safety_notice",
+	].includes(messageType)) return messageType;
+	return t(`chat.messageType.${messageType}`);
 }
 
 export function getVisibilityScopeLabel(
 	visibilityScope: string | null | undefined,
 ): string {
 	if (!visibilityScope) return t("common.na");
-	const translated = t(`chat.visibility.${visibilityScope}`);
-	return translated === `chat.visibility.${visibilityScope}`
-		? visibilityScope
-		: translated;
+	if (![
+		"all",
+		"summary_only",
+		"owner_only",
+		"share_full_history",
+		"share_summary_only",
+		"share_from_join_time",
+	].includes(visibilityScope)) return visibilityScope;
+	return t(`chat.visibility.${visibilityScope}`);
 }
 
 export function getAiStrategyLabel(strategy: string | null | undefined): string {

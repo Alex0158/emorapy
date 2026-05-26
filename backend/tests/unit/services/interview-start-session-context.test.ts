@@ -49,7 +49,7 @@ describe('interview-start-session-context', () => {
 
     expect(mockedPrisma.user.findUnique).toHaveBeenCalledWith({
       where: { id: 'u1' },
-      select: { psych_consent_given: true },
+      select: { psych_consent_given: true, age: true },
     });
     expect(mockedPrisma.interviewSession.findMany).not.toHaveBeenCalled();
     expect(mockedPrisma.interviewSession.findFirst).not.toHaveBeenCalled();

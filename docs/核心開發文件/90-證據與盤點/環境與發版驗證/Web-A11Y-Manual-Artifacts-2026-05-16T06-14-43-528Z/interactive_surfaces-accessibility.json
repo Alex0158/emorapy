@@ -1,0 +1,49 @@
+{
+  "title": "Emorapy - 關係修復室",
+  "lang": "zh-TW",
+  "headings": [],
+  "landmarks": [
+    {
+      "tag": "header",
+      "role": null,
+      "label": "✨ Emorapy",
+      "box": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 56
+      }
+    },
+    {
+      "tag": "main",
+      "role": null,
+      "label": "加載中...",
+      "box": {
+        "x": 0,
+        "y": 56,
+        "width": 1440,
+        "height": 944
+      }
+    }
+  ],
+  "focusable": [
+    {
+      "tag": "a",
+      "role": null,
+      "type": null,
+      "label": "✨ Emorapy",
+      "text": "✨ Emorapy",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 24,
+        "y": 16,
+        "width": 93,
+        "height": 24
+      }
+    }
+  ],
+  "statusRegions": []
+}

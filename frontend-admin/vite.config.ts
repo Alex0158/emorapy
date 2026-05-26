@@ -86,8 +86,6 @@ export default defineConfig(({ mode }) => {
         'react-router-dom',
         '@tanstack/react-query',
         'zustand',
-        'antd',
-        '@ant-design/icons',
         'axios',
       ],
     },
@@ -119,7 +117,7 @@ export default defineConfig(({ mode }) => {
         : undefined,
     },
     optimizeDeps: {
-      include: ['react', 'react-dom', 'react-router-dom', 'antd', 'axios', 'zustand'],
+      include: ['react', 'react-dom', 'react-router-dom', 'axios', 'zustand'],
     },
     define: {
       __DEV__: JSON.stringify(isDevelopment),

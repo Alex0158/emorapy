@@ -240,8 +240,8 @@ describe('EmailService', () => {
       expect(mockSendMail).toHaveBeenCalledWith(
         expect.objectContaining({
           to: 'u@x.com',
-          subject: expect.stringContaining('判決'),
-          html: expect.stringContaining('判決已生成'),
+          subject: expect.stringContaining('分析完成'),
+          html: expect.stringContaining('梳理分析已完成'),
         })
       );
     });

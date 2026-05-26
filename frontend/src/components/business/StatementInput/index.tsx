@@ -74,6 +74,8 @@ const StatementInput = ({
 
       <div className="relative">
         <textarea
+          aria-label={label ?? placeholder}
+          autoComplete="off"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}

@@ -1,4 +1,4 @@
-import { describe, expect, it, jest, beforeEach } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 jest.mock('../../../src/config/openai', () => ({
   __esModule: true,
@@ -38,10 +38,20 @@ import {
 describe('interview-ai-stream-request-utils', () => {
   const mockedOpenAI = openai as any;
   const mockedRetryWithBackoff = retryWithBackoff as any;
+  const originalAiMock = process.env.AI_MOCK;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    delete process.env.AI_MOCK;
     mockedRetryWithBackoff.mockImplementation(async (fn: () => Promise<unknown>) => fn());
+  });
+
+  afterEach(() => {
+    if (originalAiMock === undefined) {
+      delete process.env.AI_MOCK;
+    } else {
+      process.env.AI_MOCK = originalAiMock;
+    }
   });
 
   it('buildInterviewAIStreamRequest 應使用訪談模型設定與 system/user prompt', () => {
@@ -60,6 +70,7 @@ describe('interview-ai-stream-request-utils', () => {
       frequency_penalty: 0.1,
       presence_penalty: 0.2,
       stream: true,
+      stream_options: { include_usage: true },
     });
   });
 
@@ -127,5 +138,26 @@ describe('interview-ai-stream-request-utils', () => {
       }),
       { signal: controller.signal }
     );
+  });
+
+  it('createInterviewAIResponseStream 在 AI_MOCK=true 時應返回本機 mock stream', async () => {
+    process.env.AI_MOCK = 'true';
+
+    const stream = await createInterviewAIResponseStream({
+      systemPrompt: 'system prompt',
+      userPrompt: '我最近壓力很大',
+    });
+    const chunks: string[] = [];
+
+    for await (const chunk of stream) {
+      const delta = chunk.choices[0]?.delta?.content;
+      if (delta) chunks.push(delta);
+    }
+
+    const content = chunks.join('');
+    expect(content).toContain('---METADATA---');
+    expect(content).toContain('"target_domains":["personality","relationship_history"]');
+    expect(mockedOpenAI.chat.completions.create).not.toHaveBeenCalled();
+    expect(mockedRetryWithBackoff).not.toHaveBeenCalled();
   });
 });

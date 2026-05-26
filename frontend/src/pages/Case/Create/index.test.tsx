@@ -14,6 +14,7 @@ const mockToastError = vi.fn();
 const mockToastWarning = vi.fn();
 const mockToastSuccess = vi.fn();
 const mockToastInfo = vi.fn();
+const mockGetProfile = vi.fn();
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
@@ -37,7 +38,7 @@ vi.mock('@/utils/validate', () => ({
 }));
 
 vi.mock('@/services/api/psychProfile', () => ({
-  psychProfileApi: { getProfile: vi.fn().mockResolvedValue({ data: { data: null } }) },
+  psychProfileApi: { getProfile: (...args: unknown[]) => mockGetProfile(...args) },
 }));
 
 vi.mock('@/hooks/useInterviewTrigger', () => ({
@@ -141,6 +142,7 @@ describe('Case Create', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetPairingStatus.mockResolvedValue({ id: 'pairing-1', status: 'active' });
+    mockGetProfile.mockResolvedValue(null);
     vi.mocked(validateStatement).mockReturnValue({ valid: false });
   });
 
@@ -190,6 +192,21 @@ describe('Case Create', () => {
       const main = container.querySelector('[role="main"][aria-label="caseCreate.pageLabel"]');
       expect(main).toBeInTheDocument();
     });
+  });
+
+  it('pre-case banner 的 icon close button 應有 accessible name', async () => {
+    mockGetProfile.mockResolvedValue({
+      data: { data: { consent_given: true, richness_score: 0 } },
+    });
+    render(
+      <MemoryRouter>
+        <CaseCreate />
+      </MemoryRouter>
+    );
+    await waitFor(() => {
+      expect(screen.getByText('trigger.preCaseTitle')).toBeInTheDocument();
+    });
+    expect(screen.getByRole('button', { name: 'common.dismiss' })).toBeInTheDocument();
   });
 
   it('配對 pending 時應顯示配對未就緒', async () => {

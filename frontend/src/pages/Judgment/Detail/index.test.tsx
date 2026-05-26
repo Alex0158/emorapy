@@ -20,7 +20,7 @@ vi.mock('@/services/api/judgment', () => ({
 }));
 
 vi.mock('@/services/api/psychProfile', () => ({
-  psychProfileApi: { getProfile: vi.fn().mockResolvedValue({ data: { data: null } }) },
+  psychProfileApi: { getProfile: vi.fn().mockResolvedValue(null) },
 }));
 
 vi.mock('@/hooks/useInterviewTrigger', () => ({
@@ -106,6 +106,7 @@ describe('JudgmentDetail', () => {
     expect(screen.getByRole('button', { name: 'judgmentDetail.intentCoolDownCta' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'judgmentDetail.intentGracefulExitCta' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'judgmentDetail.intentSafetyCta' })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'judgmentDetail.starAria' })).toHaveLength(5);
   });
 
   it('點擊方向入口會帶著 intent 進入修復旅程', async () => {

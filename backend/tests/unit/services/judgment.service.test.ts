@@ -546,6 +546,28 @@ describe('JudgmentService', () => {
       expect(result.id).toBe('j-race');
     });
 
+    it('P2002 無 meta.target 但同 case 已有判決時應返回已存在判決', async () => {
+      prismaMock.judgment.findUnique.mockResolvedValueOnce(null);
+      prismaMock.case.findUnique.mockResolvedValueOnce(baseCase());
+      aiServiceMock.generateJudgment.mockResolvedValueOnce({
+        content: 'ok',
+        responsibilityRatio: { plaintiff: 60, defendant: 40 },
+        summary: 'sum',
+      });
+      prismaMock.$transaction.mockImplementationOnce(async (fn: any) =>
+        fn({
+          judgment: {
+            findUnique: jest.fn().mockResolvedValueOnce(null).mockResolvedValueOnce({ id: 'j-race-unknown-target', case_id: 'case-1' }),
+            create: jest.fn().mockRejectedValue({ code: 'P2002' }),
+          },
+          case: { update: jest.fn() },
+        })
+      );
+      const service = new JudgmentService();
+      const result = await service.generateJudgment('case-1', { sessionId: baseCase().session_id as string });
+      expect(result.id).toBe('j-race-unknown-target');
+    });
+
     it('transaction create 拋出非 P2002 錯誤時應原樣拋出', async () => {
       prismaMock.judgment.findUnique.mockResolvedValueOnce(null);
       prismaMock.case.findUnique.mockResolvedValueOnce(baseCase());

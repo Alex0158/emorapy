@@ -416,8 +416,15 @@
 }
 
 .chat-room-page__reply-preview {
+  display: block;
+  width: 100%;
   margin-top: 8px;
+  font: inherit;
+  text-align: left;
   border-left: 3px solid var(--color-border);
+  border-top: 0;
+  border-right: 0;
+  border-bottom: 0;
   padding: 6px 10px;
   background: rgba(44, 36, 32, 0.04);
   border-radius: 8px;

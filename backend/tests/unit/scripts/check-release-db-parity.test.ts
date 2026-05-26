@@ -9,10 +9,24 @@ jest.mock('../../../src/types/prisma-client', () => ({
 
 import {
   RELEASE_BLOCKING_MIGRATIONS,
+  buildReleaseDbParityEvidence,
   buildReleaseDbParityReport,
   runReleaseDbParityCheck,
   type ReleaseMigrationRow,
 } from '../../../scripts/check-release-db-parity';
+import fs from 'node:fs';
+import path from 'node:path';
+
+const migrationDir = path.resolve(__dirname, '../../../prisma/migrations');
+const appReleaseBlockingMigrations = [
+  '20260508093000_add_push_device_tokens',
+  '20260508113000_add_push_receipt_tracking',
+  '20260508124000_add_app_telemetry_events',
+  '20260508133000_add_ai_stream_persistence',
+  '20260508143000_add_interview_collected_facts',
+  '20260508143500_add_interview_turn_extracted_facts',
+  '20260508150000_add_notification_action_metadata',
+] as const;
 
 function appliedMigration(migrationName: string): ReleaseMigrationRow {
   return {
@@ -54,6 +68,19 @@ describe('check-release-db-parity', () => {
       failedMigrations: [],
       generatedAt: '2026-05-04T01:00:00.000Z',
     });
+  });
+
+  it('release blocking 清單引用的 migration 目錄都必須存在', () => {
+    for (const migrationName of RELEASE_BLOCKING_MIGRATIONS) {
+      const migrationPath = path.join(migrationDir, migrationName, 'migration.sql');
+      expect(fs.existsSync(migrationPath)).toBe(true);
+    }
+  });
+
+  it('App release-sensitive migrations 必須全部進入 release blocking 清單', () => {
+    for (const migrationName of appReleaseBlockingMigrations) {
+      expect(RELEASE_BLOCKING_MIGRATIONS).toContain(migrationName);
+    }
   });
 
   it('缺少指定 release blocking migration 時阻塞', () => {
@@ -122,5 +149,34 @@ describe('check-release-db-parity', () => {
 
     expect(report.ok).toBe(true);
     expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(1);
+  });
+
+  it('release DB parity evidence 只保存安全分類，不保存 DATABASE_URL 或 host', () => {
+    process.env.DATABASE_URL = 'postgresql://cj:secret@release-db.example/cj';
+    const report = buildReleaseDbParityReport(
+      RELEASE_BLOCKING_MIGRATIONS.map(appliedMigration),
+      RELEASE_BLOCKING_MIGRATIONS,
+      '2026-05-04T01:00:00.000Z'
+    );
+
+    const evidence = buildReleaseDbParityEvidence(report, { target: 'release' }, new Date('2026-05-04T01:02:00.000Z'));
+    const serialized = JSON.stringify(evidence);
+
+    expect(evidence).toMatchObject({
+      type: 'app-release-db-parity-evidence',
+      check: 'release-db-parity',
+      ok: true,
+      target: {
+        classification: 'release',
+        database: {
+          provider: 'postgresql',
+          local: false,
+        },
+      },
+      generatedAt: '2026-05-04T01:02:00.000Z',
+    });
+    expect(evidence.report.requiredMigrationCount).toBe(RELEASE_BLOCKING_MIGRATIONS.length);
+    expect(serialized).not.toContain('secret');
+    expect(serialized).not.toContain('release-db.example');
   });
 });

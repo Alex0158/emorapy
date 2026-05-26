@@ -1,0 +1,386 @@
+{
+  "type": "app-external-evidence-handoff",
+  "generated_at": "2026-05-16T06:49:04.222Z",
+  "source_status_type": "app-external-evidence-status",
+  "source_status_generated_at": "2026-05-16T06:49:02.448Z",
+  "source_release_completion_audit_type": "app-release-completion-audit",
+  "source_release_completion_audit_generated_at": "2026-05-16T06:49:04.219Z",
+  "app": {
+    "ios_bundle_identifier": "com.cj.motherbearcourt",
+    "android_package": "com.cj.motherbearcourt",
+    "version": "1.3.1",
+    "ios_build_number": "1",
+    "android_version_code": 1,
+    "eas_project_id_present": false,
+    "eas_project_id_valid": false,
+    "eas_project_id_format": "missing"
+  },
+  "summary": {
+    "blocked": true,
+    "blocker_count": 15,
+    "release_completion_handoff_blocker_count": 11,
+    "prerequisite_only_blocker_count": 4,
+    "known_blocker_count": 16,
+    "report_contains_secrets": false
+  },
+  "items": [
+    {
+      "blocker_id": "eas_project_id",
+      "blocker_message": "mobile/app.json must include a real UUID-shaped extra.eas.projectId.",
+      "release_completion_blocker": true,
+      "prerequisite_only": false,
+      "owner_surface": "Expo / EAS project setup",
+      "required_env_keys": [],
+      "action": "Bind mobile/app.json to the real Expo project id. Placeholder UUIDs are not accepted.",
+      "commands": [
+        "cd mobile && npx eas init",
+        "npm --prefix mobile run release:external-evidence:status"
+      ],
+      "accepted_evidence": [
+        "mobile/app.json expo.extra.eas.projectId is a real UUID-shaped EAS project id"
+      ],
+      "strict_gate": "npm --prefix mobile run release:completion:audit:strict",
+      "docs": [
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-External-Release-Signoff-Runbook-2026-05-08.md",
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-Release-Hardening-2026-05-08.md"
+      ]
+    },
+    {
+      "blocker_id": "expo_token",
+      "blocker_message": "EXPO_TOKEN is required for non-interactive EAS release metadata checks.",
+      "release_completion_blocker": true,
+      "prerequisite_only": false,
+      "owner_surface": "Expo / EAS credentials",
+      "required_env_keys": [
+        "EXPO_TOKEN"
+      ],
+      "action": "Provide a non-interactive Expo access token for EAS metadata queries.",
+      "commands": [
+        "EXPO_TOKEN=<expo-access-token> npm --prefix mobile run release:external-evidence:validate"
+      ],
+      "accepted_evidence": [
+        "release prerequisite report shows expo_token_present=true"
+      ],
+      "strict_gate": "npm --prefix mobile run release:external-evidence:run",
+      "docs": [
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-External-Release-Signoff-Runbook-2026-05-08.md",
+        "docs/核心開發文件/08-測試規範與驗收/03-App測試與證據接入基線.md"
+      ]
+    },
+    {
+      "blocker_id": "apple_submission_credentials",
+      "blocker_message": "ASC_APPLE_ID and EXPO_APPLE_APP_SPECIFIC_PASSWORD must both be present.",
+      "release_completion_blocker": true,
+      "prerequisite_only": false,
+      "owner_surface": "Apple submission credentials",
+      "required_env_keys": [
+        "ASC_APPLE_ID",
+        "EXPO_APPLE_APP_SPECIFIC_PASSWORD"
+      ],
+      "action": "Provide Apple account and app-specific password needed by non-interactive submit readiness.",
+      "commands": [
+        "ASC_APPLE_ID=<apple-id> EXPO_APPLE_APP_SPECIFIC_PASSWORD=<app-specific-password> npm --prefix mobile run release:external-evidence:validate"
+      ],
+      "accepted_evidence": [
+        "release prerequisite report shows apple_submission_credentials_present=true"
+      ],
+      "strict_gate": "npm --prefix mobile run release:external-evidence:run",
+      "docs": [
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-External-Release-Signoff-Runbook-2026-05-08.md"
+      ]
+    },
+    {
+      "blocker_id": "app_store_connect_api_credentials",
+      "blocker_message": "App Store Connect API credentials are required for TestFlight evidence.",
+      "release_completion_blocker": true,
+      "prerequisite_only": false,
+      "owner_surface": "App Store Connect API",
+      "required_env_keys": [
+        "APP_STORE_CONNECT_ISSUER_ID",
+        "APP_STORE_CONNECT_KEY_ID",
+        "APP_STORE_CONNECT_PRIVATE_KEY or APP_STORE_CONNECT_PRIVATE_KEY_PATH"
+      ],
+      "action": "Provide ASC API credentials so TestFlight build state can be queried as structured evidence.",
+      "commands": [
+        "APP_STORE_CONNECT_ISSUER_ID=<issuer> APP_STORE_CONNECT_KEY_ID=<key-id> APP_STORE_CONNECT_PRIVATE_KEY_PATH=<p8-path> npm --prefix mobile run release:external-evidence:validate"
+      ],
+      "accepted_evidence": [
+        "release prerequisite report shows app_store_connect_api_credentials_present=true"
+      ],
+      "strict_gate": "npm --prefix mobile run release:external-evidence:run -- --physical-platform=ios",
+      "docs": [
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-External-Release-Signoff-Runbook-2026-05-08.md",
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-Release-Hardening-2026-05-08.md"
+      ]
+    },
+    {
+      "blocker_id": "sentry_runtime_query_credentials",
+      "blocker_message": "Sentry org, project, and auth token are required to query controlled native crash runtime evidence.",
+      "release_completion_blocker": false,
+      "prerequisite_only": true,
+      "owner_surface": "Sentry native crash runtime",
+      "required_env_keys": [
+        "APP_SENTRY_ORG or SENTRY_ORG",
+        "APP_SENTRY_PROJECT or SENTRY_PROJECT",
+        "APP_SENTRY_AUTH_TOKEN or SENTRY_AUTH_TOKEN"
+      ],
+      "action": "Provide Sentry query credentials so the runtime evidence runner can look up the controlled native crash event.",
+      "commands": [
+        "APP_SENTRY_ORG=<org> APP_SENTRY_PROJECT=<project> APP_SENTRY_AUTH_TOKEN=<token> npm --prefix mobile run release:external-evidence:validate",
+        "APP_SENTRY_ORG=<org> APP_SENTRY_PROJECT=<project> APP_SENTRY_AUTH_TOKEN=<token> APP_NATIVE_CRASH_SENTRY_EVENT_ID=<event-id> npm --prefix mobile run native-crash:runtime:smoke -- --run"
+      ],
+      "accepted_evidence": [
+        "release status shows credentials.sentry_runtime_query_credentials_present=true",
+        "App-Native-Crash-Runtime-*.json with summary.provider_query_passed=true and blocked=false"
+      ],
+      "strict_gate": "npm --prefix mobile run native-crash:runtime:smoke -- --run",
+      "docs": [
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-External-Release-Signoff-Runbook-2026-05-08.md",
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-Release-Hardening-2026-05-08.md"
+      ]
+    },
+    {
+      "blocker_id": "native_crash_event_id",
+      "blocker_message": "APP_NATIVE_CRASH_SENTRY_EVENT_ID or SENTRY_EVENT_ID is required to query controlled native crash runtime evidence.",
+      "release_completion_blocker": false,
+      "prerequisite_only": true,
+      "owner_surface": "Sentry native crash runtime",
+      "required_env_keys": [
+        "APP_NATIVE_CRASH_SENTRY_EVENT_ID or SENTRY_EVENT_ID"
+      ],
+      "action": "Provide the controlled native crash event id that the runtime evidence runner will query.",
+      "commands": [
+        "APP_NATIVE_CRASH_SENTRY_EVENT_ID=<controlled-event-id> npm --prefix mobile run release:external-evidence:validate",
+        "APP_SENTRY_ORG=<org> APP_SENTRY_PROJECT=<project> APP_SENTRY_AUTH_TOKEN=<token> APP_NATIVE_CRASH_SENTRY_EVENT_ID=<event-id> npm --prefix mobile run native-crash:runtime:smoke -- --run"
+      ],
+      "accepted_evidence": [
+        "release status shows credentials.native_crash_event_id_present=true",
+        "App-Native-Crash-Runtime-*.json with sentry.event_id_sha256 and blocked=false"
+      ],
+      "strict_gate": "npm --prefix mobile run native-crash:runtime:smoke -- --run",
+      "docs": [
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-External-Release-Signoff-Runbook-2026-05-08.md",
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-Release-Hardening-2026-05-08.md"
+      ]
+    },
+    {
+      "blocker_id": "eas_ios_release_evidence",
+      "blocker_message": "Pass-state App-EAS-iOS-Release-* evidence is missing.",
+      "release_completion_blocker": true,
+      "prerequisite_only": false,
+      "owner_surface": "EAS iOS production build",
+      "required_env_keys": [
+        "EXPO_TOKEN"
+      ],
+      "action": "Generate pass-state EAS iOS production store build evidence for the current bundle id, version, and build number.",
+      "commands": [
+        "EXPO_TOKEN=<expo-access-token> npm --prefix mobile run eas-ios-release:smoke -- --run --require-testflight"
+      ],
+      "accepted_evidence": [
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-EAS-iOS-Release-*.json"
+      ],
+      "strict_gate": "npm --prefix mobile run release:completion:audit:strict",
+      "docs": [
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-External-Release-Signoff-Runbook-2026-05-08.md",
+        "docs/核心開發文件/08-測試規範與驗收/03-App測試與證據接入基線.md"
+      ]
+    },
+    {
+      "blocker_id": "testflight_evidence",
+      "blocker_message": "Pass-state TestFlight evidence is missing.",
+      "release_completion_blocker": true,
+      "prerequisite_only": false,
+      "owner_surface": "App Store Connect / TestFlight",
+      "required_env_keys": [
+        "APP_STORE_CONNECT_ISSUER_ID",
+        "APP_STORE_CONNECT_KEY_ID",
+        "APP_STORE_CONNECT_PRIVATE_KEY or APP_STORE_CONNECT_PRIVATE_KEY_PATH"
+      ],
+      "action": "Query TestFlight and prove the matching build is present, valid, and not expired.",
+      "commands": [
+        "APP_STORE_CONNECT_ISSUER_ID=<issuer> APP_STORE_CONNECT_KEY_ID=<key-id> APP_STORE_CONNECT_PRIVATE_KEY_PATH=<p8-path> npm --prefix mobile run eas-ios-release:smoke -- --run --require-testflight"
+      ],
+      "accepted_evidence": [
+        "App-EAS-iOS-Release-*.json with testflight_query_passed=true and blocked=false"
+      ],
+      "strict_gate": "npm --prefix mobile run release:completion:audit:strict",
+      "docs": [
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-External-Release-Signoff-Runbook-2026-05-08.md",
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-Release-Hardening-2026-05-08.md"
+      ]
+    },
+    {
+      "blocker_id": "eas_android_release_evidence",
+      "blocker_message": "Pass-state App-EAS-Android-Release-* evidence is missing.",
+      "release_completion_blocker": true,
+      "prerequisite_only": false,
+      "owner_surface": "EAS Android production build",
+      "required_env_keys": [
+        "EXPO_TOKEN"
+      ],
+      "action": "Generate pass-state EAS Android production store build evidence for the current package, version, and versionCode.",
+      "commands": [
+        "EXPO_TOKEN=<expo-access-token> npm --prefix mobile run eas-android-release:smoke -- --run"
+      ],
+      "accepted_evidence": [
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-EAS-Android-Release-*.json"
+      ],
+      "strict_gate": "npm --prefix mobile run release:completion:audit:strict",
+      "docs": [
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-External-Release-Signoff-Runbook-2026-05-08.md",
+        "docs/核心開發文件/08-測試規範與驗收/03-App測試與證據接入基線.md"
+      ]
+    },
+    {
+      "blocker_id": "physical_device_evidence",
+      "blocker_message": "Pass-state App-Physical-Device-* evidence is missing.",
+      "release_completion_blocker": true,
+      "prerequisite_only": false,
+      "owner_surface": "Trusted physical device runner",
+      "required_env_keys": [
+        "APP_IOS_DEVICE_UDID or APP_ANDROID_DEVICE_SERIAL",
+        "APP_IOS_DEVICE_APP_PATH for iOS"
+      ],
+      "action": "Run native smoke on a connected physical device; simulator and emulator evidence are not accepted.",
+      "commands": [
+        "APP_IOS_DEVICE_UDID=<trusted-device-udid> APP_IOS_DEVICE_APP_PATH=<signed-app-path> npm --prefix mobile run release:external-evidence:validate -- --physical-platform=ios --report-dir=<report-dir>",
+        "APP_IOS_DEVICE_UDID=<trusted-device-udid> APP_IOS_DEVICE_APP_PATH=<signed-app-path> npm --prefix mobile run release:external-evidence:run -- --physical-platform=ios --report-dir=<report-dir>",
+        "APP_IOS_DEVICE_UDID=<trusted-device-udid> APP_IOS_DEVICE_APP_PATH=<signed-app-path> npm --prefix mobile run physical-device:smoke -- --platform=ios --run",
+        "APP_ANDROID_DEVICE_SERIAL=<physical-device-serial> npm --prefix mobile run release:external-evidence:validate -- --physical-platform=android --report-dir=<report-dir>",
+        "APP_ANDROID_DEVICE_SERIAL=<physical-device-serial> npm --prefix mobile run release:external-evidence:run -- --physical-platform=android --report-dir=<report-dir>",
+        "APP_ANDROID_DEVICE_SERIAL=<physical-device-serial> npm --prefix mobile run physical-device:smoke -- --platform=android --run"
+      ],
+      "accepted_evidence": [
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-Physical-Device-*.json"
+      ],
+      "strict_gate": "npm --prefix mobile run release:completion:audit:strict",
+      "docs": [
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-External-Release-Signoff-Runbook-2026-05-08.md",
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-Release-Hardening-2026-05-08.md"
+      ]
+    },
+    {
+      "blocker_id": "push_delivery_evidence",
+      "blocker_message": "Pass-state App-Push-Delivery-* evidence is missing.",
+      "release_completion_blocker": true,
+      "prerequisite_only": false,
+      "owner_surface": "Expo push provider",
+      "required_env_keys": [
+        "APP_PUSH_DELIVERY_EXPO_PUSH_TOKEN",
+        "APP_PUSH_DELIVERY_ACCESS_TOKEN optional"
+      ],
+      "action": "Send a controlled push and poll the provider receipt until accepted and ok.",
+      "commands": [
+        "APP_PUSH_DELIVERY_EXPO_PUSH_TOKEN=<expo-push-token> npm --prefix mobile run push-delivery:smoke -- --run"
+      ],
+      "accepted_evidence": [
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-Push-Delivery-*.json"
+      ],
+      "strict_gate": "npm --prefix mobile run release:completion:audit:strict",
+      "docs": [
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-External-Release-Signoff-Runbook-2026-05-08.md",
+        "docs/核心開發文件/08-測試規範與驗收/03-App測試與證據接入基線.md"
+      ]
+    },
+    {
+      "blocker_id": "native_crash_runtime_evidence",
+      "blocker_message": "Pass-state App-Native-Crash-Runtime-* evidence is missing.",
+      "release_completion_blocker": true,
+      "prerequisite_only": false,
+      "owner_surface": "Sentry native crash runtime",
+      "required_env_keys": [
+        "APP_SENTRY_ORG",
+        "APP_SENTRY_PROJECT",
+        "APP_SENTRY_AUTH_TOKEN",
+        "APP_NATIVE_CRASH_SENTRY_EVENT_ID"
+      ],
+      "action": "Query a controlled native crash event and prove release, environment, native runtime, and crash-like signal.",
+      "commands": [
+        "APP_SENTRY_ORG=<org> APP_SENTRY_PROJECT=<project> APP_SENTRY_AUTH_TOKEN=<token> APP_NATIVE_CRASH_SENTRY_EVENT_ID=<event-id> npm --prefix mobile run native-crash:runtime:smoke -- --run"
+      ],
+      "accepted_evidence": [
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-Native-Crash-Runtime-*.json"
+      ],
+      "strict_gate": "npm --prefix mobile run release:completion:audit:strict",
+      "docs": [
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-External-Release-Signoff-Runbook-2026-05-08.md",
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-Release-Hardening-2026-05-08.md"
+      ]
+    },
+    {
+      "blocker_id": "telemetry_runtime_evidence",
+      "blocker_message": "Pass-state App-Telemetry-Runtime-* evidence is missing.",
+      "release_completion_blocker": true,
+      "prerequisite_only": false,
+      "owner_surface": "Release App telemetry ingest",
+      "required_env_keys": [
+        "APP_TELEMETRY_RUNTIME_API_BASE_URL"
+      ],
+      "action": "Post controlled App telemetry and OTLP trace payloads to the non-local release backend and prove both runtime ingest endpoints accept them.",
+      "commands": [
+        "APP_TELEMETRY_RUNTIME_API_BASE_URL=<release-api-base-url> npm --prefix mobile run telemetry:runtime:smoke -- --run"
+      ],
+      "accepted_evidence": [
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-Telemetry-Runtime-*.json"
+      ],
+      "strict_gate": "npm --prefix mobile run release:completion:audit:strict",
+      "docs": [
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-External-Release-Signoff-Runbook-2026-05-08.md",
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-Release-Hardening-2026-05-08.md",
+        "docs/核心開發文件/08-測試規範與驗收/03-App測試與證據接入基線.md"
+      ]
+    },
+    {
+      "blocker_id": "ios_physical_device_visible",
+      "blocker_message": "No connected iOS physical device is visible to xctrace.",
+      "release_completion_blocker": false,
+      "prerequisite_only": true,
+      "owner_surface": "Trusted iOS device runner",
+      "required_env_keys": [
+        "DEVELOPER_DIR",
+        "APP_IOS_DEVICE_UDID"
+      ],
+      "action": "Attach, unlock, and trust an iPhone visible to xctrace on the runner.",
+      "commands": [
+        "DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun xctrace list devices",
+        "APP_IOS_DEVICE_UDID=<trusted-device-udid> APP_IOS_DEVICE_APP_PATH=<signed-app-path> npm --prefix mobile run release:external-evidence:validate -- --physical-platform=ios --report-dir=<report-dir>",
+        "npm --prefix mobile run release:external-evidence:status"
+      ],
+      "accepted_evidence": [
+        "release status shows devices.ios.physical_connected > 0"
+      ],
+      "strict_gate": "npm --prefix mobile run physical-device:smoke -- --platform=ios --run",
+      "docs": [
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-External-Release-Signoff-Runbook-2026-05-08.md"
+      ]
+    },
+    {
+      "blocker_id": "android_physical_device_visible",
+      "blocker_message": "No connected Android physical device is visible to adb.",
+      "release_completion_blocker": false,
+      "prerequisite_only": true,
+      "owner_surface": "Trusted Android device runner",
+      "required_env_keys": [
+        "ANDROID_HOME or ANDROID_SDK_ROOT",
+        "APP_ANDROID_DEVICE_SERIAL"
+      ],
+      "action": "Attach, authorize, and keep a physical Android device visible to adb.",
+      "commands": [
+        "adb devices -l",
+        "APP_ANDROID_DEVICE_SERIAL=<physical-device-serial> npm --prefix mobile run release:external-evidence:validate -- --physical-platform=android --report-dir=<report-dir>",
+        "npm --prefix mobile run release:external-evidence:status"
+      ],
+      "accepted_evidence": [
+        "release status shows devices.android.physical_connected > 0"
+      ],
+      "strict_gate": "npm --prefix mobile run physical-device:smoke -- --platform=android --run",
+      "docs": [
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-External-Release-Signoff-Runbook-2026-05-08.md"
+      ]
+    }
+  ],
+  "final_gates": [
+    "npm --prefix mobile run release:completion:audit:strict",
+    "npm --prefix mobile run goal:completion:audit:strict"
+  ]
+}

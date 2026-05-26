@@ -13,6 +13,7 @@ vi.mock('@/utils/storage', () => ({
     set: (...args: unknown[]) => mockSet(...args),
   },
 }));
+vi.mock('@/utils/i18n', () => ({ t: (key: string) => key }));
 
 describe('GuideTooltip', () => {
   beforeEach(() => {
@@ -39,6 +40,7 @@ describe('GuideTooltip', () => {
     expect(mockGet).toHaveBeenCalledWith('g1');
     expect(screen.getByText('子')).toBeInTheDocument();
     expect(screen.getByText('首次提示')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'guideTooltip.close' })).toBeInTheDocument();
   });
 
   it('showOnce 且已看過時不應顯示 Tooltip', () => {

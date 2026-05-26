@@ -39,6 +39,7 @@ coverage/
 .nyc_output/
 backend/coverage-auth-only/
 frontend/test-results/
+frontend-admin/test-results/
 e2e/test-results/
 backend/tmp/
 

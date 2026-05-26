@@ -1,0 +1,110 @@
+{
+  "title": "忘記密碼 - 關係修復室 - 關係修復室",
+  "lang": "zh-TW",
+  "headings": [
+    {
+      "level": 1,
+      "text": "把衝突 化為連結。",
+      "box": {
+        "x": 292,
+        "y": 406,
+        "width": 330,
+        "height": 108
+      }
+    },
+    {
+      "level": 2,
+      "text": "忘記密碼",
+      "box": {
+        "x": 751,
+        "y": 346,
+        "width": 393,
+        "height": 35
+      }
+    }
+  ],
+  "landmarks": [
+    {
+      "tag": "div",
+      "role": "main",
+      "label": "忘記密碼頁面",
+      "box": {
+        "x": 751,
+        "y": 346,
+        "width": 393,
+        "height": 400
+      }
+    }
+  ],
+  "focusable": [
+    {
+      "tag": "button",
+      "role": "combobox",
+      "type": "button",
+      "label": "切換語言",
+      "text": "繁體中文",
+      "disabled": false,
+      "ariaExpanded": "false",
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 1067,
+        "y": 256,
+        "width": 128,
+        "height": 35
+      }
+    },
+    {
+      "tag": "input",
+      "role": null,
+      "type": "email",
+      "label": "郵箱地址",
+      "text": "",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 762,
+        "y": 495,
+        "width": 393,
+        "height": 47
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": "submit",
+      "label": "發送重置郵件",
+      "text": "發送重置郵件",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 762,
+        "y": 570,
+        "width": 393,
+        "height": 51
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": null,
+      "label": "返回登錄",
+      "text": "返回登錄",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 751,
+        "y": 695,
+        "width": 393,
+        "height": 51
+      }
+    }
+  ],
+  "statusRegions": []
+}

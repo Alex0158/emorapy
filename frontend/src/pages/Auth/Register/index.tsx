@@ -1,7 +1,7 @@
 /**
  * 註冊頁面
  *
- * 遷移: Ant Design → shadcn/ui + 原生表單
+ * 遷移: legacy form controls → shadcn/ui + 原生表單
  * 保留: 3 步驟流程（郵箱→驗證碼→密碼）、所有業務邏輯
  * 新增: 密碼強度指示器
  */
@@ -245,6 +245,7 @@ const Register = () => {
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                   <Input
                     type="email"
+                    aria-label={t('auth.register.email')}
                     placeholder={t('auth.register.emailPlaceholder')}
                     autoComplete="email"
                     value={email}
@@ -259,6 +260,8 @@ const Register = () => {
                 <User className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                 <Input
                   type="text"
+                  aria-label={t('auth.register.nickname')}
+                  autoComplete="nickname"
                   placeholder={t('auth.register.nicknamePlaceholder')}
                   maxLength={20}
                   value={nickname}
@@ -312,6 +315,7 @@ const Register = () => {
                     onPaste={handleCodePaste}
                     className="h-14 w-12 rounded-xl border border-border bg-muted/50 text-center text-xl font-bold text-foreground transition-all duration-200 focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/15 focus:outline-none"
                     aria-label={`${t('auth.register.stepVerify')} ${index + 1}`}
+                    autoComplete="one-time-code"
                     autoFocus={index === 0}
                   />
                 ))}
@@ -364,6 +368,7 @@ const Register = () => {
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                   <Input
                     type={showPassword ? 'text' : 'password'}
+                    aria-label={t('auth.register.setPassword')}
                     placeholder={t('auth.register.passwordPlaceholder')}
                     maxLength={128}
                     autoComplete="new-password"
@@ -403,6 +408,7 @@ const Register = () => {
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                   <Input
                     type={showPassword ? 'text' : 'password'}
+                    aria-label={t('auth.register.confirmPassword')}
                     placeholder={t('auth.register.confirmPlaceholder')}
                     autoComplete="new-password"
                     value={confirmPassword}

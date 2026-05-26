@@ -125,6 +125,8 @@ export default function AdminUsersPage() {
       <Card>
         <CardContent className="pt-6 space-y-4">
           <Input
+            aria-label={t('admin.users.search')}
+            autoComplete="off"
             value={q}
             onChange={(event) => setQ(event.target.value)}
             placeholder={t('admin.users.search')}

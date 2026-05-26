@@ -34,13 +34,13 @@ export default function ChatMessageComposer({
             <p className="text-xs font-medium text-foreground">{t('chat.replyingTo')}</p>
             <p className="text-xs text-muted-foreground truncate">{replyTo.content}</p>
           </div>
-          <button onClick={onClearReply} className="text-muted-foreground hover:text-foreground"><X className="size-3.5" /></button>
+          <button type="button" onClick={onClearReply} aria-label={t('chat.dismiss')} className="text-muted-foreground hover:text-foreground"><X className="size-3.5" /></button>
         </div>
       )}
 
       <div className="mb-2">
         <Select value={visibilityScope} onValueChange={(v: string) => onVisibilityScopeChange(v as 'all' | 'owner_only' | 'summary_only')}>
-          <SelectTrigger className="w-[180px] h-8 text-xs"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-[180px] h-8 text-xs" aria-label={t('chat.visibility.label')}><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t('chat.visibility.all')}</SelectItem>
             <SelectItem value="summary_only">{t('chat.visibility.summary_only')}</SelectItem>
@@ -51,6 +51,8 @@ export default function ChatMessageComposer({
 
       <div className="flex gap-2">
         <Input
+          aria-label={t('chat.messagePlaceholder')}
+          autoComplete="off"
           value={messageInput}
           maxLength={2000}
           onChange={(e) => onMessageInputChange(e.target.value)}

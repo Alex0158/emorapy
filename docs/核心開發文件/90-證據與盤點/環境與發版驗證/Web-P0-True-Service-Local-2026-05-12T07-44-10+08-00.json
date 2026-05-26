@@ -1,0 +1,37 @@
+{
+  "smoke": "web-p0-true-service",
+  "status": "failed",
+  "generated_at": "2026-05-11T23:44:24.486Z",
+  "api_base_url": "http://127.0.0.1:3001/api/v1",
+  "backend_base_url": "http://127.0.0.1:3001",
+  "origin": "http://127.0.0.1:4173",
+  "ai_mock": true,
+  "database_url_present": true,
+  "cleanup_created_users": true,
+  "steps": [
+    {
+      "name": "backend health",
+      "ok": true
+    },
+    {
+      "name": "quick create/result/judgment detail",
+      "ok": true
+    },
+    {
+      "name": "register and verify two users",
+      "ok": true
+    },
+    {
+      "name": "formal pairing/case/list/evidence/judgment",
+      "ok": true
+    },
+    {
+      "name": "chat room/message/request analysis/judgment status",
+      "ok": false,
+      "details": {
+        "error": "chat request analysis: expected HTTP 200, got 409; body={\"success\":false,\"error\":{\"code\":\"CONFLICT\",\"message\":\"唯一約束違規: 未知字段\"},\"meta\":{\"request_id\":\"5e2af29e-814c-42a4-929f-d6dfb0f66d64\",\"timestamp\":\"2026-05-11T23:44:24.482Z\"}}"
+      }
+    }
+  ],
+  "error": "chat request analysis: expected HTTP 200, got 409; body={\"success\":false,\"error\":{\"code\":\"CONFLICT\",\"message\":\"唯一約束違規: 未知字段\"},\"meta\":{\"request_id\":\"5e2af29e-814c-42a4-929f-d6dfb0f66d64\",\"timestamp\":\"2026-05-11T23:44:24.482Z\"}}"
+}

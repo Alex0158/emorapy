@@ -1,0 +1,43 @@
+{
+  "evidence": "ai-pricing-release-env-preflight",
+  "status": "blocked",
+  "generated_at": "2026-05-12T14:38:24.440Z",
+  "operator": "Codex local verification",
+  "environment": {
+    "target": "local-preflight",
+    "release_env_claimed": false,
+    "database_url_checked": false,
+    "pricing_values_recorded": false
+  },
+  "commands": [
+    {
+      "command": "npm --prefix backend run ops:ai-pricing:check",
+      "status": "failed_as_expected",
+      "summary": "AI_COST_PRICING_JSON is required; required runtime models are gpt-3.5-turbo, gpt-4o-mini, and gpt-4o."
+    },
+    {
+      "command": "npm --prefix backend run ops:release-db:dry-run",
+      "status": "passed",
+      "summary": "Dry-run confirmed 14 release-blocking migrations are required and that strict release evidence requires a release or production non-local PostgreSQL DATABASE_URL."
+    }
+  ],
+  "blocked_requirements": [
+    "Release or production backend environment must provide AI_COST_PRICING_JSON.",
+    "Pricing catalog must include source and version, with version starting with YYYY-MM-DD.",
+    "Pricing catalog must cover OPENAI_MODEL, OPENAI_INTERVIEW_MODEL, OPENAI_ANALYSIS_MODEL, and any AI_COST_REQUIRED_MODELS.",
+    "Pricing version must not be future dated or stale under AI_COST_PRICING_MAX_AGE_DAYS.",
+    "Pricing values must be reviewed outside the repository before release; this preflight does not validate business approval.",
+    "Release DB parity evidence must be produced against a non-local release or production PostgreSQL DATABASE_URL; dry-run is not release evidence."
+  ],
+  "decision": {
+    "can_close_ai_ledger_notification_todo_now": false,
+    "reason": "The runtime ledger, Admin costs breakdown, pricing validator, and release DB dry-run gate exist, but the current environment does not provide a release pricing catalog or release-production DB evidence. Creating a pass artifact locally would overstate release readiness."
+  },
+  "non_claims": [
+    "not_a_release_pass_artifact",
+    "no_pricing_value_approval_claim",
+    "no_release_database_parity_claim",
+    "no_admin_cost_precision_claim"
+  ],
+  "linked_todo": "docs/核心開發文件/07-待處理問題與治理/待處理/AI請求Ledger與Notification狀態Schema同步待辦-2026-05-04.md"
+}

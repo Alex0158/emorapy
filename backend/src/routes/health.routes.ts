@@ -9,6 +9,7 @@ import { env } from '../config/env';
 import { jobsStarted } from '../jobs/cleanup.job';
 import { lockService } from '../utils/lock';
 import { buildBackendVersionManifest } from '../utils/version';
+import { aiStreamService } from '../services/ai-stream.service';
 
 const router = Router();
 
@@ -71,6 +72,13 @@ router.get('/health', async (req: Request, res: Response) => {
       ? { status: 'degraded', message: 'Lock backend degraded: simple-lock in production' }
       : { status: 'healthy', message: `Lock backend: ${lockBackend}` };
     if (checks.lock.status !== 'healthy') degraded = true;
+
+    const aiStreamBackendMode = aiStreamService.getBackendMode();
+    checks.aiStream = {
+      status: env.NODE_ENV === 'production' && aiStreamBackendMode !== 'redis' ? 'degraded' : 'healthy',
+      message: `AI Stream backend: ${aiStreamBackendMode}`,
+    };
+    if (checks.aiStream.status !== 'healthy') degraded = true;
 
     const totalResponseTime = Date.now() - startTime;
 

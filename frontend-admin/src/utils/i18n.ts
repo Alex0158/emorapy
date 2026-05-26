@@ -37,10 +37,26 @@ export function getLocale(): Locale {
   return currentLocale;
 }
 
+const isProduction = (): boolean => import.meta.env.PROD === true;
+
+function missingTranslation(key: string): string {
+  if (isProduction()) return `[missing-i18n:${key}]`;
+  throw new Error(`Missing i18n key: ${key}`);
+}
+
+function syncDocumentLocale(locale: Locale): void {
+  if (typeof document === 'undefined') return;
+  document.documentElement.lang = locale;
+}
+
 export function setLocale(locale: Locale | string): void {
   const normalized = normalizeLocale(locale);
-  if (normalized === currentLocale) return;
+  if (normalized === currentLocale) {
+    syncDocumentLocale(normalized);
+    return;
+  }
   currentLocale = normalized;
+  syncDocumentLocale(normalized);
   if (typeof window !== 'undefined') {
     try {
       window.localStorage.setItem(STORAGE_KEY, normalized);
@@ -64,7 +80,7 @@ export function t(
 ): string {
   const dict = catalogs[currentLocale];
   const fallback = catalogs[DEFAULT_LOCALE];
-  let result = dict[key] ?? fallback[key] ?? key;
+  let result = dict[key] ?? fallback[key] ?? missingTranslation(key);
   if (params) {
     for (const [name, value] of Object.entries(params)) {
       result = result.replaceAll(`{${name}}`, String(value));
@@ -72,3 +88,5 @@ export function t(
   }
   return result;
 }
+
+syncDocumentLocale(currentLocale);

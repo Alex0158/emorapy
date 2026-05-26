@@ -4,8 +4,8 @@
 **文檔類型**：核心入口
 **覆蓋範圍**：核心開發文件閱讀順序、SSOT 邊界與 repo 級文檔治理口徑
 **取證代碼入口**：`backend/src/app.ts`、`frontend/src/router/index.tsx`、`frontend-admin/src/router.tsx`、`mobile/app/_layout.tsx`、`mobile/src/platform`、`scripts/check-docs-structure.mjs`
-**最後核驗 Commit**：`1295216`
-**最後核驗日期**：`2026-05-06`
+**最後核驗 Commit**：`3890ba8`
+**最後核驗日期**：`2026-05-07`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 本目錄是 `CJ` 項目唯一有效的工程與產品正式文檔依據。
@@ -34,10 +34,10 @@
 建議按以下順序閱讀：
 
 1. 根層旗艦總覽文檔
-2. [00-跨端產品核心/README.md](./00-跨端產品核心/README.md)（需要理解 Web / App 共用產品能力、角色、流程與狀態機時）
+2. [00-跨端產品核心/README.md](./00-跨端產品核心/README.md)（需要理解 Web / App 共用產品意圖、PRD 需求、成功指標、工程級 PRD 對標、角色、流程與狀態機時）
 3. [10-Web端/README.md](./10-Web端/README.md)（需要查看當前 Web / Admin Web 凍結基線時）
-4. [20-App端/README.md](./20-App端/README.md)（需要啟動或評估 App 版開發時；App navigation / platform adapter 先看 `20-App端/01-App導航與平台Adapter基線.md`）
-5. [50-跨端Mapping與Parity/README.md](./50-跨端Mapping與Parity/README.md)（需要判斷 Web / App / Backend / API / DB 是否一致時；App 首輪工程落點先看 `50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md`）
+4. [20-App端/README.md](./20-App端/README.md)（需要啟動或評估 App 版開發時；完整 App 版先看 `20-App端/02-App完整版本工程PRD.md` 與 `20-App端/03-App完整版本開發Roadmap.md`，navigation / platform adapter 再看 `20-App端/01-App導航與平台Adapter基線.md`）
+5. [50-跨端Mapping與Parity/README.md](./50-跨端Mapping與Parity/README.md)（需要判斷 Web / App / Backend / API / DB 是否一致時；App Roadmap 工程落點先看 `50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md`）
 6. 對應正式子域 README 與 `00-*總覽.md`
 7. `06-接口描述/`
 8. [07-待處理問題與治理/README.md](./07-待處理問題與治理/README.md)（需要決定先修什麼、先治理什麼時）
@@ -71,7 +71,7 @@
 2. 功能是否存在、由哪個頁面承接，只看 `功能特性清單.md` 與 `頁面清單.md`。
 3. 交叉追溯、影響分析與回歸範圍，只看 `接口-功能-頁面-Mapping.md`。
 4. 跨端產品語義先看 `00-跨端產品核心/`；跨端主流程總覽看 `業務流程整合.md`；術語口徑只看 `術語表.md`。
-5. 模組級接口契約與風險說明只作為主冊補充，統一由 `06-接口描述/` 承接，不與主冊並列裁決。
+5. 模組級接口契約與風險說明只作為主冊補充，統一由 `06-接口描述/` 承接，不與主冊並列裁決；OpenAPI / schema contract 是否完成只看 `06-接口描述/11-API契約與OpenAPI缺口台賬.md`，錯誤模型 / Problem Details 是否完成只看 `06-接口描述/12-錯誤模型與ProblemDetails缺口台賬.md`。
 
 ---
 
@@ -81,9 +81,9 @@
 
 | 目錄 | 定位 |
 | --- | --- |
-| `00-跨端產品核心/` | Web / App 共用的產品能力、角色、流程、狀態機與一致性規則；跨端產品語義最高 SSOT |
+| `00-跨端產品核心/` | Web / App 共用的產品意圖、PRD 需求、用戶場景、成功指標、工程級 PRD 對標、角色、流程、狀態機與一致性規則；跨端產品語義最高 SSOT |
 | `10-Web端/` | Web / Admin Web 凍結基線、平台投影與已實作狀態；作為 App 開發對照，不重新定義產品核心 |
-| `20-App端/` | Expo App 開發入口、App 平台投影、navigation 替換、原生 platform adapter 邊界與待閉環事項 |
+| `20-App端/` | Expo App 開發入口、完整 App 版工程 PRD / Roadmap、App 平台投影、navigation 替換、原生 platform adapter 邊界與待閉環事項 |
 | `50-跨端Mapping與Parity/` | 產品能力到 Web / App / Backend / API / DB / 共享層的映射、App 首輪工程落點與 Parity 缺口台帳 |
 
 ### 正式核心子目錄
@@ -92,17 +92,17 @@
 | --- | --- |
 | `01-認證與會話/` | 註冊、登入、會話、身份來源與入口守衛的正式規格入口 |
 | `02-用戶端核心流程/` | 目前以前台 Web 主流程為主要取證，承接快速體驗、正式案件、聊天室、Repair Journey、心理訪談等；App 投影需回跳 `20-App端/` 與 `50-跨端Mapping與Parity/` |
-| `03-管理端與平台治理/` | Admin Web、平台治理、健康檢查、配置與運營能力 |
-| `04-共用機制/` | 跨 Web / Admin / Mobile / Backend 的共用規則與共享機制 |
-| `05-工程架構與共享層/` | repo 分層、共享 package、跨端契約與工程落點規則 |
-| `06-接口描述/` | 模組級接口契約、常見錯誤碼、副作用與最小回歸集 |
+| `03-管理端與平台治理/` | Admin Web、平台治理、健康檢查、配置、運營能力、SLO / 可觀測性與事故治理 |
+| `04-共用機制/` | 跨 Web / Admin / Mobile / Backend 的共用規則、共享機制、NFR、AI / LLM 風險治理、資料治理、隱私風險、威脅建模、安全需求、狀態機、可訪問性、本地化與內容設計基線 |
+| `05-工程架構與共享層/` | repo 分層、共享 package、跨端契約、工程落點規則、架構視圖、ADR、資料模型、schema migration 與相容性治理 |
+| `06-接口描述/` | 模組級接口契約、常見錯誤碼、副作用、錯誤模型、Problem Details / OpenAPI / schema contract 缺口與最小回歸集 |
 
 ### 支撐子目錄
 
 | 目錄 | 定位 |
 | --- | --- |
 | `07-待處理問題與治理/` | 活躍問題、優先級與治理狀態入口 |
-| `08-測試規範與驗收/` | 長期有效的測試策略、分層、覆蓋與驗收口徑 |
+| `08-測試規範與驗收/` | 長期有效的測試策略、分層、覆蓋、可訪問性 / 本地化、schema migration / 相容性、SLO 可觀測性 / 事故演練與驗收口徑 |
 | `測試/` | 活躍場景案例、回歸包與執行入口 |
 | `90-證據與盤點/` | 環境核驗、AI 流式驗證、頁面 HTML 快照與手動回歸證據 |
 | `99-歷史降級索引/` | 已退出正式依據層的歷史入口 |
@@ -131,7 +131,7 @@
 
 從 App 版開發開始，核心文件採用三層 SSOT：
 
-1. **跨端產品核心**：由 `00-跨端產品核心/` 承接，定義 Web 與 App 共用的產品語義、角色、流程、狀態與授權邊界。
+1. **跨端產品核心**：由 `00-跨端產品核心/` 承接，定義 Web 與 App 共用的產品語義、PRD 需求、成功指標、工程級 PRD 對標、角色、流程、狀態與授權邊界。
 2. **平台投影文件**：由 `10-Web端/` 與 `20-App端/` 承接，只描述該端如何實作或承接跨端核心，不得自行改寫產品規則。
 3. **跨端映射與缺口**：由 `50-跨端Mapping與Parity/` 承接，追蹤 Web / App / Backend / API / DB / 共享層的一致性、差異與待處理任務。
 

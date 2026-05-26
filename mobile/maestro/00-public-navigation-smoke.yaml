@@ -1,0 +1,30 @@
+appId: com.cj.motherbearcourt
+name: M0 public navigation smoke
+tags:
+  - app
+  - m0
+  - smoke
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    text: Cancel
+    optional: true
+- assertVisible:
+    id: public.home.screen
+- tapOn:
+    id: public.home.quick
+- assertVisible:
+    id: quick.screen
+- tapOn:
+    id: quick.home
+- assertVisible:
+    id: public.home.screen
+- tapOn:
+    id: public.home.auth
+- assertVisible:
+    id: auth.screen
+- tapOn:
+    id: auth.home
+- assertVisible:
+    id: public.home.screen

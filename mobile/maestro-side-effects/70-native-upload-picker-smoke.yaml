@@ -1,0 +1,51 @@
+appId: com.cj.motherbearcourt
+name: Native upload picker cancel smoke
+tags:
+  - app
+  - native-side-effect
+  - upload
+  - smoke
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    text: Cancel
+    optional: true
+- tapOn:
+    text: 取消
+    optional: true
+- assertVisible:
+    id: public.home.screen
+- scrollUntilVisible:
+    element:
+      id: public.home.modal
+- tapOn:
+    id: public.home.modal
+- assertVisible:
+    id: modal.screen
+- scrollUntilVisible:
+    element:
+      id: modal.upload.pick
+- tapOn:
+    id: modal.upload.pick
+- tapOn:
+    text: Allow
+    optional: true
+- tapOn:
+    text: 允許
+    optional: true
+- tapOn:
+    text: Allow all photos
+    optional: true
+- tapOn:
+    text: Select Photos
+    optional: true
+- tapOn:
+    text: Cancel
+    optional: true
+- tapOn:
+    text: 取消
+    optional: true
+- pressKey: Back
+- assertVisible:
+    id: modal.upload.cancelled

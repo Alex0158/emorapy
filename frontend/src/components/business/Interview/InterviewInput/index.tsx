@@ -87,6 +87,8 @@ const InterviewInput: React.FC<InterviewInputProps> = ({
         <div className="relative flex-1">
           <textarea
             ref={inputRef}
+            aria-label={placeholder ?? t('interview.sendPlaceholder')}
+            autoComplete="off"
             value={value}
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={handleKeyDown}

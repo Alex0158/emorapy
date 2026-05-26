@@ -1,0 +1,78 @@
+appId: com.cj.motherbearcourt
+name: M1 quick and auth form smoke
+tags:
+  - app
+  - m1
+  - smoke
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    text: Cancel
+    optional: true
+- assertVisible:
+    id: public.home.screen
+- tapOn:
+    id: public.home.quick
+- assertVisible:
+    id: quick.screen
+- tapOn:
+    id: quick.plaintiff.input
+- inputText: "I want to explain what happened today and how I felt."
+- pressKey: Back
+- scrollUntilVisible:
+    element:
+      id: quick.defendant.input
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: quick.defendant.input
+- inputText: "The other person may say they also had pressure and reasons."
+- pressKey: Back
+- scrollUntilVisible:
+    element:
+      id: quick.submit
+    direction: DOWN
+    timeout: 10000
+- assertVisible:
+    id: quick.submit
+- scrollUntilVisible:
+    element:
+      id: quick.home.footer
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: quick.home.footer
+- assertVisible:
+    id: public.home.screen
+- tapOn:
+    id: public.home.auth
+- assertVisible:
+    id: auth.screen
+- tapOn:
+    id: auth.mode.register
+- assertVisible:
+    id: auth.nickname.input
+- tapOn:
+    id: auth.nickname.input
+- inputText: "Maestro"
+- tapOn:
+    id: auth.email.input
+- inputText: "maestro@example.com"
+- pressKey: Back
+- scrollUntilVisible:
+    element:
+      id: auth.password.input
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: auth.password.input
+- inputText: "password123"
+- pressKey: Back
+- scrollUntilVisible:
+    element:
+      id: auth.submit
+    direction: DOWN
+    timeout: 10000
+- assertVisible:
+    id: auth.submit

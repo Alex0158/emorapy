@@ -1,0 +1,374 @@
+{
+  "type": "app-external-signoff-prerequisites",
+  "generated_at": "2026-05-16T07:08:56.648Z",
+  "mode": "validate",
+  "ok": false,
+  "summary": {
+    "blocked": true,
+    "missing_count": 16,
+    "require_testflight": true,
+    "physical_platform": "ios",
+    "skipped_steps": [],
+    "report_contains_secrets": false
+  },
+  "app": {
+    "ios_bundle_identifier": "com.cj.motherbearcourt",
+    "android_package": "com.cj.motherbearcourt",
+    "version": "1.3.1",
+    "ios_build_number": "1",
+    "android_version_code": 1,
+    "eas_project_id_present": false,
+    "eas_project_id_valid": false
+  },
+  "tools": {
+    "eas_cli_available": true
+  },
+  "credentials": {
+    "expo_token_present": false,
+    "apple_submission_credentials_present": false,
+    "app_store_connect_api_credentials_present": false,
+    "physical_device_input_present": false,
+    "signed_app_input_present": false,
+    "push_delivery_token_present": false,
+    "sentry_runtime_query_credentials_present": false,
+    "native_crash_event_id_present": false,
+    "telemetry_runtime_api_base_url_present": false,
+    "release_database_url_present": false
+  },
+  "device_visibility": {
+    "ios": {
+      "ok": true,
+      "physical_connected": 0,
+      "physical_offline": 2,
+      "simulators": 11,
+      "requested_device_provided": false,
+      "requested_device_visible": null
+    },
+    "android": {
+      "ok": true,
+      "physical_connected": 0,
+      "emulator_connected": 0,
+      "unauthorized_or_offline": 0,
+      "requested_device_provided": false,
+      "requested_device_visible": null
+    }
+  },
+  "missing_prerequisites": [
+    {
+      "id": "eas_project_id",
+      "message": "mobile/app.json must include a real UUID-shaped extra.eas.projectId before release sign-off run mode."
+    },
+    {
+      "id": "expo_token",
+      "message": "EXPO_TOKEN must be present for non-interactive EAS release metadata checks."
+    },
+    {
+      "id": "apple_submission_credentials",
+      "message": "ASC_APPLE_ID and EXPO_APPLE_APP_SPECIFIC_PASSWORD must both be present for Apple submission readiness."
+    },
+    {
+      "id": "asc_issuer_id",
+      "message": "APP_STORE_CONNECT_ISSUER_ID or ASC_ISSUER_ID must be present when TestFlight evidence is required."
+    },
+    {
+      "id": "asc_key_id",
+      "message": "APP_STORE_CONNECT_KEY_ID or ASC_KEY_ID must be present when TestFlight evidence is required."
+    },
+    {
+      "id": "asc_private_key",
+      "message": "APP_STORE_CONNECT_PRIVATE_KEY / ASC_PRIVATE_KEY or a *_PRIVATE_KEY_PATH value must be present when TestFlight evidence is required."
+    },
+    {
+      "id": "ios_physical_device_id",
+      "message": "APP_PHYSICAL_DEVICE_ID or APP_IOS_DEVICE_UDID must identify the trusted iOS physical device."
+    },
+    {
+      "id": "ios_signed_app_path",
+      "message": "APP_IOS_DEVICE_APP_PATH must point to the signed .app used for iOS physical-device smoke."
+    },
+    {
+      "id": "ios_physical_device_visible",
+      "message": "No connected iOS physical device is visible to xcrun xctrace."
+    },
+    {
+      "id": "push_delivery_token",
+      "message": "APP_PUSH_DELIVERY_EXPO_PUSH_TOKEN must be present before sending provider push delivery evidence."
+    },
+    {
+      "id": "sentry_org",
+      "message": "APP_SENTRY_ORG or SENTRY_ORG must be present before querying native crash runtime evidence."
+    },
+    {
+      "id": "sentry_project",
+      "message": "APP_SENTRY_PROJECT or SENTRY_PROJECT must be present before querying native crash runtime evidence."
+    },
+    {
+      "id": "sentry_auth_token",
+      "message": "APP_SENTRY_AUTH_TOKEN or SENTRY_AUTH_TOKEN must be present before querying native crash runtime evidence."
+    },
+    {
+      "id": "native_crash_event_id",
+      "message": "APP_NATIVE_CRASH_SENTRY_EVENT_ID or SENTRY_EVENT_ID must identify the controlled native crash event."
+    },
+    {
+      "id": "telemetry_runtime_api_base_url",
+      "message": "APP_TELEMETRY_RUNTIME_API_BASE_URL must point to the non-local release API before telemetry runtime evidence."
+    },
+    {
+      "id": "release_database_url",
+      "message": "DATABASE_URL must point to the release / production PostgreSQL target for DB parity evidence."
+    }
+  ],
+  "resolution_hints": [
+    {
+      "id": "eas_project_id",
+      "message": "mobile/app.json must include a real UUID-shaped extra.eas.projectId before release sign-off run mode.",
+      "owner_surface": "Expo / EAS project setup",
+      "required_env_keys": [],
+      "action": "Bind mobile/app.json to the real Expo project id before external release sign-off.",
+      "commands": [
+        "cd mobile && npx eas init",
+        "npm --prefix mobile run release:external-evidence:validate -- --report-dir=<report-dir>"
+      ],
+      "docs": [
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-External-Release-Signoff-Runbook-2026-05-08.md",
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-Release-Hardening-2026-05-08.md"
+      ]
+    },
+    {
+      "id": "expo_token",
+      "message": "EXPO_TOKEN must be present for non-interactive EAS release metadata checks.",
+      "owner_surface": "Expo / EAS credentials",
+      "required_env_keys": [
+        "EXPO_TOKEN"
+      ],
+      "action": "Provide a non-interactive Expo access token for EAS release metadata checks.",
+      "commands": [
+        "EXPO_TOKEN=<expo-access-token> npm --prefix mobile run release:external-evidence:validate -- --report-dir=<report-dir>"
+      ],
+      "docs": [
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-External-Release-Signoff-Runbook-2026-05-08.md",
+        "docs/核心開發文件/08-測試規範與驗收/03-App測試與證據接入基線.md"
+      ]
+    },
+    {
+      "id": "apple_submission_credentials",
+      "message": "ASC_APPLE_ID and EXPO_APPLE_APP_SPECIFIC_PASSWORD must both be present for Apple submission readiness.",
+      "owner_surface": "Apple submission credentials",
+      "required_env_keys": [
+        "ASC_APPLE_ID",
+        "EXPO_APPLE_APP_SPECIFIC_PASSWORD"
+      ],
+      "action": "Provide Apple account and app-specific password for non-interactive submit readiness.",
+      "commands": [
+        "ASC_APPLE_ID=<apple-id> EXPO_APPLE_APP_SPECIFIC_PASSWORD=<app-specific-password> npm --prefix mobile run release:external-evidence:validate -- --report-dir=<report-dir>"
+      ],
+      "docs": [
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-External-Release-Signoff-Runbook-2026-05-08.md"
+      ]
+    },
+    {
+      "id": "asc_issuer_id",
+      "message": "APP_STORE_CONNECT_ISSUER_ID or ASC_ISSUER_ID must be present when TestFlight evidence is required.",
+      "owner_surface": "App Store Connect API",
+      "required_env_keys": [
+        "APP_STORE_CONNECT_ISSUER_ID or ASC_ISSUER_ID"
+      ],
+      "action": "Provide the App Store Connect API issuer id for TestFlight evidence.",
+      "commands": [
+        "APP_STORE_CONNECT_ISSUER_ID=<issuer-id> npm --prefix mobile run release:external-evidence:validate -- --report-dir=<report-dir>"
+      ],
+      "docs": [
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-External-Release-Signoff-Runbook-2026-05-08.md"
+      ]
+    },
+    {
+      "id": "asc_key_id",
+      "message": "APP_STORE_CONNECT_KEY_ID or ASC_KEY_ID must be present when TestFlight evidence is required.",
+      "owner_surface": "App Store Connect API",
+      "required_env_keys": [
+        "APP_STORE_CONNECT_KEY_ID or ASC_KEY_ID"
+      ],
+      "action": "Provide the App Store Connect API key id for TestFlight evidence.",
+      "commands": [
+        "APP_STORE_CONNECT_KEY_ID=<key-id> npm --prefix mobile run release:external-evidence:validate -- --report-dir=<report-dir>"
+      ],
+      "docs": [
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-External-Release-Signoff-Runbook-2026-05-08.md"
+      ]
+    },
+    {
+      "id": "asc_private_key",
+      "message": "APP_STORE_CONNECT_PRIVATE_KEY / ASC_PRIVATE_KEY or a *_PRIVATE_KEY_PATH value must be present when TestFlight evidence is required.",
+      "owner_surface": "App Store Connect API",
+      "required_env_keys": [
+        "APP_STORE_CONNECT_PRIVATE_KEY or APP_STORE_CONNECT_PRIVATE_KEY_PATH"
+      ],
+      "action": "Provide an App Store Connect API private key value or a path to the key file.",
+      "commands": [
+        "APP_STORE_CONNECT_PRIVATE_KEY_PATH=<absolute-p8-path> npm --prefix mobile run release:external-evidence:validate -- --report-dir=<report-dir>"
+      ],
+      "docs": [
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-External-Release-Signoff-Runbook-2026-05-08.md"
+      ]
+    },
+    {
+      "id": "ios_physical_device_id",
+      "message": "APP_PHYSICAL_DEVICE_ID or APP_IOS_DEVICE_UDID must identify the trusted iOS physical device.",
+      "owner_surface": "Trusted iOS device runner",
+      "required_env_keys": [
+        "APP_PHYSICAL_DEVICE_ID or APP_IOS_DEVICE_UDID"
+      ],
+      "action": "Provide the trusted connected iOS physical device identifier.",
+      "commands": [
+        "DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun xctrace list devices",
+        "APP_IOS_DEVICE_UDID=<trusted-device-udid> npm --prefix mobile run release:external-evidence:validate -- --physical-platform=ios --report-dir=<report-dir>"
+      ],
+      "docs": [
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-External-Release-Signoff-Runbook-2026-05-08.md"
+      ]
+    },
+    {
+      "id": "ios_signed_app_path",
+      "message": "APP_IOS_DEVICE_APP_PATH must point to the signed .app used for iOS physical-device smoke.",
+      "owner_surface": "Trusted iOS device runner",
+      "required_env_keys": [
+        "APP_IOS_DEVICE_APP_PATH"
+      ],
+      "action": "Provide an existing signed .app path for the iOS physical-device smoke.",
+      "commands": [
+        "APP_IOS_DEVICE_APP_PATH=<signed-app-path> npm --prefix mobile run release:external-evidence:validate -- --physical-platform=ios --report-dir=<report-dir>"
+      ],
+      "docs": [
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-External-Release-Signoff-Runbook-2026-05-08.md"
+      ]
+    },
+    {
+      "id": "ios_physical_device_visible",
+      "message": "No connected iOS physical device is visible to xcrun xctrace.",
+      "owner_surface": "Trusted iOS device runner",
+      "required_env_keys": [
+        "APP_PHYSICAL_DEVICE_ID or APP_IOS_DEVICE_UDID"
+      ],
+      "action": "Connect, unlock, and trust the target iPhone before starting release sign-off run mode.",
+      "commands": [
+        "DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun xctrace list devices",
+        "APP_IOS_DEVICE_UDID=<trusted-device-udid> npm --prefix mobile run release:external-evidence:validate -- --physical-platform=ios --report-dir=<report-dir>"
+      ],
+      "docs": [
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-External-Release-Signoff-Runbook-2026-05-08.md"
+      ]
+    },
+    {
+      "id": "push_delivery_token",
+      "message": "APP_PUSH_DELIVERY_EXPO_PUSH_TOKEN must be present before sending provider push delivery evidence.",
+      "owner_surface": "Expo push provider",
+      "required_env_keys": [
+        "APP_PUSH_DELIVERY_EXPO_PUSH_TOKEN"
+      ],
+      "action": "Provide a real Expo push token from an installed release candidate app.",
+      "commands": [
+        "APP_PUSH_DELIVERY_EXPO_PUSH_TOKEN=<expo-push-token> npm --prefix mobile run release:external-evidence:validate -- --report-dir=<report-dir>"
+      ],
+      "docs": [
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-External-Release-Signoff-Runbook-2026-05-08.md",
+        "docs/核心開發文件/08-測試規範與驗收/03-App測試與證據接入基線.md"
+      ]
+    },
+    {
+      "id": "sentry_org",
+      "message": "APP_SENTRY_ORG or SENTRY_ORG must be present before querying native crash runtime evidence.",
+      "owner_surface": "Sentry native crash runtime",
+      "required_env_keys": [
+        "APP_SENTRY_ORG or SENTRY_ORG"
+      ],
+      "action": "Provide the Sentry organization slug used for native crash runtime evidence.",
+      "commands": [
+        "APP_SENTRY_ORG=<sentry-org> npm --prefix mobile run release:external-evidence:validate -- --report-dir=<report-dir>"
+      ],
+      "docs": [
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-External-Release-Signoff-Runbook-2026-05-08.md"
+      ]
+    },
+    {
+      "id": "sentry_project",
+      "message": "APP_SENTRY_PROJECT or SENTRY_PROJECT must be present before querying native crash runtime evidence.",
+      "owner_surface": "Sentry native crash runtime",
+      "required_env_keys": [
+        "APP_SENTRY_PROJECT or SENTRY_PROJECT"
+      ],
+      "action": "Provide the Sentry project slug used for native crash runtime evidence.",
+      "commands": [
+        "APP_SENTRY_PROJECT=<sentry-project> npm --prefix mobile run release:external-evidence:validate -- --report-dir=<report-dir>"
+      ],
+      "docs": [
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-External-Release-Signoff-Runbook-2026-05-08.md"
+      ]
+    },
+    {
+      "id": "sentry_auth_token",
+      "message": "APP_SENTRY_AUTH_TOKEN or SENTRY_AUTH_TOKEN must be present before querying native crash runtime evidence.",
+      "owner_surface": "Sentry native crash runtime",
+      "required_env_keys": [
+        "APP_SENTRY_AUTH_TOKEN or SENTRY_AUTH_TOKEN"
+      ],
+      "action": "Provide a Sentry auth token that can query the controlled native crash event.",
+      "commands": [
+        "APP_SENTRY_AUTH_TOKEN=<sentry-auth-token> npm --prefix mobile run release:external-evidence:validate -- --report-dir=<report-dir>"
+      ],
+      "docs": [
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-External-Release-Signoff-Runbook-2026-05-08.md"
+      ]
+    },
+    {
+      "id": "native_crash_event_id",
+      "message": "APP_NATIVE_CRASH_SENTRY_EVENT_ID or SENTRY_EVENT_ID must identify the controlled native crash event.",
+      "owner_surface": "Sentry native crash runtime",
+      "required_env_keys": [
+        "APP_NATIVE_CRASH_SENTRY_EVENT_ID or SENTRY_EVENT_ID"
+      ],
+      "action": "Provide the controlled native crash event id to query during runtime evidence.",
+      "commands": [
+        "APP_NATIVE_CRASH_SENTRY_EVENT_ID=<controlled-event-id> npm --prefix mobile run release:external-evidence:validate -- --report-dir=<report-dir>"
+      ],
+      "docs": [
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-External-Release-Signoff-Runbook-2026-05-08.md"
+      ]
+    },
+    {
+      "id": "telemetry_runtime_api_base_url",
+      "message": "APP_TELEMETRY_RUNTIME_API_BASE_URL must point to the non-local release API before telemetry runtime evidence.",
+      "owner_surface": "Release App telemetry ingest",
+      "required_env_keys": [
+        "APP_TELEMETRY_RUNTIME_API_BASE_URL"
+      ],
+      "action": "Provide a non-local release API base URL so the telemetry runtime runner can post event and OTLP trace payloads.",
+      "commands": [
+        "APP_TELEMETRY_RUNTIME_API_BASE_URL=<release-api-base-url> npm --prefix mobile run release:external-evidence:validate -- --report-dir=<report-dir>",
+        "APP_TELEMETRY_RUNTIME_API_BASE_URL=<release-api-base-url> npm --prefix mobile run telemetry:runtime:smoke -- --run"
+      ],
+      "docs": [
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-External-Release-Signoff-Runbook-2026-05-08.md",
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-Release-Hardening-2026-05-08.md",
+        "docs/核心開發文件/08-測試規範與驗收/03-App測試與證據接入基線.md"
+      ]
+    },
+    {
+      "id": "release_database_url",
+      "message": "DATABASE_URL must point to the release / production PostgreSQL target for DB parity evidence.",
+      "owner_surface": "Release / production PostgreSQL",
+      "required_env_keys": [
+        "DATABASE_URL"
+      ],
+      "action": "Provide a non-local release or production PostgreSQL URL for DB parity evidence.",
+      "commands": [
+        "DATABASE_URL=<release-or-production-postgres-url> npm --prefix mobile run release:external-evidence:validate -- --report-dir=<report-dir>",
+        "DATABASE_URL=<release-or-production-postgres-url> npm --prefix backend run ops:release-db:evidence"
+      ],
+      "docs": [
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-External-Release-Signoff-Runbook-2026-05-08.md",
+        "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-Release-Hardening-2026-05-08.md"
+      ]
+    }
+  ]
+}

@@ -19,6 +19,16 @@
     "docs:audit:dry-run:current": "node scripts/sync-core-docs-metadata.mjs --dry-run --current-only",
     "docs:audit:dry-run:non-current": "node scripts/sync-core-docs-metadata.mjs --dry-run --non-current-only",
     "docs:audit:sync": "node scripts/confirm-docs-audit-sync.mjs && node scripts/sync-core-docs-metadata.mjs && node scripts/generate-core-docs-audit-ledger.mjs",
+    "web:a11y:contracts": "node scripts/check-web-a11y-contracts.mjs",
+    "web:a11y:manual-evidence:template:check": "node scripts/check-web-a11y-manual-evidence.mjs --file docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-A11Y-Manual-Evidence-Template.json",
+    "web:a11y:manual-evidence:check": "node scripts/check-web-a11y-manual-evidence.mjs --strict",
+    "web:pending:completion:audit": "node scripts/check-web-pending-completion-audit.mjs",
+    "web:pending:completion:audit:strict": "node scripts/check-web-pending-completion-audit.mjs --strict",
+    "web:pending:completion:audit:contract": "node scripts/check-web-pending-completion-audit-contract.mjs",
+    "web:admin-boundary:check": "node scripts/check-web-admin-boundary.mjs",
+    "web:product-lines:check": "node scripts/check-web-product-lines-contracts.mjs",
+    "dev:redis-baseline:check": "node scripts/check-dev-redis-baseline.mjs",
+    "ai:positioning:check": "node scripts/check-ai-positioning-contracts.mjs",
     "smoke:staging": "bash scripts/smoke-staging.sh",
     "manual-regression:init": "node scripts/init-manual-regression-batch.mjs",
     "manual-regression:check": "node scripts/check-manual-regression-status.mjs",
@@ -30,9 +40,11 @@
     "ops:release:smoke": "bash scripts/ops-release-smoke.sh",
     "ops:release:gate": "bash scripts/ops-release-gate.sh",
     "ops:release:gate:evidence": "bash scripts/ops-release-gate-evidence.sh",
+    "web:p0:true-service:smoke": "npm --prefix backend run web:p0:true-service:smoke",
     "ops:db:status": "bash scripts/ops-db-status.sh"
   },
   "devDependencies": {
+    "jsdom": "^25.0.1",
     "playwright": "1.58.2"
   }
 }

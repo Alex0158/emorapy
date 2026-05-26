@@ -13,7 +13,7 @@ const Footer = () => {
       <p className="text-sm text-muted-foreground">
         {t('footer.copyright').replace('{year}', String(currentYear))}
       </p>
-      <p className="mt-1 text-xs text-muted-foreground/60">
+      <p className="mt-1 text-xs text-muted-foreground">
         {t('footer.tagline')}
       </p>
     </footer>

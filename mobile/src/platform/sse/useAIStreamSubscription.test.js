@@ -1,0 +1,110 @@
+const React = require('react');
+const { Text } = require('react-native');
+const { act, render, waitFor } = require('@testing-library/react-native');
+
+let mockLifecycleStatus = 'active';
+let mockLifecycleListener = null;
+const mockSubscribeLifecycle = jest.fn((listener) => {
+  mockLifecycleListener = listener;
+  return jest.fn();
+});
+
+jest.mock('@/src/platform/lifecycle/native', () => ({
+  getCurrentLifecycleStatus: () => mockLifecycleStatus,
+  subscribeLifecycle: (listener) => mockSubscribeLifecycle(listener),
+}));
+
+const { useAIStreamSubscription } = require('./useAIStreamSubscription');
+
+function StreamProbe({ connect }) {
+  const stream = useAIStreamSubscription({
+    scopeKey: 'interview_session:test-session',
+    initialState: { text: '', status: 'idle' },
+    connect,
+    reduceEvent: (prev, event) => ({
+      text: event.fullText ?? `${prev.text}${event.deltaText ?? ''}`,
+      status: event.eventType,
+    }),
+    hasRecoverableState: (state) => state.text.length > 0 && state.status !== 'stream.persisted',
+    shouldClearRecoveringOnEvent: (event) => event.eventType === 'stream.delta' || event.eventType === 'stream.persisted',
+    getRetryDelayMs: () => 1,
+  });
+
+  return React.createElement(
+    React.Fragment,
+    null,
+    React.createElement(Text, { testID: 'stream.text' }, stream.state.text || 'empty'),
+    React.createElement(Text, { testID: 'stream.seq' }, String(stream.lastSeq)),
+    React.createElement(Text, { testID: 'stream.recovering' }, stream.isRecovering ? 'recovering' : 'idle'),
+    React.createElement(Text, { testID: 'stream.lifecycle' }, stream.lifecycleStatus)
+  );
+}
+
+describe('useAIStreamSubscription lifecycle recovery', () => {
+  beforeEach(() => {
+    mockLifecycleStatus = 'active';
+    mockLifecycleListener = null;
+    mockSubscribeLifecycle.mockClear();
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('aborts background streams and reconnects from last seq when foregrounded', async () => {
+    const connections = [];
+    const connect = jest.fn((callbacks, options) => {
+      connections.push({ callbacks, options });
+      return new Promise(() => undefined);
+    });
+
+    const screen = render(React.createElement(StreamProbe, { connect }));
+
+    await waitFor(() => expect(connect).toHaveBeenCalledTimes(1));
+    expect(connections[0].options.afterSeq).toBeUndefined();
+    expect(screen.getByTestId('stream.lifecycle').props.children).toBe('active');
+
+    act(() => {
+      connections[0].callbacks.onEvent({
+        eventType: 'stream.delta',
+        seq: 3,
+        deltaText: 'hello',
+      });
+    });
+
+    await waitFor(() => expect(screen.getByTestId('stream.seq').props.children).toBe('3'));
+    expect(screen.getByTestId('stream.text').props.children).toBe('hello');
+
+    act(() => {
+      mockLifecycleStatus = 'background';
+      mockLifecycleListener('background');
+    });
+
+    await waitFor(() => expect(screen.getByTestId('stream.recovering').props.children).toBe('recovering'));
+    expect(screen.getByTestId('stream.lifecycle').props.children).toBe('background');
+    expect(connections[0].options.signal.aborted).toBe(true);
+    expect(connect).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      mockLifecycleStatus = 'active';
+      mockLifecycleListener('active');
+    });
+
+    await waitFor(() => expect(connect).toHaveBeenCalledTimes(2));
+    expect(connections[1].options.afterSeq).toBe(3);
+    expect(connections[1].options.signal.aborted).toBe(false);
+
+    act(() => {
+      connections[1].callbacks.onEvent({
+        eventType: 'stream.delta',
+        seq: 4,
+        deltaText: ' again',
+      });
+    });
+
+    await waitFor(() => expect(screen.getByTestId('stream.seq').props.children).toBe('4'));
+    expect(screen.getByTestId('stream.text').props.children).toBe('hello again');
+    expect(screen.getByTestId('stream.recovering').props.children).toBe('idle');
+  });
+});

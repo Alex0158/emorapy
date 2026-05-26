@@ -104,6 +104,8 @@ ensure_command npm
 
 printf '[start-dev] starting local development stack at %s\n' "$HEAD_SHA"
 ensure_redis
+export REDIS_URL="${REDIS_URL:-redis://127.0.0.1:6379}"
+export ALLOW_SIMPLE_LOCK="${ALLOW_SIMPLE_LOCK:-false}"
 
 start_service "backend" 3001 "backend.log" \
   bash -lc "cd '$ROOT/backend' && CJ_COMMIT_SHA='$HEAD_SHA' npm run dev"

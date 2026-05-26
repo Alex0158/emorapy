@@ -9,6 +9,8 @@ import {
   notificationIdParamSchema,
   notificationListQuerySchema,
   notificationSnoozeSchema,
+  pushDeviceTokenRegistrationSchema,
+  pushDeviceTokenRevokeSchema,
 } from '../utils/validation';
 
 const router = Router();
@@ -41,6 +43,22 @@ router.post(
   generalLimiter,
   authenticate,
   notificationController.markAllRead.bind(notificationController)
+);
+
+router.post(
+  '/notifications/device-tokens',
+  generalLimiter,
+  authenticate,
+  validate(pushDeviceTokenRegistrationSchema),
+  notificationController.registerDeviceToken.bind(notificationController)
+);
+
+router.post(
+  '/notifications/device-tokens/revoke',
+  generalLimiter,
+  authenticate,
+  validate(pushDeviceTokenRevokeSchema),
+  notificationController.revokeDeviceToken.bind(notificationController)
 );
 
 router.post(

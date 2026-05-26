@@ -1,0 +1,111 @@
+{
+  "id": "admin_ops_jobs",
+  "url": "http://127.0.0.1:5175/admin/ops/jobs",
+  "title": "任務統計看板",
+  "notes": "Admin ops jobs data and sampled state expose controls and job rows.",
+  "keyboardTraces": [
+    {
+      "label": "admin-ops-jobs",
+      "trace": [
+        {
+          "key": "Tab",
+          "active": {
+            "tag": "button",
+            "type": "button",
+            "role": null,
+            "ariaLabel": null,
+            "text": "版本",
+            "placeholder": null,
+            "id": null,
+            "className": "inline-flex shrink-0 items-center justify-center text-sm font-medium whitespace-nowrap transition-all outline-none focus",
+            "visibleBox": {
+              "x": 172,
+              "y": 16,
+              "width": 68,
+              "height": 32
+            }
+          }
+        },
+        {
+          "key": "Tab",
+          "active": {
+            "tag": "a",
+            "type": null,
+            "role": null,
+            "ariaLabel": null,
+            "text": "任務統計",
+            "placeholder": null,
+            "id": null,
+            "className": "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors bg-primary/10 text-primary-hover font-medium",
+            "visibleBox": {
+              "x": 0,
+              "y": 68,
+              "width": 240,
+              "height": 36
+            }
+          }
+        },
+        {
+          "key": "Tab",
+          "active": {
+            "tag": "a",
+            "type": null,
+            "role": null,
+            "ariaLabel": null,
+            "text": "任務管理",
+            "placeholder": null,
+            "id": null,
+            "className": "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors text-muted-foreground hover:bg-muted hover:text",
+            "visibleBox": {
+              "x": 0,
+              "y": 108,
+              "width": 240,
+              "height": 36
+            }
+          }
+        },
+        {
+          "key": "Tab",
+          "active": {
+            "tag": "a",
+            "type": null,
+            "role": null,
+            "ariaLabel": null,
+            "text": "健康檢查",
+            "placeholder": null,
+            "id": null,
+            "className": "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors text-muted-foreground hover:bg-muted hover:text",
+            "visibleBox": {
+              "x": 0,
+              "y": 148,
+              "width": 240,
+              "height": 36
+            }
+          }
+        },
+        {
+          "key": "Shift+Tab",
+          "active": {
+            "tag": "a",
+            "type": null,
+            "role": null,
+            "ariaLabel": null,
+            "text": "任務管理",
+            "placeholder": null,
+            "id": null,
+            "className": "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors text-muted-foreground hover:bg-muted hover:text",
+            "visibleBox": {
+              "x": 0,
+              "y": 108,
+              "width": 240,
+              "height": 36
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "screenshot": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-A11Y-Manual-Artifacts-2026-05-16T06-13-36-999Z/admin_ops_jobs.png",
+  "accessibilitySnapshot": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-A11Y-Manual-Artifacts-2026-05-16T06-13-36-999Z/admin_ops_jobs-accessibility.json",
+  "generatedAt": "2026-05-16T06:13:49.277Z"
+}

@@ -25,6 +25,7 @@ describe('utils/admin-jwt', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     delete process.env.ADMIN_JWT_SECRET;
+    delete process.env.ADMIN_JWT_EXPIRES_IN;
     process.env.NODE_ENV = 'test';
   });
 
@@ -43,6 +44,26 @@ describe('utils/admin-jwt', () => {
       expect(decoded.roleKey).toBe(validPayload.roleKey);
       expect(decoded.iat).toBeDefined();
       expect(decoded.exp).toBeDefined();
+    });
+
+    it('production 缺少 ADMIN_JWT_EXPIRES_IN 時應拒絕生成 token', () => {
+      process.env.NODE_ENV = 'production';
+      process.env.ADMIN_JWT_SECRET = 'production-admin-secret';
+      expect(() => generateAdminToken(validPayload)).toThrow();
+      try {
+        generateAdminToken(validPayload);
+      } catch (e: unknown) {
+        expect((e as { code?: string }).code).toBe('UNAUTHORIZED');
+      }
+    });
+
+    it('production 顯式配置 ADMIN_JWT_EXPIRES_IN 時應生成 token', () => {
+      process.env.NODE_ENV = 'production';
+      process.env.ADMIN_JWT_SECRET = 'production-admin-secret';
+      process.env.ADMIN_JWT_EXPIRES_IN = '12h';
+      const token = generateAdminToken(validPayload);
+      expect(typeof token).toBe('string');
+      expect(token.split('.')).toHaveLength(3);
     });
   });
 

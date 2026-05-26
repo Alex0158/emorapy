@@ -34,10 +34,8 @@ export default defineConfig({
         'src/main.tsx',
         'src/test/**',
         'src/**/*.d.ts',
-        'src/**/*.less',
         'src/**/*.css',
         'src/App.css',
-        'src/App.less',
         'src/index.css',
       ],
       thresholds: {

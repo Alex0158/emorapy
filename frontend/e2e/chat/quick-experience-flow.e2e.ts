@@ -1,5 +1,8 @@
 import { expect, test } from '@playwright/test';
 
+const NEXT_BUTTON = /下一步|Next/;
+const SUBMIT_BUTTON = /提交並開始分析|Submit and Start Analysis|提交案件|Submit Case/;
+
 test.describe('Quick Experience 主鏈路', () => {
   test('訪客可完成 quick create 並進入 result', async ({ page }) => {
     const plaintiffStatement = '我最近常感到被忽視，每次想好好說話都被敷衍，心裡很受傷，也不知道該怎麼把這段關係繼續下去。';
@@ -116,18 +119,18 @@ test.describe('Quick Experience 主鏈路', () => {
     await page.goto('/quick-experience/create');
 
     await page.locator('textarea').fill(plaintiffStatement);
-    await expect(page.locator('.next-btn')).toBeEnabled();
-    await page.locator('.next-btn').click();
+    await expect(page.getByRole('button', { name: NEXT_BUTTON })).toBeEnabled();
+    await page.getByRole('button', { name: NEXT_BUTTON }).click();
     await expect(page.locator('textarea')).toBeVisible();
 
-    await page.locator('.next-btn').click();
+    await page.getByRole('button', { name: NEXT_BUTTON }).click();
     const createQuickCaseRequest = page.waitForRequest((request) =>
       request.method() === 'POST' && request.url().includes('/api/v1/cases/quick')
     );
     const createQuickCaseResponse = page.waitForResponse((response) =>
       response.request().method() === 'POST' && response.url().includes('/api/v1/cases/quick')
     );
-    await page.locator('.submit-btn').click();
+    await page.getByRole('button', { name: SUBMIT_BUTTON }).click();
     await createQuickCaseRequest;
     await createQuickCaseResponse;
 
@@ -246,13 +249,19 @@ test.describe('Quick Experience 主鏈路', () => {
     await page.goto('/quick-experience/create');
 
     await page.locator('textarea').fill(plaintiffStatement);
-    await page.locator('.next-btn').click();
-    await page.locator('.next-btn').click();
+    await page.getByRole('button', { name: NEXT_BUTTON }).click();
+    await page.getByRole('button', { name: NEXT_BUTTON }).click();
 
-    await page.locator('.submit-btn').click();
-    await expect(page.getByText(/提交失敗|Submission failed|伺服器暫時錯誤/).first()).toBeVisible({ timeout: 5000 });
+    const failedCreateResponse = page.waitForResponse((response) =>
+      response.request().method() === 'POST' &&
+      response.url().includes('/api/v1/cases/quick') &&
+      response.status() === 500
+    );
+    await page.getByRole('button', { name: SUBMIT_BUTTON }).click();
+    await failedCreateResponse;
+    await expect(page.getByRole('button', { name: SUBMIT_BUTTON })).toBeEnabled();
 
-    await page.locator('.submit-btn').click();
+    await page.getByRole('button', { name: SUBMIT_BUTTON }).click();
     await expect(page).toHaveURL(/\/quick-experience\/result\/case-e2e-retry$/, { timeout: 15000 });
     await expect(page.getByText('E2E retry summary')).toBeVisible();
   });
@@ -367,9 +376,9 @@ test.describe('Quick Experience 主鏈路', () => {
 
     await page.goto('/quick-experience/create');
     await page.locator('textarea').fill(plaintiffStatement);
-    await page.locator('.next-btn').click();
-    await page.locator('.next-btn').click();
-    await page.locator('.submit-btn').click();
+    await page.getByRole('button', { name: NEXT_BUTTON }).click();
+    await page.getByRole('button', { name: NEXT_BUTTON }).click();
+    await page.getByRole('button', { name: SUBMIT_BUTTON }).click();
     await expect(page).toHaveURL(/\/quick-experience\/result\/case-e2e-judgment-retry$/, { timeout: 15000 });
 
     await expect(page.getByRole('button', { name: /重試|Retry/ }).first()).toBeVisible({ timeout: 8000 });

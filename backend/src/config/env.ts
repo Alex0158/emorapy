@@ -99,6 +99,11 @@ interface EnvConfig {
   METRICS_ENABLED: boolean;
   METRICS_TOKEN?: string;
   METRICS_ALLOWED_IPS: string[];
+
+  // App Push 配置
+  EXPO_PUSH_ENDPOINT?: string;
+  EXPO_PUSH_RECEIPTS_ENDPOINT?: string;
+  EXPO_PUSH_ACCESS_TOKEN?: string;
 }
 
 /** 本機 Vite / 管理台常用埠；development 時與 ALLOWED_ORIGINS 合併，避免 Railway 注入僅含正式網域時擋住 localhost */
@@ -240,6 +245,10 @@ function getEnvConfig(): EnvConfig {
       .split(',')
       .map(s => s.trim())
       .filter(Boolean),
+
+    EXPO_PUSH_ENDPOINT: process.env.EXPO_PUSH_ENDPOINT,
+    EXPO_PUSH_RECEIPTS_ENDPOINT: process.env.EXPO_PUSH_RECEIPTS_ENDPOINT,
+    EXPO_PUSH_ACCESS_TOKEN: process.env.EXPO_PUSH_ACCESS_TOKEN,
   };
 }
 

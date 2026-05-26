@@ -1,0 +1,47 @@
+{
+  "evidence": "web-p0-true-service-preflight",
+  "status": "blocked_before_mutation",
+  "generated_at": "2026-05-11T13:51:46Z",
+  "commands": [
+    {
+      "command": "npm run web:p0:true-service:smoke",
+      "result": "failed_as_expected_non_mutating_guard",
+      "failure": "RUN_WEB_P0_TRUE_SERVICE_SMOKE=true is required because this smoke creates production-like test data"
+    },
+    {
+      "command": "curl -fsS http://127.0.0.1:3001/health",
+      "result": "failed",
+      "failure": "Failed to connect to 127.0.0.1 port 3001"
+    }
+  ],
+  "redacted_environment": {
+    "database_url_present": true,
+    "database_url_redacted_origin": "postgresql://db.lbukyqztkkkztfrfltlh.supabase.co:5432/postgres",
+    "api_base_url_present": false,
+    "backend_base_url_present": false,
+    "frontend_url_redacted_origin": "http://localhost:5173/",
+    "redis_url_redacted_origin": "redis://127.0.0.1:6379",
+    "ai_mock_present": false,
+    "run_web_p0_true_service_smoke": false,
+    "e2e_admin_email_present": false,
+    "e2e_admin_password_present": false
+  },
+  "decision": {
+    "can_run_mutating_smoke_now": false,
+    "reason": "The configured DATABASE_URL points to a remote Supabase Postgres host, local backend health is unavailable, mutating opt-in is disabled, and Admin E2E credentials are missing. Running the smoke would create production-like users, cases, evidence, chat rooms and judgments against a target that has not been confirmed safe for test data.",
+    "required_before_pass_artifact": [
+      "Confirm target DB/API is an approved dev or release-like environment for mutating smoke.",
+      "Start or provide reachable backend health and ready endpoints.",
+      "Set RUN_WEB_P0_TRUE_SERVICE_SMOKE=true.",
+      "Set AI_MOCK=true for no-cost release-like smoke unless paid AI verification is explicitly intended.",
+      "Provide WEB_P0_SMOKE_REPORT_PATH=docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-P0-True-Service-<timestamp>.json.",
+      "Provide E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD or equivalent credential-backed Admin pass evidence."
+    ]
+  },
+  "non_claims": [
+    "This preflight is not a pass artifact.",
+    "This preflight does not prove Web P0 true-service completion.",
+    "This preflight does not replace Admin credential-backed E2E evidence."
+  ],
+  "linked_todo": "docs/核心開發文件/07-待處理問題與治理/已處理/WebP0流程E2E真服務證據缺口待辦-2026-05-10.md"
+}

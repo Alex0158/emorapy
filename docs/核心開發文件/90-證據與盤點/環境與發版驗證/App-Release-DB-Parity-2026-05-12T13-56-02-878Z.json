@@ -1,0 +1,32 @@
+{
+  "type": "app-release-db-parity-evidence",
+  "check": "release-db-parity",
+  "ok": false,
+  "target": {
+    "classification": "release",
+    "database": {
+      "source": "DATABASE_URL",
+      "provider": "postgresql",
+      "local": false
+    }
+  },
+  "report": {
+    "ok": false,
+    "check": "release-db-parity",
+    "requiredMigrationCount": 14,
+    "appliedRequiredMigrationCount": 7,
+    "missingRequiredMigrations": [
+      "20260508093000_add_push_device_tokens",
+      "20260508113000_add_push_receipt_tracking",
+      "20260508124000_add_app_telemetry_events",
+      "20260508133000_add_ai_stream_persistence",
+      "20260508143000_add_interview_collected_facts",
+      "20260508143500_add_interview_turn_extracted_facts",
+      "20260508150000_add_notification_action_metadata"
+    ],
+    "incompleteRequiredMigrations": [],
+    "failedMigrations": [],
+    "generatedAt": "2026-05-12T13:56:02.871Z"
+  },
+  "generatedAt": "2026-05-12T13:56:02.878Z"
+}

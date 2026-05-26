@@ -5,6 +5,7 @@
 import { X } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { localStore } from '@/utils/storage';
+import { t } from '@/utils/i18n';
 
 interface GuideTooltipProps {
   children: React.ReactNode;
@@ -37,7 +38,7 @@ const GuideTooltip = ({ children, content, storageKey, showOnce = true }: GuideT
       {children}
       <div className="absolute -top-10 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-lg bg-foreground px-3 py-1.5 text-xs text-background shadow-lg whitespace-nowrap">
         <span>{content}</span>
-        <button onClick={handleClose} className="text-background/70 hover:text-background"><X className="size-3" /></button>
+        <button type="button" onClick={handleClose} aria-label={t('guideTooltip.close')} className="text-background/70 hover:text-background"><X className="size-3" /></button>
       </div>
     </div>
   );

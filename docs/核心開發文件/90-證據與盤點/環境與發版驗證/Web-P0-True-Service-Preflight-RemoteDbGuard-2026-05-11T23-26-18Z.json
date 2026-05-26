@@ -1,0 +1,13 @@
+{
+  "smoke": "web-p0-true-service",
+  "status": "failed",
+  "generated_at": "2026-05-11T23:27:17.936Z",
+  "api_base_url": "http://127.0.0.1:3001/api/v1",
+  "backend_base_url": "http://127.0.0.1:3001",
+  "origin": "http://127.0.0.1:4173",
+  "ai_mock": true,
+  "database_url_present": true,
+  "cleanup_created_users": true,
+  "steps": [],
+  "error": "WEB_P0_SMOKE_ALLOW_REMOTE_DB=true is required for non-local DATABASE_URL because this smoke creates production-like test data"
+}

@@ -3,7 +3,7 @@
  */
 
 import request from '../request';
-import type { ApiResponse } from '@/types/common';
+import { createM4ApiClient } from '@cj/api-client';
 
 export interface Pairing {
   id: string;
@@ -27,50 +27,32 @@ export interface Pairing {
   };
 }
 
+const sharedPairingApi = createM4ApiClient(request).pairing;
+
 /**
  * 創建配對（生成邀請碼）
  */
 export const createPairing = async (): Promise<Pairing> => {
-  const response = await request.post<ApiResponse<{ pairing: Pairing }>>('/pairing/create');
-  const result = (response.data as ApiResponse<{ pairing: Pairing }>)?.data?.pairing;
-  if (!result) throw new Error('Invalid pairing response from server');
-  return result;
+  return sharedPairingApi.create() as Promise<Pairing>;
 };
 
 /**
  * 加入配對（使用邀請碼）
  */
 export const joinPairing = async (inviteCode: string): Promise<Pairing> => {
-  const response = await request.post<ApiResponse<{ pairing: Pairing }>>('/pairing/join', {
-    invite_code: inviteCode,
-  });
-  const result = (response.data as ApiResponse<{ pairing: Pairing }>)?.data?.pairing;
-  if (!result) throw new Error('Invalid pairing response from server');
-  return result;
+  return sharedPairingApi.join(inviteCode) as Promise<Pairing>;
 };
 
 /**
  * 獲取配對狀態
  */
 export const getPairingStatus = async (): Promise<Pairing | null> => {
-  try {
-    const response = await request.get<ApiResponse<{ pairing: Pairing }>>('/pairing/status');
-    return (response.data as ApiResponse<{ pairing: Pairing }>)?.data?.pairing ?? null;
-  } catch (error: unknown) {
-    const err = error as { code?: string };
-    if (err.code === 'NOT_FOUND' || err.code === 'HTTP_404') {
-      return null;
-    }
-    throw error;
-  }
+  return sharedPairingApi.getStatus() as Promise<Pairing | null>;
 };
 
 /**
  * 解除配對
  */
 export const cancelPairing = async (): Promise<Pairing> => {
-  const response = await request.post<ApiResponse<{ pairing: Pairing }>>('/pairing/cancel');
-  const result = (response.data as ApiResponse<{ pairing: Pairing }>)?.data?.pairing;
-  if (!result) throw new Error('Invalid pairing response from server');
-  return result;
+  return sharedPairingApi.cancel() as Promise<Pairing>;
 };

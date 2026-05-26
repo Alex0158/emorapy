@@ -14,6 +14,7 @@ const catalogs: Record<Locale, Record<string, string>> = {
 };
 
 let enUSLoading: Promise<void> | null = null;
+const isProduction = (): boolean => import.meta.env.PROD === true;
 
 function ensureLocaleCatalogLoaded(locale: Locale): Promise<void> {
   if (locale !== 'en-US') return Promise.resolve();
@@ -30,23 +31,17 @@ function ensureLocaleCatalogLoaded(locale: Locale): Promise<void> {
   return enUSLoading;
 }
 
-function humanizeKey(key: string): string {
-  return key
-    .split('.')
-    .map(part => part.replace(/([a-z])([A-Z])/g, '$1 $2'))
-    .join(' ')
-    .replace(/_/g, ' ')
-    .replace(/\s+/g, ' ')
-    .replace(/\b\w/g, c => c.toUpperCase())
-    .trim();
+function missingTranslation(key: string): string {
+  if (isProduction()) return `[missing-i18n:${key}]`;
+  throw new Error(`Missing i18n key: ${key}`);
 }
 
 export function t(key: string, params?: Record<string, string | number>): string {
   const dict = catalogs[current];
   let result: string;
   if (dict[key]) result = dict[key];
-  else if (current === 'en-US') result = catalogs[DEFAULT_LOCALE][key] ?? humanizeKey(key);
-  else result = catalogs[DEFAULT_LOCALE][key] ?? key;
+  else if (current === 'en-US') result = catalogs[DEFAULT_LOCALE][key] ?? missingTranslation(key);
+  else result = catalogs[DEFAULT_LOCALE][key] ?? missingTranslation(key);
 
   if (params) {
     for (const [k, v] of Object.entries(params)) {
@@ -78,14 +73,24 @@ function detectInitialLocale(): Locale {
 
 const listeners = new Set<() => void>();
 
+function syncDocumentLocale(locale: Locale): void {
+  if (typeof document === 'undefined') return;
+  document.documentElement.lang = locale;
+}
+
 function notifyLocaleChange(): void {
   listeners.forEach(listener => listener());
 }
 
 export function setLocale(locale: Locale | string): void {
   const normalized = normalizeLocale(locale);
-  if (!catalogs[normalized] || current === normalized) return;
+  if (!catalogs[normalized]) return;
+  if (current === normalized) {
+    syncDocumentLocale(normalized);
+    return;
+  }
   current = normalized;
+  syncDocumentLocale(normalized);
   if (typeof window !== 'undefined') {
     try { window.localStorage.setItem(LOCALE_STORAGE_KEY, normalized); } catch { /* noop */ }
   }
@@ -108,3 +113,5 @@ if (current === 'en-US') {
     notifyLocaleChange();
   });
 }
+
+syncDocumentLocale(current);

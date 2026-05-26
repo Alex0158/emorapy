@@ -15,11 +15,33 @@ import {
   type AuthResponse,
 } from './auth';
 
-const mockPost = vi.fn();
+const mocks = vi.hoisted(() => ({
+  register: vi.fn(),
+  login: vi.fn(),
+  claimSession: vi.fn(),
+  sendVerificationCode: vi.fn(),
+  verifyEmail: vi.fn(),
+  resetPassword: vi.fn(),
+  confirmResetPassword: vi.fn(),
+  createM1ApiClient: vi.fn(() => ({
+    auth: {
+      register: mocks.register,
+      login: mocks.login,
+      claimSession: mocks.claimSession,
+      sendVerificationCode: mocks.sendVerificationCode,
+      verifyEmail: mocks.verifyEmail,
+      resetPassword: mocks.resetPassword,
+      confirmResetPassword: mocks.confirmResetPassword,
+    },
+  })),
+}));
+
+vi.mock('@cj/api-client', () => ({
+  createM1ApiClient: (...args: unknown[]) => mocks.createM1ApiClient(...args),
+}));
+
 vi.mock('../request', () => ({
-  default: {
-    post: (...args: unknown[]) => mockPost(...args),
-  },
+  default: { requestName: 'web-request-adapter' },
 }));
 
 const mockAuthResponse: AuthResponse = {
@@ -36,40 +58,31 @@ const mockAuthResponse: AuthResponse = {
 
 describe('auth API', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
+    mocks.createM1ApiClient.mockReturnValue({
+      auth: {
+        register: mocks.register,
+        login: mocks.login,
+        claimSession: mocks.claimSession,
+        sendVerificationCode: mocks.sendVerificationCode,
+        verifyEmail: mocks.verifyEmail,
+        resetPassword: mocks.resetPassword,
+        confirmResetPassword: mocks.confirmResetPassword,
+      },
+    });
   });
 
   describe('register', () => {
-    it('應 POST /auth/register 並返回 AuthResponse', async () => {
-      mockPost.mockResolvedValue({ data: { data: mockAuthResponse } });
+    it('應委派 shared M1 auth register 並返回 AuthResponse', async () => {
+      mocks.register.mockResolvedValue(mockAuthResponse);
       const dto: RegisterDto = { email: 'new@example.com', password: 'pass', nickname: 'New' };
       const result = await register(dto);
-      expect(mockPost).toHaveBeenCalledWith('/auth/register', dto);
+      expect(mocks.register).toHaveBeenCalledWith(dto);
       expect(result).toEqual(mockAuthResponse);
     });
 
-    it('回應缺少 token 時應拋錯', async () => {
-      mockPost.mockResolvedValue({
-        data: { data: { user: mockAuthResponse.user, token: undefined } },
-      });
-      await expect(register({ email: 'x@x.com', password: 'p' })).rejects.toThrow(
-        'Invalid auth response from server',
-      );
-    });
-
-    it('回應缺少 user 時應拋錯', async () => {
-      mockPost.mockResolvedValue({
-        data: { data: { user: undefined, token: 't' } },
-      });
-      await expect(register({ email: 'x@x.com', password: 'p' })).rejects.toThrow(
-        'Invalid auth response from server',
-      );
-    });
-
-    it('回應 token 為空字串時應拋錯（F09 邊界：空 token 視為無效）', async () => {
-      mockPost.mockResolvedValue({
-        data: { data: { user: mockAuthResponse.user, token: '' } },
-      });
+    it('shared register 回應缺少 token 時應透傳錯誤', async () => {
+      mocks.register.mockRejectedValue(new Error('Invalid auth response from server'));
       await expect(register({ email: 'x@x.com', password: 'p' })).rejects.toThrow(
         'Invalid auth response from server',
       );
@@ -77,36 +90,16 @@ describe('auth API', () => {
   });
 
   describe('login', () => {
-    it('應 POST /auth/login 並返回 AuthResponse', async () => {
-      mockPost.mockResolvedValue({ data: { data: mockAuthResponse } });
+    it('應委派 shared M1 auth login 並返回 AuthResponse', async () => {
+      mocks.login.mockResolvedValue(mockAuthResponse);
       const dto: LoginDto = { email: 'u@example.com', password: 'pass' };
       const result = await login(dto);
-      expect(mockPost).toHaveBeenCalledWith('/auth/login', dto);
+      expect(mocks.login).toHaveBeenCalledWith(dto);
       expect(result).toEqual(mockAuthResponse);
     });
 
-    it('回應缺少 token 時應拋錯', async () => {
-      mockPost.mockResolvedValue({
-        data: { data: { user: mockAuthResponse.user, token: undefined } },
-      });
-      await expect(login({ email: 'x@x.com', password: 'p' })).rejects.toThrow(
-        'Invalid auth response from server',
-      );
-    });
-
-    it('回應缺少 user 時應拋錯', async () => {
-      mockPost.mockResolvedValue({
-        data: { data: { user: undefined, token: 't' } },
-      });
-      await expect(login({ email: 'x@x.com', password: 'p' })).rejects.toThrow(
-        'Invalid auth response from server',
-      );
-    });
-
-    it('回應 token 為空字串時應拋錯（F09 邊界：空 token 視為無效）', async () => {
-      mockPost.mockResolvedValue({
-        data: { data: { user: mockAuthResponse.user, token: '' } },
-      });
+    it('shared login 回應缺少 token 時應透傳錯誤', async () => {
+      mocks.login.mockRejectedValue(new Error('Invalid auth response from server'));
       await expect(login({ email: 'x@x.com', password: 'p' })).rejects.toThrow(
         'Invalid auth response from server',
       );
@@ -114,35 +107,17 @@ describe('auth API', () => {
   });
 
   describe('claimSession', () => {
-    it('應 POST /auth/claim-session 並返回 case_id', async () => {
-      mockPost.mockResolvedValue({ data: { data: { case_id: 'case-1' } } });
+    it('應委派 shared M1 auth claimSession 並返回 case_id', async () => {
+      mocks.claimSession.mockResolvedValue({ case_id: 'case-1' });
 
       const result = await claimSession('guest_1234567890');
 
-      expect(mockPost).toHaveBeenCalledWith('/auth/claim-session', {
-        session_id: 'guest_1234567890',
-      });
+      expect(mocks.claimSession).toHaveBeenCalledWith('guest_1234567890');
       expect(result).toEqual({ case_id: 'case-1' });
     });
 
-    it('缺少 data 時應回退為 { case_id: null }', async () => {
-      mockPost.mockResolvedValue({ data: {} });
-
-      const result = await claimSession('guest_1234567890');
-
-      expect(result).toEqual({ case_id: null });
-    });
-
-    it('data 為 { case_id: null } 時應正確返回（F01/F09 claim-session 邊界）', async () => {
-      mockPost.mockResolvedValue({ data: { data: { case_id: null } } });
-
-      const result = await claimSession('guest_1234567890');
-
-      expect(result).toEqual({ case_id: null });
-    });
-
-    it('data 為 { case_id: undefined } 時應正規化為 { case_id: null }（F01/F09 邊界：API 回傳不完整時防禦）', async () => {
-      mockPost.mockResolvedValue({ data: { data: { case_id: undefined } } });
+    it('shared claimSession 已正規化缺失 case_id 時應保留 null', async () => {
+      mocks.claimSession.mockResolvedValue({ case_id: null });
 
       const result = await claimSession('guest_1234567890');
 
@@ -151,72 +126,54 @@ describe('auth API', () => {
   });
 
   describe('sendVerificationCode', () => {
-    it('應 POST /auth/send-verification-code 並傳 email 與 type', async () => {
-      mockPost.mockResolvedValue({ data: { data: null } });
+    it('應委派 shared M1 auth sendVerificationCode 並傳 email 與 type', async () => {
+      mocks.sendVerificationCode.mockResolvedValue(undefined);
       await sendVerificationCode('u@example.com', 'register');
-      expect(mockPost).toHaveBeenCalledWith('/auth/send-verification-code', {
-        email: 'u@example.com',
-        type: 'register',
-      });
+      expect(mocks.sendVerificationCode).toHaveBeenCalledWith('u@example.com', 'register');
     });
 
     it('支援 reset_password 與 verify_email type', async () => {
-      mockPost.mockResolvedValue({ data: {} });
+      mocks.sendVerificationCode.mockResolvedValue(undefined);
       await sendVerificationCode('u@example.com', 'reset_password');
-      expect(mockPost).toHaveBeenCalledWith('/auth/send-verification-code', {
-        email: 'u@example.com',
-        type: 'reset_password',
-      });
+      expect(mocks.sendVerificationCode).toHaveBeenCalledWith('u@example.com', 'reset_password');
     });
   });
 
   describe('verifyEmail', () => {
-    it('應 POST /auth/verify-email 並返回 verified', async () => {
-      mockPost.mockResolvedValue({ data: { data: { verified: true } } });
+    it('應委派 shared M1 auth verifyEmail 並返回 verified', async () => {
+      mocks.verifyEmail.mockResolvedValue(true);
       const result = await verifyEmail('u@example.com', '123456', 'verify_email');
-      expect(mockPost).toHaveBeenCalledWith('/auth/verify-email', {
-        email: 'u@example.com',
-        code: '123456',
-        type: 'verify_email',
-      });
+      expect(mocks.verifyEmail).toHaveBeenCalledWith('u@example.com', '123456', 'verify_email');
       expect(result).toBe(true);
     });
 
     it('預設 type 為 verify_email', async () => {
-      mockPost.mockResolvedValue({ data: { data: { verified: false } } });
+      mocks.verifyEmail.mockResolvedValue(false);
       const result = await verifyEmail('u@example.com', '000000');
-      expect(mockPost).toHaveBeenCalledWith('/auth/verify-email', {
-        email: 'u@example.com',
-        code: '000000',
-        type: 'verify_email',
-      });
+      expect(mocks.verifyEmail).toHaveBeenCalledWith('u@example.com', '000000', 'verify_email');
       expect(result).toBe(false);
     });
 
-    it('回應缺少 verified 時應回退為 false', async () => {
-      mockPost.mockResolvedValue({ data: { data: {} } });
+    it('shared verifyEmail 回應缺少 verified 時應回退為 false', async () => {
+      mocks.verifyEmail.mockResolvedValue(false);
       const result = await verifyEmail('u@example.com', '000000');
       expect(result).toBe(false);
     });
   });
 
   describe('resetPassword', () => {
-    it('應 POST /auth/reset-password 並傳 email', async () => {
-      mockPost.mockResolvedValue({ data: {} });
+    it('應委派 shared M1 auth resetPassword 並傳 email', async () => {
+      mocks.resetPassword.mockResolvedValue(undefined);
       await resetPassword('u@example.com');
-      expect(mockPost).toHaveBeenCalledWith('/auth/reset-password', { email: 'u@example.com' });
+      expect(mocks.resetPassword).toHaveBeenCalledWith('u@example.com');
     });
   });
 
   describe('confirmResetPassword', () => {
-    it('應 POST /auth/reset-password-confirm 並傳 email, code, new_password', async () => {
-      mockPost.mockResolvedValue({ data: {} });
+    it('應委派 shared M1 auth confirmResetPassword', async () => {
+      mocks.confirmResetPassword.mockResolvedValue(undefined);
       await confirmResetPassword('u@example.com', '123456', 'newPass123');
-      expect(mockPost).toHaveBeenCalledWith('/auth/reset-password-confirm', {
-        email: 'u@example.com',
-        code: '123456',
-        new_password: 'newPass123',
-      });
+      expect(mocks.confirmResetPassword).toHaveBeenCalledWith('u@example.com', '123456', 'newPass123');
     });
   });
 });

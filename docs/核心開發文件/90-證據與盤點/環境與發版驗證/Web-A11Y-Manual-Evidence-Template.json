@@ -1,0 +1,191 @@
+{
+  "evidence": "web-a11y-manual-evidence",
+  "status": "template",
+  "generated_at": "2026-05-12T00:00:00Z",
+  "operator": "TEMPLATE_REPLACE_WITH_OPERATOR",
+  "environment": {
+    "web_url": "https://replace-with-web-target.example",
+    "admin_url": "https://replace-with-admin-target.example",
+    "browser": "Safari 17 or Chrome stable",
+    "os": "macOS / Windows / Android / iOS target"
+  },
+  "scope": {
+    "keyboard_only": {
+      "flows": [
+        {
+          "id": "quick_experience",
+          "name": "Quick experience create / result",
+          "status": "blocked",
+          "steps": "Tab / Shift+Tab / Enter / Space / Esc coverage to be recorded.",
+          "focus_order": "Expected focus order and observed deviations to be recorded.",
+          "issues": "Record none, issue IDs, or blocker reason."
+        },
+        {
+          "id": "case_list",
+          "name": "Case list",
+          "status": "blocked",
+          "steps": "Tab / filter / open / empty or error state coverage to be recorded.",
+          "focus_order": "Expected focus order and observed deviations to be recorded.",
+          "issues": "Record none, issue IDs, or blocker reason."
+        },
+        {
+          "id": "case_detail",
+          "name": "Case detail / judgment detail",
+          "status": "blocked",
+          "steps": "Navigation, tabs, CTA, back, and status region coverage to be recorded.",
+          "focus_order": "Expected focus order and observed deviations to be recorded.",
+          "issues": "Record none, issue IDs, or blocker reason."
+        },
+        {
+          "id": "notifications",
+          "name": "Notifications",
+          "status": "blocked",
+          "steps": "Open, primary action, snooze, dismiss, empty, and error state coverage to be recorded.",
+          "focus_order": "Expected focus order and observed deviations to be recorded.",
+          "issues": "Record none, issue IDs, or blocker reason."
+        },
+        {
+          "id": "chat_room",
+          "name": "Chat room",
+          "status": "blocked",
+          "steps": "Composer, send, reply preview, request analysis, stream status, and error coverage to be recorded.",
+          "focus_order": "Expected focus order and observed deviations to be recorded.",
+          "issues": "Record none, issue IDs, or blocker reason."
+        },
+        {
+          "id": "auth",
+          "name": "Auth login / register / forgot password",
+          "status": "blocked",
+          "steps": "Credential fields, validation errors, submit, links, and focus return coverage to be recorded.",
+          "focus_order": "Expected focus order and observed deviations to be recorded.",
+          "issues": "Record none, issue IDs, or blocker reason."
+        },
+        {
+          "id": "admin_login",
+          "name": "Admin login",
+          "status": "blocked",
+          "steps": "Credential fields, submit, validation errors, and loading state coverage to be recorded.",
+          "focus_order": "Expected focus order and observed deviations to be recorded.",
+          "issues": "Record none, issue IDs, or blocker reason."
+        },
+        {
+          "id": "admin_ops_jobs",
+          "name": "Admin ops jobs",
+          "status": "blocked",
+          "steps": "Filters, table/list, sampled state, forbidden state, and error state coverage to be recorded.",
+          "focus_order": "Expected focus order and observed deviations to be recorded.",
+          "issues": "Record none, issue IDs, or blocker reason."
+        }
+      ]
+    },
+    "screen_reader": {
+      "runs": [
+        {
+          "tool": "VoiceOver",
+          "browser": "Safari or Chrome stable",
+          "os": "macOS target",
+          "status": "blocked",
+          "flows": [
+            "quick_experience",
+            "case_list",
+            "notifications",
+            "chat_room",
+            "auth",
+            "admin_login",
+            "admin_ops_jobs"
+          ],
+          "observations": "Headings, landmark navigation, control names, status updates, validation errors, and focus changes to be recorded.",
+          "issues": "Record none, issue IDs, or blocker reason."
+        }
+      ]
+    },
+    "interactive_surfaces": {
+      "surfaces": [
+        {
+          "id": "modal_dialog",
+          "name": "Modal / dialog interactions",
+          "status": "blocked",
+          "coverage": "Dialog open, initial focus, focus trap, close button, Esc close, and focus return to trigger.",
+          "keyboard_behavior": "Record Tab / Shift+Tab / Enter / Space / Esc behavior and any focus loss.",
+          "screen_reader_behavior": "Record announced dialog name, role, description, focus changes, and close state.",
+          "issues": "Record none, issue IDs, or blocker reason."
+        },
+        {
+          "id": "dropdown_menu",
+          "name": "Dropdown / menu interactions",
+          "status": "blocked",
+          "coverage": "Menu trigger, item navigation, submenu or checkbox/radio item if present, close behavior, and focus return.",
+          "keyboard_behavior": "Record Enter / Space / Arrow keys / Esc behavior and tab boundary handling.",
+          "screen_reader_behavior": "Record trigger name/state, menu role, item names, selected/checked state, and close announcements.",
+          "issues": "Record none, issue IDs, or blocker reason."
+        },
+        {
+          "id": "toast_status",
+          "name": "Toast / status feedback",
+          "status": "blocked",
+          "coverage": "Success, warning, error, and async status feedback for user-triggered actions.",
+          "keyboard_behavior": "Record whether toast actions or dismiss controls are reachable without trapping focus.",
+          "screen_reader_behavior": "Record live-region or status announcement behavior and whether duplicate announcements occur.",
+          "issues": "Record none, issue IDs, or blocker reason."
+        },
+        {
+          "id": "upload_flow",
+          "name": "Evidence upload flow",
+          "status": "blocked",
+          "coverage": "File picker trigger, validation error, upload progress, preview/remove, and successful upload feedback.",
+          "keyboard_behavior": "Record trigger reachability, remove controls, progress readability, and post-upload focus behavior.",
+          "screen_reader_behavior": "Record control names, file validation messages, progress/status announcements, and uploaded item names.",
+          "issues": "Record none, issue IDs, or blocker reason."
+        },
+        {
+          "id": "form_validation_errors",
+          "name": "Form validation errors",
+          "status": "blocked",
+          "coverage": "Auth, quick input, chat composer, case creation, and Admin credential/config forms.",
+          "keyboard_behavior": "Record submit, error focus or summary behavior, field correction, and resubmit.",
+          "screen_reader_behavior": "Record error announcement, field association, and recovery after correction.",
+          "issues": "Record none, issue IDs, or blocker reason."
+        },
+        {
+          "id": "async_loading_status",
+          "name": "Async loading / stream status",
+          "status": "blocked",
+          "coverage": "AI generation, chat request analysis, judgment loading, Admin jobs loading, and long-running actions.",
+          "keyboard_behavior": "Record disabled controls, focus stability, cancel/retry controls, and completion focus behavior.",
+          "screen_reader_behavior": "Record loading/status announcements, completion announcements, and repeated update noise.",
+          "issues": "Record none, issue IDs, or blocker reason."
+        },
+        {
+          "id": "error_recovery_state",
+          "name": "Error / recovery states",
+          "status": "blocked",
+          "coverage": "Route errors, API errors, permission denied, expired session, upload failure, and retry paths.",
+          "keyboard_behavior": "Record retry/back/home actions, focus placement after error, and recovery path.",
+          "screen_reader_behavior": "Record error heading/status announcement, actionable control names, and recovery result.",
+          "issues": "Record none, issue IDs, or blocker reason."
+        },
+        {
+          "id": "remaining_route_state_matrix",
+          "name": "Remaining route / state matrix",
+          "status": "blocked",
+          "coverage": "Manual spot-check of states not covered by automated route-level axe baseline, including empty, data, forbidden, loading, and destructive confirmation states.",
+          "keyboard_behavior": "Record sampled state list, traversal path, focus order, and any skipped reason.",
+          "screen_reader_behavior": "Record heading/landmark/control-name findings for sampled states and any skipped reason.",
+          "issues": "Record none, issue IDs, or blocker reason."
+        }
+      ]
+    }
+  },
+  "artifacts": [
+    {
+      "type": "recording_or_screenshot_bundle",
+      "path": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/replace-with-real-a11y-manual-artifact",
+      "description": "Replace with a real screenshot, recording, transcript, or exported manual evidence bundle path."
+    }
+  ],
+  "non_claims": [
+    "no_wcag_2_2_aa_claim",
+    "no_full_screen_reader_claim",
+    "no_full_state_matrix_claim"
+  ]
+}

@@ -1,0 +1,38 @@
+appId: com.cj.motherbearcourt
+name: M4 case repair auth gate smoke
+tags:
+  - app
+  - m4
+  - smoke
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    text: Cancel
+    optional: true
+- assertVisible:
+    id: public.home.screen
+- tapOn:
+    id: public.home.app
+- assertVisible:
+    id: case.auth-gate.screen
+- tapOn:
+    id: case.auth-gate.quick
+- assertVisible:
+    id: quick.screen
+- openLink: cj://case
+- tapOn:
+    text: Open
+    optional: true
+- assertVisible:
+    id: auth.screen
+- assertVisible:
+    id: auth.email.input
+- openLink: cj://repair
+- tapOn:
+    text: Open
+    optional: true
+- assertVisible:
+    id: auth.screen
+- assertVisible:
+    id: auth.email.input

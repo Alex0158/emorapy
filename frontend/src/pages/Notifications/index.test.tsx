@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { setLocale } from '@/utils/i18n';
 
 const mockNavigate = vi.fn();
 const mockStore = {
@@ -77,6 +78,7 @@ function renderPage() {
 describe('NotificationsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    setLocale('zh-TW');
     mockStore.items = [];
     mockStore.unreadCount = 0;
     mockStore.activeState = 'actionable';
@@ -177,5 +179,115 @@ describe('NotificationsPage', () => {
     await waitFor(() => {
       expect(mockStore.snooze).toHaveBeenCalledWith('n2', 24);
     });
+  });
+
+  it('通知卡片可由鍵盤啟用且 action button 不會誤觸 open', async () => {
+    mockStore.items = [
+      {
+        id: 'n3',
+        template_code: 'repair_journey_replan',
+        unread: true,
+        actionable: true,
+        acted_at: null,
+        dismissed_at: null,
+        created_at: '2026-04-05T00:00:00.000Z',
+        action_key: 'replan_track',
+        render_payload: {
+          title: '需要重新調整',
+          body: '這一輪目前太吃力了。',
+          path: '/execution/p1/replan',
+          cta_label: '重新調整這一輪',
+          journey_status: 'replanning',
+          priority: 'now',
+          partner_state: null,
+          reason_code: null,
+        },
+        priority: 'now',
+        group_key: 'repair_track_t1',
+        snoozed_until: null,
+        journey_context: {
+          entry_path: '/execution/p1/replan',
+          primary_cta: { path: '/execution/p1/replan', label: '重新調整這一輪' },
+          presentation_bucket: 'replanning',
+        },
+      },
+    ];
+
+    const user = userEvent.setup();
+    renderPage();
+
+    const cardButton = screen.getByRole('button', { name: /需要重新調整/ });
+    cardButton.focus();
+    expect(cardButton).toHaveFocus();
+
+    await user.keyboard('{Enter}');
+
+    await waitFor(() => {
+      expect(mockStore.markRead).toHaveBeenCalledWith('n3');
+      expect(mockNavigate).toHaveBeenCalledWith('/execution/p1/replan');
+    });
+
+    await user.click(screen.getByRole('button', { name: '重新調整這一輪' }));
+
+    await waitFor(() => {
+      expect(mockStore.act).toHaveBeenCalledWith('n3', 'replan_track');
+      expect(mockNavigate).toHaveBeenCalledWith('/execution/p1/checkin');
+    });
+  });
+
+  it('route-level keyboard-only smoke：Tab focus order 可走過 tab、actions、open 與 CTA', async () => {
+    mockStore.unreadCount = 1;
+    mockStore.items = [
+      {
+        id: 'n4',
+        template_code: 'repair_journey_replan',
+        unread: true,
+        actionable: true,
+        acted_at: null,
+        dismissed_at: null,
+        created_at: '2026-04-05T00:00:00.000Z',
+        action_key: 'replan_track',
+        render_payload: {
+          title: '需要重新調整',
+          body: '這一輪目前太吃力了。',
+          path: '/execution/p1/replan',
+          cta_label: '重新調整這一輪',
+          journey_status: 'replanning',
+          priority: 'now',
+          partner_state: null,
+          reason_code: null,
+        },
+        priority: 'now',
+        group_key: 'repair_track_t1',
+        snoozed_until: null,
+        journey_context: {
+          entry_path: '/execution/p1/replan',
+          primary_cta: { path: '/execution/p1/replan', label: '重新調整這一輪' },
+          presentation_bucket: 'replanning',
+        },
+      },
+    ];
+
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.tab();
+    expect(screen.getByRole('tab', { name: '待處理' })).toHaveFocus();
+    await user.keyboard('{ArrowRight}');
+    expect(screen.getByRole('tab', { name: '未讀' })).toHaveFocus();
+    await user.keyboard('{ArrowRight}');
+    expect(screen.getByRole('tab', { name: '全部' })).toHaveFocus();
+    await user.keyboard('{ArrowRight}');
+    expect(screen.getByRole('tab', { name: '稍後提醒' })).toHaveFocus();
+    await user.keyboard('{ArrowRight}');
+    expect(screen.getByRole('tab', { name: '已封存' })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole('button', { name: '刷新' })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole('button', { name: '全部已讀' })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole('button', { name: /需要重新調整/ })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole('button', { name: '重新調整這一輪' })).toHaveFocus();
   });
 });

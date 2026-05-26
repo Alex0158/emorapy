@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import ChatRoomPage from './index';
@@ -191,7 +192,7 @@ const buildOwnerSoloRoom = (roomId = 'room-1') => ({
 describe('ChatRoomPage', () => {
   afterEach(async () => {
     vi.useRealTimers();
-    // Flush any pending promise-driven updates (antd message/portal, router, etc.)
+    // Flush any pending promise-driven updates (toast/portal, router, etc.)
     await act(async () => {
       await Promise.resolve();
     });
@@ -238,6 +239,31 @@ describe('ChatRoomPage', () => {
     await waitFor(() => {
       expect(mockCreateChatRoom).toHaveBeenCalled();
     });
+  });
+
+  it('入口 route-level keyboard-only smoke：Tab focus order 可走過建立與邀請流程', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={['/chat/room']}>
+        <Routes>
+          <Route path="/chat/room" element={<ChatRoomPage />} />
+          <Route path="/chat/room/:roomId" element={<ChatRoomPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await user.tab();
+    expect(screen.getByRole('combobox')).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole('button', { name: '建立聊天室' })).toHaveFocus();
+    await user.tab();
+    const inviteInput = screen.getByLabelText('邀請碼');
+    expect(inviteInput).toHaveFocus();
+    expect(inviteInput).toHaveAttribute('autocomplete', 'off');
+    await user.tab();
+    expect(screen.getByRole('button', { name: '用邀請碼加入' })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole('button', { name: '拒絕邀請' })).toHaveFocus();
   });
 
   it('createChatRoom 成功但組件已卸載時不應呼叫 message.success 或 navigate（useMountedRef 回歸：避免 F01-BUG-001 同類問題）', async () => {

@@ -45,7 +45,7 @@ describe('psychProfileStore', () => {
   describe('fetchProfile', () => {
     it('成功時應設置 profile', async () => {
       const profileData = { consent_given: true, richness_score: 50, narratives: [], insights: [] };
-      mockGetProfile.mockResolvedValue({ data: { data: profileData } });
+      mockGetProfile.mockResolvedValue(profileData);
       await usePsychProfileStore.getState().fetchProfile();
       const state = usePsychProfileStore.getState();
       expect(state.profile).toEqual(profileData);
@@ -68,8 +68,8 @@ describe('psychProfileStore', () => {
       expect(usePsychProfileStore.getState().error).toBe('psychProfile.loadFail');
     });
 
-    it('API 返回空 data 時 profile 應為 null', async () => {
-      mockGetProfile.mockResolvedValue({ data: {} });
+    it('API 返回 null profile 時 profile 應為 null', async () => {
+      mockGetProfile.mockResolvedValue(null);
       await usePsychProfileStore.getState().fetchProfile();
       expect(usePsychProfileStore.getState().profile).toBeNull();
     });
@@ -84,7 +84,7 @@ describe('psychProfileStore', () => {
   describe('fetchFeedbackHistory', () => {
     it('成功時應設置 feedbackHistory', async () => {
       const history = [{ session_id: 's1', created_at: '2025-01-01', domains_touched: [] }];
-      mockGetFeedbackHistory.mockResolvedValue({ data: { data: { history } } });
+      mockGetFeedbackHistory.mockResolvedValue({ history });
       await usePsychProfileStore.getState().fetchFeedbackHistory();
       expect(usePsychProfileStore.getState().feedbackHistory).toEqual(history);
     });
@@ -96,7 +96,7 @@ describe('psychProfileStore', () => {
     });
 
     it('API 回傳 history 為非陣列時應設置空陣列（F06 邊界：API 回傳不完整時防禦）', async () => {
-      mockGetFeedbackHistory.mockResolvedValue({ data: { data: { history: { items: [] } } } });
+      mockGetFeedbackHistory.mockResolvedValue({ history: { items: [] } });
       await usePsychProfileStore.getState().fetchFeedbackHistory();
       expect(usePsychProfileStore.getState().feedbackHistory).toEqual([]);
     });

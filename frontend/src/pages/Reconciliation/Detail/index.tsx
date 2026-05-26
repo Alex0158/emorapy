@@ -44,6 +44,7 @@ const ReconciliationDetail = () => {
   const [resuming, setResuming] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const fetchLockRef = useRef(false);
+  const startLockRef = useRef(false);
   const staleRef = useRef(false);
 
   useEffect(() => {
@@ -85,10 +86,12 @@ const ReconciliationDetail = () => {
   };
 
   const handleStart = async () => {
-    if (!id) return; setStarting(true);
+    if (!id || startLockRef.current) return;
+    startLockRef.current = true;
+    setStarting(true);
     try { await confirmExecution(id); if (!mountedRef.current) return; toast.success(t('reconDetail.startSuccess')); navigate(`/execution/${id}/checkin`); }
     catch (error: unknown) { if (mountedRef.current) toast.error(getErrorMessage(error, 'message.startExecutionFail')); }
-    finally { if (mountedRef.current) setStarting(false); }
+    finally { startLockRef.current = false; if (mountedRef.current) setStarting(false); }
   };
 
   const handlePause = async () => {

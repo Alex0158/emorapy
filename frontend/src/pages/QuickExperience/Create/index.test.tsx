@@ -72,8 +72,6 @@ vi.mock('sonner', () => ({
   toast: mockToast,
 }));
 
-vi.mock('antd/es/upload/interface', () => ({}));
-
 vi.mock('@/store/sessionStore', () => ({
   useSessionStore: () => ({
     createSession: mockCreateSession,

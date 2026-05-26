@@ -8,8 +8,8 @@
 **最後核驗日期**：`2026-04-19`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**文檔版本**：v2.9  
-**最後更新**：2026-04-19  
+**文檔版本**：v2.9
+**最後更新**：2026-04-19
 **代碼基準**：`backend/src/routes/interview.routes.ts`、`backend/src/routes/ai-stream.routes.ts`、`backend/src/services/interview.service.ts`、`frontend/src/store/interviewStore.ts`、`frontend/src/services/api/interview.ts`、`frontend/src/services/aiStream.ts`
 
 ---
@@ -63,13 +63,13 @@
 
 ## 回歸測試最小集
 
-1. consent=false 時 `start` 必須拒絕。  
-2. `users.age < 18` 時 `start` 必須拒絕，且不得查近期 session 或建立新 session。  
-3. `respond` 連續快速提交觸發 `TURN_TOO_FAST`。  
-4. `AI Stream` 斷線後前端能進入可恢復態（resume/replay）。  
-5. `cancel` 後前端應立即清除 draft 氣泡，並以提示文案收口，不得殘留 cancelled 假回覆。  
-6. `processing_failed` 可經 `retry` 回到處理中；`abandoned` 需由清理任務與恢復入口共同收口。  
-7. delete psych-profile 後 profile 與 feedback 均清空。  
+1. consent=false 時 `start` 必須拒絕。
+2. `users.age < 18` 時 `start` 必須拒絕，且不得查近期 session 或建立新 session。
+3. `respond` 連續快速提交觸發 `TURN_TOO_FAST`。
+4. `AI Stream` 斷線後前端能進入可恢復態（resume/replay）。
+5. `cancel` 後前端應立即清除 draft 氣泡，並以提示文案收口，不得殘留 cancelled 假回覆。
+6. `processing_failed` 可經 `retry` 回到處理中；`abandoned` 需由清理任務與恢復入口共同收口。
+7. delete psych-profile 後 profile 與 feedback 均清空。
 
 ## 錯誤碼覆蓋矩陣（API -> code -> UI 行為）
 

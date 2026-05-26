@@ -22,14 +22,20 @@ describe('animations', () => {
   let el: HTMLElement;
   let rafSpy: ReturnType<typeof vi.spyOn>;
   let rafActive: boolean;
+  let rafNow: number;
 
   beforeEach(() => {
     el = document.createElement('div');
     document.body.appendChild(el);
     rafActive = true;
+    rafNow = performance.now();
     rafSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb: FrameRequestCallback) => {
       if (!rafActive) return 0;
-      setTimeout(() => { if (rafActive) cb(0); }, 0);
+      setTimeout(() => {
+        if (!rafActive) return;
+        rafNow += 16;
+        cb(rafNow);
+      }, 0);
       return 1;
     });
   });
@@ -159,15 +165,13 @@ describe('animations', () => {
   });
 
   describe('animateNumber', () => {
-    it.skip('應更新 textContent 並支持 formatter', async () => {
-      // jsdom 中 performance.now/rAF 時間戳與瀏覽器不一致，易導致負值
+    it('應更新 textContent 並支持 formatter', async () => {
       const formatter = (n: number) => `${n}%`;
       animateNumber(el, 100, 1, formatter);
       await new Promise((r) => setTimeout(r, 15));
       expect(el.textContent).toBe('100%');
     });
-    it.skip('無 formatter 時應使用 String', async () => {
-      // jsdom 中 performance.now/rAF 時間戳與瀏覽器不一致
+    it('無 formatter 時應使用 String', async () => {
       animateNumber(el, 50, 1);
       await new Promise((r) => setTimeout(r, 15));
       expect(el.textContent).toBe('50');

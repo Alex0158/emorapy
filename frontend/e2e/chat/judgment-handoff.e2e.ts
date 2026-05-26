@@ -2,6 +2,10 @@ import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
 
 const SESSION_STORAGE_KEY = 'cj_session_id';
+const REQUEST_ANALYSIS_BUTTON = /發起梳理|發起判決|Request Analysis|Request Judgment/;
+const CONFIRM_ANALYSIS_TITLE = /轉梳理前確認|轉判決前確認|Confirm Before Analysis|Confirm Before Judgment/;
+const REVIEW_READY_TEXT = /分析已完成|判決已生成|Analysis Ready|Judgment Ready/;
+const VIEW_RESULTS_BUTTON = /查看結果|查看判決|View Results|View Judgment/;
 
 async function seedAuthenticatedUser(page: Page, userId = 'user-e2e-handoff') {
   await page.addInitScript(
@@ -198,9 +202,9 @@ test.describe('Judgment handoff 閉環', () => {
     });
 
     await page.goto('/case/case-review-e2e/review', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByText(/判決已生成|Judgment Ready/)).toBeVisible();
+    await expect(page.getByText(REVIEW_READY_TEXT)).toBeVisible();
 
-    await page.getByRole('button', { name: /查看判決|View Judgment/ }).click();
+    await page.getByRole('button', { name: VIEW_RESULTS_BUTTON }).click();
 
     await expect(page).toHaveURL(/\/judgment\/judgment-case-review-e2e$/);
     await expect(page.getByText('Case review handoff judgment detail')).toBeVisible();
@@ -360,8 +364,8 @@ test.describe('Judgment handoff 閉環', () => {
     await page.goto(`/chat/room/${roomId}`);
     await expect(page.getByText(new RegExp(`聊天室：${roomId}|Room: ${roomId}|Chat Room: ${roomId}`))).toBeVisible();
 
-    await page.getByRole('button', { name: /發起判決|Request Judgment/ }).click();
-    await expect(page.getByText(/轉判決前確認|Confirm Before Judgment/)).toBeVisible();
+    await page.getByRole('button', { name: REQUEST_ANALYSIS_BUTTON }).click();
+    await expect(page.getByText(CONFIRM_ANALYSIS_TITLE)).toBeVisible();
     await page.getByRole('button', { name: /確認|Confirm/ }).click();
 
     await expect(page).toHaveURL(/\/auth\/login$/);

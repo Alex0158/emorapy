@@ -5,12 +5,12 @@
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：08-content-notification
 **取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`backend/src/services/notification.service.ts`、`backend/src/utils/case-classifier.ts`、`backend/src/utils/notification-deep-link.ts`、`backend/prisma/schema.prisma`、`backend/prisma/migrations/20260504164500_add_notification_cancelled_status/migration.sql`、`frontend/src/services/api`、`frontend-admin/src/services/api`
 **最後核驗 Commit**：`6204e7f`
-**最後核驗日期**：`2026-05-04`
+**最後核驗日期**：`2026-05-08`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**文檔版本**：v2.8
-**最後更新**：2026-05-04
-**代碼基準**：`backend/src/routes/content.routes.ts`、`backend/src/routes/notification.routes.ts`、`backend/src/controllers/content.controller.ts`、`backend/src/controllers/notification.controller.ts`、`backend/src/services/content.service.ts`、`backend/src/services/notification.service.ts`、`backend/src/utils/case-classifier.ts`、`backend/src/utils/notification-deep-link.ts`、`backend/src/utils/validation.ts`、`frontend/src/services/api/content.ts`、`frontend/src/services/api/notifications.ts`
+**文檔版本**：v2.9
+**最後更新**：2026-05-08
+**代碼基準**：`backend/src/routes/content.routes.ts`、`backend/src/routes/notification.routes.ts`、`backend/src/controllers/content.controller.ts`、`backend/src/controllers/notification.controller.ts`、`backend/src/services/content.service.ts`、`backend/src/services/notification.service.ts`、`backend/src/utils/case-classifier.ts`、`backend/src/utils/notification-deep-link.ts`、`backend/src/utils/validation.ts`、`packages/api-client/src/m5.ts`、`mobile/src/platform/notifications/native.ts`、`mobile/app/(app)/notifications/index.tsx`、`frontend/src/services/api/content.ts`、`frontend/src/services/api/notifications.ts`
 
 ---
 
@@ -28,6 +28,8 @@
 | `POST /api/v1/content-links` | `case_id(uuid)` `content_id(uuid)` `relation?` | `data.link`（upsert） | `VALIDATION_ERROR` `UNAUTHORIZED` `FORBIDDEN` `NOT_FOUND` | 建立/覆蓋 case-content 關聯 | （候選，未接線） |
 | `GET /api/v1/notifications` | query `state?` `status?(pending/sent/failed/cancelled)` `template_code?` `limit?` `cursor?` | `data.notifications[]` `data.next_cursor` `data.has_more` | `UNAUTHORIZED` `VALIDATION_ERROR` | 無 | `/notifications` |
 | `GET /api/v1/notifications/unread-count` | JWT header | `data.unread_count` | `UNAUTHORIZED` | 無 | Header bell badge |
+| `POST /api/v1/notifications/device-tokens` | `token` `platform(ios/android)` `device_id?` `app_version?` `build_number?` | `data.device_token{id,user_id,platform,device_id,app_version,build_number,revoked_at,last_seen_at,created_at,updated_at}` | `UNAUTHORIZED` `VALIDATION_ERROR` | upsert App push device token；同一 token 轉到當前 user，清空 `revoked_at` 並刷新 `last_seen_at`；不回傳 token 原文 | App push permission/token sync |
+| `POST /api/v1/notifications/device-tokens/revoke` | `token?` 或 `device_id?` 至少一項 | `data.revokedCount` `data.revokedAt` | `UNAUTHORIZED` `VALIDATION_ERROR` | 只撤銷當前 user 且未 revoked 的 token/device；冪等返回 count | App logout / token rotation cleanup |
 | `POST /api/v1/notifications` | `channel(email|push)` `template_code` `payload?`（`path` 若存在必須為 notification deep-link 白名單相對路由） `dedup_key?` `action_key?` `priority?` `group_key?` | `data.notification` | `UNAUTHORIZED` `VALIDATION_ERROR` | 建立單條通知（系統/運維保留入口）；非法 `payload.path` 會拒絕建立 | （候選，無前台直接入口） |
 | `POST /api/v1/notifications/:id/read` | `id(uuid)` | `data.notification` | `UNAUTHORIZED` `VALIDATION_ERROR` `NOT_FOUND` | 補 `read_at` | `/notifications` |
 | `POST /api/v1/notifications/read-all` | JWT header | `data.updatedCount` `data.readAt` | `UNAUTHORIZED` | 批量補 `read_at` | `/notifications` |
@@ -44,10 +46,12 @@
   - `/notifications` 頁拉可分區列表，支持 `actionable / unread / snoozed / archived`
   - `act` 返回標準 deep-link target，前端不再依模板自行猜測跳頁
 - `POST /api/v1/notifications` 仍保留為系統/運維創建入口，前台不直接調用；其渲染內容主要來自 `payload` 而非 top-level `title/body/path` 字段。
-- `payload.path` 必須通過 `backend/src/utils/notification-deep-link.ts` 白名單：只允許既有前台相對路由（如 `/notifications`、`/case/...`、`/judgment/...`、`/reconciliation/...`、`/execution/...`、`/profile/...`、`/interview/...`、`/chat/room...`、`/quick-experience/...`），拒絕外部 URL、協議相對 URL、Admin/Auth 路徑、反斜線、控制字符、`..`、encoded slash/backslash 與 query/hash。建立新通知時非法 path 直接 `VALIDATION_ERROR`；讀取歷史通知時非法 path 會被 normalize 為 `null`，避免壞資料變成可點深鏈。
+- `payload.path` 必須通過 `backend/src/utils/notification-deep-link.ts` 白名單：只允許既有前台相對路由（如 `/notifications`、`/case/...`、`/judgment/...`、`/reconciliation/...`、`/execution/...`、`/profile/...`、`/interview/...`、`/chat/room...`、`/chat/invite/:code`、`/chat/invites/:code`、`/quick-experience/...`），拒絕外部 URL、協議相對 URL、Admin/Auth 路徑、反斜線、控制字符、`..`、encoded slash/backslash、query/hash 以及 `/chat/invites/:code/accept` 這類會產生副作用的 API 路徑。建立新通知時非法 path 直接 `VALIDATION_ERROR`；讀取歷史通知時非法 path 會被 normalize 為 `null`，避免壞資料變成可點深鏈。
 - `NotificationService.normalize()` 必須集中輸出 `render_payload.product_flow`：優先讀 `payload.product_flow`，其次讀 `payload.journey_context.repair_access.product_flow`；取值必須符合 `backend/src/utils/case-classifier.ts` 的 `CASE_PRODUCT_FLOW_KEYS`。前端、Admin 或 analytics 不得從通知模板、path 或 case mode 另行推斷產品流。normalize 亦 additive 輸出 `user_id/dedup_key`，供 Admin 排查與 audit 使用。
 - `GET /api/v1/notifications` 的 `cursor` 為 `notification.id(uuid)`；分頁不是時間戳游標。
 - `GET /api/v1/notifications/unread-count` 只統計「未讀 + 未dismiss + snooze到期或未snooze」的通知。
+- `POST /api/v1/notifications/device-tokens` 是 App Push token 的唯一註冊入口；App 不得把 token 保存在業務表或直接從 screen 拼 API。後端以 `push_device_tokens.token` 做唯一鍵，支援 token 重裝/換登入後轉移到當前 user，並以 `revoked_at` 表示撤銷。response 不回傳 token 原文，log 也不得輸出 token。
+- `POST /api/v1/notifications/device-tokens/revoke` 只接受非空 `token` 或 `device_id`，至少一項；若兩者都有，必須同時匹配同一 user 的未撤銷記錄。它目前完成 registration/revoke 狀態閉環；App notification response / last response landing handler 與未登入 post-login resume 已有首輪路由處理。Backend 已新增 Expo push sender、`dispatch_pending_push_notifications` 與 `poll_push_notification_receipts` job，會把 pending push notification 轉成 Expo message、保存 ticket、輪詢 receipt 並回寫 `sent / failed / receipt ok / receipt error`；但這不代表 APNs sandbox、真 provider delivery 或真機 cold-start landing 證據已完成。
 - `POST /api/v1/content-links` 必須認證（`authenticate`），且在寫入關聯前會再次用 `caseService.getCaseById(case_id, userId)` 做案件訪問校驗。
 - repair journey 通知 payload 應帶：
   - `title/body/path/cta_label`
@@ -75,11 +79,12 @@
 
 ## 回歸測試最小集
 
-1. 快速結果頁 `content-items` 正常渲染與語言切換。  
-2. Header bell 讀取 `unread-count`，登入態能正確顯示未讀數。  
-3. `/notifications` 能完成 `read / read-all / dismiss / snooze / act` 操作並深鏈回旅程。  
+1. 快速結果頁 `content-items` 正常渲染與語言切換。
+2. Header bell 讀取 `unread-count`，登入態能正確顯示未讀數。
+3. `/notifications` 能完成 `read / read-all / dismiss / snooze / act` 操作並深鏈回旅程。
 4. 通知 render payload 應從 `payload.product_flow` 或 `journey_context.repair_access.product_flow` 輸出固定五類產品流，非法值應回退為 `null`。
-5. `payload.path` 應只接受 notification deep-link 白名單路由；外部 URL、`/admin/*`、`//evil`、反斜線、query/hash 均不得建立，歷史非法 path 讀取時應輸出 `null`。
+5. `payload.path` 應只接受 notification deep-link 白名單路由；外部 URL、`/admin/*`、`//evil`、反斜線、query/hash 與 `/chat/invites/:code/accept` 均不得建立，歷史非法 path 讀取時應輸出 `null`。Chat invite 通知只能落到 invite landing，例如 `/chat/invite/ABC123`，再由 App auth resume / accept flow 處理。
+6. App push token registration / revoke 應覆蓋 route validation、API client typed envelope、App permission/token sync、logout cleanup；目前 registration/revoke、本機清理前 revoke 補償、registration-time token rotation revoke、notification landing handler、post-login resume、Expo push sender、pending dispatch 與 receipt polling job 已有 mock-backed smoke / API client / RNTL / feature unit / route smoke / backend unit 測試，真 provider delivery、APNs sandbox、真機 delivery、真機 cold-start landing 證據與 provider lifecycle evidence 待補。
 
 ## 錯誤碼覆蓋矩陣（API -> code -> UI 行為）
 
@@ -98,6 +103,10 @@
 | `GET /api/v1/notifications` | `UNAUTHORIZED` | 401 | 清 token 並導登入 | 登入後重拉 |
 | `GET /api/v1/notifications` | `VALIDATION_ERROR` | 400 | query 不合法，提示篩選條件錯誤 | 修正篩選後重拉 |
 | `GET /api/v1/notifications/unread-count` | `UNAUTHORIZED` | 401 | Header bell 降級為不顯示未讀數，不阻塞導航 | 登入後重拉 |
+| `POST /api/v1/notifications/device-tokens` | `UNAUTHORIZED` | 401 | App 保留本地 token 狀態但提示 push sync 未完成，不阻塞主流程 | 登入後重送 |
+| `POST /api/v1/notifications/device-tokens` | `VALIDATION_ERROR` | 400 | 不重試；記錄 safe telemetry context，提示 App 版本或 token 狀態異常 | 重新取得 native token 後重送 |
+| `POST /api/v1/notifications/device-tokens/revoke` | `UNAUTHORIZED` | 401 | 本地登出仍可繼續，後續登入後補做 cleanup | 登入後補償 |
+| `POST /api/v1/notifications/device-tokens/revoke` | `VALIDATION_ERROR` | 400 | 不重試；修正 token/device_id 來源 | 修正後重送 |
 | `POST /api/v1/notifications` | `VALIDATION_ERROR` | 400 | channel/template/payload/path 不合法 | 修正後重送 |
 | `POST /api/v1/notifications/:id/read` | `NOT_FOUND` | 404 | 提示通知已不存在，從列表移除或重拉 | 重新拉列表 |
 | `POST /api/v1/notifications/:id/read` | `VALIDATION_ERROR` | 400 | 通知ID格式錯誤 | 修正後重試 |
@@ -108,5 +117,5 @@
 
 ## 狀態標記
 
-- 已使用：8
+- 已使用：10
 - 候選廢棄：3

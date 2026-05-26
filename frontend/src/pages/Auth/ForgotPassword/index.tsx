@@ -1,7 +1,7 @@
 /**
  * 忘記密碼頁面
  *
- * 遷移: Ant Design → shadcn/ui + 原生表單
+ * 遷移: legacy form controls → shadcn/ui + 原生表單
  * 保留: 3 步驟流程（郵箱→驗證碼→新密碼）、所有業務邏輯
  */
 
@@ -217,6 +217,7 @@ const ForgotPassword = () => {
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                   <Input
                     type="email"
+                    aria-label={t('auth.register.email')}
                     placeholder={t('auth.forgot.emailPlaceholder')}
                     autoComplete="email"
                     value={email}
@@ -270,6 +271,7 @@ const ForgotPassword = () => {
                     onPaste={handleCodePaste}
                     className="h-14 w-12 rounded-xl border border-border bg-muted/50 text-center text-xl font-bold text-foreground transition-all duration-200 focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/15 focus:outline-none"
                     aria-label={`${t('auth.forgot.stepVerify')} ${index + 1}`}
+                    autoComplete="one-time-code"
                     autoFocus={index === 0}
                   />
                 ))}
@@ -314,6 +316,7 @@ const ForgotPassword = () => {
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                   <Input
                     type={showPassword ? 'text' : 'password'}
+                    aria-label={t('auth.forgot.newPassword')}
                     placeholder={t('auth.forgot.newPasswordPlaceholder')}
                     maxLength={128}
                     autoComplete="new-password"
@@ -325,6 +328,7 @@ const ForgotPassword = () => {
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
                   >
                     {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                   </button>
@@ -337,6 +341,7 @@ const ForgotPassword = () => {
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                   <Input
                     type={showPassword ? 'text' : 'password'}
+                    aria-label={t('auth.forgot.confirmNewPassword')}
                     placeholder={t('auth.forgot.confirmNewPlaceholder')}
                     autoComplete="new-password"
                     value={confirmPassword}

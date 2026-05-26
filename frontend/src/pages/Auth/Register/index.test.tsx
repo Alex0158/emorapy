@@ -1,7 +1,7 @@
 /**
  * Register 頁面單元測試
  *
- * 遷移: antd message → sonner toast
+ * 遷移: legacy message API → sonner toast
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';

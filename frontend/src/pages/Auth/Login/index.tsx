@@ -1,7 +1,7 @@
 /**
  * 登錄頁面
  *
- * 遷移: Ant Design Form/Input/Button → shadcn/ui + 原生表單
+ * 遷移: legacy form controls → shadcn/ui + 原生表單
  * 保留: 所有業務邏輯（login, redirect, email verification）
  */
 

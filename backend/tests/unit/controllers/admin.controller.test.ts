@@ -18,6 +18,7 @@ const mockListAuditLogs = jest.fn();
 const mockListAdminUsers = jest.fn();
 const mockGetNumberConfig = jest.fn();
 const mockGetAdminCostReport = jest.fn();
+const mockGetAppTelemetryReport = jest.fn();
 const mockUserFindMany = jest.fn();
 const mockUserCount = jest.fn();
 const mockPairingCount = jest.fn();
@@ -115,6 +116,12 @@ jest.mock('../../../src/services/system-config.service', () => ({
 jest.mock('../../../src/services/cost-monitoring.service', () => ({
   costMonitoringService: {
     getAdminCostReport: (...args: unknown[]) => mockGetAdminCostReport(...args),
+  },
+}));
+
+jest.mock('../../../src/services/app-telemetry.service', () => ({
+  appTelemetryService: {
+    getAdminReport: (...args: unknown[]) => mockGetAppTelemetryReport(...args),
   },
 }));
 
@@ -622,6 +629,41 @@ describe('AdminController', () => {
       (mockGetAdminCostReport as any).mockRejectedValue(new Error('cost source down'));
 
       await adminController.reportCosts(req as Request, res as Response, next);
+
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
+    });
+  });
+
+  describe('reportAppTelemetry', () => {
+    it('應按 query 轉交 App telemetry 報告查詢並返回資料', async () => {
+      req.query = { days: '14', limit: '10', severity: 'error', platform: 'ios' };
+      (mockGetAppTelemetryReport as any).mockResolvedValue({
+        days: 14,
+        totals: { events: 3 },
+      });
+
+      await adminController.reportAppTelemetry(req as Request, res as Response, next);
+
+      expect(mockGetAppTelemetryReport).toHaveBeenCalledWith({
+        days: 14,
+        limit: 10,
+        severity: 'error',
+        platform: 'ios',
+      });
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        data: {
+          days: 14,
+          totals: { events: 3 },
+        },
+      });
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('App telemetry 報告異常時應 next(error)', async () => {
+      (mockGetAppTelemetryReport as any).mockRejectedValue(new Error('telemetry report down'));
+
+      await adminController.reportAppTelemetry(req as Request, res as Response, next);
 
       expect(next).toHaveBeenCalledWith(expect.any(Error));
     });

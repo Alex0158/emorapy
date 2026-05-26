@@ -46,7 +46,7 @@ export default function AdminSectionLayout() {
                 className={cn(
                   'flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors',
                   isActive
-                    ? 'bg-primary/10 text-primary font-medium'
+                    ? 'bg-primary/10 text-primary-hover font-medium'
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                 )}
               >

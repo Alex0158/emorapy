@@ -218,6 +218,7 @@ const CaseList = () => {
                 placeholder={t('caseList.searchPlaceholder')}
                 className="pl-9"
                 aria-label={t('caseList.ariaSearch')}
+                autoComplete="off"
               />
             </div>
           </div>

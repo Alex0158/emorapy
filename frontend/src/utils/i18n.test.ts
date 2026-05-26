@@ -4,6 +4,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { t, setLocale, getLocale, onLocaleChange, normalizeLocale } from './i18n';
 
+const originalEnv = import.meta.env;
+
 vi.mock('@/assets/i18n/zh-TW', () => ({
   default: {
     'result.title': '關係分析結果',
@@ -22,6 +24,7 @@ vi.mock('@/assets/i18n/en-US', () => ({
 describe('i18n', () => {
   afterEach(() => {
     setLocale('zh-TW');
+    vi.unstubAllGlobals();
   });
 
   describe('t', () => {
@@ -33,12 +36,14 @@ describe('i18n', () => {
 
     it('未知 key 應返回 key 本身', () => {
       setLocale('zh-TW');
-      expect(t('unknown.key')).toBe('unknown.key');
+      expect(() => t('unknown.key')).toThrow('Missing i18n key: unknown.key');
     });
 
-    it('en-US 未命中翻譯時應返回可讀英文 fallback', () => {
+    it('production 下 en-US 未命中翻譯時應返回缺 key 標記', () => {
+      vi.stubEnv('PROD', true);
+      vi.stubEnv('DEV', false);
       setLocale('en-US');
-      expect(t('message.caseIdMissing')).toBe('Message Case Id Missing');
+      expect(t('unknown.key')).toBe('[missing-i18n:unknown.key]');
     });
 
     it('應支援插值：params 中的 key 會替換字串中的 {key}', () => {

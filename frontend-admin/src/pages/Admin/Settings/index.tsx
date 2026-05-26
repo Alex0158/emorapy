@@ -476,9 +476,11 @@ export default function AdminSettingsPage() {
         <CardContent className="space-y-4">
           <form onSubmit={handleCreateAdmin} className="flex flex-wrap items-end gap-3">
             <div className="space-y-1">
-              <Label>{t('admin.settings.adminUsers.email')}</Label>
+              <Label htmlFor="admin-settings-create-email">{t('admin.settings.adminUsers.email')}</Label>
               <Input
+                id="admin-settings-create-email"
                 type="email"
+                autoComplete="email"
                 placeholder={t('admin.settings.adminUsers.email')}
                 value={createEmail}
                 onChange={(e) => setCreateEmail(e.target.value)}
@@ -486,8 +488,10 @@ export default function AdminSettingsPage() {
               />
             </div>
             <div className="space-y-1">
-              <Label>{t('admin.settings.adminUsers.name')}</Label>
+              <Label htmlFor="admin-settings-create-name">{t('admin.settings.adminUsers.name')}</Label>
               <Input
+                id="admin-settings-create-name"
+                autoComplete="name"
                 placeholder={t('admin.settings.adminUsers.name')}
                 value={createName}
                 onChange={(e) => setCreateName(e.target.value)}
@@ -495,9 +499,11 @@ export default function AdminSettingsPage() {
               />
             </div>
             <div className="space-y-1">
-              <Label>{t('admin.settings.adminUsers.password')}</Label>
+              <Label htmlFor="admin-settings-create-password">{t('admin.settings.adminUsers.password')}</Label>
               <Input
+                id="admin-settings-create-password"
                 type="password"
+                autoComplete="new-password"
                 placeholder={t('admin.settings.adminUsers.password')}
                 value={createPassword}
                 onChange={(e) => setCreatePassword(e.target.value)}
@@ -511,7 +517,7 @@ export default function AdminSettingsPage() {
                 value={createRoleKey}
                 onValueChange={(v: string) => setCreateRoleKey(v as typeof createRoleKey)}
               >
-                <SelectTrigger className="w-[140px]">
+                <SelectTrigger className="w-[140px]" aria-label={t('admin.settings.adminUsers.role')}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -557,7 +563,15 @@ export default function AdminSettingsPage() {
                       <div className="flex items-center gap-2">
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
-                            <button type="button" className="inline-flex items-center">
+                            <button
+                              type="button"
+                              className="inline-flex items-center"
+                              aria-label={
+                                row.is_active
+                                  ? t('admin.settings.adminUsers.confirmDeactivate')
+                                  : t('admin.settings.adminUsers.confirmActivate')
+                              }
+                            >
                               <Switch
                                 checked={row.is_active}
                                 disabled={pendingAdminActionKey === `${row.id}:toggle`}
@@ -683,8 +697,10 @@ export default function AdminSettingsPage() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>{t('admin.settings.adminUsers.nameLabel')}</Label>
+              <Label htmlFor="admin-settings-edit-name">{t('admin.settings.adminUsers.nameLabel')}</Label>
               <Input
+                id="admin-settings-edit-name"
+                autoComplete="name"
                 value={editFormName}
                 onChange={(e) => setEditFormName(e.target.value)}
               />
@@ -695,7 +711,7 @@ export default function AdminSettingsPage() {
                 value={editFormRoleKey}
                 onValueChange={(v: string) => setEditFormRoleKey(v as typeof editFormRoleKey)}
               >
-                <SelectTrigger>
+                <SelectTrigger aria-label={t('admin.settings.adminUsers.roleLabel')}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -714,9 +730,11 @@ export default function AdminSettingsPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>{t('admin.settings.adminUsers.resetPasswordLabel')}</Label>
+              <Label htmlFor="admin-settings-edit-password">{t('admin.settings.adminUsers.resetPasswordLabel')}</Label>
               <Input
+                id="admin-settings-edit-password"
                 type="password"
+                autoComplete="new-password"
                 value={editFormPassword}
                 onChange={(e) => setEditFormPassword(e.target.value)}
               />

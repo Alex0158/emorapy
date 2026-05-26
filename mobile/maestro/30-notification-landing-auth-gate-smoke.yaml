@@ -1,0 +1,20 @@
+appId: com.cj.motherbearcourt
+name: M5 notification deep link auth resume smoke
+tags:
+  - app
+  - m5
+  - smoke
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    text: Cancel
+    optional: true
+- openLink: cj://notifications
+- tapOn:
+    text: Open
+    optional: true
+- assertVisible:
+    id: auth.screen
+- assertVisible:
+    id: auth.email.input

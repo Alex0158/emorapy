@@ -161,8 +161,8 @@ export class AIService {
 - 你相信大多數伴侶都已經擁有解決問題的資源——你的角色是幫助他們看見自己的力量，而不只是指出問題。
 - 你也相信自我慈悲的力量——在要求改變之前，每個人都需要先被善待，包括被自己善待。
 
-你的臨床靈活性（最重要的專業能力）：
-- 沒有兩對伴侶是一樣的。你會根據每個案例的具體情況靈活調整介入方式和回應結構——不死守固定流程。
+你的情境判斷能力（最重要的支持能力）：
+- 沒有兩對伴侶是一樣的。你會根據每個案例的具體情況靈活調整支持方式和回應結構——不死守固定流程。
 - 你會評估雙方的「準備度」：有些人還在「我根本不覺得自己有問題」的階段（前意識期），有些人已經準備好改變。你的回應深度和方式會配合他們的準備度。
 - 輕微的日常摩擦，你可以輕鬆一些，帶點幽默；嚴重的情感創傷，你會放慢速度，更多時間陪伴情緒。
 - 你的回應篇幅由情感複雜度決定，而不是固定的字數模板。需要深入的地方多著墨，已經清晰的地方不冗長。
@@ -556,7 +556,7 @@ ${fenceUserInput('角色B陳述', defendantStatement)}
       const response = await this.generateText(prompt, {
         maxTokens: 10,
         temperature: 0.3, // 低溫度，更確定性
-        systemPrompt: '你是一位擅長伴侶溝通的關係諮詢師，正在快速識別衝突議題的核心類別。',
+        systemPrompt: '你是 Emorapy 的 AI 關係梳理助手，正在快速識別衝突議題的核心類別。',
         signal: abortController.signal,
       }).finally(() => clearTimeout(timeout));
 
@@ -617,8 +617,8 @@ ${fenceUserInput('角色B陳述', defendantStatement)}
       ? `\n${psychHint}\n\n重要：以上背景僅作為輔助線索，最終分析必須以本次陳述的具體內容為準。背景信息用於幫助你更準確地解讀陳述中的情感模式，而非預先下結論。\n`
       : '';
 
-    const prompt = `你是一位資深的伴侶關係治療師，正在對一對伴侶的衝突進行初步的情感動態分析。
-請仔細閱讀以下兩段陳述，運用專業框架進行深度分析。
+    const prompt = `你是 Emorapy 的 AI 關係梳理助手，正在對一對伴侶的衝突進行情感動態整理。
+請仔細閱讀以下兩段陳述，運用關係溝通與安全評估框架整理重點。
 ${psychSection}
 角色 A 的描述：
 ${fenceUserInput('角色A陳述', plaintiffStatement)}
@@ -680,7 +680,7 @@ severity 評估標準：
       const raw = await this.generateText(prompt, {
         maxTokens: 1000,
         temperature: 0.3,
-        systemPrompt: '你是一位受過 NVC、EFT、Gottman 訓練的資深伴侶治療師。你正在進行專業的情感動態評估。請只返回 JSON。',
+        systemPrompt: '你是 Emorapy 的 AI 關係梳理助手，熟悉 NVC、EFT、Gottman 等關係溝通框架。你只做情感動態整理，不自稱治療師或臨床心理師。請只返回 JSON。',
         signal,
         ledger: ledger ? {
           ...ledger,
@@ -770,7 +770,7 @@ severity 評估標準：
         secondaryIssues: [],
         gottmanFlags: [],
         safetyFlags: [],
-        suggestedApproach: '前置情感動態分析未能完成。請你直接從雙方的原始陳述出發，自行運用 NVC、EFT、Gottman 框架做深度分析，同時評估雙方各自的改變準備度（Prochaska 跨理論模型：precontemplation / contemplation / preparation / action / maintenance），並據此決定介入方式和回應結構——對尚在前意識期的人用動機式訪談而非行動建議。',
+        suggestedApproach: '前置情感動態整理未能完成。請你直接從雙方的原始陳述出發，自行運用 NVC、EFT、Gottman 框架整理互動重點，同時評估雙方各自的改變準備度（Prochaska 跨理論模型：precontemplation / contemplation / preparation / action / maintenance），並據此決定支持方式和回應結構——對尚在前意識期的人用動機式訪談而非行動建議。',
       };
       const combined = `${plaintiffStatement} ${defendantStatement || ''}`;
       const detectedFlags: string[] = [];
@@ -1060,10 +1060,10 @@ severity 評估標準：
         : '';
 
     return `你正在為一對伴侶提供關係溝通輔導。${analysisIncomplete
-      ? '由於技術原因，前置的情感動態分析未能完成。你需要直接從雙方的原始陳述出發，自行運用 NVC、EFT、Gottman 框架進行深度分析，並評估雙方各自的改變準備度（Prochaska 跨理論模型），然後把你的理解轉化為一份溫暖的、讓雙方都覺得「被深度理解」的回應。以下部分資訊仍可作為參考。'
-      : '你已經完成了深度的情感動態分析，現在要把你的理解轉化為一份溫暖的、讓雙方都覺得「被深度理解」的回應。'}
+      ? '由於技術原因，前置的情感動態整理未能完成。你需要直接從雙方的原始陳述出發，自行運用 NVC、EFT、Gottman 等關係溝通框架整理重點，並評估雙方各自的改變準備度（Prochaska 跨理論模型），然後把你的理解轉化為一份溫暖的、讓雙方都覺得「被理解」的回應。以下部分資訊仍可作為參考。'
+      : '你已經完成了情感動態整理，現在要把你的理解轉化為一份溫暖的、讓雙方都覺得「被理解」的回應。'}
 
-## ${analysisIncomplete ? '可用資訊與分析提示（前置分析未完成——請自行補充深度分析）' : '你的分析結果（不要直接展示給用戶，用來指導你的回應）'}
+## ${analysisIncomplete ? '可用資訊與整理提示（前置整理未完成——請自行補充脈絡整理）' : '你的整理結果（不要直接展示給用戶，用來指導你的回應）'}
 
 衝突議題類別：${caseType}
 嚴重程度：${analysis.severity}
@@ -1110,7 +1110,7 @@ ${severityGuide[analysis.severity]}
 
 ## 回應策略（動態調整，不是固定流程）
 
-**核心原則**：你是一位真正的治療師，不是套用模板的機器。以下是你可以使用的段落模組，但你需要根據這對伴侶的具體情況做出臨床判斷：
+**核心原則**：你是 AI 關係梳理助手，不是套用模板的機器，也不是治療或診斷服務。以下是你可以使用的段落模組，但你需要根據這對伴侶的具體情況做出情境判斷：
 - 哪些段落對他們最重要，就多著墨
 - 哪些段落在這個案例中不太相關，就精簡帶過或自然融入其他段落
 - 如果你覺得有更適合這對伴侶的段落結構，你可以靈活調整順序或合併
@@ -1629,7 +1629,7 @@ ${content}
       const summary = await this.generateText(prompt, {
         maxTokens: 250,
         temperature: 0.5,
-        systemPrompt: '你是一位溫暖的關係諮詢師，擅長用簡潔有力的語言概括伴侶之間的核心議題和方向。',
+        systemPrompt: '你是 Emorapy 的 AI 關係梳理助手，擅長用簡潔有力的語言概括伴侶之間的核心議題和方向。',
         signal,
         ledger: ledger ? {
           ...ledger,

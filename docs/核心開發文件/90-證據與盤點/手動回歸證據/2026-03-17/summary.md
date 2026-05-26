@@ -26,4 +26,3 @@
 - P03: `./P03/record.md`
 - P04: `./P04/record.md`
 - P05: `./P05/record.md`
-

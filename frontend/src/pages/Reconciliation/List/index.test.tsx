@@ -7,8 +7,6 @@ const mockGetPlans = vi.fn();
 const mockGeneratePlans = vi.fn();
 const mockSelectPlan = vi.fn();
 const mockNavigate = vi.fn();
-const mockMessageError = vi.fn();
-const mockMessageSuccess = vi.fn();
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
@@ -30,19 +28,6 @@ vi.mock('@/components/common/AnimatedWrapper', () => ({
   default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 vi.mock('@/components/business/MediatorAvatar', () => ({ default: () => <div data-testid="mediator-avatar" /> }));
-vi.mock('antd', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('antd')>();
-  return {
-    ...actual,
-    message: {
-      error: (...args: unknown[]) => mockMessageError(...args),
-      success: (...args: unknown[]) => mockMessageSuccess(...args),
-      info: vi.fn(),
-      warning: vi.fn(),
-    },
-  };
-});
-
 import ReconciliationList from './index';
 
 const basePlanContent = {
@@ -110,8 +95,6 @@ describe('ReconciliationList', () => {
     mockGeneratePlans.mockReset();
     mockSelectPlan.mockReset();
     mockNavigate.mockReset();
-    mockMessageError.mockReset();
-    mockMessageSuccess.mockReset();
   });
 
   it('按 query intent 載入旅程頁並顯示主推薦與備選', async () => {

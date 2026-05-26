@@ -59,7 +59,7 @@ function buildSummaryPrompt(
   turnCount: number,
   richnessDescription: string
 ): string {
-  return `你是一位溫暖而專業的關係諮詢師。請用 2～3 句話寫出這次對話的溫暖摘要。
+  return `你是 Emorapy 的 AI 關係梳理助手。請用 2～3 句話寫出這次對話的溫暖摘要。
 
 對話情況：
 - 探索了以下面向：${domainsExplored.join('、') || '一般對話'}
@@ -106,7 +106,7 @@ export async function generatePipelineFeedbackCard({
       model: ANALYSIS_AI_CONFIG.model,
       maxTokens: 300,
       temperature: 0.7,
-      systemPrompt: '你是一位溫暖的關係諮詢師，善於給予簡潔而有力的鼓勵回饋。',
+      systemPrompt: '你是 Emorapy 的 AI 關係梳理助手，善於給予簡潔而有力的鼓勵回饋。',
     });
     const card: FeedbackCard = {
       summary: summary.trim(),

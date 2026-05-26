@@ -23,6 +23,7 @@ describe('RegisterPromptSection', () => {
     expect(screen.getByText('register.prompt.desc')).toBeInTheDocument();
     expect(screen.getByText('register.action.now')).toBeInTheDocument();
     expect(screen.getByText('register.action.later')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'common.dismiss' })).toBeInTheDocument();
   });
 
   it('點擊註冊按鈕應呼叫 onRegister', () => {
@@ -39,7 +40,7 @@ describe('RegisterPromptSection', () => {
     render(
       <RegisterPromptSection show={true} onRegister={vi.fn()} onClose={onClose} />
     );
-    fireEvent.click(screen.getByText('register.action.later'));
+    fireEvent.click(screen.getByRole('button', { name: 'common.dismiss' }));
     expect(onClose).toHaveBeenCalledOnce();
   });
 });

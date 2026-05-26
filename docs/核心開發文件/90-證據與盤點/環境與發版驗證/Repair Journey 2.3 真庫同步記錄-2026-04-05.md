@@ -9,10 +9,10 @@
 **最後核驗日期**：`2026-04-18`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**文檔版本**：v1.0  
-**最後更新**：2026-04-05  
-**對應發佈**：v1.3.4  
-**操作範圍**：`backend/.env` 當前指向 PostgreSQL 資料庫  
+**文檔版本**：v1.0
+**最後更新**：2026-04-05
+**對應發佈**：v1.3.4
+**操作範圍**：`backend/.env` 當前指向 PostgreSQL 資料庫
 
 ---
 
@@ -107,5 +107,5 @@ npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/
 
 ## 建議後續流程
 
-1. 若要同步 staging / production，沿用同一套 `baseline -> diff -> apply -> diff=0` 流程。  
-2. 若未來要把 `supabase/migrations`、`db push` 與 Prisma migration 歷史完全正規化，需另開專項，不在本次收口範圍。  
+1. 若要同步 staging / production，沿用同一套 `baseline -> diff -> apply -> diff=0` 流程。
+2. 若未來要把 `supabase/migrations`、`db push` 與 Prisma migration 歷史完全正規化，需另開專項，不在本次收口範圍。

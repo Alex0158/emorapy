@@ -23,6 +23,7 @@ const mockReportOverview = jest.fn();
 const mockReportFunnel = jest.fn();
 const mockReportCosts = jest.fn();
 const mockReportAIStreams = jest.fn();
+const mockReportAppTelemetry = jest.fn();
 const mockListAIStreamSessions = jest.fn();
 const mockGetAIStreamDetail = jest.fn();
 const mockExportOverviewCsv = jest.fn();
@@ -31,6 +32,8 @@ const mockListNotifications = jest.fn();
 const mockCancelNotification = jest.fn();
 const mockBulkCancelNotifications = jest.fn();
 const mockRetryNotification = jest.fn();
+const mockListProductStateRecoveryTasks = jest.fn();
+const mockUpdateProductStateRecoveryTaskStatus = jest.fn();
 const mockUpsertAlertRules = jest.fn();
 const mockSetFeatureFlags = jest.fn();
 const mockGetInterviewRuntimeConfig = jest.fn();
@@ -59,6 +62,7 @@ jest.mock('../../../src/controllers/admin.controller', () => ({
     reportFunnel: (req: unknown, res: unknown, next: unknown) => mockReportFunnel(req, res, next),
     reportCosts: (req: unknown, res: unknown, next: unknown) => mockReportCosts(req, res, next),
     reportAIStreams: (req: unknown, res: unknown, next: unknown) => mockReportAIStreams(req, res, next),
+    reportAppTelemetry: (req: unknown, res: unknown, next: unknown) => mockReportAppTelemetry(req, res, next),
     listAIStreamSessions: (req: unknown, res: unknown, next: unknown) => mockListAIStreamSessions(req, res, next),
     getAIStreamDetail: (req: unknown, res: unknown, next: unknown) => mockGetAIStreamDetail(req, res, next),
     exportOverviewCsv: (req: unknown, res: unknown, next: unknown) => mockExportOverviewCsv(req, res, next),
@@ -67,6 +71,8 @@ jest.mock('../../../src/controllers/admin.controller', () => ({
     cancelNotification: (req: unknown, res: unknown, next: unknown) => mockCancelNotification(req, res, next),
     bulkCancelNotifications: (req: unknown, res: unknown, next: unknown) => mockBulkCancelNotifications(req, res, next),
     retryNotification: (req: unknown, res: unknown, next: unknown) => mockRetryNotification(req, res, next),
+    listProductStateRecoveryTasks: (req: unknown, res: unknown, next: unknown) => mockListProductStateRecoveryTasks(req, res, next),
+    updateProductStateRecoveryTaskStatus: (req: unknown, res: unknown, next: unknown) => mockUpdateProductStateRecoveryTaskStatus(req, res, next),
     upsertAlertRules: (req: unknown, res: unknown, next: unknown) => mockUpsertAlertRules(req, res, next),
     setFeatureFlags: (req: unknown, res: unknown, next: unknown) => mockSetFeatureFlags(req, res, next),
     getInterviewRuntimeConfig: (req: unknown, res: unknown, next: unknown) => mockGetInterviewRuntimeConfig(req, res, next),
@@ -131,6 +137,7 @@ describe('admin.routes', () => {
     mockReportFunnel.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true, data: {} }));
     mockReportCosts.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true, data: {} }));
     mockReportAIStreams.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true, data: {} }));
+    mockReportAppTelemetry.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true, data: {} }));
     mockListAIStreamSessions.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true, data: { items: [], total: 0 } }));
     mockGetAIStreamDetail.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true, data: { session: null, events: [] } }));
     mockExportOverviewCsv.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true }));
@@ -139,6 +146,8 @@ describe('admin.routes', () => {
     mockCancelNotification.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true, data: { notification: {} } }));
     mockBulkCancelNotifications.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true, data: { cancelledCount: 0 } }));
     mockRetryNotification.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true, data: { notification: {} } }));
+    mockListProductStateRecoveryTasks.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true, data: { items: [], total: 0 } }));
+    mockUpdateProductStateRecoveryTaskStatus.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true, data: { item: {} } }));
     mockUpsertAlertRules.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true, data: { item: {} } }));
     mockSetFeatureFlags.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true, data: { item: {} } }));
     mockGetInterviewRuntimeConfig.mockImplementation((_req: unknown, res: unknown) => sendJson(res, { success: true, data: { runtime: {} } }));
@@ -278,6 +287,13 @@ describe('admin.routes', () => {
     const res = await request(app).get('/reports/ai-streams');
     expect(res.status).toBe(200);
     expect(mockReportAIStreams).toHaveBeenCalled();
+  });
+
+  it('GET /reports/app-telemetry 應調用 reportAppTelemetry', async () => {
+    const app = createApp();
+    const res = await request(app).get('/reports/app-telemetry?days=14&limit=10&severity=error&platform=ios');
+    expect(res.status).toBe(200);
+    expect(mockReportAppTelemetry).toHaveBeenCalled();
   });
 
   it('GET /reports/ai-streams/sessions 應調用 listAIStreamSessions', async () => {
@@ -732,6 +748,16 @@ describe('admin.routes', () => {
       const res = await request(app).get('/reports/ai-streams');
       expect(res.status).toBe(500);
       expect(res.body).toMatchObject({ success: false, error: 'ai streams failed' });
+    });
+
+    it('reportAppTelemetry 調用 next(error) 時應返回 500', async () => {
+      mockReportAppTelemetry.mockImplementationOnce((_req: unknown, _res: unknown, next: unknown) => {
+        (next as (err: Error) => void)(new Error('app telemetry failed'));
+      });
+      const app = createApp();
+      const res = await request(app).get('/reports/app-telemetry');
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, error: 'app telemetry failed' });
     });
 
     it('exportOverviewCsv 調用 next(error) 時應返回 500', async () => {

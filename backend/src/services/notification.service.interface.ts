@@ -26,4 +26,8 @@ export interface INotificationService {
   getPending(limit?: number): Promise<unknown[]>;
 
   isNotificationEnabled(userId: string): Promise<boolean>;
+
+  dispatchPendingPushNotifications(limit?: number): Promise<unknown>;
+
+  pollPushNotificationReceipts(limit?: number): Promise<unknown>;
 }

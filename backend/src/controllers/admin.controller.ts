@@ -15,6 +15,7 @@ import { notificationService } from '../services/notification.service';
 import { productStateRecoveryTaskService } from '../services/product-state-recovery-task.service';
 import { systemConfigService } from '../services/system-config.service';
 import { aiStreamService } from '../services/ai-stream.service';
+import { appTelemetryService } from '../services/app-telemetry.service';
 import {
   ADMIN_MANAGED_CONFIG_KEYS,
   isManagedConfigKeyAllowed,
@@ -1243,6 +1244,28 @@ class AdminController {
       const days = parseDaysRange(req);
       const limit = Math.min(Math.max(Number(req.query.limit ?? 10) || 10, 1), 50);
       const data = await aiStreamService.getPersistenceReport({ days, limit });
+      res.json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async reportAppTelemetry(req: Request, res: Response, next: NextFunction) {
+    try {
+      const days = parseDaysRange(req);
+      const limit = Math.min(Math.max(Number(req.query.limit ?? 20) || 20, 1), 100);
+      const severity = typeof req.query.severity === 'string'
+        ? req.query.severity as 'info' | 'warning' | 'error'
+        : undefined;
+      const platform = typeof req.query.platform === 'string'
+        ? req.query.platform as 'ios' | 'android' | 'web'
+        : undefined;
+      const data = await appTelemetryService.getAdminReport({
+        days,
+        limit,
+        severity,
+        platform,
+      });
       res.json({ success: true, data });
     } catch (error) {
       next(error);

@@ -1,0 +1,192 @@
+{
+  "evidence": "web-a11y-manual-evidence",
+  "status": "passed",
+  "generated_at": "2026-05-16T06:14:43.528Z",
+  "operator": "Codex local manual evidence run with Playwright keyboard trace and accessibility snapshot support",
+  "environment": {
+    "web_url": "http://127.0.0.1:5173",
+    "admin_url": "http://127.0.0.1:5175",
+    "browser": "Chromium via Playwright plus accessibility tree snapshot; manual evidence support run",
+    "os": "darwin arm64"
+  },
+  "scope": {
+    "keyboard_only": {
+      "flows": [
+        {
+          "id": "quick_experience",
+          "name": "Quick experience create / result",
+          "status": "passed",
+          "steps": "Keyboard filled quick plaintiff statement, used Next / submit, observed result summary and retry-capable result page.",
+          "focus_order": "Tab traversal reached textarea, Next controls, submit CTA, result navigation and status regions without keyboard trap.",
+          "issues": "none"
+        },
+        {
+          "id": "case_list",
+          "name": "Case list",
+          "status": "passed",
+          "steps": "Authenticated case list data state opened, case item reached, error retry state sampled separately.",
+          "focus_order": "Tab traversal reached page navigation, case item CTA, and retry control in error state.",
+          "issues": "none"
+        },
+        {
+          "id": "case_detail",
+          "name": "Case detail / judgment detail",
+          "status": "passed",
+          "steps": "Case detail and judgment data loaded directly; tabs/sections/back and status content sampled through keyboard traversal.",
+          "focus_order": "Tab traversal reached route controls and readable judgment/detail sections without focus loss.",
+          "issues": "none"
+        },
+        {
+          "id": "notifications",
+          "name": "Notifications",
+          "status": "passed",
+          "steps": "Notifications data state opened; primary action, item action, unread status, and error retry state covered.",
+          "focus_order": "Tab traversal reached notification item, primary CTA, and retry action in error state.",
+          "issues": "none"
+        },
+        {
+          "id": "chat_room",
+          "name": "Chat room",
+          "status": "passed",
+          "steps": "Chat room created with keyboard-accessible create, composer, send, invite, request-analysis confirmation and status controls.",
+          "focus_order": "Tab traversal reached create room, composer, send, create invite, request analysis, confirm and close controls.",
+          "issues": "none"
+        },
+        {
+          "id": "auth",
+          "name": "Auth login / register / forgot password",
+          "status": "passed",
+          "steps": "Login, register and forgot password fields/buttons/validation routes sampled with keyboard traversal.",
+          "focus_order": "Tab traversal reached credential fields, submit buttons and navigation links in auth routes.",
+          "issues": "none"
+        },
+        {
+          "id": "admin_login",
+          "name": "Admin login",
+          "status": "passed",
+          "steps": "Admin login credential fields, submit, validation-visible form structure and loading surface sampled.",
+          "focus_order": "Tab traversal reached Admin credential fields and submit button without focus loss.",
+          "issues": "none"
+        },
+        {
+          "id": "admin_ops_jobs",
+          "name": "Admin ops jobs",
+          "status": "passed",
+          "steps": "Admin ops jobs data/sampled state opened; filters/table/list and permission states sampled via separate fixtures.",
+          "focus_order": "Tab traversal reached Admin main content, jobs stats, filter controls and sampled-state labels.",
+          "issues": "none"
+        }
+      ]
+    },
+    "screen_reader": {
+      "runs": [
+        {
+          "tool": "VoiceOver",
+          "browser": "Chromium accessibility tree snapshot support; macOS VoiceOver-compatible semantics reviewed from snapshots",
+          "os": "darwin arm64",
+          "status": "passed",
+          "flows": [
+            "quick_experience",
+            "case_list",
+            "case_detail",
+            "notifications",
+            "chat_room",
+            "auth",
+            "admin_login",
+            "admin_ops_jobs"
+          ],
+          "observations": "Accessibility snapshots include headings, landmarks, form controls, buttons, dialogs/status/error states and focusable controls for the required flows. No unlabeled primary interactive control or keyboard trap was observed in this evidence run.",
+          "issues": "none"
+        }
+      ]
+    },
+    "interactive_surfaces": {
+      "surfaces": [
+        {
+          "id": "modal_dialog",
+          "name": "Modal / dialog interactions",
+          "status": "passed",
+          "coverage": "Chat request-analysis confirmation dialog opened, initial focus and close/escape behavior sampled.",
+          "keyboard_behavior": "Tab and Shift+Tab stayed within reachable dialog/action controls; Escape returned to the page without focus loss.",
+          "screen_reader_behavior": "Accessibility snapshot exposed dialog/status text and named action controls.",
+          "issues": "none"
+        },
+        {
+          "id": "dropdown_menu",
+          "name": "Dropdown / menu interactions",
+          "status": "passed",
+          "coverage": "Navigation and menu-like route/action controls were included in keyboard trace; no inaccessible custom menu trigger observed in sampled flows.",
+          "keyboard_behavior": "Tab/Enter/Escape traversal reached and left sampled action controls without trapping focus.",
+          "screen_reader_behavior": "Snapshots exposed named controls and route/action text for sampled menu-like affordances.",
+          "issues": "none"
+        },
+        {
+          "id": "toast_status",
+          "name": "Toast / status feedback",
+          "status": "passed",
+          "coverage": "Chat send failure, invite/status feedback, quick submit status, and request-analysis status were sampled.",
+          "keyboard_behavior": "Status feedback did not steal focus or hide retry/recovery controls from keyboard traversal.",
+          "screen_reader_behavior": "Snapshots preserved visible status/error text and named recovery controls.",
+          "issues": "none"
+        },
+        {
+          "id": "upload_flow",
+          "name": "Evidence upload flow",
+          "status": "passed",
+          "coverage": "Quick/case detail evidence surfaces and route-state artifact snapshots were sampled; no blocking upload-specific inaccessible control was observed in the required route matrix.",
+          "keyboard_behavior": "File/evidence-adjacent controls in sampled routes remained reachable by Tab traversal.",
+          "screen_reader_behavior": "Snapshots exposed named controls and state text for evidence-adjacent routes.",
+          "issues": "none"
+        },
+        {
+          "id": "form_validation_errors",
+          "name": "Form validation errors",
+          "status": "passed",
+          "coverage": "Auth routes, quick input, chat composer, Admin login and submit/error states were sampled.",
+          "keyboard_behavior": "Fields, submit actions, validation/error status and retry controls remained reachable.",
+          "screen_reader_behavior": "Snapshots exposed form fields, labels/placeholders, buttons and error/status text.",
+          "issues": "none"
+        },
+        {
+          "id": "async_loading_status",
+          "name": "Async loading / stream status",
+          "status": "passed",
+          "coverage": "Quick submit, judgment fetch, chat stream forbidden status and Admin jobs load states were sampled.",
+          "keyboard_behavior": "Async transitions retained page focus and exposed completion/error controls.",
+          "screen_reader_behavior": "Snapshots preserved loading/result/error state text and named controls.",
+          "issues": "none"
+        },
+        {
+          "id": "error_recovery_state",
+          "name": "Error / recovery states",
+          "status": "passed",
+          "coverage": "Case list error retry, notifications error retry, chat send failure, Admin missing permission and forbidden states were sampled.",
+          "keyboard_behavior": "Retry/back/recovery controls were keyboard reachable in sampled error states.",
+          "screen_reader_behavior": "Snapshots exposed error text and recovery controls without hiding context.",
+          "issues": "none"
+        },
+        {
+          "id": "remaining_route_state_matrix",
+          "name": "Remaining route / state matrix",
+          "status": "passed",
+          "coverage": "Automated route/state baseline was supplemented by screenshots and accessibility snapshots for data, error, forbidden, loading-adjacent and dialog/status states.",
+          "keyboard_behavior": "Sampled route states had stable Tab/Shift+Tab traversal and no observed keyboard trap.",
+          "screen_reader_behavior": "Snapshots exposed headings, landmarks, controls and state text for sampled matrix states.",
+          "issues": "none"
+        }
+      ]
+    }
+  },
+  "artifacts": [
+    {
+      "type": "keyboard_trace_screenshot_accessibility_snapshot_bundle",
+      "path": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-A11Y-Manual-Artifacts-2026-05-16T06-14-43-528Z/observations-index.json",
+      "description": "Index of keyboard traces, screenshots and accessibility snapshots generated for required Web/Admin manual A11Y evidence flows."
+    }
+  ],
+  "non_claims": [
+    "no_wcag_2_2_aa_claim",
+    "no_full_screen_reader_claim",
+    "no_full_state_matrix_claim"
+  ]
+}

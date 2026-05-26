@@ -11,6 +11,7 @@ import {
   joinRepoPath,
   joinRepoRelativePath,
 } from './lib/docs-paths.mjs';
+import { classifyCoreDoc } from './lib/core-docs-audit.mjs';
 
 const repoRoot = path.resolve(new URL('.', import.meta.url).pathname, '..');
 const docsRoot = path.join(repoRoot, 'docs');
@@ -22,8 +23,51 @@ const ALLOWED_MARKDOWN_PREFIXES = ALLOWED_MARKDOWN_SEGMENT_GROUPS.map((segments)
   `${joinRepoRelativePath(segments)}/`
 );
 const IGNORED_SCAN_DIRS = new Set(['.git', 'node_modules', 'dist', 'build', 'coverage']);
+const IGNORED_SCAN_RELATIVE_DIRS = new Set(['mobile/ios', 'mobile/android']);
 const FENCED_CODE_BLOCK_RE = /```[\s\S]*?```/g;
 const MARKDOWN_LINK_RE = /!?\[[^\]]*]\(([^)\n]+)\)/g;
+const STALE_APP_STATUS_RULES = [
+  {
+    name: 'app-template-only',
+    pattern: /App\s*(?:目前|當前)?(?:只有|仍是)\s*Expo template/i,
+  },
+  {
+    name: 'app-template-types-only',
+    pattern: /Expo template\s*\+\s*types-only/i,
+  },
+  {
+    name: 'app-not-consuming-shared-client',
+    pattern: /App\s*尚未正式消費/,
+  },
+  {
+    name: 'web-covered-app-pending',
+    pattern: /Web\s*已覆蓋；App\s*待承接/,
+  },
+  {
+    name: 'app-ai-runtime-missing',
+    pattern: /App\s*AI runtime\s*尚未建立/i,
+  },
+  {
+    name: 'securestore-adapter-missing',
+    pattern: /SecureStore adapter\s*待建立/i,
+  },
+  {
+    name: 'app-types-only-adapter-skeleton',
+    pattern: /App\s*只有\s*types-only adapter skeleton/i,
+  },
+  {
+    name: 'mobile-platform-still-types-only',
+    pattern: /mobile\/src\/platform`?\s*(?:仍是|只放|只有)[^。\n|]*types-only/i,
+  },
+  {
+    name: 'app-implemented-forbidden',
+    pattern: /所有\s*App\s*首輪業務能力均不得標為/,
+  },
+  {
+    name: 'app-runtime-adapter-not-landed',
+    pattern: /runtime adapter\s*尚未落地/i,
+  },
+];
 
 function compareSet(actual, expected) {
   const missing = [...expected].filter((item) => !actual.has(item)).sort();
@@ -47,6 +91,13 @@ async function collectMarkdownFiles(dir) {
       const entryPath = path.join(current, entry.name);
       if (entry.isDirectory()) {
         if (IGNORED_SCAN_DIRS.has(entry.name)) {
+          continue;
+        }
+        const normalizedRelativePath = path
+          .relative(repoRoot, entryPath)
+          .split(path.sep)
+          .join(path.posix.sep);
+        if (IGNORED_SCAN_RELATIVE_DIRS.has(normalizedRelativePath)) {
           continue;
         }
         stack.push(entryPath);
@@ -227,12 +278,34 @@ async function checkMarkdownRules(issues) {
   }
 }
 
+async function checkStaleAppStatusRules(issues) {
+  const markdownFiles = await collectMarkdownFiles(coreDocsRoot);
+
+  for (const filePath of markdownFiles) {
+    const classification = await classifyCoreDoc(repoRoot, filePath);
+    if (!classification.isCurrentSsot) {
+      continue;
+    }
+
+    const content = stripFencedCodeBlocks(await fs.readFile(filePath, 'utf8'));
+    for (const rule of STALE_APP_STATUS_RULES) {
+      if (rule.pattern.test(content)) {
+        issues.push(
+          `[app-status] stale App initial-state claim (${rule.name}) found in ${classification.relativePath}`
+        );
+      }
+      rule.pattern.lastIndex = 0;
+    }
+  }
+}
+
 async function main() {
   const issues = [];
 
   await checkCoreDocsRoot(issues);
   await checkFormalDomainDocs(issues);
   await checkMarkdownRules(issues);
+  await checkStaleAppStatusRules(issues);
 
   if (issues.length > 0) {
     console.error('[docs-check] failed:');

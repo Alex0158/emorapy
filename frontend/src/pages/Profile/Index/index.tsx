@@ -172,14 +172,14 @@ const ProfileIndex = () => {
 
           {/* Nickname */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">{t('profileIndex.nicknameLabel')}</label>
-            <Input value={nickname} onChange={(e) => setNickname(e.target.value)} placeholder={t('profileIndex.nicknamePlaceholder')} maxLength={20} className="h-11 rounded-xl" />
+            <label htmlFor="profile-nickname" className="text-sm font-medium text-foreground">{t('profileIndex.nicknameLabel')}</label>
+            <Input id="profile-nickname" autoComplete="nickname" value={nickname} onChange={(e) => setNickname(e.target.value)} placeholder={t('profileIndex.nicknamePlaceholder')} maxLength={20} className="h-11 rounded-xl" />
           </div>
 
           {/* Email (readonly) */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">{t('profileIndex.emailLabel')}</label>
-            <Input value={user?.email || ''} disabled className="h-11 rounded-xl bg-muted/50" />
+            <label htmlFor="profile-email" className="text-sm font-medium text-foreground">{t('profileIndex.emailLabel')}</label>
+            <Input id="profile-email" autoComplete="email" value={user?.email || ''} disabled className="h-11 rounded-xl bg-muted/50" />
           </div>
 
           {/* Save */}

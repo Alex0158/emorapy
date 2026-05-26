@@ -3,8 +3,10 @@
  */
 
 import request from '../request';
-import type { ApiResponse } from '@/types/common';
+import { createM4ApiClient } from '@cj/api-client';
 import type { RepairJourneyContext } from '@/types/repairJourney';
+
+const sharedReconciliationApi = createM4ApiClient(request).reconciliation;
 
 export type ReconciliationIntent = 'repair' | 'cool_down' | 'graceful_exit' | 'safety_support';
 export type PlanStylePreference = 'action' | 'conversation' | 'companionship' | 'distance';
@@ -134,31 +136,6 @@ export interface ReconciliationPlanBundle {
   version_summary: VersionSummary;
 }
 
-function toPlanBundle(
-  payload: ApiResponse<ReconciliationPlanBundle> | undefined,
-): ReconciliationPlanBundle {
-  const data = payload?.data;
-  return {
-    plans: Array.isArray(data?.plans) ? data.plans : [],
-    recommended_plan_id: data?.recommended_plan_id ?? null,
-    intent: (data?.intent as ReconciliationIntent | undefined) ?? 'repair',
-    applied_preferences: data?.applied_preferences ?? null,
-    journey_entry: data?.journey_entry ?? {
-      status: 'none',
-      track_id: null,
-      active_plan_id: null,
-      recommended_action: 'generate_bundle',
-      last_pulse: null,
-      has_superseded_versions: false,
-    },
-    version_summary: data?.version_summary ?? {
-      version_group_id: null,
-      has_superseded_versions: false,
-      superseded_versions_count: 0,
-    },
-  };
-}
-
 /**
  * 生成和好方案
  */
@@ -170,11 +147,7 @@ export const generatePlans = async (
     force_regenerate?: boolean;
   },
 ): Promise<ReconciliationPlanBundle> => {
-  const response = await request.post<ApiResponse<ReconciliationPlanBundle>>(
-    `/judgments/${judgmentId}/reconciliation-plans`,
-    input || {},
-  );
-  return toPlanBundle(response.data as ApiResponse<ReconciliationPlanBundle>);
+  return sharedReconciliationApi.generatePlans(judgmentId, input) as Promise<ReconciliationPlanBundle>;
 };
 
 /**
@@ -188,16 +161,7 @@ export const getPlans = async (
     intent?: ReconciliationIntent;
   },
 ): Promise<ReconciliationPlanBundle> => {
-  const params = new URLSearchParams();
-  if (filters?.difficulty) params.append('difficulty', filters.difficulty);
-  if (filters?.type) params.append('type', filters.type);
-  if (filters?.intent) params.append('intent', filters.intent);
-
-  const queryString = params.toString();
-  const url = `/judgments/${judgmentId}/reconciliation-plans${queryString ? `?${queryString}` : ''}`;
-
-  const response = await request.get<ApiResponse<ReconciliationPlanBundle>>(url);
-  return toPlanBundle(response.data as ApiResponse<ReconciliationPlanBundle>);
+  return sharedReconciliationApi.getPlans(judgmentId, filters) as Promise<ReconciliationPlanBundle>;
 };
 
 /**
@@ -212,65 +176,34 @@ export const getPlanById = async (
   cta_state?: PlanCtaState;
   track_history_summary?: TrackHistorySummary;
 }> => {
-  const response = await request.get<ApiResponse<{ plan: ReconciliationPlan & {
+  return sharedReconciliationApi.getPlan(planId) as Promise<ReconciliationPlan & {
     judgment: { case_id: string };
     viewer_role?: 'initiator' | 'invitee' | 'solo';
     invite_context?: PlanInviteContext;
     cta_state?: PlanCtaState;
     track_history_summary?: TrackHistorySummary;
-  } }>>(
-    `/reconciliation-plans/${planId}`,
-  );
-  const result = (response.data as ApiResponse<{ plan: ReconciliationPlan & {
-    judgment: { case_id: string };
-    viewer_role?: 'initiator' | 'invitee' | 'solo';
-    invite_context?: PlanInviteContext;
-    cta_state?: PlanCtaState;
-    track_history_summary?: TrackHistorySummary;
-  } }>)?.data?.plan;
-  if (!result) throw new Error('Invalid plan response from server');
-  return result;
+  }>;
 };
 
 /**
  * 承諾此方案
  */
 export const selectPlan = async (planId: string): Promise<ReconciliationPlan> => {
-  const response = await request.post<ApiResponse<{ plan: ReconciliationPlan }>>(
-    `/reconciliation-plans/${planId}/select`,
-  );
-  const result = (response.data as ApiResponse<{ plan: ReconciliationPlan }>)?.data?.plan;
-  if (!result) throw new Error('Invalid plan response from server');
-  return result;
+  return sharedReconciliationApi.selectPlan(planId) as Promise<ReconciliationPlan>;
 };
 
 export const getCommitment = async (planId: string): Promise<CommitmentSummary> => {
-  const response = await request.get<ApiResponse<{ commitment: CommitmentSummary }>>(
-    `/reconciliation-plans/${planId}/commitment`,
-  );
-  const result = (response.data as ApiResponse<{ commitment: CommitmentSummary }>)?.data?.commitment;
-  if (!result) throw new Error('Invalid commitment response from server');
-  return result;
+  return sharedReconciliationApi.getCommitment(planId) as Promise<CommitmentSummary>;
 };
 
 export const invitePartner = async (
   planId: string,
 ): Promise<{ track_id: string; partner_id: string | null; invited_at: string; status: string }> => {
-  const response = await request.post<ApiResponse<{ invitation: { track_id: string; partner_id: string | null; invited_at: string; status: string } }>>(
-    `/reconciliation-plans/${planId}/invite`,
-  );
-  const result = (response.data as ApiResponse<{ invitation: { track_id: string; partner_id: string | null; invited_at: string; status: string } }>)?.data?.invitation;
-  if (!result) throw new Error('Invalid invite response from server');
-  return result;
+  return sharedReconciliationApi.invitePartner(planId);
 };
 
 export const pausePlan = async (planId: string): Promise<CommitmentSummary> => {
-  const response = await request.post<ApiResponse<{ commitment: CommitmentSummary }>>(
-    `/reconciliation-plans/${planId}/pause`,
-  );
-  const result = (response.data as ApiResponse<{ commitment: CommitmentSummary }>)?.data?.commitment;
-  if (!result) throw new Error('Invalid pause response from server');
-  return result;
+  return sharedReconciliationApi.pausePlan(planId) as Promise<CommitmentSummary>;
 };
 
 export const respondPlan = async (
@@ -278,11 +211,5 @@ export const respondPlan = async (
   action: 'viewed' | 'committed' | 'deferred' | 'declined' | 'paused',
   options?: { reason?: 'need_time' | 'needs_space' | 'unsure' | 'too_much_pressure'; remind_in_hours?: number },
 ): Promise<ReconciliationPlan> => {
-  const response = await request.post<ApiResponse<{ plan: ReconciliationPlan }>>(
-    `/reconciliation-plans/${planId}/respond`,
-    { action, ...options },
-  );
-  const result = (response.data as ApiResponse<{ plan: ReconciliationPlan }>)?.data?.plan;
-  if (!result) throw new Error('Invalid respond response from server');
-  return result;
+  return sharedReconciliationApi.respondPlan(planId, action, options) as Promise<ReconciliationPlan>;
 };

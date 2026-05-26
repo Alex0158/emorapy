@@ -376,6 +376,13 @@ export class AuthService {
     if (!session) {
       return { case_id: null };
     }
+    if (session.expires_at < new Date()) {
+      logger.info('Expired session claim ignored', { userId, sessionId });
+      prisma.quickSession.delete({ where: { id: sessionId } }).catch((error) => {
+        logger.debug('Failed to delete expired session during claim', { sessionId, error });
+      });
+      return { case_id: null };
+    }
 
     const linkedCase = session.case_id
       ? await prisma.case.findUnique({ where: { id: session.case_id } })

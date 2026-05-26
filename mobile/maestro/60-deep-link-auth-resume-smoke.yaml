@@ -1,0 +1,26 @@
+appId: com.cj.motherbearcourt
+name: M5 non-notification deep link auth resume smoke
+tags:
+  - app
+  - m5
+  - smoke
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    text: Cancel
+    optional: true
+- openLink: cj://chat/room?roomId=room-smoke
+- tapOn:
+    text: Open
+    optional: true
+- assertVisible:
+    id: auth.screen
+- assertVisible:
+    id: auth.email.input
+- openLink: cj://quick
+- tapOn:
+    text: Open
+    optional: true
+- assertVisible:
+    id: quick.screen

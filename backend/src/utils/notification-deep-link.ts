@@ -11,6 +11,7 @@ const ALLOWED_NOTIFICATION_DEEP_LINKS = [
   /^\/profile\/(?:index|settings|pairing|my-story)$/,
   new RegExp(`^/interview/${ROUTE_SEGMENT}(?:/result)?$`),
   new RegExp(`^/chat/room(?:/${ROUTE_SEGMENT})?$`),
+  new RegExp(`^/chat/invites?/${ROUTE_SEGMENT}$`),
   /^\/quick-experience\/(?:create|collaborative)$/,
   new RegExp(`^/quick-experience/result/${ROUTE_SEGMENT}$`),
 ];

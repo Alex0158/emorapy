@@ -1,0 +1,94 @@
+{
+  "type": "app-native-maestro-execution",
+  "app_id": "com.cj.motherbearcourt",
+  "generated_at": "2026-05-08T16:03:15.803Z",
+  "started_at": "2026-05-08T15:59:33.473Z",
+  "working_directory": "/Users/alex/Desktop/CJ/mother-bear-court/mobile",
+  "node_version": "v25.8.1",
+  "maestro_command": "maestro",
+  "summary": {
+    "requested_flows": 7,
+    "passed_flows": 7,
+    "failed_flows": 0,
+    "blocked": false
+  },
+  "static_gate": {
+    "status": "passed",
+    "exit_code": 0,
+    "duration_ms": 57,
+    "stdout_tail": "[maestro-check] ok: 7 flow files and 29 selector ids checked for appId com.cj.motherbearcourt\n",
+    "stderr_tail": ""
+  },
+  "native_readiness": {
+    "status": "passed",
+    "exit_code": 0,
+    "duration_ms": 1886,
+    "stdout_tail": "[native-readiness] info:\n- active developer dir: /Applications/Xcode.app/Contents/Developer\n- DEVELOPER_DIR override: /Applications/Xcode.app/Contents/Developer\n- full Xcode found: Xcode 26.4.1, Build version 17E202\n- effective simctl: /Applications/Xcode.app/Contents/Developer/usr/bin/simctl\n- iOS simulator runtimes: iOS 26.4 (26.4.1 - 23E254a) - com.apple.CoreSimulator.SimRuntime.iOS-26-4\n- available iOS simulator devices: iPhone 17 Pro (5D1CC372-3D34-4FC8-8104-2AEF2FD10EAD) (Shutdown) | iPhone 17 Pro Max (4E3AF832-43D5-4F91-A641-CFE7307C6B50) (Shutdown) | iPhone 17e (3887EF99-99B4-476A-A7FB-D7E11DE34549) (Shutdown) (+8 more)\n- maestro: 2.5.1 (maestro)\n- eas: eas-cli/18.4.0 darwin-arm64 node-v25.8.1\n[native-readiness] ok: local native launch and Maestro execution prerequisites are present\n",
+    "stderr_tail": "[native-readiness] warnings:\n- app.json has no UUID-shaped extra.eas.projectId; Expo push token retrieval and EAS Update URL remain setup tasks.\n- EXPO_TOKEN is not set; CI EAS build cannot run non-interactively from this environment.\n- Apple submission credentials are incomplete; ASC_APPLE_ID and EXPO_APPLE_APP_SPECIFIC_PASSWORD must both be present for non-interactive submit.\n"
+  },
+  "flows": [
+    {
+      "flow": "00-public-navigation-smoke.yaml",
+      "status": "passed",
+      "exit_code": 0,
+      "signal": null,
+      "duration_ms": 19072,
+      "stdout_tail": "Running on iPhone 17 - iOS 26.4 - F7A5EB0B-BCAD-4BB1-8F6F-5E43FA848F06\n > Flow M0 public navigation smoke\nLaunch app \"com.cj.motherbearcourt\" with clear state... COMPLETED\nTap on (Optional) \"Cancel\"... WARNED\n\n\n Warning: Element not found: Text matching regex: Cancel\nAssert that id: public.home.screen is visible... COMPLETED\nTap on id: public.home.quick... COMPLETED\nAssert that id: quick.screen is visible... COMPLETED\nTap on id: quick.home... COMPLETED\nAssert that id: public.home.screen is visible... COMPLETED\nTap on id: public.home.auth... COMPLETED\nAssert that id: auth.screen is visible... COMPLETED\nTap on id: auth.home... COMPLETED\nAssert that id: public.home.screen is visible... COMPLETED\n",
+      "stderr_tail": ""
+    },
+    {
+      "flow": "10-quick-auth-form-smoke.yaml",
+      "status": "passed",
+      "exit_code": 0,
+      "signal": null,
+      "duration_ms": 41836,
+      "stdout_tail": "Running on iPhone 17 - iOS 26.4 - F7A5EB0B-BCAD-4BB1-8F6F-5E43FA848F06\n > Flow M1 quick and auth form smoke\nLaunch app \"com.cj.motherbearcourt\" with clear state... COMPLETED\nTap on (Optional) \"Cancel\"... WARNED\n\n\n Warning: Element not found: Text matching regex: Cancel\nAssert that id: public.home.screen is visible... COMPLETED\nTap on id: public.home.quick... COMPLETED\nAssert that id: quick.screen is visible... COMPLETED\nTap on id: quick.plaintiff.input... COMPLETED\nInput text I want to explain what happened today and how I felt.... COMPLETED\nTap on \"輸入區\"... COMPLETED\nScrolling DOWN until id: quick.defendant.input is visible with speed 40, visibility percentage 100%, timeout 10000 ms, with centering disabled... COMPLETED\nTap on id: quick.defendant.input... COMPLETED\nInput text The other person may say they also had pressure and reasons.... COMPLETED\nTap on \"對方可能會說\"... COMPLETED\nScrolling DOWN until id: quick.submit is visible with speed 40, visibility percentage 100%, timeout 10000 ms, with centering disabled... COMPLETED\nAssert that id: quick.submit is visible... COMPLETED\nTap on id: quick.home... COMPLETED\nAssert that id: public.home.screen is visible... COMPLETED\nTap on id: public.home.auth... COMPLETED\nAssert that id: auth.screen is visible... COMPLETED\nTap on id: auth.mode.register... COMPLETED\nAssert that id: auth.nickname.input is visible... COMPLETED\nTap on id: auth.nickname.input... COMPLETED\nInput text Maestro... COMPLETED\nTap on id: auth.email.input... COMPLETED\nInput text maestro@example.com... COMPLETED\nTap on \"Email\"... COMPLETED\nScrolling DOWN until id: auth.password.input is visible with speed 40, visibility percentage 100%, timeout 10000 ms, with centering disabled... COMPLETED\nTap on id: auth.password.input... COMPLETED\nInput text password123... COMPLETED\nTap on \"Password\"... COMPLETED\nScrolling DOWN until id: auth.submit is visible with speed 40, visibility percentage 100%, timeout 10000 ms, with centering disabled... COMPLETED\nAssert that id: auth.submit is visible... COMPLETED\n",
+      "stderr_tail": ""
+    },
+    {
+      "flow": "20-chat-entry-auth-gate-smoke.yaml",
+      "status": "passed",
+      "exit_code": 0,
+      "signal": null,
+      "duration_ms": 32972,
+      "stdout_tail": "Running on iPhone 17 - iOS 26.4 - F7A5EB0B-BCAD-4BB1-8F6F-5E43FA848F06\n > Flow M3 chat entry auth gate smoke\nLaunch app \"com.cj.motherbearcourt\" with clear state... COMPLETED\nTap on (Optional) \"Cancel\"... WARNED\n\n\n Warning: Element not found: Text matching regex: Cancel\nAssert that id: public.home.screen is visible... COMPLETED\nTap on id: public.home.chat... COMPLETED\nAssert that id: chat.home.screen is visible... COMPLETED\nTap on id: chat.home.invite-code.input... COMPLETED\nInput text CHAT01... COMPLETED\nTap on \"先聊再判\"... COMPLETED\nAssert that id: chat.home.accept-invite is visible... COMPLETED\nTap on id: chat.home.open-invite... COMPLETED\nAssert that id: chat.invite.screen is visible... COMPLETED\nAssert that id: chat.invite.code.input is visible... COMPLETED\nTap on id: chat.invite.back... COMPLETED\nAssert that id: chat.home.screen is visible... COMPLETED\nAssert that id: chat.home.create-room is visible... COMPLETED\nScrolling DOWN until id: chat.home.case is visible with speed 40, visibility percentage 100%, timeout 10000 ms, with centering disabled... COMPLETED\nAssert that id: chat.home.profile is visible... COMPLETED\nOpen cj://chat/room?roomId=room-smoke... COMPLETED\nTap on (Optional) \"Open\"... WARNED\n\n\n Warning: Element not found: Text matching regex: Open\nAssert that id: auth.screen is visible... COMPLETED\nAssert that id: auth.email.input is visible... COMPLETED\n",
+      "stderr_tail": ""
+    },
+    {
+      "flow": "30-notification-landing-auth-gate-smoke.yaml",
+      "status": "passed",
+      "exit_code": 0,
+      "signal": null,
+      "duration_ms": 22290,
+      "stdout_tail": "Running on iPhone 17 - iOS 26.4 - F7A5EB0B-BCAD-4BB1-8F6F-5E43FA848F06\n > Flow M5 notification deep link auth resume smoke\nLaunch app \"com.cj.motherbearcourt\" with clear state... COMPLETED\nTap on (Optional) \"Cancel\"... WARNED\n\n\n Warning: Element not found: Text matching regex: Cancel\nOpen cj://notifications... COMPLETED\nTap on (Optional) \"Open\"... WARNED\n\n\n Warning: Element not found: Text matching regex: Open\nAssert that id: auth.screen is visible... COMPLETED\nAssert that id: auth.email.input is visible... COMPLETED\n",
+      "stderr_tail": ""
+    },
+    {
+      "flow": "40-profile-interview-auth-gate-smoke.yaml",
+      "status": "passed",
+      "exit_code": 0,
+      "signal": null,
+      "duration_ms": 39926,
+      "stdout_tail": "Running on iPhone 17 - iOS 26.4 - F7A5EB0B-BCAD-4BB1-8F6F-5E43FA848F06\n > Flow M2 profile deep link auth resume smoke\nLaunch app \"com.cj.motherbearcourt\" with clear state... COMPLETED\nTap on (Optional) \"Cancel\"... WARNED\n\n\n Warning: Element not found: Text matching regex: Cancel\nOpen cj://profile... COMPLETED\nTap on (Optional) \"Open\"... WARNED\n\n\n Warning: Element not found: Text matching regex: Open\nAssert that id: auth.screen is visible... COMPLETED\nAssert that id: auth.email.input is visible... COMPLETED\nOpen cj://profile/interview... COMPLETED\nTap on (Optional) \"Open\"... WARNED\n\n\n Warning: Element not found: Text matching regex: Open\nAssert that id: auth.screen is visible... COMPLETED\nAssert that id: auth.email.input is visible... COMPLETED\nOpen cj://profile/story... COMPLETED\nTap on (Optional) \"Open\"... WARNED\n\n\n Warning: Element not found: Text matching regex: Open\nAssert that id: auth.screen is visible... COMPLETED\nAssert that id: auth.email.input is visible... COMPLETED\n",
+      "stderr_tail": ""
+    },
+    {
+      "flow": "50-case-repair-auth-gate-smoke.yaml",
+      "status": "passed",
+      "exit_code": 0,
+      "signal": null,
+      "duration_ms": 33845,
+      "stdout_tail": "Running on iPhone 17 - iOS 26.4 - F7A5EB0B-BCAD-4BB1-8F6F-5E43FA848F06\n > Flow M4 case repair auth gate smoke\nLaunch app \"com.cj.motherbearcourt\" with clear state... COMPLETED\nTap on (Optional) \"Cancel\"... WARNED\n\n\n Warning: Element not found: Text matching regex: Cancel\nAssert that id: public.home.screen is visible... COMPLETED\nTap on id: public.home.app... COMPLETED\nAssert that id: case.auth-gate.screen is visible... COMPLETED\nTap on id: case.auth-gate.quick... COMPLETED\nAssert that id: quick.screen is visible... COMPLETED\nOpen cj://case... COMPLETED\nTap on (Optional) \"Open\"... WARNED\n\n\n Warning: Element not found: Text matching regex: Open\nAssert that id: auth.screen is visible... COMPLETED\nAssert that id: auth.email.input is visible... COMPLETED\nOpen cj://repair... COMPLETED\nTap on (Optional) \"Open\"... WARNED\n\n\n Warning: Element not found: Text matching regex: Open\nAssert that id: auth.screen is visible... COMPLETED\nAssert that id: auth.email.input is visible... COMPLETED\n",
+      "stderr_tail": ""
+    },
+    {
+      "flow": "60-deep-link-auth-resume-smoke.yaml",
+      "status": "passed",
+      "exit_code": 0,
+      "signal": null,
+      "duration_ms": 30445,
+      "stdout_tail": "Running on iPhone 17 - iOS 26.4 - F7A5EB0B-BCAD-4BB1-8F6F-5E43FA848F06\n > Flow M5 non-notification deep link auth resume smoke\nLaunch app \"com.cj.motherbearcourt\" with clear state... COMPLETED\nTap on (Optional) \"Cancel\"... WARNED\n\n\n Warning: Element not found: Text matching regex: Cancel\nOpen cj://chat/room?roomId=room-smoke... COMPLETED\nTap on (Optional) \"Open\"... WARNED\n\n\n Warning: Element not found: Text matching regex: Open\nAssert that id: auth.screen is visible... COMPLETED\nAssert that id: auth.email.input is visible... COMPLETED\nOpen cj://quick... COMPLETED\nTap on (Optional) \"Open\"... WARNED\n\n\n Warning: Element not found: Text matching regex: Open\nAssert that id: quick.screen is visible... COMPLETED\n",
+      "stderr_tail": ""
+    }
+  ]
+}

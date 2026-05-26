@@ -1,7 +1,7 @@
 /**
  * AuthLayout 組件單元測試
  *
- * 遷移: Ant Design Select → shadcn/Radix Select
+ * 遷移: legacy select → shadcn/Radix Select
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';

@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: cj-backend-dev-postgres
+    ports:
+      - "55432:5432"
+    environment:
+      POSTGRES_USER: cj
+      POSTGRES_PASSWORD: cj_dev_pass
+      POSTGRES_DB: cj_dev
+    volumes:
+      - cj-backend-dev-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cj -d cj_dev"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+volumes:
+  cj-backend-dev-postgres-data:

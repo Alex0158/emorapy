@@ -1,7 +1,7 @@
 /**
  * 協作聽證模式 — 同設備雙人輪流陳述
  *
- * 遷移: Ant Design Typography/Button/Steps/Input/Card/Alert/message → shadcn/ui + Tailwind + sonner
+ * 遷移: legacy typography/button/steps/input/card/alert/message controls → shadcn/ui + Tailwind + sonner
  * 保留: 所有業務邏輯（createCollaborativeCase, session, phase 狀態機）
  * 保留: Framer Motion 動畫（相位轉場、emoji 動畫）
  */
@@ -195,6 +195,8 @@ const CollaborativeCreate = () => {
                   )}
 
                   <textarea
+                    aria-label={t('collaborative.roleATitle')}
+                    autoComplete="off"
                     value={roleAText}
                     onChange={(e) => { if (submitError) setSubmitError(null); setRoleAText(e.target.value); }}
                     placeholder={t('collaborative.placeholder')}
@@ -264,6 +266,8 @@ const CollaborativeCreate = () => {
                   )}
 
                   <textarea
+                    aria-label={t('collaborative.roleBTitle')}
+                    autoComplete="off"
                     value={roleBText}
                     onChange={(e) => { if (submitError) setSubmitError(null); setRoleBText(e.target.value); }}
                     placeholder={t('collaborative.placeholder')}

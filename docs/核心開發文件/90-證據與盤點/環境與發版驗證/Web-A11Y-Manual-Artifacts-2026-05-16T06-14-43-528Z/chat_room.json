@@ -1,0 +1,154 @@
+{
+  "id": "chat_room",
+  "url": "http://127.0.0.1:5173/chat/room/room-a11y-manual",
+  "title": "Emorapy - 關係修復室",
+  "notes": "Chat room composer, invite and request-analysis dialog sampled.",
+  "keyboardTraces": [
+    {
+      "label": "chat-room-entry",
+      "trace": [
+        {
+          "key": "Tab",
+          "active": {
+            "tag": "body",
+            "type": null,
+            "role": null,
+            "ariaLabel": null,
+            "text": "✨Emorapy首頁快速判斷版本繁體中文登錄註冊加載中...© 2026 關係修復室釐清爭點，重建對話，逐步修復關係首頁快速判斷登錄",
+            "placeholder": null,
+            "id": null,
+            "className": "",
+            "visibleBox": {
+              "x": 0,
+              "y": 0,
+              "width": 1440,
+              "height": 1000
+            }
+          }
+        },
+        {
+          "key": "Tab",
+          "active": {
+            "tag": "a",
+            "type": null,
+            "role": null,
+            "ariaLabel": null,
+            "text": "✨Emorapy",
+            "placeholder": null,
+            "id": null,
+            "className": "flex items-center gap-1.5 text-base font-bold tracking-tight text-foreground font-heading",
+            "visibleBox": {
+              "x": 160,
+              "y": 16,
+              "width": 93,
+              "height": 24
+            }
+          }
+        },
+        {
+          "key": "Tab",
+          "active": {
+            "tag": "a",
+            "type": null,
+            "role": null,
+            "ariaLabel": null,
+            "text": "首頁",
+            "placeholder": null,
+            "id": null,
+            "className": "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors text-muted-foreground hover:bg-accent hover:t",
+            "visibleBox": {
+              "x": 533,
+              "y": 12,
+              "width": 74,
+              "height": 32
+            }
+          }
+        }
+      ]
+    },
+    {
+      "label": "chat-room-dialog",
+      "trace": [
+        {
+          "key": "Tab",
+          "active": {
+            "tag": "button",
+            "type": null,
+            "role": null,
+            "ariaLabel": null,
+            "text": "全選",
+            "placeholder": null,
+            "id": null,
+            "className": "inline-flex shrink-0 items-center justify-center text-sm font-medium whitespace-nowrap transition-all outline-none focus",
+            "visibleBox": {
+              "x": 491,
+              "y": 575,
+              "width": 52,
+              "height": 32
+            }
+          }
+        },
+        {
+          "key": "Tab",
+          "active": {
+            "tag": "button",
+            "type": null,
+            "role": null,
+            "ariaLabel": null,
+            "text": "全不選",
+            "placeholder": null,
+            "id": null,
+            "className": "inline-flex shrink-0 items-center justify-center text-sm font-medium whitespace-nowrap transition-all outline-none focus",
+            "visibleBox": {
+              "x": 549,
+              "y": 575,
+              "width": 66,
+              "height": 32
+            }
+          }
+        },
+        {
+          "key": "Shift+Tab",
+          "active": {
+            "tag": "button",
+            "type": null,
+            "role": null,
+            "ariaLabel": null,
+            "text": "全選",
+            "placeholder": null,
+            "id": null,
+            "className": "inline-flex shrink-0 items-center justify-center text-sm font-medium whitespace-nowrap transition-all outline-none focus",
+            "visibleBox": {
+              "x": 489,
+              "y": 575,
+              "width": 52,
+              "height": 32
+            }
+          }
+        },
+        {
+          "key": "Escape",
+          "active": {
+            "tag": "button",
+            "type": null,
+            "role": null,
+            "ariaLabel": null,
+            "text": "全選",
+            "placeholder": null,
+            "id": null,
+            "className": "inline-flex shrink-0 items-center justify-center text-sm font-medium whitespace-nowrap transition-all outline-none focus",
+            "visibleBox": {
+              "x": 498,
+              "y": 573,
+              "width": 50,
+              "height": 31
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "screenshot": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-A11Y-Manual-Artifacts-2026-05-16T06-14-43-528Z/chat_room.png",
+  "accessibilitySnapshot": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-A11Y-Manual-Artifacts-2026-05-16T06-14-43-528Z/chat_room-accessibility.json",
+  "generatedAt": "2026-05-16T06:14:52.114Z"
+}

@@ -257,7 +257,7 @@ test.describe('Interview 恢復與跨頁回流', () => {
 
     await page.goto('/profile/index');
 
-    await expect(page.getByText(/個人資料|Profile/)).toBeVisible();
+    await expect(page.getByRole('heading', { name: /個人資料|Profile/ })).toBeVisible();
     await page.getByRole('button', { name: /繼續聊聊|Continue chatting/ }).click();
 
     await expect(page).toHaveURL(/\/interview\/session-pending-e2e$/);

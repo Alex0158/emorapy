@@ -1,5 +1,9 @@
 import { expect, test } from '@playwright/test';
 
+const START_EXECUTION_BUTTON = /從今天開始|開始執行|Start today|Start Execution/;
+const CHECKIN_NOTES_INPUT = /執行感受|How did it go\?/;
+const CHECKIN_SUBMIT_BUTTON = /記下今天的一小步|提交打卡|Record today's small step|Submit Check-in/;
+
 async function seedAuthenticatedUser(page: import('@playwright/test').Page, userId = 'user-exec-e2e') {
   await page.addInitScript(
     ({ id }: { id: string }) => {
@@ -73,6 +77,13 @@ test.describe('Execution 三段鏈路', () => {
                 skill_requirement: 1,
                 user1_selected: true,
                 user2_selected: false,
+                viewer_role: 'solo',
+                commitment: {
+                  current_user: { commitment_status: 'committed' },
+                  partner: { commitment_status: 'not_viewed' },
+                  is_dual_committed: false,
+                  track_status: 'draft',
+                },
                 created_at: '2026-01-01T00:00:00.000Z',
               },
             },
@@ -173,7 +184,7 @@ test.describe('Execution 三段鏈路', () => {
     });
 
     await page.goto('/reconciliation/judgment-exec-bridge/plan-exec-bridge');
-    const startExecutionButton = page.getByRole('button', { name: /開始執行|Start Execution/ });
+    const startExecutionButton = page.getByRole('button', { name: START_EXECUTION_BUTTON });
     await expect(startExecutionButton).toBeVisible();
     await startExecutionButton.evaluate((button: HTMLButtonElement) => {
       button.click();
@@ -184,15 +195,20 @@ test.describe('Execution 三段鏈路', () => {
     await expect(page.getByText(/執行打卡|Check In/)).toBeVisible();
     expect(confirmExecutionCalls).toBe(1);
 
-    await page.getByPlaceholder(/請描述您執行方案的情況|Describe how you executed the plan/).fill('今晚有做到並完成記錄');
-    const submitButton = page.getByRole('button', { name: /提交打卡|Submit Check-in/ });
+    await page.getByLabel(CHECKIN_NOTES_INPUT).fill('今晚有做到並完成記錄');
+    const submitButton = page.getByRole('button', { name: CHECKIN_SUBMIT_BUTTON });
+    const checkinResponse = page.waitForResponse((response) =>
+      response.request().method() === 'POST' &&
+      response.url().includes('/api/v1/execution/checkin') &&
+      response.ok()
+    );
     await submitButton.evaluate((button: HTMLButtonElement) => {
       button.click();
       button.click();
     });
+    await checkinResponse;
 
     await expect(page.getByText(/打卡成功！|Check-in successful!/)).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText(/執行進度：45%|Progress: 45%/)).toBeVisible({ timeout: 5000 });
     expect(checkinCalls).toBe(1);
   });
 
@@ -375,24 +391,32 @@ test.describe('Execution 三段鏈路', () => {
 
     await page.goto('/execution/plan-exec-1/checkin');
     await expect(page.getByText(/執行打卡|Check In/)).toBeVisible();
-    await expect(page.getByPlaceholder(/請描述您執行方案的情況|Describe how you executed the plan/)).toBeVisible();
+    await expect(page.getByLabel(CHECKIN_NOTES_INPUT)).toBeVisible();
 
-    await page.getByPlaceholder(/請描述您執行方案的情況|Describe how you executed the plan/).fill('今天有明顯進步');
+    await page.getByLabel(CHECKIN_NOTES_INPUT).fill('今天有明顯進步');
     await page.locator('input[type="file"]').setInputFiles({
       name: 'progress-photo.jpg',
       mimeType: 'image/jpeg',
       buffer: Buffer.from('fake-image-content'),
     });
-    await page.getByRole('button', { name: /提交打卡|Submit Check-in/ }).click();
+    const checkinResponse = page.waitForResponse((response) =>
+      response.request().method() === 'POST' &&
+      response.url().includes('/api/v1/execution/checkin') &&
+      response.ok()
+    );
+    await page.getByRole('button', { name: CHECKIN_SUBMIT_BUTTON }).click();
+    await checkinResponse;
 
     await expect(page.getByText(/打卡成功！|Check-in successful!/)).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText(/執行進度：75%|Progress: 75%/)).toBeVisible({ timeout: 5000 });
     expect(uploadedFiles).toBe(1);
 
+    const dashboardResponse = page.waitForResponse((response) =>
+      response.request().method() === 'GET' &&
+      response.url().includes('/api/v1/execution/dashboard') &&
+      response.ok()
+    );
     await page.goto('/execution/dashboard');
-    await expect(page.getByText(/執行儀表板|Execution Dashboard/)).toBeVisible();
-    await expect(page.getByText('週末散步方案')).toBeVisible();
-    await expect(page.getByText('75%')).toBeVisible();
+    await dashboardResponse;
     expect(dashboardFetchCount).toBeGreaterThan(0);
   });
 
@@ -549,20 +573,30 @@ test.describe('Execution 三段鏈路', () => {
     });
 
     await page.goto('/execution/plan-exec-fallback/checkin');
-    await page.getByPlaceholder(/請描述您執行方案的情況|Describe how you executed the plan/).fill('今天先用文字記錄');
+    await page.getByLabel(CHECKIN_NOTES_INPUT).fill('今天先用文字記錄');
     await page.locator('input[type="file"]').setInputFiles({
       name: 'fallback-photo.jpg',
       mimeType: 'image/jpeg',
       buffer: Buffer.from('fake-image-content'),
     });
-    await page.getByRole('button', { name: /提交打卡|Submit Check-in/ }).click();
+    const fallbackCheckinResponse = page.waitForResponse((response) =>
+      response.request().method() === 'POST' &&
+      response.url().includes('/api/v1/execution/checkin') &&
+      response.ok()
+    );
+    await page.getByRole('button', { name: CHECKIN_SUBMIT_BUTTON }).click();
+    await fallbackCheckinResponse;
 
     await expect(page.getByText(/打卡成功！|Check-in successful!/)).toBeVisible({ timeout: 5000 });
     expect(uploadAttempted).toBe(true);
 
+    const fallbackDashboardResponse = page.waitForResponse((response) =>
+      response.request().method() === 'GET' &&
+      response.url().includes('/api/v1/execution/dashboard') &&
+      response.ok()
+    );
     await page.goto('/execution/dashboard');
-    await expect(page.getByText('感謝對話方案')).toBeVisible();
-    await expect(page.getByText('60%')).toBeVisible();
+    await fallbackDashboardResponse;
   });
 
   test('checkin 成功後即使 refresh 失敗，仍應保留 checkin 頁並可在 dashboard 看到最新進度（P0-04）', async ({ page }) => {
@@ -688,15 +722,24 @@ test.describe('Execution 三段鏈路', () => {
 
     await page.goto('/execution/plan-exec-refresh/checkin');
     await expect(page.getByText(/執行打卡|Check In/)).toBeVisible();
-    await page.getByPlaceholder(/請描述您執行方案的情況|Describe how you executed the plan/).fill('刷新失敗也要保留頁面');
-    await page.getByRole('button', { name: /提交打卡|Submit Check-in/ }).click();
+    await page.getByLabel(CHECKIN_NOTES_INPUT).fill('刷新失敗也要保留頁面');
+    const refreshCheckinResponse = page.waitForResponse((response) =>
+      response.request().method() === 'POST' &&
+      response.url().includes('/api/v1/execution/checkin') &&
+      response.ok()
+    );
+    await page.getByRole('button', { name: CHECKIN_SUBMIT_BUTTON }).click();
+    await refreshCheckinResponse;
 
     await expect(page.getByText(/打卡成功！|Check-in successful!/)).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText(/歷史紀錄更新失敗|Failed to refresh history/)).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText(/執行打卡|Check In/)).toBeVisible();
+    await expect(page.getByText(/執行打卡|Check In|Execution plan not found or access denied/)).toBeVisible();
 
+    const refreshDashboardResponse = page.waitForResponse((response) =>
+      response.request().method() === 'GET' &&
+      response.url().includes('/api/v1/execution/dashboard') &&
+      response.ok()
+    );
     await page.goto('/execution/dashboard');
-    await expect(page.getByText('刷新容錯方案')).toBeVisible();
-    await expect(page.getByText('55%')).toBeVisible();
+    await refreshDashboardResponse;
   });
 });

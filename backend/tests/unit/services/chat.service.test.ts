@@ -828,6 +828,123 @@ describe('ChatService', () => {
     expect(prismaMock.case.create).toHaveBeenCalled();
   });
 
+  it('requestJudgment: 單人登入房應復用 owner 既有 active/pending normal pairing', async () => {
+    prismaMock.chatRoom.findFirst.mockResolvedValueOnce({
+      id: 'room-solo-pairing-reuse',
+      status: 'solo_active',
+      owner_user_id: 'u1',
+      session_id: null,
+      history_visibility_mode: 'share_summary_only',
+      participants: [
+        { id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true },
+        { id: 'p-ai', role_in_room: 'aiMediator', user_id: null, is_active: true },
+      ],
+    });
+    prismaMock.chatRoom.findUnique.mockResolvedValueOnce({
+      status: 'solo_active',
+      history_visibility_mode: 'share_summary_only',
+    });
+    prismaMock.chatParticipant.findUnique.mockResolvedValueOnce({
+      id: 'p-a',
+      room_id: 'room-solo-pairing-reuse',
+      role_in_room: 'roleA',
+      is_active: true,
+    });
+    prismaMock.chatToCaseLink.findFirst.mockResolvedValueOnce(null);
+    prismaMock.chatParticipant.findMany.mockResolvedValueOnce([
+      { id: 'p-a', room_id: 'room-solo-pairing-reuse', role_in_room: 'roleA', user_id: 'u1', is_active: true },
+      { id: 'p-ai', room_id: 'room-solo-pairing-reuse', role_in_room: 'aiMediator', user_id: null, is_active: true },
+    ]);
+    prismaMock.chatMessage.findMany.mockResolvedValueOnce([
+      { id: 'm-a', content: '我希望把這段聊天整理成判決建議', created_at: new Date(), sender_participant: { role_in_room: 'roleA' } },
+    ]);
+    safetyRoutingServiceMock.decideRoute.mockReturnValueOnce({
+      route: 'standard',
+      reasons: ['ok'],
+      detectedFlags: [],
+    });
+    aiServiceMock.detectCaseType.mockResolvedValueOnce('其他衝突');
+    prismaMock.pairing.findFirst.mockResolvedValueOnce({
+      id: 'pair-solo-existing',
+      user1_id: 'u1',
+      user2_id: 'u2',
+      status: 'active',
+    });
+    prismaMock.chatRoom.updateMany.mockResolvedValueOnce({ count: 1 });
+    prismaMock.case.create.mockResolvedValueOnce({ id: 'case-solo-reuse' });
+    prismaMock.chatToCaseLink.create.mockResolvedValueOnce({ id: 'link-solo-reuse' });
+    judgmentServiceMock.generateJudgment.mockResolvedValueOnce({ id: 'judgment-solo-reuse' });
+    prismaMock.chatRoom.update.mockResolvedValueOnce({ id: 'room-solo-pairing-reuse', status: 'judgment_completed' });
+    prismaMock.chatToCaseLink.update.mockResolvedValueOnce({ id: 'link-solo-reuse', judgment_id: 'judgment-solo-reuse' });
+
+    const result = await service.requestJudgment('room-solo-pairing-reuse', { userId: 'u1' });
+
+    expect(result.caseId).toBe('case-solo-reuse');
+    expect(prismaMock.case.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ pairing_id: 'pair-solo-existing' }),
+      })
+    );
+    expect(prismaMock.pairing.create).not.toHaveBeenCalled();
+  });
+
+  it('requestJudgment: 單人 live pairing 建立遇 P2002 時應復查並復用', async () => {
+    prismaMock.chatRoom.findFirst.mockResolvedValueOnce({
+      id: 'room-solo-pairing-race',
+      status: 'solo_active',
+      owner_user_id: 'u1',
+      session_id: null,
+      history_visibility_mode: 'share_summary_only',
+      participants: [
+        { id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true },
+        { id: 'p-ai', role_in_room: 'aiMediator', user_id: null, is_active: true },
+      ],
+    });
+    prismaMock.chatRoom.findUnique.mockResolvedValueOnce({
+      status: 'solo_active',
+      history_visibility_mode: 'share_summary_only',
+    });
+    prismaMock.chatParticipant.findUnique.mockResolvedValueOnce({
+      id: 'p-a',
+      room_id: 'room-solo-pairing-race',
+      role_in_room: 'roleA',
+      is_active: true,
+    });
+    prismaMock.chatToCaseLink.findFirst.mockResolvedValueOnce(null);
+    prismaMock.chatParticipant.findMany.mockResolvedValueOnce([
+      { id: 'p-a', room_id: 'room-solo-pairing-race', role_in_room: 'roleA', user_id: 'u1', is_active: true },
+      { id: 'p-ai', room_id: 'room-solo-pairing-race', role_in_room: 'aiMediator', user_id: null, is_active: true },
+    ]);
+    prismaMock.chatMessage.findMany.mockResolvedValueOnce([
+      { id: 'm-a', content: '我希望把這段聊天整理成判決建議', created_at: new Date(), sender_participant: { role_in_room: 'roleA' } },
+    ]);
+    safetyRoutingServiceMock.decideRoute.mockReturnValueOnce({
+      route: 'standard',
+      reasons: ['ok'],
+      detectedFlags: [],
+    });
+    aiServiceMock.detectCaseType.mockResolvedValueOnce('其他衝突');
+    prismaMock.pairing.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: 'pair-solo-raced', user1_id: 'u1', user2_id: 'u2', status: 'active' });
+    prismaMock.pairing.create.mockRejectedValueOnce(Object.assign(new Error('unique conflict'), { code: 'P2002' }));
+    prismaMock.chatRoom.updateMany.mockResolvedValueOnce({ count: 1 });
+    prismaMock.case.create.mockResolvedValueOnce({ id: 'case-solo-race' });
+    prismaMock.chatToCaseLink.create.mockResolvedValueOnce({ id: 'link-solo-race' });
+    judgmentServiceMock.generateJudgment.mockResolvedValueOnce({ id: 'judgment-solo-race' });
+    prismaMock.chatRoom.update.mockResolvedValueOnce({ id: 'room-solo-pairing-race', status: 'judgment_completed' });
+    prismaMock.chatToCaseLink.update.mockResolvedValueOnce({ id: 'link-solo-race', judgment_id: 'judgment-solo-race' });
+
+    const result = await service.requestJudgment('room-solo-pairing-race', { userId: 'u1' });
+
+    expect(result.caseId).toBe('case-solo-race');
+    expect(prismaMock.case.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ pairing_id: 'pair-solo-raced' }),
+      })
+    );
+  });
+
   it('requestJudgment: judgment_failed 時應復用既有 case/link 重試，不重複建案', async () => {
     prismaMock.chatRoom.findFirst.mockResolvedValueOnce({
       id: 'room-retry',

@@ -1,0 +1,97 @@
+{
+  "evidence": "web-a11y-automated-baseline",
+  "status": "passed_with_manual_external_blockers",
+  "generated_at": "2026-05-11T14:03:23Z",
+  "scope": {
+    "static_contract": {
+      "command": "npm run web:a11y:contracts",
+      "result": "passed",
+      "files_scanned": 270,
+      "covers": [
+        "frontend/src",
+        "frontend-admin/src",
+        "icon-only accessible name",
+        "placeholder-only form field",
+        "missing autocomplete",
+        "hardcoded aria-label / alt string literal"
+      ]
+    },
+    "frontend_route_axe_smoke": {
+      "command": "npm run test:a11y --workspace frontend",
+      "result": "passed",
+      "tests": 14,
+      "routes": [
+        "/",
+        "/quick-experience/create",
+        "/quick-experience/collaborative",
+        "/auth/login",
+        "/auth/register",
+        "/auth/forgot-password",
+        "/chat/room",
+        "/case/list",
+        "/notifications",
+        "/profile/index"
+      ],
+      "state_matrix": [
+        "/case/list baseline mock-authenticated state",
+        "/case/list data-populated state",
+        "/case/list error recovery state",
+        "/notifications baseline mock-authenticated state",
+        "/notifications data-populated state",
+        "/notifications error state"
+      ],
+      "auth_mode": "mock-authenticated for protected routes",
+      "axe_tags": [
+        "wcag2a",
+        "wcag2aa",
+        "wcag21a",
+        "wcag21aa",
+        "wcag22aa"
+      ]
+    },
+    "admin_route_axe_smoke": {
+      "command": "npm run test:a11y --workspace frontend-admin",
+      "result": "passed",
+      "tests": 5,
+      "routes": [
+        "/admin/login",
+        "/admin/ops/jobs"
+      ],
+      "state_matrix": [
+        "/admin/ops/jobs baseline mock-authenticated state",
+        "/admin/ops/jobs data and sampled state",
+        "/admin/ops/jobs missing permission state",
+        "/admin/ops/jobs forbidden error state"
+      ],
+      "auth_mode": "mock admin token for protected route",
+      "axe_tags": [
+        "wcag2a",
+        "wcag2aa",
+        "wcag21a",
+        "wcag21aa",
+        "wcag22aa"
+      ]
+    }
+  },
+  "non_claims": [
+    "Does not claim full WCAG 2.2 AA conformance.",
+    "Does not claim screen reader validation is complete.",
+    "Does not cover every route, modal, dropdown, toast, upload state, or all error/data-populated states.",
+    "Does not replace Web P0 true-service or Admin credential-backed release evidence."
+  ],
+  "remaining_blockers": [
+    {
+      "id": "web-a11y-manual-keyboard-smoke",
+      "description": "Manual keyboard-only smoke for primary Web and Admin task flows needs a recorded artifact."
+    },
+    {
+      "id": "web-a11y-screen-reader-smoke",
+      "description": "At least one screen reader smoke, for example VoiceOver with Safari or Chrome, needs a recorded artifact."
+    },
+    {
+      "id": "web-a11y-external-grade-state-matrix",
+      "description": "Automated coverage now includes selected data/error states, but external-grade claims still require broader modal, menu, toast, upload and remaining workflow-state evidence."
+    }
+  ],
+  "linked_todo": "docs/核心開發文件/07-待處理問題與治理/待處理/Web全量A11Y與ScreenReader外部證據缺口待辦-2026-05-11.md"
+}

@@ -1,8 +1,8 @@
 /**
  * 快速體驗 - 創建案件頁面
  *
- * 遷移: Ant Design Button/Typography/Progress/Alert/message → shadcn/ui + Tailwind + sonner
- * 保留: StatementInput, FileUpload（業務組件仍用 Ant Design，後續單獨遷移）
+ * 遷移: Legacy button/progress/alert/message controls → shadcn/ui + Tailwind + sonner
+ * 保留: StatementInput, FileUpload 業務組件
  * 保留: 所有業務邏輯（session, draft, auto-save, submit, evidence upload）
  */
 

@@ -57,7 +57,7 @@ vi.mock('@/utils/i18n', () => ({
 
 describe('Case List', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     mockGetCaseList.mockResolvedValue({
       cases: [],
       pagination: { page: 1, page_size: 10, total: 0, total_pages: 0 },
@@ -280,7 +280,7 @@ describe('Case List', () => {
     });
   });
 
-  it.skip('getCaseList 失敗後變更狀態篩選應重新呼叫 getCaseList，成功後應顯示案件列表（F03 錯誤恢復：失敗不阻塞重試）', async () => {
+  it('getCaseList 失敗後變更狀態篩選應重新呼叫 getCaseList，成功後應顯示案件列表（F03 錯誤恢復：失敗不阻塞重試）', async () => {
     const user = userEvent.setup();
     mockGetCaseList
       .mockRejectedValueOnce(new Error('網絡暫時不穩'))
@@ -299,7 +299,7 @@ describe('Case List', () => {
     expect(mockGetCaseList).toHaveBeenCalledTimes(1);
     const statusFilterSelect = screen.getByRole('combobox', { name: 'caseList.ariaStatusFilter' });
     await user.click(statusFilterSelect);
-    const draftOption = await screen.findByText('caseList.statusDraft');
+    const draftOption = await screen.findByRole('option', { name: 'caseList.statusDraft' });
     await user.click(draftOption);
     await waitFor(
       () => {
@@ -372,7 +372,7 @@ describe('Case List', () => {
     });
   });
 
-  it.skip('變更狀態篩選時應以新參數重新調用 getCaseList', async () => {
+  it('變更狀態篩選時應以新參數重新調用 getCaseList', async () => {
     const user = userEvent.setup();
     mockGetCaseList.mockResolvedValue({
       cases: [{ id: 'c1', title: 'Case 1', status: 'draft', type: '生活習慣衝突', created_at: '2025-01-01' }],
@@ -388,7 +388,7 @@ describe('Case List', () => {
     });
     const statusFilterSelect = screen.getByRole('combobox', { name: 'caseList.ariaStatusFilter' });
     await user.click(statusFilterSelect);
-    const draftOption = await screen.findByText('caseList.statusDraft');
+    const draftOption = await screen.findByRole('option', { name: 'caseList.statusDraft' });
     await user.click(draftOption);
     await waitFor(
       () => {
@@ -400,7 +400,7 @@ describe('Case List', () => {
     );
   });
 
-  it.skip('變更類型篩選時應以新參數重新調用 getCaseList', async () => {
+  it('變更類型篩選時應以新參數重新調用 getCaseList', async () => {
     const user = userEvent.setup();
     mockGetCaseList.mockResolvedValue({
       cases: [{ id: 'c1', title: 'Case 1', status: 'draft', type: '生活習慣衝突', created_at: '2025-01-01' }],
@@ -416,7 +416,7 @@ describe('Case List', () => {
     });
     const typeFilterSelect = screen.getByRole('combobox', { name: 'caseList.ariaTypeFilter' });
     await user.click(typeFilterSelect);
-    const lifeOption = await screen.findByText('caseList.typeLife');
+    const lifeOption = await screen.findByRole('option', { name: 'caseList.typeLife' });
     await user.click(lifeOption);
     await waitFor(
       () => {
@@ -428,7 +428,7 @@ describe('Case List', () => {
     );
   });
 
-  it.skip('變更排序時應以新參數重新調用 getCaseList', async () => {
+  it('變更排序時應以新參數重新調用 getCaseList', async () => {
     const user = userEvent.setup();
     mockGetCaseList.mockResolvedValue({
       cases: [{ id: 'c1', title: 'Case 1', status: 'draft', type: '生活習慣衝突', created_at: '2025-01-01' }],
@@ -444,7 +444,7 @@ describe('Case List', () => {
     });
     const sortSelect = screen.getByRole('combobox', { name: 'caseList.ariaSort' });
     await user.click(sortSelect);
-    const oldestOption = await screen.findByText('caseList.sortOldest');
+    const oldestOption = await screen.findByRole('option', { name: 'caseList.sortOldest' });
     await user.click(oldestOption);
     await waitFor(
       () => {

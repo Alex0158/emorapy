@@ -61,9 +61,8 @@ describe('FileUpload', () => {
     // 新實作中刪除按鈕是 hover overlay 中含 X icon 的 button
     const fileItem = container.querySelector('.aspect-square');
     expect(fileItem).toBeInTheDocument();
-    // 找到 overlay 中的刪除按鈕（第二個 button，第一個是預覽）
-    const buttons = fileItem!.querySelectorAll('button');
-    const removeBtn = buttons[1]; // 第二個按鈕是刪除（X icon）
+    expect(screen.getByRole('button', { name: 'fileUpload.previewFile' })).toBeInTheDocument();
+    const removeBtn = screen.getByRole('button', { name: 'fileUpload.removeFile' });
     await userEvent.click(removeBtn);
 
     expect(screen.getByText('fileUpload.confirmRemoveTitle')).toBeInTheDocument();
@@ -90,8 +89,8 @@ describe('FileUpload', () => {
     const { container } = render(<FileUpload caseId="c1" value={[fileWithEvidence]} onChange={onChange} />);
 
     const fileItem = container.querySelector('.aspect-square');
-    const buttons = fileItem!.querySelectorAll('button');
-    const removeBtn = buttons[1];
+    expect(fileItem).toBeInTheDocument();
+    const removeBtn = screen.getByRole('button', { name: 'fileUpload.removeFile' });
     await userEvent.click(removeBtn);
 
     const confirmBtn = await screen.findByRole('button', { name: 'common.confirm' });

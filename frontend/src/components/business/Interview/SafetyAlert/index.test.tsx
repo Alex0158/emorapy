@@ -2,7 +2,7 @@
  * SafetyAlert 組件單元測試
  */
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import SafetyAlert from './index';
 
 vi.mock('@/utils/i18n', () => ({
@@ -30,7 +30,11 @@ describe('SafetyAlert', () => {
   });
 
   it('有 onDismiss 時應可關閉', () => {
-    render(<SafetyAlert message="test" onDismiss={vi.fn()} />);
-    expect(screen.getByRole('button', { name: 'Dismiss' })).toBeInTheDocument();
+    const onDismiss = vi.fn();
+    render(<SafetyAlert message="test" onDismiss={onDismiss} />);
+    const closeButton = screen.getByRole('button', { name: 'common.dismiss' });
+    expect(closeButton).toBeInTheDocument();
+    fireEvent.click(closeButton);
+    expect(onDismiss).toHaveBeenCalledOnce();
   });
 });

@@ -6,7 +6,7 @@ import { create } from 'zustand';
 import { interviewApi } from '@/services/api/interview';
 import { t } from '@/utils/i18n';
 import type { AIStreamDraftStatus } from '@/utils/aiStreamState';
-import type { InterviewResumeStatus, InterviewSession, InterviewTurn } from '@/types/interview';
+import type { InterviewResumeStatus, InterviewSession, InterviewTrigger, InterviewTurn } from '@/types/interview';
 import {
   extractInterviewErrorInfo,
   getStreamingIdleWithAbortState,
@@ -34,7 +34,7 @@ interface InterviewState {
   shouldEnd: boolean;
   safetyAlert: SafetyAlertData | null;
 
-  startSession: (trigger?: string) => Promise<InterviewSession>;
+  startSession: (trigger?: InterviewTrigger) => Promise<InterviewSession>;
   checkResume: () => Promise<InterviewResumeStatus>;
   respond: (sessionId: string, message: string) => Promise<void>;
   skipTurn: (sessionId: string) => Promise<void>;
@@ -103,8 +103,7 @@ export const useInterviewStore = create<InterviewState>((set, get) => {
       safetyAlert: null,
     });
     try {
-      const res = await interviewApi.startSession(trigger);
-      const session = (res.data?.data ?? null) as InterviewSession | null;
+      const session = (await interviewApi.startSession(trigger)) as InterviewSession | null;
       if (!session) throw new Error(t('interview.startFail'));
       set({
         currentSession: session,
@@ -121,9 +120,7 @@ export const useInterviewStore = create<InterviewState>((set, get) => {
 
   checkResume: async () => {
     try {
-      const res = await interviewApi.checkResume();
-      const data = res.data?.data;
-      return data ?? { has_pending: false };
+      return (await interviewApi.checkResume()) ?? { has_pending: false };
     } catch {
       return { has_pending: false };
     }
@@ -207,9 +204,8 @@ export const useInterviewStore = create<InterviewState>((set, get) => {
       safetyAlert: null,
     });
     try {
-      const res = await interviewApi.getSession(sessionId);
+      const session = (await interviewApi.getSession(sessionId)) as InterviewSession | null;
       if (seq !== _getSessionSeq) return;
-      const session = (res.data?.data ?? null) as InterviewSession | null;
       if (!session) throw new Error(t('interview.loadFail'));
       set({
         currentSession: session,
@@ -233,8 +229,7 @@ export const useInterviewStore = create<InterviewState>((set, get) => {
 
   syncSessionSilently: async (sessionId: string) => {
     try {
-      const res = await interviewApi.getSession(sessionId);
-      const session = (res.data?.data ?? null) as InterviewSession | null;
+      const session = (await interviewApi.getSession(sessionId)) as InterviewSession | null;
       if (!session) return;
       set((state) => ({
         currentSession: session,

@@ -1,0 +1,348 @@
+{
+  "title": "關係分析結果 - 關係修復室",
+  "lang": "zh-TW",
+  "headings": [
+    {
+      "level": 1,
+      "text": "關係分析結果",
+      "box": {
+        "x": 294,
+        "y": 272,
+        "width": 852,
+        "height": 36
+      }
+    },
+    {
+      "level": 3,
+      "text": "分析摘要",
+      "box": {
+        "x": 311,
+        "y": 373,
+        "width": 818,
+        "height": 48
+      }
+    },
+    {
+      "level": 3,
+      "text": "互動調整建議比例",
+      "box": {
+        "x": 319,
+        "y": 509,
+        "width": 802,
+        "height": 28
+      }
+    },
+    {
+      "level": 3,
+      "text": "完整分析報告",
+      "box": {
+        "x": 294,
+        "y": 662,
+        "width": 852,
+        "height": 28
+      }
+    },
+    {
+      "level": 3,
+      "text": "梳理報告",
+      "box": {
+        "x": 319,
+        "y": 733,
+        "width": 72,
+        "height": 28
+      }
+    },
+    {
+      "level": 3,
+      "text": "總結",
+      "box": {
+        "x": 336,
+        "y": 780,
+        "width": 768,
+        "height": 48
+      }
+    }
+  ],
+  "landmarks": [
+    {
+      "tag": "header",
+      "role": null,
+      "label": "✨ Emorapy",
+      "box": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 56
+      }
+    },
+    {
+      "tag": "main",
+      "role": null,
+      "label": "跳過到梳理內容🤝 @keyframes gentle-bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } } 關係分析結果基於AI的關係與互動分析分析摘要A concise relationship analysis summary.互動調整建議比例55%45%角色A 55%角色B 45%完整分析報告梳理報告總結A1",
+      "box": {
+        "x": 0,
+        "y": 56,
+        "width": 1440,
+        "height": 1278
+      }
+    }
+  ],
+  "focusable": [
+    {
+      "tag": "a",
+      "role": null,
+      "type": null,
+      "label": "✨ Emorapy",
+      "text": "✨ Emorapy",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 24,
+        "y": 16,
+        "width": 93,
+        "height": 24
+      }
+    },
+    {
+      "tag": "a",
+      "role": null,
+      "type": null,
+      "label": "跳過到梳理內容",
+      "text": "跳過到梳理內容",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": -1,
+        "y": 55,
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": "button",
+      "label": "分析摘要",
+      "text": "分析摘要",
+      "disabled": false,
+      "ariaExpanded": "true",
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 311,
+        "y": 373,
+        "width": 818,
+        "height": 48
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": null,
+      "label": "播放",
+      "text": "",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 945,
+        "y": 731,
+        "width": 32,
+        "height": 32
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": null,
+      "label": "複製內容",
+      "text": "",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 981,
+        "y": 731,
+        "width": 32,
+        "height": 32
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": null,
+      "label": "分享",
+      "text": "",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 1017,
+        "y": 731,
+        "width": 32,
+        "height": 32
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": null,
+      "label": "收藏",
+      "text": "",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 1053,
+        "y": 731,
+        "width": 32,
+        "height": 32
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": null,
+      "label": "打印",
+      "text": "",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 1089,
+        "y": 731,
+        "width": 32,
+        "height": 32
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": "button",
+      "label": "總結",
+      "text": "總結",
+      "disabled": false,
+      "ariaExpanded": "true",
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 336,
+        "y": 780,
+        "width": 768,
+        "height": 48
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": null,
+      "label": "立即註冊",
+      "text": "立即註冊",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 530,
+        "y": 1012,
+        "width": 120,
+        "height": 64
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": null,
+      "label": "登錄",
+      "text": "登錄",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 666,
+        "y": 1012,
+        "width": 90,
+        "height": 64
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": null,
+      "label": "開始新案件",
+      "text": "開始新案件",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 772,
+        "y": 1012,
+        "width": 138,
+        "height": 64
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": null,
+      "label": "立即註冊",
+      "text": "立即註冊",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 433,
+        "y": 1165,
+        "width": 80,
+        "height": 32
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": null,
+      "label": "稍後再說",
+      "text": "稍後再說",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 521,
+        "y": 1165,
+        "width": 80,
+        "height": 32
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": "button",
+      "label": "關閉",
+      "text": "",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 1023,
+        "y": 1113,
+        "width": 16,
+        "height": 16
+      }
+    }
+  ],
+  "statusRegions": []
+}

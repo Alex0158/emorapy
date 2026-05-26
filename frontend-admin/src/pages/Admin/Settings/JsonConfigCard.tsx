@@ -77,7 +77,9 @@ export default function JsonConfigCard({
           <Label htmlFor={fieldName}>{title}</Label>
           <Textarea
             id={fieldName}
+            aria-label={title}
             rows={8}
+            autoComplete="off"
             placeholder={placeholder}
             value={value}
             onChange={(e) => setValue(e.target.value)}

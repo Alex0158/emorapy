@@ -1,0 +1,223 @@
+name: App Release External Signoff
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Run mode. Use validate to check release secrets and runner inputs without touching external providers.
+        required: true
+        default: dry-run
+        type: choice
+        options:
+          - dry-run
+          - validate
+          - run
+      runner_json:
+        description: JSON for runs-on. Use ["self-hosted","macOS","app-release"] for a trusted device runner.
+        required: true
+        default: '"macos-15"'
+        type: string
+      github_environment:
+        description: GitHub Environment that provides release secrets and optional approval gates.
+        required: true
+        default: Production
+        type: string
+      physical_platform:
+        description: Physical device platform for the device smoke evidence.
+        required: true
+        default: ios
+        type: choice
+        options:
+          - ios
+          - android
+      require_testflight:
+        description: Require App Store Connect TestFlight evidence with the iOS EAS evidence.
+        required: true
+        default: true
+        type: boolean
+      continue_on_error:
+        description: Continue after a failing external evidence step to inspect all blockers.
+        required: true
+        default: false
+        type: boolean
+      ios_device_udid:
+        description: Optional iOS physical device UDID override. Prefer repository secret APP_IOS_DEVICE_UDID.
+        required: false
+        type: string
+      ios_app_path:
+        description: Optional signed .app path on the runner. Prefer repository secret APP_IOS_DEVICE_APP_PATH.
+        required: false
+        type: string
+      android_device_serial:
+        description: Optional Android physical device serial override. Prefer repository secret APP_ANDROID_DEVICE_SERIAL.
+        required: false
+        type: string
+      native_crash_environment:
+        description: Expected native crash environment in Sentry.
+        required: true
+        default: production
+        type: string
+
+concurrency:
+  group: app-release-external-signoff
+  cancel-in-progress: false
+
+jobs:
+  app-release-external-signoff:
+    name: App Release External Signoff
+    runs-on: ${{ fromJSON(inputs.runner_json) }}
+    environment: ${{ inputs.github_environment }}
+    timeout-minutes: 120
+    env:
+      APP_RELEASE_EXTERNAL_SIGNOFF_RUN: ${{ inputs.mode == 'run' && 'true' || 'false' }}
+      APP_PHYSICAL_DEVICE_PLATFORM: ${{ inputs.physical_platform }}
+      APP_IOS_DEVICE_UDID: ${{ inputs.ios_device_udid || secrets.APP_IOS_DEVICE_UDID }}
+      APP_IOS_DEVICE_APP_PATH: ${{ inputs.ios_app_path || secrets.APP_IOS_DEVICE_APP_PATH }}
+      APP_ANDROID_DEVICE_SERIAL: ${{ inputs.android_device_serial || secrets.APP_ANDROID_DEVICE_SERIAL }}
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      ASC_APPLE_ID: ${{ secrets.ASC_APPLE_ID }}
+      EXPO_APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.EXPO_APPLE_APP_SPECIFIC_PASSWORD }}
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+      APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+      APP_STORE_CONNECT_APP_ID: ${{ secrets.APP_STORE_CONNECT_APP_ID }}
+      APP_PUSH_DELIVERY_EXPO_PUSH_TOKEN: ${{ secrets.APP_PUSH_DELIVERY_EXPO_PUSH_TOKEN }}
+      APP_PUSH_DELIVERY_ACCESS_TOKEN: ${{ secrets.APP_PUSH_DELIVERY_ACCESS_TOKEN }}
+      APP_SENTRY_ORG: ${{ secrets.APP_SENTRY_ORG }}
+      APP_SENTRY_PROJECT: ${{ secrets.APP_SENTRY_PROJECT }}
+      APP_SENTRY_AUTH_TOKEN: ${{ secrets.APP_SENTRY_AUTH_TOKEN }}
+      APP_NATIVE_CRASH_SENTRY_EVENT_ID: ${{ secrets.APP_NATIVE_CRASH_SENTRY_EVENT_ID }}
+      APP_NATIVE_CRASH_EXPECTED_ENVIRONMENT: ${{ inputs.native_crash_environment }}
+      APP_TELEMETRY_RUNTIME_API_BASE_URL: ${{ secrets.APP_TELEMETRY_RUNTIME_API_BASE_URL }}
+      DATABASE_URL: ${{ secrets.APP_RELEASE_DATABASE_URL }}
+      APP_RELEASE_EXTERNAL_SIGNOFF_REPORT_DIR: ${{ runner.temp }}/app-release-external-signoff-report
+      DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
+      MAESTRO_CLI_NO_ANALYTICS: '1'
+      MAESTRO_CLI_ANALYSIS_NOTIFICATION_DISABLED: 'true'
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            backend/package-lock.json
+            mobile/package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install backend dependencies
+        run: npm --prefix backend ci
+
+      - name: Install mobile dependencies
+        run: npm --prefix mobile ci
+
+      - name: Run App release preflight
+        env:
+          APP_RELEASE_EXTERNAL_SIGNOFF_RUN: 'false'
+        run: DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer npm --prefix mobile run release:preflight
+
+      - name: Run local evidence safety gates
+        run: |
+          npm --prefix mobile run release:evidence-redaction:check
+          npm --prefix mobile run release:evidence-sanitization:check
+          npm --prefix mobile run release:external-evidence:handoff:contract
+
+      - name: Validate release secrets for run mode
+        if: ${{ inputs.mode == 'run' }}
+        run: |
+          missing=0
+          require_secret() {
+            key="$1"
+            if [ -z "${!key}" ]; then
+              echo "Missing required release secret or input: ${key}"
+              missing=1
+            fi
+          }
+
+          require_secret EXPO_TOKEN
+          require_secret ASC_APPLE_ID
+          require_secret EXPO_APPLE_APP_SPECIFIC_PASSWORD
+          require_secret APP_PUSH_DELIVERY_EXPO_PUSH_TOKEN
+          require_secret APP_SENTRY_ORG
+          require_secret APP_SENTRY_PROJECT
+          require_secret APP_SENTRY_AUTH_TOKEN
+          require_secret APP_NATIVE_CRASH_SENTRY_EVENT_ID
+          require_secret APP_TELEMETRY_RUNTIME_API_BASE_URL
+          require_secret DATABASE_URL
+
+          if [ "${{ inputs.require_testflight }}" = "true" ]; then
+            require_secret APP_STORE_CONNECT_ISSUER_ID
+            require_secret APP_STORE_CONNECT_KEY_ID
+            require_secret APP_STORE_CONNECT_PRIVATE_KEY
+          fi
+
+          if [ "${APP_PHYSICAL_DEVICE_PLATFORM}" = "ios" ]; then
+            require_secret APP_IOS_DEVICE_UDID
+            require_secret APP_IOS_DEVICE_APP_PATH
+          fi
+
+          if [ "${APP_PHYSICAL_DEVICE_PLATFORM}" = "android" ]; then
+            require_secret APP_ANDROID_DEVICE_SERIAL
+          fi
+
+          if [ "${missing}" -ne 0 ]; then
+            exit 1
+          fi
+
+      - name: Run external release signoff
+        run: |
+          args=()
+          if [ "${{ inputs.mode }}" = "run" ]; then
+            script="release:external-evidence:run"
+          elif [ "${{ inputs.mode }}" = "validate" ]; then
+            script="release:external-evidence:validate"
+          else
+            script="release:external-evidence:signoff"
+            args+=(--dry-run)
+          fi
+          if [ "${{ inputs.continue_on_error }}" = "true" ]; then
+            args+=(--continue-on-error)
+          fi
+          if [ "${{ inputs.require_testflight }}" != "true" ]; then
+            args+=(--no-testflight)
+          fi
+          args+=(--physical-platform="${APP_PHYSICAL_DEVICE_PLATFORM}")
+          args+=(--report-dir="${APP_RELEASE_EXTERNAL_SIGNOFF_REPORT_DIR}")
+          npm --prefix mobile run "${script}" -- "${args[@]}"
+
+      - name: Generate external release handoff report
+        if: always()
+        run: npm --prefix mobile run release:external-evidence:handoff:check -- --report-dir="${APP_RELEASE_EXTERNAL_SIGNOFF_REPORT_DIR}"
+
+      - name: Generate App goal completion audit report
+        if: always()
+        run: npm --prefix mobile run goal:completion:audit -- --report-dir="${APP_RELEASE_EXTERNAL_SIGNOFF_REPORT_DIR}"
+
+      - name: Check generated App release evidence redaction
+        id: evidence_redaction
+        if: always()
+        run: npm --prefix mobile run release:evidence-redaction:check -- --evidence-dir="${APP_RELEASE_EXTERNAL_SIGNOFF_REPORT_DIR}"
+
+      - name: Upload App release evidence
+        if: ${{ always() && steps.evidence_redaction.outcome == 'success' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: app-release-external-signoff-${{ github.run_id }}
+          path: |
+            docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-EAS-iOS-Release-*.json
+            docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-EAS-Android-Release-*.json
+            docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-Physical-Device-*.json
+            docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-Push-Delivery-*.json
+            docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-Native-Crash-Runtime-*.json
+            docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-Telemetry-Runtime-*.json
+            docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-Release-DB-Parity-*.json
+            ${{ runner.temp }}/app-release-external-signoff-report/App-External-Evidence-Status-*.json
+            ${{ runner.temp }}/app-release-external-signoff-report/App-External-Evidence-Handoff-*.json
+            ${{ runner.temp }}/app-release-external-signoff-report/App-External-Signoff-Prerequisites-*.json
+            ${{ runner.temp }}/app-release-external-signoff-report/App-Goal-Completion-Audit-*.json
+          if-no-files-found: warn

@@ -13,6 +13,8 @@ const mockMarkAllRead = jest.fn();
 const mockDismiss = jest.fn();
 const mockSnooze = jest.fn();
 const mockAct = jest.fn();
+const mockRegisterDeviceToken = jest.fn();
+const mockRevokeDeviceToken = jest.fn();
 
 jest.mock('../../../src/controllers/notification.controller', () => ({
   notificationController: {
@@ -24,6 +26,8 @@ jest.mock('../../../src/controllers/notification.controller', () => ({
     dismiss: (req: unknown, res: unknown, next: unknown) => mockDismiss(req, res, next),
     snooze: (req: unknown, res: unknown, next: unknown) => mockSnooze(req, res, next),
     act: (req: unknown, res: unknown, next: unknown) => mockAct(req, res, next),
+    registerDeviceToken: (req: unknown, res: unknown, next: unknown) => mockRegisterDeviceToken(req, res, next),
+    revokeDeviceToken: (req: unknown, res: unknown, next: unknown) => mockRevokeDeviceToken(req, res, next),
   },
 }));
 jest.mock('../../../src/middleware/auth', () => ({
@@ -79,6 +83,14 @@ describe('notification.routes', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mockAct.mockImplementation((_req: unknown, res: any) =>
       res.status(200).json({ success: true, data: { notification: { id: 'n1', acted_at: '2026-04-05T00:00:00.000Z' }, target: { path: '/execution/p1/checkin' } } })
+    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    mockRegisterDeviceToken.mockImplementation((_req: unknown, res: any) =>
+      res.status(201).json({ success: true, data: { device_token: { id: 'pdt-1', platform: 'ios', revoked_at: null } } })
+    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    mockRevokeDeviceToken.mockImplementation((_req: unknown, res: any) =>
+      res.status(200).json({ success: true, data: { revokedCount: 1, revokedAt: '2026-05-08T00:00:00.000Z' } })
     );
   });
 
@@ -178,6 +190,28 @@ describe('notification.routes', () => {
       expect(res.status).toBe(200);
       expect(res.body.data.target.path).toBe('/execution/p1/checkin');
       expect(mockAct).toHaveBeenCalled();
+    });
+
+    it('POST /notifications/device-tokens 應註冊 App push token', async () => {
+      const app = createApp();
+      const res = await request(app).post('/notifications/device-tokens').send({
+        token: 'ExpoPushToken[test]',
+        platform: 'ios',
+        device_id: 'device-1',
+      });
+      expect(res.status).toBe(201);
+      expect(res.body.data.device_token.id).toBe('pdt-1');
+      expect(mockRegisterDeviceToken).toHaveBeenCalled();
+    });
+
+    it('POST /notifications/device-tokens/revoke 應撤銷 App push token', async () => {
+      const app = createApp();
+      const res = await request(app).post('/notifications/device-tokens/revoke').send({
+        token: 'ExpoPushToken[test]',
+      });
+      expect(res.status).toBe(200);
+      expect(res.body.data.revokedCount).toBe(1);
+      expect(mockRevokeDeviceToken).toHaveBeenCalled();
     });
   });
 

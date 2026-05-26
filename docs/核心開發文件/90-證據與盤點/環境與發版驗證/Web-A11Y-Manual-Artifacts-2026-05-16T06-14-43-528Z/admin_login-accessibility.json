@@ -1,0 +1,90 @@
+{
+  "title": "管理員登入",
+  "lang": "zh-TW",
+  "headings": [],
+  "landmarks": [],
+  "focusable": [
+    {
+      "tag": "input",
+      "role": null,
+      "type": "email",
+      "label": "電子郵件",
+      "text": "",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 489,
+        "y": 171,
+        "width": 462,
+        "height": 36
+      }
+    },
+    {
+      "tag": "input",
+      "role": null,
+      "type": "password",
+      "label": "密碼",
+      "text": "",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 489,
+        "y": 245,
+        "width": 462,
+        "height": 36
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": "submit",
+      "label": "登入",
+      "text": "登入",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 489,
+        "y": 297,
+        "width": 462,
+        "height": 36
+      }
+    },
+    {
+      "tag": "section",
+      "role": null,
+      "type": null,
+      "label": "Notifications alt+T",
+      "text": "",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 0,
+        "y": 358,
+        "width": 1440,
+        "height": 0
+      }
+    }
+  ],
+  "statusRegions": [
+    {
+      "tag": "section",
+      "role": null,
+      "ariaLive": "polite",
+      "text": "",
+      "box": {
+        "x": 0,
+        "y": 358,
+        "width": 1440,
+        "height": 0
+      }
+    }
+  ]
+}

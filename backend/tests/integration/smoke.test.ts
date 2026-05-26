@@ -80,6 +80,13 @@ const mockPrismaClient: any = {
   user: {
     deleteMany: jest.fn(),
   },
+  pushDeviceToken: {
+    upsert: jest.fn(),
+    updateMany: jest.fn(),
+  },
+  appTelemetryEvent: {
+    createMany: jest.fn().mockResolvedValue({ count: 1 } as never),
+  },
   contentItem: {
     findMany: jest.fn().mockResolvedValue([] as never),
     findUnique: jest.fn(),
@@ -96,6 +103,13 @@ jest.mock('@prisma/client', () => ({
   Prisma: { PrismaClientKnownRequestError: class extends Error { code: string; meta?: unknown; constructor(m: string, o: { code: string; meta?: unknown }) { super(m); this.code = o.code; this.meta = o.meta; } } },
   NotificationChannel: { email: 'email', push: 'push' },
   NotificationStatus: { pending: 'pending', sent: 'sent', failed: 'failed', cancelled: 'cancelled' },
+  RecoveryTaskStatus: {
+    manual_review_required: 'manual_review_required',
+    in_review: 'in_review',
+    resolved: 'resolved',
+    dismissed: 'dismissed',
+  },
+  RecoveryTaskSeverity: { warning: 'warning', critical: 'critical' },
   PsychDomain: {
     attachment: 'attachment',
     family_origin: 'family_origin',
@@ -116,6 +130,10 @@ jest.mock('@prisma/client', () => ({
     cultural: 'cultural',
     developmental: 'developmental',
   },
+}));
+
+jest.mock('../../src/types/prisma-client', () => ({
+  PrismaClient: jest.fn(() => mockPrismaClient),
 }));
 
 import app from '../../src/app';
@@ -325,6 +343,76 @@ describe('煙霧測試 (Smoke Test)', () => {
     it('GET /api/v1/notifications 無 token 時應返回 401（F09 通知端點可達）', async () => {
       const response = await request(app).get('/api/v1/notifications');
       expect(response.status).toBe(401);
+    });
+
+    it('POST /api/v1/notifications/device-tokens 無 token 時應返回 401（App Push token 註冊端點可達）', async () => {
+      const response = await request(app)
+        .post('/api/v1/notifications/device-tokens')
+        .set('Content-Type', 'application/json')
+        .send({ token: 'ExpoPushToken[test]', platform: 'ios' });
+      expect(response.status).toBe(401);
+    });
+
+    it('POST /api/v1/notifications/device-tokens/revoke 無 token 時應返回 401（App Push token 撤銷端點可達）', async () => {
+      const response = await request(app)
+        .post('/api/v1/notifications/device-tokens/revoke')
+        .set('Content-Type', 'application/json')
+        .send({ token: 'ExpoPushToken[test]' });
+      expect(response.status).toBe(401);
+    });
+
+    it('POST /api/v1/telemetry/events 無 token 時應接受 App safe telemetry（M5/M6 可觀測性端點可達）', async () => {
+      const response = await request(app)
+        .post('/api/v1/telemetry/events')
+        .set('Content-Type', 'application/json')
+        .set('X-Session-Id', 'guest_test123')
+        .send({
+          events: [{
+            name: 'app_route_open',
+            severity: 'info',
+            route: '/notifications',
+            app_version: '1.3.1',
+            platform: 'ios',
+            context: { target: '/repair', token: '[redacted]' },
+          }],
+      });
+      expect(response.status).toBe(202);
+      expect(response.body?.data?.accepted_count).toBe(1);
+      expect(response.body?.data?.persisted_count).toBe(1);
+    });
+
+    it('POST /api/v1/telemetry/otlp/v1/traces 無 token 時應接受 App OTLP trace summary（M6 可觀測性端點可達）', async () => {
+      const response = await request(app)
+        .post('/api/v1/telemetry/otlp/v1/traces')
+        .set('Content-Type', 'application/json')
+        .set('X-Session-Id', 'guest_test123')
+        .send({
+          resourceSpans: [{
+            resource: {
+              attributes: [
+                { key: 'app.version', value: { stringValue: '1.3.1' } },
+                { key: 'app.platform', value: { stringValue: 'ios' } },
+              ],
+            },
+            scopeSpans: [{
+              scope: { name: 'cj.mobile.app' },
+              spans: [{
+                traceId: '0123456789abcdef0123456789abcdef',
+                spanId: '0123456789abcdef',
+                name: 'app.boot',
+                attributes: [
+                  { key: 'route', value: { stringValue: '/app' } },
+                  { key: 'authToken', value: { stringValue: 'secret' } },
+                ],
+                status: { code: 1 },
+              }],
+            }],
+          }],
+        });
+      expect(response.status).toBe(202);
+      expect(response.body?.data?.accepted_count).toBe(1);
+      expect(response.body?.data?.persisted_count).toBe(1);
+      expect(response.body?.data?.partial_success?.rejected_spans).toBe(0);
     });
 
     it('GET /api/v1/profile/me 無 token 時應返回 401（F08/F09 個人資料端點可達）', async () => {

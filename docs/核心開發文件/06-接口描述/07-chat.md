@@ -70,11 +70,11 @@
 
 ## 回歸測試最小集
 
-1. 建房 -> 發邀請 -> B 登入後接受邀請 -> 群聊成功。  
-2. 超頻發送訊息觸發限流且 UI 不丟狀態。  
-3. request-judgment 連點只建一筆 case/link。  
-4. leave/kick-b 後 room 狀態回 `solo_active`。  
-5. stream 斷線後重連能接續接收事件。  
+1. 建房 -> 發邀請 -> B 登入後接受邀請 -> 群聊成功。
+2. 超頻發送訊息觸發限流且 UI 不丟狀態。
+3. request-judgment 連點只建一筆 case/link。
+4. leave/kick-b 後 room 狀態回 `solo_active`。
+5. stream 斷線後重連能接續接收事件。
 
 ## 錯誤碼覆蓋矩陣（API -> code -> UI 行為）
 

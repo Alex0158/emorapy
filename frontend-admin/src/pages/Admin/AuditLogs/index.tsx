@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Table,
   TableBody,
@@ -79,36 +80,56 @@ export default function AdminAuditLogsPage() {
       <Card>
         <CardContent className="pt-6">
           <div className="flex flex-wrap gap-2">
-            <Input
-              className="w-48"
-              placeholder={t('admin.audit.entityType')}
-              value={entityType}
-              onChange={(event) => setEntityType(event.target.value)}
-            />
-            <Input
-              className="w-48"
-              placeholder={t('admin.audit.action')}
-              value={action}
-              onChange={(event) => setAction(event.target.value)}
-            />
-            <Input
-              className="w-48"
-              type="datetime-local"
-              placeholder={t('admin.audit.from')}
-              value={from ? from.format('YYYY-MM-DDTHH:mm') : ''}
-              onChange={(event) =>
-                setFrom(event.target.value ? dayjs(event.target.value) : null)
-              }
-            />
-            <Input
-              className="w-48"
-              type="datetime-local"
-              placeholder={t('admin.audit.to')}
-              value={to ? to.format('YYYY-MM-DDTHH:mm') : ''}
-              onChange={(event) =>
-                setTo(event.target.value ? dayjs(event.target.value) : null)
-              }
-            />
+            <div className="space-y-1">
+              <Label htmlFor="admin-audit-entity-type">{t('admin.audit.entityType')}</Label>
+              <Input
+                id="admin-audit-entity-type"
+                className="w-48"
+                placeholder={t('admin.audit.entityType')}
+                value={entityType}
+                autoComplete="off"
+                onChange={(event) => setEntityType(event.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="admin-audit-action">{t('admin.audit.action')}</Label>
+              <Input
+                id="admin-audit-action"
+                className="w-48"
+                placeholder={t('admin.audit.action')}
+                value={action}
+                autoComplete="off"
+                onChange={(event) => setAction(event.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="admin-audit-from">{t('admin.audit.from')}</Label>
+              <Input
+                id="admin-audit-from"
+                className="w-48"
+                type="datetime-local"
+                placeholder={t('admin.audit.from')}
+                value={from ? from.format('YYYY-MM-DDTHH:mm') : ''}
+                autoComplete="off"
+                onChange={(event) =>
+                  setFrom(event.target.value ? dayjs(event.target.value) : null)
+                }
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="admin-audit-to">{t('admin.audit.to')}</Label>
+              <Input
+                id="admin-audit-to"
+                className="w-48"
+                type="datetime-local"
+                placeholder={t('admin.audit.to')}
+                value={to ? to.format('YYYY-MM-DDTHH:mm') : ''}
+                autoComplete="off"
+                onChange={(event) =>
+                  setTo(event.target.value ? dayjs(event.target.value) : null)
+                }
+              />
+            </div>
             <Button variant="outline" onClick={downloadCsv}>
               {t('admin.audit.exportCsv')}
             </Button>

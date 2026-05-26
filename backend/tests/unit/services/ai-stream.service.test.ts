@@ -1,4 +1,4 @@
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
 import { AIStreamService } from '../../../src/services/ai-stream.service';
 
 describe('AIStreamService', () => {
@@ -46,6 +46,32 @@ describe('AIStreamService', () => {
     unsubscribe();
 
     expect(received).toEqual(['stream.started', 'stream.phase', 'stream.completed']);
+  });
+
+  it('訂閱建立期間即使 replay 仍在等待，也不應錯過快速完成的 live 事件', async () => {
+    const service = new AIStreamService({ enabled: false, persistToDatabase: false });
+    let releaseReplay: (events: unknown[]) => void = () => undefined;
+    (service as any).readEventsFromRedis = jest.fn(() => new Promise((resolve) => {
+      releaseReplay = resolve;
+    }));
+
+    const received: string[] = [];
+    const subscribePromise = service.subscribe(
+      'repair_track',
+      'track-race',
+      (event) => received.push(event.eventType)
+    );
+
+    await Promise.resolve();
+    const handle = await service.createStream('repair_track', 'track-race', '66666666-6666-4666-8666-666666666666');
+    await service.start(handle, { actorRole: 'aiMediator' });
+    await service.persisted(handle, { messageId: 'plan-1' });
+
+    expect(received).toEqual(['stream.created', 'stream.queued', 'stream.started', 'stream.persisted']);
+
+    releaseReplay([]);
+    const unsubscribe = await subscribePromise;
+    unsubscribe();
   });
 
   it('失敗事件應將錯誤信息保留到快照', async () => {

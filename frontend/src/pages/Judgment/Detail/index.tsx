@@ -47,7 +47,7 @@ function StarRating({ value, onChange, disabled }: { value: number; onChange: (v
           onClick={() => !disabled && onChange(star)}
           disabled={disabled}
           className={cn('transition-colors', disabled ? 'cursor-not-allowed' : 'cursor-pointer hover:scale-110')}
-          aria-label={`${star} star`}
+          aria-label={t('judgmentDetail.starAria', { star })}
         >
           <Star className={cn('size-8', star <= value ? 'fill-primary text-primary' : 'text-muted-foreground/30')} />
         </button>
@@ -92,9 +92,8 @@ const JudgmentDetail = () => {
     if (dismissedPostJudgmentRef.current) return;
     let cancelled = false;
     psychProfileApi.getProfile()
-      .then((res) => {
+      .then((profile) => {
         if (cancelled) return;
-        const profile = res.data?.data;
         if (!profile) return;
         setProfileConsent(!!profile.consent_given);
         if ((profile.richness_score ?? 0) < POST_JUDGMENT_RICHNESS_THRESHOLD) setShowPostJudgmentCard(true);

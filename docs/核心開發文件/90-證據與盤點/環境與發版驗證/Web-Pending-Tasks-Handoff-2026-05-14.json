@@ -1,0 +1,37 @@
+{
+  "status": "complete",
+  "artifact_type": "web-pending-tasks-handoff",
+  "generated_at": "2026-05-16T06:18:00.000Z",
+  "complete": true,
+  "source_audit": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-Pending-Tasks-Completion-Audit-2026-05-14.md",
+  "audit_command": "npm run web:pending:completion:audit -- --json",
+  "strict_gate_command": "npm run web:pending:completion:audit:strict",
+  "pending_task_count": 2,
+  "blockers": [],
+  "non_claims": [
+    "no_wcag_2_2_aa_claim",
+    "no_full_screen_reader_claim",
+    "no_full_state_matrix_claim",
+    "no_raw_prices_or_secrets_in_artifact"
+  ],
+  "completion_artifacts": [
+    {
+      "id": "web_a11y_manual_pass",
+      "path": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-A11Y-Manual-2026-05-16T06-14-43-528Z.json",
+      "gate": "npm run web:a11y:manual-evidence:check",
+      "status": "passed"
+    },
+    {
+      "id": "ai_pricing_release_env_pass",
+      "path": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/AI-Pricing-Release-Env-production-2026-05-16T06-16-01Z.json",
+      "gate": "railway run -e production -s mother-bear-court -- npm --prefix . run ops:ai-pricing:check",
+      "status": "passed"
+    },
+    {
+      "id": "release_db_parity_pass",
+      "path": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-Release-DB-Parity-2026-05-16T06-01-03-039Z.json",
+      "gate": "npm --prefix backend run ops:release-db:evidence",
+      "status": "passed"
+    }
+  ]
+}

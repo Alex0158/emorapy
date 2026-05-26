@@ -15,6 +15,7 @@ const mockSendVerificationCode = jest.fn();
 const prismaMock: any = {
   $transaction: jest.fn(),
   quickSession: {
+    delete: jest.fn(),
     findUnique: jest.fn(),
   },
   case: {
@@ -530,6 +531,26 @@ describe('AuthService', () => {
         case_id: null,
       });
       expect(prismaMock.case.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('session 已過期時應忽略 claim 並返回 null case_id', async () => {
+      prismaMock.quickSession.findUnique.mockResolvedValue({
+        id: 's1',
+        case_id: 'case-1',
+        expires_at: new Date(Date.now() - 1000),
+      });
+      prismaMock.quickSession.delete.mockResolvedValue({});
+
+      await expect(service.claimSession('user-1', 's1')).resolves.toEqual({
+        case_id: null,
+      });
+      expect(prismaMock.case.findUnique).not.toHaveBeenCalled();
+      expect(prismaMock.$transaction).not.toHaveBeenCalled();
+      expect(prismaMock.quickSession.delete).toHaveBeenCalledWith({ where: { id: 's1' } });
+      expect(mockLogger.info).toHaveBeenCalledWith('Expired session claim ignored', {
+        userId: 'user-1',
+        sessionId: 's1',
+      });
     });
 
     it('session 存在但沒有 case_id 時應返回 null case_id', async () => {

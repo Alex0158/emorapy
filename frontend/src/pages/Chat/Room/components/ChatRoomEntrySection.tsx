@@ -5,6 +5,7 @@
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { t } from '@/utils/i18n';
 import type { ChatHistoryVisibilityMode } from '@/types/chat';
@@ -50,7 +51,7 @@ export default function ChatRoomEntrySection({
           <h2 id="chat-create-heading" className="chat-room-entry__section-title">{t('chat.createRoom')}</h2>
           <div className="chat-room-entry__create-actions">
             <Select value={visibilityMode} onValueChange={(v: string) => onVisibilityModeChange(v as ChatHistoryVisibilityMode)}>
-              <SelectTrigger className="chat-room-entry__visibility-select w-[220px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="chat-room-entry__visibility-select w-[220px]" aria-label={t('chat.visibility.label')}><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="share_full_history">{t('chat.visibility.share_full_history')}</SelectItem>
                 <SelectItem value="share_summary_only">{t('chat.visibility.share_summary_only')}</SelectItem>
@@ -66,12 +67,17 @@ export default function ChatRoomEntrySection({
         <section className="chat-room-entry__join" aria-labelledby="chat-join-heading">
           <h2 id="chat-join-heading" className="chat-room-entry__section-title">{t('chat.joinByInvite')}</h2>
           <div className="chat-room-entry__join-row">
-            <Input
-              value={inviteCodeInput}
-              onChange={(e) => onInviteCodeInputChange(e.target.value)}
-              placeholder={t('chat.inviteCodePlaceholder')}
-              className="chat-room-entry__invite-input"
-            />
+            <div className="chat-room-entry__invite-field">
+              <Label htmlFor="chat-invite-code">{t('chat.inviteCodeInputLabel')}</Label>
+              <Input
+                id="chat-invite-code"
+                value={inviteCodeInput}
+                onChange={(e) => onInviteCodeInputChange(e.target.value)}
+                placeholder={t('chat.inviteCodePlaceholder')}
+                className="chat-room-entry__invite-input"
+                autoComplete="off"
+              />
+            </div>
             <div className="chat-room-entry__join-btns">
               <Button variant="outline" size="lg" disabled={joiningInvite} onClick={onAcceptInvite}>
                 {joiningInvite && <Loader2 className="size-4 animate-spin" />}{t('chat.joinByInvite')}

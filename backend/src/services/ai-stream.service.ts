@@ -104,6 +104,42 @@ function loadPrisma(): any {
   return prismaLoader();
 }
 
+function mapDatabaseEventRecordToEvent(record: Record<string, unknown>): AIStreamEvent {
+  return {
+    eventType: record.event_type as AIStreamEvent['eventType'],
+    streamId: String(record.stream_id),
+    requestId: String(record.request_id),
+    scopeType: record.scope_type as AIStreamScopeType,
+    scopeId: String(record.scope_id),
+    seq: Number(record.seq),
+    createdAt: new Date(record.created_at as Date).toISOString(),
+    actorRole: record.actor_role ? String(record.actor_role) : undefined,
+    messageId: record.message_id ? String(record.message_id) : undefined,
+    deltaText: record.delta_text ? String(record.delta_text) : undefined,
+    fullText: record.full_text ? String(record.full_text) : undefined,
+    phase: record.phase as AIStreamPhase | undefined,
+    metadata: record.metadata as Record<string, unknown> | undefined,
+    error: record.error as AIStreamErrorPayload | undefined,
+  };
+}
+
+function mapDatabaseSessionRecordToSnapshot(record: Record<string, unknown>): AIStreamSnapshot {
+  return {
+    streamId: String(record.stream_id),
+    requestId: String(record.request_id),
+    scopeType: record.scope_type as AIStreamScopeType,
+    scopeId: String(record.scope_id),
+    status: record.status as AIStreamStatus,
+    lastSeq: Number(record.last_seq),
+    text: record.text ? String(record.text) : undefined,
+    phase: record.phase as AIStreamPhase | undefined,
+    messageId: record.message_id ? String(record.message_id) : undefined,
+    metadata: record.metadata as Record<string, unknown> | undefined,
+    error: record.error as AIStreamErrorPayload | undefined,
+    updatedAt: new Date(record.updated_at as Date).toISOString(),
+  };
+}
+
 export class AIStreamService {
   private scopes = new Map<StreamScopeKey, ScopeState>();
   private streamTiming = new Map<string, StreamTimingState>();
@@ -458,6 +494,56 @@ export class AIStreamService {
     }
   }
 
+  private async readEventsFromDatabase(scopeType: AIStreamScopeType, scopeId: string, afterSeq = 0): Promise<AIStreamEvent[]> {
+    if (!this.enableDatabasePersistence) return [];
+
+    try {
+      const prisma = loadPrisma();
+      const records = await prisma.aIStreamEventRecord.findMany({
+        where: {
+          scope_type: scopeType,
+          scope_id: scopeId,
+          ...(afterSeq > 0 ? { seq: { gt: afterSeq } } : {}),
+        },
+        orderBy: { seq: afterSeq > 0 ? 'asc' : 'desc' },
+        take: this.maxEventsPerScope,
+      });
+      const events: AIStreamEvent[] = records.map((record: Record<string, unknown>) => mapDatabaseEventRecordToEvent(record));
+      return events.sort((a, b) => a.seq - b.seq);
+    } catch (error) {
+      logger.warn('AI Stream database replay read failed', {
+        scopeType,
+        scopeId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }
+  }
+
+  private async readSnapshotsFromDatabase(scopeType: AIStreamScopeType, scopeId: string): Promise<AIStreamSnapshot[]> {
+    if (!this.enableDatabasePersistence) return [];
+
+    try {
+      const prisma = loadPrisma();
+      const records = await prisma.aIStreamSession.findMany({
+        where: {
+          scope_type: scopeType,
+          scope_id: scopeId,
+        },
+        orderBy: { updated_at: 'desc' },
+        take: this.maxEventsPerScope,
+      });
+      return records.map((record: Record<string, unknown>) => mapDatabaseSessionRecordToSnapshot(record)).sort(sortSnapshots);
+    } catch (error) {
+      logger.warn('AI Stream database snapshot read failed', {
+        scopeType,
+        scopeId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }
+  }
+
   private recordTimingMetrics(event: AIStreamEvent): void {
     const timing = this.streamTiming.get(event.streamId) ?? {};
     const eventMs = Date.parse(event.createdAt);
@@ -592,18 +678,41 @@ export class AIStreamService {
   ): Promise<() => void> {
     const state = this.getScopeState(scopeType, scopeId);
     const afterSeq = options?.afterSeq ?? 0;
-    const localReplay = afterSeq > 0 ? state.events.filter((event) => event.seq > afterSeq) : state.events;
-    const replaySource = localReplay.length > 0 ? localReplay : await this.readEventsFromRedis(scopeType, scopeId);
-    const replay = afterSeq > 0 ? replaySource.filter((event) => event.seq > afterSeq) : replaySource;
-
-    replay.forEach((event) => {
-      this.applyEventToLocalState(event, false);
+    const deliveredSeqs = new Set<number>();
+    const scopedListener: Listener = (event) => {
+      if (event.seq <= afterSeq || deliveredSeqs.has(event.seq)) return;
+      deliveredSeqs.add(event.seq);
       listener(event);
-    });
+    };
 
-    state.listeners.add(listener);
+    state.listeners.add(scopedListener);
+
+    const replayEvent = (event: AIStreamEvent, source: 'local' | 'redis' | 'database') => {
+      if (source !== 'local') {
+        this.applyEventToLocalState(event, false);
+      }
+      scopedListener(event);
+    };
+
+    const localReplay = afterSeq > 0 ? state.events.filter((event) => event.seq > afterSeq) : state.events;
+    if (localReplay.length > 0) {
+      localReplay.forEach((event) => replayEvent(event, 'local'));
+    } else {
+      const redisReplay = await this.readEventsFromRedis(scopeType, scopeId);
+      const replay = afterSeq > 0 ? redisReplay.filter((event) => event.seq > afterSeq) : redisReplay;
+      replay.forEach((event) => replayEvent(event, 'redis'));
+
+      if (replay.length === 0) {
+        const databaseReplay = await this.readEventsFromDatabase(scopeType, scopeId, afterSeq);
+        databaseReplay.forEach((event) => replayEvent(event, 'database'));
+      }
+
+      const latestLocalReplay = afterSeq > 0 ? state.events.filter((event) => event.seq > afterSeq) : state.events;
+      latestLocalReplay.forEach((event) => replayEvent(event, 'local'));
+    }
+
     return () => {
-      state.listeners.delete(listener);
+      state.listeners.delete(scopedListener);
     };
   }
 
@@ -619,7 +728,17 @@ export class AIStreamService {
         state.seq = Math.max(state.seq, snapshot.lastSeq);
       });
     }
-    return redisSnapshots;
+    if (redisSnapshots.length > 0) return redisSnapshots;
+
+    const databaseSnapshots = await this.readSnapshotsFromDatabase(scopeType, scopeId);
+    if (databaseSnapshots.length > 0) {
+      const state = this.getScopeState(scopeType, scopeId);
+      databaseSnapshots.forEach((snapshot) => {
+        state.snapshots.set(snapshot.streamId, snapshot);
+        state.seq = Math.max(state.seq, snapshot.lastSeq);
+      });
+    }
+    return databaseSnapshots;
   }
 
   async dispose(): Promise<void> {

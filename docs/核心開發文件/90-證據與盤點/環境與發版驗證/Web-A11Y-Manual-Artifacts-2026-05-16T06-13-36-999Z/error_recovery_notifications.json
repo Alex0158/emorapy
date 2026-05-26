@@ -1,0 +1,92 @@
+{
+  "id": "error_recovery_notifications",
+  "url": "http://127.0.0.1:5173/",
+  "title": "關係修復室｜把衝突變成可解的問題 - 關係修復室",
+  "notes": "Notifications error recovery state exposes retry control.",
+  "keyboardTraces": [
+    {
+      "label": "notifications-error",
+      "trace": [
+        {
+          "key": "Tab",
+          "active": {
+            "tag": "a",
+            "type": null,
+            "role": null,
+            "ariaLabel": null,
+            "text": "✨Emorapy",
+            "placeholder": null,
+            "id": null,
+            "className": "flex items-center gap-1.5 text-base font-bold tracking-tight text-foreground font-heading",
+            "visibleBox": {
+              "x": 160,
+              "y": 16,
+              "width": 93,
+              "height": 24
+            }
+          }
+        },
+        {
+          "key": "Tab",
+          "active": {
+            "tag": "a",
+            "type": null,
+            "role": null,
+            "ariaLabel": null,
+            "text": "首頁",
+            "placeholder": null,
+            "id": null,
+            "className": "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors text-muted-foreground hover:bg-accent hover:t",
+            "visibleBox": {
+              "x": 408,
+              "y": 12,
+              "width": 74,
+              "height": 32
+            }
+          }
+        },
+        {
+          "key": "Enter",
+          "active": {
+            "tag": "a",
+            "type": null,
+            "role": null,
+            "ariaLabel": null,
+            "text": "首頁",
+            "placeholder": null,
+            "id": null,
+            "className": "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors bg-primary/10 font-medium text-foreground rin",
+            "visibleBox": {
+              "x": 408,
+              "y": 12,
+              "width": 74,
+              "height": 32
+            }
+          }
+        },
+        {
+          "key": "Shift+Tab",
+          "active": {
+            "tag": "a",
+            "type": null,
+            "role": null,
+            "ariaLabel": null,
+            "text": "✨Emorapy",
+            "placeholder": null,
+            "id": null,
+            "className": "flex items-center gap-1.5 text-base font-bold tracking-tight text-foreground font-heading",
+            "visibleBox": {
+              "x": 160,
+              "y": 16,
+              "width": 93,
+              "height": 24
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "screenshot": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-A11Y-Manual-Artifacts-2026-05-16T06-13-36-999Z/error_recovery_notifications.png",
+  "accessibilitySnapshot": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-A11Y-Manual-Artifacts-2026-05-16T06-13-36-999Z/error_recovery_notifications-accessibility.json",
+  "generatedAt": "2026-05-16T06:13:52.528Z"
+}

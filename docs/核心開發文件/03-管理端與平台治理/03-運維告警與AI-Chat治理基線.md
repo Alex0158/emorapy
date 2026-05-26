@@ -4,11 +4,13 @@
 **文檔類型**：正式規格
 **覆蓋範圍**：admin 平台治理、環境部署與運維基線：03-運維告警與AI-Chat治理基線
 **取證代碼入口**：`backend/src/routes/admin.routes.ts`、`backend/src/routes/health.routes.ts`、`backend/src/routes/metrics.routes.ts`、`backend/src/middleware/adminAuth.ts`、`backend/src/config/env.ts`、`backend/src/utils/admin-jwt.ts`、`frontend/src/router/index.tsx`、`frontend/src/utils/adminEntry.ts`、`frontend-admin/src/router.tsx`、`frontend-admin/src/pages`、`backend/package.json`
-**最後核驗 Commit**：`963c0d3`
-**最後核驗日期**：`2026-04-19`
+**最後核驗 Commit**：`3890ba8`
+**最後核驗日期**：`2026-05-07`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 本文件承接 ops alerts、metrics、chat stage gate、benchmark readiness 與 migration rehearsal 的正式治理口徑。
+
+SLI / SLO、事故分級、incident record、postmortem 與 release gate failure 的裁決口徑不在本文內重複，統一見 [06-SLO可觀測性與事故治理基線.md](./06-SLO可觀測性與事故治理基線.md)。health / metrics / request id / logs / release evidence / incident drill 的驗收口徑見 [../08-測試規範與驗收/07-SLO可觀測性與事故演練驗收基線.md](../08-測試規範與驗收/07-SLO可觀測性與事故演練驗收基線.md)。
 
 ## 1. 告警來源
 
@@ -77,3 +79,5 @@ npm run test:e2e -- e2e/chat
 1. 環境矩陣與部署前提：見 [01-環境與部署基線.md](./01-環境與部署基線.md)
 2. 正式發布與回滾：見 [02-發布與回滾檢查表.md](./02-發布與回滾檢查表.md)
 3. AI / chat 驗收口徑：見 [../08-測試規範與驗收/02-AI流式與Chat治理驗收基線.md](../08-測試規範與驗收/02-AI流式與Chat治理驗收基線.md)
+4. SLO / incident / postmortem 口徑：見 [06-SLO可觀測性與事故治理基線.md](./06-SLO可觀測性與事故治理基線.md)
+5. SLO / incident drill 驗收口徑：見 [../08-測試規範與驗收/07-SLO可觀測性與事故演練驗收基線.md](../08-測試規範與驗收/07-SLO可觀測性與事故演練驗收基線.md)

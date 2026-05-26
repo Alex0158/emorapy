@@ -1,0 +1,85 @@
+{
+  "generatedAt": "2026-05-16T06:14:43.528Z",
+  "webBaseUrl": "http://127.0.0.1:5173",
+  "adminBaseUrl": "http://127.0.0.1:5175",
+  "observations": [
+    {
+      "id": "quick_experience",
+      "url": "http://127.0.0.1:5173/quick-experience/result/case-a11y-manual",
+      "screenshot": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-A11Y-Manual-Artifacts-2026-05-16T06-14-43-528Z/quick_experience.png",
+      "accessibilitySnapshot": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-A11Y-Manual-Artifacts-2026-05-16T06-14-43-528Z/quick_experience-accessibility.json"
+    },
+    {
+      "id": "case_list",
+      "url": "http://127.0.0.1:5173/case/list",
+      "screenshot": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-A11Y-Manual-Artifacts-2026-05-16T06-14-43-528Z/case_list.png",
+      "accessibilitySnapshot": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-A11Y-Manual-Artifacts-2026-05-16T06-14-43-528Z/case_list-accessibility.json"
+    },
+    {
+      "id": "case_detail",
+      "url": "http://127.0.0.1:5173/case/case-a11y-manual",
+      "screenshot": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-A11Y-Manual-Artifacts-2026-05-16T06-14-43-528Z/case_detail.png",
+      "accessibilitySnapshot": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-A11Y-Manual-Artifacts-2026-05-16T06-14-43-528Z/case_detail-accessibility.json"
+    },
+    {
+      "id": "notifications",
+      "url": "http://127.0.0.1:5173/case/list",
+      "screenshot": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-A11Y-Manual-Artifacts-2026-05-16T06-14-43-528Z/notifications.png",
+      "accessibilitySnapshot": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-A11Y-Manual-Artifacts-2026-05-16T06-14-43-528Z/notifications-accessibility.json"
+    },
+    {
+      "id": "chat_room",
+      "url": "http://127.0.0.1:5173/chat/room/room-a11y-manual",
+      "screenshot": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-A11Y-Manual-Artifacts-2026-05-16T06-14-43-528Z/chat_room.png",
+      "accessibilitySnapshot": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-A11Y-Manual-Artifacts-2026-05-16T06-14-43-528Z/chat_room-accessibility.json"
+    },
+    {
+      "id": "auth",
+      "url": "http://127.0.0.1:5173/auth/forgot-password",
+      "screenshot": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-A11Y-Manual-Artifacts-2026-05-16T06-14-43-528Z/auth.png",
+      "accessibilitySnapshot": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-A11Y-Manual-Artifacts-2026-05-16T06-14-43-528Z/auth-accessibility.json"
+    },
+    {
+      "id": "admin_login",
+      "url": "http://127.0.0.1:5175/admin/login",
+      "screenshot": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-A11Y-Manual-Artifacts-2026-05-16T06-14-43-528Z/admin_login.png",
+      "accessibilitySnapshot": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-A11Y-Manual-Artifacts-2026-05-16T06-14-43-528Z/admin_login-accessibility.json"
+    },
+    {
+      "id": "admin_ops_jobs",
+      "url": "http://127.0.0.1:5175/admin/ops/jobs",
+      "screenshot": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-A11Y-Manual-Artifacts-2026-05-16T06-14-43-528Z/admin_ops_jobs.png",
+      "accessibilitySnapshot": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-A11Y-Manual-Artifacts-2026-05-16T06-14-43-528Z/admin_ops_jobs-accessibility.json"
+    },
+    {
+      "id": "interactive_surfaces",
+      "url": "http://127.0.0.1:5173/quick-experience/create",
+      "screenshot": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-A11Y-Manual-Artifacts-2026-05-16T06-14-43-528Z/interactive_surfaces.png",
+      "accessibilitySnapshot": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-A11Y-Manual-Artifacts-2026-05-16T06-14-43-528Z/interactive_surfaces-accessibility.json"
+    },
+    {
+      "id": "error_recovery_case_list",
+      "url": "http://127.0.0.1:5173/",
+      "screenshot": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-A11Y-Manual-Artifacts-2026-05-16T06-14-43-528Z/error_recovery_case_list.png",
+      "accessibilitySnapshot": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-A11Y-Manual-Artifacts-2026-05-16T06-14-43-528Z/error_recovery_case_list-accessibility.json"
+    },
+    {
+      "id": "error_recovery_notifications",
+      "url": "http://127.0.0.1:5173/",
+      "screenshot": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-A11Y-Manual-Artifacts-2026-05-16T06-14-43-528Z/error_recovery_notifications.png",
+      "accessibilitySnapshot": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-A11Y-Manual-Artifacts-2026-05-16T06-14-43-528Z/error_recovery_notifications-accessibility.json"
+    },
+    {
+      "id": "admin_ops_jobs_limited",
+      "url": "http://127.0.0.1:5175/admin/ops/jobs",
+      "screenshot": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-A11Y-Manual-Artifacts-2026-05-16T06-14-43-528Z/admin_ops_jobs_limited.png",
+      "accessibilitySnapshot": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-A11Y-Manual-Artifacts-2026-05-16T06-14-43-528Z/admin_ops_jobs_limited-accessibility.json"
+    },
+    {
+      "id": "admin_ops_jobs_forbidden",
+      "url": "http://127.0.0.1:5175/admin/ops/jobs",
+      "screenshot": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-A11Y-Manual-Artifacts-2026-05-16T06-14-43-528Z/admin_ops_jobs_forbidden.png",
+      "accessibilitySnapshot": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-A11Y-Manual-Artifacts-2026-05-16T06-14-43-528Z/admin_ops_jobs_forbidden-accessibility.json"
+    }
+  ]
+}

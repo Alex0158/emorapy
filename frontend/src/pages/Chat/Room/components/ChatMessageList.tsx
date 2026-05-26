@@ -5,7 +5,7 @@
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Virtuoso, type ListRange, type VirtuosoHandle } from 'react-virtuoso';
-import { t } from '@/utils/i18n';
+import { getLocale, t } from '@/utils/i18n';
 import type { ChatMessage } from '@/types/chat';
 import type { AIStreamDraft } from '@/utils/aiStreamState';
 import { getMessageSide, getGroupKey, getIsGroupStart, getIsGroupEnd, shouldShowDayDivider } from '../utils/chatMessageHelpers';
@@ -100,8 +100,9 @@ export default function ChatMessageList({
               const groupKey = getGroupKey(msg);
               const isGroupStart = getIsGroupStart(msg, prev, prev ? getGroupKey(prev) : null, groupKey);
               const isGroupEnd = getIsGroupEnd(msg, next, next ? getGroupKey(next) : null, groupKey);
-              const showDayDivider = shouldShowDayDivider(msg, prev);
-              const currentDay = new Date(msg.created_at).toLocaleDateString();
+              const locale = getLocale();
+              const showDayDivider = shouldShowDayDivider(msg, prev, locale);
+              const currentDay = new Date(msg.created_at).toLocaleDateString(locale);
               const anchorId = `msg-${msg.id}`;
               const linkUrl = currentHrefWithoutHash ? `${currentHrefWithoutHash}#${anchorId}` : '';
               const replyTargetContent = messageById.get(msg.reply_to_message_id ?? '')?.content ?? null;

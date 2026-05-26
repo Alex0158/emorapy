@@ -57,9 +57,10 @@ const SafetyAlert: React.FC<SafetyAlertProps> = ({ message: alertMessage, severi
         </AlertDescription>
         {onDismiss && (
           <button
+            type="button"
             onClick={onDismiss}
             className="absolute right-3 top-3 text-muted-foreground hover:text-foreground transition-colors"
-            aria-label="Dismiss"
+            aria-label={t('common.dismiss')}
           >
             <X className="size-4" />
           </button>

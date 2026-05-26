@@ -8,24 +8,6 @@ import InterviewInput from './index';
 vi.mock('@/utils/i18n', () => ({
   t: (key: string) => key,
 }));
-vi.mock('antd', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('antd')>();
-  return {
-    ...actual,
-    Input: {
-      ...actual.Input,
-      TextArea: ({ value, onChange, onKeyDown, placeholder, disabled }: any) => (
-        <textarea
-          value={value}
-          onChange={onChange}
-          onKeyDown={onKeyDown}
-          placeholder={placeholder}
-          disabled={disabled}
-        />
-      ),
-    },
-  };
-});
 
 describe('InterviewInput', () => {
   it('應渲染 textarea 和送出按鈕', () => {

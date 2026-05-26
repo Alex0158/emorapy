@@ -12,13 +12,13 @@ import { toast } from 'sonner';
 import { Bell, Clock, Trash2, ChevronRight, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ProtectedRoute from '@/components/common/ProtectedRoute';
 import SEO from '@/components/common/SEO';
 import { EmptyState } from '@/components/common/EmptyState';
 import { cn } from '@/lib/utils';
 import { useNotificationStore } from '@/store/notificationStore';
-import { t } from '@/utils/i18n';
+import { getLocale, t } from '@/utils/i18n';
 import type { NotificationFeedState, NotificationItem } from '@/services/api/notifications';
 
 const getStateOptions = (): Array<{ label: string; value: NotificationFeedState }> => [
@@ -108,6 +108,9 @@ const NotificationsPage = () => {
                   </TabsTrigger>
                 ))}
               </TabsList>
+              {getStateOptions().map((opt) => (
+                <TabsContent key={opt.value} value={opt.value} hidden />
+              ))}
             </Tabs>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={() => void fetchNotifications(activeState)}>{t("notifications.action.refresh")}</Button>
@@ -145,15 +148,13 @@ const NotificationsPage = () => {
                       key={notification.id}
                       className="rounded-xl border border-border bg-card p-4 transition-all hover:shadow-sm"
                     >
-                      <div
-                        role="button"
-                        tabIndex={0}
+                      <button
+                        type="button"
                         className={cn(
-                          'w-full text-left',
+                          'w-full appearance-none border-0 bg-transparent p-0 text-left',
                           (notification.journey_context?.entry_path || notification.render_payload.path) && 'cursor-pointer',
                         )}
                         onClick={() => void handleOpen(notification)}
-                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); void handleOpen(notification); } }}
                       >
                         <div className="flex flex-wrap items-center gap-2 mb-1.5">
                           <span className="text-sm font-semibold text-foreground">{notification.render_payload.title}</span>
@@ -164,7 +165,7 @@ const NotificationsPage = () => {
                         </div>
                         <p className="text-sm text-muted-foreground mb-2">{notification.render_payload.body}</p>
                         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                          <span>{new Date(notification.created_at).toLocaleString()}</span>
+                          <span>{new Date(notification.created_at).toLocaleString(getLocale())}</span>
                           {notification.render_payload.journey_status && (
                             <Badge variant="outline" className="text-[10px]">{notification.render_payload.journey_status}</Badge>
                           )}
@@ -172,12 +173,12 @@ const NotificationsPage = () => {
                             <Badge variant="destructive" className="text-[10px]">{t("notifications.badge.now")}</Badge>
                           )}
                           {notification.render_payload.path && (
-                            <span className="flex items-center gap-0.5 text-primary">
+                            <span className="flex items-center gap-0.5 font-medium text-foreground">
                               {t("notifications.goTo")} <ChevronRight className="size-3" />
                             </span>
                           )}
                         </div>
-                      </div>
+                      </button>
 
                       {/* Actions */}
                       <div className="mt-3 flex flex-wrap gap-2">

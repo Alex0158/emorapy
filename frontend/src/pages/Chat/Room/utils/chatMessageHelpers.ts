@@ -56,8 +56,8 @@ export function getIsGroupEnd(
   );
 }
 
-export function shouldShowDayDivider(msg: ChatMessage, prev: ChatMessage | null): boolean {
-  const prevDay = prev ? new Date(prev.created_at).toLocaleDateString() : null;
-  const currentDay = new Date(msg.created_at).toLocaleDateString();
+export function shouldShowDayDivider(msg: ChatMessage, prev: ChatMessage | null, locale: string): boolean {
+  const prevDay = prev ? new Date(prev.created_at).toLocaleDateString(locale) : null;
+  const currentDay = new Date(msg.created_at).toLocaleDateString(locale);
   return !prev || prevDay !== currentDay;
 }

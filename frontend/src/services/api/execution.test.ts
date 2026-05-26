@@ -13,18 +13,46 @@ import {
   type ExecutionStatus,
 } from './execution';
 
-const mockGet = vi.fn();
-const mockPost = vi.fn();
+const mocks = vi.hoisted(() => ({
+  confirm: vi.fn(),
+  checkin: vi.fn(),
+  getStatus: vi.fn(),
+  getDashboard: vi.fn(),
+  replanTrack: vi.fn(),
+  resumeTrack: vi.fn(),
+  createM4ApiClient: vi.fn(() => ({
+    execution: {
+      confirm: mocks.confirm,
+      checkin: mocks.checkin,
+      getStatus: mocks.getStatus,
+      getDashboard: mocks.getDashboard,
+      replanTrack: mocks.replanTrack,
+      resumeTrack: mocks.resumeTrack,
+    },
+  })),
+}));
+
+vi.mock('@cj/api-client', () => ({
+  createM4ApiClient: (...args: unknown[]) => mocks.createM4ApiClient(...args),
+}));
+
 vi.mock('../request', () => ({
-  default: {
-    get: (...args: unknown[]) => mockGet(...args),
-    post: (...args: unknown[]) => mockPost(...args),
-  },
+  default: { requestName: 'web-request-adapter' },
 }));
 
 describe('execution API', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
+    mocks.createM4ApiClient.mockReturnValue({
+      execution: {
+        confirm: mocks.confirm,
+        checkin: mocks.checkin,
+        getStatus: mocks.getStatus,
+        getDashboard: mocks.getDashboard,
+        replanTrack: mocks.replanTrack,
+        resumeTrack: mocks.resumeTrack,
+      },
+    });
   });
 
   it('getAllExecutionStatuses 應正規化 recent_checkins 與 records', async () => {
@@ -40,32 +68,34 @@ describe('execution API', () => {
         progress: 50,
       },
     ];
-    mockGet.mockResolvedValue({ data: { data: { executions } } });
+    mocks.getDashboard.mockResolvedValue([
+      {
+        ...executions[0],
+        records: [],
+        recent_checkins: [],
+      },
+    ]);
     const result = await getAllExecutionStatuses();
-    expect(mockGet).toHaveBeenCalledWith('/execution/dashboard');
+    expect(mocks.getDashboard).toHaveBeenCalledTimes(1);
     expect(result[0].records).toEqual([]);
     expect(result[0].recent_checkins).toEqual([]);
   });
 
   it('getExecutionStatus 應返回新旅程形狀', async () => {
-    mockGet.mockResolvedValue({
-      data: {
-        data: {
-          plan_id: 'p1',
-          judgment_id: 'j1',
-          status: 'in_progress',
-          journey_status: 'solo_active',
-          relationship_mode: 'solo',
-          progress: 25,
-          records: [],
-          recent_checkins: [],
-          current_step: { step_index: 0, title: '今天的一小步', content: '先做這件事' },
-          pulse_summary: { closeness: 'same', stress: 'medium', needs_replan: false, needs_help: false },
-        },
-      },
+    mocks.getStatus.mockResolvedValue({
+      plan_id: 'p1',
+      judgment_id: 'j1',
+      status: 'in_progress',
+      journey_status: 'solo_active',
+      relationship_mode: 'solo',
+      progress: 25,
+      records: [],
+      recent_checkins: [],
+      current_step: { step_index: 0, title: '今天的一小步', content: '先做這件事' },
+      pulse_summary: { closeness: 'same', stress: 'medium', needs_replan: false, needs_help: false },
     });
     const result = await getExecutionStatus('p1');
-    expect(mockGet).toHaveBeenCalledWith('/execution/status', { params: { plan_id: 'p1' } });
+    expect(mocks.getStatus).toHaveBeenCalledWith('p1');
     expect(result.current_step?.content).toBe('先做這件事');
     expect(result.pulse_summary?.needs_replan).toBe(false);
   });
@@ -81,9 +111,9 @@ describe('execution API', () => {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-    mockPost.mockResolvedValue({ data: { data: { execution } } });
+    mocks.confirm.mockResolvedValue(execution);
     const result = await confirmExecution('p1');
-    expect(mockPost).toHaveBeenCalledWith('/execution/confirm', { plan_id: 'p1' });
+    expect(mocks.confirm).toHaveBeenCalledWith('p1');
     expect(result.action).toBe('confirm');
   });
 
@@ -98,7 +128,7 @@ describe('execution API', () => {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-    mockPost.mockResolvedValue({ data: { data: { execution } } });
+    mocks.checkin.mockResolvedValue(execution);
 
     await checkin({
       plan_id: 'p1',
@@ -109,7 +139,7 @@ describe('execution API', () => {
       notes: '今天卡住了',
     });
 
-    expect(mockPost).toHaveBeenCalledWith('/execution/checkin', {
+    expect(mocks.checkin).toHaveBeenCalledWith({
       plan_id: 'p1',
       step_result: 'partial',
       closeness: 'same',
@@ -120,16 +150,16 @@ describe('execution API', () => {
   });
 
   it('replanTrack / resumeTrack 應命中 repair-tracks 接口', async () => {
-    mockPost
-      .mockResolvedValueOnce({ data: { data: { track: { track_id: 't1', plan_id: 'p2', status: 'solo_active' } } } })
-      .mockResolvedValueOnce({ data: { data: { track: { track_id: 't1', plan_id: 'p2', status: 'solo_active' } } } });
+    mocks.replanTrack.mockResolvedValue({ track_id: 't1', plan_id: 'p2', status: 'solo_active' });
+    mocks.resumeTrack.mockResolvedValue({ track_id: 't1', plan_id: 'p2', status: 'solo_active' });
 
     const replanned = await replanTrack('t1', { mode: 'lower_pressure', reason: 'manual' });
     const resumed = await resumeTrack('t1');
 
-    expect(mockPost).toHaveBeenNthCalledWith(1, '/repair-tracks/t1/replan', { mode: 'lower_pressure', reason: 'manual' });
-    expect(mockPost).toHaveBeenNthCalledWith(2, '/repair-tracks/t1/resume');
+    expect(mocks.replanTrack).toHaveBeenCalledWith('t1', { mode: 'lower_pressure', reason: 'manual' });
+    expect(mocks.resumeTrack).toHaveBeenCalledWith('t1');
     expect(replanned.plan_id).toBe('p2');
     expect(resumed.track_id).toBe('t1');
   });
+
 });

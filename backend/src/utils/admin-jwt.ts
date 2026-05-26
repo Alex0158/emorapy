@@ -3,7 +3,17 @@ import { env } from '../config/env';
 import { Errors } from './errors';
 
 const ALGORITHM = 'HS256';
-const EXPIRES_IN = process.env.ADMIN_JWT_EXPIRES_IN || '12h';
+
+function getAdminTokenExpiresIn(): string {
+  const expiresIn = process.env.ADMIN_JWT_EXPIRES_IN;
+  if (expiresIn && expiresIn.trim()) {
+    return expiresIn;
+  }
+  if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
+    return '12h';
+  }
+  throw Errors.UNAUTHORIZED('管理員 JWT 過期時間配置缺失');
+}
 
 function getAdminSecret(): string {
   const secret = process.env.ADMIN_JWT_SECRET;
@@ -30,7 +40,7 @@ export interface AdminPayload {
 export function generateAdminToken(payload: AdminPayload): string {
   return jwt.sign(payload, getAdminSecret(), {
     algorithm: ALGORITHM,
-    expiresIn: EXPIRES_IN,
+    expiresIn: getAdminTokenExpiresIn(),
   } as jwt.SignOptions);
 }
 
@@ -46,4 +56,3 @@ export function verifyAdminToken(token: string): AdminPayload {
     throw Errors.UNAUTHORIZED('管理員 Token 無效');
   }
 }
-

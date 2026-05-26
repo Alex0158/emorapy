@@ -292,7 +292,7 @@ const ProfilePairing = () => {
                   <div className="space-y-2">
                     <label className="text-sm font-medium">{t('pairing.relationshipStage')}</label>
                     <Select value={formValues.relationship_stage || ''} onValueChange={(v: string) => setFormValues((p) => ({ ...p, relationship_stage: v }))}>
-                      <SelectTrigger><SelectValue placeholder={t('pairing.relationshipStagePlaceholder')} /></SelectTrigger>
+                      <SelectTrigger aria-label={t('pairing.relationshipStage')}><SelectValue placeholder={t('pairing.relationshipStagePlaceholder')} /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="newly_dating">{t('pairing.relationshipStageNewlyDating')}</SelectItem>
                         <SelectItem value="stable">{t('pairing.relationshipStageStable')}</SelectItem>
@@ -304,20 +304,20 @@ const ProfilePairing = () => {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">{t('pairing.relationshipDurationDays')}</label>
-                    <Input type="number" min={0} max={36500} placeholder={t('pairing.relationshipDurationDaysPlaceholder')} value={formValues.relationship_duration_days ?? ''} onChange={(e) => setFormValues((p) => ({ ...p, relationship_duration_days: e.target.value ? Number(e.target.value) : null }))} />
+                    <label htmlFor="pairing-relationship-duration" className="text-sm font-medium">{t('pairing.relationshipDurationDays')}</label>
+                    <Input id="pairing-relationship-duration" type="number" min={0} max={36500} autoComplete="off" placeholder={t('pairing.relationshipDurationDaysPlaceholder')} value={formValues.relationship_duration_days ?? ''} onChange={(e) => setFormValues((p) => ({ ...p, relationship_duration_days: e.target.value ? Number(e.target.value) : null }))} />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">{t('pairing.communicationFrequency')}</label>
-                    <Input placeholder={t('pairing.communicationFrequencyPlaceholder')} value={formValues.communication_frequency || ''} onChange={(e) => setFormValues((p) => ({ ...p, communication_frequency: e.target.value }))} />
+                    <label htmlFor="pairing-communication-frequency" className="text-sm font-medium">{t('pairing.communicationFrequency')}</label>
+                    <Input id="pairing-communication-frequency" autoComplete="off" placeholder={t('pairing.communicationFrequencyPlaceholder')} value={formValues.communication_frequency || ''} onChange={(e) => setFormValues((p) => ({ ...p, communication_frequency: e.target.value }))} />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">{t('pairing.relationshipStrengths')}</label>
-                    <textarea rows={3} maxLength={1000} placeholder={t('pairing.relationshipStrengthsPlaceholder')} value={formValues.relationship_strengths || ''} onChange={(e) => setFormValues((p) => ({ ...p, relationship_strengths: e.target.value }))} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
+                    <label htmlFor="pairing-relationship-strengths" className="text-sm font-medium">{t('pairing.relationshipStrengths')}</label>
+                    <textarea id="pairing-relationship-strengths" autoComplete="off" rows={3} maxLength={1000} placeholder={t('pairing.relationshipStrengthsPlaceholder')} value={formValues.relationship_strengths || ''} onChange={(e) => setFormValues((p) => ({ ...p, relationship_strengths: e.target.value }))} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">{t('pairing.relationshipChallenges')}</label>
-                    <textarea rows={3} maxLength={1000} placeholder={t('pairing.relationshipChallengesPlaceholder')} value={formValues.relationship_challenges || ''} onChange={(e) => setFormValues((p) => ({ ...p, relationship_challenges: e.target.value }))} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
+                    <label htmlFor="pairing-relationship-challenges" className="text-sm font-medium">{t('pairing.relationshipChallenges')}</label>
+                    <textarea id="pairing-relationship-challenges" autoComplete="off" rows={3} maxLength={1000} placeholder={t('pairing.relationshipChallengesPlaceholder')} value={formValues.relationship_challenges || ''} onChange={(e) => setFormValues((p) => ({ ...p, relationship_challenges: e.target.value }))} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
                   </div>
                   <Button onClick={handleSaveRelationshipProfile} disabled={relationshipSaving}>
                     {relationshipSaving && <Loader2 className="size-4 animate-spin" />}
@@ -348,7 +348,7 @@ const ProfilePairing = () => {
             <div className="space-y-3">
               <p className="text-sm font-medium text-foreground">{t('pairing.inviteCode')}</p>
               <div className="flex items-center gap-2">
-                <Input value={pairing.invite_code} readOnly className="w-[200px] text-center font-mono text-lg tracking-widest" />
+                <Input aria-label={t('pairing.inviteCode')} autoComplete="off" value={pairing.invite_code} readOnly className="w-[200px] text-center font-mono text-lg tracking-widest" />
                 <Button variant="outline" onClick={handleCopyCode}><Copy className="size-4" />{t('pairing.copy')}</Button>
               </div>
               <p className="text-xs text-muted-foreground">{t('pairing.inviteHint')}</p>
@@ -371,7 +371,7 @@ const ProfilePairing = () => {
               <h4 className="text-base font-semibold text-foreground">{t('pairing.joinTitle')}</h4>
               <p className="text-sm text-muted-foreground">{t('pairing.joinDesc')}</p>
               <div className="flex items-center gap-2">
-                <Input placeholder={t('pairing.joinPlaceholder')} value={inviteCode} onChange={(e) => setInviteCode(e.target.value.toUpperCase())} maxLength={6} className="w-[200px] text-center font-mono text-lg tracking-widest" />
+                <Input aria-label={t('pairing.joinPlaceholder')} autoComplete="off" placeholder={t('pairing.joinPlaceholder')} value={inviteCode} onChange={(e) => setInviteCode(e.target.value.toUpperCase())} maxLength={6} className="w-[200px] text-center font-mono text-lg tracking-widest" />
                 <Button onClick={handleJoinPairing} disabled={joining}>
                   {joining ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle className="size-4" />}
                   {t('pairing.joinButton')}

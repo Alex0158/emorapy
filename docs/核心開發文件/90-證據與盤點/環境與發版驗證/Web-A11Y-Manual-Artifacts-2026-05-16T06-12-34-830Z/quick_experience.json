@@ -1,0 +1,135 @@
+{
+  "id": "quick_experience",
+  "url": "http://127.0.0.1:5173/quick-experience/result/case-a11y-manual",
+  "title": "關係分析結果 - 關係修復室",
+  "notes": "Quick create and result flow completed with keyboard-reachable controls.",
+  "keyboardTraces": [
+    {
+      "label": "quick-create-initial",
+      "trace": [
+        {
+          "key": "Tab",
+          "active": {
+            "tag": "body",
+            "type": null,
+            "role": null,
+            "ariaLabel": null,
+            "text": "✨ Emorapy加載中...",
+            "placeholder": null,
+            "id": null,
+            "className": "",
+            "visibleBox": {
+              "x": 0,
+              "y": 0,
+              "width": 1440,
+              "height": 1000
+            }
+          }
+        },
+        {
+          "key": "Tab",
+          "active": {
+            "tag": "a",
+            "type": null,
+            "role": null,
+            "ariaLabel": null,
+            "text": "✨ Emorapy",
+            "placeholder": null,
+            "id": null,
+            "className": "text-base font-bold text-foreground font-heading",
+            "visibleBox": {
+              "x": 24,
+              "y": 16,
+              "width": 93,
+              "height": 24
+            }
+          }
+        },
+        {
+          "key": "Tab",
+          "active": {
+            "tag": "body",
+            "type": null,
+            "role": null,
+            "ariaLabel": null,
+            "text": "✨ Emorapy加載中...",
+            "placeholder": null,
+            "id": null,
+            "className": "",
+            "visibleBox": {
+              "x": 0,
+              "y": 0,
+              "width": 1440,
+              "height": 1000
+            }
+          }
+        }
+      ]
+    },
+    {
+      "label": "quick-create-submit",
+      "trace": [
+        {
+          "key": "Tab",
+          "active": {
+            "tag": "button",
+            "type": "button",
+            "role": null,
+            "ariaLabel": null,
+            "text": "自動代寫",
+            "placeholder": null,
+            "id": null,
+            "className": "text-sm font-medium text-primary hover:text-primary-hover disabled:text-muted-foreground transition-colors flex items-ce",
+            "visibleBox": {
+              "x": 650,
+              "y": 882,
+              "width": 56,
+              "height": 20
+            }
+          }
+        },
+        {
+          "key": "Shift+Tab",
+          "active": {
+            "tag": "button",
+            "type": null,
+            "role": null,
+            "ariaLabel": null,
+            "text": "下一步",
+            "placeholder": null,
+            "id": null,
+            "className": "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap outline-none focus-visible:border-ring focus-vi",
+            "visibleBox": {
+              "x": 490,
+              "y": 858,
+              "width": 144,
+              "height": 56
+            }
+          }
+        },
+        {
+          "key": "Tab",
+          "active": {
+            "tag": "button",
+            "type": "button",
+            "role": null,
+            "ariaLabel": null,
+            "text": "自動代寫",
+            "placeholder": null,
+            "id": null,
+            "className": "text-sm font-medium text-primary hover:text-primary-hover disabled:text-muted-foreground transition-colors flex items-ce",
+            "visibleBox": {
+              "x": 650,
+              "y": 877,
+              "width": 56,
+              "height": 20
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "screenshot": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-A11Y-Manual-Artifacts-2026-05-16T06-12-34-830Z/quick_experience.png",
+  "accessibilitySnapshot": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-A11Y-Manual-Artifacts-2026-05-16T06-12-34-830Z/quick_experience-accessibility.json",
+  "generatedAt": "2026-05-16T06:12:39.387Z"
+}

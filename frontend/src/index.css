@@ -77,7 +77,7 @@
   --color-foreground: #2C2420;
   --color-surface: #FFFFFF;
   --color-muted: #F5F1ED;
-  --color-muted-foreground: #7A6E64;
+  --color-muted-foreground: #6F6259;
   --color-border: #E8E0D8;
   --color-input: #E8E0D8;
   --color-ring: oklch(0.65 0.15 25);
@@ -92,7 +92,7 @@
 
   /* === 舊系統兼容（遷移期間保留） === */
   --color-text-main: #2C2420;
-  --color-text-muted: #7A6E64;
+  --color-text-muted: #6F6259;
 
   /* === 字體 === */
   --font-heading: "Plus Jakarta Sans", "Jakarta Fallback", sans-serif;

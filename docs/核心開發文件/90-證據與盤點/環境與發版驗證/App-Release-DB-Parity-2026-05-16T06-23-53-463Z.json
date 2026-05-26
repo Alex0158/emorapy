@@ -1,0 +1,24 @@
+{
+  "type": "app-release-db-parity-evidence",
+  "check": "release-db-parity",
+  "ok": true,
+  "target": {
+    "classification": "release",
+    "database": {
+      "source": "DATABASE_URL",
+      "provider": "postgresql",
+      "local": false
+    }
+  },
+  "report": {
+    "ok": true,
+    "check": "release-db-parity",
+    "requiredMigrationCount": 14,
+    "appliedRequiredMigrationCount": 14,
+    "missingRequiredMigrations": [],
+    "incompleteRequiredMigrations": [],
+    "failedMigrations": [],
+    "generatedAt": "2026-05-16T06:23:53.458Z"
+  },
+  "generatedAt": "2026-05-16T06:23:53.463Z"
+}

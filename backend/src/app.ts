@@ -37,6 +37,7 @@ import aiStreamRoutes from './routes/ai-stream.routes';
 import metricsRoutes from './routes/metrics.routes';
 import metaRoutes from './routes/meta.routes';
 import mediaProviderRoutes from './routes/media-provider.routes';
+import appTelemetryRoutes from './routes/app-telemetry.routes';
 
 const app: Application = express();
 
@@ -78,7 +79,7 @@ app.use(requestId);
 const corsBaseOptions = {
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Session-Id', 'X-Locale', 'X-Admin-Bootstrap-Token'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Session-Id', 'X-Locale', 'X-Request-Id', 'X-Admin-Bootstrap-Token'],
 };
 const isHealthPath = (path: string): boolean =>
   path === '/health' || path === '/health/ready' || path === '/health/live';
@@ -139,8 +140,19 @@ app.use(cors((req, callback) => {
 // 語言偵測（Accept-Language）
 app.use(localeMiddleware);
 
-// 壓縮響應
-app.use(compression());
+function shouldCompressResponse(req: express.Request, res: express.Response): boolean {
+  if (req.path.startsWith('/api/v1/streams/') || /^\/api\/v1\/chat\/rooms\/[^/]+\/stream$/.test(req.path)) {
+    return false;
+  }
+  const contentType = res.getHeader('Content-Type');
+  if (typeof contentType === 'string' && contentType.includes('text/event-stream')) {
+    return false;
+  }
+  return compression.filter(req, res);
+}
+
+// 壓縮響應；SSE 必須保持未壓縮，避免 RN / Node fetch 等客戶端收不到即時 chunk。
+app.use(compression({ filter: shouldCompressResponse }));
 
 // 解析JSON請求體
 app.use(express.json({ limit: '10mb' }));
@@ -221,6 +233,7 @@ app.use('/api/v1', notificationRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1', mediaProviderRoutes);
 app.use('/api/v1', metaRoutes);
+app.use('/api/v1', appTelemetryRoutes);
 
 // 404處理
 app.use((req, res) => {

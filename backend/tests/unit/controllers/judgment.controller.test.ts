@@ -101,7 +101,7 @@ describe('JudgmentController', () => {
       expect(res.json).toHaveBeenCalledWith({
         success: true,
         data: { judgment },
-        message: '判決已生成',
+        message: '分析已完成',
       });
       expect(next).not.toHaveBeenCalled();
     });
@@ -174,7 +174,7 @@ describe('JudgmentController', () => {
         success: false,
         error: {
           code: 'JUDGMENT_PENDING',
-          message: '判決生成中，請稍後再試',
+          message: '分析生成中，請稍後再試',
         },
       });
       expect(next).not.toHaveBeenCalled();
@@ -234,7 +234,7 @@ describe('JudgmentController', () => {
 
       await controller.getJudgmentById(req as Request, res as Response, next);
 
-      expect(next).toHaveBeenCalledWith(expect.objectContaining({ code: 'NOT_FOUND', message: '判決不存在' }));
+      expect(next).toHaveBeenCalledWith(expect.objectContaining({ code: 'NOT_FOUND', message: '梳理結果不存在' }));
     });
   });
 
@@ -252,7 +252,7 @@ describe('JudgmentController', () => {
       expect(res.json).toHaveBeenCalledWith({
         success: true,
         data: { judgment },
-        message: '判決已接受',
+        message: '已接受梳理結果',
       });
     });
 
@@ -264,7 +264,7 @@ describe('JudgmentController', () => {
       await controller.acceptJudgment(req as Request, res as Response, next);
 
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ message: '判決已拒絕' })
+        expect.objectContaining({ message: '已拒絕梳理結果' })
       );
     });
 

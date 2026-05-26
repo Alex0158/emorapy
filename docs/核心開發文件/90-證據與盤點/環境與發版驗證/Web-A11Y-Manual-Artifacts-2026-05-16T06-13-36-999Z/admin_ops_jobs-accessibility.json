@@ -1,0 +1,445 @@
+{
+  "title": "任務統計看板",
+  "lang": "zh-TW",
+  "headings": [
+    {
+      "level": 4,
+      "text": "管理後台",
+      "box": {
+        "x": 0,
+        "y": 16,
+        "width": 84,
+        "height": 24
+      }
+    },
+    {
+      "level": 2,
+      "text": "Cron 任務統計",
+      "box": {
+        "x": 256,
+        "y": 16,
+        "width": 1184,
+        "height": 32
+      }
+    }
+  ],
+  "landmarks": [
+    {
+      "tag": "aside",
+      "role": null,
+      "label": "管理後台運維與系統管理版本任務統計任務管理健康檢查系統配置用戶管理審計日誌報表中心系統設定",
+      "box": {
+        "x": 0,
+        "y": 16,
+        "width": 240,
+        "height": 630
+      }
+    },
+    {
+      "tag": "nav",
+      "role": null,
+      "label": "任務統計任務管理健康檢查系統配置用戶管理審計日誌報表中心系統設定",
+      "box": {
+        "x": 0,
+        "y": 68,
+        "width": 240,
+        "height": 316
+      }
+    },
+    {
+      "tag": "main",
+      "role": null,
+      "label": "Cron 任務統計查看排程任務執行情況與成功率管理員 Token儲存 Token清除 Token天數最大資料列以總執行為分母以完成執行為分母重試資料量過大，已抽樣顯示（目前 1 筆）成功率分母：totalRuns總執行次數12成功次數9失敗次數2平均耗時 (ms)2400任務鍵值總執行次數成功率失敗率平均耗時 (ms)repair_journey_digest1275.00%16.67%2400",
+      "box": {
+        "x": 256,
+        "y": 16,
+        "width": 1184,
+        "height": 630
+      }
+    },
+    {
+      "tag": "main",
+      "role": null,
+      "label": "任務統計看板",
+      "box": {
+        "x": 256,
+        "y": 16,
+        "width": 1184,
+        "height": 630
+      }
+    }
+  ],
+  "focusable": [
+    {
+      "tag": "button",
+      "role": null,
+      "type": "button",
+      "label": "版本",
+      "text": "版本",
+      "disabled": false,
+      "ariaExpanded": "false",
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 172,
+        "y": 16,
+        "width": 68,
+        "height": 32
+      }
+    },
+    {
+      "tag": "a",
+      "role": null,
+      "type": null,
+      "label": "任務統計",
+      "text": "任務統計",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 0,
+        "y": 68,
+        "width": 240,
+        "height": 36
+      }
+    },
+    {
+      "tag": "a",
+      "role": null,
+      "type": null,
+      "label": "任務管理",
+      "text": "任務管理",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 0,
+        "y": 108,
+        "width": 240,
+        "height": 36
+      }
+    },
+    {
+      "tag": "a",
+      "role": null,
+      "type": null,
+      "label": "健康檢查",
+      "text": "健康檢查",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 0,
+        "y": 148,
+        "width": 240,
+        "height": 36
+      }
+    },
+    {
+      "tag": "a",
+      "role": null,
+      "type": null,
+      "label": "系統配置",
+      "text": "系統配置",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 0,
+        "y": 188,
+        "width": 240,
+        "height": 36
+      }
+    },
+    {
+      "tag": "a",
+      "role": null,
+      "type": null,
+      "label": "用戶管理",
+      "text": "用戶管理",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 0,
+        "y": 228,
+        "width": 240,
+        "height": 36
+      }
+    },
+    {
+      "tag": "a",
+      "role": null,
+      "type": null,
+      "label": "審計日誌",
+      "text": "審計日誌",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 0,
+        "y": 268,
+        "width": 240,
+        "height": 36
+      }
+    },
+    {
+      "tag": "a",
+      "role": null,
+      "type": null,
+      "label": "報表中心",
+      "text": "報表中心",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 0,
+        "y": 308,
+        "width": 240,
+        "height": 36
+      }
+    },
+    {
+      "tag": "a",
+      "role": null,
+      "type": null,
+      "label": "系統設定",
+      "text": "系統設定",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 0,
+        "y": 348,
+        "width": 240,
+        "height": 36
+      }
+    },
+    {
+      "tag": "input",
+      "role": null,
+      "type": "password",
+      "label": "管理員 Token",
+      "text": "",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 377,
+        "y": 139,
+        "width": 320,
+        "height": 36
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": null,
+      "label": "儲存 Token",
+      "text": "儲存 Token",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 705,
+        "y": 139,
+        "width": 105,
+        "height": 36
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": null,
+      "label": "清除 Token",
+      "text": "清除 Token",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 818,
+        "y": 139,
+        "width": 107,
+        "height": 36
+      }
+    },
+    {
+      "tag": "input",
+      "role": null,
+      "type": "number",
+      "label": "天數",
+      "text": "",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 321,
+        "y": 191,
+        "width": 80,
+        "height": 36
+      }
+    },
+    {
+      "tag": "input",
+      "role": null,
+      "type": "number",
+      "label": "最大資料列",
+      "text": "",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 495,
+        "y": 191,
+        "width": 96,
+        "height": 36
+      }
+    },
+    {
+      "tag": "div",
+      "role": "tablist",
+      "type": null,
+      "label": "以總執行為分母以完成執行為分母",
+      "text": "以總執行為分母以完成執行為分母",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 603,
+        "y": 191,
+        "width": 252,
+        "height": 36
+      }
+    },
+    {
+      "tag": "button",
+      "role": "tab",
+      "type": "button",
+      "label": "以總執行為分母",
+      "text": "以總執行為分母",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": "true",
+      "box": {
+        "x": 606,
+        "y": 194,
+        "width": 116,
+        "height": 29
+      }
+    },
+    {
+      "tag": "button",
+      "role": "tab",
+      "type": "button",
+      "label": "以完成執行為分母",
+      "text": "以完成執行為分母",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": "false",
+      "box": {
+        "x": 722,
+        "y": 194,
+        "width": 130,
+        "height": 29
+      }
+    },
+    {
+      "tag": "div",
+      "role": "tabpanel",
+      "type": null,
+      "label": "以總執行為分母",
+      "text": "",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      }
+    },
+    {
+      "tag": "div",
+      "role": "tabpanel",
+      "type": null,
+      "label": "以完成執行為分母",
+      "text": "",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": null,
+      "label": "重試",
+      "text": "重試",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 867,
+        "y": 191,
+        "width": 62,
+        "height": 36
+      }
+    },
+    {
+      "tag": "section",
+      "role": null,
+      "type": null,
+      "label": "Notifications alt+T",
+      "text": "",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 0,
+        "y": 646,
+        "width": 1440,
+        "height": 0
+      }
+    }
+  ],
+  "statusRegions": [
+    {
+      "tag": "section",
+      "role": null,
+      "ariaLive": "polite",
+      "text": "",
+      "box": {
+        "x": 0,
+        "y": 646,
+        "width": 1440,
+        "height": 0
+      }
+    }
+  ]
+}

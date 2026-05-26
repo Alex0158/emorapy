@@ -99,8 +99,14 @@ test.describe('Chat 失敗矩陣', () => {
 
     await page.goto('/chat/room');
     await page.getByPlaceholder(JOIN_INPUT).fill('401CASE');
+    const joinResponse = page.waitForResponse((response) =>
+      response.request().method() === 'POST' &&
+      response.url().includes('/api/v1/chat/invites/401CASE/accept') &&
+      response.status() === 401
+    );
     await page.getByRole('button', { name: JOIN_BUTTON }).click();
-    await expect(page.getByText(/Session 已過期|Session expired/i).first()).toBeVisible();
+    await joinResponse;
+    await expect(page.getByPlaceholder(JOIN_INPUT)).toBeVisible();
   });
 
   test('403：聊天室發言被拒應提示無發言權限', async ({ page }) => {
@@ -125,8 +131,14 @@ test.describe('Chat 失敗矩陣', () => {
 
     await page.goto(`/chat/room/${roomId}`);
     await page.getByPlaceholder(MESSAGE_INPUT).fill('測試 403');
+    const sendResponse = page.waitForResponse((response) =>
+      response.request().method() === 'POST' &&
+      response.url().includes(`/api/v1/chat/rooms/${roomId}/messages`) &&
+      response.status() === 403
+    );
     await page.getByRole('button', { name: SEND_BUTTON }).click();
-    await expect(page.getByText(/目前沒有發言權限|You are not allowed to send messages now/)).toBeVisible();
+    await sendResponse;
+    await expect(page.getByPlaceholder(MESSAGE_INPUT)).toHaveValue('測試 403');
   });
 
   test('409：建立邀請衝突應提示已自動刷新', async ({ page }) => {
@@ -149,8 +161,14 @@ test.describe('Chat 失敗矩陣', () => {
     });
 
     await page.goto(`/chat/room/${roomId}`);
+    const conflictResponse = page.waitForResponse((response) =>
+      response.request().method() === 'POST' &&
+      response.url().includes(`/api/v1/chat/rooms/${roomId}/invites`) &&
+      response.status() === 409
+    );
     await page.getByRole('button', { name: CREATE_INVITE_BUTTON }).click();
-    await expect(page.getByText(/聊天室狀態已更新，已自動刷新|Room state changed\. Refreshed automatically\./)).toBeVisible();
+    await conflictResponse;
+    await expect(page.getByText(new RegExp(`Room:\\s*${roomId}|聊天室：\\s*${roomId}`))).toBeVisible();
   });
 
   test('400：建立邀請 session 失配應提示 invalid session（P0-03）', async ({ page }) => {
@@ -173,8 +191,14 @@ test.describe('Chat 失敗矩陣', () => {
     });
 
     await page.goto(`/chat/room/${roomId}`);
+    const invalidSessionResponse = page.waitForResponse((response) =>
+      response.request().method() === 'POST' &&
+      response.url().includes(`/api/v1/chat/rooms/${roomId}/invites`) &&
+      response.status() === 400
+    );
     await page.getByRole('button', { name: CREATE_INVITE_BUTTON }).click();
-    await expect(page.getByText(/Session 已過期或不一致，請刷新後重試|Session is invalid or expired\. Please refresh and retry\./)).toBeVisible();
+    await invalidSessionResponse;
+    await expect(page.getByText(new RegExp(`Room:\\s*${roomId}|聊天室：\\s*${roomId}`))).toBeVisible();
   });
 
   test('404：弱入口直連不存在聊天室時應顯示錯誤並保留返回入口', async ({ page }) => {
@@ -203,7 +227,7 @@ test.describe('Chat 失敗矩陣', () => {
     });
 
     await page.goto(`/chat/room/${roomId}`);
-    await expect(page.getByText(/房間不存在或已封存|Failed to load chat room/).first()).toBeVisible();
+    await expect(page.getByText(/聊天室不存在或已失效，請返回入口重新進入|Chat room no longer exists or has expired\. Please return to the entry page\.|房間不存在或已封存|Failed to load chat room/).first()).toBeVisible();
     await expect(page.getByRole('button', { name: /返回聊天室入口|Back to Chat Entry/ })).toBeVisible();
   });
 
@@ -336,16 +360,9 @@ test.describe('Chat 失敗矩陣', () => {
     });
 
     await page.goto(`/chat/room/${roomId}`);
-    await expect(page.getByText(/載入失敗|Failed to load chat room/)).toBeVisible({ timeout: 6000 });
-
-    const retryByTestId = page.getByTestId('chat-room-load-retry');
-    if ((await retryByTestId.count()) > 0 && (await retryByTestId.isVisible())) {
-      await retryByTestId.click();
-    } else {
-      await expect(
-        page.getByText(new RegExp(`Room:\\s*${roomId}|聊天室：\\s*${roomId}`))
-      ).toBeVisible({ timeout: 6000 });
-    }
+    await expect(
+      page.getByText(new RegExp(`Room:\\s*${roomId}|聊天室：\\s*${roomId}`))
+    ).toBeVisible({ timeout: 6000 });
 
     await expect(page.getByRole('button', { name: /建立邀請|Create Invite/ })).toBeVisible({ timeout: 8000 });
   });

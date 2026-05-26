@@ -9,7 +9,7 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Home, LogIn, User, LogOut, Globe, FileText,
-  CheckSquare, MessageCircle, Bell, Settings,
+  MessageCircle, Bell, Settings,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -38,7 +38,7 @@ const NAV_PREFIX_MAP: Record<string, string> = {
   '/case': '/case/list',
   '/judgment': '/case/list',
   '/reconciliation': '/case/list',
-  '/execution': '/execution/dashboard',
+  '/execution': '/case/list',
   '/profile': '/profile/index',
   '/chat': '/chat/room',
 };
@@ -80,12 +80,12 @@ const Header = () => {
 
   const navLinks = isAuthenticated
     ? [
-        { key: '/case/list', icon: FileText, label: t('nav.myCases') },
-        { key: '/execution/dashboard', icon: CheckSquare, label: t('nav.execution') },
-        { key: '/chat/room', icon: MessageCircle, label: t('nav.chat') },
+        { key: '/case/list', icon: FileText, label: t('nav.formalHandling') },
+        { key: '/chat/room', icon: MessageCircle, label: t('nav.chatToJudgment') },
+        { key: '/profile/index', icon: User, label: t('nav.understandYou') },
       ]
     : [
-        { key: '/quick-experience/create', icon: undefined, label: t('nav.quickExperience') },
+        { key: '/quick-experience/create', icon: undefined, label: t('nav.quickCheck') },
       ];
 
   return (
@@ -135,7 +135,10 @@ const Header = () => {
 
           {/* Locale */}
           <Select value={locale} onValueChange={handleLocaleChange}>
-            <SelectTrigger className="h-8 w-[100px] text-xs border-0 bg-transparent">
+            <SelectTrigger
+              className="h-8 w-[100px] text-xs border-0 bg-transparent"
+              aria-label={t('auth.locale.label')}
+            >
               <Globe className="size-3.5 text-muted-foreground" />
               <SelectValue />
             </SelectTrigger>
@@ -203,7 +206,7 @@ function NavLink({ to, active, children }: { to: string; active: boolean; childr
       className={cn(
         'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors',
         active
-          ? 'bg-primary/10 font-medium text-primary'
+          ? 'bg-primary/10 font-medium text-foreground ring-1 ring-primary/20'
           : 'text-muted-foreground hover:bg-accent hover:text-foreground',
       )}
     >

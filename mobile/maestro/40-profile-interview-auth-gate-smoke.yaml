@@ -1,0 +1,36 @@
+appId: com.cj.motherbearcourt
+name: M2 profile deep link auth resume smoke
+tags:
+  - app
+  - m2
+  - smoke
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    text: Cancel
+    optional: true
+- openLink: cj://profile
+- tapOn:
+    text: Open
+    optional: true
+- assertVisible:
+    id: auth.screen
+- assertVisible:
+    id: auth.email.input
+- openLink: cj://profile/interview
+- tapOn:
+    text: Open
+    optional: true
+- assertVisible:
+    id: auth.screen
+- assertVisible:
+    id: auth.email.input
+- openLink: cj://profile/story
+- tapOn:
+    text: Open
+    optional: true
+- assertVisible:
+    id: auth.screen
+- assertVisible:
+    id: auth.email.input

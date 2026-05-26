@@ -92,7 +92,7 @@ describe('generatePipelineFeedbackCard', () => {
       expect.objectContaining({
         maxTokens: 300,
         temperature: 0.7,
-        systemPrompt: '你是一位溫暖的關係諮詢師，善於給予簡潔而有力的鼓勵回饋。',
+        systemPrompt: '你是 Emorapy 的 AI 關係梳理助手，善於給予簡潔而有力的鼓勵回饋。',
       })
     );
     expect(mockGenerateText).toHaveBeenCalledWith(

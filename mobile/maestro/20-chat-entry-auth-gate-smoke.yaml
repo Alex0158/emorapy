@@ -1,0 +1,52 @@
+appId: com.cj.motherbearcourt
+name: M3 chat entry auth gate smoke
+tags:
+  - app
+  - m3
+  - smoke
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    text: Cancel
+    optional: true
+- assertVisible:
+    id: public.home.screen
+- tapOn:
+    id: public.home.chat
+- assertVisible:
+    id: chat.home.screen
+- tapOn:
+    id: chat.home.invite-code.input
+- inputText: "CHAT01"
+- tapOn:
+    text: 先聊再判
+- assertVisible:
+    id: chat.home.accept-invite
+- tapOn:
+    id: chat.home.open-invite
+- assertVisible:
+    id: chat.invite.screen
+- assertVisible:
+    id: chat.invite.code.input
+- tapOn:
+    id: chat.invite.back
+- assertVisible:
+    id: chat.home.screen
+- assertVisible:
+    id: chat.home.create-room
+- scrollUntilVisible:
+    element:
+      id: chat.home.case
+    direction: DOWN
+    timeout: 10000
+- assertVisible:
+    id: chat.home.profile
+- openLink: cj://chat/room?roomId=room-smoke
+- tapOn:
+    text: Open
+    optional: true
+- assertVisible:
+    id: auth.screen
+- assertVisible:
+    id: auth.email.input

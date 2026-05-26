@@ -1,0 +1,11 @@
+{
+  "type": "app-android-apk-install-launch-smoke",
+  "generated_at": "2026-05-08T16:05:53.169Z",
+  "summary": {
+    "built": false,
+    "installed": false,
+    "launched": false,
+    "blocked": true,
+    "failure": "No booted Android device/emulator was found. Run android:emulator:smoke or boot an AVD first."
+  }
+}

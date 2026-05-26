@@ -35,8 +35,8 @@ export const usePsychProfileStore = create<PsychProfileState>((set) => ({
   fetchProfile: async () => {
     set({ loading: true, error: null });
     try {
-      const res = await psychProfileApi.getProfile();
-      set({ profile: res.data?.data ?? null, loading: false });
+      const profile = await psychProfileApi.getProfile();
+      set({ profile: profile ?? null, loading: false });
     } catch (err: unknown) {
       set({ error: getErrorMessage(err, 'psychProfile.loadFail'), loading: false });
     }
@@ -45,8 +45,7 @@ export const usePsychProfileStore = create<PsychProfileState>((set) => ({
   fetchFeedbackHistory: async () => {
     set({ loading: true, error: null });
     try {
-      const res = await psychProfileApi.getFeedbackHistory();
-      const history = res.data?.data?.history;
+      const history = (await psychProfileApi.getFeedbackHistory()).history;
       set({ feedbackHistory: Array.isArray(history) ? history : [], loading: false });
     } catch (err: unknown) {
       set({ error: getErrorMessage(err, 'psychProfile.loadHistoryFail'), loading: false });

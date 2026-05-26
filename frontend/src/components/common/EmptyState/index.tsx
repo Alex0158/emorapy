@@ -2,7 +2,7 @@
  * 品牌化空狀態組件
  *
  * 情境感知的空狀態顯示，帶友善文案和明確的下一步行動。
- * 用於替代泛用的 Ant Design Empty 組件。
+ * 泛用空狀態組件。
  */
 
 import { type ReactNode } from 'react';

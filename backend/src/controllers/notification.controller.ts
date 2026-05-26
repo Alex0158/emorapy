@@ -136,6 +136,45 @@ export class NotificationController {
       next(error);
     }
   }
+
+  async registerDeviceToken(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = getAuthUserId(req);
+      const deviceToken = await notificationService.registerDeviceToken(userId, {
+        token: req.body.token,
+        platform: req.body.platform,
+        device_id: req.body.device_id,
+        app_version: req.body.app_version,
+        build_number: req.body.build_number,
+      });
+      res.status(201).json({
+        success: true,
+        data: {
+          device_token: deviceToken,
+        },
+        message: 'Push token 已記錄',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async revokeDeviceToken(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = getAuthUserId(req);
+      const result = await notificationService.revokeDeviceToken(userId, {
+        token: req.body?.token,
+        device_id: req.body?.device_id,
+      });
+      res.json({
+        success: true,
+        data: result,
+        message: 'Push token 已撤銷',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const notificationController = new NotificationController();

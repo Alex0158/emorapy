@@ -15,6 +15,7 @@ import {
   adminAIStreamDetailSchema,
   adminAIStreamListQuerySchema,
   adminAIStreamReportQuerySchema,
+  adminAppTelemetryReportQuerySchema,
   adminBootstrapSchema,
   adminFeatureFlagsSchema,
   adminCustomReportSchema,
@@ -193,6 +194,14 @@ router.get(
   requireAdminPermission('reports:read'),
   validate(adminAIStreamReportQuerySchema),
   adminController.reportAIStreams.bind(adminController)
+);
+router.get(
+  '/reports/app-telemetry',
+  generalLimiter,
+  authenticateAdmin,
+  requireAdminPermission('reports:read'),
+  validate(adminAppTelemetryReportQuerySchema),
+  adminController.reportAppTelemetry.bind(adminController)
 );
 router.get(
   '/reports/ai-streams/sessions',

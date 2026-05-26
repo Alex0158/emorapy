@@ -3,24 +3,16 @@
  */
 
 import request from '../request';
-import type { ApiResponse } from '@/types/common';
+import { createM1ApiClient } from '@cj/api-client';
 import type { Session } from '@/types/session';
+
+const sharedSessionApi = createM1ApiClient(request).session;
 
 /**
  * 創建Session（快速體驗模式）
  */
 export const createSession = async (): Promise<Session> => {
-  const response = await request.post<ApiResponse<{ session_id: string; expires_at: string }>>(
-    '/sessions/quick'
-  );
-  const data = (response.data as ApiResponse<{ session_id: string; expires_at: string }>)?.data;
-  if (!data?.session_id || !data?.expires_at) {
-    throw new Error('Invalid session response from server');
-  }
-  return {
-    session_id: data.session_id,
-    expires_at: data.expires_at,
-  };
+  return sharedSessionApi.createQuickSession();
 };
 
 /**
@@ -28,20 +20,5 @@ export const createSession = async (): Promise<Session> => {
  * 後端共用 createSession 邏輯，便於前端在過期/即將過期時自動續期
  */
 export const refreshSession = async (currentSessionId?: string): Promise<Session> => {
-  const config = currentSessionId
-    ? { headers: { 'X-Session-Id': currentSessionId } as Record<string, string> }
-    : undefined;
-  const response = await request.post<ApiResponse<{ session_id: string; expires_at: string }>>(
-    '/sessions/refresh',
-    undefined,
-    config
-  );
-  const data = (response.data as ApiResponse<{ session_id: string; expires_at: string }>)?.data;
-  if (!data?.session_id || !data?.expires_at) {
-    throw new Error('Invalid session response from server');
-  }
-  return {
-    session_id: data.session_id,
-    expires_at: data.expires_at,
-  };
+  return sharedSessionApi.refreshQuickSession(currentSessionId);
 };

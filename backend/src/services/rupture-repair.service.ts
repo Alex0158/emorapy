@@ -25,7 +25,7 @@ export class RuptureRepairService {
           ? 'strategy_reset'
           : 'validation';
 
-    const prompt = `你是一位關係諮詢師，正在修復一次「回應失配」。
+    const prompt = `你是 Emorapy 的 AI 關係梳理助手，正在修復一次「回應失配」。
 
 任務目標：
 1) 先承接對方的受傷感與失落感（1-2段）
@@ -52,7 +52,7 @@ ${feedback}
     const repairedContent = await aiService.generateText(prompt, {
       maxTokens: 1500,
       temperature: 0.55,
-      systemPrompt: '你是擅長修復治療聯盟的伴侶諮詢師，風格溫暖、真誠、去防衛。',
+      systemPrompt: '你是擅長修復互信與承接感的 AI 關係梳理助手，風格溫暖、真誠、去防衛。',
     });
 
     return {
@@ -63,4 +63,3 @@ ${feedback}
 }
 
 export const ruptureRepairService = new RuptureRepairService();
-

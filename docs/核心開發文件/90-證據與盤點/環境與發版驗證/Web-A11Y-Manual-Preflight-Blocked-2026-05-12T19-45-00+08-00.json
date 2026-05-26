@@ -1,0 +1,47 @@
+{
+  "evidence": "web-a11y-manual-preflight",
+  "status": "blocked",
+  "generated_at": "2026-05-12T11:45:00Z",
+  "operator": "Codex local verification",
+  "environment": {
+    "web_url": "not-run",
+    "admin_url": "http://127.0.0.1:5175",
+    "browser": "not-run",
+    "os": "macOS local"
+  },
+  "commands": [
+    {
+      "command": "npm run web:a11y:manual-evidence:template:check",
+      "status": "passed",
+      "summary": "Template schema is valid."
+    },
+    {
+      "command": "npm run web:a11y:manual-evidence:check",
+      "status": "failed_as_expected",
+      "summary": "No Web-A11Y-Manual-*.json evidence files found. Use --file to validate a specific file."
+    },
+    {
+      "command": "npm run web:a11y:contracts",
+      "status": "passed",
+      "summary": "Web accessibility contract check passed (270 files scanned)."
+    }
+  ],
+  "blocked_requirements": [
+    "Create a formal Web-A11Y-Manual-*.json artifact with root.status=passed.",
+    "Record keyboard-only manual smoke for quick_experience, case_list, case_detail, notifications, chat_room, auth, admin_login, and admin_ops_jobs.",
+    "Record at least one passed screen reader run using VoiceOver, NVDA, JAWS, Narrator, or TalkBack.",
+    "Attach or reference real manual evidence artifacts such as transcript, recording, screenshots, or exported QA notes.",
+    "Run npm run web:a11y:manual-evidence:check and confirm strict mode passes."
+  ],
+  "decision": {
+    "can_close_web_a11y_todo_now": false,
+    "reason": "Automated A11Y gates and the manual evidence schema exist, but no formal manual keyboard-only and screen reader pass artifact exists. Creating a synthetic pass artifact would overstate accessibility evidence."
+  },
+  "non_claims": [
+    "not_a_pass_artifact",
+    "no_wcag_2_2_aa_claim",
+    "no_screen_reader_pass_claim",
+    "no_full_state_matrix_claim"
+  ],
+  "linked_todo": "docs/核心開發文件/07-待處理問題與治理/待處理/Web全量A11Y與ScreenReader外部證據缺口待辦-2026-05-11.md"
+}

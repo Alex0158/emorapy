@@ -994,14 +994,20 @@ export class JudgmentService {
           return newJudgment;
           } catch (error: unknown) {
             const prismaErr = error as { code?: string; meta?: { target?: string[] } };
-            if (prismaErr.code === 'P2002' && prismaErr.meta?.target?.includes('case_id')) {
-              // 如果違反唯一約束，說明在事務期間其他進程已創建判決
-              // 重新查詢並返回已存在的判決
+            const isUniqueConflict = prismaErr.code === 'P2002';
+            const targetsCaseId =
+              Array.isArray(prismaErr.meta?.target) && prismaErr.meta.target.includes('case_id');
+            if (isUniqueConflict) {
+              // Prisma/Postgres may omit meta.target for this unique index. The case_id
+              // lookup is still the only safe idempotent recovery for this code path.
               const existingJudgment = await tx.judgment.findUnique({
                 where: { case_id: caseId },
               });
               if (existingJudgment) {
-                logger.info('Judgment was created by another process', { caseId });
+                logger.info('Judgment was created by another process', {
+                  caseId,
+                  target: targetsCaseId ? 'case_id' : 'unknown',
+                });
                 return existingJudgment;
               }
             }

@@ -55,23 +55,23 @@ describe('Home', () => {
     expect(screen.getByText('中立梳理爭點，提供可執行的修復方案')).toBeInTheDocument();
   });
 
-  it('應顯示快速體驗與保存紀錄按鈕', () => {
+  it('應顯示快速判斷與保存紀錄按鈕', () => {
     render(
       <MemoryRouter>
         <Home />
       </MemoryRouter>
     );
-    expect(screen.getAllByRole('button', { name: /立即開始快速體驗/ }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: /開始快速判斷/ }).length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: /註冊保存完整紀錄/ })).toBeInTheDocument();
   });
 
-  it('點擊立即開始應導航至 /quick-experience/create', async () => {
+  it('點擊快速判斷應導航至 /quick-experience/create', async () => {
     render(
       <MemoryRouter>
         <Home />
       </MemoryRouter>
     );
-    const quickStartButtons = screen.getAllByRole('button', { name: /立即開始快速體驗/ });
+    const quickStartButtons = screen.getAllByRole('button', { name: /開始快速判斷/ });
     await userEvent.click(quickStartButtons[0]);
     expect(mockNavigate).toHaveBeenCalledWith('/quick-experience/create');
   });
@@ -93,9 +93,9 @@ describe('Home', () => {
       </MemoryRouter>
     );
     expect(screen.getByText('模擬實際使用流程')).toBeInTheDocument();
-    expect(screen.getByText('發起溝通')).toBeInTheDocument();
+    expect(screen.getByText('快速判斷')).toBeInTheDocument();
     expect(screen.getByText('雙向聆聽')).toBeInTheDocument();
-    expect(screen.getByText('心理師分析')).toBeInTheDocument();
+    expect(screen.getByText('AI 梳理')).toBeInTheDocument();
     expect(screen.getByText('個別開解')).toBeInTheDocument();
   });
 
@@ -129,7 +129,7 @@ describe('Home', () => {
       </MemoryRouter>
     );
     const buttons = screen.getAllByRole('button');
-    const primaryBtn = buttons.find(btn => btn.getAttribute('aria-label')?.includes('建立'));
+    const primaryBtn = buttons.find(btn => btn.getAttribute('aria-label')?.includes('正式處理'));
     expect(primaryBtn).toBeDefined();
     if (primaryBtn) {
       await userEvent.click(primaryBtn);

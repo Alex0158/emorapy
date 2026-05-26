@@ -4,7 +4,8 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
   TableBody,
@@ -154,13 +155,15 @@ const OpsJobsStatsPage = () => {
         <AnimatedWrapper animation="slide" direction="up" delay={150}>
           <Card className="mt-4">
             <CardContent className="pt-6 space-y-4">
-              <p className="font-semibold">{t('admin.ops.tokenLabel')}</p>
               <div className="flex flex-wrap gap-2 items-center">
+                <Label htmlFor="admin-ops-token" className="font-semibold">{t('admin.ops.tokenLabel')}</Label>
                 <Input
+                  id="admin-ops-token"
                   type="password"
                   value={tokenInput}
                   onChange={(event) => setTokenInput(event.target.value)}
                   placeholder={t('admin.ops.tokenPlaceholder')}
+                  autoComplete="off"
                   className="min-w-[320px] w-auto"
                 />
                 <Button onClick={handleSaveToken}>
@@ -184,24 +187,28 @@ const OpsJobsStatsPage = () => {
                 )
               )}
               <div className="flex flex-wrap gap-3 items-center">
-                <span className="text-sm">{t('admin.ops.days')}</span>
+                <Label htmlFor="admin-ops-days" className="text-sm">{t('admin.ops.days')}</Label>
                 <Input
+                  id="admin-ops-days"
                   type="number"
                   min={1}
                   max={90}
                   value={query.days}
+                  autoComplete="off"
                   onChange={(e) =>
                     setQuery((prev) => updateAdminJobStatsDays(prev, Number(e.target.value) || null))
                   }
                   className="w-20"
                 />
-                <span className="text-sm">{t('admin.ops.maxRows')}</span>
+                <Label htmlFor="admin-ops-max-rows" className="text-sm">{t('admin.ops.maxRows')}</Label>
                 <Input
+                  id="admin-ops-max-rows"
                   type="number"
                   min={100}
                   max={20000}
                   step={100}
                   value={query.maxRows}
+                  autoComplete="off"
                   onChange={(e) =>
                     setQuery((prev) => updateAdminJobStatsMaxRows(prev, Number(e.target.value) || null))
                   }
@@ -223,6 +230,8 @@ const OpsJobsStatsPage = () => {
                       {t('admin.ops.rateModeCompleted')}
                     </TabsTrigger>
                   </TabsList>
+                  <TabsContent value="total" hidden />
+                  <TabsContent value="completed" hidden />
                 </Tabs>
                 <Button
                   variant="outline"

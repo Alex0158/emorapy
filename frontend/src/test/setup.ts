@@ -17,6 +17,22 @@ if (typeof (HTMLElement.prototype as HTMLElement & { scrollIntoView?: (arg?: Scr
   HTMLElement.prototype.scrollIntoView = vi.fn();
 }
 
+const elementPrototype = Element.prototype as Element & {
+  hasPointerCapture?: (pointerId: number) => boolean;
+  setPointerCapture?: (pointerId: number) => void;
+  releasePointerCapture?: (pointerId: number) => void;
+};
+
+if (typeof elementPrototype.hasPointerCapture !== 'function') {
+  elementPrototype.hasPointerCapture = vi.fn(() => false);
+}
+if (typeof elementPrototype.setPointerCapture !== 'function') {
+  elementPrototype.setPointerCapture = vi.fn();
+}
+if (typeof elementPrototype.releasePointerCapture !== 'function') {
+  elementPrototype.releasePointerCapture = vi.fn();
+}
+
 if (!URL.createObjectURL) {
   URL.createObjectURL = vi.fn().mockReturnValue('blob:mock-url');
 }
@@ -124,7 +140,7 @@ if (typeof globalThis.IntersectionObserver !== 'function') {
   globalThis.IntersectionObserver = IntersectionObserverMock as unknown as typeof IntersectionObserver;
 }
 
-// jsdom 的 getComputedStyle 對部分 rc/antd 元件不完整，常見會回傳 auto/空字串導致 NaN 警告
+// jsdom 的 getComputedStyle 對部分 overlay / virtualized 元件不完整，常見會回傳 auto/空字串導致 NaN 警告
 const nativeGetComputedStyle = window.getComputedStyle?.bind(window);
 window.getComputedStyle = ((elt: Element) => {
   const base = nativeGetComputedStyle ? nativeGetComputedStyle(elt) : ({} as CSSStyleDeclaration);

@@ -1,0 +1,60 @@
+{
+  "evidence": "ai-pricing-release-env-preflight",
+  "status": "blocked",
+  "generated_at": "2026-05-14T14:20:00.000Z",
+  "operator": "Codex local verification with user-authorized environment access",
+  "environment": {
+    "target": "release-preflight",
+    "release_env_claimed": false,
+    "database_url_checked": true,
+    "pricing_values_recorded": false,
+    "secrets_recorded": false
+  },
+  "commands": [
+    {
+      "command": "npm --prefix backend run ops:ai-pricing:check",
+      "status": "failed",
+      "summary": "Current shell/backend dotenv does not provide AI_COST_PRICING_JSON; required runtime models are gpt-3.5-turbo, gpt-4o-mini, and gpt-4o."
+    },
+    {
+      "command": "CJ_RELEASE_GATE=1 AI_COST_PRICING_JSON=<official-openai-pricing-candidate> npm --prefix backend run ops:ai-pricing:check",
+      "status": "passed_as_candidate_only",
+      "summary": "A temporary candidate catalog with source/version and the three required model keys validates successfully, but it is not configured in release/prod env and has not been recorded as business-approved release pricing."
+    },
+    {
+      "command": "npm --prefix backend run ops:release-db:evidence",
+      "status": "failed",
+      "artifact_path": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-Release-DB-Parity-2026-05-14T14-15-53-642Z.json",
+      "summary": "A non-local PostgreSQL DATABASE_URL was checked. Release DB parity is not passed: 7 of 14 release-blocking migrations are applied; 7 required migrations are missing."
+    }
+  ],
+  "release_db_missing_required_migrations": [
+    "20260508093000_add_push_device_tokens",
+    "20260508113000_add_push_receipt_tracking",
+    "20260508124000_add_app_telemetry_events",
+    "20260508133000_add_ai_stream_persistence",
+    "20260508143000_add_interview_collected_facts",
+    "20260508143500_add_interview_turn_extracted_facts",
+    "20260508150000_add_notification_action_metadata"
+  ],
+  "blocked_requirements": [
+    "Release or production backend environment must provide AI_COST_PRICING_JSON.",
+    "Pricing catalog must include source and version, with version starting with YYYY-MM-DD.",
+    "Pricing catalog must cover OPENAI_MODEL, OPENAI_INTERVIEW_MODEL, OPENAI_ANALYSIS_MODEL, and any AI_COST_REQUIRED_MODELS.",
+    "Pricing values must be approved by the release owner before a pass artifact is written.",
+    "Release DB parity must pass against a non-local release or production PostgreSQL DATABASE_URL; the checked target is missing required migrations."
+  ],
+  "decision": {
+    "can_close_ai_ledger_notification_todo_now": false,
+    "reason": "A candidate pricing catalog can satisfy the local validator, but release/prod env lacks AI_COST_PRICING_JSON and the checked non-local release DB is missing required migrations. Creating AI-Pricing-Release-Env-*.json with status=passed would overstate release readiness."
+  },
+  "non_claims": [
+    "not_a_release_pass_artifact",
+    "no_pricing_value_approval_claim",
+    "no_release_pricing_env_configured_claim",
+    "no_release_database_parity_claim",
+    "no_secret_or_database_url_in_artifact",
+    "no_admin_cost_precision_claim"
+  ],
+  "linked_todo": "docs/核心開發文件/07-待處理問題與治理/待處理/AI請求Ledger與Notification狀態Schema同步待辦-2026-05-04.md"
+}

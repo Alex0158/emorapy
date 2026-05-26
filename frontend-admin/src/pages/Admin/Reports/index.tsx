@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -151,11 +152,18 @@ export default function AdminReportsPage() {
           <CardTitle>{t('admin.reports.custom')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <Input
-            value={metricsInput}
-            onChange={(event) => setMetricsInput(event.target.value)}
-            placeholder="dau,mau,judgment_failed"
-          />
+          <div className="space-y-1">
+            <label htmlFor="admin-custom-metrics" className="text-sm font-medium text-foreground">
+              {t('admin.reports.customMetricsLabel')}
+            </label>
+            <Input
+              id="admin-custom-metrics"
+              value={metricsInput}
+              onChange={(event) => setMetricsInput(event.target.value)}
+              placeholder={t('admin.reports.metricsPlaceholder')}
+              autoComplete="off"
+            />
+          </div>
           <Button variant="outline" onClick={runCustomReport} disabled={customMutation.isPending}>
             {customMutation.isPending && <Loader2 className="mr-2 size-4 animate-spin" />}
             {t('admin.reports.runCustom')}
@@ -228,18 +236,22 @@ export default function AdminReportsPage() {
           {/* Filters */}
           <div className="flex flex-wrap gap-2 items-center">
             <div className="flex items-center gap-1">
-              <span className="text-sm text-muted-foreground">{t('admin.reports.aiStreamsWindowDays')}</span>
+              <Label htmlFor="admin-ai-stream-days" className="text-sm text-muted-foreground">
+                {t('admin.reports.aiStreamsWindowDays')}
+              </Label>
               <Input
+                id="admin-ai-stream-days"
                 type="number"
                 min={1}
                 max={90}
+                autoComplete="off"
                 className="w-20"
                 value={aiStreamDays}
                 onChange={(event) => setAIStreamDays(Number(event.target.value) || 7)}
               />
             </div>
             <Select value={aiStreamSource} onValueChange={(value: string) => setAIStreamSource(value as 'live' | 'archive' | 'all')}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-[180px]" aria-label={t('admin.reports.aiStreamsSourceFilter')}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -252,7 +264,7 @@ export default function AdminReportsPage() {
               value={aiStreamStatus || '__all__'}
               onValueChange={(value: string) => setAIStreamStatus(value === '__all__' ? undefined : value)}
             >
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-[180px]" aria-label={t('admin.reports.aiStreamsStatusFilter')}>
                 <SelectValue placeholder={t('admin.reports.aiStreamsStatusFilter')} />
               </SelectTrigger>
               <SelectContent>
@@ -358,6 +370,7 @@ export default function AdminReportsPage() {
                   <TableCell>
                     <button
                       className="text-primary underline-offset-4 hover:underline text-sm"
+                      aria-label={`${t('admin.reports.aiStreamsColStream')} ${record.streamId}`}
                       onClick={(e) => { e.stopPropagation(); setSelectedStreamId(record.streamId); }}
                     >
                       {record.streamId}

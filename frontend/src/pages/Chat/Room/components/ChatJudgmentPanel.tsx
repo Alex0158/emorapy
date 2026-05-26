@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { Info, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { t } from '@/utils/i18n';
+import { getLocale, t } from '@/utils/i18n';
 import type { ChatMessage, ChatRoom } from '@/types/chat';
 
 export interface JudgmentPreviewInfo {
@@ -53,6 +53,7 @@ export default function ChatJudgmentPanel({ open, previewInfo, selectedForJudgme
 
   const { includedMessages, excludedByVisibility, joinAt, applyJoinTimeFilter, excludedByJoinTime } = previewInfo;
   const previewList = includedMessages;
+  const locale = getLocale();
 
   const handleConfirm = () => {
     if (hasConfirmedRef.current) return;
@@ -78,7 +79,7 @@ export default function ChatJudgmentPanel({ open, previewInfo, selectedForJudgme
           <div className="text-xs text-muted-foreground space-y-1">
             <p>{t('chat.preview.ruleVisibility')}{excludedByVisibility > 0 ? t('chat.preview.excludedCount', { count: excludedByVisibility }) : ''}</p>
             {joinAt && applyJoinTimeFilter && (
-              <p>{t('chat.preview.ruleJoinTime')}{t('chat.preview.joinFilterMeta', { role: t('chat.role.roleB'), time: joinAt.toLocaleString(), count: excludedByJoinTime })}</p>
+              <p>{t('chat.preview.ruleJoinTime')}{t('chat.preview.joinFilterMeta', { role: t('chat.role.roleB'), time: joinAt.toLocaleString(locale), count: excludedByJoinTime })}</p>
             )}
           </div>
         </div>
@@ -88,7 +89,7 @@ export default function ChatJudgmentPanel({ open, previewInfo, selectedForJudgme
             <label key={m.id} className="flex items-start gap-2 rounded p-1.5 hover:bg-accent cursor-pointer">
               <input type="checkbox" checked={selectedForJudgment.includes(m.id)} onChange={(e) => onSelectedChange(e.target.checked ? [...selectedForJudgment, m.id] : selectedForJudgment.filter((id) => id !== m.id))} className="mt-1 accent-primary" />
               <div className="min-w-0">
-                <p className="text-[11px] font-medium text-foreground">{new Date(m.created_at).toLocaleString()}</p>
+                <p className="text-[11px] font-medium text-foreground">{new Date(m.created_at).toLocaleString(locale)}</p>
                 <p className="text-xs text-muted-foreground truncate">{getRoleLabel(m.sender_participant?.role_in_room)}: {m.content}</p>
               </div>
             </label>

@@ -1,0 +1,468 @@
+{
+  "title": "我的案件 - 關係修復室 - 關係修復室",
+  "lang": "zh-TW",
+  "headings": [
+    {
+      "level": 2,
+      "text": "我的案件",
+      "box": {
+        "x": 296,
+        "y": 89,
+        "width": 94,
+        "height": 32
+      }
+    }
+  ],
+  "landmarks": [
+    {
+      "tag": "header",
+      "role": null,
+      "label": "✨Emorapy首頁正式處理先聊再判懂你版本1繁體中文AA11Y Manual",
+      "box": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 57
+      }
+    },
+    {
+      "tag": "nav",
+      "role": null,
+      "label": "首頁正式處理先聊再判懂你",
+      "box": {
+        "x": 408,
+        "y": 12,
+        "width": 364,
+        "height": 32
+      }
+    },
+    {
+      "tag": "main",
+      "role": null,
+      "label": "我的案件共 1 個案件創建新案件全部狀態全部類型最新A11Y manual relationship repair case已完成生活習慣2026-05-16",
+      "box": {
+        "x": 0,
+        "y": 57,
+        "width": 1440,
+        "height": 854
+      }
+    },
+    {
+      "tag": "div",
+      "role": "main",
+      "label": "案件列表頁面",
+      "box": {
+        "x": 272,
+        "y": 57,
+        "width": 896,
+        "height": 289
+      }
+    },
+    {
+      "tag": "header",
+      "role": null,
+      "label": "我的案件共 1 個案件創建新案件",
+      "box": {
+        "x": 296,
+        "y": 89,
+        "width": 848,
+        "height": 56
+      }
+    },
+    {
+      "tag": "footer",
+      "role": null,
+      "label": "© 2026 關係修復室釐清爭點，重建對話，逐步修復關係",
+      "box": {
+        "x": 0,
+        "y": 911,
+        "width": 1440,
+        "height": 89
+      }
+    },
+    {
+      "tag": "nav",
+      "role": null,
+      "label": "首頁正式處理正式提交先聊再判懂你",
+      "box": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      }
+    }
+  ],
+  "focusable": [
+    {
+      "tag": "a",
+      "role": null,
+      "type": null,
+      "label": "✨Emorapy",
+      "text": "✨Emorapy",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 160,
+        "y": 16,
+        "width": 93,
+        "height": 24
+      }
+    },
+    {
+      "tag": "a",
+      "role": null,
+      "type": null,
+      "label": "首頁",
+      "text": "首頁",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 408,
+        "y": 12,
+        "width": 74,
+        "height": 32
+      }
+    },
+    {
+      "tag": "a",
+      "role": null,
+      "type": null,
+      "label": "正式處理",
+      "text": "正式處理",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 486,
+        "y": 12,
+        "width": 102,
+        "height": 32
+      }
+    },
+    {
+      "tag": "a",
+      "role": null,
+      "type": null,
+      "label": "先聊再判",
+      "text": "先聊再判",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 592,
+        "y": 12,
+        "width": 102,
+        "height": 32
+      }
+    },
+    {
+      "tag": "a",
+      "role": null,
+      "type": null,
+      "label": "懂你",
+      "text": "懂你",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 698,
+        "y": 12,
+        "width": 74,
+        "height": 32
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": "button",
+      "label": "版本",
+      "text": "版本",
+      "disabled": false,
+      "ariaExpanded": "false",
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 926,
+        "y": 12,
+        "width": 62,
+        "height": 32
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": null,
+      "label": "通知中心",
+      "text": "1",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 996,
+        "y": 12,
+        "width": 32,
+        "height": 32
+      }
+    },
+    {
+      "tag": "button",
+      "role": "combobox",
+      "type": "button",
+      "label": "切換語言",
+      "text": "繁體中文",
+      "disabled": false,
+      "ariaExpanded": "false",
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 1036,
+        "y": 10,
+        "width": 100,
+        "height": 36
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": "button",
+      "label": "AA11Y Manual",
+      "text": "AA11Y Manual",
+      "disabled": false,
+      "ariaExpanded": "false",
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 1144,
+        "y": 8,
+        "width": 136,
+        "height": 40
+      }
+    },
+    {
+      "tag": "p",
+      "role": null,
+      "type": null,
+      "label": "共 1 個案件",
+      "text": "共 1 個案件",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 296,
+        "y": 125,
+        "width": 94,
+        "height": 20
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": null,
+      "label": "創建新案件",
+      "text": "創建新案件",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 1026,
+        "y": 99,
+        "width": 118,
+        "height": 36
+      }
+    },
+    {
+      "tag": "button",
+      "role": "combobox",
+      "type": "button",
+      "label": "篩選案件狀態",
+      "text": "全部狀態",
+      "disabled": false,
+      "ariaExpanded": "false",
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 296,
+        "y": 169,
+        "width": 130,
+        "height": 36
+      }
+    },
+    {
+      "tag": "button",
+      "role": "combobox",
+      "type": "button",
+      "label": "篩選案件類型",
+      "text": "全部類型",
+      "disabled": false,
+      "ariaExpanded": "false",
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 438,
+        "y": 169,
+        "width": 160,
+        "height": 36
+      }
+    },
+    {
+      "tag": "button",
+      "role": "combobox",
+      "type": "button",
+      "label": "排序方式",
+      "text": "最新",
+      "disabled": false,
+      "ariaExpanded": "false",
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 610,
+        "y": 169,
+        "width": 120,
+        "height": 36
+      }
+    },
+    {
+      "tag": "input",
+      "role": null,
+      "type": null,
+      "label": "搜索案件",
+      "text": "",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 742,
+        "y": 169,
+        "width": 402,
+        "height": 36
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": "button",
+      "label": "查看案件 A11Y manual relationship repair case 的詳情",
+      "text": "A11Y manual relationship repair case已完成生活習慣2026-05-16",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 296,
+        "y": 230,
+        "width": 848,
+        "height": 85
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": "button",
+      "label": "首頁",
+      "text": "首頁",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": "button",
+      "label": "正式處理",
+      "text": "正式處理",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": "button",
+      "label": "正式提交",
+      "text": "正式提交",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": "button",
+      "label": "先聊再判",
+      "text": "先聊再判",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": "button",
+      "label": "懂你",
+      "text": "懂你",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      }
+    }
+  ],
+  "statusRegions": [
+    {
+      "tag": "p",
+      "role": null,
+      "ariaLive": "polite",
+      "text": "共 1 個案件",
+      "box": {
+        "x": 296,
+        "y": 125,
+        "width": 94,
+        "height": 20
+      }
+    }
+  ]
+}

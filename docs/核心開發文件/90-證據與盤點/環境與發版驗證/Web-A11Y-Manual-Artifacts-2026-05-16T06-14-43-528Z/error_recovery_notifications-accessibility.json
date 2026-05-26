@@ -1,0 +1,597 @@
+{
+  "title": "關係修復室｜把衝突變成可解的問題 - 關係修復室",
+  "lang": "zh-TW",
+  "headings": [
+    {
+      "level": 2,
+      "text": "歡迎回來，A11Y Manual",
+      "box": {
+        "x": 463,
+        "y": 221,
+        "width": 514,
+        "height": 32
+      }
+    },
+    {
+      "level": 4,
+      "text": "開始正式處理",
+      "box": {
+        "x": 560,
+        "y": 316,
+        "width": 267,
+        "height": 23
+      }
+    },
+    {
+      "level": 5,
+      "text": "其他操作",
+      "box": {
+        "x": 463,
+        "y": 439,
+        "width": 514,
+        "height": 20
+      }
+    },
+    {
+      "level": 2,
+      "text": "你會得到的幫助",
+      "box": {
+        "x": 120,
+        "y": 765,
+        "width": 1200,
+        "height": 42
+      }
+    },
+    {
+      "level": 3,
+      "text": "5 分鐘完成一次梳理",
+      "box": {
+        "x": 153,
+        "y": 1015,
+        "width": 518,
+        "height": 26
+      }
+    },
+    {
+      "level": 3,
+      "text": "中立視角整理爭點",
+      "box": {
+        "x": 769,
+        "y": 1023,
+        "width": 518,
+        "height": 26
+      }
+    },
+    {
+      "level": 3,
+      "text": "可落地的溝通腳本",
+      "box": {
+        "x": 153,
+        "y": 1315,
+        "width": 518,
+        "height": 26
+      }
+    },
+    {
+      "level": 3,
+      "text": "追蹤是否真的改善",
+      "box": {
+        "x": 769,
+        "y": 1315,
+        "width": 518,
+        "height": 26
+      }
+    },
+    {
+      "level": 2,
+      "text": "四步走出惡性循環",
+      "box": {
+        "x": 120,
+        "y": 1613,
+        "width": 1200,
+        "height": 42
+      }
+    },
+    {
+      "level": 3,
+      "text": "說事實，不互相貼標籤",
+      "box": {
+        "x": 136,
+        "y": 1790,
+        "width": 268,
+        "height": 23
+      }
+    },
+    {
+      "level": 3,
+      "text": "釐清爭點與方向",
+      "box": {
+        "x": 436,
+        "y": 1790,
+        "width": 268,
+        "height": 23
+      }
+    },
+    {
+      "level": 3,
+      "text": "查看修復建議",
+      "box": {
+        "x": 736,
+        "y": 1790,
+        "width": 268,
+        "height": 23
+      }
+    },
+    {
+      "level": 3,
+      "text": "執行並回顧",
+      "box": {
+        "x": 1036,
+        "y": 1790,
+        "width": 268,
+        "height": 23
+      }
+    },
+    {
+      "level": 2,
+      "text": "準備好正式處理這件事了嗎？",
+      "box": {
+        "x": 440,
+        "y": 2000,
+        "width": 560,
+        "height": 36
+      }
+    }
+  ],
+  "landmarks": [
+    {
+      "tag": "header",
+      "role": null,
+      "label": "✨Emorapy首頁正式處理先聊再判懂你版本1繁體中文AA11Y Manual",
+      "box": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 57
+      }
+    },
+    {
+      "tag": "nav",
+      "role": null,
+      "label": "首頁正式處理先聊再判懂你",
+      "box": {
+        "x": 408,
+        "y": 12,
+        "width": 364,
+        "height": 32
+      }
+    },
+    {
+      "tag": "main",
+      "role": null,
+      "label": "跳過到主要內容歡迎回來，A11Y Manual我們準備好繼續幫助您修復關係了。開始正式處理提交這件事，保留完整歷程並進入修復旅程。正式提交其他操作先聊再判讓系統更懂你你會得到的幫助5 分鐘完成一次梳理先釐清爭點，再決定下一步中立視角整理爭點把情緒翻譯成可討論的問題可落地的溝通腳本每一步都有具體句型與行動建議追蹤是否真的改善看見進度，避免同樣衝突反覆發生四步走出惡性循環1說事實，不互相貼標籤輸入雙方陳述，先把事件說清楚2釐清爭點與方向系統",
+      "box": {
+        "x": 0,
+        "y": 57,
+        "width": 1440,
+        "height": 2180
+      }
+    },
+    {
+      "tag": "footer",
+      "role": null,
+      "label": "© 2026 關係修復室釐清爭點，重建對話，逐步修復關係",
+      "box": {
+        "x": 0,
+        "y": 2237,
+        "width": 1440,
+        "height": 89
+      }
+    },
+    {
+      "tag": "nav",
+      "role": null,
+      "label": "首頁正式處理正式提交先聊再判懂你",
+      "box": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      }
+    }
+  ],
+  "focusable": [
+    {
+      "tag": "a",
+      "role": null,
+      "type": null,
+      "label": "✨Emorapy",
+      "text": "✨Emorapy",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 160,
+        "y": 16,
+        "width": 93,
+        "height": 24
+      }
+    },
+    {
+      "tag": "a",
+      "role": null,
+      "type": null,
+      "label": "首頁",
+      "text": "首頁",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 408,
+        "y": 12,
+        "width": 74,
+        "height": 32
+      }
+    },
+    {
+      "tag": "a",
+      "role": null,
+      "type": null,
+      "label": "正式處理",
+      "text": "正式處理",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 486,
+        "y": 12,
+        "width": 102,
+        "height": 32
+      }
+    },
+    {
+      "tag": "a",
+      "role": null,
+      "type": null,
+      "label": "先聊再判",
+      "text": "先聊再判",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 592,
+        "y": 12,
+        "width": 102,
+        "height": 32
+      }
+    },
+    {
+      "tag": "a",
+      "role": null,
+      "type": null,
+      "label": "懂你",
+      "text": "懂你",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 698,
+        "y": 12,
+        "width": 74,
+        "height": 32
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": "button",
+      "label": "版本",
+      "text": "版本",
+      "disabled": false,
+      "ariaExpanded": "false",
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 926,
+        "y": 12,
+        "width": 62,
+        "height": 32
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": null,
+      "label": "通知中心",
+      "text": "1",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 996,
+        "y": 12,
+        "width": 32,
+        "height": 32
+      }
+    },
+    {
+      "tag": "button",
+      "role": "combobox",
+      "type": "button",
+      "label": "切換語言",
+      "text": "繁體中文",
+      "disabled": false,
+      "ariaExpanded": "false",
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 1036,
+        "y": 10,
+        "width": 100,
+        "height": 36
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": "button",
+      "label": "AA11Y Manual",
+      "text": "AA11Y Manual",
+      "disabled": false,
+      "ariaExpanded": "false",
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 1144,
+        "y": 8,
+        "width": 136,
+        "height": 40
+      }
+    },
+    {
+      "tag": "a",
+      "role": null,
+      "type": null,
+      "label": "跳過到主要內容",
+      "text": "跳過到主要內容",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 0,
+        "y": 17,
+        "width": 144,
+        "height": 43
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": null,
+      "label": "正式提交",
+      "text": "正式提交",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 842,
+        "y": 321,
+        "width": 99,
+        "height": 34
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": null,
+      "label": "先聊再判",
+      "text": "先聊再判",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 463,
+        "y": 471,
+        "width": 251,
+        "height": 54
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": null,
+      "label": "讓系統更懂你",
+      "text": "讓系統更懂你",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 726,
+        "y": 471,
+        "width": 251,
+        "height": 54
+      }
+    },
+    {
+      "tag": "div",
+      "role": "article",
+      "type": null,
+      "label": "快速體驗功能，無需註冊即可使用",
+      "text": "5 分鐘完成一次梳理先釐清爭點，再決定下一步",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 120,
+        "y": 862,
+        "width": 584,
+        "height": 259
+      }
+    },
+    {
+      "tag": "div",
+      "role": "article",
+      "type": null,
+      "label": "AI智能分析功能，提供公正溫暖的分析",
+      "text": "中立視角整理爭點把情緒翻譯成可討論的問題",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 736,
+        "y": 870,
+        "width": 584,
+        "height": 259
+      }
+    },
+    {
+      "tag": "div",
+      "role": "article",
+      "type": null,
+      "label": "和好方案功能，提供關係修復建議",
+      "text": "可落地的溝通腳本每一步都有具體句型與行動建議",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 120,
+        "y": 1162,
+        "width": 584,
+        "height": 259
+      }
+    },
+    {
+      "tag": "div",
+      "role": "article",
+      "type": null,
+      "label": "執行追蹤功能，追蹤和好方案執行進度",
+      "text": "追蹤是否真的改善看見進度，避免同樣衝突反覆發生",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 736,
+        "y": 1162,
+        "width": 584,
+        "height": 259
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": null,
+      "label": "開始正式處理這件事",
+      "text": "開始正式處理",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 644,
+        "y": 2109,
+        "width": 152,
+        "height": 48
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": "button",
+      "label": "首頁",
+      "text": "首頁",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": "button",
+      "label": "正式處理",
+      "text": "正式處理",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": "button",
+      "label": "正式提交",
+      "text": "正式提交",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": "button",
+      "label": "先聊再判",
+      "text": "先聊再判",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      }
+    },
+    {
+      "tag": "button",
+      "role": null,
+      "type": "button",
+      "label": "懂你",
+      "text": "懂你",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      }
+    }
+  ],
+  "statusRegions": []
+}

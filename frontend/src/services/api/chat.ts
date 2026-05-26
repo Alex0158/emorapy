@@ -1,19 +1,14 @@
+import { createM3ApiClient } from '@cj/api-client';
 import request from '../request';
-import type { ApiResponse } from '@/types/common';
 import { env } from '@/config/env';
 import { sessionStorage } from '@/utils/storage';
 import { getLocale } from '@/utils/i18n';
 import {
   buildChatStreamHeaders,
-  chatInvitePath,
   chatRoomPath,
-  ensureChatApiData,
-  getChatJudgmentRequestConfig,
-  normalizeListMessagesResponse,
   parseChatStreamEventChunk,
   readChatStreamHttpError,
   readChatStreamToken,
-  unwrapChatApiData,
   type ListMessagesResponse,
 } from './chatApiUtils';
 import type {
@@ -26,122 +21,64 @@ import type {
   ChatStreamEvent,
 } from '@/types/chat';
 
+const sharedChatApi = createM3ApiClient(request).chat;
+
 export const createChatRoom = async (
   historyVisibilityMode: ChatHistoryVisibilityMode = 'share_summary_only'
 ): Promise<ChatRoom> => {
-  const response = await request.post<ApiResponse<{ room: ChatRoom }>>('/chat/rooms', {
-    history_visibility_mode: historyVisibilityMode,
-  });
-  return ensureChatApiData(
-    unwrapChatApiData(response, 'Invalid chat room response from server').room,
-    'Invalid chat room response from server'
-  );
+  return sharedChatApi.createRoom(historyVisibilityMode) as Promise<ChatRoom>;
 };
 
 export const getChatRoom = async (roomId: string): Promise<ChatRoom> => {
-  const response = await request.get<ApiResponse<{ room: ChatRoom }>>(chatRoomPath(roomId));
-  return ensureChatApiData(
-    unwrapChatApiData(response, 'Invalid chat room response from server').room,
-    'Invalid chat room response from server'
-  );
+  return sharedChatApi.getRoom(roomId) as Promise<ChatRoom>;
 };
 
 export const createChatInvite = async (
   roomId: string,
   payload?: { history_visibility_mode?: ChatHistoryVisibilityMode; expires_in_hours?: number }
 ): Promise<ChatInvite> => {
-  const response = await request.post<ApiResponse<{ invite: ChatInvite }>>(
-    chatRoomPath(roomId, '/invites'),
-    payload ?? {}
-  );
-  return ensureChatApiData(
-    unwrapChatApiData(response, 'Invalid chat invite response from server').invite,
-    'Invalid chat invite response from server'
-  );
+  return sharedChatApi.createInvite(roomId, payload ?? {}) as Promise<ChatInvite>;
 };
 
 export const acceptChatInvite = async (inviteCode: string): Promise<ChatRoom> => {
-  const response = await request.post<ApiResponse<{ room: ChatRoom }>>(
-    chatInvitePath(inviteCode, '/accept')
-  );
-  return ensureChatApiData(
-    unwrapChatApiData(response, 'Invalid accept invite response from server').room,
-    'Invalid accept invite response from server'
-  );
+  return sharedChatApi.acceptInvite(inviteCode) as Promise<ChatRoom>;
 };
 
 export const declineChatInvite = async (inviteCode: string): Promise<ChatInvite> => {
-  const response = await request.post<ApiResponse<{ invite: ChatInvite }>>(
-    chatInvitePath(inviteCode, '/decline')
-  );
-  return ensureChatApiData(
-    unwrapChatApiData(response, 'Invalid decline invite response from server').invite,
-    'Invalid decline invite response from server'
-  );
+  return sharedChatApi.declineInvite(inviteCode) as Promise<ChatInvite>;
 };
 
 export const listChatMessages = async (
   roomId: string,
   params?: { cursor?: string; limit?: number }
 ): Promise<ListMessagesResponse> => {
-  const response = await request.get<ApiResponse<ListMessagesResponse>>(
-    chatRoomPath(roomId, '/messages'),
-    {
-      params,
-    }
-  );
-  const result = unwrapChatApiData(
-    response,
-    'Invalid chat messages response from server'
-  );
-  return normalizeListMessagesResponse(result);
+  return sharedChatApi.listMessages(roomId, params ?? {}) as Promise<ListMessagesResponse>;
 };
 
 export const sendChatMessage = async (
   roomId: string,
   payload: { content: string; visibility_scope?: 'all' | 'owner_only' | 'summary_only'; reply_to_message_id?: string }
 ): Promise<ChatMessage> => {
-  const response = await request.post<ApiResponse<{ message: ChatMessage }>>(
-    chatRoomPath(roomId, '/messages'),
-    payload
-  );
-  return ensureChatApiData(
-    unwrapChatApiData(response, 'Invalid send message response from server').message,
-    'Invalid send message response from server'
-  );
+  return sharedChatApi.sendMessage(roomId, payload) as Promise<ChatMessage>;
 };
 
 export const requestChatJudgment = async (
   roomId: string,
   payload?: { included_message_ids?: string[] }
 ): Promise<ChatJudgmentResult> => {
-  const response = await request.post<ApiResponse<ChatJudgmentResult>>(
-    chatRoomPath(roomId, '/request-judgment'),
-    payload ?? {},
-    getChatJudgmentRequestConfig()
-  );
-  return unwrapChatApiData(response, 'Invalid judgment request response from server');
+  return sharedChatApi.requestJudgment(roomId, payload ?? {}) as Promise<ChatJudgmentResult>;
 };
 
 export const getChatJudgmentStatus = async (roomId: string): Promise<ChatJudgmentStatus> => {
-  const response = await request.get<ApiResponse<ChatJudgmentStatus>>(
-    chatRoomPath(roomId, '/judgment-status')
-  );
-  return unwrapChatApiData(response, 'Invalid judgment status response from server');
+  return sharedChatApi.getJudgmentStatus(roomId) as Promise<ChatJudgmentStatus>;
 };
 
 export const leaveChatRoom = async (roomId: string): Promise<ChatRoom> => {
-  const response = await request.post<ApiResponse<{ room: ChatRoom }>>(
-    chatRoomPath(roomId, '/leave')
-  );
-  return ensureChatApiData(unwrapChatApiData(response, 'Invalid leave room response').room, 'Invalid leave room response');
+  return sharedChatApi.leaveRoom(roomId) as Promise<ChatRoom>;
 };
 
 export const kickChatParticipantB = async (roomId: string): Promise<ChatRoom> => {
-  const response = await request.post<ApiResponse<{ room: ChatRoom }>>(
-    chatRoomPath(roomId, '/kick-b')
-  );
-  return ensureChatApiData(unwrapChatApiData(response, 'Invalid kick response').room, 'Invalid kick response');
+  return sharedChatApi.kickParticipantB(roomId) as Promise<ChatRoom>;
 };
 
 export interface ChatStreamCallbacks {

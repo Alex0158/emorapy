@@ -190,11 +190,11 @@ const FileUpload = ({
             )}
             {/* Hover overlay */}
             <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
-              <button type="button" onClick={() => handlePreview(file)} className="rounded-full bg-white/20 p-1.5 text-white hover:bg-white/40">
+              <button type="button" onClick={() => handlePreview(file)} aria-label={t('fileUpload.previewFile')} className="rounded-full bg-white/20 p-1.5 text-white hover:bg-white/40">
                 <Eye className="size-4" />
               </button>
               {!disabled && (
-                <button type="button" onClick={() => handleRemove(file)} className="rounded-full bg-white/20 p-1.5 text-white hover:bg-white/40">
+                <button type="button" onClick={() => handleRemove(file)} aria-label={t('fileUpload.removeFile')} className="rounded-full bg-white/20 p-1.5 text-white hover:bg-white/40">
                   <X className="size-4" />
                 </button>
               )}

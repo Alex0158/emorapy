@@ -31,7 +31,7 @@ export class DomainClassificationService {
 
     const domainList = Object.values(PsychDomain).join(', ');
 
-    const prompt = `你是一位臨床心理師。以下是來訪者在一次對話中的多段回答。
+    const prompt = `你是 Emorapy 的 AI 關係梳理助手，正在整理一次對話中的主題領域。以下是來訪者在一次對話中的多段回答。
 請為每段回答判斷它實際涉及的心理學域。一段回答可能涉及多個域。
 
 回答列表：
@@ -51,7 +51,7 @@ ${turnList}
         model: INTERVIEW_AI_CONFIG.model,
         maxTokens: 1000,
         temperature: 0.2,
-        systemPrompt: '你是一位受過臨床心理學訓練的域分類專家。你只回傳 JSON，不附帶其他文字。',
+        systemPrompt: '你是關係與自我探索對話的領域分類助手。你只回傳 JSON，不附帶其他文字，也不自稱臨床心理師。',
       });
 
       const jsonMatch = raw.match(/\[[\s\S]*\]/);

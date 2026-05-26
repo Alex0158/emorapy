@@ -3,14 +3,14 @@
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：09-admin
-**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`backend/src/controllers/admin.controller.ts`、`backend/src/services/cost-monitoring.service.ts`、`backend/src/services/notification.service.ts`、`backend/src/services/product-state-recovery-task.service.ts`、`backend/src/utils/case-classifier.ts`、`backend/src/utils/validation.ts`、`backend/prisma/schema.prisma`、`backend/prisma/migrations/20260504164500_add_notification_cancelled_status/migration.sql`、`backend/prisma/migrations/20260504173000_add_product_state_recovery_tasks/migration.sql`、`frontend/src/services/api`、`frontend-admin/src/services/api`
+**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`backend/src/controllers/admin.controller.ts`、`backend/src/services/cost-monitoring.service.ts`、`backend/src/services/notification.service.ts`、`backend/src/services/product-state-recovery-task.service.ts`、`backend/src/utils/case-classifier.ts`、`backend/src/utils/validation.ts`、`backend/prisma/schema.prisma`、`backend/prisma/migrations/20260504164500_add_notification_cancelled_status/migration.sql`、`backend/prisma/migrations/20260504173000_add_product_state_recovery_tasks/migration.sql`、`frontend-admin/src/services/api/admin.ts`、`frontend-admin/src/router.tsx`、`frontend/src/router/index.tsx`、`frontend/src/utils/adminEntry.ts`、`scripts/check-web-admin-boundary.mjs`
 **最後核驗 Commit**：`a2dea6b`
-**最後核驗日期**：`2026-05-04`
+**最後核驗日期**：`2026-05-08`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**文檔版本**：v2.12
-**最後更新**：2026-05-04
-**代碼基準**：`backend/src/routes/admin.routes.ts`、`backend/src/controllers/admin.controller.ts`、`backend/src/middleware/adminAuth.ts`、`backend/src/utils/case-classifier.ts`、`frontend/src/services/api/admin.ts`
+**文檔版本**：v2.13
+**最後更新**：2026-05-08
+**代碼基準**：`backend/src/routes/admin.routes.ts`、`backend/src/controllers/admin.controller.ts`、`backend/src/middleware/adminAuth.ts`、`backend/src/utils/case-classifier.ts`、`frontend-admin/src/services/api/admin.ts`；主站 `frontend/` 僅保留 `/admin/*` -> external Admin URL redirect 與 `adminEntry` URL helper。
 
 ---
 
@@ -18,6 +18,7 @@
 
 - 運維與治理域：配置、作業、審計、用戶治理、報表、告警、旗標。
 - 權限模型為 RBAC 字串檢查，權限不足直接 403。
+- Admin Web 實作邊界：Admin API client、token/session hooks、permission route、layout 與 Admin pages 只屬於 `frontend-admin/`。主站 `frontend/` 的 `/admin/*` 只做 `AdminRedirect`，不得重新承接 Admin API client 或 Admin UI；此邊界由根層 `npm run web:admin-boundary:check` 驗證。
 
 ## 接口契約（字段級，按能力組）
 
@@ -66,6 +67,7 @@
 | `GET /api/v1/admin/reports/funnel` | 無 | `data.stages[]`（`register/pairing/case/judgment/execution_complete`）; `data.productFlowStages[]`（固定 `quick_single / quick_collaborative / formal_remote / formal_collaborative / chat_to_case`，每組含 `case/judgment/execution_complete` 與 `judgmentCompletionRate/executionCompletionRate`） | `FORBIDDEN` | `reports:read`，已由 admin reports 頁接線 |
 | `GET /api/v1/admin/reports/costs` | 無 | `data.generatedAt data.currency data.partial data.reasons[] data.summary data.redis data.railway data.openai`；`data.openai.ledger.source=ai_request_ledger`，含 `requestCount24h/7d`、`input/output/totalTokens24h/7d`、`productFlows[]`（`productFlow/requestCount*/succeededRequests7d/failedRequests7d/cancelledRequests7d/tokens*/costUsd24h/7d/costSource`） | `FORBIDDEN` | `reports:read`，已由 admin reports 頁接線；ledger breakdown 不把 organization cost 假分攤 |
 | `GET /api/v1/admin/reports/ai-streams` | query `days?(1-90) limit?(1-50)` | `data.windowDays data.retentionPolicy data.totals data.byStatus data.byScopeType data.byBackendMode data.recentFailures[]` | `FORBIDDEN` `VALIDATION_ERROR` | `reports:read`，AI Stream 治理報表，已由 admin reports 頁接線 |
+| `GET /api/v1/admin/reports/app-telemetry` | query `days?(1-90) limit?(1-100) severity?(info/warning/error) platform?(ios/android/web)` | `data.days data.since data.retentionDays data.filters data.totals(events/infoEvents/warningEvents/errorEvents/errorRate/uniqueSessions/crashSessions/crashFreeSessionRate) data.bySeverity data.byPlatform data.topEvents[] data.recentEvents[]` | `FORBIDDEN` `VALIDATION_ERROR` | `reports:read`，App telemetry 最小化聚合報表；不返回 raw context、user_id 或 session_hash |
 | `GET /api/v1/admin/reports/ai-streams/sessions` | query `days?(1-90) limit?(1-100) offset?(>=0) status? scopeType? scopeId? requestId? streamId? source?(live/archive/all)` | `data.source data.total data.limit data.offset data.items[]` | `FORBIDDEN` `VALIDATION_ERROR` | `reports:read`，AI Stream session 明細查詢 |
 | `GET /api/v1/admin/reports/ai-streams/sessions/:streamId` | params `streamId` + query `eventLimit?(1-1000) source?(live/archive/all)` | `data.source(live/archive) data.session data.events[]` | `FORBIDDEN` `NOT_FOUND` `VALIDATION_ERROR` | `reports:read`，單條 stream 詳情 |
 | `GET /api/v1/admin/notifications` | query `status?(pending/sent/failed/cancelled) template_code? user_id? dedup_key? limit? offset?` | `data.items[] data.total data.limit data.offset`；item 包含通知狀態、`dedup_key`、`user{id,email}`、`render_payload.product_flow` | `FORBIDDEN` `VALIDATION_ERROR` | `reports:read`，Admin 通知排查列表 |
@@ -90,6 +92,7 @@
 - `reports/costs.openai` 同時保留 OpenAI organization costs/usage API 的聚合成本與 `ai_request_ledger` 的 request/scope/token breakdown；`openai.ledger.productFlows[]` 只代表 CJ 內部 ledger 口徑，`costSource=not_allocated` 時不得把 organization cost 按 token 或 request 數假分攤。只有當 ledger row 自身有 `cost_usd` 時，`costSource=ledger_cost_usd` 才可視為 request-level 成本來源。
 - `GET /api/v1/admin/reports/ai-streams` 直接讀取 `ai_stream_sessions / ai_stream_events / archives` 聚合結果，主要用於排障、驗收與保留策略校驗；現已由 Admin Reports 頁接線。
 - `GET /api/v1/admin/reports/ai-streams/sessions` 與 `:streamId` 用於直接查看 live/archive 明細，避免只剩匯總報表。
+- `GET /api/v1/admin/reports/app-telemetry` 只讀 `app_telemetry_events` 的最小化摘要，用於 App release / crash-free baseline first pass 與排障；CJ OTLP JSON trace ingest 也只會轉成 `app_otel_span` 摘要，不得把它當成完整產品 analytics、native crash runtime evidence 或 vendor trace backend。
 - `GET /api/v1/admin/notifications` 使用 `NotificationService.normalize()` 同一渲染口徑，Admin 不得自行從 template/path 推斷產品流；取消 pending 通知必須走 `POST /admin/notifications/:notificationId/cancel`，批量召回 pending 通知必須走 `POST /admin/notifications/bulk-cancel`，重送真正 failed 通知必須走 `POST /admin/notifications/:notificationId/retry`，三者都由 audit log 記錄操作者、reason、template/dedup/group/user 篩選與結果。批量召回必須提供至少一項篩選條件，單次最多處理 100 條，且後端會先查出通知 id 再按 id 集合更新，避免無條件掃表。`NotificationStatus.cancelled` 是正式人工取消狀態；legacy `failed + admin_cancelled:*` 僅作歷史兼容，同樣不可被 retry 重新排回 pending。
 - Product-state recovery task API 只承接 `ops:product-state:audit:persist` 生成的人工任務；`PATCH /product-state/recovery-tasks/:taskId/status` 不會更新 case、chat、judgment 或 repair track。`resolved` 只寫 `resolved_at`、`dismissed` 只寫 `dismissed_at`，所有狀態變更必須透過 audit log 留痕。
 - `cleanup_ai_stream_persistence` 已加入排程任務，會先 archive 再 delete；如需立即驗證清理策略，可透過既有 `POST /api/v1/admin/jobs/:jobKey/trigger` 手動觸發。
@@ -97,10 +100,10 @@
 
 ## 回歸測試最小集
 
-1. login -> me -> 權限菜單顯示一致。  
-2. 低權限帳號訪問高權限接口應穩定 403。  
-3. 配置修改後對應運行時行為可觀察。  
-4. audit csv / report csv 下載成功且格式正常。  
+1. login -> me -> 權限菜單顯示一致。
+2. 低權限帳號訪問高權限接口應穩定 403。
+3. 配置修改後對應運行時行為可觀察。
+4. audit csv / report csv 下載成功且格式正常。
 
 ## 錯誤碼覆蓋矩陣（API -> code -> UI 行為）
 
@@ -122,6 +125,7 @@
 | `POST /api/v1/admin/reports/custom` | `FORBIDDEN` | 403 | 顯示無自定義報表權限 | 不重試 |
 | `POST /api/v1/admin/reports/custom` | `VALIDATION_ERROR` | 400 | 提示 metrics 列表不合法 | 修正後重送 |
 | `GET /api/v1/admin/reports/ai-streams` | `FORBIDDEN` | 403 | 顯示無 AI Stream 報表權限 | 不重試 |
+| `GET /api/v1/admin/reports/app-telemetry` | `FORBIDDEN` / `VALIDATION_ERROR` | 403/400 | 顯示無 App telemetry 報表權限或提示查詢條件錯誤 | 修正 query 或申請權限 |
 | `GET /api/v1/admin/reports/ai-streams/sessions` | `FORBIDDEN` | 403 | 顯示無 AI Stream 查詢權限 | 不重試 |
 | `GET /api/v1/admin/reports/ai-streams/sessions/:streamId` | `NOT_FOUND` | 404 | 提示 stream 不存在或已被清理 | 可切換 source 後重查 |
 | `GET /api/v1/admin/reports/overview.csv` | `FORBIDDEN` | 403 | 顯示無報表權限 | 不重試 |

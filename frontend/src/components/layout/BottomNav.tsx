@@ -1,7 +1,7 @@
 /**
  * 移動端底部導航
  *
- * 遷移: Ant Design Icons → Lucide + Tailwind（md:hidden 保持只在移動端顯示）
+ * 遷移: legacy icons → Lucide + Tailwind（md:hidden 保持只在移動端顯示）
  */
 
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -18,14 +18,14 @@ const BottomNav = () => {
   const navItems = isAuthenticated
     ? [
         { key: '/', icon: Home, label: t('nav.home') },
-        { key: '/case/list', icon: FileText, label: t('nav.myCases') },
-        { key: '/case/create', icon: PlusCircle, label: t('nav.createCase'), isPrimary: true },
-        { key: '/chat/room', icon: MessageCircle, label: t('nav.chat') },
-        { key: '/profile/index', icon: User, label: t('nav.profile') },
+        { key: '/case/list', icon: FileText, label: t('nav.formalHandling') },
+        { key: '/case/create', icon: PlusCircle, label: t('nav.submitFormal'), isPrimary: true },
+        { key: '/chat/room', icon: MessageCircle, label: t('nav.chatToJudgment') },
+        { key: '/profile/index', icon: User, label: t('nav.understandYou') },
       ]
     : [
         { key: '/', icon: Home, label: t('nav.home') },
-        { key: '/quick-experience/create', icon: PlusCircle, label: t('nav.quickExperience'), isPrimary: true },
+        { key: '/quick-experience/create', icon: PlusCircle, label: t('nav.quickCheck'), isPrimary: true },
         { key: '/auth/login', icon: User, label: t('nav.login') },
       ];
 

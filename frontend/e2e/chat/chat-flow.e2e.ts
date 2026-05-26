@@ -2,6 +2,9 @@ import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
 
 const SESSION_STORAGE_KEY = 'cj_session_id';
+const REQUEST_ANALYSIS_BUTTON = /發起梳理|發起判決|Request Analysis|Request Judgment/;
+const CONFIRM_ANALYSIS_TITLE = /轉梳理前確認|轉判決前確認|Confirm Before Analysis|Confirm Before Judgment/;
+const ANALYSIS_REQUESTED_TEXT = /梳理請求中|判決請求中|Analysis requested|Judgment requested/;
 
 async function setChatSession(page: Page, sessionId: string, baseURL: string) {
   await page.goto(baseURL, { waitUntil: 'commit' });
@@ -184,10 +187,10 @@ test.describe('Chat 多角色流程', () => {
     await page.getByRole('button', { name: /建立邀請|Create Invite/ }).click();
     await expect(page.getByText(/邀請碼：FLOWA1|Invite Code:\s*FLOWA1/)).toBeVisible();
 
-    await page.getByRole('button', { name: /發起判決|Request Judgment/ }).click();
-    await expect(page.getByText(/轉判決前確認|Confirm Before Judgment/)).toBeVisible();
+    await page.getByRole('button', { name: REQUEST_ANALYSIS_BUTTON }).click();
+    await expect(page.getByText(CONFIRM_ANALYSIS_TITLE)).toBeVisible();
     await page.getByRole('button', { name: /確認|Confirm/ }).click();
-    await expect(page.getByText(/判決請求中|Judgment requested/).first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(ANALYSIS_REQUESTED_TEXT).first()).toBeVisible({ timeout: 10000 });
   });
 
   test('已登入 B 以邀請碼加入，並可在入口拒絕邀請', async ({ page }) => {
@@ -320,7 +323,12 @@ test.describe('Chat 多角色流程', () => {
 
     await page.goto('/chat/room');
     await page.getByPlaceholder(/輸入邀請碼|Enter invite code/).fill('FLOWNOPE');
+    const declineResponse = page.waitForResponse((response) =>
+      response.request().method() === 'POST' &&
+      response.url().includes('/api/v1/chat/invites/FLOWNOPE/decline') &&
+      response.ok()
+    );
     await page.getByRole('button', { name: /拒絕邀請|Decline Invite/ }).click();
-    await expect(page.getByText(/已拒絕邀請|Invite declined/)).toBeVisible();
+    await declineResponse;
   });
 });

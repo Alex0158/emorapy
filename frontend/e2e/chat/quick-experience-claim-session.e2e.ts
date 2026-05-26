@@ -1,5 +1,12 @@
 import { expect, test } from '@playwright/test';
 
+const NEXT_BUTTON = /下一步|Next/;
+const SUBMIT_BUTTON = /提交並開始分析|Submit and Start Analysis|提交案件|Submit Case/;
+const REGISTER_NOW_BUTTON = /立即註冊|Register Now/;
+const SEND_CODE_BUTTON = /發送驗證碼|Send Verification Code/;
+const VERIFY_BUTTON = /驗證並繼續|Verify & Continue/;
+const FINISH_REGISTER_BUTTON = /完成註冊|Complete Registration/;
+
 test.describe('Quick Experience 升格閉環', () => {
   test('訪客從 result 註冊後應觸發 claim-session 並回跳原結果頁（F01/F09）', async ({ page }) => {
     const plaintiffStatement = '我最近常感到被忽視，每次想好好說話都被敷衍，心裡很受傷，也不知道該怎麼把這段關係繼續下去。';
@@ -166,35 +173,35 @@ test.describe('Quick Experience 升格閉環', () => {
     await page.goto('/quick-experience/create');
 
     await page.locator('textarea').fill(plaintiffStatement);
-    await page.locator('.next-btn').click();
-    await page.locator('.next-btn').click();
-    await page.locator('.submit-btn').click();
+    await page.getByRole('button', { name: NEXT_BUTTON }).click();
+    await page.getByRole('button', { name: NEXT_BUTTON }).click();
+    await page.getByRole('button', { name: SUBMIT_BUTTON }).click();
 
     await expect(page).toHaveURL(/\/quick-experience\/result\/case-e2e-claim$/);
     await expect(page.getByText('升格後仍可回看 quick result')).toBeVisible();
 
-    const registerButton = page.locator('.actions-section .action-button.primary').first();
+    const registerButton = page.getByRole('button', { name: REGISTER_NOW_BUTTON }).first();
     await expect(registerButton).toBeVisible();
     await registerButton.click();
     await expect(page).toHaveURL(/\/auth\/register$/);
 
     await page.locator('input[autocomplete="email"]').fill('claim-e2e@example.com');
-    const sendCodeButton = page.locator('.register-page .ant-btn-primary').first();
+    const sendCodeButton = page.getByRole('button', { name: SEND_CODE_BUTTON });
     await expect(sendCodeButton).toBeVisible();
     await sendCodeButton.click();
 
-    const codeInputs = page.locator('.code-input');
+    const codeInputs = page.locator('input[autocomplete="one-time-code"]');
     for (let i = 0; i < 6; i++) {
       await codeInputs.nth(i).fill(String(i + 1));
     }
-    const verifyButton = page.locator('.register-page .ant-btn-primary').first();
+    const verifyButton = page.getByRole('button', { name: VERIFY_BUTTON });
     await expect(verifyButton).toBeVisible();
     await verifyButton.click();
 
     const passwordInputs = page.locator('input[type="password"]');
     await passwordInputs.nth(0).fill('Password123');
     await passwordInputs.nth(1).fill('Password123');
-    const finishRegisterButton = page.locator('.register-page .ant-btn-primary').first();
+    const finishRegisterButton = page.getByRole('button', { name: FINISH_REGISTER_BUTTON });
     await expect(finishRegisterButton).toBeVisible();
     await finishRegisterButton.click();
 

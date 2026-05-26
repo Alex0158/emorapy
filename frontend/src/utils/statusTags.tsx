@@ -23,7 +23,7 @@ const CASE_STATUS_STYLES: Record<CaseStatus, string> = {
   submitted: 'bg-primary/10 text-primary',
   in_progress: 'bg-primary/10 text-primary',
   judgment_failed: 'bg-destructive/10 text-destructive',
-  completed: 'bg-success/10 text-success',
+  completed: 'bg-success/10 text-[#087044]',
   cancelled: 'bg-muted text-muted-foreground',
 };
 

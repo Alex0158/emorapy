@@ -19,7 +19,7 @@ import ProtectedRoute from '@/components/common/ProtectedRoute';
 import SEO from '@/components/common/SEO';
 import { cn } from '@/lib/utils';
 import { getErrorMessage } from '@/utils/apiError';
-import { t } from '@/utils/i18n';
+import { getLocale, t } from '@/utils/i18n';
 
 const normalizeExecutionStatus = (payload: ExecutionStatus): ExecutionStatus => ({
   ...payload,
@@ -38,6 +38,7 @@ const ExecutionCheckIn = () => {
   const [showSuccessAnim, setShowSuccessAnim] = useState(false);
   const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const staleRef = useRef(false);
+  const submitLockRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Form state
@@ -67,7 +68,8 @@ const ExecutionCheckIn = () => {
   };
 
   const handleSubmit = async () => {
-    if (!planId || submitting) return;
+    if (!planId || submitting || submitLockRef.current) return;
+    submitLockRef.current = true;
     setSubmitting(true);
     try {
       let photoUrls: string[] = [];
@@ -97,7 +99,7 @@ const ExecutionCheckIn = () => {
       }, 1500);
     } catch (error: unknown) {
       if (mountedRef.current) toast.error(getErrorMessage(error, 'message.checkinFail'));
-    } finally { if (mountedRef.current) setSubmitting(false); }
+    } finally { submitLockRef.current = false; if (mountedRef.current) setSubmitting(false); }
   };
 
   if (loading) return <div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="size-8 animate-spin text-primary" /></div>;
@@ -195,15 +197,15 @@ const ExecutionCheckIn = () => {
 
           {/* Notes */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">{t('execCheckIn.notesLabel')}</label>
-            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} maxLength={1000} placeholder={t('execCheckIn.notesPlaceholder')} className="w-full resize-none rounded-lg border border-border bg-background p-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" />
+            <label htmlFor="exec-checkin-notes" className="text-sm font-medium text-foreground">{t('execCheckIn.notesLabel')}</label>
+            <textarea id="exec-checkin-notes" autoComplete="off" value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} maxLength={1000} placeholder={t('execCheckIn.notesPlaceholder')} className="w-full resize-none rounded-lg border border-border bg-background p-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" />
           </div>
 
           {/* Photos */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">{t('execCheckIn.photosLabel')}</label>
             <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={(e) => setPhotos(Array.from(e.target.files || []).slice(0, 3))} className="hidden" />
-            <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><Upload className="size-4" />{t('execCheckIn.uploadBtn')}</Button>
+            <Button variant="outline" size="sm" aria-label={t('execCheckIn.uploadBtn')} onClick={() => fileInputRef.current?.click()}><Upload className="size-4" />{t('execCheckIn.uploadBtn')}</Button>
             {photos.length > 0 && <p className="text-xs text-muted-foreground">{t('execCheckIn.photosSelected').replace('{count}', String(photos.length))}</p>}
           </div>
 
@@ -211,6 +213,7 @@ const ExecutionCheckIn = () => {
           <Button
             onClick={handleSubmit}
             disabled={submitting || uploadingPhotos}
+            aria-label={uploadingPhotos ? t('execCheckIn.uploadingPhotos') : t('execCheckIn.submitBtn')}
             className="h-14 w-full rounded-2xl text-base font-semibold"
           >
             <AnimatePresence mode="wait">
@@ -236,7 +239,7 @@ const ExecutionCheckIn = () => {
                 <p className="text-sm font-medium text-foreground">{item.result === 'done' ? t('execCheckIn.stepResult.done') : item.result === 'partial' ? t('execCheckIn.stepResult.partial') : t('execCheckIn.stepResult.skipped')}</p>
                 <p className="text-xs text-muted-foreground">{t('execCheckIn.historyCloseness')}{item.closeness} / {t('execCheckIn.historyStress')}{item.stress} / {item.needs_help ? t('execCheckIn.historyNeedsHelp') : t('execCheckIn.historyNoHelp')}</p>
                 {item.notes && <p className="text-sm text-muted-foreground">{item.notes}</p>}
-                <p className="text-[11px] text-muted-foreground/60">{new Date(item.created_at).toLocaleString()}</p>
+                <p className="text-[11px] text-muted-foreground/60">{new Date(item.created_at).toLocaleString(getLocale())}</p>
               </div>
             ))}
           </div>

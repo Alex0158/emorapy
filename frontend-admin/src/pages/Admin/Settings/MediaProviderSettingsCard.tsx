@@ -90,7 +90,7 @@ export default function MediaProviderSettingsCard({
             value={selectedProviderKey}
             onValueChange={onProviderChange}
           >
-            <SelectTrigger>
+            <SelectTrigger aria-label={t('admin.settings.mediaProviders.provider')}>
               <SelectValue placeholder={t('admin.settings.mediaProviders.selectProvider')} />
             </SelectTrigger>
             <SelectContent>
@@ -108,13 +108,15 @@ export default function MediaProviderSettingsCard({
             {renderCurrentProviderState(selectedProvider, getConfigValue)}
 
             <div className="space-y-2">
-              <Label>
+              <Label htmlFor="admin-media-provider-api-key">
                 {selectedProvider.secretLabel ||
                   t('admin.settings.mediaProviders.apiKey')}
               </Label>
               <Input
+                id="admin-media-provider-api-key"
                 type="password"
                 placeholder="sk-..."
+                autoComplete="off"
                 value={formValues.apiKey ?? ''}
                 onChange={(e) => onFormChange({ apiKey: e.target.value })}
               />
@@ -124,29 +126,37 @@ export default function MediaProviderSettingsCard({
             </div>
 
             <div className="space-y-2">
-              <Label>{t('admin.settings.mediaProviders.baseUrl')}</Label>
+              <Label htmlFor="admin-media-provider-base-url">{t('admin.settings.mediaProviders.baseUrl')}</Label>
               <Input
+                id="admin-media-provider-base-url"
                 placeholder={selectedProvider.defaultBaseUrl || ''}
+                autoComplete="url"
                 value={formValues.baseUrl ?? ''}
                 onChange={(e) => onFormChange({ baseUrl: e.target.value })}
               />
             </div>
 
             <div className="space-y-2">
-              <Label>{t('admin.settings.mediaProviders.timeoutMs')}</Label>
+              <Label htmlFor="admin-media-provider-timeout">
+                {t('admin.settings.mediaProviders.timeoutMs')}
+              </Label>
               <Input
+                id="admin-media-provider-timeout"
                 type="number"
                 min={500}
                 max={120000}
+                autoComplete="off"
                 value={formValues.timeoutMs ?? ''}
                 onChange={(e) => onFormChange({ timeoutMs: Number(e.target.value) || undefined })}
               />
             </div>
 
             <div className="space-y-2">
-              <Label>{t('admin.settings.mediaProviders.model')}</Label>
+              <Label htmlFor="admin-media-provider-model">{t('admin.settings.mediaProviders.model')}</Label>
               <Input
+                id="admin-media-provider-model"
                 placeholder={selectedProvider.defaultModel || ''}
+                autoComplete="off"
                 value={formValues.model ?? ''}
                 onChange={(e) => onFormChange({ model: e.target.value })}
               />
@@ -154,9 +164,11 @@ export default function MediaProviderSettingsCard({
 
             {selectedProvider.providerType === 'video' && (
               <div className="space-y-2">
-                <Label>{t('admin.settings.mediaProviders.sourceImage')}</Label>
+                <Label htmlFor="admin-media-provider-source-image">{t('admin.settings.mediaProviders.sourceImage')}</Label>
                 <Input
+                  id="admin-media-provider-source-image"
                   placeholder="https://your-domain.example/image.jpg"
+                  autoComplete="url"
                   value={formValues.sourceImageUrl ?? ''}
                   onChange={(e) => onFormChange({ sourceImageUrl: e.target.value })}
                 />
@@ -168,22 +180,26 @@ export default function MediaProviderSettingsCard({
 
             {selectedProvider.providerType === 'image' ? (
               <div className="space-y-2">
-                <Label>{t('admin.settings.mediaProviders.count')}</Label>
+                <Label htmlFor="admin-media-provider-count">{t('admin.settings.mediaProviders.count')}</Label>
                 <Input
+                  id="admin-media-provider-count"
                   type="number"
                   min={1}
                   max={20}
+                  autoComplete="off"
                   value={formValues.count ?? ''}
                   onChange={(e) => onFormChange({ count: Number(e.target.value) || undefined })}
                 />
               </div>
             ) : (
               <div className="space-y-2">
-                <Label>{t('admin.settings.mediaProviders.duration')}</Label>
+                <Label htmlFor="admin-media-provider-duration">{t('admin.settings.mediaProviders.duration')}</Label>
                 <Input
+                  id="admin-media-provider-duration"
                   type="number"
                   min={1}
                   max={240}
+                  autoComplete="off"
                   value={formValues.durationSeconds ?? ''}
                   onChange={(e) => onFormChange({ durationSeconds: Number(e.target.value) || undefined })}
                 />
@@ -191,9 +207,11 @@ export default function MediaProviderSettingsCard({
             )}
 
             <div className="space-y-2">
-              <Label>{t('admin.settings.mediaProviders.prompt')}</Label>
+              <Label htmlFor="admin-media-provider-prompt">{t('admin.settings.mediaProviders.prompt')}</Label>
               <Textarea
+                id="admin-media-provider-prompt"
                 rows={3}
+                autoComplete="off"
                 value={formValues.prompt ?? ''}
                 onChange={(e) => onFormChange({ prompt: e.target.value })}
               />

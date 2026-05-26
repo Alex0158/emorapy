@@ -139,6 +139,7 @@ const ProfileSettings = () => {
             <button
               type="button"
               role="switch"
+              aria-label={t('settings.enableNotification')}
               aria-checked={notificationEnabled}
               onClick={() => setNotificationEnabled(!notificationEnabled)}
               className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${

@@ -1,9 +1,11 @@
 import prisma from '../config/database';
 import { Prisma, NotificationChannel, NotificationStatus } from '@prisma/client';
+import crypto from 'crypto';
 import logger from '../config/logger';
 import { isCaseProductFlow, type CaseProductFlow } from '../utils/case-classifier';
 import { Errors } from '../utils/errors';
 import { normalizeNotificationDeepLinkPath } from '../utils/notification-deep-link';
+import { pushNotificationService, redactPushTokens } from './push-notification.service';
 
 export type NotificationFeedState = 'unread' | 'all' | 'actionable' | 'snoozed' | 'archived';
 
@@ -30,6 +32,48 @@ export interface AdminNotificationBulkCancelOptions {
   dedupKey?: string;
   groupKey?: string;
   limit?: number;
+}
+
+export type PushDevicePlatform = 'ios' | 'android';
+
+export interface RegisterPushDeviceTokenInput {
+  token: string;
+  platform: PushDevicePlatform;
+  device_id?: string | null;
+  app_version?: string | null;
+  build_number?: string | null;
+}
+
+export interface RevokePushDeviceTokenInput {
+  token?: string | null;
+  device_id?: string | null;
+}
+
+export interface PushDeviceTokenRecord {
+  id: string;
+  user_id: string;
+  platform: PushDevicePlatform;
+  device_id: string | null;
+  app_version: string | null;
+  build_number: string | null;
+  revoked_at: Date | null;
+  last_seen_at: Date;
+  created_at: Date;
+  updated_at: Date;
+}
+
+type StoredPushDeviceTokenRecord = PushDeviceTokenRecord & {
+  token: string;
+};
+
+function normalizeNotificationDbString(value: string | undefined, maxLength: number): string | undefined {
+  const normalized = value?.trim();
+  if (!normalized) return undefined;
+  if (normalized.length <= maxLength) return normalized;
+
+  const hash = crypto.createHash('sha256').update(normalized).digest('hex').slice(0, 12);
+  const prefixLength = Math.max(0, maxLength - hash.length - 1);
+  return `${normalized.slice(0, prefixLength)}_${hash}`;
 }
 
 export interface RenderableNotification {
@@ -81,6 +125,22 @@ export type AdminRenderableNotification = RenderableNotification & {
 
 type NotificationRecord = Awaited<ReturnType<typeof prisma.notification.findFirst>>;
 const ADMIN_CANCELLED_ERROR_PREFIX = 'admin_cancelled:';
+
+type PendingPushNotificationRecord = NonNullable<NotificationRecord> & {
+  user: {
+    notification_enabled: boolean;
+    push_device_tokens: Array<{
+      token: string;
+      platform: PushDevicePlatform;
+    }>;
+  };
+};
+
+type PushReceiptTrackedNotificationRecord = {
+  id: string;
+  push_ticket_id: string | null;
+  push_receipt_status: string | null;
+};
 
 function readString(input: unknown): string | null {
   return typeof input === 'string' && input.trim().length > 0 ? input : null;
@@ -147,6 +207,32 @@ function buildAdminBulkCancelWhere(options: AdminNotificationBulkCancelOptions):
 
 function normalizeBulkLimit(limit?: number): number {
   return Math.min(Math.max(Number.isFinite(limit) ? limit ?? 100 : 100, 1), 100);
+}
+
+function normalizeNullableString(input: string | null | undefined, maxLength: number): string | null {
+  if (typeof input !== 'string') return null;
+  const normalized = input.trim();
+  return normalized.length > 0 ? normalized.slice(0, maxLength) : null;
+}
+
+function sanitizePushFailure(input: unknown): string {
+  const message = input instanceof Error ? input.message : String(input || 'unknown push delivery error');
+  return redactPushTokens(message).slice(0, 400);
+}
+
+function trimPushText(input: string | null | undefined, fallback: string, maxLength: number): string {
+  const value = typeof input === 'string' && input.trim().length > 0 ? input.trim() : fallback;
+  return value.slice(0, maxLength);
+}
+
+function sanitizePushProviderFailure(
+  message: string | null | undefined,
+  details: Record<string, unknown> | undefined,
+  fallback: string
+): string {
+  const detailError = readString(details?.error);
+  const base = message && message.trim().length > 0 ? message.trim() : fallback;
+  return sanitizePushFailure(detailError ? `${base} (${detailError})` : base);
 }
 
 const TEMPLATE_RENDER_DEFAULTS: Record<string, {
@@ -418,18 +504,18 @@ export class NotificationService {
       action_key?: string;
       priority?: string;
       group_key?: string;
-    }
+  }
   ) {
     return prisma.notification.create({
       data: {
         user_id: userId,
-        template_code: data.template_code,
-        action_key: data.action_key,
-        priority: data.priority,
-        group_key: data.group_key,
+        template_code: normalizeNotificationDbString(data.template_code, 50)!,
+        action_key: normalizeNotificationDbString(data.action_key, 50),
+        priority: normalizeNotificationDbString(data.priority, 20),
+        group_key: normalizeNotificationDbString(data.group_key, 100),
         payload: normalizeNotificationPayloadForCreate(data.payload),
         channel: data.channel,
-        dedup_key: data.dedup_key,
+        dedup_key: normalizeNotificationDbString(data.dedup_key, 100),
         status: NotificationStatus.pending,
       },
     });
@@ -693,6 +779,370 @@ export class NotificationService {
         entity_type: normalized.render_payload.entity_type,
         entity_id: normalized.render_payload.entity_id,
       },
+    };
+  }
+
+  async registerDeviceToken(userId: string, input: RegisterPushDeviceTokenInput): Promise<PushDeviceTokenRecord> {
+    const now = new Date();
+    const token = input.token.trim();
+    const pushDeviceToken = (prisma as unknown as {
+      pushDeviceToken: {
+        upsert(args: unknown): Promise<StoredPushDeviceTokenRecord>;
+      };
+    }).pushDeviceToken;
+
+    const record = await pushDeviceToken.upsert({
+      where: { token },
+      create: {
+        user_id: userId,
+        token,
+        platform: input.platform,
+        device_id: normalizeNullableString(input.device_id, 128),
+        app_version: normalizeNullableString(input.app_version, 40),
+        build_number: normalizeNullableString(input.build_number, 40),
+        last_seen_at: now,
+      },
+      update: {
+        user_id: userId,
+        platform: input.platform,
+        device_id: normalizeNullableString(input.device_id, 128),
+        app_version: normalizeNullableString(input.app_version, 40),
+        build_number: normalizeNullableString(input.build_number, 40),
+        revoked_at: null,
+        last_seen_at: now,
+      },
+    });
+
+    logger.info('Push device token registered', {
+      userId,
+      platform: input.platform,
+      hasDeviceId: Boolean(record.device_id),
+    });
+
+    return {
+      id: record.id,
+      user_id: record.user_id,
+      platform: record.platform,
+      device_id: record.device_id,
+      app_version: record.app_version,
+      build_number: record.build_number,
+      revoked_at: record.revoked_at,
+      last_seen_at: record.last_seen_at,
+      created_at: record.created_at,
+      updated_at: record.updated_at,
+    };
+  }
+
+  async revokeDeviceToken(userId: string, input: RevokePushDeviceTokenInput): Promise<{ revokedCount: number; revokedAt: Date }> {
+    const token = normalizeNullableString(input.token, 255);
+    const deviceId = normalizeNullableString(input.device_id, 128);
+    if (!token && !deviceId) {
+      throw Errors.VALIDATION_ERROR('token 或 device_id 至少需要一項');
+    }
+    const revokedAt = new Date();
+    const pushDeviceToken = (prisma as unknown as {
+      pushDeviceToken: {
+        updateMany(args: unknown): Promise<{ count: number }>;
+      };
+    }).pushDeviceToken;
+
+    const result = await pushDeviceToken.updateMany({
+      where: {
+        user_id: userId,
+        revoked_at: null,
+        ...(token ? { token } : {}),
+        ...(deviceId ? { device_id: deviceId } : {}),
+      },
+      data: {
+        revoked_at: revokedAt,
+      },
+    });
+
+    logger.info('Push device token revoked', {
+      userId,
+      byToken: Boolean(token),
+      byDeviceId: Boolean(deviceId),
+      count: result.count,
+    });
+
+    return {
+      revokedAt,
+      revokedCount: result.count,
+    };
+  }
+
+  async dispatchPendingPushNotifications(limit = 50): Promise<{
+    scannedCount: number;
+    sentCount: number;
+    failedCount: number;
+    ticketCount: number;
+  }> {
+    const take = Math.min(Math.max(Number.isFinite(limit) ? limit : 50, 1), 100);
+    const notificationStore = (prisma as unknown as {
+      notification: {
+        findMany(args: unknown): Promise<PendingPushNotificationRecord[]>;
+        update(args: unknown): Promise<NonNullable<NotificationRecord>>;
+      };
+    }).notification;
+    const notifications = await notificationStore.findMany({
+      where: {
+        channel: NotificationChannel.push,
+        status: NotificationStatus.pending,
+      },
+      orderBy: { created_at: 'asc' },
+      take,
+      include: {
+        user: {
+          select: {
+            notification_enabled: true,
+            push_device_tokens: {
+              where: { revoked_at: null },
+              select: { token: true, platform: true },
+            },
+          },
+        },
+      },
+    });
+
+    let sentCount = 0;
+    let failedCount = 0;
+    let ticketCount = 0;
+
+    for (const notification of notifications) {
+      const tokens = notification.user?.push_device_tokens
+        ?.map((item) => item.token)
+        .filter((token): token is string => typeof token === 'string' && token.trim().length > 0) ?? [];
+
+      if (!notification.user?.notification_enabled) {
+        await notificationStore.update({
+          where: { id: notification.id },
+          data: {
+            status: NotificationStatus.failed,
+            error_message: 'user_notifications_disabled',
+          },
+        });
+        failedCount += 1;
+        continue;
+      }
+
+      if (tokens.length === 0) {
+        await notificationStore.update({
+          where: { id: notification.id },
+          data: {
+            status: NotificationStatus.failed,
+            error_message: 'no_active_push_device_token',
+          },
+        });
+        failedCount += 1;
+        continue;
+      }
+
+      const rendered = this.normalize(notification);
+      const messages = tokens.map((token) => ({
+        to: token,
+        title: trimPushText(rendered.render_payload.title, 'CJ 提醒', 80),
+        body: trimPushText(rendered.render_payload.body, '你有一則新的提醒。', 180),
+        sound: 'default' as const,
+        priority: rendered.priority === 'now' ? 'high' as const : 'default' as const,
+        data: {
+          notification_id: rendered.id,
+          template_code: rendered.template_code,
+          path: rendered.render_payload.path,
+          target_path: rendered.render_payload.path,
+          action_key: rendered.action_key,
+          entity_type: rendered.render_payload.entity_type,
+          entity_id: rendered.render_payload.entity_id,
+        },
+      }));
+
+      try {
+        const tickets = await pushNotificationService.sendMessages(messages);
+        ticketCount += tickets.length;
+        const accepted = tickets.filter((ticket) => ticket.status === 'ok').length;
+        const acceptedTicket = tickets.find((ticket) => ticket.status === 'ok' && ticket.id);
+        const errorTicket = tickets.find((ticket) => ticket.status === 'error');
+        if (accepted > 0) {
+          await notificationStore.update({
+            where: { id: notification.id },
+            data: {
+              status: NotificationStatus.sent,
+              sent_at: new Date(),
+              error_message: tickets.length > accepted ? 'expo_push_partial_failure' : null,
+              push_provider: 'expo',
+              push_ticket_id: acceptedTicket?.id ?? null,
+              push_ticket_status: 'ok',
+              push_receipt_status: acceptedTicket?.id ? 'pending' : null,
+              push_receipt_checked_at: null,
+              push_receipt_error: null,
+            },
+          });
+          sentCount += 1;
+        } else {
+          const message = sanitizePushProviderFailure(
+            errorTicket?.message,
+            errorTicket?.details,
+            'expo_push_no_accepted_tickets'
+          );
+          await notificationStore.update({
+            where: { id: notification.id },
+            data: {
+              status: NotificationStatus.failed,
+              error_message: message,
+              push_provider: 'expo',
+              push_ticket_status: 'error',
+              push_receipt_status: 'error',
+              push_receipt_checked_at: new Date(),
+              push_receipt_error: message,
+            },
+          });
+          failedCount += 1;
+        }
+      } catch (error) {
+        const message = sanitizePushFailure(error);
+        await notificationStore.update({
+          where: { id: notification.id },
+          data: {
+            status: NotificationStatus.failed,
+            error_message: message,
+            push_provider: 'expo',
+            push_ticket_status: 'error',
+            push_receipt_status: 'error',
+            push_receipt_checked_at: new Date(),
+            push_receipt_error: message,
+          },
+        });
+        failedCount += 1;
+      }
+    }
+
+    if (sentCount > 0 || failedCount > 0) {
+      logger.info('Pending push notifications dispatched', {
+        scannedCount: notifications.length,
+        sentCount,
+        failedCount,
+        ticketCount,
+      });
+    }
+
+    return {
+      scannedCount: notifications.length,
+      sentCount,
+      failedCount,
+      ticketCount,
+    };
+  }
+
+  async pollPushNotificationReceipts(limit = 100): Promise<{
+    scannedCount: number;
+    receiptCount: number;
+    okCount: number;
+    failedCount: number;
+    pendingCount: number;
+  }> {
+    const take = Math.min(Math.max(Number.isFinite(limit) ? limit : 100, 1), 300);
+    const notificationStore = (prisma as unknown as {
+      notification: {
+        findMany(args: unknown): Promise<PushReceiptTrackedNotificationRecord[]>;
+        update(args: unknown): Promise<unknown>;
+      };
+    }).notification;
+
+    const notifications = await notificationStore.findMany({
+      where: {
+        channel: NotificationChannel.push,
+        status: NotificationStatus.sent,
+        push_ticket_id: { not: null },
+        OR: [
+          { push_receipt_status: null },
+          { push_receipt_status: 'pending' },
+        ],
+      },
+      orderBy: [
+        { sent_at: 'asc' },
+        { created_at: 'asc' },
+      ],
+      take,
+      select: {
+        id: true,
+        push_ticket_id: true,
+        push_receipt_status: true,
+      },
+    });
+
+    const ticketIds = notifications
+      .map((notification) => notification.push_ticket_id)
+      .filter((id): id is string => typeof id === 'string' && id.trim().length > 0);
+    const receipts = await pushNotificationService.getReceipts(ticketIds);
+    const now = new Date();
+
+    let okCount = 0;
+    let failedCount = 0;
+    let pendingCount = 0;
+
+    for (const notification of notifications) {
+      const ticketId = notification.push_ticket_id;
+      if (!ticketId) continue;
+      const receipt = receipts[ticketId];
+
+      if (!receipt) {
+        await notificationStore.update({
+          where: { id: notification.id },
+          data: {
+            push_receipt_status: notification.push_receipt_status || 'pending',
+            push_receipt_checked_at: now,
+          },
+        });
+        pendingCount += 1;
+        continue;
+      }
+
+      if (receipt.status === 'ok') {
+        await notificationStore.update({
+          where: { id: notification.id },
+          data: {
+            push_receipt_status: 'ok',
+            push_receipt_checked_at: now,
+            push_receipt_error: null,
+          },
+        });
+        okCount += 1;
+        continue;
+      }
+
+      const message = sanitizePushProviderFailure(
+        receipt.message,
+        receipt.details,
+        'expo_push_receipt_error'
+      );
+      await notificationStore.update({
+        where: { id: notification.id },
+        data: {
+          status: NotificationStatus.failed,
+          error_message: message,
+          push_receipt_status: 'error',
+          push_receipt_checked_at: now,
+          push_receipt_error: message,
+        },
+      });
+      failedCount += 1;
+    }
+
+    if (okCount > 0 || failedCount > 0 || pendingCount > 0) {
+      logger.info('Push notification receipts polled', {
+        scannedCount: notifications.length,
+        receiptCount: Object.keys(receipts).length,
+        okCount,
+        failedCount,
+        pendingCount,
+      });
+    }
+
+    return {
+      scannedCount: notifications.length,
+      receiptCount: Object.keys(receipts).length,
+      okCount,
+      failedCount,
+      pendingCount,
     };
   }
 }

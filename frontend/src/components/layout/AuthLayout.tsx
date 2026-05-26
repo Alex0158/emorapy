@@ -1,7 +1,7 @@
 /**
  * 認證布局（居中毛玻璃卡片式）
  *
- * 遷移: Ant Design Select → shadcn Select, LESS → Tailwind
+ * 遷移: legacy select / stylesheet → shadcn Select + Tailwind
  * 保留: Framer Motion 動畫、毛玻璃效果、品牌側/表單側雙欄結構
  */
 

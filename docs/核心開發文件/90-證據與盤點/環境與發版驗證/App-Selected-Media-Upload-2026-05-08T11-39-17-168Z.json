@@ -1,0 +1,89 @@
+{
+  "type": "app-selected-media-backend-upload-smoke",
+  "generated_at": "2026-05-08T11:39:17.168Z",
+  "started_at": "2026-05-08T11:39:15.527Z",
+  "working_directory": "/Users/alex/Desktop/CJ/mother-bear-court/mobile",
+  "node_version": "v25.8.1",
+  "api": {
+    "local": true,
+    "provider": "http"
+  },
+  "database": {
+    "source": "APP_SMOKE_BACKEND_DATABASE_URL",
+    "present": true,
+    "local": true,
+    "provider": "postgresql"
+  },
+  "native_upload_picker_evidence": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-Native-Upload-2026-05-08T11-18-22-284Z.json",
+  "summary": {
+    "platform_boundary_passed": true,
+    "upload_unit_passed": true,
+    "true_service_upload_passed": true,
+    "synthetic_fixture_upload": true,
+    "blocked": false
+  },
+  "platform_boundary": {
+    "status": "passed",
+    "command": "node",
+    "args": [
+      "scripts/check-platform-boundaries.mjs"
+    ],
+    "exit_code": 0,
+    "signal": null,
+    "duration_ms": 68,
+    "stderr_tail": ""
+  },
+  "upload_unit": {
+    "status": "passed",
+    "command": "npx",
+    "args": [
+      "jest",
+      "--runInBand",
+      "src/platform/upload/native.test.js"
+    ],
+    "exit_code": 0,
+    "signal": null,
+    "duration_ms": 1321,
+    "stderr_tail": "PASS src/platform/upload/native.test.js\n  Upload platform adapter\n    ✓ skips ImagePicker on web so static export does not require native picker side effects (1 ms)\n    ✓ does not launch picker when media permission is denied (1 ms)\n    ✓ reports native picker cancellation without producing an upload asset\n    ✓ normalizes the selected native image asset\n    ✓ creates backend-compatible evidence FormData without screen-level file decisions (1 ms)\n\nTest Suites: 1 passed, 1 total\nTests:       5 passed, 5 total\nSnapshots:   0 total\nTime:        0.233 s, estimated 1 s\nRan all test suites matching /src\\/platform\\/upload\\/native.test.js/i.\n"
+  },
+  "true_service": {
+    "command": {
+      "command": "node",
+      "args": [
+        "scripts/app-true-service-smoke.mjs",
+        "--run",
+        "--scope=m5",
+        "--bootstrap-local-users",
+        "--api-base-url=http://127.0.0.1:3001/api/v1",
+        "--timeout-ms=30000"
+      ],
+      "exit_code": 0,
+      "signal": null,
+      "duration_ms": 250,
+      "stderr_tail": ""
+    },
+    "parsed": true,
+    "ok": true,
+    "blocked": false,
+    "mode": "run",
+    "scope": [
+      "m5"
+    ],
+    "required_steps": {
+      "safety.run_target": true,
+      "safety.bootstrap_local_users": true,
+      "core.version": true,
+      "m5.upload_case_create": true,
+      "m5.evidence_upload": true,
+      "m5.evidence_delete": true
+    },
+    "upload_case_id": "1fb953a7-bad6-4d7a-a3c2-d1bfa402ae06",
+    "evidence_id": "fd55d1a1-32a5-4fc4-a6fb-f40ffa68249e"
+  },
+  "does_not_prove": [
+    "physical device media provider authorization",
+    "a user-selected native ImagePicker asset reaching backend",
+    "profile media authorization",
+    "APNs or push provider delivery"
+  ]
+}

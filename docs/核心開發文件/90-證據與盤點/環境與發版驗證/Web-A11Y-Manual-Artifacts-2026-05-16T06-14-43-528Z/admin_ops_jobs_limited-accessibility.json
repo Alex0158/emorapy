@@ -1,0 +1,237 @@
+{
+  "title": "CJ Platform Admin",
+  "lang": "zh-TW",
+  "headings": [
+    {
+      "level": 4,
+      "text": "管理後台",
+      "box": {
+        "x": 0,
+        "y": 16,
+        "width": 84,
+        "height": 24
+      }
+    }
+  ],
+  "landmarks": [
+    {
+      "tag": "aside",
+      "role": null,
+      "label": "管理後台運維與系統管理版本任務統計任務管理健康檢查系統配置用戶管理審計日誌報表中心系統設定",
+      "box": {
+        "x": 0,
+        "y": 16,
+        "width": 240,
+        "height": 368
+      }
+    },
+    {
+      "tag": "nav",
+      "role": null,
+      "label": "任務統計任務管理健康檢查系統配置用戶管理審計日誌報表中心系統設定",
+      "box": {
+        "x": 0,
+        "y": 68,
+        "width": 240,
+        "height": 316
+      }
+    },
+    {
+      "tag": "main",
+      "role": null,
+      "label": "缺少必要權限：ops:read",
+      "box": {
+        "x": 256,
+        "y": 16,
+        "width": 1184,
+        "height": 368
+      }
+    }
+  ],
+  "focusable": [
+    {
+      "tag": "button",
+      "role": null,
+      "type": "button",
+      "label": "版本",
+      "text": "版本",
+      "disabled": false,
+      "ariaExpanded": "false",
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 172,
+        "y": 16,
+        "width": 68,
+        "height": 32
+      }
+    },
+    {
+      "tag": "a",
+      "role": null,
+      "type": null,
+      "label": "任務統計",
+      "text": "任務統計",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 0,
+        "y": 68,
+        "width": 240,
+        "height": 36
+      }
+    },
+    {
+      "tag": "a",
+      "role": null,
+      "type": null,
+      "label": "任務管理",
+      "text": "任務管理",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 0,
+        "y": 108,
+        "width": 240,
+        "height": 36
+      }
+    },
+    {
+      "tag": "a",
+      "role": null,
+      "type": null,
+      "label": "健康檢查",
+      "text": "健康檢查",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 0,
+        "y": 148,
+        "width": 240,
+        "height": 36
+      }
+    },
+    {
+      "tag": "a",
+      "role": null,
+      "type": null,
+      "label": "系統配置",
+      "text": "系統配置",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 0,
+        "y": 188,
+        "width": 240,
+        "height": 36
+      }
+    },
+    {
+      "tag": "a",
+      "role": null,
+      "type": null,
+      "label": "用戶管理",
+      "text": "用戶管理",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 0,
+        "y": 228,
+        "width": 240,
+        "height": 36
+      }
+    },
+    {
+      "tag": "a",
+      "role": null,
+      "type": null,
+      "label": "審計日誌",
+      "text": "審計日誌",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 0,
+        "y": 268,
+        "width": 240,
+        "height": 36
+      }
+    },
+    {
+      "tag": "a",
+      "role": null,
+      "type": null,
+      "label": "報表中心",
+      "text": "報表中心",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 0,
+        "y": 308,
+        "width": 240,
+        "height": 36
+      }
+    },
+    {
+      "tag": "a",
+      "role": null,
+      "type": null,
+      "label": "系統設定",
+      "text": "系統設定",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 0,
+        "y": 348,
+        "width": 240,
+        "height": 36
+      }
+    },
+    {
+      "tag": "section",
+      "role": null,
+      "type": null,
+      "label": "Notifications alt+T",
+      "text": "",
+      "disabled": false,
+      "ariaExpanded": null,
+      "ariaPressed": null,
+      "ariaSelected": null,
+      "box": {
+        "x": 0,
+        "y": 384,
+        "width": 1440,
+        "height": 0
+      }
+    }
+  ],
+  "statusRegions": [
+    {
+      "tag": "section",
+      "role": null,
+      "ariaLive": "polite",
+      "text": "",
+      "box": {
+        "x": 0,
+        "y": 384,
+        "width": 1440,
+        "height": 0
+      }
+    }
+  ]
+}

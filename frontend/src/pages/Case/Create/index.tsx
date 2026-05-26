@@ -1,10 +1,10 @@
 /**
  * 案件創建頁面 — 多步驟精靈
  *
- * 遷移: Ant Design Card/Form/Button/Typography/Alert/Radio/Spin/message → shadcn + Tailwind + sonner
+ * 遷移: Legacy card/form controls → shadcn + Tailwind + sonner
  * 重構: 3 堆疊 Card → typeform 風格多步驟精靈（漸進式揭露）
  * 保留: 所有業務邏輯（pairing, interview trigger, consent, evidence upload, submit）
- * 保留: StatementInput, FileUpload, ConsentModal（業務組件仍用 Ant Design，後續單獨遷移）
+ * 保留: StatementInput, FileUpload, ConsentModal 業務組件
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -97,9 +97,8 @@ const CaseCreate = () => {
   useEffect(() => {
     let cancelled = false;
     psychProfileApi.getProfile()
-      .then((res) => {
+      .then((profile) => {
         if (cancelled) return;
-        const profile = res.data?.data;
         if (!profile) return;
         setProfileConsent(!!profile.consent_given);
         if ((profile.richness_score ?? 0) < PRE_CASE_RICHNESS_THRESHOLD) {
@@ -281,7 +280,12 @@ const CaseCreate = () => {
                   <Button size="sm" variant="ghost" onClick={() => setShowPreCaseBanner(false)}>{t('trigger.preCaseSkip')}</Button>
                 </div>
               </div>
-              <button onClick={() => setShowPreCaseBanner(false)} className="text-muted-foreground hover:text-foreground">
+              <button
+                type="button"
+                onClick={() => setShowPreCaseBanner(false)}
+                aria-label={t('common.dismiss')}
+                className="text-muted-foreground hover:text-foreground"
+              >
                 <X className="size-4" />
               </button>
             </div>
@@ -310,8 +314,10 @@ const CaseCreate = () => {
 
                 {/* Title Input */}
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">{t('caseCreate.caseTitle')}</label>
+                  <label htmlFor="case-create-title" className="text-sm font-medium text-foreground">{t('caseCreate.caseTitle')}</label>
                   <Input
+                    id="case-create-title"
+                    autoComplete="off"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder={t('caseCreate.caseTitlePlaceholder')}

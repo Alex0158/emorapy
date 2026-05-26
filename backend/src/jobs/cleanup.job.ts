@@ -17,6 +17,8 @@ import {
 import { systemConfigService } from '../services/system-config.service';
 import { runOpsAlertChecks } from '../services/ops-alerts.service';
 import { aiStreamService } from '../services/ai-stream.service';
+import { appTelemetryService } from '../services/app-telemetry.service';
+import { notificationService } from '../services/notification.service';
 import { buildStaleFormalDraftCaseWhere, buildUserBoundProductCaseWhere, getCaseProductFlow } from '../utils/case-classifier';
 import { buildQuickTempPairingWhere } from '../utils/pairing-invariant';
 
@@ -756,6 +758,58 @@ export const runOpsAlertsCheck = createJob('*/5 * * * *', async () => {
   });
 });
 
+/**
+ * 清理 App telemetry 安全事件（每天凌晨 5:30）
+ * 只保留最小化事件摘要；預設保留 30 天，避免長期保存 App 操作軌跡。
+ */
+export const cleanupAppTelemetry = createJob('30 5 * * *', async () => {
+  await withCronRunLog('cleanup_app_telemetry', async () => {
+    try {
+      const result = await appTelemetryService.cleanupExpiredEvents(30);
+      if (result.deletedCount > 0) {
+        logger.info('App telemetry cleaned', result);
+      }
+      return {
+        affectedCount: result.deletedCount,
+        detail: result,
+      };
+    } catch (error) {
+      logger.error('Failed to cleanup App telemetry', { error });
+      throw error;
+    }
+  });
+});
+
+export const dispatchPendingPushNotifications = createJob('*/2 * * * *', async () => {
+  await withCronRunLog('dispatch_pending_push_notifications', async () => {
+    try {
+      const result = await notificationService.dispatchPendingPushNotifications(50);
+      return {
+        affectedCount: result.sentCount + result.failedCount,
+        detail: result,
+      };
+    } catch (error) {
+      logger.error('Failed to dispatch pending push notifications', { error });
+      throw error;
+    }
+  });
+});
+
+export const pollPushNotificationReceipts = createJob('*/10 * * * *', async () => {
+  await withCronRunLog('poll_push_notification_receipts', async () => {
+    try {
+      const result = await notificationService.pollPushNotificationReceipts(100);
+      return {
+        affectedCount: result.okCount + result.failedCount,
+        detail: result,
+      };
+    } catch (error) {
+      logger.error('Failed to poll push notification receipts', { error });
+      throw error;
+    }
+  });
+});
+
 export const adminJobs = [
   { key: 'cleanup_expired_sessions', schedule: '0 * * * *', task: cleanupExpiredSessions },
   { key: 'cleanup_abandoned_interview_sessions', schedule: '0 * * * *', task: cleanupAbandonedInterviewSessions },
@@ -767,8 +821,11 @@ export const adminJobs = [
   { key: 'cleanup_temp_pairings', schedule: '0 2 * * *', task: cleanupTempPairings },
   { key: 'cleanup_stale_draft_cases', schedule: '0 4 * * *', task: cleanupStaleDraftCases },
   { key: 'ops_alerts_check', schedule: '*/5 * * * *', task: runOpsAlertsCheck },
+  { key: 'cleanup_app_telemetry', schedule: '30 5 * * *', task: cleanupAppTelemetry },
   { key: 'follow_up_7_day', schedule: '0 10 * * *', task: followUp7Day },
   { key: 'follow_up_30_day', schedule: '0 10 * * *', task: followUp30Day },
+  { key: 'dispatch_pending_push_notifications', schedule: '*/2 * * * *', task: dispatchPendingPushNotifications },
+  { key: 'poll_push_notification_receipts', schedule: '*/10 * * * *', task: pollPushNotificationReceipts },
 ] as const;
 
 export const runAdminJobNow = async (
@@ -829,8 +886,11 @@ export const startJobs = () => {
   cleanupTempPairings.start();
   cleanupStaleDraftCases.start();
   runOpsAlertsCheck.start();
+  cleanupAppTelemetry.start();
   followUp7Day.start();
   followUp30Day.start();
+  dispatchPendingPushNotifications.start();
+  pollPushNotificationReceipts.start();
   jobsStarted = true;
   logger.info('Scheduled jobs started', { env: env.NODE_ENV });
 };
@@ -859,8 +919,11 @@ export const stopJobs = () => {
   cleanupTempPairings.stop();
   cleanupStaleDraftCases.stop();
   runOpsAlertsCheck.stop();
+  cleanupAppTelemetry.stop();
   followUp7Day.stop();
   followUp30Day.stop();
+  dispatchPendingPushNotifications.stop();
+  pollPushNotificationReceipts.stop();
   jobsStarted = false;
   logger.info('Scheduled jobs stopped');
 };

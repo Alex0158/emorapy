@@ -5,7 +5,7 @@
 import { Reply, Link2, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { copyToClipboard } from '@/utils/copyToClipboard';
-import { t } from '@/utils/i18n';
+import { getLocale, t } from '@/utils/i18n';
 import type { ChatMessage } from '@/types/chat';
 
 interface ChatMessageItemProps {
@@ -40,7 +40,6 @@ export default function ChatMessageItem({
   const handleReplyClick = (e: React.MouseEvent) => { e.stopPropagation(); onReply(msg); };
   const handleCopyLinkClick = async (e: React.MouseEvent) => { e.stopPropagation(); setMessageAnchor(msg.id, { replace: true }); if (linkUrl) await copyToClipboard(linkUrl); };
   const handleReplyPreviewClick = () => { const targetId = msg.reply_to_message_id!; setMessageAnchor(targetId, { replace: true }); onAnchorTarget(targetId); };
-  const handleReplyPreviewKeyDown = (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleReplyPreviewClick(); } };
 
   const actionButtons = msg.message_type !== 'safety_notice' ? (
     <>
@@ -89,10 +88,10 @@ export default function ChatMessageItem({
           )}
 
           {msg.reply_to_message_id && (
-            <div className="chat-room-page__reply-preview" role="button" tabIndex={0} onClick={handleReplyPreviewClick} onKeyDown={handleReplyPreviewKeyDown}>
+            <button type="button" className="chat-room-page__reply-preview" onClick={handleReplyPreviewClick}>
               <span className="text-xs text-muted-foreground">{t('chat.replyReference')}</span>
               <p className="chat-room-page__reply-preview-content text-xs">{replyTargetContent ?? t('chat.replyReferenceMissing')}</p>
-            </div>
+            </button>
           )}
 
           {msg.message_type === 'safety_notice' ? (
@@ -104,7 +103,7 @@ export default function ChatMessageItem({
             <p className="chat-room-page__message-content">{msg.content}</p>
           )}
 
-          {isGroupEnd && <div className="chat-room-page__message-foot"><span className="text-[10px] text-muted-foreground">{new Date(msg.created_at).toLocaleString()}</span></div>}
+          {isGroupEnd && <div className="chat-room-page__message-foot"><span className="text-[10px] text-muted-foreground">{new Date(msg.created_at).toLocaleString(getLocale())}</span></div>}
         </div>
       </div>
     </div>

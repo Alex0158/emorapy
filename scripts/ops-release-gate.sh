@@ -19,6 +19,45 @@ fetch_required_json() {
   printf '\n'
 }
 
+validate_release_health() {
+  local label="$1"
+  local url="$2"
+  local json
+
+  printf '%s: %s\n' "$label" "$url"
+  json="$(curl -fsS "$url")"
+  printf '%s\n' "$json"
+
+  HEALTH_JSON="$json" node -e '
+const [label] = process.argv.slice(1);
+const payload = JSON.parse(process.env.HEALTH_JSON || "{}");
+const checks = payload && typeof payload === "object" && payload.checks && typeof payload.checks === "object"
+  ? payload.checks
+  : {};
+
+function fail(message) {
+  console.error(`[error] ${label} ${message}`);
+  process.exit(1);
+}
+
+if (payload.status !== "healthy") {
+  fail(`must be healthy for release gate, got ${payload.status || "(missing)"}`);
+}
+
+const lockMessage = typeof checks.lock?.message === "string" ? checks.lock.message : "";
+if (checks.lock?.status !== "healthy" || !/Lock backend:\s*redis\b/.test(lockMessage)) {
+  fail(`must report Redis lock backend, got status=${checks.lock?.status || "(missing)"} message=${lockMessage || "(missing)"}`);
+}
+
+const aiStreamMessage = typeof checks.aiStream?.message === "string" ? checks.aiStream.message : "";
+if (checks.aiStream?.status !== "healthy" || !/AI Stream backend:\s*redis\b/.test(aiStreamMessage)) {
+  fail(`must report Redis AI Stream backend, got status=${checks.aiStream?.status || "(missing)"} message=${aiStreamMessage || "(missing)"}`);
+}
+
+console.log(`[ok] ${label} Redis-backed runtime verified`);
+' "$label"
+}
+
 validate_version_endpoint() {
   local label="$1"
   local url="$2"
@@ -105,6 +144,21 @@ require_explicit_env() {
     echo "        It intentionally does not infer backend/.env, to avoid checking the dev DB by accident." >&2
     exit 1
   fi
+
+  if [ -z "${REDIS_URL:-}" ]; then
+    echo "[error] Release gate requires explicit REDIS_URL for Redis-backed lock/cache/AI Stream runtime." >&2
+    exit 1
+  fi
+
+  if [ "${ALLOW_SIMPLE_LOCK:-false}" = "true" ]; then
+    echo "[error] Release gate forbids ALLOW_SIMPLE_LOCK=true. Configure REDIS_URL-backed lock runtime instead." >&2
+    exit 1
+  fi
+
+  if [ -z "${ADMIN_JWT_EXPIRES_IN:-}" ]; then
+    echo "[error] Release gate requires explicit ADMIN_JWT_EXPIRES_IN for Admin token expiry policy." >&2
+    exit 1
+  fi
 }
 
 require_explicit_env
@@ -130,7 +184,7 @@ validate_version_endpoint "backend" "${BACKEND_BASE_URL%/}/version" "backend" "$
 print_section "Backend Health"
 fetch_required_json "backend /health/live" "${BACKEND_BASE_URL%/}/health/live"
 fetch_required_json "backend /health/ready" "${BACKEND_BASE_URL%/}/health/ready"
-fetch_required_json "backend /health" "${BACKEND_BASE_URL%/}/health"
+validate_release_health "backend /health" "${BACKEND_BASE_URL%/}/health"
 
 print_section "Database Migration State"
 npm run ops:db:status

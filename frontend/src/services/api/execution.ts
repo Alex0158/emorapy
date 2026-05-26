@@ -2,10 +2,12 @@
  * 修復旅程 / 執行 API
  */
 
+import { createM4ApiClient } from '@cj/api-client';
 import request from '../request';
-import type { ApiResponse } from '@/types/common';
 import type { CommitmentSummary } from './reconciliation';
 import type { RepairJourneyContext, RepairJourneyPresentationBucket } from '@/types/repairJourney';
+
+const sharedExecutionApi = createM4ApiClient(request).execution;
 
 export interface ExecutionRecord {
   id: string;
@@ -113,81 +115,39 @@ export interface ReplanTrackAccepted {
  * 開始今天的第一步
  */
 export const confirmExecution = async (planId: string): Promise<ExecutionRecord> => {
-  const response = await request.post<ApiResponse<{ execution: ExecutionRecord }>>(
-    '/execution/confirm',
-    { plan_id: planId },
-  );
-  const result = (response.data as ApiResponse<{ execution: ExecutionRecord }>)?.data?.execution;
-  if (!result) throw new Error('Invalid execution response from server');
-  return result;
+  return sharedExecutionApi.confirm(planId) as Promise<ExecutionRecord>;
 };
 
 /**
  * 記下今天的一小步
  */
 export const checkin = async (data: CheckinDto): Promise<ExecutionRecord> => {
-  const response = await request.post<ApiResponse<{ execution: ExecutionRecord }>>(
-    '/execution/checkin',
-    data,
-  );
-  const result = (response.data as ApiResponse<{ execution: ExecutionRecord }>)?.data?.execution;
-  if (!result) throw new Error('Invalid execution response from server');
-  return result;
+  return sharedExecutionApi.checkin(data) as Promise<ExecutionRecord>;
 };
 
 /**
  * 獲取修復旅程狀態
  */
 export const getExecutionStatus = async (planId: string): Promise<ExecutionStatus> => {
-  const response = await request.get<ApiResponse<ExecutionStatus>>(
-    '/execution/status',
-    { params: { plan_id: planId } },
-  );
-  const result = (response.data as ApiResponse<ExecutionStatus>)?.data;
-  if (!result) throw new Error('Invalid execution status response from server');
-  return {
-    ...result,
-    records: Array.isArray(result.records) ? result.records : [],
-    recent_checkins: Array.isArray(result.recent_checkins) ? result.recent_checkins : [],
-  };
+  return sharedExecutionApi.getStatus(planId) as Promise<ExecutionStatus>;
 };
 
 /**
  * 獲取所有修復旅程狀態（用於旅程看板）
  */
 export const getAllExecutionStatuses = async (): Promise<ExecutionStatus[]> => {
-  const response = await request.get<ApiResponse<{ executions: ExecutionStatus[] }>>(
-    '/execution/dashboard',
-  );
-  const executions = (response.data as ApiResponse<{ executions: ExecutionStatus[] }>)?.data?.executions;
-  const list = Array.isArray(executions) ? executions : [];
-  return list.map((item) => ({
-    ...item,
-    records: Array.isArray(item.records) ? item.records : [],
-    recent_checkins: Array.isArray(item.recent_checkins) ? item.recent_checkins : [],
-  }));
+  return sharedExecutionApi.getDashboard() as Promise<ExecutionStatus[]>;
 };
 
 export const replanTrack = async (
   trackId: string,
   data: ReplanTrackDto,
 ): Promise<ReplanTrackAccepted> => {
-  const response = await request.post<ApiResponse<{ track: ReplanTrackAccepted }>>(
-    `/repair-tracks/${trackId}/replan`,
-    data,
-  );
-  const result = (response.data as ApiResponse<{ track: ReplanTrackAccepted }>)?.data?.track;
-  if (!result) throw new Error('Invalid replan response from server');
-  return result;
+  return sharedExecutionApi.replanTrack(trackId, data) as Promise<ReplanTrackAccepted>;
 };
 
 export const resumeTrack = async (
   trackId: string,
 ): Promise<{ track_id: string; plan_id: string; status: string }> => {
-  const response = await request.post<ApiResponse<{ track: { track_id: string; plan_id: string; status: string } }>>(
-    `/repair-tracks/${trackId}/resume`,
-  );
-  const result = (response.data as ApiResponse<{ track: { track_id: string; plan_id: string; status: string } }>)?.data?.track;
-  if (!result) throw new Error('Invalid resume response from server');
-  return result;
+  return sharedExecutionApi.resumeTrack(trackId);
 };

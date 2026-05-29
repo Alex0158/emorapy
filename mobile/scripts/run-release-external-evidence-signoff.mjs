@@ -504,8 +504,8 @@ const prerequisiteActionCatalog = {
     required_env_keys: ['APP_TELEMETRY_RUNTIME_API_BASE_URL'],
     action: 'Provide a non-local release API base URL so the telemetry runtime runner can post event and OTLP trace payloads.',
     commands: [
-      'APP_TELEMETRY_RUNTIME_API_BASE_URL=<release-api-base-url> npm --prefix mobile run release:external-evidence:validate -- --report-dir=<report-dir>',
-      'APP_TELEMETRY_RUNTIME_API_BASE_URL=<release-api-base-url> npm --prefix mobile run telemetry:runtime:smoke -- --run',
+      'npm --prefix mobile run release:external-evidence:validate -- --release-env-file=release.env.local --report-dir=<report-dir>',
+      'npm --prefix mobile run telemetry:runtime:smoke -- --run --release-env-file=release.env.local',
     ],
     docs: [prerequisiteDocs.runbook, prerequisiteDocs.releaseHardening, prerequisiteDocs.testBaseline],
   },

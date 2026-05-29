@@ -156,18 +156,18 @@ controlled native crash event 必須匹配 `cj-mobile@<version>+<build>` release
 
 - `APP_TELEMETRY_RUNTIME_API_BASE_URL` 指向 release API base URL，例如 `https://<release-api>/api/v1`。
 
-該 URL 不能是 localhost / 127.0.0.1 / ::1。evidence 必須由 `mobile/scripts/run-telemetry-runtime-smoke.mjs` 產出，並證明 `POST /telemetry/events` 與 `POST /telemetry/otlp/v1/traces` 都接受受控 safe payload。正式證據只保存 API host、request id、session id、trace id、span id 的 SHA-256，不保存原始 URL 或任何 token。
+該 URL 不能是 localhost / 127.0.0.1 / ::1。evidence 必須由 `mobile/scripts/run-telemetry-runtime-smoke.mjs` 產出，並證明 `POST /telemetry/events` 與 `POST /telemetry/otlp/v1/traces` 都接受受控 safe payload。正式證據只保存 API host、request id、session id、trace id、span id 的 SHA-256，不保存原始 URL 或任何 token。runner 支援 `--release-env-file=release.env.local`，只從白名單 key 讀取 `APP_TELEMETRY_RUNTIME_*`，不 eval、不輸出 raw value；production backend 只允許這兩個 App native telemetry ingest 端點接受無 `Origin` 請求，非白名單瀏覽器 `Origin` 仍必須返回 `CORS_ORIGIN_DENIED`。
 
 dry-run：
 
 ```bash
-npm --prefix mobile run telemetry:runtime:smoke -- --dry-run
+npm --prefix mobile run telemetry:runtime:smoke -- --dry-run --release-env-file=release.env.local
 ```
 
 正式 run：
 
 ```bash
-APP_TELEMETRY_RUNTIME_API_BASE_URL=<release-api-base-url> npm --prefix mobile run telemetry:runtime:smoke -- --run
+npm --prefix mobile run telemetry:runtime:smoke -- --run --release-env-file=release.env.local
 ```
 
 ### 3.7 Release DB Parity
@@ -275,7 +275,7 @@ iOS physical evidence 需要可接真機的 trusted macOS runner。GitHub-hosted
 | Physical device | `App-Physical-Device-*.json` | `npm --prefix mobile run physical-device:smoke -- --platform=ios --app-path=<signed-app>` 或 Android physical 模式 |
 | Push provider delivery | `App-Push-Delivery-*.json` | `npm --prefix mobile run push-delivery:smoke -- --run` |
 | Native crash runtime | `App-Native-Crash-Runtime-*.json` | `npm --prefix mobile run native-crash:runtime:smoke -- --run` |
-| App telemetry runtime ingest | `App-Telemetry-Runtime-*.json` | `APP_TELEMETRY_RUNTIME_API_BASE_URL=<release-api-base-url> npm --prefix mobile run telemetry:runtime:smoke -- --run` |
+| App telemetry runtime ingest | `App-Telemetry-Runtime-*.json` | `npm --prefix mobile run telemetry:runtime:smoke -- --run --release-env-file=release.env.local` |
 | Release DB parity | `App-Release-DB-Parity-*.json` | `DATABASE_URL=<release-or-production-postgresql-url> npm --prefix backend run ops:release-db:evidence` |
 
 最後完成判定只看：

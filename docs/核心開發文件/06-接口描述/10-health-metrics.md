@@ -46,6 +46,7 @@
 - `/health/ready` 專用於就緒檢查；DB 不可用時 503。
 - `/health/live` 為進程存活探針，正常情況固定返回 `200 + {status:'alive'}`。
 - `app.ts` 將 `/health*`、`/version`、`/api/v1/version` 歸為 public status path，來源驗證與 CORS 走白名單豁免分支（`origin: false`）；因此監控探針不依賴瀏覽器 Origin。
+- `app.ts` 在 production 只對 `/api/v1/telemetry/events` 與 `/api/v1/telemetry/otlp/v1/traces` 允許無 `Origin` 的 App native runtime 請求通過 CORS 前置檢查；非白名單瀏覽器 `Origin` 仍必須返回 `CORS_ORIGIN_DENIED`，其他 API 無 `Origin` 也不得被這個例外放行。
 - `/metrics` 在生產環境必須由 token 或 IP 白名單保護；這在 `env.ts` 有強校驗。
 - `METRICS_ENABLED=false` 時 `/metrics` 必須返回 404（而不是空 body/200）。
 - Admin 健康頁使用的是 `/api/v1/admin/health/detailed`（本文件不覆蓋該接口，該接口歸 `09-admin.md`）。

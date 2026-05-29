@@ -203,7 +203,7 @@ const actionCatalog = {
     required_env_keys: ['APP_TELEMETRY_RUNTIME_API_BASE_URL'],
     action: 'Post controlled App telemetry and OTLP trace payloads to the non-local release backend and prove both runtime ingest endpoints accept them.',
     commands: [
-      'APP_TELEMETRY_RUNTIME_API_BASE_URL=<release-api-base-url> npm --prefix mobile run telemetry:runtime:smoke -- --run',
+      'npm --prefix mobile run telemetry:runtime:smoke -- --run --release-env-file=release.env.local',
     ],
     accepted_evidence: ['docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-Telemetry-Runtime-*.json'],
     strict_gate: 'npm --prefix mobile run release:completion:audit:strict',

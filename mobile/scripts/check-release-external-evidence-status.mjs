@@ -304,7 +304,7 @@ function buildStatus() {
       'APP_ANDROID_DEVICE_SERIAL=<physical-device-serial> npm --prefix mobile run physical-device:smoke -- --platform=android --run',
       'APP_PUSH_DELIVERY_EXPO_PUSH_TOKEN=<ExpoPushToken> npm --prefix mobile run push-delivery:smoke -- --run',
       'APP_SENTRY_ORG=<org> APP_SENTRY_PROJECT=<project> APP_SENTRY_AUTH_TOKEN=<token> APP_NATIVE_CRASH_SENTRY_EVENT_ID=<event-id> npm --prefix mobile run native-crash:runtime:smoke -- --run',
-      'APP_TELEMETRY_RUNTIME_API_BASE_URL=<release-api-base-url> npm --prefix mobile run telemetry:runtime:smoke -- --run',
+      'npm --prefix mobile run telemetry:runtime:smoke -- --run --release-env-file=release.env.local',
       'DATABASE_URL=<release-or-production-postgresql-url> npm --prefix backend run ops:release-db:evidence',
       'npm --prefix mobile run release:completion:audit:strict',
     ],

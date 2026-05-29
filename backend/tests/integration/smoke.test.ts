@@ -137,6 +137,7 @@ jest.mock('../../src/types/prisma-client', () => ({
 }));
 
 import app from '../../src/app';
+import { env } from '../../src/config/env';
 
 describe('煙霧測試 (Smoke Test)', () => {
   describe('基礎健康檢查', () => {
@@ -218,6 +219,85 @@ describe('煙霧測試 (Smoke Test)', () => {
         .set('Origin', 'https://evil.example.com');
       expect(response.body?.error?.code).not.toBe('CORS_ORIGIN_DENIED');
       expect(response.status).toBeLessThan(500);
+    });
+
+    it('production 下 App telemetry events 應允許 native 無 Origin 請求，但仍拒絕非白名單瀏覽器 Origin', async () => {
+      const originalNodeEnv = env.NODE_ENV;
+      env.NODE_ENV = 'production';
+      try {
+        const nativeResponse = await request(app)
+          .post('/api/v1/telemetry/events')
+          .set('Content-Type', 'application/json')
+          .set('X-Session-Id', 'guest_test123')
+          .send({
+            events: [{
+              name: 'app_route_open',
+              severity: 'info',
+              route: '/notifications',
+              app_version: '1.3.1',
+              platform: 'ios',
+            }],
+          });
+        expect(nativeResponse.status).toBe(202);
+        expect(nativeResponse.body?.data?.accepted_count).toBe(1);
+
+        const browserResponse = await request(app)
+          .post('/api/v1/telemetry/events')
+          .set('Origin', 'https://evil.example.com')
+          .set('Content-Type', 'application/json')
+          .set('X-Session-Id', 'guest_test123')
+          .send({
+            events: [{
+              name: 'app_route_open',
+              severity: 'info',
+              route: '/notifications',
+              app_version: '1.3.1',
+              platform: 'ios',
+            }],
+          });
+        expect(browserResponse.status).toBe(403);
+        expect(browserResponse.body?.error?.code).toBe('CORS_ORIGIN_DENIED');
+      } finally {
+        env.NODE_ENV = originalNodeEnv;
+      }
+    });
+
+    it('production 下 App OTLP telemetry 應允許 native 無 Origin 請求，但其他 API 仍需 Origin 白名單', async () => {
+      const originalNodeEnv = env.NODE_ENV;
+      env.NODE_ENV = 'production';
+      try {
+        const nativeResponse = await request(app)
+          .post('/api/v1/telemetry/otlp/v1/traces')
+          .set('Content-Type', 'application/json')
+          .set('X-Session-Id', 'guest_test123')
+          .send({
+            resourceSpans: [{
+              resource: {
+                attributes: [
+                  { key: 'app.version', value: { stringValue: '1.3.1' } },
+                  { key: 'app.platform', value: { stringValue: 'ios' } },
+                ],
+              },
+              scopeSpans: [{
+                scope: { name: 'cj.mobile.app' },
+                spans: [{
+                  traceId: '0123456789abcdef0123456789abcdef',
+                  spanId: '0123456789abcdef',
+                  name: 'app.boot',
+                  status: { code: 1 },
+                }],
+              }],
+            }],
+          });
+        expect(nativeResponse.status).toBe(202);
+        expect(nativeResponse.body?.data?.accepted_count).toBe(1);
+
+        const protectedResponse = await request(app).get('/api/v1/admin/jobs');
+        expect(protectedResponse.status).toBe(403);
+        expect(protectedResponse.body?.error?.code).toBe('CORS_ORIGIN_DENIED');
+      } finally {
+        env.NODE_ENV = originalNodeEnv;
+      }
     });
   });
 

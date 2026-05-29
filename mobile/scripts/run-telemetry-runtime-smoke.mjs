@@ -8,6 +8,108 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const mobileRoot = path.resolve(scriptDir, '..');
 const repoRoot = path.resolve(mobileRoot, '..');
 const defaultApiBaseUrl = 'http://127.0.0.1:3001/api/v1';
+const releaseEnvFileKeys = new Set([
+  'DEVELOPER_DIR',
+  'APP_RELEASE_EXTERNAL_SIGNOFF_RUN',
+  'APP_RELEASE_EXTERNAL_SIGNOFF_REPORT_DIR',
+  'APP_PHYSICAL_DEVICE_PLATFORM',
+  'APP_EAS_IOS_REQUIRE_TESTFLIGHT',
+  'APP_STORE_CONNECT_APP_ID',
+  'APP_PUSH_DELIVERY_ACCESS_TOKEN',
+  'APP_NATIVE_CRASH_EXPECTED_ENVIRONMENT',
+  'EXPO_TOKEN',
+  'ASC_APPLE_ID',
+  'EXPO_APPLE_APP_SPECIFIC_PASSWORD',
+  'APP_STORE_CONNECT_ISSUER_ID',
+  'APP_STORE_CONNECT_KEY_ID',
+  'APP_STORE_CONNECT_PRIVATE_KEY_PATH',
+  'APP_IOS_DEVICE_UDID',
+  'APP_IOS_DEVICE_APP_PATH',
+  'APP_ANDROID_DEVICE_SERIAL',
+  'APP_PUSH_DELIVERY_EXPO_PUSH_TOKEN',
+  'APP_SENTRY_ORG',
+  'APP_SENTRY_PROJECT',
+  'APP_SENTRY_AUTH_TOKEN',
+  'APP_NATIVE_CRASH_SENTRY_EVENT_ID',
+  'APP_TELEMETRY_RUNTIME_SMOKE_RUN',
+  'APP_TELEMETRY_RUNTIME_API_BASE_URL',
+  'APP_TELEMETRY_RUNTIME_TIMEOUT_MS',
+  'DATABASE_URL',
+]);
+
+function parseEnvValue(rawValue) {
+  const value = rawValue.trim();
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
+    return value.slice(1, -1);
+  }
+  return value;
+}
+
+function isPlaceholderValue(value) {
+  const text = String(value ?? '').trim();
+  return text.length === 0 || text.startsWith('REPLACE_WITH_');
+}
+
+function resolveExistingFilePath(input) {
+  if (path.isAbsolute(input)) return fs.existsSync(input) ? input : null;
+  return [
+    path.resolve(process.cwd(), input),
+    path.resolve(mobileRoot, input),
+    path.resolve(repoRoot, input),
+  ].find((candidate) => fs.existsSync(candidate)) ?? null;
+}
+
+function loadReleaseEnvFile(rawPath) {
+  const resolvedPath = resolveExistingFilePath(rawPath);
+  if (!resolvedPath) {
+    console.error(`[telemetry-runtime-smoke] --release-env-file path does not exist: ${rawPath}`);
+    process.exit(1);
+  }
+  const text = fs.readFileSync(resolvedPath, 'utf8');
+  for (const [index, rawLine] of text.split(/\r?\n/).entries()) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) continue;
+    const normalized = line.startsWith('export ') ? line.slice('export '.length).trim() : line;
+    const match = /^([A-Z0-9_]+)=(.*)$/.exec(normalized);
+    if (!match) {
+      console.error(
+        `[telemetry-runtime-smoke] invalid --release-env-file line ${index + 1}; expected KEY=value without shell expansion`
+      );
+      process.exit(1);
+    }
+    const [, key, rawValue] = match;
+    if (!releaseEnvFileKeys.has(key)) {
+      console.error(`[telemetry-runtime-smoke] unsupported --release-env-file key: ${key}`);
+      process.exit(1);
+    }
+    if (
+      !key.startsWith('APP_TELEMETRY_RUNTIME_') ||
+      (Object.prototype.hasOwnProperty.call(process.env, key) && process.env[key] !== '')
+    ) {
+      continue;
+    }
+    const value = parseEnvValue(rawValue);
+    if (!isPlaceholderValue(value)) process.env[key] = value;
+  }
+}
+
+for (const arg of process.argv.slice(2)) {
+  if (arg.startsWith('--env-file=')) {
+    console.error('[telemetry-runtime-smoke] --env-file is reserved by Node/npm; use --release-env-file=<path>');
+    process.exit(1);
+  }
+  if (arg.startsWith('--release-env-file=')) {
+    const rawPath = arg.slice('--release-env-file='.length);
+    if (!rawPath) {
+      console.error('[telemetry-runtime-smoke] --release-env-file requires a path');
+      process.exit(1);
+    }
+    loadReleaseEnvFile(rawPath);
+  }
+}
 
 const options = {
   run: process.env.APP_TELEMETRY_RUNTIME_SMOKE_RUN === 'true',
@@ -30,6 +132,8 @@ for (const arg of process.argv.slice(2)) {
     options.timeoutMs = Number(arg.slice('--timeout-ms='.length));
   } else if (arg.startsWith('--evidence-dir=')) {
     options.evidenceDir = path.resolve(process.cwd(), arg.slice('--evidence-dir='.length));
+  } else if (arg.startsWith('--release-env-file=')) {
+    continue;
   } else {
     console.error(`[telemetry-runtime-smoke] unknown argument: ${arg}`);
     process.exit(1);
@@ -187,7 +291,7 @@ function printDryRun(app, normalizedApiBaseUrl) {
   const apiUrl = new URL(normalizedApiBaseUrl);
   console.log('[telemetry-runtime-smoke] dry-run');
   console.log('- Requires --run or APP_TELEMETRY_RUNTIME_SMOKE_RUN=true before posting telemetry events.');
-  console.log('- Requires APP_TELEMETRY_RUNTIME_API_BASE_URL or --api-base-url=<release-api-base-url> for release evidence.');
+  console.log('- Requires APP_TELEMETRY_RUNTIME_API_BASE_URL, --api-base-url=<release-api-base-url>, or --release-env-file=release.env.local for release evidence.');
   console.log('- Release evidence must target a non-local API host; localhost is accepted only as dry-run planning context.');
   console.log(`- API protocol/path: ${apiUrl.protocol.replace(':', '')} ${apiUrl.pathname}`);
   console.log(`- API host sha256: ${hashValue(apiUrl.host)}`);

@@ -87,6 +87,8 @@ const isPublicStatusPath = (path: string): boolean =>
   isHealthPath(path) || path === '/version' || path === '/api/v1/version';
 const isMachineProtectedPath = (path: string): boolean =>
   path === '/metrics';
+const isNativeAppRuntimePath = (path: string): boolean =>
+  path === '/api/v1/telemetry/events' || path === '/api/v1/telemetry/otlp/v1/traces';
 const isSameOriginRequest = (req: express.Request, origin: string): boolean => {
   try {
     const parsedOrigin = new URL(origin);
@@ -108,7 +110,7 @@ app.use((req, _res, next) => {
 
   const origin = req.header('Origin');
   if (!origin) {
-    if (env.NODE_ENV !== 'production') {
+    if (env.NODE_ENV !== 'production' || isNativeAppRuntimePath(req.path)) {
       return next();
     }
     return next(new AppError(403, 'CORS_ORIGIN_DENIED', '不允許的來源'));

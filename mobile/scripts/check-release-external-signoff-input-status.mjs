@@ -15,7 +15,7 @@ const envFile = releaseEnvFileArg
   ? path.resolve(mobileRoot, releaseEnvFileArg.slice('--release-env-file='.length))
   : defaultEnvFile;
 
-const requiredInputKeys = [
+const currentCompletionInputKeys = [
   'EXPO_TOKEN',
   'ASC_APPLE_ID',
   'EXPO_APPLE_APP_SPECIFIC_PASSWORD',
@@ -30,9 +30,12 @@ const requiredInputKeys = [
   'APP_SENTRY_PROJECT',
   'APP_SENTRY_AUTH_TOKEN',
   'APP_NATIVE_CRASH_SENTRY_EVENT_ID',
+];
+const evidenceRefreshInputKeys = [
   'APP_TELEMETRY_RUNTIME_API_BASE_URL',
   'DATABASE_URL',
 ];
+const requiredInputKeys = [...currentCompletionInputKeys, ...evidenceRefreshInputKeys];
 const allowedInputKeys = new Set([
   'DEVELOPER_DIR',
   'APP_RELEASE_EXTERNAL_SIGNOFF_RUN',
@@ -94,6 +97,22 @@ for (const key of requiredInputKeys) {
   }
 }
 
+function summarizeInputKeys(keys) {
+  const keySet = new Set(keys);
+  const groupFilledKeys = filledKeys.filter((key) => keySet.has(key));
+  const groupPlaceholderKeys = placeholderKeys.filter((key) => keySet.has(key));
+  const groupMissingKeys = missingKeys.filter((key) => keySet.has(key));
+  return {
+    required_key_count: keys.length,
+    filled_count: groupFilledKeys.length,
+    placeholder_count: groupPlaceholderKeys.length,
+    missing_count: groupMissingKeys.length,
+    filled_keys: groupFilledKeys,
+    placeholder_keys: groupPlaceholderKeys,
+    missing_keys: groupMissingKeys,
+  };
+}
+
 let easProjectId = { present: false, valid: false, format: 'missing' };
 try {
   easProjectId = getExpoProjectIdStatus(readAppJson());
@@ -117,8 +136,31 @@ const status = {
     filled_count: filledKeys.length,
     placeholder_count: placeholderKeys.length,
     missing_count: missingKeys.length,
+    current_completion_required_key_count: currentCompletionInputKeys.length,
+    current_completion_filled_count: currentCompletionInputKeys.filter((key) => filledKeys.includes(key)).length,
+    current_completion_placeholder_count: currentCompletionInputKeys.filter((key) => placeholderKeys.includes(key)).length,
+    current_completion_missing_count: currentCompletionInputKeys.filter((key) => missingKeys.includes(key)).length,
+    evidence_refresh_required_key_count: evidenceRefreshInputKeys.length,
+    evidence_refresh_filled_count: evidenceRefreshInputKeys.filter((key) => filledKeys.includes(key)).length,
+    evidence_refresh_placeholder_count: evidenceRefreshInputKeys.filter((key) => placeholderKeys.includes(key)).length,
+    evidence_refresh_missing_count: evidenceRefreshInputKeys.filter((key) => missingKeys.includes(key)).length,
     invalid_line_count: invalidLines.length,
     unsupported_key_count: unsupportedKeys.length,
+    ready_for_current_completion_inputs:
+      envFileExists &&
+      easProjectId.valid &&
+      currentCompletionInputKeys.every((key) => filledKeys.includes(key)) &&
+      currentCompletionInputKeys.every((key) => !placeholderKeys.includes(key)) &&
+      currentCompletionInputKeys.every((key) => !missingKeys.includes(key)) &&
+      invalidLines.length === 0 &&
+      unsupportedKeys.length === 0,
+    ready_for_evidence_refresh_inputs:
+      envFileExists &&
+      evidenceRefreshInputKeys.every((key) => filledKeys.includes(key)) &&
+      evidenceRefreshInputKeys.every((key) => !placeholderKeys.includes(key)) &&
+      evidenceRefreshInputKeys.every((key) => !missingKeys.includes(key)) &&
+      invalidLines.length === 0 &&
+      unsupportedKeys.length === 0,
     ready_for_validate:
       envFileExists &&
       easProjectId.valid &&
@@ -131,6 +173,18 @@ const status = {
   filled_keys: filledKeys,
   placeholder_keys: placeholderKeys,
   missing_keys: missingKeys,
+  input_groups: {
+    current_completion_blocker_inputs: {
+      description:
+        'Env keys still required for the current App release completion blockers, excluding mobile/app.json extra.eas.projectId.',
+      ...summarizeInputKeys(currentCompletionInputKeys),
+    },
+    evidence_refresh_inputs: {
+      description:
+        'Env keys for telemetry runtime and release DB parity evidence refreshes. Current canonical evidence may already pass, but these are still needed after relevant release, DB, telemetry, or backend version drift.',
+      ...summarizeInputKeys(evidenceRefreshInputKeys),
+    },
+  },
   invalid_lines: invalidLines,
   unsupported_keys: unsupportedKeys,
 };
@@ -141,6 +195,12 @@ if (json) {
   console.log(`[release-input-status] env_file=${status.env_file} exists=${status.env_file_exists}`);
   console.log(
     `[release-input-status] eas_project_id_valid=${status.app.eas_project_id_valid} filled=${status.summary.filled_count}/${status.summary.required_key_count} placeholders=${status.summary.placeholder_count} missing=${status.summary.missing_count} invalid_lines=${status.summary.invalid_line_count} unsupported_keys=${status.summary.unsupported_key_count}`
+  );
+  console.log(
+    `[release-input-status] current_completion_inputs filled=${status.summary.current_completion_filled_count}/${status.summary.current_completion_required_key_count} placeholders=${status.summary.current_completion_placeholder_count} missing=${status.summary.current_completion_missing_count} ready=${status.summary.ready_for_current_completion_inputs}`
+  );
+  console.log(
+    `[release-input-status] evidence_refresh_inputs filled=${status.summary.evidence_refresh_filled_count}/${status.summary.evidence_refresh_required_key_count} placeholders=${status.summary.evidence_refresh_placeholder_count} missing=${status.summary.evidence_refresh_missing_count} ready=${status.summary.ready_for_evidence_refresh_inputs}`
   );
   if (placeholderKeys.length) console.log(`[release-input-status] placeholder_keys=${placeholderKeys.join(',')}`);
   if (missingKeys.length) console.log(`[release-input-status] missing_keys=${missingKeys.join(',')}`);

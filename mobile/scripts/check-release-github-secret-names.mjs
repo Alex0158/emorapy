@@ -11,7 +11,7 @@ const environmentArgs = process.argv
 const repo = repoArg?.slice('--repo='.length) || 'Alex0158/mother-bear-court';
 const defaultWorkflowEnvironment = 'Production';
 
-const requiredRepoSecrets = [
+const currentCompletionRepoSecrets = [
   'EXPO_TOKEN',
   'ASC_APPLE_ID',
   'EXPO_APPLE_APP_SPECIFIC_PASSWORD',
@@ -20,9 +20,14 @@ const requiredRepoSecrets = [
   'APP_SENTRY_PROJECT',
   'APP_SENTRY_AUTH_TOKEN',
   'APP_NATIVE_CRASH_SENTRY_EVENT_ID',
+];
+
+const evidenceRefreshRepoSecrets = [
   'APP_TELEMETRY_RUNTIME_API_BASE_URL',
   'APP_RELEASE_DATABASE_URL',
 ];
+
+const requiredRepoSecrets = [...currentCompletionRepoSecrets, ...evidenceRefreshRepoSecrets];
 
 const requiredTestFlightSecrets = [
   'APP_STORE_CONNECT_ISSUER_ID',
@@ -113,6 +118,17 @@ function toSortedArray(set) {
   return [...set].sort();
 }
 
+function summarizeSecretNames(names, presentNames) {
+  const missing = names.filter((name) => !presentNames.has(name));
+  return {
+    required_secret_name_count: names.length,
+    present_secret_name_count: names.length - missing.length,
+    missing_secret_name_count: missing.length,
+    required_secret_names: names,
+    missing_secret_names: missing,
+  };
+}
+
 const repoSecrets = listRepoSecrets();
 const environmentNameLookup = environmentArgs.length ? null : listEnvironmentNames();
 const environmentNames = environmentArgs.length ? environmentArgs : [defaultWorkflowEnvironment];
@@ -130,6 +146,15 @@ const requiredSecretNames = [
   ...requiredAndroidDeviceSecrets,
 ];
 const missingSecretNames = requiredSecretNames.filter((name) => !allSecretNames.has(name));
+const currentCompletionSecretNames = [
+  ...currentCompletionRepoSecrets,
+  ...requiredTestFlightSecrets,
+  ...requiredIosDeviceSecrets,
+  ...requiredAndroidDeviceSecrets,
+];
+const evidenceRefreshSecretNames = evidenceRefreshRepoSecrets;
+const currentCompletionSecretStatus = summarizeSecretNames(currentCompletionSecretNames, allSecretNames);
+const evidenceRefreshSecretStatus = summarizeSecretNames(evidenceRefreshSecretNames, allSecretNames);
 const failedEnvironmentChecks = environmentSecretResults.filter((result) => !result.ok);
 const missingConfiguredEnvironments =
   environmentNameLookup?.ok === true
@@ -169,14 +194,35 @@ const status = {
     required_secret_name_count: requiredSecretNames.length,
     present_secret_name_count: requiredSecretNames.length - missingSecretNames.length,
     missing_secret_name_count: missingSecretNames.length,
+    current_completion_required_secret_name_count: currentCompletionSecretStatus.required_secret_name_count,
+    current_completion_present_secret_name_count: currentCompletionSecretStatus.present_secret_name_count,
+    current_completion_missing_secret_name_count: currentCompletionSecretStatus.missing_secret_name_count,
+    evidence_refresh_required_secret_name_count: evidenceRefreshSecretStatus.required_secret_name_count,
+    evidence_refresh_present_secret_name_count: evidenceRefreshSecretStatus.present_secret_name_count,
+    evidence_refresh_missing_secret_name_count: evidenceRefreshSecretStatus.missing_secret_name_count,
     environment_count: environmentSecretResults.length,
     missing_configured_environment_count: missingConfiguredEnvironments.length,
     blocked,
     strict,
+    ready_for_current_completion_workflow_inputs:
+      !blocked && currentCompletionSecretStatus.missing_secret_name_count === 0,
+    ready_for_evidence_refresh_workflow_inputs: !blocked && evidenceRefreshSecretStatus.missing_secret_name_count === 0,
     ready_for_workflow_validate: !blocked && missingSecretNames.length === 0,
   },
   required_secret_names: requiredSecretNames,
   missing_secret_names: missingSecretNames,
+  secret_groups: {
+    current_completion_blocker_secret_names: {
+      description:
+        'GitHub secret names still required for current App release completion blockers, excluding mobile/app.json extra.eas.projectId.',
+      ...currentCompletionSecretStatus,
+    },
+    evidence_refresh_secret_names: {
+      description:
+        'GitHub secret names for telemetry runtime and release DB parity evidence refreshes.',
+      ...evidenceRefreshSecretStatus,
+    },
+  },
 };
 
 if (json) {
@@ -197,6 +243,12 @@ if (json) {
   }
   console.log(
     `[release-github-secret-names] present=${status.summary.present_secret_name_count}/${status.summary.required_secret_name_count} missing=${status.summary.missing_secret_name_count} environments=${status.summary.environment_count} ready_for_workflow_validate=${status.summary.ready_for_workflow_validate}`
+  );
+  console.log(
+    `[release-github-secret-names] current_completion_secrets present=${status.summary.current_completion_present_secret_name_count}/${status.summary.current_completion_required_secret_name_count} missing=${status.summary.current_completion_missing_secret_name_count} ready=${status.summary.ready_for_current_completion_workflow_inputs}`
+  );
+  console.log(
+    `[release-github-secret-names] evidence_refresh_secrets present=${status.summary.evidence_refresh_present_secret_name_count}/${status.summary.evidence_refresh_required_secret_name_count} missing=${status.summary.evidence_refresh_missing_secret_name_count} ready=${status.summary.ready_for_evidence_refresh_workflow_inputs}`
   );
   if (missingSecretNames.length) {
     console.log(`[release-github-secret-names] missing_secret_names=${missingSecretNames.join(',')}`);

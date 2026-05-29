@@ -209,6 +209,18 @@ async function main() {
     console.log(
       `[release-input-fill] env_file=${status.env_file} eas_project_id_valid=${status.app.eas_project_id_valid} filled=${status.summary.filled_count}/${status.summary.required_key_count} placeholders=${status.summary.placeholder_count} missing=${status.summary.missing_count} ready_for_validate=${status.summary.ready_for_validate}`
     );
+    if (status.input_groups?.current_completion_blocker_inputs) {
+      const current = status.input_groups.current_completion_blocker_inputs;
+      console.log(
+        `[release-input-fill] current_completion_inputs filled=${current.filled_count}/${current.required_key_count} placeholders=${current.placeholder_count} missing=${current.missing_count} ready=${status.summary.ready_for_current_completion_inputs}`
+      );
+    }
+    if (status.input_groups?.evidence_refresh_inputs) {
+      const refresh = status.input_groups.evidence_refresh_inputs;
+      console.log(
+        `[release-input-fill] evidence_refresh_inputs filled=${refresh.filled_count}/${refresh.required_key_count} placeholders=${refresh.placeholder_count} missing=${refresh.missing_count} ready=${status.summary.ready_for_evidence_refresh_inputs}`
+      );
+    }
     if (status.placeholder_keys.length) {
       console.log(`[release-input-fill] placeholder_keys=${status.placeholder_keys.join(',')}`);
     }
@@ -278,6 +290,18 @@ async function main() {
   console.log(
     `[release-input-fill] ready_for_validate=${status.summary.ready_for_validate} filled=${status.summary.filled_count}/${status.summary.required_key_count} placeholders=${status.summary.placeholder_count} missing=${status.summary.missing_count}`
   );
+  if (status.input_groups?.current_completion_blocker_inputs) {
+    const current = status.input_groups.current_completion_blocker_inputs;
+    console.log(
+      `[release-input-fill] current_completion_inputs filled=${current.filled_count}/${current.required_key_count} placeholders=${current.placeholder_count} missing=${current.missing_count} ready=${status.summary.ready_for_current_completion_inputs}`
+    );
+  }
+  if (status.input_groups?.evidence_refresh_inputs) {
+    const refresh = status.input_groups.evidence_refresh_inputs;
+    console.log(
+      `[release-input-fill] evidence_refresh_inputs filled=${refresh.filled_count}/${refresh.required_key_count} placeholders=${refresh.placeholder_count} missing=${refresh.missing_count} ready=${status.summary.ready_for_evidence_refresh_inputs}`
+    );
+  }
 }
 
 function runStatusCheck() {

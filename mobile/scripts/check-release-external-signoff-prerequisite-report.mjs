@@ -568,6 +568,89 @@ function runDryRunStatusReportCase() {
   };
 }
 
+function runDryRunEnvFileStatusProvenanceCase() {
+  const caseDir = fs.mkdtempSync(path.join(tempRoot, 'dry-run-env-file-status-'));
+  const envFilePath = path.join(caseDir, 'release.env.local');
+  fs.writeFileSync(
+    envFilePath,
+    [
+      'EXPO_TOKEN=expo-token-secret',
+      'APP_TELEMETRY_RUNTIME_API_BASE_URL=https://telemetry-runtime.example.invalid/api/v1',
+      'DATABASE_URL=postgresql://release:db-password-secret@release-db.example.invalid/cj',
+      '',
+    ].join('\n')
+  );
+
+  const result = spawnSync(
+    process.execPath,
+    [
+      path.join(scriptDir, 'run-release-external-evidence-signoff.mjs'),
+      '--dry-run',
+      `--release-env-file=${envFilePath}`,
+      ...skippableExternalStepIds.map((stepId) => `--skip=${stepId}`),
+      `--report-dir=${caseDir}`,
+    ],
+    {
+      cwd: path.join(repoRoot, 'mobile'),
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: {
+        PATH: process.env.PATH,
+        HOME: process.env.HOME,
+        DEVELOPER_DIR: process.env.DEVELOPER_DIR || '/Applications/Xcode.app/Contents/Developer',
+      },
+    }
+  );
+
+  if (result.status !== 0) {
+    fail(`dry-run-env-file-status failed unexpectedly: ${result.stderr.trim() || result.stdout.trim()}`);
+  }
+
+  const output = `${result.stdout}\n${result.stderr}`;
+  assertNoSensitiveLeaks('dry-run-env-file-status stdout/stderr', output);
+  if (!output.includes('[release-external-signoff] env-file')) {
+    fail('dry-run-env-file-status must print redacted env-file counters from the orchestrator.');
+  }
+
+  const statusReportFiles = fs
+    .readdirSync(caseDir)
+    .filter((entry) => entry.startsWith('App-External-Evidence-Status-') && entry.endsWith('.json'));
+
+  if (statusReportFiles.length !== 1) {
+    fail(`dry-run-env-file-status expected exactly one status report, found ${statusReportFiles.length}.`);
+  }
+
+  const statusReportPath = path.join(caseDir, statusReportFiles[0] ?? '');
+  const statusRaw = fs.existsSync(statusReportPath) ? fs.readFileSync(statusReportPath, 'utf8') : '';
+  const statusReport = statusRaw ? JSON.parse(statusRaw) : {};
+
+  if (statusReport.env_files?.values_redacted !== true) {
+    fail('dry-run-env-file-status status report must mark env_files.values_redacted=true.');
+  }
+  if (!Array.isArray(statusReport.env_files?.loaded) || statusReport.env_files.loaded.length !== 1) {
+    fail('dry-run-env-file-status status report must record one redacted loaded env file.');
+  }
+  const envFileEntry = statusReport.env_files.loaded[0] ?? {};
+  if (envFileEntry.loaded_keys !== 3) {
+    fail(`dry-run-env-file-status status report loaded_keys must be 3, got ${envFileEntry.loaded_keys}.`);
+  }
+  if (envFileEntry.kept_existing_keys !== 0) {
+    fail(`dry-run-env-file-status status report kept_existing_keys must be 0, got ${envFileEntry.kept_existing_keys}.`);
+  }
+  if (statusReport.credentials?.expo_token_present !== true) {
+    fail('dry-run-env-file-status credentials.expo_token_present must be true when EXPO_TOKEN comes from env file.');
+  }
+  if (statusReport.credentials?.telemetry_runtime_api_base_url_present !== true) {
+    fail('dry-run-env-file-status credentials.telemetry_runtime_api_base_url_present must be true when telemetry URL comes from env file.');
+  }
+  if (statusReport.credentials?.release_database_url_present !== true) {
+    fail('dry-run-env-file-status credentials.release_database_url_present must be true when DATABASE_URL comes from env file.');
+  }
+  assertNoSensitiveLeaks('dry-run-env-file-status status report', statusRaw);
+
+  return envFileEntry.loaded_keys;
+}
+
 try {
   const validateMissingCount = runCase({
     label: 'validate-only',
@@ -589,13 +672,14 @@ try {
   runRejectedEnvFileKeyCase();
   runRejectedSkipCase();
   const dryRunReports = runDryRunStatusReportCase();
+  const dryRunEnvFileStatusKeys = runDryRunEnvFileStatusProvenanceCase();
 
   if (process.exitCode) {
     process.exit(process.exitCode);
   }
 
   console.log(
-    `[release-prereq-report-check] ok: validate/run blocked before external steps, Android validate blocks on device visibility, env-file placeholders remain missing, unsafe env-file keys are rejected, skipped run mode is rejected, prerequisite reports include safe resolution hints, and dry-run status/handoff reports are written (${validateMissingCount}/${runMissingCount}/${androidValidateMissingCount}/${placeholderEnvMissingCount} missing, controlled dry-run blockers=${dryRunReports.statusBlockers}, handoff items=${dryRunReports.handoffItems}, known catalog=${dryRunReports.knownBlockerCount}, release handoff blockers=${dryRunReports.releaseCompletionHandoffBlockerCount}, prerequisite-only=${dryRunReports.prerequisiteOnlyBlockerCount})`
+    `[release-prereq-report-check] ok: validate/run blocked before external steps, Android validate blocks on device visibility, env-file placeholders remain missing, unsafe env-file keys are rejected, skipped run mode is rejected, prerequisite reports include safe resolution hints, and dry-run status/handoff reports are written with env-file provenance (${validateMissingCount}/${runMissingCount}/${androidValidateMissingCount}/${placeholderEnvMissingCount} missing, controlled dry-run blockers=${dryRunReports.statusBlockers}, handoff items=${dryRunReports.handoffItems}, known catalog=${dryRunReports.knownBlockerCount}, release handoff blockers=${dryRunReports.releaseCompletionHandoffBlockerCount}, prerequisite-only=${dryRunReports.prerequisiteOnlyBlockerCount}, env-file status keys=${dryRunEnvFileStatusKeys})`
   );
 } finally {
   fs.rmSync(tempRoot, { recursive: true, force: true });

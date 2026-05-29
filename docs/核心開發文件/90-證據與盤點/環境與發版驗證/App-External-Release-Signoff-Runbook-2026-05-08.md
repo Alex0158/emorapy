@@ -104,6 +104,14 @@ npm --prefix mobile run release:external-evidence:status -- --release-env-file=r
 
 status loader 和正式 orchestrator 使用相同安全口徑：只接受白名單 key、不執行 shell expansion、不覆蓋既有 process env、把 `REPLACE_WITH_...` 視為未配置，並只在 JSON `env_files` 中保存 loaded key counters 與 `values_redacted=true`，不保存 secret value。這個 status report 仍是交接診斷 artifact，不是 pass evidence。
 
+若由 orchestrator 產 report，例如：
+
+```bash
+npm --prefix mobile run release:external-evidence:signoff -- --dry-run --release-env-file=release.env.local --report-dir=<report-dir>
+```
+
+orchestrator 會先把 env-file 載入父進程供後續 runner 使用，status step 再用同一個 `--release-env-file` 重新產生 redacted provenance；因此 `App-External-Evidence-Status-*.json` 不應出現 `credentials.*_present=true` 卻沒有 `env_files.loaded` counter 的本機 env-file 報告。GitHub workflow 直接使用 secret env 時，`env_files.loaded=[]` 是預期行為，因為來源不是 env-file。
+
 `EAS project id valid UUID` 必須為 `yes`。
 `EAS CLI available` 必須為 `yes`。`EAS CLI authenticated` 可以協助人工診斷，但正式 runner 仍以 `EXPO_TOKEN` 作非交互 EAS 查詢憑證。
 

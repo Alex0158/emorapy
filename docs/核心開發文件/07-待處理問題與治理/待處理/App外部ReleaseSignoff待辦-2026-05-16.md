@@ -108,6 +108,37 @@ Standalone `release:external-evidence:status` 必須能安全讀取和正式 orc
 - `npm run docs:check`
 - `npm run docs:audit:dry-run:current`
 
+## 2026-05-30 本輪子任務：orchestrator status env-file provenance
+
+### 目標
+
+`release:external-evidence:signoff -- --release-env-file=release.env.local --report-dir=<dir>` 產出的 `App-External-Evidence-Status-*.json` 必須和 standalone status 一樣留下 redacted env-file provenance。否則 orchestrator 已把 env-file 載入父進程後，status report 只會顯示 credential presence，卻看不到該 presence 來自哪個 redacted env-file counter，外部 owner 交接時容易誤判為 shell env 或 CI secret。
+
+### 業務場景
+
+| 場景 | 預期行為 |
+| --- | --- |
+| 本機 release owner 用 `--release-env-file` 跑 dry-run / validate 產 report | status report 記錄 `env_files.values_redacted=true` 與 loaded file / key counters；credential booleans 反映同一份 env file |
+| 父進程已載入 env-file 後再啟動 status step | status step 會重新讀取 env-file 並移除父進程剛載入的同名 key，避免 report 出現 `credentials.*=true` 但 `env_files.loaded=[]` |
+| CI / GitHub workflow 用 secret env 而非 env-file | status report 可保持 `env_files.loaded=[]`，不偽造 env-file 來源 |
+| env-file 有 secret / URL / DB URL | stdout、stderr、status report 只能留下 booleans 與 counters，不保存 raw value |
+
+### 邊界與注意事項
+
+1. 這是交接可追溯性修正，不解除 EAS project id、Expo token、Apple / ASC、EAS/TestFlight、真機、push provider 或 native crash runtime blocker。
+2. `env_files.loaded_keys` 只代表 status 診斷讀到幾個白名單 key；不代表外部服務驗證成功。
+3. Orchestrator 仍保留父進程 env-file 載入行為，後續 EAS / provider / telemetry / DB runner 才能收到相同輸入。
+4. GitHub workflow secret env 不應被標成 env-file provenance；只有顯式 `--release-env-file` 才記錄 `env_files.loaded`。
+
+### 驗證命令
+
+- `node --check mobile/scripts/run-release-external-evidence-signoff.mjs`
+- `node --check mobile/scripts/check-release-external-signoff-prerequisite-report.mjs`
+- `npm --prefix mobile run release:external-evidence:prereq-report:check`
+- `npm --prefix mobile run release:external-evidence:signoff -- --dry-run --release-env-file=<controlled-env-file> --report-dir=<tmp-report-dir> ...`
+- `npm run docs:check`
+- `npm run docs:audit:dry-run:current`
+
 ## 必須補齊的外部輸入
 
 | 類別 | 必要輸入 / 證據 | 安全要求 |

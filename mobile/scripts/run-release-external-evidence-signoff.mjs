@@ -125,6 +125,8 @@ function parseEnvValue(rawValue) {
 }
 
 const loadedEnvFiles = [];
+const releaseEnvFileArgs = [];
+const releaseEnvFileLoadedKeys = new Set();
 
 function loadEnvFile(rawPath) {
   const resolvedPath = resolveExistingFilePath(rawPath);
@@ -152,6 +154,7 @@ function loadEnvFile(rawPath) {
     }
     process.env[key] = parseEnvValue(rawValue);
     loadedKeys.push(key);
+    releaseEnvFileLoadedKeys.add(key);
   }
   loadedEnvFiles.push({
     filePath: resolvedPath,
@@ -167,6 +170,7 @@ for (const arg of process.argv.slice(2)) {
   if (arg.startsWith('--release-env-file=')) {
     const rawPath = arg.slice('--release-env-file='.length);
     if (!rawPath) printUsageAndExit('--release-env-file requires a path');
+    releaseEnvFileArgs.push(arg);
     loadEnvFile(rawPath);
   }
 }
@@ -844,12 +848,17 @@ function validateRunPrerequisites() {
 function runCommand(step) {
   const startedAt = Date.now();
   console.log(`[release-external-signoff] start ${step.id}: ${step.title}`);
+  const childEnv = {
+    ...process.env,
+    DEVELOPER_DIR: process.env.DEVELOPER_DIR || '/Applications/Xcode.app/Contents/Developer',
+  };
+  for (const key of step.removeEnvKeys ?? []) {
+    delete childEnv[key];
+  }
+  Object.assign(childEnv, step.env ?? {});
   const result = spawnSync(step.command, step.args, {
     cwd: step.cwd || mobileRoot,
-    env: {
-      ...process.env,
-      DEVELOPER_DIR: process.env.DEVELOPER_DIR || '/Applications/Xcode.app/Contents/Developer',
-    },
+    env: childEnv,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -892,8 +901,10 @@ const steps = [
     id: 'status',
     title: 'external evidence status',
     ...nodeScript('check-release-external-evidence-status.mjs', [
+      ...releaseEnvFileArgs,
       ...(options.reportDir ? [`--report-dir=${options.reportDir}`] : []),
     ]),
+    removeEnvKeys: Array.from(releaseEnvFileLoadedKeys),
     required: true,
   },
   {

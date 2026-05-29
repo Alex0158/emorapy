@@ -161,6 +161,7 @@ function validateAuditRecord(label, audit) {
   const ids = new Set();
   const blockedIds = [];
   const handoffIdsFromBlockedChecks = [];
+  let nativeCrashRuntimeCheck = null;
   let passed = 0;
   let blocked = 0;
   for (const [index, check] of audit.checks.entries()) {
@@ -174,6 +175,9 @@ function validateAuditRecord(label, audit) {
       fail(`${label}.checks contains duplicate id: ${check.id}`);
     }
     ids.add(check.id);
+    if (check.id === 'native_crash_runtime_evidence') {
+      nativeCrashRuntimeCheck = check;
+    }
     if (!['passed', 'blocked'].includes(check.status)) {
       fail(`${label}.checks[${index}].status has invalid value: ${check.status}`);
     }
@@ -238,6 +242,31 @@ function validateAuditRecord(label, audit) {
     if (!ids.has(id)) {
       fail(`${label}.checks missing required id: ${id}`);
     }
+  }
+  if (!nativeCrashRuntimeCheck) {
+    fail(`${label}.checks missing native_crash_runtime_evidence check`);
+  }
+  if (
+    !nativeCrashRuntimeCheck.doc_needles.some((entry) =>
+      entry.includes('production environment') || entry.includes('release / production environment match')
+    )
+  ) {
+    fail(`${label}.native_crash_runtime_evidence doc_needles must pin production environment wording`);
+  }
+  if (
+    audit.blocker_ids.includes('native_crash_runtime_evidence') &&
+    typeof nativeCrashRuntimeCheck.blocker === 'string' &&
+    !nativeCrashRuntimeCheck.blocker.includes('production environment')
+  ) {
+    fail(`${label}.native_crash_runtime_evidence blocker must mention production environment`);
+  }
+  if (
+    audit.blocker_ids.includes('native_crash_runtime_evidence') &&
+    !audit.warnings.some(
+      (entry) => entry.includes('APP_NATIVE_CRASH_EVIDENCE_FILE') && entry.includes('production environment')
+    )
+  ) {
+    fail(`${label}.warnings must mention production environment for missing native crash runtime evidence`);
   }
   if (audit.summary.passed !== passed || audit.summary.blocked !== blocked) {
     fail(`${label}.summary passed/blocked counts must match checks`);

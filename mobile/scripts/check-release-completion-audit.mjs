@@ -1957,9 +1957,9 @@ addCompletionCheck({
   id: 'native_crash_runtime_evidence',
   done: Boolean(hasNativeCrashSdk && nativeCrashEvidence && nativeCrashEvidencePassed),
   blocker: hasNativeCrashSdk
-    ? 'Native crash SDK is configured, but no structured native crash runtime evidence was found.'
-    : 'No native crash SDK dependency plus native crash runtime evidence was found.',
-  docNeedles: ['native crash runtime evidence', 'native-crash:runtime:smoke'],
+    ? 'Native crash SDK is configured, but no structured production environment native crash runtime evidence was found.'
+    : 'No native crash SDK dependency plus production environment native crash runtime evidence was found.',
+  docNeedles: ['production environment native crash runtime evidence', 'release / production environment match'],
   evidence: nativeCrashEvidence
     ? `native crash runtime evidence: ${path.relative(repoRoot, nativeCrashEvidence)}`
     : undefined,
@@ -2006,7 +2006,7 @@ if (!physicalDeviceEvidence) warnings.push('Set APP_PHYSICAL_DEVICE_EVIDENCE_FIL
 if (!pushDeliveryEvidence) warnings.push('Set APP_PUSH_DELIVERY_EVIDENCE_FILE or add App-Push-Delivery-* evidence after provider delivery smoke.');
 if (!iosReleaseSimulatorEvidence) warnings.push('Set APP_IOS_RELEASE_SIMULATOR_EVIDENCE_FILE or add App-iOS-Release-Simulator-* evidence after local iOS Release simulator build/install/launch.');
 if (!selectedMediaUploadEvidence) warnings.push('Run selected-media:upload:smoke against local API + local DB and add App-Selected-Media-Upload-* evidence.');
-if (!nativeCrashEvidence) warnings.push('Set APP_NATIVE_CRASH_EVIDENCE_FILE or add App-Native-Crash-Runtime-* evidence after native crash runtime smoke.');
+if (!nativeCrashEvidence) warnings.push('Set APP_NATIVE_CRASH_EVIDENCE_FILE or add App-Native-Crash-Runtime-* evidence after production environment native crash runtime smoke.');
 if (!telemetryRuntimeEvidence) warnings.push('Set APP_TELEMETRY_RUNTIME_EVIDENCE_FILE or add App-Telemetry-Runtime-* evidence after telemetry runtime smoke.');
 if (!releaseDbEvidence) warnings.push('Set APP_RELEASE_DB_PARITY_EVIDENCE_FILE or add App-Release-DB-Parity-* evidence after target DB verification.');
 

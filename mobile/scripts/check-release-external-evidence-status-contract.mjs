@@ -230,6 +230,22 @@ function validateStatus(status, label) {
     assertBoolean(credentials[key], `${label}.credentials.${key}`);
   }
 
+  const envFiles = status.env_files ?? {};
+  assertBoolean(envFiles.values_redacted, `${label}.env_files.values_redacted`);
+  if (!Array.isArray(envFiles.loaded)) {
+    fail(`${label}.env_files.loaded must be an array`);
+  }
+  for (const [index, entry] of envFiles.loaded.entries()) {
+    if (!entry || typeof entry !== 'object') {
+      fail(`${label}.env_files.loaded[${index}] must be an object`);
+    }
+    if (typeof entry.file !== 'string' || entry.file.length === 0) {
+      fail(`${label}.env_files.loaded[${index}].file must be a non-empty string`);
+    }
+    assertNumber(entry.loaded_keys, `${label}.env_files.loaded[${index}].loaded_keys`);
+    assertNumber(entry.kept_existing_keys, `${label}.env_files.loaded[${index}].kept_existing_keys`);
+  }
+
   const tools = status.tools ?? {};
   for (const key of ['eas_cli_available', 'eas_cli_authenticated']) {
     assertBoolean(tools[key], `${label}.tools.${key}`);
@@ -338,6 +354,68 @@ for (const id of ['expo_token', 'apple_submission_credentials', 'app_store_conne
   if (controlledBlockerIds.has(id)) {
     fail(`controlled-secret status JSON blockers must not include ${id} when controlled env is set`);
   }
+}
+
+const controlledEnvFileDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cj-release-status-env-file-'));
+try {
+  const controlledEnvFilePath = path.join(controlledEnvFileDir, 'release.env.local');
+  fs.writeFileSync(
+    controlledEnvFilePath,
+    [
+      `EXPO_TOKEN=${controlledSecrets[0]}`,
+      `ASC_APPLE_ID=${controlledSecrets[1]}`,
+      `EXPO_APPLE_APP_SPECIFIC_PASSWORD=${controlledSecrets[2]}`,
+      `APP_STORE_CONNECT_ISSUER_ID=${controlledSecrets[3]}`,
+      `APP_STORE_CONNECT_KEY_ID=${controlledSecrets[4]}`,
+      `APP_STORE_CONNECT_PRIVATE_KEY=${controlledSecrets[5]}`,
+      `APP_PUSH_DELIVERY_EXPO_PUSH_TOKEN=${controlledSecrets[6]}`,
+      `APP_SENTRY_ORG=${controlledSecrets[7]}`,
+      `APP_SENTRY_PROJECT=${controlledSecrets[8]}`,
+      `APP_SENTRY_AUTH_TOKEN=${controlledSecrets[9]}`,
+      `APP_NATIVE_CRASH_SENTRY_EVENT_ID=${controlledSecrets[10]}`,
+      `APP_TELEMETRY_RUNTIME_API_BASE_URL=${controlledSecrets[11]}`,
+      `DATABASE_URL=${controlledSecrets[12]}`,
+      'APP_ANDROID_DEVICE_SERIAL=REPLACE_WITH_DEVICE_SERIAL',
+      '',
+    ].join('\n')
+  );
+  const envFileResult = runStatus({}, [`--release-env-file=${controlledEnvFilePath}`]);
+  const envFileRaw = envFileResult.stdout + envFileResult.stderr;
+  for (const secret of controlledSecrets) {
+    if (envFileRaw.includes(secret)) {
+      fail(`controlled release env file secret leaked into status output: ${secret}`);
+    }
+  }
+  const envFileStatus = parseJsonResult('controlled env-file status JSON', envFileResult);
+  validateStatus(envFileStatus, 'controlled env-file status JSON');
+  if (envFileStatus.env_files.loaded.length !== 1) {
+    fail('controlled env-file status JSON must record one loaded env file');
+  }
+  if (envFileStatus.env_files.loaded[0].loaded_keys !== 14) {
+    fail(`controlled env-file status JSON loaded_keys must be 14, got ${envFileStatus.env_files.loaded[0].loaded_keys}`);
+  }
+  for (const key of [
+    'expo_token_present',
+    'apple_submission_credentials_present',
+    'app_store_connect_api_credentials_present',
+    'push_delivery_token_present',
+    'sentry_runtime_query_credentials_present',
+    'native_crash_event_id_present',
+    'telemetry_runtime_api_base_url_present',
+    'release_database_url_present',
+  ]) {
+    if (envFileStatus.credentials[key] !== true) {
+      fail(`controlled env-file status JSON credentials.${key} must be true when release env file is loaded`);
+    }
+  }
+  const envFileBlockerIds = validateBlockers(envFileStatus.blockers, 'controlled env-file status JSON');
+  for (const id of ['expo_token', 'apple_submission_credentials', 'app_store_connect_api_credentials', 'sentry_runtime_query_credentials', 'native_crash_event_id']) {
+    if (envFileBlockerIds.has(id)) {
+      fail(`controlled env-file status JSON blockers must not include ${id} when controlled env file is loaded`);
+    }
+  }
+} finally {
+  fs.rmSync(controlledEnvFileDir, { recursive: true, force: true });
 }
 
 const invalidEvidenceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cj-release-status-invalid-evidence-'));

@@ -77,6 +77,37 @@ App 內部實作、文件、preflight 與 release audit contract 已就緒，但
 - `npm run docs:check`
 - `npm run docs:audit:dry-run:current`
 
+## 2026-05-30 本輪子任務：external status env-file 診斷一致性
+
+### 目標
+
+Standalone `release:external-evidence:status` 必須能安全讀取和正式 orchestrator 相同的 `--release-env-file=release.env.local`，讓外部 owner 在不進入 validate/run、不觸碰 EAS、Apple、Sentry、DB、provider 或 device 的前提下，看到同一份本機 env file 對 credential presence 的影響。這只提升診斷一致性；不得讓 status report 變成 pass evidence，也不得繞過 `release:external-evidence:validate/run` 或 strict audits。
+
+### 業務場景
+
+| 場景 | 預期行為 |
+| --- | --- |
+| 外部 owner 補完 `mobile/release.env.local` 後想先盤點 | 跑 `npm --prefix mobile run release:external-evidence:status -- --release-env-file=release.env.local --json`，只看到 presence booleans、loaded key counters、evidence candidate state 與 blockers |
+| 本地 preflight / CI 不帶 env file | `release:external-evidence:status` 保持既有無 env 預設，不自動讀取 gitignored secrets，不把本機 release env 意外帶入 preflight |
+| env file 含 placeholder | placeholder 視為未配置；status 不能因 `REPLACE_WITH_...` 誤把 credential presence 標 true |
+| env file 含非白名單 key 或 shell 語法 | status 必須在診斷階段拒絕，避免 `NODE_OPTIONS`、`PATH` 或 shell expansion 混入 release evidence 流程 |
+
+### 邊界與注意事項
+
+1. Status JSON 只能新增 `env_files.values_redacted=true` 與 loaded file / key counters，不保存 raw values。
+2. 若 process env 已有同名 key，env file 不覆蓋；status 只回報 `kept_existing_keys` counter。
+3. `credentials.*_present=true` 只代表輸入存在，不代表外部服務查詢成功，也不是 release completion。
+4. `release:external-evidence:status -- --release-env-file=release.env.local` 與 `release:external-evidence:input-status -- --json` 必須互補：前者看整體 release evidence 診斷，後者看 env key 分層與 placeholder / unsupported key。
+
+### 驗證命令
+
+- `node --check mobile/scripts/check-release-external-evidence-status.mjs`
+- `npm --prefix mobile run release:external-evidence:status:contract`
+- `npm --prefix mobile run release:external-evidence:status -- --release-env-file=release.env.local --json`
+- `npm --prefix mobile run release:external-evidence:env-template:check`
+- `npm run docs:check`
+- `npm run docs:audit:dry-run:current`
+
 ## 必須補齊的外部輸入
 
 | 類別 | 必要輸入 / 證據 | 安全要求 |

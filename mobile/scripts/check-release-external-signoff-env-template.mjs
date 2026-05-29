@@ -230,6 +230,8 @@ for (const needle of [
   'current_completion_blocker_inputs',
   'evidence_refresh_inputs',
   'ready_for_current_completion_inputs',
+  'release:external-evidence:status -- --release-env-file=release.env.local --json',
+  'env_files',
   'release:external-evidence:fill-inputs',
   'release:external-evidence:github-secrets:check',
   'release:external-evidence:github-secrets:strict',

@@ -21,13 +21,158 @@ const evidenceRoot = path.join(
 const json = process.argv.includes('--json');
 const reportDirArg = process.argv.find((arg) => arg.startsWith('--report-dir='));
 const reportDir = reportDirArg ? path.resolve(process.cwd(), reportDirArg.slice('--report-dir='.length)) : null;
+const loadedEnvFiles = [];
+
+const allowedReleaseEnvFileKeys = new Set([
+  'DEVELOPER_DIR',
+  'ANDROID_HOME',
+  'ANDROID_SDK_ROOT',
+  'APP_RELEASE_EXTERNAL_SIGNOFF_RUN',
+  'APP_RELEASE_EXTERNAL_SIGNOFF_REPORT_DIR',
+  'APP_PHYSICAL_DEVICE_PLATFORM',
+  'APP_EAS_IOS_REQUIRE_TESTFLIGHT',
+  'APP_EAS_IOS_RELEASE_SMOKE_RUN',
+  'APP_EAS_IOS_BUILD_ID',
+  'APP_EAS_IOS_SKIP_ARTIFACT_HEAD',
+  'APP_EAS_IOS_RELEASE_TIMEOUT_MS',
+  'APP_EAS_ANDROID_RELEASE_SMOKE_RUN',
+  'APP_EAS_ANDROID_BUILD_ID',
+  'APP_EAS_ANDROID_SKIP_ARTIFACT_HEAD',
+  'APP_EAS_ANDROID_RELEASE_TIMEOUT_MS',
+  'EXPO_TOKEN',
+  'ASC_APPLE_ID',
+  'EXPO_APPLE_APP_SPECIFIC_PASSWORD',
+  'APP_STORE_CONNECT_ISSUER_ID',
+  'ASC_ISSUER_ID',
+  'APP_STORE_CONNECT_KEY_ID',
+  'ASC_KEY_ID',
+  'APP_STORE_CONNECT_PRIVATE_KEY',
+  'ASC_PRIVATE_KEY',
+  'APP_STORE_CONNECT_PRIVATE_KEY_PATH',
+  'ASC_PRIVATE_KEY_PATH',
+  'APP_STORE_CONNECT_APP_ID',
+  'ASC_APP_ID',
+  'APP_PHYSICAL_DEVICE_ID',
+  'APP_IOS_DEVICE_UDID',
+  'APP_IOS_DEVICE_APP_PATH',
+  'APP_ANDROID_DEVICE_SERIAL',
+  'APP_PUSH_DELIVERY_SMOKE_RUN',
+  'APP_PUSH_DELIVERY_EXPO_PUSH_TOKEN',
+  'APP_PUSH_DELIVERY_ACCESS_TOKEN',
+  'EXPO_PUSH_ACCESS_TOKEN',
+  'APP_PUSH_DELIVERY_SEND_ENDPOINT',
+  'APP_PUSH_DELIVERY_RECEIPTS_ENDPOINT',
+  'APP_PUSH_DELIVERY_RECEIPT_ATTEMPTS',
+  'APP_PUSH_DELIVERY_RECEIPT_INTERVAL_MS',
+  'APP_PUSH_DELIVERY_TIMEOUT_MS',
+  'APP_NATIVE_CRASH_RUNTIME_SMOKE_RUN',
+  'APP_SENTRY_BASE_URL',
+  'APP_SENTRY_ORG',
+  'SENTRY_ORG',
+  'APP_SENTRY_PROJECT',
+  'SENTRY_PROJECT',
+  'APP_SENTRY_AUTH_TOKEN',
+  'SENTRY_AUTH_TOKEN',
+  'APP_NATIVE_CRASH_SENTRY_EVENT_ID',
+  'SENTRY_EVENT_ID',
+  'APP_NATIVE_CRASH_EXPECTED_RELEASE',
+  'APP_NATIVE_CRASH_EXPECTED_ENVIRONMENT',
+  'EXPO_PUBLIC_SENTRY_ENVIRONMENT',
+  'APP_ENV',
+  'APP_NATIVE_CRASH_RUNTIME_TIMEOUT_MS',
+  'APP_TELEMETRY_RUNTIME_SMOKE_RUN',
+  'APP_TELEMETRY_RUNTIME_API_BASE_URL',
+  'APP_TELEMETRY_RUNTIME_TIMEOUT_MS',
+  'DATABASE_URL',
+]);
+
+function printUsageAndExit(message) {
+  if (message) console.error(`[release-external-evidence-status] ${message}`);
+  console.error('usage: npm --prefix mobile run release:external-evidence:status -- [--json] [--report-dir=<path>] [--release-env-file=<path>]');
+  process.exit(1);
+}
+
+function isPlaceholderValue(value) {
+  const text = String(value ?? '').trim();
+  return text.length === 0 || text.startsWith('REPLACE_WITH_');
+}
+
+function resolveExistingFilePath(input) {
+  if (path.isAbsolute(input)) return fs.existsSync(input) ? input : null;
+  return [
+    path.resolve(process.cwd(), input),
+    path.resolve(mobileRoot, input),
+    path.resolve(repoRoot, input),
+  ].find((candidate) => fs.existsSync(candidate)) ?? null;
+}
+
+function parseEnvValue(rawValue) {
+  const value = rawValue.trim();
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
+    return value.slice(1, -1);
+  }
+  return value;
+}
+
+function loadEnvFile(rawPath) {
+  const resolvedPath = resolveExistingFilePath(rawPath);
+  if (!resolvedPath) {
+    printUsageAndExit(`--release-env-file path does not exist: ${rawPath}`);
+  }
+  const text = fs.readFileSync(resolvedPath, 'utf8');
+  const loadedKeys = [];
+  const keptExistingKeys = [];
+  for (const [index, rawLine] of text.split(/\r?\n/).entries()) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) continue;
+    const normalized = line.startsWith('export ') ? line.slice('export '.length).trim() : line;
+    const match = /^([A-Z0-9_]+)=(.*)$/.exec(normalized);
+    if (!match) {
+      printUsageAndExit(`invalid --release-env-file line ${index + 1}; expected KEY=value without shell expansion`);
+    }
+    const [, key, rawValue] = match;
+    if (!allowedReleaseEnvFileKeys.has(key)) {
+      printUsageAndExit(`unsupported --release-env-file key: ${key}`);
+    }
+    if (Object.prototype.hasOwnProperty.call(process.env, key) && process.env[key] !== '') {
+      keptExistingKeys.push(key);
+      continue;
+    }
+    process.env[key] = parseEnvValue(rawValue);
+    loadedKeys.push(key);
+  }
+  loadedEnvFiles.push({
+    file: path.relative(repoRoot, resolvedPath),
+    loaded_keys: loadedKeys.length,
+    kept_existing_keys: keptExistingKeys.length,
+  });
+}
+
+for (const arg of process.argv.slice(2)) {
+  if (arg === '--json') {
+    continue;
+  } else if (arg.startsWith('--report-dir=')) {
+    continue;
+  } else if (arg.startsWith('--env-file=')) {
+    printUsageAndExit('--env-file is reserved by Node/npm; use --release-env-file=<path>');
+  } else if (arg.startsWith('--release-env-file=')) {
+    const rawPath = arg.slice('--release-env-file='.length);
+    if (!rawPath) printUsageAndExit('--release-env-file requires a path');
+    loadEnvFile(rawPath);
+  } else {
+    printUsageAndExit(`unknown argument: ${arg}`);
+  }
+}
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
 
 function hasEnv(name) {
-  return Boolean(process.env[name]?.trim());
+  return !isPlaceholderValue(process.env[name]);
 }
 
 function hasAppleSubmissionCredentials() {
@@ -243,6 +388,10 @@ function buildStatus() {
       telemetry_runtime_api_base_url_present: hasEnv('APP_TELEMETRY_RUNTIME_API_BASE_URL'),
       release_database_url_present: hasEnv('DATABASE_URL'),
     },
+    env_files: {
+      values_redacted: true,
+      loaded: loadedEnvFiles,
+    },
     tools: {
       eas_cli_available: easCli.available,
       eas_cli_authenticated: easCli.authenticated,
@@ -330,6 +479,13 @@ function printStatus(status) {
   console.log(`- Native crash event id: ${status.credentials.native_crash_event_id_present ? 'yes' : 'no'}`);
   console.log(`- Telemetry runtime API base URL: ${status.credentials.telemetry_runtime_api_base_url_present ? 'yes' : 'no'}`);
   console.log(`- DATABASE_URL present: ${status.credentials.release_database_url_present ? 'yes' : 'no'}`);
+
+  if (status.env_files.loaded.length > 0) {
+    console.log('[release-external-evidence-status] env files');
+    for (const envFile of status.env_files.loaded) {
+      console.log(`- ${envFile.file}: loaded_keys=${envFile.loaded_keys} kept_existing_keys=${envFile.kept_existing_keys}`);
+    }
+  }
 
   console.log('[release-external-evidence-status] tools');
   console.log(`- EAS CLI available: ${status.tools.eas_cli_available ? 'yes' : 'no'}`);

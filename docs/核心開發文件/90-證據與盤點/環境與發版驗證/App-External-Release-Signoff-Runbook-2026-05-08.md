@@ -96,6 +96,14 @@ npm --prefix mobile run release:external-evidence:handoff:check
 npm --prefix mobile run release:external-evidence:handoff:contract
 ```
 
+若要讓 standalone status 讀取本機 gitignored release env 做 redacted presence 診斷，可顯式加 `--release-env-file=release.env.local`：
+
+```bash
+npm --prefix mobile run release:external-evidence:status -- --release-env-file=release.env.local --json
+```
+
+status loader 和正式 orchestrator 使用相同安全口徑：只接受白名單 key、不執行 shell expansion、不覆蓋既有 process env、把 `REPLACE_WITH_...` 視為未配置，並只在 JSON `env_files` 中保存 loaded key counters 與 `values_redacted=true`，不保存 secret value。這個 status report 仍是交接診斷 artifact，不是 pass evidence。
+
 `EAS project id valid UUID` 必須為 `yes`。
 `EAS CLI available` 必須為 `yes`。`EAS CLI authenticated` 可以協助人工診斷，但正式 runner 仍以 `EXPO_TOKEN` 作非交互 EAS 查詢憑證。
 
@@ -251,7 +259,7 @@ npm --prefix mobile run release:external-evidence:workflow:check
 
 workflow 的 App `release:preflight` step 必須顯式覆蓋 `APP_RELEASE_EXTERNAL_SIGNOFF_RUN=false`。這是為了避免 `mode=run` 的 job-level env 讓 preflight 內的 dry-run signoff 入口提前觸碰 EAS、provider、真機或 release DB；正式外部動作只能由後續 `release:external-evidence:run` step 觸發。
 
-workflow / orchestrator 會把當次 `release:external-evidence:status` 落為 `App-External-Evidence-Status-*.json`，其中包含 credential presence（含 Sentry runtime query credentials 與 native crash event id presence）、device counters、type-aware / identity-bound structured evidence candidate state、normalized blockers 與 next commands；status 與 strict completion audit 共用 `mobile/scripts/lib/release-evidence-policy.mjs` 做外部 evidence 判定；該 status report 是交接診斷 artifact，不是 pass evidence。
+workflow / orchestrator 會把當次 `release:external-evidence:status` 落為 `App-External-Evidence-Status-*.json`，其中包含 credential presence（含 Sentry runtime query credentials 與 native crash event id presence）、device counters、type-aware / identity-bound structured evidence candidate state、normalized blockers 與 next commands；若顯式傳入 `--release-env-file=release.env.local`，status report 只會附加 redacted `env_files.loaded` counters，不會保存任何 value；status 與 strict completion audit 共用 `mobile/scripts/lib/release-evidence-policy.mjs` 做外部 evidence 判定；該 status report 是交接診斷 artifact，不是 pass evidence。
 
 orchestrator 在 `--report-dir=...` 下也會執行 `release:external-evidence:handoff:check` 並輸出 `App-External-Evidence-Handoff-*.json`，把當前 normalized blockers 對應到 owner action / env / command / evidence / strict gate；physical device action 會固定 iOS / Android platform-specific validate / run command，方便本地與 CI 使用同一種交接 artifact。workflow 仍會在 signoff 後再生成一份 handoff report，讓失敗或成功後的當前 blocker 清單也被 artifact 收集。handoff artifact 同樣必須通過 generated evidence redaction gate，且不能替代任何 structured pass evidence。
 

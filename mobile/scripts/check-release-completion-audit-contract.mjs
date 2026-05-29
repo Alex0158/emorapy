@@ -197,20 +197,36 @@ function validateAuditRecord(label, audit) {
       fail(`${label}.checks[${index}].doc_needles must be a string array`);
     }
     if (
+      !Array.isArray(check.handoff_catalog_ids) ||
+      !check.handoff_catalog_ids.every((entry) => typeof entry === 'string')
+    ) {
+      fail(`${label}.checks[${index}].handoff_catalog_ids must be a string array`);
+    }
+    if (
       !Array.isArray(check.handoff_blocker_ids) ||
       !check.handoff_blocker_ids.every((entry) => typeof entry === 'string')
     ) {
       fail(`${label}.checks[${index}].handoff_blocker_ids must be a string array`);
     }
     const expectedHandoffIds = completionToExternalHandoffBlockerIds[check.id] ?? [];
-    const actualHandoffIds = [...check.handoff_blocker_ids].sort();
+    const actualCatalogIds = [...check.handoff_catalog_ids].sort();
     const sortedExpectedHandoffIds = [...expectedHandoffIds].sort();
-    if (actualHandoffIds.length !== sortedExpectedHandoffIds.length) {
-      fail(`${label}.checks[${index}].handoff_blocker_ids length must match the completion-to-handoff blocker map`);
+    if (actualCatalogIds.length !== sortedExpectedHandoffIds.length) {
+      fail(`${label}.checks[${index}].handoff_catalog_ids length must match the completion-to-handoff catalog map`);
     }
     for (const [handoffIndex, expectedId] of sortedExpectedHandoffIds.entries()) {
+      if (actualCatalogIds[handoffIndex] !== expectedId) {
+        fail(`${label}.checks[${index}].handoff_catalog_ids must match the completion-to-handoff catalog map`);
+      }
+    }
+    const expectedCurrentHandoffIds = check.status === 'blocked' ? sortedExpectedHandoffIds : [];
+    const actualHandoffIds = [...check.handoff_blocker_ids].sort();
+    if (actualHandoffIds.length !== expectedCurrentHandoffIds.length) {
+      fail(`${label}.checks[${index}].handoff_blocker_ids length must match current blocked handoff ids`);
+    }
+    for (const [handoffIndex, expectedId] of expectedCurrentHandoffIds.entries()) {
       if (actualHandoffIds[handoffIndex] !== expectedId) {
-        fail(`${label}.checks[${index}].handoff_blocker_ids must match the completion-to-handoff blocker map`);
+        fail(`${label}.checks[${index}].handoff_blocker_ids must match current blocked handoff ids`);
       }
     }
     if (check.status === 'blocked') {

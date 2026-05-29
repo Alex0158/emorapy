@@ -513,7 +513,7 @@ const checklist = [
       'mobile/scripts/check-app-true-service-smoke-contracts.mjs M1-M5 true-service smoke harness contract',
       'mobile/scripts/lib/release-evidence-policy.mjs shared external evidence policy',
       'mobile/scripts/run-telemetry-runtime-smoke.mjs App telemetry runtime event + OTLP release evidence runner',
-      'release:completion:audit:contract covers app-release-completion-audit JSON schema, blocker_ids / handoff_blocker_ids consistency, external handoff coverage, strict exit-code consistency, required release blocker ids, and preflight wiring',
+      'release:completion:audit:contract covers app-release-completion-audit JSON schema, blocker_ids / status-scoped handoff_blocker_ids consistency, checks[].handoff_catalog_ids mapping, external handoff coverage, strict exit-code consistency, required release blocker ids, and preflight wiring',
       'release:evidence:check validates App-External-Evidence-Status-*.json and App-External-Evidence-Handoff-*.json identity, blocker alignment, status env_files redaction/provenance schema, current release completion audit handoff_blocker_ids coverage, release/prerequisite classification, timestamp coherence, command coverage, final gates, and docs references',
       'release:external-evidence:status:contract covers iOS/Android platform-specific validate/run next commands, signed app path, Android serial, and strict audit gate',
       'release:external-evidence:prereq-report:check covers iOS/Android device_visibility, Android physical-device validate, env-file placeholder guard, and env-file key allowlist',

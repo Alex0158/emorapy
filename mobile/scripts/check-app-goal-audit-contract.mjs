@@ -327,10 +327,10 @@ function validateAuditRecord(label, audit) {
   }
   if (
     !testsAndGatesText.includes(
-      'release:completion:audit:contract covers app-release-completion-audit JSON schema, blocker_ids / handoff_blocker_ids consistency, external handoff coverage, strict exit-code consistency, required release blocker ids, and preflight wiring'
+      'release:completion:audit:contract covers app-release-completion-audit JSON schema, blocker_ids / status-scoped handoff_blocker_ids consistency, checks[].handoff_catalog_ids mapping, external handoff coverage, strict exit-code consistency, required release blocker ids, and preflight wiring'
     )
   ) {
-    fail(`${label} tests_and_gates must state that release completion audit contract checks JSON schema, blocker_ids / handoff_blocker_ids consistency, external handoff coverage, strict exit-code consistency, required release blocker ids, and preflight wiring`);
+    fail(`${label} tests_and_gates must state that release completion audit contract checks JSON schema, status-scoped handoff_blocker_ids, handoff_catalog_ids mapping, external handoff coverage, strict exit-code consistency, required release blocker ids, and preflight wiring`);
   }
   if (
     !testsAndGatesText.includes(

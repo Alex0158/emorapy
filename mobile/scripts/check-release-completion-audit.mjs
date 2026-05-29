@@ -803,7 +803,8 @@ function firstExistingPath(candidates) {
 function addCompletionCheck({ id, done, blocker, docNeedles, evidence }) {
   const documented = docNeedles.some((needle) => docsText.includes(needle));
   requireValue(documented, `completion blocker ${id} must be documented with one of: ${docNeedles.join(' | ')}`);
-  const handoffBlockerIds = completionToExternalHandoffBlockerIds[id] ?? [];
+  const handoffCatalogIds = completionToExternalHandoffBlockerIds[id] ?? [];
+  const handoffBlockerIds = done ? [] : handoffCatalogIds;
 
   completionChecks.push({
     id,
@@ -812,6 +813,7 @@ function addCompletionCheck({ id, done, blocker, docNeedles, evidence }) {
     evidence: evidence ?? null,
     blocker: done ? null : blocker,
     doc_needles: docNeedles,
+    handoff_catalog_ids: handoffCatalogIds,
     handoff_blocker_ids: handoffBlockerIds,
   });
 

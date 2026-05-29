@@ -1446,8 +1446,14 @@ requireValue(
     githubSecretsSyncScript.includes('allowedEnvFileKeys') &&
     githubSecretsSyncScript.includes('unsupported --release-env-file key') &&
     githubSecretsSyncScript.includes("'APP_STORE_CONNECT_PRIVATE_KEY_PATH'") &&
+    githubSecretsSyncScript.includes('secret_groups') &&
+    githubSecretsSyncScript.includes('current_completion_blocker_secret_names') &&
+    githubSecretsSyncScript.includes('evidence_refresh_secret_names') &&
+    githubSecretsSyncScript.includes('ready_for_current_completion_sync_inputs') &&
+    githubSecretsSyncScript.includes('ready_for_evidence_refresh_sync_inputs') &&
+    githubSecretsSyncScript.includes('ready_for_sync_apply') &&
     githubSecretsSyncScript.includes('Dry-run only; pass --apply to write secrets.'),
-  'release:external-evidence:github-secrets:sync must default to dry-run, reject unsupported env-file keys, write only redacted Production environment secrets with --apply, map DATABASE_URL safely, and convert ASC private key path to the CI secret.'
+  'release:external-evidence:github-secrets:sync must default to dry-run, reject unsupported env-file keys, write only redacted Production environment secrets with --apply, map DATABASE_URL safely, convert ASC private key path to the CI secret, and group current-completion vs evidence-refresh readiness.'
 );
 requireValue(
   releaseEnvTemplate.includes('APP_RELEASE_EXTERNAL_SIGNOFF_RUN=false') &&

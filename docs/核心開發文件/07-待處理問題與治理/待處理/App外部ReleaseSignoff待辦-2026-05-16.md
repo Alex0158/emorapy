@@ -171,6 +171,38 @@ Standalone `release:external-evidence:status` 必須能安全讀取和正式 orc
 - `npm run docs:check`
 - `npm run docs:audit:dry-run:current`
 
+## 2026-05-30 本輪子任務：GitHub secret sync dry-run 分層
+
+### 目標
+
+`release:external-evidence:github-secrets:check -- --json` 已把 GitHub workflow secret names 分成 `current_completion_blocker_secret_names` 與 `evidence_refresh_secret_names`。但 `release:external-evidence:github-secrets:sync -- --json` dry-run 仍只列全局 `missing_keys` / `placeholder_keys` / `secret_names_to_set`，外部 owner 在準備 `Production` environment secrets 時仍需人工對照哪 14 個是當前 completion blocker、哪 2 個只是後續 telemetry / DB refresh 能力。sync helper 需要輸出同樣的 secret group summary，讓本機 env-file 到 GitHub secrets 的交接不再依賴聊天或人工對照。
+
+### 業務場景
+
+| 場景 | 預期行為 |
+| --- | --- |
+| 外部 owner 用 `mobile/release.env.local` 做 GitHub secrets dry-run | JSON 直接顯示 `ready_for_current_completion_sync_inputs`、`ready_for_evidence_refresh_sync_inputs` 與 `ready_for_sync_apply` |
+| 只填了 telemetry / DB refresh keys | `evidence_refresh_secret_names` 顯示 ready，`current_completion_blocker_secret_names` 顯示 14 個缺口；不得誤讀為 release completion 可 validate |
+| 填完全部 16 個 workflow secrets | dry-run 顯示 `secret_count=16`、兩組 ready，仍需人工確認後才可 `--apply` |
+| 使用 ASC private key path 或 inline private key | 兩者都只映射到 GitHub secret `APP_STORE_CONNECT_PRIVATE_KEY`；JSON 只顯示 source key / secret name，不輸出 private key value |
+| env-file 含 placeholder / unsupported key | helper 繼續拒絕 apply，並用 group summary 指出 placeholder 位於 current completion 還是 refresh group |
+
+### 邊界與注意事項
+
+1. 這是 CI secret 交接工具可讀性修正，不會寫入 GitHub secrets，除非顯式加 `--apply`。
+2. `ready_for_current_completion_sync_inputs=true` 只代表本機 env-file 已足以寫入當前 completion blocker 所需 secret names；不代表 GitHub environment 已配置，也不代表 validate/run 通過。
+3. `ready_for_evidence_refresh_sync_inputs=true` 只代表 telemetry runtime / release DB parity refresh secrets 可同步；由於這兩類已有 canonical pass evidence，它們不是當前 completion blocker，但後續 drift 後仍需刷新。
+4. `ready_for_sync_apply=true` 仍要求全量 current completion + refresh secret values 都非 placeholder；缺任何 secret 時不得執行 apply。
+
+### 驗證命令
+
+- `node --check mobile/scripts/sync-release-github-secrets.mjs`
+- `npm --prefix mobile run release:external-evidence:github-secrets:sync -- --json`
+- `npm --prefix mobile run release:completion:audit:contract`
+- `npm --prefix mobile run goal:completion:audit:contract`
+- `npm run docs:check`
+- `npm run docs:audit:dry-run:current`
+
 ## 必須補齊的外部輸入
 
 | 類別 | 必要輸入 / 證據 | 安全要求 |
@@ -190,7 +222,7 @@ Standalone `release:external-evidence:status` 必須能安全讀取和正式 orc
 
 1. 填入真實 `mobile/app.json` `expo.extra.eas.projectId`。
 2. 以 shell env、CI secrets 或 ignored `mobile/release.env.local` 提供上述外部輸入。
-3. 若走 GitHub workflow，`npm --prefix mobile run release:external-evidence:github-secrets:sync -- --json` redacted dry-run 顯示 `secret_count=16`；確認後才用 `--apply` 寫入。
+3. 若走 GitHub workflow，`npm --prefix mobile run release:external-evidence:github-secrets:sync -- --json` redacted dry-run 顯示 `summary.ready_for_current_completion_sync_inputs=true`、`summary.ready_for_evidence_refresh_sync_inputs=true` 與 `summary.ready_for_sync_apply=true`；確認後才用 `--apply` 寫入。
 4. `npm --prefix mobile run release:external-evidence:input-status -- --json` 顯示 `ready_for_current_completion_inputs=true` 且 `ready_for_validate=true`。前者只代表當前 completion blocker inputs 齊備；後者仍要求全量 16 個 sign-off / refresh keys 齊備，因為正式 validate / run 仍會重新確認 DB parity 與 telemetry runtime freshness。
 5. `npm --prefix mobile run release:external-evidence:validate -- --release-env-file=release.env.local` 通過。
 6. `npm --prefix mobile run release:external-evidence:run -- --release-env-file=release.env.local` 產出 structured pass evidence。

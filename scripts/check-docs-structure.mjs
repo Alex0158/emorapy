@@ -26,6 +26,8 @@ const IGNORED_SCAN_DIRS = new Set(['.git', 'node_modules', 'dist', 'build', 'cov
 const IGNORED_SCAN_RELATIVE_DIRS = new Set(['mobile/ios', 'mobile/android']);
 const FENCED_CODE_BLOCK_RE = /```[\s\S]*?```/g;
 const MARKDOWN_LINK_RE = /!?\[[^\]]*]\(([^)\n]+)\)/g;
+const PENDING_GOVERNANCE_DIR = path.join(coreDocsRoot, '07-待處理問題與治理', '待處理');
+const RESOLVED_GOVERNANCE_STATUS_RE = /^(已處理|已閉環|已完成)(?:\b|[；;，,\s])/;
 const STALE_APP_STATUS_RULES = [
   {
     name: 'app-template-only',
@@ -299,6 +301,31 @@ async function checkStaleAppStatusRules(issues) {
   }
 }
 
+async function checkPendingGovernanceStatuses(issues) {
+  const entries = await readVisibleEntries(PENDING_GOVERNANCE_DIR);
+
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.endsWith('.md')) {
+      continue;
+    }
+
+    const filePath = path.join(PENDING_GOVERNANCE_DIR, entry.name);
+    const content = await fs.readFile(filePath, 'utf8');
+    const statusMatch = content.match(/^\*\*狀態\*\*[：:]\s*([^\n]+)/m);
+    if (!statusMatch) {
+      continue;
+    }
+
+    const status = statusMatch[1].trim();
+    if (RESOLVED_GOVERNANCE_STATUS_RE.test(status)) {
+      const relativePath = path.relative(repoRoot, filePath).split(path.sep).join(path.posix.sep);
+      issues.push(
+        `[pending-governance] resolved issue remains under 待處理/: ${relativePath} status=${status}`
+      );
+    }
+  }
+}
+
 async function main() {
   const issues = [];
 
@@ -306,6 +333,7 @@ async function main() {
   await checkFormalDomainDocs(issues);
   await checkMarkdownRules(issues);
   await checkStaleAppStatusRules(issues);
+  await checkPendingGovernanceStatuses(issues);
 
   if (issues.length > 0) {
     console.error('[docs-check] failed:');

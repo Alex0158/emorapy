@@ -164,8 +164,17 @@ if (
 ) {
   fail('package.json must expose release:external-evidence:github-secrets:sync.');
 }
+if (
+  packageJson.scripts?.['release:external-evidence:github-secrets:sync:contract'] !==
+  'node scripts/check-release-github-secret-sync-contract.mjs'
+) {
+  fail('package.json must expose release:external-evidence:github-secrets:sync:contract.');
+}
 if (!packageJson.scripts?.['release:preflight']?.includes('release:external-evidence:input-status')) {
   fail('release:preflight must include release:external-evidence:input-status.');
+}
+if (!packageJson.scripts?.['release:preflight']?.includes('release:external-evidence:github-secrets:sync:contract')) {
+  fail('release:preflight must include release:external-evidence:github-secrets:sync:contract.');
 }
 
 for (const key of placeholderKeys) {
@@ -236,8 +245,10 @@ for (const needle of [
   'release:external-evidence:github-secrets:check',
   'release:external-evidence:github-secrets:strict',
   'release:external-evidence:github-secrets:sync',
+  'release:external-evidence:github-secrets:sync:contract',
   'Production',
   'GitHub Environment',
+  'dry-run',
   'ready_for_workflow_validate=false',
   'App-External-Signoff-Prerequisites-2026-05-16T07-29-51-655Z.json',
   'App-External-Signoff-Prerequisites-2026-05-16T07-29-50-317Z.json',
@@ -264,6 +275,7 @@ for (const needle of [
   'release:external-evidence:github-secrets:check',
   'release:external-evidence:github-secrets:strict',
   'release:external-evidence:github-secrets:sync',
+  'release:external-evidence:github-secrets:sync:contract',
   'release:external-evidence:env-template:check',
   'release:external-evidence:signoff:android-dry-run',
   'Do not commit real secrets',

@@ -299,7 +299,9 @@ if (missingKeys.length || placeholderKeys.length) {
   process.exit(1);
 }
 
-ensureEnvironmentExists(environment);
+if (apply) {
+  ensureEnvironmentExists(environment);
+}
 
 const secretNames = secrets.map((secret) => secret.secretName).sort();
 if (apply) {
@@ -339,7 +341,9 @@ const status = {
     current_completion_blocker_secret_names: currentCompletionSecretStatus,
     evidence_refresh_secret_names: evidenceRefreshSecretStatus,
   },
-  message: apply ? 'GitHub Environment secrets were written.' : 'Dry-run only; pass --apply to write secrets.',
+  message: apply
+    ? 'GitHub Environment secrets were written.'
+    : 'Dry-run only; pass --apply to verify the GitHub Environment and write secrets.',
 };
 
 if (json) {

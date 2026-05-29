@@ -1172,6 +1172,9 @@ const githubSecretNamesScript = readText(
   path.join(mobileRoot, 'scripts/check-release-github-secret-names.mjs')
 );
 const githubSecretsSyncScript = readText(path.join(mobileRoot, 'scripts/sync-release-github-secrets.mjs'));
+const githubSecretsSyncContractScript = readText(
+  path.join(mobileRoot, 'scripts/check-release-github-secret-sync-contract.mjs')
+);
 const releaseEnvTemplate = readText(path.join(mobileRoot, 'release.env.example'));
 const mobileGitignore = readText(path.join(mobileRoot, '.gitignore'));
 const runReleaseExternalSignoffScript = readText(
@@ -1227,6 +1230,7 @@ const requiredPreflightScripts = [
   'release:external-evidence:workflow:check',
   'release:external-evidence:env-template:check',
   'release:external-evidence:input-status',
+  'release:external-evidence:github-secrets:sync:contract',
   'release:completion:audit',
   'release:completion:audit:contract',
   'goal:completion:audit',
@@ -1371,6 +1375,7 @@ requireValue(Boolean(scripts['release:external-evidence:fill-inputs']), 'package
 requireValue(Boolean(scripts['release:external-evidence:github-secrets:check']), 'package.json must expose release:external-evidence:github-secrets:check.');
 requireValue(Boolean(scripts['release:external-evidence:github-secrets:strict']), 'package.json must expose release:external-evidence:github-secrets:strict.');
 requireValue(Boolean(scripts['release:external-evidence:github-secrets:sync']), 'package.json must expose release:external-evidence:github-secrets:sync.');
+requireValue(Boolean(scripts['release:external-evidence:github-secrets:sync:contract']), 'package.json must expose release:external-evidence:github-secrets:sync:contract.');
 requireValue(Boolean(scripts['release:external-evidence:run']), 'package.json must expose release:external-evidence:run.');
 requireValue(Boolean(scripts['release:db-parity:dry-run']), 'package.json must expose release:db-parity:dry-run.');
 requireValue(
@@ -1430,6 +1435,10 @@ requireValue(
   'release:external-evidence:github-secrets:sync must pin the redacted GitHub secret sync helper.'
 );
 requireValue(
+  scripts['release:external-evidence:github-secrets:sync:contract']?.includes('check-release-github-secret-sync-contract.mjs'),
+  'release:external-evidence:github-secrets:sync:contract must pin the GitHub secret sync dry-run contract checker.'
+);
+requireValue(
   githubSecretNamesScript.includes('values_redacted') &&
     githubSecretNamesScript.includes('ready_for_workflow_validate') &&
     githubSecretNamesScript.includes('missing_secret_name_count') &&
@@ -1454,8 +1463,21 @@ requireValue(
     githubSecretsSyncScript.includes('ready_for_current_completion_sync_inputs') &&
     githubSecretsSyncScript.includes('ready_for_evidence_refresh_sync_inputs') &&
     githubSecretsSyncScript.includes('ready_for_sync_apply') &&
-    githubSecretsSyncScript.includes('Dry-run only; pass --apply to write secrets.'),
+    githubSecretsSyncScript.includes('if (apply)') &&
+    githubSecretsSyncScript.includes('ensureEnvironmentExists(environment)') &&
+    githubSecretsSyncScript.includes('Dry-run only; pass --apply to verify the GitHub Environment and write secrets.'),
   'release:external-evidence:github-secrets:sync must default to dry-run, reject unsupported env-file keys, write only redacted Production environment secrets with --apply, map DATABASE_URL safely, convert ASC private key path to the CI secret, and group current-completion vs evidence-refresh readiness.'
+);
+requireValue(
+  githubSecretsSyncContractScript.includes('dry-run is local-only') &&
+    githubSecretsSyncContractScript.includes("PATH: ''") &&
+    githubSecretsSyncContractScript.includes('ready_for_current_completion_sync_inputs') &&
+    githubSecretsSyncContractScript.includes('ready_for_evidence_refresh_sync_inputs') &&
+    githubSecretsSyncContractScript.includes('APP_RELEASE_DATABASE_URL') &&
+    githubSecretsSyncContractScript.includes('APP_STORE_CONNECT_PRIVATE_KEY') &&
+    githubSecretsSyncContractScript.includes('CONTROLLED_EXPO_TOKEN_DO_NOT_LEAK') &&
+    githubSecretsSyncContractScript.includes('apply attempt without gh'),
+  'release:external-evidence:github-secrets:sync:contract must prove local-only dry-run, redacted grouping, safe release DB/private-key mapping, and apply-only GitHub dependency.'
 );
 requireValue(
   releaseEnvTemplate.includes('APP_RELEASE_EXTERNAL_SIGNOFF_RUN=false') &&
@@ -1543,6 +1565,7 @@ requireValue(docsText.includes('release:external-evidence:input-status'), 'core 
 requireValue(docsText.includes('release:external-evidence:github-secrets:check'), 'core docs must mention release:external-evidence:github-secrets:check.');
 requireValue(docsText.includes('release:external-evidence:github-secrets:strict'), 'core docs must mention release:external-evidence:github-secrets:strict.');
 requireValue(docsText.includes('release:external-evidence:github-secrets:sync'), 'core docs must mention release:external-evidence:github-secrets:sync.');
+requireValue(docsText.includes('release:external-evidence:github-secrets:sync:contract'), 'core docs must mention release:external-evidence:github-secrets:sync:contract.');
 requireValue(docsText.includes('release:external-evidence:run'), 'core docs must mention release:external-evidence:run.');
 requireValue(docsText.includes('telemetry:runtime:smoke'), 'core docs must mention telemetry:runtime:smoke.');
 requireValue(docsText.includes('App-Telemetry-Runtime-*.json'), 'core docs must mention App-Telemetry-Runtime-*.json.');

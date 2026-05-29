@@ -16,6 +16,8 @@ const prereqReportContractScript = path.join(scriptDir, 'check-release-external-
 const externalWorkflowContractScript = path.join(scriptDir, 'check-release-external-signoff-workflow.mjs');
 const externalSignoffScript = path.join(scriptDir, 'run-release-external-evidence-signoff.mjs');
 const trueServiceContractScript = path.join(scriptDir, 'check-app-true-service-smoke-contracts.mjs');
+const githubSecretsSyncContractScript = path.join(scriptDir, 'check-release-github-secret-sync-contract.mjs');
+const githubSecretsSyncContractSource = readFileSync(githubSecretsSyncContractScript, 'utf8');
 
 const requiredChecklistIds = new Set([
   'tech_stack',
@@ -300,6 +302,9 @@ function validateAuditRecord(label, audit) {
   if (!testsAndGatesText.includes('release:external-evidence:input-status')) {
     fail(`${label} tests_and_gates must require release:external-evidence:input-status`);
   }
+  if (!testsAndGatesText.includes('release:external-evidence:github-secrets:sync:contract')) {
+    fail(`${label} tests_and_gates must require release:external-evidence:github-secrets:sync:contract`);
+  }
   if (!testsAndGatesText.includes('release:external-evidence:prereq-report:check')) {
     fail(`${label} tests_and_gates must require release:external-evidence:prereq-report:check`);
   }
@@ -309,6 +314,27 @@ function validateAuditRecord(label, audit) {
     )
   ) {
     fail(`${label} tests_and_gates must state that prereq-report checks iOS/Android device visibility, Android physical-device validate, env-file placeholder guard, and env-file key allowlist`);
+  }
+  if (
+    !testsAndGatesText.includes(
+      'release:external-evidence:github-secrets:sync:contract covers local-only redacted dry-run, current-completion/evidence-refresh grouping, DATABASE_URL and ASC private key mapping, controlled secret redaction, and apply-only GitHub dependency'
+    )
+  ) {
+    fail(`${label} tests_and_gates must state that GitHub secret sync contract checks local dry-run, redaction, grouping, mappings, and apply-only GitHub dependency`);
+  }
+  for (const needle of [
+    'dry-run is local-only',
+    "PATH: ''",
+    'ready_for_current_completion_sync_inputs',
+    'ready_for_evidence_refresh_sync_inputs',
+    'APP_RELEASE_DATABASE_URL',
+    'APP_STORE_CONNECT_PRIVATE_KEY',
+    'CONTROLLED_EXPO_TOKEN_DO_NOT_LEAK',
+    'apply attempt without gh',
+  ]) {
+    if (!githubSecretsSyncContractSource.includes(needle)) {
+      fail(`${label} GitHub secret sync contract checker must include ${needle}`);
+    }
   }
   if (!testsAndGatesText.includes('release:external-evidence:workflow:check')) {
     fail(`${label} tests_and_gates must require release:external-evidence:workflow:check`);

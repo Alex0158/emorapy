@@ -126,6 +126,7 @@ const prereqReportContractSource = readText('mobile/scripts/check-release-extern
 const externalSignoffSource = readText('mobile/scripts/run-release-external-evidence-signoff.mjs');
 const trueServiceSmokeSource = readText('mobile/scripts/app-true-service-smoke.mjs');
 const trueServiceContractSource = readText('mobile/scripts/check-app-true-service-smoke-contracts.mjs');
+const githubSecretsSyncContractSource = readText('mobile/scripts/check-release-github-secret-sync-contract.mjs');
 const externalStatusContractNeedles = [
   'release:external-evidence:validate -- --physical-platform=ios',
   'release:external-evidence:run -- --physical-platform=ios',
@@ -261,6 +262,7 @@ const requiredGoalGateScripts = [
   'release:external-evidence:workflow:check',
   'release:external-evidence:env-template:check',
   'release:external-evidence:input-status',
+  'release:external-evidence:github-secrets:sync:contract',
   'release:external-evidence:signoff',
   'release:external-evidence:signoff:android-dry-run',
   'release:completion:audit',
@@ -504,9 +506,9 @@ const checklist = [
   ),
   check(
     'tests_and_gates',
-    'Jest, RNTL, feature coverage contracts, true-service smoke contract gate, web route smoke, Maestro, native readiness, Android readiness, core-doc checks, release evidence, shared external evidence policy, status / fixture / handoff / env / workflow contracts, and preflight gates are wired.',
+    'Jest, RNTL, feature coverage contracts, true-service smoke contract gate, web route smoke, Maestro, native readiness, Android readiness, core-doc checks, release evidence, shared external evidence policy, status / fixture / handoff / env / workflow / GitHub secret sync contracts, and preflight gates are wired.',
     [
-      'mobile/package.json scripts test / routes:check / features:check / true-service:check / web:routes:smoke / maestro:check / native:check / android:check / docs:check / docs:audit:dry-run:current / release:external-evidence:status:contract / release:external-evidence:fixtures:check / release:external-evidence:handoff:check / release:external-evidence:handoff:contract / release:external-evidence:prereq-report:check / release:external-evidence:workflow:check / release:external-evidence:env-template:check / release:external-evidence:input-status / release:external-evidence:signoff / release:external-evidence:signoff:android-dry-run / release:completion:audit:contract / release:preflight',
+      'mobile/package.json scripts test / routes:check / features:check / true-service:check / web:routes:smoke / maestro:check / native:check / android:check / docs:check / docs:audit:dry-run:current / release:external-evidence:status:contract / release:external-evidence:fixtures:check / release:external-evidence:handoff:check / release:external-evidence:handoff:contract / release:external-evidence:prereq-report:check / release:external-evidence:workflow:check / release:external-evidence:env-template:check / release:external-evidence:input-status / release:external-evidence:github-secrets:sync:contract / release:external-evidence:signoff / release:external-evidence:signoff:android-dry-run / release:completion:audit:contract / release:preflight',
       'release:preflight command includes each required App gate script',
       'docs:check and docs:audit:dry-run:current keep core document structure, truth checks, stale App status guard, and current SSOT metadata in the App preflight path',
       'mobile/scripts/check-app-feature-coverage-contracts.mjs feature milestone coverage contract',
@@ -517,6 +519,7 @@ const checklist = [
       'release:evidence:check validates App-External-Evidence-Status-*.json and App-External-Evidence-Handoff-*.json identity, blocker alignment, status env_files redaction/provenance schema, current release completion audit handoff_blocker_ids coverage, release/prerequisite classification, timestamp coherence, command coverage, final gates, and docs references',
       'release:external-evidence:status:contract covers iOS/Android platform-specific validate/run next commands, signed app path, Android serial, and strict audit gate',
       'release:external-evidence:prereq-report:check covers iOS/Android device_visibility, Android physical-device validate, env-file placeholder guard, and env-file key allowlist',
+      'release:external-evidence:github-secrets:sync:contract covers local-only redacted dry-run, current-completion/evidence-refresh grouping, DATABASE_URL and ASC private key mapping, controlled secret redaction, and apply-only GitHub dependency',
       listLatest('App-Native-Maestro-') ?? 'missing App-Native-Maestro evidence',
       listLatest('App-Android-Maestro-') ?? 'missing App-Android-Maestro evidence',
     ],
@@ -554,6 +557,16 @@ const checklist = [
       includesAll(externalStatusContractSource, externalStatusContractNeedles) &&
       includesAll(prereqReportContractSource, prereqReportContractNeedles) &&
       includesAll(externalSignoffSource, externalSignoffEnvFileNeedles) &&
+      includesAll(githubSecretsSyncContractSource, [
+        'dry-run is local-only',
+        "PATH: ''",
+        'ready_for_current_completion_sync_inputs',
+        'ready_for_evidence_refresh_sync_inputs',
+        'APP_RELEASE_DATABASE_URL',
+        'APP_STORE_CONNECT_PRIVATE_KEY',
+        'CONTROLLED_EXPO_TOKEN_DO_NOT_LEAK',
+        'apply attempt without gh',
+      ]) &&
       Boolean(listLatest('App-Native-Maestro-')) &&
       Boolean(listLatest('App-Android-Maestro-'))
   ),
@@ -576,6 +589,7 @@ const checklist = [
       includesAll(pendingLedger, ['goal:completion:audit', 'release:completion:audit:strict']) &&
       includesAll(externalSignoffPending, [
         'release:external-evidence:github-secrets:strict',
+        'release:external-evidence:github-secrets:sync:contract',
         'release:completion:audit:strict',
         'ready_for_workflow_validate=false',
       ])

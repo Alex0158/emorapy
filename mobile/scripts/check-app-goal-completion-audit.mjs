@@ -452,6 +452,7 @@ const checklist = [
       'backend/src/services/push-notification.service.ts',
       'backend/src/routes/app-telemetry.routes.ts /telemetry/otlp/v1/traces safe OTLP collector baseline',
       'mobile/scripts/run-telemetry-runtime-smoke.mjs telemetry runtime evidence runner',
+      'release:completion:audit validates App telemetry runtime pass evidence and release backend version commit alignment',
       'M5 true-service smoke harness contract: push token lifecycle, notification actions, upload/delete, telemetry ingest',
     ],
     allExist([
@@ -468,7 +469,7 @@ const checklist = [
       fileIncludes('backend/src/routes/app-telemetry.routes.ts', ['/telemetry/otlp/v1/traces']) &&
       fileIncludes('backend/src/services/app-telemetry.service.ts', ['recordOtlpTraces', 'otlpCollector']) &&
       hasTrueServiceSmokeContract('m5'),
-    'Provider delivery, physical-device notification landing, native selected media, native crash runtime, and telemetry runtime ingest remain external evidence items.'
+    'Provider delivery, physical-device notification landing, native selected media, and native crash runtime remain external evidence items.'
   ),
   check(
     'ui_ux_accessibility',

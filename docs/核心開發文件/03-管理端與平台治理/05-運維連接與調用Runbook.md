@@ -164,6 +164,8 @@ npm run ops:smoke-accounts:check
 
 `ops:release:gate` 會硬性要求三個 version endpoint 的 `service` 與 `commitSha` 對齊本機 `HEAD`；如果 backend 還是舊部署、未回傳 `commitSha` 或任何一端仍是舊 commit，gate 必須失敗。缺任何一項時，應說「部分已發布」並列明缺口，不應說整體已最新。
 
+App telemetry runtime release evidence 也使用版本對齊規則：`npm --prefix mobile run telemetry:runtime:smoke -- --run --release-env-file=release.env.local` 執行時必須先讓 release backend `/version.commitSha` 等於本地 `HEAD`，才會送 App event / OTLP payload；版本不對齊時只能產生 blocked evidence，不能解除 `telemetry_runtime_evidence`。該 evidence 納入 release audit 後，允許後續只追加 docs / evidence commit；但若 evidence backend commit 不是目前 `HEAD` 的祖先，或該 commit 後改過 backend telemetry/version runtime 路徑，舊 evidence 必須失效並重跑。
+
 ## 5.1 產品狀態一致性與恢復提案
 
 排查卡住的判決生成、chat-to-case 轉換、缺失判決連結或 repair replan AI stream 時，固定先跑：

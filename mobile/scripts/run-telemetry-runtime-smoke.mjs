@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import { spawnSync } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
@@ -199,6 +200,129 @@ function sanitizeResponseBody(body) {
   };
 }
 
+function sanitizeErrorMessage(error) {
+  return error instanceof Error ? error.message.slice(0, 240) : String(error).slice(0, 240);
+}
+
+function getCurrentCommitSha() {
+  const result = spawnSync('git', ['rev-parse', 'HEAD'], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  const commitSha = result.stdout?.trim() ?? '';
+  if (result.status !== 0 || !/^[0-9a-f]{40}$/i.test(commitSha)) {
+    return {
+      commit_sha: null,
+      source: 'git_rev_parse_head',
+      error: 'Unable to resolve current git HEAD for release backend version precheck.',
+    };
+  }
+  return {
+    commit_sha: commitSha.toLowerCase(),
+    source: 'git_rev_parse_head',
+    error: null,
+  };
+}
+
+function buildBackendVersionUrl(normalizedApiBaseUrl) {
+  const url = new URL(normalizedApiBaseUrl);
+  url.pathname = '/version';
+  url.search = '';
+  url.hash = '';
+  return url;
+}
+
+function normalizeCommitSha(value) {
+  const text = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  return /^[0-9a-f]{40}$/.test(text) ? text : null;
+}
+
+function extractVersionManifest(body) {
+  const candidate = body && typeof body === 'object' && !Array.isArray(body) && body.data
+    ? body.data
+    : body;
+  if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
+    return {
+      service: null,
+      version: null,
+      commit_sha: null,
+      commit_short_sha: null,
+    };
+  }
+  const commitSha = normalizeCommitSha(candidate.commitSha);
+  return {
+    service: typeof candidate.service === 'string' ? candidate.service : null,
+    version: typeof candidate.version === 'string' ? candidate.version : null,
+    commit_sha: commitSha,
+    commit_short_sha: typeof candidate.commitShortSha === 'string'
+      ? candidate.commitShortSha
+      : commitSha?.slice(0, 7) ?? null,
+  };
+}
+
+async function fetchBackendVersion(normalizedApiBaseUrl) {
+  const expectedCommit = getCurrentCommitSha();
+  const versionUrl = buildBackendVersionUrl(normalizedApiBaseUrl);
+  const startedAt = Date.now();
+  const base = {
+    endpoint_path: '/version',
+    host_sha256: hashValue(versionUrl.host),
+    raw_url_redacted: true,
+    expected_commit_sha: expectedCommit.commit_sha,
+    expected_commit_short_sha: expectedCommit.commit_sha?.slice(0, 7) ?? null,
+    expected_commit_source: expectedCommit.source,
+    response_status: null,
+    response_ok: false,
+    duration_ms: null,
+    service: null,
+    version: null,
+    commit_sha: null,
+    commit_short_sha: null,
+    commit_matches_expected: false,
+  };
+  if (!expectedCommit.commit_sha) {
+    return {
+      ...base,
+      failure: expectedCommit.error,
+    };
+  }
+
+  try {
+    const response = await fetch(versionUrl, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'cj-app-telemetry-runtime-smoke/1.0',
+        'X-Locale': 'zh-TW',
+      },
+      signal: AbortSignal.timeout(options.timeoutMs),
+    });
+    const text = await response.text();
+    const manifest = extractVersionManifest(readResponseBody(text));
+    return {
+      ...base,
+      response_status: response.status,
+      response_ok: response.ok,
+      duration_ms: Date.now() - startedAt,
+      service: manifest.service,
+      version: manifest.version,
+      commit_sha: manifest.commit_sha,
+      commit_short_sha: manifest.commit_short_sha,
+      commit_matches_expected:
+        response.ok &&
+        manifest.service === 'backend' &&
+        manifest.commit_sha === expectedCommit.commit_sha,
+    };
+  } catch (error) {
+    return {
+      ...base,
+      duration_ms: Date.now() - startedAt,
+      failure: sanitizeErrorMessage(error),
+    };
+  }
+}
+
 async function postJson(endpoint, payload, headers) {
   const startedAt = Date.now();
   const response = await fetch(endpoint, {
@@ -293,6 +417,7 @@ function printDryRun(app, normalizedApiBaseUrl) {
   console.log('- Requires --run or APP_TELEMETRY_RUNTIME_SMOKE_RUN=true before posting telemetry events.');
   console.log('- Requires APP_TELEMETRY_RUNTIME_API_BASE_URL, --api-base-url=<release-api-base-url>, or --release-env-file=release.env.local for release evidence.');
   console.log('- Release evidence must target a non-local API host; localhost is accepted only as dry-run planning context.');
+  console.log('- Run mode first checks release backend /version against the current git HEAD before posting telemetry.');
   console.log(`- API protocol/path: ${apiUrl.protocol.replace(':', '')} ${apiUrl.pathname}`);
   console.log(`- API host sha256: ${hashValue(apiUrl.host)}`);
   console.log(`- App: ${app.ios?.bundleIdentifier} / ${app.android?.package} ${app.version}`);
@@ -317,6 +442,7 @@ async function run() {
       summary: {
         run_mode: 'run',
         api_non_local: false,
+        backend_version_passed: false,
         event_ingest_passed: false,
         otlp_ingest_passed: false,
         event_accepted_count: 0,
@@ -324,6 +450,34 @@ async function run() {
         safe_payload: true,
         blocked: true,
         failure: 'Release telemetry runtime evidence must target a non-local API host.',
+      },
+    };
+  }
+
+  const backendVersion = await fetchBackendVersion(normalizedApiBaseUrl);
+  if (!backendVersion.commit_matches_expected) {
+    return {
+      ...base,
+      backend_version: backendVersion,
+      event: {
+        skipped: true,
+        reason: 'backend_version_precheck_failed',
+      },
+      otlp: {
+        skipped: true,
+        reason: 'backend_version_precheck_failed',
+      },
+      summary: {
+        run_mode: 'run',
+        api_non_local: true,
+        backend_version_passed: false,
+        event_ingest_passed: false,
+        otlp_ingest_passed: false,
+        event_accepted_count: 0,
+        otlp_accepted_spans: 0,
+        safe_payload: true,
+        blocked: true,
+        failure: 'Release backend /version commit must match current HEAD before telemetry runtime evidence.',
       },
     };
   }
@@ -375,6 +529,7 @@ async function run() {
 
   return {
     ...base,
+    backend_version: backendVersion,
     request: {
       request_id_sha256: hashValue(requestId),
       session_id_sha256: hashValue(sessionId),
@@ -402,6 +557,7 @@ async function run() {
     summary: {
       run_mode: 'run',
       api_non_local: true,
+      backend_version_passed: true,
       event_ingest_passed: eventPassed,
       otlp_ingest_passed: otlpPassed,
       event_accepted_count: eventAcceptedCount,
@@ -419,10 +575,12 @@ try {
   const evidencePath = writeEvidence(evidence);
   console.log(`[telemetry-runtime-smoke] evidence written: ${evidencePath}`);
   if (evidence.summary.blocked) {
-    console.error('[telemetry-runtime-smoke] failed: telemetry events and OTLP traces did not both reach accepted runtime ingest.');
+    console.error(
+      `[telemetry-runtime-smoke] failed: ${evidence.summary.failure ?? 'telemetry events and OTLP traces did not both reach accepted runtime ingest.'}`
+    );
     process.exit(1);
   }
-  console.log('[telemetry-runtime-smoke] ok: telemetry event and OTLP runtime ingest accepted by non-local backend.');
+  console.log('[telemetry-runtime-smoke] ok: backend version, telemetry event, and OTLP runtime ingest accepted by non-local backend.');
 } catch (error) {
   console.error(`[telemetry-runtime-smoke] failed: ${error instanceof Error ? error.message : String(error)}`);
   process.exit(1);

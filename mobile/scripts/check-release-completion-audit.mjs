@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { getExpoProjectIdStatus } from './lib/release-app-config.mjs';
 import {
   buildReleaseEvidencePolicies,
+  validateTelemetryBackendVersionFreshness,
   validateEvidenceAgainstPolicy,
 } from './lib/release-evidence-policy.mjs';
 
@@ -71,6 +72,17 @@ function requireExternalEvidencePolicy(evidence, appConfig, policyKey, label) {
     failures.push(`${label}: ${error}.`);
   }
   return errors.length === 0;
+}
+
+function getCurrentGitHead() {
+  const result = spawnSync('git', ['rev-parse', 'HEAD'], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  const commitSha = result.stdout?.trim() ?? '';
+  if (result.status !== 0 || !/^[0-9a-f]{40}$/i.test(commitSha)) return null;
+  return commitSha.toLowerCase();
 }
 
 function hasEnv(name) {
@@ -667,11 +679,40 @@ function validateTelemetryRuntimeEvidence(filePath, app) {
   requireValue(evidence.api?.non_local === true, 'telemetry runtime evidence must target a non-local API.');
   requireValue(evidence.api?.raw_url_redacted === true, 'telemetry runtime evidence must not store the raw API URL.');
   requireValue(Boolean(evidence.api?.host_sha256), 'telemetry runtime evidence must include only a hashed API host.');
+  const backendVersionFreshnessErrors = validateTelemetryBackendVersionFreshness(evidence, repoRoot);
+  for (const error of backendVersionFreshnessErrors) {
+    failures.push(`telemetry runtime evidence: ${error}.`);
+  }
+  requireValue(
+    evidence.backend_version?.endpoint_path === '/version',
+    'telemetry runtime evidence must check backend /version before ingest.'
+  );
+  requireValue(
+    evidence.backend_version?.raw_url_redacted === true,
+    'telemetry runtime evidence backend version check must not store the raw URL.'
+  );
+  requireValue(
+    Boolean(evidence.backend_version?.host_sha256),
+    'telemetry runtime evidence backend version check must hash the API host.'
+  );
+  requireValue(
+    evidence.backend_version?.response_ok === true,
+    'telemetry runtime evidence backend /version response must be ok.'
+  );
+  requireValue(
+    evidence.backend_version?.service === 'backend',
+    'telemetry runtime evidence backend /version service must be backend.'
+  );
+  requireValue(
+    evidence.backend_version?.commit_matches_expected === true,
+    'telemetry runtime evidence backend /version commit precheck must pass.'
+  );
   requireValue(Boolean(evidence.event?.request_id_sha256), 'telemetry runtime evidence must hash the event request id.');
   requireValue(Boolean(evidence.otlp?.trace_id_sha256), 'telemetry runtime evidence must hash the OTLP trace id.');
   requireValue(Boolean(evidence.otlp?.span_id_sha256), 'telemetry runtime evidence must hash the OTLP span id.');
   requireValue(evidence.summary?.run_mode === 'run', 'telemetry runtime evidence must be generated in run mode.');
   requireValue(evidence.summary?.api_non_local === true, 'telemetry runtime evidence summary must prove non-local API.');
+  requireValue(evidence.summary?.backend_version_passed === true, 'telemetry runtime evidence must pass backend version precheck.');
   requireValue(evidence.summary?.event_ingest_passed === true, 'telemetry runtime evidence must pass event ingest.');
   requireValue(evidence.summary?.otlp_ingest_passed === true, 'telemetry runtime evidence must pass OTLP ingest.');
   requireValue(
@@ -695,11 +736,19 @@ function validateTelemetryRuntimeEvidence(filePath, app) {
     evidence.api?.non_local === true &&
     evidence.api?.raw_url_redacted === true &&
     Boolean(evidence.api?.host_sha256) &&
+    backendVersionFreshnessErrors.length === 0 &&
+    evidence.backend_version?.endpoint_path === '/version' &&
+    evidence.backend_version?.raw_url_redacted === true &&
+    Boolean(evidence.backend_version?.host_sha256) &&
+    evidence.backend_version?.response_ok === true &&
+    evidence.backend_version?.service === 'backend' &&
+    evidence.backend_version?.commit_matches_expected === true &&
     Boolean(evidence.event?.request_id_sha256) &&
     Boolean(evidence.otlp?.trace_id_sha256) &&
     Boolean(evidence.otlp?.span_id_sha256) &&
     evidence.summary?.run_mode === 'run' &&
     evidence.summary?.api_non_local === true &&
+    evidence.summary?.backend_version_passed === true &&
     evidence.summary?.event_ingest_passed === true &&
     evidence.summary?.otlp_ingest_passed === true &&
     Number(evidence.summary?.event_accepted_count) >= 1 &&
@@ -968,6 +1017,21 @@ function runExternalEvidenceFixtureContract(app) {
           non_local: true,
           raw_url_redacted: true,
         },
+        backend_version: {
+          endpoint_path: '/version',
+          host_sha256: hash,
+          raw_url_redacted: true,
+          response_status: 200,
+          response_ok: true,
+          service: 'backend',
+          version: '1.3.4',
+          commit_sha: getCurrentGitHead(),
+          commit_short_sha: getCurrentGitHead()?.slice(0, 7),
+          expected_commit_sha: getCurrentGitHead(),
+          expected_commit_short_sha: getCurrentGitHead()?.slice(0, 7),
+          expected_commit_source: 'git_rev_parse_head',
+          commit_matches_expected: true,
+        },
         request: {
           request_id_sha256: hash,
           session_id_sha256: hash,
@@ -984,6 +1048,7 @@ function runExternalEvidenceFixtureContract(app) {
         summary: {
           run_mode: 'run',
           api_non_local: true,
+          backend_version_passed: true,
           event_ingest_passed: true,
           otlp_ingest_passed: true,
           event_accepted_count: 1,

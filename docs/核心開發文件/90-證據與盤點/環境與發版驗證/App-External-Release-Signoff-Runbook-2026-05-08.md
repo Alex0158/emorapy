@@ -156,7 +156,7 @@ controlled native crash event 必須匹配 `cj-mobile@<version>+<build>` release
 
 - `APP_TELEMETRY_RUNTIME_API_BASE_URL` 指向 release API base URL，例如 `https://<release-api>/api/v1`。
 
-該 URL 不能是 localhost / 127.0.0.1 / ::1。evidence 必須由 `mobile/scripts/run-telemetry-runtime-smoke.mjs` 產出，並證明 `POST /telemetry/events` 與 `POST /telemetry/otlp/v1/traces` 都接受受控 safe payload。正式證據只保存 API host、request id、session id、trace id、span id 的 SHA-256，不保存原始 URL 或任何 token。runner 支援 `--release-env-file=release.env.local`，只從白名單 key 讀取 `APP_TELEMETRY_RUNTIME_*`，不 eval、不輸出 raw value；production backend 只允許這兩個 App native telemetry ingest 端點接受無 `Origin` 請求，非白名單瀏覽器 `Origin` 仍必須返回 `CORS_ORIGIN_DENIED`。
+該 URL 不能是 localhost / 127.0.0.1 / ::1。evidence 必須由 `mobile/scripts/run-telemetry-runtime-smoke.mjs` 產出，並先證明 release backend `GET /version` 的 `service=backend` 且 `commitSha` 等於 runner 執行當下的本地 `git rev-parse HEAD`，再證明 `POST /telemetry/events` 與 `POST /telemetry/otlp/v1/traces` 都接受受控 safe payload。正式證據只保存 API host、request id、session id、trace id、span id 的 SHA-256、backend version summary 與 safe counts，不保存原始 URL 或任何 token。runner 支援 `--release-env-file=release.env.local`，只從白名單 key 讀取 `APP_TELEMETRY_RUNTIME_*`，不 eval、不輸出 raw value；production backend 只允許這兩個 App native telemetry ingest 端點接受無 `Origin` 請求，非白名單瀏覽器 `Origin` 仍必須返回 `CORS_ORIGIN_DENIED`。若 `/version.commitSha` 缺失、為 `unknown`、不等於 runner 執行當下的本地 `HEAD`，或 runner 不能解析本地 `HEAD`，runner 必須輸出 blocked evidence 並停止在 event / OTLP POST 之前；進入 release audit 後，若 evidence backend commit 不是目前 `HEAD` 的祖先，或該 commit 後改過 backend telemetry/version runtime 路徑，舊 evidence 也必須失效。
 
 dry-run：
 

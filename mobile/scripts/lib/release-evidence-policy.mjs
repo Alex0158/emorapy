@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 
 export function valueAtPath(value, pathExpression) {
   return pathExpression.split('.').reduce((current, key) => current?.[key], value);
@@ -177,8 +178,14 @@ export function buildReleaseEvidencePolicies(app) {
         { path: 'app_version_code', equals: String(app.android?.versionCode) },
         { path: 'api.non_local', equals: true },
         { path: 'api.raw_url_redacted', equals: true },
+        { path: 'backend_version.endpoint_path', equals: '/version' },
+        { path: 'backend_version.raw_url_redacted', equals: true },
+        { path: 'backend_version.response_ok', equals: true },
+        { path: 'backend_version.service', equals: 'backend' },
+        { path: 'backend_version.commit_matches_expected', equals: true },
         { path: 'summary.run_mode', equals: 'run' },
         { path: 'summary.api_non_local', equals: true },
+        { path: 'summary.backend_version_passed', equals: true },
         { path: 'summary.event_ingest_passed', equals: true },
         { path: 'summary.otlp_ingest_passed', equals: true },
         { path: 'summary.safe_payload', equals: true },
@@ -188,8 +195,14 @@ export function buildReleaseEvidencePolicies(app) {
         { path: 'summary.event_accepted_count', min: 1 },
         { path: 'summary.otlp_accepted_spans', min: 1 },
       ],
+      sameValue: [
+        { path: 'backend_version.commit_sha', equalsPath: 'backend_version.expected_commit_sha' },
+      ],
       requiredTruthy: [
         'api.host_sha256',
+        'backend_version.host_sha256',
+        'backend_version.commit_sha',
+        'backend_version.expected_commit_sha',
         'request.request_id_sha256',
         'request.session_id_sha256',
         'event.request_id_sha256',
@@ -227,6 +240,110 @@ export function buildReleaseEvidencePolicies(app) {
   };
 }
 
+function getCurrentGitHead(repoRoot) {
+  const result = spawnSync('git', ['rev-parse', 'HEAD'], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  const commitSha = result.stdout?.trim().toLowerCase() ?? '';
+  return result.status === 0 && /^[0-9a-f]{40}$/.test(commitSha) ? commitSha : null;
+}
+
+function runGit(repoRoot, args) {
+  return spawnSync('git', args, {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+}
+
+const telemetryBackendRuntimePaths = [
+  'backend/src/app.ts',
+  'backend/src/routes/app-telemetry.routes.ts',
+  'backend/src/routes/health.routes.ts',
+  'backend/src/routes/meta.routes.ts',
+  'backend/src/services/app-telemetry.service.ts',
+  'backend/src/utils/version.ts',
+];
+
+function normalizeCommitSha(value) {
+  const text = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  return /^[0-9a-f]{40}$/.test(text) ? text : null;
+}
+
+export function validateTelemetryBackendVersionFreshness(evidence, repoRoot) {
+  const errors = [];
+  const expectedCommit = normalizeCommitSha(evidence.backend_version?.expected_commit_sha);
+  const backendCommit = normalizeCommitSha(evidence.backend_version?.commit_sha);
+  if (!expectedCommit) {
+    errors.push('backend_version.expected_commit_sha must be a full git commit SHA');
+  }
+  if (!backendCommit) {
+    errors.push('backend_version.commit_sha must be a full git commit SHA');
+  }
+  if (!expectedCommit || !backendCommit) return errors;
+  if (backendCommit !== expectedCommit) {
+    errors.push('backend_version.commit_sha must match backend_version.expected_commit_sha');
+    return errors;
+  }
+
+  const currentGitHead = getCurrentGitHead(repoRoot);
+  if (!currentGitHead) {
+    errors.push('current git HEAD must be available for backend version freshness checks');
+    return errors;
+  }
+
+  const ancestorResult = runGit(repoRoot, ['merge-base', '--is-ancestor', backendCommit, currentGitHead]);
+  if (ancestorResult.status !== 0) {
+    errors.push('backend_version.commit_sha must be an ancestor of current git HEAD');
+    return errors;
+  }
+
+  const diffResult = runGit(repoRoot, [
+    'diff',
+    '--name-only',
+    `${backendCommit}..${currentGitHead}`,
+    '--',
+    ...telemetryBackendRuntimePaths,
+  ]);
+  if (diffResult.status !== 0) {
+    errors.push('backend telemetry/version path freshness diff must be readable');
+    return errors;
+  }
+  const changedRuntimePaths = diffResult.stdout
+    .split(/\r?\n/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  if (changedRuntimePaths.length > 0) {
+    errors.push(
+      `backend telemetry/version paths changed after evidence backend commit: ${changedRuntimePaths.join(', ')}`
+    );
+  }
+
+  const worktreeDiffResult = runGit(repoRoot, [
+    'diff',
+    '--name-only',
+    'HEAD',
+    '--',
+    ...telemetryBackendRuntimePaths,
+  ]);
+  if (worktreeDiffResult.status !== 0) {
+    errors.push('backend telemetry/version worktree freshness diff must be readable');
+    return errors;
+  }
+  const dirtyRuntimePaths = worktreeDiffResult.stdout
+    .split(/\r?\n/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  if (dirtyRuntimePaths.length > 0) {
+    errors.push(
+      `backend telemetry/version paths have uncommitted changes after evidence collection: ${dirtyRuntimePaths.join(', ')}`
+    );
+  }
+  return errors;
+}
+
 export function summarizeEvidenceCandidate(filePath, policy, repoRoot) {
   if (!filePath) {
     return {
@@ -244,6 +361,9 @@ export function summarizeEvidenceCandidate(filePath, policy, repoRoot) {
     const evidence = JSON.parse(fs.readFileSync(filePath, 'utf8'));
     const blocked = evidence.summary?.blocked;
     const validationErrors = validateEvidenceAgainstPolicy(evidence, policy);
+    if (evidence.type === 'app-telemetry-runtime-evidence') {
+      validationErrors.push(...validateTelemetryBackendVersionFreshness(evidence, repoRoot));
+    }
     const state = blocked === true
         ? 'blocked_candidate'
         : validationErrors.length === 0

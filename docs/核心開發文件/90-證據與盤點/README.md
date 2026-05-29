@@ -21,8 +21,8 @@
 2. [環境與發版驗證/README.md](./環境與發版驗證/README.md)
 3. [頁面HTML快照/README.md](./頁面HTML快照/README.md)
 4. [手動回歸證據/README.md](./手動回歸證據/README.md)
-5. [環境與發版驗證/App-External-Evidence-Status-2026-05-16T06-49-03-771Z.json](./環境與發版驗證/App-External-Evidence-Status-2026-05-16T06-49-03-771Z.json)
-6. [環境與發版驗證/App-External-Evidence-Handoff-2026-05-16T06-49-04-222Z.json](./環境與發版驗證/App-External-Evidence-Handoff-2026-05-16T06-49-04-222Z.json)
+5. [環境與發版驗證/App-External-Evidence-Status-2026-05-29T16-08-25-940Z.json](./環境與發版驗證/App-External-Evidence-Status-2026-05-29T16-08-25-940Z.json)
+6. [環境與發版驗證/App-External-Evidence-Handoff-2026-05-29T16-08-26-406Z.json](./環境與發版驗證/App-External-Evidence-Handoff-2026-05-29T16-08-26-406Z.json)
 
 ## 固定保留理由
 

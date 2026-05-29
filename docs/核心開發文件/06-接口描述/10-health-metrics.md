@@ -39,6 +39,7 @@
 ## 操作級規則（深水區）
 
 - `/version` 與 `/api/v1/version` 都回傳 `{ service, version, commitSha, commitShortSha, timestamp }`；`version` 來源為 `backend/package.json`，`commitSha` 來源依序為 `CJ_COMMIT_SHA`、`VERCEL_GIT_COMMIT_SHA`、`GITHUB_SHA`、`git rev-parse HEAD`，無法解析時為 `unknown`。前端與 Admin 版本面板目前實際請求的是 `VITE_API_BASE_URL + '/version'`。
+- App release telemetry runtime evidence 也依賴 `/version`：`mobile/scripts/run-telemetry-runtime-smoke.mjs --run` 會先要求 release backend `/version.service=backend` 且 `/version.commitSha` 等於 runner 執行當下本地 `HEAD`，才會送 `POST /api/v1/telemetry/events` 與 `POST /api/v1/telemetry/otlp/v1/traces`；版本不對齊時不得產生 pass evidence。release audit 允許後續只追加 docs / evidence commit，但若該 backend commit 後改過 backend telemetry/version runtime 路徑，舊 evidence 會失效。
 - `/health` 也會帶 `version / commitSha / commitShortSha`，用於部署探針在同一 payload 內比對服務健康與後端代碼版本；`/health` 的 HTTP 200 不代表完全 healthy，仍要看 `status` 與 `checks`。
 - `/health.checks.lock.message` 會揭示 `Lock backend: redis/simple-lock/...`；`/health.checks.aiStream.message` 會揭示 `AI Stream backend: redis/memory`。發布 gate 會要求 lock 與 AI Stream 都是 Redis-backed runtime。
 - `/api/v1/version` 屬 API 命名空間兼容入口；root alias `/version` 雖保留了探針語義，但當前也承接版本面板的真實流量。

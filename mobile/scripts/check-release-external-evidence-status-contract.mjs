@@ -280,9 +280,16 @@ const baselineResult = runStatus();
 const baseline = parseJsonResult('baseline status JSON', baselineResult);
 validateStatus(baseline, 'baseline status JSON');
 const baselineBlockerIds = validateBlockers(baseline.blockers, 'baseline status JSON');
-const requiredBaselineBlockerIds = baseline.evidence?.release_db_parity?.state === 'candidate_pass'
-  ? requiredCurrentBlockerIds.filter((id) => id !== 'release_db_parity_evidence')
-  : requiredCurrentBlockerIds;
+const baselinePassEvidenceBlockerIds = new Set();
+if (baseline.evidence?.release_db_parity?.state === 'candidate_pass') {
+  baselinePassEvidenceBlockerIds.add('release_db_parity_evidence');
+}
+if (baseline.evidence?.telemetry_runtime?.state === 'candidate_pass') {
+  baselinePassEvidenceBlockerIds.add('telemetry_runtime_evidence');
+}
+const requiredBaselineBlockerIds = requiredCurrentBlockerIds.filter(
+  (id) => !baselinePassEvidenceBlockerIds.has(id)
+);
 for (const id of requiredBaselineBlockerIds) {
   if (!baselineBlockerIds.has(id)) {
     fail(`baseline status JSON blockers must include ${id} while external release evidence is absent`);
@@ -378,6 +385,15 @@ const appIdentity = {
   app_android_package: baseline.app.android_package,
   app_ios_bundle_identifier: baseline.app.ios_bundle_identifier,
 };
+const gitHeadResult = spawnSync('git', ['rev-parse', 'HEAD'], {
+  cwd: path.resolve(mobileRoot, '..'),
+  encoding: 'utf8',
+  stdio: ['ignore', 'pipe', 'pipe'],
+});
+const currentGitHead = gitHeadResult.status === 0 ? gitHeadResult.stdout.trim().toLowerCase() : null;
+if (!/^[0-9a-f]{40}$/.test(currentGitHead ?? '')) {
+  fail('status contract must resolve current git HEAD for telemetry runtime fixture.');
+}
 const easIosReleaseRecord = {
   type: 'app-eas-ios-release-evidence',
   app_ios_bundle_identifier: baseline.app.ios_bundle_identifier,
@@ -574,6 +590,21 @@ const evidenceFixturePairs = [
         non_local: true,
         raw_url_redacted: true,
       },
+      backend_version: {
+        endpoint_path: '/version',
+        host_sha256: hash,
+        raw_url_redacted: true,
+        response_status: 200,
+        response_ok: true,
+        service: 'backend',
+        version: '1.3.4',
+        commit_sha: currentGitHead,
+        commit_short_sha: currentGitHead.slice(0, 7),
+        expected_commit_sha: currentGitHead,
+        expected_commit_short_sha: currentGitHead.slice(0, 7),
+        expected_commit_source: 'git_rev_parse_head',
+        commit_matches_expected: true,
+      },
       request: {
         request_id_sha256: hash,
         session_id_sha256: hash,
@@ -590,6 +621,7 @@ const evidenceFixturePairs = [
       summary: {
         run_mode: 'run',
         api_non_local: true,
+        backend_version_passed: true,
         event_ingest_passed: true,
         otlp_ingest_passed: true,
         event_accepted_count: 1,

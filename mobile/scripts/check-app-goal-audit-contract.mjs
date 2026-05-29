@@ -202,7 +202,6 @@ function validateAuditRecord(label, audit) {
       'prerequisite_only_blocker_ids:',
       'external_handoff:',
       'app_store_connect_api_credentials',
-      'telemetry_runtime_evidence',
       'sentry_runtime_query_credentials',
       'native_crash_event_id',
       'ios_physical_device_visible',
@@ -217,6 +216,12 @@ function validateAuditRecord(label, audit) {
       !releaseSignoff.caveat.includes('release_db_parity_evidence')
     ) {
       fail(`${label} incomplete release_signoff caveat must include release_db_parity_evidence when release DB parity remains unresolved`);
+    }
+    if (
+      releaseSignoffDetails.blocker_ids.includes('telemetry_runtime_evidence') &&
+      !releaseSignoff.caveat.includes('telemetry_runtime_evidence')
+    ) {
+      fail(`${label} incomplete release_signoff caveat must include telemetry_runtime_evidence when telemetry runtime remains unresolved`);
     }
     for (const requiredPrerequisiteOnlyBlocker of [
       'sentry_runtime_query_credentials',

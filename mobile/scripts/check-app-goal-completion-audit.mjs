@@ -133,6 +133,8 @@ const externalStatusContractNeedles = [
   'release:external-evidence:validate -- --physical-platform=android',
   'release:external-evidence:run -- --physical-platform=android',
   'APP_ANDROID_DEVICE_SERIAL=<physical-device-serial>',
+  'env_files.values_redacted',
+  'env_files.loaded',
   'release:completion:audit:strict',
 ];
 const prereqReportContractNeedles = [
@@ -512,7 +514,7 @@ const checklist = [
       'mobile/scripts/lib/release-evidence-policy.mjs shared external evidence policy',
       'mobile/scripts/run-telemetry-runtime-smoke.mjs App telemetry runtime event + OTLP release evidence runner',
       'release:completion:audit:contract covers app-release-completion-audit JSON schema, blocker_ids / handoff_blocker_ids consistency, external handoff coverage, strict exit-code consistency, required release blocker ids, and preflight wiring',
-      'release:evidence:check validates App-External-Evidence-Status-*.json and App-External-Evidence-Handoff-*.json identity, blocker alignment, current release completion audit handoff_blocker_ids coverage, release/prerequisite classification, timestamp coherence, command coverage, final gates, and docs references',
+      'release:evidence:check validates App-External-Evidence-Status-*.json and App-External-Evidence-Handoff-*.json identity, blocker alignment, status env_files redaction/provenance schema, current release completion audit handoff_blocker_ids coverage, release/prerequisite classification, timestamp coherence, command coverage, final gates, and docs references',
       'release:external-evidence:status:contract covers iOS/Android platform-specific validate/run next commands, signed app path, Android serial, and strict audit gate',
       'release:external-evidence:prereq-report:check covers iOS/Android device_visibility, Android physical-device validate, env-file placeholder guard, and env-file key allowlist',
       listLatest('App-Native-Maestro-') ?? 'missing App-Native-Maestro evidence',
@@ -542,6 +544,8 @@ const checklist = [
         "findEvidenceByPrefix('App-External-Evidence-Status-', ['.json'])",
         "findEvidenceByPrefix('App-External-Evidence-Handoff-', ['.json'])",
         'requireSameIdSet',
+        'env_files.values_redacted',
+        'env_files.loaded',
         'external status blockers and handoff items',
         'release:external-evidence:validate -- --physical-platform=ios',
         'release:external-evidence:validate -- --physical-platform=android',

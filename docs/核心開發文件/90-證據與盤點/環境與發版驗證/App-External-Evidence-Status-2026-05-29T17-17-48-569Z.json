@@ -1,0 +1,187 @@
+{
+  "type": "app-external-evidence-status",
+  "generated_at": "2026-05-29T17:17:47.208Z",
+  "app": {
+    "ios_bundle_identifier": "com.cj.motherbearcourt",
+    "android_package": "com.cj.motherbearcourt",
+    "version": "1.3.1",
+    "ios_build_number": "1",
+    "android_version_code": 1,
+    "eas_project_id_present": false,
+    "eas_project_id_valid": false,
+    "eas_project_id_format": "missing"
+  },
+  "credentials": {
+    "expo_token_present": false,
+    "apple_submission_credentials_present": false,
+    "app_store_connect_api_credentials_present": false,
+    "push_delivery_token_present": false,
+    "sentry_runtime_query_credentials_present": false,
+    "native_crash_event_id_present": false,
+    "telemetry_runtime_api_base_url_present": false,
+    "release_database_url_present": false
+  },
+  "env_files": {
+    "values_redacted": true,
+    "loaded": []
+  },
+  "tools": {
+    "eas_cli_available": true,
+    "eas_cli_authenticated": false
+  },
+  "devices": {
+    "ios": {
+      "ok": true,
+      "physical_connected": 0,
+      "physical_offline": 2,
+      "simulators": 11
+    },
+    "android": {
+      "ok": true,
+      "physical_connected": 0,
+      "emulator_connected": 0,
+      "unauthorized_or_offline": 0
+    }
+  },
+  "evidence": {
+    "eas_ios_release": {
+      "state": "missing",
+      "file": null,
+      "evidence_type": null,
+      "blocked": null,
+      "run_mode": null,
+      "validation_errors": []
+    },
+    "testflight": {
+      "state": "missing",
+      "file": null,
+      "evidence_type": null,
+      "blocked": null,
+      "run_mode": null,
+      "validation_errors": []
+    },
+    "eas_android_release": {
+      "state": "missing",
+      "file": null,
+      "evidence_type": null,
+      "blocked": null,
+      "run_mode": null,
+      "validation_errors": []
+    },
+    "physical_device": {
+      "state": "missing",
+      "file": null,
+      "evidence_type": null,
+      "blocked": null,
+      "run_mode": null,
+      "validation_errors": []
+    },
+    "push_delivery": {
+      "state": "missing",
+      "file": null,
+      "evidence_type": null,
+      "blocked": null,
+      "run_mode": null,
+      "validation_errors": []
+    },
+    "native_crash_runtime": {
+      "state": "missing",
+      "file": null,
+      "evidence_type": null,
+      "blocked": null,
+      "run_mode": null,
+      "validation_errors": []
+    },
+    "telemetry_runtime": {
+      "state": "candidate_pass",
+      "file": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-Telemetry-Runtime-2026-05-29T16-00-52-498Z.json",
+      "evidence_type": "app-telemetry-runtime-evidence",
+      "blocked": false,
+      "run_mode": "run",
+      "validation_errors": []
+    },
+    "release_db_parity": {
+      "state": "candidate_pass",
+      "file": "docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-Release-DB-Parity-2026-05-16T06-23-53-463Z.json",
+      "evidence_type": "app-release-db-parity-evidence",
+      "blocked": null,
+      "run_mode": null,
+      "validation_errors": []
+    }
+  },
+  "next_commands": [
+    "npx eas init 或在 mobile/app.json 設定真實 UUID 形狀 extra.eas.projectId",
+    "EXPO_TOKEN=<token> npm --prefix mobile run eas-ios-release:smoke -- --run",
+    "EXPO_TOKEN=<token> APP_STORE_CONNECT_ISSUER_ID=<issuer> APP_STORE_CONNECT_KEY_ID=<key-id> APP_STORE_CONNECT_PRIVATE_KEY_PATH=<p8-path> npm --prefix mobile run eas-ios-release:smoke -- --run --require-testflight",
+    "EXPO_TOKEN=<token> npm --prefix mobile run eas-android-release:smoke -- --run",
+    "DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer APP_IOS_DEVICE_UDID=<trusted-device-udid> APP_IOS_DEVICE_APP_PATH=<signed-app-path> npm --prefix mobile run release:external-evidence:validate -- --physical-platform=ios --report-dir=<report-dir>",
+    "DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer APP_IOS_DEVICE_UDID=<trusted-device-udid> APP_IOS_DEVICE_APP_PATH=<signed-app-path> npm --prefix mobile run release:external-evidence:run -- --physical-platform=ios --report-dir=<report-dir>",
+    "DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer APP_IOS_DEVICE_UDID=<trusted-device-udid> npm --prefix mobile run physical-device:smoke -- --platform=ios --app-path=<signed-app-path>",
+    "APP_ANDROID_DEVICE_SERIAL=<physical-device-serial> npm --prefix mobile run release:external-evidence:validate -- --physical-platform=android --report-dir=<report-dir>",
+    "APP_ANDROID_DEVICE_SERIAL=<physical-device-serial> npm --prefix mobile run release:external-evidence:run -- --physical-platform=android --report-dir=<report-dir>",
+    "APP_ANDROID_DEVICE_SERIAL=<physical-device-serial> npm --prefix mobile run physical-device:smoke -- --platform=android --run",
+    "APP_PUSH_DELIVERY_EXPO_PUSH_TOKEN=<ExpoPushToken> npm --prefix mobile run push-delivery:smoke -- --run",
+    "APP_SENTRY_ORG=<org> APP_SENTRY_PROJECT=<project> APP_SENTRY_AUTH_TOKEN=<token> APP_NATIVE_CRASH_SENTRY_EVENT_ID=<event-id> npm --prefix mobile run native-crash:runtime:smoke -- --run",
+    "npm --prefix mobile run telemetry:runtime:smoke -- --run --release-env-file=release.env.local",
+    "DATABASE_URL=<release-or-production-postgresql-url> npm --prefix backend run ops:release-db:evidence",
+    "npm --prefix mobile run release:completion:audit:strict"
+  ],
+  "blockers": [
+    {
+      "id": "eas_project_id",
+      "message": "mobile/app.json must include a real UUID-shaped extra.eas.projectId."
+    },
+    {
+      "id": "expo_token",
+      "message": "EXPO_TOKEN is required for non-interactive EAS release metadata checks."
+    },
+    {
+      "id": "apple_submission_credentials",
+      "message": "ASC_APPLE_ID and EXPO_APPLE_APP_SPECIFIC_PASSWORD must both be present."
+    },
+    {
+      "id": "app_store_connect_api_credentials",
+      "message": "App Store Connect API credentials are required for TestFlight evidence."
+    },
+    {
+      "id": "sentry_runtime_query_credentials",
+      "message": "Sentry org, project, and auth token are required to query controlled native crash runtime evidence."
+    },
+    {
+      "id": "native_crash_event_id",
+      "message": "APP_NATIVE_CRASH_SENTRY_EVENT_ID or SENTRY_EVENT_ID is required to query controlled native crash runtime evidence."
+    },
+    {
+      "id": "eas_ios_release_evidence",
+      "message": "Pass-state App-EAS-iOS-Release-* evidence is missing."
+    },
+    {
+      "id": "testflight_evidence",
+      "message": "Pass-state TestFlight evidence is missing."
+    },
+    {
+      "id": "eas_android_release_evidence",
+      "message": "Pass-state App-EAS-Android-Release-* evidence is missing."
+    },
+    {
+      "id": "physical_device_evidence",
+      "message": "Pass-state App-Physical-Device-* evidence is missing."
+    },
+    {
+      "id": "push_delivery_evidence",
+      "message": "Pass-state App-Push-Delivery-* evidence is missing."
+    },
+    {
+      "id": "native_crash_runtime_evidence",
+      "message": "Pass-state App-Native-Crash-Runtime-* evidence is missing."
+    },
+    {
+      "id": "ios_physical_device_visible",
+      "message": "No connected iOS physical device is visible to xctrace."
+    },
+    {
+      "id": "android_physical_device_visible",
+      "message": "No connected Android physical device is visible to adb."
+    }
+  ]
+}

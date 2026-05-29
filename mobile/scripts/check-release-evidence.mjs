@@ -396,6 +396,30 @@ if (externalStatusEvidence) {
     );
   }
 
+  requireObject(externalStatusEvidence.env_files, 'external status evidence env_files must be an object.');
+  requireValue(
+    externalStatusEvidence.env_files?.values_redacted === true,
+    'external status evidence env_files.values_redacted must be true.'
+  );
+  requireValue(
+    Array.isArray(externalStatusEvidence.env_files?.loaded),
+    'external status evidence env_files.loaded must be an array.'
+  );
+  for (const [index, entry] of (externalStatusEvidence.env_files?.loaded ?? []).entries()) {
+    requireObject(entry, `external status evidence env_files.loaded[${index}] must be an object.`);
+    requireNonEmptyString(entry?.file, `external status evidence env_files.loaded[${index}].file must be non-empty.`);
+    requireIntegerAtLeast(
+      entry?.loaded_keys,
+      0,
+      `external status evidence env_files.loaded[${index}].loaded_keys must be a non-negative integer.`
+    );
+    requireIntegerAtLeast(
+      entry?.kept_existing_keys,
+      0,
+      `external status evidence env_files.loaded[${index}].kept_existing_keys must be a non-negative integer.`
+    );
+  }
+
   requireObject(externalStatusEvidence.tools, 'external status evidence tools must be an object.');
   requireBoolean(externalStatusEvidence.tools?.eas_cli_available, 'external status evidence tools.eas_cli_available must be boolean.');
   requireBoolean(
@@ -704,5 +728,5 @@ if (issues.length > 0) {
 }
 
 console.log(
-  `[release-evidence-check] ok: ${expectedEvidenceFile} proves ${requiredFlows.length}/${requiredFlows.length} iOS simulator Maestro flows; ${iosReleaseSimulatorEvidenceFile} proves iOS Release simulator build/install/launch; ${externalStatusEvidenceFile} and ${externalHandoffEvidenceFile} prove current external blocker handoff is schema-valid, release-audit-covered, timestamp-coherent, and docs-referenced`
+  `[release-evidence-check] ok: ${expectedEvidenceFile} proves ${requiredFlows.length}/${requiredFlows.length} iOS simulator Maestro flows; ${iosReleaseSimulatorEvidenceFile} proves iOS Release simulator build/install/launch; ${externalStatusEvidenceFile} and ${externalHandoffEvidenceFile} prove current external blocker handoff is schema-valid, env-file-provenance-valid, release-audit-covered, timestamp-coherent, and docs-referenced`
 );

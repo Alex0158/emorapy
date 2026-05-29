@@ -139,6 +139,38 @@ Standalone `release:external-evidence:status` 必須能安全讀取和正式 orc
 - `npm run docs:check`
 - `npm run docs:audit:dry-run:current`
 
+## 2026-05-30 本輪子任務：external status persisted schema 對齊
+
+### 目標
+
+`release:external-evidence:status` 已把 `env_files.values_redacted` 與 `env_files.loaded[]` 納入當前 JSON schema；最新持久化的 `App-External-Evidence-Status-*.json` 也必須符合這個 schema，且 `release:evidence:check` 必須直接校驗這一點。否則 preflight 可能繼續引用舊 status 快照，讓外部 owner 看到的 evidence pack 與當前 status / orchestrator 契約不一致。
+
+### 業務場景
+
+| 場景 | 預期行為 |
+| --- | --- |
+| 本地 App preflight 檢查 repo evidence pack | `release:evidence:check` 要求最新 `App-External-Evidence-Status-*.json` 含 `env_files.values_redacted=true` 與 array 型 `env_files.loaded` |
+| 外部 owner 查看 repo 內最新 status/handoff 快照 | status/handoff 仍只列 blocker / owner action / final gates，不替代 pass evidence；status 額外明確表示是否有 env-file provenance |
+| 無 `--release-env-file` 的 baseline 快照 | `env_files.loaded=[]` 是合法狀態；表示來源是 shell/CI/default env 或完全無 env-file，不代表缺 schema |
+| 後續 status schema 再改動 | 必須同步 `release:evidence:check`、status contract、持久化 artifact 與核心文件引用，避免舊 artifact 悄悄通過 |
+
+### 邊界與注意事項
+
+1. 重新落盤 status/handoff 只刷新交接快照，不解除任何 EAS/TestFlight/真機/provider/native crash blocker。
+2. 不改歷史 evidence JSON；歷史檔保留當時快照，只有最新指向更新到當前 schema。
+3. `env_files.loaded=[]` 不代表 owner 沒有 secret，只代表本次快照沒有顯式 env-file provenance；GitHub secret env 仍不應被寫成 env-file。
+4. 文件引用必須同步到最新 status/handoff 檔名，讓 `release:evidence:check` 的 docs-reference gate 有明確 SSOT。
+
+### 驗證命令
+
+- `npm --prefix mobile run release:external-evidence:status -- --report-dir=docs/核心開發文件/90-證據與盤點/環境與發版驗證`
+- `npm --prefix mobile run release:external-evidence:handoff:check -- --report-dir=docs/核心開發文件/90-證據與盤點/環境與發版驗證`
+- `npm --prefix mobile run release:evidence:check`
+- `npm --prefix mobile run release:evidence-redaction:check`
+- `npm --prefix mobile run release:external-evidence:status:contract`
+- `npm run docs:check`
+- `npm run docs:audit:dry-run:current`
+
 ## 必須補齊的外部輸入
 
 | 類別 | 必要輸入 / 證據 | 安全要求 |

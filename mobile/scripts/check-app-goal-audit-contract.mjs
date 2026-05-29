@@ -334,7 +334,7 @@ function validateAuditRecord(label, audit) {
   }
   if (
     !testsAndGatesText.includes(
-      'release:evidence:check validates App-External-Evidence-Status-*.json and App-External-Evidence-Handoff-*.json identity, blocker alignment, current release completion audit handoff_blocker_ids coverage, release/prerequisite classification, timestamp coherence, command coverage, final gates, and docs references'
+      'release:evidence:check validates App-External-Evidence-Status-*.json and App-External-Evidence-Handoff-*.json identity, blocker alignment, status env_files redaction/provenance schema, current release completion audit handoff_blocker_ids coverage, release/prerequisite classification, timestamp coherence, command coverage, final gates, and docs references'
     )
   ) {
     fail(`${label} tests_and_gates must state that release:evidence:check validates external status/handoff snapshots`);
@@ -439,6 +439,8 @@ function validateAuditRecord(label, audit) {
     "findEvidenceByPrefix('App-External-Evidence-Handoff-', ['.json'])",
     'externalBlockerIds',
     'requireSameIdSet',
+    'env_files.values_redacted',
+    'env_files.loaded',
     'external status blockers and handoff items',
     'runReleaseCompletionAuditJson',
     'current release completion audit handoff_blocker_ids',
@@ -474,6 +476,8 @@ function validateAuditRecord(label, audit) {
     'release:external-evidence:validate -- --physical-platform=android',
     'release:external-evidence:run -- --physical-platform=android',
     'APP_ANDROID_DEVICE_SERIAL=<physical-device-serial>',
+    'env_files.values_redacted',
+    'env_files.loaded',
     'release:completion:audit:strict',
     'telemetry:runtime:smoke -- --run',
   ]) {

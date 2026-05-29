@@ -12,7 +12,7 @@
 
 本文定義 CJ schema migration、DB parity、相容性與棄用的驗收口徑。它不替代 `05-工程架構與共享層/03-資料模型SchemaMigration與相容性治理基線.md`，而是把架構治理要求落到測試、precheck、release gate、manual evidence 與不得宣稱事項。
 
-當前現碼已有 Prisma migrations、`ops:db:status`、`ops:release-db:check`、release gate、release-blocking migration unit tests、部分 additive schema 與 fallback；App 相關 release-blocking migration 已覆蓋 Push device token、Push receipt tracking、Notification action metadata、App telemetry events、AI stream persistence 與 M2 Interview facts schema，且 AI stream persistence 已在本機隔離 Postgres `prisma migrate deploy` + M1 true-service judgment smoke 中驗證可寫入 `ai_stream_sessions` / `ai_stream_events`，Interview facts schema 已在 M2 `--deep` true-service smoke 中驗證 background response 可落庫，Notification action metadata 已在 M5 true-service smoke 中驗證 read / snooze / dismiss / act state sync。2026-05-08 已補 release-blocking 清單檔案覆蓋單測，且本機隔離 Postgres 上 `prisma migrate status` 顯示 25 migrations up to date、`ops:release-db:check` 回報 14/14 required migrations applied。仍沒有完整資料字典、schema diff 分級、expand / contract 自動檢查、backfill completeness 證據或 release / production DB parity 證據。
+當前現碼已有 Prisma migrations、`ops:db:status`、`ops:release-db:check`、release gate、release-blocking migration unit tests、部分 additive schema 與 fallback；App 相關 release-blocking migration 已覆蓋 Push device token、Push receipt tracking、Notification action metadata、App telemetry events、AI stream persistence 與 M2 Interview facts schema，且 AI stream persistence 已在本機隔離 Postgres `prisma migrate deploy` + M1 true-service judgment smoke 中驗證可寫入 `ai_stream_sessions` / `ai_stream_events`，Interview facts schema 已在 M2 `--deep` true-service smoke 中驗證 background response 可落庫，Notification action metadata 已在 M5 true-service smoke 中驗證 read / snooze / dismiss / act state sync。2026-05-08 已補 release-blocking 清單檔案覆蓋單測，且本機隔離 Postgres 上 `prisma migrate status` 顯示 25 migrations up to date、`ops:release-db:check` 回報 14/14 required migrations applied；non-local release / production DB parity evidence `App-Release-DB-Parity-2026-05-16T06-23-53-463Z.json` 已通過並被 `release:completion:audit -- --json` 判為 passed。仍沒有完整資料字典、schema diff 分級、expand / contract 自動檢查或 backfill completeness 證據；後續若新增 release-blocking migration，仍必須重新產生 fresh release DB parity evidence。
 
 ## 2. 驗收分層
 
@@ -37,7 +37,7 @@
 | CJ-SCHEMA-T-005 | CJ-SCHEMA-005 | deprecated field 有替代來源、讀寫策略、保留窗口與移除條件 | 待建立 |
 | CJ-SCHEMA-T-006 | CJ-SCHEMA-006 | release-blocking migration 清單與 unit tests、待辦台賬、release gate 一致 | 部分覆蓋；unit test 已覆蓋清單引用的 migration 目錄存在、App release-sensitive migrations 均進清單、missing / failed / rolled back 會阻塞，且 release evidence writer 只輸出 target / provider / local classification / migration report，不輸出 `DATABASE_URL` 或 host |
 | CJ-SCHEMA-T-007 | CJ-SCHEMA-007 | production hotfix / manual DB patch 有 migration history reconciliation 或 drift resolution record | 待建立 |
-| CJ-SCHEMA-T-008 | CJ-SCHEMA-002 / CJ-SCHEMA-006 | App stream / telemetry / push / notification action / interview facts schema migration 必須在 local migration status、release-blocking 清單、App smoke 與 Parity 文件中同時可追溯 | 部分覆蓋；App release-sensitive migrations 已加入 release-blocking 清單並有檔案覆蓋單測，local Postgres `prisma migrate status` 已顯示 25 migrations up to date，`ops:release-db:check` 已在 local DB 回報 14/14 required migrations applied，M1/M2/M4/M5 smoke 已觀察到對應 runtime 寫入；release / production DB parity 需由 `npm --prefix backend run ops:release-db:evidence` 對 non-local release / production DB 產出 `App-Release-DB-Parity-*.json`，raw console output、local DB evidence 或手寫 markdown 不可替代；Redis-backed replay runtime evidence 待補 |
+| CJ-SCHEMA-T-008 | CJ-SCHEMA-002 / CJ-SCHEMA-006 | App stream / telemetry / push / notification action / interview facts schema migration 必須在 local migration status、release-blocking 清單、App smoke 與 Parity 文件中同時可追溯 | 部分覆蓋；App release-sensitive migrations 已加入 release-blocking 清單並有檔案覆蓋單測，local Postgres `prisma migrate status` 已顯示 25 migrations up to date，`ops:release-db:check` 已在 local DB 回報 14/14 required migrations applied，M1/M2/M4/M5 smoke 已觀察到對應 runtime 寫入；non-local release / production DB parity 已由 `npm --prefix backend run ops:release-db:evidence` 產出 `App-Release-DB-Parity-2026-05-16T06-23-53-463Z.json` 並通過 audit。raw console output、local DB evidence 或手寫 markdown 仍不可替代；Redis-backed replay runtime evidence 待補；後續 migration 變更需重跑 fresh evidence |
 
 ## 4. 發布驗收規則
 
@@ -56,7 +56,7 @@
 1. `schema.prisma` 已更新不代表 migration 已建立。
 2. migration 檔案已 commit 不代表 dev / release / production DB 已套用。
 3. Dev DB `migrate deploy` 成功不代表 release DB parity 完成。
-4. Local DB `ops:release-db:check` 成功不代表 release / production DB parity 完成；App release sign-off 只接受 structured non-local `App-Release-DB-Parity-*.json`。
+4. Local DB `ops:release-db:check` 成功不代表 release / production DB parity 完成；App release sign-off 只接受 structured non-local `App-Release-DB-Parity-*.json`。當前 pass evidence 已存在，但後續 release-blocking migration 變更會使舊 evidence 不足，必須重跑。
 5. `db push` 成功不代表 migration history 完整，也不代表 production-safe。
 6. additive 欄位存在不代表舊資料已 backfill 或舊 client 已相容。
 7. deprecated 註記存在不代表可刪除；刪除需有棄用窗口、讀寫停止、資料遷移與 release evidence。

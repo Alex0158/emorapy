@@ -150,7 +150,7 @@ App 後續開發需要 Web 配合的是共享層抽離，不是改變 Web UI 或
 
 1. 讓 `packages/contracts` 產生穩定的 declaration/build 輸出，供 backend 安全引用
 2. 繼續把 `frontend/src/services/request.ts` 可抽離部分下沉到 `packages/api-client`
-3. 依 `20-App端/03-App完整版本開發Roadmap.md` 補齊 EAS project id、EAS iOS/Android production artifact、TestFlight、physical device、真 Push delivery、native crash runtime evidence、release / production DB parity 與 evidence pack
+3. 依 `20-App端/03-App完整版本開發Roadmap.md` 補齊 EAS project id、EAS iOS/Android production artifact、TestFlight、physical device、真 Push delivery、native crash runtime evidence 與 evidence pack；release / production DB parity 已有 structured pass evidence，但後續 schema/migration 變更仍需重新跑 fresh evidence
 4. 持續要求所有 SecureStore、API、SSE、Push notification、upload / ImagePicker、Deep Link、lifecycle、telemetry 副作用經 `mobile/src/platform` adapter；`platform:check` 已納入 release preflight，但仍不能替代真機驗收
 5. 建立 `packages/domain`，開始收斂 query keys、formatter、permission、AI phase reducer 與純業務邏輯
 6. 若上述任何一步改變既有架構決策，新增或更新 ADR，並同步威脅建模、安全需求、NFR 與 RTM

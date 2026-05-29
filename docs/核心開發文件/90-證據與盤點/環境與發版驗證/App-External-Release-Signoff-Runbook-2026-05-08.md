@@ -35,8 +35,8 @@ npm --prefix mobile run goal:completion:audit:strict
 - physical device smoke evidence
 - Expo / APNs provider delivery evidence
 - Sentry native crash runtime evidence
-- App telemetry runtime ingest evidence
-- release / production DB parity evidence
+
+App telemetry runtime ingest evidence 與 release / production DB parity evidence 目前已有 structured pass evidence；若後續 backend telemetry/version runtime 路徑或 release-blocking migration 有變更，必須重新產生 fresh evidence，屆時相關項目會重新進入 blocker。
 
 ## 2. 不可接受的替代物
 
@@ -228,8 +228,8 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer npm --prefix mobile run
 5. physical device smoke evidence
 6. Expo push provider delivery evidence
 7. Sentry native crash runtime evidence
-8. App telemetry event + OTLP runtime ingest evidence
-9. release / production DB parity evidence
+8. App telemetry event + OTLP runtime ingest evidence（已存在 pass evidence；若 runtime path drift 則刷新）
+9. release / production DB parity evidence（已存在 pass evidence；若 release-blocking migration 變更則刷新）
 10. `release:completion:audit:strict`
 11. `goal:completion:audit:strict`
 

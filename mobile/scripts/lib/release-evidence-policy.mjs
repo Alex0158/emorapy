@@ -161,6 +161,8 @@ export function buildReleaseEvidencePolicies(app) {
         { path: 'summary.event_found', equals: true },
         { path: 'summary.release_matches', equals: true },
         { path: 'summary.environment_matches', equals: true },
+        { path: 'expected.environment', equals: 'production' },
+        { path: 'event.environment', equals: 'production' },
         { path: 'summary.native_runtime_observed', equals: true },
         { path: 'summary.crash_event_observed', equals: true },
         { path: 'summary.blocked', equals: false },

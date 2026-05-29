@@ -627,6 +627,14 @@ function validateNativeCrashRuntimeEvidence(filePath, app) {
   requireValue(evidence.summary?.event_found === true, 'native crash runtime evidence must find a provider event.');
   requireValue(evidence.summary?.release_matches === true, 'native crash runtime evidence must match App release.');
   requireValue(evidence.summary?.environment_matches === true, 'native crash runtime evidence must match Sentry environment.');
+  requireValue(
+    evidence.expected?.environment === 'production',
+    'native crash runtime evidence expected environment must be production.'
+  );
+  requireValue(
+    evidence.event?.environment === 'production',
+    'native crash runtime evidence event environment must be production.'
+  );
   requireValue(evidence.summary?.native_runtime_observed === true, 'native crash runtime evidence must observe native runtime.');
   requireValue(evidence.summary?.crash_event_observed === true, 'native crash runtime evidence must observe a crash-like event.');
   requireValue(evidence.summary?.blocked === false, 'native crash runtime evidence must have blocked=false.');
@@ -639,6 +647,8 @@ function validateNativeCrashRuntimeEvidence(filePath, app) {
     evidence.summary?.event_found === true &&
     evidence.summary?.release_matches === true &&
     evidence.summary?.environment_matches === true &&
+    evidence.expected?.environment === 'production' &&
+    evidence.event?.environment === 'production' &&
     evidence.summary?.native_runtime_observed === true &&
     evidence.summary?.crash_event_observed === true &&
     evidence.summary?.blocked === false &&
@@ -975,7 +985,7 @@ function runExternalEvidenceFixtureContract(app) {
       fileName: 'App-Native-Crash-Runtime-Fixture.json',
       validate: (filePath) => validateNativeCrashRuntimeEvidence(filePath, app),
       mutate: (record) => {
-        record.summary.native_runtime_observed = false;
+        record.event.environment = 'development';
       },
       record: {
         type: 'app-native-crash-runtime-evidence',
@@ -984,6 +994,14 @@ function runExternalEvidenceFixtureContract(app) {
         app_android_package: app.android?.package,
         sentry: {
           event_id_sha256: hash,
+        },
+        expected: {
+          release: `cj-mobile@${app.version}+${app.ios?.buildNumber}`,
+          environment: 'production',
+        },
+        event: {
+          release: `cj-mobile@${app.version}+${app.ios?.buildNumber}`,
+          environment: 'production',
         },
         summary: {
           run_mode: 'run',

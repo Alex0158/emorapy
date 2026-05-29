@@ -463,6 +463,8 @@ const appIdentity = {
   app_android_package: baseline.app.android_package,
   app_ios_bundle_identifier: baseline.app.ios_bundle_identifier,
 };
+const appConfig = JSON.parse(fs.readFileSync(path.join(mobileRoot, 'app.json'), 'utf8')).expo ?? {};
+const expectedNativeCrashRelease = `cj-mobile@${appConfig.version}+${appConfig.ios?.buildNumber}`;
 const gitHeadResult = spawnSync('git', ['rev-parse', 'HEAD'], {
   cwd: path.resolve(mobileRoot, '..'),
   encoding: 'utf8',
@@ -633,6 +635,14 @@ const evidenceFixturePairs = [
       ...appIdentity,
       sentry: {
         event_id_sha256: hash,
+      },
+      expected: {
+        release: expectedNativeCrashRelease,
+        environment: 'production',
+      },
+      event: {
+        release: expectedNativeCrashRelease,
+        environment: 'production',
       },
       summary: {
         run_mode: 'run',

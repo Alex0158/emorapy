@@ -39,7 +39,7 @@ App 內部實作、文件、preflight 與 release audit contract 已就緒，但
 | GitHub Actions release secrets | 部分完成 / 未 ready | `npm --prefix mobile run release:external-evidence:github-secrets:check -- --json` 只讀 secret names 且 `values_redacted=true`；checker 與 `.github/workflows/app-release-external-signoff.yml` 以 `Production` GitHub Environment 作為預設 workflow secret scope。已同步 `APP_RELEASE_DATABASE_URL` 與 `APP_TELEMETRY_RUNTIME_API_BASE_URL` 到 `Production` environment，`present_secret_name_count=2`、`missing_secret_name_count=14`、`ready_for_workflow_validate=false`；其中 `secret_groups.current_completion_blocker_secret_names` 為 `0/14`、`secret_groups.evidence_refresh_secret_names` 為 `2/2`。另查 `--env='ingenious-commitment / production'`，該 environment 沒有 App release secret names。`release:external-evidence:github-secrets:strict -- --json` 在當前狀態仍會失敗，用於 secrets 配好後作 CI validate/run 前置 gate。尚缺 `EXPO_TOKEN`、Apple / ASC、push、Sentry、iOS/Android device 與 `APP_NATIVE_CRASH_SENTRY_EVENT_ID` 等外部 secrets，因此 workflow 目前不能進入有效 validate / run |
 | GitHub Actions release variables | 已查 / 無可回收值 | `gh variable list --repo Alex0158/mother-bear-court --json name` 與 `gh variable list --repo Alex0158/mother-bear-court --env Production --json name` 均回空陣列；未找到可回收的 `EAS_PROJECT_ID`、Sentry org/project 或 release config 變數 |
 | GitHub Actions secret sync helper | 已建立 / contract 已納入 preflight / 等待真值 | `npm --prefix mobile run release:external-evidence:github-secrets:sync -- --json` 會從 gitignored `mobile/release.env.local` 做 redacted dry-run；dry-run 只做本機 readiness，不要求 `gh` / GitHub auth / network，確認後才可加 `--apply` 檢查 `Production` GitHub Environment 並寫入 secrets。工具拒絕 placeholder，不輸出 secret values，並把 `DATABASE_URL` 映射成 `APP_RELEASE_DATABASE_URL`、把 `APP_STORE_CONNECT_PRIVATE_KEY_PATH` 指向的 `.p8` 內容映射成 `APP_STORE_CONNECT_PRIVATE_KEY`；`release:external-evidence:github-secrets:sync:contract` 已用受控 fixture 固定 local-only dry-run、secret group 分層、mapping、redaction 與 apply-only GitHub dependency |
-| Release completion audit | 未完成 | `release:completion:audit` 明確列出 10 個 release blockers；`telemetry_runtime_evidence` 已通過，剩餘為 EAS project id、Expo token、Apple / ASC credentials、EAS iOS / TestFlight、physical device、EAS Android、push provider delivery 與 native crash runtime |
+| Release completion audit | 未完成 | `release:completion:audit` 明確列出 10 個 release blockers；`telemetry_runtime_evidence` 已通過，剩餘為 EAS project id、Expo token、Apple / ASC credentials、EAS iOS / TestFlight、physical device、EAS Android、push provider delivery 與 production environment native crash runtime |
 | Goal completion audit | 未完成 | `goal:completion:audit` 的 `release_signoff` 仍為 missing |
 
 ## 2026-05-30 本輪子任務：外部輸入狀態分層
@@ -126,7 +126,7 @@ Standalone `release:external-evidence:status` 必須能安全讀取和正式 orc
 
 ### 邊界與注意事項
 
-1. 這是交接可追溯性修正，不解除 EAS project id、Expo token、Apple / ASC、EAS/TestFlight、真機、push provider 或 native crash runtime blocker。
+1. 這是交接可追溯性修正，不解除 EAS project id、Expo token、Apple / ASC、EAS/TestFlight、真機、push provider 或 production environment native crash runtime blocker。
 2. `env_files.loaded_keys` 只代表 status 診斷讀到幾個白名單 key；不代表外部服務驗證成功。
 3. Orchestrator 仍保留父進程 env-file 載入行為，後續 EAS / provider / telemetry / DB runner 才能收到相同輸入。
 4. GitHub workflow secret env 不應被標成 env-file provenance；只有顯式 `--release-env-file` 才記錄 `env_files.loaded`。

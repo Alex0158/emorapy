@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const mobileRoot = path.resolve(scriptDir, '..');
 const repoRoot = path.resolve(mobileRoot, '..');
+const releaseNativeCrashEnvironment = 'production';
 
 const options = {
   run: process.env.APP_NATIVE_CRASH_RUNTIME_SMOKE_RUN === 'true',
@@ -105,7 +106,7 @@ function buildBaseEvidence(app, startedAt) {
     app_ios_bundle_identifier: app.ios?.bundleIdentifier,
     expected: {
       release: options.expectedRelease || buildRelease(app),
-      environment: options.expectedEnvironment || 'development',
+      environment: options.expectedEnvironment || releaseNativeCrashEnvironment,
     },
     sentry: {
       base_host: new URL(options.sentryBaseUrl).host,
@@ -123,7 +124,7 @@ function printDryRun(app) {
   console.log('- Requires APP_SENTRY_ORG / SENTRY_ORG, APP_SENTRY_PROJECT / SENTRY_PROJECT, APP_SENTRY_AUTH_TOKEN / SENTRY_AUTH_TOKEN.');
   console.log('- Requires APP_NATIVE_CRASH_SENTRY_EVENT_ID / SENTRY_EVENT_ID from a controlled native runtime crash event.');
   console.log(`- Expected release: ${options.expectedRelease || buildRelease(app)}`);
-  console.log(`- Expected environment: ${options.expectedEnvironment || 'development'}`);
+  console.log(`- Expected environment: ${options.expectedEnvironment || releaseNativeCrashEnvironment}`);
   console.log('- Evidence stores event id hash and release/environment summary only; it never stores Sentry auth token.');
 }
 
@@ -252,7 +253,7 @@ async function fetchSentryEvent(app) {
     body,
     body_text_tail: response.ok ? '' : redactSensitive(text).slice(-1000),
     expected_release: options.expectedRelease || buildRelease(app),
-    expected_environment: options.expectedEnvironment || 'development',
+    expected_environment: options.expectedEnvironment || releaseNativeCrashEnvironment,
   };
 }
 

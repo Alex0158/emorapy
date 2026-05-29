@@ -162,9 +162,9 @@ pass evidence 必須包含 provider accepted ticket 與 `ok` receipt。
 - `APP_SENTRY_PROJECT` 或 `SENTRY_PROJECT`
 - `APP_SENTRY_AUTH_TOKEN` 或 `SENTRY_AUTH_TOKEN`
 - `APP_NATIVE_CRASH_SENTRY_EVENT_ID` 或 `SENTRY_EVENT_ID`
-- 可選：`APP_NATIVE_CRASH_EXPECTED_ENVIRONMENT`
+- `APP_NATIVE_CRASH_EXPECTED_ENVIRONMENT=production`（`release.env.example` / GitHub workflow 預設值；strict release audit 只接受 production environment evidence）
 
-controlled native crash event 必須匹配 `cj-mobile@<version>+<build>` release、expected environment、native runtime signal 與 crash-like exception。
+controlled native crash event 必須匹配 `cj-mobile@<version>+<build>` release、production environment、native runtime signal 與 crash-like exception。development / staging Sentry event 可作診斷，但不得消除 `native_crash_runtime_evidence` release blocker。
 
 ### 3.6 App Telemetry Runtime Ingest
 

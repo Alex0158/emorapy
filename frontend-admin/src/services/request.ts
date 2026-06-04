@@ -54,7 +54,7 @@ request.interceptors.response.use(
       return Promise.reject(
         toRequestError(
           err.code || 'API_ERROR',
-          err.message || t('adminApi.error.requestFailed'),
+          t('adminApi.error.requestFailed'),
           err.details
         )
       );
@@ -81,7 +81,7 @@ request.interceptors.response.use(
       return Promise.reject(
         toRequestError(
           apiError.code || statusToRequestCode(status),
-          apiError.message || getLocalizedStatusMessage(status),
+          getLocalizedStatusMessage(status),
           apiError.details
         )
       );

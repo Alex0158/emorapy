@@ -89,7 +89,7 @@ describe('admin request locale header', () => {
     });
   });
 
-  it('preserves backend-provided messages over Admin fallback messages', async () => {
+  it('does not expose backend-provided messages over Admin fallback messages', async () => {
     setLocale('en-US');
 
     request.defaults.adapter = (async (config) => {
@@ -107,7 +107,32 @@ describe('admin request locale header', () => {
 
     await expect(request.get('/admin/ops/jobs')).rejects.toMatchObject({
       code: 'FORBIDDEN',
-      message: 'Access requires ops permission.',
+      message: 'You do not have permission to perform this action.',
+    });
+  });
+
+  it('does not expose success=false envelope messages over Admin fallback messages', async () => {
+    setLocale('en-US');
+
+    request.defaults.adapter = (async (config) => ({
+      config,
+      data: {
+        success: false,
+        error: {
+          code: 'ADMIN_CONFIG_INVALID',
+          message: '設定格式錯誤',
+          details: { field: 'rules' },
+        },
+      },
+      headers: {},
+      status: 200,
+      statusText: 'OK',
+    })) satisfies AxiosAdapter;
+
+    await expect(request.get('/admin/configs')).rejects.toMatchObject({
+      code: 'ADMIN_CONFIG_INVALID',
+      message: 'Request failed. Please try again later.',
+      details: { field: 'rules' },
     });
   });
 

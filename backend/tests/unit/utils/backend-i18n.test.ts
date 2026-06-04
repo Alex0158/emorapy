@@ -444,6 +444,30 @@ describe('backend i18n', () => {
     );
   });
 
+  it('translates execution service errors to en-US', () => {
+    expect(translateBackendMessage('en-US', '無權限執行此方案')).toBe(
+      'You do not have permission to execute this plan'
+    );
+    expect(translateBackendMessage('en-US', '無權限查看此修復旅程')).toBe(
+      'You do not have permission to view this repair journey'
+    );
+    expect(translateBackendMessage('en-US', '請先在和好方案中選擇此方案再確認執行')).toBe(
+      'Select this reconciliation plan before confirming execution'
+    );
+    expect(translateBackendMessage('en-US', '請先選擇並確認此方案後再記錄進展')).toBe(
+      'Select and confirm this plan before recording progress'
+    );
+    expect(translateBackendMessage('en-US', '無權限調整此修復旅程')).toBe(
+      'You do not have permission to adjust this repair journey'
+    );
+    expect(translateBackendMessage('en-US', '目前這一輪狀態無法重新調整')).toBe(
+      'This repair round cannot be adjusted again in its current state'
+    );
+    expect(translateBackendMessage('zh-TW', '目前這一輪狀態無法重新調整')).toBe(
+      '目前這一輪狀態無法重新調整'
+    );
+  });
+
   it('uses public Analysis terminology for backend judgment response messages', () => {
     expect(translateErrorByCode('en-US', 'JUDGMENT_FAILED')).toBe(
       'Analysis generation failed, please retry later'

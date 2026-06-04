@@ -193,6 +193,8 @@ describe('backend i18n', () => {
     expect(translateBackendMessage('en-US', 'Token已失效，請重新登入')).toBe(
       'Token is no longer valid. Please log in again.'
     );
+    expect(translateBackendMessage('en-US', 'Token無效')).toBe('Token is invalid');
+    expect(translateBackendMessage('en-US', 'Token驗證失敗')).toBe('Token verification failed');
     expect(translateBackendMessage('en-US', '訪問被拒絕')).toBe('Access denied');
     expect(translateBackendMessage('en-US', '生產環境不允許公開訪問上傳資源')).toBe(
       'Public access to uploaded resources is not allowed in production'

@@ -115,6 +115,8 @@ const directEnUSMap: Record<string, string> = {
   '未提供認證Token': 'Authentication token was not provided',
   '用戶不存在或未激活': 'User does not exist or is not active',
   'Token已失效，請重新登入': 'Token is no longer valid. Please log in again.',
+  'Token無效': 'Token is invalid',
+  'Token驗證失敗': 'Token verification failed',
   '訪問被拒絕': 'Access denied',
   '生產環境不允許公開訪問上傳資源': 'Public access to uploaded resources is not allowed in production',
   '公開模式僅允許讀取請求': 'Public mode only allows read requests',

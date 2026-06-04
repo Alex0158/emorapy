@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { getRuntimeConfig } from '@/src/config/runtime';
+import { t } from '@/src/i18n';
 import { createEvidenceUploadFormData, pickImageWithStatus } from '@/src/platform/upload/native';
 import type { PickImageResult } from '@/src/platform/upload/types';
 import { ActionButton, Screen, StatusPill } from '@/src/ui/components';
@@ -35,50 +36,55 @@ export default function ModalScreen() {
   };
 
   const uploadProbeStatus = uploadProbe?.status ?? 'idle';
+  const uploadStatusText =
+    uploadProbeStatus === 'idle'
+      ? t('modal.upload.status.idle')
+      : uploadProbeStatus === 'permission_denied'
+        ? t('modal.upload.status.permissionDenied')
+        : uploadProbeStatus === 'unsupported'
+          ? t('modal.upload.status.unsupported')
+          : uploadProbeStatus === 'cancelled'
+            ? t('modal.upload.status.cancelled')
+            : uploadProbeReady
+              ? t('modal.upload.status.ready')
+              : t('modal.upload.status.selected');
 
   return (
     <Screen
-      title="App 狀態"
-      eyebrow="App"
-      subtitle="確認服務連線、本機保存與圖片選擇是否可用。"
+      title={t('modal.title')}
+      eyebrow={t('modal.eyebrow')}
+      subtitle={t('modal.subtitle')}
       testID="modal.screen">
       <View style={styles.panel}>
-        <StatusPill label={hasServiceConfig ? '服務已設定' : '服務待設定'} tone={hasServiceConfig ? 'blue' : 'amber'} />
-        <Text style={styles.label}>服務連線</Text>
+        <StatusPill
+          label={hasServiceConfig ? t('modal.service.configured') : t('modal.service.pending')}
+          tone={hasServiceConfig ? 'blue' : 'amber'}
+        />
+        <Text style={styles.label}>{t('modal.service.label')}</Text>
         <Text style={styles.value} testID="modal.service.status">
-          {hasServiceConfig ? '已準備連線' : '尚未完成設定'}
+          {hasServiceConfig ? t('modal.service.ready') : t('modal.service.notReady')}
         </Text>
       </View>
 
       <View style={styles.grid}>
         <View style={styles.tile}>
-          <Text style={styles.tileTitle}>本機保存</Text>
-          <Text style={styles.tileValue}>系統安全儲存</Text>
+          <Text style={styles.tileTitle}>{t('modal.localStorage.title')}</Text>
+          <Text style={styles.tileValue}>{t('modal.localStorage.value')}</Text>
         </View>
         <View style={styles.tile}>
-          <Text style={styles.tileTitle}>錯誤回報</Text>
-          <Text style={styles.tileValue}>只保留安全上下文</Text>
+          <Text style={styles.tileTitle}>{t('modal.errorReport.title')}</Text>
+          <Text style={styles.tileValue}>{t('modal.errorReport.value')}</Text>
         </View>
       </View>
 
       <View style={styles.panel}>
-        <StatusPill label="媒體" tone="teal" />
-        <Text style={styles.label}>圖片選擇</Text>
+        <StatusPill label={t('modal.media.pill')} tone="teal" />
+        <Text style={styles.label}>{t('modal.upload.label')}</Text>
         <Text style={styles.value} testID={`modal.upload.${uploadProbeStatus}`}>
-          {uploadProbeStatus === 'idle'
-            ? '尚未選擇'
-            : uploadProbeStatus === 'permission_denied'
-              ? '相簿權限未開啟'
-              : uploadProbeStatus === 'unsupported'
-                ? '這個平台暫時不能選擇圖片'
-                : uploadProbeStatus === 'cancelled'
-                  ? '已返回 App，未選擇圖片'
-                  : uploadProbeReady
-                    ? '圖片已準備，可隨案件一起上傳。'
-                    : '圖片已選擇'}
+          {uploadStatusText}
         </Text>
         <ActionButton
-          label="選擇圖片"
+          label={t('modal.upload.pick')}
           loading={uploadProbeBusy}
           onPress={runUploadProbe}
           testID="modal.upload.pick"

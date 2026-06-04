@@ -22,11 +22,13 @@ jest.mock('@/src/platform/upload/native', () => ({
   pickImageWithStatus: mockPickImageWithStatus,
 }));
 
+const { setLocale } = require('@/src/i18n');
 const ModalScreen = require('../app/modal').default;
 
 describe('M0 App status modal', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    setLocale('zh-TW', { persist: false });
     mockPickImageWithStatus.mockResolvedValue({ status: 'cancelled' });
     mockCreateEvidenceUploadFormData.mockReturnValue(new FormData());
   });
@@ -40,6 +42,16 @@ describe('M0 App status modal', () => {
     expect(screen.queryByText('APP')).toBeNull();
     expect(screen.queryByText('https://api.private.example/api/v1')).toBeNull();
     expect(screen.queryByText('服務位址')).toBeNull();
+  });
+
+  it('renders service and upload copy in the selected locale', () => {
+    setLocale('en-US', { persist: false });
+    const screen = render(React.createElement(ModalScreen));
+
+    expect(screen.getByText('App status')).toBeTruthy();
+    expect(screen.getByText('Ready to connect')).toBeTruthy();
+    expect(screen.getByText('No image selected')).toBeTruthy();
+    expect(screen.getByText('Select image')).toBeTruthy();
   });
 
   it('uses user-facing upload status copy after selecting media', async () => {

@@ -342,6 +342,36 @@ describe('M4 Case/Repair screens', () => {
     }));
   });
 
+  it('renders repair chrome in English when selected', async () => {
+    setLocale('en-US', { persist: false });
+    mockSearchParams = { judgmentId: 'judgment-1' };
+
+    const screen = renderWithQuery(React.createElement(RepairScreen));
+
+    expect(await screen.findByText('Repair path')).toBeTruthy();
+    expect(screen.getByText('Turn the analysis into small steps both sides can actually do.')).toBeTruthy();
+    expect(screen.getByText('Path board')).toBeTruthy();
+    expect(screen.getByText('0 path(s)')).toBeTruthy();
+    expect(screen.getByText('No repair paths yet.')).toBeTruthy();
+    expect(screen.getByText('Options')).toBeTruthy();
+    expect(screen.getByText('Analysis source')).toBeTruthy();
+    expect(screen.getByText('Brought in from the case. You can generate repair options directly.')).toBeTruthy();
+    expect(screen.getByText('Load options')).toBeTruthy();
+    expect(screen.getByText('Generate options')).toBeTruthy();
+    expect(screen.getByText('Adjust')).toBeTruthy();
+    expect(screen.getByText('Adjustment status')).toBeTruthy();
+    expect(screen.getByText('Select a repair path from the board first.')).toBeTruthy();
+    expect(screen.getByText('Lower pressure first')).toBeTruthy();
+    expect(screen.getByText('Need help')).toBeTruthy();
+    expect(screen.getByText('Adjust this round')).toBeTruthy();
+    expect(screen.getByText('Execution')).toBeTruthy();
+    expect(screen.getByText('Current option')).toBeTruthy();
+    expect(screen.getByText('Select an option above first.')).toBeTruthy();
+    expect(screen.getByPlaceholderText('What did you do today, or where are you stuck?')).toBeTruthy();
+    expect(screen.getByText('Back to case')).toBeTruthy();
+    expect(screen.queryByText('生成方案')).toBeNull();
+  });
+
   it('starts repair replan and renders repair_track stream replay', async () => {
     mockGetDashboard.mockResolvedValue([
       {

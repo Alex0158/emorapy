@@ -6,6 +6,7 @@ import type { ReconciliationPlan, ReconciliationPlanBundle, ReplanTrackInput } f
 import type { AIStreamEvent, AIStreamSnapshot } from '@cj/contracts/ai-stream';
 
 import { connectRepairTrackStream, m4Api, normalizeM4Error } from '@/src/features/m4/api';
+import { t, useLocale } from '@/src/i18n';
 import type { AIStreamCallbacks, AIStreamReadyEvent } from '@/src/platform/sse/aiStreamState';
 import { isTerminalAIStreamEvent } from '@/src/platform/sse/aiStreamState';
 import { useAIStreamSubscription } from '@/src/platform/sse/useAIStreamSubscription';
@@ -35,97 +36,97 @@ const initialReplanStreamState: ReplanStreamState = {
   error: null,
 };
 
-const replanModes: Array<{ label: string; value: ReplanMode; tone: 'teal' | 'blue' | 'amber' }> = [
-  { label: '先降壓', value: 'lower_pressure', tone: 'teal' },
-  { label: '放慢節奏', value: 'slower_pace', tone: 'blue' },
-  { label: '先自己做', value: 'solo_first', tone: 'amber' },
+const replanModes: Array<{ labelKey: string; value: ReplanMode; tone: 'teal' | 'blue' | 'amber' }> = [
+  { labelKey: 'repair.replanMode.lowerPressure', value: 'lower_pressure', tone: 'teal' },
+  { labelKey: 'repair.replanMode.slowerPace', value: 'slower_pace', tone: 'blue' },
+  { labelKey: 'repair.replanMode.soloFirst', value: 'solo_first', tone: 'amber' },
 ];
 
-const replanReasons: Array<{ label: string; value: ReplanReason; tone: 'teal' | 'blue' | 'amber' | 'coral' }> = [
-  { label: '需要幫助', value: 'needs_help', tone: 'teal' },
-  { label: '變得更遠', value: 'farther', tone: 'blue' },
-  { label: '壓力太高', value: 'high_stress', tone: 'coral' },
-  { label: '主動調整', value: 'manual', tone: 'amber' },
+const replanReasons: Array<{ labelKey: string; value: ReplanReason; tone: 'teal' | 'blue' | 'amber' | 'coral' }> = [
+  { labelKey: 'repair.replanReason.needsHelp', value: 'needs_help', tone: 'teal' },
+  { labelKey: 'repair.replanReason.farther', value: 'farther', tone: 'blue' },
+  { labelKey: 'repair.replanReason.highStress', value: 'high_stress', tone: 'coral' },
+  { labelKey: 'repair.replanReason.manual', value: 'manual', tone: 'amber' },
 ];
 
 const replanStreamStatusLabels: Record<ReplanStreamStatus, string> = {
-  idle: '待命',
-  ready: '已連線',
-  streaming: '重新調整中',
-  persisted: '已保存',
-  failed: '失敗',
+  idle: 'repair.replanStatus.idle',
+  ready: 'repair.replanStatus.ready',
+  streaming: 'repair.replanStatus.streaming',
+  persisted: 'repair.replanStatus.persisted',
+  failed: 'repair.replanStatus.failed',
 };
 
 const replanPhaseLabels: Record<string, string> = {
-  collecting_context: '正在讀取脈絡',
-  drafting: '正在改寫方案',
-  validating: '正在確認可執行性',
-  persisted: '已保存',
+  collecting_context: 'repair.replanPhase.collectingContext',
+  drafting: 'repair.replanPhase.drafting',
+  validating: 'repair.replanPhase.validating',
+  persisted: 'repair.replanPhase.persisted',
 };
 
 const journeyStatusLabels: Record<string, string> = {
-  solo_active: '個人執行中',
-  co_active: '雙方執行中',
-  paused: '已暫停',
-  completed: '已完成',
-  replanning: '正在重新調整',
-  cancelled: '已停止',
+  solo_active: 'repair.journeyStatus.soloActive',
+  co_active: 'repair.journeyStatus.coActive',
+  paused: 'repair.journeyStatus.paused',
+  completed: 'repair.journeyStatus.completed',
+  replanning: 'repair.journeyStatus.replanning',
+  cancelled: 'repair.journeyStatus.cancelled',
 };
 
 const executionStatusLabels: Record<string, string> = {
-  pending: '待開始',
-  in_progress: '進行中',
-  completed: '已完成',
-  skipped: '已略過',
-  failed: '未完成',
+  pending: 'repair.executionStatus.pending',
+  in_progress: 'repair.executionStatus.inProgress',
+  completed: 'repair.executionStatus.completed',
+  skipped: 'repair.executionStatus.skipped',
+  failed: 'repair.executionStatus.failed',
 };
 
 const difficultyLabels: Record<string, string> = {
-  easy: '容易',
-  medium: '中等',
-  hard: '較難',
+  easy: 'repair.difficulty.easy',
+  medium: 'repair.difficulty.medium',
+  hard: 'repair.difficulty.hard',
 };
 
 const planTypeLabels: Record<string, string> = {
-  activity: '一起做一件小事',
-  communication: '好好說一段話',
-  gift: '用小禮物表達',
-  intimacy: '重建親近感',
-  service: '用行動分擔',
+  activity: 'repair.planType.activity',
+  communication: 'repair.planType.communication',
+  gift: 'repair.planType.gift',
+  intimacy: 'repair.planType.intimacy',
+  service: 'repair.planType.service',
 };
 
 function labelLifecycleStatus(status: string): string {
   if (status === 'active' || status === 'unknown') return '';
-  if (status === 'background') return 'App 在背景';
-  if (status === 'inactive') return 'App 暫時中斷';
-  return 'App 狀態更新中';
+  if (status === 'background') return t('repair.lifecycle.background');
+  if (status === 'inactive') return t('repair.lifecycle.inactive');
+  return t('repair.lifecycle.updating');
 }
 
 function labelJourneyStatus(status?: string | null): string {
-  if (!status) return '狀態更新中';
-  return journeyStatusLabels[status] ?? '狀態更新中';
+  if (!status) return t('repair.journeyStatus.updating');
+  return t(journeyStatusLabels[status] ?? 'repair.journeyStatus.updating');
 }
 
 function labelExecutionStatus(status?: string | null): string {
-  if (!status) return '進度更新中';
-  return executionStatusLabels[status] ?? '進度更新中';
+  if (!status) return t('repair.executionStatus.updating');
+  return t(executionStatusLabels[status] ?? 'repair.executionStatus.updating');
 }
 
 function labelDifficulty(value?: string | null): string {
-  if (!value) return '未標示';
-  return difficultyLabels[value] ?? value;
+  if (!value) return t('repair.difficulty.unknown');
+  return t(difficultyLabels[value] ?? 'repair.difficulty.unknown');
 }
 
 function labelPlanTitle(plan: ReconciliationPlan): string {
-  return plan.fit_reason || planTypeLabels[plan.plan_type] || '修復方案';
+  return plan.fit_reason || t(planTypeLabels[plan.plan_type] ?? 'repair.planTitle.fallback');
 }
 
 function labelDashboardPlanTitle(status: { plan_summary?: { title?: string | null } | null }): string {
-  return status.plan_summary?.title || '修復旅程';
+  return status.plan_summary?.title || t('repair.dashboard.titleFallback');
 }
 
 function labelPlanRecommendation(isRecommended?: boolean | null): string {
-  return isRecommended ? '推薦方案' : '可選方案';
+  return isRecommended ? t('repair.planRecommendation.recommended') : t('repair.planRecommendation.optional');
 }
 
 function getFirstParam(value?: string | string[]): string {
@@ -134,8 +135,8 @@ function getFirstParam(value?: string | string[]): string {
 
 function checkinNotesHelperText(value: string): string {
   const length = value.trim().length;
-  if (!length) return '可選填；只按完成也能記錄今日一步。';
-  return `${length}/${MAX_CHECKIN_NOTES_LENGTH}，會附在今日進度裡。`;
+  if (!length) return t('repair.checkinNotes.empty');
+  return t('repair.checkinNotes.ready', { length, max: MAX_CHECKIN_NOTES_LENGTH });
 }
 
 function isRepairReplanStreamPayload(value: { metadata?: Record<string, unknown> | undefined }): boolean {
@@ -170,13 +171,14 @@ function getReplanStreamDetail(
   isRecovering: boolean,
   lifecycleStatus: string
 ): string {
-  const status = isRecovering ? '恢復連線中' : replanStreamStatusLabels[state.status];
-  const phase = state.phase ? ` / ${replanPhaseLabels[state.phase] ?? '正在更新'}` : '';
+  const status = isRecovering ? t('repair.replanStatus.recovering') : t(replanStreamStatusLabels[state.status]);
+  const phase = state.phase ? ` / ${t(replanPhaseLabels[state.phase] ?? 'repair.replanPhase.updating')}` : '';
   const lifecycle = labelLifecycleStatus(lifecycleStatus);
   return `${status}${phase}${lifecycle ? ` / ${lifecycle}` : ''}`;
 }
 
 export default function RepairScreen() {
+  useLocale();
   const params = useLocalSearchParams<{ judgmentId?: string | string[]; planId?: string | string[]; trackId?: string | string[] }>();
   const queryClient = useQueryClient();
   const [judgmentId, setJudgmentId] = useState(() => getFirstParam(params.judgmentId));
@@ -354,34 +356,34 @@ export default function RepairScreen() {
   if (!isAuthenticated) {
     return (
       <Screen
-        eyebrow="修復"
-        title="先登入"
-        subtitle="修復旅程需要登入後才能讀取方案、承諾與進度回報。"
+        eyebrow={t('repair.eyebrow')}
+        title={t('repair.authGate.title')}
+        subtitle={t('repair.authGate.subtitle')}
         testID="repair.auth-gate.screen">
-        <Panel title="修復資料">
-          <FeatureRow title="從判斷生成" detail="修復方案會依照已完成的判斷結果產生。" tone="teal" />
-          <FeatureRow title="保持同步" detail="承諾、暫停、重新調整都會和帳號資料同步。" tone="blue" />
+        <Panel title={t('repair.authGate.panel')}>
+          <FeatureRow title={t('repair.authGate.fromAnalysis.title')} detail={t('repair.authGate.fromAnalysis.detail')} tone="teal" />
+          <FeatureRow title={t('repair.authGate.sync.title')} detail={t('repair.authGate.sync.detail')} tone="blue" />
         </Panel>
-        <LinkButton href="/auth" label="登入或註冊" tone="teal" testID="repair.auth-gate.login" />
+        <LinkButton href="/auth" label={t('profile.authGate.login')} tone="teal" testID="repair.auth-gate.login" />
       </Screen>
     );
   }
 
   return (
-    <Screen eyebrow="修復" title="修復旅程" subtitle="把判斷結果變成雙方都能執行的小步計畫。" testID="repair.screen">
-      <Panel title="旅程看板">
-        <StatusPill label={`${dashboardQuery.data?.length ?? 0} 條旅程`} tone="coral" />
+    <Screen eyebrow={t('repair.eyebrow')} title={t('repair.title')} subtitle={t('repair.subtitle')} testID="repair.screen">
+      <Panel title={t('repair.dashboardPanel')}>
+        <StatusPill label={t('repair.dashboard.count', { count: dashboardQuery.data?.length ?? 0 })} tone="coral" />
         {(dashboardQuery.data ?? []).slice(0, 4).map((status) => (
           <View key={status.plan_id} style={styles.statusCard}>
             <Text style={styles.statusTitle}>{labelDashboardPlanTitle(status)}</Text>
-            <FeatureRow title="狀態" detail={`${labelJourneyStatus(status.journey_status)} / ${labelExecutionStatus(status.status)}`} tone="teal" />
-            <FeatureRow title="進度" detail={`${Math.round((status.progress ?? 0) * 100)}%`} tone="blue" />
+            <FeatureRow title={t('repair.dashboard.status')} detail={`${labelJourneyStatus(status.journey_status)} / ${labelExecutionStatus(status.status)}`} tone="teal" />
+            <FeatureRow title={t('repair.dashboard.progress')} detail={`${Math.round((status.progress ?? 0) * 100)}%`} tone="blue" />
             {status.current_step ? (
-              <FeatureRow title="今日一步" detail={status.current_step.content} tone="coral" />
+              <FeatureRow title={t('repair.dashboard.todayStep')} detail={status.current_step.content} tone="coral" />
             ) : null}
             {status.track_id ? (
               <ActionButton
-                label="選這條重新調整"
+                label={t('repair.dashboard.selectReplan')}
                 onPress={() => {
                   setReplanTrackId(status.track_id ?? '');
                   setPlanId(status.plan_id);
@@ -394,23 +396,23 @@ export default function RepairScreen() {
           </View>
         ))}
         {dashboardQuery.data?.length ? null : (
-          <Text style={styles.emptyText}>還沒有修復旅程。</Text>
+          <Text style={styles.emptyText}>{t('repair.dashboard.empty')}</Text>
         )}
       </Panel>
 
-      <Panel title="方案">
+      <Panel title={t('repair.plansPanel')}>
         {activeJudgmentId ? (
-          <FeatureRow title="判斷來源" detail="已從案件帶入，可以直接生成修復方案。" tone="teal" />
+          <FeatureRow title={t('repair.plans.analysisSource')} detail={t('repair.plans.sourceReady')} tone="teal" />
         ) : (
           <>
-            <FeatureRow title="判斷來源" detail="請先從案件頁接受判斷，App 會自動帶你來建立修復方案。" tone="amber" />
-            <LinkButton href="/case" label="前往案件" tone="teal" testID="repair.case-from-plans" variant="outline" />
+            <FeatureRow title={t('repair.plans.analysisSource')} detail={t('repair.plans.sourceMissing')} tone="amber" />
+            <LinkButton href="/case" label={t('repair.plans.goCase')} tone="teal" testID="repair.case-from-plans" variant="outline" />
           </>
         )}
         <View style={styles.actions}>
           <ActionButton
             disabled={!activeJudgmentId}
-            label="讀取方案"
+            label={t('repair.plans.load')}
             loading={getPlansMutation.isPending}
             onPress={() => getPlansMutation.mutate()}
             testID="repair.get-plans"
@@ -419,7 +421,7 @@ export default function RepairScreen() {
           />
           <ActionButton
             disabled={!activeJudgmentId}
-            label="生成方案"
+            label={t('repair.plans.generate')}
             loading={generatePlansMutation.isPending}
             onPress={() => generatePlansMutation.mutate()}
             testID="repair.generate-plans"
@@ -430,15 +432,15 @@ export default function RepairScreen() {
           <View key={plan.id} style={styles.statusCard}>
             <Text style={styles.statusTitle}>{labelPlanTitle(plan)}</Text>
             <FeatureRow
-              title="方案狀態"
-              detail={plan.id === activePlanId ? '目前選擇' : labelPlanRecommendation(plan.is_recommended || latestBundle?.recommended_plan_id === plan.id)}
+              title={t('repair.plans.status')}
+              detail={plan.id === activePlanId ? t('repair.plans.current') : labelPlanRecommendation(plan.is_recommended || latestBundle?.recommended_plan_id === plan.id)}
               tone="teal"
             />
-            <FeatureRow title="難度" detail={labelDifficulty(plan.difficulty_level)} tone="blue" />
-            {plan.first_step ? <FeatureRow title="第一步" detail={plan.first_step} tone="coral" /> : null}
+            <FeatureRow title={t('repair.plans.difficulty')} detail={labelDifficulty(plan.difficulty_level)} tone="blue" />
+            {plan.first_step ? <FeatureRow title={t('repair.plans.firstStep')} detail={plan.first_step} tone="coral" /> : null}
             <View style={styles.actions}>
               <ActionButton
-                label={plan.id === activePlanId ? '已選擇' : '選這個方案'}
+                label={plan.id === activePlanId ? t('repair.plans.selected') : t('repair.plans.select')}
                 loading={selectPlanMutation.isPending}
                 onPress={() => selectPlanMutation.mutate(plan.id)}
                 testID={`repair.plan.${plan.id}.select`}
@@ -446,7 +448,7 @@ export default function RepairScreen() {
                 variant="outline"
               />
               <ActionButton
-                label="開始這個方案"
+                label={t('repair.plans.start')}
                 loading={confirmExecutionMutation.isPending}
                 onPress={() => confirmExecutionMutation.mutate(plan.id)}
                 testID={`repair.plan.${plan.id}.start`}
@@ -457,22 +459,22 @@ export default function RepairScreen() {
         ))}
       </Panel>
 
-      <Panel title="重新調整">
+      <Panel title={t('repair.replanPanel')}>
         <FeatureRow
-          title="重新調整狀態"
+          title={t('repair.replan.status')}
           detail={getReplanStreamDetail(replanStreamState, replanRecovering, replanLifecycleStatus)}
           tone={replanRecovering ? 'amber' : replanStreamState.status === 'failed' ? 'coral' : 'blue'}
         />
         {activeReplanTrackId ? (
-          <FeatureRow title="調整對象" detail="已選擇一條修復旅程。" tone="amber" />
+          <FeatureRow title={t('repair.replan.target')} detail={t('repair.replan.targetReady')} tone="amber" />
         ) : (
-          <FeatureRow title="調整對象" detail="請先在旅程看板選一條旅程。" tone="amber" />
+          <FeatureRow title={t('repair.replan.target')} detail={t('repair.replan.targetMissing')} tone="amber" />
         )}
         <View style={styles.actions}>
           {replanModes.map((option) => (
             <ActionButton
               key={option.value}
-              label={option.label}
+              label={t(option.labelKey)}
               onPress={() => setReplanMode(option.value)}
               testID={`repair.replan-mode.${option.value}`}
               tone={option.tone}
@@ -484,7 +486,7 @@ export default function RepairScreen() {
           {replanReasons.map((option) => (
             <ActionButton
               key={option.value}
-              label={option.label}
+              label={t(option.labelKey)}
               onPress={() => setReplanReason(option.value)}
               testID={`repair.replan-reason.${option.value}`}
               tone={option.tone}
@@ -494,36 +496,36 @@ export default function RepairScreen() {
         </View>
         <ActionButton
           disabled={!activeReplanTrackId}
-          label="重新調整這一輪"
+          label={t('repair.replan.submit')}
           loading={replanMutation.isPending}
           onPress={() => replanMutation.mutate()}
           testID="repair.replan-submit"
           tone="amber"
         />
         {replanStreamState.phase ? (
-          <FeatureRow title="階段" detail={replanPhaseLabels[replanStreamState.phase] ?? '正在更新'} tone="blue" />
+          <FeatureRow title={t('repair.replan.phase')} detail={t(replanPhaseLabels[replanStreamState.phase] ?? 'repair.replanPhase.updating')} tone="blue" />
         ) : null}
         {replanStreamState.planId ? (
-          <FeatureRow title="新方案" detail="已準備好，可在下方開始執行。" tone="teal" />
+          <FeatureRow title={t('repair.replan.newPlan')} detail={t('repair.replan.newPlanReady')} tone="teal" />
         ) : null}
         {replanStreamState.text ? (
           <Text style={styles.streamText}>{replanStreamState.text}</Text>
         ) : null}
       </Panel>
 
-      <Panel title="執行">
+      <Panel title={t('repair.executionPanel')}>
         <FeatureRow
-          title="當前方案"
-          detail={activePlanId ? '已選擇修復方案。' : '請先在上方選擇一個方案。'}
+          title={t('repair.execution.currentPlan')}
+          detail={activePlanId ? t('repair.execution.planReady') : t('repair.execution.planMissing')}
           tone={activePlanId ? 'teal' : 'amber'}
         />
         <TextInput
-          accessibilityLabel="修復進度備註"
-          accessibilityHint="輸入今天做了什麼，或目前卡住的地方"
+          accessibilityLabel={t('repair.execution.notesLabel')}
+          accessibilityHint={t('repair.execution.notesHint')}
           maxLength={MAX_CHECKIN_NOTES_LENGTH}
           multiline
           onChangeText={setCheckinNotes}
-          placeholder="今天做了什麼，或哪裡卡住。"
+          placeholder={t('repair.execution.notesPlaceholder')}
           placeholderTextColor={palette.muted}
           style={styles.textArea}
           testID="repair.checkin-notes.input"
@@ -536,7 +538,7 @@ export default function RepairScreen() {
         <View style={styles.actions}>
           <ActionButton
             disabled={!activePlanId}
-            label="選擇方案"
+            label={t('repair.execution.selectPlan')}
             loading={selectPlanMutation.isPending}
             onPress={() => selectPlanMutation.mutate(activePlanId)}
             testID="repair.select-plan"
@@ -545,7 +547,7 @@ export default function RepairScreen() {
           />
           <ActionButton
             disabled={!activePlanId}
-            label="開始執行"
+            label={t('repair.execution.start')}
             loading={confirmExecutionMutation.isPending}
             onPress={() => confirmExecutionMutation.mutate(activePlanId)}
             testID="repair.confirm-execution"
@@ -554,7 +556,7 @@ export default function RepairScreen() {
           />
           <ActionButton
             disabled={!activePlanId}
-            label="完成今日一步"
+            label={t('repair.execution.checkin')}
             loading={checkinMutation.isPending}
             onPress={() => checkinMutation.mutate()}
             testID="repair.checkin"
@@ -564,7 +566,7 @@ export default function RepairScreen() {
         {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
       </Panel>
 
-      <LinkButton href="/case" label="回到案件" tone="teal" testID="repair.case" variant="outline" />
+      <LinkButton href="/case" label={t('repair.backCase')} tone="teal" testID="repair.case" variant="outline" />
     </Screen>
   );
 }

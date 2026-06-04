@@ -109,6 +109,9 @@ const directEnUSMap: Record<string, string> = {
   '郵箱驗證成功': 'Email verified successfully',
   '重置密碼郵件已發送': 'Password reset email has been sent',
   '密碼重置成功': 'Password reset successful',
+  '帳號未激活': 'Account is not active',
+  '請先完成郵箱驗證': 'Please complete email verification first',
+  '請稍後再試': 'Please try again later',
   '密碼過於簡單，請使用更複雜的密碼': 'Password is too weak, please choose a stronger password',
   '密碼長度至少8位': 'Password must be at least 8 characters',
   '密碼長度不能超過128位': 'Password cannot exceed 128 characters',
@@ -239,6 +242,11 @@ const directEnUSMap: Record<string, string> = {
 };
 
 function translateDynamicBackendMessage(message: string): string | null {
+  const accountLockout = message.match(/^帳號已被暫時鎖定，請(\d+)分鐘後再試$/);
+  if (accountLockout) {
+    return `Account is temporarily locked. Please try again in ${accountLockout[1]} minutes`;
+  }
+
   const providerConnectionSuccess = message.match(/^(.+) 連線測試成功$/);
   if (providerConnectionSuccess) {
     return `${providerConnectionSuccess[1]} connection test successful`;

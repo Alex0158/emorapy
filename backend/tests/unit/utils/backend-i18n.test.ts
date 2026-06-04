@@ -115,6 +115,18 @@ describe('backend i18n', () => {
     expect(translateBackendMessage('zh-TW', '邀請碼無效')).toBe('邀請碼無效');
   });
 
+  it('translates auth service fallback errors including dynamic lockout duration', () => {
+    expect(translateBackendMessage('en-US', '帳號已被暫時鎖定，請7分鐘後再試')).toBe(
+      'Account is temporarily locked. Please try again in 7 minutes'
+    );
+    expect(translateBackendMessage('en-US', '帳號未激活')).toBe('Account is not active');
+    expect(translateBackendMessage('en-US', '請先完成郵箱驗證')).toBe(
+      'Please complete email verification first'
+    );
+    expect(translateBackendMessage('en-US', '請稍後再試')).toBe('Please try again later');
+    expect(translateBackendMessage('zh-TW', '帳號未激活')).toBe('帳號未激活');
+  });
+
   it('uses public Analysis terminology for backend judgment response messages', () => {
     expect(translateErrorByCode('en-US', 'JUDGMENT_FAILED')).toBe(
       'Analysis generation failed, please retry later'

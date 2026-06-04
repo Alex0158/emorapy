@@ -4,7 +4,7 @@
 **文檔類型**：問題治理
 **覆蓋範圍**：App profile interview / repair replan / chat room AI stream status error display、App stream callbacks、M2/M3/M4 screen tests
 **取證代碼入口**：`mobile/app/(app)/profile/interview.tsx`、`mobile/app/(app)/repair/index.tsx`、`mobile/app/(app)/chat/room.tsx`、`mobile/src/platform/sse/useAIStreamSubscription.ts`、`mobile/src/platform/api/errorMessages.ts`、`mobile/src/i18n/catalogs`
-**最後核驗 Commit**：`cc5d12b`
+**最後核驗 Commit**：`4d1dc74`
 **最後核驗日期**：`2026-06-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -54,3 +54,18 @@
 3. AI generated text 保留測試通過。
 4. `npm --prefix mobile run typecheck` 通過。
 5. `npm run docs:check` 通過。
+
+## 修復結果
+
+1. 新增 `mobile/src/platform/sse/streamErrorDisplay.ts`，集中處理 App AI Stream 可見錯誤文案：`status` / `HTTP_*` / 已知 domain code 映射到 App locale catalog，未知錯誤回 `appStream.error.failed`。
+2. `mobile/app/(app)/profile/interview.tsx`、`mobile/app/(app)/repair/index.tsx`、`mobile/app/(app)/chat/room.tsx` 的 ready snapshot / event / connection error / terminal error 均改用共用 formatter，不再顯示 raw `error.message`。
+3. `mobile/app/(public)/quick/result.tsx` 同步復用共用 formatter，並保留 quick result 專用 fallback key。
+4. `mobile/src/i18n/catalogs/zh-TW.ts` 與 `mobile/src/i18n/catalogs/en-US.ts` 已新增 `appStream.error.failed`。
+5. M2 / M3 / M4 screen focused tests 已補 en-US raw `provider down` 不外露回歸測試；M1 quick result tests 維持覆蓋 generated text 不被 fallback 覆蓋。
+
+## 本輪驗證
+
+1. `npm --prefix mobile test -- __tests__/m2-screens.test.js __tests__/m3-screens.test.js __tests__/m4-screens.test.js` 通過 3 suites / 44 tests。
+2. `npm --prefix mobile run typecheck` 通過。
+3. `npm --prefix mobile test -- src/i18n/index.test.js __tests__/m1-screens.test.js __tests__/m2-screens.test.js __tests__/m3-screens.test.js __tests__/m4-screens.test.js` 通過 5 suites / 72 tests。
+4. 靜態掃描確認 quick result / profile interview / repair / chat room 產品碼已無 `error.message` / `error?.message` 直出；raw `provider down` 僅作測試輸入與否定斷言。

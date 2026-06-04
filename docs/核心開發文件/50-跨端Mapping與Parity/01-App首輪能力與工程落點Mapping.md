@@ -4,7 +4,7 @@
 **文檔類型**：跨端映射
 **覆蓋範圍**：跨端能力到 Web / App / Backend / API / DB / 共享層的映射與缺口：01-App首輪能力與工程落點Mapping
 **取證代碼入口**：`backend/src/routes`、`backend/prisma/schema.prisma`、`frontend/src/router/index.tsx`、`frontend-admin/src/router.tsx`、`mobile/app`、`mobile/tsconfig.json`、`mobile/src/platform`、`packages/contracts/src`、`packages/api-client/src`
-**最後核驗 Commit**：`f7cc34f`
+**最後核驗 Commit**：`4796829`
 **最後核驗日期**：`2026-06-05`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 

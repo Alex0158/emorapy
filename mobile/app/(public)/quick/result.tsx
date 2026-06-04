@@ -7,6 +7,7 @@ import type { AIStreamEvent, AIStreamSnapshot } from '@cj/contracts/ai-stream';
 
 import { connectQuickJudgmentStream, normalizeM1Error, m1Api } from '@/src/features/m1/api';
 import { clearQuickSessionForRecoverableError } from '@/src/features/m1/session';
+import { getCaseTypeLabel } from '@/src/features/m4/caseTypeLabels';
 import { t, useLocale } from '@/src/i18n';
 import {
   getLatestAIStreamSnapshot,
@@ -297,7 +298,7 @@ export default function QuickResultScreen() {
             <Text style={styles.metaText}>{t('quick.result.meta.created')}</Text>
             <Text style={styles.metaText}>
               {t('quick.result.meta.type', {
-                type: caseItem.type || t('quick.result.meta.unclassified'),
+                type: getCaseTypeLabel(caseItem.type) || t('quick.result.meta.unclassified'),
               })}
             </Text>
           </View>

@@ -6,6 +6,7 @@ import type { Judgment } from '@cj/api-client';
 import type { CaseStatus } from '@cj/contracts/case';
 
 import { m4Api, normalizeM4Error } from '@/src/features/m4/api';
+import { getCaseTypeLabel } from '@/src/features/m4/caseTypeLabels';
 import { m5Api, normalizeM5Error } from '@/src/features/m5/api';
 import { getLocale, t, useLocale } from '@/src/i18n';
 import { createEvidenceUploadFormData, pickImage } from '@/src/platform/upload/native';
@@ -93,7 +94,7 @@ function labelCaseStatus(status?: CaseStatus | null): string {
 }
 
 function labelCaseTitle(item: { title?: string | null; type?: string | null }): string {
-  return item.title || item.type || t('case.titleFallback');
+  return item.title || getCaseTypeLabel(item.type) || t('case.titleFallback');
 }
 
 function labelCaseCreatedAt(value?: string | null): string {

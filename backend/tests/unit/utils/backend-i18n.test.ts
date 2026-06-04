@@ -355,6 +355,49 @@ describe('backend i18n', () => {
     expect(translateBackendMessage('zh-TW', '梳理結果不存在')).toBe('梳理結果不存在');
   });
 
+  it('translates case service errors to en-US without localizing mode values', () => {
+    expect(translateBackendMessage('en-US', 'Session創建失敗')).toBe('Session creation failed');
+    expect(translateBackendMessage('en-US', '案件創建失敗，請稍後再試')).toBe(
+      'Case creation failed, please try again later'
+    );
+    expect(translateBackendMessage('en-US', '配對關係未激活')).toBe('Pairing is not active');
+    expect(translateBackendMessage('en-US', '無權限訪問此配對')).toBe(
+      'You do not have permission to access this pairing'
+    );
+    expect(translateBackendMessage('en-US', '正式案件 mode 只能是 remote 或 collaborative')).toBe(
+      'Formal case mode must be remote or collaborative'
+    );
+    expect(translateBackendMessage('en-US', '協作模式需同時提供雙方陳述')).toBe(
+      'Collaborative mode requires both statements'
+    );
+    expect(translateBackendMessage('en-US', '無權限提交此案件')).toBe(
+      'You do not have permission to submit this case'
+    );
+    expect(translateBackendMessage('en-US', '遠程/協作模式需等待回應方陳述後才能提交')).toBe(
+      'Remote/collaborative mode must wait for the partner statement before submission'
+    );
+    expect(translateBackendMessage('en-US', '無權限更新此案件')).toBe(
+      'You do not have permission to update this case'
+    );
+    expect(translateBackendMessage('en-US', '只有發起方可以修改發起方陳述')).toBe(
+      'Only the initiator can edit the initiator statement'
+    );
+    expect(translateBackendMessage('en-US', '只有回應方可以修改回應方陳述')).toBe(
+      'Only the partner can edit the partner statement'
+    );
+    expect(translateBackendMessage('en-US', '無權限訪問此案件')).toBe(
+      'You do not have permission to access this case'
+    );
+    expect(translateBackendMessage('en-US', '協作案件不存在')).toBe('Collaborative case not found');
+    expect(translateBackendMessage('en-US', 'Session 不匹配')).toBe('Session does not match');
+    expect(translateBackendMessage('en-US', '角色A陳述不能為空')).toBe(
+      'Role A statement cannot be empty'
+    );
+    expect(translateBackendMessage('zh-TW', '正式案件 mode 只能是 remote 或 collaborative')).toBe(
+      '正式案件 mode 只能是 remote 或 collaborative'
+    );
+  });
+
   it('uses public Analysis terminology for backend judgment response messages', () => {
     expect(translateErrorByCode('en-US', 'JUDGMENT_FAILED')).toBe(
       'Analysis generation failed, please retry later'

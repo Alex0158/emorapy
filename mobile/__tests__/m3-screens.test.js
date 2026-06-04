@@ -292,13 +292,42 @@ describe('M3 Chat screens', () => {
       visibility_scope: 'all',
     });
 
-    fireEvent.press(screen.getByText('請求判斷'));
+    fireEvent.press(screen.getByText('請求梳理'));
 
     await waitFor(() => expect(mockRequestJudgment).toHaveBeenCalledTimes(1));
     expect(mockRequestJudgment).toHaveBeenCalledWith('room-1', {
       included_message_ids: ['m1'],
       participant_consent: undefined,
     });
+  });
+
+  it('renders chat room chrome in the selected locale while preserving message content', async () => {
+    setLocale('en-US', { persist: false });
+    mockSearchParams = { roomId: 'room-1' };
+    mockGetSessionId.mockResolvedValue('guest-existing');
+
+    const screen = renderWithQuery(React.createElement(ChatRoomScreen));
+
+    expect(await screen.findByText('hello from A')).toBeTruthy();
+    expect(screen.getAllByText('Chat').length).toBeGreaterThan(0);
+    expect(screen.getByText('Organize first, invite later, and request analysis only through an explicit action.')).toBeTruthy();
+    expect(screen.getByText('Chat status')).toBeTruthy();
+    expect(screen.getAllByText('Organizing alone').length).toBeGreaterThan(0);
+    expect(screen.getByText('Visibility policy')).toBeTruthy();
+    expect(screen.getByText('The other person only sees the key summary after joining')).toBeTruthy();
+    expect(screen.getByText('Message sync')).toBeTruthy();
+    expect(screen.getByText('Mediator draft')).toBeTruthy();
+    expect(screen.getByText(/Message time:/)).toBeTruthy();
+    expect(screen.getByText('Side A')).toBeTruthy();
+    expect(screen.getByText('Can be included in analysis')).toBeTruthy();
+    expect(screen.getByPlaceholderText('Describe one concrete moment without rushing to assign blame.')).toBeTruthy();
+    expect(screen.getByText('Send message')).toBeTruthy();
+    expect(screen.getByText('Generate invite code')).toBeTruthy();
+    expect(screen.getByText('Move to analysis')).toBeTruthy();
+    expect(screen.getByText('Request analysis')).toBeTruthy();
+    expect(screen.getByText('Leave chat')).toBeTruthy();
+    expect(screen.queryByText('對話狀態')).toBeNull();
+    expect(screen.queryByText('請求梳理')).toBeNull();
   });
 
   it('shows a user-safe message time fallback when message timestamps are missing', async () => {

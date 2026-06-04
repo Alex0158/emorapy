@@ -11,107 +11,106 @@ import {
   type AIStreamCallbacks,
   isTerminalAIStreamEvent,
 } from '@/src/platform/sse/aiStreamState';
+import { getLocale, t, useLocale } from '@/src/i18n';
 import { useAIStreamSubscription } from '@/src/platform/sse/useAIStreamSubscription';
 import { sessionStorage, tokenStorage } from '@/src/platform/storage/secureStore';
 import { ActionButton, FeatureRow, LinkButton, Panel, Screen, StatusPill } from '@/src/ui/components';
 import { palette, spacing, typography } from '@/src/ui/theme';
 
-const visibilityOptions: Array<{ label: string; value: ChatVisibilityScope; tone: 'teal' | 'blue' | 'amber' }> = [
-  { label: '全部可見', value: 'all', tone: 'teal' },
-  { label: '只給我看', value: 'owner_only', tone: 'blue' },
-  { label: '摘要可見', value: 'summary_only', tone: 'amber' },
+const visibilityOptions: Array<{ labelKey: string; value: ChatVisibilityScope; tone: 'teal' | 'blue' | 'amber' }> = [
+  { labelKey: 'chatRoom.visibility.all', value: 'all', tone: 'teal' },
+  { labelKey: 'chatRoom.visibility.ownerOnly', value: 'owner_only', tone: 'blue' },
+  { labelKey: 'chatRoom.visibility.summaryOnly', value: 'summary_only', tone: 'amber' },
 ];
 
-const roomStatusLabels: Record<string, string> = {
-  solo_active: '個人整理中',
-  invite_pending: '等待對方加入',
-  invite_accepted: '對方已加入',
-  group_active: '雙方整理中',
-  judgment_requested: '判斷中',
-  judgment_completed: '已有判斷',
-  judgment_failed: '判斷未完成',
-  archived: '已封存',
+const roomStatusLabelKeys: Record<string, string> = {
+  solo_active: 'chatRoom.roomStatus.soloActive',
+  invite_pending: 'chatRoom.roomStatus.invitePending',
+  invite_accepted: 'chatRoom.roomStatus.inviteAccepted',
+  group_active: 'chatRoom.roomStatus.groupActive',
+  judgment_requested: 'chatRoom.roomStatus.analysisRequested',
+  judgment_completed: 'chatRoom.roomStatus.analysisCompleted',
+  judgment_failed: 'chatRoom.roomStatus.analysisFailed',
+  archived: 'chatRoom.roomStatus.archived',
 };
 
-const historyVisibilityLabels: Record<ChatHistoryVisibilityMode, string> = {
-  share_full_history: '對方加入後可看完整脈絡',
-  share_summary_only: '對方加入後只看重點摘要',
-  share_from_join_time: '對方只看加入後的新內容',
+const historyVisibilityLabelKeys: Record<ChatHistoryVisibilityMode, string> = {
+  share_full_history: 'chatRoom.history.full',
+  share_summary_only: 'chatRoom.history.summaryOnly',
+  share_from_join_time: 'chatRoom.history.fromJoin',
 };
 
-const messageVisibilityLabels: Record<ChatVisibilityScope, string> = {
-  all: '可納入判斷',
-  owner_only: '只給我看',
-  summary_only: '只分享摘要',
+const messageVisibilityLabelKeys: Record<ChatVisibilityScope, string> = {
+  all: 'chatRoom.messageVisibility.all',
+  owner_only: 'chatRoom.messageVisibility.ownerOnly',
+  summary_only: 'chatRoom.messageVisibility.summaryOnly',
 };
 
-const roomStreamStatusLabels: Record<'idle' | 'ready' | 'event' | 'failed', string> = {
-  idle: '等待同步',
-  ready: '已連線',
-  event: '剛剛更新',
-  failed: '同步失敗',
+const roomStreamStatusLabelKeys: Record<'idle' | 'ready' | 'event' | 'failed', string> = {
+  idle: 'chatRoom.roomStream.idle',
+  ready: 'chatRoom.roomStream.ready',
+  event: 'chatRoom.roomStream.event',
+  failed: 'chatRoom.roomStream.failed',
 };
 
-const chatMessageTimeFormatter = new Intl.DateTimeFormat('zh-Hant', {
-  day: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-  month: 'numeric',
-  year: 'numeric',
-});
-
-const chatAIStatusLabels: Record<ChatAIStatus, string> = {
-  idle: '等待生成',
-  ready: '已連線',
-  streaming: '生成中',
-  persisted: '已保存',
-  failed: '生成失敗',
+const chatAIStatusLabelKeys: Record<ChatAIStatus, string> = {
+  idle: 'chatRoom.aiStatus.idle',
+  ready: 'chatRoom.aiStatus.ready',
+  streaming: 'chatRoom.aiStatus.streaming',
+  persisted: 'chatRoom.aiStatus.persisted',
+  failed: 'chatRoom.aiStatus.failed',
 };
 
 function labelRoomStatus(status?: string | null): string {
-  if (!status) return '載入中';
-  return roomStatusLabels[status] ?? '狀態更新中';
+  if (!status) return t('chatRoom.roomStatus.loading');
+  return t(roomStatusLabelKeys[status] ?? 'chatRoom.roomStatus.updated');
 }
 
 function labelHistoryVisibility(mode?: ChatHistoryVisibilityMode | null): string {
-  return historyVisibilityLabels[mode ?? 'share_summary_only'];
+  return t(historyVisibilityLabelKeys[mode ?? 'share_summary_only']);
 }
 
 function labelMessageVisibility(scope?: ChatVisibilityScope | null): string {
-  if (!scope) return '可見範圍未定';
-  return messageVisibilityLabels[scope] ?? '可見範圍未定';
+  if (!scope) return t('chatRoom.messageVisibility.unknown');
+  return t(messageVisibilityLabelKeys[scope] ?? 'chatRoom.messageVisibility.unknown');
 }
 
 function labelLifecycleStatus(status: string): string {
-  if (status === 'active' || status === 'unknown') return 'App 使用中';
-  if (status === 'background') return 'App 在背景';
-  if (status === 'inactive') return 'App 暫時中斷';
-  return 'App 狀態更新中';
+  if (status === 'active' || status === 'unknown') return t('chatRoom.lifecycle.active');
+  if (status === 'background') return t('chatRoom.lifecycle.background');
+  if (status === 'inactive') return t('chatRoom.lifecycle.inactive');
+  return t('chatRoom.lifecycle.updated');
 }
 
 function labelChatAISyncProgress(status: ChatAIStatus, isRecovering: boolean): string {
-  if (isRecovering) return '正在恢復協調草稿，會從最近收到的內容繼續。';
-  if (status === 'persisted') return '草稿已保存';
-  if (status === 'failed') return '草稿生成需要重試';
-  if (status === 'streaming') return '正在生成協調草稿';
-  if (status === 'ready') return '已準備同步協調草稿';
-  return '等待生成協調草稿';
+  if (isRecovering) return t('chatRoom.aiSync.recovering');
+  if (status === 'persisted') return t('chatRoom.aiSync.persisted');
+  if (status === 'failed') return t('chatRoom.aiSync.failed');
+  if (status === 'streaming') return t('chatRoom.aiSync.streaming');
+  if (status === 'ready') return t('chatRoom.aiSync.ready');
+  return t('chatRoom.aiSync.idle');
 }
 
 function formatMessageTime(value?: string | null): string {
-  if (!value) return '時間待同步';
+  if (!value) return t('chatRoom.time.unsynced');
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '時間待同步';
-  return chatMessageTimeFormatter.format(date);
+  if (Number.isNaN(date.getTime())) return t('chatRoom.time.unsynced');
+  return new Intl.DateTimeFormat(getLocale() === 'en-US' ? 'en-US' : 'zh-Hant', {
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    month: 'numeric',
+    year: 'numeric',
+  }).format(date);
 }
 
 function getMessageMeta(message: ChatMessage): { label: string; tone: 'teal' | 'blue' | 'amber' | 'coral' | 'neutral' } {
   const role = message.sender_participant?.role_in_room;
-  if (message.message_type === 'safety_notice') return { label: '安全提示', tone: 'coral' };
-  if (role === 'roleA') return { label: 'A 方', tone: 'teal' };
-  if (role === 'roleB') return { label: 'B 方', tone: 'blue' };
-  if (role === 'aiMediator') return { label: 'AI 協調', tone: 'amber' };
-  return { label: '系統', tone: 'neutral' };
+  if (message.message_type === 'safety_notice') return { label: t('chatRoom.messageMeta.safety'), tone: 'coral' };
+  if (role === 'roleA') return { label: t('chatRoom.messageMeta.roleA'), tone: 'teal' };
+  if (role === 'roleB') return { label: t('chatRoom.messageMeta.roleB'), tone: 'blue' };
+  if (role === 'aiMediator') return { label: t('chatRoom.messageMeta.aiMediator'), tone: 'amber' };
+  return { label: t('chatRoom.messageMeta.system'), tone: 'neutral' };
 }
 
 type ChatAIStatus = 'idle' | 'ready' | 'streaming' | 'persisted' | 'failed';
@@ -138,6 +137,7 @@ function chatAIStatusFromEvent(event: AIStreamEvent): ChatAIStatus {
 }
 
 export default function ChatRoomScreen() {
+  useLocale();
   const params = useLocalSearchParams<{ roomId?: string }>();
   const roomId = typeof params.roomId === 'string' ? params.roomId : null;
   const queryClient = useQueryClient();
@@ -337,12 +337,12 @@ export default function ChatRoomScreen() {
   if (!mounted) {
     return (
       <Screen
-        eyebrow="對話"
-        title="載入對話"
-        subtitle="正在讀取對話內容。"
+        eyebrow={t('chatRoom.eyebrow')}
+        title={t('chatRoom.loading.title')}
+        subtitle={t('chatRoom.loading.subtitle')}
         testID="chat.room.loading.screen">
-        <Panel title="狀態">
-          <StatusPill label="載入中" tone="blue" />
+        <Panel title={t('chatRoom.statusPanel')}>
+          <StatusPill label={t('chatRoom.loading.pill')} tone="blue" />
         </Panel>
       </Screen>
     );
@@ -351,11 +351,11 @@ export default function ChatRoomScreen() {
   if (!roomId) {
     return (
       <Screen
-        eyebrow="對話"
-        title="缺少對話"
-        subtitle="請先建立新的對話，或從邀請連結進入。"
+        eyebrow={t('chatRoom.eyebrow')}
+        title={t('chatRoom.missing.title')}
+        subtitle={t('chatRoom.missing.subtitle')}
         testID="chat.room.missing.screen">
-        <LinkButton href="/chat" label="回到對話" tone="teal" testID="chat.room.back" />
+        <LinkButton href="/chat" label={t('chatRoom.back')} tone="teal" testID="chat.room.back" />
       </Screen>
     );
   }
@@ -363,12 +363,12 @@ export default function ChatRoomScreen() {
   if (actorQuery.isLoading) {
     return (
       <Screen
-        eyebrow="對話"
-        title="確認身份"
-        subtitle="正在確認本機會話或登入狀態。"
+        eyebrow={t('chatRoom.eyebrow')}
+        title={t('chatRoom.actorLoading.title')}
+        subtitle={t('chatRoom.actorLoading.subtitle')}
         testID="chat.room.actor-loading.screen">
-        <Panel title="狀態">
-          <StatusPill label="確認中" tone="blue" />
+        <Panel title={t('chatRoom.statusPanel')}>
+          <StatusPill label={t('chatRoom.actorLoading.pill')} tone="blue" />
         </Panel>
       </Screen>
     );
@@ -377,35 +377,35 @@ export default function ChatRoomScreen() {
   if (!hasActor) {
     return (
       <Screen
-        eyebrow="對話"
-        title="先建立對話上下文"
-        subtitle="對話讀取需要登入帳號，或從對話首頁正常建立新對話。"
+        eyebrow={t('chatRoom.eyebrow')}
+        title={t('chatRoom.authGate.title')}
+        subtitle={t('chatRoom.authGate.subtitle')}
         testID="chat.room.auth-gate.screen">
-        <Panel title="保護對話">
-          <FeatureRow title="不直接打開" detail="沒有有效身份時，不會直接讀取對話內容。" tone="teal" />
-          <FeatureRow title="從對話首頁進入" detail="建立新對話後，再回到對話繼續整理。" tone="blue" />
+        <Panel title={t('chatRoom.authGate.panel')}>
+          <FeatureRow title={t('chatRoom.authGate.noDirect.title')} detail={t('chatRoom.authGate.noDirect.detail')} tone="teal" />
+          <FeatureRow title={t('chatRoom.authGate.fromHome.title')} detail={t('chatRoom.authGate.fromHome.detail')} tone="blue" />
         </Panel>
-        <LinkButton href="/chat" label="回到對話" tone="teal" testID="chat.room.auth-gate.back" />
+        <LinkButton href="/chat" label={t('chatRoom.back')} tone="teal" testID="chat.room.auth-gate.back" />
       </Screen>
     );
   }
 
   return (
     <Screen
-      eyebrow="對話"
-      title="對話"
-      subtitle="先整理、再邀請，只有明確點擊才會請求判斷。"
+      eyebrow={t('chatRoom.eyebrow')}
+      title={t('chatRoom.title')}
+      subtitle={t('chatRoom.subtitle')}
       testID="chat.room.screen">
-      <Panel title="對話狀態">
+      <Panel title={t('chatRoom.roomStatusPanel')}>
         <StatusPill label={labelRoomStatus(roomQuery.data?.status)} tone="blue" />
         <FeatureRow
-          title="可見策略"
+          title={t('chatRoom.historyVisibility')}
           detail={labelHistoryVisibility(roomQuery.data?.history_visibility_mode)}
           tone="amber"
         />
-        <FeatureRow title="訊息同步" detail={roomStreamStatusLabels[streamStatus]} tone={streamStatus === 'failed' ? 'coral' : 'blue'} />
+        <FeatureRow title={t('chatRoom.messageSync')} detail={t(roomStreamStatusLabelKeys[streamStatus])} tone={streamStatus === 'failed' ? 'coral' : 'blue'} />
         <FeatureRow
-          title="協調草稿"
+          title={t('chatRoom.aiDraftStatus')}
           detail={`${labelChatAISyncProgress(aiStreamState.status, aiStreamRecovering)} / ${labelLifecycleStatus(aiStreamLifecycleStatus)}`}
           tone={aiStreamRecovering ? 'amber' : aiStreamState.status === 'failed' ? 'coral' : 'blue'}
         />
@@ -413,16 +413,16 @@ export default function ChatRoomScreen() {
       </Panel>
 
       {aiStreamState.text || aiStreamRecovering ? (
-        <Panel title="AI 協調生成">
+        <Panel title={t('chatRoom.aiDraftPanel')}>
           <StatusPill
-            label={aiStreamRecovering ? '恢復生成中' : chatAIStatusLabels[aiStreamState.status]}
+            label={aiStreamRecovering ? t('chatRoom.aiRecoveringLabel') : t(chatAIStatusLabelKeys[aiStreamState.status])}
             tone={aiStreamRecovering ? 'amber' : aiStreamState.status === 'failed' ? 'coral' : 'amber'}
           />
           {aiStreamState.text ? <Text style={styles.aiDraftText}>{aiStreamState.text}</Text> : null}
         </Panel>
       ) : null}
 
-      <Panel title="訊息">
+      <Panel title={t('chatRoom.messagesPanel')}>
         {messages.length ? (
           messages.map((message) => {
             const meta = getMessageMeta(message);
@@ -431,10 +431,10 @@ export default function ChatRoomScreen() {
                 <View style={styles.messageHeader}>
                   <StatusPill label={meta.label} tone={meta.tone} />
                   <Text
-                    accessibilityLabel={`訊息時間：${formatMessageTime(message.created_at)}`}
+                    accessibilityLabel={t('chatRoom.time.accessibility', { time: formatMessageTime(message.created_at) })}
                     style={styles.messageTime}
                     testID={`chat.room.message.${message.id}.time`}>
-                    訊息時間：{formatMessageTime(message.created_at)}
+                    {t('chatRoom.time.prefix', { time: formatMessageTime(message.created_at) })}
                   </Text>
                 </View>
                 <Text style={styles.messageText}>{message.content}</Text>
@@ -443,17 +443,17 @@ export default function ChatRoomScreen() {
             );
           })
         ) : (
-          <Text style={styles.emptyText}>還沒有訊息。先寫一段你願意放進對話的材料。</Text>
+          <Text style={styles.emptyText}>{t('chatRoom.emptyMessages')}</Text>
         )}
       </Panel>
 
-      <Panel title="發言">
+      <Panel title={t('chatRoom.composePanel')}>
         <TextInput
-          accessibilityLabel="發言"
-          accessibilityHint="輸入一段要送進對話的具體材料"
+          accessibilityLabel={t('chatRoom.compose.label')}
+          accessibilityHint={t('chatRoom.compose.hint')}
           multiline
           onChangeText={setCompose}
-          placeholder="說清楚一個具體片段，不急著定責。"
+          placeholder={t('chatRoom.compose.placeholder')}
           placeholderTextColor={palette.muted}
           style={styles.textArea}
           testID="chat.room.compose.input"
@@ -464,7 +464,7 @@ export default function ChatRoomScreen() {
           {visibilityOptions.map((option) => (
             <ActionButton
               key={option.value}
-              label={option.label}
+              label={t(option.labelKey)}
               onPress={() => setVisibilityScope(option.value)}
               tone={option.tone}
               variant={visibilityScope === option.value ? 'filled' : 'outline'}
@@ -473,7 +473,7 @@ export default function ChatRoomScreen() {
         </View>
         <ActionButton
           disabled={compose.trim().length < 2 || sendMessageMutation.isPending}
-          label="送出訊息"
+          label={t('chatRoom.sendMessage')}
           loading={sendMessageMutation.isPending}
           onPress={() => sendMessageMutation.mutate()}
           testID="chat.room.send-message"
@@ -481,14 +481,14 @@ export default function ChatRoomScreen() {
         />
       </Panel>
 
-      <Panel title="邀請">
-        <FeatureRow title="分享方式" detail="先生成邀請碼；對方登入後可以回到這個對話。" tone="blue" />
+      <Panel title={t('chatRoom.invitePanel')}>
+        <FeatureRow title={t('chatRoom.inviteShare.title')} detail={t('chatRoom.inviteShare.detail')} tone="blue" />
         {inviteCode ? (
           <>
             <Text style={styles.inviteCode}>{inviteCode}</Text>
             <LinkButton
               href={`/chat/invite?code=${encodeURIComponent(inviteCode)}`}
-              label="打開邀請承接頁"
+              label={t('chatRoom.openInvite')}
               testID="chat.room.open-invite"
               tone="blue"
               variant="outline"
@@ -496,7 +496,7 @@ export default function ChatRoomScreen() {
           </>
         ) : null}
         <ActionButton
-          label="生成邀請碼"
+          label={t('chatRoom.createInvite')}
           loading={createInviteMutation.isPending}
           onPress={() => createInviteMutation.mutate()}
           testID="chat.room.create-invite"
@@ -505,11 +505,11 @@ export default function ChatRoomScreen() {
         />
       </Panel>
 
-      <Panel title="轉判斷">
-        <FeatureRow title="納入範圍" detail={`目前會納入 ${includedMessages.length} 則雙方可見訊息。`} tone="teal" />
+      <Panel title={t('chatRoom.analysisPanel')}>
+        <FeatureRow title={t('chatRoom.includedScope')} detail={t('chatRoom.includedScope.detail', { count: includedMessages.length })} tone="teal" />
         {hasRoleBIncluded ? (
           <ActionButton
-            label={roleBConsent ? '已確認 B 方同意' : '確認 B 方同意後納入'}
+            label={roleBConsent ? t('chatRoom.roleBConsent.confirmed') : t('chatRoom.roleBConsent.pending')}
             onPress={() => setRoleBConsent((value) => !value)}
             testID="chat.room.role-b-consent"
             tone={roleBConsent ? 'teal' : 'amber'}
@@ -518,31 +518,31 @@ export default function ChatRoomScreen() {
         ) : null}
         <ActionButton
           disabled={includedMessages.length === 0 || (hasRoleBIncluded && !roleBConsent)}
-          label="請求判斷"
+          label={t('chatRoom.requestAnalysis')}
           loading={requestJudgmentMutation.isPending}
           onPress={() => requestJudgmentMutation.mutate()}
           testID="chat.room.request-judgment"
           tone="coral"
         />
         <FeatureRow
-          title="判斷狀態"
+          title={t('chatRoom.analysisStatus')}
           detail={judgmentStatusQuery.data?.roomStatus || roomQuery.data?.status
             ? labelRoomStatus(judgmentStatusQuery.data?.roomStatus ?? roomQuery.data?.status)
-            : '尚未請求'}
+            : t('chatRoom.analysisNotRequested')}
           tone="coral"
         />
       </Panel>
 
       <View style={styles.actions}>
         <ActionButton
-          label="離開對話"
+          label={t('chatRoom.leave')}
           loading={leaveRoomMutation.isPending}
           onPress={() => leaveRoomMutation.mutate()}
           testID="chat.room.leave"
           tone="neutral"
           variant="outline"
         />
-        <LinkButton href="/chat" label="回到對話" tone="teal" testID="chat.room.back" variant="outline" />
+        <LinkButton href="/chat" label={t('chatRoom.back')} tone="teal" testID="chat.room.back" variant="outline" />
       </View>
     </Screen>
   );

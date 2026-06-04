@@ -68,6 +68,8 @@ const zhTW = {
 	// 通用
 	"common.loading": "加載中...",
 	"common.back": "返回",
+	"common.prev": "上一頁",
+	"common.next": "下一頁",
 	"common.dismiss": "關閉",
 	"confirmModal.title": "確認",
 	"confirmModal.dangerTitle": "確認操作",

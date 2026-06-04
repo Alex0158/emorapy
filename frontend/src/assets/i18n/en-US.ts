@@ -250,6 +250,8 @@ const enUS: Record<string, string> = {
 	// Common
 	"common.loading": "Loading...",
 	"common.back": "Back",
+	"common.prev": "Previous",
+	"common.next": "Next",
 	"common.dismiss": "Dismiss",
 	"guideTooltip.close": "Close guide",
 	"common.unknownError": "Unknown error",

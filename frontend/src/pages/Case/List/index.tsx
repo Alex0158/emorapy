@@ -286,7 +286,7 @@ const CaseList = () => {
                 disabled={pagination.page <= 1}
                 onClick={() => setPagination((prev) => ({ ...prev, page: prev.page - 1 }))}
               >
-                {t('common.prev') || '上一頁'}
+                {t('common.prev')}
               </Button>
               <span className="text-sm text-muted-foreground">
                 {pagination.page} / {pagination.total_pages}
@@ -297,7 +297,7 @@ const CaseList = () => {
                 disabled={pagination.page >= pagination.total_pages}
                 onClick={() => setPagination((prev) => ({ ...prev, page: prev.page + 1 }))}
               >
-                {t('common.next') || '下一頁'}
+                {t('common.next')}
               </Button>
             </div>
           </div>

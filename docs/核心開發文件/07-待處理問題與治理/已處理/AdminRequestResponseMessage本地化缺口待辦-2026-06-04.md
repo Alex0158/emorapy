@@ -4,8 +4,8 @@
 **文檔類型**：問題治理
 **覆蓋範圍**：Admin Web request service success=false envelope、HTTP response error normalization、Admin pages API error fallback
 **取證代碼入口**：`frontend-admin/src/services/request.ts`、`frontend-admin/src/services/request.test.ts`、`frontend-admin/src/assets/i18n`
-**最後核驗 Commit**：`06de2f6`
-**最後核驗日期**：`2026-06-04`
+**最後核驗 Commit**：`5db46c8`
+**最後核驗日期**：`2026-06-05`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 ## 問題位置與現象
@@ -40,8 +40,8 @@
 
 ## 驗證方式
 
-- `npm --prefix frontend-admin test -- src/services/request.test.ts src/assets/i18n/catalogParity.test.ts`：通過 2 files / 9 tests。
-- `npm --prefix frontend-admin run build`：通過。
+- `npm --prefix frontend-admin test -- src/services/request.test.ts src/assets/i18n/catalogParity.test.ts`：2026-06-05 復核通過 2 files / 9 tests。
+- `npm --prefix frontend-admin run build`：2026-06-05 復核通過。
 - `npm run docs:check`：通過。
 - 靜態復查已確認 `frontend-admin/src/services/request.ts` 不再用 `err.message` / `apiError.message` 作可見 fallback。
 
@@ -54,4 +54,4 @@
 ## Owner / Status Notes
 
 - Owner：agent
-- Status：已修復，已提交。
+- Status：已處理並歸檔。

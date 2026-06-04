@@ -4,8 +4,8 @@
 **文檔類型**：問題治理
 **覆蓋範圍**：App M1-M5 shared domain client `success:false` envelope normalization、RequestErrorLike visible message、App API code fallback
 **取證代碼入口**：`packages/api-client/src/m1.ts`、`packages/api-client/src/m2.ts`、`packages/api-client/src/m3.ts`、`packages/api-client/src/m4.ts`、`packages/api-client/src/m5.ts`、`mobile/src/platform/api/client.ts`、`mobile/src/platform/api/errorMessages.ts`、`mobile/src/features`
-**最後核驗 Commit**：`64c6da3`
-**最後核驗日期**：`2026-06-04`
+**最後核驗 Commit**：`db488e9`
+**最後核驗日期**：`2026-06-05`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 ## 問題位置與現象
@@ -72,7 +72,7 @@
 ## Owner / Status Notes
 
 - Owner：agent
-- Status：已完成本輪修復。後續若 App 需要更精準 domain-specific 文案，應新增 App catalog key 與 code mapping，不回退到 body message。
+- Status：已完成並歸檔。後續若 App 需要更精準 domain-specific 文案，應新增 App catalog key 與 code mapping，不回退到 body message。
 
 ## 修復結果
 
@@ -91,3 +91,12 @@
 2. `npm --prefix mobile test -- __tests__/m1-screens.test.js __tests__/m2-screens.test.js __tests__/m3-screens.test.js __tests__/m4-screens.test.js __tests__/m5-notifications.test.js` 通過 5 suites / 74 tests。
 3. `npm --prefix mobile run typecheck` 通過。
 4. 靜態掃描確認 `mobile/src/platform/api/client.ts` 的 `RequestErrorLike` 分支不再 `return error` 或直接信任 raw `.message`。
+
+## 2026-06-05 歸檔復核
+
+1. 代碼復核確認 `mobile/src/platform/api/client.ts` 的 `RequestErrorLike` 分支只保留 shared invalid-response fixed diagnostic 判斷；一般 domain envelope error 統一走 `getLocalizedRequestCodeMessage(error.code) ?? getLocalizedUnknownMessage()`，並保留 `code` / `details`。
+2. `mobile/src/platform/api/errorMessages.ts` 已集中覆蓋 `AUTH_REQUIRED`、`INVALID_AUTH_TOKEN`、`*_NOT_FOUND`、`VALIDATION_ERROR`、`RATE_LIMIT_EXCEEDED`、`SERVER_ERROR`、`EXTERNAL_SERVICE_ERROR` 等 App catalog fallback，未知 code 不外露 raw body message。
+3. `mobile/src/platform/api/client.test.js` 已覆蓋 zh-TW / en-US、known code、unknown code、invalid-response fixed diagnostic、stream disconnected fixed diagnostic。
+4. 2026-06-05 復跑 `npm --prefix mobile test -- src/platform/api/client.test.js src/i18n/index.test.js`，通過 2 suites / 10 tests。
+5. 2026-06-05 復跑 `npm --prefix mobile test -- __tests__/m1-screens.test.js __tests__/m2-screens.test.js __tests__/m3-screens.test.js __tests__/m4-screens.test.js __tests__/m5-notifications.test.js`，通過 5 suites / 74 tests。
+6. 2026-06-05 復跑 `npm --prefix mobile run typecheck`、`npm run docs:check` 均通過。

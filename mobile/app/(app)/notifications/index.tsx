@@ -8,6 +8,7 @@ import type { NotificationFeedState, NotificationItem, NotificationStatus } from
 import { getRuntimeConfig } from '@/src/config/runtime';
 import { m5Api, normalizeM5Error } from '@/src/features/m5/api';
 import { registerPushTokenForCurrentUser } from '@/src/features/m5/pushLifecycle';
+import { getLocale, t, useLocale } from '@/src/i18n';
 import { resolveAppHrefFromBackendPath } from '@/src/platform/linking/native';
 import { getPushTokenPayload, requestPushPermission } from '@/src/platform/notifications/native';
 import { tokenStorage } from '@/src/platform/storage/secureStore';
@@ -15,23 +16,18 @@ import { captureTelemetry } from '@/src/platform/telemetry/client';
 import { ActionButton, FeatureRow, LinkButton, Panel, Screen, StatusPill } from '@/src/ui/components';
 import { palette, spacing, typography } from '@/src/ui/theme';
 
-const feedStates: Array<{ label: string; value: NotificationFeedState }> = [
-  { label: '未讀', value: 'unread' },
-  { label: '待行動', value: 'actionable' },
-  { label: '全部', value: 'all' },
-  { label: '稍後', value: 'snoozed' },
-];
+const feedStates: NotificationFeedState[] = ['unread', 'actionable', 'all', 'snoozed'];
 
-const feedStateLabels: Record<NotificationFeedState, string> = {
-  unread: '未讀',
-  actionable: '待行動',
-  all: '全部',
-  snoozed: '稍後',
-  archived: '已封存',
+const feedStateLabelKeys: Record<NotificationFeedState, string> = {
+  unread: 'notifications.feed.unread',
+  actionable: 'notifications.feed.actionable',
+  all: 'notifications.feed.all',
+  snoozed: 'notifications.feed.snoozed',
+  archived: 'notifications.feed.archived',
 };
 
 function labelFeedState(state: NotificationFeedState): string {
-  return feedStateLabels[state] ?? '提醒';
+  return t(feedStateLabelKeys[state] ?? 'notifications.feed.fallback');
 }
 
 function getPriorityTone(priority?: string | null): 'teal' | 'coral' | 'amber' | 'blue' | 'neutral' {
@@ -41,17 +37,17 @@ function getPriorityTone(priority?: string | null): 'teal' | 'coral' | 'amber' |
   return 'neutral';
 }
 
-const notificationPriorityLabels: Record<string, string> = {
-  now: '需要現在處理',
-  soon: '近期提醒',
-  later: '稍後提醒',
+const notificationPriorityLabelKeys: Record<string, string> = {
+  now: 'notifications.priority.now',
+  soon: 'notifications.priority.soon',
+  later: 'notifications.priority.later',
 };
 
-const notificationStatusLabels: Record<NotificationStatus, string> = {
-  pending: '等待送出',
-  sent: '已送出',
-  failed: '送出失敗',
-  cancelled: '已取消',
+const notificationStatusLabelKeys: Record<NotificationStatus, string> = {
+  pending: 'notifications.status.pending',
+  sent: 'notifications.status.sent',
+  failed: 'notifications.status.failed',
+  cancelled: 'notifications.status.cancelled',
 };
 
 const notificationStatusTones: Record<NotificationStatus, 'teal' | 'coral' | 'amber' | 'blue' | 'neutral'> = {
@@ -61,17 +57,9 @@ const notificationStatusTones: Record<NotificationStatus, 'teal' | 'coral' | 'am
   cancelled: 'neutral',
 };
 
-const notificationTimeFormatter = new Intl.DateTimeFormat('zh-Hant', {
-  day: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-  month: 'numeric',
-  year: 'numeric',
-});
-
 function labelNotificationBadge(item: NotificationItem): string {
-  if (item.priority) return notificationPriorityLabels[item.priority] ?? '重要提醒';
-  return notificationStatusLabels[item.status] ?? '提醒已更新';
+  if (item.priority) return t(notificationPriorityLabelKeys[item.priority] ?? 'notifications.priority.fallback');
+  return t(notificationStatusLabelKeys[item.status] ?? 'notifications.status.updated');
 }
 
 function getNotificationBadgeTone(item: NotificationItem): 'teal' | 'coral' | 'amber' | 'blue' | 'neutral' {
@@ -80,21 +68,28 @@ function getNotificationBadgeTone(item: NotificationItem): 'teal' | 'coral' | 'a
 }
 
 function getNotificationTitle(item: NotificationItem): string {
-  return item.render_payload?.title || '通知';
+  return item.render_payload?.title || t('notifications.fallback.title');
 }
 
 function getNotificationBody(item: NotificationItem): string {
-  return item.render_payload?.body || '有新的狀態需要你查看。';
+  return item.render_payload?.body || t('notifications.fallback.body');
 }
 
 function formatNotificationTime(value?: string | null): string {
-  if (!value) return '時間待同步';
+  if (!value) return t('notifications.time.unsynced');
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '時間待同步';
-  return notificationTimeFormatter.format(date);
+  if (Number.isNaN(date.getTime())) return t('notifications.time.unsynced');
+  return new Intl.DateTimeFormat(getLocale() === 'en-US' ? 'en-US' : 'zh-Hant', {
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    month: 'numeric',
+    year: 'numeric',
+  }).format(date);
 }
 
 export default function NotificationsScreen() {
+  useLocale();
   const router = useRouter();
   const queryClient = useQueryClient();
   const [feedState, setFeedState] = useState<NotificationFeedState>('unread');
@@ -170,17 +165,17 @@ export default function NotificationsScreen() {
     try {
       const permission = await requestPushPermission();
       if (permission.status !== 'granted') {
-        setPushStatus(permission.canAskAgain ? '尚未授權，可稍後再開啟。' : '系統已拒絕，需要到設定中開啟。');
+        setPushStatus(permission.canAskAgain ? t('notifications.push.deniedCanAsk') : t('notifications.push.deniedBlocked'));
         return;
       }
       const tokenPayload = await getPushTokenPayload();
       if (!tokenPayload) {
-        setPushStatus('目前還不能在這台裝置開啟提醒。');
+        setPushStatus(t('notifications.push.unsupported'));
         return;
       }
       const runtime = getRuntimeConfig();
       await registerPushTokenForCurrentUser(tokenPayload, runtime.appVersion);
-      setPushStatus('已同步這台裝置的提醒。');
+      setPushStatus(t('notifications.push.synced'));
     } catch (error) {
       setPushStatus(normalizeM5Error(error).message);
     }
@@ -205,15 +200,15 @@ export default function NotificationsScreen() {
   if (!isAuthenticated) {
     return (
       <Screen
-        eyebrow="提醒"
-        title="先登入"
-        subtitle="通知只承接正式案件、對話與修復旅程，需要登入後同步。"
+        eyebrow={t('notifications.eyebrow')}
+        title={t('notifications.authGate.title')}
+        subtitle={t('notifications.authGate.subtitle')}
         testID="notifications.auth-gate.screen">
-        <Panel title="提醒狀態">
-          <FeatureRow title="登入後同步" detail="通知讀取、稍後、封存與行動狀態會回寫後端。" tone="teal" />
-          <FeatureRow title="快速整理不打擾" detail="匿名快速整理流程不會建立長期提醒通道。" tone="blue" />
+        <Panel title={t('notifications.authGate.panel')}>
+          <FeatureRow title={t('notifications.authGate.sync.title')} detail={t('notifications.authGate.sync.detail')} tone="teal" />
+          <FeatureRow title={t('notifications.authGate.quick.title')} detail={t('notifications.authGate.quick.detail')} tone="blue" />
         </Panel>
-        <LinkButton href="/auth" label="登入或註冊" tone="teal" testID="notifications.auth-gate.login" />
+        <LinkButton href="/auth" label={t('profile.authGate.login')} tone="teal" testID="notifications.auth-gate.login" />
       </Screen>
     );
   }
@@ -222,30 +217,30 @@ export default function NotificationsScreen() {
 
   return (
     <Screen
-      eyebrow="提醒"
-      title="通知與回到現場"
-      subtitle="在該行動時回來，不讓提醒變成壓力。"
+      eyebrow={t('notifications.eyebrow')}
+      title={t('notifications.title')}
+      subtitle={t('notifications.subtitle')}
       testID="notifications.screen">
-      <Panel title="通知同步">
+      <Panel title={t('notifications.syncPanel')}>
         <View style={styles.row}>
-          <StatusPill label={`未讀 ${unreadQuery.data ?? 0}`} tone="amber" />
-          <StatusPill label={`目前：${labelFeedState(feedState)}`} tone="blue" />
+          <StatusPill label={t('notifications.unreadCount', { count: unreadQuery.data ?? 0 })} tone="amber" />
+          <StatusPill label={t('notifications.currentFeed', { state: labelFeedState(feedState) })} tone="blue" />
         </View>
         <View style={styles.segment}>
           {feedStates.map((state) => (
             <ActionButton
-              key={state.value}
-              label={state.label}
-              onPress={() => setFeedState(state.value)}
-              testID={`notifications.feed.${state.value}`}
-              tone={feedState === state.value ? 'teal' : 'neutral'}
-              variant={feedState === state.value ? 'filled' : 'outline'}
+              key={state}
+              label={labelFeedState(state)}
+              onPress={() => setFeedState(state)}
+              testID={`notifications.feed.${state}`}
+              tone={feedState === state ? 'teal' : 'neutral'}
+              variant={feedState === state ? 'filled' : 'outline'}
             />
           ))}
         </View>
         <ActionButton
           disabled={!notifications.length}
-          label="全部標記已讀"
+          label={t('notifications.markAllRead')}
           loading={markAllReadMutation.isPending}
           onPress={() => markAllReadMutation.mutate()}
           testID="notifications.mark-all-read"
@@ -255,11 +250,11 @@ export default function NotificationsScreen() {
         {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
       </Panel>
 
-      <Panel title="提醒設備">
-        <FeatureRow title="本機權限" detail="允許後，只用於案件、對話與修復旅程的重要提醒。" tone="teal" />
-        <FeatureRow title="設備同步" detail="這台裝置會和帳號同步，登出時會先撤銷提醒通道。" tone="amber" />
+      <Panel title={t('notifications.devicePanel')}>
+        <FeatureRow title={t('notifications.localPermission.title')} detail={t('notifications.localPermission.detail')} tone="teal" />
+        <FeatureRow title={t('notifications.deviceSync.title')} detail={t('notifications.deviceSync.detail')} tone="amber" />
         <ActionButton
-          label="檢查提醒權限"
+          label={t('notifications.pushSetup')}
           onPress={handlePushSetup}
           testID="notifications.push-setup"
           tone="teal"
@@ -268,8 +263,8 @@ export default function NotificationsScreen() {
         {pushStatus ? <Text style={styles.metaText}>{pushStatus}</Text> : null}
       </Panel>
 
-      <Panel title="提醒列表">
-        {notificationsQuery.isFetching ? <Text style={styles.metaText}>同步中...</Text> : null}
+      <Panel title={t('notifications.listPanel')}>
+        {notificationsQuery.isFetching ? <Text style={styles.metaText}>{t('notifications.syncing')}</Text> : null}
         {notifications.map((item) => (
           <View key={item.id} style={styles.notificationCard}>
             <View style={styles.cardHeader}>
@@ -278,18 +273,18 @@ export default function NotificationsScreen() {
             </View>
             <Text style={styles.bodyText}>{getNotificationBody(item)}</Text>
             <Text
-              accessibilityLabel={`提醒時間：${formatNotificationTime(item.created_at)}`}
+              accessibilityLabel={t('notifications.time.accessibility', { time: formatNotificationTime(item.created_at) })}
               style={styles.metaText}
               testID={`notifications.item.${item.id}.time`}>
-              提醒時間：{formatNotificationTime(item.created_at)}
+              {t('notifications.time.prefix', { time: formatNotificationTime(item.created_at) })}
             </Text>
             <View style={styles.row}>
-              {item.unread ? <StatusPill label="未讀" tone="amber" /> : <StatusPill label="已讀" tone="neutral" />}
-              {item.actionable ? <StatusPill label="可行動" tone="teal" /> : null}
+              {item.unread ? <StatusPill label={t('notifications.unread')} tone="amber" /> : <StatusPill label={t('notifications.read')} tone="neutral" />}
+              {item.actionable ? <StatusPill label={t('notifications.actionable')} tone="teal" /> : null}
             </View>
             <View style={styles.actions}>
               <ActionButton
-                label={item.render_payload?.cta_label ?? '打開'}
+                label={item.render_payload?.cta_label ?? t('notifications.open')}
                 loading={actMutation.isPending}
                 onPress={() => actMutation.mutate(item)}
                 testID={`notifications.item.${item.id}.act`}
@@ -297,7 +292,7 @@ export default function NotificationsScreen() {
               />
               {item.unread ? (
                 <ActionButton
-                  label="已讀"
+                  label={t('notifications.markRead')}
                   loading={markReadMutation.isPending}
                   onPress={() => markReadMutation.mutate(item.id)}
                   testID={`notifications.item.${item.id}.read`}
@@ -306,7 +301,7 @@ export default function NotificationsScreen() {
                 />
               ) : null}
               <ActionButton
-                label="稍後 24h"
+                label={t('notifications.snooze24h')}
                 loading={snoozeMutation.isPending}
                 onPress={() => snoozeMutation.mutate(item.id)}
                 testID={`notifications.item.${item.id}.snooze`}
@@ -314,7 +309,7 @@ export default function NotificationsScreen() {
                 variant="outline"
               />
               <ActionButton
-                label="封存"
+                label={t('notifications.archive')}
                 loading={dismissMutation.isPending}
                 onPress={() => dismissMutation.mutate(item.id)}
                 testID={`notifications.item.${item.id}.dismiss`}
@@ -324,7 +319,7 @@ export default function NotificationsScreen() {
             </View>
           </View>
         ))}
-        {notifications.length ? null : <Text style={styles.emptyText}>目前沒有這類提醒。</Text>}
+        {notifications.length ? null : <Text style={styles.emptyText}>{t('notifications.empty')}</Text>}
       </Panel>
     </Screen>
   );

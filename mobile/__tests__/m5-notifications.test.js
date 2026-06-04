@@ -69,6 +69,7 @@ jest.mock('@/src/platform/telemetry/client', () => ({
 }));
 
 const NotificationsScreen = require('../app/(app)/notifications/index').default;
+const { setLocale } = require('@/src/i18n');
 
 const queryClients = [];
 
@@ -135,6 +136,7 @@ describe('M5 Notifications screen', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    setLocale('zh-TW', { persist: false });
     mockGetToken.mockResolvedValue('jwt-token');
     mockListNotifications.mockResolvedValue({ notifications: [notification], next_cursor: null, has_more: false });
     mockUnreadCount.mockResolvedValue(1);
@@ -186,6 +188,31 @@ describe('M5 Notifications screen', () => {
 
     await waitFor(() => expect(mockAct).toHaveBeenCalledWith('n1', 'continue_today_step'));
     expect(mockPush).toHaveBeenCalledWith('/repair');
+  });
+
+  it('renders notification chrome in the selected locale while preserving payload copy', async () => {
+    setLocale('en-US', { persist: false });
+
+    const screen = renderWithQuery(React.createElement(NotificationsScreen));
+
+    expect(await screen.findByText('Notifications and return points')).toBeTruthy();
+    expect(screen.getByText('Notification sync')).toBeTruthy();
+    expect(screen.getByText('Unread 1')).toBeTruthy();
+    expect(screen.getByText('Current: Unread')).toBeTruthy();
+    expect(screen.getByText('Coming up')).toBeTruthy();
+    expect(screen.getByText('Mark all as read')).toBeTruthy();
+    expect(screen.getByText('Alert device')).toBeTruthy();
+    expect(screen.getByText('Check alert permission')).toBeTruthy();
+    expect(screen.getByText('Alert list')).toBeTruthy();
+    expect(screen.getByText(/Notification time:/)).toBeTruthy();
+    expect(screen.getAllByText('Unread').length).toBeGreaterThan(0);
+    expect(screen.getByText('Actionable')).toBeTruthy();
+    expect(screen.getByText('Later 24h')).toBeTruthy();
+    expect(screen.getByText('Archive')).toBeTruthy();
+    expect(screen.getByText('今天的一小步')).toBeTruthy();
+    expect(screen.getByText('開始')).toBeTruthy();
+    expect(screen.queryByText('通知與回到現場')).toBeNull();
+    expect(screen.queryByText('近期提醒')).toBeNull();
   });
 
   it('does not fall back to backend template code when notification copy is incomplete', async () => {

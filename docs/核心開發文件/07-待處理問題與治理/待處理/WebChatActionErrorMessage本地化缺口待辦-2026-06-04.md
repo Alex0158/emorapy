@@ -4,7 +4,7 @@
 **文檔類型**：問題治理
 **覆蓋範圍**：Web Chat Room action toast error feedback、shared/API error message fallback、Chat request locale 顯示邊界
 **取證代碼入口**：`frontend/src/pages/Chat/Room/chatRoomUtils.ts`、`frontend/src/pages/Chat/Room/chatRoomUtils.test.ts`、`frontend/src/utils/apiError.ts`、`frontend/src/services/api/chat.ts`
-**最後核驗 Commit**：`c8ccb1c`
+**最後核驗 Commit**：`e7607ac`
 **最後核驗日期**：`2026-06-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 

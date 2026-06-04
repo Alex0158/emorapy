@@ -1,11 +1,11 @@
 import { env } from '@/config/env';
 
 export interface VersionRow {
-  name: '客戶前端' | '管理前端' | '後端';
-  version: string;
+  service: 'frontend' | 'admin' | 'backend';
+  version?: string;
   commitSha?: string;
   status: 'ok' | 'error';
-  message?: string;
+  messageKey?: string;
 }
 
 export interface VersionSnapshot {
@@ -94,36 +94,34 @@ export async function getVersionSnapshot(forceRefresh = false): Promise<VersionS
   const rows: VersionRow[] = [
     frontendResult.status === 'fulfilled'
       ? {
-          name: '客戶前端',
+          service: 'frontend',
           version: formatVersion(frontendResult.value.version, frontendResult.value.commitSha),
           commitSha: frontendResult.value.commitSha,
           status: 'ok',
         }
       : {
-          name: '客戶前端',
-          version: '讀取失敗',
+          service: 'frontend',
           status: 'error',
-          message:
-            frontendUrl === null ? '未配置 VITE_FRONTEND_BASE_URL 或 URL 無效' : '無法連線客戶前端版本端點',
+          messageKey:
+            frontendUrl === null ? 'versionInfo.frontendUrlInvalid' : 'versionInfo.frontendVersionEndpointUnavailable',
         },
     {
-      name: '管理前端',
+      service: 'admin',
       version: formatVersion(localVersion, localCommitSha),
       commitSha: localCommitSha,
       status: 'ok',
     },
     backendResult.status === 'fulfilled'
       ? {
-          name: '後端',
+          service: 'backend',
           version: formatVersion(backendResult.value.version, backendResult.value.commitSha),
           commitSha: backendResult.value.commitSha,
           status: 'ok',
         }
       : {
-          name: '後端',
-          version: '讀取失敗',
+          service: 'backend',
           status: 'error',
-          message: '無法連線後端版本端點',
+          messageKey: 'versionInfo.backendVersionEndpointUnavailable',
         },
   ];
 

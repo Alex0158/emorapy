@@ -13,9 +13,9 @@ import { cn } from '@/lib/utils';
 function VersionRowItem({ row }: { row: VersionRow }) {
   return (
     <div className="flex items-center justify-between py-1">
-      <span className="text-xs text-muted-foreground">{row.name}</span>
+      <span className="text-xs text-muted-foreground">{t(`versionInfo.service.${row.service}`)}</span>
       <span className={cn('text-xs font-medium', row.status === 'error' ? 'text-destructive' : 'text-foreground')}>
-        {row.version}
+        {row.version ?? t('versionInfo.readFailed')}
       </span>
     </div>
   );
@@ -46,9 +46,9 @@ export default function VersionPopover() {
         ) : (
           <div className="space-y-1">
             {rows.map((row) => (
-              <div key={row.name}>
+              <div key={row.service}>
                 <VersionRowItem row={row} />
-                {row.message && <p className="text-[10px] text-muted-foreground pl-1">{row.message}</p>}
+                {row.messageKey && <p className="text-[10px] text-muted-foreground pl-1">{t(row.messageKey)}</p>}
               </div>
             ))}
           </div>

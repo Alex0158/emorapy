@@ -4,13 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { getVersionSnapshot, type VersionRow } from '@/utils/versionInfo';
+import { t } from '@/utils/i18n';
 
 function VersionRowItem({ row }: { row: VersionRow }) {
   return (
     <div className="flex justify-between gap-3">
-      <span className="text-xs text-muted-foreground">{row.name}</span>
+      <span className="text-xs text-muted-foreground">{t(`versionInfo.service.${row.service}`)}</span>
       <span className={cn('text-xs', row.status === 'ok' && 'font-semibold', row.status === 'error' && 'text-destructive')}>
-        {row.version}
+        {row.version ?? t('versionInfo.readFailed')}
       </span>
     </div>
   );
@@ -44,10 +45,10 @@ export default function VersionPopover() {
     return (
       <div className="flex min-w-64 flex-col gap-2">
         {rows.map((row) => (
-          <div key={row.name}>
+          <div key={row.service}>
             <VersionRowItem row={row} />
-            {row.message && (
-              <p className="mt-0.5 text-[11px] text-muted-foreground">{row.message}</p>
+            {row.messageKey && (
+              <p className="mt-0.5 text-[11px] text-muted-foreground">{t(row.messageKey)}</p>
             )}
           </div>
         ))}
@@ -59,11 +60,11 @@ export default function VersionPopover() {
     <Popover open={open} onOpenChange={(nextOpen: boolean) => { setOpen(nextOpen); if (nextOpen) void loadVersions(); }}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="sm">
-          <Info className="size-3.5" />版本
+          <Info className="size-3.5" />{t('common.version')}
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-auto">
-        <p className="mb-2 text-sm font-medium">版本資訊</p>
+        <p className="mb-2 text-sm font-medium">{t('common.versionInfo')}</p>
         {content}
       </PopoverContent>
     </Popover>

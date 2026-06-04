@@ -4,7 +4,7 @@
 **文檔類型**：問題治理
 **覆蓋範圍**：App user-facing copy static gate、locale catalog completeness 防回流
 **取證代碼入口**：`mobile/scripts/check-user-copy-contracts.mjs`、`mobile/app`、`mobile/src/ui`、`mobile/src/features`
-**最後核驗 Commit**：`eb75f35`
+**最後核驗 Commit**：`1aed311`
 **最後核驗日期**：`2026-06-05`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -26,6 +26,7 @@
 2. 允許非文案格式 literal，例如 email format placeholder `name@example.com`；不得把 route、status、test id 或 i18n key 誤判為 user-facing copy。
 3. 保留既有 banned term / raw backend field 掃描，不降低目前 copy quality gate。
 4. Gate 通過後，才可把 App umbrella 的「缺少 completeness gate」改為已完成。
+5. 英文 catalog 也必須納入 completeness gate：`mobile/src/i18n/catalogs/en-US.ts` 不得混入 CJK visible copy，避免 catalog 本身漏翻而繞過 App screen hardcoded literal gate。
 
 ## 邊界與注意事項
 
@@ -48,7 +49,7 @@
 
 ## 2026-06-05 本輪結果
 
-1. `mobile/scripts/check-user-copy-contracts.mjs` 已擴充 hardcoded visible literal gate：direct JSX text、quoted visible attributes、direct raw string visible prop expression 與 visible state template literal 都會被檢查。
+1. `mobile/scripts/check-user-copy-contracts.mjs` 已擴充 hardcoded visible literal gate：direct JSX text、quoted visible attributes、direct raw string visible prop expression、visible state template literal 與 en-US catalog CJK copy 都會被檢查。
 2. Gate 保留既有 banned engineering/backend term 與 raw backend field 檢查；`t('key')` expression、route/status/test id 與資料格式 placeholder 不被誤判。
 3. 現碼復核確認 production `mobile/app` / `mobile/src` 除 `mobile/src/i18n/catalogs/*` 外無繁中 hardcoded literal；直接 visible quoted attribute 僅剩 email 格式 placeholder `name@example.com`。
 4. 已驗證：`npm --prefix mobile run copy:check` 通過，輸出已更新為 hardcoded literals / engineering terms / backend status terms 三類 gate。

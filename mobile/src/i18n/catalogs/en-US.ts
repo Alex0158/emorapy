@@ -1,7 +1,7 @@
 const enUS: Record<string, string> = {
   'app.locale.current': 'Current language: English',
   'app.locale.switchToEnglish': 'Switch to English',
-  'app.locale.switchToZhTW': '切換為繁體中文',
+  'app.locale.switchToZhTW': 'Switch to Traditional Chinese',
   'app.locale.changeHint': 'Switch the App interface and service response language',
 
   'common.home': 'Back home',

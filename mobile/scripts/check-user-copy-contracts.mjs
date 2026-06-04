@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 const repoRoot = resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const mobileRoot = resolve(repoRoot, 'mobile');
+const enUSCatalogPath = resolve(mobileRoot, 'src/i18n/catalogs/en-US.ts');
 
 const scannedRoots = ['app', 'src/ui', 'src/features'];
 const visibleAttributeNames = [
@@ -480,7 +481,26 @@ function scanFile(file) {
   return failures;
 }
 
-const failures = listFiles().flatMap(scanFile);
+function scanEnUSCatalogForCJK() {
+  const failures = [];
+  const source = readFileSync(enUSCatalogPath, 'utf8');
+  source.split(/\r?\n/).forEach((line, index) => {
+    if (/[\p{Script=Han}]/u.test(line)) {
+      failures.push({
+        file: relative(repoRoot, enUSCatalogPath),
+        line: index + 1,
+        reason: 'en-US catalog contains CJK copy; translate the visible value to English',
+        snippet: line.trim(),
+      });
+    }
+  });
+  return failures;
+}
+
+const failures = [
+  ...listFiles().flatMap(scanFile),
+  ...scanEnUSCatalogForCJK(),
+];
 
 if (failures.length) {
   console.error('[copy-check] user-visible copy contract failures:');

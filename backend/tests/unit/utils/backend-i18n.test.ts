@@ -153,6 +153,42 @@ describe('backend i18n', () => {
     expect(translateBackendMessage('zh-TW', '證據不存在')).toBe('證據不存在');
   });
 
+  it('translates auth admin and media middleware errors to en-US', () => {
+    expect(translateBackendMessage('en-US', '未提供認證Token')).toBe(
+      'Authentication token was not provided'
+    );
+    expect(translateBackendMessage('en-US', '用戶不存在或未激活')).toBe(
+      'User does not exist or is not active'
+    );
+    expect(translateBackendMessage('en-US', 'Token已失效，請重新登入')).toBe(
+      'Token is no longer valid. Please log in again.'
+    );
+    expect(translateBackendMessage('en-US', '訪問被拒絕')).toBe('Access denied');
+    expect(translateBackendMessage('en-US', '生產環境不允許公開訪問上傳資源')).toBe(
+      'Public access to uploaded resources is not allowed in production'
+    );
+    expect(translateBackendMessage('en-US', '公開模式僅允許讀取請求')).toBe(
+      'Public mode only allows read requests'
+    );
+    expect(translateBackendMessage('en-US', '當前文件路徑未在 PUBLIC_UPLOAD_PATHS 白名單')).toBe(
+      'Current file path is not in the PUBLIC_UPLOAD_PATHS allowlist'
+    );
+    expect(translateBackendMessage('en-US', '簽名已失效')).toBe('Signature is no longer valid');
+    expect(translateBackendMessage('en-US', '未授權的資源訪問')).toBe('Unauthorized resource access');
+    expect(translateBackendMessage('en-US', '未提供管理員認證 Token')).toBe(
+      'Admin authentication token was not provided'
+    );
+    expect(translateBackendMessage('en-US', '管理員帳號不存在或未啟用')).toBe(
+      'Admin account does not exist or is not enabled'
+    );
+    expect(translateBackendMessage('en-US', '管理員 Token 已失效，請重新登入')).toBe(
+      'Admin token is no longer valid. Please log in again.'
+    );
+    expect(translateBackendMessage('en-US', '管理員未認證')).toBe('Admin is not authenticated');
+    expect(translateBackendMessage('en-US', '管理員權限不足')).toBe('Admin permission is insufficient');
+    expect(translateBackendMessage('zh-TW', '未提供認證Token')).toBe('未提供認證Token');
+  });
+
   it('uses public Analysis terminology for backend judgment response messages', () => {
     expect(translateErrorByCode('en-US', 'JUDGMENT_FAILED')).toBe(
       'Analysis generation failed, please retry later'

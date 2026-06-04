@@ -95,6 +95,7 @@ jest.mock('@/src/platform/lifecycle/native', () => ({
 const ChatScreen = require('../app/(app)/chat/index').default;
 const ChatRoomScreen = require('../app/(app)/chat/room').default;
 const ChatInviteScreen = require('../app/(app)/chat/invite').default;
+const { setLocale } = require('@/src/i18n');
 
 const queryClients = [];
 
@@ -124,6 +125,7 @@ describe('M3 Chat screens', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    setLocale('zh-TW', { persist: false });
     mockSearchParams = {};
     mockLifecycleStatus = 'active';
     mockLifecycleListener = null;
@@ -189,6 +191,26 @@ describe('M3 Chat screens', () => {
     expect(mockCreateQuickSession).toHaveBeenCalledTimes(1);
     expect(mockSetSessionId).toHaveBeenCalledWith('guest-new');
     expect(mockRouterPush).toHaveBeenCalledWith('/chat/room?roomId=room-1');
+  });
+
+  it('renders chat home in the selected locale', () => {
+    setLocale('en-US', { persist: false });
+
+    const screen = renderWithQuery(React.createElement(ChatScreen));
+
+    expect(screen.getByText('Chat before analysis')).toBeTruthy();
+    expect(screen.getByText('Let the conversation collect context before deciding whether to request analysis.')).toBeTruthy();
+    expect(screen.getByText('Start a new chat')).toBeTruthy();
+    expect(screen.getByText('Have an invite code')).toBeTruthy();
+    expect(screen.getByPlaceholderText('Enter the invite code from the other person')).toBeTruthy();
+    expect(screen.getByText('Accept invite')).toBeTruthy();
+    expect(screen.getByText('Open invite page')).toBeTruthy();
+    expect(screen.getByText('Conversation stages')).toBeTruthy();
+    expect(screen.getByText('Shared organizing')).toBeTruthy();
+    expect(screen.getByText('View case track')).toBeTruthy();
+    expect(screen.getByText('View personal context')).toBeTruthy();
+    expect(screen.queryByText('先聊再判')).toBeNull();
+    expect(screen.queryByText('已有邀請碼')).toBeNull();
   });
 
   it('guides missing chat room context back to supported entry paths', () => {

@@ -60,12 +60,12 @@ const enUSByCode: Record<string, string> = {
   ALREADY_PAIRED: 'Already paired',
   CONFLICT: 'Resource conflict',
   CASE_NOT_READY: 'Case is not ready',
-  JUDGMENT_EXISTS: 'Judgment already exists',
+  JUDGMENT_EXISTS: 'Analysis already exists',
   FILE_TOO_LARGE: 'File is too large',
   INVALID_FILE_TYPE: 'Unsupported file type',
   TOO_MANY_FILES: 'Too many files',
   CASE_NOT_EDITABLE: 'Case status does not allow this action',
-  JUDGMENT_FAILED: 'Judgment generation failed, please retry later',
+  JUDGMENT_FAILED: 'Analysis generation failed, please retry later',
   INTERNAL_ERROR: 'Internal server error',
   AI_SERVICE_ERROR: 'AI service error',
   DATABASE_ERROR: 'Database error',
@@ -111,9 +111,9 @@ const directEnUSMap: Record<string, string> = {
   '案件已提交，AI正在分析中...': 'Case submitted, AI is analyzing...',
   '案件已提交': 'Case submitted',
   '案件不存在': 'Case not found',
-  '判決生成中，請稍後再試': 'Judgment is being generated, please try again later',
+  '判決生成中，請稍後再試': 'Analysis is being generated, please try again later',
   '案件已更新': 'Case updated',
-  '判決已生成': 'Judgment generated',
+  '判決已生成': 'Analysis generated',
   '和好方案已生成': 'Reconciliation plans generated',
   '方案已選擇': 'Plan selected',
   '邀請碼已生成': 'Invite code generated',
@@ -184,7 +184,89 @@ const directEnUSMap: Record<string, string> = {
   '缺少分布式鎖後端 (Redis)，請聯繫管理員': 'Distributed lock backend (Redis) is unavailable, please contact administrator',
   'Session刷新失敗': 'Session refresh failed',
   'Session更新失敗': 'Session update failed',
+  'interview.maxTurns 不可小於 interview.softTarget': 'interview.maxTurns cannot be less than interview.softTarget',
+  'interview.softTarget 不可大於 interview.maxTurns': 'interview.softTarget cannot be greater than interview.maxTurns',
+  '缺少 B 方完整陳述': "Partner's complete statement is missing",
+  '缺少可定位的時間錨點': 'A clear time anchor is missing',
+  '事件經過與行為鏈條不足，難以重建衝突場景': 'The event sequence is too thin to reconstruct the conflict clearly',
+  '因果描述不足，責任判斷不確定性偏高': 'Causal details are limited, so responsibility analysis remains uncertain',
+  '情緒訊號不足，建議補充主觀感受': 'Emotional signals are limited; add subjective feelings',
+  '需求/期待描述不足，難以生成可行修復建議': 'Needs or expectations are limited, making repair suggestions harder to generate',
+  '情緒表達偏單一，可能放大單側詮釋偏差': 'Emotional expression is one-sided and may amplify interpretation bias',
+  '互動循環線索不足，建議補充「觸發-反應-升級」描述': 'Interaction cycle clues are limited; add trigger-response-escalation details',
+  'AI 重調失敗': 'AI adjustment failed',
+  '服務內部錯誤': 'Internal service error',
+  '請檢查 API Key 與網路連線': 'Check the API Key and network connection',
 };
+
+function translateDynamicBackendMessage(message: string): string | null {
+  const providerConnectionSuccess = message.match(/^(.+) 連線測試成功$/);
+  if (providerConnectionSuccess) {
+    return `${providerConnectionSuccess[1]} connection test successful`;
+  }
+
+  const providerFallbackSuccess = message.match(/^(.+) 連線測試成功（fallback 驗證）$/);
+  if (providerFallbackSuccess) {
+    return `${providerFallbackSuccess[1]} connection test successful (fallback validation)`;
+  }
+
+  const providerTestFailure = message.match(/^(.+) 測試失敗：(.+)$/);
+  if (providerTestFailure) {
+    return `${providerTestFailure[1]} test failed: ${translateBackendMessage('en-US', providerTestFailure[2])}`;
+  }
+
+  const providerConnectionFailure = message.match(/^(.+) 連線測試失敗，請檢查 baseUrl\/API Key$/);
+  if (providerConnectionFailure) {
+    return `${providerConnectionFailure[1]} connection test failed. Check baseUrl/API Key`;
+  }
+
+  const providerTestInvalidResponse = message.match(/^(.+) 測試請求回應異常$/);
+  if (providerTestInvalidResponse) {
+    return `${providerTestInvalidResponse[1]} test request returned an invalid response`;
+  }
+
+  const providerImageInvalidResponse = message.match(/^(.+) 圖片生成回應異常$/);
+  if (providerImageInvalidResponse) {
+    return `${providerImageInvalidResponse[1]} image generation returned an invalid response`;
+  }
+
+  const providerMissingImage = message.match(/^(.+) 未回傳可用圖片 URL$/);
+  if (providerMissingImage) {
+    return `${providerMissingImage[1]} did not return a usable image URL`;
+  }
+
+  const imageOnlyProvider = message.match(/^(.+) 目前僅支援 image 任務$/);
+  if (imageOnlyProvider) {
+    return `${imageOnlyProvider[1]} currently supports image tasks only`;
+  }
+
+  const providerAuthFailure = message.match(/^(.+) 授權失敗，請檢查 API Key$/);
+  if (providerAuthFailure) {
+    return `${providerAuthFailure[1]} authorization failed. Check the API Key`;
+  }
+
+  const videoOnlyProvider = message.match(/^(.+) 目前僅支援 video 任務$/);
+  if (videoOnlyProvider) {
+    return `${videoOnlyProvider[1]} currently supports video tasks only`;
+  }
+
+  const videoTaskFailureWithDetail = message.match(/^(.+) 影像任務建立失敗：(.+)$/);
+  if (videoTaskFailureWithDetail) {
+    return `${videoTaskFailureWithDetail[1]} video task creation failed: ${translateBackendMessage('en-US', videoTaskFailureWithDetail[2])}`;
+  }
+
+  const videoTaskFailure = message.match(/^(.+) 影像任務建立失敗$/);
+  if (videoTaskFailure) {
+    return `${videoTaskFailure[1]} video task creation failed`;
+  }
+
+  const videoTaskMissingAsset = message.match(/^(.+) 回應未帶回可用影片 URL 或 taskId$/);
+  if (videoTaskMissingAsset) {
+    return `${videoTaskMissingAsset[1]} did not return a usable video URL or taskId`;
+  }
+
+  return null;
+}
 
 export function normalizeLocale(input?: string | null): BackendLocale {
   if (!input) return 'zh-TW';
@@ -210,5 +292,5 @@ export function translateBackendMessage(locale: BackendLocale, message: string):
   if (message.startsWith('唯一約束違規:')) {
     return message.replace('唯一約束違規:', 'Unique constraint violation:');
   }
-  return directEnUSMap[message] ?? message;
+  return directEnUSMap[message] ?? translateDynamicBackendMessage(message) ?? message;
 }

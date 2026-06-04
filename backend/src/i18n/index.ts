@@ -345,6 +345,7 @@ const directEnUSMap: Record<string, string> = {
   '訪談已結束': 'Interview ended',
   '訪談跳題已提交': 'Interview skip submitted',
   '訪談生成已停止': 'Interview generation stopped',
+  '訪談不存在': 'Interview not found',
   '訪談不存在或無權限': 'Interview not found or you do not have access',
   '訪談缺少可回覆輪次': 'Interview is missing a turn that can be replied to',
   '目前沒有進行中的訪談生成': 'No interview generation is currently in progress',

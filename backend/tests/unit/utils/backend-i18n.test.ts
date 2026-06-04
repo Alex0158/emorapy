@@ -7,6 +7,7 @@ describe('backend i18n', () => {
       'interview.maxTurns cannot be less than interview.softTarget'
     );
     expect(translateBackendMessage('en-US', '缺少 B 方完整陳述')).toBe("Partner's complete statement is missing");
+    expect(translateBackendMessage('en-US', '訪談不存在')).toBe('Interview not found');
     expect(translateBackendMessage('en-US', '訪談不存在或無權限')).toBe(
       'Interview not found or you do not have access'
     );

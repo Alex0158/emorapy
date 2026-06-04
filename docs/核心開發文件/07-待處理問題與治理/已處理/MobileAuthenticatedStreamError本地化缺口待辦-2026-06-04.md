@@ -4,8 +4,8 @@
 **文檔類型**：問題治理
 **覆蓋範圍**：App profile interview / repair replan / chat room AI stream status error display、App stream callbacks、M2/M3/M4 screen tests
 **取證代碼入口**：`mobile/app/(app)/profile/interview.tsx`、`mobile/app/(app)/repair/index.tsx`、`mobile/app/(app)/chat/room.tsx`、`mobile/src/platform/sse/useAIStreamSubscription.ts`、`mobile/src/platform/api/errorMessages.ts`、`mobile/src/i18n/catalogs`
-**最後核驗 Commit**：`4d1dc74`
-**最後核驗日期**：`2026-06-04`
+**最後核驗 Commit**：`48abec5`
+**最後核驗日期**：`2026-06-05`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 ## 問題
@@ -69,3 +69,9 @@
 2. `npm --prefix mobile run typecheck` 通過。
 3. `npm --prefix mobile test -- src/i18n/index.test.js __tests__/m1-screens.test.js __tests__/m2-screens.test.js __tests__/m3-screens.test.js __tests__/m4-screens.test.js` 通過 5 suites / 72 tests。
 4. 靜態掃描確認 quick result / profile interview / repair / chat room 產品碼已無 `error.message` / `error?.message` 直出；raw `provider down` 僅作測試輸入與否定斷言。
+
+## 2026-06-05 歸檔復核
+
+1. 復核現碼確認 Profile Interview、Repair replan、Chat Room AI stream 的 ready snapshot / event / connection error / terminal error 均使用 `formatAIStreamDisplayError()`，不直接顯示 raw `error.message`。
+2. 復核共用 formatter 確認 `status`、`HTTP_*`、已知 App/domain code 走 App locale catalog；未知 error 回 `appStream.error.failed`；AI generated `fullText` / `deltaText` / snapshot `text` 仍可正常顯示。
+3. 已驗證：`npm --prefix mobile test -- src/i18n/index.test.js __tests__/m1-screens.test.js __tests__/m2-screens.test.js __tests__/m3-screens.test.js __tests__/m4-screens.test.js` 通過 5 suites / 72 tests；`npm --prefix mobile run typecheck` 通過。

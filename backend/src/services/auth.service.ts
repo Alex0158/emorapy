@@ -7,6 +7,7 @@ import logger from '../config/logger';
 import { emailService } from './email.service';
 import { buildClaimableSessionCaseWhere, isClaimableSessionCase } from '../utils/case-classifier';
 import { buildSessionBoundQuickPairingWhere } from '../utils/pairing-invariant';
+import type { BackendLocale } from '../i18n';
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 分鐘
@@ -26,7 +27,7 @@ export class AuthService {
   /**
    * 用戶註冊
    */
-  async register(data: RegisterDto) {
+  async register(data: RegisterDto, locale: BackendLocale = 'zh-TW') {
     if (!this.isValidEmail(data.email)) {
       throw Errors.INVALID_EMAIL();
     }
@@ -62,7 +63,7 @@ export class AuthService {
       },
     });
 
-    this.sendVerificationCode(data.email, 'register').catch(err => {
+    this.sendVerificationCode(data.email, 'register', locale).catch(err => {
       logger.error('Failed to send verification email', { email: data.email, error: err });
     });
 
@@ -165,7 +166,11 @@ export class AuthService {
   /**
    * 發送驗證碼
    */
-  async sendVerificationCode(email: string, type: 'register' | 'reset_password' | 'verify_email'): Promise<void> {
+  async sendVerificationCode(
+    email: string,
+    type: 'register' | 'reset_password' | 'verify_email',
+    locale: BackendLocale = 'zh-TW'
+  ): Promise<void> {
     const recentCode = await prisma.emailVerification.findFirst({
       where: {
         email,
@@ -192,7 +197,7 @@ export class AuthService {
       },
     });
 
-    await emailService.sendVerificationCode(email, code, type);
+    await emailService.sendVerificationCode(email, code, type, locale);
 
     logger.info('Verification code sent', { email, type });
   }
@@ -270,7 +275,7 @@ export class AuthService {
   /**
    * 重置密碼（不洩漏用戶是否存在）
    */
-  async resetPassword(email: string): Promise<void> {
+  async resetPassword(email: string, locale: BackendLocale = 'zh-TW'): Promise<void> {
     const user = await prisma.user.findUnique({
       where: { email },
     });
@@ -279,7 +284,7 @@ export class AuthService {
       return;
     }
 
-    await this.sendVerificationCode(email, 'reset_password');
+    await this.sendVerificationCode(email, 'reset_password', locale);
   }
 
   /**

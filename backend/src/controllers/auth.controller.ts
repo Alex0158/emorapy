@@ -8,7 +8,7 @@ export class AuthController {
    */
   async register(req: Request, res: Response, next: NextFunction) {
     try {
-      const result = await authService.register(req.body);
+      const result = await authService.register(req.body, req.locale);
 
       res.status(201).json({
         success: true,
@@ -42,7 +42,7 @@ export class AuthController {
    */
   async sendVerificationCode(req: Request, res: Response, next: NextFunction) {
     try {
-      await authService.sendVerificationCode(req.body.email, req.body.type);
+      await authService.sendVerificationCode(req.body.email, req.body.type, req.locale);
 
       res.json({
         success: true,
@@ -84,7 +84,7 @@ export class AuthController {
    */
   async resetPassword(req: Request, res: Response, next: NextFunction) {
     try {
-      await authService.resetPassword(req.body.email);
+      await authService.resetPassword(req.body.email, req.locale);
 
       res.json({
         success: true,

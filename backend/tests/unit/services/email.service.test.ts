@@ -101,6 +101,26 @@ describe('EmailService', () => {
       );
     });
 
+    it('en-US locale 應發送英文驗證碼郵件', async () => {
+      mockEnvRef.SMTP_HOST = 'smtp.example.com';
+      mockEnvRef.SMTP_USER = 'noreply@example.com';
+      mockEnvRef.SMTP_PASS = 'secret';
+      const svc = new EmailService();
+      // @ts-expect-error mock 泛型推斷為 never
+      mockSendMail.mockResolvedValue(undefined);
+
+      await svc.sendVerificationCode('a@b.com', '123456', 'register', 'en-US');
+
+      expect(mockSendMail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          from: expect.stringContaining('CJ Platform'),
+          subject: 'Welcome to CJ Platform - Verify your email',
+          text: 'Your verification code is 123456. It expires in 5 minutes.',
+          html: expect.stringContaining('If you did not request this code'),
+        })
+      );
+    });
+
     it('sendMail 失敗時應記錄 logger.error 並拋錯', async () => {
       mockEnvRef.SMTP_HOST = 'smtp.example.com';
       mockEnvRef.SMTP_USER = 'noreply@example.com';
@@ -133,8 +153,8 @@ describe('EmailService', () => {
       mockEnvRef.SMTP_PASS = 'secret';
       const svc = new EmailService();
       dbMock.user.findMany.mockResolvedValue([
-        { email: 'u1@x.com', nickname: 'U1' },
-        { email: 'u2@x.com', nickname: 'U2' },
+        { email: 'u1@x.com', nickname: 'U1', language: 'zh' },
+        { email: 'u2@x.com', nickname: 'U2', language: 'zh' },
       ]);
       // @ts-expect-error mock 泛型推斷為 never
       mockSendMail.mockResolvedValue(undefined);
@@ -143,9 +163,35 @@ describe('EmailService', () => {
 
       expect(dbMock.user.findMany).toHaveBeenCalledWith({
         where: { id: { in: ['u1', 'u2'] } },
-        select: { email: true, nickname: true },
+        select: { email: true, nickname: true, language: true },
       });
       expect(mockSendMail).toHaveBeenCalledTimes(2);
+    });
+
+    it('配對通知應按每位收件人的 language 發送對應語言', async () => {
+      mockEnvRef.SMTP_HOST = 'smtp.example.com';
+      mockEnvRef.SMTP_USER = 'noreply@example.com';
+      mockEnvRef.SMTP_PASS = 'secret';
+      const svc = new EmailService();
+      dbMock.user.findMany.mockResolvedValue([
+        { email: 'u1@x.com', nickname: 'U1', language: 'zh' },
+        { email: 'u2@x.com', nickname: 'U2', language: 'en' },
+      ]);
+      // @ts-expect-error mock 泛型推斷為 never
+      mockSendMail.mockResolvedValue(undefined);
+
+      await svc.sendPairingNotification('u1', 'u2');
+
+      expect(mockSendMail).toHaveBeenNthCalledWith(1, expect.objectContaining({
+        to: 'u1@x.com',
+        subject: '配對成功通知 - CJ 平台',
+        html: expect.stringContaining('查看梳理結果'),
+      }));
+      expect(mockSendMail).toHaveBeenNthCalledWith(2, expect.objectContaining({
+        to: 'u2@x.com',
+        subject: 'Pairing confirmed - CJ Platform',
+        html: expect.stringContaining('view the Analysis'),
+      }));
     });
 
     it('有用戶無 email 時應跳過該用戶只發送有 email 的', async () => {
@@ -154,8 +200,8 @@ describe('EmailService', () => {
       mockEnvRef.SMTP_PASS = 'secret';
       const svc = new EmailService();
       dbMock.user.findMany.mockResolvedValue([
-        { email: 'u1@x.com', nickname: 'U1' },
-        { email: null, nickname: 'U2' },
+        { email: 'u1@x.com', nickname: 'U1', language: 'zh' },
+        { email: null, nickname: 'U2', language: 'zh' },
       ]);
       (mockSendMail as jest.Mock).mockResolvedValue(undefined as never);
 
@@ -181,7 +227,7 @@ describe('EmailService', () => {
       mockEnvRef.SMTP_USER = 'noreply@example.com';
       mockEnvRef.SMTP_PASS = 'secret';
       const svc = new EmailService();
-      dbMock.user.findMany.mockResolvedValue([{ email: 'u1@x.com', nickname: 'U1' }]);
+      dbMock.user.findMany.mockResolvedValue([{ email: 'u1@x.com', nickname: 'U1', language: 'zh' }]);
       (mockSendMail as jest.Mock).mockRejectedValue(new Error('send failed') as never);
 
       await expect(svc.sendPairingNotification('u1', 'u2')).resolves.toBeUndefined();
@@ -207,7 +253,7 @@ describe('EmailService', () => {
       mockEnvRef.SMTP_USER = 'noreply@example.com';
       mockEnvRef.SMTP_PASS = 'secret';
       const svc = new EmailService();
-      dbMock.user.findUnique.mockResolvedValue({ email: null, nickname: 'U' });
+      dbMock.user.findUnique.mockResolvedValue({ email: null, nickname: 'U', language: 'zh' });
 
       await svc.sendJudgmentNotification('u1', 'case-1');
 
@@ -231,7 +277,7 @@ describe('EmailService', () => {
       mockEnvRef.SMTP_USER = 'noreply@example.com';
       mockEnvRef.SMTP_PASS = 'secret';
       const svc = new EmailService();
-      dbMock.user.findUnique.mockResolvedValue({ email: 'u@x.com', nickname: 'U' });
+      dbMock.user.findUnique.mockResolvedValue({ email: 'u@x.com', nickname: 'U', language: 'zh' });
       // @ts-expect-error mock 泛型推斷為 never
       mockSendMail.mockResolvedValue(undefined);
 
@@ -240,8 +286,28 @@ describe('EmailService', () => {
       expect(mockSendMail).toHaveBeenCalledWith(
         expect.objectContaining({
           to: 'u@x.com',
-          subject: expect.stringContaining('分析完成'),
-          html: expect.stringContaining('梳理分析已完成'),
+          subject: expect.stringContaining('梳理結果完成'),
+          html: expect.stringContaining('梳理結果已完成'),
+        })
+      );
+    });
+
+    it('英文用戶應收到英文 Analysis 完成通知', async () => {
+      mockEnvRef.SMTP_HOST = 'smtp.example.com';
+      mockEnvRef.SMTP_USER = 'noreply@example.com';
+      mockEnvRef.SMTP_PASS = 'secret';
+      const svc = new EmailService();
+      dbMock.user.findUnique.mockResolvedValue({ email: 'u@x.com', nickname: 'U', language: 'en' });
+      // @ts-expect-error mock 泛型推斷為 never
+      mockSendMail.mockResolvedValue(undefined);
+
+      await svc.sendJudgmentNotification('u1', 'case-1');
+
+      expect(mockSendMail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: 'u@x.com',
+          subject: 'Analysis ready - Emorapy',
+          html: expect.stringContaining('Your Analysis is ready'),
         })
       );
     });
@@ -251,11 +317,11 @@ describe('EmailService', () => {
       mockEnvRef.SMTP_USER = 'noreply@example.com';
       mockEnvRef.SMTP_PASS = 'secret';
       const svc = new EmailService();
-      dbMock.user.findUnique.mockResolvedValue({ email: 'u@x.com', nickname: 'U' });
+      dbMock.user.findUnique.mockResolvedValue({ email: 'u@x.com', nickname: 'U', language: 'zh' });
       (mockSendMail as jest.Mock).mockRejectedValue(new Error('send failed') as never);
 
       await expect(svc.sendJudgmentNotification('u1', 'case-1')).resolves.toBeUndefined();
-      expect(mockLogger.error).toHaveBeenCalledWith('Failed to send judgment notification', {
+      expect(mockLogger.error).toHaveBeenCalledWith('Failed to send analysis notification', {
         userId: 'u1',
         caseId: 'case-1',
         error: expect.any(Error),

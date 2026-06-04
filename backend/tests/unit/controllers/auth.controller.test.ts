@@ -23,11 +23,11 @@ const mockClaimSession: any = jest.fn();
 
 jest.mock('../../../src/services/auth.service', () => ({
   authService: {
-    register: (body: unknown) => mockRegister(body),
+    register: (body: unknown, locale: string) => mockRegister(body, locale),
     login: (body: unknown) => mockLogin(body),
-    sendVerificationCode: (email: string, type: string) => mockSendVerificationCode(email, type),
+    sendVerificationCode: (email: string, type: string, locale: string) => mockSendVerificationCode(email, type, locale),
     verifyEmail: (email: string, code: string, type: string) => mockVerifyEmail(email, code, type),
-    resetPassword: (email: string) => mockResetPassword(email),
+    resetPassword: (email: string, locale: string) => mockResetPassword(email, locale),
     confirmResetPassword: (email: string, code: string, newPassword: string) =>
       mockConfirmResetPassword(email, code, newPassword),
     claimSession: (userId: string, sessionId: string) => mockClaimSession(userId, sessionId),
@@ -56,10 +56,11 @@ describe('AuthController', () => {
       const result = { user: { id: 'u1', email: 'a@b.com' }, token: 'jwt' };
       mockRegister.mockResolvedValue(result);
       req.body = { email: 'a@b.com', password: 'Pass1!', nickname: 'U' };
+      req.locale = 'en-US';
 
       await controller.register(req as Request, res as Response, next);
 
-      expect(mockRegister).toHaveBeenCalledWith(req.body);
+      expect(mockRegister).toHaveBeenCalledWith(req.body, 'en-US');
       expect(res.status).toHaveBeenCalledWith(201);
       expect(res.json).toHaveBeenCalledWith({
         success: true,
@@ -111,10 +112,11 @@ describe('AuthController', () => {
     it('成功應返回 expires_in 300', async () => {
       mockSendVerificationCode.mockResolvedValue(undefined);
       req.body = { email: 'a@b.com', type: 'register' };
+      req.locale = 'en-US';
 
       await controller.sendVerificationCode(req as Request, res as Response, next);
 
-      expect(mockSendVerificationCode).toHaveBeenCalledWith('a@b.com', 'register');
+      expect(mockSendVerificationCode).toHaveBeenCalledWith('a@b.com', 'register', 'en-US');
       expect(res.json).toHaveBeenCalledWith({
         success: true,
         data: { expires_in: 300 },
@@ -170,10 +172,11 @@ describe('AuthController', () => {
     it('成功應返回 expires_in 300', async () => {
       mockResetPassword.mockResolvedValue(undefined);
       req.body = { email: 'a@b.com' };
+      req.locale = 'en-US';
 
       await controller.resetPassword(req as Request, res as Response, next);
 
-      expect(mockResetPassword).toHaveBeenCalledWith('a@b.com');
+      expect(mockResetPassword).toHaveBeenCalledWith('a@b.com', 'en-US');
       expect(res.json).toHaveBeenCalledWith({
         success: true,
         data: { expires_in: 300 },

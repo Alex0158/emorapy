@@ -70,8 +70,8 @@ jest.mock('../../../src/utils/session', () => ({
 }));
 jest.mock('../../../src/services/email.service', () => ({
   emailService: {
-    sendVerificationCode: (email: string, code: string, type: string) =>
-      mockSendVerificationCode(email, code, type),
+    sendVerificationCode: (email: string, code: string, type: string, locale: string) =>
+      mockSendVerificationCode(email, code, type, locale),
   },
 }));
 
@@ -352,7 +352,7 @@ describe('AuthService', () => {
       // @ts-expect-error mock 在 jest.mock 後推斷為 never
       mockSendVerificationCode.mockResolvedValue(undefined);
 
-      await service.sendVerificationCode('a@b.com', 'verify_email');
+      await service.sendVerificationCode('a@b.com', 'verify_email', 'en-US');
 
       expect(prismaMock.emailVerification.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
@@ -361,7 +361,7 @@ describe('AuthService', () => {
           type: 'verify_email',
         }),
       });
-      expect(mockSendVerificationCode).toHaveBeenCalledWith('a@b.com', '123456', 'verify_email');
+      expect(mockSendVerificationCode).toHaveBeenCalledWith('a@b.com', '123456', 'verify_email', 'en-US');
     });
   });
 
@@ -445,7 +445,7 @@ describe('AuthService', () => {
 
       await service.resetPassword('a@b.com');
 
-      expect(mockSendVerificationCode).toHaveBeenCalledWith('a@b.com', '654321', 'reset_password');
+      expect(mockSendVerificationCode).toHaveBeenCalledWith('a@b.com', '654321', 'reset_password', 'zh-TW');
     });
   });
 

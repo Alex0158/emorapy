@@ -4,13 +4,14 @@
  */
 
 export type VerificationType = 'register' | 'reset_password' | 'verify_email';
+export type AuthLocale = 'zh-TW' | 'en-US';
 
 export interface IAuthService {
-  register(data: unknown): Promise<{ user: unknown; token: string }>;
+  register(data: unknown, locale?: AuthLocale): Promise<{ user: unknown; token: string }>;
 
   login(data: unknown): Promise<{ user: unknown; token: string; expires_in: number }>;
 
-  sendVerificationCode(email: string, type: VerificationType): Promise<void>;
+  sendVerificationCode(email: string, type: VerificationType, locale?: AuthLocale): Promise<void>;
 
   verifyEmail(
     email: string,
@@ -18,7 +19,7 @@ export interface IAuthService {
     type?: VerificationType
   ): Promise<boolean>;
 
-  resetPassword(email: string): Promise<void>;
+  resetPassword(email: string, locale?: AuthLocale): Promise<void>;
 
   confirmResetPassword(email: string, code: string, newPassword: string): Promise<void>;
 }

@@ -1,37 +1,50 @@
 import { StyleSheet, Text, View } from 'react-native';
 
+import { setLocale, t, useLocale } from '@/src/i18n';
 import { FeatureRow, LinkButton, Panel, Screen, StatusPill } from '@/src/ui/components';
 import { palette, spacing, typography } from '@/src/ui/theme';
 
 export default function PublicHomeScreen() {
+  const locale = useLocale();
+  const nextLocale = locale === 'en-US' ? 'zh-TW' : 'en-US';
+
   return (
     <Screen
-      eyebrow="CJ"
-      title="把拉扯整理成下一步"
-      subtitle="先整理事實與感受，再進入判斷、對話或修復。"
+      eyebrow={t('public.home.eyebrow')}
+      title={t('public.home.title')}
+      subtitle={t('public.home.subtitle')}
       testID="public.home.screen">
       <View style={styles.heroPanel}>
-        <StatusPill label="從快速整理開始" tone="teal" />
-        <Text style={styles.heroText}>一個安靜、清楚、能回到進度的關係處理入口。</Text>
+        <StatusPill label={t('public.home.startPill')} tone="teal" />
+        <Text style={styles.heroText}>{t('public.home.heroText')}</Text>
         <View style={styles.actions}>
-          <LinkButton href="/quick" label="開始快速判斷" tone="teal" testID="public.home.quick" />
-          <LinkButton href="/quick/collaborative" label="雙人快速說明" tone="blue" testID="public.home.quick-collaborative" variant="outline" />
-          <LinkButton href="/chat" label="先聊再判" tone="amber" testID="public.home.chat" variant="outline" />
-          <LinkButton href="/case" label="進入案件與修復" tone="amber" testID="public.home.app" variant="outline" />
-          <LinkButton href="/auth" label="登入 / 註冊" tone="blue" testID="public.home.auth" variant="outline" />
+          <LinkButton href="/quick" label={t('public.home.quick')} tone="teal" testID="public.home.quick" />
+          <LinkButton href="/quick/collaborative" label={t('public.home.collaborative')} tone="blue" testID="public.home.quick-collaborative" variant="outline" />
+          <LinkButton href="/chat" label={t('public.home.chat')} tone="amber" testID="public.home.chat" variant="outline" />
+          <LinkButton href="/case" label={t('public.home.case')} tone="amber" testID="public.home.app" variant="outline" />
+          <LinkButton href="/auth" label={t('public.home.auth')} tone="blue" testID="public.home.auth" variant="outline" />
         </View>
+        <Text style={styles.localeLabel}>{t('app.locale.current')}</Text>
+        <Text
+          accessibilityHint={t('app.locale.changeHint')}
+          accessibilityRole="button"
+          onPress={() => setLocale(nextLocale)}
+          style={styles.localeAction}
+          testID="public.home.locale">
+          {nextLocale === 'en-US' ? t('app.locale.switchToEnglish') : t('app.locale.switchToZhTW')}
+        </Text>
       </View>
 
-      <Panel title="今日入口">
-        <FeatureRow title="快速判斷" detail="先在這台裝置保存一次衝突整理。" tone="teal" />
-        <FeatureRow title="雙人快速說明" detail="同一台設備輪流輸入，不把它誤當正式案件。" tone="blue" />
-        <FeatureRow title="先聊再判" detail="聊天沉澱材料，再決定是否請求判斷。" tone="blue" />
-        <FeatureRow title="修復旅程" detail="判斷之後回到可執行的小步計畫。" tone="coral" />
+      <Panel title={t('public.home.today')}>
+        <FeatureRow title={t('public.home.feature.quick.title')} detail={t('public.home.feature.quick.detail')} tone="teal" />
+        <FeatureRow title={t('public.home.feature.collaborative.title')} detail={t('public.home.feature.collaborative.detail')} tone="blue" />
+        <FeatureRow title={t('public.home.feature.chat.title')} detail={t('public.home.feature.chat.detail')} tone="blue" />
+        <FeatureRow title={t('public.home.feature.repair.title')} detail={t('public.home.feature.repair.detail')} tone="coral" />
       </Panel>
 
       <View style={styles.secondaryActions}>
-        <LinkButton href="/case" label="進入案件與修復" tone="amber" testID="public.home.app.footer" variant="outline" />
-        <LinkButton href="/modal" label="App 狀態" tone="neutral" testID="public.home.modal" variant="outline" />
+        <LinkButton href="/case" label={t('public.home.case')} tone="amber" testID="public.home.app.footer" variant="outline" />
+        <LinkButton href="/modal" label={t('public.home.appStatus')} tone="neutral" testID="public.home.modal" variant="outline" />
       </View>
     </Screen>
   );
@@ -52,6 +65,17 @@ const styles = StyleSheet.create({
   },
   actions: {
     gap: spacing.sm,
+  },
+  localeAction: {
+    ...typography.body,
+    color: palette.teal,
+    fontWeight: '700',
+    minHeight: 44,
+    paddingVertical: spacing.sm,
+  },
+  localeLabel: {
+    ...typography.caption,
+    color: palette.muted,
   },
   secondaryActions: {
     gap: spacing.sm,

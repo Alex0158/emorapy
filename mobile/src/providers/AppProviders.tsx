@@ -7,6 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { paperTheme } from '@/src/ui/theme';
 
 import { AuthSessionBootstrap } from './AuthSessionBootstrap';
+import { AppLocaleBootstrap } from './AppLocaleBootstrap';
 import { ObservabilityBootstrap } from './ObservabilityBootstrap';
 
 export function AppProviders({ children }: PropsWithChildren) {
@@ -29,6 +30,7 @@ export function AppProviders({ children }: PropsWithChildren) {
     <SafeAreaProvider>
       <PaperProvider theme={{ ...MD3LightTheme, ...paperTheme }}>
         <QueryClientProvider client={queryClient}>
+          <AppLocaleBootstrap />
           <ObservabilityBootstrap />
           <AuthSessionBootstrap />
           {children}

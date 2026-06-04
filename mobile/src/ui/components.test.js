@@ -10,6 +10,7 @@ jest.mock('expo-router', () => ({
   },
 }));
 
+const { setLocale } = require('@/src/i18n');
 const { ActionButton, FeatureRow, LinkButton, Panel, Screen } = require('./components');
 
 function flattenPressableStyle(element, state = { pressed: false }) {
@@ -22,6 +23,7 @@ function flattenPressableStyle(element, state = { pressed: false }) {
 describe('shared App UI accessibility contracts', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    setLocale('zh-TW', { persist: false });
   });
 
   it('marks screen and panel titles as accessibility headers', () => {
@@ -76,6 +78,19 @@ describe('shared App UI accessibility contracts', () => {
     fireEvent.press(button);
 
     expect(mockRouterPush).toHaveBeenCalledWith('/quick');
+  });
+
+  it('localizes default button accessibility hints', () => {
+    setLocale('en-US', { persist: false });
+    const screen = render(
+      React.createElement(LinkButton, {
+        href: '/quick',
+        label: 'Quick',
+        testID: 'cta.quick.default-hint',
+      })
+    );
+
+    expect(screen.getByTestId('cta.quick.default-hint').props.accessibilityHint).toBe('Open "Quick"');
   });
 
   it('exposes action button busy/disabled state without shrinking the touch target', () => {

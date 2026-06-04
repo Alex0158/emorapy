@@ -2,6 +2,7 @@ import * as SecureStore from 'expo-secure-store';
 
 import type {
   PendingLandingStorageAdapter,
+  LocaleStorageAdapter,
   SessionStorageAdapter,
   TokenStorageAdapter,
 } from './types';
@@ -10,6 +11,7 @@ const TOKEN_KEY = 'cj.auth.token';
 const SESSION_ID_KEY = 'cj.session.id';
 const DEVICE_META_KEY = 'cj.device.meta';
 const PENDING_LANDING_HREF_KEY = 'cj.navigation.pendingLandingHref';
+const LOCALE_KEY = 'cj.locale';
 const memoryStore = new Map<string, string>();
 
 export interface DeviceMetadata {
@@ -91,6 +93,12 @@ export const pendingLandingStorage: PendingLandingStorageAdapter = {
   },
 };
 
+export const localeStorage: LocaleStorageAdapter = {
+  getLocale: () => getItem(LOCALE_KEY),
+  setLocale: (locale) => setNullableItem(LOCALE_KEY, locale),
+  clearLocale: () => deleteItem(LOCALE_KEY),
+};
+
 export async function getDeviceMetadata(): Promise<DeviceMetadata | null> {
   const raw = await getItem(DEVICE_META_KEY);
   if (!raw) return null;
@@ -112,5 +120,6 @@ export async function clearAppStorage(): Promise<void> {
     deleteItem(SESSION_ID_KEY),
     deleteItem(DEVICE_META_KEY),
     deleteItem(PENDING_LANDING_HREF_KEY),
+    deleteItem(LOCALE_KEY),
   ]);
 }

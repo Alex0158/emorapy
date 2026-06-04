@@ -7,6 +7,7 @@ import {
 } from '@cj/api-client';
 
 import { getRuntimeConfig } from '@/src/config/runtime';
+import { getLocale } from '@/src/i18n';
 import { sessionStorage, tokenStorage } from '@/src/platform/storage/secureStore';
 
 export interface AppSSEOptions {
@@ -53,7 +54,7 @@ export async function connectAppSSE(options: AppSSEOptions): Promise<void> {
     signal: options.signal,
     headers: {
       Accept: 'text/event-stream',
-      'X-Locale': runtime.locale,
+      'X-Locale': getLocale(),
       ...(sessionId ? { 'X-Session-Id': sessionId } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },

@@ -22,11 +22,13 @@ jest.mock('@cj/api-client', () => ({
     details === undefined ? { code, message } : { code, message, details },
 }), { virtual: true });
 
+const { setLocale } = require('@/src/i18n');
 const { createAppApiClient } = require('./client');
 
 describe('App API platform adapter', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    setLocale('zh-TW', { persist: false });
     SecureStore.getItemAsync.mockImplementation((key) => {
       if (key === 'cj.auth.token') return Promise.resolve('jwt-token');
       if (key === 'cj.session.id') return Promise.resolve('guest-session');
@@ -49,9 +51,25 @@ describe('App API platform adapter', () => {
 
     expect(headers.get('Authorization')).toBe('Bearer jwt-token');
     expect(headers.get('X-Session-Id')).toBe('guest-session');
-    expect(headers.get('X-Locale')).toBe('zh-Hant');
+    expect(headers.get('X-Locale')).toBe('zh-TW');
     expect(headers.get('X-Request-Id')).toMatch(/^app-/);
     expect(headers.get('Content-Type')).toBe('application/json');
+  });
+
+  it('uses the current runtime-selected locale for request headers', async () => {
+    const client = createAppApiClient();
+    client.instance.defaults.adapter = async (config) => ({
+      config,
+      data: { ok: true },
+      headers: {},
+      status: 200,
+      statusText: 'OK',
+    });
+
+    setLocale('en-US', { persist: false });
+    const response = await client.instance.get('/version');
+
+    expect(response.config.headers.get('X-Locale')).toBe('en-US');
   });
 
   it('normalizes axios envelope errors and plain app errors', () => {

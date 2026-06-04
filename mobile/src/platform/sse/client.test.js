@@ -30,11 +30,13 @@ jest.mock('@cj/api-client', () => ({
     details === undefined ? { code, message } : { code, message, details },
 }), { virtual: true });
 
+const { setLocale } = require('@/src/i18n');
 const { connectAppSSE } = require('./client');
 
 describe('App SSE client', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    setLocale('zh-TW', { persist: false });
     mockGetToken.mockResolvedValue('jwt-token');
     mockGetSessionId.mockResolvedValue('guest-session');
   });
@@ -63,7 +65,7 @@ describe('App SSE client', () => {
         headers: expect.objectContaining({
           Accept: 'text/event-stream',
           Authorization: 'Bearer jwt-token',
-          'X-Locale': 'zh-Hant',
+          'X-Locale': 'zh-TW',
           'X-Session-Id': 'guest-session',
         }),
       })
@@ -71,6 +73,28 @@ describe('App SSE client', () => {
     expect(onOpen).toHaveBeenCalledTimes(1);
     expect(onMessage).toHaveBeenCalledWith({ event: 'ready', data: '{}' });
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens SSE with the current runtime-selected locale', async () => {
+    mockFetchEventSource.mockImplementationOnce(async (_url, options) => {
+      await options.onopen({ ok: true });
+    });
+
+    setLocale('en-US', { persist: false });
+
+    await connectAppSSE({
+      path: '/streams/interview_session/session-1',
+      onMessage: jest.fn(),
+    });
+
+    expect(mockFetchEventSource).toHaveBeenCalledWith(
+      'https://api.test/streams/interview_session/session-1',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'X-Locale': 'en-US',
+        }),
+      })
+    );
   });
 
   it('turns non-2xx stream open responses into typed App API errors', async () => {

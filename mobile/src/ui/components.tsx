@@ -3,6 +3,7 @@ import type { PropsWithChildren, ReactNode } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { t } from '@/src/i18n';
 import { palette, spacing, typography } from '@/src/ui/theme';
 
 type Tone = 'teal' | 'coral' | 'amber' | 'blue' | 'neutral';
@@ -65,7 +66,7 @@ export function LinkButton({
   const color = toneColors[tone];
   const filled = variant === 'filled';
   const resolvedAccessibilityLabel = accessibilityLabel ?? label;
-  const resolvedAccessibilityHint = accessibilityHint ?? `開啟「${label}」`;
+  const resolvedAccessibilityHint = accessibilityHint ?? t('ui.link.accessibilityHint', { label });
 
   return (
     <Pressable
@@ -114,7 +115,7 @@ export function ActionButton({
   const filled = variant === 'filled';
   const foreground = filled ? palette.surface : color;
   const resolvedAccessibilityLabel = accessibilityLabel ?? label;
-  const resolvedAccessibilityHint = accessibilityHint ?? `執行「${label}」`;
+  const resolvedAccessibilityHint = accessibilityHint ?? t('ui.action.accessibilityHint', { label });
 
   return (
     <Pressable

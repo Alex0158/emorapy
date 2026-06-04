@@ -9,6 +9,7 @@ import {
 } from '@cj/api-client';
 
 import { getRuntimeConfig } from '@/src/config/runtime';
+import { getLocale } from '@/src/i18n';
 import { sessionStorage, tokenStorage } from '@/src/platform/storage/secureStore';
 
 export interface AppApiClient {
@@ -58,7 +59,7 @@ export function createAppApiClient(): AppApiClient {
     ]);
     return {
       requestId: createRequestId(),
-      locale: runtime.locale,
+      locale: getLocale(),
       sessionId,
       token,
     };
@@ -68,7 +69,7 @@ export function createAppApiClient(): AppApiClient {
     const context = await getContext();
     const headers = ensureHeaders(config);
     headers.set('X-Request-Id', context.requestId);
-    headers.set('X-Locale', context.locale ?? runtime.locale);
+    headers.set('X-Locale', context.locale ?? getLocale());
     if (context.sessionId) headers.set('X-Session-Id', context.sessionId);
     if (context.token) headers.set('Authorization', `Bearer ${context.token}`);
     if (isFormDataPayload(config.data)) {

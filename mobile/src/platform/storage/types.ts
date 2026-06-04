@@ -16,3 +16,9 @@ export interface PendingLandingStorageAdapter {
   clearPendingHref(): Promise<void> | void;
   consumePendingHref(): Promise<string | null> | string | null;
 }
+
+export interface LocaleStorageAdapter {
+  getLocale(): Promise<string | null> | string | null;
+  setLocale(locale: string): Promise<void> | void;
+  clearLocale(): Promise<void> | void;
+}

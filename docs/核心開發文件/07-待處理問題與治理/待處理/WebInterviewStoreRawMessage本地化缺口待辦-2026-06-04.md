@@ -4,7 +4,7 @@
 **文檔類型**：問題治理
 **覆蓋範圍**：Web Interview store error state、stream failure fallback、focused tests
 **取證代碼入口**：`frontend/src/store/interviewStoreUtils.ts`、`frontend/src/store/interviewStore.ts`、`frontend/src/store/interviewStoreUtils.test.ts`、`frontend/src/store/interviewStore.test.ts`
-**最後核驗 Commit**：`be63619`
+**最後核驗 Commit**：`2b5b577`
 **最後核驗日期**：`2026-06-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -51,3 +51,20 @@
 3. `npm --prefix frontend test -- src/store/interviewStoreUtils.test.ts src/store/interviewStore.test.ts src/utils/apiError.test.ts src/assets/i18n/catalogParity.test.ts` 通過。
 4. `npm --prefix frontend run build` 通過。
 5. `npm run docs:check` 通過。
+
+## 修復結果
+
+1. `frontend/src/store/interviewStoreUtils.ts` 已移除 `getLocalizedMessageFallback()` 的 raw message 直出邏輯，Interview store visible error 統一交給 shared `getErrorMessage()` normalization。
+2. `extractInterviewErrorInfo(err, fallbackKey)` 已支援 caller fallback key；respond / start / end / get / retry 分支分別傳入 `interview.respondFail`、`interview.startFail`、`interview.endFail`、`interview.loadFail`、`interview.retryFail`。
+3. `getInterviewStreamFailureMessage()` 已對 `{ code, message, status }` 使用同一 normalization；普通 stream failure raw message 回 `interview.respondFail`，已知 code 仍可走 catalog mapping。
+4. `frontend/src/store/interviewStore.test.ts` 與 `frontend/src/store/interviewStoreUtils.test.ts` 已移除 `start fail`、`end fail`、`retry fail`、`Failed to fetch`、`skip fail`、`stream failed`、`too fast`、`plain error` 等 raw message 可見直出舊契約。
+
+## 本輪驗證
+
+1. `npm --prefix frontend test -- src/store/interviewStoreUtils.test.ts src/store/interviewStore.test.ts src/utils/apiError.test.ts src/assets/i18n/catalogParity.test.ts` 通過 4 files / 76 tests。
+2. `npm --prefix frontend run build` 通過。
+3. 靜態掃描確認 `frontend/src/store/interviewStore.ts` / `frontend/src/store/interviewStoreUtils.ts` 不再存在 `info.message || t(...)`、`getLocalizedMessageFallback`、`return message;` 或 focused test raw message 直出 expectation。
+
+## 後續邊界
+
+`applyStreamSafetyAlert(data.message)` 本輪未納入；該 message 來自 stream safety alert payload，需要另輪判定 backend event payload 是否應改為 code / catalog key，或前端是否應建立顯式白名單。

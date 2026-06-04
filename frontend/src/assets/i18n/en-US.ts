@@ -253,6 +253,7 @@ const enUS: Record<string, string> = {
 	"common.prev": "Previous",
 	"common.next": "Next",
 	"common.dismiss": "Dismiss",
+	"common.close": "Close",
 	"guideTooltip.close": "Close guide",
 	"common.unknownError": "Unknown error",
 	"common.clear": "Clear",

@@ -1209,6 +1209,7 @@ const zhTW = {
 	"common.backToTop": "返回頂部",
 	"common.clear": "清空",
 	"common.cancel": "取消",
+	"common.close": "關閉",
 	"common.loadMore": "載入更多",
 	"common.version": "版本",
 	"common.versionInfo": "版本資訊",

@@ -115,6 +115,40 @@ export const requestWithRetryWrapper = async <T = unknown>(
 	});
 };
 
+function getHttpErrorFallbackMessage(
+	status: number,
+	code?: string,
+	config?: AxiosRequestConfig,
+): string {
+	if (isRecoverableSessionErrorCode(code)) {
+		return t("error.session.expiredHint");
+	}
+	switch (status) {
+		case 400:
+		case 422:
+			return t("common.validationError");
+		case 401:
+			return t("common.unauthorized");
+		case 403:
+			return t("common.forbidden");
+		case 404:
+			return t("common.notFound");
+		case 409:
+			return t("common.conflict");
+		case 413:
+			return t("common.fileTooLarge");
+		case 429:
+			return isUploadRequest(config)
+				? t("common.fileRateLimit")
+				: t("common.rateLimit");
+		case 503:
+			return t("common.serviceUnavailable");
+		case 500:
+		default:
+			return t("common.serverError");
+	}
+}
+
 // 請求攔截器
 request.interceptors.request.use(
 	async (config) => {
@@ -225,6 +259,11 @@ request.interceptors.response.use(
 		if (response) {
 			const { status, data } = response;
 			const errorData = getHttpErrorData(data);
+			const fallbackMessage = getHttpErrorFallbackMessage(
+				status,
+				errorData?.code,
+				response.config,
+			);
 
 			switch (status) {
 				case 400: {
@@ -373,7 +412,7 @@ request.interceptors.response.use(
 
 			return Promise.reject({
 				code: errorData?.code || `HTTP_${status}`,
-				message: errorData?.message || error.message,
+				message: errorData?.message || fallbackMessage,
 				details: errorData?.details,
 			});
 		}
@@ -391,7 +430,7 @@ request.interceptors.response.use(
 		toast.error(t("common.unknownError"));
 		return Promise.reject({
 			code: "UNKNOWN_ERROR",
-			message: error.message,
+			message: t("common.unknownError"),
 		});
 	},
 );

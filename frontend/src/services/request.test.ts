@@ -954,7 +954,10 @@ describe("request", () => {
 					config: {},
 					message: "server",
 				}),
-			).rejects.toMatchObject({ code: "SERVER_ERROR" });
+			).rejects.toMatchObject({
+				code: "SERVER_ERROR",
+				message: "common.serverError",
+			});
 			expect(mockToastError).toHaveBeenCalledWith("common.serverError");
 		});
 
@@ -969,7 +972,10 @@ describe("request", () => {
 					config: {},
 					message: "unavailable",
 				}),
-			).rejects.toMatchObject({ code: "SERVICE_UNAVAILABLE" });
+			).rejects.toMatchObject({
+				code: "SERVICE_UNAVAILABLE",
+				message: "common.serviceUnavailable",
+			});
 			expect(mockToastError).toHaveBeenCalledWith(
 				"common.serviceUnavailable",
 			);
@@ -986,7 +992,10 @@ describe("request", () => {
 					config: {},
 					message: "server",
 				}),
-			).rejects.toMatchObject({ code: "HTTP_500" });
+			).rejects.toMatchObject({
+				code: "HTTP_500",
+				message: "common.serverError",
+			});
 		});
 
 		it("401 非 session 錯誤且不在 login 頁時應嘗試跳轉 login", async () => {
@@ -1021,7 +1030,7 @@ describe("request", () => {
 		it("未知錯誤應返回 UNKNOWN_ERROR", async () => {
 			await expect(onError({ message: "boom" })).rejects.toMatchObject({
 				code: "UNKNOWN_ERROR",
-				message: "boom",
+				message: "common.unknownError",
 			});
 		});
 	});

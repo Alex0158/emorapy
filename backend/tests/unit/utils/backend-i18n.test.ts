@@ -355,6 +355,29 @@ describe('backend i18n', () => {
     expect(translateBackendMessage('zh-TW', '梳理結果不存在')).toBe('梳理結果不存在');
   });
 
+  it('translates AI service fallback errors to en-US', () => {
+    expect(translateBackendMessage('en-US', 'AI返回空內容')).toBe('AI returned empty content');
+    expect(translateBackendMessage('en-US', 'AI服務認證失敗')).toBe(
+      'AI service authentication failed'
+    );
+    expect(translateBackendMessage('en-US', 'AI服務暫時不可用')).toBe(
+      'AI service is temporarily unavailable'
+    );
+    expect(translateBackendMessage('en-US', '今日AI服務調用已達上限')).toBe(
+      'Today AI service usage limit has been reached'
+    );
+    expect(translateBackendMessage('en-US', '無法解析AI響應')).toBe(
+      'Unable to parse AI response'
+    );
+    expect(translateBackendMessage('en-US', 'AI響應格式無效（非陣列）')).toBe(
+      'Invalid AI response format (not an array)'
+    );
+    expect(translateBackendMessage('en-US', '無法解析 AI 重調結果')).toBe(
+      'Unable to parse AI adjustment result'
+    );
+    expect(translateBackendMessage('zh-TW', 'AI服務認證失敗')).toBe('AI服務認證失敗');
+  });
+
   it('translates case service errors to en-US without localizing mode values', () => {
     expect(translateBackendMessage('en-US', 'Session創建失敗')).toBe('Session creation failed');
     expect(translateBackendMessage('en-US', '案件創建失敗，請稍後再試')).toBe(

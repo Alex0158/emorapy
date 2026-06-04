@@ -1,5 +1,5 @@
 const React = require('react');
-const { act, fireEvent, render, waitFor } = require('@testing-library/react-native');
+const { act, cleanup, fireEvent, render, waitFor } = require('@testing-library/react-native');
 const { QueryClient, QueryClientProvider } = require('@tanstack/react-query');
 
 const mockRouterPush = jest.fn();
@@ -146,6 +146,7 @@ describe('M1 Quick/Auth screens', () => {
   });
 
   afterEach(() => {
+    cleanup();
     act(() => {
       while (queryClients.length) {
         queryClients.pop().clear();

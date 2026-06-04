@@ -132,6 +132,18 @@ const enUS: Record<string, string> = {
   'auth.clearLocal': 'Clear local session',
   'auth.skip': 'Not now',
 
+  'pd.a': 'Attachment and intimacy',
+  'pd.fo': 'Family of origin',
+  'pd.le': 'Major life events',
+  'pd.bv': 'Values and beliefs',
+  'pd.cb': 'Cultural background',
+  'pd.ec': 'Education and cognition',
+  'pd.p': 'Personality traits',
+  'pd.rh': 'Relationship history',
+  'pd.o': 'Other relationship context',
+  'pd.none': 'Not formed yet',
+  'pd.sep': ', ',
+
   'quick.collaborative.title': 'Two-person quick note',
   'quick.collaborative.subtitle': 'Take turns on the same device and put both perspectives into one summary.',
   'quick.collaborative.error.roleA.minLength': 'The first side should write at least {count} characters so the second side has enough context.',

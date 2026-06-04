@@ -132,6 +132,18 @@ const zhTW: Record<string, string> = {
   'auth.clearLocal': '清理本機會話',
   'auth.skip': '暫不登入',
 
+  'pd.a': '依附與親密關係',
+  'pd.fo': '原生家庭',
+  'pd.le': '重要人生經歷',
+  'pd.bv': '價值觀與信念',
+  'pd.cb': '文化背景',
+  'pd.ec': '教育與認知',
+  'pd.p': '個性特質',
+  'pd.rh': '感情經歷',
+  'pd.o': '其他關係脈絡',
+  'pd.none': '尚未形成',
+  'pd.sep': '、',
+
   'quick.collaborative.title': '雙人快速說明',
   'quick.collaborative.subtitle': '同一台設備上輪流填寫，先把雙方視角放進同一份整理。',
   'quick.collaborative.error.roleA.minLength': '第一方請至少寫 {count} 個字，讓第二方接得上脈絡。',

@@ -70,10 +70,10 @@ export const useInterviewStore = create<InterviewState>((set, get) => {
     } catch (err: unknown) {
       const { turns } = get();
       const preservedTurns = opts.buildPrevTurns(turns);
-      const info = extractInterviewErrorInfo(err);
+      const info = extractInterviewErrorInfo(err, 'interview.respondFail');
       set({
         turns: preservedTurns,
-        error: info.message || t('interview.respondFail'),
+        error: info.message,
         errorCode: info.code,
         ...getStreamingIdleWithAbortState(),
       });
@@ -113,8 +113,8 @@ export const useInterviewStore = create<InterviewState>((set, get) => {
       });
       return session;
     } catch (err: unknown) {
-      const info = extractInterviewErrorInfo(err);
-      set({ error: info.message || t('interview.startFail'), errorCode: info.code, loading: false });
+      const info = extractInterviewErrorInfo(err, 'interview.startFail');
+      set({ error: info.message, errorCode: info.code, loading: false });
       throw err;
     }
   },
@@ -188,8 +188,8 @@ export const useInterviewStore = create<InterviewState>((set, get) => {
         loading: false,
       }));
     } catch (err: unknown) {
-      const info = extractInterviewErrorInfo(err);
-      set({ error: info.message || t('interview.endFail'), errorCode: info.code, loading: false });
+      const info = extractInterviewErrorInfo(err, 'interview.endFail');
+      set({ error: info.message, errorCode: info.code, loading: false });
       throw err;
     }
   },
@@ -215,10 +215,10 @@ export const useInterviewStore = create<InterviewState>((set, get) => {
       });
     } catch (err: unknown) {
       if (seq !== _getSessionSeq) throw err;
-      const info = extractInterviewErrorInfo(err);
+      const info = extractInterviewErrorInfo(err, 'interview.loadFail');
       const isNotFound = info.code === 'NOT_FOUND' || info.status === 404;
       set({
-        error: info.message || t('interview.loadFail'),
+        error: info.message,
         errorCode: info.code,
         loading: false,
         ...(isNotFound ? { currentSession: null } : {}),
@@ -251,8 +251,8 @@ export const useInterviewStore = create<InterviewState>((set, get) => {
       await interviewApi.retryFailed(sessionId);
       set({ loading: false });
     } catch (err: unknown) {
-      const info = extractInterviewErrorInfo(err);
-      set({ error: info.message || t('interview.retryFail'), errorCode: info.code, loading: false });
+      const info = extractInterviewErrorInfo(err, 'interview.retryFail');
+      set({ error: info.message, errorCode: info.code, loading: false });
       throw err;
     }
   },

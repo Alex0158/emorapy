@@ -73,10 +73,10 @@ describe('interviewStore', () => {
       expect(useInterviewStore.getState().loading).toBe(false);
     });
 
-    it('失敗時應設置 error 並拋出', async () => {
+    it('失敗時應使用 start fallback 並拋出原錯誤', async () => {
       mockStartSession.mockRejectedValue(new Error('start fail'));
       await expect(useInterviewStore.getState().startSession()).rejects.toThrow('start fail');
-      expect(useInterviewStore.getState().error).toBe('start fail');
+      expect(useInterviewStore.getState().error).toBe('interview.startFail');
     });
 
     it('shared invalid-response fallback 不應直出英文診斷字串', async () => {
@@ -165,10 +165,10 @@ describe('interviewStore', () => {
       expect(useInterviewStore.getState().currentSession).toBeNull();
     });
 
-    it('失敗時應設置 error 並拋出', async () => {
+    it('失敗時應使用 end fallback 並拋出原錯誤', async () => {
       mockEndSession.mockRejectedValue(new Error('end fail'));
       await expect(useInterviewStore.getState().endSession('s1')).rejects.toThrow('end fail');
-      expect(useInterviewStore.getState().error).toBe('end fail');
+      expect(useInterviewStore.getState().error).toBe('interview.endFail');
     });
   });
 
@@ -221,10 +221,10 @@ describe('interviewStore', () => {
       expect(useInterviewStore.getState().loading).toBe(false);
     });
 
-    it('失敗時應設置 error 並拋出', async () => {
+    it('失敗時應使用 retry fallback 並拋出原錯誤', async () => {
       mockRetryFailed.mockRejectedValue(new Error('retry fail'));
       await expect(useInterviewStore.getState().retryFailed('s1')).rejects.toThrow('retry fail');
-      expect(useInterviewStore.getState().error).toBe('retry fail');
+      expect(useInterviewStore.getState().error).toBe('interview.retryFail');
     });
   });
 
@@ -431,7 +431,7 @@ describe('interviewStore', () => {
         message: 'AI error',
       });
       const state = useInterviewStore.getState();
-      expect(state.error).toBe('AI error');
+      expect(state.error).toBe('message.judgmentUnavailable');
       expect(state.errorCode).toBe('AI_CALL_FAILED');
       expect(state.isStreaming).toBe(false);
       expect(state.streamingStatus).toBeNull();
@@ -458,7 +458,7 @@ describe('interviewStore', () => {
       expect(state.isStreaming).toBe(false);
     });
 
-    it('網路錯誤時應保留原始錯誤訊息並退出 streaming', async () => {
+    it('網路錯誤時不外露 runtime message 並退出 streaming', async () => {
       useInterviewStore.setState({
         currentSession: { id: 's1', status: 'in_progress' } as never,
         turns: [],
@@ -467,7 +467,7 @@ describe('interviewStore', () => {
 
       await expect(useInterviewStore.getState().respond('s1', 'test')).rejects.toThrow('Failed to fetch');
       const state = useInterviewStore.getState();
-      expect(state.error).toBe('Failed to fetch');
+      expect(state.error).toBe('interview.respondFail');
       expect(state.errorCode).toBeNull();
       expect(state.isStreaming).toBe(false);
     });
@@ -543,7 +543,7 @@ describe('interviewStore', () => {
       expect(state.streamingStatus).toBe('thinking');
     });
 
-    it('提交失敗時應回退 skip 狀態並設置錯誤', async () => {
+    it('提交失敗時應回退 skip 狀態並使用 respond fallback', async () => {
       const turn = {
         id: 't1', turn_order: 1, ai_message: 'Question?',
         user_response: undefined, skipped: false, safety_flag: false,
@@ -562,7 +562,7 @@ describe('interviewStore', () => {
 
       const state = useInterviewStore.getState();
       expect(state.turns[0].skipped).toBe(false);
-      expect(state.error).toBe('skip fail');
+      expect(state.error).toBe('interview.respondFail');
       expect(state.errorCode).toBe('SKIP_FAILED');
       expect(state.isStreaming).toBe(false);
     });
@@ -583,7 +583,7 @@ describe('interviewStore', () => {
       expect(useInterviewStore.getState().streamingStatus).toBeNull();
     });
 
-    it('applyStreamFailure 應退出 streaming 並設置錯誤', () => {
+    it('applyStreamFailure 應退出 streaming 並使用 respond fallback', () => {
       useInterviewStore.setState({
         isStreaming: true,
         streamingText: 'partial',
@@ -599,7 +599,7 @@ describe('interviewStore', () => {
       expect(state.isStreaming).toBe(false);
       expect(state.streamingText).toBe('');
       expect(state.streamingStatus).toBeNull();
-      expect(state.error).toBe('stream failed');
+      expect(state.error).toBe('interview.respondFail');
       expect(state.errorCode).toBe('AI_STREAM_FAILED');
     });
 

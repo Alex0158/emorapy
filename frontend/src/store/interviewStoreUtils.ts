@@ -1,6 +1,6 @@
 import type { AIStreamDraftStatus } from '@/utils/aiStreamState';
 import type { InterviewSession, InterviewTurn } from '@/types/interview';
-import { t } from '@/utils/i18n';
+import { getErrorMessage as getApiErrorMessage } from '@/utils/apiError';
 
 export interface InterviewErrorInfo {
   message: string;
@@ -10,45 +10,57 @@ export interface InterviewErrorInfo {
 
 export type SafetyAlertSeverity = 'info' | 'warning' | 'critical';
 
-function getInterviewErrorMessage(err: unknown): string {
+type ErrorLike = {
+  code?: unknown;
+  message?: unknown;
+  status?: unknown;
+};
+
+function getNormalizedCode(err: ErrorLike): string | undefined {
+  if (typeof err.code === 'string' && err.code.trim().length > 0) {
+    return err.code.trim();
+  }
+  return typeof err.status === 'number' ? `HTTP_${err.status}` : undefined;
+}
+
+function getErrorInputForVisibleMessage(err: unknown): unknown {
   if (typeof err === 'string') {
-    return getLocalizedMessageFallback(err, 'common.unknownError');
+    return { message: err };
   }
   if (err && typeof err === 'object') {
-    const message = (err as { message?: unknown }).message;
-    if (typeof message === 'string' && message.trim().length > 0) {
-      return getLocalizedMessageFallback(message, 'common.unknownError');
-    }
-  }
-  return t('common.unknownError');
-}
-
-function getLocalizedMessageFallback(message: string, fallbackKey: string): string {
-  const trimmed = message.trim();
-  if (!trimmed) return t(fallbackKey);
-  if (/^Invalid .+ from server$/.test(trimmed)) {
-    return t('apiError.invalidResponse');
-  }
-  return message;
-}
-
-export function extractInterviewErrorInfo(err: unknown): InterviewErrorInfo {
-  if (err && typeof err === 'object') {
-    const e = err as { message?: string; code?: string; status?: number };
+    const errorLike = err as ErrorLike;
     return {
-      message: getInterviewErrorMessage(err),
+      ...(err as Record<string, unknown>),
+      code: getNormalizedCode(errorLike),
+    };
+  }
+  return err;
+}
+
+function getInterviewErrorMessage(err: unknown, fallbackKey: string): string {
+  return getApiErrorMessage(getErrorInputForVisibleMessage(err), fallbackKey);
+}
+
+export function extractInterviewErrorInfo(
+  err: unknown,
+  fallbackKey = 'common.unknownError'
+): InterviewErrorInfo {
+  if (err && typeof err === 'object') {
+    const e = err as { code?: string; status?: number };
+    return {
+      message: getInterviewErrorMessage(err, fallbackKey),
       code: e.code || null,
       status: e.status ?? null,
     };
   }
-  return { message: getInterviewErrorMessage(err), code: null, status: null };
+  return { message: getInterviewErrorMessage(err, fallbackKey), code: null, status: null };
 }
 
 export function getInterviewStreamFailureMessage(
-  error: { message?: string },
+  error: { code?: string; message?: string; status?: number },
   fallbackKey = 'interview.respondFail'
 ): string {
-  return getLocalizedMessageFallback(error.message ?? '', fallbackKey);
+  return getInterviewErrorMessage(error, fallbackKey);
 }
 
 export function getStreamingStartState() {

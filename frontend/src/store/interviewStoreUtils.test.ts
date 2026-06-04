@@ -42,21 +42,21 @@ describe('interview store utils', () => {
     setLocale('zh-TW');
   });
 
-  it('解析標準 API error，保留 message/code/status', () => {
+  it('解析標準 API error，使用 code mapping 並保留 code/status', () => {
     expect(extractInterviewErrorInfo({
       message: 'too fast',
       code: 'TURN_TOO_FAST',
       status: 429,
     })).toEqual({
-      message: 'too fast',
+      message: '請求過於頻繁，請稍後再試',
       code: 'TURN_TOO_FAST',
       status: 429,
     });
   });
 
-  it('非物件 error 轉為字串，缺失欄位使用目前語言的安全預設值', async () => {
+  it('非物件 error 不外露 raw message，缺失欄位使用目前語言的安全預設值', async () => {
     expect(extractInterviewErrorInfo('plain error')).toEqual({
-      message: 'plain error',
+      message: '發生未知錯誤，請稍後再試',
       code: null,
       status: null,
     });
@@ -107,8 +107,10 @@ describe('interview store utils', () => {
     });
   });
 
-  it('stream failure 保留具體 message，缺失時使用訪談 fallback', () => {
-    expect(getInterviewStreamFailureMessage({ message: 'too fast' })).toBe('too fast');
+  it('stream failure 不外露普通 raw message，缺失時使用訪談 fallback', () => {
+    expect(getInterviewStreamFailureMessage({ code: 'TURN_TOO_FAST', message: 'too fast' }))
+      .toBe('請求過於頻繁，請稍後再試');
+    expect(getInterviewStreamFailureMessage({ message: 'too fast' })).toBe('回覆失敗');
     expect(getInterviewStreamFailureMessage({ message: '   ' })).toBe('回覆失敗');
     expect(getInterviewStreamFailureMessage({})).toBe('回覆失敗');
   });

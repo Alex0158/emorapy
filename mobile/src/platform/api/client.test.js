@@ -149,7 +149,7 @@ describe('App API platform adapter', () => {
     });
   });
 
-  it('localizes shared-client invalid response fallback errors without overriding typed app errors', () => {
+  it('localizes request-like errors by code without exposing raw body messages', () => {
     const client = createAppApiClient();
 
     expect(client.normalizeError({
@@ -167,7 +167,33 @@ describe('App API platform adapter', () => {
       message: '登入憑證已失效，請重新登入。',
     })).toEqual({
       code: 'INVALID_AUTH_TOKEN',
-      message: '登入憑證已失效，請重新登入。',
+      message: '請先登入後再繼續。',
+    });
+
+    expect(client.normalizeError({
+      code: 'VALIDATION_ERROR',
+      message: 'Invalid input',
+      details: { field: 'plaintiff_statement' },
+    })).toEqual({
+      code: 'VALIDATION_ERROR',
+      message: '請檢查輸入內容後再試。',
+      details: { field: 'plaintiff_statement' },
+    });
+
+    expect(client.normalizeError({
+      code: 'CHAT_ROOM_NOT_FOUND',
+      message: '房間不存在',
+    })).toEqual({
+      code: 'CHAT_ROOM_NOT_FOUND',
+      message: '找不到這項資料，可能已過期或被移除。',
+    });
+
+    expect(client.normalizeError({
+      code: 'CUSTOM_PROVIDER_DOWN',
+      message: 'provider down',
+    })).toEqual({
+      code: 'CUSTOM_PROVIDER_DOWN',
+      message: '發生未知錯誤，請稍後再試。',
     });
 
     setLocale('en-US', { persist: false });
@@ -186,6 +212,22 @@ describe('App API platform adapter', () => {
     })).toEqual({
       code: 'INVALID_INTERVIEW_RESPONSE',
       message: 'The service response could not be read. Please try again later.',
+    });
+
+    expect(client.normalizeError({
+      code: 'RATE_LIMIT_EXCEEDED',
+      message: '操作太頻繁',
+    })).toEqual({
+      code: 'RATE_LIMIT_EXCEEDED',
+      message: 'Too many actions. Please try again later.',
+    });
+
+    expect(client.normalizeError({
+      code: 'EXTERNAL_SERVICE_ERROR',
+      message: '外部服務暫時不可用',
+    })).toEqual({
+      code: 'EXTERNAL_SERVICE_ERROR',
+      message: 'The service is temporarily unavailable. Please try again later.',
     });
   });
 

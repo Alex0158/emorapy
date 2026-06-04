@@ -12,6 +12,7 @@ import { getLocale } from '@/src/i18n';
 import {
   getLocalizedInvalidResponseMessage,
   getLocalizedNetworkMessage,
+  getLocalizedRequestCodeMessage,
   getLocalizedStatusMessage,
   getLocalizedStreamDisconnectedMessage,
   getLocalizedUnknownMessage,
@@ -99,7 +100,11 @@ export function createAppApiClient(): AppApiClient {
       if (isSharedClientInvalidResponseError(error)) {
         return toRequestError(error.code, getLocalizedInvalidResponseMessage(), error.details);
       }
-      return error;
+      return toRequestError(
+        error.code,
+        getLocalizedRequestCodeMessage(error.code) ?? getLocalizedUnknownMessage(),
+        error.details
+      );
     }
 
     if (axios.isAxiosError(error)) {

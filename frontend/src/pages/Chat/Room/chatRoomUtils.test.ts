@@ -257,9 +257,9 @@ describe('chatRoomUtils room stream helpers', () => {
   });
 
   it('應集中處理 room stream terminal / retry / close 文案', () => {
-    expect(getRoomStreamTerminalErrorText({ message: 'session expired' })).toBe('session expired');
+    expect(getRoomStreamTerminalErrorText({ message: 'session expired' })).toBe(t('chat.message.streamTerminalError'));
     expect(getRoomStreamTerminalErrorText({})).toBe(t('chat.message.streamTerminalError'));
-    expect(getRoomStreamRetryErrorText(new Error('network down'))).toBe('network down');
+    expect(getRoomStreamRetryErrorText(new Error('network down'))).toBe(t('chat.message.streamFail'));
     expect(getRoomStreamRetryErrorText({ code: 'STREAM_DISCONNECTED', message: '' })).toBe(t('chat.message.streamFail'));
     expect(getRoomStreamCloseRetryText()).toBe(t('chat.message.streamClosedRetry'));
   });

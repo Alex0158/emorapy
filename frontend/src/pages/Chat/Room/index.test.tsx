@@ -310,7 +310,7 @@ describe('ChatRoomPage', () => {
     });
   });
 
-  it('createChatRoom 失敗且有 message 應顯示該 message（F07 錯誤處理約定）', async () => {
+  it('createChatRoom 失敗且有 raw message 應顯示本地化 fallback', async () => {
     mockCreateChatRoom.mockRejectedValue(new Error('已達聊天室數量上限'));
     render(
       <MemoryRouter initialEntries={['/chat/room']}>
@@ -326,7 +326,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('已達聊天室數量上限')).toBeInTheDocument();
+      expect(screen.getByText('建立聊天室失敗')).toBeInTheDocument();
     });
   });
 
@@ -346,7 +346,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('建立聊天室失敗')).toBeInTheDocument();
+      expect(screen.getByText('服務器錯誤，請稍後再試')).toBeInTheDocument();
     });
   });
 
@@ -366,7 +366,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('建立聊天室失敗')).toBeInTheDocument();
+      expect(screen.getByText('AI服務暫時不可用，請稍後重試')).toBeInTheDocument();
     });
   });
 
@@ -386,7 +386,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('建立聊天室失敗')).toBeInTheDocument();
+      expect(screen.getByText('無權限訪問此資源')).toBeInTheDocument();
     });
   });
 
@@ -422,7 +422,7 @@ describe('ChatRoomPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '建立聊天室' }));
     await waitFor(() => {
-      expect(screen.getByText('服務暫時不可用')).toBeInTheDocument();
+      expect(screen.getByText('建立聊天室失敗')).toBeInTheDocument();
     });
     expect(mockCreateChatRoom).toHaveBeenCalledTimes(1);
 
@@ -800,7 +800,7 @@ describe('ChatRoomPage', () => {
     expect(toast.success).not.toHaveBeenCalled();
   });
 
-  it('declineChatInvite 失敗且有 message 應顯示該 message（F07 錯誤處理約定）', async () => {
+  it('declineChatInvite 失敗且有 raw message 應顯示本地化 fallback', async () => {
     mockDeclineChatInvite.mockRejectedValue(new Error('此邀請已無法拒絕'));
     render(
       <MemoryRouter initialEntries={['/chat/room']}>
@@ -818,7 +818,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('此邀請已無法拒絕');
+      expect(toast.error).toHaveBeenCalledWith('拒絕邀請失敗');
     });
   });
 
@@ -840,7 +840,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('拒絕邀請失敗');
+      expect(toast.error).toHaveBeenCalledWith('服務器錯誤，請稍後再試');
     });
   });
 
@@ -862,7 +862,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('拒絕邀請失敗');
+      expect(toast.error).toHaveBeenCalledWith('服務器錯誤，請稍後再試');
     });
   });
 
@@ -884,7 +884,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('拒絕邀請失敗');
+      expect(toast.error).toHaveBeenCalledWith('無權限訪問此資源');
     });
   });
 
@@ -907,7 +907,7 @@ describe('ChatRoomPage', () => {
       fireEvent.click(screen.getByRole('button', { name: '拒絕邀請' }));
     });
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('暫時無法拒絕');
+      expect(toast.error).toHaveBeenCalledWith('拒絕邀請失敗');
     });
 
     await act(async () => {
@@ -1050,7 +1050,7 @@ describe('ChatRoomPage', () => {
     });
   });
 
-  it('acceptChatInvite 失敗且有 message 應顯示該 message（F07 錯誤處理約定）', async () => {
+  it('acceptChatInvite 失敗且有 raw message 應顯示本地化 fallback', async () => {
     mockAcceptChatInvite.mockRejectedValue(new Error('邀請碼已失效或已被使用'));
     render(
       <MemoryRouter initialEntries={['/chat/room']}>
@@ -1068,7 +1068,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('邀請碼已失效或已被使用');
+      expect(toast.error).toHaveBeenCalledWith('加入聊天室失敗');
     });
   });
 
@@ -1090,7 +1090,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('加入聊天室失敗');
+      expect(toast.error).toHaveBeenCalledWith('服務器錯誤，請稍後再試');
     });
   });
 
@@ -1134,7 +1134,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('加入聊天室失敗');
+      expect(toast.error).toHaveBeenCalledWith('無權限訪問此資源');
     });
   });
 
@@ -1230,7 +1230,7 @@ describe('ChatRoomPage', () => {
       fireEvent.click(screen.getByRole('button', { name: '用邀請碼加入' }));
     });
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('暫時無法加入');
+      expect(toast.error).toHaveBeenCalledWith('加入聊天室失敗');
     });
 
     await act(async () => {
@@ -2171,17 +2171,17 @@ describe('ChatRoomPage', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('forbidden')).toBeInTheDocument();
+      expect(screen.getByText('聊天室連線授權或狀態異常，已停止自動重試')).toBeInTheDocument();
     });
     expect(mockConnectChatStream).toHaveBeenCalledTimes(1);
   });
 
   it.each([
-    { status: 401, code: 'SESSION_EXPIRED', message: 'session-expired' },
-    { status: 403, code: 'FORBIDDEN', message: 'forbidden' },
-    { status: 404, code: 'NOT_FOUND', message: 'not-found' },
-    { status: 400, code: 'INVALID_SESSION_ID', message: 'invalid-session' },
-  ])('SSE 終態錯誤矩陣：$code 時不應重連', async ({ status, code, message }) => {
+    { status: 401, code: 'SESSION_EXPIRED', message: 'session-expired', expectedText: '聊天室連線授權或狀態異常，已停止自動重試' },
+    { status: 403, code: 'FORBIDDEN', message: 'forbidden', expectedText: '無權限訪問此資源' },
+    { status: 404, code: 'NOT_FOUND', message: 'not-found', expectedText: '資源不存在' },
+    { status: 400, code: 'INVALID_SESSION_ID', message: 'invalid-session', expectedText: '聊天室連線授權或狀態異常，已停止自動重試' },
+  ])('SSE 終態錯誤矩陣：$code 時不應重連', async ({ status, code, message, expectedText }) => {
     mockConnectChatStream.mockImplementation(async (_roomId: string, callbacks: { onError?: (e: { status?: number; code?: string; message?: string }) => void }) => {
       callbacks.onError?.({ status, code, message });
       return () => undefined;
@@ -2196,7 +2196,7 @@ describe('ChatRoomPage', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(message)).toBeInTheDocument();
+      expect(screen.getByText(expectedText)).toBeInTheDocument();
     });
     expect(mockConnectChatStream).toHaveBeenCalledTimes(1);
   });
@@ -2228,7 +2228,7 @@ describe('ChatRoomPage', () => {
     expect(mockConnectChatStream.mock.calls.length).toBeGreaterThan(1);
   });
 
-  it('getChatRoom 失敗且有 message 應顯示該 message（F07 房間載入錯誤處理）', async () => {
+  it('getChatRoom 失敗且有 raw message 應顯示本地化 fallback', async () => {
     mockGetChatRoom.mockRejectedValue(new Error('房間不存在或已封存'));
     render(
       <MemoryRouter initialEntries={['/chat/room/room-1']}>
@@ -2239,11 +2239,11 @@ describe('ChatRoomPage', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('房間不存在或已封存')).toBeInTheDocument();
+      expect(screen.getByText('載入聊天室失敗')).toBeInTheDocument();
     });
   });
 
-  it('getChatRoom FORBIDDEN 時若有 message 應顯示該 message（F07 權限邊界）', async () => {
+  it('getChatRoom FORBIDDEN 時若有 message 應顯示本地化 code fallback（F07 權限邊界）', async () => {
     mockGetChatRoom.mockRejectedValue({ code: 'FORBIDDEN', message: '無權限進入此聊天室' });
     render(
       <MemoryRouter initialEntries={['/chat/room/room-1']}>
@@ -2254,7 +2254,7 @@ describe('ChatRoomPage', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('無權限進入此聊天室')).toBeInTheDocument();
+      expect(screen.getByText('無權限訪問此資源')).toBeInTheDocument();
     });
   });
 
@@ -2269,7 +2269,7 @@ describe('ChatRoomPage', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('載入聊天室失敗')).toBeInTheDocument();
+      expect(screen.getByText('無權限訪問此資源')).toBeInTheDocument();
     });
   });
 
@@ -2364,7 +2364,7 @@ describe('ChatRoomPage', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('暫時不可用')).toBeInTheDocument();
+      expect(screen.getByText('服務器錯誤，請稍後再試')).toBeInTheDocument();
     });
     expect(mockGetChatRoom).toHaveBeenCalledTimes(1);
 
@@ -2399,11 +2399,11 @@ describe('ChatRoomPage', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('第一次失敗')).toBeInTheDocument();
+      expect(screen.getByText('服務器錯誤，請稍後再試')).toBeInTheDocument();
     });
     fireEvent.click(screen.getByTestId('chat-room-load-retry'));
     await waitFor(() => {
-      expect(screen.getByText('第二次仍失敗')).toBeInTheDocument();
+      expect(screen.getByText('服務器錯誤，請稍後再試')).toBeInTheDocument();
     });
     expect(mockGetChatRoom).toHaveBeenCalledTimes(2);
 
@@ -2433,7 +2433,7 @@ describe('ChatRoomPage', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('節流測試')).toBeInTheDocument();
+      expect(screen.getByText('服務器錯誤，請稍後再試')).toBeInTheDocument();
     });
     const retryBtn = screen.getByTestId('chat-room-load-retry');
     fireEvent.click(retryBtn);
@@ -2477,7 +2477,7 @@ describe('ChatRoomPage', () => {
       </MemoryRouter>
     );
 
-    await screen.findByText('第一次失敗');
+    await screen.findByText('服務器錯誤，請稍後再試');
 
     fireEvent.click(screen.getByTestId('chat-room-load-retry'));
     await waitFor(() => {
@@ -3126,7 +3126,7 @@ describe('ChatRoomPage', () => {
     });
   });
 
-  it('leaveChatRoom 失敗且有 message 應顯示該 message（F07 錯誤處理約定）', async () => {
+  it('leaveChatRoom 失敗且有 raw message 應顯示本地化 fallback', async () => {
     const roomWithRoleB = {
       id: 'room-1',
       status: 'group_active',
@@ -3163,7 +3163,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('房間已鎖定，無法離開');
+      expect(toast.error).toHaveBeenCalledWith('離開失敗');
     });
   });
 
@@ -3204,7 +3204,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('離開失敗');
+      expect(toast.error).toHaveBeenCalledWith('無權限訪問此資源');
     });
   });
 
@@ -3245,7 +3245,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('離開失敗');
+      expect(toast.error).toHaveBeenCalledWith('無權限訪問此資源');
     });
   });
 
@@ -3374,7 +3374,7 @@ describe('ChatRoomPage', () => {
       fireEvent.click(leaveBtn);
     });
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('暫時無法離開');
+      expect(toast.error).toHaveBeenCalledWith('離開失敗');
     });
 
     await act(async () => {
@@ -3499,7 +3499,7 @@ describe('ChatRoomPage', () => {
     expect(toast.success).not.toHaveBeenCalled();
   });
 
-  it('kickChatParticipantB 失敗且有 message 應顯示該 message（F07 錯誤處理約定）', async () => {
+  it('kickChatParticipantB 失敗且有 raw message 應顯示本地化 fallback', async () => {
     const roomWithOwnerAndRoleB = {
       id: 'room-1',
       status: 'group_active',
@@ -3529,7 +3529,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('B 方正在參與判決流程，暫時無法移除');
+      expect(toast.error).toHaveBeenCalledWith('移除失敗');
     });
   });
 
@@ -3563,7 +3563,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('移除失敗');
+      expect(toast.error).toHaveBeenCalledWith('服務器錯誤，請稍後再試');
     });
   });
 
@@ -3597,7 +3597,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('移除失敗');
+      expect(toast.error).toHaveBeenCalledWith('服務器錯誤，請稍後再試');
     });
   });
 
@@ -3631,7 +3631,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('移除失敗');
+      expect(toast.error).toHaveBeenCalledWith('無權限訪問此資源');
     });
   });
 
@@ -3669,7 +3669,7 @@ describe('ChatRoomPage', () => {
       fireEvent.click(kickBtn);
     });
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('暫時無法移除');
+      expect(toast.error).toHaveBeenCalledWith('移除失敗');
     });
 
     await act(async () => {
@@ -3817,7 +3817,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('載入更多訊息失敗');
+      expect(toast.error).toHaveBeenCalledWith('無權限訪問此資源');
     });
   });
 
@@ -3855,7 +3855,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('載入更多訊息失敗');
+      expect(toast.error).toHaveBeenCalledWith('服務器錯誤，請稍後再試');
     });
   });
 

@@ -55,4 +55,10 @@
 ## Owner / Status Notes
 
 - Owner：agent
-- Status：已修復，已提交。
+- Status：已處理並歸檔；2026-06-04 重新核驗時同步修正舊 raw-message 測試契約。
+
+## 2026-06-04 重新核驗與測試契約收斂
+
+1. `frontend/src/pages/Chat/Room/index.test.tsx` 已移除 create / accept / decline / leave / kick / loadMore / retry / SSE terminal 等路徑仍期待 raw `Error.message` 或 backend body `message` 的舊契約。
+2. `frontend/src/pages/Chat/Room/chatRoomUtils.test.ts` 已把 room stream terminal / retry helper 的 raw message 期望改為 locale catalog fallback 或 fixed diagnostic normalization。
+3. 重新驗證 `npm --prefix frontend test -- src/pages/Chat/Room/chatRoomUtils.test.ts src/pages/Chat/Room/index.test.tsx src/utils/apiError.test.ts src/assets/i18n/catalogParity.test.ts` 通過 4 files / 172 tests；`npm --prefix frontend run build` 與 `npm run docs:check` 通過。

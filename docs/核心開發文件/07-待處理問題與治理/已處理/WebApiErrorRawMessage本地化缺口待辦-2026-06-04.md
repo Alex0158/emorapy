@@ -4,8 +4,8 @@
 **文檔類型**：問題治理
 **覆蓋範圍**：Web shared apiError visible message normalization、responseHandler toast fallback 與使用者語言顯示
 **取證代碼入口**：`frontend/src/utils/apiError.ts`、`frontend/src/utils/apiError.test.ts`、`frontend/src/utils/responseHandler.ts`、`frontend/src/utils/responseHandler.test.ts`
-**最後核驗 Commit**：`2067747`
-**最後核驗日期**：`2026-06-04`
+**最後核驗 Commit**：`1ee4c4b`
+**最後核驗日期**：`2026-06-05`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 ## 問題位置與現象
@@ -38,7 +38,7 @@
 ## Owner / Status Notes
 
 - Owner：agent
-- Status：已完成本輪修復。`frontend/src/utils/errorHandler.ts` 仍屬獨立舊 helper，後續若確認 raw message 外露需另行登記。
+- Status：已處理並歸檔。`frontend/src/utils/errorHandler.ts` 仍屬獨立舊 helper，後續若確認 raw message 外露需另行登記。
 
 ## 2026-06-04 本輪結果
 
@@ -46,4 +46,4 @@
 2. 已新增受控 code / HTTP status mapping，`FORBIDDEN`、`SERVER_ERROR`、`RATE_LIMIT`、`HTTP_403` 等會顯示目前 locale 的 catalog message；未知 code 回 caller fallback 或 `common.unknownError`。
 3. `frontend/src/utils/responseHandler.test.ts` 已同步 `handleApiError()` 行為：普通 runtime/raw object message 不再 toast 外露；code 仍可顯示受控本地化映射。
 4. `frontend/src/utils/apiError.test.ts` 已移除「direct message / Error.message / nested error.message 應直接顯示」舊契約，並覆蓋 raw message fallback、code mapping、invalid-response normalization。
-5. 已驗證：`npm --prefix frontend test -- src/utils/apiError.test.ts src/utils/responseHandler.test.ts src/assets/i18n/catalogParity.test.ts` 通過 3 files / 45 tests；`npm --prefix frontend run build` 通過；`npm run docs:check` 通過；測試契約掃描確認 focused tests 不再保留普通 raw message 外露斷言。
+5. 2026-06-05 復核已驗證：`npm --prefix frontend test -- src/utils/apiError.test.ts src/utils/responseHandler.test.ts src/assets/i18n/catalogParity.test.ts` 通過 3 files / 45 tests；`npm --prefix frontend run build` 通過；`npm run docs:check` 通過；測試契約掃描確認 focused tests 不再保留普通 raw message 外露斷言。

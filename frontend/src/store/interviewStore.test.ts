@@ -567,6 +567,17 @@ describe('interviewStore', () => {
       expect(state.errorCode).toBe('AI_STREAM_FAILED');
     });
 
+    it('applyStreamFailure 應本地化 shared invalid-response fallback', () => {
+      useInterviewStore.getState().applyStreamFailure({
+        code: 'INVALID_INTERVIEW_RESPONSE',
+        message: 'Invalid interview stream response from server',
+      });
+
+      const state = useInterviewStore.getState();
+      expect(state.error).toBe('apiError.invalidResponse');
+      expect(state.errorCode).toBe('INVALID_INTERVIEW_RESPONSE');
+    });
+
     it('applyStreamSafetyAlert 應標準化 severity', () => {
       useInterviewStore.getState().applyStreamSafetyAlert({
         message: 'alert',

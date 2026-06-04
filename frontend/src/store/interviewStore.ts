@@ -9,6 +9,7 @@ import type { AIStreamDraftStatus } from '@/utils/aiStreamState';
 import type { InterviewResumeStatus, InterviewSession, InterviewTrigger, InterviewTurn } from '@/types/interview';
 import {
   extractInterviewErrorInfo,
+  getInterviewStreamFailureMessage,
   getStreamingIdleWithAbortState,
   getStreamingIdleState,
   getStreamingStartState,
@@ -283,7 +284,7 @@ export const useInterviewStore = create<InterviewState>((set, get) => {
 
   applyStreamFailure: (error: { code?: string; message?: string }) => {
     set({
-      error: error.message || t('interview.respondFail'),
+      error: getInterviewStreamFailureMessage(error),
       errorCode: error.code || null,
       ...getStreamingIdleWithAbortState(),
     });

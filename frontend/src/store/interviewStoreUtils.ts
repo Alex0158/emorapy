@@ -18,6 +18,15 @@ function getInterviewErrorMessage(err: unknown): string {
   return t('common.unknownError');
 }
 
+function getLocalizedMessageFallback(message: string, fallbackKey: string): string {
+  const trimmed = message.trim();
+  if (!trimmed) return t(fallbackKey);
+  if (/^Invalid .+ response from server$/.test(trimmed)) {
+    return t('apiError.invalidResponse');
+  }
+  return message;
+}
+
 export function extractInterviewErrorInfo(err: unknown): InterviewErrorInfo {
   if (err && typeof err === 'object') {
     const e = err as { message?: string; code?: string; status?: number };
@@ -28,6 +37,13 @@ export function extractInterviewErrorInfo(err: unknown): InterviewErrorInfo {
     };
   }
   return { message: String(err), code: null, status: null };
+}
+
+export function getInterviewStreamFailureMessage(
+  error: { message?: string },
+  fallbackKey = 'interview.respondFail'
+): string {
+  return getLocalizedMessageFallback(error.message ?? '', fallbackKey);
 }
 
 export function getStreamingStartState() {

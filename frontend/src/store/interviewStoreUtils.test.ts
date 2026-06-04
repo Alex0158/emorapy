@@ -3,6 +3,7 @@ import type { InterviewSession, InterviewTurn } from '@/types/interview';
 import { setLocale } from '@/utils/i18n';
 import {
   extractInterviewErrorInfo,
+  getInterviewStreamFailureMessage,
   getStreamingIdleState,
   getStreamingIdleWithAbortState,
   getStreamingStartState,
@@ -72,6 +73,24 @@ describe('interview store utils', () => {
       code: null,
       status: null,
     });
+  });
+
+  it('stream failure invalid-response fallback 應使用目前語言', async () => {
+    expect(getInterviewStreamFailureMessage({
+      message: 'Invalid interview stream response from server',
+    })).toBe('服務回應格式異常，請稍後再試');
+
+    await setLocaleReady('en-US');
+
+    expect(getInterviewStreamFailureMessage({
+      message: 'Invalid interview stream response from server',
+    })).toBe('The service response could not be read. Please try again later.');
+  });
+
+  it('stream failure 保留具體 message，缺失時使用訪談 fallback', () => {
+    expect(getInterviewStreamFailureMessage({ message: 'too fast' })).toBe('too fast');
+    expect(getInterviewStreamFailureMessage({ message: '   ' })).toBe('回覆失敗');
+    expect(getInterviewStreamFailureMessage({})).toBe('回覆失敗');
   });
 
   it('streaming 狀態片段分清是否清理 abortController', () => {

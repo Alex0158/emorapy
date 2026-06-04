@@ -1,5 +1,6 @@
 import type { AIStreamDraftStatus } from '@/utils/aiStreamState';
 import type { InterviewSession, InterviewTurn } from '@/types/interview';
+import { t } from '@/utils/i18n';
 
 export interface InterviewErrorInfo {
   message: string;
@@ -9,11 +10,19 @@ export interface InterviewErrorInfo {
 
 export type SafetyAlertSeverity = 'info' | 'warning' | 'critical';
 
+function getInterviewErrorMessage(err: unknown): string {
+  if (err && typeof err === 'object') {
+    const message = (err as { message?: unknown }).message;
+    if (typeof message === 'string' && message.trim().length > 0) return message;
+  }
+  return t('common.unknownError');
+}
+
 export function extractInterviewErrorInfo(err: unknown): InterviewErrorInfo {
   if (err && typeof err === 'object') {
     const e = err as { message?: string; code?: string; status?: number };
     return {
-      message: e.message || 'Unknown error',
+      message: getInterviewErrorMessage(err),
       code: e.code || null,
       status: e.status ?? null,
     };

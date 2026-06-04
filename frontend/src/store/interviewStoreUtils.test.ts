@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import type { InterviewSession, InterviewTurn } from '@/types/interview';
+import { setLocale } from '@/utils/i18n';
 import {
   extractInterviewErrorInfo,
   getStreamingIdleState,
@@ -8,6 +9,11 @@ import {
   normalizeSafetyAlertSeverity,
   shouldRecoverStreamingFromCanonical,
 } from './interviewStoreUtils';
+
+async function setLocaleReady(locale: 'zh-TW' | 'en-US'): Promise<void> {
+  setLocale(locale);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+}
 
 function createSession(overrides: Partial<InterviewSession> = {}): InterviewSession {
   return {
@@ -31,6 +37,10 @@ function createTurn(id: string): InterviewTurn {
 }
 
 describe('interview store utils', () => {
+  beforeEach(() => {
+    setLocale('zh-TW');
+  });
+
   it('解析標準 API error，保留 message/code/status', () => {
     expect(extractInterviewErrorInfo({
       message: 'too fast',
@@ -43,13 +53,21 @@ describe('interview store utils', () => {
     });
   });
 
-  it('非物件 error 轉為字串，缺失欄位使用安全預設值', () => {
+  it('非物件 error 轉為字串，缺失欄位使用目前語言的安全預設值', async () => {
     expect(extractInterviewErrorInfo('plain error')).toEqual({
       message: 'plain error',
       code: null,
       status: null,
     });
     expect(extractInterviewErrorInfo({})).toEqual({
+      message: '發生未知錯誤，請稍後再試',
+      code: null,
+      status: null,
+    });
+
+    await setLocaleReady('en-US');
+
+    expect(extractInterviewErrorInfo({ message: '   ' })).toEqual({
       message: 'Unknown error',
       code: null,
       status: null,

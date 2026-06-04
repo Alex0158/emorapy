@@ -21,6 +21,15 @@ describe('backend i18n', () => {
     expect(translateBackendMessage('en-US', '文件上傳失敗')).toBe('File upload failed');
   });
 
+  it('translates development unique constraint diagnostics without leaving CJK fallback suffixes', () => {
+    expect(translateBackendMessage('en-US', '唯一約束違規: 未知字段')).toBe(
+      'Unique constraint violation: unknown field'
+    );
+    expect(translateBackendMessage('en-US', '唯一約束違規: email')).toBe(
+      'Unique constraint violation: email'
+    );
+  });
+
   it('keeps zh-TW backend messages unchanged', () => {
     expect(translateBackendMessage('zh-TW', '缺少 B 方完整陳述')).toBe('缺少 B 方完整陳述');
   });

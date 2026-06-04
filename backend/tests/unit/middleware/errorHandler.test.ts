@@ -157,6 +157,23 @@ describe('middleware/errorHandler', () => {
     });
   });
 
+  it('P2002 無 meta.target 時應依 en-US locale 翻譯 development fallback suffix', () => {
+    const req = { ...createMockReq(), locale: 'en-US' as Request['locale'] } as Request;
+    const res = createMockRes() as Response;
+    const err = Object.assign(new Error('Unique constraint'), { code: 'P2002' });
+
+    errorHandler(err as Error & { code: string }, req, res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith({
+      success: false,
+      error: {
+        code: 'CONFLICT',
+        message: 'Unique constraint violation: unknown field',
+      },
+    });
+  });
+
   it('應處理 Prisma P2025 並回傳 404', () => {
     const req = createMockReq() as Request;
     const res = createMockRes() as Response;

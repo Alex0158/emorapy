@@ -310,7 +310,9 @@ export function translateErrorByCode(locale: BackendLocale, code: string, fallba
 export function translateBackendMessage(locale: BackendLocale, message: string): string {
   if (locale === 'zh-TW') return message;
   if (message.startsWith('唯一約束違規:')) {
-    return message.replace('唯一約束違規:', 'Unique constraint violation:');
+    const detail = message.slice('唯一約束違規:'.length).trim();
+    const translatedDetail = detail === '未知字段' ? 'unknown field' : detail;
+    return `Unique constraint violation: ${translatedDetail}`;
   }
   return directEnUSMap[message] ?? translateDynamicBackendMessage(message) ?? message;
 }

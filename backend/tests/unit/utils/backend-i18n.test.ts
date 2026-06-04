@@ -189,6 +189,20 @@ describe('backend i18n', () => {
     expect(translateBackendMessage('zh-TW', '未提供認證Token')).toBe('未提供認證Token');
   });
 
+  it('translates user profile and avatar controller errors to en-US', () => {
+    expect(translateBackendMessage('en-US', '用戶不存在')).toBe('User not found');
+    expect(translateBackendMessage('en-US', '沒有可更新的字段')).toBe(
+      'No updatable fields were provided'
+    );
+    expect(translateBackendMessage('en-US', '頭像域名不被允許')).toBe('Avatar domain is not allowed');
+    expect(translateBackendMessage('en-US', '頭像URL格式無效')).toBe('Avatar URL format is invalid');
+    expect(translateBackendMessage('en-US', '缺少頭像文件')).toBe('Avatar file is missing');
+    expect(translateBackendMessage('en-US', '頭像僅支持圖片格式')).toBe(
+      'Avatar only supports image files'
+    );
+    expect(translateBackendMessage('zh-TW', '缺少頭像文件')).toBe('缺少頭像文件');
+  });
+
   it('uses public Analysis terminology for backend judgment response messages', () => {
     expect(translateErrorByCode('en-US', 'JUDGMENT_FAILED')).toBe(
       'Analysis generation failed, please retry later'

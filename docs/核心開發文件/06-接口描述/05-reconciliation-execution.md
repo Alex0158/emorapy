@@ -94,6 +94,8 @@
 | `GET /api/v1/streams/repair_track/:id`            | optional query `after_seq`                                                                                           | SSE `ready` + `stream.*` events；HTTP response 必須保持未壓縮                                                                                                                     | repair track AI 重調 phase/replay/recovering 主鏈路                      | `/execution/:planId/replan`                              |
 
 
+成功響應的頂層 `message` 屬 backend-owned display string，會由 `responseFormatter` 依 request locale 呼叫 `translateBackendMessage()`。`respondPlan(viewed/committed/deferred/declined/paused)`、invite、pause、replan、resume 等修復旅程狀態提示必須在 `backend/src/i18n/index.ts` 覆蓋 en-US；Web / App 只消費 API 結果，不在端側重建 action message 翻譯表。
+
 ## 返回字段補充說明
 
 ### `data.plans[]`

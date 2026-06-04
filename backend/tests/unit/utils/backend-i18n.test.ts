@@ -66,4 +66,16 @@ describe('backend i18n', () => {
     );
     expect(translateBackendMessage('en-US', '判決已生成')).toBe('Analysis generated');
   });
+
+  it('translates repair journey response action messages to en-US', () => {
+    expect(translateBackendMessage('en-US', '已記下你暫時不加入的選擇')).toBe(
+      'Your choice not to join for now has been recorded'
+    );
+    expect(translateBackendMessage('en-US', '已記下你需要一點時間')).toBe(
+      'Your need for more time has been recorded'
+    );
+    expect(translateBackendMessage('en-US', '已同步你已查看這個邀請')).toBe(
+      'Your invitation view has been synced'
+    );
+  });
 });

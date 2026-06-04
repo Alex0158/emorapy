@@ -153,6 +153,7 @@ const directEnUSMap: Record<string, string> = {
   'flags 必須為 object': 'flags must be an object',
   'streamId 為必填': 'streamId is required',
   'AI Stream 不存在': 'AI Stream not found',
+  '未知的 AI stream scopeType': 'Unknown AI stream scopeType',
   '管理員帳號已存在，請改用登入': 'Admin account already exists. Please log in instead',
   '生產環境必須配置 ADMIN_BOOTSTRAP_TOKEN': 'ADMIN_BOOTSTRAP_TOKEN must be configured in production',
   '缺少 ADMIN_BOOTSTRAP_TOKEN 配置': 'ADMIN_BOOTSTRAP_TOKEN configuration is missing',

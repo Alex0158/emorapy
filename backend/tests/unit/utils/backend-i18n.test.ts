@@ -259,6 +259,9 @@ describe('backend i18n', () => {
       'Sensitive base secrets cannot be managed from the admin console'
     );
     expect(translateBackendMessage('en-US', 'AI Stream 不存在')).toBe('AI Stream not found');
+    expect(translateBackendMessage('en-US', '未知的 AI stream scopeType')).toBe(
+      'Unknown AI stream scopeType'
+    );
     expect(translateBackendMessage('zh-TW', '管理員帳號或密碼錯誤')).toBe(
       '管理員帳號或密碼錯誤'
     );

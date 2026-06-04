@@ -47,7 +47,7 @@
 ## Owner / Status Notes
 
 - Owner：agent
-- Status：已完成本輪修復與驗證，待 commit/push。
+- Status：已處理並歸檔，修復與驗證已完成。
 
 ## 2026-06-04 本輪結果
 
@@ -58,5 +58,5 @@
 2. `backend/src/services/interview-response-settlement.ts` 已把 locale 傳入 failed payload builder，`error.code` 仍保留供前端狀態、log 與後續治理使用。
 3. `backend/src/services/interview.service.ts` 與 `backend/src/controllers/interview.controller.ts` 已把 `req.locale` 從 respond / skip HTTP 入口傳入背景 stream 任務，避免 async settlement 丟失使用者所選語言。
 4. `backend/tests/unit/services/interview-stream-payload-utils.test.ts`、`backend/tests/unit/services/interview-response-settlement.test.ts`、`backend/tests/unit/services/interview.service.test.ts` 已覆蓋已知 code 本地化、未知英文診斷不外露、en-US fallback、latestText 保留與背景 locale 傳遞。
-5. 已驗證：`npm --prefix backend test -- tests/unit/services/interview-stream-payload-utils.test.ts tests/unit/services/interview-response-settlement.test.ts tests/unit/services/interview.service.test.ts --runInBand`、`npm --prefix backend run build`、`npm run docs:check` 均通過。
+5. 已驗證：`npm --prefix backend test -- tests/unit/services/interview-stream-payload-utils.test.ts tests/unit/services/interview-response-settlement.test.ts tests/unit/services/interview.service.test.ts --runInBand`、`npm --prefix backend run build`、`npm run docs:check` 均通過；2026-06-04 重新核驗 focused backend 3 suite / 53 tests 通過。
 6. 靜態復查確認 `stream.failed` payload 不再直接發布 raw `Error.message`；剩餘 `error.message` 只在受控 helper 內用於 code/map/generic fallback 判斷。

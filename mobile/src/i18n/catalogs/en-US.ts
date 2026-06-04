@@ -18,6 +18,7 @@ const enUS: Record<string, string> = {
   'appApi.error.requestFailed': 'Request failed. Please try again later.',
   'appApi.error.network': 'Network connection failed. Check your connection and try again.',
   'appApi.error.unknown': 'An unknown error occurred. Please try again later.',
+  'appApi.error.invalidResponse': 'The service response could not be read. Please try again later.',
 
   'ui.link.accessibilityHint': 'Open "{label}"',
   'ui.action.accessibilityHint': 'Run "{label}"',

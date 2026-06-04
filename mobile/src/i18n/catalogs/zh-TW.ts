@@ -18,6 +18,7 @@ const zhTW: Record<string, string> = {
   'appApi.error.requestFailed': '請求失敗，請稍後再試。',
   'appApi.error.network': '網路連線失敗，請檢查連線後再試。',
   'appApi.error.unknown': '發生未知錯誤，請稍後再試。',
+  'appApi.error.invalidResponse': '服務回應格式異常，請稍後再試。',
 
   'ui.link.accessibilityHint': '開啟「{label}」',
   'ui.action.accessibilityHint': '執行「{label}」',

@@ -32,3 +32,7 @@ export function getLocalizedNetworkMessage(): string {
 export function getLocalizedUnknownMessage(): string {
   return t('appApi.error.unknown');
 }
+
+export function getLocalizedInvalidResponseMessage(): string {
+  return t('appApi.error.invalidResponse');
+}

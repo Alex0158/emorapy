@@ -10,6 +10,7 @@ import {
 import { getRuntimeConfig } from '@/src/config/runtime';
 import { getLocale } from '@/src/i18n';
 import {
+  getLocalizedInvalidResponseMessage,
   getLocalizedNetworkMessage,
   getLocalizedStatusMessage,
   getLocalizedUnknownMessage,
@@ -49,6 +50,10 @@ function isRequestErrorLike(error: unknown): error is RequestErrorLike {
   );
 }
 
+function isSharedClientInvalidResponseError(error: RequestErrorLike): boolean {
+  return error.code.startsWith('INVALID_') && /^Invalid .+ response from server$/.test(error.message);
+}
+
 export function createAppApiClient(): AppApiClient {
   const runtime = getRuntimeConfig();
   const instance = axios.create({
@@ -86,6 +91,9 @@ export function createAppApiClient(): AppApiClient {
 
   function normalizeError(error: unknown): RequestErrorLike {
     if (isRequestErrorLike(error)) {
+      if (isSharedClientInvalidResponseError(error)) {
+        return toRequestError(error.code, getLocalizedInvalidResponseMessage(), error.details);
+      }
       return error;
     }
 

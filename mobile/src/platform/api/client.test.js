@@ -130,4 +130,36 @@ describe('App API platform adapter', () => {
       message: 'Too many actions. Please try again later.',
     });
   });
+
+  it('localizes shared-client invalid response fallback errors without overriding backend messages', () => {
+    const client = createAppApiClient();
+
+    expect(client.normalizeError({
+      code: 'INVALID_CASE_RESPONSE',
+      message: 'Invalid case response from server',
+      details: { field: 'case' },
+    })).toEqual({
+      code: 'INVALID_CASE_RESPONSE',
+      message: '服務回應格式異常，請稍後再試。',
+      details: { field: 'case' },
+    });
+
+    expect(client.normalizeError({
+      code: 'INVALID_AUTH_TOKEN',
+      message: '登入憑證已失效，請重新登入。',
+    })).toEqual({
+      code: 'INVALID_AUTH_TOKEN',
+      message: '登入憑證已失效，請重新登入。',
+    });
+
+    setLocale('en-US', { persist: false });
+
+    expect(client.normalizeError({
+      code: 'INVALID_PROFILE_RESPONSE',
+      message: 'Invalid profile response from server',
+    })).toEqual({
+      code: 'INVALID_PROFILE_RESPONSE',
+      message: 'The service response could not be read. Please try again later.',
+    });
+  });
 });

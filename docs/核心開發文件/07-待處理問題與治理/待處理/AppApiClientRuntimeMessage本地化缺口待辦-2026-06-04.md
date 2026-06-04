@@ -4,7 +4,7 @@
 **文檔類型**：問題治理
 **覆蓋範圍**：App platform API error normalization、M1-M5 screen visible error display、App i18n catalog fallback
 **取證代碼入口**：`mobile/src/platform/api/client.ts`、`mobile/src/platform/api/client.test.js`、`mobile/app`、`mobile/src/features`、`mobile/src/i18n`
-**最後核驗 Commit**：`4342e13`
+**最後核驗 Commit**：`07e5bf3`
 **最後核驗日期**：`2026-06-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -32,7 +32,7 @@
 ## 目標行為
 
 1. 普通 App runtime `Error` 不再直接外露 `error.message`。
-2. 使用者可見 message 固定使用目前 App locale 的 unknown fallback：`發生未知錯誤，請稍後再試。` / `Something went wrong. Please try again later.`。
+2. 使用者可見 message 固定使用目前 App locale 的 unknown fallback：`發生未知錯誤，請稍後再試。` / `An unknown error occurred. Please try again later.`。
 3. 保留以下受控例外：
    - shared invalid-response fixed diagnostic 映射到 invalid-response locale fallback；
    - `SyntaxError` 映射到 invalid-response locale fallback；
@@ -83,5 +83,19 @@
 ## Owner / Status Notes
 
 - Owner：agent
-- Status：待修復。本待辦已完成登記，下一步進入 central App API client normalization 修復。
-- 後續：本輪完成後需回寫修復結果與驗證，再繼續全局語言排查下一輪。
+- Status：已完成本輪修復。後續全局語言排查若發現其他 App visible error path 仍直出 raw message，需另行登記。
+- 後續：繼續全局語言排查下一輪。
+
+## 修復結果
+
+1. `mobile/src/platform/api/client.ts` 的普通 `Error` fallback 已由 `toRequestError('APP_ERROR', error.message)` 改為 `toRequestError('APP_ERROR', getLocalizedUnknownMessage())`。
+2. shared invalid-response fixed diagnostic、`SyntaxError`、`SSE stream disconnected` 與 typed `RequestErrorLike` 分支保持原有受控映射，不影響 domain/API 已本地化錯誤。
+3. `mobile/src/platform/api/client.test.js` 已把舊 raw `local failure` 契約改成 zh-TW / en-US unknown fallback 契約，並用 `provider down` 釘住未知 runtime diagnostic 不外露。
+4. M1-M5 screen 仍可使用既有 `normalizeM*Error(...).message`，但普通 runtime `APP_ERROR` 現在已在 platform normalization 中被本地化。
+
+## 本輪驗證
+
+1. `npm --prefix mobile test -- src/platform/api/client.test.js src/i18n/index.test.js` 通過 2 suites / 10 tests。
+2. `npm --prefix mobile test -- __tests__/m1-screens.test.js __tests__/m2-screens.test.js __tests__/m3-screens.test.js __tests__/m4-screens.test.js __tests__/m5-notifications.test.js` 通過 5 suites / 74 tests。
+3. `npm --prefix mobile run typecheck` 通過。
+4. 靜態搜尋確認 `toRequestError('APP_ERROR', error.message)` 已無結果；`mobile/src/platform/api/client.ts` 內剩餘 `error.message` 僅用於 shared invalid-response / `SSE stream disconnected` 受控偵測。

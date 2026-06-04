@@ -233,6 +233,26 @@ describe('M3 Chat screens', () => {
     expect(screen.queryByText('INVITE')).toBeNull();
   });
 
+  it('renders invite landing in the selected locale', async () => {
+    setLocale('en-US', { persist: false });
+    mockSearchParams = { code: 'ABC123' };
+
+    const screen = renderWithQuery(React.createElement(ChatInviteScreen));
+
+    expect(await screen.findByText('Join chat')).toBeTruthy();
+    expect(screen.getByText('After accepting, you will join this chat as side B.')).toBeTruthy();
+    expect(screen.getAllByText('Back to chat').length).toBeGreaterThan(0);
+    expect(screen.getByText('Invite code')).toBeTruthy();
+    expect(screen.getByText('Login required')).toBeTruthy();
+    expect(screen.getByPlaceholderText('Enter invite code')).toBeTruthy();
+    expect(screen.getByText('Accept invite')).toBeTruthy();
+    expect(screen.getByText('Decline / revoke invite')).toBeTruthy();
+    expect(screen.getByText('After joining')).toBeTruthy();
+    expect(screen.getByText('History visibility')).toBeTruthy();
+    expect(screen.queryByText('加入對話')).toBeNull();
+    expect(screen.queryByText('拒絕 / 撤回邀請')).toBeNull();
+  });
+
   it('defers chat home invite accept to auth when no token exists', async () => {
     const screen = renderWithQuery(React.createElement(ChatScreen));
 

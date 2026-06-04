@@ -5,6 +5,7 @@ import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { useMutation } from '@tanstack/react-query';
 
 import { m3Api, normalizeM3Error } from '@/src/features/m3/api';
+import { t, useLocale } from '@/src/i18n';
 import { buildAuthHrefForPostLogin } from '@/src/platform/linking/authGate';
 import { pendingLandingStorage, tokenStorage } from '@/src/platform/storage/secureStore';
 import { captureTelemetry } from '@/src/platform/telemetry/client';
@@ -15,18 +16,19 @@ function buildChatInviteHref(code: string): string {
   return `/chat/invite?code=${encodeURIComponent(code)}`;
 }
 
-const inviteStatusLabels: Record<string, string> = {
-  accepted: '已接受邀請',
-  declined: '已拒絕邀請',
-  pending: '邀請仍在等待回應',
-  revoked: '邀請已撤回',
+const inviteStatusLabelKeys: Record<string, string> = {
+  accepted: 'chatInvite.status.accepted',
+  declined: 'chatInvite.status.declined',
+  pending: 'chatInvite.status.pending',
+  revoked: 'chatInvite.status.revoked',
 };
 
 function labelInviteStatus(status?: string | null): string {
-  return inviteStatusLabels[status ?? ''] ?? '邀請已更新';
+  return t(inviteStatusLabelKeys[status ?? ''] ?? 'chatInvite.status.updated');
 }
 
 export default function ChatInviteScreen() {
+  useLocale();
   const params = useLocalSearchParams<{ code?: string }>();
   const paramCode = typeof params.code === 'string' ? params.code : '';
   const [mounted, setMounted] = useState(false);
@@ -46,7 +48,7 @@ export default function ChatInviteScreen() {
   const acceptMutation = useMutation({
     mutationFn: async () => {
       const trimmed = code.trim();
-      if (!trimmed) throw new Error('請輸入邀請碼。');
+      if (!trimmed) throw new Error(t('chatInvite.error.codeRequired'));
       const token = await tokenStorage.getToken();
       if (!token) {
         const resumeHref = buildChatInviteHref(trimmed);
@@ -75,7 +77,7 @@ export default function ChatInviteScreen() {
   const declineMutation = useMutation({
     mutationFn: async () => {
       const trimmed = code.trim();
-      if (!trimmed) throw new Error('請輸入邀請碼。');
+      if (!trimmed) throw new Error(t('chatInvite.error.codeRequired'));
       return m3Api.chat.declineInvite(trimmed);
     },
     onMutate: () => setFeedback(null),
@@ -86,12 +88,12 @@ export default function ChatInviteScreen() {
   if (!mounted) {
     return (
       <Screen
-        eyebrow="邀請"
-        title="載入邀請"
-        subtitle="正在讀取對話邀請。"
+        eyebrow={t('chatInvite.eyebrow')}
+        title={t('chatInvite.loading.title')}
+        subtitle={t('chatInvite.loading.subtitle')}
         testID="chat.invite.loading.screen">
-        <Panel title="狀態">
-          <StatusPill label="載入中" tone="blue" />
+        <Panel title={t('chatInvite.loading.panel')}>
+          <StatusPill label={t('chatInvite.loading.pill')} tone="blue" />
         </Panel>
       </Screen>
     );
@@ -99,19 +101,23 @@ export default function ChatInviteScreen() {
 
   return (
     <Screen
-      eyebrow="邀請"
-      title="加入對話"
-      subtitle="接受邀請後，你會以 B 方加入這段對話。"
-      action={<LinkButton href="/chat" label="回到對話" tone="teal" testID="chat.invite.back" variant="outline" />}
+      eyebrow={t('chatInvite.eyebrow')}
+      title={t('chatInvite.title')}
+      subtitle={t('chatInvite.subtitle')}
+      action={<LinkButton href="/chat" label={t('chatInvite.back')} tone="teal" testID="chat.invite.back" variant="outline" />}
       testID="chat.invite.screen">
-      <Panel title="邀請碼">
-        <FeatureRow title="登入要求" detail="接受邀請需要登入帳號；拒絕公開邀請只允許邀請方撤回。" tone="amber" />
+      <Panel title={t('chatInvite.codePanel')}>
+        <FeatureRow
+          title={t('chatInvite.loginRequirement.title')}
+          detail={t('chatInvite.loginRequirement.detail')}
+          tone="amber"
+        />
         <TextInput
-          accessibilityLabel="邀請碼"
-          accessibilityHint="輸入邀請碼以查看並接受對話邀請"
+          accessibilityLabel={t('chatInvite.code.label')}
+          accessibilityHint={t('chatInvite.code.hint')}
           autoCapitalize="characters"
           onChangeText={setCode}
-          placeholder="輸入邀請碼"
+          placeholder={t('chatInvite.code.placeholder')}
           placeholderTextColor={palette.muted}
           style={styles.input}
           testID="chat.invite.code.input"
@@ -121,7 +127,7 @@ export default function ChatInviteScreen() {
         <View style={styles.actions}>
           <ActionButton
             disabled={!code.trim()}
-            label="接受邀請"
+            label={t('chatInvite.accept')}
             loading={acceptMutation.isPending}
             onPress={() => acceptMutation.mutate()}
             testID="chat.invite.accept"
@@ -129,7 +135,7 @@ export default function ChatInviteScreen() {
           />
           <ActionButton
             disabled={!code.trim()}
-            label="拒絕 / 撤回邀請"
+            label={t('chatInvite.decline')}
             loading={declineMutation.isPending}
             onPress={() => declineMutation.mutate()}
             testID="chat.invite.decline"
@@ -139,12 +145,12 @@ export default function ChatInviteScreen() {
         </View>
       </Panel>
 
-      <Panel title="加入後">
-        <FeatureRow title="歷史可見" detail="你能看到的歷史由邀請方設定決定。" tone="blue" />
-        <FeatureRow title="轉判斷" detail="只有 A 方明確請求，且同意範圍成立時才轉判斷。" tone="coral" />
+      <Panel title={t('chatInvite.afterPanel')}>
+        <FeatureRow title={t('chatInvite.after.history.title')} detail={t('chatInvite.after.history.detail')} tone="blue" />
+        <FeatureRow title={t('chatInvite.after.analysis.title')} detail={t('chatInvite.after.analysis.detail')} tone="coral" />
       </Panel>
 
-      <LinkButton href="/chat" label="回到對話" tone="teal" testID="chat.invite.back.footer" variant="outline" />
+      <LinkButton href="/chat" label={t('chatInvite.back')} tone="teal" testID="chat.invite.back.footer" variant="outline" />
     </Screen>
   );
 }

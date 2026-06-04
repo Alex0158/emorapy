@@ -263,6 +263,15 @@ describe('backend i18n', () => {
     expect(translateBackendMessage('en-US', 'feature.flags keys 不可超過 200')).toBe(
       'feature.flags cannot have more than 200 keys'
     );
+    expect(translateBackendMessage('en-US', 'feature.flags key 長度不可超過 80: feature.flags.sample')).toBe(
+      'feature.flags key length cannot exceed 80: feature.flags.sample'
+    );
+    expect(translateBackendMessage('en-US', 'feature.flags key 格式不合法: 1-invalid')).toBe(
+      'feature.flags key format is invalid: 1-invalid'
+    );
+    expect(translateBackendMessage('en-US', 'feature.flags.release.enabled 只允許 string/number/boolean')).toBe(
+      'feature.flags.release.enabled only allows string/number/boolean values'
+    );
     expect(translateBackendMessage('en-US', 'interview.maxTurns 必須為數字')).toBe(
       'interview.maxTurns must be numeric'
     );

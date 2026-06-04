@@ -557,6 +557,21 @@ function translateDynamicBackendMessage(message: string): string | null {
     return `${adminKeyMaxLength[1]} length cannot exceed ${adminKeyMaxLength[2]}`;
   }
 
+  const featureFlagKeyMaxLength = message.match(/^feature\.flags key 長度不可超過 80: (.+)$/);
+  if (featureFlagKeyMaxLength) {
+    return `feature.flags key length cannot exceed 80: ${featureFlagKeyMaxLength[1]}`;
+  }
+
+  const featureFlagKeyInvalidFormat = message.match(/^feature\.flags key 格式不合法: (.+)$/);
+  if (featureFlagKeyInvalidFormat) {
+    return `feature.flags key format is invalid: ${featureFlagKeyInvalidFormat[1]}`;
+  }
+
+  const featureFlagValueInvalidType = message.match(/^feature\.flags\.(.+) 只允許 string\/number\/boolean$/);
+  if (featureFlagValueInvalidType) {
+    return `feature.flags.${featureFlagValueInvalidType[1]} only allows string/number/boolean values`;
+  }
+
   const adminAlertThreshold = message.match(/^(admin\.alert\.rules\[\d+\]\.threshold) 必須為 >= 0 的數字$/);
   if (adminAlertThreshold) {
     return `${adminAlertThreshold[1]} must be a number greater than or equal to 0`;

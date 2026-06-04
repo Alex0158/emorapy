@@ -11,11 +11,15 @@ import {
   readChatStreamToken,
   unwrapChatApiData,
 } from './chatApiUtils';
-import { setLocale } from '@/utils/i18n';
+import { setLocale, t } from '@/utils/i18n';
 
 async function setLocaleReady(locale: 'zh-TW' | 'en-US'): Promise<void> {
   setLocale(locale);
-  await new Promise((resolve) => setTimeout(resolve, 0));
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const message = t('stream.error.httpStatus', { status: 503 });
+    if (locale === 'zh-TW' || message === 'Real-time connection request failed (status 503)') return;
+  }
 }
 
 describe('chat API utils', () => {
@@ -88,11 +92,15 @@ describe('chat API utils', () => {
     });
   });
 
-  it('readChatStreamHttpError 應優先使用後端 error body，json 失敗時回退 HTTP 狀態', async () => {
+  it('readChatStreamHttpError 應保留後端 error code 並使用本地化 HTTP 狀態 message', async () => {
     await expect(readChatStreamHttpError({
       status: 403,
-      json: () => Promise.resolve({ error: { code: 'FORBIDDEN', message: '無權限' } }),
-    })).resolves.toEqual({ code: 'FORBIDDEN', message: '無權限', status: 403 });
+      json: () => Promise.resolve({ error: { code: 'FORBIDDEN', message: '固定繁中錯誤' } }),
+    })).resolves.toEqual({
+      code: 'FORBIDDEN',
+      message: '即時連線請求失敗（狀態碼 403）',
+      status: 403,
+    });
 
     await expect(readChatStreamHttpError({
       status: 500,

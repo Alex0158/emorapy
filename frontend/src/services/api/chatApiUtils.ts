@@ -65,15 +65,13 @@ export async function readChatStreamHttpError(
   response: Pick<Response, 'status' | 'json'>
 ): Promise<{ code: string; message: string; status: number }> {
   let code = `HTTP_${response.status}`;
-  let message = getStreamHttpFallbackMessage(response.status);
   try {
     const body = await response.json() as { error?: { code?: string; message?: string } };
     if (body?.error?.code) code = body.error.code;
-    if (body?.error?.message) message = body.error.message;
   } catch {
     // keep HTTP fallback
   }
-  return { code, message, status: response.status };
+  return { code, message: getStreamHttpFallbackMessage(response.status), status: response.status };
 }
 
 export function parseChatStreamEventChunk(chunk: string): ChatStreamEvent | null {

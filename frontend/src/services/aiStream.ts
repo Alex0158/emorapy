@@ -54,15 +54,13 @@ export const connectAIStream = async (
 
   if (!response.ok) {
     let code = `HTTP_${response.status}`;
-    let message = getStreamHttpFallbackMessage(response.status);
     try {
       const body = await response.json() as { error?: { code?: string; message?: string } };
       if (body?.error?.code) code = body.error.code;
-      if (body?.error?.message) message = body.error.message;
     } catch {
       // ignore body parsing
     }
-    callbacks.onError?.({ code, message, status: response.status });
+    callbacks.onError?.({ code, message: getStreamHttpFallbackMessage(response.status), status: response.status });
     return () => controller.abort();
   }
 

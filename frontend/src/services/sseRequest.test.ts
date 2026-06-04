@@ -63,7 +63,7 @@ describe('sseRequest', () => {
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: false,
       status: 500,
-      json: vi.fn().mockResolvedValue({ error: { code: 'SERVER_ERROR', message: 'bad' } }),
+      json: vi.fn().mockResolvedValue({ error: { code: 'SERVER_ERROR', message: '固定繁中錯誤' } }),
     });
     await expect(sseRequest('/test', {}, {})).rejects.toThrow(SSEError);
     try {
@@ -72,6 +72,7 @@ describe('sseRequest', () => {
       const err = e as SSEError;
       expect(err.status).toBe(500);
       expect(err.code).toBe('SERVER_ERROR');
+      expect(err.message).toBe('stream.error.httpStatus');
     }
   });
 

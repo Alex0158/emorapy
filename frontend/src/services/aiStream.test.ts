@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { connectAIStream } from './aiStream';
-import { setLocale } from '@/utils/i18n';
+import { setLocale, t } from '@/utils/i18n';
 
 vi.mock('@/config/env', () => ({
 	env: { apiBaseURL: 'https://api.test' },
@@ -8,7 +8,11 @@ vi.mock('@/config/env', () => ({
 
 async function setLocaleReady(locale: 'zh-TW' | 'en-US'): Promise<void> {
 	setLocale(locale);
-	await new Promise((resolve) => setTimeout(resolve, 0));
+	for (let attempt = 0; attempt < 20; attempt += 1) {
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		const message = t('stream.error.httpStatus', { status: 503 });
+		if (locale === 'zh-TW' || message === 'Real-time connection request failed (status 503)') return;
+	}
 }
 
 describe('connectAIStream', () => {
@@ -52,19 +56,20 @@ describe('connectAIStream', () => {
 		}));
 	});
 
-	it('preserves backend-provided stream error messages', async () => {
+	it('does not expose backend-provided stream error messages', async () => {
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
 			ok: false,
 			status: 403,
-			json: () => Promise.resolve({ error: { code: 'FORBIDDEN', message: '無權限' } }),
+			json: () => Promise.resolve({ error: { code: 'FORBIDDEN', message: '固定繁中錯誤' } }),
 		}));
 		const onError = vi.fn();
 
+		await setLocaleReady('en-US');
 		await connectAIStream('quick_case', 'case-1', { onError });
 
 		expect(onError).toHaveBeenCalledWith(expect.objectContaining({
 			code: 'FORBIDDEN',
-			message: '無權限',
+			message: 'Real-time connection request failed (status 403)',
 			status: 403,
 		}));
 	});

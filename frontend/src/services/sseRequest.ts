@@ -52,11 +52,7 @@ export async function sseRequest(
   if (!response.ok) {
     const errorBody = await response.json().catch(() => ({}));
     const err = errorBody as { error?: { code?: string; message?: string } };
-    throw new SSEError(
-      err?.error?.message || getStreamHttpFallbackMessage(response.status),
-      response.status,
-      err?.error?.code,
-    );
+    throw new SSEError(getStreamHttpFallbackMessage(response.status), response.status, err?.error?.code);
   }
 
   const reader = response.body?.getReader();

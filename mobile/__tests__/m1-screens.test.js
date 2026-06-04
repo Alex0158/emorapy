@@ -97,7 +97,7 @@ const QuickScreen = require('../app/(public)/quick/index').default;
 const QuickCollaborativeScreen = require('../app/(public)/quick/collaborative').default;
 const QuickResultModule = require('../app/(public)/quick/result');
 const QuickResultScreen = QuickResultModule.default;
-const { shouldPollQuickResult } = QuickResultModule;
+const { describeStreamStatus, formatQuickResultStreamError, shouldPollQuickResult } = QuickResultModule;
 const AuthScreen = require('../app/(public)/auth/index').default;
 const { setLocale } = require('@/src/i18n');
 
@@ -275,6 +275,27 @@ describe('M1 Quick/Auth screens', () => {
     expect(shouldPollQuickResult({ status: 'judgment_failed', judgment: null })).toBe(false);
   });
 
+  it('formats quick result stream errors through locale catalog without hiding generated text', () => {
+    setLocale('en-US', { persist: false });
+
+    expect(formatQuickResultStreamError({ code: 'SERVER_ERROR', message: '服務器錯誤' })).toBe(
+      'The service could not complete the request. Please try again later.'
+    );
+    expect(formatQuickResultStreamError({ code: 'APP_ERROR', message: 'provider down' })).toBe(
+      'Analysis sync was interrupted. Try again later or refresh the result.'
+    );
+    expect(describeStreamStatus({
+      eventType: 'stream.failed',
+      seq: 1,
+      error: { code: 'APP_ERROR', message: 'provider down' },
+    })).toBe('Analysis sync was interrupted. Try again later or refresh the result.');
+    expect(describeStreamStatus({
+      status: 'completed',
+      lastSeq: 2,
+      text: 'Generated analysis text',
+    })).toBe('Generated analysis text');
+  });
+
   it('renders quick result empty state in the selected locale', async () => {
     setLocale('en-US', { persist: false });
     const screen = renderWithQuery(React.createElement(QuickResultScreen));
@@ -355,6 +376,51 @@ describe('M1 Quick/Auth screens', () => {
     await waitFor(() => expect(mockConnectQuickJudgmentStream).toHaveBeenCalledTimes(1));
     expect(await screen.findByText('串流完成後的摘要')).toBeTruthy();
     expect(mockGetQuickCase).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not expose raw quick judgment stream event errors in selected locale', async () => {
+    setLocale('en-US', { persist: false });
+    mockSearchParams = { caseId: 'case-stream-error' };
+    mockGetSessionId.mockResolvedValue('guest-existing');
+    mockGetQuickCase.mockResolvedValue({
+      id: 'case-stream-error',
+      status: 'in_progress',
+      type: '其他衝突',
+      judgment: null,
+    });
+    mockConnectQuickJudgmentStream.mockImplementationOnce(async (_caseId, callbacks) => {
+      callbacks.onEvent({
+        eventType: 'stream.failed',
+        streamId: 'stream-error',
+        requestId: 'req-error',
+        scopeType: 'case_judgment',
+        scopeId: 'case-stream-error',
+        seq: 5,
+        createdAt: '2026-05-08T00:00:01.000Z',
+        error: { code: 'APP_ERROR', message: 'provider down' },
+      });
+    });
+    const screen = renderWithQuery(React.createElement(QuickResultScreen));
+
+    expect(await screen.findByText('Analysis sync was interrupted. Try again later or refresh the result.')).toBeTruthy();
+    expect(screen.queryByText('provider down')).toBeNull();
+  });
+
+  it('does not expose raw quick judgment connection errors in selected locale', async () => {
+    setLocale('en-US', { persist: false });
+    mockSearchParams = { caseId: 'case-connection-error' };
+    mockGetSessionId.mockResolvedValue('guest-existing');
+    mockGetQuickCase.mockResolvedValue({
+      id: 'case-connection-error',
+      status: 'in_progress',
+      type: '其他衝突',
+      judgment: null,
+    });
+    mockConnectQuickJudgmentStream.mockRejectedValueOnce(new Error('socket exploded'));
+    const screen = renderWithQuery(React.createElement(QuickResultScreen));
+
+    expect(await screen.findByText('Analysis sync was interrupted. Try again later or refresh the result.')).toBeTruthy();
+    expect(screen.queryByText('socket exploded')).toBeNull();
   });
 
   it('uses user-facing wording when quick judgment sync is ready without snapshot', async () => {

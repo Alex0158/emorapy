@@ -709,6 +709,7 @@ const zhTW: Record<string, string> = {
   'quick.result.stream.recovering': '恢復判斷同步中，會從最近進度繼續。',
   'quick.result.stream.backgroundRecovery': 'App 回到前景後會恢復判斷同步，並從最近收到的進度繼續。',
   'quick.result.stream.resumeFromLast': '會從最後收到的判斷進度恢復。',
+  'quick.result.stream.error': '判斷同步暫時中斷，請稍後重試或刷新結果。',
   'quick.result.stream.title': '判斷同步',
   'quick.result.summary.notFound': '還沒有找到快速整理結果。可以回到 quick 重新提交，或稍後再試。',
   'quick.result.summary.failed': '判斷暫時失敗，請稍後重試或重新整理內容。',

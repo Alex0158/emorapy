@@ -709,6 +709,7 @@ const enUS: Record<string, string> = {
   'quick.result.stream.recovering': 'Recovering analysis sync from the latest progress.',
   'quick.result.stream.backgroundRecovery': 'When the App returns to the foreground, analysis sync will continue from the latest received progress.',
   'quick.result.stream.resumeFromLast': 'Will resume from the last received analysis progress.',
+  'quick.result.stream.error': 'Analysis sync was interrupted. Try again later or refresh the result.',
   'quick.result.stream.title': 'Analysis sync',
   'quick.result.summary.notFound': 'No quick summary result was found. Return to quick summary to submit again, or try later.',
   'quick.result.summary.failed': 'Analysis temporarily failed. Try again later or reorganize the summary.',

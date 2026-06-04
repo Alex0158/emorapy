@@ -25,6 +25,11 @@ function notifyLocaleChange(): void {
   listeners.forEach((listener) => listener());
 }
 
+function syncDocumentLocale(locale: Locale): void {
+  if (typeof document === 'undefined') return;
+  document.documentElement.lang = locale;
+}
+
 export function getLocale(): Locale {
   return currentLocale;
 }
@@ -34,6 +39,7 @@ export function setLocale(locale: Locale | string, options: { persist?: boolean 
   const shouldPersist = options.persist !== false;
   const changed = normalized !== currentLocale;
   currentLocale = normalized;
+  syncDocumentLocale(normalized);
   if (shouldPersist) persistLocale?.(normalized);
   if (changed) notifyLocaleChange();
 }
@@ -80,5 +86,7 @@ export function t(key: string, params?: Record<string, string | number>): string
   }
   return result;
 }
+
+syncDocumentLocale(currentLocale);
 
 export { enUS, zhTW };

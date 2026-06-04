@@ -52,4 +52,22 @@ describe('App i18n runtime', () => {
     expect(t('app.locale.switchToZhTW')).toBe('Switch to Traditional Chinese');
     expect(t('ui.link.accessibilityHint', { label: 'Quick' })).toBe('Open "Quick"');
   });
+
+  it('syncs web document language with the selected runtime locale', () => {
+    const originalDocument = global.document;
+    global.document = { documentElement: { lang: '' } };
+
+    try {
+      setLocale('zh-TW', { persist: false });
+      expect(global.document.documentElement.lang).toBe('zh-TW');
+
+      setLocale('en-US', { persist: false });
+      expect(global.document.documentElement.lang).toBe('en-US');
+
+      setLocale('zh-TW', { persist: false });
+      expect(global.document.documentElement.lang).toBe('zh-TW');
+    } finally {
+      global.document = originalDocument;
+    }
+  });
 });

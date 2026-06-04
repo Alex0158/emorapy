@@ -272,6 +272,19 @@ describe('M1 Quick/Auth screens', () => {
     expect(shouldPollQuickResult({ status: 'judgment_failed', judgment: null })).toBe(false);
   });
 
+  it('renders quick result empty state in the selected locale', async () => {
+    setLocale('en-US', { persist: false });
+    const screen = renderWithQuery(React.createElement(QuickResultScreen));
+
+    await waitFor(() => expect(mockGetSessionId).toHaveBeenCalledTimes(1));
+    expect(screen.getByText('Result handoff')).toBeTruthy();
+    expect(await screen.findByText(
+      'No quick summary result was found. Return to quick summary to submit again, or try later.'
+    )).toBeTruthy();
+    expect(screen.getByText('Refresh result')).toBeTruthy();
+    expect(screen.getByText('Next step')).toBeTruthy();
+  });
+
   it('shows automatic refresh state for pending quick result', async () => {
     mockSearchParams = { caseId: 'case-pending' };
     mockGetSessionId.mockResolvedValueOnce('guest-existing');

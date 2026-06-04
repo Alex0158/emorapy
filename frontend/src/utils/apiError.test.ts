@@ -9,11 +9,18 @@ import {
   isNetworkError,
   isAuthError,
 } from './apiError';
-import { setLocale } from '@/utils/i18n';
+import { setLocale, t } from '@/utils/i18n';
 
 async function setLocaleReady(locale: 'zh-TW' | 'en-US'): Promise<void> {
   setLocale(locale);
-  await new Promise((resolve) => setTimeout(resolve, 0));
+  if (locale === 'en-US') {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      if (t('apiError.invalidResponse') === 'The service response could not be read. Please try again later.') return;
+    }
+  } else {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
 }
 
 describe('apiError', () => {

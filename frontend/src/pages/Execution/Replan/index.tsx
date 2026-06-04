@@ -46,6 +46,10 @@ function reduceEvent(prev: ReplanStreamState, event: AIStreamEvent): ReplanStrea
   return { latestSnapshot, latestEvent: event, phaseHistory: phase ? Array.from(new Set([...prev.phaseHistory, phase])) : prev.phaseHistory };
 }
 
+function getReplanStreamErrorText(error?: { message?: string } | null): string {
+  return getErrorMessage(error, 'execReplan.failedDesc');
+}
+
 const ExecutionReplan = () => {
   const { planId } = useParams<{ planId: string }>();
   const navigate = useNavigate();
@@ -76,7 +80,7 @@ const ExecutionReplan = () => {
     hasRecoverableState: (state) => Boolean(state.latestSnapshot),
     shouldClearRecoveringOnEvent: (event) => event.metadata?.task_type === 'repair_replan',
     onConnectionError: () => { setStreamError(null); },
-    onTerminalError: (error) => { setStreamError(error.message); },
+    onTerminalError: (error) => { setStreamError(getReplanStreamErrorText(error)); },
     isTerminalError: (error) => Boolean(error.status && error.status >= 400 && error.status !== 429),
   });
 
@@ -146,7 +150,7 @@ const ExecutionReplan = () => {
               </div>
             )}
             {(waitingSnapshot?.status === 'failed' || streamError) ? (
-              <AIErrorState title={t('execReplan.failedTitle')} description={streamError || waitingSnapshot?.error?.message || t('execReplan.failedDesc')} actions={<div className="flex gap-2"><Button size="sm" onClick={() => void handleSubmit()} disabled={submitting}>{submitting && <Loader2 className="size-3 animate-spin" />}{t('execReplan.retryBtn')}</Button><Button variant="outline" size="sm" onClick={() => navigate(`/execution/${execution.plan_id}/checkin`)}>{t('execReplan.backToStep')}</Button></div>} />
+              <AIErrorState title={t('execReplan.failedTitle')} description={streamError || getReplanStreamErrorText(waitingSnapshot?.error)} actions={<div className="flex gap-2"><Button size="sm" onClick={() => void handleSubmit()} disabled={submitting}>{submitting && <Loader2 className="size-3 animate-spin" />}{t('execReplan.retryBtn')}</Button><Button variant="outline" size="sm" onClick={() => navigate(`/execution/${execution.plan_id}/checkin`)}>{t('execReplan.backToStep')}</Button></div>} />
             ) : (
               <div className="flex items-start gap-2 rounded-lg bg-primary-light/20 p-3"><Info className="size-4 mt-0.5 text-primary shrink-0" /><p className="text-xs text-muted-foreground">{t('execReplan.leaveHint')}</p></div>
             )}

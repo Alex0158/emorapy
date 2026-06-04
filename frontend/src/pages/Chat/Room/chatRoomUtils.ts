@@ -137,7 +137,7 @@ export function getRoomStreamRetryDelayMs(retryCount: number): number {
 }
 
 export function getRoomStreamTerminalErrorText(error: { message?: string }): string {
-	return error.message || t("chat.message.streamTerminalError");
+	return getErrorMessage(error, "chat.message.streamTerminalError");
 }
 
 export function getRoomStreamRetryErrorText(error: unknown): string {

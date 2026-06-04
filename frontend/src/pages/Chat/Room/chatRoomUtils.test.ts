@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { t } from '@/utils/i18n';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { setLocale, t } from '@/utils/i18n';
 import type { ChatMessage } from '@/types/chat';
 import {
   buildChatJudgmentPayload,
@@ -44,6 +44,22 @@ const message = (id: string): ChatMessage => ({
   visibility_scope: 'all',
   safety_flag: false,
   created_at: `2026-01-01T00:00:0${id}.000Z`,
+});
+
+async function setLocaleReady(locale: 'zh-TW' | 'en-US'): Promise<void> {
+  setLocale(locale);
+  if (locale === 'en-US') {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      if (t('apiError.invalidResponse') === 'The service response could not be read. Please try again later.') return;
+    }
+  } else {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+}
+
+beforeEach(() => {
+  setLocale('zh-TW');
 });
 
 describe('chatRoomUtils initial room helpers', () => {
@@ -223,6 +239,18 @@ describe('chatRoomUtils room stream helpers', () => {
     expect(getRoomStreamRetryErrorText(new Error('network down'))).toBe('network down');
     expect(getRoomStreamRetryErrorText({ code: 'STREAM_DISCONNECTED', message: '' })).toBe(t('chat.message.streamFail'));
     expect(getRoomStreamCloseRetryText()).toBe(t('chat.message.streamClosedRetry'));
+  });
+
+  it('terminal stream fixed invalid-response fallback 應跟隨目前語言', async () => {
+    expect(getRoomStreamTerminalErrorText({
+      message: 'Invalid chat room response from server',
+    })).toBe('服務回應格式異常，請稍後再試');
+
+    await setLocaleReady('en-US');
+
+    expect(getRoomStreamTerminalErrorText({
+      message: 'Invalid chat room response from server',
+    })).toBe('The service response could not be read. Please try again later.');
   });
 
   it('應辨識 ready 與需要刷新房間的 stream event', () => {

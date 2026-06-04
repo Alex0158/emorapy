@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { AIStreamSnapshot } from '@/types/aiStream';
@@ -171,5 +171,86 @@ describe('ExecutionReplan', () => {
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/execution/plan-2/checkin');
     });
+  });
+
+  it('terminal stream fixed invalid-response fallback 應轉成本地化錯誤', async () => {
+    mockGetExecutionStatus.mockResolvedValue({
+      track_id: 'track-1',
+      plan_id: 'plan-1',
+      journey_status: 'replanning',
+      status_reason: 'manual',
+      replan_recommendation: 'lower_pressure',
+      plan_summary: { title: '這一輪', plan_type: 'communication', difficulty_level: 'easy' },
+      current_step: { step_index: 0, title: '今天的一小步', content: '先做一點低壓靠近' },
+      records: [],
+      recent_checkins: [],
+      progress: 30,
+      status: 'in_progress',
+      relationship_mode: 'solo',
+      active_replan_stream_id: 'stream-1',
+      replan_state: 'replanning',
+      superseded_plan_id: null,
+    });
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'execReplan.waitingTitle' })).toBeInTheDocument();
+    });
+
+    const options = mockUseAIStreamSubscription.mock.calls.at(-1)?.[0] as {
+      onTerminalError: (error: { code: string; message: string; status?: number }) => void;
+    };
+
+    act(() => {
+      options.onTerminalError({
+        code: 'INVALID_REPAIR_TRACK_RESPONSE',
+        message: 'Invalid repair track response from server',
+        status: 500,
+      });
+    });
+
+    expect(screen.getByText('apiError.invalidResponse')).toBeInTheDocument();
+  });
+
+  it('failed snapshot fixed invalid-response fallback 應轉成本地化錯誤', async () => {
+    mockGetExecutionStatus.mockResolvedValue({
+      track_id: 'track-1',
+      plan_id: 'plan-1',
+      journey_status: 'replanning',
+      status_reason: 'manual',
+      replan_recommendation: 'lower_pressure',
+      plan_summary: { title: '這一輪', plan_type: 'communication', difficulty_level: 'easy' },
+      current_step: { step_index: 0, title: '今天的一小步', content: '先做一點低壓靠近' },
+      records: [],
+      recent_checkins: [],
+      progress: 30,
+      status: 'in_progress',
+      relationship_mode: 'solo',
+      active_replan_stream_id: 'stream-1',
+      replan_state: 'replanning',
+      superseded_plan_id: null,
+    });
+    mockUseAIStreamSubscription.mockReturnValue({
+      state: {
+        latestSnapshot: buildSnapshot({
+          status: 'failed',
+          error: {
+            code: 'INVALID_REPAIR_TRACK_RESPONSE',
+            message: 'Invalid repair track response from server',
+          },
+        }),
+        phaseHistory: ['collecting_context'],
+        latestEvent: null,
+      },
+      isRecovering: false,
+      lastSeq: 5,
+      resetState: vi.fn(),
+      setState: vi.fn(),
+    });
+
+    renderPage();
+
+    expect(await screen.findByText('apiError.invalidResponse')).toBeInTheDocument();
   });
 });

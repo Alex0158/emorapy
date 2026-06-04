@@ -4,8 +4,8 @@
 **文檔類型**：問題治理
 **覆蓋範圍**：App quick result AI stream status/error display、App stream hook callbacks、M1 quick judgment stream tests
 **取證代碼入口**：`mobile/app/(public)/quick/result.tsx`、`mobile/src/platform/sse/useAIStreamSubscription.ts`、`mobile/src/platform/api/client.ts`、`mobile/src/platform/api/errorMessages.ts`、`mobile/src/i18n/catalogs`
-**最後核驗 Commit**：`0a76537`
-**最後核驗日期**：`2026-06-04`
+**最後核驗 Commit**：`b43eeb6`
+**最後核驗日期**：`2026-06-05`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 ## 問題
@@ -69,3 +69,9 @@
 2. `npm --prefix mobile run typecheck` 通過。
 3. `npm --prefix mobile test -- src/i18n/index.test.js __tests__/m1-screens.test.js` 通過 2 suites / 28 tests。
 4. 靜態掃描確認 `mobile/app/(public)/quick/result.tsx` 不再包含 `error.message` / `error?.message` 直出；raw `provider down`、`socket exploded`、`服務器錯誤` 僅作測試輸入與否定斷言。
+
+## 2026-06-05 歸檔復核
+
+1. 復核現碼確認 quick result stream event / snapshot / connection callback / terminal callback 均走 `formatQuickResultStreamError()`，不直接顯示 raw `error.message`。
+2. 復核正常 AI 內容邊界確認 `fullText`、`deltaText`、snapshot `text` 仍作生成內容顯示，不被 UI error fallback 覆蓋。
+3. 已驗證：`npm --prefix mobile test -- src/i18n/index.test.js __tests__/m1-screens.test.js` 通過 2 suites / 28 tests；`npm --prefix mobile run typecheck` 通過。

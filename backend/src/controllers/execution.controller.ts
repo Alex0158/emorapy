@@ -50,7 +50,7 @@ export class ExecutionController {
       const userId = getAuthUserId(req);
       const planId = req.query.plan_id as string; // 已由 executionStatusQuerySchema 驗證
 
-      const status = await executionService.getExecutionStatus(userId, planId);
+      const status = await executionService.getExecutionStatus(userId, planId, req.locale);
 
       res.json({
         success: true,
@@ -68,7 +68,7 @@ export class ExecutionController {
     try {
       const userId = getAuthUserId(req);
 
-      const statuses = await executionService.getAllExecutionStatuses(userId);
+      const statuses = await executionService.getAllExecutionStatuses(userId, req.locale);
 
       res.json({
         success: true,
@@ -81,4 +81,3 @@ export class ExecutionController {
 }
 
 export const executionController = new ExecutionController();
-

@@ -13,7 +13,7 @@ export class ReconciliationController {
       const input = req.body;
       const userId = getAuthUserId(req);
 
-      const result = await reconciliationService.generatePlans(judgmentId, input, userId);
+      const result = await reconciliationService.generatePlans(judgmentId, input, userId, req.locale);
 
       res.json({
         success: true,
@@ -38,7 +38,7 @@ export class ReconciliationController {
         intent: req.query.intent as 'repair' | 'cool_down' | 'graceful_exit' | 'safety_support' | undefined,
       };
 
-      const result = await reconciliationService.getPlansByJudgmentId(judgmentId, userId, filters);
+      const result = await reconciliationService.getPlansByJudgmentId(judgmentId, userId, filters, req.locale);
 
       res.json({
         success: true,
@@ -57,7 +57,7 @@ export class ReconciliationController {
       const planId = req.params.id;
       const userId = getAuthUserId(req);
 
-      const plan = await reconciliationService.getPlanById(planId, userId);
+      const plan = await reconciliationService.getPlanById(planId, userId, req.locale);
 
       res.json({
         success: true,
@@ -76,7 +76,7 @@ export class ReconciliationController {
       const planId = req.params.id;
       const userId = getAuthUserId(req);
 
-      const plan = await reconciliationService.selectPlan(planId, userId);
+      const plan = await reconciliationService.selectPlan(planId, userId, req.locale);
 
       res.json({
         success: true,
@@ -106,7 +106,7 @@ export class ReconciliationController {
     try {
       const planId = req.params.id;
       const userId = getAuthUserId(req);
-      const invitation = await reconciliationService.invitePartner(planId, userId);
+      const invitation = await reconciliationService.invitePartner(planId, userId, req.locale);
       res.json({
         success: true,
         data: { invitation },
@@ -121,7 +121,7 @@ export class ReconciliationController {
     try {
       const planId = req.params.id;
       const userId = getAuthUserId(req);
-      const commitment = await reconciliationService.pausePlan(planId, userId);
+      const commitment = await reconciliationService.pausePlan(planId, userId, req.locale);
       res.json({
         success: true,
         data: { commitment },
@@ -140,6 +140,7 @@ export class ReconciliationController {
       const plan = await reconciliationService.respondPlan(planId, userId, action, {
         reason: typeof req.body.reason === 'string' ? req.body.reason : undefined,
         remindInHours: typeof req.body.remind_in_hours === 'number' ? req.body.remind_in_hours : undefined,
+        locale: req.locale,
       });
       res.json({
         success: true,

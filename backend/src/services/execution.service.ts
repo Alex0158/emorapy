@@ -437,7 +437,11 @@ export class ExecutionService {
     return plan.repair_track?.recommended_mode === 'co' ? 'co' : 'solo';
   }
 
-  private async buildJourneyContextForExecution(plan: ExecutionJourneyPlan, userId: string) {
+  private async buildJourneyContextForExecution(
+    plan: ExecutionJourneyPlan,
+    userId: string,
+    locale: BackendLocale = 'zh-TW',
+  ) {
     const commitment = this.buildCommitmentSummary(plan, userId);
     const repairJourneyAccess = await this.getRepairJourneyAccessForExecution(plan);
     const recommendedMode = repairJourneyAccess.forceSoloRepair
@@ -460,6 +464,7 @@ export class ExecutionService {
       statusReason: plan.repair_track?.status_reason ?? null,
       recommendedMode,
       repairAccess: buildRepairAccessContext(repairJourneyAccess),
+      locale,
     });
   }
 
@@ -1165,7 +1170,7 @@ export class ExecutionService {
   /**
    * 獲取執行狀態（兼容舊接口，實際返回新旅程信息）
    */
-  async getExecutionStatus(userId: string, planId: string) {
+  async getExecutionStatus(userId: string, planId: string, locale: BackendLocale = 'zh-TW') {
     const { plan } = await this.loadPlanAndAssertParticipant(planId, userId);
     const records = await prisma.executionRecord.findMany({
       where: {
@@ -1204,7 +1209,7 @@ export class ExecutionService {
         participant_states: track.participant_states,
       } : null,
     };
-    const journeyContext = await this.buildJourneyContextForExecution(planWithTrack, userId);
+    const journeyContext = await this.buildJourneyContextForExecution(planWithTrack, userId, locale);
     const relationshipMode = await this.getEffectiveRelationshipModeForExecution(planWithTrack);
 
     const planContent = parsePlanContent(plan.plan_content);
@@ -1266,7 +1271,7 @@ export class ExecutionService {
   /**
    * 獲取所有執行狀態（用於修復進展看板）
    */
-  async getAllExecutionStatuses(userId: string) {
+  async getAllExecutionStatuses(userId: string, locale: BackendLocale = 'zh-TW') {
     const tracks = await prisma.repairTrack.findMany({
       where: {
         participant_states: {
@@ -1312,7 +1317,7 @@ export class ExecutionService {
             participant_states: track.participant_states,
           },
         };
-        const journeyContext = await this.buildJourneyContextForExecution(planWithTrack, userId);
+        const journeyContext = await this.buildJourneyContextForExecution(planWithTrack, userId, locale);
         const relationshipMode = await this.getEffectiveRelationshipModeForExecution(planWithTrack);
         return {
           track_id: track.id,
@@ -1406,7 +1411,7 @@ export class ExecutionService {
           },
         },
       };
-      const journeyContext = await this.buildJourneyContextForExecution(planWithTrack, userId);
+      const journeyContext = await this.buildJourneyContextForExecution(planWithTrack, userId, locale);
       return {
         track_id: null,
         plan_id: plan.id,

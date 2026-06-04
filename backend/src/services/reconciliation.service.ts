@@ -26,6 +26,7 @@ import {
   getRepairJourneyAccessPolicyForJudgment,
 } from './repair-eligibility.service';
 import { isUserBoundProductCase } from '../utils/case-classifier';
+import type { BackendLocale } from '../i18n';
 
 export type ReconciliationIntent = 'repair' | 'cool_down' | 'graceful_exit' | 'safety_support';
 export type PlanStylePreference = 'action' | 'conversation' | 'companionship' | 'distance';
@@ -318,7 +319,11 @@ export class ReconciliationService {
     return 'initiator';
   }
 
-  private async buildJourneyContext(plan: PlanRecordForHydration, userId: string) {
+  private async buildJourneyContext(
+    plan: PlanRecordForHydration,
+    userId: string,
+    locale: BackendLocale = 'zh-TW',
+  ) {
     const commitment = this.buildCommitmentSummary(plan, userId);
     const repairEligibility = getRepairEligibilityForCase(plan.judgment.case);
     const repairJourneyAccess = await getRepairJourneyAccessPolicyForJudgment(plan.judgment, repairEligibility);
@@ -340,11 +345,16 @@ export class ReconciliationService {
       statusReason: plan.repair_track?.status_reason ?? null,
       recommendedMode: repairJourneyAccess.forceSoloRepair ? 'solo' : commitment.recommended_mode,
       repairAccess: buildRepairAccessContext(repairJourneyAccess),
+      locale,
     });
   }
 
-  private async buildPlanCtaState(plan: PlanRecordForHydration, userId: string) {
-    const journeyContext = await this.buildJourneyContext(plan, userId);
+  private async buildPlanCtaState(
+    plan: PlanRecordForHydration,
+    userId: string,
+    locale: BackendLocale = 'zh-TW',
+  ) {
+    const journeyContext = await this.buildJourneyContext(plan, userId, locale);
     if (journeyContext.secondary_cta) {
       return {
         primary_action: journeyContext.primary_cta.action,
@@ -442,6 +452,7 @@ export class ReconciliationService {
     plans: PlanRecordForHydration[],
     userId: string,
     versionSummary?: VersionSummary,
+    locale: BackendLocale = 'zh-TW',
   ): Promise<JourneyEntry> {
     if (plans.length === 0) {
       return {
@@ -489,7 +500,7 @@ export class ReconciliationService {
         needs_replan: track.needs_replan,
       } : null,
       has_superseded_versions: versionSummary?.has_superseded_versions ?? false,
-      journey_context: await this.buildJourneyContext(current, userId),
+      journey_context: await this.buildJourneyContext(current, userId, locale),
     };
   }
 
@@ -614,6 +625,7 @@ export class ReconciliationService {
     intent: ReconciliationIntent,
     preferences?: PlanPreferences,
     versionSummary?: VersionSummary,
+    locale: BackendLocale = 'zh-TW',
   ) {
     const scoredPlans = plans.map((plan) => {
       const content = parseStoredPlanContent(plan.plan_content);
@@ -630,7 +642,7 @@ export class ReconciliationService {
       recommended_plan_id: recommendedPlanId,
       intent,
       applied_preferences: preferences ?? null,
-      journey_entry: await this.buildJourneyEntry(plans, userId, versionSummary),
+      journey_entry: await this.buildJourneyEntry(plans, userId, versionSummary, locale),
       version_summary: versionSummary ?? {
         version_group_id: null,
         has_superseded_versions: false,
@@ -642,7 +654,12 @@ export class ReconciliationService {
   /**
    * 生成和好方案
    */
-  async generatePlans(judgmentId: string, input?: GeneratePlansInput, userId?: string) {
+  async generatePlans(
+    judgmentId: string,
+    input?: GeneratePlansInput,
+    userId?: string,
+    locale: BackendLocale = 'zh-TW',
+  ) {
     const preferences = input?.preferences;
     const forceRegenerate = input?.force_regenerate ?? false;
 
@@ -885,6 +902,7 @@ export class ReconciliationService {
       intent,
       preferences,
       versionSummary,
+      locale,
     );
   }
 
@@ -899,6 +917,7 @@ export class ReconciliationService {
       type?: 'activity' | 'communication' | 'intimacy' | 'gift' | 'service';
       intent?: ReconciliationIntent;
     },
+    locale: BackendLocale = 'zh-TW',
   ) {
     const judgment = await prisma.judgment.findUnique({
       where: { id: judgmentId },
@@ -939,20 +958,20 @@ export class ReconciliationService {
 
     const intent = filters?.intent || (plans[0]?.intent as ReconciliationIntent | undefined) || 'repair';
     const versionSummary = await this.getVersionSummary(judgmentId, intent, plans);
-    return this.buildPlansPayload(plans as PlanRecordForHydration[], userId, intent, undefined, versionSummary);
+    return this.buildPlansPayload(plans as PlanRecordForHydration[], userId, intent, undefined, versionSummary, locale);
   }
 
   /**
    * 獲取和好方案詳情（包含 judgment / case / commitment）
    */
-  async getPlanById(planId: string, userId: string) {
+  async getPlanById(planId: string, userId: string, locale: BackendLocale = 'zh-TW') {
     const plan = await this.loadPlanForAction(planId, userId);
     const { emotional_analysis: _ea, ...safeJudgment } = plan.judgment;
     const versionSummary = await this.getVersionSummary(plan.judgment_id, plan.intent, [plan]);
     const inviteEligibility = getRepairEligibilityForCase(plan.judgment.case);
     const inviteAccess = await getRepairJourneyAccessPolicyForJudgment(plan.judgment, inviteEligibility);
-    const journeyContext = await this.buildJourneyContext(plan, userId);
-    const ctaState = await this.buildPlanCtaState(plan, userId);
+    const journeyContext = await this.buildJourneyContext(plan, userId, locale);
+    const ctaState = await this.buildPlanCtaState(plan, userId, locale);
     return {
       ...this.hydratePlan(plan, userId),
       judgment: safeJudgment,
@@ -972,16 +991,17 @@ export class ReconciliationService {
   /**
    * 當前用戶承諾此方案
    */
-  async selectPlan(planId: string, userId: string) {
-    return this.respondPlan(planId, userId, 'committed');
+  async selectPlan(planId: string, userId: string, locale: BackendLocale = 'zh-TW') {
+    return this.respondPlan(planId, userId, 'committed', { locale });
   }
 
   async respondPlan(
     planId: string,
     userId: string,
     action: PlanRespondAction,
-    options?: { reason?: string | null; remindInHours?: number | null },
+    options?: { reason?: string | null; remindInHours?: number | null; locale?: BackendLocale },
   ) {
+    const locale = options?.locale ?? 'zh-TW';
     const plan = await this.loadPlanForAction(planId, userId);
     const caseRecord = plan.judgment.case;
     const isUser1 = caseRecord.plaintiff_id === userId;
@@ -1065,7 +1085,7 @@ export class ReconciliationService {
         deferred: 'view_invitation_status',
         declined: 'review_invitation',
       };
-      const journeyContext = await this.buildJourneyContext(refreshedPlan, partnerId);
+      const journeyContext = await this.buildJourneyContext(refreshedPlan, partnerId, locale);
       await notificationService.createIfEnabled(partnerId, {
         channel: 'email',
         template_code: templateCodeMap[action as Exclude<PlanRespondAction, 'paused'>],
@@ -1097,7 +1117,7 @@ export class ReconciliationService {
     return this.buildCommitmentSummary(plan, userId);
   }
 
-  async invitePartner(planId: string, userId: string) {
+  async invitePartner(planId: string, userId: string, locale: BackendLocale = 'zh-TW') {
     const plan = await this.loadPlanForAction(planId, userId);
     const repairEligibility = getRepairEligibilityForCase(plan.judgment.case);
     const repairJourneyAccess = await getRepairJourneyAccessPolicyForJudgment(plan.judgment, repairEligibility);
@@ -1137,6 +1157,7 @@ export class ReconciliationService {
     });
     if (partnerId) {
       const partnerPlan = await this.loadPlanForAction(planId, partnerId);
+      const journeyContext = await this.buildJourneyContext(partnerPlan, partnerId, locale);
       await notificationService.createIfEnabled(partnerId, {
         channel: 'email',
         template_code: 'repair_journey_partner_invited',
@@ -1153,9 +1174,9 @@ export class ReconciliationService {
           journey_status: syncedTrack.status,
           entity_type: 'repair_track',
           entity_id: track.id,
-          cta_label: '查看這個邀請',
+          cta_label: journeyContext.primary_cta.label,
           partner_state: 'invited',
-          journey_context: (await this.buildJourneyContext(partnerPlan, partnerId)) as unknown as Prisma.InputJsonValue,
+          journey_context: journeyContext as unknown as Prisma.InputJsonValue,
         },
       });
     }
@@ -1258,10 +1279,10 @@ export class ReconciliationService {
     return this.loadPlanForAction(planId, userId).then((freshPlan) => this.hydratePlan(freshPlan, userId));
   }
 
-  async pausePlan(planId: string, userId: string) {
+  async pausePlan(planId: string, userId: string, locale: BackendLocale = 'zh-TW') {
     const plan = await this.loadPlanForAction(planId, userId);
     const track = await this.ensureRepairTrack(plan);
-    await this.respondPlan(planId, userId, 'paused');
+    await this.respondPlan(planId, userId, 'paused', { locale });
     await prisma.repairTrack.update({
       where: { id: track.id },
       data: {

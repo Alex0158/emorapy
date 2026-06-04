@@ -21,10 +21,10 @@ jest.mock('../../../src/services/execution.service', () => ({
     confirmExecution: (userId: string, planId: string) =>
       mockConfirmExecution(userId, planId),
     checkin: (userId: string, body: unknown) => mockCheckin(userId, body),
-    getExecutionStatus: (userId: string, planId: string) =>
-      mockGetExecutionStatus(userId, planId),
-    getAllExecutionStatuses: (userId: string) =>
-      mockGetAllExecutionStatuses(userId),
+    getExecutionStatus: (userId: string, planId: string, locale?: string) =>
+      mockGetExecutionStatus(userId, planId, locale),
+    getAllExecutionStatuses: (userId: string, locale?: string) =>
+      mockGetAllExecutionStatuses(userId, locale),
   },
 }));
 jest.mock('../../../src/utils/request', () => ({
@@ -40,7 +40,7 @@ describe('ExecutionController', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     controller = new ExecutionController();
-    req = { body: {}, params: {}, query: {} };
+    req = { body: {}, params: {}, query: {}, locale: 'en-US' };
     res = { json: jest.fn().mockReturnThis() } as unknown as Response;
     next = jest.fn();
     mockGetAuthUserId.mockReturnValue('u1');
@@ -110,7 +110,7 @@ describe('ExecutionController', () => {
       await controller.getExecutionStatus(req as Request, res as Response, next);
 
       expect(mockGetAuthUserId).toHaveBeenCalledWith(req);
-      expect(mockGetExecutionStatus).toHaveBeenCalledWith('u1', 'plan-1');
+      expect(mockGetExecutionStatus).toHaveBeenCalledWith('u1', 'plan-1', 'en-US');
       expect(res.json).toHaveBeenCalledWith({ success: true, data: status });
     });
 
@@ -144,7 +144,7 @@ describe('ExecutionController', () => {
       await controller.getAllExecutionStatuses(req as Request, res as Response, next);
 
       expect(mockGetAuthUserId).toHaveBeenCalledWith(req);
-      expect(mockGetAllExecutionStatuses).toHaveBeenCalledWith('u1');
+      expect(mockGetAllExecutionStatuses).toHaveBeenCalledWith('u1', 'en-US');
       expect(res.json).toHaveBeenCalledWith({
         success: true,
         data: { executions: statuses },

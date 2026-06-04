@@ -62,7 +62,7 @@ CJ App navigation 固定按以下平台投影分組；M0-M5 已完成首輪 scre
 | Chat | 聊天室、邀請、先聊再判、chat handoff；backend safety notice 依 request locale 寫入 `message.content`，App 只顯示該訊息 | chat / message / stream / judgment handoff | M3 |
 | Profile | 心理訪談、個人檔案、關係檔案；interview seed question 與 feedback card 由 backend 依 request locale 寫入，App 只顯示後端內容 | interview / psych profile / profile | M2 |
 | Notifications | in-app notification、Push entry、Deep Link landing | notification / content / deep-link target / device token 待辦 | M5 |
-| Repair | repair journey、today step、checkin、replan、dashboard；backend-owned respond / invite / pause / replan / resume success message 依 request locale 由 backend i18n 輸出，App 不端側重建翻譯表 | reconciliation / execution / repair-track stream | M4 |
+| Repair | repair journey、today step、checkin、replan、dashboard；backend-owned respond / invite / pause / replan / resume success message 依 request locale 由 backend i18n 輸出；journey_context title/body/CTA 由 backend 依 request locale 生成，App 不端側重建翻譯表 | reconciliation / execution / repair-track stream | M4 |
 | `modal` | safety notice、upload picker handoff、destructive confirm | 按觸發功能繼承 backend gate | M0-M6 |
 
 任何分組如果需要新增 API response、DB 欄位、shared enum 或 backend side effect，必須先更新 [../50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md](../50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md) 並建立或更新待處理任務。若該分組要進入 smoke / regression / CI 或證據留存，還必須符合 [../08-測試規範與驗收/03-App測試與證據接入基線.md](../08-測試規範與驗收/03-App測試與證據接入基線.md)。

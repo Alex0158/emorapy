@@ -96,6 +96,8 @@
 
 成功響應的頂層 `message` 屬 backend-owned display string，會由 `responseFormatter` 依 request locale 呼叫 `translateBackendMessage()`。`respondPlan(viewed/committed/deferred/declined/paused)`、invite、pause、replan、resume 等修復旅程狀態提示必須在 `backend/src/i18n/index.ts` 覆蓋 en-US；Web / App 只消費 API 結果，不在端側重建 action message 翻譯表。
 
+`journey_context.title/body/primary_cta.label/secondary_cta.label` 屬 backend-owned visible context；reconciliation generate/list/detail/select/invite/pause/respond 與 execution status/dashboard 必須把 request locale 傳入 backend context builder，Web / App 直接顯示後端結果，不端側重建 status -> copy 翻譯表。
+
 ## 返回字段補充說明
 
 ### `data.plans[]`
@@ -141,6 +143,7 @@
 
 ### `data.journey_context`
 
+- `title / body / primary_cta.label / secondary_cta.label`：必須由 backend 依 request locale 生成；前端不得用 `status / journey_task / presentation_bucket` 自行重建另一套語言文案。
 - `viewer_role`
 - `journey_task`
 - `partner_state`

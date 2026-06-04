@@ -19,12 +19,12 @@ const mockGetAuthUserIdOptional = jest.fn();
 
 jest.mock('../../../src/services/reconciliation.service', () => ({
   reconciliationService: {
-    generatePlans: (id: string, prefs: unknown, userId: string) =>
-      mockGeneratePlans(id, prefs, userId),
-    getPlansByJudgmentId: (id: string, userId: string, filters: unknown) =>
-      mockGetPlansByJudgmentId(id, userId, filters),
-    getPlanById: (id: string, userId?: string) => mockGetPlanById(id, userId),
-    selectPlan: (id: string, userId: string) => mockSelectPlan(id, userId),
+    generatePlans: (id: string, prefs: unknown, userId: string, locale?: string) =>
+      mockGeneratePlans(id, prefs, userId, locale),
+    getPlansByJudgmentId: (id: string, userId: string, filters: unknown, locale?: string) =>
+      mockGetPlansByJudgmentId(id, userId, filters, locale),
+    getPlanById: (id: string, userId?: string, locale?: string) => mockGetPlanById(id, userId, locale),
+    selectPlan: (id: string, userId: string, locale?: string) => mockSelectPlan(id, userId, locale),
   },
 }));
 jest.mock('../../../src/utils/request', () => ({
@@ -41,7 +41,7 @@ describe('ReconciliationController', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     controller = new ReconciliationController();
-    req = { body: {}, params: {}, query: {} };
+    req = { body: {}, params: {}, query: {}, locale: 'en-US' };
     res = { json: jest.fn().mockReturnThis() } as unknown as Response;
     next = jest.fn();
     mockGetAuthUserId.mockReturnValue('u1');
@@ -59,7 +59,7 @@ describe('ReconciliationController', () => {
       await controller.generatePlans(req as Request, res as Response, next);
 
       expect(mockGetAuthUserId).toHaveBeenCalledWith(req);
-      expect(mockGeneratePlans).toHaveBeenCalledWith('judge-1', { preferences: { difficulty: 'easy' } }, 'u1');
+      expect(mockGeneratePlans).toHaveBeenCalledWith('judge-1', { preferences: { difficulty: 'easy' } }, 'u1', 'en-US');
       expect(res.json).toHaveBeenCalledWith({
         success: true,
         data: bundle,
@@ -107,7 +107,7 @@ describe('ReconciliationController', () => {
         difficulty: 'easy',
         type: 'activity',
         intent: undefined,
-      });
+      }, 'en-US');
       expect(res.json).toHaveBeenCalledWith({ success: true, data: bundle });
     });
 
@@ -130,7 +130,7 @@ describe('ReconciliationController', () => {
       await controller.getPlanById(req as Request, res as Response, next);
 
       expect(mockGetAuthUserId).toHaveBeenCalledWith(req);
-      expect(mockGetPlanById).toHaveBeenCalledWith('plan-1', 'u1');
+      expect(mockGetPlanById).toHaveBeenCalledWith('plan-1', 'u1', 'en-US');
       expect(res.json).toHaveBeenCalledWith({ success: true, data: { plan } });
     });
 
@@ -153,7 +153,7 @@ describe('ReconciliationController', () => {
       await controller.selectPlan(req as Request, res as Response, next);
 
       expect(mockGetAuthUserId).toHaveBeenCalledWith(req);
-      expect(mockSelectPlan).toHaveBeenCalledWith('plan-1', 'u1');
+      expect(mockSelectPlan).toHaveBeenCalledWith('plan-1', 'u1', 'en-US');
       expect(res.json).toHaveBeenCalledWith({
         success: true,
         data: { plan },

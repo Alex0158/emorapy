@@ -14,7 +14,7 @@ export interface IExecutionService {
 
   checkin(userId: string, data: CheckinDtoForInterface): Promise<unknown>;
 
-  getExecutionStatus(userId: string, planId: string): Promise<unknown>;
+  getExecutionStatus(userId: string, planId: string, locale?: string): Promise<unknown>;
 
-  getAllExecutionStatuses(userId: string): Promise<unknown>;
+  getAllExecutionStatuses(userId: string, locale?: string): Promise<unknown>;
 }

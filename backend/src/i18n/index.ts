@@ -396,6 +396,10 @@ const directEnUSMap: Record<string, string> = {
   '文件數量超出限制': 'File count exceeds the limit',
   '無效的文件字段': 'Invalid file field',
   '文件上傳失敗': 'File upload failed',
+  '只支持JPG、PNG、GIF、MP4格式': 'Only JPG, PNG, GIF, and MP4 formats are supported',
+  '不支持的文件類型': 'Unsupported file type',
+  '不支持的文件擴展名': 'Unsupported file extension',
+  '文件類型驗證失敗：文件內容與聲稱的類型不匹配': 'File type validation failed: file content does not match the declared type',
   '操作正在進行中，請稍後再試': 'Operation in progress, please try again later',
   '缺少分布式鎖後端 (Redis)，請聯繫管理員': 'Distributed lock backend (Redis) is unavailable, please contact administrator',
   'Session刷新失敗': 'Session refresh failed',
@@ -427,6 +431,11 @@ function translateDynamicBackendMessage(message: string): string | null {
   const accountLockout = message.match(/^帳號已被暫時鎖定，請(\d+)分鐘後再試$/);
   if (accountLockout) {
     return `Account is temporarily locked. Please try again in ${accountLockout[1]} minutes`;
+  }
+
+  const fileSizeLimit = message.match(/^文件大小不能超過([0-9.]+)MB$/);
+  if (fileSizeLimit) {
+    return `File size cannot exceed ${fileSizeLimit[1]}MB`;
   }
 
   const fieldRequired = message.match(/^(.+)不能為空$/);

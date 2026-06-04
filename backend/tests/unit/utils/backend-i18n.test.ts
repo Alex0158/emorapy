@@ -458,6 +458,23 @@ describe('backend i18n', () => {
     );
   });
 
+  it('translates file service upload validation errors to en-US', () => {
+    expect(translateBackendMessage('en-US', '文件大小不能超過10MB')).toBe(
+      'File size cannot exceed 10MB'
+    );
+    expect(translateBackendMessage('en-US', '只支持JPG、PNG、GIF、MP4格式')).toBe(
+      'Only JPG, PNG, GIF, and MP4 formats are supported'
+    );
+    expect(translateBackendMessage('en-US', '不支持的文件類型')).toBe('Unsupported file type');
+    expect(translateBackendMessage('en-US', '不支持的文件擴展名')).toBe(
+      'Unsupported file extension'
+    );
+    expect(translateBackendMessage('en-US', '文件類型驗證失敗：文件內容與聲稱的類型不匹配')).toBe(
+      'File type validation failed: file content does not match the declared type'
+    );
+    expect(translateBackendMessage('zh-TW', '不支持的文件類型')).toBe('不支持的文件類型');
+  });
+
   it('translates case service errors to en-US without localizing mode values', () => {
     expect(translateBackendMessage('en-US', 'Session創建失敗')).toBe('Session creation failed');
     expect(translateBackendMessage('en-US', '案件創建失敗，請稍後再試')).toBe(

@@ -1239,6 +1239,7 @@ const zhTW = {
 	"common.serverError": "服務器錯誤，請稍後再試",
 	"common.requestCanceled": "請求已取消",
 	"common.requestFail": "請求失敗",
+	"apiError.invalidResponse": "服務回應格式異常，請稍後再試",
 	"stream.error.httpStatus": "即時連線請求失敗（狀態碼 {status}）",
 	"stream.error.bodyMissing": "即時連線回應內容不可讀，請稍後再試",
 	"stream.error.disconnected": "即時連線已中斷，請稍後再試",

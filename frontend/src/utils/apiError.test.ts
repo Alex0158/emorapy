@@ -1,7 +1,7 @@
 /**
  * API 錯誤處理工具單元測試
  */
-import { describe, it, expect } from 'vitest';
+import { beforeEach, describe, it, expect } from 'vitest';
 import {
   isApiError,
   getErrorMessage,
@@ -9,8 +9,18 @@ import {
   isNetworkError,
   isAuthError,
 } from './apiError';
+import { setLocale } from '@/utils/i18n';
+
+async function setLocaleReady(locale: 'zh-TW' | 'en-US'): Promise<void> {
+  setLocale(locale);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+}
 
 describe('apiError', () => {
+  beforeEach(() => {
+    setLocale('zh-TW');
+  });
+
   describe('isApiError', () => {
     it('有 code 與 message 的對象應為 true', () => {
       expect(isApiError({ code: 'ERR', message: 'msg' })).toBe(true);
@@ -29,6 +39,26 @@ describe('apiError', () => {
     });
     it('含 message 字串的普通物件（無 code）應返回 message', () => {
       expect(getErrorMessage({ message: 'direct message' })).toBe('direct message');
+    });
+    it('shared/service invalid response fallback 應使用目前語言', async () => {
+      expect(getErrorMessage({ code: 'INVALID_PROFILE_RESPONSE', message: 'Invalid profile response from server' })).toBe(
+        '服務回應格式異常，請稍後再試'
+      );
+      expect(getErrorMessage(new Error('Invalid avatar upload response from server'))).toBe(
+        '服務回應格式異常，請稍後再試'
+      );
+      expect(getErrorMessage({ error: { message: 'Invalid relationship profile response from server' } })).toBe(
+        '服務回應格式異常，請稍後再試'
+      );
+
+      await setLocaleReady('en-US');
+
+      expect(getErrorMessage({ code: 'INVALID_CASE_RESPONSE', message: 'Invalid case response from server' })).toBe(
+        'The service response could not be read. Please try again later.'
+      );
+    });
+    it('非 invalid-response pattern 的英文 message 應保持原樣', () => {
+      expect(getErrorMessage({ code: 'ERR', message: 'direct message' })).toBe('direct message');
     });
     it('Object.create(null) 加上 message 應返回 message', () => {
       const o = Object.create(null) as { message: string };

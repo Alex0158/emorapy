@@ -17,6 +17,16 @@ export function isApiError(error: unknown): error is ApiError {
   return typeof error === 'object' && error !== null && 'code' in error && 'message' in error;
 }
 
+function normalizeVisibleErrorMessage(message: unknown): string | null {
+  if (typeof message !== 'string') return null;
+  const trimmed = message.trim();
+  if (trimmed.length === 0) return null;
+  if (/^Invalid .+ response from server$/.test(trimmed)) {
+    return t('apiError.invalidResponse');
+  }
+  return message;
+}
+
 /**
  * 獲取用戶友好的錯誤消息
  * @param error 錯誤對象（ApiError、Error 或含 message 的物件）
@@ -24,18 +34,20 @@ export function isApiError(error: unknown): error is ApiError {
  */
 export function getErrorMessage(error: unknown, fallbackKey?: string): string {
   const msg = error && typeof error === 'object' && 'message' in error ? (error as { message: unknown }).message : undefined;
-  if (typeof msg === 'string' && msg.trim().length > 0) {
-    return msg;
+  const visibleMessage = normalizeVisibleErrorMessage(msg);
+  if (visibleMessage) {
+    return visibleMessage;
   }
   const nested = error && typeof error === 'object' && 'error' in error
     ? (error as { error?: { message?: unknown } }).error?.message
     : undefined;
-  if (typeof nested === 'string' && nested.trim().length > 0) {
-    return nested;
+  const nestedVisibleMessage = normalizeVisibleErrorMessage(nested);
+  if (nestedVisibleMessage) {
+    return nestedVisibleMessage;
   }
   if (error instanceof Error) {
-    const errMsg = error.message;
-    if (typeof errMsg === 'string' && errMsg.trim().length > 0) return errMsg;
+    const errMsg = normalizeVisibleErrorMessage(error.message);
+    if (errMsg) return errMsg;
   }
   return fallbackKey ? t(fallbackKey) : t('common.unknownError');
 }
@@ -70,4 +82,3 @@ export function isAuthError(error: unknown): boolean {
   }
   return false;
 }
-

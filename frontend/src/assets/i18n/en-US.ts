@@ -303,6 +303,7 @@ const enUS: Record<string, string> = {
 	"common.serverError": "Server error, please try again later",
 	"common.requestCanceled": "Request canceled",
 	"common.requestFail": "Request failed",
+	"apiError.invalidResponse": "The service response could not be read. Please try again later.",
 	"stream.error.httpStatus": "Real-time connection request failed (status {status})",
 	"stream.error.bodyMissing": "The real-time connection response could not be read. Please try again later.",
 	"stream.error.disconnected": "The real-time connection was interrupted. Please try again later.",

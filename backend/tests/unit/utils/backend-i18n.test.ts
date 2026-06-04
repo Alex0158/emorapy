@@ -203,6 +203,49 @@ describe('backend i18n', () => {
     expect(translateBackendMessage('zh-TW', '缺少頭像文件')).toBe('缺少頭像文件');
   });
 
+  it('translates chat service errors and keeps public Analysis terminology', () => {
+    expect(translateBackendMessage('en-US', '訊息發送過於頻繁，請稍後再試')).toBe(
+      'Messages are being sent too frequently, please try again later'
+    );
+    expect(translateBackendMessage('en-US', '你沒有該聊天室權限')).toBe(
+      'You do not have permission to access this chat room'
+    );
+    expect(translateBackendMessage('en-US', '只有發起方可發送邀請')).toBe(
+      'Only the initiator can send invites'
+    );
+    expect(translateBackendMessage('en-US', '邀請碼不存在')).toBe('Invite code not found');
+    expect(translateBackendMessage('en-US', '聊天室當前狀態不允許接受邀請')).toBe(
+      'The current chat room status does not allow accepting invites'
+    );
+    expect(translateBackendMessage('en-US', 'cursor 必須為有效 ISO 時間')).toBe(
+      'cursor must be a valid ISO timestamp'
+    );
+    expect(translateBackendMessage('en-US', '只有聊天室成員可發起梳理結果')).toBe(
+      'Only chat room members can request an Analysis'
+    );
+    expect(translateBackendMessage('en-US', '目前版本需由 A 方確認後發起梳理結果')).toBe(
+      'This version requires Side A to confirm before requesting an Analysis'
+    );
+    expect(translateBackendMessage('en-US', '梳理結果生成中，請稍後')).toBe(
+      'Analysis is being generated, please wait'
+    );
+    expect(translateBackendMessage('en-US', '部分訊息不存在或不可納入梳理結果')).toBe(
+      'Some messages do not exist or cannot be included in the Analysis'
+    );
+    expect(translateBackendMessage('en-US', 'A 方訊息不足，無法轉梳理結果')).toBe(
+      'Side A messages are insufficient, so this chat cannot be converted to an Analysis'
+    );
+    expect(translateBackendMessage('en-US', '需登入才能離開聊天室')).toBe(
+      'Log in to leave the chat room'
+    );
+    expect(translateBackendMessage('en-US', '只有發起方可以移除 B 方')).toBe(
+      'Only the initiator can remove Side B'
+    );
+    expect(translateBackendMessage('zh-TW', '只有聊天室成員可發起梳理結果')).toBe(
+      '只有聊天室成員可發起梳理結果'
+    );
+  });
+
   it('uses public Analysis terminology for backend judgment response messages', () => {
     expect(translateErrorByCode('en-US', 'JUDGMENT_FAILED')).toBe(
       'Analysis generation failed, please retry later'

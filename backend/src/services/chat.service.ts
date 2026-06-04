@@ -178,7 +178,7 @@ export class ChatService {
   ): Promise<string> {
     if (!room.owner_user_id) {
       if (!room.session_id) {
-        throw Errors.SESSION_ID_REQUIRED('匿名聊天室缺少 session_id，無法轉判決');
+        throw Errors.SESSION_ID_REQUIRED('匿名聊天室缺少 session_id，無法轉梳理結果');
       }
       const existingTempPairing = await pairingService.getPairingBySessionId(room.session_id);
       const tempPairing = existingTempPairing || await pairingService.createTempPairing(room.session_id);
@@ -870,10 +870,10 @@ export class ChatService {
     const preCheckRoom = await this.getAccessibleRoom(roomId, resolvedActor);
     const preCheckParticipant = this.getCurrentParticipant(preCheckRoom, resolvedActor);
     if (!preCheckParticipant || (preCheckParticipant.role_in_room !== 'roleA' && preCheckParticipant.role_in_room !== 'roleB')) {
-      throw Errors.FORBIDDEN('只有聊天室成員可發起判決');
+      throw Errors.FORBIDDEN('只有聊天室成員可發起梳理結果');
     }
     if (preCheckParticipant.role_in_room !== 'roleA') {
-      throw Errors.FORBIDDEN('目前版本需由 A 方確認後發起判決');
+      throw Errors.FORBIDDEN('目前版本需由 A 方確認後發起梳理結果');
     }
 
     const inFlight = this.inFlightJudgmentByRoom.get(roomId);
@@ -888,7 +888,7 @@ export class ChatService {
         actorUserId: resolvedActor.userId ?? null,
         actorSessionId: resolvedActor.sessionId ?? null,
       });
-      // 鎖內刷新狀態，避免鎖外預檢到鎖內執行期間出現狀態漂移（如排隊後已完成判決）。
+      // 鎖內刷新狀態，避免鎖外預檢到鎖內執行期間出現狀態漂移（如排隊後已完成梳理結果）。
       const lockedRoomState = await prisma.chatRoom.findUnique({
         where: { id: roomId },
         select: {
@@ -908,13 +908,13 @@ export class ChatService {
         where: { id: preCheckParticipant.id },
       });
       if (!freshParticipant || !freshParticipant.is_active) {
-        throw Errors.FORBIDDEN('只有聊天室成員可發起判決');
+        throw Errors.FORBIDDEN('只有聊天室成員可發起梳理結果');
       }
       if (freshParticipant.room_id && freshParticipant.room_id !== room.id) {
-        throw Errors.FORBIDDEN('只有聊天室成員可發起判決');
+        throw Errors.FORBIDDEN('只有聊天室成員可發起梳理結果');
       }
       if (freshParticipant.role_in_room !== 'roleA') {
-        throw Errors.FORBIDDEN('目前版本需由 A 方確認後發起判決');
+        throw Errors.FORBIDDEN('目前版本需由 A 方確認後發起梳理結果');
       }
       const participant = freshParticipant;
       const activeParticipantsInLock = await prisma.chatParticipant.findMany({
@@ -924,14 +924,14 @@ export class ChatService {
         },
       });
       if (activeParticipantsInLock.length === 0) {
-        throw Errors.FORBIDDEN('只有聊天室成員可發起判決');
+        throw Errors.FORBIDDEN('只有聊天室成員可發起梳理結果');
       }
       const participants = activeParticipantsInLock;
       if (room.status === ChatRoomStatus.judgment_requested) {
-        throw Errors.CONFLICT('判決生成中，請稍後');
+        throw Errors.CONFLICT('梳理結果生成中，請稍後');
       }
       if (room.status === ChatRoomStatus.archived) {
-        throw Errors.CASE_NOT_EDITABLE('封存聊天室不可再次發起判決');
+        throw Errors.CASE_NOT_EDITABLE('封存聊天室不可再次發起梳理結果');
       }
 
       // 防止網路抖動或重複點擊造成短時間重複建案
@@ -974,7 +974,7 @@ export class ChatService {
         }
       }
 
-      // 若上一次已建案但判決失敗，優先復用既有 case/link 重試，避免重複建案
+      // 若上一次已建案但梳理結果失敗，優先復用既有 case/link 重試，避免重複建案
       if (
         recentLink &&
         room.status === ChatRoomStatus.judgment_failed &&
@@ -1041,7 +1041,7 @@ export class ChatService {
       const roleBParticipant = roleBParticipants[0];
       const aiParticipant = aiParticipants[0];
       if (!roleAParticipant) {
-        throw Errors.CASE_NOT_READY('缺少發起方資訊，無法轉判決');
+        throw Errors.CASE_NOT_READY('缺少發起方資訊，無法轉梳理結果');
       }
 
       const visibilityFilteredWhere: Prisma.ChatMessageWhereInput = {
@@ -1072,11 +1072,11 @@ export class ChatService {
         const provided = options.includedMessageIds;
         const invalid = provided.filter((id) => !allowedIds.has(id));
         if (invalid.length > 0) {
-          throw Errors.NOT_FOUND('部分訊息不存在或不可納入判決');
+          throw Errors.NOT_FOUND('部分訊息不存在或不可納入梳理結果');
         }
         userMessages = userMessages.filter((m) => provided.includes(m.id));
         if (userMessages.length === 0) {
-          throw Errors.CASE_NOT_READY('需至少 1 則訊息納入判決');
+          throw Errors.CASE_NOT_READY('需至少 1 則訊息納入梳理結果');
         }
       }
 
@@ -1092,7 +1092,7 @@ export class ChatService {
       const lastMessage = userMessages[userMessages.length - 1];
 
       if (roleAMessages.length === 0) {
-        throw Errors.CASE_NOT_READY('A 方訊息不足，無法轉判決');
+        throw Errors.CASE_NOT_READY('A 方訊息不足，無法轉梳理結果');
       }
       if (includesRoleBMessages && !roleBConsentAsserted) {
         throw Errors.CASE_NOT_READY('納入 B 方訊息前需要 B 方明示同意');
@@ -1143,7 +1143,7 @@ export class ChatService {
           informationGaps: layerAnalysis.informationGaps,
           transformConfidence: layerAnalysis.confidence,
         });
-        throw Errors.CASE_NOT_READY(requestPolicy.rejectionMessage ?? '目前安全路由不允許由聊天室直接轉判決');
+        throw Errors.CASE_NOT_READY(requestPolicy.rejectionMessage ?? '目前安全路由不允許由聊天室直接轉梳理結果');
       }
 
       let caseType = '其他衝突';

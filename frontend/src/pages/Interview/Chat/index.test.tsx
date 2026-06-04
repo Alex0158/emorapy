@@ -451,11 +451,21 @@ describe('InterviewChat', () => {
     mockStoreState.error = 'network error';
     mockStoreState.errorCode = 'NETWORK_ERROR';
     renderWithRouter();
+    expect(screen.getByText('common.networkError')).toBeInTheDocument();
     const reloadBtn = screen.getByTestId('interview-chat-reload-fallback');
     expect(reloadBtn).toBeInTheDocument();
     const callCountBefore = mockGetSession.mock.calls.length;
     fireEvent.click(reloadBtn);
     expect(mockGetSession).toHaveBeenCalledTimes(callCountBefore + 1);
+  });
+
+  it('errorCode 未知時應保留已正規化 message，不直出錯誤碼', () => {
+    mockStoreState.currentSession = { id: 'test-session', status: 'in_progress' };
+    mockStoreState.error = '後端已正規化錯誤';
+    mockStoreState.errorCode = 'UNKNOWN_BACKEND_CODE';
+    renderWithRouter();
+    expect(screen.getByText('後端已正規化錯誤')).toBeInTheDocument();
+    expect(screen.queryByText('UNKNOWN_BACKEND_CODE')).not.toBeInTheDocument();
   });
 
   it('errorCode 為未知時 reload 快速連點只會送出一次 getSession 請求（F06 重試節流）', async () => {

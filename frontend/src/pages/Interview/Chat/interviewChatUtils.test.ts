@@ -20,6 +20,7 @@ describe('interview chat utils', () => {
   it('依錯誤碼解析對應文案 key，未知錯誤保留原訊息', () => {
     const translate = (key: string) => `t:${key}`;
     expect(resolveInterviewErrorMessage('raw', 'RATE_LIMIT_EXCEEDED', translate)).toBe('t:interview.error.rateLimit');
+    expect(resolveInterviewErrorMessage('raw', 'NETWORK_ERROR', translate)).toBe('t:common.networkError');
     expect(resolveInterviewErrorMessage('raw', 'UNKNOWN', translate)).toBe('raw');
   });
 

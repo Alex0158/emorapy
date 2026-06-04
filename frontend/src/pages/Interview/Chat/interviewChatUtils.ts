@@ -15,6 +15,7 @@ const INTERVIEW_ERROR_MESSAGE_KEYS: Record<string, string> = {
   TURN_TOO_FAST: 'interview.error.turnTooFast',
   AI_CALL_FAILED: 'interview.error.aiCallFailed',
   CONCURRENT_REQUEST: 'interview.error.concurrentRequest',
+  NETWORK_ERROR: 'common.networkError',
 };
 
 const TERMINAL_STREAM_ERROR_CODES = new Set(['INVALID_SESSION_ID', 'SESSION_EXPIRED', 'FORBIDDEN', 'NOT_FOUND']);

@@ -1,69 +1,80 @@
 /**
- * 錯誤消息映射
+ * 錯誤碼到 i18n key 的映射。
+ *
+ * 這個 helper 是 legacy code-path，輸入仍是後端/shared 層錯誤碼；
+ * 可見文案必須經過 i18n catalog，避免語系切換後仍顯示固定中文。
  */
 
-export const ERROR_MESSAGES: Record<string, string> = {
+import { t } from '@/utils/i18n';
+
+export const ERROR_MESSAGE_KEYS: Record<string, string> = {
   // 認證錯誤
-  UNAUTHORIZED: '請先登錄',
-  TOKEN_EXPIRED: '登錄已過期，請重新登錄',
-  INVALID_CREDENTIALS: '郵箱或密碼錯誤',
-  EMAIL_EXISTS: '該郵箱已被註冊',
-  EMAIL_NOT_VERIFIED: '請先驗證郵箱',
+  UNAUTHORIZED: 'common.unauthorized',
+  TOKEN_EXPIRED: 'common.unauthorized',
+  INVALID_CREDENTIALS: 'common.invalidCredentials',
+  EMAIL_EXISTS: 'errorCode.emailExists',
+  EMAIL_NOT_VERIFIED: 'message.emailNotVerified',
 
   // 驗證錯誤
-  VALIDATION_ERROR: '請檢查輸入內容',
-  INVALID_EMAIL: '郵箱格式錯誤',
-  WEAK_PASSWORD: '密碼強度不足',
-  INVALID_CODE: '驗證碼錯誤',
-  CODE_EXPIRED: '驗證碼已過期',
+  VALIDATION_ERROR: 'common.validationError',
+  INVALID_EMAIL: 'auth.login.emailInvalid',
+  WEAK_PASSWORD: 'errorCode.weakPassword',
+  INVALID_CODE: 'errorCode.invalidCode',
+  CODE_EXPIRED: 'errorCode.codeExpired',
 
   // Session錯誤
-  SESSION_ID_REQUIRED: 'Session ID是必需的',
-  INVALID_SESSION_ID: '無效的Session ID',
-  SESSION_EXPIRED: 'Session已過期，請重新開始',
-  SESSION_COMPLETED: '此訪談已結束，請查看結果',
+  SESSION_ID_REQUIRED: 'errorCode.sessionIdRequired',
+  INVALID_SESSION_ID: 'errorCode.invalidSessionId',
+  SESSION_EXPIRED: 'errorCode.sessionExpired',
+  SESSION_COMPLETED: 'interview.error.sessionCompleted',
 
   // 資源錯誤
-  NOT_FOUND: '資源不存在',
-  FORBIDDEN: '無權限訪問此資源',
-  ALREADY_PAIRED: '已經有配對關係',
+  NOT_FOUND: 'common.notFound',
+  FORBIDDEN: 'common.forbidden',
+  ALREADY_PAIRED: 'errorCode.alreadyPaired',
 
   // 案件錯誤
-  CASE_NOT_READY: '案件尚未準備好',
-  CASE_NOT_EDITABLE: '案件狀態不允許此操作',
-  JUDGMENT_NOT_FOUND: '判決尚未生成',
-  JUDGMENT_PENDING: '判決生成中，請稍後再試',
+  CASE_NOT_READY: 'errorCode.caseNotReady',
+  CASE_NOT_EDITABLE: 'errorCode.caseNotEditable',
+  JUDGMENT_NOT_FOUND: 'errorCode.analysisNotFound',
+  JUDGMENT_PENDING: 'errorCode.analysisPending',
 
   // 文件錯誤
-  FILE_TOO_LARGE: '文件過大',
-  INVALID_FILE_TYPE: '不支持的文件類型',
-  TOO_MANY_FILES: '已達到文件數量上限',
+  FILE_TOO_LARGE: 'common.fileTooLarge',
+  INVALID_FILE_TYPE: 'errorCode.invalidFileType',
+  TOO_MANY_FILES: 'errorCode.tooManyFiles',
 
   // 訪談錯誤
-  CONCURRENT_REQUEST: '有另一個請求正在處理中，請稍候',
-  AI_CALL_FAILED: 'AI 回覆失敗，請稍後重試',
-  TURN_TOO_FAST: '發送過快，請稍後再試',
-  START_RATE_LIMIT: '開始訪談過於頻繁，請稍後再試',
-  PROCESSING_NOT_DONE: '訪談結果尚在處理中',
-  PROCESSING_FAILED: '訪談結果處理失敗',
-  MAX_TURNS_REACHED: '已達對話上限',
+  CONCURRENT_REQUEST: 'interview.error.concurrentRequest',
+  AI_CALL_FAILED: 'interview.error.aiCallFailed',
+  TURN_TOO_FAST: 'interview.error.turnTooFast',
+  START_RATE_LIMIT: 'common.rateLimit',
+  PROCESSING_NOT_DONE: 'errorCode.processingNotDone',
+  PROCESSING_FAILED: 'errorCode.processingFailed',
+  MAX_TURNS_REACHED: 'interview.error.maxTurns',
 
   // 系統錯誤
-  INTERNAL_ERROR: '服務器內部錯誤',
-  DATABASE_ERROR: '資料庫錯誤，請稍後再試',
-  AI_SERVICE_ERROR: 'AI服務暫時不可用',
-  EXTERNAL_SERVICE_ERROR: '外部服務暫時不可用',
-  NETWORK_ERROR: '網絡連接失敗',
-  RATE_LIMIT_EXCEEDED: '請求過於頻繁，請稍後再試',
+  INTERNAL_ERROR: 'common.serverError',
+  DATABASE_ERROR: 'errorCode.databaseError',
+  AI_SERVICE_ERROR: 'common.serviceUnavailable',
+  EXTERNAL_SERVICE_ERROR: 'errorCode.externalServiceError',
+  NETWORK_ERROR: 'common.networkError',
+  RATE_LIMIT_EXCEEDED: 'common.rateLimit',
 
   // 默認
-  UNKNOWN_ERROR: '發生未知錯誤',
+  UNKNOWN_ERROR: 'common.unknownError',
 };
 
 /**
  * 獲取用戶友好的錯誤消息
  */
-export function getErrorMessage(code: string, defaultMessage?: string): string {
-  return ERROR_MESSAGES[code] || defaultMessage || ERROR_MESSAGES.UNKNOWN_ERROR;
-}
+export function getErrorMessage(code?: string | null, defaultMessage?: string | null): string {
+  const normalizedCode = typeof code === 'string' ? code.trim() : '';
+  const key = normalizedCode ? ERROR_MESSAGE_KEYS[normalizedCode] : undefined;
+  if (key) return t(key);
 
+  const normalizedFallback = typeof defaultMessage === 'string' ? defaultMessage.trim() : '';
+  if (normalizedFallback.length > 0) return defaultMessage as string;
+
+  return t('common.unknownError');
+}

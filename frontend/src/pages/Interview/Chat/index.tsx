@@ -225,8 +225,8 @@ const InterviewChat: React.FC = () => {
     }
   }, [resetMirroredDraft, sessionId, skipTurn]);
 
-  const getErrorMessage = (errMsg: string, code: string | null): string =>
-    resolveInterviewErrorMessage(errMsg, code, t);
+  const resolveVisibleErrorTitle = (code: string | null, fallbackMessage: string): string =>
+    resolveInterviewErrorMessage(fallbackMessage, code, t);
 
   const handleReload = useCallback(() => {
     if (!sessionId || reloadLockRef.current) return;
@@ -412,7 +412,7 @@ const InterviewChat: React.FC = () => {
       {error && !safetyAlert && (
         <div className="px-4 pb-2">
           <AIErrorState
-            title={getErrorMessage(error, errorCode)}
+            title={resolveVisibleErrorTitle(errorCode, error)}
             description={shouldShowRateLimitHint(errorCode)
               ? t('interview.error.rateLimitHint')
               : undefined}

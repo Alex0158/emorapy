@@ -10,9 +10,15 @@ import {
 } from '@cj/api-client';
 import { env } from '@/config/env';
 import type { ApiResponse } from '@/types/common';
+import { getLocale } from '@/utils/i18n';
 
 const request = createHttpClient({
   baseURL: env.apiBaseURL,
+});
+
+request.interceptors.request.use((config) => {
+  config.headers.set('X-Locale', getLocale());
+  return config;
 });
 
 request.interceptors.response.use(

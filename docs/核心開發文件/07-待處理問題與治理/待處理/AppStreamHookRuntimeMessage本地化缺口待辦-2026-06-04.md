@@ -4,7 +4,7 @@
 **文檔類型**：問題治理
 **覆蓋範圍**：App AI stream subscription hook、runtime connection error fallback、M1/M3 stream UI recovery
 **取證代碼入口**：`mobile/src/platform/sse/useAIStreamSubscription.ts`、`mobile/src/platform/sse/useAIStreamSubscription.test.js`、`mobile/src/platform/api/errorMessages.ts`
-**最後核驗 Commit**：`1c10728`
+**最後核驗 Commit**：`18c1056`
 **最後核驗日期**：`2026-06-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -40,7 +40,7 @@
 
 - `npm --prefix mobile run test -- src/platform/sse/useAIStreamSubscription.test.js --runInBand`：通過 1 suite / 4 tests。
 - `npm --prefix mobile run typecheck`：通過。
-- `npm run docs:check`：待提交前執行。
+- `npm run docs:check`：通過。
 - 靜態復查已確認 default hook normalization 不再把普通 `Error.message` 作可見 fallback。
 
 ## 修復結果
@@ -52,4 +52,4 @@
 ## Owner / Status Notes
 
 - Owner：agent
-- Status：已修復，待提交。
+- Status：已修復，已提交。

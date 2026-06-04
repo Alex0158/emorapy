@@ -61,6 +61,8 @@ function renderWithRouter(sessionId = 'test-session') {
 describe('InterviewResult', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetSession.mockReset();
+    mockRetryFailed.mockReset();
     mockGetSession.mockResolvedValue(undefined);
     mockStoreState = {
       currentSession: null,
@@ -185,13 +187,13 @@ describe('InterviewResult', () => {
     });
   });
 
-  it('processing_failed 時 retryFailed 失敗且有 message 應顯示該 message（F06 錯誤處理約定）', async () => {
+  it('processing_failed 時 retryFailed 失敗且有 message 應使用 retryFail fallback（F06 錯誤處理約定）', async () => {
     mockRetryFailed.mockRejectedValue(new Error('重試失敗'));
     mockStoreState.currentSession = { id: 'test-session', status: 'processing_failed' };
     renderWithRouter();
     fireEvent.click(screen.getByText('interview.result.retry'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('重試失敗');
+      expect(mockToastError).toHaveBeenCalledWith('interview.retryFail');
     });
   });
 
@@ -208,17 +210,17 @@ describe('InterviewResult', () => {
     });
   });
 
-  it('processing_failed 時 retryFailed 失敗且無 message 應顯示 interview.retryFail', async () => {
+  it('processing_failed 時 retryFailed 失敗且無 message 應顯示受控 code fallback', async () => {
     mockRetryFailed.mockRejectedValue({ code: 'SERVER_ERROR' });
     mockStoreState.currentSession = { id: 'test-session', status: 'processing_failed' };
     renderWithRouter();
     fireEvent.click(screen.getByText('interview.result.retry'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('interview.retryFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
-  it('processing_failed 時 retryFailed 成功但 getSession 失敗且有 message 應顯示該 message', async () => {
+  it('processing_failed 時 retryFailed 成功但 getSession 失敗且有 message 應使用 retryFail fallback', async () => {
     mockRetryFailed.mockResolvedValue(undefined);
     mockGetSession.mockRejectedValueOnce(new Error('get session failed'));
     mockStoreState.currentSession = { id: 'test-session', status: 'processing_failed' };
@@ -227,11 +229,11 @@ describe('InterviewResult', () => {
     await waitFor(() => {
       expect(mockRetryFailed).toHaveBeenCalledWith('test-session');
       expect(mockGetSession).toHaveBeenCalledWith('test-session');
-      expect(mockToastError).toHaveBeenCalledWith('get session failed');
+      expect(mockToastError).toHaveBeenCalledWith('interview.retryFail');
     });
   });
 
-  it('processing_failed 時 retryFailed 成功但 getSession 失敗且無 message 應顯示 interview.retryFail（F06 錯誤處理約定）', async () => {
+  it('processing_failed 時 retryFailed 成功但 getSession 失敗且無 message 應顯示受控 code fallback（F06 錯誤處理約定）', async () => {
     mockRetryFailed.mockResolvedValue(undefined);
     mockGetSession.mockRejectedValueOnce({ code: 'SERVER_ERROR' });
     mockStoreState.currentSession = { id: 'test-session', status: 'processing_failed' };
@@ -240,11 +242,11 @@ describe('InterviewResult', () => {
     await waitFor(() => {
       expect(mockRetryFailed).toHaveBeenCalledWith('test-session');
       expect(mockGetSession).toHaveBeenCalledWith('test-session');
-      expect(mockToastError).toHaveBeenCalledWith('interview.retryFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
-  it('processing_failed 時 retryFailed 成功但 getSession 失敗且 message 為空字串應使用 retryFail（F10 邊界）', async () => {
+  it('processing_failed 時 retryFailed 成功但 getSession 失敗且 message 為空字串應使用受控 code fallback（F10 邊界）', async () => {
     mockRetryFailed.mockResolvedValue(undefined);
     mockGetSession.mockRejectedValueOnce({ code: 'SERVER_ERROR', message: '' });
     mockStoreState.currentSession = { id: 'test-session', status: 'processing_failed' };
@@ -253,27 +255,27 @@ describe('InterviewResult', () => {
     await waitFor(() => {
       expect(mockRetryFailed).toHaveBeenCalledWith('test-session');
       expect(mockGetSession).toHaveBeenCalledWith('test-session');
-      expect(mockToastError).toHaveBeenCalledWith('interview.retryFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
-  it('processing_failed 時 retryFailed 失敗且 message 為空字串應使用 retryFail（F10 邊界）', async () => {
+  it('processing_failed 時 retryFailed 失敗且 message 為空字串應使用受控 code fallback（F10 邊界）', async () => {
     mockRetryFailed.mockRejectedValue({ code: 'SERVER_ERROR', message: '' });
     mockStoreState.currentSession = { id: 'test-session', status: 'processing_failed' };
     renderWithRouter();
     fireEvent.click(screen.getByText('interview.result.retry'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('interview.retryFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
-  it('processing_failed 時 retryFailed FORBIDDEN 且無 message 時應使用 retryFail（F06 權限邊界 fallback）', async () => {
+  it('processing_failed 時 retryFailed FORBIDDEN 且無 message 時應使用受控權限 fallback（F06 權限邊界）', async () => {
     mockRetryFailed.mockRejectedValue({ code: 'FORBIDDEN' });
     mockStoreState.currentSession = { id: 'test-session', status: 'processing_failed' };
     renderWithRouter();
     fireEvent.click(screen.getByText('interview.result.retry'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('interview.retryFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
@@ -301,7 +303,7 @@ describe('InterviewResult', () => {
     renderWithRouter();
     const retryBtn = screen.getByText('interview.result.retry');
     fireEvent.click(retryBtn);
-    await waitFor(() => expect(mockToastError).toHaveBeenCalledWith('network error'));
+    await waitFor(() => expect(mockToastError).toHaveBeenCalledWith('interview.retryFail'));
     fireEvent.click(retryBtn);
     await waitFor(() => {
       expect(mockRetryFailed).toHaveBeenCalledTimes(2);

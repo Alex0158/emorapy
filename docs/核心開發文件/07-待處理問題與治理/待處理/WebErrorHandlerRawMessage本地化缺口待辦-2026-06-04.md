@@ -4,7 +4,7 @@
 **文檔類型**：問題治理
 **覆蓋範圍**：Web legacy errorHandler API error toast normalization
 **取證代碼入口**：`frontend/src/utils/errorHandler.ts`、`frontend/src/utils/errorHandler.test.ts`
-**最後核驗 Commit**：`3d72635`
+**最後核驗 Commit**：`8ffb343`
 **最後核驗日期**：`2026-06-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -36,8 +36,11 @@
 ## Owner / Status Notes
 
 - Owner：agent
-- Status：已登記，待實作 / verification / commit / push。
+- Status：已完成本輪修復。`handleValidationError()` 未改，後續若確認 field-level validation array 來源未本地化，需另行登記。
 
 ## 2026-06-04 本輪結果
 
-待回填。
+1. `frontend/src/utils/errorHandler.ts` 的 `handleApiError()` 已不再讀取 raw top-level `message` / `Error.message` 作 toast 文案。
+2. 已知 `code` 仍沿用既有 code-to-catalog mapping，未知 code / 無 code 顯示 `common.unknownError`。
+3. `frontend/src/utils/errorHandler.test.ts` 已把 `new Error('自定義錯誤')`、`{ message: 'API錯誤' }` 的舊直出契約改為本地化 fallback；code mapping 測試保留。
+4. 已驗證：`npm --prefix frontend test -- src/utils/errorHandler.test.ts src/assets/i18n/catalogParity.test.ts` 通過 2 files / 15 tests；`npm --prefix frontend run build` 通過；`npm run docs:check` 通過；focused 掃描只剩測試 fixture 輸入值，無 raw message 期望。

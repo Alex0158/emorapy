@@ -4,7 +4,7 @@
 **文檔類型**：問題治理
 **覆蓋範圍**：Web 前台全局 request interceptor HTTP error toast、session refresh toast、request reject payload
 **取證代碼入口**：`frontend/src/services/request.ts`、`frontend/src/services/request.test.ts`、`frontend/src/services/requestPolicy.ts`、`frontend/src/assets/i18n`
-**最後核驗 Commit**：`5f98085`
+**最後核驗 Commit**：`b8768c1`
 **最後核驗日期**：`2026-06-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -44,7 +44,7 @@
 
 - `npm --prefix frontend test -- src/services/request.test.ts src/assets/i18n/catalogParity.test.ts`：通過 2 files / 64 tests。
 - `npm --prefix frontend run build`：通過。
-- `npm run docs:check`：待提交前執行。
+- `npm run docs:check`：通過。
 - 靜態復查已確認 `frontend/src/services/request.ts` HTTP toast 與 reject payload 一般分支不再直接使用 `errorData?.message` 作可見 fallback。
 
 ## 修復結果
@@ -57,4 +57,4 @@
 ## Owner / Status Notes
 
 - Owner：agent
-- Status：已修復，待提交。
+- Status：已修復，已提交。

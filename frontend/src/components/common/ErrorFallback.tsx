@@ -7,9 +7,8 @@ interface Props {
   resetError: () => void;
 }
 
-const ErrorFallback = ({ error, resetError }: Props) => {
-  const isDev = import.meta.env.DEV;
-  const message = isDev && error?.message ? error.message : t('errorFallback.unknown');
+const ErrorFallback = ({ resetError }: Props) => {
+  const message = t('errorFallback.unknown');
   return (
     <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 px-4 text-center">
       <AlertCircle className="size-12 text-destructive" />

@@ -46,7 +46,8 @@ describe('ErrorBoundary', () => {
         <ThrowError shouldThrow={true} />
       </ErrorBoundary>
     );
-    expect(screen.getByText(/發生錯誤|Something Went Wrong|error/i)).toBeInTheDocument();
+    expect(screen.getByText('頁面出錯了')).toBeInTheDocument();
+    expect(screen.queryByText('Test error')).not.toBeInTheDocument();
   });
 
   it('子組件拋錯時應調用 logger.error', () => {

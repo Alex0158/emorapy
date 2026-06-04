@@ -39,13 +39,14 @@ describe('ErrorFallback', () => {
     expect(screen.getByText('應用程序出現了問題，請稍後再試。')).toBeInTheDocument();
   });
 
-  it('有 error 時應顯示 error.message', () => {
+  it('有 error 時仍應顯示本地化 fallback 而非 error.message', () => {
     render(
       <MemoryRouter>
         <ErrorFallback error={new Error('自定義錯誤')} />
       </MemoryRouter>
     );
-    expect(screen.getByText('自定義錯誤')).toBeInTheDocument();
+    expect(screen.queryByText('自定義錯誤')).not.toBeInTheDocument();
+    expect(screen.getByText('應用程序出現了問題，請稍後再試。')).toBeInTheDocument();
   });
 
   it('點擊返回首頁應調用 navigate 與 resetError', async () => {

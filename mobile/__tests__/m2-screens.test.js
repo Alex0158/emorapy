@@ -247,6 +247,48 @@ describe('M2 Profile/Interview screens', () => {
     expect(screen.getByText('View My Story')).toBeTruthy();
   });
 
+  it('renders my story auth gate in the selected locale', async () => {
+    setLocale('en-US', { persist: false });
+    mockGetToken.mockResolvedValueOnce(null);
+
+    const screen = renderWithQuery(React.createElement(MyStoryScreen));
+
+    expect(await screen.findByText('Log in first')).toBeTruthy();
+    expect(screen.getByText('Data protection')).toBeTruthy();
+    expect(screen.getByText('No local preload')).toBeTruthy();
+    expect(screen.getByText('Log in or register')).toBeTruthy();
+  });
+
+  it('renders my story counts and actions in the selected locale', async () => {
+    setLocale('en-US', { persist: false });
+    mockGetPsychProfile.mockResolvedValueOnce({
+      consent_given: true,
+      narratives: [{ id: 'n1' }, { id: 'n2' }],
+      insights: [{ id: 'i1' }],
+      richness_score: 42,
+    });
+    mockGetFeedbackHistory.mockResolvedValueOnce({
+      history: [{
+        session_id: 'sess-1',
+        feedback_card: null,
+        domains_touched: [],
+        created_at: 'a',
+        updated_at: 'b',
+      }],
+    });
+
+    const screen = renderWithQuery(React.createElement(MyStoryScreen));
+
+    expect(await screen.findByText('Manageable')).toBeTruthy();
+    expect(screen.getAllByText('My Story').length).toBeGreaterThan(0);
+    expect(screen.getByText('2 entries')).toBeTruthy();
+    expect(screen.getByText('1 insights')).toBeTruthy();
+    expect(screen.getByText('1 rounds')).toBeTruthy();
+    expect(screen.getByText('Interview feedback 1')).toBeTruthy();
+    expect(screen.getByText('Feedback is still being organized')).toBeTruthy();
+    expect(screen.getByText('Back to personal context')).toBeTruthy();
+  });
+
   it('uses user-facing auth-gate wording before interview sync', async () => {
     mockGetToken.mockReturnValueOnce(null);
 

@@ -56,7 +56,7 @@ function isSharedClientInvalidResponseError(error: RequestErrorLike): boolean {
 }
 
 function isSharedClientInvalidResponseMessage(message: string): boolean {
-  return /^Invalid .+ response from server$/.test(message);
+  return /^Invalid .+ from server$/.test(message);
 }
 
 export function createAppApiClient(): AppApiClient {

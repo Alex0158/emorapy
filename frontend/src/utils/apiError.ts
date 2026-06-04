@@ -21,7 +21,7 @@ function normalizeVisibleErrorMessage(message: unknown): string | null {
   if (typeof message !== 'string') return null;
   const trimmed = message.trim();
   if (trimmed.length === 0) return null;
-  if (/^Invalid .+ response from server$/.test(trimmed)) {
+  if (/^Invalid .+ from server$/.test(trimmed)) {
     return t('apiError.invalidResponse');
   }
   return message;

@@ -54,6 +54,9 @@ describe('apiError', () => {
       expect(getErrorMessage(new Error('Invalid avatar upload response from server'))).toBe(
         '服務回應格式異常，請稍後再試'
       );
+      expect(getErrorMessage(new Error('Invalid interview response acknowledgement from server'))).toBe(
+        '服務回應格式異常，請稍後再試'
+      );
       expect(getErrorMessage({ error: { message: 'Invalid relationship profile response from server' } })).toBe(
         '服務回應格式異常，請稍後再試'
       );
@@ -61,6 +64,9 @@ describe('apiError', () => {
       await setLocaleReady('en-US');
 
       expect(getErrorMessage({ code: 'INVALID_CASE_RESPONSE', message: 'Invalid case response from server' })).toBe(
+        'The service response could not be read. Please try again later.'
+      );
+      expect(getErrorMessage({ code: 'INVALID_INTERVIEW_RESPONSE', message: 'Invalid interview skip acknowledgement from server' })).toBe(
         'The service response could not be read. Please try again later.'
       );
     });

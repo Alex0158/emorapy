@@ -195,6 +195,19 @@ describe('InterviewResult', () => {
     });
   });
 
+  it('processing_failed 時 retryFailed shared invalid acknowledgement fallback 應本地化', async () => {
+    mockRetryFailed.mockRejectedValue({
+      code: 'INVALID_INTERVIEW_RESPONSE',
+      message: 'Invalid interview response acknowledgement from server',
+    });
+    mockStoreState.currentSession = { id: 'test-session', status: 'processing_failed' };
+    renderWithRouter();
+    fireEvent.click(screen.getByText('interview.result.retry'));
+    await waitFor(() => {
+      expect(mockToastError).toHaveBeenCalledWith('apiError.invalidResponse');
+    });
+  });
+
   it('processing_failed 時 retryFailed 失敗且無 message 應顯示 interview.retryFail', async () => {
     mockRetryFailed.mockRejectedValue({ code: 'SERVER_ERROR' });
     mockStoreState.currentSession = { id: 'test-session', status: 'processing_failed' };

@@ -161,12 +161,25 @@ describe('App API platform adapter', () => {
       code: 'INVALID_PROFILE_RESPONSE',
       message: 'The service response could not be read. Please try again later.',
     });
+
+    expect(client.normalizeError({
+      code: 'INVALID_INTERVIEW_RESPONSE',
+      message: 'Invalid interview skip acknowledgement from server',
+    })).toEqual({
+      code: 'INVALID_INTERVIEW_RESPONSE',
+      message: 'The service response could not be read. Please try again later.',
+    });
   });
 
   it('localizes fixed app Error fallback messages used by streams', () => {
     const client = createAppApiClient();
 
     expect(client.normalizeError(new Error('Invalid chat room response from server'))).toEqual({
+      code: 'INVALID_RESPONSE',
+      message: '服務回應格式異常，請稍後再試。',
+    });
+
+    expect(client.normalizeError(new Error('Invalid interview response acknowledgement from server'))).toEqual({
       code: 'INVALID_RESPONSE',
       message: '服務回應格式異常，請稍後再試。',
     });

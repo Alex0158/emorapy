@@ -3,7 +3,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import type { CaseType } from './caseType';
-import { CASE_TYPES, getCaseTypeColor, getCaseTypeIcon } from './caseType';
+import { CASE_TYPES, getCaseTypeColor, getCaseTypeI18nKey, getCaseTypeIcon } from './caseType';
 
 describe('caseType', () => {
   describe('CASE_TYPES', () => {
@@ -30,6 +30,16 @@ describe('caseType', () => {
 
     it('未知類型應返回預設灰色', () => {
       expect(getCaseTypeColor('未知' as unknown as CaseType)).toBe('#8C8C8C');
+    });
+  });
+
+  describe('getCaseTypeI18nKey', () => {
+    it('已知類型應返回對應 i18n key', () => {
+      expect(getCaseTypeI18nKey('生活習慣衝突')).toBe('caseList.typeLife');
+    });
+
+    it('未知類型應返回 undefined 以保留呼叫端 fallback', () => {
+      expect(getCaseTypeI18nKey('未知')).toBeUndefined();
     });
   });
 

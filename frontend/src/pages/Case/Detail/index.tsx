@@ -28,6 +28,7 @@ import { logger } from '@/utils/logger';
 import { getCaseStatusTag, getCaseTypeTag } from '@/utils/statusTags';
 import { getErrorMessage } from '@/utils/apiError';
 import { t } from '@/utils/i18n';
+import { getCaseTypeI18nKey } from '@/utils/caseType';
 
 const CaseDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -144,6 +145,8 @@ const CaseDetail = () => {
   }
 
   const modeLabel = case_.mode === 'remote' ? t('caseDetail.modeRemote') : case_.mode === 'collaborative' ? t('caseDetail.modeCollaborative') : t('caseDetail.modeQuick');
+  const caseTypeI18nKey = getCaseTypeI18nKey(case_.type);
+  const caseTypeLabel = caseTypeI18nKey ? t(caseTypeI18nKey) : case_.type;
   const isDefendant = user?.id === case_.defendant_id;
   const isPlaintiff = user?.id === case_.plaintiff_id;
   const needsDefendantResponse = case_.status === 'draft' && (case_.mode === 'remote' || case_.mode === 'collaborative') && !case_.defendant_statement;
@@ -177,7 +180,7 @@ const CaseDetail = () => {
         <div className="mb-8 rounded-xl border border-border bg-card p-5">
           <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2" aria-label={t('caseDetail.descLabel')}>
             <InfoItem label={t('caseDetail.caseId')} value={case_.id} />
-            <InfoItem label={t('caseDetail.caseType')} value={case_.type} />
+            <InfoItem label={t('caseDetail.caseType')} value={caseTypeLabel} />
             <InfoItem label={t('caseDetail.subType')} value={case_.sub_type || t('caseDetail.subTypeNone')} />
             <InfoItem label={t('caseDetail.mode')} value={modeLabel} />
             <InfoItem label={t('caseDetail.createdAt')} value={formatDateTime(case_.created_at)} />

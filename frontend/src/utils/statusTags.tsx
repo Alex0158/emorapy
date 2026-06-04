@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Clock, CheckCircle, Flame, RefreshCw, XCircle, AlertCircle } from 'lucide-react';
 import { t } from '@/utils/i18n';
 import type { CaseStatus } from '@/types/case';
+import { getCaseTypeI18nKey } from '@/utils/caseType';
 
 const CASE_STATUS_KEYS: Record<CaseStatus, string> = {
   draft: 'caseList.statusDraft',
@@ -106,14 +107,7 @@ export function getPlanTypeTagColor(type: string): string {
 }
 
 export function getCaseTypeTag(type: string): React.ReactNode {
-  const i18nMap: Record<string, string> = {
-    '生活習慣衝突': 'caseList.typeLife',
-    '消費決策衝突': 'caseList.typeConsumption',
-    '社交關係衝突': 'caseList.typeSocial',
-    '價值觀衝突': 'caseList.typeValues',
-    '情感需求衝突': 'caseList.typeEmotion',
-    '其他衝突': 'caseList.typeOther',
-  };
-  const label = i18nMap[type] ? t(i18nMap[type]) : type;
+  const i18nKey = getCaseTypeI18nKey(type);
+  const label = i18nKey ? t(i18nKey) : type;
   return <Badge variant="outline" className="text-[11px]">{label}</Badge>;
 }

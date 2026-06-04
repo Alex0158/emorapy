@@ -103,6 +103,8 @@ describe('CaseDetail', () => {
     await waitFor(() => {
       expect(mockGetCase).toHaveBeenCalledWith('c1');
     });
+    expect(screen.getAllByText('caseList.typeLife')).toHaveLength(2);
+    expect(screen.queryByText('生活習慣衝突')).not.toBeInTheDocument();
   });
 
   it('loading 時應顯示 loading spinner', () => {

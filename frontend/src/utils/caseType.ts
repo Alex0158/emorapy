@@ -29,6 +29,10 @@ export const CASE_TYPE_I18N_KEYS: Record<CaseType, string> = {
   '其他衝突': 'caseList.typeOther',
 };
 
+export function getCaseTypeI18nKey(type: string): string | undefined {
+  return (CASE_TYPE_I18N_KEYS as Record<string, string>)[type];
+}
+
 /**
  * 獲取案件類型標籤顏色
  */
@@ -58,4 +62,3 @@ export function getCaseTypeIcon(type: CaseType): string {
   };
   return iconMap[type] || '❓';
 }
-

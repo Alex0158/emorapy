@@ -4,8 +4,8 @@
 **文檔類型**：問題治理
 **覆蓋範圍**：Web Interview store error state、stream failure fallback、focused tests
 **取證代碼入口**：`frontend/src/store/interviewStoreUtils.ts`、`frontend/src/store/interviewStore.ts`、`frontend/src/store/interviewStoreUtils.test.ts`、`frontend/src/store/interviewStore.test.ts`
-**最後核驗 Commit**：`2b5b577`
-**最後核驗日期**：`2026-06-04`
+**最後核驗 Commit**：`e2677e9`
+**最後核驗日期**：`2026-06-05`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 ## 問題
@@ -64,6 +64,12 @@
 1. `npm --prefix frontend test -- src/store/interviewStoreUtils.test.ts src/store/interviewStore.test.ts src/utils/apiError.test.ts src/assets/i18n/catalogParity.test.ts` 通過 4 files / 76 tests。
 2. `npm --prefix frontend run build` 通過。
 3. 靜態掃描確認 `frontend/src/store/interviewStore.ts` / `frontend/src/store/interviewStoreUtils.ts` 不再存在 `info.message || t(...)`、`getLocalizedMessageFallback`、`return message;` 或 focused test raw message 直出 expectation。
+
+## 2026-06-05 歸檔復核
+
+1. 復核現碼確認 Interview store error state 已走 shared `getErrorMessage()` normalization，respond / start / end / get / retry / stream failure 均使用業務 fallback key 或 code mapping，不再讓一般 raw `message` 覆蓋語系。
+2. 復核 `applyStreamSafetyAlert(data.message)` 仍屬本待辦明確排除邊界；safety alert payload 由後續專門任務治理。
+3. 已驗證：`npm --prefix frontend test -- src/store/interviewStoreUtils.test.ts src/store/interviewStore.test.ts src/utils/apiError.test.ts src/assets/i18n/catalogParity.test.ts` 通過 4 files / 77 tests；`npm --prefix frontend run build` 通過。
 
 ## 後續邊界
 

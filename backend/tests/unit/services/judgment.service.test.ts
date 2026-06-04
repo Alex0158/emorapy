@@ -225,6 +225,38 @@ describe('JudgmentService', () => {
       expect(sessionServiceMock.markSessionCompleted).toHaveBeenCalledWith('s1');
     });
 
+    it('應把請求 locale 傳入情感分析與判決生成', async () => {
+      prismaMock.judgment.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+      prismaMock.case.findUnique.mockResolvedValueOnce(baseCase({
+        session_id: null,
+        quick_sessions: [{ id: 's1' }],
+      }));
+      aiServiceMock.generateJudgment.mockResolvedValueOnce({
+        content: 'English judgment',
+        responsibilityRatio: { plaintiff: 55, defendant: 45 },
+        summary: 'English summary',
+      });
+      prismaMock.judgment.create.mockResolvedValueOnce({ id: 'j-en', case_id: 'case-1' });
+
+      const service = new JudgmentService();
+      await service.generateJudgment('case-1', { sessionId: 's1', locale: 'en-US' });
+
+      expect(aiServiceMock.analyzeEmotionalDynamics).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(String),
+        expect.any(Object),
+        undefined,
+        expect.objectContaining({ requestKind: 'judgment_emotional_analysis' }),
+        'en-US',
+      );
+      expect(aiServiceMock.generateJudgment).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(String),
+        expect.any(String),
+        expect.objectContaining({ locale: 'en-US' }),
+      );
+    });
+
     it('collaborative 模式使用匹配 sessionId 時應允許生成判決', async () => {
       prismaMock.judgment.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
       prismaMock.case.findUnique.mockResolvedValueOnce(

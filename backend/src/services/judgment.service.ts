@@ -385,6 +385,7 @@ export class JudgmentService {
   async generateJudgment(caseId: string, options?: { userId?: string; sessionId?: string; locale?: BackendLocale }) {
     const lockKey = `judgment:lock:${caseId}`;
     let aiUsed = false;
+    const locale = options?.locale ?? 'zh-TW';
     const streamHandle = await aiStreamService.createStream('case_judgment', caseId);
 
     // 使用分布式鎖防止並發生成
@@ -772,7 +773,8 @@ export class JudgmentService {
             {
               ...aiLedgerBase,
               requestKind: 'judgment_emotional_analysis',
-            }
+            },
+            locale
           );
 
           routeDecision = safetyRoutingService.decideRoute({
@@ -807,6 +809,7 @@ export class JudgmentService {
                   route: routeDecision.route,
                 },
               },
+              locale,
             }
           );
 

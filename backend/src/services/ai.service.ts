@@ -73,6 +73,23 @@ interface ResponsibilityAssessment {
   confidence?: number;
 }
 
+function buildVisibleOutputLanguageInstruction(locale: BackendLocale): string {
+  if (locale === 'en-US') {
+    return [
+      'Output language requirement:',
+      '- All user-visible natural language you generate must be in natural English.',
+      '- Keep JSON field names, enum values, IDs, and machine-readable contract values exactly as specified.',
+      '- Do not translate user-provided original statements inside fenced input blocks; when summarizing or explaining them, write the new explanation in English.',
+    ].join('\n');
+  }
+  return [
+    '輸出語言要求：',
+    '- 所有你新生成、會顯示給用戶看的自然語言內容必須使用繁體中文。',
+    '- JSON 欄位名、枚舉值、ID 與機器可讀契約值必須保持既有規格，不要翻譯。',
+    '- 不要改寫 fenced input block 內的用戶原始陳述；若要摘要或說明，請用繁體中文生成新的說明。',
+  ].join('\n');
+}
+
 export const DEFAULT_EMOTIONAL_ANALYSIS: EmotionalAnalysis = {
   severity: 'moderate',
   personA: {
@@ -96,6 +113,99 @@ export const DEFAULT_EMOTIONAL_ANALYSIS: EmotionalAnalysis = {
   safetyFlags: [],
   suggestedApproach: '先肯定 A 的失望是真實的，同時也讓 B 的努力被看見。然後引導雙方看到：A 的翻舊帳是因為之前的傷沒有被處理過；B 的沉默不是不在乎，是不知道怎麼回應才對。因為 B 還在 precontemplation 階段，先用動機式訪談開啟覺察，而非直接給建議。最後教他們如何在「觸發瞬間」做不同的選擇',
 };
+
+const DEFAULT_EMOTIONAL_ANALYSIS_EN_US: EmotionalAnalysis = {
+  severity: 'moderate',
+  personA: {
+    primaryFeelings: 'disappointment, feeling overlooked, emotional hurt',
+    unmetNeeds: 'to feel valued, prioritized, and emotionally important',
+    communicationPattern: 'pursuing reassurance through repeated questions and revisiting old hurts',
+    readinessStage: 'preparation',
+  },
+  personB: {
+    primaryFeelings: 'pressure, helplessness, feeling misunderstood',
+    unmetNeeds: 'to have effort recognized and to be understood before being criticized',
+    communicationPattern: 'withdrawing or delaying responses as self-protection under stress',
+    readinessStage: 'contemplation',
+  },
+  interactionCycle: 'pursue-withdraw cycle: A seeks reassurance, B feels pressured and retreats, then A reads the retreat as not caring and pursues harder',
+  triggerPattern: 'moments when a prepared gesture or expectation is missed without timely communication',
+  coreIssue: 'both people are asking whether they still matter to each other, but they ask through different signals',
+  secondaryIssues: ['mismatched time expectations', 'different ways of expressing care'],
+  relationshipStrengths: 'A is still willing to invest care, and B still shows up even under pressure; both are still trying in different ways',
+  gottmanFlags: ['criticism pattern', 'stonewalling pattern'],
+  safetyFlags: [],
+  suggestedApproach: 'first name the pursue-withdraw cycle, then build a safer replacement for communication',
+};
+
+function buildFallbackEmotionalAnalysis(
+  plaintiffStatement: string,
+  defendantStatement: string,
+  locale: BackendLocale
+): EmotionalAnalysis {
+  const fallback: EmotionalAnalysis = locale === 'en-US'
+    ? {
+      severity: 'moderate',
+      personA: {
+        primaryFeelings: '(Pre-analysis was not completed. Identify A core emotions directly from A original statement.)',
+        unmetNeeds: '(Understand A unmet needs directly from A statement.)',
+        communicationPattern: '(Identify A communication pattern directly from A statement.)',
+      },
+      personB: {
+        primaryFeelings: '(Pre-analysis was not completed. Identify B core emotions directly from B original statement.)',
+        unmetNeeds: '(Understand B unmet needs directly from B statement.)',
+        communicationPattern: '(Identify B communication pattern directly from B statement.)',
+      },
+      interactionCycle: '(Analyze the interaction cycle directly from both statements.)',
+      triggerPattern: '(Identify which moments or situations trigger the conflict cycle.)',
+      coreIssue: '(Identify the core issue underneath the surface conflict.)',
+      relationshipStrengths: '(Find what is still working in the relationship and why they have not fully given up.)',
+      secondaryIssues: [],
+      gottmanFlags: [],
+      safetyFlags: [],
+      suggestedApproach: 'The initial emotional dynamics analysis was not completed. Work directly from both original statements, use NVC, EFT, and Gottman-informed relationship communication frameworks, assess each person readiness for change, and shape support accordingly. Use motivational interviewing for someone still in precontemplation rather than action advice.',
+    }
+    : {
+      severity: 'moderate',
+      personA: {
+        primaryFeelings: '（前置分析未完成——請直接從角色 A 的原始陳述中識別核心情緒）',
+        unmetNeeds: '（請直接從角色 A 的陳述中理解未被滿足的需求）',
+        communicationPattern: '（請直接從角色 A 的陳述中識別溝通模式）',
+      },
+      personB: {
+        primaryFeelings: '（前置分析未完成——請直接從角色 B 的原始陳述中識別核心情緒）',
+        unmetNeeds: '（請直接從角色 B 的陳述中理解未被滿足的需求）',
+        communicationPattern: '（請直接從角色 B 的陳述中識別溝通模式）',
+      },
+      interactionCycle: '（請直接從雙方陳述中分析他們之間的互動循環模式）',
+      triggerPattern: '（請直接從陳述中識別什麼情境會觸發他們的衝突循環）',
+      coreIssue: '（請直接從陳述中識別核心議題——表面衝突底下真正在問的問題是什麼）',
+      relationshipStrengths: '（請從陳述中尋找這段關係仍在運作的元素——他們為什麼還沒放棄）',
+      secondaryIssues: [],
+      gottmanFlags: [],
+      safetyFlags: [],
+      suggestedApproach: '前置情感動態整理未能完成。請你直接從雙方的原始陳述出發，自行運用 NVC、EFT、Gottman 框架整理互動重點，同時評估雙方各自的改變準備度（Prochaska 跨理論模型：precontemplation / contemplation / preparation / action / maintenance），並據此決定支持方式和回應結構——對尚在前意識期的人用動機式訪談而非行動建議。',
+    };
+
+  const combined = `${plaintiffStatement} ${defendantStatement || ''}`;
+  const detectedFlags: string[] = [];
+  if (IPV_SIGNAL_REGEX.test(combined)) {
+    detectedFlags.push(locale === 'en-US' ? 'control or violence signal (regex fallback)' : '控制行為或暴力信號（兜底偵測）');
+  }
+  if (CRISIS_SIGNAL_REGEX.test(combined)) {
+    detectedFlags.push(locale === 'en-US' ? 'self-harm or suicide risk signal (regex fallback)' : '自傷或自殺風險信號（兜底偵測）');
+  }
+  if (detectedFlags.length > 0) {
+    fallback.safetyFlags = detectedFlags;
+    const hasHighRisk = detectedFlags.some(f => /自傷|自殺|暴力|violence|self-harm|suicide/.test(f));
+    fallback.severity = hasHighRisk ? 'serious' : 'moderate';
+    logger.warn('Safety signals detected via regex fallback after analysis failure', {
+      flags: detectedFlags,
+      severity: fallback.severity,
+    });
+  }
+  return fallback;
+}
 
 export interface ReconciliationPlan {
   title: string;
@@ -611,15 +721,16 @@ ${fenceUserInput('角色B陳述', defendantStatement)}
     defendantStatement: string,
     signal?: AbortSignal,
     psychHint?: string,
-    ledger?: AIRequestLedgerStartInput
+    ledger?: AIRequestLedgerStartInput,
+    locale: BackendLocale = 'zh-TW'
   ): Promise<EmotionalAnalysis> {
     if (this.useMock) {
-      return DEFAULT_EMOTIONAL_ANALYSIS;
+      return locale === 'en-US' ? DEFAULT_EMOTIONAL_ANALYSIS_EN_US : DEFAULT_EMOTIONAL_ANALYSIS;
     }
 
     const cacheKey = CacheService.generateHashKey(
       'emotionalAnalysis',
-      plaintiffStatement + defendantStatement + (psychHint || '')
+      plaintiffStatement + defendantStatement + (psychHint || '') + locale
     );
 
     const cached = await this.cache.get<EmotionalAnalysis>(cacheKey);
@@ -632,7 +743,11 @@ ${fenceUserInput('角色B陳述', defendantStatement)}
       ? `\n${psychHint}\n\n重要：以上背景僅作為輔助線索，最終分析必須以本次陳述的具體內容為準。背景信息用於幫助你更準確地解讀陳述中的情感模式，而非預先下結論。\n`
       : '';
 
-    const prompt = `你是 Emorapy 的 AI 關係梳理助手，正在對一對伴侶的衝突進行情感動態整理。
+    const languageInstruction = buildVisibleOutputLanguageInstruction(locale);
+
+    const prompt = `${languageInstruction}
+
+你是 Emorapy 的 AI 關係梳理助手，正在對一對伴侶的衝突進行情感動態整理。
 請仔細閱讀以下兩段陳述，運用關係溝通與安全評估框架整理重點。
 ${psychSection}
 角色 A 的描述：
@@ -766,41 +881,7 @@ severity 評估標準：
     } catch (error) {
       logger.warn('Emotional analysis failed, using generic fallback', { error });
 
-      const fallback: EmotionalAnalysis = {
-        severity: 'moderate',
-        personA: {
-          primaryFeelings: '（前置分析未完成——請直接從角色 A 的原始陳述中識別核心情緒）',
-          unmetNeeds: '（請直接從角色 A 的陳述中理解未被滿足的需求）',
-          communicationPattern: '（請直接從角色 A 的陳述中識別溝通模式）',
-        },
-        personB: {
-          primaryFeelings: '（前置分析未完成——請直接從角色 B 的原始陳述中識別核心情緒）',
-          unmetNeeds: '（請直接從角色 B 的陳述中理解未被滿足的需求）',
-          communicationPattern: '（請直接從角色 B 的陳述中識別溝通模式）',
-        },
-        interactionCycle: '（請直接從雙方陳述中分析他們之間的互動循環模式）',
-        triggerPattern: '（請直接從陳述中識別什麼情境會觸發他們的衝突循環）',
-        coreIssue: '（請直接從陳述中識別核心議題——表面衝突底下真正在問的問題是什麼）',
-        relationshipStrengths: '（請從陳述中尋找這段關係仍在運作的元素——他們為什麼還沒放棄）',
-        secondaryIssues: [],
-        gottmanFlags: [],
-        safetyFlags: [],
-        suggestedApproach: '前置情感動態整理未能完成。請你直接從雙方的原始陳述出發，自行運用 NVC、EFT、Gottman 框架整理互動重點，同時評估雙方各自的改變準備度（Prochaska 跨理論模型：precontemplation / contemplation / preparation / action / maintenance），並據此決定支持方式和回應結構——對尚在前意識期的人用動機式訪談而非行動建議。',
-      };
-      const combined = `${plaintiffStatement} ${defendantStatement || ''}`;
-      const detectedFlags: string[] = [];
-      if (IPV_SIGNAL_REGEX.test(combined)) detectedFlags.push('控制行為或暴力信號（兜底偵測）');
-      if (CRISIS_SIGNAL_REGEX.test(combined)) detectedFlags.push('自傷或自殺風險信號（兜底偵測）');
-      if (detectedFlags.length > 0) {
-        fallback.safetyFlags = detectedFlags;
-        const hasHighRisk = detectedFlags.some(f => /自傷|自殺|暴力/.test(f));
-        fallback.severity = hasHighRisk ? 'serious' : 'moderate';
-        logger.warn('Safety signals detected via regex fallback after analysis failure', {
-          flags: detectedFlags,
-          severity: fallback.severity,
-        });
-      }
-      return fallback;
+      return buildFallbackEmotionalAnalysis(plaintiffStatement, defendantStatement, locale);
     }
   }
 
@@ -820,9 +901,32 @@ severity 評估標準：
       routeType?: JudgmentRoute;
       prefetchedAnalysis?: EmotionalAnalysis;
       ledger?: AIRequestLedgerStartInput;
+      locale?: BackendLocale;
     }
   ): Promise<JudgmentResponse> {
+    const locale = options?.locale ?? 'zh-TW';
     if (this.useMock) {
+      if (locale === 'en-US') {
+        const content = `## I hear both of you
+
+Thank you for writing this down. The core conflict is not only about being late. It is about whether each person still feels prioritized, seen, and emotionally safe in the relationship.
+
+### What seems to be happening
+
+Role A may have experienced the missed dinner as a sign that their care and preparation were invisible. Role B may have been trying to handle pressure at work, but the delayed communication left A alone with disappointment and uncertainty.
+
+The pattern looks like a pursue-withdraw cycle: A seeks reassurance when feeling unimportant, B becomes pressured and pulls back, and that silence makes A feel even less secure.
+
+### What can help
+
+Start with a small repair agreement: when plans change, send a short message before the other person is left waiting. Keep each conversation focused on one recent moment rather than the whole history at once. The goal is not to prove who cared more, but to help care become visible in a language both people can receive.`;
+        return {
+          content,
+          responsibilityRatio: { plaintiff: 55, defendant: 45 },
+          summary: 'The core issue is not lateness alone, but whether each person still feels important and emotionally safe. A seeks reassurance through prepared moments, while B often responds to pressure by withdrawing. A small repair agreement around timely updates and one-topic conversations can help rebuild trust.',
+          emotionalAnalysis: DEFAULT_EMOTIONAL_ANALYSIS_EN_US,
+        };
+      }
       const content = `## 我聽見你們了
 
 謝謝你們願意把這些寫下來。我知道這些話裡面有很多是積壓了很久的，光是願意說出口，就已經是在為這段關係做一件很勇敢的事。
@@ -944,7 +1048,8 @@ severity 評估標準：
         ...options.ledger,
         requestKind: 'emotional_analysis',
         promptVersion: options.ledger.promptVersion || getAIPromptVersion('judgment_emotional_analysis'),
-      } : undefined
+      } : undefined,
+      locale
     );
 
     // Phase 1：基於分析結果生成個性化回應（高溫度、富表達）
@@ -954,7 +1059,8 @@ severity 評估標準：
       defendantStatement,
       analysis,
       options?.profileContext,
-      routeType
+      routeType,
+      locale
     );
 
     try {
@@ -996,7 +1102,8 @@ severity 評估標準：
           ...options.ledger,
           requestKind: 'judgment_summary',
           promptVersion: options.ledger.promptVersion || getAIPromptVersion('judgment_summary'),
-        } : undefined
+        } : undefined,
+        locale
       );
 
       return {
@@ -1020,7 +1127,8 @@ severity 評估標準：
     defendantStatement: string,
     analysis: EmotionalAnalysis,
     profileContext?: string,
-    routeType: JudgmentRoute = 'standard'
+    routeType: JudgmentRoute = 'standard',
+    locale: BackendLocale = 'zh-TW'
   ): string {
     const severityGuide = {
       mild: '這是一個相對輕微的日常摩擦。語氣可以輕鬆一些，帶一點幽默感也沒關係。重點放在具體的解決方案上。',
@@ -1074,7 +1182,11 @@ severity 評估標準：
 - 「調整方向」可改為非對稱表述，避免對受害方產生責備感`
         : '';
 
-    return `你正在為一對伴侶提供關係溝通輔導。${analysisIncomplete
+    const languageInstruction = buildVisibleOutputLanguageInstruction(locale);
+
+    return `${languageInstruction}
+
+你正在為一對伴侶提供關係溝通輔導。${analysisIncomplete
       ? '由於技術原因，前置的情感動態整理未能完成。你需要直接從雙方的原始陳述出發，自行運用 NVC、EFT、Gottman 等關係溝通框架整理重點，並評估雙方各自的改變準備度（Prochaska 跨理論模型），然後把你的理解轉化為一份溫暖的、讓雙方都覺得「被理解」的回應。以下部分資訊仍可作為參考。'
       : '你已經完成了情感動態整理，現在要把你的理解轉化為一份溫暖的、讓雙方都覺得「被理解」的回應。'}
 
@@ -1614,9 +1726,13 @@ ${content.substring(0, 1200)}
     content: string,
     signal?: AbortSignal,
     relationshipBrief?: string,
-    ledger?: AIRequestLedgerStartInput
+    ledger?: AIRequestLedgerStartInput,
+    locale: BackendLocale = 'zh-TW'
   ): Promise<string> {
     if (this.useMock) {
+      if (locale === 'en-US') {
+        return 'One person expresses love through carefully prepared moments, while the other expresses love through effort and responsibility. The deeper issue is not lateness alone, but the need to feel important and emotionally safe. Start by making care visible when plans change.';
+      }
       return '一方用準備驚喜來表達愛，另一方用努力工作來表達愛——但這兩種愛的語言沒有被翻譯成對方能懂的。核心不是遲到，而是「我重不重要」的安全感。建議先建立「遲到時也能感到被在乎」的溝通機制，再慢慢處理過去累積的傷。';
     }
     const contextNote = relationshipBrief
@@ -1631,7 +1747,11 @@ ${content.substring(0, 1200)}
       ? '\n重要：原文中反映出一方或雙方有結束關係的意向。摘要中必須保留這個方向性信號（例如「她已決定分開」「建議方向是帶著尊重好好告別」）——不要將其淡化為一般衝突或省略，因為後續方案設計需要依據此信號調整方向。此情境的「希望感」應聚焦在個人成長與療癒，而非關係挽回。\n'
       : '';
 
-    const prompt = `以下是一份關係溝通輔導的回應。請用 80-150 字寫一段溫暖的摘要，重點放在：這對伴侶之間的核心議題是什麼、他們的互動模式、以及建議的方向是什麼。
+    const languageInstruction = buildVisibleOutputLanguageInstruction(locale);
+
+    const prompt = `${languageInstruction}
+
+以下是一份關係溝通輔導的回應。請用 80-150 字寫一段溫暖的摘要，重點放在：這對伴侶之間的核心議題是什麼、他們的互動模式、以及建議的方向是什麼。
 
 語氣要溫暖、有希望感，像在給朋友概括一次有收穫的對話。不要使用「判決」「裁定」「案件」等法律用語。
 ${safetyPreserve}${separationPreserve}${contextNote}

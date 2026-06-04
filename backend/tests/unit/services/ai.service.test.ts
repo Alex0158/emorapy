@@ -158,6 +158,20 @@ describe('AIService (useMock)', () => {
       expect(ea.gottmanFlags).toContain('批評（翻舊帳模式）');
       expect(ea.suggestedApproach).toBeTruthy();
     });
+
+    it('useMock 且 en-US 時應返回英文判決可見內容', async () => {
+      const result = await service.generateJudgment(
+        '生活習慣衝突',
+        '原告陳述',
+        '被告陳述',
+        { locale: 'en-US' },
+      );
+
+      expect(result.content).toContain('I hear both of you');
+      expect(result.summary).toContain('emotionally safe');
+      expect(result.emotionalAnalysis?.coreIssue).toContain('both people are asking');
+      expect(`${result.content} ${result.summary} ${result.emotionalAnalysis?.coreIssue}`).not.toMatch(/[\u4e00-\u9fff]/);
+    });
   });
 
   describe('generateSummary', () => {
@@ -165,6 +179,12 @@ describe('AIService (useMock)', () => {
       const result = await service.generateSummary('判決書內容...');
       expect(result).toContain('愛的語言');
       expect(result).toContain('安全感');
+    });
+
+    it('useMock 且 en-US 時應返回英文摘要', async () => {
+      const result = await service.generateSummary('Judgment content...', undefined, undefined, undefined, 'en-US');
+      expect(result).toContain('emotionally safe');
+      expect(result).not.toMatch(/[\u4e00-\u9fff]/);
     });
   });
 
@@ -427,9 +447,75 @@ describe('AIService (non-useMock)', () => {
       const result = await service.analyzeEmotionalDynamics('A', 'B');
       expect(result.severity).toBe('moderate');
     });
+
+    it('en-US 時應在情感分析 prompt 中要求英文可見值且 cache key 含 locale', async () => {
+      openaiCreateMock.mockReset();
+      const analysis = {
+        severity: 'moderate',
+        personA: { primaryFeelings: 'hurt', unmetNeeds: 'care', communicationPattern: 'pursues reassurance' },
+        personB: { primaryFeelings: 'pressure', unmetNeeds: 'space', communicationPattern: 'withdraws' },
+        interactionCycle: 'pursue-withdraw',
+        triggerPattern: 'late replies',
+        coreIssue: 'safety',
+        relationshipStrengths: 'still trying',
+        gottmanFlags: [],
+        safetyFlags: [],
+        suggestedApproach: 'slow down first',
+      };
+      (cacheGetMock as any).mockResolvedValueOnce(null);
+      (openaiCreateMock as any).mockResolvedValueOnce({
+        choices: [{ message: { content: JSON.stringify(analysis) } }],
+      });
+
+      await service.analyzeEmotionalDynamics('A statement', 'B statement', undefined, undefined, undefined, 'en-US');
+
+      expect(CacheServiceHashKeyMock).toHaveBeenCalledWith('emotionalAnalysis', expect.stringContaining('en-US'));
+      const request = (openaiCreateMock as any).mock.calls[0][0];
+      const userMessage = request.messages.find((message: { role: string }) => message.role === 'user');
+      expect(userMessage.content).toContain('Output language requirement');
+      expect(userMessage.content).toContain('must be in natural English');
+      expect(userMessage.content).toContain('Keep JSON field names');
+    });
   });
 
   describe('generateJudgment', () => {
+    it('en-US 時應在判決草稿與摘要 prompt 中要求英文可見內容', async () => {
+      openaiCreateMock.mockReset();
+      const analysis = {
+        severity: 'moderate' as const,
+        personA: { primaryFeelings: 'hurt', unmetNeeds: 'care', communicationPattern: 'pursues reassurance' },
+        personB: { primaryFeelings: 'pressure', unmetNeeds: 'space', communicationPattern: 'withdraws' },
+        interactionCycle: 'pursue-withdraw',
+        triggerPattern: 'late replies',
+        coreIssue: 'safety',
+        relationshipStrengths: 'still trying',
+        gottmanFlags: [],
+        safetyFlags: [],
+        suggestedApproach: 'slow down first',
+      };
+      (openaiCreateMock as any)
+        .mockResolvedValueOnce({ choices: [{ message: { content: 'English judgment draft' } }] })
+        .mockResolvedValueOnce({ choices: [{ message: { content: '{"plaintiff":50,"defendant":50,"confidence":1}' } }] })
+        .mockResolvedValueOnce({ choices: [{ message: { content: 'English summary' } }] });
+
+      const result = await service.generateJudgment(
+        'relationship conflict',
+        'A statement',
+        'B statement',
+        { locale: 'en-US', prefetchedAnalysis: analysis },
+      );
+
+      expect(result.content).toBe('English judgment draft');
+      expect(result.summary).toBe('English summary');
+      const userMessages = (openaiCreateMock as any).mock.calls.map((call: any[]) =>
+        call[0].messages.find((message: { role: string }) => message.role === 'user')?.content || '',
+      );
+      expect(userMessages[0]).toContain('Output language requirement');
+      expect(userMessages[0]).toContain('must be in natural English');
+      expect(userMessages[2]).toContain('Output language requirement');
+      expect(userMessages[2]).toContain('must be in natural English');
+    });
+
     it('應優先採用結構化責任分輸出（confidence=1）', async () => {
       const analysis = {
         severity: 'moderate',

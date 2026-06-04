@@ -293,7 +293,7 @@ export const useInterviewStore = create<InterviewState>((set, get) => {
   applyStreamSafetyAlert: (data) => {
     set({
       safetyAlert: {
-        message: data.message || t('interview.respondFail'),
+        message: data.message || t('interview.safetyAlert'),
         severity: normalizeSafetyAlertSeverity(data.severity),
       },
     });

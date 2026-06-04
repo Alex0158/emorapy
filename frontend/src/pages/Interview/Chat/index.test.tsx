@@ -339,6 +339,37 @@ describe('InterviewChat', () => {
     });
   });
 
+  it('收到 safety_alert phase 時應交給 store 顯示 backend 受控文案', async () => {
+    mockStoreState.currentSession = { id: 'test-session', status: 'in_progress' };
+    mockConnectAIStream.mockImplementation(async (_scope: string, _scopeId: string, callbacks: { onEvent?: (payload: Record<string, unknown>) => void }) => {
+      queueMicrotask(() => {
+        callbacks.onEvent?.({
+          eventType: 'stream.phase',
+          phase: 'safety_alert',
+          streamId: 'stream-safety',
+          requestId: 'request-safety',
+          scopeType: 'interview_session',
+          scopeId: 'test-session',
+          seq: 10,
+          createdAt: new Date().toISOString(),
+          metadata: {
+            message: 'We detected a possible safety risk and switched to a safety-first response.',
+            severity: 'warning',
+          },
+        });
+      });
+      return () => undefined;
+    });
+
+    renderWithRouter();
+    await waitFor(() => {
+      expect(mockApplyStreamSafetyAlert).toHaveBeenCalledWith({
+        message: 'We detected a possible safety risk and switched to a safety-first response.',
+        severity: 'warning',
+      });
+    });
+  });
+
   it('reconnect 後 ready snapshot 若已是 persisted，應結束 streaming 並同步 canonical session（P03 回歸）', async () => {
     mockStoreState.currentSession = { id: 'test-session', status: 'in_progress' };
     mockStoreState.isStreaming = true;
@@ -517,11 +548,11 @@ describe('InterviewChat', () => {
     expect(screen.getByText('interview.pauseChat')).toBeInTheDocument();
   });
 
-  it('getSession 失敗且有 message 應顯示頁內錯誤與 retry/back 出口（P1-03）', async () => {
+  it('getSession 失敗且有 raw message 時應顯示頁內 fallback 與 retry/back 出口（P1-03）', async () => {
     mockGetSession.mockRejectedValue(new Error('會話載入失敗'));
     renderWithRouter();
     await waitFor(() => {
-      expect(screen.getByText('會話載入失敗')).toBeInTheDocument();
+      expect(screen.getByText('interview.loadFail')).toBeInTheDocument();
       expect(screen.getByTestId('interview-chat-load-retry')).toBeInTheDocument();
       expect(screen.getByText('interview.backToProfile')).toBeInTheDocument();
     });
@@ -560,12 +591,12 @@ describe('InterviewChat', () => {
       .mockResolvedValueOnce(undefined);
     renderWithRouter();
     await waitFor(() => {
-      expect(screen.getByText('會話載入失敗')).toBeInTheDocument();
+      expect(screen.getByText('interview.loadFail')).toBeInTheDocument();
     });
     fireEvent.click(screen.getByTestId('interview-chat-load-retry'));
     await waitFor(() => {
       expect(mockGetSession).toHaveBeenCalledTimes(2);
-      expect(screen.queryByText('會話載入失敗')).not.toBeInTheDocument();
+      expect(screen.queryByText('interview.loadFail')).not.toBeInTheDocument();
     });
   });
 
@@ -573,7 +604,7 @@ describe('InterviewChat', () => {
     mockGetSession.mockRejectedValue(new Error('會話載入失敗'));
     renderWithRouter();
     await waitFor(() => {
-      expect(screen.getByText('會話載入失敗')).toBeInTheDocument();
+      expect(screen.getByText('interview.loadFail')).toBeInTheDocument();
     });
     fireEvent.click(screen.getByText('interview.backToProfile'));
     expect(mockNavigate).toHaveBeenCalledWith('/profile/index');
@@ -599,7 +630,7 @@ describe('InterviewChat', () => {
     });
   });
 
-  it('暫停對話時 endSession 失敗且有 message 應顯示該 message', async () => {
+  it('暫停對話時 endSession 失敗且有 raw message 應顯示受控 fallback', async () => {
     mockStoreState.currentSession = { id: 'test-session', status: 'in_progress' };
     mockStoreState.turns = [
       { id: 't1', turn_order: 1, ai_message: 'Q1', user_response: 'A1', skipped: false, safety_flag: false, created_at: '2025-01-01' },
@@ -610,7 +641,7 @@ describe('InterviewChat', () => {
     renderWithRouter();
     fireEvent.click(screen.getByText('interview.pauseChat'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('結束對話失敗');
+      expect(mockMessageError).toHaveBeenCalledWith('interview.endFail');
     });
   });
 
@@ -629,7 +660,7 @@ describe('InterviewChat', () => {
     });
   });
 
-  it('暫停對話時 endSession 失敗且 message 為空字串時應使用 interview.endFail（F10 邊界：空 message 視為無）', async () => {
+  it('暫停對話時 endSession 失敗且 SERVER_ERROR message 為空字串時應使用 common.serverError（F10 邊界：空 message 視為無）', async () => {
     mockStoreState.currentSession = { id: 'test-session', status: 'in_progress' };
     mockStoreState.turns = [
       { id: 't1', turn_order: 1, ai_message: 'Q1', user_response: 'A1', skipped: false, safety_flag: false, created_at: '2025-01-01' },
@@ -640,11 +671,11 @@ describe('InterviewChat', () => {
     renderWithRouter();
     fireEvent.click(screen.getByText('interview.pauseChat'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('interview.endFail');
+      expect(mockMessageError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
-  it('暫停對話時 endSession FORBIDDEN 且無 message 時應使用 interview.endFail（F06 權限邊界 fallback）', async () => {
+  it('暫停對話時 endSession FORBIDDEN 且無 message 時應使用 common.forbidden（F06 權限邊界 fallback）', async () => {
     mockStoreState.currentSession = { id: 'test-session', status: 'in_progress' };
     mockStoreState.turns = [
       { id: 't1', turn_order: 1, ai_message: 'Q1', user_response: 'A1', skipped: false, safety_flag: false, created_at: '2025-01-01' },
@@ -655,7 +686,7 @@ describe('InterviewChat', () => {
     renderWithRouter();
     fireEvent.click(screen.getByText('interview.pauseChat'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('interview.endFail');
+      expect(mockMessageError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
@@ -698,7 +729,7 @@ describe('InterviewChat', () => {
     renderWithRouter();
     fireEvent.click(screen.getByText('interview.pauseChat'));
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('暫時無法結束');
+      expect(mockMessageError).toHaveBeenCalledWith('interview.endFail');
     });
     fireEvent.click(screen.getByText('interview.pauseChat'));
     await waitFor(() => {

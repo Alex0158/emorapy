@@ -23,6 +23,12 @@ export interface InterviewStreamFailurePayload {
   options: InterviewStreamPublishOptions;
 }
 
+const INTERVIEW_SAFETY_ALERT_MESSAGE = '系統偵測到安全風險，已先切換到安全支持回應。';
+
+export function getInterviewSafetyAlertMessage(locale: BackendLocale = 'zh-TW'): string {
+  return translateBackendMessage(locale, INTERVIEW_SAFETY_ALERT_MESSAGE);
+}
+
 export function getInterviewStreamMode(isSkip: boolean): InterviewStreamMode {
   return isSkip ? 'skip' : 'respond';
 }
@@ -81,11 +87,13 @@ export function buildInterviewStreamPersistedPayload(params: {
   };
 }
 
-export function buildInterviewStreamSafetyAlertPayload(message: string): InterviewStreamPublishOptions {
+export function buildInterviewStreamSafetyAlertPayload(params: {
+  locale?: BackendLocale;
+} = {}): InterviewStreamPublishOptions {
   return {
     actorRole: INTERVIEW_STREAM_ACTOR_ROLE,
     metadata: {
-      message,
+      message: getInterviewSafetyAlertMessage(params.locale),
       severity: 'warning',
     },
   };

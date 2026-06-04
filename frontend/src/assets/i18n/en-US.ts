@@ -1437,6 +1437,7 @@ const enUS: Record<string, string> = {
 	"interview.endFail": "Failed to end interview",
 	"interview.startFail": "Failed to start interview",
 	"interview.respondFail": "Failed to respond",
+	"interview.safetyAlert": "We detected a possible safety risk and switched to a safety-first response.",
 	"interview.quickTag.needCalmDown": "I need to calm down",
 	"interview.quickTag.imAngry": "I am very angry right now",
 	"interview.quickTag.notReadyToTalk": "I don't want to talk about this",

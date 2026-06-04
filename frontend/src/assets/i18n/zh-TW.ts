@@ -1340,6 +1340,7 @@ const zhTW = {
 	"interview.endFail": "結束訪談失敗",
 	"interview.startFail": "開始訪談失敗",
 	"interview.respondFail": "回覆失敗",
+	"interview.safetyAlert": "系統偵測到安全風險，已先切換到安全支持回應。",
 	"interview.quickTag.needCalmDown": "我需要冷靜",
 	"interview.quickTag.imAngry": "我現在很生氣",
 	"interview.quickTag.notReadyToTalk": "我不想談這個",

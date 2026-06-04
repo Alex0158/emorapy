@@ -1,5 +1,6 @@
 import type { PsychDomain } from '@prisma/client';
 import type { InterviewAIResponse } from '../types/interview.types';
+import type { BackendLocale } from '../i18n';
 import type { AIStreamHandle } from './ai-stream.service';
 import { aiStreamService } from './ai-stream.service';
 import {
@@ -27,6 +28,7 @@ export interface FinalizeInterviewAIResponseParams {
   existingDomains: PsychDomain[];
   fallbackDomains?: PsychDomain[];
   streamMode: InterviewStreamMode;
+  locale?: BackendLocale;
 }
 
 export async function finalizeInterviewAIResponse({
@@ -41,6 +43,7 @@ export async function finalizeInterviewAIResponse({
   existingDomains,
   fallbackDomains = existingDomains,
   streamMode,
+  locale,
 }: FinalizeInterviewAIResponseParams): Promise<void> {
   if (streamHandle) {
     await aiStreamService.completed(
@@ -85,5 +88,6 @@ export async function finalizeInterviewAIResponse({
     createdTurnId: createdTurn.id,
     text,
     streamMode,
+    locale,
   });
 }

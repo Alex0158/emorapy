@@ -1,6 +1,7 @@
 import type { PsychDomain } from '@prisma/client';
 import type { AIStreamHandle } from './ai-stream.service';
 import { aiStreamService } from './ai-stream.service';
+import type { BackendLocale } from '../i18n';
 import type {
   InterviewAIResponse,
   SSECompleteEvent,
@@ -14,6 +15,7 @@ import {
 import {
   buildInterviewStreamPersistedPayload,
   buildInterviewStreamSafetyAlertPayload,
+  getInterviewSafetyAlertMessage,
   type InterviewStreamMode,
 } from './interview-stream-payload-utils';
 
@@ -32,6 +34,7 @@ export interface EmitInterviewResponseSuccessEventsParams {
   createdTurnId: string;
   text: string;
   streamMode: InterviewStreamMode;
+  locale?: BackendLocale;
 }
 
 export async function emitInterviewResponseSuccessEvents({
@@ -45,6 +48,7 @@ export async function emitInterviewResponseSuccessEvents({
   createdTurnId,
   text,
   streamMode,
+  locale,
 }: EmitInterviewResponseSuccessEventsParams): Promise<void> {
   onSSE?.(buildInterviewMetadataEvent({
     nextOrder,
@@ -53,15 +57,16 @@ export async function emitInterviewResponseSuccessEvents({
   }));
 
   if (parsedMeta.safety_flag && parsedMeta.safety_message) {
+    const safetyAlertMessage = getInterviewSafetyAlertMessage(locale);
     onSSE?.({
-      message: parsedMeta.safety_message,
+      message: safetyAlertMessage,
       severity: 'warning',
     });
     if (streamHandle) {
       await aiStreamService.phase(
         streamHandle,
         'safety_alert',
-        buildInterviewStreamSafetyAlertPayload(parsedMeta.safety_message)
+        buildInterviewStreamSafetyAlertPayload({ locale })
       );
     }
   }

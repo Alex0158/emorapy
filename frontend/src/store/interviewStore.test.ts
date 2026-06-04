@@ -626,6 +626,17 @@ describe('interviewStore', () => {
       });
     });
 
+    it('applyStreamSafetyAlert 缺 message 時應使用 safety alert fallback', () => {
+      useInterviewStore.getState().applyStreamSafetyAlert({
+        severity: 'warning',
+      });
+
+      expect(useInterviewStore.getState().safetyAlert).toEqual({
+        message: 'interview.safetyAlert',
+        severity: 'warning',
+      });
+    });
+
     it('applyShouldEnd 應只增不減', () => {
       useInterviewStore.getState().applyShouldEnd(false);
       expect(useInterviewStore.getState().shouldEnd).toBe(false);

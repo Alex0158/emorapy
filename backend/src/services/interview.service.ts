@@ -179,6 +179,7 @@ export class InterviewService {
             existingDomains: responseContext.session.domains_touched,
             fallbackDomains: session.domains_touched,
             streamMode,
+            locale,
           });
           streamSettled = true;
         },

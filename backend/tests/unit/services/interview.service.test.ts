@@ -347,9 +347,11 @@ describe('InterviewService — respond 邊界與異常', () => {
     const safetyEvents: string[] = [];
     await service.respond('s1', 'u1', '我不想活了', (event) => {
       if ('message' in event) safetyEvents.push(event.message);
-    });
+    }, false, { locale: 'en-US' });
 
-    expect(safetyEvents).toEqual(['觀察到自傷風險語句']);
+    expect(safetyEvents).toEqual([
+      'We detected a possible safety risk and switched to a safety-first response.',
+    ]);
     expect(mockedPrisma.interviewTurn.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         safety_flag: true,
@@ -362,7 +364,7 @@ describe('InterviewService — respond 邊界與異常', () => {
       expect.objectContaining({
         actorRole: 'aiMediator',
         metadata: {
-          message: '觀察到自傷風險語句',
+          message: 'We detected a possible safety risk and switched to a safety-first response.',
           severity: 'warning',
         },
       })

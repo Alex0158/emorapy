@@ -163,6 +163,7 @@ const directEnUSMap: Record<string, string> = {
   '訪談跳題已提交': 'Interview skip submitted',
   '訪談生成已停止': 'Interview generation stopped',
   '目前沒有進行中的訪談生成': 'No interview generation is currently in progress',
+  '系統偵測到安全風險，已先切換到安全支持回應。': 'We detected a possible safety risk and switched to a safety-first response.',
   '已重試': 'Retried',
   '已記下你的承諾': 'Your commitment has been recorded',
   '已送出一起試試看的邀請': 'Invitation to try together sent',

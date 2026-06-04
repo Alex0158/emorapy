@@ -68,11 +68,19 @@ describe('interview-stream-payload-utils', () => {
     });
   });
 
-  it('buildInterviewStreamSafetyAlertPayload 應保留 warning severity', () => {
-    expect(buildInterviewStreamSafetyAlertPayload('安全提示')).toEqual({
+  it('buildInterviewStreamSafetyAlertPayload 應使用受控 safety alert message 並保留 warning severity', () => {
+    expect(buildInterviewStreamSafetyAlertPayload()).toEqual({
       actorRole: 'aiMediator',
       metadata: {
-        message: '安全提示',
+        message: '系統偵測到安全風險，已先切換到安全支持回應。',
+        severity: 'warning',
+      },
+    });
+
+    expect(buildInterviewStreamSafetyAlertPayload({ locale: 'en-US' })).toEqual({
+      actorRole: 'aiMediator',
+      metadata: {
+        message: 'We detected a possible safety risk and switched to a safety-first response.',
         severity: 'warning',
       },
     });

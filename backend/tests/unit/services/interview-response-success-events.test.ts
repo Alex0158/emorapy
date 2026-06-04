@@ -105,7 +105,7 @@ describe('interview-response-success-events', () => {
       intent: 'safety_support',
     }));
     expect(onSSE).toHaveBeenNthCalledWith(2, {
-      message: '觀察到自傷風險語句',
+      message: '系統偵測到安全風險，已先切換到安全支持回應。',
       severity: 'warning',
     });
     expect(mockedAIStreamService.phase).toHaveBeenCalledWith(
@@ -114,7 +114,7 @@ describe('interview-response-success-events', () => {
       {
         actorRole: 'aiMediator',
         metadata: {
-          message: '觀察到自傷風險語句',
+          message: '系統偵測到安全風險，已先切換到安全支持回應。',
           severity: 'warning',
         },
       }
@@ -152,6 +152,7 @@ describe('interview-response-success-events', () => {
         safety_flag: true,
         safety_message: '安全提示',
       },
+      locale: 'en-US',
       domainsTouched: [PsychDomain.attachment],
       createdTurnId: 'turn-ai-4',
       text: 'AI 回覆',
@@ -160,7 +161,7 @@ describe('interview-response-success-events', () => {
 
     expect(onSSE).toHaveBeenCalledTimes(3);
     expect(onSSE).toHaveBeenNthCalledWith(2, {
-      message: '安全提示',
+      message: 'We detected a possible safety risk and switched to a safety-first response.',
       severity: 'warning',
     });
     expect(mockedAIStreamService.phase).not.toHaveBeenCalled();

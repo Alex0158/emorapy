@@ -1239,6 +1239,10 @@ const zhTW = {
 	"common.serverError": "服務器錯誤，請稍後再試",
 	"common.requestCanceled": "請求已取消",
 	"common.requestFail": "請求失敗",
+	"stream.error.httpStatus": "即時連線請求失敗（狀態碼 {status}）",
+	"stream.error.bodyMissing": "即時連線回應內容不可讀，請稍後再試",
+	"stream.error.disconnected": "即時連線已中斷，請稍後再試",
+	"stream.error.responseBodyMissing": "即時回應內容不可讀，請稍後再試",
 	"common.fileRateLimit": "文件訪問過於頻繁，請稍後再試",
 	"common.sessionExpiredRefreshed":
 		"快速體驗 Session 已過期，已自動換發新 Session，請重新發起操作/重新開始流程",

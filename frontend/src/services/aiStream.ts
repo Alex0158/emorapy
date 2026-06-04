@@ -1,6 +1,11 @@
 import { env } from '@/config/env';
 import { getLocale } from '@/utils/i18n';
 import { sessionStorage } from '@/utils/storage';
+import {
+  getStreamBodyMissingMessage,
+  getStreamDisconnectedMessage,
+  getStreamHttpFallbackMessage,
+} from './streamErrorMessages';
 import type { AIStreamEvent, AIStreamScopeType, AIStreamSnapshot } from '@/types/aiStream';
 
 export interface AIStreamReadyEvent {
@@ -49,7 +54,7 @@ export const connectAIStream = async (
 
   if (!response.ok) {
     let code = `HTTP_${response.status}`;
-    let message = `HTTP ${response.status}`;
+    let message = getStreamHttpFallbackMessage(response.status);
     try {
       const body = await response.json() as { error?: { code?: string; message?: string } };
       if (body?.error?.code) code = body.error.code;
@@ -63,7 +68,7 @@ export const connectAIStream = async (
 
   const reader = response.body?.getReader();
   if (!reader) {
-    callbacks.onError?.({ code: 'STREAM_BODY_MISSING', message: 'No stream body found' });
+    callbacks.onError?.({ code: 'STREAM_BODY_MISSING', message: getStreamBodyMissingMessage() });
     return () => controller.abort();
   }
 
@@ -108,7 +113,7 @@ export const connectAIStream = async (
       }
     } catch {
       if (!controller.signal.aborted) {
-        callbacks.onError?.({ code: 'STREAM_DISCONNECTED', message: 'SSE disconnected unexpectedly' });
+        callbacks.onError?.({ code: 'STREAM_DISCONNECTED', message: getStreamDisconnectedMessage() });
       }
     }
   };
@@ -116,4 +121,3 @@ export const connectAIStream = async (
   void run();
   return () => controller.abort();
 };
-

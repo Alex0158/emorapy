@@ -1,5 +1,9 @@
 import { env } from '@/config/env';
 import { t, getLocale } from '@/utils/i18n';
+import {
+  getSseResponseBodyMissingMessage,
+  getStreamHttpFallbackMessage,
+} from './streamErrorMessages';
 
 export class SSEError extends Error {
   status: number;
@@ -49,14 +53,14 @@ export async function sseRequest(
     const errorBody = await response.json().catch(() => ({}));
     const err = errorBody as { error?: { code?: string; message?: string } };
     throw new SSEError(
-      err?.error?.message || `HTTP ${response.status}`,
+      err?.error?.message || getStreamHttpFallbackMessage(response.status),
       response.status,
       err?.error?.code,
     );
   }
 
   const reader = response.body?.getReader();
-  if (!reader) throw new Error('No response body');
+  if (!reader) throw new Error(getSseResponseBodyMissingMessage());
 
   if (signal) {
     signal.addEventListener('abort', () => reader.cancel(), { once: true });

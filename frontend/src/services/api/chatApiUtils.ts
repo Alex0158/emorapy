@@ -1,4 +1,5 @@
 import { API_CONFIG } from '@/config/api';
+import { getStreamHttpFallbackMessage } from '../streamErrorMessages';
 import type { ApiResponse } from '@/types/common';
 import type { ChatMessage, ChatStreamEvent } from '@/types/chat';
 
@@ -64,7 +65,7 @@ export async function readChatStreamHttpError(
   response: Pick<Response, 'status' | 'json'>
 ): Promise<{ code: string; message: string; status: number }> {
   let code = `HTTP_${response.status}`;
-  let message = `HTTP ${response.status}`;
+  let message = getStreamHttpFallbackMessage(response.status);
   try {
     const body = await response.json() as { error?: { code?: string; message?: string } };
     if (body?.error?.code) code = body.error.code;

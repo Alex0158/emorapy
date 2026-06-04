@@ -4,6 +4,10 @@ import { env } from '@/config/env';
 import { sessionStorage } from '@/utils/storage';
 import { getLocale } from '@/utils/i18n';
 import {
+  getStreamBodyMissingMessage,
+  getStreamDisconnectedMessage,
+} from '../streamErrorMessages';
+import {
   buildChatStreamHeaders,
   chatRoomPath,
   parseChatStreamEventChunk,
@@ -107,7 +111,7 @@ export const connectChatStream = async (
 
   const reader = response.body?.getReader();
   if (!reader) {
-    callbacks.onError?.({ code: 'STREAM_BODY_MISSING', message: 'No stream body found' });
+    callbacks.onError?.({ code: 'STREAM_BODY_MISSING', message: getStreamBodyMissingMessage() });
     return () => controller.abort();
   }
 
@@ -136,7 +140,7 @@ export const connectChatStream = async (
       }
     } catch {
       if (!controller.signal.aborted) {
-        callbacks.onError?.({ code: 'STREAM_DISCONNECTED', message: 'SSE disconnected unexpectedly' });
+        callbacks.onError?.({ code: 'STREAM_DISCONNECTED', message: getStreamDisconnectedMessage() });
       }
     }
   };

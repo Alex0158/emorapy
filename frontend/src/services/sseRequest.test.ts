@@ -75,9 +75,19 @@ describe('sseRequest', () => {
     }
   });
 
+  it('HTTP 錯誤缺少後端 message 時應使用 stream fallback key', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      json: vi.fn().mockRejectedValue(new Error('invalid json')),
+    });
+
+    await expect(sseRequest('/test', {}, {})).rejects.toThrow('stream.error.httpStatus');
+  });
+
   it('無 response body 時應拋錯', async () => {
     globalThis.fetch = vi.fn().mockResolvedValue({ ok: true, body: null });
-    await expect(sseRequest('/test', {}, {})).rejects.toThrow('No response body');
+    await expect(sseRequest('/test', {}, {})).rejects.toThrow('stream.error.responseBodyMissing');
   });
 
   it('應正確解析 token 事件並呼叫 onToken', async () => {

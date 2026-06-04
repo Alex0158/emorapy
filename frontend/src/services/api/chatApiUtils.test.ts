@@ -11,11 +11,18 @@ import {
   readChatStreamToken,
   unwrapChatApiData,
 } from './chatApiUtils';
+import { setLocale } from '@/utils/i18n';
+
+async function setLocaleReady(locale: 'zh-TW' | 'en-US'): Promise<void> {
+  setLocale(locale);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+}
 
 describe('chat API utils', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+    setLocale('zh-TW');
     localStorage.clear();
     sessionStorage.clear();
   });
@@ -90,7 +97,18 @@ describe('chat API utils', () => {
     await expect(readChatStreamHttpError({
       status: 500,
       json: () => Promise.reject(new Error('invalid json')),
-    })).resolves.toEqual({ code: 'HTTP_500', message: 'HTTP 500', status: 500 });
+    })).resolves.toEqual({ code: 'HTTP_500', message: '即時連線請求失敗（狀態碼 500）', status: 500 });
+
+    await setLocaleReady('en-US');
+
+    await expect(readChatStreamHttpError({
+      status: 503,
+      json: () => Promise.reject(new Error('invalid json')),
+    })).resolves.toEqual({
+      code: 'HTTP_503',
+      message: 'Real-time connection request failed (status 503)',
+      status: 503,
+    });
   });
 
   it('parseChatStreamEventChunk 應忽略非 JSON chunk，並用 event line 覆蓋 payload type', () => {

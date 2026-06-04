@@ -13,6 +13,7 @@ import {
   requestChatJudgment,
   sendChatMessage,
 } from './chat';
+import { setLocale } from '@/utils/i18n';
 
 const mocks = vi.hoisted(() => ({
   acceptInvite: vi.fn(),
@@ -51,9 +52,15 @@ vi.mock('../request', () => ({
   default: { requestName: 'web-request-adapter' },
 }));
 
+async function setLocaleReady(locale: 'zh-TW' | 'en-US'): Promise<void> {
+  setLocale(locale);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 describe('chat API', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    setLocale('zh-TW');
     mocks.createM3ApiClient.mockReturnValue({
       chat: {
         acceptInvite: mocks.acceptInvite,
@@ -300,7 +307,27 @@ describe('chat API', () => {
     await connectChatStream('r1', { onError });
     await Promise.resolve();
     expect(onError).toHaveBeenCalledWith(
-      expect.objectContaining({ code: 'HTTP_500', message: 'HTTP 500', status: 500 })
+      expect.objectContaining({ code: 'HTTP_500', message: '即時連線請求失敗（狀態碼 500）', status: 500 })
+    );
+    vi.unstubAllGlobals();
+  });
+
+  it('connectChatStream fallback 應跟隨英文 locale', async () => {
+    await setLocaleReady('en-US');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      json: () => Promise.reject(new Error('Invalid JSON')),
+    }));
+    const onError = vi.fn();
+    await connectChatStream('r1', { onError });
+    await Promise.resolve();
+    expect(onError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        code: 'HTTP_503',
+        message: 'Real-time connection request failed (status 503)',
+        status: 503,
+      })
     );
     vi.unstubAllGlobals();
   });
@@ -375,7 +402,7 @@ describe('chat API', () => {
     await connectChatStream('r1', { onError });
     await Promise.resolve();
     expect(onError).toHaveBeenCalledWith(
-      expect.objectContaining({ code: 'STREAM_BODY_MISSING', message: 'No stream body found' })
+      expect.objectContaining({ code: 'STREAM_BODY_MISSING', message: '即時連線回應內容不可讀，請稍後再試' })
     );
     vi.unstubAllGlobals();
   });
@@ -393,7 +420,7 @@ describe('chat API', () => {
     await connectChatStream('r1', { onError });
     await new Promise((r) => setTimeout(r, 50));
     expect(onError).toHaveBeenCalledWith(
-      expect.objectContaining({ code: 'STREAM_DISCONNECTED', message: 'SSE disconnected unexpectedly' })
+      expect.objectContaining({ code: 'STREAM_DISCONNECTED', message: '即時連線已中斷，請稍後再試' })
     );
     vi.unstubAllGlobals();
   });

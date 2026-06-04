@@ -417,6 +417,7 @@ describe('backend i18n', () => {
 
   it('translates AI service fallback errors to en-US', () => {
     expect(translateBackendMessage('en-US', 'AI返回空內容')).toBe('AI returned empty content');
+    expect(translateBackendMessage('en-US', 'AI 返回空內容')).toBe('AI returned empty content');
     expect(translateBackendMessage('en-US', 'AI服務認證失敗')).toBe(
       'AI service authentication failed'
     );

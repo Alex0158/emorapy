@@ -219,6 +219,7 @@ const directEnUSMap: Record<string, string> = {
   'AI服務響應超時，請稍後再試': 'AI service timed out. Please try again later.',
   'AI服務暫時不可用，請稍後重試': 'AI service is temporarily unavailable. Please try again later.',
   'AI返回空內容': 'AI returned empty content',
+  'AI 返回空內容': 'AI returned empty content',
   'AI服務認證失敗': 'AI service authentication failed',
   'AI服務暫時不可用': 'AI service is temporarily unavailable',
   '今日AI服務調用已達上限': 'Today AI service usage limit has been reached',

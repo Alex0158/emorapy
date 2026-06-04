@@ -1,8 +1,13 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { beforeEach, describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { setLocale, t } from '@/utils/i18n';
 import { EmptyState } from './index';
 
 describe('EmptyState', () => {
+  beforeEach(() => {
+    setLocale('zh-TW');
+  });
+
   it('渲染預設 variant 的標題和描述', () => {
     render(<EmptyState />);
     expect(screen.getByText('這裡還沒有內容')).toBeInTheDocument();
@@ -17,6 +22,7 @@ describe('EmptyState', () => {
   it('渲染 executions variant', () => {
     render(<EmptyState variant="executions" />);
     expect(screen.getByText('暫無執行中的方案')).toBeInTheDocument();
+    expect(screen.getByText('在收到梳理結果後，選擇和好方案即可在這裡追蹤進度。')).toBeInTheDocument();
   });
 
   it('渲染 notifications variant', () => {
@@ -65,5 +71,15 @@ describe('EmptyState', () => {
   it('支持 className prop', () => {
     const { container } = render(<EmptyState className="my-class" />);
     expect(container.firstElementChild?.className).toContain('my-class');
+  });
+
+  it('未傳 title/description 時應跟隨 en-US locale 顯示預設空狀態', async () => {
+    setLocale('en-US');
+    await waitFor(() => expect(t('emptyState.search.title')).toBe('No matching results'));
+
+    render(<EmptyState variant="search" />);
+
+    expect(screen.getByText('No matching results')).toBeInTheDocument();
+    expect(screen.getByText('Try different keywords or adjust your filters.')).toBeInTheDocument();
   });
 });

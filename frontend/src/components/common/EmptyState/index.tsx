@@ -16,6 +16,7 @@ import {
   MessageCircle,
   Sparkles,
 } from 'lucide-react';
+import { t } from '@/utils/i18n';
 
 type EmptyStateVariant =
   | 'cases'
@@ -37,37 +38,37 @@ interface EmptyStateProps {
 
 const variantConfig: Record<
   EmptyStateVariant,
-  { icon: ReactNode; defaultTitle: string; defaultDescription: string }
+  { icon: ReactNode; titleKey: string; descriptionKey: string }
 > = {
   cases: {
     icon: <FileText className="size-10 text-primary/60" strokeWidth={1.5} />,
-    defaultTitle: '還沒有案件',
-    defaultDescription: '準備好了嗎？建立您的第一個案件，讓我們一起找到解決方案。',
+    titleKey: 'emptyState.cases.title',
+    descriptionKey: 'emptyState.cases.description',
   },
   executions: {
     icon: <ListChecks className="size-10 text-primary/60" strokeWidth={1.5} />,
-    defaultTitle: '暫無執行中的方案',
-    defaultDescription: '在收到判定後，選擇和好方案即可在這裡追蹤進度。',
+    titleKey: 'emptyState.executions.title',
+    descriptionKey: 'emptyState.executions.description',
   },
   notifications: {
     icon: <Bell className="size-10 text-primary/60" strokeWidth={1.5} />,
-    defaultTitle: '沒有新通知',
-    defaultDescription: '當有新的進展時，我們會在這裡提醒您。',
+    titleKey: 'emptyState.notifications.title',
+    descriptionKey: 'emptyState.notifications.description',
   },
   search: {
     icon: <Search className="size-10 text-muted-foreground/60" strokeWidth={1.5} />,
-    defaultTitle: '找不到相關結果',
-    defaultDescription: '試試不同的關鍵字，或調整篩選條件。',
+    titleKey: 'emptyState.search.title',
+    descriptionKey: 'emptyState.search.description',
   },
   chat: {
     icon: <MessageCircle className="size-10 text-primary/60" strokeWidth={1.5} />,
-    defaultTitle: '對話即將開始',
-    defaultDescription: '在這裡與對方展開真誠的溝通。',
+    titleKey: 'emptyState.chat.title',
+    descriptionKey: 'emptyState.chat.description',
   },
   default: {
     icon: <Sparkles className="size-10 text-primary/60" strokeWidth={1.5} />,
-    defaultTitle: '這裡還沒有內容',
-    defaultDescription: '之後會有更多內容出現在這裡。',
+    titleKey: 'emptyState.default.title',
+    descriptionKey: 'emptyState.default.description',
   },
 };
 
@@ -96,12 +97,12 @@ export function EmptyState({
 
       {/* Title */}
       <h3 className="text-lg font-semibold text-foreground mb-2">
-        {title ?? config.defaultTitle}
+        {title ?? t(config.titleKey)}
       </h3>
 
       {/* Description */}
       <p className="text-sm text-muted-foreground max-w-sm leading-relaxed">
-        {description ?? config.defaultDescription}
+        {description ?? t(config.descriptionKey)}
       </p>
 
       {/* Action button */}

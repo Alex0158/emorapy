@@ -4,7 +4,7 @@
 **文檔類型**：問題治理
 **覆蓋範圍**：Backend `errorHandler` 特殊錯誤分支、Prisma / Multer 錯誤訊息、Web / Admin / App API error 顯示語言
 **取證代碼入口**：`backend/src/middleware/errorHandler.ts`、`backend/src/i18n/index.ts`、`backend/tests/unit/middleware/errorHandler.test.ts`
-**最後核驗 Commit**：`614cf6b`
+**最後核驗 Commit**：`ff6e8b0`
 **最後核驗日期**：`2026-06-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -65,5 +65,29 @@
 ## Owner / Status Notes
 
 - Owner：agent
-- Status：待處理
+- Status：已處理
 - 注意：本任務只覆蓋 `errorHandler` 已知特殊錯誤 response。AppError 自訂中文 fallback 是否需保留精準語義，另屬「錯誤 code catalog 是否應細化」問題，不在本輪把它擴大處理。
+
+## 2026-06-04 本輪結果
+
+已完成：
+
+1. `backend/src/i18n/index.ts` 已補齊 `errorHandler` special-case literals 的 en-US exact map：
+   - `該郵箱已被註冊`
+   - `文件大小超出限制`
+   - `文件數量超出限制`
+   - `無效的文件字段`
+   - `文件上傳失敗`
+2. `backend/tests/unit/utils/backend-i18n.test.ts` 已新增 map-level regression test，確保五個 literal 在 `en-US` 不再回傳原文。
+3. `backend/tests/unit/middleware/errorHandler.test.ts` 已新增 response-level regression test，直接驗證 `req.locale='en-US'` 時 Prisma duplicate email 與 Multer upload error response 會回英文 message。
+
+已驗證：
+
+1. `npm --prefix backend test -- tests/unit/middleware/errorHandler.test.ts tests/unit/utils/backend-i18n.test.ts --runInBand`：passed，2 suites / 22 tests。
+2. `npm --prefix backend run build -- --pretty false`：passed。
+3. 靜態核對五個 special-case literals：全部已在 `directEnUSMap` mapped。
+
+剩餘邊界：
+
+1. `AppError` 已知 code 分支目前以 generic code catalog 輸出英文，不會外露中文 fallback；是否要為每個 custom fallback 建立精準英文文案屬另一輪產品/錯誤模型細化，不在本輪擴大。
+2. 開發環境未知 500 error 仍可能回 raw diagnostic；此為既有 dev diagnostics 行為，不作 production user-facing 語言缺口處理。

@@ -11,6 +11,16 @@ describe('backend i18n', () => {
     expect(translateBackendMessage('en-US', 'AI 重調失敗')).toBe('AI adjustment failed');
   });
 
+  it('translates errorHandler special-case response messages to en-US', () => {
+    expect(translateBackendMessage('en-US', '該郵箱已被註冊')).toBe(
+      'This email has already been registered'
+    );
+    expect(translateBackendMessage('en-US', '文件大小超出限制')).toBe('File size exceeds the limit');
+    expect(translateBackendMessage('en-US', '文件數量超出限制')).toBe('File count exceeds the limit');
+    expect(translateBackendMessage('en-US', '無效的文件字段')).toBe('Invalid file field');
+    expect(translateBackendMessage('en-US', '文件上傳失敗')).toBe('File upload failed');
+  });
+
   it('keeps zh-TW backend messages unchanged', () => {
     expect(translateBackendMessage('zh-TW', '缺少 B 方完整陳述')).toBe('缺少 B 方完整陳述');
   });

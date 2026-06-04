@@ -126,6 +126,20 @@ describe('middleware/errorHandler', () => {
     });
   });
 
+  it('P2002 email duplicate 應依 en-US locale 翻譯特殊錯誤訊息', () => {
+    const req = { ...createMockReq(), locale: 'en-US' as Request['locale'] } as Request;
+    const res = createMockRes() as Response;
+    const err = Object.assign(new Error('Unique constraint'), { code: 'P2002', meta: { target: ['email'] } });
+
+    errorHandler(err as Error & { code: string; meta?: { target?: string[] } }, req, res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith({
+      success: false,
+      error: { code: 'EMAIL_EXISTS', message: 'This email has already been registered' },
+    });
+  });
+
   it('P2002 無 meta.target 時應回傳未知字段訊息', () => {
     const req = createMockReq() as Request;
     const res = createMockRes() as Response;
@@ -237,6 +251,51 @@ describe('middleware/errorHandler', () => {
         message: expect.any(String),
       },
     });
+  });
+
+  it('MulterError 應依 en-US locale 翻譯特殊錯誤訊息', () => {
+    const cases: Array<{
+      multerCode: multer.ErrorCode;
+      status: number;
+      code: string;
+      message: string;
+    }> = [
+      {
+        multerCode: 'LIMIT_FILE_SIZE',
+        status: 413,
+        code: 'FILE_TOO_LARGE',
+        message: 'File size exceeds the limit',
+      },
+      {
+        multerCode: 'LIMIT_FILE_COUNT',
+        status: 400,
+        code: 'TOO_MANY_FILES',
+        message: 'File count exceeds the limit',
+      },
+      {
+        multerCode: 'LIMIT_UNEXPECTED_FILE',
+        status: 400,
+        code: 'INVALID_FILE_FIELD',
+        message: 'Invalid file field',
+      },
+    ];
+
+    for (const testCase of cases) {
+      const req = { ...createMockReq(), locale: 'en-US' as Request['locale'] } as Request;
+      const res = createMockRes() as Response;
+      const err = new multer.MulterError(testCase.multerCode);
+
+      errorHandler(err, req, res, jest.fn());
+
+      expect(res.status).toHaveBeenCalledWith(testCase.status);
+      expect(res.json).toHaveBeenCalledWith({
+        success: false,
+        error: {
+          code: testCase.code,
+          message: testCase.message,
+        },
+      });
+    }
   });
 
   it('應處理 MulterError LIMIT_FILE_COUNT 並回傳 400', () => {

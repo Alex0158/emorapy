@@ -87,6 +87,26 @@ describe('interview store utils', () => {
     })).toBe('The service response could not be read. Please try again later.');
   });
 
+  it('API error extraction invalid-response fallback 應使用目前語言', async () => {
+    expect(extractInterviewErrorInfo({
+      message: 'Invalid interview session response from server',
+      code: 'INVALID_INTERVIEW_RESPONSE',
+      status: 500,
+    })).toEqual({
+      message: '服務回應格式異常，請稍後再試',
+      code: 'INVALID_INTERVIEW_RESPONSE',
+      status: 500,
+    });
+
+    await setLocaleReady('en-US');
+
+    expect(extractInterviewErrorInfo('Invalid interview response acknowledgement from server')).toEqual({
+      message: 'The service response could not be read. Please try again later.',
+      code: null,
+      status: null,
+    });
+  });
+
   it('stream failure 保留具體 message，缺失時使用訪談 fallback', () => {
     expect(getInterviewStreamFailureMessage({ message: 'too fast' })).toBe('too fast');
     expect(getInterviewStreamFailureMessage({ message: '   ' })).toBe('回覆失敗');

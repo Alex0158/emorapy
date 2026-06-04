@@ -79,6 +79,21 @@ describe('interviewStore', () => {
       expect(useInterviewStore.getState().error).toBe('start fail');
     });
 
+    it('shared invalid-response fallback 不應直出英文診斷字串', async () => {
+      mockStartSession.mockRejectedValue({
+        code: 'INVALID_INTERVIEW_RESPONSE',
+        message: 'Invalid interview session response from server',
+      });
+
+      await expect(useInterviewStore.getState().startSession()).rejects.toEqual({
+        code: 'INVALID_INTERVIEW_RESPONSE',
+        message: 'Invalid interview session response from server',
+      });
+
+      expect(useInterviewStore.getState().error).toBe('apiError.invalidResponse');
+      expect(useInterviewStore.getState().errorCode).toBe('INVALID_INTERVIEW_RESPONSE');
+    });
+
     it('應重置殘留的 shouldEnd/streamingText/isStreaming/streamingStatus/safetyAlert', async () => {
       useInterviewStore.setState({
         shouldEnd: true,
@@ -420,6 +435,27 @@ describe('interviewStore', () => {
       expect(state.errorCode).toBe('AI_CALL_FAILED');
       expect(state.isStreaming).toBe(false);
       expect(state.streamingStatus).toBeNull();
+    });
+
+    it('提交 shared invalid-response fallback 時應本地化 store error', async () => {
+      useInterviewStore.setState({
+        currentSession: { id: 's1', status: 'in_progress' } as never,
+        turns: [],
+      });
+      mockRespondApi.mockRejectedValue({
+        code: 'INVALID_INTERVIEW_RESPONSE',
+        message: 'Invalid interview response acknowledgement from server',
+      });
+
+      await expect(useInterviewStore.getState().respond('s1', 'test')).rejects.toEqual({
+        code: 'INVALID_INTERVIEW_RESPONSE',
+        message: 'Invalid interview response acknowledgement from server',
+      });
+
+      const state = useInterviewStore.getState();
+      expect(state.error).toBe('apiError.invalidResponse');
+      expect(state.errorCode).toBe('INVALID_INTERVIEW_RESPONSE');
+      expect(state.isStreaming).toBe(false);
     });
 
     it('網路錯誤時應保留原始錯誤訊息並退出 streaming', async () => {

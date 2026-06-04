@@ -11,9 +11,14 @@ export interface InterviewErrorInfo {
 export type SafetyAlertSeverity = 'info' | 'warning' | 'critical';
 
 function getInterviewErrorMessage(err: unknown): string {
+  if (typeof err === 'string') {
+    return getLocalizedMessageFallback(err, 'common.unknownError');
+  }
   if (err && typeof err === 'object') {
     const message = (err as { message?: unknown }).message;
-    if (typeof message === 'string' && message.trim().length > 0) return message;
+    if (typeof message === 'string' && message.trim().length > 0) {
+      return getLocalizedMessageFallback(message, 'common.unknownError');
+    }
   }
   return t('common.unknownError');
 }
@@ -21,7 +26,7 @@ function getInterviewErrorMessage(err: unknown): string {
 function getLocalizedMessageFallback(message: string, fallbackKey: string): string {
   const trimmed = message.trim();
   if (!trimmed) return t(fallbackKey);
-  if (/^Invalid .+ response from server$/.test(trimmed)) {
+  if (/^Invalid .+ from server$/.test(trimmed)) {
     return t('apiError.invalidResponse');
   }
   return message;
@@ -36,7 +41,7 @@ export function extractInterviewErrorInfo(err: unknown): InterviewErrorInfo {
       status: e.status ?? null,
     };
   }
-  return { message: String(err), code: null, status: null };
+  return { message: getInterviewErrorMessage(err), code: null, status: null };
 }
 
 export function getInterviewStreamFailureMessage(

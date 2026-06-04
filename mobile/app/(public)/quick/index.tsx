@@ -6,7 +6,7 @@ import { useMutation } from '@tanstack/react-query';
 
 import { normalizeM1Error, m1Api } from '@/src/features/m1/api';
 import { getOrCreateQuickSession } from '@/src/features/m1/session';
-import { t } from '@/src/i18n';
+import { t, useLocale } from '@/src/i18n';
 import { sessionStorage } from '@/src/platform/storage/secureStore';
 import { ActionButton, FeatureRow, LinkButton, Panel, Screen, StatusPill } from '@/src/ui/components';
 import { palette, spacing, typography } from '@/src/ui/theme';
@@ -27,6 +27,7 @@ function statementHelperText(value: string): string {
 }
 
 export default function QuickScreen() {
+  useLocale();
   const [plaintiffStatement, setPlaintiffStatement] = useState('');
   const [defendantStatement, setDefendantStatement] = useState('');
   const [formError, setFormError] = useState<string | null>(null);

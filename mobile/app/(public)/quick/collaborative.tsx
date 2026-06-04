@@ -6,7 +6,7 @@ import { useMutation } from '@tanstack/react-query';
 
 import { normalizeM1Error, m1Api } from '@/src/features/m1/api';
 import { getOrCreateQuickSession } from '@/src/features/m1/session';
-import { t } from '@/src/i18n';
+import { t, useLocale } from '@/src/i18n';
 import { sessionStorage } from '@/src/platform/storage/secureStore';
 import { ActionButton, FeatureRow, LinkButton, Panel, Screen, StatusPill } from '@/src/ui/components';
 import { palette, spacing, typography } from '@/src/ui/theme';
@@ -17,6 +17,7 @@ const ROLE_A_MIN_LENGTH = 30;
 const ROLE_B_MIN_LENGTH = 10;
 
 export default function QuickCollaborativeScreen() {
+  useLocale();
   const [phase, setPhase] = useState<CollaborativePhase>('roleA');
   const [caseId, setCaseId] = useState<string | null>(null);
   const [roleAStatement, setRoleAStatement] = useState('');

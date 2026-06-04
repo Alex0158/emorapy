@@ -2,12 +2,14 @@ import type { ErrorBoundaryProps } from 'expo-router';
 import { useEffect } from 'react';
 import { StyleSheet, Text } from 'react-native';
 
-import { t } from '@/src/i18n';
+import { t, useLocale } from '@/src/i18n';
 import { captureTelemetry } from '@/src/platform/telemetry/client';
 import { ActionButton, FeatureRow, Panel, Screen, StatusPill } from '@/src/ui/components';
 import { palette, spacing, typography } from '@/src/ui/theme';
 
 export function AppErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  useLocale();
+
   useEffect(() => {
     captureTelemetry({
       name: 'app_error_boundary',

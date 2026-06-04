@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { getRuntimeConfig } from '@/src/config/runtime';
-import { t } from '@/src/i18n';
+import { t, useLocale } from '@/src/i18n';
 import { createEvidenceUploadFormData, pickImageWithStatus } from '@/src/platform/upload/native';
 import type { PickImageResult } from '@/src/platform/upload/types';
 import { ActionButton, Screen, StatusPill } from '@/src/ui/components';
 import { palette, spacing, typography } from '@/src/ui/theme';
 
 export default function ModalScreen() {
+  useLocale();
   const runtime = getRuntimeConfig();
   const [uploadProbe, setUploadProbe] = useState<PickImageResult | null>(null);
   const [uploadProbeReady, setUploadProbeReady] = useState(false);

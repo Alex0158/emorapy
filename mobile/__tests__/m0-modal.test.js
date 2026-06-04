@@ -1,5 +1,5 @@
 const React = require('react');
-const { fireEvent, render, waitFor } = require('@testing-library/react-native');
+const { act, fireEvent, render, waitFor } = require('@testing-library/react-native');
 
 const mockPickImageWithStatus = jest.fn();
 const mockCreateEvidenceUploadFormData = jest.fn();
@@ -52,6 +52,19 @@ describe('M0 App status modal', () => {
     expect(screen.getByText('Ready to connect')).toBeTruthy();
     expect(screen.getByText('No image selected')).toBeTruthy();
     expect(screen.getByText('Select image')).toBeTruthy();
+  });
+
+  it('rerenders mounted modal copy when locale changes', () => {
+    const screen = render(React.createElement(ModalScreen));
+
+    expect(screen.getByText('App 狀態')).toBeTruthy();
+
+    act(() => {
+      setLocale('en-US', { persist: false });
+    });
+
+    expect(screen.getByText('App status')).toBeTruthy();
+    expect(screen.queryByText('App 狀態')).toBeNull();
   });
 
   it('uses user-facing upload status copy after selecting media', async () => {

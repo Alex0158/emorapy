@@ -99,26 +99,18 @@ describe('i18n', () => {
       setItem.mockRestore();
     });
 
-    it('切到 en-US 後，字典載入完成應觸發 locale listener', async () => {
+    it('切到 en-US 後應觸發 locale listener', () => {
       const listener = vi.fn();
       const unsubscribe = onLocaleChange(listener);
       setLocale('en-US');
-      await Promise.resolve();
-      await Promise.resolve();
       expect(listener).toHaveBeenCalled();
       unsubscribe();
     });
 
-    it('en-US 字典載入前後都不應回退為 key 原文', async () => {
+    it('en-US 應立即使用英文 catalog，不應短暫回退到 zh-TW', () => {
       setLocale('en-US');
       const immediate = t('result.title');
-      await Promise.resolve();
-      await Promise.resolve();
-      const loaded = t('result.title');
-      expect(
-        immediate === '關係分析結果' || immediate === 'Relationship Analysis Result'
-      ).toBe(true);
-      expect(loaded).toBe('Relationship Analysis Result');
+      expect(immediate).toBe('Relationship Analysis Result');
     });
   });
 });

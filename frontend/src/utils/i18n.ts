@@ -1,4 +1,5 @@
 import zhTW from '@/assets/i18n/zh-TW';
+import enUS from '@/assets/i18n/en-US';
 
 export type Locale = 'zh-TW' | 'en-US';
 
@@ -10,26 +11,9 @@ let current: Locale = detectInitialLocale();
 
 const catalogs: Record<Locale, Record<string, string>> = {
   'zh-TW': zhTW,
-  'en-US': {},
+  'en-US': enUS,
 };
-
-let enUSLoading: Promise<void> | null = null;
 const isProduction = (): boolean => import.meta.env.PROD === true;
-
-function ensureLocaleCatalogLoaded(locale: Locale): Promise<void> {
-  if (locale !== 'en-US') return Promise.resolve();
-  if (Object.keys(catalogs['en-US']).length > 0) return Promise.resolve();
-  if (!enUSLoading) {
-    enUSLoading = import('@/assets/i18n/en-US')
-      .then((module) => {
-        catalogs['en-US'] = module.default;
-      })
-      .finally(() => {
-        enUSLoading = null;
-      });
-  }
-  return enUSLoading;
-}
 
 function missingTranslation(key: string): string {
   if (isProduction()) return `[missing-i18n:${key}]`;
@@ -94,9 +78,7 @@ export function setLocale(locale: Locale | string): void {
   if (typeof window !== 'undefined') {
     try { window.localStorage.setItem(LOCALE_STORAGE_KEY, normalized); } catch { /* noop */ }
   }
-  void ensureLocaleCatalogLoaded(normalized).finally(() => {
-    notifyLocaleChange();
-  });
+  notifyLocaleChange();
 }
 
 export function getLocale(): Locale {
@@ -106,12 +88,6 @@ export function getLocale(): Locale {
 export function onLocaleChange(listener: () => void): () => void {
   listeners.add(listener);
   return () => listeners.delete(listener);
-}
-
-if (current === 'en-US') {
-  void ensureLocaleCatalogLoaded('en-US').finally(() => {
-    notifyLocaleChange();
-  });
 }
 
 syncDocumentLocale(current);

@@ -209,9 +209,41 @@ const bannedPatterns = bannedVisibleTerms.map((term) => ({
   regex: new RegExp(escapeRegExp(term), 'i'),
 }));
 
-function reportVisibleText(failures, file, source, index, context, value) {
+const allowedHardcodedVisibleLiteralPatterns = [
+  /^name@example\.com$/,
+];
+
+function hasHumanLanguageText(value) {
+  return /[A-Za-z\p{Script=Han}]/u.test(value);
+}
+
+function looksLikeI18nKey(value) {
+  return /^[a-z][A-Za-z0-9]*(?:\.[A-Za-z0-9]+)+$/.test(value);
+}
+
+function isAllowedHardcodedVisibleLiteral(value, options) {
+  const literalText = value.replace(/\$\{[^}]*\}/g, ' ');
+  if (!hasHumanLanguageText(literalText)) return true;
+  if (options.allowI18nKey && looksLikeI18nKey(literalText)) return true;
+  return allowedHardcodedVisibleLiteralPatterns.some((pattern) => pattern.test(literalText));
+}
+
+function isLikelySourceSnippet(value) {
+  return /[;={}]/.test(value) || /\b(?:const|return|function|useState|useEffect|if|else)\b/.test(value);
+}
+
+function reportVisibleText(failures, file, source, index, context, value, options = {}) {
   const snippet = normalizeSnippet(value);
   if (!snippet) return;
+
+  if (options.forbidHardcoded && !isAllowedHardcodedVisibleLiteral(snippet, options)) {
+    failures.push({
+      file: relative(repoRoot, file),
+      line: lineNumber(source, index),
+      reason: `hardcoded visible text literal in ${context}; move it to App i18n catalog and call t(key)`,
+      snippet,
+    });
+  }
 
   if (bannedExactVisibleLabels.has(snippet)) {
     failures.push({
@@ -277,7 +309,7 @@ function readBalancedExpression(source, openBraceIndex) {
   return null;
 }
 
-function scanStringLiterals(failures, file, source, expression, expressionStartIndex, context) {
+function scanStringLiterals(failures, file, source, expression, expressionStartIndex, context, options = {}) {
   const stringPattern = /(['"`])((?:\\.|(?!\1)[\s\S])*?)\1/g;
   for (const match of expression.matchAll(stringPattern)) {
     reportVisibleText(
@@ -286,9 +318,26 @@ function scanStringLiterals(failures, file, source, expression, expressionStartI
       source,
       expressionStartIndex + (match.index ?? 0),
       context,
-      match[2] ?? ''
+      match[2] ?? '',
+      options
     );
   }
+}
+
+function scanDirectStringExpression(failures, file, source, expression, expressionStartIndex, context) {
+  const trimmed = expression.trim();
+  const match = trimmed.match(/^(['"`])((?:\\.|(?!\1)[\s\S])*?)\1$/);
+  if (!match) return;
+
+  reportVisibleText(
+    failures,
+    file,
+    source,
+    expressionStartIndex + expression.indexOf(trimmed),
+    context,
+    match[2] ?? '',
+    { forbidHardcoded: true, allowI18nKey: true }
+  );
 }
 
 function scanDirectRawExpression(failures, file, source, index, context, expression) {
@@ -320,7 +369,8 @@ function scanVisibleStateTemplateCalls(failures, file, source) {
       source,
       index,
       'visible state template',
-      template.replace(/\$\{[^}]*\}/g, ' ')
+      template.replace(/\$\{[^}]*\}/g, ' '),
+      { forbidHardcoded: true }
     );
 
     const rawExpression = template.match(rawBackendTemplateExpressionPattern);
@@ -348,7 +398,16 @@ function scanFile(file) {
   const jsxTextPattern = />((?:[^<>{}]|\{\/\*[\s\S]*?\*\/\})+)</g;
   for (const match of source.matchAll(jsxTextPattern)) {
     const value = (match[1] ?? '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
-    reportVisibleText(failures, file, source, match.index ?? 0, 'JSX text', value);
+    if (isLikelySourceSnippet(value)) continue;
+    reportVisibleText(
+      failures,
+      file,
+      source,
+      match.index ?? 0,
+      'JSX text',
+      value,
+      { forbidHardcoded: true }
+    );
   }
 
   const quotedAttributePattern = new RegExp(
@@ -362,7 +421,8 @@ function scanFile(file) {
       source,
       match.index ?? 0,
       `${match[1]} attribute`,
-      match[3] ?? ''
+      match[3] ?? '',
+      { forbidHardcoded: true }
     );
   }
 
@@ -373,7 +433,7 @@ function scanFile(file) {
     if (!result) continue;
 
     const attrName = match[1] ?? 'visible';
-    scanStringLiterals(
+    scanDirectStringExpression(
       failures,
       file,
       source,
@@ -430,4 +490,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('[copy-check] ok: user-visible App copy avoids engineering and backend status terms');
+console.log('[copy-check] ok: user-visible App copy avoids hardcoded literals, engineering terms, and backend status terms');

@@ -4,8 +4,8 @@
 **文檔類型**：問題治理
 **覆蓋範圍**：App platform API error normalization、M1-M5 screen visible error display、App i18n catalog fallback
 **取證代碼入口**：`mobile/src/platform/api/client.ts`、`mobile/src/platform/api/client.test.js`、`mobile/app`、`mobile/src/features`、`mobile/src/i18n`
-**最後核驗 Commit**：`07e5bf3`
-**最後核驗日期**：`2026-06-04`
+**最後核驗 Commit**：`b18e234`
+**最後核驗日期**：`2026-06-05`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 ## 問題位置與現象
@@ -99,3 +99,9 @@
 2. `npm --prefix mobile test -- __tests__/m1-screens.test.js __tests__/m2-screens.test.js __tests__/m3-screens.test.js __tests__/m4-screens.test.js __tests__/m5-notifications.test.js` 通過 5 suites / 74 tests。
 3. `npm --prefix mobile run typecheck` 通過。
 4. 靜態搜尋確認 `toRequestError('APP_ERROR', error.message)` 已無結果；`mobile/src/platform/api/client.ts` 內剩餘 `error.message` 僅用於 shared invalid-response / `SSE stream disconnected` 受控偵測。
+
+## 2026-06-05 歸檔復核
+
+1. 復核現碼確認普通 runtime `Error` fallback 走 `getLocalizedUnknownMessage()`，不再把 `Error.message` 寫入可見 `RequestErrorLike.message`。
+2. 復核 M1-M5 `.message` 顯示路徑確認其依賴 `appApiClient.normalizeError()`；typed status/code、invalid-response 與 stream disconnected 分支維持受控 locale fallback。
+3. 已驗證：App API client 2 suites / 10 tests、M1-M5 screen 5 suites / 74 tests、mobile typecheck 與靜態掃描均通過。

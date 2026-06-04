@@ -14,7 +14,15 @@ import {
   tokenStorage,
 } from '@/src/platform/storage/secureStore';
 import { captureTelemetry } from '@/src/platform/telemetry/client';
-import { ActionButton, FeatureRow, LinkButton, Panel, Screen, StatusPill } from '@/src/ui/components';
+import { t, useLocale } from '@/src/i18n';
+import {
+  ActionButton,
+  FeatureRow,
+  LinkButton,
+  Panel,
+  Screen,
+  StatusPill,
+} from '@/src/ui/components';
 import { palette, spacing, typography } from '@/src/ui/theme';
 
 type AuthMode = 'login' | 'register';
@@ -32,6 +40,7 @@ function isValidEmail(value: string): boolean {
 }
 
 export default function AuthScreen() {
+  useLocale();
   const params = useLocalSearchParams<{ next?: string | string[] }>();
   const queryClient = useQueryClient();
   const [mode, setMode] = useState<AuthMode>('login');
@@ -46,10 +55,10 @@ export default function AuthScreen() {
       const trimmedEmail = email.trim();
       const trimmedNickname = nickname.trim();
       if (!isValidEmail(trimmedEmail)) {
-        throw new Error('請輸入有效的電子郵件。');
+        throw new Error(t('auth.error.invalidEmail'));
       }
       if (password.length < 8) {
-        throw new Error('密碼至少需要 8 個字元。');
+        throw new Error(t('auth.error.passwordMin'));
       }
 
       const auth =
@@ -69,7 +78,11 @@ export default function AuthScreen() {
       if (sessionId) {
         try {
           const claim = await m1Api.auth.claimSession(sessionId);
-          setStatusText(claim.case_id ? '已保存快速整理。' : '已登入，暫無可保存的匿名案件。');
+          setStatusText(
+            claim.case_id
+              ? t('auth.status.claimSaved')
+              : t('auth.status.noAnonymousCase')
+          );
         } catch (error) {
           const claimError = normalizeM1Error(error);
           captureTelemetry({
@@ -84,13 +97,13 @@ export default function AuthScreen() {
           if (CLEAR_SESSION_ON_CLAIM_ERROR_CODES.has(claimError.code)) {
             await sessionStorage.clearSessionId();
             queryClient.setQueryData(APP_SESSION_ID_QUERY_KEY, null);
-            setStatusText('已登入，但匿名進度已過期或無法保存。你可以從案件與修復繼續。');
+            setStatusText(t('auth.status.claimExpired'));
           } else {
-            setStatusText('已登入，但匿名進度暫時無法保存。你可以稍後在 App 內重試。');
+            setStatusText(t('auth.status.claimFailed'));
           }
         }
       } else {
-        setStatusText('已登入。');
+        setStatusText(t('auth.status.loggedIn'));
       }
 
       const nextParam = Array.isArray(params.next) ? params.next[0] : params.next;
@@ -116,7 +129,7 @@ export default function AuthScreen() {
     onSuccess: () => {
       queryClient.setQueryData(APP_AUTH_TOKEN_QUERY_KEY, null);
       queryClient.setQueryData(APP_SESSION_ID_QUERY_KEY, null);
-      setStatusText('這台裝置的登入狀態、快速整理和提醒通道已清理。');
+      setStatusText(t('auth.status.cleared'));
     },
   });
 
@@ -124,22 +137,30 @@ export default function AuthScreen() {
 
   return (
     <Screen
-      eyebrow="帳號"
-      title="保存你的進度"
-      subtitle="登入後可以把匿名整理、案件和修復計畫放到同一個帳號下。"
-      action={<LinkButton href="/" label="回到首頁" tone="neutral" testID="auth.home" variant="outline" />}
+      eyebrow={t('auth.eyebrow')}
+      title={t('auth.title')}
+      subtitle={t('auth.subtitle')}
+      action={(
+        <LinkButton
+          href="/"
+          label={t('auth.home')}
+          tone="neutral"
+          testID="auth.home"
+          variant="outline"
+        />
+      )}
       testID="auth.screen">
-      <Panel title="帳號資訊">
+      <Panel title={t('auth.accountPanel')}>
         <View style={styles.segment}>
           <ActionButton
-            label="登入"
+            label={t('auth.login')}
             onPress={() => setMode('login')}
             testID="auth.mode.login"
             tone={mode === 'login' ? 'teal' : 'neutral'}
             variant={mode === 'login' ? 'filled' : 'outline'}
           />
           <ActionButton
-            label="註冊"
+            label={t('auth.register')}
             onPress={() => setMode('register')}
             testID="auth.mode.register"
             tone={mode === 'register' ? 'teal' : 'neutral'}
@@ -149,12 +170,12 @@ export default function AuthScreen() {
 
         {mode === 'register' ? (
           <View style={styles.inputPreview}>
-            <Text style={styles.inputLabel}>暱稱</Text>
+            <Text style={styles.inputLabel}>{t('auth.nickname.label')}</Text>
             <TextInput
-              accessibilityLabel="暱稱"
-              accessibilityHint="輸入你希望 App 顯示的稱呼"
+              accessibilityLabel={t('auth.nickname.label')}
+              accessibilityHint={t('auth.nickname.hint')}
               onChangeText={setNickname}
-              placeholder="你想被怎麼稱呼"
+              placeholder={t('auth.nickname.placeholder')}
               placeholderTextColor={palette.muted}
               style={styles.inputText}
               testID="auth.nickname.input"
@@ -164,10 +185,10 @@ export default function AuthScreen() {
         ) : null}
 
         <View style={styles.inputPreview}>
-          <Text style={styles.inputLabel}>電子郵件</Text>
+          <Text style={styles.inputLabel}>{t('auth.email.label')}</Text>
           <TextInput
-            accessibilityLabel="電子郵件"
-            accessibilityHint="輸入登入或註冊使用的電子郵件"
+            accessibilityLabel={t('auth.email.label')}
+            accessibilityHint={t('auth.email.hint')}
             autoComplete="email"
             autoCapitalize="none"
             autoCorrect={false}
@@ -181,19 +202,21 @@ export default function AuthScreen() {
             value={email}
           />
           <Text style={styles.inputHelper}>
-            {email && !isValidEmail(email) ? '請確認電子郵件格式。' : '用來保存你的案件與修復進度。'}
+            {email && !isValidEmail(email)
+              ? t('auth.email.invalid')
+              : t('auth.email.helper')}
           </Text>
         </View>
         <View style={styles.inputPreview}>
-          <Text style={styles.inputLabel}>密碼</Text>
+          <Text style={styles.inputLabel}>{t('auth.password.label')}</Text>
           <TextInput
-            accessibilityLabel="密碼"
-            accessibilityHint="輸入至少八個字元的密碼"
+            accessibilityLabel={t('auth.password.label')}
+            accessibilityHint={t('auth.password.hint')}
             autoCapitalize="none"
             autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
             autoCorrect={false}
             onChangeText={setPassword}
-            placeholder="至少 8 個字元"
+            placeholder={t('auth.password.placeholder')}
             placeholderTextColor={palette.muted}
             secureTextEntry
             style={styles.inputText}
@@ -202,40 +225,60 @@ export default function AuthScreen() {
             value={password}
           />
           <Text style={styles.inputHelper}>
-            {password.length < 8 ? `還需要 ${8 - password.length} 個字元。` : '密碼長度符合要求。'}
+            {password.length < 8
+              ? t('auth.password.needMore', { count: 8 - password.length })
+              : t('auth.password.valid')}
           </Text>
         </View>
         {formError ? <Text style={styles.errorText}>{formError}</Text> : null}
         {statusText ? <Text style={styles.statusText}>{statusText}</Text> : null}
         <ActionButton
           disabled={!canSubmit}
-          accessibilityHint="電子郵件格式有效且密碼至少八個字元後提交"
-          label={mode === 'login' ? '登入並保存' : '註冊並保存'}
+          accessibilityHint={t('auth.submit.hint')}
+          label={mode === 'login' ? t('auth.submit.login') : t('auth.submit.register')}
           loading={authMutation.isPending}
           onPress={() => authMutation.mutate()}
           testID="auth.submit"
           tone="teal"
         />
-        <StatusPill label="本機安全保存" tone="amber" />
+        <StatusPill label={t('auth.localSafe')} tone="amber" />
       </Panel>
 
-      <Panel title="登入後會做的事">
-        <FeatureRow title="安全保存" detail="登入狀態只保存在這台裝置。" tone="teal" />
-        <FeatureRow title="承接快速整理" detail="如果剛做過快速整理，會嘗試收進你的帳號。" tone="blue" />
-        <FeatureRow title="登出清理" detail="登出時會先關閉本機提醒，再清除登入狀態。" tone="coral" />
+      <Panel title={t('auth.afterPanel')}>
+        <FeatureRow
+          title={t('auth.safeSave.title')}
+          detail={t('auth.safeSave.detail')}
+          tone="teal"
+        />
+        <FeatureRow
+          title={t('auth.claimQuick.title')}
+          detail={t('auth.claimQuick.detail')}
+          tone="blue"
+        />
+        <FeatureRow
+          title={t('auth.logoutClean.title')}
+          detail={t('auth.logoutClean.detail')}
+          tone="coral"
+        />
       </Panel>
 
       <View style={styles.actions}>
-        <LinkButton href="/case" label="進入案件與修復" tone="teal" testID="auth.app" />
+        <LinkButton href="/case" label={t('auth.enterApp')} tone="teal" testID="auth.app" />
         <ActionButton
-          label="清理本機會話"
+          label={t('auth.clearLocal')}
           loading={clearMutation.isPending}
           onPress={() => clearMutation.mutate()}
           testID="auth.clear-local-session"
           tone="coral"
           variant="outline"
         />
-        <LinkButton href="/" label="暫不登入" tone="neutral" testID="auth.home.footer" variant="outline" />
+        <LinkButton
+          href="/"
+          label={t('auth.skip')}
+          tone="neutral"
+          testID="auth.home.footer"
+          variant="outline"
+        />
       </View>
     </Screen>
   );

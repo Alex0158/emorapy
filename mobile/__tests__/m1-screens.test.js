@@ -146,9 +146,11 @@ describe('M1 Quick/Auth screens', () => {
   });
 
   afterEach(() => {
-    while (queryClients.length) {
-      queryClients.pop().clear();
-    }
+    act(() => {
+      while (queryClients.length) {
+        queryClients.pop().clear();
+      }
+    });
   });
 
   it('submits quick case through anonymous session and routes to result', async () => {
@@ -580,6 +582,25 @@ describe('M1 Quick/Auth screens', () => {
 
     expect(screen.getByText('密碼長度符合要求。')).toBeTruthy();
     expect(screen.getByTestId('auth.submit').props.accessibilityState.disabled).toBe(false);
+  });
+
+  it('renders auth form and validation in the selected locale', () => {
+    setLocale('en-US', { persist: false });
+    const screen = renderWithQuery(React.createElement(AuthScreen));
+
+    expect(screen.getByText('Save your progress')).toBeTruthy();
+    expect(screen.getByText('Account details')).toBeTruthy();
+    expect(screen.getByText('Log in and save')).toBeTruthy();
+
+    fireEvent.changeText(screen.getByPlaceholderText('name@example.com'), 'bad-email');
+    fireEvent.changeText(screen.getByPlaceholderText('At least 8 characters'), 'short');
+
+    expect(screen.getByText('Check the email format.')).toBeTruthy();
+    expect(screen.getByText('3 more characters needed.')).toBeTruthy();
+
+    fireEvent.press(screen.getByText('Register'));
+    expect(screen.getByText('Nickname')).toBeTruthy();
+    expect(screen.getByPlaceholderText('How should we call you?')).toBeTruthy();
   });
 
   it('does not block login when claim-session fails for an expired anonymous session', async () => {

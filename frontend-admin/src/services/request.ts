@@ -94,7 +94,7 @@ request.interceptors.response.use(
     }
 
     return Promise.reject(
-      toRequestError('UNKNOWN_ERROR', error.message || t('adminApi.error.unknown'))
+      toRequestError('UNKNOWN_ERROR', t('adminApi.error.unknown'))
     );
   }
 );

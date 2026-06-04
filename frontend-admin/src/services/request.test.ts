@@ -111,6 +111,19 @@ describe('admin request locale header', () => {
     });
   });
 
+  it('does not expose raw runtime messages for unknown Admin request errors', async () => {
+    setLocale('en-US');
+
+    request.defaults.adapter = (async () => {
+      return Promise.reject(new Error('boom'));
+    }) satisfies AxiosAdapter;
+
+    await expect(request.get('/unknown-runtime')).rejects.toMatchObject({
+      code: 'UNKNOWN_ERROR',
+      message: 'An unknown error occurred. Please try again later.',
+    });
+  });
+
   it('localizes invalid Admin identity response fallbacks', async () => {
     setLocale('zh-TW');
 

@@ -4,6 +4,7 @@ const zhTW: Record<string, string> = {
   'common.networkError': '網路錯誤，請稍後重試',
   'common.confirm': '確認',
   'common.cancel': '取消',
+  'common.close': '關閉',
   'common.loading': '載入中...',
   'common.version': '版本',
   'common.versionInfo': '版本資訊',

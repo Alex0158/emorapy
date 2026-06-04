@@ -4,6 +4,7 @@ const enUS: Record<string, string> = {
   'common.networkError': 'Network error',
   'common.confirm': 'Confirm',
   'common.cancel': 'Cancel',
+  'common.close': 'Close',
   'common.loading': 'Loading...',
   'common.version': 'Version',
   'common.versionInfo': 'Version Info',

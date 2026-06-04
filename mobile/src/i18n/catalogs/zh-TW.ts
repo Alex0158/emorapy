@@ -4,6 +4,8 @@ const zhTW: Record<string, string> = {
   'app.locale.switchToZhTW': '切換為繁體中文',
   'app.locale.changeHint': '切換 App 介面與服務回應語言',
 
+  'common.home': '回到首頁',
+
   'ui.link.accessibilityHint': '開啟「{label}」',
   'ui.action.accessibilityHint': '執行「{label}」',
 
@@ -61,6 +63,32 @@ const zhTW: Record<string, string> = {
   'appError.retryCheck.title': '重新檢查',
   'appError.retryCheck.detail': '重試後仍會重新確認目前帳號和流程狀態。',
   'appError.retry': '重新嘗試',
+
+  'quick.eyebrow': '快速整理',
+  'quick.title': '快速整理',
+  'quick.subtitle': '把雙方說法分開，先保留一個不急著下結論的版本。',
+  'quick.inputPanel': '輸入區',
+  'quick.plaintiff.label': '我想說清楚的是',
+  'quick.plaintiff.accessibilityHint': '輸入你這邊的具體事件、影響與希望對方理解的重點',
+  'quick.plaintiff.placeholder': '誰做了什麼、我為什麼在意、我希望對方理解哪一點。',
+  'quick.defendant.label': '對方可能會說',
+  'quick.defendant.accessibilityHint': '補上對方可能的視角，幫助快速判斷降低單方偏誤',
+  'quick.defendant.placeholder': '補上對方視角，避免一開始就只剩單方結論。',
+  'quick.helper.needsMore': '再補 {count} 個字，讓整理有足夠上下文。',
+  'quick.helper.ready': '{length}/{max}，可以提交。',
+  'quick.error.minLength': '請各寫至少 {count} 個字，讓系統有足夠上下文。',
+  'quick.submit.accessibilityHint': '兩段說明都至少 {count} 個字後提交快速整理',
+  'quick.submit': '提交快速整理',
+  'quick.storagePanel': '保存方式',
+  'quick.storagePill': '快速整理',
+  'quick.storage.anonymous.title': '匿名進度',
+  'quick.storage.anonymous.detail': '先保存這次整理，不必一開始就登入。',
+  'quick.storage.recovery.title': '中斷恢復',
+  'quick.storage.recovery.detail': '本機進度過期時會重建，再繼續這次整理。',
+  'quick.storage.login.title': '登入保存',
+  'quick.storage.login.detail': '需要長期查看時，再把進度收進帳號。',
+  'quick.collaborative': '雙人快速說明',
+  'quick.auth': '登入保存進度',
 };
 
 export default zhTW;

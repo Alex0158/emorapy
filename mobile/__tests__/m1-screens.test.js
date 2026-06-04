@@ -99,6 +99,7 @@ const QuickResultModule = require('../app/(public)/quick/result');
 const QuickResultScreen = QuickResultModule.default;
 const { shouldPollQuickResult } = QuickResultModule;
 const AuthScreen = require('../app/(public)/auth/index').default;
+const { setLocale } = require('@/src/i18n');
 
 const queryClients = [];
 
@@ -116,6 +117,7 @@ function renderWithQuery(ui) {
 describe('M1 Quick/Auth screens', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    setLocale('zh-TW', { persist: false });
     mockGetSessionId.mockResolvedValue(null);
     mockClearSessionId.mockResolvedValue(undefined);
     mockSetSessionId.mockResolvedValue(undefined);
@@ -188,6 +190,18 @@ describe('M1 Quick/Auth screens', () => {
     expect(screen.getByTestId('quick.submit').props.accessibilityState.disabled).toBe(false);
     expect(screen.getByTestId('quick.plaintiff.helper').props.children).toContain('/800');
     expect(screen.getByTestId('quick.defendant.helper').props.children).toContain('/800');
+  });
+
+  it('renders quick entry helper copy in the selected locale', () => {
+    setLocale('en-US', { persist: false });
+    const screen = renderWithQuery(React.createElement(QuickScreen));
+
+    expect(screen.getAllByText('Quick summary').length).toBeGreaterThan(0);
+    expect(screen.getByText('Input')).toBeTruthy();
+    expect(screen.getByPlaceholderText(/What happened/)).toBeTruthy();
+    expect(screen.getByPlaceholderText(/Add the other perspective/)).toBeTruthy();
+    expect(screen.getByTestId('quick.plaintiff.helper').props.children).toContain('Add 10 more characters');
+    expect(screen.getByText('Submit quick summary')).toBeTruthy();
   });
 
   it('uses localized Auth screen label instead of the old English eyebrow', () => {

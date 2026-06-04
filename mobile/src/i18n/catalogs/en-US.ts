@@ -4,6 +4,8 @@ const enUS: Record<string, string> = {
   'app.locale.switchToZhTW': '切換為繁體中文',
   'app.locale.changeHint': 'Switch the App interface and service response language',
 
+  'common.home': 'Back home',
+
   'ui.link.accessibilityHint': 'Open "{label}"',
   'ui.action.accessibilityHint': 'Run "{label}"',
 
@@ -61,6 +63,32 @@ const enUS: Record<string, string> = {
   'appError.retryCheck.title': 'Recheck',
   'appError.retryCheck.detail': 'Retrying will recheck the current account and workflow state.',
   'appError.retry': 'Try again',
+
+  'quick.eyebrow': 'Quick summary',
+  'quick.title': 'Quick summary',
+  'quick.subtitle': 'Separate both sides first and keep a version that does not rush to a conclusion.',
+  'quick.inputPanel': 'Input',
+  'quick.plaintiff.label': 'What I want to make clear',
+  'quick.plaintiff.accessibilityHint': 'Enter the concrete event, impact, and what you hope the other person understands',
+  'quick.plaintiff.placeholder': 'What happened, why it mattered, and what you hope the other person understands.',
+  'quick.defendant.label': 'What the other person may say',
+  'quick.defendant.accessibilityHint': 'Add the other person perspective so the quick check is less one-sided',
+  'quick.defendant.placeholder': 'Add the other perspective so the first version is not only one-sided.',
+  'quick.helper.needsMore': 'Add {count} more characters so there is enough context.',
+  'quick.helper.ready': '{length}/{max}, ready to submit.',
+  'quick.error.minLength': 'Write at least {count} characters for each side so there is enough context.',
+  'quick.submit.accessibilityHint': 'Submit the quick summary after both statements have at least {count} characters',
+  'quick.submit': 'Submit quick summary',
+  'quick.storagePanel': 'Saving',
+  'quick.storagePill': 'Quick summary',
+  'quick.storage.anonymous.title': 'Anonymous progress',
+  'quick.storage.anonymous.detail': 'Save this summary first without signing in.',
+  'quick.storage.recovery.title': 'Resume after interruption',
+  'quick.storage.recovery.detail': 'If local progress expires, it can be rebuilt and continue this summary.',
+  'quick.storage.login.title': 'Save after login',
+  'quick.storage.login.detail': 'When you need long-term access, save the progress into your account.',
+  'quick.collaborative': 'Two-person quick note',
+  'quick.auth': 'Log in to save progress',
 };
 
 export default enUS;

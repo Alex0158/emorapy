@@ -6,6 +6,7 @@ import { useMutation } from '@tanstack/react-query';
 
 import { normalizeM1Error, m1Api } from '@/src/features/m1/api';
 import { getOrCreateQuickSession } from '@/src/features/m1/session';
+import { t } from '@/src/i18n';
 import { sessionStorage } from '@/src/platform/storage/secureStore';
 import { ActionButton, FeatureRow, LinkButton, Panel, Screen, StatusPill } from '@/src/ui/components';
 import { palette, spacing, typography } from '@/src/ui/theme';
@@ -20,9 +21,9 @@ function countTrimmedText(value: string): number {
 function statementHelperText(value: string): string {
   const length = countTrimmedText(value);
   if (length < MIN_STATEMENT_LENGTH) {
-    return `再補 ${MIN_STATEMENT_LENGTH - length} 個字，讓整理有足夠上下文。`;
+    return t('quick.helper.needsMore', { count: MIN_STATEMENT_LENGTH - length });
   }
-  return `${length}/${MAX_STATEMENT_LENGTH}，可以提交。`;
+  return t('quick.helper.ready', { length, max: MAX_STATEMENT_LENGTH });
 }
 
 export default function QuickScreen() {
@@ -36,7 +37,7 @@ export default function QuickScreen() {
       const trimmedDefendant = defendantStatement.trim();
 
       if (trimmedPlaintiff.length < MIN_STATEMENT_LENGTH || trimmedDefendant.length < MIN_STATEMENT_LENGTH) {
-        throw new Error(`請各寫至少 ${MIN_STATEMENT_LENGTH} 個字，讓系統有足夠上下文。`);
+        throw new Error(t('quick.error.minLength', { count: MIN_STATEMENT_LENGTH }));
       }
 
       const { session } = await getOrCreateQuickSession();
@@ -65,21 +66,29 @@ export default function QuickScreen() {
 
   return (
     <Screen
-      eyebrow="快速整理"
-      title="快速整理"
-      subtitle="把雙方說法分開，先保留一個不急著下結論的版本。"
-      action={<LinkButton href="/" label="回到首頁" tone="neutral" testID="quick.home" variant="outline" />}
+      eyebrow={t('quick.eyebrow')}
+      title={t('quick.title')}
+      subtitle={t('quick.subtitle')}
+      action={
+        <LinkButton
+          href="/"
+          label={t('common.home')}
+          tone="neutral"
+          testID="quick.home"
+          variant="outline"
+        />
+      }
       testID="quick.screen">
-      <Panel title="輸入區">
+      <Panel title={t('quick.inputPanel')}>
         <View style={styles.inputGroup}>
-          <Text style={styles.fieldLabel}>我想說清楚的是</Text>
+          <Text style={styles.fieldLabel}>{t('quick.plaintiff.label')}</Text>
           <TextInput
-            accessibilityLabel="我想說清楚的是"
-            accessibilityHint="輸入你這邊的具體事件、影響與希望對方理解的重點"
+            accessibilityLabel={t('quick.plaintiff.label')}
+            accessibilityHint={t('quick.plaintiff.accessibilityHint')}
             maxLength={MAX_STATEMENT_LENGTH}
             multiline
             onChangeText={setPlaintiffStatement}
-            placeholder="誰做了什麼、我為什麼在意、我希望對方理解哪一點。"
+            placeholder={t('quick.plaintiff.placeholder')}
             placeholderTextColor={palette.muted}
             style={styles.textArea}
             testID="quick.plaintiff.input"
@@ -91,14 +100,14 @@ export default function QuickScreen() {
           </Text>
         </View>
         <View style={styles.inputGroupAlt}>
-          <Text style={styles.fieldLabel}>對方可能會說</Text>
+          <Text style={styles.fieldLabel}>{t('quick.defendant.label')}</Text>
           <TextInput
-            accessibilityLabel="對方可能會說"
-            accessibilityHint="補上對方可能的視角，幫助快速判斷降低單方偏誤"
+            accessibilityLabel={t('quick.defendant.label')}
+            accessibilityHint={t('quick.defendant.accessibilityHint')}
             maxLength={MAX_STATEMENT_LENGTH}
             multiline
             onChangeText={setDefendantStatement}
-            placeholder="補上對方視角，避免一開始就只剩單方結論。"
+            placeholder={t('quick.defendant.placeholder')}
             placeholderTextColor={palette.muted}
             style={styles.textArea}
             testID="quick.defendant.input"
@@ -111,9 +120,9 @@ export default function QuickScreen() {
         </View>
         {formError ? <Text style={styles.errorText}>{formError}</Text> : null}
         <ActionButton
-          accessibilityHint={`兩段說明都至少 ${MIN_STATEMENT_LENGTH} 個字後提交快速整理`}
+          accessibilityHint={t('quick.submit.accessibilityHint', { count: MIN_STATEMENT_LENGTH })}
           disabled={!canSubmit}
-          label="提交快速整理"
+          label={t('quick.submit')}
           loading={quickMutation.isPending}
           onPress={() => quickMutation.mutate()}
           testID="quick.submit"
@@ -121,17 +130,41 @@ export default function QuickScreen() {
         />
       </Panel>
 
-      <Panel title="保存方式">
-        <StatusPill label="快速整理" tone="amber" />
-        <FeatureRow title="匿名進度" detail="先保存這次整理，不必一開始就登入。" tone="teal" />
-        <FeatureRow title="中斷恢復" detail="本機進度過期時會重建，再繼續這次整理。" tone="blue" />
-        <FeatureRow title="登入保存" detail="需要長期查看時，再把進度收進帳號。" tone="coral" />
+      <Panel title={t('quick.storagePanel')}>
+        <StatusPill label={t('quick.storagePill')} tone="amber" />
+        <FeatureRow
+          title={t('quick.storage.anonymous.title')}
+          detail={t('quick.storage.anonymous.detail')}
+          tone="teal"
+        />
+        <FeatureRow
+          title={t('quick.storage.recovery.title')}
+          detail={t('quick.storage.recovery.detail')}
+          tone="blue"
+        />
+        <FeatureRow
+          title={t('quick.storage.login.title')}
+          detail={t('quick.storage.login.detail')}
+          tone="coral"
+        />
       </Panel>
 
       <View style={styles.actions}>
-        <LinkButton href="/quick/collaborative" label="雙人快速說明" tone="blue" testID="quick.collaborative" variant="outline" />
-        <LinkButton href="/auth" label="登入保存進度" tone="teal" testID="quick.auth" />
-        <LinkButton href="/" label="回到首頁" tone="neutral" testID="quick.home.footer" variant="outline" />
+        <LinkButton
+          href="/quick/collaborative"
+          label={t('quick.collaborative')}
+          tone="blue"
+          testID="quick.collaborative"
+          variant="outline"
+        />
+        <LinkButton href="/auth" label={t('quick.auth')} tone="teal" testID="quick.auth" />
+        <LinkButton
+          href="/"
+          label={t('common.home')}
+          tone="neutral"
+          testID="quick.home.footer"
+          variant="outline"
+        />
       </View>
     </Screen>
   );

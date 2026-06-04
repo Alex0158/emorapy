@@ -10,9 +10,9 @@ export interface CheckinDtoForInterface {
 }
 
 export interface IExecutionService {
-  confirmExecution(userId: string, planId: string): Promise<unknown>;
+  confirmExecution(userId: string, planId: string, locale?: string): Promise<unknown>;
 
-  checkin(userId: string, data: CheckinDtoForInterface): Promise<unknown>;
+  checkin(userId: string, data: CheckinDtoForInterface, locale?: string): Promise<unknown>;
 
   getExecutionStatus(userId: string, planId: string, locale?: string): Promise<unknown>;
 

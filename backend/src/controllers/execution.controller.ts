@@ -11,7 +11,7 @@ export class ExecutionController {
       const userId = getAuthUserId(req);
       const { plan_id } = req.body;
 
-      const execution = await executionService.confirmExecution(userId, plan_id);
+      const execution = await executionService.confirmExecution(userId, plan_id, req.locale);
 
       res.json({
         success: true,
@@ -30,7 +30,7 @@ export class ExecutionController {
     try {
       const userId = getAuthUserId(req);
 
-      const execution = await executionService.checkin(userId, req.body);
+      const execution = await executionService.checkin(userId, req.body, req.locale);
 
       res.json({
         success: true,

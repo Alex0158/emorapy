@@ -98,11 +98,14 @@
 
 `journey_context.title/body/primary_cta.label/secondary_cta.label` 屬 backend-owned visible context；reconciliation generate/list/detail/select/invite/pause/respond 與 execution status/dashboard 必須把 request locale 傳入 backend context builder，Web / App 直接顯示後端結果，不端側重建 status -> copy 翻譯表。
 
+`reconciliation_plan.plan_content` 與 `repair_step_progress.step_title/step_content/fallback_content/pause_rule` 屬 backend-owned stored visible content；初次方案生成、repair replan 生成、confirm/checkin/startPlan 建 step 與 replan 建 step 必須按 request locale 產生新增內容。Web / App 不端側翻譯已儲存 plan / step 內容；歷史已落庫內容仍按原內容顯示。
+
 ## 返回字段補充說明
 
 ### `data.plans[]`
 
 - 保留原字段：`id / plan_type / difficulty_level / estimated_duration / user1_selected / user2_selected / plan_content`
+- `plan_content`：backend 生成並儲存的可見 JSON content；新增 / 重調時必須按 request locale 輸出欄位值，JSON 欄位名不本地化。
 - 新增或顯式返回：
   - `intent`
   - `content`
@@ -140,6 +143,10 @@
 - `is_dual_committed`
 - `current_user`
 - `partner`
+
+### `repair_step_progress`
+
+- `step_title / step_content / fallback_content / pause_rule`：backend 建立 repair step 時按 request locale 寫入；前端只顯示已儲存內容，不以端側 catalog 重建 step title 或翻譯 step content。
 
 ### `data.journey_context`
 

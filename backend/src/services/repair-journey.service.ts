@@ -14,6 +14,26 @@ export type RepairJourneyTask =
   | 'replan_now'
   | 'resume_track'
   | 'review_completed';
+
+export type RepairStepTitleVariant = 'initial' | 'replanned';
+
+export function buildRepairStepTitle(
+  index: number,
+  locale: BackendLocale = 'zh-TW',
+  variant: RepairStepTitleVariant = 'initial',
+) {
+  if (locale === 'en-US') {
+    if (variant === 'replanned') {
+      return index === 0 ? 'Adjusted next step' : `Adjusted step ${index + 2}`;
+    }
+    return index === 0 ? "Today's small step" : `Next step ${index + 1}`;
+  }
+
+  if (variant === 'replanned') {
+    return index === 0 ? '重新調整後的下一步' : `調整後步驟 ${index + 2}`;
+  }
+  return index === 0 ? '今天的一小步' : `下一步 ${index + 1}`;
+}
 export type RepairPartnerState =
   | 'not_invited'
   | 'invited'

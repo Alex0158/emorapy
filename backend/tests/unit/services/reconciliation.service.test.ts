@@ -175,7 +175,7 @@ describe('ReconciliationService', () => {
     const result = await service.generatePlans('judge-1', {
       intent: 'repair',
       preferences: { pressure_level: 'low' },
-    }, 'u1');
+    }, 'u1', 'en-US');
 
     expect(mockGenerateReconciliationPlans).toHaveBeenCalledWith(
       '情感需求衝突',
@@ -186,6 +186,7 @@ describe('ReconciliationService', () => {
       undefined,
       expect.objectContaining({
         intent: 'repair',
+        locale: 'en-US',
         preferenceSummary: expect.stringContaining('壓力承受度：low'),
       }),
     );

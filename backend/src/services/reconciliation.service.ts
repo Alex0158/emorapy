@@ -16,6 +16,7 @@ import { caseContextService } from './case-context.service';
 import { notificationService } from './notification.service';
 import {
   buildRepairJourneyContext,
+  buildRepairStepTitle,
   type RepairJourneyContext,
   type RepairJourneyViewerRole,
 } from './repair-journey.service';
@@ -788,6 +789,7 @@ export class ReconciliationService {
       const options: GenerateReconciliationPlanOptions = {
         intent,
         preferenceSummary: buildPreferenceSummary(preferences),
+        locale,
       };
       generatedPlans = await aiService.generateReconciliationPlans(
         judgment.case.type,
@@ -1188,7 +1190,7 @@ export class ReconciliationService {
     };
   }
 
-  async startPlan(planId: string, userId: string) {
+  async startPlan(planId: string, userId: string, locale: BackendLocale = 'zh-TW') {
     const plan = await this.loadPlanForAction(planId, userId);
     const caseRecord = plan.judgment.case;
     const currentSelected = (caseRecord.plaintiff_id === userId && plan.user1_selected)
@@ -1229,7 +1231,7 @@ export class ReconciliationService {
         data: allSteps.map((step, index) => ({
           repair_track_id: track.id,
           step_index: index,
-          step_title: index === 0 ? '今天的一小步' : `下一步 ${index + 1}`,
+          step_title: buildRepairStepTitle(index, locale, 'initial'),
           step_content: step,
           fallback_content: index === 0 ? content.fallback_step : null,
           pause_rule: content.pause_rule,

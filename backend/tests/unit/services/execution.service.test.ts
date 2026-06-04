@@ -134,9 +134,9 @@ describe('ExecutionService', () => {
       status: 'in_progress',
     });
 
-    const result = await service.confirmExecution('u1', 'plan-1');
+    const result = await service.confirmExecution('u1', 'plan-1', 'en-US');
 
-    expect(mockStartPlan).toHaveBeenCalledWith('plan-1', 'u1');
+    expect(mockStartPlan).toHaveBeenCalledWith('plan-1', 'u1', 'en-US');
     expect(result.action).toBe('confirm');
   });
 

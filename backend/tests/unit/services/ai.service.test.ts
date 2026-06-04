@@ -185,6 +185,66 @@ describe('AIService (useMock)', () => {
       expect(result[0]).toHaveProperty('difficulty_level');
       expect(result[0]).toHaveProperty('estimated_duration');
     });
+
+    it('useMock 且 en-US 時應返回英文可見方案內容', async () => {
+      const result = await service.generateReconciliationPlans(
+        '生活習慣衝突',
+        { plaintiff: 60, defendant: 40 },
+        '判決摘要',
+        undefined,
+        undefined,
+        undefined,
+        { locale: 'en-US' },
+      );
+
+      const visibleText = [
+        result[0].title,
+        result[0].description,
+        result[0].first_step,
+        result[0].fallback_step,
+        result[0].pause_rule,
+        result[0].steps.join(' '),
+      ].join(' ');
+      expect(visibleText).toContain('Today');
+      expect(visibleText).not.toMatch(/[\u4e00-\u9fff]/);
+    });
+  });
+
+  describe('generateReplannedRepairPlan', () => {
+    const originalPlan = {
+      title: 'Repair plan',
+      description: 'Original description.',
+      steps: ['Original first step'],
+      expected_effect: 'Original effect.',
+      fit_reason: 'Original fit.',
+      do_not_use_when: [],
+      first_step: 'Original first step',
+      fallback_step: 'Original fallback.',
+      pause_rule: 'Original pause rule.',
+      time_cost: 1,
+      money_cost: 1,
+      emotion_cost: 1,
+      skill_requirement: 1,
+      plan_type: 'communication' as const,
+      estimated_duration: 1,
+      difficulty_level: 'easy' as const,
+    };
+
+    it('useMock 且 en-US 時應返回英文重調內容', async () => {
+      const result = await service.generateReplannedRepairPlan({
+        originalPlan,
+        intent: 'repair',
+        mode: 'lower_pressure',
+        reason: 'manual',
+        relationshipMode: 'solo',
+        locale: 'en-US',
+      });
+
+      expect(result.title).toContain('adjusted version');
+      expect(result.first_step).toContain('lighter');
+      expect(result.pause_rule).not.toMatch(/[\u4e00-\u9fff]/);
+      expect(result.steps.join(' ')).not.toMatch(/[\u4e00-\u9fff]/);
+    });
   });
 
   describe('resetDailyCallCount', () => {
@@ -551,6 +611,29 @@ describe('AIService (non-useMock)', () => {
   });
 
   describe('generateReconciliationPlans', () => {
+    it('en-US 時應在 prompt 中要求 JSON 可見值使用英文', async () => {
+      openaiCreateMock.mockReset();
+      (openaiCreateMock as any).mockResolvedValue({
+        choices: [{ message: { content: '[]' } }],
+      });
+
+      await service.generateReconciliationPlans(
+        '生活習慣衝突',
+        { plaintiff: 50, defendant: 50 },
+        '摘要',
+        undefined,
+        undefined,
+        undefined,
+        { locale: 'en-US' },
+      );
+
+      const request = (openaiCreateMock as any).mock.calls[0][0];
+      const userMessage = request.messages.find((message: { role: string }) => message.role === 'user');
+      expect(userMessage.content).toContain('Output language requirement');
+      expect(userMessage.content).toContain('must be in natural English');
+      expect(userMessage.content).toContain('Keep JSON field names exactly as specified');
+    });
+
     it('無法解析 JSON 時應拋出 AI_SERVICE_ERROR', async () => {
       (openaiCreateMock as any).mockResolvedValue({
         choices: [{ message: { content: '這不是 JSON，且無陣列結構' } }],
@@ -561,6 +644,66 @@ describe('AIService (non-useMock)', () => {
         code: 'AI_SERVICE_ERROR',
         message: expect.stringContaining('無法解析'),
       });
+    });
+  });
+
+  describe('generateReplannedRepairPlan', () => {
+    it('en-US 時應在 replan prompt 中要求 JSON 可見值使用英文', async () => {
+      openaiCreateMock.mockReset();
+      (openaiCreateMock as any).mockResolvedValue({
+        choices: [{
+          message: {
+            content: JSON.stringify({
+              title: 'Adjusted plan',
+              description: 'A lower-pressure version.',
+              steps: ['Do one smaller step.'],
+              expected_effect: 'It may feel more sustainable.',
+              fit_reason: 'It fits recent check-ins.',
+              do_not_use_when: ['When contact feels unsafe.'],
+              first_step: 'Do one smaller step.',
+              fallback_step: 'Write it down first.',
+              pause_rule: 'Pause if stress rises.',
+              risk_note: 'Do not rush.',
+              time_cost: 1,
+              money_cost: 1,
+              emotion_cost: 1,
+              skill_requirement: 1,
+              plan_type: 'communication',
+              estimated_duration: 1,
+            }),
+          },
+        }],
+      });
+
+      await service.generateReplannedRepairPlan({
+        originalPlan: {
+          title: 'Repair plan',
+          description: 'Original description.',
+          steps: ['Original step'],
+          expected_effect: 'Original effect.',
+          fit_reason: 'Original fit.',
+          do_not_use_when: [],
+          first_step: 'Original step',
+          fallback_step: 'Original fallback.',
+          pause_rule: 'Original pause.',
+          time_cost: 1,
+          money_cost: 1,
+          emotion_cost: 1,
+          skill_requirement: 1,
+          plan_type: 'communication',
+          estimated_duration: 1,
+        },
+        intent: 'repair',
+        mode: 'lower_pressure',
+        reason: 'manual',
+        relationshipMode: 'solo',
+        locale: 'en-US',
+      });
+
+      const request = (openaiCreateMock as any).mock.calls[0][0];
+      const userMessage = request.messages.find((message: { role: string }) => message.role === 'user');
+      expect(userMessage.content).toContain('Output language requirement');
+      expect(userMessage.content).toContain('must be in natural English');
     });
   });
 });

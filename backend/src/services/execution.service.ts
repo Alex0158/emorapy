@@ -14,7 +14,7 @@ import { reconciliationService } from './reconciliation.service';
 import { aiService } from './ai.service';
 import { aiStreamService, type AIStreamHandle } from './ai-stream.service';
 import { notificationService } from './notification.service';
-import { buildRepairJourneyContext } from './repair-journey.service';
+import { buildRepairJourneyContext, buildRepairStepTitle } from './repair-journey.service';
 import {
   buildRepairAccessContext,
   getRepairEligibilityForCase,
@@ -118,7 +118,65 @@ function parsePlanContent(planContent: string) {
 function buildReplanTemplate(
   content: ReturnType<typeof parsePlanContent>,
   dto: ReplanTrackDto,
+  locale: BackendLocale = 'zh-TW',
 ) {
+  if (locale === 'en-US') {
+    const currentCore = content.first_step || content.steps?.[0] || content.description || 'do one smaller, steadier action';
+    const reasonTextMap: Record<ReplanTrackDto['reason'], string> = {
+      needs_help: 'You clearly said this needs lower-pressure support right now.',
+      farther: 'Recent interaction felt more distant, which suggests the original pace was too fast or too direct.',
+      high_stress: 'This step created too much pressure, so slowing down matters more than pushing through.',
+      manual: 'You chose to adjust this round, so the journey should return to a more manageable rhythm.',
+    };
+
+    const modeTemplate: Record<ReplanTrackDto['mode'], { suffix: string; firstStep: string; fallback: string; pauseRule: string; steps: string[] }> = {
+      lower_pressure: {
+        suffix: 'lower-pressure version',
+        firstStep: `Break "${currentCore}" into a smaller step and do only the easiest 20%.`,
+        fallback: 'If even that feels too hard, do one thing today that helps you steady yourself without asking for a response.',
+        pauseRule: 'If pressure keeps rising, pause for 24 hours and keep only goodwill without pushing the issue.',
+        steps: [
+          'Start with the smallest, least pressured action of connection.',
+          'Notice your own pressure and the other person’s response before deciding whether to add a second sentence or action.',
+        ],
+      },
+      slower_pace: {
+        suffix: 'slower-paced version',
+        firstStep: `Slow this round down and only prepare for "${currentCore}" today.`,
+        fallback: 'If you are not ready today, write down one sentence you may want to say later, without sending it yet.',
+        pauseRule: 'If you feel urgency to finish everything at once, stop and wait until emotions settle.',
+        steps: [
+          'Prepare first without trying to finish the key conversation right away.',
+          'When pressure settles, return to the next step in a slower way.',
+        ],
+      },
+      solo_first: {
+        suffix: 'solo-first version',
+        firstStep: 'Do one repair action that you can complete on your own without asking them to join immediately.',
+        fallback: 'If no step toward connection is possible today, care for your own emotion and boundary first.',
+        pauseRule: 'If their response makes you feel less safe, pause and do not treat their silence as failure.',
+        steps: [
+          'Start with one kind action that does not require their response.',
+          'After you feel steadier, decide whether to invite them back in.',
+        ],
+      },
+    };
+
+    const template = modeTemplate[dto.mode];
+    return {
+      title: `${content.title || 'Repair plan'} (${template.suffix})`,
+      description: `${content.description || 'First, bring the pace back to something you can sustain.'} ${reasonTextMap[dto.reason]}`,
+      expected_effect: content.expected_effect || 'This round can become sustainable again before either person drops out under pressure.',
+      fit_reason: `${content.fit_reason || 'The original plan still has value.'} Right now, lowering resistance matters more so the repair can continue.`,
+      do_not_use_when: Array.isArray(content.do_not_use_when) ? content.do_not_use_when : [],
+      first_step: template.firstStep,
+      fallback_step: template.fallback,
+      pause_rule: template.pauseRule,
+      steps: template.steps,
+      risk_note: content.risk_note || null,
+    };
+  }
+
   const currentCore = content.first_step || content.steps?.[0] || content.description || '先做一個更小更穩的動作';
   const reasonTextMap: Record<ReplanTrackDto['reason'], string> = {
     needs_help: '你已經明確說現在需要更低壓的幫助。',
@@ -643,6 +701,7 @@ export class ExecutionService {
         mode: dto.mode,
         reason: dto.reason,
         relationshipMode: track.recommended_mode,
+        locale,
         latestPulse: {
           closeness: latestCheckin?.closeness ?? track.last_closeness ?? undefined,
           stress: latestCheckin?.stress ?? track.last_stress ?? undefined,
@@ -730,7 +789,7 @@ export class ExecutionService {
           data: steps.map((step, index) => ({
             repair_track_id: track.id,
             step_index: nextStepIndex + index,
-            step_title: index === 0 ? '重新調整後的下一步' : `調整後步驟 ${index + 2}`,
+            step_title: buildRepairStepTitle(index, locale ?? 'zh-TW', 'replanned'),
             step_content: step,
             fallback_content: index === 0 ? replanned.fallback_step : null,
             pause_rule: replanned.pause_rule,
@@ -898,7 +957,7 @@ export class ExecutionService {
   /**
    * 確認執行
    */
-  async confirmExecution(userId: string, planId: string) {
+  async confirmExecution(userId: string, planId: string, locale: BackendLocale = 'zh-TW') {
     const { plan, caseRecord } = await this.loadPlanAndAssertParticipant(planId, userId);
     this.assertPlanSelected(plan, caseRecord, userId, '請先在和好方案中選擇此方案再確認執行');
 
@@ -910,7 +969,7 @@ export class ExecutionService {
       },
     });
 
-    await reconciliationService.startPlan(planId, userId);
+    await reconciliationService.startPlan(planId, userId, locale);
 
     if (existing) return existing;
 
@@ -931,11 +990,11 @@ export class ExecutionService {
   /**
    * 記下今天的一小步（兼容舊打卡接口）
    */
-  async checkin(userId: string, data: CheckinDto) {
+  async checkin(userId: string, data: CheckinDto, locale: BackendLocale = 'zh-TW') {
     const { plan, caseRecord } = await this.loadPlanAndAssertParticipant(data.plan_id, userId);
     this.assertPlanSelected(plan, caseRecord, userId, '請先選擇並確認此方案後再記錄進展');
 
-    await reconciliationService.startPlan(data.plan_id, userId);
+    await reconciliationService.startPlan(data.plan_id, userId, locale);
 
     const safeNotes = this.sanitizeNotes(data.notes);
     const safePhotos = this.sanitizePhotos(data.photos);

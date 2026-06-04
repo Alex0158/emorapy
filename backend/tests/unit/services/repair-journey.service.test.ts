@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
-import { buildRepairJourneyContext } from '../../../src/services/repair-journey.service';
+import { buildRepairJourneyContext, buildRepairStepTitle } from '../../../src/services/repair-journey.service';
 
 const baseInput = {
   judgmentId: 'judgment-1',
@@ -52,5 +52,21 @@ describe('buildRepairJourneyContext', () => {
     );
     expect(context.primary_cta.label).toBe('View this invitation');
     expect(context.secondary_cta?.label).toBe('Just review the current status');
+  });
+});
+
+describe('buildRepairStepTitle', () => {
+  it('預設應維持 zh-TW step title', () => {
+    expect(buildRepairStepTitle(0)).toBe('今天的一小步');
+    expect(buildRepairStepTitle(1)).toBe('下一步 2');
+    expect(buildRepairStepTitle(0, 'zh-TW', 'replanned')).toBe('重新調整後的下一步');
+    expect(buildRepairStepTitle(1, 'zh-TW', 'replanned')).toBe('調整後步驟 3');
+  });
+
+  it('en-US 應返回英文 step title', () => {
+    expect(buildRepairStepTitle(0, 'en-US')).toBe("Today's small step");
+    expect(buildRepairStepTitle(1, 'en-US')).toBe('Next step 2');
+    expect(buildRepairStepTitle(0, 'en-US', 'replanned')).toBe('Adjusted next step');
+    expect(buildRepairStepTitle(1, 'en-US', 'replanned')).toBe('Adjusted step 3');
   });
 });

@@ -18,9 +18,9 @@ const mockGetAuthUserId = jest.fn();
 
 jest.mock('../../../src/services/execution.service', () => ({
   executionService: {
-    confirmExecution: (userId: string, planId: string) =>
-      mockConfirmExecution(userId, planId),
-    checkin: (userId: string, body: unknown) => mockCheckin(userId, body),
+    confirmExecution: (userId: string, planId: string, locale?: string) =>
+      mockConfirmExecution(userId, planId, locale),
+    checkin: (userId: string, body: unknown, locale?: string) => mockCheckin(userId, body, locale),
     getExecutionStatus: (userId: string, planId: string, locale?: string) =>
       mockGetExecutionStatus(userId, planId, locale),
     getAllExecutionStatuses: (userId: string, locale?: string) =>
@@ -55,7 +55,7 @@ describe('ExecutionController', () => {
       await controller.confirmExecution(req as Request, res as Response, next);
 
       expect(mockGetAuthUserId).toHaveBeenCalledWith(req);
-      expect(mockConfirmExecution).toHaveBeenCalledWith('u1', 'plan-1');
+      expect(mockConfirmExecution).toHaveBeenCalledWith('u1', 'plan-1', 'en-US');
       expect(res.json).toHaveBeenCalledWith({
         success: true,
         data: { execution },
@@ -83,7 +83,7 @@ describe('ExecutionController', () => {
       await controller.checkin(req as Request, res as Response, next);
 
       expect(mockGetAuthUserId).toHaveBeenCalledWith(req);
-      expect(mockCheckin).toHaveBeenCalledWith('u1', { plan_id: 'plan-1', completed: true });
+      expect(mockCheckin).toHaveBeenCalledWith('u1', { plan_id: 'plan-1', completed: true }, 'en-US');
       expect(res.json).toHaveBeenCalledWith({
         success: true,
         data: { execution },

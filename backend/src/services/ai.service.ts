@@ -14,6 +14,7 @@ import {
   SAFETY_SIGNAL_REGEX,
 } from './ai-safety-signals';
 import { aiRequestLedgerService, type AIRequestLedgerStartInput } from './ai-request-ledger.service';
+import type { BackendLocale } from '../i18n';
 
 export {
   CRISIS_SIGNAL_REGEX,
@@ -119,6 +120,7 @@ export interface ReconciliationPlan {
 export interface GenerateReconciliationPlanOptions {
   intent?: 'repair' | 'cool_down' | 'graceful_exit' | 'safety_support';
   preferenceSummary?: string;
+  locale?: BackendLocale;
   ledger?: AIRequestLedgerStartInput;
 }
 
@@ -141,7 +143,20 @@ export interface GenerateReplannedRepairPlanInput {
     notes?: string | null;
   }>;
   judgmentSummary?: string;
+  locale?: BackendLocale;
   ledger?: AIRequestLedgerStartInput;
+}
+
+function buildPlanOutputLanguageInstruction(locale: BackendLocale) {
+  if (locale === 'en-US') {
+    return `## Output language requirement
+
+All user-visible string values in the JSON output must be in natural English. Keep JSON field names exactly as specified. Do not output Traditional Chinese labels, titles, steps, fallback text, pause rules, or risk notes unless quoting user-provided source text.`;
+  }
+
+  return `## 輸出語言要求
+
+JSON 輸出中的所有使用者可見字串值必須使用自然繁體中文。JSON 欄位名維持指定格式。`;
 }
 
 export class AIService {
@@ -1656,6 +1671,46 @@ ${content}
     options?: GenerateReconciliationPlanOptions,
   ): Promise<ReconciliationPlan[]> {
     if (this.useMock) {
+      if (options?.locale === 'en-US') {
+        return [
+          {
+            title: 'Create a simple “I’m on my way” signal',
+            description: 'Starting today, if either person will be more than 15 minutes late, send one short message: “I’m running late, and I’m still coming.” This is not surveillance. It is a small signal that says the other person has not been forgotten.',
+            steps: ['Agree on a simple timing rule, such as sending a message after a 15-minute delay', 'Choose the easiest signal: call, text, or a shared emoji', 'Person B tries one low-pressure caring message today', 'If it happens, Person A gives one small positive response'],
+            expected_effect: 'Person A may feel less alone while waiting, and Person B may discover that a small reassurance can create warmth instead of pressure.',
+            fit_reason: 'What you need most right now is not a dramatic repair moment, but a small safety signal that answers “Do I still matter to you?”',
+            do_not_use_when: ['One person does not want any contact', 'Receiving a message would increase pressure or fear for either person'],
+            first_step: 'Today, agree that if either person is more than 15 minutes late, they will send one short message.',
+            fallback_step: 'If a direct message feels like too much, use one agreed emoji as a simple safety signal.',
+            pause_rule: 'If either person feels monitored or pushed, pause for 24 hours and agree on an even lower-pressure signal.',
+            time_cost: 1,
+            money_cost: 1,
+            emotion_cost: 1,
+            skill_requirement: 1,
+            plan_type: 'communication' as const,
+            estimated_duration: 1,
+            difficulty_level: 'easy' as const,
+          },
+          {
+            title: 'Redo the birthday dinner in a simpler way',
+            description: 'Pick a weekend and recreate the dinner that was interrupted by lateness. Keep it simple: buy groceries together, order takeout, or cook at home. The point is not a perfect dinner; it is making a new memory together.',
+            steps: ['Person B suggests a time and one simple meal idea', 'Choose the easiest version: groceries, takeout, or a short walk for drinks', 'Do the activity with permission for it to be imperfect', 'During the meal or walk, each person shares one small moment they still appreciate'],
+            expected_effect: 'You may create a new shared memory that softens the old one, while giving Person B a concrete way to show care.',
+            fit_reason: 'There is still a wish to move closer, so a warm shared experience may work better than trying to explain everything at once.',
+            do_not_use_when: ['Recent time together quickly turns into arguments', 'Either person clearly does not want to meet or do an activity together'],
+            first_step: 'First, agree on one small shared activity window instead of planning a whole evening.',
+            fallback_step: 'If cooking together feels too much, take a short walk or buy drinks together instead.',
+            pause_rule: 'If old arguments return, pause the conversation, eat something, or switch rooms before continuing.',
+            time_cost: 3,
+            money_cost: 2,
+            emotion_cost: 2,
+            skill_requirement: 2,
+            plan_type: 'activity' as const,
+            estimated_duration: 1,
+            difficulty_level: 'easy' as const,
+          },
+        ];
+      }
       return [
         {
           title: '建立「我在路上」的安全訊號',
@@ -1749,6 +1804,30 @@ ${content}
   async generateReplannedRepairPlan(input: GenerateReplannedRepairPlanInput): Promise<ReconciliationPlan> {
     if (this.useMock) {
       const base = input.originalPlan;
+      if (input.locale === 'en-US') {
+        return {
+          ...base,
+          title: `${base.title} (adjusted version)`,
+          description: `${base.description} This version fits your recent state better by lowering pressure first, then rebuilding a sustainable rhythm.`,
+          fit_reason: `${base.fit_reason} Recent check-ins show that the pace needs to be adjusted first, otherwise the repair may become too stressful to continue.`,
+          first_step: input.mode === 'solo_first'
+            ? 'Start with one low-pressure action that does not require an immediate response from the other person.'
+            : input.mode === 'slower_pace'
+              ? 'Complete only the smallest part of today’s step instead of trying to finish the whole conversation.'
+              : 'Break the original first step into a lighter, shorter version that is easier to begin.',
+          fallback_step: 'If today still feels too hard, do one small thing that helps you steady yourself, then come back tomorrow.',
+          pause_rule: 'If pressure clearly rises, pause without treating the pause as failure.',
+          steps: [
+            input.mode === 'solo_first'
+              ? 'Complete one kind action that you can do on your own.'
+              : input.mode === 'slower_pace'
+                ? 'Make this step smaller and do only the easiest part.'
+                : 'Switch to a lower-pressure version that keeps connection without forcing progress.',
+            'Afterward, review only the sense of distance and pressure without demanding an immediate result.',
+          ],
+          risk_note: 'The most likely stuck point is trying to fix everything at once.',
+        };
+      }
       return {
         ...base,
         title: `${base.title}（重新調整版）`,
@@ -1791,7 +1870,10 @@ ${content}
       `needs_help=${input.latestPulse?.needs_help ? 'true' : 'false'}`,
     ].join(', ');
 
-    const prompt = `你正在調整一份伴侶修復旅程，目標不是重寫整套方案，而是讓它更貼近他們最近的真實狀態，避免因壓力太高而退出。
+    const languageInstruction = buildPlanOutputLanguageInstruction(input.locale ?? 'zh-TW');
+    const prompt = `${languageInstruction}
+
+你正在調整一份伴侶修復旅程，目標不是重寫整套方案，而是讓它更貼近他們最近的真實狀態，避免因壓力太高而退出。
 
 目前的大方向（intent）：${input.intent}
 目前模式：${input.relationshipMode}
@@ -1874,6 +1956,7 @@ ${recentCheckins || '- 暫無更多回報'}
     options?: GenerateReconciliationPlanOptions,
   ): string {
     const intent = options?.intent || 'repair';
+    const languageInstruction = buildPlanOutputLanguageInstruction(options?.locale ?? 'zh-TW');
     const intentLabelMap: Record<string, string> = {
       repair: '我想試著修復',
       cool_down: '我想先降溫，不急著決定',
@@ -1917,7 +2000,9 @@ ${recentCheckins || '- 暫無更多回報'}
 - **善用關係力量**：方案應以已識別的「關係中仍在運作的力量」作為切入點，從已有的好基礎出發。\n`
       : '';
 
-    return `你正在為一對伴侶設計具體的關係修復行動方案。你的設計應該讓他們讀了以後覺得「我好想試試看」，而不是覺得「又要做功課了」。
+    return `${languageInstruction}
+
+你正在為一對伴侶設計具體的關係修復行動方案。你的設計應該讓他們讀了以後覺得「我好想試試看」，而不是覺得「又要做功課了」。
 ${safetyAlert}
 背景資訊：
 - 衝突議題類別：${caseType}

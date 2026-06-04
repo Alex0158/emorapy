@@ -48,7 +48,7 @@ describe('interview-seed-question-loader', () => {
       '嗨，歡迎回來。上次聊天裡我對你的一個印象是：性格：喜歡探索。如果你願意，想先從這件事最近在你生活裡的變化聊起嗎？'
     );
 
-    expect(mockedGetSeedQuestion).toHaveBeenCalledWith('organic');
+    expect(mockedGetSeedQuestion).toHaveBeenCalledWith('organic', 'zh-TW');
     expect(mockedPrisma.profileInsight.findMany).toHaveBeenCalledWith({
       where: {
         user_id: 'u1',
@@ -81,7 +81,7 @@ describe('interview-seed-question-loader', () => {
 
     await expect(loadPersonalizedInterviewSeedQuestion('u1', 'pre_case')).resolves.toBe('基礎首題');
 
-    expect(mockedGetSeedQuestion).toHaveBeenCalledWith('pre_case');
+    expect(mockedGetSeedQuestion).toHaveBeenCalledWith('pre_case', 'zh-TW');
     expect(mockedLogger.debug).not.toHaveBeenCalled();
   });
 
@@ -91,10 +91,29 @@ describe('interview-seed-question-loader', () => {
 
     await expect(loadPersonalizedInterviewSeedQuestion('u1', 'onboarding')).resolves.toBe('基礎首題');
 
-    expect(mockedGetSeedQuestion).toHaveBeenCalledWith('onboarding');
+    expect(mockedGetSeedQuestion).toHaveBeenCalledWith('onboarding', 'zh-TW');
     expect(mockedLogger.debug).toHaveBeenCalledWith(
       'Non-critical: failed to build personalized seed',
       { userId: 'u1', error: queryError }
     );
+  });
+
+  it('loadPersonalizedInterviewSeedQuestion 應按 en-US 產生英文個人化首題', async () => {
+    mockedGetSeedQuestion.mockReturnValue('What would you like to talk about today?');
+    mockedPrisma.profileInsight.findMany.mockResolvedValue([
+      {
+        domain: PsychDomain.personality,
+        insight_type: 'preference',
+        key: 'personality',
+        value: 'likes exploring',
+        confidence: 0.91,
+      },
+    ]);
+
+    await expect(loadPersonalizedInterviewSeedQuestion('u1', 'organic', 'en-US')).resolves.toBe(
+      'Hi, welcome back. One impression I kept from our last conversation is: personality：likes exploring. If you are willing, would you like to start with how this has been showing up in your life recently?'
+    );
+
+    expect(mockedGetSeedQuestion).toHaveBeenCalledWith('organic', 'en-US');
   });
 });

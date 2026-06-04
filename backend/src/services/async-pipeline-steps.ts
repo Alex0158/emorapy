@@ -1,5 +1,6 @@
 import prisma from '../config/database';
 import { PipelineStep } from '../types/interview.types';
+import type { BackendLocale } from '../i18n';
 import { domainClassificationService } from './domain-classification.service';
 import { narrativeService } from './narrative.service';
 import { insightExtractionService } from './insight-extraction.service';
@@ -15,11 +16,13 @@ export interface AsyncPipelineStepDefinition {
 export interface BuildAsyncPipelineStepsOptions {
   sessionId: string;
   userId: string;
+  locale?: BackendLocale;
 }
 
 export function buildAsyncPipelineSteps({
   sessionId,
   userId,
+  locale = 'zh-TW',
 }: BuildAsyncPipelineStepsOptions): AsyncPipelineStepDefinition[] {
   return [
     {
@@ -50,7 +53,7 @@ export function buildAsyncPipelineSteps({
     {
       step: PipelineStep.FEEDBACK_GENERATION,
       run: async () => {
-        const card = await generatePipelineFeedbackCard({ userId, sessionId });
+        const card = await generatePipelineFeedbackCard({ userId, sessionId, locale });
         await prisma.interviewSession.update({
           where: { id: sessionId },
           data: { feedback_card: card },

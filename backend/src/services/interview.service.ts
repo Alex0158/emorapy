@@ -48,12 +48,13 @@ export class InterviewService {
    */
   async startSession(
     userId: string,
-    trigger: InterviewStartTrigger = 'organic'
+    trigger: InterviewStartTrigger = 'organic',
+    locale: BackendLocale = 'zh-TW'
   ) {
     return lockService.withLock(`interview:start:${userId}`, async () => {
       const { inProgress } = await loadValidatedInterviewStartContext(userId);
 
-      const firstQuestion = await loadPersonalizedInterviewSeedQuestion(userId, trigger);
+      const firstQuestion = await loadPersonalizedInterviewSeedQuestion(userId, trigger, locale);
 
       const previousSessionDisposition = getPreviousInterviewSessionDisposition(
         inProgress,
@@ -68,7 +69,7 @@ export class InterviewService {
       });
 
       if (previousSessionDisposition?.shouldProcess) {
-        asyncPipelineService.process(previousSessionDisposition.sessionId).catch((err) => {
+        asyncPipelineService.process(previousSessionDisposition.sessionId, { locale }).catch((err) => {
           logger.error('Async pipeline after abandon failed', {
             sessionId: previousSessionDisposition.sessionId,
             error: err,
@@ -268,7 +269,7 @@ export class InterviewService {
     this.activeStreamControllers.delete(sessionId);
   }
 
-  async endSession(sessionId: string, userId: string): Promise<void> {
+  async endSession(sessionId: string, userId: string, locale: BackendLocale = 'zh-TW'): Promise<void> {
     await lockService.withLock(
       `interview:respond:${sessionId}`,
       async () => {
@@ -283,7 +284,7 @@ export class InterviewService {
           return;
         }
 
-        asyncPipelineService.process(sessionId).catch((err) => {
+        asyncPipelineService.process(sessionId, { locale }).catch((err) => {
           logger.error('Async pipeline after endSession failed', { sessionId, error: err });
         });
       },
@@ -308,9 +309,9 @@ export class InterviewService {
     await this.respond(sessionId, userId, '', onSSE, true, options);
   }
 
-  async retryFailed(sessionId: string, userId: string): Promise<void> {
+  async retryFailed(sessionId: string, userId: string, locale: BackendLocale = 'zh-TW'): Promise<void> {
     const retry = await prepareInterviewProcessingRetry(sessionId, userId);
-    asyncPipelineService.resume(retry.sessionId, retry.fromStep).catch((err) => {
+    asyncPipelineService.resume(retry.sessionId, retry.fromStep, { locale }).catch((err) => {
       logger.error('Async pipeline retry failed', { sessionId, error: err });
     });
   }

@@ -1,4 +1,5 @@
 import { PsychDomain } from '@prisma/client';
+import type { BackendLocale } from '../i18n';
 
 const UNSAFE_SEED_SIGNAL_PATTERN = /自傷|自殺|暴力|威脅|創傷|受害/;
 const SAFE_SEED_DOMAINS = new Set<PsychDomain>([
@@ -38,8 +39,11 @@ export function buildSeedInsightHints(insights: InterviewSeedInsight[]): string[
     .map((insight) => `${insight.key}：${sanitizeSeedInsightValue(insight.value)}`);
 }
 
-export function buildPersonalizedSeedQuestion(base: string, hints: string[]): string {
+export function buildPersonalizedSeedQuestion(base: string, hints: string[], locale: BackendLocale = 'zh-TW'): string {
   if (hints.length === 0) return base;
   const hint = hints[0];
+  if (locale === 'en-US') {
+    return `Hi, welcome back. One impression I kept from our last conversation is: ${hint}. If you are willing, would you like to start with how this has been showing up in your life recently?`;
+  }
   return `嗨，歡迎回來。上次聊天裡我對你的一個印象是：${hint}。如果你願意，想先從這件事最近在你生活裡的變化聊起嗎？`;
 }

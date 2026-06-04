@@ -66,5 +66,8 @@ describe('interview-seed-question-utils', () => {
     expect(buildPersonalizedSeedQuestion(base, ['A：一', 'B：二'])).toBe(
       '嗨，歡迎回來。上次聊天裡我對你的一個印象是：A：一。如果你願意，想先從這件事最近在你生活裡的變化聊起嗎？'
     );
+    expect(buildPersonalizedSeedQuestion('Where would you like to begin?', ['personality：curious'], 'en-US')).toBe(
+      'Hi, welcome back. One impression I kept from our last conversation is: personality：curious. If you are willing, would you like to start with how this has been showing up in your life recently?'
+    );
   });
 });

@@ -153,4 +153,39 @@ describe('generatePipelineFeedbackCard', () => {
       error: expect.any(Error),
     });
   });
+
+  it('en-US 應使用英文 prompt、fallback 與 continuation hint', async () => {
+    prismaMock.interviewSession.findUnique.mockResolvedValue({
+      id: 'session-1',
+      domains_touched: [PsychDomain.attachment],
+      turns: [{ id: 'turn-1' }, { id: 'turn-2' }],
+    });
+    mockCalculateRichness.mockResolvedValue(0.45);
+    mockGenerateText.mockRejectedValue(new Error('AI unavailable'));
+
+    const result = await generatePipelineFeedbackCard({
+      userId: 'user-1',
+      sessionId: 'session-1',
+      locale: 'en-US',
+    });
+
+    const card = JSON.parse(result);
+    expect(card.summary).toBe('Thank you for taking time to talk today. Every part you shared has meaning.');
+    expect(card.encouragement).toBe(
+      'Every conversation where you open up is a meaningful step toward understanding yourself. We can continue next time.'
+    );
+    expect(card.continuation_hint).toBe(
+      'Next time we can talk about family background, important life experiences, relationship history so I can understand you more fully.'
+    );
+    expect(mockGenerateText).toHaveBeenCalledWith(
+      expect.stringContaining('Conversation length: 2 turns'),
+      expect.objectContaining({
+        systemPrompt: 'You are Emorapy, an AI relationship reflection assistant. You give concise, warm, and grounded encouragement.',
+      })
+    );
+    expect(mockGenerateText).toHaveBeenCalledWith(
+      expect.stringContaining('Overall context: The user shared several important areas, with more to explore'),
+      expect.any(Object)
+    );
+  });
 });

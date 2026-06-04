@@ -626,7 +626,7 @@ describe('InterviewService — endSession 狀態轉移', () => {
       data: expect.objectContaining({ status: 'processing' }),
     });
     const { asyncPipelineService } = require('../../../src/services/async-pipeline.service');
-    expect(asyncPipelineService.process).toHaveBeenCalledWith('s1');
+    expect(asyncPipelineService.process).toHaveBeenCalledWith('s1', { locale: 'zh-TW' });
   });
 });
 
@@ -673,7 +673,7 @@ describe('InterviewService — retryFailed', () => {
       data: { status: 'processing' },
     });
     const { asyncPipelineService } = require('../../../src/services/async-pipeline.service');
-    expect(asyncPipelineService.resume).toHaveBeenCalledWith('s1', 3);
+    expect(asyncPipelineService.resume).toHaveBeenCalledWith('s1', 3, { locale: 'zh-TW' });
   });
 });
 
@@ -747,7 +747,7 @@ describe('InterviewService — startSession 每小時限額與舊 session 處理
     const result = await service.startSession('u1', 'organic');
     expect(result).toBeDefined();
     const { asyncPipelineService } = require('../../../src/services/async-pipeline.service');
-    expect(asyncPipelineService.process).toHaveBeenCalledWith('s1');
+    expect(asyncPipelineService.process).toHaveBeenCalledWith('s1', { locale: 'zh-TW' });
   });
 
   it('有舊 IN_PROGRESS 且 turns < 5 時應將舊 session 設為 ABANDONED', async () => {

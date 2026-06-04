@@ -60,7 +60,7 @@ CJ App navigation 固定按以下平台投影分組；M0-M5 已完成首輪 scre
 | `(app)` shell | 登入後主 shell、provider、tab / stack 結構 | auth / notification unread count | M0 |
 | Case | 配對、正式案件、判決、修復旅程；chat-to-case 自動標題由 backend 依 request locale 寫入，App 只顯示 `Case.title`；backend `Case.type` 資料值必須經 App catalog 顯示 | pairing / case / judgment / reconciliation / execution | M4 |
 | Chat | 聊天室、邀請、先聊再判、chat handoff；backend safety notice 依 request locale 寫入 `message.content`，App 只顯示該訊息 | chat / message / stream / judgment handoff | M3 |
-| Profile | 心理訪談、個人檔案、關係檔案 | interview / psych profile / profile | M2 |
+| Profile | 心理訪談、個人檔案、關係檔案；interview seed question 與 feedback card 由 backend 依 request locale 寫入，App 只顯示後端內容 | interview / psych profile / profile | M2 |
 | Notifications | in-app notification、Push entry、Deep Link landing | notification / content / deep-link target / device token 待辦 | M5 |
 | Repair | repair journey、today step、checkin、replan、dashboard；backend-owned respond / invite / pause / replan / resume success message 依 request locale 由 backend i18n 輸出，App 不端側重建翻譯表 | reconciliation / execution / repair-track stream | M4 |
 | `modal` | safety notice、upload picker handoff、destructive confirm | 按觸發功能繼承 backend gate | M0-M6 |

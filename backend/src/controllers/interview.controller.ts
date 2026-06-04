@@ -9,7 +9,7 @@ export class InterviewController {
     try {
       const userId = getAuthUserId(req);
       const trigger = req.body.trigger;
-      const session = await interviewService.startSession(userId, trigger);
+      const session = await interviewService.startSession(userId, trigger, req.locale);
       res.status(201).json({ success: true, data: session, message: '訪談已開始' });
     } catch (error) {
       next(error);
@@ -36,7 +36,7 @@ export class InterviewController {
     try {
       const sessionId = req.params.id;
       const userId = getAuthUserId(req);
-      await interviewService.endSession(sessionId, userId);
+      await interviewService.endSession(sessionId, userId, req.locale);
       res.json({ success: true, message: '訪談已結束' });
     } catch (error) {
       next(error);
@@ -99,7 +99,7 @@ export class InterviewController {
     try {
       const sessionId = req.params.id;
       const userId = getAuthUserId(req);
-      await interviewService.retryFailed(sessionId, userId);
+      await interviewService.retryFailed(sessionId, userId, req.locale);
       res.json({ success: true, message: '已重試' });
     } catch (error) {
       next(error);

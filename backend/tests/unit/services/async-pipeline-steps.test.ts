@@ -11,7 +11,7 @@ const mockSummarizeNarratives = jest.fn<(userId: string) => Promise<void>>();
 const mockExtractInsights = jest.fn<(userId: string, sessionId: string) => Promise<void>>();
 const mockCalculateRichness = jest.fn<(userId: string) => Promise<number>>();
 const mockGeneratePipelineFeedbackCard = jest.fn<
-  (options: { userId: string; sessionId: string }) => Promise<string>
+  (options: { userId: string; sessionId: string; locale?: string }) => Promise<string>
 >();
 
 jest.mock('../../../src/config/database', () => ({
@@ -117,10 +117,23 @@ describe('buildAsyncPipelineSteps', () => {
     expect(mockGeneratePipelineFeedbackCard).toHaveBeenCalledWith({
       userId: 'user-1',
       sessionId: 'session-1',
+      locale: 'zh-TW',
     });
     expect(prismaMock.interviewSession.update).toHaveBeenCalledWith({
       where: { id: 'session-1' },
       data: { feedback_card: '{"summary":"ok"}' },
+    });
+  });
+
+  it('FEEDBACK_GENERATION 應把指定 locale 傳給 feedback card', async () => {
+    const steps = buildAsyncPipelineSteps({ sessionId: 'session-1', userId: 'user-1', locale: 'en-US' });
+
+    await steps[4].run();
+
+    expect(mockGeneratePipelineFeedbackCard).toHaveBeenCalledWith({
+      userId: 'user-1',
+      sessionId: 'session-1',
+      locale: 'en-US',
     });
   });
 });

@@ -44,6 +44,7 @@
 - `start` 目前有兩層限流，且都統一返回 `RATE_LIMIT_EXCEEDED`：路由層 `interviewStartLimiter` 是每小時 DDoS 安全網；服務層則按「實質 session（>=3 turns）」做每日/每小時配額治理。前端仍保留 `START_RATE_LIMIT` 舊別名映射，但當前後端在此鏈路不再實際返回該 code。
 - `respond` 在後端以 lock 保護並發；前端提交與可見輸出已解耦，提交端只負責啟動任務，可見輸出統一來自 `AI Stream`。
 - 訪談頁送出後立即顯示 AI thinking bubble；不再等首 token 才渲染氣泡。
+- `POST /api/v1/interview/start`、`POST /api/v1/interview/:id/end` 與 `POST /api/v1/interview/:id/retry` 會把 request locale 傳入 backend interview service / async pipeline；首題 seed question、personalized seed wrapper 與 `feedback_card` 的 summary / encouragement / continuation hint 屬 backend-owned stored visible content，必須在寫入前按 locale 生成，Web / App 只顯示後端結果。
 - 前端 `interviewStore` 顯式維護 `streamingStatus=thinking/streaming/persisting`，與聊天室、判決 phase 流的 UI 狀態語義保持一致。
 - `respond/skip` 仍採提交式觸發，但 `TURN_TOO_FAST`、`MAX_TURNS_REACHED`、`SESSION_COMPLETED`、`NOT_FOUND` 這些前置錯誤現在會在提交當下同步返回，不再先回 `202` 再讓背景任務靜默失敗。
 - 只有在通過前置校驗後，`respond/skip` 才會返回 `202 accepted`；後端接著把 `stream.started/delta/completed/persisted/cancelled` 發到 `interview_session` scope，前端草稿回覆與最終交接都只跟隨 `AI Stream`。

@@ -130,30 +130,52 @@ export interface SnapshotData {
 }
 
 // 依觸發場景分類的種子問題（每個場景隨機選一句）
-export const SEED_QUESTIONS: Record<string, string[]> = {
-  organic: [
-    '嗨！最近的生活中，有沒有什麼事情讓你特別有感觸的？不管是開心的、煩心的都可以。',
-    '嗨！好久沒聊了。最近過得怎麼樣？有什麼想說的嗎？',
-    '嗨！今天有什麼想聊的嗎？生活裡的大小事，或者心裡想著的事，都可以。',
-  ],
-  pre_case: [
-    '嗨！在我們開始整理事情之前，我想先了解一下你。最近的心情怎麼樣？',
-    '嗨！待會我們要一起處理一些事情。不過先放鬆一下——你最近有什麼讓你在意的事嗎？',
-  ],
-  post_judgment: [
-    '嗨！剛看完結果，你現在的感覺是什麼？不管是什麼感受，都可以說說看。',
-    '嗨！看完判決之後，有沒有什麼讓你特別在意、或者一直在心裡轉的想法？',
-  ],
-  onboarding: [
-    '嗨！很高興認識你。我們先從輕鬆的開始——你平時有什麼讓自己放鬆的方式嗎？',
-    '嗨！歡迎你來。我想先隨意聊聊，認識一下你。最近生活中有什麼讓你印象深刻的事嗎？',
-  ],
+export const SEED_QUESTIONS: Record<'zh-TW' | 'en-US', Record<string, string[]>> = {
+  'zh-TW': {
+    organic: [
+      '嗨！最近的生活中，有沒有什麼事情讓你特別有感觸的？不管是開心的、煩心的都可以。',
+      '嗨！好久沒聊了。最近過得怎麼樣？有什麼想說的嗎？',
+      '嗨！今天有什麼想聊的嗎？生活裡的大小事，或者心裡想著的事，都可以。',
+    ],
+    pre_case: [
+      '嗨！在我們開始整理事情之前，我想先了解一下你。最近的心情怎麼樣？',
+      '嗨！待會我們要一起處理一些事情。不過先放鬆一下——你最近有什麼讓你在意的事嗎？',
+    ],
+    post_judgment: [
+      '嗨！剛看完結果，你現在的感覺是什麼？不管是什麼感受，都可以說說看。',
+      '嗨！看完判決之後，有沒有什麼讓你特別在意、或者一直在心裡轉的想法？',
+    ],
+    onboarding: [
+      '嗨！很高興認識你。我們先從輕鬆的開始——你平時有什麼讓自己放鬆的方式嗎？',
+      '嗨！歡迎你來。我想先隨意聊聊，認識一下你。最近生活中有什麼讓你印象深刻的事嗎？',
+    ],
+  },
+  'en-US': {
+    organic: [
+      'Hi. Has anything in your life felt especially meaningful lately? It can be something good, stressful, or anything in between.',
+      'Hi. It has been a while. How have you been lately? Is there anything you want to talk about?',
+      'Hi. What would you like to talk about today? Everyday moments or things on your mind are both welcome.',
+    ],
+    pre_case: [
+      'Hi. Before we start organizing the situation, I would like to understand you a little. How have you been feeling lately?',
+      'Hi. We are about to work through something together. Before that, let us slow down a little. What has been on your mind lately?',
+    ],
+    post_judgment: [
+      'Hi. After reading the analysis, what are you feeling right now? Whatever comes up is okay to share.',
+      'Hi. After reading the analysis, is there anything that still feels important or keeps circling in your mind?',
+    ],
+    onboarding: [
+      'Hi. I am glad to meet you. Let us start gently. What usually helps you relax?',
+      'Hi. Welcome. I would like to get to know you through an easy conversation. What has stood out in your life recently?',
+    ],
+  },
 };
 
-export function getSeedQuestion(trigger: string): string {
-  const pool = SEED_QUESTIONS[trigger] || SEED_QUESTIONS.organic;
+export function getSeedQuestion(trigger: string, locale: 'zh-TW' | 'en-US' = 'zh-TW'): string {
+  const localizedQuestions = SEED_QUESTIONS[locale] ?? SEED_QUESTIONS['zh-TW'];
+  const pool = localizedQuestions[trigger] || localizedQuestions.organic;
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
 /** @deprecated Use getSeedQuestion(trigger) instead */
-export const SEED_QUESTION = SEED_QUESTIONS.organic[0];
+export const SEED_QUESTION = SEED_QUESTIONS['zh-TW'].organic[0];

@@ -2,6 +2,7 @@ import { PsychDomain } from '@prisma/client';
 import prisma from '../config/database';
 import logger from '../config/logger';
 import { ANALYSIS_AI_CONFIG } from '../config/openai';
+import type { BackendLocale } from '../i18n';
 import type { FeedbackCard } from '../types/interview.types';
 import { aiService } from './ai.service';
 import { profileRichnessService } from './profile-richness.service';
@@ -17,48 +18,132 @@ const FEEDBACK_CARD_DOMAINS: PsychDomain[] = [
   PsychDomain.education_cognition,
 ];
 
-const FEEDBACK_CARD_DOMAIN_LABELS: Record<PsychDomain, string> = {
-  [PsychDomain.attachment]: '依附與親密關係',
-  [PsychDomain.family_origin]: '原生家庭',
-  [PsychDomain.life_events]: '重要人生經歷',
-  [PsychDomain.relationship_history]: '感情經歷',
-  [PsychDomain.belief_values]: '價值觀與信念',
-  [PsychDomain.cultural_background]: '文化背景',
-  [PsychDomain.personality]: '個性特質',
-  [PsychDomain.education_cognition]: '教育與認知',
+const FEEDBACK_CARD_DOMAIN_LABELS: Record<BackendLocale, Record<PsychDomain, string>> = {
+  'zh-TW': {
+    [PsychDomain.attachment]: '依附與親密關係',
+    [PsychDomain.family_origin]: '原生家庭',
+    [PsychDomain.life_events]: '重要人生經歷',
+    [PsychDomain.relationship_history]: '感情經歷',
+    [PsychDomain.belief_values]: '價值觀與信念',
+    [PsychDomain.cultural_background]: '文化背景',
+    [PsychDomain.personality]: '個性特質',
+    [PsychDomain.education_cognition]: '教育與認知',
+  },
+  'en-US': {
+    [PsychDomain.attachment]: 'attachment and closeness',
+    [PsychDomain.family_origin]: 'family background',
+    [PsychDomain.life_events]: 'important life experiences',
+    [PsychDomain.relationship_history]: 'relationship history',
+    [PsychDomain.belief_values]: 'values and beliefs',
+    [PsychDomain.cultural_background]: 'cultural background',
+    [PsychDomain.personality]: 'personality traits',
+    [PsychDomain.education_cognition]: 'learning and thinking patterns',
+  },
+};
+
+const FEEDBACK_COPY: Record<BackendLocale, {
+  richnessHigh: string;
+  richnessMedium: string;
+  richnessLow: string;
+  allExploredHint: string;
+  continuationPrefix: string;
+  continuationSuffix: string;
+  fallbackSummary: string;
+  successEncouragement: string;
+  fallbackEncouragement: string;
+  systemPrompt: string;
+  noDomain: string;
+  turnUnit: string;
+}> = {
+  'zh-TW': {
+    richnessHigh: '用戶分享了很多面向，資料相當豐富',
+    richnessMedium: '用戶分享了一些重要面向，還有更多可以探索',
+    richnessLow: '這是一個初步的開始，用戶還在慢慢打開自己',
+    allExploredHint: '你已經分享了所有面向的故事，這真的很了不起。下次可以更深入聊聊你特別在意的部分。',
+    continuationPrefix: '下次我們可以聊聊',
+    continuationSuffix: '的部分，讓我更完整地認識你。',
+    fallbackSummary: '感謝你今天花時間和我們聊天，你分享的每一句話都是有意義的。',
+    successEncouragement: '你今天分享的每一段故事，都讓我們更懂得如何陪伴你。謝謝你的信任。',
+    fallbackEncouragement: '每一次願意打開自己的對話，都是認識自己的好開始。我們下次再聊。',
+    systemPrompt: '你是 Emorapy 的 AI 關係梳理助手，善於給予簡潔而有力的鼓勵回饋。',
+    noDomain: '一般對話',
+    turnUnit: '輪',
+  },
+  'en-US': {
+    richnessHigh: 'The user shared across many areas, with rich context',
+    richnessMedium: 'The user shared several important areas, with more to explore',
+    richnessLow: 'This is an initial start, and the user is opening up at their own pace',
+    allExploredHint: 'You have shared stories across every area, and that matters. Next time, we can go deeper into what feels most important to you.',
+    continuationPrefix: 'Next time we can talk about ',
+    continuationSuffix: ' so I can understand you more fully.',
+    fallbackSummary: 'Thank you for taking time to talk today. Every part you shared has meaning.',
+    successEncouragement: 'Each story you shared today helps us understand how to support you better. Thank you for trusting this process.',
+    fallbackEncouragement: 'Every conversation where you open up is a meaningful step toward understanding yourself. We can continue next time.',
+    systemPrompt: 'You are Emorapy, an AI relationship reflection assistant. You give concise, warm, and grounded encouragement.',
+    noDomain: 'general conversation',
+    turnUnit: 'turns',
+  },
 };
 
 interface GeneratePipelineFeedbackCardOptions {
   userId: string;
   sessionId: string;
+  locale?: BackendLocale;
 }
 
-function getRichnessDescription(richnessScore: number): string {
+function getRichnessDescription(richnessScore: number, locale: BackendLocale): string {
+  const copy = FEEDBACK_COPY[locale];
   if (richnessScore >= 0.7) {
-    return '用戶分享了很多面向，資料相當豐富';
+    return copy.richnessHigh;
   }
   if (richnessScore >= 0.4) {
-    return '用戶分享了一些重要面向，還有更多可以探索';
+    return copy.richnessMedium;
   }
-  return '這是一個初步的開始，用戶還在慢慢打開自己';
+  return copy.richnessLow;
 }
 
-function buildContinuationHint(domainsUnexplored: PsychDomain[]): string {
+function buildContinuationHint(domainsUnexplored: PsychDomain[], locale: BackendLocale): string {
+  const copy = FEEDBACK_COPY[locale];
   if (domainsUnexplored.length === 0) {
-    return '你已經分享了所有面向的故事，這真的很了不起。下次可以更深入聊聊你特別在意的部分。';
+    return copy.allExploredHint;
   }
 
+  const labels = FEEDBACK_CARD_DOMAIN_LABELS[locale];
   const unexploredLabels = domainsUnexplored
     .slice(0, 3)
-    .map((domain) => FEEDBACK_CARD_DOMAIN_LABELS[domain] || domain);
-  return `下次我們可以聊聊${unexploredLabels.join('、')}的部分，讓我更完整地認識你。`;
+    .map((domain) => labels[domain] || domain);
+  const separator = locale === 'en-US' ? ', ' : '、';
+  return `${copy.continuationPrefix}${unexploredLabels.join(separator)}${copy.continuationSuffix}`;
 }
 
 function buildSummaryPrompt(
   domainsExplored: PsychDomain[],
   turnCount: number,
-  richnessDescription: string
+  richnessDescription: string,
+  locale: BackendLocale
 ): string {
+  if (locale === 'en-US') {
+    const labels = FEEDBACK_CARD_DOMAIN_LABELS[locale];
+    const exploredLabels = domainsExplored.map((domain) => labels[domain] || domain);
+    const copy = FEEDBACK_COPY[locale];
+    return `You are Emorapy, an AI relationship reflection assistant. Write a warm 2-3 sentence summary of this conversation.
+
+Conversation context:
+- Areas explored: ${exploredLabels.join(', ') || copy.noDomain}
+- Conversation length: ${turnCount} ${copy.turnUnit}
+- Overall context: ${richnessDescription}
+
+Requirements:
+1. Mention what the user shared in everyday language, without clinical labels.
+2. Acknowledge the emotional effort involved in sharing, not only the courage to share.
+3. Use warm, direct "you" language.
+4. If the user has shared only a little, frame it as a good beginning and respect their pace.
+5. Describe observations without diagnosing or labeling the user.
+6. End with a gentle forward-looking note that helps the user feel the conversation was worthwhile.
+
+Return only the summary and encouragement. Do not include a title.`;
+  }
+
   return `你是 Emorapy 的 AI 關係梳理助手。請用 2～3 句話寫出這次對話的溫暖摘要。
 
 對話情況：
@@ -80,6 +165,7 @@ function buildSummaryPrompt(
 export async function generatePipelineFeedbackCard({
   userId,
   sessionId,
+  locale = 'zh-TW',
 }: GeneratePipelineFeedbackCardOptions): Promise<string> {
   const [session, richnessScore] = await Promise.all([
     prisma.interviewSession.findUnique({
@@ -97,16 +183,17 @@ export async function generatePipelineFeedbackCard({
   const domainsExplored = session?.domains_touched ?? [];
   const domainsUnexplored = FEEDBACK_CARD_DOMAINS.filter((domain) => !domainsExplored.includes(domain));
   const turnCount = session?.turns?.length ?? 0;
-  const richnessDescription = getRichnessDescription(richnessScore);
-  const continuationHint = buildContinuationHint(domainsUnexplored);
-  const summaryPrompt = buildSummaryPrompt(domainsExplored, turnCount, richnessDescription);
+  const richnessDescription = getRichnessDescription(richnessScore, locale);
+  const continuationHint = buildContinuationHint(domainsUnexplored, locale);
+  const summaryPrompt = buildSummaryPrompt(domainsExplored, turnCount, richnessDescription, locale);
+  const copy = FEEDBACK_COPY[locale];
 
   try {
     const summary = await aiService.generateText(summaryPrompt, {
       model: ANALYSIS_AI_CONFIG.model,
       maxTokens: 300,
       temperature: 0.7,
-      systemPrompt: '你是 Emorapy 的 AI 關係梳理助手，善於給予簡潔而有力的鼓勵回饋。',
+      systemPrompt: copy.systemPrompt,
     });
     const card: FeedbackCard = {
       summary: summary.trim(),
@@ -114,19 +201,19 @@ export async function generatePipelineFeedbackCard({
       domains_unexplored: domainsUnexplored,
       key_insights: insights.slice(0, 3).map((insight: { value: string }) => insight.value),
       richness_score: richnessScore,
-      encouragement: '你今天分享的每一段故事，都讓我們更懂得如何陪伴你。謝謝你的信任。',
+      encouragement: copy.successEncouragement,
       continuation_hint: continuationHint,
     };
     return JSON.stringify(card);
   } catch (err) {
     logger.warn('Feedback card AI failed, using fallback', { sessionId, userId, error: err });
     return JSON.stringify({
-      summary: '感謝你今天花時間和我們聊天，你分享的每一句話都是有意義的。',
+      summary: copy.fallbackSummary,
       domains_explored: domainsExplored,
       domains_unexplored: domainsUnexplored,
       key_insights: [] as string[],
       richness_score: richnessScore,
-      encouragement: '每一次願意打開自己的對話，都是認識自己的好開始。我們下次再聊。',
+      encouragement: copy.fallbackEncouragement,
       continuation_hint: continuationHint,
     } as FeedbackCard);
   }

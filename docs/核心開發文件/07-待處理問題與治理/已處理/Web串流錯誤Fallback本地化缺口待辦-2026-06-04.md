@@ -3,9 +3,9 @@
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：問題治理
 **覆蓋範圍**：Web Chat room stream、Execution replan stream、QuickExperience result stream、固定 fallback error message 與 locale-aware 顯示
-**取證代碼入口**：`frontend/src/pages/Chat/Room/chatRoomUtils.ts`、`frontend/src/pages/Execution/Replan/index.tsx`、`frontend/src/pages/QuickExperience/Result/index.tsx`、`frontend/src/utils/apiError.ts`
-**最後核驗 Commit**：`5ab6f7d`
-**最後核驗日期**：`2026-06-04`
+**取證代碼入口**：`frontend/src/pages/Chat/Room/chatRoomUtils.ts`、`frontend/src/pages/Execution/Replan/index.tsx`、`frontend/src/pages/QuickExperience/Result/index.tsx`、`frontend/src/pages/QuickExperience/Result/index.test.tsx`、`frontend/src/utils/apiError.ts`
+**最後核驗 Commit**：`ad2c358`
+**最後核驗日期**：`2026-06-05`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 ## 問題位置與現象
@@ -33,7 +33,7 @@
 ## Owner / Status Notes
 
 - Owner：agent
-- Status：已完成本輪修復。後續全局語言排查若發現其他 Web / Admin / App 直出 fixed fallback message，需另行登記。
+- Status：已完成並歸檔。後續全局語言排查若發現其他 Web / Admin / App 直出 fixed fallback message，需另行登記。
 
 ## 2026-06-04 本輪結果
 
@@ -82,3 +82,11 @@
 2. `frontend/src/pages/QuickExperience/Result/index.test.tsx` 已補 stream failed invalid-response 測試，並 mock `connectAIStream` 直接觸發 event callback，避免依賴真實 SSE/fetch。
 3. 已驗證：`npm --prefix frontend test -- src/pages/QuickExperience/Result/index.test.tsx src/utils/apiError.test.ts src/assets/i18n/catalogParity.test.ts`、`npm --prefix frontend run build`、`npm run docs:check` 均通過。
 4. 靜態搜尋 `event.error.message` / `setJudgmentError(event.error.message)` / `Invalid .*response from server` 在 QuickExperience Result production code 已無殘留；剩餘命中只在測試 fixture 中用於反證不直出。
+
+## 2026-06-05 歸檔復核
+
+1. 代碼復核確認 Chat Room terminal stream error、Execution Replan terminal / failed snapshot error、QuickExperience Result `stream.failed` error 都已進入 `getErrorMessage(...)`，不再直接顯示 `error.message` / `event.error.message` 的 fixed invalid-response diagnostic。
+2. 復核時發現 `frontend/src/pages/QuickExperience/Result/index.test.tsx` 仍保留舊預期，期待 `INVALID_SESSION_ID` / `FORBIDDEN` / `SERVER_ERROR` / generic `Error` raw message 或 action fallback；已改為鎖定現行語言治理契約：已知 code 走 `common.*` catalog，普通 runtime `Error` 走 caller fallback，不外露 raw message。
+3. 2026-06-05 復跑 `npm --prefix frontend test -- src/pages/QuickExperience/Result/index.test.tsx`，通過 1 file / 64 tests。
+4. 2026-06-05 復跑 `npm --prefix frontend test -- src/pages/Chat/Room/chatRoomUtils.test.ts src/pages/Execution/Replan/index.test.tsx src/utils/apiError.test.ts src/assets/i18n/catalogParity.test.ts src/pages/QuickExperience/Result/index.test.tsx`，通過 5 files / 127 tests。
+5. 2026-06-05 復跑 `npm --prefix frontend run build`，通過。

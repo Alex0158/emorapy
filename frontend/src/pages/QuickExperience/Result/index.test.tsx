@@ -527,10 +527,10 @@ describe('QuickExperienceResult', () => {
     expect(await screen.findByText('error.session.expiredHint')).toBeInTheDocument();
   });
 
-  it('INVALID_SESSION_ID 時應顯示 session 提示並可重新開始', async () => {
+  it('INVALID_SESSION_ID 時應顯示受控 session fallback 並可重新開始', async () => {
     mockGetJudgmentByCaseId.mockRejectedValueOnce({ code: 'INVALID_SESSION_ID', message: 'session invalid' });
     renderWithRoute('/quick-experience/result/case-1');
-    expect(await screen.findByText('session invalid')).toBeInTheDocument();
+    expect(await screen.findByText('error.session.expiredHint')).toBeInTheDocument();
     fireEvent.click(screen.getByText('result.restart'));
     expect(mockNavigate).toHaveBeenCalledWith('/quick-experience/create');
   });
@@ -585,10 +585,10 @@ describe('QuickExperienceResult', () => {
     expect(await screen.findByText('message.getJudgmentFail')).toBeInTheDocument();
   });
 
-  it('FORBIDDEN 錯誤應顯示後端訊息且不誤判為 pending', async () => {
+  it('FORBIDDEN 錯誤應顯示受控權限 fallback 且不誤判為 pending', async () => {
     mockGetJudgmentByCaseId.mockRejectedValueOnce({ code: 'FORBIDDEN', message: '無權限訪問此判決' });
     renderWithRoute('/quick-experience/result/case-1');
-    expect(await screen.findByText('無權限訪問此判決')).toBeInTheDocument();
+    expect(await screen.findByText('common.forbidden')).toBeInTheDocument();
     expect(screen.queryByText('pending.long.message')).not.toBeInTheDocument();
   });
 
@@ -609,7 +609,7 @@ describe('QuickExperienceResult', () => {
     });
   });
 
-  it('retry 判決失敗且 message 為空字串時應使用 retryFail（F10 邊界）', async () => {
+  it('retry 判決失敗且 message 為空字串時應使用受控 code fallback（F10 邊界）', async () => {
     mockGetCase.mockResolvedValueOnce({
       id: 'case-1',
       status: 'judgment_failed',
@@ -620,11 +620,11 @@ describe('QuickExperienceResult', () => {
     const retryBtn = await screen.findByText('error.retry');
     fireEvent.click(retryBtn);
     await waitFor(() => {
-      expect(mockToast.error).toHaveBeenCalledWith('message.retryFail');
+      expect(mockToast.error).toHaveBeenCalledWith('common.serverError');
     });
   });
 
-  it('judgment_failed 時 retry，generateJudgment FORBIDDEN 且無 message 時應使用 retryFail（F01 權限邊界 fallback）', async () => {
+  it('judgment_failed 時 retry，generateJudgment FORBIDDEN 且無 message 時應使用受控權限 fallback（F01 權限邊界）', async () => {
     mockGetCase.mockResolvedValueOnce({
       id: 'case-1',
       status: 'judgment_failed',
@@ -636,11 +636,11 @@ describe('QuickExperienceResult', () => {
     renderWithRoute('/quick-experience/result/case-1');
     fireEvent.click(await screen.findByText('error.retry'));
     await waitFor(() => {
-      expect(mockToast.error).toHaveBeenCalledWith('message.retryFail');
+      expect(mockToast.error).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
-  it('retry 判決失敗且錯誤為 Error 時應顯示錯誤訊息', async () => {
+  it('retry 判決失敗且錯誤為 Error 時應使用 retryFail fallback', async () => {
     mockGetCase.mockResolvedValueOnce({
       id: 'case-1',
       status: 'judgment_failed',
@@ -652,7 +652,7 @@ describe('QuickExperienceResult', () => {
     renderWithRoute('/quick-experience/result/case-1');
     fireEvent.click(await screen.findByText('error.retry'));
     await waitFor(() => {
-      expect(mockToast.error).toHaveBeenCalledWith('retry exploded');
+      expect(mockToast.error).toHaveBeenCalledWith('message.retryFail');
     });
   });
 
@@ -933,30 +933,30 @@ describe('QuickExperienceResult', () => {
     });
   });
 
-  it('證據上傳 FORBIDDEN 時若有 message 應顯示該 message（F01 權限邊界）', async () => {
+  it('證據上傳 FORBIDDEN 時應顯示受控權限 fallback（F01 權限邊界）', async () => {
     mockUploadEvidence.mockRejectedValueOnce({ code: 'FORBIDDEN', message: '此案件已無法補交證據' });
     renderWithRoute('/quick-experience/result/case-1');
     fireEvent.click(await screen.findByText('upload-evidence'));
     await waitFor(() => {
-      expect(mockToast.error).toHaveBeenCalledWith('此案件已無法補交證據');
+      expect(mockToast.error).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
-  it('證據上傳 FORBIDDEN 且無 message 時應使用 evidenceUploadFail（F01 權限邊界 fallback）', async () => {
+  it('證據上傳 FORBIDDEN 且無 message 時應使用受控權限 fallback（F01 權限邊界）', async () => {
     mockUploadEvidence.mockRejectedValueOnce({ code: 'FORBIDDEN' });
     renderWithRoute('/quick-experience/result/case-1');
     fireEvent.click(await screen.findByText('upload-evidence'));
     await waitFor(() => {
-      expect(mockToast.error).toHaveBeenCalledWith('message.evidenceUploadFail');
+      expect(mockToast.error).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
-  it('證據上傳失敗且 message 為空字串時應使用 evidenceUploadFail（F10 邊界：空 message 視為無）', async () => {
+  it('證據上傳失敗且 message 為空字串時應使用受控 code fallback（F10 邊界：空 message 視為無）', async () => {
     mockUploadEvidence.mockRejectedValueOnce({ code: 'SERVER_ERROR', message: '' });
     renderWithRoute('/quick-experience/result/case-1');
     fireEvent.click(await screen.findByText('upload-evidence'));
     await waitFor(() => {
-      expect(mockToast.error).toHaveBeenCalledWith('message.evidenceUploadFail');
+      expect(mockToast.error).toHaveBeenCalledWith('common.serverError');
     });
   });
 

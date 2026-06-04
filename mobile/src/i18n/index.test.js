@@ -41,7 +41,7 @@ describe('App i18n runtime', () => {
   it('translates with the selected runtime locale', () => {
     expect(getLocale()).toBe('zh-TW');
     expect(t('public.home.title')).toBe('把拉扯整理成下一步');
-    expect(t('app.locale.switchToEnglish')).toBe('Switch to English');
+    expect(t('app.locale.switchToEnglish')).toBe('切換為英文');
     expect(t('app.locale.switchToZhTW')).toBe('切換為繁體中文');
 
     setLocale('en-US', { persist: false });

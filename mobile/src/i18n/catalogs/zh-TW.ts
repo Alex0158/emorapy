@@ -1,6 +1,6 @@
 const zhTW: Record<string, string> = {
   'app.locale.current': '目前語言：繁體中文',
-  'app.locale.switchToEnglish': 'Switch to English',
+  'app.locale.switchToEnglish': '切換為英文',
   'app.locale.switchToZhTW': '切換為繁體中文',
   'app.locale.changeHint': '切換 App 介面與服務回應語言',
 

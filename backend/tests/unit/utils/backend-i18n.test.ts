@@ -7,6 +7,12 @@ describe('backend i18n', () => {
       'interview.maxTurns cannot be less than interview.softTarget'
     );
     expect(translateBackendMessage('en-US', '缺少 B 方完整陳述')).toBe("Partner's complete statement is missing");
+    expect(translateBackendMessage('en-US', '訪談不存在或無權限')).toBe(
+      'Interview not found or you do not have access'
+    );
+    expect(translateBackendMessage('en-US', '訪談缺少可回覆輪次')).toBe(
+      'Interview is missing a turn that can be replied to'
+    );
     expect(translateBackendMessage('en-US', '服務內部錯誤')).toBe('Internal service error');
     expect(translateBackendMessage('en-US', 'AI 重調失敗')).toBe('AI adjustment failed');
   });

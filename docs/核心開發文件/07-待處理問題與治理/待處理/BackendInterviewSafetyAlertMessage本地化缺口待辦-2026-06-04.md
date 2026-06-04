@@ -4,7 +4,7 @@
 **文檔類型**：問題治理
 **覆蓋範圍**：Backend Interview safety alert SSE / AI stream phase payload、Web Interview SafetyAlert display、focused tests
 **取證代碼入口**：`backend/src/services/interview-response-success-events.ts`、`backend/src/services/interview-stream-payload-utils.ts`、`backend/src/services/interview-ai-response-finalizer.ts`、`frontend/src/pages/Interview/Chat/index.tsx`、`frontend/src/store/interviewStore.ts`
-**最後核驗 Commit**：`71a91a8`
+**最後核驗 Commit**：`f03bf9e`
 **最後核驗日期**：`2026-06-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -57,3 +57,20 @@
 4. `npm --prefix backend test -- tests/unit/services/interview-response-success-events.test.ts tests/unit/services/interview-stream-payload-utils.test.ts tests/unit/services/interview.service.test.ts --runInBand` 通過。
 5. `npm --prefix frontend test -- src/store/interviewStore.test.ts src/pages/Interview/Chat/index.test.tsx src/components/business/Interview/SafetyAlert/index.test.tsx src/assets/i18n/catalogParity.test.ts` 通過。
 6. Backend / frontend build 與 `npm run docs:check` 通過。
+
+## 修復結果
+
+1. `backend/src/services/interview-stream-payload-utils.ts` 已新增 `getInterviewSafetyAlertMessage(locale)`，並讓 `buildInterviewStreamSafetyAlertPayload()` 只輸出受控 locale-aware generic safety alert message。
+2. `backend/src/services/interview-response-success-events.ts` 已讓 SSE safety alert 與 AI Stream `safety_alert` phase 使用同一受控文案；`parsedMeta.safety_message` 只保留作 safety branch 判斷與 DB detail 來源。
+3. `backend/src/services/interview-ai-response-finalizer.ts` 與 `backend/src/services/interview.service.ts` 已把 request locale 傳入 success events，確保 en-US request 得到英文 safety alert。
+4. `backend/src/i18n/index.ts`、`frontend/src/assets/i18n/zh-TW.ts`、`frontend/src/assets/i18n/en-US.ts` 已補齊對應 safety alert 文案。
+5. `frontend/src/store/interviewStore.ts` 已將缺失 message 的 fallback 從 `interview.respondFail` 改為 `interview.safetyAlert`，避免安全提示退回一般回覆失敗語意。
+6. Backend / Web focused tests 已覆蓋 raw `safety_message` 不作可見文案、DB `safety_detail` 仍保存具體觀察、en-US 可見文案與 Web route/store 承接。
+
+## 本輪驗證
+
+1. `npm --prefix backend test -- tests/unit/services/interview-response-success-events.test.ts tests/unit/services/interview-stream-payload-utils.test.ts tests/unit/services/interview.service.test.ts --runInBand` 通過 3 suites / 50 tests。
+2. `npm --prefix frontend test -- src/store/interviewStore.test.ts src/pages/Interview/Chat/index.test.tsx src/components/business/Interview/SafetyAlert/index.test.tsx src/assets/i18n/catalogParity.test.ts` 通過 4 files / 90 tests。
+3. `npm --prefix backend run build` 通過。
+4. `npm --prefix frontend run build` 通過。
+5. 靜態掃描確認 `parsedMeta.safety_message` 未再作 SSE / stream phase visible message；raw safety text 只出現在測試輸入與 DB `safety_detail` 期望。

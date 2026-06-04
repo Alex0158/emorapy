@@ -10,6 +10,7 @@ import { t, useLocale } from '@/src/i18n';
 import type { AIStreamCallbacks, AIStreamReadyEvent } from '@/src/platform/sse/aiStreamState';
 import { isTerminalAIStreamEvent } from '@/src/platform/sse/aiStreamState';
 import { useAIStreamSubscription } from '@/src/platform/sse/useAIStreamSubscription';
+import { formatAIStreamDisplayError } from '@/src/platform/sse/streamErrorDisplay';
 import { tokenStorage } from '@/src/platform/storage/secureStore';
 import { ActionButton, FeatureRow, LinkButton, Panel, Screen, StatusPill } from '@/src/ui/components';
 import { palette, spacing, typography } from '@/src/ui/theme';
@@ -233,7 +234,7 @@ export default function RepairScreen() {
         text: latest.text ?? '',
         phase: latest.phase ?? null,
         planId: typeof latest.metadata?.plan_id === 'string' ? latest.metadata.plan_id : prev.planId,
-        error: latest.error?.message ?? null,
+        error: formatAIStreamDisplayError(latest.error),
       };
     },
     reduceEvent: (prev, event) => {
@@ -244,7 +245,7 @@ export default function RepairScreen() {
           ?? (event.eventType === 'stream.delta' ? `${prev.text}${event.deltaText ?? ''}` : prev.text),
         phase: event.phase ?? prev.phase,
         planId: typeof event.metadata?.plan_id === 'string' ? event.metadata.plan_id : prev.planId,
-        error: event.error?.message ?? null,
+        error: formatAIStreamDisplayError(event.error),
       };
     },
     hasRecoverableState: (value) => Boolean(value.text || value.phase) && value.status !== 'persisted' && value.status !== 'failed',
@@ -255,10 +256,10 @@ export default function RepairScreen() {
       }
     },
     onConnectionError: (error) => {
-      setReplanStreamState((prev) => ({ ...prev, error: error.message }));
+      setReplanStreamState((prev) => ({ ...prev, error: formatAIStreamDisplayError(error) }));
     },
     onTerminalError: (error) => {
-      setReplanStreamState((prev) => ({ ...prev, status: 'failed', error: error.message }));
+      setReplanStreamState((prev) => ({ ...prev, status: 'failed', error: formatAIStreamDisplayError(error) }));
     },
   });
 

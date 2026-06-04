@@ -412,6 +412,37 @@ describe('M3 Chat screens', () => {
     expect(screen.queryByText(/第 4 段/)).toBeNull();
   });
 
+  it('does not expose raw chat AI stream errors in the selected locale', async () => {
+    setLocale('en-US', { persist: false });
+    mockSearchParams = { roomId: 'room-error' };
+    mockGetSessionId.mockResolvedValue('guest-existing');
+    mockGetRoom.mockResolvedValue({
+      id: 'room-error',
+      status: 'solo_active',
+      history_visibility_mode: 'share_summary_only',
+      participants: [],
+    });
+    mockListMessages.mockResolvedValue({ messages: [], nextCursor: null });
+    mockConnectChatAIStream.mockImplementationOnce((_roomId, callbacks) => {
+      callbacks.onEvent?.({
+        eventType: 'stream.failed',
+        streamId: 'stream-error',
+        requestId: 'req-error',
+        scopeType: 'chat_room',
+        scopeId: 'room-error',
+        seq: 2,
+        createdAt: '2026-05-08T00:00:01.000Z',
+        error: { code: 'APP_ERROR', message: 'provider down' },
+      });
+      return new Promise(() => undefined);
+    });
+
+    const screen = renderWithQuery(React.createElement(ChatRoomScreen));
+
+    expect(await screen.findByText('The stream update was interrupted. Try again later.')).toBeTruthy();
+    expect(screen.queryByText('provider down')).toBeNull();
+  });
+
   it('recovers chat AI stream from last seq after app foregrounds', async () => {
     const connections = [];
     mockSearchParams = { roomId: 'room-recover' };

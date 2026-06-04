@@ -410,6 +410,35 @@ describe('M2 Profile/Interview screens', () => {
     expect(screen.queryByText('第 5 段')).toBeNull();
   });
 
+  it('does not expose raw interview stream errors in the selected locale', async () => {
+    setLocale('en-US', { persist: false });
+    mockSearchParams = { sessionId: 'interview-error' };
+    mockGetInterviewSession.mockResolvedValue({
+      id: 'interview-error',
+      status: 'active',
+      turns: [{ ai_message: 'Start where you feel ready.' }],
+      domains_touched: [],
+    });
+    mockConnectInterviewStream.mockImplementationOnce((_sessionId, callbacks) => {
+      callbacks.onEvent?.({
+        eventType: 'stream.failed',
+        streamId: 'stream-error',
+        requestId: 'req-error',
+        scopeType: 'interview_session',
+        scopeId: 'interview-error',
+        seq: 2,
+        createdAt: '2026-05-08T00:00:01.000Z',
+        error: { code: 'APP_ERROR', message: 'provider down' },
+      });
+      return new Promise(() => undefined);
+    });
+
+    const screen = renderWithQuery(React.createElement(InterviewScreen));
+
+    expect(await screen.findByText('The stream update was interrupted. Try again later.')).toBeTruthy();
+    expect(screen.queryByText('provider down')).toBeNull();
+  });
+
   it('recovers interview stream from last seq after app foregrounds', async () => {
     const connections = [];
     mockSearchParams = { sessionId: 'interview-recover' };

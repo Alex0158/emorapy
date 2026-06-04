@@ -13,6 +13,7 @@ import {
 } from '@/src/platform/sse/aiStreamState';
 import { getLocale, t, useLocale } from '@/src/i18n';
 import { useAIStreamSubscription } from '@/src/platform/sse/useAIStreamSubscription';
+import { formatAIStreamDisplayError } from '@/src/platform/sse/streamErrorDisplay';
 import { sessionStorage, tokenStorage } from '@/src/platform/storage/secureStore';
 import { ActionButton, FeatureRow, LinkButton, Panel, Screen, StatusPill } from '@/src/ui/components';
 import { palette, spacing, typography } from '@/src/ui/theme';
@@ -242,14 +243,14 @@ export default function ChatRoomScreen() {
       return {
         status: latestActive.status === 'failed' || latestActive.status === 'cancelled' ? 'failed' : 'streaming',
         text: latestActive.text ?? '',
-        error: latestActive.error?.message ?? null,
+        error: formatAIStreamDisplayError(latestActive.error),
       };
     },
     reduceEvent: (prev, event) => ({
       status: chatAIStatusFromEvent(event),
       text: event.fullText
         ?? (event.eventType === 'stream.delta' ? `${prev.text}${event.deltaText ?? ''}` : prev.text),
-      error: event.error?.message ?? null,
+      error: formatAIStreamDisplayError(event.error),
     }),
     hasRecoverableState: (value) => Boolean(value.text) && value.status !== 'persisted' && value.status !== 'failed',
     shouldClearRecoveringOnEvent: (event) => event.eventType === 'stream.delta' || isTerminalAIStreamEvent(event),
@@ -261,10 +262,10 @@ export default function ChatRoomScreen() {
       }
     },
     onConnectionError: (error) => {
-      setAIStreamState((prev) => ({ ...prev, error: error.message }));
+      setAIStreamState((prev) => ({ ...prev, error: formatAIStreamDisplayError(error) }));
     },
     onTerminalError: (error) => {
-      setAIStreamState((prev) => ({ ...prev, status: 'failed', error: error.message }));
+      setAIStreamState((prev) => ({ ...prev, status: 'failed', error: formatAIStreamDisplayError(error) }));
     },
   });
 

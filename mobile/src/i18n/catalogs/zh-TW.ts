@@ -24,6 +24,7 @@ const zhTW: Record<string, string> = {
   'appApi.error.unknown': '發生未知錯誤，請稍後再試。',
   'appApi.error.invalidResponse': '服務回應格式異常，請稍後再試。',
   'appStream.error.disconnected': '串流連線中斷，正在嘗試重新連線。',
+  'appStream.error.failed': '串流更新暫時中斷，請稍後再試。',
 
   'ui.link.accessibilityHint': '開啟「{label}」',
   'ui.action.accessibilityHint': '執行「{label}」',

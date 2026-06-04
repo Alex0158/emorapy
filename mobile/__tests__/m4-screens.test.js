@@ -464,6 +464,31 @@ describe('M4 Case/Repair screens', () => {
     await waitFor(() => expect(mockGetDashboard.mock.calls.length).toBeGreaterThanOrEqual(2));
   });
 
+  it('does not expose raw repair replan stream errors in the selected locale', async () => {
+    setLocale('en-US', { persist: false });
+    mockSearchParams = { trackId: 'track-error' };
+    mockGetDashboard.mockResolvedValue([]);
+    mockConnectRepairTrackStream.mockImplementationOnce((_trackId, callbacks) => {
+      callbacks.onEvent?.({
+        eventType: 'stream.failed',
+        streamId: 'stream-error',
+        requestId: 'req-error',
+        scopeType: 'repair_track',
+        scopeId: 'track-error',
+        seq: 2,
+        createdAt: '2026-05-08T00:00:01.000Z',
+        error: { code: 'APP_ERROR', message: 'provider down' },
+        metadata: { task_type: 'repair_replan' },
+      });
+      return new Promise(() => {});
+    });
+
+    const screen = renderWithQuery(React.createElement(RepairScreen));
+
+    expect(await screen.findByText('The stream update was interrupted. Try again later.')).toBeTruthy();
+    expect(screen.queryByText('provider down')).toBeNull();
+  });
+
   it('recovers repair replan stream from last seq after app foregrounds', async () => {
     const connections = [];
     mockGetDashboard.mockResolvedValue([

@@ -13,6 +13,7 @@ import {
   isTerminalAIStreamEvent,
 } from '@/src/platform/sse/aiStreamState';
 import { useAIStreamSubscription } from '@/src/platform/sse/useAIStreamSubscription';
+import { formatAIStreamDisplayError } from '@/src/platform/sse/streamErrorDisplay';
 import { tokenStorage } from '@/src/platform/storage/secureStore';
 import { ActionButton, FeatureRow, LinkButton, Panel, Screen, StatusPill } from '@/src/ui/components';
 import { palette, spacing, typography } from '@/src/ui/theme';
@@ -123,7 +124,7 @@ export default function InterviewScreen() {
       return {
         status: statusFromSnapshot(latest.status),
         text: latest.text ?? '',
-        error: latest.error?.message ?? null,
+        error: formatAIStreamDisplayError(latest.error),
       };
     },
     reduceEvent: (prev, event) => {
@@ -132,7 +133,7 @@ export default function InterviewScreen() {
       return {
         status: statusFromStreamEvent(event),
         text: nextText,
-        error: event.error?.message ?? null,
+        error: formatAIStreamDisplayError(event.error),
       };
     },
     hasRecoverableState: (value) => Boolean(value.text) && value.status !== 'persisted' && value.status !== 'failed',
@@ -143,10 +144,10 @@ export default function InterviewScreen() {
       }
     },
     onConnectionError: (error) => {
-      setStreamState((prev) => ({ ...prev, error: error.message }));
+      setStreamState((prev) => ({ ...prev, error: formatAIStreamDisplayError(error) }));
     },
     onTerminalError: (error) => {
-      setStreamState((prev) => ({ ...prev, status: 'failed', error: error.message }));
+      setStreamState((prev) => ({ ...prev, status: 'failed', error: formatAIStreamDisplayError(error) }));
     },
   });
 

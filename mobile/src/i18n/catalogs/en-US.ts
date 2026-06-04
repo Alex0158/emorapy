@@ -24,6 +24,7 @@ const enUS: Record<string, string> = {
   'appApi.error.unknown': 'An unknown error occurred. Please try again later.',
   'appApi.error.invalidResponse': 'The service response could not be read. Please try again later.',
   'appStream.error.disconnected': 'The stream connection was interrupted. Reconnecting now.',
+  'appStream.error.failed': 'The stream update was interrupted. Try again later.',
 
   'ui.link.accessibilityHint': 'Open "{label}"',
   'ui.action.accessibilityHint': 'Run "{label}"',

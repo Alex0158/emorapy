@@ -4,8 +4,8 @@
 **文檔類型**：問題治理
 **覆蓋範圍**：Web Interview store、API error state、fixed invalid-response fallback 與 locale-aware 顯示
 **取證代碼入口**：`frontend/src/store/interviewStore.ts`、`frontend/src/store/interviewStoreUtils.ts`、`frontend/src/pages/Interview/Chat/index.tsx`、`frontend/src/pages/Interview/Result/index.tsx`
-**最後核驗 Commit**：`58bc868`
-**最後核驗日期**：`2026-06-04`
+**最後核驗 Commit**：`42156aa`
+**最後核驗日期**：`2026-06-05`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 ## 問題位置與現象
@@ -44,7 +44,7 @@
 ## Owner / Status Notes
 
 - Owner：agent
-- Status：已完成本輪修復，待 commit/push。
+- Status：已完成並歸檔。
 
 ## 2026-06-04 本輪結果
 
@@ -53,3 +53,10 @@
 3. `frontend/src/store/interviewStoreUtils.test.ts` 已補 object error / string error 的 zh-TW / en-US fallback 驗證；`frontend/src/store/interviewStore.test.ts` 已補 `startSession` 與 `respond` 實際 store error state 驗證。
 4. 已驗證：`npm --prefix frontend test -- src/store/interviewStoreUtils.test.ts src/store/interviewStore.test.ts src/assets/i18n/catalogParity.test.ts`、`npm --prefix frontend run build`、`npm run docs:check` 均通過。
 5. 靜態搜尋確認 production code 中 fixed invalid interview fallback 已集中在 `interviewStoreUtils.ts` normalization；`interviewStore.ts` 的 `info.message` 來源已是 normalized extraction，剩餘 fixed invalid 字串只在測試 fixture。
+
+## 2026-06-05 歸檔復核
+
+1. 代碼復核確認 `extractInterviewErrorInfo()` 與 `getInterviewStreamFailureMessage()` 都經 `getInterviewErrorMessage()` 進入 shared `getErrorMessage(...)` normalization，固定 `Invalid ... from server` 診斷不再直接成為 store 可見錯誤。
+2. `interviewStore.ts` 的 API/store error state 仍只透過 normalized `info.message` 寫入；`Interview/Chat` 與 `Interview/Result` 沒有新增 fixed invalid-response raw display path。
+3. 2026-06-05 復跑 `npm --prefix frontend test -- src/store/interviewStoreUtils.test.ts src/store/interviewStore.test.ts src/assets/i18n/catalogParity.test.ts`，通過 3 files / 51 tests。
+4. 2026-06-05 復跑 `npm --prefix frontend run build`、`npm run docs:check` 均通過。

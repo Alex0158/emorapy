@@ -4,8 +4,8 @@
 **文檔類型**：問題治理
 **覆蓋範圍**：Backend Interview safety alert SSE / AI stream phase payload、Web Interview SafetyAlert display、focused tests
 **取證代碼入口**：`backend/src/services/interview-response-success-events.ts`、`backend/src/services/interview-stream-payload-utils.ts`、`backend/src/services/interview-ai-response-finalizer.ts`、`frontend/src/pages/Interview/Chat/index.tsx`、`frontend/src/store/interviewStore.ts`
-**最後核驗 Commit**：`f03bf9e`
-**最後核驗日期**：`2026-06-04`
+**最後核驗 Commit**：`de26be7`
+**最後核驗日期**：`2026-06-05`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 ## 問題
@@ -74,3 +74,9 @@
 3. `npm --prefix backend run build` 通過。
 4. `npm --prefix frontend run build` 通過。
 5. 靜態掃描確認 `parsedMeta.safety_message` 未再作 SSE / stream phase visible message；raw safety text 只出現在測試輸入與 DB `safety_detail` 期望。
+
+## 2026-06-05 歸檔復核
+
+1. 復核現碼確認 SSE safety alert 與 AI Stream `safety_alert` phase 都使用 `getInterviewSafetyAlertMessage(locale)`，未直接輸出 `parsedMeta.safety_message`。
+2. 復核 locale 傳遞確認 `InterviewService.respond()`、background submit path 與 finalizer 會把 request locale 傳入 success events；`safety_detail` 仍保留 AI 具體觀察作內部資料。
+3. 已驗證：backend focused 3 suites / 50 tests、frontend focused 4 files / 90 tests、backend build、frontend build 均通過。

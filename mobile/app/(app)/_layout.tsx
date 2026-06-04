@@ -1,6 +1,7 @@
 import { SymbolView, type AndroidSymbol, type SFSymbol } from 'expo-symbols';
 import { Tabs } from 'expo-router';
 
+import { t, useLocale } from '@/src/i18n';
 import { palette, typography } from '@/src/ui/theme';
 
 const iconSize = 24;
@@ -17,6 +18,7 @@ function TabIcon({ name, color }: { name: SFSymbol; color: string }) {
 }
 
 export default function AppLayout() {
+  useLocale();
   return (
     <Tabs
       screenOptions={{
@@ -35,14 +37,14 @@ export default function AppLayout() {
       <Tabs.Screen
         name="case/index"
         options={{
-          title: '案件',
+          title: t('appTabs.case'),
           tabBarIcon: ({ color }) => <TabIcon name="doc.text" color={color} />,
         }}
       />
       <Tabs.Screen
         name="chat/index"
         options={{
-          title: '對話',
+          title: t('appTabs.chat'),
           tabBarIcon: ({ color }) => <TabIcon name="bubble.left.and.bubble.right" color={color} />,
         }}
       />
@@ -61,7 +63,7 @@ export default function AppLayout() {
       <Tabs.Screen
         name="profile/index"
         options={{
-          title: '個人',
+          title: t('appTabs.profile'),
           tabBarIcon: ({ color }) => <TabIcon name="person.crop.circle" color={color} />,
         }}
       />
@@ -80,14 +82,14 @@ export default function AppLayout() {
       <Tabs.Screen
         name="notifications/index"
         options={{
-          title: '提醒',
+          title: t('appTabs.notifications'),
           tabBarIcon: ({ color }) => <TabIcon name="bell" color={color} />,
         }}
       />
       <Tabs.Screen
         name="repair/index"
         options={{
-          title: '修復',
+          title: t('appTabs.repair'),
           tabBarIcon: ({ color }) => <TabIcon name="checklist" color={color} />,
         }}
       />

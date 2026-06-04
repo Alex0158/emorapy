@@ -144,6 +144,12 @@ const zhTW: Record<string, string> = {
   'pd.none': '尚未形成',
   'pd.sep': '、',
 
+  'appTabs.case': '案件',
+  'appTabs.chat': '對話',
+  'appTabs.profile': '個人',
+  'appTabs.notifications': '提醒',
+  'appTabs.repair': '修復',
+
   'quick.collaborative.title': '雙人快速說明',
   'quick.collaborative.subtitle': '同一台設備上輪流填寫，先把雙方視角放進同一份整理。',
   'quick.collaborative.error.roleA.minLength': '第一方請至少寫 {count} 個字，讓第二方接得上脈絡。',

@@ -144,6 +144,12 @@ const enUS: Record<string, string> = {
   'pd.none': 'Not formed yet',
   'pd.sep': ', ',
 
+  'appTabs.case': 'Cases',
+  'appTabs.chat': 'Chat',
+  'appTabs.profile': 'Profile',
+  'appTabs.notifications': 'Alerts',
+  'appTabs.repair': 'Repair',
+
   'quick.collaborative.title': 'Two-person quick note',
   'quick.collaborative.subtitle': 'Take turns on the same device and put both perspectives into one summary.',
   'quick.collaborative.error.roleA.minLength': 'The first side should write at least {count} characters so the second side has enough context.',

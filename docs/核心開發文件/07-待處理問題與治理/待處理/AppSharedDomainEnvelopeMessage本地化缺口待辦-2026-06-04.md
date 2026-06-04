@@ -4,7 +4,7 @@
 **文檔類型**：問題治理
 **覆蓋範圍**：App M1-M5 shared domain client `success:false` envelope normalization、RequestErrorLike visible message、App API code fallback
 **取證代碼入口**：`packages/api-client/src/m1.ts`、`packages/api-client/src/m2.ts`、`packages/api-client/src/m3.ts`、`packages/api-client/src/m4.ts`、`packages/api-client/src/m5.ts`、`mobile/src/platform/api/client.ts`、`mobile/src/platform/api/errorMessages.ts`、`mobile/src/features`
-**最後核驗 Commit**：`e5df67f`
+**最後核驗 Commit**：`64c6da3`
 **最後核驗日期**：`2026-06-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -72,4 +72,22 @@
 ## Owner / Status Notes
 
 - Owner：agent
-- Status：待修復。本待辦已完成登記，下一步進入 App platform code fallback 修復。
+- Status：已完成本輪修復。後續若 App 需要更精準 domain-specific 文案，應新增 App catalog key 與 code mapping，不回退到 body message。
+
+## 修復結果
+
+1. `mobile/src/platform/api/errorMessages.ts` 新增 `getLocalizedRequestCodeMessage()`，集中把 `AUTH_REQUIRED` / `INVALID_AUTH_TOKEN` / `*_NOT_FOUND` / `VALIDATION_ERROR` / `RATE_LIMIT_EXCEEDED` / `SERVER_ERROR` / `EXTERNAL_SERVICE_ERROR` 等 code 映射到現有 App locale catalog。
+2. `mobile/src/platform/api/client.ts` 的 `RequestErrorLike` 分支不再直接 `return error`；除 shared invalid-response fixed diagnostic 外，統一用 code mapping 或 unknown fallback 生成可見 message，並保留原 `code` / `details`。
+3. `mobile/src/platform/api/client.test.js` 已覆蓋：
+   - shared invalid-response fixed diagnostic 仍映射 invalid-response fallback；
+   - `INVALID_AUTH_TOKEN` 映射登入 fallback；
+   - `VALIDATION_ERROR` 保留 details 並映射 validation fallback；
+   - `CHAT_ROOM_NOT_FOUND` / `RATE_LIMIT_EXCEEDED` / `EXTERNAL_SERVICE_ERROR` 依 code 顯示 en-US / zh-TW catalog；
+   - unknown custom code 不外露 `provider down`，改用 unknown fallback。
+
+## 本輪驗證
+
+1. `npm --prefix mobile test -- src/platform/api/client.test.js src/i18n/index.test.js` 通過 2 suites / 10 tests。
+2. `npm --prefix mobile test -- __tests__/m1-screens.test.js __tests__/m2-screens.test.js __tests__/m3-screens.test.js __tests__/m4-screens.test.js __tests__/m5-notifications.test.js` 通過 5 suites / 74 tests。
+3. `npm --prefix mobile run typecheck` 通過。
+4. 靜態掃描確認 `mobile/src/platform/api/client.ts` 的 `RequestErrorLike` 分支不再 `return error` 或直接信任 raw `.message`。

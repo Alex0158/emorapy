@@ -142,4 +142,30 @@ describe('middleware/responseFormatter', () => {
       })
     );
   });
+
+  it('應依 en-US locale 翻譯成功響應 message', () => {
+    const representativeMessages = [
+      ['聊天室已建立', 'Chat room created'],
+      ['訪談已開始', 'Interview started'],
+      ['已封存這則通知', 'Notification archived'],
+      ['已取消 pending 通知', 'Pending notification canceled'],
+      ['已發起判決', 'Analysis requested'],
+    ] as const;
+
+    for (const [source, translated] of representativeMessages) {
+      const req = createMockReq({ locale: 'en-US' });
+      const { res, jsonMock } = createMockRes();
+      const next = jest.fn();
+      responseFormatter(req, res, next);
+
+      res.json({ success: true, data: {}, message: source });
+
+      expect(jsonMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          message: translated,
+        })
+      );
+    }
+  });
 });

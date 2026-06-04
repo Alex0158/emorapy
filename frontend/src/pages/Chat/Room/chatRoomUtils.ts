@@ -203,6 +203,29 @@ export interface ChatActionFeedback {
 	refreshRoom: boolean;
 }
 
+function hasFixedDiagnosticMessage(error: unknown): boolean {
+	const candidates: unknown[] = [];
+	if (error instanceof Error) {
+		candidates.push(error.message);
+	}
+	if (error && typeof error === "object") {
+		const record = error as { message?: unknown; error?: { message?: unknown } };
+		candidates.push(record.message, record.error?.message);
+	}
+	return candidates.some(
+		(message) =>
+			typeof message === "string" &&
+			/^Invalid .+ from server$/.test(message.trim()),
+	);
+}
+
+function getChatActionErrorMessage(error: unknown, fallbackKey: string): string {
+	if (hasFixedDiagnosticMessage(error)) {
+		return getErrorMessage(error, fallbackKey);
+	}
+	return t(fallbackKey);
+}
+
 export function getSendMessageErrorFeedback(error: unknown): ChatActionFeedback {
 	const err = error as { code?: string };
 	if (err?.code === "FORBIDDEN") {
@@ -215,7 +238,7 @@ export function getSendMessageErrorFeedback(error: unknown): ChatActionFeedback 
 
 	return {
 		level: "error",
-		message: getErrorMessage(error, "chat.message.sendFail"),
+		message: getChatActionErrorMessage(error, "chat.message.sendFail"),
 		refreshRoom: false,
 	};
 }
@@ -242,7 +265,7 @@ export function getRoomMutationErrorFeedback(
 
 	return {
 		level: "error",
-		message: getErrorMessage(error, fallbackKey),
+		message: getChatActionErrorMessage(error, fallbackKey),
 		refreshRoom: false,
 	};
 }

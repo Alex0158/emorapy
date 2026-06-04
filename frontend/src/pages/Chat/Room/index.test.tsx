@@ -1538,7 +1538,7 @@ describe('ChatRoomPage', () => {
       fireEvent.click(screen.getByRole('button', { name: '送出' }));
     });
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('網路暫時不穩');
+      expect(toast.error).toHaveBeenCalledWith('送出訊息失敗');
     });
 
     await act(async () => {
@@ -1553,7 +1553,7 @@ describe('ChatRoomPage', () => {
     });
   });
 
-  it('sendChatMessage 失敗且有 message 應顯示該 message（F07 錯誤處理約定）', async () => {
+  it('sendChatMessage 失敗且有 raw message 應顯示本地化 fallback', async () => {
     mockSendChatMessage.mockRejectedValue(new Error('訊息發送失敗：房間已封存'));
     render(
       <MemoryRouter initialEntries={['/chat/room/room-1']}>
@@ -1575,7 +1575,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('訊息發送失敗：房間已封存');
+      expect(toast.error).toHaveBeenCalledWith('送出訊息失敗');
     });
   });
 
@@ -1809,7 +1809,7 @@ describe('ChatRoomPage', () => {
     expect(toast.error).not.toHaveBeenCalledWith('建立邀請失敗');
   });
 
-  it('createChatInvite 失敗且有 message（非 CONFLICT）應顯示該 message（F07 錯誤處理約定）', async () => {
+  it('createChatInvite 失敗且有 raw message（非 CONFLICT）應顯示本地化 fallback', async () => {
     mockCreateChatInvite.mockRejectedValue(new Error('此房間已達邀請上限'));
     render(
       <MemoryRouter initialEntries={['/chat/room/room-1']}>
@@ -1826,7 +1826,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('此房間已達邀請上限');
+      expect(toast.error).toHaveBeenCalledWith('建立邀請失敗');
     });
   });
 
@@ -1989,7 +1989,7 @@ describe('ChatRoomPage', () => {
       fireEvent.click(inviteBtn);
     });
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('暫時無法建立');
+      expect(toast.error).toHaveBeenCalledWith('建立邀請失敗');
     });
 
     await act(async () => {
@@ -2956,7 +2956,7 @@ describe('ChatRoomPage', () => {
     let confirm = within(dialog).getByRole('button', { name: '確認' });
     fireEvent.click(confirm);
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('服務暫時不可用');
+      expect(toast.error).toHaveBeenCalledWith('發起梳理失敗');
     });
 
     fireEvent.click(screen.getByRole('button', { name: '發起梳理' }));
@@ -2970,7 +2970,7 @@ describe('ChatRoomPage', () => {
     });
   });
 
-  it('requestChatJudgment 失敗且有 message（非 CONFLICT/INVALID_SESSION）應顯示該 message（F07 錯誤處理約定）', async () => {
+  it('requestChatJudgment 失敗且有 raw message（非 CONFLICT/INVALID_SESSION）應顯示本地化 fallback', async () => {
     mockRequestChatJudgment.mockRejectedValue(new Error('判決服務暫時不可用，請稍後再試'));
     mockListChatMessages.mockResolvedValueOnce({
       messages: [
@@ -3005,7 +3005,7 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('判決服務暫時不可用，請稍後再試');
+      expect(toast.error).toHaveBeenCalledWith('發起梳理失敗');
     });
   });
 

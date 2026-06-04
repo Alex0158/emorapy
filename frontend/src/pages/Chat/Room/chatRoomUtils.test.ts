@@ -120,10 +120,10 @@ describe('chatRoomUtils mutation helpers', () => {
     });
   });
 
-  it('送訊息一般錯誤應保留後端 message，沒有 message 時使用 sendFail', () => {
+  it('送訊息一般錯誤不應直出 raw message，沒有 message 時使用 sendFail', () => {
     expect(getSendMessageErrorFeedback(new Error('發送失敗'))).toEqual({
       level: 'error',
-      message: '發送失敗',
+      message: t('chat.message.sendFail'),
       refreshRoom: false,
     });
     expect(getSendMessageErrorFeedback({ code: 'SERVER_ERROR', message: '' })).toEqual({
@@ -146,15 +146,38 @@ describe('chatRoomUtils mutation helpers', () => {
     });
   });
 
-  it('房間 mutation 一般錯誤應保留後端 message，沒有 message 時使用指定 fallback', () => {
+  it('房間 mutation 一般錯誤不應直出 raw message，沒有 message 時使用指定 fallback', () => {
     expect(getRoomMutationErrorFeedback(new Error('建立邀請失敗'), 'chat.message.createInviteFail')).toEqual({
       level: 'error',
-      message: '建立邀請失敗',
+      message: t('chat.message.createInviteFail'),
       refreshRoom: false,
     });
     expect(getRoomMutationErrorFeedback({ code: 'SERVER_ERROR', message: '' }, 'chat.message.judgmentFail')).toEqual({
       level: 'error',
       message: t('chat.message.judgmentFail'),
+      refreshRoom: false,
+    });
+  });
+
+  it('房間 action raw message fallback 應跟隨目前語言，fixed diagnostic 仍可本地化', async () => {
+    await setLocaleReady('en-US');
+
+    expect(getSendMessageErrorFeedback(new Error('發送失敗'))).toEqual({
+      level: 'error',
+      message: 'Failed to send message',
+      refreshRoom: false,
+    });
+    expect(getRoomMutationErrorFeedback(new Error('建立邀請失敗'), 'chat.message.createInviteFail')).toEqual({
+      level: 'error',
+      message: 'Failed to create invite',
+      refreshRoom: false,
+    });
+    expect(getRoomMutationErrorFeedback(
+      new Error('Invalid chat room response from server'),
+      'chat.message.judgmentFail',
+    )).toEqual({
+      level: 'error',
+      message: 'The service response could not be read. Please try again later.',
       refreshRoom: false,
     });
   });

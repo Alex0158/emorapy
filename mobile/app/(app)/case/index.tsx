@@ -7,6 +7,7 @@ import type { CaseStatus } from '@cj/contracts/case';
 
 import { m4Api, normalizeM4Error } from '@/src/features/m4/api';
 import { m5Api, normalizeM5Error } from '@/src/features/m5/api';
+import { getLocale, t, useLocale } from '@/src/i18n';
 import { createEvidenceUploadFormData, pickImage } from '@/src/platform/upload/native';
 import { tokenStorage } from '@/src/platform/storage/secureStore';
 import { captureTelemetry } from '@/src/platform/telemetry/client';
@@ -17,27 +18,21 @@ const evidenceUploadableStatuses = new Set(['draft', 'submitted', 'in_progress']
 const MIN_FORMAL_CASE_STATEMENT_LENGTH = 30;
 const MAX_FORMAL_CASE_STATEMENT_LENGTH = 1200;
 const MAX_PAIRING_INVITE_CODE_LENGTH = 32;
-const caseCreatedDateFormatter = new Intl.DateTimeFormat('zh-Hant', {
-  day: 'numeric',
-  month: 'numeric',
-  timeZone: 'UTC',
-  year: 'numeric',
-});
 
-const pairingStatusLabels: Record<'pending' | 'active' | 'cancelled' | 'temp', string> = {
-  pending: '等待對方加入',
-  active: '配對已建立',
-  cancelled: '配對已取消',
-  temp: '臨時配對',
+const pairingStatusLabelKeys: Record<'pending' | 'active' | 'cancelled' | 'temp', string> = {
+  pending: 'case.pairing.pending',
+  active: 'case.pairing.active',
+  cancelled: 'case.pairing.cancelled',
+  temp: 'case.pairing.temp',
 };
 
-const caseStatusLabels: Record<CaseStatus, string> = {
-  draft: '草稿',
-  submitted: '已提交',
-  in_progress: '判斷中',
-  completed: '已完成',
-  cancelled: '已取消',
-  judgment_failed: '判斷未完成',
+const caseStatusLabelKeys: Record<CaseStatus, string> = {
+  draft: 'case.status.draft',
+  submitted: 'case.status.submitted',
+  in_progress: 'case.status.inProgress',
+  completed: 'case.status.completed',
+  cancelled: 'case.status.cancelled',
+  judgment_failed: 'case.status.analysisFailed',
 };
 
 interface EvidenceUploadResult {
@@ -78,34 +73,40 @@ function buildEvidenceSafetyAssertion(safety: EvidenceSafetyState) {
 
 function validateEvidenceSafety(safety: EvidenceSafetyState): string | null {
   if (!safety.noIllegalOrNonconsensual) {
-    return '請先確認證據不包含非自願或違法內容。';
+    return t('case.evidence.error.blocked');
   }
   if (safety.containsMinor && !safety.minorGuardianOrSelfConfirmed) {
-    return '涉及未成年人時，需要先確認你是本人、監護人或已取得必要授權。';
+    return t('case.evidence.error.minor');
   }
   if (safety.containsSensitiveContent && !safety.sensitiveContentHandlingAck) {
-    return '涉及敏感內容時，需要先確認只上傳處理案件必要的資料。';
+    return t('case.evidence.error.sensitive');
   }
   return null;
 }
 
 function labelPairingStatus(status?: 'pending' | 'active' | 'cancelled' | 'temp' | null): string {
-  return status ? pairingStatusLabels[status] : '尚未配對';
+  return status ? t(pairingStatusLabelKeys[status]) : t('case.pairing.none');
 }
 
 function labelCaseStatus(status?: CaseStatus | null): string {
-  return status ? caseStatusLabels[status] : '狀態更新中';
+  return status ? t(caseStatusLabelKeys[status]) : t('case.status.updating');
 }
 
 function labelCaseTitle(item: { title?: string | null; type?: string | null }): string {
-  return item.title || item.type || '未命名案件';
+  return item.title || item.type || t('case.titleFallback');
 }
 
 function labelCaseCreatedAt(value?: string | null): string {
-  if (!value) return '建立時間待同步';
+  if (!value) return t('case.createdAt.unsynced');
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '建立時間待同步';
-  return `建立於 ${caseCreatedDateFormatter.format(date)}`;
+  if (Number.isNaN(date.getTime())) return t('case.createdAt.unsynced');
+  const formattedDate = new Intl.DateTimeFormat(getLocale() === 'en-US' ? 'en-US' : 'zh-Hant', {
+    day: 'numeric',
+    month: 'numeric',
+    timeZone: 'UTC',
+    year: 'numeric',
+  }).format(date);
+  return t('case.createdAt.prefix', { date: formattedDate });
 }
 
 function countTrimmedText(value: string): number {
@@ -115,19 +116,19 @@ function countTrimmedText(value: string): number {
 function formalCaseStatementHelperText(value: string): string {
   const length = countTrimmedText(value);
   if (length < MIN_FORMAL_CASE_STATEMENT_LENGTH) {
-    return `再補 ${MIN_FORMAL_CASE_STATEMENT_LENGTH - length} 個字，讓案件有足夠脈絡。`;
+    return t('case.statement.needMore', { count: MIN_FORMAL_CASE_STATEMENT_LENGTH - length });
   }
-  return `${length}/${MAX_FORMAL_CASE_STATEMENT_LENGTH}，可以建立案件。`;
+  return t('case.statement.ready', { length, max: MAX_FORMAL_CASE_STATEMENT_LENGTH });
 }
 
 function optionalStatementHelperText(value: string): string {
   const length = countTrimmedText(value);
-  if (!length) return '可選填，先留空也能建立案件。';
-  return `${length}/${MAX_FORMAL_CASE_STATEMENT_LENGTH}，已補充對方可能視角。`;
+  if (!length) return t('case.optional.empty');
+  return t('case.optional.ready', { length, max: MAX_FORMAL_CASE_STATEMENT_LENGTH });
 }
 
 function inviteCodeHelperText(value: string): string {
-  return value.trim() ? '可以嘗試加入配對。' : '輸入對方提供的配對邀請碼。';
+  return value.trim() ? t('case.inviteHelper.ready') : t('case.inviteHelper.empty');
 }
 
 function SafetyToggle({
@@ -158,6 +159,7 @@ function SafetyToggle({
 }
 
 export default function CaseScreen() {
+  useLocale();
   const queryClient = useQueryClient();
   const [inviteCode, setInviteCode] = useState('');
   const [plaintiffStatement, setPlaintiffStatement] = useState('');
@@ -206,7 +208,7 @@ export default function CaseScreen() {
   const createCaseMutation = useMutation({
     mutationFn: () => {
       const pairingId = pairingQuery.data?.id;
-      if (!pairingId) throw new Error('請先建立或加入配對。');
+      if (!pairingId) throw new Error(t('case.error.missingPartnerLink'));
       return m4Api.cases.create({
         pairing_id: pairingId,
         plaintiff_statement: plaintiffStatement.trim(),
@@ -255,12 +257,12 @@ export default function CaseScreen() {
     },
     onSuccess: async (result, caseId) => {
       if (result.cancelled) {
-        setEvidenceUploadNotice('未選擇檔案。');
+        setEvidenceUploadNotice(t('case.upload.cancelled'));
         return;
       }
 
       if (result.count === 0) {
-        setEvidenceUploadNotice('沒有新增證據。');
+        setEvidenceUploadNotice(t('case.upload.empty'));
         return;
       }
 
@@ -271,7 +273,7 @@ export default function CaseScreen() {
           caseId,
         },
       });
-      setEvidenceUploadNotice(`已上傳 ${result.count} 份證據。`);
+      setEvidenceUploadNotice(t('case.upload.success', { count: result.count }));
       await refreshM4();
     },
     onError: (error) => {
@@ -322,42 +324,42 @@ export default function CaseScreen() {
   if (!isAuthenticated) {
     return (
       <Screen
-        eyebrow="正式案件"
-        title="先登入"
-        subtitle="正式案件需要登入後才能建立配對、案件與判斷。"
+        eyebrow={t('case.eyebrow')}
+        title={t('case.authGate.title')}
+        subtitle={t('case.authGate.subtitle')}
         testID="case.auth-gate.screen">
-        <Panel title="正式處理">
-          <FeatureRow title="不使用匿名案件" detail="正式案件會綁定帳號與配對關係。" tone="teal" />
-          <FeatureRow title="快速整理可匿名" detail="還沒準備好登入時，可先用快速整理。" tone="blue" />
+        <Panel title={t('case.authGate.panel')}>
+          <FeatureRow title={t('case.authGate.noAnonymous.title')} detail={t('case.authGate.noAnonymous.detail')} tone="teal" />
+          <FeatureRow title={t('case.authGate.quick.title')} detail={t('case.authGate.quick.detail')} tone="blue" />
         </Panel>
-        <LinkButton href="/auth" label="登入或註冊" tone="teal" testID="case.auth-gate.login" />
-        <LinkButton href="/quick" label="先做快速整理" tone="blue" testID="case.auth-gate.quick" variant="outline" />
+        <LinkButton href="/auth" label={t('profile.authGate.login')} tone="teal" testID="case.auth-gate.login" />
+        <LinkButton href="/quick" label={t('case.authGate.quick')} tone="blue" testID="case.auth-gate.quick" variant="outline" />
       </Screen>
     );
   }
 
   return (
-    <Screen eyebrow="正式案件" title="正式案件" subtitle="從配對、正式案件到判斷結果。" testID="case.screen">
-      <Panel title="配對">
+    <Screen eyebrow={t('case.eyebrow')} title={t('case.title')} subtitle={t('case.subtitle')} testID="case.screen">
+      <Panel title={t('case.partnerPanel')}>
         <StatusPill label={labelPairingStatus(pairingQuery.data?.status)} tone={pairingQuery.data ? 'teal' : 'amber'} />
         {pairingQuery.data?.invite_code ? (
           <Text style={styles.inviteCode}>{pairingQuery.data.invite_code}</Text>
         ) : null}
         <View style={styles.actions}>
           <ActionButton
-            label="建立配對邀請"
+            label={t('case.createPartnerLink')}
             loading={createPairingMutation.isPending}
             onPress={() => createPairingMutation.mutate()}
             testID="case.create-pairing"
             tone="teal"
           />
           <TextInput
-            accessibilityLabel="配對邀請碼"
-            accessibilityHint="輸入對方提供的配對邀請碼以加入正式配對"
+            accessibilityLabel={t('case.inviteCode.label')}
+            accessibilityHint={t('case.inviteCode.hint')}
             autoCapitalize="characters"
             maxLength={MAX_PAIRING_INVITE_CODE_LENGTH}
             onChangeText={setInviteCode}
-            placeholder="輸入配對邀請碼"
+            placeholder={t('case.inviteCode.placeholder')}
             placeholderTextColor={palette.muted}
             style={styles.input}
             testID="case.invite-code.input"
@@ -368,8 +370,8 @@ export default function CaseScreen() {
           </Text>
           <ActionButton
             disabled={!inviteCode.trim()}
-            accessibilityHint="輸入配對邀請碼後加入正式配對"
-            label="加入配對"
+            accessibilityHint={t('case.inviteCode.joinHint')}
+            label={t('case.joinPartnerLink')}
             loading={joinPairingMutation.isPending}
             onPress={() => joinPairingMutation.mutate()}
             testID="case.join-pairing"
@@ -378,7 +380,7 @@ export default function CaseScreen() {
           />
           {pairingQuery.data ? (
             <ActionButton
-              label="取消配對"
+              label={t('case.cancelPartnerLink')}
               loading={cancelPairingMutation.isPending}
               onPress={() => cancelPairingMutation.mutate()}
               testID="case.cancel-pairing"
@@ -389,14 +391,14 @@ export default function CaseScreen() {
         </View>
       </Panel>
 
-      <Panel title="建立案件">
+      <Panel title={t('case.createPanel')}>
         <TextInput
-          accessibilityLabel="我方正式案件說明"
-          accessibilityHint="輸入你這邊的具體事件、影響和希望被理解的點"
+          accessibilityLabel={t('case.plaintiff.label')}
+          accessibilityHint={t('case.plaintiff.hint')}
           maxLength={MAX_FORMAL_CASE_STATEMENT_LENGTH}
           multiline
           onChangeText={setPlaintiffStatement}
-          placeholder="先寫清楚你這邊的具體事件、影響和希望被理解的點。"
+          placeholder={t('case.plaintiff.placeholder')}
           placeholderTextColor={palette.muted}
           style={styles.textArea}
           testID="case.plaintiff-statement.input"
@@ -407,12 +409,12 @@ export default function CaseScreen() {
           {formalCaseStatementHelperText(plaintiffStatement)}
         </Text>
         <TextInput
-          accessibilityLabel="對方可能的正式案件說明"
-          accessibilityHint="可選填，補上對方可能的說法或限制"
+          accessibilityLabel={t('case.defendant.label')}
+          accessibilityHint={t('case.defendant.hint')}
           maxLength={MAX_FORMAL_CASE_STATEMENT_LENGTH}
           multiline
           onChangeText={setDefendantStatement}
-          placeholder="可選：補上對方可能的說法。"
+          placeholder={t('case.defendant.placeholder')}
           placeholderTextColor={palette.muted}
           style={styles.textAreaAlt}
           testID="case.defendant-statement.input"
@@ -423,9 +425,9 @@ export default function CaseScreen() {
           {optionalStatementHelperText(defendantStatement)}
         </Text>
         <ActionButton
-          accessibilityHint={`需要先完成配對，且我方說明至少 ${MIN_FORMAL_CASE_STATEMENT_LENGTH} 個字`}
+          accessibilityHint={t('case.createHint', { count: MIN_FORMAL_CASE_STATEMENT_LENGTH })}
           disabled={!canCreateCase}
-          label="建立正式案件"
+          label={t('case.createCase')}
           loading={createCaseMutation.isPending}
           onPress={() => createCaseMutation.mutate()}
           testID="case.create-case"
@@ -434,13 +436,13 @@ export default function CaseScreen() {
         {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
       </Panel>
 
-      <Panel title="證據安全確認">
+      <Panel title={t('case.evidencePanel')}>
         <Text style={styles.safetyIntro}>
-          上傳前先確認證據內容。App 只送出你的明確聲明，不替你默認代簽。
+          {t('case.evidenceIntro')}
         </Text>
         <SafetyToggle
           checked={evidenceSafety.noIllegalOrNonconsensual}
-          label="我確認證據不包含非自願取得、非自願裸露或違法內容"
+          label={t('case.evidence.noBlocked')}
           onPress={() => updateEvidenceSafety({
             noIllegalOrNonconsensual: !evidenceSafety.noIllegalOrNonconsensual,
           })}
@@ -448,7 +450,7 @@ export default function CaseScreen() {
         />
         <SafetyToggle
           checked={evidenceSafety.containsMinor}
-          label="證據涉及未成年人"
+          label={t('case.evidence.containsMinor')}
           onPress={() => updateEvidenceSafety({
             containsMinor: !evidenceSafety.containsMinor,
             minorGuardianOrSelfConfirmed: evidenceSafety.containsMinor
@@ -460,7 +462,7 @@ export default function CaseScreen() {
         {evidenceSafety.containsMinor ? (
           <SafetyToggle
             checked={evidenceSafety.minorGuardianOrSelfConfirmed}
-            label="我確認我是本人、監護人或已取得必要授權"
+            label={t('case.evidence.minorConfirm')}
             onPress={() => updateEvidenceSafety({
               minorGuardianOrSelfConfirmed: !evidenceSafety.minorGuardianOrSelfConfirmed,
             })}
@@ -469,7 +471,7 @@ export default function CaseScreen() {
         ) : null}
         <SafetyToggle
           checked={evidenceSafety.containsSensitiveContent}
-          label="證據包含敏感資料或私密內容"
+          label={t('case.evidence.containsSensitive')}
           onPress={() => updateEvidenceSafety({
             containsSensitiveContent: !evidenceSafety.containsSensitiveContent,
             sensitiveContentHandlingAck: evidenceSafety.containsSensitiveContent
@@ -481,7 +483,7 @@ export default function CaseScreen() {
         {evidenceSafety.containsSensitiveContent ? (
           <SafetyToggle
             checked={evidenceSafety.sensitiveContentHandlingAck}
-            label="我確認只上傳處理案件必要的資料"
+            label={t('case.evidence.sensitiveAck')}
             onPress={() => updateEvidenceSafety({
               sensitiveContentHandlingAck: !evidenceSafety.sensitiveContentHandlingAck,
             })}
@@ -492,7 +494,7 @@ export default function CaseScreen() {
         {evidenceUploadNotice ? <Text style={styles.successText}>{evidenceUploadNotice}</Text> : null}
       </Panel>
 
-      <Panel title="案件列表">
+      <Panel title={t('case.listPanel')}>
         {(casesQuery.data?.cases ?? []).slice(0, 5).map((item) => (
           <View key={item.id} style={styles.caseCard}>
             <View style={styles.caseHeader}>
@@ -508,7 +510,7 @@ export default function CaseScreen() {
             <View style={styles.actions}>
               {item.status === 'draft' ? (
                 <ActionButton
-                  label="提交案件"
+                  label={t('case.submitCase')}
                   loading={submitCaseMutation.isPending}
                   onPress={() => submitCaseMutation.mutate(item.id)}
                   testID={`case.item.${item.id}.submit`}
@@ -519,7 +521,7 @@ export default function CaseScreen() {
               {evidenceUploadableStatuses.has(item.status) ? (
                 <ActionButton
                   disabled={!canUploadEvidence}
-                  label="上傳證據"
+                  label={t('case.uploadEvidence')}
                   loading={uploadEvidenceMutation.isPending}
                   onPress={() => uploadEvidenceMutation.mutate(item.id)}
                   testID={`case.item.${item.id}.upload-evidence`}
@@ -528,7 +530,7 @@ export default function CaseScreen() {
                 />
               ) : null}
               <ActionButton
-                label="生成 / 重試判斷"
+                label={t('case.generateAnalysis')}
                 loading={generateJudgmentMutation.isPending}
                 onPress={() => generateJudgmentMutation.mutate(item.id)}
                 testID={`case.item.${item.id}.generate-judgment`}
@@ -539,16 +541,16 @@ export default function CaseScreen() {
           </View>
         ))}
         {casesQuery.data?.cases?.length ? null : (
-          <Text style={styles.emptyText}>還沒有正式案件。</Text>
+          <Text style={styles.emptyText}>{t('case.empty')}</Text>
         )}
       </Panel>
 
       {latestJudgment ? (
-        <Panel title="最新判斷">
+        <Panel title={t('case.latestAnalysisPanel')}>
           <StatusPill label={`${latestJudgment.plaintiff_ratio}:${latestJudgment.defendant_ratio}`} tone="coral" />
           <Text style={styles.judgmentText}>{latestJudgment.summary || latestJudgment.judgment_content}</Text>
           <ActionButton
-            label="接受判斷並進入修復"
+            label={t('case.acceptAnalysis')}
             loading={acceptJudgmentMutation.isPending}
             onPress={() => acceptJudgmentMutation.mutate(latestJudgment.id)}
             testID="case.accept-judgment"
@@ -556,7 +558,7 @@ export default function CaseScreen() {
           />
           <LinkButton
             href={`/repair?judgmentId=${encodeURIComponent(latestJudgment.id)}`}
-            label="查看修復主線"
+            label={t('case.repair')}
             tone="coral"
             testID="case.repair"
             variant="outline"

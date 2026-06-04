@@ -1,6 +1,7 @@
 const React = require('react');
 const { act, fireEvent, render, waitFor } = require('@testing-library/react-native');
 const { QueryClient, QueryClientProvider } = require('@tanstack/react-query');
+const { setLocale } = require('@/src/i18n');
 
 let mockLifecycleStatus = 'active';
 let mockLifecycleListener = null;
@@ -121,6 +122,7 @@ function renderWithQuery(ui) {
 describe('M4 Case/Repair screens', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    setLocale('zh-TW', { persist: false });
     mockSearchParams = {};
     mockLifecycleStatus = 'active';
     mockLifecycleListener = null;
@@ -218,6 +220,30 @@ describe('M4 Case/Repair screens', () => {
     }));
   });
 
+  it('renders formal case chrome in English when selected', async () => {
+    setLocale('en-US', { persist: false });
+
+    const screen = renderWithQuery(React.createElement(CaseScreen));
+
+    expect(await screen.findByText('PAIR01')).toBeTruthy();
+    expect(screen.getAllByText('Formal case').length).toBeGreaterThan(0);
+    expect(screen.getByText('From partner linking and formal cases to analysis results.')).toBeTruthy();
+    expect(screen.getByText('Partner link')).toBeTruthy();
+    expect(screen.getByText('Partner link created')).toBeTruthy();
+    expect(screen.getByText('Create partner access')).toBeTruthy();
+    expect(screen.getByPlaceholderText('Enter access code')).toBeTruthy();
+    expect(screen.getByText('Create case')).toBeTruthy();
+    expect(screen.getByPlaceholderText('Write your concrete events, impact, and what you hope can be understood.')).toBeTruthy();
+    expect(screen.getByText('Evidence safety check')).toBeTruthy();
+    expect(screen.getByText('Case list')).toBeTruthy();
+    expect(screen.getByText('Draft')).toBeTruthy();
+    expect(screen.getByTestId('case.item.case-1.created-at').props.children).toMatch(/^Created on /);
+    expect(screen.getByText('Submit case')).toBeTruthy();
+    expect(screen.getByText('Upload evidence')).toBeTruthy();
+    expect(screen.getByText('Generate / retry analysis')).toBeTruthy();
+    expect(screen.queryByText('生成 / 重試判斷')).toBeNull();
+  });
+
   it('keeps formal case creation disabled until pairing and statement are ready', async () => {
     const screen = renderWithQuery(React.createElement(CaseScreen));
 
@@ -277,7 +303,7 @@ describe('M4 Case/Repair screens', () => {
     fireEvent.press(generateButton);
 
     expect(await screen.findByText('判斷內容')).toBeTruthy();
-    fireEvent.press(screen.getByText('接受判斷並進入修復'));
+    fireEvent.press(screen.getByText('接受梳理結果並進入修復'));
 
     await waitFor(() => expect(mockAcceptJudgment).toHaveBeenCalledWith('judgment-1', {
       accepted: true,

@@ -73,6 +73,7 @@ jest.mock('@/src/platform/lifecycle/native', () => ({
 const ProfileScreen = require('../app/(app)/profile/index').default;
 const InterviewScreen = require('../app/(app)/profile/interview').default;
 const MyStoryScreen = require('../app/(app)/profile/story').default;
+const { setLocale } = require('@/src/i18n');
 
 const queryClients = [];
 
@@ -102,6 +103,7 @@ describe('M2 Profile/Interview screens', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    setLocale('zh-TW', { persist: false });
     mockSearchParams = {};
     mockLifecycleStatus = 'active';
     mockLifecycleListener = null;
@@ -212,6 +214,37 @@ describe('M2 Profile/Interview screens', () => {
     expect((await storyScreen.findAllByText('我的故事')).length).toBeGreaterThan(0);
     expect(storyScreen.queryByText('MY STORY')).toBeNull();
     expect(storyScreen.queryByText('回到 Profile')).toBeNull();
+  });
+
+  it('renders profile auth gate in the selected locale', async () => {
+    setLocale('en-US', { persist: false });
+    mockGetToken.mockResolvedValueOnce(null);
+
+    const screen = renderWithQuery(React.createElement(ProfileScreen));
+
+    expect(await screen.findByText('Save progress first')).toBeTruthy();
+    expect(screen.getByText('Available after login')).toBeTruthy();
+    expect(screen.getByText('Guided interview')).toBeTruthy();
+    expect(screen.getByText('Log in or register')).toBeTruthy();
+  });
+
+  it('renders profile home statistics and actions in the selected locale', async () => {
+    setLocale('en-US', { persist: false });
+    mockGetPsychProfile.mockResolvedValueOnce({
+      consent_given: true,
+      narratives: [{ id: 'n1' }, { id: 'n2' }],
+      insights: [{ id: 'i1' }],
+      richness_score: 42,
+    });
+
+    const screen = renderWithQuery(React.createElement(ProfileScreen));
+
+    expect(await screen.findByText('Help the system understand you')).toBeTruthy();
+    expect(screen.getByText('Psych profile consented')).toBeTruthy();
+    expect(screen.getByText('Current score 42; you can keep adding context over time.')).toBeTruthy();
+    expect(screen.getByText('2 context entries and 1 insights organized.')).toBeTruthy();
+    expect(screen.getByText('Start a new interview')).toBeTruthy();
+    expect(screen.getByText('View My Story')).toBeTruthy();
   });
 
   it('uses user-facing auth-gate wording before interview sync', async () => {

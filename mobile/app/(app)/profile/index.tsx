@@ -5,10 +5,19 @@ import { Text, View } from 'react-native';
 
 import { m2Api, normalizeM2Error } from '@/src/features/m2/api';
 import { tokenStorage } from '@/src/platform/storage/secureStore';
-import { ActionButton, FeatureRow, LinkButton, Panel, Screen, StatusPill } from '@/src/ui/components';
+import { t, useLocale } from '@/src/i18n';
+import {
+  ActionButton,
+  FeatureRow,
+  LinkButton,
+  Panel,
+  Screen,
+  StatusPill,
+} from '@/src/ui/components';
 import { palette, spacing, typography } from '@/src/ui/theme';
 
 export default function ProfileScreen() {
+  useLocale();
   const queryClient = useQueryClient();
   const authQuery = useQuery({
     queryKey: ['app', 'auth-token'],
@@ -61,45 +70,75 @@ export default function ProfileScreen() {
   if (!isAuthenticated) {
     return (
       <Screen
-        eyebrow="個人脈絡"
-        title="先保存進度"
-        subtitle="個人脈絡、訪談和我的故事需要登入後才會讀取。"
+        eyebrow={t('profile.eyebrow')}
+        title={t('profile.authGate.title')}
+        subtitle={t('profile.authGate.subtitle')}
         testID="profile.auth-gate.screen">
-        <Panel title="登入後可用">
-          <FeatureRow title="心理訪談" detail="用短輪次整理關係模式。" tone="blue" />
-          <FeatureRow title="我的故事" detail="查看和管理已整理的心理脈絡。" tone="coral" />
-          <FeatureRow title="後續個人化" detail="讓正式案件和修復計畫使用你允許的背景。" tone="teal" />
+        <Panel title={t('profile.authGate.panel')}>
+          <FeatureRow
+            title={t('profile.authGate.interview.title')}
+            detail={t('profile.authGate.interview.detail')}
+            tone="blue"
+          />
+          <FeatureRow
+            title={t('profile.authGate.story.title')}
+            detail={t('profile.authGate.story.detail')}
+            tone="coral"
+          />
+          <FeatureRow
+            title={t('profile.authGate.personalization.title')}
+            detail={t('profile.authGate.personalization.detail')}
+            tone="teal"
+          />
         </Panel>
-        <LinkButton href="/auth" label="登入或註冊" tone="teal" testID="profile.auth-gate.login" />
+        <LinkButton
+          href="/auth"
+          label={t('profile.authGate.login')}
+          tone="teal"
+          testID="profile.auth-gate.login"
+        />
       </Screen>
     );
   }
 
   return (
     <Screen
-      eyebrow="個人脈絡"
-      title="讓系統更懂你"
-      subtitle="把你的關係模式和重要背景整理成可控的個人脈絡。"
+      eyebrow={t('profile.eyebrow')}
+      title={t('profile.title')}
+      subtitle={t('profile.subtitle')}
       testID="profile.screen">
-      <Panel title="個人脈絡">
+      <Panel title={t('profile.panel')}>
         <StatusPill
-          label={psychQuery.data?.consent_given ? '已同意心理畫像' : '同意後使用'}
+          label={psychQuery.data?.consent_given
+            ? t('profile.consent.granted')
+            : t('profile.consent.pending')}
           tone={psychQuery.data?.consent_given ? 'teal' : 'amber'}
         />
-        {errorMessage ? <Text style={{ ...typography.small, color: palette.coral }}>{errorMessage}</Text> : null}
+        {errorMessage ? (
+          <Text style={{ ...typography.small, color: palette.coral }}>
+            {errorMessage}
+          </Text>
+        ) : null}
         <FeatureRow
-          title="豐富度"
-          detail={`目前分數 ${psychQuery.data?.richness_score ?? 0}，仍可逐步補足。`}
+          title={t('profile.richness.title')}
+          detail={t('profile.richness.detail', {
+            score: psychQuery.data?.richness_score ?? 0,
+          })}
           tone="teal"
         />
         <FeatureRow
-          title="訪談"
-          detail={pendingSessionId ? '已有可繼續的訪談。' : '用短輪次整理關係模式，不要求一次說完。'}
+          title={t('profile.interview.title')}
+          detail={pendingSessionId
+            ? t('profile.interview.resume')
+            : t('profile.interview.detail')}
           tone="blue"
         />
         <FeatureRow
-          title="我的故事"
-          detail={`已整理 ${psychQuery.data?.narratives?.length ?? 0} 段脈絡、${psychQuery.data?.insights?.length ?? 0} 條洞察。`}
+          title={t('profile.story.title')}
+          detail={t('profile.story.detail', {
+            narratives: psychQuery.data?.narratives?.length ?? 0,
+            insights: psychQuery.data?.insights?.length ?? 0,
+          })}
           tone="coral"
         />
       </Panel>
@@ -107,15 +146,17 @@ export default function ProfileScreen() {
       <View style={{ gap: spacing.sm }}>
         {pendingSessionId ? (
           <ActionButton
-            label="繼續訪談"
-            onPress={() => router.push(`/profile/interview?sessionId=${encodeURIComponent(pendingSessionId)}` as Href)}
+            label={t('profile.resumeInterview')}
+            onPress={() => router.push(
+              `/profile/interview?sessionId=${encodeURIComponent(pendingSessionId)}` as Href
+            )}
             testID="profile.resume-interview"
             tone="blue"
           />
         ) : null}
         {failedSessionId ? (
           <ActionButton
-            label="重試上次整理"
+            label={t('profile.retryFailed')}
             loading={retryMutation.isPending}
             onPress={() => retryMutation.mutate()}
             testID="profile.retry-failed-interview"
@@ -124,14 +165,28 @@ export default function ProfileScreen() {
           />
         ) : null}
         <ActionButton
-          label={psychQuery.data?.consent_given ? '開始新的訪談' : '同意並開始訪談'}
+          label={psychQuery.data?.consent_given
+            ? t('profile.startInterview')
+            : t('profile.consentAndStart')}
           loading={startMutation.isPending}
           onPress={() => startMutation.mutate()}
           testID="profile.start-interview"
           tone="teal"
         />
-        <LinkButton href="/profile/story" label="查看我的故事" tone="coral" testID="profile.story" variant="outline" />
-        <LinkButton href="/chat" label="進入對話" tone="blue" testID="profile.chat" variant="outline" />
+        <LinkButton
+          href="/profile/story"
+          label={t('profile.viewStory')}
+          tone="coral"
+          testID="profile.story"
+          variant="outline"
+        />
+        <LinkButton
+          href="/chat"
+          label={t('profile.enterChat')}
+          tone="blue"
+          testID="profile.chat"
+          variant="outline"
+        />
       </View>
     </Screen>
   );

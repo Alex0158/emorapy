@@ -1,8 +1,13 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { beforeEach, describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { setLocale, t } from '@/utils/i18n';
 import { PageError } from './index';
 
 describe('PageError', () => {
+  beforeEach(() => {
+    setLocale('zh-TW');
+  });
+
   it('渲染預設 generic variant', () => {
     render(<PageError />);
     expect(screen.getByText('出了點小問題')).toBeInTheDocument();
@@ -27,6 +32,22 @@ describe('PageError', () => {
   it('渲染 server variant', () => {
     render(<PageError variant="server" />);
     expect(screen.getByText('服務暫時有問題')).toBeInTheDocument();
+  });
+
+  it('en-US 下渲染英文 fallback 文案', async () => {
+    setLocale('en-US');
+    const onRetry = vi.fn();
+    const onBack = vi.fn();
+
+    await waitFor(() => expect(t('pageError.network.title')).toBe('Connection problem'));
+    render(<PageError variant="network" onRetry={onRetry} onBack={onBack} />);
+
+    expect(screen.getByText('Connection problem')).toBeInTheDocument();
+    expect(screen.getByText(/network connection looks unstable/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Retry/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Back/ }));
+    expect(onRetry).toHaveBeenCalledOnce();
+    expect(onBack).toHaveBeenCalledOnce();
   });
 
   it('自定義 title 和 description', () => {

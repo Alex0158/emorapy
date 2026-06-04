@@ -13,6 +13,7 @@
 import { type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { t } from '@/utils/i18n';
 import { AlertCircle, RefreshCw, ArrowLeft, HelpCircle } from 'lucide-react';
 
 type ErrorVariant = 'network' | 'notFound' | 'permission' | 'server' | 'generic';
@@ -31,32 +32,32 @@ interface PageErrorProps {
 
 const variantConfig: Record<
   ErrorVariant,
-  { icon: ReactNode; defaultTitle: string; defaultDescription: string }
+  { icon: ReactNode; titleKey: string; descriptionKey: string }
 > = {
   network: {
     icon: <RefreshCw className="size-8 text-warning" strokeWidth={1.5} />,
-    defaultTitle: '連接出了點問題',
-    defaultDescription: '看起來網路連接有些不穩定。請檢查您的網路，然後再試一次。',
+    titleKey: 'pageError.network.title',
+    descriptionKey: 'pageError.network.description',
   },
   notFound: {
     icon: <HelpCircle className="size-8 text-muted-foreground" strokeWidth={1.5} />,
-    defaultTitle: '找不到這個頁面',
-    defaultDescription: '您要找的內容可能已經移動或不存在了。',
+    titleKey: 'pageError.notFound.title',
+    descriptionKey: 'pageError.notFound.description',
   },
   permission: {
     icon: <AlertCircle className="size-8 text-destructive/70" strokeWidth={1.5} />,
-    defaultTitle: '沒有權限查看',
-    defaultDescription: '您可能需要登入或聯繫管理員來獲取訪問權限。',
+    titleKey: 'pageError.permission.title',
+    descriptionKey: 'pageError.permission.description',
   },
   server: {
     icon: <AlertCircle className="size-8 text-destructive/70" strokeWidth={1.5} />,
-    defaultTitle: '服務暫時有問題',
-    defaultDescription: '我們的團隊正在處理中。請稍後再試，您的資料不會丟失。',
+    titleKey: 'pageError.server.title',
+    descriptionKey: 'pageError.server.description',
   },
   generic: {
     icon: <AlertCircle className="size-8 text-muted-foreground" strokeWidth={1.5} />,
-    defaultTitle: '出了點小問題',
-    defaultDescription: '別擔心，這通常是暫時性的。再試一次看看。',
+    titleKey: 'pageError.generic.title',
+    descriptionKey: 'pageError.generic.description',
   },
 };
 
@@ -66,8 +67,8 @@ export function PageError({
   description,
   onRetry,
   onBack,
-  retryLabel = '再試一次',
-  backLabel = '返回',
+  retryLabel,
+  backLabel,
   icon,
   className,
 }: PageErrorProps) {
@@ -89,12 +90,12 @@ export function PageError({
 
       {/* Title */}
       <h3 className="text-lg font-semibold text-foreground mb-2">
-        {title ?? config.defaultTitle}
+        {title ?? t(config.titleKey)}
       </h3>
 
       {/* Description */}
       <p className="text-sm text-muted-foreground max-w-sm leading-relaxed mb-6">
-        {description ?? config.defaultDescription}
+        {description ?? t(config.descriptionKey)}
       </p>
 
       {/* Actions */}
@@ -102,13 +103,13 @@ export function PageError({
         {onBack && (
           <Button variant="outline" onClick={onBack} size="sm">
             <ArrowLeft className="size-4" />
-            {backLabel}
+            {backLabel ?? t('pageError.back')}
           </Button>
         )}
         {onRetry && (
           <Button onClick={onRetry} size="sm">
             <RefreshCw className="size-4" />
-            {retryLabel}
+            {retryLabel ?? t('pageError.retry')}
           </Button>
         )}
       </div>

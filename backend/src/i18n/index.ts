@@ -287,6 +287,7 @@ const directEnUSMap: Record<string, string> = {
   '已移除 B 方': 'Side B removed',
   '訊息已發送': 'Message sent',
   '訊息發送過於頻繁，請稍後再試': 'Messages are being sent too frequently, please try again later',
+  '聊天室即時連線已達上限，請稍後重試': 'Chat real-time connection limit reached. Please try again later',
   '匿名聊天室缺少 session_id，無法轉梳理結果': 'Anonymous chat room is missing session_id and cannot be converted to an Analysis',
   '未登入用戶需要提供有效 session': 'Signed-out users must provide a valid session',
   'Session ID 格式無效': 'Invalid Session ID format',

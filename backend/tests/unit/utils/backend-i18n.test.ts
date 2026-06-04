@@ -336,6 +336,9 @@ describe('backend i18n', () => {
     expect(translateBackendMessage('en-US', '訊息發送過於頻繁，請稍後再試')).toBe(
       'Messages are being sent too frequently, please try again later'
     );
+    expect(translateBackendMessage('en-US', '聊天室即時連線已達上限，請稍後重試')).toBe(
+      'Chat real-time connection limit reached. Please try again later'
+    );
     expect(translateBackendMessage('en-US', '你沒有該聊天室權限')).toBe(
       'You do not have permission to access this chat room'
     );

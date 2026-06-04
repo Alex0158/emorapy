@@ -607,6 +607,21 @@ function translateDynamicBackendMessage(message: string): string | null {
     return `${providerAuthFailure[1]} authorization failed. Check the API Key`;
   }
 
+  const providerTimeout = message.match(/^([A-Za-z0-9._ -]+) 請求逾時$/);
+  if (providerTimeout) {
+    return `${providerTimeout[1]} request timed out`;
+  }
+
+  const providerRateLimited = message.match(/^([A-Za-z0-9._ -]+) 請求過頻，請稍後再試$/);
+  if (providerRateLimited) {
+    return `${providerRateLimited[1]} request rate is too high. Please try again later`;
+  }
+
+  const providerServiceError = message.match(/^([A-Za-z0-9._ -]+) 服務異常 \((\d+)\)$/);
+  if (providerServiceError) {
+    return `${providerServiceError[1]} service is unavailable (${providerServiceError[2]})`;
+  }
+
   const videoOnlyProvider = message.match(/^(.+) 目前僅支援 video 任務$/);
   if (videoOnlyProvider) {
     return `${videoOnlyProvider[1]} currently supports video tasks only`;
@@ -625,6 +640,31 @@ function translateDynamicBackendMessage(message: string): string | null {
   const videoTaskMissingAsset = message.match(/^(.+) 回應未帶回可用影片 URL 或 taskId$/);
   if (videoTaskMissingAsset) {
     return `${videoTaskMissingAsset[1]} did not return a usable video URL or taskId`;
+  }
+
+  const videoTaskCompletedWithoutUrl = message.match(/^(.+) 任務完成但未回傳影片 URL$/);
+  if (videoTaskCompletedWithoutUrl) {
+    return `${videoTaskCompletedWithoutUrl[1]} task completed but did not return a video URL`;
+  }
+
+  const videoTaskRuntimeFailureWithDetail = message.match(/^(.+) 影像任務失敗：(.+)$/);
+  if (videoTaskRuntimeFailureWithDetail) {
+    return `${videoTaskRuntimeFailureWithDetail[1]} video task failed: ${translateBackendMessage('en-US', videoTaskRuntimeFailureWithDetail[2])}`;
+  }
+
+  const videoTaskRuntimeFailure = message.match(/^(.+) 影像任務失敗$/);
+  if (videoTaskRuntimeFailure) {
+    return `${videoTaskRuntimeFailure[1]} video task failed`;
+  }
+
+  const videoTaskPollingTimeoutWithDetail = message.match(/^(.+) 任務輪詢逾時：(.+)$/);
+  if (videoTaskPollingTimeoutWithDetail) {
+    return `${videoTaskPollingTimeoutWithDetail[1]} task polling timed out: ${translateBackendMessage('en-US', videoTaskPollingTimeoutWithDetail[2])}`;
+  }
+
+  const videoTaskPollingTimeout = message.match(/^(.+) 任務輪詢逾時$/);
+  if (videoTaskPollingTimeout) {
+    return `${videoTaskPollingTimeout[1]} task polling timed out`;
   }
 
   return null;

@@ -77,6 +77,30 @@ describe('backend i18n', () => {
     ).toBe(
       'NanoBananaPro is missing an API Key. Add media.provider.nanobananapro in system config or provide apiKey in the test input'
     );
+    expect(translateBackendMessage('en-US', 'Seedance 請求逾時')).toBe(
+      'Seedance request timed out'
+    );
+    expect(translateBackendMessage('en-US', 'Seedance 請求過頻，請稍後再試')).toBe(
+      'Seedance request rate is too high. Please try again later'
+    );
+    expect(translateBackendMessage('en-US', 'Seedance 服務異常 (503)')).toBe(
+      'Seedance service is unavailable (503)'
+    );
+    expect(translateBackendMessage('en-US', 'Seedance 任務完成但未回傳影片 URL')).toBe(
+      'Seedance task completed but did not return a video URL'
+    );
+    expect(translateBackendMessage('en-US', 'Seedance 影像任務失敗')).toBe(
+      'Seedance video task failed'
+    );
+    expect(translateBackendMessage('en-US', 'Seedance 影像任務失敗：Seedance 請求逾時')).toBe(
+      'Seedance video task failed: Seedance request timed out'
+    );
+    expect(translateBackendMessage('en-US', 'Seedance 任務輪詢逾時')).toBe(
+      'Seedance task polling timed out'
+    );
+    expect(translateBackendMessage('en-US', 'Seedance 任務輪詢逾時：Seedance 服務異常 (503)')).toBe(
+      'Seedance task polling timed out: Seedance service is unavailable (503)'
+    );
     expect(translateBackendMessage('zh-TW', '不支援的 providerKey')).toBe('不支援的 providerKey');
   });
 

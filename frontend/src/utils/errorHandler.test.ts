@@ -25,14 +25,14 @@ describe('errorHandler', () => {
   });
 
   describe('handleApiError', () => {
-    it('Error 應顯示 error.message', () => {
+    it('Error 應顯示本地化 fallback 而非 error.message', () => {
       handleApiError(new Error('自定義錯誤'));
-      expect(mockToastError).toHaveBeenCalledWith('自定義錯誤');
+      expect(mockToastError).toHaveBeenCalledWith('發生未知錯誤，請稍後再試');
     });
 
-    it('物件帶 message 應顯示該 message', () => {
+    it('物件帶 message 應顯示本地化 fallback 而非 raw message', () => {
       handleApiError({ message: 'API錯誤' });
-      expect(mockToastError).toHaveBeenCalledWith('API錯誤');
+      expect(mockToastError).toHaveBeenCalledWith('發生未知錯誤，請稍後再試');
     });
 
     it('物件帶 code 應顯示對應映射', () => {

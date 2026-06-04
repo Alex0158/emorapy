@@ -14,10 +14,7 @@ export const handleApiError = (error: ApiError | Error | unknown): void => {
   let errorMessage = t('common.unknownError');
 
   if (error && typeof error === 'object') {
-    const rawMsg = 'message' in error ? (error as { message?: unknown }).message : undefined;
-    if (typeof rawMsg === 'string' && rawMsg.trim().length > 0) {
-      errorMessage = rawMsg;
-    } else if ('code' in error && typeof error.code === 'string') {
+    if ('code' in error && typeof error.code === 'string') {
       // 根據錯誤碼顯示對應的錯誤信息
       const errorCodeMap: Record<string, string> = {
         NETWORK_ERROR: t('common.networkError'),
@@ -83,4 +80,3 @@ export const handleNetworkError = (): void => {
 export const handleTimeoutError = (): void => {
   toast.error(t('common.timeoutError'));
 };
-

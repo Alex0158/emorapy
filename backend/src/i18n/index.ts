@@ -127,10 +127,21 @@ const directEnUSMap: Record<string, string> = {
   '邀請碼已生成': 'Invite code generated',
   '配對成功': 'Pairing successful',
   '配對已解除': 'Pairing removed',
+  '無法生成唯一邀請碼': 'Unable to generate a unique invite code',
+  '邀請碼無效': 'Invalid invite code',
+  '邀請碼已過期': 'Invite code has expired',
+  '邀請碼已使用': 'Invite code has already been used',
+  '不能與自己配對': 'You cannot pair with yourself',
+  '當前沒有可解除的配對': 'There is no active pairing to cancel',
+  '無權限解除此配對': 'You do not have permission to cancel this pairing',
+  '臨時配對數量達到上限，請稍後重試': 'Temporary pairing limit reached, please try again later',
   '資料更新成功': 'Profile updated successfully',
   '頭像更新成功': 'Avatar updated successfully',
   '個人背景已更新': 'Background profile updated',
   '關係檔案已更新': 'Relationship profile updated',
+  '配對不存在': 'Pairing not found',
+  '無權訪問此配對檔案': 'You do not have permission to access this pairing profile',
+  '請求體必須為 JSON 對象': 'Request body must be a JSON object',
   '已同意心理畫像知情同意': 'Psychological profile consent recorded',
   '心理畫像相關資料已刪除': 'Psychological profile data deleted',
   '通知已記錄': 'Notification recorded',
@@ -143,6 +154,9 @@ const directEnUSMap: Record<string, string> = {
   '執行已確認': 'Execution confirmed',
   '打卡成功': 'Check-in successful',
   '已關聯內容': 'Content linked',
+  '內容不存在': 'Content not found',
+  '需要認證': 'Authentication is required',
+  'case_id、content_id 為必填': 'case_id and content_id are required',
   '證據上傳成功': 'Evidence uploaded successfully',
   '證據已刪除': 'Evidence deleted',
   '聊天室已建立': 'Chat room created',
@@ -263,6 +277,11 @@ function translateDynamicBackendMessage(message: string): string | null {
   const providerMissingApiKey = message.match(/^(.+) 缺少 API Key，請先以 system config 寫入 (.+) 或於測試輸入中提供 apiKey$/);
   if (providerMissingApiKey) {
     return `${providerMissingApiKey[1]} is missing an API Key. Add ${providerMissingApiKey[2]} in system config or provide apiKey in the test input`;
+  }
+
+  const relationAllowedValues = message.match(/^relation 只能是 (.+)$/);
+  if (relationAllowedValues) {
+    return `relation must be one of ${relationAllowedValues[1]}`;
   }
 
   const providerTestInvalidResponse = message.match(/^(.+) 測試請求回應異常$/);

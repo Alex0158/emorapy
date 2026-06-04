@@ -80,6 +80,41 @@ describe('backend i18n', () => {
     expect(translateBackendMessage('zh-TW', '不支援的 providerKey')).toBe('不支援的 providerKey');
   });
 
+  it('translates pairing profile and content service errors without localizing API fields', () => {
+    expect(translateBackendMessage('en-US', '無法生成唯一邀請碼')).toBe(
+      'Unable to generate a unique invite code'
+    );
+    expect(translateBackendMessage('en-US', '邀請碼無效')).toBe('Invalid invite code');
+    expect(translateBackendMessage('en-US', '邀請碼已過期')).toBe('Invite code has expired');
+    expect(translateBackendMessage('en-US', '邀請碼已使用')).toBe('Invite code has already been used');
+    expect(translateBackendMessage('en-US', '不能與自己配對')).toBe('You cannot pair with yourself');
+    expect(translateBackendMessage('en-US', '當前沒有可解除的配對')).toBe(
+      'There is no active pairing to cancel'
+    );
+    expect(translateBackendMessage('en-US', '無權限解除此配對')).toBe(
+      'You do not have permission to cancel this pairing'
+    );
+    expect(translateBackendMessage('en-US', '臨時配對數量達到上限，請稍後重試')).toBe(
+      'Temporary pairing limit reached, please try again later'
+    );
+    expect(translateBackendMessage('en-US', '配對不存在')).toBe('Pairing not found');
+    expect(translateBackendMessage('en-US', '無權訪問此配對檔案')).toBe(
+      'You do not have permission to access this pairing profile'
+    );
+    expect(translateBackendMessage('en-US', '請求體必須為 JSON 對象')).toBe(
+      'Request body must be a JSON object'
+    );
+    expect(translateBackendMessage('en-US', '內容不存在')).toBe('Content not found');
+    expect(translateBackendMessage('en-US', '需要認證')).toBe('Authentication is required');
+    expect(translateBackendMessage('en-US', 'case_id、content_id 為必填')).toBe(
+      'case_id and content_id are required'
+    );
+    expect(translateBackendMessage('en-US', 'relation 只能是 recommend, similar, waiting')).toBe(
+      'relation must be one of recommend, similar, waiting'
+    );
+    expect(translateBackendMessage('zh-TW', '邀請碼無效')).toBe('邀請碼無效');
+  });
+
   it('uses public Analysis terminology for backend judgment response messages', () => {
     expect(translateErrorByCode('en-US', 'JUDGMENT_FAILED')).toBe(
       'Analysis generation failed, please retry later'

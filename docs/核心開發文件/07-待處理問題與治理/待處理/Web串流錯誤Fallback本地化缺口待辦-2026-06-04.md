@@ -2,9 +2,9 @@
 
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：問題治理
-**覆蓋範圍**：Web Chat room stream、Execution replan stream、固定 fallback error message 與 locale-aware 顯示
-**取證代碼入口**：`frontend/src/pages/Chat/Room/chatRoomUtils.ts`、`frontend/src/pages/Execution/Replan/index.tsx`、`frontend/src/utils/apiError.ts`
-**最後核驗 Commit**：`6d13ea4`
+**覆蓋範圍**：Web Chat room stream、Execution replan stream、QuickExperience result stream、固定 fallback error message 與 locale-aware 顯示
+**取證代碼入口**：`frontend/src/pages/Chat/Room/chatRoomUtils.ts`、`frontend/src/pages/Execution/Replan/index.tsx`、`frontend/src/pages/QuickExperience/Result/index.tsx`、`frontend/src/utils/apiError.ts`
+**最後核驗 Commit**：`5ab6f7d`
 **最後核驗日期**：`2026-06-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -42,3 +42,43 @@
 3. `frontend/src/pages/Chat/Room/chatRoomUtils.test.ts` 已補 zh-TW / en-US terminal invalid-response fallback 驗證；`frontend/src/pages/Execution/Replan/index.test.tsx` 已補 terminal callback 與 failed snapshot 兩條路徑驗證；`frontend/src/utils/apiError.test.ts` 同步加固 en-US catalog loading helper，避免 locale lazy import 造成測試假陰性。
 4. `docs/核心開發文件/文件收斂/03-CJ-核心開發文件逐文件代碼校驗總台賬-2026-04-18.md` 已加入本治理文件並同步摘要統計。
 5. 已驗證：`npm --prefix frontend test -- src/pages/Chat/Room/chatRoomUtils.test.ts src/pages/Execution/Replan/index.test.tsx src/utils/apiError.test.ts src/assets/i18n/catalogParity.test.ts`、`npm --prefix frontend run build`、`npm run docs:check` 均通過。
+
+## 2026-06-04 下一輪問題登記：QuickExperience Result stream.failed
+
+### 問題位置與現象
+
+全局語言排查下一輪確認 `frontend/src/pages/QuickExperience/Result/index.tsx` 的 `useAIStreamSubscription` `onEvent` 分支在收到 `stream.failed` 時直接 `setJudgmentError(event.error.message)`。
+
+若 stream event payload 來源是固定 fallback，例如 `Invalid judgment response from server`，QuickExperience Result 錯誤狀態會直接把英文診斷字串顯示在判決/分析結果頁，未按目前 `cj_locale` 使用 `apiError.invalidResponse` 的 zh-TW / en-US 文案。
+
+### 影響範圍
+
+- Web：QuickExperience Result 頁的 AI 分析/判決 stream failed 錯誤狀態。
+- Shared：復用既有 `frontend/src/utils/apiError.ts` normalization，不改 `@cj/contracts` stream event schema。
+- App / Admin / Backend：本輪不改。
+
+### 目標行為
+
+1. `stream.failed` 的 `event.error` 進入 UI 前必須經 `getErrorMessage(event.error, 'message.judgmentRetryHint')`。
+2. 固定 `Invalid ... response from server` pattern 顯示為目前 locale 的 `apiError.invalidResponse`。
+3. backend / AI / domain 提供的具體非空 message 保持原樣，避免吞掉可行動的業務錯誤。
+4. 不改 polling、retry、stream persisted、phase history 或 result layout。
+
+### 驗證方式
+
+- `npm --prefix frontend test -- src/pages/QuickExperience/Result/index.test.tsx src/utils/apiError.test.ts src/assets/i18n/catalogParity.test.ts`
+- `npm --prefix frontend run build`
+- `npm run docs:check`
+- 靜態搜尋確認 QuickExperience Result 不再直接顯示 `event.error.message`。
+
+### Owner / Status Notes
+
+- Owner：agent
+- Status：已完成本輪修復，待 commit/push。
+
+### 2026-06-04 本輪結果
+
+1. `frontend/src/pages/QuickExperience/Result/index.tsx` 的 `stream.failed` 分支已改用 `getErrorMessage(event.error, 'message.judgmentRetryHint')`，固定 `Invalid ... response from server` fallback 會依目前 locale 顯示 `apiError.invalidResponse`。
+2. `frontend/src/pages/QuickExperience/Result/index.test.tsx` 已補 stream failed invalid-response 測試，並 mock `connectAIStream` 直接觸發 event callback，避免依賴真實 SSE/fetch。
+3. 已驗證：`npm --prefix frontend test -- src/pages/QuickExperience/Result/index.test.tsx src/utils/apiError.test.ts src/assets/i18n/catalogParity.test.ts`、`npm --prefix frontend run build`、`npm run docs:check` 均通過。
+4. 靜態搜尋 `event.error.message` / `setJudgmentError(event.error.message)` / `Invalid .*response from server` 在 QuickExperience Result production code 已無殘留；剩餘命中只在測試 fixture 中用於反證不直出。

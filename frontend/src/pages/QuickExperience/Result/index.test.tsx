@@ -2,7 +2,7 @@
  * QuickExperience Result 頁面單元測試
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import QuickExperienceResult from './index';
 
@@ -18,6 +18,7 @@ const {
   mockCaseSessionMapGet,
   mockCaseSessionMapRemove,
   mockSessionStorageGet,
+  mockConnectAIStream,
   mockUseJudgmentStore,
   mockUseSessionStore,
   usePollingTestHelper,
@@ -38,6 +39,7 @@ const {
   mockCaseSessionMapGet: vi.fn().mockReturnValue('session-case-1'),
   mockCaseSessionMapRemove: vi.fn(),
   mockSessionStorageGet: vi.fn().mockReturnValue('session-global'),
+  mockConnectAIStream: vi.fn(),
   mockUseJudgmentStore: { isLoading: false, error: null as string | null },
   mockUseSessionStore: { session: { session_id: 'session-store-1' } as { session_id?: string } },
   usePollingTestHelper: { runFnOnStart: false, capturedFn: null as (() => Promise<unknown>) | null },
@@ -50,6 +52,9 @@ vi.mock('@/utils/i18n', () => ({
 const mockGetContentList = vi.fn().mockResolvedValue([]);
 vi.mock('@/services/api/content', () => ({
   getContentList: (...args: unknown[]) => mockGetContentList(...args),
+}));
+vi.mock('@/services/aiStream', () => ({
+  connectAIStream: (...args: unknown[]) => mockConnectAIStream(...args),
 }));
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>();
@@ -190,6 +195,7 @@ describe('QuickExperienceResult', () => {
       responsibility_ratio: { plaintiff: 60, defendant: 40 },
     });
     mockUploadEvidence.mockResolvedValue([]);
+    mockConnectAIStream.mockResolvedValue(() => {});
   });
 
   it('應掛載並顯示結果區塊', async () => {
@@ -698,6 +704,53 @@ describe('QuickExperienceResult', () => {
     mockGetJudgmentByCaseId.mockRejectedValueOnce({ code: 'JUDGMENT_FAILED' });
     renderWithRoute('/quick-experience/result/case-1');
     expect(await screen.findByText('message.judgmentRetryHint')).toBeInTheDocument();
+  });
+
+  it('stream.failed 固定 invalid response 訊息應轉為目前語言 fallback，而非直出英文診斷字串', async () => {
+    mockGetJudgmentByCaseId.mockResolvedValueOnce(null);
+    mockGetCase.mockResolvedValueOnce({
+      id: 'case-1',
+      status: 'submitted',
+      evidences: [],
+      judgment_failure_reason: null,
+    });
+
+    renderWithRoute('/quick-experience/result/case-1');
+
+    await waitFor(() => {
+      expect(mockConnectAIStream).toHaveBeenCalled();
+    });
+    const callbacks = mockConnectAIStream.mock.calls[0][2] as {
+      onEvent?: (event: {
+        eventType: string;
+        streamId: string;
+        requestId: string;
+        scopeType: string;
+        scopeId: string;
+        seq: number;
+        createdAt: string;
+        error?: { code: string; message: string };
+      }) => void;
+    };
+
+    await act(async () => {
+      callbacks.onEvent?.({
+        eventType: 'stream.failed',
+        streamId: 'stream-1',
+        requestId: 'request-1',
+        scopeType: 'case_judgment',
+        scopeId: 'case-1',
+        seq: 1,
+        createdAt: '2026-06-04T00:00:00.000Z',
+        error: {
+          code: 'INVALID_RESPONSE',
+          message: 'Invalid judgment response from server',
+        },
+      });
+    });
+
+    expect(await screen.findByText('apiError.invalidResponse')).toBeInTheDocument();
+    expect(screen.queryByText('Invalid judgment response from server')).not.toBeInTheDocument();
   });
 
   it('長時間等待分支應顯示等待/重生/返回操作', async () => {

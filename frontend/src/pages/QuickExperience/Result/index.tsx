@@ -132,8 +132,8 @@ const QuickExperienceResult = () => {
       if (event.eventType === 'stream.persisted') {
         void fetchJudgment();
       }
-      if (event.eventType === 'stream.failed' && event.error?.message) {
-        setJudgmentError(event.error.message);
+      if (event.eventType === 'stream.failed' && event.error) {
+        setJudgmentError(getErrorMessage(event.error, 'message.judgmentRetryHint'));
         setJudgmentErrorCode(event.error.code);
       }
     },

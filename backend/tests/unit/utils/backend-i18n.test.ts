@@ -378,6 +378,33 @@ describe('backend i18n', () => {
     expect(translateBackendMessage('zh-TW', 'AI服務認證失敗')).toBe('AI服務認證失敗');
   });
 
+  it('translates notification controller and service errors to en-US', () => {
+    expect(translateBackendMessage('en-US', 'notification payload.path 必須為已允許的前台相對路由')).toBe(
+      'notification payload.path must be an allowed frontend relative route'
+    );
+    expect(translateBackendMessage('en-US', '批量取消通知必須提供至少一個篩選條件')).toBe(
+      'Bulk notification cancellation requires at least one filter'
+    );
+    expect(translateBackendMessage('en-US', '只有 pending 通知可以取消')).toBe(
+      'Only pending notifications can be canceled'
+    );
+    expect(translateBackendMessage('en-US', '已由 Admin 取消的通知不可重送')).toBe(
+      'Notifications canceled by Admin cannot be resent'
+    );
+    expect(translateBackendMessage('en-US', '只有 failed 通知可以重送')).toBe(
+      'Only failed notifications can be resent'
+    );
+    expect(translateBackendMessage('en-US', 'token 或 device_id 至少需要一項')).toBe(
+      'At least one of token or device_id is required'
+    );
+    expect(translateBackendMessage('en-US', 'template_code 為必填欄位')).toBe(
+      'template_code is required'
+    );
+    expect(translateBackendMessage('zh-TW', '只有 pending 通知可以取消')).toBe(
+      '只有 pending 通知可以取消'
+    );
+  });
+
   it('translates case service errors to en-US without localizing mode values', () => {
     expect(translateBackendMessage('en-US', 'Session創建失敗')).toBe('Session creation failed');
     expect(translateBackendMessage('en-US', '案件創建失敗，請稍後再試')).toBe(

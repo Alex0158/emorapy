@@ -93,7 +93,14 @@ describe('App API platform adapter', () => {
 
     expect(client.normalizeError(new Error('local failure'))).toMatchObject({
       code: 'APP_ERROR',
-      message: 'local failure',
+      message: '發生未知錯誤，請稍後再試。',
+    });
+
+    setLocale('en-US', { persist: false });
+
+    expect(client.normalizeError(new Error('provider down'))).toMatchObject({
+      code: 'APP_ERROR',
+      message: 'An unknown error occurred. Please try again later.',
     });
   });
 

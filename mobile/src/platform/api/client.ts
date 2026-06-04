@@ -120,7 +120,7 @@ export function createAppApiClient(): AppApiClient {
       if (error.message === 'SSE stream disconnected') {
         return toRequestError('STREAM_DISCONNECTED', getLocalizedStreamDisconnectedMessage());
       }
-      return toRequestError('APP_ERROR', error.message);
+      return toRequestError('APP_ERROR', getLocalizedUnknownMessage());
     }
 
     return toRequestError('UNKNOWN_ERROR', getLocalizedUnknownMessage(), error);

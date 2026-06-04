@@ -6,6 +6,7 @@ import { isCaseProductFlow, type CaseProductFlow } from '../utils/case-classifie
 import { Errors } from '../utils/errors';
 import { normalizeNotificationDeepLinkPath } from '../utils/notification-deep-link';
 import { pushNotificationService, redactPushTokens } from './push-notification.service';
+import { normalizeLocale, type BackendLocale } from '../i18n';
 
 export type NotificationFeedState = 'unread' | 'all' | 'actionable' | 'snoozed' | 'archived';
 
@@ -15,6 +16,7 @@ export interface NotificationListOptions {
   templateCode?: string;
   limit?: number;
   cursor?: string;
+  locale?: BackendLocale;
 }
 
 export interface AdminNotificationListOptions {
@@ -136,6 +138,14 @@ type PendingPushNotificationRecord = NonNullable<NotificationRecord> & {
   };
 };
 
+type NotificationTemplateRenderDefaults = {
+  title: string;
+  body: (payload: Record<string, unknown>) => string;
+  ctaLabel?: string;
+  actionKey?: string;
+  priority?: 'now' | 'soon' | 'later';
+};
+
 type PushReceiptTrackedNotificationRecord = {
   id: string;
   push_ticket_id: string | null;
@@ -190,6 +200,14 @@ function normalizeNotificationPayloadForCreate(payload?: Prisma.InputJsonValue):
   return { ...record, path: normalizedPath } as Prisma.InputJsonValue;
 }
 
+function withNotificationLocale(payload: Prisma.InputJsonValue, locale: BackendLocale): Prisma.InputJsonValue {
+  const record = readObject(payload);
+  return {
+    ...record,
+    locale: normalizeLocale(readString(record.locale) ?? locale),
+  } as Prisma.InputJsonValue;
+}
+
 function buildAdminBulkCancelWhere(options: AdminNotificationBulkCancelOptions): Prisma.NotificationWhereInput {
   const hasFilter = Boolean(options.templateCode || options.userId || options.dedupKey || options.groupKey);
   if (!hasFilter) {
@@ -235,13 +253,7 @@ function sanitizePushProviderFailure(
   return sanitizePushFailure(detailError ? `${base} (${detailError})` : base);
 }
 
-const TEMPLATE_RENDER_DEFAULTS: Record<string, {
-  title: string;
-  body: (payload: Record<string, unknown>) => string;
-  ctaLabel?: string;
-  actionKey?: string;
-  priority?: 'now' | 'soon' | 'later';
-}> = {
+const TEMPLATE_RENDER_DEFAULTS_ZH_TW: Record<string, NotificationTemplateRenderDefaults> = {
   repair_journey_choose_direction: {
     title: '先選一個方向',
     body: (payload) => `你們的關係分析已經完成，${readString(payload.case_title) || '現在'}可以先選一個最適合的下一步。`,
@@ -321,6 +333,116 @@ const TEMPLATE_RENDER_DEFAULTS: Record<string, {
   },
 };
 
+const TEMPLATE_RENDER_DEFAULTS_EN_US: Record<string, NotificationTemplateRenderDefaults> = {
+  repair_journey_choose_direction: {
+    title: 'Choose a direction first',
+    body: (payload) => `Your relationship analysis is ready. ${readString(payload.case_title) || 'Now'} you can choose the next step that fits best.`,
+    ctaLabel: 'See the best next step',
+    actionKey: 'open_reconciliation_entry',
+    priority: 'soon',
+  },
+  repair_journey_start_step: {
+    title: 'Start with one small step today',
+    body: () => 'This round is ready. You do not need to do everything at once; just begin with one small step.',
+    ctaLabel: 'Start today\'s small step',
+    actionKey: 'continue_today_step',
+    priority: 'now',
+  },
+  repair_journey_partner_invited: {
+    title: 'Your partner invited you to try together',
+    body: () => 'There is a plan shaped for your current situation. You can take a look first without deciding right away.',
+    ctaLabel: 'Review this invitation',
+    actionKey: 'review_invitation',
+    priority: 'now',
+  },
+  repair_journey_partner_no_response: {
+    title: 'Your partner has not responded yet',
+    body: () => 'This round is still waiting for their response. You can also decide whether to take a small step on your own first.',
+    ctaLabel: 'View current status',
+    actionKey: 'view_invitation_status',
+    priority: 'soon',
+  },
+  repair_journey_partner_viewed: {
+    title: 'Your partner has viewed the invitation',
+    body: () => 'They have opened this repair journey. Next, it may help to leave some room and let them move at their own pace.',
+    ctaLabel: 'View journey status',
+    actionKey: 'view_invitation_status',
+    priority: 'later',
+  },
+  repair_journey_partner_committed: {
+    title: 'Your partner is willing to try together',
+    body: () => 'You have both agreed. This round can now begin with a lower-pressure, clearer first step.',
+    ctaLabel: 'Return to today\'s small step',
+    actionKey: 'continue_today_step',
+    priority: 'now',
+  },
+  repair_journey_partner_deferred: {
+    title: 'Your partner needs a little time',
+    body: () => 'This is not a direct refusal. They are making some room for themselves first. You can move forward gently on your own, or check back later.',
+    ctaLabel: 'View current status',
+    actionKey: 'view_invitation_status',
+    priority: 'soon',
+  },
+  repair_journey_partner_declined: {
+    title: 'Your partner does not want to join yet',
+    body: () => 'This does not mean the whole round has failed. You can still decide whether to begin on your own or pause for now.',
+    ctaLabel: 'View current status',
+    actionKey: 'review_invitation',
+    priority: 'soon',
+  },
+  repair_journey_replan: {
+    title: 'This round may need an adjustment',
+    body: () => 'The current pace looks a bit too heavy. Adjusting it to something more manageable matters more than pushing through.',
+    ctaLabel: 'Adjust this round',
+    actionKey: 'replan_track',
+    priority: 'now',
+  },
+  repair_journey_replan_ready: {
+    title: 'The adjusted version is ready',
+    body: () => 'The system has adjusted this round to better match the current situation. You can return and continue from the next step.',
+    ctaLabel: 'View the adjusted version',
+    actionKey: 'continue_today_step',
+    priority: 'now',
+  },
+  repair_journey_resume: {
+    title: 'You can return to this round',
+    body: () => 'Pausing does not erase what you already did. If there is more room now, you can come back and continue this round.',
+    ctaLabel: 'Resume this round',
+    actionKey: 'resume_track',
+    priority: 'soon',
+  },
+};
+
+function readLocaleFromPayload(payload: Record<string, unknown>): BackendLocale {
+  return normalizeLocale(readString(payload.locale));
+}
+
+function localeFromUserLanguage(language: unknown): BackendLocale {
+  return language === 'en' ? 'en-US' : 'zh-TW';
+}
+
+function getTemplateRenderDefaults(locale: BackendLocale, templateCode: string): NotificationTemplateRenderDefaults | undefined {
+  return (locale === 'en-US' ? TEMPLATE_RENDER_DEFAULTS_EN_US : TEMPLATE_RENDER_DEFAULTS_ZH_TW)[templateCode];
+}
+
+function localizeNotificationFallback(locale: BackendLocale, key: 'title' | 'body' | 'pushTitle' | 'pushBody'): string {
+  const values: Record<BackendLocale, Record<typeof key, string>> = {
+    'zh-TW': {
+      title: '通知',
+      body: '你有一則新的通知。',
+      pushTitle: 'CJ 提醒',
+      pushBody: '你有一則新的提醒。',
+    },
+    'en-US': {
+      title: 'Notification',
+      body: 'You have a new notification.',
+      pushTitle: 'CJ Reminder',
+      pushBody: 'You have a new reminder.',
+    },
+  };
+  return values[locale][key];
+}
+
 export class NotificationService {
   private buildWhere(userId: string, options: NotificationListOptions = {}): Prisma.NotificationWhereInput {
     const where: Prisma.NotificationWhereInput = { user_id: userId };
@@ -358,14 +480,15 @@ export class NotificationService {
     return where;
   }
 
-  private normalize(notification: NonNullable<NotificationRecord>): RenderableNotification {
+  private normalize(notification: NonNullable<NotificationRecord>, locale?: BackendLocale): RenderableNotification {
     const payload = readObject(notification.payload);
     const journeyContext = readObject(payload.journey_context);
-    const defaults = TEMPLATE_RENDER_DEFAULTS[notification.template_code];
+    const renderLocale = locale ?? readLocaleFromPayload(payload);
+    const defaults = getTemplateRenderDefaults(renderLocale, notification.template_code);
     const productFlow = readProductFlow(payload);
     const actionKey = readString(notification.action_key) || defaults?.actionKey || null;
-    const title = readString(payload.title) || defaults?.title || '通知';
-    const body = readString(payload.body) || defaults?.body(payload) || '你有一則新的通知。';
+    const title = readString(payload.title) || defaults?.title || localizeNotificationFallback(renderLocale, 'title');
+    const body = readString(payload.body) || defaults?.body(payload) || localizeNotificationFallback(renderLocale, 'body');
     const path = normalizeNotificationDeepLinkPath(payload.path);
     const ctaLabel = readString(payload.cta_label) || defaults?.ctaLabel || null;
     const entityType =
@@ -440,7 +563,7 @@ export class NotificationService {
     });
 
     const hasMore = notifications.length > limit;
-    const items = notifications.slice(0, limit).map((notification) => this.normalize(notification));
+    const items = notifications.slice(0, limit).map((notification) => this.normalize(notification, options.locale));
     const nextCursor = hasMore ? notifications[limit - 1]?.id ?? null : null;
     return {
       items,
@@ -482,7 +605,7 @@ export class NotificationService {
 
     return {
       items: notifications.map((notification): AdminRenderableNotification => ({
-        ...this.normalize(notification),
+          ...this.normalize(notification),
         user: {
           id: notification.user.id,
           email: notification.user.email,
@@ -504,8 +627,11 @@ export class NotificationService {
       action_key?: string;
       priority?: string;
       group_key?: string;
+      locale?: BackendLocale;
   }
   ) {
+    const targetLocale = data.locale ?? await this.getUserLocale(userId);
+    const normalizedPayload = withNotificationLocale(normalizeNotificationPayloadForCreate(data.payload), targetLocale);
     return prisma.notification.create({
       data: {
         user_id: userId,
@@ -513,7 +639,7 @@ export class NotificationService {
         action_key: normalizeNotificationDbString(data.action_key, 50),
         priority: normalizeNotificationDbString(data.priority, 20),
         group_key: normalizeNotificationDbString(data.group_key, 100),
-        payload: normalizeNotificationPayloadForCreate(data.payload),
+        payload: normalizedPayload,
         channel: data.channel,
         dedup_key: normalizeNotificationDbString(data.dedup_key, 100),
         status: NotificationStatus.pending,
@@ -657,6 +783,28 @@ export class NotificationService {
     return user?.notification_enabled ?? false;
   }
 
+  private async getUserLocale(userId: string): Promise<BackendLocale> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { language: true },
+    });
+    return localeFromUserLanguage(user?.language);
+  }
+
+  private async getUserNotificationPreferences(userId: string): Promise<{ enabled: boolean; locale: BackendLocale }> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        notification_enabled: true,
+        language: true,
+      },
+    });
+    return {
+      enabled: user?.notification_enabled ?? false,
+      locale: localeFromUserLanguage(user?.language),
+    };
+  }
+
   async createIfEnabled(
     userId: string,
     data: {
@@ -667,14 +815,15 @@ export class NotificationService {
       action_key?: string;
       priority?: string;
       group_key?: string;
+      locale?: BackendLocale;
     }
   ) {
-    const enabled = await this.isNotificationEnabled(userId);
-    if (!enabled) {
+    const preferences = await this.getUserNotificationPreferences(userId);
+    if (!preferences.enabled) {
       logger.debug('Notification skipped (user disabled)', { userId, template: data.template_code });
       return null;
     }
-    return this.create(userId, data);
+    return this.create(userId, { ...data, locale: data.locale ?? preferences.locale });
   }
 
   async getUnreadCount(userId: string): Promise<number> {
@@ -700,7 +849,7 @@ export class NotificationService {
     });
   }
 
-  async markRead(userId: string, notificationId: string) {
+  async markRead(userId: string, notificationId: string, locale?: BackendLocale) {
     const notification = await this.getOwnedNotification(userId, notificationId);
     if (!notification) return null;
     const updated = await prisma.notification.update({
@@ -709,7 +858,7 @@ export class NotificationService {
         read_at: notification.read_at ?? new Date(),
       },
     });
-    return this.normalize(updated);
+    return this.normalize(updated, locale);
   }
 
   async markAllRead(userId: string) {
@@ -727,7 +876,7 @@ export class NotificationService {
     return { updatedCount: result.count, readAt };
   }
 
-  async dismiss(userId: string, notificationId: string) {
+  async dismiss(userId: string, notificationId: string, locale?: BackendLocale) {
     const notification = await this.getOwnedNotification(userId, notificationId);
     if (!notification) return null;
     const now = new Date();
@@ -739,10 +888,10 @@ export class NotificationService {
         snoozed_until: null,
       },
     });
-    return this.normalize(updated);
+    return this.normalize(updated, locale);
   }
 
-  async snooze(userId: string, notificationId: string, hours = 24) {
+  async snooze(userId: string, notificationId: string, hours = 24, locale?: BackendLocale) {
     const notification = await this.getOwnedNotification(userId, notificationId);
     if (!notification) return null;
     const now = new Date();
@@ -754,10 +903,10 @@ export class NotificationService {
         read_at: notification.read_at ?? now,
       },
     });
-    return this.normalize(updated);
+    return this.normalize(updated, locale);
   }
 
-  async act(userId: string, notificationId: string, actionKey?: string) {
+  async act(userId: string, notificationId: string, actionKey?: string, locale?: BackendLocale) {
     const notification = await this.getOwnedNotification(userId, notificationId);
     if (!notification) return null;
     const now = new Date();
@@ -770,7 +919,7 @@ export class NotificationService {
         action_key: actionKey ?? notification.action_key ?? undefined,
       },
     });
-    const normalized = this.normalize(updated);
+    const normalized = this.normalize(updated, locale);
     return {
       notification: normalized,
       target: {
@@ -937,11 +1086,13 @@ export class NotificationService {
         continue;
       }
 
-      const rendered = this.normalize(notification);
+      const payload = readObject(notification.payload);
+      const pushLocale = readLocaleFromPayload(payload);
+      const rendered = this.normalize(notification, pushLocale);
       const messages = tokens.map((token) => ({
         to: token,
-        title: trimPushText(rendered.render_payload.title, 'CJ 提醒', 80),
-        body: trimPushText(rendered.render_payload.body, '你有一則新的提醒。', 180),
+        title: trimPushText(rendered.render_payload.title, localizeNotificationFallback(pushLocale, 'pushTitle'), 80),
+        body: trimPushText(rendered.render_payload.body, localizeNotificationFallback(pushLocale, 'pushBody'), 180),
         sound: 'default' as const,
         priority: rendered.priority === 'now' ? 'high' as const : 'default' as const,
         data: {

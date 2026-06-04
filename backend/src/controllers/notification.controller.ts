@@ -29,6 +29,7 @@ export class NotificationController {
         templateCode,
         limit,
         cursor,
+        locale: req.locale,
       });
       res.json({ success: true, data: { notifications: notifications.items, next_cursor: notifications.nextCursor, has_more: notifications.hasMore } });
     } catch (error) {
@@ -56,6 +57,7 @@ export class NotificationController {
         action_key: typeof action_key === 'string' ? action_key : undefined,
         priority: typeof priority === 'string' ? priority : undefined,
         group_key: typeof group_key === 'string' ? group_key : undefined,
+        locale: req.locale,
       });
       res.status(201).json({ success: true, data: { notification }, message: '通知已記錄' });
     } catch (error) {
@@ -76,7 +78,7 @@ export class NotificationController {
   async markRead(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = getAuthUserId(req);
-      const notification = await notificationService.markRead(userId, req.params.id);
+      const notification = await notificationService.markRead(userId, req.params.id, req.locale);
       if (!notification) {
         throw Errors.NOT_FOUND('通知不存在');
       }
@@ -99,7 +101,7 @@ export class NotificationController {
   async dismiss(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = getAuthUserId(req);
-      const notification = await notificationService.dismiss(userId, req.params.id);
+      const notification = await notificationService.dismiss(userId, req.params.id, req.locale);
       if (!notification) {
         throw Errors.NOT_FOUND('通知不存在');
       }
@@ -113,7 +115,7 @@ export class NotificationController {
     try {
       const userId = getAuthUserId(req);
       const hours = typeof req.body?.hours === 'number' ? req.body.hours : undefined;
-      const notification = await notificationService.snooze(userId, req.params.id, hours);
+      const notification = await notificationService.snooze(userId, req.params.id, hours, req.locale);
       if (!notification) {
         throw Errors.NOT_FOUND('通知不存在');
       }
@@ -127,7 +129,7 @@ export class NotificationController {
     try {
       const userId = getAuthUserId(req);
       const actionKey = typeof req.body?.action_key === 'string' ? req.body.action_key : undefined;
-      const result = await notificationService.act(userId, req.params.id, actionKey);
+      const result = await notificationService.act(userId, req.params.id, actionKey, req.locale);
       if (!result) {
         throw Errors.NOT_FOUND('通知不存在');
       }

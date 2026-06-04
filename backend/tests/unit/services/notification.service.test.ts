@@ -171,6 +171,23 @@ describe('NotificationService', () => {
 
       expect(result.items[0]?.render_payload.product_flow).toBe('formal_collaborative');
     });
+
+    it('通知列表應按請求 locale render backend template 文案', async () => {
+      prismaMock.notification.findMany.mockResolvedValue([
+        baseNotification({
+          payload: {
+            case_title: 'Case A',
+            path: '/execution/plan-1/checkin',
+          },
+        }),
+      ]);
+
+      const result = await service.list('u1', { locale: 'en-US' });
+
+      expect(result.items[0]?.render_payload.title).toBe('Choose a direction first');
+      expect(result.items[0]?.render_payload.body).toContain('Your relationship analysis is ready');
+      expect(result.items[0]?.render_payload.cta_label).toBe('See the best next step');
+    });
   });
 
   describe('create', () => {
@@ -199,7 +216,10 @@ describe('NotificationService', () => {
         data: {
           user_id: 'u1',
           template_code: data.template_code,
-          payload: data.payload,
+          action_key: undefined,
+          priority: undefined,
+          group_key: undefined,
+          payload: { ...data.payload, locale: 'zh-TW' },
           channel: data.channel,
           dedup_key: data.dedup_key,
           status: NotificationStatus.pending,
@@ -219,7 +239,7 @@ describe('NotificationService', () => {
         data: expect.objectContaining({
           user_id: 'u1',
           template_code: 'T1',
-          payload: {},
+          payload: { locale: 'zh-TW' },
           channel: NotificationChannel.push,
           status: NotificationStatus.pending,
         }),
@@ -237,7 +257,7 @@ describe('NotificationService', () => {
 
       expect(prismaMock.notification.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
-          payload: { path: '/execution/plan-1/checkin' },
+          payload: { path: '/execution/plan-1/checkin', locale: 'zh-TW' },
         }),
       });
     });
@@ -253,7 +273,7 @@ describe('NotificationService', () => {
 
       expect(prismaMock.notification.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
-          payload: { path: '/chat/invite/ABC123' },
+          payload: { path: '/chat/invite/ABC123', locale: 'zh-TW' },
         }),
       });
 
@@ -284,6 +304,23 @@ describe('NotificationService', () => {
       expect(data.dedup_key).not.toBe(longDedupKey);
       expect(data.group_key).toHaveLength(100);
       expect(data.group_key).toMatch(/^repair_track_/);
+      expect(data.payload.locale).toBe('zh-TW');
+    });
+
+    it('應把指定 locale 寫入 payload，供背景 push 重放語言', async () => {
+      prismaMock.notification.create.mockResolvedValue({});
+
+      await service.create('u1', {
+        template_code: 'repair_journey_start_step',
+        channel: NotificationChannel.push,
+        locale: 'en-US',
+      });
+
+      expect(prismaMock.notification.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          payload: { locale: 'en-US' },
+        }),
+      });
     });
 
     it('應拒絕外部 payload.path', async () => {
@@ -741,6 +778,35 @@ describe('NotificationService', () => {
         },
       });
       expect(result).toEqual({ scannedCount: 1, sentCount: 1, failedCount: 0, ticketCount: 1 });
+    });
+
+    it('dispatchPendingPushNotifications 應使用 payload.locale render 英文 push 文案', async () => {
+      prismaMock.notification.findMany.mockResolvedValue([
+        baseNotification({
+          channel: NotificationChannel.push,
+          template_code: 'repair_journey_start_step',
+          payload: {
+            locale: 'en-US',
+            path: '/execution/plan-1/checkin',
+          },
+          user: {
+            notification_enabled: true,
+            push_device_tokens: [{ token: 'ExpoPushToken[test]', platform: 'ios' }],
+          },
+        }),
+      ]);
+      (mockSendPushMessages as any).mockResolvedValue([{ status: 'ok', id: 'ticket-1' }]);
+      prismaMock.notification.update.mockResolvedValue(baseNotification({ status: NotificationStatus.sent }));
+
+      await service.dispatchPendingPushNotifications(10);
+
+      expect(mockSendPushMessages).toHaveBeenCalledWith([
+        expect.objectContaining({
+          to: 'ExpoPushToken[test]',
+          title: 'Start with one small step today',
+          body: expect.stringContaining('This round is ready'),
+        }),
+      ]);
     });
 
     it('dispatchPendingPushNotifications 沒有 active token 時應標記 failed 且不呼叫 provider', async () => {

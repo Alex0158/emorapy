@@ -33,11 +33,11 @@ jest.mock('../../../src/services/notification.service', () => ({
     list: (userId: string, filters?: unknown) => mockList(userId, filters),
     create: (userId: string, data: unknown) => mockCreate(userId, data),
     getUnreadCount: (userId: string) => mockUnreadCount(userId),
-    markRead: (userId: string, notificationId: string) => mockMarkRead(userId, notificationId),
+    markRead: (userId: string, notificationId: string, locale?: string) => mockMarkRead(userId, notificationId, locale),
     markAllRead: (userId: string) => mockMarkAllRead(userId),
-    dismiss: (userId: string, notificationId: string) => mockDismiss(userId, notificationId),
-    snooze: (userId: string, notificationId: string, hours?: number) => mockSnooze(userId, notificationId, hours),
-    act: (userId: string, notificationId: string, actionKey?: string) => mockAct(userId, notificationId, actionKey),
+    dismiss: (userId: string, notificationId: string, locale?: string) => mockDismiss(userId, notificationId, locale),
+    snooze: (userId: string, notificationId: string, hours?: number, locale?: string) => mockSnooze(userId, notificationId, hours, locale),
+    act: (userId: string, notificationId: string, actionKey?: string, locale?: string) => mockAct(userId, notificationId, actionKey, locale),
     registerDeviceToken: (userId: string, data: unknown) => mockRegisterDeviceToken(userId, data),
     revokeDeviceToken: (userId: string, data: unknown) => mockRevokeDeviceToken(userId, data),
   },
@@ -55,7 +55,7 @@ describe('NotificationController', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     controller = new NotificationController();
-    req = { body: {}, params: {}, query: {} };
+    req = { body: {}, params: {}, query: {}, locale: 'en-US' };
     res = { json: jest.fn().mockReturnThis(), status: jest.fn().mockReturnThis() } as unknown as Response;
     next = jest.fn();
     mockGetAuthUserId.mockReturnValue('u1');
@@ -87,6 +87,7 @@ describe('NotificationController', () => {
         templateCode: undefined,
         limit: undefined,
         cursor: undefined,
+        locale: 'en-US',
       });
       expect(res.json).toHaveBeenCalledWith({
         success: true,
@@ -107,6 +108,7 @@ describe('NotificationController', () => {
         templateCode: undefined,
         limit: undefined,
         cursor: undefined,
+        locale: 'en-US',
       });
     });
 
@@ -147,6 +149,7 @@ describe('NotificationController', () => {
         action_key: undefined,
         priority: undefined,
         group_key: undefined,
+        locale: 'en-US',
       });
       expect(res.status).toHaveBeenCalledWith(201);
       expect(res.json).toHaveBeenCalledWith({
@@ -189,6 +192,10 @@ describe('NotificationController', () => {
         template_code: 't1',
         payload: {},
         dedup_key: 'key1',
+        action_key: undefined,
+        priority: undefined,
+        group_key: undefined,
+        locale: 'en-US',
       });
     });
 
@@ -221,7 +228,7 @@ describe('NotificationController', () => {
 
       await controller.markRead(req as Request, res as Response, next);
 
-      expect(mockMarkRead).toHaveBeenCalledWith('u1', 'n1');
+      expect(mockMarkRead).toHaveBeenCalledWith('u1', 'n1', 'en-US');
       expect(res.json).toHaveBeenCalledWith({
         success: true,
         data: { notification: { id: 'n1', unread: false } },
@@ -261,7 +268,7 @@ describe('NotificationController', () => {
       });
 
       await controller.dismiss(req as Request, res as Response, next);
-      expect(mockDismiss).toHaveBeenCalledWith('u1', 'n1');
+      expect(mockDismiss).toHaveBeenCalledWith('u1', 'n1', 'en-US');
       expect(res.json).toHaveBeenLastCalledWith({
         success: true,
         data: { notification: { id: 'n1', dismissed_at: 'now' } },
@@ -270,7 +277,7 @@ describe('NotificationController', () => {
 
       req.body = { hours: 24 };
       await controller.snooze(req as Request, res as Response, next);
-      expect(mockSnooze).toHaveBeenCalledWith('u1', 'n1', 24);
+      expect(mockSnooze).toHaveBeenCalledWith('u1', 'n1', 24, 'en-US');
       expect(res.json).toHaveBeenLastCalledWith({
         success: true,
         data: { notification: { id: 'n1', snoozed_until: 'later' } },
@@ -279,7 +286,7 @@ describe('NotificationController', () => {
 
       req.body = { action_key: 'continue_today_step' };
       await controller.act(req as Request, res as Response, next);
-      expect(mockAct).toHaveBeenCalledWith('u1', 'n1', 'continue_today_step');
+      expect(mockAct).toHaveBeenCalledWith('u1', 'n1', 'continue_today_step', 'en-US');
       expect(res.json).toHaveBeenLastCalledWith({
         success: true,
         data: {

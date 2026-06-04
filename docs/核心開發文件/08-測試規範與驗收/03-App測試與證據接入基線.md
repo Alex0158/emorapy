@@ -4,8 +4,8 @@
 **文檔類型**：測試規範
 **覆蓋範圍**：App smoke / regression / CI / evidence 接入前置規則
 **取證代碼入口**：`mobile/package.json`、`mobile/app`、`mobile/src/platform`、`mobile/tsconfig.json`、`packages/contracts/src`、`packages/api-client/src`、`backend/src/routes`、`backend/prisma/schema.prisma`
-**最後核驗 Commit**：`1295216`
-**最後核驗日期**：`2026-05-06`
+**最後核驗 Commit**：`fb2880d`
+**最後核驗日期**：`2026-06-05`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 本文定義 App 測試進入正式測試體系前的基線。它不宣稱 App 已完成；已存在的 M0-M6 本地命令可證明 shell / web export / unit / iOS simulator smoke / Android static config / Android emulator release APK install-launch 層可用，且已建立 structured EAS iOS / TestFlight evidence runner 與 structured physical device evidence runner，但不能替代 TestFlight pass JSON、真機實跑、provider side-effect、full native flow 或 EAS build evidence。
@@ -87,6 +87,8 @@ App 測試落地後，至少分為四層：
 | M4 Formal Case + Repair | pairing -> case -> judgment -> repair regression、upload fallback、`repair_track` replan replay |
 | M5 Push + Deep Link | device token registration / revoke inspection、notification landing、read / snooze / act sync、auth failure fallback、structured provider delivery smoke |
 | M6 Release Hardening | EAS build smoke、iOS TestFlight evidence、Android readiness check、structured physical device smoke、structured push provider evidence、manual evidence pack |
+
+M5 notification 語言驗收還必須覆蓋 backend render 邊界：notification list API 以 request locale render `render_payload.title/body/cta_label`，notification create 在 payload 記錄 target locale，背景 push dispatch 以 payload locale render title/body/fallback。聚焦單測入口為 `backend/tests/unit/services/notification.service.test.ts` 與 `backend/tests/unit/controllers/notification.controller.test.ts`；它們可證明本地 backend render / push message shape，不替代真 provider delivery、APNs sandbox 或真機通知點擊。
 
 ### 5.1 True-Service Smoke Safety Gate
 

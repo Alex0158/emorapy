@@ -4,8 +4,8 @@
 **文檔類型**：問題治理
 **覆蓋範圍**：Web AI stream / SSE request / Chat stream HTTP open error normalization
 **取證代碼入口**：`frontend/src/services/aiStream.ts`、`frontend/src/services/sseRequest.ts`、`frontend/src/services/api/chatApiUtils.ts`、`frontend/src/services/aiStream.test.ts`、`frontend/src/services/sseRequest.test.ts`、`frontend/src/services/api/chatApiUtils.test.ts`
-**最後核驗 Commit**：`738ad5f`
-**最後核驗日期**：`2026-06-04`
+**最後核驗 Commit**：`c4a090b`
+**最後核驗日期**：`2026-06-05`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 ## 問題位置與現象
@@ -42,7 +42,7 @@
 ## Owner / Status Notes
 
 - Owner：agent
-- Status：已完成本輪修復。後續全局語言排查若發現其他 Web / Admin / App 直出 response body `message`，需另行登記。
+- Status：已處理並歸檔。後續全局語言排查若發現其他 Web / Admin / App 直出 response body `message`，需另行登記。
 
 ## 2026-06-04 本輪結果
 
@@ -50,4 +50,4 @@
 2. `frontend/src/services/sseRequest.ts` 的 `SSEError.message` 已不再使用 body `error.message`；`status` 與 `code` 仍保留。
 3. `frontend/src/services/api/chatApiUtils.ts` 的 `readChatStreamHttpError()` 已改為 status fallback message；Chat stream caller 不再被 body message 蓋過目前 locale。
 4. `frontend/src/services/aiStream.test.ts`、`frontend/src/services/sseRequest.test.ts`、`frontend/src/services/api/chatApiUtils.test.ts` 已把舊「保留後端 message」契約改為「保留 code/status，但不外露 body message」，並加固 en-US catalog 載入等待以避免 i18n 測試 race。
-5. 已驗證：`npm --prefix frontend test -- src/services/aiStream.test.ts src/services/sseRequest.test.ts src/services/api/chatApiUtils.test.ts src/assets/i18n/catalogParity.test.ts` 通過 4 files / 25 tests；`npm --prefix frontend run build` 通過；`npm run docs:check` 通過；production 靜態搜尋 `body?.error?.message` / `err?.error?.message` 覆蓋路徑無命中。
+5. 2026-06-05 復核已驗證：`npm --prefix frontend test -- src/services/aiStream.test.ts src/services/sseRequest.test.ts src/services/api/chatApiUtils.test.ts src/assets/i18n/catalogParity.test.ts` 通過 4 files / 25 tests；`npm --prefix frontend run build` 通過；`npm run docs:check` 通過；production 靜態搜尋 `body?.error?.message` / `err?.error?.message` 覆蓋路徑無命中。

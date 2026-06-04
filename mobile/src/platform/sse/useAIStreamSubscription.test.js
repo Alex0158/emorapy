@@ -135,4 +135,17 @@ describe('useAIStreamSubscription lifecycle recovery', () => {
       message: 'The stream connection was interrupted. Reconnecting now.',
     }));
   });
+
+  it('does not expose raw runtime Error messages for stream failures', async () => {
+    setLocale('en-US', { persist: false });
+    const onConnectionError = jest.fn();
+    const connect = jest.fn(() => Promise.reject(new Error('provider down')));
+
+    render(React.createElement(StreamProbe, { connect, onConnectionError }));
+
+    await waitFor(() => expect(onConnectionError).toHaveBeenCalledWith({
+      code: 'STREAM_DISCONNECTED',
+      message: 'The stream connection was interrupted. Reconnecting now.',
+    }));
+  });
 });

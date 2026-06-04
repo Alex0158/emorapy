@@ -75,12 +75,9 @@ function normalizeStreamError(error: unknown): AppStreamError {
   const status = typeof (error as { status?: unknown })?.status === 'number'
     ? (error as { status: number }).status
     : undefined;
-  const message = error instanceof Error && error.message !== 'SSE stream disconnected'
-    ? error.message
-    : getLocalizedStreamDisconnectedMessage();
   return {
     code: status ? `HTTP_${status}` : 'STREAM_DISCONNECTED',
-    message,
+    message: getLocalizedStreamDisconnectedMessage(),
     ...(status ? { status } : {}),
   };
 }

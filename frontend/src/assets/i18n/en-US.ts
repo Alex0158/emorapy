@@ -256,6 +256,8 @@ const enUS: Record<string, string> = {
 	"common.clear": "Clear",
 	"common.confirm": "Confirm",
 	"common.cancel": "Cancel",
+	"confirmModal.title": "Confirm",
+	"confirmModal.dangerTitle": "Confirm action",
 	"common.loadMore": "Load more",
 	"common.version": "Version",
 	"common.versionInfo": "Version Info",

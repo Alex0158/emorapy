@@ -69,6 +69,8 @@ const zhTW = {
 	"common.loading": "加載中...",
 	"common.back": "返回",
 	"common.dismiss": "關閉",
+	"confirmModal.title": "確認",
+	"confirmModal.dangerTitle": "確認操作",
 	"guideTooltip.close": "關閉提示",
 	"common.caseNotFound": "案件不存在",
 	"common.retry": "重試",

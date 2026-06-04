@@ -47,7 +47,7 @@ const ConfirmModal = ({
     <Dialog open={open} onOpenChange={(isOpen: boolean) => { if (!isOpen) onCancel?.(); }}>
       <DialogContent aria-describedby={undefined}>
         <DialogHeader>
-          <DialogTitle>{title || (type === 'danger' ? '確認操作' : '確認')}</DialogTitle>
+          <DialogTitle>{title || t(type === 'danger' ? 'confirmModal.dangerTitle' : 'confirmModal.title')}</DialogTitle>
         </DialogHeader>
         <div className="flex items-start gap-3">
           {(type === 'warning' || type === 'danger') && (

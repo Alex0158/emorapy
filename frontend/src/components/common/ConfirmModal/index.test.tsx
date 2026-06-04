@@ -1,17 +1,16 @@
 /**
  * ConfirmModal 組件單元測試
  */
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { beforeEach, describe, it, expect, vi } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+import { setLocale, t } from '@/utils/i18n';
 import ConfirmModal from './index';
 
-// Mock i18n so default confirm/cancel use known values; component uses t('common.confirm') / t('common.cancel')
-vi.mock('@/utils/i18n', () => ({
-  t: (key: string) =>
-    ({ 'common.confirm': '確認', 'common.cancel': '取消' }[key] ?? key),
-}));
-
 describe('ConfirmModal', () => {
+  beforeEach(() => {
+    setLocale('zh-TW');
+  });
+
   it('應渲染並顯示 children', () => {
     render(
       <ConfirmModal open onConfirm={vi.fn()} onCancel={vi.fn()} title="提示">
@@ -47,6 +46,21 @@ describe('ConfirmModal', () => {
     );
     expect(screen.getByText('刪除')).toBeInTheDocument();
     expect(screen.getByText('返回')).toBeInTheDocument();
+  });
+
+  it('未傳 title 時應跟隨 en-US locale 顯示預設標題', async () => {
+    setLocale('en-US');
+    await waitFor(() => expect(t('confirmModal.dangerTitle')).toBe('Confirm action'));
+
+    render(
+      <ConfirmModal open onConfirm={vi.fn()} onCancel={vi.fn()} type="danger">
+        Content
+      </ConfirmModal>
+    );
+
+    expect(screen.getByText('Confirm action')).toBeInTheDocument();
+    expect(screen.getByText('Confirm')).toBeInTheDocument();
+    expect(screen.getByText('Cancel')).toBeInTheDocument();
   });
 
   it('type 為 warning 時應顯示警示圖標', () => {

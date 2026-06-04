@@ -4,7 +4,7 @@
 **文檔類型**：問題治理
 **覆蓋範圍**：Web ErrorBoundary fallback UI、本機開發版 crash message 顯示與 locale fallback
 **取證代碼入口**：`frontend/src/components/common/ErrorFallback.tsx`、`frontend/src/components/common/ErrorFallback/index.tsx`、`frontend/src/components/common/ErrorFallback/index.test.tsx`、`frontend/src/components/common/ErrorBoundary.test.tsx`
-**最後核驗 Commit**：`866a2f0`
+**最後核驗 Commit**：`80e7bb3`
 **最後核驗日期**：`2026-06-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -39,8 +39,11 @@
 ## Owner / Status Notes
 
 - Owner：agent
-- Status：已登記，待實作 / verification / commit / push。
+- Status：已完成本輪修復。後續若需開發診斷詳情，應放在 logger/devtools，不放入使用者可見 fallback UI。
 
 ## 2026-06-04 本輪結果
 
-待回填。
+1. `frontend/src/components/common/ErrorFallback.tsx` 已移除 DEV raw `error.message` UI 顯示，統一顯示 `errorFallback.unknown` catalog fallback。
+2. `frontend/src/components/common/ErrorFallback/index.tsx` 已移除 DEV raw `error.message` UI 顯示，統一顯示 `error.appCrash` catalog fallback。
+3. `frontend/src/components/common/ErrorBoundary.test.tsx` 已補實際 ErrorBoundary fallback 不顯示 `Test error` 的回歸斷言；`frontend/src/components/common/ErrorFallback/index.test.tsx` 已補不顯示 `自定義錯誤` 的回歸斷言。
+4. 已驗證：`npm --prefix frontend test -- src/components/common/ErrorBoundary.test.tsx src/components/common/ErrorFallback/index.test.tsx src/assets/i18n/catalogParity.test.ts` 通過 3 files / 12 tests；`npm --prefix frontend run build` 通過；`npm run docs:check` 通過。

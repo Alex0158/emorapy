@@ -30,6 +30,14 @@ describe('backend i18n', () => {
     );
   });
 
+  it('translates unknown AppError code fallback messages through backend message map', () => {
+    expect(translateErrorByCode('en-US', 'CORS_ORIGIN_DENIED', '不允許的來源')).toBe(
+      'Origin is not allowed'
+    );
+    expect(translateErrorByCode('zh-TW', 'CORS_ORIGIN_DENIED', '不允許的來源')).toBe('不允許的來源');
+    expect(translateErrorByCode('en-US', 'UNKNOWN_WITHOUT_FALLBACK')).toBe('UNKNOWN_WITHOUT_FALLBACK');
+  });
+
   it('keeps zh-TW backend messages unchanged', () => {
     expect(translateBackendMessage('zh-TW', '缺少 B 方完整陳述')).toBe('缺少 B 方完整陳述');
   });

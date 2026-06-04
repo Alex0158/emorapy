@@ -253,6 +253,24 @@ describe('middleware/errorHandler', () => {
     expect(mockLogger.error).not.toHaveBeenCalled();
   });
 
+  it('unknown AppError code fallback 應依 en-US locale 翻譯 backend-owned message', () => {
+    const req = { ...createMockReq(), locale: 'en-US' as Request['locale'] } as Request;
+    const res = createMockRes() as Response;
+    const err = new AppError(403, 'CORS_ORIGIN_DENIED', '不允許的來源');
+
+    errorHandler(err, req, res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({
+      success: false,
+      error: {
+        code: 'CORS_ORIGIN_DENIED',
+        message: 'Origin is not allowed',
+        details: undefined,
+      },
+    });
+  });
+
   it('應處理 MulterError LIMIT_FILE_SIZE 並回傳 413', () => {
     const req = createMockReq() as Request;
     const res = createMockRes() as Response;

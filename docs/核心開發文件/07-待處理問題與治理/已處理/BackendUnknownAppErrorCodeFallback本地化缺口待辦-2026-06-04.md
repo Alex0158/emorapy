@@ -4,7 +4,7 @@
 **文檔類型**：問題治理
 **覆蓋範圍**：Backend `AppError` unknown code fallback、CORS denied API error、本機 / Web / Admin / App API error 顯示語言
 **取證代碼入口**：`backend/src/app.ts`、`backend/src/middleware/errorHandler.ts`、`backend/src/i18n/index.ts`、`backend/tests/unit/middleware/errorHandler.test.ts`、`backend/tests/unit/utils/backend-i18n.test.ts`
-**最後核驗 Commit**：`509b45f`
+**最後核驗 Commit**：`daf9ba5`
 **最後核驗日期**：`2026-06-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -70,5 +70,25 @@ CORS_ORIGIN_DENIED -> 不允許的來源
 ## Owner / Status Notes
 
 - Owner：agent
-- Status：待處理
+- Status：已處理
 - 注意：本輪不改已知 error code 的 generic catalog 優先策略；只處理 unknown code fallback 的語言外露問題。
+
+## 2026-06-04 本輪結果
+
+已完成：
+
+1. `backend/src/i18n/index.ts` 的 `translateErrorByCode()` 已保持已知 code catalog 優先，並在 unknown code + fallback 時改走 `translateBackendMessage(locale, fallback)`。
+2. `CORS_ORIGIN_DENIED` 的 fallback `不允許的來源` 在 en-US 下輸出 `Origin is not allowed`。
+3. `backend/tests/unit/utils/backend-i18n.test.ts` 已新增 unknown AppError code fallback regression，覆蓋 en-US、zh-TW 與無 fallback 時回 code。
+4. `backend/tests/unit/middleware/errorHandler.test.ts` 已新增 response-level regression，直接驗證 `CORS_ORIGIN_DENIED` 在 `req.locale='en-US'` 下不再外露繁中。
+
+已驗證：
+
+1. `npm --prefix backend test -- tests/unit/middleware/errorHandler.test.ts tests/unit/utils/backend-i18n.test.ts --runInBand`：passed，2 suites / 26 tests。
+2. `npm --prefix backend run build -- --pretty false`：passed。
+3. 靜態檢查 `translateErrorByCode('en-US', 'CORS_ORIGIN_DENIED', '不允許的來源')` 不含 CJK，輸出 `Origin is not allowed`。
+
+剩餘邊界：
+
+1. 已知 error code 仍優先使用 generic code catalog，不因 custom fallback 改變 public message；此為既有錯誤模型策略。
+2. 未知 code fallback 若不是 backend-owned message，仍可能保持原文作 diagnostics；本輪只保證已登記在 backend message map / dynamic translator 的 fallback 會按 locale 翻譯。

@@ -304,7 +304,7 @@ export function resolveLocaleFromHeader(acceptLanguage?: string | string[]): Bac
 
 export function translateErrorByCode(locale: BackendLocale, code: string, fallback?: string): string {
   const byCode = locale === 'en-US' ? enUSByCode : zhTWByCode;
-  return byCode[code] ?? fallback ?? code;
+  return byCode[code] ?? (fallback ? translateBackendMessage(locale, fallback) : code);
 }
 
 export function translateBackendMessage(locale: BackendLocale, message: string): string {

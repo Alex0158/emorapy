@@ -6,6 +6,10 @@ const zhTW: Record<string, string> = {
 
   'common.home': '回到首頁',
 
+  'notFound.title': '找不到頁面',
+  'notFound.body': '這個頁面不存在。',
+  'notFound.home': '回到首頁',
+
   'appApi.error.badRequest': '請求內容無法處理。',
   'appApi.error.unauthorized': '請先登入後再繼續。',
   'appApi.error.forbidden': '目前沒有權限執行這個操作。',

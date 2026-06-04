@@ -6,6 +6,10 @@ const enUS: Record<string, string> = {
 
   'common.home': 'Back home',
 
+  'notFound.title': 'Page not found',
+  'notFound.body': "This screen doesn't exist.",
+  'notFound.home': 'Go to home screen',
+
   'appApi.error.badRequest': 'The request could not be processed.',
   'appApi.error.unauthorized': 'Please sign in before continuing.',
   'appApi.error.forbidden': 'You do not have permission to do this right now.',

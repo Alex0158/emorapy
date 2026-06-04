@@ -20,6 +20,8 @@ describe('product-safety-policy', () => {
       rejectionMessage: '偵測到危機風險，請先進入安全支持流程',
       reasons: ['crisis'],
     });
+    expect(policy.noticeMessage).toContain('一般梳理結果');
+    expect(policy.noticeMessage).not.toContain('判決');
   });
 
   it('safety_support 可轉安全路由判決，但必須產生 safety notice', () => {
@@ -28,6 +30,23 @@ describe('product-safety-policy', () => {
     expect(policy.canRequestChatJudgment).toBe(true);
     expect(policy.shouldCreateSafetyNotice).toBe(true);
     expect(policy.noticeMessage).toContain('安全風險');
+    expect(policy.noticeMessage).toContain('梳理結果');
+    expect(policy.noticeMessage).not.toContain('判決');
+  });
+
+  it('chat-to-judgment safety notice 應承接英文 locale', () => {
+    const crisisPolicy = getChatJudgmentRequestPolicy('crisis_support', ['crisis'], 'en-US');
+    const safetyPolicy = getChatJudgmentRequestPolicy('safety_support', [], 'en-US');
+
+    expect(crisisPolicy.noticeMessage).toBe(
+      'The system detected a high-risk crisis signal, so it has switched to safety support and will not continue into a general Analysis.'
+    );
+    expect(crisisPolicy.rejectionMessage).toBe(
+      'A crisis risk was detected. Please use the safety support flow first.'
+    );
+    expect(safetyPolicy.noticeMessage).toBe(
+      'The system detected a possible safety risk signal. The next Analysis will use the safety support route first and avoid symmetric responsibility framing.'
+    );
   });
 
   it('standard 可直接轉判決且不需要 safety notice', () => {

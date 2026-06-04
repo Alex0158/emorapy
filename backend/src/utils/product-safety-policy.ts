@@ -1,3 +1,5 @@
+import type { BackendLocale } from '../i18n';
+
 export type JudgmentRoute = 'standard' | 'safety_support' | 'crisis_support';
 
 export type SafetyRiskLevelForPolicy =
@@ -83,6 +85,31 @@ export interface SafetyAssessmentSnapshot {
 }
 
 const ROUTE_VALUES = new Set<JudgmentRoute>(['standard', 'safety_support', 'crisis_support']);
+
+const CHAT_JUDGMENT_POLICY_MESSAGES: Record<
+  'crisis_support_notice' | 'crisis_support_rejection' | 'safety_support_notice',
+  Record<BackendLocale, string>
+> = {
+  crisis_support_notice: {
+    'zh-TW': '系統偵測到高風險危機訊號，已先切換安全支持流程，暫不進入一般梳理結果。',
+    'en-US': 'The system detected a high-risk crisis signal, so it has switched to safety support and will not continue into a general Analysis.',
+  },
+  crisis_support_rejection: {
+    'zh-TW': '偵測到危機風險，請先進入安全支持流程',
+    'en-US': 'A crisis risk was detected. Please use the safety support flow first.',
+  },
+  safety_support_notice: {
+    'zh-TW': '系統偵測到可能的安全風險訊號。後續梳理結果將優先採用安全支持路由，避免對稱責任化建議。',
+    'en-US': 'The system detected a possible safety risk signal. The next Analysis will use the safety support route first and avoid symmetric responsibility framing.',
+  },
+};
+
+function getChatJudgmentPolicyMessage(
+  key: keyof typeof CHAT_JUDGMENT_POLICY_MESSAGES,
+  locale: BackendLocale = 'zh-TW'
+): string {
+  return CHAT_JUDGMENT_POLICY_MESSAGES[key][locale] ?? CHAT_JUDGMENT_POLICY_MESSAGES[key]['zh-TW'];
+}
 
 export function isJudgmentRoute(value: unknown): value is JudgmentRoute {
   return typeof value === 'string' && ROUTE_VALUES.has(value as JudgmentRoute);
@@ -229,15 +256,16 @@ export function buildSafetyAssessmentSnapshotForEvidenceAssertion(
 
 export function getChatJudgmentRequestPolicy(
   route: JudgmentRoute,
-  reasons: string[] = []
+  reasons: string[] = [],
+  locale: BackendLocale = 'zh-TW'
 ): ChatJudgmentRequestPolicy {
   if (route === 'crisis_support') {
     return {
       route,
       canRequestChatJudgment: false,
       shouldCreateSafetyNotice: true,
-      noticeMessage: '系統偵測到高風險危機訊號，已先切換安全支持流程，暫不進入一般判決。',
-      rejectionMessage: '偵測到危機風險，請先進入安全支持流程',
+      noticeMessage: getChatJudgmentPolicyMessage('crisis_support_notice', locale),
+      rejectionMessage: getChatJudgmentPolicyMessage('crisis_support_rejection', locale),
       reasons: reasons.length > 0 ? reasons : ['危機支持路由不得由聊天室直接轉入一般判決'],
     };
   }
@@ -247,7 +275,7 @@ export function getChatJudgmentRequestPolicy(
       route,
       canRequestChatJudgment: true,
       shouldCreateSafetyNotice: true,
-      noticeMessage: '系統偵測到可能的安全風險訊號。後續判決將優先採用安全支持路由，避免對稱責任化建議。',
+      noticeMessage: getChatJudgmentPolicyMessage('safety_support_notice', locale),
       rejectionMessage: null,
       reasons: reasons.length > 0 ? reasons : ['安全支持路由可轉判決，但必須保留安全降級提示'],
     };

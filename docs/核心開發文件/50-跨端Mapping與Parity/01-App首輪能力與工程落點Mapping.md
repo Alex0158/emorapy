@@ -4,7 +4,7 @@
 **文檔類型**：跨端映射
 **覆蓋範圍**：跨端能力到 Web / App / Backend / API / DB / 共享層的映射與缺口：01-App首輪能力與工程落點Mapping
 **取證代碼入口**：`backend/src/routes`、`backend/prisma/schema.prisma`、`frontend/src/router/index.tsx`、`frontend-admin/src/router.tsx`、`mobile/app`、`mobile/tsconfig.json`、`mobile/src/platform`、`packages/contracts/src`、`packages/api-client/src`
-**最後核驗 Commit**：`b183907`
+**最後核驗 Commit**：`f7cc34f`
 **最後核驗日期**：`2026-06-05`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -46,7 +46,7 @@
 
 | 共用層 | 應下沉內容 | 不應下沉內容 | 觸發 Roadmap |
 | --- | --- | --- | --- |
-| `packages/api-client` | auth/session/quick/profile/interview/case/chat/notification/upload domain client、error normalize、SSE contract helper、AI stream draft reducer / snapshot selector / terminal helper / phase append pure logic；notification render payload 與 backend 生成的 `Case.title` 只承接 backend 已按 locale 產出的字串 | localStorage、SecureStore、router、toast、React component、platform lifecycle / AbortController wiring；不在 Web/App 端重建 backend notification template 或已儲存資料標題翻譯表 | M0-M5 |
+| `packages/api-client` | auth/session/quick/profile/interview/case/chat/notification/upload domain client、error normalize、SSE contract helper、AI stream draft reducer / snapshot selector / terminal helper / phase append pure logic；notification render payload、backend safety notice 與 backend 生成的 `Case.title` 只承接 backend 已按 locale 產出的字串 | localStorage、SecureStore、router、toast、React component、platform lifecycle / AbortController wiring；不在 Web/App 端重建 backend notification template、chat safety notice 或已儲存資料標題翻譯表 | M0-M5 |
 | `packages/contracts` | DTO、enum、response shape、AI stream event / snapshot、notification render payload | 平台 picker result、native permission result | M0-M5 |
 | packages/domain（待建立） | query key、status normalize、permission predicate、跨能力 state transition helper；AI stream pure reducer 已先落在 `packages/api-client/src/aiStreamState.ts`，避免為單一 helper 提前建立新包 | React DOM、React Native UI、Expo API、browser API、SSE transport / lifecycle side effect | M1-M5 |
 | `mobile/src/platform` | storage、api adapter binding、SSE transport、AI stream subscription lifecycle、upload、notifications、linking、telemetry | 業務 DTO 與 backend authorization logic；AI stream persistence DB schema 仍由 backend / migration 管 | M0-M6 |

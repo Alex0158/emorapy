@@ -325,7 +325,7 @@ describe('ChatService', () => {
     });
     prismaMock.chatMessage.create.mockResolvedValueOnce({ id: 'safety-msg-1' });
 
-    await expect(service.requestJudgment('room-3', { userId: 'u1' })).rejects.toMatchObject({
+    await expect(service.requestJudgment('room-3', { userId: 'u1' }, { locale: 'en-US' })).rejects.toMatchObject({
       code: 'CASE_NOT_READY',
     });
 
@@ -335,6 +335,7 @@ describe('ChatService', () => {
           room_id: 'room-3',
           message_type: 'safety_notice',
           safety_flag: true,
+          content: 'The system detected a high-risk crisis signal, so it has switched to safety support and will not continue into a general Analysis.',
         }),
       })
     );

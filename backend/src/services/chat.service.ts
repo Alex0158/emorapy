@@ -1106,7 +1106,7 @@ export class ChatService {
         plaintiffStatement,
         defendantStatement: defendantStatement ?? '',
       });
-      const requestPolicy = getChatJudgmentRequestPolicy(preRouteDecision.route, preRouteDecision.reasons);
+      const requestPolicy = getChatJudgmentRequestPolicy(preRouteDecision.route, preRouteDecision.reasons, options?.locale);
       if (requestPolicy.shouldCreateSafetyNotice && aiParticipant && requestPolicy.noticeMessage) {
         await prisma.chatMessage.create({
           data: {

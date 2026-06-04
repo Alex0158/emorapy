@@ -203,6 +203,11 @@ const directEnUSMap: Record<string, string> = {
   '無權限操作此梳理結果': 'You do not have permission to operate on this Analysis',
   '責任分比例必須為非負且總和 100': 'Responsibility ratios must be non-negative and sum to 100',
   '無效的責任分比例格式': 'Invalid responsibility ratio format',
+  '郵箱格式錯誤': 'Email format is invalid',
+  '密碼不能為空': 'Password cannot be empty',
+  '責任分比例必須是數字': 'Responsibility ratio must be numeric',
+  '責任分比例不能為負數': 'Responsibility ratio cannot be negative',
+  '責任分比例總和必須為100%': 'Responsibility ratios must sum to 100%',
   '回饋內容過短': 'Feedback is too short',
   'AI服務響應超時，請稍後再試': 'AI service timed out. Please try again later.',
   'AI服務暫時不可用，請稍後重試': 'AI service is temporarily unavailable. Please try again later.',
@@ -264,6 +269,8 @@ const directEnUSMap: Record<string, string> = {
   '每個案件最多只能上傳3張圖片': 'Each case can have at most 3 uploaded images',
   '證據不存在': 'Evidence not found',
   '無權限刪除此證據': 'You do not have permission to delete this evidence',
+  '證據URL必須是數組': 'Evidence URLs must be an array',
+  '最多只能上傳3張圖片': 'You can upload at most 3 images',
   '聊天室已建立': 'Chat room created',
   '邀請已發送': 'Invite sent',
   '已加入聊天室': 'Joined chat room',
@@ -420,6 +427,41 @@ function translateDynamicBackendMessage(message: string): string | null {
   const accountLockout = message.match(/^帳號已被暫時鎖定，請(\d+)分鐘後再試$/);
   if (accountLockout) {
     return `Account is temporarily locked. Please try again in ${accountLockout[1]} minutes`;
+  }
+
+  const fieldRequired = message.match(/^(.+)不能為空$/);
+  if (fieldRequired) {
+    return `${fieldRequired[1]} cannot be empty`;
+  }
+
+  const fieldMinLength = message.match(/^(.+)長度必須至少(\d+)字$/);
+  if (fieldMinLength) {
+    return `${fieldMinLength[1]} must be at least ${fieldMinLength[2]} characters`;
+  }
+
+  const fieldMaxLength = message.match(/^(.+)長度不能超過(\d+)字$/);
+  if (fieldMaxLength) {
+    return `${fieldMaxLength[1]} length cannot exceed ${fieldMaxLength[2]} characters`;
+  }
+
+  const evidenceUrlInvalidType = message.match(/^證據URL\[(\d+)\]格式錯誤$/);
+  if (evidenceUrlInvalidType) {
+    return `Evidence URL[${evidenceUrlInvalidType[1]}] format is incorrect`;
+  }
+
+  const evidenceUrlInvalidFormat = message.match(/^證據URL\[(\d+)\]格式無效$/);
+  if (evidenceUrlInvalidFormat) {
+    return `Evidence URL[${evidenceUrlInvalidFormat[1]}] format is invalid`;
+  }
+
+  const evidenceUrlHttpsOnly = message.match(/^證據URL\[(\d+)\]僅支持 HTTPS$/);
+  if (evidenceUrlHttpsOnly) {
+    return `Evidence URL[${evidenceUrlHttpsOnly[1]}] only supports HTTPS`;
+  }
+
+  const fieldInvalidFormat = message.match(/^(.+)格式無效$/);
+  if (fieldInvalidFormat) {
+    return `${fieldInvalidFormat[1]} format is invalid`;
   }
 
   const providerConnectionSuccess = message.match(/^(.+) 連線測試成功$/);

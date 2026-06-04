@@ -405,6 +405,59 @@ describe('backend i18n', () => {
     );
   });
 
+  it('translates validation utility errors to en-US while preserving dynamic values', () => {
+    expect(translateBackendMessage('en-US', '角色A陳述不能為空')).toBe(
+      'Role A statement cannot be empty'
+    );
+    expect(translateBackendMessage('en-US', '回應方陳述長度必須至少30字')).toBe(
+      '回應方陳述 must be at least 30 characters'
+    );
+    expect(translateBackendMessage('en-US', '陳述長度不能超過2000字')).toBe(
+      '陳述 length cannot exceed 2000 characters'
+    );
+    expect(translateBackendMessage('en-US', '案件ID格式無效')).toBe(
+      '案件ID format is invalid'
+    );
+    expect(translateBackendMessage('en-US', '證據URL必須是數組')).toBe(
+      'Evidence URLs must be an array'
+    );
+    expect(translateBackendMessage('en-US', '最多只能上傳3張圖片')).toBe(
+      'You can upload at most 3 images'
+    );
+    expect(translateBackendMessage('en-US', '證據URL[1]格式錯誤')).toBe(
+      'Evidence URL[1] format is incorrect'
+    );
+    expect(translateBackendMessage('en-US', '證據URL[2]格式無效')).toBe(
+      'Evidence URL[2] format is invalid'
+    );
+    expect(translateBackendMessage('en-US', '證據URL[0]僅支持 HTTPS')).toBe(
+      'Evidence URL[0] only supports HTTPS'
+    );
+    expect(translateBackendMessage('en-US', '郵箱格式錯誤')).toBe('Email format is invalid');
+    expect(translateBackendMessage('en-US', '密碼不能為空')).toBe('Password cannot be empty');
+    expect(translateBackendMessage('en-US', '密碼長度至少8位')).toBe(
+      'Password must be at least 8 characters'
+    );
+    expect(translateBackendMessage('en-US', '密碼必須包含字母')).toBe(
+      'Password must contain letters'
+    );
+    expect(translateBackendMessage('en-US', '密碼必須包含數字')).toBe(
+      'Password must contain numbers'
+    );
+    expect(translateBackendMessage('en-US', '責任分比例必須是數字')).toBe(
+      'Responsibility ratio must be numeric'
+    );
+    expect(translateBackendMessage('en-US', '責任分比例不能為負數')).toBe(
+      'Responsibility ratio cannot be negative'
+    );
+    expect(translateBackendMessage('en-US', '責任分比例總和必須為100%')).toBe(
+      'Responsibility ratios must sum to 100%'
+    );
+    expect(translateBackendMessage('zh-TW', '回應方陳述長度必須至少30字')).toBe(
+      '回應方陳述長度必須至少30字'
+    );
+  });
+
   it('translates case service errors to en-US without localizing mode values', () => {
     expect(translateBackendMessage('en-US', 'Session創建失敗')).toBe('Session creation failed');
     expect(translateBackendMessage('en-US', '案件創建失敗，請稍後再試')).toBe(

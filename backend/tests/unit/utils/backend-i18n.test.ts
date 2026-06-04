@@ -57,6 +57,29 @@ describe('backend i18n', () => {
     );
   });
 
+  it('translates media provider service errors without localizing provider identifiers', () => {
+    expect(translateBackendMessage('en-US', 'Provider catalog 不存在')).toBe('Provider catalog not found');
+    expect(translateBackendMessage('en-US', '不支援的 providerKey')).toBe('Unsupported providerKey');
+    expect(translateBackendMessage('en-US', 'Provider NanoBananaPro 不支援圖片生成')).toBe(
+      'Provider NanoBananaPro does not support image generation'
+    );
+    expect(translateBackendMessage('en-US', 'Provider Seedance 不支援影片生成')).toBe(
+      'Provider Seedance does not support video generation'
+    );
+    expect(translateBackendMessage('en-US', 'Provider 實作尚未部署：nanobananapro')).toBe(
+      'Provider implementation is not deployed yet: nanobananapro'
+    );
+    expect(
+      translateBackendMessage(
+        'en-US',
+        'NanoBananaPro 缺少 API Key，請先以 system config 寫入 media.provider.nanobananapro 或於測試輸入中提供 apiKey'
+      )
+    ).toBe(
+      'NanoBananaPro is missing an API Key. Add media.provider.nanobananapro in system config or provide apiKey in the test input'
+    );
+    expect(translateBackendMessage('zh-TW', '不支援的 providerKey')).toBe('不支援的 providerKey');
+  });
+
   it('uses public Analysis terminology for backend judgment response messages', () => {
     expect(translateErrorByCode('en-US', 'JUDGMENT_FAILED')).toBe(
       'Analysis generation failed, please retry later'

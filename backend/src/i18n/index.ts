@@ -220,6 +220,8 @@ const directEnUSMap: Record<string, string> = {
   'AI 返回內容異常，請重試': 'AI returned an invalid response. Please try again.',
   '服務內部錯誤': 'Internal service error',
   '請檢查 API Key 與網路連線': 'Check the API Key and network connection',
+  'Provider catalog 不存在': 'Provider catalog not found',
+  '不支援的 providerKey': 'Unsupported providerKey',
 };
 
 function translateDynamicBackendMessage(message: string): string | null {
@@ -241,6 +243,26 @@ function translateDynamicBackendMessage(message: string): string | null {
   const providerConnectionFailure = message.match(/^(.+) 連線測試失敗，請檢查 baseUrl\/API Key$/);
   if (providerConnectionFailure) {
     return `${providerConnectionFailure[1]} connection test failed. Check baseUrl/API Key`;
+  }
+
+  const providerUnsupportedImageGeneration = message.match(/^Provider (.+) 不支援圖片生成$/);
+  if (providerUnsupportedImageGeneration) {
+    return `Provider ${providerUnsupportedImageGeneration[1]} does not support image generation`;
+  }
+
+  const providerUnsupportedVideoGeneration = message.match(/^Provider (.+) 不支援影片生成$/);
+  if (providerUnsupportedVideoGeneration) {
+    return `Provider ${providerUnsupportedVideoGeneration[1]} does not support video generation`;
+  }
+
+  const providerImplementationMissing = message.match(/^Provider 實作尚未部署：(.+)$/);
+  if (providerImplementationMissing) {
+    return `Provider implementation is not deployed yet: ${providerImplementationMissing[1]}`;
+  }
+
+  const providerMissingApiKey = message.match(/^(.+) 缺少 API Key，請先以 system config 寫入 (.+) 或於測試輸入中提供 apiKey$/);
+  if (providerMissingApiKey) {
+    return `${providerMissingApiKey[1]} is missing an API Key. Add ${providerMissingApiKey[2]} in system config or provide apiKey in the test input`;
   }
 
   const providerTestInvalidResponse = message.match(/^(.+) 測試請求回應異常$/);

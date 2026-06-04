@@ -69,7 +69,7 @@ describe('interview-response-settlement', () => {
     expect(mockedAIStreamService.cancelled).not.toHaveBeenCalled();
   });
 
-  it('settleInterviewResponseFailure 應發送 stream.failed 並保留錯誤 code 與 latestText', async () => {
+  it('settleInterviewResponseFailure 應發送 stream.failed，保留 code 並本地化 message', async () => {
     const error = Object.assign(new Error('db write failed'), { code: 'DB_WRITE_FAILED' });
 
     await expect(
@@ -79,12 +79,13 @@ describe('interview-response-settlement', () => {
         streamSettled: false,
         streamMode: 'respond',
         latestText: '已完成文字',
+        locale: 'en-US',
       })
     ).resolves.toBe(true);
 
     expect(mockedAIStreamService.failed).toHaveBeenCalledWith(
       streamHandle,
-      { code: 'DB_WRITE_FAILED', message: 'db write failed' },
+      { code: 'DB_WRITE_FAILED', message: 'Internal service error' },
       {
         actorRole: 'aiMediator',
         fullText: '已完成文字',
@@ -127,6 +128,7 @@ describe('interview-response-settlement', () => {
         streamHandle,
         streamSettled: false,
         streamMode: 'respond',
+        locale: 'en-US',
       })
     ).resolves.toEqual({
       streamSettled: true,
@@ -136,7 +138,7 @@ describe('interview-response-settlement', () => {
 
     expect(mockedAIStreamService.failed).toHaveBeenCalledWith(
       streamHandle,
-      { code: 'AI_PROVIDER_DOWN', message: 'provider down' },
+      { code: 'AI_PROVIDER_DOWN', message: 'Internal service error' },
       expect.objectContaining({
         actorRole: 'aiMediator',
         metadata: { mode: 'respond' },

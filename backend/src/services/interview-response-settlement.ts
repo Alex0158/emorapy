@@ -1,4 +1,5 @@
 import { Errors } from '../utils/errors';
+import type { BackendLocale } from '../i18n';
 import type { AIStreamHandle } from './ai-stream.service';
 import { aiStreamService } from './ai-stream.service';
 import { isInterviewAbortError } from './interview-ai-stream-request-utils';
@@ -13,6 +14,7 @@ export interface SettleInterviewResponseStreamParams {
   streamSettled: boolean;
   streamMode: InterviewStreamMode;
   latestText?: string;
+  locale?: BackendLocale;
 }
 
 export interface SettleInterviewResponseErrorParams extends SettleInterviewResponseStreamParams {
@@ -49,6 +51,7 @@ export async function settleInterviewResponseFailure({
   streamMode,
   latestText,
   error,
+  locale,
 }: SettleInterviewResponseErrorParams): Promise<boolean> {
   if (!streamHandle || streamSettled) return streamSettled;
 
@@ -56,6 +59,7 @@ export async function settleInterviewResponseFailure({
     error,
     mode: streamMode,
     fullText: latestText || undefined,
+    locale,
   });
   await aiStreamService.failed(streamHandle, failurePayload.error, failurePayload.options);
   return true;

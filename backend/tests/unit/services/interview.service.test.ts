@@ -385,7 +385,7 @@ describe('InterviewService — respond 邊界與異常', () => {
     expect(aiStreamService.start).toHaveBeenCalled();
     expect(aiStreamService.failed).toHaveBeenCalledWith(
       expect.objectContaining({ streamId: 'stream-interview-1' }),
-      { code: 'AI_PROVIDER_DOWN', message: 'provider down' },
+      { code: 'AI_PROVIDER_DOWN', message: '服務內部錯誤' },
       expect.objectContaining({
         actorRole: 'aiMediator',
         fullText: undefined,
@@ -414,7 +414,7 @@ describe('InterviewService — respond 邊界與異常', () => {
     );
     expect(aiStreamService.failed).toHaveBeenCalledWith(
       expect.objectContaining({ streamId: 'stream-interview-1' }),
-      { code: 'DB_WRITE_FAILED', message: 'db write failed' },
+      { code: 'DB_WRITE_FAILED', message: '服務內部錯誤' },
       expect.objectContaining({
         actorRole: 'aiMediator',
         fullText: '謝謝你願意說這些。',
@@ -472,10 +472,11 @@ describe('InterviewService — respond 邊界與異常', () => {
     });
     const respondSpy = jest.spyOn(service, 'respond').mockResolvedValue(undefined);
 
-    await service.submitResponse('s1', 'u1', 'hello');
+    await service.submitResponse('s1', 'u1', 'hello', 'en-US');
     await Promise.resolve();
 
     expect(respondSpy).toHaveBeenCalledWith('s1', 'u1', 'hello', undefined, false, expect.objectContaining({
+      locale: 'en-US',
       signal: expect.any(Object),
     }));
     respondSpy.mockRestore();

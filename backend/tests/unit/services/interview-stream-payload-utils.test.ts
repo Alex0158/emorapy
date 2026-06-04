@@ -97,7 +97,7 @@ describe('interview-stream-payload-utils', () => {
     });
   });
 
-  it('buildInterviewStreamFailedPayload 應從業務錯誤讀取 code，並保留 latest text', () => {
+  it('buildInterviewStreamFailedPayload 應從業務錯誤讀取 code，並使用本地化訊息', () => {
     const error = Object.assign(new Error('訪談失敗'), { code: 'AI_CALL_FAILED' });
 
     expect(buildInterviewStreamFailedPayload({
@@ -107,7 +107,7 @@ describe('interview-stream-payload-utils', () => {
     })).toEqual({
       error: {
         code: 'AI_CALL_FAILED',
-        message: '訪談失敗',
+        message: 'AI 調用失敗',
       },
       options: {
         actorRole: 'aiMediator',
@@ -116,6 +116,32 @@ describe('interview-stream-payload-utils', () => {
           mode: 'respond',
         },
       },
+    });
+  });
+
+  it('buildInterviewStreamFailedPayload 應按 en-US locale 翻譯已知錯誤 code', () => {
+    const error = Object.assign(new Error('訪談失敗'), { code: 'AI_CALL_FAILED' });
+
+    expect(buildInterviewStreamFailedPayload({
+      error,
+      mode: 'respond',
+      locale: 'en-US',
+    }).error).toEqual({
+      code: 'AI_CALL_FAILED',
+      message: 'AI call failed',
+    });
+  });
+
+  it('buildInterviewStreamFailedPayload 不應把未知英文 runtime 診斷直接發布給 UI', () => {
+    const error = Object.assign(new Error('provider down'), { code: 'AI_PROVIDER_DOWN' });
+
+    expect(buildInterviewStreamFailedPayload({
+      error,
+      mode: 'respond',
+      locale: 'en-US',
+    }).error).toEqual({
+      code: 'AI_PROVIDER_DOWN',
+      message: 'Internal service error',
     });
   });
 
@@ -135,6 +161,17 @@ describe('interview-stream-payload-utils', () => {
           mode: 'skip',
         },
       },
+    });
+  });
+
+  it('buildInterviewStreamFailedPayload 對 en-US 未知錯誤使用英文 fallback', () => {
+    expect(buildInterviewStreamFailedPayload({
+      error: 'boom',
+      mode: 'skip',
+      locale: 'en-US',
+    }).error).toEqual({
+      code: 'INTERNAL_ERROR',
+      message: 'Internal service error',
     });
   });
 });

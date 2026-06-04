@@ -29,6 +29,7 @@ import { prepareInterviewProcessingRetry } from './interview-processing-retry';
 import { loadInterviewResumeStatus } from './interview-resume-status';
 import { buildRuntimeAILedgerSourceTracking } from '../utils/ai-ledger-source';
 import { getAIPromptVersion } from '../utils/ai-prompt-version';
+import type { BackendLocale } from '../i18n';
 import {
   ensureInterviewSessionAccess,
   loadOwnedInterviewSession,
@@ -88,12 +89,13 @@ export class InterviewService {
     userResponse: string,
     onSSE?: InterviewSSEHandler,
     isSkip = false,
-    options: { signal?: AbortSignal } = {}
+    options: { signal?: AbortSignal; locale?: BackendLocale } = {}
   ): Promise<void> {
     let streamHandle: AIStreamHandle | null = null;
     let streamSettled = false;
     let latestText = '';
     const streamMode = getInterviewStreamMode(isSkip);
+    const locale = options.locale ?? 'zh-TW';
     try {
       await lockService.withLock(
         `interview:respond:${sessionId}`,
@@ -189,6 +191,7 @@ export class InterviewService {
         streamSettled,
         streamMode,
         latestText,
+        locale,
       });
       streamSettled = settlement.streamSettled;
       if (settlement.shouldReturn) {
@@ -198,21 +201,26 @@ export class InterviewService {
     }
   }
 
-  async submitResponse(sessionId: string, userId: string, userResponse: string): Promise<void> {
+  async submitResponse(
+    sessionId: string,
+    userId: string,
+    userResponse: string,
+    locale?: BackendLocale
+  ): Promise<void> {
     await this.submitBackgroundTurn({
       sessionId,
       userId,
       logMessage: 'Interview background respond failed',
-      run: (signal) => this.respond(sessionId, userId, userResponse, undefined, false, { signal }),
+      run: (signal) => this.respond(sessionId, userId, userResponse, undefined, false, { signal, locale }),
     });
   }
 
-  async submitSkip(sessionId: string, userId: string): Promise<void> {
+  async submitSkip(sessionId: string, userId: string, locale?: BackendLocale): Promise<void> {
     await this.submitBackgroundTurn({
       sessionId,
       userId,
       logMessage: 'Interview background skip failed',
-      run: (signal) => this.skipTurn(sessionId, userId, undefined, { signal }),
+      run: (signal) => this.skipTurn(sessionId, userId, undefined, { signal, locale }),
     });
   }
 
@@ -294,7 +302,7 @@ export class InterviewService {
     sessionId: string,
     userId: string,
     onSSE?: InterviewSSEHandler,
-    options: { signal?: AbortSignal } = {}
+    options: { signal?: AbortSignal; locale?: BackendLocale } = {}
   ): Promise<void> {
     await this.respond(sessionId, userId, '', onSSE, true, options);
   }

@@ -1,5 +1,10 @@
 import type { PsychDomain } from '@prisma/client';
 import type { AIStreamErrorPayload, AIStreamPhase } from '../types/ai-stream';
+import {
+  translateBackendMessage,
+  translateErrorByCode,
+  type BackendLocale,
+} from '../i18n';
 
 const INTERVIEW_STREAM_ACTOR_ROLE = 'aiMediator';
 
@@ -104,11 +109,15 @@ export function buildInterviewStreamFailedPayload(params: {
   error: unknown;
   mode: InterviewStreamMode;
   fullText?: string;
+  locale?: BackendLocale;
 }): InterviewStreamFailurePayload {
+  const code = getInterviewStreamErrorCode(params.error);
+  const locale = params.locale ?? 'zh-TW';
+
   return {
     error: {
-      code: getInterviewStreamErrorCode(params.error),
-      message: params.error instanceof Error ? params.error.message : '服務內部錯誤',
+      code,
+      message: getInterviewStreamErrorMessage(params.error, code, locale),
     },
     options: {
       actorRole: INTERVIEW_STREAM_ACTOR_ROLE,
@@ -123,4 +132,25 @@ export function buildInterviewStreamFailedPayload(params: {
 function getInterviewStreamErrorCode(error: unknown): string {
   if (!error || typeof error !== 'object' || !('code' in error)) return 'INTERNAL_ERROR';
   return String((error as { code?: string }).code || 'INTERNAL_ERROR');
+}
+
+function getInterviewStreamErrorMessage(
+  error: unknown,
+  code: string,
+  locale: BackendLocale
+): string {
+  if (code !== 'INTERNAL_ERROR') {
+    const translatedByCode = translateErrorByCode(locale, code);
+    if (translatedByCode !== code) return translatedByCode;
+  }
+
+  if (error instanceof Error && error.message) {
+    const translatedMessage = translateBackendMessage(locale, error.message);
+    if (translatedMessage !== error.message) return translatedMessage;
+    if (locale === 'zh-TW' && /[\u4e00-\u9fff]/.test(error.message)) {
+      return error.message;
+    }
+  }
+
+  return translateBackendMessage(locale, '服務內部錯誤');
 }

@@ -21,7 +21,7 @@ export class InterviewController {
       const sessionId = req.params.id;
       const userId = getAuthUserId(req);
       const userResponse = req.body.message;
-      await interviewService.submitResponse(sessionId, userId, userResponse);
+      await interviewService.submitResponse(sessionId, userId, userResponse, req.locale);
       res.status(202).json({
         success: true,
         data: { accepted: true, session_id: sessionId },
@@ -69,7 +69,7 @@ export class InterviewController {
     try {
       const sessionId = req.params.id;
       const userId = getAuthUserId(req);
-      await interviewService.submitSkip(sessionId, userId);
+      await interviewService.submitSkip(sessionId, userId, req.locale);
       res.status(202).json({
         success: true,
         data: { accepted: true, session_id: sessionId },

@@ -184,6 +184,18 @@ describe('backend i18n', () => {
     expect(translateBackendMessage('en-US', '管理員 Token 已失效，請重新登入')).toBe(
       'Admin token is no longer valid. Please log in again.'
     );
+    expect(translateBackendMessage('en-US', '管理員 JWT 過期時間配置缺失')).toBe(
+      'Admin JWT expiry configuration is missing'
+    );
+    expect(translateBackendMessage('en-US', '管理員 JWT 配置缺失')).toBe(
+      'Admin JWT configuration is missing'
+    );
+    expect(translateBackendMessage('en-US', '管理員 Token 已過期')).toBe(
+      'Admin token has expired'
+    );
+    expect(translateBackendMessage('en-US', '管理員 Token 無效')).toBe(
+      'Admin token is invalid'
+    );
     expect(translateBackendMessage('en-US', '管理員未認證')).toBe('Admin is not authenticated');
     expect(translateBackendMessage('en-US', '管理員權限不足')).toBe('Admin permission is insufficient');
     expect(translateBackendMessage('zh-TW', '未提供認證Token')).toBe('未提供認證Token');

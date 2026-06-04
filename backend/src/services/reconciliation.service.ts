@@ -682,7 +682,7 @@ export class ReconciliationService {
     });
 
     if (!judgment) {
-      throw Errors.NOT_FOUND('判決不存在');
+      throw Errors.NOT_FOUND('梳理結果不存在');
     }
 
     if (userId && judgment.case.plaintiff_id !== userId && judgment.case.defendant_id !== userId) {
@@ -697,10 +697,10 @@ export class ReconciliationService {
     }
     const intent = input?.intent ?? safetyPolicy.defaultReconciliationIntent;
     if (!safetyPolicy.allowedReconciliationIntents.includes(intent)) {
-      throw Errors.VALIDATION_ERROR('此判決路由不允許生成一般共同修復方案，請改用安全支持或低壓退出方向');
+      throw Errors.VALIDATION_ERROR('此梳理結果路由不允許生成一般共同修復方案，請改用安全支持或低壓退出方向');
     }
     if (repairJourneyAccess.forceSoloRepair && preferences?.invite_partner) {
-      throw Errors.VALIDATION_ERROR('此判決路由只允許 solo 修復，不允許邀請伴侶加入修復旅程');
+      throw Errors.VALIDATION_ERROR('此梳理結果路由只允許 solo 修復，不允許邀請伴侶加入修復旅程');
     }
 
     const existingPlans = await prisma.reconciliationPlan.findMany({
@@ -927,12 +927,12 @@ export class ReconciliationService {
     });
 
     if (!judgment) {
-      throw Errors.NOT_FOUND('判決不存在');
+      throw Errors.NOT_FOUND('梳理結果不存在');
     }
 
     const caseRecord = judgment.case;
     if (caseRecord.plaintiff_id !== userId && caseRecord.defendant_id !== userId) {
-      throw Errors.FORBIDDEN('無權限查看此判決的和好方案');
+      throw Errors.FORBIDDEN('無權限查看此梳理結果的和好方案');
     }
 
     const where: Prisma.ReconciliationPlanWhereInput = { judgment_id: judgmentId, superseded_at: null };
@@ -1124,7 +1124,7 @@ export class ReconciliationService {
     const repairEligibility = getRepairEligibilityForCase(plan.judgment.case);
     const repairJourneyAccess = await getRepairJourneyAccessPolicyForJudgment(plan.judgment, repairEligibility);
     if (!repairJourneyAccess.canInvitePartner) {
-      throw Errors.FORBIDDEN('此判決路由不允許邀請伴侶加入修復旅程');
+      throw Errors.FORBIDDEN('此梳理結果路由不允許邀請伴侶加入修復旅程');
     }
     const track = await this.ensureRepairTrack(plan);
     const partnerId = this.getOtherParticipantId(plan.judgment.case, userId);

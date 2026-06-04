@@ -398,6 +398,52 @@ describe('backend i18n', () => {
     );
   });
 
+  it('translates reconciliation service errors and keeps public Analysis terminology', () => {
+    expect(translateBackendMessage('en-US', '無效的和好方案格式')).toBe(
+      'Invalid reconciliation plan format'
+    );
+    expect(translateBackendMessage('en-US', '修復旅程不存在')).toBe('Repair journey not found');
+    expect(translateBackendMessage('en-US', '和好方案不存在')).toBe('Reconciliation plan not found');
+    expect(translateBackendMessage('en-US', '無權限操作此方案')).toBe(
+      'You do not have permission to operate on this plan'
+    );
+    expect(translateBackendMessage('en-US', '梳理結果不存在')).toBe('Analysis not found');
+    expect(translateBackendMessage('en-US', '無權限生成和好方案')).toBe(
+      'You do not have permission to generate reconciliation plans'
+    );
+    expect(translateBackendMessage('en-US', '此案件尚未綁定已登入當事人，不能生成修復旅程')).toBe(
+      'This case is not linked to a signed-in participant, so a repair journey cannot be generated'
+    );
+    expect(
+      translateBackendMessage(
+        'en-US',
+        '此梳理結果路由不允許生成一般共同修復方案，請改用安全支持或低壓退出方向'
+      )
+    ).toBe(
+      'This Analysis route does not allow a standard shared repair plan. Use safety support or a low-pressure exit direction instead'
+    );
+    expect(
+      translateBackendMessage(
+        'en-US',
+        '此梳理結果路由只允許 solo 修復，不允許邀請伴侶加入修復旅程'
+      )
+    ).toBe(
+      'This Analysis route only allows solo repair and does not allow inviting a partner into the repair journey'
+    );
+    expect(translateBackendMessage('en-US', '無權限查看此梳理結果的和好方案')).toBe(
+      'You do not have permission to view reconciliation plans for this Analysis'
+    );
+    expect(translateBackendMessage('en-US', '請先承諾此方案，再開始今天的第一步')).toBe(
+      "Commit to this plan before starting today's first step"
+    );
+    expect(translateBackendMessage('en-US', '無權限恢復此修復旅程')).toBe(
+      'You do not have permission to resume this repair journey'
+    );
+    expect(translateBackendMessage('zh-TW', '此梳理結果路由只允許 solo 修復，不允許邀請伴侶加入修復旅程')).toBe(
+      '此梳理結果路由只允許 solo 修復，不允許邀請伴侶加入修復旅程'
+    );
+  });
+
   it('uses public Analysis terminology for backend judgment response messages', () => {
     expect(translateErrorByCode('en-US', 'JUDGMENT_FAILED')).toBe(
       'Analysis generation failed, please retry later'

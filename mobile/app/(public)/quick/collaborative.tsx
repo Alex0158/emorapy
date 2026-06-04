@@ -6,11 +6,15 @@ import { useMutation } from '@tanstack/react-query';
 
 import { normalizeM1Error, m1Api } from '@/src/features/m1/api';
 import { getOrCreateQuickSession } from '@/src/features/m1/session';
+import { t } from '@/src/i18n';
 import { sessionStorage } from '@/src/platform/storage/secureStore';
 import { ActionButton, FeatureRow, LinkButton, Panel, Screen, StatusPill } from '@/src/ui/components';
 import { palette, spacing, typography } from '@/src/ui/theme';
 
 type CollaborativePhase = 'roleA' | 'roleB';
+
+const ROLE_A_MIN_LENGTH = 30;
+const ROLE_B_MIN_LENGTH = 10;
 
 export default function QuickCollaborativeScreen() {
   const [phase, setPhase] = useState<CollaborativePhase>('roleA');
@@ -26,8 +30,10 @@ export default function QuickCollaborativeScreen() {
       const roleBTrimmed = roleBStatement.trim();
 
       if (phase === 'roleA') {
-        if (roleATrimmed.length < 30) {
-          throw new Error('第一方請至少寫 30 個字，讓第二方接得上脈絡。');
+        if (roleATrimmed.length < ROLE_A_MIN_LENGTH) {
+          throw new Error(
+            t('quick.collaborative.error.roleA.minLength', { count: ROLE_A_MIN_LENGTH })
+          );
         }
 
         const { session } = await getOrCreateQuickSession();
@@ -39,15 +45,17 @@ export default function QuickCollaborativeScreen() {
       }
 
       if (!caseId) {
-        throw new Error('找不到第一方已建立的整理，請重新開始。');
+        throw new Error(t('quick.collaborative.error.missingCase'));
       }
-      if (roleBTrimmed.length < 10) {
-        throw new Error('第二方請至少寫 10 個字，再提交雙方說明。');
+      if (roleBTrimmed.length < ROLE_B_MIN_LENGTH) {
+        throw new Error(
+          t('quick.collaborative.error.roleB.minLength', { count: ROLE_B_MIN_LENGTH })
+        );
       }
 
       const sessionId = await sessionStorage.getSessionId();
       if (!sessionId) {
-        throw new Error('本機進度已遺失，請重新開始雙人快速說明。');
+        throw new Error(t('quick.collaborative.error.missingSession'));
       }
       return m1Api.quick.createCollaborativeCase(
         {
@@ -66,7 +74,7 @@ export default function QuickCollaborativeScreen() {
       if (result.phase === 'a_done') {
         setCaseId(result.case.id);
         setPhase('roleB');
-        setStatusText('第一方已記錄。請把設備交給第二方，讓對方補上自己的說法。');
+        setStatusText(t('quick.collaborative.status.roleARecorded'));
         return;
       }
 
@@ -79,30 +87,38 @@ export default function QuickCollaborativeScreen() {
 
   const isRoleA = phase === 'roleA';
   const canSubmit = isRoleA
-    ? roleAStatement.trim().length >= 30
-    : Boolean(caseId) && roleBStatement.trim().length >= 10;
+    ? roleAStatement.trim().length >= ROLE_A_MIN_LENGTH
+    : Boolean(caseId) && roleBStatement.trim().length >= ROLE_B_MIN_LENGTH;
 
   return (
     <Screen
-      eyebrow="快速整理"
-      title="雙人快速說明"
-      subtitle="同一台設備上輪流填寫，先把雙方視角放進同一份整理。"
+      eyebrow={t('quick.eyebrow')}
+      title={t('quick.collaborative.title')}
+      subtitle={t('quick.collaborative.subtitle')}
       testID="quick.collaborative.screen">
-      <Panel title={isRoleA ? '第一方說明' : '第二方說明'}>
-        <StatusPill label={isRoleA ? '步驟 1 / 2' : '步驟 2 / 2'} tone={isRoleA ? 'teal' : 'blue'} />
+      <Panel
+        title={isRoleA ? t('quick.collaborative.roleA.panel') : t('quick.collaborative.roleB.panel')}>
+        <StatusPill
+          label={isRoleA ? t('quick.collaborative.step1') : t('quick.collaborative.step2')}
+          tone={isRoleA ? 'teal' : 'blue'}
+        />
         {statusText ? <Text style={styles.statusText}>{statusText}</Text> : null}
         <View style={styles.inputGroup}>
-          <Text style={styles.fieldLabel}>{isRoleA ? '第一方想說清楚的是' : '第二方想補充的是'}</Text>
+          <Text style={styles.fieldLabel}>
+            {isRoleA ? t('quick.collaborative.roleA.label') : t('quick.collaborative.roleB.label')}
+          </Text>
           <TextInput
-            accessibilityLabel={isRoleA ? '第一方想說清楚的是' : '第二方想補充的是'}
+            accessibilityLabel={
+              isRoleA ? t('quick.collaborative.roleA.label') : t('quick.collaborative.roleB.label')
+            }
             accessibilityHint={isRoleA
-              ? '輸入第一方的事件、感受與希望對方理解的重點'
-              : '輸入第二方認為重要的事實、感受或限制'}
+              ? t('quick.collaborative.roleA.accessibilityHint')
+              : t('quick.collaborative.roleB.accessibilityHint')}
             multiline
             onChangeText={isRoleA ? setRoleAStatement : setRoleBStatement}
             placeholder={isRoleA
-              ? '先寫下發生了什麼、自己在意什麼、希望對方理解哪一點。'
-              : '不用反駁全部內容，只補上你認為重要的事實、感受或限制。'}
+              ? t('quick.collaborative.roleA.placeholder')
+              : t('quick.collaborative.roleB.placeholder')}
             placeholderTextColor={palette.muted}
             style={styles.textArea}
             textAlignVertical="top"
@@ -112,22 +128,43 @@ export default function QuickCollaborativeScreen() {
         {formError ? <Text style={styles.errorText}>{formError}</Text> : null}
         <ActionButton
           disabled={!canSubmit}
-          label={isRoleA ? '記錄第一方' : '提交雙方說明'}
+          label={
+            isRoleA
+              ? t('quick.collaborative.roleA.submit')
+              : t('quick.collaborative.roleB.submit')
+          }
           loading={collaborativeMutation.isPending}
           onPress={() => collaborativeMutation.mutate()}
           tone={isRoleA ? 'teal' : 'blue'}
         />
       </Panel>
 
-      <Panel title="流程邊界">
-        <FeatureRow title="同一台裝置" detail="兩步都保存在這台裝置，提交後由結果頁承接。" tone="teal" />
-        <FeatureRow title="不是正式案件" detail="這是快速雙人模式；需要長期保存時再登入收進帳號。" tone="blue" />
-        <FeatureRow title="避免互相覆寫" detail="第二方只能補自己的說明，不能改第一方文字。" tone="coral" />
+      <Panel title={t('quick.collaborative.boundary.panel')}>
+        <FeatureRow
+          title={t('quick.collaborative.boundary.sameDevice.title')}
+          detail={t('quick.collaborative.boundary.sameDevice.detail')}
+          tone="teal"
+        />
+        <FeatureRow
+          title={t('quick.collaborative.boundary.notFormal.title')}
+          detail={t('quick.collaborative.boundary.notFormal.detail')}
+          tone="blue"
+        />
+        <FeatureRow
+          title={t('quick.collaborative.boundary.noOverwrite.title')}
+          detail={t('quick.collaborative.boundary.noOverwrite.detail')}
+          tone="coral"
+        />
       </Panel>
 
       <View style={styles.actions}>
-        <LinkButton href="/quick" label="改用單人快速判斷" tone="neutral" variant="outline" />
-        <LinkButton href="/" label="回到首頁" tone="neutral" variant="outline" />
+        <LinkButton
+          href="/quick"
+          label={t('quick.collaborative.singleMode')}
+          tone="neutral"
+          variant="outline"
+        />
+        <LinkButton href="/" label={t('common.home')} tone="neutral" variant="outline" />
       </View>
     </Screen>
   );

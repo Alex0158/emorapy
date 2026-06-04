@@ -462,6 +462,18 @@ describe('M1 Quick/Auth screens', () => {
     );
   });
 
+  it('renders collaborative quick entry copy in the selected locale', () => {
+    setLocale('en-US', { persist: false });
+    const screen = renderWithQuery(React.createElement(QuickCollaborativeScreen));
+
+    expect(screen.getByText('Two-person quick note')).toBeTruthy();
+    expect(screen.getByText('First side note')).toBeTruthy();
+    expect(screen.getByText('Step 1 / 2')).toBeTruthy();
+    expect(screen.getByPlaceholderText(/Write what happened/)).toBeTruthy();
+    expect(screen.getByText('Record first side')).toBeTruthy();
+    expect(screen.getByText('Flow boundary')).toBeTruthy();
+  });
+
   it('walks same-device collaborative quick flow from role A to role B result', async () => {
     mockCreateQuickSession.mockResolvedValueOnce({ session_id: 'guest-collab' });
     mockGetSessionId

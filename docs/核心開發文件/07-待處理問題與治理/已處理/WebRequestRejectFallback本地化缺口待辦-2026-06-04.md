@@ -4,8 +4,8 @@
 **文檔類型**：問題治理
 **覆蓋範圍**：Web 前台 Axios response interceptor、HTTP fallback error payload、頁面/store error propagation
 **取證代碼入口**：`frontend/src/services/request.ts`、`frontend/src/services/request.test.ts`、`frontend/src/utils/apiError.ts`
-**最後核驗 Commit**：`d8412fb`
-**最後核驗日期**：`2026-06-04`
+**最後核驗 Commit**：`3ec3642`
+**最後核驗日期**：`2026-06-05`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 ## 問題位置與現象
@@ -48,7 +48,7 @@
 ## Owner / Status Notes
 
 - Owner：agent
-- Status：已完成本輪修復與驗證，待 commit/push。
+- Status：已完成並歸檔。
 
 ## 2026-06-04 本輪結果
 
@@ -59,3 +59,10 @@
 5. `frontend/src/services/request.test.ts` 已補 500、503、裸 500、unknown error 的 reject message 斷言，固定不再回傳 raw `server` / `unavailable` / `boom`。
 6. 已驗證：`npm --prefix frontend test -- src/services/request.test.ts src/utils/apiError.test.ts src/assets/i18n/catalogParity.test.ts`、`npm --prefix frontend run build`、`npm run docs:check` 均通過。
 7. 靜態復查確認 production `frontend/src/services/request.ts` 不再以 raw `error.message` 作 reject fallback；剩餘 `"boom"` 僅在測試 fixture 中作反例。
+
+## 2026-06-05 歸檔復核
+
+1. 代碼復核確認 `frontend/src/services/request.ts` 的 HTTP response reject payload 使用 `getHttpErrorFallbackMessage(status, code, config)`，無後端 message 時不再回傳 Axios/runtime raw `error.message`。
+2. unknown error 分支 reject payload 使用 `common.unknownError`，network/cancel 分支使用各自 locale catalog；頁面 / store catch 後再進入 `getErrorMessage(...)` 也不會外露 raw runtime message。
+3. 2026-06-05 復跑 `npm --prefix frontend test -- src/services/request.test.ts src/utils/apiError.test.ts src/assets/i18n/catalogParity.test.ts`，通過 3 files / 90 tests。
+4. 2026-06-05 復跑 `npm --prefix frontend run build`、`npm run docs:check` 均通過。

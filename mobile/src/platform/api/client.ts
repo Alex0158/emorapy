@@ -13,6 +13,7 @@ import {
   getLocalizedInvalidResponseMessage,
   getLocalizedNetworkMessage,
   getLocalizedStatusMessage,
+  getLocalizedStreamDisconnectedMessage,
   getLocalizedUnknownMessage,
 } from '@/src/platform/api/errorMessages';
 import { sessionStorage, tokenStorage } from '@/src/platform/storage/secureStore';
@@ -51,7 +52,11 @@ function isRequestErrorLike(error: unknown): error is RequestErrorLike {
 }
 
 function isSharedClientInvalidResponseError(error: RequestErrorLike): boolean {
-  return error.code.startsWith('INVALID_') && /^Invalid .+ response from server$/.test(error.message);
+  return error.code.startsWith('INVALID_') && isSharedClientInvalidResponseMessage(error.message);
+}
+
+function isSharedClientInvalidResponseMessage(message: string): boolean {
+  return /^Invalid .+ response from server$/.test(message);
 }
 
 export function createAppApiClient(): AppApiClient {
@@ -109,6 +114,12 @@ export function createAppApiClient(): AppApiClient {
     }
 
     if (error instanceof Error) {
+      if (isSharedClientInvalidResponseMessage(error.message) || error instanceof SyntaxError) {
+        return toRequestError('INVALID_RESPONSE', getLocalizedInvalidResponseMessage());
+      }
+      if (error.message === 'SSE stream disconnected') {
+        return toRequestError('STREAM_DISCONNECTED', getLocalizedStreamDisconnectedMessage());
+      }
       return toRequestError('APP_ERROR', error.message);
     }
 

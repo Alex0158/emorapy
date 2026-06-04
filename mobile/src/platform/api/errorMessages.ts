@@ -36,3 +36,7 @@ export function getLocalizedUnknownMessage(): string {
 export function getLocalizedInvalidResponseMessage(): string {
   return t('appApi.error.invalidResponse');
 }
+
+export function getLocalizedStreamDisconnectedMessage(): string {
+  return t('appStream.error.disconnected');
+}

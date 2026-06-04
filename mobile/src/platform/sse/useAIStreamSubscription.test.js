@@ -15,8 +15,9 @@ jest.mock('@/src/platform/lifecycle/native', () => ({
 }));
 
 const { useAIStreamSubscription } = require('./useAIStreamSubscription');
+const { setLocale } = require('@/src/i18n');
 
-function StreamProbe({ connect }) {
+function StreamProbe({ connect, onConnectionError }) {
   const stream = useAIStreamSubscription({
     scopeKey: 'interview_session:test-session',
     initialState: { text: '', status: 'idle' },
@@ -27,6 +28,7 @@ function StreamProbe({ connect }) {
     }),
     hasRecoverableState: (state) => state.text.length > 0 && state.status !== 'stream.persisted',
     shouldClearRecoveringOnEvent: (event) => event.eventType === 'stream.delta' || event.eventType === 'stream.persisted',
+    onConnectionError,
     getRetryDelayMs: () => 1,
   });
 
@@ -45,6 +47,7 @@ describe('useAIStreamSubscription lifecycle recovery', () => {
     mockLifecycleStatus = 'active';
     mockLifecycleListener = null;
     mockSubscribeLifecycle.mockClear();
+    setLocale('zh-TW', { persist: false });
     jest.useFakeTimers();
   });
 
@@ -106,5 +109,30 @@ describe('useAIStreamSubscription lifecycle recovery', () => {
     await waitFor(() => expect(screen.getByTestId('stream.seq').props.children).toBe('4'));
     expect(screen.getByTestId('stream.text').props.children).toBe('hello again');
     expect(screen.getByTestId('stream.recovering').props.children).toBe('idle');
+  });
+
+  it('localizes the default disconnected fallback for non-error stream failures', async () => {
+    const onConnectionError = jest.fn();
+    const connect = jest.fn(() => Promise.reject('socket closed'));
+
+    render(React.createElement(StreamProbe, { connect, onConnectionError }));
+
+    await waitFor(() => expect(onConnectionError).toHaveBeenCalledWith({
+      code: 'STREAM_DISCONNECTED',
+      message: '串流連線中斷，正在嘗試重新連線。',
+    }));
+  });
+
+  it('localizes fixed disconnected Error messages using the current locale', async () => {
+    setLocale('en-US', { persist: false });
+    const onConnectionError = jest.fn();
+    const connect = jest.fn(() => Promise.reject(new Error('SSE stream disconnected')));
+
+    render(React.createElement(StreamProbe, { connect, onConnectionError }));
+
+    await waitFor(() => expect(onConnectionError).toHaveBeenCalledWith({
+      code: 'STREAM_DISCONNECTED',
+      message: 'The stream connection was interrupted. Reconnecting now.',
+    }));
   });
 });

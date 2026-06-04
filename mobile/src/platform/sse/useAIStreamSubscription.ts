@@ -8,6 +8,7 @@ import {
   subscribeLifecycle,
   type AppLifecycleStatus,
 } from '@/src/platform/lifecycle/native';
+import { getLocalizedStreamDisconnectedMessage } from '@/src/platform/api/errorMessages';
 
 export interface AppStreamError {
   code: string;
@@ -74,7 +75,9 @@ function normalizeStreamError(error: unknown): AppStreamError {
   const status = typeof (error as { status?: unknown })?.status === 'number'
     ? (error as { status: number }).status
     : undefined;
-  const message = error instanceof Error ? error.message : 'SSE stream disconnected';
+  const message = error instanceof Error && error.message !== 'SSE stream disconnected'
+    ? error.message
+    : getLocalizedStreamDisconnectedMessage();
   return {
     code: status ? `HTTP_${status}` : 'STREAM_DISCONNECTED',
     message,

@@ -162,4 +162,35 @@ describe('App API platform adapter', () => {
       message: 'The service response could not be read. Please try again later.',
     });
   });
+
+  it('localizes fixed app Error fallback messages used by streams', () => {
+    const client = createAppApiClient();
+
+    expect(client.normalizeError(new Error('Invalid chat room response from server'))).toEqual({
+      code: 'INVALID_RESPONSE',
+      message: '服務回應格式異常，請稍後再試。',
+    });
+
+    expect(client.normalizeError(new SyntaxError('Unexpected token < in JSON'))).toEqual({
+      code: 'INVALID_RESPONSE',
+      message: '服務回應格式異常，請稍後再試。',
+    });
+
+    expect(client.normalizeError(new Error('SSE stream disconnected'))).toEqual({
+      code: 'STREAM_DISCONNECTED',
+      message: '串流連線中斷，正在嘗試重新連線。',
+    });
+
+    setLocale('en-US', { persist: false });
+
+    expect(client.normalizeError(new Error('Invalid repair track response from server'))).toEqual({
+      code: 'INVALID_RESPONSE',
+      message: 'The service response could not be read. Please try again later.',
+    });
+
+    expect(client.normalizeError(new Error('SSE stream disconnected'))).toEqual({
+      code: 'STREAM_DISCONNECTED',
+      message: 'The stream connection was interrupted. Reconnecting now.',
+    });
+  });
 });

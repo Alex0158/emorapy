@@ -47,7 +47,7 @@ toRequestError('UNKNOWN_ERROR', error.message || t('adminApi.error.unknown'))
 ## Owner / Status Notes
 
 - Owner：agent
-- Status：已完成本輪修復與驗證，待 commit/push。
+- Status：已處理
 
 ## 2026-06-04 本輪結果
 
@@ -56,3 +56,11 @@ toRequestError('UNKNOWN_ERROR', error.message || t('adminApi.error.unknown'))
 3. 保留 HTTP response backend-provided message、status fallback、network fallback 與 cancel fallback 的既有語義。
 4. 已驗證：`npm --prefix frontend-admin test -- src/services/request.test.ts src/utils/i18n.test.ts src/assets/i18n/catalogParity.test.ts`、`npm --prefix frontend-admin run build`、`npm run docs:check` 均通過。
 5. 靜態復查確認 `frontend-admin/src/services/request.ts` unknown branch 只使用 `adminApi.error.unknown` catalog fallback。
+
+## 2026-06-04 收口補驗
+
+本輪全局語言治理復查確認代碼已符合待辦目標，並完成治理狀態收口：
+
+1. `npm --prefix frontend-admin test -- src/services/request.test.ts src/utils/i18n.test.ts src/assets/i18n/catalogParity.test.ts`：passed，3 files / 13 tests。
+2. `npm --prefix frontend-admin run build`：passed。
+3. 靜態復查：`frontend-admin/src/services/request.ts` unknown branch 為 `toRequestError('UNKNOWN_ERROR', t('adminApi.error.unknown'))`，未使用 raw `error.message`。

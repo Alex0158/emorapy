@@ -41,11 +41,12 @@ describe('apiError', () => {
   });
 
   describe('getErrorMessage', () => {
-    it('ApiError 應返回 message', () => {
-      expect(getErrorMessage({ code: 'ERR', message: '用戶可見' })).toBe('用戶可見');
+    it('ApiError 應優先使用受控 code 映射而非 raw message', () => {
+      expect(getErrorMessage({ code: 'FORBIDDEN', message: '固定繁中錯誤' })).toBe('無權限訪問此資源');
     });
-    it('含 message 字串的普通物件（無 code）應返回 message', () => {
-      expect(getErrorMessage({ message: 'direct message' })).toBe('direct message');
+    it('含 message 字串的普通物件（無 code）應使用 fallback 而非 raw message', () => {
+      expect(getErrorMessage({ message: 'direct message' }, 'message.createCaseFail')).toBe('創建案件失敗');
+      expect(getErrorMessage({ message: 'direct message' })).toBe('發生未知錯誤，請稍後再試');
     });
     it('shared/service invalid response fallback 應使用目前語言', async () => {
       expect(getErrorMessage({ code: 'INVALID_PROFILE_RESPONSE', message: 'Invalid profile response from server' })).toBe(
@@ -70,16 +71,16 @@ describe('apiError', () => {
         'The service response could not be read. Please try again later.'
       );
     });
-    it('非 invalid-response pattern 的英文 message 應保持原樣', () => {
-      expect(getErrorMessage({ code: 'ERR', message: 'direct message' })).toBe('direct message');
+    it('非 invalid-response pattern 的英文 message 不應直接外露', () => {
+      expect(getErrorMessage({ code: 'ERR', message: 'direct message' }, 'message.submitFail')).toBe('提交失敗，請稍後再試');
     });
-    it('Object.create(null) 加上 message 應返回 message', () => {
+    it('Object.create(null) 加上 message 應使用 fallback', () => {
       const o = Object.create(null) as { message: string };
       o.message = 'from prototype-less';
-      expect(getErrorMessage(o)).toBe('from prototype-less');
+      expect(getErrorMessage(o)).toBe('發生未知錯誤，請稍後再試');
     });
-    it('Error 實例應返回 message', () => {
-      expect(getErrorMessage(new Error('錯誤'))).toBe('錯誤');
+    it('Error 實例應使用 fallback 而非 raw message', () => {
+      expect(getErrorMessage(new Error('錯誤'), 'message.createCaseFail')).toBe('創建案件失敗');
     });
     it('Error 實例且 message 非字串時應使用 fallback 而非拋錯', () => {
       const e = new Error();
@@ -95,20 +96,20 @@ describe('apiError', () => {
       expect(getErrorMessage(null, 'message.createCaseFail')).toBe('創建案件失敗');
     });
     it('message 為空字串時應使用 fallback 而非顯示空白', () => {
-      expect(getErrorMessage({ code: 'FORBIDDEN', message: '' }, 'message.submitCaseFail')).toBe('提交案件失敗');
+      expect(getErrorMessage({ code: 'FORBIDDEN', message: '' }, 'message.submitCaseFail')).toBe('無權限訪問此資源');
       expect(getErrorMessage({ message: '' })).toBe('發生未知錯誤，請稍後再試');
     });
     it('message 為 null 時應使用 fallback 且不拋錯（F10 邊界：API 可能回傳 null）', () => {
-      expect(getErrorMessage({ code: 'SERVER_ERROR', message: null }, 'message.createCaseFail')).toBe('創建案件失敗');
+      expect(getErrorMessage({ code: 'SERVER_ERROR', message: null }, 'message.createCaseFail')).toBe('服務器錯誤，請稍後再試');
       expect(getErrorMessage({ message: null })).toBe('發生未知錯誤，請稍後再試');
     });
     it('message 為 undefined 時應使用 fallback（F10 邊界：API 可能回傳不完整）', () => {
-      expect(getErrorMessage({ code: 'FORBIDDEN', message: undefined }, 'message.submitCaseFail')).toBe('提交案件失敗');
+      expect(getErrorMessage({ code: 'FORBIDDEN', message: undefined }, 'message.submitCaseFail')).toBe('無權限訪問此資源');
       expect(getErrorMessage({ message: undefined })).toBe('發生未知錯誤，請稍後再試');
     });
-    it('FORBIDDEN 且無 message 屬性時應使用 fallback（權限邊界 fallback 慣例）', () => {
-      expect(getErrorMessage({ code: 'FORBIDDEN' }, 'message.createCaseFail')).toBe('創建案件失敗');
-      expect(getErrorMessage({ code: 'FORBIDDEN' })).toBe('發生未知錯誤，請稍後再試');
+    it('FORBIDDEN 且無 message 屬性時應使用受控 code 映射', () => {
+      expect(getErrorMessage({ code: 'FORBIDDEN' }, 'message.createCaseFail')).toBe('無權限訪問此資源');
+      expect(getErrorMessage({ code: 'FORBIDDEN' })).toBe('無權限訪問此資源');
     });
     it('message 僅空白時應使用 fallback', () => {
       expect(getErrorMessage({ code: 'ERR', message: '   ' }, 'message.createCaseFail')).toBe('創建案件失敗');
@@ -116,8 +117,9 @@ describe('apiError', () => {
     it('Error 實例且 message 為空時應使用 fallback', () => {
       expect(getErrorMessage(new Error(''), 'message.createCaseFail')).toBe('創建案件失敗');
     });
-    it('含嵌套 error.message 時應返回該 message（API 常見結構）', () => {
-      expect(getErrorMessage({ error: { message: '後端錯誤詳情' } })).toBe('後端錯誤詳情');
+    it('含嵌套 error.message 時應使用 fallback，嵌套 code 可使用受控映射', () => {
+      expect(getErrorMessage({ error: { message: '後端錯誤詳情' } }, 'message.submitCaseFail')).toBe('提交案件失敗');
+      expect(getErrorMessage({ error: { code: 'RATE_LIMIT', message: '後端錯誤詳情' } })).toBe('請求過於頻繁，請稍後再試');
     });
     it('嵌套 error.message 為空字串時應使用 fallback（F10 邊界）', () => {
       expect(getErrorMessage({ error: { message: '' } }, 'message.submitCaseFail')).toBe('提交案件失敗');

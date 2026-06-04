@@ -46,12 +46,12 @@ describe('responseHandler', () => {
   describe('handleApiError', () => {
     it('預設 showMessage 為 true 應調用 toast.error', () => {
       handleApiError(new Error('err'));
-      expect(mockToastError).toHaveBeenCalledWith('err');
+      expect(mockToastError).toHaveBeenCalledWith('發生未知錯誤，請稍後再試');
     });
 
     it('showMessage 為 true 時應調用 toast.error', () => {
       handleApiError(new Error('err'), true);
-      expect(mockToastError).toHaveBeenCalledWith('err');
+      expect(mockToastError).toHaveBeenCalledWith('發生未知錯誤，請稍後再試');
     });
 
     it('showMessage 為 false 時不應調用 toast.error', () => {
@@ -59,14 +59,19 @@ describe('responseHandler', () => {
       expect(mockToastError).not.toHaveBeenCalled();
     });
 
-    it('物件帶 message 時應顯示該 message', () => {
+    it('物件帶 message 時應顯示 fallback 而非 raw message', () => {
       handleApiError({ message: 'custom' }, true);
-      expect(mockToastError).toHaveBeenCalledWith('custom');
+      expect(mockToastError).toHaveBeenCalledWith('發生未知錯誤，請稍後再試');
     });
 
-    it('物件帶 error.message 時應顯示', () => {
+    it('物件帶 error.message 時應顯示 fallback 而非 raw message', () => {
       handleApiError({ error: { message: 'nested' } }, true);
-      expect(mockToastError).toHaveBeenCalledWith('nested');
+      expect(mockToastError).toHaveBeenCalledWith('發生未知錯誤，請稍後再試');
+    });
+
+    it('物件帶 code 時應顯示受控本地化映射', () => {
+      handleApiError({ code: 'FORBIDDEN', message: 'raw' }, true);
+      expect(mockToastError).toHaveBeenCalledWith('無權限訪問此資源');
     });
 
     it('無法取得 message 時應顯示默認', () => {

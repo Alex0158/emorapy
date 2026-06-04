@@ -189,6 +189,79 @@ describe('backend i18n', () => {
     expect(translateBackendMessage('zh-TW', '未提供認證Token')).toBe('未提供認證Token');
   });
 
+  it('translates admin controller and service errors to en-US', () => {
+    expect(translateBackendMessage('en-US', 'limit/offset 必須為數字')).toBe(
+      'limit/offset must be numeric'
+    );
+    expect(translateBackendMessage('en-US', 'from 必須為合法 ISO 日期')).toBe(
+      'from must be a valid ISO date'
+    );
+    expect(translateBackendMessage('en-US', 'email/password/name 為必填')).toBe(
+      'email, password, and name are required'
+    );
+    expect(translateBackendMessage('en-US', '管理員帳號已存在，請改用登入')).toBe(
+      'Admin account already exists. Please log in instead'
+    );
+    expect(translateBackendMessage('en-US', '管理員帳號或密碼錯誤')).toBe(
+      'Invalid admin account or password'
+    );
+    expect(translateBackendMessage('en-US', '不可停用自己的管理員帳號')).toBe(
+      'You cannot deactivate your own admin account'
+    );
+    expect(translateBackendMessage('en-US', '系統至少需保留一位啟用中的 super_admin')).toBe(
+      'The system must keep at least one active super_admin'
+    );
+    expect(translateBackendMessage('en-US', '敏感基礎密鑰不可由後台配置管理')).toBe(
+      'Sensitive base secrets cannot be managed from the admin console'
+    );
+    expect(translateBackendMessage('en-US', 'AI Stream 不存在')).toBe('AI Stream not found');
+    expect(translateBackendMessage('zh-TW', '管理員帳號或密碼錯誤')).toBe(
+      '管理員帳號或密碼錯誤'
+    );
+  });
+
+  it('translates admin managed config validation patterns without localizing config keys', () => {
+    expect(translateBackendMessage('en-US', 'feature.flags 必須為 object')).toBe(
+      'feature.flags must be an object'
+    );
+    expect(translateBackendMessage('en-US', 'feature.flags keys 不可超過 200')).toBe(
+      'feature.flags cannot have more than 200 keys'
+    );
+    expect(translateBackendMessage('en-US', 'interview.maxTurns 必須為數字')).toBe(
+      'interview.maxTurns must be numeric'
+    );
+    expect(translateBackendMessage('en-US', 'interview.maxTurns 必須介於 5 ~ 100')).toBe(
+      'interview.maxTurns must be between 5 and 100'
+    );
+    expect(translateBackendMessage('en-US', 'admin.alert.rules[0] 必須為 object')).toBe(
+      'admin.alert.rules[0] must be an object'
+    );
+    expect(translateBackendMessage('en-US', 'admin.alert.rules[0].key 為必填')).toBe(
+      'admin.alert.rules[0].key is required'
+    );
+    expect(translateBackendMessage('en-US', 'admin.alert.rules[0].threshold 必須為 >= 0 的數字')).toBe(
+      'admin.alert.rules[0].threshold must be a number greater than or equal to 0'
+    );
+    expect(translateBackendMessage('en-US', 'admin.alert.rules[0].windowMinutes 必須介於 1 ~ 1440')).toBe(
+      'admin.alert.rules[0].windowMinutes must be between 1 and 1440'
+    );
+    expect(translateBackendMessage('en-US', 'media.provider.nanobananapro 設定必須是 object')).toBe(
+      'media.provider.nanobananapro config must be an object'
+    );
+    expect(translateBackendMessage('en-US', 'media.provider.nanobananapro 的 apiKey 需為非空字串')).toBe(
+      'media.provider.nanobananapro apiKey must be a non-empty string'
+    );
+    expect(translateBackendMessage('en-US', 'media.provider.seedance 的 baseUrl 需為合法 URL')).toBe(
+      'media.provider.seedance baseUrl must be a valid URL'
+    );
+    expect(translateBackendMessage('en-US', 'media.provider.seedance 的 timeoutMs 需為正整數')).toBe(
+      'media.provider.seedance timeoutMs must be a positive integer'
+    );
+    expect(translateBackendMessage('zh-TW', 'feature.flags 必須為 object')).toBe(
+      'feature.flags 必須為 object'
+    );
+  });
+
   it('translates user profile and avatar controller errors to en-US', () => {
     expect(translateBackendMessage('en-US', '用戶不存在')).toBe('User not found');
     expect(translateBackendMessage('en-US', '沒有可更新的字段')).toBe(

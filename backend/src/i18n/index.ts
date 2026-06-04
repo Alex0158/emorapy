@@ -126,6 +126,43 @@ const directEnUSMap: Record<string, string> = {
   '管理員 Token 已失效，請重新登入': 'Admin token is no longer valid. Please log in again.',
   '管理員未認證': 'Admin is not authenticated',
   '管理員權限不足': 'Admin permission is insufficient',
+  'limit/offset 必須為數字': 'limit/offset must be numeric',
+  'from 必須為合法 ISO 日期': 'from must be a valid ISO date',
+  'to 必須為合法 ISO 日期': 'to must be a valid ISO date',
+  'from 不可晚於 to': 'from cannot be later than to',
+  'maxRows 必須為數字': 'maxRows must be numeric',
+  'includeRunning 必須為 boolean': 'includeRunning must be boolean',
+  'source 必須為 live/archive/all': 'source must be live/archive/all',
+  'email/password/name 為必填': 'email, password, and name are required',
+  'email/password 為必填': 'email and password are required',
+  '任務不存在或不支援手動觸發': 'Task does not exist or does not support manual triggering',
+  'config key 為必填': 'config key is required',
+  '敏感基礎密鑰不可由後台配置管理': 'Sensitive base secrets cannot be managed from the admin console',
+  '該配置 key 不在後台可管理白名單': 'This config key is not in the admin-managed allowlist',
+  '使用者不存在': 'User not found',
+  'action 必須是 lock/unlock/deactivate/activate': 'action must be lock/unlock/deactivate/activate',
+  '通知不存在': 'Notification not found',
+  '人工恢復任務不存在': 'Manual recovery task not found',
+  'rules 必須為陣列': 'rules must be an array',
+  'flags 必須為 object': 'flags must be an object',
+  'streamId 為必填': 'streamId is required',
+  'AI Stream 不存在': 'AI Stream not found',
+  '管理員帳號已存在，請改用登入': 'Admin account already exists. Please log in instead',
+  '生產環境必須配置 ADMIN_BOOTSTRAP_TOKEN': 'ADMIN_BOOTSTRAP_TOKEN must be configured in production',
+  '缺少 ADMIN_BOOTSTRAP_TOKEN 配置': 'ADMIN_BOOTSTRAP_TOKEN configuration is missing',
+  'Bootstrap token 不正確': 'Bootstrap token is incorrect',
+  '管理員密碼至少 10 碼': 'Admin password must be at least 10 characters',
+  '管理員角色不存在': 'Admin role not found',
+  '管理員帳號或密碼錯誤': 'Invalid admin account or password',
+  '管理員不存在': 'Admin not found',
+  '不可停用自己的管理員帳號': 'You cannot deactivate your own admin account',
+  '不可自行變更角色': 'You cannot change your own role',
+  '系統至少需保留一位啟用中的 super_admin': 'The system must keep at least one active super_admin',
+  '不可刪除自己的管理員帳號': 'You cannot delete your own admin account',
+  'feature.flags 必須為 object': 'feature.flags must be an object',
+  'feature.flags keys 不可超過 200': 'feature.flags cannot have more than 200 keys',
+  'feature.flags key 不可為空字串': 'feature.flags keys cannot be empty strings',
+  'media.providers 必須是 object': 'media.providers must be an object',
   '密碼過於簡單，請使用更複雜的密碼': 'Password is too weak, please choose a stronger password',
   '密碼長度至少8位': 'Password must be at least 8 characters',
   '密碼長度不能超過128位': 'Password cannot exceed 128 characters',
@@ -365,6 +402,66 @@ function translateDynamicBackendMessage(message: string): string | null {
   const relationAllowedValues = message.match(/^relation 只能是 (.+)$/);
   if (relationAllowedValues) {
     return `relation must be one of ${relationAllowedValues[1]}`;
+  }
+
+  const adminKeyRequired = message.match(/^([A-Za-z0-9._/\[\]-]+) 為必填$/);
+  if (adminKeyRequired) {
+    return `${adminKeyRequired[1]} is required`;
+  }
+
+  const adminKeyNumeric = message.match(/^([A-Za-z0-9._/\[\]-]+) 必須為數字$/);
+  if (adminKeyNumeric) {
+    return `${adminKeyNumeric[1]} must be numeric`;
+  }
+
+  const adminKeyBoolean = message.match(/^([A-Za-z0-9._/\[\]-]+) 必須為 boolean$/);
+  if (adminKeyBoolean) {
+    return `${adminKeyBoolean[1]} must be boolean`;
+  }
+
+  const adminKeyObject = message.match(/^([A-Za-z0-9._/\[\]-]+) 必須為 object$/);
+  if (adminKeyObject) {
+    return `${adminKeyObject[1]} must be an object`;
+  }
+
+  const adminKeyArray = message.match(/^([A-Za-z0-9._/\[\]-]+) 必須為 array$/);
+  if (adminKeyArray) {
+    return `${adminKeyArray[1]} must be an array`;
+  }
+
+  const adminKeyRange = message.match(/^([A-Za-z0-9._/\[\]-]+) 必須介於 (\d+) ~ (\d+)$/);
+  if (adminKeyRange) {
+    return `${adminKeyRange[1]} must be between ${adminKeyRange[2]} and ${adminKeyRange[3]}`;
+  }
+
+  const adminKeyMaxLength = message.match(/^([A-Za-z0-9._/\[\]-]+) 長度不可超過 (\d+)$/);
+  if (adminKeyMaxLength) {
+    return `${adminKeyMaxLength[1]} length cannot exceed ${adminKeyMaxLength[2]}`;
+  }
+
+  const adminAlertThreshold = message.match(/^(admin\.alert\.rules\[\d+\]\.threshold) 必須為 >= 0 的數字$/);
+  if (adminAlertThreshold) {
+    return `${adminAlertThreshold[1]} must be a number greater than or equal to 0`;
+  }
+
+  const adminProviderObject = message.match(/^([A-Za-z0-9._-]+) 設定必須是 object$/);
+  if (adminProviderObject) {
+    return `${adminProviderObject[1]} config must be an object`;
+  }
+
+  const adminProviderApiKey = message.match(/^([A-Za-z0-9._-]+) 的 apiKey 需為非空字串$/);
+  if (adminProviderApiKey) {
+    return `${adminProviderApiKey[1]} apiKey must be a non-empty string`;
+  }
+
+  const adminProviderBaseUrl = message.match(/^([A-Za-z0-9._-]+) 的 baseUrl 需為合法 URL$/);
+  if (adminProviderBaseUrl) {
+    return `${adminProviderBaseUrl[1]} baseUrl must be a valid URL`;
+  }
+
+  const adminProviderTimeoutMs = message.match(/^([A-Za-z0-9._-]+) 的 timeoutMs 需為正整數$/);
+  if (adminProviderTimeoutMs) {
+    return `${adminProviderTimeoutMs[1]} timeoutMs must be a positive integer`;
   }
 
   const providerTestInvalidResponse = message.match(/^(.+) 測試請求回應異常$/);

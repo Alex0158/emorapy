@@ -4,7 +4,7 @@
 **文檔類型**：App端規格
 **覆蓋範圍**：Expo App 基線、原生能力邊界與 App 開發投影：01-App導航與平台Adapter基線
 **取證代碼入口**：`mobile/package.json`、`mobile/tsconfig.json`、`mobile/app/_layout.tsx`、`mobile/app/modal.tsx`、`mobile/src/platform`、`packages/contracts/src`、`packages/api-client/src`
-**最後核驗 Commit**：`fb2880d`
+**最後核驗 Commit**：`b183907`
 **最後核驗日期**：`2026-06-05`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -58,7 +58,7 @@ CJ App navigation 固定按以下平台投影分組；M0-M5 已完成首輪 scre
 | `(public)` / Auth / Session | login、register、anonymous session restore、logout、claim handoff | auth / session routes | M0 / M1 |
 | Quick | 快速判斷、同機協作聽證、結果回訪、claim | quick session / case / judgment / stream | M1 |
 | `(app)` shell | 登入後主 shell、provider、tab / stack 結構 | auth / notification unread count | M0 |
-| Case | 配對、正式案件、判決、修復旅程 | pairing / case / judgment / reconciliation / execution | M4 |
+| Case | 配對、正式案件、判決、修復旅程；chat-to-case 自動標題由 backend 依 request locale 寫入，App 只顯示 `Case.title` | pairing / case / judgment / reconciliation / execution | M4 |
 | Chat | 聊天室、邀請、先聊再判、chat handoff | chat / message / stream / judgment handoff | M3 |
 | Profile | 心理訪談、個人檔案、關係檔案 | interview / psych profile / profile | M2 |
 | Notifications | in-app notification、Push entry、Deep Link landing | notification / content / deep-link target / device token 待辦 | M5 |

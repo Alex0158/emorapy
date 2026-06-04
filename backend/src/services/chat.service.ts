@@ -71,6 +71,11 @@ type RequestJudgmentResult = {
   status: ChatRoomStatus;
 };
 
+function buildChatToCaseTitle(locale: BackendLocale | undefined, now: Date): string {
+  const date = now.toISOString().slice(0, 10);
+  return locale === 'en-US' ? `Chat to Analysis-${date}` : `聊天室轉梳理結果-${date}`;
+}
+
 export class ChatService {
   private inFlightJudgmentByRoom = new Map<string, Promise<RequestJudgmentResult>>();
   private roomMessageTimestamps = new Map<string, number[]>();
@@ -1151,7 +1156,7 @@ export class ChatService {
       const mode = room.owner_user_id ? CaseMode.collaborative : CaseMode.quick;
       const pairingId = await this.ensurePairingForRoom(room, roleBParticipant?.user_id ?? null);
       const now = new Date();
-      const title = `聊天室轉判決-${now.toISOString().slice(0, 10)}`;
+      const title = buildChatToCaseTitle(options?.locale, now);
 
       let caseId = '';
       let linkId = '';

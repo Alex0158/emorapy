@@ -882,9 +882,13 @@ describe('ChatService', () => {
     expect(result.caseId).toBe('case-solo-reuse');
     expect(prismaMock.case.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ pairing_id: 'pair-solo-existing' }),
+        data: expect.objectContaining({
+          pairing_id: 'pair-solo-existing',
+          title: expect.stringMatching(/^聊天室轉梳理結果-\d{4}-\d{2}-\d{2}$/),
+        }),
       })
     );
+    expect(prismaMock.case.create.mock.calls[0][0].data.title).not.toContain('判決');
     expect(prismaMock.pairing.create).not.toHaveBeenCalled();
   });
 
@@ -1358,6 +1362,13 @@ describe('ChatService', () => {
       sessionId: undefined,
       locale: 'en-US',
     });
+    expect(prismaMock.case.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          title: expect.stringMatching(/^Chat to Analysis-\d{4}-\d{2}-\d{2}$/),
+        }),
+      })
+    );
     expect(snapshot.gap_details).not.toEqual(
       expect.arrayContaining([
         expect.objectContaining({ code: 'MISSING_EMOTION_SIGNAL' }),

@@ -6,6 +6,19 @@ const enUS: Record<string, string> = {
 
   'common.home': 'Back home',
 
+  'appApi.error.badRequest': 'The request could not be processed.',
+  'appApi.error.unauthorized': 'Please sign in before continuing.',
+  'appApi.error.forbidden': 'You do not have permission to do this right now.',
+  'appApi.error.notFound': 'This item could not be found. It may have expired or been removed.',
+  'appApi.error.conflict': 'The data state changed. Refresh and try again.',
+  'appApi.error.validation': 'Check your input and try again.',
+  'appApi.error.rateLimit': 'Too many actions. Please try again later.',
+  'appApi.error.server': 'The service could not complete the request. Please try again later.',
+  'appApi.error.unavailable': 'The service is temporarily unavailable. Please try again later.',
+  'appApi.error.requestFailed': 'Request failed. Please try again later.',
+  'appApi.error.network': 'Network connection failed. Check your connection and try again.',
+  'appApi.error.unknown': 'An unknown error occurred. Please try again later.',
+
   'ui.link.accessibilityHint': 'Open "{label}"',
   'ui.action.accessibilityHint': 'Run "{label}"',
 

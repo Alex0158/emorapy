@@ -6,6 +6,19 @@ const zhTW: Record<string, string> = {
 
   'common.home': '回到首頁',
 
+  'appApi.error.badRequest': '請求內容無法處理。',
+  'appApi.error.unauthorized': '請先登入後再繼續。',
+  'appApi.error.forbidden': '目前沒有權限執行這個操作。',
+  'appApi.error.notFound': '找不到這項資料，可能已過期或被移除。',
+  'appApi.error.conflict': '資料狀態已變更，請刷新後重試。',
+  'appApi.error.validation': '請檢查輸入內容後再試。',
+  'appApi.error.rateLimit': '操作太頻繁，請稍後再試。',
+  'appApi.error.server': '服務暫時無法完成請求，請稍後再試。',
+  'appApi.error.unavailable': '服務暫時不可用，請稍後再試。',
+  'appApi.error.requestFailed': '請求失敗，請稍後再試。',
+  'appApi.error.network': '網路連線失敗，請檢查連線後再試。',
+  'appApi.error.unknown': '發生未知錯誤，請稍後再試。',
+
   'ui.link.accessibilityHint': '開啟「{label}」',
   'ui.action.accessibilityHint': '執行「{label}」',
 

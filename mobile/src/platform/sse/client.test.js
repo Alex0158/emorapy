@@ -114,4 +114,39 @@ describe('App SSE client', () => {
       message: '需要登入',
     });
   });
+
+  it('localizes stream open fallback errors when the backend does not provide a message', async () => {
+    mockFetchEventSource.mockImplementationOnce(async (_url, options) => {
+      await options.onopen({
+        ok: false,
+        status: 503,
+        json: async () => ({ success: false }),
+      });
+    });
+
+    await expect(connectAppSSE({
+      path: '/streams/interview_session/session-1',
+      onMessage: jest.fn(),
+    })).rejects.toEqual({
+      code: 'HTTP_503',
+      message: '服務暫時不可用，請稍後再試。',
+    });
+
+    setLocale('en-US', { persist: false });
+    mockFetchEventSource.mockImplementationOnce(async (_url, options) => {
+      await options.onopen({
+        ok: false,
+        status: 500,
+        json: async () => ({ success: false }),
+      });
+    });
+
+    await expect(connectAppSSE({
+      path: '/streams/interview_session/session-1',
+      onMessage: jest.fn(),
+    })).rejects.toEqual({
+      code: 'HTTP_500',
+      message: 'The service could not complete the request. Please try again later.',
+    });
+  });
 });

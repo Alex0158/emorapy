@@ -96,4 +96,38 @@ describe('App API platform adapter', () => {
       message: 'local failure',
     });
   });
+
+  it('localizes fallback transport errors when the backend does not provide a message', () => {
+    const client = createAppApiClient();
+
+    expect(client.normalizeError({
+      isAxiosError: true,
+      response: { status: 404, data: { success: false } },
+    })).toMatchObject({
+      code: 'HTTP_404',
+      message: '找不到這項資料，可能已過期或被移除。',
+    });
+
+    expect(client.normalizeError({
+      isAxiosError: true,
+    })).toMatchObject({
+      code: 'NETWORK_ERROR',
+      message: '網路連線失敗，請檢查連線後再試。',
+    });
+
+    expect(client.normalizeError({ reason: 'unexpected' })).toMatchObject({
+      code: 'UNKNOWN_ERROR',
+      message: '發生未知錯誤，請稍後再試。',
+    });
+
+    setLocale('en-US', { persist: false });
+
+    expect(client.normalizeError({
+      isAxiosError: true,
+      response: { status: 429, data: { success: false } },
+    })).toMatchObject({
+      code: 'HTTP_429',
+      message: 'Too many actions. Please try again later.',
+    });
+  });
 });

@@ -2,12 +2,12 @@ import { fetchEventSource, type EventSourceMessage } from '@microsoft/fetch-even
 import {
   readApiResponseError,
   statusToRequestCode,
-  statusToRequestMessage,
   toRequestError,
 } from '@cj/api-client';
 
 import { getRuntimeConfig } from '@/src/config/runtime';
 import { getLocale } from '@/src/i18n';
+import { getLocalizedStatusMessage } from '@/src/platform/api/errorMessages';
 import { sessionStorage, tokenStorage } from '@/src/platform/storage/secureStore';
 
 export interface AppSSEOptions {
@@ -37,7 +37,7 @@ async function readStreamOpenError(response: Response): Promise<unknown> {
   const bodyError = readApiResponseError(body);
   return toRequestError(
     bodyError.code ?? statusToRequestCode(response.status),
-    bodyError.message ?? statusToRequestMessage(response.status),
+    bodyError.message ?? getLocalizedStatusMessage(response.status),
     bodyError.details
   );
 }

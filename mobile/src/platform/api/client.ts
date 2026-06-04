@@ -2,7 +2,6 @@ import axios, { AxiosHeaders, type AxiosError, type AxiosInstance, type Internal
 import {
   readApiResponseError,
   statusToRequestCode,
-  statusToRequestMessage,
   toRequestError,
   type RequestContext,
   type RequestErrorLike,
@@ -10,6 +9,11 @@ import {
 
 import { getRuntimeConfig } from '@/src/config/runtime';
 import { getLocale } from '@/src/i18n';
+import {
+  getLocalizedNetworkMessage,
+  getLocalizedStatusMessage,
+  getLocalizedUnknownMessage,
+} from '@/src/platform/api/errorMessages';
 import { sessionStorage, tokenStorage } from '@/src/platform/storage/secureStore';
 
 export interface AppApiClient {
@@ -91,7 +95,7 @@ export function createAppApiClient(): AppApiClient {
       const bodyError = readApiResponseError(axiosError.response?.data);
       return toRequestError(
         bodyError.code ?? (status ? statusToRequestCode(status) : 'NETWORK_ERROR'),
-        bodyError.message ?? (status ? statusToRequestMessage(status) : 'Network request failed'),
+        bodyError.message ?? (status ? getLocalizedStatusMessage(status) : getLocalizedNetworkMessage()),
         bodyError.details
       );
     }
@@ -100,7 +104,7 @@ export function createAppApiClient(): AppApiClient {
       return toRequestError('APP_ERROR', error.message);
     }
 
-    return toRequestError('UNKNOWN_ERROR', 'Unknown request error', error);
+    return toRequestError('UNKNOWN_ERROR', getLocalizedUnknownMessage(), error);
   }
 
   return { instance, getContext, normalizeError };

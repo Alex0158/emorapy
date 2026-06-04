@@ -4,7 +4,7 @@
 **文檔類型**：問題治理
 **覆蓋範圍**：App platform API client error normalization、App SSE open error normalization、M1-M5 App feature API/SSE shared entry
 **取證代碼入口**：`mobile/src/platform/api/client.ts`、`mobile/src/platform/sse/client.ts`、`mobile/src/platform/api/errorMessages.ts`、`mobile/src/features`
-**最後核驗 Commit**：`df7aed3`
+**最後核驗 Commit**：`40654eb`
 **最後核驗日期**：`2026-06-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -45,7 +45,7 @@
 
 - `npm --prefix mobile run test -- src/platform/api/client.test.js src/platform/sse/client.test.js --runInBand`：通過 2 suites / 10 tests。
 - `npm --prefix mobile run typecheck`：通過。
-- `npm run docs:check`：待提交前執行。
+- `npm run docs:check`：通過。
 - 靜態復查已確認 `mobile/src/platform/api/client.ts` 與 `mobile/src/platform/sse/client.ts` 不再用 `bodyError.message` 作可見 fallback。
 
 ## 修復結果
@@ -58,4 +58,4 @@
 ## Owner / Status Notes
 
 - Owner：agent
-- Status：已修復，待提交。
+- Status：已修復，已提交。

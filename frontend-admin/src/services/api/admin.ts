@@ -30,6 +30,7 @@ import type {
   RateBase,
 } from '@/types/admin';
 import request from '../request';
+import { t } from '@/utils/i18n';
 
 const ADMIN_TOKEN_STORAGE_KEY = 'admin_token';
 const ADMIN_TOKEN_CHANGED_EVENT = 'admin-token-changed';
@@ -286,7 +287,7 @@ export const adminApi = {
     );
     const data = (response.data as ApiResponse<AdminLoginData>)?.data;
     if (!data?.token || !data?.admin?.id) {
-      throw new Error('Invalid admin login response from server');
+      throw new Error(t('adminApi.error.invalidAdminLoginResponse'));
     }
     return data;
   },
@@ -297,7 +298,7 @@ export const adminApi = {
     });
     const payload = (response.data as ApiResponse<AdminMeData>)?.data;
     if (!payload?.admin?.id) {
-      throw new Error('Invalid admin me response from server');
+      throw new Error(t('adminApi.error.invalidAdminMeResponse'));
     }
     return {
       admin: {

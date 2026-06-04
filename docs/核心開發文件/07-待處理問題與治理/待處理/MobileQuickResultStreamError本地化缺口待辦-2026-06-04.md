@@ -4,7 +4,7 @@
 **文檔類型**：問題治理
 **覆蓋範圍**：App quick result AI stream status/error display、App stream hook callbacks、M1 quick judgment stream tests
 **取證代碼入口**：`mobile/app/(public)/quick/result.tsx`、`mobile/src/platform/sse/useAIStreamSubscription.ts`、`mobile/src/platform/api/client.ts`、`mobile/src/platform/api/errorMessages.ts`、`mobile/src/i18n/catalogs`
-**最後核驗 Commit**：`0234a82`
+**最後核驗 Commit**：`0a76537`
 **最後核驗日期**：`2026-06-04`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -54,3 +54,18 @@
 3. Focused tests 覆蓋 AI `fullText` / `text` 正常顯示不受影響。
 4. `npm --prefix mobile run typecheck` 通過。
 5. `npm run docs:check` 通過。
+
+## 修復結果
+
+1. `mobile/app/(public)/quick/result.tsx` 已新增 `formatQuickResultStreamError()`，用 `status` / `HTTP_*` / 已知 code 映射 App locale catalog，不再顯示 raw `message`。
+2. `describeStreamStatus()` 對 event/snapshot error 改用 formatter；`fullText`、`deltaText`、`phase`、snapshot `text` 的正常 AI 內容顯示維持不變。
+3. `reduceReady()` / `reduceEvent()` / `onConnectionError()` / `onTerminalError()` 已統一用 formatter 寫入 `streamState.error`。
+4. `mobile/src/i18n/catalogs/zh-TW.ts` 與 `mobile/src/i18n/catalogs/en-US.ts` 已新增 `quick.result.stream.error` fallback。
+5. `mobile/__tests__/m1-screens.test.js` 已補 raw stream event error、connection error 不外露，以及 generated text 不被 fallback 覆蓋的回歸測試。
+
+## 本輪驗證
+
+1. `npm --prefix mobile test -- __tests__/m1-screens.test.js` 通過 1 suite / 24 tests。
+2. `npm --prefix mobile run typecheck` 通過。
+3. `npm --prefix mobile test -- src/i18n/index.test.js __tests__/m1-screens.test.js` 通過 2 suites / 28 tests。
+4. 靜態掃描確認 `mobile/app/(public)/quick/result.tsx` 不再包含 `error.message` / `error?.message` 直出；raw `provider down`、`socket exploded`、`服務器錯誤` 僅作測試輸入與否定斷言。

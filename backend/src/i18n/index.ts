@@ -298,6 +298,7 @@ const directEnUSMap: Record<string, string> = {
   '聊天室狀態已變更，請重試邀請': 'Chat room status changed. Please retry the invite',
   '無法生成唯一邀請碼，請稍後重試': 'Unable to generate a unique invite code. Please try again later',
   '接受邀請需要登入帳號': 'Log in to accept the invite',
+  '邀請不存在': 'Invite not found',
   '邀請碼不存在': 'Invite code not found',
   '邀請碼不可用': 'Invite code is unavailable',
   '聊天室當前狀態不允許接受邀請': 'The current chat room status does not allow accepting invites',

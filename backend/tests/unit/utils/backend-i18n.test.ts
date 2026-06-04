@@ -339,6 +339,7 @@ describe('backend i18n', () => {
     expect(translateBackendMessage('en-US', '只有發起方可發送邀請')).toBe(
       'Only the initiator can send invites'
     );
+    expect(translateBackendMessage('en-US', '邀請不存在')).toBe('Invite not found');
     expect(translateBackendMessage('en-US', '邀請碼不存在')).toBe('Invite code not found');
     expect(translateBackendMessage('en-US', '聊天室當前狀態不允許接受邀請')).toBe(
       'The current chat room status does not allow accepting invites'

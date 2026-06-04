@@ -97,7 +97,7 @@ describe('App SSE client', () => {
     );
   });
 
-  it('turns non-2xx stream open responses into typed App API errors', async () => {
+  it('turns non-2xx stream open responses into typed localized App API errors', async () => {
     mockFetchEventSource.mockImplementationOnce(async (_url, options) => {
       await options.onopen({
         ok: false,
@@ -111,7 +111,7 @@ describe('App SSE client', () => {
       onMessage: jest.fn(),
     })).rejects.toEqual({
       code: 'AUTH_REQUIRED',
-      message: '需要登入',
+      message: '請先登入後再繼續。',
     });
   });
 
@@ -146,6 +146,22 @@ describe('App SSE client', () => {
       onMessage: jest.fn(),
     })).rejects.toEqual({
       code: 'HTTP_500',
+      message: 'The service could not complete the request. Please try again later.',
+    });
+
+    mockFetchEventSource.mockImplementationOnce(async (_url, options) => {
+      await options.onopen({
+        ok: false,
+        status: 500,
+        json: async () => ({ error: { code: 'SERVER_ERROR', message: '服務器錯誤' } }),
+      });
+    });
+
+    await expect(connectAppSSE({
+      path: '/streams/interview_session/session-1',
+      onMessage: jest.fn(),
+    })).rejects.toEqual({
+      code: 'SERVER_ERROR',
       message: 'The service could not complete the request. Please try again later.',
     });
   });

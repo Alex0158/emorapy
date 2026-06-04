@@ -108,7 +108,7 @@ export function createAppApiClient(): AppApiClient {
       const bodyError = readApiResponseError(axiosError.response?.data);
       return toRequestError(
         bodyError.code ?? (status ? statusToRequestCode(status) : 'NETWORK_ERROR'),
-        bodyError.message ?? (status ? getLocalizedStatusMessage(status) : getLocalizedNetworkMessage()),
+        status ? getLocalizedStatusMessage(status) : getLocalizedNetworkMessage(),
         bodyError.details
       );
     }

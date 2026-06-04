@@ -72,7 +72,7 @@ describe('App API platform adapter', () => {
     expect(response.config.headers.get('X-Locale')).toBe('en-US');
   });
 
-  it('normalizes axios envelope errors and plain app errors', () => {
+  it('normalizes axios envelope errors with localized fallback and plain app errors', () => {
     const client = createAppApiClient();
     const envelope = client.normalizeError({
       isAxiosError: true,
@@ -87,7 +87,7 @@ describe('App API platform adapter', () => {
 
     expect(envelope).toEqual({
       code: 'AUTH_REQUIRED',
-      message: '需要登入',
+      message: '請先登入後再繼續。',
       details: { path: '/case' },
     });
 
@@ -129,9 +129,20 @@ describe('App API platform adapter', () => {
       code: 'HTTP_429',
       message: 'Too many actions. Please try again later.',
     });
+
+    expect(client.normalizeError({
+      isAxiosError: true,
+      response: {
+        status: 500,
+        data: { error: { code: 'SERVER_ERROR', message: '服務器錯誤' } },
+      },
+    })).toMatchObject({
+      code: 'SERVER_ERROR',
+      message: 'The service could not complete the request. Please try again later.',
+    });
   });
 
-  it('localizes shared-client invalid response fallback errors without overriding backend messages', () => {
+  it('localizes shared-client invalid response fallback errors without overriding typed app errors', () => {
     const client = createAppApiClient();
 
     expect(client.normalizeError({

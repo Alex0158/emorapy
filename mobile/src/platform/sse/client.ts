@@ -37,7 +37,7 @@ async function readStreamOpenError(response: Response): Promise<unknown> {
   const bodyError = readApiResponseError(body);
   return toRequestError(
     bodyError.code ?? statusToRequestCode(response.status),
-    bodyError.message ?? getLocalizedStatusMessage(response.status),
+    getLocalizedStatusMessage(response.status),
     bodyError.details
   );
 }

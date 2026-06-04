@@ -19,6 +19,8 @@ import { ruptureRepairService } from './rupture-repair.service';
 import { clinicalQualityService } from './clinical-quality.service';
 import { env } from '../config/env';
 import { aiStreamService } from './ai-stream.service';
+import { buildAIStreamFailurePayload } from './ai-stream-failure-payload-utils';
+import type { BackendLocale } from '../i18n';
 import {
   buildCaseSourceTrackingForRead,
   canAccessSessionBoundCase,
@@ -380,7 +382,7 @@ export class JudgmentService {
    * @throws {Errors.VALIDATION_ERROR} - 責任分比例格式錯誤
    * @throws {Errors.CONFLICT} - 正在生成判決，請稍後
    */
-  async generateJudgment(caseId: string, options?: { userId?: string; sessionId?: string }) {
+  async generateJudgment(caseId: string, options?: { userId?: string; sessionId?: string; locale?: BackendLocale }) {
     const lockKey = `judgment:lock:${caseId}`;
     let aiUsed = false;
     const streamHandle = await aiStreamService.createStream('case_judgment', caseId);
@@ -889,13 +891,14 @@ export class JudgmentService {
 
           await aiStreamService.failed(
             streamHandle,
-            {
+            buildAIStreamFailurePayload({
               code: timedOut || msg.includes('超時') || msg.includes('timeout') || msg.includes('AbortError') || msg.includes('aborted')
                 ? 'JUDGMENT_STREAM_TIMEOUT'
                 : 'JUDGMENT_STREAM_FAILED',
               message: reasonToStore,
+              locale: options?.locale,
               retryable: true,
-            },
+            }),
             {
               actorRole: 'ai',
               phase: 'finalizing',

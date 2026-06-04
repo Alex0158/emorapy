@@ -206,4 +206,31 @@ describe('ChatAIOrchestrator prompt 選擇', () => {
     }));
     expect(chatEventsService.publish).toHaveBeenCalledTimes(1);
   });
+
+  it('AI 產生失敗時 stream payload 應跟隨 locale 且不外露原始錯誤', async () => {
+    const lockDone = new Promise<void>((r) => { lockState.resolve = r; });
+    generateTextStreamMock.mockRejectedValueOnce(new Error('provider down'));
+
+    chatAIOrchestrator.onUserMessage(
+      {
+        roomId: 'room-stream-failed',
+        roomStatus: 'solo_active',
+        locale: 'en-US',
+      },
+      { id: 'p-a', role_in_room: 'roleA', is_active: true } as any,
+      { id: 'm1', content: '他都不回我訊息，我好難過', visibility_scope: 'all' }
+    );
+    await lockDone;
+
+    expect(aiStreamService.failed).toHaveBeenCalledWith(
+      expect.objectContaining({ streamId: 'stream-1', requestId: 'request-1' }),
+      expect.objectContaining({
+        code: 'CHAT_AI_STREAM_FAILED',
+        message: 'AI reply failed. Please try again later.',
+        retryable: true,
+      }),
+      expect.objectContaining({ actorRole: 'aiMediator', phase: 'thinking' })
+    );
+    expect((aiStreamService.failed as jest.Mock).mock.calls[0][1].message).not.toBe('provider down');
+  });
 });

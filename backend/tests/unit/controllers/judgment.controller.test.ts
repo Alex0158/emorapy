@@ -88,6 +88,7 @@ describe('JudgmentController', () => {
     it('成功應調用 judgmentService.generateJudgment 並返回 JSON', async () => {
       req.params = { id: 'case-1' };
       req.query = { session_id: 's1' };
+      (req as Request).locale = 'en-US';
       const judgment = { id: 'j1', case_id: 'case-1', judgment_content: '...' };
       mockGenerateJudgment.mockResolvedValue(judgment);
 
@@ -97,6 +98,7 @@ describe('JudgmentController', () => {
       expect(mockGenerateJudgment).toHaveBeenCalledWith('case-1', {
         userId: 'u1',
         sessionId: 's1',
+        locale: 'en-US',
       });
       expect(res.json).toHaveBeenCalledWith({
         success: true,
@@ -116,6 +118,7 @@ describe('JudgmentController', () => {
       expect(mockGenerateJudgment).toHaveBeenCalledWith('case-1', {
         userId: 'u1',
         sessionId: 's2',
+        locale: undefined,
       });
     });
 

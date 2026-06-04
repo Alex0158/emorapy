@@ -22,6 +22,8 @@ import {
 } from './repair-eligibility.service';
 import { buildRuntimeAILedgerSourceTracking } from '../utils/ai-ledger-source';
 import { getAIPromptVersion } from '../utils/ai-prompt-version';
+import { buildAIStreamFailurePayload } from './ai-stream-failure-payload-utils';
+import type { BackendLocale } from '../i18n';
 
 export interface CheckinDto {
   plan_id: string;
@@ -551,6 +553,7 @@ export class ExecutionService {
       judgmentId: string;
       versionGroupId: string;
     },
+    locale?: BackendLocale,
   ) {
     try {
       await aiStreamService.start(handle, {
@@ -868,11 +871,12 @@ export class ExecutionService {
         reason: dto.reason,
       }).catch(() => undefined);
 
-      await aiStreamService.failed(handle, {
+      await aiStreamService.failed(handle, buildAIStreamFailurePayload({
         code: 'REPLAN_FAILED',
-        message: error instanceof Error ? error.message : 'AI 重調失敗',
+        locale,
+        fallbackMessage: 'AI 重調失敗',
         retryable: true,
-      }, {
+      }), {
         actorRole: 'aiMediator',
         metadata: {
           task_type: 'repair_replan',
@@ -1065,7 +1069,7 @@ export class ExecutionService {
     return execution;
   }
 
-  async replanTrack(userId: string, trackId: string, dto: ReplanTrackDto): Promise<ReplanTrackAccepted> {
+  async replanTrack(userId: string, trackId: string, dto: ReplanTrackDto, locale?: BackendLocale): Promise<ReplanTrackAccepted> {
     const track = await prisma.repairTrack.findUnique({
       where: { id: trackId },
       include: {
@@ -1133,7 +1137,7 @@ export class ExecutionService {
       planId: track.plan_id,
       judgmentId: track.plan.judgment_id,
       versionGroupId,
-    });
+    }, locale);
 
     logger.info('Repair track replan accepted', {
       trackId,

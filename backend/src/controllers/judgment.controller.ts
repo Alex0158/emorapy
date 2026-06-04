@@ -15,7 +15,7 @@ export class JudgmentController {
       if (hasConflict) {
         throw Errors.INVALID_SESSION_ID('Header 與 Query 的 Session ID 不一致');
       }
-      const judgment = await judgmentService.generateJudgment(caseId, { userId, sessionId });
+      const judgment = await judgmentService.generateJudgment(caseId, { userId, sessionId, locale: req.locale });
 
       res.json({
         success: true,

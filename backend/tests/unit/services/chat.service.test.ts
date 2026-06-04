@@ -986,7 +986,11 @@ describe('ChatService', () => {
       linkId: 'link-retry',
       status: 'judgment_completed',
     });
-    expect(judgmentServiceMock.generateJudgment).toHaveBeenCalledWith('case-retry', { userId: 'u1', sessionId: undefined });
+    expect(judgmentServiceMock.generateJudgment).toHaveBeenCalledWith('case-retry', {
+      userId: 'u1',
+      sessionId: undefined,
+      locale: undefined,
+    });
     expect(prismaMock.case.create).not.toHaveBeenCalled();
   });
 
@@ -1336,6 +1340,7 @@ describe('ChatService', () => {
     prismaMock.chatToCaseLink.update.mockResolvedValueOnce({ id: 'link-en', judgment_id: 'judgment-en' });
 
     await service.requestJudgment('room-en', { userId: 'u1' }, {
+      locale: 'en-US',
       participantConsent: { roleBIncludedMessages: true },
     });
 
@@ -1348,6 +1353,11 @@ describe('ChatService', () => {
     expect(snapshot.signal_stats.causalSignalCount).toBeGreaterThan(0);
     expect(snapshot.layer_usability.emotion.level).toMatch(/partial|usable|rich/);
     expect(snapshot.layer_usability.fact.level).toMatch(/partial|usable|rich/);
+    expect(judgmentServiceMock.generateJudgment).toHaveBeenCalledWith('case-en', {
+      userId: 'u1',
+      sessionId: undefined,
+      locale: 'en-US',
+    });
     expect(snapshot.gap_details).not.toEqual(
       expect.arrayContaining([
         expect.objectContaining({ code: 'MISSING_EMOTION_SIGNAL' }),

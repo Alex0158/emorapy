@@ -240,6 +240,7 @@ router.post(
       const actor = getActorFromRequest(req);
       const result = await chatService.requestJudgment(req.params.roomId, actor, {
         includedMessageIds: req.body?.included_message_ids,
+        locale: req.locale,
         participantConsent: req.body?.participant_consent
           ? {
               roleBIncludedMessages: req.body.participant_consent.role_b_included_messages,
@@ -358,6 +359,7 @@ router.post(
         content: req.body.content,
         visibilityScope: req.body.visibility_scope ?? 'all',
         replyToMessageId: req.body.reply_to_message_id,
+        locale: req.locale,
       });
       chatEventsService.publish({
         type: 'message',

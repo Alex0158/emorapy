@@ -24,6 +24,20 @@ const aiServiceMock = {
   analyzeEmotionalDynamics: jest.fn(),
 };
 
+const aiStreamServiceMock = {
+  createStream: jest.fn(() => ({
+    streamId: 'judgment-stream-1',
+    requestId: 'judgment-request-1',
+    scopeType: 'case_judgment',
+    scopeId: 'case-1',
+  })),
+  start: jest.fn(),
+  phase: jest.fn(),
+  completed: jest.fn(),
+  persisted: jest.fn(),
+  failed: jest.fn(),
+};
+
 const sessionServiceMock = {
   getSession: jest.fn(),
   markSessionCompleted: jest.fn(),
@@ -76,6 +90,11 @@ jest.mock('../../../src/services/ai.service', () => ({
   aiService: aiServiceMock,
   IPV_SIGNAL_REGEX: /控制|暴力|威脅/,
   CRISIS_SIGNAL_REGEX: /自傷|自殺/,
+}));
+
+jest.mock('../../../src/services/ai-stream.service', () => ({
+  __esModule: true,
+  aiStreamService: aiStreamServiceMock,
 }));
 
 jest.mock('../../../src/services/session.service', () => ({
@@ -423,6 +442,31 @@ describe('JudgmentService', () => {
           })
         );
       }
+    });
+
+    it('AI stream failed payload 應跟隨 locale 且不外露未知原始錯誤', async () => {
+      prismaMock.judgment.findUnique.mockResolvedValueOnce(null);
+      prismaMock.case.findUnique.mockResolvedValueOnce(baseCase());
+      aiServiceMock.generateJudgment.mockRejectedValueOnce(new Error('provider down'));
+
+      const service = new JudgmentService();
+      await expect(service.generateJudgment('case-1', {
+        sessionId: baseCase().session_id as string,
+        locale: 'en-US',
+      })).rejects.toMatchObject({
+        code: 'AI_SERVICE_ERROR',
+      });
+
+      expect(aiStreamServiceMock.failed).toHaveBeenCalledWith(
+        expect.objectContaining({ streamId: 'judgment-stream-1', requestId: 'judgment-request-1' }),
+        expect.objectContaining({
+          code: 'JUDGMENT_STREAM_FAILED',
+          message: 'AI service is temporarily unavailable. Please try again later.',
+          retryable: true,
+        }),
+        expect.objectContaining({ actorRole: 'ai', phase: 'finalizing' })
+      );
+      expect(aiStreamServiceMock.failed.mock.calls[0][1].message).not.toBe('provider down');
     });
 
     it('更新 judgment_failed 失敗時應記錄 logger.error', async () => {

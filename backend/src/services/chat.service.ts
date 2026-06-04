@@ -27,6 +27,7 @@ import { getChatJudgmentRequestPolicy } from '../utils/product-safety-policy';
 import { safetyAssessmentService } from './safety-assessment.service';
 import { normalizeJudgmentWithSafetyState } from './judgment-normalization.service';
 import { buildCaseSourceTracking } from '../utils/case-classifier';
+import type { BackendLocale } from '../i18n';
 
 type ActorContext = {
   userId?: string;
@@ -51,10 +52,12 @@ type SendMessageInput = {
   content: string;
   visibilityScope: ChatVisibilityScope;
   replyToMessageId?: string | null;
+  locale?: BackendLocale;
 };
 
 type RequestJudgmentOptions = {
   includedMessageIds?: string[];
+  locale?: BackendLocale;
   participantConsent?: {
     roleBIncludedMessages?: boolean;
   };
@@ -848,6 +851,7 @@ export class ChatService {
         roomId: room.id,
         roomStatus: room.status,
         aiParticipant: room.participants.find((p) => p.role_in_room === 'aiMediator' && p.is_active),
+        locale: input.locale,
       },
       message.sender_participant,
       { id: message.id, content: message.content, visibility_scope: message.visibility_scope }
@@ -990,6 +994,7 @@ export class ChatService {
           const judgment = await judgmentService.generateJudgment(retryCaseId, {
             userId: resolvedActor.userId,
             sessionId: resolvedActor.sessionId,
+            locale: options?.locale,
           });
           const judgmentId = (judgment as { id?: string }).id;
           await prisma.$transaction(async (tx) => {
@@ -1252,6 +1257,7 @@ export class ChatService {
         const judgment = await judgmentService.generateJudgment(caseId, {
           userId: resolvedActor.userId,
           sessionId: resolvedActor.sessionId,
+          locale: options?.locale,
         });
 
         const judgmentId = (judgment as { id?: string }).id;

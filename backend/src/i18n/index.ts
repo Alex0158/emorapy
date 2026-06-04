@@ -40,6 +40,10 @@ const zhTWByCode: Record<string, string> = {
   PROCESSING_NOT_DONE: '處理尚未完成',
   PROCESSING_FAILED: '處理失敗',
   SESSION_COMPLETED: '此訪談已結束，不可繼續',
+  JUDGMENT_STREAM_TIMEOUT: 'AI 服務響應超時，請稍後再試',
+  JUDGMENT_STREAM_FAILED: 'AI 服務暫時不可用，請稍後重試',
+  CHAT_AI_STREAM_FAILED: 'AI 回覆暫時失敗，請稍後再試',
+  REPLAN_FAILED: 'AI 重調失敗',
 };
 
 const enUSByCode: Record<string, string> = {
@@ -82,6 +86,10 @@ const enUSByCode: Record<string, string> = {
   PROCESSING_NOT_DONE: 'Processing is not yet complete',
   PROCESSING_FAILED: 'Processing failed',
   SESSION_COMPLETED: 'This interview has ended and cannot continue',
+  JUDGMENT_STREAM_TIMEOUT: 'AI service timed out. Please try again later.',
+  JUDGMENT_STREAM_FAILED: 'AI service is temporarily unavailable. Please try again later.',
+  CHAT_AI_STREAM_FAILED: 'AI reply failed. Please try again later.',
+  REPLAN_FAILED: 'AI adjustment failed',
 };
 
 const directEnUSMap: Record<string, string> = {
@@ -195,6 +203,12 @@ const directEnUSMap: Record<string, string> = {
   '情緒表達偏單一，可能放大單側詮釋偏差': 'Emotional expression is one-sided and may amplify interpretation bias',
   '互動循環線索不足，建議補充「觸發-反應-升級」描述': 'Interaction cycle clues are limited; add trigger-response-escalation details',
   'AI 重調失敗': 'AI adjustment failed',
+  'AI 服務暫時不可用，請稍後重試': 'AI service is temporarily unavailable. Please try again later.',
+  'AI 服務響應超時，請稍後再試': 'AI service timed out. Please try again later.',
+  'AI 服務認證失敗（請檢查 OPENAI_API_KEY）': 'AI service authentication failed. Check OPENAI_API_KEY.',
+  'AI 請求過於頻繁，請稍後再試': 'AI requests are too frequent. Please try again later.',
+  '今日 AI 調用已達上限': "Today's AI usage limit has been reached.",
+  'AI 返回內容異常，請重試': 'AI returned an invalid response. Please try again.',
   '服務內部錯誤': 'Internal service error',
   '請檢查 API Key 與網路連線': 'Check the API Key and network connection',
 };

@@ -7,6 +7,11 @@ const mockStartPlan = jest.fn();
 const mockResumeTrack = jest.fn();
 const mockGetSnapshots = jest.fn();
 const mockCreateStream = jest.fn();
+const mockStreamStart = jest.fn();
+const mockStreamPhase = jest.fn();
+const mockStreamCompleted = jest.fn();
+const mockStreamPersisted = jest.fn();
+const mockStreamFailed = jest.fn();
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockGetEffectiveRouteSnapshot: any = jest.fn();
 
@@ -75,6 +80,11 @@ jest.mock('../../../src/services/ai-stream.service', () => ({
   aiStreamService: {
     getSnapshots: (...args: unknown[]) => mockGetSnapshots(...args),
     createStream: (...args: unknown[]) => mockCreateStream(...args),
+    start: (...args: unknown[]) => mockStreamStart(...args),
+    phase: (...args: unknown[]) => mockStreamPhase(...args),
+    completed: (...args: unknown[]) => mockStreamCompleted(...args),
+    persisted: (...args: unknown[]) => mockStreamPersisted(...args),
+    failed: (...args: unknown[]) => mockStreamFailed(...args),
   },
 }));
 jest.mock('../../../src/services/safety-assessment.service', () => ({
@@ -336,7 +346,7 @@ describe('ExecutionService', () => {
     const result = await service.replanTrack('u1', 'track-1', {
       mode: 'lower_pressure',
       reason: 'manual',
-    });
+    }, 'en-US');
 
     expect(result).toEqual({
       track_id: 'track-1',
@@ -348,7 +358,18 @@ describe('ExecutionService', () => {
       request_id: 'request-1',
     });
     expect(mockCreateStream).toHaveBeenCalledWith('repair_track', 'track-1');
-    expect(runReplanTaskSpy).toHaveBeenCalled();
+    expect(runReplanTaskSpy.mock.calls[0]).toEqual([
+      'track-1',
+      'u1',
+      { mode: 'lower_pressure', reason: 'manual' },
+      expect.objectContaining({ streamId: 'stream-1', requestId: 'request-1' }),
+      expect.objectContaining({
+        status: 'solo_active',
+        planId: 'plan-1',
+        judgmentId: 'judge-1',
+      }),
+      'en-US',
+    ]);
   });
 
   it('resumeTrack 應委派給 reconciliationService.resumeTrack', async () => {

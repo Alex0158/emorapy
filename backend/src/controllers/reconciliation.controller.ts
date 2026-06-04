@@ -163,7 +163,7 @@ export class ReconciliationController {
     try {
       const trackId = req.params.id;
       const userId = getAuthUserId(req);
-      const track = await executionService.replanTrack(userId, trackId, req.body);
+      const track = await executionService.replanTrack(userId, trackId, req.body, req.locale);
       res.status(202).json({
         success: true,
         data: { track },

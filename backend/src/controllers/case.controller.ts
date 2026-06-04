@@ -5,8 +5,9 @@ import logger from '../config/logger';
 import { Errors } from '../utils/errors';
 import { getAuthUserId, getAuthUserIdOptional, getSessionIdFromSources } from '../utils/request';
 import { CASE_STATUS } from '../utils/constants';
+import type { BackendLocale } from '../i18n';
 
-function triggerJudgment(caseId: string, opts: { userId?: string; sessionId?: string | null }) {
+function triggerJudgment(caseId: string, opts: { userId?: string; sessionId?: string | null; locale?: BackendLocale }) {
   const { sessionId, ...rest } = opts;
   setImmediate(() => {
     judgmentService.generateJudgment(caseId, { ...rest, sessionId: sessionId ?? undefined }).catch(err => {
@@ -33,7 +34,7 @@ export class CaseController {
       const finalSessionId = result.sessionId; // 服務層返回的最終Session ID
       const sessionExpiresAt = result.sessionExpiresAt || null;
 
-      triggerJudgment(case_.id, { sessionId: finalSessionId });
+      triggerJudgment(case_.id, { sessionId: finalSessionId, locale: req.locale });
 
       res.status(201).json({
         success: true,
@@ -58,7 +59,7 @@ export class CaseController {
       const case_ = await caseService.createCase(userId, req.body);
 
       if (case_.status === CASE_STATUS.SUBMITTED) {
-        triggerJudgment(case_.id, { userId });
+        triggerJudgment(case_.id, { userId, locale: req.locale });
       }
 
       const isDraft = case_.status === CASE_STATUS.DRAFT;
@@ -206,7 +207,7 @@ export class CaseController {
 
       const case_ = await caseService.submitCase(caseId, userId);
 
-      triggerJudgment(case_.id, { userId });
+      triggerJudgment(case_.id, { userId, locale: req.locale });
 
       res.json({
         success: true,
@@ -229,7 +230,7 @@ export class CaseController {
       const case_ = await caseService.updateCase(caseId, userId, req.body);
 
       if (case_.status === CASE_STATUS.SUBMITTED) {
-        triggerJudgment(case_.id, { userId });
+        triggerJudgment(case_.id, { userId, locale: req.locale });
       }
 
       res.json({
@@ -254,7 +255,7 @@ export class CaseController {
       const result = await caseService.createOrUpdateCollaborativeCase(req.body, sessionId ?? null);
 
       if (result.phase === 'submitted') {
-        triggerJudgment(result.case.id, { sessionId: result.sessionId });
+        triggerJudgment(result.case.id, { sessionId: result.sessionId, locale: req.locale });
       }
 
       res.status(result.phase === 'a_done' ? 201 : 200).json({

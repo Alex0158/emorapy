@@ -6,6 +6,7 @@ import type { AIStreamEvent } from '@cj/contracts/ai-stream';
 
 import { connectInterviewStream, m2Api, normalizeM2Error } from '@/src/features/m2/api';
 import { labelPsychDomains } from '@/src/features/m2/labels';
+import { t, useLocale } from '@/src/i18n';
 import {
   getLatestAIStreamSnapshot,
   type AIStreamCallbacks,
@@ -30,41 +31,41 @@ const initialInterviewStreamState: InterviewStreamState = {
   error: null,
 };
 
-const streamStatusLabels: Record<StreamStatus, string> = {
-  idle: '等待生成',
-  ready: '已連線',
-  streaming: '生成中',
-  persisted: '已保存',
-  failed: '整理失敗',
+const streamStatusLabelKeys: Record<StreamStatus, string> = {
+  idle: 'profileInterview.stream.idle',
+  ready: 'profileInterview.stream.ready',
+  streaming: 'profileInterview.stream.streaming',
+  persisted: 'profileInterview.stream.persisted',
+  failed: 'profileInterview.stream.failed',
 };
 
-const sessionStatusLabels: Record<string, string> = {
-  active: '訪談中',
-  processing: '正在整理',
-  completed: '已完成',
-  abandoned: '已停止',
-  processing_failed: '整理失敗',
+const sessionStatusLabelKeys: Record<string, string> = {
+  active: 'profileInterview.session.active',
+  processing: 'profileInterview.session.processing',
+  completed: 'profileInterview.session.completed',
+  abandoned: 'profileInterview.session.abandoned',
+  processing_failed: 'profileInterview.session.processingFailed',
 };
 
 function labelSessionStatus(status?: string | null): string {
-  if (!status) return '連線中';
-  return sessionStatusLabels[status] ?? '狀態更新中';
+  if (!status) return t('profileInterview.session.loading');
+  return t(sessionStatusLabelKeys[status] ?? 'profileInterview.session.updated');
 }
 
 function labelLifecycleStatus(status: string): string {
-  if (status === 'active' || status === 'unknown') return 'App 使用中';
-  if (status === 'background') return 'App 在背景';
-  if (status === 'inactive') return 'App 暫時中斷';
-  return 'App 狀態更新中';
+  if (status === 'active' || status === 'unknown') return t('profileInterview.lifecycle.active');
+  if (status === 'background') return t('profileInterview.lifecycle.background');
+  if (status === 'inactive') return t('profileInterview.lifecycle.inactive');
+  return t('profileInterview.lifecycle.updated');
 }
 
 function labelInterviewSyncProgress(status: StreamStatus, isRecovering: boolean): string {
-  if (isRecovering) return '正在恢復訪談整理，會從最近收到的內容繼續。';
-  if (status === 'persisted') return '訪談整理已保存。';
-  if (status === 'failed') return '訪談整理需要重試。';
-  if (status === 'streaming') return '正在同步訪談整理。';
-  if (status === 'ready') return '已準備同步訪談內容。';
-  return '等待新的訪談內容。';
+  if (isRecovering) return t('profileInterview.sync.recovering');
+  if (status === 'persisted') return t('profileInterview.sync.persisted');
+  if (status === 'failed') return t('profileInterview.sync.failed');
+  if (status === 'streaming') return t('profileInterview.sync.streaming');
+  if (status === 'ready') return t('profileInterview.sync.ready');
+  return t('profileInterview.sync.idle');
 }
 
 function statusFromStreamEvent(event: AIStreamEvent): StreamStatus {
@@ -84,6 +85,7 @@ function statusFromSnapshot(status: string): StreamStatus {
 }
 
 export default function InterviewScreen() {
+  const locale = useLocale();
   const params = useLocalSearchParams<{ sessionId?: string }>();
   const sessionId = typeof params.sessionId === 'string' ? params.sessionId : null;
   const [message, setMessage] = useState('');
@@ -189,8 +191,8 @@ export default function InterviewScreen() {
   const isReadOnlySession = isFailedSession || isProcessingSession || isCompletedSession || sessionStatus === 'abandoned';
   const latestAiMessage = useMemo(() => {
     const turns = sessionQuery.data?.turns ?? [];
-    return turns.at(-1)?.ai_message ?? '開始說一點你現在最想被理解的事。';
-  }, [sessionQuery.data?.turns]);
+    return turns.at(-1)?.ai_message ?? t('profileInterview.defaultPrompt');
+  }, [locale, sessionQuery.data?.turns]);
   const errorMessage = streamState.error
     ?? (sessionQuery.error ? normalizeM2Error(sessionQuery.error).message : null)
     ?? (respondMutation.error ? normalizeM2Error(respondMutation.error).message : null)
@@ -202,36 +204,52 @@ export default function InterviewScreen() {
   if (!isAuthenticated) {
     return (
       <Screen
-        eyebrow="心理訪談"
-        title="先登入"
-        subtitle="訪談需要登入後才會讀取並同步。"
+        eyebrow={t('profileInterview.eyebrow')}
+        title={t('profileInterview.authGate.title')}
+        subtitle={t('profileInterview.authGate.subtitle')}
         testID="profile.interview.auth-gate.screen">
-        <Panel title="保護你的脈絡">
-          <FeatureRow title="不匿名同步" detail="心理訪談只跟登入帳號綁定。" tone="teal" />
-          <FeatureRow title="可回到個人脈絡" detail="登入後可恢復未完成訪談。" tone="blue" />
+        <Panel title={t('profileInterview.authGate.panel')}>
+          <FeatureRow
+            title={t('profileInterview.authGate.noAnonymous.title')}
+            detail={t('profileInterview.authGate.noAnonymous.detail')}
+            tone="teal"
+          />
+          <FeatureRow
+            title={t('profileInterview.authGate.resume.title')}
+            detail={t('profileInterview.authGate.resume.detail')}
+            tone="blue"
+          />
         </Panel>
-        <LinkButton href="/auth" label="登入或註冊" tone="teal" testID="profile.interview.auth-gate.login" />
+        <LinkButton href="/auth" label={t('profile.authGate.login')} tone="teal" testID="profile.interview.auth-gate.login" />
       </Screen>
     );
   }
 
   if (!sessionId) {
     return (
-      <Screen eyebrow="心理訪談" title="訪談" subtitle="缺少訪談上下文。" testID="profile.interview.missing-session.screen">
-        <LinkButton href="/profile" label="回到個人脈絡" tone="teal" testID="profile.interview.back" />
+      <Screen
+        eyebrow={t('profileInterview.eyebrow')}
+        title={t('profileInterview.missing.title')}
+        subtitle={t('profileInterview.missing.subtitle')}
+        testID="profile.interview.missing-session.screen">
+        <LinkButton href="/profile" label={t('profileInterview.missing.back')} tone="teal" testID="profile.interview.back" />
       </Screen>
     );
   }
 
   return (
     <Screen
-      eyebrow="心理訪談"
-      title="慢慢說"
-      subtitle="離開 App 後回來，會從最近同步的內容繼續。"
+      eyebrow={t('profileInterview.eyebrow')}
+      title={t('profileInterview.title')}
+      subtitle={t('profileInterview.subtitle')}
       testID="profile.interview.screen">
-      <Panel title="目前問題">
+      <Panel title={t('profileInterview.questionPanel')}>
         <StatusPill
-          label={isRecovering ? '正在恢復' : streamState.status === 'idle' ? labelSessionStatus(sessionQuery.data?.status) : streamStatusLabels[streamState.status]}
+          label={isRecovering
+            ? t('profileInterview.recoveringLabel')
+            : streamState.status === 'idle'
+              ? labelSessionStatus(sessionQuery.data?.status)
+              : t(streamStatusLabelKeys[streamState.status])}
           tone={isRecovering ? 'amber' : 'blue'}
         />
         <Text style={styles.aiText}>{streamState.text || latestAiMessage}</Text>
@@ -239,20 +257,25 @@ export default function InterviewScreen() {
       </Panel>
 
       {isReadOnlySession ? (
-        <Panel title={isFailedSession ? '整理失敗' : isProcessingSession ? '正在整理' : '訪談已結束'}>
+        <Panel
+          title={isFailedSession
+            ? t('profileInterview.readonly.failedTitle')
+            : isProcessingSession
+              ? t('profileInterview.readonly.processingTitle')
+              : t('profileInterview.readonly.completedTitle')}>
           <Text style={styles.helperText}>
             {isFailedSession
-              ? '這次訪談的整理流程沒有完成，可以直接重試整理，不需要重新作答。'
+              ? t('profileInterview.readonly.failedDetail')
               : isProcessingSession
-                ? '你的回覆已送出，系統正在整理我的故事與回饋。'
-                : '這次訪談已結束，可以回到我的故事查看整理後的內容。'}
+                ? t('profileInterview.readonly.processingDetail')
+                : t('profileInterview.readonly.completedDetail')}
           </Text>
           {sessionQuery.data?.partial_success ? (
-            <Text style={styles.helperText}>核心脈絡已整理完成，但回饋卡仍在補齊；稍後可回到我的故事查看。</Text>
+            <Text style={styles.helperText}>{t('profileInterview.readonly.partialSuccess')}</Text>
           ) : null}
           {isFailedSession ? (
             <ActionButton
-              label="重試整理"
+              label={t('profileInterview.retry')}
               loading={retryMutation.isPending}
               onPress={() => retryMutation.mutate()}
               testID="profile.interview.retry"
@@ -260,16 +283,16 @@ export default function InterviewScreen() {
               variant="outline"
             />
           ) : null}
-          <LinkButton href="/profile/story" label="查看我的故事" tone="blue" testID="profile.interview.story.readonly" />
+          <LinkButton href="/profile/story" label={t('profileInterview.story')} tone="blue" testID="profile.interview.story.readonly" />
         </Panel>
       ) : (
-        <Panel title="你的回覆">
+        <Panel title={t('profileInterview.responsePanel')}>
           <TextInput
-            accessibilityLabel="訪談回覆"
-            accessibilityHint="輸入你願意提供給個人脈絡訪談的回答"
+            accessibilityLabel={t('profileInterview.response.label')}
+            accessibilityHint={t('profileInterview.response.hint')}
             multiline
             onChangeText={setMessage}
-            placeholder="說你願意說的部分就好。"
+            placeholder={t('profileInterview.response.placeholder')}
             placeholderTextColor={palette.muted}
             style={styles.textArea}
             testID="profile.interview.message.input"
@@ -278,7 +301,7 @@ export default function InterviewScreen() {
           />
           <ActionButton
             disabled={message.trim().length < 2 || respondMutation.isPending}
-            label="送出"
+            label={t('profileInterview.send')}
             loading={respondMutation.isPending}
             onPress={() => respondMutation.mutate()}
             testID="profile.interview.respond"
@@ -291,7 +314,7 @@ export default function InterviewScreen() {
         {!isReadOnlySession ? (
           <>
             <ActionButton
-              label="跳過這題"
+              label={t('profileInterview.skip')}
               loading={skipMutation.isPending}
               onPress={() => skipMutation.mutate()}
               testID="profile.interview.skip"
@@ -299,7 +322,7 @@ export default function InterviewScreen() {
               variant="outline"
             />
             <ActionButton
-              label="停止生成"
+              label={t('profileInterview.cancel')}
               loading={cancelMutation.isPending}
               onPress={() => cancelMutation.mutate()}
               testID="profile.interview.cancel"
@@ -307,7 +330,7 @@ export default function InterviewScreen() {
               variant="outline"
             />
             <ActionButton
-              label="結束訪談"
+              label={t('profileInterview.end')}
               loading={endMutation.isPending}
               onPress={() => endMutation.mutate()}
               testID="profile.interview.end"
@@ -316,16 +339,16 @@ export default function InterviewScreen() {
             />
           </>
         ) : null}
-        <LinkButton href="/profile/story" label="查看我的故事" tone="blue" testID="profile.interview.story" />
+        <LinkButton href="/profile/story" label={t('profileInterview.story')} tone="blue" testID="profile.interview.story" />
       </View>
 
-      <Panel title="狀態">
-        <FeatureRow title="輪次" detail={`${sessionQuery.data?.turns?.length ?? 0}`} tone="teal" />
-        <FeatureRow title="已觸及領域" detail={labelPsychDomains(sessionQuery.data?.domains_touched)} tone="blue" />
-        <FeatureRow title="同步狀態" detail={labelInterviewSyncProgress(streamState.status, isRecovering)} tone="coral" />
+      <Panel title={t('profileInterview.statusPanel')}>
+        <FeatureRow title={t('profileInterview.rounds')} detail={`${sessionQuery.data?.turns?.length ?? 0}`} tone="teal" />
+        <FeatureRow title={t('profileInterview.touchedDomains')} detail={labelPsychDomains(sessionQuery.data?.domains_touched)} tone="blue" />
+        <FeatureRow title={t('profileInterview.syncStatus')} detail={labelInterviewSyncProgress(streamState.status, isRecovering)} tone="coral" />
         <FeatureRow
-          title="目前狀態"
-          detail={`${labelLifecycleStatus(lifecycleStatus)}${isRecovering ? ' / 正在恢復' : ''}`}
+          title={t('profileInterview.lifecycleStatus')}
+          detail={`${labelLifecycleStatus(lifecycleStatus)}${isRecovering ? t('profileInterview.recoveringSuffix') : ''}`}
           tone={isRecovering ? 'amber' : 'neutral'}
         />
       </Panel>

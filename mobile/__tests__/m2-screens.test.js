@@ -308,6 +308,48 @@ describe('M2 Profile/Interview screens', () => {
     expect(screen.queryByText('不匿名串流')).toBeNull();
   });
 
+  it('renders interview auth gate in the selected locale', async () => {
+    setLocale('en-US', { persist: false });
+    mockGetToken.mockResolvedValueOnce(null);
+
+    const screen = renderWithQuery(React.createElement(InterviewScreen));
+
+    expect(await screen.findByText('Interview sync requires login before it can load and sync.')).toBeTruthy();
+    expect(screen.getByText('Guided interview')).toBeTruthy();
+    expect(screen.getByText('No anonymous sync')).toBeTruthy();
+    expect(screen.getByText('Return to personal context')).toBeTruthy();
+    expect(screen.getByText('Log in or register')).toBeTruthy();
+  });
+
+  it('renders active interview controls and status in the selected locale', async () => {
+    setLocale('en-US', { persist: false });
+    mockSearchParams = { sessionId: 'interview-english' };
+    mockGetInterviewSession.mockResolvedValueOnce({
+      id: 'interview-english',
+      status: 'active',
+      turns: [],
+      domains_touched: ['personality', 'relationship_history'],
+    });
+
+    const screen = renderWithQuery(React.createElement(InterviewScreen));
+
+    expect(await screen.findByText('Take it slowly')).toBeTruthy();
+    expect(screen.getByText('Current question')).toBeTruthy();
+    expect(screen.getByText('Start with the part you most want understood right now.')).toBeTruthy();
+    expect(screen.getByText('Your response')).toBeTruthy();
+    expect(screen.getByPlaceholderText('Say only the part you are willing to share.')).toBeTruthy();
+    expect(screen.getByText('Send')).toBeTruthy();
+    expect(screen.getByText('Skip this question')).toBeTruthy();
+    expect(screen.getByText('Stop generation')).toBeTruthy();
+    expect(screen.getByText('End interview')).toBeTruthy();
+    expect(screen.getAllByText('View My Story').length).toBeGreaterThan(0);
+    expect(screen.getByText('Sync status')).toBeTruthy();
+    expect(screen.getByText('Ready to sync interview content.')).toBeTruthy();
+    expect(screen.getByText('Personality traits, Relationship history')).toBeTruthy();
+    expect(screen.queryByText('心理訪談')).toBeNull();
+    expect(screen.queryByText('說你願意說的部分就好。')).toBeNull();
+  });
+
   it('replays interview stream snapshots and refetches canonical session when persisted', async () => {
     mockSearchParams = { sessionId: 'interview-1' };
     mockConnectInterviewStream.mockImplementationOnce((_sessionId, callbacks, options) => {

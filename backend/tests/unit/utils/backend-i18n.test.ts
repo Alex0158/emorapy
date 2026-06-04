@@ -127,6 +127,32 @@ describe('backend i18n', () => {
     expect(translateBackendMessage('zh-TW', '帳號未激活')).toBe('帳號未激活');
   });
 
+  it('translates evidence upload and delete controller errors to en-US', () => {
+    expect(translateBackendMessage('en-US', 'Header 與 Query 的 Session ID 不一致')).toBe(
+      'Header and query Session ID do not match'
+    );
+    expect(translateBackendMessage('en-US', '無權限上傳證據')).toBe(
+      'You do not have permission to upload evidence'
+    );
+    expect(translateBackendMessage('en-US', '案件狀態不允許上傳證據')).toBe(
+      'The case status does not allow evidence upload'
+    );
+    expect(translateBackendMessage('en-US', '請選擇要上傳的文件')).toBe(
+      'Please select a file to upload'
+    );
+    expect(translateBackendMessage('en-US', '證據安全聲明未通過')).toBe(
+      'Evidence safety assertion was not accepted'
+    );
+    expect(translateBackendMessage('en-US', '每個案件最多只能上傳3張圖片')).toBe(
+      'Each case can have at most 3 uploaded images'
+    );
+    expect(translateBackendMessage('en-US', '證據不存在')).toBe('Evidence not found');
+    expect(translateBackendMessage('en-US', '無權限刪除此證據')).toBe(
+      'You do not have permission to delete this evidence'
+    );
+    expect(translateBackendMessage('zh-TW', '證據不存在')).toBe('證據不存在');
+  });
+
   it('uses public Analysis terminology for backend judgment response messages', () => {
     expect(translateErrorByCode('en-US', 'JUDGMENT_FAILED')).toBe(
       'Analysis generation failed, please retry later'

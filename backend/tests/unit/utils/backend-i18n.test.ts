@@ -319,6 +319,42 @@ describe('backend i18n', () => {
     );
   });
 
+  it('translates judgment service errors and keeps public Analysis terminology', () => {
+    expect(translateBackendMessage('en-US', '無權限生成梳理結果')).toBe(
+      'You do not have permission to generate this Analysis'
+    );
+    expect(translateBackendMessage('en-US', '請稍後再重試生成梳理結果')).toBe(
+      'Please wait before retrying Analysis generation'
+    );
+    expect(translateBackendMessage('en-US', '梳理結果不存在')).toBe('Analysis not found');
+    expect(translateBackendMessage('en-US', '無權限修復此梳理結果')).toBe(
+      'You do not have permission to repair this Analysis'
+    );
+    expect(translateBackendMessage('en-US', '無權限提交此梳理結果指標')).toBe(
+      'You do not have permission to submit metrics for this Analysis'
+    );
+    expect(translateBackendMessage('en-US', '無權限訪問此梳理結果')).toBe(
+      'You do not have permission to access this Analysis'
+    );
+    expect(translateBackendMessage('en-US', '梳理結果生成失敗，請點擊重試')).toBe(
+      'Analysis generation failed. Please click retry'
+    );
+    expect(translateBackendMessage('en-US', '責任分比例必須為非負且總和 100')).toBe(
+      'Responsibility ratios must be non-negative and sum to 100'
+    );
+    expect(translateBackendMessage('en-US', '無效的責任分比例格式')).toBe(
+      'Invalid responsibility ratio format'
+    );
+    expect(translateBackendMessage('en-US', '回饋內容過短')).toBe('Feedback is too short');
+    expect(translateBackendMessage('en-US', 'AI服務響應超時，請稍後再試')).toBe(
+      'AI service timed out. Please try again later.'
+    );
+    expect(translateBackendMessage('en-US', 'AI服務暫時不可用，請稍後重試')).toBe(
+      'AI service is temporarily unavailable. Please try again later.'
+    );
+    expect(translateBackendMessage('zh-TW', '梳理結果不存在')).toBe('梳理結果不存在');
+  });
+
   it('uses public Analysis terminology for backend judgment response messages', () => {
     expect(translateErrorByCode('en-US', 'JUDGMENT_FAILED')).toBe(
       'Analysis generation failed, please retry later'

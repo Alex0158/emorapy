@@ -431,12 +431,12 @@ export class JudgmentService {
         // 權限校驗：匿名 quick/collaborative 需匹配 Session；完整模式需當事人
         if (isSessionBoundCase(case_)) {
           if (!canAccessSessionBoundCase(case_, options?.sessionId)) {
-            throw Errors.FORBIDDEN('無權限生成判決');
+            throw Errors.FORBIDDEN('無權限生成梳理結果');
           }
         } else {
           const uid = options?.userId;
           if (!isCaseParticipant(case_, uid)) {
-            throw Errors.FORBIDDEN('無權限生成判決');
+            throw Errors.FORBIDDEN('無權限生成梳理結果');
           }
         }
 
@@ -451,7 +451,7 @@ export class JudgmentService {
           const cooldownMs = parseInt(process.env.JUDGMENT_RETRY_COOLDOWN_MS || '60000', 10);
           const sinceFail = Date.now() - new Date(case_.updated_at).getTime();
           if (sinceFail < cooldownMs) {
-            throw Errors.CONFLICT('請稍後再重試生成判決');
+            throw Errors.CONFLICT('請稍後再重試生成梳理結果');
           }
         }
 
@@ -1084,17 +1084,17 @@ export class JudgmentService {
     });
 
     if (!judgment) {
-      throw Errors.NOT_FOUND('判決不存在');
+      throw Errors.NOT_FOUND('梳理結果不存在');
     }
 
     if (isSessionBoundCase(judgment.case)) {
       if (!canAccessSessionBoundCase(judgment.case, options?.sessionId)) {
-        throw Errors.FORBIDDEN('無權限修復此判決');
+        throw Errors.FORBIDDEN('無權限修復此梳理結果');
       }
     } else {
       const uid = options?.userId;
       if (!uid || (judgment.case.plaintiff_id !== uid && judgment.case.defendant_id !== uid)) {
-        throw Errors.FORBIDDEN('無權限修復此判決');
+        throw Errors.FORBIDDEN('無權限修復此梳理結果');
       }
     }
 
@@ -1129,17 +1129,17 @@ export class JudgmentService {
     });
 
     if (!judgment) {
-      throw Errors.NOT_FOUND('判決不存在');
+      throw Errors.NOT_FOUND('梳理結果不存在');
     }
 
     if (isSessionBoundCase(judgment.case)) {
       if (!canAccessSessionBoundCase(judgment.case, options?.sessionId)) {
-        throw Errors.FORBIDDEN('無權限提交此判決指標');
+        throw Errors.FORBIDDEN('無權限提交此梳理結果指標');
       }
     } else {
       const uid = options?.userId;
       if (!uid || (judgment.case.plaintiff_id !== uid && judgment.case.defendant_id !== uid)) {
-        throw Errors.FORBIDDEN('無權限提交此判決指標');
+        throw Errors.FORBIDDEN('無權限提交此梳理結果指標');
       }
     }
 
@@ -1186,7 +1186,7 @@ export class JudgmentService {
     // session-bound 模式（quick / collaborative with session_id）：驗證 Session ID
     if (isSessionBoundCase(case_)) {
       if (!sessionId || !canAccessSessionBoundCase(case_, sessionId)) {
-        throw Errors.FORBIDDEN('無權限訪問此判決');
+        throw Errors.FORBIDDEN('無權限訪問此梳理結果');
       }
 
       const session = await sessionService.getSession(sessionId);
@@ -1195,7 +1195,7 @@ export class JudgmentService {
       }
 
       if (case_.status === CASE_STATUS.JUDGMENT_FAILED) {
-        throw Errors.JUDGMENT_FAILED('判決生成失敗，請點擊重試');
+        throw Errors.JUDGMENT_FAILED('梳理結果生成失敗，請點擊重試');
       }
     } else {
       // 完整模式：驗證用戶權限
@@ -1204,7 +1204,7 @@ export class JudgmentService {
       }
 
       if (case_.plaintiff_id !== userId && case_.defendant_id !== userId) {
-        throw Errors.FORBIDDEN('無權限訪問此判決');
+        throw Errors.FORBIDDEN('無權限訪問此梳理結果');
       }
     }
 
@@ -1244,12 +1244,12 @@ export class JudgmentService {
     });
 
     if (!judgment) {
-      throw Errors.NOT_FOUND('判決不存在');
+      throw Errors.NOT_FOUND('梳理結果不存在');
     }
 
     // 驗證用戶權限
     if (judgment.case.plaintiff_id !== userId && judgment.case.defendant_id !== userId) {
-      throw Errors.FORBIDDEN('無權限操作此判決');
+      throw Errors.FORBIDDEN('無權限操作此梳理結果');
     }
 
     // 確定是user1還是user2

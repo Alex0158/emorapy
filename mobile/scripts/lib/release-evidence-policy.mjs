@@ -1,6 +1,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(scriptDir, '../../..');
+const releaseDbParityScriptPath = path.join(repoRoot, 'backend/scripts/check-release-db-parity.ts');
+let cachedReleaseBlockingMigrationCount = null;
 
 export function valueAtPath(value, pathExpression) {
   return pathExpression.split('.').reduce((current, key) => current?.[key], value);
@@ -50,7 +56,28 @@ export function validateEvidenceAgainstPolicy(evidence, policy) {
   return errors;
 }
 
+export function getReleaseBlockingMigrationCount() {
+  if (cachedReleaseBlockingMigrationCount !== null) return cachedReleaseBlockingMigrationCount;
+
+  const source = fs.readFileSync(releaseDbParityScriptPath, 'utf8');
+  const match = source.match(/export const RELEASE_BLOCKING_MIGRATIONS = \[([\s\S]*?)\] as const;/);
+  if (!match) {
+    throw new Error(`Unable to locate RELEASE_BLOCKING_MIGRATIONS in ${releaseDbParityScriptPath}`);
+  }
+
+  const migrationNames = [...match[1].matchAll(/['"`]([0-9]{14}_[A-Za-z0-9_]+)['"`]/g)]
+    .map((item) => item[1]);
+  if (migrationNames.length === 0) {
+    throw new Error(`RELEASE_BLOCKING_MIGRATIONS is empty in ${releaseDbParityScriptPath}`);
+  }
+
+  cachedReleaseBlockingMigrationCount = migrationNames.length;
+  return cachedReleaseBlockingMigrationCount;
+}
+
 export function buildReleaseEvidencePolicies(app) {
+  const releaseBlockingMigrationCount = getReleaseBlockingMigrationCount();
+
   return {
     eas_ios_release: {
       expectedType: 'app-eas-ios-release-evidence',
@@ -219,15 +246,12 @@ export function buildReleaseEvidencePolicies(app) {
         { path: 'ok', equals: true },
         { path: 'report.check', equals: 'release-db-parity' },
         { path: 'report.ok', equals: true },
+        { path: 'report.requiredMigrationCount', equals: releaseBlockingMigrationCount },
         { path: 'target.database.local', equals: false },
       ],
       oneOf: [
         { path: 'target.classification', values: ['release', 'production'] },
         { path: 'target.database.provider', values: ['postgresql', 'postgres'] },
-      ],
-      numberAtLeast: [
-        { path: 'report.requiredMigrationCount', min: 14 },
-        { path: 'report.appliedRequiredMigrationCount', min: 14 },
       ],
       sameValue: [
         { path: 'report.appliedRequiredMigrationCount', equalsPath: 'report.requiredMigrationCount' },

@@ -4,10 +4,12 @@ import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { getReleaseBlockingMigrationCount } from './lib/release-evidence-policy.mjs';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const mobileRoot = path.resolve(scriptDir, '..');
 const statusScript = path.join(scriptDir, 'check-release-external-evidence-status.mjs');
+const releaseBlockingMigrationCount = getReleaseBlockingMigrationCount();
 
 const evidenceKeys = [
   'eas_ios_release',
@@ -734,8 +736,8 @@ const evidenceFixturePairs = [
       report: {
         check: 'release-db-parity',
         ok: true,
-        requiredMigrationCount: 14,
-        appliedRequiredMigrationCount: 14,
+        requiredMigrationCount: releaseBlockingMigrationCount,
+        appliedRequiredMigrationCount: releaseBlockingMigrationCount,
         missingRequiredMigrations: [],
         incompleteRequiredMigrations: [],
         failedMigrations: [],
@@ -749,8 +751,8 @@ const evidenceFixturePairs = [
       },
     },
     mutate: (record) => {
-      record.report.requiredMigrationCount = 13;
-      record.report.appliedRequiredMigrationCount = 13;
+      record.report.requiredMigrationCount = releaseBlockingMigrationCount - 1;
+      record.report.appliedRequiredMigrationCount = releaseBlockingMigrationCount - 1;
     },
     expectedErrorFragment: 'report.requiredMigrationCount',
   },

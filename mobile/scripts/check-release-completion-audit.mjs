@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { getExpoProjectIdStatus } from './lib/release-app-config.mjs';
 import {
   buildReleaseEvidencePolicies,
+  getReleaseBlockingMigrationCount,
   validateTelemetryBackendVersionFreshness,
   validateEvidenceAgainstPolicy,
 } from './lib/release-evidence-policy.mjs';
@@ -17,6 +18,7 @@ const repoRoot = path.resolve(mobileRoot, '..');
 const strict = process.argv.includes('--strict');
 const json = process.argv.includes('--json');
 const fixtureContract = process.argv.includes('--fixture-contract');
+const releaseBlockingMigrationCount = getReleaseBlockingMigrationCount();
 
 const evidenceRoot = path.join(
   repoRoot,
@@ -331,8 +333,8 @@ function validateReleaseDbEvidence(filePath) {
   requireValue(evidence.report?.check === 'release-db-parity', 'release DB parity evidence must include report.check.');
   requireValue(evidence.report?.ok === true, 'release DB parity report must have ok=true.');
   requireValue(
-    Number.isInteger(evidence.report?.requiredMigrationCount) && evidence.report.requiredMigrationCount >= 14,
-    'release DB parity evidence must cover the current release-blocking migration set.'
+    evidence.report?.requiredMigrationCount === releaseBlockingMigrationCount,
+    `release DB parity evidence must cover the current release-blocking migration set (${releaseBlockingMigrationCount}).`
   );
   requireValue(
     evidence.report?.appliedRequiredMigrationCount === evidence.report?.requiredMigrationCount,
@@ -1092,8 +1094,8 @@ function runExternalEvidenceFixtureContract(app) {
         report: {
           check: 'release-db-parity',
           ok: true,
-          requiredMigrationCount: 14,
-          appliedRequiredMigrationCount: 14,
+          requiredMigrationCount: releaseBlockingMigrationCount,
+          appliedRequiredMigrationCount: releaseBlockingMigrationCount,
           missingRequiredMigrations: [],
           incompleteRequiredMigrations: [],
           failedMigrations: [],

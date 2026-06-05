@@ -29,7 +29,6 @@
     "web:product-lines:check": "node scripts/check-web-product-lines-contracts.mjs",
     "dev:redis-baseline:check": "node scripts/check-dev-redis-baseline.mjs",
     "ai:positioning:check": "node scripts/check-ai-positioning-contracts.mjs",
-    "smoke:staging": "bash scripts/smoke-staging.sh",
     "manual-regression:init": "node scripts/init-manual-regression-batch.mjs",
     "manual-regression:check": "node scripts/check-manual-regression-status.mjs",
     "manual-regression:check:strict": "node scripts/check-manual-regression-status.mjs --require-evidence",

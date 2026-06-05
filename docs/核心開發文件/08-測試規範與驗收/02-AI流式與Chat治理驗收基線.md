@@ -28,7 +28,7 @@
 
 1. 共享 stream 契約已存在
 2. runtime 具備 seq、snapshot、replay、heartbeat
-3. production / staging 以 Redis-backed runtime 為目標正式形態；若 Redis 不可達，後端會自動降級 memory runtime，該情況必須在發版驗收記錄中明示為降級運行
+3. production 以 Redis-backed runtime 為目標正式形態；若 Redis 不可達，後端會自動降級 memory runtime，該情況必須在發版驗收記錄中明示為降級運行
 4. `packages/contracts/src/ai-stream.ts`、`frontend/src/services/aiStream.ts`、`mobile/src/platform/sse/aiStream.ts` 與 backend AI stream service 必須維持同一 event / snapshot / `after_seq` 語義；Web hook、App hook 或 backend 任一側修改都需要回歸跨端契約
 
 ### 2.2 Web / App 共享語義
@@ -60,7 +60,7 @@
 1. Interview store / 頁面測試
 2. Chat Room 頁面測試
 3. `frontend/e2e/chat/*.e2e.ts` 的流式恢復與失敗矩陣回歸
-4. Admin 與 staging smoke 需保留治理面驗證入口
+4. Admin 與 production release gate 需保留治理面驗證入口
 
 App：
 
@@ -73,7 +73,7 @@ App：
 1. `health` / `metrics` 正常
 2. Redis-backed runtime 正常（若降級 memory，需明示並補風險說明）
 3. Chat 關鍵 E2E skip guard 綠燈：`npm run --workspace frontend test:e2e:critical-guard`
-4. `npm run smoke:staging`、`npm run manual-regression:gate` 與相關治理腳本可運行
+4. `npm run ops:release:gate:evidence`、`npm run manual-regression:gate` 與相關治理腳本可運行
 5. 涉及 App AI stream、Chat、Interview、Quick 或 Repair 的變更，至少需跑 `npm --prefix mobile run platform:check` 與相關 App route / feature / release audit gate；若宣稱 release completion，必須另有 M6 external evidence
 
 ## 5. 與證據的關係

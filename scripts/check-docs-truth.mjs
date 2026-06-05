@@ -21,6 +21,8 @@ const NON_DOC_METADATA_EVIDENCE_PATHS = new Set([
   'mobile/tsconfig.json',
 ]);
 const ALLOWED_METADATA_EVIDENCE_PATH_PATTERNS = [
+  /^\.github\/workflows\//,
+  /^\.github\/workflows$/,
   /^(backend|frontend|frontend-admin|mobile|packages|scripts|e2e)\//,
   /^(backend|frontend|frontend-admin|mobile|packages|scripts|e2e)$/,
   /^docs\/核心開發文件$/,
@@ -228,6 +230,9 @@ async function isCommitAncestorOfHead(commitRef) {
 }
 
 function isScriptPathWiredInPackageScripts(pathRef, packageJson) {
+  if (pathRef.startsWith('.github/workflows/')) {
+    return true;
+  }
   if (!pathRef.startsWith('scripts/')) {
     return false;
   }
@@ -236,6 +241,9 @@ function isScriptPathWiredInPackageScripts(pathRef, packageJson) {
 }
 
 function isNonDocMetadataEvidencePath(pathRef) {
+  if (pathRef.startsWith('.github/workflows/')) {
+    return true;
+  }
   if (/^(backend|frontend|frontend-admin|mobile|packages|scripts|e2e)(\/|$)/.test(pathRef)) {
     return true;
   }
@@ -278,7 +286,14 @@ function stripInlineCodeToken(value) {
 }
 
 function normalizeBacktickPathToken(token) {
-  return token
+  const trimmed = token.trim();
+  if (trimmed.startsWith('.github/')) {
+    return trimmed
+      .replace(/^[("']+/, '')
+      .replace(/[)"'`。；，,.;:]+$/, '')
+      .trim();
+  }
+  return trimmed
     .replace(/^[./]+/, '')
     .replace(/^[("']+/, '')
     .replace(/[)"'`。；，,.;:]+$/, '')
@@ -3416,7 +3431,7 @@ async function main() {
 
   if (frontendPackageJson.scripts?.['test:e2e:critical-guard']) {
     const expectedCriticalGuardCommand = 'npm run --workspace frontend test:e2e:critical-guard';
-    const expectedSmokeCommand = 'npm run smoke:staging';
+    const expectedSmokeCommand = 'npm run ops:release:gate:evidence';
     const testingDocsToCheck = [
       ['08-測試規範與驗收/01-測試文檔分層與使用規則.md', testingRulesDoc],
       ['08-測試規範與驗收/02-AI流式與Chat治理驗收基線.md', testingAIGateDoc],

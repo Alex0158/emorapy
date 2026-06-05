@@ -8,7 +8,7 @@
 **最後核驗日期**：`2026-05-31`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-本文件固定 agent 與開發者連接平台、查版本、查資料庫與判定發布狀態的方法。目標是讓日常運維不依賴臨場記憶，也不靠重複試錯。
+本文件固定 agent 與開發者連接平台、查版本、查資料庫、部署 production 與判定發布狀態的方法。目標是讓日常運維不依賴臨場記憶，也不靠重複試錯。
 
 ## 1. 固定入口
 
@@ -29,14 +29,14 @@ cd backend && npm run precheck:pairing:normal-uniqueness
 npm run docs:check
 ```
 
-`ops:release:status` 用於查發布版狀態；`ops:release:gate` 是發布閉環 gate，要求顯式提供 `BACKEND_BASE_URL`、`REDIS_URL`、`ADMIN_JWT_EXPIRES_IN` 以及 `DATABASE_URL` 或 `ENV_FILE`，並禁止 `ALLOW_SIMPLE_LOCK=true`；gate 依序執行 docs contract、backend build/lint、live release status、主站/Admin/backend version commit 對齊 `git rev-parse HEAD`、backend `/health/live`、`/health/ready`、`/health`，且會解析 `/health` payload 確認 `Lock backend: redis` 與 `AI Stream backend: redis`、DB migration state、release-blocking DB parity、AI pricing catalog、smoke account hygiene、mutating release smoke 與 product-state audit；`ops:release:gate:evidence` 會執行同一個 gate，並把 log / metadata 寫入本機已忽略的 `temp/release-gate-evidence/<run-id>/`，metadata 只記 secret 是否提供，不記 `DATABASE_URL` 或密碼明文；`ops:release:smoke` 會串行執行 `scripts/smoke-production-like.sh` 與 `scripts/smoke-claim-session-production-like.sh`，必須顯式設定 `RUN_MUTATING_RELEASE_SMOKE=true`、release `DATABASE_URL` 與 smoke admin credentials；主站 quick flow 使用 `FRONTEND_BASE_URL / ORIGIN`，Admin 登入頁與 Admin API 使用 `ADMIN_BASE_URL / ADMIN_ORIGIN`（預設來自 `ADMIN_WEB_URL`），不得把主站 URL 當作 Admin Web；smoke 結尾會再次執行 `ops:smoke-accounts:check`，確認 `claim-smoke-*` 等 active smoke/dev 帳號沒有殘留；`ops:db:status` 用於查當前 `DATABASE_URL` 對應的 Prisma migration state；`ops:release-db:check` 只讀 `_prisma_migrations`，並以 `backend/scripts/check-release-db-parity.ts` 的 `RELEASE_BLOCKING_MIGRATIONS` 作唯一 release-blocking migration catalog，確認全部必須 migration 已完成且未 failed / rolled back；正式文件不得另行硬編 release-blocking migration 數量或清單作完成裁決；`ops:ai-pricing:check` 驗證 `AI_COST_PRICING_JSON` 可解析、帶 `source/version`、`version` 日期未來/過期檢查通過，且覆蓋 `OPENAI_MODEL / OPENAI_INTERVIEW_MODEL / OPENAI_ANALYSIS_MODEL` 與可選 `AI_COST_REQUIRED_MODELS`；`ops:product-state:audit` 用於只讀檢查 case / chat-to-case / repair track replanning 的卡住狀態，輸出產品流、session-bound 分類、repair track AI stream 樣本細節、人工 recovery proposal 與逐筆 `recoveryTasks` 候選；`ops:product-state:audit:persist` 只在顯式執行時把 recovery task 候選 upsert 到 `product_state_recovery_tasks`，不自動修業務資料；`ops:smoke-accounts:check` 用於只讀掃描 active smoke/dev 帳號污染；`precheck:pairing:normal-uniqueness` 用於只讀檢查一個 user 是否同時出現在多個 `normal pending/active` pairing；Dev DB 已另由 trigger migration 在 DB 層拒絕 cross-role duplicate；`docs:check` 用於確認正式文檔與台賬仍閉環。
+`Production Deploy and Verify` 是唯一正式 production 部署入口；本機 CLI 只作查狀態、debug 或緊急修復工具，不作日常 production deploy 入口。`ops:release:status` 用於查發布版狀態；`ops:release:gate` 是發布閉環 gate，要求顯式提供 `BACKEND_BASE_URL`、`REDIS_URL`、`ADMIN_JWT_EXPIRES_IN` 以及 `DATABASE_URL` 或 `ENV_FILE`，並禁止 `ALLOW_SIMPLE_LOCK=true`；gate 依序執行 docs contract、backend build/lint、live release status、主站/Admin/backend version commit 對齊 `git rev-parse HEAD`、backend `/health/live`、`/health/ready`、`/health`，且會解析 `/health` payload 確認 `Lock backend: redis` 與 `AI Stream backend: redis`、DB migration state、release-blocking DB parity、AI pricing catalog、smoke account hygiene、mutating release smoke 與 product-state audit；`ops:release:gate:evidence` 會執行同一個 gate，並把 log / metadata 寫入本機已忽略的 `temp/release-gate-evidence/<run-id>/`，metadata 只記 secret 是否提供，不記 `DATABASE_URL` 或密碼明文；`ops:release:smoke` 會串行執行 `scripts/smoke-production-like.sh` 與 `scripts/smoke-claim-session-production-like.sh`，必須顯式設定 `RUN_MUTATING_RELEASE_SMOKE=true`、release `DATABASE_URL` 與 smoke admin credentials；主站 quick flow 使用 `FRONTEND_BASE_URL / ORIGIN`，Admin 登入頁與 Admin API 使用 `ADMIN_BASE_URL / ADMIN_ORIGIN`（預設來自 `ADMIN_WEB_URL`），不得把主站 URL 當作 Admin Web；smoke 結尾會再次執行 `ops:smoke-accounts:check`，確認 `claim-smoke-*` 等 active smoke/dev 帳號沒有殘留；`ops:db:status` 用於查當前 `DATABASE_URL` 對應的 Prisma migration state；`ops:release-db:check` 只讀 `_prisma_migrations`，並以 `backend/scripts/check-release-db-parity.ts` 的 `RELEASE_BLOCKING_MIGRATIONS` 作唯一 release-blocking migration catalog，確認全部必須 migration 已完成且未 failed / rolled back；正式文件不得另行硬編 release-blocking migration 數量或清單作完成裁決；`ops:ai-pricing:check` 驗證 `AI_COST_PRICING_JSON` 可解析、帶 `source/version`、`version` 日期未來/過期檢查通過，且覆蓋 `OPENAI_MODEL / OPENAI_INTERVIEW_MODEL / OPENAI_ANALYSIS_MODEL` 與可選 `AI_COST_REQUIRED_MODELS`；`ops:product-state:audit` 用於只讀檢查 case / chat-to-case / repair track replanning 的卡住狀態，輸出產品流、session-bound 分類、repair track AI stream 樣本細節、人工 recovery proposal 與逐筆 `recoveryTasks` 候選；`ops:product-state:audit:persist` 只在顯式執行時把 recovery task 候選 upsert 到 `product_state_recovery_tasks`，不自動修業務資料；`ops:smoke-accounts:check` 用於只讀掃描 active smoke/dev 帳號污染；`precheck:pairing:normal-uniqueness` 用於只讀檢查一個 user 是否同時出現在多個 `normal pending/active` pairing；Dev DB 已另由 trigger migration 在 DB 層拒絕 cross-role duplicate；`docs:check` 用於確認正式文檔與台賬仍閉環。
 
 ## 2. 平台地圖
 
 | 責任 | 平台 | 固定線索 | 固定查法 |
 | --- | --- | --- | --- |
-| 主站 Web | Vercel | `vercel.json`、Vercel CLI project link | `curl https://mother-bear-court.vercel.app/version.json` |
-| Admin Web | Vercel | `frontend-admin/vercel.json`、Vercel CLI project link | `curl https://frontend-admin-sigma-virid.vercel.app/version.json` |
+| 主站 Web | Vercel | `.github/workflows/production-deploy-and-verify.yml`、`frontend/vercel.json`、Vercel project secret `VERCEL_MAIN_PROJECT_ID` | `curl https://mother-bear-court.vercel.app/version.json` |
+| Admin Web | Vercel | `.github/workflows/production-deploy-and-verify.yml`、`frontend-admin/vercel.json`、Vercel project secret `VERCEL_ADMIN_PROJECT_ID` | `curl https://frontend-admin-sigma-virid.vercel.app/version.json` |
 | 後端 API / jobs / metrics | Railway | `railway.json`、`backend/railway.toml` | `BACKEND_BASE_URL=<backend-url> npm run ops:release:status` |
 | DB | Supabase/Postgres + Prisma | `backend/prisma/schema.prisma`、`backend/prisma/migrations`、`supabase/migrations` | `DATABASE_URL=<db-url> npm run ops:db:status` |
 | Source / CI | GitHub + Git | `.github/workflows`、`git` | `git rev-parse HEAD origin/main`、`gh run view <run-id>` |
@@ -105,7 +105,7 @@ REDIS_URL=redis://127.0.0.1:6379
 ALLOW_SIMPLE_LOCK=false
 ```
 
-`REDIS_URL=` + `ALLOW_SIMPLE_LOCK=true` 只可作臨時降級；若再次使用，必須同步記入 `07-待處理問題與治理/待處理/`。Railway development Redis 不是本機開發版必要條件，只作可選 parity 增強；發布版與 staging 仍以 Railway Redis-backed runtime 為正式口徑，且需顯式配置 `ADMIN_JWT_EXPIRES_IN`。
+`REDIS_URL=` + `ALLOW_SIMPLE_LOCK=true` 只可作臨時降級；若再次使用，必須同步記入 `07-待處理問題與治理/待處理/`。Railway development Redis 不是本機開發版必要條件，只作可選 parity 增強；發布版仍以 Railway Redis-backed runtime 為正式口徑，且需顯式配置 `ADMIN_JWT_EXPIRES_IN`。
 
 第一次建立 Supabase Dev DB schema 時：
 
@@ -135,6 +135,40 @@ DATABASE_URL="postgresql://..." npm run prisma:seed
 6. 若本次有 schema 變更，production DB migration state 已確認。
 7. health / ready / smoke 通過。
 
+正式 production 部署只走 GitHub Actions：
+
+```bash
+gh workflow run "Production Deploy and Verify" --ref main
+```
+
+該 workflow 以 GitHub `Production` Environment 作 secret / approval 邊界，先跑 release preflight，再用 Vercel CLI 部署主站與 Admin production，用 Railway CLI 部署 production backend，最後跑 `ops:release:gate:evidence`。若 workflow 沒有執行或 gate 沒有通過，不能把 GitHub push、Vercel Ready 或 Railway health 單獨寫成整體發布閉環。
+
+Production workflow 的固定 GitHub Variables：
+
+| Key | 用途 |
+| --- | --- |
+| `VERCEL_ORG_ID` | Vercel team / org id |
+| `VERCEL_MAIN_PROJECT_ID` | 主站 Vercel project id |
+| `VERCEL_ADMIN_PROJECT_ID` | Admin Vercel project id |
+| `PRODUCTION_BACKEND_BASE_URL` | Railway production backend base URL |
+| `PRODUCTION_MAIN_WEB_URL` | 主站 production URL |
+| `PRODUCTION_ADMIN_WEB_URL` | Admin production URL |
+| `PRODUCTION_RAILWAY_SERVICE` | Railway production service name |
+
+Production workflow 的固定 GitHub Secrets：
+
+| Key | 用途 |
+| --- | --- |
+| `VERCEL_TOKEN` | Vercel CLI production deploy |
+| `RAILWAY_API_TOKEN` 或 `RAILWAY_TOKEN` | Railway CLI production deploy |
+| `PRODUCTION_RAILWAY_PROJECT_ID` 或既有 project id secret | Railway project id；同一 Railway project 可同時部署 production environment |
+| `PRODUCTION_DATABASE_URL` 或 `APP_RELEASE_DATABASE_URL` | release gate / DB migration state |
+| `PRODUCTION_REDIS_URL` | release gate 驗 Redis-backed runtime |
+| `PRODUCTION_ADMIN_JWT_EXPIRES_IN` | release gate 驗 Admin token expiry policy |
+| `RELEASE_SMOKE_ADMIN_EMAIL` / `RELEASE_SMOKE_ADMIN_PASSWORD` | mutating release smoke 專用 Admin 帳號 |
+
+缺任一必要 secret 時，workflow 必須 fail fast；不得用本機 `.env`、staging secret 或手寫 console 輸出補齊正式發布證據。
+
 固定 gate：
 
 ```bash
@@ -147,7 +181,7 @@ RELEASE_SMOKE_ADMIN_PASSWORD=<admin-password> \
 npm run ops:release:gate:evidence
 ```
 
-如用臨時 env 檔，使用 `ENV_FILE=<path>` 代替直接輸出 `DATABASE_URL`。`ops:release:gate` 故意不自動讀取 `backend/.env`，避免把本機開發版 DB 誤當發布版 DB 完成閉環。真實發布閉環優先跑 `ops:release:gate:evidence` 留存本機 evidence；該 evidence 目錄在 `.gitignore` 範圍內，不能提交包含 secret 的 log。
+如用臨時 env 檔，使用 `ENV_FILE=<path>` 代替直接輸出 `DATABASE_URL`。`ops:release:gate` 故意不自動讀取 `backend/.env`，避免把本機開發版 DB 誤當發布版 DB 完成閉環。真實發布閉環優先由 GitHub Actions production workflow 跑 `ops:release:gate:evidence` 並上傳 artifact；本機執行只作排查或緊急驗證，且 evidence 目錄在 `.gitignore` 範圍內，不能提交包含 secret 的 log。
 
 `RUN_MUTATING_RELEASE_SMOKE=true` 是故意的顯式開關：release smoke 會建立 quick session / quick case、登入 smoke admin、註冊 `claim-smoke-*` user、讀 release DB verification code 並驗證 claim-session 歸戶。未設定此開關時，完整 release gate 必須失敗，不得把健康檢查當作主鏈路 smoke。主站 URL 與 Admin URL 分離：`FRONTEND_BASE_URL` 預設主站，`ADMIN_BASE_URL` 預設 `ADMIN_WEB_URL`；Admin API request 使用 `ADMIN_ORIGIN`。`ops:release:smoke` 結尾會再次跑 active smoke/dev 帳號 hygiene；若 cleanup 失敗或專用 smoke admin 誤用了預設 smoke admin，發布 gate 必須失敗。
 

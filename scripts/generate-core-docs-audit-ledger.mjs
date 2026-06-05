@@ -53,7 +53,6 @@ const correctedDocs = new Set([
   '08-測試規範與驗收/02-AI流式與Chat治理驗收基線.md',
   '08-測試規範與驗收/README.md',
   '90-證據與盤點/AI流式驗證/AI流式驗收對照-2026-04-04.md',
-  '90-證據與盤點/環境與發版驗證/Staging 運行時收口記錄-2026-04-05.md',
   '測試/README.md',
   '測試/活躍場景案例/README.md',
   '測試/回歸與驗收/README.md',

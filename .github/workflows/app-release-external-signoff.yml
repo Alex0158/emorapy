@@ -90,7 +90,7 @@ jobs:
       APP_NATIVE_CRASH_EXPECTED_ENVIRONMENT: ${{ inputs.native_crash_environment }}
       APP_TELEMETRY_RUNTIME_API_BASE_URL: ${{ secrets.APP_TELEMETRY_RUNTIME_API_BASE_URL }}
       DATABASE_URL: ${{ secrets.APP_RELEASE_DATABASE_URL }}
-      APP_RELEASE_EXTERNAL_SIGNOFF_REPORT_DIR: ${{ runner.temp }}/app-release-external-signoff-report
+      APP_RELEASE_EXTERNAL_SIGNOFF_REPORT_DIR: /tmp/app-release-external-signoff-report
       DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
       MAESTRO_CLI_NO_ANALYTICS: '1'
       MAESTRO_CLI_ANALYSIS_NOTIFICATION_DISABLED: 'true'

@@ -50,9 +50,9 @@ npm run docs:check
 
 | Surface | Platform | Repo evidence | Status check |
 | --- | --- | --- | --- |
-| Main web | Vercel | `.vercel/project.json`, `vercel.json` | `https://mother-bear-court.vercel.app/version.json` |
-| Admin web | Vercel | `frontend-admin/.vercel/project.json`, `frontend-admin/vercel.json` | `https://frontend-admin-sigma-virid.vercel.app/version.json` |
-| Backend API | Railway | `railway.json`, `backend/railway.toml` | `BACKEND_BASE_URL=<url> npm run ops:release:status` |
+| Main web | Vercel | `.github/workflows/production-deploy-and-verify.yml`, `frontend/vercel.json` | `https://mother-bear-court.vercel.app/version.json` |
+| Admin web | Vercel | `.github/workflows/production-deploy-and-verify.yml`, `frontend-admin/vercel.json` | `https://frontend-admin-sigma-virid.vercel.app/version.json` |
+| Backend API | Railway | `.github/workflows/production-deploy-and-verify.yml`, `railway.json`, `backend/railway.toml` | `BACKEND_BASE_URL=<url> npm run ops:release:status` |
 | Database | Supabase/Postgres via Prisma | `backend/prisma/schema.prisma`, `backend/prisma/migrations`, `supabase/migrations` | `DATABASE_URL=<url> npm run ops:db:status` |
 | CI/source | GitHub/Git | `.github/workflows`, `git` | `gh run view`, `git rev-parse HEAD origin/main` |
 
@@ -82,13 +82,13 @@ railway status --json
 
 Do not leave a browserless login process running indefinitely. If activation is not completed, stop it and report that Railway CLI remains unauthenticated.
 
-Current Railway production state, last verified 2026-05-03:
+Current Railway production state, last verified 2026-06-05:
 
 1. Project: `ingenious-commitment`.
 2. Production backend domain: `https://mother-bear-court-production.up.railway.app`.
-3. Railway CLI can read production deployment state with `railway status --json`.
-4. Latest and active production backend deployments were `SUCCESS` after the Railway Docker build fix.
-5. Use `npm run ops:release:gate` for full release closure. The backend version endpoint now exposes `commitSha`; if it is missing, `unknown`, or not aligned with local `HEAD`, treat the backend as not fully verified. `railway status --json` remains the source for Railway deployment/log state.
+3. Formal production deploy entrypoint is GitHub Actions `Production Deploy and Verify`; local Vercel/Railway CLI is for status/debug/emergency use, not the routine release path.
+4. Railway CLI auth was expired during the 2026-06-05 check; use live backend `/version` as minimum evidence until CLI is reauthenticated.
+5. Use `npm run ops:release:gate` or the production workflow release-gate step for full release closure. The backend version endpoint exposes `commitSha`; if it is missing, `unknown`, or not aligned with local `HEAD`, treat the backend as not fully verified. `railway status --json` remains the source for Railway deployment/log state when CLI auth is available.
 
 ## Frontend Tech Stack (Migration Complete ✅ 2026-05-05)
 
@@ -150,11 +150,12 @@ A release is complete only when all relevant checks are true:
 
 1. `HEAD` and `origin/main` are the intended commit.
 2. GitHub CI for that commit is successful.
-3. Main Vercel production `/version.json` reports that commit.
-4. Admin Vercel production `/version.json` reports that commit.
-5. Railway backend production `/version` reports that commit and Railway deployment status is active/successful when CLI evidence is needed.
-6. Production DB migration state is confirmed if schema changed.
-7. Health/ready/smoke checks pass.
+3. GitHub Actions `Production Deploy and Verify` has deployed the selected production targets or those targets were intentionally skipped.
+4. Main Vercel production `/version.json` reports that commit.
+5. Admin Vercel production `/version.json` reports that commit.
+6. Railway backend production `/version` reports that commit and Railway deployment status is active/successful when CLI evidence is needed.
+7. Production DB migration state is confirmed if schema changed.
+8. Health/ready/smoke checks pass through `ops:release:gate:evidence`.
 
 If any part is missing, say exactly which part is confirmed and which is not.
 

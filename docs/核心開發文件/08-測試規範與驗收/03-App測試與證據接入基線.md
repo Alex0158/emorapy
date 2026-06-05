@@ -33,7 +33,7 @@ App smoke / regression / CI 進入 `08-測試規範與驗收/`、`測試/` 或 `
 | Static contract | route topology、feature source contract、copy / accessibility / platform boundary | source shape、route / selector / native side-effect 邊界未回退 | runtime flow、native side effect、provider delivery |
 | Unit / component tests | adapter helper、screen state、form validation、stream reducer、label helper | 模組行為與 UI 分支符合預期 | connected backend、native lifecycle、真機讀屏 |
 | Web export / route smoke | Expo web export 與 App route rendering | route 可掛載、body 非空、基本 web rendering 無阻塞 | native navigation、Deep Link、auth resume runtime |
-| Local true-service smoke | local API + local DB 下的 M1-M5 backend-connected flow | API / DB / shared client / App smoke harness 可串接 | staging / production、physical device、provider side effect |
+| Local true-service smoke | local API + local DB 下的 M1-M5 backend-connected flow | API / DB / shared client / App smoke harness 可串接 | remote sandbox / production、physical device、provider side effect |
 | Simulator / emulator native smoke | iOS simulator、Android emulator、release APK install / launch、Maestro flow | local native build / launch / selector flow 可用 | TestFlight、EAS store artifact、physical device |
 | Structured external evidence | EAS iOS / TestFlight、EAS Android、physical device、push provider、native crash runtime、release DB parity、telemetry runtime | release audit 可解析的 pass / blocked 狀態 | 不可由 markdown、console output、dry-run 或 local artifact 替代 |
 
@@ -86,8 +86,8 @@ M5 notification 語言驗收還必須覆蓋 backend render 邊界：notification
 
 `npm --prefix mobile run smoke:true-service` 的預設模式是 dry-run。只有 `--run` 或 `APP_TRUE_SERVICE_SMOKE_RUN=true` 才會打 backend。run mode 必須先通過 safety gate：
 
-1. API URL 必須是 localhost / 127.0.0.1 / ::1；若要打 staging API，必須顯式使用 `--allow-remote-api` 或 `APP_SMOKE_ALLOW_REMOTE_API=true`。
-2. 當 API URL 是本機時，腳本會讀取 `backend/.env` 或 process env 的 `DATABASE_URL`，並拒絕 non-local DB；若確定是 staging/sandbox，才可顯式使用 `--allow-remote-db` 或 `APP_SMOKE_ALLOW_REMOTE_DB=true`。
+1. API URL 必須是 localhost / 127.0.0.1 / ::1；若要打一個明確隔離的 remote sandbox API，必須顯式使用 `--allow-remote-api` 或 `APP_SMOKE_ALLOW_REMOTE_API=true`。
+2. 當 API URL 是本機時，腳本會讀取 `backend/.env` 或 process env 的 `DATABASE_URL`，並拒絕 non-local DB；若確定是一次性 remote sandbox，才可顯式使用 `--allow-remote-db` 或 `APP_SMOKE_ALLOW_REMOTE_DB=true`。
 3. dry-run report 中 `blocked: true` 是環境缺口，不是 flow 完成證據；不得用 dry-run 取代真服務 run evidence。
 4. `--bootstrap-local-users` 只允許 local API + local DB，會建立暫時 smoke users 並在同一次 run 內重用 token；不得對 staging / production 使用。
 5. 若沒有啟動本機 Redis，local backend 可能輸出 metrics / AI stream Redis warning；這只代表 Redis-backed replay / metrics 未在該次 smoke 覆蓋，不可把該次 smoke 說成 production-like runtime parity。
@@ -113,7 +113,7 @@ M5 notification 語言驗收還必須覆蓋 backend render 邊界：notification
 | Physical device | `App-Physical-Device-*.json`，真機、platform readiness、App runtime launch、M0 Maestro smoke | simulator UDID、offline device、blocked JSON |
 | Push provider delivery | `App-Push-Delivery-*.json`，run mode，Expo / APNs ticket accepted、receipt checked、receipt ok | local token sync、notification UI unit test、blocked JSON |
 | Native crash runtime | `App-Native-Crash-Runtime-*.json`，production environment、Sentry event found、native runtime signal、crash-like event、`blocked=false` | native crash SDK configuration、development event、TestFlight crash-free sessions |
-| Release DB parity | `App-Release-DB-Parity-*.json`，release / production target、non-local DB、required migrations ok | local DB、staging DB、raw console output |
+| Release DB parity | `App-Release-DB-Parity-*.json`，release / production target、non-local DB、required migrations ok | local DB、remote sandbox DB、raw console output |
 | Telemetry runtime | `App-Telemetry-Runtime-*.json`，non-local release backend version alignment、event ingest、OTLP ingest | local telemetry unit test、external tracing backend plan |
 
 當前 release completion blockers 由 [../07-待處理問題與治理/待處理/App外部ReleaseSignoff待辦-2026-05-16.md](../07-待處理問題與治理/待處理/App外部ReleaseSignoff待辦-2026-05-16.md) 與 `npm --prefix mobile run release:completion:audit` 承接。release DB parity 與 telemetry runtime 已有 pass evidence 時，不再作當前 completion blocker；若後續新增 release-blocking migration 或改動 backend telemetry/version runtime，必須重新取證。

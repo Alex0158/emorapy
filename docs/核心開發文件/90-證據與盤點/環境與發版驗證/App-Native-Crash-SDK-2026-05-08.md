@@ -24,7 +24,7 @@ App 已建立 native crash SDK configuration first pass：
 - `mobile/app.json` 已新增 `@sentry/react-native/expo` config plugin，未提交 org / project / auth token；後續 EAS/CI 需用 `SENTRY_ORG`、`SENTRY_PROJECT`、`SENTRY_AUTH_TOKEN`。
 - `mobile/src/platform/telemetry/nativeCrash.ts` 已新增 Sentry 初始化 adapter；只有在 `EXPO_PUBLIC_SENTRY_DSN` 或 `expo.extra.sentryDsn` 存在，且平台不是 web 時才啟用。
 - Sentry 初始化使用 `sendDefaultPii: false`、`enableNativeCrashHandling: true`、`enableAutoSessionTracking: true`、`tracesSampleRate: 0`，並透過 `beforeSend` 移除 `user`、`request`、breadcrumbs，redact message / exception value / token-session 類 extra。
-- iOS 持久化來源是 `mobile/app.json` 的 `@sentry/react-native/expo` config plugin；本機 generated / ignored `mobile/ios` 已經在 Release build 前補出 [sentry.properties](../../../../mobile/ios/sentry.properties)、`sentry-xcode.sh` bundle phase 與 `Upload Debug Symbols to Sentry` / `sentry-xcode-debug-files.sh` dSYM upload phase；Android native project 已有 `android/sentry.properties` 與 `sentry.gradle`。
+- iOS 持久化來源是 `mobile/app.json` 的 `@sentry/react-native/expo` config plugin；本機 generated / ignored `mobile/ios` 已經在 Release build 前補出 `mobile/ios/sentry.properties`、`sentry-xcode.sh` bundle phase 與 `Upload Debug Symbols to Sentry` / `sentry-xcode-debug-files.sh` dSYM upload phase；Android native project 已有 `android/sentry.properties` 與 `sentry.gradle`。
 - 初始化採 fail-closed：若 Sentry native SDK 初始化拋錯，App 只回傳 `init_failed` 狀態，不讓 crash provider 阻塞 App 啟動。
 - `ObservabilityBootstrap` 已把 native crash provider / enabled / reason 加入 App session start 與 boot span safe telemetry context。
 - 本輪不提交 Sentry DSN、Sentry auth token、org slug 或 project slug；Sentry Expo plugin / source map upload 仍待 EAS / Sentry credentials 後補。

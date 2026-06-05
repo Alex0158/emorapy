@@ -3,14 +3,14 @@
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：01-auth-session
-**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`backend/src/services/auth.service.ts`、`backend/src/services/session.service.ts`、`backend/src/utils/case-classifier.ts`、`backend/src/utils/pairing-invariant.ts`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`2e0cea7`
-**最後核驗日期**：`2026-05-04`
+**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes/auth.routes.ts`、`backend/src/routes/session.routes.ts`、`backend/src/services/auth.service.ts`、`backend/src/services/session.service.ts`、`backend/src/utils/case-classifier.ts`、`backend/src/utils/pairing-invariant.ts`、`frontend/src/services/request.ts`、`frontend/src/services/requestPolicy.ts`、`frontend/src/store/authStore.ts`、`frontend/src/store/sessionStore.ts`、`frontend/src/services/api/auth.ts`、`frontend/src/services/api/session.ts`、`packages/api-client/src/m1.ts`、`mobile/src/features/m1/session.ts`、`mobile/src/platform/api/client.ts`、`mobile/src/platform/storage/secureStore.ts`
+**最後核驗 Commit**：`23e85ef`
+**最後核驗日期**：`2026-05-31`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**文檔版本**：v2.6
-**最後更新**：2026-05-04
-**代碼基準**：`backend/src/routes/auth.routes.ts`、`backend/src/services/auth.service.ts`、`backend/src/services/session.service.ts`、`backend/src/routes/session.routes.ts`、`backend/src/utils/validation.ts`、`frontend/src/services/api/auth.ts`、`frontend/src/services/api/session.ts`
+**文檔版本**：v2.7
+**最後更新**：2026-05-31
+**代碼基準**：`backend/src/routes/auth.routes.ts`、`backend/src/routes/session.routes.ts`、`backend/src/services/auth.service.ts`、`backend/src/services/session.service.ts`、`backend/src/utils/validation.ts`、`frontend/src/services/request.ts`、`frontend/src/services/requestPolicy.ts`、`frontend/src/store/authStore.ts`、`frontend/src/store/sessionStore.ts`、`frontend/src/services/api/auth.ts`、`frontend/src/services/api/session.ts`、`packages/api-client/src/m1.ts`、`mobile/src/features/m1/session.ts`、`mobile/src/platform/api/client.ts`
 
 ---
 
@@ -39,7 +39,7 @@
 ## 操作級規則（深水區）
 
 - `request.ts` 對非 admin API 自動帶 JWT；同時會補 `X-Session-Id`，形成雙憑證併存。
-- Session 類 401/400（`SESSION_EXPIRED`、`SESSION_ID_REQUIRED`、`INVALID_SESSION_ID`）走「清舊 -> refresh -> 重試」策略，避免死循環。
+- Session 類 401/400（`SESSION_EXPIRED`、`SESSION_ID_REQUIRED`、`INVALID_SESSION_ID`）在 Web request interceptor 中只做「清舊 -> refresh / 補建 session -> 提示」；不得假設 interceptor 會自動重放原始請求，頁面或調用方仍需自行重拉 / 重送以避免死循環。
 - `claim-session` 屬提升體驗轉化率的「弱依賴」：失敗不應阻斷登入成功態。
 - `claim-session` 對外只承諾返回 `case_id | null`，但內部必須保持同 session 匿名資產歸戶一致：不能只綁 `cases.plaintiff_id`，而漏掉 `pairings.user1_id`、`chat_rooms.owner_user_id`、`chat_participants.user_id` 或 `evidences.user_id`。
 - `claim-session` 的 case / evidence 歸戶必須使用 `backend/src/utils/case-classifier.ts` 的 `buildClaimableSessionCaseWhere(session_id)`：只允許 quick（`session_id` 或 `quick_sessions` 關聯）與同 session 的 `collaborative(session_id 有值)`；不能因 formal case 殘留 `session_id` 或 `quick_sessions` 關聯而被錯誤歸戶。
@@ -50,6 +50,7 @@
 - `sessions/refresh` 若帶合法舊 `X-Session-Id`，後端會做「新建 -> 遷移 `case_id/pairing_id/session_data` -> 刪舊」的原子旋轉；前端必須同步替換本地 `sessionStorage` 與 `caseSessionMap`。
 - `sessions/refresh` 遷移 `cases.session_id` 時必須使用 `buildClaimableSessionCaseWhere(old_session_id)`：只搬遷 quick / 同 session collaborative 的匿名關聯，不能因 formal case 殘留 `session_id` 或 `quick_sessions` 關聯而被 session 旋轉帶走。
 - `sessions/refresh` 遷移 `pairings.session_id` 時必須使用 `buildSessionBoundQuickPairingWhere(old_session_id, pairing_id)`：只旋轉 quick temp pairing，不能更新 normal pending/active/cancelled pairing。
+- App 端 session / auth 由 `mobile/src/platform/storage/secureStore.ts`、`mobile/src/platform/api/client.ts` 與 `mobile/src/features/m1/session.ts` 承接：API client 只注入 token / `X-Session-Id`，quick session recovery 由 M1 helper 在 recoverable error 後清理或補建；不得把 Web request interceptor 的恢復語義直接寫成 App runtime。
 
 ## 回歸測試最小集
 

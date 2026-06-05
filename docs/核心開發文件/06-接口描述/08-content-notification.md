@@ -4,12 +4,12 @@
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：08-content-notification
 **取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`backend/src/services/notification.service.ts`、`backend/src/utils/case-classifier.ts`、`backend/src/utils/notification-deep-link.ts`、`backend/prisma/schema.prisma`、`backend/prisma/migrations/20260504164500_add_notification_cancelled_status/migration.sql`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`6204e7f`
-**最後核驗日期**：`2026-05-08`
+**最後核驗 Commit**：`23e85ef`
+**最後核驗日期**：`2026-05-31`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**文檔版本**：v2.9
-**最後更新**：2026-05-08
+**文檔版本**：v3.0
+**最後更新**：2026-05-31
 **代碼基準**：`backend/src/routes/content.routes.ts`、`backend/src/routes/notification.routes.ts`、`backend/src/controllers/content.controller.ts`、`backend/src/controllers/notification.controller.ts`、`backend/src/services/content.service.ts`、`backend/src/services/notification.service.ts`、`backend/src/utils/case-classifier.ts`、`backend/src/utils/notification-deep-link.ts`、`backend/src/utils/validation.ts`、`packages/api-client/src/m5.ts`、`mobile/src/platform/notifications/native.ts`、`mobile/app/(app)/notifications/index.tsx`、`frontend/src/services/api/content.ts`、`frontend/src/services/api/notifications.ts`
 
 ---
@@ -51,7 +51,7 @@
 - `GET /api/v1/notifications` 的 `cursor` 為 `notification.id(uuid)`；分頁不是時間戳游標。
 - `GET /api/v1/notifications/unread-count` 只統計「未讀 + 未dismiss + snooze到期或未snooze」的通知。
 - `POST /api/v1/notifications/device-tokens` 是 App Push token 的唯一註冊入口；App 不得把 token 保存在業務表或直接從 screen 拼 API。後端以 `push_device_tokens.token` 做唯一鍵，支援 token 重裝/換登入後轉移到當前 user，並以 `revoked_at` 表示撤銷。response 不回傳 token 原文，log 也不得輸出 token。
-- `POST /api/v1/notifications/device-tokens/revoke` 只接受非空 `token` 或 `device_id`，至少一項；若兩者都有，必須同時匹配同一 user 的未撤銷記錄。它目前完成 registration/revoke 狀態閉環；App notification response / last response landing handler 與未登入 post-login resume 已有首輪路由處理。Backend 已新增 Expo push sender、`dispatch_pending_push_notifications` 與 `poll_push_notification_receipts` job，會把 pending push notification 轉成 Expo message、保存 ticket、輪詢 receipt 並回寫 `sent / failed / receipt ok / receipt error`；但這不代表 APNs sandbox、真 provider delivery 或真機 cold-start landing 證據已完成。
+- `POST /api/v1/notifications/device-tokens/revoke` 只接受非空 `token` 或 `device_id`，至少一項；若兩者都有，必須同時匹配同一 user 的未撤銷記錄。registration / revoke、notification landing、post-login resume、Expo push sender、`dispatch_pending_push_notifications` 與 `poll_push_notification_receipts` 已構成基礎狀態閉環：pending push notification 會轉成 Expo message、保存 ticket、輪詢 receipt 並回寫 `sent / failed / receipt ok / receipt error`。這仍不等於 APNs sandbox、真 provider delivery 或真機 cold-start landing 證據已完成。
 - `POST /api/v1/content-links` 必須認證（`authenticate`），且在寫入關聯前會再次用 `caseService.getCaseById(case_id, userId)` 做案件訪問校驗。
 - repair journey 通知 payload 應帶：
   - `title/body/path/cta_label`
@@ -84,7 +84,7 @@
 3. `/notifications` 能完成 `read / read-all / dismiss / snooze / act` 操作並深鏈回旅程。
 4. 通知 render payload 應從 `payload.product_flow` 或 `journey_context.repair_access.product_flow` 輸出固定五類產品流，非法值應回退為 `null`。
 5. `payload.path` 應只接受 notification deep-link 白名單路由；外部 URL、`/admin/*`、`//evil`、反斜線、query/hash 與 `/chat/invites/:code/accept` 均不得建立，歷史非法 path 讀取時應輸出 `null`。Chat invite 通知只能落到 invite landing，例如 `/chat/invite/ABC123`，再由 App auth resume / accept flow 處理。
-6. App push token registration / revoke 應覆蓋 route validation、API client typed envelope、App permission/token sync、logout cleanup；目前 registration/revoke、本機清理前 revoke 補償、registration-time token rotation revoke、notification landing handler、post-login resume、Expo push sender、pending dispatch 與 receipt polling job 已有 mock-backed smoke / API client / RNTL / feature unit / route smoke / backend unit 測試，真 provider delivery、APNs sandbox、真機 delivery、真機 cold-start landing 證據與 provider lifecycle evidence 待補。
+6. App push token registration / revoke 應覆蓋 route validation、API client typed envelope、App permission/token sync、logout cleanup、notification landing、post-login resume、Expo push sender、pending dispatch 與 receipt polling；真 provider delivery、APNs sandbox、真機 delivery、真機 cold-start landing 證據與 provider lifecycle evidence 仍屬 M6 release sign-off。
 
 ## 錯誤碼覆蓋矩陣（API -> code -> UI 行為）
 

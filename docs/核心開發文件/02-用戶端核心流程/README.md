@@ -22,7 +22,7 @@
 
 本子域不回答：
 
-1. API 是否在用、候選廢棄或已確認廢棄
+1. API 是否已使用、待承接、候選廢棄或已確認廢棄
 2. 管理端治理、平台監控與運營配置
 3. 共用 package 落點與工程分層
 4. App 原生 navigation、Deep Link、Push、SecureStore、upload 或 App lifecycle 的平台策略

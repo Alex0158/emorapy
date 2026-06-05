@@ -19,7 +19,7 @@
 1. Web 前台 `/auth/*`、`ProtectedRoute`、`PublicRoute` 與回跳規則
 2. `session_id`、JWT、`claim-session`、session refresh rotation 的身份承接邊界
 3. quick / chat / judgment handoff 所依賴的身份來源口徑
-4. App 端若要承接登入、匿名 session、SecureStore、session restore 或 Deep Link handoff，必須回查 App navigation / platform adapter 基線與 App 首輪工程落點 Mapping
+4. App 端若要承接登入、匿名 session、SecureStore、session restore 或 Deep Link handoff，必須回查 App navigation / platform adapter 基線與 App 工程落點 Mapping
 
 本子域不回答：
 

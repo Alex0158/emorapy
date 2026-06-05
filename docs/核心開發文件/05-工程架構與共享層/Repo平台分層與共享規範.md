@@ -4,8 +4,8 @@
 **文檔類型**：正式規格
 **覆蓋範圍**：工作區結構、共享層與工程約束：Repo平台分層與共享規範
 **取證代碼入口**：`package.json`、`scripts/start-dev.sh`、`frontend/tsconfig.app.json`、`frontend-admin/tsconfig.app.json`、`backend/tsconfig.json`、`mobile/package.json`、`mobile/tsconfig.json`、`packages/contracts/package.json`、`packages/api-client/package.json`、`backend/src`、`frontend/src`、`frontend-admin/src`、`mobile/app`、`mobile/src/platform`
-**最後核驗 Commit**：`3890ba8`
-**最後核驗日期**：`2026-05-25`
+**最後核驗 Commit**：`23e85ef`
+**最後核驗日期**：`2026-05-31`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 ## 1. 目的
@@ -78,7 +78,7 @@
 - 完整 App 版正式採用 Expo + React Native + TypeScript，iOS 優先，Android 兼容。
 - 預設所有功能放在跨平台共用檔案
 - 只有在必要時才建立 `*.ios.ts`、`*.android.ts`、`*.ios.tsx`、`*.android.tsx`
-- 平台差異優先收斂在 `mobile/` 內的平台適配層；`mobile/src/platform` 已有 API、SecureStore、SSE、upload、notifications、linking、lifecycle、telemetry runtime adapter 與首輪 gate，但 M6 真機 / provider / release DB evidence 尚未清零
+- 平台差異優先收斂在 `mobile/` 內的平台適配層；`mobile/src/platform` 已有 API、SecureStore、SSE、upload、notifications、linking、lifecycle、telemetry runtime adapter 與 M0-M5 baseline gate，但完整 App 完成仍取決於 M6 外部 release sign-off；release DB parity 屬可刷新證據槽，不等於真機 / provider / native crash 已完成
 - 業務流程、路由結構、型別契約與資料層邏輯應盡量共用
 
 App 的路由結構不得直接照搬 Web route。`mobile/app` 的模板替換、Deep Link、session restore 與原生能力入口以 [../20-App端/01-App導航與平台Adapter基線.md](../20-App端/01-App導航與平台Adapter基線.md) 為 gate；若同時牽動 Backend / API / DB / shared package，以 [../50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md](../50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md) 作工程對照。
@@ -102,20 +102,20 @@ App 後續開發需要 Web 配合的是共享層抽離，不是改變 Web UI 或
 2. 再把 Web 既有 request 層可抽離部分拆成 `packages/api-client` 與 Web adapter
 3. App 新增業務能力時直接消費 `@cj/api-client` / `@cj/contracts`，不得回到 screen 直寫分叉 fetch / DTO
 
-## 7. 本次落地範圍
+## 7. 當前落地範圍
 
-本次只做以下事情：
+本文件固定以下現行範圍：
 
 - 建立 `packages/contracts`
 - 建立 `packages/api-client`
 - 保持 `mobile/`、`backend/` 不進 root workspace；`packages/*` 已進入 root workspace，但不做大規模 app 目錄搬移
-- App 已從 Expo Router 模板推進到 M0-M5 首輪 runtime 接線，但仍保持 `mobile/` 不進 root workspace 的 repo-local 邊界；完整 release 完成仍以 M6 strict evidence 為準
+- App 已具備 M0-M5 runtime 接線，但仍保持 `mobile/` 不進 root workspace 的 repo-local 邊界；完整 release 完成仍以 M6 strict sign-off 為準
 
 這代表 repo 已開始進入平台分層模式，但仍保留既有目錄穩定性。
 
-## 8. 第二階段落地狀態
+## 8. 共享層落地狀態
 
-目前已完成：
+當前已具備：
 
 - `frontend/tsconfig.app.json` 已接上 `@cj/contracts` 與 `@cj/api-client` alias
 - `frontend/package.json` 已聲明 `@cj/contracts` workspace dependency，並已聲明 `@cj/api-client` workspace dependency
@@ -124,12 +124,12 @@ App 後續開發需要 Web 配合的是共享層抽離，不是改變 Web UI 或
 - `frontend-admin/tsconfig.app.json` 已接上 `@cj/contracts` 與 `@cj/api-client` alias
 - `frontend-admin/package.json` 已聲明 `@cj/contracts` 與 `@cj/api-client` workspace dependencies
 - `mobile/package.json` / `mobile/package-lock.json` 已以 `file:../packages/*` dependency 聲明 `@cj/contracts` 與 `@cj/api-client`，`mobile/metro.config.js` 已建立 shared package alias
-- `mobile/src/platform` 已有 API / SecureStore / SSE / upload / notifications / linking / lifecycle / telemetry runtime adapter 與首輪 gate；native device evidence 仍待補
+- `mobile/src/platform` 已有 API / SecureStore / SSE / upload / notifications / linking / lifecycle / telemetry runtime adapter 與 M0-M5 baseline gate；physical device、provider delivery 與 native crash runtime evidence 仍屬 M6 sign-off
 - `frontend/` 與 `frontend-admin/` 不保留 app-local package-lock；CI/Vercel 必須從 root workspace 安裝
 - Vercel build 必須先跑 shared artifacts，再執行 `npm run build --workspace frontend-admin`
 - root 腳本若以 bare import 使用工具，必須由 root manifest 聲明依賴
 
-目前尚未完成：
+仍未完成：
 
 - `frontend-admin/` 只接入了 `@cj/contracts` 的局部 DTO，且 `frontend-admin/` 仍維持本地 domain API request stack，僅使用 `@cj/api-client` 的 transport baseline
 - `packages/api-client` 已建立 M1-M5 domain client 消費面；仍需繼續把 Web 可共用 domain helper / query key / reducer 收斂到 shared package
@@ -141,7 +141,7 @@ App 後續開發需要 Web 配合的是共享層抽離，不是改變 Web UI 或
 
 - `backend/src` 目前仍有 `rootDir` 限制，不能直接安全地引用 `packages/contracts` 原始碼作為正式來源；應消費 `types/` declaration artifact
 - `frontend/src/types/common.ts` 目前只做部分共享對齊，仍保留相容性包裝，避免一次影響既有大量 API 使用點
-- `mobile/` 已正式消費 `@cj/contracts` / `@cj/api-client`；仍需補齊 native device / EAS / Maestro 實跑與真 provider evidence
+- `mobile/` 已正式消費 `@cj/contracts` / `@cj/api-client`；仍需補齊 EAS / TestFlight / physical device / provider delivery / native crash runtime evidence
 - `frontend-admin/` 仍維持本地 domain API request stack，僅局部接入共享 contracts DTO 與 shared transport baseline
 
 ## 10. 下一步建議
@@ -150,7 +150,7 @@ App 後續開發需要 Web 配合的是共享層抽離，不是改變 Web UI 或
 
 1. 讓 `packages/contracts` 產生穩定的 declaration/build 輸出，供 backend 安全引用
 2. 繼續把 `frontend/src/services/request.ts` 可抽離部分下沉到 `packages/api-client`
-3. 依 `20-App端/03-App完整版本開發Roadmap.md` 補齊 EAS project id、EAS iOS/Android production artifact、TestFlight、physical device、真 Push delivery、native crash runtime evidence 與 evidence pack；release / production DB parity 已有 structured pass evidence，但後續 schema/migration 變更仍需重新跑 fresh evidence
+3. 依 `20-App端/03-App完整版本開發Roadmap.md` 補齊 EAS project id、EAS iOS/Android production artifact、TestFlight、physical device、真 Push delivery、native crash runtime evidence 與 evidence pack；release / production DB parity 是 release audit 證據槽，後續 schema/migration 變更後必須刷新
 4. 持續要求所有 SecureStore、API、SSE、Push notification、upload / ImagePicker、Deep Link、lifecycle、telemetry 副作用經 `mobile/src/platform` adapter；`platform:check` 已納入 release preflight，但仍不能替代真機驗收
 5. 建立 `packages/domain`，開始收斂 query keys、formatter、permission、AI phase reducer 與純業務邏輯
 6. 若上述任何一步改變既有架構決策，新增或更新 ADR，並同步威脅建模、安全需求、NFR 與 RTM

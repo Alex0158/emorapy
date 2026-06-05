@@ -4,8 +4,8 @@
 **文檔類型**：核心入口
 **覆蓋範圍**：核心開發文件閱讀順序、SSOT 邊界與 repo 級文檔治理口徑
 **取證代碼入口**：`backend/src/app.ts`、`frontend/src/router/index.tsx`、`frontend-admin/src/router.tsx`、`mobile/app/_layout.tsx`、`mobile/src/platform`、`scripts/check-docs-structure.mjs`
-**最後核驗 Commit**：`3890ba8`
-**最後核驗日期**：`2026-05-07`
+**最後核驗 Commit**：`23e85ef`
+**最後核驗日期**：`2026-05-31`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 本目錄是 `CJ` 項目唯一有效的工程與產品正式文檔依據。
@@ -67,7 +67,7 @@
 
 根層文檔之間的主從關係固定如下：
 
-1. API 是否在用、候選廢棄或已確認廢棄，只看 `全接口清單-主文檔.md`。
+1. API 是否已使用、待承接、候選廢棄或已確認廢棄，只看 `全接口清單-主文檔.md`。
 2. 功能是否存在、由哪個頁面承接，只看 `功能特性清單.md` 與 `頁面清單.md`。
 3. 交叉追溯、影響分析與回歸範圍，只看 `接口-功能-頁面-Mapping.md`。
 4. 跨端產品語義先看 `00-跨端產品核心/`；跨端主流程總覽看 `業務流程整合.md`；術語口徑只看 `術語表.md`。
@@ -84,7 +84,7 @@
 | `00-跨端產品核心/` | Web / App 共用的產品意圖、PRD 需求、用戶場景、成功指標、工程級 PRD 對標、角色、流程、狀態機與一致性規則；跨端產品語義最高 SSOT |
 | `10-Web端/` | Web / Admin Web 凍結基線、平台投影與已實作狀態；作為 App 開發對照，不重新定義產品核心 |
 | `20-App端/` | Expo App 開發入口、完整 App 版工程 PRD / Roadmap、App 平台投影、navigation 替換、原生 platform adapter 邊界與待閉環事項 |
-| `50-跨端Mapping與Parity/` | 產品能力到 Web / App / Backend / API / DB / 共享層的映射、App 首輪工程落點與 Parity 缺口台帳 |
+| `50-跨端Mapping與Parity/` | 產品能力到 Web / App / Backend / API / DB / 共享層的映射、App 工程落點與 Parity 缺口台帳 |
 
 ### 正式核心子目錄
 

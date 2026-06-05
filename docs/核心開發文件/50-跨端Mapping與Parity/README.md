@@ -4,8 +4,8 @@
 **文檔類型**：域索引
 **覆蓋範圍**：50-跨端Mapping與Parity 子域入口與閱讀順序
 **取證代碼入口**：`backend/src/routes`、`backend/prisma/schema.prisma`、`frontend/src/router/index.tsx`、`frontend-admin/src/router.tsx`、`mobile/app`、`mobile/tsconfig.json`、`mobile/src/platform`、`packages/contracts/src`、`packages/api-client/src`
-**最後核驗 Commit**：`1295216`
-**最後核驗日期**：`2026-05-06`
+**最後核驗 Commit**：`23e85ef`
+**最後核驗日期**：`2026-05-31`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 本目錄負責把跨端產品核心映射到 Web、App、Backend、API、DB 與共享層。它是 Web 凍結版與 App 開發版之間的差異追蹤入口。

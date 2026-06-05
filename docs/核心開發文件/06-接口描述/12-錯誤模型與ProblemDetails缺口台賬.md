@@ -3,9 +3,9 @@
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：接口詳規
 **覆蓋範圍**：API 錯誤模型、HTTP status、錯誤碼、request_id、Problem Details / OpenAPI 缺口與跨端失敗契約
-**取證代碼入口**：`backend/src/utils/errors.ts`、`backend/src/middleware/errorHandler.ts`、`backend/src/middleware/responseFormatter.ts`、`backend/src/middleware/validator.ts`、`backend/src/app.ts`、`backend/src/middleware/rateLimiter.ts`、`frontend/src/services/request.ts`、`frontend-admin/src/services/request.ts`、`packages/api-client/src`
-**最後核驗 Commit**：`3890ba8`
-**最後核驗日期**：`2026-05-07`
+**取證代碼入口**：`backend/src/utils/errors.ts`、`backend/src/middleware/errorHandler.ts`、`backend/src/middleware/responseFormatter.ts`、`backend/src/middleware/validator.ts`、`backend/src/app.ts`、`backend/src/middleware/rateLimiter.ts`、`frontend/src/services/request.ts`、`frontend-admin/src/services/request.ts`、`packages/api-client/src`、`mobile/src/platform/api/client.ts`、`mobile/src/features`
+**最後核驗 Commit**：`23e85ef`
+**最後核驗日期**：`2026-05-31`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 ## 1. 定位

@@ -3,14 +3,14 @@
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：06-interview-psych-profile
-**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`8147ac3`
-**最後核驗日期**：`2026-04-19`
+**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes/interview.routes.ts`、`backend/src/routes/psych-profile.routes.ts`、`backend/src/routes/ai-stream.routes.ts`、`backend/src/services/interview.service.ts`、`packages/api-client/src/m2.ts`、`frontend/src/services/api/interview.ts`、`frontend/src/services/api/psychProfile.ts`、`frontend/src/store/interviewStore.ts`、`mobile/app/(app)/profile/index.tsx`、`mobile/app/(app)/profile/interview.tsx`、`mobile/app/(app)/profile/story.tsx`、`mobile/src/features/m2/api.ts`、`mobile/src/platform/sse/useAIStreamSubscription.ts`
+**最後核驗 Commit**：`23e85ef`
+**最後核驗日期**：`2026-05-31`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**文檔版本**：v2.9
-**最後更新**：2026-04-19
-**代碼基準**：`backend/src/routes/interview.routes.ts`、`backend/src/routes/ai-stream.routes.ts`、`backend/src/services/interview.service.ts`、`frontend/src/store/interviewStore.ts`、`frontend/src/services/api/interview.ts`、`frontend/src/services/aiStream.ts`
+**文檔版本**：v2.10
+**最後更新**：2026-05-31
+**代碼基準**：`backend/src/routes/interview.routes.ts`、`backend/src/routes/psych-profile.routes.ts`、`backend/src/routes/ai-stream.routes.ts`、`backend/src/services/interview.service.ts`、`packages/api-client/src/m2.ts`、`frontend/src/store/interviewStore.ts`、`frontend/src/services/api/interview.ts`、`frontend/src/services/aiStream.ts`、`mobile/src/features/m2/api.ts`
 
 ---
 
@@ -55,7 +55,7 @@
 - `stream.persisted` 到達後，前端會再靜默拉一次 `GET /api/v1/interview/:id`，用 canonical session/turns 覆蓋本地臨時拼裝結果。
 - 為避免 SSE 漏掉 terminal 事件導致頁面卡在 optimistic streaming，`Interview/Chat` 在 `isStreaming=true` 且 session 有效時會啟用有界 canonical 自愈輪詢：每 `2500ms` 靜默執行一次 `syncSessionSilently(sessionId)`，最多 `24` 次（約 60 秒），且以 lock 防止並發重入；當 `stream.persisted` / ready-snapshot `persisted` 收口或 streaming 結束後立即停止。
 - 若 `AI Stream` 訂閱在建立或恢復階段收到 terminal error（尤其是 4xx/5xx），`Interview` 頁面必須立即退出 thinking 狀態並顯示可恢復錯誤，不允許無限停留在「我正在整理你的分享......」；其中 5xx 需映射為 `CONNECTION_LOST` 統一提示。
-- `AI Stream` 的訪談持久化必須正確寫入 `ai_stream_sessions / ai_stream_events`，否則會出現 canonical `interview_turns` 已生成、但前端因缺少 `stream.persisted` / replay 而停在舊 draft 的假完成狀態。2026-04-06 已以真實訪談回覆驗證此鏈路恢復落庫。
+- `AI Stream` 的訪談持久化必須正確寫入 `ai_stream_sessions / ai_stream_events`，否則會出現 canonical `interview_turns` 已生成、但前端 / App 因缺少 `stream.persisted` / replay 而停在舊 draft 的假完成狀態；回歸判定應看 canonical turn 落庫、stream event / snapshot 與客戶端恢復行為，而不是保留單次手動驗證記錄。
 - `end` 依內容充分度決定是否進 pipeline，非所有結束都會產生畫像更新。
 - 安全協議（safety flag）會透過 metadata/safety_alert 事件回傳前端。
 - `POST/GET /api/v1/interview/*`（除 `psych-profile` GET/consent 外）全部要求 `authenticate + requireConsent`；`resume` 既回報 `has_pending/session_id`，也會同時回報 `has_failed/failed_session_id`，供 `/profile/my-story` 決定 resume 或 retry 入口。

@@ -4,11 +4,11 @@
 **文檔類型**：問題治理
 **覆蓋範圍**：AI request ledger、產品流成本歸因、notification cancelled 狀態、dev/release DB parity
 **取證代碼入口**：`backend/src/services/cost-monitoring.service.ts`、`backend/src/services/ai-request-ledger.service.ts`、`backend/src/services/ai-cost-pricing.service.ts`、`backend/src/services/ai.service.ts`、`backend/src/services/judgment.service.ts`、`backend/src/services/clinical-quality.service.ts`、`backend/src/services/chat-ai-orchestrator.service.ts`、`backend/src/services/interview.service.ts`、`backend/src/services/execution.service.ts`、`backend/src/services/ai-stream.service.ts`、`backend/src/services/interview-ai-response-consumer.ts`、`backend/src/services/notification.service.ts`、`backend/src/controllers/admin.controller.ts`、`backend/src/config/env.ts`、`backend/src/utils/ai-ledger-source.ts`、`backend/src/utils/ai-prompt-version.ts`、`backend/scripts/check-release-db-parity.ts`、`backend/scripts/check-ai-pricing-catalog.ts`、`scripts/ops-release-gate.sh`、`backend/.env.example`、`backend/prisma/schema.prisma`、`backend/prisma/migrations/20260504143000_add_ai_request_ledger/migration.sql`、`backend/prisma/migrations/20260504164500_add_notification_cancelled_status/migration.sql`
-**最後核驗 Commit**：`3890ba8`
-**最後核驗日期**：`2026-05-16`
+**最後核驗 Commit**：`23e85ef`
+**最後核驗日期**：`2026-05-31`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**狀態**：已處理；AI request ledger、Notification `cancelled`、Admin costs ledger breakdown、pricing validator、release gate、Railway production `AI_COST_PRICING_JSON` 配置、release DB parity evidence 與正式 pass artifact 均已完成；仍不得把 organization-level OpenAI usage 假分攤到產品流，且 pricing 版本需依 release policy 持續刷新
+**狀態**：已處理；AI request ledger schema/runtime attribution、Notification `cancelled`、Admin costs ledger breakdown、pricing validator、release gate、Railway production `AI_COST_PRICING_JSON` 配置、release DB parity evidence 與正式 pass artifact 均已完成；仍不得把 organization-level OpenAI usage 假分攤到產品流，且 pricing 版本需依 release policy 持續刷新。`AIRequestLedgerService.metadata` 的 service-level 白名單 / redaction gate 不屬本 schema 同步待辦完成範圍，另由 [../待處理/AIRequestLedgerMetadata白名單待補待辦-2026-05-31.md](../待處理/AIRequestLedgerMetadata白名單待補待辦-2026-05-31.md) 追蹤。
 **優先級**：P0，涉及 Admin 成本歸因、通知召回治理與 dev/release DB schema parity
 **責任範圍**：Backend / Database / Admin / Release Ops
 
@@ -40,7 +40,7 @@ Admin 成本報表目前由 `CostMonitoringService` 讀取 OpenAI organization c
    - 修復旅程 replan，帶 `repair_track` stream、`repair_journey / repair_journey / repair_replan_generation` source tracking。
    - 非案件 runtime 的 AI ledger source tracking 集中於 `buildRuntimeAILedgerSourceTracking()`，不得在各 service 內另手寫 mapping。
    - 主要 prompt version 集中於 `AI_PROMPT_VERSIONS` / `getAIPromptVersion()`：正式判決 draft ledger 由 `STORED_JUDGMENT_PROMPT_VERSION=v4.0` 派生為 `judgment-draft@v4.0`，落庫 `judgments.prompt_version` 由 `getStoredJudgmentPromptVersion()` 寫入同一版本；判決品質指標分桶由 `getJudgmentMetricsPromptVersion()` 讀取落庫版本，legacy 缺失時固定使用 `judgment-prompt-version-unknown`，不把未知版本誤歸到當前 prompt；品質指標 case type 由 `getClinicalQualityCaseType()` 正規化，legacy 缺失或空白 type 固定落入 `unknown`；emotion/ratio/summary、聊天室、心理訪談、reconciliation plan 與 repair replan 分別使用明確 `@v1.0` 版本；不得在 runtime 內散落未登記版本字串。
-4. Ledger 不保存 prompt 原文，只保存 `prompt_chars`、模型、scope、stream、request kind、token usage 與錯誤摘要；ledger 寫入失敗採 fail-open warning，不阻塞 AI 主流程。
+4. Ledger schema 沒有 prompt / content 欄位，且現有主要 callers 只傳 `prompt_chars`、模型、scope、stream、request kind、token usage 與錯誤摘要等衍生資料；ledger 寫入失敗採 fail-open warning，不阻塞 AI 主流程。`AIRequestLedgerService.metadata` 仍是任意 JSON serialization，尚未做 service-level 白名單 / redaction，見 [../待處理/AIRequestLedgerMetadata白名單待補待辦-2026-05-31.md](../待處理/AIRequestLedgerMetadata白名單待補待辦-2026-05-31.md)。
 5. Streaming request 已要求 `stream_options.include_usage=true`，能在 provider 回傳 usage 時記錄 token；若 provider 未回 usage，token 欄位保留 `null`。
 6. `GET /api/v1/admin/reports/costs` 已新增 `openai.ledger`：
    - `source=ai_request_ledger`

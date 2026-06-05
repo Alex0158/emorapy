@@ -4,8 +4,8 @@
 **文檔類型**：接口詳規
 **覆蓋範圍**：API 契約治理、接口主冊、模組接口文檔、錯誤碼、版本、OpenAPI / schema 缺口與跨端 client 生成準入
 **取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`backend/src/middleware/responseFormatter.ts`、`backend/src/middleware/errorHandler.ts`、`backend/src/utils/validation.ts`、`scripts/check-docs-truth.mjs`、`scripts/lib/core-docs-truth.mjs`、`packages/contracts/src`、`packages/api-client/src`、`frontend/src/services/api`、`frontend-admin/src/services/api`、`mobile/src/platform`
-**最後核驗 Commit**：`3890ba8`
-**最後核驗日期**：`2026-05-07`
+**最後核驗 Commit**：`23e85ef`
+**最後核驗日期**：`2026-05-31`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 ## 1. 定位
@@ -38,7 +38,7 @@
 | Error model | error.code、HTTP、UI 行為、重試策略 | 模組錯誤碼矩陣 | 錯誤恢復完整 |
 | Side effects | DB 寫入、通知、AI 任務、ledger、狀態轉移 | 模組深水區規則 | 接口是純查詢或無副作用 |
 | Idempotency / concurrency | 重入、lock、retry、duplicate request 語義 | chat / judgment / repair 文檔與代碼 | 連點或重試安全 |
-| Version / deprecation | `已使用 / 候選廢棄 / 已確認廢棄` 與兼容入口 | 主接口清單 | 可安全移除接口 |
+| Version / deprecation | `已使用 / 待承接 / 候選廢棄 / 已確認廢棄` 與兼容入口 | 主接口清單 | 可安全移除接口 |
 | Platform projection | Web / Admin / App 是否消費 | Mapping / Parity | App 已覆蓋 |
 | Evidence | 單測、e2e、smoke、manual evidence 或 Baseline Pending | RTM / 測試 / 90 證據 | 已驗收 |
 
@@ -80,4 +80,4 @@
 | P0 | 先把 high-risk endpoints 的 request / response / error / side effect 補到模組文檔 | 不等 OpenAPI 也能降低重大漂移 |
 | P1 | 為 Auth / Case / Judgment / Chat / AI Stream / Admin Reports 設計 OpenAPI 生成或手寫策略 | 這些是跨端與治理最高風險接口 |
 | P1 | 把 shared contracts / api-client 與接口文檔建立覆蓋表 | App 接入前必須知道哪些接口可復用 |
-| P2 | 引入 schema contract tests 或 OAS lint | 等高風險接口 schema 穩定後再做，不在本輪文檔治理中編造完成狀態 |
+| P2 | 引入 schema contract tests 或 OAS lint | 等高風險接口 schema 穩定後再做；未建立 machine-readable schema 前不得編造完成狀態 |

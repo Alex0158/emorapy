@@ -3,9 +3,9 @@
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：域索引
 **覆蓋範圍**：06-接口描述 子域入口、閱讀順序、API contract、OpenAPI 與錯誤模型缺口
-**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`backend/src/utils/errors.ts`、`backend/src/middleware/errorHandler.ts`、`backend/src/middleware/responseFormatter.ts`、`backend/src/middleware/validator.ts`、`backend/src/middleware/rateLimiter.ts`、`frontend/src/services/api`、`frontend/src/services/request.ts`、`frontend-admin/src/services/api`、`frontend-admin/src/services/request.ts`、`packages/api-client/src`
-**最後核驗 Commit**：`3890ba8`
-**最後核驗日期**：`2026-05-07`
+**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`backend/src/utils/errors.ts`、`backend/src/middleware/errorHandler.ts`、`backend/src/middleware/responseFormatter.ts`、`backend/src/middleware/validator.ts`、`backend/src/middleware/rateLimiter.ts`、`frontend/src/services/api`、`frontend/src/services/request.ts`、`frontend-admin/src/services/api`、`frontend-admin/src/services/request.ts`、`packages/contracts/src`、`packages/api-client/src`、`mobile/src/platform`
+**最後核驗 Commit**：`23e85ef`
+**最後核驗日期**：`2026-05-31`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 本子域承接 `CJ` 的模組級接口契約、常見錯誤碼、副作用與最小回歸集。
@@ -27,7 +27,7 @@
 
 本子域不單獨裁決：
 
-1. 某個接口是否在用、候選廢棄或已確認廢棄。該狀態以 [../全接口清單-主文檔.md](../全接口清單-主文檔.md) 為準；本目錄內若附帶模組級狀態摘要，只作閱讀輔助。
+1. 某個接口是否已使用、待承接、候選廢棄或已確認廢棄。該狀態以 [../全接口清單-主文檔.md](../全接口清單-主文檔.md) 為準；本目錄內若附帶模組級狀態摘要，只作閱讀輔助。
 2. 某個功能或頁面的正式存在性
 3. 跨端產品核心、平台投影或 Web / App parity；這些分別回 [../00-跨端產品核心/README.md](../00-跨端產品核心/README.md)、[../10-Web端/README.md](../10-Web端/README.md)、[../20-App端/README.md](../20-App端/README.md) 與 [../50-跨端Mapping與Parity/README.md](../50-跨端Mapping與Parity/README.md)。若涉及 App screen / native navigation / platform adapter，直接補看 [../20-App端/01-App導航與平台Adapter基線.md](../20-App端/01-App導航與平台Adapter基線.md)；若涉及 App 首輪能力到 Backend / API / DB / shared package 的落點，直接補看 [../50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md](../50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md)
 4. OpenAPI / machine-readable contract 已完成。當前接口治理仍是現碼守衛 + 主冊 + 模組詳規；OpenAPI 缺口與準入規則見 [11-API契約與OpenAPI缺口台賬.md](./11-API契約與OpenAPI缺口台賬.md)。

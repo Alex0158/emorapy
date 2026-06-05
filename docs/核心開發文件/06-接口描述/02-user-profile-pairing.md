@@ -3,14 +3,14 @@
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：02-user-profile-pairing
-**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`backend/src/services/pairing.service.ts`、`backend/src/services/auth.service.ts`、`backend/src/services/session.service.ts`、`backend/src/jobs/cleanup.job.ts`、`backend/src/utils/pairing-invariant.ts`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`2f70d65`
-**最後核驗日期**：`2026-05-04`
+**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes/user.routes.ts`、`backend/src/routes/profile.routes.ts`、`backend/src/routes/pairing.routes.ts`、`backend/src/services/pairing.service.ts`、`backend/src/services/auth.service.ts`、`backend/src/services/session.service.ts`、`backend/src/jobs/cleanup.job.ts`、`backend/src/utils/pairing-invariant.ts`、`packages/api-client/src/m4.ts`、`frontend/src/services/api/pairing.ts`、`frontend/src/pages/Profile/Pairing`、`frontend/src/pages/Case/Create`、`mobile/app/(app)/case/index.tsx`
+**最後核驗 Commit**：`23e85ef`
+**最後核驗日期**：`2026-05-31`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**文檔版本**：v2.5
-**最後更新**：2026-05-04
-**代碼基準**：`backend/src/routes/user.routes.ts`、`backend/src/routes/profile.routes.ts`、`backend/src/routes/pairing.routes.ts`、`backend/src/services/pairing.service.ts`、`backend/src/jobs/cleanup.job.ts`、`backend/src/utils/pairing-invariant.ts`、`backend/src/utils/validation.ts`
+**文檔版本**：v2.6
+**最後更新**：2026-05-31
+**代碼基準**：`backend/src/routes/user.routes.ts`、`backend/src/routes/profile.routes.ts`、`backend/src/routes/pairing.routes.ts`、`backend/src/services/pairing.service.ts`、`backend/src/jobs/cleanup.job.ts`、`backend/src/utils/pairing-invariant.ts`、`backend/src/utils/validation.ts`、`packages/api-client/src/m4.ts`
 
 ---
 
@@ -34,7 +34,7 @@
 | `PUT /api/v1/profile/relationship/:pairingId` | `pairingId(uuid)` + 動態 JSON（最多 60 keys）                | `data.profile`                  | `FORBIDDEN` `VALIDATION_ERROR`                      | Upsert 關係背景                 | `/profile/pairing`（配對成功態）            |
 | `POST /api/v1/pairing/create`                 | 空 body                                                 | `data.pairing.invite_code`      | `UNAUTHORIZED`                                      | 建立 pending pairing          | `/profile/pairing`                   |
 | `POST /api/v1/pairing/join`                   | `invite_code(6)`                                       | `data.pairing.status=active`    | `INVALID_CODE` `CODE_EXPIRED` `ALREADY_PAIRED` `RATE_LIMIT_EXCEEDED` | 由 pending -> active         | `/profile/pairing`                   |
-| `GET /api/v1/pairing/status`                  | JWT header                                             | `data.pairing`（或 404）           | `NOT_FOUND`                                         | 無                           | `/profile/pairing`、`/case/create`    |
+| `GET /api/v1/pairing/status`                  | JWT header                                             | `data.pairing`；未配對時為 `null`  | `UNAUTHORIZED`                                      | 無                           | `/profile/pairing`、`/case/create`、App case screen |
 | `POST /api/v1/pairing/cancel`                 | 空 body                                                 | `data.pairing.status=cancelled` | `NOT_FOUND`                                         | active/pending -> cancelled | `/profile/pairing`                   |
 
 
@@ -47,7 +47,7 @@
 - `pairing/create` 和 `pairing/join` 均使用 `backend/src/utils/pairing-invariant.ts` 的同一條件。`join` 會在原子更新前檢查加入者是否已有其他正式 pending/active pairing，違反時返回 `ALREADY_PAIRED`。
 - `pairing/join` 的原子更新必須同時限定 `id`、`status=pending`、`pairing_type=normal`、`user2_id=null`，防止並發覆蓋已加入者。
 - 匿名 quick/temp pairing 的查詢、claim 與 session refresh 必須使用 `buildSessionBoundQuickPairingWhere(session_id, pairing_id?)`；排程清理必須使用 `buildQuickTempPairingWhere({ createdBefore })`。兩者都固定 `pairing_type=quick + status=temp`，涉及匿名 session 時再加 `session_id`，避免 normal pairing 因歷史殘留 `session_id` 被匿名流程接管、旋轉或清理。
-- `getPairingStatus` 在前端把 `404` 視為 `null`（不是錯誤），這是流程控制關鍵語義。
+- `pairing/status` 的現行後端語義是「認證成功後一律 200，未配對時 `data.pairing=null`」；shared API client 仍兼容舊 `404` 並轉為 `null`，但正式契約不得再把 `404` 寫成主要未配對語義。
 - `profile/relationship/:pairingId` 屬配對依賴型接口，未配對時應返回不可訪問語義而非空資料。
 - 前端目前採最小白名單字段接入（stage/duration/communication/methods/strengths/challenges/completion），保存後即時回顯並支援重進重讀。
 
@@ -56,7 +56,7 @@
 1. 配對建立 -> 加入 -> 查狀態 -> 解除配對全鏈路。
 2. `/case/create` 以 `pairing/status` 判斷是否導向 `/profile/pairing`。
 3. 頭像上傳成功後頁面立即回填新 URL。
-4. `pairing/status` 返回 404 時前端不應崩潰（應顯示未配對態）。
+4. `pairing/status` 返回 `data.pairing=null` 時 Web / App 不應崩潰，應顯示未配對態；shared API client 對舊 `404` 的兼容只能作向後相容，不是現行後端主契約。
 5. 配對成功後可讀取並保存 relationship profile（刷新或重進頁面可回顯）。
 6. quick/temp pairing 查詢、`claim-session` 歸戶、`sessions/refresh` 旋轉與 `cleanup_temp_pairings` 清理不得影響 normal pending/active/cancelled pairing。
 
@@ -75,7 +75,7 @@
 | `POST /api/v1/pairing/join`                   | `CODE_EXPIRED`        | 400  | 提示邀請碼過期       | 需重新索取邀請碼   |
 | `POST /api/v1/pairing/join`                   | `ALREADY_PAIRED`      | 409  | 提示需先解除現有正式配對 | 解除或取消後再加入 |
 | `POST /api/v1/pairing/join`                   | `RATE_LIMIT_EXCEEDED` | 429  | 顯示加入過頻        | 冷卻後重試      |
-| `GET /api/v1/pairing/status`                  | `NOT_FOUND`           | 404  | 視為「未配對」而非錯誤頁  | 不需重試       |
+| `GET /api/v1/pairing/status`                  | `UNAUTHORIZED`        | 401  | 清 token 並導向登入      | 登入後重進      |
 | `POST /api/v1/pairing/cancel`                 | `NOT_FOUND`           | 404  | 視為已解除/無配對     | 不需重試       |
 
 

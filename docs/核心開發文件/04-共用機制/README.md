@@ -4,11 +4,11 @@
 **文檔類型**：域索引
 **覆蓋範圍**：04-共用機制 子域入口、閱讀順序、NFR、AI / 資料 / 威脅建模 / 狀態機 / 可訪問性與本地化治理入口
 **取證代碼入口**：`frontend/src/App.tsx`、`frontend/index.html`、`frontend/src/utils/i18n.ts`、`frontend/src/assets/i18n`、`frontend/src/hooks/useAccessibility.ts`、`frontend-admin/src/App.tsx`、`frontend-admin/index.html`、`frontend-admin/src/utils/i18n.ts`、`frontend-admin/src/assets/i18n`、`frontend/src/components/common`、`frontend/src/components/ui`、`frontend/src/components/business`、`frontend/src/services/request.ts`、`frontend/src/services/sseRequest.ts`、`frontend/src/services/aiStream.ts`、`frontend-admin/src/services/request.ts`、`backend/src/app.ts`、`backend/src/middleware/auth.ts`、`backend/src/middleware/adminAuth.ts`、`backend/src/middleware/rateLimiter.ts`、`backend/src/routes/metrics.routes.ts`、`backend/src/utils/constants.ts`、`backend/src/utils/case-classifier.ts`、`backend/src/services/case.service.ts`、`backend/src/services/judgment.service.ts`、`backend/src/services/safety-routing.service.ts`、`backend/src/services/reconciliation.service.ts`、`backend/src/services/chat.service.ts`、`backend/src/services/interview-end-session-persistence.ts`、`backend/src/services/async-pipeline-session-status.ts`、`backend/src/services/product-state-recovery-task.service.ts`、`backend/src/controllers/evidence.controller.ts`、`backend/prisma/schema.prisma`、`mobile/app`、`mobile/src/platform`、`packages/contracts/src`、`packages/api-client/src`
-**最後核驗 Commit**：`3890ba8`
-**最後核驗日期**：`2026-05-07`
+**最後核驗 Commit**：`23e85ef`
+**最後核驗日期**：`2026-05-31`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-本子域承接跨主 Web、Admin token 體系、共享契約與部分跨端邏輯的正式規則與共用機制。當共用機制需要投影到 App 端時，必須經由 App navigation / platform adapter 基線與 App 首輪工程落點 Mapping 裁決，不得直接把 Web/Admin helper 當作 App runtime。
+本子域承接跨主 Web、Admin token 體系、共享契約與部分跨端邏輯的正式規則與共用機制。當共用機制需要投影到 App 端時，必須經由 App navigation / platform adapter 基線與 App 工程落點 Mapping 裁決，不得直接把 Web/Admin helper 當作 App runtime。
 
 當前正式文檔：
 

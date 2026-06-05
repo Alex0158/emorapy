@@ -3,14 +3,14 @@
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：07-chat
-**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`backend/src/services/chat.service.ts`、`backend/src/utils/case-classifier.ts`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`ed72125`
-**最後核驗日期**：`2026-05-03`
+**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes/chat.routes.ts`、`backend/src/routes/ai-stream.routes.ts`、`backend/src/services/chat.service.ts`、`backend/src/utils/case-classifier.ts`、`packages/api-client/src/m3.ts`、`frontend/src/services/api/chat.ts`、`frontend/src/pages/Chat/Room`、`mobile/app/(app)/chat/index.tsx`、`mobile/app/(app)/chat/room.tsx`、`mobile/app/(app)/chat/invite.tsx`、`mobile/src/features/m3/api.ts`、`mobile/src/platform/sse/useAIStreamSubscription.ts`
+**最後核驗 Commit**：`23e85ef`
+**最後核驗日期**：`2026-05-31`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**文檔版本**：v2.7
-**最後更新**：2026-05-03
-**代碼基準**：`backend/src/routes/chat.routes.ts`、`backend/src/services/chat.service.ts`、`backend/src/utils/case-classifier.ts`、`frontend/src/pages/Chat/Room`、`frontend/src/services/api/chat.ts`
+**文檔版本**：v2.8
+**最後更新**：2026-05-31
+**代碼基準**：`backend/src/routes/chat.routes.ts`、`backend/src/routes/ai-stream.routes.ts`、`backend/src/services/chat.service.ts`、`backend/src/utils/case-classifier.ts`、`packages/api-client/src/m3.ts`、`frontend/src/pages/Chat/Room`、`frontend/src/services/api/chat.ts`、`mobile/src/features/m3/api.ts`
 
 ---
 
@@ -45,7 +45,7 @@
 - `request-judgment` 成功載荷中的 `linkId` 是 chat->case 轉換鏈路主鍵；前端與運維排障需以 `roomId + linkId + caseId` 關聯查詢。
 - `ChatToCaseLink` 是識別 `chat_to_case` 產品流的最高優先級來源；後續 case list、notification、analytics、repair reminder 不得只用 `mode=collaborative` 或 `mode=quick` 推斷聊天室轉判決。
 - `request-judgment` 的安全 gate 必須使用 `backend/src/utils/product-safety-policy.ts` 的 `getChatJudgmentRequestPolicy`。`crisis_support` 會寫入 `safety_notice` 並拒絕轉判決；`safety_support` 可轉安全路由判決，但必須寫入 safety notice，且 `ChatToCaseLink.conversion_snapshot.safety_gate` 需保存 `can_request_chat_judgment / should_create_safety_notice / reasons` 供排障。路由結果同時會 best-effort 寫入 `SafetyAssessmentService.recordRouteAssessment` 的 room-level assessment；`safety_support / crisis_support` 刷新 active `RelationshipRiskState`，`standard` 只記 audit、不覆蓋既有高風險 active state；安全狀態寫入失敗只記 warn，不阻塞原本轉判決或危機攔截流程。
-- `request-judgment` 若本次納入任何 roleB 的 `user_text`，必須帶 `participant_consent.role_b_included_messages=true`；否則後端返回 `CASE_NOT_READY`，且不建立 case/link。此欄位表示前端已完成 B 方明示同意與訊息範圍確認；後端會在 `ChatToCaseLink.conversion_snapshot.participant_consent` 保存 `role_b_messages_included / role_b_inclusion_consent_asserted / role_b_consent_required / role_b_participant_id / role_b_user_id` 供排障。若只納入 roleA 訊息，允許生成單方視角判決，但 snapshot 仍會保留 information gaps。
+- `request-judgment` 若請求納入任何 roleB 的 `user_text`，必須帶 `participant_consent.role_b_included_messages=true`；否則後端返回 `CASE_NOT_READY`，且不建立 case/link。此欄位表示前端已完成 B 方明示同意與訊息範圍確認；後端會在 `ChatToCaseLink.conversion_snapshot.participant_consent` 保存 `role_b_messages_included / role_b_inclusion_consent_asserted / role_b_consent_required / role_b_participant_id / role_b_user_id` 供排障。若只納入 roleA 訊息，允許生成單方視角判決，但 snapshot 仍會保留 information gaps。
 - 訊息發送限速：同房 30 秒最多 6 條，且最小間隔 5 秒；違規回 `RATE_LIMIT_EXCEEDED`。
 - 邀請反濫用：同房任一邀請建立後 60 秒內不可再發；若 B 方已拒絕邀請，A 方 24 小時內不可對同房再次發邀請；違規回 `RATE_LIMIT_EXCEEDED`。房主主動撤回公開邀請不觸發 24 小時拒絕冷卻。
 - `history_visibility_mode` 直接決定轉判決可納入訊息的時間窗與可見性。
@@ -62,11 +62,11 @@
 - 聊天室頁的 `AI Stream` 訂閱生命週期已收斂到共享 `useAIStreamSubscription`，不再在頁面內各自維護 `after_seq/retry/cleanup`。
 - 房間頁面層內部只使用 `aiDraft: AIStreamDraft | null` 表示暫存 AI 回覆，不再保留 `streamingAi*` 歷史命名。
 
-## UX 優化（2026-03）
+## UX 行為基線
 
 - **思考中反饋**：發送訊息且 `visibility_scope === 'all'` 時，發送成功後立即顯示 thinking bubble；收到首個 `stream.*` 事件前即可顯示 placeholder；15 秒內未收到任何 AI 事件則超時清除。
-- **建立後樂觀渲染**：建立聊天室成功後 `navigate` 帶 `state.room`，進入房間時若 `state.room.id === routeRoomId` 則走快速路徑（僅 `listChatMessages`，不呼叫 `getChatRoom`）；無 state 或 listChatMessages 失敗時 fallback 至完整 `loadRoomInitial`。
-- **AI 流式回應**：後端透過 `GET /api/v1/streams/chat_room/:roomId` 推送 `stream.*` 事件；前端以 draft 狀態 `thinking -> streaming -> persisting` 運行，直到 `stream.persisted` 觸發正式消息交接。
+- **建立後樂觀渲染**：建立聊天室成功後，Web 可用 route state 走快速路徑；App 以 screen state / query refresh 承接同一「先可見、再補 canonical」原則。無有效本地狀態或消息列表拉取失敗時，必須 fallback 至完整 room initial load。
+- **AI 流式回應**：後端透過 `GET /api/v1/streams/chat_room/:roomId` 推送 `stream.*` 事件；Web / App 以 draft 狀態 `thinking -> streaming -> persisting` 運行，直到 `stream.persisted` 觸發正式消息交接。
 
 ## 回歸測試最小集
 

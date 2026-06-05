@@ -26,7 +26,7 @@ const ALLOWED_METADATA_EVIDENCE_PATH_PATTERNS = [
   /^docs\/核心開發文件$/,
 ];
 const MANUAL_FLOW_IDS = ['P01', 'P02', 'P03', 'P04', 'P05'];
-const API_STATUS_VALUES = new Set(['已使用', '候選廢棄', '已確認廢棄']);
+const API_STATUS_VALUES = new Set(['已使用', '待承接', '候選廢棄', '已確認廢棄']);
 const GENERIC_STREAM_DOC_ENDPOINTS = [
   '/api/v1/streams/case_judgment/:id',
   '/api/v1/streams/repair_track/:id',
@@ -960,11 +960,12 @@ async function main() {
 
   const documentedStatusStats = {
     已使用: parseInlineCounterValue(apiMainDoc, '已使用'),
+    待承接: parseInlineCounterValue(apiMainDoc, '待承接'),
     候選廢棄: parseInlineCounterValue(apiMainDoc, '候選廢棄'),
     已確認廢棄: parseInlineCounterValue(apiMainDoc, '已確認廢棄'),
   };
-  const resolvedApiStatusCounts = { 已使用: 0, 候選廢棄: 0, 已確認廢棄: 0 };
-  const resolvedMappingStatusCounts = { 已使用: 0, 候選廢棄: 0, 已確認廢棄: 0 };
+  const resolvedApiStatusCounts = { 已使用: 0, 待承接: 0, 候選廢棄: 0, 已確認廢棄: 0 };
+  const resolvedMappingStatusCounts = { 已使用: 0, 待承接: 0, 候選廢棄: 0, 已確認廢棄: 0 };
 
   for (const endpoint of truth.backend.endpoints) {
     const endpointKey = `${endpoint.method} ${endpoint.path}`;

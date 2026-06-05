@@ -4,8 +4,8 @@
 **文檔類型**：正式規格
 **覆蓋範圍**：資料模型、Prisma schema、migration history、DB parity、向後/向前相容、棄用、backfill、release gate 與 Web / App / API / shared contract 協同治理
 **取證代碼入口**：`backend/prisma/schema.prisma`、`backend/prisma/migrations`、`backend/prisma/migrations/migration_lock.toml`、`backend/scripts/check-release-db-parity.ts`、`backend/tests/unit/scripts/check-release-db-parity.test.ts`、`backend/src/config/database.ts`、`scripts/ops-db-status.sh`、`scripts/ops-release-gate.sh`、`backend/package.json`、`packages/contracts/src`、`packages/api-client/src`、`frontend/src/router/index.tsx`、`frontend-admin/src/router.tsx`、`mobile/app`、`mobile/src/platform`
-**最後核驗 Commit**：`3890ba8`
-**最後核驗日期**：`2026-05-07`
+**最後核驗 Commit**：`23e85ef`
+**最後核驗日期**：`2026-05-31`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 ## 1. 定位
@@ -81,37 +81,37 @@
 | CJ-SCHEMA-GAP-004 | AIP-180 / SemVer | DB schema、API response、shared contracts 的相容性未集中評估 | Web/Admin/App/API client 可能在 minor/patch 變更中被破壞 | 要求 compatibility matrix 與版本語義 |
 | CJ-SCHEMA-GAP-005 | PostgreSQL DDL | raw SQL index / trigger / constraint 已存在，但缺 lock、data rewrite、precheck、rollback / roll-forward 分級 | release migration 可能阻塞、失敗或造成資料不一致 | 將 operational risk 接入 release gate 與 migration drill |
 
-## 6.1 App Push Token Schema 回寫（2026-05-08）
+## 6.1 App Push Token Schema 基線
 
 | Migration | 分類 | 影響模型 | 相容性與 gate |
 | --- | --- | --- | --- |
 | `20260508093000_add_push_device_tokens` | Additive Safe + Privacy / Safety Sensitive | 新增 `PushPlatform` enum、`PushDeviceToken` model、`push_device_tokens` table；`User` 增加 `push_device_tokens` relation | 不改既有 Web/Admin response；App token registration/revoke 經 `POST /api/v1/notifications/device-tokens*`；token 原文不可回傳或寫入 log；已加入 `RELEASE_BLOCKING_MIGRATIONS`，production release 必須確認目標 DB 已套用 |
 | `20260508113000_add_push_receipt_tracking` | Additive Safe + Operational / Privacy Sensitive | `Notification` 新增 `push_provider`、`push_ticket_id`、`push_ticket_status`、`push_receipt_status`、`push_receipt_checked_at`、`push_receipt_error` 與查詢 index | 不改既有 Web/Admin response；只記錄 provider ticket / receipt 狀態，不保存 raw push token；支援 `dispatch_pending_push_notifications` / `poll_push_notification_receipts` job 回寫；已加入 `RELEASE_BLOCKING_MIGRATIONS`，production release 必須確認目標 DB 已套用 |
 
-## 6.2 App Telemetry Schema 回寫（2026-05-08）
+## 6.2 App Telemetry Schema 基線
 
 | Migration | 分類 | 影響模型 | 相容性與 gate |
 | --- | --- | --- | --- |
 | `20260508124000_add_app_telemetry_events` | Additive Safe + Privacy / Ops Sensitive | 新增 `AppTelemetryEvent` model、`app_telemetry_events` table；`User` 增加 `app_telemetry_events` relation；保存 event name / severity / route / request id / app version / platform / build number / redacted scalar context / optional `user_id` / HMAC `session_hash` / `created_at` | 不改既有 Web/Admin response；App ingest failure 不阻塞主流程；Admin report 不返回 raw context、user_id、session_hash；`cleanup_app_telemetry` 30d 清理；已加入 `RELEASE_BLOCKING_MIGRATIONS`，production release 必須確認目標 DB 已套用 |
 
-## 6.3 AI Stream Persistence Schema 回寫（2026-05-08）
+## 6.3 AI Stream Persistence Schema 基線
 
 | Migration | 分類 | 影響模型 | 相容性與 gate |
 | --- | --- | --- | --- |
-| `20260508133000_add_ai_stream_persistence` | Additive Safe + Operational / Privacy Sensitive | 新增 `AIStreamPersistenceStatus` enum、`ai_stream_sessions`、`ai_stream_events`、`ai_stream_session_archives`、`ai_stream_event_archives` tables 與 scope / seq / status indexes；支撐 `case_judgment`、`chat_room_draft`、`repair_track` 等 App stream replay / persisted fallback | 不改既有 Web/Admin response；事件與 session 只保存 stream replay 所需 metadata / redacted error；local Postgres `prisma migrate deploy` 已可套用，M1 true-service judgment smoke 已觀察到 session/event 寫入；已加入 `RELEASE_BLOCKING_MIGRATIONS`，production release 必須確認目標 DB 已套用，且 Redis-backed replay / cleanup parity 需另有 runtime 證據 |
+| `20260508133000_add_ai_stream_persistence` | Additive Safe + Operational / Privacy Sensitive | 新增 `AIStreamPersistenceStatus` enum、`ai_stream_sessions`、`ai_stream_events`、`ai_stream_session_archives`、`ai_stream_event_archives` tables 與 scope / seq / status indexes；支撐 `case_judgment`、`chat_room_draft`、`repair_track` 等 App stream replay / persisted fallback | 不改既有 Web/Admin response；事件與 session 只保存 stream replay 所需 metadata / redacted error；已加入 `RELEASE_BLOCKING_MIGRATIONS`，production release 必須確認目標 DB 已套用，且 Redis-backed replay / cleanup parity 需另有 runtime 證據 |
 
-## 6.4 Interview Facts Schema 回寫（2026-05-08）
-
-| Migration | 分類 | 影響模型 | 相容性與 gate |
-| --- | --- | --- | --- |
-| `20260508143000_add_interview_collected_facts` | Additive Safe + Privacy Sensitive | `interview_sessions` 新增 `collected_facts TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[]`；支撐 M2 Profile / Interview 背景回覆把已收集 facts 合併到 session | 不改既有 Web/Admin response；空陣列 default 維持舊 session 可讀；已加入 `RELEASE_BLOCKING_MIGRATIONS`，local Postgres `prisma migrate status` 已顯示 up to date，M2 `--deep` true-service smoke 已通過 start/respond/background response/end |
-| `20260508143500_add_interview_turn_extracted_facts` | Additive Safe + Privacy Sensitive | `interview_turns` 新增 `extracted_facts TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[]`；支撐 M2 Profile / Interview 每輪 AI response 保存新萃取 facts | 不改既有 Web/Admin response；空陣列 default 維持舊 turn 可讀；已加入 `RELEASE_BLOCKING_MIGRATIONS`，local Postgres `prisma migrate status` 已顯示 up to date，M2 `--deep` true-service smoke 已通過 start/respond/background response/end |
-
-## 6.5 Notification Action Metadata Schema 回寫（2026-05-08）
+## 6.4 Interview Facts Schema 基線
 
 | Migration | 分類 | 影響模型 | 相容性與 gate |
 | --- | --- | --- | --- |
-| `20260508150000_add_notification_action_metadata` | Additive Safe + Operational / App Contract Sensitive | `notifications` 新增 `action_key`、`priority`、`group_key`、`read_at`、`dismissed_at`、`acted_at`、`snoozed_until` 與 user/state 查詢 index；補齊 M5 notification read / snooze / dismiss / act runtime 依賴 | 不改既有 Web/Admin response；舊 notification row 欄位可為 null，service 保持 fallback；已加入 `RELEASE_BLOCKING_MIGRATIONS`，local Postgres `prisma migrate deploy` 已套用，M5 `--run --scope=m5 --bootstrap-local-users` true-service smoke 已通過 notification state sync |
+| `20260508143000_add_interview_collected_facts` | Additive Safe + Privacy Sensitive | `interview_sessions` 新增 `collected_facts TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[]`；支撐 M2 Profile / Interview 背景回覆把已收集 facts 合併到 session | 不改既有 Web/Admin response；空陣列 default 維持舊 session 可讀；已加入 `RELEASE_BLOCKING_MIGRATIONS`，production release 必須確認目標 DB 已套用 |
+| `20260508143500_add_interview_turn_extracted_facts` | Additive Safe + Privacy Sensitive | `interview_turns` 新增 `extracted_facts TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[]`；支撐 M2 Profile / Interview 每輪 AI response 保存新萃取 facts | 不改既有 Web/Admin response；空陣列 default 維持舊 turn 可讀；已加入 `RELEASE_BLOCKING_MIGRATIONS`，production release 必須確認目標 DB 已套用 |
+
+## 6.5 Notification Action Metadata Schema 基線
+
+| Migration | 分類 | 影響模型 | 相容性與 gate |
+| --- | --- | --- | --- |
+| `20260508150000_add_notification_action_metadata` | Additive Safe + Operational / App Contract Sensitive | `notifications` 新增 `action_key`、`priority`、`group_key`、`read_at`、`dismissed_at`、`acted_at`、`snoozed_until` 與 user/state 查詢 index；補齊 M5 notification read / snooze / dismiss / act runtime 依賴 | 不改既有 Web/Admin response；舊 notification row 欄位可為 null，service 保持 fallback；已加入 `RELEASE_BLOCKING_MIGRATIONS`，production release 必須確認目標 DB 已套用 |
 
 ## 7. 維護規則
 

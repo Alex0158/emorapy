@@ -4,12 +4,12 @@
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：10-health-metrics
 **取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`backend/src/services`、`frontend/src/services/api`、`frontend-admin/src/services/api`、`mobile/src/platform`
-**最後核驗 Commit**：`adda512`
-**最後核驗日期**：`2026-05-08`
+**最後核驗 Commit**：`23e85ef`
+**最後核驗日期**：`2026-05-31`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**文檔版本**：v2.6
-**最後更新**：2026-05-08
+**文檔版本**：v2.7
+**最後更新**：2026-05-31
 **代碼基準**：`backend/src/routes/health.routes.ts`、`backend/src/routes/metrics.routes.ts`、`backend/src/routes/meta.routes.ts`、`backend/src/routes/app-telemetry.routes.ts`、`backend/src/config/env.ts`
 
 ---
@@ -39,7 +39,7 @@
 ## 操作級規則（深水區）
 
 - `/version` 與 `/api/v1/version` 都回傳 `{ service, version, commitSha, commitShortSha, timestamp }`；`version` 來源為 `backend/package.json`，`commitSha` 來源依序為 `CJ_COMMIT_SHA`、`VERCEL_GIT_COMMIT_SHA`、`GITHUB_SHA`、`git rev-parse HEAD`，無法解析時為 `unknown`。前端與 Admin 版本面板目前實際請求的是 `VITE_API_BASE_URL + '/version'`。
-- App release telemetry runtime evidence 也依賴 `/version`：`mobile/scripts/run-telemetry-runtime-smoke.mjs --run` 會先要求 release backend `/version.service=backend` 且 `/version.commitSha` 等於 runner 執行當下本地 `HEAD`，才會送 `POST /api/v1/telemetry/events` 與 `POST /api/v1/telemetry/otlp/v1/traces`；版本不對齊時不得產生 pass evidence。release audit 允許後續只追加 docs / evidence commit，但若該 backend commit 後改過 backend telemetry/version runtime 路徑，舊 evidence 會失效。
+- App release telemetry runtime evidence 依賴 `/version` 作目標後端版本核對：release audit 只應接受與被驗證 backend commit 對齊的 telemetry events / OTLP ingest 證據；若後續改動 backend telemetry、OTLP ingest 或 version runtime 路徑，既有 telemetry runtime evidence 必須刷新。單純 docs / evidence commit 不應讓已對齊的 runtime 證據失效。
 - `/health` 也會帶 `version / commitSha / commitShortSha`，用於部署探針在同一 payload 內比對服務健康與後端代碼版本；`/health` 的 HTTP 200 不代表完全 healthy，仍要看 `status` 與 `checks`。
 - `/health.checks.lock.message` 會揭示 `Lock backend: redis/simple-lock/...`；`/health.checks.aiStream.message` 會揭示 `AI Stream backend: redis/memory`。發布 gate 會要求 lock 與 AI Stream 都是 Redis-backed runtime。
 - `/api/v1/version` 屬 API 命名空間兼容入口；root alias `/version` 雖保留了探針語義，但當前也承接版本面板的真實流量。
@@ -57,7 +57,7 @@
 - App telemetry 只允許回傳 route、request id、app version、platform、build number 與 safe context；不得上傳 relationship 原文、psych profile、prompt / completion payload、push token、JWT、session id 或完整 device fingerprint。
 - `app_telemetry_events` 只保存最小事件摘要；`session_id` 只以 `JWT_SECRET` HMAC 後的 `session_hash` 保存，`user_id` 僅供已登入聚合且用戶刪除時 `SET NULL`，Admin report 不返回 `context`、`user_id` 或 `session_hash`。
 - Admin crash-free 聚合目前把 `app_error_boundary`、`app_js_fatal`、`app_unhandled_promise` 與 `app_native_crash` 視為 crash session 事件；這只是 safe telemetry 口徑，不等於已有 native crash runtime evidence。
-- `cleanup_app_telemetry` 每日 05:30 清理 30 天前 App telemetry event；這是事件摘要 retention first pass，不等於 DSAR、全域 log retention、native crash runtime evidence、vendor collector 或真機 OTel trace evidence 已完成。
+- `cleanup_app_telemetry` 每日 05:30 清理 30 天前 App telemetry event；這是事件摘要 retention 基線，不等於 DSAR、全域 log retention、native crash runtime evidence、vendor collector 或真機 OTel trace evidence 已完成。
 
 ## 回歸測試最小集
 

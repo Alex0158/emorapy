@@ -4,8 +4,8 @@
 **文檔類型**：域索引
 **覆蓋範圍**：10-Web端 子域入口與閱讀順序
 **取證代碼入口**：`frontend/src/router/index.tsx`、`frontend/src/pages`、`frontend-admin/src/router.tsx`、`frontend-admin/src/pages`、`backend/src/routes`、`scripts/start-dev.sh`
-**最後核驗 Commit**：`adda512`
-**最後核驗日期**：`2026-05-05`
+**最後核驗 Commit**：`23e85ef`
+**最後核驗日期**：`2026-05-31`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 本目錄記錄目前 Web 版與 Admin Web 版的凍結基線。它是 App 開發的已實作對照，不是跨端產品規則的最高來源。
@@ -25,4 +25,4 @@
 1. Web 端文件只描述 `frontend/` 與 `frontend-admin/` 的平台投影。
 2. 產品核心、PRD 需求或成功指標變更應先回寫 `00-跨端產品核心/`，再更新 Web 端差異。
 3. Web 凍結後若仍修 bug 或治理缺口，必須更新本目錄的凍結基線與待處理任務狀態。
-4. App 開發使用 Web 基線時，必須通過 App navigation / adapter 基線與 App 首輪工程落點 Mapping 做轉譯，不得直接把 Web route、guard、storage 或 Admin 入口當成 App 方案。
+4. App 開發使用 Web 基線時，必須通過 App navigation / adapter 基線與 App 工程落點 Mapping 做轉譯，不得直接把 Web route、guard、storage 或 Admin 入口當成 App 方案。

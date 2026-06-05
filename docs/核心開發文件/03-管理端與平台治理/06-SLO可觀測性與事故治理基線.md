@@ -136,7 +136,7 @@
 | 維度 | Web / Admin Web | App |
 | --- | --- | --- |
 | 健康與狀態 | Admin 可直接使用 `/health*`、reports、jobs、configs | 普通 App 不顯示 Admin health；若需要用戶可見狀態頁，需另定產品語義 |
-| Metrics | Backend / Admin / Prometheus 為主 | App telemetry safe ingest / OTLP / Admin report / runtime evidence 已建立 first pass；仍不得用 Web metrics 或單次 telemetry pass 代表 App 長期穩定性 |
+| Metrics | Backend / Admin / Prometheus 為主 | App telemetry safe ingest / OTLP / Admin report / runtime evidence baseline 已具備；仍不得用 Web metrics 或單次 telemetry pass 代表 App 長期穩定性 |
 | 事故影響 | Web route / Admin route 可由現有頁面與 e2e 對應 | App screen、Push、Deep Link、offline/reconnect 需獨立 smoke / evidence |
 | 降級策略 | Web 可用 route guard、error state、retry、SSE reconnect | App 需考慮 background、network transition、notification entry、SecureStore restore |
 
@@ -148,9 +148,9 @@
 | CJ-OPS-GAP-002 | 有 runbook / gate，但無固定 incident record 模板 | 事故復盤容易丟失時間線、資料級別與防復發任務 | 本文第 6 節作最低模板 |
 | CJ-OPS-GAP-003 | 缺少全 API latency p95/p99 與 per-route volume 指標 | 性能 NFR 難以量化 | 不宣稱 latency SLO；需後續補 metrics |
 | CJ-OPS-GAP-004 | data/privacy incident 尚未接入專門 detector | 隱私事件可能只靠人工發現 | 資料治理基線 + 事故分級先建立，detector 待辦另立 |
-| CJ-OPS-GAP-005 | App telemetry / App smoke evidence 已建立 first pass，但 physical device、provider delivery、production native crash runtime 與長期 SLO baseline 仍未閉環 | App 版無法繼承 Web 運維結論，也不能把 telemetry runtime pass 當完整 App reliability | App 能力或 release gate 變更時回查 App 測試證據接入基線與 release completion audit |
+| CJ-OPS-GAP-005 | App telemetry / App smoke evidence baseline 已具備，但 physical device、provider delivery、production native crash runtime 與長期 SLO baseline 仍未閉環 | App 版無法繼承 Web 運維結論，也不能把 telemetry runtime pass 當完整 App reliability | App 能力或 release gate 變更時回查 App 測試證據接入基線與 release completion audit |
 | CJ-OPS-GAP-006 | Chat / AI stream 有 metrics，但沒有產品級 target | AI 體驗退化只能被動排查 | 暫以 metrics + regression + Admin report 管控 |
-| CJ-OPS-GAP-007 | App 已有 OpenTelemetry provider first pass 與 CJ OTLP JSON ingest，但無 external tracing backend / vendor collector / cross-service distributed trace | 跨服務、AI provider、DB、Redis 的慢路徑根因難以定位 | 先以 request id + logs + metrics + App OTLP safe summary 管控；接 external collector 前不得宣稱完整 tracing |
+| CJ-OPS-GAP-007 | App 已有 OpenTelemetry provider baseline 與 CJ OTLP JSON ingest，但無 external tracing backend / vendor collector / cross-service distributed trace | 跨服務、AI provider、DB、Redis 的慢路徑根因難以定位 | 先以 request id + logs + metrics + App OTLP safe summary 管控；接 external collector 前不得宣稱完整 tracing |
 | CJ-OPS-GAP-008 | 無固定 incident drill 證據落點 | 事故流程可能只停留在文檔描述 | 以 `08/07` 建立驗收模板，後續演練證據下沉 `90-證據與盤點/` |
 
 ## 10. 驗收口徑

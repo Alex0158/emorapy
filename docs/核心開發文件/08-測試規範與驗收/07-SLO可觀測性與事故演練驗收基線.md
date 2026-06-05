@@ -4,8 +4,8 @@
 **文檔類型**：測試規範
 **覆蓋範圍**：health / ready / live、metrics、ops alerts、request id、logs、release gate evidence、incident drill、postmortem、App telemetry 缺口與 SLO 驗收口徑
 **取證代碼入口**：`backend/src/routes/health.routes.ts`、`backend/src/routes/metrics.routes.ts`、`backend/src/middleware/requestId.ts`、`backend/src/middleware/logger.ts`、`backend/src/middleware/performance.ts`、`backend/src/middleware/opsMetrics.ts`、`backend/src/services/ops-metrics.service.ts`、`backend/src/services/ops-alerts.service.ts`、`backend/src/services/ai-stream-metrics.service.ts`、`backend/src/services/chat-metrics.service.ts`、`backend/tests/unit/routes/health.routes.test.ts`、`backend/tests/unit/routes/metrics.routes.test.ts`、`backend/tests/unit/services/ai-stream-metrics.service.test.ts`、`backend/ops/prometheus/chat-alerts.rules.yml`、`scripts/ops-release-gate.sh`、`scripts/ops-release-gate-evidence.sh`、`scripts/smoke-production-like.sh`、`scripts/smoke-staging.sh`、`frontend-admin/src/pages/Admin/Health`、`mobile/app`、`mobile/src/platform`
-**最後核驗 Commit**：`3890ba8`
-**最後核驗日期**：`2026-05-07`
+**最後核驗 Commit**：`23e85ef`
+**最後核驗日期**：`2026-05-31`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 ## 1. 定位
@@ -20,7 +20,7 @@
 | --- | --- | --- |
 | Google SRE SLO / Error Budget | 用 SLI、SLO、error budget、burn-rate 思路區分「告警門檻」與「可靠性目標」 | 不宣稱 CJ 已有正式 error budget |
 | Google SRE Alerting on SLOs | 用 actionable、error-budget threat、multi-window / burn-rate 思路校準告警品質 | 不宣稱現有 Redis 15m ratio 已是 burn-rate alerting |
-| OpenTelemetry Signals | 用 traces / metrics / logs / baggage 分清信號類型與關聯缺口 | CJ App 已有 OTLP JSON ingest first pass；仍不宣稱 external collector、vendor tracing backend 或完整 distributed tracing |
+| OpenTelemetry Signals | 用 traces / metrics / logs / baggage 分清信號類型與關聯缺口 | CJ App 已有 OTLP JSON ingest baseline；仍不宣稱 external collector、vendor tracing backend 或完整 distributed tracing |
 | Prometheus Alerting | 用 alerting rules、`for` duration、Alertmanager / notification chain 校準 Prometheus 規則邊界 | 不宣稱只存在 Prometheus text 就等於有告警閉環 |
 | NIST SP 800-61r3 | 用 Prepare / Detect / Analyze / Respond / Recover / Learn 校準事故演練與 postmortem 證據 | 不宣稱已有正式 CSIRT |
 
@@ -43,7 +43,7 @@
 | Redis Ops Metrics | `opsMetricsService` minute buckets、`runOpsAlertChecks` | 5xx / 409 ratio 偵測、Slack dedupe | 全 API latency SLO 或 burn-rate error budget |
 | Logs | request id、masked session id、user id、error / slow request log | 排障、incident timeline、資料級別檢查 | 長期指標或用戶影響比例 |
 | Admin Reports | Admin health、reports、costs、AI stream sessions | 人工分析與治理面板 | 自動事故 detector |
-| App Telemetry | `mobile/` 已有 safe telemetry adapter、OpenTelemetry provider first pass、telemetry runtime release evidence 與 native crash SDK configuration first pass；backend 已有 ingest / CJ OTLP JSON trace ingest / minimized persistence / Admin report / 30d cleanup first pass | App release 排障、error context 與 crash-free sessions 初始聚合 | 不能用 Web metrics 代表 App；也不能把 telemetry runtime pass、safe ingest、OTLP ingest 或 SDK configuration 當 production native crash runtime evidence、external tracing backend 或長期 SLO |
+| App Telemetry | `mobile/` 已有 safe telemetry adapter、OpenTelemetry provider baseline、telemetry runtime release evidence 與 native crash SDK configuration baseline；backend 已有 ingest / CJ OTLP JSON trace ingest / minimized persistence / Admin report / 30d cleanup baseline | App release 排障、error context 與 crash-free sessions 初始聚合 | 不能用 Web metrics 代表 App；也不能把 telemetry runtime pass、safe ingest、OTLP ingest 或 SDK configuration 當 production native crash runtime evidence、external tracing backend 或長期 SLO |
 
 ## 4. 最小驗收矩陣
 
@@ -56,7 +56,7 @@
 | CJ-OPS-T-005 | Request correlation | `requestId.ts`、`logger.ts`、`errorHandler.ts`、`performance.ts` | 事故記錄必須能追到 request id、time window、commitSha、env、affected flow；session id 只能 masked | 部分覆蓋；無 trace id |
 | CJ-OPS-T-006 | Release evidence | `ops-release-gate-evidence.sh` | 發布宣稱必須有 docs、build/lint、version、health、DB parity、pricing、smoke、product audit 的 gate result | 已有 gate；不是長期監控 |
 | CJ-OPS-T-007 | Incident drill | 本文第 6 節、`03/06` 主基線 | 至少能用一次 degraded health、metrics forbidden、release gate failure 或 product-state audit failure 走完整記錄 | 待建立演練證據 |
-| CJ-OPS-T-008 | App observability parity | `20-App端`、`50-跨端Mapping與Parity`、`mobile/`、`backend/src/services/app-telemetry.service.ts` | App 上線前需有 crash / network / reconnect / background / native storage 最小 telemetry 或 smoke 證據；當前 release completion 已有 telemetry runtime pass evidence，native crash runtime 與 physical-device evidence 仍由 M6 strict gate 承接 | 部分覆蓋；production native crash runtime / physical device / provider delivery 仍是 release blocker，external tracing backend 與長期 crash-free / SLO 屬 post-release baseline pending |
+| CJ-OPS-T-008 | App observability parity | `20-App端`、`50-跨端Mapping與Parity`、`mobile/`、`backend/src/services/app-telemetry.service.ts` | App 上線前需有 crash / network / reconnect / background / native storage 最小 telemetry 或 smoke 證據；telemetry runtime evidence 可作 release completion 輸入，native crash runtime 與 physical-device evidence 仍由 M6 strict gate 承接 | 部分覆蓋；production native crash runtime / physical device / provider delivery 仍是 release blocker，external tracing backend 與長期 crash-free / SLO 屬 post-release baseline pending |
 
 ## 5. SLI 驗收邏輯
 

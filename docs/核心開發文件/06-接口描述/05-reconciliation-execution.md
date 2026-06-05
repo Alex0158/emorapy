@@ -3,14 +3,14 @@
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：05-reconciliation-execution
-**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`backend/src/services/reconciliation.service.ts`、`backend/src/services/execution.service.ts`、`backend/src/services/repair-eligibility.service.ts`、`backend/src/services/repair-journey.service.ts`、`backend/src/services/safety-assessment.service.ts`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`d36c41d`
-**最後核驗日期**：`2026-05-04`
+**取證代碼入口**：`backend/src/app.ts`、`backend/src/routes/reconciliation.routes.ts`、`backend/src/routes/execution.routes.ts`、`backend/src/routes/ai-stream.routes.ts`、`backend/src/services/reconciliation.service.ts`、`backend/src/services/execution.service.ts`、`backend/src/services/repair-eligibility.service.ts`、`backend/src/services/repair-journey.service.ts`、`backend/src/services/safety-assessment.service.ts`、`packages/api-client/src/m4.ts`、`frontend/src/services/api/reconciliation.ts`、`frontend/src/services/api/execution.ts`、`mobile/app/(app)/repair/index.tsx`、`mobile/src/features/m4/api.ts`
+**最後核驗 Commit**：`23e85ef`
+**最後核驗日期**：`2026-05-31`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**文檔版本**：v2.10
-**最後更新**：2026-05-04
-**代碼基準**：`backend/src/routes/reconciliation.routes.ts`、`backend/src/routes/execution.routes.ts`、`backend/src/routes/ai-stream.routes.ts`、`backend/src/services/reconciliation.service.ts`、`backend/src/services/repair-eligibility.service.ts`、`backend/src/services/repair-journey.service.ts`、`backend/src/services/safety-routing.service.ts`、`backend/src/services/execution.service.ts`
+**文檔版本**：v2.11
+**最後更新**：2026-05-31
+**代碼基準**：`backend/src/routes/reconciliation.routes.ts`、`backend/src/routes/execution.routes.ts`、`backend/src/routes/ai-stream.routes.ts`、`backend/src/services/reconciliation.service.ts`、`backend/src/services/repair-eligibility.service.ts`、`backend/src/services/repair-journey.service.ts`、`backend/src/services/safety-routing.service.ts`、`backend/src/services/execution.service.ts`、`packages/api-client/src/m4.ts`、`mobile/src/features/m4/api.ts`
 
 ---
 
@@ -92,7 +92,6 @@
 | `GET /api/v1/execution/status`                    | query `plan_id(uuid)`                                                                                                | `data.track_id` `data.plan_id` `data.judgment_id` `data.status` `data.journey_status` `data.relationship_mode` `data.progress` `data.plan_summary` `data.current_step` `data.commitment` `data.pulse_summary` `data.primary_cta` `data.secondary_cta` `data.status_reason` `data.replan_recommendation` `data.presentation_bucket` `data.journey_context` `data.replan_state` `data.active_replan_stream_id` `data.latest_plan_version` `data.superseded_plan_id` `data.records[]` `data.recent_checkins[]` | 無                                                                   | `/execution/:planId/checkin`、`/execution/:planId/replan` |
 | `GET /api/v1/execution/dashboard`                 | 無                                                                                                                    | `data.executions[]`（journey 聚合，含 `presentation_bucket + journey_context + CTA hints`）                                                                                                                                                                                                                                                                                              | 無                                                                   | `/execution/dashboard`                                   |
 | `GET /api/v1/streams/repair_track/:id`            | optional query `after_seq`                                                                                           | SSE `ready` + `stream.*` events；HTTP response 必須保持未壓縮                                                                                                                     | repair track AI 重調 phase/replay/recovering 主鏈路                      | `/execution/:planId/replan`                              |
-
 
 成功響應的頂層 `message` 屬 backend-owned display string，會由 `responseFormatter` 依 request locale 呼叫 `translateBackendMessage()`。`respondPlan(viewed/committed/deferred/declined/paused)`、invite、pause、replan、resume 等修復旅程狀態提示必須在 `backend/src/i18n/index.ts` 覆蓋 en-US；Web / App 只消費 API 結果，不在端側重建 action message 翻譯表。
 

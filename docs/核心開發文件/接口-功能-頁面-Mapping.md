@@ -4,12 +4,12 @@
 **文檔類型**：旗艦映射
 **覆蓋範圍**：API -> 功能 -> 頁面 -> 流程節點映射
 **取證代碼入口**：`backend/src/routes`、`frontend/src/router/index.tsx`、`frontend-admin/src/router.tsx`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`1295216`
-**最後核驗日期**：`2026-05-08`
+**最後核驗 Commit**：`23e85ef`
+**最後核驗日期**：`2026-05-31`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**文檔版本**：v1.15
-**最後更新**：2026-05-08
+**文檔版本**：v1.16
+**最後更新**：2026-05-31
 **目標**：把 API -> 功能 -> 頁面 -> 流程節點建立可回歸的單點追溯。
 
 ---
@@ -18,14 +18,14 @@
 
 - API 主鍵為 `METHOD + PATH`。
 - 一條 API 可映射多個頁面（多場景），但每個場景需落到明確流程節點。
-- `狀態` 與 `全接口清單-主文檔` 保持一致（已使用/候選廢棄）。
+- `狀態` 與 `全接口清單-主文檔` 保持一致（已使用/待承接/候選廢棄/已確認廢棄）。
 - `CJ-PRD-*` 上游需求與 `CJ-RTM-*` 驗證矩陣不直接改寫本表 API 狀態；若新增或調整 API 才更新本表主表。
 - 前台「完成度」以 `功能特性清單.md` 的口徑為準（`已完成/跨功能依賴/待驗證`），不覆蓋 API 狀態欄。
 - `F01-F10` 為主功能；`F11-F14` 為平台輔助能力附錄（同時包含候選與已使用運維接口）。
-- `主要頁面` 欄目前表示 Web/Admin route 或外部 Admin 子頁責任；App screen / native navigation 尚未落入此表，應由 `20-App端/01-App導航與平台Adapter基線.md` 與 `50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md` 追蹤。
+- `主要頁面` 欄主要表示 Web/Admin route 或外部 Admin 子頁責任；App-only backend endpoints 可標示為 App adapter / App flow label，但 App screen / native navigation 的裁決仍由 `20-App端/01-App導航與平台Adapter基線.md` 與 `50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md` 追蹤。
 - API 契約、資料 shape、授權、限流或錯誤碼若會同時影響 Web 與 App，除更新本表外，必須同步更新 `50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md` 或新增待處理 parity 任務。
 - 若 App 端以某 API 建立 smoke / regression / CI / evidence，該證據不得只回填到本表；必須先符合 `08-測試規範與驗收/03-App測試與證據接入基線.md`，再回寫 App / Parity 文件。
-- `GET /cases/:id`、`GET /cases/:id/judgment` 的授權分流以現碼為準：`quick`/`collaborative(session_id 有值)` 走 session；`remote`/`collaborative(session_id=null)` 走當事人 JWT。
+- `GET /cases/:id`、`GET /cases/:id/judgment` 的授權分流以 `backend/src/utils/case-classifier.ts` 為裁決源：`quick`/`collaborative(session_id 有值)` 走 session；`remote`/`collaborative(session_id=null)` 走當事人 JWT；產品流分類需另覆蓋 `chat_to_case`（`ChatToCaseLink` 優先於 `Case.mode`）。
 - 風險等級：
   - `H`：跨多場景、涉及身份/狀態遷移/SSE/文件。
   - `M`：單場景核心功能。
@@ -152,12 +152,12 @@
 | `GET /api/v1/admin/reports/ai-streams` | F10 | `/admin/reports` | AI Stream 治理報表（days + limit，回傳 retentionPolicy/totals/recentFailures） | L | 已使用 |
 | `GET /api/v1/admin/reports/ai-streams/sessions` | F10 | `/admin/reports` | AI Stream Session 明細（days/limit/offset + status/scope/request/source） | L | 已使用 |
 | `GET /api/v1/admin/reports/ai-streams/sessions/:streamId` | F10 | `/admin/reports` | AI Stream 詳情（source=live/archive/all，eventLimit<=1000） | L | 已使用 |
-| `GET /api/v1/admin/notifications` | F10 | `/admin/reports` | 通知排查列表（status/template/user/dedup） | M | 已使用 |
-| `POST /api/v1/admin/notifications/:notificationId/cancel` | F10 | `/admin/reports` | 取消 pending 通知為 `cancelled` 並寫 audit | M | 已使用 |
-| `POST /api/v1/admin/notifications/bulk-cancel` | F10 | `/admin/reports` | 批量取消 pending 通知為 `cancelled` 並寫 audit | M | 已使用 |
-| `POST /api/v1/admin/notifications/:notificationId/retry` | F10 | `/admin/reports` | 重送 failed 通知並寫 audit | M | 已使用 |
-| `GET /api/v1/admin/product-state/recovery-tasks` | F10 | `/admin/reports` | Product-state 人工恢復任務列表與摘要 | M | 已使用 |
-| `PATCH /api/v1/admin/product-state/recovery-tasks/:taskId/status` | F10 | `/admin/reports` | 更新人工恢復任務狀態並寫 audit | M | 已使用 |
+| `GET /api/v1/admin/notifications` | F10 | Admin API（`frontend-admin` 待承接） | 通知排查列表（status/template/user/dedup） | M | 待承接 |
+| `POST /api/v1/admin/notifications/:notificationId/cancel` | F10 | Admin API（`frontend-admin` 待承接） | 取消 pending 通知為 `cancelled` 並寫 audit | M | 待承接 |
+| `POST /api/v1/admin/notifications/bulk-cancel` | F10 | Admin API（`frontend-admin` 待承接） | 批量取消 pending 通知為 `cancelled` 並寫 audit | M | 待承接 |
+| `POST /api/v1/admin/notifications/:notificationId/retry` | F10 | Admin API（`frontend-admin` 待承接） | 重送 failed 通知並寫 audit | M | 待承接 |
+| `GET /api/v1/admin/product-state/recovery-tasks` | F10 | Admin API（`frontend-admin` 待承接） | Product-state 人工恢復任務列表與摘要 | M | 待承接 |
+| `PATCH /api/v1/admin/product-state/recovery-tasks/:taskId/status` | F10 | Admin API（`frontend-admin` 待承接） | 更新人工恢復任務狀態並寫 audit | M | 待承接 |
 | `GET /api/v1/admin/runtime/interview` | F10 | `/admin/settings` | 訪談運行參數 | L | 已使用 |
 | `GET /api/v1/admin/reports/overview.csv` | F10 | `/admin/reports` | 報表下載（CSV：metric,value） | M | 已使用 |
 | `POST /api/v1/admin/reports/custom` | F10 | `/admin/reports` | 客製報表（metrics[]: dau/mau/judgment_failed） | M | 已使用 |
@@ -174,14 +174,14 @@
 | `GET /metrics` | F14 | （監控） | 指標導出 | L | 已使用 |
 | `POST /api/v1/telemetry/events` | F14 / App M5-M6 | App runtime telemetry adapter | App safe telemetry ingest；只收最小化 event envelope、二次清洗後寫 structured log + minimized DB summary，不承接完整 analytics / native crash runtime capture / OTel | M | 已使用 |
 | `POST /api/v1/telemetry/otlp/v1/traces` | F14 / App M6 | App OpenTelemetry runtime adapter | CJ OTLP JSON trace ingest；只收 resourceSpans subset、二次清洗後寫 app_otel_span minimized summary，不承接 vendor trace backend / native crash runtime capture | M | 已使用 |
-| `GET /api/v1/admin/reports/app-telemetry` | F14 / App M6 | Admin reports / release evidence | App telemetry 最小化聚合報表；返回 error/session aggregate、top events、recent event shell，不返回 raw context、user_id 或 session_hash | M | 已使用 |
+| `GET /api/v1/admin/reports/app-telemetry` | F14 / App M6 | Admin API / release evidence（無 Admin Web 頁面） | App telemetry 最小化聚合報表；返回 error/session aggregate、top events、recent event shell，不返回 raw context、user_id 或 session_hash；不代表 `/admin/reports` UI 已接線 | M | 已使用 |
 
 ## 一 API 多場景（高風險回歸）
 
 | API | 場景A | 場景B | 風險點 | 最小回歸案例 |
 |---|---|---|---|---|
 | `POST /api/v1/cases/:id/evidence` | 快速體驗建案後補證據 | 正式案件建案後補證據/執行打卡補圖 | JWT 與 Session 雙憑證、文件大小與 MIME | 匿名 + 登入各上傳一次並可讀取 |
-| `GET /api/v1/cases/:id` | 快速結果頁 | 正式案件詳情頁 | 需同時覆蓋 mode 分流（session vs 當事人 JWT）、`X-Session-Id` 覆蓋與 404 分支處理 | 同 caseId 在 quick / remote / `collaborative(session_id=null)` 三種模式下讀取 |
+| `GET /api/v1/cases/:id` | 快速結果頁 | 正式案件詳情頁 | 需同時覆蓋 classifier 分流（session vs 當事人 JWT）、`X-Session-Id` 覆蓋、`chat_to_case` product-flow 優先級與 404 分支處理 | 同 caseId 在 quick / remote / `collaborative(session_id=null)` 三種授權模式下讀取，另以含 `ChatToCaseLink` 的 case 驗證 `product_flow=chat_to_case` |
 | `POST /api/v1/interview/start` | Profile 首次引導 | My Story 二次進入 | consent 判斷 + 每日/每小時限額 | consent 前後與超額回應 |
 | `POST /api/v1/chat/rooms/:roomId/request-judgment` | A 方首次發起 | 重複點擊/網路重送 | 房間鎖、冪等、狀態競態 | 連續點擊僅生成一次 case |
 | `POST /api/v1/auth/claim-session` | 註冊後關聯 | 登入後關聯 | 失敗不應阻斷 auth 主流程 | 模擬 claim 失敗仍可登入 |

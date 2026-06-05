@@ -4,15 +4,15 @@
 **文檔類型**：跨端PRD
 **覆蓋範圍**：工程級 PRD / SRS / NFR / RTM 對標口徑、需求屬性規則、資料模型、schema migration、相容性、SLO 可觀測性、incident drill 與治理缺口台賬
 **取證代碼入口**：`backend/src/routes`、`backend/src/routes/health.routes.ts`、`backend/src/routes/metrics.routes.ts`、`backend/src/services/ops-alerts.service.ts`、`backend/src/services/ops-metrics.service.ts`、`backend/src/middleware/requestId.ts`、`backend/prisma/schema.prisma`、`backend/prisma/migrations`、`backend/scripts/check-release-db-parity.ts`、`backend/src/services/safety-routing.service.ts`、`backend/src/services/ai-request-ledger.service.ts`、`scripts/ops-release-gate.sh`、`scripts/ops-release-gate-evidence.sh`、`frontend/src/router/index.tsx`、`frontend-admin/src/router.tsx`、`mobile/app`、`mobile/src/platform`、`packages/contracts/src`、`packages/api-client/src`
-**最後核驗 Commit**：`3890ba8`
-**最後核驗日期**：`2026-05-07`
+**最後核驗 Commit**：`23e85ef`
+**最後核驗日期**：`2026-05-31`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 ## 1. 定位
 
 本文用於把 CJ 的核心產品文件對標工程級 PRD / SRS / NFR / RTM 標準，並把缺口落到可維護的治理規則。它不是外部合規認證，不宣稱 CJ 已符合 ISO、IEEE、OWASP 或任何第三方審計要求。
 
-本輪採用的外部參考基線如下：
+採用的外部參考基線如下：
 
 | 基線 | 採用原因 | CJ 採用方式 |
 | --- | --- | --- |
@@ -160,17 +160,17 @@
 6. SHOULD 用於強建議，但允許有明確理由的例外；例外必須回寫 Parity 或待裁決項。
 7. MAY 只用於可選平台能力，不得被理解為核心產品承諾。
 
-## 4. 本輪對標缺口台賬
+## 4. 工程對標缺口台賬
 
-| 缺口 ID | 對標標準 | 現狀 | 風險 | 本輪處置 |
+| 缺口 ID | 對標標準 | 現狀 | 風險 | 處置規則 |
 | --- | --- | --- | --- | --- |
 | CJ-GAP-PRD-001 | ISO/IEC/IEEE 29148 / RFC 2119 | PRD 主線已存在，但需求語句、強制程度、來源、理由和優先級尚未形成固定欄位 | 後續需求會退化成描述性文字，難以驗證 | 補本文第 2-3 節，並回寫 PRD 總章與 RTM |
 | CJ-GAP-PRD-002 | ISO/IEC/IEEE 29148 | 場景與假設已有，但假設信心、反證門檻與決策動作仍偏粗 | 產品假設無法被證偽或關閉 | 在假設台帳補狀態口徑與後續回寫規則，暫不編造數值門檻 |
 | CJ-GAP-MET-001 | ISO/IEC 25010 / 需求驗證 | 指標列表已有，但資料來源、基線狀態、發布用途未完全拆清 | 指標容易被當作目標值或發布 gate | 在成功指標文檔補資料來源和可用性分級 |
 | CJ-GAP-NFR-001 | ISO/IEC 25010 / OWASP ASVS / MASVS | NFR 已列出，但未清楚標註質量屬性與 Web/App 安全標準映射 | 安全與非功能需求難以按平台審查 | 在 NFR 文檔補質量模型與 ASVS/MASVS 對照 |
 | CJ-GAP-RTM-001 | ISO/IEC/IEEE 29148 | RTM 已有，但驗證方式還停留在文字描述，缺少標準化驗證類型 | PRD 到測試和證據的鏈路不夠可審計 | 在 RTM 補驗證類型、優先級和證據入口規則 |
-| CJ-GAP-APP-001 | OWASP MASVS / 跨端 Parity | App M0-M5 runtime adapter、screen、smoke 與 local evidence 已落地，但 MASVS / 真機 / provider / native crash runtime / release DB parity 證據未清零 | 可能把 App 本地 gate 誤解為 release 級 App 安全或原生能力已完整完成 | 維持 App 部分覆蓋口徑，要求 MASVS 類需求只能在 strict release sign-off 後升級為完整 |
-| CJ-GAP-APP-002 | ISO/IEC/IEEE 29148 / 跨端 Parity | 完整 App 版工程 PRD / Roadmap、M0-M5 runtime 與 completion audit 已落地，但 M6 strict release sign-off 未完成 | 可能把「本地開發已完成」誤寫為 App release / TestFlight / 真機完成 | 保留 `20-App端/02-App完整版本工程PRD.md` 與 `20-App端/03-App完整版本開發Roadmap.md` 主控，並要求 RTM / Parity / 待辦同步 release blockers |
+| CJ-GAP-APP-001 | OWASP MASVS / 跨端 Parity | App M0-M5 runtime adapter、screen、smoke 與 local evidence 已落地；release DB parity / telemetry runtime 有 structured pass evidence 時只作 release audit 輸入，不可替代 MASVS、真機、provider delivery 或 production native crash runtime sign-off | 可能把 App 本地 gate 或 release audit 子證據誤解為 release 級 App 安全或原生能力已完整完成 | 維持 App 部分覆蓋口徑，要求 MASVS 類需求只能在 strict release sign-off 與對應原生證據完成後升級為完整 |
+| CJ-GAP-APP-002 | ISO/IEC/IEEE 29148 / 跨端 Parity | 完整 App 版工程 PRD / Roadmap、M0-M5 runtime 與 completion audit 已落地，但 M6 strict release sign-off 未完成；current blockers 由 `release:completion:audit` 裁決 | 可能把「本地開發已完成」誤寫為 App release / TestFlight / 真機完成 | 保留 `20-App端/02-App完整版本工程PRD.md` 與 `20-App端/03-App完整版本開發Roadmap.md` 主控，並要求 RTM / Parity / 待辦同步 current blockers |
 | CJ-GAP-GOV-001 | 需求治理 | 文件治理已管 code/docs sync，但 PRD 標準對標尚未進 PR 自檢 | 需求層變更可能漏掉 NFR / RTM / 指標 | 回寫文件治理規則與台賬 |
 | CJ-GAP-AI-001 | NIST AI RMF / ISO 42001 / OWASP LLM | AI 能力已有 prompt version、ledger、safety routing，但缺少統一 AI asset inventory 與 LLM 風險矩陣 | 新 AI runtime 可能漏接 prompt fencing、ledger、版本、人工介入與 App 差異 | 新增 `04-共用機制/03-AI風險與安全治理基線.md` |
 | CJ-GAP-API-001 | OpenAPI / 29148 traceability / ASVS | 接口已有主冊、模組文檔與 truth guard，但沒有 machine-readable OpenAPI / schema contract | typed client、App 接入、第三方審查與契約測試缺少自動化基礎 | 新增 `06-接口描述/11-API契約與OpenAPI缺口台賬.md`，明確不得宣稱 OAS 完成 |

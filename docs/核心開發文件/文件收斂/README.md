@@ -33,7 +33,7 @@
 2. Web 凍結基線入口：`10-Web端/`
 3. App 平台投影入口：`20-App端/`
 4. App 實作前 navigation / platform adapter gate：`20-App端/01-App導航與平台Adapter基線.md`
-5. App 首輪 screen 到 Backend / API / DB / shared package 的工程落點 gate：`50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md`
+5. App screen 到 Backend / API / DB / shared package 的工程落點 gate：`50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md`
 6. 工程級 PRD 對標與治理缺口入口：`00-跨端產品核心/05-工程級PRD對標與治理缺口台賬.md`
 7. 共用 NFR 入口：`04-共用機制/02-信任安全與非功能需求.md`
 8. AI / LLM 風險治理入口：`04-共用機制/03-AI風險與安全治理基線.md`

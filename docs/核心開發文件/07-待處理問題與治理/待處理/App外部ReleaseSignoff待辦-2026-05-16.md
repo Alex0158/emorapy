@@ -4,8 +4,8 @@
 **文檔類型**：問題治理
 **覆蓋範圍**：App 外部 release sign-off 的 EAS / TestFlight / physical device / push provider / Sentry native crash / telemetry runtime / release DB parity 缺口
 **取證代碼入口**：`mobile/package.json`、`mobile/app.json`、`mobile/scripts/check-release-external-signoff-input-status.mjs`、`backend/scripts/check-release-db-parity.ts`
-**最後核驗 Commit**：`fcd8a64`
-**最後核驗日期**：`2026-05-30`
+**最後核驗 Commit**：`23e85ef`
+**最後核驗日期**：`2026-05-31`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 **狀態**：待外部輸入（current completion inputs 0/14；evidence refresh inputs 2/2；telemetry runtime / release DB parity pass evidence 已完成）
@@ -34,6 +34,7 @@ App 內部實作、文件、preflight 與 release audit contract 已就緒，但
 | 本地 release preflight | 已通過 | `npm --prefix mobile run release:preflight`，30 Jest suites / 134 tests passed，且跑完 `release:external-evidence:input-status`、`release:completion:audit`、`goal:completion:audit`、`release:check` |
 | 外部輸入狀態檢查 | 已建立 / 未 ready | `npm --prefix mobile run release:external-evidence:input-status -- --json` 顯示 `filled_count=2`、`placeholder_count=14`、`ready_for_validate=false`；其中 `input_groups.current_completion_blocker_inputs` 顯示 current completion inputs `0/14`、`ready_for_current_completion_inputs=false`，`input_groups.evidence_refresh_inputs` 顯示 DB / telemetry refresh inputs `2/2`、`ready_for_evidence_refresh_inputs=true`。目前已填入 `DATABASE_URL` 與 `APP_TELEMETRY_RUNTIME_API_BASE_URL`；另已建立 `npm --prefix mobile run release:external-evidence:fill-inputs` 作為本機互動補值入口，`--list-missing` 可只看缺口與分層 |
 | Telemetry runtime env-file / CORS / backend version | 已閉環 | `telemetry:runtime:smoke -- --dry-run --release-env-file=release.env.local` 與正式 `--run` 已通過；runner 先查 release backend `/version` 並要求 `commitSha` 等於執行當下的本地 `HEAD`，再送 event / OTLP；audit 允許後續 docs / evidence 提交，但若 backend telemetry/version runtime 路徑在證據 commit 後改動，舊證據會失效；canonical `App-Telemetry-Runtime-2026-05-29T16-00-52-498Z.json` 已 `blocked=false`，`release:completion:audit -- --json` 顯示 `telemetry_runtime_evidence` passed |
+| 外部 status / handoff 快照 | 已建立 / 未完成 | 最新 secret-safe 快照為 `App-External-Evidence-Status-2026-05-29T17-17-48-569Z.json` 與 `App-External-Evidence-Handoff-2026-05-29T17-17-57-273Z.json`；只作 owner 交接、env-file provenance 與 normalized blocker 索引，不解除 EAS / TestFlight / physical device / provider / production native crash runtime blocker |
 | EAS project id | 未完成 | `mobile/app.json` 尚無 UUID-shaped `expo.extra.eas.projectId` |
 | EAS project id 本機追查 | 已完成 / 無可自動回收值 | 已查 `npx expo config --json`、`mobile/.expo`、`~/.expo/state.json`、`~/Library/Preferences/eas-cli-nodejs/user-settings.json`、`mobile/.expo` xcodebuild logs 與 git history；未找到真實 `extra.eas.projectId`。`mobile/scripts/lib/release-app-config.mjs` 只讀 `mobile/app.json` 的 `expo.extra.eas.projectId`，無其他 fallback，因此不得用 analytics/device UUID、fake UUID 或舊 cache 解除 blocker |
 | GitHub Actions release secrets | 部分完成 / 未 ready | `npm --prefix mobile run release:external-evidence:github-secrets:check -- --json` 只讀 secret names 且 `values_redacted=true`；checker 與 `.github/workflows/app-release-external-signoff.yml` 以 `Production` GitHub Environment 作為預設 workflow secret scope。已同步 `APP_RELEASE_DATABASE_URL` 與 `APP_TELEMETRY_RUNTIME_API_BASE_URL` 到 `Production` environment，`present_secret_name_count=2`、`missing_secret_name_count=14`、`ready_for_workflow_validate=false`；其中 `secret_groups.current_completion_blocker_secret_names` 為 `0/14`、`secret_groups.evidence_refresh_secret_names` 為 `2/2`。另查 `--env='ingenious-commitment / production'`，該 environment 沒有 App release secret names。`release:external-evidence:github-secrets:strict -- --json` 在當前狀態仍會失敗，用於 secrets 配好後作 CI validate/run 前置 gate。尚缺 `EXPO_TOKEN`、Apple / ASC、push、Sentry、iOS/Android device 與 `APP_NATIVE_CRASH_SENTRY_EVENT_ID` 等外部 secrets，因此 workflow 目前不能進入有效 validate / run |

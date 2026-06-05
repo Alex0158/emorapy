@@ -85,6 +85,11 @@ const FORMAL_DOC_MISSING_PATH_ALLOWLIST = {
     { path: 'packages/domain', marker: '建立 `packages/domain`' },
   ],
 };
+const FORMAL_DOC_OPTIONAL_LOCAL_STATE_PATHS = new Set([
+  'backend/.env',
+  'mobile/.expo',
+  'mobile/release.env.local',
+]);
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -1349,6 +1354,9 @@ async function main() {
     const allowEntries = FORMAL_DOC_MISSING_PATH_ALLOWLIST[relativePath] || [];
     const allowMap = new Map(allowEntries.map((entry) => [entry.path, entry]));
     for (const repoPathRef of repoPathRefs) {
+      if (FORMAL_DOC_OPTIONAL_LOCAL_STATE_PATHS.has(repoPathRef)) {
+        continue;
+      }
       const absPath = path.join(repoRoot, repoPathRef);
       if (await pathExists(absPath)) {
         continue;

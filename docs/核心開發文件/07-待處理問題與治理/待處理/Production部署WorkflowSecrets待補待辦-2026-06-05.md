@@ -4,8 +4,8 @@
 **文檔類型**：問題治理
 **覆蓋範圍**：GitHub Actions `Production Deploy and Verify` 正式部署 workflow 的 production secrets、variables 與 release gate 可執行性
 **取證代碼入口**：`.github/workflows/production-deploy-and-verify.yml`、`scripts/ops-release-gate.sh`、`scripts/ops-release-gate-evidence.sh`
-**最後核驗 Commit**：`4115c88`
-**最後核驗日期**：`2026-06-05`
+**最後核驗 Commit**：`61aff90`
+**最後核驗日期**：`2026-06-07`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 ## 現狀
@@ -20,11 +20,11 @@
 6. `PRODUCTION_ADMIN_WEB_URL`
 7. `PRODUCTION_RAILWAY_SERVICE`
 
-目前 GitHub secrets 仍不足以讓完整 production workflow 真實部署並通過 release gate。已存在的 secrets 只有 repo-level Railway / staging secrets，以及 `Production` environment 下的 `APP_RELEASE_DATABASE_URL`、`APP_TELEMETRY_RUNTIME_API_BASE_URL`。
+2026-06-07 已在 GitHub `Production` environment 補齊 production workflow 所需 secrets，並已建立專用 release smoke admin。secret 值不得寫入文檔、commit message、chat 或 log；本文件只記錄 key name 與 presence。
 
 ## 缺口
 
-完整 workflow 至少仍缺：
+原缺口已補齊：
 
 1. `VERCEL_TOKEN`
 2. `PRODUCTION_REDIS_URL`
@@ -33,6 +33,8 @@
 5. `RELEASE_SMOKE_ADMIN_PASSWORD`
 
 `RAILWAY_API_TOKEN` 已在 repo secrets 存在；workflow 也允許暫時 fallback 到既有 Railway project id secret，但長期應補明確命名的 `PRODUCTION_RAILWAY_PROJECT_ID`，避免 production workflow 依賴舊 staging 命名。
+
+目前剩餘缺口不是 secret presence，而是尚未在 `deploy_web=true`、`deploy_backend=true`、`run_release_gate=true` 下完成一次正式 production workflow。
 
 ## 目標狀態
 
@@ -61,5 +63,5 @@ npm run ops:release:gate:evidence
 ## Owner / Status
 
 - Owner：Release / Ops
-- Status：待處理
-- Notes：不得在 chat、commit message 或文檔中記錄 secret 值。若由本機 CLI 讀取 token 後寫入 GitHub secret，必須由操作者明確授權並避免輸出明文。
+- Status：待完整部署驗證
+- Notes：2026-06-07 已補齊 GitHub `Production` environment secrets；下一步需由操作者確認後觸發完整 production deploy + release gate。不得在 chat、commit message 或文檔中記錄 secret 值。

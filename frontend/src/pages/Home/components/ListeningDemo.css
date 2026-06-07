@@ -67,6 +67,7 @@
 }
 
 .conversation-phone {
+  height: 640px;
   min-height: 560px;
   border: 1px solid var(--demo-line);
   border-radius: 28px;
@@ -114,8 +115,11 @@
   padding: 28px 22px 22px;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 14px;
+  overflow-y: auto;
+  scrollbar-color: rgba(52, 43, 37, 0.22) transparent;
+  scrollbar-width: thin;
 }
 
 .conversation-row {
@@ -170,15 +174,15 @@
 }
 
 .listening-notes {
-  display: grid;
-  grid-template-rows: repeat(3, minmax(148px, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 18px;
 }
 
 .listening-note {
   position: relative;
-  min-height: 148px;
-  padding: 24px 26px 24px 32px;
+  min-height: 138px;
+  padding: 22px 26px 22px 32px;
   border: 1px solid var(--demo-line);
   border-radius: 18px;
   background: rgba(255, 252, 247, 0.92);
@@ -269,6 +273,7 @@
   }
 
   .conversation-phone {
+    height: 520px;
     min-height: 460px;
   }
 }
@@ -287,6 +292,7 @@
   }
 
   .conversation-phone {
+    height: 480px;
     min-height: 430px;
     border-radius: 22px;
   }

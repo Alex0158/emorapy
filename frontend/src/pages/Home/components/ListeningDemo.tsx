@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pause, Play, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { t } from '@/utils/i18n';
@@ -25,10 +25,16 @@ function getMessages(): DemoMessage[] {
   return [
     { id: 'm1', side: 'me', text: t('listeningDemo.message1') },
     { id: 'm2', side: 'them', text: t('listeningDemo.message2') },
-    { id: 'm3', side: 'me', text: t('listeningDemo.message3'), time: t('listeningDemo.time1') },
-    { id: 'm4', side: 'me', text: t('listeningDemo.message4') },
-    { id: 'm5', side: 'them', text: t('listeningDemo.message5') },
-    { id: 'm6', side: 'me', text: t('listeningDemo.message6'), time: t('listeningDemo.time2') },
+    { id: 'm3', side: 'them', text: t('listeningDemo.message3') },
+    { id: 'm4', side: 'me', text: t('listeningDemo.message4'), time: t('listeningDemo.time1') },
+    { id: 'm5', side: 'me', text: t('listeningDemo.message5') },
+    { id: 'm6', side: 'them', text: t('listeningDemo.message6'), time: t('listeningDemo.time2') },
+    { id: 'm7', side: 'them', text: t('listeningDemo.message7') },
+    { id: 'm8', side: 'me', text: t('listeningDemo.message8') },
+    { id: 'm9', side: 'them', text: t('listeningDemo.message9'), time: t('listeningDemo.time3') },
+    { id: 'm10', side: 'me', text: t('listeningDemo.message10') },
+    { id: 'm11', side: 'me', text: t('listeningDemo.message11') },
+    { id: 'm12', side: 'them', text: t('listeningDemo.message12'), time: t('listeningDemo.time4') },
   ];
 }
 
@@ -36,24 +42,31 @@ function getNotes(): DemoNote[] {
   return [
     {
       id: 'n1',
-      at: 2,
+      at: 5,
       label: t('listeningDemo.note1.label'),
       text: t('listeningDemo.note1.text'),
       emphasis: t('listeningDemo.note1.emphasis'),
     },
     {
       id: 'n2',
-      at: 4,
+      at: 6,
       label: t('listeningDemo.note2.label'),
       text: t('listeningDemo.note2.text'),
       emphasis: t('listeningDemo.note2.emphasis'),
     },
     {
       id: 'n3',
-      at: 6,
+      at: 9,
       label: t('listeningDemo.note3.label'),
       text: t('listeningDemo.note3.text'),
       emphasis: t('listeningDemo.note3.emphasis'),
+    },
+    {
+      id: 'n4',
+      at: 12,
+      label: t('listeningDemo.note4.label'),
+      text: t('listeningDemo.note4.text'),
+      emphasis: t('listeningDemo.note4.emphasis'),
     },
   ];
 }
@@ -61,6 +74,7 @@ function getNotes(): DemoNote[] {
 const ListeningDemo = () => {
   const messages = useMemo(getMessages, []);
   const notes = useMemo(getNotes, []);
+  const threadRef = useRef<HTMLDivElement>(null);
   const [frame, setFrame] = useState(messages.length);
   const [playing, setPlaying] = useState(false);
 
@@ -76,6 +90,12 @@ const ListeningDemo = () => {
 
     return () => window.clearInterval(timer);
   }, [messages.length, playing]);
+
+  useEffect(() => {
+    const thread = threadRef.current;
+    if (!thread) return;
+    thread.scrollTop = thread.scrollHeight;
+  }, [frame]);
 
   const noticedCount = notes.filter((note) => note.at <= frame).length;
 
@@ -99,11 +119,10 @@ const ListeningDemo = () => {
             </div>
           </div>
 
-          <div className="conversation-thread">
-            {messages.map((message, index) => {
-              const visible = index < frame;
+          <div ref={threadRef} className="conversation-thread">
+            {messages.slice(0, frame).map((message) => {
               return (
-                <div key={message.id} className={`conversation-row ${message.side} ${visible ? 'visible' : ''}`}>
+                <div key={message.id} className={`conversation-row ${message.side} visible`}>
                   {message.time ? <div className="conversation-time">{message.time}</div> : null}
                   <div className="conversation-bubble">{message.text}</div>
                 </div>

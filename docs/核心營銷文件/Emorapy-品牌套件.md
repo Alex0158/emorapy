@@ -89,7 +89,7 @@ For couples under recurring conflict, `Emorapy` is an AI-guided relationship rep
 ### 官網首頁敘事基線
 
 - 核心主張：吵到聽不見彼此時，`Emorapy` 先幫雙方聽懂到底卡在哪，而不是判定誰輸誰贏。
-- 對話觀察模組：以一段貼近日常的吵架訊息搭配 `Emorapy` 的即時理解筆記，展示產品如何看見「我不想再解釋了」「我想被放在心上」「我怎麼做都不夠」這類話裡沒說完的關係訊號。
+- 對話觀察模組：以一段貼近日常的長時間線吵架訊息搭配 `Emorapy` 的即時理解筆記，展示產品如何看見「我不想再解釋了」「我想被放在心上」「我怎麼做都不夠」「你還願不願意回來談」這類話裡沒說完的關係訊號。
 - 修復宣言（英文）：`Responsibility isn't blame. It's where the repair begins.`
 - 修復宣言（中文）：負責，不是認錯。是願意一起把關係修回來。
 

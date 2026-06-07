@@ -31,8 +31,11 @@ validate_release_health() {
   HEALTH_JSON="$json" node -e '
 const [label] = process.argv.slice(1);
 const payload = JSON.parse(process.env.HEALTH_JSON || "{}");
-const checks = payload && typeof payload === "object" && payload.checks && typeof payload.checks === "object"
-  ? payload.checks
+const data = payload && typeof payload === "object" && payload.data && typeof payload.data === "object"
+  ? payload.data
+  : payload;
+const checks = data && typeof data === "object" && data.checks && typeof data.checks === "object"
+  ? data.checks
   : {};
 
 function fail(message) {
@@ -40,8 +43,8 @@ function fail(message) {
   process.exit(1);
 }
 
-if (payload.status !== "healthy") {
-  fail(`must be healthy for release gate, got ${payload.status || "(missing)"}`);
+if (data.status !== "healthy") {
+  fail(`must be healthy for release gate, got ${data.status || "(missing)"}`);
 }
 
 const lockMessage = typeof checks.lock?.message === "string" ? checks.lock.message : "";

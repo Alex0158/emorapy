@@ -49,7 +49,7 @@ vi.mock('@/utils/i18n', () => ({
       'nav.chatToJudgment': '先聊再判',
       'nav.understandYou': '懂你',
       'nav.chat': '聊天',
-      'nav.login': '登錄',
+      'nav.login': '登入',
       'nav.register': '註冊',
       'nav.logo': 'CJ',
       'nav.opsConsole': '運維後台',
@@ -99,7 +99,7 @@ describe('Header', () => {
         <Header />
       </MemoryRouter>
     );
-    expect(screen.getByText('登錄')).toBeInTheDocument();
+    expect(screen.getByText('登入')).toBeInTheDocument();
   });
 
   it('登入後應顯示通知入口並拉取未讀數', async () => {

@@ -80,18 +80,18 @@ For couples under recurring conflict, `Emorapy` is an AI-guided relationship rep
 - App 副標題：AI-guided couple communication and repair
 - 商店短描述（中文）：AI 引導伴侶降溫對話，產出可執行修復步驟，追蹤關係改善進度。
 - 網站 Hero 標題（英文）：`When love gets loud, we help you listen.`
-- 網站 Hero 標題（中文）：當愛變得很吵，我們幫你重新聽見彼此。
+- 網站 Hero 標題（中文）：吵到聽不見彼此時，我們先幫你聽懂。
 - 網站 Hero 副標（英文）：`Emorapy` listens to both sides, picks no winner, and hands back the thing you were actually fighting about.
-- 網站 Hero 副標（中文）：`Emorapy` 不是裁判；它聽見雙方、整理真正爭點，並把情緒翻譯成可以修復的下一句話。
+- 網站 Hero 副標（中文）：先不要急著分誰對誰錯。`Emorapy` 會把兩邊真正想說的話整理出來，讓你們看見這次到底卡在哪。
 - CTA 主按鈕：`Start Repair Session`
 - CTA 次按鈕：`See How It Works`
 
 ### 官網首頁敘事基線
 
-- 核心主張：當親密關係中的愛變得太吵，`Emorapy` 幫雙方重新聽見彼此，而不是判定誰輸誰贏。
-- 對話觀察模組：以一段真實感衝突對話搭配 `Emorapy` 的即時理解筆記，展示產品如何辨識放棄被理解、責任/責備混淆、具體事件升級為泛化指控、沉默累積等關係訊號。
+- 核心主張：吵到聽不見彼此時，`Emorapy` 先幫雙方聽懂到底卡在哪，而不是判定誰輸誰贏。
+- 對話觀察模組：以一段貼近日常的吵架訊息搭配 `Emorapy` 的即時理解筆記，展示產品如何看見「我不想再解釋了」「我想被放在心上」「我怎麼做都不夠」這類話裡沒說完的關係訊號。
 - 修復宣言（英文）：`Responsibility isn't blame. It's where the repair begins.`
-- 修復宣言（中文）：責任不是責怪。責任是修復開始的地方。
+- 修復宣言（中文）：負責，不是認錯。是願意一起把關係修回來。
 
 ## 10. 信任與法務文案（必要）
 

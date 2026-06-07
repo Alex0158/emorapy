@@ -50,9 +50,9 @@ describe('Home', () => {
       </MemoryRouter>
     );
     expect(
-      screen.getByText('當愛變得很吵，我們幫你重新聽見彼此。')
+      screen.getByText('吵到聽不見彼此時，我們先幫你聽懂。')
     ).toBeInTheDocument();
-    expect(screen.getByText('Emorapy 不是裁判。它會聽見雙方、整理真正的爭點，幫你把情緒翻譯成可以修復的下一句話。')).toBeInTheDocument();
+    expect(screen.getByText('先不要急著分誰對誰錯。Emorapy 會把兩邊真正想說的話整理出來，讓你們看見這次到底卡在哪。')).toBeInTheDocument();
   });
 
   it('應顯示快速判斷與保存紀錄按鈕', () => {
@@ -62,7 +62,7 @@ describe('Home', () => {
       </MemoryRouter>
     );
     expect(screen.getAllByRole('button', { name: /開始快速判斷/ }).length).toBeGreaterThan(0);
-    expect(screen.getByRole('button', { name: /註冊保存完整紀錄/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /註冊保留完整紀錄/ })).toBeInTheDocument();
   });
 
   it('點擊快速判斷應導航至 /quick-experience/create', async () => {
@@ -82,7 +82,7 @@ describe('Home', () => {
         <Home />
       </MemoryRouter>
     );
-    await userEvent.click(screen.getByRole('button', { name: /註冊保存完整紀錄/ }));
+    await userEvent.click(screen.getByRole('button', { name: /註冊保留完整紀錄/ }));
     expect(mockNavigate).toHaveBeenCalledWith('/auth/register');
   });
 
@@ -93,11 +93,11 @@ describe('Home', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(screen.getByText('拖動時間線，看 Emorapy 怎麼聽見一句話底下的意思。')).toBeInTheDocument();
+      expect(screen.getByText('拖一下時間線，看 Emorapy 怎麼聽出話裡沒說完的意思。')).toBeInTheDocument();
     });
     expect(screen.getByText('Emorapy · 聽見 12:14')).toBeInTheDocument();
-    expect(screen.getByText('責任不是責怪。責任是修復開始的地方。')).toBeInTheDocument();
-    expect(screen.getByText('你會得到的幫助')).toBeInTheDocument();
+    expect(screen.getByText('負責，不是認錯。是願意一起把關係修回來。')).toBeInTheDocument();
+    expect(screen.getByText('你可以拿到什麼')).toBeInTheDocument();
   });
 
   it('應顯示跳過到主要內容連結', () => {
@@ -119,7 +119,7 @@ describe('Home', () => {
     await waitFor(() => {
       expect(screen.getByText('Drag the timeline to see how Emorapy hears what sits underneath.')).toBeInTheDocument();
     });
-    expect(screen.queryByText('拖動時間線，看 Emorapy 怎麼聽見一句話底下的意思。')).not.toBeInTheDocument();
+    expect(screen.queryByText('拖一下時間線，看 Emorapy 怎麼聽出話裡沒說完的意思。')).not.toBeInTheDocument();
   });
 
   it('已登入時主按鈕應導航至 /case/create 且不顯示協同模式按鈕', async () => {

@@ -10,6 +10,6 @@ describe('Footer', () => {
     render(<Footer />);
     const year = new Date().getFullYear();
     expect(screen.getByText(new RegExp(`© ${year} 關係修復室`))).toBeInTheDocument();
-    expect(screen.getByText(/釐清爭點，重建對話，逐步修復關係/)).toBeInTheDocument();
+    expect(screen.getByText(/先聽懂彼此，再慢慢把關係修回來/)).toBeInTheDocument();
   });
 });

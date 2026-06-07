@@ -106,8 +106,16 @@ jobs:
           VERCEL_PROJECT_ID: ${{ vars.VERCEL_MAIN_PROJECT_ID }}
         run: |
           vercel pull --yes --environment=production --token="${VERCEL_TOKEN}"
-          vercel build --prod --token="${VERCEL_TOKEN}"
-          vercel deploy --prebuilt --prod --token="${VERCEL_TOKEN}"
+          set -a
+          . .vercel/.env.production.local
+          set +a
+          cd ..
+          npm run contracts:build
+          npm run api-client:build
+          npm run build --workspace frontend
+          node scripts/create-vercel-static-output.mjs frontend
+          cd frontend
+          vercel deploy --prebuilt --prod --token="${VERCEL_TOKEN}" --archive=tgz
 
       - name: Deploy Admin web to Vercel production
         working-directory: frontend-admin
@@ -115,8 +123,16 @@ jobs:
           VERCEL_PROJECT_ID: ${{ vars.VERCEL_ADMIN_PROJECT_ID }}
         run: |
           vercel pull --yes --environment=production --token="${VERCEL_TOKEN}"
-          vercel build --prod --token="${VERCEL_TOKEN}"
-          vercel deploy --prebuilt --prod --token="${VERCEL_TOKEN}"
+          set -a
+          . .vercel/.env.production.local
+          set +a
+          cd ..
+          npm run contracts:build
+          npm run api-client:build
+          npm run build --workspace frontend-admin
+          node scripts/create-vercel-static-output.mjs frontend-admin
+          cd frontend-admin
+          vercel deploy --prebuilt --prod --token="${VERCEL_TOKEN}" --archive=tgz
 
   deploy-backend:
     name: Deploy Railway Production Backend
@@ -162,7 +178,7 @@ jobs:
       - name: Normalize Railway auth env
         run: |
           if [ -n "${RAILWAY_API_TOKEN}" ]; then
-            echo "RAILWAY_TOKEN=" >> "$GITHUB_ENV"
+            echo "Using RAILWAY_API_TOKEN for Railway CLI auth."
           elif [ -n "${LEGACY_RAILWAY_TOKEN}" ]; then
             echo "RAILWAY_API_TOKEN=${LEGACY_RAILWAY_TOKEN}" >> "$GITHUB_ENV"
             echo "RAILWAY_TOKEN=${LEGACY_RAILWAY_TOKEN}" >> "$GITHUB_ENV"

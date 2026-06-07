@@ -20,6 +20,7 @@ type DemoNote = {
 };
 
 const AUTO_ADVANCE_MS = 1800;
+const INITIAL_FRAME = 1;
 
 function getMessages(): DemoMessage[] {
   return [
@@ -75,7 +76,7 @@ const ListeningDemo = () => {
   const messages = useMemo(getMessages, []);
   const notes = useMemo(getNotes, []);
   const threadRef = useRef<HTMLDivElement>(null);
-  const [frame, setFrame] = useState(messages.length);
+  const [frame, setFrame] = useState(INITIAL_FRAME);
   const [playing, setPlaying] = useState(false);
 
   useEffect(() => {
@@ -83,7 +84,7 @@ const ListeningDemo = () => {
 
     const timer = window.setInterval(() => {
       setFrame((current) => {
-        if (current >= messages.length) return 1;
+        if (current >= messages.length) return INITIAL_FRAME;
         return current + 1;
       });
     }, AUTO_ADVANCE_MS);
@@ -94,6 +95,10 @@ const ListeningDemo = () => {
   useEffect(() => {
     const thread = threadRef.current;
     if (!thread) return;
+    if (typeof thread.scrollTo === 'function') {
+      thread.scrollTo({ top: thread.scrollHeight, behavior: 'smooth' });
+      return;
+    }
     thread.scrollTop = thread.scrollHeight;
   }, [frame]);
 
@@ -135,16 +140,26 @@ const ListeningDemo = () => {
           {notes.map((note) => {
             const visible = note.at <= frame;
             return (
-              <article key={note.id} className={`listening-note ${visible ? 'visible' : ''}`}>
+              <article key={note.id} className={`listening-note ${visible ? 'visible' : 'pending'}`} aria-hidden={!visible}>
                 <div className="listening-note-dot" aria-hidden="true" />
-                <div className="listening-note-label">
-                  <Sparkles className="size-4" aria-hidden="true" />
-                  <span>{note.label}</span>
-                </div>
-                <p>
-                  {note.text}
-                  <strong>{note.emphasis}</strong>
-                </p>
+                {visible ? (
+                  <>
+                    <div className="listening-note-label">
+                      <Sparkles className="size-4" aria-hidden="true" />
+                      <span>{note.label}</span>
+                    </div>
+                    <p>
+                      {note.text}
+                      <strong>{note.emphasis}</strong>
+                    </p>
+                  </>
+                ) : (
+                  <div className="listening-note-placeholder" aria-hidden="true">
+                    <span />
+                    <span />
+                    <span />
+                  </div>
+                )}
               </article>
             );
           })}

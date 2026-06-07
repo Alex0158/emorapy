@@ -95,7 +95,8 @@ describe('Home', () => {
     await waitFor(() => {
       expect(screen.getByText('拖一下時間線，看 Emorapy 怎麼聽出話裡沒說完的意思。')).toBeInTheDocument();
     });
-    expect(screen.getByText('Emorapy · 聽見 12:14')).toBeInTheDocument();
+    expect(screen.getByText('碗盤又放在水槽了')).toBeInTheDocument();
+    expect(screen.queryByText('Emorapy · 聽見 12:14')).not.toBeInTheDocument();
     expect(screen.getByText('負責，不是認錯。是願意一起把關係修回來。')).toBeInTheDocument();
     expect(screen.getByText('你可以拿到什麼')).toBeInTheDocument();
   });

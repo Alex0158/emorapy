@@ -22,6 +22,8 @@
 
 2026-06-07 已在 GitHub `Production` environment 補齊 production workflow 所需 secrets，並已建立專用 release smoke admin。secret 值不得寫入文檔、commit message、chat 或 log；本文件只記錄 key name 與 presence。
 
+同日已完成 production workflow secrets / variables 補齊、Vercel production env import、Railway production deploy、release DB migration/parity、AI pricing catalog gate、smoke account hygiene 與 product-state audit 收口。GitHub Actions `Production Deploy and Verify` run `27085983186` 已在 `deploy_web=false`、`deploy_backend=false`、`run_release_gate=true` 下通過 release gate；當時主站、Admin 與 Backend version endpoint 均對齊 `739ed23`。
+
 ## 缺口
 
 原缺口已補齊：
@@ -32,9 +34,9 @@
 4. `RELEASE_SMOKE_ADMIN_EMAIL`
 5. `RELEASE_SMOKE_ADMIN_PASSWORD`
 
-`RAILWAY_API_TOKEN` 已在 repo secrets 存在；workflow 也允許暫時 fallback 到既有 Railway project id secret，但長期應補明確命名的 `PRODUCTION_RAILWAY_PROJECT_ID`，避免 production workflow 依賴舊 staging 命名。
+`RAILWAY_API_TOKEN` 已在 repo secrets 存在；workflow 也允許暫時 fallback 到既有 Railway project id secret。後續若要去除 fallback，應獨立做 secrets 命名清理，不再阻塞當前 production release。
 
-目前剩餘缺口不是 secret presence，而是尚未在 `deploy_web=true`、`deploy_backend=true`、`run_release_gate=true` 下完成一次正式 production workflow。
+目前沒有剩餘 release-blocking secret presence 缺口。
 
 ## 目標狀態
 
@@ -63,5 +65,5 @@ npm run ops:release:gate:evidence
 ## Owner / Status
 
 - Owner：Release / Ops
-- Status：待完整部署驗證
-- Notes：2026-06-07 已補齊 GitHub `Production` environment secrets；下一步需由操作者確認後觸發完整 production deploy + release gate。不得在 chat、commit message 或文檔中記錄 secret 值。
+- Status：已處理
+- Notes：2026-06-07 已補齊 GitHub `Production` environment secrets 並通過 release gate。不得在 chat、commit message 或文檔中記錄 secret 值。

@@ -106,9 +106,7 @@ jobs:
           VERCEL_PROJECT_ID: ${{ vars.VERCEL_MAIN_PROJECT_ID }}
         run: |
           vercel pull --yes --environment=production --token="${VERCEL_TOKEN}"
-          set -a
-          . .vercel/.env.production.local
-          set +a
+          node ../scripts/import-vercel-public-env.mjs .vercel/.env.production.local
           cd ..
           npm run contracts:build
           npm run api-client:build
@@ -123,9 +121,7 @@ jobs:
           VERCEL_PROJECT_ID: ${{ vars.VERCEL_ADMIN_PROJECT_ID }}
         run: |
           vercel pull --yes --environment=production --token="${VERCEL_TOKEN}"
-          set -a
-          . .vercel/.env.production.local
-          set +a
+          node ../scripts/import-vercel-public-env.mjs .vercel/.env.production.local
           cd ..
           npm run contracts:build
           npm run api-client:build

@@ -86,20 +86,28 @@ function isFinished(row: ReleaseMigrationRow | undefined): boolean {
   return Boolean(row?.finished_at && !row.rolled_back_at);
 }
 
+function hasFinishedRow(rows: ReleaseMigrationRow[]): boolean {
+  return rows.some((row) => isFinished(row));
+}
+
 export function buildReleaseDbParityReport(
   rows: ReleaseMigrationRow[],
   requiredMigrations: readonly ReleaseBlockingMigration[] = RELEASE_BLOCKING_MIGRATIONS,
   generatedAt = new Date().toISOString()
 ): ReleaseDbParityReport {
-  const rowsByName = new Map(rows.map((row) => [row.migration_name, row]));
+  const rowsByName = new Map<string, ReleaseMigrationRow[]>();
+  for (const row of rows) {
+    rowsByName.set(row.migration_name, [...(rowsByName.get(row.migration_name) ?? []), row]);
+  }
 
   const missingRequiredMigrations = requiredMigrations.filter(
     (migrationName) => !rowsByName.has(migrationName)
   );
 
   const incompleteRequiredMigrations = requiredMigrations.flatMap((migrationName) => {
-    const row = rowsByName.get(migrationName);
-    if (!row || isFinished(row)) return [];
+    const migrationRows = rowsByName.get(migrationName) ?? [];
+    if (migrationRows.length === 0 || hasFinishedRow(migrationRows)) return [];
+    const row = migrationRows[0];
 
     return [{
       migrationName,
@@ -109,14 +117,18 @@ export function buildReleaseDbParityReport(
   });
 
   const failedMigrations = rows
-    .filter((row) => row.finished_at === null && row.rolled_back_at === null)
+    .filter((row) =>
+      row.finished_at === null
+      && row.rolled_back_at === null
+      && !hasFinishedRow(rowsByName.get(row.migration_name) ?? [])
+    )
     .map((row) => ({
       migrationName: row.migration_name,
       logs: row.logs,
     }));
 
   const appliedRequiredMigrationCount = requiredMigrations.filter((migrationName) =>
-    isFinished(rowsByName.get(migrationName))
+    hasFinishedRow(rowsByName.get(migrationName) ?? [])
   ).length;
 
   return {

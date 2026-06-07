@@ -142,6 +142,29 @@ describe('check-release-db-parity', () => {
     ]);
   });
 
+  it('同名 migration 已 recovery applied 時不被舊 rolled back row 阻塞', () => {
+    const recoveredMigration = '20260508133000_add_ai_stream_persistence';
+    const rows: ReleaseMigrationRow[] = [
+      ...RELEASE_BLOCKING_MIGRATIONS
+        .filter((migrationName) => migrationName !== recoveredMigration)
+        .map(appliedMigration),
+      {
+        migration_name: recoveredMigration,
+        finished_at: null,
+        rolled_back_at: new Date('2026-06-07T06:53:00.000Z'),
+        logs: 'relation "ai_stream_sessions" already exists',
+      },
+      appliedMigration(recoveredMigration),
+    ];
+
+    const report = buildReleaseDbParityReport(rows, RELEASE_BLOCKING_MIGRATIONS, '2026-06-07T07:00:00.000Z');
+
+    expect(report.ok).toBe(true);
+    expect(report.appliedRequiredMigrationCount).toBe(RELEASE_BLOCKING_MIGRATIONS.length);
+    expect(report.incompleteRequiredMigrations).toEqual([]);
+    expect(report.failedMigrations).toEqual([]);
+  });
+
   it('run check 只讀查詢 _prisma_migrations', async () => {
     prismaMock.$queryRaw.mockResolvedValue(RELEASE_BLOCKING_MIGRATIONS.map(appliedMigration));
 

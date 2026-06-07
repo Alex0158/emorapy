@@ -112,6 +112,9 @@ jobs:
           npm run api-client:build
           npm run build --workspace frontend
           node scripts/create-vercel-static-output.mjs frontend
+          rm -rf .vercel/output
+          mkdir -p .vercel
+          cp -R frontend/.vercel/output .vercel/output
           vercel deploy --prebuilt --prod --token="${VERCEL_TOKEN}" --archive=tgz
 
       - name: Deploy Admin web to Vercel production
@@ -126,6 +129,9 @@ jobs:
           npm run api-client:build
           npm run build --workspace frontend-admin
           node scripts/create-vercel-static-output.mjs frontend-admin
+          rm -rf .vercel/output
+          mkdir -p .vercel
+          cp -R frontend-admin/.vercel/output .vercel/output
           vercel deploy --prebuilt --prod --token="${VERCEL_TOKEN}" --archive=tgz
 
   deploy-backend:

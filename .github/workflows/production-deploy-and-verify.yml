@@ -107,6 +107,8 @@ jobs:
         run: |
           vercel pull --yes --environment=production --token="${VERCEL_TOKEN}"
           node ../scripts/import-vercel-public-env.mjs .vercel/.env.production.local
+          test -f .env.production.local
+          grep -q '^VITE_API_BASE_URL=' .env.production.local
           cd ..
           npm run contracts:build
           npm run api-client:build
@@ -124,6 +126,8 @@ jobs:
         run: |
           vercel pull --yes --environment=production --token="${VERCEL_TOKEN}"
           node ../scripts/import-vercel-public-env.mjs .vercel/.env.production.local
+          test -f .env.production.local
+          grep -q '^VITE_API_BASE_URL=' .env.production.local
           cd ..
           npm run contracts:build
           npm run api-client:build

@@ -184,6 +184,11 @@ validate_version_endpoint "main web" "${MAIN_WEB_URL%/}/version.json" "frontend"
 validate_version_endpoint "admin web" "${ADMIN_WEB_URL%/}/version.json" "frontend-admin" "$HEAD_SHA"
 validate_version_endpoint "backend" "${BACKEND_BASE_URL%/}/version" "backend" "$HEAD_SHA"
 
+print_section "Vercel Static Env Gate"
+EXPECTED_API_BASE_URL="${EXPECTED_API_BASE_URL:-${BACKEND_BASE_URL%/}/api/v1}"
+node scripts/check-vercel-static-env.mjs "main web" "$MAIN_WEB_URL" "$EXPECTED_API_BASE_URL"
+node scripts/check-vercel-static-env.mjs "admin web" "$ADMIN_WEB_URL" "$EXPECTED_API_BASE_URL"
+
 print_section "Backend Health"
 fetch_required_json "backend /health/live" "${BACKEND_BASE_URL%/}/health/live"
 fetch_required_json "backend /health/ready" "${BACKEND_BASE_URL%/}/health/ready"

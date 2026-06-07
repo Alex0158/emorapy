@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
-import { appendFile, readFile } from 'node:fs/promises';
+import { appendFile, readFile, writeFile } from 'node:fs/promises';
 import { EOL } from 'node:os';
+import { join } from 'node:path';
 
 const envFile = process.argv[2];
 const githubEnvFile = process.env.GITHUB_ENV;
@@ -53,4 +54,5 @@ for (const line of lines) {
 
 if (publicEntries.length > 0) {
   await appendFile(githubEnvFile, `${publicEntries.join(EOL)}${EOL}`, 'utf8');
+  await writeFile(join(process.cwd(), '.env.production.local'), `${publicEntries.join(EOL)}${EOL}`, 'utf8');
 }

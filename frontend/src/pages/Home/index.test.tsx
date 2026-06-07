@@ -50,9 +50,9 @@ describe('Home', () => {
       </MemoryRouter>
     );
     expect(
-      screen.getByText('把衝突變成可解的問題')
+      screen.getByText('當愛變得很吵，我們幫你重新聽見彼此。')
     ).toBeInTheDocument();
-    expect(screen.getByText('中立梳理爭點，提供可執行的修復方案')).toBeInTheDocument();
+    expect(screen.getByText('Emorapy 不是裁判。它會聽見雙方、整理真正的爭點，幫你把情緒翻譯成可以修復的下一句話。')).toBeInTheDocument();
   });
 
   it('應顯示快速判斷與保存紀錄按鈕', () => {
@@ -86,17 +86,18 @@ describe('Home', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/auth/register');
   });
 
-  it('應顯示價值與流程區塊', () => {
+  it('應顯示價值與聆聽展示區塊', async () => {
     render(
       <MemoryRouter>
         <Home />
       </MemoryRouter>
     );
-    expect(screen.getByText('模擬實際使用流程')).toBeInTheDocument();
-    expect(screen.getByText('快速判斷')).toBeInTheDocument();
-    expect(screen.getByText('雙向聆聽')).toBeInTheDocument();
-    expect(screen.getByText('AI 梳理')).toBeInTheDocument();
-    expect(screen.getByText('個別開解')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('拖動時間線，看 Emorapy 怎麼聽見一句話底下的意思。')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Emorapy · 聽見 12:14')).toBeInTheDocument();
+    expect(screen.getByText('責任不是責怪。責任是修復開始的地方。')).toBeInTheDocument();
+    expect(screen.getByText('你會得到的幫助')).toBeInTheDocument();
   });
 
   it('應顯示跳過到主要內容連結', () => {
@@ -108,7 +109,7 @@ describe('Home', () => {
     expect(screen.getByText('跳過到主要內容')).toBeInTheDocument();
   });
 
-  it('en-US 下應顯示英文版流程模擬器', async () => {
+  it('en-US 下應顯示英文版聆聽展示', async () => {
     setLocale('en-US');
     render(
       <MemoryRouter>
@@ -116,9 +117,9 @@ describe('Home', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(screen.getByText('See the Flow in Action')).toBeInTheDocument();
+      expect(screen.getByText('Drag the timeline to see how Emorapy hears what sits underneath.')).toBeInTheDocument();
     });
-    expect(screen.queryByText('模擬實際使用流程')).not.toBeInTheDocument();
+    expect(screen.queryByText('拖動時間線，看 Emorapy 怎麼聽見一句話底下的意思。')).not.toBeInTheDocument();
   });
 
   it('已登入時主按鈕應導航至 /case/create 且不顯示協同模式按鈕', async () => {

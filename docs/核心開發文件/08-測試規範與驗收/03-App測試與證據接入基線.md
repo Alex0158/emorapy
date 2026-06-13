@@ -53,6 +53,8 @@ App smoke / regression / CI 進入 `08-測試規範與驗收/`、`測試/` 或 `
 | `npm --prefix mobile run maestro:check` | Maestro flow artifact / selector static gate，不替代 native execution |
 | `npm --prefix mobile run release:evidence:check` | App release evidence pack 形狀、redaction、引用與 accepted evidence class |
 | `npm --prefix mobile run release:completion:audit` | 當前 App release sign-off blocker 盤點與 core docs alignment |
+| `npm --prefix mobile run release:completion:audit:strict` | App release sign-off 最終 release gate；EAS / TestFlight / physical device / provider delivery / production native crash runtime blocker 未清零前必須失敗 |
+| `npm --prefix mobile run goal:completion:audit` / `npm --prefix mobile run goal:completion:audit:strict` | `/goal` prompt-to-artifact 完成判定；strict 版必須依賴 `release:completion:audit:strict` 通過 |
 
 ## 4. Roadmap Gate
 
@@ -116,7 +118,7 @@ M5 notification 語言驗收還必須覆蓋 backend render 邊界：notification
 | Release DB parity | `App-Release-DB-Parity-*.json`，release / production target、non-local DB、required migrations ok | local DB、remote sandbox DB、raw console output |
 | Telemetry runtime | `App-Telemetry-Runtime-*.json`，non-local release backend version alignment、event ingest、OTLP ingest | local telemetry unit test、external tracing backend plan |
 
-當前 release completion blockers 由 [../07-待處理問題與治理/待處理/App外部ReleaseSignoff待辦-2026-05-16.md](../07-待處理問題與治理/待處理/App外部ReleaseSignoff待辦-2026-05-16.md) 與 `npm --prefix mobile run release:completion:audit` 承接。release DB parity 與 telemetry runtime 已有 pass evidence 時，不再作當前 completion blocker；若後續新增 release-blocking migration 或改動 backend telemetry/version runtime，必須重新取證。
+當前 release completion blockers 由 [../07-待處理問題與治理/待處理/App外部ReleaseSignoff待辦-2026-05-16.md](../07-待處理問題與治理/待處理/App外部ReleaseSignoff待辦-2026-05-16.md)、`npm --prefix mobile run release:completion:audit`、`npm --prefix mobile run release:completion:audit:strict`、`npm --prefix mobile run goal:completion:audit` 與 `npm --prefix mobile run goal:completion:audit:strict` 承接。release DB parity 與 telemetry runtime 已有 pass evidence 時，不再作當前 completion blocker；若後續新增 release-blocking migration 或改動 backend telemetry/version runtime，必須重新取證。
 
 ## 9. 證據索引
 

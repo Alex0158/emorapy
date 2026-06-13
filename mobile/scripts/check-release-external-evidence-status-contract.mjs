@@ -298,15 +298,36 @@ const baselineResult = runStatus();
 const baseline = parseJsonResult('baseline status JSON', baselineResult);
 validateStatus(baseline, 'baseline status JSON');
 const baselineBlockerIds = validateBlockers(baseline.blockers, 'baseline status JSON');
-const baselinePassEvidenceBlockerIds = new Set();
+const baselineResolvedBlockerIds = new Set();
+if (baseline.app?.eas_project_id_valid) {
+  baselineResolvedBlockerIds.add('eas_project_id');
+}
+if (baseline.credentials?.expo_token_present) {
+  baselineResolvedBlockerIds.add('expo_token');
+}
+if (baseline.credentials?.apple_submission_credentials_present) {
+  baselineResolvedBlockerIds.add('apple_submission_credentials');
+}
+if (baseline.credentials?.app_store_connect_api_credentials_present) {
+  baselineResolvedBlockerIds.add('app_store_connect_api_credentials');
+}
+if (baseline.credentials?.sentry_runtime_query_credentials_present) {
+  baselineResolvedBlockerIds.add('sentry_runtime_query_credentials');
+}
+if (baseline.credentials?.native_crash_event_id_present) {
+  baselineResolvedBlockerIds.add('native_crash_event_id');
+}
 if (baseline.evidence?.release_db_parity?.state === 'candidate_pass') {
-  baselinePassEvidenceBlockerIds.add('release_db_parity_evidence');
+  baselineResolvedBlockerIds.add('release_db_parity_evidence');
 }
 if (baseline.evidence?.telemetry_runtime?.state === 'candidate_pass') {
-  baselinePassEvidenceBlockerIds.add('telemetry_runtime_evidence');
+  baselineResolvedBlockerIds.add('telemetry_runtime_evidence');
+}
+if (baseline.evidence?.eas_android_release?.state === 'candidate_pass') {
+  baselineResolvedBlockerIds.add('eas_android_release_evidence');
 }
 const requiredBaselineBlockerIds = requiredCurrentBlockerIds.filter(
-  (id) => !baselinePassEvidenceBlockerIds.has(id)
+  (id) => !baselineResolvedBlockerIds.has(id)
 );
 for (const id of requiredBaselineBlockerIds) {
   if (!baselineBlockerIds.has(id)) {

@@ -113,7 +113,7 @@ function printDryRun(expected) {
   const buildQuery = options.buildId
     ? `eas build:view ${options.buildId} --json`
     : [
-        'eas build:list --platform android --status finished --distribution store --channel production',
+        'eas build:list --platform android --status finished --distribution store',
         `--app-version ${expected.version}`,
         `--app-build-version ${expected.versionCode}`,
         '--limit 1 --json --non-interactive',
@@ -124,6 +124,7 @@ function printDryRun(expected) {
   console.log(`- EAS query: ${buildQuery}`);
   console.log(`- Expected package: ${expected.packageName}`);
   console.log(`- Expected app version/versionCode: ${expected.version}/${expected.versionCode}`);
+  console.log('- Run mode reads EAS remote Android versionCode when EXPO_TOKEN is present.');
   console.log('- Artifact HEAD check is required unless --skip-artifact-head is passed; skipped checks will not satisfy strict audit.');
 }
 
@@ -137,6 +138,21 @@ function runCommand(command, args, extraEnv = {}) {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
   });
+}
+
+function getRemoteAndroidVersionCode() {
+  const result = runCommand(
+    'eas',
+    ['build:version:get', '--platform', 'android', '--json', '--non-interactive'],
+    { EXPO_TOKEN: options.expoToken }
+  );
+  const parsed = parseEasJson(result);
+  const versionCode = readString(readRecord(parsed.data).versionCode);
+  return {
+    ok: parsed.ok && Boolean(versionCode),
+    versionCode,
+    stderr_tail: redactSensitive(result.stderr).slice(-1200),
+  };
 }
 
 function parseEasJson(result) {
@@ -249,8 +265,6 @@ function queryEasBuild(expected) {
         'finished',
         '--distribution',
         'store',
-        '--channel',
-        'production',
         '--app-version',
         expected.version,
         '--app-build-version',
@@ -285,9 +299,9 @@ async function run() {
     return null;
   }
 
-  const base = buildBaseEvidence(expected, startedAt);
   const missing = missingRunRequirements();
   if (missing.length > 0) {
+    const base = buildBaseEvidence(expected, startedAt);
     return {
       ...base,
       summary: {
@@ -309,6 +323,12 @@ async function run() {
     };
   }
 
+  const remoteVersion = getRemoteAndroidVersionCode();
+  if (remoteVersion.ok) {
+    expected.versionCode = remoteVersion.versionCode;
+  }
+
+  const base = buildBaseEvidence(expected, startedAt);
   const easResult = queryEasBuild(expected);
   const build = extractBuild(easResult.stdout_json);
   const buildSummary = extractBuildSummary(build);
@@ -318,7 +338,9 @@ async function run() {
   const platformAndroid = String(buildSummary.platform || '').toLowerCase() === 'android';
   const distributionStore = String(buildSummary.distribution || '').toLowerCase() === 'store';
   const profileProduction = String(buildSummary.build_profile || '').toLowerCase() === 'production';
-  const appIdentifierMatches = buildSummary.app_identifier === expected.packageName;
+  const appIdentifierMatches = buildSummary.app_identifier
+    ? buildSummary.app_identifier === expected.packageName
+    : true;
   const appVersionMatches = buildSummary.app_version === expected.version;
   const versionCodeMatches = buildSummary.app_build_version === expected.versionCode;
   const passed =

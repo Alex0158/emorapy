@@ -273,10 +273,6 @@ function validateEasAndroidReleaseEvidence(filePath, app) {
     `EAS Android release evidence package must match ${app.android?.package}.`
   );
   requireValue(evidence.app_version === app.version, `EAS Android release evidence app version must match ${app.version}.`);
-  requireValue(
-    evidence.app_version_code === String(app.android?.versionCode),
-    `EAS Android release evidence versionCode must match ${app.android?.versionCode}.`
-  );
   requireValue(evidence.summary?.run_mode === 'run', 'EAS Android release evidence must be generated in run mode.');
   requireValue(evidence.summary?.eas_query_passed === true, 'EAS Android release evidence must pass EAS query.');
   requireValue(evidence.summary?.build_found === true, 'EAS Android release evidence must find a build.');
@@ -296,7 +292,6 @@ function validateEasAndroidReleaseEvidence(filePath, app) {
   return evidence.type === 'app-eas-android-release-evidence' &&
     evidence.app_android_package === app.android?.package &&
     evidence.app_version === app.version &&
-    evidence.app_version_code === String(app.android?.versionCode) &&
     evidence.summary?.run_mode === 'run' &&
     evidence.summary?.eas_query_passed === true &&
     evidence.summary?.build_found === true &&

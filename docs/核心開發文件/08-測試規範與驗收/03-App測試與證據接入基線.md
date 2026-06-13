@@ -111,7 +111,7 @@ M5 notification 語言驗收還必須覆蓋 backend render 邊界：notification
 | Evidence class | Accepted shape | 不得替代 |
 | --- | --- | --- |
 | EAS iOS / TestFlight | `App-EAS-iOS-Release-*.json`，run mode，iOS store production build，必要時 App Store Connect TestFlight query pass | `.ipa` path、raw build id、blocked JSON、手寫 markdown |
-| EAS Android | `App-EAS-Android-Release-*.json`，run mode，Android store production build，package / version / versionCode match | local APK、emulator smoke、blocked JSON、手寫 markdown |
+| EAS Android | `App-EAS-Android-Release-*.json`，run mode，Android store production build，package / version / EAS remote versionCode match；`cli.appVersionSource=remote` 時不得用本地 ignored `android.versionCode` 否定 artifact identity | local APK、emulator smoke、blocked JSON、手寫 markdown |
 | Physical device | `App-Physical-Device-*.json`，真機、platform readiness、App runtime launch、M0 Maestro smoke | simulator UDID、offline device、blocked JSON |
 | Push provider delivery | `App-Push-Delivery-*.json`，run mode，Expo / APNs ticket accepted、receipt checked、receipt ok | local token sync、notification UI unit test、blocked JSON |
 | Native crash runtime | `App-Native-Crash-Runtime-*.json`，production environment、Sentry event found、native runtime signal、crash-like event、`blocked=false` | native crash SDK configuration、development event、TestFlight crash-free sessions |

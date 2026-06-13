@@ -124,7 +124,6 @@ export function buildReleaseEvidencePolicies(app) {
       required: [
         { path: 'app_android_package', equals: app.android?.package },
         { path: 'app_version', equals: app.version },
-        { path: 'app_version_code', equals: String(app.android?.versionCode) },
         { path: 'summary.run_mode', equals: 'run' },
         { path: 'summary.eas_query_passed', equals: true },
         { path: 'summary.build_found', equals: true },

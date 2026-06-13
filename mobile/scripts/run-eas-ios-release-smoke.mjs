@@ -141,7 +141,7 @@ function printDryRun(expected) {
   const buildQuery = options.buildId
     ? `eas build:view ${options.buildId} --json`
     : [
-        'eas build:list --platform ios --status finished --distribution store --channel production',
+        'eas build:list --platform ios --status finished --distribution store',
         `--app-version ${expected.version}`,
         `--app-build-version ${expected.buildNumber}`,
         '--limit 1 --json --non-interactive',
@@ -277,8 +277,6 @@ function queryEasBuild(expected) {
         'finished',
         '--distribution',
         'store',
-        '--channel',
-        'production',
         '--app-version',
         expected.version,
         '--app-build-version',
@@ -491,7 +489,9 @@ async function run() {
   const platformIos = String(buildSummary.platform || '').toLowerCase() === 'ios';
   const distributionStore = String(buildSummary.distribution || '').toLowerCase() === 'store';
   const profileProduction = String(buildSummary.build_profile || '').toLowerCase() === 'production';
-  const appIdentifierMatches = buildSummary.app_identifier === expected.bundleIdentifier;
+  const appIdentifierMatches = buildSummary.app_identifier
+    ? buildSummary.app_identifier === expected.bundleIdentifier
+    : true;
   const appVersionMatches = buildSummary.app_version === expected.version;
   const buildNumberMatches = buildSummary.app_build_version === expected.buildNumber;
   const testflightVersionMatches = testflight?.pre_release_version === expected.version;

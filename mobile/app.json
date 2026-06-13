@@ -70,6 +70,13 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "1a4308a8-70ff-4bbc-a5e0-3f2a060888bc"
+      }
+    },
+    "owner": "alexdev518"
   }
 }

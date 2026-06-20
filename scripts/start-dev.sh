@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LOG_DIR="$ROOT/logs"
-REDIS_DIR="${EMORAPY_DEV_REDIS_DIR:-${CJ_DEV_REDIS_DIR:-/tmp/cj-redis-dev}}"
+REDIS_DIR="${EMORAPY_DEV_REDIS_DIR:-${CJ_DEV_REDIS_DIR:-/tmp/emorapy-redis-dev}}"
 HEAD_SHA="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || printf unknown)"
 PIDS=()
 OWNED_REDIS_PID=""

@@ -18,7 +18,7 @@
 | --- | --- |
 | 基礎工程裁決 | 已具備 App 工程 PRD、Roadmap、navigation / platform adapter 與 parity mapping 的 baseline 裁決 |
 | M0-M5 普通用戶 App 工程 | 已具備 M0-M5 baseline 接線，涵蓋 Quick / Auth / Profile / Interview / Chat / Formal Case / Repair / Notification / Deep Link / Upload / Telemetry 的 screen、platform adapter、shared API client 消費與穩定 gate |
-| M6 release hardening | 部分落地；release DB parity、telemetry runtime、EAS Android production artifact、Android emulator / app / full-flow runtime evidence 與 native ImagePicker upload evidence 是 release audit 已具備證據槽；Apple / ASC non-placeholder credentials、EAS iOS / TestFlight / physical device / provider delivery / native crash runtime 與改名後 iOS Release simulator evidence refresh 仍受 strict release blocker 約束 |
+| M6 release hardening | 部分落地；release DB parity、telemetry runtime、EAS Android production artifact、iOS Release simulator、Android emulator / app / full-flow runtime evidence 與 native ImagePicker upload evidence 是 release audit 已具備證據槽；Apple / ASC non-placeholder credentials、EAS iOS / TestFlight / physical device / provider delivery / native crash runtime 仍受 strict release blocker 約束 |
 | 完成判定 | 以 `npm --prefix mobile run release:completion:audit` 和 `release:completion:audit:strict` 為 release sign-off 裁決入口；非 strict 或本地 evidence 不能外推為 release complete |
 
 細節證據與歷史操作不在本文展開。單次命令、特定 simulator / emulator 型號、blocked 診斷與外部 owner handoff，統一回鏈到 [../90-證據與盤點/環境與發版驗證/README.md](../90-證據與盤點/環境與發版驗證/README.md)、[../08-測試規範與驗收/03-App測試與證據接入基線.md](../08-測試規範與驗收/03-App測試與證據接入基線.md) 與對應待辦；release evidence gate 要求的 canonical artifact 檔名只在 9.1 作證據索引，不作完成日誌。
@@ -99,8 +99,8 @@
 | --- | --- |
 | 目標 | 讓 App 具備可內測、可回滾、可留證的發布能力 |
 | 已成為基線 | App identity / runtimeVersion / EAS profiles、release readiness script、native readiness gates、Android readiness gates、simulator / emulator / APK / Maestro evidence verifier、EAS iOS / Android structured runner、physical-device runner、push delivery runner、native crash runtime runner、release DB parity runner、telemetry runtime runner、release completion audit |
-| 可用證據槽 | release / production DB parity、telemetry runtime、EAS Android production artifact、Android emulator / app / full-flow runtime evidence、native ImagePicker upload evidence、native readiness、upload、OTel 與 native crash SDK configuration 可作 release-hardening 證據槽；外部 sign-off 仍以 strict audit 接受的 evidence 為準 |
-| 仍是 blocker | Apple submission credentials / App Store Connect API credentials 的 non-placeholder 真值、EAS iOS build artifact、TestFlight evidence、physical device evidence、iOS Release simulator evidence、push provider delivery evidence、production native crash runtime evidence |
+| 可用證據槽 | release / production DB parity、telemetry runtime、EAS Android production artifact、iOS Release simulator evidence、Android emulator / app / full-flow runtime evidence、native ImagePicker upload evidence、native readiness、upload、OTel 與 native crash SDK configuration 可作 release-hardening 證據槽；外部 sign-off 仍以 strict audit 接受的 evidence 為準 |
+| 仍是 blocker | Apple submission credentials / App Store Connect API credentials 的 non-placeholder 真值、EAS iOS build artifact、TestFlight evidence、physical device evidence、push provider delivery evidence、production native crash runtime evidence |
 | 完成定義 | `release:completion:audit:strict` 通過，且所有 current blocker 清零 |
 | 不得宣稱 | 不能用 Expo Go、本機 true-service、simulator / emulator、dry-run runner、blocked JSON、手寫 markdown 或 local DB evidence 替代 EAS / TestFlight / physical device / provider / production native crash runtime evidence |
 
@@ -110,7 +110,7 @@
 | --- | --- | --- |
 | Current blocker | `release:completion:audit` 是 App release sign-off 的 current blocker SSOT | [../07-待處理問題與治理/待處理/App外部ReleaseSignoff待辦-2026-05-16.md](../07-待處理問題與治理/待處理/App外部ReleaseSignoff待辦-2026-05-16.md) |
 | App release evidence pack | pass / blocked JSON、manual runbook、external status / handoff 只作證據與交接，不直接改寫完成語氣 | [../90-證據與盤點/環境與發版驗證/README.md](../90-證據與盤點/環境與發版驗證/README.md) |
-| Native local evidence index | 當前本地 native evidence 回鏈釘住 `App-Native-Maestro-2026-05-08T16-03-15-803Z.json`、`App-iOS-Release-Simulator-2026-05-08T12-43-46Z.json` 與 Android config readiness gate；它們只證明 local native / simulator / emulator readiness，不解除 M6 external sign-off blocker | [../90-證據與盤點/環境與發版驗證/App-Release-Hardening-2026-05-08.md](../90-證據與盤點/環境與發版驗證/App-Release-Hardening-2026-05-08.md) |
+| Native local evidence index | 當前本地 native evidence 回鏈釘住 `App-Native-Maestro-2026-05-08T16-03-15-803Z.json`、`App-iOS-Release-Simulator-2026-06-20T14-04-07-291Z.json` 與 Android config readiness gate；它們只證明 local native / simulator / emulator readiness，不解除 M6 external sign-off blocker | [../90-證據與盤點/環境與發版驗證/App-Release-Hardening-2026-05-08.md](../90-證據與盤點/環境與發版驗證/App-Release-Hardening-2026-05-08.md) |
 | External handoff artifact class | 外部 owner 交接由 `App-External-Evidence-Handoff-*.json` 承接；handoff 固定 owner / env / command / accepted evidence / final gates，但不替代 `release:completion:audit:strict` | [../90-證據與盤點/環境與發版驗證/README.md](../90-證據與盤點/環境與發版驗證/README.md) |
 | App 測試分層 | 測試分層、進場條件、不得替代規則與 stable gate 由測試基線承接 | [../08-測試規範與驗收/03-App測試與證據接入基線.md](../08-測試規範與驗收/03-App測試與證據接入基線.md) |
 | App completion audit | App completion audit 只在 strict release sign-off 完成後才能作完成判定；non-strict audit 是進度盤點 | [../90-證據與盤點/環境與發版驗證/App-Goal-Completion-Audit-2026-05-08.md](../90-證據與盤點/環境與發版驗證/App-Goal-Completion-Audit-2026-05-08.md) |

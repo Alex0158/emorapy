@@ -166,6 +166,7 @@ require_explicit_env() {
 
 require_explicit_env
 
+export EMORAPY_RELEASE_GATE=1
 export CJ_RELEASE_GATE=1
 HEAD_SHA="$(git rev-parse HEAD)"
 

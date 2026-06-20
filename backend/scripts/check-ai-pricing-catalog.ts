@@ -1,7 +1,11 @@
 import { validateAIRequestPricingCatalog } from '../src/services/ai-cost-pricing.service';
 
 export function shouldLoadLocalDotenvForAIPricingCheck(env: NodeJS.ProcessEnv = process.env): boolean {
-  return env.CJ_RELEASE_GATE !== '1' && env.AI_PRICING_SKIP_DOTENV !== 'true';
+  return (
+    env.EMORAPY_RELEASE_GATE !== '1' &&
+    env.CJ_RELEASE_GATE !== '1' &&
+    env.AI_PRICING_SKIP_DOTENV !== 'true'
+  );
 }
 
 if (shouldLoadLocalDotenvForAIPricingCheck()) {

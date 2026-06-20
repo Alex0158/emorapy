@@ -5,6 +5,7 @@ describe('version utils', () => {
 
   beforeEach(() => {
     process.env = { ...originalEnv };
+    delete process.env.EMORAPY_COMMIT_SHA;
     delete process.env.CJ_COMMIT_SHA;
     delete process.env.RAILWAY_GIT_COMMIT_SHA;
     delete process.env.VERCEL_GIT_COMMIT_SHA;
@@ -17,7 +18,19 @@ describe('version utils', () => {
     process.env = originalEnv;
   });
 
-  it('優先使用 CJ_COMMIT_SHA', () => {
+  it('優先使用 EMORAPY_COMMIT_SHA', () => {
+    process.env.EMORAPY_COMMIT_SHA = 'emorapy1234567890';
+    process.env.CJ_COMMIT_SHA = 'legacy-sha';
+    process.env.RAILWAY_GIT_COMMIT_SHA = 'railway-sha';
+
+    expect(buildBackendVersionManifest()).toMatchObject({
+      service: 'backend',
+      commitSha: 'emorapy1234567890',
+      commitShortSha: 'emorapy',
+    });
+  });
+
+  it('沒有 EMORAPY_COMMIT_SHA 時兼容 CJ_COMMIT_SHA', () => {
     process.env.CJ_COMMIT_SHA = 'abcdef1234567890';
     process.env.RAILWAY_GIT_COMMIT_SHA = 'railway-sha';
 

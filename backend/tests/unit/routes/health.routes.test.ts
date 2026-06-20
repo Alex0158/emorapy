@@ -259,7 +259,7 @@ describe('routes/health.routes', () => {
 
   describe('GET /version', () => {
     it('應返回 backend version manifest，包含 commitSha 與 commitShortSha', async () => {
-      process.env.CJ_COMMIT_SHA = '1234567890abcdef';
+      process.env.EMORAPY_COMMIT_SHA = '1234567890abcdef';
       const app = createApp();
       const res = await request(app).get('/version');
       expect(res.status).toBe(200);

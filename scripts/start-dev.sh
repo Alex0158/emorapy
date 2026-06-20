@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LOG_DIR="$ROOT/logs"
-REDIS_DIR="${CJ_DEV_REDIS_DIR:-/tmp/cj-redis-dev}"
+REDIS_DIR="${EMORAPY_DEV_REDIS_DIR:-${CJ_DEV_REDIS_DIR:-/tmp/cj-redis-dev}}"
 HEAD_SHA="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || printf unknown)"
 PIDS=()
 OWNED_REDIS_PID=""
@@ -108,7 +108,7 @@ export REDIS_URL="${REDIS_URL:-redis://127.0.0.1:6379}"
 export ALLOW_SIMPLE_LOCK="${ALLOW_SIMPLE_LOCK:-false}"
 
 start_service "backend" 3001 "backend.log" \
-  bash -lc "cd '$ROOT/backend' && CJ_COMMIT_SHA='$HEAD_SHA' npm run dev"
+  bash -lc "cd '$ROOT/backend' && EMORAPY_COMMIT_SHA='$HEAD_SHA' CJ_COMMIT_SHA='$HEAD_SHA' npm run dev"
 
 start_service "main frontend" 5173 "frontend.log" \
   bash -lc "cd '$ROOT/frontend' && npm run dev -- --host 127.0.0.1"

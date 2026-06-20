@@ -1,6 +1,7 @@
 import packageJson from '../../package.json';
 
 const COMMIT_SHA_ENV_KEYS = [
+  'EMORAPY_COMMIT_SHA',
   'CJ_COMMIT_SHA',
   'RAILWAY_GIT_COMMIT_SHA',
   'VERCEL_GIT_COMMIT_SHA',

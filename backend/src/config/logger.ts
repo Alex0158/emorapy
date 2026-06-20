@@ -27,7 +27,7 @@ const logger = winston.createLogger({
     winston.format.json()
   ),
   defaultMeta: {
-    service: process.env.LOG_SERVICE_NAME || 'cj-platform-backend',
+    service: process.env.LOG_SERVICE_NAME || process.env.EMORAPY_LOG_SERVICE_NAME || 'emorapy-backend',
     service_legacy: 'mother-bear-court-backend',
   },
   transports: fileTransports,

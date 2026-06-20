@@ -101,6 +101,11 @@ const LEGACY_VISIBLE_COPY_RULES = [
     pattern: /Admin Login - CJ|Ops Dashboard - CJ|CJ Platform Admin|CJ Platform Ops Alert/g,
     message: 'Admin visible titles must use Emorapy.',
   },
+  {
+    id: 'legacy-backend-observability-service',
+    pattern: /\bcj-platform-backend\b/g,
+    message: 'Current backend observability service name must default to emorapy-backend.',
+  },
 ];
 
 const LEGACY_APP_IDENTITY_RULES = [

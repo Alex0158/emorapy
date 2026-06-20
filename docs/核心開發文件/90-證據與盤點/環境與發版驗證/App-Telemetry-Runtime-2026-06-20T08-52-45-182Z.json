@@ -1,0 +1,97 @@
+{
+  "type": "app-telemetry-runtime-evidence",
+  "provider": "backend",
+  "generated_at": "2026-06-20T08:52:41.424Z",
+  "started_at": "2026-06-20T08:52:41.423Z",
+  "working_directory": "/Users/alex/Desktop/CJ/mother-bear-court/mobile",
+  "node_version": "v25.8.1",
+  "app_android_package": "com.emorapy.app",
+  "app_ios_bundle_identifier": "com.emorapy.app",
+  "app_version": "1.3.1",
+  "app_build_number": "1",
+  "app_version_code": "1",
+  "api": {
+    "protocol": "https",
+    "host_sha256": "0485439f5117780ae229fb110e176edeb604cae3fc3f5a13d37e51c0bd7d334e",
+    "base_path": "/api/v1",
+    "non_local": true,
+    "raw_url_redacted": true
+  },
+  "backend_version": {
+    "endpoint_path": "/version",
+    "host_sha256": "0485439f5117780ae229fb110e176edeb604cae3fc3f5a13d37e51c0bd7d334e",
+    "raw_url_redacted": true,
+    "expected_commit_sha": "a1298b5de3a136e6814b2b0599b13b28add61a71",
+    "expected_commit_short_sha": "a1298b5",
+    "expected_commit_source": "git_rev_parse_head",
+    "response_status": 200,
+    "response_ok": true,
+    "duration_ms": 1128,
+    "service": "backend",
+    "version": "1.3.4",
+    "commit_sha": "a1298b5de3a136e6814b2b0599b13b28add61a71",
+    "commit_short_sha": "a1298b5",
+    "commit_matches_expected": true
+  },
+  "request": {
+    "request_id_sha256": "d674b70723fd511c7a09691e1944cc4c1803e491a238a25c35bfc48012aaef96",
+    "session_id_sha256": "19ebba23a5a98ff16aa892ad485f74911d924fe55082a33f6073ad1faf469033",
+    "locale": "zh-TW",
+    "authorization_present": false
+  },
+  "event": {
+    "name": "release.telemetry.runtime_smoke",
+    "request_id_sha256": "d674b70723fd511c7a09691e1944cc4c1803e491a238a25c35bfc48012aaef96",
+    "response_status": 202,
+    "response_ok": true,
+    "duration_ms": 1573,
+    "response": {
+      "success": true,
+      "data": {
+        "accepted_count": 1,
+        "persisted_count": 1,
+        "severities": {
+          "info": 1,
+          "warning": 0,
+          "error": 0
+        },
+        "partial_success": null
+      }
+    },
+    "body_text_tail": ""
+  },
+  "otlp": {
+    "trace_id_sha256": "43a8103b27e66ac6e281dea2aa9170db7e904793d8735cec1348305545408551",
+    "span_id_sha256": "439609a99999d8a7f2796eb089c39a3264ff0bc15efe146b55ad2436991bb223",
+    "response_status": 202,
+    "response_ok": true,
+    "duration_ms": 1050,
+    "response": {
+      "success": true,
+      "data": {
+        "accepted_count": 1,
+        "persisted_count": 1,
+        "severities": {
+          "info": 1,
+          "warning": 0,
+          "error": 0
+        },
+        "partial_success": {
+          "rejected_spans": 0
+        }
+      }
+    },
+    "body_text_tail": ""
+  },
+  "summary": {
+    "run_mode": "run",
+    "api_non_local": true,
+    "backend_version_passed": true,
+    "event_ingest_passed": true,
+    "otlp_ingest_passed": true,
+    "event_accepted_count": 1,
+    "otlp_accepted_spans": 1,
+    "safe_payload": true,
+    "blocked": false
+  }
+}

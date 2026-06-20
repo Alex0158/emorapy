@@ -4,11 +4,11 @@
 **文檔類型**：域索引
 **覆蓋範圍**：07-待處理問題與治理 子域入口與閱讀順序
 **取證代碼入口**：`backend/src`、`frontend/src`、`frontend-admin/src`、`mobile/package.json`、`mobile/scripts`、`docs/核心開發文件`
-**最後核驗 Commit**：`23e85ef`
-**最後核驗日期**：`2026-05-31`
+**最後核驗 Commit**：`ed46238`
+**最後核驗日期**：`2026-06-20`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-本子域承接 `CJ` 的活躍問題、優先級與治理狀態，但根層只保留活躍入口與已處理台帳入口。
+本子域承接 `Emorapy` 的活躍問題、優先級與治理狀態；`CJ` 只作歷史需求編號、兼容 env 或 legacy alias 出現。根層只保留活躍入口與已處理台帳入口。
 
 它回答的是：
 
@@ -61,6 +61,6 @@
 
 1. dev / release、docs / code、schema / runtime、Web / App 任一側存在必須統一的差異。
 2. API、DB schema、shared contracts、api-client、auth/session、Deep Link、notification、upload、telemetry 變更會影響 App parity。
-3. `mobile/app` 從模板 navigation 推進到 CJ App screen，或 `mobile/src/platform` 從 types-only 推進到 runtime adapter。
+3. `mobile/app` 從模板 navigation 推進到 Emorapy App screen，或 `mobile/src/platform` 從 types-only 推進到 runtime adapter。
 
 App 相關待辦必須同時反引 [../20-App端/01-App導航與平台Adapter基線.md](../20-App端/01-App導航與平台Adapter基線.md) 與 [../50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md](../50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md)，避免只記錄「App 未完成」而沒有工程落點。

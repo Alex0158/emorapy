@@ -15,6 +15,12 @@
 
 即使本目錄中的某份證據與當前正文內容高度相似，也不得反向升格成正式規格；若證據裡有穩定真相，應回寫到對應正式子域。
 
+## Emorapy 命名與歷史證據 provenance
+
+`Emorapy` 是當前正式產品名與 App release identity。本目錄既有證據中出現的 `CJ`、`Mother Bear Court`、`mother-bear-court`、`cj-mobile`、`com.cj.motherbearcourt`、`CJ Platform` 或 `@cj/*`，只代表證據產生當時的快照、legacy infrastructure identifier 或歷史別名，不代表當前正式命名、App Store metadata、Bundle ID、Android package、EAS project、package scope 或用戶可見文案。
+
+歷史證據原文不得為了命名收斂而機械改寫；若某份舊證據需要重新作為 release / TestFlight / App Store submission 依據，必須以當前 Emorapy identity 重新產生新證據，而不是修改舊 artifact。後續新增的 release evidence、external status / handoff、EAS artifact、TestFlight evidence、physical-device smoke、push provider delivery 與 native crash runtime evidence，必須使用 Emorapy 命名與 `com.emorapy.app` / `emorapy-mobile` 等 current identifiers。
+
 ## 固定保留入口
 
 1. [AI流式驗證/README.md](./AI流式驗證/README.md)

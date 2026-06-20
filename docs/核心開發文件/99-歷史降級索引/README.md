@@ -13,6 +13,12 @@
 
 本目錄內的文件只保留“為何曾這樣設計”與“現在去哪裡找現行入口”兩種價值，不再直接承接任何現行開發裁決。
 
+## Emorapy 命名與歷史方案 provenance
+
+`Emorapy` 是當前正式產品名與 App release identity。本目錄歷史方案、遷移索引或舊命令中出現的 `CJ`、`Mother Bear Court`、`mother-bear-court`、`cj-mobile`、`com.cj.motherbearcourt`、`CJ Platform` 或 `@cj/*`，只代表當時方案、路徑、repo / deploy alias、legacy package scope 或歷史證據引用，不代表當前正式產品名、App Store metadata、native identifiers、package scope 或可執行命令。
+
+不得為了命名收斂改寫歷史方案原文；若歷史方案中的某項做法仍要採用，必須先回寫到 `00-跨端產品核心/`、`20-App端/`、`50-跨端Mapping與Parity/`、`05-工程架構與共享層/` 或 `07-待處理問題與治理/待處理/` 的現行文件，再按現行 Emorapy identity 實作與取證。
+
 只回答三件事：
 
 1. 哪一批材料已退出正式依據層

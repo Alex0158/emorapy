@@ -176,6 +176,22 @@ const REQUIRED_POLICY_NEEDLES = [
       '正式 internal workspace package scope 改為 `@emorapy/contracts` 與 `@emorapy/api-client`',
     ],
   },
+  {
+    file: 'docs/核心開發文件/90-證據與盤點/README.md',
+    needles: [
+      'Emorapy 命名與歷史證據 provenance',
+      '歷史證據原文不得為了命名收斂而機械改寫',
+      '後續新增的 release evidence',
+    ],
+  },
+  {
+    file: 'docs/核心開發文件/99-歷史降級索引/README.md',
+    needles: [
+      'Emorapy 命名與歷史方案 provenance',
+      '不得為了命名收斂改寫歷史方案原文',
+      '不代表當前正式產品名、App Store metadata、native identifiers',
+    ],
+  },
 ];
 
 const failures = [];

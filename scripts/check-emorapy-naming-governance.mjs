@@ -62,6 +62,14 @@ const CURRENT_DEV_CI_FIXTURE_SCAN_PATTERNS = [
   'docs/核心開發文件/05-工程架構與共享層/01-本地開發與工作區基線.md',
 ];
 
+const CURRENT_TELEMETRY_FIXTURE_SCAN_PATTERNS = [
+  'backend/tests/integration/smoke.test.ts',
+  'backend/tests/unit/routes/app-telemetry.routes.test.ts',
+  'backend/tests/unit/services/app-telemetry.service.test.ts',
+  'mobile/src/platform/telemetry/client.test.js',
+  'mobile/scripts/run-telemetry-runtime-smoke.mjs',
+];
+
 const USER_FACING_IGNORE_PATTERNS = [
   '**/*.test.ts',
   '**/*.test.tsx',
@@ -246,6 +254,14 @@ const LEGACY_DEV_CI_FIXTURE_RULES = [
   },
 ];
 
+const LEGACY_TELEMETRY_FIXTURE_RULES = [
+  {
+    id: 'legacy-app-otlp-scope-fixture',
+    pattern: /\bcj\.mobile\.app\b/g,
+    message: 'Current App OTLP telemetry scope fixtures must use emorapy.mobile.app.',
+  },
+];
+
 const LEGACY_DOC_LEADIN_RULES = [
   {
     id: 'legacy-doc-product-subject',
@@ -287,6 +303,7 @@ const REQUIRED_POLICY_NEEDLES = [
       'P5 current docs 舊名 allowlist 分類',
       'P5 current source design-token comment cleanup',
       'P4 CI / local true-service Postgres fixture naming',
+      'P4 App OTLP telemetry scope fixture naming',
       'Legacy requirement / governance IDs',
       'Historical package-scope references',
       '正式 internal workspace package scope 改為 `@emorapy/contracts` 與 `@emorapy/api-client`',
@@ -484,6 +501,24 @@ async function checkCurrentDevCiFixtureIdentity() {
   }
 }
 
+async function checkCurrentTelemetryFixtureIdentity() {
+  const files = await glob(CURRENT_TELEMETRY_FIXTURE_SCAN_PATTERNS, {
+    cwd: repoRoot,
+    nodir: true,
+    ignore: ['**/node_modules/**'],
+  });
+
+  for (const file of files) {
+    const text = readText(file);
+    for (const rule of LEGACY_TELEMETRY_FIXTURE_RULES) {
+      rule.pattern.lastIndex = 0;
+      for (const match of text.matchAll(rule.pattern)) {
+        fail(`${file}:${lineNumberAt(text, match.index ?? 0)} [${rule.id}] ${rule.message}`);
+      }
+    }
+  }
+}
+
 function checkNamingPolicyDocs() {
   for (const { file, needles } of REQUIRED_POLICY_NEEDLES) {
     const text = readText(file);
@@ -502,6 +537,7 @@ await checkCurrentPackageScope();
 await checkCurrentSourceIdentity();
 checkCurrentDocLeadins();
 await checkCurrentDevCiFixtureIdentity();
+await checkCurrentTelemetryFixtureIdentity();
 checkNamingPolicyDocs();
 
 if (failures.length > 0) {

@@ -279,7 +279,7 @@ describe('煙霧測試 (Smoke Test)', () => {
                 ],
               },
               scopeSpans: [{
-                scope: { name: 'cj.mobile.app' },
+                scope: { name: 'emorapy.mobile.app' },
                 spans: [{
                   traceId: '0123456789abcdef0123456789abcdef',
                   spanId: '0123456789abcdef',
@@ -475,7 +475,7 @@ describe('煙霧測試 (Smoke Test)', () => {
               ],
             },
             scopeSpans: [{
-              scope: { name: 'cj.mobile.app' },
+              scope: { name: 'emorapy.mobile.app' },
               spans: [{
                 traceId: '0123456789abcdef0123456789abcdef',
                 spanId: '0123456789abcdef',

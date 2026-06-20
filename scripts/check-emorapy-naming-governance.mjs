@@ -18,6 +18,7 @@ const EXPECTED_APP_IDENTITY = {
 const EXPECTED_PACKAGE_MANIFEST_NAMES = new Map([
   ['package.json', 'emorapy-root'],
   ['backend/package.json', 'emorapy-backend'],
+  ['e2e/package.json', 'emorapy-admin-e2e'],
 ]);
 
 const USER_FACING_SCAN_PATTERNS = [
@@ -30,6 +31,21 @@ const USER_FACING_SCAN_PATTERNS = [
 
 const OPERATOR_VISIBLE_SCAN_PATTERNS = [
   'scripts/**/*.sh',
+  'scripts/**/*.bat',
+  'start-dev.bat',
+];
+
+// Developer-facing env templates. These are copied to real .env by developers,
+// so legacy product brand copy and legacy cj_* dev DB fixture naming must not
+// re-enter them. Legacy infra hostnames (mother-bear-court.vercel.app) remain
+// allowed here as the current production default until the Emorapy domain
+// migration, matching the ops release helper allowlist.
+const ENV_EXAMPLE_SCAN_PATTERNS = [
+  '**/.env.example',
+];
+
+const ENV_EXAMPLE_IGNORE_PATTERNS = [
+  '**/node_modules/**',
 ];
 
 const MARKETING_COPY_SCAN_PATTERNS = [
@@ -503,6 +519,26 @@ async function checkOperatorVisibleCopy() {
   }
 }
 
+async function checkEnvExampleIdentity() {
+  const files = await glob(ENV_EXAMPLE_SCAN_PATTERNS, {
+    cwd: repoRoot,
+    nodir: true,
+    dot: true,
+    ignore: ENV_EXAMPLE_IGNORE_PATTERNS,
+  });
+
+  const envRules = [...LEGACY_VISIBLE_COPY_RULES, ...LEGACY_DEV_CI_FIXTURE_RULES];
+  for (const file of files) {
+    const text = readText(file);
+    for (const rule of envRules) {
+      rule.pattern.lastIndex = 0;
+      for (const match of text.matchAll(rule.pattern)) {
+        fail(`${file}:${lineNumberAt(text, match.index ?? 0)} [${rule.id}] ${rule.message}`);
+      }
+    }
+  }
+}
+
 async function checkMarketingCopy() {
   const files = await glob(MARKETING_COPY_SCAN_PATTERNS, {
     cwd: repoRoot,
@@ -866,6 +902,7 @@ checkPackageManifestNames();
 await checkAppIdentityFiles();
 await checkUserFacingCopy();
 await checkOperatorVisibleCopy();
+await checkEnvExampleIdentity();
 await checkMarketingCopy();
 await checkCurrentPackageScope();
 await checkCurrentSourceIdentity();

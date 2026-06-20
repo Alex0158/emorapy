@@ -1550,8 +1550,11 @@ requireValue(
     githubSecretsSyncContractScript.includes('APP_RELEASE_DATABASE_URL') &&
     githubSecretsSyncContractScript.includes('APP_STORE_CONNECT_PRIVATE_KEY') &&
     githubSecretsSyncContractScript.includes('CONTROLLED_EXPO_TOKEN_DO_NOT_LEAK') &&
+    githubSecretsSyncContractScript.includes('Emorapy.app') &&
+    githubSecretsSyncContractScript.includes('emorapy-github-secret-sync-contract-') &&
+    !githubSecretsSyncContractScript.includes('CJ.app') &&
     githubSecretsSyncContractScript.includes('apply attempt without gh'),
-  'release:external-evidence:github-secrets:sync:contract must prove local-only dry-run, redacted grouping, safe release DB/private-key mapping, and apply-only GitHub dependency.'
+  'release:external-evidence:github-secrets:sync:contract must prove local-only dry-run, redacted grouping, safe release DB/private-key mapping, Emorapy signed app fixture naming, and apply-only GitHub dependency.'
 );
 requireValue(
   releaseEnvTemplate.includes('APP_RELEASE_EXTERNAL_SIGNOFF_RUN=false') &&

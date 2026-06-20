@@ -20,11 +20,11 @@ const controlledValues = [
   'CONTROLLED_SENTRY_AUTH_TOKEN_DO_NOT_LEAK',
   'CONTROLLED_SENTRY_EVENT_ID_DO_NOT_LEAK',
   'https://telemetry-runtime-secret.example.invalid/api/v1',
-  'postgresql://secret_user:secret_password@release-db.example.invalid:5432/cj',
+  'postgresql://secret_user:secret_password@release-db.example.invalid:5432/emorapy',
   'CONTROLLED_ASC_ISSUER_ID_DO_NOT_LEAK',
   'CONTROLLED_ASC_KEY_ID_DO_NOT_LEAK',
   'CONTROLLED_IOS_DEVICE_UDID_DO_NOT_LEAK',
-  '/tmp/controlled-signed-app-path-do-not-leak/CJ.app',
+  '/tmp/controlled-signed-app-path-do-not-leak/Emorapy.app',
   'CONTROLLED_ANDROID_SERIAL_DO_NOT_LEAK',
   'CONTROLLED_ASC_PRIVATE_KEY_PATH_DO_NOT_LEAK',
   'CONTROLLED_ASC_PRIVATE_KEY_BODY_DO_NOT_LEAK',
@@ -187,7 +187,7 @@ function assertPartialDryRun(status) {
   }
 }
 
-const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'cj-github-secret-sync-contract-'));
+const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'emorapy-github-secret-sync-contract-'));
 try {
   const privateKeyPath = path.join(tempRoot, 'controlled-asc-key.p8');
   fs.writeFileSync(privateKeyPath, `-----BEGIN PRIVATE KEY-----\n${controlledValues[16]}\n-----END PRIVATE KEY-----\n`);

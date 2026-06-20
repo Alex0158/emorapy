@@ -1,0 +1,61 @@
+{
+  "type": "app-ios-sentry-prebuild-evidence",
+  "generated_at": "2026-06-20T08:43:59Z",
+  "app_name": "Emorapy",
+  "ios_bundle_identifier": "com.emorapy.app",
+  "command": "cd mobile && SENTRY_DISABLE_AUTO_UPLOAD=true npx expo prebuild --platform ios --clean --no-install",
+  "summary": {
+    "blocked": false,
+    "clean_prebuild_completed": true,
+    "package_json_changed": false,
+    "sentry_ios_native_prebuild_configuration_passed": true
+  },
+  "source_of_truth": {
+    "expo_config_plugin": "@sentry/react-native/expo",
+    "sentry_credentials_committed": false,
+    "generated_native_output_committed": false,
+    "note": "mobile/ios is generated and ignored; app.json remains the durable source of truth."
+  },
+  "generated_output": {
+    "xcode_project": "mobile/ios/Emorapy.xcodeproj/project.pbxproj",
+    "sentry_properties": "mobile/ios/sentry.properties",
+    "info_plist": "mobile/ios/Emorapy/Info.plist",
+    "proof": [
+      "Emorapy.app product reference exists",
+      "PRODUCT_BUNDLE_IDENTIFIER = com.emorapy.app",
+      "sentry-xcode.sh bundle phase exists",
+      "Upload Debug Symbols to Sentry phase exists",
+      "sentry-xcode-debug-files.sh dSYM upload phase exists"
+    ]
+  },
+  "verification": [
+    {
+      "command": "rg -n \"sentry-xcode|debug-files|Upload Debug Symbols|PRODUCT_BUNDLE_IDENTIFIER|CJ|Emorapy\" ios/Emorapy.xcodeproj/project.pbxproj ios/Emorapy/Info.plist -g '!Pods/**'",
+      "result": "passed",
+      "notes": "Generated iOS project uses Emorapy naming and com.emorapy.app, with Sentry bundle and debug symbol phases present."
+    },
+    {
+      "command": "npm --prefix mobile run release:completion:audit -- --json",
+      "result": "passed_with_remaining_release_blockers",
+      "notes": "sentry_ios_native_prebuild_configuration passed; release completion remains blocked by external EAS/TestFlight/device/provider/runtime evidence."
+    }
+  ],
+  "remaining_blockers_after_this_evidence": [
+    "eas_project_id",
+    "expo_token",
+    "apple_submission_credentials",
+    "app_store_connect_api_credentials",
+    "eas_ios_build_artifact",
+    "testflight_evidence",
+    "physical_device_evidence",
+    "android_emulator_runtime_evidence",
+    "android_app_runtime_evidence",
+    "android_full_flow_evidence",
+    "ios_release_simulator_evidence",
+    "eas_android_build_artifact",
+    "apns_or_provider_delivery_evidence",
+    "native_imagepicker_upload_evidence",
+    "native_crash_runtime_evidence",
+    "telemetry_runtime_evidence"
+  ]
+}

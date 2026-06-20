@@ -98,6 +98,17 @@ const bannedVisibleTerms = [
   'App 主線',
   '結果頁骨架',
   'Alpha',
+  // Legacy product / release identifiers must not re-enter App visible copy.
+  'CJ APP',
+  'CJ App',
+  'CJ Platform',
+  'CJ 平台',
+  'CJ Reminder',
+  'CJ 提醒',
+  'Mother Bear Court',
+  'mother-bear-court',
+  'cj-mobile',
+  'com.cj.motherbearcourt',
 ];
 
 const bannedExactVisibleLabels = new Set([
@@ -105,7 +116,6 @@ const bannedExactVisibleLabels = new Set([
   'AUTH',
   'CASE',
   'CHAT',
-  'CJ APP',
   'Email',
   'INTERVIEW',
   'INVITE',

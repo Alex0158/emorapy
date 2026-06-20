@@ -640,6 +640,22 @@ function checkSeedGuardLegacyDevProjectComment() {
   }
 }
 
+function checkAppVisibleCopyLegacyBrandGuard() {
+  const file = 'mobile/scripts/check-user-copy-contracts.mjs';
+  const text = readText(file);
+  const requiredTerms = [
+    'Legacy product / release identifiers must not re-enter App visible copy.',
+    "'CJ App'",
+    "'CJ Platform'",
+    "'Mother Bear Court'",
+    "'cj-mobile'",
+    "'com.cj.motherbearcourt'",
+  ];
+  for (const term of requiredTerms) {
+    requireIncludes(text, term, file);
+  }
+}
+
 function checkCurrentOpsEnvAliasContract() {
   requireOrderedIncludes(
     'backend/src/utils/version.ts',
@@ -696,6 +712,7 @@ checkCurrentOpsEnvAliasContract();
 checkNamingPolicyDocs();
 checkCoreDocsLedgerGeneratorIdentity();
 checkSeedGuardLegacyDevProjectComment();
+checkAppVisibleCopyLegacyBrandGuard();
 
 if (failures.length > 0) {
   console.error('[emorapy-naming-governance] failed');

@@ -30,8 +30,8 @@ describe('App API platform adapter', () => {
     jest.clearAllMocks();
     setLocale('zh-TW', { persist: false });
     SecureStore.getItemAsync.mockImplementation((key) => {
-      if (key === 'cj.auth.token') return Promise.resolve('jwt-token');
-      if (key === 'cj.session.id') return Promise.resolve('guest-session');
+      if (key === 'emorapy.auth.token') return Promise.resolve('jwt-token');
+      if (key === 'emorapy.session.id') return Promise.resolve('guest-session');
       return Promise.resolve(null);
     });
   });

@@ -7,26 +7,37 @@ import type {
   TokenStorageAdapter,
 } from './types';
 
-const TOKEN_KEY = 'cj.auth.token';
-const SESSION_ID_KEY = 'cj.session.id';
-const DEVICE_META_KEY = 'cj.device.meta';
-const PENDING_LANDING_HREF_KEY = 'cj.navigation.pendingLandingHref';
-const LOCALE_KEY = 'cj.locale';
+const TOKEN_KEY = 'emorapy.auth.token';
+const SESSION_ID_KEY = 'emorapy.session.id';
+const DEVICE_META_KEY = 'emorapy.device.meta';
+const PENDING_LANDING_HREF_KEY = 'emorapy.navigation.pendingLandingHref';
+const LOCALE_KEY = 'emorapy.locale';
+const LEGACY_TOKEN_KEYS = ['cj.auth.token'] as const;
+const LEGACY_SESSION_ID_KEYS = ['cj.session.id'] as const;
+const LEGACY_DEVICE_META_KEYS = ['cj.device.meta'] as const;
+const LEGACY_PENDING_LANDING_HREF_KEYS = ['cj.navigation.pendingLandingHref'] as const;
+const LEGACY_LOCALE_KEYS = ['cj.locale'] as const;
 const memoryStore = new Map<string, string>();
+
+type StorageKeySet = {
+  current: string;
+  legacy: readonly string[];
+};
+
+const tokenKeys: StorageKeySet = { current: TOKEN_KEY, legacy: LEGACY_TOKEN_KEYS };
+const sessionIdKeys: StorageKeySet = { current: SESSION_ID_KEY, legacy: LEGACY_SESSION_ID_KEYS };
+const deviceMetaKeys: StorageKeySet = { current: DEVICE_META_KEY, legacy: LEGACY_DEVICE_META_KEYS };
+const pendingLandingHrefKeys: StorageKeySet = {
+  current: PENDING_LANDING_HREF_KEY,
+  legacy: LEGACY_PENDING_LANDING_HREF_KEYS,
+};
+const localeKeys: StorageKeySet = { current: LOCALE_KEY, legacy: LEGACY_LOCALE_KEYS };
 
 export interface DeviceMetadata {
   installationId?: string;
   platform?: 'ios' | 'android' | 'web';
   pushToken?: string;
   appVersion?: string;
-}
-
-async function setNullableItem(key: string, value: string | null): Promise<void> {
-  if (!value) {
-    await deleteItem(key);
-    return;
-  }
-  await setItem(key, value);
 }
 
 function canUseSecureStore(): boolean {
@@ -70,56 +81,92 @@ async function deleteItem(key: string): Promise<void> {
   memoryStore.delete(key);
 }
 
+async function deleteLegacyItems(keys: StorageKeySet): Promise<void> {
+  await Promise.all(keys.legacy.map(key => deleteItem(key)));
+}
+
+async function deleteKeySet(keys: StorageKeySet): Promise<void> {
+  await Promise.all([
+    deleteItem(keys.current),
+    deleteLegacyItems(keys),
+  ]);
+}
+
+async function getMigratedItem(keys: StorageKeySet): Promise<string | null> {
+  const current = await getItem(keys.current);
+  if (current) {
+    await deleteLegacyItems(keys);
+    return current;
+  }
+  for (const legacyKey of keys.legacy) {
+    const legacy = await getItem(legacyKey);
+    if (!legacy) continue;
+    await setItem(keys.current, legacy);
+    await deleteLegacyItems(keys);
+    return legacy;
+  }
+  return null;
+}
+
+async function setNullableKeySet(keys: StorageKeySet, value: string | null): Promise<void> {
+  if (!value) {
+    await deleteKeySet(keys);
+    return;
+  }
+  await setItem(keys.current, value);
+  await deleteLegacyItems(keys);
+}
+
 export const tokenStorage: TokenStorageAdapter = {
-  getToken: () => getItem(TOKEN_KEY),
-  setToken: (token) => setNullableItem(TOKEN_KEY, token),
-  clearToken: () => deleteItem(TOKEN_KEY),
+  getToken: () => getMigratedItem(tokenKeys),
+  setToken: (token) => setNullableKeySet(tokenKeys, token),
+  clearToken: () => deleteKeySet(tokenKeys),
 };
 
 export const sessionStorage: SessionStorageAdapter = {
-  getSessionId: () => getItem(SESSION_ID_KEY),
-  setSessionId: (sessionId) => setNullableItem(SESSION_ID_KEY, sessionId),
-  clearSessionId: () => deleteItem(SESSION_ID_KEY),
+  getSessionId: () => getMigratedItem(sessionIdKeys),
+  setSessionId: (sessionId) => setNullableKeySet(sessionIdKeys, sessionId),
+  clearSessionId: () => deleteKeySet(sessionIdKeys),
 };
 
 export const pendingLandingStorage: PendingLandingStorageAdapter = {
-  getPendingHref: () => getItem(PENDING_LANDING_HREF_KEY),
-  setPendingHref: (href) => setNullableItem(PENDING_LANDING_HREF_KEY, href),
-  clearPendingHref: () => deleteItem(PENDING_LANDING_HREF_KEY),
+  getPendingHref: () => getMigratedItem(pendingLandingHrefKeys),
+  setPendingHref: (href) => setNullableKeySet(pendingLandingHrefKeys, href),
+  clearPendingHref: () => deleteKeySet(pendingLandingHrefKeys),
   consumePendingHref: async () => {
-    const href = await getItem(PENDING_LANDING_HREF_KEY);
-    await deleteItem(PENDING_LANDING_HREF_KEY);
+    const href = await getMigratedItem(pendingLandingHrefKeys);
+    await deleteKeySet(pendingLandingHrefKeys);
     return href;
   },
 };
 
 export const localeStorage: LocaleStorageAdapter = {
-  getLocale: () => getItem(LOCALE_KEY),
-  setLocale: (locale) => setNullableItem(LOCALE_KEY, locale),
-  clearLocale: () => deleteItem(LOCALE_KEY),
+  getLocale: () => getMigratedItem(localeKeys),
+  setLocale: (locale) => setNullableKeySet(localeKeys, locale),
+  clearLocale: () => deleteKeySet(localeKeys),
 };
 
 export async function getDeviceMetadata(): Promise<DeviceMetadata | null> {
-  const raw = await getItem(DEVICE_META_KEY);
+  const raw = await getMigratedItem(deviceMetaKeys);
   if (!raw) return null;
   try {
     return JSON.parse(raw) as DeviceMetadata;
   } catch {
-    await deleteItem(DEVICE_META_KEY);
+    await deleteKeySet(deviceMetaKeys);
     return null;
   }
 }
 
 export async function setDeviceMetadata(metadata: DeviceMetadata | null): Promise<void> {
-  await setNullableItem(DEVICE_META_KEY, metadata ? JSON.stringify(metadata) : null);
+  await setNullableKeySet(deviceMetaKeys, metadata ? JSON.stringify(metadata) : null);
 }
 
 export async function clearAppStorage(): Promise<void> {
   await Promise.all([
-    deleteItem(TOKEN_KEY),
-    deleteItem(SESSION_ID_KEY),
-    deleteItem(DEVICE_META_KEY),
-    deleteItem(PENDING_LANDING_HREF_KEY),
-    deleteItem(LOCALE_KEY),
+    deleteKeySet(tokenKeys),
+    deleteKeySet(sessionIdKeys),
+    deleteKeySet(deviceMetaKeys),
+    deleteKeySet(pendingLandingHrefKeys),
+    deleteKeySet(localeKeys),
   ]);
 }

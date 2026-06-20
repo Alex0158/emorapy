@@ -358,6 +358,7 @@ const REQUIRED_POLICY_NEEDLES = [
       'P4 Sentry native crash project / release identity handoff',
       'P4 Web localStorage key migration',
       'P4 Admin Web locale storage key migration',
+      'P4 App SecureStore key migration',
       'Legacy requirement / governance IDs',
       'Historical package-scope references',
       '正式 internal workspace package scope 改為 `@emorapy/contracts` 與 `@emorapy/api-client`',
@@ -824,6 +825,42 @@ function checkWebLocalStorageKeyMigrationContract() {
   }
 }
 
+function checkAppSecureStoreKeyMigrationContract() {
+  const secureStoreFile = 'mobile/src/platform/storage/secureStore.ts';
+  const secureStoreText = readText(secureStoreFile);
+
+  const currentKeys = [
+    "'emorapy.auth.token'",
+    "'emorapy.session.id'",
+    "'emorapy.device.meta'",
+    "'emorapy.navigation.pendingLandingHref'",
+    "'emorapy.locale'",
+  ];
+  const legacyKeys = [
+    "['cj.auth.token'] as const",
+    "['cj.session.id'] as const",
+    "['cj.device.meta'] as const",
+    "['cj.navigation.pendingLandingHref'] as const",
+    "['cj.locale'] as const",
+  ];
+
+  for (const key of currentKeys) {
+    requireIncludes(secureStoreText, key, secureStoreFile);
+  }
+  for (const key of legacyKeys) {
+    requireIncludes(secureStoreText, key, secureStoreFile);
+  }
+  requireIncludes(secureStoreText, 'getMigratedItem', secureStoreFile);
+  requireIncludes(secureStoreText, 'deleteLegacyItems', secureStoreFile);
+
+  if (secureStoreText.includes("const TOKEN_KEY = 'cj.auth.token'")) {
+    fail(`${secureStoreFile} must not use cj.auth.token as the current SecureStore key.`);
+  }
+  if (readText('mobile/src/platform/api/client.test.js').includes("key === 'cj.auth.token'")) {
+    fail('mobile/src/platform/api/client.test.js must seed Emorapy current SecureStore keys, not cj.* current keys.');
+  }
+}
+
 checkAppJsonIdentity();
 checkPackageManifestNames();
 await checkAppIdentityFiles();
@@ -844,6 +881,7 @@ checkLegacyProductionHostnameCompatContract();
 checkLegacyGovernanceIdNamespacePolicy();
 checkSentryNativeCrashReleaseIdentity();
 checkWebLocalStorageKeyMigrationContract();
+checkAppSecureStoreKeyMigrationContract();
 
 if (failures.length > 0) {
   console.error('[emorapy-naming-governance] failed');

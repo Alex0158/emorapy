@@ -18,6 +18,9 @@ const {
 describe('SecureStore platform adapter', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    SecureStore.getItemAsync.mockResolvedValue(null);
+    SecureStore.setItemAsync.mockResolvedValue(undefined);
+    SecureStore.deleteItemAsync.mockResolvedValue(undefined);
   });
 
   it('stores and clears auth token and anonymous session id', async () => {
@@ -28,17 +31,37 @@ describe('SecureStore platform adapter', () => {
     await sessionStorage.clearSessionId();
     await pendingLandingStorage.clearPendingHref();
 
-    expect(SecureStore.setItemAsync).toHaveBeenCalledWith('cj.auth.token', 'jwt-token');
-    expect(SecureStore.setItemAsync).toHaveBeenCalledWith('cj.session.id', 'guest-session');
-    expect(SecureStore.setItemAsync).toHaveBeenCalledWith('cj.navigation.pendingLandingHref', '/repair');
+    expect(SecureStore.setItemAsync).toHaveBeenCalledWith('emorapy.auth.token', 'jwt-token');
+    expect(SecureStore.setItemAsync).toHaveBeenCalledWith('emorapy.session.id', 'guest-session');
+    expect(SecureStore.setItemAsync).toHaveBeenCalledWith('emorapy.navigation.pendingLandingHref', '/repair');
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('emorapy.auth.token');
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('cj.auth.token');
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('emorapy.session.id');
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('cj.session.id');
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('emorapy.navigation.pendingLandingHref');
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('cj.navigation.pendingLandingHref');
+  });
+
+  it('migrates legacy token and session keys lazily', async () => {
+    SecureStore.getItemAsync.mockImplementation((key) => {
+      if (key === 'cj.auth.token') return Promise.resolve('legacy-jwt-token');
+      if (key === 'cj.session.id') return Promise.resolve('legacy-session');
+      return Promise.resolve(null);
+    });
+
+    await expect(tokenStorage.getToken()).resolves.toBe('legacy-jwt-token');
+    await expect(sessionStorage.getSessionId()).resolves.toBe('legacy-session');
+
+    expect(SecureStore.setItemAsync).toHaveBeenCalledWith('emorapy.auth.token', 'legacy-jwt-token');
+    expect(SecureStore.setItemAsync).toHaveBeenCalledWith('emorapy.session.id', 'legacy-session');
     expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('cj.auth.token');
     expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('cj.session.id');
-    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('cj.navigation.pendingLandingHref');
   });
 
   it('consumes pending landing href after post-login resume', async () => {
     SecureStore.getItemAsync.mockResolvedValueOnce('/notifications');
     await expect(pendingLandingStorage.consumePendingHref()).resolves.toBe('/notifications');
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('emorapy.navigation.pendingLandingHref');
     expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('cj.navigation.pendingLandingHref');
   });
 
@@ -46,7 +69,7 @@ describe('SecureStore platform adapter', () => {
     await setDeviceMetadata({ platform: 'ios', installationId: 'install-1' });
 
     expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
-      'cj.device.meta',
+      'emorapy.device.meta',
       JSON.stringify({ platform: 'ios', installationId: 'install-1' })
     );
 
@@ -55,16 +78,23 @@ describe('SecureStore platform adapter', () => {
 
     SecureStore.getItemAsync.mockResolvedValueOnce('{broken');
     await expect(getDeviceMetadata()).resolves.toBeNull();
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('emorapy.device.meta');
     expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('cj.device.meta');
   });
 
   it('clears all app-local credentials together', async () => {
     await clearAppStorage();
 
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('emorapy.auth.token');
     expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('cj.auth.token');
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('emorapy.session.id');
     expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('cj.session.id');
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('emorapy.device.meta');
     expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('cj.device.meta');
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('emorapy.navigation.pendingLandingHref');
     expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('cj.navigation.pendingLandingHref');
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('emorapy.locale');
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('cj.locale');
   });
 
   it('falls back to in-memory storage when SecureStore native methods are unavailable', async () => {

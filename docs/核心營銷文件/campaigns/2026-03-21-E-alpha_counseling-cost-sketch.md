@@ -8,7 +8,7 @@
 | 欄位      | 內容                                             |
 | ------- | ---------------------------------------------- |
 | 檔案名稱    | `2026-03-21-E-alpha_counseling-cost-sketch.md` |
-| 專案／內部代號 | CJ_PaidSocial_Q1_2026                          |
+| 專案／內部代號 | Emorapy_PaidSocial_Q1_2026                     |
 | 建立日期    | 2026-03-21                                     |
 | 影片長度    | 20 秒                                           |
 | 畫幅      | 9:16                                           |
@@ -301,7 +301,7 @@ Create a vertical 9:16 image. Vertical 9:16 cinematic social ad for relationship
 | -------- | -------------------------------------------------- |
 | 預期即夢片段數  | **5** 條（對應 5 鏡），剪映拼接為 20 秒                         |
 | 剪輯軟體     | 剪映／Premiere                                        |
-| 匯出檔名（成片） | `CJ_E-alpha_counseling-cost_9x16_20s_v1.mp4`       |
+| 匯出檔名（成片） | `Emorapy_E-alpha_counseling-cost_9x16_20s_v1.mp4`  |
 | 素材資料夾建議  | `核心營銷文件/campaigns/assets/E-alpha-counseling-cost/` |
 
 
@@ -326,7 +326,7 @@ Create a vertical 9:16 image. Vertical 9:16 cinematic social ad for relationship
 
 | 日期         | 版本  | 說明                                                       |
 | ---------- | --- | -------------------------------------------------------- |
-| 2026-03-21 | 1.0 | 初版：依 Skill `cj-short-video-campaign-brief` 與 E-α SSOT 填滿 |
+| 2026-03-21 | 1.0 | 初版：依 Emorapy 短影音 campaign brief 與 E-α SSOT 填滿 |
 
 
 ---

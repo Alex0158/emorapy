@@ -34,6 +34,7 @@ const OPERATOR_VISIBLE_SCAN_PATTERNS = [
 
 const MARKETING_COPY_SCAN_PATTERNS = [
   'docs/核心營銷文件/**/*.md',
+  'docs/核心營銷文件/**/*.csv',
 ];
 
 const CURRENT_SOURCE_IDENTITY_SCAN_PATTERNS = [
@@ -171,6 +172,16 @@ const LEGACY_MARKETING_COPY_RULES = [
     id: 'legacy-marketing-cj-brand',
     pattern: /\bCJ\b/g,
     message: 'Current marketing copy must use Emorapy, not CJ.',
+  },
+  {
+    id: 'legacy-marketing-cj-token-prefix',
+    pattern: /\bCJ[_-][A-Za-z0-9_-]*/g,
+    message: 'Current marketing asset identifiers must use an Emorapy prefix, not CJ_.',
+  },
+  {
+    id: 'legacy-marketing-lowercase-cj-token-prefix',
+    pattern: /\bcj-[a-z0-9-]+/g,
+    message: 'Current marketing workflow identifiers must use Emorapy wording, not cj-*.',
   },
   {
     id: 'legacy-marketing-cj-platform-zh',

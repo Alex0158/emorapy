@@ -607,6 +607,24 @@ function checkNamingPolicyDocs() {
   }
 }
 
+function checkCoreDocsLedgerGeneratorIdentity() {
+  const generatorFile = 'scripts/generate-core-docs-audit-ledger.mjs';
+  const ledgerFile = 'docs/核心開發文件/文件收斂/03-CJ-核心開發文件逐文件代碼校驗總台賬-2026-04-18.md';
+  const generatorText = readText(generatorFile);
+  const ledgerText = readText(ledgerFile);
+  const expectedTitle = '# Emorapy 核心開發文件逐文件代碼校驗總台賬';
+  const provenance = '檔名中的 `03-CJ-` 保留為 2026-04-18 legacy governance batch identifier';
+
+  requireIncludes(generatorText, expectedTitle, generatorFile);
+  requireIncludes(generatorText, provenance, generatorFile);
+  requireIncludes(ledgerText, expectedTitle, ledgerFile);
+  requireIncludes(ledgerText, provenance, ledgerFile);
+
+  if (generatorText.includes("lines.push('# CJ 核心開發文件逐文件代碼校驗總台賬")) {
+    fail(`${generatorFile} must not regenerate the active core-docs ledger with a CJ product-title.`);
+  }
+}
+
 function checkCurrentOpsEnvAliasContract() {
   requireOrderedIncludes(
     'backend/src/utils/version.ts',
@@ -661,6 +679,7 @@ await checkCurrentDevCiFixtureIdentity();
 await checkCurrentTelemetryFixtureIdentity();
 checkCurrentOpsEnvAliasContract();
 checkNamingPolicyDocs();
+checkCoreDocsLedgerGeneratorIdentity();
 
 if (failures.length > 0) {
   console.error('[emorapy-naming-governance] failed');

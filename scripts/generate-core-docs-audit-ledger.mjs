@@ -138,7 +138,7 @@ async function buildLedgerContent() {
   }, {});
 
   const lines = [];
-  lines.push('# CJ 核心開發文件逐文件代碼校驗總台賬（2026-04-18）');
+  lines.push('# Emorapy 核心開發文件逐文件代碼校驗總台賬（2026-04-18）');
   lines.push('');
   lines.push('<!-- CORE_DOC_AUDIT_METADATA:START -->');
   lines.push('**文檔類型**：文檔治理');
@@ -152,6 +152,7 @@ async function buildLedgerContent() {
   lines.push(`- **生成時間**：\`${auditDate}\``);
   lines.push(`- **最後核驗 Commit**：\`${headCommit}\``);
   lines.push(`- **覆蓋範圍**：\`${ledgerRelativePath.replace('/文件收斂/03-CJ-核心開發文件逐文件代碼校驗總台賬-2026-04-18.md', '')}\` 內全部 Markdown / HTML / JSON`);
+  lines.push('- **歷史檔名說明**：檔名中的 `03-CJ-` 保留為 2026-04-18 legacy governance batch identifier；現行產品與工程 SSOT 名稱為 `Emorapy`。');
   lines.push('- **裁決規則**：正式規格以現碼為準回寫；證據/歷史/治理文件僅核對分類、來源、鏈接與非現行 SSOT 定位。');
   lines.push('');
   lines.push('## 摘要');

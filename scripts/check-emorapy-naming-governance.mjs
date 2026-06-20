@@ -352,6 +352,7 @@ const REQUIRED_POLICY_NEEDLES = [
       'P4 CI / local true-service Postgres fixture naming',
       'P4 App OTLP telemetry scope fixture naming',
       'P4 release commit env alias contract',
+      'P4 legacy production hostname compatibility gate',
       'Legacy requirement / governance IDs',
       'Historical package-scope references',
       '正式 internal workspace package scope 改為 `@emorapy/contracts` 與 `@emorapy/api-client`',
@@ -656,6 +657,44 @@ function checkAppVisibleCopyLegacyBrandGuard() {
   }
 }
 
+function checkLegacyProductionHostnameCompatContract() {
+  const releaseHelperFiles = [
+    'scripts/ops-release-status.sh',
+    'scripts/ops-release-gate.sh',
+    'scripts/ops-release-smoke.sh',
+    'scripts/ops-release-gate-evidence.sh',
+  ];
+  const legacyDefaultComment =
+    'Legacy production default until Emorapy domain migration; prefer EMORAPY_* overrides when configured.';
+
+  for (const file of releaseHelperFiles) {
+    requireOrderedIncludes(
+      file,
+      [
+        legacyDefaultComment,
+        'DEFAULT_MAIN_WEB_URL="https://mother-bear-court.vercel.app"',
+        'EMORAPY_MAIN_WEB_URL',
+      ],
+      `${file} must classify the legacy Vercel hostname as a compatibility default with Emorapy override support`
+    );
+  }
+
+  requireOrderedIncludes(
+    '.github/workflows/production-deploy-and-verify.yml',
+    [
+      'vars.EMORAPY_MAIN_WEB_URL',
+      'vars.PRODUCTION_MAIN_WEB_URL',
+      "'https://mother-bear-court.vercel.app'",
+    ],
+    'production workflow release gate main URL must prefer Emorapy alias before legacy Vercel hostname'
+  );
+  requireIncludes(
+    readText('docs/核心開發文件/03-管理端與平台治理/05-運維連接與調用Runbook.md'),
+    '`https://mother-bear-court.vercel.app` 只是 legacy production hostname compatibility default',
+    'docs/核心開發文件/03-管理端與平台治理/05-運維連接與調用Runbook.md'
+  );
+}
+
 function checkCurrentOpsEnvAliasContract() {
   requireOrderedIncludes(
     'backend/src/utils/version.ts',
@@ -713,6 +752,7 @@ checkNamingPolicyDocs();
 checkCoreDocsLedgerGeneratorIdentity();
 checkSeedGuardLegacyDevProjectComment();
 checkAppVisibleCopyLegacyBrandGuard();
+checkLegacyProductionHostnameCompatContract();
 
 if (failures.length > 0) {
   console.error('[emorapy-naming-governance] failed');

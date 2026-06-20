@@ -4,6 +4,7 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+# Legacy production default until Emorapy domain migration; prefer EMORAPY_* overrides when configured.
 DEFAULT_MAIN_WEB_URL="https://mother-bear-court.vercel.app"
 DEFAULT_ADMIN_WEB_URL="https://frontend-admin-sigma-virid.vercel.app"
 EVIDENCE_ROOT="${RELEASE_GATE_EVIDENCE_DIR:-temp/release-gate-evidence}"

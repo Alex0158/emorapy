@@ -15,6 +15,11 @@ const EXPECTED_APP_IDENTITY = {
   androidPackage: 'com.emorapy.app',
 };
 
+const EXPECTED_PACKAGE_MANIFEST_NAMES = new Map([
+  ['package.json', 'emorapy-root'],
+  ['backend/package.json', 'emorapy-backend'],
+]);
+
 const USER_FACING_SCAN_PATTERNS = [
   'backend/src/**/*.{ts,tsx}',
   'frontend/src/**/*.{ts,tsx}',
@@ -220,6 +225,13 @@ function checkAppJsonIdentity() {
   );
 }
 
+function checkPackageManifestNames() {
+  for (const [file, expectedName] of EXPECTED_PACKAGE_MANIFEST_NAMES) {
+    const manifest = readJson(file);
+    requireEqual(manifest.name, expectedName, `${file} name`);
+  }
+}
+
 async function checkAppIdentityFiles() {
   const files = await glob(APP_IDENTITY_FILES, {
     cwd: repoRoot,
@@ -302,6 +314,7 @@ function checkNamingPolicyDocs() {
 }
 
 checkAppJsonIdentity();
+checkPackageManifestNames();
 await checkAppIdentityFiles();
 await checkUserFacingCopy();
 await checkOperatorVisibleCopy();

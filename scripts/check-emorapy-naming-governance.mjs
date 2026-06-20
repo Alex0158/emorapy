@@ -40,6 +40,17 @@ const CURRENT_SOURCE_IDENTITY_SCAN_PATTERNS = [
   'mobile/src/**/*.{ts,tsx}',
 ];
 
+const CURRENT_DOC_LEADIN_FILES = [
+  'docs/核心開發文件/01-認證與會話/00-認證與會話總覽.md',
+  'docs/核心開發文件/02-用戶端核心流程/00-用戶端核心流程總覽.md',
+  'docs/核心開發文件/03-管理端與平台治理/00-管理端與平台治理總覽.md',
+  'docs/核心開發文件/03-管理端與平台治理/01-環境與部署基線.md',
+  'docs/核心開發文件/03-管理端與平台治理/04-兩版本運作規範.md',
+  'docs/核心開發文件/04-共用機制/00-共用機制總覽.md',
+  'docs/核心開發文件/05-工程架構與共享層/Repo平台分層與共享規範.md',
+  'docs/核心開發文件/08-測試規範與驗收/01-測試文檔分層與使用規則.md',
+];
+
 const USER_FACING_IGNORE_PATTERNS = [
   '**/*.test.ts',
   '**/*.test.tsx',
@@ -168,6 +179,14 @@ const LEGACY_SOURCE_IDENTITY_RULES = [
     id: 'legacy-design-token-system-title',
     pattern: /Mother Bear Court(?: Admin)? - Design Token System/g,
     message: 'Current source comments must describe design tokens as Emorapy, not Mother Bear Court.',
+  },
+];
+
+const LEGACY_DOC_LEADIN_RULES = [
+  {
+    id: 'legacy-doc-product-subject',
+    pattern: /`CJ` (?:前台身份建立|面向普通用戶|的前台主流程|的主站 admin|的環境矩陣|橫跨主 Web|的測試文檔)|定義 `CJ` 以後只承認|將 `mother-bear-court` 的平台分層正式定義/g,
+    message: 'Current formal-doc lead-in text must use Emorapy as the product subject; legacy identifiers are only allowed when explicitly classified as aliases, IDs, env vars, infrastructure, or evidence.',
   },
 ];
 
@@ -370,6 +389,18 @@ async function checkCurrentSourceIdentity() {
   }
 }
 
+function checkCurrentDocLeadins() {
+  for (const file of CURRENT_DOC_LEADIN_FILES) {
+    const text = readText(file);
+    for (const rule of LEGACY_DOC_LEADIN_RULES) {
+      rule.pattern.lastIndex = 0;
+      for (const match of text.matchAll(rule.pattern)) {
+        fail(`${file}:${lineNumberAt(text, match.index ?? 0)} [${rule.id}] ${rule.message}`);
+      }
+    }
+  }
+}
+
 function checkNamingPolicyDocs() {
   for (const { file, needles } of REQUIRED_POLICY_NEEDLES) {
     const text = readText(file);
@@ -386,6 +417,7 @@ await checkUserFacingCopy();
 await checkOperatorVisibleCopy();
 await checkCurrentPackageScope();
 await checkCurrentSourceIdentity();
+checkCurrentDocLeadins();
 checkNamingPolicyDocs();
 
 if (failures.length > 0) {

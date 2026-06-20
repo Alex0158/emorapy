@@ -10,7 +10,7 @@
 
 ## 1. 目的
 
-本文件將 `mother-bear-court` 的平台分層正式定義為三個層次：
+本文件將 `Emorapy` 的平台分層正式定義為三個層次；當前 repo 物理路徑仍保留 legacy `mother-bear-court`，不代表正式產品名或新 external identifier。
 
 - `apps/*`：面向使用者的前端應用
 - `services/*`：後端服務與基礎服務

@@ -1,6 +1,8 @@
-# CJ Agent Guide
+# Emorapy Agent Guide
 
 This file is the repo-level operating guide for coding agents. It is not a product spec. Product and engineering truth live under `docs/核心開發文件/`.
+
+`Emorapy` is the formal product and App release identity. `CJ`, `Mother Bear Court`, `mother-bear-court`, and `com.cj.motherbearcourt` are legacy aliases or current infrastructure identifiers only; do not use them for new user-facing copy, App Store metadata, native bundle IDs, or release identity decisions.
 
 ## Hard Rules
 
@@ -50,7 +52,7 @@ npm run docs:check
 
 | Surface | Platform | Repo evidence | Status check |
 | --- | --- | --- | --- |
-| Main web | Vercel | `.github/workflows/production-deploy-and-verify.yml`, `frontend/vercel.json` | `https://mother-bear-court.vercel.app/version.json` |
+| Main web | Vercel | `.github/workflows/production-deploy-and-verify.yml`, `frontend/vercel.json` | `https://mother-bear-court.vercel.app/version.json` (legacy hostname until Emorapy domain migration) |
 | Admin web | Vercel | `.github/workflows/production-deploy-and-verify.yml`, `frontend-admin/vercel.json` | `https://frontend-admin-sigma-virid.vercel.app/version.json` |
 | Backend API | Railway | `.github/workflows/production-deploy-and-verify.yml`, `railway.json`, `backend/railway.toml` | `BACKEND_BASE_URL=<url> npm run ops:release:status` |
 | Database | Supabase/Postgres via Prisma | `backend/prisma/schema.prisma`, `backend/prisma/migrations`, `supabase/migrations` | `DATABASE_URL=<url> npm run ops:db:status` |
@@ -85,7 +87,7 @@ Do not leave a browserless login process running indefinitely. If activation is 
 Current Railway production state, last verified 2026-06-05:
 
 1. Project: `ingenious-commitment`.
-2. Production backend domain: `https://mother-bear-court-production.up.railway.app`.
+2. Production backend domain: `https://mother-bear-court-production.up.railway.app` (legacy hostname until Emorapy domain migration).
 3. Formal production deploy entrypoint is GitHub Actions `Production Deploy and Verify`; local Vercel/Railway CLI is for status/debug/emergency use, not the routine release path.
 4. Railway CLI auth was expired during the 2026-06-05 check; use live backend `/version` as minimum evidence until CLI is reauthenticated.
 5. Use `npm run ops:release:gate` or the production workflow release-gate step for full release closure. The backend version endpoint exposes `commitSha`; if it is missing, `unknown`, or not aligned with local `HEAD`, treat the backend as not fully verified. `railway status --json` remains the source for Railway deployment/log state when CLI auth is available.
@@ -137,7 +139,7 @@ Local development means:
 2. Backend: `cd backend && EMORAPY_COMMIT_SHA=$(git rev-parse HEAD) npm run dev` (`CJ_COMMIT_SHA` remains a legacy fallback during the naming migration).
 3. Main web: `cd frontend && npm run dev -- --host 127.0.0.1`.
 4. Admin web: `cd frontend-admin && npm run dev -- --host 127.0.0.1`.
-5. Database: Supabase dev project `Mother Bear Court Dev` (`lbukyqztkkkztfrfltlh`) unless the user explicitly chooses another dev database.
+5. Database: Supabase dev project `Mother Bear Court Dev` (`lbukyqztkkkztfrfltlh`, legacy project name) unless the user explicitly chooses another dev database.
 6. Redis is part of the current local development baseline and should run locally, currently `redis://127.0.0.1:6379` in the active local `.env`, with `ALLOW_SIMPLE_LOCK=false`. Do not treat Railway development Redis as required for local development; it is only an optional parity enhancement. If Redis is unavailable and a temporary fallback is needed, record the drift under `docs/核心開發文件/07-待處理問題與治理/待處理/` before using `REDIS_URL=` and `ALLOW_SIMPLE_LOCK=true`.
 
 The normal local ports are backend `3001`, main web `5173`, admin web `5175`, and Redis `6379`. Backend `/health` may be `degraded` in local development only because scheduled jobs are disabled; database and lock checks must still be healthy. Local version endpoints should report the current `HEAD` when the stack is started through `start-dev.sh` or with `EMORAPY_COMMIT_SHA` / legacy `CJ_COMMIT_SHA`.

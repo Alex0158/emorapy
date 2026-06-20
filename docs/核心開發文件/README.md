@@ -1,4 +1,4 @@
-# CJ 核心開發文件（唯一工程 SSOT）
+# Emorapy 核心開發文件（唯一工程 SSOT）
 
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：核心入口
@@ -8,7 +8,7 @@
 **最後核驗日期**：`2026-05-31`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-本目錄是 `CJ` 項目唯一有效的工程與產品正式文檔依據。
+本目錄是 `Emorapy` 項目唯一有效的工程與產品正式文檔依據。`CJ`、`Mother Bear Court` 與 `mother-bear-court` 只作歷史別名或現存基礎設施識別符；不得作為新的對外文案、App Store metadata、native bundle ID 或 release identity。
 
 對整個 `/Users/alex/Desktop/CJ` 而言，Markdown 只允許存在於三個區域：
 

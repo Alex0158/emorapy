@@ -149,7 +149,7 @@ jobs:
       LEGACY_RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
       RAILWAY_PROJECT_ID: ${{ vars.PRODUCTION_RAILWAY_PROJECT_ID || secrets.PRODUCTION_RAILWAY_PROJECT_ID || secrets.STAGING_RAILWAY_PROJECT_ID }}
       PRODUCTION_RAILWAY_ENVIRONMENT: production
-      PRODUCTION_RAILWAY_SERVICE: ${{ vars.PRODUCTION_RAILWAY_SERVICE || 'mother-bear-court' }}
+      PRODUCTION_RAILWAY_SERVICE: ${{ vars.EMORAPY_RAILWAY_SERVICE_NAME || vars.PRODUCTION_RAILWAY_SERVICE || vars.RAILWAY_SERVICE_NAME || 'mother-bear-court' }}
       DEPLOY_MESSAGE: ${{ inputs.deploy_message }}
     steps:
       - uses: actions/checkout@v5
@@ -198,10 +198,12 @@ jobs:
         run: |
           previous_deployment_id="$(
             railway status --json | jq -r \
+              --arg env_name "${PRODUCTION_RAILWAY_ENVIRONMENT}" \
+              --arg service_name "${PRODUCTION_RAILWAY_SERVICE}" \
               '.environments.edges[]
-              | select(.node.name=="production")
+              | select(.node.name==$env_name)
               | .node.serviceInstances.edges[]
-              | select(.node.serviceName=="mother-bear-court")
+              | select(.node.serviceName==$service_name)
               | (.node.latestDeployment.id // "")'
           )"
           echo "value=${previous_deployment_id}" >> "$GITHUB_OUTPUT"
@@ -228,7 +230,7 @@ jobs:
         env:
           PREVIOUS_DEPLOYMENT_ID: ${{ steps.previous.outputs.value }}
           RAILWAY_ENVIRONMENT_NAME: production
-          RAILWAY_SERVICE_NAME: ${{ vars.EMORAPY_RAILWAY_SERVICE_NAME || vars.RAILWAY_SERVICE_NAME || 'mother-bear-court' }}
+          RAILWAY_SERVICE_NAME: ${{ vars.EMORAPY_RAILWAY_SERVICE_NAME || vars.PRODUCTION_RAILWAY_SERVICE || vars.RAILWAY_SERVICE_NAME || 'mother-bear-court' }}
           DEPLOY_TIMEOUT_SECONDS: '1200'
         run: bash scripts/wait-railway-deploy.sh
 

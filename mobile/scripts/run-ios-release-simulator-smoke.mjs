@@ -136,11 +136,49 @@ function readPackageVersions() {
   };
 }
 
+function parseSimulatorRuntimeSummary(result) {
+  if (result.exit_code !== 0 || !result.stdout) return [];
+  try {
+    const parsed = JSON.parse(result.stdout);
+    return (parsed.runtimes ?? [])
+      .filter((runtime) => runtime.platform === 'iOS' || runtime.identifier?.includes('SimRuntime.iOS'))
+      .map((runtime) => ({
+        name: runtime.name ?? null,
+        version: runtime.version ?? null,
+        identifier: runtime.identifier ?? null,
+        is_available: runtime.isAvailable ?? runtime.availability === '(available)' ?? null,
+      }));
+  } catch {
+    return [];
+  }
+}
+
+function extractXcodeVersion(result) {
+  if (result.exit_code !== 0 || !result.stdout) return null;
+  return result.stdout
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join(' / ');
+}
+
+function extractIosSimulatorSdks(result) {
+  if (result.exit_code !== 0 || !result.stdout) return [];
+  return result.stdout
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.includes('iphonesimulator'));
+}
+
 function main() {
   const startedAt = new Date().toISOString();
   const app = readJson(path.join(mobileRoot, 'app.json')).expo ?? {};
   const env = buildEnv();
   const commands = {};
+
+  commands.xcode_version = runCommand('xcodebuild', ['-version'], { env });
+  commands.xcode_sdks = runCommand('xcodebuild', ['-showsdks'], { env });
+  commands.simulator_runtimes = runCommand('xcrun', ['simctl', 'list', 'runtimes', '--json'], { env });
 
   const simulatorBefore = getSimulatorByName(options.deviceName, env);
   commands.simulator_list_before = simulatorBefore.result;
@@ -152,6 +190,23 @@ function main() {
     commands.prebuild = runCommand(
       'npx',
       ['expo', 'prebuild', '--platform', 'ios', '--clean', '--no-install'],
+      { env }
+    );
+  }
+
+  const workspacePath = path.join(mobileRoot, 'ios', 'Emorapy.xcworkspace');
+  if (fs.existsSync(workspacePath)) {
+    commands.xcode_destinations = runCommand(
+      'xcodebuild',
+      [
+        '-workspace',
+        workspacePath,
+        '-scheme',
+        'Emorapy',
+        '-configuration',
+        'Release',
+        '-showdestinations',
+      ],
       { env }
     );
   }
@@ -237,6 +292,13 @@ function main() {
     dependency_alignment: {
       expo_install_check: commands.expo_install_check.exit_code === 0 ? 'passed' : 'failed',
       key_versions: readPackageVersions(),
+    },
+    environment: {
+      developer_dir: env.DEVELOPER_DIR ?? null,
+      xcode_version: extractXcodeVersion(commands.xcode_version),
+      ios_simulator_sdks: extractIosSimulatorSdks(commands.xcode_sdks),
+      ios_simulator_runtimes: parseSimulatorRuntimeSummary(commands.simulator_runtimes),
+      xcode_destination_probe_exit_code: commands.xcode_destinations?.exit_code ?? null,
     },
     checks: [
       { name: 'cocoapods_install', status: fs.existsSync(path.join(mobileRoot, 'ios', 'Pods', 'Manifest.lock')) ? 'passed' : 'failed' },

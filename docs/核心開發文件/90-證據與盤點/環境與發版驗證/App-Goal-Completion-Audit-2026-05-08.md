@@ -84,7 +84,7 @@
 3. 尚無 pass 狀態 `App-EAS-iOS-Release-*.json`。
 4. 尚無 pass 狀態 TestFlight App Store Connect evidence。
 5. 尚無 pass 狀態 `App-Physical-Device-*.json`；目前仍需可信 physical device run。
-6. 尚無 Emorapy identity 下 pass 狀態 `App-iOS-Release-Simulator-*.json`；現有舊 iOS simulator evidence 因 `com.cj.motherbearcourt` 被 stale ignored，本機 runner 仍待 iOS 26.5 simulator runtime。
+6. 尚無 Emorapy identity 下 pass 狀態 `App-iOS-Release-Simulator-*.json`；現有舊 iOS simulator evidence 因 `com.cj.motherbearcourt` 被 stale ignored。最新 blocked run 已確認本機 Xcode 26.5 可用但缺 iOS 26.5 simulator runtime / platform，需在 Xcode Components 安裝後重跑 runner。
 7. 尚無 pass 狀態 `App-Push-Delivery-*.json`。
 8. 尚無 pass 狀態 `App-Native-Crash-Runtime-*.json`。
 

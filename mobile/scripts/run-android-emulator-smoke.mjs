@@ -8,9 +8,18 @@ import { fileURLToPath } from 'node:url';
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const mobileRoot = path.resolve(scriptDir, '..');
 const repoRoot = path.resolve(mobileRoot, '..');
+const defaultAvdName = 'Emorapy_Pixel_9_API_36';
+const legacyDefaultAvdName = 'CJ_Pixel_9_API_36';
 
 const options = {
-  avdName: process.env.APP_ANDROID_AVD_NAME || 'CJ_Pixel_9_API_36',
+  avdName: process.env.APP_ANDROID_AVD_NAME || process.env.EMORAPY_ANDROID_AVD_NAME || process.env.CJ_ANDROID_AVD_NAME || null,
+  avdNameSource: process.env.APP_ANDROID_AVD_NAME
+    ? 'APP_ANDROID_AVD_NAME'
+    : process.env.EMORAPY_ANDROID_AVD_NAME
+      ? 'EMORAPY_ANDROID_AVD_NAME'
+      : process.env.CJ_ANDROID_AVD_NAME
+        ? 'CJ_ANDROID_AVD_NAME'
+        : 'auto',
   timeoutMs: Number(process.env.APP_ANDROID_EMULATOR_TIMEOUT_MS || 180000),
   evidenceDir: path.join(repoRoot, 'docs/核心開發文件/90-證據與盤點/環境與發版驗證'),
 };
@@ -18,6 +27,7 @@ const options = {
 for (const arg of process.argv.slice(2)) {
   if (arg.startsWith('--avd=')) {
     options.avdName = arg.slice('--avd='.length);
+    options.avdNameSource = '--avd';
   } else if (arg.startsWith('--timeout-ms=')) {
     options.timeoutMs = Number(arg.slice('--timeout-ms='.length));
   } else if (arg.startsWith('--evidence-dir=')) {
@@ -106,6 +116,34 @@ function parseDevices(output) {
     .filter((device) => device.serial?.startsWith('emulator-'));
 }
 
+function parseAvdNames(output) {
+  return output
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith('Name: '))
+    .map((line) => line.slice('Name: '.length).trim())
+    .filter(Boolean);
+}
+
+function resolveAvdName(avdListOutput) {
+  const avdNames = parseAvdNames(avdListOutput);
+  if (options.avdName) {
+    if (!avdNames.includes(options.avdName)) {
+      throw new Error(`AVD ${options.avdName} was not found.`);
+    }
+    return options.avdName;
+  }
+  if (avdNames.includes(defaultAvdName)) {
+    options.avdNameSource = 'default';
+    return defaultAvdName;
+  }
+  if (avdNames.includes(legacyDefaultAvdName)) {
+    options.avdNameSource = 'legacy-default';
+    return legacyDefaultAvdName;
+  }
+  throw new Error(`No compatible Android AVD was found. Expected ${defaultAvdName} or legacy ${legacyDefaultAvdName}.`);
+}
+
 function adb(adbCommand, args = []) {
   return runCommand(adbCommand, args);
 }
@@ -155,9 +193,10 @@ async function main() {
   }
 
   const avdList = runCommand(tools.avdmanager, ['list', 'avd'], { env });
-  if (avdList.status !== 0 || !avdList.stdout.includes(`Name: ${options.avdName}`)) {
-    throw new Error(`AVD ${options.avdName} was not found.`);
+  if (avdList.status !== 0) {
+    throw new Error('Unable to list Android AVDs.');
   }
+  options.avdName = resolveAvdName(avdList.stdout);
 
   const adbStart = adb(tools.adb, ['start-server']);
   const emulatorProcess = spawn(
@@ -238,6 +277,9 @@ async function main() {
     node_version: process.version,
     app_android_package: app.android?.package ?? null,
     avd_name: options.avdName,
+    avd_name_source: options.avdNameSource,
+    default_avd_name: defaultAvdName,
+    legacy_default_avd_name: legacyDefaultAvdName,
     sdk_root: tools.sdkRoot,
     commands: {
       adb: tools.adb,

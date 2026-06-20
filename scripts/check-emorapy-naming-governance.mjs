@@ -59,15 +59,7 @@ const CURRENT_PACKAGE_SCOPE_SCAN_PATTERNS = [
   'mobile/**/*.{ts,tsx,js,json}',
   'packages/**/*.{ts,tsx,js,json,d.ts}',
   'scripts/**/*.{js,mjs,cjs,ts,sh}',
-  'docs/核心開發文件/README.md',
-  'docs/核心開發文件/04-共用機制/**/*.md',
-  'docs/核心開發文件/05-工程架構與共享層/**/*.md',
-  'docs/核心開發文件/06-接口描述/**/*.md',
-  'docs/核心開發文件/08-測試規範與驗收/**/*.md',
-  'docs/核心開發文件/10-Web端/**/*.md',
-  'docs/核心開發文件/20-App端/**/*.md',
-  'docs/核心開發文件/50-跨端Mapping與Parity/**/*.md',
-  'docs/核心開發文件/07-待處理問題與治理/待處理/**/*.md',
+  'docs/核心開發文件/**/*.md',
 ];
 
 const CURRENT_PACKAGE_SCOPE_IGNORE_PATTERNS = [

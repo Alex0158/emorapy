@@ -43,7 +43,7 @@ const actionCatalog = {
     owner_surface: 'Expo / EAS project setup',
     required_env_keys: ['APP_EAS_PROJECT_FULL_NAME'],
     action:
-      'Bind mobile/app.json to the Emorapy EAS project and confirm the EAS full name matches @alexdev518/emorapy-mobile. Placeholder UUIDs or the legacy cj-mobile project name are not accepted.',
+      'Bind mobile/app.json to the Emorapy EAS project and confirm the EAS full name matches @alexdev518/emorapy-mobile. Placeholder UUIDs, the legacy cj-mobile project name, and eas project:init --force as a rename workaround are not accepted.',
     commands: [
       'cd mobile && npx eas-cli@20.3.0 project:info --non-interactive',
       'APP_EAS_PROJECT_FULL_NAME=@alexdev518/emorapy-mobile npm --prefix mobile run release:external-evidence:status',
@@ -52,6 +52,7 @@ const actionCatalog = {
     accepted_evidence: [
       'mobile/app.json expo.extra.eas.projectId is a real UUID-shaped EAS project id',
       'APP_EAS_PROJECT_FULL_NAME matches mobile/app.json owner/slug after EAS dashboard rename or new Emorapy project link',
+      'cd mobile && npx eas-cli@20.3.0 project:info --non-interactive reports fullName @alexdev518/emorapy-mobile without changing mobile/app.json slug',
     ],
     strict_gate: 'npm --prefix mobile run release:completion:audit:strict',
     docs: [docs.runbook, docs.releaseHardening],

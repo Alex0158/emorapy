@@ -449,7 +449,7 @@ function buildStatus() {
       ),
     },
     next_commands: [
-      '在 EAS dashboard 將 project 對齊為 @alexdev518/emorapy-mobile，或新建該 project 後更新 mobile/app.json extra.eas.projectId；再於 release env 設定 APP_EAS_PROJECT_FULL_NAME=@alexdev518/emorapy-mobile',
+      '在 EAS dashboard 將 project 對齊為 @alexdev518/emorapy-mobile，或新建該 project 後更新 mobile/app.json extra.eas.projectId；不要用 eas project:init --force 作 rename，該命令已實測會把本地 slug 改回 cj-mobile；再於 release env 設定 APP_EAS_PROJECT_FULL_NAME=@alexdev518/emorapy-mobile',
       'EXPO_TOKEN=<token> npm --prefix mobile run eas-ios-release:smoke -- --run',
       'EXPO_TOKEN=<token> APP_STORE_CONNECT_ISSUER_ID=<issuer> APP_STORE_CONNECT_KEY_ID=<key-id> APP_STORE_CONNECT_PRIVATE_KEY_PATH=<p8-path> npm --prefix mobile run eas-ios-release:smoke -- --run --require-testflight',
       'EXPO_TOKEN=<token> npm --prefix mobile run eas-android-release:smoke -- --run',

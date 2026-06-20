@@ -87,6 +87,7 @@ npm --prefix mobile run release:external-evidence:env-template:check
 - 在 `mobile/` 下完成真實 EAS project 初始化。
 - `mobile/app.json` 必須包含 UUID 形狀的 `expo.extra.eas.projectId`。
 - EAS project full name 必須和 `mobile/app.json` 的 `owner/slug` 對齊：`@alexdev518/emorapy-mobile`。2026-06-20 本地實測 `npx eas-cli@20.3.0 project:info --non-interactive` 失敗，錯誤指出 projectId 對應的 remote slug 仍是 `cj-mobile`，而本地 slug 是 `emorapy-mobile`；因此需要在 EAS dashboard rename 現有 project，或新建 / link `@alexdev518/emorapy-mobile` 後更新 `extra.eas.projectId`。
+- 不得用 `npx eas-cli@20.3.0 project:init --non-interactive --force` 當作 rename workaround。2026-06-20 已實測該命令會返回成功但把本地 `mobile/app.json` `expo.slug` 改回 `cj-mobile`，與 Emorapy release identity 相反；若誤執行，必須立即還原 `slug=emorapy-mobile` 並重新確認 `project:info` 仍在本地正式 slug 下通過。
 - `APP_EAS_PROJECT_FULL_NAME=@alexdev518/emorapy-mobile` 必須放在 shell env、CI env 或 gitignored `mobile/release.env.local`，它不是 secret，但不能替代 EAS iOS / Android structured evidence。
 - EAS CLI 必須在 runner PATH 上可用；`release:check` 與 `release:external-evidence:status` 都會只以 warning / info / boolean 顯示可用 / authenticated 狀態，不輸出 Expo 帳號。
 - `EXPO_TOKEN` 必須可非交互查詢 EAS build metadata。
@@ -168,7 +169,7 @@ pass evidence 必須包含 provider accepted ticket 與 `ok` receipt。
 - `APP_NATIVE_CRASH_SENTRY_EVENT_ID` 或 `SENTRY_EVENT_ID`
 - `APP_NATIVE_CRASH_EXPECTED_ENVIRONMENT=production`（`release.env.example` / GitHub workflow 預設值；strict release audit 只接受 production environment evidence）
 
-controlled native crash event 必須匹配 `cj-mobile@<version>+<build>` release、production environment、native runtime signal 與 crash-like exception。development / staging Sentry event 可作診斷，但不得消除 `native_crash_runtime_evidence` release blocker。
+controlled native crash event 必須匹配 `emorapy-mobile@<version>+<build>` release、production environment、native runtime signal 與 crash-like exception。development / staging Sentry event 可作診斷，但不得消除 `native_crash_runtime_evidence` release blocker。
 
 ### 3.6 App Telemetry Runtime Ingest
 

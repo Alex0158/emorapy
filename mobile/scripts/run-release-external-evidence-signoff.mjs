@@ -291,7 +291,7 @@ const prerequisiteActionCatalog = {
     owner_surface: 'Expo / EAS project setup',
     required_env_keys: ['APP_EAS_PROJECT_FULL_NAME'],
     action:
-      'Bind mobile/app.json to an Emorapy-aligned EAS project and confirm the EAS full name matches the Expo owner/slug before external release sign-off.',
+      'Bind mobile/app.json to an Emorapy-aligned EAS project and confirm the EAS full name matches the Expo owner/slug before external release sign-off. Do not use eas project:init --force as a rename workaround; it has been verified to pull the local slug back to cj-mobile.',
     commands: [
       'cd mobile && npx eas-cli@20.3.0 project:info --non-interactive',
       'APP_EAS_PROJECT_FULL_NAME=@alexdev518/emorapy-mobile npm --prefix mobile run release:external-evidence:validate -- --report-dir=<report-dir>',

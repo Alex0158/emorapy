@@ -26,7 +26,7 @@
 | Implemented | App 端已有可追溯 screen / adapter / API 消費與驗收入口 |
 | Release-blocked | 本地 App 工程與驗收入口已落地，但完整完成仍受 EAS / TestFlight / 真機 / provider / native crash 等外部 evidence 阻擋；release DB parity 與 telemetry runtime 是 release audit 證據槽，是否仍有效由當次 audit 判定 |
 
-當前 M0-M5 普通用戶 App 業務能力可標為 `Implemented`：`mobile/app`、`mobile/src/platform`、`packages/api-client`、`packages/contracts` 與 backend route / schema 已能對應到 screen、adapter、shared client、DTO 與驗收入口。完整 App release completion 仍不得標記完成，因為 M6 `Release-blocked`：`release:completion:audit:strict` / `goal:completion:audit:strict` 仍缺 EAS project id、Expo / Apple / ASC credentials、EAS iOS/Android artifact、TestFlight、physical device、Android native toolchain、push provider delivery 與 native crash runtime evidence；release / production DB parity 與 telemetry runtime 是 release audit 的證據槽，當前可作已具備的審計輸入，但 backend schema、version 或 telemetry runtime 路徑變動後必須刷新。
+當前 M0-M5 普通用戶 App 業務能力可標為 `Implemented`：`mobile/app`、`mobile/src/platform`、`packages/api-client`、`packages/contracts` 與 backend route / schema 已能對應到 screen、adapter、shared client、DTO 與驗收入口。完整 App release completion 仍不得標記完成，因為 M6 `Release-blocked`：`release:completion:audit:strict` / `goal:completion:audit:strict` 仍缺 Apple / ASC credentials、EAS iOS artifact、TestFlight、physical device、Android emulator runtime / app runtime / full flow evidence refresh、iOS Release simulator evidence refresh、push provider delivery、native ImagePicker upload refresh 與 native crash runtime evidence；EAS project binding、Expo token、EAS Android production artifact、Android native toolchain、release / production DB parity 與 telemetry runtime 是當前已具備或可被 audit 接受的證據槽，但 backend schema、version、telemetry runtime 路徑、Android remote build identity 或 native package identity 變動後必須刷新。
 
 ## 3. App 能力 Mapping
 

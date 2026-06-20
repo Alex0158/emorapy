@@ -54,7 +54,7 @@ describe('DeepLinkLandingHandler', () => {
     mockGetInitialAppLandingTarget.mockResolvedValueOnce({
       href: '/quick/collaborative',
       sourcePath: '/quick/collaborative',
-      sourceUrl: 'cj://quick/collaborative',
+      sourceUrl: 'emorapy://quick/collaborative',
     });
 
     render(React.createElement(DeepLinkLandingHandler));
@@ -75,7 +75,7 @@ describe('DeepLinkLandingHandler', () => {
     mockGetInitialAppLandingTarget.mockResolvedValueOnce({
       href: '/repair',
       sourcePath: '/repair',
-      sourceUrl: 'cj://repair',
+      sourceUrl: 'emorapy://repair',
     });
 
     render(React.createElement(DeepLinkLandingHandler));
@@ -99,12 +99,12 @@ describe('DeepLinkLandingHandler', () => {
     activeListener({
       href: '/chat/room?roomId=room-1',
       sourcePath: '/chat/room?roomId=room-1',
-      sourceUrl: 'cj://chat/room?roomId=room-1',
+      sourceUrl: 'emorapy://chat/room?roomId=room-1',
     });
     activeListener({
       href: '/chat/room?roomId=room-1',
       sourcePath: '/chat/room?roomId=room-1',
-      sourceUrl: 'cj://chat/room?roomId=room-1',
+      sourceUrl: 'emorapy://chat/room?roomId=room-1',
     });
 
     await waitFor(() => expect(mockRouterPush).toHaveBeenCalledTimes(1));

@@ -46,21 +46,21 @@ describe('App deep-link resolver', () => {
   });
 
   it('resolves custom-scheme App deep links without broadening unsafe targets', () => {
-    expect(resolveAppHrefFromUrl('cj://case')).toMatchObject({ href: '/case', sourcePath: '/case' });
-    expect(resolveAppHrefFromUrl('cj://repair')).toMatchObject({ href: '/repair', sourcePath: '/repair' });
-    expect(resolveAppHrefFromUrl('cj://profile/story')).toMatchObject({
+    expect(resolveAppHrefFromUrl('emorapy://case')).toMatchObject({ href: '/case', sourcePath: '/case' });
+    expect(resolveAppHrefFromUrl('emorapy://repair')).toMatchObject({ href: '/repair', sourcePath: '/repair' });
+    expect(resolveAppHrefFromUrl('emorapy://profile/story')).toMatchObject({
       href: '/profile/story',
       sourcePath: '/profile/story',
     });
-    expect(resolveAppHrefFromUrl('cj://chat/room?roomId=room-1')).toMatchObject({
+    expect(resolveAppHrefFromUrl('emorapy://chat/room?roomId=room-1')).toMatchObject({
       href: '/chat/room?roomId=room-1',
       sourcePath: '/chat/room?roomId=room-1',
     });
-    expect(resolveAppHrefFromUrl('cj://chat/invite?code=ABCD')).toMatchObject({
+    expect(resolveAppHrefFromUrl('emorapy://chat/invite?code=ABCD')).toMatchObject({
       href: '/chat/invite?code=ABCD',
       sourcePath: '/chat/invite?code=ABCD',
     });
-    expect(resolveAppHrefFromUrl('cj://admin/users')).toBeNull();
+    expect(resolveAppHrefFromUrl('emorapy://admin/users')).toBeNull();
   });
 
   it('resolves Expo proxy links and preserves safe public quick targets', () => {
@@ -77,7 +77,7 @@ describe('App deep-link resolver', () => {
   it('reads initial App landing targets and subscribes to foreground URL events', async () => {
     const remove = jest.fn();
     let listener;
-    Linking.getInitialURL.mockResolvedValueOnce('cj://notifications');
+    Linking.getInitialURL.mockResolvedValueOnce('emorapy://notifications');
     Linking.addEventListener.mockImplementationOnce((_eventName, nextListener) => {
       listener = nextListener;
       return { remove };
@@ -90,7 +90,7 @@ describe('App deep-link resolver', () => {
 
     const onTarget = jest.fn();
     const cleanup = await subscribeToAppLandingTargets(onTarget);
-    listener({ url: 'cj://profile/interview?sessionId=session-1' });
+    listener({ url: 'emorapy://profile/interview?sessionId=session-1' });
 
     expect(onTarget).toHaveBeenCalledWith(expect.objectContaining({
       href: '/profile/interview?sessionId=session-1',

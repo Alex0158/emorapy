@@ -1,0 +1,159 @@
+{
+  "type": "app-android-apk-install-launch-smoke",
+  "generated_at": "2026-06-20T09:58:36.785Z",
+  "started_at": "2026-06-20T09:58:09.630Z",
+  "working_directory": "/Users/alex/Desktop/CJ/mother-bear-court/mobile",
+  "node_version": "v25.8.1",
+  "app_android_package": "com.emorapy.app",
+  "device": {
+    "serial": "emulator-5554",
+    "boot_completed": "1",
+    "build_version_release": "16",
+    "build_version_sdk": "36",
+    "product_model": "sdk_gphone64_arm64",
+    "product_cpu_abi": "arm64-v8a"
+  },
+  "apk": {
+    "path": "mobile/android/app/build/outputs/apk/release/app-release.apk",
+    "bytes": 95820123,
+    "sha256": "841ba688bd15b3c63a6f8e449702f74a9fcadc672b4176ae461999d650cf124c"
+  },
+  "launch": {
+    "activity": "com.emorapy.app/.MainActivity",
+    "pid": "8599",
+    "top_activity_confirmed": true,
+    "focused_window_confirmed": true
+  },
+  "build_policy": {
+    "local_smoke_sentry_auto_upload_disabled": true,
+    "formal_sentry_upload_still_requires_sentry_org_project_and_token": true
+  },
+  "summary": {
+    "built": true,
+    "installed": true,
+    "launched": true,
+    "blocked": false,
+    "duration_ms": 27256
+  },
+  "commands": {
+    "adb_start": {
+      "command": "/Users/alex/Library/Android/sdk/platform-tools/adb",
+      "args": [
+        "start-server"
+      ],
+      "exit_code": 0,
+      "signal": null,
+      "duration_ms": 9,
+      "stdout_tail": "",
+      "stderr_tail": ""
+    },
+    "build": {
+      "command": "./gradlew",
+      "args": [
+        ":app:assembleRelease",
+        "--no-daemon"
+      ],
+      "exit_code": 0,
+      "signal": null,
+      "duration_ms": 21108,
+      "stdout_tail": "odules-core:bundleReleaseLocalLintAar UP-TO-DATE\n> Task :expo:bundleLibCompileToJarRelease UP-TO-DATE\n> Task :expo:bundleLibRuntimeToJarRelease UP-TO-DATE\n> Task :expo-modules-core:lintVitalAnalyzeRelease UP-TO-DATE\n> Task :expo:processReleaseJavaRes UP-TO-DATE\n> Task :expo:createFullJarRelease UP-TO-DATE\n> Task :expo-modules-core:generateReleaseLintVitalModel UP-TO-DATE\n> Task :expo-constants:lintVitalAnalyzeRelease UP-TO-DATE\n> Task :expo-log-box:lintVitalAnalyzeRelease UP-TO-DATE\n> Task :expo:generateReleaseLintModel UP-TO-DATE\n> Task :expo:extractReleaseAnnotations UP-TO-DATE\n> Task :expo:mergeReleaseGeneratedProguardFiles UP-TO-DATE\n> Task :expo:mergeReleaseConsumerProguardFiles UP-TO-DATE\n> Task :expo:mergeReleaseJavaResource UP-TO-DATE\n> Task :expo:syncReleaseLibJars UP-TO-DATE\n> Task :expo:bundleReleaseLocalLintAar UP-TO-DATE\n> Task :expo:lintVitalAnalyzeRelease UP-TO-DATE\n> Task :expo:generateReleaseLintVitalModel UP-TO-DATE\n\n> Task :app:createBundleReleaseJsAndAssets\nAndroid node_modules/expo-router/entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99.9% (2264/2264)\nAndroid Bundled 3863ms node_modules/expo-router/entry.js (2264 modules)\nWriting bundle output to: /Users/alex/Desktop/CJ/mother-bear-court/mobile/android/app/build/generated/assets/react/release/index.android.bundle\nWriting sourcemap output to: /Users/alex/Desktop/CJ/mother-bear-court/mobile/android/app/build/intermediates/sourcemaps/react/release/index.android.bundle.packager.map\nCopying 35 asset files\nDone writing bundle output\nDone writing sourcemap output\n\n> Task :app:preBuild\n> Task :app:preReleaseBuild\n> Task :app:configureCMakeRelWithDebInfo[arm64-v8a]\n> Task :app:buildCMakeRelWithDebInfo[arm64-v8a]\n> Task :app:configureCMakeRelWithDebInfo[armeabi-v7a]\n> Task :app:buildCMakeRelWithDebInfo[armeabi-v7a]\n> Task :app:configureCMakeRelWithDebInfo[x86]\n> Task :app:buildCMakeRelWithDebInfo[x86]\n> Task :app:configureCMakeRelWithDebInfo[x86_64]\n> Task :app:buildCMakeRelWithDebInfo[x86_64]\n> Task :app:mergeReleaseJniLibFolders UP-TO-DATE\n> Task :app:mergeReleaseNativeLibs UP-TO-DATE\n> Task :app:stripReleaseDebugSymbols UP-TO-DATE\n> Task :app:extractReleaseNativeSymbolTables UP-TO-DATE\n> Task :app:mergeReleaseNativeDebugMetadata UP-TO-DATE\n> Task :app:checkReleaseDuplicateClasses UP-TO-DATE\n> Task :app:generateReleaseBuildConfig UP-TO-DATE\n> Task :app:checkReleaseAarMetadata UP-TO-DATE\n> Task :app:createBundleReleaseJsAndAssets_SentryUpload_com.emorapy.app@1.3.1+1_1 SKIPPED\n> Task :app:generateReleaseResValues UP-TO-DATE\n> Task :app:mapReleaseSourceSetPaths UP-TO-DATE\n> Task :app:generateReleaseResources UP-TO-DATE\n> Task :app:mergeReleaseResources UP-TO-DATE\n> Task :app:packageReleaseResources UP-TO-DATE\n> Task :app:parseReleaseLocalResources UP-TO-DATE\n> Task :app:createReleaseCompatibleScreenManifests UP-TO-DATE\n> Task :app:extractDeepLinksRelease UP-TO-DATE\n> Task :app:processReleaseMainManifest UP-TO-DATE\n> Task :app:expoReleaseOverrideMaxSdkConflicts UP-TO-DATE\n> Task :app:processReleaseManifest UP-TO-DATE\n> Task :app:processReleaseManifestForPackage UP-TO-DATE\n> Task :app:processReleaseResources UP-TO-DATE\n> Task :app:compileReleaseKotlin UP-TO-DATE\n> Task :app:javaPreCompileRelease UP-TO-DATE\n> Task :app:compileReleaseJavaWithJavac UP-TO-DATE\n> Task :app:dexBuilderRelease UP-TO-DATE\n> Task :app:desugarReleaseFileDependencies UP-TO-DATE\n> Task :app:mergeReleaseStartupProfile UP-TO-DATE\n> Task :app:mergeExtDexRelease UP-TO-DATE\n> Task :app:mergeDexRelease UP-TO-DATE\n> Task :app:mergeReleaseArtProfile UP-TO-DATE\n> Task :app:mergeReleaseGlobalSynthetics UP-TO-DATE\n> Task :app:compileReleaseArtProfile UP-TO-DATE\n> Task :app:mergeReleaseShaders UP-TO-DATE\n> Task :app:compileReleaseShaders NO-SOURCE\n> Task :app:generateReleaseAssets UP-TO-DATE\n> Task :app:mergeReleaseAssets\n> Task :app:compressReleaseAssets\n\n> Task :app:createBundleReleaseJsAndAssets_SentryCollectModules_com.emorapy.app@1.3.1+1_1\nSentry Logger [log]: Reading source map from /Users/alex/Desktop/CJ/mother-bear-court/mobile/android/app/build/generated/sourcemaps/react/release/index.android.bundle.map\nSentry Logger [log]: Saving modules to /Users/alex/Desktop/CJ/mother-bear-court/mobile/android/app/src/main/assets/modules.json\nSentry Logger [log]: Resolving modules from paths /Users/alex/Desktop/CJ/mother-bear-court/mobile/node_modules\nSentry Logger [log]: Modules collected and saved to: /Users/alex/Desktop/CJ/mother-bear-court/mobile/android/app/src/main/assets/modules.json\n\n> Task :app:extractReleaseVersionControlInfo UP-TO-DATE\n> Task :app:extractProguardFiles UP-TO-DATE\n> Task :app:generateReleaseLintVitalReportModel\n> Task :app:lintVitalAnalyzeRelease UP-TO-DATE\n> Task :app:createBundleReleaseJsAndAssets_SentryUploadCleanUp SKIPPED\n> Task :app:lintVitalReportRelease UP-TO-DATE\n> Task :app:lintVitalRelease\n> Task :app:processReleaseJavaRes UP-TO-DATE\n> Task :app:mergeReleaseJavaResource UP-TO-DATE\n> Task :app:optimizeReleaseResources UP-TO-DATE\n> Task :app:collectReleaseDependencies UP-TO-DATE\n> Task :app:sdkReleaseDependencyData UP-TO-DATE\n> Task :app:validateSigningRelease UP-TO-DATE\n> Task :app:writeReleaseAppMetadata UP-TO-DATE\n> Task :app:writeReleaseSigningConfigVersions UP-TO-DATE\n> Task :app:packageRelease\n> Task :app:createReleaseApkListingFileRedirect UP-TO-DATE\n> Task :app:createBundleReleaseJsAndAssets_SentryCollectModulesCleanUp\n> Task :app:assembleRelease\n\n[Incubating] Problems report is available at: file:///Users/alex/Desktop/CJ/mother-bear-court/mobile/android/build/reports/problems/problems-report.html\n\nDeprecated Gradle features were used in this build, making it incompatible with Gradle 10.\n\nYou can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.\n\nFor more on this, please refer to https://docs.gradle.org/9.0.0/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.\n\nBUILD SUCCESSFUL in 20s\n484 actionable tasks: 55 executed, 429 up-to-date\n",
+      "stderr_tail": "\u001b[33m› \u001b[1m[@sentry/react-native/expo]\u001b[22m Missing config for \u001b[1morganization, project\u001b[22m. Environment variables will be used as a fallback during the build. https://docs.sentry.io/platforms/react-native/manual-setup/\u001b[0m\n\u001b[33m› \u001b[1m[@sentry/react-native/expo]\u001b[22m Missing config for \u001b[1morganization, project\u001b[22m. Environment variables will be used as a fallback during the build. https://docs.sentry.io/platforms/react-native/manual-setup/\u001b[0m\n"
+    },
+    "install": {
+      "command": "/Users/alex/Library/Android/sdk/platform-tools/adb",
+      "args": [
+        "-s",
+        "emulator-5554",
+        "install",
+        "-r",
+        "/Users/alex/Desktop/CJ/mother-bear-court/mobile/android/app/build/outputs/apk/release/app-release.apk"
+      ],
+      "exit_code": 0,
+      "signal": null,
+      "duration_ms": 756,
+      "stdout_tail": "Performing Streamed Install\nSuccess\n",
+      "stderr_tail": ""
+    },
+    "resolve_activity": {
+      "command": "/Users/alex/Library/Android/sdk/platform-tools/adb",
+      "args": [
+        "-s",
+        "emulator-5554",
+        "shell",
+        "cmd",
+        "package",
+        "resolve-activity",
+        "--brief",
+        "com.emorapy.app"
+      ],
+      "exit_code": 0,
+      "signal": null,
+      "duration_ms": 45,
+      "stdout_tail": "priority=0 preferredOrder=0 match=0x108000 specificIndex=-1 isDefault=false\ncom.emorapy.app/.MainActivity\n",
+      "stderr_tail": ""
+    },
+    "launch": {
+      "command": "/Users/alex/Library/Android/sdk/platform-tools/adb",
+      "args": [
+        "-s",
+        "emulator-5554",
+        "shell",
+        "am",
+        "start",
+        "-n",
+        "com.emorapy.app/.MainActivity"
+      ],
+      "exit_code": 0,
+      "signal": null,
+      "duration_ms": 105,
+      "stdout_tail": "Starting: Intent { cmp=com.emorapy.app/.MainActivity }\n",
+      "stderr_tail": ""
+    },
+    "pidof": {
+      "command": "/Users/alex/Library/Android/sdk/platform-tools/adb",
+      "args": [
+        "-s",
+        "emulator-5554",
+        "shell",
+        "pidof",
+        "com.emorapy.app"
+      ],
+      "exit_code": 0,
+      "signal": null,
+      "duration_ms": 28,
+      "stdout_tail": "8599\n",
+      "stderr_tail": ""
+    },
+    "activity": {
+      "command": "/Users/alex/Library/Android/sdk/platform-tools/adb",
+      "args": [
+        "-s",
+        "emulator-5554",
+        "shell",
+        "dumpsys",
+        "activity",
+        "activities"
+      ],
+      "exit_code": 0,
+      "signal": null,
+      "duration_ms": 21,
+      "stdout_tail": "        mWin=Window{203976b u0 StatusBar}\n      InsetsSourceProvider\n        mSource=InsetsSource id=5ca40000 type=statusBars frame=[0,0][1080,142] visible=true flags= sideHint=TOP boundingRects=null\n        mSourceFrame=Rect(0, 0 - 1080, 142)\n        mControl=InsetsSourceControl mId=5ca40000 mType=statusBars mLeash=Surface(name=Surface(name=203976b StatusBar#80)/@0x106c09d - animation-leash of insets_animation#412)/@0xeb36aff mInitiallyVisible=true mSurfacePosition=Point(0, 0) mInsetsHint=Insets{left=0, top=142, right=0, bottom=0} mSkipAnimationOnce=false mImeStatsToken=null\n        mInsetsHint=Insets{left=0, top=142, right=0, bottom=0}\n        mIsLeashInitialized=true mHasPendingPosition=false\n        mWin=Window{203976b u0 StatusBar}\n        mAdapter=ControlAdapter mCapturedLeash=Surface(name=Surface(name=203976b StatusBar#80)/@0x106c09d - animation-leash of insets_animation#412)/@0xeb36aff\n        mControlTarget=Window{d35a67 u0 com.emorapy.app/com.emorapy.app.MainActivity}\n      InsetsSourceProvider\n        mSource=InsetsSource id=338d0024 type=systemGestures frame=[1002,0][1080,2424] visible=true flags= sideHint=RIGHT boundingRects=null\n        mSourceFrame=Rect(1002, 0 - 1080, 2424)\n        mIsLeashInitialized=false mHasPendingPosition=false\n        mWin=Window{70de7ad u0 Taskbar}\n      InsetsSourceProvider\n        mSource=InsetsSource id=338d0006 type=tappableElement frame=[0,0][0,0] visible=true flags= sideHint=NONE boundingRects=null\n        mSourceFrame=Rect(0, 0 - 0, 0)\n        mOverrideFrames={2031=Rect(0, 0 - 0, 0)}\n        mIsLeashInitialized=false mHasPendingPosition=false\n        mWin=Window{70de7ad u0 Taskbar}\n      InsetsSourceProvider\n        mSource=InsetsSource id=338d0005 type=mandatorySystemGestures frame=[0,2340][1080,2424] visible=true flags= sideHint=BOTTOM boundingRects=null\n        mSourceFrame=Rect(0, 2340 - 1080, 2424)\n        mIsLeashInitialized=false mHasPendingPosition=false\n        mWin=Window{70de7ad u0 Taskbar}\n      InsetsSourceProvider\n        mSource=InsetsSource id=338d0004 type=systemGestures frame=[0,0][78,2424] visible=true flags= sideHint=LEFT boundingRects=null\n        mSourceFrame=Rect(0, 0 - 78, 2424)\n        mIsLeashInitialized=false mHasPendingPosition=false\n        mWin=Window{70de7ad u0 Taskbar}\n      InsetsSourceProvider\n        mSource=InsetsSource id=338d0001 type=navigationBars frame=[0,2361][1080,2424] visible=true flags=SUPPRESS_SCRIM|ANIMATE_RESIZING sideHint=BOTTOM boundingRects=null\n        mSourceFrame=Rect(0, 2361 - 1080, 2424)\n        mControl=InsetsSourceControl mId=338d0001 mType=navigationBars mLeash=Surface(name=Surface(name=70de7ad Taskbar#72)/@0x75aae21 - animation-leash of insets_animation#413)/@0xd3870cc mInitiallyVisible=true mSurfacePosition=Point(0, 2361) mInsetsHint=Insets{left=0, top=0, right=0, bottom=63} mSkipAnimationOnce=false mImeStatsToken=null\n        mInsetsHint=Insets{left=0, top=0, right=0, bottom=63}\n        mIsLeashInitialized=true mHasPendingPosition=false\n        mWin=Window{70de7ad u0 Taskbar}\n        mAdapter=ControlAdapter mCapturedLeash=Surface(name=Surface(name=70de7ad Taskbar#72)/@0x75aae21 - animation-leash of insets_animation#413)/@0xd3870cc\n        mControlTarget=Window{d35a67 u0 com.emorapy.app/com.emorapy.app.MainActivity}\n      ImeInsetsSourceProvider\n        mSource=InsetsSource id=3 type=ime frame=[0,0][0,0] visibleFrame=[0,2298][1080,2424] visible=false flags=INVALID sideHint=NONE boundingRects=null\n        mSourceFrame=Rect(0, 2298 - 1080, 2424)\n        mControl=InsetsSourceControl mId=3 mType=ime mLeash=Surface(name=Surface(name=3239366 InputMethod#217)/@0x6aae754 - animation-leash of insets_animation#415)/@0xd2e5f15 mInitiallyVisible=false mSurfacePosition=Point(0, 142) mInsetsHint=Insets{left=0, top=0, right=0, bottom=883} mSkipAnimationOnce=false mImeStatsToken=null\n        mInsetsHint=Insets{left=0, top=0, right=0, bottom=883} stale\n        mIsLeashInitialized=true mHasPendingPosition=false\n        mWin=Window{3239366 u0 InputMethod}\n        mAdapter=ControlAdapter mCapturedLeash=Surface(name=Surface(name=3239366 InputMethod#217)/@0x6aae754 - animation-leash of insets_animation#415)/@0xd2e5f15\n        mControlTarget=Window{d35a67 u0 com.emorapy.app/com.emorapy.app.MainActivity}\n        mImeShowing=false mLastDrawn=false\n  InsetsPolicy\n    status: WINDOW_STATE_SHOWING\n    nav: WINDOW_STATE_SHOWING\n\n  DisplayWindowSettingsProvider\n    SettingsEntry{mWindowingMode=0, mUserRotationMode=null, mUserRotation=null, mForcedWidth=0, mForcedHeight=0, mForcedDensity=0, mForcedDensityRatio=0.0, mForcedScalingMode=null, mRemoveContentMode=0, mShouldShowWithInsecureKeyguard=null, mShouldShowSystemDecors=null, mIsHomeSupported=null, mShouldShowIme=null, mFixedToUserRotation=null, mIgnoreOrientationRequest=null, mIgnoreDisplayCutout=null, mDontMoveToTop=null, mForceAppsUniversalResizable=null}\n\n  KeyguardController:\n    mKeyguardShowing=false\n    mAodShowing=false\n    mKeyguardGoingAway=false\n   KeyguardShowing=false AodShowing=false KeyguardGoingAway=false DismissalRequested=false  Occluded=false DismissingKeyguardActivity=null TurnScreenOnActivity=null at display=0\n    mDismissalRequested=false\n\n  LockTaskController:\n    mLockTaskModeState=NONE\n    mLockTaskModeTasks=\n    mLockTaskPackages (userId:packages)=\n\n  mCurTaskIdForUser={0=59}\n  mUserRootTaskInFront={}\n  mVisibilityTransactionDepth=0\n  isHomeRecentsComponent=true\n  mNoHistoryActivities=[]\n\n  TaskOrganizerController:\n      android.window.ITaskOrganizer$Stub$Proxy@94b782 uid=10191 (active):\n        (fullscreen) Task{ab7ba47 #1 type=home}\n        (fullscreen) Task{3f8e15a #3 name=SplitRoot type=undefined}\n        (multi-window) Task{b74a868 #4 name=main type=undefined}\n        (multi-window) Task{b3d8f8b #5 name=side type=undefined}\n        (fullscreen) Task{c7a6206 #59 type=standard A=10224:com.emorapy.app}\n\n  VisibleActivityProcess:[ ProcessRecord{6ac2ff8 8599:com.emorapy.app/u0a224}]\n  NumNonAppVisibleWindowUidMap:[ 10193:1 10191:3]\n",
+      "stderr_tail": ""
+    },
+    "window": {
+      "command": "/Users/alex/Library/Android/sdk/platform-tools/adb",
+      "args": [
+        "-s",
+        "emulator-5554",
+        "shell",
+        "dumpsys",
+        "window"
+      ],
+      "exit_code": 0,
+      "signal": null,
+      "duration_ms": 20,
+      "stdout_tail": "e isReadyForDisplay()=false mWindowRemovalAllowed=false\n    ContainerAnimator:\n      mLeash=Surface(name=Surface(name=3239366 InputMethod#217)/@0x6aae754 - animation-leash of insets_animation#415)/@0xd2e5f15 mAnimationType=insets_animation\n      Animation: com.android.server.wm.InsetsSourceProvider$ControlAdapter@faa26f6\n        ControlAdapter mCapturedLeash=Surface(name=Surface(name=3239366 InputMethod#217)/@0x6aae754 - animation-leash of insets_animation#415)/@0xd2e5f15\n    WindowStateAnimator{5062cb6 InputMethod}:\n    isOnScreen=false\n    isVisible=false\n    keepClearAreas: restricted=[], unrestricted=[]\n    mPrepareSyncSeqId=0\n    mBufferSeqId=0\n  Window #8 Window{d35a67 u0 com.emorapy.app/com.emorapy.app.MainActivity}:\n    mDisplayId=0 taskId=59 mSession=Session{d983605 8599:u0a10224} mClient=android.os.BinderProxy@a45de26\n    mOwnerUid=10224 showForAllUsers=false package=com.emorapy.app appop=NONE\n    mAttrs={(0,0)(fillxfill) sim={adjust=resize forwardNavigation} layoutInDisplayCutoutMode=always ty=BASE_APPLICATION wanim=0x103030d\n      fl=LAYOUT_IN_SCREEN LAYOUT_INSET_DECOR SPLIT_TOUCH HARDWARE_ACCELERATED DRAWS_SYSTEM_BAR_BACKGROUNDS\n      pfl=NO_MOVE_ANIMATION EDGE_TO_EDGE_ENFORCED FORCE_DRAW_STATUS_BAR_BACKGROUND FIT_INSETS_CONTROLLED\n      vsysui=LIGHT_NAVIGATION_BAR\n      apr=LIGHT_STATUS_BARS LIGHT_NAVIGATION_BARS\n      bhv=SHOW_TRANSIENT_BARS_BY_SWIPE\n      fitSides=\n      frameRateBoostOnTouch=true\n      dvrrWindowFrameRateHint=true}\n    Requested w=1080 h=2424 mLayoutSeq=373\n    mHasSurface=true isReadyForDisplay()=true mWindowRemovalAllowed=false\n    WindowStateAnimator{65db81b com.emorapy.app/com.emorapy.app.MainActivity}:\n      Surface: shown=true    isOnScreen=true\n    isVisible=true\n    keepClearAreas: restricted=[], unrestricted=[]\n    mPrepareSyncSeqId=0\n    mBufferSeqId=0\n  Window #9 Window{e9ddbc0 u0 com.google.android.apps.nexuslauncher/com.google.android.apps.nexuslauncher.NexusLauncherActivity}:\n    mDisplayId=0 taskId=2 mSession=Session{15494bc 1112:u0a10193} mClient=android.os.BinderProxy@7389943\n    mOwnerUid=10193 showForAllUsers=false package=com.google.android.apps.nexuslauncher appop=NONE\n    mAttrs={(0,0)(fillxfill) sim={adjust=nothing} layoutInDisplayCutoutMode=always ty=BASE_APPLICATION fmt=TRANSPARENT wanim=0x1030301\n      fl=LAYOUT_IN_SCREEN LAYOUT_INSET_DECOR SHOW_WALLPAPER SPLIT_TOUCH DRAWS_SYSTEM_BAR_BACKGROUNDS\n      pfl=NO_MOVE_ANIMATION OPTIMIZE_MEASURE EDGE_TO_EDGE_ENFORCED FORCE_DRAW_STATUS_BAR_BACKGROUND FIT_INSETS_CONTROLLED\n      vsysui=LAYOUT_STABLE LAYOUT_HIDE_NAVIGATION LAYOUT_FULLSCREEN\n      bhv=DEFAULT\n      fitSides=\n      frameRateBoostOnTouch=true\n      dvrrWindowFrameRateHint=true}\n    Requested w=1080 h=2424 mLayoutSeq=360\n    mHasSurface=false isReadyForDisplay()=false mWindowRemovalAllowed=false\n    WindowStateAnimator{5ac9ce com.google.android.apps.nexuslauncher/com.google.android.apps.nexuslauncher.NexusLauncherActivity}:\n    mWallpaperX=0.0 mWallpaperY=0.5\n    mWallpaperXStep=0.33333334 mWallpaperYStep=1.0\n    mWallpaperZoomOut=0.0\n    isOnScreen=false\n    isVisible=false\n    keepClearAreas: restricted=[], unrestricted=[]\n    mPrepareSyncSeqId=0\n    mBufferSeqId=0\n  Window #10 Window{76b01e5 u0 com.android.systemui.wallpapers.ImageWallpaper}:\n    mDisplayId=0 mSession=Session{2d7867f 980:u0a10191} mClient=android.os.BinderProxy@8e99cdc\n    mOwnerUid=10191 showForAllUsers=true package=com.android.systemui appop=NONE\n    mAttrs={(0,0)(2183x2424) gr=TOP START CENTER layoutInDisplayCutoutMode=always ty=WALLPAPER fmt=RGBX_8888 wanim=0x103031d\n      fl=NOT_FOCUSABLE NOT_TOUCHABLE LAYOUT_IN_SCREEN LAYOUT_NO_LIMITS SCALED LAYOUT_INSET_DECOR\n      pfl=WANTS_OFFSET_NOTIFICATIONS SHOW_FOR_ALL_USERS\n      bhv=DEFAULT\n      frameRateBoostOnTouch=true\n      dvrrWindowFrameRateHint=true}\n    Requested w=922 h=1024 mLayoutSeq=367\n    mIsImWindow=false mIsWallpaper=true mIsFloatingLayer=true\n    mHasSurface=true isReadyForDisplay()=false mWindowRemovalAllowed=false\n    WindowStateAnimator{1675ec9 com.android.systemui.wallpapers.ImageWallpaper}:\n      Surface: shown=false    mHScale=2.3676789 mVScale=2.3671875\n    mWallpaperX=0.0 mWallpaperY=0.5\n    mWallpaperXStep=0.33333334 mWallpaperYStep=1.0\n    mWallpaperZoomOut=0.0\n    isOnScreen=false\n    isVisible=false\n    keepClearAreas: restricted=[], unrestricted=[]\n    mPrepareSyncSeqId=0\n    mBufferSeqId=0\n\n  mGlobalConfiguration={1.0 310mcc260mnc [en_US] ldltr sw411dp w411dp h923dp 420dpi nrml long compactNeeded port finger -keyb/v/h -nav/h winConfig={ mBounds=Rect(0, 0 - 1080, 2424) mAppBounds=Rect(0, 0 - 1080, 2424) mMaxBounds=Rect(0, 0 - 1080, 2424) mDisplayRotation=ROTATION_0 mWindowingMode=fullscreen mActivityType=undefined mAlwaysOnTop=undefined mRotation=ROTATION_0} as.3 s.52 fontWeightAdjustment=0}\n  mHasPermanentDpad=false\n  mTopFocusedDisplayId=0\n  Minimum task size of display#0 220\n  mBlurEnabled=true\n  mDisableSecureWindows=false\n mHighResSnapshotScale=0.8\n mSnapshotEnabled=true\n SnapshotCache Task\n mHighResSnapshotScale=0.6\n mSnapshotEnabled=true\n SnapshotCache Activity\n   UserSavedFile userId=0\nWINDOW MANAGER TRACE (dumpsys window trace)\nStatus: Disabled\nSessions logging 'on frame': 0\nSessions logging 'on transaction': 0\n\nDeprecated legacy command. Use Perfetto commands instead.\nWINDOW MANAGER HIGH REFRESH RATE BLACKLIST (dumpsys window refresh)\nHigh Refresh Rate Denylist\n  Packages:\nINSTALLED PACKAGES HAVING APP-SPECIFIC CONFIGURATIONS\nCurrent user ID : 0\nWINDOW MANAGER CONSTANTS (dumpsys window constants):\n  system_gesture_exclusion_log_debounce_millis=1500\n  system_gesture_exclusion_limit_dp=200\n  system_gestures_excluded_by_pre_q_sticky_immersive=false\n  ignore_activity_orientation_request_screens=none\n\nSystemPerformanceHinter:\n  Active sessions (0):\nTrustedPresentationListenerController:\n  Active unique listeners (0):\nSensitiveContentPackages:\n  Packages that should block screen capture (0):\nScreenRecordingCallbackController:\n  Registered callbacks:\n  Last invoked states:\n",
+      "stderr_tail": ""
+    }
+  }
+}

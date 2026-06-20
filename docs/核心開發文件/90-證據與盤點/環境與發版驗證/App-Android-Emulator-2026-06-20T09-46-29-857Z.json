@@ -1,0 +1,38 @@
+{
+  "type": "app-android-emulator-runtime-smoke",
+  "generated_at": "2026-06-20T09:46:29.857Z",
+  "started_at": "2026-06-20T09:46:10.092Z",
+  "working_directory": "/Users/alex/Desktop/CJ/mother-bear-court/mobile",
+  "node_version": "v25.8.1",
+  "app_android_package": "com.emorapy.app",
+  "avd_name": "CJ_Pixel_9_API_36",
+  "sdk_root": "/Users/alex/Library/Android/sdk",
+  "commands": {
+    "adb": "/Users/alex/Library/Android/sdk/platform-tools/adb",
+    "emulator": "/Users/alex/Library/Android/sdk/emulator/emulator",
+    "avdmanager": "/Users/alex/Library/Android/sdk/cmdline-tools/latest/bin/avdmanager"
+  },
+  "summary": {
+    "booted": true,
+    "blocked": false,
+    "duration_ms": 19765,
+    "failure": null
+  },
+  "adb_start": {
+    "exit_code": 0,
+    "stdout_tail": "",
+    "stderr_tail": ""
+  },
+  "device": {
+    "serial": "emulator-5554",
+    "boot_completed": "1",
+    "build_version_release": "16",
+    "build_version_sdk": "36",
+    "product_model": "sdk_gphone64_arm64",
+    "product_cpu_abi": "arm64-v8a"
+  },
+  "emulator_output": {
+    "stdout_tail": "cbcr emulation: false\nINFO         |     guestVulkanOnly: false\nINFO         |     useDedicatedAllocations: false\nINFO         |     guestVulkanMaxApiVersion: 1.4.344\nINFO         | Graphics Adapter Vendor Google (Google Inc. (Google))\nINFO         | Graphics Adapter Android Emulator OpenGL ES Translator (ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver-5.0.0))\nINFO         | Graphics API Version OpenGL ES 3.0 (OpenGL ES 3.1.0 (ANGLE 2.1.1 git hash: fbf66f49c7cc))\nINFO         | Graphics API Extensions GL_OES_EGL_sync GL_OES_EGL_image GL_OES_EGL_image_external GL_OES_depth24 GL_OES_depth32 GL_OES_element_index_uint GL_OES_texture_float GL_OES_texture_float_linear GL_OES_compressed_paletted_texture GL_OES_compressed_ETC1_RGB8_texture GL_OES_depth_texture GL_OES_texture_half_float GL_OES_texture_half_float_linear GL_OES_packed_depth_stencil GL_OES_vertex_half_float GL_OES_standard_derivatives GL_OES_texture_npot GL_OES_rgb8_rgba8 GL_OVR_multiview2 GL_EXT_color_buffer_float GL_EXT_color_buffer_half_float GL_EXT_texture_format_BGRA8888 GL_APPLE_texture_format_BGRA8888 GL_EXT_draw_buffers_indexed GL_EXT_clip_cull_distance \nINFO         | Graphics Device Extensions N/A\nINFO         | Disabling sparse binding feature support\nINFO         | Sending adb public key [QAAAAEEJocI/eT82zJL+jD9VIp+Hdnx9LsNml4CpF8opcq5p4Y7a+OWRMiUA37K9soTqUMCLxxgSnaBdWrByVUiqHn2c0VrusB8G+AKMqWHfIkimVwin48LMeu8eJZGJOIZogMbyl690NafZxGn8KE952gsUgfEMXXldGLsdSrClLM8fTpqCAr0AFMhWmdel139bAXAo2CYF4U8FV3EQYZIOr3CJrbWP02dzWXJuUlHQjf4lNHZ0VxKpldotPIvV2QGpUULNDikJ3P7mGE8lXcFJAlhwswYh/+pfhJ8eU7eaac4s4FFNlLw6iAssH96u5/h+2Q+N5PJuvdF2ttbnytsvFfWTyDG5yH7gz3QxWEMfMWrxRXVF7HdOGaUEkCMVr2pseuRTG5nl56xZMS4cTld/vwsiFVATmdLQ8xW/U+RRhvNDTBCvaq4RvviT/7QzdDnJfa8qB0KS5DyoV3dZ61LFMYO9pja6lBNytqQYC/5vVkWVpOvETs91sSVucbG1kFr2Hed6zeX6tPKMSpsaMM404pWw+EoUlJ2JNlFvQX7SeJ9q7x1eu+o/ps/CBCmoEmzhG9xkWE0UvB7067rRxdsoD4PFJ4yVECAiOrqd/KCw29ExuOX4sCXL3iCUEfzLQhkmazt9PUr9lDk1RpEkliMcTh8j6j6ymBXLaOJ3zN2XEco457J0MgEAAQA= alex@unknown]\nINFO         | Userspace boot properties:\nINFO         |   androidboot.boot_devices=a003600.virtio_mmio\nINFO         |   androidboot.dalvik.vm.heapsize=512m\nINFO         |   androidboot.debug.hwui.renderer=skiagl\nINFO         |   androidboot.debug.sf.nobootanimation=1\nINFO         |   androidboot.hardware=ranchu\nINFO         |   androidboot.hardware.gltransport=pipe\nINFO         |   androidboot.hardware.vulkan=ranchu\nINFO         |   androidboot.logcat=*:V\nINFO         |   androidboot.opengles.version=196609\nINFO         |   androidboot.qemu=1\nINFO         |   androidboot.qemu.adb.pubkey=QAAAAEEJocI/eT82zJL+jD9VIp+Hdnx9LsNml4CpF8opcq5p4Y7a+OWRMiUA37K9soTqUMCLxxgSnaBdWrByVUiqHn2c0VrusB8G+AKMqWHfIkimVwin48LMeu8eJZGJOIZogMbyl690NafZxGn8KE952gsUgfEMXXldGLsdSrClLM8fTpqCAr0AFMhWmdel139bAXAo2CYF4U8FV3EQYZIOr3CJrbWP02dzWXJuUlHQjf4lNHZ0VxKpldotPIvV2QGpUULNDikJ3P7mGE8lXcFJAlhwswYh/+pfhJ8eU7eaac4s4FFNlLw6iAssH96u5/h+2Q+N5PJuvdF2ttbnytsvFfWTyDG5yH7gz3QxWEMfMWrxRXVF7HdOGaUEkCMVr2pseuRTG5nl56xZMS4cTld/vwsiFVATmdLQ8xW/U+RRhvNDTBCvaq4RvviT/7QzdDnJfa8qB0KS5DyoV3dZ61LFMYO9pja6lBNytqQYC/5vVkWVpOvETs91sSVucbG1kFr2Hed6zeX6tPKMSpsaMM404pWw+EoUlJ2JNlFvQX7SeJ9q7x1eu+o/ps/CBCmoEmzhG9xkWE0UvB7067rRxdsoD4PFJ4yVECAiOrqd/KCw29ExuOX4sCXL3iCUEfzLQhkmazt9PUr9lDk1RpEkliMcTh8j6j6ymBXLaOJ3zN2XEco457J0MgEAAQA= alex@unknown\nINFO         |   androidboot.qemu.avd_name=CJ_Pixel_9_API_36\nINFO         |   androidboot.qemu.camera_hq_edge_processing=0\nINFO         |   androidboot.qemu.camera_protocol_ver=1\nINFO         |   androidboot.qemu.cpuvulkan.version=4202496\nINFO         |   androidboot.qemu.gltransport.drawFlushInterval=800\nINFO         |   androidboot.qemu.gltransport.name=pipe\nINFO         |   androidboot.qemu.hwcodec.avcdec=2\nINFO         |   androidboot.qemu.hwcodec.hevcdec=2\nINFO         |   androidboot.qemu.hwcodec.vpxdec=2\nINFO         |   androidboot.qemu.settings.system.screen_off_timeout=2147483647\nINFO         |   androidboot.qemu.skin=1080x2424\nINFO         |   androidboot.qemu.virtiowifi=1\nINFO         |   androidboot.qemu.vsync=60\nINFO         |   androidboot.serialno=EMULATOR36X5X11X0\nINFO         |   androidboot.vbmeta.digest=1eb88dcac2efe7c56ec4ac92b93d5803df60057ea979c347e64db6be6c62d1f2\nINFO         |   androidboot.vbmeta.hash_alg=sha256\nINFO         |   androidboot.vbmeta.size=6720\nINFO         |   androidboot.veritymode=enforcing\nINFO         | Monitoring duration of emulator setup.\nWARNING      | The emulator now requires a signed jwt token for gRPC access! Use the -grpc flag if you really want an open unprotected grpc port\nINFO         | Using security allow list from: /Users/alex/Library/Android/sdk/emulator/lib/emulator_access.json\nWARNING      | *** Basic token auth should only be used by android-studio ***\nINFO         | The active JSON Web Key Sets can be found here: /Users/alex/Library/Caches/TemporaryItems/avd/running/5947/jwks/8b0a8a8f-aef5-4f42-8648-7986d9fc2456/active.jwk\nINFO         | Scanning /Users/alex/Library/Caches/TemporaryItems/avd/running/5947/jwks/8b0a8a8f-aef5-4f42-8648-7986d9fc2456 for jwk keys.\nINFO         | Started GRPC server at 127.0.0.1:8554, security: Local, auth: +token\nINFO         | Advertising in: /Users/alex/Library/Caches/TemporaryItems/avd/running/pid_5947.ini\nINFO         | Activated packet streamer for uwb emulation\nINFO         | Successfully initialized netsim WiFi\nINFO         | Activated packet streamer for bluetooth emulation\nINFO         | Setting display: 0 configuration to: 1080x2424, dpi: 420x420 \nINFO         | setDisplayActiveConfig: id:0, 1080x2424\nINFO         | emulatorSetupEnvironment: Setting up screen background view and display layout at env:1080x2424, lcd:1080x2424\nINFO         | emulatorSetupEnvironment: Environment scene is not required\nUSER_INFO    | Emulator is performing a full startup. This may take upto two minutes, or more.\nINFO         | Boot completed in 17836 ms\nINFO         | Increasing screen off timeout, logcat buffer size to 2M.\n",
+    "stderr_tail": ""
+  }
+}

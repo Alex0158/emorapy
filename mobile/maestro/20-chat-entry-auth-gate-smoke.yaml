@@ -42,7 +42,7 @@ tags:
     timeout: 10000
 - assertVisible:
     id: chat.home.profile
-- openLink: cj://chat/room?roomId=room-smoke
+- openLink: emorapy://chat/room?roomId=room-smoke
 - tapOn:
     text: Open
     optional: true

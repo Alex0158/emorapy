@@ -10,7 +10,7 @@ tags:
 - tapOn:
     text: Cancel
     optional: true
-- openLink: cj://chat/room?roomId=room-smoke
+- openLink: emorapy://chat/room?roomId=room-smoke
 - tapOn:
     text: Open
     optional: true
@@ -18,7 +18,7 @@ tags:
     id: auth.screen
 - assertVisible:
     id: auth.email.input
-- openLink: cj://quick
+- openLink: emorapy://quick
 - tapOn:
     text: Open
     optional: true

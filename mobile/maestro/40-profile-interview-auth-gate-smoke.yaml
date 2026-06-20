@@ -10,7 +10,7 @@ tags:
 - tapOn:
     text: Cancel
     optional: true
-- openLink: cj://profile
+- openLink: emorapy://profile
 - tapOn:
     text: Open
     optional: true
@@ -18,7 +18,7 @@ tags:
     id: auth.screen
 - assertVisible:
     id: auth.email.input
-- openLink: cj://profile/interview
+- openLink: emorapy://profile/interview
 - tapOn:
     text: Open
     optional: true
@@ -26,7 +26,7 @@ tags:
     id: auth.screen
 - assertVisible:
     id: auth.email.input
-- openLink: cj://profile/story
+- openLink: emorapy://profile/story
 - tapOn:
     text: Open
     optional: true

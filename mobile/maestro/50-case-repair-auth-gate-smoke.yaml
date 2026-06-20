@@ -20,7 +20,7 @@ tags:
     id: case.auth-gate.quick
 - assertVisible:
     id: quick.screen
-- openLink: cj://case
+- openLink: emorapy://case
 - tapOn:
     text: Open
     optional: true
@@ -28,7 +28,7 @@ tags:
     id: auth.screen
 - assertVisible:
     id: auth.email.input
-- openLink: cj://repair
+- openLink: emorapy://repair
 - tapOn:
     text: Open
     optional: true

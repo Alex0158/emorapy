@@ -66,7 +66,10 @@ function hasPlugin(plugins, pluginName) {
 }
 
 function hasPermission(permissions, permissionName) {
-  return Array.isArray(permissions) && permissions.includes(permissionName);
+  return (
+    Array.isArray(permissions) &&
+    (permissions.includes(permissionName) || permissions.includes(`android.permission.${permissionName}`))
+  );
 }
 
 function pushConfigFailure(condition, message) {

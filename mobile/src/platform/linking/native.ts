@@ -61,7 +61,7 @@ function parsePath(rawPath: string): { pathname: string; searchParams: URLSearch
 function normalizePathFromUrl(rawUrl: string): string | null {
   try {
     const parsed = new URL(rawUrl);
-    if (parsed.protocol === 'cj:') {
+    if (parsed.protocol === 'emorapy:') {
       const host = parsed.hostname ? `/${parsed.hostname}` : '';
       const pathname = parsed.pathname === '/' ? '' : parsed.pathname;
       return `${host}${pathname || ''}${parsed.search}` || '/';

@@ -28,7 +28,7 @@ App 版正式承載目錄為 `mobile/`。目前它是 Expo / React Native 專案
 | M0-M5 普通用戶 App 工程 | Quick / Auth / Profile / Interview / Chat / Formal Case / Repair / Notification / Deep Link / Upload / Telemetry 已有 baseline screen、platform adapter、shared API client 消費與 gate | 不等於完整 native runtime、provider side-effect 或 release sign-off 完成 |
 | Stream / lifecycle | Quick result、Interview、Chat AI draft 與 Repair replan 使用共用 App AI stream subscription hook，並以 `after_seq` replay / reconnect 作 App 層恢復語義 | Screen-level 或本地 gate 不等於 physical device foreground-background runtime 全覆蓋 |
 | Push / Deep Link / Upload / Telemetry | Push token sync、notification landing、Deep Link auth resume、upload adapter、safe telemetry ingest、Emorapy OTLP JSON trace ingest 與 Admin telemetry report 已有 backend / App baseline 接線 | 不等於 APNs / provider delivery、真機 selected asset、真機 notification response 或 production native crash runtime 完成 |
-| M6 release evidence | release / production DB parity、telemetry runtime 與 EAS Android production artifact 是已具備且可被 audit 接受的證據槽；EAS iOS / TestFlight / physical device / provider / native crash runner 與 handoff gate 已建立 | 只有 `release:completion:audit:strict` 接受的 pass JSON 能解除對應 release blocker |
+| M6 release evidence | release / production DB parity、telemetry runtime、EAS Android production artifact、Android emulator / app / full-flow runtime evidence 與 native ImagePicker upload evidence 是已具備且可被 audit 接受的證據槽；EAS iOS / TestFlight / physical device / provider / native crash runner 與 handoff gate 已建立 | 只有 `release:completion:audit:strict` 接受的 pass JSON 能解除對應 release blocker |
 
 當前 App 完成語氣必須以 `mobile/scripts/check-release-completion-audit.mjs` 與 `npm --prefix mobile run release:completion:audit` 為準。現行 strict release sign-off 仍至少受以下 blocker 約束：
 
@@ -37,10 +37,8 @@ App 版正式承載目錄為 `mobile/`。目前它是 Expo / React Native 專案
 | `apple_submission_credentials`、`app_store_connect_api_credentials` | iOS submit / TestFlight 查詢 credential 尚未完成 |
 | `eas_ios_build_artifact`、`testflight_evidence` | iOS EAS production store build 與 TestFlight structured pass evidence 尚未完成 |
 | `physical_device_evidence` | iOS / Android physical device structured evidence 尚未完成 |
-| `android_emulator_runtime_evidence`、`android_app_runtime_evidence`、`android_full_flow_evidence` | Emorapy identity 下的 Android emulator boot、release APK install / launch 與 full Maestro flow evidence 尚未刷新 |
 | `ios_release_simulator_evidence` | Emorapy identity 下的 iOS Release simulator build / install / launch evidence 尚未刷新 |
 | `apns_or_provider_delivery_evidence` | Push provider delivery structured pass evidence 尚未完成 |
-| `native_imagepicker_upload_evidence` | Emorapy identity 下的 native ImagePicker upload evidence 尚未刷新 |
 | `native_crash_runtime_evidence` | production environment native crash runtime structured pass evidence 尚未完成 |
 
 細節命令、單次 artifact、機型與歷史修復過程不在本總覽展開；需要追溯時看 [03-App完整版本開發Roadmap.md](./03-App完整版本開發Roadmap.md)、[../08-測試規範與驗收/03-App測試與證據接入基線.md](../08-測試規範與驗收/03-App測試與證據接入基線.md) 與 [../90-證據與盤點/環境與發版驗證/README.md](../90-證據與盤點/環境與發版驗證/README.md)。
@@ -102,7 +100,7 @@ M0-M5 App 工程 baseline 已具備。後續閉環應按以下穩定邊界追蹤
 | M3 Chat | room / invite / message / request judgment / auth resume、AI draft stream replay/recovery 與 shared Chat client | native reconnect 與真 push invite landing evidence |
 | M4 Formal Case + Repair | pairing / case / evidence upload / judgment / execution / repair replan App flow 與 DB-backed replay baseline | canonical dashboard native evidence、真機 selected-media upload 與 repair journey 全狀態 evidence |
 | M5 Push + Deep Link + Upload + Telemetry | Push token registration / revoke、notification state sync、Deep Link auth resume、safe telemetry ingest、Emorapy OTLP JSON trace ingest 與 telemetry runtime evidence slot | provider delivery、真機 notification response landing、真機 selected asset / profile media 與 production native crash runtime evidence |
-| M6 Release Hardening | release readiness、EAS / physical device / push / native crash structured runners、release DB parity / telemetry runtime / EAS Android artifact evidence slots 與 release audit contract | Apple / ASC credentials、EAS iOS artifact、TestFlight、Emorapy identity local native evidence refresh、physical device、push delivery 與 native crash runtime blocker 清零 |
+| M6 Release Hardening | release readiness、EAS / physical device / push / native crash structured runners、release DB parity / telemetry runtime / EAS Android artifact / Android local runtime / native ImagePicker evidence slots 與 release audit contract | Apple / ASC credentials、EAS iOS artifact、TestFlight、iOS Release simulator refresh、physical device、push delivery 與 native crash runtime blocker 清零 |
 
 以上若影響 backend 或 Web，一律同步記錄到 `50-跨端Mapping與Parity/` 與 `07-待處理問題與治理/待處理/`。
 

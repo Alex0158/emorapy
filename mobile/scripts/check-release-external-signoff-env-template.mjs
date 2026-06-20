@@ -17,6 +17,7 @@ const inputChecklistPath = path.join(
 );
 const gitignorePath = path.join(mobileRoot, '.gitignore');
 const packageJsonPath = path.join(mobileRoot, 'package.json');
+const expectedReportDir = '/tmp/emorapy-app-signoff';
 
 const requiredKeys = [
   'DEVELOPER_DIR',
@@ -131,8 +132,8 @@ for (const [key, expected] of fixedValues.entries()) {
   }
 }
 
-if (!entries.get('APP_RELEASE_EXTERNAL_SIGNOFF_REPORT_DIR')?.startsWith('/tmp/')) {
-  fail('APP_RELEASE_EXTERNAL_SIGNOFF_REPORT_DIR must default to a /tmp path.');
+if (entries.get('APP_RELEASE_EXTERNAL_SIGNOFF_REPORT_DIR') !== expectedReportDir) {
+  fail(`APP_RELEASE_EXTERNAL_SIGNOFF_REPORT_DIR must default to ${expectedReportDir}.`);
 }
 
 if (

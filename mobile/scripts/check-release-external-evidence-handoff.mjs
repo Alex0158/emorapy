@@ -97,10 +97,11 @@ const actionCatalog = {
   sentry_runtime_query_credentials: {
     owner_surface: 'Sentry native crash runtime',
     required_env_keys: ['APP_SENTRY_ORG or SENTRY_ORG', 'APP_SENTRY_PROJECT or SENTRY_PROJECT', 'APP_SENTRY_AUTH_TOKEN or SENTRY_AUTH_TOKEN'],
-    action: 'Provide Sentry query credentials so the runtime evidence runner can look up the controlled native crash event.',
+    action:
+      'Provide Sentry query credentials for the Emorapy mobile project so the runtime evidence runner can look up the controlled native crash event. The project slug must resolve to emorapy-mobile.',
     commands: [
-      'APP_SENTRY_ORG=<org> APP_SENTRY_PROJECT=<project> APP_SENTRY_AUTH_TOKEN=<token> npm --prefix mobile run release:external-evidence:validate',
-      'APP_SENTRY_ORG=<org> APP_SENTRY_PROJECT=<project> APP_SENTRY_AUTH_TOKEN=<token> APP_NATIVE_CRASH_SENTRY_EVENT_ID=<event-id> npm --prefix mobile run native-crash:runtime:smoke -- --run',
+      'APP_SENTRY_ORG=<org> APP_SENTRY_PROJECT=emorapy-mobile APP_SENTRY_AUTH_TOKEN=<token> npm --prefix mobile run release:external-evidence:validate',
+      'APP_SENTRY_ORG=<org> APP_SENTRY_PROJECT=emorapy-mobile APP_SENTRY_AUTH_TOKEN=<token> APP_NATIVE_CRASH_SENTRY_EVENT_ID=<event-id> npm --prefix mobile run native-crash:runtime:smoke -- --run',
     ],
     accepted_evidence: [
       'release status shows credentials.sentry_runtime_query_credentials_present=true',
@@ -115,7 +116,7 @@ const actionCatalog = {
     action: 'Provide the controlled native crash event id that the runtime evidence runner will query.',
     commands: [
       'APP_NATIVE_CRASH_SENTRY_EVENT_ID=<controlled-event-id> npm --prefix mobile run release:external-evidence:validate',
-      'APP_SENTRY_ORG=<org> APP_SENTRY_PROJECT=<project> APP_SENTRY_AUTH_TOKEN=<token> APP_NATIVE_CRASH_SENTRY_EVENT_ID=<event-id> npm --prefix mobile run native-crash:runtime:smoke -- --run',
+      'APP_SENTRY_ORG=<org> APP_SENTRY_PROJECT=emorapy-mobile APP_SENTRY_AUTH_TOKEN=<token> APP_NATIVE_CRASH_SENTRY_EVENT_ID=<event-id> npm --prefix mobile run native-crash:runtime:smoke -- --run',
     ],
     accepted_evidence: [
       'release status shows credentials.native_crash_event_id_present=true',
@@ -196,9 +197,10 @@ const actionCatalog = {
       'APP_SENTRY_AUTH_TOKEN',
       'APP_NATIVE_CRASH_SENTRY_EVENT_ID',
     ],
-    action: 'Query a controlled native crash event and prove release, environment, native runtime, and crash-like signal.',
+    action:
+      'Query a controlled native crash event in the emorapy-mobile Sentry project and prove release, environment, native runtime, and crash-like signal.',
     commands: [
-      'APP_SENTRY_ORG=<org> APP_SENTRY_PROJECT=<project> APP_SENTRY_AUTH_TOKEN=<token> APP_NATIVE_CRASH_SENTRY_EVENT_ID=<event-id> npm --prefix mobile run native-crash:runtime:smoke -- --run',
+      'APP_SENTRY_ORG=<org> APP_SENTRY_PROJECT=emorapy-mobile APP_SENTRY_AUTH_TOKEN=<token> APP_NATIVE_CRASH_SENTRY_EVENT_ID=<event-id> npm --prefix mobile run native-crash:runtime:smoke -- --run',
     ],
     accepted_evidence: ['docs/核心開發文件/90-證據與盤點/環境與發版驗證/App-Native-Crash-Runtime-*.json'],
     strict_gate: 'npm --prefix mobile run release:completion:audit:strict',

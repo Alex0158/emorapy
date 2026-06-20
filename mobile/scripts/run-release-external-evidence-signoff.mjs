@@ -482,9 +482,10 @@ const prerequisiteActionCatalog = {
   sentry_project: {
     owner_surface: 'Sentry native crash runtime',
     required_env_keys: ['APP_SENTRY_PROJECT or SENTRY_PROJECT'],
-    action: 'Provide the Sentry project slug used for native crash runtime evidence.',
+    action:
+      'Provide the Sentry project slug used for native crash runtime evidence. It must resolve to emorapy-mobile.',
     commands: [
-      'APP_SENTRY_PROJECT=<sentry-project> npm --prefix mobile run release:external-evidence:validate -- --report-dir=<report-dir>',
+      'APP_SENTRY_PROJECT=emorapy-mobile npm --prefix mobile run release:external-evidence:validate -- --report-dir=<report-dir>',
     ],
     docs: [prerequisiteDocs.runbook],
   },

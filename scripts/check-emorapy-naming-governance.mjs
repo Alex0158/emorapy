@@ -355,6 +355,7 @@ const REQUIRED_POLICY_NEEDLES = [
       'P4 App OTLP telemetry scope fixture naming',
       'P4 release commit env alias contract',
       'P4 legacy production hostname compatibility gate',
+      'P4 Sentry native crash project / release identity handoff',
       'Legacy requirement / governance IDs',
       'Historical package-scope references',
       '正式 internal workspace package scope 改為 `@emorapy/contracts` 與 `@emorapy/api-client`',
@@ -719,6 +720,44 @@ function checkLegacyGovernanceIdNamespacePolicy() {
   );
 }
 
+function checkSentryNativeCrashReleaseIdentity() {
+  requireIncludes(
+    readText('mobile/app.json'),
+    'SENTRY_PROJECT=emorapy-mobile',
+    'mobile/app.json'
+  );
+  requireIncludes(
+    readText('mobile/src/platform/telemetry/nativeCrash.ts'),
+    'release: `emorapy-mobile@${runtime.appVersion}+${runtime.buildNumber}`',
+    'mobile/src/platform/telemetry/nativeCrash.ts'
+  );
+  requireIncludes(
+    readText('mobile/src/platform/telemetry/nativeCrash.test.js'),
+    "release: 'emorapy-mobile@1.2.3-test+42-test'",
+    'mobile/src/platform/telemetry/nativeCrash.test.js'
+  );
+
+  const handoffFile = 'mobile/scripts/check-release-external-evidence-handoff.mjs';
+  const signoffFile = 'mobile/scripts/run-release-external-evidence-signoff.mjs';
+  requireOrderedIncludes(
+    handoffFile,
+    [
+      'The project slug must resolve to emorapy-mobile.',
+      'APP_SENTRY_PROJECT=emorapy-mobile APP_SENTRY_AUTH_TOKEN=<token> npm --prefix mobile run release:external-evidence:validate',
+      'APP_SENTRY_PROJECT=emorapy-mobile APP_SENTRY_AUTH_TOKEN=<token> APP_NATIVE_CRASH_SENTRY_EVENT_ID=<event-id> npm --prefix mobile run native-crash:runtime:smoke -- --run',
+    ],
+    'Sentry native crash handoff must pin the Emorapy mobile project slug'
+  );
+  requireOrderedIncludes(
+    signoffFile,
+    [
+      'It must resolve to emorapy-mobile.',
+      'APP_SENTRY_PROJECT=emorapy-mobile npm --prefix mobile run release:external-evidence:validate -- --report-dir=<report-dir>',
+    ],
+    'Sentry prerequisite signoff must pin the Emorapy mobile project slug'
+  );
+}
+
 function checkCurrentOpsEnvAliasContract() {
   requireOrderedIncludes(
     'backend/src/utils/version.ts',
@@ -778,6 +817,7 @@ checkSeedGuardLegacyDevProjectComment();
 checkAppVisibleCopyLegacyBrandGuard();
 checkLegacyProductionHostnameCompatContract();
 checkLegacyGovernanceIdNamespacePolicy();
+checkSentryNativeCrashReleaseIdentity();
 
 if (failures.length > 0) {
   console.error('[emorapy-naming-governance] failed');

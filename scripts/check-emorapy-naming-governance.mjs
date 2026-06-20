@@ -304,6 +304,7 @@ const REQUIRED_POLICY_NEEDLES = [
       'P5 current source design-token comment cleanup',
       'P4 CI / local true-service Postgres fixture naming',
       'P4 App OTLP telemetry scope fixture naming',
+      'P4 release commit env alias contract',
       'Legacy requirement / governance IDs',
       'Historical package-scope references',
       '正式 internal workspace package scope 改為 `@emorapy/contracts` 與 `@emorapy/api-client`',
@@ -354,6 +355,19 @@ function requireEqual(actual, expected, message) {
 function requireIncludes(text, needle, file) {
   if (!text.includes(needle)) {
     fail(`${file} must include naming governance marker: ${needle}`);
+  }
+}
+
+function requireOrderedIncludes(file, needles, message) {
+  const text = readText(file);
+  let cursor = -1;
+  for (const needle of needles) {
+    const index = text.indexOf(needle, cursor + 1);
+    if (index === -1) {
+      fail(`${file} must include ${message}: ${needle}`);
+      return;
+    }
+    cursor = index;
   }
 }
 
@@ -528,6 +542,47 @@ function checkNamingPolicyDocs() {
   }
 }
 
+function checkCurrentOpsEnvAliasContract() {
+  requireOrderedIncludes(
+    'backend/src/utils/version.ts',
+    ['RAILWAY_GIT_COMMIT_SHA', 'EMORAPY_COMMIT_SHA', 'CJ_COMMIT_SHA'],
+    'backend version commit env priority: Railway runtime > Emorapy alias > legacy CJ fallback'
+  );
+  requireOrderedIncludes(
+    'frontend/vite.config.ts',
+    ['process.env.EMORAPY_COMMIT_SHA', 'process.env.CJ_COMMIT_SHA'],
+    'frontend version manifest commit env priority: Emorapy alias before legacy CJ fallback'
+  );
+  requireOrderedIncludes(
+    'frontend-admin/vite.config.ts',
+    ['process.env.EMORAPY_COMMIT_SHA', 'process.env.CJ_COMMIT_SHA'],
+    'admin version manifest commit env priority: Emorapy alias before legacy CJ fallback'
+  );
+  requireOrderedIncludes(
+    'scripts/start-dev.sh',
+    ["EMORAPY_COMMIT_SHA='$HEAD_SHA'", "CJ_COMMIT_SHA='$HEAD_SHA'"],
+    'local dev startup commit env injection for both Emorapy and legacy CJ'
+  );
+  requireOrderedIncludes(
+    'scripts/ops-release-gate.sh',
+    ['export EMORAPY_RELEASE_GATE=1', 'export CJ_RELEASE_GATE=1'],
+    'release gate env marker dual-write with Emorapy first'
+  );
+  requireOrderedIncludes(
+    'backend/scripts/check-ai-pricing-catalog.ts',
+    ['env.EMORAPY_RELEASE_GATE', 'env.CJ_RELEASE_GATE'],
+    'AI pricing release gate env alias priority'
+  );
+  requireOrderedIncludes(
+    '.github/workflows/production-deploy-and-verify.yml',
+    [
+      'railway variable set "EMORAPY_COMMIT_SHA=${GITHUB_SHA}"',
+      'railway variable set "CJ_COMMIT_SHA=${GITHUB_SHA}"',
+    ],
+    'production Railway commit env dual-write with Emorapy first'
+  );
+}
+
 checkAppJsonIdentity();
 checkPackageManifestNames();
 await checkAppIdentityFiles();
@@ -538,6 +593,7 @@ await checkCurrentSourceIdentity();
 checkCurrentDocLeadins();
 await checkCurrentDevCiFixtureIdentity();
 await checkCurrentTelemetryFixtureIdentity();
+checkCurrentOpsEnvAliasContract();
 checkNamingPolicyDocs();
 
 if (failures.length > 0) {

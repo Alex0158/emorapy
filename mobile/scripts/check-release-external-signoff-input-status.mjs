@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
-import { getExpoProjectIdStatus } from './lib/release-app-config.mjs';
+import { getExpoProjectIdentityStatus } from './lib/release-app-config.mjs';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const mobileRoot = path.resolve(scriptDir, '..');
@@ -16,6 +16,7 @@ const envFile = releaseEnvFileArg
   : defaultEnvFile;
 
 const currentCompletionInputKeys = [
+  'APP_EAS_PROJECT_FULL_NAME',
   'EXPO_TOKEN',
   'ASC_APPLE_ID',
   'EXPO_APPLE_APP_SPECIFIC_PASSWORD',
@@ -42,6 +43,7 @@ const allowedInputKeys = new Set([
   'APP_RELEASE_EXTERNAL_SIGNOFF_REPORT_DIR',
   'APP_PHYSICAL_DEVICE_PLATFORM',
   'APP_EAS_IOS_REQUIRE_TESTFLIGHT',
+  'APP_EAS_PROJECT_FULL_NAME',
   'APP_STORE_CONNECT_APP_ID',
   'APP_PUSH_DELIVERY_ACCESS_TOKEN',
   'APP_NATIVE_CRASH_EXPECTED_ENVIRONMENT',
@@ -113,11 +115,26 @@ function summarizeInputKeys(keys) {
   };
 }
 
-let easProjectId = { present: false, valid: false, format: 'missing' };
+let easProjectIdentity = {
+  project_id_present: false,
+  project_id_valid: false,
+  project_id_format: 'missing',
+  expected_full_name: null,
+  configured_full_name_present: false,
+  configured_full_name: null,
+  full_name_matches_expected: false,
+  valid: false,
+};
 try {
-  easProjectId = getExpoProjectIdStatus(readAppJson());
+  easProjectIdentity = getExpoProjectIdentityStatus(
+    readAppJson(),
+    process.env.APP_EAS_PROJECT_FULL_NAME || entries.get('APP_EAS_PROJECT_FULL_NAME')
+  );
 } catch {
-  easProjectId = { present: false, valid: false, format: 'unreadable_app_json' };
+  easProjectIdentity = {
+    ...easProjectIdentity,
+    project_id_format: 'unreadable_app_json',
+  };
 }
 
 const status = {
@@ -127,9 +144,13 @@ const status = {
   env_file_exists: envFileExists,
   values_redacted: true,
   app: {
-    eas_project_id_present: easProjectId.present,
-    eas_project_id_valid: easProjectId.valid,
-    eas_project_id_format: easProjectId.format,
+    eas_project_id_present: easProjectIdentity.project_id_present,
+    eas_project_id_valid: easProjectIdentity.project_id_valid,
+    eas_project_id_format: easProjectIdentity.project_id_format,
+    eas_project_full_name_expected: easProjectIdentity.expected_full_name,
+    eas_project_full_name_present: easProjectIdentity.configured_full_name_present,
+    eas_project_full_name_matches_expected: easProjectIdentity.full_name_matches_expected,
+    eas_project_binding_valid: easProjectIdentity.valid,
   },
   summary: {
     required_key_count: requiredInputKeys.length,
@@ -148,7 +169,7 @@ const status = {
     unsupported_key_count: unsupportedKeys.length,
     ready_for_current_completion_inputs:
       envFileExists &&
-      easProjectId.valid &&
+      easProjectIdentity.valid &&
       currentCompletionInputKeys.every((key) => filledKeys.includes(key)) &&
       currentCompletionInputKeys.every((key) => !placeholderKeys.includes(key)) &&
       currentCompletionInputKeys.every((key) => !missingKeys.includes(key)) &&
@@ -163,7 +184,7 @@ const status = {
       unsupportedKeys.length === 0,
     ready_for_validate:
       envFileExists &&
-      easProjectId.valid &&
+      easProjectIdentity.valid &&
       filledKeys.length === requiredInputKeys.length &&
       placeholderKeys.length === 0 &&
       missingKeys.length === 0 &&
@@ -195,6 +216,9 @@ if (json) {
   console.log(`[release-input-status] env_file=${status.env_file} exists=${status.env_file_exists}`);
   console.log(
     `[release-input-status] eas_project_id_valid=${status.app.eas_project_id_valid} filled=${status.summary.filled_count}/${status.summary.required_key_count} placeholders=${status.summary.placeholder_count} missing=${status.summary.missing_count} invalid_lines=${status.summary.invalid_line_count} unsupported_keys=${status.summary.unsupported_key_count}`
+  );
+  console.log(
+    `[release-input-status] eas_project_binding_valid=${status.app.eas_project_binding_valid} expected_full_name=${status.app.eas_project_full_name_expected ?? 'missing'} full_name_matches=${status.app.eas_project_full_name_matches_expected}`
   );
   console.log(
     `[release-input-status] current_completion_inputs filled=${status.summary.current_completion_filled_count}/${status.summary.current_completion_required_key_count} placeholders=${status.summary.current_completion_placeholder_count} missing=${status.summary.current_completion_missing_count} ready=${status.summary.ready_for_current_completion_inputs}`

@@ -214,6 +214,15 @@ function validateStatus(status, label) {
   }
   assertBoolean(app.eas_project_id_present, `${label}.app.eas_project_id_present`);
   assertBoolean(app.eas_project_id_valid, `${label}.app.eas_project_id_valid`);
+  assertBoolean(app.eas_project_full_name_present, `${label}.app.eas_project_full_name_present`);
+  assertBoolean(
+    app.eas_project_full_name_matches_expected,
+    `${label}.app.eas_project_full_name_matches_expected`
+  );
+  assertBoolean(app.eas_project_binding_valid, `${label}.app.eas_project_binding_valid`);
+  if (app.eas_project_full_name_expected !== null && typeof app.eas_project_full_name_expected !== 'string') {
+    fail(`${label}.app.eas_project_full_name_expected must be null or string`);
+  }
   if (typeof app.eas_project_id_format !== 'string') {
     fail(`${label}.app.eas_project_id_format must be string`);
   }
@@ -299,7 +308,7 @@ const baseline = parseJsonResult('baseline status JSON', baselineResult);
 validateStatus(baseline, 'baseline status JSON');
 const baselineBlockerIds = validateBlockers(baseline.blockers, 'baseline status JSON');
 const baselineResolvedBlockerIds = new Set();
-if (baseline.app?.eas_project_id_valid) {
+if (baseline.app?.eas_project_binding_valid) {
   baselineResolvedBlockerIds.add('eas_project_id');
 }
 if (baseline.credentials?.expo_token_present) {
@@ -386,6 +395,7 @@ try {
     controlledEnvFilePath,
     [
       `EXPO_TOKEN=${controlledSecrets[0]}`,
+      'APP_EAS_PROJECT_FULL_NAME=@alexdev518/emorapy-mobile',
       `ASC_APPLE_ID=${controlledSecrets[1]}`,
       `EXPO_APPLE_APP_SPECIFIC_PASSWORD=${controlledSecrets[2]}`,
       `APP_STORE_CONNECT_ISSUER_ID=${controlledSecrets[3]}`,
@@ -414,8 +424,11 @@ try {
   if (envFileStatus.env_files.loaded.length !== 1) {
     fail('controlled env-file status JSON must record one loaded env file');
   }
-  if (envFileStatus.env_files.loaded[0].loaded_keys !== 14) {
-    fail(`controlled env-file status JSON loaded_keys must be 14, got ${envFileStatus.env_files.loaded[0].loaded_keys}`);
+  if (envFileStatus.env_files.loaded[0].loaded_keys !== 15) {
+    fail(`controlled env-file status JSON loaded_keys must be 15, got ${envFileStatus.env_files.loaded[0].loaded_keys}`);
+  }
+  if (envFileStatus.app.eas_project_binding_valid !== true) {
+    fail('controlled env-file status JSON must mark EAS project binding valid when APP_EAS_PROJECT_FULL_NAME matches owner/slug.');
   }
   for (const key of [
     'expo_token_present',

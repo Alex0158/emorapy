@@ -16,7 +16,7 @@
 - 不要把 `mobile/release.env.local`、private key、token、database URL、push token、UDID、serial、Sentry event id 提交到 repo。
 - 不要把 secret value 貼到 issue、PR、聊天或 markdown。
 - `mobile/release.env.local` 只接受 release sign-off 白名單 key；不要放 `NODE_OPTIONS`、`PATH` 或任何 shell command。
-- 填值後可先跑 `npm --prefix mobile run release:external-evidence:input-status -- --json`；該命令只輸出 key 狀態、placeholder / missing counts、`ready_for_current_completion_inputs` 與 `ready_for_validate`，不輸出 value，也不連 EAS、Apple、Sentry、DB 或裝置。JSON 內的 `current_completion_blocker_inputs` 對應當前尚未解除的 release completion inputs；`evidence_refresh_inputs` 對應 telemetry runtime / release DB parity 的 refresh keys，這兩項已有 canonical pass evidence，但在後續 release / DB / telemetry / backend version drift 後仍需要重跑取證。
+- 填值後可先跑 `npm --prefix mobile run release:external-evidence:input-status -- --json`；該命令只輸出 key 狀態、placeholder / missing counts、`ready_for_current_completion_inputs`、`ready_for_validate` 與 `app.eas_project_binding_valid`，不輸出 value，也不連 EAS、Apple、Sentry、DB 或裝置。JSON 內的 `current_completion_blocker_inputs` 對應當前尚未解除的 release completion inputs；`evidence_refresh_inputs` 對應 telemetry runtime / release DB parity 的 refresh keys，這兩項已有 canonical pass evidence，但在後續 release / DB / telemetry / backend version drift 後仍需要重跑取證。
 - 若需要同時看 evidence candidate、device counters 與 credential presence，可跑 `npm --prefix mobile run release:external-evidence:status -- --release-env-file=release.env.local --json`；status 只保存 `env_files` loaded key counters 與 booleans，不保存任何 value，也不替代 validate / run。
 - 若用 `release:external-evidence:signoff -- --release-env-file=release.env.local --report-dir=<report-dir>` 產交接報告，`App-External-Evidence-Status-*.json` 也會保存同樣的 redacted `env_files` counters；CI / GitHub secret env 來源則會保持 `env_files.loaded=[]`。
 - 若想直接補值，可跑 `npm --prefix mobile run release:external-evidence:fill-inputs`；它會在互動終端詢問缺值，必要時先補 `mobile/app.json` 的 `extra.eas.projectId`，再寫回 `mobile/release.env.local` 並重跑 `release:external-evidence:input-status`。若只想先看缺口，跑 `npm --prefix mobile run release:external-evidence:fill-inputs -- --list-missing`。
@@ -29,7 +29,7 @@
 
 | Release blocker | Required input | Where to provide | Safe validation signal |
 |---|---|---|---|
-| `eas_project_id` | 真實 UUID-shaped `extra.eas.projectId` | `mobile/app.json` / Expo project config | prerequisite report `app.eas_project_id_valid=true` |
+| `eas_project_id` | 真實 UUID-shaped `extra.eas.projectId`，以及非 secret `APP_EAS_PROJECT_FULL_NAME=@alexdev518/emorapy-mobile` | `mobile/app.json` / Expo project config；shell env / CI env / `mobile/release.env.local` | prerequisite report `app.eas_project_id_valid=true` 且 `app.eas_project_binding_valid=true` |
 | `expo_token` | `EXPO_TOKEN` | shell env / CI secret / `mobile/release.env.local` | `credentials.expo_token_present=true` |
 | `apple_submission_credentials` | `ASC_APPLE_ID` + `EXPO_APPLE_APP_SPECIFIC_PASSWORD` | shell env / CI secret / `mobile/release.env.local` | `credentials.apple_submission_credentials_present=true` |
 | `app_store_connect_api_credentials` | `APP_STORE_CONNECT_ISSUER_ID` or `ASC_ISSUER_ID`; `APP_STORE_CONNECT_KEY_ID` or `ASC_KEY_ID`; `APP_STORE_CONNECT_PRIVATE_KEY` / `ASC_PRIVATE_KEY` or `APP_STORE_CONNECT_PRIVATE_KEY_PATH` pointing at a private key file | shell env / CI secret / `mobile/release.env.local`; private key file outside repo preferred | `credentials.app_store_connect_api_credentials_present=true` |
@@ -38,7 +38,7 @@
 | `apns_or_provider_delivery_evidence` | `APP_PUSH_DELIVERY_EXPO_PUSH_TOKEN` | shell env / CI secret / `mobile/release.env.local` | `credentials.push_delivery_token_present=true` |
 | `native_crash_runtime_evidence` | `APP_SENTRY_ORG` / `SENTRY_ORG`; `APP_SENTRY_PROJECT` / `SENTRY_PROJECT`; `APP_SENTRY_AUTH_TOKEN` / `SENTRY_AUTH_TOKEN`; `APP_NATIVE_CRASH_SENTRY_EVENT_ID` / `SENTRY_EVENT_ID` | shell env / CI secret / `mobile/release.env.local` | `credentials.sentry_runtime_query_credentials_present=true`, `credentials.native_crash_event_id_present=true` |
 
-以上 rows 加上 `mobile/app.json` 的真實 `extra.eas.projectId` 構成 current completion blocker inputs。`release:external-evidence:input-status` 會在 `input_groups.current_completion_blocker_inputs` 與 `summary.ready_for_current_completion_inputs` 中單獨呈現這組狀態；這不是 release 完成訊號，仍需正式 evidence 與 strict audits。
+以上 rows 加上 `mobile/app.json` 的真實 `extra.eas.projectId` 構成 current completion blocker inputs。`APP_EAS_PROJECT_FULL_NAME` 不是 secret；它必須等於 `mobile/app.json` 的 `owner/slug` 推導值 `@alexdev518/emorapy-mobile`，用於防止本地 Emorapy slug 仍綁到 legacy `@alexdev518/cj-mobile` EAS project。`release:external-evidence:input-status` 會在 `input_groups.current_completion_blocker_inputs`、`summary.ready_for_current_completion_inputs` 與 `app.eas_project_binding_valid` 中單獨呈現這組狀態；這不是 release 完成訊號，仍需正式 evidence 與 strict audits。
 
 ## Evidence refresh inputs
 

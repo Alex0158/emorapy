@@ -32,16 +32,16 @@ App 內部實作、文件、preflight 與 release audit contract 已就緒，但
 | 項目 | 狀態 | 證據 |
 | --- | --- | --- |
 | 本地 release preflight | 已通過 | `npm --prefix mobile run release:preflight`，30 Jest suites / 134 tests passed，且跑完 `release:external-evidence:input-status`、`release:completion:audit`、`goal:completion:audit`、`release:check` |
-| 外部輸入狀態檢查 | 已建立 / 未 ready | `npm --prefix mobile run release:external-evidence:input-status -- --json` 顯示 `filled_count=3`、`placeholder_count=13`、`ready_for_validate=false`；其中 `input_groups.current_completion_blocker_inputs` 顯示 current completion inputs `1/14`、`ready_for_current_completion_inputs=false`，`input_groups.evidence_refresh_inputs` 顯示 DB / telemetry refresh inputs `2/2`、`ready_for_evidence_refresh_inputs=true`。目前已填入 `EXPO_TOKEN`、`DATABASE_URL` 與 `APP_TELEMETRY_RUNTIME_API_BASE_URL`；另已建立 `npm --prefix mobile run release:external-evidence:fill-inputs` 作為本機互動補值入口，`--list-missing` 可只看缺口與分層 |
+| 外部輸入狀態檢查 | 已建立 / 未 ready | `npm --prefix mobile run release:external-evidence:input-status -- --json` 顯示 `filled_count=3/17`、`placeholder_count=13`、`missing_count=1`、`ready_for_validate=false`；其中 `input_groups.current_completion_blocker_inputs` 顯示 current completion inputs `1/15`，缺 `APP_EAS_PROJECT_FULL_NAME`，`ready_for_current_completion_inputs=false`，`input_groups.evidence_refresh_inputs` 顯示 DB / telemetry refresh inputs `2/2`、`ready_for_evidence_refresh_inputs=true`。目前已填入 `EXPO_TOKEN`、`DATABASE_URL` 與 `APP_TELEMETRY_RUNTIME_API_BASE_URL`；另已建立 `npm --prefix mobile run release:external-evidence:fill-inputs` 作為本機互動補值入口，`--list-missing` 可只看缺口與分層 |
 | Telemetry runtime env-file / CORS / backend version | 已閉環 | `telemetry:runtime:smoke -- --dry-run --release-env-file=release.env.local` 與正式 `--run` 已通過；runner 先查 release backend `/version` 並要求 `commitSha` 等於執行當下的本地 `HEAD`，再送 event / OTLP；audit 允許後續 docs / evidence 提交，但若 backend telemetry/version runtime 路徑在證據 commit 後改動，舊證據會失效；canonical `App-Telemetry-Runtime-2026-05-29T16-00-52-498Z.json` 已 `blocked=false`，`release:completion:audit -- --json` 顯示 `telemetry_runtime_evidence` passed |
-| 外部 status / handoff 快照 | 已建立 / 未完成 | 最新 secret-safe 快照為 `App-External-Evidence-Status-2026-06-20T08-02-26-291Z.json` 與 `App-External-Evidence-Handoff-2026-06-20T08-02-29-810Z.json`；只作 owner 交接、env-file provenance 與 normalized blocker 索引，不解除 EAS / TestFlight / physical device / provider / production native crash runtime blocker |
-| EAS project id | 已完成 / 命名待對齊 | `mobile/app.json` 保留 `expo.extra.eas.projectId=1a4308a8-70ff-4bbc-a5e0-3f2a060888bc` 且 `release:completion:audit` 顯示 `eas_project_id` passed；EAS server full name 仍曾核驗為 `@alexdev518/cj-mobile`，需後續在 EAS dashboard rename 或建立 `@alexdev518/emorapy-mobile` 後以 `eas init --id` 重新連結 |
+| 外部 status / handoff 快照 | 已建立 / 未完成 | 最新 secret-safe 快照為 `App-External-Evidence-Status-2026-06-20T08-26-33-325Z.json` 與 `App-External-Evidence-Handoff-2026-06-20T08-26-36-806Z.json`；只作 owner 交接、env-file provenance 與 normalized blocker 索引，不解除 EAS project binding / TestFlight / physical device / provider / production native crash runtime blocker |
+| EAS project id / full name binding | 未完成 / 外部 EAS project 對齊 blocker | `mobile/app.json` 保留 `expo.extra.eas.projectId=1a4308a8-70ff-4bbc-a5e0-3f2a060888bc`，但 2026-06-20 本地實測 `npx eas-cli@20.3.0 project:info --non-interactive` 失敗：projectId 對應 remote slug `cj-mobile`，本地 slug 是 `emorapy-mobile`。`release:completion:audit` 與 `release:external-evidence:input-status` 已把 `eas_project_id` 升級為 UUID + `APP_EAS_PROJECT_FULL_NAME=@alexdev518/emorapy-mobile` binding 檢查；需後續在 EAS dashboard rename 或建立 `@alexdev518/emorapy-mobile` 後更新 / 確認 projectId |
 | Expo token | 已完成 / 本機 secret | `EXPO_TOKEN` 已寫入 gitignored `mobile/release.env.local`，`release:external-evidence:status -- --release-env-file=release.env.local --json` 顯示 `expo_token_present=true`，`release:completion:audit` 顯示 `expo_token` passed；不得提交 token value，若同步到 CI 必須走 `release:external-evidence:github-secrets:sync -- --apply` |
 | EAS Android production artifact | 舊證據已 stale / 待重跑 | `eas build --platform android --profile production` 曾產生 Android store production build，pass evidence 為 [App-EAS-Android-Release-2026-06-13T10-27-04-956Z.json](../../90-證據與盤點/環境與發版驗證/App-EAS-Android-Release-2026-06-13T10-27-04-956Z.json)；2026-06-20 App identity 改為 `com.emorapy.app` 後，該 evidence 仍記錄 `com.cj.motherbearcourt`，`release:completion:audit` 會標記 stale ignored，必須以 Emorapy package 重新產出 |
 | GitHub Actions release secrets | 部分完成 / 未 ready | `npm --prefix mobile run release:external-evidence:github-secrets:check -- --json` 只讀 secret names 且 `values_redacted=true`；checker 與 `.github/workflows/app-release-external-signoff.yml` 以 `Production` GitHub Environment 作為預設 workflow secret scope。已同步 `APP_RELEASE_DATABASE_URL` 與 `APP_TELEMETRY_RUNTIME_API_BASE_URL` 到 `Production` environment，`present_secret_name_count=2`、`missing_secret_name_count=14`、`ready_for_workflow_validate=false`；其中 `secret_groups.current_completion_blocker_secret_names` 為 `0/14`、`secret_groups.evidence_refresh_secret_names` 為 `2/2`。另查 `--env='ingenious-commitment / production'`，該 environment 沒有 App release secret names。`release:external-evidence:github-secrets:strict -- --json` 在當前狀態仍會失敗，用於 secrets 配好後作 CI validate/run 前置 gate。尚缺 `EXPO_TOKEN`、Apple / ASC、push、Sentry、iOS/Android device 與 `APP_NATIVE_CRASH_SENTRY_EVENT_ID` 等外部 secrets，因此 workflow 目前不能進入有效 validate / run |
 | GitHub Actions release variables | 已查 / 無可回收值 | `gh variable list --repo Alex0158/mother-bear-court --json name` 與 `gh variable list --repo Alex0158/mother-bear-court --env Production --json name` 均回空陣列；未找到可回收的 `EAS_PROJECT_ID`、Sentry org/project 或 release config 變數 |
 | GitHub Actions secret sync helper | 已建立 / contract 已納入 preflight / 等待真值 | `npm --prefix mobile run release:external-evidence:github-secrets:sync -- --json` 會從 gitignored `mobile/release.env.local` 做 redacted dry-run；dry-run 只做本機 readiness，不要求 `gh` / GitHub auth / network，確認後才可加 `--apply` 檢查 `Production` GitHub Environment 並寫入 secrets。工具拒絕 placeholder，不輸出 secret values，並把 `DATABASE_URL` 映射成 `APP_RELEASE_DATABASE_URL`、把 `APP_STORE_CONNECT_PRIVATE_KEY_PATH` 指向的 `.p8` 內容映射成 `APP_STORE_CONNECT_PRIVATE_KEY`；`release:external-evidence:github-secrets:sync:contract` 已用受控 fixture 固定 local-only dry-run、secret group 分層、mapping、redaction 與 apply-only GitHub dependency |
-| Release completion audit | 未完成 / 舊 identity evidence 已失效 | `release:completion:audit -- --json` 在 Emorapy identity 下 `failures=0`，但仍 blocked；舊 iOS simulator、Android emulator/app/Maestro、EAS Android、native upload 與 telemetry runtime evidence 因 `com.cj.motherbearcourt` 被標記 stale ignored。剩餘需補外部憑證、EAS iOS / Android artifact、TestFlight、physical device、provider delivery、native crash runtime、telemetry runtime 與改名後 native generated prebuild evidence |
+| Release completion audit | 未完成 / 舊 identity evidence 已失效 | `release:completion:audit -- --json` 在 Emorapy identity 下 `failures=0`，但仍 blocked；舊 iOS simulator、Android emulator/app/Maestro、EAS Android、native upload 與 telemetry runtime evidence 因 `com.cj.motherbearcourt` 被標記 stale ignored。2026-06-20 起 `eas_project_id` 也要求 EAS full name binding 對齊，不再只看 UUID。剩餘需補 EAS project full name 對齊、外部憑證、EAS iOS / Android artifact、TestFlight、physical device、provider delivery、native crash runtime、telemetry runtime 與改名後 native generated prebuild evidence |
 | Goal completion audit | 未完成 | `goal:completion:audit` 的 `release_signoff` 仍為 missing |
 
 ## 2026-05-30 本輪子任務：外部輸入狀態分層
@@ -54,8 +54,8 @@ App 內部實作、文件、preflight 與 release audit contract 已就緒，但
 
 | 場景 | 預期行為 |
 | --- | --- |
-| 外部 owner 要補 release secrets | 先看 `input_groups.current_completion_blocker_inputs`：14 個 env keys 加上 `mobile/app.json` 的真實 EAS project id 齊備後，`ready_for_current_completion_inputs=true` |
-| Ops 要跑完整 sign-off validate / run | 仍看 `summary.ready_for_validate=true`；該值要求 current completion inputs、telemetry refresh input、DB refresh input 與 EAS project id 全部齊備 |
+| 外部 owner 要補 release secrets / inputs | 先看 `input_groups.current_completion_blocker_inputs`：15 個 env keys（其中 `APP_EAS_PROJECT_FULL_NAME` 非 secret）加上 `mobile/app.json` 的真實 EAS project id 齊備後，`ready_for_current_completion_inputs=true` |
+| Ops 要跑完整 sign-off validate / run | 仍看 `summary.ready_for_validate=true`；該值要求 current completion inputs、telemetry refresh input、DB refresh input、EAS project id 與 EAS full name binding 全部齊備 |
 | GitHub workflow secret 交接 | `release:external-evidence:github-secrets:check -- --json` 仍以 16 個 names 判定 `ready_for_workflow_validate`，但會另列 `secret_groups.current_completion_blocker_secret_names` 與 `secret_groups.evidence_refresh_secret_names`，避免把 workflow refresh readiness 誤讀成當前 blocker count |
 | 後續 backend telemetry / version runtime 或 release-blocking migration 有 drift | 先看 `input_groups.evidence_refresh_inputs`，再重跑 telemetry runtime 或 release DB parity structured evidence；不得延用舊 pass artifact |
 | 只做安全盤點 | `input-status` 只輸出 key names / counters / booleans，不連 EAS、Apple、Sentry、DB、provider 或 device，不輸出 secret values |
@@ -63,7 +63,7 @@ App 內部實作、文件、preflight 與 release audit contract 已就緒，但
 ### 邊界與注意事項
 
 1. `ready_for_current_completion_inputs` 不是 release 完成，也不是 validate/run 通過；它只代表當前 release completion blocker 對應的本機 env keys 已齊備。
-2. `ready_for_validate` 語義保持不變：全量 16 個 required keys、有效 EAS project id、無 invalid line、無 unsupported key。
+2. `ready_for_validate` 語義保持不變但 required input 數已因 Emorapy EAS binding 增至 17 個：全量 required keys、有效 EAS project id、有效 `APP_EAS_PROJECT_FULL_NAME` binding、無 invalid line、無 unsupported key。
 3. `APP_TELEMETRY_RUNTIME_API_BASE_URL` 與 `DATABASE_URL` 屬於 `evidence_refresh_inputs`，因 canonical pass evidence 已存在而不再是 current completion blocker；但正式 release drift 後仍必須重跑。
 4. GitHub secrets checker / sync helper 可以維持全量 16 secret names，因 workflow validate/run 需要完整 refresh 能力；文件必須明確區分 secret readiness 與當前 completion blocker count。
 
@@ -213,6 +213,7 @@ Standalone `release:external-evidence:status` 必須能安全讀取和正式 orc
 | 類別 | 必要輸入 / 證據 | 安全要求 |
 | --- | --- | --- |
 | EAS project | 真實 UUID-shaped `expo.extra.eas.projectId` | 不得使用 placeholder / fake UUID |
+| EAS project full name | `APP_EAS_PROJECT_FULL_NAME=@alexdev518/emorapy-mobile`，且 EAS dashboard / project link 已完成 Emorapy slug 對齊 | 非 secret；不得用 legacy `@alexdev518/cj-mobile` 作 release binding |
 | Expo / EAS | `EXPO_TOKEN` | 只放在 shell、CI secret 或 ignored `mobile/release.env.local` |
 | Apple submission | `ASC_APPLE_ID`、`EXPO_APPLE_APP_SPECIFIC_PASSWORD` | 不得提交到 repo |
 | App Store Connect API | `APP_STORE_CONNECT_ISSUER_ID`、`APP_STORE_CONNECT_KEY_ID`、`APP_STORE_CONNECT_PRIVATE_KEY_PATH` 或等價 private key input | private key 優先放 repo 外絕對路徑 |
@@ -225,10 +226,10 @@ Standalone `release:external-evidence:status` 必須能安全讀取和正式 orc
 
 ## 解除條件
 
-1. 填入真實 `mobile/app.json` `expo.extra.eas.projectId`。
+1. 填入真實 `mobile/app.json` `expo.extra.eas.projectId`，並完成 EAS project full name 對齊：`APP_EAS_PROJECT_FULL_NAME=@alexdev518/emorapy-mobile` 且 `npx eas-cli@20.3.0 project:info --non-interactive` 不再因 `cj-mobile` / `emorapy-mobile` slug mismatch 失敗。
 2. 以 shell env、CI secrets 或 ignored `mobile/release.env.local` 提供上述外部輸入。
 3. 若走 GitHub workflow，`npm --prefix mobile run release:external-evidence:github-secrets:sync -- --json` redacted dry-run 顯示 `summary.ready_for_current_completion_sync_inputs=true`、`summary.ready_for_evidence_refresh_sync_inputs=true` 與 `summary.ready_for_sync_apply=true`；`release:external-evidence:github-secrets:sync:contract` 通過；確認後才用 `--apply` 寫入。
-4. `npm --prefix mobile run release:external-evidence:input-status -- --json` 顯示 `ready_for_current_completion_inputs=true` 且 `ready_for_validate=true`。前者只代表當前 completion blocker inputs 齊備；後者仍要求全量 16 個 sign-off / refresh keys 齊備，因為正式 validate / run 仍會重新確認 DB parity 與 telemetry runtime freshness。
+4. `npm --prefix mobile run release:external-evidence:input-status -- --json` 顯示 `ready_for_current_completion_inputs=true` 且 `ready_for_validate=true`。前者只代表當前 completion blocker inputs 齊備；後者仍要求全量 17 個 sign-off / refresh keys、EAS project id 與 EAS full name binding 齊備，因為正式 validate / run 仍會重新確認 DB parity 與 telemetry runtime freshness。
 5. `npm --prefix mobile run release:external-evidence:validate -- --release-env-file=release.env.local` 通過。
 6. `npm --prefix mobile run release:external-evidence:run -- --release-env-file=release.env.local` 產出 structured pass evidence。
 7. `npm --prefix mobile run release:completion:audit:strict` 通過。

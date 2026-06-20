@@ -4,7 +4,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { getExpoProjectIdStatus } from './lib/release-app-config.mjs';
+import { getExpoProjectIdentityStatus } from './lib/release-app-config.mjs';
 import { parseAdbDeviceRows, parseXctraceListDevices } from './lib/release-device-discovery.mjs';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -37,6 +37,7 @@ const allowedReleaseEnvFileKeys = new Set([
   'APP_RELEASE_EXTERNAL_SIGNOFF_REPORT_DIR',
   'APP_PHYSICAL_DEVICE_PLATFORM',
   'APP_EAS_IOS_REQUIRE_TESTFLIGHT',
+  'APP_EAS_PROJECT_FULL_NAME',
   'APP_EAS_IOS_RELEASE_SMOKE_RUN',
   'APP_EAS_IOS_BUILD_ID',
   'APP_EAS_IOS_SKIP_ARTIFACT_HEAD',
@@ -288,10 +289,12 @@ function hasSentryRuntimeQueryCredentials() {
 const prerequisiteActionCatalog = {
   eas_project_id: {
     owner_surface: 'Expo / EAS project setup',
-    required_env_keys: [],
-    action: 'Bind mobile/app.json to the real Expo project id before external release sign-off.',
+    required_env_keys: ['APP_EAS_PROJECT_FULL_NAME'],
+    action:
+      'Bind mobile/app.json to an Emorapy-aligned EAS project and confirm the EAS full name matches the Expo owner/slug before external release sign-off.',
     commands: [
-      'cd mobile && npx eas init',
+      'cd mobile && npx eas-cli@20.3.0 project:info --non-interactive',
+      'APP_EAS_PROJECT_FULL_NAME=@alexdev518/emorapy-mobile npm --prefix mobile run release:external-evidence:validate -- --report-dir=<report-dir>',
       'npm --prefix mobile run release:external-evidence:validate -- --report-dir=<report-dir>',
     ],
     docs: [prerequisiteDocs.runbook, prerequisiteDocs.releaseHardening],
@@ -672,7 +675,7 @@ function displayEnvFilePath(filePath) {
 
 function buildPrerequisiteReport(missingPrerequisites) {
   const app = readJson(path.join(mobileRoot, 'app.json')).expo ?? {};
-  const easProjectId = getExpoProjectIdStatus(app);
+  const easProjectIdentity = getExpoProjectIdentityStatus(app, process.env.APP_EAS_PROJECT_FULL_NAME);
   const deviceVisibility = buildDeviceVisibilityReport();
   return {
     type: 'app-external-signoff-prerequisites',
@@ -693,8 +696,12 @@ function buildPrerequisiteReport(missingPrerequisites) {
       version: app.version ?? null,
       ios_build_number: app.ios?.buildNumber ?? null,
       android_version_code: app.android?.versionCode ?? null,
-      eas_project_id_present: easProjectId.present,
-      eas_project_id_valid: easProjectId.valid,
+      eas_project_id_present: easProjectIdentity.project_id_present,
+      eas_project_id_valid: easProjectIdentity.project_id_valid,
+      eas_project_full_name_expected: easProjectIdentity.expected_full_name,
+      eas_project_full_name_present: easProjectIdentity.configured_full_name_present,
+      eas_project_full_name_matches_expected: easProjectIdentity.full_name_matches_expected,
+      eas_project_binding_valid: easProjectIdentity.valid,
     },
     tools: {
       eas_cli_available: commandAvailable('eas'),
@@ -719,15 +726,18 @@ function buildPrerequisiteReport(missingPrerequisites) {
 
 function validateRunPrerequisites() {
   const app = readJson(path.join(mobileRoot, 'app.json')).expo ?? {};
-  const easProjectId = getExpoProjectIdStatus(app);
+  const easProjectIdentity = getExpoProjectIdentityStatus(app, process.env.APP_EAS_PROJECT_FULL_NAME);
   const missing = [];
   const add = (id, message) => {
     missing.push({ id, message });
   };
   const active = (stepId) => !options.skip.has(stepId);
 
-  if (!easProjectId.valid) {
-    add('eas_project_id', 'mobile/app.json must include a real UUID-shaped extra.eas.projectId before release sign-off run mode.');
+  if (!easProjectIdentity.valid) {
+    add(
+      'eas_project_id',
+      `mobile/app.json must include a real UUID-shaped extra.eas.projectId and APP_EAS_PROJECT_FULL_NAME must match ${easProjectIdentity.expected_full_name ?? 'the Expo owner/slug'} before release sign-off run mode.`
+    );
   }
   if (!hasEnv('EXPO_TOKEN')) {
     add('expo_token', 'EXPO_TOKEN must be present for non-interactive EAS release metadata checks.');

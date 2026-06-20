@@ -33,6 +33,7 @@ const hiddenKeys = new Set([
   'DATABASE_URL',
 ]);
 const requiredKeys = [
+  'APP_EAS_PROJECT_FULL_NAME',
   'EXPO_TOKEN',
   'ASC_APPLE_ID',
   'EXPO_APPLE_APP_SPECIFIC_PASSWORD',
@@ -61,6 +62,8 @@ function printUsage() {
 
 Interactively fills the gitignored App release sign-off env file and, when missing,
 mobile/app.json expo.extra.eas.projectId. Secret-like values are not echoed.
+APP_EAS_PROJECT_FULL_NAME is non-secret and must match the Expo owner/slug,
+for example @alexdev518/emorapy-mobile.
 
 Options:
   --release-env-file=<path>  Local env file path relative to mobile/ unless absolute.

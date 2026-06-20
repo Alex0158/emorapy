@@ -4,7 +4,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { getExpoProjectIdStatus } from './lib/release-app-config.mjs';
+import { getExpoProjectIdentityStatus } from './lib/release-app-config.mjs';
 import {
   buildReleaseEvidencePolicies,
   getReleaseBlockingMigrationCount,
@@ -1179,7 +1179,7 @@ if (fixtureContract) {
 }
 
 const app = readJson(path.join(mobileRoot, 'app.json')).expo ?? {};
-const easProjectId = getExpoProjectIdStatus(app);
+const easProjectIdentity = getExpoProjectIdentityStatus(app, process.env.APP_EAS_PROJECT_FULL_NAME);
 const pkg = readJson(path.join(mobileRoot, 'package.json'));
 const scripts = pkg.scripts ?? {};
 const appReleaseSignoffWorkflow = readText(path.join(repoRoot, '.github/workflows/app-release-external-signoff.yml'));
@@ -1463,8 +1463,10 @@ requireValue(
     externalSignoffInputStatusScript.includes('placeholder_count') &&
     externalSignoffInputStatusScript.includes('missing_count') &&
     externalSignoffInputStatusScript.includes('unsupported_keys') &&
-    externalSignoffInputStatusScript.includes('getExpoProjectIdStatus'),
-  'release:external-evidence:input-status must report redacted readiness, placeholders, missing keys, unsupported keys, and EAS project id status.'
+    externalSignoffInputStatusScript.includes('getExpoProjectIdentityStatus') &&
+    externalSignoffInputStatusScript.includes('eas_project_binding_valid') &&
+    externalSignoffInputStatusScript.includes('APP_EAS_PROJECT_FULL_NAME'),
+  'release:external-evidence:input-status must report redacted readiness, placeholders, missing keys, unsupported keys, EAS project id status, and EAS full name binding status.'
 );
 requireValue(
   externalSignoffFillInputsScript.includes('Secret-like values are not echoed') &&
@@ -1845,9 +1847,10 @@ if (uploadEvidence?.endsWith('.json')) {
 
 addCompletionCheck({
   id: 'eas_project_id',
-  done: easProjectId.valid,
-  blocker: 'mobile/app.json has no UUID-shaped extra.eas.projectId, so EAS Update URL and Expo push token project binding are not final.',
-  docNeedles: ['EAS project id', 'extra.eas.projectId', 'UUID'],
+  done: easProjectIdentity.valid,
+  blocker:
+    `mobile/app.json must include a UUID-shaped extra.eas.projectId and APP_EAS_PROJECT_FULL_NAME must match ${easProjectIdentity.expected_full_name ?? 'the Expo owner/slug'}; current EAS project binding is not proven Emorapy-aligned.`,
+  docNeedles: ['EAS project id', 'extra.eas.projectId', 'APP_EAS_PROJECT_FULL_NAME'],
 });
 addCompletionCheck({
   id: 'expo_token',

@@ -5,7 +5,7 @@ import process from 'node:process';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { parseAdbDeviceRows, parseXctraceListDevices } from './lib/release-device-discovery.mjs';
-import { getExpoProjectIdStatus } from './lib/release-app-config.mjs';
+import { getExpoProjectIdentityStatus } from './lib/release-app-config.mjs';
 import {
   buildReleaseEvidencePolicies,
   summarizeEvidenceCandidate,
@@ -31,6 +31,7 @@ const allowedReleaseEnvFileKeys = new Set([
   'APP_RELEASE_EXTERNAL_SIGNOFF_REPORT_DIR',
   'APP_PHYSICAL_DEVICE_PLATFORM',
   'APP_EAS_IOS_REQUIRE_TESTFLIGHT',
+  'APP_EAS_PROJECT_FULL_NAME',
   'APP_EAS_IOS_RELEASE_SMOKE_RUN',
   'APP_EAS_IOS_BUILD_ID',
   'APP_EAS_IOS_SKIP_ARTIFACT_HEAD',
@@ -293,8 +294,11 @@ function buildBlockers(status) {
   const blockers = [];
   const add = (id, message) => blockers.push({ id, message });
 
-  if (!status.app.eas_project_id_valid) {
-    add('eas_project_id', 'mobile/app.json must include a real UUID-shaped extra.eas.projectId.');
+  if (!status.app.eas_project_binding_valid) {
+    add(
+      'eas_project_id',
+      `mobile/app.json must include a real UUID-shaped extra.eas.projectId and APP_EAS_PROJECT_FULL_NAME must match ${status.app.eas_project_full_name_expected ?? 'the Expo owner/slug'}.`
+    );
   }
   if (!status.credentials.expo_token_present) {
     add('expo_token', 'EXPO_TOKEN is required for non-interactive EAS release metadata checks.');
@@ -348,7 +352,7 @@ function buildBlockers(status) {
 function buildStatus() {
   const app = readJson(path.join(mobileRoot, 'app.json')).expo ?? {};
   const evidencePolicies = buildReleaseEvidencePolicies(app);
-  const easProjectId = getExpoProjectIdStatus(app);
+  const easProjectIdentity = getExpoProjectIdentityStatus(app, process.env.APP_EAS_PROJECT_FULL_NAME);
   const easCli = probeEasCli();
   const easIos = existingPathFromEnv('APP_EAS_IOS_RELEASE_EVIDENCE_FILE') ||
     findLatestEvidence('App-EAS-iOS-Release-');
@@ -365,9 +369,13 @@ function buildStatus() {
       version: app.version ?? null,
       ios_build_number: app.ios?.buildNumber ?? null,
       android_version_code: app.android?.versionCode ?? null,
-      eas_project_id_present: easProjectId.present,
-      eas_project_id_valid: easProjectId.valid,
-      eas_project_id_format: easProjectId.format,
+      eas_project_id_present: easProjectIdentity.project_id_present,
+      eas_project_id_valid: easProjectIdentity.project_id_valid,
+      eas_project_id_format: easProjectIdentity.project_id_format,
+      eas_project_full_name_expected: easProjectIdentity.expected_full_name,
+      eas_project_full_name_present: easProjectIdentity.configured_full_name_present,
+      eas_project_full_name_matches_expected: easProjectIdentity.full_name_matches_expected,
+      eas_project_binding_valid: easProjectIdentity.valid,
     },
     credentials: {
       expo_token_present: hasEnv('EXPO_TOKEN'),
@@ -441,7 +449,7 @@ function buildStatus() {
       ),
     },
     next_commands: [
-      'npx eas init 或在 mobile/app.json 設定真實 UUID 形狀 extra.eas.projectId',
+      '在 EAS dashboard 將 project 對齊為 @alexdev518/emorapy-mobile，或新建該 project 後更新 mobile/app.json extra.eas.projectId；再於 release env 設定 APP_EAS_PROJECT_FULL_NAME=@alexdev518/emorapy-mobile',
       'EXPO_TOKEN=<token> npm --prefix mobile run eas-ios-release:smoke -- --run',
       'EXPO_TOKEN=<token> APP_STORE_CONNECT_ISSUER_ID=<issuer> APP_STORE_CONNECT_KEY_ID=<key-id> APP_STORE_CONNECT_PRIVATE_KEY_PATH=<p8-path> npm --prefix mobile run eas-ios-release:smoke -- --run --require-testflight',
       'EXPO_TOKEN=<token> npm --prefix mobile run eas-android-release:smoke -- --run',
@@ -469,6 +477,7 @@ function printStatus(status) {
   console.log(`- iOS: ${status.app.ios_bundle_identifier} ${status.app.version}/${status.app.ios_build_number}`);
   console.log(`- Android: ${status.app.android_package} ${status.app.version}/${status.app.android_version_code}`);
   console.log(`- EAS project id valid UUID: ${status.app.eas_project_id_valid ? 'yes' : 'no'}`);
+  console.log(`- EAS project binding valid: ${status.app.eas_project_binding_valid ? 'yes' : 'no'} (${status.app.eas_project_full_name_expected ?? 'missing expected full name'})`);
 
   console.log('[release-external-evidence-status] credentials present');
   console.log(`- EXPO_TOKEN: ${status.credentials.expo_token_present ? 'yes' : 'no'}`);

@@ -28,7 +28,7 @@ npm --prefix mobile run goal:completion:audit:strict
 
 `goal:completion:audit:strict` 在以下項目全部清零前必須失敗：
 
-- EAS project id / `EXPO_TOKEN`
+- EAS project id / EAS full name binding / `EXPO_TOKEN`
 - Apple submission credentials / App Store Connect API credentials
 - EAS iOS production build + TestFlight evidence
 - EAS Android production build evidence
@@ -48,6 +48,7 @@ App telemetry runtime ingest evidence 與 release / production DB parity evidenc
 - blocked JSON 代替 pass JSON。
 - `--skip` 跳過任何外部步驟後的成功狀態。
 - placeholder / fake UUID 代替真實 `mobile/app.json` `extra.eas.projectId`。
+- 本地 `slug=emorapy-mobile` 仍綁到 legacy `@alexdev518/cj-mobile` EAS project。
 - local DB parity 代替 release / production PostgreSQL parity。
 
 strict audit 只接受對應 runner 產出的 structured JSON，且每份 evidence 必須 `blocked=false` 並匹配當前 app id、version、build number。
@@ -67,7 +68,7 @@ npm --prefix mobile run release:external-evidence:env-template:check
 
 外部 owner 填值清單見 [App-External-Signoff-Input-Checklist-2026-05-16.md](./App-External-Signoff-Input-Checklist-2026-05-16.md)。該清單只列 required env / config keys 與 safe validation signals，不保存任何 secret value。
 
-填值後可先跑 `npm --prefix mobile run release:external-evidence:input-status -- --json` 檢查本機 `mobile/release.env.local` 與 `extra.eas.projectId` 的 redacted 狀態；該命令只輸出 key names、placeholder / missing counts、`ready_for_current_completion_inputs` 與 `ready_for_validate`，不輸出任何 value，也不連 EAS、Apple、Sentry、DB 或裝置。JSON 內的 `current_completion_blocker_inputs` 對應當前尚未解除的 release completion inputs；`evidence_refresh_inputs` 對應 telemetry runtime / release DB parity refresh inputs。`ready_for_current_completion_inputs=true` 只代表當前 blocker inputs 齊備，不代表正式 validate / run 或 strict audits 通過；`ready_for_validate=true` 仍要求全量 16 個 sign-off / refresh keys 與有效 EAS project id。
+填值後可先跑 `npm --prefix mobile run release:external-evidence:input-status -- --json` 檢查本機 `mobile/release.env.local` 與 `extra.eas.projectId` 的 redacted 狀態；該命令只輸出 key names、placeholder / missing counts、`ready_for_current_completion_inputs`、`ready_for_validate` 與 `app.eas_project_binding_valid`，不輸出任何 value，也不連 EAS、Apple、Sentry、DB 或裝置。JSON 內的 `current_completion_blocker_inputs` 對應當前尚未解除的 release completion inputs；`evidence_refresh_inputs` 對應 telemetry runtime / release DB parity refresh inputs。`APP_EAS_PROJECT_FULL_NAME` 是非 secret，必須等於 `@alexdev518/emorapy-mobile`，用於確認 EAS full name 已按 Emorapy slug 對齊。`ready_for_current_completion_inputs=true` 只代表當前 blocker inputs 齊備，不代表正式 validate / run 或 strict audits 通過；`ready_for_validate=true` 仍要求全量 sign-off / refresh keys、有效 EAS project id 與有效 EAS full name binding。
 
 若要在本機逐項補值，可直接跑 `npm --prefix mobile run release:external-evidence:fill-inputs`。它只會在互動終端讀取缺值、可選地更新 `mobile/app.json` 的 `extra.eas.projectId`，並在寫回後自動重跑 `release:external-evidence:input-status`，同樣不會把 secret value 寫進聊天或 log。若只想先看還缺什麼，可加 `--list-missing`。
 
@@ -85,6 +86,8 @@ npm --prefix mobile run release:external-evidence:env-template:check
 
 - 在 `mobile/` 下完成真實 EAS project 初始化。
 - `mobile/app.json` 必須包含 UUID 形狀的 `expo.extra.eas.projectId`。
+- EAS project full name 必須和 `mobile/app.json` 的 `owner/slug` 對齊：`@alexdev518/emorapy-mobile`。2026-06-20 本地實測 `npx eas-cli@20.3.0 project:info --non-interactive` 失敗，錯誤指出 projectId 對應的 remote slug 仍是 `cj-mobile`，而本地 slug 是 `emorapy-mobile`；因此需要在 EAS dashboard rename 現有 project，或新建 / link `@alexdev518/emorapy-mobile` 後更新 `extra.eas.projectId`。
+- `APP_EAS_PROJECT_FULL_NAME=@alexdev518/emorapy-mobile` 必須放在 shell env、CI env 或 gitignored `mobile/release.env.local`，它不是 secret，但不能替代 EAS iOS / Android structured evidence。
 - EAS CLI 必須在 runner PATH 上可用；`release:check` 與 `release:external-evidence:status` 都會只以 warning / info / boolean 顯示可用 / authenticated 狀態，不輸出 Expo 帳號。
 - `EXPO_TOKEN` 必須可非交互查詢 EAS build metadata。
 
@@ -113,6 +116,7 @@ npm --prefix mobile run release:external-evidence:signoff -- --dry-run --release
 orchestrator 會先把 env-file 載入父進程供後續 runner 使用，status step 再用同一個 `--release-env-file` 重新產生 redacted provenance；因此 `App-External-Evidence-Status-*.json` 不應出現 `credentials.*_present=true` 卻沒有 `env_files.loaded` counter 的本機 env-file 報告。GitHub workflow 直接使用 secret env 時，`env_files.loaded=[]` 是預期行為，因為來源不是 env-file。
 
 `EAS project id valid UUID` 必須為 `yes`。
+`EAS project binding valid` 必須為 `yes`。
 `EAS CLI available` 必須為 `yes`。`EAS CLI authenticated` 可以協助人工診斷，但正式 runner 仍以 `EXPO_TOKEN` 作非交互 EAS 查詢憑證。
 
 `release:external-evidence:handoff:check` 會把當前 normalized blockers 轉成 owner surface、required env keys、正式命令、接受的 evidence 文件與 final strict gates；physical device owner action 會同時列出 iOS / Android `release:external-evidence:validate/run -- --physical-platform=...` 編排命令與底層 `physical-device:smoke` 命令，避免只跑底層 smoke 而跳過 prerequisite validation、status / handoff report、redaction 與 strict audit 編排。若加 `--report-dir=<path>`，會輸出 `App-External-Evidence-Handoff-*.json`。`release:external-evidence:handoff:contract` 會驗證 handoff JSON schema、known blocker catalog、platform-specific validate / run command、controlled secret redaction 與 report artifact 可被 generated evidence redaction 掃描。該 handoff report 只用於交接，不是 pass evidence。

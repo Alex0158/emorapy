@@ -63,13 +63,13 @@ describe('Telemetry platform adapter', () => {
       context: { session_id: 'session-1' },
     });
 
-    expect(console.info).toHaveBeenCalledWith('[cj-app-telemetry]', expect.objectContaining({
+    expect(console.info).toHaveBeenCalledWith('[emorapy-app-telemetry]', expect.objectContaining({
       appVersion: '1.2.3-test',
       buildNumber: '42-test',
       context: { token: '[redacted]', target: '/repair' },
       severity: 'info',
     }));
-    expect(console.error).toHaveBeenCalledWith('[cj-app-telemetry]', expect.objectContaining({
+    expect(console.error).toHaveBeenCalledWith('[emorapy-app-telemetry]', expect.objectContaining({
       context: { session_id: '[redacted]' },
       severity: 'error',
     }));
@@ -101,7 +101,7 @@ describe('Telemetry platform adapter', () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(console.warn).toHaveBeenCalledWith('[cj-app-telemetry:send-failed]', {
+    expect(console.warn).toHaveBeenCalledWith('[emorapy-app-telemetry:send-failed]', {
       name: 'app_error_boundary',
       severity: 'error',
       hasRequestId: true,

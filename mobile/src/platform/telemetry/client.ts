@@ -223,9 +223,9 @@ export function captureTelemetry(event: SafeTelemetryEvent): void {
   };
 
   if (event.severity === 'error') {
-    console.error('[cj-app-telemetry]', payload);
+    console.error('[emorapy-app-telemetry]', payload);
   } else {
-    console.info('[cj-app-telemetry]', payload);
+    console.info('[emorapy-app-telemetry]', payload);
   }
 
   void submitTelemetryEvent({
@@ -297,7 +297,7 @@ async function submitTelemetryEvent(event: EndpointTelemetryEvent): Promise<void
   try {
     await appApiClient.instance.post('/telemetry/events', { events: [event] });
   } catch (error) {
-    console.warn('[cj-app-telemetry:send-failed]', {
+    console.warn('[emorapy-app-telemetry:send-failed]', {
       name: event.name,
       severity: event.severity,
       hasRequestId: Boolean(event.request_id),
@@ -309,7 +309,7 @@ async function submitOtlpSpans(spans: ReadableSpan[]): Promise<void> {
   try {
     await appApiClient.instance.post('/telemetry/otlp/v1/traces', buildOtlpTracePayload(spans));
   } catch (error) {
-    console.warn('[cj-app-otel:send-failed]', {
+    console.warn('[emorapy-app-otel:send-failed]', {
       spanCount: spans.length,
     });
     throw error;

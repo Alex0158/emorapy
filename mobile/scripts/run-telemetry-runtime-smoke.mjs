@@ -293,7 +293,7 @@ async function fetchBackendVersion(normalizedApiBaseUrl) {
       method: 'GET',
       headers: {
         Accept: 'application/json',
-        'User-Agent': 'cj-app-telemetry-runtime-smoke/1.0',
+        'User-Agent': 'emorapy-app-telemetry-runtime-smoke/1.0',
         'X-Locale': 'zh-TW',
       },
       signal: AbortSignal.timeout(options.timeoutMs),
@@ -491,7 +491,7 @@ async function run() {
   const headers = {
     Accept: 'application/json',
     'Content-Type': 'application/json',
-    'User-Agent': 'cj-app-telemetry-runtime-smoke/1.0',
+    'User-Agent': 'emorapy-app-telemetry-runtime-smoke/1.0',
     'X-Request-Id': requestId,
     'X-Locale': 'zh-TW',
     'X-Session-Id': sessionId,

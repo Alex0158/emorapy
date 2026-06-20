@@ -38,6 +38,7 @@ const CURRENT_SOURCE_IDENTITY_SCAN_PATTERNS = [
   'backend/src/**/*.{ts,tsx}',
   'mobile/app/**/*.{ts,tsx}',
   'mobile/src/**/*.{ts,tsx}',
+  'mobile/scripts/**/*.mjs',
 ];
 
 const CURRENT_DOC_LEADIN_FILES = [
@@ -179,6 +180,16 @@ const LEGACY_SOURCE_IDENTITY_RULES = [
     id: 'legacy-design-token-system-title',
     pattern: /Mother Bear Court(?: Admin)? - Design Token System/g,
     message: 'Current source comments must describe design tokens as Emorapy, not Mother Bear Court.',
+  },
+  {
+    id: 'legacy-app-telemetry-runtime-tag',
+    pattern: /\bcj-app-(?:telemetry|otel)(?::send-failed)?\b/g,
+    message: 'Current App telemetry runtime diagnostics must use emorapy-app-* tags.',
+  },
+  {
+    id: 'legacy-app-telemetry-runtime-user-agent',
+    pattern: /\bcj-app-telemetry-runtime-smoke\/1\.0\b/g,
+    message: 'Current App telemetry runtime smoke User-Agent must use emorapy-app-telemetry-runtime-smoke.',
   },
 ];
 

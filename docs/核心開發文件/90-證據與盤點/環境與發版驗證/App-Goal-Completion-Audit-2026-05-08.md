@@ -10,10 +10,10 @@
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 **文檔版本**：v1.0
-**最後更新**：2026-05-08
+**最後更新**：2026-06-20
 **對應範圍**：`mobile/scripts/check-app-goal-completion-audit.mjs`、`mobile/scripts/check-release-completion-audit.mjs`、`mobile/scripts/check-release-completion-audit-contract.mjs`、`mobile/scripts/run-release-external-evidence-signoff.mjs`、`mobile/package.json`、`docs/核心開發文件/20-App端/02-App完整版本工程PRD.md`、`docs/核心開發文件/20-App端/03-App完整版本開發Roadmap.md`、`docs/核心開發文件/08-測試規範與驗收/03-App測試與證據接入基線.md`、`docs/核心開發文件/07-待處理問題與治理/待處理/App跨端Parity落地待辦-2026-05-05.md`、`docs/核心開發文件/07-待處理問題與治理/待處理/App外部ReleaseSignoff待辦-2026-05-16.md`
 
-外部 release sign-off 執行交接見 [App-External-Release-Signoff-Runbook-2026-05-08.md](./App-External-Release-Signoff-Runbook-2026-05-08.md)；當前 secret-safe 交接快照見 [App-External-Evidence-Status-2026-06-20T08-57-18-158Z.json](./App-External-Evidence-Status-2026-06-20T08-57-18-158Z.json) 與 [App-External-Evidence-Handoff-2026-06-20T08-59-34-442Z.json](./App-External-Evidence-Handoff-2026-06-20T08-59-34-442Z.json)。這些文件只把缺失外部證據轉成可執行步驟，不改變本文件的完成判定；status snapshot 會以 `env_files.values_redacted=true` 與 `env_files.loaded[]` 記錄 env-file provenance 且不保存 secret value，handoff snapshot 會標明 8 個 current release completion handoff blockers 與 4 個 prerequisite-only blockers（Sentry runtime query credentials、native crash event id、iOS / Android physical device visibility），避免把前置輸入或設備可見性誤讀成 release completion blocker。
+外部 release sign-off 執行交接見 [App-External-Release-Signoff-Runbook-2026-05-08.md](./App-External-Release-Signoff-Runbook-2026-05-08.md)；當前 secret-safe 交接快照見 [App-External-Evidence-Status-2026-06-20T09-27-56-317Z.json](./App-External-Evidence-Status-2026-06-20T09-27-56-317Z.json) 與 [App-External-Evidence-Handoff-2026-06-20T09-27-56-767Z.json](./App-External-Evidence-Handoff-2026-06-20T09-27-56-767Z.json)。這些文件只把缺失外部證據轉成可執行步驟，不改變本文件的完成判定；status snapshot 會以 `env_files.values_redacted=true` 與 `env_files.loaded[]` 記錄 env-file provenance 且不保存 secret value，handoff snapshot 會標明 7 個 current release completion handoff blockers 與 4 個 prerequisite-only blockers（Sentry runtime query credentials、native crash event id、iOS / Android physical device visibility），避免把前置輸入或設備可見性誤讀成 release completion blocker。
 
 ---
 
@@ -86,11 +86,10 @@
 5. 尚無 pass 狀態 `App-EAS-iOS-Release-*.json`。
 6. 尚無 pass 狀態 TestFlight App Store Connect evidence。
 7. 尚無 pass 狀態 `App-Physical-Device-*.json`；目前本機 iOS physical connected=0、offline=2，Android physical connected=0。
-8. 尚無 pass 狀態 `App-EAS-Android-Release-*.json`。
-9. 尚無 pass 狀態 `App-Push-Delivery-*.json`。
-10. 尚無 pass 狀態 `App-Native-Crash-Runtime-*.json`。
+8. 尚無 pass 狀態 `App-Push-Delivery-*.json`。
+9. 尚無 pass 狀態 `App-Native-Crash-Runtime-*.json`。
 
-帶本機 release env 的當前 `release:completion:audit -- --json` 的 `blocker_ids` 必須保持為 `apple_submission_credentials`、`app_store_connect_api_credentials`、`eas_ios_build_artifact`、`testflight_evidence`、`physical_device_evidence`、`android_emulator_runtime_evidence`、`android_app_runtime_evidence`、`android_full_flow_evidence`、`ios_release_simulator_evidence`、`eas_android_build_artifact`、`apns_or_provider_delivery_evidence`、`native_imagepicker_upload_evidence`、`native_crash_runtime_evidence`；其中 current external handoff blockers 為 Apple / ASC、EAS iOS / Android、TestFlight、physical device、push delivery 與 native crash runtime。`goal:completion:audit -- --json` 會把這些 completion blockers、對應 `handoff_blocker_ids`、latest `App-External-Evidence-Handoff-*.json` path 與 prerequisite-only blockers 一起放進 `release_signoff.details`；對外 handoff 會把 completion blockers 映射到 owner action，並在 external status / handoff report 與 `/goal` audit 中暴露 Sentry runtime query credentials、native crash event id 與 iOS / Android physical device visibility prerequisite blockers。EAS project binding、Expo token、release DB parity 與 telemetry runtime 已有 pass / valid evidence 時，不再作為 release completion blocker。
+帶本機 release env 的當前 `release:completion:audit -- --json` 的 `blocker_ids` 必須保持為 `apple_submission_credentials`、`app_store_connect_api_credentials`、`eas_ios_build_artifact`、`testflight_evidence`、`physical_device_evidence`、`android_emulator_runtime_evidence`、`android_app_runtime_evidence`、`android_full_flow_evidence`、`ios_release_simulator_evidence`、`apns_or_provider_delivery_evidence`、`native_imagepicker_upload_evidence`、`native_crash_runtime_evidence`；其中 current external handoff blockers 為 Apple / ASC、EAS iOS、TestFlight、physical device、push delivery 與 native crash runtime。`goal:completion:audit -- --json` 會把這些 completion blockers、對應 `handoff_blocker_ids`、latest `App-External-Evidence-Handoff-*.json` path 與 prerequisite-only blockers 一起放進 `release_signoff.details`；對外 handoff 會把 completion blockers 映射到 owner action，並在 external status / handoff report 與 `/goal` audit 中暴露 Sentry runtime query credentials、native crash event id 與 iOS / Android physical device visibility prerequisite blockers。EAS project binding、Expo token、EAS Android production artifact、release DB parity 與 telemetry runtime 已有 pass / valid evidence 時，不再作為 release completion blocker。
 
 以上缺口未消除前，不得調用 `/goal` complete，也不得宣稱完整 App 版已完成。
 

@@ -1,0 +1,62 @@
+{
+  "type": "app-eas-android-release-evidence",
+  "generated_at": "2026-06-20T09:25:07.612Z",
+  "started_at": "2026-06-20T09:25:01.532Z",
+  "working_directory": "/Users/alex/Desktop/CJ/mother-bear-court/mobile",
+  "node_version": "v25.8.1",
+  "app_android_package": "com.emorapy.app",
+  "app_version": "1.3.1",
+  "app_version_code": "2",
+  "expected": {
+    "platform": "android",
+    "distribution": "store",
+    "build_profile": "production",
+    "channel": "production",
+    "runtime_version": "1.3.1"
+  },
+  "credentials": {
+    "expo_token_present": true
+  },
+  "summary": {
+    "run_mode": "run",
+    "eas_query_passed": true,
+    "build_found": true,
+    "platform_android": true,
+    "status_finished": true,
+    "distribution_store": true,
+    "profile_production": true,
+    "app_identifier_matches": true,
+    "app_version_matches": true,
+    "version_code_matches": true,
+    "artifact_url_present": true,
+    "artifact_head_passed": true,
+    "blocked": false
+  },
+  "eas_build": {
+    "id_sha256": "d0ad1a83cbc8328e64d9de77ae50a7babe16845285384b8189f02b3dc2d69fad",
+    "platform": "ANDROID",
+    "status": "FINISHED",
+    "distribution": "STORE",
+    "build_profile": "production",
+    "channel": null,
+    "app_identifier": null,
+    "app_version": "1.3.1",
+    "app_build_version": "2",
+    "runtime_version": "1.3.1",
+    "artifact": {
+      "host": "expo.dev",
+      "path_sha256": "c525a881a01bbedbf781a93fd8f6a7ee6e836abdae4d8707571d924770121687",
+      "url_sha256": "039f4d8f8d02874175a406aa18bd1984b476d2c150ac6f7946460bfd2efd373b"
+    },
+    "query_status": 0,
+    "stderr_tail": ""
+  },
+  "artifact_head": {
+    "skipped": false,
+    "ok": true,
+    "status": 200,
+    "content_type": "application/octet-stream",
+    "content_length": "65647904",
+    "final_host": "wf-artifacts.eascdn.net"
+  }
+}

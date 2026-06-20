@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
 
-const SESSION_STORAGE_KEY = 'cj_session_id';
+const SESSION_STORAGE_KEY = 'emorapy_session_id';
 const REQUEST_ANALYSIS_BUTTON = /發起梳理|發起判決|Request Analysis|Request Judgment/;
 const CONFIRM_ANALYSIS_TITLE = /轉梳理前確認|轉判決前確認|Confirm Before Analysis|Confirm Before Judgment/;
 const ANALYSIS_REQUESTED_TEXT = /梳理請求中|判決請求中|Analysis requested|Judgment requested/;

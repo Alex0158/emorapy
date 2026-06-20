@@ -1658,7 +1658,7 @@ describe('ChatRoomPage', () => {
 
   it('匿名 owner 且 canonical session_id 匹配時可建立邀請（F07 session 規則）', async () => {
     useAuthStore.setState({ user: null, isAuthenticated: false, _hasHydrated: true } as any);
-    localStorage.setItem('cj_session_id', 'guest_owner_123');
+    localStorage.setItem('emorapy_session_id', 'guest_owner_123');
     mockGetChatRoom.mockResolvedValue({
       id: 'room-anon-owner',
       status: 'solo_active',
@@ -1694,7 +1694,7 @@ describe('ChatRoomPage', () => {
 
   it('匿名 owner 但 canonical session_id 不匹配時應禁用建立邀請（F07 session 規則）', async () => {
     useAuthStore.setState({ user: null, isAuthenticated: false, _hasHydrated: true } as any);
-    localStorage.setItem('cj_session_id', 'guest_other_123');
+    localStorage.setItem('emorapy_session_id', 'guest_other_123');
     mockGetChatRoom.mockResolvedValue({
       id: 'room-anon-owner',
       status: 'solo_active',
@@ -2529,7 +2529,7 @@ describe('ChatRoomPage', () => {
 
   it('未登入時 chat 發起梳理成功後應先被導向 login，並保留 judgment 回跳目標（F07 -> F04 handoff）', async () => {
     useAuthStore.setState({ user: null, isAuthenticated: false, _hasHydrated: true } as any);
-    localStorage.setItem('cj_session_id', 'guest_owner_123');
+    localStorage.setItem('emorapy_session_id', 'guest_owner_123');
     mockGetChatRoom.mockResolvedValue({
       id: 'room-1',
       status: 'solo_active',

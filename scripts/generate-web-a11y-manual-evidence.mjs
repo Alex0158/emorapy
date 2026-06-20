@@ -702,7 +702,7 @@ async function main() {
       baseURL: WEB_BASE_URL,
       setup: async (page) => {
         await page.addInitScript(() => {
-          window.localStorage.setItem('cj_session_id', 'session-a11y-manual');
+          window.localStorage.setItem('emorapy_session_id', 'session-a11y-manual');
         });
         await setupWebApi(page, { chatOwnerSession: true });
       },

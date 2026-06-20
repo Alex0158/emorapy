@@ -2,7 +2,7 @@
  * 本地存儲工具
  */
 
-import { LEGACY_SESSION_STORAGE_KEY, SESSION_STORAGE_KEY } from './constants';
+import { LEGACY_SESSION_STORAGE_KEYS, SESSION_STORAGE_KEY } from './constants';
 import { logger } from './logger';
 
 const CASE_SESSION_MAP_KEY = 'quick_case_session_map';
@@ -54,14 +54,19 @@ export const sessionStorage = {
   get: (): string | null => {
     try {
       const current = localStorage.getItem(SESSION_STORAGE_KEY);
-      if (current) return current;
-      const legacy = localStorage.getItem(LEGACY_SESSION_STORAGE_KEY);
-      if (legacy) {
+      if (current) {
+        LEGACY_SESSION_STORAGE_KEYS.forEach(key => localStorage.removeItem(key));
+        return current;
+      }
+      for (const legacyKey of LEGACY_SESSION_STORAGE_KEYS) {
+        const legacy = localStorage.getItem(legacyKey);
+        if (!legacy) continue;
         // One-time lazy migration: read old key, write new key.
         localStorage.setItem(SESSION_STORAGE_KEY, legacy);
-        localStorage.removeItem(LEGACY_SESSION_STORAGE_KEY);
+        LEGACY_SESSION_STORAGE_KEYS.forEach(key => localStorage.removeItem(key));
+        return legacy;
       }
-      return legacy;
+      return null;
     } catch {
       return null;
     }
@@ -71,7 +76,7 @@ export const sessionStorage = {
     if (!sessionId) return;
     try {
       localStorage.setItem(SESSION_STORAGE_KEY, sessionId);
-      localStorage.removeItem(LEGACY_SESSION_STORAGE_KEY);
+      LEGACY_SESSION_STORAGE_KEYS.forEach(key => localStorage.removeItem(key));
     } catch {
       /* noop */
     }
@@ -80,14 +85,19 @@ export const sessionStorage = {
   remove: (): void => {
     try {
       localStorage.removeItem(SESSION_STORAGE_KEY);
-      localStorage.removeItem(LEGACY_SESSION_STORAGE_KEY);
+      LEGACY_SESSION_STORAGE_KEYS.forEach(key => localStorage.removeItem(key));
     } catch {
       /* noop */
     }
   },
 
   exists: (): boolean => {
-    try { return !!(localStorage.getItem(SESSION_STORAGE_KEY) || localStorage.getItem(LEGACY_SESSION_STORAGE_KEY)); } catch { return false; }
+    try {
+      return !!(
+        localStorage.getItem(SESSION_STORAGE_KEY)
+        || LEGACY_SESSION_STORAGE_KEYS.some(key => localStorage.getItem(key))
+      );
+    } catch { return false; }
   },
 };
 
@@ -184,4 +194,3 @@ export const localStore = {
     try { localStorage.clear(); } catch { /* noop */ }
   },
 };
-

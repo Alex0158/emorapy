@@ -211,6 +211,6 @@ test.describe('Quick Experience 升格閉環', () => {
     await expect.poll(() => registerCalled).toBe(true);
     await expect.poll(() => claimSessionCalled).toBe(true);
     expect(await page.evaluate(() => localStorage.getItem('token'))).toBe('token-e2e-claim');
-    expect(await page.evaluate(() => localStorage.getItem('cj_session_id'))).toBe(sessionId);
+    expect(await page.evaluate(() => localStorage.getItem('emorapy_session_id'))).toBe(sessionId);
   });
 });

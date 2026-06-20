@@ -4,8 +4,8 @@ import enUS from '@/assets/i18n/en-US';
 export type Locale = 'zh-TW' | 'en-US';
 
 const DEFAULT_LOCALE: Locale = 'zh-TW';
-const LOCALE_STORAGE_KEY = 'cj_locale';
-const LEGACY_LOCALE_STORAGE_KEY = 'mbc_locale';
+const LOCALE_STORAGE_KEY = 'emorapy_locale';
+const LEGACY_LOCALE_STORAGE_KEYS = ['cj_locale', 'mbc_locale'] as const;
 
 let current: Locale = detectInitialLocale();
 
@@ -46,8 +46,19 @@ function detectInitialLocale(): Locale {
   if (typeof window === 'undefined') return DEFAULT_LOCALE;
   let stored: string | null = null;
   try {
-    stored = window.localStorage.getItem(LOCALE_STORAGE_KEY)
-      ?? window.localStorage.getItem(LEGACY_LOCALE_STORAGE_KEY);
+    stored = window.localStorage.getItem(LOCALE_STORAGE_KEY);
+    if (stored) {
+      LEGACY_LOCALE_STORAGE_KEYS.forEach(key => window.localStorage.removeItem(key));
+    } else {
+      for (const legacyKey of LEGACY_LOCALE_STORAGE_KEYS) {
+        const legacy = window.localStorage.getItem(legacyKey);
+        if (!legacy) continue;
+        stored = legacy;
+        window.localStorage.setItem(LOCALE_STORAGE_KEY, legacy);
+        LEGACY_LOCALE_STORAGE_KEYS.forEach(key => window.localStorage.removeItem(key));
+        break;
+      }
+    }
   } catch {
     /* noop */
   }
@@ -71,12 +82,21 @@ export function setLocale(locale: Locale | string): void {
   if (!catalogs[normalized]) return;
   if (current === normalized) {
     syncDocumentLocale(normalized);
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem(LOCALE_STORAGE_KEY, normalized);
+        LEGACY_LOCALE_STORAGE_KEYS.forEach(key => window.localStorage.removeItem(key));
+      } catch { /* noop */ }
+    }
     return;
   }
   current = normalized;
   syncDocumentLocale(normalized);
   if (typeof window !== 'undefined') {
-    try { window.localStorage.setItem(LOCALE_STORAGE_KEY, normalized); } catch { /* noop */ }
+    try {
+      window.localStorage.setItem(LOCALE_STORAGE_KEY, normalized);
+      LEGACY_LOCALE_STORAGE_KEYS.forEach(key => window.localStorage.removeItem(key));
+    } catch { /* noop */ }
   }
   notifyLocaleChange();
 }

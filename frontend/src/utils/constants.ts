@@ -8,8 +8,8 @@ import { env } from '@/config/env';
 export const API_BASE_URL = env.apiBaseURL;
 
 // Session配置
-export const SESSION_STORAGE_KEY = 'cj_session_id';
-export const LEGACY_SESSION_STORAGE_KEY = 'mbc_session_id';
+export const SESSION_STORAGE_KEY = 'emorapy_session_id';
+export const LEGACY_SESSION_STORAGE_KEYS = ['cj_session_id', 'mbc_session_id'] as const;
 export const SESSION_PREFIX = 'guest_';
 export const SESSION_EXPIRY_HOURS = 24;
 

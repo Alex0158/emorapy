@@ -112,5 +112,17 @@ describe('i18n', () => {
       const immediate = t('result.title');
       expect(immediate).toBe('Relationship Analysis Result');
     });
+
+    it('初始化時應把 cj_locale 舊 key 遷移到 emorapy_locale', async () => {
+      vi.resetModules();
+      window.localStorage.clear();
+      window.localStorage.setItem('cj_locale', 'en-US');
+
+      const module = await import('./i18n');
+
+      expect(module.getLocale()).toBe('en-US');
+      expect(window.localStorage.getItem('emorapy_locale')).toBe('en-US');
+      expect(window.localStorage.getItem('cj_locale')).toBeNull();
+    });
   });
 });

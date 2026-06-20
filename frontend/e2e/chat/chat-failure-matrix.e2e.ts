@@ -7,7 +7,7 @@ const MESSAGE_INPUT = /輸入訊息|Type a message/;
 const SEND_BUTTON = /送\s*出|Send/;
 const CREATE_INVITE_BUTTON = /建立邀請|Create Invite/;
 const CREATE_ROOM_BUTTON = /建立聊天室|Create Room/;
-const SESSION_STORAGE_KEY = 'cj_session_id';
+const SESSION_STORAGE_KEY = 'emorapy_session_id';
 
 async function setChatSession(page: Page, sessionId: string, baseURL: string) {
   await page.goto(baseURL, { waitUntil: 'commit' });

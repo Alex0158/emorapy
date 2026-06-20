@@ -356,6 +356,7 @@ const REQUIRED_POLICY_NEEDLES = [
       'P4 release commit env alias contract',
       'P4 legacy production hostname compatibility gate',
       'P4 Sentry native crash project / release identity handoff',
+      'P4 Web localStorage key migration',
       'Legacy requirement / governance IDs',
       'Historical package-scope references',
       '正式 internal workspace package scope 改為 `@emorapy/contracts` 與 `@emorapy/api-client`',
@@ -799,6 +800,25 @@ function checkCurrentOpsEnvAliasContract() {
   );
 }
 
+function checkWebLocalStorageKeyMigrationContract() {
+  const constantsFile = 'frontend/src/utils/constants.ts';
+  const i18nFile = 'frontend/src/utils/i18n.ts';
+  const storageFile = 'frontend/src/utils/storage.ts';
+
+  requireIncludes(readText(constantsFile), "SESSION_STORAGE_KEY = 'emorapy_session_id'", constantsFile);
+  requireIncludes(readText(constantsFile), "['cj_session_id', 'mbc_session_id'] as const", constantsFile);
+  requireIncludes(readText(i18nFile), "LOCALE_STORAGE_KEY = 'emorapy_locale'", i18nFile);
+  requireIncludes(readText(i18nFile), "['cj_locale', 'mbc_locale'] as const", i18nFile);
+  requireIncludes(readText(storageFile), 'LEGACY_SESSION_STORAGE_KEYS.forEach', storageFile);
+
+  if (readText('frontend/src/test/setup.ts').includes("setItem('cj_locale'")) {
+    fail('frontend/src/test/setup.ts must seed emorapy_locale, not cj_locale.');
+  }
+  if (readText('scripts/generate-web-a11y-manual-evidence.mjs').includes("'cj_session_id'")) {
+    fail('scripts/generate-web-a11y-manual-evidence.mjs must seed emorapy_session_id, not cj_session_id.');
+  }
+}
+
 checkAppJsonIdentity();
 checkPackageManifestNames();
 await checkAppIdentityFiles();
@@ -818,6 +838,7 @@ checkAppVisibleCopyLegacyBrandGuard();
 checkLegacyProductionHostnameCompatContract();
 checkLegacyGovernanceIdNamespacePolicy();
 checkSentryNativeCrashReleaseIdentity();
+checkWebLocalStorageKeyMigrationContract();
 
 if (failures.length > 0) {
   console.error('[emorapy-naming-governance] failed');

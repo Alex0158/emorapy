@@ -13,6 +13,7 @@ vi.mock('@/config/env', () => ({
 import {
   API_BASE_URL,
   SESSION_STORAGE_KEY,
+  LEGACY_SESSION_STORAGE_KEYS,
   SESSION_PREFIX,
   SESSION_EXPIRY_HOURS,
   MIN_STATEMENT_LENGTH,
@@ -40,7 +41,10 @@ describe('constants', () => {
 
   describe('Session', () => {
     it('SESSION_STORAGE_KEY 應為字串', () => {
-      expect(SESSION_STORAGE_KEY).toBe('cj_session_id');
+      expect(SESSION_STORAGE_KEY).toBe('emorapy_session_id');
+    });
+    it('LEGACY_SESSION_STORAGE_KEYS 應保留舊瀏覽器 key 作兼容遷移', () => {
+      expect(LEGACY_SESSION_STORAGE_KEYS).toEqual(['cj_session_id', 'mbc_session_id']);
     });
     it('SESSION_PREFIX 應為字串', () => {
       expect(SESSION_PREFIX).toBe('guest_');

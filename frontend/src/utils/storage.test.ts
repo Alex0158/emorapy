@@ -33,10 +33,18 @@ describe('storage', () => {
       mockGetItem.mockReturnValue(null);
       expect(sessionStorage.get()).toBe(null);
     });
-    it('get 應支援舊 key 並遷移到新 key', () => {
+    it('get 應支援 cj 舊 key 並遷移到新 key', () => {
+      mockGetItem.mockImplementation((key: string) => (key === 'cj_session_id' ? 'legacy_sid' : null));
+      expect(sessionStorage.get()).toBe('legacy_sid');
+      expect(mockSetItem).toHaveBeenCalledWith('emorapy_session_id', 'legacy_sid');
+      expect(mockRemoveItem).toHaveBeenCalledWith('cj_session_id');
+      expect(mockRemoveItem).toHaveBeenCalledWith('mbc_session_id');
+    });
+    it('get 應支援 mbc 更早舊 key 並遷移到新 key', () => {
       mockGetItem.mockImplementation((key: string) => (key === 'mbc_session_id' ? 'legacy_sid' : null));
       expect(sessionStorage.get()).toBe('legacy_sid');
-      expect(mockSetItem).toHaveBeenCalledWith('cj_session_id', 'legacy_sid');
+      expect(mockSetItem).toHaveBeenCalledWith('emorapy_session_id', 'legacy_sid');
+      expect(mockRemoveItem).toHaveBeenCalledWith('cj_session_id');
       expect(mockRemoveItem).toHaveBeenCalledWith('mbc_session_id');
     });
     it('set sessionId 為空時應直接返回不寫入（F01 邊界：與 caseSessionMap 一致，防止無效 session）', () => {
@@ -46,7 +54,9 @@ describe('storage', () => {
 
     it('set 應調用 localStorage.setItem', () => {
       sessionStorage.set('guest_xyz');
-      expect(mockSetItem).toHaveBeenCalledWith(expect.any(String), 'guest_xyz');
+      expect(mockSetItem).toHaveBeenCalledWith('emorapy_session_id', 'guest_xyz');
+      expect(mockRemoveItem).toHaveBeenCalledWith('cj_session_id');
+      expect(mockRemoveItem).toHaveBeenCalledWith('mbc_session_id');
     });
     it('remove 應調用 localStorage.removeItem', () => {
       sessionStorage.remove();

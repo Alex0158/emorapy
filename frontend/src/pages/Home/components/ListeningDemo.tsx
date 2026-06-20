@@ -183,6 +183,7 @@ const ListeningDemo = () => {
           min={1}
           max={messages.length}
           value={frame}
+          autoComplete="off"
           onChange={(event) => {
             setPlaying(false);
             setFrame(Number(event.target.value));

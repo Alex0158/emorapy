@@ -18,7 +18,7 @@
 
 核心文件已把 Web 版與 App 版定位為同一產品核心的不同平台投影。當前現碼事實如下：
 
-1. `mobile/app` 已從 Expo template 轉為 CJ public / authenticated route group、普通用戶 M0-M5 screen、root provider、root error boundary 與 `modal`。
+1. `mobile/app` 已從 Expo template 轉為 Emorapy public / authenticated route group、普通用戶 M0-M5 screen、root provider、root error boundary 與 `modal`。
 2. `mobile/src/platform` 已建立 API、SecureStore、SSE / AI stream、upload、notifications、linking、lifecycle、telemetry runtime adapter，且 `platform:check` 會阻止 screen / feature 層直接調 native side effect。
 3. App 已消費 `@emorapy/contracts` / `@emorapy/api-client`；M1-M5 shared domain client、screen action、backend route、DB/schema 影響與 App adapter 由 `features:check`、`true-service:check`、`routes:check` 與 `08/03` 的測試基線守護。2026-06-20 已把 `routes:check` / `features:check` 從硬要求 route file 內中文 literal 調整為 i18n-aware contract：route 必須使用對應 i18n key，zh-TW / en-US catalog 必須保留正式 tab label 與 M2/M3 狀態文案。
 4. release DB parity 與 telemetry runtime 已有 structured pass evidence，可作 release audit 證據槽；後續若 backend schema、release-blocking migration、backend version 或 telemetry runtime 路徑變更，仍需重新取證。

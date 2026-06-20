@@ -21,7 +21,7 @@
 - `GET /version` 是目前客戶前端與 Admin 版本面板實際打到的後端版本接口，用於三端版本核對與部署驗證。
 - `GET /api/v1/version` 與 `/version` 輸出同 payload，保留在 API 命名空間作 metadata / 兼容入口。
 - `POST /api/v1/telemetry/events` 是 App M5/M6 的 safe telemetry ingest 端點，只接受已最小化事件、做 backend 二次清洗，並寫入最小化 `app_telemetry_events` 摘要；它可承接 App session start、lifecycle、JS fatal / unhandled promise，但不保存 prompt / relationship / psych 原文，不建立完整使用者行為分析、native crash runtime capture、external tracing backend 或長期產品分析基線。
-- `POST /api/v1/telemetry/otlp/v1/traces` 是 CJ 內建 OTLP JSON trace ingest baseline，只接受 JSON `resourceSpans`，將 App-side OpenTelemetry provider span 轉為安全 `app_otel_span` 摘要並復用 App telemetry persistence / report；它不是 vendor collector，也不替代真機 / TestFlight runtime trace evidence。
+- `POST /api/v1/telemetry/otlp/v1/traces` 是 Emorapy 內建 OTLP JSON trace ingest baseline，只接受 JSON `resourceSpans`，將 App-side OpenTelemetry provider span 轉為安全 `app_otel_span` 摘要並復用 App telemetry persistence / report；它不是 vendor collector，也不替代真機 / TestFlight runtime trace evidence。
 
 ## 接口契約（字段級）
 

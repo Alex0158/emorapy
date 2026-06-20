@@ -10,13 +10,13 @@
 
 ## 1. 定位
 
-本文把 CJ 的 API 失敗語義從「每個接口列常見錯誤」提升為跨端可依賴的錯誤契約。頂級工程級 API / PRD 文件通常會把 HTTP status、業務錯誤碼、validation details、request id、重試語義、隱私遮罩與 OpenAPI schema 一起納入 contract。
+本文把 Emorapy 的 API 失敗語義從「每個接口列常見錯誤」提升為跨端可依賴的錯誤契約。頂級工程級 API / PRD 文件通常會把 HTTP status、業務錯誤碼、validation details、request id、重試語義、隱私遮罩與 OpenAPI schema 一起納入 contract。
 
-CJ 當前使用自有 JSON envelope：`{ success: false, error: { code, message, details? }, meta: { request_id, timestamp } }`。這不是 RFC 9457 `application/problem+json`。本文的作用是承認現狀、固定最小契約、列出 Problem Details / OpenAPI 缺口，避免把人工錯誤表誤宣稱為 machine-readable error schema。
+Emorapy 當前使用自有 JSON envelope：`{ success: false, error: { code, message, details? }, meta: { request_id, timestamp } }`。這不是 RFC 9457 `application/problem+json`。本文的作用是承認現狀、固定最小契約、列出 Problem Details / OpenAPI 缺口，避免把人工錯誤表誤宣稱為 machine-readable error schema。
 
 ## 2. 外部基線參考
 
-| 基線 | 採用原因 | CJ 採用方式 |
+| 基線 | 採用原因 | Emorapy 採用方式 |
 | --- | --- | --- |
 | RFC 9110 HTTP Semantics | 定義 HTTP status class 與語義 | 用於校準 4xx / 5xx / 409 / 422 / 429 / 503 等 status 使用，不新增非標 HTTP code |
 | RFC 9457 Problem Details for HTTP APIs | 定義 `type / title / status / detail / instance` 與 `application/problem+json` | 用於校準未來錯誤 schema；現狀標為 Problem Details gap |
@@ -30,7 +30,7 @@ CJ 當前使用自有 JSON envelope：`{ success: false, error: { code, message,
 3. [OpenAPI Specification](https://spec.openapis.org/oas/latest)
 4. [ISO/IEC/IEEE 29148:2018](https://www.iso.org/standard/72089.html)
 
-## 3. CJ 當前錯誤 envelope
+## 3. Emorapy 當前錯誤 envelope
 
 | 欄位 | 現狀 | 約束 |
 | --- | --- | --- |
@@ -58,7 +58,7 @@ CJ 當前使用自有 JSON envelope：`{ success: false, error: { code, message,
 | 規則 | 口徑 |
 | --- | --- |
 | HTTP status | 必須採用 RFC 9110 標準 status；不得新增自定義 HTTP status code |
-| 業務錯誤碼 | `error.code` 是 CJ 自有 domain code；可比 HTTP status 更細，但不能替代 status |
+| 業務錯誤碼 | `error.code` 是 Emorapy 自有 domain code；可比 HTTP status 更細，但不能替代 status |
 | 語義穩定 | 前端 / App / Admin 依賴的 code 不得改名或改義；若廢棄需保留兼容期 |
 | 重試語義 | 429、503、AI failure、processing not done、judgment_failed retry 需在接口文檔或錯誤矩陣標明 retryable 口徑 |
 | 驗證錯誤 | validation 錯誤不應只剩自然語言；未來需補 field-level safe error list |
@@ -67,7 +67,7 @@ CJ 當前使用自有 JSON envelope：`{ success: false, error: { code, message,
 
 ## 6. Problem Details 對照
 
-| RFC 9457 欄位 | CJ 現狀 | 缺口 |
+| RFC 9457 欄位 | Emorapy 現狀 | 缺口 |
 | --- | --- | --- |
 | `type` | 無；目前只有 `error.code` | 未定義 problem type URI |
 | `title` | 無；目前 `message` 兼具 title/detail | 缺少穩定短標題 |

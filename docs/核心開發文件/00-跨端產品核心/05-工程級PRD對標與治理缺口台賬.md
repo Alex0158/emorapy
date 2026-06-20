@@ -10,11 +10,11 @@
 
 ## 1. 定位
 
-本文用於把 CJ 的核心產品文件對標工程級 PRD / SRS / NFR / RTM 標準，並把缺口落到可維護的治理規則。它不是外部合規認證，不宣稱 CJ 已符合 ISO、IEEE、OWASP 或任何第三方審計要求。
+本文用於把 Emorapy 的核心產品文件對標工程級 PRD / SRS / NFR / RTM 標準，並把缺口落到可維護的治理規則。它不是外部合規認證，不宣稱 Emorapy 已符合 ISO、IEEE、OWASP 或任何第三方審計要求。
 
 採用的外部參考基線如下：
 
-| 基線 | 採用原因 | CJ 採用方式 |
+| 基線 | 採用原因 | Emorapy 採用方式 |
 | --- | --- | --- |
 | ISO/IEC/IEEE 29148:2018 Requirements engineering | 需求工程生命週期、需求信息項與需求內容格式的通用標準 | 用於校準需求 ID、來源、屬性、驗證、狀態與追溯規則 |
 | IEEE/ISO/IEC 29148-2018 摘要 | 明確「良好需求」的構造、屬性、特徵與迭代管理 | 用於要求每條 `CJ-PRD-*` / `CJ-NFR-*` 能被驗證、被追溯、被變更治理 |
@@ -22,7 +22,7 @@
 | RFC 8174 | 補充 RFC 2119 關鍵詞只在全大寫時具規範語義 | 用於避免把普通英文 may / should 誤讀為需求強制詞 |
 | ISO/IEC 25010:2023 Product quality model | 提供產品質量屬性的分類參考 | 用於校準 NFR 分類：可靠性、安全、性能、可維護性、可用性、兼容性等 |
 | ISO/IEC/IEEE 42010:2022 Architecture description | 提供架構描述、stakeholder、concern、viewpoint、view 與 correspondence 的標準化口徑 | 用於校準架構決策、架構視圖與 ADR 追溯，不把目錄說明當架構描述 |
-| C4 model | 提供 Context / Container / Component / Code 的工程溝通層級 | 用於校準 CJ 架構視圖與後續圖集缺口，不宣稱已有完整 C4 圖 |
+| C4 model | 提供 Context / Container / Component / Code 的工程溝通層級 | 用於校準 Emorapy 架構視圖與後續圖集缺口，不宣稱已有完整 C4 圖 |
 | OWASP Threat Modeling | 提供資產、信任邊界、威脅、控制與驗證的安全建模方法 | 用於校準 `CJ-SEC-*`、trust boundary 與高風險流程 threat model |
 | OWASP ASVS 5.0 | Web 應用安全驗證需求的開放標準 | 用於 Web / API 安全需求分類與證據口徑，不直接聲稱 ASVS level |
 | OWASP MASVS | Mobile App 安全控制組標準 | 用於 App SecureStore、Push、Deep Link、Network、Platform interaction 等 App 級安全投影 |
@@ -41,7 +41,7 @@
 | NIST SP 800-61 Rev. 3 | incident response recommendations / CSF 2.0 profile | 用於校準事故分級、偵測、處置、恢復、postmortem 與改進 |
 | Google SRE SLO | SLI / SLO / error budget 的工程實踐 | 用於校準 SLO 待建立基線與告警門檻，不對外承諾 SLA |
 | Google SRE Alerting on SLOs | 以 error budget threat、burn-rate、多窗口和低流量 caveat 校準告警品質 | 用於區分 alert threshold、page-worthy incident 與正式 error budget |
-| OpenTelemetry Signals | traces、metrics、logs、baggage 的可觀測性信號模型 | 用於校準 CJ request id / logs / metrics 已有能力與 distributed tracing 缺口 |
+| OpenTelemetry Signals | traces、metrics、logs、baggage 的可觀測性信號模型 | 用於校準 Emorapy request id / logs / metrics 已有能力與 distributed tracing 缺口 |
 | Prometheus Alerting | alerting rules、`for` duration、Alertmanager / notification chain | 用於校準 `/metrics` 到告警閉環的必要條件 |
 | NIST SP 800-218 SSDF | secure software development framework | 用於校準 release gate、證據、變更控制與安全開發檢查 |
 | WCAG 2.2 | Web 可訪問性成功準則 | 用於校準鍵盤、focus、語言、name / role / value、status message 與可測驗收，不宣稱 WCAG conformance |
@@ -107,30 +107,30 @@
 
 ## 1.1 外部基線版本風險
 
-| 基線 | 版本 / 狀態口徑（2026-05-07 核對） | CJ 文件治理要求 |
+| 基線 | 版本 / 狀態口徑（2026-05-07 核對） | Emorapy 文件治理要求 |
 | --- | --- | --- |
 | ISO/IEC/IEEE 29148:2018 | ISO 頁面顯示 Published，但 lifecycle 已進入 to be revised | 本文只能標「參考 29148:2018」，不得寫成永久最新版本；標準更新後需重審需求屬性 |
-| RFC 2119 / RFC 8174 | RFC 8174 補充關鍵詞大小寫語義 | CJ 只把全大寫 MUST / SHOULD / MAY 當需求強制詞 |
-| ISO/IEC/IEEE 42010 | ISO 頁面顯示 2022 edition 已 published | CJ 用於架構描述與 ADR 對標，不宣稱已形成完整 Architecture Description |
-| C4 model | 官方作為架構溝通模型，不是合規認證 | CJ 用於架構視圖層級，不把缺圖的文字矩陣宣稱為完整 C4 圖集 |
-| OWASP Threat Modeling | OWASP Cheat Sheet 作工程方法參考 | CJ 用於 threat model / security requirement gate，不宣稱完整威脅建模已完成 |
-| UML / SCXML / BPMN | 官方規格可作狀態機與業務流程建模參考 | CJ 目前只有文字狀態基線，未建立 machine-readable statechart、BPMN 圖集或形式化驗證 |
-| RFC 9110 / RFC 9457 | RFC 9457 取代 RFC 7807，RFC 9110 定義 HTTP 語義 | CJ 目前使用自有 JSON envelope；未導入 `application/problem+json` 前只能標 Problem Details gap |
-| OWASP ASVS | 官方頁面顯示最新 stable 為 5.0.0 | CJ 僅作安全需求分類參考，不宣稱 ASVS level |
+| RFC 2119 / RFC 8174 | RFC 8174 補充關鍵詞大小寫語義 | Emorapy 只把全大寫 MUST / SHOULD / MAY 當需求強制詞 |
+| ISO/IEC/IEEE 42010 | ISO 頁面顯示 2022 edition 已 published | Emorapy 用於架構描述與 ADR 對標，不宣稱已形成完整 Architecture Description |
+| C4 model | 官方作為架構溝通模型，不是合規認證 | Emorapy 用於架構視圖層級，不把缺圖的文字矩陣宣稱為完整 C4 圖集 |
+| OWASP Threat Modeling | OWASP Cheat Sheet 作工程方法參考 | Emorapy 用於 threat model / security requirement gate，不宣稱完整威脅建模已完成 |
+| UML / SCXML / BPMN | 官方規格可作狀態機與業務流程建模參考 | Emorapy 目前只有文字狀態基線，未建立 machine-readable statechart、BPMN 圖集或形式化驗證 |
+| RFC 9110 / RFC 9457 | RFC 9457 取代 RFC 7807，RFC 9110 定義 HTTP 語義 | Emorapy 目前使用自有 JSON envelope；未導入 `application/problem+json` 前只能標 Problem Details gap |
+| OWASP ASVS | 官方頁面顯示最新 stable 為 5.0.0 | Emorapy 僅作安全需求分類參考，不宣稱 ASVS level |
 | OWASP MASVS | 仍作 App 安全控制組參考 | App M0-M5 本地 gate 已落地後，MASVS 映射仍只能標「部分覆蓋」；真機 / provider / native crash / release evidence 完成前不得標完整 |
-| NIST AI RMF / GenAI Profile | AI 風險框架仍是治理參考 | CJ 用於 AI risk inventory / measure / manage，不作合規認證 |
-| OpenAPI Specification | 官方 latest 作 API contract 對標 | CJ 目前沒有 OpenAPI 文件；只能標 OpenAPI gap，不得宣稱 OAS 完成 |
-| NIST Privacy Framework | Version 1.0 仍是隱私工程治理參考 | CJ 用於資料分類與隱私風險治理，不作法律合規聲明 |
-| ISO/IEC 27701 | ISO 頁面顯示 2025 edition 已 published，取代 2019 edition | CJ 文件需標明採用 2025 參考口徑；不宣稱 PIMS 完成 |
+| NIST AI RMF / GenAI Profile | AI 風險框架仍是治理參考 | Emorapy 用於 AI risk inventory / measure / manage，不作合規認證 |
+| OpenAPI Specification | 官方 latest 作 API contract 對標 | Emorapy 目前沒有 OpenAPI 文件；只能標 OpenAPI gap，不得宣稱 OAS 完成 |
+| NIST Privacy Framework | Version 1.0 仍是隱私工程治理參考 | Emorapy 用於資料分類與隱私風險治理，不作法律合規聲明 |
+| ISO/IEC 27701 | ISO 頁面顯示 2025 edition 已 published，取代 2019 edition | Emorapy 文件需標明採用 2025 參考口徑；不宣稱 PIMS 完成 |
 | NIST CSF 2.0 / SP 800-61r3 | CSF 2.0 final，SP 800-61r3 final published April 2025 | 事故治理應用最新 r3 口徑，不再沿用 r2 life cycle 作唯一依據 |
 | Google SRE SLO | 作工程實踐參考，不是標準認證 | 沒有長期 SLI 數據前不得設定對外 SLA |
-| Google SRE Alerting / OpenTelemetry / Prometheus Alerting | 官方工程資料仍持續演進，且各工具只覆蓋可觀測性的一部分 | CJ 必須區分 metric、log、trace、alert、incident drill 與 release evidence；不能把任一單點信號寫成完整 SLO / tracing / on-call 成熟度 |
+| Google SRE Alerting / OpenTelemetry / Prometheus Alerting | 官方工程資料仍持續演進，且各工具只覆蓋可觀測性的一部分 | Emorapy 必須區分 metric、log、trace、alert、incident drill 與 release evidence；不能把任一單點信號寫成完整 SLO / tracing / on-call 成熟度 |
 | NIST SSDF | SP 800-218 final 作 secure SDLC 參考 | release gate 證據不等於完整 SSDF attestation |
-| WCAG 2.2 / WAI-ARIA / ARIA APG / ISO 9241-210 | W3C / ISO 官方頁作可訪問性與 human-centred design 參考 | CJ 目前只建立治理基線；沒有 axe、screen reader、人工審查與完整流程證據前不得宣稱 WCAG / accessibility conformance |
+| WCAG 2.2 / WAI-ARIA / ARIA APG / ISO 9241-210 | W3C / ISO 官方頁作可訪問性與 human-centred design 參考 | Emorapy 目前只建立治理基線；沒有 axe、screen reader、人工審查與完整流程證據前不得宣稱 WCAG / accessibility conformance |
 | W3C i18n / Unicode CLDR / Android / React Native Accessibility | 官方頁作 Web authoring、locale data 與 native accessibility 參考 | Web/Admin i18n catalog、Radix 元件或 role tests 不代表雙語完整或 App accessibility 完成 |
-| ISO 11179 / Prisma Migrate / PostgreSQL DDL / Google AIP / SemVer | 官方標準與工程規範作資料字典、migration history、相容性、版本語義參考 | CJ 目前只建立 schema / compatibility governance；不宣稱完整 data dictionary、零停機 migration 或 automated compatibility checker |
+| ISO 11179 / Prisma Migrate / PostgreSQL DDL / Google AIP / SemVer | 官方標準與工程規範作資料字典、migration history、相容性、版本語義參考 | Emorapy 目前只建立 schema / compatibility governance；不宣稱完整 data dictionary、零停機 migration 或 automated compatibility checker |
 
-## 2. CJ 工程級需求記錄最低屬性
+## 2. Emorapy 工程級需求記錄最低屬性
 
 新增或修改 `CJ-PRD-*`、`CJ-NFR-*`、`CJ-PRD-WEB-*`、`CJ-PRD-APP-*` 時，至少應能回答下列欄位。欄位可以分散在 PRD、NFR、RTM、功能、流程、頁面或 Parity 文件中，但必須能互相追溯。
 
@@ -184,7 +184,7 @@
 | CJ-GAP-A11Y-001 | WCAG 2.2 / WAI-ARIA / ISO 9241-210 / W3C i18n / CLDR / React Native Accessibility | 有局部 i18n catalog、ARIA / focus hooks 與 role tests；缺 `html[lang]` 一致性、axe / WCAG gate、i18n completeness、screen reader 與 App native accessibility 證據 | 可訪問性、本地化與高敏內容文案會在 Web / Admin / App 間漂移，且容易把局部代碼存在誤判為合規 | 新增 `04-共用機制/07-可訪問性本地化與內容設計治理基線.md` 與 `08-測試規範與驗收/05-可訪問性本地化驗收基線.md` |
 | CJ-GAP-SCHEMA-001 | ISO 11179 / Prisma Migrate / PostgreSQL DDL / AIP-180 / SemVer | 有 Prisma schema、migration history、release DB parity gate、deprecated 欄位註記與待辦；缺集中 data dictionary、schema diff 分級、expand/contract、backfill 與 compatibility gate | schema commit、Dev DB 套用、舊 client 相容與 release DB parity 可能被混淆；破壞性變更可能單版本進入 | 新增 `05-工程架構與共享層/03-資料模型SchemaMigration與相容性治理基線.md` 與 `08-測試規範與驗收/06-SchemaMigration與相容性驗收基線.md` |
 
-## 5. CJ 採納與不採納
+## 5. Emorapy 採納與不採納
 
 本項目採納：
 
@@ -219,7 +219,7 @@
 9. 不把 CORS、Helmet、JWT、RBAC、rate limit 或 media auth 任一控制點宣稱為完整安全治理、ASVS / MASVS 覆蓋或 threat model 完成。
 10. 不把 repo 目錄、package list 或 workspace 說明宣稱為完整架構描述；架構取捨需回到 ADR、視圖與重審條件。
 11. 不把 schema enum、contract union 或 service if 分支宣稱為完整狀態機；狀態機需要 trigger、guard、side effect、非法轉移、恢復策略與驗證證據。
-12. 不把 CJ 自有 `{ success, error, meta }` envelope 宣稱為 RFC 9457 Problem Details；未有 OpenAPI error schema 前不得宣稱 typed SDK 可完整依賴錯誤契約。
+12. 不把 Emorapy 自有 `{ success, error, meta }` envelope 宣稱為 RFC 9457 Problem Details；未有 OpenAPI error schema 前不得宣稱 typed SDK 可完整依賴錯誤契約。
 13. 不把 i18n catalog、Radix / shadcn 元件、局部 `aria-label` 或 role tests 宣稱為 WCAG 合規、雙語完整或 App accessibility 完成。
 14. 不把 `schema.prisma` 更新、migration commit、Dev DB 套用、`db push` 成功或 release gate 單項通過宣稱為完整 data dictionary、production-safe migration、backfill 完成或舊 client 已相容。
 15. 不把 `/metrics` 可導出、request id 存在、Prometheus rule 文件存在或 Slack webhook 可發送宣稱為完整可觀測性、distributed tracing、SLO error budget 或 incident response 已驗收。

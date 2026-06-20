@@ -8,7 +8,7 @@
 **最後核驗日期**：`2026-05-31`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-本子域承接 `CJ` 的模組級接口契約、常見錯誤碼、副作用與最小回歸集。
+本子域承接 `Emorapy` 的模組級接口契約、常見錯誤碼、副作用與最小回歸集。
 
 當前正式文檔：
 
@@ -31,7 +31,7 @@
 2. 某個功能或頁面的正式存在性
 3. 跨端產品核心、平台投影或 Web / App parity；這些分別回 [../00-跨端產品核心/README.md](../00-跨端產品核心/README.md)、[../10-Web端/README.md](../10-Web端/README.md)、[../20-App端/README.md](../20-App端/README.md) 與 [../50-跨端Mapping與Parity/README.md](../50-跨端Mapping與Parity/README.md)。若涉及 App screen / native navigation / platform adapter，直接補看 [../20-App端/01-App導航與平台Adapter基線.md](../20-App端/01-App導航與平台Adapter基線.md)；若涉及 App 首輪能力到 Backend / API / DB / shared package 的落點，直接補看 [../50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md](../50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md)
 4. OpenAPI / machine-readable contract 已完成。當前接口治理仍是現碼守衛 + 主冊 + 模組詳規；OpenAPI 缺口與準入規則見 [11-API契約與OpenAPI缺口台賬.md](./11-API契約與OpenAPI缺口台賬.md)。
-5. Problem Details / machine-readable error schema 已完成。當前 API 錯誤使用 CJ 自有 envelope；錯誤模型、HTTP status、`error.code`、request id、retry policy 與 RFC 9457 缺口見 [12-錯誤模型與ProblemDetails缺口台賬.md](./12-錯誤模型與ProblemDetails缺口台賬.md)。
+5. Problem Details / machine-readable error schema 已完成。當前 API 錯誤使用 Emorapy 自有 envelope；錯誤模型、HTTP status、`error.code`、request id、retry policy 與 RFC 9457 缺口見 [12-錯誤模型與ProblemDetails缺口台賬.md](./12-錯誤模型與ProblemDetails缺口台賬.md)。
 
 使用順序：
 

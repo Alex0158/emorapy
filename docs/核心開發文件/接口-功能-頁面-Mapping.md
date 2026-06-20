@@ -1,4 +1,4 @@
-# CJ 接口-功能-頁面 Mapping（核心版）
+# Emorapy 接口-功能-頁面 Mapping（核心版）
 
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：旗艦映射
@@ -173,7 +173,7 @@
 | `GET /health/live` | F14 | （監控） | 存活探針 | L | 已使用 |
 | `GET /metrics` | F14 | （監控） | 指標導出 | L | 已使用 |
 | `POST /api/v1/telemetry/events` | F14 / App M5-M6 | App runtime telemetry adapter | App safe telemetry ingest；只收最小化 event envelope、二次清洗後寫 structured log + minimized DB summary，不承接完整 analytics / native crash runtime capture / OTel | M | 已使用 |
-| `POST /api/v1/telemetry/otlp/v1/traces` | F14 / App M6 | App OpenTelemetry runtime adapter | CJ OTLP JSON trace ingest；只收 resourceSpans subset、二次清洗後寫 app_otel_span minimized summary，不承接 vendor trace backend / native crash runtime capture | M | 已使用 |
+| `POST /api/v1/telemetry/otlp/v1/traces` | F14 / App M6 | App OpenTelemetry runtime adapter | Emorapy OTLP JSON trace ingest；只收 resourceSpans subset、二次清洗後寫 app_otel_span minimized summary，不承接 vendor trace backend / native crash runtime capture | M | 已使用 |
 | `GET /api/v1/admin/reports/app-telemetry` | F14 / App M6 | Admin API / release evidence（無 Admin Web 頁面） | App telemetry 最小化聚合報表；返回 error/session aggregate、top events、recent event shell，不返回 raw context、user_id 或 session_hash；不代表 `/admin/reports` UI 已接線 | M | 已使用 |
 
 ## 一 API 多場景（高風險回歸）

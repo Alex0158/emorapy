@@ -8,7 +8,7 @@
 **最後核驗日期**：`2026-05-31`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-本子域承接 `CJ` repo 的工程分層、共享 package、tsconfig alias 與跨端落點規則。
+本子域承接 `Emorapy` repo 的工程分層、共享 package、tsconfig alias 與跨端落點規則。
 
 當前正式文檔：
 
@@ -22,7 +22,7 @@
 
 1. root npm workspaces 目前包含 `frontend/`、`frontend-admin/` 與 `packages/*`
 2. `backend/`、`mobile/` 仍是 repo-local 目錄，不是 root workspace
-3. `mobile/` 目前已從 Expo Router 模板進入 CJ App M0-M5 普通用戶主流程，`mobile/app` 承接 route group / screen，`mobile/src/platform` 承接 API、SecureStore、SSE、upload、notifications、linking、lifecycle、telemetry runtime adapter
+3. `mobile/` 目前已從 Expo Router 模板進入 Emorapy App M0-M5 普通用戶主流程，`mobile/app` 承接 route group / screen，`mobile/src/platform` 承接 API、SecureStore、SSE、upload、notifications、linking、lifecycle、telemetry runtime adapter
 4. 新增或改動 App navigation、Deep Link、SecureStore、Push、upload、SSE、telemetry、App API adapter 或 release evidence 口徑前，必須先回查 `20-App端/01-App導航與平台Adapter基線.md` 與 `50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md`
 5. 共享 alias 的接線狀態必須以各自 `tsconfig`、manifest 與真實 import 為準，不按理想化 monorepo 假設寫正文；`frontend/` 目前已依賴 `@emorapy/contracts` / `@emorapy/api-client` 並消費 M1-M5 domain client 與 AI stream pure helper，`frontend-admin/` 目前已局部接入 `@emorapy/contracts` 與 `@emorapy/api-client` transport baseline
 6. workspace、shared package、API contract、DB schema、AI runtime、安全邊界、App native adapter 或 release gate 的架構性變更，必須更新 [02-架構決策與ADR治理基線.md](./02-架構決策與ADR治理基線.md) 或補充 ADR

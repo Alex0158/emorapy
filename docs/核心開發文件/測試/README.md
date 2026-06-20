@@ -10,7 +10,7 @@
 
 本目錄承接與 `核心開發文件/` 緊密配套的活躍測試案例、回歸包與執行入口。
 
-當前活躍案例與回歸包主要服務 Web/Admin/Backend 現有流程；App 端尚未建立 CJ App 專屬 smoke / regression 入口。App 測試加入本目錄前，必須先在 `20-App端/01-App導航與平台Adapter基線.md`、`50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md` 與 `08-測試規範與驗收/03-App測試與證據接入基線.md` 明確對應能力、工程落點與驗收 gate。
+當前活躍案例與回歸包主要服務 Web/Admin/Backend 現有流程；App 端尚未建立 Emorapy App 專屬 smoke / regression 入口。App 測試加入本目錄前，必須先在 `20-App端/01-App導航與平台Adapter基線.md`、`50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md` 與 `08-測試規範與驗收/03-App測試與證據接入基線.md` 明確對應能力、工程落點與驗收 gate。
 
 本目錄內允許同時存在兩類文件：
 

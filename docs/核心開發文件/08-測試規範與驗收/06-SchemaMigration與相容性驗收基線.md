@@ -10,7 +10,7 @@
 
 ## 1. 定位
 
-本文定義 CJ schema migration、DB parity、相容性與棄用的驗收口徑。它不替代 `05-工程架構與共享層/03-資料模型SchemaMigration與相容性治理基線.md`，而是把架構治理要求落到測試、precheck、release gate、manual evidence 與不得宣稱事項。
+本文定義 Emorapy schema migration、DB parity、相容性與棄用的驗收口徑。它不替代 `05-工程架構與共享層/03-資料模型SchemaMigration與相容性治理基線.md`，而是把架構治理要求落到測試、precheck、release gate、manual evidence 與不得宣稱事項。
 
 當前現碼已有 Prisma migrations、`ops:db:status`、`ops:release-db:check`、release gate、release-blocking migration unit tests、部分 additive schema 與 fallback。App 相關 release-sensitive migration 已覆蓋 Push device token、Push receipt tracking、Notification action metadata、App telemetry events、AI stream persistence 與 Interview facts schema；這些能力需要同時能追到 migration history、release-blocking catalog、App smoke / Parity 入口與 release DB parity evidence。現有 release DB parity 與 App migration 證據可被 `release:completion:audit` 消費，但仍不等於完整資料字典、schema diff 分級、expand / contract 自動檢查、backfill completeness 或舊 client 相容性已完成；後續若新增 release-blocking migration，必須重新產生 fresh release DB parity evidence。
 

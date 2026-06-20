@@ -10,13 +10,13 @@
 
 ## 1. 定位
 
-本文把 CJ 的運維觀測從「有 health / metrics / alert 腳本」提升為 SLI / SLO / incident governance 基線。它參考 Google SRE SLO、Google SRE Alerting on SLOs、OpenTelemetry Signals、Prometheus Alerting、NIST CSF 2.0、NIST SP 800-61r3、NIST SSDF 與既有 release gate，但只作工程治理對標；不宣稱 CJ 已建立完整 SRE 組織、SLA、SOC、OpenTelemetry trace runtime 或外部資安事件響應認證。
+本文把 Emorapy 的運維觀測從「有 health / metrics / alert 腳本」提升為 SLI / SLO / incident governance 基線。它參考 Google SRE SLO、Google SRE Alerting on SLOs、OpenTelemetry Signals、Prometheus Alerting、NIST CSF 2.0、NIST SP 800-61r3、NIST SSDF 與既有 release gate，但只作工程治理對標；不宣稱 Emorapy 已建立完整 SRE 組織、SLA、SOC、OpenTelemetry trace runtime 或外部資安事件響應認證。
 
 本文屬平台治理級。Backend、Admin、release gate、metrics、jobs、alerts、AI stream、chat、App telemetry 或 production smoke 只要新增可用性、性能、告警或事故相關行為，都必須回查本文。
 
 ## 2. 外部基線採用口徑
 
-| 外部基線 | CJ 採用方式 | 不採用 / 不宣稱 |
+| 外部基線 | Emorapy 採用方式 | 不採用 / 不宣稱 |
 | --- | --- | --- |
 | Google SRE SLO | 用 SLI / SLO / error budget 思路把「健康」變成可量測指標與行動門檻 | 不對外承諾 SLA |
 | Google SRE Alerting on SLOs | 用 actionable alert、error-budget threat、burn-rate 與 low-traffic caveat 校準告警品質 | 不把現有 15m ratio alert 宣稱為 burn-rate alert |
@@ -102,7 +102,7 @@
 
 ## 6. 事故處置流程
 
-| 階段 | CJ 動作 | 最小證據 |
+| 階段 | Emorapy 動作 | 最小證據 |
 | --- | --- | --- |
 | Govern / Prepare | 明確 owner、runbook、release gate、資料級別、告警門檻 | 本文、Runbook、NFR、RTM |
 | Detect | 收集 health、metrics、logs、release evidence、Admin report、user report | request id、time window、commitSha、env、affected flow |
@@ -150,7 +150,7 @@
 | CJ-OPS-GAP-004 | data/privacy incident 尚未接入專門 detector | 隱私事件可能只靠人工發現 | 資料治理基線 + 事故分級先建立，detector 待辦另立 |
 | CJ-OPS-GAP-005 | App telemetry / App smoke evidence baseline 已具備，但 physical device、provider delivery、production native crash runtime 與長期 SLO baseline 仍未閉環 | App 版無法繼承 Web 運維結論，也不能把 telemetry runtime pass 當完整 App reliability | App 能力或 release gate 變更時回查 App 測試證據接入基線與 release completion audit |
 | CJ-OPS-GAP-006 | Chat / AI stream 有 metrics，但沒有產品級 target | AI 體驗退化只能被動排查 | 暫以 metrics + regression + Admin report 管控 |
-| CJ-OPS-GAP-007 | App 已有 OpenTelemetry provider baseline 與 CJ OTLP JSON ingest，但無 external tracing backend / vendor collector / cross-service distributed trace | 跨服務、AI provider、DB、Redis 的慢路徑根因難以定位 | 先以 request id + logs + metrics + App OTLP safe summary 管控；接 external collector 前不得宣稱完整 tracing |
+| CJ-OPS-GAP-007 | App 已有 OpenTelemetry provider baseline 與 Emorapy OTLP JSON ingest，但無 external tracing backend / vendor collector / cross-service distributed trace | 跨服務、AI provider、DB、Redis 的慢路徑根因難以定位 | 先以 request id + logs + metrics + App OTLP safe summary 管控；接 external collector 前不得宣稱完整 tracing |
 | CJ-OPS-GAP-008 | 無固定 incident drill 證據落點 | 事故流程可能只停留在文檔描述 | 以 `08/07` 建立驗收模板，後續演練證據下沉 `90-證據與盤點/` |
 
 ## 10. 驗收口徑

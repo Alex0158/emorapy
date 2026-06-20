@@ -306,7 +306,7 @@ function classifyFormalDomain(relativePath) {
         'backend/src/routes',
       ],
       verificationMethod:
-        '核對 App 版承接跨端產品核心、shared contracts / api-client、CJ route group、runtime platform adapter、release evidence blocker 與 Web 基線 parity 的代碼待閉環項',
+        '核對 App 版承接跨端產品核心、shared contracts / api-client、Emorapy route group、runtime platform adapter、release evidence blocker 與 Web 基線 parity 的代碼待閉環項',
       status: '已核驗',
       isCurrentSsot: true,
     },

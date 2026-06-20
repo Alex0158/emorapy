@@ -10,18 +10,18 @@
 
 ## 1. 定位
 
-本文把 CJ 的資料模型、schema migration、版本相容與棄用治理提升為正式架構基線。頂級工程級 PRD / SRS 不會只寫「新增欄位」或「已生成 migration」，還會說明資料字典、相容期、backfill、讀寫雙路徑、發布順序、rollback / roll-forward 與舊 client 影響。
+本文把 Emorapy 的資料模型、schema migration、版本相容與棄用治理提升為正式架構基線。頂級工程級 PRD / SRS 不會只寫「新增欄位」或「已生成 migration」，還會說明資料字典、相容期、backfill、讀寫雙路徑、發布順序、rollback / roll-forward 與舊 client 影響。
 
-本文不宣稱 CJ 已具備完整 data dictionary、零停機 migration 能力或自動相容性檢查。當前倉庫已有 Prisma schema、migration history、release DB parity gate、部分 additive schema、deprecated 欄位註記與 release-blocking migration 清單；但缺少集中規則裁決「哪些 schema 變更可直接發、哪些必須 expand/contract、哪些不得在同一版本刪除」。
+本文不宣稱 Emorapy 已具備完整 data dictionary、零停機 migration 能力或自動相容性檢查。當前倉庫已有 Prisma schema、migration history、release DB parity gate、部分 additive schema、deprecated 欄位註記與 release-blocking migration 清單；但缺少集中規則裁決「哪些 schema 變更可直接發、哪些必須 expand/contract、哪些不得在同一版本刪除」。
 
 ## 2. 外部基線參考
 
-| 基線 | 採用原因 | CJ 採用方式 |
+| 基線 | 採用原因 | Emorapy 採用方式 |
 | --- | --- | --- |
 | ISO/IEC 11179 Metadata Registries | 提供資料元素、名稱、定義與 metadata registry 的治理框架 | 用於要求核心資料欄位有語義、owner、敏感度、相容性與狀態，不把 Prisma 欄位名直接等同資料字典 |
 | Prisma Migrate migration histories | Prisma 官方把 migrations folder 與 `_prisma_migrations` 作 migration history 與部署檢查基礎 | 用於校準 `backend/prisma/migrations`、`migration_lock.toml`、`_prisma_migrations` 與 release DB parity 的證據口徑 |
 | Prisma expand-and-contract migrations | 官方資料遷移指南以 expand / contract 降低 production schema 變更風險 | 用於要求 rename、type change、required field、enum contraction、table split 等變更分階段進行 |
-| PostgreSQL Data Definition | CJ 目標 DB 為 PostgreSQL；DDL、constraint、index、enum、foreign key 對 runtime 有直接影響 | 用於校準 DB-level constraint、index、FK、enum 與 raw SQL migration 的風險，不只看 Prisma schema |
+| PostgreSQL Data Definition | Emorapy 目標 DB 為 PostgreSQL；DDL、constraint、index、enum、foreign key 對 runtime 有直接影響 | 用於校準 DB-level constraint、index、FK、enum 與 raw SQL migration 的風險，不只看 Prisma schema |
 | Google AIP-180 / AIP-181 / AIP-185 | API compatibility、stability level 與 versioning 的工程治理參考 | 用於把 DB/API/shared contract 視為跨端契約：舊 client、舊資料、舊 response shape 不得被 minor 變更破壞 |
 | Semantic Versioning 2.0.0 | 用版本號表達 public API 相容性與 breaking change | 用於校準 `packages/contracts`、`packages/api-client`、Web/Admin/App 消費面與 release change impact，不用 patch/minor 掩蓋 breaking schema contract |
 

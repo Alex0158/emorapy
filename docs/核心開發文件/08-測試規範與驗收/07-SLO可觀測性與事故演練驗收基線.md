@@ -12,15 +12,15 @@
 
 本文把 SLO、可觀測性與事故治理接入驗收層。它不新增運維 runtime，不設定對外 SLA，也不把單次 `/health` 或 release gate pass 當作長期可靠性證明。
 
-頂級工程級 PRD / SRS 會把「系統可用、可監控、可恢復」拆成可驗證的信號、門檻、演練與證據。CJ 目前已有 health、metrics、ops alerts、release gate 與局部 Admin 報表；本文補齊哪些證據可以阻斷發布、哪些只能輔助排障、哪些仍屬待建立基線。
+頂級工程級 PRD / SRS 會把「系統可用、可監控、可恢復」拆成可驗證的信號、門檻、演練與證據。Emorapy 目前已有 health、metrics、ops alerts、release gate 與局部 Admin 報表；本文補齊哪些證據可以阻斷發布、哪些只能輔助排障、哪些仍屬待建立基線。
 
 ## 2. 外部基線參考
 
 | 外部基線 | 驗收採用方式 | 不宣稱 |
 | --- | --- | --- |
-| Google SRE SLO / Error Budget | 用 SLI、SLO、error budget、burn-rate 思路區分「告警門檻」與「可靠性目標」 | 不宣稱 CJ 已有正式 error budget |
+| Google SRE SLO / Error Budget | 用 SLI、SLO、error budget、burn-rate 思路區分「告警門檻」與「可靠性目標」 | 不宣稱 Emorapy 已有正式 error budget |
 | Google SRE Alerting on SLOs | 用 actionable、error-budget threat、multi-window / burn-rate 思路校準告警品質 | 不宣稱現有 Redis 15m ratio 已是 burn-rate alerting |
-| OpenTelemetry Signals | 用 traces / metrics / logs / baggage 分清信號類型與關聯缺口 | CJ App 已有 OTLP JSON ingest baseline；仍不宣稱 external collector、vendor tracing backend 或完整 distributed tracing |
+| OpenTelemetry Signals | 用 traces / metrics / logs / baggage 分清信號類型與關聯缺口 | Emorapy App 已有 OTLP JSON ingest baseline；仍不宣稱 external collector、vendor tracing backend 或完整 distributed tracing |
 | Prometheus Alerting | 用 alerting rules、`for` duration、Alertmanager / notification chain 校準 Prometheus 規則邊界 | 不宣稱只存在 Prometheus text 就等於有告警閉環 |
 | NIST SP 800-61r3 | 用 Prepare / Detect / Analyze / Respond / Recover / Learn 校準事故演練與 postmortem 證據 | 不宣稱已有正式 CSIRT |
 
@@ -43,7 +43,7 @@
 | Redis Ops Metrics | `opsMetricsService` minute buckets、`runOpsAlertChecks` | 5xx / 409 ratio 偵測、Slack dedupe | 全 API latency SLO 或 burn-rate error budget |
 | Logs | request id、masked session id、user id、error / slow request log | 排障、incident timeline、資料級別檢查 | 長期指標或用戶影響比例 |
 | Admin Reports | Admin health、reports、costs、AI stream sessions | 人工分析與治理面板 | 自動事故 detector |
-| App Telemetry | `mobile/` 已有 safe telemetry adapter、OpenTelemetry provider baseline、telemetry runtime release evidence 與 native crash SDK configuration baseline；backend 已有 ingest / CJ OTLP JSON trace ingest / minimized persistence / Admin report / 30d cleanup baseline | App release 排障、error context 與 crash-free sessions 初始聚合 | 不能用 Web metrics 代表 App；也不能把 telemetry runtime pass、safe ingest、OTLP ingest 或 SDK configuration 當 production native crash runtime evidence、external tracing backend 或長期 SLO |
+| App Telemetry | `mobile/` 已有 safe telemetry adapter、OpenTelemetry provider baseline、telemetry runtime release evidence 與 native crash SDK configuration baseline；backend 已有 ingest / Emorapy OTLP JSON trace ingest / minimized persistence / Admin report / 30d cleanup baseline | App release 排障、error context 與 crash-free sessions 初始聚合 | 不能用 Web metrics 代表 App；也不能把 telemetry runtime pass、safe ingest、OTLP ingest 或 SDK configuration 當 production native crash runtime evidence、external tracing backend 或長期 SLO |
 
 ## 4. 最小驗收矩陣
 

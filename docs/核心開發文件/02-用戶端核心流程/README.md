@@ -8,7 +8,7 @@
 **最後核驗日期**：`2026-05-05`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-本子域承接 `CJ` 面向普通用戶的核心業務流程入口，當前以 Web 前台實作為取證基準。跨 Web / App 的最高產品語義回 [../00-跨端產品核心/README.md](../00-跨端產品核心/README.md)；App 是否承接及如何承接，總覽回 [../20-App端/README.md](../20-App端/README.md) 與 [../50-跨端Mapping與Parity/README.md](../50-跨端Mapping與Parity/README.md)，進入實作前必須補讀 [../20-App端/01-App導航與平台Adapter基線.md](../20-App端/01-App導航與平台Adapter基線.md) 與 [../50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md](../50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md)。
+本子域承接 `Emorapy` 面向普通用戶的核心業務流程入口，當前以 Web 前台實作為取證基準。跨 Web / App 的最高產品語義回 [../00-跨端產品核心/README.md](../00-跨端產品核心/README.md)；App 是否承接及如何承接，總覽回 [../20-App端/README.md](../20-App端/README.md) 與 [../50-跨端Mapping與Parity/README.md](../50-跨端Mapping與Parity/README.md)，進入實作前必須補讀 [../20-App端/01-App導航與平台Adapter基線.md](../20-App端/01-App導航與平台Adapter基線.md) 與 [../50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md](../50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md)。
 
 當前正式文檔：
 

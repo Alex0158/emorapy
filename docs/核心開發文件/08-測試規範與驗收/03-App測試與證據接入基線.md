@@ -12,7 +12,7 @@
 
 當前現碼事實：
 
-1. `mobile/` 已是 Expo / React Native 專案，`mobile/app` 已替換 template tabs，建立 CJ public / authenticated route group 與 M0-M5 普通用戶 screen。
+1. `mobile/` 已是 Expo / React Native 專案，`mobile/app` 已替換 template tabs，建立 Emorapy public / authenticated route group 與 M0-M5 普通用戶 screen。
 2. `mobile/src/platform` 已建立 API / SecureStore / SSE / upload / notifications / linking / lifecycle / telemetry runtime adapter，native side effect 必須收斂到 platform layer。
 3. App 已以 package resolution 消費 `@emorapy/api-client` 與 `@emorapy/contracts`，M1-M5 shared domain client、AI stream hook、Deep Link / Push / Upload / Telemetry adapter 與相關 backend route 已成 baseline 接線。
 4. M0-M5 普通用戶 App 工程已有 unit / component / static contract / local true-service / simulator / emulator evidence；M6 release sign-off 仍必須以 structured EAS / TestFlight / physical device / provider delivery / production native crash runtime evidence 為準。

@@ -10,9 +10,9 @@
 
 ## 1. 定位
 
-本文是接口子域的治理層文件。它不替代 [../全接口清單-主文檔.md](../全接口清單-主文檔.md)，也不替代 `01-10` 模組接口詳規；它回答「CJ 的 API 契約距離頂級工程級 API 規格還缺什麼，以及哪些缺口不得被誤認為已完成」。
+本文是接口子域的治理層文件。它不替代 [../全接口清單-主文檔.md](../全接口清單-主文檔.md)，也不替代 `01-10` 模組接口詳規；它回答「Emorapy 的 API 契約距離頂級工程級 API 規格還缺什麼，以及哪些缺口不得被誤認為已完成」。
 
-本文參考 OpenAPI Specification、ISO/IEC/IEEE 29148 需求追溯、OWASP ASVS API 安全控制思路與本倉庫 `docs:check:truth` 現碼抽取結果。外部基線只作工程對標，不宣稱 CJ 已有正式 OpenAPI 規格或第三方 API 安全審計。
+本文參考 OpenAPI Specification、ISO/IEC/IEEE 29148 需求追溯、OWASP ASVS API 安全控制思路與本倉庫 `docs:check:truth` 現碼抽取結果。外部基線只作工程對標，不宣稱 Emorapy 已有正式 OpenAPI 規格或第三方 API 安全審計。
 
 ## 2. 當前 API 真相來源
 

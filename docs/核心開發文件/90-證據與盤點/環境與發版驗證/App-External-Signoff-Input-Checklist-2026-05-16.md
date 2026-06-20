@@ -16,7 +16,7 @@
 - 不要把 `mobile/release.env.local`、private key、token、database URL、push token、UDID、serial、Sentry event id 提交到 repo。
 - 不要把 secret value 貼到 issue、PR、聊天或 markdown。
 - `mobile/release.env.local` 只接受 release sign-off 白名單 key；不要放 `NODE_OPTIONS`、`PATH` 或任何 shell command。
-- 填值後可先跑 `npm --prefix mobile run release:external-evidence:input-status -- --json`；該命令只輸出 key 狀態、placeholder / missing counts、`ready_for_current_completion_inputs`、`ready_for_validate` 與 `app.eas_project_binding_valid`，不輸出 value，也不連 EAS、Apple、Sentry、DB 或裝置。JSON 內的 `current_completion_blocker_inputs` 對應當前尚未解除的 release completion inputs；`evidence_refresh_inputs` 對應 telemetry runtime / release DB parity 的 refresh keys，這兩項已有 canonical pass evidence，但在後續 release / DB / telemetry / backend version drift 後仍需要重跑取證。
+- 填值後可先跑 `npm --prefix mobile run release:external-evidence:input-status -- --json`；該命令只輸出 key 狀態、placeholder / missing counts、`ready_for_current_completion_inputs`、`ready_for_app_store_record_inputs`、`ready_for_validate` 與 `app.eas_project_binding_valid`，不輸出 value，也不連 EAS、Apple、Sentry、DB 或裝置。JSON 內的 `current_completion_blocker_inputs` 對應當前尚未解除的 release completion inputs；`evidence_refresh_inputs` 對應 telemetry runtime / release DB parity 的 refresh keys；`app_store_record_prerequisites` 對應 Apple Developer explicit App ID / App Store Connect app record 建檔後需要回填的 `APP_STORE_CONNECT_APP_ID` / `ASC_APP_ID` 狀態，這一組不替代 validate / run evidence。
 - 若需要同時看 evidence candidate、device counters 與 credential presence，可跑 `npm --prefix mobile run release:external-evidence:status -- --release-env-file=release.env.local --json`；status 只保存 `env_files` loaded key counters 與 booleans，不保存任何 value，也不替代 validate / run。
 - 若用 `release:external-evidence:signoff -- --release-env-file=release.env.local --report-dir=<report-dir>` 產交接報告，`App-External-Evidence-Status-*.json` 也會保存同樣的 redacted `env_files` counters；CI / GitHub secret env 來源則會保持 `env_files.loaded=[]`。
 - 若想直接補值，可跑 `npm --prefix mobile run release:external-evidence:fill-inputs`；它會在互動終端詢問缺值，必要時先補 `mobile/app.json` 的 `extra.eas.projectId`，再寫回 `mobile/release.env.local` 並重跑 `release:external-evidence:input-status`。若只想先看缺口，跑 `npm --prefix mobile run release:external-evidence:fill-inputs -- --list-missing`。
@@ -39,6 +39,14 @@
 | `native_crash_runtime_evidence` | `APP_SENTRY_ORG` / `SENTRY_ORG`; `APP_SENTRY_PROJECT` / `SENTRY_PROJECT`; `APP_SENTRY_AUTH_TOKEN` / `SENTRY_AUTH_TOKEN`; `APP_NATIVE_CRASH_SENTRY_EVENT_ID` / `SENTRY_EVENT_ID` | shell env / CI secret / `mobile/release.env.local` | `credentials.sentry_runtime_query_credentials_present=true`, `credentials.native_crash_event_id_present=true` |
 
 以上 rows 加上 `mobile/app.json` 的真實 `extra.eas.projectId` 構成 current completion blocker inputs。`APP_EAS_PROJECT_FULL_NAME` 不是 secret；它必須等於 `mobile/app.json` 的 `owner/slug` 推導值 `@alexdev518/emorapy-mobile`，用於防止本地 Emorapy slug 仍綁到 legacy `@alexdev518/cj-mobile` EAS project。`release:external-evidence:input-status` 會在 `input_groups.current_completion_blocker_inputs`、`summary.ready_for_current_completion_inputs` 與 `app.eas_project_binding_valid` 中單獨呈現這組狀態；這不是 release 完成訊號，仍需正式 evidence 與 strict audits。
+
+## App Store record prerequisites
+
+| App Store prerequisite | Required input | Where to provide | Safe validation signal |
+|---|---|---|---|
+| Apple Developer explicit App ID / App Store Connect app record | 建檔後取得的 `APP_STORE_CONNECT_APP_ID`，或 alias `ASC_APP_ID` | shell env / CI secret / `mobile/release.env.local`；公開文件只記 key name，不記 numeric app id | `input_groups.app_store_record_prerequisites.app_store_connect_app_id_present=true` 且 `summary.ready_for_app_store_record_inputs=true` |
+
+`input_groups.app_store_record_prerequisites` 會同時列出 locked Emorapy values：App Store name `Emorapy`、primary language `English (U.S.)`、SKU `emorapy-ios-app`、bundle id `com.emorapy.app`、Android package `com.emorapy.app`，並檢查 `mobile/app.json` 的 name / iOS bundle identifier / Android package 是否仍匹配。這組狀態只用來防止 Apple Developer / App Store Connect 建檔後忘記回填 app id；它不改變 current completion blocker count，也不代表 TestFlight、ASC API credentials 或 App Store submission evidence 已完成。
 
 ## Evidence refresh inputs
 

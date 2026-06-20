@@ -36,6 +36,14 @@ const evidenceRefreshInputKeys = [
   'APP_TELEMETRY_RUNTIME_API_BASE_URL',
   'DATABASE_URL',
 ];
+const appStoreRecordInputKeys = ['APP_STORE_CONNECT_APP_ID'];
+const expectedAppStoreRecord = {
+  app_store_name: 'Emorapy',
+  primary_language: 'English (U.S.)',
+  sku: 'emorapy-ios-app',
+  bundle_identifier: 'com.emorapy.app',
+  android_package: 'com.emorapy.app',
+};
 const requiredInputKeys = [...currentCompletionInputKeys, ...evidenceRefreshInputKeys];
 const allowedInputKeys = new Set([
   'DEVELOPER_DIR',
@@ -45,6 +53,7 @@ const allowedInputKeys = new Set([
   'APP_EAS_IOS_REQUIRE_TESTFLIGHT',
   'APP_EAS_PROJECT_FULL_NAME',
   'APP_STORE_CONNECT_APP_ID',
+  'ASC_APP_ID',
   'APP_PUSH_DELIVERY_ACCESS_TOKEN',
   'APP_NATIVE_CRASH_EXPECTED_ENVIRONMENT',
   ...requiredInputKeys,
@@ -115,6 +124,31 @@ function summarizeInputKeys(keys) {
   };
 }
 
+function summarizeLogicalInput(key, aliases = []) {
+  const candidateKeys = [key, ...aliases];
+  const configured = candidateKeys
+    .map((candidateKey) => ({
+      key: candidateKey,
+      value: process.env[candidateKey]?.trim() || entries.get(candidateKey),
+    }))
+    .filter(({ value }) => Boolean(value));
+  const filled = configured.find(({ value }) => !isPlaceholder(value));
+  const placeholder = configured.find(({ value }) => isPlaceholder(value));
+  const presentKey = filled?.key || placeholder?.key || key;
+  return {
+    key,
+    aliases,
+    required_key_count: 1,
+    filled_count: filled ? 1 : 0,
+    placeholder_count: !filled && placeholder ? 1 : 0,
+    missing_count: configured.length ? 0 : 1,
+    filled_keys: filled ? [presentKey] : [],
+    placeholder_keys: !filled && placeholder ? [presentKey] : [],
+    missing_keys: configured.length ? [] : [key],
+    present_key: configured.length ? presentKey : null,
+  };
+}
+
 let easProjectIdentity = {
   project_id_present: false,
   project_id_valid: false,
@@ -125,17 +159,31 @@ let easProjectIdentity = {
   full_name_matches_expected: false,
   valid: false,
 };
+let appConfigForStatus = null;
 try {
+  const appConfig = readAppJson();
   easProjectIdentity = getExpoProjectIdentityStatus(
-    readAppJson(),
+    appConfig,
     process.env.APP_EAS_PROJECT_FULL_NAME || entries.get('APP_EAS_PROJECT_FULL_NAME')
   );
+  appConfigForStatus = appConfig;
 } catch {
   easProjectIdentity = {
     ...easProjectIdentity,
     project_id_format: 'unreadable_app_json',
   };
 }
+
+const appConfig = typeof appConfigForStatus === 'object' ? appConfigForStatus : null;
+const appStoreConnectAppIdInput = summarizeLogicalInput('APP_STORE_CONNECT_APP_ID', ['ASC_APP_ID']);
+const appStoreRecordReady =
+  envFileExists &&
+  appStoreConnectAppIdInput.filled_count === 1 &&
+  appConfig?.ios?.bundleIdentifier === expectedAppStoreRecord.bundle_identifier &&
+  appConfig?.android?.package === expectedAppStoreRecord.android_package &&
+  appConfig?.name === expectedAppStoreRecord.app_store_name &&
+  invalidLines.length === 0 &&
+  unsupportedKeys.length === 0;
 
 const status = {
   type: 'app-external-signoff-input-status',
@@ -165,6 +213,10 @@ const status = {
     evidence_refresh_filled_count: evidenceRefreshInputKeys.filter((key) => filledKeys.includes(key)).length,
     evidence_refresh_placeholder_count: evidenceRefreshInputKeys.filter((key) => placeholderKeys.includes(key)).length,
     evidence_refresh_missing_count: evidenceRefreshInputKeys.filter((key) => missingKeys.includes(key)).length,
+    app_store_record_required_key_count: appStoreRecordInputKeys.length,
+    app_store_record_filled_count: appStoreConnectAppIdInput.filled_count,
+    app_store_record_placeholder_count: appStoreConnectAppIdInput.placeholder_count,
+    app_store_record_missing_count: appStoreConnectAppIdInput.missing_count,
     invalid_line_count: invalidLines.length,
     unsupported_key_count: unsupportedKeys.length,
     ready_for_current_completion_inputs:
@@ -182,6 +234,7 @@ const status = {
       evidenceRefreshInputKeys.every((key) => !missingKeys.includes(key)) &&
       invalidLines.length === 0 &&
       unsupportedKeys.length === 0,
+    ready_for_app_store_record_inputs: appStoreRecordReady,
     ready_for_validate:
       envFileExists &&
       easProjectIdentity.valid &&
@@ -205,6 +258,21 @@ const status = {
         'Env keys for telemetry runtime and release DB parity evidence refreshes. Current canonical evidence may already pass, but these are still needed after relevant release, DB, telemetry, or backend version drift.',
       ...summarizeInputKeys(evidenceRefreshInputKeys),
     },
+    app_store_record_prerequisites: {
+      description:
+        'Non-secret App Store Connect app record prerequisites for the locked Emorapy identity. This group surfaces the app record id input after Apple Developer / App Store Connect setup; it does not replace release validate/run evidence.',
+      expected: expectedAppStoreRecord,
+      app_config_matches_expected: {
+        name: appConfig?.name === expectedAppStoreRecord.app_store_name,
+        ios_bundle_identifier: appConfig?.ios?.bundleIdentifier === expectedAppStoreRecord.bundle_identifier,
+        android_package: appConfig?.android?.package === expectedAppStoreRecord.android_package,
+      },
+      apple_developer_explicit_app_id_required: true,
+      apple_developer_explicit_app_id_expected_bundle_id: expectedAppStoreRecord.bundle_identifier,
+      app_store_connect_app_id_present: appStoreConnectAppIdInput.filled_count === 1,
+      accepted_app_id_keys: ['APP_STORE_CONNECT_APP_ID', 'ASC_APP_ID'],
+      ...appStoreConnectAppIdInput,
+    },
   },
   invalid_lines: invalidLines,
   unsupported_keys: unsupportedKeys,
@@ -225,6 +293,9 @@ if (json) {
   );
   console.log(
     `[release-input-status] evidence_refresh_inputs filled=${status.summary.evidence_refresh_filled_count}/${status.summary.evidence_refresh_required_key_count} placeholders=${status.summary.evidence_refresh_placeholder_count} missing=${status.summary.evidence_refresh_missing_count} ready=${status.summary.ready_for_evidence_refresh_inputs}`
+  );
+  console.log(
+    `[release-input-status] app_store_record_inputs filled=${status.summary.app_store_record_filled_count}/${status.summary.app_store_record_required_key_count} placeholders=${status.summary.app_store_record_placeholder_count} missing=${status.summary.app_store_record_missing_count} ready=${status.summary.ready_for_app_store_record_inputs} expected_bundle_id=${status.input_groups.app_store_record_prerequisites.expected.bundle_identifier}`
   );
   if (placeholderKeys.length) console.log(`[release-input-status] placeholder_keys=${placeholderKeys.join(',')}`);
   if (missingKeys.length) console.log(`[release-input-status] missing_keys=${missingKeys.join(',')}`);

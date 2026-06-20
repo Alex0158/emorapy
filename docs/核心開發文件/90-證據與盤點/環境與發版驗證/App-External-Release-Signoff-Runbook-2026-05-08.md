@@ -68,7 +68,7 @@ npm --prefix mobile run release:external-evidence:env-template:check
 
 外部 owner 填值清單見 [App-External-Signoff-Input-Checklist-2026-05-16.md](./App-External-Signoff-Input-Checklist-2026-05-16.md)。該清單只列 required env / config keys 與 safe validation signals，不保存任何 secret value。
 
-填值後可先跑 `npm --prefix mobile run release:external-evidence:input-status -- --json` 檢查本機 `mobile/release.env.local` 與 `extra.eas.projectId` 的 redacted 狀態；該命令只輸出 key names、placeholder / missing counts、`ready_for_current_completion_inputs`、`ready_for_validate` 與 `app.eas_project_binding_valid`，不輸出任何 value，也不連 EAS、Apple、Sentry、DB 或裝置。JSON 內的 `current_completion_blocker_inputs` 對應當前尚未解除的 release completion inputs；`evidence_refresh_inputs` 對應 telemetry runtime / release DB parity refresh inputs。`APP_EAS_PROJECT_FULL_NAME` 是非 secret，必須等於 `@alexdev518/emorapy-mobile`，用於確認 EAS full name 已按 Emorapy slug 對齊。`ready_for_current_completion_inputs=true` 只代表當前 blocker inputs 齊備，不代表正式 validate / run 或 strict audits 通過；`ready_for_validate=true` 仍要求全量 sign-off / refresh keys、有效 EAS project id 與有效 EAS full name binding。
+填值後可先跑 `npm --prefix mobile run release:external-evidence:input-status -- --json` 檢查本機 `mobile/release.env.local` 與 `extra.eas.projectId` 的 redacted 狀態；該命令只輸出 key names、placeholder / missing counts、`ready_for_current_completion_inputs`、`ready_for_app_store_record_inputs`、`ready_for_validate` 與 `app.eas_project_binding_valid`，不輸出任何 value，也不連 EAS、Apple、Sentry、DB 或裝置。JSON 內的 `current_completion_blocker_inputs` 對應當前尚未解除的 release completion inputs；`evidence_refresh_inputs` 對應 telemetry runtime / release DB parity refresh inputs；`app_store_record_prerequisites` 對應 Apple Developer explicit App ID / App Store Connect app record 建檔後需要回填的 `APP_STORE_CONNECT_APP_ID` / `ASC_APP_ID` 狀態。`APP_EAS_PROJECT_FULL_NAME` 是非 secret，必須等於 `@alexdev518/emorapy-mobile`，用於確認 EAS full name 已按 Emorapy slug 對齊。`ready_for_current_completion_inputs=true` 只代表當前 blocker inputs 齊備；`ready_for_app_store_record_inputs=true` 只代表 App Store record id 已在 redacted local input status 可見，且 App config 仍匹配 locked Emorapy identity；兩者都不代表正式 validate / run 或 strict audits 通過。`ready_for_validate=true` 仍要求全量 sign-off / refresh keys、有效 EAS project id 與有效 EAS full name binding。
 
 若要在本機逐項補值，可直接跑 `npm --prefix mobile run release:external-evidence:fill-inputs`。它只會在互動終端讀取缺值、可選地更新 `mobile/app.json` 的 `extra.eas.projectId`，並在寫回後自動重跑 `release:external-evidence:input-status`，同樣不會把 secret value 寫進聊天或 log。若只想先看還缺什麼，可加 `--list-missing`。
 
@@ -132,6 +132,8 @@ orchestrator 會先把 env-file 載入父進程供後續 runner 使用，status 
 - `APP_STORE_CONNECT_KEY_ID` 或 `ASC_KEY_ID`
 - `APP_STORE_CONNECT_PRIVATE_KEY` / `ASC_PRIVATE_KEY`，或 `APP_STORE_CONNECT_PRIVATE_KEY_PATH` / `ASC_PRIVATE_KEY_PATH`
 - 可選：`APP_STORE_CONNECT_APP_ID` / `ASC_APP_ID`
+
+App Store Connect 建檔前置值已鎖定為 App Store name `Emorapy`、primary language `English (U.S.)`、SKU `emorapy-ios-app`、bundle ID `com.emorapy.app`。Apple Developer 端需先註冊 explicit App ID `com.emorapy.app`，App Store Connect app record 建立後才把 numeric app id 放到 ignored env / CI secret 的 `APP_STORE_CONNECT_APP_ID` 或 `ASC_APP_ID`；公開文件只記 key name，不記 app id value。`release:external-evidence:input-status` 會在 `input_groups.app_store_record_prerequisites` 顯示這組狀態，該 group 不替代 App Store Connect API credentials、TestFlight query 或正式 EAS iOS evidence。
 
 TestFlight evidence 必須由 `mobile/scripts/run-eas-ios-release-smoke.mjs` 查詢 App Store Connect，並證明 matching build 存在、processing state 為 `VALID` 且未過期。
 

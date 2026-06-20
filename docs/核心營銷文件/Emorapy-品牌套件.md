@@ -1,7 +1,7 @@
 # Emorapy 品牌套件（不含 UI/設計風格）
 
-> 版本：v1.0  
-> 適用範圍：品牌策略、定位、文案、上架溝通  
+> 版本：v1.0
+> 適用範圍：品牌策略、定位、文案、上架溝通
 > 不包含：UI、視覺設計風格、Logo 視覺規範
 
 ## 1. 品牌核心（Brand Core）
@@ -103,7 +103,7 @@ For couples under recurring conflict, `Emorapy` is an AI-guided relationship rep
 ## 11. 品牌治理（Brand Governance）
 
 - 官方寫法：`Emorapy`（E 大寫，其餘小寫）。
-- 可接受變體：`Emorapy App`、`Emorapy by Mother Bear Court`。
+- 可接受變體：`Emorapy App`、`Emorapy Mobile`。
 - 不建議寫法：`Emo-rapy`、`EmoRapy`、`Emorapie`。
 - 命名延展：
   - `Emorapy Repair Session`

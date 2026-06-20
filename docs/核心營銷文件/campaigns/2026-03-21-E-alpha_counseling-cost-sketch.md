@@ -1,4 +1,4 @@
-# CJ 付費短片單案 — E-α 可負擔替代路徑（諮商貴／多期）
+# Emorapy 付費短片單案 — E-α 可負擔替代路徑（諮商貴／多期）
 
 ---
 
@@ -25,7 +25,7 @@
 
 | 問題            | 回答                                                 |
 | ------------- | -------------------------------------------------- |
-| 本方案主軸是哪一軸？    | **可負擔替代路徑**：諮商有幫助但單價高、需多期，CJ 以極低成本先體驗「結構化調解／爭執整理」。 |
+| 本方案主軸是哪一軸？    | **可負擔替代路徑**：諮商有幫助但單價高、需多期，Emorapy 以極低成本先體驗「結構化調解／爭執整理」。 |
 | 為何此軸對該 TA 成立？ | 學生與小資族群預算有限，仍需要**第三方視角**把爭執講清楚，而非直接進入長程諮商。         |
 | 本方案刻意不說什麼？    | 不宣稱**替代心理治療或諮商**、不承諾療效、不暗示醫師背書；價格對比後**必出標準短版 A**。  |
 
@@ -34,9 +34,9 @@
 
 ## 1. 策略主軸與定位句
 
-- **主軸（一句）**：心理諮商不是不好，但一節幾千還要好幾週——若你只想先把**這次爭執**用第三方講清楚，CJ 用極低成本讓你體驗結構化調解。  
-- **定位句（對外）**：CJ 用 AI 當第三方，幫你把雙方說法整理成听得懂的敘事，再給和好方向；**快速體驗**門檻低。  
-- **與諮商／治療的邊界**：CJ **並非**心理治療或心理諮商之替代品；僅提供關係衝突之結構化整理與建議。強烈困擾或安全疑慮請尋求專業協助（見標準短版 A）。
+- **主軸（一句）**：心理諮商不是不好，但一節幾千還要好幾週——若你只想先把**這次爭執**用第三方講清楚，Emorapy 用極低成本讓你體驗結構化調解。
+- **定位句（對外）**：Emorapy 用 AI 當第三方，幫你把雙方說法整理成听得懂的敘事，再給和好方向；**快速體驗**門檻低。
+- **與諮商／治療的邊界**：Emorapy **並非**心理治療或心理諮商之替代品；僅提供關係衝突之結構化整理與建議。強烈困擾或安全疑慮請尋求專業協助（見標準短版 A）。
 
 ---
 
@@ -61,9 +61,9 @@
 | 主 Hook（0–2s）  | 心理諮商不是不好——是一節幾千，還要談很多週。                 | 扎心 + 理性開場 |
 | 替換 Hook A     | 一節幾千、還要好幾週——如果你只是要把「這次吵的」講清楚？           | 溫和、呼應 E-β |
 | 替換 Hook B     | 不是不想談，是每次諮商都像在掏錢掏心掏肺。                   | 扎心、情緒較重   |
-| 中段核心訊息（6–12s） | CJ 用極低成本，先把爭執用第三方講清楚：雙方說法、AI 整理成听得懂的說法。 | 解法        |
+| 中段核心訊息（6–12s） | Emorapy 用極低成本，先把爭執用第三方講清楚：雙方說法、AI 整理成听得懂的說法。 | 解法        |
 | CTA（15–18s）   | 先試快速體驗，再決定要不要走下一步。                      | 低承諾       |
-| 品牌結尾（18–20s）  | CJ——先把爭執講成別人也听得懂。                       | 溫暖收束      |
+| 品牌結尾（18–20s）  | Emorapy——先把爭執講成別人也听得懂。                       | 溫暖收束      |
 
 
 ---
@@ -74,7 +74,7 @@
 | 項目                | 內容                                                                |
 | ----------------- | ----------------------------------------------------------------- |
 | 是否觸發「諮商對比」免責      | **是**                                                             |
-| 標準短版 **A** 全文     | **CJ 並非心理治療或心理諮商之替代品。若您有強烈情緒困擾、自傷或自殺念頭，或身處暴力／受控風險，請尋求專業協助或立即求助。** |
+| 標準短版 **A** 全文     | **Emorapy 並非心理治療或心理諮商之替代品。若您有強烈情緒困擾、自傷或自殺念頭，或身處暴力／受控風險，請尋求專業協助或立即求助。** |
 | 標準短版 A **字幕時段**   | **12–15s**（全畫面或下三分之一大字，約 3 秒讀完）                                   |
 | 標準短版 **B** 是否用於片尾 | 可選：18–20s 品牌畫面角標較短句「本服務僅提供關係衝突之整理與建議」—本方案以 A 為主，B 非必填。            |
 | 高風險責任提示           | **不適用**（本主軸不主打暴力／自殺；若改腳本需獨立評估）。                                   |
@@ -104,10 +104,10 @@ SSOT：[短影音付費推廣策略-合規與免責文案.md](../短影音付費
 | ------ | ------------------------------------------- | -------------------------- |
 | 0–2s   | 心理諮商不是不好——是一節幾千，還要談很多週。                     | **一節幾千？還要好幾週？**（可二擇一與口播呼應） |
 | 2–6s   | 學生、上班族，不是不想整理關係，是每一次都負擔很重。                  | **不是不想談，是每次都很重**           |
-| 6–12s  | CJ 讓你用極低成本，先把這次爭執用第三方講清楚：雙方說法、AI 整理成听得懂的說法。 | **CJ｜第三方整理爭執**             |
+| 6–12s  | Emorapy 讓你用極低成本，先把這次爭執用第三方講清楚：雙方說法、AI 整理成听得懂的說法。 | **Emorapy｜第三方整理爭執**             |
 | 12–15s | （不唸全文；以字幕為主）                                | **標準短版 A 全文**（見第 4 節）      |
 | 15–18s | 先試快速體驗，再決定要不要走下一步。                          | **免註冊・快速體驗**               |
-| 18–20s | CJ——先把爭執講成別人也听得懂。                           | **CJ**                     |
+| 18–20s | Emorapy——先把爭執講成別人也听得懂。                           | **Emorapy**                     |
 
 
 ---
@@ -217,7 +217,7 @@ Generate a vertical 9:16 image. Vertical 9:16 cinematic social ad for relationsh
 | ------- | ---------------------------------- |
 | 檔名建議    | `E-alpha-counseling-cost_sh03.png` |
 | 畫面摘要    | 雙方「語意」匯入中央光點／溫暖核心                  |
-| 引用旁白／大字 | CJ 讓你用極低成本……听得懂的說法。／ CJ｜第三方整理爭執    |
+| 引用旁白／大字 | Emorapy 讓你用極低成本……听得懂的說法。／ Emorapy｜第三方整理爭執    |
 
 
 **Gemini 圖像 Prompt**：
@@ -234,7 +234,7 @@ Create a vertical 9:16 image. Vertical 9:16 cinematic social ad for relationship
 嚴格依上傳分鏡圖。直式 9:16。0–4 秒：中央光點微弱呼吸式明滅；4–8 秒：左右兩側柔光氣泡緩慢向中央靠近；8–12 秒：光點穩定變亮一點，整體畫面微微推近。鏡頭穩定，避免快速切換。
 ```
 
-**合規／備註**：產品名「CJ」若疊字，剪輯時加，圖可不加字。
+**合規／備註**：產品名「Emorapy」若疊字，剪輯時加，圖可不加字。
 
 ---
 
@@ -272,17 +272,17 @@ Generate a vertical 9:16 image. Vertical 9:16 cinematic social ad for relationsh
 | 欄位      | 內容                                 |
 | ------- | ---------------------------------- |
 | 檔名建議    | `E-alpha-counseling-cost_sh05.png` |
-| 畫面摘要    | 品牌結尾：簡潔 CJ 字標意象 + 溫暖光              |
-| 引用旁白／大字 | 先試快速體驗……／ CJ——先把爭執講成別人也听得懂。        |
+| 畫面摘要    | 品牌結尾：簡潔 Emorapy 字標意象 + 溫暖光              |
+| 引用旁白／大字 | 先試快速體驗……／ Emorapy——先把爭執講成別人也听得懂。        |
 
 
 **Gemini 圖像 Prompt**：
 
 ```text
-Create a vertical 9:16 image. Vertical 9:16 cinematic social ad for relationship mediation app, soft warm rim light on silhouettes, muted teal and amber palette, no identifiable faces, no readable logos, clean safe areas for Traditional Chinese subtitles top or bottom third, photorealistic soft illustration style, calm hopeful mood. Clean end card layout: soft gradient, space for wordmark text "CJ" to be added in post, small abstract heart-and-scale fusion icon suggestion (very subtle, non-legal), warm amber glow, inviting, closing shot.
+Create a vertical 9:16 image. Vertical 9:16 cinematic social ad for relationship mediation app, soft warm rim light on silhouettes, muted teal and amber palette, no identifiable faces, no readable logos, clean safe areas for Traditional Chinese subtitles top or bottom third, photorealistic soft illustration style, calm hopeful mood. Clean end card layout: soft gradient, space for wordmark text "Emorapy" to be added in post, small abstract heart-and-scale fusion icon suggestion (very subtle, non-legal), warm amber glow, inviting, closing shot.
 ```
 
-**圖像約束**：若圖中出現 “CJ” 字樣需與品牌規範一致；否則後製加 Logo。
+**圖像約束**：若圖中出現 “Emorapy” 字樣需與品牌規範一致；否則後製加 Logo。
 
 **即夢影片 Prompt（繁中）**：
 
@@ -311,12 +311,12 @@ Create a vertical 9:16 image. Vertical 9:16 cinematic social ad for relationship
 
 ## 12. 產出前自檢（對照 Skill 品質門檻）
 
-- 主軸與 CJ「第三方、結構化、和好方向、快速體驗」一致，無虛構未上線功能  
-- 諮商對比已排 **標準短版 A** 時段（12–15s）並附全文  
-- 主 Hook 可於約 2 秒內唸完（口播稿）  
-- 每鏡 Gemini Prompt 含 **vertical 9:16** 與**完整錨點句**  
-- 每則即夢 Prompt 僅覆蓋該鏡時長，未把整支 20 秒塞進一條  
-- 已標註 **檔名規則**（`E-alpha-counseling-cost_shNN`）  
+- 主軸與 Emorapy「第三方、結構化、和好方向、快速體驗」一致，無虛構未上線功能
+- 諮商對比已排 **標準短版 A** 時段（12–15s）並附全文
+- 主 Hook 可於約 2 秒內唸完（口播稿）
+- 每鏡 Gemini Prompt 含 **vertical 9:16** 與**完整錨點句**
+- 每則即夢 Prompt 僅覆蓋該鏡時長，未把整支 20 秒塞進一條
+- 已標註 **檔名規則**（`E-alpha-counseling-cost_shNN`）
 - 已寫 **修訂記錄**
 
 ---
@@ -333,6 +333,6 @@ Create a vertical 9:16 image. Vertical 9:16 cinematic social ad for relationship
 
 ## 參考連結（專案內）
 
-- [短影音付費推廣策略-腳本與Hook變體.md](../短影音付費推廣策略-腳本與Hook變體.md)（§2.1 E-α）  
-- [短影音付費推廣策略-合規與免責文案.md](../短影音付費推廣策略-合規與免責文案.md)  
+- [短影音付費推廣策略-腳本與Hook變體.md](../短影音付費推廣策略-腳本與Hook變體.md)（§2.1 E-α）
+- [短影音付費推廣策略-合規與免責文案.md](../短影音付費推廣策略-合規與免責文案.md)
 - [生成式分鏡-Gemini與即夢手動工作流.md](../生成式分鏡-Gemini與即夢手動工作流.md)

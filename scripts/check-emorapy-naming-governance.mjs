@@ -32,6 +32,10 @@ const OPERATOR_VISIBLE_SCAN_PATTERNS = [
   'scripts/**/*.sh',
 ];
 
+const MARKETING_COPY_SCAN_PATTERNS = [
+  'docs/核心營銷文件/**/*.md',
+];
+
 const CURRENT_SOURCE_IDENTITY_SCAN_PATTERNS = [
   'frontend/src/**/*.{css,ts,tsx,html}',
   'frontend-admin/src/**/*.{css,ts,tsx,html}',
@@ -162,6 +166,29 @@ const LEGACY_VISIBLE_COPY_RULES = [
   },
 ];
 
+const LEGACY_MARKETING_COPY_RULES = [
+  {
+    id: 'legacy-marketing-cj-brand',
+    pattern: /\bCJ\b/g,
+    message: 'Current marketing copy must use Emorapy, not CJ.',
+  },
+  {
+    id: 'legacy-marketing-cj-platform-zh',
+    pattern: /CJ 平台/g,
+    message: 'Current marketing copy must use Emorapy, not CJ 平台.',
+  },
+  {
+    id: 'legacy-marketing-cj-platform-en',
+    pattern: /\bCJ Platform\b/g,
+    message: 'Current marketing copy must use Emorapy, not CJ Platform.',
+  },
+  {
+    id: 'legacy-marketing-mother-bear-court-brand',
+    pattern: /Mother Bear Court|mother-bear-court/g,
+    message: 'Current marketing copy must use Emorapy, not Mother Bear Court / mother-bear-court.',
+  },
+];
+
 const LEGACY_APP_IDENTITY_RULES = [
   {
     id: 'legacy-ios-android-bundle',
@@ -287,6 +314,14 @@ const REQUIRED_POLICY_NEEDLES = [
     ],
   },
   {
+    file: 'docs/核心營銷文件/README.md',
+    needles: [
+      '本目錄是 `Emorapy` 全項目的唯一營銷 SSOT',
+      'Emorapy產品定位與行銷策略分析.md',
+      'Emorapy專屬營銷分析報告-2026-03-29.md',
+    ],
+  },
+  {
     file: 'docs/核心開發文件/術語表.md',
     needles: [
       '| Emorapy | 產品正式對外名稱',
@@ -302,6 +337,7 @@ const REQUIRED_POLICY_NEEDLES = [
       'P5 入口文件收斂',
       'P5 current docs 舊名 allowlist 分類',
       'P5 current source design-token comment cleanup',
+      'P5 core marketing SSOT naming cleanup',
       'P4 CI / local true-service Postgres fixture naming',
       'P4 App OTLP telemetry scope fixture naming',
       'P4 release commit env alias contract',
@@ -449,6 +485,24 @@ async function checkOperatorVisibleCopy() {
   }
 }
 
+async function checkMarketingCopy() {
+  const files = await glob(MARKETING_COPY_SCAN_PATTERNS, {
+    cwd: repoRoot,
+    nodir: true,
+    ignore: ['**/node_modules/**'],
+  });
+
+  for (const file of files) {
+    const text = readText(file);
+    for (const rule of LEGACY_MARKETING_COPY_RULES) {
+      rule.pattern.lastIndex = 0;
+      for (const match of text.matchAll(rule.pattern)) {
+        fail(`${file}:${lineNumberAt(text, match.index ?? 0)} [${rule.id}] ${rule.message}`);
+      }
+    }
+  }
+}
+
 async function checkCurrentPackageScope() {
   const files = await glob(CURRENT_PACKAGE_SCOPE_SCAN_PATTERNS, {
     cwd: repoRoot,
@@ -588,6 +642,7 @@ checkPackageManifestNames();
 await checkAppIdentityFiles();
 await checkUserFacingCopy();
 await checkOperatorVisibleCopy();
+await checkMarketingCopy();
 await checkCurrentPackageScope();
 await checkCurrentSourceIdentity();
 checkCurrentDocLeadins();

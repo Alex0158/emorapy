@@ -3,7 +3,7 @@ import { validateSmokeSafetyEnv } from '../../../scripts/web-p0-true-service-smo
 describe('web-p0-true-service-smoke safety env', () => {
   const baseEnv = {
     RUN_WEB_P0_TRUE_SERVICE_SMOKE: 'true',
-    DATABASE_URL: 'postgresql://cj:cj_dev_pass@127.0.0.1:55432/cj_dev',
+    DATABASE_URL: 'postgresql://emorapy:emorapy_dev_pass@127.0.0.1:55432/emorapy_dev',
     WEB_P0_SMOKE_REPORT_PATH:
       'docs/核心開發文件/90-證據與盤點/環境與發版驗證/Web-P0-True-Service-test.json',
   };

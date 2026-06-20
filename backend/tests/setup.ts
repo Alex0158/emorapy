@@ -25,7 +25,7 @@ if (!process.env.TEST_REDIS_URL) {
 process.env.DATABASE_URL =
   process.env.TEST_DATABASE_URL ||
   process.env.DATABASE_URL ||
-  'postgresql://postgres:password@localhost:5432/cj_platform_test';
+  'postgresql://postgres:password@localhost:5432/emorapy_platform_test';
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret-key';
 process.env.OPENAI_API_KEY = process.env.OPENAI_API_KEY || 'test-openai-api-key';
 process.env.FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';

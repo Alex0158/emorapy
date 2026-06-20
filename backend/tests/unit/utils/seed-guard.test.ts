@@ -5,7 +5,7 @@ describe('seed-guard', () => {
     expect(() =>
       assertSeedAllowed({
         NODE_ENV: 'development',
-        DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/cj_dev',
+        DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/emorapy_dev',
       })
     ).not.toThrow();
   });
@@ -14,7 +14,7 @@ describe('seed-guard', () => {
     expect(() =>
       assertSeedAllowed({
         NODE_ENV: 'production',
-        DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/cj_dev',
+        DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/emorapy_dev',
       })
     ).toThrow(/Refusing to run prisma seed/);
   });

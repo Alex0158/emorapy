@@ -1,12 +1,12 @@
 services:
   redis:
     image: redis:7-alpine
-    container_name: cj-backend-dev-redis
+    container_name: emorapy-backend-dev-redis
     ports:
       - "6379:6379"
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
-      - cj-backend-dev-redis-data:/data
+      - emorapy-backend-dev-redis-data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -15,4 +15,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  cj-backend-dev-redis-data:
+  emorapy-backend-dev-redis-data:

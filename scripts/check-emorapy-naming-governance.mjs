@@ -52,6 +52,16 @@ const CURRENT_DOC_LEADIN_FILES = [
   'docs/核心開發文件/08-測試規範與驗收/01-測試文檔分層與使用規則.md',
 ];
 
+const CURRENT_DEV_CI_FIXTURE_SCAN_PATTERNS = [
+  '.github/workflows/ci.yml',
+  'backend/docker-compose.postgres.yml',
+  'backend/docker-compose.redis.yml',
+  'backend/tests/setup.ts',
+  'backend/tests/unit/scripts/web-p0-true-service-smoke.test.ts',
+  'backend/tests/unit/utils/seed-guard.test.ts',
+  'docs/核心開發文件/05-工程架構與共享層/01-本地開發與工作區基線.md',
+];
+
 const USER_FACING_IGNORE_PATTERNS = [
   '**/*.test.ts',
   '**/*.test.tsx',
@@ -208,6 +218,34 @@ const LEGACY_SOURCE_IDENTITY_RULES = [
   },
 ];
 
+const LEGACY_DEV_CI_FIXTURE_RULES = [
+  {
+    id: 'legacy-dev-ci-postgres-db-name',
+    pattern: /\bcj_(?:flow_test|smoke|dev|platform_test)\b/g,
+    message: 'Current CI/local Postgres fixture databases must use emorapy_* names.',
+  },
+  {
+    id: 'legacy-dev-ci-postgres-password',
+    pattern: /\bcj_dev_pass\b/g,
+    message: 'Current CI/local Postgres fixture passwords must use emorapy_dev_pass.',
+  },
+  {
+    id: 'legacy-dev-ci-postgres-user',
+    pattern: /(?:POSTGRES_USER:\s*cj\b|postgresql:\/\/cj:|pg_isready -U cj -d)/g,
+    message: 'Current CI/local Postgres fixture users must use emorapy.',
+  },
+  {
+    id: 'legacy-dev-compose-container-volume',
+    pattern: /\bcj-backend-dev-(?:postgres|redis)(?:-data)?\b/g,
+    message: 'Current local docker-compose helper container and volume names must use emorapy-backend-dev-*.',
+  },
+  {
+    id: 'legacy-ci-dummy-jwt-prefix',
+    pattern: /\bcj(?:Admin)?JwtProdKey\b/g,
+    message: 'Current CI dummy JWT fixture names must use Emorapy naming.',
+  },
+];
+
 const LEGACY_DOC_LEADIN_RULES = [
   {
     id: 'legacy-doc-product-subject',
@@ -248,6 +286,7 @@ const REQUIRED_POLICY_NEEDLES = [
       'P5 入口文件收斂',
       'P5 current docs 舊名 allowlist 分類',
       'P5 current source design-token comment cleanup',
+      'P4 CI / local true-service Postgres fixture naming',
       'Legacy requirement / governance IDs',
       'Historical package-scope references',
       '正式 internal workspace package scope 改為 `@emorapy/contracts` 與 `@emorapy/api-client`',
@@ -427,6 +466,24 @@ function checkCurrentDocLeadins() {
   }
 }
 
+async function checkCurrentDevCiFixtureIdentity() {
+  const files = await glob(CURRENT_DEV_CI_FIXTURE_SCAN_PATTERNS, {
+    cwd: repoRoot,
+    nodir: true,
+    ignore: ['**/node_modules/**'],
+  });
+
+  for (const file of files) {
+    const text = readText(file);
+    for (const rule of LEGACY_DEV_CI_FIXTURE_RULES) {
+      rule.pattern.lastIndex = 0;
+      for (const match of text.matchAll(rule.pattern)) {
+        fail(`${file}:${lineNumberAt(text, match.index ?? 0)} [${rule.id}] ${rule.message}`);
+      }
+    }
+  }
+}
+
 function checkNamingPolicyDocs() {
   for (const { file, needles } of REQUIRED_POLICY_NEEDLES) {
     const text = readText(file);
@@ -444,6 +501,7 @@ await checkOperatorVisibleCopy();
 await checkCurrentPackageScope();
 await checkCurrentSourceIdentity();
 checkCurrentDocLeadins();
+await checkCurrentDevCiFixtureIdentity();
 checkNamingPolicyDocs();
 
 if (failures.length > 0) {

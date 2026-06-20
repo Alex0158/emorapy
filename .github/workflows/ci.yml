@@ -79,13 +79,13 @@ jobs:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_USER: cj
-          POSTGRES_PASSWORD: cj_dev_pass
-          POSTGRES_DB: cj_flow_test
+          POSTGRES_USER: emorapy
+          POSTGRES_PASSWORD: emorapy_dev_pass
+          POSTGRES_DB: emorapy_flow_test
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U cj -d cj_flow_test"
+          --health-cmd "pg_isready -U emorapy -d emorapy_flow_test"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
@@ -107,15 +107,15 @@ jobs:
 
       - name: Prepare flow test database
         env:
-          DATABASE_URL: postgresql://cj:cj_dev_pass@127.0.0.1:5432/cj_flow_test
+          DATABASE_URL: postgresql://emorapy:emorapy_dev_pass@127.0.0.1:5432/emorapy_flow_test
         run: npx prisma generate && npx prisma migrate deploy
 
       - name: Quick experience flow integration
         env:
           NODE_ENV: test
           RUN_FLOW_TESTS: 'true'
-          TEST_DATABASE_URL: postgresql://cj:cj_dev_pass@127.0.0.1:5432/cj_flow_test
-          DATABASE_URL: postgresql://cj:cj_dev_pass@127.0.0.1:5432/cj_flow_test
+          TEST_DATABASE_URL: postgresql://emorapy:emorapy_dev_pass@127.0.0.1:5432/emorapy_flow_test
+          DATABASE_URL: postgresql://emorapy:emorapy_dev_pass@127.0.0.1:5432/emorapy_flow_test
           SKIP_DB_INIT: 'true'
           JWT_SECRET: test-secret-min-32-chars-1234567890
           OPENAI_API_KEY: sk-dev-test-placeholder
@@ -129,13 +129,13 @@ jobs:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_USER: cj
-          POSTGRES_PASSWORD: cj_dev_pass
-          POSTGRES_DB: cj_smoke
+          POSTGRES_USER: emorapy
+          POSTGRES_PASSWORD: emorapy_dev_pass
+          POSTGRES_DB: emorapy_smoke
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U cj -d cj_smoke"
+          --health-cmd "pg_isready -U emorapy -d emorapy_smoke"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
@@ -156,7 +156,7 @@ jobs:
       - name: Prepare smoke database and seed admin users
         working-directory: backend
         env:
-          DATABASE_URL: postgresql://cj:cj_dev_pass@127.0.0.1:5432/cj_smoke
+          DATABASE_URL: postgresql://emorapy:emorapy_dev_pass@127.0.0.1:5432/emorapy_smoke
           ADMIN_SEED_EMAIL: admin-smoke@example.com
           ADMIN_SEED_PASSWORD: AdminPass1234
           ADMIN_SEED_NAME: Admin Smoke
@@ -175,10 +175,10 @@ jobs:
         env:
           NODE_ENV: production
           PORT: 3001
-          DATABASE_URL: postgresql://cj:cj_dev_pass@127.0.0.1:5432/cj_smoke
-          JWT_SECRET: cjJwtProdKeyA9f7k2LmN3pQ4rS5tU6vW8xY1zB3cD
+          DATABASE_URL: postgresql://emorapy:emorapy_dev_pass@127.0.0.1:5432/emorapy_smoke
+          JWT_SECRET: emorapyJwtProdKeyA9f7k2LmN3pQ4rS5tU6vW8xY1zB3cD
           JWT_EXPIRES_IN: 24h
-          ADMIN_JWT_SECRET: cjAdminJwtKeyH8j3k4LmN5pQ6rS7tU9vW1xY2zB4cD
+          ADMIN_JWT_SECRET: emorapyAdminJwtKeyH8j3k4LmN5pQ6rS7tU9vW1xY2zB4cD
           ADMIN_JWT_EXPIRES_IN: 12h
           OPENAI_API_KEY: sk-prod-smoke-placeholder
           FRONTEND_URL: http://127.0.0.1:4173
@@ -332,13 +332,13 @@ jobs:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_USER: cj
-          POSTGRES_PASSWORD: cj_dev_pass
-          POSTGRES_DB: cj_dev
+          POSTGRES_USER: emorapy
+          POSTGRES_PASSWORD: emorapy_dev_pass
+          POSTGRES_DB: emorapy_dev
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U cj -d cj_dev"
+          --health-cmd "pg_isready -U emorapy -d emorapy_dev"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
@@ -361,7 +361,7 @@ jobs:
         env:
           NODE_ENV: development
           PORT: 3001
-          DATABASE_URL: postgresql://cj:cj_dev_pass@127.0.0.1:5432/cj_dev
+          DATABASE_URL: postgresql://emorapy:emorapy_dev_pass@127.0.0.1:5432/emorapy_dev
           JWT_SECRET: test-secret-min-32-chars-1234567890
           OPENAI_API_KEY: sk-dev-test-placeholder
           FRONTEND_URL: http://127.0.0.1:5173
@@ -381,7 +381,7 @@ jobs:
         env:
           NODE_ENV: development
           PORT: 3001
-          DATABASE_URL: postgresql://cj:cj_dev_pass@127.0.0.1:5432/cj_dev
+          DATABASE_URL: postgresql://emorapy:emorapy_dev_pass@127.0.0.1:5432/emorapy_dev
           JWT_SECRET: test-secret-min-32-chars-1234567890
           OPENAI_API_KEY: sk-dev-test-placeholder
           FRONTEND_URL: http://127.0.0.1:5173

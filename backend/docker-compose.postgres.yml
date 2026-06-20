@@ -1,21 +1,21 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: cj-backend-dev-postgres
+    container_name: emorapy-backend-dev-postgres
     ports:
       - "55432:5432"
     environment:
-      POSTGRES_USER: cj
-      POSTGRES_PASSWORD: cj_dev_pass
-      POSTGRES_DB: cj_dev
+      POSTGRES_USER: emorapy
+      POSTGRES_PASSWORD: emorapy_dev_pass
+      POSTGRES_DB: emorapy_dev
     volumes:
-      - cj-backend-dev-postgres-data:/var/lib/postgresql/data
+      - emorapy-backend-dev-postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U cj -d cj_dev"]
+      test: ["CMD-SHELL", "pg_isready -U emorapy -d emorapy_dev"]
       interval: 5s
       timeout: 3s
       retries: 20
     restart: unless-stopped
 
 volumes:
-  cj-backend-dev-postgres-data:
+  emorapy-backend-dev-postgres-data:

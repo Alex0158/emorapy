@@ -38,7 +38,7 @@
 
 ## 操作級規則（深水區）
 
-- `/version` 與 `/api/v1/version` 都回傳 `{ service, version, commitSha, commitShortSha, timestamp }`；`version` 來源為 `backend/package.json`，`commitSha` 來源依序為 `EMORAPY_COMMIT_SHA`、legacy `CJ_COMMIT_SHA`、`VERCEL_GIT_COMMIT_SHA`、`GITHUB_SHA`、`git rev-parse HEAD`，無法解析時為 `unknown`。前端與 Admin 版本面板目前實際請求的是 `VITE_API_BASE_URL + '/version'`。
+- `/version` 與 `/api/v1/version` 都回傳 `{ service, version, commitSha, commitShortSha, timestamp }`；`version` 來源為 `backend/package.json`，Railway runtime 的 `commitSha` 首選平台注入的 `RAILWAY_GIT_COMMIT_SHA`，再 fallback 到 `EMORAPY_COMMIT_SHA`、legacy `CJ_COMMIT_SHA`、`VERCEL_GIT_COMMIT_SHA`、`GITHUB_SHA`、`git rev-parse HEAD`，避免 Railway auto deploy 被 stale manual env var 誤標成舊 commit；無法解析時為 `unknown`。前端與 Admin 版本面板目前實際請求的是 `VITE_API_BASE_URL + '/version'`。
 - App release telemetry runtime evidence 依賴 `/version` 作目標後端版本核對：release audit 只應接受與被驗證 backend commit 對齊的 telemetry events / OTLP ingest 證據；若後續改動 backend telemetry、OTLP ingest 或 version runtime 路徑，既有 telemetry runtime evidence 必須刷新。單純 docs / evidence commit 不應讓已對齊的 runtime 證據失效。
 - `/health` 也會帶 `version / commitSha / commitShortSha`，用於部署探針在同一 payload 內比對服務健康與後端代碼版本；`/health` 的 HTTP 200 不代表完全 healthy，仍要看 `status` 與 `checks`。
 - `/health.checks.lock.message` 會揭示 `Lock backend: redis/simple-lock/...`；`/health.checks.aiStream.message` 會揭示 `AI Stream backend: redis/memory`。發布 gate 會要求 lock 與 AI Stream 都是 Redis-backed runtime。

@@ -21,7 +21,6 @@ describe('version utils', () => {
   it('優先使用 EMORAPY_COMMIT_SHA', () => {
     process.env.EMORAPY_COMMIT_SHA = 'emorapy1234567890';
     process.env.CJ_COMMIT_SHA = 'legacy-sha';
-    process.env.RAILWAY_GIT_COMMIT_SHA = 'railway-sha';
 
     expect(buildBackendVersionManifest()).toMatchObject({
       service: 'backend',
@@ -32,7 +31,6 @@ describe('version utils', () => {
 
   it('沒有 EMORAPY_COMMIT_SHA 時兼容 CJ_COMMIT_SHA', () => {
     process.env.CJ_COMMIT_SHA = 'abcdef1234567890';
-    process.env.RAILWAY_GIT_COMMIT_SHA = 'railway-sha';
 
     expect(buildBackendVersionManifest()).toMatchObject({
       service: 'backend',
@@ -41,8 +39,10 @@ describe('version utils', () => {
     });
   });
 
-  it('沒有顯式 commit env 時使用 Railway commit sha', () => {
+  it('Railway runtime 優先使用 Railway deployment commit sha', () => {
     process.env.RAILWAY_GIT_COMMIT_SHA = '1234567890railway';
+    process.env.EMORAPY_COMMIT_SHA = 'stale-emorapy-sha';
+    process.env.CJ_COMMIT_SHA = 'stale-legacy-sha';
 
     expect(buildBackendVersionManifest()).toMatchObject({
       commitSha: '1234567890railway',

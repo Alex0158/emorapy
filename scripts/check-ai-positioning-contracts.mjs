@@ -46,7 +46,7 @@ const ALLOWED_CONTEXTS = [
   /尋求(?:持牌|專業).*?(?:心理師|治療師|支持)/,
   /專業的個別治療師陪你探索/,
   /不像治療師的處方/,
-  /不得把 CJ 描述為治療師/,
+  /不得把 Emorapy 描述為治療師/,
   /不替代專業心理諮詢/,
   /licensed therapist for professional support/i,
 ];

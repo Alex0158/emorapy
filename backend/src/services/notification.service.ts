@@ -430,13 +430,13 @@ function localizeNotificationFallback(locale: BackendLocale, key: 'title' | 'bod
     'zh-TW': {
       title: '通知',
       body: '你有一則新的通知。',
-      pushTitle: 'CJ 提醒',
+      pushTitle: 'Emorapy 提醒',
       pushBody: '你有一則新的提醒。',
     },
     'en-US': {
       title: 'Notification',
       body: 'You have a new notification.',
-      pushTitle: 'CJ Reminder',
+      pushTitle: 'Emorapy Reminder',
       pushBody: 'You have a new reminder.',
     },
   };

@@ -28,24 +28,24 @@ interface EmailCopy {
 
 const EMAIL_COPY: Record<BackendLocale, EmailCopy> = {
   'zh-TW': {
-    fromName: 'CJ 平台',
+    fromName: 'Emorapy',
     verification: {
       register: {
-        subject: '歡迎註冊 CJ 平台 - 請驗證您的郵箱',
+        subject: '歡迎註冊 Emorapy - 請驗證您的郵箱',
         text: (code) => `您的驗證碼是：${code}，有效期5分鐘。`,
       },
       reset_password: {
-        subject: '重置密碼 - CJ 平台',
+        subject: '重置密碼 - Emorapy',
         text: (code) => `您的重置密碼驗證碼是：${code}，有效期5分鐘。`,
       },
       verify_email: {
-        subject: '驗證郵箱 - CJ 平台',
+        subject: '驗證郵箱 - Emorapy',
         text: (code) => `您的驗證碼是：${code}，有效期5分鐘。`,
       },
     },
     noRequestNotice: '如果您沒有請求此驗證碼，請忽略此郵件。',
     pairing: {
-      subject: '配對成功通知 - CJ 平台',
+      subject: '配對成功通知 - Emorapy',
       heading: '配對成功',
       body: '你們的配對已生效，現在可以創建案件並查看梳理結果。',
     },
@@ -56,24 +56,24 @@ const EMAIL_COPY: Record<BackendLocale, EmailCopy> = {
     },
   },
   'en-US': {
-    fromName: 'CJ Platform',
+    fromName: 'Emorapy',
     verification: {
       register: {
-        subject: 'Welcome to CJ Platform - Verify your email',
+        subject: 'Welcome to Emorapy - Verify your email',
         text: (code) => `Your verification code is ${code}. It expires in 5 minutes.`,
       },
       reset_password: {
-        subject: 'Reset your password - CJ Platform',
+        subject: 'Reset your password - Emorapy',
         text: (code) => `Your password reset verification code is ${code}. It expires in 5 minutes.`,
       },
       verify_email: {
-        subject: 'Verify your email - CJ Platform',
+        subject: 'Verify your email - Emorapy',
         text: (code) => `Your verification code is ${code}. It expires in 5 minutes.`,
       },
     },
     noRequestNotice: 'If you did not request this code, you can ignore this email.',
     pairing: {
-      subject: 'Pairing confirmed - CJ Platform',
+      subject: 'Pairing confirmed - Emorapy',
       heading: 'Pairing confirmed',
       body: 'Your pairing is active. You can now create a case and view the Analysis when it is ready.',
     },

@@ -113,8 +113,8 @@ describe('EmailService', () => {
 
       expect(mockSendMail).toHaveBeenCalledWith(
         expect.objectContaining({
-          from: expect.stringContaining('CJ Platform'),
-          subject: 'Welcome to CJ Platform - Verify your email',
+          from: expect.stringContaining('Emorapy'),
+          subject: 'Welcome to Emorapy - Verify your email',
           text: 'Your verification code is 123456. It expires in 5 minutes.',
           html: expect.stringContaining('If you did not request this code'),
         })
@@ -184,12 +184,12 @@ describe('EmailService', () => {
 
       expect(mockSendMail).toHaveBeenNthCalledWith(1, expect.objectContaining({
         to: 'u1@x.com',
-        subject: '配對成功通知 - CJ 平台',
+        subject: '配對成功通知 - Emorapy',
         html: expect.stringContaining('查看梳理結果'),
       }));
       expect(mockSendMail).toHaveBeenNthCalledWith(2, expect.objectContaining({
         to: 'u2@x.com',
-        subject: 'Pairing confirmed - CJ Platform',
+        subject: 'Pairing confirmed - Emorapy',
         html: expect.stringContaining('view the Analysis'),
       }));
     });

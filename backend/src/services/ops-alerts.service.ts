@@ -144,7 +144,7 @@ async function trySendSlackNotification(
   const text = alertChecks.map((item) => `• ${item.name}: ${item.message}`).join('\n');
   await postSlackMessage({
     webhookUrl: options.slackWebhookUrl,
-    title: 'CJ Platform Ops Alert',
+    title: 'Emorapy Ops Alert',
     text,
     color: 'danger',
     fields: [
@@ -229,4 +229,3 @@ export async function runOpsAlertChecks(options: OpsAlertCheckOptions): Promise<
     slack,
   };
 }
-

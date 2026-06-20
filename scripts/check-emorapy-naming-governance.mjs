@@ -32,6 +32,14 @@ const OPERATOR_VISIBLE_SCAN_PATTERNS = [
   'scripts/**/*.sh',
 ];
 
+const CURRENT_SOURCE_IDENTITY_SCAN_PATTERNS = [
+  'frontend/src/**/*.{css,ts,tsx,html}',
+  'frontend-admin/src/**/*.{css,ts,tsx,html}',
+  'backend/src/**/*.{ts,tsx}',
+  'mobile/app/**/*.{ts,tsx}',
+  'mobile/src/**/*.{ts,tsx}',
+];
+
 const USER_FACING_IGNORE_PATTERNS = [
   '**/*.test.ts',
   '**/*.test.tsx',
@@ -44,6 +52,17 @@ const USER_FACING_IGNORE_PATTERNS = [
 
 const OPERATOR_VISIBLE_IGNORE_PATTERNS = [
   '**/node_modules/**',
+];
+
+const CURRENT_SOURCE_IDENTITY_IGNORE_PATTERNS = [
+  '**/*.test.ts',
+  '**/*.test.tsx',
+  '**/*.spec.ts',
+  '**/*.spec.tsx',
+  '**/__tests__/**',
+  '**/dist/**',
+  '**/node_modules/**',
+  'backend/tmp/**',
 ];
 
 const APP_IDENTITY_FILES = [
@@ -144,6 +163,14 @@ const LEGACY_PACKAGE_SCOPE_RULES = [
   },
 ];
 
+const LEGACY_SOURCE_IDENTITY_RULES = [
+  {
+    id: 'legacy-design-token-system-title',
+    pattern: /Mother Bear Court(?: Admin)? - Design Token System/g,
+    message: 'Current source comments must describe design tokens as Emorapy, not Mother Bear Court.',
+  },
+];
+
 const REQUIRED_POLICY_NEEDLES = [
   {
     file: 'AGENTS.md',
@@ -175,6 +202,7 @@ const REQUIRED_POLICY_NEEDLES = [
       '掃描結果不得以總量清零作唯一目標；必須按 allowlist 分類後驗收。',
       'P5 入口文件收斂',
       'P5 current docs 舊名 allowlist 分類',
+      'P5 current source design-token comment cleanup',
       'Legacy requirement / governance IDs',
       'Historical package-scope references',
       '正式 internal workspace package scope 改為 `@emorapy/contracts` 與 `@emorapy/api-client`',
@@ -324,6 +352,24 @@ async function checkCurrentPackageScope() {
   }
 }
 
+async function checkCurrentSourceIdentity() {
+  const files = await glob(CURRENT_SOURCE_IDENTITY_SCAN_PATTERNS, {
+    cwd: repoRoot,
+    nodir: true,
+    ignore: CURRENT_SOURCE_IDENTITY_IGNORE_PATTERNS,
+  });
+
+  for (const file of files) {
+    const text = readText(file);
+    for (const rule of LEGACY_SOURCE_IDENTITY_RULES) {
+      rule.pattern.lastIndex = 0;
+      for (const match of text.matchAll(rule.pattern)) {
+        fail(`${file}:${lineNumberAt(text, match.index ?? 0)} [${rule.id}] ${rule.message}`);
+      }
+    }
+  }
+}
+
 function checkNamingPolicyDocs() {
   for (const { file, needles } of REQUIRED_POLICY_NEEDLES) {
     const text = readText(file);
@@ -339,6 +385,7 @@ await checkAppIdentityFiles();
 await checkUserFacingCopy();
 await checkOperatorVisibleCopy();
 await checkCurrentPackageScope();
+await checkCurrentSourceIdentity();
 checkNamingPolicyDocs();
 
 if (failures.length > 0) {

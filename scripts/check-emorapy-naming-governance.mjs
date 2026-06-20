@@ -337,6 +337,7 @@ const REQUIRED_POLICY_NEEDLES = [
     needles: [
       '| Emorapy | 產品正式對外名稱',
       '| CJ | 歷史項目別名與 legacy internal identifier',
+      '`CJ-*` governance ID namespace 只作需求 / 驗收 / ADR / 風險 / 治理追溯 ID',
       '@cj/*` 歷史 package-scope 引用',
       '| Mother Bear Court / mother-bear-court | 歷史品牌 / repo / deploy alias',
     ],
@@ -347,6 +348,7 @@ const REQUIRED_POLICY_NEEDLES = [
       '掃描結果不得以總量清零作唯一目標；必須按 allowlist 分類後驗收。',
       'P5 入口文件收斂',
       'P5 current docs 舊名 allowlist 分類',
+      'P5 legacy governance ID namespace policy',
       'P5 current source design-token comment cleanup',
       'P5 core marketing SSOT naming cleanup',
       'P4 CI / local true-service Postgres fixture naming',
@@ -695,6 +697,28 @@ function checkLegacyProductionHostnameCompatContract() {
   );
 }
 
+function checkLegacyGovernanceIdNamespacePolicy() {
+  const prdFile = 'docs/核心開發文件/00-跨端產品核心/01-產品PRD總章.md';
+  requireOrderedIncludes(
+    prdFile,
+    [
+      '`CJ-*` 是歷史 governance ID namespace',
+      '不得把 `CJ-PRD-*`、`CJ-NFR-*`、`CJ-RTM-*` 直接搜尋替換成新前綴',
+      '必須先建立 ID mapping、引用遷移策略、更新文檔結構 / truth gate 與所有引用',
+    ],
+    'PRD ID namespace policy must classify CJ-* as legacy governance IDs and forbid unmapped prefix migration'
+  );
+
+  requireOrderedIncludes(
+    'docs/核心開發文件/術語表.md',
+    [
+      '`CJ-*` governance ID namespace 只作需求 / 驗收 / ADR / 風險 / 治理追溯 ID',
+      '必須先建立 ID mapping、引用遷移策略與 docs gate',
+    ],
+    'terminology must classify CJ-* as governance IDs, not product identity'
+  );
+}
+
 function checkCurrentOpsEnvAliasContract() {
   requireOrderedIncludes(
     'backend/src/utils/version.ts',
@@ -753,6 +777,7 @@ checkCoreDocsLedgerGeneratorIdentity();
 checkSeedGuardLegacyDevProjectComment();
 checkAppVisibleCopyLegacyBrandGuard();
 checkLegacyProductionHostnameCompatContract();
+checkLegacyGovernanceIdNamespacePolicy();
 
 if (failures.length > 0) {
   console.error('[emorapy-naming-governance] failed');

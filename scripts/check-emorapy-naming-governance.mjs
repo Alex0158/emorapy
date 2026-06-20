@@ -357,6 +357,7 @@ const REQUIRED_POLICY_NEEDLES = [
       'P4 legacy production hostname compatibility gate',
       'P4 Sentry native crash project / release identity handoff',
       'P4 Web localStorage key migration',
+      'P4 Admin Web locale storage key migration',
       'Legacy requirement / governance IDs',
       'Historical package-scope references',
       '正式 internal workspace package scope 改為 `@emorapy/contracts` 與 `@emorapy/api-client`',
@@ -804,12 +805,16 @@ function checkWebLocalStorageKeyMigrationContract() {
   const constantsFile = 'frontend/src/utils/constants.ts';
   const i18nFile = 'frontend/src/utils/i18n.ts';
   const storageFile = 'frontend/src/utils/storage.ts';
+  const adminI18nFile = 'frontend-admin/src/utils/i18n.ts';
 
   requireIncludes(readText(constantsFile), "SESSION_STORAGE_KEY = 'emorapy_session_id'", constantsFile);
   requireIncludes(readText(constantsFile), "['cj_session_id', 'mbc_session_id'] as const", constantsFile);
   requireIncludes(readText(i18nFile), "LOCALE_STORAGE_KEY = 'emorapy_locale'", i18nFile);
   requireIncludes(readText(i18nFile), "['cj_locale', 'mbc_locale'] as const", i18nFile);
   requireIncludes(readText(storageFile), 'LEGACY_SESSION_STORAGE_KEYS.forEach', storageFile);
+  requireIncludes(readText(adminI18nFile), "STORAGE_KEY = 'emorapy_admin_locale'", adminI18nFile);
+  requireIncludes(readText(adminI18nFile), "['cj_locale', 'mbc_locale'] as const", adminI18nFile);
+  requireIncludes(readText(adminI18nFile), 'LEGACY_STORAGE_KEYS.forEach', adminI18nFile);
 
   if (readText('frontend/src/test/setup.ts').includes("setItem('cj_locale'")) {
     fail('frontend/src/test/setup.ts must seed emorapy_locale, not cj_locale.');

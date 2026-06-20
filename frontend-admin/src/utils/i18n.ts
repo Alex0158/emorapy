@@ -4,7 +4,8 @@ import zhTW from '@/assets/i18n/zh-TW';
 export type Locale = 'zh-TW' | 'en-US';
 
 const DEFAULT_LOCALE: Locale = 'zh-TW';
-const STORAGE_KEY = 'cj_locale';
+const STORAGE_KEY = 'emorapy_admin_locale';
+const LEGACY_STORAGE_KEYS = ['cj_locale', 'mbc_locale'] as const;
 
 const catalogs: Record<Locale, Record<string, string>> = {
   'zh-TW': zhTW,
@@ -19,7 +20,15 @@ function detectInitialLocale(): Locale {
   try {
     const stored = window.localStorage.getItem(STORAGE_KEY);
     if (stored === 'en-US' || stored === 'zh-TW') {
+      LEGACY_STORAGE_KEYS.forEach(key => window.localStorage.removeItem(key));
       return stored;
+    }
+    for (const legacyKey of LEGACY_STORAGE_KEYS) {
+      const legacy = window.localStorage.getItem(legacyKey);
+      if (legacy !== 'en-US' && legacy !== 'zh-TW') continue;
+      window.localStorage.setItem(STORAGE_KEY, legacy);
+      LEGACY_STORAGE_KEYS.forEach(key => window.localStorage.removeItem(key));
+      return legacy;
     }
   } catch {
     // ignore storage errors
@@ -53,6 +62,14 @@ export function setLocale(locale: Locale | string): void {
   const normalized = normalizeLocale(locale);
   if (normalized === currentLocale) {
     syncDocumentLocale(normalized);
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem(STORAGE_KEY, normalized);
+        LEGACY_STORAGE_KEYS.forEach(key => window.localStorage.removeItem(key));
+      } catch {
+        // ignore storage errors
+      }
+    }
     return;
   }
   currentLocale = normalized;
@@ -60,6 +77,7 @@ export function setLocale(locale: Locale | string): void {
   if (typeof window !== 'undefined') {
     try {
       window.localStorage.setItem(STORAGE_KEY, normalized);
+      LEGACY_STORAGE_KEYS.forEach(key => window.localStorage.removeItem(key));
     } catch {
       // ignore storage errors
     }

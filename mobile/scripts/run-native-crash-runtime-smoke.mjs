@@ -91,7 +91,7 @@ function writeEvidence(record) {
 function buildRelease(app) {
   const appVersion = app.version || '0.0.0';
   const buildNumber = app.ios?.buildNumber || (typeof app.android?.versionCode === 'number' ? String(app.android.versionCode) : 'dev');
-  return `cj-mobile@${appVersion}+${buildNumber}`;
+  return `emorapy-mobile@${appVersion}+${buildNumber}`;
 }
 
 function buildBaseEvidence(app, startedAt) {

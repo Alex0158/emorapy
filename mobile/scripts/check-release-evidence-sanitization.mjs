@@ -53,7 +53,7 @@ const cases = [
       '--run',
       '--sentry-base-url=http://127.0.0.1:9',
       '--sentry-org=cj-org',
-      '--sentry-project=cj-mobile',
+      '--sentry-project=emorapy-mobile',
       '--sentry-auth-token=sentry-token-secret',
       '--sentry-event-id=native-event-secret',
     ],

@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "CJ",
-    "slug": "cj-mobile",
+    "name": "Emorapy",
+    "slug": "emorapy-mobile",
     "version": "1.3.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "cj",
+    "scheme": "emorapy",
     "userInterfaceStyle": "automatic",
     "runtimeVersion": {
       "policy": "appVersion"
@@ -19,18 +19,18 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "bundleIdentifier": "com.cj.motherbearcourt",
+      "bundleIdentifier": "com.emorapy.app",
       "buildNumber": "1",
       "supportsTablet": true,
       "infoPlist": {
-        "NSPhotoLibraryUsageDescription": "CJ 需要讀取你選擇的圖片，用於案件證據上傳或修復旅程記錄。",
+        "NSPhotoLibraryUsageDescription": "Emorapy 需要讀取你選擇的圖片，用於案件證據上傳或修復旅程記錄。",
         "UIBackgroundModes": [
           "remote-notification"
         ]
       }
     },
     "android": {
-      "package": "com.cj.motherbearcourt",
+      "package": "com.emorapy.app",
       "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
@@ -56,7 +56,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "CJ 需要讀取你選擇的圖片，用於案件證據上傳或修復旅程記錄。"
+          "photosPermission": "Emorapy 需要讀取你選擇的圖片，用於案件證據上傳或修復旅程記錄。"
         }
       ],
       [

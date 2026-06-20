@@ -67,6 +67,15 @@ function requireValue(condition, message) {
   if (!condition) failures.push(message);
 }
 
+function evidencePathLabel(filePath) {
+  return path.relative(repoRoot, filePath);
+}
+
+function ignoreStaleEvidence(label, filePath, reason) {
+  warnings.push(`${label} evidence ignored as stale for current App identity: ${evidencePathLabel(filePath)} (${reason}).`);
+  return false;
+}
+
 function requireExternalEvidencePolicy(evidence, appConfig, policyKey, label) {
   const policy = buildReleaseEvidencePolicies(appConfig ?? {})[policyKey];
   const errors = validateEvidenceAgainstPolicy(evidence, policy);
@@ -263,6 +272,13 @@ function validateEasAndroidReleaseEvidence(filePath, app) {
   }
 
   const evidence = readJson(filePath);
+  if (evidence.app_android_package !== app.android?.package) {
+    return ignoreStaleEvidence(
+      'EAS Android release',
+      filePath,
+      `app_android_package=${evidence.app_android_package ?? 'missing'}, expected=${app.android?.package}`
+    );
+  }
   const policyPassed = requireExternalEvidencePolicy(evidence, app, 'eas_android_release', 'EAS Android release evidence');
   requireValue(
     evidence.type === 'app-eas-android-release-evidence',
@@ -380,6 +396,13 @@ function validateIosReleaseSimulatorEvidence(filePath, app) {
   }
 
   const evidence = readJson(filePath);
+  if (evidence.app?.bundle_identifier !== app.ios?.bundleIdentifier) {
+    return ignoreStaleEvidence(
+      'iOS Release simulator',
+      filePath,
+      `bundle_identifier=${evidence.app?.bundle_identifier ?? 'missing'}, expected=${app.ios?.bundleIdentifier}`
+    );
+  }
   const checks = new Map((evidence.checks ?? []).map((check) => [check.name, check.status]));
   const requiredChecks = [
     'cocoapods_install',
@@ -660,6 +683,16 @@ function validateTelemetryRuntimeEvidence(filePath, app) {
   }
 
   const evidence = readJson(filePath);
+  if (
+    evidence.app_ios_bundle_identifier !== app.ios?.bundleIdentifier ||
+    evidence.app_android_package !== app.android?.package
+  ) {
+    return ignoreStaleEvidence(
+      'telemetry runtime',
+      filePath,
+      `ios=${evidence.app_ios_bundle_identifier ?? 'missing'}, android=${evidence.app_android_package ?? 'missing'}, expected=${app.ios?.bundleIdentifier}/${app.android?.package}`
+    );
+  }
   const policyPassed = requireExternalEvidencePolicy(evidence, app, 'telemetry_runtime', 'telemetry runtime evidence');
   requireValue(
     evidence.type === 'app-telemetry-runtime-evidence',
@@ -993,11 +1026,11 @@ function runExternalEvidenceFixtureContract(app) {
           event_id_sha256: hash,
         },
         expected: {
-          release: `cj-mobile@${app.version}+${app.ios?.buildNumber}`,
+          release: `emorapy-mobile@${app.version}+${app.ios?.buildNumber}`,
           environment: 'production',
         },
         event: {
-          release: `cj-mobile@${app.version}+${app.ios?.buildNumber}`,
+          release: `emorapy-mobile@${app.version}+${app.ios?.buildNumber}`,
           environment: 'production',
         },
         summary: {
@@ -1673,12 +1706,14 @@ const sentryCrashAdapterConfigured = mobileFileIncludes('src/platform/telemetry/
 const sentryAndroidNativeConfigured =
   fs.existsSync(path.join(mobileRoot, 'android/sentry.properties')) &&
   mobileFileIncludes('android/app/build.gradle', ['@sentry/react-native/package.json', 'sentry.gradle']);
+const iosProjectName = typeof app.name === 'string' && app.name.trim() ? app.name.trim() : 'Emorapy';
+const iosProjectFile = `ios/${iosProjectName}.xcodeproj/project.pbxproj`;
 const sentryIosGeneratedProjectPresent =
-  fs.existsSync(path.join(mobileRoot, 'ios/CJ.xcodeproj/project.pbxproj')) ||
+  fs.existsSync(path.join(mobileRoot, iosProjectFile)) ||
   fs.existsSync(path.join(mobileRoot, 'ios'));
 const sentryIosNativePrebuildConfigured =
   fs.existsSync(path.join(mobileRoot, 'ios/sentry.properties')) &&
-  mobileFileIncludes('ios/CJ.xcodeproj/project.pbxproj', [
+  mobileFileIncludes(iosProjectFile, [
     'sentry-xcode.sh',
     'sentry-xcode-debug-files.sh',
     'Upload Debug Symbols to Sentry',
@@ -1710,81 +1745,102 @@ const easAndroidEvidencePassed = validateEasAndroidReleaseEvidence(easAndroidArt
 
 if (androidEmulatorEvidence?.endsWith('.json')) {
   const evidence = readJson(androidEmulatorEvidence);
-  requireValue(
-    evidence.type === 'app-android-emulator-runtime-smoke',
-    'Android emulator evidence type must be app-android-emulator-runtime-smoke.'
-  );
-  requireValue(evidence.app_android_package === app.android?.package, `Android emulator evidence app package must match ${app.android?.package}.`);
-  requireValue(evidence.summary?.booted === true, 'Android emulator evidence must prove booted=true.');
-  requireValue(evidence.summary?.blocked === false, 'Android emulator evidence must have blocked=false.');
-  requireValue(evidence.device?.boot_completed === '1', 'Android emulator evidence must prove sys.boot_completed=1.');
-  androidEmulatorEvidenceBooted = evidence.summary?.booted === true && evidence.summary?.blocked === false;
+  if (evidence.app_android_package !== app.android?.package) {
+    ignoreStaleEvidence(
+      'Android emulator',
+      androidEmulatorEvidence,
+      `app_android_package=${evidence.app_android_package ?? 'missing'}, expected=${app.android?.package}`
+    );
+  } else {
+    requireValue(
+      evidence.type === 'app-android-emulator-runtime-smoke',
+      'Android emulator evidence type must be app-android-emulator-runtime-smoke.'
+    );
+    requireValue(evidence.summary?.booted === true, 'Android emulator evidence must prove booted=true.');
+    requireValue(evidence.summary?.blocked === false, 'Android emulator evidence must have blocked=false.');
+    requireValue(evidence.device?.boot_completed === '1', 'Android emulator evidence must prove sys.boot_completed=1.');
+    androidEmulatorEvidenceBooted = evidence.summary?.booted === true && evidence.summary?.blocked === false;
+  }
 }
 
 if (androidAppEvidence?.endsWith('.json')) {
   const evidence = readJson(androidAppEvidence);
-  requireValue(
-    evidence.type === 'app-android-apk-install-launch-smoke',
-    'Android app evidence type must be app-android-apk-install-launch-smoke.'
-  );
-  requireValue(evidence.app_android_package === app.android?.package, `Android app evidence app package must match ${app.android?.package}.`);
-  requireValue(evidence.summary?.built === true, 'Android app evidence must prove built=true.');
-  requireValue(evidence.summary?.installed === true, 'Android app evidence must prove installed=true.');
-  requireValue(evidence.summary?.launched === true, 'Android app evidence must prove launched=true.');
-  requireValue(evidence.summary?.blocked === false, 'Android app evidence must have blocked=false.');
-  requireValue(Boolean(evidence.apk?.sha256), 'Android app evidence must include apk.sha256.');
-  requireValue(Boolean(evidence.launch?.focused_window_confirmed), 'Android app evidence must confirm a focused app window.');
-  androidAppEvidenceLaunched = evidence.summary?.launched === true && evidence.summary?.blocked === false;
+  if (evidence.app_android_package !== app.android?.package) {
+    ignoreStaleEvidence(
+      'Android app runtime',
+      androidAppEvidence,
+      `app_android_package=${evidence.app_android_package ?? 'missing'}, expected=${app.android?.package}`
+    );
+  } else {
+    requireValue(
+      evidence.type === 'app-android-apk-install-launch-smoke',
+      'Android app evidence type must be app-android-apk-install-launch-smoke.'
+    );
+    requireValue(evidence.summary?.built === true, 'Android app evidence must prove built=true.');
+    requireValue(evidence.summary?.installed === true, 'Android app evidence must prove installed=true.');
+    requireValue(evidence.summary?.launched === true, 'Android app evidence must prove launched=true.');
+    requireValue(evidence.summary?.blocked === false, 'Android app evidence must have blocked=false.');
+    requireValue(Boolean(evidence.apk?.sha256), 'Android app evidence must include apk.sha256.');
+    requireValue(Boolean(evidence.launch?.focused_window_confirmed), 'Android app evidence must confirm a focused app window.');
+    androidAppEvidenceLaunched = evidence.summary?.launched === true && evidence.summary?.blocked === false;
+  }
 }
 
 if (androidMaestroEvidence?.endsWith('.json')) {
   const evidence = readJson(androidMaestroEvidence);
-  requireValue(
-    evidence.type === 'app-android-maestro-execution',
-    'Android Maestro evidence type must be app-android-maestro-execution.'
-  );
-  requireValue(evidence.app_android_package === app.android?.package, `Android Maestro evidence app package must match ${app.android?.package}.`);
-  requireValue(evidence.summary?.passed_flows === 7, 'Android Maestro evidence must prove 7 passed flows.');
-  requireValue(evidence.summary?.failed_flows === 0, 'Android Maestro evidence must have zero failed flows.');
-  requireValue(evidence.summary?.blocked === false, 'Android Maestro evidence must not be blocked.');
-  requireValue(evidence.static_gate?.status === 'passed', 'Android Maestro evidence must include passed static gate.');
-  requireValue(evidence.android_readiness?.status === 'passed', 'Android Maestro evidence must include passed Android readiness gate.');
-  requireValue(evidence.app_runtime?.status === 'passed', 'Android Maestro evidence must include passed Android app runtime gate.');
-  androidMaestroEvidencePassed =
-    evidence.summary?.passed_flows === 7 &&
-    evidence.summary?.failed_flows === 0 &&
-    evidence.summary?.blocked === false;
+  if (evidence.app_android_package !== app.android?.package) {
+    ignoreStaleEvidence(
+      'Android Maestro',
+      androidMaestroEvidence,
+      `app_android_package=${evidence.app_android_package ?? 'missing'}, expected=${app.android?.package}`
+    );
+  } else {
+    requireValue(
+      evidence.type === 'app-android-maestro-execution',
+      'Android Maestro evidence type must be app-android-maestro-execution.'
+    );
+    requireValue(evidence.summary?.passed_flows === 7, 'Android Maestro evidence must prove 7 passed flows.');
+    requireValue(evidence.summary?.failed_flows === 0, 'Android Maestro evidence must have zero failed flows.');
+    requireValue(evidence.summary?.blocked === false, 'Android Maestro evidence must not be blocked.');
+    requireValue(evidence.static_gate?.status === 'passed', 'Android Maestro evidence must include passed static gate.');
+    requireValue(evidence.android_readiness?.status === 'passed', 'Android Maestro evidence must include passed Android readiness gate.');
+    requireValue(evidence.app_runtime?.status === 'passed', 'Android Maestro evidence must include passed Android app runtime gate.');
+    androidMaestroEvidencePassed =
+      evidence.summary?.passed_flows === 7 &&
+      evidence.summary?.failed_flows === 0 &&
+      evidence.summary?.blocked === false;
+  }
 }
 
 if (uploadEvidence?.endsWith('.json')) {
   const evidence = readJson(uploadEvidence);
-  requireValue(
-    evidence.type === 'app-native-upload-picker-smoke',
-    'Native upload evidence type must be app-native-upload-picker-smoke.'
-  );
-  requireValue(evidence.platform === 'android' || evidence.platform === 'ios', 'Native upload evidence platform must be android or ios.');
-  if (evidence.platform === 'android') {
-    requireValue(
-      evidence.app_android_package === app.android?.package,
-      `Native upload evidence Android package must match ${app.android?.package}.`
+  const staleAndroidUpload =
+    evidence.platform === 'android' && evidence.app_android_package !== app.android?.package;
+  const staleIosUpload =
+    evidence.platform === 'ios' && evidence.app_ios_bundle_identifier !== app.ios?.bundleIdentifier;
+  if (staleAndroidUpload || staleIosUpload) {
+    ignoreStaleEvidence(
+      'Native upload',
+      uploadEvidence,
+      `ios=${evidence.app_ios_bundle_identifier ?? 'missing'}, android=${evidence.app_android_package ?? 'missing'}, expected=${app.ios?.bundleIdentifier}/${app.android?.package}`
     );
-  }
-  if (evidence.platform === 'ios') {
+  } else {
     requireValue(
-      evidence.app_ios_bundle_identifier === app.ios?.bundleIdentifier,
-      `Native upload evidence iOS bundle identifier must match ${app.ios?.bundleIdentifier}.`
+      evidence.type === 'app-native-upload-picker-smoke',
+      'Native upload evidence type must be app-native-upload-picker-smoke.'
     );
+    requireValue(evidence.platform === 'android' || evidence.platform === 'ios', 'Native upload evidence platform must be android or ios.');
+    requireValue(evidence.summary?.static_contract_passed === true, 'Native upload evidence must pass static contract.');
+    requireValue(evidence.summary?.platform_boundary_passed === true, 'Native upload evidence must pass platform boundary gate.');
+    requireValue(evidence.summary?.upload_unit_passed === true, 'Native upload evidence must pass upload adapter unit gate.');
+    requireValue(evidence.summary?.app_runtime_passed === true, 'Native upload evidence must pass native app runtime gate.');
+    requireValue(
+      evidence.summary?.native_picker_cancel_flow_passed === true,
+      'Native upload evidence must pass native picker cancel flow.'
+    );
+    requireValue(evidence.summary?.blocked === false, 'Native upload evidence must have blocked=false.');
+    nativeUploadEvidencePassed = evidence.summary?.blocked === false;
   }
-  requireValue(evidence.summary?.static_contract_passed === true, 'Native upload evidence must pass static contract.');
-  requireValue(evidence.summary?.platform_boundary_passed === true, 'Native upload evidence must pass platform boundary gate.');
-  requireValue(evidence.summary?.upload_unit_passed === true, 'Native upload evidence must pass upload adapter unit gate.');
-  requireValue(evidence.summary?.app_runtime_passed === true, 'Native upload evidence must pass native app runtime gate.');
-  requireValue(
-    evidence.summary?.native_picker_cancel_flow_passed === true,
-    'Native upload evidence must pass native picker cancel flow.'
-  );
-  requireValue(evidence.summary?.blocked === false, 'Native upload evidence must have blocked=false.');
-  nativeUploadEvidencePassed = evidence.summary?.blocked === false;
 }
 
 addCompletionCheck({
@@ -1971,10 +2027,10 @@ addCompletionCheck({
 addCompletionCheck({
   id: 'otel_collector_baseline',
   done: Boolean(hasOtelCollectorBaseline),
-  blocker: 'No CJ OTLP JSON trace ingest baseline was found.',
+  blocker: 'No Emorapy OTLP JSON trace ingest baseline was found.',
   docNeedles: ['OTLP collector', '/telemetry/otlp/v1/traces'],
   evidence: hasOtelCollectorBaseline
-    ? 'CJ OTLP JSON trace ingest baseline is wired from mobile exporter to backend safe telemetry persistence.'
+    ? 'Emorapy OTLP JSON trace ingest baseline is wired from mobile exporter to backend safe telemetry persistence.'
     : undefined,
 });
 addCompletionCheck({

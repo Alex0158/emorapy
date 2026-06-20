@@ -125,14 +125,14 @@ describe('Telemetry platform adapter', () => {
         expect.objectContaining({
           resource: {
             attributes: expect.arrayContaining([
-              { key: 'service.name', value: { stringValue: 'cj-mobile' } },
+              { key: 'service.name', value: { stringValue: 'emorapy-mobile' } },
               { key: 'app.version', value: { stringValue: '1.2.3-test' } },
               { key: 'app.build_number', value: { stringValue: '42-test' } },
             ]),
           },
           scopeSpans: [
             {
-              scope: { name: 'cj.mobile.app' },
+              scope: { name: 'emorapy.mobile.app' },
               spans: [
                 expect.objectContaining({
                   name: 'app.boot',

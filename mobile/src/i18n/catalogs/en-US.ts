@@ -29,7 +29,7 @@ const enUS: Record<string, string> = {
   'ui.link.accessibilityHint': 'Open "{label}"',
   'ui.action.accessibilityHint': 'Run "{label}"',
 
-  'public.home.eyebrow': 'CJ',
+  'public.home.eyebrow': 'Emorapy',
   'public.home.title': 'Turn conflict into the next step',
   'public.home.subtitle': 'Sort facts and feelings first, then move into analysis, conversation, or repair.',
   'public.home.startPill': 'Start with a quick check',

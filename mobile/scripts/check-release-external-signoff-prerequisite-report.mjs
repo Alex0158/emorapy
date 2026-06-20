@@ -89,7 +89,7 @@ function runCase({ label, args, expectedMode, expectedPhysicalPlatform = 'ios' }
         APP_STORE_CONNECT_PRIVATE_KEY_PATH: missingAscKeyPath,
         APP_PUSH_DELIVERY_EXPO_PUSH_TOKEN: 'ExpoPushToken[push-token-secret]',
         APP_SENTRY_ORG: 'cj-org',
-        APP_SENTRY_PROJECT: 'cj-mobile',
+        APP_SENTRY_PROJECT: 'emorapy-mobile',
         APP_SENTRY_AUTH_TOKEN: 'sentry-token-secret',
         APP_NATIVE_CRASH_SENTRY_EVENT_ID: 'native-event-secret',
         APP_TELEMETRY_RUNTIME_API_BASE_URL: 'https://telemetry-runtime.example.invalid/api/v1',

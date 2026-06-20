@@ -355,7 +355,7 @@ function buildTracePayload(app, traceId, spanId, nowNs, endNs) {
       {
         resource: {
           attributes: [
-            { key: 'service.name', value: { stringValue: 'cj-mobile' } },
+            { key: 'service.name', value: { stringValue: 'emorapy-mobile' } },
             { key: 'service.version', value: { stringValue: app.version ?? '0.0.0' } },
             { key: 'app.version', value: { stringValue: app.version ?? '0.0.0' } },
             { key: 'app.build_number', value: { stringValue: app.ios?.buildNumber ?? 'dev' } },
@@ -364,7 +364,7 @@ function buildTracePayload(app, traceId, spanId, nowNs, endNs) {
         },
         scopeSpans: [
           {
-            scope: { name: 'cj.mobile.app' },
+            scope: { name: 'emorapy.mobile.app' },
             spans: [
               {
                 traceId,

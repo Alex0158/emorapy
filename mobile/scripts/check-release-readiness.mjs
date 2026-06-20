@@ -80,17 +80,17 @@ function commandSucceedsFromCandidates(candidates, args = []) {
   return null;
 }
 
-requireValue(app.name === 'CJ', 'app.json expo.name must stay CJ for the current App identity.');
-requireValue(app.slug === 'cj-mobile', 'app.json expo.slug must stay cj-mobile unless EAS project is migrated.');
+requireValue(app.name === 'Emorapy', 'app.json expo.name must be Emorapy for the current App identity.');
+requireValue(app.slug === 'emorapy-mobile', 'app.json expo.slug must be emorapy-mobile for the current App identity.');
 requireValue(app.version === pkg.version, `app.json version (${app.version}) must match mobile package version (${pkg.version}).`);
-requireValue(app.scheme === 'cj', 'app.json must define the cj deep-link scheme.');
+requireValue(app.scheme === 'emorapy', 'app.json must define the emorapy deep-link scheme.');
 requireValue(app.runtimeVersion?.policy === 'appVersion', 'app.json must use runtimeVersion policy appVersion for EAS Update compatibility.');
 requireValue(app.updates && typeof app.updates === 'object', 'app.json must define updates policy before EAS release.');
-requireValue(app.ios?.bundleIdentifier === 'com.cj.motherbearcourt', 'iOS bundleIdentifier must be com.cj.motherbearcourt.');
+requireValue(app.ios?.bundleIdentifier === 'com.emorapy.app', 'iOS bundleIdentifier must be com.emorapy.app.');
 requireValue(app.ios?.buildNumber, 'iOS buildNumber is required.');
 requireValue(app.ios?.infoPlist?.NSPhotoLibraryUsageDescription, 'iOS photo permission usage string is required.');
 requireValue(Array.isArray(app.ios?.infoPlist?.UIBackgroundModes) && app.ios.infoPlist.UIBackgroundModes.includes('remote-notification'), 'iOS remote-notification background mode is required for push readiness.');
-requireValue(app.android?.package === 'com.cj.motherbearcourt', 'Android package must be com.cj.motherbearcourt.');
+requireValue(app.android?.package === 'com.emorapy.app', 'Android package must be com.emorapy.app.');
 requireValue(Number.isInteger(app.android?.versionCode), 'Android versionCode is required.');
 requireValue(Array.isArray(app.plugins) && hasPlugin(app.plugins, 'expo-router'), 'expo-router plugin is required.');
 requireValue(Array.isArray(app.plugins) && hasPlugin(app.plugins, 'expo-secure-store'), 'expo-secure-store plugin is required.');

@@ -10,9 +10,9 @@
 
 ## 1. 定位
 
-本文件承接 App 端從 Expo 模板骨架走向 CJ App 普通用戶主流程的工程落點規則。它不重新定義產品能力，只回答兩件事：
+本文件承接 App 端從 Expo 模板骨架走向 Emorapy App 普通用戶主流程的工程落點規則。它不重新定義產品能力，只回答兩件事：
 
-1. `mobile/app` 的 navigation / screen 如何從模板狀態替換成 CJ App M0-M5 baseline route 與普通用戶 flow。
+1. `mobile/app` 的 navigation / screen 如何從模板狀態替換成 Emorapy App M0-M5 baseline route 與普通用戶 flow。
 2. `mobile/src/platform` 的 adapter 邊界如何收斂 SecureStore、Push notification、upload / ImagePicker、SSE、Deep Link、lifecycle 與 telemetry 等平台實作。
 
 產品能力、角色、流程與狀態仍以 `00-跨端產品核心/` 為準；Web 已落地狀態與 App 缺口仍以 `50-跨端Mapping與Parity/` 為準。
@@ -31,9 +31,9 @@
 | SSE adapter | `after_seq` SSE reconnect wrapper、typed open error、close callback、AI stream subscription hook | transport / hook 已接 M1 Quick result、M2 Interview、M3 Chat AI draft 與 M4 Repair replan；backend persistence / replay / compression 邊界已由 schema 與 route 承接；React Native 真機 foreground/background runtime 證據待補 |
 | notifications adapter | Expo notification permission / push token payload helper | backend device token registration / revoke、通知列表與 push render payload locale baseline、Expo push sender / dispatch / receipt polling job、App token sync、logout cleanup、registration-time token rotation revoke 與 notification response landing handler 已接線；真 provider delivery / 真機 cold-start landing 證據待補 |
 | upload adapter | ImagePicker lazy load、picker result status 與 backend-compatible evidence FormData helper | baseline runtime 與 web/native branch 已具備；真機 picker-selected asset、授權與 profile media evidence 待補 |
-| linking / lifecycle / telemetry adapters | Deep Link、AppState、safe telemetry helper | Deep Link target resolver、notification response handoff、post-login resume、lifecycle subscription、telemetry redaction、safe telemetry ingest、CJ OTLP JSON trace ingest、最小化 persistence、Admin 聚合報表、30d cleanup、OpenTelemetry provider 與 native crash SDK configuration 已具備；device evidence、production native crash runtime evidence 待補，external tracing backend 屬 post-release SLO baseline pending |
+| linking / lifecycle / telemetry adapters | Deep Link、AppState、safe telemetry helper | Deep Link target resolver、notification response handoff、post-login resume、lifecycle subscription、telemetry redaction、safe telemetry ingest、Emorapy OTLP JSON trace ingest、最小化 persistence、Admin 聚合報表、30d cleanup、OpenTelemetry provider 與 native crash SDK configuration 已具備；device evidence、production native crash runtime evidence 待補，external tracing backend 屬 post-release SLO baseline pending |
 
-因此，當前 App 端可以稱為「CJ App M0-M5 普通用戶工程 baseline 已具備」。但在 M6 strict release sign-off 前，仍不能稱為可發布完成版、TestFlight 完成、physical-device 完整驗收、真 Push delivery 完成或 native crash runtime 完成。
+因此，當前 App 端可以稱為「Emorapy App M0-M5 普通用戶工程 baseline 已具備」。但在 M6 strict release sign-off 前，仍不能稱為可發布完成版、TestFlight 完成、physical-device 完整驗收、真 Push delivery 完成或 native crash runtime 完成。
 
 完整 App 版的開發前裁決由 [02-App完整版本工程PRD.md](./02-App完整版本工程PRD.md) 與 [03-App完整版本開發Roadmap.md](./03-App完整版本開發Roadmap.md) 承接，範圍包括技術路線、需求 ID、完整 scope 與 M0-M6 Roadmap。本文以下規則仍是後續代碼實作的 navigation / adapter gate。
 
@@ -41,7 +41,7 @@
 
 替換 `mobile/app` 模板時，必須遵守以下規則：
 
-1. 不在 `Tab One` / `Tab Two` 命名下堆 CJ 功能；開始 App 功能前應先裁決 route group 與 screen 名稱。
+1. 不在 `Tab One` / `Tab Two` 命名下堆 Emorapy 功能；開始 App 功能前應先裁決 route group 與 screen 名稱。
 2. App route 不直接複製 Web URL。Web route 是對照來源，App route 要按 mobile navigation、Deep Link 與 session restore 重新投影。
 3. 所有進入 case、chat、judgment、repair journey、profile、notification 的 App screen，都只能提交上下文；最終授權仍由 backend gate 裁決。
 4. baseline navigation 應先建立可追溯骨架，再逐步接功能，不應讓單頁臨時 navigation 成為事實標準。
@@ -51,7 +51,7 @@
 
 ## 4. Baseline Screen 分組建議
 
-CJ App navigation 固定按以下平台投影分組；M0-M5 baseline screen / adapter 接線已具備，各分組能否宣稱完整完成仍按 Roadmap 的 native / external evidence gate 裁決：
+Emorapy App navigation 固定按以下平台投影分組；M0-M5 baseline screen / adapter 接線已具備，各分組能否宣稱完整完成仍按 Roadmap 的 native / external evidence gate 裁決：
 
 | 分組 | 承接能力 | 最低後端依賴 | Roadmap |
 | --- | --- | --- | --- |
@@ -82,7 +82,7 @@ CJ App navigation 固定按以下平台投影分組；M0-M5 baseline screen / ad
 | Upload | ImagePicker lazy load / picker status / backend-compatible evidence FormData adapter 已建立 | 封裝 ImagePicker / file metadata normalize / upload provider handoff | 不得在 App 本地裁決 evidence / media 授權；Web branch 不載入 ImagePicker，picker cancel 不記成功，仍需真機 picker-selected asset、profile media 與 media provider authorization evidence |
 | Linking | Deep Link helper、notification target resolver、Quick child route preservation、notification response handoff、non-notification Deep Link handoff 與 pending target resume 已建立 | Deep Link parse、auth failure fallback、target action handoff | 不得把 Deep Link parse 成功視為 backend 授權成功；真機 cold-start / foreground 證據待補 |
 | Lifecycle | AppState helper、AI stream foreground/background recovery hook 與 lifecycle unit gate 已建立 | cold start restore、foreground refresh、network regain、logout clear | 不得讓 stale token / stale session 靜默覆蓋 backend gate；真機 lifecycle runtime evidence 未完成前不得宣稱完整驗收 |
-| Telemetry | safe console telemetry、token/session key redaction、backend safe ingest、CJ OTLP JSON trace ingest、最小化 persistence、Admin 聚合報表與 30d cleanup、App observability bootstrap、OpenTelemetry provider、release backend version precheck 與 native crash SDK configuration 已建立 | app version、build number、platform、screen、request id、safe error context、JS fatal / unhandled promise 口徑、OpenTelemetry provider span export、native crash provider status | 不得上傳敏感 relationship / psych / prompt payload；safe telemetry ingest、OTLP ingest、Admin telemetry report 與 Sentry SDK configuration 只代表 safe observability baseline；telemetry runtime evidence 必須與被驗證 backend version 對齊，且 backend telemetry/version runtime 路徑變動後必須刷新；production CORS 只允許 telemetry ingest endpoint 接受 App native 無 `Origin` 請求，不代表其他 API 可繞過 Origin 白名單；不代表 production native crash runtime evidence、external tracing backend 或長期 crash-free sessions 已完成 |
+| Telemetry | safe console telemetry、token/session key redaction、backend safe ingest、Emorapy OTLP JSON trace ingest、最小化 persistence、Admin 聚合報表與 30d cleanup、App observability bootstrap、OpenTelemetry provider、release backend version precheck 與 native crash SDK configuration 已建立 | app version、build number、platform、screen、request id、safe error context、JS fatal / unhandled promise 口徑、OpenTelemetry provider span export、native crash provider status | 不得上傳敏感 relationship / psych / prompt payload；safe telemetry ingest、OTLP ingest、Admin telemetry report 與 Sentry SDK configuration 只代表 safe observability baseline；telemetry runtime evidence 必須與被驗證 backend version 對齊，且 backend telemetry/version runtime 路徑變動後必須刷新；production CORS 只允許 telemetry ingest endpoint 接受 App native 無 `Origin` 請求，不代表其他 API 可繞過 Origin 白名單；不代表 production native crash runtime evidence、external tracing backend 或長期 crash-free sessions 已完成 |
 
 若新增 Deep Link、App lifecycle、device info、background task 等 adapter，也應先落在 `mobile/src/platform/<domain>/`，再由 screen 或 service adapter 消費。
 
@@ -100,7 +100,7 @@ App 正式功能不得手寫第二套 DTO。接線順序固定如下：
 以下條件用於區分「M0-M5 工程 baseline 已具備」與「完整 App / release-ready 主流程已完成」。M0-M5 screen、adapter 與 gate 已可作普通用戶 App 工程 baseline；但在 M6 strict release sign-off 清零前，不得宣稱完整 App 主流程已完成或 release-ready。
 
 1. `mobile/app` 不再保留 `Tab One` / `Tab Two` / template modal 作為主入口，且 `routes:check` 固定 `(public)` / `(app)` / `modal` route topology。
-2. M0-M5 CJ App screen 已能對應到 `50-跨端Mapping與Parity/` 的能力矩陣；native flow 完整驗收仍歸 M6。
+2. M0-M5 Emorapy App screen 已能對應到 `50-跨端Mapping與Parity/` 的能力矩陣；native flow 完整驗收仍歸 M6。
 3. App API adapter 正式消費 `@cj/contracts` 或 `@cj/api-client`，沒有新增長期 App-only DTO 分叉。
 4. Storage / Notifications / Upload / Linking / AppState 若被功能使用，必須經 `mobile/src/platform` runtime adapter，不直接散落 Expo API。
 5. App smoke / regression / CI / evidence 入口已按 [../08-測試規範與驗收/03-App測試與證據接入基線.md](../08-測試規範與驗收/03-App測試與證據接入基線.md) 進入 `08-測試規範與驗收/`、`測試/` 或 `90-證據與盤點/`；physical device / EAS / provider / native crash evidence 仍由 M6 sign-off 裁決。

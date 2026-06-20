@@ -41,8 +41,8 @@
 
 | 項目 | 裁決 |
 | --- | --- |
-| 目標 | 讓 `mobile/` 從 Expo template 變成 CJ App 可開發骨架 |
-| 已成為基線 | `mobile/app` CJ route group、provider / UI foundation、runtime config、auth/session bootstrap、root error boundary、API / storage / upload / notification / lifecycle adapter、route / copy / accessibility / platform static gate |
+| 目標 | 讓 `mobile/` 從 Expo template 變成 Emorapy App 可開發骨架 |
+| 已成為基線 | `mobile/app` Emorapy route group、provider / UI foundation、runtime config、auth/session bootstrap、root error boundary、API / storage / upload / notification / lifecycle adapter、route / copy / accessibility / platform static gate |
 | 最小 gate | `npm --prefix mobile run routes:check`、`platform:check`、`accessibility:check`、`copy:check`、`typecheck`、`smoke:web`、`web:routes:smoke`、`maestro:check` |
 | 不得宣稱 | App shell、web export 或 simulator smoke 不能替代 physical-device native side-effect evidence |
 
@@ -89,7 +89,7 @@
 | 項目 | 裁決 |
 | --- | --- |
 | 目標 | Push device token、notification landing、read / snooze / act sync、safe upload、safe telemetry |
-| 已成為基線 | Notification screen、Deep Link resolver、post-login resume、push token registration / revoke / rotation cleanup、backend push sender / dispatch / receipt polling, upload adapter, safe telemetry ingest, CJ OTLP JSON trace ingest, minimized telemetry persistence and Admin report |
+| 已成為基線 | Notification screen、Deep Link resolver、post-login resume、push token registration / revoke / rotation cleanup、backend push sender / dispatch / receipt polling, upload adapter, safe telemetry ingest, Emorapy OTLP JSON trace ingest, minimized telemetry persistence and Admin report |
 | 最小 gate | `features:check`、`platform:check`、M5 notification / linking / upload / telemetry tests、local true-service M5 probe、release telemetry runtime evidence |
 | 不得宣稱 | Push runner existence、local token sync、telemetry runtime pass 或 upload synthetic fixture 不能替代 provider delivery、APNs sandbox、真機 notification response、真機 selected asset 或 production native crash runtime evidence |
 

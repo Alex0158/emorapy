@@ -15,7 +15,7 @@ App 版正式承載目錄為 `mobile/`。目前它是 Expo / React Native 專案
 現行 App 基線包含：
 
 1. `mobile/package.json`：Expo、Expo Router、React Native、React Native Paper、React Query、Zustand、Axios、SecureStore、Notifications、ImagePicker 等依賴。
-2. `mobile/app`：已替換 Expo template tabs，建立 CJ public / authenticated route group、Quick / Auth / Result / Collaborative screen、Case / Chat / Profile / Notifications / Repair screen 與 App 狀態 modal。
+2. `mobile/app`：已替換 Expo template tabs，建立 Emorapy public / authenticated route group、Quick / Auth / Result / Collaborative screen、Case / Chat / Profile / Notifications / Repair screen 與 App 狀態 modal。
 3. provider / UI foundation：已建立 React Query、React Native Paper、safe area、auth/session bootstrap、root error boundary、shared UI accessibility contract、TextInput label / hint static gate 與 copy contract。
 4. runtime config：已建立 App runtime config，讀取 API base URL、locale、app version / build number 與 request timeout。
 5. shared package resolution：App 端以 package resolution 消費 `@cj/api-client` 與 `@cj/contracts`，Metro 與 typecheck 使用同一 shared layer 入口。
@@ -27,7 +27,7 @@ App 版正式承載目錄為 `mobile/`。目前它是 Expo / React Native 專案
 | --- | --- | --- |
 | M0-M5 普通用戶 App 工程 | Quick / Auth / Profile / Interview / Chat / Formal Case / Repair / Notification / Deep Link / Upload / Telemetry 已有 baseline screen、platform adapter、shared API client 消費與 gate | 不等於完整 native runtime、provider side-effect 或 release sign-off 完成 |
 | Stream / lifecycle | Quick result、Interview、Chat AI draft 與 Repair replan 使用共用 App AI stream subscription hook，並以 `after_seq` replay / reconnect 作 App 層恢復語義 | Screen-level 或本地 gate 不等於 physical device foreground-background runtime 全覆蓋 |
-| Push / Deep Link / Upload / Telemetry | Push token sync、notification landing、Deep Link auth resume、upload adapter、safe telemetry ingest、CJ OTLP JSON trace ingest 與 Admin telemetry report 已有 backend / App baseline 接線 | 不等於 APNs / provider delivery、真機 selected asset、真機 notification response 或 production native crash runtime 完成 |
+| Push / Deep Link / Upload / Telemetry | Push token sync、notification landing、Deep Link auth resume、upload adapter、safe telemetry ingest、Emorapy OTLP JSON trace ingest 與 Admin telemetry report 已有 backend / App baseline 接線 | 不等於 APNs / provider delivery、真機 selected asset、真機 notification response 或 production native crash runtime 完成 |
 | M6 release evidence | release / production DB parity 與 telemetry runtime 是可被 audit 接受的證據槽；EAS / TestFlight / physical device / provider / native crash runner 與 handoff gate 已建立 | 只有 `release:completion:audit:strict` 接受的 pass JSON 能解除對應 release blocker |
 
 當前 App 完成語氣必須以 `mobile/scripts/check-release-completion-audit.mjs` 與 `npm --prefix mobile run release:completion:audit` 為準。現行 strict release sign-off 仍至少受以下 blocker 約束：
@@ -83,7 +83,7 @@ App 端可新增以下平台適配層：
 
 | 類型 | Web 基線 | App 投影 |
 | --- | --- | --- |
-| 路由 | React Router / browser URL | Expo Router / Deep Link；M0-M5 已有 CJ route group，M6 仍等待外部發版證據 |
+| 路由 | React Router / browser URL | Expo Router / Deep Link；M0-M5 已有 Emorapy route group，M6 仍等待外部發版證據 |
 | 本地儲存 | localStorage / sessionStorage 類 adapter | SecureStore / native storage adapter |
 | 通知 | Web notification / in-app notification | Push notification + in-app notification |
 | 媒體 | Browser upload / media provider | ImagePicker / camera + media provider |
@@ -96,12 +96,12 @@ M0-M5 App 工程 baseline 已具備。後續閉環應按以下穩定邊界追蹤
 
 | 範圍 | 已成為基線 | 仍需閉環 |
 | --- | --- | --- |
-| M0 Foundation | CJ route group、provider / UI foundation、auth/session bootstrap、root error boundary、platform adapter 與 static / unit / web export gate | physical-device runtime 風險仍由 M6 / native evidence 承接 |
+| M0 Foundation | Emorapy route group、provider / UI foundation、auth/session bootstrap、root error boundary、platform adapter 與 static / unit / web export gate | physical-device runtime 風險仍由 M6 / native evidence 承接 |
 | M1 Quick + Auth | anonymous quick、collaborative quick、claim-session handoff、expired session recovery、result polling / stream replay 與 shared Quick/Auth client | native stream reconnect 真機證據與真機錯誤狀態 UX |
 | M2 Profile + Interview | profile / consent / interview / my-story screen 與 Interview stream replay/recovery baseline | 真機 interruption recovery 與完整 native branch evidence |
 | M3 Chat | room / invite / message / request judgment / auth resume、AI draft stream replay/recovery 與 shared Chat client | native reconnect 與真 push invite landing evidence |
 | M4 Formal Case + Repair | pairing / case / evidence upload / judgment / execution / repair replan App flow 與 DB-backed replay baseline | canonical dashboard native evidence、真機 selected-media upload 與 repair journey 全狀態 evidence |
-| M5 Push + Deep Link + Upload + Telemetry | Push token registration / revoke、notification state sync、Deep Link auth resume、safe telemetry ingest、CJ OTLP JSON trace ingest 與 telemetry runtime evidence slot | provider delivery、真機 notification response landing、真機 selected asset / profile media 與 production native crash runtime evidence |
+| M5 Push + Deep Link + Upload + Telemetry | Push token registration / revoke、notification state sync、Deep Link auth resume、safe telemetry ingest、Emorapy OTLP JSON trace ingest 與 telemetry runtime evidence slot | provider delivery、真機 notification response landing、真機 selected asset / profile media 與 production native crash runtime evidence |
 | M6 Release Hardening | release readiness、EAS / physical device / push / native crash structured runners、release DB parity / telemetry runtime evidence slots 與 release audit contract | EAS project id、Expo / Apple / ASC credentials、EAS iOS / Android artifact、TestFlight、physical device、push delivery 與 native crash runtime blocker 清零 |
 
 以上若影響 backend 或 Web，一律同步記錄到 `50-跨端Mapping與Parity/` 與 `07-待處理問題與治理/待處理/`。

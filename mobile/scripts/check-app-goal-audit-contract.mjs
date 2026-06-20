@@ -385,7 +385,7 @@ function validateAuditRecord(label, audit) {
   const telemetry = audit.checklist.find((entry) => entry.id === 'm5_push_deeplink_upload_telemetry');
   const telemetryText = `${telemetry.requirement}\n${telemetry.evidence.join('\n')}`;
   if (!telemetryText.includes('/telemetry/otlp/v1/traces')) {
-    fail(`${label} m5_push_deeplink_upload_telemetry must include CJ OTLP collector evidence`);
+    fail(`${label} m5_push_deeplink_upload_telemetry must include Emorapy OTLP collector evidence`);
   }
   if (!telemetry.evidence.includes('backend/src/routes/app-telemetry.routes.ts /telemetry/otlp/v1/traces safe OTLP collector baseline')) {
     fail(`${label} m5_push_deeplink_upload_telemetry must use a file-backed OTLP route evidence label`);

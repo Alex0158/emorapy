@@ -67,13 +67,13 @@ describe('Native crash reporting adapter', () => {
       enableNativeCrashHandling: true,
       enableNativeNagger: false,
       environment: 'test',
-      release: 'cj-mobile@1.2.3-test+42-test',
+      release: 'emorapy-mobile@1.2.3-test+42-test',
       sendDefaultPii: false,
       tracesSampleRate: 0,
     }));
-    expect(mockSetTag).toHaveBeenCalledWith('cj.platform', 'mobile');
-    expect(mockSetTag).toHaveBeenCalledWith('cj.app_version', '1.2.3-test');
-    expect(mockSetTag).toHaveBeenCalledWith('cj.build_number', '42-test');
+    expect(mockSetTag).toHaveBeenCalledWith('emorapy.platform', 'mobile');
+    expect(mockSetTag).toHaveBeenCalledWith('emorapy.app_version', '1.2.3-test');
+    expect(mockSetTag).toHaveBeenCalledWith('emorapy.build_number', '42-test');
   });
 
   it('redacts Sentry event payload fields before sending', () => {

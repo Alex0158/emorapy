@@ -17,7 +17,7 @@ const reportDir = reportDirArg
   : null;
 
 const objective =
-  '完成 CJ App 版全面開發：以 Expo + React Native + TypeScript、iOS 優先且 Android 兼容為主線，按 App PRD / M0-M6 Roadmap 逐步完成普通用戶 App 的 Quick、Auth/Session、Profile/Interview、Chat、Formal Case/Judgment/Repair、Push/Deep Link、Media Upload、Telemetry、UI/UX、測試驗收與核心文件/進度回寫。';
+  '完成 Emorapy App 版全面開發：以 Expo + React Native + TypeScript、iOS 優先且 Android 兼容為主線，按 App PRD / M0-M6 Roadmap 逐步完成普通用戶 App 的 Quick、Auth/Session、Profile/Interview、Chat、Formal Case/Judgment/Repair、Push/Deep Link、Media Upload、Telemetry、UI/UX、測試驗收與核心文件/進度回寫。';
 
 function readJson(relativePath) {
   return JSON.parse(fs.readFileSync(path.join(repoRoot, relativePath), 'utf8'));

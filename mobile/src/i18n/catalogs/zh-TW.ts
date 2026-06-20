@@ -29,7 +29,7 @@ const zhTW: Record<string, string> = {
   'ui.link.accessibilityHint': '開啟「{label}」',
   'ui.action.accessibilityHint': '執行「{label}」',
 
-  'public.home.eyebrow': 'CJ',
+  'public.home.eyebrow': 'Emorapy',
   'public.home.title': '把拉扯整理成下一步',
   'public.home.subtitle': '先整理事實與感受，再進入判斷、對話或修復。',
   'public.home.startPill': '從快速整理開始',

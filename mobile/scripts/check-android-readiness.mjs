@@ -82,8 +82,8 @@ const blockers = [];
 const warnings = [];
 const info = [];
 
-pushConfigFailure(app.scheme === 'cj', 'app.json must keep the cj deep-link scheme for Android links.');
-pushConfigFailure(android.package === 'com.cj.motherbearcourt', 'Android package must be com.cj.motherbearcourt.');
+pushConfigFailure(app.scheme === 'emorapy', 'app.json must keep the emorapy deep-link scheme for Android links.');
+pushConfigFailure(android.package === 'com.emorapy.app', 'Android package must be com.emorapy.app.');
 pushConfigFailure(Number.isInteger(android.versionCode) && android.versionCode > 0, 'Android versionCode must be a positive integer.');
 pushConfigFailure(assetExists(androidIcon.foregroundImage), 'Android adaptiveIcon.foregroundImage asset is missing.');
 pushConfigFailure(assetExists(androidIcon.backgroundImage), 'Android adaptiveIcon.backgroundImage asset is missing.');

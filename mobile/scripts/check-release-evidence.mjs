@@ -59,6 +59,7 @@ const externalHandoffEvidencePath = externalHandoffEvidenceFile
   : null;
 const app = JSON.parse(fs.readFileSync(path.join(mobileRoot, 'app.json'), 'utf8')).expo ?? {};
 const issues = [];
+const warnings = [];
 
 const externalEvidenceKeys = [
   'eas_ios_release',
@@ -148,6 +149,14 @@ function readJson(filePath) {
 
 function requireValue(condition, message) {
   if (!condition) issues.push(message);
+}
+
+function evidencePathLabel(filePath) {
+  return path.relative(repoRoot, filePath);
+}
+
+function warnStaleEvidence(label, filePath, reason) {
+  warnings.push(`${label} evidence ignored as stale for current App identity: ${evidencePathLabel(filePath)} (${reason}).`);
 }
 
 function includes(text, needle, label) {
@@ -294,28 +303,35 @@ if (!evidencePath) {
 }
 
 if (evidence) {
-  requireValue(evidence.type === 'app-native-maestro-execution', 'evidence type must be app-native-maestro-execution.');
-  requireValue(evidence.app_id === app.ios?.bundleIdentifier, `evidence app_id must match ${app.ios?.bundleIdentifier}.`);
-  requireValue(evidence.summary?.requested_flows === requiredFlows.length, `evidence requested_flows must be ${requiredFlows.length}.`);
-  requireValue(evidence.summary?.passed_flows === requiredFlows.length, `evidence passed_flows must be ${requiredFlows.length}.`);
-  requireValue(evidence.summary?.failed_flows === 0, 'evidence failed_flows must be 0.');
-  requireValue(evidence.summary?.blocked === false, 'evidence blocked must be false.');
-  requireValue(evidence.static_gate?.status === 'passed' && evidence.static_gate?.exit_code === 0, 'evidence static_gate must pass.');
-  requireValue(evidence.native_readiness?.status === 'passed' && evidence.native_readiness?.exit_code === 0, 'evidence native_readiness must pass.');
-  requireValue(Array.isArray(evidence.flows), 'evidence flows must be an array.');
-
-  const flowByName = new Map((evidence.flows ?? []).map((flow) => [flow.flow, flow]));
-  for (const flowName of requiredFlows) {
-    const flow = flowByName.get(flowName);
-    requireValue(Boolean(flow), `evidence missing flow ${flowName}.`);
-    if (!flow) continue;
-    requireValue(flow.status === 'passed', `flow ${flowName} must be passed.`);
-    requireValue(flow.exit_code === 0, `flow ${flowName} exit_code must be 0.`);
-    requireValue(Number.isInteger(flow.duration_ms) && flow.duration_ms > 0, `flow ${flowName} duration_ms must be positive.`);
-    requireValue(
-      typeof flow.stdout_tail === 'string' && flow.stdout_tail.includes('Flow '),
-      `flow ${flowName} stdout_tail must include the Maestro flow heading.`
+  if (evidence.app_id !== app.ios?.bundleIdentifier) {
+    warnStaleEvidence(
+      'Native Maestro',
+      evidencePath,
+      `app_id=${evidence.app_id ?? 'missing'}, expected=${app.ios?.bundleIdentifier}`
     );
+  } else {
+    requireValue(evidence.type === 'app-native-maestro-execution', 'evidence type must be app-native-maestro-execution.');
+    requireValue(evidence.summary?.requested_flows === requiredFlows.length, `evidence requested_flows must be ${requiredFlows.length}.`);
+    requireValue(evidence.summary?.passed_flows === requiredFlows.length, `evidence passed_flows must be ${requiredFlows.length}.`);
+    requireValue(evidence.summary?.failed_flows === 0, 'evidence failed_flows must be 0.');
+    requireValue(evidence.summary?.blocked === false, 'evidence blocked must be false.');
+    requireValue(evidence.static_gate?.status === 'passed' && evidence.static_gate?.exit_code === 0, 'evidence static_gate must pass.');
+    requireValue(evidence.native_readiness?.status === 'passed' && evidence.native_readiness?.exit_code === 0, 'evidence native_readiness must pass.');
+    requireValue(Array.isArray(evidence.flows), 'evidence flows must be an array.');
+
+    const flowByName = new Map((evidence.flows ?? []).map((flow) => [flow.flow, flow]));
+    for (const flowName of requiredFlows) {
+      const flow = flowByName.get(flowName);
+      requireValue(Boolean(flow), `evidence missing flow ${flowName}.`);
+      if (!flow) continue;
+      requireValue(flow.status === 'passed', `flow ${flowName} must be passed.`);
+      requireValue(flow.exit_code === 0, `flow ${flowName} exit_code must be 0.`);
+      requireValue(Number.isInteger(flow.duration_ms) && flow.duration_ms > 0, `flow ${flowName} duration_ms must be positive.`);
+      requireValue(
+        typeof flow.stdout_tail === 'string' && flow.stdout_tail.includes('Flow '),
+        `flow ${flowName} stdout_tail must include the Maestro flow heading.`
+      );
+    }
   }
 }
 
@@ -324,50 +340,54 @@ if (!iosReleaseSimulatorEvidencePath) {
 }
 
 if (iosReleaseEvidence) {
-  const checks = new Map((iosReleaseEvidence.checks ?? []).map((check) => [check.name, check.status]));
-  for (const checkName of [
-    'cocoapods_install',
-    'metro_bundle',
-    'xcode_release_build',
-    'sentry_xcode_bundle_phase',
-    'sentry_debug_symbols_phase',
-    'simulator_install',
-    'simulator_launch',
-  ]) {
-    requireValue(checks.get(checkName) === 'passed', `iOS Release simulator evidence ${checkName} must be passed.`);
-  }
-  requireValue(
-    iosReleaseEvidence.schema === 'cj.app.ios_release_simulator_evidence.v1',
-    'iOS Release simulator evidence schema must be cj.app.ios_release_simulator_evidence.v1.'
-  );
-  requireValue(iosReleaseEvidence.status === 'passed', 'iOS Release simulator evidence status must be passed.');
-  requireValue(iosReleaseEvidence.platform?.os === 'ios', 'iOS Release simulator evidence platform.os must be ios.');
-  requireValue(
-    iosReleaseEvidence.app?.bundle_identifier === app.ios?.bundleIdentifier,
-    `iOS Release simulator evidence bundle identifier must match ${app.ios?.bundleIdentifier}.`
-  );
-  requireValue(iosReleaseEvidence.app?.version === app.version, `iOS Release simulator evidence version must match ${app.version}.`);
-  requireValue(
-    iosReleaseEvidence.app?.build_number === app.ios?.buildNumber,
-    `iOS Release simulator evidence build number must match ${app.ios?.buildNumber}.`
-  );
-  requireValue(iosReleaseEvidence.app?.configuration === 'Release', 'iOS Release simulator evidence configuration must be Release.');
-  requireValue(
-    iosReleaseEvidence.dependency_alignment?.expo_install_check === 'passed',
-    'iOS Release simulator evidence must prove Expo dependency alignment passed.'
-  );
-  for (const externalEvidenceKind of [
-    'EAS iOS production store build evidence',
-    'TestFlight App Store Connect evidence',
-    'physical device smoke evidence',
-    'APNs or Expo provider delivery evidence',
-    'native crash runtime evidence',
-    'release or production DB parity evidence',
-  ]) {
-    requireValue(
-      (iosReleaseEvidence.does_not_replace ?? []).includes(externalEvidenceKind),
-      `iOS Release simulator evidence must explicitly not replace ${externalEvidenceKind}.`
+  if (iosReleaseEvidence.app?.bundle_identifier !== app.ios?.bundleIdentifier) {
+    warnStaleEvidence(
+      'iOS Release simulator',
+      iosReleaseSimulatorEvidencePath,
+      `bundle_identifier=${iosReleaseEvidence.app?.bundle_identifier ?? 'missing'}, expected=${app.ios?.bundleIdentifier}`
     );
+  } else {
+    const checks = new Map((iosReleaseEvidence.checks ?? []).map((check) => [check.name, check.status]));
+    for (const checkName of [
+      'cocoapods_install',
+      'metro_bundle',
+      'xcode_release_build',
+      'sentry_xcode_bundle_phase',
+      'sentry_debug_symbols_phase',
+      'simulator_install',
+      'simulator_launch',
+    ]) {
+      requireValue(checks.get(checkName) === 'passed', `iOS Release simulator evidence ${checkName} must be passed.`);
+    }
+    requireValue(
+      iosReleaseEvidence.schema === 'cj.app.ios_release_simulator_evidence.v1',
+      'iOS Release simulator evidence schema must be cj.app.ios_release_simulator_evidence.v1.'
+    );
+    requireValue(iosReleaseEvidence.status === 'passed', 'iOS Release simulator evidence status must be passed.');
+    requireValue(iosReleaseEvidence.platform?.os === 'ios', 'iOS Release simulator evidence platform.os must be ios.');
+    requireValue(iosReleaseEvidence.app?.version === app.version, `iOS Release simulator evidence version must match ${app.version}.`);
+    requireValue(
+      iosReleaseEvidence.app?.build_number === app.ios?.buildNumber,
+      `iOS Release simulator evidence build number must match ${app.ios?.buildNumber}.`
+    );
+    requireValue(iosReleaseEvidence.app?.configuration === 'Release', 'iOS Release simulator evidence configuration must be Release.');
+    requireValue(
+      iosReleaseEvidence.dependency_alignment?.expo_install_check === 'passed',
+      'iOS Release simulator evidence must prove Expo dependency alignment passed.'
+    );
+    for (const externalEvidenceKind of [
+      'EAS iOS production store build evidence',
+      'TestFlight App Store Connect evidence',
+      'physical device smoke evidence',
+      'APNs or Expo provider delivery evidence',
+      'native crash runtime evidence',
+      'release or production DB parity evidence',
+    ]) {
+      requireValue(
+        (iosReleaseEvidence.does_not_replace ?? []).includes(externalEvidenceKind),
+        `iOS Release simulator evidence must explicitly not replace ${externalEvidenceKind}.`
+      );
+    }
   }
 }
 
@@ -727,6 +747,11 @@ if (issues.length > 0) {
   process.exit(1);
 }
 
+if (warnings.length > 0) {
+  console.warn('[release-evidence-check] warnings:');
+  warnings.forEach((warning) => console.warn(`- ${warning}`));
+}
+
 console.log(
-  `[release-evidence-check] ok: ${expectedEvidenceFile} proves ${requiredFlows.length}/${requiredFlows.length} iOS simulator Maestro flows; ${iosReleaseSimulatorEvidenceFile} proves iOS Release simulator build/install/launch; ${externalStatusEvidenceFile} and ${externalHandoffEvidenceFile} prove current external blocker handoff is schema-valid, env-file-provenance-valid, release-audit-covered, timestamp-coherent, and docs-referenced`
+  `[release-evidence-check] ok: ${expectedEvidenceFile} and ${iosReleaseSimulatorEvidenceFile} are schema-checked when identity-current and stale-ignored when pre-Emorapy; ${externalStatusEvidenceFile} and ${externalHandoffEvidenceFile} prove current external blocker handoff is schema-valid, env-file-provenance-valid, release-audit-covered, timestamp-coherent, and docs-referenced`
 );

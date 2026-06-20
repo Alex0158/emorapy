@@ -93,14 +93,14 @@ export function initializeNativeCrashReporting(): NativeCrashReportingState {
       enableNativeCrashHandling: true,
       enableNativeNagger: false,
       environment: runtime.sentryEnvironment,
-      release: `cj-mobile@${runtime.appVersion}+${runtime.buildNumber}`,
+      release: `emorapy-mobile@${runtime.appVersion}+${runtime.buildNumber}`,
       sendDefaultPii: false,
       tracesSampleRate: 0,
       beforeSend: sanitizeSentryEvent,
     });
-    Sentry.setTag('cj.platform', 'mobile');
-    Sentry.setTag('cj.app_version', runtime.appVersion);
-    Sentry.setTag('cj.build_number', runtime.buildNumber);
+    Sentry.setTag('emorapy.platform', 'mobile');
+    Sentry.setTag('emorapy.app_version', runtime.appVersion);
+    Sentry.setTag('emorapy.build_number', runtime.buildNumber);
   } catch {
     return { enabled: false, provider: 'sentry', reason: 'init_failed' };
   }

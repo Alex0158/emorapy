@@ -487,7 +487,7 @@ const appIdentity = {
   app_ios_bundle_identifier: baseline.app.ios_bundle_identifier,
 };
 const appConfig = JSON.parse(fs.readFileSync(path.join(mobileRoot, 'app.json'), 'utf8')).expo ?? {};
-const expectedNativeCrashRelease = `cj-mobile@${appConfig.version}+${appConfig.ios?.buildNumber}`;
+const expectedNativeCrashRelease = `emorapy-mobile@${appConfig.version}+${appConfig.ios?.buildNumber}`;
 const gitHeadResult = spawnSync('git', ['rev-parse', 'HEAD'], {
   cwd: path.resolve(mobileRoot, '..'),
   encoding: 'utf8',

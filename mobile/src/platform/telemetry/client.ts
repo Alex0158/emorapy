@@ -52,7 +52,7 @@ interface OtlpKeyValue {
 }
 
 const sensitiveKeyPattern = /(authorization|password|secret|session|token)/i;
-const appTracerName = 'cj.mobile.app';
+const appTracerName = 'emorapy.mobile.app';
 
 let appTracerProvider: BasicTracerProvider | null = null;
 let appTracer: ReturnType<typeof trace.getTracer> | null = null;
@@ -136,7 +136,7 @@ function buildOtlpTracePayload(spans: ReadableSpan[]) {
       {
         resource: {
           attributes: toOtlpAttributes({
-            'service.name': 'cj-mobile',
+            'service.name': 'emorapy-mobile',
             'service.version': runtime.appVersion,
             'app.version': runtime.appVersion,
             'app.build_number': runtime.buildNumber ?? 'dev',

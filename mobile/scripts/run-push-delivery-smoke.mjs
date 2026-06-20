@@ -178,8 +178,8 @@ function buildBaseEvidence(app, startedAt) {
         }
       : null,
     payload: {
-      title: 'CJ notification smoke',
-      body: 'Open CJ notifications',
+      title: 'Emorapy notification smoke',
+      body: 'Open Emorapy notifications',
       source_path: '/notifications',
       action_key: 'open_notifications',
       notification_id_prefix: 'app-push-smoke',

@@ -100,18 +100,27 @@ function hasEnv(name) {
   return Boolean(process.env[name]?.trim());
 }
 
+function isPlaceholderValue(value) {
+  return String(value ?? '').trim().startsWith('REPLACE_WITH_');
+}
+
+function hasNonPlaceholderEnv(name) {
+  const value = process.env[name]?.trim();
+  return Boolean(value) && !isPlaceholderValue(value);
+}
+
 function hasAppleSubmissionCredentials() {
-  return hasEnv('ASC_APPLE_ID') && hasEnv('EXPO_APPLE_APP_SPECIFIC_PASSWORD');
+  return hasNonPlaceholderEnv('ASC_APPLE_ID') && hasNonPlaceholderEnv('EXPO_APPLE_APP_SPECIFIC_PASSWORD');
 }
 
 function hasAppStoreConnectApiCredentials() {
   return (
-    (hasEnv('APP_STORE_CONNECT_ISSUER_ID') || hasEnv('ASC_ISSUER_ID')) &&
-    (hasEnv('APP_STORE_CONNECT_KEY_ID') || hasEnv('ASC_KEY_ID')) &&
-    (hasEnv('APP_STORE_CONNECT_PRIVATE_KEY') ||
-      hasEnv('ASC_PRIVATE_KEY') ||
-      hasEnv('APP_STORE_CONNECT_PRIVATE_KEY_PATH') ||
-      hasEnv('ASC_PRIVATE_KEY_PATH'))
+    (hasNonPlaceholderEnv('APP_STORE_CONNECT_ISSUER_ID') || hasNonPlaceholderEnv('ASC_ISSUER_ID')) &&
+    (hasNonPlaceholderEnv('APP_STORE_CONNECT_KEY_ID') || hasNonPlaceholderEnv('ASC_KEY_ID')) &&
+    (hasNonPlaceholderEnv('APP_STORE_CONNECT_PRIVATE_KEY') ||
+      hasNonPlaceholderEnv('ASC_PRIVATE_KEY') ||
+      hasNonPlaceholderEnv('APP_STORE_CONNECT_PRIVATE_KEY_PATH') ||
+      hasNonPlaceholderEnv('ASC_PRIVATE_KEY_PATH'))
   );
 }
 
@@ -1854,20 +1863,20 @@ addCompletionCheck({
 });
 addCompletionCheck({
   id: 'expo_token',
-  done: hasEnv('EXPO_TOKEN'),
-  blocker: 'EXPO_TOKEN is not set; non-interactive EAS build cannot run from this environment.',
+  done: hasNonPlaceholderEnv('EXPO_TOKEN'),
+  blocker: 'EXPO_TOKEN is not set or is still a REPLACE_WITH_ placeholder; non-interactive EAS build cannot run from this environment.',
   docNeedles: ['EXPO_TOKEN', 'Expo token'],
 });
 addCompletionCheck({
   id: 'apple_submission_credentials',
   done: hasAppleSubmissionCredentials(),
-  blocker: 'Apple submission credentials are incomplete; ASC_APPLE_ID and EXPO_APPLE_APP_SPECIFIC_PASSWORD must both be present.',
+  blocker: 'Apple submission credentials are incomplete; ASC_APPLE_ID and EXPO_APPLE_APP_SPECIFIC_PASSWORD must both be present and not REPLACE_WITH_ placeholders.',
   docNeedles: ['Apple credentials', 'Apple submission credentials'],
 });
 addCompletionCheck({
   id: 'app_store_connect_api_credentials',
   done: hasAppStoreConnectApiCredentials(),
-  blocker: 'App Store Connect API credentials are incomplete; issuer id, key id, and private key or private key path must be present for TestFlight evidence.',
+  blocker: 'App Store Connect API credentials are incomplete; issuer id, key id, and private key or private key path must be present and not REPLACE_WITH_ placeholders for TestFlight evidence.',
   docNeedles: ['App Store Connect API credentials', 'ASC API credentials'],
 });
 addCompletionCheck({

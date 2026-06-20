@@ -64,7 +64,7 @@ function fail(message) {
   process.exit(1);
 }
 
-function runAudit(args) {
+function runAudit(args, envOverrides = {}) {
   return spawnSync(process.execPath, [auditScript, ...args], {
     cwd: mobileRoot,
     encoding: 'utf8',
@@ -72,6 +72,7 @@ function runAudit(args) {
     env: {
       ...process.env,
       DEVELOPER_DIR: process.env.DEVELOPER_DIR || '/Applications/Xcode.app/Contents/Developer',
+      ...envOverrides,
     },
   });
 }
@@ -323,6 +324,10 @@ function validateExternalHandoffCoverage(label, audit, handoff) {
   }
 }
 
+function getCheck(audit, id) {
+  return audit.checks.find((check) => check.id === id);
+}
+
 const nonStrictResult = runAudit(['--json']);
 if (nonStrictResult.status !== 0) {
   fail(`non-strict JSON audit must exit 0, got ${nonStrictResult.status}`);
@@ -347,6 +352,34 @@ if (!strictAudit.complete && strictResult.status === 0) {
 }
 if (strictAudit.complete !== nonStrictAudit.complete) {
   fail('strict and non-strict JSON audits must report the same complete value');
+}
+
+const placeholderCredentialResult = runAudit(['--json'], {
+  EXPO_TOKEN: 'REPLACE_WITH_EXPO_ACCESS_TOKEN',
+  ASC_APPLE_ID: 'REPLACE_WITH_APPLE_ID_EMAIL',
+  EXPO_APPLE_APP_SPECIFIC_PASSWORD: 'REPLACE_WITH_APPLE_APP_SPECIFIC_PASSWORD',
+  APP_STORE_CONNECT_ISSUER_ID: 'REPLACE_WITH_ASC_ISSUER_ID',
+  ASC_ISSUER_ID: 'REPLACE_WITH_ASC_ISSUER_ID',
+  APP_STORE_CONNECT_KEY_ID: 'REPLACE_WITH_ASC_KEY_ID',
+  ASC_KEY_ID: 'REPLACE_WITH_ASC_KEY_ID',
+  APP_STORE_CONNECT_PRIVATE_KEY: 'REPLACE_WITH_ASC_PRIVATE_KEY',
+  ASC_PRIVATE_KEY: 'REPLACE_WITH_ASC_PRIVATE_KEY',
+  APP_STORE_CONNECT_PRIVATE_KEY_PATH: 'REPLACE_WITH_ABSOLUTE_PATH_TO_ASC_PRIVATE_KEY_P8',
+  ASC_PRIVATE_KEY_PATH: 'REPLACE_WITH_ABSOLUTE_PATH_TO_ASC_PRIVATE_KEY_P8',
+});
+if (placeholderCredentialResult.status !== 0) {
+  fail(`placeholder credential JSON audit must exit 0, got ${placeholderCredentialResult.status}`);
+}
+const placeholderCredentialAudit = parseJsonResult('placeholder credential JSON audit', placeholderCredentialResult);
+validateAuditRecord('placeholder credential JSON audit', placeholderCredentialAudit);
+for (const id of ['expo_token', 'apple_submission_credentials', 'app_store_connect_api_credentials']) {
+  const check = getCheck(placeholderCredentialAudit, id);
+  if (check?.status !== 'blocked') {
+    fail(`placeholder credential JSON audit must keep ${id} blocked`);
+  }
+  if (!placeholderCredentialAudit.blocker_ids.includes(id)) {
+    fail(`placeholder credential JSON audit blocker_ids must include ${id}`);
+  }
 }
 
 const handoffResult = runHandoffJson();

@@ -79,15 +79,14 @@
 
 `goal:completion:audit:strict` 不會通過，直到以下 release sign-off blockers 清零：
 
-1. `mobile/app.json` 尚未配置真實 `extra.eas.projectId`。
-2. `EXPO_TOKEN` 不存在，無法非交互查詢 / 驗證 EAS production build metadata。
-3. 完整 Apple submission credentials（`ASC_APPLE_ID` + `EXPO_APPLE_APP_SPECIFIC_PASSWORD`）不存在。
-4. App Store Connect API credentials（issuer id、key id、private key 或 private key path）不存在。
-5. 尚無 pass 狀態 `App-EAS-iOS-Release-*.json`。
-6. 尚無 pass 狀態 TestFlight App Store Connect evidence。
-7. 尚無 pass 狀態 `App-Physical-Device-*.json`；目前本機 iOS physical connected=0、offline=2，Android physical connected=0。
-8. 尚無 pass 狀態 `App-Push-Delivery-*.json`。
-9. 尚無 pass 狀態 `App-Native-Crash-Runtime-*.json`。
+1. Apple submission credentials（`ASC_APPLE_ID` + `EXPO_APPLE_APP_SPECIFIC_PASSWORD`）仍是 placeholder 或未配置為真值；`REPLACE_WITH_*` 不得解除 blocker。
+2. App Store Connect API credentials（issuer id、key id、private key 或 private key path）仍是 placeholder 或未配置為真值；`REPLACE_WITH_*` 不得解除 blocker。
+3. 尚無 pass 狀態 `App-EAS-iOS-Release-*.json`。
+4. 尚無 pass 狀態 TestFlight App Store Connect evidence。
+5. 尚無 pass 狀態 `App-Physical-Device-*.json`；目前仍需可信 physical device run。
+6. 尚無 Emorapy identity 下 pass 狀態 `App-iOS-Release-Simulator-*.json`；現有舊 iOS simulator evidence 因 `com.cj.motherbearcourt` 被 stale ignored，本機 runner 仍待 iOS 26.5 simulator runtime。
+7. 尚無 pass 狀態 `App-Push-Delivery-*.json`。
+8. 尚無 pass 狀態 `App-Native-Crash-Runtime-*.json`。
 
 帶本機 release env 的當前 `release:completion:audit -- --json` 的 `blocker_ids` 必須保持為 `apple_submission_credentials`、`app_store_connect_api_credentials`、`eas_ios_build_artifact`、`testflight_evidence`、`physical_device_evidence`、`ios_release_simulator_evidence`、`apns_or_provider_delivery_evidence`、`native_crash_runtime_evidence`；其中 current external handoff blockers 為 Apple / ASC、EAS iOS、TestFlight、physical device、push delivery 與 native crash runtime。`goal:completion:audit -- --json` 會把這些 completion blockers、對應 `handoff_blocker_ids`、latest `App-External-Evidence-Handoff-*.json` path 與 prerequisite-only blockers 一起放進 `release_signoff.details`；對外 handoff 會把 completion blockers 映射到 owner action，並在 external status / handoff report 與 `/goal` audit 中暴露 Sentry runtime query credentials、native crash event id 與 iOS / Android physical device visibility prerequisite blockers。EAS project binding、Expo token、EAS Android production artifact、Android emulator / app / full-flow runtime evidence、native ImagePicker upload evidence、release DB parity 與 telemetry runtime 已有 pass / valid evidence 時，不再作為 release completion blocker。
 
@@ -99,10 +98,10 @@
 | --- | --- |
 | `npm --prefix mobile run goal:completion:audit` | 已通過 non-strict，輸出 `not complete` |
 | `npm --prefix mobile run goal:completion:audit:strict` | 預期失敗，失敗點為 release sign-off blockers |
-| `npm --prefix mobile run goal:completion:audit -- --json` | 已輸出 `complete=false`；`release_signoff` caveat / `details` 直接列出 10 個 `blocker_ids`、10 個 `handoff_blocker_ids`、4 個 `prerequisite_only_blocker_ids`、latest external handoff path、warnings 與 blockers；telemetry runtime 與 release DB parity 已有 pass evidence |
+| `npm --prefix mobile run goal:completion:audit -- --json` | 已輸出 `complete=false`；`release_signoff` caveat / `details` 直接列出 8 個 `blocker_ids`、7 個 `handoff_blocker_ids`、4 個 `prerequisite_only_blocker_ids`、latest external handoff path、warnings 與 blockers；EAS project binding、Expo token、EAS Android、Android local runtime、native ImagePicker、telemetry runtime 與 release DB parity 已有 pass / valid evidence |
 | `npm --prefix mobile run true-service:check` | 已通過；M1-M5 true-service smoke harness scope / flags / safety / key step contract、`release:preflight` wiring、`/goal` audit wiring、Roadmap 與測試基線同步有 gate |
 | `npm --prefix mobile run goal:completion:audit:contract` | 已通過；JSON schema、strict exit-code、`--json --report-dir=...` 產出 / 讀回 `App-Goal-Completion-Audit-*.json`、UI/UX copy coverage、`docs:check` / `docs:audit:dry-run:current` preflight wiring、true-service smoke contract gate、release evidence external status/handoff snapshot checker、current release completion audit `handoff_blocker_ids` 覆蓋檢查、release/prerequisite classification、timestamp coherence、prerequisite report Android device-visibility、env-file placeholder、key allowlist、workflow `App-Goal-Completion-Audit-*.json` artifact contract 與 incomplete `release_signoff` blocker/handoff/prerequisite caveat contract 有 gate |
-| `npm --prefix mobile run release:completion:audit -- --json` | 已輸出 `complete=false`、`passed=13`、`blocked=10`、`failures=0`、6 個 warnings、10 個 `blocker_ids` 與 10 個 `handoff_blocker_ids`，供外部 owner 交接；`telemetry_runtime_evidence` 已有 pass 狀態 `App-Telemetry-Runtime-2026-05-29T16-00-52-498Z.json` |
+| `npm --prefix mobile run release:completion:audit -- --json` | 已輸出 `complete=false`、`passed=15`、`blocked=8`、`failures=0`、6 個 warnings、8 個 `blocker_ids` 與 7 個 `handoff_blocker_ids`，供外部 owner 交接；Apple / ASC placeholder 不會解除 blocker，`telemetry_runtime_evidence` 已有 pass 狀態 `App-Telemetry-Runtime-2026-06-20T08-52-45-182Z.json` |
 | `npm --prefix mobile run release:completion:audit:contract` | 已通過；驗證 JSON schema、`blocker_ids` / status-scoped `handoff_blocker_ids` consistency、`checks[].handoff_catalog_ids` mapping、external handoff coverage、required blocker ids、strict exit-code 與 preflight wiring |
 | `npm --prefix mobile run release:external-evidence:signoff` / `release:external-evidence:signoff:android-dry-run` | 已建立；預設 iOS branch 與 Android branch dry-run 均不觸碰 EAS / provider / 真機 / release DB |
 | `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer npm --prefix mobile run release:preflight` | 已通過；覆蓋 Jest、accessibility、copy、routes、feature coverage、true-service smoke contract、platform boundary、docs structure / truth / current audit、typecheck、web export、web route smoke、Maestro static、native / Android readiness、release evidence、external status / handoff / fixture contracts、external signoff iOS + Android dry-run、prerequisite report contract、workflow goal-audit artifact contract、env template contract、redacted input status、release completion audit contract、goal audit contract 與 release baseline |

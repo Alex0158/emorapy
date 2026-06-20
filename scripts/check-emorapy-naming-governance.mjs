@@ -165,6 +165,7 @@ const REQUIRED_POLICY_NEEDLES = [
     needles: [
       '| Emorapy | 產品正式對外名稱',
       '| CJ | 歷史項目別名與 legacy internal identifier',
+      '@cj/*` 歷史 package-scope 引用',
       '| Mother Bear Court / mother-bear-court | 歷史品牌 / repo / deploy alias',
     ],
   },
@@ -173,6 +174,9 @@ const REQUIRED_POLICY_NEEDLES = [
     needles: [
       '掃描結果不得以總量清零作唯一目標；必須按 allowlist 分類後驗收。',
       'P5 入口文件收斂',
+      'P5 current docs 舊名 allowlist 分類',
+      'Legacy requirement / governance IDs',
+      'Historical package-scope references',
       '正式 internal workspace package scope 改為 `@emorapy/contracts` 與 `@emorapy/api-client`',
     ],
   },

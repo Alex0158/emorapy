@@ -163,7 +163,7 @@ function clone(value) {
 }
 
 function validateEvidenceFixturePair({ label, key, envKey, record, mutate, expectedErrorFragment }) {
-  const fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), `cj-release-status-${key}-fixture-`));
+  const fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), `emorapy-release-status-${key}-fixture-`));
   try {
     const validPath = writeJson(path.join(fixtureDir, `${label}-Valid.json`), record);
     const validResult = runStatus({ [envKey]: validPath });
@@ -388,7 +388,7 @@ for (const id of ['expo_token', 'apple_submission_credentials', 'app_store_conne
   }
 }
 
-const controlledEnvFileDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cj-release-status-env-file-'));
+const controlledEnvFileDir = fs.mkdtempSync(path.join(os.tmpdir(), 'emorapy-release-status-env-file-'));
 try {
   const controlledEnvFilePath = path.join(controlledEnvFileDir, 'release.env.local');
   fs.writeFileSync(
@@ -454,7 +454,7 @@ try {
   fs.rmSync(controlledEnvFileDir, { recursive: true, force: true });
 }
 
-const invalidEvidenceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cj-release-status-invalid-evidence-'));
+const invalidEvidenceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'emorapy-release-status-invalid-evidence-'));
 try {
   const invalidEasEvidencePath = path.join(invalidEvidenceDir, 'App-EAS-iOS-Release-Invalid.json');
   fs.writeFileSync(
@@ -795,7 +795,7 @@ for (const fixturePair of evidenceFixturePairs) {
   validateEvidenceFixturePair(fixturePair);
 }
 
-const reportDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cj-release-status-report-'));
+const reportDir = fs.mkdtempSync(path.join(os.tmpdir(), 'emorapy-release-status-report-'));
 try {
   const reportResult = runStatus({}, [`--report-dir=${reportDir}`]);
   const reportStatus = parseJsonResult('status JSON with report dir', reportResult);

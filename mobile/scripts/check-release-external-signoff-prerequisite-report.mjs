@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, '..', '..');
-const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'cj-release-signoff-prereq-'));
+const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'emorapy-release-signoff-prereq-'));
 const missingAppPath = path.join(tempRoot, 'missing-signed-app.app');
 const missingAscKeyPath = path.join(tempRoot, 'missing-asc-key.p8');
 const releaseEnvExamplePath = path.join(repoRoot, 'mobile', 'release.env.example');

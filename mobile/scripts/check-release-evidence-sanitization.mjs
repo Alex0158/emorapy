@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const mobileRoot = path.resolve(scriptDir, '..');
-const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'cj-release-evidence-sanitize-'));
+const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'emorapy-release-evidence-sanitize-'));
 const emptyBin = path.join(tempRoot, 'empty-bin');
 fs.mkdirSync(emptyBin, { recursive: true });
 

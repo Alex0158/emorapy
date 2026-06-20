@@ -272,7 +272,7 @@ assertNoSensitiveLeaks('controlled handoff stdout/stderr', `${controlledResult.s
 const controlled = parseJsonResult('controlled handoff JSON', controlledResult);
 validateHandoff(controlled, 'controlled handoff JSON');
 
-const reportDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cj-release-handoff-report-'));
+const reportDir = fs.mkdtempSync(path.join(os.tmpdir(), 'emorapy-release-handoff-report-'));
 try {
   const reportResult = runHandoff(controlledEnv, [`--report-dir=${reportDir}`]);
   assertNoSensitiveLeaks('handoff report stdout/stderr', `${reportResult.stdout}\n${reportResult.stderr}`);

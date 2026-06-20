@@ -191,6 +191,11 @@ const LEGACY_SOURCE_IDENTITY_RULES = [
     pattern: /\bcj-app-telemetry-runtime-smoke\/1\.0\b/g,
     message: 'Current App telemetry runtime smoke User-Agent must use emorapy-app-telemetry-runtime-smoke.',
   },
+  {
+    id: 'legacy-app-release-contract-temp-prefix',
+    pattern: /\bcj-(?:release-(?:evidence-sanitize|status(?:-[a-z-]+)?|signoff-prereq|handoff-report|evidence-fixtures)|goal-audit-contract)-/g,
+    message: 'Current App release/audit contract temp fixture prefixes must use emorapy-* naming.',
+  },
 ];
 
 const LEGACY_DOC_LEADIN_RULES = [

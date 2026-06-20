@@ -891,7 +891,7 @@ function writeFixture(tempRoot, fileName, record) {
 }
 
 function runExternalEvidenceFixtureContract(app) {
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'cj-release-evidence-fixtures-'));
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'emorapy-release-evidence-fixtures-'));
   const hash = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
   const validators = [
     {

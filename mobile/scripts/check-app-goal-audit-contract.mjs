@@ -63,7 +63,7 @@ function parseJsonResult(label, result) {
 }
 
 function validateReportArtifactContract(referenceAudit) {
-  const reportDir = mkdtempSync(path.join(os.tmpdir(), 'cj-goal-audit-contract-'));
+  const reportDir = mkdtempSync(path.join(os.tmpdir(), 'emorapy-goal-audit-contract-'));
   try {
     const result = runAudit(['--json', `--report-dir=${reportDir}`]);
     if (result.status !== 0) {

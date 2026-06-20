@@ -7,7 +7,7 @@ const PRODUCTION_HOST_PATTERNS = [
 ];
 
 const KNOWN_SAFE_REMOTE_HOST_FRAGMENTS = [
-  // Mother Bear Court Dev Supabase project ref, documented in AGENTS.md.
+  // Legacy Supabase Dev project name: "Mother Bear Court Dev"; ref documented in AGENTS.md.
   'lbukyqztkkkztfrfltlh',
 ];
 

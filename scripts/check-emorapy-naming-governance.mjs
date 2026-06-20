@@ -625,6 +625,21 @@ function checkCoreDocsLedgerGeneratorIdentity() {
   }
 }
 
+function checkSeedGuardLegacyDevProjectComment() {
+  const file = 'backend/src/utils/seed-guard.ts';
+  const text = readText(file);
+  requireIncludes(
+    text,
+    'Legacy Supabase Dev project name: "Mother Bear Court Dev"',
+    file
+  );
+  requireIncludes(text, "'lbukyqztkkkztfrfltlh'", file);
+
+  if (text.includes('Mother Bear Court Dev Supabase project ref')) {
+    fail(`${file} must classify Mother Bear Court Dev as a legacy Supabase project name.`);
+  }
+}
+
 function checkCurrentOpsEnvAliasContract() {
   requireOrderedIncludes(
     'backend/src/utils/version.ts',
@@ -680,6 +695,7 @@ await checkCurrentTelemetryFixtureIdentity();
 checkCurrentOpsEnvAliasContract();
 checkNamingPolicyDocs();
 checkCoreDocsLedgerGeneratorIdentity();
+checkSeedGuardLegacyDevProjectComment();
 
 if (failures.length > 0) {
   console.error('[emorapy-naming-governance] failed');

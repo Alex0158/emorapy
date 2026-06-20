@@ -428,6 +428,13 @@ function requireIncludes(text, needle, file) {
   }
 }
 
+function requireAbsent(file, needle, message) {
+  const text = readText(file);
+  if (text.includes(needle)) {
+    fail(`${file} must not include deprecated token (${message}): ${needle}`);
+  }
+}
+
 function requireOrderedIncludes(file, needles, message) {
   const text = readText(file);
   let cursor = -1;
@@ -798,43 +805,36 @@ function checkSentryNativeCrashReleaseIdentity() {
 }
 
 function checkCurrentOpsEnvAliasContract() {
+  // P4 env deprecation (2026-06-21): legacy CJ_COMMIT_SHA / CJ_RELEASE_GATE /
+  // CJ_DEV_REDIS_DIR are removed from current source/config. Every reader keeps
+  // a platform-injected or git fallback after EMORAPY_*, so the legacy CJ_*
+  // fallback is no longer required and must not re-enter current entrypoints.
   requireOrderedIncludes(
     'backend/src/utils/version.ts',
-    ['RAILWAY_GIT_COMMIT_SHA', 'EMORAPY_COMMIT_SHA', 'CJ_COMMIT_SHA'],
-    'backend version commit env priority: Railway runtime > Emorapy alias > legacy CJ fallback'
+    ['RAILWAY_GIT_COMMIT_SHA', 'EMORAPY_COMMIT_SHA'],
+    'backend version commit env priority: Railway runtime > Emorapy alias'
   );
-  requireOrderedIncludes(
-    'frontend/vite.config.ts',
-    ['process.env.EMORAPY_COMMIT_SHA', 'process.env.CJ_COMMIT_SHA'],
-    'frontend version manifest commit env priority: Emorapy alias before legacy CJ fallback'
+  requireAbsent('backend/src/utils/version.ts', 'CJ_COMMIT_SHA', 'deprecated legacy commit env');
+  requireIncludes(readText('frontend/vite.config.ts'), 'process.env.EMORAPY_COMMIT_SHA', 'frontend/vite.config.ts');
+  requireAbsent('frontend/vite.config.ts', 'CJ_COMMIT_SHA', 'deprecated legacy commit env');
+  requireIncludes(readText('frontend-admin/vite.config.ts'), 'process.env.EMORAPY_COMMIT_SHA', 'frontend-admin/vite.config.ts');
+  requireAbsent('frontend-admin/vite.config.ts', 'CJ_COMMIT_SHA', 'deprecated legacy commit env');
+  requireIncludes(readText('scripts/start-dev.sh'), "EMORAPY_COMMIT_SHA='$HEAD_SHA'", 'scripts/start-dev.sh');
+  requireAbsent('scripts/start-dev.sh', 'CJ_COMMIT_SHA', 'deprecated legacy commit env');
+  requireAbsent('scripts/start-dev.sh', 'CJ_DEV_REDIS_DIR', 'deprecated legacy local Redis dir env');
+  requireIncludes(readText('scripts/ops-release-gate.sh'), 'export EMORAPY_RELEASE_GATE=1', 'scripts/ops-release-gate.sh');
+  requireAbsent('scripts/ops-release-gate.sh', 'CJ_RELEASE_GATE', 'deprecated legacy release gate env');
+  requireIncludes(readText('backend/scripts/check-ai-pricing-catalog.ts'), 'env.EMORAPY_RELEASE_GATE', 'backend/scripts/check-ai-pricing-catalog.ts');
+  requireAbsent('backend/scripts/check-ai-pricing-catalog.ts', 'CJ_RELEASE_GATE', 'deprecated legacy release gate env');
+  requireIncludes(
+    readText('.github/workflows/production-deploy-and-verify.yml'),
+    'railway variable set "EMORAPY_COMMIT_SHA=${GITHUB_SHA}"',
+    '.github/workflows/production-deploy-and-verify.yml'
   );
-  requireOrderedIncludes(
-    'frontend-admin/vite.config.ts',
-    ['process.env.EMORAPY_COMMIT_SHA', 'process.env.CJ_COMMIT_SHA'],
-    'admin version manifest commit env priority: Emorapy alias before legacy CJ fallback'
-  );
-  requireOrderedIncludes(
-    'scripts/start-dev.sh',
-    ["EMORAPY_COMMIT_SHA='$HEAD_SHA'", "CJ_COMMIT_SHA='$HEAD_SHA'"],
-    'local dev startup commit env injection for both Emorapy and legacy CJ'
-  );
-  requireOrderedIncludes(
-    'scripts/ops-release-gate.sh',
-    ['export EMORAPY_RELEASE_GATE=1', 'export CJ_RELEASE_GATE=1'],
-    'release gate env marker dual-write with Emorapy first'
-  );
-  requireOrderedIncludes(
-    'backend/scripts/check-ai-pricing-catalog.ts',
-    ['env.EMORAPY_RELEASE_GATE', 'env.CJ_RELEASE_GATE'],
-    'AI pricing release gate env alias priority'
-  );
-  requireOrderedIncludes(
+  requireAbsent(
     '.github/workflows/production-deploy-and-verify.yml',
-    [
-      'railway variable set "EMORAPY_COMMIT_SHA=${GITHUB_SHA}"',
-      'railway variable set "CJ_COMMIT_SHA=${GITHUB_SHA}"',
-    ],
-    'production Railway commit env dual-write with Emorapy first'
+    'CJ_COMMIT_SHA',
+    'deprecated legacy commit env dual-write'
   );
 }
 

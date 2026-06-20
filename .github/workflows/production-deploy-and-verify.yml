@@ -221,7 +221,6 @@ jobs:
       - name: Stamp Railway production commit
         run: |
           railway variable set "EMORAPY_COMMIT_SHA=${GITHUB_SHA}" --skip-deploys -e "${PRODUCTION_RAILWAY_ENVIRONMENT}" -s "${PRODUCTION_RAILWAY_SERVICE}"
-          railway variable set "CJ_COMMIT_SHA=${GITHUB_SHA}" --skip-deploys -e "${PRODUCTION_RAILWAY_ENVIRONMENT}" -s "${PRODUCTION_RAILWAY_SERVICE}"
 
       - name: Trigger Railway production deploy
         run: railway up --ci --detach -p "${RAILWAY_PROJECT_ID}" -e "${PRODUCTION_RAILWAY_ENVIRONMENT}" -s "${PRODUCTION_RAILWAY_SERVICE}" -m "${{ steps.deploy_message.outputs.value }}"

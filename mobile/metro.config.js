@@ -12,8 +12,8 @@ config.resolver.nodeModulesPaths = [
   path.resolve(workspaceRoot, 'node_modules'),
 ];
 config.resolver.extraNodeModules = {
-  '@cj/api-client': path.resolve(workspaceRoot, 'packages/api-client'),
-  '@cj/contracts': path.resolve(workspaceRoot, 'packages/contracts'),
+  '@emorapy/api-client': path.resolve(workspaceRoot, 'packages/api-client'),
+  '@emorapy/contracts': path.resolve(workspaceRoot, 'packages/contracts'),
 };
 
 module.exports = config;

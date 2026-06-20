@@ -1,4 +1,4 @@
-import type { FeedbackHistoryItem, InterviewResumeStatus, InterviewSession, InterviewTrigger, PsychProfile } from '@cj/contracts/interview';
+import type { FeedbackHistoryItem, InterviewResumeStatus, InterviewSession, InterviewTrigger, PsychProfile } from '@emorapy/contracts/interview';
 import type { M1HttpClient } from './m1.js';
 export type UserProfile = Record<string, unknown>;
 export type UserProfileInput = Record<string, unknown>;

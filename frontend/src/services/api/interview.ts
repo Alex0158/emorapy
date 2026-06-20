@@ -12,7 +12,7 @@
  *   POST /:id/retry
  */
 
-import { createM2ApiClient } from '@cj/api-client';
+import { createM2ApiClient } from '@emorapy/api-client';
 import request from '../request';
 import type { InterviewTrigger } from '@/types/interview';
 

@@ -3,7 +3,7 @@ import type {
   AIStreamPhase,
   AIStreamSnapshot,
   AIStreamStatus,
-} from '@cj/contracts/ai-stream';
+} from '@emorapy/contracts/ai-stream';
 
 export type AIStreamDraftStatus = 'thinking' | 'streaming' | 'persisting' | 'cancelled';
 

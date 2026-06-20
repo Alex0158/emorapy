@@ -1,4 +1,4 @@
-import type { AIStreamEvent, AIStreamPhase, AIStreamSnapshot, AIStreamStatus } from '@cj/contracts/ai-stream';
+import type { AIStreamEvent, AIStreamPhase, AIStreamSnapshot, AIStreamStatus } from '@emorapy/contracts/ai-stream';
 export type AIStreamDraftStatus = 'thinking' | 'streaming' | 'persisting' | 'cancelled';
 export interface AIStreamDraft {
     streamId: string | null;

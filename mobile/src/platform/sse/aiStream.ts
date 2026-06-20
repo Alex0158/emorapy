@@ -1,4 +1,4 @@
-import type { AIStreamEvent, AIStreamScopeType } from '@cj/contracts/ai-stream';
+import type { AIStreamEvent, AIStreamScopeType } from '@emorapy/contracts/ai-stream';
 
 import { connectAppSSE } from '@/src/platform/sse/client';
 import type { AIStreamCallbacks, AIStreamReadyEvent } from '@/src/platform/sse/aiStreamState';

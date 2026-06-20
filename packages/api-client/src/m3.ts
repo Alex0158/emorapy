@@ -6,7 +6,7 @@ import type {
   ChatMessage,
   ChatRoom,
   ChatVisibilityScope,
-} from '@cj/contracts/chat';
+} from '@emorapy/contracts/chat';
 
 import {
   isApiResponseEnvelope,
@@ -25,7 +25,7 @@ export type {
   ChatRoom,
   ChatStreamEvent,
   ChatVisibilityScope,
-} from '@cj/contracts/chat';
+} from '@emorapy/contracts/chat';
 
 export const CHAT_JUDGMENT_REQUEST_TIMEOUT_MS = 180_000;
 

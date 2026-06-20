@@ -6,8 +6,8 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
       '@/lib': path.resolve(__dirname, './src/lib'),
-      '@cj/contracts': path.resolve(__dirname, '../packages/contracts/src'),
-      '@cj/api-client': path.resolve(__dirname, '../packages/api-client/src'),
+      '@emorapy/contracts': path.resolve(__dirname, '../packages/contracts/src'),
+      '@emorapy/api-client': path.resolve(__dirname, '../packages/api-client/src'),
     },
   },
   test: {

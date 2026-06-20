@@ -1,6 +1,6 @@
-import type { Case, CreateCaseDto, UpdateCaseDto } from '@cj/contracts/case';
+import type { Case, CreateCaseDto, UpdateCaseDto } from '@emorapy/contracts/case';
 import type { M1HttpClient } from './m1.js';
-export type { Case, CreateCaseDto, UpdateCaseDto } from '@cj/contracts/case';
+export type { Case, CreateCaseDto, UpdateCaseDto } from '@emorapy/contracts/case';
 export interface Pairing {
     id: string;
     user1_id?: string | null;

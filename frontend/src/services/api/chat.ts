@@ -1,4 +1,4 @@
-import { createM3ApiClient } from '@cj/api-client';
+import { createM3ApiClient } from '@emorapy/api-client';
 import request from '../request';
 import { env } from '@/config/env';
 import { sessionStorage } from '@/utils/storage';

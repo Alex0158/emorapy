@@ -1,4 +1,4 @@
-import type { PsychDomain } from '@cj/contracts/interview';
+import type { PsychDomain } from '@emorapy/contracts/interview';
 
 import { t } from '@/src/i18n';
 

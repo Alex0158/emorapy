@@ -2,7 +2,7 @@
  * 修復旅程 / 執行 API
  */
 
-import { createM4ApiClient } from '@cj/api-client';
+import { createM4ApiClient } from '@emorapy/api-client';
 import request from '../request';
 import type { CommitmentSummary } from './reconciliation';
 import type { RepairJourneyContext, RepairJourneyPresentationBucket } from '@/types/repairJourney';

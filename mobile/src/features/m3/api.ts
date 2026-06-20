@@ -2,8 +2,8 @@ import {
   chatRoomPath,
   createM3ApiClient,
   type ChatStreamEvent,
-} from '@cj/api-client';
-import type { AIStreamEvent, AIStreamSnapshot } from '@cj/contracts/ai-stream';
+} from '@emorapy/api-client';
+import type { AIStreamEvent, AIStreamSnapshot } from '@emorapy/contracts/ai-stream';
 
 import { appApiClient } from '@/src/platform/api/client';
 import { connectAIStream } from '@/src/platform/sse/aiStream';

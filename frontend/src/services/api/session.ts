@@ -3,7 +3,7 @@
  */
 
 import request from '../request';
-import { createM1ApiClient } from '@cj/api-client';
+import { createM1ApiClient } from '@emorapy/api-client';
 import type { Session } from '@/types/session';
 
 const sharedSessionApi = createM1ApiClient(request).session;

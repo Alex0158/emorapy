@@ -3,7 +3,7 @@
  */
 
 import request from '../request';
-import { createM1ApiClient, createM4ApiClient, createM5ApiClient } from '@cj/api-client';
+import { createM1ApiClient, createM4ApiClient, createM5ApiClient } from '@emorapy/api-client';
 import type { Case, CreateCaseDto, UpdateCaseDto, QuickCaseDto } from '@/types/case';
 
 const sharedQuickApi = createM1ApiClient(request).quick;

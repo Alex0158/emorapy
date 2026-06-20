@@ -5,7 +5,7 @@ import {
   toRequestError,
   type RequestContext,
   type RequestErrorLike,
-} from '@cj/api-client';
+} from '@emorapy/api-client';
 
 import { getRuntimeConfig } from '@/src/config/runtime';
 import { getLocale } from '@/src/i18n';

@@ -76,7 +76,7 @@ Emorapy App navigation 固定按以下平台投影分組；M0-M5 baseline screen
 | Adapter | 現有狀態 | Runtime 目標 | 不得做的事 |
 | --- | --- | --- | --- |
 | Storage | SecureStore adapter、auth/session bootstrap 與 unit gate 已建立 | 封裝 Expo SecureStore，支援 token / session restore / clear / device metadata | 不得在 screen 中直接讀寫 SecureStore，不得長期保存 case / psych 正文 |
-| API | Axios adapter、typed error normalize、FormData 與 M1-M5 domain client 接線已建立 | 封裝 JWT、`X-Session-Id`、`X-Locale`、request id、FormData、typed error normalization | 不得繞過 `@cj/contracts` / `@cj/api-client` 長期手寫 DTO |
+| API | Axios adapter、typed error normalize、FormData 與 M1-M5 domain client 接線已建立 | 封裝 JWT、`X-Session-Id`、`X-Locale`、request id、FormData、typed error normalization | 不得繞過 `@emorapy/contracts` / `@emorapy/api-client` 長期手寫 DTO |
 | SSE | `after_seq` wrapper、typed open error、close callback 與 AI stream subscription hook 已建立；backend SSE 已禁用 compression，並由 persistence / replay 支撐 terminal event 恢復 | foreground streaming、`after_seq` reconnect、snapshot / replay fallback、background interruption recovery；M1-M4 baseline screen 已接 App stream hook | 不得假設 App 背景仍持續讀 stream；無真機 lifecycle 證據前不得宣稱 SSE 完整驗收 |
 | Notifications | permission / push token helper、in-app notification screen、notification landing handler 已建立 | 封裝 permission、push token 取得、登出清理、token sync、registration-time rotation revoke、notification response route handoff；backend 以 request `X-Locale` render 通知列表，並在 notification payload 記錄 target locale 供背景 push 重放 | 不得讓 Push 狀態繞過 backend notification 狀態；不得在 Web/App 各自重建 backend notification template；registration / revoke / logout cleanup / rotation revoke / landing handler、backend Expo push dispatch / receipt polling 與 render payload locale baseline 已接線，但真 provider delivery、APNs sandbox 與真機 cold-start landing 證據尚未驗收 |
 | Upload | ImagePicker lazy load / picker status / backend-compatible evidence FormData adapter 已建立 | 封裝 ImagePicker / file metadata normalize / upload provider handoff | 不得在 App 本地裁決 evidence / media 授權；Web branch 不載入 ImagePicker，picker cancel 不記成功，仍需真機 picker-selected asset、profile media 與 media provider authorization evidence |
@@ -101,6 +101,6 @@ App 正式功能不得手寫第二套 DTO。接線順序固定如下：
 
 1. `mobile/app` 不再保留 `Tab One` / `Tab Two` / template modal 作為主入口，且 `routes:check` 固定 `(public)` / `(app)` / `modal` route topology。
 2. M0-M5 Emorapy App screen 已能對應到 `50-跨端Mapping與Parity/` 的能力矩陣；native flow 完整驗收仍歸 M6。
-3. App API adapter 正式消費 `@cj/contracts` 或 `@cj/api-client`，沒有新增長期 App-only DTO 分叉。
+3. App API adapter 正式消費 `@emorapy/contracts` 或 `@emorapy/api-client`，沒有新增長期 App-only DTO 分叉。
 4. Storage / Notifications / Upload / Linking / AppState 若被功能使用，必須經 `mobile/src/platform` runtime adapter，不直接散落 Expo API。
 5. App smoke / regression / CI / evidence 入口已按 [../08-測試規範與驗收/03-App測試與證據接入基線.md](../08-測試規範與驗收/03-App測試與證據接入基線.md) 進入 `08-測試規範與驗收/`、`測試/` 或 `90-證據與盤點/`；physical device / EAS / provider / native crash evidence 仍由 M6 sign-off 裁決。

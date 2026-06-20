@@ -2,8 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ReconciliationPlan, ReconciliationPlanBundle, ReplanTrackInput } from '@cj/api-client';
-import type { AIStreamEvent, AIStreamSnapshot } from '@cj/contracts/ai-stream';
+import type { ReconciliationPlan, ReconciliationPlanBundle, ReplanTrackInput } from '@emorapy/api-client';
+import type { AIStreamEvent, AIStreamSnapshot } from '@emorapy/contracts/ai-stream';
 
 import { connectRepairTrackStream, m4Api, normalizeM4Error } from '@/src/features/m4/api';
 import { t, useLocale } from '@/src/i18n';

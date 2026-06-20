@@ -1,6 +1,6 @@
 const mockCreateM5ApiClient = jest.fn(() => ({ marker: 'm5-api' }));
 
-jest.mock('@cj/api-client', () => ({
+jest.mock('@emorapy/api-client', () => ({
   createM5ApiClient: mockCreateM5ApiClient,
 }), { virtual: true });
 

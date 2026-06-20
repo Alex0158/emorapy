@@ -50,7 +50,7 @@ App 端目前 `mobile/scripts/check-app-route-contracts.mjs` 只固定 `(public)
 ```bash
 npm --prefix mobile run routes:check
 npm --prefix mobile run features:check
-npm run test:m1 --workspace @cj/api-client
+npm run test:m1 --workspace @emorapy/api-client
 npm run docs:check
 ```
 

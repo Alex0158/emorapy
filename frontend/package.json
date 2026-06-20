@@ -19,8 +19,8 @@
     "test:e2e:critical-guard": "node ../scripts/check-critical-e2e-skips.mjs"
   },
   "dependencies": {
-    "@cj/api-client": "1.3.1",
-    "@cj/contracts": "1.3.1",
+    "@emorapy/api-client": "1.3.1",
+    "@emorapy/contracts": "1.3.1",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",

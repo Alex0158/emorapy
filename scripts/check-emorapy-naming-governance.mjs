@@ -42,6 +42,39 @@ const APP_IDENTITY_FILES = [
   'mobile/maestro-side-effects/**/*.yaml',
 ];
 
+const CURRENT_PACKAGE_SCOPE_SCAN_PATTERNS = [
+  'package.json',
+  'package-lock.json',
+  'backend/**/*.{ts,tsx,json}',
+  'frontend/**/*.{ts,tsx,json}',
+  'frontend-admin/**/*.{ts,tsx,json}',
+  'mobile/**/*.{ts,tsx,js,json}',
+  'packages/**/*.{ts,tsx,js,json,d.ts}',
+  'scripts/**/*.{js,mjs,cjs,ts,sh}',
+  'docs/核心開發文件/README.md',
+  'docs/核心開發文件/04-共用機制/**/*.md',
+  'docs/核心開發文件/05-工程架構與共享層/**/*.md',
+  'docs/核心開發文件/06-接口描述/**/*.md',
+  'docs/核心開發文件/08-測試規範與驗收/**/*.md',
+  'docs/核心開發文件/10-Web端/**/*.md',
+  'docs/核心開發文件/20-App端/**/*.md',
+  'docs/核心開發文件/50-跨端Mapping與Parity/**/*.md',
+  'docs/核心開發文件/07-待處理問題與治理/待處理/**/*.md',
+];
+
+const CURRENT_PACKAGE_SCOPE_IGNORE_PATTERNS = [
+  '**/node_modules/**',
+  'backend/tmp/**',
+  'mobile/ios/**',
+  'mobile/android/**',
+  'docs/核心開發文件/07-待處理問題與治理/已處理/**',
+  'docs/核心開發文件/90-證據與盤點/**',
+  'docs/核心開發文件/99-歷史降級索引/**',
+  'docs/核心開發文件/文件收斂/**',
+  'docs/核心開發文件/07-待處理問題與治理/待處理/Emorapy命名收斂與外部識別符遷移待辦-2026-06-20.md',
+  'scripts/check-emorapy-naming-governance.mjs',
+];
+
 const LEGACY_VISIBLE_COPY_RULES = [
   {
     id: 'cj-platform-en',
@@ -88,6 +121,19 @@ const LEGACY_APP_IDENTITY_RULES = [
   },
 ];
 
+const LEGACY_PACKAGE_SCOPE_RULES = [
+  {
+    id: 'legacy-contracts-scope',
+    pattern: /@cj\/contracts/g,
+    message: 'Current shared package identity must use @emorapy/contracts.',
+  },
+  {
+    id: 'legacy-api-client-scope',
+    pattern: /@cj\/api-client/g,
+    message: 'Current shared package identity must use @emorapy/api-client.',
+  },
+];
+
 const REQUIRED_POLICY_NEEDLES = [
   {
     file: 'AGENTS.md',
@@ -117,6 +163,7 @@ const REQUIRED_POLICY_NEEDLES = [
     needles: [
       '掃描結果不得以總量清零作唯一目標；必須按 allowlist 分類後驗收。',
       'P5 入口文件收斂',
+      '正式 internal workspace package scope 改為 `@emorapy/contracts` 與 `@emorapy/api-client`',
     ],
   },
 ];
@@ -204,6 +251,24 @@ async function checkUserFacingCopy() {
   }
 }
 
+async function checkCurrentPackageScope() {
+  const files = await glob(CURRENT_PACKAGE_SCOPE_SCAN_PATTERNS, {
+    cwd: repoRoot,
+    nodir: true,
+    ignore: CURRENT_PACKAGE_SCOPE_IGNORE_PATTERNS,
+  });
+
+  for (const file of files) {
+    const text = readText(file);
+    for (const rule of LEGACY_PACKAGE_SCOPE_RULES) {
+      rule.pattern.lastIndex = 0;
+      for (const match of text.matchAll(rule.pattern)) {
+        fail(`${file}:${lineNumberAt(text, match.index ?? 0)} [${rule.id}] ${rule.message}`);
+      }
+    }
+  }
+}
+
 function checkNamingPolicyDocs() {
   for (const { file, needles } of REQUIRED_POLICY_NEEDLES) {
     const text = readText(file);
@@ -216,6 +281,7 @@ function checkNamingPolicyDocs() {
 checkAppJsonIdentity();
 await checkAppIdentityFiles();
 await checkUserFacingCopy();
+await checkCurrentPackageScope();
 checkNamingPolicyDocs();
 
 if (failures.length > 0) {

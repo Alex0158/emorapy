@@ -4,7 +4,7 @@ import type {
   InterviewSession,
   InterviewTrigger,
   PsychProfile,
-} from '@cj/contracts/interview';
+} from '@emorapy/contracts/interview';
 
 import {
   isApiResponseEnvelope,

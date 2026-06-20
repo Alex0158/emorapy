@@ -22,7 +22,7 @@
 | 主接口清單 | `全接口清單-主文檔.md` | 端點狀態、授權、限流、功能域、前端使用狀態 | 不是機器可消費 OpenAPI |
 | 模組接口詳規 | `06-接口描述/01-10*.md` | 字段、錯誤碼、副作用、頁面對接與深水區規則 | 表格與文字仍需人工維護 |
 | Truth guard | `scripts/check-docs-truth.mjs` | 檢查接口總數、端點行、狀態與 stale endpoint | 不驗證 body schema / response schema 完整性 |
-| Shared packages | `packages/contracts/src`、`packages/api-client/src` | 跨端共享型別與 API client 基礎 | 尚未覆蓋全部接口；App M1-M5 已正式消費 `@cj/api-client` domain client，後續新增接口仍需先補 shared contract / client，再接平台 adapter |
+| Shared packages | `packages/contracts/src`、`packages/api-client/src` | 跨端共享型別與 API client 基礎 | 尚未覆蓋全部接口；App M1-M5 已正式消費 `@emorapy/api-client` domain client，後續新增接口仍需先補 shared contract / client，再接平台 adapter |
 | 平台投影 | Web / Admin API service、`mobile/src/platform` | 實際調用與平台差異 | Web 調用不等於 App 已覆蓋 |
 
 ## 3. 工程級 API 契約最低屬性

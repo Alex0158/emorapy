@@ -1,7 +1,7 @@
 const mockCreateM3ApiClient = jest.fn(() => ({ marker: 'm3-api' }));
 const mockConnectAppSSE = jest.fn();
 
-jest.mock('@cj/api-client', () => ({
+jest.mock('@emorapy/api-client', () => ({
   chatRoomPath: (roomId, suffix = '') => `/chat/rooms/${encodeURIComponent(roomId)}${suffix}`,
   createM3ApiClient: mockCreateM3ApiClient,
 }), { virtual: true });

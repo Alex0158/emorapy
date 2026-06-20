@@ -1,4 +1,4 @@
-import type { Session } from '@cj/contracts/session';
+import type { Session } from '@emorapy/contracts/session';
 
 import { normalizeM1Error, m1Api } from '@/src/features/m1/api';
 import { sessionStorage } from '@/src/platform/storage/secureStore';

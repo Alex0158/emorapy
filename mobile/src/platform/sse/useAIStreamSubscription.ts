@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { AIStreamEvent } from '@cj/contracts/ai-stream';
+import type { AIStreamEvent } from '@emorapy/contracts/ai-stream';
 
 import type { AIStreamCallbacks, AIStreamReadyEvent } from '@/src/platform/sse/aiStreamState';
 import {

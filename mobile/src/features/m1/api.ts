@@ -1,5 +1,5 @@
-import type { AIStreamEvent, AIStreamSnapshot } from '@cj/contracts/ai-stream';
-import { createM1ApiClient, type RequestErrorLike } from '@cj/api-client';
+import type { AIStreamEvent, AIStreamSnapshot } from '@emorapy/contracts/ai-stream';
+import { createM1ApiClient, type RequestErrorLike } from '@emorapy/api-client';
 
 import { appApiClient } from '@/src/platform/api/client';
 import { connectAppSSE } from '@/src/platform/sse/client';

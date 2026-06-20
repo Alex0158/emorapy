@@ -9,7 +9,7 @@
     "ios:release-simulator:smoke": "node scripts/run-ios-release-simulator-smoke.mjs",
     "web": "expo start --web",
     "shared:build": "npm --prefix .. run contracts:build && npm --prefix .. run api-client:build",
-    "eas-build-post-install": "cd .. && npm ci --workspace @cj/contracts --workspace @cj/api-client --include-workspace-root=false && npm run contracts:build && npm run api-client:build",
+    "eas-build-post-install": "cd .. && npm ci --workspace @emorapy/contracts --workspace @emorapy/api-client --include-workspace-root=false && npm run contracts:build && npm run api-client:build",
     "typecheck": "npm run shared:build && tsc --noEmit",
     "smoke:web": "npm run shared:build && expo export --platform web --output-dir dist",
     "web:routes:smoke": "node scripts/check-web-route-smoke.mjs",
@@ -75,8 +75,8 @@
     "release:preflight": "npm run test && npm run accessibility:check && npm run copy:check && npm run routes:check && npm run features:check && npm run true-service:check && npm run platform:check && npm run docs:check && npm run docs:audit:dry-run:current && npm run typecheck && npm run smoke:web && npm run web:routes:smoke && npm run maestro:check && npm run native:check && npm run android:check && npm run device-discovery:check && npm run release:evidence:check && npm run release:evidence-redaction:check && npm run release:evidence-sanitization:check && npm run release:external-evidence:status && npm run release:external-evidence:status:contract && npm run release:external-evidence:handoff:check && npm run release:external-evidence:handoff:contract && npm run release:external-evidence:fixtures:check && npm run release:external-evidence:dry-run && npm run release:external-evidence:signoff && npm run release:external-evidence:signoff:android-dry-run && npm run release:external-evidence:prereq-report:check && npm run release:external-evidence:workflow:check && npm run release:external-evidence:env-template:check && npm run release:external-evidence:input-status && npm run release:external-evidence:github-secrets:sync:contract && npm run release:completion:audit && npm run release:completion:audit:contract && npm run goal:completion:audit && npm run goal:completion:audit:contract && npm run release:check"
   },
   "dependencies": {
-    "@cj/api-client": "file:../packages/api-client",
-    "@cj/contracts": "file:../packages/contracts",
+    "@emorapy/api-client": "file:../packages/api-client",
+    "@emorapy/contracts": "file:../packages/contracts",
     "@microsoft/fetch-event-source": "^2.0.1",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/core": "^2.7.1",

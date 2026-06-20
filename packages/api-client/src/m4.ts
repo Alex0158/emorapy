@@ -1,4 +1,4 @@
-import type { Case, CreateCaseDto, UpdateCaseDto } from '@cj/contracts/case';
+import type { Case, CreateCaseDto, UpdateCaseDto } from '@emorapy/contracts/case';
 
 import {
   isApiResponseEnvelope,
@@ -8,7 +8,7 @@ import {
 } from './apiResponse.js';
 import type { HttpResponse, M1HttpClient } from './m1.js';
 
-export type { Case, CreateCaseDto, UpdateCaseDto } from '@cj/contracts/case';
+export type { Case, CreateCaseDto, UpdateCaseDto } from '@emorapy/contracts/case';
 
 export interface Pairing {
   id: string;

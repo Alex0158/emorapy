@@ -2,7 +2,7 @@
  * 心理畫像 API
  */
 
-import { createM2ApiClient } from '@cj/api-client';
+import { createM2ApiClient } from '@emorapy/api-client';
 import request from '../request';
 
 const sharedPsychProfileApi = createM2ApiClient(request).psychProfile;

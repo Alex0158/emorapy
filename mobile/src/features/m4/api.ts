@@ -1,5 +1,5 @@
-import type { AIStreamEvent, AIStreamSnapshot } from '@cj/contracts/ai-stream';
-import { createM4ApiClient } from '@cj/api-client';
+import type { AIStreamEvent, AIStreamSnapshot } from '@emorapy/contracts/ai-stream';
+import { createM4ApiClient } from '@emorapy/api-client';
 
 import { appApiClient } from '@/src/platform/api/client';
 import { connectAIStream } from '@/src/platform/sse/aiStream';

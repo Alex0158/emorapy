@@ -8,8 +8,8 @@
     "packages/*"
   ],
   "scripts": {
-    "contracts:build": "npm run build --workspace @cj/contracts",
-    "api-client:build": "npm run build --workspace @cj/api-client",
+    "contracts:build": "npm run build --workspace @emorapy/contracts",
+    "api-client:build": "npm run build --workspace @emorapy/api-client",
     "vercel-build": "npm run contracts:build && npm run api-client:build && npm run build --workspace frontend-admin",
     "build": "npm run vercel-build",
     "docs:check": "npm run naming:check && npm run docs:check:structure && npm run docs:check:truth",

@@ -100,7 +100,7 @@ App 後續開發需要 Web 配合的是共享層抽離，不是改變 Web UI 或
 
 1. 先把新增或變更的型別與 API 契約收斂到 `packages/contracts`
 2. 再把 Web 既有 request 層可抽離部分拆成 `packages/api-client` 與 Web adapter
-3. App 新增業務能力時直接消費 `@cj/api-client` / `@cj/contracts`，不得回到 screen 直寫分叉 fetch / DTO
+3. App 新增業務能力時直接消費 `@emorapy/api-client` / `@emorapy/contracts`，不得回到 screen 直寫分叉 fetch / DTO
 
 ## 7. 當前落地範圍
 
@@ -117,13 +117,13 @@ App 後續開發需要 Web 配合的是共享層抽離，不是改變 Web UI 或
 
 當前已具備：
 
-- `frontend/tsconfig.app.json` 已接上 `@cj/contracts` 與 `@cj/api-client` alias
-- `frontend/package.json` 已聲明 `@cj/contracts` workspace dependency，並已聲明 `@cj/api-client` workspace dependency
-- `frontend/src/services/api/*` 已把 M1-M5 可共享 domain request 下沉到 `@cj/api-client`；`frontend/src/utils/aiStreamState.ts` 已消費 shared AI stream pure helper；Web adapter 仍保留 token/session、toast、router、storage、FormData、SSE 等 side effect seam
+- `frontend/tsconfig.app.json` 已接上 `@emorapy/contracts` 與 `@emorapy/api-client` alias
+- `frontend/package.json` 已聲明 `@emorapy/contracts` workspace dependency，並已聲明 `@emorapy/api-client` workspace dependency
+- `frontend/src/services/api/*` 已把 M1-M5 可共享 domain request 下沉到 `@emorapy/api-client`；`frontend/src/utils/aiStreamState.ts` 已消費 shared AI stream pure helper；Web adapter 仍保留 token/session、toast、router、storage、FormData、SSE 等 side effect seam
 - `backend/tsconfig.json` 已指向共享 package declaration artifact，避免直接引用 `packages/*/src` 穿越 `rootDir`
-- `frontend-admin/tsconfig.app.json` 已接上 `@cj/contracts` 與 `@cj/api-client` alias
-- `frontend-admin/package.json` 已聲明 `@cj/contracts` 與 `@cj/api-client` workspace dependencies
-- `mobile/package.json` / `mobile/package-lock.json` 已以 `file:../packages/*` dependency 聲明 `@cj/contracts` 與 `@cj/api-client`，`mobile/metro.config.js` 已建立 shared package alias
+- `frontend-admin/tsconfig.app.json` 已接上 `@emorapy/contracts` 與 `@emorapy/api-client` alias
+- `frontend-admin/package.json` 已聲明 `@emorapy/contracts` 與 `@emorapy/api-client` workspace dependencies
+- `mobile/package.json` / `mobile/package-lock.json` 已以 `file:../packages/*` dependency 聲明 `@emorapy/contracts` 與 `@emorapy/api-client`，`mobile/metro.config.js` 已建立 shared package alias
 - `mobile/src/platform` 已有 API / SecureStore / SSE / upload / notifications / linking / lifecycle / telemetry runtime adapter 與 M0-M5 baseline gate；physical device、provider delivery 與 native crash runtime evidence 仍屬 M6 sign-off
 - `frontend/` 與 `frontend-admin/` 不保留 app-local package-lock；CI/Vercel 必須從 root workspace 安裝
 - Vercel build 必須先跑 shared artifacts，再執行 `npm run build --workspace frontend-admin`
@@ -131,7 +131,7 @@ App 後續開發需要 Web 配合的是共享層抽離，不是改變 Web UI 或
 
 仍未完成：
 
-- `frontend-admin/` 只接入了 `@cj/contracts` 的局部 DTO，且 `frontend-admin/` 仍維持本地 domain API request stack，僅使用 `@cj/api-client` 的 transport baseline
+- `frontend-admin/` 只接入了 `@emorapy/contracts` 的局部 DTO，且 `frontend-admin/` 仍維持本地 domain API request stack，僅使用 `@emorapy/api-client` 的 transport baseline
 - `packages/api-client` 已建立 M1-M5 domain client 消費面；仍需繼續把 Web 可共用 domain helper / query key / reducer 收斂到 shared package
 - `backend/` 只消費共享 declaration artifact，不直接以共享原始碼作為編譯來源
 
@@ -141,7 +141,7 @@ App 後續開發需要 Web 配合的是共享層抽離，不是改變 Web UI 或
 
 - `backend/src` 目前仍有 `rootDir` 限制，不能直接安全地引用 `packages/contracts` 原始碼作為正式來源；應消費 `types/` declaration artifact
 - `frontend/src/types/common.ts` 目前只做部分共享對齊，仍保留相容性包裝，避免一次影響既有大量 API 使用點
-- `mobile/` 已正式消費 `@cj/contracts` / `@cj/api-client`；仍需補齊 EAS / TestFlight / physical device / provider delivery / native crash runtime evidence
+- `mobile/` 已正式消費 `@emorapy/contracts` / `@emorapy/api-client`；仍需補齊 EAS / TestFlight / physical device / provider delivery / native crash runtime evidence
 - `frontend-admin/` 仍維持本地 domain API request stack，僅局部接入共享 contracts DTO 與 shared transport baseline
 
 ## 10. 下一步建議

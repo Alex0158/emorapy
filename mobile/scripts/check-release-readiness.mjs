@@ -102,12 +102,12 @@ requireValue(Boolean(eas.build?.development && eas.build?.preview && eas.build?.
 requireValue(eas.build?.preview?.distribution === 'internal', 'preview build must use internal distribution before TestFlight production submission.');
 requireValue(eas.build?.production?.autoIncrement === true, 'production build must autoIncrement native build numbers.');
 requireValue(exists('../packages/api-client/dist/index.js'), 'packages/api-client must be built before release preflight.');
-requireValue(pkg.dependencies?.['@cj/api-client'] === 'file:../packages/api-client', 'mobile package.json must depend on @cj/api-client via file:../packages/api-client.');
-requireValue(pkg.dependencies?.['@cj/contracts'] === 'file:../packages/contracts', 'mobile package.json must depend on @cj/contracts via file:../packages/contracts.');
-requireValue(lockfile.packages?.['node_modules/@cj/api-client']?.link === true, 'mobile package-lock must link @cj/api-client to ../packages/api-client.');
-requireValue(lockfile.packages?.['node_modules/@cj/contracts']?.link === true, 'mobile package-lock must link @cj/contracts to ../packages/contracts.');
-requireValue(Boolean(lockfile.packages?.['../packages/api-client']?.version), 'mobile package-lock must include local @cj/api-client package metadata.');
-requireValue(Boolean(lockfile.packages?.['../packages/contracts']?.version), 'mobile package-lock must include local @cj/contracts package metadata.');
+requireValue(pkg.dependencies?.['@emorapy/api-client'] === 'file:../packages/api-client', 'mobile package.json must depend on @emorapy/api-client via file:../packages/api-client.');
+requireValue(pkg.dependencies?.['@emorapy/contracts'] === 'file:../packages/contracts', 'mobile package.json must depend on @emorapy/contracts via file:../packages/contracts.');
+requireValue(lockfile.packages?.['node_modules/@emorapy/api-client']?.link === true, 'mobile package-lock must link @emorapy/api-client to ../packages/api-client.');
+requireValue(lockfile.packages?.['node_modules/@emorapy/contracts']?.link === true, 'mobile package-lock must link @emorapy/contracts to ../packages/contracts.');
+requireValue(Boolean(lockfile.packages?.['../packages/api-client']?.version), 'mobile package-lock must include local @emorapy/api-client package metadata.');
+requireValue(Boolean(lockfile.packages?.['../packages/contracts']?.version), 'mobile package-lock must include local @emorapy/contracts package metadata.');
 
 const rootPackage = JSON.parse(fs.readFileSync(path.resolve(repoRoot, 'package.json'), 'utf8'));
 const easCliVersion = runCommand('eas', ['--version']);

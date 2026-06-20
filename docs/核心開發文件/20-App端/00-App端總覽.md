@@ -18,7 +18,7 @@ App 版正式承載目錄為 `mobile/`。目前它是 Expo / React Native 專案
 2. `mobile/app`：已替換 Expo template tabs，建立 Emorapy public / authenticated route group、Quick / Auth / Result / Collaborative screen、Case / Chat / Profile / Notifications / Repair screen 與 App 狀態 modal。
 3. provider / UI foundation：已建立 React Query、React Native Paper、safe area、auth/session bootstrap、root error boundary、shared UI accessibility contract、TextInput label / hint static gate 與 copy contract。
 4. runtime config：已建立 App runtime config，讀取 API base URL、locale、app version / build number 與 request timeout。
-5. shared package resolution：App 端以 package resolution 消費 `@cj/api-client` 與 `@cj/contracts`，Metro 與 typecheck 使用同一 shared layer 入口。
+5. shared package resolution：App 端以 package resolution 消費 `@emorapy/api-client` 與 `@emorapy/contracts`，Metro 與 typecheck 使用同一 shared layer 入口。
 6. `mobile/src/platform`：已建立 API client、SecureStore、SSE、upload、notifications、linking、lifecycle、telemetry 的 runtime adapter，並保留 storage / notifications / upload 型別邊界。
 
 現行狀態分層如下：

@@ -1,1 +1,1 @@
-export * from '@cj/contracts/chat';
+export * from '@emorapy/contracts/chat';

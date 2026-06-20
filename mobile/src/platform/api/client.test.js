@@ -14,7 +14,7 @@ jest.mock('@/src/config/runtime', () => ({
   }),
 }));
 
-jest.mock('@cj/api-client', () => ({
+jest.mock('@emorapy/api-client', () => ({
   readApiResponseError: (data) => data?.error ?? {},
   statusToRequestCode: (status) => `HTTP_${status}`,
   statusToRequestMessage: (status) => `HTTP ${status}`,

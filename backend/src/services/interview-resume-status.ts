@@ -1,7 +1,7 @@
 import prisma from '../config/database';
 import { INTERVIEW_STATUS } from '../utils/constants';
 import { USER_RETRYABLE_PIPELINE_STATUSES } from './async-pipeline-resume-policy';
-import type { InterviewResumeStatus } from '@cj/contracts/interview';
+import type { InterviewResumeStatus } from '@emorapy/contracts/interview';
 
 export async function loadInterviewResumeStatus(userId: string): Promise<InterviewResumeStatus> {
   const [inProgress, failed] = await Promise.all([

@@ -1,4 +1,4 @@
-import type { Evidence } from '@cj/contracts/case';
+import type { Evidence } from '@emorapy/contracts/case';
 
 import {
   isApiResponseEnvelope,

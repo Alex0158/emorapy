@@ -2,8 +2,8 @@ import { router, type Href } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { Judgment } from '@cj/api-client';
-import type { CaseStatus } from '@cj/contracts/case';
+import type { Judgment } from '@emorapy/api-client';
+import type { CaseStatus } from '@emorapy/contracts/case';
 
 import { m4Api, normalizeM4Error } from '@/src/features/m4/api';
 import { getCaseTypeLabel } from '@/src/features/m4/caseTypeLabels';

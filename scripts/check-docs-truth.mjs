@@ -1750,8 +1750,8 @@ async function main() {
   }
 
   const internalWorkspacePackages = [
-    ['@cj/contracts', 'packages/contracts'],
-    ['@cj/api-client', 'packages/api-client'],
+    ['@emorapy/contracts', 'packages/contracts'],
+    ['@emorapy/api-client', 'packages/api-client'],
   ];
   for (const [packageName, workspacePath] of internalWorkspacePackages) {
     const workspaceVersion = packageLockJson.packages?.[workspacePath]?.version;
@@ -1768,36 +1768,36 @@ async function main() {
   const frontendAdminDeps = frontendAdminPackageJson.dependencies || {};
   const contractsVersion = packageLockJson.packages?.['packages/contracts']?.version;
   const apiClientVersion = packageLockJson.packages?.['packages/api-client']?.version;
-  const frontendContractsSpec = frontendDeps['@cj/contracts'];
-  const frontendAdminContractsSpec = frontendAdminDeps['@cj/contracts'];
-  const frontendAdminApiClientSpec = frontendAdminDeps['@cj/api-client'];
+  const frontendContractsSpec = frontendDeps['@emorapy/contracts'];
+  const frontendAdminContractsSpec = frontendAdminDeps['@emorapy/contracts'];
+  const frontendAdminApiClientSpec = frontendAdminDeps['@emorapy/api-client'];
 
   if (frontendContractsSpec !== contractsVersion) {
     issues.push(
-      `[truth/batch3-architecture] frontend/package.json @cj/contracts dependency mismatch: manifest=${frontendContractsSpec ?? 'missing'} workspace=${contractsVersion ?? 'missing'}`
+      `[truth/batch3-architecture] frontend/package.json @emorapy/contracts dependency mismatch: manifest=${frontendContractsSpec ?? 'missing'} workspace=${contractsVersion ?? 'missing'}`
     );
   }
   if (frontendAdminContractsSpec !== contractsVersion) {
     issues.push(
-      `[truth/batch3-architecture] frontend-admin/package.json @cj/contracts dependency mismatch: manifest=${frontendAdminContractsSpec ?? 'missing'} workspace=${contractsVersion ?? 'missing'}`
+      `[truth/batch3-architecture] frontend-admin/package.json @emorapy/contracts dependency mismatch: manifest=${frontendAdminContractsSpec ?? 'missing'} workspace=${contractsVersion ?? 'missing'}`
     );
   }
   if (frontendAdminApiClientSpec !== apiClientVersion) {
     issues.push(
-      `[truth/batch3-architecture] frontend-admin/package.json @cj/api-client dependency mismatch: manifest=${frontendAdminApiClientSpec ?? 'missing'} workspace=${apiClientVersion ?? 'missing'}`
+      `[truth/batch3-architecture] frontend-admin/package.json @emorapy/api-client dependency mismatch: manifest=${frontendAdminApiClientSpec ?? 'missing'} workspace=${apiClientVersion ?? 'missing'}`
     );
   }
 
   const frontendLockDeps = packageLockJson.packages?.frontend?.dependencies || {};
   const frontendAdminLockDeps = packageLockJson.packages?.['frontend-admin']?.dependencies || {};
-  if (frontendLockDeps['@cj/contracts'] !== frontendContractsSpec) {
-    issues.push('[truth/batch3-architecture] package-lock.json frontend @cj/contracts dependency is out of sync');
+  if (frontendLockDeps['@emorapy/contracts'] !== frontendContractsSpec) {
+    issues.push('[truth/batch3-architecture] package-lock.json frontend @emorapy/contracts dependency is out of sync');
   }
-  if (frontendAdminLockDeps['@cj/contracts'] !== frontendAdminContractsSpec) {
-    issues.push('[truth/batch3-architecture] package-lock.json frontend-admin @cj/contracts dependency is out of sync');
+  if (frontendAdminLockDeps['@emorapy/contracts'] !== frontendAdminContractsSpec) {
+    issues.push('[truth/batch3-architecture] package-lock.json frontend-admin @emorapy/contracts dependency is out of sync');
   }
-  if (frontendAdminLockDeps['@cj/api-client'] !== frontendAdminApiClientSpec) {
-    issues.push('[truth/batch3-architecture] package-lock.json frontend-admin @cj/api-client dependency is out of sync');
+  if (frontendAdminLockDeps['@emorapy/api-client'] !== frontendAdminApiClientSpec) {
+    issues.push('[truth/batch3-architecture] package-lock.json frontend-admin @emorapy/api-client dependency is out of sync');
   }
 
   if (
@@ -1806,10 +1806,10 @@ async function main() {
     frontendAdminApiClientSpec === apiClientVersion
   ) {
     const manifestDependencyTokens = [
-      ['05-工程架構與共享層/00-工程架構與共享層總覽.md', architectureOverviewDoc, '`frontend/` package manifest 已聲明 `@cj/contracts` workspace dependency'],
-      ['05-工程架構與共享層/00-工程架構與共享層總覽.md', architectureOverviewDoc, '`frontend-admin/` package manifest 已聲明 `@cj/contracts` 與 `@cj/api-client` workspace dependencies'],
-      ['05-工程架構與共享層/Repo平台分層與共享規範.md', repoLayerSpecDoc, '`frontend/package.json` 已聲明 `@cj/contracts` workspace dependency'],
-      ['05-工程架構與共享層/Repo平台分層與共享規範.md', repoLayerSpecDoc, '`frontend-admin/package.json` 已聲明 `@cj/contracts` 與 `@cj/api-client` workspace dependencies'],
+      ['05-工程架構與共享層/00-工程架構與共享層總覽.md', architectureOverviewDoc, '`frontend/` package manifest 已聲明 `@emorapy/contracts` workspace dependency'],
+      ['05-工程架構與共享層/00-工程架構與共享層總覽.md', architectureOverviewDoc, '`frontend-admin/` package manifest 已聲明 `@emorapy/contracts` 與 `@emorapy/api-client` workspace dependencies'],
+      ['05-工程架構與共享層/Repo平台分層與共享規範.md', repoLayerSpecDoc, '`frontend/package.json` 已聲明 `@emorapy/contracts` workspace dependency'],
+      ['05-工程架構與共享層/Repo平台分層與共享規範.md', repoLayerSpecDoc, '`frontend-admin/package.json` 已聲明 `@emorapy/contracts` 與 `@emorapy/api-client` workspace dependencies'],
     ];
     for (const [docName, docContent, token] of manifestDependencyTokens) {
       if (!docContent.includes(token)) {
@@ -1895,12 +1895,12 @@ async function main() {
   }
 
   const frontendHasContractsAlias =
-    /"@cj\/contracts"\s*:/.test(frontendTsconfigText) &&
-    /"@cj\/api-client"\s*:/.test(frontendTsconfigText);
+    /"@emorapy\/contracts"\s*:/.test(frontendTsconfigText) &&
+    /"@emorapy\/api-client"\s*:/.test(frontendTsconfigText);
   if (frontendHasContractsAlias) {
     const frontendAliasTokens = [
-      ['05-工程架構與共享層/00-工程架構與共享層總覽.md', architectureOverviewDoc, '`frontend/` 已用 tsconfig alias 接入 `@cj/contracts`'],
-      ['05-工程架構與共享層/Repo平台分層與共享規範.md', repoLayerSpecDoc, '`frontend/tsconfig.app.json` 已接上 `@cj/contracts` 與 `@cj/api-client` alias'],
+      ['05-工程架構與共享層/00-工程架構與共享層總覽.md', architectureOverviewDoc, '`frontend/` 已用 tsconfig alias 接入 `@emorapy/contracts`'],
+      ['05-工程架構與共享層/Repo平台分層與共享規範.md', repoLayerSpecDoc, '`frontend/tsconfig.app.json` 已接上 `@emorapy/contracts` 與 `@emorapy/api-client` alias'],
     ];
     for (const [docName, docContent, token] of frontendAliasTokens) {
       if (!docContent.includes(token)) {
@@ -1911,12 +1911,12 @@ async function main() {
 
   const frontendAdminHasOnlyLocalAlias =
     /"@\/\*"\s*:/.test(frontendAdminTsconfigText) &&
-    !/"@cj\/contracts"\s*:/.test(frontendAdminTsconfigText) &&
-    !/"@cj\/api-client"\s*:/.test(frontendAdminTsconfigText);
+    !/"@emorapy\/contracts"\s*:/.test(frontendAdminTsconfigText) &&
+    !/"@emorapy\/api-client"\s*:/.test(frontendAdminTsconfigText);
   if (frontendAdminHasOnlyLocalAlias) {
     const adminAliasTokens = [
-      ['05-工程架構與共享層/00-工程架構與共享層總覽.md', architectureOverviewDoc, '`frontend-admin/` 目前只有 `@/*` alias，尚未接入 `@cj/contracts` 或 `@cj/api-client`'],
-      ['05-工程架構與共享層/Repo平台分層與共享規範.md', repoLayerSpecDoc, '`frontend-admin/` 尚未接入 `@cj/contracts` / `@cj/api-client` alias'],
+      ['05-工程架構與共享層/00-工程架構與共享層總覽.md', architectureOverviewDoc, '`frontend-admin/` 目前只有 `@/*` alias，尚未接入 `@emorapy/contracts` 或 `@emorapy/api-client`'],
+      ['05-工程架構與共享層/Repo平台分層與共享規範.md', repoLayerSpecDoc, '`frontend-admin/` 尚未接入 `@emorapy/contracts` / `@emorapy/api-client` alias'],
     ];
     for (const [docName, docContent, token] of adminAliasTokens) {
       if (!docContent.includes(token)) {
@@ -1927,12 +1927,12 @@ async function main() {
 
   const frontendAdminHasContractsOnlyAlias =
     /"@\/\*"\s*:/.test(frontendAdminTsconfigText) &&
-    /"@cj\/contracts"\s*:/.test(frontendAdminTsconfigText) &&
-    !/"@cj\/api-client"\s*:/.test(frontendAdminTsconfigText);
+    /"@emorapy\/contracts"\s*:/.test(frontendAdminTsconfigText) &&
+    !/"@emorapy\/api-client"\s*:/.test(frontendAdminTsconfigText);
   if (frontendAdminHasContractsOnlyAlias) {
     const adminContractsAliasTokens = [
-      ['05-工程架構與共享層/00-工程架構與共享層總覽.md', architectureOverviewDoc, '`frontend-admin/` 已接入 `@cj/contracts` alias，但仍未接入 `@cj/api-client`'],
-      ['05-工程架構與共享層/Repo平台分層與共享規範.md', repoLayerSpecDoc, '`frontend-admin/tsconfig.app.json` 已接上 `@cj/contracts` alias，尚未接入 `@cj/api-client`'],
+      ['05-工程架構與共享層/00-工程架構與共享層總覽.md', architectureOverviewDoc, '`frontend-admin/` 已接入 `@emorapy/contracts` alias，但仍未接入 `@emorapy/api-client`'],
+      ['05-工程架構與共享層/Repo平台分層與共享規範.md', repoLayerSpecDoc, '`frontend-admin/tsconfig.app.json` 已接上 `@emorapy/contracts` alias，尚未接入 `@emorapy/api-client`'],
     ];
     for (const [docName, docContent, token] of adminContractsAliasTokens) {
       if (!docContent.includes(token)) {
@@ -1943,13 +1943,13 @@ async function main() {
 
   const frontendAdminHasSharedAliases =
     /"@\/\*"\s*:/.test(frontendAdminTsconfigText) &&
-    /"@cj\/contracts"\s*:/.test(frontendAdminTsconfigText) &&
-    /"@cj\/api-client"\s*:/.test(frontendAdminTsconfigText);
+    /"@emorapy\/contracts"\s*:/.test(frontendAdminTsconfigText) &&
+    /"@emorapy\/api-client"\s*:/.test(frontendAdminTsconfigText);
   if (frontendAdminHasSharedAliases) {
     const adminSharedAliasTokens = [
-      ['05-工程架構與共享層/00-工程架構與共享層總覽.md', architectureOverviewDoc, '`frontend-admin/` 已接入 `@cj/contracts` 與 `@cj/api-client` alias'],
-      ['05-工程架構與共享層/Repo平台分層與共享規範.md', repoLayerSpecDoc, '`frontend-admin/tsconfig.app.json` 已接上 `@cj/contracts` 與 `@cj/api-client` alias'],
-      ['05-工程架構與共享層/Repo平台分層與共享規範.md', repoLayerSpecDoc, '`frontend-admin/` 仍維持本地 domain API request stack，僅使用 `@cj/api-client` 的 transport baseline'],
+      ['05-工程架構與共享層/00-工程架構與共享層總覽.md', architectureOverviewDoc, '`frontend-admin/` 已接入 `@emorapy/contracts` 與 `@emorapy/api-client` alias'],
+      ['05-工程架構與共享層/Repo平台分層與共享規範.md', repoLayerSpecDoc, '`frontend-admin/tsconfig.app.json` 已接上 `@emorapy/contracts` 與 `@emorapy/api-client` alias'],
+      ['05-工程架構與共享層/Repo平台分層與共享規範.md', repoLayerSpecDoc, '`frontend-admin/` 仍維持本地 domain API request stack，僅使用 `@emorapy/api-client` 的 transport baseline'],
     ];
     for (const [docName, docContent, token] of adminSharedAliasTokens) {
       if (!docContent.includes(token)) {
@@ -1959,10 +1959,10 @@ async function main() {
   }
 
   const backendAndMobileHaveAlias =
-    /"@cj\/contracts"\s*:/.test(backendTsconfigText) &&
-    /"@cj\/contracts"\s*:/.test(mobileTsconfigText) &&
-    /"@cj\/api-client"\s*:/.test(backendTsconfigText) &&
-    /"@cj\/api-client"\s*:/.test(mobileTsconfigText);
+    /"@emorapy\/contracts"\s*:/.test(backendTsconfigText) &&
+    /"@emorapy\/contracts"\s*:/.test(mobileTsconfigText) &&
+    /"@emorapy\/api-client"\s*:/.test(backendTsconfigText) &&
+    /"@emorapy\/api-client"\s*:/.test(mobileTsconfigText);
   if (backendAndMobileHaveAlias) {
     const reservedAliasTokens = [
       ['05-工程架構與共享層/00-工程架構與共享層總覽.md', architectureOverviewDoc, '`backend/` 已改用共享 package declaration artifact'],

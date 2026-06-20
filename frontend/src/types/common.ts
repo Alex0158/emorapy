@@ -6,7 +6,7 @@ import type {
   ApiError as SharedApiError,
   PaginationParams as SharedPaginationParams,
   ResponsibilityRatio as SharedResponsibilityRatio,
-} from '@cj/contracts/common';
+} from '@emorapy/contracts/common';
 
 // API響應格式
 export interface ApiResponse<T = unknown> {

@@ -2,8 +2,8 @@ import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
-import type { Case, CaseStatus } from '@cj/contracts/case';
-import type { AIStreamEvent, AIStreamSnapshot } from '@cj/contracts/ai-stream';
+import type { Case, CaseStatus } from '@emorapy/contracts/case';
+import type { AIStreamEvent, AIStreamSnapshot } from '@emorapy/contracts/ai-stream';
 
 import { connectQuickJudgmentStream, normalizeM1Error, m1Api } from '@/src/features/m1/api';
 import { clearQuickSessionForRecoverableError } from '@/src/features/m1/session';

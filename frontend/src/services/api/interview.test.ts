@@ -17,7 +17,7 @@ vi.mock('../request', () => ({
   default: { __request: true },
 }));
 
-vi.mock('@cj/api-client', () => ({
+vi.mock('@emorapy/api-client', () => ({
   createM2ApiClient: (http: unknown) => {
     expect(http).toEqual({ __request: true });
     return {

@@ -28,10 +28,10 @@
       "@services/*": ["src/services/*"],
       "@utils/*": ["src/utils/*"],
       "@types/*": ["src/types/*"],
-      "@cj/contracts": ["../packages/contracts/types/index.d.ts"],
-      "@cj/contracts/*": ["../packages/contracts/types/*.d.ts"],
-      "@cj/api-client": ["../packages/api-client/types/index.d.ts"],
-      "@cj/api-client/*": ["../packages/api-client/types/*.d.ts"]
+      "@emorapy/contracts": ["../packages/contracts/types/index.d.ts"],
+      "@emorapy/contracts/*": ["../packages/contracts/types/*.d.ts"],
+      "@emorapy/api-client": ["../packages/api-client/types/index.d.ts"],
+      "@emorapy/api-client/*": ["../packages/api-client/types/*.d.ts"]
     }
   },
   "include": ["src/**/*"],

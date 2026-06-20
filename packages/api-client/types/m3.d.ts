@@ -1,6 +1,6 @@
-import type { ChatHistoryVisibilityMode, ChatInvite, ChatJudgmentResult, ChatJudgmentStatus, ChatMessage, ChatRoom, ChatVisibilityScope } from '@cj/contracts/chat';
+import type { ChatHistoryVisibilityMode, ChatInvite, ChatJudgmentResult, ChatJudgmentStatus, ChatMessage, ChatRoom, ChatVisibilityScope } from '@emorapy/contracts/chat';
 import type { M1HttpClient } from './m1.js';
-export type { ChatHistoryVisibilityMode, ChatInvite, ChatJudgmentResult, ChatJudgmentStatus, ChatMessage, ChatRoom, ChatStreamEvent, ChatVisibilityScope, } from '@cj/contracts/chat';
+export type { ChatHistoryVisibilityMode, ChatInvite, ChatJudgmentResult, ChatJudgmentStatus, ChatMessage, ChatRoom, ChatStreamEvent, ChatVisibilityScope, } from '@emorapy/contracts/chat';
 export declare const CHAT_JUDGMENT_REQUEST_TIMEOUT_MS = 180000;
 export interface ListChatMessagesResponse {
     messages: ChatMessage[];

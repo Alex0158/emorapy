@@ -2,7 +2,7 @@
  * 認證API
  */
 
-import { createM1ApiClient } from '@cj/api-client';
+import { createM1ApiClient } from '@emorapy/api-client';
 import request from '../request';
 import type {
   AuthResponse,
@@ -11,7 +11,7 @@ import type {
   LoginDto,
   RegisterDto,
   VerificationType,
-} from '@cj/contracts/auth';
+} from '@emorapy/contracts/auth';
 
 export type User = AuthUser;
 

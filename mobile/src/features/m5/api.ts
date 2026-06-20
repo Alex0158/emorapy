@@ -1,4 +1,4 @@
-import { createM5ApiClient } from '@cj/api-client';
+import { createM5ApiClient } from '@emorapy/api-client';
 
 import { appApiClient } from '@/src/platform/api/client';
 

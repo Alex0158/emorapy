@@ -58,7 +58,7 @@ vi.mock('../request', () => ({
   default: mocks.request,
 }));
 
-vi.mock('@cj/api-client', () => ({
+vi.mock('@emorapy/api-client', () => ({
   createM1ApiClient: vi.fn(() => ({
     quick: {
       createQuickCase: (...args: unknown[]) => mocks.quickCreateQuickCase(...args),

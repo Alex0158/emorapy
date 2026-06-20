@@ -1,4 +1,4 @@
-import type { Evidence } from '@cj/contracts/case';
+import type { Evidence } from '@emorapy/contracts/case';
 import type { M1HttpClient } from './m1.js';
 export type NotificationFeedState = 'unread' | 'all' | 'actionable' | 'snoozed' | 'archived';
 export type NotificationStatus = 'pending' | 'sent' | 'failed' | 'cancelled';

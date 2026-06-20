@@ -3,7 +3,7 @@
  */
 
 import request from '../request';
-import { createM4ApiClient } from '@cj/api-client';
+import { createM4ApiClient } from '@emorapy/api-client';
 
 export interface Pairing {
   id: string;

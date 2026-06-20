@@ -14,8 +14,8 @@ export default defineConfig({
       '@/utils': path.resolve(__dirname, './src/utils'),
       '@/types': path.resolve(__dirname, './src/types'),
       '@/assets': path.resolve(__dirname, './src/assets'),
-      '@cj/contracts': path.resolve(__dirname, '../packages/contracts/src'),
-      '@cj/api-client': path.resolve(__dirname, '../packages/api-client/src'),
+      '@emorapy/contracts': path.resolve(__dirname, '../packages/contracts/src'),
+      '@emorapy/api-client': path.resolve(__dirname, '../packages/api-client/src'),
     },
   },
   test: {

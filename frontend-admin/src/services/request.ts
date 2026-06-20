@@ -6,7 +6,7 @@ import {
   statusToRequestCode,
   toRequestError,
   wrapSuccessfulApiResponse,
-} from '@cj/api-client';
+} from '@emorapy/api-client';
 import { env } from '@/config/env';
 import type { ApiResponse } from '@/types/common';
 import { getLocale, t } from '@/utils/i18n';

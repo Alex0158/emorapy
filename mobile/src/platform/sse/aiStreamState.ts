@@ -2,13 +2,13 @@ import type {
   AIStreamEvent,
   AIStreamScopeType,
   AIStreamSnapshot,
-} from '@cj/contracts/ai-stream';
+} from '@emorapy/contracts/ai-stream';
 export {
   getLatestActiveAIStreamSnapshot,
   getLatestAIStreamSnapshot,
   isTerminalAIStreamEvent,
   isTerminalAIStreamStatus,
-} from '@cj/api-client';
+} from '@emorapy/api-client';
 
 export interface AIStreamReadyEvent {
   scopeType: AIStreamScopeType;

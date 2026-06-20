@@ -1,2 +1,2 @@
-export * from '@cj/contracts/ai-stream';
+export * from '@emorapy/contracts/ai-stream';
 

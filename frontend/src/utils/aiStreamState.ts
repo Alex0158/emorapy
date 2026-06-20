@@ -7,4 +7,4 @@ export {
   type AIStreamDraftStatus,
   type BuildLocalDraftInput,
   type DraftMappingOptions,
-} from '@cj/api-client';
+} from '@emorapy/api-client';

@@ -2,7 +2,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import type { AIStreamEvent } from '@cj/contracts/ai-stream';
+import type { AIStreamEvent } from '@emorapy/contracts/ai-stream';
 
 import { connectInterviewStream, m2Api, normalizeM2Error } from '@/src/features/m2/api';
 import { labelPsychDomains } from '@/src/features/m2/labels';

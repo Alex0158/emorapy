@@ -3,7 +3,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { NotificationFeedState, NotificationItem, NotificationStatus } from '@cj/api-client';
+import type { NotificationFeedState, NotificationItem, NotificationStatus } from '@emorapy/api-client';
 
 import { getRuntimeConfig } from '@/src/config/runtime';
 import { m5Api, normalizeM5Error } from '@/src/features/m5/api';

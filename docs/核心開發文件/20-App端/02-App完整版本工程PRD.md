@@ -25,7 +25,7 @@
 | Navigation | Expo Router，不複製 Web route，不使用 Web route guard 作 App 授權真相 |
 | Server state | TanStack Query；stream / replay / mutation state 需封裝為 App service hook |
 | Client state | Zustand 僅承接 UI / session bootstrap / local transient state |
-| Shared layer | `@cj/contracts`、`@cj/api-client`；必要時新增 packages/domain 收斂純 domain logic |
+| Shared layer | `@emorapy/contracts`、`@emorapy/api-client`；必要時新增 packages/domain 收斂純 domain logic |
 | Native side effects | 統一收斂到 `mobile/src/platform/*` adapter |
 | Release | EAS Build / EAS Submit / EAS Update；iOS TestFlight 可先行安排，但完整 App release sign-off 仍以 M6 strict audit 的 iOS / Android / 真機 / provider / native crash evidence blocker 清零為準 |
 
@@ -72,7 +72,7 @@
 | PRD ID | 需求語句 | 優先級 | 驗證入口 |
 | --- | --- | --- | --- |
 | CJ-PRD-APP-001 | App MUST 使用 Expo React Native + TypeScript 在單一 `mobile/` codebase 承接 iOS-first / Android-compatible 普通用戶 App | P0 | Roadmap M0 / ADR / App smoke |
-| CJ-PRD-APP-002 | App MUST 以 `@cj/contracts` / `@cj/api-client` 或共享 domain layer 為 API / DTO 來源，不長期手寫 App-only DTO | P0 | Cross-contract tests / Parity |
+| CJ-PRD-APP-002 | App MUST 以 `@emorapy/contracts` / `@emorapy/api-client` 或共享 domain layer 為 API / DTO 來源，不長期手寫 App-only DTO | P0 | Cross-contract tests / Parity |
 | CJ-PRD-APP-003 | App MUST 建立 native navigation skeleton，替換 `Tab One` / `Tab Two` / template modal，並按 App route group 承接功能 | P0 | App smoke / navigation inspection |
 | CJ-PRD-APP-004 | App MUST 透過 SecureStore adapter 管理 token、anonymous session 與必要 device metadata，不在 screen 直接讀寫 SecureStore | P0 | Platform adapter tests |
 | CJ-PRD-APP-005 | App MUST 支援 Quick flow、anonymous session restore、result replay 與 claim-session handoff | P0 | Quick + Auth milestone smoke |

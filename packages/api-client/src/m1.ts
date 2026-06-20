@@ -4,9 +4,9 @@ import type {
   LoginDto,
   RegisterDto,
   VerificationType,
-} from '@cj/contracts/auth';
-import type { Case, QuickCaseDto } from '@cj/contracts/case';
-import type { Session } from '@cj/contracts/session';
+} from '@emorapy/contracts/auth';
+import type { Case, QuickCaseDto } from '@emorapy/contracts/case';
+import type { Session } from '@emorapy/contracts/session';
 
 import {
   isApiResponseEnvelope,

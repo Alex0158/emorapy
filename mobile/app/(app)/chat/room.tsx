@@ -2,8 +2,8 @@ import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ChatHistoryVisibilityMode, ChatMessage, ChatVisibilityScope } from '@cj/api-client';
-import type { AIStreamEvent } from '@cj/contracts/ai-stream';
+import type { ChatHistoryVisibilityMode, ChatMessage, ChatVisibilityScope } from '@emorapy/api-client';
+import type { AIStreamEvent } from '@emorapy/contracts/ai-stream';
 
 import { connectChatAIStream, connectChatRoomStream, m3Api, normalizeM3Error } from '@/src/features/m3/api';
 import {

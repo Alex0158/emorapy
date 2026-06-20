@@ -10,7 +10,7 @@ export type {
   AdminJobStatsTotals,
   AdminListResponse,
   RateBase,
-} from '@cj/contracts/admin';
+} from '@emorapy/contracts/admin';
 
 export interface AdminIdentity {
   id: string;

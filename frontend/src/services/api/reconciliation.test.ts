@@ -52,7 +52,7 @@ vi.mock('../request', () => ({
   default: mocks.request,
 }));
 
-vi.mock('@cj/api-client', () => ({
+vi.mock('@emorapy/api-client', () => ({
   createM4ApiClient: (...args: unknown[]) => mocks.createM4ApiClient(...args),
 }));
 

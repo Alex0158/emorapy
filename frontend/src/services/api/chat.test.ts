@@ -44,7 +44,7 @@ const mocks = vi.hoisted(() => ({
   })),
 }));
 
-vi.mock('@cj/api-client', () => ({
+vi.mock('@emorapy/api-client', () => ({
   createM3ApiClient: (...args: unknown[]) => mocks.createM3ApiClient(...args),
 }));
 

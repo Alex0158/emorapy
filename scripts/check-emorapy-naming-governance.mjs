@@ -23,6 +23,10 @@ const USER_FACING_SCAN_PATTERNS = [
   'mobile/src/**/*.{ts,tsx}',
 ];
 
+const OPERATOR_VISIBLE_SCAN_PATTERNS = [
+  'scripts/**/*.sh',
+];
+
 const USER_FACING_IGNORE_PATTERNS = [
   '**/*.test.ts',
   '**/*.test.tsx',
@@ -30,6 +34,10 @@ const USER_FACING_IGNORE_PATTERNS = [
   '**/*.spec.tsx',
   '**/__tests__/**',
   '**/dist/**',
+  '**/node_modules/**',
+];
+
+const OPERATOR_VISIBLE_IGNORE_PATTERNS = [
   '**/node_modules/**',
 ];
 
@@ -251,6 +259,24 @@ async function checkUserFacingCopy() {
   }
 }
 
+async function checkOperatorVisibleCopy() {
+  const files = await glob(OPERATOR_VISIBLE_SCAN_PATTERNS, {
+    cwd: repoRoot,
+    nodir: true,
+    ignore: OPERATOR_VISIBLE_IGNORE_PATTERNS,
+  });
+
+  for (const file of files) {
+    const text = readText(file);
+    for (const rule of LEGACY_VISIBLE_COPY_RULES) {
+      rule.pattern.lastIndex = 0;
+      for (const match of text.matchAll(rule.pattern)) {
+        fail(`${file}:${lineNumberAt(text, match.index ?? 0)} [${rule.id}] ${rule.message}`);
+      }
+    }
+  }
+}
+
 async function checkCurrentPackageScope() {
   const files = await glob(CURRENT_PACKAGE_SCOPE_SCAN_PATTERNS, {
     cwd: repoRoot,
@@ -281,6 +307,7 @@ function checkNamingPolicyDocs() {
 checkAppJsonIdentity();
 await checkAppIdentityFiles();
 await checkUserFacingCopy();
+await checkOperatorVisibleCopy();
 await checkCurrentPackageScope();
 checkNamingPolicyDocs();
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# CJ 平台 - 部署驗證腳本
+# Emorapy - 部署驗證腳本
 # 用於驗證部署是否成功
 
 set -e
@@ -16,7 +16,7 @@ NC='\033[0m'
 BACKEND_URL="${BACKEND_URL:-http://localhost:3001}"
 FRONTEND_URL="${FRONTEND_URL:-http://localhost:5173}"
 
-echo "🔍 部署驗證 - CJ 平台"
+echo "🔍 部署驗證 - Emorapy"
 echo "================================"
 echo ""
 echo "後端URL: ${BACKEND_URL}"

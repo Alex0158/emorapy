@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# CJ 平台 - 生產環境設置腳本
+# Emorapy - 生產環境設置腳本
 # 用於初始化生產環境配置
 
 set -e
@@ -69,4 +69,3 @@ echo "2. JWT密鑰（JWT_SECRET）- 使用強隨機字符串"
 echo "3. OpenAI API密鑰（OPENAI_API_KEY）"
 echo "4. 前端URL（FRONTEND_URL）"
 echo "5. CORS配置（ALLOWED_ORIGINS）"
-

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# CJ 平台 - 健康檢查腳本
+# Emorapy - 健康檢查腳本
 # 用於檢查服務健康狀態
 
 # 顏色定義
@@ -12,9 +12,9 @@ NC='\033[0m'
 # 默認配置
 API_URL="${API_URL:-http://localhost:3001}"
 HEALTH_ENDPOINT="${HEALTH_ENDPOINT:-/health}"
-SERVICE_MATCH_REGEX="${SERVICE_MATCH_REGEX:-cj-platform|mother-bear-court}"
+SERVICE_MATCH_REGEX="${SERVICE_MATCH_REGEX:-emorapy-backend|cj-platform|mother-bear-court}"
 
-echo "🏥 健康檢查 - CJ 平台"
+echo "🏥 健康檢查 - Emorapy"
 echo "================================"
 echo ""
 

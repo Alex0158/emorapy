@@ -244,9 +244,9 @@ jobs:
     runs-on: ubuntu-latest
     environment: Production
     env:
-      BACKEND_BASE_URL: ${{ vars.PRODUCTION_BACKEND_BASE_URL || secrets.PRODUCTION_BACKEND_BASE_URL }}
-      MAIN_WEB_URL: ${{ vars.PRODUCTION_MAIN_WEB_URL || 'https://mother-bear-court.vercel.app' }}
-      ADMIN_WEB_URL: ${{ vars.PRODUCTION_ADMIN_WEB_URL || 'https://frontend-admin-sigma-virid.vercel.app' }}
+      BACKEND_BASE_URL: ${{ vars.EMORAPY_BACKEND_BASE_URL || secrets.EMORAPY_BACKEND_BASE_URL || vars.PRODUCTION_BACKEND_BASE_URL || secrets.PRODUCTION_BACKEND_BASE_URL }}
+      MAIN_WEB_URL: ${{ vars.EMORAPY_MAIN_WEB_URL || vars.PRODUCTION_MAIN_WEB_URL || 'https://mother-bear-court.vercel.app' }}
+      ADMIN_WEB_URL: ${{ vars.EMORAPY_ADMIN_WEB_URL || vars.PRODUCTION_ADMIN_WEB_URL || 'https://frontend-admin-sigma-virid.vercel.app' }}
       DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL || secrets.APP_RELEASE_DATABASE_URL }}
       REDIS_URL: ${{ secrets.PRODUCTION_REDIS_URL }}
       ADMIN_JWT_EXPIRES_IN: ${{ secrets.PRODUCTION_ADMIN_JWT_EXPIRES_IN }}

@@ -152,9 +152,9 @@ Production workflow 的固定 GitHub Variables：
 | `VERCEL_ORG_ID` | Vercel team / org id |
 | `VERCEL_MAIN_PROJECT_ID` | 主站 Vercel project id |
 | `VERCEL_ADMIN_PROJECT_ID` | Admin Vercel project id |
-| `PRODUCTION_BACKEND_BASE_URL` | Railway production backend base URL |
-| `PRODUCTION_MAIN_WEB_URL` | 主站 production URL |
-| `PRODUCTION_ADMIN_WEB_URL` | Admin production URL |
+| `EMORAPY_BACKEND_BASE_URL` / `PRODUCTION_BACKEND_BASE_URL` | Railway production backend base URL；release gate workflow 先讀 Emorapy 新名，再 fallback 舊 production 變數 / secret |
+| `EMORAPY_MAIN_WEB_URL` / `PRODUCTION_MAIN_WEB_URL` | 主站 production URL；release gate workflow 先讀 Emorapy 新名，再 fallback legacy hostname / var |
+| `EMORAPY_ADMIN_WEB_URL` / `PRODUCTION_ADMIN_WEB_URL` | Admin production URL；release gate workflow 先讀 Emorapy 新名，再 fallback legacy var |
 | `EMORAPY_RAILWAY_SERVICE_NAME` / `PRODUCTION_RAILWAY_SERVICE` | Railway production service name；production workflow 先讀 Emorapy 新名，再 fallback 舊 deployment var / legacy default |
 
 Production workflow 的固定 GitHub Secrets：

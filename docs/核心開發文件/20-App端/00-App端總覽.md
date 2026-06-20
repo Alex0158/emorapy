@@ -4,8 +4,8 @@
 **文檔類型**：App端規格
 **覆蓋範圍**：Expo App 基線、原生能力邊界與 App 開發投影總覽
 **取證代碼入口**：`mobile/package.json`、`mobile/app`、`mobile/src/platform`、`packages/contracts/src`、`packages/api-client/src`
-**最後核驗 Commit**：`23e85ef`
-**最後核驗日期**：`2026-05-31`
+**最後核驗 Commit**：`e7d2af5`
+**最後核驗日期**：`2026-06-20`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 ## 1. 當前 App 基線

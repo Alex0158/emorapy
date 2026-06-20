@@ -4,8 +4,8 @@
 **文檔類型**：App端規格
 **覆蓋範圍**：完整 App 版從開發前規格到 iOS TestFlight / Android readiness 的里程碑、完成定義、依賴與測試 gate
 **取證代碼入口**：`mobile/package.json`、`mobile/app`、`mobile/src/platform`、`packages/contracts/src`、`packages/api-client/src`、`backend/src/routes`、`mobile/scripts/check-release-completion-audit.mjs`
-**最後核驗 Commit**：`23e85ef`
-**最後核驗日期**：`2026-05-31`
+**最後核驗 Commit**：`e7d2af5`
+**最後核驗日期**：`2026-06-20`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 ## 1. 定位

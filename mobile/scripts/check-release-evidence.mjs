@@ -3,11 +3,28 @@ import path from 'node:path';
 import process from 'node:process';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { collectReleaseEnvFileArgs, loadReleaseEnvFilesFromArgs } from './lib/release-env-file.mjs';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const mobileRoot = path.resolve(scriptDir, '..');
 const repoRoot = path.resolve(mobileRoot, '..');
+try {
+  loadReleaseEnvFilesFromArgs(process.argv.slice(2), {
+    roots: [process.cwd(), mobileRoot, repoRoot],
+  });
+} catch (error) {
+  console.error(`[release-evidence-check] ${error instanceof Error ? error.message : String(error)}`);
+  process.exit(1);
+}
 const releaseCompletionAuditScript = path.join(scriptDir, 'check-release-completion-audit.mjs');
+const releaseEnvFileArgs = collectReleaseEnvFileArgs(process.argv.slice(2));
+const defaultReleaseEnvFilePath = path.join(mobileRoot, 'release.env.local');
+const releaseCompletionAuditArgs =
+  releaseEnvFileArgs.length > 0
+    ? ['--json', ...releaseEnvFileArgs]
+    : fs.existsSync(defaultReleaseEnvFilePath)
+      ? ['--json', `--release-env-file=${defaultReleaseEnvFilePath}`]
+      : ['--json'];
 const evidenceRoot = path.join(
   repoRoot,
   'docs/核心開發文件/90-證據與盤點/環境與發版驗證'
@@ -249,7 +266,7 @@ function requireCommandIncludes(commands, needle, label) {
 }
 
 function runReleaseCompletionAuditJson() {
-  const result = spawnSync(process.execPath, [releaseCompletionAuditScript, '--json'], {
+  const result = spawnSync(process.execPath, [releaseCompletionAuditScript, ...releaseCompletionAuditArgs], {
     cwd: mobileRoot,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],

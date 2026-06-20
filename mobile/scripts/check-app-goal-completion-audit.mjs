@@ -3,12 +3,22 @@ import path from 'node:path';
 import process from 'node:process';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { collectReleaseEnvFileArgs, loadReleaseEnvFilesFromArgs } from './lib/release-env-file.mjs';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const mobileRoot = path.resolve(scriptDir, '..');
 const repoRoot = path.resolve(mobileRoot, '..');
+try {
+  loadReleaseEnvFilesFromArgs(process.argv.slice(2), {
+    roots: [process.cwd(), mobileRoot, repoRoot],
+  });
+} catch (error) {
+  console.error(`[goal-completion-audit] ${error instanceof Error ? error.message : String(error)}`);
+  process.exit(1);
+}
 const strict = process.argv.includes('--strict');
 const json = process.argv.includes('--json');
+const releaseEnvFileArgs = collectReleaseEnvFileArgs(process.argv.slice(2));
 const reportDirArg = process.argv
   .slice(2)
   .find((arg) => arg.startsWith('--report-dir='));
@@ -229,9 +239,15 @@ function buildReleaseSignoffDetails(releaseCompletionAudit, strictResult, handof
   };
 }
 
-const releaseCompletionAuditResult = runNodeScript('mobile/scripts/check-release-completion-audit.mjs', ['--json']);
+const releaseCompletionAuditResult = runNodeScript('mobile/scripts/check-release-completion-audit.mjs', [
+  '--json',
+  ...releaseEnvFileArgs,
+]);
 const releaseCompletionAudit = parseJsonOutput(releaseCompletionAuditResult);
-const releaseStrict = runNodeScript('mobile/scripts/check-release-completion-audit.mjs', ['--strict']);
+const releaseStrict = runNodeScript('mobile/scripts/check-release-completion-audit.mjs', [
+  '--strict',
+  ...releaseEnvFileArgs,
+]);
 const latestExternalHandoffPath = listLatest('App-External-Evidence-Handoff-');
 const latestExternalHandoff = readJsonIfExists(latestExternalHandoffPath);
 const releaseSignoffDetails = buildReleaseSignoffDetails(

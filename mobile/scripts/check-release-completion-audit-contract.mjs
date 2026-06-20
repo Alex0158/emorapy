@@ -2,7 +2,8 @@ import path from 'node:path';
 import process from 'node:process';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const mobileRoot = path.resolve(scriptDir, '..');
@@ -382,6 +383,68 @@ for (const id of ['expo_token', 'apple_submission_credentials', 'app_store_conne
   }
 }
 
+const tempRoot = mkdtempSync(path.join(os.tmpdir(), 'emorapy-release-audit-contract-'));
+try {
+  const envFilePath = path.join(tempRoot, 'release.env.local');
+  writeFileSync(
+    envFilePath,
+    [
+      'APP_EAS_PROJECT_FULL_NAME=@alexdev518/emorapy-mobile',
+      'EXPO_TOKEN=REPLACE_WITH_EXPO_ACCESS_TOKEN',
+      'ASC_APPLE_ID=REPLACE_WITH_APPLE_ID_EMAIL',
+      'EXPO_APPLE_APP_SPECIFIC_PASSWORD=REPLACE_WITH_APPLE_APP_SPECIFIC_PASSWORD',
+      'APP_STORE_CONNECT_ISSUER_ID=REPLACE_WITH_ASC_ISSUER_ID',
+      'APP_STORE_CONNECT_KEY_ID=REPLACE_WITH_ASC_KEY_ID',
+      'APP_STORE_CONNECT_PRIVATE_KEY=REPLACE_WITH_ASC_PRIVATE_KEY',
+      '',
+    ].join('\n')
+  );
+
+  const placeholderEnvFileResult = runAudit(['--json', `--release-env-file=${envFilePath}`], {
+    EXPO_TOKEN: '',
+    ASC_APPLE_ID: '',
+    EXPO_APPLE_APP_SPECIFIC_PASSWORD: '',
+    APP_STORE_CONNECT_ISSUER_ID: '',
+    APP_STORE_CONNECT_KEY_ID: '',
+    APP_STORE_CONNECT_PRIVATE_KEY: '',
+  });
+  if (placeholderEnvFileResult.status !== 0) {
+    fail(`placeholder release-env-file JSON audit must exit 0, got ${placeholderEnvFileResult.status}`);
+  }
+  const placeholderEnvFileAudit = parseJsonResult(
+    'placeholder release-env-file JSON audit',
+    placeholderEnvFileResult
+  );
+  validateAuditRecord('placeholder release-env-file JSON audit', placeholderEnvFileAudit);
+  for (const id of ['expo_token', 'apple_submission_credentials', 'app_store_connect_api_credentials']) {
+    const check = getCheck(placeholderEnvFileAudit, id);
+    if (check?.status !== 'blocked') {
+      fail(`placeholder release-env-file JSON audit must keep ${id} blocked`);
+    }
+    if (!placeholderEnvFileAudit.blocker_ids.includes(id)) {
+      fail(`placeholder release-env-file JSON audit blocker_ids must include ${id}`);
+    }
+  }
+
+  const unsafeEnvFilePath = path.join(tempRoot, 'unsafe.env');
+  writeFileSync(unsafeEnvFilePath, 'NODE_OPTIONS=--require ./leak.js\n');
+  const unsafeEnvFileResult = runAudit(['--json', `--release-env-file=${unsafeEnvFilePath}`]);
+  if (unsafeEnvFileResult.status === 0) {
+    fail('unsafe release-env-file key audit must exit non-zero');
+  }
+  if (!unsafeEnvFileResult.stderr.includes('unsupported --release-env-file key: NODE_OPTIONS')) {
+    fail('unsafe release-env-file key audit must report unsupported key without value');
+  }
+  if (
+    unsafeEnvFileResult.stderr.includes('--require ./leak.js') ||
+    unsafeEnvFileResult.stdout.includes('--require ./leak.js')
+  ) {
+    fail('unsafe release-env-file key audit must not echo raw value');
+  }
+} finally {
+  rmSync(tempRoot, { recursive: true, force: true });
+}
+
 const handoffResult = runHandoffJson();
 if (handoffResult.status !== 0) {
   fail(`release external handoff JSON must exit 0, got ${handoffResult.status}`);
@@ -402,6 +465,7 @@ if (!scripts['release:preflight']?.includes('release:completion:audit:contract')
 const docsText = releaseDocs.map((filePath) => readFileSync(filePath, 'utf8')).join('\n');
 for (const requiredSnippet of [
   'release:completion:audit -- --json',
+  'release:completion:audit -- --release-env-file=release.env.local --json',
   'release:completion:audit:contract',
   'app-release-completion-audit',
 ]) {

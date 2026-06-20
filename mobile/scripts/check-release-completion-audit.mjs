@@ -5,6 +5,7 @@ import process from 'node:process';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { getExpoProjectIdentityStatus } from './lib/release-app-config.mjs';
+import { loadReleaseEnvFilesFromArgs } from './lib/release-env-file.mjs';
 import {
   buildReleaseEvidencePolicies,
   getReleaseBlockingMigrationCount,
@@ -15,6 +16,16 @@ import {
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const mobileRoot = path.resolve(scriptDir, '..');
 const repoRoot = path.resolve(mobileRoot, '..');
+try {
+  loadReleaseEnvFilesFromArgs(process.argv.slice(2), {
+    roots: [process.cwd(), mobileRoot, repoRoot],
+  });
+} catch (error) {
+  console.error(
+    `[release-completion-audit] ${error instanceof Error ? error.message : String(error)}`
+  );
+  process.exit(1);
+}
 const strict = process.argv.includes('--strict');
 const json = process.argv.includes('--json');
 const fixtureContract = process.argv.includes('--fixture-contract');

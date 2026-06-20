@@ -23,7 +23,7 @@
 3. App 已消費 `@cj/contracts` / `@cj/api-client`；M1-M5 shared domain client、screen action、backend route、DB/schema 影響與 App adapter 由 `features:check`、`true-service:check`、`routes:check` 與 `08/03` 的測試基線守護。2026-06-20 已把 `routes:check` / `features:check` 從硬要求 route file 內中文 literal 調整為 i18n-aware contract：route 必須使用對應 i18n key，zh-TW / en-US catalog 必須保留正式 tab label 與 M2/M3 狀態文案。
 4. release DB parity 與 telemetry runtime 已有 structured pass evidence，可作 release audit 證據槽；後續若 backend schema、release-blocking migration、backend version 或 telemetry runtime 路徑變更，仍需重新取證。
 5. `npm --prefix mobile run release:completion:audit` 與 `npm --prefix mobile run goal:completion:audit` 仍判定 App release sign-off 未完成；M6 strict completion 仍受 EAS project id、Expo token、Apple / App Store Connect credentials、EAS iOS / Android artifact、TestFlight、physical device、push provider delivery 與 production native crash runtime evidence 約束，最終必須以 `release:completion:audit:strict` / `goal:completion:audit:strict` 通過為準。
-6. 外部 status / handoff 的最新 canonical 索引為 `App-External-Evidence-Status-2026-06-20T08-36-00-571Z.json` 與 `App-External-Evidence-Handoff-2026-06-20T08-36-01-001Z.json`；它們只固定 owner 交接、env-file provenance 與 normalized blocker，不解除 M6 strict blocker。
+6. 外部 status / handoff 的最新 canonical 索引為 `App-External-Evidence-Status-2026-06-20T08-57-18-158Z.json` 與 `App-External-Evidence-Handoff-2026-06-20T08-59-34-442Z.json`；它們只固定 owner 交接、env-file provenance 與 normalized blocker，不解除 M6 strict blocker。
 
 本待辦只保留長期治理真相與剩餘缺口；單次命令輸出、機型、耗時、artifact 檔名、runner 演進與歷史修復過程應回到 `90-證據與盤點/`、`文件收斂/` 或對應已處理任務。
 

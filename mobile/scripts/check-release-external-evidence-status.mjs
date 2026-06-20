@@ -360,6 +360,28 @@ function buildStatus() {
     existingPathFromEnv('APP_EAS_IOS_RELEASE_EVIDENCE_FILE') ||
     findLatestEvidence('App-EAS-iOS-Release-');
 
+  const nextCommands = [
+    'EXPO_TOKEN=<token> npm --prefix mobile run eas-ios-release:smoke -- --run',
+    'EXPO_TOKEN=<token> APP_STORE_CONNECT_ISSUER_ID=<issuer> APP_STORE_CONNECT_KEY_ID=<key-id> APP_STORE_CONNECT_PRIVATE_KEY_PATH=<p8-path> npm --prefix mobile run eas-ios-release:smoke -- --run --require-testflight',
+    'EXPO_TOKEN=<token> npm --prefix mobile run eas-android-release:smoke -- --run',
+    'DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer APP_IOS_DEVICE_UDID=<trusted-device-udid> APP_IOS_DEVICE_APP_PATH=<signed-app-path> npm --prefix mobile run release:external-evidence:validate -- --physical-platform=ios --report-dir=<report-dir>',
+    'DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer APP_IOS_DEVICE_UDID=<trusted-device-udid> APP_IOS_DEVICE_APP_PATH=<signed-app-path> npm --prefix mobile run release:external-evidence:run -- --physical-platform=ios --report-dir=<report-dir>',
+    'DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer APP_IOS_DEVICE_UDID=<trusted-device-udid> npm --prefix mobile run physical-device:smoke -- --platform=ios --app-path=<signed-app-path>',
+    'APP_ANDROID_DEVICE_SERIAL=<physical-device-serial> npm --prefix mobile run release:external-evidence:validate -- --physical-platform=android --report-dir=<report-dir>',
+    'APP_ANDROID_DEVICE_SERIAL=<physical-device-serial> npm --prefix mobile run release:external-evidence:run -- --physical-platform=android --report-dir=<report-dir>',
+    'APP_ANDROID_DEVICE_SERIAL=<physical-device-serial> npm --prefix mobile run physical-device:smoke -- --platform=android --run',
+    'APP_PUSH_DELIVERY_EXPO_PUSH_TOKEN=<ExpoPushToken> npm --prefix mobile run push-delivery:smoke -- --run',
+    'APP_SENTRY_ORG=<org> APP_SENTRY_PROJECT=<project> APP_SENTRY_AUTH_TOKEN=<token> APP_NATIVE_CRASH_SENTRY_EVENT_ID=<event-id> npm --prefix mobile run native-crash:runtime:smoke -- --run',
+    'npm --prefix mobile run telemetry:runtime:smoke -- --run --release-env-file=release.env.local',
+    'DATABASE_URL=<release-or-production-postgresql-url> npm --prefix backend run ops:release-db:evidence',
+    'npm --prefix mobile run release:completion:audit:strict',
+  ];
+  if (!easProjectIdentity.valid) {
+    nextCommands.unshift(
+      '在 EAS dashboard 將 project 對齊為 @alexdev518/emorapy-mobile，或新建該 project 後更新 mobile/app.json extra.eas.projectId；不要用 eas project:init --force 作 rename，該命令已實測會把本地 slug 改回 cj-mobile；再於 release env 設定 APP_EAS_PROJECT_FULL_NAME=@alexdev518/emorapy-mobile'
+    );
+  }
+
   const status = {
     type: 'app-external-evidence-status',
     generated_at: new Date().toISOString(),
@@ -448,23 +470,7 @@ function buildStatus() {
         repoRoot
       ),
     },
-    next_commands: [
-      '在 EAS dashboard 將 project 對齊為 @alexdev518/emorapy-mobile，或新建該 project 後更新 mobile/app.json extra.eas.projectId；不要用 eas project:init --force 作 rename，該命令已實測會把本地 slug 改回 cj-mobile；再於 release env 設定 APP_EAS_PROJECT_FULL_NAME=@alexdev518/emorapy-mobile',
-      'EXPO_TOKEN=<token> npm --prefix mobile run eas-ios-release:smoke -- --run',
-      'EXPO_TOKEN=<token> APP_STORE_CONNECT_ISSUER_ID=<issuer> APP_STORE_CONNECT_KEY_ID=<key-id> APP_STORE_CONNECT_PRIVATE_KEY_PATH=<p8-path> npm --prefix mobile run eas-ios-release:smoke -- --run --require-testflight',
-      'EXPO_TOKEN=<token> npm --prefix mobile run eas-android-release:smoke -- --run',
-      'DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer APP_IOS_DEVICE_UDID=<trusted-device-udid> APP_IOS_DEVICE_APP_PATH=<signed-app-path> npm --prefix mobile run release:external-evidence:validate -- --physical-platform=ios --report-dir=<report-dir>',
-      'DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer APP_IOS_DEVICE_UDID=<trusted-device-udid> APP_IOS_DEVICE_APP_PATH=<signed-app-path> npm --prefix mobile run release:external-evidence:run -- --physical-platform=ios --report-dir=<report-dir>',
-      'DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer APP_IOS_DEVICE_UDID=<trusted-device-udid> npm --prefix mobile run physical-device:smoke -- --platform=ios --app-path=<signed-app-path>',
-      'APP_ANDROID_DEVICE_SERIAL=<physical-device-serial> npm --prefix mobile run release:external-evidence:validate -- --physical-platform=android --report-dir=<report-dir>',
-      'APP_ANDROID_DEVICE_SERIAL=<physical-device-serial> npm --prefix mobile run release:external-evidence:run -- --physical-platform=android --report-dir=<report-dir>',
-      'APP_ANDROID_DEVICE_SERIAL=<physical-device-serial> npm --prefix mobile run physical-device:smoke -- --platform=android --run',
-      'APP_PUSH_DELIVERY_EXPO_PUSH_TOKEN=<ExpoPushToken> npm --prefix mobile run push-delivery:smoke -- --run',
-      'APP_SENTRY_ORG=<org> APP_SENTRY_PROJECT=<project> APP_SENTRY_AUTH_TOKEN=<token> APP_NATIVE_CRASH_SENTRY_EVENT_ID=<event-id> npm --prefix mobile run native-crash:runtime:smoke -- --run',
-      'npm --prefix mobile run telemetry:runtime:smoke -- --run --release-env-file=release.env.local',
-      'DATABASE_URL=<release-or-production-postgresql-url> npm --prefix backend run ops:release-db:evidence',
-      'npm --prefix mobile run release:completion:audit:strict',
-    ],
+    next_commands: nextCommands,
   };
   return {
     ...status,

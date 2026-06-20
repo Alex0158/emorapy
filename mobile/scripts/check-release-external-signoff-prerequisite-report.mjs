@@ -88,12 +88,12 @@ function runCase({ label, args, expectedMode, expectedPhysicalPlatform = 'ios' }
         APP_STORE_CONNECT_KEY_ID: 'asc-key-id',
         APP_STORE_CONNECT_PRIVATE_KEY_PATH: missingAscKeyPath,
         APP_PUSH_DELIVERY_EXPO_PUSH_TOKEN: 'ExpoPushToken[push-token-secret]',
-        APP_SENTRY_ORG: 'cj-org',
+        APP_SENTRY_ORG: 'emorapy-org',
         APP_SENTRY_PROJECT: 'emorapy-mobile',
         APP_SENTRY_AUTH_TOKEN: 'sentry-token-secret',
         APP_NATIVE_CRASH_SENTRY_EVENT_ID: 'native-event-secret',
         APP_TELEMETRY_RUNTIME_API_BASE_URL: 'https://telemetry-runtime.example.invalid/api/v1',
-        DATABASE_URL: 'postgresql://release:db-password-secret@release-db.example.invalid/cj',
+        DATABASE_URL: 'postgresql://release:db-password-secret@release-db.example.invalid/emorapy',
         APP_IOS_DEVICE_UDID: '00000000-000000000000000000000000',
         APP_IOS_DEVICE_APP_PATH: missingAppPath,
         APP_EAS_IOS_REQUIRE_TESTFLIGHT: 'true',
@@ -415,7 +415,7 @@ function runDryRunStatusReportCase() {
         ...process.env,
         EXPO_TOKEN: 'expo-token-secret',
         APP_PUSH_DELIVERY_EXPO_PUSH_TOKEN: 'ExpoPushToken[push-token-secret]',
-        DATABASE_URL: 'postgresql://release:db-password-secret@release-db.example.invalid/cj',
+        DATABASE_URL: 'postgresql://release:db-password-secret@release-db.example.invalid/emorapy',
       },
     }
   );
@@ -576,7 +576,7 @@ function runDryRunEnvFileStatusProvenanceCase() {
     [
       'EXPO_TOKEN=expo-token-secret',
       'APP_TELEMETRY_RUNTIME_API_BASE_URL=https://telemetry-runtime.example.invalid/api/v1',
-      'DATABASE_URL=postgresql://release:db-password-secret@release-db.example.invalid/cj',
+      'DATABASE_URL=postgresql://release:db-password-secret@release-db.example.invalid/emorapy',
       '',
     ].join('\n')
   );

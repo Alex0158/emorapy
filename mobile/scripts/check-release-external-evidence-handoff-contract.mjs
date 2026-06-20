@@ -42,7 +42,7 @@ const controlledSecrets = [
   'controlled-sentry-auth-token-secret',
   'controlled-native-crash-event-secret',
   'https://telemetry-runtime.example.com/api/v1',
-  'postgresql://controlled-user:controlled-pass@release-db.example.com:5432/cj',
+  'postgresql://controlled-user:controlled-pass@release-db.example.com:5432/emorapy',
 ];
 
 function fail(message) {

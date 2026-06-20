@@ -52,7 +52,7 @@ const cases = [
     args: [
       '--run',
       '--sentry-base-url=http://127.0.0.1:9',
-      '--sentry-org=cj-org',
+      '--sentry-org=emorapy-org',
       '--sentry-project=emorapy-mobile',
       '--sentry-auth-token=sentry-token-secret',
       '--sentry-event-id=native-event-secret',
@@ -119,7 +119,7 @@ function runRedactionExtraDirChecks() {
   const leakNeedles = [
     'controlled-bearer-token-secret',
     'ExpoPushToken[controlled-push-token-secret]',
-    'postgresql://user:pass@release-db.example.com:5432/cj',
+    'postgresql://user:pass@release-db.example.com:5432/emorapy',
   ];
   fs.writeFileSync(
     path.join(leakDir, 'App-External-Signoff-Prerequisites-Leak.json'),

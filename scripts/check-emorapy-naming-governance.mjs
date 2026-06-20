@@ -196,6 +196,16 @@ const LEGACY_SOURCE_IDENTITY_RULES = [
     pattern: /\bcj-(?:release-(?:evidence-sanitize|status(?:-[a-z-]+)?|signoff-prereq|handoff-report|evidence-fixtures)|goal-audit-contract)-/g,
     message: 'Current App release/audit contract temp fixture prefixes must use emorapy-* naming.',
   },
+  {
+    id: 'legacy-app-release-controlled-sentry-org',
+    pattern: /\bcj-org\b/g,
+    message: 'Current App release controlled Sentry org fixtures must use emorapy-org.',
+  },
+  {
+    id: 'legacy-app-release-controlled-db-path',
+    pattern: /release-db\.example(?:\.(?:com|invalid))?(?::\d+)?\/cj\b/g,
+    message: 'Current App release controlled DB fixture paths must use /emorapy.',
+  },
 ];
 
 const LEGACY_DOC_LEADIN_RULES = [

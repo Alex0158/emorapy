@@ -13,7 +13,16 @@ const json = process.argv.includes('--json');
 const repoArg = process.argv.find((arg) => arg.startsWith('--repo='));
 const environmentArg = process.argv.find((arg) => arg.startsWith('--env='));
 const releaseEnvFileArg = process.argv.find((arg) => arg.startsWith('--release-env-file='));
-const repo = repoArg?.slice('--repo='.length) || 'Alex0158/mother-bear-court';
+function resolveRepo() {
+  return (
+    repoArg?.slice('--repo='.length).trim() ||
+    process.env.EMORAPY_GITHUB_REPO?.trim() ||
+    process.env.GITHUB_REPOSITORY?.trim() ||
+    'Alex0158/mother-bear-court'
+  );
+}
+
+const repo = resolveRepo();
 const environment = environmentArg?.slice('--env='.length) || 'Production';
 const envFile = releaseEnvFileArg
   ? path.resolve(mobileRoot, releaseEnvFileArg.slice('--release-env-file='.length))

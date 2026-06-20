@@ -1513,6 +1513,8 @@ requireValue(
     githubSecretNamesScript.includes('ready_for_workflow_validate') &&
     githubSecretNamesScript.includes('missing_secret_name_count') &&
     githubSecretNamesScript.includes('APP_RELEASE_DATABASE_URL') &&
+    githubSecretNamesScript.includes('EMORAPY_GITHUB_REPO') &&
+    githubSecretNamesScript.includes('GITHUB_REPOSITORY') &&
     githubSecretNamesScript.includes("const defaultWorkflowEnvironment = 'Production'") &&
     githubSecretNamesScript.includes('missing_configured_environments') &&
     githubSecretNamesScript.includes('encodeURIComponent(environment)'),
@@ -1521,6 +1523,8 @@ requireValue(
 requireValue(
   githubSecretsSyncScript.includes('values_redacted') &&
     githubSecretsSyncScript.includes("const environment = environmentArg?.slice('--env='.length) || 'Production'") &&
+    githubSecretsSyncScript.includes('EMORAPY_GITHUB_REPO') &&
+    githubSecretsSyncScript.includes('GITHUB_REPOSITORY') &&
     githubSecretsSyncScript.includes("const apply = process.argv.includes('--apply')") &&
     githubSecretsSyncScript.includes("runGh(['secret', 'set', secret.secretName, '--repo', repo, '--env', environment]") &&
     githubSecretsSyncScript.includes("['DATABASE_URL', 'APP_RELEASE_DATABASE_URL']") &&

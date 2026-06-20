@@ -124,6 +124,9 @@ function assertFullDryRun(status) {
   if (status.type !== 'app-release-github-secret-sync-status') fail('full dry-run type mismatch.');
   if (status.ok !== true) fail('full dry-run must be ok=true.');
   if (status.apply !== false) fail('full dry-run must have apply=false.');
+  if (status.repo !== 'Alex0158/emorapy-controlled') {
+    fail('full dry-run must resolve repo from EMORAPY_GITHUB_REPO when --repo is not passed.');
+  }
   if (status.summary?.required_secret_name_count !== 16) fail('full dry-run must require 16 secret names.');
   if (status.summary?.secret_name_to_set_count !== 16) fail('full dry-run must set 16 secret names.');
   if (status.summary?.ready_for_current_completion_sync_inputs !== true) {
@@ -194,7 +197,9 @@ try {
   writeEnvFile(fullEnvPath, buildFullEnvEntries(privateKeyPath));
   writeEnvFile(partialEnvPath, buildPartialEnvEntries());
 
-  const fullDryRun = runSync(['--json', `--release-env-file=${fullEnvPath}`]);
+  const fullDryRun = runSync(['--json', `--release-env-file=${fullEnvPath}`], {
+    EMORAPY_GITHUB_REPO: 'Alex0158/emorapy-controlled',
+  });
   if (fullDryRun.status !== 0) {
     fail(`full dry-run must exit 0 without gh on PATH; status=${fullDryRun.status} stderr=${fullDryRun.stderr.trim()}`);
   }

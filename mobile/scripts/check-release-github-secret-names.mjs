@@ -8,7 +8,16 @@ const environmentArgs = process.argv
   .filter((arg) => arg.startsWith('--env='))
   .map((arg) => arg.slice('--env='.length))
   .filter(Boolean);
-const repo = repoArg?.slice('--repo='.length) || 'Alex0158/mother-bear-court';
+function resolveRepo() {
+  return (
+    repoArg?.slice('--repo='.length).trim() ||
+    process.env.EMORAPY_GITHUB_REPO?.trim() ||
+    process.env.GITHUB_REPOSITORY?.trim() ||
+    'Alex0158/mother-bear-court'
+  );
+}
+
+const repo = resolveRepo();
 const defaultWorkflowEnvironment = 'Production';
 
 const currentCompletionRepoSecrets = [

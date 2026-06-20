@@ -20,7 +20,7 @@
 
 1. `mobile/app` 已從 Expo template 轉為 CJ public / authenticated route group、普通用戶 M0-M5 screen、root provider、root error boundary 與 `modal`。
 2. `mobile/src/platform` 已建立 API、SecureStore、SSE / AI stream、upload、notifications、linking、lifecycle、telemetry runtime adapter，且 `platform:check` 會阻止 screen / feature 層直接調 native side effect。
-3. App 已消費 `@cj/contracts` / `@cj/api-client`；M1-M5 shared domain client、screen action、backend route、DB/schema 影響與 App adapter 由 `features:check`、`true-service:check`、`routes:check` 與 `08/03` 的測試基線守護。
+3. App 已消費 `@cj/contracts` / `@cj/api-client`；M1-M5 shared domain client、screen action、backend route、DB/schema 影響與 App adapter 由 `features:check`、`true-service:check`、`routes:check` 與 `08/03` 的測試基線守護。2026-06-20 已把 `routes:check` / `features:check` 從硬要求 route file 內中文 literal 調整為 i18n-aware contract：route 必須使用對應 i18n key，zh-TW / en-US catalog 必須保留正式 tab label 與 M2/M3 狀態文案。
 4. release DB parity 與 telemetry runtime 已有 structured pass evidence，可作 release audit 證據槽；後續若 backend schema、release-blocking migration、backend version 或 telemetry runtime 路徑變更，仍需重新取證。
 5. `npm --prefix mobile run release:completion:audit` 與 `npm --prefix mobile run goal:completion:audit` 仍判定 App release sign-off 未完成；M6 strict completion 仍受 EAS project id、Expo token、Apple / App Store Connect credentials、EAS iOS / Android artifact、TestFlight、physical device、push provider delivery 與 production native crash runtime evidence 約束，最終必須以 `release:completion:audit:strict` / `goal:completion:audit:strict` 通過為準。
 6. 外部 status / handoff 的最新 canonical 索引為 `App-External-Evidence-Status-2026-06-20T08-02-26-291Z.json` 與 `App-External-Evidence-Handoff-2026-06-20T08-02-29-810Z.json`；它們只固定 owner 交接、env-file provenance 與 normalized blocker，不解除 M6 strict blocker。
@@ -40,6 +40,8 @@
 | M4 Formal Case + Repair | Case / Repair screen、formal evidence upload、repair plan select、execution confirm、replan stream replay 已成 baseline | formal case safety assertion shared DTO / typed create UX、native selected-media / profile media evidence、repair 全狀態 native evidence | `features:check`、`true-service:check`、formal safety DTO 待辦 |
 | M5 Push + Deep Link + Upload + Telemetry | token register / revoke、notification state sync、Deep Link auth resume、upload handoff、safe telemetry ingest 已成 baseline | provider delivery、APNs sandbox、真機 notification lifecycle、production native crash runtime evidence | `features:check`、`platform:check`、release evidence runners |
 | M6 Release Hardening | readiness / evidence runner / audit tooling、Android emulator boot smoke、Android release APK install/launch smoke 已成 baseline；release DB parity 與 telemetry runtime 為可刷新證據槽 | release completion blockers 未清零：EAS project id、Expo token、Apple / ASC credentials、EAS iOS / Android artifact、TestFlight、physical device、push provider delivery、production native crash runtime | `release:completion:audit`、`release:completion:audit:strict`、`App外部ReleaseSignoff待辦` |
+
+2026-06-20：`npm --prefix mobile run routes:check` 與 `npm --prefix mobile run features:check` 已恢復通過。修復方式是讓 gate 驗證 App route 使用 `t('appTabs.*')`、`t('profileInterview.syncStatus')`、`t('chatRoom.aiDraftStatus')`，並同步驗證 zh-TW / en-US catalog 內保留「案件 / 對話 / 個人 / 提醒 / 修復」、「同步狀態」、「協調草稿」與英文對應文案；未改動 API、DB、shared contract、App route topology 或使用者流程。
 
 ## 3. Web 配合任務
 

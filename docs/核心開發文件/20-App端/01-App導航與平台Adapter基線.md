@@ -47,7 +47,7 @@
 4. baseline navigation 應先建立可追溯骨架，再逐步接功能，不應讓單頁臨時 navigation 成為事實標準。
 5. Admin Web 不進普通 App navigation；若需要運營事件回傳，只能走 telemetry / error context，不做 App admin console。
 
-`npm --prefix mobile run routes:check` 是 App route topology contract gate，負責固定 `mobile/app` 的 `(public)`、`(app)`、Quick、Auth、Case、Chat、Profile、Notifications、Repair、`modal` 與 root support route 文件。該 gate 同時禁止 Expo template `(tabs)` / `Tab One` / `Tab Two` 回流，要求 root stack 註冊 `(public)` / `(app)` / `modal`，要求 authenticated deep routes 以 `href: null` 從 tab bar 隱藏；它只能證明路由拓撲沒有漂移，不替代 native navigation、Deep Link、auth resume 或 Maestro runtime evidence。
+`npm --prefix mobile run routes:check` 是 App route topology contract gate，負責固定 `mobile/app` 的 `(public)`、`(app)`、Quick、Auth、Case、Chat、Profile、Notifications、Repair、`modal` 與 root support route 文件。該 gate 同時禁止 Expo template `(tabs)` / `Tab One` / `Tab Two` 回流，要求 root stack 註冊 `(public)` / `(app)` / `modal`，要求 authenticated deep routes 以 `href: null` 從 tab bar 隱藏，並以 i18n-aware contract 固定 authenticated tab 使用 `appTabs.*` key 與 zh-TW / en-US catalog 文案；它只能證明路由拓撲與 tab label contract 沒有漂移，不替代 native navigation、Deep Link、auth resume 或 Maestro runtime evidence。
 
 ## 4. Baseline Screen 分組建議
 

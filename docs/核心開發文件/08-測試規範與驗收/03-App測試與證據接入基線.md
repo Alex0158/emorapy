@@ -43,8 +43,8 @@ App smoke / regression / CI 進入 `08-測試規範與驗收/`、`測試/` 或 `
 
 | Gate | 證明範圍 |
 | --- | --- |
-| `npm --prefix mobile run routes:check` | `mobile/app` route topology、layout registrations、protected route hiding 與 template route 防回流 |
-| `npm --prefix mobile run features:check` | M0-M5 source contract：screen action、shared API endpoint、SSE / Deep Link / Push / Upload / Telemetry adapter、backend notification / telemetry / push route |
+| `npm --prefix mobile run routes:check` | `mobile/app` route topology、layout registrations、protected route hiding、template route 防回流，以及 authenticated tab i18n key / zh-TW / en-US catalog label contract |
+| `npm --prefix mobile run features:check` | M0-M5 source contract：screen action、shared API endpoint、SSE / Deep Link / Push / Upload / Telemetry adapter、backend notification / telemetry / push route，以及 M2/M3 關鍵狀態文案的 route i18n key / catalog contract |
 | `npm --prefix mobile run platform:check` | screen / feature 層不得直接調 native Expo side effect，必須經 `mobile/src/platform` |
 | `npm --prefix mobile run true-service:check` | true-service smoke harness contract 必須保留 M1-M5 true-service smoke scope、local-only DB-state injection safety 與關鍵 probe contract |
 | `npm --prefix mobile run accessibility:check` | App TextInput label / hint static contract |

@@ -184,7 +184,21 @@ const contracts = [
           'useAIStreamSubscription',
           'isRecovering',
           'labelInterviewSyncProgress',
-          '同步狀態',
+          "t('profileInterview.syncStatus')",
+        ],
+      },
+      {
+        path: 'mobile/src/i18n/catalogs/zh-TW.ts',
+        label: 'Interview zh-TW copy catalog',
+        needles: [
+          "'profileInterview.syncStatus': '同步狀態'",
+        ],
+      },
+      {
+        path: 'mobile/src/i18n/catalogs/en-US.ts',
+        label: 'Interview en-US copy catalog',
+        needles: [
+          "'profileInterview.syncStatus': 'Sync status'",
         ],
       },
       {
@@ -264,11 +278,25 @@ const contracts = [
           'connectChatAIStream',
           'useAIStreamSubscription',
           'labelChatAISyncProgress',
-          '協調草稿',
+          "t('chatRoom.aiDraftStatus')",
           'm3Api.chat.listMessages',
           'm3Api.chat.sendMessage',
           'm3Api.chat.requestJudgment',
           'm3Api.chat.getJudgmentStatus',
+        ],
+      },
+      {
+        path: 'mobile/src/i18n/catalogs/zh-TW.ts',
+        label: 'Chat room zh-TW copy catalog',
+        needles: [
+          "'chatRoom.aiDraftStatus': '協調草稿'",
+        ],
+      },
+      {
+        path: 'mobile/src/i18n/catalogs/en-US.ts',
+        label: 'Chat room en-US copy catalog',
+        needles: [
+          "'chatRoom.aiDraftStatus': 'Mediator draft'",
         ],
       },
       {

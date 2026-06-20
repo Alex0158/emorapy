@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 const repoRoot = path.resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const mobileRoot = path.join(repoRoot, 'mobile');
 const appRoot = path.join(mobileRoot, 'app');
+const mobileSrcRoot = path.join(mobileRoot, 'src');
 
 const requiredRouteFiles = [
   '+html.tsx',
@@ -91,11 +92,36 @@ const layoutContracts = [
       'name="profile/story"',
       'name="notifications/index"',
       'name="repair/index"',
-      "title: '案件'",
-      "title: '對話'",
-      "title: '個人'",
-      "title: '提醒'",
-      "title: '修復'",
+      "title: t('appTabs.case')",
+      "title: t('appTabs.chat')",
+      "title: t('appTabs.profile')",
+      "title: t('appTabs.notifications')",
+      "title: t('appTabs.repair')",
+    ],
+  },
+];
+
+const i18nCatalogContracts = [
+  {
+    file: 'i18n/catalogs/zh-TW.ts',
+    label: 'zh-TW App tab labels',
+    needles: [
+      "'appTabs.case': '案件'",
+      "'appTabs.chat': '對話'",
+      "'appTabs.profile': '個人'",
+      "'appTabs.notifications': '提醒'",
+      "'appTabs.repair': '修復'",
+    ],
+  },
+  {
+    file: 'i18n/catalogs/en-US.ts',
+    label: 'en-US App tab labels',
+    needles: [
+      "'appTabs.case': 'Cases'",
+      "'appTabs.chat': 'Chat'",
+      "'appTabs.profile': 'Profile'",
+      "'appTabs.notifications': 'Alerts'",
+      "'appTabs.repair': 'Repair'",
     ],
   },
 ];
@@ -135,6 +161,10 @@ function readRoute(relativePath) {
   return fs.readFileSync(path.join(appRoot, relativePath), 'utf8');
 }
 
+function readMobileSrc(relativePath) {
+  return fs.readFileSync(path.join(mobileSrcRoot, relativePath), 'utf8');
+}
+
 const failures = [];
 const actualFiles = listRouteFiles();
 const actualFileSet = new Set(actualFiles);
@@ -171,6 +201,20 @@ for (const contract of layoutContracts) {
   for (const needle of contract.needles) {
     if (!source.includes(needle)) {
       failures.push(`${contract.label} layout missing ${needle} in mobile/app/${contract.file}`);
+    }
+  }
+}
+
+for (const contract of i18nCatalogContracts) {
+  const absolutePath = path.join(mobileSrcRoot, contract.file);
+  if (!fs.existsSync(absolutePath)) {
+    failures.push(`missing required i18n catalog: mobile/src/${contract.file}`);
+    continue;
+  }
+  const source = readMobileSrc(contract.file);
+  for (const needle of contract.needles) {
+    if (!source.includes(needle)) {
+      failures.push(`${contract.label} catalog missing ${needle} in mobile/src/${contract.file}`);
     }
   }
 }

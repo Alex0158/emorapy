@@ -48,6 +48,23 @@ App 內部實作、文件、preflight 與 release audit contract 已就緒，但
 | iOS Release simulator refresh | Runner 已建立 / 本機 runtime blocked | 2026-06-20 已新增 `npm --prefix mobile run ios:release-simulator:smoke` structured runner，並將 Expo SDK 55 patch dependencies 對齊到 `expo install --check` 通過；本機實跑仍被 Xcode 26.5 / iOS 26.4 simulator runtime mismatch 擋住，`xcodebuild` 要求安裝 iOS 26.5 platform runtime 後才能產生 Emorapy identity pass evidence |
 | Goal completion audit | 未完成 | `goal:completion:audit` 的 `release_signoff` 仍為 missing |
 
+## 2026-06-20 P0 App Store 建檔前置欄位包
+
+本節只列外部 owner 在 Apple Developer / App Store Connect 需要填入或取得的欄位；它不替代 `release:external-evidence:validate/run`，也不代表 TestFlight evidence 已完成。欄位值的完整治理理由見 [Emorapy 命名收斂與外部識別符遷移待辦-2026-06-20.md](./Emorapy命名收斂與外部識別符遷移待辦-2026-06-20.md)。
+
+| 頁面 / 系統 | 欄位 | 指定值 | 完成後回填 / 證據 |
+| --- | --- | --- | --- |
+| Apple Developer / Certificates, Identifiers & Profiles / Identifiers | Explicit App ID | `com.emorapy.app` | App Store Connect New App dialog 能選到此 Bundle ID；不要公開 Team ID / certificate material |
+| Apple Developer / Capabilities | Push Notifications | Enabled | 後續 provider delivery evidence 仍需 `push-delivery:smoke -- --run` 產出 pass JSON |
+| App Store Connect / New App | Name | `Emorapy` | App record status 應進入 Prepare for Submission |
+| App Store Connect / New App | Primary Language | `English (U.S.)` | 若改主語系，先回寫命名待辦 |
+| App Store Connect / New App | Bundle ID | `com.emorapy.app` | 必須與 `mobile/app.json` / Apple Developer explicit App ID 一致 |
+| App Store Connect / New App | SKU | `emorapy-ios-app` | SKU 不可重用；不得使用 `CJ` / `com.cj.motherbearcourt` |
+| App Store Connect / App Information | App Store Connect app id | 頁面建立後取得 | 只填入 ignored env 或 CI secret：`APP_STORE_CONNECT_APP_ID` / `ASC_APP_ID`；公開文件只記 key name |
+| Sentry | Project | `emorapy-mobile` | 完成後把 `APP_SENTRY_PROJECT=emorapy-mobile` 放入 ignored env / CI secret；token / event id 不公開 |
+
+若 Apple Developer 或 App Store Connect 顯示 agreement、trader status、developer name、name unavailable、bundle id unavailable、SKU conflict 或帳號權限問題，先記錄具體訊息並停止；不得臨時改用舊品牌或舊 bundle id 取得通過。
+
 ## 2026-05-30 本輪子任務：外部輸入狀態分層
 
 ### 目標

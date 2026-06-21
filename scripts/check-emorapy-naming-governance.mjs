@@ -752,18 +752,19 @@ function checkLegacyProductionHostnameCompatContract() {
     'scripts/ops-release-smoke.sh',
     'scripts/ops-release-gate-evidence.sh',
   ];
-  const legacyDefaultComment =
-    'Legacy production default until Emorapy domain migration; prefer EMORAPY_* overrides when configured.';
+  const emorapyDefaultComment =
+    'Emorapy Vercel project-domain defaults; legacy Vercel aliases remain available for compatibility.';
 
   for (const file of releaseHelperFiles) {
     requireOrderedIncludes(
       file,
       [
-        legacyDefaultComment,
-        'DEFAULT_MAIN_WEB_URL="https://mother-bear-court.vercel.app"',
+        emorapyDefaultComment,
+        'DEFAULT_MAIN_WEB_URL="https://emorapy.vercel.app"',
+        'DEFAULT_ADMIN_WEB_URL="https://emorapy-admin.vercel.app"',
         'EMORAPY_MAIN_WEB_URL',
       ],
-      `${file} must classify the legacy Vercel hostname as a compatibility default with Emorapy override support`
+      `${file} must use Emorapy Vercel project-domain defaults with Emorapy override support`
     );
   }
 
@@ -772,13 +773,13 @@ function checkLegacyProductionHostnameCompatContract() {
     [
       'vars.EMORAPY_MAIN_WEB_URL',
       'vars.PRODUCTION_MAIN_WEB_URL',
-      "'https://mother-bear-court.vercel.app'",
+      "'https://emorapy.vercel.app'",
     ],
-    'production workflow release gate main URL must prefer Emorapy alias before legacy Vercel hostname'
+    'production workflow release gate main URL must prefer Emorapy variable before Emorapy Vercel project-domain default'
   );
   requireIncludes(
     readText('docs/核心開發文件/03-管理端與平台治理/05-運維連接與調用Runbook.md'),
-    '`https://mother-bear-court.vercel.app` 只是 legacy production hostname compatibility default',
+    '`https://emorapy.vercel.app` 與 `https://emorapy-admin.vercel.app` 是 Vercel production project-domain defaults',
     'docs/核心開發文件/03-管理端與平台治理/05-運維連接與調用Runbook.md'
   );
 }

@@ -30,14 +30,14 @@
 
 | 驗收 ID | 對應需求 | 驗收方法 | 當前狀態 |
 | --- | --- | --- | --- |
-| CJ-SCHEMA-T-001 | CJ-SCHEMA-001 | `prisma migrate status`、migration folder source control、`_prisma_migrations` release check | 部分覆蓋 |
-| CJ-SCHEMA-T-002 | CJ-SCHEMA-002 | 每個 P0 migration 有 migration name、model/field、敏感度、相容性分類、release gate、待辦或證據 | 部分覆蓋 |
-| CJ-SCHEMA-T-003 | CJ-SCHEMA-003 | breaking schema diff 必須有 expand / backfill / dual-write or dual-read / contract 四階段證據 | 待建立 |
-| CJ-SCHEMA-T-004 | CJ-SCHEMA-004 | 新 enum / DTO / response field 以舊 Web/Admin/API client 與 App parity inspection 驗證 | 部分覆蓋 |
-| CJ-SCHEMA-T-005 | CJ-SCHEMA-005 | deprecated field 有替代來源、讀寫策略、保留窗口與移除條件 | 待建立 |
-| CJ-SCHEMA-T-006 | CJ-SCHEMA-006 | release-blocking migration 清單與 unit tests、待辦台賬、release gate 一致 | 部分覆蓋；unit tests 覆蓋 release-blocking catalog、migration 目錄存在性、App release-sensitive migration 入列與 missing / failed / rolled back 阻塞語義；release evidence writer 只輸出 target / provider / local classification / migration report，不輸出 `DATABASE_URL` 或 host |
-| CJ-SCHEMA-T-007 | CJ-SCHEMA-007 | production hotfix / manual DB patch 有 migration history reconciliation 或 drift resolution record | 待建立 |
-| CJ-SCHEMA-T-008 | CJ-SCHEMA-002 / CJ-SCHEMA-006 | App stream / telemetry / push / notification action / interview facts schema migration 必須在 local migration status、release-blocking 清單、App smoke 與 Parity 文件中同時可追溯 | 部分覆蓋；App release-sensitive migrations 已加入 release-blocking catalog，App smoke / Parity 與 release DB parity runner 可追溯對應 runtime 寫入與 non-local parity。raw console output、local DB evidence 或手寫 markdown 仍不可替代；後續 migration 變更需重跑 fresh evidence |
+| EMO-SCHEMA-T-001 | EMO-SCHEMA-001 | `prisma migrate status`、migration folder source control、`_prisma_migrations` release check | 部分覆蓋 |
+| EMO-SCHEMA-T-002 | EMO-SCHEMA-002 | 每個 P0 migration 有 migration name、model/field、敏感度、相容性分類、release gate、待辦或證據 | 部分覆蓋 |
+| EMO-SCHEMA-T-003 | EMO-SCHEMA-003 | breaking schema diff 必須有 expand / backfill / dual-write or dual-read / contract 四階段證據 | 待建立 |
+| EMO-SCHEMA-T-004 | EMO-SCHEMA-004 | 新 enum / DTO / response field 以舊 Web/Admin/API client 與 App parity inspection 驗證 | 部分覆蓋 |
+| EMO-SCHEMA-T-005 | EMO-SCHEMA-005 | deprecated field 有替代來源、讀寫策略、保留窗口與移除條件 | 待建立 |
+| EMO-SCHEMA-T-006 | EMO-SCHEMA-006 | release-blocking migration 清單與 unit tests、待辦台賬、release gate 一致 | 部分覆蓋；unit tests 覆蓋 release-blocking catalog、migration 目錄存在性、App release-sensitive migration 入列與 missing / failed / rolled back 阻塞語義；release evidence writer 只輸出 target / provider / local classification / migration report，不輸出 `DATABASE_URL` 或 host |
+| EMO-SCHEMA-T-007 | EMO-SCHEMA-007 | production hotfix / manual DB patch 有 migration history reconciliation 或 drift resolution record | 待建立 |
+| EMO-SCHEMA-T-008 | EMO-SCHEMA-002 / EMO-SCHEMA-006 | App stream / telemetry / push / notification action / interview facts schema migration 必須在 local migration status、release-blocking 清單、App smoke 與 Parity 文件中同時可追溯 | 部分覆蓋；App release-sensitive migrations 已加入 release-blocking catalog，App smoke / Parity 與 release DB parity runner 可追溯對應 runtime 寫入與 non-local parity。raw console output、local DB evidence 或手寫 markdown 仍不可替代；後續 migration 變更需重跑 fresh evidence |
 
 ## 4. 發布驗收規則
 

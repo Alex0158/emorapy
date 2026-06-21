@@ -183,6 +183,19 @@ const LEGACY_VISIBLE_COPY_RULES = [
   },
 ];
 
+const CURRENT_GOVERNANCE_ID_SCAN_PATTERNS = ['docs/核心開發文件/**/*.md'];
+
+const CURRENT_GOVERNANCE_ID_IGNORE_PATTERNS = [
+  'docs/核心開發文件/07-待處理問題與治理/已處理/**',
+  'docs/核心開發文件/90-證據與盤點/**',
+  'docs/核心開發文件/99-歷史降級索引/**',
+  'docs/核心開發文件/文件收斂/**',
+  'docs/核心開發文件/07-待處理問題與治理/待處理/Emorapy命名收斂與外部識別符遷移待辦-2026-06-20.md',
+  'docs/核心開發文件/07-待處理問題與治理/待處理/Emorapy命名收斂剩餘任務Codex交接執行單-2026-06-21.md',
+];
+
+const LEGACY_GOVERNANCE_ID_RE = /\bCJ-[A-Z0-9]+(?:-[A-Z0-9]+)+\b/g;
+
 const LEGACY_MARKETING_COPY_RULES = [
   {
     id: 'legacy-marketing-cj-brand',
@@ -353,7 +366,8 @@ const REQUIRED_POLICY_NEEDLES = [
     needles: [
       '| Emorapy | 產品正式對外名稱',
       '| CJ | 歷史項目別名與 legacy internal identifier',
-      '`CJ-*` governance ID namespace 只作需求 / 驗收 / ADR / 風險 / 治理追溯 ID',
+      '現行 governance ID namespace 為 `EMO-*`',
+      '`CJ-*` governance ID namespace 只作歷史追溯',
       '@cj/*` 歷史 package-scope 引用',
       '| Mother Bear Court / mother-bear-court | 歷史品牌 / repo / deploy alias',
     ],
@@ -582,6 +596,24 @@ async function checkCurrentPackageScope() {
   }
 }
 
+async function checkCurrentGovernanceIdNamespace() {
+  const files = await glob(CURRENT_GOVERNANCE_ID_SCAN_PATTERNS, {
+    cwd: repoRoot,
+    nodir: true,
+    ignore: CURRENT_GOVERNANCE_ID_IGNORE_PATTERNS,
+  });
+
+  for (const file of files) {
+    const text = readText(file);
+    LEGACY_GOVERNANCE_ID_RE.lastIndex = 0;
+    for (const match of text.matchAll(LEGACY_GOVERNANCE_ID_RE)) {
+      fail(
+        `${file}:${lineNumberAt(text, match.index ?? 0)} [legacy-governance-id] current docs must use EMO-* IDs; CJ-* is historical-only after the 2026-06-21 mapped migration: ${match[0]}`
+      );
+    }
+  }
+}
+
 async function checkCurrentSourceIdentity() {
   const files = await glob(CURRENT_SOURCE_IDENTITY_SCAN_PATTERNS, {
     cwd: repoRoot,
@@ -749,20 +781,20 @@ function checkLegacyGovernanceIdNamespacePolicy() {
   requireOrderedIncludes(
     prdFile,
     [
+      '`EMO-*` 是現行 governance ID namespace',
       '`CJ-*` 是歷史 governance ID namespace',
-      '不得把 `CJ-PRD-*`、`CJ-NFR-*`、`CJ-RTM-*` 直接搜尋替換成新前綴',
-      '必須先建立 ID mapping、引用遷移策略、更新文檔結構 / truth gate 與所有引用',
+      '不得在 current docs 新增完整 `CJ-*` ID',
     ],
-    'PRD ID namespace policy must classify CJ-* as legacy governance IDs and forbid unmapped prefix migration'
+    'PRD ID namespace policy must classify EMO-* as current and CJ-* as historical-only'
   );
 
   requireOrderedIncludes(
     'docs/核心開發文件/術語表.md',
     [
-      '`CJ-*` governance ID namespace 只作需求 / 驗收 / ADR / 風險 / 治理追溯 ID',
-      '必須先建立 ID mapping、引用遷移策略與 docs gate',
+      '現行 governance ID namespace 為 `EMO-*`',
+      '`CJ-*` governance ID namespace 只作歷史追溯',
     ],
-    'terminology must classify CJ-* as governance IDs, not product identity'
+    'terminology must classify EMO-* as current governance IDs and CJ-* as historical-only'
   );
 }
 
@@ -905,6 +937,7 @@ await checkOperatorVisibleCopy();
 await checkEnvExampleIdentity();
 await checkMarketingCopy();
 await checkCurrentPackageScope();
+await checkCurrentGovernanceIdNamespace();
 await checkCurrentSourceIdentity();
 checkCurrentDocLeadins();
 await checkCurrentDevCiFixtureIdentity();

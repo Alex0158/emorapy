@@ -81,23 +81,23 @@ Emorapy 當前使用自有 JSON envelope：`{ success: false, error: { code, mes
 
 | 錯誤需求 ID | 要求 | 現有證據 | 狀態 |
 | --- | --- | --- | --- |
-| CJ-ERR-001 | 所有 API 錯誤必須有穩定 `error.code` 與 HTTP status | `AppError`、`errorHandler` | 部分覆蓋 |
-| CJ-ERR-002 | 所有錯誤 response 必須帶 request id 或可追溯 occurrence id | `requestId`、`responseFormatter`、logger | 部分覆蓋 |
-| CJ-ERR-003 | 生產錯誤不得暴露 stack、DB internals、prompt、secret 或 session 原文 | `errorHandler`、`logger` masking | 部分覆蓋 |
-| CJ-ERR-004 | validation errors 應有 field-level safe details，供 Web / App 精準呈現 | `validator.ts` 目前 flatten messages | 待建立 |
-| CJ-ERR-005 | rate limit / retryable failure 應標明 retry policy 或 header | `rateLimiter.ts` 目前回 429 code/message | 待建立 |
-| CJ-ERR-006 | OpenAPI / typed client 前必須有 machine-readable error schema | `06/11` OpenAPI gap、本文 | 待建立 |
-| CJ-ERR-007 | 若採用 RFC 9457，必須定義兼容期與 envelope migration 策略 | 本文 | 待裁決 |
+| EMO-ERR-001 | 所有 API 錯誤必須有穩定 `error.code` 與 HTTP status | `AppError`、`errorHandler` | 部分覆蓋 |
+| EMO-ERR-002 | 所有錯誤 response 必須帶 request id 或可追溯 occurrence id | `requestId`、`responseFormatter`、logger | 部分覆蓋 |
+| EMO-ERR-003 | 生產錯誤不得暴露 stack、DB internals、prompt、secret 或 session 原文 | `errorHandler`、`logger` masking | 部分覆蓋 |
+| EMO-ERR-004 | validation errors 應有 field-level safe details，供 Web / App 精準呈現 | `validator.ts` 目前 flatten messages | 待建立 |
+| EMO-ERR-005 | rate limit / retryable failure 應標明 retry policy 或 header | `rateLimiter.ts` 目前回 429 code/message | 待建立 |
+| EMO-ERR-006 | OpenAPI / typed client 前必須有 machine-readable error schema | `06/11` OpenAPI gap、本文 | 待建立 |
+| EMO-ERR-007 | 若採用 RFC 9457，必須定義兼容期與 envelope migration 策略 | 本文 | 待裁決 |
 
 ## 8. 當前缺口
 
 | 缺口 ID | 對標基線 | 現狀 | 風險 | 處置 |
 | --- | --- | --- | --- | --- |
-| CJ-ERR-GAP-001 | RFC 9457 | 當前不是 Problem Details 格式 | 第三方 client、App typed client、SDK 生成難以標準化錯誤 | 本文先固定 gap，不改 runtime |
-| CJ-ERR-GAP-002 | OpenAPI | 沒有 machine-readable error schema | OpenAPI / typed SDK / contract tests 無法穩定生成 | 需與 `06/11` 一起推進 |
-| CJ-ERR-GAP-003 | 29148 traceability | 錯誤碼未集中追到 RTM | 失敗路徑可能不進需求驗收 | 新增 `CJ-NFR-018` 與 `CJ-RTM-016` |
-| CJ-ERR-GAP-004 | RFC 9110 | 429 缺少 Retry-After，422 / 409 的 domain 邊界未集中說明 | 前端重試與用戶提示可能分叉 | 先補規則；代碼強化另立任務 |
-| CJ-ERR-GAP-005 | Cross-platform parity | App 尚未建立錯誤展示、離線、retry、Deep Link failure 的平台策略 | Web error helper 可能被誤當 App contract | App 錯誤承接回 `20/01`、`50/01`、`08/03` |
+| EMO-ERR-GAP-001 | RFC 9457 | 當前不是 Problem Details 格式 | 第三方 client、App typed client、SDK 生成難以標準化錯誤 | 本文先固定 gap，不改 runtime |
+| EMO-ERR-GAP-002 | OpenAPI | 沒有 machine-readable error schema | OpenAPI / typed SDK / contract tests 無法穩定生成 | 需與 `06/11` 一起推進 |
+| EMO-ERR-GAP-003 | 29148 traceability | 錯誤碼未集中追到 RTM | 失敗路徑可能不進需求驗收 | 新增 `EMO-NFR-018` 與 `EMO-RTM-016` |
+| EMO-ERR-GAP-004 | RFC 9110 | 429 缺少 Retry-After，422 / 409 的 domain 邊界未集中說明 | 前端重試與用戶提示可能分叉 | 先補規則；代碼強化另立任務 |
+| EMO-ERR-GAP-005 | Cross-platform parity | App 尚未建立錯誤展示、離線、retry、Deep Link failure 的平台策略 | Web error helper 可能被誤當 App contract | App 錯誤承接回 `20/01`、`50/01`、`08/03` |
 
 ## 9. 維護規則
 

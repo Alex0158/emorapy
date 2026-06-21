@@ -119,7 +119,7 @@
 
 每個 milestone 進入實作前，必須核對：
 
-1. 對應需求是否在 [02-App完整版本工程PRD.md](./02-App完整版本工程PRD.md) 有 `CJ-PRD-APP-*`。
+1. 對應需求是否在 [02-App完整版本工程PRD.md](./02-App完整版本工程PRD.md) 有 `EMO-PRD-APP-*`。
 2. 對應能力是否在 [../50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md](../50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md) 有 Web / Backend / API / DB / shared 對照。
 3. 若牽動 API / DB / shared / Push / Deep Link / upload / telemetry，是否已更新待辦與 ADR。
 4. 測試是否符合 [../08-測試規範與驗收/03-App測試與證據接入基線.md](../08-測試規範與驗收/03-App測試與證據接入基線.md)。

@@ -46,13 +46,13 @@
 
 | 缺口 ID | 對標 | 現狀 | 風險 | 治理處置 |
 | --- | --- | --- | --- | --- |
-| CJ-API-GAP-001 | OpenAPI paths / operations | 端點可由 route 與文檔守衛核對，但沒有正式 `openapi.yaml/json` | 第三方 client、App typed client、契約測試無法自動生成 | 標記為「OpenAPI 待建立」，不得宣稱 OAS 已完成 |
-| CJ-API-GAP-002 | Request body / parameter schema | Joi / validator 分散在 routes / utils，文檔以人工表格承接 | body schema 可能和文檔漂移 | 新增高風險接口時，模組文檔必須列核心字段與限制；後續再評估 schema 生成 |
-| CJ-API-GAP-003 | Response schema | 前端服務與文檔列出常用字段，但沒有集中 schema | response 變更可能破壞 Web/Admin/App 而 docs 守衛不知 | shared contracts / api-client 覆蓋前，不得自動生成跨端 client |
-| CJ-API-GAP-004 | Error components | error code 已矩陣化，但未形成 machine-readable components | UI 恢復策略仍靠人工維護 | 所有新接口必須補 error.code / HTTP / UI 行為 / 重試策略 |
-| CJ-API-GAP-005 | Security schemes | Auth/session/admin token/mixed credential 有文檔，但未抽象成 OpenAPI security schemes | 外部審查與 App 接入時容易誤配 | 任何 App 接口接入前，必須先明確安全 scheme 與 token/storage 邊界 |
-| CJ-API-GAP-006 | API versioning | 路徑使用 `/api/v1`，但缺少正式 breaking-change policy | 候選廢棄接口可能被誤刪 | 主接口清單仍是接口狀態 SSOT；廢棄需先進候選狀態 |
-| CJ-API-GAP-007 | Contract tests | `docs:check:truth` 查端點存在與狀態，但不做 schema contract tests | 欄位漂移可能漏檢 | 高風險接口以現有單測/e2e 補證據；schema 契約測試另立任務 |
+| EMO-API-GAP-001 | OpenAPI paths / operations | 端點可由 route 與文檔守衛核對，但沒有正式 `openapi.yaml/json` | 第三方 client、App typed client、契約測試無法自動生成 | 標記為「OpenAPI 待建立」，不得宣稱 OAS 已完成 |
+| EMO-API-GAP-002 | Request body / parameter schema | Joi / validator 分散在 routes / utils，文檔以人工表格承接 | body schema 可能和文檔漂移 | 新增高風險接口時，模組文檔必須列核心字段與限制；後續再評估 schema 生成 |
+| EMO-API-GAP-003 | Response schema | 前端服務與文檔列出常用字段，但沒有集中 schema | response 變更可能破壞 Web/Admin/App 而 docs 守衛不知 | shared contracts / api-client 覆蓋前，不得自動生成跨端 client |
+| EMO-API-GAP-004 | Error components | error code 已矩陣化，但未形成 machine-readable components | UI 恢復策略仍靠人工維護 | 所有新接口必須補 error.code / HTTP / UI 行為 / 重試策略 |
+| EMO-API-GAP-005 | Security schemes | Auth/session/admin token/mixed credential 有文檔，但未抽象成 OpenAPI security schemes | 外部審查與 App 接入時容易誤配 | 任何 App 接口接入前，必須先明確安全 scheme 與 token/storage 邊界 |
+| EMO-API-GAP-006 | API versioning | 路徑使用 `/api/v1`，但缺少正式 breaking-change policy | 候選廢棄接口可能被誤刪 | 主接口清單仍是接口狀態 SSOT；廢棄需先進候選狀態 |
+| EMO-API-GAP-007 | Contract tests | `docs:check:truth` 查端點存在與狀態，但不做 schema contract tests | 欄位漂移可能漏檢 | 高風險接口以現有單測/e2e 補證據；schema 契約測試另立任務 |
 
 ## 5. 分層裁決
 

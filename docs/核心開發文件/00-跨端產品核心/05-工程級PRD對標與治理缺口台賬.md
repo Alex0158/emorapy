@@ -17,13 +17,13 @@
 | 基線 | 採用原因 | Emorapy 採用方式 |
 | --- | --- | --- |
 | ISO/IEC/IEEE 29148:2018 Requirements engineering | 需求工程生命週期、需求信息項與需求內容格式的通用標準 | 用於校準需求 ID、來源、屬性、驗證、狀態與追溯規則 |
-| IEEE/ISO/IEC 29148-2018 摘要 | 明確「良好需求」的構造、屬性、特徵與迭代管理 | 用於要求每條 `CJ-PRD-*` / `CJ-NFR-*` 能被驗證、被追溯、被變更治理 |
+| IEEE/ISO/IEC 29148-2018 摘要 | 明確「良好需求」的構造、屬性、特徵與迭代管理 | 用於要求每條 `EMO-PRD-*` / `EMO-NFR-*` 能被驗證、被追溯、被變更治理 |
 | RFC 2119 | 定義 MUST / SHOULD / MAY 等需求強度語義 | 用於區分硬約束、建議與可選平台投影，避免模糊承諾 |
 | RFC 8174 | 補充 RFC 2119 關鍵詞只在全大寫時具規範語義 | 用於避免把普通英文 may / should 誤讀為需求強制詞 |
 | ISO/IEC 25010:2023 Product quality model | 提供產品質量屬性的分類參考 | 用於校準 NFR 分類：可靠性、安全、性能、可維護性、可用性、兼容性等 |
 | ISO/IEC/IEEE 42010:2022 Architecture description | 提供架構描述、stakeholder、concern、viewpoint、view 與 correspondence 的標準化口徑 | 用於校準架構決策、架構視圖與 ADR 追溯，不把目錄說明當架構描述 |
 | C4 model | 提供 Context / Container / Component / Code 的工程溝通層級 | 用於校準 Emorapy 架構視圖與後續圖集缺口，不宣稱已有完整 C4 圖 |
-| OWASP Threat Modeling | 提供資產、信任邊界、威脅、控制與驗證的安全建模方法 | 用於校準 `CJ-SEC-*`、trust boundary 與高風險流程 threat model |
+| OWASP Threat Modeling | 提供資產、信任邊界、威脅、控制與驗證的安全建模方法 | 用於校準 `EMO-SEC-*`、trust boundary 與高風險流程 threat model |
 | OWASP ASVS 5.0 | Web 應用安全驗證需求的開放標準 | 用於 Web / API 安全需求分類與證據口徑，不直接聲稱 ASVS level |
 | OWASP MASVS | Mobile App 安全控制組標準 | 用於 App SecureStore、Push、Deep Link、Network、Platform interaction 等 App 級安全投影 |
 | NIST AI RMF 1.0 / Generative AI Profile | AI 風險治理、生成式 AI 風險識別、量測與處置框架 | 用於校準 AI 資產清單、風險矩陣、人工介入、量測與缺口治理 |
@@ -132,7 +132,7 @@
 
 ## 2. Emorapy 工程級需求記錄最低屬性
 
-新增或修改 `CJ-PRD-*`、`CJ-NFR-*`、`CJ-PRD-WEB-*`、`CJ-PRD-APP-*` 時，至少應能回答下列欄位。欄位可以分散在 PRD、NFR、RTM、功能、流程、頁面或 Parity 文件中，但必須能互相追溯。
+新增或修改 `EMO-PRD-*`、`EMO-NFR-*`、`EMO-PRD-WEB-*`、`EMO-PRD-APP-*` 時，至少應能回答下列欄位。欄位可以分散在 PRD、NFR、RTM、功能、流程、頁面或 Parity 文件中，但必須能互相追溯。
 
 | 屬性 | 必填口徑 | 目前承接 |
 | --- | --- | --- |
@@ -146,7 +146,7 @@
 | 狀態 | 已覆蓋 / 部分覆蓋 / 待承接 / 待建立基線 / 待裁決 / 不承接 | RTM、假設台帳、Parity 文件 |
 | 平台投影 | Web、App、Backend、Admin、shared package 的承接差異 | `10-Web端/`、`20-App端/`、`50-跨端Mapping與Parity/` |
 | 驗證方式 | 測試、分析、檢查、演練、release gate、手動證據或待建立基線 | `08-測試規範與驗收/04-需求驗證矩陣.md` |
-| 指標 / 證據 | 對應 `CJ-MET-*`、測試、e2e、smoke、ledger、metrics 或證據路徑 | `03-成功指標與產品健康.md`、`90-證據與盤點/` |
+| 指標 / 證據 | 對應 `EMO-MET-*`、測試、e2e、smoke、ledger、metrics 或證據路徑 | `03-成功指標與產品健康.md`、`90-證據與盤點/` |
 | 依賴 / 風險 | API、DB、shared enum、平台 adapter、第三方服務、合規或安全限制 | Parity、待處理任務、NFR |
 | 變更 gate | 修改需求時必須同步哪些文件與守衛 | `文件收斂/00-CJ-文檔治理與同步規則.md` |
 
@@ -164,25 +164,25 @@
 
 | 缺口 ID | 對標標準 | 現狀 | 風險 | 處置規則 |
 | --- | --- | --- | --- | --- |
-| CJ-GAP-PRD-001 | ISO/IEC/IEEE 29148 / RFC 2119 | PRD 主線已存在，但需求語句、強制程度、來源、理由和優先級尚未形成固定欄位 | 後續需求會退化成描述性文字，難以驗證 | 補本文第 2-3 節，並回寫 PRD 總章與 RTM |
-| CJ-GAP-PRD-002 | ISO/IEC/IEEE 29148 | 場景與假設已有，但假設信心、反證門檻與決策動作仍偏粗 | 產品假設無法被證偽或關閉 | 在假設台帳補狀態口徑與後續回寫規則，暫不編造數值門檻 |
-| CJ-GAP-MET-001 | ISO/IEC 25010 / 需求驗證 | 指標列表已有，但資料來源、基線狀態、發布用途未完全拆清 | 指標容易被當作目標值或發布 gate | 在成功指標文檔補資料來源和可用性分級 |
-| CJ-GAP-NFR-001 | ISO/IEC 25010 / OWASP ASVS / MASVS | NFR 已列出，但未清楚標註質量屬性與 Web/App 安全標準映射 | 安全與非功能需求難以按平台審查 | 在 NFR 文檔補質量模型與 ASVS/MASVS 對照 |
-| CJ-GAP-RTM-001 | ISO/IEC/IEEE 29148 | RTM 已有，但驗證方式還停留在文字描述，缺少標準化驗證類型 | PRD 到測試和證據的鏈路不夠可審計 | 在 RTM 補驗證類型、優先級和證據入口規則 |
-| CJ-GAP-APP-001 | OWASP MASVS / 跨端 Parity | App M0-M5 runtime adapter、screen、smoke 與 local evidence 已落地；release DB parity / telemetry runtime 有 structured pass evidence 時只作 release audit 輸入，不可替代 MASVS、真機、provider delivery 或 production native crash runtime sign-off | 可能把 App 本地 gate 或 release audit 子證據誤解為 release 級 App 安全或原生能力已完整完成 | 維持 App 部分覆蓋口徑，要求 MASVS 類需求只能在 strict release sign-off 與對應原生證據完成後升級為完整 |
-| CJ-GAP-APP-002 | ISO/IEC/IEEE 29148 / 跨端 Parity | 完整 App 版工程 PRD / Roadmap、M0-M5 runtime 與 completion audit 已落地，但 M6 strict release sign-off 未完成；current blockers 由 `release:completion:audit` 裁決 | 可能把「本地開發已完成」誤寫為 App release / TestFlight / 真機完成 | 保留 `20-App端/02-App完整版本工程PRD.md` 與 `20-App端/03-App完整版本開發Roadmap.md` 主控，並要求 RTM / Parity / 待辦同步 current blockers |
-| CJ-GAP-GOV-001 | 需求治理 | 文件治理已管 code/docs sync，但 PRD 標準對標尚未進 PR 自檢 | 需求層變更可能漏掉 NFR / RTM / 指標 | 回寫文件治理規則與台賬 |
-| CJ-GAP-AI-001 | NIST AI RMF / ISO 42001 / OWASP LLM | AI 能力已有 prompt version、ledger、safety routing，但缺少統一 AI asset inventory 與 LLM 風險矩陣 | 新 AI runtime 可能漏接 prompt fencing、ledger、版本、人工介入與 App 差異 | 新增 `04-共用機制/03-AI風險與安全治理基線.md` |
-| CJ-GAP-API-001 | OpenAPI / 29148 traceability / ASVS | 接口已有主冊、模組文檔與 truth guard，但沒有 machine-readable OpenAPI / schema contract | typed client、App 接入、第三方審查與契約測試缺少自動化基礎 | 新增 `06-接口描述/11-API契約與OpenAPI缺口台賬.md`，明確不得宣稱 OAS 完成 |
-| CJ-GAP-DATA-001 | NIST Privacy Framework / ISO/IEC 27701 | 有 consent、部分 delete、cleanup、log masking，但缺少資料分類、retention、archive、DSAR 與 App telemetry 統一基線 | 隱私聲明、證據、App storage 與 AI archive 容易出現誤導或過度保存 | 新增 `04-共用機制/04-資料治理與隱私風險基線.md` |
-| CJ-GAP-OPS-001 | Google SRE SLO / NIST CSF 2.0 / SP 800-61r3 | 有 health、metrics、ops alerts、release gate，但缺少 SLI/SLO/error budget、事故分級與 postmortem 模板 | 團隊難以區分健康、降級、事故與可發布狀態 | 新增 `03-管理端與平台治理/06-SLO可觀測性與事故治理基線.md` |
-| CJ-GAP-OPS-002 | Google SRE Alerting on SLOs / OpenTelemetry / Prometheus Alerting | 有 request id、logs、metrics、Redis ratio、Prometheus text 與 release evidence，但缺 signal taxonomy、incident drill 驗收、trace/span 關聯與 alert runtime 證據 | `/metrics` 存在、request id 存在或單次 gate pass 可能被誤寫為完整可觀測性、tracing、SLA 或事故流程已驗收 | 新增 `08-測試規範與驗收/07-SLO可觀測性與事故演練驗收基線.md`，並回寫 SLO / NFR / RTM |
-| CJ-GAP-SEC-001 | OWASP Threat Modeling / ASVS / MASVS / NIST SSDF | 有 CORS、Helmet、JWT、Admin RBAC、media auth、metrics protection、rate limit、consent 與 log masking，但缺少統一 trust boundary、`CJ-SEC-*` 與高風險流程 threat model | 安全治理可能停留在中間件清單，App native 安全也可能被 Web 證據誤覆蓋 | 新增 `04-共用機制/05-威脅建模與安全需求基線.md` |
-| CJ-GAP-ADR-001 | ISO/IEC/IEEE 42010 / C4 / NIST SSDF | 有 repo 分層與 shared package 規則，但缺少架構視圖、ADR 最低格式、架構決策登記與重審條件 | workspace、API/DB/shared、AI runtime、安全邊界、App adapter 或 release gate 變更難以追溯取捨 | 新增 `05-工程架構與共享層/02-架構決策與ADR治理基線.md` |
-| CJ-GAP-STATE-001 | UML / SCXML / BPMN / ISO 29148 | 有 schema enum、contracts 與 service guard，但缺少正式狀態圖、machine-readable statechart、transition / invariant 矩陣 | 新狀態容易只加 enum，不補 trigger、guard、side effect、非法轉移與恢復策略 | 新增 `04-共用機制/06-狀態機與業務不變式治理基線.md` |
-| CJ-GAP-ERR-001 | RFC 9110 / RFC 9457 / OpenAPI | 有 `AppError`、error handler、response envelope 與 request id，但沒有 Problem Details、OpenAPI error schema、field-level validation schema 或 Retry-After contract | Web / App / SDK / 第三方 client 的錯誤處理可能分叉，失敗路徑難以契約測試 | 新增 `06-接口描述/12-錯誤模型與ProblemDetails缺口台賬.md` |
-| CJ-GAP-A11Y-001 | WCAG 2.2 / WAI-ARIA / ISO 9241-210 / W3C i18n / CLDR / React Native Accessibility | 有局部 i18n catalog、ARIA / focus hooks 與 role tests；缺 `html[lang]` 一致性、axe / WCAG gate、i18n completeness、screen reader 與 App native accessibility 證據 | 可訪問性、本地化與高敏內容文案會在 Web / Admin / App 間漂移，且容易把局部代碼存在誤判為合規 | 新增 `04-共用機制/07-可訪問性本地化與內容設計治理基線.md` 與 `08-測試規範與驗收/05-可訪問性本地化驗收基線.md` |
-| CJ-GAP-SCHEMA-001 | ISO 11179 / Prisma Migrate / PostgreSQL DDL / AIP-180 / SemVer | 有 Prisma schema、migration history、release DB parity gate、deprecated 欄位註記與待辦；缺集中 data dictionary、schema diff 分級、expand/contract、backfill 與 compatibility gate | schema commit、Dev DB 套用、舊 client 相容與 release DB parity 可能被混淆；破壞性變更可能單版本進入 | 新增 `05-工程架構與共享層/03-資料模型SchemaMigration與相容性治理基線.md` 與 `08-測試規範與驗收/06-SchemaMigration與相容性驗收基線.md` |
+| EMO-GAP-PRD-001 | ISO/IEC/IEEE 29148 / RFC 2119 | PRD 主線已存在，但需求語句、強制程度、來源、理由和優先級尚未形成固定欄位 | 後續需求會退化成描述性文字，難以驗證 | 補本文第 2-3 節，並回寫 PRD 總章與 RTM |
+| EMO-GAP-PRD-002 | ISO/IEC/IEEE 29148 | 場景與假設已有，但假設信心、反證門檻與決策動作仍偏粗 | 產品假設無法被證偽或關閉 | 在假設台帳補狀態口徑與後續回寫規則，暫不編造數值門檻 |
+| EMO-GAP-MET-001 | ISO/IEC 25010 / 需求驗證 | 指標列表已有，但資料來源、基線狀態、發布用途未完全拆清 | 指標容易被當作目標值或發布 gate | 在成功指標文檔補資料來源和可用性分級 |
+| EMO-GAP-NFR-001 | ISO/IEC 25010 / OWASP ASVS / MASVS | NFR 已列出，但未清楚標註質量屬性與 Web/App 安全標準映射 | 安全與非功能需求難以按平台審查 | 在 NFR 文檔補質量模型與 ASVS/MASVS 對照 |
+| EMO-GAP-RTM-001 | ISO/IEC/IEEE 29148 | RTM 已有，但驗證方式還停留在文字描述，缺少標準化驗證類型 | PRD 到測試和證據的鏈路不夠可審計 | 在 RTM 補驗證類型、優先級和證據入口規則 |
+| EMO-GAP-APP-001 | OWASP MASVS / 跨端 Parity | App M0-M5 runtime adapter、screen、smoke 與 local evidence 已落地；release DB parity / telemetry runtime 有 structured pass evidence 時只作 release audit 輸入，不可替代 MASVS、真機、provider delivery 或 production native crash runtime sign-off | 可能把 App 本地 gate 或 release audit 子證據誤解為 release 級 App 安全或原生能力已完整完成 | 維持 App 部分覆蓋口徑，要求 MASVS 類需求只能在 strict release sign-off 與對應原生證據完成後升級為完整 |
+| EMO-GAP-APP-002 | ISO/IEC/IEEE 29148 / 跨端 Parity | 完整 App 版工程 PRD / Roadmap、M0-M5 runtime 與 completion audit 已落地，但 M6 strict release sign-off 未完成；current blockers 由 `release:completion:audit` 裁決 | 可能把「本地開發已完成」誤寫為 App release / TestFlight / 真機完成 | 保留 `20-App端/02-App完整版本工程PRD.md` 與 `20-App端/03-App完整版本開發Roadmap.md` 主控，並要求 RTM / Parity / 待辦同步 current blockers |
+| EMO-GAP-GOV-001 | 需求治理 | 文件治理已管 code/docs sync，但 PRD 標準對標尚未進 PR 自檢 | 需求層變更可能漏掉 NFR / RTM / 指標 | 回寫文件治理規則與台賬 |
+| EMO-GAP-AI-001 | NIST AI RMF / ISO 42001 / OWASP LLM | AI 能力已有 prompt version、ledger、safety routing，但缺少統一 AI asset inventory 與 LLM 風險矩陣 | 新 AI runtime 可能漏接 prompt fencing、ledger、版本、人工介入與 App 差異 | 新增 `04-共用機制/03-AI風險與安全治理基線.md` |
+| EMO-GAP-API-001 | OpenAPI / 29148 traceability / ASVS | 接口已有主冊、模組文檔與 truth guard，但沒有 machine-readable OpenAPI / schema contract | typed client、App 接入、第三方審查與契約測試缺少自動化基礎 | 新增 `06-接口描述/11-API契約與OpenAPI缺口台賬.md`，明確不得宣稱 OAS 完成 |
+| EMO-GAP-DATA-001 | NIST Privacy Framework / ISO/IEC 27701 | 有 consent、部分 delete、cleanup、log masking，但缺少資料分類、retention、archive、DSAR 與 App telemetry 統一基線 | 隱私聲明、證據、App storage 與 AI archive 容易出現誤導或過度保存 | 新增 `04-共用機制/04-資料治理與隱私風險基線.md` |
+| EMO-GAP-OPS-001 | Google SRE SLO / NIST CSF 2.0 / SP 800-61r3 | 有 health、metrics、ops alerts、release gate，但缺少 SLI/SLO/error budget、事故分級與 postmortem 模板 | 團隊難以區分健康、降級、事故與可發布狀態 | 新增 `03-管理端與平台治理/06-SLO可觀測性與事故治理基線.md` |
+| EMO-GAP-OPS-002 | Google SRE Alerting on SLOs / OpenTelemetry / Prometheus Alerting | 有 request id、logs、metrics、Redis ratio、Prometheus text 與 release evidence，但缺 signal taxonomy、incident drill 驗收、trace/span 關聯與 alert runtime 證據 | `/metrics` 存在、request id 存在或單次 gate pass 可能被誤寫為完整可觀測性、tracing、SLA 或事故流程已驗收 | 新增 `08-測試規範與驗收/07-SLO可觀測性與事故演練驗收基線.md`，並回寫 SLO / NFR / RTM |
+| EMO-GAP-SEC-001 | OWASP Threat Modeling / ASVS / MASVS / NIST SSDF | 有 CORS、Helmet、JWT、Admin RBAC、media auth、metrics protection、rate limit、consent 與 log masking，但缺少統一 trust boundary、`EMO-SEC-*` 與高風險流程 threat model | 安全治理可能停留在中間件清單，App native 安全也可能被 Web 證據誤覆蓋 | 新增 `04-共用機制/05-威脅建模與安全需求基線.md` |
+| EMO-GAP-ADR-001 | ISO/IEC/IEEE 42010 / C4 / NIST SSDF | 有 repo 分層與 shared package 規則，但缺少架構視圖、ADR 最低格式、架構決策登記與重審條件 | workspace、API/DB/shared、AI runtime、安全邊界、App adapter 或 release gate 變更難以追溯取捨 | 新增 `05-工程架構與共享層/02-架構決策與ADR治理基線.md` |
+| EMO-GAP-STATE-001 | UML / SCXML / BPMN / ISO 29148 | 有 schema enum、contracts 與 service guard，但缺少正式狀態圖、machine-readable statechart、transition / invariant 矩陣 | 新狀態容易只加 enum，不補 trigger、guard、side effect、非法轉移與恢復策略 | 新增 `04-共用機制/06-狀態機與業務不變式治理基線.md` |
+| EMO-GAP-ERR-001 | RFC 9110 / RFC 9457 / OpenAPI | 有 `AppError`、error handler、response envelope 與 request id，但沒有 Problem Details、OpenAPI error schema、field-level validation schema 或 Retry-After contract | Web / App / SDK / 第三方 client 的錯誤處理可能分叉，失敗路徑難以契約測試 | 新增 `06-接口描述/12-錯誤模型與ProblemDetails缺口台賬.md` |
+| EMO-GAP-A11Y-001 | WCAG 2.2 / WAI-ARIA / ISO 9241-210 / W3C i18n / CLDR / React Native Accessibility | 有局部 i18n catalog、ARIA / focus hooks 與 role tests；缺 `html[lang]` 一致性、axe / WCAG gate、i18n completeness、screen reader 與 App native accessibility 證據 | 可訪問性、本地化與高敏內容文案會在 Web / Admin / App 間漂移，且容易把局部代碼存在誤判為合規 | 新增 `04-共用機制/07-可訪問性本地化與內容設計治理基線.md` 與 `08-測試規範與驗收/05-可訪問性本地化驗收基線.md` |
+| EMO-GAP-SCHEMA-001 | ISO 11179 / Prisma Migrate / PostgreSQL DDL / AIP-180 / SemVer | 有 Prisma schema、migration history、release DB parity gate、deprecated 欄位註記與待辦；缺集中 data dictionary、schema diff 分級、expand/contract、backfill 與 compatibility gate | schema commit、Dev DB 套用、舊 client 相容與 release DB parity 可能被混淆；破壞性變更可能單版本進入 | 新增 `05-工程架構與共享層/03-資料模型SchemaMigration與相容性治理基線.md` 與 `08-測試規範與驗收/06-SchemaMigration與相容性驗收基線.md` |
 
 ## 5. Emorapy 採納與不採納
 

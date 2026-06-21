@@ -63,23 +63,23 @@
 
 | 要求 ID | 要求 | 現有證據 | 狀態 |
 | --- | --- | --- | --- |
-| CJ-SCHEMA-001 | Prisma schema、migration history 與 release DB parity 必須分開陳述；migration 檔案存在不等於 DB 已套用 | `backend/prisma/migrations`、`ops:db:status`、`ops:release-db:check` | 部分覆蓋 |
-| CJ-SCHEMA-002 | 所有 P0 schema 變更必須有 migration name、影響模型、資料敏感度、相容性分類、release gate 與回滾/前滾口徑 | release-blocking migrations、待辦台賬 | 部分覆蓋 |
-| CJ-SCHEMA-003 | rename、drop、type change、required field、enum contraction、unique/FK 收緊不得單步發布，必須 expand / backfill / dual-read / contract | 部分 additive migration、case source fallback | 待建立基線 |
-| CJ-SCHEMA-004 | 新 enum value、shared DTO、API response field、DB persisted state 必須檢查舊 client、App template、Admin report 與 typed package 消費面 | `packages/contracts`、`packages/api-client`、Parity 文件 | 部分覆蓋 |
-| CJ-SCHEMA-005 | 棄用欄位必須有 deprecated reason、替代來源、讀寫策略、保留窗口與移除條件 | `UserProfile` deprecated 註記 | 部分覆蓋 |
-| CJ-SCHEMA-006 | release gate 的 required migration 清單必須與活躍 P0 待辦一致；新增 release-blocking migration 時需更新腳本、測試、NFR、RTM 與待辦 | `check-release-db-parity.ts`、unit test | 部分覆蓋 |
-| CJ-SCHEMA-007 | production hotfix / manual DB patch 必須回補 migration history 或有 `migrate resolve` / reconciliation 記錄，不得讓 schema drift 成為常態 | Prisma migration history、ops runbook | 待建立 |
+| EMO-SCHEMA-001 | Prisma schema、migration history 與 release DB parity 必須分開陳述；migration 檔案存在不等於 DB 已套用 | `backend/prisma/migrations`、`ops:db:status`、`ops:release-db:check` | 部分覆蓋 |
+| EMO-SCHEMA-002 | 所有 P0 schema 變更必須有 migration name、影響模型、資料敏感度、相容性分類、release gate 與回滾/前滾口徑 | release-blocking migrations、待辦台賬 | 部分覆蓋 |
+| EMO-SCHEMA-003 | rename、drop、type change、required field、enum contraction、unique/FK 收緊不得單步發布，必須 expand / backfill / dual-read / contract | 部分 additive migration、case source fallback | 待建立基線 |
+| EMO-SCHEMA-004 | 新 enum value、shared DTO、API response field、DB persisted state 必須檢查舊 client、App template、Admin report 與 typed package 消費面 | `packages/contracts`、`packages/api-client`、Parity 文件 | 部分覆蓋 |
+| EMO-SCHEMA-005 | 棄用欄位必須有 deprecated reason、替代來源、讀寫策略、保留窗口與移除條件 | `UserProfile` deprecated 註記 | 部分覆蓋 |
+| EMO-SCHEMA-006 | release gate 的 required migration 清單必須與活躍 P0 待辦一致；新增 release-blocking migration 時需更新腳本、測試、NFR、RTM 與待辦 | `check-release-db-parity.ts`、unit test | 部分覆蓋 |
+| EMO-SCHEMA-007 | production hotfix / manual DB patch 必須回補 migration history 或有 `migrate resolve` / reconciliation 記錄，不得讓 schema drift 成為常態 | Prisma migration history、ops runbook | 待建立 |
 
 ## 6. 當前缺口
 
 | 缺口 ID | 對標基線 | 現狀 | 風險 | 處置 |
 | --- | --- | --- | --- | --- |
-| CJ-SCHEMA-GAP-001 | ISO 11179 / 29148 | 沒有集中 data dictionary：model / field 的 owner、敏感度、來源、相容性狀態分散在 schema、資料治理和接口文檔 | 高敏資料、App telemetry、AI ledger 或 Admin report 欄位可能只按技術欄位處理 | 本文建立最低屬性，後續可生成資料字典 |
-| CJ-SCHEMA-GAP-002 | Prisma migration histories | `backend/prisma/migrations` 與 release DB parity 已有，但 release-blocking 清單人工維護 | 新 P0 migration 可能沒有進 release gate | 將清單更新納入 NFR / RTM / governance gate |
-| CJ-SCHEMA-GAP-003 | Prisma expand / contract | 部分 additive schema 有 fallback，但沒有正式 expand/contract stage | rename、drop 或 NOT NULL 變更可能破壞舊 runtime 或舊 client | 新增驗收基線與不得宣稱事項 |
-| CJ-SCHEMA-GAP-004 | AIP-180 / SemVer | DB schema、API response、shared contracts 的相容性未集中評估 | Web/Admin/App/API client 可能在 minor/patch 變更中被破壞 | 要求 compatibility matrix 與版本語義 |
-| CJ-SCHEMA-GAP-005 | PostgreSQL DDL | raw SQL index / trigger / constraint 已存在，但缺 lock、data rewrite、precheck、rollback / roll-forward 分級 | release migration 可能阻塞、失敗或造成資料不一致 | 將 operational risk 接入 release gate 與 migration drill |
+| EMO-SCHEMA-GAP-001 | ISO 11179 / 29148 | 沒有集中 data dictionary：model / field 的 owner、敏感度、來源、相容性狀態分散在 schema、資料治理和接口文檔 | 高敏資料、App telemetry、AI ledger 或 Admin report 欄位可能只按技術欄位處理 | 本文建立最低屬性，後續可生成資料字典 |
+| EMO-SCHEMA-GAP-002 | Prisma migration histories | `backend/prisma/migrations` 與 release DB parity 已有，但 release-blocking 清單人工維護 | 新 P0 migration 可能沒有進 release gate | 將清單更新納入 NFR / RTM / governance gate |
+| EMO-SCHEMA-GAP-003 | Prisma expand / contract | 部分 additive schema 有 fallback，但沒有正式 expand/contract stage | rename、drop 或 NOT NULL 變更可能破壞舊 runtime 或舊 client | 新增驗收基線與不得宣稱事項 |
+| EMO-SCHEMA-GAP-004 | AIP-180 / SemVer | DB schema、API response、shared contracts 的相容性未集中評估 | Web/Admin/App/API client 可能在 minor/patch 變更中被破壞 | 要求 compatibility matrix 與版本語義 |
+| EMO-SCHEMA-GAP-005 | PostgreSQL DDL | raw SQL index / trigger / constraint 已存在，但缺 lock、data rewrite、precheck、rollback / roll-forward 分級 | release migration 可能阻塞、失敗或造成資料不一致 | 將 operational risk 接入 release gate 與 migration drill |
 
 ## 6.1 App Push Token Schema 基線
 

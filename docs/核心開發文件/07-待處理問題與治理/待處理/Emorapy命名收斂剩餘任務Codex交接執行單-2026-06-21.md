@@ -82,6 +82,14 @@ npm run docs:check
 4. `npm run naming:check`、`npm run docs:check` 通過。
 5. 在 legacy default 尚未移除前，不得宣稱「domain migration 全部完成」，只能宣稱「正式入口已切換，legacy 仍作 redirect 兼容」。
 
+### 2026-06-21 Codex 執行與外部平台現況
+
+1. GitHub repo 已由 `Alex0158/mother-bear-court` rename 為 `Alex0158/emorapy`；repo id 保持 `R_kgDOQm7FhQ`，本地 `origin` 已指向 `git@github.com:Alex0158/emorapy.git`。
+2. GitHub repo variable 已設 `EMORAPY_GITHUB_REPO=Alex0158/emorapy`；App release GitHub secret helper 的 default fallback 已改為 `Alex0158/emorapy`，不再默認依賴舊 slug redirect。
+3. Vercel CLI 已驗證登入；project list 仍顯示 main project `mother-bear-court`，production alias 仍是 `https://mother-bear-court.vercel.app`。當前 Vercel CLI 只提供 project add / inspect / list / remove，沒有安全的 project rename 命令；未取得正式 Emorapy domain 前，不得移除 legacy alias。
+4. Railway CLI 已驗證登入；production service source repo 已顯示 `Alex0158/emorapy`，但 service name 仍是 `mother-bear-court`，service domain 仍是 `mother-bear-court-production.up.railway.app`，custom domains 為空。當前 Railway CLI `service` 子命令沒有 rename 操作；未取得正式 Emorapy backend domain 前，不得改 workflow/service fallback。
+5. `npm run ops:release:status` 在 legacy URL 下仍可執行並回傳 Vercel Ready / Railway SUCCESS 狀態；由於 local branch commit 與 production commit 不同，該命令只證明現有 legacy production entry 仍可用，不代表本輪命名變更已部署到 production。
+
 ### 停止 / 回滾條件
 
 - 若 repo rename 後 Vercel / Railway integration 斷開、Actions 無法觸發、或 `/version` 回 `unknown`：把 GitHub variable 指回 legacy、回報實際錯誤、不要邊壞邊改。

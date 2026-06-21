@@ -195,6 +195,7 @@ const CURRENT_GOVERNANCE_ID_IGNORE_PATTERNS = [
 ];
 
 const LEGACY_GOVERNANCE_ID_RE = /\bCJ-[A-Z0-9]+(?:-[A-Z0-9]+)+\b/g;
+const LEGACY_GOVERNANCE_ID_WILDCARD_RE = /\bCJ-[A-Z0-9]+(?:-[A-Z0-9]+)*-\*/g;
 
 const LEGACY_MARKETING_COPY_RULES = [
   {
@@ -342,8 +343,8 @@ const REQUIRED_POLICY_NEEDLES = [
     file: 'AGENTS.md',
     needles: [
       'Emorapy Agent Guide',
-      '`Emorapy` is the formal product and App release identity',
-      'legacy aliases or current infrastructure identifiers only',
+      '`Emorapy` is the formal product, repo, and App release identity',
+      'legacy aliases or compatibility infrastructure identifiers only',
     ],
   },
   {
@@ -609,6 +610,12 @@ async function checkCurrentGovernanceIdNamespace() {
     for (const match of text.matchAll(LEGACY_GOVERNANCE_ID_RE)) {
       fail(
         `${file}:${lineNumberAt(text, match.index ?? 0)} [legacy-governance-id] current docs must use EMO-* IDs; CJ-* is historical-only after the 2026-06-21 mapped migration: ${match[0]}`
+      );
+    }
+    LEGACY_GOVERNANCE_ID_WILDCARD_RE.lastIndex = 0;
+    for (const match of text.matchAll(LEGACY_GOVERNANCE_ID_WILDCARD_RE)) {
+      fail(
+        `${file}:${lineNumberAt(text, match.index ?? 0)} [legacy-governance-id-wildcard] current docs must use EMO-* wildcard references; CJ-* is historical-only after the 2026-06-21 mapped migration: ${match[0]}`
       );
     }
   }

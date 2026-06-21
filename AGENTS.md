@@ -2,7 +2,7 @@
 
 This file is the repo-level operating guide for coding agents. It is not a product spec. Product and engineering truth live under `docs/核心開發文件/`.
 
-`Emorapy` is the formal product and App release identity. `CJ`, `Mother Bear Court`, `mother-bear-court`, and `com.cj.motherbearcourt` are legacy aliases or current infrastructure identifiers only; do not use them for new user-facing copy, App Store metadata, native bundle IDs, or release identity decisions.
+`Emorapy` is the formal product, repo, and App release identity. `CJ`, `Mother Bear Court`, `mother-bear-court`, and `com.cj.motherbearcourt` are legacy aliases or compatibility infrastructure identifiers only; do not use them for new user-facing copy, App Store metadata, native bundle IDs, repo identity, or release identity decisions.
 
 ## Hard Rules
 

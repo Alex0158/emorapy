@@ -19,7 +19,7 @@
 - API 主鍵為 `METHOD + PATH`。
 - 一條 API 可映射多個頁面（多場景），但每個場景需落到明確流程節點。
 - `狀態` 與 `全接口清單-主文檔` 保持一致（已使用/待承接/候選廢棄/已確認廢棄）。
-- `CJ-PRD-*` 上游需求與 `CJ-RTM-*` 驗證矩陣不直接改寫本表 API 狀態；若新增或調整 API 才更新本表主表。
+- `EMO-PRD-*` 上游需求與 `EMO-RTM-*` 驗證矩陣不直接改寫本表 API 狀態；若新增或調整 API 才更新本表主表。
 - 前台「完成度」以 `功能特性清單.md` 的口徑為準（`已完成/跨功能依賴/待驗證`），不覆蓋 API 狀態欄。
 - `F01-F10` 為主功能；`F11-F14` 為平台輔助能力附錄（同時包含候選與已使用運維接口）。
 - `主要頁面` 欄主要表示 Web/Admin route 或外部 Admin 子頁責任；App-only backend endpoints 可標示為 App adapter / App flow label，但 App screen / native navigation 的裁決仍由 `20-App端/01-App導航與平台Adapter基線.md` 與 `50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md` 追蹤。

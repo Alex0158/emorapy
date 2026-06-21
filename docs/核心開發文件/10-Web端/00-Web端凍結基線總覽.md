@@ -16,7 +16,7 @@ Web 端基線以當前 repo 的 `frontend/`、`frontend-admin/`、`backend/`、`
 
 1. 已在 Web 存在的產品能力，App 應判定為「需要評估是否承接」。
 2. Web 已有但不適合 App 原樣搬遷的能力，應記為平台差異。
-3. Web 沒有閉環但跨端產品核心或 `CJ-PRD-*` 要求存在的能力，應記為代碼待處理任務。
+3. Web 沒有閉環但跨端產品核心或 `EMO-PRD-*` 要求存在的能力，應記為代碼待處理任務。
 4. Web 平台專屬實作不得反向污染跨端核心或通用級 PRD。
 5. Web -> App 轉譯必須通過 `20-App端/01-App導航與平台Adapter基線.md` 與 `50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md`，不得把本基線當成 App navigation 或 native adapter 設計。
 

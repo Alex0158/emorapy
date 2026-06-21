@@ -8,7 +8,7 @@
 **最後核驗日期**：`2026-06-21`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**狀態**：待外部執行（T1 repo/domain rename）/ T2 PRD ID 遷移已於 2026-06-21 gated 執行完成 / 待外部憑證與證據（T3 App release 命名相關 evidence）；T1/T3 未達成前，本交接單整體仍不得標為已處理/已閉環/已完成
+**狀態**：T1 GitHub repo rename 已由 Codex CLI 執行為 `Alex0158/emorapy`，本地 `origin` 已更新，`EMORAPY_GITHUB_REPO=Alex0158/emorapy` 已設為 GitHub repo variable；T1 domain migration 仍待 Vercel / Railway alias、DNS / TLS 與 release evidence / T1-L 本地 workspace 與檔名路徑命名收斂已納入 / T2 PRD ID 遷移已於 2026-06-21 gated 執行完成 / 待外部憑證與證據（T3 App release 命名相關 evidence）；T1 domain、T1-L、T3 未達成前，本交接單整體仍不得標為已處理/已閉環/已完成
 **Owner**：Product / Ops / Mobile / Docs（與 Codex 協作）
 **關聯核心文件**：`07-待處理問題與治理/待處理/Emorapy命名收斂與外部識別符遷移待辦-2026-06-20.md`、`07-待處理問題與治理/待處理/App外部ReleaseSignoff待辦-2026-05-16.md`、`03-管理端與平台治理/05-運維連接與調用Runbook.md`、`術語表.md`、`00-跨端產品核心/01-產品PRD總章.md`
 
@@ -16,11 +16,11 @@
 
 ## 用途與讀法
 
-本文件是「Emorapy 命名收斂」尚未閉環、且**需要使用者外部操作或需要一個獨立 gated 執行輪**的剩餘任務交接單，供使用者與 Codex 一起接手。
+本文件是「Emorapy 命名收斂」尚未閉環、且**需要外部平台操作、使用者配合或需要一個獨立 gated 執行輪**的剩餘任務交接單，供使用者與 Codex 一起接手。
 
 已完成、且已有防回流 gate 的部分（dev-facing 範本收斂、gate 盲區加固、`CJ_*` env deprecation、P2 對外文案、P3 package scope、P5 docs allowlist 等）見 `Emorapy命名收斂與外部識別符遷移待辦-2026-06-20.md`，本文件不重複。
 
-每個任務（T1/T2/T3）都用同一結構描述：目標、執行角色、前置依賴、詳細步驟、驗證命令、完成判定（DoD）、停止/回滾條件、禁止事項。命令以 repo 根目錄為工作目錄，除非另有標註。
+每個任務（T1/T1-L/T2/T3）都用同一結構描述：目標、執行角色、前置依賴、詳細步驟、驗證命令、完成判定（DoD）、停止/回滾條件、禁止事項。命令以 repo 根目錄為工作目錄，除非另有標註。
 
 通則（三個任務都適用）：
 
@@ -39,12 +39,12 @@
 
 ### 執行角色
 
-1. 外部平台操作（GitHub / Vercel / Railway 後台）：**使用者**。
+1. 外部平台操作（GitHub / Vercel / Railway 後台）：**使用者**；若 CLI / browser session 已具備足夠權限，可由 **Codex** 先執行可逆或低風險步驟並回報證據。
 2. repo 內 remote 更新、variable 文檔化、platform map / AGENTS.md 收尾、驗證：**Codex**。
 
 ### 前置依賴與 repo 內就緒狀態（已驗證，無待改 code）
 
-1. App release GitHub secret 工具解析 repo 順序為 `--repo=<owner/repo>` > `EMORAPY_GITHUB_REPO` > `GITHUB_REPOSITORY` > legacy default `Alex0158/mother-bear-court`（見 `mobile/scripts/check-release-github-secret-names.mjs`、`mobile/scripts/sync-release-github-secrets.mjs`）。
+1. App release GitHub secret 工具解析 repo 順序為 `--repo=<owner/repo>` > `EMORAPY_GITHUB_REPO` > `GITHUB_REPOSITORY` > default `Alex0158/emorapy`（見 `mobile/scripts/check-release-github-secret-names.mjs`、`mobile/scripts/sync-release-github-secrets.mjs`）。
 2. `.github/workflows/*.yml` 使用 `${{ github.* }}` context 與 repo / environment variables，未硬編 repo slug。
 3. Railway service 名與 main/admin/backend URL 可由 `EMORAPY_RAILWAY_SERVICE_NAME`、`EMORAPY_MAIN_WEB_URL`、`EMORAPY_ADMIN_WEB_URL`、`EMORAPY_BACKEND_BASE_URL` 覆蓋 legacy default。
 4. legacy hostname 已被 naming gate 與 runbook 分類為 compatibility default，不是正式 Emorapy domain 完成證據。
@@ -57,9 +57,9 @@
    - Vercel：為 main 與 admin project 各加 Emorapy 自訂 domain，等 DNS / TLS 生效。
    - Railway：為 backend service 加 Emorapy domain。
    - 驗證新 domain 可服務：`EMORAPY_MAIN_WEB_URL=<new-main> EMORAPY_ADMIN_WEB_URL=<new-admin> EMORAPY_BACKEND_BASE_URL=<new-backend> npm run ops:release:status`。
-2. **設 GitHub repo / environment variables（使用者）**：設定 `EMORAPY_MAIN_WEB_URL`、`EMORAPY_ADMIN_WEB_URL`、`EMORAPY_BACKEND_BASE_URL`、`EMORAPY_RAILWAY_SERVICE_NAME`（若 Railway service 改名）、`EMORAPY_GITHUB_REPO`，使 workflow 與 release gate 走 Emorapy 入口。本步只設 variable，不改 secret 值。
-3. **GitHub repo rename（使用者）**：`Settings → General → Rename`。GitHub 自動對舊 slug 建立 redirect。
-4. **更新本機 remote（Codex）**：`git remote set-url origin git@github.com:<owner>/<new-repo>.git`，再 `git remote -v` 確認。
+2. **設 GitHub repo / environment variables（使用者 + Codex）**：設定 `EMORAPY_MAIN_WEB_URL`、`EMORAPY_ADMIN_WEB_URL`、`EMORAPY_BACKEND_BASE_URL`、`EMORAPY_RAILWAY_SERVICE_NAME`（若 Railway service 改名）、`EMORAPY_GITHUB_REPO`，使 workflow 與 release gate 走 Emorapy 入口。本步只設 variable，不改 secret 值；2026-06-21 Codex 已設 `EMORAPY_GITHUB_REPO=Alex0158/emorapy`。
+3. **GitHub repo rename（使用者或 Codex CLI）**：`Settings → General → Rename` 或 `gh api -X PATCH repos/<owner>/<old-repo> -f name=<new-repo>`。GitHub 自動對舊 slug 建立 redirect；Codex 執行前需先確認 `gh repo view` 顯示 `viewerPermission=ADMIN` 且新 slug 不存在。2026-06-21 Codex 已將 `Alex0158/mother-bear-court` 改名為 `Alex0158/emorapy`，repo id 保持不變。
+4. **更新本機 remote（Codex）**：`git remote set-url origin git@github.com:<owner>/<new-repo>.git`，再 `git remote -v` 確認。2026-06-21 Codex 已更新為 `git@github.com:Alex0158/emorapy.git`。
 5. **確認平台 integration（使用者 + Codex）**：Vercel / Railway 的 GitHub integration 綁定的是 repo id（rename 後通常自動跟隨）；確認最近一次 push 仍能觸發 Vercel / Railway deploy。
 6. **切正式入口（使用者 + Codex）**：確認 Emorapy domain 穩定後，把 platform map（`AGENTS.md` Platform Map、`03-管理端與平台治理/05-運維連接與調用Runbook.md`）的正式入口從 legacy hostname 改為 Emorapy domain，legacy hostname 降級為純 redirect 說明。
 7. **legacy default 降級（Codex，後續輪）**：正式入口穩定且有 release evidence 後，另開一輪把 release helper / workflow 中的 legacy hostname default 移除或改為 Emorapy default，並翻轉 `checkLegacyProductionHostnameCompatContract` gate（目前要求保留 legacy default）。
@@ -91,6 +91,53 @@ npm run docs:check
 
 - 不得在未加 Emorapy domain alias、未驗證可服務前直接移除 legacy hostname default。
 - 不得在本輪移除 `mother-bear-court` legacy default（屬後續降級輪）。
+
+---
+
+## T1-L：本地 workspace / 檔名 / 路徑命名收斂（Codex repo 內受控執行）
+
+### 目標
+
+把本地開發入口與 current docs 的物理路徑口徑從 legacy `mother-bear-court` 收斂到 Emorapy slug；同時保留歷史 evidence、dated ledger、legacy hostname 與外部平台兼容 default，不用全局替換破壞追溯。
+
+### 執行角色
+
+repo 內由 **Codex** 執行；若要改 Finder / IDE workspace 顯示名稱，Codex 可在 commit / push 後用本機 `mv` 完成，並改用新 cwd 繼續驗證。若當前 Codex session、IDE 或正在運行的 dev server 鎖定舊路徑，停止 rename，改為先提交 repo 內準備工作。
+
+### 詳細步驟
+
+1. **盤點本地舊命名**：用 `rg` / `git grep` / `find` 分別盤點 tracked current files、ignored build artifacts、historical docs、generated native cache 與外部平台 default。
+2. **分類**：
+   - 必改：current docs 對正式 namespace 的錯誤引用、root SSOT 內對當前資料夾的正式路徑說法、repo remote。
+   - 暫留：legacy Vercel / Railway hostname default、Railway service fallback、Supabase Dev project name。
+   - 歷史保留：`07/已處理/`、`90-證據與盤點/`、`99-歷史降級索引/`、`文件收斂/`、dated `CJ-*` ledger 檔名。
+   - generated / ignored：`node_modules`、native `.cxx`、`dist`、`backend/tmp`、`output`、`temp` 不作手工命名治理。
+3. **repo 內修正**：current docs 的 `EMO-*` namespace 口徑、T1/T2/T3 交接文件、root README 的 allowed Markdown zone、platform map / runbook 的正式入口說法按實際外部狀態更新。
+4. **本地 root folder rename**：只在 repo 乾淨、外部 remote 已確認、沒有必要長跑 process 時，把 workspace 下的 repo folder 從 `mother-bear-court` 改為 `emorapy`；rename 後立即用新 cwd 跑 `git rev-parse --show-toplevel`、`git status --short --branch`、`npm run naming:check`、`npm run docs:check`。
+5. **外部平台不同步時的邊界**：本地 folder 可先改；GitHub repo / Vercel / Railway domain 未完成時，文件必須明確標註 legacy hostname / service / project name 仍是 compatibility default，不得宣稱 T1 domain migration 完成。
+
+### 驗證命令
+
+```bash
+git rev-parse --show-toplevel
+git remote -v
+npm run naming:check
+npm run docs:check
+rg -n "CJ-PRD-\\*|CJ-RTM-\\*|mother-bear-court/docs" docs/核心開發文件 --glob '!docs/核心開發文件/07-待處理問題與治理/待處理/Emorapy命名收斂與外部識別符遷移待辦-2026-06-20.md' --glob '!docs/核心開發文件/07-待處理問題與治理/待處理/Emorapy命名收斂剩餘任務Codex交接執行單-2026-06-21.md'
+```
+
+### 完成判定（DoD）
+
+1. current docs 不再把上游需求 / RTM wildcard 寫成 `CJ-*`；現行 namespace 是 `EMO-*`，`CJ-*` 僅作歷史 mapping / provenance。
+2. 若本地 folder 已改名，repo root folder 為 `emorapy`，且 docs 的 current allowed Markdown zone 同步更新。
+3. ignored / generated artifacts 內的舊路徑不作完成 blocker，但不得被回寫成 current SSOT。
+4. `npm run naming:check`、`npm run docs:check` 通過。
+
+### 禁止事項
+
+- 不得手工改 `node_modules`、native `.cxx`、`dist`、`backend/tmp` 或歷史 evidence 以追求舊名清零。
+- 不得在沒有 Emorapy domain release evidence 前移除 legacy hostname defaults。
+- 不得把 local folder rename 當成 GitHub / Vercel / Railway domain migration 完成證據。
 
 ---
 

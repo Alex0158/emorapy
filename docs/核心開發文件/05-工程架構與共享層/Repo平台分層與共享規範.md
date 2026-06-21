@@ -10,7 +10,7 @@
 
 ## 1. 目的
 
-本文件將 `Emorapy` 的平台分層正式定義為三個層次；當前 repo 物理路徑仍保留 legacy `mother-bear-court`，不代表正式產品名或新 external identifier。
+本文件將 `Emorapy` 的平台分層正式定義為三個層次；當前 GitHub repo 與本地 workspace root 使用 `emorapy`。legacy `mother-bear-court` 只代表歷史 repo slug、GitHub redirect、既有 deployment hostname / service fallback 或歷史證據引用，不代表正式產品名或新 external identifier。
 
 - `apps/*`：面向使用者的前端應用
 - `services/*`：後端服務與基礎服務

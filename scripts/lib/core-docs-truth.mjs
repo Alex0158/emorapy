@@ -286,20 +286,64 @@ function extractRouterTruthFromContent(content) {
   return extracted;
 }
 
+function extractAdminNavigationTruthFromContent(content) {
+  const listMatch = content.match(
+    /export const ADMIN_NAVIGATION_ITEMS:[^=]+?=\s*\[([\s\S]*?)\n\];/
+  );
+  if (!listMatch) {
+    return [];
+  }
+
+  const routes = [];
+  const itemRe = /\{([\s\S]*?)\n\s*\},/g;
+  let itemMatch;
+  while ((itemMatch = itemRe.exec(listMatch[1])) !== null) {
+    const block = itemMatch[1];
+    const pathMatch = block.match(/\bpath:\s*["']([^"']+)["']/);
+    if (!pathMatch) continue;
+    const permissionsMatch = block.match(/\brequiredPermissions:\s*\[([^\]]*)\]/);
+    const permissions = permissionsMatch
+      ? [...permissionsMatch[1].matchAll(/["']([^"']+)["']/g)].map((match) => match[1])
+      : [];
+    routes.push({
+      rawPath: pathMatch[1],
+      fullPath: normalizeAbsolutePath(pathMatch[1]),
+      indent: 0,
+      guardType: 'AdminPermissionRoute',
+      routeKind: 'page',
+      permissions,
+    });
+  }
+  return routes;
+}
+
 export async function extractFrontendRouteTruth(repoRoot) {
   const frontendRouterPath = path.join(repoRoot, 'frontend/src/router/index.tsx');
   const adminRouterPath = path.join(repoRoot, 'frontend-admin/src/router.tsx');
-  const [frontendContent, adminContent] = await Promise.all([
+  const adminNavigationPath = path.join(
+    repoRoot,
+    'frontend-admin/src/config/adminNavigation.ts'
+  );
+  const [frontendContent, adminContent, adminNavigationContent] = await Promise.all([
     readFileUtf8(frontendRouterPath),
     readFileUtf8(adminRouterPath),
+    readFileUtf8(adminNavigationPath),
   ]);
 
   const frontendRoutes = extractRouterTruthFromContent(frontendContent);
   const adminRoutes = extractRouterTruthFromContent(adminContent);
+  const knownAdminPaths = new Set(adminRoutes.map((route) => route.fullPath));
+  for (const route of extractAdminNavigationTruthFromContent(adminNavigationContent)) {
+    if (!knownAdminPaths.has(route.fullPath)) {
+      adminRoutes.push(route);
+      knownAdminPaths.add(route.fullPath);
+    }
+  }
 
   return {
     frontendRouterPath: normalizePosix(path.relative(repoRoot, frontendRouterPath)),
     adminRouterPath: normalizePosix(path.relative(repoRoot, adminRouterPath)),
+    adminNavigationPath: normalizePosix(path.relative(repoRoot, adminNavigationPath)),
     frontendRoutes,
     adminRoutes,
   };

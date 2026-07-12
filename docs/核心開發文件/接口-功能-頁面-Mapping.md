@@ -4,12 +4,12 @@
 **文檔類型**：旗艦映射
 **覆蓋範圍**：API -> 功能 -> 頁面 -> 流程節點映射
 **取證代碼入口**：`backend/src/routes`、`frontend/src/router/index.tsx`、`frontend-admin/src/router.tsx`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`23e85ef`
-**最後核驗日期**：`2026-05-31`
+**最後核驗 Commit**：`e65a4b8`
+**最後核驗日期**：`2026-07-12`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**文檔版本**：v1.16
-**最後更新**：2026-05-31
+**文檔版本**：v1.17
+**最後更新**：2026-07-12
 **目標**：把 API -> 功能 -> 頁面 -> 流程節點建立可回歸的單點追溯。
 
 ---
@@ -26,6 +26,8 @@
 - API 契約、資料 shape、授權、限流或錯誤碼若會同時影響 Web 與 App，除更新本表外，必須同步更新 `50-跨端Mapping與Parity/01-App首輪能力與工程落點Mapping.md` 或新增待處理 parity 任務。
 - 若 App 端以某 API 建立 smoke / regression / CI / evidence，該證據不得只回填到本表；必須先符合 `08-測試規範與驗收/03-App測試與證據接入基線.md`，再回寫 App / Parity 文件。
 - `GET /cases/:id`、`GET /cases/:id/judgment` 的授權分流以 `backend/src/utils/case-classifier.ts` 為裁決源：`quick`/`collaborative(session_id 有值)` 走 session；`remote`/`collaborative(session_id=null)` 走當事人 JWT；產品流分類需另覆蓋 `chat_to_case`（`ChatToCaseLink` 優先於 `Case.mode`）。
+- formal remote draft 回應方讀 `GET /cases` / `GET /cases/:id` 時，backend 以 `blind_response_pending` 及空值 projection 隱藏發起方陳述、分類、附件與 judgment；頁面不得僅靠 CSS 隱藏。
+- judgment read 的 `responsibility_ratio_visibility` / `reconciliation_policy` 與 plan bundle 的 `repair_access` 是頁面安全 CTA 的裁決源；URL intent、case mode 或前端預設不得放寬。
 - 風險等級：
   - `H`：跨多場景、涉及身份/狀態遷移/SSE/文件。
   - `M`：單場景核心功能。
@@ -41,24 +43,24 @@
 | `POST /api/v1/cases/quick` | F01 | `/quick-experience/create` | 匿名建案 | H | 已使用 |
 | `POST /api/v1/cases/collaborative` | F02 | `/quick-experience/collaborative` | A/B 輪流提交流程 | H | 已使用 |
 | `GET /api/v1/cases/by-session` | F01 | `/quick-experience/create` | 回收歷史 quick case | M | 已使用 |
-| `GET /api/v1/cases/:id` | F01/F03 | `/quick-experience/result/:id`、`/case/:id` | 案件讀取（mode 分流：session vs 當事人 JWT） | H | 已使用 |
+| `GET /api/v1/cases/:id` | F01/F03 | `/quick-experience/result/:id`、`/case/:id` | 案件讀取（mode 分流；formal remote 回應方另有 blind-response projection） | H | 已使用 |
 | `GET /api/v1/profile/me` | F09 | `/profile/index` | 個人背景資料讀取 | M | 已使用 |
 | `PUT /api/v1/profile/me` | F09 | `/profile/index` | 個人背景資料更新 | M | 已使用 |
 | `POST /api/v1/cases` | F03 | `/case/create` | 正式建案 | H | 已使用 |
 | `PUT /api/v1/cases/:id` | F03 | `/case/:id/review` | 案件修訂 | M | 已使用 |
 | `POST /api/v1/cases/:id/submit` | F03 | `/case/:id` | draft -> submitted | H | 已使用 |
-| `GET /api/v1/cases` | F03 | `/case/list` | 列表查詢 | M | 已使用 |
+| `GET /api/v1/cases` | F03 | `/case/list` | 列表查詢；remote draft 回應方內容及 search 命中受 blind-response privacy 限制 | H | 已使用 |
 | `POST /api/v1/cases/:id/evidence` | F01/F03/F05 | `/quick-experience/*`、`/case/create`、`/execution/:planId/checkin` | 證據上傳 | H | 已使用 |
 | `DELETE /api/v1/cases/:id/evidence/:evidenceId` | F03 | 證據組件 | 證據刪除 | M | 已使用 |
 | `GET /api/v1/cases/:id/judgment` | F01/F02 | `/quick-experience/result/:id` | 結果頁判決查詢（與 `GET /cases/:id` 同授權分流；F02 透過導頁跨功能依賴） | H | 已使用 |
 | `GET /api/v1/streams/case_judgment/:id` | F01/F04 | `/quick-experience/result/:id` | 判決 phase 流與 persisted handoff | H | 已使用 |
 | `POST /api/v1/judgments/generate/:id` | F04 | `/case/:id/review` | 判決生成（formal review） | H | 已使用 |
-| `GET /api/v1/judgments/:id` | F04 | `/judgment/:id` | 判決展示（純登入後消費） | M | 已使用 |
+| `GET /api/v1/judgments/:id` | F04 | `/judgment/:id` | 梳理結果展示；backend policy 約束比例與可用調整方向 | H | 已使用 |
 | `POST /api/v1/judgments/:id/accept` | F04 | `/judgment/:id` | 判決接受/拒絕 | M | 已使用 |
 | `POST /api/v1/judgments/:id/repair` | F12 | （無） | 聯盟修復 | L | 候選廢棄 |
 | `POST /api/v1/judgments/:id/metrics` | F12 | （無） | 臨床品質回寫 | L | 候選廢棄 |
-| `POST /api/v1/judgments/:id/reconciliation-plans` | F05 | `/reconciliation/:judgmentId` | 生成 Repair Journey 方案 bundle | H | 已使用 |
-| `GET /api/v1/judgments/:id/reconciliation-plans` | F05 | `/reconciliation/:judgmentId` | 方案 bundle / 旅程入口狀態 | M | 已使用 |
+| `POST /api/v1/judgments/:id/reconciliation-plans` | F05 | `/reconciliation/:judgmentId` | 生成方案 bundle + effective intent + `repair_access` | H | 已使用 |
+| `GET /api/v1/judgments/:id/reconciliation-plans` | F05 | `/reconciliation/:judgmentId` | 方案 bundle / 旅程入口狀態；不允許的 URL intent 由 backend 校正 | H | 已使用 |
 | `GET /api/v1/reconciliation-plans/:id` | F05 | `/reconciliation/:judgmentId/:id` | 方案詳情 / 共同承諾工作台 | M | 已使用 |
 | `POST /api/v1/reconciliation-plans/:id/select` | F05 | `/reconciliation/:judgmentId/:id` | 當前用戶承諾（兼容入口） | H | 已使用 |
 | `POST /api/v1/reconciliation-plans/:id/respond` | F05 | `/reconciliation/:judgmentId/:id` | invitee viewed / accept / defer / decline / pause | H | 已使用 |

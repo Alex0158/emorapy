@@ -4,7 +4,7 @@
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：04-judgment
 **取證代碼入口**：`backend/src/app.ts`、`backend/src/routes/judgment.routes.ts`、`backend/src/routes/ai-stream.routes.ts`、`backend/src/services/judgment.service.ts`、`backend/src/services/judgment-normalization.service.ts`、`backend/src/services/chat.service.ts`、`backend/src/utils/judgment.ts`、`backend/src/utils/case-classifier.ts`、`packages/api-client/src/m4.ts`、`frontend/src/services/api/judgment.ts`、`frontend/src/services/aiStream.ts`、`mobile/app/(app)/case/index.tsx`、`mobile/src/features/m4/api.ts`
-**最後核驗 Commit**：`e65a4b8`
+**最後核驗 Commit**：`c78765b`
 **最後核驗日期**：`2026-07-12`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 

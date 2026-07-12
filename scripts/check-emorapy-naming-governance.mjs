@@ -784,6 +784,26 @@ function checkLegacyProductionHostnameCompatContract() {
   );
 }
 
+function checkReleaseArtifactPrivacyContract() {
+  const smokeFile = 'scripts/ops-release-smoke.sh';
+  const smokeText = readText(smokeFile);
+  requireIncludes(smokeText, 'echo "[release-smoke] admin_email=set"', smokeFile);
+
+  const leakedAdminIdentifierLine = smokeText
+    .split('\n')
+    .find((line) => line.includes('echo ') && line.includes('ADMIN_EMAIL'));
+  if (leakedAdminIdentifierLine) {
+    fail(`${smokeFile} must not emit the secret-derived admin identifier into release artifacts.`);
+  }
+
+  const evidenceFile = 'scripts/ops-release-gate-evidence.sh';
+  requireIncludes(
+    readText(evidenceFile),
+    'mask_presence "${RELEASE_SMOKE_ADMIN_EMAIL:-${ADMIN_EMAIL:-}}"',
+    evidenceFile
+  );
+}
+
 function checkLegacyGovernanceIdNamespacePolicy() {
   const prdFile = 'docs/核心開發文件/00-跨端產品核心/01-產品PRD總章.md';
   requireOrderedIncludes(
@@ -956,6 +976,7 @@ checkCoreDocsLedgerGeneratorIdentity();
 checkSeedGuardLegacyDevProjectComment();
 checkAppVisibleCopyLegacyBrandGuard();
 checkLegacyProductionHostnameCompatContract();
+checkReleaseArtifactPrivacyContract();
 checkLegacyGovernanceIdNamespacePolicy();
 checkSentryNativeCrashReleaseIdentity();
 checkWebLocalStorageKeyMigrationContract();

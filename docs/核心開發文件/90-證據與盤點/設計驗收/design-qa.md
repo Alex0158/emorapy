@@ -7,7 +7,7 @@
 **SSOT 屬性**：非現行 SSOT（僅作證據/歷史/治理參考）
 **覆蓋範圍**：Consumer Web 與 Admin Web 的 Guided Reflection 視覺方向、Quick 主流程、responsive、互動與控制台檢查
 **取證代碼入口**：`frontend/src/index.css`、`frontend/src/pages/QuickExperience/Create`、`frontend/src/pages/Home`、`frontend/src/components/layout/AuthLayout.tsx`、`frontend-admin/src/index.css`、`frontend-admin/src/components/common/AdminSectionLayout.tsx`、`frontend-admin/src/pages/Admin`
-**最後核驗 Commit**：`e65a4b8`
+**最後核驗 Commit**：`c78765b`
 **最後核驗日期**：`2026-07-12`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 

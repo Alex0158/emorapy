@@ -4,7 +4,7 @@
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：05-reconciliation-execution
 **取證代碼入口**：`backend/src/app.ts`、`backend/src/routes/reconciliation.routes.ts`、`backend/src/routes/execution.routes.ts`、`backend/src/routes/ai-stream.routes.ts`、`backend/src/services/reconciliation.service.ts`、`backend/src/services/execution.service.ts`、`backend/src/services/repair-eligibility.service.ts`、`backend/src/services/repair-journey.service.ts`、`backend/src/services/safety-assessment.service.ts`、`packages/api-client/src/m4.ts`、`frontend/src/services/api/reconciliation.ts`、`frontend/src/services/api/execution.ts`、`mobile/app/(app)/repair/index.tsx`、`mobile/src/features/m4/api.ts`
-**最後核驗 Commit**：`e65a4b8`
+**最後核驗 Commit**：`c78765b`
 **最後核驗日期**：`2026-07-12`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 

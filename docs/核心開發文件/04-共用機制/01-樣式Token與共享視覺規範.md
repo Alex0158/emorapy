@@ -4,7 +4,7 @@
 **文檔類型**：正式規格
 **覆蓋範圍**：前後台共享元件、樣式 token 與流式通用機制：01-樣式Token與共享視覺規範
 **取證代碼入口**：`frontend/src/index.css`、`frontend-admin/src/index.css`、`frontend/src/App.tsx`、`frontend-admin/src/App.tsx`、`frontend/src/components/common`、`frontend/src/components/ui`、`frontend/src/components/business`、`frontend-admin/src/pages`、`frontend/src/assets/i18n`、`frontend-admin/src/assets/i18n`、`package.json`
-**最後核驗 Commit**：`e65a4b8`
+**最後核驗 Commit**：`c78765b`
 **最後核驗日期**：`2026-07-12`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 

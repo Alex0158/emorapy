@@ -4,7 +4,7 @@
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：09-admin
 **取證代碼入口**：`backend/src/app.ts`、`backend/src/routes/admin.routes.ts`、`backend/src/routes/app-telemetry.routes.ts`、`backend/src/controllers/admin.controller.ts`、`backend/src/services/cost-monitoring.service.ts`、`backend/src/services/app-telemetry.service.ts`、`backend/src/services/notification.service.ts`、`backend/src/services/product-state-recovery-task.service.ts`、`backend/src/utils/case-classifier.ts`、`backend/src/utils/validation.ts`、`backend/prisma/schema.prisma`、`backend/prisma/migrations/20260504164500_add_notification_cancelled_status/migration.sql`、`backend/prisma/migrations/20260504173000_add_product_state_recovery_tasks/migration.sql`、`frontend-admin/src/services/api/admin.ts`、`frontend-admin/src/router.tsx`、`frontend/src/router/index.tsx`、`frontend/src/utils/adminEntry.ts`、`mobile/scripts/run-telemetry-runtime-smoke.mjs`、`scripts/check-web-admin-boundary.mjs`
-**最後核驗 Commit**：`e65a4b8`
+**最後核驗 Commit**：`c78765b`
 **最後核驗日期**：`2026-07-12`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 

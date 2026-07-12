@@ -4,7 +4,7 @@
 **文檔類型**：問題治理
 **覆蓋範圍**：Production `AdminRole.permissions` 與代碼預設敏感報表權限的資料同步
 **取證代碼入口**：`backend/src/utils/admin-permissions.ts`、`backend/src/controllers/admin.controller.ts`、`backend/src/services/ai-stream.service.ts`、`backend/prisma/seed.ts`
-**最後核驗 Commit**：`e65a4b8`
+**最後核驗 Commit**：`c78765b`
 **最後核驗日期**：`2026-07-12`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 

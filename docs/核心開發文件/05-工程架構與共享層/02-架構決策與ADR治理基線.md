@@ -47,7 +47,7 @@ Emorapy 後續描述架構時，至少按以下層級表達。沒有圖時可以
 
 | 欄位 | 必填口徑 |
 | --- | --- |
-| ADR ID | `CJ-ADR-###`，不得複用舊語義 |
+| ADR ID | `EMO-ADR-###`，不得複用舊語義 |
 | 標題 | 一句話描述架構決策 |
 | 狀態 | Proposed / Accepted / Superseded / Deprecated / Rejected |
 | 日期 | 決策日期或最後重審日期 |
@@ -64,15 +64,15 @@ Emorapy 後續描述架構時，至少按以下層級表達。沒有圖時可以
 
 | ADR ID | 狀態 | 決策 | 依據與影響面 |
 | --- | --- | --- | --- |
-| CJ-ADR-001 | Accepted | 採用單 repo、repo-local backend / mobile、root workspace 僅含 `frontend`、`frontend-admin`、`packages/*` | `package.json` workspaces 與 `backend/package.json`、`mobile/package.json` 現況一致；`mobile` 以 `file:../packages/*` dependency + Metro alias 消費 shared packages；影響本地安裝、CI、Vercel / EAS build 與 shared package 接線 |
-| CJ-ADR-002 | Accepted | `packages/contracts` / `packages/api-client` 作共享層入口，但 backend 只消費 declaration artifact，不直接編譯共享 src | 避免 backend `rootDir` 邊界穿越；影響 contracts build、backend tsconfig 與接口契約治理 |
-| CJ-ADR-003 | Accepted | App 不直接繼承 Web route / storage / guard；App navigation、SecureStore、Push、Deep Link、upload、SSE、telemetry adapter 以 `20/01` 與 `50/01` 為 gate | `mobile/app` 已從 Expo template 轉為 Emorapy route group / screen，`mobile/src/platform` 已有 runtime adapter；M6 strict release sign-off 前仍不得把 Web、simulator 或 dry-run 證據誤宣稱為 TestFlight / 真機 / provider / release DB 完成 |
-| CJ-ADR-004 | Accepted | 身份、session、case ownership、media authorization 與高風險安全路由由 backend 裁決；Web/App 只能提交上下文 | `backend/src/middleware/auth.ts`、case classifier、safety routing 與 media auth 為授權真相；影響所有平台投影 |
-| CJ-ADR-005 | Accepted | quick judgment、interview、chat、repair replan 歸入統一 AI stream / ledger 家族，新增 AI runtime 必須接入 prompt version、ledger 與 output gate | `backend/src/services/ai-request-ledger.service.ts`、AI stream routes、prompt version utilities 與 AI 風險基線共同承接 |
-| CJ-ADR-006 | Accepted | 發布成立不只看 build / health，必須保留 release gate、version、DB parity、smoke 與 evidence wrapper 證據 | `scripts/ops-release-gate.sh`、`scripts/ops-release-gate-evidence.sh` 與 SLO / incident 基線承接 |
-| CJ-ADR-007 | Accepted | 架構、共享層、API contract、DB schema、AI runtime、安全邊界或 App adapter 的變更必須觸發 ADR 或更新本文決策登記 | ADR governance gate 已建立；後續若 ADR 數量增長，應拆分為獨立 ADR 目錄 |
-| CJ-ADR-008 | Accepted | DB schema、migration history、shared contracts、API response 與 App storage schema 的破壞性或 contract-sensitive 變更必須按 expand / backfill / compatibility / contract 分階段治理 | `backend/prisma/schema.prisma`、`backend/prisma/migrations`、`backend/scripts/check-release-db-parity.ts`、`05/03` 與 `08/06` 共同承接；不得把 migration commit 視作 release DB parity |
-| CJ-ADR-009 | Accepted | 完整 App 版正式採用 Expo + React Native + TypeScript，iOS 優先、Android 兼容、單一 `mobile/` codebase；不採用 SwiftUI-only、Flutter 或 Capacitor 作主線 | `mobile/package.json` 已是 Expo / React Native；`20-App端/02-App完整版本工程PRD.md` 與 `20-App端/03-App完整版本開發Roadmap.md` 承接工程 PRD / Roadmap；影響 App、shared package、Web API client 下沉、測試與 release evidence |
+| EMO-ADR-001 | Accepted | 採用單 repo、repo-local backend / mobile、root workspace 僅含 `frontend`、`frontend-admin`、`packages/*` | `package.json` workspaces 與 `backend/package.json`、`mobile/package.json` 現況一致；`mobile` 以 `file:../packages/*` dependency + Metro alias 消費 shared packages；影響本地安裝、CI、Vercel / EAS build 與 shared package 接線 |
+| EMO-ADR-002 | Accepted | `packages/contracts` / `packages/api-client` 作共享層入口，但 backend 只消費 declaration artifact，不直接編譯共享 src | 避免 backend `rootDir` 邊界穿越；影響 contracts build、backend tsconfig 與接口契約治理 |
+| EMO-ADR-003 | Accepted | App 不直接繼承 Web route / storage / guard；App navigation、SecureStore、Push、Deep Link、upload、SSE、telemetry adapter 以 `20/01` 與 `50/01` 為 gate | `mobile/app` 已從 Expo template 轉為 Emorapy route group / screen，`mobile/src/platform` 已有 runtime adapter；M6 strict release sign-off 前仍不得把 Web、simulator 或 dry-run 證據誤宣稱為 TestFlight / 真機 / provider / release DB 完成 |
+| EMO-ADR-004 | Accepted | 身份、session、case ownership、media authorization 與高風險安全路由由 backend 裁決；Web/App 只能提交上下文 | `backend/src/middleware/auth.ts`、case classifier、safety routing 與 media auth 為授權真相；影響所有平台投影 |
+| EMO-ADR-005 | Accepted | quick judgment、interview、chat、repair replan 歸入統一 AI stream / ledger 家族，新增 AI runtime 必須接入 prompt version、ledger 與 output gate | `backend/src/services/ai-request-ledger.service.ts`、AI stream routes、prompt version utilities 與 AI 風險基線共同承接 |
+| EMO-ADR-006 | Accepted | 發布成立不只看 build / health，必須保留 release gate、version、DB parity、smoke 與 evidence wrapper 證據 | `scripts/ops-release-gate.sh`、`scripts/ops-release-gate-evidence.sh` 與 SLO / incident 基線承接 |
+| EMO-ADR-007 | Accepted | 架構、共享層、API contract、DB schema、AI runtime、安全邊界或 App adapter 的變更必須觸發 ADR 或更新本文決策登記 | ADR governance gate 已建立；後續若 ADR 數量增長，應拆分為獨立 ADR 目錄 |
+| EMO-ADR-008 | Accepted | DB schema、migration history、shared contracts、API response 與 App storage schema 的破壞性或 contract-sensitive 變更必須按 expand / backfill / compatibility / contract 分階段治理 | `backend/prisma/schema.prisma`、`backend/prisma/migrations`、`backend/scripts/check-release-db-parity.ts`、`05/03` 與 `08/06` 共同承接；不得把 migration commit 視作 release DB parity |
+| EMO-ADR-009 | Accepted | 完整 App 版正式採用 Expo + React Native + TypeScript，iOS 優先、Android 兼容、單一 `mobile/` codebase；不採用 SwiftUI-only、Flutter 或 Capacitor 作主線 | `mobile/package.json` 已是 Expo / React Native；`20-App端/02-App完整版本工程PRD.md` 與 `20-App端/03-App完整版本開發Roadmap.md` 承接工程 PRD / Roadmap；影響 App、shared package、Web API client 下沉、測試與 release evidence |
 
 ## 5.1 App 技術路線排除選項
 
@@ -101,11 +101,11 @@ Emorapy 後續描述架構時，至少按以下層級表達。沒有圖時可以
 
 | 缺口 ID | 對標基線 | 現狀 | 風險 | 處置 |
 | --- | --- | --- | --- | --- |
-| CJ-ADR-GAP-001 | ISO 42010 | 有 repo 分層文件，但缺少 stakeholder / concern / viewpoint / view 的正式架構描述 | 架構文件容易退化為目錄說明，無法支撐審查與交接 | 本文先建立文字版視圖層級；正式圖集待建立 |
-| CJ-ADR-GAP-002 | C4 model | 尚無 C4 Context / Container / Component 圖 | 新人、運維與安全審查難以快速定位邊界 | 後續可新增 Mermaid / C4 圖，但需與現碼核對 |
-| CJ-ADR-GAP-003 | SSDF / secure design review | 高風險變更已有多份治理文件，但沒有統一 ADR 變更 gate | API、DB、AI、App adapter 變更可能只改局部文件 | 本文與文檔治理規則補 ADR 觸發矩陣 |
-| CJ-ADR-GAP-004 | Architecture correspondence | PRD、NFR、RTM、接口、Parity 與架構決策仍主要靠人工鏈接 | 需求到架構取捨的可審計性不足 | 新增 `CJ-NFR-016` 與 `CJ-RTM-014` 追蹤 |
-| CJ-ADR-GAP-005 | Migration compatibility | schema / migration / API / shared contract 相容性過去散落在待辦與 release gate | 破壞性 DB 變更可能缺少架構取捨、回滾 / 前滾與舊 client 影響分析 | 新增 `05/03`、`08/06`、`CJ-NFR-019` 與 `CJ-RTM-018` |
+| EMO-ADR-GAP-001 | ISO 42010 | 有 repo 分層文件，但缺少 stakeholder / concern / viewpoint / view 的正式架構描述 | 架構文件容易退化為目錄說明，無法支撐審查與交接 | 本文先建立文字版視圖層級；正式圖集待建立 |
+| EMO-ADR-GAP-002 | C4 model | 尚無 C4 Context / Container / Component 圖 | 新人、運維與安全審查難以快速定位邊界 | 後續可新增 Mermaid / C4 圖，但需與現碼核對 |
+| EMO-ADR-GAP-003 | SSDF / secure design review | 高風險變更已有多份治理文件，但沒有統一 ADR 變更 gate | API、DB、AI、App adapter 變更可能只改局部文件 | 本文與文檔治理規則補 ADR 觸發矩陣 |
+| EMO-ADR-GAP-004 | Architecture correspondence | PRD、NFR、RTM、接口、Parity 與架構決策仍主要靠人工鏈接 | 需求到架構取捨的可審計性不足 | 新增 `EMO-NFR-016` 與 `EMO-RTM-014` 追蹤 |
+| EMO-ADR-GAP-005 | Migration compatibility | schema / migration / API / shared contract 相容性過去散落在待辦與 release gate | 破壞性 DB 變更可能缺少架構取捨、回滾 / 前滾與舊 client 影響分析 | 新增 `05/03`、`08/06`、`EMO-NFR-019` 與 `EMO-RTM-018` |
 
 ## 8. 維護規則
 

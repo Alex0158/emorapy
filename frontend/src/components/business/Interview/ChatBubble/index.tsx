@@ -1,13 +1,10 @@
 /**
  * 聊天氣泡組件
  *
- * 遷移: Ant Typography → 原生元素 + Tailwind
- * 保留: Framer Motion 動畫、MediatorAvatar
+ * Guided Reflection：訊息本身承接角色差異，不使用人物或 AI avatar 裝飾。
  */
 
 import React from 'react';
-import { motion } from 'framer-motion';
-import MediatorAvatar from '@/components/business/MediatorAvatar';
 import { cn } from '@/lib/utils';
 import { getLocale } from '@/utils/i18n';
 
@@ -23,21 +20,13 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({ content, isUser, isStreaming, t
   const locale = getLocale();
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.3, ease: 'easeOut' }}
+    <div
       className={cn(
-        'flex gap-3 max-w-[85%]',
+        'flex max-w-[85%]',
         isUser ? 'ml-auto flex-row-reverse' : '',
         safetyFlag ? 'ring-1 ring-warning/30 rounded-2xl p-1' : '',
       )}
     >
-      {!isUser && (
-        <div className="shrink-0 pt-1">
-          <MediatorAvatar size="small" />
-        </div>
-      )}
       <div className="flex flex-col gap-1">
         <div
           className={cn(
@@ -49,7 +38,11 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({ content, isUser, isStreaming, t
         >
           <span className="whitespace-pre-wrap">{content}</span>
           {isStreaming && (
-            <span className="ml-0.5 inline-block w-[2px] h-4 bg-current animate-[blink_1s_infinite]" />
+            <span
+              className="ml-0.5 inline-block h-4 w-px bg-current"
+              data-testid="streaming-cursor"
+              aria-hidden="true"
+            />
           )}
         </div>
         {timestamp && (
@@ -61,14 +54,7 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({ content, isUser, isStreaming, t
           </span>
         )}
       </div>
-
-      <style>{`
-        @keyframes blink {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0; }
-        }
-      `}</style>
-    </motion.div>
+    </div>
   );
 };
 

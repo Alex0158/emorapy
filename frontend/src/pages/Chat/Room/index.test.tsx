@@ -2527,6 +2527,35 @@ describe('ChatRoomPage', () => {
     expect(mockSendChatMessage).not.toHaveBeenCalled();
   });
 
+  it('安全通知應取得焦點並阻斷 judgment handoff，但保留對話輸入', async () => {
+    mockListChatMessages.mockResolvedValueOnce({
+      messages: [{
+        id: 'safety-1',
+        room_id: 'room-1',
+        sender_participant_id: 'system',
+        content: '請先確認當下安全',
+        message_type: 'safety_notice',
+        visibility_scope: 'all',
+        safety_flag: true,
+        created_at: '2026-07-12T10:00:00.000Z',
+      }],
+      nextCursor: null,
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/chat/room/room-1']}>
+        <Routes>
+          <Route path="/chat/room/:roomId" element={<ChatRoomPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const safetyInterruption = await screen.findByTestId('chat-safety-interruption');
+    expect(safetyInterruption).toHaveFocus();
+    expect(screen.getByRole('button', { name: '發起梳理' })).toBeDisabled();
+    expect(screen.getByPlaceholderText('輸入訊息...')).toBeEnabled();
+  });
+
   it('未登入時 chat 發起梳理成功後應先被導向 login，並保留 judgment 回跳目標（F07 -> F04 handoff）', async () => {
     useAuthStore.setState({ user: null, isAuthenticated: false, _hasHydrated: true } as any);
     localStorage.setItem('emorapy_session_id', 'guest_owner_123');

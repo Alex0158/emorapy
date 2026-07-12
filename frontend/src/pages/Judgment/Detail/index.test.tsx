@@ -69,6 +69,15 @@ const mockJudgment = {
   plaintiff_ratio: 60,
   defendant_ratio: 40,
   ai_model: 'test',
+  judgment_route: 'standard',
+  responsibility_ratio_visibility: { can_show: true, reason: null },
+  reconciliation_policy: {
+    defaultReconciliationIntent: 'repair',
+    allowedReconciliationIntents: ['repair', 'cool_down', 'graceful_exit', 'safety_support'],
+    canInvitePartner: true,
+    canUseCoRepair: true,
+    forceSoloRepair: false,
+  },
   created_at: '2026-04-05T00:00:00Z',
   updated_at: '2026-04-05T00:00:00Z',
 };
@@ -92,7 +101,7 @@ describe('JudgmentDetail', () => {
     mockToastSuccess.mockReset();
   });
 
-  it('載入判決後顯示四個下一步方向入口', async () => {
+  it('standard 路由顯示修復、冷靜與退出方向，不把安全支援當主卡', async () => {
     mockGetJudgment.mockResolvedValue(mockJudgment);
 
     renderPage();
@@ -105,8 +114,33 @@ describe('JudgmentDetail', () => {
     expect(screen.getByRole('button', { name: 'judgmentDetail.intentRepairCta' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'judgmentDetail.intentCoolDownCta' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'judgmentDetail.intentGracefulExitCta' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'judgmentDetail.intentSafetyCta' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'judgmentDetail.starAria' })).not.toBeInTheDocument();
+    expect(screen.getByTestId('responsibility-ratio')).toBeInTheDocument();
+  });
+
+  it('安全路由只顯示 safety primary action，不顯示責任比例', async () => {
+    mockGetJudgment.mockResolvedValue({
+      ...mockJudgment,
+      judgment_route: 'safety_support',
+      responsibility_ratio_visibility: { can_show: false, reason: 'safety_route' },
+      reconciliation_policy: {
+        defaultReconciliationIntent: 'safety_support',
+        allowedReconciliationIntents: ['safety_support', 'cool_down', 'graceful_exit'],
+        canInvitePartner: false,
+        canUseCoRepair: false,
+        forceSoloRepair: true,
+      },
+    });
+
+    renderPage();
+
+    expect(await screen.findAllByText('judgmentDetail.intentSafetyTitle')).toHaveLength(2);
     expect(screen.getByRole('button', { name: 'judgmentDetail.intentSafetyCta' })).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: 'judgmentDetail.starAria' })).toHaveLength(5);
+    expect(screen.queryByRole('button', { name: 'judgmentDetail.intentRepairCta' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'judgmentDetail.intentCoolDownCta' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'judgmentDetail.intentGracefulExitCta' })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('responsibility-ratio')).not.toBeInTheDocument();
   });
 
   it('點擊方向入口會帶著 intent 進入修復旅程', async () => {
@@ -141,7 +175,7 @@ describe('JudgmentDetail', () => {
     await user.click(screen.getByRole('button', { name: /judgmentDetail.confirmAccept/ }));
 
     await waitFor(() => {
-      expect(mockAcceptJudgment).toHaveBeenCalledWith('j1', { accepted: true, rating: undefined });
+      expect(mockAcceptJudgment).toHaveBeenCalledWith('j1', { accepted: true });
       expect(mockToastSuccess).toHaveBeenCalledWith('message.acceptJudgmentSuccess');
     });
   });
@@ -154,7 +188,7 @@ describe('JudgmentDetail', () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText('判決載入失敗')).toBeInTheDocument();
+      expect(screen.getByText('message.getJudgmentDetailFail')).toBeInTheDocument();
     });
 
     await userEvent.click(screen.getByRole('button', { name: 'judgmentDetail.back' }));

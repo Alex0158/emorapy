@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { Link, MemoryRouter, Route, Routes } from 'react-router-dom';
 
 const mockGetPlans = vi.fn();
 const mockGeneratePlans = vi.fn();
@@ -79,6 +79,28 @@ const createPlan = (id: string, overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
+const standardRepairAccess = {
+  judgment_route: 'standard' as const,
+  default_intent: 'repair' as const,
+  allowed_intents: ['repair', 'cool_down', 'graceful_exit', 'safety_support'] as const,
+  can_invite_partner: true,
+  can_use_co_repair: true,
+  force_solo_repair: false,
+  relationship_scope: 'paired',
+  reasons: [],
+};
+
+const soloSafetyAccess = {
+  judgment_route: 'safety_support' as const,
+  default_intent: 'safety_support' as const,
+  allowed_intents: ['safety_support'] as const,
+  can_invite_partner: false,
+  can_use_co_repair: false,
+  force_solo_repair: true,
+  relationship_scope: 'solo',
+  reasons: ['safety_route'],
+};
+
 function renderPage(path = '/reconciliation/j1?intent=repair') {
   return render(
     <MemoryRouter initialEntries={[path]}>
@@ -102,6 +124,7 @@ describe('ReconciliationList', () => {
       plans: [createPlan('p1'), createPlan('p2'), createPlan('p3')],
       recommended_plan_id: 'p1',
       intent: 'cool_down',
+      repair_access: standardRepairAccess,
       applied_preferences: null,
     });
 
@@ -114,6 +137,7 @@ describe('ReconciliationList', () => {
     expect(screen.getByText('reconList.intent.coolDown.title')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '方案 p1' })).toBeInTheDocument();
     expect(screen.getByText('reconList.alternateTitle')).toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: 'reconList.invitePartnerLabel' })).toHaveAttribute('aria-checked', 'false');
   });
 
   it('空結果時可用預設偏好重新生成主推薦', async () => {
@@ -121,13 +145,15 @@ describe('ReconciliationList', () => {
       plans: [],
       recommended_plan_id: null,
       intent: 'repair',
+      repair_access: standardRepairAccess,
       applied_preferences: null,
     });
     mockGeneratePlans.mockResolvedValue({
       plans: [createPlan('p9')],
       recommended_plan_id: 'p9',
       intent: 'repair',
-      applied_preferences: { pressure_level: 'low', pace: 'today', style: ['action'], invite_partner: true },
+      repair_access: standardRepairAccess,
+      applied_preferences: { pressure_level: 'low', pace: 'today', style: ['action'], invite_partner: false },
     });
 
     renderPage();
@@ -146,7 +172,7 @@ describe('ReconciliationList', () => {
           pressure_level: 'low',
           pace: 'today',
           style: ['action'],
-          invite_partner: true,
+          invite_partner: false,
         },
         force_regenerate: false,
       });
@@ -160,6 +186,7 @@ describe('ReconciliationList', () => {
       plans: [createPlan('p1')],
       recommended_plan_id: 'p1',
       intent: 'repair',
+      repair_access: standardRepairAccess,
       applied_preferences: null,
     });
     mockSelectPlan.mockResolvedValue(createPlan('p1'));
@@ -188,6 +215,81 @@ describe('ReconciliationList', () => {
     });
   });
 
+  it('repair access 不允許邀請時不顯示邀請開關', async () => {
+    mockGetPlans.mockResolvedValue({
+      plans: [createPlan('safe-1', { intent: 'safety_support' })],
+      recommended_plan_id: 'safe-1',
+      intent: 'safety_support',
+      repair_access: soloSafetyAccess,
+      applied_preferences: null,
+    });
+
+    renderPage('/reconciliation/j1?intent=safety_support');
+
+    expect(await screen.findByRole('heading', { name: '方案 safe-1' })).toBeInTheDocument();
+    expect(screen.queryByRole('switch', { name: 'reconList.invitePartnerLabel' })).not.toBeInTheDocument();
+  });
+
+  it('切換 intent 後不會被較早完成的舊請求覆蓋', async () => {
+    let resolveRepair!: (value: unknown) => void;
+    let resolveSafetySupport!: (value: unknown) => void;
+    const repairRequest = new Promise<unknown>((resolve) => { resolveRepair = resolve; });
+    const safetySupportRequest = new Promise<unknown>((resolve) => { resolveSafetySupport = resolve; });
+    mockGetPlans
+      .mockImplementationOnce(() => repairRequest)
+      .mockImplementationOnce(() => safetySupportRequest);
+
+    render(
+      <MemoryRouter initialEntries={['/reconciliation/j1?intent=repair']}>
+        <Link to="/reconciliation/j1?intent=safety_support">switch-to-safety-support</Link>
+        <Routes>
+          <Route path="/reconciliation/:judgmentId" element={<ReconciliationList />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(mockGetPlans).toHaveBeenNthCalledWith(1, 'j1', { intent: 'repair' });
+    });
+
+    await userEvent.click(screen.getByRole('link', { name: 'switch-to-safety-support' }));
+
+    await waitFor(() => {
+      expect(mockGetPlans).toHaveBeenNthCalledWith(2, 'j1', { intent: 'safety_support' });
+    });
+
+    await act(async () => {
+      resolveSafetySupport({
+        plans: [createPlan('safety-new', { intent: 'safety_support' })],
+        recommended_plan_id: 'safety-new',
+        intent: 'safety_support',
+        repair_access: soloSafetyAccess,
+        applied_preferences: null,
+      });
+      await safetySupportRequest;
+    });
+
+    expect(await screen.findByRole('heading', { name: '方案 safety-new' })).toBeInTheDocument();
+    expect(screen.getByText('reconList.intent.safetySupport.title')).toBeInTheDocument();
+
+    await act(async () => {
+      resolveRepair({
+        plans: [createPlan('repair-old')],
+        recommended_plan_id: 'repair-old',
+        intent: 'repair',
+        repair_access: standardRepairAccess,
+        applied_preferences: null,
+      });
+      await repairRequest;
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: '方案 safety-new' })).toBeInTheDocument();
+      expect(screen.getByText('reconList.intent.safetySupport.title')).toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: '方案 repair-old' })).not.toBeInTheDocument();
+    });
+  });
+
   it('載入錯誤時保留 retry 出口', async () => {
     mockGetPlans
       .mockRejectedValueOnce(new Error('暫時不可用'))
@@ -195,13 +297,14 @@ describe('ReconciliationList', () => {
         plans: [createPlan('p2')],
         recommended_plan_id: 'p2',
         intent: 'repair',
+        repair_access: standardRepairAccess,
         applied_preferences: null,
       });
 
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText('暫時不可用')).toBeInTheDocument();
+      expect(screen.getByText('message.getPlansFail')).toBeInTheDocument();
     });
 
     await userEvent.click(screen.getByRole('button', { name: 'common.retry' }));

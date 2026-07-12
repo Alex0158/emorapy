@@ -47,6 +47,8 @@ export interface Case {
     evidences?: Evidence[];
     judgment?: CaseJudgmentSummary | null;
     pairing?: CasePairing | null;
+    /** True when the current viewer must submit independently before seeing the initiating side. */
+    blind_response_pending?: boolean;
     created_at: string;
     updated_at: string;
     submitted_at?: string;

@@ -5,8 +5,8 @@
 **來源時間**：2026-04-18
 **上下文**：非現行 SSOT；僅作證據留存
 **SSOT 屬性**：非現行 SSOT（僅作證據/歷史/治理參考）
-**最後核驗 Commit**：`1295216`
-**最後核驗日期**：`2026-05-06`
+**最後核驗 Commit**：`e65a4b8`
+**最後核驗日期**：`2026-07-12`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 本目錄承接仍需保留在 `核心開發文件/` 主目錄中的附錄、證據與對賬材料。
@@ -29,6 +29,7 @@
 4. [手動回歸證據/README.md](./手動回歸證據/README.md)
 5. [環境與發版驗證/App-External-Evidence-Status-2026-05-29T17-17-48-569Z.json](./環境與發版驗證/App-External-Evidence-Status-2026-05-29T17-17-48-569Z.json)
 6. [環境與發版驗證/App-External-Evidence-Handoff-2026-05-29T17-17-57-273Z.json](./環境與發版驗證/App-External-Evidence-Handoff-2026-05-29T17-17-57-273Z.json)
+7. [設計驗收/design-qa.md](./設計驗收/design-qa.md)
 
 ## 固定保留理由
 
@@ -36,6 +37,7 @@
 2. `環境與發版驗證/`：保留真 DB、staging、smoke 與高風險抽檢輸出。
 3. `頁面HTML快照/`：保留一批可回看的靜態頁面導出與 `manifest.json`。
 4. `手動回歸證據/`：保留按日期與 `P01-P05` 分批的手動回歸實體證據。
+5. `設計驗收/`：保留 Product Design source / implementation 同畫面比較、responsive 與代表性互動證據；只證明文件寫明的 scoped UI state，不替代 true-service / production sign-off。
 
 ## 使用順序
 

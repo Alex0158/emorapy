@@ -54,10 +54,10 @@ describe('judgmentStore', () => {
     expect(useJudgmentStore.getState().isLoading).toBe(false);
   });
 
-  it('generateJudgment 失敗應設 error 並拋出', async () => {
+  it('generateJudgment 失敗應顯示目錄 fallback 並拋出原始錯誤', async () => {
     mockGenerateJudgment.mockRejectedValue(new Error('生成失敗'));
     await expect(useJudgmentStore.getState().generateJudgment('c1')).rejects.toThrow('生成失敗');
-    expect(useJudgmentStore.getState().error).toBe('生成失敗');
+    expect(useJudgmentStore.getState().error).toBe('生成分析失敗');
     expect(useJudgmentStore.getState().isLoading).toBe(false);
   });
 
@@ -84,20 +84,20 @@ describe('judgmentStore', () => {
     expect(useJudgmentStore.getState().error).toBeNull();
   });
 
-  it('getJudgment 失敗應設 error 並拋出', async () => {
+  it('getJudgment 失敗應顯示目錄 fallback 並拋出原始錯誤', async () => {
     mockGetJudgment.mockRejectedValue(new Error('取得判決失敗'));
     await expect(
       useJudgmentStore.getState().getJudgment('j1')
     ).rejects.toThrow('取得判決失敗');
-    expect(useJudgmentStore.getState().error).toBe('取得判決失敗');
+    expect(useJudgmentStore.getState().error).toBe('獲取梳理結果失敗，請稍後重試');
     expect(useJudgmentStore.getState().isLoading).toBe(false);
   });
 
-  it('getJudgmentByCaseId 失敗應設 error 並返回 null', async () => {
+  it('getJudgmentByCaseId 失敗應顯示目錄 fallback 並返回 null', async () => {
     mockGetJudgmentByCaseId.mockRejectedValue(new Error('獲取判決失敗'));
     const result = await useJudgmentStore.getState().getJudgmentByCaseId('c1');
     expect(result).toBeNull();
-    expect(useJudgmentStore.getState().error).toBe('獲取判決失敗');
+    expect(useJudgmentStore.getState().error).toBe('獲取梳理結果失敗，請稍後重試');
   });
 
   it('getJudgmentByCaseId 成功但 API 返回 null 時應設 currentJudgment 為 null 並返回 null', async () => {
@@ -123,14 +123,19 @@ describe('judgmentStore', () => {
   });
 
   it('getJudgment 競態：後發請求先 reject 時，先發請求 reject 應直接拋出、不設 error', async () => {
+    let rejectSlow!: (reason?: unknown) => void;
     mockGetJudgment
-      .mockImplementationOnce(() => new Promise((_, r) => setTimeout(() => r(new Error('慢請求失敗')), 50)))
+      .mockImplementationOnce(() => new Promise((_, reject) => {
+        rejectSlow = reject;
+      }))
       .mockRejectedValueOnce(new Error('快請求失敗'));
     const slowPromise = useJudgmentStore.getState().getJudgment('j1');
+    const slowRejection = expect(slowPromise).rejects.toThrow('慢請求失敗');
     await expect(useJudgmentStore.getState().getJudgment('j2')).rejects.toThrow('快請求失敗');
-    expect(useJudgmentStore.getState().error).toBe('快請求失敗');
-    await expect(slowPromise).rejects.toThrow('慢請求失敗');
-    expect(useJudgmentStore.getState().error).toBe('快請求失敗');
+    expect(useJudgmentStore.getState().error).toBe('獲取梳理結果失敗，請稍後重試');
+    rejectSlow(new Error('慢請求失敗'));
+    await slowRejection;
+    expect(useJudgmentStore.getState().error).toBe('獲取梳理結果失敗，請稍後重試');
   });
 
   it('getJudgmentByCaseId 競態：後發請求先回傳時，先發請求回傳應忽略不覆蓋 state', async () => {
@@ -148,15 +153,19 @@ describe('judgmentStore', () => {
   });
 
   it('getJudgmentByCaseId 競態：後發請求先 reject 時，先發請求 reject 應 return null、不覆蓋 error', async () => {
+    let rejectSlow!: (reason?: unknown) => void;
     mockGetJudgmentByCaseId
-      .mockImplementationOnce(() => new Promise((_, r) => setTimeout(() => r(new Error('慢請求失敗')), 50)))
+      .mockImplementationOnce(() => new Promise((_, reject) => {
+        rejectSlow = reject;
+      }))
       .mockRejectedValueOnce(new Error('快請求失敗'));
     const slowPromise = useJudgmentStore.getState().getJudgmentByCaseId('c1');
     const fastResult = await useJudgmentStore.getState().getJudgmentByCaseId('c2');
     expect(fastResult).toBeNull();
-    expect(useJudgmentStore.getState().error).toBe('快請求失敗');
+    expect(useJudgmentStore.getState().error).toBe('獲取梳理結果失敗，請稍後重試');
+    rejectSlow(new Error('慢請求失敗'));
     const slowResult = await slowPromise;
     expect(slowResult).toBeNull();
-    expect(useJudgmentStore.getState().error).toBe('快請求失敗');
+    expect(useJudgmentStore.getState().error).toBe('獲取梳理結果失敗，請稍後重試');
   });
 });

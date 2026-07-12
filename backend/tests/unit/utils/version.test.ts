@@ -20,7 +20,7 @@ describe('version utils', () => {
 
   it('優先使用 EMORAPY_COMMIT_SHA', () => {
     process.env.EMORAPY_COMMIT_SHA = 'emorapy1234567890';
-    process.env.CJ_COMMIT_SHA = 'legacy-sha';
+    process.env.VERCEL_GIT_COMMIT_SHA = 'vercel-distractor-sha';
 
     expect(buildBackendVersionManifest()).toMatchObject({
       service: 'backend',
@@ -29,20 +29,19 @@ describe('version utils', () => {
     });
   });
 
-  it('沒有 EMORAPY_COMMIT_SHA 時兼容 CJ_COMMIT_SHA', () => {
+  it('不再讀取已棄用的 CJ_COMMIT_SHA（P4 env deprecation）', () => {
     process.env.CJ_COMMIT_SHA = 'abcdef1234567890';
 
     expect(buildBackendVersionManifest()).toMatchObject({
       service: 'backend',
-      commitSha: 'abcdef1234567890',
-      commitShortSha: 'abcdef1',
+      commitSha: 'unknown',
+      commitShortSha: 'unknown',
     });
   });
 
   it('Railway runtime 優先使用 Railway deployment commit sha', () => {
     process.env.RAILWAY_GIT_COMMIT_SHA = '1234567890railway';
     process.env.EMORAPY_COMMIT_SHA = 'stale-emorapy-sha';
-    process.env.CJ_COMMIT_SHA = 'stale-legacy-sha';
 
     expect(buildBackendVersionManifest()).toMatchObject({
       commitSha: '1234567890railway',

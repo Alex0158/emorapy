@@ -13,7 +13,7 @@ function resolveRepo() {
     repoArg?.slice('--repo='.length).trim() ||
     process.env.EMORAPY_GITHUB_REPO?.trim() ||
     process.env.GITHUB_REPOSITORY?.trim() ||
-    'Alex0158/mother-bear-court'
+    'Alex0158/emorapy'
   );
 }
 

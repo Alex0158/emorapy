@@ -16,11 +16,12 @@ const redisCompose = read('backend/docker-compose.redis.yml');
 const REQUIRED = [
   ['start-dev ensures Redis availability', startDev, 'ensure_redis'],
   [
-    'start-dev uses Emorapy local Redis dir default with legacy env fallback',
+    'start-dev uses Emorapy local Redis dir default',
     startDev,
-    'REDIS_DIR="${EMORAPY_DEV_REDIS_DIR:-${CJ_DEV_REDIS_DIR:-/tmp/emorapy-redis-dev}}"',
+    'REDIS_DIR="${EMORAPY_DEV_REDIS_DIR:-/tmp/emorapy-redis-dev}"',
   ],
   ['start-dev no longer defaults to legacy cj Redis dir', startDev, '/tmp/cj-redis-dev', { absent: true }],
+  ['start-dev no longer reads deprecated CJ_DEV_REDIS_DIR', startDev, 'CJ_DEV_REDIS_DIR', { absent: true }],
   ['start-dev exports local REDIS_URL fallback', startDev, 'export REDIS_URL="${REDIS_URL:-redis://127.0.0.1:6379}"'],
   ['start-dev disables simple lock fallback by default', startDev, 'export ALLOW_SIMPLE_LOCK="${ALLOW_SIMPLE_LOCK:-false}"'],
   ['start-dev starts backend', startDev, 'start_service "backend" 3001'],

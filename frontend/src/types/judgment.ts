@@ -14,6 +14,17 @@ export interface Judgment {
   // 向後兼容舊字段
   responsibility_ratio?: ResponsibilityRatio;
   judgment_route?: 'standard' | 'safety_support' | 'crisis_support';
+  responsibility_ratio_visibility?: {
+    can_show: boolean;
+    reason: string | null;
+  };
+  reconciliation_policy?: {
+    defaultReconciliationIntent: 'repair' | 'cool_down' | 'graceful_exit' | 'safety_support';
+    allowedReconciliationIntents: Array<'repair' | 'cool_down' | 'graceful_exit' | 'safety_support'>;
+    canInvitePartner: boolean;
+    canUseCoRepair: boolean;
+    forceSoloRepair: boolean;
+  };
   ai_model: string;
   prompt_version?: string;
   user1_acceptance?: boolean;

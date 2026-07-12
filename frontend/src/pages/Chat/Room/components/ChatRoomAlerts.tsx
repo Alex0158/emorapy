@@ -2,6 +2,7 @@
  * Chat room alerts - error, invite success, safety banner
  */
 
+import { useEffect, useRef } from 'react';
 import { AlertCircle, CheckCircle, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -17,6 +18,12 @@ interface ChatRoomAlertsProps {
 }
 
 export default function ChatRoomAlerts({ errorText, lastInviteCode, latestSafetyContent, hasRoom, roomId, onRetryLoad }: ChatRoomAlertsProps) {
+  const safetyRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (latestSafetyContent) safetyRef.current?.focus();
+  }, [latestSafetyContent]);
+
   return (
     <>
       {errorText && (
@@ -35,11 +42,13 @@ export default function ChatRoomAlerts({ errorText, lastInviteCode, latestSafety
         </Alert>
       )}
       {latestSafetyContent && (
-        <Alert className="border-warning/30 bg-warning/5 mb-3">
-          <AlertTriangle className="size-4" />
-          <AlertTitle>{t('chat.safetyBannerTitle')}</AlertTitle>
-          <AlertDescription>{latestSafetyContent}</AlertDescription>
-        </Alert>
+        <div ref={safetyRef} tabIndex={-1} className="outline-none" data-testid="chat-safety-interruption">
+          <Alert className="border-warning/50 bg-warning/5 mb-3" aria-live="assertive" aria-atomic="true">
+            <AlertTriangle className="size-4" />
+            <AlertTitle>{t('chat.safetyBannerTitle')}</AlertTitle>
+            <AlertDescription>{latestSafetyContent}</AlertDescription>
+          </Alert>
+        </div>
       )}
     </>
   );

@@ -133,19 +133,19 @@ describe('CaseDetail', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/case/list');
   });
 
-  it('getCase FORBIDDEN 且無 message 時應顯示 noPermissionViewCase', async () => {
+  it('getCase FORBIDDEN 且無 message 時應顯示 normalized 權限訊息', async () => {
     mockGetCase.mockRejectedValue({ code: 'FORBIDDEN' });
     renderPage();
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.noPermissionViewCase');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
-  it('getCase FORBIDDEN 時若有 message 應顯示該 message（F03 權限邊界）', async () => {
+  it('getCase FORBIDDEN 有 message 時仍顯示 normalized 權限訊息', async () => {
     mockGetCase.mockRejectedValue({ code: 'FORBIDDEN', message: '此案件已移交他方，您無權查看' });
     renderPage();
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('此案件已移交他方，您無權查看');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
@@ -161,7 +161,7 @@ describe('CaseDetail', () => {
     mockGetCase.mockRejectedValue({ code: 'HTTP_403' });
     renderPage();
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.noPermissionViewCase');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
@@ -173,35 +173,35 @@ describe('CaseDetail', () => {
     });
   });
 
-  it('getCase 失敗且無 message（非 NOT_FOUND/FORBIDDEN/UNAUTHORIZED）時應使用 common.getCaseFail', async () => {
+  it('getCase SERVER_ERROR 應使用 normalized server error', async () => {
     mockGetCase.mockRejectedValue({ code: 'SERVER_ERROR' });
     renderPage();
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('common.getCaseFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
-  it('getCase 失敗且 message 為空字串時應使用 common.getCaseFail（F10 邊界）', async () => {
+  it('getCase SERVER_ERROR 的空 message 仍使用 normalized server error', async () => {
     mockGetCase.mockRejectedValue({ code: 'SERVER_ERROR', message: '' });
     renderPage();
     await waitFor(() => {
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
+    });
+  });
+
+  it('getCase 的任意 Error message 不會直接顯示', async () => {
+    mockGetCase.mockRejectedValue(new Error('資料庫連線逾時，請稍後再試'));
+    renderPage();
+    await waitFor(() => {
       expect(mockToastError).toHaveBeenCalledWith('common.getCaseFail');
     });
   });
 
-  it('getCase 失敗且有 message（非特殊 code）時應顯示該 message（F10 錯誤處理約定）', async () => {
-    mockGetCase.mockRejectedValue(new Error('資料庫連線逾時，請稍後再試'));
-    renderPage();
-    await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('資料庫連線逾時，請稍後再試');
-    });
-  });
-
-  it('getCase 一般失敗時應在頁內 Alert 顯示實際錯誤訊息', async () => {
+  it('getCase 一般失敗時頁內 Alert 只顯示 catalog fallback', async () => {
     mockGetCase.mockRejectedValue(new Error('資料庫連線逾時，請稍後再試'));
     renderPage();
     expect(await screen.findByText('common.getCaseFail')).toBeInTheDocument();
-    expect(screen.getByText('資料庫連線逾時，請稍後再試')).toBeInTheDocument();
+    expect(screen.queryByText('資料庫連線逾時，請稍後再試')).not.toBeInTheDocument();
   });
 
   it('getCase 失敗時應仍可點擊 backList 導向 /case/list（F03 錯誤恢復：失敗不阻塞導航出口）', async () => {
@@ -248,7 +248,7 @@ describe('CaseDetail', () => {
     renderPage();
     await waitFor(() => expect(screen.getByText('common.retry')).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: 'common.retry' }));
-    await waitFor(() => expect(mockToastError).toHaveBeenCalledWith('第二次仍失敗'));
+    await waitFor(() => expect(mockToastError).toHaveBeenCalledWith('common.getCaseFail'));
     await waitFor(() => expect(screen.getByText('common.retry')).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: 'common.retry' }));
     await waitFor(() => {
@@ -265,11 +265,11 @@ describe('CaseDetail', () => {
     await waitFor(() => {
       expect(screen.getByText('common.retry')).toBeInTheDocument();
     });
-    expect(mockToastError).toHaveBeenCalledWith('網絡錯誤');
+    expect(mockToastError).toHaveBeenCalledWith('common.getCaseFail');
     mockToastError.mockClear();
     fireEvent.click(screen.getByRole('button', { name: 'common.retry' }));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('重試時服務不可用');
+      expect(mockToastError).toHaveBeenCalledWith('common.getCaseFail');
     });
   });
 
@@ -284,7 +284,7 @@ describe('CaseDetail', () => {
     mockToastError.mockClear();
     fireEvent.click(screen.getByRole('button', { name: 'common.retry' }));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('common.getCaseFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
@@ -507,7 +507,7 @@ describe('CaseDetail', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/case/c1/review');
   });
 
-  it('submitCase 失敗且無 message（非 FORBIDDEN）時應使用 message.submitCaseFail', async () => {
+  it('submitCase SERVER_ERROR 應使用 normalized server error', async () => {
     mockGetCase.mockResolvedValue({
       ...mockCase,
       mode: 'remote',
@@ -521,11 +521,11 @@ describe('CaseDetail', () => {
     fireEvent.click(await screen.findByText('caseDetail.submitCase'));
 
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.submitCaseFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
-  it('submitCase FORBIDDEN 且無 message 時應顯示 message.noPermissionSubmitCase', async () => {
+  it('submitCase FORBIDDEN 且無 message 時應顯示 normalized 權限訊息', async () => {
     mockGetCase.mockResolvedValue({
       ...mockCase,
       mode: 'remote',
@@ -539,11 +539,11 @@ describe('CaseDetail', () => {
     fireEvent.click(await screen.findByText('caseDetail.submitCase'));
 
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.noPermissionSubmitCase');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
-  it('submitCase FORBIDDEN 時若有 message 應顯示該 message（F03 權限邊界）', async () => {
+  it('submitCase FORBIDDEN 有 message 時仍顯示 normalized 權限訊息', async () => {
     mockGetCase.mockResolvedValue({
       ...mockCase,
       mode: 'remote',
@@ -557,11 +557,11 @@ describe('CaseDetail', () => {
     fireEvent.click(await screen.findByText('caseDetail.submitCase'));
 
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('此案件已超過提交期限');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
-  it('submitCase 失敗且有 message（非 FORBIDDEN）時應顯示該 message（F10 錯誤處理約定）', async () => {
+  it('submitCase 的任意 Error message 不會直接顯示', async () => {
     mockGetCase.mockResolvedValue({
       ...mockCase,
       mode: 'remote',
@@ -575,11 +575,11 @@ describe('CaseDetail', () => {
     fireEvent.click(await screen.findByText('caseDetail.submitCase'));
 
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('案件欄位驗證失敗：標題不可為空');
+      expect(mockToastError).toHaveBeenCalledWith('message.submitCaseFail');
     });
   });
 
-  it('submitCase 失敗且 message 為空字串時應使用 submitCaseFail（F10 邊界）', async () => {
+  it('submitCase VALIDATION_ERROR 的空 message 使用 normalized validation error', async () => {
     mockGetCase.mockResolvedValue({
       ...mockCase,
       mode: 'remote',
@@ -593,11 +593,11 @@ describe('CaseDetail', () => {
     fireEvent.click(await screen.findByText('caseDetail.submitCase'));
 
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.submitCaseFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.validationError');
     });
   });
 
-  it('submitCase 回傳 CASE_NOT_EDITABLE 時應顯示 submitCaseFail（F03 draft 邊界：案已提交 race condition）', async () => {
+  it('submitCase CASE_NOT_EDITABLE 時應顯示 normalized validation error', async () => {
     mockGetCase.mockResolvedValue({
       ...mockCase,
       mode: 'remote',
@@ -611,7 +611,7 @@ describe('CaseDetail', () => {
     fireEvent.click(await screen.findByText('caseDetail.submitCase'));
 
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.submitCaseFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.validationError');
     });
   });
 
@@ -631,7 +631,7 @@ describe('CaseDetail', () => {
     const submitBtn = await screen.findByText('caseDetail.submitCase');
     fireEvent.click(submitBtn);
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('服務暫時不可用');
+      expect(mockToastError).toHaveBeenCalledWith('message.submitCaseFail');
     });
     await waitFor(() => {
       const btn = screen.getByText('caseDetail.submitCase').closest('button');
@@ -667,6 +667,26 @@ describe('CaseDetail', () => {
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/case/c1/review');
     });
+  });
+
+  it('blind_response_pending 時不向被告透露發起方內容', async () => {
+    authUser.id = 'u2';
+    mockGetCase.mockResolvedValue({
+      ...mockCase,
+      mode: 'remote',
+      plaintiff_id: 'u1',
+      defendant_id: 'u2',
+      defendant_statement: '',
+      blind_response_pending: true,
+    });
+
+    renderPage();
+
+    expect(await screen.findAllByText('caseDetail.yourResponse')).toHaveLength(2);
+    expect(screen.queryByText('Test')).not.toBeInTheDocument();
+    expect(screen.queryByText('caseList.typeLife')).not.toBeInTheDocument();
+    expect(screen.queryByText('原告陳述')).not.toBeInTheDocument();
+    expect(screen.getByTestId('defendant-statement-input')).toBeInTheDocument();
   });
 
   it('被告陳述過短時回覆按鈕應為 disabled（防止無效提交）', async () => {
@@ -735,7 +755,7 @@ describe('CaseDetail', () => {
     });
   });
 
-  it('被告回覆 updateCase 失敗且錯誤無 message 時應顯示 caseDetail.defendantRespondFail', async () => {
+  it('被告回覆 updateCase SERVER_ERROR 時顯示 normalized server error', async () => {
     authUser.id = 'u2';
     mockGetCase.mockResolvedValue({
       ...mockCase,
@@ -753,11 +773,11 @@ describe('CaseDetail', () => {
     fireEvent.click(submitResponseBtn);
 
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('caseDetail.defendantRespondFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
-  it('被告回覆 updateCase 失敗且 message 為空字串時應使用 caseDetail.defendantRespondFail（F10 邊界：空 message 視為無）', async () => {
+  it('被告回覆 updateCase VALIDATION_ERROR 的空 message 顯示 normalized validation error', async () => {
     authUser.id = 'u2';
     mockGetCase.mockResolvedValue({
       ...mockCase,
@@ -775,11 +795,11 @@ describe('CaseDetail', () => {
     fireEvent.click(submitResponseBtn);
 
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('caseDetail.defendantRespondFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.validationError');
     });
   });
 
-  it('被告回覆 updateCase 失敗且有 message 時應顯示該 message（F10 錯誤處理約定）', async () => {
+  it('被告回覆 updateCase 的任意 Error message 不會直接顯示', async () => {
     authUser.id = 'u2';
     mockGetCase.mockResolvedValue({
       ...mockCase,
@@ -797,7 +817,7 @@ describe('CaseDetail', () => {
     fireEvent.click(submitResponseBtn);
 
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('陳述內容含敏感詞彙，請修正後再試');
+      expect(mockToastError).toHaveBeenCalledWith('caseDetail.defendantRespondFail');
     });
   });
 
@@ -820,7 +840,7 @@ describe('CaseDetail', () => {
     const submitResponseBtn = await screen.findByText('caseDetail.submitResponse');
     fireEvent.click(submitResponseBtn);
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('網路暫時不穩');
+      expect(mockToastError).toHaveBeenCalledWith('caseDetail.defendantRespondFail');
     });
     await waitFor(() => {
       const btn = screen.getByText('caseDetail.submitResponse').closest('button');
@@ -834,7 +854,7 @@ describe('CaseDetail', () => {
     });
   });
 
-  it('被告回覆 updateCase FORBIDDEN 時若有 message 應顯示該 message（F03 權限邊界）', async () => {
+  it('被告回覆 updateCase FORBIDDEN 時顯示 normalized 權限訊息', async () => {
     authUser.id = 'u2';
     mockGetCase.mockResolvedValue({
       ...mockCase,
@@ -852,11 +872,11 @@ describe('CaseDetail', () => {
     fireEvent.click(submitResponseBtn);
 
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('此案件已鎖定，無法回覆');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
-  it('被告回覆 updateCase FORBIDDEN 且無 message 時應使用 defendantRespondFail（F03 權限邊界 fallback）', async () => {
+  it('被告回覆 updateCase FORBIDDEN 且無 message 時仍顯示 normalized 權限訊息', async () => {
     authUser.id = 'u2';
     mockGetCase.mockResolvedValue({
       ...mockCase,
@@ -874,7 +894,7 @@ describe('CaseDetail', () => {
     fireEvent.click(submitResponseBtn);
 
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('caseDetail.defendantRespondFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
@@ -946,7 +966,7 @@ describe('CaseDetail', () => {
     await waitFor(() => {
       expect(screen.getByText('caseDetail.waitingForDefendant')).toBeInTheDocument();
     });
-    expect(screen.getByText('caseDetail.waitingForDefendantDesc')).toBeInTheDocument();
+    expect(screen.getAllByText('caseDetail.waitingForDefendantDesc')).toHaveLength(2);
     expect(screen.queryByText('caseDetail.submitResponse')).not.toBeInTheDocument();
   });
 
@@ -978,7 +998,7 @@ describe('CaseDetail', () => {
     });
   });
 
-  it('completed 案件點擊查看判決且 API 失敗時若有 message 應顯示該 message', async () => {
+  it('completed 案件點擊查看判決且 API 回傳任意 Error 時顯示 fallback', async () => {
     mockGetCase.mockResolvedValue({ ...mockCase, status: 'completed' });
     mockGetJudgmentByCaseId.mockRejectedValue(new Error('取得判決失敗'));
 
@@ -988,11 +1008,11 @@ describe('CaseDetail', () => {
 
     await waitFor(() => {
       expect(mockGetJudgmentByCaseId).toHaveBeenCalledWith('c1');
-      expect(mockToastError).toHaveBeenCalledWith('取得判決失敗');
+      expect(mockToastError).toHaveBeenCalledWith('message.getJudgmentFail');
     });
   });
 
-  it('completed 案件點擊查看判決且 API 失敗且無 message 時應顯示 getJudgmentFail', async () => {
+  it('completed 案件點擊查看判決且 SERVER_ERROR 時顯示 normalized server error', async () => {
     mockGetCase.mockResolvedValue({ ...mockCase, status: 'completed' });
     mockGetJudgmentByCaseId.mockRejectedValue({ code: 'SERVER_ERROR' });
 
@@ -1002,11 +1022,11 @@ describe('CaseDetail', () => {
 
     await waitFor(() => {
       expect(mockGetJudgmentByCaseId).toHaveBeenCalledWith('c1');
-      expect(mockToastError).toHaveBeenCalledWith('message.getJudgmentFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
-  it('completed 案件點擊查看判決且 API 失敗且 message 為空字串時應使用 getJudgmentFail（F10 邊界）', async () => {
+  it('completed 案件點擊查看判決且 SERVER_ERROR 的空 message 顯示 normalized server error', async () => {
     mockGetCase.mockResolvedValue({ ...mockCase, status: 'completed' });
     mockGetJudgmentByCaseId.mockRejectedValue({ code: 'SERVER_ERROR', message: '' });
 
@@ -1016,11 +1036,11 @@ describe('CaseDetail', () => {
 
     await waitFor(() => {
       expect(mockGetJudgmentByCaseId).toHaveBeenCalledWith('c1');
-      expect(mockToastError).toHaveBeenCalledWith('message.getJudgmentFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
-  it('completed 案件點擊查看判決且 FORBIDDEN 時若有 message 應顯示該 message（F03 權限邊界）', async () => {
+  it('completed 案件點擊查看判決且 FORBIDDEN 時顯示 normalized 權限訊息', async () => {
     mockGetCase.mockResolvedValue({ ...mockCase, status: 'completed' });
     mockGetJudgmentByCaseId.mockRejectedValue({ code: 'FORBIDDEN', message: '無權限查看此判決' });
 
@@ -1030,11 +1050,11 @@ describe('CaseDetail', () => {
 
     await waitFor(() => {
       expect(mockGetJudgmentByCaseId).toHaveBeenCalledWith('c1');
-      expect(mockToastError).toHaveBeenCalledWith('無權限查看此判決');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
-  it('completed 案件點擊查看判決 getJudgmentByCaseId FORBIDDEN 且無 message 時應使用 getJudgmentFail（F03 權限邊界 fallback）', async () => {
+  it('completed 案件點擊查看判決 FORBIDDEN 且無 message 時仍顯示 normalized 權限訊息', async () => {
     mockGetCase.mockResolvedValue({ ...mockCase, status: 'completed' });
     mockGetJudgmentByCaseId.mockRejectedValue({ code: 'FORBIDDEN' });
 
@@ -1044,7 +1064,7 @@ describe('CaseDetail', () => {
 
     await waitFor(() => {
       expect(mockGetJudgmentByCaseId).toHaveBeenCalledWith('c1');
-      expect(mockToastError).toHaveBeenCalledWith('message.getJudgmentFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
@@ -1058,7 +1078,7 @@ describe('CaseDetail', () => {
 
     fireEvent.click(await screen.findByText('caseDetail.viewJudgment'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('網絡暫不可用');
+      expect(mockToastError).toHaveBeenCalledWith('message.getJudgmentFail');
     });
     expect(mockGetJudgmentByCaseId).toHaveBeenCalledTimes(1);
 

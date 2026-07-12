@@ -93,6 +93,7 @@ interface AIStreamSessionListOptions {
 interface AIStreamDetailOptions {
   eventLimit?: number;
   source?: AIStreamPersistenceSource;
+  includeSensitive?: boolean;
 }
 
 let prismaLoader: (() => any) | null = null;
@@ -138,6 +139,30 @@ function mapDatabaseSessionRecordToSnapshot(record: Record<string, unknown>): AI
     error: record.error as AIStreamErrorPayload | undefined,
     updatedAt: new Date(record.updated_at as Date).toISOString(),
   };
+}
+
+const ADMIN_SAFE_ERROR_CODE_PATTERN = /^[A-Z][A-Z0-9_.:-]{0,127}$/;
+
+function projectAIStreamErrorForAdmin(
+  error: unknown,
+  includeSensitive: boolean
+): unknown {
+  if (includeSensitive) return error;
+  if (!error || typeof error !== 'object' || Array.isArray(error)) return null;
+
+  const source = error as Record<string, unknown>;
+  const projected: { code?: string; retryable?: boolean } = {};
+  if (
+    typeof source.code === 'string'
+    && ADMIN_SAFE_ERROR_CODE_PATTERN.test(source.code)
+  ) {
+    projected.code = source.code;
+  }
+  if (typeof source.retryable === 'boolean') {
+    projected.retryable = source.retryable;
+  }
+
+  return Object.keys(projected).length > 0 ? projected : null;
 }
 
 export class AIStreamService {
@@ -865,7 +890,7 @@ export class AIStreamService {
         status: item.status,
         lastEventType: item.last_event_type,
         lastSeq: item.last_seq,
-        error: item.error,
+        error: projectAIStreamErrorForAdmin(item.error, false),
         updatedAt: item.updated_at,
       })),
     };
@@ -960,6 +985,7 @@ export class AIStreamService {
     const prisma = loadPrisma();
     const eventLimit = Math.min(Math.max(options.eventLimit ?? 200, 1), 1000);
     const source = options.source ?? 'all';
+    const includeSensitive = options.includeSensitive === true;
 
     const buildPayload = (
       session: Record<string, unknown> | null,
@@ -969,6 +995,7 @@ export class AIStreamService {
       if (!session) return null;
       return {
         source: itemSource,
+        sensitiveContentIncluded: includeSensitive,
         session: {
           streamId: session.stream_id,
           requestId: session.request_id,
@@ -978,11 +1005,11 @@ export class AIStreamService {
           lastSeq: session.last_seq,
           lastEventType: session.last_event_type,
           actorRole: session.actor_role,
-          text: session.text,
+          text: includeSensitive ? session.text : null,
           phase: session.phase,
           messageId: session.message_id,
-          metadata: session.metadata,
-          error: session.error,
+          metadata: includeSensitive ? session.metadata : null,
+          error: projectAIStreamErrorForAdmin(session.error, includeSensitive),
           backendMode: session.backend_mode,
           createdAt: itemSource === 'archive' ? session.source_created_at : session.created_at,
           updatedAt: itemSource === 'archive' ? session.source_updated_at : session.updated_at,
@@ -997,11 +1024,11 @@ export class AIStreamService {
           eventType: event.event_type,
           actorRole: event.actor_role,
           messageId: event.message_id,
-          deltaText: event.delta_text,
-          fullText: event.full_text,
+          deltaText: includeSensitive ? event.delta_text : null,
+          fullText: includeSensitive ? event.full_text : null,
           phase: event.phase,
-          metadata: event.metadata,
-          error: event.error,
+          metadata: includeSensitive ? event.metadata : null,
+          error: projectAIStreamErrorForAdmin(event.error, includeSensitive),
           createdAt: itemSource === 'archive' ? event.source_created_at : event.created_at,
           archivedAt: itemSource === 'archive' ? event.archived_at : null,
           source: itemSource,

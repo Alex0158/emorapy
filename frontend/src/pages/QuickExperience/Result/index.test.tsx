@@ -131,23 +131,6 @@ vi.mock('./components/EvidenceUploadSection', () => ({
     </div>
   ),
 }));
-vi.mock('./components/RegisterPromptSection', () => ({
-  default: ({
-    show,
-    onRegister,
-    onClose,
-  }: {
-    show: boolean;
-    onRegister: () => void;
-    onClose: () => void;
-  }) =>
-    show ? (
-      <div>
-        <button onClick={onRegister}>register-prompt-register</button>
-        <button onClick={onClose}>register-prompt-close</button>
-      </div>
-    ) : null,
-}));
 
 function renderWithRoute(path: string) {
   return render(
@@ -1139,15 +1122,12 @@ describe('QuickExperienceResult', () => {
     expect(setSpy).toHaveBeenCalledWith('pending_evidence_case-1', 'true');
   });
 
-  it('RegisterPrompt 可觸發註冊與關閉', async () => {
+  it('結果頁不重複顯示註冊 prompt，僅保留單一主要註冊操作', async () => {
     renderWithRoute('/quick-experience/result/case-1');
-    fireEvent.click(await screen.findByText('register-prompt-register'));
+    fireEvent.click(await screen.findByText('register.action.now'));
     expect(mockNavigate).toHaveBeenCalledWith('/auth/register', {
       state: { from: { pathname: '/quick-experience/result/case-1' } },
     });
-    fireEvent.click(screen.getByText('register-prompt-close'));
-    await waitFor(() => {
-      expect(screen.queryByText('register-prompt-register')).not.toBeInTheDocument();
-    });
+    expect(screen.queryByText('register-prompt-register')).not.toBeInTheDocument();
   });
 });

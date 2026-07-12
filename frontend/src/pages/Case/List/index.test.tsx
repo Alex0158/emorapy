@@ -98,7 +98,7 @@ describe('Case List', () => {
     });
   });
 
-  it('getCaseList 錯誤時應處理錯誤', async () => {
+  it('getCaseList 任意 Error message 不會直接顯示', async () => {
     mockGetCaseList.mockRejectedValue(new Error('獲取失敗'));
     render(
       <MemoryRouter>
@@ -106,11 +106,11 @@ describe('Case List', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('獲取失敗');
+      expect(mockToastError).toHaveBeenCalledWith('message.getCaseListFail');
     });
   });
 
-  it('getCaseList 錯誤且 message 為空字串時應使用 getCaseListFail（F10 邊界）', async () => {
+  it('getCaseList SERVER_ERROR 的空 message 使用 normalized server error', async () => {
     mockGetCaseList.mockRejectedValue({ code: 'SERVER_ERROR', message: '' });
     render(
       <MemoryRouter>
@@ -118,7 +118,7 @@ describe('Case List', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.getCaseListFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
@@ -170,7 +170,7 @@ describe('Case List', () => {
     });
   });
 
-  it('getCaseList FORBIDDEN 時若有 message 應顯示該 message（F03 權限邊界）', async () => {
+  it('getCaseList FORBIDDEN 時顯示 normalized 權限訊息', async () => {
     mockGetCaseList.mockRejectedValue({ code: 'FORBIDDEN', message: '無權限查看案件列表' });
     render(
       <MemoryRouter>
@@ -178,11 +178,11 @@ describe('Case List', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('無權限查看案件列表');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
-  it('getCaseList FORBIDDEN 且無 message 時應使用 getCaseListFail（F03 權限邊界 fallback）', async () => {
+  it('getCaseList FORBIDDEN 且無 message 時仍顯示 normalized 權限訊息', async () => {
     mockGetCaseList.mockRejectedValue({ code: 'FORBIDDEN' });
     render(
       <MemoryRouter>
@@ -190,7 +190,7 @@ describe('Case List', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.getCaseListFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
@@ -207,7 +207,7 @@ describe('Case List', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(screen.getByText('暫時不可用')).toBeInTheDocument();
+      expect(screen.getByText('message.getCaseListFail')).toBeInTheDocument();
     });
     expect(mockGetCaseList).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByTestId('case-list-load-retry'));
@@ -229,7 +229,7 @@ describe('Case List', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(screen.getByText('暫時不可用')).toBeInTheDocument();
+      expect(screen.getByText('message.getCaseListFail')).toBeInTheDocument();
     });
     expect(mockGetCaseList).toHaveBeenCalledTimes(1);
     const retryBtn = screen.getByTestId('case-list-load-retry');
@@ -262,11 +262,11 @@ describe('Case List', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(screen.getByText('第一次失敗')).toBeInTheDocument();
+      expect(screen.getByText('message.getCaseListFail')).toBeInTheDocument();
     });
     fireEvent.click(screen.getByTestId('case-list-load-retry'));
     await waitFor(() => {
-      expect(screen.getByText('第二次仍失敗')).toBeInTheDocument();
+      expect(screen.getByText('message.getCaseListFail')).toBeInTheDocument();
     });
     expect(mockGetCaseList).toHaveBeenCalledTimes(2);
     const retryBtn = screen.getByTestId('case-list-load-retry');
@@ -294,7 +294,7 @@ describe('Case List', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(screen.getByText('網絡暫時不穩')).toBeInTheDocument();
+      expect(screen.getByText('message.getCaseListFail')).toBeInTheDocument();
     });
     expect(mockGetCaseList).toHaveBeenCalledTimes(1);
     const statusFilterSelect = screen.getByRole('combobox', { name: 'caseList.ariaStatusFilter' });
@@ -370,6 +370,32 @@ describe('Case List', () => {
     await waitFor(() => {
       expect(screen.getByText('Test Case')).toBeInTheDocument();
     });
+  });
+
+  it('blind_response_pending 案件隱藏發起方標題與類型', async () => {
+    mockGetCaseList.mockResolvedValue({
+      cases: [
+        {
+          id: 'c-blind',
+          title: '不應向被告透露的標題',
+          status: 'draft',
+          type: '生活習慣衝突',
+          blind_response_pending: true,
+          created_at: '2025-01-01',
+        },
+      ],
+      pagination: { page: 1, page_size: 10, total: 1, total_pages: 1 },
+    });
+
+    render(
+      <MemoryRouter>
+        <CaseList />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('caseDetail.yourResponse')).toBeInTheDocument();
+    expect(screen.queryByText('不應向被告透露的標題')).not.toBeInTheDocument();
+    expect(screen.queryByText('caseList.typeLife')).not.toBeInTheDocument();
   });
 
   it('變更狀態篩選時應以新參數重新調用 getCaseList', async () => {

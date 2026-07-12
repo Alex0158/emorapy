@@ -40,6 +40,15 @@ describe('judgment utils', () => {
         plaintiff_ratio: 50,
         defendant_ratio: 50,
         responsibility_ratio: { plaintiff: 50, defendant: 50 },
+        judgment_route: 'standard',
+        responsibility_ratio_visibility: { can_show: true, reason: null },
+        reconciliation_policy: {
+          defaultReconciliationIntent: 'repair',
+          allowedReconciliationIntents: ['repair', 'cool_down', 'graceful_exit', 'safety_support'],
+          canInvitePartner: true,
+          canUseCoRepair: true,
+          forceSoloRepair: false,
+        },
       });
     });
 
@@ -87,6 +96,13 @@ describe('judgment utils', () => {
       expect(result.responsibility_ratio_visibility).toEqual({
         can_show: false,
         reason: '安全支持路由不得展示責任比例，避免把安全風險對稱化',
+      });
+      expect(result.reconciliation_policy).toMatchObject({
+        defaultReconciliationIntent: 'safety_support',
+        allowedReconciliationIntents: ['safety_support', 'cool_down', 'graceful_exit'],
+        canInvitePartner: false,
+        canUseCoRepair: false,
+        forceSoloRepair: true,
       });
       expect((result as Record<string, unknown>).emotional_analysis).toBeUndefined();
     });

@@ -176,7 +176,7 @@ describe('Case Create', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(screen.getByText('網絡錯誤')).toBeInTheDocument();
+      expect(screen.getByText('message.getPairingFail')).toBeInTheDocument();
     });
     expect(screen.getByTestId('case-create-pairing-retry')).toBeInTheDocument();
     expect(screen.getByText('caseCreate.goPairing')).toBeInTheDocument();
@@ -194,7 +194,7 @@ describe('Case Create', () => {
     });
   });
 
-  it('pre-case banner 的 icon close button 應有 accessible name', async () => {
+  it('不再載入或顯示 pre-case profile upsell', async () => {
     mockGetProfile.mockResolvedValue({
       data: { data: { consent_given: true, richness_score: 0 } },
     });
@@ -203,10 +203,10 @@ describe('Case Create', () => {
         <CaseCreate />
       </MemoryRouter>
     );
-    await waitFor(() => {
-      expect(screen.getByText('trigger.preCaseTitle')).toBeInTheDocument();
-    });
-    expect(screen.getByRole('button', { name: 'common.dismiss' })).toBeInTheDocument();
+    expect(await screen.findByText('caseCreate.heading')).toBeInTheDocument();
+    expect(screen.queryByText('trigger.preCaseTitle')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'common.dismiss' })).not.toBeInTheDocument();
+    expect(mockGetProfile).not.toHaveBeenCalled();
   });
 
   it('配對 pending 時應顯示配對未就緒', async () => {
@@ -229,7 +229,7 @@ describe('Case Create', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(screen.getByText('網路錯誤')).toBeInTheDocument();
+      expect(screen.getByText('message.getPairingFail')).toBeInTheDocument();
     });
   });
 
@@ -243,7 +243,7 @@ describe('Case Create', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(screen.getByText('網絡錯誤')).toBeInTheDocument();
+      expect(screen.getByText('message.getPairingFail')).toBeInTheDocument();
     });
     screen.getByTestId('case-create-pairing-retry').click();
     await waitFor(() => {
@@ -252,7 +252,7 @@ describe('Case Create', () => {
     });
   });
 
-  it('getPairingStatus FORBIDDEN 且無 message 時應使用 getPairingFail（F03 權限邊界 fallback）', async () => {
+  it('getPairingStatus FORBIDDEN 應使用 normalized catalog 權限訊息', async () => {
     mockGetPairingStatus.mockRejectedValue({ code: 'FORBIDDEN' });
     render(
       <MemoryRouter>
@@ -260,7 +260,7 @@ describe('Case Create', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(screen.getByText('message.getPairingFail')).toBeInTheDocument();
+      expect(screen.getByText('common.forbidden')).toBeInTheDocument();
     });
     expect(screen.getByTestId('case-create-pairing-retry')).toBeInTheDocument();
     expect(screen.getByText('caseCreate.goPairing')).toBeInTheDocument();
@@ -450,7 +450,7 @@ describe('Case Create', () => {
     });
   });
 
-  it('createCase 失敗且錯誤無 message 時應顯示 message.createCaseFail', async () => {
+  it('createCase SERVER_ERROR 應顯示 normalized server error', async () => {
     vi.mocked(validateStatement).mockReturnValue({ valid: true });
     vi.mocked(createCase).mockRejectedValue({ code: 'SERVER_ERROR' });
     render(
@@ -474,11 +474,11 @@ describe('Case Create', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.createCaseFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
-  it('createCase 失敗且 message 為空字串時應使用 message.createCaseFail（F10 邊界）', async () => {
+  it('createCase SERVER_ERROR 的空 message 仍使用 normalized server error', async () => {
     vi.mocked(validateStatement).mockReturnValue({ valid: true });
     vi.mocked(createCase).mockRejectedValue({ code: 'SERVER_ERROR', message: '' });
     render(
@@ -502,12 +502,12 @@ describe('Case Create', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.createCaseFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
     });
     expect(mockNavigate).not.toHaveBeenCalledWith(expect.stringContaining('/case/'));
   });
 
-  it('createCase 失敗且有 message（非 FORBIDDEN）時應顯示該 message（F10 錯誤處理約定）', async () => {
+  it('createCase 的任意 Error message 不會直接顯示', async () => {
     vi.mocked(validateStatement).mockReturnValue({ valid: true });
     vi.mocked(createCase).mockRejectedValue(new Error('陳述內容含敏感詞彙，請修正後再試'));
     render(
@@ -531,7 +531,7 @@ describe('Case Create', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('陳述內容含敏感詞彙，請修正後再試');
+      expect(mockToastError).toHaveBeenCalledWith('message.createCaseFail');
     });
     expect(mockNavigate).not.toHaveBeenCalledWith(expect.stringContaining('/case/'));
   });
@@ -561,7 +561,7 @@ describe('Case Create', () => {
       expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).not.toBeDisabled();
     });
     fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
-    expect(await screen.findByText('暫時無法建立')).toBeInTheDocument();
+    expect(await screen.findByText('message.createCaseFail')).toBeInTheDocument();
     fireEvent.click(screen.getByText('common.retry'));
     await waitFor(() => {
       expect(createCase).toHaveBeenCalledTimes(2);
@@ -592,7 +592,7 @@ describe('Case Create', () => {
       expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).not.toBeDisabled();
     });
     fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
-    expect(await screen.findByText('暫時無法建立')).toBeInTheDocument();
+    expect(await screen.findByText('message.createCaseFail')).toBeInTheDocument();
     // Go back to plaintiff step: click the bottom "prev" button (last one in the list)
     const prevBtns = screen.getAllByRole('button', { name: 'quickCreate.step.prev' });
     fireEvent.click(prevBtns[prevBtns.length - 1]);
@@ -608,7 +608,7 @@ describe('Case Create', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'quickCreate.step.next' })[0]);
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'caseCreate.submitBtn' })).toBeInTheDocument();
-      expect(screen.queryByText('暫時無法建立')).not.toBeInTheDocument();
+      expect(screen.queryByText('message.createCaseFail')).not.toBeInTheDocument();
     });
   });
 
@@ -638,7 +638,7 @@ describe('Case Create', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('暫時無法建立');
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
     });
     fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     await waitFor(() => {
@@ -647,7 +647,7 @@ describe('Case Create', () => {
     });
   });
 
-  it('createCase FORBIDDEN 時若有 message 應顯示該 message（F03 權限邊界）', async () => {
+  it('createCase FORBIDDEN 應顯示 normalized 權限訊息', async () => {
     vi.mocked(validateStatement).mockReturnValue({ valid: true });
     vi.mocked(createCase).mockRejectedValue({ code: 'FORBIDDEN', message: '配對已達案件上限' });
     render(
@@ -671,12 +671,12 @@ describe('Case Create', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('配對已達案件上限');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
     expect(mockNavigate).not.toHaveBeenCalledWith(expect.stringContaining('/case/'));
   });
 
-  it('createCase FORBIDDEN 且無 message 時應使用 createCaseFail（F03 權限邊界 fallback）', async () => {
+  it('createCase FORBIDDEN 且無 message 時仍使用 normalized 權限訊息', async () => {
     vi.mocked(validateStatement).mockReturnValue({ valid: true });
     vi.mocked(createCase).mockRejectedValue({ code: 'FORBIDDEN' });
     render(
@@ -700,7 +700,7 @@ describe('Case Create', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.createCaseFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
     expect(mockNavigate).not.toHaveBeenCalledWith(expect.stringContaining('/case/'));
   });
@@ -762,12 +762,12 @@ describe('Case Create', () => {
     fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     await waitFor(() => {
       expect(mockToastSuccess).toHaveBeenCalledWith('caseCreate.remoteCreateSuccess');
-      expect(mockToastWarning).toHaveBeenCalledWith('upload failed');
+      expect(mockToastWarning).toHaveBeenCalledWith('message.evidenceUploadFailCaseCreated');
       expect(mockNavigate).toHaveBeenCalledWith('/case/new-case-456');
     });
   });
 
-  it('createCase 成功但證據上傳 FORBIDDEN 時若有 message 應顯示該 message（F03 權限邊界）', async () => {
+  it('createCase 成功但證據上傳 FORBIDDEN 時顯示 normalized 權限訊息', async () => {
     vi.mocked(validateStatement).mockReturnValue({ valid: true });
     vi.mocked(createCase).mockResolvedValue({ id: 'new-case-fb' } as Awaited<ReturnType<typeof createCase>>);
     vi.mocked(uploadEvidence).mockRejectedValueOnce({ code: 'FORBIDDEN', message: '檔案類型不允許' });
@@ -793,12 +793,12 @@ describe('Case Create', () => {
     fireEvent.click(screen.getByTestId('add-evidence'));
     fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     await waitFor(() => {
-      expect(mockToastWarning).toHaveBeenCalledWith('檔案類型不允許');
+      expect(mockToastWarning).toHaveBeenCalledWith('common.forbidden');
       expect(mockNavigate).toHaveBeenCalledWith('/case/new-case-fb');
     });
   });
 
-  it('createCase 成功但證據上傳 FORBIDDEN 且無 message 時應使用 evidenceUploadFailCaseCreated（F03 權限邊界 fallback）', async () => {
+  it('createCase 成功但證據上傳 FORBIDDEN 且無 message 時使用 normalized 權限訊息', async () => {
     vi.mocked(validateStatement).mockReturnValue({ valid: true });
     vi.mocked(createCase).mockResolvedValue({ id: 'new-case-forbidden' } as Awaited<ReturnType<typeof createCase>>);
     vi.mocked(uploadEvidence).mockRejectedValueOnce({ code: 'FORBIDDEN' });
@@ -824,12 +824,12 @@ describe('Case Create', () => {
     fireEvent.click(screen.getByTestId('add-evidence'));
     fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     await waitFor(() => {
-      expect(mockToastWarning).toHaveBeenCalledWith('message.evidenceUploadFailCaseCreated');
+      expect(mockToastWarning).toHaveBeenCalledWith('common.forbidden');
       expect(mockNavigate).toHaveBeenCalledWith('/case/new-case-forbidden');
     });
   });
 
-  it('createCase 成功但證據上傳失敗且錯誤無 message 時應使用 evidenceUploadFailCaseCreated', async () => {
+  it('createCase 成功但證據上傳 SERVER_ERROR 時使用 normalized server error', async () => {
     vi.mocked(validateStatement).mockReturnValue({ valid: true });
     vi.mocked(createCase).mockResolvedValue({ id: 'new-case-789' } as Awaited<ReturnType<typeof createCase>>);
     vi.mocked(uploadEvidence).mockRejectedValueOnce({ code: 'SERVER_ERROR' });
@@ -855,12 +855,12 @@ describe('Case Create', () => {
     fireEvent.click(screen.getByTestId('add-evidence'));
     fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     await waitFor(() => {
-      expect(mockToastWarning).toHaveBeenCalledWith('message.evidenceUploadFailCaseCreated');
+      expect(mockToastWarning).toHaveBeenCalledWith('common.serverError');
       expect(mockNavigate).toHaveBeenCalledWith('/case/new-case-789');
     });
   });
 
-  it('createCase 成功但證據上傳失敗且 message 為空字串時應使用 evidenceUploadFailCaseCreated（F10 邊界）', async () => {
+  it('createCase 成功但證據上傳 SERVER_ERROR 的空 message 仍使用 normalized server error', async () => {
     vi.mocked(validateStatement).mockReturnValue({ valid: true });
     vi.mocked(createCase).mockResolvedValue({ id: 'new-case-empty-msg' } as Awaited<ReturnType<typeof createCase>>);
     vi.mocked(uploadEvidence).mockRejectedValueOnce({ code: 'SERVER_ERROR', message: '' });
@@ -886,7 +886,7 @@ describe('Case Create', () => {
     fireEvent.click(screen.getByTestId('add-evidence'));
     fireEvent.click(screen.getByRole('button', { name: 'caseCreate.submitBtn' }));
     await waitFor(() => {
-      expect(mockToastWarning).toHaveBeenCalledWith('message.evidenceUploadFailCaseCreated');
+      expect(mockToastWarning).toHaveBeenCalledWith('common.serverError');
       expect(mockNavigate).toHaveBeenCalledWith('/case/new-case-empty-msg');
     });
   });

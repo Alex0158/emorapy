@@ -3,9 +3,9 @@
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：問題治理
 **覆蓋範圍**：Web icon-only 關閉/清除按鈕、accessible name、keyboard/focus 驗收
-**取證代碼入口**：`frontend/src/pages/QuickExperience/Result/components/RegisterPromptSection.tsx`、`frontend/src/pages/Case/Create/index.tsx`、`frontend/src/components/common/GuideTooltip/index.tsx`、`frontend/src/pages/Chat/Room/components/ChatMessageComposer.tsx`
-**最後核驗 Commit**：`3890ba8`
-**最後核驗日期**：`2026-05-10`
+**取證代碼入口**：`frontend/src/pages/Case/Create/index.tsx`、`frontend/src/pages/Chat/Room/components/ChatMessageComposer.tsx`、`frontend/src/components/business/FileUpload/index.tsx`、`frontend/src/components/business/Interview/SafetyAlert/index.tsx`
+**最後核驗 Commit**：`e65a4b8`
+**最後核驗日期**：`2026-07-12`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 **狀態**：已處理
@@ -19,7 +19,7 @@
 
 ## 2. 已確認樣本
 
-1. `frontend/src/pages/QuickExperience/Result/components/RegisterPromptSection.tsx`
+1. 歷史 `RegisterPromptSection`（2026-07-12 全站 UI/UX 重構時連同重複註冊提示移除）
 
 ```tsx
 <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
@@ -35,7 +35,7 @@
 </button>
 ```
 
-3. `frontend/src/components/common/GuideTooltip/index.tsx`
+3. 歷史 `GuideTooltip`（2026-07-12 清理無 production consumer 的元件時移除）
 
 ```tsx
 <button onClick={handleClose} className="text-background/70 hover:text-background">
@@ -86,14 +86,14 @@ npm run test:run --workspace frontend -- src/components/business/Interview/Safet
 已再補四個 icon-only control 的 accessible name：
 
 1. `frontend/src/pages/Chat/Room/components/ChatMessageComposer.tsx`：清除 reply preview 的 X button 改為 `aria-label={t('chat.dismiss')}`。
-2. `frontend/src/components/common/GuideTooltip/index.tsx`：關閉 guide tooltip 的 X button 改為 `aria-label={t('guideTooltip.close')}`。
+2. 歷史 `GuideTooltip`：當時已為關閉 X button 補 `aria-label={t('guideTooltip.close')}`；元件其後於 2026-07-12 因無 production consumer 移除。
 3. `frontend/src/components/business/FileUpload/index.tsx`：hover overlay 的預覽 / 移除 icon button 改為 `aria-label={t('fileUpload.previewFile')}` / `aria-label={t('fileUpload.removeFile')}`。
-4. `frontend/src/pages/QuickExperience/Result/components/RegisterPromptSection.tsx`：右上角 X button 改為 `aria-label={t('common.dismiss')}`。
+4. 歷史 `RegisterPromptSection`：當時已為右上角 X button 補 `aria-label={t('common.dismiss')}`；重複提示其後於 2026-07-12 移除。
 
 對應測試：
 
 ```bash
-npm run test:run --workspace frontend -- src/pages/Chat/Room/components/ChatMessageComposer.test.tsx src/components/common/GuideTooltip/index.test.tsx src/components/business/FileUpload/index.test.tsx src/pages/QuickExperience/Result/components/RegisterPromptSection.test.tsx src/assets/i18n/catalogParity.test.ts
+npm run test:run --workspace frontend -- src/pages/Chat/Room/components/ChatMessageComposer.test.tsx src/components/business/FileUpload/index.test.tsx src/assets/i18n/catalogParity.test.ts
 ```
 
 結果：5 個測試檔、16 條測試通過；新增 i18n key 也已被 catalog parity gate 覆蓋。

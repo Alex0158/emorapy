@@ -7,11 +7,10 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { motion } from 'framer-motion';
 import { useMountedRef } from '@/hooks/useMountedRef';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Compass, Heart, RefreshCw, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
+import { Compass, Heart, CheckCircle, Loader2, AlertCircle, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -19,12 +18,11 @@ import {
 } from '@/components/ui/select';
 import {
   generatePlans, getPlans, selectPlan,
-  type PlanPreferences, type ReconciliationIntent, type ReconciliationPlan, type JourneyEntry,
+  type PlanPreferences, type ReconciliationIntent, type ReconciliationPlan, type JourneyEntry, type ReconciliationPlanBundle,
 } from '@/services/api/reconciliation';
 import ProtectedRoute from '@/components/common/ProtectedRoute';
 import SEO from '@/components/common/SEO';
 import { EmptyState } from '@/components/common/EmptyState';
-import MediatorAvatar from '@/components/business/MediatorAvatar';
 import { cn } from '@/lib/utils';
 import { getErrorMessage } from '@/utils/apiError';
 import { t } from '@/utils/i18n';
@@ -38,7 +36,9 @@ const intentMeta: Record<ReconciliationIntent, { title: () => string; subtitle: 
   safety_support: { title: () => t('reconList.intent.safetySupport.title'), subtitle: () => t('reconList.intent.safetySupport.subtitle') },
 };
 
-const defaultPreferences: PlanPreferences = { pressure_level: 'low', pace: 'today', style: ['action'], invite_partner: true };
+const defaultPreferences: PlanPreferences = { pressure_level: 'low', pace: 'today', style: ['action'], invite_partner: false };
+const VALID_INTENTS = new Set<ReconciliationIntent>(['repair', 'cool_down', 'graceful_exit', 'safety_support']);
+type RepairAccess = ReconciliationPlanBundle['repair_access'];
 
 const normalizePlans = (payload: unknown): ReconciliationPlan[] => {
   if (Array.isArray(payload)) return payload as ReconciliationPlan[];
@@ -65,12 +65,34 @@ const normalizeJourneyEntry = (payload: unknown): JourneyEntry => {
   return { status: 'none', track_id: null, active_plan_id: null, recommended_action: 'generate_bundle', last_pulse: null, has_superseded_versions: false };
 };
 
+const normalizeRepairAccess = (payload: unknown, intent: ReconciliationIntent): RepairAccess => {
+  if (payload && typeof payload === 'object' && 'repair_access' in payload) {
+    const value = (payload as { repair_access?: RepairAccess }).repair_access;
+    if (value) return value;
+  }
+  return {
+    judgment_route: 'standard',
+    default_intent: intent,
+    allowed_intents: [intent],
+    can_invite_partner: false,
+    can_use_co_repair: false,
+    force_solo_repair: true,
+    relationship_scope: 'unknown',
+    reasons: [],
+  };
+};
+
 const ReconciliationList = () => {
   const { judgmentId } = useParams<{ judgmentId: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const mountedRef = useMountedRef();
-  const intent = (searchParams.get('intent') as ReconciliationIntent | null) || 'repair';
+  const intentParam = searchParams.get('intent');
+  const requestedIntent = intentParam && VALID_INTENTS.has(intentParam as ReconciliationIntent)
+    ? intentParam as ReconciliationIntent
+    : null;
+  const [intent, setIntent] = useState<ReconciliationIntent>(requestedIntent || 'repair');
+  const [repairAccess, setRepairAccess] = useState<RepairAccess | null>(null);
   const [plans, setPlans] = useState<ReconciliationPlan[]>([]);
   const [recommendedPlanId, setRecommendedPlanId] = useState<string | null>(null);
   const [journeyEntry, setJourneyEntry] = useState<JourneyEntry>(normalizeJourneyEntry(null));
@@ -79,32 +101,40 @@ const ReconciliationList = () => {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [preferences, setPreferences] = useState<PlanPreferences>(defaultPreferences);
 
-  const fetchLockRef = useRef(false);
+  const fetchGenerationRef = useRef(0);
   const generatingLockRef = useRef(false);
   const selectingPlanIdRef = useRef<string | null>(null);
-  const staleRef = useRef(false);
 
   useEffect(() => {
-    staleRef.current = false;
-    setPlans([]); setRecommendedPlanId(null); setJourneyEntry(normalizeJourneyEntry(null));
-    if (judgmentId) void fetchPlans();
-    return () => { staleRef.current = true; };
+    const generation = ++fetchGenerationRef.current;
+    setPlans([]); setRecommendedPlanId(null); setJourneyEntry(normalizeJourneyEntry(null)); setRepairAccess(null);
+    if (judgmentId) void fetchPlans(generation);
+    return () => {
+      if (fetchGenerationRef.current === generation) fetchGenerationRef.current += 1;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [judgmentId, intent]);
+  }, [judgmentId, requestedIntent]);
 
-  const fetchPlans = async () => {
-    if (!judgmentId || fetchLockRef.current) return;
-    fetchLockRef.current = true; setLoading(true); setLoadError(null);
+  const fetchPlans = async (generation = ++fetchGenerationRef.current) => {
+    if (!judgmentId) return;
+    setLoading(true); setLoadError(null);
     try {
-      const bundle = await getPlans(judgmentId, { intent });
-      if (staleRef.current) return;
+      const bundle = await getPlans(judgmentId, requestedIntent ? { intent: requestedIntent } : undefined);
+      if (fetchGenerationRef.current !== generation) return;
+      const effectiveIntent = bundle.intent || requestedIntent || 'repair';
+      const nextAccess = normalizeRepairAccess(bundle, effectiveIntent);
+      setIntent(effectiveIntent);
+      setRepairAccess(nextAccess);
+      setPreferences((previous) => ({ ...previous, invite_partner: nextAccess.can_invite_partner ? previous.invite_partner : false }));
       setPlans(normalizePlans(bundle)); setRecommendedPlanId(normalizeRecommendedPlanId(bundle)); setJourneyEntry(normalizeJourneyEntry(bundle));
     } catch (error: unknown) {
-      if (staleRef.current) return;
+      if (fetchGenerationRef.current !== generation) return;
       const err = error as { code?: string };
       if (err.code === 'NOT_FOUND' || err.code === 'HTTP_404') { setPlans([]); setRecommendedPlanId(null); }
       else { setLoadError(getErrorMessage(error, 'message.getPlansFail')); setPlans([]); }
-    } finally { fetchLockRef.current = false; if (!staleRef.current) setLoading(false); }
+    } finally {
+      if (fetchGenerationRef.current === generation) setLoading(false);
+    }
   };
 
   const handleGeneratePlans = async (force = false) => {
@@ -113,6 +143,14 @@ const ReconciliationList = () => {
     try {
       const bundle = await generatePlans(judgmentId, { intent, preferences, force_regenerate: force });
       if (!mountedRef.current) return;
+      const effectiveIntent = bundle.intent || intent;
+      const nextAccess = normalizeRepairAccess(bundle, effectiveIntent);
+      setIntent(effectiveIntent);
+      setRepairAccess(nextAccess);
+      setPreferences((previous) => ({
+        ...previous,
+        invite_partner: nextAccess.can_invite_partner ? previous.invite_partner : false,
+      }));
       setPlans(normalizePlans(bundle)); setRecommendedPlanId(normalizeRecommendedPlanId(bundle)); setJourneyEntry(normalizeJourneyEntry(bundle));
       toast.success(force ? t('reconList.regenerateSuccess') : t('reconList.generateSuccess'));
     } catch (error: unknown) {
@@ -158,19 +196,27 @@ const ReconciliationList = () => {
   return (
     <ProtectedRoute>
       <SEO title={t('reconList.title')} description={t('reconList.description')} />
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} className="mx-auto max-w-5xl px-4 py-8 md:px-6" role="main" aria-label={t('reconList.pageLabel')}>
-        {/* Header */}
-        <div className="mb-8 text-center">
-          <MediatorAvatar size="medium" animated />
-          <h2 className="mt-4 text-2xl font-bold text-foreground font-heading md:text-3xl">{intentMeta[intent].title()}</h2>
-          <p className="mt-2 text-base text-muted-foreground max-w-2xl mx-auto">{intentMeta[intent].subtitle()}</p>
-          <Badge variant="secondary" className="mt-3"><Compass className="size-3 mr-1" />{t('reconList.journeySteps')}</Badge>
-        </div>
+      <main className="mx-auto max-w-4xl px-4 py-8 md:px-6 md:py-12" aria-label={t('reconList.pageLabel')}>
+        <header className="mb-9 max-w-2xl">
+          <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-primary"><Compass className="size-4" />{t('reconList.journeySteps')}</p>
+          <h1 className="text-3xl font-semibold tracking-tight text-foreground font-heading md:text-4xl">{intentMeta[intent].title()}</h1>
+          <p className="mt-3 text-base leading-7 text-muted-foreground">{intentMeta[intent].subtitle()}</p>
+        </header>
+
+        {repairAccess?.force_solo_repair && (
+          <div className="mb-7 flex items-start gap-3 border-y border-primary/30 bg-primary/5 px-4 py-5" role="status">
+            <Shield className="mt-0.5 size-5 shrink-0 text-primary" />
+            <div>
+              <p className="font-medium text-foreground">{t('reconList.invitePartnerNo')}</p>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">{repairAccess.reasons[0] || intentMeta[intent].subtitle()}</p>
+            </div>
+          </div>
+        )}
 
         {/* Preferences */}
-        <div className="mb-8 rounded-xl border border-border bg-card p-6 space-y-5">
+        <section className="mb-8 space-y-5 border-y border-border py-6">
           <div>
-            <h4 className="text-base font-semibold text-foreground mb-1">{t('reconList.preferencesTitle')}</h4>
+            <h2 className="text-base font-semibold text-foreground mb-1">{t('reconList.preferencesTitle')}</h2>
             <p className="text-sm text-muted-foreground">{t('reconList.preferencesDesc')}</p>
           </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -196,7 +242,7 @@ const ReconciliationList = () => {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
+            {repairAccess?.can_invite_partner && <div className="space-y-2">
               <span className="text-sm font-medium text-foreground">{t('reconList.invitePartnerLabel')}</span>
               <div className="flex items-center gap-3 pt-1">
                 <button
@@ -209,20 +255,18 @@ const ReconciliationList = () => {
                 </button>
                 <span className="text-sm text-muted-foreground">{preferences.invite_partner ? t('reconList.invitePartnerYes') : t('reconList.invitePartnerNo')}</span>
               </div>
-            </div>
+            </div>}
           </div>
           <div className="flex flex-wrap gap-2 pt-2">
-            <Button onClick={() => handleGeneratePlans(plans.length > 0)} disabled={generating}>
+            <Button
+              onClick={() => handleGeneratePlans(plans.length > 0)}
+              disabled={generating || loading || !repairAccess}
+            >
               {generating ? <Loader2 className="size-4 animate-spin" /> : <Heart className="size-4" />}
               {plans.length > 0 ? t('reconList.regenerateBtn') : t('reconList.generateBtn')}
             </Button>
-            {plans.length > 0 && (
-              <Button variant="outline" onClick={() => handleGeneratePlans(true)} disabled={generating}>
-                <RefreshCw className="size-4" />{t('reconList.forceRegenerate')}
-              </Button>
-            )}
           </div>
-        </div>
+        </section>
 
         {/* Error */}
         {loadError && (
@@ -264,24 +308,24 @@ const ReconciliationList = () => {
         )}
 
         {!loading && !generating && recommendedPlan && (
-          <div className="space-y-8">
+          <div className="space-y-10">
             {/* Recommended Plan */}
-            <div className="rounded-2xl border-2 border-primary/20 bg-card p-6 shadow-sm space-y-5">
+            <section className="space-y-5 border-y border-primary/30 bg-primary/[0.03] px-1 py-7 md:px-5">
               <div className="flex flex-wrap gap-2">
                 <Badge className="bg-success/10 text-success border-success/30">{t('reconList.recommended')}</Badge>
                 <Badge variant="outline">{getPlanTypeText(recommendedPlan.plan_type)}</Badge>
                 <Badge variant="outline">{getDifficultyText(recommendedPlan.difficulty_level)}</Badge>
               </div>
               <div>
-                <h3 className="text-xl font-bold text-foreground">{recommendedPlan.content?.title || safeParsePlanContent(recommendedPlan.plan_content).title}</h3>
+                <h2 className="text-xl font-bold text-foreground">{recommendedPlan.content?.title || safeParsePlanContent(recommendedPlan.plan_content).title}</h2>
                 <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{recommendedPlan.content?.description || safeParsePlanContent(recommendedPlan.plan_content).description}</p>
               </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="rounded-lg bg-muted/50 p-4">
+                <div className="border-l-2 border-primary/40 pl-4">
                   <p className="text-xs font-semibold text-foreground mb-1">{t('reconList.whyRecommend')}</p>
                   <p className="text-sm text-muted-foreground">{recommendedPlan.fit_reason || safeParsePlanContent(recommendedPlan.plan_content).fit_reason || t('reconList.defaultFitReason')}</p>
                 </div>
-                <div className="rounded-lg bg-muted/50 p-4">
+                <div className="border-l-2 border-border pl-4">
                   <p className="text-xs font-semibold text-foreground mb-1">{t('reconList.firstStepToday')}</p>
                   <p className="text-sm text-muted-foreground">{recommendedPlan.first_step || safeParsePlanContent(recommendedPlan.plan_content).first_step}</p>
                 </div>
@@ -293,29 +337,31 @@ const ReconciliationList = () => {
                 </Button>
                 <Button variant="outline" onClick={() => navigate(`/reconciliation/${judgmentId}/${recommendedPlan.id}`)}>{t('reconList.viewFullPlan')}</Button>
               </div>
-            </div>
+            </section>
 
             {/* Alternate Plans */}
             {alternatePlans.length > 0 && (
               <div>
-                <h4 className="mb-4 text-base font-semibold text-foreground">{t('reconList.alternateTitle')}</h4>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <h2 className="mb-4 text-base font-semibold text-foreground">{t('reconList.alternateTitle')}</h2>
+                <div className="divide-y divide-border border-y border-border">
                   {alternatePlans.map((plan) => {
                     const parsed = plan.content || safeParsePlanContent(plan.plan_content);
                     return (
-                      <div key={plan.id} className="rounded-xl border border-border bg-card p-5 space-y-3">
+                      <article key={plan.id} className="grid gap-4 py-5 md:grid-cols-[1fr_auto] md:items-center">
+                        <div className="space-y-3">
                         <div className="flex flex-wrap gap-1.5">
                           <Badge variant="outline">{getPlanTypeText(plan.plan_type)}</Badge>
                           <Badge variant="outline">{getDifficultyText(plan.difficulty_level)}</Badge>
                         </div>
-                        <h4 className="text-base font-semibold text-foreground">{parsed.title}</h4>
+                        <h3 className="text-base font-semibold text-foreground">{parsed.title}</h3>
                         <p className="text-sm text-muted-foreground line-clamp-3">{parsed.description}</p>
                         <p className="text-xs text-muted-foreground">{plan.fit_reason || parsed.fit_reason}</p>
-                        <div className="flex gap-2">
+                        </div>
+                        <div className="flex gap-2 md:flex-col">
                           <Button variant="outline" size="sm" onClick={() => navigate(`/reconciliation/${judgmentId}/${plan.id}`)}>{t('reconList.viewDetail')}</Button>
                           <Button size="sm" onClick={() => handleCommitPlan(plan.id)}>{t('reconList.tryThis')}</Button>
                         </div>
-                      </div>
+                      </article>
                     );
                   })}
                 </div>
@@ -323,7 +369,7 @@ const ReconciliationList = () => {
             )}
           </div>
         )}
-      </motion.div>
+      </main>
     </ProtectedRoute>
   );
 };

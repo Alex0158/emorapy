@@ -13,7 +13,6 @@ const appCommitSha = resolveCommitSha();
 function resolveCommitSha(): string {
   const envSha =
     process.env.EMORAPY_COMMIT_SHA ||
-    process.env.CJ_COMMIT_SHA ||
     process.env.VERCEL_GIT_COMMIT_SHA ||
     process.env.GITHUB_SHA;
   if (envSha) return envSha;

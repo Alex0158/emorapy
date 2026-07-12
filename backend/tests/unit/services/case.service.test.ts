@@ -640,10 +640,59 @@ describe('CaseService', () => {
         expect.objectContaining({
           where: expect.objectContaining({
             status: 'submitted',
-            type: '感情糾紛',
+            AND: expect.arrayContaining([
+              expect.objectContaining({
+                OR: expect.arrayContaining([
+                  expect.objectContaining({ plaintiff_id: 'u1', type: '感情糾紛' }),
+                  expect.objectContaining({ defendant_id: 'u1', type: '感情糾紛' }),
+                  expect.objectContaining({
+                    defendant_id: 'u1',
+                    mode: 'remote',
+                    status: 'draft',
+                  }),
+                ]),
+              }),
+            ]),
           }),
         })
       );
+    });
+
+    it('blind remote 回應方不得透過 search 命中發起方隱藏內容', async () => {
+      prismaMock.case.findMany.mockResolvedValue([]);
+      prismaMock.case.count.mockResolvedValue(0);
+
+      await service.getCaseList('u2', { search: '發起方私人內容' });
+
+      const call = prismaMock.case.findMany.mock.calls[0][0];
+      const searchCondition = call.where.AND.find((condition: { OR?: unknown[] }) =>
+        Array.isArray(condition.OR)
+        && condition.OR.some((branch) => (
+          typeof branch === 'object'
+          && branch !== null
+          && 'plaintiff_id' in branch
+          && 'OR' in branch
+        )),
+      );
+
+      expect(searchCondition.OR).toHaveLength(2);
+      expect(searchCondition.OR).toEqual([
+        expect.objectContaining({
+          plaintiff_id: 'u2',
+          OR: expect.arrayContaining([
+            { title: { contains: '發起方私人內容', mode: 'insensitive' } },
+            { plaintiff_statement: { contains: '發起方私人內容', mode: 'insensitive' } },
+          ]),
+        }),
+        expect.objectContaining({
+          defendant_id: 'u2',
+          NOT: expect.objectContaining({
+            mode: 'remote',
+            status: 'draft',
+          }),
+          OR: expect.any(Array),
+        }),
+      ]);
     });
 
     it('status 為 all 時 where 不應帶 status', async () => {
@@ -676,6 +725,17 @@ describe('CaseService', () => {
         })
       );
       expect(prismaMock.case.count).toHaveBeenCalled();
+    });
+
+    it('title 排序應回退 created_at，避免 blind response 透過順序洩露標題', async () => {
+      prismaMock.case.findMany.mockResolvedValue([]);
+      prismaMock.case.count.mockResolvedValue(0);
+
+      await service.getCaseList('u2', { sort_by: 'title', sort_order: 'asc' });
+
+      expect(prismaMock.case.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: { created_at: 'asc' } }),
+      );
     });
 
     it('回傳 cases 含 judgment 時應 normalizeJudgment 補 responsibility_ratio', async () => {
@@ -740,6 +800,45 @@ describe('CaseService', () => {
           reason: '安全支持路由不得展示責任比例，避免把安全風險對稱化',
         },
       });
+    });
+
+    it('remote draft 回應方列表不得收到發起方內容或附件', async () => {
+      prismaMock.case.findMany.mockResolvedValue([
+        {
+          id: 'case-private',
+          mode: 'remote',
+          status: 'draft',
+          title: '由發起方內容生成的標題',
+          type: '情感需求衝突',
+          sub_type: '私人細節',
+          plaintiff_id: 'u1',
+          defendant_id: 'u2',
+          plaintiff_statement: '這段內容在回應前不可見',
+          defendant_statement: null,
+          safety_metadata: {
+            contains_sensitive_content: true,
+            sensitive_content_handling_ack: true,
+          },
+          evidences: [{ id: 'e1', file_url: 'private.jpg' }],
+          judgment: { id: 'j1', plaintiff_ratio: 50, defendant_ratio: 50 },
+          chat_to_case_links: [],
+        },
+      ]);
+      prismaMock.case.count.mockResolvedValue(1);
+
+      const result = await service.getCaseList('u2');
+
+      expect(result.cases[0]).toMatchObject({
+        title: '',
+        type: '',
+        sub_type: null,
+        plaintiff_statement: '',
+        evidences: [],
+        judgment: null,
+        safety_metadata: null,
+        blind_response_pending: true,
+      });
+      expect(mockGetActiveRiskState).not.toHaveBeenCalled();
     });
 
     it('回傳 cases 應帶 product_flow，且 chat_to_case 優先於 mode', async () => {
@@ -828,6 +927,10 @@ describe('CaseService', () => {
         status: 'draft',
         mode: 'remote',
         defendant_statement: null,
+        safety_metadata: {
+          contains_sensitive_content: true,
+          sensitive_content_handling_ack: true,
+        },
       });
 
       await expect(service.submitCase('case-1', 'u1')).rejects.toMatchObject({
@@ -928,6 +1031,22 @@ describe('CaseService', () => {
       await expect(
         service.updateCase('case-1', 'u3', { title: '新標題' })
       ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    });
+
+    it('回應方不得修改案件標題', async () => {
+      prismaMock.case.findUnique.mockResolvedValue({
+        id: 'case-1',
+        mode: 'remote',
+        plaintiff_id: 'u1',
+        defendant_id: 'u2',
+        status: 'draft',
+        defendant_statement: null,
+      });
+
+      await expect(
+        service.updateCase('case-1', 'u2', { title: '試圖覆寫發起方標題' })
+      ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      expect(prismaMock.case.update).not.toHaveBeenCalled();
     });
 
     it('狀態非 draft 應拋出 CASE_NOT_EDITABLE', async () => {
@@ -1087,6 +1206,42 @@ describe('CaseService', () => {
           type: '其他衝突',
           updated_at: expect.any(Date),
         }),
+      });
+    });
+
+    it('blind remote 回應方未完成陳述時 mutation response 應套用 viewer projection', async () => {
+      const existing = {
+        id: 'case-private',
+        mode: 'remote',
+        status: 'draft',
+        title: '發起方私人標題',
+        type: '情感需求衝突',
+        sub_type: '私人分類',
+        plaintiff_id: 'u1',
+        defendant_id: 'u2',
+        plaintiff_statement: LONG_STATEMENT_50,
+        defendant_statement: null,
+        evidences: [{ id: 'e1', file_url: 'https://example.com/private.jpg' }],
+        judgment: { id: 'j-private' },
+        safety_metadata: { contains_sensitive_content: true },
+      };
+      prismaMock.case.findUnique.mockResolvedValue(existing);
+      mockDetectCaseType.mockResolvedValue('情感需求衝突');
+      prismaMock.case.update.mockResolvedValue(existing);
+
+      const result = await service.updateCase('case-private', 'u2', {
+        defendant_statement: '',
+      });
+
+      expect(result).toMatchObject({
+        title: '',
+        type: '',
+        sub_type: null,
+        plaintiff_statement: '',
+        evidences: [],
+        judgment: null,
+        safety_metadata: null,
+        blind_response_pending: true,
       });
     });
 
@@ -1334,6 +1489,72 @@ describe('CaseService', () => {
 
       expect(result).toBeDefined();
       expect(mockSignUrl).toHaveBeenCalledWith('http://a.com/1.jpg');
+    });
+
+    it('remote draft 回應方提交前應盲寫並且不簽發發起方附件', async () => {
+      const case_ = {
+        id: 'case-private',
+        mode: 'remote',
+        status: 'draft',
+        title: '私人標題',
+        type: '情感需求衝突',
+        sub_type: '私人分類',
+        plaintiff_id: 'u1',
+        defendant_id: 'u2',
+        plaintiff_statement: '發起方陳述',
+        defendant_statement: null,
+        evidences: [{ id: 'e1', file_url: 'http://a.com/private.jpg' }],
+        judgment: null,
+        pairing: null,
+        chat_to_case_links: [],
+      };
+      prismaMock.case.findUnique.mockResolvedValue(case_);
+
+      const result = await service.getCaseById('case-private', 'u2');
+
+      expect(result).toMatchObject({
+        title: '',
+        type: '',
+        sub_type: null,
+        plaintiff_statement: '',
+        evidences: [],
+        judgment: null,
+        safety_metadata: null,
+        blind_response_pending: true,
+      });
+      expect(mockSignUrl).not.toHaveBeenCalledWith('http://a.com/private.jpg');
+    });
+
+    it('remote 回應方提交後應恢復一般案件 view', async () => {
+      const case_ = {
+        id: 'case-private',
+        mode: 'remote',
+        status: 'submitted',
+        title: '共同可見標題',
+        type: '情感需求衝突',
+        sub_type: '溝通',
+        plaintiff_id: 'u1',
+        defendant_id: 'u2',
+        plaintiff_statement: '發起方陳述',
+        defendant_statement: '回應方已完成獨立陳述',
+        safety_metadata: { contains_sensitive_content: false },
+        evidences: [{ id: 'e1', file_url: 'http://a.com/shared.jpg' }],
+        judgment: null,
+        pairing: null,
+        chat_to_case_links: [],
+      };
+      prismaMock.case.findUnique.mockResolvedValue(case_);
+
+      const result = await service.getCaseById('case-private', 'u2');
+
+      expect(result).toMatchObject({
+        title: '共同可見標題',
+        type: '情感需求衝突',
+        plaintiff_statement: '發起方陳述',
+        safety_metadata: { contains_sensitive_content: false },
+        blind_response_pending: false,
+      });
+      expect(mockSignUrl).toHaveBeenCalledWith('http://a.com/shared.jpg');
     });
 
     it('remote 模式 pairing 有 avatar_url 時應對頭像簽名', async () => {

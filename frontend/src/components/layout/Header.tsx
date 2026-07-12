@@ -32,7 +32,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useNotificationStore } from '@/store/notificationStore';
 import { cn } from '@/lib/utils';
 import { t, getLocale, onLocaleChange, setLocale, type Locale } from '@/utils/i18n';
-import VersionPopover from './VersionPopover';
+import BrandMark from '@/components/common/BrandMark';
 
 const NAV_PREFIX_MAP: Record<string, string> = {
   '/case': '/case/list',
@@ -89,13 +89,10 @@ const Header = () => {
       ];
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border/50 bg-card/90 backdrop-blur-xl max-md:hidden">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
+    <header className="sticky top-0 z-40 border-b border-border bg-background max-md:hidden">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5">
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-1.5 text-base font-bold tracking-tight text-foreground font-heading">
-          <span>✨</span>
-          <span>{t('nav.logo')}</span>
-        </Link>
+        <BrandMark compact />
 
         {/* Nav Links */}
         <nav className="flex items-center gap-1">
@@ -113,14 +110,12 @@ const Header = () => {
 
         {/* Actions */}
         <div className="flex items-center gap-2">
-          <VersionPopover />
-
           {/* Notifications */}
           {isAuthenticated && (
             <div data-testid="notification-badge" data-count={unreadCount}>
               <button
                 onClick={() => navigate('/notifications')}
-                className="relative rounded-lg p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                className="relative flex size-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 aria-label={t('nav.notifications')}
               >
                 <Bell className="size-4" />
@@ -136,7 +131,7 @@ const Header = () => {
           {/* Locale */}
           <Select value={locale} onValueChange={handleLocaleChange}>
             <SelectTrigger
-              className="h-8 w-[100px] text-xs border-0 bg-transparent"
+              className="h-11 w-[112px] border-0 bg-transparent text-xs"
               aria-label={t('auth.locale.label')}
             >
               <Globe className="size-3.5 text-muted-foreground" />
@@ -152,7 +147,7 @@ const Header = () => {
           {isAuthenticated ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-accent">
+                <button className="flex min-h-11 items-center gap-2 rounded-md px-2 transition-colors hover:bg-accent">
                   <Avatar className="size-7">
                     <AvatarImage src={user?.avatar_url} />
                     <AvatarFallback className="text-xs">
@@ -204,9 +199,9 @@ function NavLink({ to, active, children }: { to: string; active: boolean; childr
     <Link
       to={to}
       className={cn(
-        'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors',
+        'flex min-h-11 items-center gap-1.5 rounded-md border-b-2 border-transparent px-3 text-sm transition-colors',
         active
-          ? 'bg-primary/10 font-medium text-foreground ring-1 ring-primary/20'
+          ? 'border-primary font-medium text-foreground'
           : 'text-muted-foreground hover:bg-accent hover:text-foreground',
       )}
     >

@@ -12,10 +12,6 @@ vi.mock('@/utils/i18n', () => ({
 vi.mock('@/types/interview', () => ({
   getDomainLabel: (d: string) => `label:${d}`,
 }));
-vi.mock('../RichnessRing', () => ({
-  default: ({ score }: { score: number }) => <div data-testid="richness-ring">score:{score}</div>,
-}));
-
 const baseFeedback: FeedbackCard = {
   summary: '心理回饋摘要',
   domains_explored: ['attachment', 'personality'],
@@ -27,20 +23,21 @@ const baseFeedback: FeedbackCard = {
 };
 
 describe('FeedbackCardComponent', () => {
-  it('應渲染 summary、explored/unexplored domains、insights、encouragement、continuation_hint', () => {
+  it('應渲染 summary、已談及面向、insights、encouragement 與 continuation_hint', () => {
     render(<FeedbackCardComponent feedback={baseFeedback} />);
     expect(screen.getByText('心理回饋摘要')).toBeInTheDocument();
     expect(screen.getByText('label:attachment')).toBeInTheDocument();
     expect(screen.getByText('label:personality')).toBeInTheDocument();
     expect(screen.getByText(/psychProfile\.exploredDomains/)).toBeInTheDocument();
-    expect(screen.getByText(/psychProfile\.unexploredDomains/)).toBeInTheDocument();
-    expect(screen.getByText('label:family_origin')).toBeInTheDocument();
-    expect(screen.getByText('label:life_events')).toBeInTheDocument();
+    expect(screen.queryByText(/psychProfile\.unexploredDomains/)).not.toBeInTheDocument();
+    expect(screen.queryByText('label:family_origin')).not.toBeInTheDocument();
+    expect(screen.queryByText('label:life_events')).not.toBeInTheDocument();
     expect(screen.getByText('洞察1')).toBeInTheDocument();
     expect(screen.getByText('洞察2')).toBeInTheDocument();
     expect(screen.getByText('你做得很好！')).toBeInTheDocument();
     expect(screen.getByText('下次我們可以聊聊原生家庭的部分。')).toBeInTheDocument();
-    expect(screen.getByTestId('richness-ring')).toBeInTheDocument();
+    expect(screen.getByText('psychProfile.disclaimer')).toBeInTheDocument();
+    expect(screen.queryByTestId('richness-ring')).not.toBeInTheDocument();
   });
 
   it('trigger=post_judgment 時主按鈕應為 backToJudgment', () => {

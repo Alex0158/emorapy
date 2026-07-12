@@ -129,6 +129,36 @@ describe('ExecutionCheckIn', () => {
     expect(screen.getByText('今天只做到一半')).toBeInTheDocument();
   });
 
+  it('不預選脈搏 telemetry，未填項目以 undefined 交給 API serialization', async () => {
+    const user = userEvent.setup();
+    mockGetExecutionStatus.mockResolvedValue(executionStatus);
+    mockCheckin.mockResolvedValue({ id: 'execution-1' });
+
+    renderPage();
+
+    const doneButton = await screen.findByRole('button', { name: 'execCheckIn.stepResult.done' });
+    expect(doneButton).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: 'execCheckIn.closeness.same' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: 'execCheckIn.stress.medium' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('radio', { name: 'execCheckIn.needsHelp.no' })).not.toBeChecked();
+    expect(screen.getByRole('radio', { name: 'execCheckIn.needsHelp.yes' })).not.toBeChecked();
+
+    await user.click(doneButton);
+    await user.click(screen.getByRole('button', { name: 'execCheckIn.submitBtn' }));
+
+    await waitFor(() => {
+      expect(mockCheckin).toHaveBeenCalledWith({
+        plan_id: 'plan-1',
+        notes: undefined,
+        photos: [],
+        step_result: 'done',
+        closeness: undefined,
+        stress: undefined,
+        needs_help: undefined,
+      });
+    });
+  });
+
   it('後端回傳缺少 recent_checkins 時仍可正常提交每日脈搏', async () => {
     const user = userEvent.setup();
     mockGetExecutionStatus.mockResolvedValue({

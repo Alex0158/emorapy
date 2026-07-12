@@ -8,12 +8,12 @@
 **最後核驗日期**：`2026-05-31`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-本目錄是 `Emorapy` 項目唯一有效的工程與產品正式文檔依據。`CJ`、`Mother Bear Court` 與 `mother-bear-court` 只作歷史別名或現存基礎設施識別符；不得作為新的對外文案、App Store metadata、native bundle ID 或 release identity。
+本目錄是 `Emorapy` 項目唯一有效的工程與產品正式文檔依據。`CJ`、`Mother Bear Court` 與 `mother-bear-court` 只作歷史別名或 legacy infrastructure identifier；不得作為新的對外文案、App Store metadata、native bundle ID 或 release identity。
 
 對整個 `/Users/alex/Desktop/CJ` 而言，Markdown 只允許存在於三個區域：
 
-1. `mother-bear-court/docs/核心開發文件/`
-2. `mother-bear-court/docs/核心營銷文件/`
+1. `emorapy/docs/核心開發文件/`
+2. `emorapy/docs/核心營銷文件/`
 3. 根級 `歸檔/`
 
 後續做任何開發、修改、排查、回歸前，應先查本目錄。

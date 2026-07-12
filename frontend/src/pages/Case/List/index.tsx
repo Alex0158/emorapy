@@ -23,7 +23,6 @@ import {
 import { getCaseList } from '@/services/api/case';
 import type { Case } from '@/types/case';
 import SEO from '@/components/common/SEO';
-import { StaggerContainer, StaggerItem } from '@/components/common/PageTransition';
 import { EmptyState } from '@/components/common/EmptyState';
 import { useDebounce } from '@/hooks/usePerformance';
 import { formatDate } from '@/utils/formatDate';
@@ -130,11 +129,11 @@ const CaseList = () => {
 
       <div className="mx-auto max-w-4xl px-4 py-8 md:px-6" role="main" aria-label={t('caseList.pageLabel')}>
         {/* Header */}
-        <header className="mb-6 flex items-center justify-between">
+        <header className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2 className="text-2xl font-bold tracking-tight text-foreground font-heading" id="case-list-page-title">
+            <h1 className="text-3xl font-semibold tracking-tight text-foreground font-heading" id="case-list-page-title">
               {t('caseList.heading')}
-            </h2>
+            </h1>
             <p className="mt-1 text-sm text-muted-foreground" aria-live="polite">
               {t('caseList.totalCount').replace('{count}', String(pagination.total))}
             </p>
@@ -171,9 +170,21 @@ const CaseList = () => {
 
         {/* Filters */}
         {showFilters && (
-          <div className="mb-6 flex flex-wrap items-center gap-3" role="group" aria-label={t('caseList.filtersLabel')}>
+          <div className="mb-8 space-y-3" role="group" aria-label={t('caseList.filtersLabel')}>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="relative min-w-[220px] flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                <Input
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                  placeholder={t('caseList.searchPlaceholder')}
+                  className="pl-9"
+                  aria-label={t('caseList.ariaSearch')}
+                  autoComplete="off"
+                />
+              </div>
             <Select value={statusFilter} onValueChange={handleFilterChange(setStatusFilter)}>
-              <SelectTrigger className="w-[130px]" aria-label={t('caseList.ariaStatusFilter')}>
+              <SelectTrigger className="w-full sm:w-[170px]" aria-label={t('caseList.ariaStatusFilter')}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -186,41 +197,28 @@ const CaseList = () => {
                 <SelectItem value="cancelled">{t('caseList.statusCancelled')}</SelectItem>
               </SelectContent>
             </Select>
-
-            <Select value={typeFilter} onValueChange={handleFilterChange(setTypeFilter)}>
-              <SelectTrigger className="w-[160px]" aria-label={t('caseList.ariaTypeFilter')}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t('caseList.typeAll')}</SelectItem>
-                {CASE_TYPES.map((type) => (
-                  <SelectItem key={type} value={type}>{t(CASE_TYPE_I18N_KEYS[type])}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={sortBy} onValueChange={handleFilterChange(setSortBy)}>
-              <SelectTrigger className="w-[120px]" aria-label={t('caseList.ariaSort')}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="latest">{t('caseList.sortLatest')}</SelectItem>
-                <SelectItem value="oldest">{t('caseList.sortOldest')}</SelectItem>
-                <SelectItem value="status">{t('caseList.sortStatus')}</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <div className="relative flex-1 min-w-[180px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-              <Input
-                value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
-                placeholder={t('caseList.searchPlaceholder')}
-                className="pl-9"
-                aria-label={t('caseList.ariaSearch')}
-                autoComplete="off"
-              />
             </div>
+
+            <details className="text-sm text-muted-foreground">
+              <summary className="min-h-11 cursor-pointer py-3 font-medium text-foreground">{t('caseList.filtersLabel')}</summary>
+              <div className="flex flex-wrap gap-3 pb-2">
+                <Select value={typeFilter} onValueChange={handleFilterChange(setTypeFilter)}>
+                  <SelectTrigger className="w-[180px]" aria-label={t('caseList.ariaTypeFilter')}><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t('caseList.typeAll')}</SelectItem>
+                    {CASE_TYPES.map((type) => <SelectItem key={type} value={type}>{t(CASE_TYPE_I18N_KEYS[type])}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Select value={sortBy} onValueChange={handleFilterChange(setSortBy)}>
+                  <SelectTrigger className="w-[160px]" aria-label={t('caseList.ariaSort')}><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="latest">{t('caseList.sortLatest')}</SelectItem>
+                    <SelectItem value="oldest">{t('caseList.sortOldest')}</SelectItem>
+                    <SelectItem value="status">{t('caseList.sortStatus')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </details>
           </div>
         )}
 
@@ -242,22 +240,24 @@ const CaseList = () => {
 
         {/* Case List */}
         {cases.length > 0 && !loading && (
-          <StaggerContainer className="space-y-2">
-            {cases.map((case_) => (
-              <StaggerItem key={case_.id}>
+          <div className="divide-y divide-border border-y border-border">
+            {cases.map((case_) => {
+              const displayTitle = case_.blind_response_pending ? t('caseDetail.yourResponse') : case_.title;
+              return (
                 <button
+                  key={case_.id}
                   type="button"
                   onClick={() => navigate(`/case/${case_.id}`)}
-                  className="flex w-full items-center gap-4 rounded-xl border border-border bg-card p-4 text-left transition-all hover:border-primary/30 hover:shadow-sm active:scale-[0.995]"
-                  aria-label={t('caseList.viewDetailAria').replace('{title}', case_.title)}
+                  className="flex min-h-24 w-full items-center gap-4 px-1 py-5 text-left transition-colors hover:bg-muted/40"
+                  aria-label={t('caseList.viewDetailAria').replace('{title}', displayTitle)}
                 >
                   <div className="flex-1 min-w-0">
                     <span className="block truncate text-sm font-medium text-foreground">
-                      {case_.title}
+                      {displayTitle}
                     </span>
                     <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                       {getCaseStatusTag(case_.status)}
-                      {getCaseTypeTag(case_.type)}
+                      {!case_.blind_response_pending && case_.type && getCaseTypeTag(case_.type)}
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-3 text-muted-foreground">
@@ -268,9 +268,9 @@ const CaseList = () => {
                     <ChevronRight className="size-4" aria-hidden />
                   </div>
                 </button>
-              </StaggerItem>
-            ))}
-          </StaggerContainer>
+              );
+            })}
+          </div>
         )}
 
         {/* Pagination */}

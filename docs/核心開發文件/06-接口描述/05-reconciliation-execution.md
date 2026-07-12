@@ -4,12 +4,12 @@
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：05-reconciliation-execution
 **取證代碼入口**：`backend/src/app.ts`、`backend/src/routes/reconciliation.routes.ts`、`backend/src/routes/execution.routes.ts`、`backend/src/routes/ai-stream.routes.ts`、`backend/src/services/reconciliation.service.ts`、`backend/src/services/execution.service.ts`、`backend/src/services/repair-eligibility.service.ts`、`backend/src/services/repair-journey.service.ts`、`backend/src/services/safety-assessment.service.ts`、`packages/api-client/src/m4.ts`、`frontend/src/services/api/reconciliation.ts`、`frontend/src/services/api/execution.ts`、`mobile/app/(app)/repair/index.tsx`、`mobile/src/features/m4/api.ts`
-**最後核驗 Commit**：`23e85ef`
-**最後核驗日期**：`2026-05-31`
+**最後核驗 Commit**：`e65a4b8`
+**最後核驗日期**：`2026-07-12`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**文檔版本**：v2.11
-**最後更新**：2026-05-31
+**文檔版本**：v2.13
+**最後更新**：2026-07-12
 **代碼基準**：`backend/src/routes/reconciliation.routes.ts`、`backend/src/routes/execution.routes.ts`、`backend/src/routes/ai-stream.routes.ts`、`backend/src/services/reconciliation.service.ts`、`backend/src/services/repair-eligibility.service.ts`、`backend/src/services/repair-journey.service.ts`、`backend/src/services/safety-routing.service.ts`、`backend/src/services/execution.service.ts`、`packages/api-client/src/m4.ts`、`mobile/src/features/m4/api.ts`
 
 ---
@@ -51,7 +51,7 @@
 1. 全域安全狀態：`backend/src/services/safety-assessment.service.ts`
    - `backend/src/services/repair-eligibility.service.ts` 的 async resolver 會先用判決 route 建 fallback，再讀 case scope active `RelationshipRiskState`。
    - 若 active state 存在，`ReconciliationService`、`ExecutionService`、journey context、invite gate、通知 payload 與 execution dashboard 均以 active state 的 `can_invite_partner / can_use_co_repair / can_notify_partner / force_solo_repair` 為準。
-   - 若讀取失敗或 release DB 尚未套用 schema，後端只記 warn 並回退到 route policy；不得把此降級視為 release DB parity 已完成。
+   - 若 active state lookup 因 timeout、權限、migration drift 或其他錯誤失敗，安全敏感能力必須 fail closed：`safety_source=lookup_error`、`risk_level=unknown`、allowed intents 空、`canEnterRepairJourney/canInvitePartner/canUseCoRepair/canNotifyPartner=false`、`forceSoloRepair=true`。不得回退 stored standard route 放寬修復、邀請、共同處理、通知或 replan；此降級亦不能視為 release DB parity 已完成。
 2. 安全路由：`backend/src/services/safety-routing.service.ts`
    - `safety_support / crisis_support` 強制 solo，禁止伴侶邀請、共同修復與伴侶通知。
    - `safety_support / crisis_support` 同時禁止前端展示責任比例；判決接口會透過 `responsibility_ratio_visibility.can_show=false` 給出降級信號。
@@ -65,7 +65,7 @@
    - `canEnterRepairJourney` 必須同時滿足案件可生成修復方案與安全路由允許至少一個 reconciliation intent。
    - `canInvitePartner / canUseCoRepair / canNotifyPartner / forceSoloRepair` 由 safety policy 與 repair eligibility 共同裁決；`ReconciliationService`、`ExecutionService`、通知、後續 job 或前端不得各自用 `forceSoloRepair || canInvitePartner` 手拼一套規則。
    - `ExecutionService` 回傳執行狀態與 dashboard journey context 時必須使用同一聚合 gate；若 `forceSoloRepair=true`，即使舊資料仍是 `co_active` / `recommended_mode=co`，對外旅程 CTA 與 `relationship_mode` 也要降級為 solo。
-   - `journey_context.repair_access` 是前端展示資格的唯一 additive 來源，包含 `flow / product_flow / relationship_scope / pairing_strength / can_invite_partner / can_use_co_repair / can_notify_partner / force_solo_repair / safety_source / risk_level / reasons`。
+   - `journey_context.repair_access` 是前端展示資格的唯一 additive 來源，包含 `flow / product_flow / relationship_scope / pairing_strength / can_invite_partner / can_use_co_repair / can_notify_partner / force_solo_repair / safety_source / risk_level / reasons`；方案 bundle top-level `repair_access` 另承接 `judgment_route / default_intent / allowed_intents`。
    - `journey_context.repair_access` 的 TypeScript 契約必須由 `repair-eligibility.service.ts` 輸出的 `RepairJourneyAccessContext` 定義；`repair-journey.service.ts` 只 re-export / 消費此型別，不得另手寫一份 `product_flow / relationship_scope / pairing_strength` union。
 
 任何頁面、通知、chat-to-case、execution 或後續 job 不得自行用 `case.mode` 重寫上述資格判斷。
@@ -77,7 +77,7 @@
 
 | API                                               | Request（核心字段）                                                                                                        | Success（前端實際用到）                                                                                                                                                                                                                                                                                                                                                                    | 副作用 / 狀態轉移                                                          | 前端入口                                                     |
 | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------- |
-| `POST /api/v1/judgments/:id/reconciliation-plans` | `intent?` `preferences?{difficulty,duration,types[],pressure_level,pace,style[],invite_partner}` `force_regenerate?` | `data.plans[]` `data.recommended_plan_id` `data.intent` `data.applied_preferences` `data.journey_entry` `data.version_summary`                                                                                                                                                                                                                                                     | 生成或重生成同方向方案集合；force regenerate 改為 supersede 舊版本；受 safety policy + repair eligibility 共同限制                     | `/reconciliation/:judgmentId?intent=`*                   |
+| `POST /api/v1/judgments/:id/reconciliation-plans` | `intent?` `preferences?{difficulty,duration,types[],pressure_level,pace,style[],invite_partner}` `force_regenerate?` | `data.plans[]` `data.recommended_plan_id` `data.intent` `data.repair_access` `data.applied_preferences` `data.journey_entry` `data.version_summary`                                                                                                                                                                                                                                                     | 生成或重生成同方向方案集合；force regenerate 改為 supersede 舊版本；受 safety policy + repair eligibility 共同限制                     | `/reconciliation/:judgmentId?intent=`*                   |
 | `GET /api/v1/judgments/:id/reconciliation-plans`  | `id(uuid)` + optional `difficulty/type/intent`                                                                       | 同上 bundle                                                                                                                                                                                                                                                                                                                                                                          | 無                                                                   | `/reconciliation/:judgmentId`                            |
 | `GET /api/v1/reconciliation-plans/:id`            | `id(uuid)`                                                                                                           | `data.plan`（含 `content`、`fit_reason`、`commitment`、`judgment.case_id`、`viewer_role`、`invite_context`、`cta_state`、`track_history_summary`、`journey_context`）                                                                                                                                                                                                                         | 無                                                                   | `/reconciliation/:judgmentId/:id`                        |
 | `POST /api/v1/reconciliation-plans/:id/select`    | `id(uuid)`                                                                                                           | `data.plan.commitment`                                                                                                                                                                                                                                                                                                                                                             | 當前用戶承諾此方案；必要時初始化 `repair_track`                                     | `/reconciliation/:judgmentId/:id`                        |
@@ -133,6 +133,17 @@
 - `has_superseded_versions`
 - `superseded_versions_count`
 
+### plan bundle `data.repair_access`
+
+- `judgment_route`
+- `default_intent`
+- `allowed_intents`
+- `can_invite_partner / can_use_co_repair / force_solo_repair`
+- `relationship_scope`
+- `reasons`
+
+`POST/GET /judgments/:id/reconciliation-plans` 都必須回傳此 top-level context。GET 收到 URL `intent` 時，若該方向不在 active safety policy 的 `allowed_intents`，後端以 `default_intent` 查詢並把有效方向回在 `data.intent`；前端必須採用 response intent，不得沿用 URL 或本地預設。此 bundle context 用於方案列表初始呈現；plan detail / execution 仍以更完整的 `journey_context.repair_access` 為準。
+
 ### `data.commitment`
 
 - `track_id`
@@ -169,7 +180,8 @@
   - `relationship_scope`：`quick_single_solo / quick_collaborative_solo / formal_single_party / formal_dual_party / chat_to_case_single_perspective / chat_to_case_dual_perspective / unclaimed_session_asset`
   - `pairing_strength`：`none / session_context / weak_contextual / formal_confirmed`
   - `can_invite_partner / can_use_co_repair / can_notify_partner / force_solo_repair`
-  - `safety_source / risk_level / reasons`
+  - `safety_source`：`active_risk_state / fallback_route / route_policy / lookup_error`
+  - `risk_level / reasons`；`lookup_error` 時必須是 unknown + fail-closed 能力
 
 ### `GET /execution/status`
 
@@ -249,6 +261,8 @@
 6. `replan`
   - 提交後先回 `202 Accepted`，並產生 `repair_track` scope 的 AI stream
   - 若已有同 track 的進行中快照（`created/queued/started/streaming/completed`），回傳既有 stream，避免重複起任務
+  - 接受請求前、async task 取 track 後、AI 生成完成但持久化前與 partner notification 前均需重查 active safety policy，封住排隊中或生成中的 escalation race
+  - intent 已不允許時拒絕或安全失敗；`forceSoloRepair=true` 時新 plan / track 必須降級 solo、只保留 requester selection，且不得通知 partner
   - 不刪除舊版本，不重置歷史 checkin
   - 同一 `repair_track` 內將舊 active/pending step 標記為 `adapted`
   - AI 任務成功後生成新 plan version 並把 `track.plan_id` 指向新版本
@@ -282,6 +296,7 @@
 4. `checkin` 上報高壓或距離惡化時，`journey_status` 轉為 `replanning`，且 `/repair-tracks/:id/replan` 可產生新 version。
 5. `resume` 能把 `paused` 旅程恢復到 `solo_active/co_active`。
 6. `dashboard` 與單 plan 狀態口徑一致。
+7. active safety lookup 失敗時 repair access 必須 fail closed；replan 在接受前、queued task、AI in-flight 與通知前升級安全狀態時均不得生成/保存 co plan 或通知 partner。
 
 ## 狀態標記
 

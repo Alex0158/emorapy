@@ -55,16 +55,16 @@
 
 | SLI ID | 指標 | 現碼來源 | 初始治理口徑 | 狀態 |
 | --- | --- | --- | --- | --- |
-| CJ-SLI-001 | Backend readiness | `/health/ready` 200 / 503 | release gate 必須通過；production 持續失敗視為 SEV1 或以上 | 已有來源，需監控接線 |
-| CJ-SLI-002 | Backend health degradation | `/health.status`、`checks` | `status=degraded` 不能被 HTTP 200 掩蓋；lock / cron / DB degradation 需告警 | 已有來源 |
-| CJ-SLI-003 | HTTP 5xx ratio | Redis 15m window `status5xx / total` | 當前 alert threshold 預設 `>5%` 且 sample >= 30；這是告警門檻，不是用戶承諾 SLO | 部分覆蓋 |
-| CJ-SLI-004 | HTTP 409 ratio | Redis 15m window `status409 / total` | 預設 `>20%` 觸發衝突風暴告警 | 部分覆蓋 |
-| CJ-SLI-005 | API latency | `performanceMonitor` slow request > 1000ms | 目前只有慢請求 log，無 p95/p99 指標；不得宣稱 latency SLO 達成 | 待建立基線 |
-| CJ-SLI-006 | Chat judgment failure | Prometheus `chat_judgment_total{result}` | Prometheus rule 10m failure ratio > 3% critical | 部分覆蓋 |
-| CJ-SLI-007 | Chat safety/rate limit spike | Prometheus `chat_safety_hits_total`、`chat_rate_limit_hits_total` | safety spike / flood 需觸發人工審查 | 部分覆蓋 |
-| CJ-SLI-008 | AI stream recovery | `ai_stream_terminal_total`、`time_to_first_delta`、`complete_to_persist` | 有 metrics；無正式 SLO target；stream failed/cancelled ratio 需進報表與回歸 | 待建立基線 |
-| CJ-SLI-009 | Release correctness | release gate pass/fail | 正式發布前 gate 必須全部通過，並優先留 evidence | 已有 gate |
-| CJ-SLI-010 | Data/privacy incident signal | logs、audit、manual report、Admin audit logs | 需接入事故分級；尚無專門 privacy incident detector | 待建立基線 |
+| EMO-SLI-001 | Backend readiness | `/health/ready` 200 / 503 | release gate 必須通過；production 持續失敗視為 SEV1 或以上 | 已有來源，需監控接線 |
+| EMO-SLI-002 | Backend health degradation | `/health.status`、`checks` | `status=degraded` 不能被 HTTP 200 掩蓋；lock / cron / DB degradation 需告警 | 已有來源 |
+| EMO-SLI-003 | HTTP 5xx ratio | Redis 15m window `status5xx / total` | 當前 alert threshold 預設 `>5%` 且 sample >= 30；這是告警門檻，不是用戶承諾 SLO | 部分覆蓋 |
+| EMO-SLI-004 | HTTP 409 ratio | Redis 15m window `status409 / total` | 預設 `>20%` 觸發衝突風暴告警 | 部分覆蓋 |
+| EMO-SLI-005 | API latency | `performanceMonitor` slow request > 1000ms | 目前只有慢請求 log，無 p95/p99 指標；不得宣稱 latency SLO 達成 | 待建立基線 |
+| EMO-SLI-006 | Chat judgment failure | Prometheus `chat_judgment_total{result}` | Prometheus rule 10m failure ratio > 3% critical | 部分覆蓋 |
+| EMO-SLI-007 | Chat safety/rate limit spike | Prometheus `chat_safety_hits_total`、`chat_rate_limit_hits_total` | safety spike / flood 需觸發人工審查 | 部分覆蓋 |
+| EMO-SLI-008 | AI stream recovery | `ai_stream_terminal_total`、`time_to_first_delta`、`complete_to_persist` | 有 metrics；無正式 SLO target；stream failed/cancelled ratio 需進報表與回歸 | 待建立基線 |
+| EMO-SLI-009 | Release correctness | release gate pass/fail | 正式發布前 gate 必須全部通過，並優先留 evidence | 已有 gate |
+| EMO-SLI-010 | Data/privacy incident signal | logs、audit、manual report、Admin audit logs | 需接入事故分級；尚無專門 privacy incident detector | 待建立基線 |
 
 在沒有穩定長期數據前，本文不設定 99.9% 之類硬 SLO。現階段只能把 release gate 設為硬門檻，把 alert threshold 設為偵測門檻，把 SLO target 標為待建立基線。
 
@@ -98,7 +98,7 @@
 | SEV2 | 單一主流程 degraded、AI stream failed/cancelled 明顯上升、Admin report/metrics 部分不可用、notification/recovery task 卡住 | 建立任務，修復或降級，更新待處理問題與回歸入口 | 功能 owner |
 | SEV3 | 文檔/指標/台賬漂移、非核心報表異常、低影響配置錯誤、測試或 evidence 不完整 | 排期修正，必要時補 docs / tests | 對應子域 owner |
 
-若事故涉及 `CJ-DATA-2` 以上資料，必須同時回查 [../04-共用機制/04-資料治理與隱私風險基線.md](../04-共用機制/04-資料治理與隱私風險基線.md)，並在事故紀錄中標出資料級別與暴露面。
+若事故涉及 `EMO-DATA-2` 以上資料，必須同時回查 [../04-共用機制/04-資料治理與隱私風險基線.md](../04-共用機制/04-資料治理與隱私風險基線.md)，並在事故紀錄中標出資料級別與暴露面。
 
 ## 6. 事故處置流程
 
@@ -144,14 +144,14 @@
 
 | 缺口 ID | 現狀 | 風險 | 處置規則 |
 | --- | --- | --- | --- |
-| CJ-OPS-GAP-001 | 有 alert threshold，但無正式 SLO / error budget | 團隊無法判斷「健康但不可接受」的服務狀態 | 持續收集 SLI，下一輪再定 target |
-| CJ-OPS-GAP-002 | 有 runbook / gate，但無固定 incident record 模板 | 事故復盤容易丟失時間線、資料級別與防復發任務 | 本文第 6 節作最低模板 |
-| CJ-OPS-GAP-003 | 缺少全 API latency p95/p99 與 per-route volume 指標 | 性能 NFR 難以量化 | 不宣稱 latency SLO；需後續補 metrics |
-| CJ-OPS-GAP-004 | data/privacy incident 尚未接入專門 detector | 隱私事件可能只靠人工發現 | 資料治理基線 + 事故分級先建立，detector 待辦另立 |
-| CJ-OPS-GAP-005 | App telemetry / App smoke evidence baseline 已具備，但 physical device、provider delivery、production native crash runtime 與長期 SLO baseline 仍未閉環 | App 版無法繼承 Web 運維結論，也不能把 telemetry runtime pass 當完整 App reliability | App 能力或 release gate 變更時回查 App 測試證據接入基線與 release completion audit |
-| CJ-OPS-GAP-006 | Chat / AI stream 有 metrics，但沒有產品級 target | AI 體驗退化只能被動排查 | 暫以 metrics + regression + Admin report 管控 |
-| CJ-OPS-GAP-007 | App 已有 OpenTelemetry provider baseline 與 Emorapy OTLP JSON ingest，但無 external tracing backend / vendor collector / cross-service distributed trace | 跨服務、AI provider、DB、Redis 的慢路徑根因難以定位 | 先以 request id + logs + metrics + App OTLP safe summary 管控；接 external collector 前不得宣稱完整 tracing |
-| CJ-OPS-GAP-008 | 無固定 incident drill 證據落點 | 事故流程可能只停留在文檔描述 | 以 `08/07` 建立驗收模板，後續演練證據下沉 `90-證據與盤點/` |
+| EMO-OPS-GAP-001 | 有 alert threshold，但無正式 SLO / error budget | 團隊無法判斷「健康但不可接受」的服務狀態 | 持續收集 SLI，下一輪再定 target |
+| EMO-OPS-GAP-002 | 有 runbook / gate，但無固定 incident record 模板 | 事故復盤容易丟失時間線、資料級別與防復發任務 | 本文第 6 節作最低模板 |
+| EMO-OPS-GAP-003 | 缺少全 API latency p95/p99 與 per-route volume 指標 | 性能 NFR 難以量化 | 不宣稱 latency SLO；需後續補 metrics |
+| EMO-OPS-GAP-004 | data/privacy incident 尚未接入專門 detector | 隱私事件可能只靠人工發現 | 資料治理基線 + 事故分級先建立，detector 待辦另立 |
+| EMO-OPS-GAP-005 | App telemetry / App smoke evidence baseline 已具備，但 physical device、provider delivery、production native crash runtime 與長期 SLO baseline 仍未閉環 | App 版無法繼承 Web 運維結論，也不能把 telemetry runtime pass 當完整 App reliability | App 能力或 release gate 變更時回查 App 測試證據接入基線與 release completion audit |
+| EMO-OPS-GAP-006 | Chat / AI stream 有 metrics，但沒有產品級 target | AI 體驗退化只能被動排查 | 暫以 metrics + regression + Admin report 管控 |
+| EMO-OPS-GAP-007 | App 已有 OpenTelemetry provider baseline 與 Emorapy OTLP JSON ingest，但無 external tracing backend / vendor collector / cross-service distributed trace | 跨服務、AI provider、DB、Redis 的慢路徑根因難以定位 | 先以 request id + logs + metrics + App OTLP safe summary 管控；接 external collector 前不得宣稱完整 tracing |
+| EMO-OPS-GAP-008 | 無固定 incident drill 證據落點 | 事故流程可能只停留在文檔描述 | 以 `08/07` 建立驗收模板，後續演練證據下沉 `90-證據與盤點/` |
 
 ## 10. 驗收口徑
 

@@ -28,19 +28,20 @@ const FENCED_CODE_BLOCK_RE = /```[\s\S]*?```/g;
 const MARKDOWN_LINK_RE = /!?\[[^\]]*]\(([^)\n]+)\)/g;
 const PENDING_GOVERNANCE_DIR = path.join(coreDocsRoot, '07-待處理問題與治理', '待處理');
 const APP_PRD_TOTAL_DOC = path.join(coreDocsRoot, '00-跨端產品核心', '01-產品PRD總章.md');
-const APP_PLATFORM_REQUIREMENT_IDS = [
-  'CJ-PRD-APP-001',
-  'CJ-PRD-APP-002',
-  'CJ-PRD-APP-003',
-  'CJ-PRD-APP-004',
-  'CJ-PRD-APP-005',
-  'CJ-PRD-APP-006',
-  'CJ-PRD-APP-007',
-  'CJ-PRD-APP-008',
-  'CJ-PRD-APP-009',
-  'CJ-PRD-APP-010',
-  'CJ-PRD-APP-011',
+const APP_PLATFORM_REQUIREMENT_SUFFIXES = [
+  '001',
+  '002',
+  '003',
+  '004',
+  '005',
+  '006',
+  '007',
+  '008',
+  '009',
+  '010',
+  '011',
 ];
+const APP_PLATFORM_REQUIREMENT_PREFIXES = ['EMO-PRD-APP'];
 const RESOLVED_GOVERNANCE_STATUS_RE = /^(已處理|已閉環|已完成)(?:\b|[；;，,\s])/;
 const STALE_APP_STATUS_RULES = [
   {
@@ -345,10 +346,14 @@ async function checkAppPlatformRequirementStatuses(issues) {
   const lines = content.split(/\r?\n/);
   const relativePath = path.relative(repoRoot, APP_PRD_TOTAL_DOC).split(path.sep).join(path.posix.sep);
 
-  for (const id of APP_PLATFORM_REQUIREMENT_IDS) {
-    const row = lines.find((line) => line.includes(`| ${id} |`));
+  for (const suffix of APP_PLATFORM_REQUIREMENT_SUFFIXES) {
+    const candidateIds = APP_PLATFORM_REQUIREMENT_PREFIXES.map((prefix) => `${prefix}-${suffix}`);
+    const row = lines.find((line) => candidateIds.some((id) => line.includes(`| ${id} |`)));
+    const id = candidateIds.find((candidateId) => row?.includes(`| ${candidateId} |`)) ?? candidateIds[0];
     if (!row) {
-      issues.push(`[app-prd-status] missing App platform requirement row in ${relativePath}: ${id}`);
+      issues.push(
+        `[app-prd-status] missing App platform requirement row in ${relativePath}: ${candidateIds.join(' or ')}`
+      );
       continue;
     }
 
@@ -363,11 +368,11 @@ async function checkAppPlatformRequirementStatuses(issues) {
       );
     }
     if (
-      id === 'CJ-PRD-APP-011' &&
+      suffix === '011' &&
       (!status.includes('telemetry runtime') || !status.includes('native crash runtime'))
     ) {
       issues.push(
-        `[app-prd-status] CJ-PRD-APP-011 status must distinguish telemetry runtime pass evidence from native crash runtime blocker in ${relativePath}`
+        `[app-prd-status] ${id} status must distinguish telemetry runtime pass evidence from native crash runtime blocker in ${relativePath}`
       );
     }
   }

@@ -3,7 +3,6 @@
  */
 
 import React, { useEffect, useState, useRef } from 'react';
-import { motion } from 'framer-motion';
 import { useMountedRef } from '@/hooks/useMountedRef';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -138,7 +137,7 @@ const InterviewResult: React.FC = () => {
   }
 
   return (
-    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} className="mx-auto max-w-2xl px-4 py-8">
+    <div className="mx-auto max-w-2xl px-4 py-8">
       <FeedbackCardComponent
         feedback={feedback}
         trigger={currentSession?.trigger}
@@ -147,7 +146,7 @@ const InterviewResult: React.FC = () => {
         onBackToCase={() => navigate('/case/create')}
         onBackToJudgment={() => navigate(-1)}
       />
-    </motion.div>
+    </div>
   );
 };
 

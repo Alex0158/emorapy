@@ -55,12 +55,12 @@ describe('executionStore', () => {
     expect(useExecutionStore.getState().isLoading).toBe(false);
   });
 
-  it('confirmExecution 失敗應設 error 並拋出', async () => {
+  it('confirmExecution 失敗應顯示目錄 fallback 並拋出原始錯誤', async () => {
     mockConfirmExecution.mockRejectedValue(new Error('確認失敗'));
     await expect(
       useExecutionStore.getState().confirmExecution('p1')
     ).rejects.toThrow('確認失敗');
-    expect(useExecutionStore.getState().error).toBe('確認失敗');
+    expect(useExecutionStore.getState().error).toBe('確認執行失敗');
   });
 
   it('getExecutionStatus 成功應設 currentExecution', async () => {
@@ -70,12 +70,12 @@ describe('executionStore', () => {
     expect(useExecutionStore.getState().currentExecution).toEqual(mockStatus);
   });
 
-  it('getExecutionStatus 失敗應設 error 並拋出', async () => {
+  it('getExecutionStatus 失敗應顯示目錄 fallback 並拋出原始錯誤', async () => {
     mockGetExecutionStatus.mockRejectedValue(new Error('取得狀態失敗'));
     await expect(
       useExecutionStore.getState().getExecutionStatus('p1')
     ).rejects.toThrow('取得狀態失敗');
-    expect(useExecutionStore.getState().error).toBe('取得狀態失敗');
+    expect(useExecutionStore.getState().error).toBe('獲取執行狀態失敗');
     expect(useExecutionStore.getState().isLoading).toBe(false);
   });
 
@@ -94,14 +94,19 @@ describe('executionStore', () => {
   });
 
   it('getExecutionStatus 競態：後發請求先 reject 時，先發請求 reject 應直接拋出、不設 error', async () => {
+    let rejectSlow!: (reason?: unknown) => void;
     mockGetExecutionStatus
-      .mockImplementationOnce(() => new Promise((_, r) => setTimeout(() => r(new Error('慢請求失敗')), 50)))
+      .mockImplementationOnce(() => new Promise((_, reject) => {
+        rejectSlow = reject;
+      }))
       .mockRejectedValueOnce(new Error('快請求失敗'));
     const slowPromise = useExecutionStore.getState().getExecutionStatus('p1');
+    const slowRejection = expect(slowPromise).rejects.toThrow('慢請求失敗');
     await expect(useExecutionStore.getState().getExecutionStatus('p2')).rejects.toThrow('快請求失敗');
-    expect(useExecutionStore.getState().error).toBe('快請求失敗');
-    await expect(slowPromise).rejects.toThrow('慢請求失敗');
-    expect(useExecutionStore.getState().error).toBe('快請求失敗');
+    expect(useExecutionStore.getState().error).toBe('獲取執行狀態失敗');
+    rejectSlow(new Error('慢請求失敗'));
+    await slowRejection;
+    expect(useExecutionStore.getState().error).toBe('獲取執行狀態失敗');
   });
 
   it('checkin 成功應清除 loading', async () => {

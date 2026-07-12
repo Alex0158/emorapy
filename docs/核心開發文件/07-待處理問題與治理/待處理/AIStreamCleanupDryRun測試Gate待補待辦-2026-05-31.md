@@ -24,7 +24,7 @@
 
 `04-共用機制/04-資料治理與隱私風險基線.md` 與 `08-測試規範與驗收/04-需求驗證矩陣.md` 曾把 `AI stream cleanup dry-run` 放在資料治理測試/驗收語境中。現碼只能證明 dry-run branch 存在，不能證明它已有可依賴測試或 gate。
 
-因此正式文件應維持「dry-run gate 待補」口徑；補齊前不得把 cleanup dry-run 當成 CJ-NFR-013 已覆蓋證據。
+因此正式文件應維持「dry-run gate 待補」口徑；補齊前不得把 cleanup dry-run 當成 EMO-NFR-013 已覆蓋證據。
 
 ## 目標狀態
 

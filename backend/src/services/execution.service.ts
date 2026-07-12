@@ -489,6 +489,17 @@ export class ExecutionService {
     return getRepairJourneyAccessPolicyForJudgment(plan.judgment, repairEligibility);
   }
 
+  private assertReplanIntentAllowed(
+    intent: string,
+    repairJourneyAccess: Awaited<ReturnType<typeof getRepairJourneyAccessPolicyForJudgment>>,
+  ) {
+    if (!repairJourneyAccess.allowedReconciliationIntents.includes(
+      intent as (typeof repairJourneyAccess.allowedReconciliationIntents)[number],
+    )) {
+      throw Errors.FORBIDDEN('目前安全狀態不允許重新調整此方案，請返回梳理結果選擇安全支持方向');
+    }
+  }
+
   private async getEffectiveRelationshipModeForExecution(plan: ExecutionJourneyPlan): Promise<'solo' | 'co'> {
     const repairJourneyAccess = await this.getRepairJourneyAccessForExecution(plan);
     if (repairJourneyAccess.forceSoloRepair) return 'solo';
@@ -618,6 +629,8 @@ export class ExecutionService {
     },
     locale?: BackendLocale,
   ) {
+    let safeFallbackStatus = fallback.status;
+
     try {
       await aiStreamService.start(handle, {
         actorRole: 'aiMediator',
@@ -656,6 +669,17 @@ export class ExecutionService {
       if (!track) {
         throw Errors.NOT_FOUND('修復旅程不存在');
       }
+
+      let repairJourneyAccess = await this.getRepairJourneyAccessForExecution(track.plan);
+      if (
+        repairJourneyAccess.forceSoloRepair
+        || !repairJourneyAccess.allowedReconciliationIntents.includes(
+          track.intent as (typeof repairJourneyAccess.allowedReconciliationIntents)[number],
+        )
+      ) {
+        safeFallbackStatus = 'solo_active';
+      }
+      this.assertReplanIntentAllowed(track.intent, repairJourneyAccess);
 
       const content = parsePlanContent(track.plan.plan_content);
       const originalPlan = {
@@ -700,7 +724,7 @@ export class ExecutionService {
         intent: track.intent,
         mode: dto.mode,
         reason: dto.reason,
-        relationshipMode: track.recommended_mode,
+        relationshipMode: repairJourneyAccess.forceSoloRepair ? 'solo' : track.recommended_mode,
         locale,
         latestPulse: {
           closeness: latestCheckin?.closeness ?? track.last_closeness ?? undefined,
@@ -740,10 +764,28 @@ export class ExecutionService {
         },
       });
 
+      // The safety state can escalate while the AI request is in flight. Recheck
+      // immediately before persisting a new plan so a queued standard repair
+      // cannot cross the safety boundary after acceptance.
+      repairJourneyAccess = await this.getRepairJourneyAccessForExecution(track.plan);
+      if (
+        repairJourneyAccess.forceSoloRepair
+        || !repairJourneyAccess.allowedReconciliationIntents.includes(
+          track.intent as (typeof repairJourneyAccess.allowedReconciliationIntents)[number],
+        )
+      ) {
+        safeFallbackStatus = 'solo_active';
+      }
+      this.assertReplanIntentAllowed(track.intent, repairJourneyAccess);
+
       const supersededAt = new Date();
       const dualCommitted = track.participant_states.filter((state) => state.commitment_status === 'committed').length >= 2;
-      const nextMode = dto.mode === 'solo_first' ? 'solo' : dualCommitted ? 'co' : 'solo';
+      const nextMode = repairJourneyAccess.forceSoloRepair || dto.mode === 'solo_first'
+        ? 'solo'
+        : dualCommitted ? 'co' : 'solo';
       const nextStatus = nextMode === 'co' ? 'co_active' : 'solo_active';
+      const requesterIsPlaintiff = track.plan.judgment.case.plaintiff_id === requestedBy;
+      const requesterIsDefendant = track.plan.judgment.case.defendant_id === requestedBy;
 
       const result = await prisma.$transaction(async (tx) => {
         const newPlan = await tx.reconciliationPlan.create({
@@ -759,8 +801,12 @@ export class ExecutionService {
             money_cost: replanned.money_cost,
             emotion_cost: replanned.emotion_cost,
             skill_requirement: replanned.skill_requirement,
-            user1_selected: track.plan.user1_selected,
-            user2_selected: track.plan.user2_selected,
+            user1_selected: repairJourneyAccess.forceSoloRepair
+              ? requesterIsPlaintiff
+              : track.plan.user1_selected,
+            user2_selected: repairJourneyAccess.forceSoloRepair
+              ? requesterIsDefendant
+              : track.plan.user2_selected,
           },
         });
 
@@ -859,9 +905,6 @@ export class ExecutionService {
         },
       });
 
-      const partnerStates = track.participant_states.filter(
-        (state) => state.user_id !== requestedBy && state.commitment_status === 'committed'
-      );
       const refreshedTrack = await prisma.repairTrack.findUnique({
         where: { id: result.track_id },
         include: {
@@ -875,6 +918,17 @@ export class ExecutionService {
           },
         },
       });
+      const notificationAccess = refreshedTrack
+        ? await this.getRepairJourneyAccessForExecution(refreshedTrack.plan)
+        : repairJourneyAccess;
+      const canNotifyPartner = notificationAccess.allowedReconciliationIntents.includes(
+        track.intent as (typeof notificationAccess.allowedReconciliationIntents)[number],
+      ) && notificationAccess.canNotifyPartner && !notificationAccess.forceSoloRepair;
+      const partnerStates = canNotifyPartner
+        ? track.participant_states.filter(
+            (state) => state.user_id !== requestedBy && state.commitment_status === 'committed'
+          )
+        : [];
       for (const partner of partnerStates) {
         const partnerJourneyContext = refreshedTrack
           ? await this.buildJourneyContextForExecution(
@@ -924,7 +978,7 @@ export class ExecutionService {
       await prisma.repairTrack.update({
         where: { id: trackId },
         data: {
-          status: fallback.status,
+          status: safeFallbackStatus,
           status_reason: 'replan_failed',
           needs_replan: true,
         },
@@ -1164,6 +1218,9 @@ export class ExecutionService {
       throw Errors.VALIDATION_ERROR('目前這一輪狀態無法重新調整');
     }
 
+    const repairJourneyAccess = await this.getRepairJourneyAccessForExecution(track.plan);
+    this.assertReplanIntentAllowed(track.intent, repairJourneyAccess);
+
     const existingSnapshot = await this.getLatestRepairTrackSnapshot(trackId);
     if (existingSnapshot && ['created', 'queued', 'started', 'streaming', 'completed'].includes(existingSnapshot.status)) {
       return {
@@ -1177,7 +1234,9 @@ export class ExecutionService {
       };
     }
 
-    const fallbackStatus = track.recommended_mode === 'co' ? 'co_active' : 'solo_active';
+    const fallbackStatus = repairJourneyAccess.forceSoloRepair
+      ? 'solo_active'
+      : track.recommended_mode === 'co' ? 'co_active' : 'solo_active';
     const versionGroupId = track.plan.version_group_id || randomUUID();
     const streamHandle = await aiStreamService.createStream('repair_track', track.id);
 

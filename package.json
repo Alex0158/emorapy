@@ -1,7 +1,7 @@
 {
   "name": "emorapy-root",
   "private": true,
-  "version": "1.3.4",
+  "version": "1.4.0",
   "workspaces": [
     "frontend",
     "frontend-admin",
@@ -44,6 +44,7 @@
     "ops:db:status": "bash scripts/ops-db-status.sh"
   },
   "devDependencies": {
+    "glob": "^13.0.6",
     "jsdom": "^25.0.1",
     "playwright": "1.58.2"
   }

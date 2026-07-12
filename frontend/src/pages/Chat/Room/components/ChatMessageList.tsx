@@ -35,8 +35,6 @@ interface ChatMessageListProps {
   handleAnchorTarget: (targetId: string) => void;
   getRoleLabel: (role: string | null | undefined) => string;
   getVisibilityScopeLabel: (scope: string | null | undefined) => string;
-  getMessageTypeLabel: (type: string | null | undefined) => string;
-  getAiStrategyLabel: (strategy: string | null | undefined) => string;
   setReplyTo: (msg: ChatMessage | null) => void;
   hasUnread: boolean;
   jumpBackState: { originMessageId: string | null; wasAtBottom: boolean } | null;
@@ -49,7 +47,7 @@ export default function ChatMessageList({
   messages, firstItemIndex, virtuosoRef, messagesContainerRef, onRangeChanged, onAtBottomChange, onStartReached,
   canRequestMoreHistory, canLoadMoreHistory, loadingMoreHistory, historyBlockedByCache, onLoadMoreHistory,
   aiDraft, currentHrefWithoutHash, messageById, replyTo, highlightMessageId, disableSendMessage,
-  setMessageAnchor, handleAnchorTarget, getRoleLabel, getVisibilityScopeLabel, getMessageTypeLabel, getAiStrategyLabel,
+  setMessageAnchor, handleAnchorTarget, getRoleLabel, getVisibilityScopeLabel,
   setReplyTo, hasUnread, jumpBackState, onJumpBack, onDismissJumpBack, onJumpToLatest,
 }: ChatMessageListProps) {
   return (
@@ -106,7 +104,7 @@ export default function ChatMessageList({
               const anchorId = `msg-${msg.id}`;
               const linkUrl = currentHrefWithoutHash ? `${currentHrefWithoutHash}#${anchorId}` : '';
               const replyTargetContent = messageById.get(msg.reply_to_message_id ?? '')?.content ?? null;
-              return <ChatMessageItem key={msg.id} msg={msg} roleLabel={roleLabel} side={side} isGroupStart={isGroupStart} isGroupEnd={isGroupEnd} showDayDivider={showDayDivider} currentDay={currentDay} linkUrl={linkUrl} replyTargetContent={replyTargetContent} disableSendMessage={disableSendMessage} onReply={setReplyTo} onAnchorTarget={handleAnchorTarget} setMessageAnchor={setMessageAnchor} getVisibilityScopeLabel={getVisibilityScopeLabel} getMessageTypeLabel={getMessageTypeLabel} getAiStrategyLabel={getAiStrategyLabel} isReplyTarget={replyTo?.id === msg.id} isHighlighted={highlightMessageId === msg.id} />;
+              return <ChatMessageItem key={msg.id} msg={msg} roleLabel={roleLabel} side={side} isGroupStart={isGroupStart} isGroupEnd={isGroupEnd} showDayDivider={showDayDivider} currentDay={currentDay} linkUrl={linkUrl} replyTargetContent={replyTargetContent} disableSendMessage={disableSendMessage} onReply={setReplyTo} onAnchorTarget={handleAnchorTarget} setMessageAnchor={setMessageAnchor} getVisibilityScopeLabel={getVisibilityScopeLabel} isReplyTarget={replyTo?.id === msg.id} isHighlighted={highlightMessageId === msg.id} />;
             }}
           />
           {(hasUnread || jumpBackState) && (

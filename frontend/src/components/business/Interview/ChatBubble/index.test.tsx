@@ -14,10 +14,10 @@ vi.mock('@/utils/i18n', () => ({
 }));
 
 describe('ChatBubble', () => {
-  it('AI 訊息應渲染 assistant avatar 和內容', () => {
+  it('引導訊息應直接渲染內容，不加入人物或 AI avatar', () => {
     render(<ChatBubble content="你好" isUser={false} />);
     expect(screen.getByText('你好')).toBeInTheDocument();
-    expect(screen.getByTestId('mediator-avatar')).toBeInTheDocument();
+    expect(screen.queryByTestId('mediator-avatar')).not.toBeInTheDocument();
   });
 
   it('使用者訊息不應渲染 avatar', () => {
@@ -27,8 +27,8 @@ describe('ChatBubble', () => {
   });
 
   it('isStreaming 時應顯示游標', () => {
-    const { container } = render(<ChatBubble content="生成中" isUser={false} isStreaming />);
-    expect(container.querySelector('.animate-\\[blink_1s_infinite\\]')).toBeInTheDocument();
+    render(<ChatBubble content="生成中" isUser={false} isStreaming />);
+    expect(screen.getByTestId('streaming-cursor')).toBeInTheDocument();
   });
 
   it('非 streaming 時不應顯示游標', () => {

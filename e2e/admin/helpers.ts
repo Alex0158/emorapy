@@ -40,12 +40,17 @@ export function requireE2ELimitedCreds(): {
   return { email, password };
 }
 
-export async function loginAsAdmin(page: Page, email: string, password: string): Promise<void> {
+export async function loginAsAdmin(
+  page: Page,
+  email: string,
+  password: string,
+  expectedLandingPath: string | RegExp = /\/admin\/ops\/jobs(?:[/?#]|$)/
+): Promise<void> {
   await page.goto('/admin/login');
   await page.locator('input#email').fill(email);
   await page.locator('input#password').fill(password);
   await page.getByRole('button', { name: /sign in|登入後台/i }).click();
-  await expect(page).toHaveURL(/\/admin\/ops\/jobs/);
+  await expect(page).toHaveURL(expectedLandingPath);
 }
 
 export function permissionDeniedLocator(page: Page) {

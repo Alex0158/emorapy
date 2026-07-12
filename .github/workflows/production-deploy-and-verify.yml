@@ -221,7 +221,6 @@ jobs:
       - name: Stamp Railway production commit
         run: |
           railway variable set "EMORAPY_COMMIT_SHA=${GITHUB_SHA}" --skip-deploys -e "${PRODUCTION_RAILWAY_ENVIRONMENT}" -s "${PRODUCTION_RAILWAY_SERVICE}"
-          railway variable set "CJ_COMMIT_SHA=${GITHUB_SHA}" --skip-deploys -e "${PRODUCTION_RAILWAY_ENVIRONMENT}" -s "${PRODUCTION_RAILWAY_SERVICE}"
 
       - name: Trigger Railway production deploy
         run: railway up --ci --detach -p "${RAILWAY_PROJECT_ID}" -e "${PRODUCTION_RAILWAY_ENVIRONMENT}" -s "${PRODUCTION_RAILWAY_SERVICE}" -m "${{ steps.deploy_message.outputs.value }}"
@@ -245,8 +244,8 @@ jobs:
     environment: Production
     env:
       BACKEND_BASE_URL: ${{ vars.EMORAPY_BACKEND_BASE_URL || secrets.EMORAPY_BACKEND_BASE_URL || vars.PRODUCTION_BACKEND_BASE_URL || secrets.PRODUCTION_BACKEND_BASE_URL }}
-      MAIN_WEB_URL: ${{ vars.EMORAPY_MAIN_WEB_URL || vars.PRODUCTION_MAIN_WEB_URL || 'https://mother-bear-court.vercel.app' }}
-      ADMIN_WEB_URL: ${{ vars.EMORAPY_ADMIN_WEB_URL || vars.PRODUCTION_ADMIN_WEB_URL || 'https://frontend-admin-sigma-virid.vercel.app' }}
+      MAIN_WEB_URL: ${{ vars.EMORAPY_MAIN_WEB_URL || vars.PRODUCTION_MAIN_WEB_URL || 'https://emorapy.vercel.app' }}
+      ADMIN_WEB_URL: ${{ vars.EMORAPY_ADMIN_WEB_URL || vars.PRODUCTION_ADMIN_WEB_URL || 'https://emorapy-admin.vercel.app' }}
       DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL || secrets.APP_RELEASE_DATABASE_URL }}
       REDIS_URL: ${{ secrets.PRODUCTION_REDIS_URL }}
       ADMIN_JWT_EXPIRES_IN: ${{ secrets.PRODUCTION_ADMIN_JWT_EXPIRES_IN }}

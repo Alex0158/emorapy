@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useRef } from 'react';
-import { Send, Square, SkipForward, Coffee } from 'lucide-react';
+import { Send, Square, SkipForward } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { t } from '@/utils/i18n';
@@ -14,10 +14,10 @@ import { t } from '@/utils/i18n';
 const MAX_CHARS = 2000;
 
 const QUICK_TAGS = [
-  { labelKey: 'interview.quickTag.needCalmDown', icon: <Coffee className="size-3.5" /> },
-  { labelKey: 'interview.quickTag.imAngry', icon: '😠' },
-  { labelKey: 'interview.quickTag.notReadyToTalk', icon: '🛑' },
-  { labelKey: 'interview.quickTag.iAgree', icon: '👍' },
+  'interview.quickTag.needCalmDown',
+  'interview.quickTag.imAngry',
+  'interview.quickTag.notReadyToTalk',
+  'interview.quickTag.iAgree',
 ];
 
 interface InterviewInputProps {
@@ -68,22 +68,21 @@ const InterviewInput: React.FC<InterviewInputProps> = ({
       {/* Quick Tags */}
       {!isStreaming && !disabled && (
         <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
-          {QUICK_TAGS.map((tag, idx) => (
+          {QUICK_TAGS.map((labelKey) => (
             <button
-              key={idx}
+              key={labelKey}
               type="button"
-              onClick={() => handleQuickTag(t(tag.labelKey))}
-              className="flex shrink-0 items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 py-1.5 text-sm text-primary transition-colors hover:bg-primary/10"
+              onClick={() => handleQuickTag(t(labelKey))}
+              className="shrink-0 rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:border-foreground/20 hover:text-foreground"
             >
-              <span className="text-xs">{tag.icon}</span>
-              <span>{t(tag.labelKey)}</span>
+              {t(labelKey)}
             </button>
           ))}
         </div>
       )}
 
       {/* Input Area */}
-      <div className="flex items-end gap-2 rounded-2xl border border-border bg-card/80 p-2 shadow-sm backdrop-blur-sm transition-all focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/10">
+      <div className="flex items-end gap-2 rounded-xl border border-border bg-card p-2 transition-colors focus-within:border-primary/40">
         <div className="relative flex-1">
           <textarea
             ref={inputRef}
@@ -125,7 +124,7 @@ const InterviewInput: React.FC<InterviewInputProps> = ({
               variant="destructive"
               onClick={onStop}
               aria-label={t('interview.stop')}
-              className="size-9 rounded-full"
+              className="size-9 rounded-lg"
             >
               <Square className="size-4" />
             </Button>
@@ -135,21 +134,21 @@ const InterviewInput: React.FC<InterviewInputProps> = ({
               onClick={handleSend}
               disabled={!value.trim() || disabled || isOverLimit}
               aria-label={t('interview.send')}
-              className="size-9 rounded-full"
+              className="size-9 rounded-lg"
             >
               <Send className="size-4" />
             </Button>
           )}
           {onSkip && !isStreaming && (
             <Button
-              size="icon"
+              size="sm"
               variant="ghost"
               onClick={onSkip}
               disabled={disabled}
               aria-label={t('interview.skip')}
-              className="size-9 rounded-full text-muted-foreground"
+              className="h-9 gap-1.5 rounded-lg px-2.5 text-muted-foreground"
             >
-              <SkipForward className="size-4" />
+              <SkipForward className="size-3.5" />{t('interview.skip')}
             </Button>
           )}
         </div>

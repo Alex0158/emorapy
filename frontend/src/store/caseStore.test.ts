@@ -59,7 +59,7 @@ describe('caseStore', () => {
     expect(useCaseStore.getState().error).toBeNull();
   });
 
-  it('createQuickCase 失敗應設 error 並拋出', async () => {
+  it('createQuickCase 失敗應顯示目錄 fallback 並拋出原始錯誤', async () => {
     mockCreateQuickCase.mockRejectedValue(new Error('創建失敗'));
     await expect(
       useCaseStore.getState().createQuickCase({
@@ -67,7 +67,7 @@ describe('caseStore', () => {
         defendant_statement: '被告',
       })
     ).rejects.toThrow('創建失敗');
-    expect(useCaseStore.getState().error).toBe('創建失敗');
+    expect(useCaseStore.getState().error).toBe('創建案件失敗');
   });
 
   it('getCase 成功應設 currentCase', async () => {
@@ -95,17 +95,17 @@ describe('caseStore', () => {
     expect(useCaseStore.getState().isLoading).toBe(false);
   });
 
-  it('submitCase 失敗時應設 error 並拋出', async () => {
+  it('submitCase 失敗時應顯示目錄 fallback 並拋出原始錯誤', async () => {
     mockSubmitCase.mockRejectedValueOnce(new Error('submit failed'));
     await expect(useCaseStore.getState().submitCase('c1')).rejects.toThrow('submit failed');
-    expect(useCaseStore.getState().error).toBe('submit failed');
+    expect(useCaseStore.getState().error).toBe('提交案件失敗');
     expect(useCaseStore.getState().isLoading).toBe(false);
   });
 
-  it('getCase 失敗時應設 error 並拋出', async () => {
+  it('getCase 失敗時應顯示目錄 fallback 並拋出原始錯誤', async () => {
     mockGetCase.mockRejectedValueOnce(new Error('get failed'));
     await expect(useCaseStore.getState().getCase('c1')).rejects.toThrow('get failed');
-    expect(useCaseStore.getState().error).toBe('get failed');
+    expect(useCaseStore.getState().error).toBe('獲取案件失敗');
     expect(useCaseStore.getState().isLoading).toBe(false);
   });
 
@@ -124,14 +124,19 @@ describe('caseStore', () => {
   });
 
   it('getCase 競態：後發請求先 reject 時，先發請求 reject 應直接拋出、不設 error', async () => {
+    let rejectSlow!: (reason?: unknown) => void;
     mockGetCase
-      .mockImplementationOnce(() => new Promise((_, r) => setTimeout(() => r(new Error('慢請求失敗')), 50)))
+      .mockImplementationOnce(() => new Promise((_, reject) => {
+        rejectSlow = reject;
+      }))
       .mockRejectedValueOnce(new Error('快請求失敗'));
     const slowPromise = useCaseStore.getState().getCase('c1');
+    const slowRejection = expect(slowPromise).rejects.toThrow('慢請求失敗');
     await expect(useCaseStore.getState().getCase('c2')).rejects.toThrow('快請求失敗');
-    expect(useCaseStore.getState().error).toBe('快請求失敗');
-    await expect(slowPromise).rejects.toThrow('慢請求失敗');
-    expect(useCaseStore.getState().error).toBe('快請求失敗');
+    expect(useCaseStore.getState().error).toBe('獲取案件失敗');
+    rejectSlow(new Error('慢請求失敗'));
+    await slowRejection;
+    expect(useCaseStore.getState().error).toBe('獲取案件失敗');
   });
 
   it('submitCase 在 isLoading=true 時應 reject 不呼叫 API，避免呼叫方誤判成功', async () => {

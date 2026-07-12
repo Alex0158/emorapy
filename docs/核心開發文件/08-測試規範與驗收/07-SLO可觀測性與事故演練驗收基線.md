@@ -49,14 +49,14 @@
 
 | 驗收 ID | 驗收對象 | 最小證據 | 通過口徑 | 當前狀態 |
 | --- | --- | --- | --- | --- |
-| CJ-OPS-T-001 | Health contract | `health.routes.test.ts`、`smoke-production-like.sh` | `/health` 需區分 `healthy/degraded` payload；`/health/ready` 故障時 503；`/health/live` 200 alive | 已部分覆蓋 |
-| CJ-OPS-T-002 | Metrics guard | `metrics.routes.test.ts`、`ops:release:gate:evidence` | production 無 token / IP 不得讀 `/metrics`；disabled 回 404；export fail 回 500 | 已部分覆蓋 |
-| CJ-OPS-T-003 | Ops ratio alert | `ops-alerts.service.ts`、ops alert job / script output | 需保留 lookback、sample size、5xx / 409 ratio、threshold、Slack attempted / sent / deduped | 部分覆蓋；需固定證據落點 |
-| CJ-OPS-T-004 | Chat / AI stream metrics | `chat-metrics.service.ts`、`ai-stream-metrics.service.ts`、Prometheus rule | metric name、label、terminal result、latency histogram 必須可導出；AI failed / cancelled ratio 不能只看 UI | 部分覆蓋 |
-| CJ-OPS-T-005 | Request correlation | `requestId.ts`、`logger.ts`、`errorHandler.ts`、`performance.ts` | 事故記錄必須能追到 request id、time window、commitSha、env、affected flow；session id 只能 masked | 部分覆蓋；無 trace id |
-| CJ-OPS-T-006 | Release evidence | `ops-release-gate-evidence.sh` | 發布宣稱必須有 docs、build/lint、version、health、DB parity、pricing、smoke、product audit 的 gate result | 已有 gate；不是長期監控 |
-| CJ-OPS-T-007 | Incident drill | 本文第 6 節、`03/06` 主基線 | 至少能用一次 degraded health、metrics forbidden、release gate failure 或 product-state audit failure 走完整記錄 | 待建立演練證據 |
-| CJ-OPS-T-008 | App observability parity | `20-App端`、`50-跨端Mapping與Parity`、`mobile/`、`backend/src/services/app-telemetry.service.ts` | App 上線前需有 crash / network / reconnect / background / native storage 最小 telemetry 或 smoke 證據；telemetry runtime evidence 可作 release completion 輸入，native crash runtime 與 physical-device evidence 仍由 M6 strict gate 承接 | 部分覆蓋；production native crash runtime / physical device / provider delivery 仍是 release blocker，external tracing backend 與長期 crash-free / SLO 屬 post-release baseline pending |
+| EMO-OPS-T-001 | Health contract | `health.routes.test.ts`、`smoke-production-like.sh` | `/health` 需區分 `healthy/degraded` payload；`/health/ready` 故障時 503；`/health/live` 200 alive | 已部分覆蓋 |
+| EMO-OPS-T-002 | Metrics guard | `metrics.routes.test.ts`、`ops:release:gate:evidence` | production 無 token / IP 不得讀 `/metrics`；disabled 回 404；export fail 回 500 | 已部分覆蓋 |
+| EMO-OPS-T-003 | Ops ratio alert | `ops-alerts.service.ts`、ops alert job / script output | 需保留 lookback、sample size、5xx / 409 ratio、threshold、Slack attempted / sent / deduped | 部分覆蓋；需固定證據落點 |
+| EMO-OPS-T-004 | Chat / AI stream metrics | `chat-metrics.service.ts`、`ai-stream-metrics.service.ts`、Prometheus rule | metric name、label、terminal result、latency histogram 必須可導出；AI failed / cancelled ratio 不能只看 UI | 部分覆蓋 |
+| EMO-OPS-T-005 | Request correlation | `requestId.ts`、`logger.ts`、`errorHandler.ts`、`performance.ts` | 事故記錄必須能追到 request id、time window、commitSha、env、affected flow；session id 只能 masked | 部分覆蓋；無 trace id |
+| EMO-OPS-T-006 | Release evidence | `ops-release-gate-evidence.sh` | 發布宣稱必須有 docs、build/lint、version、health、DB parity、pricing、smoke、product audit 的 gate result | 已有 gate；不是長期監控 |
+| EMO-OPS-T-007 | Incident drill | 本文第 6 節、`03/06` 主基線 | 至少能用一次 degraded health、metrics forbidden、release gate failure 或 product-state audit failure 走完整記錄 | 待建立演練證據 |
+| EMO-OPS-T-008 | App observability parity | `20-App端`、`50-跨端Mapping與Parity`、`mobile/`、`backend/src/services/app-telemetry.service.ts` | App 上線前需有 crash / network / reconnect / background / native storage 最小 telemetry 或 smoke 證據；telemetry runtime evidence 可作 release completion 輸入，native crash runtime 與 physical-device evidence 仍由 M6 strict gate 承接 | 部分覆蓋；production native crash runtime / physical device / provider delivery 仍是 release blocker，external tracing backend 與長期 crash-free / SLO 屬 post-release baseline pending |
 
 ## 5. SLI 驗收邏輯
 
@@ -77,11 +77,11 @@
 
 | 欄位 | 必填口徑 |
 | --- | --- |
-| Incident ID | `CJ-INC-YYYYMMDD-xx` |
+| Incident ID | `EMO-INC-YYYYMMDD-xx` |
 | Time Window | detected / mitigated / recovered 的 UTC 或 Asia/Shanghai 時間 |
 | Severity | SEV0-SEV3，依 `03/06` 主基線裁決 |
 | Affected Scope | Web / Admin / Backend / DB / AI stream / Chat / App / release |
-| User / Data Impact | affected flow、估算用戶、資料級別、是否涉及 `CJ-DATA-2+` |
+| User / Data Impact | affected flow、估算用戶、資料級別、是否涉及 `EMO-DATA-2+` |
 | Commit / Env | `commitSha`、release / local、backend base URL 或 masked project id |
 | Signals | health payload、metrics window、logs request id、Admin report、user report、release evidence |
 | Root Cause | 已知 / 假設 / 待查；不可把症狀寫成根因 |
@@ -106,5 +106,5 @@
 1. 新增 health / metrics / alert / release gate / smoke 行為時，必須同步 `03-管理端與平台治理/06-SLO可觀測性與事故治理基線.md`、本文、NFR 與 RTM。
 2. 新增 Prometheus metric 時，必須標明 metric name、type、label、cardinality risk、owner、是否進 alert。
 3. 新增事故分級或 postmortem 規則時，必須同步資料治理與安全需求文件；涉及高敏資料時先回查資料分類。
-4. 新增 App telemetry 或 App smoke 時，不得把它寫在 Web/Admin evidence 下，需回寫 App / Parity 與本文 `CJ-OPS-T-008`。
+4. 新增 App telemetry 或 App smoke 時，不得把它寫在 Web/Admin evidence 下，需回寫 App / Parity 與本文 `EMO-OPS-T-008`。
 5. 任何「SLO 已完成」「SLA 達成」「error budget 可用」的表述，都必須有長期 SLI 資料源、target、window、burn-rate 或 error budget policy，否則只能寫待建立基線。

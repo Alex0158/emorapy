@@ -278,7 +278,7 @@ describe('ReconciliationDetail', () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText('方案載入失敗')).toBeInTheDocument();
+      expect(screen.getByText('message.getPlanDetailFail')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'common.retry' })).toBeInTheDocument();
     });
 

@@ -52,12 +52,15 @@ export interface RepairJourneyAccessPolicy {
   productFlow: CaseProductFlow;
   relationshipScope: RepairRelationshipScope;
   pairingStrength: RepairPairingStrength;
+  judgmentRoute: ProductSafetyPolicy['route'];
+  defaultReconciliationIntent: ProductSafetyPolicy['defaultReconciliationIntent'];
+  allowedReconciliationIntents: ProductSafetyPolicy['allowedReconciliationIntents'];
   canEnterRepairJourney: boolean;
   canInvitePartner: boolean;
   canUseCoRepair: boolean;
   canNotifyPartner: boolean;
   forceSoloRepair: boolean;
-  safetySource?: 'active_risk_state' | 'fallback_route' | 'route_policy';
+  safetySource?: 'active_risk_state' | 'fallback_route' | 'route_policy' | 'lookup_error';
   riskLevel?: string;
   reasons: string[];
 }
@@ -186,6 +189,8 @@ export function getRepairEligibilityForCase(caseRecord: RepairEligibilityCase): 
 export function getRepairJourneyAccessPolicy(
   safetyPolicy: Pick<
     ProductSafetyPolicy,
+    | 'route'
+    | 'defaultReconciliationIntent'
     | 'allowedReconciliationIntents'
     | 'canInvitePartner'
     | 'canUseCoRepair'
@@ -209,6 +214,9 @@ export function getRepairJourneyAccessPolicy(
     productFlow: repairEligibility.productFlow,
     relationshipScope: repairEligibility.relationshipScope,
     pairingStrength: repairEligibility.pairingStrength,
+    judgmentRoute: safetyPolicy.route,
+    defaultReconciliationIntent: safetyPolicy.defaultReconciliationIntent,
+    allowedReconciliationIntents: safetyPolicy.allowedReconciliationIntents,
     canEnterRepairJourney,
     canInvitePartner: safetyPolicy.canInvitePartner && repairEligibility.canInvitePartner,
     canUseCoRepair,
@@ -222,6 +230,8 @@ function getRepairJourneySafetyPolicyFromSnapshot(
   snapshot: SafetyAssessmentSnapshot,
 ): Pick<
   ProductSafetyPolicy,
+  | 'route'
+  | 'defaultReconciliationIntent'
   | 'allowedReconciliationIntents'
   | 'canInvitePartner'
   | 'canUseCoRepair'
@@ -231,6 +241,8 @@ function getRepairJourneySafetyPolicyFromSnapshot(
 > {
   const routePolicy = getProductSafetyPolicy(snapshot.judgment_route);
   return {
+    route: routePolicy.route,
+    defaultReconciliationIntent: routePolicy.defaultReconciliationIntent,
     allowedReconciliationIntents: routePolicy.allowedReconciliationIntents,
     canInvitePartner: snapshot.can_invite_partner,
     canUseCoRepair: snapshot.can_use_co_repair,
@@ -274,14 +286,24 @@ export async function getRepairJourneyAccessPolicyForJudgment(
       riskLevel: effective.snapshot.risk_level,
     };
   } catch (error) {
-    logger.warn('Repair journey safety state lookup failed, fallback to route policy', {
+    logger.warn('Repair journey safety state lookup failed, fail closed', {
       judgmentId: judgment.id,
       caseId,
       error,
     });
     return {
-      ...getRepairJourneyAccessPolicy(fallbackSafetyPolicy, repairEligibility),
-      safetySource: 'route_policy',
+      ...getRepairJourneyAccessPolicy({
+        route: fallbackSafetyPolicy.route,
+        defaultReconciliationIntent: 'safety_support',
+        allowedReconciliationIntents: [],
+        canInvitePartner: false,
+        canUseCoRepair: false,
+        canNotifyPartner: false,
+        forceSoloRepair: true,
+        reasons: ['安全狀態暫時無法確認，已停止修復、邀請、共同處理與通知操作'],
+      }, repairEligibility),
+      safetySource: 'lookup_error',
+      riskLevel: 'unknown',
     };
   }
 }

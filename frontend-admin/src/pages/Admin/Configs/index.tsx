@@ -1,238 +1,282 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, AlertTriangle, Loader2 } from 'lucide-react';
-import { useState } from 'react';
-import { toast } from 'sonner';
-
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
+import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AlertTriangle, Plus, RefreshCw, Search } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { Textarea } from '@/components/ui/textarea';
-import { useAdminAccess } from '@/hooks/useAdminAccess';
-import { adminApi } from '@/services/api/admin';
-import type { AdminConfigItem } from '@/types/admin';
-import { t } from '@/utils/i18n';
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "@/components/ui/table";
+import {
+	AdminMetricStrip,
+	AdminPageHeader,
+	AdminPanel,
+	AdminQueryState,
+	AdminStatusBadge,
+} from "@/components/common/AdminPage";
+import { useAdminAccess } from "@/hooks/useAdminAccess";
+import { adminApi } from "@/services/api/admin";
+import type { AdminConfigItem } from "@/types/admin";
+import { formatAdminDateTime, humanizeAdminKey } from "@/utils/adminFormat";
+import { t } from "@/utils/i18n";
+import ConfigEditor, { type ConfigEditorPayload } from "./ConfigEditor";
 
-interface ConfigFormValues {
-  key: string;
-  value: string;
-  description?: string;
-  isRuntime?: boolean;
-  isSensitive?: boolean;
+function summarizeConfigValue(item: AdminConfigItem): string {
+	if (item.is_sensitive) return t("admin.configs.maskedValue");
+	if (typeof item.value === "boolean")
+		return item.value ? t("admin.common.enabled") : t("admin.common.disabled");
+	if (Array.isArray(item.value))
+		return t("admin.configs.itemCount", { count: item.value.length });
+	if (item.value && typeof item.value === "object")
+		return t("admin.configs.fieldCount", {
+			count: Object.keys(item.value).length,
+		});
+	return String(item.value ?? "—");
 }
 
 export default function AdminConfigsPage() {
-  const queryClient = useQueryClient();
-  const { hasPermission: canWriteConfigs } = useAdminAccess(['config:write'], true);
+	const queryClient = useQueryClient();
+	const { hasPermission: canWriteConfigs } = useAdminAccess(
+		["config:write"],
+		true,
+	);
+	const [search, setSearch] = useState("");
+	const [selectedId, setSelectedId] = useState("");
+	const [createMode, setCreateMode] = useState(false);
+	const listQuery = useQuery({
+		queryKey: ["admin", "configs"],
+		queryFn: () => adminApi.listConfigs({ limit: 100, offset: 0 }),
+	});
+	const runtimeQuery = useQuery({
+		queryKey: ["admin", "runtime", "interview"],
+		queryFn: adminApi.getInterviewRuntimeConfig,
+	});
+	const upsertMutation = useMutation({
+		mutationFn: (values: ConfigEditorPayload) => adminApi.upsertConfig(values),
+		onSuccess: () => {
+			toast.success(t("admin.configs.saveSuccess"));
+			setCreateMode(false);
+			setSelectedId("");
+			void queryClient.invalidateQueries({ queryKey: ["admin", "configs"] });
+			void queryClient.invalidateQueries({
+				queryKey: ["admin", "runtime", "interview"],
+			});
+		},
+		onError: (error: unknown) => {
+			const err = error as { code?: string } | null;
+			toast.error(
+				err?.code === "FORBIDDEN"
+					? t("admin.ops.accessDenied")
+					: t("admin.configs.saveFailed"),
+			);
+		},
+	});
+	const items = listQuery.data?.items ?? [];
+	const filteredItems = useMemo(() => {
+		const normalized = search.trim().toLowerCase();
+		if (!normalized) return items;
+		return items.filter(
+			(item) =>
+				item.key.toLowerCase().includes(normalized) ||
+				item.description?.toLowerCase().includes(normalized),
+		);
+	}, [items, search]);
+	const selectedItem = items.find((item) => item.id === selectedId) ?? null;
+	const runtime = runtimeQuery.data?.runtime;
 
-  const [formValues, setFormValues] = useState<ConfigFormValues>({
-    key: '',
-    value: '{}',
-    description: '',
-    isRuntime: true,
-    isSensitive: false,
-  });
+	return (
+		<div className="space-y-6">
+			<AdminPageHeader
+				eyebrow={t("admin.nav.group.govern")}
+				title={t("admin.configs.heading")}
+				description={t("admin.configs.subtitle")}
+				updatedAt={listQuery.dataUpdatedAt || undefined}
+				actions={
+					<>
+						<Button
+							variant="outline"
+							size="sm"
+							disabled={listQuery.isFetching}
+							onClick={() => void listQuery.refetch()}
+						>
+							<RefreshCw
+								className={
+									listQuery.isFetching ? "size-4 animate-spin" : "size-4"
+								}
+							/>
+							{t("admin.common.refresh")}
+						</Button>
+						<Button
+							size="sm"
+							disabled={!canWriteConfigs}
+							onClick={() => {
+								setCreateMode(true);
+								setSelectedId("");
+							}}
+						>
+							<Plus className="size-4" />
+							{t("admin.configs.newConfig")}
+						</Button>
+					</>
+				}
+			/>
 
-  const listQuery = useQuery({
-    queryKey: ['admin', 'configs'],
-    queryFn: () => adminApi.listConfigs({ limit: 100, offset: 0 }),
-  });
-  const runtimeQuery = useQuery({
-    queryKey: ['admin', 'runtime', 'interview'],
-    queryFn: adminApi.getInterviewRuntimeConfig,
-  });
-  const upsertMutation = useMutation({
-    mutationFn: (values: ConfigFormValues) =>
-      adminApi.upsertConfig({
-        key: values.key,
-        value: JSON.parse(values.value),
-        description: values.description,
-        isRuntime: values.isRuntime,
-        isSensitive: values.isSensitive,
-      }),
-    onSuccess: () => {
-      toast.success(t('admin.configs.saveSuccess'));
-      void queryClient.invalidateQueries({ queryKey: ['admin', 'configs'] });
-      void queryClient.invalidateQueries({
-        queryKey: ['admin', 'runtime', 'interview'],
-      });
-    },
-    onError: (error: unknown) => {
-      const err = error as { code?: string } | null;
-      if (err?.code === 'FORBIDDEN') {
-        toast.error(t('admin.ops.accessDenied'));
-        return;
-      }
-      toast.error(t('admin.configs.saveFailed'));
-    },
-  });
+			{!canWriteConfigs && (
+				<div className="flex items-start gap-3 rounded-xl border border-warning/30 bg-warning/10 p-4">
+					<AlertTriangle className="mt-0.5 size-4 text-warning" />
+					<div>
+						<p className="text-sm font-medium">
+							{t("admin.configs.readOnlyTitle")}
+						</p>
+						<p className="text-xs text-muted-foreground">
+							{t("admin.configs.writeDenied")}
+						</p>
+					</div>
+				</div>
+			)}
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formValues.key || !formValues.value) return;
-    upsertMutation.mutate(formValues);
-  };
+			{runtime && (
+				<AdminMetricStrip
+					items={[
+						{
+							label: t("admin.configs.runtimeMaxTurns"),
+							value: runtime.maxTurns,
+						},
+						{
+							label: t("admin.configs.runtimeSoftTarget"),
+							value: runtime.softTarget,
+						},
+						{
+							label: t("admin.configs.runtimeInterval"),
+							value: `${runtime.turnIntervalMs} ms`,
+						},
+						{
+							label: t("admin.configs.runtimeDailyLimit"),
+							value: runtime.dailySessionLimit,
+						},
+					]}
+				/>
+			)}
 
-  return (
-    <div className="flex flex-col gap-6 w-full">
-      <div>
-        <h3 className="text-xl font-semibold">{t('admin.configs.heading')}</h3>
-        <p className="text-sm text-muted-foreground">{t('admin.configs.subtitle')}</p>
-      </div>
+			<div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(22rem,0.65fr)]">
+				<AdminPanel
+					title={t("admin.configs.catalogTitle")}
+					description={t("admin.configs.catalogHint")}
+					>
+						<div className="relative mb-4">
+							<label htmlFor="admin-config-search" className="sr-only">
+								{t("admin.configs.search")}
+							</label>
+							<Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+							<Input
+								id="admin-config-search"
+							value={search}
+							onChange={(event) => setSearch(event.target.value)}
+							placeholder={t("admin.configs.search")}
+							className="pl-9"
+							autoComplete="off"
+						/>
+					</div>
+					<AdminQueryState
+						loading={listQuery.isLoading}
+						error={Boolean(listQuery.error)}
+						empty={filteredItems.length === 0}
+						onRetry={() => void listQuery.refetch()}
+					>
+						<Table>
+							<TableHeader>
+								<TableRow>
+									<TableHead>{t("admin.configs.key")}</TableHead>
+									<TableHead>{t("admin.configs.value")}</TableHead>
+									<TableHead>{t("admin.configs.scope")}</TableHead>
+									<TableHead>{t("admin.configs.updatedAt")}</TableHead>
+								</TableRow>
+							</TableHeader>
+							<TableBody>
+								{filteredItems.map((item) => (
+									<TableRow
+										key={item.id}
+										data-state={selectedId === item.id ? "selected" : undefined}
+									>
+										<TableCell>
+											<button
+												type="button"
+												aria-pressed={selectedId === item.id}
+												className="min-h-11 w-full rounded-md text-left hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+												onClick={() => {
+													setSelectedId(item.id);
+													setCreateMode(false);
+												}}
+											>
+												<span className="block font-medium">
+													{humanizeAdminKey(item.key)}
+												</span>
+												<code className="block text-[11px] text-muted-foreground">
+													{item.key}
+												</code>
+											</button>
+										</TableCell>
+										<TableCell className="max-w-72 truncate">
+											{summarizeConfigValue(item)}
+										</TableCell>
+										<TableCell>
+											<AdminStatusBadge
+												status={item.is_runtime}
+												label={
+													item.is_runtime
+														? t("admin.configs.runtime")
+														: t("admin.configs.stored")
+												}
+											/>
+										</TableCell>
+										<TableCell>
+											{formatAdminDateTime(item.updated_at)}
+										</TableCell>
+									</TableRow>
+								))}
+							</TableBody>
+						</Table>
+					</AdminQueryState>
+				</AdminPanel>
 
-      {(listQuery.error || runtimeQuery.error) && (
-        <div className="flex items-center gap-2 rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
-          <AlertCircle className="h-4 w-4" />
-          {t('admin.configs.loadFailed')}
-        </div>
-      )}
-
-      {!canWriteConfigs && (
-        <div className="flex items-center gap-2 rounded-md border border-yellow-500 bg-yellow-50 p-3 text-sm text-yellow-700 dark:bg-yellow-950 dark:text-yellow-400">
-          <AlertTriangle className="h-4 w-4" />
-          {t('admin.configs.writeDenied')}
-        </div>
-      )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('admin.configs.runtime')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <pre className="text-sm whitespace-pre-wrap break-all">
-            {JSON.stringify(runtimeQuery.data?.runtime || {}, null, 2)}
-          </pre>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('admin.configs.upsert')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="config-key">{t('admin.configs.key')}</Label>
-              <Input
-                id="config-key"
-                autoComplete="off"
-                value={formValues.key}
-                onChange={(e) => setFormValues((prev) => ({ ...prev, key: e.target.value }))}
-                disabled={!canWriteConfigs}
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="config-value">{t('admin.configs.valueJson')}</Label>
-              <Textarea
-                id="config-value"
-                rows={4}
-                autoComplete="off"
-                value={formValues.value}
-                onChange={(e) => setFormValues((prev) => ({ ...prev, value: e.target.value }))}
-                disabled={!canWriteConfigs}
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="config-description">{t('admin.configs.description')}</Label>
-              <Input
-                id="config-description"
-                autoComplete="off"
-                value={formValues.description}
-                onChange={(e) =>
-                  setFormValues((prev) => ({ ...prev, description: e.target.value }))
-                }
-                disabled={!canWriteConfigs}
-              />
-            </div>
-
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
-                <Switch
-                  id="config-isRuntime"
-                  checked={formValues.isRuntime}
-                  onCheckedChange={(checked: boolean) =>
-                    setFormValues((prev) => ({ ...prev, isRuntime: checked }))
-                  }
-                  disabled={!canWriteConfigs}
-                />
-                <Label htmlFor="config-isRuntime">{t('admin.configs.isRuntime')}</Label>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Switch
-                  id="config-isSensitive"
-                  checked={formValues.isSensitive}
-                  onCheckedChange={(checked: boolean) =>
-                    setFormValues((prev) => ({ ...prev, isSensitive: checked }))
-                  }
-                  disabled={!canWriteConfigs}
-                />
-                <Label htmlFor="config-isSensitive">{t('admin.configs.isSensitive')}</Label>
-              </div>
-            </div>
-
-            <Button type="submit" disabled={!canWriteConfigs || upsertMutation.isPending}>
-              {upsertMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {t('admin.configs.save')}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('admin.configs.list')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {listQuery.isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t('admin.configs.key')}</TableHead>
-                  <TableHead>{t('admin.configs.value')}</TableHead>
-                  <TableHead>{t('admin.configs.updatedAt')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {(listQuery.data?.items || []).length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
-                      {t('common.noData')}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  (listQuery.data?.items || []).map((row: AdminConfigItem) => (
-                    <TableRow key={row.id}>
-                      <TableCell>{row.key}</TableCell>
-                      <TableCell>
-                        <pre className="text-sm m-0">{JSON.stringify(row.value)}</pre>
-                      </TableCell>
-                      <TableCell>{row.updated_at}</TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
+				<AdminPanel
+					title={
+						createMode
+							? t("admin.configs.newConfig")
+							: selectedItem
+								? humanizeAdminKey(selectedItem.key)
+								: t("admin.configs.editorTitle")
+					}
+					description={
+						createMode
+							? t("admin.configs.createHint")
+							: (selectedItem?.description ?? t("admin.configs.selectHint"))
+					}
+				>
+					{createMode || selectedItem ? (
+						<ConfigEditor
+							item={selectedItem}
+							createMode={createMode}
+							canWrite={canWriteConfigs}
+							saving={upsertMutation.isPending}
+							onSave={(payload) => upsertMutation.mutate(payload)}
+							onCancel={() => {
+								setCreateMode(false);
+								setSelectedId("");
+							}}
+						/>
+					) : (
+						<div className="flex min-h-72 items-center justify-center text-center text-sm text-muted-foreground">
+							{t("admin.configs.selectHint")}
+						</div>
+					)}
+				</AdminPanel>
+			</div>
+		</div>
+	);
 }

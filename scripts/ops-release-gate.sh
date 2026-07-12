@@ -4,9 +4,9 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-# Legacy production default until Emorapy domain migration; prefer EMORAPY_* overrides when configured.
-DEFAULT_MAIN_WEB_URL="https://mother-bear-court.vercel.app"
-DEFAULT_ADMIN_WEB_URL="https://frontend-admin-sigma-virid.vercel.app"
+# Emorapy Vercel project-domain defaults; legacy Vercel aliases remain available for compatibility.
+DEFAULT_MAIN_WEB_URL="https://emorapy.vercel.app"
+DEFAULT_ADMIN_WEB_URL="https://emorapy-admin.vercel.app"
 
 resolve_emorapy_aliases() {
   MAIN_WEB_URL="${MAIN_WEB_URL:-${EMORAPY_MAIN_WEB_URL:-$DEFAULT_MAIN_WEB_URL}}"
@@ -177,7 +177,6 @@ require_explicit_env() {
 require_explicit_env
 
 export EMORAPY_RELEASE_GATE=1
-export CJ_RELEASE_GATE=1
 HEAD_SHA="$(git rev-parse HEAD)"
 
 print_section "Docs Contract"

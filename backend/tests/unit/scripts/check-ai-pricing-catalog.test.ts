@@ -34,7 +34,8 @@ describe('check-ai-pricing-catalog', () => {
   it('skips local dotenv in release gate mode', () => {
     expect(shouldLoadLocalDotenvForAIPricingCheck({} as NodeJS.ProcessEnv)).toBe(true);
     expect(shouldLoadLocalDotenvForAIPricingCheck({ EMORAPY_RELEASE_GATE: '1' } as NodeJS.ProcessEnv)).toBe(false);
-    expect(shouldLoadLocalDotenvForAIPricingCheck({ CJ_RELEASE_GATE: '1' } as NodeJS.ProcessEnv)).toBe(false);
+    // P4 env deprecation: legacy CJ_RELEASE_GATE is no longer recognized.
+    expect(shouldLoadLocalDotenvForAIPricingCheck({ CJ_RELEASE_GATE: '1' } as NodeJS.ProcessEnv)).toBe(true);
     expect(shouldLoadLocalDotenvForAIPricingCheck({ AI_PRICING_SKIP_DOTENV: 'true' } as NodeJS.ProcessEnv))
       .toBe(false);
   });

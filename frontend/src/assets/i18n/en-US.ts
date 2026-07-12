@@ -378,12 +378,15 @@ const enUS: Record<string, string> = {
 	"auth.locale.label": "Switch language",
 	"auth.locale.zhTW": "Traditional Chinese",
 	"auth.locale.enUS": "English",
-	"auth.brand.taglineLine1": "Turn conflict",
-	"auth.brand.taglineLine2": "into connection.",
+	"auth.brand.taglineLine1": "Slow the conflict down,",
+	"auth.brand.taglineLine2": "then find the next step.",
 	"auth.brand.descriptionLine1":
 		"Transform conflict into repairable conversations and actions.",
 	"auth.brand.descriptionLine2":
 		"We do not judge who is right. We guide both sides to grow together.",
+	"auth.brand.eyebrow": "Guided reflection",
+	"auth.brand.scopeDescription": "Sign in to keep formal-case records, continue unfinished conversations, and manage the content you choose to submit.",
+	"auth.brand.safetyScope": "Emorapy supports relationship reflection. It is not emergency support, therapy, or legal advice. If leaving a record on this device is not safe, exit this page first.",
 
 	// Login
 	"auth.login.title": "Login - Relationship Repair Room",
@@ -603,7 +606,9 @@ const enUS: Record<string, string> = {
 
 	// Result (semantic alignment: system output is "adjustment suggestion" not moral liability)
 	"result.title": "Relationship Analysis Result",
-	"result.subtitle": "Relationship & interaction analysis from AI",
+	"result.subtitle": "AI-assisted relationship reflection generated from what you submitted",
+	"result.eyebrow": "Reflection result",
+	"result.scopeNote": "This result may be incomplete or wrong. Treat it as a prompt for clearer conversation, not a verdict about either person. Register to keep the record, or start a new quick experience without saving it to an account.",
 	"summary.title": "Analysis Summary",
 	"responsibility.title": "Adjustment Direction",
 	"responsibility.roleA": "Role A",
@@ -671,27 +676,33 @@ const enUS: Record<string, string> = {
 	// Quick Create
 	"quickCreate.title": "Quick Experience - Create Case",
 	"quickCreate.description":
-		"Fill in both statements and get an AI analysis instantly",
+		"Generate an AI-assisted relationship reflection from the statements you submit",
 	"quickCreate.pageLabel": "Quick experience create case page",
 	"quickCreate.skipToInput": "Skip to input area",
 	"quickCreate.guide.title": "Please fill in both statements",
 	"quickCreate.guide.subtitle":
-		"We will help you resolve the issue fairly and warmly",
+		"Organize the event, feelings, and possible adjustment directions from what you submit",
 	"quickCreate.autoSaving": "Saving...",
 	"quickCreate.autoSaved": "Auto-saved",
-	"quickCreate.step1.title": "First, tell us what happened.",
+	"quickCreate.step1.title": "Start with what you just noticed",
 	"quickCreate.step1.subtitle":
-		"Please describe the event and your feelings as objectively as possible. AI will keep it private.",
-	"quickCreate.step2.handoffPrompt": "Now, please have the other person involved enter their side.",
-	"quickCreate.step2.title": "Have the other party (Role B) enter their side (Optional)",
+		"Write what you saw happen, how it felt, and what you want the other person to understand. Your content is sent to the service to generate a reflection result.",
+	"quickCreate.step2.handoffPrompt": "If you share this device, use the private two-person handoff. This standard flow can return to the previous page and will not hide what you wrote.",
+	"quickCreate.collaborativeAction": "Use private two-person handoff",
+	"quickCreate.step2.title": "Let the other person write their own perspective (optional)",
 	"quickCreate.step2.subtitle":
-		"You can ask them to fill this in; if they're not with you, leave it blank or use \"Auto-write\".",
+		"If they are not present or do not want to answer, leave this blank. The system will not invent their statement from yours.",
 	"quickCreate.step3.title": "Any screenshots or evidence to add? (Optional)",
 	"quickCreate.step3.subtitle":
-		"For example, chat records or photos. This helps AI make a more accurate analysis.",
+		"For example, chat records or photos. These are submitted with the statements, so redact personal information you do not need to share.",
 	"quickCreate.step.next": "Next",
 	"quickCreate.step.prev": "Previous",
-	"quickCreate.step.enterHint": "Press Enter to continue",
+	"quickCreate.exit": "Exit quick experience",
+	"quickCreate.stepCount": "Step {current} of {total}",
+	"quickCreate.step1.nav": "Your perspective",
+	"quickCreate.step2.nav": "Their perspective",
+	"quickCreate.step3.nav": "Supporting material",
+	"quickCreate.scopeNote": "Share only what you choose to submit. System-generated reflections are guidance, not professional or emergency help.",
 	"quickCreate.layout.horizontal": "Side by side",
 	"quickCreate.layout.vertical": "Stacked",
 	"quickCreate.roleA": "Role A",
@@ -708,9 +719,6 @@ const enUS: Record<string, string> = {
 		"My partner is often late, which makes me feel unvalued. I'd like us to communicate in advance.",
 	"quickCreate.template3":
 		"We disagree on spending. I'd like us to discuss budgets together and respect each other's views.",
-	"quickCreate.defendantDraftTemplate":
-		"I understand this upsets you. From my perspective: {source}. I am willing to adjust and hope we can find a compromise.",
-	"quickCreate.autoWrite": "Auto-write",
 	"quickCreate.defendantMinHint":
 		"Tip: Can be left blank; if filled, at least {min} characters is better",
 	"quickCreate.evidenceHeader": "Upload Evidence (Optional)",
@@ -721,7 +729,7 @@ const enUS: Record<string, string> = {
 	"quickCreate.submitHint":
 		"Tip: Press Ctrl+Enter to submit, Ctrl+K for all shortcuts",
 	"quickCreate.submit": "Submit Case",
-	"quickCreate.submitAndAnalyze": "Submit and Start Analysis",
+	"quickCreate.submitAndAnalyze": "Submit and View Reflection",
 	"quickCreate.submitAriaReady": "Submit case",
 	"quickCreate.submitAriaDisabled":
 		"Please complete both statements before submitting",
@@ -735,7 +743,7 @@ const enUS: Record<string, string> = {
 	"quickCreate.eta":
 		"Estimated wait: 60-120 seconds. If it times out, check the result page later.",
 	"quickCreate.quickNote":
-		"Quick experience is not saved long-term. Register to save and unlock reconciliation plans.",
+		"Quick experience creates a guest session so you can retrieve the result; it is not an incognito mode. Register to keep the record in your account.",
 	"quickCreate.recoveredCase.title": "Unfinished case found",
 	"quickCreate.recoveredCase.desc":
 		"You can continue viewing the results from your last submission",
@@ -829,7 +837,7 @@ const enUS: Record<string, string> = {
 	"caseDetail.viewJudgment": "View Results",
 	"caseDetail.viewJudgmentAria": "View analysis result",
 	"caseDetail.yourResponse": "Your Response",
-	"caseDetail.defendantResponseHint": "Your partner has submitted their statement. Please read it and fill in your response. AI trial will begin automatically after you submit.",
+	"caseDetail.defendantResponseHint": "The other person has completed their statement. To protect independent reflection, you will not see it until after you submit your own response.",
 	"caseDetail.defendantResponsePlaceholder": "Please describe your perspective and feelings, and how you'd like to resolve this issue...",
 	"caseDetail.submitResponse": "Submit Statement",
 	"caseDetail.defendantRespondSuccess": "Statement submitted! AI is analyzing...",
@@ -853,7 +861,7 @@ const enUS: Record<string, string> = {
 	"caseCreate.aiAutoDetectHint": "Case type, sub-type, and other details will be automatically identified by AI based on your statement, ensuring more accurate analysis.",
 	"caseCreate.mode": "Review Mode",
 	"caseCreate.modeRemoteLabel": "Remote mode (long-distance)",
-	"caseCreate.modeRemoteDesc": "Each party fills in their statement independently on their own device",
+	"caseCreate.modeRemoteDesc": "Each person responds on their own device without seeing the other's statement first",
 	"caseCreate.modeCollaborativeLabel": "Collaborative mode (face-to-face)",
 	"caseCreate.modeCollaborativeDesc": "Both parties fill in statements on the same page in turn",
 	"caseCreate.statements": "Both Statements",
@@ -863,7 +871,7 @@ const enUS: Record<string, string> = {
 		"Describe what happened, how you feel, and what you hope for...",
 	"caseCreate.defendantPlaceholder":
 		"Describe your perspective and feelings...",
-	"caseCreate.remoteFlowHint": "After the case is created, your partner will be notified on their own device to fill in their statement independently. AI trial will begin once both statements are submitted.",
+	"caseCreate.remoteFlowHint": "The other person will respond independently on their own device and will not see your statement first. The system starts the joint reflection only after both sides submit.",
 	"caseCreate.remoteCreateSuccess": "Case created! Waiting for the other party to submit their statement before trial begins.",
 	"caseCreate.evidenceTitle": "Upload Evidence (Optional)",
 	"caseCreate.evidenceExtra": "Up to 3 images or 1 video, max 5 MB each",
@@ -1094,12 +1102,12 @@ const enUS: Record<string, string> = {
 	"home.description": "Emorapy is not a judge. It hears both sides, organizes the real issue, and helps turn emotion into the next sentence worth repairing with.",
 	"home.skipToContent": "Skip to main content",
 	"home.hero.ariaLabel": "Welcome section",
-	"home.hero.eyebrow": "A quiet AI listener for two",
+	"home.hero.eyebrow": "A calmer place to make sense of conflict",
 	"home.hero.heading": "When love gets loud, we help you listen.",
 	"home.hero.subtitle":
 		"Emorapy is not a judge. It hears both sides, organizes the real issue, and helps turn emotion into the next sentence worth repairing with.",
 	"home.hero.boundariesAria": "Homepage product boundaries",
-	"home.hero.boundaryPrivate": "Private by design",
+	"home.hero.boundaryPrivate": "Share only what you choose",
 	"home.hero.boundaryNotTherapy": "Not a replacement for therapy",
 	"home.hero.boundarySolo": "Start alone first",
 	"home.hero.cardAria": "Emorapy listening example card",
@@ -1115,6 +1123,22 @@ const enUS: Record<string, string> = {
 	"home.hero.createCaseAria": "Start formal handling for this issue",
 	"home.hero.viewCases": "View Formal Handling",
 	"home.hero.viewCasesAria": "View formal handling list",
+	"home.guided.label": "What a quick reflection does",
+	"home.guided.title": "Turn the noise into three things you can inspect",
+	"home.guided.context.title": "Event and feeling",
+	"home.guided.context.desc": "Separate what happened from how it landed for you.",
+	"home.guided.difference.title": "The gap between you",
+	"home.guided.difference.desc": "Surface where expectations, interpretation, and expression may have diverged.",
+	"home.guided.nextStep.title": "A workable next move",
+	"home.guided.nextStep.desc": "Offer adjustment directions for you to judge, without deciding for you.",
+	"home.paths.label": "Choose by need",
+	"home.paths.title": "Need a more complete process?",
+	"home.paths.formal.title": "Create a formal record",
+	"home.paths.formal.desc": "For situations where you need saved progress, supporting material, and a record to return to.",
+	"home.paths.chat.title": "Talk first, organize later",
+	"home.paths.chat.desc": "For when you are not ready to write everything at once and want to clarify the context gradually.",
+	"home.scope.title": "Know the scope before you begin",
+	"home.scope.desc": "The system generates AI-assisted reflection from what you submit. Results can be incomplete or wrong and do not replace therapy, medical care, legal advice, or emergency support. If you or someone else is in immediate danger, leave this flow and contact local emergency services or a trusted person.",
 	"home.collaborativeMode": "Collaborative Mode",
 	"home.features.title": "How We Can Help",
 	"home.features.quick.title": "5-Minute Session",
@@ -1417,7 +1441,7 @@ const enUS: Record<string, string> = {
 		"Please check your connection. The app will refresh automatically when reconnected.",
 
 	// Footer
-	"footer.copyright": "© {year} Relationship Repair Room",
+	"footer.copyright": "© {year} Emorapy",
 	"footer.tagline":
 		"Clarify issues, rebuild dialogue, repair relationships step by step",
 
@@ -1625,14 +1649,17 @@ const enUS: Record<string, string> = {
 
 	"feedback.backToHome": "Back to Home",
 
-	"safety.resources": "If you need support",
+	"safety.resources": "Get support outside Emorapy now",
+	"safety.resourcesEmergency": "If you or someone else may be in immediate danger, contact the emergency services where you are.",
+	"safety.resourcesGlobalLink": "Find a verified helpline in your country or region",
+	"safety.resourcesConfiguredLink": "Open support resources for {region}",
 
 	"quickCreate.collaborativeHint": "Together in person? Try the Two-Person Mode →",
 	"quickCreate.plaintiffHint": "Describe the situation and your feelings in detail (at least 30 characters). The AI will use this to organize perspectives and emotional context.",
-	"quickCreate.defendantHint": "Optional. This is a blind-write mode—feel free to express your true feelings. If unsure how to start, try the auto-write feature.",
+	"quickCreate.defendantHint": "Optional. Role B should write in their own words. If a private handoff is not practical, leave this blank.",
 
 	"quickResult.analyzingTitle": "AI Is Organizing the Relationship Context...",
-	"quickResult.analyzingSubtitle": "Cross-referencing both statements and analyzing cognitive differences",
+	"quickResult.analyzingSubtitle": "Organizing the submitted statements into context and possible interpretation gaps",
 	"quickResult.thinkingBadge": "AI is thinking",
 	"quickResult.livePhaseBadge": "Live progress",
 	"quickResult.phase.collecting_context": "Collecting case context",
@@ -1644,14 +1671,14 @@ const enUS: Record<string, string> = {
 	"quickResult.phase.thinking": "AI is thinking",
 	"quickResult.phase.safety_alert": "Handling safety risk",
 
-	"collaborative.seoTitle": "Collaborative Hearing — Two-Person Mode",
-	"collaborative.seoDesc": "Take turns sharing your feelings on the same device",
-	"collaborative.title": "Collaborative Mode",
-	"collaborative.subtitle": "Take turns writing down your feelings on the same device",
+	"collaborative.seoTitle": "Private Two-Person Handoff | Emorapy",
+	"collaborative.seoDesc": "Two people write their perspectives from a blank field on the same device",
+	"collaborative.title": "Two-person writing",
+	"collaborative.subtitle": "Write separately on one device; the prior person's text is hidden after handoff",
 	"collaborative.stepRoleA": "Role A Statement",
-	"collaborative.stepHandoff": "Swap Device",
+	"collaborative.stepHandoff": "Private handoff",
 	"collaborative.stepRoleB": "Role B Statement",
-	"collaborative.stepSubmit": "Submit for Analysis",
+	"collaborative.stepSubmit": "Organize together",
 	"collaborative.introText": "This mode lets you take turns writing your feelings on the same device:",
 	"collaborative.roleALabel": "Role A",
 	"collaborative.roleBLabel": "Role B",
@@ -1659,21 +1686,23 @@ const enUS: Record<string, string> = {
 	"collaborative.introRule2Prefix": "After finishing, pass the device to ",
 	"collaborative.introRule3Suffix": " writes their perspective (cannot see Role A's content)",
 	"collaborative.introRule4": "Both statements are submitted together for the AI relationship guide to organize",
-	"collaborative.introTip": "💡 Tip: Focus on your own feelings while writing—no need to respond to the other person.",
+	"collaborative.introTip": "Focus on your own feelings while writing—there is no need to respond to the other person.",
+	"collaborative.privacyWarning": "Continue only when both people can use this device voluntarily and in private. If handing it over could create pressure, monitoring, or a safety risk, switch to the solo quick experience or leave now.",
+	"collaborative.exitToSolo": "Switch to solo mode",
 	"collaborative.startBtn": "Start — Role A Goes First",
-	"collaborative.roleATitle": "🅰️ Role A, Write Down Your Thoughts",
+	"collaborative.roleATitle": "Role A, write your perspective",
 	"collaborative.roleAHint": "Share what's been bothering you, how you feel, and what you want the other person to understand.",
 	"collaborative.placeholder": "Write your thoughts and feelings here...",
 	"collaborative.back": "Back",
 	"collaborative.roleASubmit": "Done — Pass to Role B →",
 	"collaborative.handoffTitle": "Please Pass the Device to Role B",
-	"collaborative.handoffRecorded": "Role A's statement has been safely recorded.",
-	"collaborative.handoffPassDevice": "Now please hand the device to your partner.",
-	"collaborative.handoffNote": "Role B cannot see what Role A wrote—feel free to be honest.",
+	"collaborative.handoffRecorded": "Role A's statement was submitted and its text has been removed from this handoff screen.",
+	"collaborative.handoffPassDevice": "Confirm that Role A has left the screen, then hand the device to Role B.",
+	"collaborative.handoffNote": "Role B will not see Role A's original text in later steps. The server still uses it to produce the shared reflection result.",
 	"collaborative.roleBStart": "I'm Role B — Start Writing",
-	"collaborative.roleBTitle": "🅱️ Role B, It's Your Turn",
+	"collaborative.roleBTitle": "Role B, write your perspective",
 	"collaborative.roleBHint": "Write down your thoughts and feelings about this. No need to respond to the other person—just share what's in your heart.",
-	"collaborative.submitBtn": "✨ Submit Together",
+	"collaborative.submitBtn": "Submit both statements",
 	"collaborative.submittingText": "Submitting your heartfelt words...",
 	"collaborative.minLengthWarning": "Please enter at least {count} characters",
 	"collaborative.caseMissing": "Case information missing, please start over",
@@ -1686,11 +1715,6 @@ const enUS: Record<string, string> = {
 
 	// Empty
 	"common.noData": "No data",
-
-	// MediatorAvatar aria-labels
-	"mediatorAvatar.aria.neutral": "Neutral mediation icon",
-	"mediatorAvatar.aria.support": "Support assistant icon",
-	"mediatorAvatar.aria.balance": "Balanced analysis icon",
 
 	// SafetyAlert crisis resources
 	"safety.crisis.peaceLine": "Peace of Mind Hotline",

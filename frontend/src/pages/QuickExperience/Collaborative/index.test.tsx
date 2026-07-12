@@ -72,6 +72,7 @@ describe('CollaborativeCreate', () => {
   const originalError = console.error;
   beforeEach(() => {
     vi.clearAllMocks();
+    mockCreateCollaborativeCase.mockReset();
     console.error = (...args: unknown[]) => {
       if (typeof args[0] === 'string' && args[0].includes('height') && args[0].includes('NaN')) {
         return;
@@ -121,6 +122,13 @@ describe('CollaborativeCreate', () => {
       expect(screen.getByText('collaborative.handoffTitle')).toBeInTheDocument();
     });
     expect(mockSessionStorageSet).toHaveBeenCalledWith('sess1');
+    expect(screen.queryByDisplayValue(validRoleA)).not.toBeInTheDocument();
+  });
+
+  it('可在任何階段改用單人模式，並以 replace 離開同機流程', () => {
+    renderPage();
+    fireEvent.click(screen.getByText('collaborative.exitToSolo'));
+    expect(mockNavigate).toHaveBeenCalledWith('/quick-experience/create', { replace: true });
   });
 
   it('handoff 階段點擊按鈕應進入 role_b', async () => {
@@ -258,7 +266,7 @@ describe('CollaborativeCreate', () => {
     fireEvent.change(textarea, { target: { value: validRoleA } });
     fireEvent.click(screen.getByText('collaborative.roleASubmit'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('暫時無法建立');
+      expect(mockToastError).toHaveBeenCalledWith('message.submitFail');
     });
     await waitFor(() => {
       expect(screen.getByText('collaborative.roleASubmit')).toBeInTheDocument();
@@ -287,7 +295,7 @@ describe('CollaborativeCreate', () => {
     });
   });
 
-  it('role_a 提交失敗時應顯示 message.error 且停留在 role_a', async () => {
+  it('role_a 非標準錯誤應顯示安全 fallback 且停留在 role_a', async () => {
     mockCreateCollaborativeCase.mockRejectedValue(new Error('建立失敗'));
     renderPage();
     fireEvent.click(screen.getByText('collaborative.startBtn'));
@@ -295,7 +303,7 @@ describe('CollaborativeCreate', () => {
     fireEvent.change(textarea, { target: { value: validRoleA } });
     fireEvent.click(screen.getByText('collaborative.roleASubmit'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('建立失敗');
+      expect(mockToastError).toHaveBeenCalledWith('message.submitFail');
     });
     expect(screen.getByText('collaborative.roleATitle')).toBeInTheDocument();
   });
@@ -314,7 +322,7 @@ describe('CollaborativeCreate', () => {
     const textarea = screen.getByPlaceholderText('collaborative.placeholder');
     fireEvent.change(textarea, { target: { value: validRoleA } });
     fireEvent.click(screen.getByText('collaborative.roleASubmit'));
-    expect(await screen.findByText('建立失敗')).toBeInTheDocument();
+    expect(await screen.findByText('message.submitFail')).toBeInTheDocument();
     fireEvent.click(screen.getByText('error.retry'));
     await waitFor(() => {
       expect(mockCreateCollaborativeCase).toHaveBeenCalledTimes(2);
@@ -329,14 +337,14 @@ describe('CollaborativeCreate', () => {
     const textarea = screen.getByPlaceholderText('collaborative.placeholder');
     fireEvent.change(textarea, { target: { value: validRoleA } });
     fireEvent.click(screen.getByText('collaborative.roleASubmit'));
-    expect(await screen.findByText('建立失敗')).toBeInTheDocument();
+    expect(await screen.findByText('message.submitFail')).toBeInTheDocument();
     fireEvent.change(textarea, { target: { value: `${validRoleA} more` } });
     await waitFor(() => {
-      expect(screen.queryByText('建立失敗')).not.toBeInTheDocument();
+      expect(screen.queryByText('message.submitFail')).not.toBeInTheDocument();
     });
   });
 
-  it('role_a 提交失敗且 message 為空字串時應使用 submitFail（F10 邊界）', async () => {
+  it('role_a SERVER_ERROR 且 message 為空字串時應使用 serverError catalog（F10 邊界）', async () => {
     mockCreateCollaborativeCase.mockRejectedValue({ code: 'SERVER_ERROR', message: '' });
     renderPage();
     fireEvent.click(screen.getByText('collaborative.startBtn'));
@@ -344,11 +352,11 @@ describe('CollaborativeCreate', () => {
     fireEvent.change(textarea, { target: { value: validRoleA } });
     fireEvent.click(screen.getByText('collaborative.roleASubmit'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.submitFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
-  it('role_a 提交失敗且錯誤無 message 時應顯示 message.submitFail', async () => {
+  it('role_a SERVER_ERROR 且錯誤無 message 時應使用 serverError catalog', async () => {
     mockCreateCollaborativeCase.mockRejectedValue({ code: 'SERVER_ERROR' });
     renderPage();
     fireEvent.click(screen.getByText('collaborative.startBtn'));
@@ -356,11 +364,11 @@ describe('CollaborativeCreate', () => {
     fireEvent.change(textarea, { target: { value: validRoleA } });
     fireEvent.click(screen.getByText('collaborative.roleASubmit'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.submitFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
-  it('role_a createCollaborativeCase FORBIDDEN 時若有 message 應顯示該 message（F02 權限邊界）', async () => {
+  it('role_a createCollaborativeCase FORBIDDEN 時應使用 forbidden catalog（F02 權限邊界）', async () => {
     mockCreateCollaborativeCase.mockRejectedValue({ code: 'FORBIDDEN', message: '已達協作案件上限' });
     renderPage();
     fireEvent.click(screen.getByText('collaborative.startBtn'));
@@ -368,11 +376,11 @@ describe('CollaborativeCreate', () => {
     fireEvent.change(textarea, { target: { value: validRoleA } });
     fireEvent.click(screen.getByText('collaborative.roleASubmit'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('已達協作案件上限');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
-  it('role_a createCollaborativeCase FORBIDDEN 且無 message 時應使用 submitFail（F02 權限邊界 fallback）', async () => {
+  it('role_a createCollaborativeCase FORBIDDEN 且無 message 時應使用 forbidden catalog（F02 權限邊界）', async () => {
     mockCreateCollaborativeCase.mockRejectedValue({ code: 'FORBIDDEN' });
     renderPage();
     fireEvent.click(screen.getByText('collaborative.startBtn'));
@@ -380,7 +388,7 @@ describe('CollaborativeCreate', () => {
     fireEvent.change(textarea, { target: { value: validRoleA } });
     fireEvent.click(screen.getByText('collaborative.roleASubmit'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.submitFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
@@ -411,7 +419,7 @@ describe('CollaborativeCreate', () => {
     });
   });
 
-  it('role_b 提交失敗時應顯示 message.error 且回到 role_b', async () => {
+  it('role_b 非標準錯誤應顯示安全 fallback 且回到 role_b', async () => {
     mockCreateCollaborativeCase
       .mockResolvedValueOnce({
         case: { id: 'c1' },
@@ -433,7 +441,7 @@ describe('CollaborativeCreate', () => {
     fireEvent.change(textareaB, { target: { value: validRoleB } });
     fireEvent.click(screen.getByText('collaborative.submitBtn'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('提交失敗');
+      expect(mockToastError).toHaveBeenCalledWith('message.submitFail');
     });
     expect(screen.getByText('collaborative.roleBTitle')).toBeInTheDocument();
   });
@@ -465,7 +473,7 @@ describe('CollaborativeCreate', () => {
     const textareaB = screen.getByPlaceholderText('collaborative.placeholder');
     fireEvent.change(textareaB, { target: { value: validRoleB } });
     fireEvent.click(screen.getByText('collaborative.submitBtn'));
-    expect(await screen.findByText('提交失敗')).toBeInTheDocument();
+    expect(await screen.findByText('message.submitFail')).toBeInTheDocument();
     fireEvent.click(screen.getByText('error.retry'));
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/quick-experience/result/c1');
@@ -493,11 +501,11 @@ describe('CollaborativeCreate', () => {
     const textareaB = screen.getByPlaceholderText('collaborative.placeholder');
     fireEvent.change(textareaB, { target: { value: validRoleB } });
     fireEvent.click(screen.getByText('collaborative.submitBtn'));
-    expect(await screen.findByText('提交失敗')).toBeInTheDocument();
+    expect(await screen.findByText('message.submitFail')).toBeInTheDocument();
     const nextTextareaB = screen.getByPlaceholderText('collaborative.placeholder');
     fireEvent.change(nextTextareaB, { target: { value: `${validRoleB} again` } });
     await waitFor(() => {
-      expect(screen.queryByText('提交失敗')).not.toBeInTheDocument();
+      expect(screen.queryByText('message.submitFail')).not.toBeInTheDocument();
     });
   });
 
@@ -576,7 +584,7 @@ describe('CollaborativeCreate', () => {
     fireEvent.change(textareaB, { target: { value: validRoleB } });
     fireEvent.click(screen.getByText('collaborative.submitBtn'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('提交失敗');
+      expect(mockToastError).toHaveBeenCalledWith('message.submitFail');
     });
     expect(screen.getByText('collaborative.roleBTitle')).toBeInTheDocument();
     fireEvent.click(screen.getByText('collaborative.back'));
@@ -614,7 +622,7 @@ describe('CollaborativeCreate', () => {
     fireEvent.change(textareaB, { target: { value: validRoleB } });
     fireEvent.click(screen.getByText('collaborative.submitBtn'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('暫時無法提交');
+      expect(mockToastError).toHaveBeenCalledWith('message.submitFail');
     });
     await waitFor(() => {
       expect(screen.getByText('collaborative.submitBtn')).toBeInTheDocument();
@@ -626,7 +634,7 @@ describe('CollaborativeCreate', () => {
     });
   });
 
-  it('role_b 提交失敗且錯誤無 message 時應顯示 message.submitFail', async () => {
+  it('role_b SERVER_ERROR 且錯誤無 message 時應使用 serverError catalog', async () => {
     mockCreateCollaborativeCase
       .mockResolvedValueOnce({
         case: { id: 'c1' },
@@ -648,7 +656,7 @@ describe('CollaborativeCreate', () => {
     fireEvent.change(textareaB, { target: { value: validRoleB } });
     fireEvent.click(screen.getByText('collaborative.submitBtn'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.submitFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
@@ -708,7 +716,7 @@ describe('CollaborativeCreate', () => {
     });
   });
 
-  it('role_b createCollaborativeCase FORBIDDEN 時若有 message 應顯示該 message（F02 權限邊界）', async () => {
+  it('role_b createCollaborativeCase FORBIDDEN 時應使用 forbidden catalog（F02 權限邊界）', async () => {
     mockCreateCollaborativeCase
       .mockResolvedValueOnce({
         case: { id: 'c1' },
@@ -730,11 +738,11 @@ describe('CollaborativeCreate', () => {
     fireEvent.change(textareaB, { target: { value: validRoleB } });
     fireEvent.click(screen.getByText('collaborative.submitBtn'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('此 session 已逾時，請重新開始');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
-  it('role_b createCollaborativeCase FORBIDDEN 且無 message 時應使用 submitFail（F02 權限邊界 fallback）', async () => {
+  it('role_b createCollaborativeCase FORBIDDEN 且無 message 時應使用 forbidden catalog（F02 權限邊界）', async () => {
     mockCreateCollaborativeCase
       .mockResolvedValueOnce({
         case: { id: 'c1' },
@@ -756,7 +764,7 @@ describe('CollaborativeCreate', () => {
     fireEvent.change(textareaB, { target: { value: validRoleB } });
     fireEvent.click(screen.getByText('collaborative.submitBtn'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.submitFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 

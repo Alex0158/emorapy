@@ -22,7 +22,16 @@ test.describe('Admin permission denied flow', () => {
       test.skip();
       return;
     }
-    await loginAsAdmin(page, limitedCreds.email, limitedCreds.password);
+    await loginAsAdmin(
+      page,
+      limitedCreds.email,
+      limitedCreds.password,
+      /\/admin\/reports(?:[/?#]|$)/
+    );
+    await expectNoPermissionDenied(page);
+
+    // support 的首個合法落點是 reports；ops/jobs 需要 ops:read，應被拒絕。
+    await page.goto('/admin/ops/jobs');
     await expect(page).toHaveURL(/\/admin\/ops\/jobs/);
     await expectPermissionDenied(page);
 
@@ -92,8 +101,12 @@ test.describe('Admin permission denied flow', () => {
       return;
     }
 
-    await loginAsAdmin(page, limitedCreds.email, limitedCreds.password);
-    await expect(page).toHaveURL(/\/admin\/ops\/jobs/);
+    await loginAsAdmin(
+      page,
+      limitedCreds.email,
+      limitedCreds.password,
+      /\/admin\/reports(?:[/?#]|$)/
+    );
 
     const limitedToken = await page.evaluate(() => {
       return window.sessionStorage.getItem('admin_token') || window.localStorage.getItem('admin_token') || '';

@@ -4,36 +4,28 @@
  * 遷移: Legacy card/form controls → shadcn + Tailwind + sonner
  * 重構: 3 堆疊 Card → typeform 風格多步驟精靈（漸進式揭露）
  * 保留: 所有業務邏輯（pairing, interview trigger, consent, evidence upload, submit）
- * 保留: StatementInput, FileUpload, ConsentModal 業務組件
+ * 保留: StatementInput、FileUpload 業務組件
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useMountedRef } from '@/hooks/useMountedRef';
 import { useNavigate } from 'react-router-dom';
-import { logger } from '@/utils/logger';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CelebrationOverlay, useCelebration } from '@/components/common/CelebrationOverlay';
-import { Loader2, ArrowLeft, Info, Heart, AlertCircle, X } from 'lucide-react';
+import { Loader2, ArrowLeft, Info, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { getPairingStatus } from '@/services/api/pairing';
 import { createCase } from '@/services/api/case';
-import { psychProfileApi } from '@/services/api/psychProfile';
 import { validateStatement } from '@/utils/validate';
-import { useInterviewTrigger } from '@/hooks/useInterviewTrigger';
-import MediatorAvatar from '@/components/business/MediatorAvatar';
 import StatementInput from '@/components/business/StatementInput';
-import ConsentModal from '@/components/business/Interview/ConsentModal';
 import type { UploadFile } from '@/types/upload';
 import FileUpload from '@/components/business/FileUpload';
 import SEO from '@/components/common/SEO';
 import { cn } from '@/lib/utils';
 import { t } from '@/utils/i18n';
 import { getErrorMessage } from '@/utils/apiError';
-
-const PRE_CASE_RICHNESS_THRESHOLD = 0.3;
 
 const stepVariants = {
   initial: { opacity: 0, x: 30 },
@@ -56,20 +48,8 @@ const CaseCreate = () => {
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [showPreCaseBanner, setShowPreCaseBanner] = useState(false);
-
   const mountedRef = useMountedRef();
   const submitLockRef = useRef(false);
-  const { celebrating, celebrate, onComplete: onCelebrationComplete } = useCelebration();
-
-  const {
-    triggerInterview: handlePreCaseChat,
-    consentOpen,
-    setConsentOpen,
-    setProfileConsent,
-    handleConsent,
-    consentLoading,
-  } = useInterviewTrigger('pre_case');
 
   // --- Pairing Check ---
   const checkPairing = useCallback(async () => {
@@ -92,22 +72,6 @@ const CaseCreate = () => {
   }, [mountedRef]);
 
   useEffect(() => { checkPairing(); }, [checkPairing]);
-
-  // --- Psych Profile Check (pre-case banner) ---
-  useEffect(() => {
-    let cancelled = false;
-    psychProfileApi.getProfile()
-      .then((profile) => {
-        if (cancelled) return;
-        if (!profile) return;
-        setProfileConsent(!!profile.consent_given);
-        if ((profile.richness_score ?? 0) < PRE_CASE_RICHNESS_THRESHOLD) {
-          setShowPreCaseBanner(true);
-        }
-      })
-      .catch((e: unknown) => { logger.warn('Failed to fetch profile for pre-case banner', e); });
-    return () => { cancelled = true; };
-  }, [setProfileConsent]);
 
   // --- Validation ---
   const plaintiffValid = validateStatement(plaintiffStatement).valid;
@@ -158,7 +122,6 @@ const CaseCreate = () => {
 
       const newCase = await createCase(caseData);
       if (!mountedRef.current) return;
-      celebrate();
       toast.success(isRemote ? t('caseCreate.remoteCreateSuccess') : t('message.createCaseSuccess'));
 
       const filesToUpload: File[] = evidenceFiles
@@ -218,7 +181,7 @@ const CaseCreate = () => {
       <div className="flex min-h-[80vh] items-center justify-center p-6">
         <div className="w-full max-w-md space-y-4">
           {pairingLoadError ? (
-            <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-6 space-y-4">
+            <div className="border-y border-destructive/30 bg-destructive/5 px-4 py-5 space-y-4">
               <div className="flex items-start gap-3">
                 <AlertCircle className="mt-0.5 size-5 text-destructive shrink-0" />
                 <p className="text-sm text-foreground">{pairingLoadError}</p>
@@ -233,7 +196,7 @@ const CaseCreate = () => {
               </div>
             </div>
           ) : (
-            <div className="rounded-2xl border border-warning/30 bg-warning/5 p-6 space-y-4">
+            <div className="border-y border-warning/30 bg-warning/5 px-4 py-5 space-y-4">
               <h3 className="font-semibold text-foreground">{t('caseCreate.pairingRequired')}</h3>
               <p className="text-sm text-muted-foreground">{t('caseCreate.pairingDesc')}</p>
               <Button onClick={() => navigate('/profile/pairing')}>
@@ -255,7 +218,7 @@ const CaseCreate = () => {
 
       <div className="flex min-h-screen flex-col bg-background" role="main" aria-label={t('caseCreate.pageLabel')}>
         {/* Fixed Header */}
-        <header className="fixed inset-x-0 top-0 z-50 flex items-center justify-between bg-background/90 px-6 py-4 backdrop-blur-xl border-b border-border/50">
+        <header className="fixed inset-x-0 top-0 z-50 flex items-center justify-between border-b border-border bg-background px-6 py-4">
           <button
             onClick={() => currentStep > 0 ? handlePrev() : navigate('/case/list')}
             className="text-muted-foreground hover:text-foreground transition-colors"
@@ -266,31 +229,6 @@ const CaseCreate = () => {
           <Progress value={((currentStep + 1) / totalSteps) * 100} className="w-[180px] h-1.5" />
           <span className="text-xs text-muted-foreground">{currentStep + 1}/{totalSteps}</span>
         </header>
-
-        {/* Pre-Case Interview Banner */}
-        {showPreCaseBanner && currentStep === 0 && (
-          <div className="mx-auto mt-20 w-full max-w-2xl px-6">
-            <div className="flex items-start gap-3 rounded-2xl border border-primary/20 bg-primary-light/50 p-4">
-              <Heart className="mt-0.5 size-5 shrink-0 text-primary" />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-foreground">{t('trigger.preCaseTitle')}</p>
-                <p className="mt-1 text-sm text-muted-foreground">{t('trigger.preCaseDesc')}</p>
-                <div className="mt-3 flex gap-2">
-                  <Button size="sm" onClick={handlePreCaseChat}>{t('trigger.preCaseOk')}</Button>
-                  <Button size="sm" variant="ghost" onClick={() => setShowPreCaseBanner(false)}>{t('trigger.preCaseSkip')}</Button>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowPreCaseBanner(false)}
-                aria-label={t('common.dismiss')}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <X className="size-4" />
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Step Content */}
         <div className="flex flex-1 items-center justify-center px-6 pt-24 pb-10">
@@ -304,12 +242,12 @@ const CaseCreate = () => {
                 transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                 className="w-full max-w-[640px] space-y-8"
               >
-                <div className="text-center">
-                  <MediatorAvatar size="medium" animated />
-                  <h2 className="mt-4 text-3xl font-bold tracking-tight text-foreground font-heading">
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-primary">{currentStep + 1} / {totalSteps}</p>
+                  <h1 className="text-3xl font-semibold tracking-tight text-foreground font-heading md:text-4xl">
                     {t('caseCreate.heading')}
-                  </h2>
-                  <p className="mt-2 text-base text-muted-foreground">{t('caseCreate.subtitle')}</p>
+                  </h1>
+                  <p className="mt-3 text-base leading-7 text-muted-foreground">{t('caseCreate.subtitle')}</p>
                 </div>
 
                 {/* Title Input */}
@@ -324,10 +262,6 @@ const CaseCreate = () => {
                     maxLength={200}
                     className="h-12 rounded-xl"
                   />
-                  <div className="flex items-start gap-2 rounded-lg bg-primary-light/30 p-3">
-                    <Info className="mt-0.5 size-4 shrink-0 text-primary" />
-                    <p className="text-xs text-muted-foreground">{t('caseCreate.aiAutoDetectHint')}</p>
-                  </div>
                 </div>
 
                 {/* Mode Selection */}
@@ -340,7 +274,7 @@ const CaseCreate = () => {
                       className={cn(
                         'w-full rounded-xl border-2 p-4 text-left transition-all',
                         mode === 'remote'
-                          ? 'border-primary bg-primary/5 shadow-sm'
+                          ? 'border-primary bg-primary/5'
                           : 'border-border hover:border-primary/30',
                       )}
                     >
@@ -362,7 +296,7 @@ const CaseCreate = () => {
                       className={cn(
                         'w-full rounded-xl border-2 p-4 text-left transition-all',
                         mode === 'collaborative'
-                          ? 'border-primary bg-primary/5 shadow-sm'
+                          ? 'border-primary bg-primary/5'
                           : 'border-border hover:border-primary/30',
                       )}
                     >
@@ -382,7 +316,7 @@ const CaseCreate = () => {
 
                 {/* Next */}
                 <div className="flex justify-end">
-                  <Button size="lg" onClick={handleNext} className="h-12 rounded-full px-10 font-semibold shadow-md">
+                  <Button size="lg" onClick={handleNext} className="h-12 px-8 font-semibold">
                     {t('quickCreate.step.next')}
                   </Button>
                 </div>
@@ -422,14 +356,14 @@ const CaseCreate = () => {
                 )}
 
                 <div className="flex items-center justify-between">
-                  <Button variant="outline" size="lg" onClick={handlePrev} className="h-12 rounded-full px-8 font-semibold">
+                  <Button variant="outline" size="lg" onClick={handlePrev} className="h-12 px-8 font-semibold">
                     {t('quickCreate.step.prev')}
                   </Button>
                   <Button
                     size="lg"
                     onClick={handleNext}
                     disabled={!plaintiffValid}
-                    className="h-12 rounded-full px-10 font-semibold shadow-md"
+                    className="h-12 px-8 font-semibold"
                   >
                     {t('quickCreate.step.next')}
                   </Button>
@@ -463,14 +397,14 @@ const CaseCreate = () => {
                 />
 
                 <div className="flex items-center justify-between">
-                  <Button variant="outline" size="lg" onClick={handlePrev} className="h-12 rounded-full px-8 font-semibold">
+                  <Button variant="outline" size="lg" onClick={handlePrev} className="h-12 px-8 font-semibold">
                     {t('quickCreate.step.prev')}
                   </Button>
                   <Button
                     size="lg"
                     onClick={handleNext}
                     disabled={!defendantValid}
-                    className="h-12 rounded-full px-10 font-semibold shadow-md"
+                    className="h-12 px-8 font-semibold"
                   >
                     {t('quickCreate.step.next')}
                   </Button>
@@ -495,7 +429,7 @@ const CaseCreate = () => {
                     </h2>
                     <span className="text-xs text-muted-foreground">{t('caseCreate.evidenceExtra')}</span>
                   </div>
-                  <div className="rounded-2xl border border-border bg-card p-6">
+                  <div className="border-y border-border py-5">
                     <FileUpload value={evidenceFiles} onChange={setEvidenceFiles} maxCount={3} />
                   </div>
                 </div>
@@ -519,7 +453,7 @@ const CaseCreate = () => {
                     size="lg"
                     onClick={handleSubmit}
                     disabled={submitting || !(isRemote ? plaintiffValid : plaintiffValid && defendantValid)}
-                    className="h-14 w-full rounded-2xl text-base font-semibold shadow-lg transition-all hover:-translate-y-0.5 hover:shadow-xl"
+                    className="h-12 w-full text-base font-semibold"
                   >
                     {submitting ? (
                       <span className="flex items-center gap-2">
@@ -530,7 +464,7 @@ const CaseCreate = () => {
                   </Button>
                   <p className="text-center text-xs text-muted-foreground">{t('caseCreate.submitHint')}</p>
 
-                  <Button variant="outline" onClick={handlePrev} className="h-12 w-full rounded-full font-semibold">
+                  <Button variant="outline" onClick={handlePrev} className="h-12 w-full font-semibold">
                     {t('quickCreate.step.prev')}
                   </Button>
                 </div>
@@ -539,13 +473,6 @@ const CaseCreate = () => {
           </AnimatePresence>
         </div>
 
-        <ConsentModal
-          open={consentOpen}
-          onConsent={handleConsent}
-          onCancel={() => setConsentOpen(false)}
-          loading={consentLoading}
-        />
-        <CelebrationOverlay show={celebrating} onComplete={onCelebrationComplete} />
       </div>
     </>
   );

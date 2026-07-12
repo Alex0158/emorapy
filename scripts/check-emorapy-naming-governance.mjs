@@ -18,6 +18,7 @@ const EXPECTED_APP_IDENTITY = {
 const EXPECTED_PACKAGE_MANIFEST_NAMES = new Map([
   ['package.json', 'emorapy-root'],
   ['backend/package.json', 'emorapy-backend'],
+  ['e2e/package.json', 'emorapy-admin-e2e'],
 ]);
 
 const USER_FACING_SCAN_PATTERNS = [
@@ -30,6 +31,21 @@ const USER_FACING_SCAN_PATTERNS = [
 
 const OPERATOR_VISIBLE_SCAN_PATTERNS = [
   'scripts/**/*.sh',
+  'scripts/**/*.bat',
+  'start-dev.bat',
+];
+
+// Developer-facing env templates. These are copied to real .env by developers,
+// so legacy product brand copy and legacy cj_* dev DB fixture naming must not
+// re-enter them. Legacy infra hostnames (mother-bear-court.vercel.app) remain
+// allowed here as the current production default until the Emorapy domain
+// migration, matching the ops release helper allowlist.
+const ENV_EXAMPLE_SCAN_PATTERNS = [
+  '**/.env.example',
+];
+
+const ENV_EXAMPLE_IGNORE_PATTERNS = [
+  '**/node_modules/**',
 ];
 
 const MARKETING_COPY_SCAN_PATTERNS = [
@@ -166,6 +182,20 @@ const LEGACY_VISIBLE_COPY_RULES = [
     message: 'Current backend observability service name must default to emorapy-backend.',
   },
 ];
+
+const CURRENT_GOVERNANCE_ID_SCAN_PATTERNS = ['docs/核心開發文件/**/*.md'];
+
+const CURRENT_GOVERNANCE_ID_IGNORE_PATTERNS = [
+  'docs/核心開發文件/07-待處理問題與治理/已處理/**',
+  'docs/核心開發文件/90-證據與盤點/**',
+  'docs/核心開發文件/99-歷史降級索引/**',
+  'docs/核心開發文件/文件收斂/**',
+  'docs/核心開發文件/07-待處理問題與治理/待處理/Emorapy命名收斂與外部識別符遷移待辦-2026-06-20.md',
+  'docs/核心開發文件/07-待處理問題與治理/待處理/Emorapy命名收斂剩餘任務Codex交接執行單-2026-06-21.md',
+];
+
+const LEGACY_GOVERNANCE_ID_RE = /\bCJ-[A-Z0-9]+(?:-[A-Z0-9]+)+\b/g;
+const LEGACY_GOVERNANCE_ID_WILDCARD_RE = /\bCJ-[A-Z0-9]+(?:-[A-Z0-9]+)*-\*/g;
 
 const LEGACY_MARKETING_COPY_RULES = [
   {
@@ -313,8 +343,8 @@ const REQUIRED_POLICY_NEEDLES = [
     file: 'AGENTS.md',
     needles: [
       'Emorapy Agent Guide',
-      '`Emorapy` is the formal product and App release identity',
-      'legacy aliases or current infrastructure identifiers only',
+      '`Emorapy` is the formal product, repo, and App release identity',
+      'legacy aliases or compatibility infrastructure identifiers only',
     ],
   },
   {
@@ -337,7 +367,8 @@ const REQUIRED_POLICY_NEEDLES = [
     needles: [
       '| Emorapy | 產品正式對外名稱',
       '| CJ | 歷史項目別名與 legacy internal identifier',
-      '`CJ-*` governance ID namespace 只作需求 / 驗收 / ADR / 風險 / 治理追溯 ID',
+      '現行 governance ID namespace 為 `EMO-*`',
+      '`CJ-*` governance ID namespace 只作歷史追溯',
       '@cj/*` 歷史 package-scope 引用',
       '| Mother Bear Court / mother-bear-court | 歷史品牌 / repo / deploy alias',
     ],
@@ -409,6 +440,13 @@ function requireEqual(actual, expected, message) {
 function requireIncludes(text, needle, file) {
   if (!text.includes(needle)) {
     fail(`${file} must include naming governance marker: ${needle}`);
+  }
+}
+
+function requireAbsent(file, needle, message) {
+  const text = readText(file);
+  if (text.includes(needle)) {
+    fail(`${file} must not include deprecated token (${message}): ${needle}`);
   }
 }
 
@@ -503,6 +541,26 @@ async function checkOperatorVisibleCopy() {
   }
 }
 
+async function checkEnvExampleIdentity() {
+  const files = await glob(ENV_EXAMPLE_SCAN_PATTERNS, {
+    cwd: repoRoot,
+    nodir: true,
+    dot: true,
+    ignore: ENV_EXAMPLE_IGNORE_PATTERNS,
+  });
+
+  const envRules = [...LEGACY_VISIBLE_COPY_RULES, ...LEGACY_DEV_CI_FIXTURE_RULES];
+  for (const file of files) {
+    const text = readText(file);
+    for (const rule of envRules) {
+      rule.pattern.lastIndex = 0;
+      for (const match of text.matchAll(rule.pattern)) {
+        fail(`${file}:${lineNumberAt(text, match.index ?? 0)} [${rule.id}] ${rule.message}`);
+      }
+    }
+  }
+}
+
 async function checkMarketingCopy() {
   const files = await glob(MARKETING_COPY_SCAN_PATTERNS, {
     cwd: repoRoot,
@@ -535,6 +593,30 @@ async function checkCurrentPackageScope() {
       for (const match of text.matchAll(rule.pattern)) {
         fail(`${file}:${lineNumberAt(text, match.index ?? 0)} [${rule.id}] ${rule.message}`);
       }
+    }
+  }
+}
+
+async function checkCurrentGovernanceIdNamespace() {
+  const files = await glob(CURRENT_GOVERNANCE_ID_SCAN_PATTERNS, {
+    cwd: repoRoot,
+    nodir: true,
+    ignore: CURRENT_GOVERNANCE_ID_IGNORE_PATTERNS,
+  });
+
+  for (const file of files) {
+    const text = readText(file);
+    LEGACY_GOVERNANCE_ID_RE.lastIndex = 0;
+    for (const match of text.matchAll(LEGACY_GOVERNANCE_ID_RE)) {
+      fail(
+        `${file}:${lineNumberAt(text, match.index ?? 0)} [legacy-governance-id] current docs must use EMO-* IDs; CJ-* is historical-only after the 2026-06-21 mapped migration: ${match[0]}`
+      );
+    }
+    LEGACY_GOVERNANCE_ID_WILDCARD_RE.lastIndex = 0;
+    for (const match of text.matchAll(LEGACY_GOVERNANCE_ID_WILDCARD_RE)) {
+      fail(
+        `${file}:${lineNumberAt(text, match.index ?? 0)} [legacy-governance-id-wildcard] current docs must use EMO-* wildcard references; CJ-* is historical-only after the 2026-06-21 mapped migration: ${match[0]}`
+      );
     }
   }
 }
@@ -670,18 +752,19 @@ function checkLegacyProductionHostnameCompatContract() {
     'scripts/ops-release-smoke.sh',
     'scripts/ops-release-gate-evidence.sh',
   ];
-  const legacyDefaultComment =
-    'Legacy production default until Emorapy domain migration; prefer EMORAPY_* overrides when configured.';
+  const emorapyDefaultComment =
+    'Emorapy Vercel project-domain defaults; legacy Vercel aliases remain available for compatibility.';
 
   for (const file of releaseHelperFiles) {
     requireOrderedIncludes(
       file,
       [
-        legacyDefaultComment,
-        'DEFAULT_MAIN_WEB_URL="https://mother-bear-court.vercel.app"',
+        emorapyDefaultComment,
+        'DEFAULT_MAIN_WEB_URL="https://emorapy.vercel.app"',
+        'DEFAULT_ADMIN_WEB_URL="https://emorapy-admin.vercel.app"',
         'EMORAPY_MAIN_WEB_URL',
       ],
-      `${file} must classify the legacy Vercel hostname as a compatibility default with Emorapy override support`
+      `${file} must use Emorapy Vercel project-domain defaults with Emorapy override support`
     );
   }
 
@@ -690,13 +773,13 @@ function checkLegacyProductionHostnameCompatContract() {
     [
       'vars.EMORAPY_MAIN_WEB_URL',
       'vars.PRODUCTION_MAIN_WEB_URL',
-      "'https://mother-bear-court.vercel.app'",
+      "'https://emorapy.vercel.app'",
     ],
-    'production workflow release gate main URL must prefer Emorapy alias before legacy Vercel hostname'
+    'production workflow release gate main URL must prefer Emorapy variable before Emorapy Vercel project-domain default'
   );
   requireIncludes(
     readText('docs/核心開發文件/03-管理端與平台治理/05-運維連接與調用Runbook.md'),
-    '`https://mother-bear-court.vercel.app` 只是 legacy production hostname compatibility default',
+    '`https://emorapy.vercel.app` 與 `https://emorapy-admin.vercel.app` 是 Vercel production project-domain defaults',
     'docs/核心開發文件/03-管理端與平台治理/05-運維連接與調用Runbook.md'
   );
 }
@@ -706,20 +789,20 @@ function checkLegacyGovernanceIdNamespacePolicy() {
   requireOrderedIncludes(
     prdFile,
     [
+      '`EMO-*` 是現行 governance ID namespace',
       '`CJ-*` 是歷史 governance ID namespace',
-      '不得把 `CJ-PRD-*`、`CJ-NFR-*`、`CJ-RTM-*` 直接搜尋替換成新前綴',
-      '必須先建立 ID mapping、引用遷移策略、更新文檔結構 / truth gate 與所有引用',
+      '不得在 current docs 新增完整 `CJ-*` ID',
     ],
-    'PRD ID namespace policy must classify CJ-* as legacy governance IDs and forbid unmapped prefix migration'
+    'PRD ID namespace policy must classify EMO-* as current and CJ-* as historical-only'
   );
 
   requireOrderedIncludes(
     'docs/核心開發文件/術語表.md',
     [
-      '`CJ-*` governance ID namespace 只作需求 / 驗收 / ADR / 風險 / 治理追溯 ID',
-      '必須先建立 ID mapping、引用遷移策略與 docs gate',
+      '現行 governance ID namespace 為 `EMO-*`',
+      '`CJ-*` governance ID namespace 只作歷史追溯',
     ],
-    'terminology must classify CJ-* as governance IDs, not product identity'
+    'terminology must classify EMO-* as current governance IDs and CJ-* as historical-only'
   );
 }
 
@@ -762,43 +845,36 @@ function checkSentryNativeCrashReleaseIdentity() {
 }
 
 function checkCurrentOpsEnvAliasContract() {
+  // P4 env deprecation (2026-06-21): legacy CJ_COMMIT_SHA / CJ_RELEASE_GATE /
+  // CJ_DEV_REDIS_DIR are removed from current source/config. Every reader keeps
+  // a platform-injected or git fallback after EMORAPY_*, so the legacy CJ_*
+  // fallback is no longer required and must not re-enter current entrypoints.
   requireOrderedIncludes(
     'backend/src/utils/version.ts',
-    ['RAILWAY_GIT_COMMIT_SHA', 'EMORAPY_COMMIT_SHA', 'CJ_COMMIT_SHA'],
-    'backend version commit env priority: Railway runtime > Emorapy alias > legacy CJ fallback'
+    ['RAILWAY_GIT_COMMIT_SHA', 'EMORAPY_COMMIT_SHA'],
+    'backend version commit env priority: Railway runtime > Emorapy alias'
   );
-  requireOrderedIncludes(
-    'frontend/vite.config.ts',
-    ['process.env.EMORAPY_COMMIT_SHA', 'process.env.CJ_COMMIT_SHA'],
-    'frontend version manifest commit env priority: Emorapy alias before legacy CJ fallback'
+  requireAbsent('backend/src/utils/version.ts', 'CJ_COMMIT_SHA', 'deprecated legacy commit env');
+  requireIncludes(readText('frontend/vite.config.ts'), 'process.env.EMORAPY_COMMIT_SHA', 'frontend/vite.config.ts');
+  requireAbsent('frontend/vite.config.ts', 'CJ_COMMIT_SHA', 'deprecated legacy commit env');
+  requireIncludes(readText('frontend-admin/vite.config.ts'), 'process.env.EMORAPY_COMMIT_SHA', 'frontend-admin/vite.config.ts');
+  requireAbsent('frontend-admin/vite.config.ts', 'CJ_COMMIT_SHA', 'deprecated legacy commit env');
+  requireIncludes(readText('scripts/start-dev.sh'), "EMORAPY_COMMIT_SHA='$HEAD_SHA'", 'scripts/start-dev.sh');
+  requireAbsent('scripts/start-dev.sh', 'CJ_COMMIT_SHA', 'deprecated legacy commit env');
+  requireAbsent('scripts/start-dev.sh', 'CJ_DEV_REDIS_DIR', 'deprecated legacy local Redis dir env');
+  requireIncludes(readText('scripts/ops-release-gate.sh'), 'export EMORAPY_RELEASE_GATE=1', 'scripts/ops-release-gate.sh');
+  requireAbsent('scripts/ops-release-gate.sh', 'CJ_RELEASE_GATE', 'deprecated legacy release gate env');
+  requireIncludes(readText('backend/scripts/check-ai-pricing-catalog.ts'), 'env.EMORAPY_RELEASE_GATE', 'backend/scripts/check-ai-pricing-catalog.ts');
+  requireAbsent('backend/scripts/check-ai-pricing-catalog.ts', 'CJ_RELEASE_GATE', 'deprecated legacy release gate env');
+  requireIncludes(
+    readText('.github/workflows/production-deploy-and-verify.yml'),
+    'railway variable set "EMORAPY_COMMIT_SHA=${GITHUB_SHA}"',
+    '.github/workflows/production-deploy-and-verify.yml'
   );
-  requireOrderedIncludes(
-    'frontend-admin/vite.config.ts',
-    ['process.env.EMORAPY_COMMIT_SHA', 'process.env.CJ_COMMIT_SHA'],
-    'admin version manifest commit env priority: Emorapy alias before legacy CJ fallback'
-  );
-  requireOrderedIncludes(
-    'scripts/start-dev.sh',
-    ["EMORAPY_COMMIT_SHA='$HEAD_SHA'", "CJ_COMMIT_SHA='$HEAD_SHA'"],
-    'local dev startup commit env injection for both Emorapy and legacy CJ'
-  );
-  requireOrderedIncludes(
-    'scripts/ops-release-gate.sh',
-    ['export EMORAPY_RELEASE_GATE=1', 'export CJ_RELEASE_GATE=1'],
-    'release gate env marker dual-write with Emorapy first'
-  );
-  requireOrderedIncludes(
-    'backend/scripts/check-ai-pricing-catalog.ts',
-    ['env.EMORAPY_RELEASE_GATE', 'env.CJ_RELEASE_GATE'],
-    'AI pricing release gate env alias priority'
-  );
-  requireOrderedIncludes(
+  requireAbsent(
     '.github/workflows/production-deploy-and-verify.yml',
-    [
-      'railway variable set "EMORAPY_COMMIT_SHA=${GITHUB_SHA}"',
-      'railway variable set "CJ_COMMIT_SHA=${GITHUB_SHA}"',
-    ],
-    'production Railway commit env dual-write with Emorapy first'
+    'CJ_COMMIT_SHA',
+    'deprecated legacy commit env dual-write'
   );
 }
 
@@ -866,8 +942,10 @@ checkPackageManifestNames();
 await checkAppIdentityFiles();
 await checkUserFacingCopy();
 await checkOperatorVisibleCopy();
+await checkEnvExampleIdentity();
 await checkMarketingCopy();
 await checkCurrentPackageScope();
+await checkCurrentGovernanceIdNamespace();
 await checkCurrentSourceIdentity();
 checkCurrentDocLeadins();
 await checkCurrentDevCiFixtureIdentity();

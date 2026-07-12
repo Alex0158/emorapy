@@ -10,14 +10,11 @@ import { Button } from '@/components/ui/button';
 import ProtectedRoute from '@/components/common/ProtectedRoute';
 import SEO from '@/components/common/SEO';
 import AIErrorState from '@/components/common/AIErrorState';
-import AIPhaseTimeline from '@/components/common/AIPhaseTimeline';
-import AIRecoveryBadge from '@/components/common/AIRecoveryBadge';
 import { getExecutionStatus, replanTrack, type ExecutionStatus } from '@/services/api/execution';
 import type { AIStreamReadyEvent } from '@/services/aiStream';
 import { getErrorMessage } from '@/utils/apiError';
 import { useAIStreamSubscription } from '@/hooks/useAIStreamSubscription';
 import type { AIStreamEvent, AIStreamPhase, AIStreamSnapshot } from '@/types/aiStream';
-import { cn } from '@/lib/utils';
 
 import { t } from '@/utils/i18n';
 
@@ -25,7 +22,6 @@ type ReasonKey = 'needs_help' | 'farther' | 'high_stress' | 'manual';
 type ModeKey = 'lower_pressure' | 'slower_pace' | 'solo_first';
 const reasonLabelMap: Record<ReasonKey, () => string> = { needs_help: () => t('execReplan.reason.needsHelp'), farther: () => t('execReplan.reason.farther'), high_stress: () => t('execReplan.reason.highStress'), manual: () => t('execReplan.reason.manual') };
 const modeLabelMap: Record<ModeKey, () => string> = { lower_pressure: () => t('execReplan.mode.lowerPressure'), slower_pace: () => t('execReplan.mode.slowerPace'), solo_first: () => t('execReplan.mode.soloFirst') };
-const phaseLabelMap: Record<string, () => string> = { collecting_context: () => t('execReplan.phase.collectingContext'), analyzing_recent_pulse: () => t('execReplan.phase.analyzingPulse'), drafting_adjustment: () => t('execReplan.phase.draftingAdjustment'), finalizing_plan: () => t('execReplan.phase.finalizingPlan'), persisted: () => t('execReplan.phase.persisted') };
 
 interface ReplanStreamState { latestSnapshot: AIStreamSnapshot | null; phaseHistory: AIStreamPhase[]; latestEvent: AIStreamEvent | null; }
 const initialStreamState: ReplanStreamState = { latestSnapshot: null, phaseHistory: [], latestEvent: null };
@@ -117,51 +113,40 @@ const ExecutionReplan = () => {
   );
 
   const waitingSnapshot = streamState.latestSnapshot;
-  const waitingPhase = waitingSnapshot?.phase ?? null;
   const isWaitingState = waitingForAI || execution.journey_status === 'replanning';
 
   return (
     <ProtectedRoute>
       <SEO title={t('execReplan.seoTitle')} description={t('execReplan.seoDesc')} />
-      <div className="mx-auto max-w-2xl px-4 py-8" role="main">
-        <div className="mb-6 flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => navigate(-1)}><ArrowLeft className="size-4" />{t('common.back')}</Button>
-          <h2 className="text-xl font-bold text-foreground font-heading">{t('execReplan.heading')}</h2>
-        </div>
+      <main className="mx-auto max-w-2xl px-4 py-8 md:py-12">
+        <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="mb-7"><ArrowLeft className="size-4" />{t('common.back')}</Button>
+        <h1 className="text-3xl font-semibold tracking-tight text-foreground font-heading md:text-4xl">{t('execReplan.heading')}</h1>
 
         {/* Context */}
-        <div className="mb-6 rounded-xl border border-border bg-card p-5 space-y-3">
+        <section className="my-8 space-y-3 border-y border-border py-6">
           <p className="font-semibold text-foreground">{execution.plan_summary?.title || t('execReplan.defaultTitle')}</p>
           <p className="text-sm text-muted-foreground">{t('execReplan.contextDesc')}</p>
           {execution.current_step?.content && (
-            <div className="flex items-start gap-2 rounded-lg bg-primary-light/30 p-3"><Info className="size-4 mt-0.5 text-primary shrink-0" /><div><p className="text-xs font-medium">{t('execReplan.stuckPoint')}</p><p className="text-xs text-muted-foreground">{execution.current_step.content}</p></div></div>
+            <div className="flex items-start gap-2 border-l-2 border-primary/50 pl-3"><Info className="size-4 mt-0.5 text-primary shrink-0" /><div><p className="text-xs font-medium">{t('execReplan.stuckPoint')}</p><p className="text-xs text-muted-foreground">{execution.current_step.content}</p></div></div>
           )}
-          {isRecovering && <AIRecoveryBadge text={t('execReplan.recovering')} />}
-        </div>
+        </section>
 
         {isWaitingState ? (
-          <div className="rounded-xl border border-border bg-card p-5 space-y-5">
-            <div><h4 className="text-base font-semibold text-foreground">{t('execReplan.waitingTitle')}</h4><p className="text-sm text-muted-foreground mt-1">{t('execReplan.waitingDesc')}</p></div>
-            <AIPhaseTimeline currentPhase={waitingPhase} phaseHistory={streamState.phaseHistory} getLabel={(phase) => phaseLabelMap[phase]?.() || phase} />
-            {waitingSnapshot?.text && (
-              <div className={cn('rounded-lg p-3 text-sm', waitingSnapshot.status === 'failed' ? 'bg-destructive/5 border border-destructive/20' : waitingSnapshot.status === 'persisted' ? 'bg-success/5 border border-success/20' : 'bg-primary-light/30')}>
-                <p className="font-medium text-foreground mb-1">{waitingSnapshot.status === 'persisted' ? t('execReplan.newVersionReady') : t('execReplan.adjustmentSummary')}</p>
-                <p className="text-muted-foreground">{waitingSnapshot.text}</p>
-              </div>
-            )}
+          <section className="space-y-5 border-y border-border py-6" role="status" aria-live="polite">
+            <div className="flex items-start gap-3"><Loader2 className="mt-0.5 size-5 shrink-0 animate-spin text-primary motion-reduce:animate-none" /><div><h2 className="text-base font-semibold text-foreground">{t('execReplan.waitingTitle')}</h2><p className="text-sm text-muted-foreground mt-1">{isRecovering ? t('execReplan.recovering') : t('execReplan.waitingDesc')}</p></div></div>
             {(waitingSnapshot?.status === 'failed' || streamError) ? (
               <AIErrorState title={t('execReplan.failedTitle')} description={streamError || getReplanStreamErrorText(waitingSnapshot?.error)} actions={<div className="flex gap-2"><Button size="sm" onClick={() => void handleSubmit()} disabled={submitting}>{submitting && <Loader2 className="size-3 animate-spin" />}{t('execReplan.retryBtn')}</Button><Button variant="outline" size="sm" onClick={() => navigate(`/execution/${execution.plan_id}/checkin`)}>{t('execReplan.backToStep')}</Button></div>} />
             ) : (
-              <div className="flex items-start gap-2 rounded-lg bg-primary-light/20 p-3"><Info className="size-4 mt-0.5 text-primary shrink-0" /><p className="text-xs text-muted-foreground">{t('execReplan.leaveHint')}</p></div>
+              <div className="flex items-start gap-2 border-l-2 border-primary/40 pl-3"><Info className="size-4 mt-0.5 text-primary shrink-0" /><p className="text-xs text-muted-foreground">{t('execReplan.leaveHint')}</p></div>
             )}
-          </div>
+          </section>
         ) : (
-          <div className="rounded-xl border border-border bg-card p-5 space-y-6">
+          <section className="space-y-7">
             <fieldset className="space-y-3">
               <legend className="text-sm font-semibold text-foreground">{t('execReplan.reasonLabel')}</legend>
               <div className="space-y-2">
                 {Object.entries(reasonLabelMap).map(([value, labelFn]) => (
-                  <label key={value} className="flex items-center gap-2 cursor-pointer"><input type="radio" name="reason" value={value} checked={formValues.reason === value} onChange={() => setFormValues((p) => ({ ...p, reason: value as ReasonKey }))} className="accent-primary" /><span className="text-sm">{labelFn()}</span></label>
+                  <label key={value} className="flex min-h-11 items-center gap-2 cursor-pointer"><input type="radio" name="reason" value={value} checked={formValues.reason === value} onChange={() => setFormValues((p) => ({ ...p, reason: value as ReasonKey }))} className="accent-primary" /><span className="text-sm">{labelFn()}</span></label>
                 ))}
               </div>
             </fieldset>
@@ -169,7 +154,7 @@ const ExecutionReplan = () => {
               <legend className="text-sm font-semibold text-foreground">{t('execReplan.modeLabel')}</legend>
               <div className="space-y-2">
                 {Object.entries(modeLabelMap).map(([value, labelFn]) => (
-                  <label key={value} className="flex items-center gap-2 cursor-pointer"><input type="radio" name="mode" value={value} checked={formValues.mode === value} onChange={() => setFormValues((p) => ({ ...p, mode: value as ModeKey }))} className="accent-primary" /><span className="text-sm">{labelFn()}</span></label>
+                  <label key={value} className="flex min-h-11 items-center gap-2 cursor-pointer"><input type="radio" name="mode" value={value} checked={formValues.mode === value} onChange={() => setFormValues((p) => ({ ...p, mode: value as ModeKey }))} className="accent-primary" /><span className="text-sm">{labelFn()}</span></label>
                 ))}
               </div>
             </fieldset>
@@ -177,9 +162,9 @@ const ExecutionReplan = () => {
               <Button onClick={() => void handleSubmit()} disabled={submitting}><RefreshCw className="size-4" />{submitting && <Loader2 className="size-4 animate-spin" />}{t('execReplan.submitBtn')}</Button>
               <Button variant="outline" onClick={() => navigate(`/execution/${execution.plan_id}/checkin`)}>{t('execReplan.backToStep')}</Button>
             </div>
-          </div>
+          </section>
         )}
-      </div>
+      </main>
     </ProtectedRoute>
   );
 };

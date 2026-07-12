@@ -9,8 +9,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useMountedRef } from '@/hooks/useMountedRef';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowLeft, CheckCircle, Upload, Loader2, AlertCircle, Info } from 'lucide-react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { ArrowLeft, Upload, Loader2, AlertCircle, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { checkin, getExecutionStatus, type ExecutionStatus } from '@/services/api/execution';
 import { uploadEvidence } from '@/services/api/case';
@@ -35,24 +34,22 @@ const ExecutionCheckIn = () => {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
-  const [showSuccessAnim, setShowSuccessAnim] = useState(false);
-  const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const staleRef = useRef(false);
   const submitLockRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Form state
-  const [stepResult, setStepResult] = useState<'done' | 'partial' | 'skipped'>('done');
-  const [closeness, setCloseness] = useState<'closer' | 'same' | 'farther'>('same');
-  const [stress, setStress] = useState<'low' | 'medium' | 'high'>('medium');
-  const [needsHelp, setNeedsHelp] = useState(false);
+  const [stepResult, setStepResult] = useState<'done' | 'partial' | 'skipped' | null>(null);
+  const [closeness, setCloseness] = useState<'closer' | 'same' | 'farther' | null>(null);
+  const [stress, setStress] = useState<'low' | 'medium' | 'high' | null>(null);
+  const [needsHelp, setNeedsHelp] = useState<boolean | null>(null);
   const [notes, setNotes] = useState('');
   const [photos, setPhotos] = useState<File[]>([]);
 
   useEffect(() => {
     staleRef.current = false;
     if (planId) void fetchExecution();
-    return () => { staleRef.current = true; if (successTimeoutRef.current) clearTimeout(successTimeoutRef.current); };
+    return () => { staleRef.current = true; };
   }, [planId]);
 
   const fetchExecution = async () => {
@@ -69,6 +66,10 @@ const ExecutionCheckIn = () => {
 
   const handleSubmit = async () => {
     if (!planId || submitting || submitLockRef.current) return;
+    if (!stepResult) {
+      toast.warning(t('execCheckIn.stepResultLabel'));
+      return;
+    }
     submitLockRef.current = true;
     setSubmitting(true);
     try {
@@ -86,17 +87,19 @@ const ExecutionCheckIn = () => {
         } finally { if (mountedRef.current) setUploadingPhotos(false); }
       }
 
-      await checkin({ plan_id: planId, notes: notes || undefined, photos: photoUrls, step_result: stepResult, closeness, stress, needs_help: needsHelp });
+      await checkin({
+        plan_id: planId,
+        notes: notes || undefined,
+        photos: photoUrls,
+        step_result: stepResult,
+        closeness: closeness || undefined,
+        stress: stress || undefined,
+        needs_help: needsHelp ?? undefined,
+      });
       if (!mountedRef.current) return;
-      setShowSuccessAnim(true);
-      successTimeoutRef.current = setTimeout(() => {
-        successTimeoutRef.current = null;
-        if (!mountedRef.current) return;
-        setShowSuccessAnim(false);
-        toast.success(needsHelp ? t('execCheckIn.successNeedsHelp') : t('message.checkinSuccess'));
-        setNotes(''); setPhotos([]); setStepResult('done'); setCloseness('same'); setStress('medium'); setNeedsHelp(false);
-        void fetchExecution();
-      }, 1500);
+      toast.success(needsHelp ? t('execCheckIn.successNeedsHelp') : t('message.checkinSuccess'));
+      setNotes(''); setPhotos([]); setStepResult(null); setCloseness(null); setStress(null); setNeedsHelp(null);
+      void fetchExecution();
     } catch (error: unknown) {
       if (mountedRef.current) toast.error(getErrorMessage(error, 'message.checkinFail'));
     } finally { submitLockRef.current = false; if (mountedRef.current) setSubmitting(false); }
@@ -131,7 +134,7 @@ const ExecutionCheckIn = () => {
         </div>
 
         {/* Context Card */}
-        <div className="mb-6 rounded-xl border border-border bg-card p-5 space-y-3">
+        <section className="mb-8 space-y-4 border-y border-border py-6">
           <p className="font-semibold text-foreground">{execution.plan_summary?.title || t('execCheckIn.defaultTitle')}</p>
           <p className="text-sm text-muted-foreground">{execution.relationship_mode === 'co' ? t('execCheckIn.modeCoDesc') : t('execCheckIn.modeSoloDesc')}</p>
 
@@ -148,14 +151,14 @@ const ExecutionCheckIn = () => {
               <p className="text-sm font-medium text-foreground">{t('execCheckIn.todayTask')}</p>
               <p className="text-sm text-muted-foreground">{execution.current_step.content}</p>
               {execution.current_step.fallback_content && (
-                <div className="flex items-start gap-2 rounded-lg bg-primary-light/30 p-3"><Info className="size-4 mt-0.5 text-primary shrink-0" /><p className="text-xs text-muted-foreground">{t('execCheckIn.fallbackHint')}{execution.current_step.fallback_content}</p></div>
+                <div className="flex items-start gap-2 border-l-2 border-primary/50 pl-3"><Info className="size-4 mt-0.5 text-primary shrink-0" /><p className="text-xs text-muted-foreground">{t('execCheckIn.fallbackHint')}{execution.current_step.fallback_content}</p></div>
               )}
             </div>
           )}
-        </div>
+        </section>
 
         {/* Check-in Form */}
-        <div className="rounded-xl border border-border bg-card p-5 space-y-5" aria-label={t('execCheckIn.formLabel')}>
+        <section className="space-y-6" aria-label={t('execCheckIn.formLabel')}>
           {/* Step Result */}
           <fieldset className="space-y-2">
             <legend className="text-sm font-medium text-foreground">{t('execCheckIn.stepResultLabel')}</legend>
@@ -166,7 +169,9 @@ const ExecutionCheckIn = () => {
             </div>
           </fieldset>
 
-          {/* Closeness */}
+          <details className="border-y border-border py-2">
+            <summary className="min-h-11 cursor-pointer py-3 text-sm font-medium text-foreground">{t('execCheckIn.notesLabel')}</summary>
+            <div className="space-y-6 pb-5 pt-2">
           <fieldset className="space-y-2">
             <legend className="text-sm font-medium text-foreground">{t('execCheckIn.closenessLabel')}</legend>
             <div className="flex flex-wrap gap-2">
@@ -190,8 +195,8 @@ const ExecutionCheckIn = () => {
           <fieldset className="space-y-2">
             <legend className="text-sm font-medium text-foreground">{t('execCheckIn.needsHelpLabel')}</legend>
             <div className="space-y-2">
-              <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="needsHelp" checked={!needsHelp} onChange={() => setNeedsHelp(false)} className="accent-primary" /><span className="text-sm">{t('execCheckIn.needsHelp.no')}</span></label>
-              <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="needsHelp" checked={needsHelp} onChange={() => setNeedsHelp(true)} className="accent-primary" /><span className="text-sm">{t('execCheckIn.needsHelp.yes')}</span></label>
+              <label className="flex min-h-11 items-center gap-2 cursor-pointer"><input type="radio" name="needsHelp" checked={needsHelp === false} onChange={() => setNeedsHelp(false)} className="accent-primary" /><span className="text-sm">{t('execCheckIn.needsHelp.no')}</span></label>
+              <label className="flex min-h-11 items-center gap-2 cursor-pointer"><input type="radio" name="needsHelp" checked={needsHelp === true} onChange={() => setNeedsHelp(true)} className="accent-primary" /><span className="text-sm">{t('execCheckIn.needsHelp.yes')}</span></label>
             </div>
           </fieldset>
 
@@ -208,41 +213,35 @@ const ExecutionCheckIn = () => {
             <Button variant="outline" size="sm" aria-label={t('execCheckIn.uploadBtn')} onClick={() => fileInputRef.current?.click()}><Upload className="size-4" />{t('execCheckIn.uploadBtn')}</Button>
             {photos.length > 0 && <p className="text-xs text-muted-foreground">{t('execCheckIn.photosSelected').replace('{count}', String(photos.length))}</p>}
           </div>
+            </div>
+          </details>
 
           {/* Submit */}
           <Button
             onClick={handleSubmit}
-            disabled={submitting || uploadingPhotos}
+            disabled={!stepResult || submitting || uploadingPhotos}
             aria-label={uploadingPhotos ? t('execCheckIn.uploadingPhotos') : t('execCheckIn.submitBtn')}
-            className="h-14 w-full rounded-2xl text-base font-semibold"
+            className="h-12 w-full text-base font-semibold sm:w-auto"
           >
-            <AnimatePresence mode="wait">
-              {showSuccessAnim ? (
-                <motion.span key="success" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className="flex items-center gap-2">
-                  <CheckCircle className="size-5" /> {t('execCheckIn.successInline')}
-                </motion.span>
-              ) : (
-                <motion.span key="normal" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                  {uploadingPhotos ? t('execCheckIn.uploadingPhotos') : submitting ? <Loader2 className="size-4 animate-spin" /> : t('execCheckIn.submitBtn')}
-                </motion.span>
-              )}
-            </AnimatePresence>
+            {uploadingPhotos ? t('execCheckIn.uploadingPhotos') : submitting ? <Loader2 className="size-4 animate-spin" /> : t('execCheckIn.submitBtn')}
           </Button>
-        </div>
+        </section>
 
         {/* History */}
         {recentCheckins.length > 0 && (
-          <div className="mt-8 rounded-xl border border-border bg-card p-5 space-y-3">
-            <h4 className="text-sm font-semibold text-foreground">{t('execCheckIn.historyTitle')}</h4>
+          <details className="mt-10 border-t border-border pt-2">
+            <summary className="min-h-11 cursor-pointer py-3 text-sm font-semibold text-foreground">{t('execCheckIn.historyTitle')}</summary>
+            <div className="divide-y divide-border border-y border-border">
             {recentCheckins.map((item) => (
-              <div key={item.id} className="rounded-lg border border-border p-3 space-y-1">
+              <div key={item.id} className="space-y-1 py-4">
                 <p className="text-sm font-medium text-foreground">{item.result === 'done' ? t('execCheckIn.stepResult.done') : item.result === 'partial' ? t('execCheckIn.stepResult.partial') : t('execCheckIn.stepResult.skipped')}</p>
                 <p className="text-xs text-muted-foreground">{t('execCheckIn.historyCloseness')}{item.closeness} / {t('execCheckIn.historyStress')}{item.stress} / {item.needs_help ? t('execCheckIn.historyNeedsHelp') : t('execCheckIn.historyNoHelp')}</p>
                 {item.notes && <p className="text-sm text-muted-foreground">{item.notes}</p>}
                 <p className="text-[11px] text-muted-foreground/60">{new Date(item.created_at).toLocaleString(getLocale())}</p>
               </div>
             ))}
-          </div>
+            </div>
+          </details>
         )}
       </div>
     </ProtectedRoute>

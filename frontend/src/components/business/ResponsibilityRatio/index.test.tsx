@@ -8,8 +8,10 @@ import ResponsibilityRatio from './index';
 describe('ResponsibilityRatio', () => {
   it('應渲染責任比例', () => {
     render(<ResponsibilityRatio ratio={{ plaintiff: 60, defendant: 40 }} />);
-    expect(screen.getByText(/角色A 60%/)).toBeInTheDocument();
-    expect(screen.getByText(/角色B 40%/)).toBeInTheDocument();
+    expect(screen.getByText('角色A')).toBeInTheDocument();
+    expect(screen.getByText('60%')).toBeInTheDocument();
+    expect(screen.getByText('角色B')).toBeInTheDocument();
+    expect(screen.getByText('40%')).toBeInTheDocument();
   });
 
   it('size="small" 時應套用 small class', () => {
@@ -20,11 +22,12 @@ describe('ResponsibilityRatio', () => {
     expect(container.firstChild).toHaveClass('gap-3');
   });
 
-  it('showLabels={false} 時不應渲染 responsibility-labels', () => {
+  it('showLabels={false} 時不應渲染角色標籤', () => {
     render(
       <ResponsibilityRatio ratio={{ plaintiff: 50, defendant: 50 }} showLabels={false} />
     );
-    expect(document.querySelector('.responsibility-labels')).not.toBeInTheDocument();
+    expect(screen.queryByText('角色A')).not.toBeInTheDocument();
+    expect(screen.queryByText('角色B')).not.toBeInTheDocument();
   });
 
   it('ratio 為 null 時應不渲染（F04 邊界）', () => {

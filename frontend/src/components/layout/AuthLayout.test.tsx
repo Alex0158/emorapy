@@ -49,7 +49,9 @@ describe('AuthLayout', () => {
         <AuthLayout />
       </MemoryRouter>
     );
-    expect(screen.getByText('auth.brand.taglineLine1')).toBeInTheDocument();
+    expect(screen.getByRole('heading', {
+      name: 'auth.brand.taglineLine1 auth.brand.taglineLine2',
+    })).toBeInTheDocument();
   });
 
   it('應顯示品牌 Logo 文字', () => {

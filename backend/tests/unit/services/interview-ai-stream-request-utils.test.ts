@@ -38,15 +38,23 @@ import {
 describe('interview-ai-stream-request-utils', () => {
   const mockedOpenAI = openai as any;
   const mockedRetryWithBackoff = retryWithBackoff as any;
+  const originalOpenAIApiKey = process.env.OPENAI_API_KEY;
   const originalAiMock = process.env.AI_MOCK;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    process.env.OPENAI_API_KEY = 'sk-test-provider-path';
     delete process.env.AI_MOCK;
     mockedRetryWithBackoff.mockImplementation(async (fn: () => Promise<unknown>) => fn());
   });
 
   afterEach(() => {
+    if (originalOpenAIApiKey === undefined) {
+      delete process.env.OPENAI_API_KEY;
+    } else {
+      process.env.OPENAI_API_KEY = originalOpenAIApiKey;
+    }
+
     if (originalAiMock === undefined) {
       delete process.env.AI_MOCK;
     } else {

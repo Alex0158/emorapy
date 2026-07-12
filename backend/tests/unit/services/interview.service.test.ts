@@ -2,7 +2,29 @@
  * InterviewService 單元測試 — respond 邊界、key_facts 解析、endSession、retryFailed、startSession 狀態轉移
  */
 // @ts-nocheck
-import { describe, it, expect, jest, beforeEach } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
+
+const originalOpenAIApiKey = process.env.OPENAI_API_KEY;
+const originalAiMock = process.env.AI_MOCK;
+
+beforeEach(() => {
+  process.env.OPENAI_API_KEY = 'sk-test-provider-path';
+  delete process.env.AI_MOCK;
+});
+
+afterEach(() => {
+  if (originalOpenAIApiKey === undefined) {
+    delete process.env.OPENAI_API_KEY;
+  } else {
+    process.env.OPENAI_API_KEY = originalOpenAIApiKey;
+  }
+
+  if (originalAiMock === undefined) {
+    delete process.env.AI_MOCK;
+  } else {
+    process.env.AI_MOCK = originalAiMock;
+  }
+});
 
 jest.mock('../../../src/config/database', () => ({
   __esModule: true,

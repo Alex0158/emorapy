@@ -91,11 +91,23 @@ test.describe('Admin critical flow', () => {
     await expect(page).toHaveURL(/\/admin\/audit-logs/);
     await expectNoPermissionDenied(page);
 
-    await page.getByPlaceholder(/實體類型|Entity Type/i).fill('admin_user');
-    await page.getByPlaceholder(/操作類型|Action/i).fill('admin_user_create');
+    await page.getByLabel(/實體類型|Entity type/i).fill('admin_user');
+    await page.getByLabel(/^(操作|Action)$/i).fill('admin_user_create');
+    await page.getByRole('button', { name: /套用篩選|Apply filters/i }).click();
 
-    await expect(page.getByRole('cell', { name: 'admin_user_create' }).first()).toBeVisible();
-    await expect(page.getByRole('cell', { name: tempEmail }).first()).toBeVisible();
+    const createdAuditRow = page
+      .getByRole('row')
+      .filter({ has: page.getByRole('cell', { name: /Admin User Create/i }) })
+      .first();
+    await expect(createdAuditRow).toBeVisible();
+    await createdAuditRow.getByRole('button', { name: /查看|Inspect/i }).click();
+
+    const auditDetail = page.getByRole('dialog', { name: /稽核事件|Audit event/i });
+    await expect(auditDetail.getByText(createdAdminId, { exact: true })).toBeVisible();
+    await auditDetail
+      .getByRole('button', { name: /查看原始 detail|View raw detail/i })
+      .click();
+    await expect(auditDetail.getByText(tempEmail, { exact: false })).toBeVisible();
 
     // API 層再校驗一次審計內容，避免僅依賴 UI 呈現造成假陽性。
     const matchedEntry = await waitForAuditEntry({

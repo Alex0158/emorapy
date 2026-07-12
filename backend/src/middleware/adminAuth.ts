@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
 import prisma from '../config/database';
 import { verifyAdminToken } from '../utils/admin-jwt';
+import { hasAdminPermission } from '../utils/admin-permissions';
 import { Errors } from '../utils/errors';
 
 export type AdminPermission =
@@ -12,6 +13,7 @@ export type AdminPermission =
   | 'users:read'
   | 'users:write'
   | 'reports:read'
+  | 'reports:sensitive:read'
   | 'alerts:write';
 
 export const authenticateAdmin = async (
@@ -66,12 +68,15 @@ const buildPermissionGuard = (mode: 'any' | 'all', permissions: AdminPermission[
         throw Errors.UNAUTHORIZED('管理員未認證');
       }
 
-      const hasAll = req.admin.permissions.includes('admin:all');
       const hasRequired =
         mode === 'all'
-          ? permissions.every((p) => req.admin!.permissions.includes(p))
-          : permissions.some((p) => req.admin!.permissions.includes(p));
-      if (!hasAll && !hasRequired) {
+          ? permissions.every((permission) =>
+              hasAdminPermission(req.admin!.permissions, permission)
+            )
+          : permissions.some((permission) =>
+              hasAdminPermission(req.admin!.permissions, permission)
+            );
+      if (!hasRequired) {
         throw Errors.FORBIDDEN('管理員權限不足');
       }
       next();
@@ -90,4 +95,3 @@ export const requireAdminPermissionAll = (...permissions: AdminPermission[]) =>
 // 向後相容：預設維持 any 模式
 export const requireAdminPermission = (...permissions: AdminPermission[]) =>
   requireAdminPermissionAny(...permissions);
-

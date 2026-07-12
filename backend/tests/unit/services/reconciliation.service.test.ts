@@ -193,6 +193,124 @@ describe('ReconciliationService', () => {
     expect(result.recommended_plan_id).toBe('plan-1');
     expect(result.plans).toHaveLength(1);
     expect(result.plans[0].fit_reason).toBe('適配原因');
+    expect(result.repair_access).toMatchObject({
+      judgment_route: 'standard',
+      default_intent: 'repair',
+      allowed_intents: ['repair', 'cool_down', 'graceful_exit', 'safety_support'],
+      can_invite_partner: true,
+      can_use_co_repair: true,
+      force_solo_repair: false,
+    });
+  });
+
+  it('getPlans 應以 backend safety policy 修正不允許的 URL intent', async () => {
+    const safetyJudgment = {
+      ...baseJudgment,
+      emotional_analysis: { route: 'safety_support' },
+    };
+    prismaMock.judgment.findUnique.mockResolvedValue(safetyJudgment);
+    prismaMock.reconciliationPlan.findMany.mockResolvedValue([]);
+
+    const result = await service.getPlansByJudgmentId('judge-1', 'u1', { intent: 'repair' });
+
+    expect(prismaMock.reconciliationPlan.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ intent: 'safety_support' }),
+      }),
+    );
+    expect(result.intent).toBe('safety_support');
+    expect(result.repair_access).toMatchObject({
+      judgment_route: 'safety_support',
+      default_intent: 'safety_support',
+      allowed_intents: ['safety_support', 'cool_down', 'graceful_exit'],
+      can_invite_partner: false,
+      can_use_co_repair: false,
+      force_solo_repair: true,
+    });
+  });
+
+  it('active safety state 應覆蓋 stored standard route 並修正 getPlans intent', async () => {
+    prismaMock.judgment.findUnique.mockResolvedValue(baseJudgment);
+    prismaMock.reconciliationPlan.findMany.mockResolvedValue([]);
+    mockGetEffectiveRouteSnapshot.mockResolvedValueOnce({
+      source: 'active_risk_state',
+      snapshot: buildSafetyAssessmentSnapshotForRoute('safety_support', {
+        reasons: ['active risk state'],
+      }),
+    });
+
+    const result = await service.getPlansByJudgmentId('judge-1', 'u1', { intent: 'repair' });
+
+    expect(prismaMock.reconciliationPlan.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ intent: 'safety_support' }),
+      }),
+    );
+    expect(result.intent).toBe('safety_support');
+    expect(result.repair_access).toMatchObject({
+      judgment_route: 'safety_support',
+      default_intent: 'safety_support',
+      allowed_intents: ['safety_support', 'cool_down', 'graceful_exit'],
+      force_solo_repair: true,
+    });
+  });
+
+  it('active safety state 應拒絕 generatePlans 生成 stored standard repair intent', async () => {
+    prismaMock.judgment.findUnique.mockResolvedValue(baseJudgment);
+    mockGetEffectiveRouteSnapshot.mockResolvedValueOnce({
+      source: 'active_risk_state',
+      snapshot: buildSafetyAssessmentSnapshotForRoute('safety_support', {
+        reasons: ['active risk state'],
+      }),
+    });
+
+    await expect(service.generatePlans('judge-1', { intent: 'repair' }, 'u1')).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+    });
+    expect(prismaMock.reconciliationPlan.findMany).not.toHaveBeenCalled();
+    expect(mockGenerateReconciliationPlans).not.toHaveBeenCalled();
+  });
+
+  it('active safety state 應阻止直接讀取或承諾既有 repair plan', async () => {
+    prismaMock.reconciliationPlan.findUnique.mockResolvedValue(storedPlan);
+    mockGetEffectiveRouteSnapshot
+      .mockResolvedValueOnce({
+        source: 'active_risk_state',
+        snapshot: buildSafetyAssessmentSnapshotForRoute('safety_support'),
+      })
+      .mockResolvedValueOnce({
+        source: 'active_risk_state',
+        snapshot: buildSafetyAssessmentSnapshotForRoute('safety_support'),
+      });
+
+    await expect(service.getPlanById('plan-1', 'u1')).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    await expect(service.respondPlan('plan-1', 'u1', 'committed')).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    expect(prismaMock.repairTrack.create).not.toHaveBeenCalled();
+    expect(prismaMock.reconciliationPlan.update).not.toHaveBeenCalled();
+  });
+
+  it('active safety state 應阻止恢復既有 repair track', async () => {
+    prismaMock.repairTrack.findUnique.mockResolvedValue({
+      id: 'track-1',
+      plan_id: 'plan-1',
+      intent: 'repair',
+      status: 'paused',
+      plan: { ...storedPlan, judgment: baseJudgment },
+      participant_states: [
+        { user_id: 'u1', commitment_status: 'committed', committed_at: new Date() },
+        { user_id: 'u2', commitment_status: 'committed', committed_at: new Date() },
+      ],
+      step_progresses: [],
+      checkins: [],
+    });
+    mockGetEffectiveRouteSnapshot.mockResolvedValueOnce({
+      source: 'active_risk_state',
+      snapshot: buildSafetyAssessmentSnapshotForRoute('safety_support'),
+    });
+
+    await expect(service.resumeTrack('track-1', 'u1')).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    expect(prismaMock.repairParticipantState.upsert).not.toHaveBeenCalled();
+    expect(prismaMock.repairTrack.update).not.toHaveBeenCalled();
   });
 
   it('chat-to-case 產品流即使 mode=quick 也應載入修復方案個人化上下文', async () => {

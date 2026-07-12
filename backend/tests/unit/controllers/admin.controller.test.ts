@@ -17,8 +17,10 @@ const mockWriteAuditLog = jest.fn();
 const mockListAuditLogs = jest.fn();
 const mockListAdminUsers = jest.fn();
 const mockGetNumberConfig = jest.fn();
+const mockGetConfigValue = jest.fn<(...args: unknown[]) => Promise<unknown>>();
 const mockGetAdminCostReport = jest.fn();
 const mockGetAppTelemetryReport = jest.fn();
+const mockGetStreamPersistenceDetail = jest.fn();
 const mockUserFindMany = jest.fn();
 const mockUserCount = jest.fn();
 const mockPairingCount = jest.fn();
@@ -110,6 +112,7 @@ jest.mock('../../../src/middleware/performance', () => ({
 jest.mock('../../../src/services/system-config.service', () => ({
   systemConfigService: {
     getNumberConfig: (...args: unknown[]) => mockGetNumberConfig(...args),
+    getConfigValue: (...args: unknown[]) => mockGetConfigValue(...args),
   },
 }));
 
@@ -125,6 +128,12 @@ jest.mock('../../../src/services/app-telemetry.service', () => ({
   },
 }));
 
+jest.mock('../../../src/services/ai-stream.service', () => ({
+  aiStreamService: {
+    getStreamPersistenceDetail: (...args: unknown[]) => mockGetStreamPersistenceDetail(...args),
+  },
+}));
+
 describe('AdminController', () => {
   let req: Partial<Request>;
   let res: Partial<Response>;
@@ -133,6 +142,13 @@ describe('AdminController', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockGetNumberConfig.mockImplementation(async (...args: any[]) => args[1]);
+    (mockGetStreamPersistenceDetail as any).mockResolvedValue({
+      source: 'live',
+      sensitiveContentIncluded: false,
+      session: { streamId: 'stream-1', text: null, metadata: null },
+      events: [],
+    });
+    mockGetConfigValue.mockResolvedValue(undefined);
     req = {
       body: {},
       params: {},
@@ -185,6 +201,37 @@ describe('AdminController', () => {
       );
       expect(next).not.toHaveBeenCalled();
     });
+
+    it('敏感 provider config 應保留安全欄位但不洩露 secret', async () => {
+      (mockSystemConfigFindMany as any).mockResolvedValue([{
+        id: 'cfg-provider',
+        key: 'media.provider.openai',
+        value: {
+          apiKey: 'stored-secret',
+          baseUrl: 'https://api.example.com',
+          model: 'image-v2',
+          hiddenToken: 'must-not-leak',
+        },
+        is_sensitive: true,
+      }]);
+      (mockSystemConfigCount as any).mockResolvedValue(1);
+
+      await adminController.listConfigs(req as Request, res as Response, next);
+
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({
+          items: [expect.objectContaining({
+            value: {
+              baseUrl: 'https://api.example.com',
+              model: 'image-v2',
+            },
+            secret_configured: true,
+          })],
+        }),
+      }));
+      expect(JSON.stringify((res.json as jest.Mock).mock.calls)).not.toContain('stored-secret');
+      expect(JSON.stringify((res.json as jest.Mock).mock.calls)).not.toContain('must-not-leak');
+    });
   });
 
   describe('upsertConfig', () => {
@@ -232,6 +279,53 @@ describe('AdminController', () => {
           success: true,
         })
       );
+    });
+
+    it('provider 非 secret 更新應沿用已儲存 apiKey', async () => {
+      req.body = {
+        key: 'media.provider.openai',
+        value: { baseUrl: 'https://new.example.com', model: 'image-v2' },
+        isRuntime: true,
+        isSensitive: true,
+      };
+      mockGetConfigValue.mockResolvedValue({
+        apiKey: 'stored-secret',
+        baseUrl: 'https://old.example.com',
+      });
+      (mockSystemConfigUpsert as any).mockResolvedValue({
+        id: 'cfg-provider',
+        key: 'media.provider.openai',
+        value: {
+          apiKey: 'stored-secret',
+          baseUrl: 'https://new.example.com',
+          model: 'image-v2',
+        },
+        is_sensitive: true,
+      });
+
+      await adminController.upsertConfig(req as Request, res as Response, next);
+
+      expect(mockSystemConfigUpsert).toHaveBeenCalledWith(expect.objectContaining({
+        update: expect.objectContaining({
+          value: expect.objectContaining({
+            apiKey: 'stored-secret',
+            baseUrl: 'https://new.example.com',
+            model: 'image-v2',
+          }),
+        }),
+      }));
+      expect(JSON.stringify((res.json as jest.Mock).mock.calls)).not.toContain('stored-secret');
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({
+          item: expect.objectContaining({
+            value: {
+              baseUrl: 'https://new.example.com',
+              model: 'image-v2',
+            },
+            secret_configured: true,
+          }),
+        }),
+      }));
     });
 
     it('softTarget 大於 maxTurns 應拒絕', async () => {
@@ -666,6 +760,72 @@ describe('AdminController', () => {
       await adminController.reportAppTelemetry(req as Request, res as Response, next);
 
       expect(next).toHaveBeenCalledWith(expect.any(Error));
+    });
+  });
+
+  describe('getAIStreamDetail', () => {
+    it('一般 reports:read 只能取得由 service 強制移除敏感內容的 detail', async () => {
+      req.params = { streamId: 'stream-1' };
+      req.query = { source: 'live', eventLimit: '50' };
+      req.admin = {
+        id: 'marketing-1',
+        email: 'marketing@test.com',
+        roleKey: 'marketing',
+        permissions: ['reports:read'],
+      };
+
+      await adminController.getAIStreamDetail(req as Request, res as Response, next);
+
+      expect(mockGetStreamPersistenceDetail).toHaveBeenCalledWith('stream-1', {
+        source: 'live',
+        eventLimit: 50,
+        includeSensitive: false,
+      });
+      expect(mockWriteAuditLog).not.toHaveBeenCalled();
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        data: expect.objectContaining({ sensitiveContentIncluded: false }),
+      });
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('reports:sensitive:read 可取得敏感 detail 並留下 audit log', async () => {
+      req.params = { streamId: 'stream-1' };
+      req.query = { source: 'archive', eventLimit: '100' };
+      req.admin = {
+        id: 'ops-1',
+        email: 'ops@test.com',
+        roleKey: 'ops',
+        permissions: ['reports:read', 'reports:sensitive:read'],
+      };
+      (mockGetStreamPersistenceDetail as any).mockResolvedValue({
+        source: 'archive',
+        sensitiveContentIncluded: true,
+        session: { streamId: 'stream-1', text: 'private text' },
+        events: [],
+      });
+      (mockWriteAuditLog as any).mockResolvedValue(undefined);
+
+      await adminController.getAIStreamDetail(req as Request, res as Response, next);
+
+      expect(mockGetStreamPersistenceDetail).toHaveBeenCalledWith('stream-1', {
+        source: 'archive',
+        eventLimit: 100,
+        includeSensitive: true,
+      });
+      expect(mockWriteAuditLog).toHaveBeenCalledWith({
+        actorId: 'ops-1',
+        actorType: 'admin',
+        entityType: 'ai_stream',
+        entityId: 'stream-1',
+        action: 'view_sensitive_content',
+        detail: { source: 'archive', eventLimit: 100 },
+      });
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        data: expect.objectContaining({ sensitiveContentIncluded: true }),
+      });
+      expect(next).not.toHaveBeenCalled();
     });
   });
 

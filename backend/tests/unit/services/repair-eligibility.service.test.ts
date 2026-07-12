@@ -259,13 +259,20 @@ describe('repair-eligibility.service', () => {
     );
     expect(access.safetySource).toBe('active_risk_state');
     expect(access.riskLevel).toBe('high_risk_relationship');
+    expect(access.judgmentRoute).toBe('safety_support');
+    expect(access.defaultReconciliationIntent).toBe('safety_support');
+    expect(access.allowedReconciliationIntents).toEqual([
+      'safety_support',
+      'cool_down',
+      'graceful_exit',
+    ]);
     expect(access.canInvitePartner).toBe(false);
     expect(access.canUseCoRepair).toBe(false);
     expect(access.forceSoloRepair).toBe(true);
     expect(access.reasons).toEqual(expect.arrayContaining(['active safety state']));
   });
 
-  it('repair journey access 讀取 active risk state 失敗時應回退 route policy', async () => {
+  it('repair journey access 讀取 active risk state 失敗時應 fail closed', async () => {
     mockGetEffectiveRouteSnapshot.mockRejectedValueOnce(new Error('missing table'));
     const eligibility = getRepairEligibilityForCase({
       mode: 'remote',
@@ -287,9 +294,15 @@ describe('repair-eligibility.service', () => {
       },
     }, eligibility);
 
-    expect(access.safetySource).toBe('route_policy');
-    expect(access.canInvitePartner).toBe(true);
-    expect(access.canUseCoRepair).toBe(true);
-    expect(access.forceSoloRepair).toBe(false);
+    expect(access.safetySource).toBe('lookup_error');
+    expect(access.riskLevel).toBe('unknown');
+    expect(access.canEnterRepairJourney).toBe(false);
+    expect(access.defaultReconciliationIntent).toBe('safety_support');
+    expect(access.allowedReconciliationIntents).toEqual([]);
+    expect(access.canInvitePartner).toBe(false);
+    expect(access.canUseCoRepair).toBe(false);
+    expect(access.canNotifyPartner).toBe(false);
+    expect(access.forceSoloRepair).toBe(true);
+    expect(access.reasons).toContain('安全狀態暫時無法確認，已停止修復、邀請、共同處理與通知操作');
   });
 });

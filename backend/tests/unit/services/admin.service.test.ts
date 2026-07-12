@@ -155,6 +155,7 @@ describe('admin.service safety guards', () => {
         name: 'Root Admin',
       })
     ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    expect(mockAdminRoleUpsert).not.toHaveBeenCalled();
   });
 
   it('bootstrap token 錯誤應拒絕', async () => {
@@ -170,9 +171,10 @@ describe('admin.service safety guards', () => {
         bootstrapToken: 'wrong-token',
       })
     ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    expect(mockAdminRoleUpsert).not.toHaveBeenCalled();
   });
 
-  it('bootstrap 已存在管理員時應拒絕重入', async () => {
+  it('bootstrap 已存在管理員時應拒絕重入且不得重置角色權限', async () => {
     process.env.ADMIN_BOOTSTRAP_TOKEN = 'expected-token';
     process.env.NODE_ENV = 'development';
     (mockAdminUserCount as any).mockResolvedValue(1);
@@ -185,6 +187,27 @@ describe('admin.service safety guards', () => {
         bootstrapToken: 'expected-token',
       })
     ).rejects.toMatchObject({ code: 'CONFLICT' });
+    expect(mockAdminRoleUpsert).not.toHaveBeenCalled();
+    expect(mockAdminRoleFindUnique).not.toHaveBeenCalled();
+    expect(mockAdminUserCreate).not.toHaveBeenCalled();
+  });
+
+  it('bootstrap 已存在管理員且 token 錯誤時仍不得重置角色權限', async () => {
+    process.env.ADMIN_BOOTSTRAP_TOKEN = 'expected-token';
+    process.env.NODE_ENV = 'production';
+    (mockAdminUserCount as any).mockResolvedValue(1);
+
+    await expect(
+      adminService.bootstrap({
+        email: 'attacker@example.com',
+        password: 'Password1234',
+        name: 'Attacker',
+        bootstrapToken: 'wrong-token',
+      })
+    ).rejects.toMatchObject({ code: 'CONFLICT' });
+    expect(mockAdminRoleUpsert).not.toHaveBeenCalled();
+    expect(mockAdminRoleFindUnique).not.toHaveBeenCalled();
+    expect(mockAdminUserCreate).not.toHaveBeenCalled();
   });
 
   it('bootstrap 生產環境缺少 token 設定應拒絕', async () => {
@@ -199,6 +222,24 @@ describe('admin.service safety guards', () => {
         name: 'Root Admin',
       })
     ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    expect(mockAdminRoleUpsert).not.toHaveBeenCalled();
+  });
+
+  it('bootstrap 弱密碼應在建立角色前拒絕', async () => {
+    process.env.ADMIN_BOOTSTRAP_TOKEN = 'expected-token';
+    process.env.NODE_ENV = 'development';
+    (mockAdminUserCount as any).mockResolvedValue(0);
+
+    await expect(
+      adminService.bootstrap({
+        email: 'root@example.com',
+        password: 'short',
+        name: 'Root Admin',
+        bootstrapToken: 'expected-token',
+      })
+    ).rejects.toMatchObject({ code: 'WEAK_PASSWORD' });
+    expect(mockAdminRoleUpsert).not.toHaveBeenCalled();
+    expect(mockAdminUserCreate).not.toHaveBeenCalled();
   });
 
   it('bootstrap roleKey 對應角色不存在時應拋出 VALIDATION_ERROR（F10 邊界）', async () => {
@@ -216,6 +257,37 @@ describe('admin.service safety guards', () => {
         roleKey: 'invalid_role' as any,
       })
     ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: expect.stringContaining('角色') });
+    expect(mockAdminRoleUpsert).not.toHaveBeenCalled();
+    expect(mockAdminRoleFindUnique).not.toHaveBeenCalled();
     expect(mockAdminUserCreate).not.toHaveBeenCalled();
+  });
+
+  it('bootstrap 合法首次請求應建立預設角色與管理員', async () => {
+    process.env.ADMIN_BOOTSTRAP_TOKEN = 'expected-token';
+    process.env.NODE_ENV = 'development';
+    (mockAdminUserCount as any).mockResolvedValue(0);
+
+    const result = await adminService.bootstrap({
+      email: 'ROOT@example.com',
+      password: 'Password1234',
+      name: 'Root Admin',
+      bootstrapToken: 'expected-token',
+    });
+
+    expect(mockAdminRoleUpsert).toHaveBeenCalledTimes(4);
+    expect(mockAdminRoleFindUnique).toHaveBeenCalledWith({ where: { key: 'super_admin' } });
+    expect(mockAdminUserCreate).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        email: 'root@example.com',
+        role_id: 'role-super-admin',
+      }),
+    }));
+    expect(mockAuditLogCreate).toHaveBeenCalled();
+    expect(result).toEqual({
+      id: 'admin-created',
+      email: 'new-admin@example.com',
+      name: 'Admin',
+      role: 'super_admin',
+    });
   });
 });

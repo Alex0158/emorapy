@@ -95,6 +95,68 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
+function readNonEmptyString(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const normalized = value.trim();
+  return normalized || undefined;
+}
+
+function isMediaProviderConfigKey(key: string): boolean {
+  return key.startsWith('media.provider.');
+}
+
+export function mergeMediaProviderConfigWithStoredSecret(
+  key: string,
+  incomingValue: unknown,
+  storedValue: unknown,
+): unknown {
+  if (!isMediaProviderConfigKey(key) || !isPlainObject(incomingValue)) {
+    return incomingValue;
+  }
+  if ('apiKey' in incomingValue || 'api_key' in incomingValue) {
+    return incomingValue;
+  }
+  if (!isPlainObject(storedValue)) {
+    return incomingValue;
+  }
+
+  const storedApiKey = readNonEmptyString(storedValue.apiKey)
+    ?? readNonEmptyString(storedValue.api_key);
+  return storedApiKey
+    ? { ...incomingValue, apiKey: storedApiKey }
+    : incomingValue;
+}
+
+export function projectManagedConfigValueForAdmin(
+  key: string,
+  value: unknown,
+  isSensitive: boolean,
+): { value: unknown; secretConfigured?: boolean } {
+  if (!isSensitive) return { value };
+  if (!isMediaProviderConfigKey(key) || !isPlainObject(value)) {
+    return { value: '***MASKED***', secretConfigured: true };
+  }
+
+  const projected: Record<string, unknown> = {};
+  const baseUrl = readNonEmptyString(value.baseUrl) ?? readNonEmptyString(value.base_url);
+  const model = readNonEmptyString(value.model);
+  const sourceImageUrl = readNonEmptyString(value.sourceImageUrl)
+    ?? readNonEmptyString(value.source_image_url);
+  const timeoutMs = Number(value.timeoutMs ?? value.timeout_ms);
+
+  if (baseUrl) projected.baseUrl = baseUrl;
+  if (model) projected.model = model;
+  if (sourceImageUrl) projected.sourceImageUrl = sourceImageUrl;
+  if (Number.isFinite(timeoutMs)) projected.timeoutMs = timeoutMs;
+
+  return {
+    value: projected,
+    secretConfigured: Boolean(
+      readNonEmptyString(value.apiKey) ?? readNonEmptyString(value.api_key),
+    ),
+  };
+}
+
 type AlertSeverity = 'info' | 'warning' | 'critical';
 type NormalizedAlertRule = {
   key: string;

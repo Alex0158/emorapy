@@ -55,6 +55,50 @@ export interface CreateCaseDto {
   sensitive_content_handling_ack?: unknown;
 }
 
+type ViewerProjectableCase = {
+  mode: string;
+  status: string;
+  plaintiff_id?: string | null;
+  defendant_id?: string | null;
+  defendant_statement?: string | null;
+  title?: string;
+  type?: string;
+  sub_type?: string | null;
+  plaintiff_statement?: string;
+  evidences?: unknown[];
+  judgment?: unknown;
+  safety_metadata?: unknown;
+};
+
+function isBlindRemoteResponsePending(case_: ViewerProjectableCase, userId?: string): boolean {
+  return Boolean(
+    userId
+      && case_.mode === CASE_MODE.REMOTE
+      && case_.status === CASE_STATUS.DRAFT
+      && case_.defendant_id === userId
+      && !case_.defendant_statement,
+  );
+}
+
+function projectCaseForViewer<T extends ViewerProjectableCase>(case_: T, userId?: string): T & { blind_response_pending: boolean } {
+  const blindResponsePending = isBlindRemoteResponsePending(case_, userId);
+  if (!blindResponsePending) {
+    return { ...case_, blind_response_pending: false };
+  }
+
+  return {
+    ...case_,
+    title: '',
+    type: '',
+    sub_type: null,
+    plaintiff_statement: '',
+    evidences: [],
+    judgment: null,
+    safety_metadata: null,
+    blind_response_pending: true,
+  };
+}
+
 export class CaseService {
   private async recordFormalCaseSafetyAssessmentBestEffort(input: {
     caseId: string;
@@ -397,7 +441,7 @@ export class CaseService {
       search?: string;
     } = {}
   ) {
-    const ALLOWED_SORT_FIELDS = ['created_at', 'updated_at', 'submitted_at', 'title', 'status'];
+    const ALLOWED_SORT_FIELDS = ['created_at', 'updated_at', 'submitted_at', 'status'];
     const {
       status,
       type,
@@ -416,13 +460,40 @@ export class CaseService {
       { OR: [{ plaintiff_id: userId }, { defendant_id: userId }] },
       buildUserBoundProductCaseWhere(),
     ];
+    const blindRemoteDefendantState: Prisma.CaseWhereInput = {
+      mode: CASE_MODE.REMOTE,
+      status: CASE_STATUS.DRAFT,
+      OR: [{ defendant_statement: null }, { defendant_statement: '' }],
+    };
 
     if (search) {
+      const searchableFields: Prisma.CaseWhereInput[] = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { plaintiff_statement: { contains: search, mode: 'insensitive' } },
+        { defendant_statement: { contains: search, mode: 'insensitive' } },
+      ];
       andConditions.push({
         OR: [
-          { title: { contains: search, mode: 'insensitive' } },
-          { plaintiff_statement: { contains: search, mode: 'insensitive' } },
-          { defendant_statement: { contains: search, mode: 'insensitive' } },
+          { plaintiff_id: userId, OR: searchableFields },
+          {
+            defendant_id: userId,
+            NOT: blindRemoteDefendantState,
+            OR: searchableFields,
+          },
+        ],
+      });
+    }
+
+    if (type && type !== 'all') {
+      andConditions.push({
+        OR: [
+          { plaintiff_id: userId, type: type as Prisma.CaseWhereInput['type'] },
+          {
+            defendant_id: userId,
+            NOT: blindRemoteDefendantState,
+            type: type as Prisma.CaseWhereInput['type'],
+          },
+          { defendant_id: userId, ...blindRemoteDefendantState },
         ],
       });
     }
@@ -430,7 +501,6 @@ export class CaseService {
     const where: Prisma.CaseWhereInput = {
       AND: andConditions,
       ...(status && status !== 'all' ? { status: status as Prisma.CaseWhereInput['status'] } : {}),
-      ...(type && type !== 'all' ? { type: type as Prisma.CaseWhereInput['type'] } : {}),
     };
 
     const [cases, total] = await Promise.all([
@@ -459,11 +529,16 @@ export class CaseService {
       prisma.case.count({ where }),
     ]);
 
-    const normalized = await Promise.all(cases.map(async (c) => ({
-      ...c,
-      judgment: await normalizeJudgmentWithSafetyState(c.judgment, { caseId: c.id }),
-      ...buildCaseSourceTrackingForRead(c),
-    })));
+    const normalized = await Promise.all(cases.map(async (c) => {
+      const blindResponsePending = isBlindRemoteResponsePending(c, userId);
+      return projectCaseForViewer({
+        ...c,
+        judgment: blindResponsePending
+          ? null
+          : await normalizeJudgmentWithSafetyState(c.judgment, { caseId: c.id }),
+        ...buildCaseSourceTrackingForRead(c),
+      }, userId);
+    }));
 
     return {
       cases: normalized,
@@ -542,6 +617,9 @@ export class CaseService {
     const isDefendant = case_.defendant_id === userId;
 
     if (data.title !== undefined) {
+      if (!isPlaintiff) {
+        throw Errors.FORBIDDEN('只有發起方可以修改案件標題');
+      }
       updateData.title = data.title;
     }
 
@@ -593,7 +671,7 @@ export class CaseService {
       data: updateData,
     });
 
-    return updatedCase;
+    return projectCaseForViewer(updatedCase, userId);
     }, LOCK_TTL.CASE_UPDATE);
   }
 
@@ -666,11 +744,15 @@ export class CaseService {
       }
     }
 
-    // 權限校驗通過後再簽名媒體URL，避免未授權請求消耗簽名/I/O成本
-    case_.evidences = case_.evidences.map((e) => ({
-      ...e,
-      file_url: fileService.signUrl(e.file_url),
-    }));
+    const blindResponsePending = isBlindRemoteResponsePending(case_, userId);
+
+    // 權限校驗通過後再簽名媒體URL；盲寫階段不簽發、也不暴露發起方附件。
+    case_.evidences = blindResponsePending
+      ? []
+      : case_.evidences.map((e) => ({
+          ...e,
+          file_url: fileService.signUrl(e.file_url),
+        }));
     if (case_.pairing) {
       const pairing = case_.pairing as typeof case_.pairing & {
         user1?: { avatar_url?: string | null } | null;
@@ -682,12 +764,14 @@ export class CaseService {
         user2: signAvatar(pairing.user2) ?? null,
       };
     }
-    (case_ as { judgment: unknown }).judgment = await normalizeJudgmentWithSafetyState(case_.judgment, { caseId: case_.id });
+    (case_ as { judgment: unknown }).judgment = blindResponsePending
+      ? null
+      : await normalizeJudgmentWithSafetyState(case_.judgment, { caseId: case_.id });
 
-    return {
+    return projectCaseForViewer({
       ...case_,
       ...buildCaseSourceTrackingForRead(case_),
-    };
+    }, userId);
   }
 
   /**

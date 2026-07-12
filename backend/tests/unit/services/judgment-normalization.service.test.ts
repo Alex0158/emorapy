@@ -68,10 +68,17 @@ describe('normalizeJudgmentWithSafetyState', () => {
         can_show: false,
         reason: '安全支持路由不得展示責任比例，避免把安全風險對稱化',
       },
+      reconciliation_policy: {
+        defaultReconciliationIntent: 'safety_support',
+        allowedReconciliationIntents: ['safety_support', 'cool_down', 'graceful_exit'],
+        canInvitePartner: false,
+        canUseCoRepair: false,
+        forceSoloRepair: true,
+      },
     });
   });
 
-  it('lookup 失敗時應回退到 stored route 並記錄警告', async () => {
+  it('lookup 失敗時應隱藏比例、停止修復並標記 degraded', async () => {
     mockGetActiveRiskState.mockRejectedValueOnce(new Error('db unavailable'));
 
     const result = await normalizeJudgmentWithSafetyState({
@@ -84,10 +91,22 @@ describe('normalizeJudgmentWithSafetyState', () => {
 
     expect(result).toMatchObject({
       judgment_route: 'standard',
-      responsibility_ratio_visibility: { can_show: true, reason: null },
+      responsibility_ratio_visibility: {
+        can_show: false,
+        reason: '安全狀態暫時無法確認，已隱藏調整方向並停止修復操作',
+      },
+      reconciliation_policy: {
+        defaultReconciliationIntent: 'safety_support',
+        allowedReconciliationIntents: [],
+        canInvitePartner: false,
+        canUseCoRepair: false,
+        forceSoloRepair: true,
+      },
+      safety_state_status: 'degraded',
+      safety_risk_level: 'unknown',
     });
     expect(mockLoggerWarn).toHaveBeenCalledWith(
-      'Judgment safety state lookup failed, fallback to stored route visibility',
+      'Judgment safety state lookup failed, fail closed',
       expect.objectContaining({ judgmentId: 'j1', caseId: 'case-1' })
     );
   });

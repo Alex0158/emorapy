@@ -8,6 +8,10 @@ import {
   requireAdminPermission,
   requireAdminPermissionAll,
 } from '../../../src/middleware/adminAuth';
+import {
+  DEFAULT_ROLE_PERMISSIONS,
+  hasAdminPermission,
+} from '../../../src/utils/admin-permissions';
 
 const mockVerifyAdminToken = jest.fn();
 const mockFindAdminUser = jest.fn();
@@ -173,6 +177,16 @@ describe('middleware/adminAuth', () => {
     });
   });
 
+  describe('reports:sensitive:read', () => {
+    it('只由 admin:all 或 ops 預設敏感報表權限通過', () => {
+      expect(hasAdminPermission(['admin:all'], 'reports:sensitive:read')).toBe(true);
+      expect(DEFAULT_ROLE_PERMISSIONS.ops).toContain('reports:sensitive:read');
+      expect(hasAdminPermission(DEFAULT_ROLE_PERMISSIONS.ops, 'reports:sensitive:read')).toBe(true);
+      expect(DEFAULT_ROLE_PERMISSIONS.marketing).not.toContain('reports:sensitive:read');
+      expect(DEFAULT_ROLE_PERMISSIONS.support).not.toContain('reports:sensitive:read');
+    });
+  });
+
   describe('requireAdminPermissionAll', () => {
     it('缺少任一權限應回 FORBIDDEN', () => {
       const req = createReq({
@@ -204,4 +218,3 @@ describe('middleware/adminAuth', () => {
     });
   });
 });
-

@@ -1,6 +1,8 @@
 import { describe, it, expect } from '@jest/globals';
 import {
+  mergeMediaProviderConfigWithStoredSecret,
   normalizeManagedConfigValue,
+  projectManagedConfigValueForAdmin,
   validateCrossManagedConfigRules,
 } from '../../../src/services/admin-config-rules';
 
@@ -37,6 +39,52 @@ describe('admin-config-rules', () => {
       const hugeFlags: Record<string, boolean> = {};
       for (let i = 0; i < 201; i += 1) hugeFlags[`k_${i}`] = true;
       expect(() => normalizeManagedConfigValue('feature.flags', hugeFlags)).toThrow();
+    });
+  });
+
+  describe('media provider secret preservation', () => {
+    it('修改非 secret 欄位時應沿用已儲存 apiKey', () => {
+      expect(mergeMediaProviderConfigWithStoredSecret(
+        'media.provider.openai',
+        { baseUrl: 'https://new.example.com', model: 'image-v2' },
+        { apiKey: 'stored-secret', baseUrl: 'https://old.example.com' },
+      )).toEqual({
+        apiKey: 'stored-secret',
+        baseUrl: 'https://new.example.com',
+        model: 'image-v2',
+      });
+    });
+
+    it('明確提供新 apiKey 時不得被舊值覆蓋', () => {
+      expect(mergeMediaProviderConfigWithStoredSecret(
+        'media.provider.openai',
+        { apiKey: 'rotated-secret', baseUrl: 'https://new.example.com' },
+        { apiKey: 'stored-secret' },
+      )).toEqual({
+        apiKey: 'rotated-secret',
+        baseUrl: 'https://new.example.com',
+      });
+    });
+
+    it('Admin read projection 只回傳 allowlisted 非 secret 欄位與狀態', () => {
+      expect(projectManagedConfigValueForAdmin(
+        'media.provider.openai',
+        {
+          apiKey: 'stored-secret',
+          base_url: 'https://api.example.com',
+          timeout_ms: 8000,
+          model: 'image-v2',
+          hiddenToken: 'must-not-leak',
+        },
+        true,
+      )).toEqual({
+        value: {
+          baseUrl: 'https://api.example.com',
+          timeoutMs: 8000,
+          model: 'image-v2',
+        },
+        secretConfigured: true,
+      });
     });
   });
 

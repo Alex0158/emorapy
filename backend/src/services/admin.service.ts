@@ -44,7 +44,6 @@ class AdminService {
     roleKey?: AdminRoleKey;
     bootstrapToken?: string;
   }) {
-    await this.ensureDefaultRoles();
     const existingCount = await prisma.adminUser.count();
     if (existingCount > 0) {
       throw Errors.CONFLICT('管理員帳號已存在，請改用登入');
@@ -73,6 +72,13 @@ class AdminService {
     }
 
     const roleKey = payload.roleKey || 'super_admin';
+    if (!Object.prototype.hasOwnProperty.call(DEFAULT_ROLE_PERMISSIONS, roleKey)) {
+      throw Errors.VALIDATION_ERROR('管理員角色不存在');
+    }
+
+    // Bootstrap 是公開入口；只有在現有帳號、token 與 payload guards 全數通過後，
+    // 才允許建立／同步角色，避免被未授權請求重置持久化 RBAC。
+    await this.ensureDefaultRoles();
     const role = await prisma.adminRole.findUnique({ where: { key: roleKey } });
     if (!role) {
       throw Errors.VALIDATION_ERROR('管理員角色不存在');
@@ -398,4 +404,3 @@ class AdminService {
 }
 
 export const adminService = new AdminService();
-

@@ -3,9 +3,11 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 const mockAiStreamSessionCount = jest.fn();
 const mockAiStreamSessionFindMany = jest.fn();
+const mockAiStreamSessionFindUnique = jest.fn();
 const mockAiStreamSessionDeleteMany = jest.fn();
 const mockAiStreamSessionArchiveCount = jest.fn();
 const mockAiStreamSessionArchiveFindMany = jest.fn();
+const mockAiStreamSessionArchiveFindUnique = jest.fn();
 const mockAiStreamSessionArchiveCreateMany = jest.fn();
 const mockAiStreamEventCount = jest.fn();
 const mockAiStreamEventFindMany = jest.fn();
@@ -23,13 +25,13 @@ jest.mock('../../../src/config/database', () => ({
       deleteMany: (...args: unknown[]) => mockAiStreamSessionDeleteMany(...args),
       groupBy: jest.fn().mockResolvedValue([]),
       upsert: jest.fn().mockResolvedValue(undefined),
-      findUnique: jest.fn().mockResolvedValue(null),
+      findUnique: (...args: unknown[]) => mockAiStreamSessionFindUnique(...args),
     },
     aIStreamSessionArchive: {
       count: (...args: unknown[]) => mockAiStreamSessionArchiveCount(...args),
       findMany: (...args: unknown[]) => mockAiStreamSessionArchiveFindMany(...args),
       createMany: (...args: unknown[]) => mockAiStreamSessionArchiveCreateMany(...args),
-      findUnique: jest.fn().mockResolvedValue(null),
+      findUnique: (...args: unknown[]) => mockAiStreamSessionArchiveFindUnique(...args),
     },
     aIStreamEventRecord: {
       count: (...args: unknown[]) => mockAiStreamEventCount(...args),
@@ -50,9 +52,11 @@ describe('AIStreamService governance', () => {
     jest.resetModules();
     mockAiStreamSessionCount.mockReset().mockResolvedValue(0);
     mockAiStreamSessionFindMany.mockReset().mockResolvedValue([]);
+    mockAiStreamSessionFindUnique.mockReset().mockResolvedValue(null);
     mockAiStreamSessionDeleteMany.mockReset().mockResolvedValue({ count: 0 });
     mockAiStreamSessionArchiveCount.mockReset().mockResolvedValue(0);
     mockAiStreamSessionArchiveFindMany.mockReset().mockResolvedValue([]);
+    mockAiStreamSessionArchiveFindUnique.mockReset().mockResolvedValue(null);
     mockAiStreamSessionArchiveCreateMany.mockReset().mockResolvedValue({ count: 0 });
     mockAiStreamEventCount.mockReset().mockResolvedValue(0);
     mockAiStreamEventFindMany.mockReset().mockResolvedValue([]);
@@ -186,5 +190,195 @@ describe('AIStreamService governance', () => {
     expect(result.items).toHaveLength(2);
     expect(result.items[0]).toEqual(expect.objectContaining({ streamId: 'live-1', source: 'live' }));
     expect(result.items[1]).toEqual(expect.objectContaining({ streamId: 'archive-1', source: 'archive' }));
+  });
+
+  it('getPersistenceReport 應對一般 reports read 移除 failure message 與額外欄位', async () => {
+    mockAiStreamSessionFindMany.mockResolvedValueOnce([
+      {
+        stream_id: 'failed-stream-1',
+        request_id: 'failed-request-1',
+        scope_type: 'interview_session',
+        scope_id: 'session-1',
+        status: 'failed',
+        last_event_type: 'stream.failed',
+        last_seq: 3,
+        error: {
+          code: 'INTERVIEW_STREAM_FAILED',
+          message: 'private relationship narrative',
+          retryable: true,
+          metadata: { prompt: 'private prompt' },
+        },
+        updated_at: new Date('2026-07-12T10:00:02.000Z'),
+      },
+    ]);
+
+    const { AIStreamService } = await import('../../../src/services/ai-stream.service');
+    const service = new AIStreamService({ enabled: false, persistToDatabase: false });
+    const result = await service.getPersistenceReport({ days: 7, limit: 10 });
+
+    expect(result.recentFailures).toEqual([
+      expect.objectContaining({
+        error: {
+          code: 'INTERVIEW_STREAM_FAILED',
+          retryable: true,
+        },
+      }),
+    ]);
+    expect(JSON.stringify(result)).not.toContain('private relationship narrative');
+    expect(JSON.stringify(result)).not.toContain('private prompt');
+  });
+
+  it('getStreamPersistenceDetail 預設應移除高敏文本、metadata 與 error message', async () => {
+    mockAiStreamSessionFindUnique.mockResolvedValue({
+      stream_id: 'stream-1',
+      request_id: 'request-1',
+      scope_type: 'interview_session',
+      scope_id: 'session-1',
+      status: 'persisted',
+      last_seq: 2,
+      last_event_type: 'stream.persisted',
+      actor_role: 'aiMediator',
+      text: 'private interview text',
+      phase: 'completed',
+      message_id: 'message-1',
+      metadata: { prompt: 'private prompt' },
+      error: {
+        code: 'INTERVIEW_STREAM_FAILED',
+        message: 'private session failure message',
+        retryable: true,
+        metadata: { prompt: 'private session prompt' },
+      },
+      backend_mode: 'redis',
+      created_at: new Date('2026-07-12T10:00:00.000Z'),
+      updated_at: new Date('2026-07-12T10:00:02.000Z'),
+    });
+    mockAiStreamEventFindMany.mockResolvedValue([
+      {
+        stream_id: 'stream-1',
+        request_id: 'request-1',
+        scope_type: 'interview_session',
+        scope_id: 'session-1',
+        seq: 1,
+        event_type: 'stream.delta',
+        actor_role: 'aiMediator',
+        message_id: 'message-1',
+        delta_text: 'private delta',
+        full_text: 'private full text',
+        phase: 'streaming',
+        metadata: { private: true },
+        error: {
+          code: 'user supplied private error code',
+          message: 'private event failure message',
+          retryable: false,
+          metadata: { prompt: 'private event prompt' },
+        },
+        created_at: new Date('2026-07-12T10:00:01.000Z'),
+      },
+    ]);
+
+    const { AIStreamService } = await import('../../../src/services/ai-stream.service');
+    const service = new AIStreamService({ enabled: false, persistToDatabase: false });
+    const result = await service.getStreamPersistenceDetail('stream-1', { source: 'live' });
+
+    expect(result).toEqual(expect.objectContaining({
+      sensitiveContentIncluded: false,
+      session: expect.objectContaining({
+        text: null,
+        metadata: null,
+        error: { code: 'INTERVIEW_STREAM_FAILED', retryable: true },
+      }),
+      events: [expect.objectContaining({
+        deltaText: null,
+        fullText: null,
+        metadata: null,
+        error: { retryable: false },
+      })],
+    }));
+    expect(JSON.stringify(result)).not.toContain('private session failure message');
+    expect(JSON.stringify(result)).not.toContain('private event failure message');
+    expect(JSON.stringify(result)).not.toContain('private session prompt');
+    expect(JSON.stringify(result)).not.toContain('private event prompt');
+    expect(JSON.stringify(result)).not.toContain('user supplied private error code');
+  });
+
+  it('getStreamPersistenceDetail 只在明確授權時返回高敏內容', async () => {
+    mockAiStreamSessionFindUnique.mockResolvedValue({
+      stream_id: 'stream-1',
+      request_id: 'request-1',
+      scope_type: 'chat_room',
+      scope_id: 'room-1',
+      status: 'persisted',
+      last_seq: 2,
+      last_event_type: 'stream.persisted',
+      actor_role: 'aiMediator',
+      text: 'private chat text',
+      phase: 'completed',
+      message_id: 'message-1',
+      metadata: { private: true },
+      error: {
+        code: 'CHAT_STREAM_FAILED',
+        message: 'private session failure message',
+        retryable: true,
+        metadata: { prompt: 'private session prompt' },
+      },
+      backend_mode: 'redis',
+      created_at: new Date('2026-07-12T10:00:00.000Z'),
+      updated_at: new Date('2026-07-12T10:00:02.000Z'),
+    });
+    mockAiStreamEventFindMany.mockResolvedValue([
+      {
+        stream_id: 'stream-1',
+        request_id: 'request-1',
+        scope_type: 'chat_room',
+        scope_id: 'room-1',
+        seq: 1,
+        event_type: 'stream.delta',
+        actor_role: 'aiMediator',
+        message_id: 'message-1',
+        delta_text: 'private delta',
+        full_text: 'private full text',
+        phase: 'streaming',
+        metadata: { private: true },
+        error: {
+          code: 'CHAT_EVENT_FAILED',
+          message: 'private event failure message',
+          retryable: false,
+          metadata: { prompt: 'private event prompt' },
+        },
+        created_at: new Date('2026-07-12T10:00:01.000Z'),
+      },
+    ]);
+
+    const { AIStreamService } = await import('../../../src/services/ai-stream.service');
+    const service = new AIStreamService({ enabled: false, persistToDatabase: false });
+    const result = await service.getStreamPersistenceDetail('stream-1', {
+      source: 'live',
+      includeSensitive: true,
+    });
+
+    expect(result).toEqual(expect.objectContaining({
+      sensitiveContentIncluded: true,
+      session: expect.objectContaining({
+        text: 'private chat text',
+        metadata: { private: true },
+        error: {
+          code: 'CHAT_STREAM_FAILED',
+          message: 'private session failure message',
+          retryable: true,
+          metadata: { prompt: 'private session prompt' },
+        },
+      }),
+      events: [expect.objectContaining({
+        deltaText: 'private delta',
+        fullText: 'private full text',
+        metadata: { private: true },
+        error: {
+          code: 'CHAT_EVENT_FAILED',
+          message: 'private event failure message',
+          retryable: false,
+          metadata: { prompt: 'private event prompt' },
+        },
+      })],
+    }));
   });
 });

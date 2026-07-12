@@ -19,7 +19,9 @@ import { appTelemetryService } from '../services/app-telemetry.service';
 import {
   ADMIN_MANAGED_CONFIG_KEYS,
   isManagedConfigKeyAllowed,
+  mergeMediaProviderConfigWithStoredSecret,
   normalizeManagedConfigValue,
+  projectManagedConfigValueForAdmin,
   validateCrossManagedConfigRules,
 } from '../services/admin-config-rules';
 import { Errors } from '../utils/errors';
@@ -30,6 +32,7 @@ import {
   buildCompletedExecutionProductFlowWhere,
   buildJudgmentProductFlowWhere,
 } from '../utils/case-classifier';
+import { hasAdminPermission } from '../utils/admin-permissions';
 
 const PRODUCT_FLOW_STUCK_IN_PROGRESS_MINUTES = 30;
 
@@ -417,9 +420,11 @@ class AdminController {
       ]);
       const items = rows.map((row) => {
         if (!row.is_sensitive) return row;
+        const projected = projectManagedConfigValueForAdmin(row.key, row.value, true);
         return {
           ...row,
-          value: '***MASKED***',
+          value: projected.value,
+          secret_configured: projected.secretConfigured,
         };
       });
 
@@ -442,7 +447,15 @@ class AdminController {
       if (!isManagedConfigKeyAllowed(normalizedKey)) {
         throw Errors.FORBIDDEN('該配置 key 不在後台可管理白名單');
       }
-      const normalizedValue = normalizeManagedConfigValue(normalizedKey, value);
+      const storedValue = normalizedKey.startsWith('media.provider.')
+        ? await systemConfigService.getConfigValue<unknown>(normalizedKey)
+        : undefined;
+      const mergedValue = mergeMediaProviderConfigWithStoredSecret(
+        normalizedKey,
+        value,
+        storedValue,
+      );
+      const normalizedValue = normalizeManagedConfigValue(normalizedKey, mergedValue);
       await validateCrossManagedConfigRules(
         normalizedKey,
         normalizedValue,
@@ -486,7 +499,18 @@ class AdminController {
         jobsRuntimeEnabled = await reconcileJobsRuntimeConfig();
       }
 
-      const safeItem = item.is_sensitive ? { ...item, value: '***MASKED***' } : item;
+      const projected = projectManagedConfigValueForAdmin(
+        item.key,
+        item.value,
+        item.is_sensitive,
+      );
+      const safeItem = item.is_sensitive
+        ? {
+            ...item,
+            value: projected.value,
+            secret_configured: projected.secretConfigured,
+          }
+        : item;
       res.json({
         success: true,
         data: {
@@ -1302,12 +1326,27 @@ class AdminController {
       }
       const source = parseAIStreamSource(req);
       const eventLimit = Math.min(Math.max(Number(req.query.eventLimit ?? 200) || 200, 1), 1000);
+      const includeSensitive = hasAdminPermission(
+        req.admin?.permissions ?? [],
+        'reports:sensitive:read'
+      );
       const data = await aiStreamService.getStreamPersistenceDetail(streamId, {
         source,
         eventLimit,
+        includeSensitive,
       });
       if (!data) {
         throw Errors.NOT_FOUND('AI Stream 不存在');
+      }
+      if (includeSensitive) {
+        await adminService.writeAuditLog({
+          actorId: req.admin?.id,
+          actorType: 'admin',
+          entityType: 'ai_stream',
+          entityId: streamId,
+          action: 'view_sensitive_content',
+          detail: { source, eventLimit },
+        });
       }
       res.json({ success: true, data });
     } catch (error) {

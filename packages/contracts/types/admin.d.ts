@@ -48,6 +48,7 @@ export interface AdminConfigItem {
     value: unknown;
     description?: string | null;
     is_sensitive: boolean;
+    secret_configured?: boolean;
     is_runtime: boolean;
     updated_by?: string | null;
     created_at: string;

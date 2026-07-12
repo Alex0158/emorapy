@@ -20,11 +20,11 @@ import {
   type RepairJourneyContext,
   type RepairJourneyViewerRole,
 } from './repair-journey.service';
-import { getProductSafetyPolicyForJudgment } from './safety-routing.service';
 import {
   buildRepairAccessContext,
   getRepairEligibilityForCase,
   getRepairJourneyAccessPolicyForJudgment,
+  type RepairJourneyAccessPolicy,
 } from './repair-eligibility.service';
 import { isUserBoundProductCase } from '../utils/case-classifier';
 import type { BackendLocale } from '../i18n';
@@ -166,6 +166,32 @@ export interface GeneratePlansInput {
   intent?: ReconciliationIntent;
   preferences?: PlanPreferences;
   force_regenerate?: boolean;
+}
+
+export interface ReconciliationAccessContext {
+  judgment_route: RepairJourneyAccessPolicy['judgmentRoute'];
+  default_intent: ReconciliationIntent;
+  allowed_intents: ReconciliationIntent[];
+  can_invite_partner: boolean;
+  can_use_co_repair: boolean;
+  force_solo_repair: boolean;
+  relationship_scope: RepairJourneyAccessPolicy['relationshipScope'];
+  reasons: string[];
+}
+
+function buildReconciliationAccessContext(
+  repairJourneyAccess: RepairJourneyAccessPolicy,
+): ReconciliationAccessContext {
+  return {
+    judgment_route: repairJourneyAccess.judgmentRoute,
+    default_intent: repairJourneyAccess.defaultReconciliationIntent,
+    allowed_intents: repairJourneyAccess.allowedReconciliationIntents,
+    can_invite_partner: repairJourneyAccess.canInvitePartner,
+    can_use_co_repair: repairJourneyAccess.canUseCoRepair,
+    force_solo_repair: repairJourneyAccess.forceSoloRepair,
+    relationship_scope: repairJourneyAccess.relationshipScope,
+    reasons: repairJourneyAccess.reasons,
+  };
 }
 
 interface JourneyEntry {
@@ -508,6 +534,7 @@ export class ReconciliationService {
   private async syncTrackCommitment(
     trackId: string,
     invitedAt?: Date | null,
+    forceSoloOverride = false,
   ) {
     const track = await prisma.repairTrack.findUnique({
       where: { id: trackId },
@@ -521,7 +548,7 @@ export class ReconciliationService {
     const declinedCount = track.participant_states.filter((state) => state.commitment_status === 'declined').length;
     const deferredCount = track.participant_states.filter((state) => state.commitment_status === 'deferred').length;
     const pausedCount = track.participant_states.filter((state) => state.commitment_status === 'paused').length;
-    const forceSoloRepair = track.intent === 'safety_support';
+    const forceSoloRepair = forceSoloOverride || track.intent === 'safety_support';
     const nextRecommendedMode = forceSoloRepair ? 'solo' : committedCount >= 2 ? 'co' : 'solo';
     const shouldKeepRuntimeState = ['solo_active', 'co_active', 'paused', 'completed', 'closed', 'replanning'].includes(track.status);
     const keptRuntimeStatus = forceSoloRepair && track.status === 'co_active' ? 'solo_active' : track.status;
@@ -540,7 +567,9 @@ export class ReconciliationService {
         ? 'partner_declined'
         : deferredCount > 0
           ? 'partner_deferred'
-        : committedCount >= 2
+        : forceSoloRepair
+          ? 'solo_policy'
+          : committedCount >= 2
           ? 'dual_committed'
           : invitedAt || track.partner_invited_at
             ? 'partner_invited'
@@ -599,6 +628,15 @@ export class ReconciliationService {
     return plan;
   }
 
+  private assertPlanIntentAllowed(
+    intent: string,
+    repairJourneyAccess: RepairJourneyAccessPolicy,
+  ) {
+    if (!repairJourneyAccess.allowedReconciliationIntents.includes(intent as ReconciliationIntent)) {
+      throw Errors.FORBIDDEN('目前安全狀態不允許使用此調整方案，請返回梳理結果選擇安全支持方向');
+    }
+  }
+
   private async getVersionSummary(
     judgmentId: string,
     intent: ReconciliationIntent,
@@ -624,6 +662,7 @@ export class ReconciliationService {
     plans: PlanRecordForHydration[],
     userId: string,
     intent: ReconciliationIntent,
+    repairAccess: ReconciliationAccessContext,
     preferences?: PlanPreferences,
     versionSummary?: VersionSummary,
     locale: BackendLocale = 'zh-TW',
@@ -642,6 +681,7 @@ export class ReconciliationService {
       plans: plans.map((plan) => this.hydratePlan(plan, userId, { recommendedPlanId: recommendedPlanId ?? undefined })),
       recommended_plan_id: recommendedPlanId,
       intent,
+      repair_access: repairAccess,
       applied_preferences: preferences ?? null,
       journey_entry: await this.buildJourneyEntry(plans, userId, versionSummary, locale),
       version_summary: versionSummary ?? {
@@ -689,14 +729,13 @@ export class ReconciliationService {
       throw Errors.FORBIDDEN('無權限生成和好方案');
     }
 
-    const safetyPolicy = getProductSafetyPolicyForJudgment(judgment);
     const repairEligibility = getRepairEligibilityForCase(judgment.case);
     const repairJourneyAccess = await getRepairJourneyAccessPolicyForJudgment(judgment, repairEligibility);
     if (!repairJourneyAccess.canEnterRepairJourney) {
       throw Errors.FORBIDDEN('此案件尚未綁定已登入當事人，不能生成修復旅程');
     }
-    const intent = input?.intent ?? safetyPolicy.defaultReconciliationIntent;
-    if (!safetyPolicy.allowedReconciliationIntents.includes(intent)) {
+    const intent = input?.intent ?? repairJourneyAccess.defaultReconciliationIntent;
+    if (!repairJourneyAccess.allowedReconciliationIntents.includes(intent)) {
       throw Errors.VALIDATION_ERROR('此梳理結果路由不允許生成一般共同修復方案，請改用安全支持或低壓退出方向');
     }
     if (repairJourneyAccess.forceSoloRepair && preferences?.invite_partner) {
@@ -727,8 +766,10 @@ export class ReconciliationService {
         existingPlans as PlanRecordForHydration[],
         userId || judgment.case.plaintiff_id || judgment.case.defendant_id || '',
         intent,
+        buildReconciliationAccessContext(repairJourneyAccess),
         preferences,
         versionSummary,
+        locale,
       );
     }
 
@@ -757,9 +798,9 @@ export class ReconciliationService {
     }
 
     let safetyContext: string | undefined;
-    if (safetyPolicy.route === 'crisis_support') {
+    if (repairJourneyAccess.judgmentRoute === 'crisis_support') {
       safetyContext = '本案件已標記為危機支持路由。禁止共同修復、責任施壓與伴侶召回，請優先提供個人安全與危機支持方案。';
-    } else if (safetyPolicy.route === 'safety_support') {
+    } else if (repairJourneyAccess.judgmentRoute === 'safety_support') {
       safetyContext = '本案件已標記為安全支持路由。禁止共同修復、責任對稱化與伴侶召回，請優先提供個人安全規劃。';
     }
     if (repairJourneyAccess.forceSoloRepair) {
@@ -902,6 +943,7 @@ export class ReconciliationService {
       savedPlans,
       userId || judgment.case.plaintiff_id || judgment.case.defendant_id || '',
       intent,
+      buildReconciliationAccessContext(repairJourneyAccess),
       preferences,
       versionSummary,
       locale,
@@ -923,7 +965,7 @@ export class ReconciliationService {
   ) {
     const judgment = await prisma.judgment.findUnique({
       where: { id: judgmentId },
-      include: { case: { select: { plaintiff_id: true, defendant_id: true } } },
+      include: { case: { include: REPAIR_CASE_INCLUDE } },
     });
 
     if (!judgment) {
@@ -935,10 +977,19 @@ export class ReconciliationService {
       throw Errors.FORBIDDEN('無權限查看此梳理結果的和好方案');
     }
 
-    const where: Prisma.ReconciliationPlanWhereInput = { judgment_id: judgmentId, superseded_at: null };
+    const repairEligibility = getRepairEligibilityForCase(caseRecord);
+    const repairJourneyAccess = await getRepairJourneyAccessPolicyForJudgment(judgment, repairEligibility);
+    if (!repairJourneyAccess.canEnterRepairJourney) {
+      throw Errors.FORBIDDEN('此案件尚未綁定已登入當事人，不能查看修復旅程');
+    }
+    const requestedIntent = filters?.intent;
+    const intent = requestedIntent && repairJourneyAccess.allowedReconciliationIntents.includes(requestedIntent)
+      ? requestedIntent
+      : repairJourneyAccess.defaultReconciliationIntent;
+
+    const where: Prisma.ReconciliationPlanWhereInput = { judgment_id: judgmentId, intent, superseded_at: null };
     if (filters?.difficulty) where.difficulty_level = filters.difficulty;
     if (filters?.type) where.plan_type = filters.type;
-    if (filters?.intent) where.intent = filters.intent;
 
     const plans = await prisma.reconciliationPlan.findMany({
       where,
@@ -958,9 +1009,16 @@ export class ReconciliationService {
       orderBy: { created_at: 'asc' },
     });
 
-    const intent = filters?.intent || (plans[0]?.intent as ReconciliationIntent | undefined) || 'repair';
     const versionSummary = await this.getVersionSummary(judgmentId, intent, plans);
-    return this.buildPlansPayload(plans as PlanRecordForHydration[], userId, intent, undefined, versionSummary, locale);
+    return this.buildPlansPayload(
+      plans as PlanRecordForHydration[],
+      userId,
+      intent,
+      buildReconciliationAccessContext(repairJourneyAccess),
+      undefined,
+      versionSummary,
+      locale,
+    );
   }
 
   /**
@@ -968,10 +1026,11 @@ export class ReconciliationService {
    */
   async getPlanById(planId: string, userId: string, locale: BackendLocale = 'zh-TW') {
     const plan = await this.loadPlanForAction(planId, userId);
+    const repairEligibility = getRepairEligibilityForCase(plan.judgment.case);
+    const repairJourneyAccess = await getRepairJourneyAccessPolicyForJudgment(plan.judgment, repairEligibility);
+    this.assertPlanIntentAllowed(plan.intent, repairJourneyAccess);
     const { emotional_analysis: _ea, ...safeJudgment } = plan.judgment;
     const versionSummary = await this.getVersionSummary(plan.judgment_id, plan.intent, [plan]);
-    const inviteEligibility = getRepairEligibilityForCase(plan.judgment.case);
-    const inviteAccess = await getRepairJourneyAccessPolicyForJudgment(plan.judgment, inviteEligibility);
     const journeyContext = await this.buildJourneyContext(plan, userId, locale);
     const ctaState = await this.buildPlanCtaState(plan, userId, locale);
     return {
@@ -982,7 +1041,7 @@ export class ReconciliationService {
       invite_context: {
         partner_invited_at: plan.repair_track?.partner_invited_at ?? null,
         partner_status: this.buildCommitmentSummary(plan, userId).partner?.commitment_status ?? 'not_viewed',
-        can_invite: inviteAccess.canInvitePartner
+        can_invite: repairJourneyAccess.canInvitePartner
           && !!this.getOtherParticipantId(plan.judgment.case, userId),
       },
       cta_state: ctaState,
@@ -1007,10 +1066,13 @@ export class ReconciliationService {
     const plan = await this.loadPlanForAction(planId, userId);
     const caseRecord = plan.judgment.case;
     const isUser1 = caseRecord.plaintiff_id === userId;
-    const track = await this.ensureRepairTrack(plan);
     const partnerId = this.getOtherParticipantId(caseRecord, userId);
     const repairEligibility = getRepairEligibilityForCase(caseRecord);
     const repairJourneyAccess = await getRepairJourneyAccessPolicyForJudgment(plan.judgment, repairEligibility);
+    if (action === 'committed') {
+      this.assertPlanIntentAllowed(plan.intent, repairJourneyAccess);
+    }
+    const track = await this.ensureRepairTrack(plan);
 
     if (action === 'committed') {
       await prisma.reconciliationPlan.update({
@@ -1071,7 +1133,7 @@ export class ReconciliationService {
       reason: options?.reason ?? null,
       remind_in_hours: options?.remindInHours ?? null,
     });
-    await this.syncTrackCommitment(track.id);
+    await this.syncTrackCommitment(track.id, undefined, repairJourneyAccess.forceSoloRepair);
     const refreshedPlan = await this.loadPlanForAction(planId, userId);
 
     if (partnerId && action !== 'paused' && repairJourneyAccess.canNotifyPartner) {
@@ -1123,6 +1185,7 @@ export class ReconciliationService {
     const plan = await this.loadPlanForAction(planId, userId);
     const repairEligibility = getRepairEligibilityForCase(plan.judgment.case);
     const repairJourneyAccess = await getRepairJourneyAccessPolicyForJudgment(plan.judgment, repairEligibility);
+    this.assertPlanIntentAllowed(plan.intent, repairJourneyAccess);
     if (!repairJourneyAccess.canInvitePartner) {
       throw Errors.FORBIDDEN('此梳理結果路由不允許邀請伴侶加入修復旅程');
     }
@@ -1152,7 +1215,7 @@ export class ReconciliationService {
       });
     }
 
-    const syncedTrack = await this.syncTrackCommitment(track.id, invitedAt);
+    const syncedTrack = await this.syncTrackCommitment(track.id, invitedAt, repairJourneyAccess.forceSoloRepair);
     await this.createTrackEvent(track.id, 'partner_invited', userId, {
       partner_id: partnerId,
       plan_id: planId,
@@ -1193,6 +1256,9 @@ export class ReconciliationService {
   async startPlan(planId: string, userId: string, locale: BackendLocale = 'zh-TW') {
     const plan = await this.loadPlanForAction(planId, userId);
     const caseRecord = plan.judgment.case;
+    const repairEligibility = getRepairEligibilityForCase(caseRecord);
+    const repairJourneyAccess = await getRepairJourneyAccessPolicyForJudgment(plan.judgment, repairEligibility);
+    this.assertPlanIntentAllowed(plan.intent, repairJourneyAccess);
     const currentSelected = (caseRecord.plaintiff_id === userId && plan.user1_selected)
       || (caseRecord.defendant_id === userId && plan.user2_selected);
     if (!currentSelected) {
@@ -1221,7 +1287,7 @@ export class ReconciliationService {
           committed_at: new Date(),
         },
       });
-      track = await this.syncTrackCommitment(track.id);
+      track = await this.syncTrackCommitment(track.id, undefined, repairJourneyAccess.forceSoloRepair);
     }
 
     const content = parseStoredPlanContent(plan.plan_content);
@@ -1257,8 +1323,6 @@ export class ReconciliationService {
       },
     });
 
-    const repairEligibility = getRepairEligibilityForCase(plan.judgment.case);
-    const repairJourneyAccess = await getRepairJourneyAccessPolicyForJudgment(plan.judgment, repairEligibility);
     const dualCommitted = !repairJourneyAccess.forceSoloRepair
       && refreshedTrack?.participant_states.filter((state) => state.commitment_status === 'committed').length === 2;
     const status: RepairTrackStatusValue = dualCommitted ? 'co_active' : 'solo_active';
@@ -1328,6 +1392,13 @@ export class ReconciliationService {
       throw Errors.FORBIDDEN('無權限恢復此修復旅程');
     }
 
+    const repairEligibility = getRepairEligibilityForCase(caseRecord);
+    const repairJourneyAccess = await getRepairJourneyAccessPolicyForJudgment(
+      track.plan.judgment,
+      repairEligibility,
+    );
+    this.assertPlanIntentAllowed(track.plan.intent, repairJourneyAccess);
+
     const existingState = track.participant_states.find((state) => state.user_id === userId);
     await prisma.repairParticipantState.upsert({
       where: {
@@ -1355,7 +1426,7 @@ export class ReconciliationService {
       include: { participant_states: true },
     });
     const committedCount = refreshedTrack?.participant_states.filter((state) => state.commitment_status === 'committed').length ?? 1;
-    const nextStatus: RepairTrackStatusValue = track.intent === 'safety_support'
+    const nextStatus: RepairTrackStatusValue = repairJourneyAccess.forceSoloRepair
       ? 'solo_active'
       : committedCount >= 2 ? 'co_active' : 'solo_active';
 

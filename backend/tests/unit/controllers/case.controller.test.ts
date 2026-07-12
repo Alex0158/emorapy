@@ -564,6 +564,37 @@ describe('CaseController', () => {
       });
     });
 
+    it('blind remote mutation 應原樣返回 service 的 viewer projection', async () => {
+      req.params = { id: 'case-private' };
+      req.body = { defendant_statement: '' };
+      mockGetAuthUserId.mockReturnValue('u2');
+      const projectedCase = {
+        id: 'case-private',
+        mode: 'remote',
+        status: 'draft',
+        title: '',
+        plaintiff_statement: '',
+        defendant_statement: null,
+        evidences: [],
+        judgment: null,
+        safety_metadata: null,
+        blind_response_pending: true,
+      };
+      mockUpdateCase.mockResolvedValue(projectedCase);
+
+      await controller.updateCase(req as Request, res as Response, next);
+
+      expect(mockUpdateCase).toHaveBeenCalledWith('case-private', 'u2', {
+        defendant_statement: '',
+      });
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        data: { case: projectedCase },
+        message: '案件已更新',
+      });
+      expect(next).not.toHaveBeenCalled();
+    });
+
     it('updateCase 拋錯時應 next(error)', async () => {
       req.params = { id: 'c1' };
       req.body = { title: 'x' };

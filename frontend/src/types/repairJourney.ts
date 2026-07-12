@@ -50,4 +50,12 @@ export interface RepairJourneyContext {
   entry_path: string;
   resume_path: string;
   presentation_bucket: RepairJourneyPresentationBucket;
+  repair_access?: {
+    can_invite_partner: boolean;
+    can_use_co_repair: boolean;
+    can_notify_partner: boolean;
+    force_solo_repair: boolean;
+    relationship_scope: string;
+    reasons: string[];
+  };
 }

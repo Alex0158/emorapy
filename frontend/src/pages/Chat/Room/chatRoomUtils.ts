@@ -431,22 +431,6 @@ export function getRoleLabel(role: string | null | undefined): string {
 	return t("chat.role.unknown");
 }
 
-export function getMessageTypeLabel(
-	messageType: string | null | undefined,
-): string {
-	if (!messageType) return t("common.na");
-	if (![
-		"user_text",
-		"ai_text",
-		"ai_reflection",
-		"ai_mediation",
-		"ai_summary",
-		"system_event",
-		"safety_notice",
-	].includes(messageType)) return messageType;
-	return t(`chat.messageType.${messageType}`);
-}
-
 export function getVisibilityScopeLabel(
 	visibilityScope: string | null | undefined,
 ): string {
@@ -460,11 +444,6 @@ export function getVisibilityScopeLabel(
 		"share_from_join_time",
 	].includes(visibilityScope)) return visibilityScope;
 	return t(`chat.visibility.${visibilityScope}`);
-}
-
-export function getAiStrategyLabel(strategy: string | null | undefined): string {
-	if (!strategy) return "";
-	return t("chat.aiStrategyLabel", { strategy });
 }
 
 export function mergeSortedMessages(

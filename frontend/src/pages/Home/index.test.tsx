@@ -2,7 +2,7 @@
  * Home 頁面單元測試
  */
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import Home from './index';
@@ -21,13 +21,6 @@ vi.mock('@/components/common/SEO', () => ({
   default: () => null,
 }));
 
-vi.mock('@/components/common/AnimatedWrapper', () => ({
-  default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-}));
-
-vi.mock('@/components/business/MediatorAvatar', () => ({
-  default: () => <div data-testid="mediator-avatar">MediatorAvatar</div>,
-}));
 vi.mock('./components/AdaptiveDashboard', () => ({
   default: () => <div data-testid="adaptive-dashboard">AdaptiveDashboard</div>,
 }));
@@ -86,19 +79,18 @@ describe('Home', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/auth/register');
   });
 
-  it('應顯示價值與聆聽展示區塊', async () => {
+  it('應顯示三段式梳理輸出與清楚的產品邊界', () => {
     render(
       <MemoryRouter>
         <Home />
       </MemoryRouter>
     );
-    await waitFor(() => {
-      expect(screen.getByText('拖一下時間線，看 Emorapy 怎麼聽出話裡沒說完的意思。')).toBeInTheDocument();
-    });
-    expect(screen.getByText('碗盤又放在水槽了')).toBeInTheDocument();
-    expect(screen.queryByText('Emorapy · 聽見 12:14')).not.toBeInTheDocument();
-    expect(screen.getByText('負責，不是認錯。是願意一起把關係修回來。')).toBeInTheDocument();
-    expect(screen.getByText('你可以拿到什麼')).toBeInTheDocument();
+    expect(screen.getByText('把混亂拆成三件可看懂的事')).toBeInTheDocument();
+    expect(screen.getByText('事件與感受')).toBeInTheDocument();
+    expect(screen.getByText('彼此的落差')).toBeInTheDocument();
+    expect(screen.getByText('下一個可行動作')).toBeInTheDocument();
+    expect(screen.getByText('使用前先知道')).toBeInTheDocument();
+    expect(screen.queryByText('碗盤又放在水槽了')).not.toBeInTheDocument();
   });
 
   it('應顯示跳過到主要內容連結', () => {
@@ -110,32 +102,26 @@ describe('Home', () => {
     expect(screen.getByText('跳過到主要內容')).toBeInTheDocument();
   });
 
-  it('en-US 下應顯示英文版聆聽展示', async () => {
+  it('en-US 下應顯示英文版 Guided Reflection 內容', () => {
     setLocale('en-US');
     render(
       <MemoryRouter>
         <Home />
       </MemoryRouter>
     );
-    await waitFor(() => {
-      expect(screen.getByText('Drag the timeline to see how Emorapy hears what sits underneath.')).toBeInTheDocument();
-    });
-    expect(screen.queryByText('拖一下時間線，看 Emorapy 怎麼聽出話裡沒說完的意思。')).not.toBeInTheDocument();
+    expect(screen.getByText('Turn the noise into three things you can inspect')).toBeInTheDocument();
+    expect(screen.getByText('Know the scope before you begin')).toBeInTheDocument();
+    expect(screen.queryByText('把混亂拆成三件可看懂的事')).not.toBeInTheDocument();
   });
 
-  it('已登入時主按鈕應導航至 /case/create 且不顯示協同模式按鈕', async () => {
+  it('已登入時應顯示自適應儀表板，不重複顯示公開首頁 CTA', () => {
     mockUseAuthStore.mockReturnValue({ isAuthenticated: true });
     render(
       <MemoryRouter>
         <Home />
       </MemoryRouter>
     );
-    const buttons = screen.getAllByRole('button');
-    const primaryBtn = buttons.find(btn => btn.getAttribute('aria-label')?.includes('正式處理'));
-    expect(primaryBtn).toBeDefined();
-    if (primaryBtn) {
-      await userEvent.click(primaryBtn);
-      expect(mockNavigate).toHaveBeenCalledWith('/case/create');
-    }
+    expect(screen.getByTestId('adaptive-dashboard')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /開始快速判斷/ })).not.toBeInTheDocument();
   });
 });

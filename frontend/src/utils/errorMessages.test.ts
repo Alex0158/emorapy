@@ -43,7 +43,7 @@ describe('errorMessages', () => {
 
   describe('getErrorMessage', () => {
     it('已知 code 應按 zh-TW locale 返回對應消息', () => {
-      expect(getErrorMessage('UNAUTHORIZED')).toBe('登錄已過期，請重新登錄');
+      expect(getErrorMessage('UNAUTHORIZED')).toBe('登入已過期，請重新登入');
       expect(getErrorMessage('NOT_FOUND')).toBe('資源不存在');
     });
 

@@ -14,15 +14,6 @@
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
-@font-face {
-  font-family: "Plus Jakarta Sans";
-  src: url('/fonts/jakarta-latin.woff2') format('woff2');
-  font-weight: 600 700;
-  font-style: normal;
-  font-display: optional;
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
 /* System font fallback with matched metrics (CLS prevention) */
 @font-face {
   font-family: "Inter Fallback";
@@ -33,36 +24,24 @@
   line-gap-override: 0%;
 }
 
-@font-face {
-  font-family: "Jakarta Fallback";
-  src: local("Arial");
-  size-adjust: 108%;
-  ascent-override: 92%;
-  descent-override: 22%;
-  line-gap-override: 0%;
-}
-
 /*
- * Emorapy - Design Token System
- * 溫暖珊瑚/蜜金色系 — 親和、信任、希望
- *
- * shadcn/ui 兼容的 CSS custom properties
- * 使用 HSL 格式以支持 opacity utilities
+ * Emorapy — Guided Reflection design tokens
+ * Mineral canvas, pine ink and one restrained clay action colour.
  */
 
 @theme {
   /* === 品牌色 === */
-  --color-primary: oklch(0.65 0.15 25);
+  --color-primary: #A64F3D;
   --color-primary-foreground: #FFFFFF;
-  --color-primary-hover: oklch(0.58 0.15 22);
-  --color-primary-light: oklch(0.95 0.03 25);
+  --color-primary-hover: #8F4334;
+  --color-primary-light: #EFE0DA;
 
-  --color-secondary: oklch(0.75 0.14 75);
+  --color-secondary: #264D42;
   --color-secondary-foreground: #FFFFFF;
-  --color-secondary-hover: oklch(0.68 0.14 72);
+  --color-secondary-hover: #1B3B33;
 
-  --color-accent: oklch(0.96 0.02 60);
-  --color-accent-foreground: #2C2420;
+  --color-accent: #ECE7DE;
+  --color-accent-foreground: #17372F;
 
   /* === 語義色 === */
   --color-success: oklch(0.62 0.15 155);
@@ -73,45 +52,45 @@
   --color-destructive-foreground: #FFFFFF;
 
   /* === 中性色（暖灰） === */
-  --color-background: #FBF9F7;
-  --color-foreground: #2C2420;
-  --color-surface: #FFFFFF;
-  --color-muted: #F5F1ED;
-  --color-muted-foreground: #6F6259;
-  --color-border: #E8E0D8;
-  --color-input: #E8E0D8;
-  --color-ring: oklch(0.65 0.15 25);
+  --color-background: #F5F1EA;
+  --color-foreground: #17372F;
+  --color-surface: #FAF8F3;
+  --color-muted: #ECE7DE;
+  --color-muted-foreground: #6C6A62;
+  --color-border: #D7D0C5;
+  --color-input: #968D82;
+  --color-ring: #A64F3D;
 
   /* === 卡片 === */
-  --color-card: #FFFFFF;
-  --color-card-foreground: #2C2420;
+  --color-card: #FAF8F3;
+  --color-card-foreground: #17372F;
 
   /* === 彈出層 === */
-  --color-popover: #FFFFFF;
-  --color-popover-foreground: #2C2420;
+  --color-popover: #FAF8F3;
+  --color-popover-foreground: #17372F;
 
   /* === 舊系統兼容（遷移期間保留） === */
-  --color-text-main: #2C2420;
-  --color-text-muted: #6F6259;
+  --color-text-main: #17372F;
+  --color-text-muted: #6C6A62;
 
   /* === 字體 === */
-  --font-heading: "Plus Jakarta Sans", "Jakarta Fallback", sans-serif;
+  --font-heading: "Iowan Old Style", "Palatino Linotype", "Noto Serif TC", "Songti TC", Georgia, serif;
   --font-body: "Inter", "Inter Fallback", "Noto Sans TC", sans-serif;
 
   /* === 圓角 === */
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 18px;
-  --radius-2xl: 24px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 10px;
+  --radius-2xl: 12px;
   --radius-full: 9999px;
 
   /* === 陰影 === */
-  --shadow-xs: 0 1px 2px rgba(44, 36, 32, 0.04);
-  --shadow-sm: 0 2px 8px rgba(44, 36, 32, 0.06);
-  --shadow-md: 0 8px 24px rgba(44, 36, 32, 0.08);
-  --shadow-lg: 0 16px 48px rgba(44, 36, 32, 0.10);
-  --shadow-xl: 0 24px 64px rgba(44, 36, 32, 0.12);
+  --shadow-xs: none;
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --shadow-xl: none;
 
   /* === 動畫 === */
   --animate-duration-fast: 150ms;
@@ -131,6 +110,7 @@
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    background-color: var(--color-background);
   }
 
   body {
@@ -138,6 +118,7 @@
     color: var(--color-foreground);
     background-color: var(--color-background);
     line-height: 1.7;
+    min-width: 320px;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -148,7 +129,14 @@
   }
 
   ::selection {
-    background-color: oklch(0.65 0.15 25 / 0.15);
+    background-color: rgb(166 79 61 / 0.18);
+  }
+
+  button,
+  [role="button"],
+  input,
+  select {
+    touch-action: manipulation;
   }
 
   /* 滾動條（Webkit） */

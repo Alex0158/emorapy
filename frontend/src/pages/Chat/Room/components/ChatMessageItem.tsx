@@ -3,7 +3,6 @@
  */
 
 import { Reply, Link2, AlertTriangle } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 import { copyToClipboard } from '@/utils/copyToClipboard';
 import { getLocale, t } from '@/utils/i18n';
 import type { ChatMessage } from '@/types/chat';
@@ -23,8 +22,6 @@ interface ChatMessageItemProps {
   onAnchorTarget: (targetId: string) => void;
   setMessageAnchor: (messageId: string, opts?: { replace?: boolean }) => void;
   getVisibilityScopeLabel: (scope: string | null | undefined) => string;
-  getMessageTypeLabel: (type: string | null | undefined) => string;
-  getAiStrategyLabel: (strategy: string | null | undefined) => string;
   isReplyTarget: boolean;
   isHighlighted: boolean;
 }
@@ -32,7 +29,7 @@ interface ChatMessageItemProps {
 export default function ChatMessageItem({
   msg, roleLabel, side, isGroupStart, isGroupEnd, showDayDivider, currentDay,
   linkUrl, replyTargetContent, disableSendMessage, onReply, onAnchorTarget,
-  setMessageAnchor, getVisibilityScopeLabel, getMessageTypeLabel, getAiStrategyLabel,
+  setMessageAnchor, getVisibilityScopeLabel,
   isReplyTarget, isHighlighted,
 }: ChatMessageItemProps) {
   const anchorId = `msg-${msg.id}`;
@@ -71,14 +68,9 @@ export default function ChatMessageItem({
           {isGroupStart ? (
             <div className="chat-room-page__message-head">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <Badge variant="secondary" className="text-[10px]">{roleLabel}</Badge>
-                <Badge variant="outline" className="text-[10px]">{getVisibilityScopeLabel(msg.visibility_scope)}</Badge>
-                {(msg.message_type !== 'user_text' || msg.ai_strategy) && (
-                  <span className="text-[10px] text-muted-foreground">
-                    {msg.message_type !== 'user_text' ? getMessageTypeLabel(msg.message_type) : ''}
-                    {msg.message_type !== 'user_text' && msg.ai_strategy ? ' · ' : ''}
-                    {msg.ai_strategy ? getAiStrategyLabel(msg.ai_strategy) : ''}
-                  </span>
+                <span className={side === 'right' ? 'text-xs font-medium text-primary-foreground/75' : 'text-xs font-medium text-muted-foreground'}>{roleLabel}</span>
+                {msg.visibility_scope !== 'all' && (
+                  <span className={side === 'right' ? 'text-[10px] text-primary-foreground/65' : 'text-[10px] text-muted-foreground'}>{getVisibilityScopeLabel(msg.visibility_scope)}</span>
                 )}
               </div>
               <div className="chat-room-page__message-actions">{actionButtons}</div>

@@ -1,7 +1,8 @@
 /**
  * 陳述輸入組件
  *
- * 遷移: Ant Input.TextArea/Typography/Tooltip/Icons → 原生 textarea + Lucide + Tailwind
+ * 原生 textarea + Lucide + Tailwind。
+ * 視覺保持 Guided Reflection：以邊框、字體與留白建立層級，不使用裝飾性陰影。
  */
 
 import { HelpCircle, CheckCircle, XCircle } from 'lucide-react';
@@ -85,11 +86,9 @@ const StatementInput = ({
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           className={cn(
-            'w-full resize-none rounded-2xl border bg-white p-5 text-base leading-relaxed text-foreground placeholder:text-muted-foreground/50 transition-all duration-300',
-            'focus:outline-none focus:ring-4',
-            focused
-              ? 'border-primary shadow-[0_8px_32px_oklch(0.65_0.15_25/0.12)] focus:ring-primary/15'
-              : 'border-border shadow-[0_4px_16px_rgba(0,0,0,0.03)] focus:ring-primary/10',
+            'w-full resize-none rounded-lg border bg-surface p-5 text-base leading-relaxed text-foreground placeholder:text-muted-foreground/60 transition-colors duration-150',
+            'focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20',
+            focused ? 'border-primary' : 'border-input',
           )}
         />
 

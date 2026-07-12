@@ -56,8 +56,6 @@ describe('ChatMessageItem', () => {
         onAnchorTarget={onAnchorTarget}
         setMessageAnchor={setMessageAnchor}
         getVisibilityScopeLabel={() => '全部'}
-        getMessageTypeLabel={() => '使用者訊息'}
-        getAiStrategyLabel={() => '策略'}
         isReplyTarget={false}
         isHighlighted={false}
       />,
@@ -73,5 +71,30 @@ describe('ChatMessageItem', () => {
       expect(setMessageAnchor).toHaveBeenCalledWith('msg-0', { replace: true });
       expect(onAnchorTarget).toHaveBeenCalledWith('msg-0');
     });
+  });
+
+  it('對話氣泡不暴露 AI strategy 或原始 message type', () => {
+    render(
+      <ChatMessageItem
+        msg={{ ...baseMessage, message_type: 'ai_mediation', ai_strategy: 'reflective_listening' }}
+        roleLabel="調解員"
+        side="center"
+        isGroupStart
+        isGroupEnd
+        showDayDivider={false}
+        currentDay="2026/04/05"
+        linkUrl=""
+        replyTargetContent={null}
+        disableSendMessage={false}
+        onReply={vi.fn()}
+        onAnchorTarget={vi.fn()}
+        setMessageAnchor={vi.fn()}
+        getVisibilityScopeLabel={() => '全部'}
+        isReplyTarget={false}
+        isHighlighted={false}
+      />,
+    );
+    expect(screen.queryByText('ai_mediation')).not.toBeInTheDocument();
+    expect(screen.queryByText('reflective_listening')).not.toBeInTheDocument();
   });
 });

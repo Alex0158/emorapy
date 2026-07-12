@@ -8,12 +8,11 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
 import { useMountedRef } from '@/hooks/useMountedRef';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
-  ArrowLeft, Edit, CheckCircle, Clock, Send,
+  ArrowLeft, CheckCircle, Clock, Send,
   AlertTriangle, Loader2, AlertCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -23,7 +22,6 @@ import { useAuthStore } from '@/store/authStore';
 import StatementInput from '@/components/business/StatementInput';
 import { validateStatement } from '@/utils/validate';
 import SEO from '@/components/common/SEO';
-import { formatDateTime } from '@/utils/formatDate';
 import { logger } from '@/utils/logger';
 import { getCaseStatusTag, getCaseTypeTag } from '@/utils/statusTags';
 import { getErrorMessage } from '@/utils/apiError';
@@ -144,71 +142,54 @@ const CaseDetail = () => {
     );
   }
 
-  const modeLabel = case_.mode === 'remote' ? t('caseDetail.modeRemote') : case_.mode === 'collaborative' ? t('caseDetail.modeCollaborative') : t('caseDetail.modeQuick');
-  const caseTypeI18nKey = getCaseTypeI18nKey(case_.type);
-  const caseTypeLabel = caseTypeI18nKey ? t(caseTypeI18nKey) : case_.type;
   const isDefendant = user?.id === case_.defendant_id;
   const isPlaintiff = user?.id === case_.plaintiff_id;
   const needsDefendantResponse = case_.status === 'draft' && (case_.mode === 'remote' || case_.mode === 'collaborative') && !case_.defendant_statement;
+  const blindResponsePending = Boolean(case_.blind_response_pending && isDefendant && needsDefendantResponse);
+  const caseTypeI18nKey = getCaseTypeI18nKey(case_.type);
+  const caseTypeLabel = caseTypeI18nKey ? t(caseTypeI18nKey) : case_.type;
+  const displayTitle = blindResponsePending ? t('caseDetail.yourResponse') : case_.title;
 
   return (
     <>
-      <SEO title={`${case_.title}${t('caseDetail.titleSuffix')}`} description={case_.plaintiff_statement?.substring(0, 100) || ''} />
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} className="mx-auto max-w-4xl px-4 py-8 md:px-6" role="main" aria-label={t('caseDetail.pageLabel')}>
-        {/* Back + Edit */}
-        <div className="mb-6 flex items-center justify-between">
+      <SEO title={`${displayTitle}${t('caseDetail.titleSuffix')}`} description={blindResponsePending ? t('caseDetail.defendantResponseHint') : case_.plaintiff_statement?.substring(0, 100) || ''} />
+      <main className="mx-auto max-w-3xl px-4 py-8 md:px-6 md:py-12" aria-label={t('caseDetail.pageLabel')}>
+        <div className="mb-7">
           <Button variant="ghost" size="sm" onClick={() => navigate('/case/list')} aria-label={t('caseDetail.backListAria')}>
             <ArrowLeft className="size-4" />{t('caseDetail.backList')}
           </Button>
-          {case_.status === 'draft' && !needsDefendantResponse && (
-            <Button variant="outline" size="sm" onClick={() => toast.info(t('message.editComingSoon'))} aria-label={t('caseDetail.editAria')}>
-              <Edit className="size-4" />{t('caseDetail.edit')}
-            </Button>
-          )}
         </div>
 
-        {/* Title + Status */}
-        <div className="mb-6">
-          <div className="mb-3 flex flex-wrap items-center gap-2">
+        <header className="mb-8">
+          <div className="mb-4 flex flex-wrap items-center gap-2">
             {getCaseStatusTag(case_.status)}
-            {getCaseTypeTag(case_.type)}
+            {!blindResponsePending && case_.type && getCaseTypeTag(case_.type)}
           </div>
-          <h1 className="text-3xl font-bold text-foreground font-heading">{case_.title}</h1>
-        </div>
-
-        {/* Info Grid (replaces Ant Descriptions) */}
-        <div className="mb-8 rounded-xl border border-border bg-card p-5">
-          <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2" aria-label={t('caseDetail.descLabel')}>
-            <InfoItem label={t('caseDetail.caseId')} value={case_.id} />
-            <InfoItem label={t('caseDetail.caseType')} value={caseTypeLabel} />
-            <InfoItem label={t('caseDetail.subType')} value={case_.sub_type || t('caseDetail.subTypeNone')} />
-            <InfoItem label={t('caseDetail.mode')} value={modeLabel} />
-            <InfoItem label={t('caseDetail.createdAt')} value={formatDateTime(case_.created_at)} />
-            <InfoItem label={t('caseDetail.updatedAt')} value={formatDateTime(case_.updated_at)} />
-            {case_.submitted_at && <InfoItem label={t('caseDetail.submittedAt')} value={formatDateTime(case_.submitted_at)} />}
-            {case_.completed_at && <InfoItem label={t('caseDetail.completedAt')} value={formatDateTime(case_.completed_at)} />}
-          </dl>
-        </div>
+          <h1 className="text-3xl font-semibold tracking-tight text-foreground font-heading md:text-4xl">{displayTitle}</h1>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
+            {blindResponsePending ? t('caseDetail.defendantResponseHint') : needsDefendantResponse && isPlaintiff ? t('caseDetail.waitingForDefendantDesc') : caseTypeLabel}
+          </p>
+        </header>
 
         {/* Plaintiff Statement */}
-        <div className="mb-6 rounded-xl border border-border bg-card p-5">
-          <h3 className="mb-3 text-sm font-semibold text-muted-foreground">{t('caseDetail.plaintiffStatement')}</h3>
-          <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">{case_.plaintiff_statement}</p>
-        </div>
+        {!blindResponsePending && <section className="mb-6 border-y border-border py-6">
+          <h2 className="mb-3 text-sm font-semibold text-muted-foreground">{t('caseDetail.plaintiffStatement')}</h2>
+          <p className="whitespace-pre-wrap text-[15px] leading-7 text-foreground">{case_.plaintiff_statement}</p>
+        </section>}
 
         {/* Defendant Statement */}
         {case_.defendant_statement && (
-          <div className="mb-6 rounded-xl border border-border bg-card p-5">
-            <h3 className="mb-3 text-sm font-semibold text-muted-foreground">{t('caseDetail.defendantStatement')}</h3>
-            <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">{case_.defendant_statement}</p>
-          </div>
+          <section className="mb-6 border-b border-border pb-6">
+            <h2 className="mb-3 text-sm font-semibold text-muted-foreground">{t('caseDetail.defendantStatement')}</h2>
+            <p className="whitespace-pre-wrap text-[15px] leading-7 text-foreground">{case_.defendant_statement}</p>
+          </section>
         )}
 
         {/* Defendant Response Form */}
         {needsDefendantResponse && isDefendant && (
-          <div className="mb-6 rounded-xl border border-border bg-card p-5 space-y-4">
-            <h3 className="text-base font-semibold text-foreground">{t('caseDetail.yourResponse')}</h3>
-            <div className="flex items-start gap-2 rounded-lg bg-primary-light/30 p-3">
+          <section className="mb-6 space-y-5 border-t border-border pt-6">
+            <h2 className="text-base font-semibold text-foreground">{t('caseDetail.yourResponse')}</h2>
+            <div className="flex items-start gap-2 border-l-2 border-primary/60 pl-3">
               <AlertTriangle className="mt-0.5 size-4 shrink-0 text-primary" />
               <p className="text-xs text-muted-foreground">{t('caseDetail.defendantResponseHint')}</p>
             </div>
@@ -217,12 +198,12 @@ const CaseDetail = () => {
               {respondLoading ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
               {t('caseDetail.submitResponse')}
             </Button>
-          </div>
+          </section>
         )}
 
         {/* Waiting for defendant */}
         {needsDefendantResponse && isPlaintiff && (
-          <div className="mb-6 flex items-start gap-3 rounded-xl border border-warning/30 bg-warning/5 p-4">
+          <div className="mb-6 flex items-start gap-3 border-y border-warning/30 bg-warning/5 px-4 py-5">
             <Clock className="mt-0.5 size-5 shrink-0 text-warning" />
             <div>
               <p className="font-medium text-foreground">{t('caseDetail.waitingForDefendant')}</p>
@@ -234,7 +215,7 @@ const CaseDetail = () => {
         {/* Submit Case (draft) */}
         {case_.status === 'draft' && !needsDefendantResponse && (
           <div className="mt-8 space-y-2">
-            <Button size="lg" onClick={handleSubmit} disabled={submitting} className="w-full rounded-2xl" aria-label={t('caseDetail.submitCaseAria')}>
+            <Button size="lg" onClick={handleSubmit} disabled={submitting} className="w-full" aria-label={t('caseDetail.submitCaseAria')}>
               {submitting ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle className="size-4" />}
               {t('caseDetail.submitCase')}
             </Button>
@@ -245,7 +226,7 @@ const CaseDetail = () => {
         {/* View Review (submitted/in_progress) */}
         {(case_.status === 'submitted' || case_.status === 'in_progress') && (
           <div className="mt-8">
-            <Button size="lg" onClick={() => navigate(`/case/${id}/review`)} className="w-full rounded-2xl" aria-label={t('caseDetail.viewReviewAria')}>
+            <Button size="lg" onClick={() => navigate(`/case/${id}/review`)} className="w-full" aria-label={t('caseDetail.viewReviewAria')}>
               <Clock className="size-4" />{t('caseDetail.viewReview')}
             </Button>
           </div>
@@ -254,7 +235,7 @@ const CaseDetail = () => {
         {/* View Judgment (completed) */}
         {case_.status === 'completed' && (
           <div className="mt-8">
-            <Button size="lg" className="w-full rounded-2xl" aria-label={t('caseDetail.viewJudgmentAria')} onClick={async () => {
+            <Button size="lg" className="w-full" aria-label={t('caseDetail.viewJudgmentAria')} onClick={async () => {
               if (viewJudgmentLockRef.current) return;
               viewJudgmentLockRef.current = true;
               try {
@@ -282,18 +263,9 @@ const CaseDetail = () => {
             </div>
           </div>
         )}
-      </motion.div>
+      </main>
     </>
   );
 };
-
-function InfoItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
-      <dd className="mt-0.5 text-sm text-foreground truncate">{value}</dd>
-    </div>
-  );
-}
 
 export default CaseDetail;

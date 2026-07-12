@@ -1,21 +1,18 @@
 /**
- * 快速體驗 - 判決結果頁面（極致美學版）
+ * 快速體驗 - 關係梳理結果頁面
  */
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useMountedRef } from '@/hooks/useMountedRef';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Lock, RefreshCw } from 'lucide-react';
+import { Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAIStreamSubscription } from '@/hooks/useAIStreamSubscription';
 import AIErrorState from '@/components/common/AIErrorState';
 import { useJudgmentStore } from '@/store/judgmentStore';
 import { getJudgmentByCaseId } from '@/services/api/judgment';
 import { getCase, uploadEvidence } from '@/services/api/case';
-import { getContentList, type ContentItem } from '@/services/api/content';
-import type { AIStreamPhase } from '@/types/aiStream';
-import { appendUniquePhase } from '@/utils/aiStreamState';
 import type { Judgment } from '@/types/judgment';
 import { usePolling } from '@/hooks/usePolling';
 import { POLLING_INTERVAL } from '@/utils/constants';
@@ -24,7 +21,7 @@ import { sessionStorage, caseSessionMap } from '@/utils/storage';
 import SEO from '@/components/common/SEO';
 import { logger } from '@/utils/logger';
 import { getErrorMessage } from '@/utils/apiError';
-import { t, getLocale } from '@/utils/i18n';
+import { t } from '@/utils/i18n';
 
 import AIAnalyzingAnimation from './components/AIAnalyzingAnimation';
 import ResultHeader from './components/ResultHeader';
@@ -32,7 +29,6 @@ import SummarySection from './components/SummarySection';
 import ResponsibilitySection from './components/ResponsibilitySection';
 import JudgmentSection from './components/JudgmentSection';
 import EvidenceUploadSection from './components/EvidenceUploadSection';
-import RegisterPromptSection from './components/RegisterPromptSection';
 import {
   canUploadEvidenceForCaseStatus,
   getEvidenceUploadStatusFromCase,
@@ -49,11 +45,6 @@ import {
   type EvidenceUploadStatus,
 } from './resultUtils';
 
-interface JudgmentPhaseStreamState {
-  currentPhase: AIStreamPhase | null;
-  phaseHistory: AIStreamPhase[];
-}
-
 const QuickExperienceResult = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -62,7 +53,6 @@ const QuickExperienceResult = () => {
   const mountedRef = useMountedRef();
 
   const [judgment, setJudgment] = useState<Judgment | null>(null);
-  const [showRegisterPrompt, setShowRegisterPrompt] = useState(true);
   const [judgmentError, setJudgmentError] = useState<string | null>(null);
   const [judgmentErrorCode, setJudgmentErrorCode] = useState<string | null>(null);
   const [caseStatus, setCaseStatus] = useState<string | null>(null);
@@ -70,23 +60,11 @@ const QuickExperienceResult = () => {
   const [evidenceUploadStatus, setEvidenceUploadStatus] = useState<EvidenceUploadStatus>(null);
   const [isUploading, setIsUploading] = useState(false);
   
-  const [tips, setTips] = useState<ContentItem[]>([]);
   const { session } = useSessionStore();
   const pollingEverStartedRef = useRef(false);
   const stopPollingRef = useRef<(() => void) | null>(null);
   const retryJudgmentLockRef = useRef(false);
   const sessionJudgmentErrorHandledRef = useRef(false);
-
-  const loadTips = useCallback(async () => {
-    try {
-      const locale = getLocale();
-      const lang = locale.startsWith('en') ? 'en' : 'zh';
-      const items = await getContentList({ type: 'tip', language: lang, limit: 10 });
-      if (mountedRef.current && items && items.length > 0) setTips(items);
-    } catch { /* tips are non-critical */ }
-  }, [mountedRef]);
-
-  useEffect(() => { loadTips(); }, [loadTips]);
 
   const caseMappedSessionId = id ? caseSessionMap.get(id) : null;
   const globalSessionId = id && !caseMappedSessionId ? sessionStorage.get() : null;
@@ -103,31 +81,13 @@ const QuickExperienceResult = () => {
     [location.pathname]
   );
 
-  const {
-    state: phaseStreamState,
-  } = useAIStreamSubscription<JudgmentPhaseStreamState>({
+  useAIStreamSubscription<null>({
     scopeType: 'case_judgment',
     scopeId: judgment ? null : id,
     enabled: !!id && !judgment,
-    initialState: { currentPhase: null, phaseHistory: [] },
-    reduceReady: (_prev, ready) => {
-      const snapshots = Array.isArray(ready.snapshots) ? ready.snapshots : [];
-      const latest = [...snapshots].sort((a, b) => a.lastSeq - b.lastSeq).at(-1);
-      if (!latest?.phase) {
-        return { currentPhase: null, phaseHistory: [] };
-      }
-      return {
-        currentPhase: latest.phase,
-        phaseHistory: appendUniquePhase([], latest.phase),
-      };
-    },
-    reduceEvent: (prev, event) => {
-      if (!event.phase) return prev;
-      return {
-        currentPhase: event.phase,
-        phaseHistory: appendUniquePhase(prev.phaseHistory, event.phase),
-      };
-    },
+    initialState: null,
+    reduceReady: () => null,
+    reduceEvent: () => null,
     onEvent: (event) => {
       if (event.eventType === 'stream.persisted') {
         void fetchJudgment();
@@ -138,8 +98,6 @@ const QuickExperienceResult = () => {
       }
     },
   });
-  const streamPhase = phaseStreamState.currentPhase;
-  const phaseHistory = phaseStreamState.phaseHistory;
 
   const fetchJudgment = useCallback(async (): Promise<Judgment | null> => {
     if (sessionJudgmentErrorHandledRef.current) return null;
@@ -331,7 +289,7 @@ const QuickExperienceResult = () => {
   if (isLoading && !judgment) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background px-6 py-10 text-center">
-        <AIAnalyzingAnimation tips={tips} currentPhase={streamPhase} phaseHistory={phaseHistory} />
+        <AIAnalyzingAnimation />
       </div>
     );
   }
@@ -402,62 +360,61 @@ const QuickExperienceResult = () => {
               </div>
             }
           />
-        ) : <AIAnalyzingAnimation tips={tips} currentPhase={streamPhase} phaseHistory={phaseHistory} />}
+        ) : <AIAnalyzingAnimation />}
       </div>
     );
   }
+
+  const seoDescription = shouldShowResponsibilityRatio
+    ? `${t('responsibility.title')}: ${t('quickCreate.roleA')} ${responsibilityRatioMemo.plaintiff}%, ${t('quickCreate.roleB')} ${responsibilityRatioMemo.defendant}%`
+    : t('result.subtitle');
 
   return (
     <>
       <SEO
         title={t('result.title')}
-        description={`${t('responsibility.title')}: ${t('quickCreate.roleA')} ${responsibilityRatioMemo.plaintiff}%, ${t('quickCreate.roleB')} ${responsibilityRatioMemo.defendant}%`}
+        description={seoDescription}
         keywords={t('result.keywords')}
       />
-      <div className="min-h-screen bg-background pb-24 relative overflow-x-hidden">
+      <div className="min-h-screen bg-background pb-16">
         <a href="#judgment-section" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:rounded-xl focus:bg-primary focus:text-white focus:px-6 focus:py-3 focus:font-semibold">{t('result.skipToJudgment')}</a>
 
-        <div className="mx-auto max-w-[900px] px-6">
+        <div className="mx-auto max-w-[900px] px-5 py-10 md:py-16">
           <ResultHeader />
-          <SummarySection summary={judgment.summary} />
+          <div className="mt-10">
+            <SummarySection summary={judgment.summary} />
+          </div>
           {shouldShowResponsibilityRatio && <ResponsibilitySection ratio={responsibilityRatioMemo} />}
           {judgment.judgment_content && <JudgmentSection content={judgment.judgment_content} />}
 
           <EvidenceUploadSection status={evidenceUploadStatus} caseId={id as string} isUploading={isUploading} onUploadFiles={handleEvidenceUpload} />
 
-          <section className="py-5">
-            <div className="flex justify-center gap-4 flex-wrap">
+          <section className="mt-10 border-t border-border pt-8" aria-label={t('result.ariaActions')}>
+            <p className="max-w-2xl text-sm leading-6 text-muted-foreground">{t('result.scopeNote')}</p>
+            <div className="mt-5 flex flex-wrap items-center gap-3">
               <Button
                 size="lg"
                 onClick={() => navigate('/auth/register', { state: registerTargetState })}
-                className="h-16 rounded-full px-10 text-base font-bold shadow-lg transition-all hover:-translate-y-1 hover:shadow-xl"
+                className="px-8 text-base"
               >
                 <Lock className="size-4" /> {t('register.action.now')}
               </Button>
-              <Button
-                variant="outline"
-                size="lg"
+              <button
+                type="button"
                 onClick={() => navigate('/auth/login', { state: registerTargetState })}
-                className="h-16 rounded-full px-10 text-base font-bold transition-all hover:-translate-y-1"
+                className="min-h-11 px-3 text-sm font-semibold text-muted-foreground hover:text-foreground"
               >
-                <Lock className="size-4" /> {t('auth.login.submit')}
-              </Button>
-              <Button
-                variant="outline"
-                size="lg"
+                {t('auth.login.submit')}
+              </button>
+              <button
+                type="button"
                 onClick={() => navigate('/quick-experience/create')}
-                className="h-16 rounded-full px-10 text-base font-bold transition-all hover:-translate-y-1"
+                className="min-h-11 px-3 text-sm font-semibold text-muted-foreground underline decoration-border underline-offset-8 hover:text-foreground hover:decoration-primary"
               >
-                <RefreshCw className="size-4" /> {t('quickCreate.recoveredCase.startNew')}
-              </Button>
+                {t('quickCreate.recoveredCase.startNew')}
+              </button>
             </div>
           </section>
-
-          <RegisterPromptSection
-            show={showRegisterPrompt}
-            onRegister={() => navigate('/auth/register', { state: registerTargetState })}
-            onClose={() => setShowRegisterPrompt(false)}
-          />
         </div>
       </div>
     </>

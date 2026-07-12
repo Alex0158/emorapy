@@ -112,7 +112,7 @@ const Login = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
         className="w-full"
-        role="main"
+        role="region"
         aria-label={t('auth.login.pageLabel')}
       >
         {/* Header */}
@@ -146,7 +146,7 @@ const Login = () => {
                 autoComplete="email"
                 value={email}
                 onChange={(e) => { setEmail(e.target.value); setErrors((prev) => ({ ...prev, email: undefined })); }}
-                className="h-12 rounded-2xl border-black/5 bg-white/70 pl-11 text-base shadow-[inset_0_2px_8px_rgba(0,0,0,0.01)] transition-all duration-300 placeholder:text-muted-foreground/60 hover:bg-white/90 hover:border-black/8 focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/15"
+                className="h-12 rounded-md border-input bg-transparent pl-11 text-base placeholder:text-muted-foreground/60 focus:border-primary focus:ring-2 focus:ring-primary/15"
                 aria-invalid={!!errors.email}
                 aria-describedby={errors.email ? 'login-email-error' : undefined}
               />
@@ -172,14 +172,14 @@ const Login = () => {
                 autoComplete="current-password"
                 value={password}
                 onChange={(e) => { setPassword(e.target.value); setErrors((prev) => ({ ...prev, password: undefined })); }}
-                className="h-12 rounded-2xl border-black/5 bg-white/70 pl-11 pr-11 text-base shadow-[inset_0_2px_8px_rgba(0,0,0,0.01)] transition-all duration-300 placeholder:text-muted-foreground/60 hover:bg-white/90 hover:border-black/8 focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/15"
+                className="h-12 rounded-md border-input bg-transparent pl-11 pr-11 text-base placeholder:text-muted-foreground/60 focus:border-primary focus:ring-2 focus:ring-primary/15"
                 aria-invalid={!!errors.password}
                 aria-describedby={errors.password ? 'login-password-error' : undefined}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                className="absolute right-1 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
                 aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
               >
                 {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
@@ -194,7 +194,7 @@ const Login = () => {
 
           {/* Remember me + Forgot password */}
           <div className="flex items-center justify-between">
-            <label className="flex items-center gap-2 cursor-pointer select-none">
+            <label className="flex min-h-11 cursor-pointer select-none items-center gap-2">
               <input
                 type="checkbox"
                 checked={rememberMe}
@@ -208,7 +208,7 @@ const Login = () => {
             <button
               type="button"
               onClick={() => navigate('/auth/forgot-password', { state: { from: { pathname: from } } })}
-              className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
+              className="min-h-11 text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
             >
               {t('auth.login.forgotPassword')}
             </button>
@@ -218,7 +218,7 @@ const Login = () => {
           <Button
             type="submit"
             disabled={isLoading}
-            className="h-[52px] w-full rounded-2xl bg-gradient-to-br from-primary to-primary-hover text-base font-semibold shadow-[0_8px_20px_oklch(0.65_0.15_25/0.25)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_24px_oklch(0.65_0.15_25/0.3)] active:translate-y-0"
+            className="h-12 w-full rounded-md text-base"
           >
             {isLoading ? (
               <span className="flex items-center gap-2">
@@ -242,7 +242,7 @@ const Login = () => {
         <Button
           variant="outline"
           onClick={() => navigate('/auth/register', { state: { from: { pathname: from } } })}
-          className="h-[52px] w-full rounded-2xl border-black/5 bg-white/50 text-base font-semibold text-foreground transition-all duration-300 hover:border-primary/30 hover:bg-white hover:text-primary hover:shadow-sm"
+          className="h-12 w-full rounded-md border-input bg-transparent text-base text-foreground hover:border-primary hover:text-primary"
         >
           {t('auth.login.registerNow')}
         </Button>

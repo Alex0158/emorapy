@@ -220,7 +220,7 @@ describe('ExecutionDashboard', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('看板載入失敗')).toBeInTheDocument();
+      expect(screen.getByText('message.getExecutionStatusFail')).toBeInTheDocument();
     });
 
     await userEvent.click(screen.getByRole('button', { name: 'common.retry' }));

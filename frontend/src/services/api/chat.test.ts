@@ -342,7 +342,11 @@ describe('chat API', () => {
     await connectChatStream('r1', { onError });
     await Promise.resolve();
     expect(onError).toHaveBeenCalledWith(
-      expect.objectContaining({ code: 'FORBIDDEN', message: '無權限', status: 403 })
+      expect.objectContaining({
+        code: 'FORBIDDEN',
+        message: '即時連線請求失敗（狀態碼 403）',
+        status: 403,
+      })
     );
     vi.unstubAllGlobals();
   });

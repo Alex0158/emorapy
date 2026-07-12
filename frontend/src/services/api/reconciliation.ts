@@ -131,6 +131,16 @@ export interface ReconciliationPlanBundle {
   plans: ReconciliationPlan[];
   recommended_plan_id: string | null;
   intent: ReconciliationIntent;
+  repair_access: {
+    judgment_route: 'standard' | 'safety_support' | 'crisis_support';
+    default_intent: ReconciliationIntent;
+    allowed_intents: ReconciliationIntent[];
+    can_invite_partner: boolean;
+    can_use_co_repair: boolean;
+    force_solo_repair: boolean;
+    relationship_scope: string;
+    reasons: string[];
+  };
   applied_preferences: PlanPreferences | null;
   journey_entry: JourneyEntry;
   version_summary: VersionSummary;

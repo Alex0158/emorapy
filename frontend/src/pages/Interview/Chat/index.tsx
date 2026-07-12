@@ -14,7 +14,6 @@ import { Button } from '@/components/ui/button';
 import ChatBubble from '@/components/business/Interview/ChatBubble';
 import InterviewInput from '@/components/business/Interview/InterviewInput';
 import SafetyAlert from '@/components/business/Interview/SafetyAlert';
-import MediatorAvatar from '@/components/business/MediatorAvatar';
 import AIStreamingBubble from '@/components/common/AIStreamingBubble';
 import AIRecoveryBadge from '@/components/common/AIRecoveryBadge';
 import AIErrorState from '@/components/common/AIErrorState';
@@ -289,6 +288,7 @@ const InterviewChat: React.FC = () => {
   const bubbleDraft = getVisibleInterviewDraft(mirroredDraft, streamingDraft);
   const recoveryBadgeText = t('interview.recoveringBadge');
   const draftFallbackText = t('interview.thinking');
+  const hasCriticalSafetyAlert = safetyAlert?.severity === 'critical';
 
   // Loading state
   if (loading && !currentSession) {
@@ -326,7 +326,7 @@ const InterviewChat: React.FC = () => {
   return (
     <div className="flex h-[100dvh] flex-col bg-background">
       {/* Header */}
-      <header className="flex shrink-0 items-center gap-3 border-b border-border bg-card/80 px-4 py-3 backdrop-blur-sm">
+      <header className="flex shrink-0 items-center gap-3 border-b border-border bg-card px-4 py-3">
         <button
           onClick={() => navigate('/profile/index')}
           className="text-muted-foreground hover:text-foreground transition-colors"
@@ -336,10 +336,6 @@ const InterviewChat: React.FC = () => {
         </button>
         <div className="flex-1 min-w-0">
           <h5 className="text-sm font-semibold text-foreground truncate">{t('interview.title')}</h5>
-          <p className="text-xs text-muted-foreground truncate">
-            {t('interview.domainsExplored').replace('{count}', String(currentSession?.domains_touched?.length || 0))}
-            {turns.length > 1 && ` · ${t('interview.turnsProgress').replace('{count}', String(turns.length - 1))}`}
-          </p>
         </div>
         {isSessionActive && turns.length >= 3 && (
           <Button variant="outline" size="sm" onClick={handleEnd}>
@@ -347,6 +343,17 @@ const InterviewChat: React.FC = () => {
           </Button>
         )}
       </header>
+
+      {/* Critical safety guidance interrupts the ordinary dialogue flow. */}
+      {safetyAlert && (
+        <div className={hasCriticalSafetyAlert ? 'sticky top-0 z-20 px-4 pt-3' : 'px-4 pt-3'}>
+          <SafetyAlert
+            message={safetyAlert.message}
+            severity={safetyAlert.severity}
+            onDismiss={hasCriticalSafetyAlert ? undefined : dismissSafetyAlert}
+          />
+        </div>
+      )}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4" role="log" aria-live="polite" aria-label={t('interview.messagesLog')}>
@@ -374,11 +381,11 @@ const InterviewChat: React.FC = () => {
             text={bubbleDraft.text}
             fallbackText={draftFallbackText}
             status={bubbleDraft.status}
-            wrapperClassName="flex gap-3 max-w-[85%]"
+            wrapperClassName="max-w-[85%]"
             itemClassName=""
             bodyClassName=""
             contentClassName="rounded-2xl px-4 py-3 text-sm leading-relaxed bg-card border border-border text-foreground rounded-tl-md shadow-xs"
-            cursorClassName="ml-0.5 inline-block w-[2px] h-4 bg-current animate-[blink_1s_infinite]"
+            cursorClassName="ml-0.5 inline-block h-4 w-px bg-current"
             thinkingClassName="text-muted-foreground"
             thinkingDotsClassName="animate-pulse"
             head={isRecoveringDraft ? (
@@ -387,26 +394,10 @@ const InterviewChat: React.FC = () => {
                 className="mb-1"
               />
             ) : undefined}
-            avatar={(
-              <div className="shrink-0 pt-1">
-                <MediatorAvatar size="small" />
-              </div>
-            )}
           />
         )}
         <div ref={chatEndRef} />
       </div>
-
-      {/* Safety Alert */}
-      {safetyAlert && (
-        <div className="px-4 pb-2">
-          <SafetyAlert
-            message={safetyAlert.message}
-            severity={safetyAlert.severity}
-            onDismiss={dismissSafetyAlert}
-          />
-        </div>
-      )}
 
       {/* Error State */}
       {error && !safetyAlert && (
@@ -466,8 +457,8 @@ const InterviewChat: React.FC = () => {
       )}
 
       {/* Input */}
-      {isSessionActive && !isTerminalError && (
-        <div className="shrink-0 border-t border-border bg-card/80 px-4 py-3 backdrop-blur-sm">
+      {isSessionActive && !isTerminalError && !hasCriticalSafetyAlert && (
+        <div className="shrink-0 border-t border-border bg-card px-4 py-3">
           <InterviewInput
             onSend={handleSend}
             onStop={() => {

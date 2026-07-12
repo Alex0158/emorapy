@@ -6,10 +6,10 @@ import { render, screen } from '@testing-library/react';
 import Footer from './Footer';
 
 describe('Footer', () => {
-  it('應渲染版權與標語', () => {
+  it('應渲染精簡品牌版權', () => {
     render(<Footer />);
     const year = new Date().getFullYear();
-    expect(screen.getByText(new RegExp(`© ${year} 關係修復室`))).toBeInTheDocument();
-    expect(screen.getByText(/先聽懂彼此，再慢慢把關係修回來/)).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`© ${year} Emorapy`))).toBeInTheDocument();
+    expect(screen.queryByText(/先聽懂彼此，再慢慢把關係修回來/)).not.toBeInTheDocument();
   });
 });

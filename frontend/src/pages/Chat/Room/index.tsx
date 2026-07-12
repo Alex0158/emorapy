@@ -3,43 +3,29 @@ import { useMountedRef } from '@/hooks/useMountedRef';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
-import { t } from '@/utils/i18n';
-import { useAIStreamSubscription } from '@/hooks/useAIStreamSubscription';
-import { draftFromSnapshot, reduceDraftWithEvent, type AIStreamDraft } from '@/utils/aiStreamState';
 import type { ChatMessage, ChatRoom } from '@/types/chat';
 import { useAuthStore } from '@/store/authStore';
 import { sessionStorage } from '@/utils/storage';
-import type { VirtuosoHandle } from 'react-virtuoso';
 import ChatRoomEntrySection from './components/ChatRoomEntrySection';
 import ChatRoomHeader from './components/ChatRoomHeader';
 import ChatRoomAlerts from './components/ChatRoomAlerts';
 import ChatMessageList from './components/ChatMessageList';
 import ChatMessageComposer from './components/ChatMessageComposer';
-import ChatJudgmentPanel, { getJudgmentPreviewInfo } from './components/ChatJudgmentPanel';
+import ChatJudgmentPanel from './components/ChatJudgmentPanel';
 import {
-  AI_THINKING_TIMEOUT_MS,
-  INITIAL_FIRST_ITEM_INDEX,
   buildMessageMap,
-  findLatestSafetyNotice,
-  getAiStrategyLabel,
-  getMessageTypeLabel,
   getRoleLabel,
   getRoomStatusNoticeFeedback,
   getVisibilityScopeLabel,
-  isRoomActionBlocked,
-  isTerminalStreamError,
-  mergeSortedMessages,
   shouldApplyRoomRefresh,
-  shouldAllowMessageCacheTrim,
-  trimMessagesToCacheLimit,
 } from './chatRoomUtils';
 import { useChatRoomDerivedState } from './hooks/useChatRoomDerivedState';
 import { useChatRoomEntryActions } from './hooks/useChatRoomEntryActions';
-import { useChatRoomHistoryNavigation } from './hooks/useChatRoomHistoryNavigation';
+import { useChatRoomHistoryController } from './hooks/useChatRoomHistoryController';
 import { useChatRoomInviteActions } from './hooks/useChatRoomInviteActions';
-import { useChatRoomJudgmentActions } from './hooks/useChatRoomJudgmentActions';
+import { useChatRoomJudgmentController } from './hooks/useChatRoomJudgmentController';
 import { useChatRoomLiveUpdates } from './hooks/useChatRoomLiveUpdates';
-import { useChatRoomMessageActions } from './hooks/useChatRoomMessageActions';
+import { useChatRoomMessageController } from './hooks/useChatRoomMessageController';
 import { useChatRoomParticipantActions } from './hooks/useChatRoomParticipantActions';
 import { useChatRoomRouteLoader } from './hooks/useChatRoomRouteLoader';
 import { useChatRoomUiState } from './hooks/useChatRoomUiState';
@@ -55,74 +41,20 @@ const ChatRoomPage = () => {
 
   const [room, setRoom] = useState<ChatRoom | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [firstItemIndex, setFirstItemIndex] = useState(INITIAL_FIRST_ITEM_INDEX);
   const [inviteCodeInput, setInviteCodeInput] = useState('');
   const [lastInviteCode, setLastInviteCode] = useState('');
   const [visibilityMode, setVisibilityMode] = useState<'share_full_history' | 'share_summary_only' | 'share_from_join_time'>(
     'share_summary_only'
   );
   const [errorText, setErrorText] = useState('');
-  const [hasUnread, setHasUnread] = useState(false);
-  const [highlightMessageId, setHighlightMessageId] = useState<string | null>(null);
-  const [historyCursor, setHistoryCursor] = useState<string | null>(null);
-  const [hasMoreHistory, setHasMoreHistory] = useState(true);
-  const [loadingMoreHistory, setLoadingMoreHistory] = useState(false);
-  const [pendingAnchorMessageId, setPendingAnchorMessageId] = useState<string | null>(null);
-  const [jumpBackState, setJumpBackState] = useState<{ originMessageId: string | null; wasAtBottom: boolean } | null>(null);
   const mountedRef = useMountedRef();
   const lastRoomStatusNoticeAtRef = useRef<string | null>(null);
-  const highlightTimeoutRef = useRef<number | null>(null);
-  const messagesContainerRef = useRef<HTMLElement | null>(null);
-  const isAtBottomRef = useRef(true);
-  const prevMessageCountRef = useRef(0);
-  const messagesRef = useRef<ChatMessage[]>([]);
-  const firstItemIndexRef = useRef(firstItemIndex);
-  const messageIndexByIdRef = useRef<Map<string, number>>(new Map());
-  const loadingMoreHistoryRef = useRef(loadingMoreHistory);
-  const historyCursorRef = useRef<string | null>(historyCursor);
-  const hasMoreHistoryRef = useRef(hasMoreHistory);
-  const pendingAnchorMessageIdRef = useRef<string | null>(pendingAnchorMessageId);
-  const virtuosoRef = useRef<VirtuosoHandle | null>(null);
-  const rangeStartIndexRef = useRef(0);
-  const thinkingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const clearThinkingTimeout = useCallback(() => {
-    if (thinkingTimeoutRef.current) {
-      clearTimeout(thinkingTimeoutRef.current);
-      thinkingTimeoutRef.current = null;
-    }
-  }, []);
 
   const showChatActionFeedback = useCallback((feedback: { level: 'warning' | 'error'; message: string }) => {
     if (feedback.level === 'warning') {
       toast.warning(feedback.message);
     } else {
       toast.error(feedback.message);
-    }
-  }, []);
-
-  useEffect(() => {
-    messagesRef.current = messages;
-    firstItemIndexRef.current = firstItemIndex;
-    const indexMap = new Map<string, number>();
-    messages.forEach((m, idx) => indexMap.set(m.id, firstItemIndex + idx));
-    messageIndexByIdRef.current = indexMap;
-  }, [firstItemIndex, messages]);
-
-  useEffect(() => {
-    loadingMoreHistoryRef.current = loadingMoreHistory;
-    pendingAnchorMessageIdRef.current = pendingAnchorMessageId;
-  }, [loadingMoreHistory, pendingAnchorMessageId]);
-
-  useEffect(() => {
-    historyCursorRef.current = historyCursor;
-    hasMoreHistoryRef.current = hasMoreHistory;
-  }, [hasMoreHistory, historyCursor]);
-
-  const clearHighlightTimer = useCallback(() => {
-    if (highlightTimeoutRef.current) {
-      clearTimeout(highlightTimeoutRef.current);
-      highlightTimeoutRef.current = null;
     }
   }, []);
 
@@ -140,41 +72,6 @@ const ChatRoomPage = () => {
 
     lastRoomStatusNoticeAtRef.current = at ?? String(Date.now());
   }, [mountedRef]);
-
-  const scrollToBottom = useCallback((behavior: 'auto' | 'smooth' = 'smooth') => {
-    const api = virtuosoRef.current;
-    if (!api) return;
-    const list = messagesRef.current;
-    if (!Array.isArray(list) || list.length === 0) return;
-    api.scrollToIndex({ index: firstItemIndexRef.current + list.length - 1, align: 'end', behavior });
-  }, []);
-
-  const scrollToMessage = useCallback((targetMessageId: string) => {
-    const absIndex = messageIndexByIdRef.current.get(targetMessageId);
-    if (absIndex === undefined) {
-      toast.info(t('chat.message.referenceNotLoaded'));
-      return;
-    }
-    virtuosoRef.current?.scrollToIndex({ index: absIndex, align: 'center', behavior: 'smooth' });
-    setHighlightMessageId(targetMessageId);
-    clearHighlightTimer();
-    highlightTimeoutRef.current = setTimeout(() => {
-      setHighlightMessageId(null);
-      highlightTimeoutRef.current = null;
-    }, 2000);
-  }, [clearHighlightTimer]);
-
-  const scrollToMessageIndex = useCallback((index: number) => {
-    virtuosoRef.current?.scrollToIndex({ index, align: 'start', behavior: 'smooth' });
-  }, []);
-
-  const trimMessageCache = useCallback((list: ChatMessage[], opts?: { allowTrim?: boolean }) => {
-    const result = trimMessagesToCacheLimit(list, { allowTrim: opts?.allowTrim });
-    if (result.removedCount > 0) {
-      setFirstItemIndex((prev) => prev + result.removedCount);
-    }
-    return result.messages;
-  }, []);
 
   const isRoomTargetActive = useCallback((targetRoomId: string) => (
     shouldApplyRoomRefresh({
@@ -213,6 +110,14 @@ const ChatRoomPage = () => {
     visibilityScope,
   } = useChatRoomUiState({ activeRoomId });
 
+  const history = useChatRoomHistoryController({
+    room,
+    messages,
+    setMessages,
+    mountedRef,
+    isRoomTargetActive,
+  });
+
   const {
     clearRoomPolling,
     clearRoomStreamRetry,
@@ -224,15 +129,15 @@ const ChatRoomPage = () => {
     isRoomTargetActive,
     setRoom,
     setMessages,
-    setHistoryCursor,
-    setHasMoreHistory,
+    setHistoryCursor: history.setHistoryCursor,
+    setHasMoreHistory: history.setHasMoreHistory,
     setErrorText,
-    trimMessageCache,
-    isAtBottomRef,
-    pendingAnchorMessageIdRef,
-    loadingMoreHistoryRef,
-    historyCursorRef,
-    hasMoreHistoryRef,
+    trimMessageCache: history.trimMessageCache,
+    isAtBottomRef: history.isAtBottomRef,
+    pendingAnchorMessageIdRef: history.pendingAnchorMessageIdRef,
+    loadingMoreHistoryRef: history.loadingMoreHistoryRef,
+    historyCursorRef: history.historyCursorRef,
+    hasMoreHistoryRef: history.hasMoreHistoryRef,
     showRoomStatusNotice,
   });
 
@@ -285,135 +190,46 @@ const ChatRoomPage = () => {
     cancelJudgmentRequest,
     clearJudgmentPolling,
     handleRequestJudgment,
+    hasSafetyInterruption,
     judging,
-  } = useChatRoomJudgmentActions({
+    latestSafetyNotice,
+    openJudgmentPreview,
+    previewInfo,
+  } = useChatRoomJudgmentController({
     room,
+    messages,
     mountedRef,
     isRoomTargetActive,
     navigateToJudgment,
     refreshRoomSafely,
     setErrorText,
     showChatActionFeedback,
+    previewVisible,
+    showJudgmentPreview,
+    closeJudgmentPreview,
   });
 
   const {
-    state: aiDraft,
-    setState: setAIDraft,
-    resetState: resetAIDraft,
-  } = useAIStreamSubscription<AIStreamDraft | null>({
-    scopeType: 'chat_room',
-    scopeId: activeRoomId,
-    enabled: !!activeRoomId,
-    initialState: null,
-    reduceReady: (_prev, ready) => {
-      const snapshots = Array.isArray(ready.snapshots) ? ready.snapshots : [];
-      const latestActive = [...snapshots]
-        .sort((a, b) => b.lastSeq - a.lastSeq)
-        .find((snapshot) => !['persisted', 'failed', 'cancelled'].includes(snapshot.status));
-      const nextDraft = draftFromSnapshot(latestActive);
-      if (nextDraft?.status !== 'thinking') {
-        clearThinkingTimeout();
-      }
-      return nextDraft;
-    },
-    reduceEvent: (prev, event) => {
-      if (event.eventType === 'stream.delta' || event.eventType === 'stream.completed') {
-        clearThinkingTimeout();
-      }
-      return reduceDraftWithEvent(prev, event);
-    },
-    isTerminalError: isTerminalStreamError,
-    onEvent: (event) => {
-      if (event.eventType === 'stream.persisted') {
-        void refreshRoomSafely(activeRoomId as string);
-      }
-      if (event.eventType === 'stream.persisted' || event.eventType === 'stream.failed' || event.eventType === 'stream.cancelled') {
-        clearThinkingTimeout();
-      }
-    },
-  });
-
-  const showAIThinkingDraft = useCallback(() => {
-    clearThinkingTimeout();
-    setAIDraft({
-      streamId: null,
-      requestId: null,
-      text: '',
-      status: 'thinking',
-    });
-    thinkingTimeoutRef.current = setTimeout(() => {
-      if (mountedRef.current) {
-        setAIDraft(null);
-      }
-      thinkingTimeoutRef.current = null;
-    }, AI_THINKING_TIMEOUT_MS);
-  }, [clearThinkingTimeout, mountedRef, setAIDraft]);
-
-  const shouldTrimMessageCacheAfterSend = useCallback(() => (
-    shouldAllowMessageCacheTrim({
-      isAtBottom: isAtBottomRef.current,
-      pendingAnchorMessageId: pendingAnchorMessageIdRef.current,
-      loadingMoreHistory: loadingMoreHistoryRef.current,
-    })
-  ), []);
-
-  const {
-    sending,
+    aiDraft,
     handleSendMessage,
-  } = useChatRoomMessageActions({
+    resetAIDraft,
+    sending,
+  } = useChatRoomMessageController({
     room,
+    activeRoomId,
     messageInput,
     visibilityScope,
     replyTo,
     mountedRef,
     isRoomTargetActive,
-    shouldTrimMessageCacheAfterSend,
-    trimMessageCache,
+    shouldTrimMessageCacheAfterSend: history.shouldTrimMessageCacheAfterSend,
+    trimMessageCache: history.trimMessageCache,
     setMessages,
     setMessageInput,
     setReplyTo,
     setErrorText,
-    showAIThinkingDraft,
     showChatActionFeedback,
-  });
-
-  const {
-    canLoadMoreHistory,
-    canRequestMoreHistory,
-    handleAnchorTarget,
-    handleJumpBack,
-    historyBlockedByCache,
-    loadMoreHistory,
-    resetHistoryNavigation,
-    setMessageAnchor,
-  } = useChatRoomHistoryNavigation({
-    room,
-    messages,
-    hasMoreHistory,
-    setHasMoreHistory,
-    historyCursor,
-    setHistoryCursor,
-    loadingMoreHistory,
-    setLoadingMoreHistory,
-    pendingAnchorMessageId,
-    setPendingAnchorMessageId,
-    jumpBackState,
-    setJumpBackState,
-    mountedRef,
-    isRoomTargetActive,
-    messagesRef,
-    firstItemIndexRef,
-    messageIndexByIdRef,
-    rangeStartIndexRef,
-    isAtBottomRef,
-    historyCursorRef,
-    hasMoreHistoryRef,
-    setFirstItemIndex,
-    setMessages,
-    mergeSortedMessages,
-    scrollToMessage,
-    scrollToBottom,
-    scrollToMessageIndex,
+    refreshRoomSafely,
   });
 
   const {
@@ -426,29 +242,29 @@ const ChatRoomPage = () => {
     isRoomTargetActive,
     setRoom,
     setMessages,
-    setFirstItemIndex,
+    setFirstItemIndex: history.setFirstItemIndex,
     setErrorText,
     setLastInviteCode,
-    setHasUnread,
-    setHighlightMessageId,
-    setHistoryCursor,
-    setHasMoreHistory,
-    setLoadingMoreHistory,
-    firstItemIndexRef,
-    messagesRef,
-    historyCursorRef,
-    hasMoreHistoryRef,
-    prevMessageCountRef,
-    isAtBottomRef,
+    setHasUnread: history.setHasUnread,
+    setHighlightMessageId: history.setHighlightMessageId,
+    setHistoryCursor: history.setHistoryCursor,
+    setHasMoreHistory: history.setHasMoreHistory,
+    setLoadingMoreHistory: history.setLoadingMoreHistory,
+    firstItemIndexRef: history.firstItemIndexRef,
+    messagesRef: history.messagesRef,
+    historyCursorRef: history.historyCursorRef,
+    hasMoreHistoryRef: history.hasMoreHistoryRef,
+    prevMessageCountRef: history.prevMessageCountRef,
+    isAtBottomRef: history.isAtBottomRef,
     clearRoomPolling,
     ensureRoomPolling,
     clearJudgmentPolling,
     cleanupRoomStream,
     clearRoomStreamRetry,
-    clearHighlightTimer,
+    clearHighlightTimer: history.clearHighlightTimer,
     resetAIDraft,
-    resetHistoryNavigation,
-    scrollToBottom,
+    resetHistoryNavigation: history.resetHistoryNavigation,
+    scrollToBottom: history.scrollToBottom,
   });
 
   useEffect(() => {
@@ -457,22 +273,15 @@ const ChatRoomPage = () => {
     // - 否則標記 unread，提供「跳到最新」操作
     if (!routeRoomId) return;
     const nextCount = messages.length;
-    const prevCount = prevMessageCountRef.current;
-    prevMessageCountRef.current = nextCount;
+    const prevCount = history.prevMessageCountRef.current;
+    history.prevMessageCountRef.current = nextCount;
     if (nextCount === 0) return;
     if (nextCount <= prevCount) return;
 
-    if (!isAtBottomRef.current) {
-      setHasUnread(true);
+    if (!history.isAtBottomRef.current) {
+      history.setHasUnread(true);
     }
   }, [messages, routeRoomId]);
-
-  const openJudgmentPreview = useCallback(() => {
-    if (!room?.id) return;
-    if (isRoomActionBlocked(room.status)) return;
-    const included = getJudgmentPreviewInfo(room, messages).includedMessages.map((m) => m.id);
-    showJudgmentPreview(included);
-  }, [messages, room, showJudgmentPreview]);
 
   const sessionId = sessionStorage.get();
   const {
@@ -493,10 +302,6 @@ const ChatRoomPage = () => {
     judging,
   });
   const messageById = useMemo(() => buildMessageMap(messages), [messages]);
-
-  const previewInfo = useMemo(() => getJudgmentPreviewInfo(room, messages), [messages, room]);
-
-  const latestSafetyNotice = useMemo(() => findLatestSafetyNotice(messages), [messages]);
 
   const currentHrefWithoutHash = useMemo(() => {
     try {
@@ -544,7 +349,7 @@ const ChatRoomPage = () => {
                 hasActiveRoleB={!!hasActiveRoleB}
                 getRoleLabel={getRoleLabel}
                 disableCreateInvite={disableCreateInvite}
-                disableRequestJudgment={disableRequestJudgment}
+                disableRequestJudgment={disableRequestJudgment || hasSafetyInterruption}
                 creatingInvite={creatingInvite}
                 judging={judging}
                 leavingRoom={leavingRoom}
@@ -567,43 +372,41 @@ const ChatRoomPage = () => {
               />
               <ChatMessageList
                 messages={messages}
-                firstItemIndex={firstItemIndex}
-                virtuosoRef={virtuosoRef}
-                messagesContainerRef={messagesContainerRef}
-                onRangeChanged={(range) => { rangeStartIndexRef.current = range.startIndex; }}
+                firstItemIndex={history.firstItemIndex}
+                virtuosoRef={history.virtuosoRef}
+                messagesContainerRef={history.messagesContainerRef}
+                onRangeChanged={(range) => { history.rangeStartIndexRef.current = range.startIndex; }}
                 onAtBottomChange={(atBottom) => {
-                  isAtBottomRef.current = atBottom;
-                  if (atBottom) setHasUnread(false);
+                  history.isAtBottomRef.current = atBottom;
+                  if (atBottom) history.setHasUnread(false);
                 }}
                 onStartReached={() => {
-                  if (pendingAnchorMessageId) return;
-                  if (!canLoadMoreHistory) return;
-                  if (loadingMoreHistory) return;
-                  void loadMoreHistory();
+                  if (history.pendingAnchorMessageId) return;
+                  if (!history.canLoadMoreHistory) return;
+                  if (history.loadingMoreHistory) return;
+                  void history.loadMoreHistory();
                 }}
-                canRequestMoreHistory={canRequestMoreHistory}
-                canLoadMoreHistory={canLoadMoreHistory}
-                loadingMoreHistory={loadingMoreHistory}
-                historyBlockedByCache={historyBlockedByCache}
-                onLoadMoreHistory={loadMoreHistory}
+                canRequestMoreHistory={history.canRequestMoreHistory}
+                canLoadMoreHistory={history.canLoadMoreHistory}
+                loadingMoreHistory={history.loadingMoreHistory}
+                historyBlockedByCache={history.historyBlockedByCache}
+                onLoadMoreHistory={history.loadMoreHistory}
                 aiDraft={aiDraft}
                 currentHrefWithoutHash={currentHrefWithoutHash}
                 messageById={messageById}
                 replyTo={replyTo}
-                highlightMessageId={highlightMessageId}
+                highlightMessageId={history.highlightMessageId}
                 disableSendMessage={disableSendMessage}
-                setMessageAnchor={setMessageAnchor}
-                handleAnchorTarget={handleAnchorTarget}
+                setMessageAnchor={history.setMessageAnchor}
+                handleAnchorTarget={history.handleAnchorTarget}
                 getRoleLabel={getRoleLabel}
                 getVisibilityScopeLabel={getVisibilityScopeLabel}
-                getMessageTypeLabel={getMessageTypeLabel}
-                getAiStrategyLabel={getAiStrategyLabel}
                 setReplyTo={setReplyTo}
-                hasUnread={hasUnread}
-                jumpBackState={jumpBackState}
-                onJumpBack={handleJumpBack}
-                onDismissJumpBack={() => setJumpBackState(null)}
-                onJumpToLatest={() => scrollToBottom('smooth')}
+                hasUnread={history.hasUnread}
+                jumpBackState={history.jumpBackState}
+                onJumpBack={history.handleJumpBack}
+                onDismissJumpBack={() => history.setJumpBackState(null)}
+                onJumpToLatest={() => history.scrollToBottom('smooth')}
               />
               <ChatMessageComposer
                 visibilityScope={visibilityScope}

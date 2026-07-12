@@ -3,10 +3,9 @@
  */
 
 import React from 'react';
-import { Smile, ChevronRight, BookOpen } from 'lucide-react';
+import { ChevronRight, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import RichnessRing from '../RichnessRing';
 import type { FeedbackCard as FeedbackCardType, PsychDomain } from '@/types/interview';
 import { getDomainLabel } from '@/types/interview';
 import { t } from '@/utils/i18n';
@@ -41,9 +40,9 @@ const FeedbackCardComponent: React.FC<FeedbackCardProps> = ({
   return (
     <div className="rounded-xl border border-border bg-card p-6 space-y-5">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <Smile className="size-7 text-success" />
+      <div className="space-y-1">
         <h4 className="text-lg font-semibold text-foreground">{t('interview.result.doneTitle')}</h4>
+        <p className="text-xs text-muted-foreground">{t('psychProfile.disclaimer')}</p>
       </div>
 
       {/* Summary */}
@@ -59,18 +58,6 @@ const FeedbackCardComponent: React.FC<FeedbackCardProps> = ({
         </div>
       </div>
 
-      {/* Unexplored Domains */}
-      {(feedback.domains_unexplored ?? []).length > 0 && (
-        <div>
-          <p className="text-xs font-medium text-muted-foreground mb-2">{t('psychProfile.unexploredDomains')}：</p>
-          <div className="flex flex-wrap gap-1.5">
-            {(feedback.domains_unexplored ?? []).map((d) => (
-              <Badge key={d} variant="outline" className="text-xs">{getDomainLabel(d as PsychDomain)}</Badge>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Key Insights */}
       {(feedback.key_insights ?? []).length > 0 && (
         <div>
@@ -80,11 +67,6 @@ const FeedbackCardComponent: React.FC<FeedbackCardProps> = ({
           </ul>
         </div>
       )}
-
-      {/* Richness Ring */}
-      <div className="flex justify-center py-2">
-        <RichnessRing score={feedback.richness_score} size={64} />
-      </div>
 
       {/* Encouragement */}
       <p className="text-sm italic text-muted-foreground">{feedback.encouragement}</p>
@@ -101,7 +83,7 @@ const FeedbackCardComponent: React.FC<FeedbackCardProps> = ({
           </Button>
         )}
         {onViewProfile && (
-          <Button variant="outline" onClick={onViewProfile}>
+          <Button variant="ghost" onClick={onViewProfile}>
             <BookOpen className="size-4" />{t('feedback.viewMyStory')}
           </Button>
         )}

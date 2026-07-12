@@ -143,45 +143,45 @@ describe('CaseReview', () => {
     });
   });
 
-  it('getCase 回傳 FORBIDDEN 時應提示無權限並導向 /case/list', async () => {
+  it('getCase 回傳 FORBIDDEN 時應提示 normalized 權限訊息並導向 /case/list', async () => {
     mockGetCase.mockRejectedValueOnce({ code: 'FORBIDDEN' });
 
     renderPage();
 
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.noPermissionViewCase');
+      expect(mockMessageError).toHaveBeenCalledWith('common.forbidden');
       expect(mockNavigate).toHaveBeenCalledWith('/case/list', { replace: true });
     });
   });
 
-  it('getCase FORBIDDEN 時若有 message 應顯示該 message（F03 權限邊界）', async () => {
+  it('getCase FORBIDDEN 有 message 時仍顯示 normalized 權限訊息', async () => {
     mockGetCase.mockRejectedValueOnce({ code: 'FORBIDDEN', message: '此案件已移交他方，您無權查看' });
 
     renderPage();
 
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('此案件已移交他方，您無權查看');
+      expect(mockMessageError).toHaveBeenCalledWith('common.forbidden');
       expect(mockNavigate).toHaveBeenCalledWith('/case/list', { replace: true });
     });
   });
 
-  it('getCase 失敗且非 FORBIDDEN/NOT_FOUND 且錯誤無 message 時應顯示 common.getCaseFail', async () => {
+  it('getCase SERVER_ERROR 應顯示 normalized server error', async () => {
     mockGetCase.mockRejectedValueOnce({ code: 'SERVER_ERROR' });
 
     renderPage();
 
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('common.getCaseFail');
+      expect(mockMessageError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
-  it('getCase 一般失敗時應在頁內 Alert 顯示實際錯誤訊息', async () => {
+  it('getCase 一般失敗時頁內 Alert 不直接顯示任意 Error message', async () => {
     mockGetCase.mockRejectedValueOnce(new Error('審理資料載入逾時'));
 
     renderPage();
 
     expect(await screen.findByText('common.getCaseFail')).toBeInTheDocument();
-    expect(screen.getByText('審理資料載入逾時')).toBeInTheDocument();
+    expect(screen.queryByText('審理資料載入逾時')).not.toBeInTheDocument();
   });
 
   it('getCase 失敗時應仍可點擊 backList 導向 /case/list（F03 錯誤恢復：失敗不阻塞導航出口）', async () => {
@@ -228,7 +228,7 @@ describe('CaseReview', () => {
     });
     const retryBtn = screen.getByRole('button', { name: 'common.retry' });
     fireEvent.click(retryBtn);
-    await waitFor(() => expect(mockMessageError).toHaveBeenCalledWith('第二次仍失敗'));
+    await waitFor(() => expect(mockMessageError).toHaveBeenCalledWith('common.getCaseFail'));
     await waitFor(() => expect(screen.getByText('common.retry')).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: 'common.retry' }));
     await waitFor(() => {
@@ -252,7 +252,7 @@ describe('CaseReview', () => {
       expect(mockGetCase).toHaveBeenCalledTimes(2);
     });
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('重試時服務不可用');
+      expect(mockMessageError).toHaveBeenCalledWith('common.getCaseFail');
     });
   });
 
@@ -295,17 +295,17 @@ describe('CaseReview', () => {
       expect(mockGetCase).toHaveBeenCalledTimes(2);
     });
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('common.getCaseFail');
+      expect(mockMessageError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
-  it('getCase 失敗且 message 為空字串時應使用 common.getCaseFail（F10 邊界：空 message 視為無）', async () => {
+  it('getCase SERVER_ERROR 的空 message 使用 normalized server error', async () => {
     mockGetCase.mockRejectedValueOnce({ code: 'SERVER_ERROR', message: '' });
 
     renderPage();
 
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('common.getCaseFail');
+      expect(mockMessageError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
@@ -348,7 +348,7 @@ describe('CaseReview', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/judgment/judgment-456');
   });
 
-  it('judgment_failed 重試失敗時應顯示錯誤並重新拉取案件', async () => {
+  it('judgment_failed 重試的任意 Error message 不會直接顯示並重新拉取案件', async () => {
     mockGetCase
       .mockResolvedValueOnce({
         ...submittedCase,
@@ -363,12 +363,12 @@ describe('CaseReview', () => {
     fireEvent.click(await screen.findByText('review.retryJudgment'));
 
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('生成失敗');
+      expect(mockMessageError).toHaveBeenCalledWith('review.retryFail');
       expect(mockGetCase).toHaveBeenCalledTimes(2);
     });
   });
 
-  it('judgment_failed 重試失敗且錯誤無 message 時應顯示 review.retryFail', async () => {
+  it('judgment_failed 重試 SERVER_ERROR 時顯示 normalized server error', async () => {
     mockGetCase.mockResolvedValueOnce({
       ...submittedCase,
       status: 'judgment_failed',
@@ -381,11 +381,11 @@ describe('CaseReview', () => {
     fireEvent.click(await screen.findByText('review.retryJudgment'));
 
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('review.retryFail');
+      expect(mockMessageError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
-  it('judgment_failed 重試失敗且 message 為空字串時應顯示 review.retryFail（F10 邊界：空 message 視為無）', async () => {
+  it('judgment_failed 重試 AI_SERVICE_ERROR 時顯示 catalog 錯誤', async () => {
     mockGetCase.mockResolvedValueOnce({
       ...submittedCase,
       status: 'judgment_failed',
@@ -398,11 +398,11 @@ describe('CaseReview', () => {
     fireEvent.click(await screen.findByText('review.retryJudgment'));
 
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('review.retryFail');
+      expect(mockMessageError).toHaveBeenCalledWith('message.judgmentUnavailable');
     });
   });
 
-  it('judgment_failed 重試 generateJudgment FORBIDDEN 且無 message 時應使用 review.retryFail（F03 權限邊界 fallback）', async () => {
+  it('judgment_failed 重試 generateJudgment FORBIDDEN 時顯示 normalized 權限訊息', async () => {
     mockGetCase.mockResolvedValueOnce({
       ...submittedCase,
       status: 'judgment_failed',
@@ -415,7 +415,7 @@ describe('CaseReview', () => {
     fireEvent.click(await screen.findByText('review.retryJudgment'));
 
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('review.retryFail');
+      expect(mockMessageError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
@@ -444,7 +444,7 @@ describe('CaseReview', () => {
     expect(mockMessageError).not.toHaveBeenCalled();
   });
 
-  it('judgment_failed 重試時 JUDGMENT_EXISTS 但 getJudgmentByCaseId 失敗且有 message 應顯示該 message 並重拉案件', async () => {
+  it('judgment_failed 重試時 JUDGMENT_EXISTS 但 getJudgmentByCaseId 任意 Error 不直接顯示並重拉案件', async () => {
     mockGetCase.mockResolvedValueOnce({
       ...submittedCase,
       status: 'judgment_failed',
@@ -460,14 +460,14 @@ describe('CaseReview', () => {
     fireEvent.click(await screen.findByText('review.retryJudgment'));
 
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('fetch judgment failed');
+      expect(mockMessageError).toHaveBeenCalledWith('review.retryFail');
     });
     await waitFor(() => {
       expect(mockGetCase).toHaveBeenCalledTimes(2);
     });
   });
 
-  it('judgment_failed 重試時 JUDGMENT_EXISTS 但 getJudgmentByCaseId 失敗且無 message 應顯示 review.retryFail', async () => {
+  it('judgment_failed 重試時 JUDGMENT_EXISTS 但 getJudgmentByCaseId SERVER_ERROR 顯示 normalized server error', async () => {
     mockGetCase.mockResolvedValueOnce({
       ...submittedCase,
       status: 'judgment_failed',
@@ -483,11 +483,11 @@ describe('CaseReview', () => {
     fireEvent.click(await screen.findByText('review.retryJudgment'));
 
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('review.retryFail');
+      expect(mockMessageError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
-  it('judgment_failed 重試時 JUDGMENT_EXISTS 但 getJudgmentByCaseId 失敗且 message 為空字串應使用 review.retryFail（F10 邊界）', async () => {
+  it('judgment_failed 重試時 JUDGMENT_EXISTS 但 getJudgmentByCaseId SERVER_ERROR 空 message 顯示 normalized server error', async () => {
     mockGetCase.mockResolvedValueOnce({
       ...submittedCase,
       status: 'judgment_failed',
@@ -503,7 +503,7 @@ describe('CaseReview', () => {
     fireEvent.click(await screen.findByText('review.retryJudgment'));
 
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('review.retryFail');
+      expect(mockMessageError).toHaveBeenCalledWith('common.serverError');
     });
   });
 

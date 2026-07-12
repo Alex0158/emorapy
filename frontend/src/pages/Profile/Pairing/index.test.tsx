@@ -1,11 +1,12 @@
 /**
  * Profile Pairing 頁面單元測試
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import ProfilePairing from './index';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Pairing } from '@/services/api/pairing';
+import ProfilePairing from './index';
 
 const mockNavigate = vi.fn();
 const mockStartSession = vi.fn();
@@ -97,6 +98,9 @@ describe('ProfilePairing', () => {
     mockGetRelationshipProfile.mockResolvedValue(null);
     mockUpsertRelationshipProfile.mockReset();
     mockUpsertRelationshipProfile.mockResolvedValue(null);
+    mockCheckResume.mockReset();
+    mockStartSession.mockReset();
+    mockGiveConsent.mockReset();
     mockCheckResume.mockResolvedValue({ has_pending: false });
     mockStartSession.mockResolvedValue({ id: 'test-session-id' });
     mockGiveConsent.mockResolvedValue(undefined);
@@ -160,6 +164,22 @@ describe('ProfilePairing', () => {
     });
   });
 
+  it('配對摘要只顯示可辨識名稱，不暴露 pairing 或 user raw IDs', async () => {
+    mockGetPairingStatus.mockResolvedValue(activePairing);
+
+    render(
+      <MemoryRouter>
+        <ProfilePairing />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('pairing.user1A')).toBeInTheDocument();
+    expect(screen.getByText('pairing.user2B')).toBeInTheDocument();
+    expect(screen.queryByText(activePairing.id)).not.toBeInTheDocument();
+    expect(screen.queryByText('u1')).not.toBeInTheDocument();
+    expect(screen.queryByText('u2')).not.toBeInTheDocument();
+  });
+
   it('未進入配對成功態時不應顯示訪談 trigger', async () => {
     render(
       <MemoryRouter>
@@ -174,7 +194,7 @@ describe('ProfilePairing', () => {
     expect(screen.queryByText('trigger.bannerOk')).not.toBeInTheDocument();
   });
 
-  it('getPairingStatus 失敗時應顯示錯誤並清空配對', async () => {
+  it('getPairingStatus 收到未分類 Error 時應顯示頁面 fallback 並清空配對', async () => {
     mockGetPairingStatus.mockRejectedValue(new Error('獲取失敗'));
     render(
       <MemoryRouter>
@@ -182,23 +202,26 @@ describe('ProfilePairing', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('獲取失敗');
+      expect(mockToastError).toHaveBeenCalledWith('message.getPairingFail');
     });
   });
 
-  it('getPairingStatus FORBIDDEN 時若有 message 應顯示該 message（F08 權限邊界）', async () => {
-    mockGetPairingStatus.mockRejectedValue({ code: 'FORBIDDEN', message: '帳號已停權，無法使用配對功能' });
+  it('getPairingStatus FORBIDDEN 時應使用權限 catalog，不直接顯示服務端 message（F08 權限邊界）', async () => {
+    mockGetPairingStatus.mockRejectedValue({
+      code: 'FORBIDDEN',
+      message: '帳號已停權，無法使用配對功能',
+    });
     render(
       <MemoryRouter>
         <ProfilePairing />
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('帳號已停權，無法使用配對功能');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
-  it('getPairingStatus FORBIDDEN 且無 message 時應使用 getPairingFail（F08 權限邊界 fallback）', async () => {
+  it('getPairingStatus FORBIDDEN 且無 message 時應使用權限 catalog（F08 權限邊界）', async () => {
     mockGetPairingStatus.mockRejectedValue({ code: 'FORBIDDEN' });
     render(
       <MemoryRouter>
@@ -206,7 +229,7 @@ describe('ProfilePairing', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.getPairingFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
@@ -222,15 +245,18 @@ describe('ProfilePairing', () => {
     });
   });
 
-  it('getPairingStatus 失敗且 message 為空字串時應使用 getPairingFail（F10 邊界：空 message 視為無）', async () => {
-    mockGetPairingStatus.mockRejectedValue({ code: 'SERVER_ERROR', message: '' });
+  it('getPairingStatus SERVER_ERROR 且 message 為空字串時應使用伺服器 catalog（F10 邊界）', async () => {
+    mockGetPairingStatus.mockRejectedValue({
+      code: 'SERVER_ERROR',
+      message: '',
+    });
     render(
       <MemoryRouter>
         <ProfilePairing />
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.getPairingFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
@@ -251,9 +277,7 @@ describe('ProfilePairing', () => {
   });
 
   it('getPairingStatus 失敗時點擊 retry 應重新呼叫 getPairingStatus', async () => {
-    mockGetPairingStatus
-      .mockRejectedValueOnce(new Error('網絡錯誤'))
-      .mockResolvedValueOnce(null);
+    mockGetPairingStatus.mockRejectedValueOnce(new Error('網絡錯誤')).mockResolvedValueOnce(null);
     render(
       <MemoryRouter>
         <ProfilePairing />
@@ -297,7 +321,7 @@ describe('ProfilePairing', () => {
     });
   });
 
-  it('getPairingStatus 失敗時 retry 再次失敗應顯示該次錯誤訊息（F08 重試錯誤反饋）', async () => {
+  it('getPairingStatus retry 再次收到未分類 Error 時應顯示頁面 fallback（F08 重試錯誤反饋）', async () => {
     mockGetPairingStatus.mockRejectedValue(new Error('網絡錯誤'));
     render(
       <MemoryRouter>
@@ -314,7 +338,7 @@ describe('ProfilePairing', () => {
       expect(mockGetPairingStatus).toHaveBeenCalledTimes(2);
     });
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('重試時服務不可用');
+      expect(mockToastError).toHaveBeenCalledWith('message.getPairingFail');
     });
   });
 
@@ -328,21 +352,27 @@ describe('ProfilePairing', () => {
     await waitFor(() => {
       expect(screen.getByText('common.retry')).toBeInTheDocument();
     });
-    mockGetPairingStatus.mockRejectedValueOnce({ code: 'SERVER_ERROR', message: '' });
+    mockGetPairingStatus.mockRejectedValueOnce({
+      code: 'SERVER_ERROR',
+      message: '',
+    });
     fireEvent.click(screen.getByText('common.retry'));
     await waitFor(() => {
       expect(mockGetPairingStatus).toHaveBeenCalledTimes(2);
     });
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.getPairingFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
   it('getPairingStatus 失敗時 retry 快速連點只會送出一次 getPairingStatus 請求（F08 重試節流）', async () => {
     let resolveFetch: (v: unknown) => void;
-    mockGetPairingStatus
-      .mockRejectedValueOnce(new Error('網絡錯誤'))
-      .mockImplementation(() => new Promise((resolve) => { resolveFetch = resolve; }));
+    mockGetPairingStatus.mockRejectedValueOnce(new Error('網絡錯誤')).mockImplementation(
+      () =>
+        new Promise(resolve => {
+          resolveFetch = resolve;
+        })
+    );
     render(
       <MemoryRouter>
         <ProfilePairing />
@@ -370,7 +400,10 @@ describe('ProfilePairing', () => {
     mockGetPairingStatus.mockResolvedValue(activePairing);
     mockCheckResume.mockResolvedValue({ has_pending: false });
     mockStartSession.mockImplementation(
-      () => new Promise((resolve) => { resolveStartSession = resolve; })
+      () =>
+        new Promise(resolve => {
+          resolveStartSession = resolve;
+        })
     );
     const { unmount } = render(
       <MemoryRouter>
@@ -394,7 +427,7 @@ describe('ProfilePairing', () => {
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
-  it('同意後 startSession 失敗且有 message 應顯示該 message（F06/F08 錯誤處理約定）', async () => {
+  it('同意後 startSession 收到未分類 Error 時應顯示訪談 fallback（F06/F08 錯誤處理約定）', async () => {
     mockGetPairingStatus.mockResolvedValue(activePairing);
     mockStartSession.mockRejectedValue(new Error('啟動訪談失敗'));
     render(
@@ -412,11 +445,11 @@ describe('ProfilePairing', () => {
     fireEvent.click(screen.getByText('consent.agree'));
     fireEvent.click(screen.getByText('consent.start'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('啟動訪談失敗');
+      expect(mockToastError).toHaveBeenCalledWith('interview.startFail');
     });
   });
 
-  it('同意後 startSession 失敗且無 message 應顯示 interview.startFail', async () => {
+  it('同意後 startSession SERVER_ERROR 且無 message 時應顯示伺服器 catalog', async () => {
     mockGetPairingStatus.mockResolvedValue(activePairing);
     mockStartSession.mockRejectedValue({ code: 'SERVER_ERROR' });
     render(
@@ -434,11 +467,11 @@ describe('ProfilePairing', () => {
     fireEvent.click(screen.getByText('consent.agree'));
     fireEvent.click(screen.getByText('consent.start'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('interview.startFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
-  it('同意後 startSession 失敗且 message 為空字串時應使用 interview.startFail（F10 邊界）', async () => {
+  it('同意後 startSession SERVER_ERROR 且 message 為空字串時應使用伺服器 catalog（F10 邊界）', async () => {
     mockGetPairingStatus.mockResolvedValue(activePairing);
     mockStartSession.mockRejectedValue({ code: 'SERVER_ERROR', message: '' });
     render(
@@ -456,11 +489,11 @@ describe('ProfilePairing', () => {
     fireEvent.click(screen.getByText('consent.agree'));
     fireEvent.click(screen.getByText('consent.start'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('interview.startFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
-  it('同意後 startSession FORBIDDEN 且無 message 時應使用 interview.startFail（F06/F08 權限邊界 fallback）', async () => {
+  it('同意後 startSession FORBIDDEN 且無 message 時應使用權限 catalog（F06/F08 權限邊界）', async () => {
     mockGetPairingStatus.mockResolvedValue(activePairing);
     mockStartSession.mockRejectedValue({ code: 'FORBIDDEN' });
     render(
@@ -478,13 +511,16 @@ describe('ProfilePairing', () => {
     fireEvent.click(screen.getByText('consent.agree'));
     fireEvent.click(screen.getByText('consent.start'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('interview.startFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
   it('同意後 checkResume 有 pending session 時應直接導航到該訪談且不再 startSession（P0-05 回流一致性）', async () => {
     mockGetPairingStatus.mockResolvedValue(activePairing);
-    mockCheckResume.mockResolvedValue({ has_pending: true, session_id: 'resume-pairing-session' });
+    mockCheckResume.mockResolvedValue({
+      has_pending: true,
+      session_id: 'resume-pairing-session',
+    });
     render(
       <MemoryRouter>
         <ProfilePairing />
@@ -538,7 +574,10 @@ describe('ProfilePairing', () => {
     let resolveConsent: (v: unknown) => void;
     mockGetPairingStatus.mockResolvedValue(activePairing);
     mockGiveConsent.mockImplementation(
-      () => new Promise((resolve) => { resolveConsent = resolve; })
+      () =>
+        new Promise(resolve => {
+          resolveConsent = resolve;
+        })
     );
     const { unmount } = render(
       <MemoryRouter>
@@ -568,7 +607,10 @@ describe('ProfilePairing', () => {
     let rejectConsent: (error?: unknown) => void;
     mockGetPairingStatus.mockResolvedValue(activePairing);
     mockGiveConsent.mockImplementation(
-      () => new Promise((_, reject) => { rejectConsent = reject; })
+      () =>
+        new Promise((_, reject) => {
+          rejectConsent = reject;
+        })
     );
     const { unmount } = render(
       <MemoryRouter>
@@ -593,7 +635,7 @@ describe('ProfilePairing', () => {
     expect(mockToastError).not.toHaveBeenCalled();
   });
 
-  it('createPairing 失敗且錯誤無 message 時應顯示 message.createPairingFail', async () => {
+  it('createPairing SERVER_ERROR 且無 message 時應顯示伺服器 catalog', async () => {
     mockCreatePairing.mockRejectedValue({ code: 'SERVER_ERROR' });
     render(
       <MemoryRouter>
@@ -605,12 +647,15 @@ describe('ProfilePairing', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /pairing\.createButton/ }));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.createPairingFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
-  it('createPairing 失敗且 message 為空字串時應使用 createPairingFail（F10 邊界：空 message 視為無）', async () => {
-    mockCreatePairing.mockRejectedValue({ code: 'AI_SERVICE_ERROR', message: '' });
+  it('createPairing AI_SERVICE_ERROR 且 message 為空字串時應使用服務 catalog（F10 邊界）', async () => {
+    mockCreatePairing.mockRejectedValue({
+      code: 'AI_SERVICE_ERROR',
+      message: '',
+    });
     render(
       <MemoryRouter>
         <ProfilePairing />
@@ -621,12 +666,15 @@ describe('ProfilePairing', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /pairing\.createButton/ }));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.createPairingFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.judgmentUnavailable');
     });
   });
 
-  it('createPairing FORBIDDEN 時若有 message 應顯示該 message（F08 權限邊界）', async () => {
-    mockCreatePairing.mockRejectedValue({ code: 'FORBIDDEN', message: '您已有進行中的配對' });
+  it('createPairing FORBIDDEN 時應使用權限 catalog，不直接顯示服務端 message（F08 權限邊界）', async () => {
+    mockCreatePairing.mockRejectedValue({
+      code: 'FORBIDDEN',
+      message: '您已有進行中的配對',
+    });
     render(
       <MemoryRouter>
         <ProfilePairing />
@@ -637,11 +685,11 @@ describe('ProfilePairing', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /pairing\.createButton/ }));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('您已有進行中的配對');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
-  it('createPairing FORBIDDEN 且無 message 時應使用 createPairingFail（F08 權限邊界 fallback）', async () => {
+  it('createPairing FORBIDDEN 且無 message 時應使用權限 catalog（F08 權限邊界）', async () => {
     mockCreatePairing.mockRejectedValue({ code: 'FORBIDDEN' });
     render(
       <MemoryRouter>
@@ -653,14 +701,17 @@ describe('ProfilePairing', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /pairing\.createButton/ }));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.createPairingFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
   it('createPairing 成功但組件已卸載時不應呼叫 message.success（useMountedRef 回歸：避免 F01-BUG-001 同類問題）', async () => {
     let resolveCreate: (v: unknown) => void;
     mockCreatePairing.mockImplementation(
-      () => new Promise((resolve) => { resolveCreate = resolve; })
+      () =>
+        new Promise(resolve => {
+          resolveCreate = resolve;
+        })
     );
     const { unmount } = render(
       <MemoryRouter>
@@ -679,10 +730,12 @@ describe('ProfilePairing', () => {
   });
 
   it('createPairing 失敗後應仍可再次點擊建立配對，成功後應顯示配對狀態（F08 錯誤恢復：失敗不阻塞重試）', async () => {
-    const createdPairing = { id: 'pair-retry', status: 'pending' as const, invite_code: 'RETRY12' };
-    mockCreatePairing
-      .mockRejectedValueOnce(new Error('暫時無法建立'))
-      .mockResolvedValueOnce(createdPairing);
+    const createdPairing = {
+      id: 'pair-retry',
+      status: 'pending' as const,
+      invite_code: 'RETRY12',
+    };
+    mockCreatePairing.mockRejectedValueOnce(new Error('暫時無法建立')).mockResolvedValueOnce(createdPairing);
     mockGetRelationshipProfile.mockResolvedValue(null);
     render(
       <MemoryRouter>
@@ -694,7 +747,7 @@ describe('ProfilePairing', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /pairing\.createButton/ }));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('暫時無法建立');
+      expect(mockToastError).toHaveBeenCalledWith('message.createPairingFail');
     });
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /pairing\.createButton/ })).not.toBeDisabled();
@@ -710,7 +763,10 @@ describe('ProfilePairing', () => {
   it('joinPairing 成功但組件已卸載時不應呼叫 message.success（useMountedRef 回歸：避免 F01-BUG-001 同類問題）', async () => {
     let resolveJoin: (v: unknown) => void;
     mockJoinPairing.mockImplementation(
-      () => new Promise((resolve) => { resolveJoin = resolve; })
+      () =>
+        new Promise(resolve => {
+          resolveJoin = resolve;
+        })
     );
     const { unmount } = render(
       <MemoryRouter>
@@ -732,10 +788,12 @@ describe('ProfilePairing', () => {
   });
 
   it('joinPairing 失敗後應仍可再次點擊加入，成功後應顯示配對狀態（F08 錯誤恢復：失敗不阻塞重試）', async () => {
-    const joinedPairing = { id: 'pair-joined', status: 'pending' as const, invite_code: 'JOINED1' };
-    mockJoinPairing
-      .mockRejectedValueOnce(new Error('網路暫時不穩'))
-      .mockResolvedValueOnce(joinedPairing);
+    const joinedPairing = {
+      id: 'pair-joined',
+      status: 'pending' as const,
+      invite_code: 'JOINED1',
+    };
+    mockJoinPairing.mockRejectedValueOnce(new Error('網路暫時不穩')).mockResolvedValueOnce(joinedPairing);
     mockGetRelationshipProfile.mockResolvedValue(null);
     render(
       <MemoryRouter>
@@ -750,7 +808,7 @@ describe('ProfilePairing', () => {
     await waitFor(() => expect(joinInput).toHaveValue('ABC123'));
     fireEvent.click(screen.getByRole('button', { name: /pairing\.joinButton/ }));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('網路暫時不穩');
+      expect(mockToastError).toHaveBeenCalledWith('message.joinPairingFail');
     });
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /pairing\.joinButton/ })).not.toBeDisabled();
@@ -763,7 +821,7 @@ describe('ProfilePairing', () => {
     });
   });
 
-  it('joinPairing 失敗且錯誤無 message 時應顯示 message.joinPairingFail', async () => {
+  it('joinPairing SERVER_ERROR 且無 message 時應顯示伺服器 catalog', async () => {
     mockJoinPairing.mockRejectedValue({ code: 'SERVER_ERROR' });
     render(
       <MemoryRouter>
@@ -778,12 +836,15 @@ describe('ProfilePairing', () => {
     await waitFor(() => expect(joinInput).toHaveValue('ABC123'));
     fireEvent.click(screen.getByRole('button', { name: /pairing\.joinButton/ }));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.joinPairingFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
   it('joinPairing 失敗且 message 為空字串時應使用 joinPairingFail（F10 邊界：空 message 視為無）', async () => {
-    mockJoinPairing.mockRejectedValue({ code: 'INVITE_CODE_EXPIRED', message: '' });
+    mockJoinPairing.mockRejectedValue({
+      code: 'INVITE_CODE_EXPIRED',
+      message: '',
+    });
     render(
       <MemoryRouter>
         <ProfilePairing />
@@ -801,8 +862,11 @@ describe('ProfilePairing', () => {
     });
   });
 
-  it('joinPairing FORBIDDEN 時若有 message 應顯示該 message（F08 權限邊界）', async () => {
-    mockJoinPairing.mockRejectedValue({ code: 'FORBIDDEN', message: '此邀請碼已失效' });
+  it('joinPairing FORBIDDEN 時應使用權限 catalog，不直接顯示服務端 message（F08 權限邊界）', async () => {
+    mockJoinPairing.mockRejectedValue({
+      code: 'FORBIDDEN',
+      message: '此邀請碼已失效',
+    });
     render(
       <MemoryRouter>
         <ProfilePairing />
@@ -816,11 +880,11 @@ describe('ProfilePairing', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /pairing\.joinButton/ }));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('此邀請碼已失效');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
-  it('joinPairing FORBIDDEN 且無 message 時應使用 joinPairingFail（F08 權限邊界 fallback）', async () => {
+  it('joinPairing FORBIDDEN 且無 message 時應使用權限 catalog（F08 權限邊界）', async () => {
     mockJoinPairing.mockRejectedValue({ code: 'FORBIDDEN' });
     render(
       <MemoryRouter>
@@ -835,11 +899,11 @@ describe('ProfilePairing', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /pairing\.joinButton/ }));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.joinPairingFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
-  it('有配對時 getRelationshipProfile 失敗應顯示 relationshipProfileLoadFail', async () => {
+  it('有配對時 getRelationshipProfile SERVER_ERROR 應顯示伺服器 catalog', async () => {
     mockGetPairingStatus.mockResolvedValue(activePairing);
     mockGetRelationshipProfile.mockRejectedValue({ code: 'SERVER_ERROR' });
     render(
@@ -848,37 +912,43 @@ describe('ProfilePairing', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.relationshipProfileLoadFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
-  it('有配對時 getRelationshipProfile 失敗且 message 為空字串時應使用 relationshipProfileLoadFail（F10 邊界）', async () => {
+  it('有配對時 getRelationshipProfile SERVER_ERROR 且 message 為空字串時應使用伺服器 catalog（F10 邊界）', async () => {
     mockGetPairingStatus.mockResolvedValue(activePairing);
-    mockGetRelationshipProfile.mockRejectedValue({ code: 'SERVER_ERROR', message: '' });
+    mockGetRelationshipProfile.mockRejectedValue({
+      code: 'SERVER_ERROR',
+      message: '',
+    });
     render(
       <MemoryRouter>
         <ProfilePairing />
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.relationshipProfileLoadFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
-  it('有配對時 getRelationshipProfile FORBIDDEN 時若有 message 應顯示該 message（F08 權限邊界）', async () => {
+  it('有配對時 getRelationshipProfile FORBIDDEN 應使用權限 catalog，不直接顯示服務端 message（F08 權限邊界）', async () => {
     mockGetPairingStatus.mockResolvedValue(activePairing);
-    mockGetRelationshipProfile.mockRejectedValue({ code: 'FORBIDDEN', message: '無權限查看此配對的關係檔案' });
+    mockGetRelationshipProfile.mockRejectedValue({
+      code: 'FORBIDDEN',
+      message: '無權限查看此配對的關係檔案',
+    });
     render(
       <MemoryRouter>
         <ProfilePairing />
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('無權限查看此配對的關係檔案');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
-  it('有配對時 getRelationshipProfile FORBIDDEN 且無 message 時應使用 relationshipProfileLoadFail（F08 權限邊界 fallback）', async () => {
+  it('有配對時 getRelationshipProfile FORBIDDEN 且無 message 時應使用權限 catalog（F08 權限邊界）', async () => {
     mockGetPairingStatus.mockResolvedValue(activePairing);
     mockGetRelationshipProfile.mockRejectedValue({ code: 'FORBIDDEN' });
     render(
@@ -887,11 +957,11 @@ describe('ProfilePairing', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.relationshipProfileLoadFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
-  it('保存關係檔案時 upsertRelationshipProfile 失敗應顯示錯誤', async () => {
+  it('保存關係檔案收到未分類 Error 時應顯示頁面 fallback', async () => {
     mockGetPairingStatus.mockResolvedValue(activePairing);
     mockGetRelationshipProfile.mockResolvedValue({
       pairing_id: activePairing.id,
@@ -911,18 +981,21 @@ describe('ProfilePairing', () => {
     fireEvent.change(strengthsInput, { target: { value: '新內容' } });
     fireEvent.click(screen.getByRole('button', { name: 'pairing.saveRelationshipProfile' }));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('保存失敗');
+      expect(mockToastError).toHaveBeenCalledWith('message.relationshipProfileSaveFail');
     });
   });
 
-  it('保存關係檔案失敗且 message 為空字串時應使用 relationshipProfileSaveFail（F10 邊界）', async () => {
+  it('保存關係檔案 DATABASE_ERROR 且 message 為空字串時應使用伺服器 catalog（F10 邊界）', async () => {
     mockGetPairingStatus.mockResolvedValue(activePairing);
     mockGetRelationshipProfile.mockResolvedValue({
       pairing_id: activePairing.id,
       relationship_strengths: '原有',
       completion_percentage: 70,
     });
-    mockUpsertRelationshipProfile.mockRejectedValue({ code: 'DATABASE_ERROR', message: '' });
+    mockUpsertRelationshipProfile.mockRejectedValue({
+      code: 'DATABASE_ERROR',
+      message: '',
+    });
     render(
       <MemoryRouter>
         <ProfilePairing />
@@ -935,11 +1008,11 @@ describe('ProfilePairing', () => {
     fireEvent.change(strengthsInput, { target: { value: '新內容' } });
     fireEvent.click(screen.getByRole('button', { name: 'pairing.saveRelationshipProfile' }));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.relationshipProfileSaveFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
-  it('保存關係檔案失敗且無 message 時應使用 message.relationshipProfileSaveFail', async () => {
+  it('保存關係檔案 SERVER_ERROR 且無 message 時應使用伺服器 catalog', async () => {
     mockGetPairingStatus.mockResolvedValue(activePairing);
     mockGetRelationshipProfile.mockResolvedValue({
       pairing_id: activePairing.id,
@@ -959,7 +1032,7 @@ describe('ProfilePairing', () => {
     fireEvent.change(strengthsInput, { target: { value: '新內容' } });
     fireEvent.click(screen.getByRole('button', { name: 'pairing.saveRelationshipProfile' }));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.relationshipProfileSaveFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
@@ -972,7 +1045,10 @@ describe('ProfilePairing', () => {
       completion_percentage: 70,
     });
     mockUpsertRelationshipProfile.mockImplementation(
-      () => new Promise((resolve) => { resolveSave = resolve; })
+      () =>
+        new Promise(resolve => {
+          resolveSave = resolve;
+        })
     );
     const { unmount } = render(
       <MemoryRouter>
@@ -1008,9 +1084,7 @@ describe('ProfilePairing', () => {
       relationship_strengths: '原有',
       completion_percentage: 70,
     });
-    mockUpsertRelationshipProfile
-      .mockRejectedValueOnce(new Error('暫時無法保存'))
-      .mockResolvedValueOnce(savedProfile);
+    mockUpsertRelationshipProfile.mockRejectedValueOnce(new Error('暫時無法保存')).mockResolvedValueOnce(savedProfile);
     render(
       <MemoryRouter>
         <ProfilePairing />
@@ -1023,7 +1097,7 @@ describe('ProfilePairing', () => {
     fireEvent.change(strengthsInput, { target: { value: '新內容' } });
     fireEvent.click(screen.getByRole('button', { name: 'pairing.saveRelationshipProfile' }));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('暫時無法保存');
+      expect(mockToastError).toHaveBeenCalledWith('message.relationshipProfileSaveFail');
     });
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'pairing.saveRelationshipProfile' })).not.toBeDisabled();
@@ -1035,14 +1109,17 @@ describe('ProfilePairing', () => {
     });
   });
 
-  it('保存關係檔案 upsertRelationshipProfile FORBIDDEN 時若有 message 應顯示該 message（F08 權限邊界）', async () => {
+  it('保存關係檔案 upsertRelationshipProfile FORBIDDEN 應使用權限 catalog，不直接顯示服務端 message（F08 權限邊界）', async () => {
     mockGetPairingStatus.mockResolvedValue(activePairing);
     mockGetRelationshipProfile.mockResolvedValue({
       pairing_id: activePairing.id,
       relationship_strengths: '原有',
       completion_percentage: 70,
     });
-    mockUpsertRelationshipProfile.mockRejectedValue({ code: 'FORBIDDEN', message: '此配對已鎖定，無法編輯' });
+    mockUpsertRelationshipProfile.mockRejectedValue({
+      code: 'FORBIDDEN',
+      message: '此配對已鎖定，無法編輯',
+    });
     render(
       <MemoryRouter>
         <ProfilePairing />
@@ -1055,11 +1132,11 @@ describe('ProfilePairing', () => {
     fireEvent.change(strengthsInput, { target: { value: '新內容' } });
     fireEvent.click(screen.getByRole('button', { name: 'pairing.saveRelationshipProfile' }));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('此配對已鎖定，無法編輯');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
-  it('保存關係檔案 upsertRelationshipProfile FORBIDDEN 且無 message 時應使用 relationshipProfileSaveFail（F08 權限邊界 fallback）', async () => {
+  it('保存關係檔案 upsertRelationshipProfile FORBIDDEN 且無 message 時應使用權限 catalog（F08 權限邊界）', async () => {
     mockGetPairingStatus.mockResolvedValue(activePairing);
     mockGetRelationshipProfile.mockResolvedValue({
       pairing_id: activePairing.id,
@@ -1079,7 +1156,7 @@ describe('ProfilePairing', () => {
     fireEvent.change(strengthsInput, { target: { value: '新內容' } });
     fireEvent.click(screen.getByRole('button', { name: 'pairing.saveRelationshipProfile' }));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.relationshipProfileSaveFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
@@ -1092,7 +1169,10 @@ describe('ProfilePairing', () => {
       completion_percentage: 70,
     });
     mockUpsertRelationshipProfile.mockImplementation(
-      () => new Promise((resolve) => { resolveSave = resolve; })
+      () =>
+        new Promise(resolve => {
+          resolveSave = resolve;
+        })
     );
     render(
       <MemoryRouter>
@@ -1104,7 +1184,9 @@ describe('ProfilePairing', () => {
     });
     const strengthsInput = await screen.findByPlaceholderText('pairing.relationshipStrengthsPlaceholder');
     fireEvent.change(strengthsInput, { target: { value: '新內容' } });
-    const saveBtn = screen.getByRole('button', { name: 'pairing.saveRelationshipProfile' });
+    const saveBtn = screen.getByRole('button', {
+      name: 'pairing.saveRelationshipProfile',
+    });
     fireEvent.click(saveBtn);
     fireEvent.click(saveBtn);
     fireEvent.click(saveBtn);
@@ -1130,7 +1212,10 @@ describe('ProfilePairing', () => {
       completion_percentage: 0,
     });
     mockCancelPairing.mockImplementation(
-      () => new Promise((resolve) => { resolveCancel = resolve; })
+      () =>
+        new Promise(resolve => {
+          resolveCancel = resolve;
+        })
     );
     const { unmount } = render(
       <MemoryRouter>
@@ -1149,14 +1234,17 @@ describe('ProfilePairing', () => {
     expect(mockToastSuccess).not.toHaveBeenCalled();
   });
 
-  it('cancelPairing FORBIDDEN 時若有 message 應顯示該 message（F08 權限邊界）', async () => {
+  it('cancelPairing FORBIDDEN 應使用權限 catalog，不直接顯示服務端 message（F08 權限邊界）', async () => {
     mockGetPairingStatus.mockResolvedValue(activePairing);
     mockGetRelationshipProfile.mockResolvedValue({
       pairing_id: activePairing.id,
       relationship_strengths: '',
       completion_percentage: 0,
     });
-    mockCancelPairing.mockRejectedValue({ code: 'FORBIDDEN', message: '此配對已無法取消' });
+    mockCancelPairing.mockRejectedValue({
+      code: 'FORBIDDEN',
+      message: '此配對已無法取消',
+    });
     render(
       <MemoryRouter>
         <ProfilePairing />
@@ -1168,11 +1256,11 @@ describe('ProfilePairing', () => {
     fireEvent.click(screen.getByRole('button', { name: 'pairing.cancelPairing' }));
     fireEvent.click(screen.getByText('Confirm Cancel'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('此配對已無法取消');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
-  it('cancelPairing FORBIDDEN 且無 message 時應使用 cancelPairingFail（F08 權限邊界 fallback）', async () => {
+  it('cancelPairing FORBIDDEN 且無 message 時應使用權限 catalog（F08 權限邊界）', async () => {
     mockGetPairingStatus.mockResolvedValue(activePairing);
     mockGetRelationshipProfile.mockResolvedValue({
       pairing_id: activePairing.id,
@@ -1191,11 +1279,11 @@ describe('ProfilePairing', () => {
     fireEvent.click(screen.getByRole('button', { name: 'pairing.cancelPairing' }));
     fireEvent.click(screen.getByText('Confirm Cancel'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.cancelPairingFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
-  it('cancelPairing 失敗且 message 為空字串時應使用 cancelPairingFail（F10 邊界：空 message 視為無）', async () => {
+  it('cancelPairing 未收錄的 CONFLICT 且 message 為空字串時應使用頁面 fallback（F10 邊界）', async () => {
     mockGetPairingStatus.mockResolvedValue(activePairing);
     mockGetRelationshipProfile.mockResolvedValue({
       pairing_id: activePairing.id,
@@ -1218,7 +1306,7 @@ describe('ProfilePairing', () => {
     });
   });
 
-  it('cancelPairing 失敗且錯誤無 message 時應顯示 message.cancelPairingFail', async () => {
+  it('cancelPairing SERVER_ERROR 且無 message 時應顯示伺服器 catalog', async () => {
     mockGetPairingStatus.mockResolvedValue(activePairing);
     mockGetRelationshipProfile.mockResolvedValue({
       pairing_id: activePairing.id,
@@ -1237,7 +1325,7 @@ describe('ProfilePairing', () => {
     fireEvent.click(screen.getByRole('button', { name: 'pairing.cancelPairing' }));
     fireEvent.click(screen.getByText('Confirm Cancel'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.cancelPairingFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
@@ -1249,9 +1337,7 @@ describe('ProfilePairing', () => {
       relationship_strengths: '',
       completion_percentage: 0,
     });
-    mockCancelPairing
-      .mockRejectedValueOnce(new Error('暫時無法取消'))
-      .mockResolvedValueOnce(cancelledPairing);
+    mockCancelPairing.mockRejectedValueOnce(new Error('暫時無法取消')).mockResolvedValueOnce(cancelledPairing);
     render(
       <MemoryRouter>
         <ProfilePairing />
@@ -1263,7 +1349,7 @@ describe('ProfilePairing', () => {
     fireEvent.click(screen.getByRole('button', { name: 'pairing.cancelPairing' }));
     fireEvent.click(screen.getByText('Confirm Cancel'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('暫時無法取消');
+      expect(mockToastError).toHaveBeenCalledWith('message.cancelPairingFail');
     });
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'pairing.cancelPairing' })).toBeInTheDocument();
@@ -1285,7 +1371,10 @@ describe('ProfilePairing', () => {
       completion_percentage: 0,
     });
     mockCancelPairing.mockImplementation(
-      () => new Promise((resolve) => { resolveCancel = resolve; })
+      () =>
+        new Promise(resolve => {
+          resolveCancel = resolve;
+        })
     );
     render(
       <MemoryRouter>
@@ -1312,7 +1401,10 @@ describe('ProfilePairing', () => {
   it('createPairing 快速連點只會送出一次請求', async () => {
     let resolveCreate: (v: unknown) => void;
     mockCreatePairing.mockImplementation(
-      () => new Promise((resolve) => { resolveCreate = resolve; })
+      () =>
+        new Promise(resolve => {
+          resolveCreate = resolve;
+        })
     );
     render(
       <MemoryRouter>
@@ -1322,7 +1414,9 @@ describe('ProfilePairing', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /pairing\.createButton/ })).toBeInTheDocument();
     });
-    const createBtn = screen.getByRole('button', { name: /pairing\.createButton/ });
+    const createBtn = screen.getByRole('button', {
+      name: /pairing\.createButton/,
+    });
     fireEvent.click(createBtn);
     fireEvent.click(createBtn);
     fireEvent.click(createBtn);
@@ -1338,7 +1432,10 @@ describe('ProfilePairing', () => {
   it('joinPairing 快速連點只會送出一次請求', async () => {
     let resolveJoin: (v: unknown) => void;
     mockJoinPairing.mockImplementation(
-      () => new Promise((resolve) => { resolveJoin = resolve; })
+      () =>
+        new Promise(resolve => {
+          resolveJoin = resolve;
+        })
     );
     render(
       <MemoryRouter>

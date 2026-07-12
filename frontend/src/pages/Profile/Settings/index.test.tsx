@@ -47,7 +47,13 @@ vi.mock('sonner', () => ({
 describe('ProfileSettings', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetProfile.mockReset();
+    mockUpdateProfile.mockReset();
     mockGetProfile.mockResolvedValue({
+      id: 'u1',
+      notification_enabled: true,
+    });
+    mockUpdateProfile.mockResolvedValue({
       id: 'u1',
       notification_enabled: true,
     });
@@ -89,7 +95,7 @@ describe('ProfileSettings', () => {
     });
   });
 
-  it('getProfile FORBIDDEN 時若有 message 應顯示該 message（F08 權限邊界）', async () => {
+  it('getProfile FORBIDDEN 時應使用權限 catalog，不直接顯示服務端 message（F08 權限邊界）', async () => {
     mockGetProfile.mockRejectedValue({ code: 'FORBIDDEN', message: '帳號已被停權' });
     render(
       <MemoryRouter>
@@ -97,12 +103,13 @@ describe('ProfileSettings', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('帳號已被停權');
+      expect(mockMessageError).toHaveBeenCalledWith('common.forbidden');
     });
-    expect(screen.getByText('帳號已被停權')).toBeInTheDocument();
+    expect(screen.getByText('common.forbidden')).toBeInTheDocument();
+    expect(screen.queryByText('帳號已被停權')).not.toBeInTheDocument();
   });
 
-  it('getProfile FORBIDDEN 且無 message 時應使用 getProfileFail（F09 權限邊界 fallback）', async () => {
+  it('getProfile FORBIDDEN 且無 message 時應使用權限 catalog（F09 權限邊界）', async () => {
     mockGetProfile.mockRejectedValue({ code: 'FORBIDDEN' });
     render(
       <MemoryRouter>
@@ -110,7 +117,7 @@ describe('ProfileSettings', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.getProfileFail');
+      expect(mockMessageError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
@@ -122,7 +129,7 @@ describe('ProfileSettings', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(screen.getByText('載入失敗')).toBeInTheDocument();
+      expect(screen.getByText('message.getProfileFail')).toBeInTheDocument();
     });
     expect(mockGetProfile).toHaveBeenCalledTimes(1);
     mockGetProfile.mockResolvedValueOnce({ id: 'u1', notification_enabled: true });
@@ -163,7 +170,7 @@ describe('ProfileSettings', () => {
     });
   });
 
-  it('getProfile 失敗時 retry 再次失敗應顯示該次錯誤訊息（F09 重試錯誤反饋）', async () => {
+  it('getProfile retry 再次收到未分類 Error 時應顯示頁面 fallback（F09 重試錯誤反饋）', async () => {
     mockGetProfile.mockRejectedValue(new Error('載入失敗'));
     render(
       <MemoryRouter>
@@ -174,17 +181,19 @@ describe('ProfileSettings', () => {
       expect(screen.getByText('common.retry')).toBeInTheDocument();
     });
     expect(mockGetProfile).toHaveBeenCalledTimes(1);
+    mockMessageError.mockClear();
     mockGetProfile.mockRejectedValueOnce(new Error('重試時網路逾時'));
     fireEvent.click(screen.getByRole('button', { name: 'common.retry' }));
     await waitFor(() => {
       expect(mockGetProfile).toHaveBeenCalledTimes(2);
     });
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('重試時網路逾時');
+      expect(mockMessageError).toHaveBeenCalledTimes(1);
+      expect(mockMessageError).toHaveBeenCalledWith('message.getProfileFail');
     });
   });
 
-  it('getProfile 失敗時 retry 再次失敗且 message 為空字串應使用 getProfileFail（F10 邊界）', async () => {
+  it('getProfile retry 收到 SERVER_ERROR 且 message 為空字串時應使用伺服器 catalog（F10 邊界）', async () => {
     mockGetProfile.mockRejectedValue(new Error('載入失敗'));
     render(
       <MemoryRouter>
@@ -194,13 +203,15 @@ describe('ProfileSettings', () => {
     await waitFor(() => {
       expect(screen.getByText('common.retry')).toBeInTheDocument();
     });
+    mockMessageError.mockClear();
     mockGetProfile.mockRejectedValueOnce({ code: 'SERVER_ERROR', message: '' });
     fireEvent.click(screen.getByRole('button', { name: 'common.retry' }));
     await waitFor(() => {
       expect(mockGetProfile).toHaveBeenCalledTimes(2);
     });
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.getProfileFail');
+      expect(mockMessageError).toHaveBeenCalledTimes(1);
+      expect(mockMessageError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
@@ -306,7 +317,7 @@ describe('ProfileSettings', () => {
     });
   });
 
-  it('updateProfile 失敗且 message 為空字串時應使用 saveFail（F10 邊界）', async () => {
+  it('updateProfile SERVER_ERROR 且 message 為空字串時應使用伺服器 catalog（F10 邊界）', async () => {
     mockUpdateProfile.mockRejectedValue({ code: 'SERVER_ERROR', message: '' });
     render(
       <MemoryRouter>
@@ -317,7 +328,7 @@ describe('ProfileSettings', () => {
     const saveBtn = screen.getByRole('button', { name: 'settings.save' });
     fireEvent.click(saveBtn);
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.saveFail');
+      expect(mockMessageError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
@@ -343,7 +354,7 @@ describe('ProfileSettings', () => {
     });
   });
 
-  it('updateProfile 失敗且無 message 時應顯示 message.saveFail', async () => {
+  it('updateProfile SERVER_ERROR 且無 message 時應顯示伺服器 catalog', async () => {
     mockUpdateProfile.mockRejectedValue({ code: 'SERVER_ERROR' });
     render(
       <MemoryRouter>
@@ -354,11 +365,11 @@ describe('ProfileSettings', () => {
     const saveBtn = screen.getByRole('button', { name: 'settings.save' });
     fireEvent.click(saveBtn);
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.saveFail');
+      expect(mockMessageError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
-  it('updateProfile 失敗且有 message（非 FORBIDDEN）時應顯示該 message（F10 錯誤處理約定）', async () => {
+  it('updateProfile 收到未分類 Error 時應顯示頁面 fallback，不直接顯示原始 message（F10 錯誤處理約定）', async () => {
     mockUpdateProfile.mockRejectedValue(new Error('儲存失敗：網路連線逾時'));
     render(
       <MemoryRouter>
@@ -369,11 +380,11 @@ describe('ProfileSettings', () => {
     const saveBtn = screen.getByRole('button', { name: 'settings.save' });
     fireEvent.click(saveBtn);
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('儲存失敗：網路連線逾時');
+      expect(mockMessageError).toHaveBeenCalledWith('message.saveFail');
     });
   });
 
-  it('updateProfile FORBIDDEN 時若有 message 應顯示該 message（F08 權限邊界）', async () => {
+  it('updateProfile FORBIDDEN 時應使用權限 catalog，不直接顯示服務端 message（F08 權限邊界）', async () => {
     mockUpdateProfile.mockRejectedValue({ code: 'FORBIDDEN', message: '此帳號無法修改設定' });
     render(
       <MemoryRouter>
@@ -384,11 +395,11 @@ describe('ProfileSettings', () => {
     const saveBtn = screen.getByRole('button', { name: 'settings.save' });
     fireEvent.click(saveBtn);
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('此帳號無法修改設定');
+      expect(mockMessageError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
-  it('updateProfile FORBIDDEN 且無 message 時應使用 saveFail（F09 權限邊界 fallback）', async () => {
+  it('updateProfile FORBIDDEN 且無 message 時應使用權限 catalog（F09 權限邊界）', async () => {
     mockUpdateProfile.mockRejectedValue({ code: 'FORBIDDEN' });
     render(
       <MemoryRouter>
@@ -399,7 +410,7 @@ describe('ProfileSettings', () => {
     const saveBtn = screen.getByRole('button', { name: 'settings.save' });
     fireEvent.click(saveBtn);
     await waitFor(() => {
-      expect(mockMessageError).toHaveBeenCalledWith('message.saveFail');
+      expect(mockMessageError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 

@@ -38,23 +38,13 @@ export default function ChatMessageComposer({
         </div>
       )}
 
-      <div className="mb-2">
-        <Select value={visibilityScope} onValueChange={(v: string) => onVisibilityScopeChange(v as 'all' | 'owner_only' | 'summary_only')}>
-          <SelectTrigger className="w-[180px] h-8 text-xs" aria-label={t('chat.visibility.label')}><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t('chat.visibility.all')}</SelectItem>
-            <SelectItem value="summary_only">{t('chat.visibility.summary_only')}</SelectItem>
-            <SelectItem value="owner_only">{t('chat.visibility.owner_only')}</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
       <div className="flex gap-2">
         <Input
           aria-label={t('chat.messagePlaceholder')}
           autoComplete="off"
           value={messageInput}
           maxLength={2000}
+          disabled={disableSend}
           onChange={(e) => onMessageInputChange(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend(); } }}
           placeholder={t('chat.messagePlaceholder')}
@@ -63,6 +53,17 @@ export default function ChatMessageComposer({
         <Button disabled={disableSend} onClick={onSend} aria-label={t('chat.send')}>
           {sending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
         </Button>
+      </div>
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <span>{t('chat.visibility.label')}</span>
+        <Select disabled={disableSend} value={visibilityScope} onValueChange={(v: string) => onVisibilityScopeChange(v as 'all' | 'owner_only' | 'summary_only')}>
+          <SelectTrigger className="h-8 w-[180px] border-0 bg-transparent text-xs shadow-none" aria-label={t('chat.visibility.label')}><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t('chat.visibility.all')}</SelectItem>
+            <SelectItem value="summary_only">{t('chat.visibility.summary_only')}</SelectItem>
+            <SelectItem value="owner_only">{t('chat.visibility.owner_only')}</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
     </div>
   );

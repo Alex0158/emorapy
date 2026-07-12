@@ -6,12 +6,10 @@
  */
 
 import { useEffect, useMemo } from 'react';
-import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Bell, Clock, Trash2, ChevronRight, Loader2, AlertCircle } from 'lucide-react';
+import { Clock, Trash2, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ProtectedRoute from '@/components/common/ProtectedRoute';
 import SEO from '@/components/common/SEO';
@@ -84,14 +82,18 @@ const NotificationsPage = () => {
   return (
     <ProtectedRoute>
       <SEO title={t("notifications.seo.title")} description={t("notifications.seo.desc")} />
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} className="mx-auto max-w-3xl px-4 py-8" role="main" aria-label={t("notifications.pageLabel")}>
+      <div className="mx-auto max-w-2xl px-4 py-8" role="main" aria-label={t("notifications.pageLabel")}>
         {/* Header */}
         <header className="mb-6">
-          <div className="flex items-center gap-2 mb-2">
-            <Bell className="size-5 text-primary" />
+          <div className="flex items-baseline gap-3 mb-2">
             <h2 className="text-2xl font-bold text-foreground font-heading">{t("notifications.heading")}</h2>
             {unreadCount > 0 && (
-              <Badge variant="destructive" className="text-[10px]">{unreadCount}</Badge>
+              <span
+                className="text-xs font-medium text-muted-foreground"
+                aria-label={`${t('notifications.badge.unread')}: ${unreadCount}`}
+              >
+                {unreadCount}
+              </span>
             )}
           </div>
           <p className="text-sm text-muted-foreground mb-4">
@@ -99,7 +101,7 @@ const NotificationsPage = () => {
           </p>
 
           {/* Tabs + Actions */}
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
             <Tabs value={activeState} onValueChange={(v: string) => void fetchNotifications(v as NotificationFeedState)}>
               <TabsList>
                 {getStateOptions().map((opt) => (
@@ -113,8 +115,8 @@ const NotificationsPage = () => {
               ))}
             </Tabs>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => void fetchNotifications(activeState)}>{t("notifications.action.refresh")}</Button>
-              <Button variant="outline" size="sm" onClick={() => void markAllRead()} disabled={unreadCount <= 0}>{t("notifications.action.markAllRead")}</Button>
+              <Button variant="ghost" size="sm" onClick={() => void fetchNotifications(activeState)}>{t("notifications.action.refresh")}</Button>
+              <Button variant="ghost" size="sm" onClick={() => void markAllRead()} disabled={unreadCount <= 0}>{t("notifications.action.markAllRead")}</Button>
             </div>
           </div>
         </header>
@@ -146,7 +148,10 @@ const NotificationsPage = () => {
                   {sectionItems.map((notification) => (
                     <div
                       key={notification.id}
-                      className="rounded-xl border border-border bg-card p-4 transition-all hover:shadow-sm"
+                      className={cn(
+                        'rounded-xl border bg-card p-4',
+                        notification.unread ? 'border-primary/30' : 'border-border',
+                      )}
                     >
                       <button
                         type="button"
@@ -156,27 +161,14 @@ const NotificationsPage = () => {
                         )}
                         onClick={() => void handleOpen(notification)}
                       >
-                        <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                        <div className="flex items-start gap-2 mb-1.5">
+                          {notification.unread && <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary" aria-hidden />}
+                          {notification.unread && <span className="sr-only">{t('notifications.badge.unread')}</span>}
                           <span className="text-sm font-semibold text-foreground">{notification.render_payload.title}</span>
-                          {notification.unread && <Badge variant="default" className="text-[10px]">{t("notifications.badge.unread")}</Badge>}
-                          {notification.acted_at && <Badge variant="secondary" className="text-[10px] bg-success/10 text-success">{t("notifications.badge.acted")}</Badge>}
-                          {notification.dismissed_at && <Badge variant="outline" className="text-[10px]">{t("notifications.badge.dismissed")}</Badge>}
-                          {notification.snoozed_until && <Badge variant="outline" className="text-[10px] text-warning">{t("notifications.badge.snoozed")}</Badge>}
                         </div>
-                        <p className="text-sm text-muted-foreground mb-2">{notification.render_payload.body}</p>
-                        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <p className="mb-3 text-sm leading-relaxed text-muted-foreground">{notification.render_payload.body}</p>
+                        <div className="text-xs text-muted-foreground">
                           <span>{new Date(notification.created_at).toLocaleString(getLocale())}</span>
-                          {notification.render_payload.journey_status && (
-                            <Badge variant="outline" className="text-[10px]">{notification.render_payload.journey_status}</Badge>
-                          )}
-                          {(notification.priority || notification.render_payload.priority) === 'now' && (
-                            <Badge variant="destructive" className="text-[10px]">{t("notifications.badge.now")}</Badge>
-                          )}
-                          {notification.render_payload.path && (
-                            <span className="flex items-center gap-0.5 font-medium text-foreground">
-                              {t("notifications.goTo")} <ChevronRight className="size-3" />
-                            </span>
-                          )}
                         </div>
                       </button>
 
@@ -188,7 +180,7 @@ const NotificationsPage = () => {
                           </Button>
                         )}
                         {notification.actionable && !notification.snoozed_until && (
-                          <Button variant="outline" size="sm" onClick={() => void handleSnooze(notification.id)}>
+                          <Button variant="ghost" size="sm" onClick={() => void handleSnooze(notification.id)}>
                             <Clock className="size-3" />{t("notifications.action.snooze")}                          </Button>
                         )}
                         {!notification.dismissed_at && !notification.actionable && (
@@ -212,7 +204,7 @@ const NotificationsPage = () => {
             )}
           </div>
         )}
-      </motion.div>
+      </div>
     </ProtectedRoute>
   );
 };

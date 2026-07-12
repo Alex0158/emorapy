@@ -1,10 +1,11 @@
 /**
  * Profile Index 頁面單元測試
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ProfileIndex from './index';
 
 const mockGetProfile = vi.fn();
@@ -51,9 +52,6 @@ vi.mock('sonner', () => ({
     warning: vi.fn(),
   },
 }));
-vi.mock('@/components/business/Interview/RichnessRing', () => ({
-  default: () => <div data-testid="richness-ring" />,
-}));
 vi.mock('@/components/business/Interview/ConsentModal', () => ({
   default: () => null,
 }));
@@ -69,7 +67,14 @@ const mockProfile = {
 describe('ProfileIndex', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetProfile.mockReset();
+    mockUpdateProfile.mockReset();
+    mockStartSession.mockReset();
+    mockCheckResume.mockReset();
     mockGetProfile.mockResolvedValue(mockProfile);
+    mockUpdateProfile.mockResolvedValue(mockProfile);
+    mockStartSession.mockResolvedValue({ id: 'test-session-id' });
+    mockCheckResume.mockResolvedValue({ has_pending: false });
     mockUsePsychProfileStore.mockReturnValue({
       profile: null,
       fetchProfile: vi.fn(),
@@ -94,7 +99,7 @@ describe('ProfileIndex', () => {
     });
   });
 
-  it('getProfile 失敗應顯示錯誤', async () => {
+  it('getProfile 收到未分類 Error 時應顯示頁面 fallback', async () => {
     mockGetProfile.mockRejectedValue(new Error('取得失敗'));
     render(
       <MemoryRouter>
@@ -102,9 +107,9 @@ describe('ProfileIndex', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('取得失敗');
+      expect(mockToastError).toHaveBeenCalledWith('message.getProfileIndexFail');
     });
-    expect(await screen.findByText('取得失敗')).toBeInTheDocument();
+    expect(await screen.findByText('message.getProfileIndexFail')).toBeInTheDocument();
     expect(screen.getByText('common.back')).toBeInTheDocument();
   });
 
@@ -120,7 +125,7 @@ describe('ProfileIndex', () => {
     });
   });
 
-  it('getProfile 失敗且 message 為空字串時應使用 getProfileIndexFail（F10 邊界：空 message 視為無）', async () => {
+  it('getProfile SERVER_ERROR 且 message 為空字串時應使用伺服器 catalog（F10 邊界）', async () => {
     mockGetProfile.mockRejectedValue({ code: 'SERVER_ERROR', message: '' });
     render(
       <MemoryRouter>
@@ -128,23 +133,26 @@ describe('ProfileIndex', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.getProfileIndexFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
-  it('getProfile FORBIDDEN 時若有 message 應顯示該 message（F08 權限邊界）', async () => {
-    mockGetProfile.mockRejectedValue({ code: 'FORBIDDEN', message: '帳號已被停權，無法查看個人資料' });
+  it('getProfile FORBIDDEN 時應使用權限 catalog，不直接顯示服務端 message（F08 權限邊界）', async () => {
+    mockGetProfile.mockRejectedValue({
+      code: 'FORBIDDEN',
+      message: '帳號已被停權，無法查看個人資料',
+    });
     render(
       <MemoryRouter>
         <ProfileIndex />
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('帳號已被停權，無法查看個人資料');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
-  it('getProfile FORBIDDEN 且無 message 時應使用 getProfileIndexFail（F08 權限邊界 fallback）', async () => {
+  it('getProfile FORBIDDEN 且無 message 時應使用權限 catalog（F08 權限邊界）', async () => {
     mockGetProfile.mockRejectedValue({ code: 'FORBIDDEN' });
     render(
       <MemoryRouter>
@@ -152,26 +160,31 @@ describe('ProfileIndex', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.getProfileIndexFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
   it('getProfile 失敗後應仍可填寫表單並提交，updateProfile 成功應顯示成功訊息（F08 錯誤恢復：失敗不阻塞表單操作）', async () => {
     const user = userEvent.setup();
     mockGetProfile.mockRejectedValue(new Error('網絡錯誤'));
-    mockUpdateProfile.mockResolvedValue({ ...mockProfile, nickname: 'Updated' });
+    mockUpdateProfile.mockResolvedValue({
+      ...mockProfile,
+      nickname: 'Updated',
+    });
     render(
       <MemoryRouter>
         <ProfileIndex />
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('網絡錯誤');
+      expect(mockToastError).toHaveBeenCalledWith('message.getProfileIndexFail');
     });
     const nicknameInput = await screen.findByPlaceholderText('profileIndex.nicknamePlaceholder');
     await user.clear(nicknameInput);
     await user.type(nicknameInput, 'Updated');
-    const saveBtn = await screen.findByRole('button', { name: 'profileIndex.saveAria' });
+    const saveBtn = await screen.findByRole('button', {
+      name: 'profileIndex.saveAria',
+    });
     await user.click(saveBtn);
     await waitFor(() => {
       expect(mockUpdateProfile).toHaveBeenCalledWith(expect.objectContaining({ nickname: 'Updated' }));
@@ -180,16 +193,14 @@ describe('ProfileIndex', () => {
   });
 
   it('getProfile 失敗時應仍可點擊 retry 重新呼叫', async () => {
-    mockGetProfile
-      .mockRejectedValueOnce(new Error('網絡錯誤'))
-      .mockResolvedValueOnce(mockProfile);
+    mockGetProfile.mockRejectedValueOnce(new Error('網絡錯誤')).mockResolvedValueOnce(mockProfile);
     render(
       <MemoryRouter>
         <ProfileIndex />
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('網絡錯誤');
+      expect(mockToastError).toHaveBeenCalledWith('message.getProfileIndexFail');
     });
     const retryBtn = screen.getByTestId('profile-index-load-retry');
     expect(retryBtn).toBeInTheDocument();
@@ -217,7 +228,9 @@ describe('ProfileIndex', () => {
 
   it('getProfile 失敗時 retry 快速連點只會送出一次 getProfile 請求（F08/F09 重試節流）', async () => {
     let resolveFetch: (value: unknown) => void;
-    const fetchPromise = new Promise<typeof mockProfile>((resolve) => { resolveFetch = resolve; });
+    const fetchPromise = new Promise<typeof mockProfile>(resolve => {
+      resolveFetch = resolve;
+    });
     mockGetProfile.mockRejectedValueOnce(new Error('網絡錯誤')).mockImplementation(() => fetchPromise);
     render(
       <MemoryRouter>
@@ -247,7 +260,7 @@ describe('ProfileIndex', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('網絡錯誤');
+      expect(mockToastError).toHaveBeenCalledWith('message.getProfileIndexFail');
     });
     let retryBtn = screen.getByTestId('profile-index-load-retry');
     await userEvent.click(retryBtn);
@@ -271,7 +284,7 @@ describe('ProfileIndex', () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('網絡錯誤');
+      expect(mockToastError).toHaveBeenCalledWith('message.getProfileIndexFail');
     });
     const manageLink = await screen.findByText('psychProfile.manageMyData');
     expect(manageLink).toBeInTheDocument();
@@ -281,17 +294,17 @@ describe('ProfileIndex', () => {
 
   it('updateProfile 失敗後應仍可再次點擊儲存，成功後應顯示成功（F08 錯誤恢復：失敗不阻塞重試）', async () => {
     const user = userEvent.setup();
-    mockUpdateProfile
-      .mockRejectedValueOnce(new Error('儲存失敗'))
-      .mockResolvedValueOnce(mockProfile);
+    mockUpdateProfile.mockRejectedValueOnce(new Error('儲存失敗')).mockResolvedValueOnce(mockProfile);
     render(
       <MemoryRouter>
         <ProfileIndex />
       </MemoryRouter>
     );
-    const saveBtn = await screen.findByRole('button', { name: 'profileIndex.saveAria' });
+    const saveBtn = await screen.findByRole('button', {
+      name: 'profileIndex.saveAria',
+    });
     await user.click(saveBtn);
-    await waitFor(() => expect(mockToastError).toHaveBeenCalledWith('儲存失敗'));
+    await waitFor(() => expect(mockToastError).toHaveBeenCalledWith('message.updateFail'));
     await user.click(saveBtn);
     await waitFor(() => {
       expect(mockUpdateProfile).toHaveBeenCalledTimes(2);
@@ -299,73 +312,89 @@ describe('ProfileIndex', () => {
     });
   });
 
-  it('updateProfile 失敗且錯誤無 message 時應顯示 message.updateFail', async () => {
+  it('updateProfile SERVER_ERROR 且無 message 時應顯示伺服器 catalog', async () => {
     mockUpdateProfile.mockRejectedValue({ code: 'SERVER_ERROR' });
     render(
       <MemoryRouter>
         <ProfileIndex />
       </MemoryRouter>
     );
-    const saveBtn = await screen.findByRole('button', { name: 'profileIndex.saveAria' });
+    const saveBtn = await screen.findByRole('button', {
+      name: 'profileIndex.saveAria',
+    });
     await userEvent.click(saveBtn);
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.updateFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
-  it('updateProfile 失敗且 message 為空字串時應使用 message.updateFail（F10 邊界：空 message 視為無）', async () => {
+  it('updateProfile SERVER_ERROR 且 message 為空字串時應使用伺服器 catalog（F10 邊界）', async () => {
     mockUpdateProfile.mockRejectedValue({ code: 'SERVER_ERROR', message: '' });
     render(
       <MemoryRouter>
         <ProfileIndex />
       </MemoryRouter>
     );
-    const saveBtn = await screen.findByRole('button', { name: 'profileIndex.saveAria' });
+    const saveBtn = await screen.findByRole('button', {
+      name: 'profileIndex.saveAria',
+    });
     await userEvent.click(saveBtn);
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.updateFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
-  it('updateProfile FORBIDDEN 且無 message 時應使用 updateFail（F08 權限邊界 fallback）', async () => {
+  it('updateProfile FORBIDDEN 且無 message 時應使用權限 catalog（F08 權限邊界）', async () => {
     mockUpdateProfile.mockRejectedValue({ code: 'FORBIDDEN' });
     render(
       <MemoryRouter>
         <ProfileIndex />
       </MemoryRouter>
     );
-    const saveBtn = await screen.findByRole('button', { name: 'profileIndex.saveAria' });
+    const saveBtn = await screen.findByRole('button', {
+      name: 'profileIndex.saveAria',
+    });
     await userEvent.click(saveBtn);
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.updateFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
-  it('updateProfile FORBIDDEN 時若有 message 應顯示該 message（F08 權限邊界）', async () => {
-    mockUpdateProfile.mockRejectedValue({ code: 'FORBIDDEN', message: '帳號已鎖定，無法更新資料' });
+  it('updateProfile FORBIDDEN 時應使用權限 catalog，不直接顯示服務端 message（F08 權限邊界）', async () => {
+    mockUpdateProfile.mockRejectedValue({
+      code: 'FORBIDDEN',
+      message: '帳號已鎖定，無法更新資料',
+    });
     render(
       <MemoryRouter>
         <ProfileIndex />
       </MemoryRouter>
     );
-    const saveBtn = await screen.findByRole('button', { name: 'profileIndex.saveAria' });
+    const saveBtn = await screen.findByRole('button', {
+      name: 'profileIndex.saveAria',
+    });
     await userEvent.click(saveBtn);
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('帳號已鎖定，無法更新資料');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
   it('updateProfile 成功但組件已卸載時不應呼叫 message.success（useMountedRef 回歸：避免 F01-BUG-001 同類問題）', async () => {
     let resolveUpdate: (v: unknown) => void;
     mockUpdateProfile.mockImplementation(
-      () => new Promise((resolve) => { resolveUpdate = resolve; })
+      () =>
+        new Promise(resolve => {
+          resolveUpdate = resolve;
+        })
     );
     const { unmount } = render(
       <MemoryRouter>
         <ProfileIndex />
       </MemoryRouter>
     );
-    const saveBtn = await screen.findByRole('button', { name: 'profileIndex.saveAria' });
+    const saveBtn = await screen.findByRole('button', {
+      name: 'profileIndex.saveAria',
+    });
     await userEvent.click(saveBtn);
     await waitFor(() => expect(mockUpdateProfile).toHaveBeenCalled());
     unmount();
@@ -377,14 +406,19 @@ describe('ProfileIndex', () => {
   it('updateProfile 失敗但組件已卸載時不應呼叫 message.error（useMountedRef 回歸：避免卸載後誤提示）', async () => {
     let rejectUpdate: (reason?: unknown) => void;
     mockUpdateProfile.mockImplementation(
-      () => new Promise((_, reject) => { rejectUpdate = reject; })
+      () =>
+        new Promise((_, reject) => {
+          rejectUpdate = reject;
+        })
     );
     const { unmount } = render(
       <MemoryRouter>
         <ProfileIndex />
       </MemoryRouter>
     );
-    const saveBtn = await screen.findByRole('button', { name: 'profileIndex.saveAria' });
+    const saveBtn = await screen.findByRole('button', {
+      name: 'profileIndex.saveAria',
+    });
     await userEvent.click(saveBtn);
     await waitFor(() => expect(mockUpdateProfile).toHaveBeenCalled());
     unmount();
@@ -402,7 +436,9 @@ describe('ProfileIndex', () => {
         <ProfileIndex />
       </MemoryRouter>
     );
-    const saveBtn = await screen.findByRole('button', { name: 'profileIndex.saveAria' });
+    const saveBtn = await screen.findByRole('button', {
+      name: 'profileIndex.saveAria',
+    });
     await userEvent.click(saveBtn);
     await waitFor(() => {
       expect(mockToastSuccess).toHaveBeenCalledWith('message.profileUpdateSuccess');
@@ -411,14 +447,18 @@ describe('ProfileIndex', () => {
 
   it('儲存按鈕快速連點只會送出一次 updateProfile 請求', async () => {
     let resolveUpdate: (v: unknown) => void;
-    const updatePromise = new Promise((resolve) => { resolveUpdate = resolve; });
+    const updatePromise = new Promise(resolve => {
+      resolveUpdate = resolve;
+    });
     mockUpdateProfile.mockImplementation(() => updatePromise as Promise<typeof mockProfile>);
     render(
       <MemoryRouter>
         <ProfileIndex />
       </MemoryRouter>
     );
-    const saveBtn = await screen.findByRole('button', { name: 'profileIndex.saveAria' });
+    const saveBtn = await screen.findByRole('button', {
+      name: 'profileIndex.saveAria',
+    });
     await userEvent.click(saveBtn);
     await userEvent.click(saveBtn);
     await userEvent.click(saveBtn);
@@ -438,7 +478,10 @@ describe('ProfileIndex', () => {
     });
     mockCheckResume.mockResolvedValue({ has_pending: false });
     mockStartSession.mockImplementation(
-      () => new Promise((resolve) => { resolveStartSession = resolve; })
+      () =>
+        new Promise(resolve => {
+          resolveStartSession = resolve;
+        })
     );
     mockUseInterviewStore.mockReturnValue({
       startSession: mockStartSession,
@@ -466,7 +509,10 @@ describe('ProfileIndex', () => {
       giveConsent: vi.fn(),
       consentLoading: false,
     });
-    mockCheckResume.mockResolvedValue({ has_pending: true, session_id: 'resume-sess' });
+    mockCheckResume.mockResolvedValue({
+      has_pending: true,
+      session_id: 'resume-sess',
+    });
     mockUseInterviewStore.mockReturnValue({
       startSession: mockStartSession,
       checkResume: mockCheckResume,
@@ -529,7 +575,10 @@ describe('ProfileIndex', () => {
     });
     mockCheckResume.mockResolvedValue({ has_pending: false });
     mockStartSession.mockImplementation(
-      () => new Promise((_, reject) => { rejectStartSession = reject; })
+      () =>
+        new Promise((_, reject) => {
+          rejectStartSession = reject;
+        })
     );
     mockUseInterviewStore.mockReturnValue({
       startSession: mockStartSession,
@@ -559,9 +608,7 @@ describe('ProfileIndex', () => {
       consentLoading: false,
     });
     mockCheckResume.mockResolvedValue({ has_pending: false });
-    mockStartSession
-      .mockRejectedValueOnce(new Error('網路錯誤'))
-      .mockResolvedValueOnce({ id: 'sess-1' });
+    mockStartSession.mockRejectedValueOnce(new Error('網路錯誤')).mockResolvedValueOnce({ id: 'sess-1' });
     mockUseInterviewStore.mockReturnValue({
       startSession: mockStartSession,
       checkResume: mockCheckResume,
@@ -575,7 +622,7 @@ describe('ProfileIndex', () => {
 
     const continueBtn = await screen.findByText('psychProfile.continueChat');
     await userEvent.click(continueBtn);
-    await waitFor(() => expect(mockToastError).toHaveBeenCalledWith('網路錯誤'));
+    await waitFor(() => expect(mockToastError).toHaveBeenCalledWith('interview.startFail'));
     await userEvent.click(continueBtn);
     await waitFor(() => {
       expect(mockStartSession).toHaveBeenCalledTimes(2);
@@ -583,7 +630,7 @@ describe('ProfileIndex', () => {
     });
   });
 
-  it('繼續聊天 startSession 失敗且有 message 應顯示該 message（F06 錯誤處理約定）', async () => {
+  it('繼續聊天 startSession 收到未分類 Error 時應顯示訪談 fallback（F06 錯誤處理約定）', async () => {
     mockUsePsychProfileStore.mockReturnValue({
       profile: { consent_given: true },
       fetchProfile: vi.fn(),
@@ -607,11 +654,11 @@ describe('ProfileIndex', () => {
     await userEvent.click(continueBtn);
 
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('啟動訪談失敗');
+      expect(mockToastError).toHaveBeenCalledWith('interview.startFail');
     });
   });
 
-  it('繼續聊天 startSession 失敗且無 message 應顯示 interview.startFail', async () => {
+  it('繼續聊天 startSession SERVER_ERROR 且無 message 時應顯示伺服器 catalog', async () => {
     mockUsePsychProfileStore.mockReturnValue({
       profile: { consent_given: true },
       fetchProfile: vi.fn(),
@@ -635,11 +682,11 @@ describe('ProfileIndex', () => {
     await userEvent.click(continueBtn);
 
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('interview.startFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
-  it('繼續聊天 startSession 失敗且 message 為空字串時應使用 interview.startFail（F10 邊界：空 message 視為無）', async () => {
+  it('繼續聊天 startSession AI_SERVICE_ERROR 且 message 為空字串時應使用服務 catalog（F10 邊界）', async () => {
     mockUsePsychProfileStore.mockReturnValue({
       profile: { consent_given: true },
       fetchProfile: vi.fn(),
@@ -647,7 +694,10 @@ describe('ProfileIndex', () => {
       consentLoading: false,
     });
     mockCheckResume.mockResolvedValue({ has_pending: false });
-    mockStartSession.mockRejectedValue({ code: 'AI_SERVICE_ERROR', message: '' });
+    mockStartSession.mockRejectedValue({
+      code: 'AI_SERVICE_ERROR',
+      message: '',
+    });
     mockUseInterviewStore.mockReturnValue({
       startSession: mockStartSession,
       checkResume: mockCheckResume,
@@ -663,11 +713,11 @@ describe('ProfileIndex', () => {
     await userEvent.click(continueBtn);
 
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('interview.startFail');
+      expect(mockToastError).toHaveBeenCalledWith('message.judgmentUnavailable');
     });
   });
 
-  it('繼續聊天 startSession FORBIDDEN 且無 message 時應使用 interview.startFail（F06/F08 權限邊界 fallback）', async () => {
+  it('繼續聊天 startSession FORBIDDEN 且無 message 時應使用權限 catalog（F06/F08 權限邊界）', async () => {
     mockUsePsychProfileStore.mockReturnValue({
       profile: { consent_given: true },
       fetchProfile: vi.fn(),
@@ -691,7 +741,7 @@ describe('ProfileIndex', () => {
     await userEvent.click(continueBtn);
 
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('interview.startFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
@@ -703,7 +753,7 @@ describe('ProfileIndex', () => {
       consentLoading: false,
     });
     mockCheckResume.mockResolvedValue({ has_pending: false, session_id: null });
-    const startPromise = new Promise<{ id: string }>((resolve) => {
+    const startPromise = new Promise<{ id: string }>(resolve => {
       (mockStartSession as ReturnType<typeof vi.fn>).mockImplementation(() => startPromise);
     });
     mockStartSession.mockImplementation(() => startPromise);

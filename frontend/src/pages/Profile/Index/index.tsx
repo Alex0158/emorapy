@@ -4,11 +4,10 @@
  * 遷移: Ant Card/Form/Input/Button/Typography/Upload/Avatar/Space/Spin/Tag/Progress/Alert/Icons/message
  *       → shadcn + Tailwind + sonner + Lucide
  * 保留: 所有業務邏輯（profile fetch/update, avatar upload, psych profile, interview trigger）
- * 保留: RichnessRing, ConsentModal 業務組件
+ * 保留: ConsentModal 業務組件
  */
 
 import { useState, useEffect, useRef, type ChangeEvent } from 'react';
-import { motion } from 'framer-motion';
 import { useMountedRef } from '@/hooks/useMountedRef';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -16,7 +15,6 @@ import { User, Upload, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getProfile, updateProfile, uploadAvatar } from '@/services/api/user';
 import { useAuthStore } from '@/store/authStore';
@@ -26,7 +24,6 @@ import { getErrorMessage } from '@/utils/apiError';
 import { getInterviewResumeNavigationPath } from '@/utils/interviewResume';
 import ProtectedRoute from '@/components/common/ProtectedRoute';
 import SEO from '@/components/common/SEO';
-import RichnessRing from '@/components/business/Interview/RichnessRing';
 import ConsentModal from '@/components/business/Interview/ConsentModal';
 import { usePsychProfileStore } from '@/store/psychProfileStore';
 import { useInterviewStore } from '@/store/interviewStore';
@@ -136,7 +133,7 @@ const ProfileIndex = () => {
   return (
     <ProtectedRoute>
       <SEO title={t('profileIndex.title')} description={t('profileIndex.description')} />
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} className="mx-auto max-w-2xl px-4 py-8 md:px-6" role="main" aria-label={t('profileIndex.pageLabel')}>
+      <div className="mx-auto max-w-3xl px-4 py-8 md:px-6" role="main" aria-label={t('profileIndex.pageLabel')}>
         <h2 className="mb-6 text-2xl font-bold text-foreground font-heading">{t('profileIndex.heading')}</h2>
 
         {/* Error */}
@@ -193,23 +190,22 @@ const ProfileIndex = () => {
 
         {/* Psych Profile / My Story */}
         <div className="rounded-xl border border-border bg-card p-6 space-y-5">
-          <div className="flex items-center justify-between">
+          <div className="space-y-2">
             <h3 className="text-lg font-semibold text-foreground font-heading">{t('psychProfile.myStory')}</h3>
+            <p className="max-w-2xl text-sm text-muted-foreground">{t('consent.description')}</p>
             {psychProfile?.consent_given && (
-              <Button variant="link" size="sm" onClick={handleContinueInterview}>{t('psychProfile.continueChat')}</Button>
+              <p className="text-xs text-muted-foreground">{t('psychProfile.disclaimer')}</p>
             )}
           </div>
 
           {!psychProfile?.consent_given ? (
             <div className="text-center py-6">
-              <p className="text-sm text-muted-foreground mb-4">{t('psychProfile.intro')}</p>
               <Button onClick={() => setConsentOpen(true)}>{t('psychProfile.chatForFive')}</Button>
             </div>
           ) : (
             <div className="space-y-5">
-              <div className="flex items-center gap-5 rounded-lg bg-muted/30 p-5">
-                <RichnessRing score={psychProfile.richness_score || 0} size={100} />
-                <div className="flex-1">
+              <div className="rounded-lg border border-border p-5">
+                <div>
                   <p className="text-sm font-semibold text-foreground mb-2">{t('psychProfile.exploredDomains')}</p>
                   <div className="flex flex-wrap gap-1.5">
                     {(Array.isArray(psychProfile.narratives) ? psychProfile.narratives.filter(n => n.is_latest && n.completeness > 0) : []).map(n => (
@@ -225,17 +221,17 @@ const ProfileIndex = () => {
               {Array.isArray(psychProfile.insights) && psychProfile.insights.filter(i => i.is_active).length > 0 && (
                 <div className="rounded-lg border border-border p-5 space-y-3">
                   <p className="text-xs font-semibold text-muted-foreground">{t('psychProfile.keyInsights')}</p>
-                  {psychProfile.insights.filter(i => i.is_active).slice(0, 5).map(i => (
-                    <div key={i.id} className="flex items-center justify-between rounded-lg bg-card p-3 shadow-xs">
-                      <span className="text-sm text-foreground"><span className="font-semibold">{i.key}</span>：{i.value}</span>
-                      <Progress value={Math.round(i.confidence * 100)} className="w-16 h-1.5" />
+                  {psychProfile.insights.filter(i => i.is_active).slice(0, 3).map(i => (
+                    <div key={i.id} className="border-l-2 border-primary/25 py-1 pl-3">
+                      <span className="text-sm text-foreground"><span className="font-medium">{i.key}</span>：{i.value}</span>
                     </div>
                   ))}
                 </div>
               )}
 
-              <div className="text-center">
-                <Button variant="ghost" size="sm" onClick={() => navigate('/profile/my-story')}>{t('psychProfile.manageMyData')}</Button>
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={handleContinueInterview}>{t('psychProfile.continueChat')}</Button>
+                <Button variant="ghost" onClick={() => navigate('/profile/my-story')}>{t('psychProfile.manageMyData')}</Button>
               </div>
             </div>
           )}
@@ -260,7 +256,7 @@ const ProfileIndex = () => {
           onCancel={() => setConsentOpen(false)}
           loading={consentLoading}
         />
-      </motion.div>
+      </div>
     </ProtectedRoute>
   );
 };

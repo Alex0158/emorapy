@@ -2,7 +2,6 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import AIThinkingIndicator from './AIThinkingIndicator';
 import AIStreamingText from './AIStreamingText';
-import AIPhaseTimeline from './AIPhaseTimeline';
 import AIStreamingBubble from './AIStreamingBubble';
 import AIRecoveryBadge from './AIRecoveryBadge';
 import AIErrorState from './AIErrorState';
@@ -22,18 +21,6 @@ describe('AI streaming common components', () => {
     );
     expect(container.querySelector('.cursor')).toBeInTheDocument();
     expect(screen.getByText('hello')).toBeInTheDocument();
-  });
-
-  it('AIPhaseTimeline 應標記 active 與 completed 狀態', () => {
-    render(
-      <AIPhaseTimeline
-        currentPhase="drafting_judgment"
-        phaseHistory={['collecting_context', 'analyzing_emotion', 'drafting_judgment']}
-        getLabel={(phase) => phase}
-      />
-    );
-    expect(screen.getByText('collecting_context')).toHaveAttribute('data-ai-phase-state', 'completed');
-    expect(screen.getByText('drafting_judgment')).toHaveAttribute('data-ai-phase-state', 'active');
   });
 
   it('AIStreamingBubble 無文本時應使用 thinking indicator', () => {

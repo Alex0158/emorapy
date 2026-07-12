@@ -1,20 +1,18 @@
 /**
  * 判決詳情頁面
  *
- * 遷移: Ant Card/Button/Typography/Rate/Modal/Alert/Divider/Row/Col/Space/Spin/Icons/message
- *       → shadcn Dialog + Button + Tailwind + sonner + Lucide + 自定義星級
- * 保留: 所有業務邏輯（fetch, accept/reject, rating, intent navigation, post-judgment trigger）
+ * Guided Reflection：保留 fetch、accept/reject、policy-driven intent navigation 與 standard-route follow-up。
+ * 星級 rating 不再作使用者面接受門檻；API optional rating 僅保留相容性。
  * 保留: JudgmentViewer, ResponsibilityRatio, ConsentModal 業務組件
  */
 
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { motion } from 'framer-motion';
 import { useMountedRef } from '@/hooks/useMountedRef';
 import { useParams, useNavigate } from 'react-router-dom';
 import { logger } from '@/utils/logger';
 import { toast } from 'sonner';
 import {
-  ArrowLeft, CheckCircle, XCircle, Heart, Star,
+  ArrowLeft, CheckCircle, XCircle, Heart,
   Shield, Pause, LogOut, Loader2, AlertCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -26,7 +24,6 @@ import { psychProfileApi } from '@/services/api/psychProfile';
 import { useInterviewTrigger } from '@/hooks/useInterviewTrigger';
 import type { Judgment } from '@/types/judgment';
 import type { ReconciliationIntent } from '@/services/api/reconciliation';
-import MediatorAvatar from '@/components/business/MediatorAvatar';
 import JudgmentViewer from '@/components/business/JudgmentViewer';
 import ResponsibilityRatio from '@/components/business/ResponsibilityRatio';
 import ConsentModal from '@/components/business/Interview/ConsentModal';
@@ -37,25 +34,6 @@ import { t } from '@/utils/i18n';
 
 const POST_JUDGMENT_RICHNESS_THRESHOLD = 0.5;
 
-function StarRating({ value, onChange, disabled }: { value: number; onChange: (v: number) => void; disabled?: boolean }) {
-  return (
-    <div className="flex gap-1" role="group" aria-label={t('judgmentDetail.ratingAria')}>
-      {[1, 2, 3, 4, 5].map((star) => (
-        <button
-          key={star}
-          type="button"
-          onClick={() => !disabled && onChange(star)}
-          disabled={disabled}
-          className={cn('transition-colors', disabled ? 'cursor-not-allowed' : 'cursor-pointer hover:scale-110')}
-          aria-label={t('judgmentDetail.starAria', { star })}
-        >
-          <Star className={cn('size-8', star <= value ? 'fill-primary text-primary' : 'text-muted-foreground/30')} />
-        </button>
-      ))}
-    </div>
-  );
-}
-
 const JudgmentDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -63,7 +41,6 @@ const JudgmentDetail = () => {
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [accepting, setAccepting] = useState(false);
-  const [rating, setRating] = useState(0);
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showPostJudgmentCard, setShowPostJudgmentCard] = useState(false);
@@ -80,7 +57,7 @@ const JudgmentDetail = () => {
   const staleRef = useRef(false);
 
   useEffect(() => {
-    staleRef.current = false; setJudgment(null); setRating(0);
+    staleRef.current = false; setJudgment(null);
     if (id) fetchJudgment();
     return () => { staleRef.current = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -88,6 +65,10 @@ const JudgmentDetail = () => {
 
   useEffect(() => {
     if (!judgment) return;
+    if (judgment.judgment_route === 'safety_support' || judgment.judgment_route === 'crisis_support') {
+      setShowPostJudgmentCard(false);
+      return;
+    }
     if (judgment.user1_acceptance === false) { setShowPostJudgmentCard(false); return; }
     if (dismissedPostJudgmentRef.current) return;
     let cancelled = false;
@@ -109,7 +90,7 @@ const JudgmentDetail = () => {
     try {
       const data = await getJudgment(id);
       if (staleRef.current) return;
-      setJudgment(data); if (data.user1_rating) setRating(data.user1_rating);
+      setJudgment(data);
     } catch (error: unknown) {
       if (staleRef.current) return;
       const msg = getErrorMessage(error, 'message.getJudgmentDetailFail');
@@ -121,7 +102,7 @@ const JudgmentDetail = () => {
     if (!id || accepting || acceptLockRef.current) return;
     acceptLockRef.current = true; setAccepting(true);
     try {
-      await acceptJudgment(id, { accepted: true, rating: rating || undefined });
+      await acceptJudgment(id, { accepted: true });
       if (!mountedRef.current) return;
       toast.success(t('message.acceptJudgmentSuccess'));
       setShowAcceptModal(false);
@@ -175,57 +156,73 @@ const JudgmentDetail = () => {
   }
 
   const intentCards = [
-    { intent: 'repair' as const, icon: Heart, title: t('judgmentDetail.intentRepairTitle'), desc: t('judgmentDetail.intentRepairDesc'), cta: t('judgmentDetail.intentRepairCta'), bg: 'bg-rose-50' },
-    { intent: 'cool_down' as const, icon: Pause, title: t('judgmentDetail.intentCoolDownTitle'), desc: t('judgmentDetail.intentCoolDownDesc'), cta: t('judgmentDetail.intentCoolDownCta'), bg: 'bg-amber-50' },
-    { intent: 'graceful_exit' as const, icon: LogOut, title: t('judgmentDetail.intentGracefulExitTitle'), desc: t('judgmentDetail.intentGracefulExitDesc'), cta: t('judgmentDetail.intentGracefulExitCta'), bg: 'bg-slate-50' },
-    { intent: 'safety_support' as const, icon: Shield, title: t('judgmentDetail.intentSafetyTitle'), desc: t('judgmentDetail.intentSafetyDesc'), cta: t('judgmentDetail.intentSafetyCta'), bg: 'bg-cyan-50' },
+    { intent: 'repair' as const, icon: Heart, title: t('judgmentDetail.intentRepairTitle'), desc: t('judgmentDetail.intentRepairDesc'), cta: t('judgmentDetail.intentRepairCta') },
+    { intent: 'cool_down' as const, icon: Pause, title: t('judgmentDetail.intentCoolDownTitle'), desc: t('judgmentDetail.intentCoolDownDesc'), cta: t('judgmentDetail.intentCoolDownCta') },
+    { intent: 'graceful_exit' as const, icon: LogOut, title: t('judgmentDetail.intentGracefulExitTitle'), desc: t('judgmentDetail.intentGracefulExitDesc'), cta: t('judgmentDetail.intentGracefulExitCta') },
+    { intent: 'safety_support' as const, icon: Shield, title: t('judgmentDetail.intentSafetyTitle'), desc: t('judgmentDetail.intentSafetyDesc'), cta: t('judgmentDetail.intentSafetyCta') },
   ];
+
+  const reconciliationPolicy = judgment.reconciliation_policy;
+  const isSafetyRoute = judgment.judgment_route === 'safety_support' || judgment.judgment_route === 'crisis_support';
+  const showResponsibilityRatio = judgment.responsibility_ratio_visibility?.can_show === true;
+  const visibleIntentCards = intentCards.filter(({ intent }) => {
+    if (!reconciliationPolicy?.allowedReconciliationIntents.includes(intent)) return false;
+    return isSafetyRoute ? intent === reconciliationPolicy.defaultReconciliationIntent : intent !== 'safety_support';
+  });
 
   return (
     <>
       <SEO title={t('judgmentDetail.pageTitle')} description={t('judgmentDetail.description')} />
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} className="mx-auto max-w-4xl px-4 py-8 md:px-6" role="main" aria-label={t('judgmentDetail.pageLabel')}>
+      <main className="mx-auto max-w-3xl px-4 py-8 md:px-6 md:py-12" aria-label={t('judgmentDetail.pageLabel')}>
         {/* Back */}
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="mb-6" aria-label={t('judgmentDetail.backAria')}>
           <ArrowLeft className="size-4" />{t('judgmentDetail.back')}
         </Button>
 
         {/* Header */}
-        <div className="mb-10 text-center">
-          <MediatorAvatar size="large" animated />
-          <h2 className="mt-4 text-2xl font-bold text-foreground font-heading">{t('result.title')}</h2>
-          <p className="mt-1 text-base text-muted-foreground">{t('result.subtitle')}</p>
+        <div className="mb-8 max-w-2xl">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-primary">{t('result.title')}</p>
+          <h1 className="text-3xl font-semibold tracking-tight text-foreground font-heading md:text-4xl">{t('judgmentDetail.docTitle')}</h1>
+          <p className="mt-3 text-base leading-7 text-muted-foreground">{t('result.subtitle')}</p>
         </div>
 
-        {/* Responsibility */}
-        <div className="mb-8 rounded-xl border border-border bg-card p-6">
-          <h3 className="mb-4 text-lg font-semibold text-foreground font-heading">{t('responsibility.title')}</h3>
-          <ResponsibilityRatio ratio={responsibilityRatio} showLabels={true} size="large" />
-        </div>
+        {isSafetyRoute && (
+          <section className="mb-8 border-y border-primary/30 bg-primary/5 px-4 py-5" role="status" aria-live="polite">
+            <div className="flex items-start gap-3">
+              <Shield className="mt-0.5 size-5 shrink-0 text-primary" />
+              <div>
+                <h2 className="font-semibold text-foreground">{t('judgmentDetail.intentSafetyTitle')}</h2>
+                <p className="mt-1 text-sm leading-6 text-muted-foreground">{t('judgmentDetail.intentSafetyDesc')}</p>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Judgment Content */}
         <div className="mb-8">
           <JudgmentViewer content={judgment.judgment_content ?? ''} title={t('judgmentDetail.docTitle')} showActions={true} />
         </div>
 
+        {showResponsibilityRatio && (
+          <section className="mb-8">
+            <h2 className="mb-2 text-base font-semibold text-foreground">{t('responsibility.title')}</h2>
+            <p className="mb-4 text-sm text-muted-foreground">{t('judgmentDetail.nextDirectionDesc')}</p>
+            <ResponsibilityRatio ratio={responsibilityRatio} showLabels size="large" />
+          </section>
+        )}
+
         {/* Feedback + Actions */}
-        <div className="rounded-xl border border-border bg-card p-6 space-y-6">
-          <h4 className="text-base font-semibold text-foreground font-heading">{t('judgmentDetail.feedbackTitle')}</h4>
-
-          {/* Rating */}
-          <div className="flex items-center gap-4 rounded-lg bg-muted/50 p-4">
-            <span className="text-sm font-medium text-foreground">{t('judgmentDetail.ratingLabel')}</span>
-            <StarRating value={rating} onChange={setRating} disabled={judgment.user1_acceptance !== undefined} />
-          </div>
-
-          {/* Accept/Reject */}
-          <div className="flex flex-wrap gap-3">
-            <Button onClick={() => setShowAcceptModal(true)} disabled={judgment.user1_acceptance !== undefined} aria-label={t('judgmentDetail.acceptAria')}>
-              <CheckCircle className="size-4" />{t('judgmentDetail.accept')}
-            </Button>
-            <Button variant="destructive" onClick={() => setShowRejectModal(true)} disabled={judgment.user1_acceptance !== undefined} aria-label={t('judgmentDetail.rejectAria')}>
-              <XCircle className="size-4" />{t('judgmentDetail.reject')}
-            </Button>
+        <section className="space-y-7 border-t border-border pt-8">
+          <div>
+            <h2 className="text-base font-semibold text-foreground font-heading">{t('judgmentDetail.feedbackTitle')}</h2>
+            <div className="mt-3 flex flex-wrap gap-3">
+              <Button onClick={() => setShowAcceptModal(true)} disabled={judgment.user1_acceptance !== undefined} aria-label={t('judgmentDetail.acceptAria')}>
+                <CheckCircle className="size-4" />{t('judgmentDetail.accept')}
+              </Button>
+              <Button variant="outline" onClick={() => setShowRejectModal(true)} disabled={judgment.user1_acceptance !== undefined} aria-label={t('judgmentDetail.rejectAria')}>
+                <XCircle className="size-4" />{t('judgmentDetail.reject')}
+              </Button>
+            </div>
           </div>
 
           {judgment.user1_acceptance !== undefined && (
@@ -236,33 +233,34 @@ const JudgmentDetail = () => {
           )}
 
           {/* Intent Direction */}
-          <div className="border-t border-border pt-6 space-y-3">
+          {visibleIntentCards.length > 0 && <div className="border-t border-border pt-7 space-y-3">
             <h5 className="text-base font-semibold text-foreground font-heading">{t('judgmentDetail.nextDirectionTitle')}</h5>
             <p className="text-sm text-muted-foreground">{t('judgmentDetail.nextDirectionDesc')}</p>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 pt-2">
-              {intentCards.map(({ intent, icon: Icon, title, desc, cta, bg }) => (
-                <div key={intent} className={cn('rounded-xl p-5 space-y-3', bg)}>
-                  <div className="flex items-center gap-2">
+            <div className="divide-y divide-border border-y border-border">
+              {visibleIntentCards.map(({ intent, icon: Icon, title, desc, cta }, index) => (
+                <div key={intent} className="grid gap-4 py-5 md:grid-cols-[1fr_auto] md:items-center">
+                  <div>
+                    <div className="flex items-center gap-2">
                     <Icon className="size-4 text-foreground" />
                     <span className="text-sm font-semibold text-foreground">{title}</span>
+                    </div>
+                    <p className="mt-2 text-sm leading-6 text-muted-foreground">{desc}</p>
                   </div>
-                  <p className="text-xs text-muted-foreground">{desc}</p>
-                  <Button size="sm" variant="outline" onClick={() => handleChooseIntent(intent)}>{cta}</Button>
+                  <Button size="sm" variant={index === 0 ? 'default' : 'outline'} onClick={() => handleChooseIntent(intent)}>{cta}</Button>
                 </div>
               ))}
             </div>
-          </div>
-        </div>
+          </div>}
+        </section>
 
         {/* Post-Judgment Trigger */}
         {showPostJudgmentCard && (
-          <div className="mt-8 rounded-xl border border-primary/20 bg-primary/5 p-6 text-center space-y-4">
-            <Heart className="mx-auto size-10 text-primary" />
-            <h4 className="text-lg font-semibold text-foreground font-heading">{t('trigger.postJudgmentTitle')}</h4>
-            <p className="text-sm text-muted-foreground">{t('trigger.postJudgmentDesc')}</p>
-            <div className="flex justify-center gap-3">
+          <div className="mt-10 border-t border-border pt-7 space-y-3">
+            <h4 className="text-base font-semibold text-foreground font-heading">{t('trigger.postJudgmentTitle')}</h4>
+            <p className="max-w-2xl text-sm leading-6 text-muted-foreground">{t('trigger.postJudgmentDesc')}</p>
+            <div className="flex gap-3">
               <Button onClick={handlePostJudgmentChat}>{t('trigger.postJudgmentOk')}</Button>
-              <Button variant="outline" onClick={() => { dismissedPostJudgmentRef.current = true; setShowPostJudgmentCard(false); }}>{t('trigger.postJudgmentSkip')}</Button>
+              <Button variant="ghost" onClick={() => { dismissedPostJudgmentRef.current = true; setShowPostJudgmentCard(false); }}>{t('trigger.postJudgmentSkip')}</Button>
             </div>
           </div>
         )}
@@ -272,7 +270,6 @@ const JudgmentDetail = () => {
           <DialogContent>
             <DialogHeader><DialogTitle>{t('judgmentDetail.acceptModalTitle')}</DialogTitle></DialogHeader>
             <p className="text-sm text-muted-foreground">{t('judgmentDetail.acceptModalConfirm')}</p>
-            {rating > 0 && <p className="text-sm font-medium text-primary">{t('judgmentDetail.acceptModalRating').replace('{rating}', String(rating))}</p>}
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowAcceptModal(false)}>{t('common.cancel')}</Button>
               <Button onClick={handleAccept} disabled={accepting}>
@@ -297,7 +294,7 @@ const JudgmentDetail = () => {
         </Dialog>
 
         <ConsentModal open={consentOpen} onConsent={handleConsent} onCancel={() => setConsentOpen(false)} loading={consentLoading} />
-      </motion.div>
+      </main>
     </>
   );
 };

@@ -1,4 +1,3 @@
-import { toast } from 'sonner';
 import JudgmentViewer from '@/components/business/JudgmentViewer';
 import { t } from '@/utils/i18n';
 
@@ -11,8 +10,6 @@ const JudgmentSection = ({ content }: Props) => {
       <JudgmentViewer
         content={content}
         title={undefined}
-        onShare={() => toast.info(t('message.shareComingSoon'))}
-        onFavorite={() => toast.info(t('message.favoriteNeedRegister'))}
         showActions={true}
       />
     </section>

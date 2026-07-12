@@ -1,5 +1,4 @@
 import { AlertCircle, CloudUpload, Upload, Loader2 } from 'lucide-react';
-import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { MAX_IMAGE_COUNT } from '@/utils/constants';
 import { t } from '@/utils/i18n';
@@ -26,7 +25,7 @@ const EvidenceUploadSection = ({ status, caseId, isUploading, onUploadFiles }: P
 
   return (
     <section className="mb-6" aria-labelledby="evidence-upload-title">
-      <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+      <div className="border border-border bg-surface p-5 space-y-4 md:p-6">
         <div className="flex items-center gap-3">
           {status === 'failed' ? (
             <AlertCircle className="size-7 text-destructive" />
@@ -71,7 +70,7 @@ const EvidenceUploadSection = ({ status, caseId, isUploading, onUploadFiles }: P
         </div>
 
         {selectedFiles.length > 0 && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-3 flex-wrap">
             <span className="text-sm text-muted-foreground">
               {t('evidence.selectedCount').replace('{count}', String(selectedFiles.length))}
             </span>
@@ -86,7 +85,7 @@ const EvidenceUploadSection = ({ status, caseId, isUploading, onUploadFiles }: P
             <Button variant="ghost" size="sm" disabled={isUploading} onClick={() => setSelectedFiles([])}>
               {t('common.clear')}
             </Button>
-          </motion.div>
+          </div>
         )}
       </div>
     </section>

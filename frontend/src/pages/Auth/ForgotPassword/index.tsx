@@ -170,7 +170,7 @@ const ForgotPassword = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
         className="w-full"
-        role="main"
+        role="region"
         aria-label={t('auth.forgot.pageLabel')}
       >
         {/* Header */}
@@ -222,7 +222,7 @@ const ForgotPassword = () => {
                     autoComplete="email"
                     value={email}
                     onChange={(e) => { setEmail(e.target.value); setErrors({}); }}
-                    className="h-12 rounded-2xl border-black/5 bg-white/70 pl-11 text-base shadow-[inset_0_2px_8px_rgba(0,0,0,0.01)] transition-all duration-300 hover:bg-white/90 focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/15"
+                    className="h-12 rounded-md border-input bg-transparent pl-11 text-base focus:border-primary focus:ring-2 focus:ring-primary/15"
                   />
                 </div>
                 {errors.email && <p className="text-sm text-destructive pl-1">{errors.email}</p>}
@@ -231,7 +231,7 @@ const ForgotPassword = () => {
               <Button
                 type="submit"
                 disabled={loading}
-                className="h-[52px] w-full rounded-2xl bg-gradient-to-br from-primary to-primary-hover text-base font-semibold shadow-[0_8px_20px_oklch(0.65_0.15_25/0.25)] transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 mt-2"
+                className="mt-2 h-12 w-full rounded-md text-base"
               >
                 {loading ? (
                   <span className="flex items-center gap-2">
@@ -269,7 +269,7 @@ const ForgotPassword = () => {
                     onChange={(e) => handleCodeChange(index, e.target.value)}
                     onKeyDown={(e) => handleCodeKeyDown(index, e)}
                     onPaste={handleCodePaste}
-                    className="h-14 w-12 rounded-xl border border-border bg-muted/50 text-center text-xl font-bold text-foreground transition-all duration-200 focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/15 focus:outline-none"
+                    className="h-14 w-12 rounded-md border border-input bg-transparent text-center text-xl font-bold text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15"
                     aria-label={`${t('auth.forgot.stepVerify')} ${index + 1}`}
                     autoComplete="one-time-code"
                     autoFocus={index === 0}
@@ -285,7 +285,7 @@ const ForgotPassword = () => {
                   type="button"
                   onClick={handleResendCode}
                   disabled={countdown > 0}
-                  className="mt-2 text-sm font-medium text-primary hover:text-primary-hover disabled:text-muted-foreground disabled:cursor-not-allowed transition-colors"
+                  className="mt-2 min-h-11 px-2 text-sm font-medium text-primary transition-colors hover:text-primary-hover disabled:cursor-not-allowed disabled:text-muted-foreground"
                 >
                   {t('auth.register.resendCode')}
                 </button>
@@ -294,7 +294,7 @@ const ForgotPassword = () => {
               <Button
                 onClick={() => setCurrentStep(2)}
                 disabled={verificationCode.join('').length !== CODE_LENGTH}
-                className="h-[52px] w-full rounded-2xl bg-gradient-to-br from-primary to-primary-hover text-base font-semibold shadow-[0_8px_20px_oklch(0.65_0.15_25/0.25)] transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0"
+                className="h-12 w-full rounded-md text-base"
               >
                 {t('auth.register.verifyAndContinue')}
               </Button>
@@ -322,12 +322,12 @@ const ForgotPassword = () => {
                     autoComplete="new-password"
                     value={password}
                     onChange={(e) => { setPassword(e.target.value); setErrors((prev) => { const { password: _, ...rest } = prev; return rest; }); }}
-                    className="h-12 rounded-2xl border-black/5 bg-white/70 pl-11 pr-11 text-base shadow-[inset_0_2px_8px_rgba(0,0,0,0.01)] transition-all duration-300 hover:bg-white/90 focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/15"
+                    className="h-12 rounded-md border-input bg-transparent pl-11 pr-11 text-base focus:border-primary focus:ring-2 focus:ring-primary/15"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    className="absolute right-1 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
                     aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
                   >
                     {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
@@ -346,7 +346,7 @@ const ForgotPassword = () => {
                     autoComplete="new-password"
                     value={confirmPassword}
                     onChange={(e) => { setConfirmPassword(e.target.value); setErrors((prev) => { const { confirmPassword: _, ...rest } = prev; return rest; }); }}
-                    className="h-12 rounded-2xl border-black/5 bg-white/70 pl-11 text-base shadow-[inset_0_2px_8px_rgba(0,0,0,0.01)] transition-all duration-300 hover:bg-white/90 focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/15"
+                    className="h-12 rounded-md border-input bg-transparent pl-11 text-base focus:border-primary focus:ring-2 focus:ring-primary/15"
                   />
                 </div>
                 {errors.confirmPassword && <p className="text-sm text-destructive pl-1">{errors.confirmPassword}</p>}
@@ -355,7 +355,7 @@ const ForgotPassword = () => {
               <Button
                 type="submit"
                 disabled={loading}
-                className="h-[52px] w-full rounded-2xl bg-gradient-to-br from-primary to-primary-hover text-base font-semibold shadow-[0_8px_20px_oklch(0.65_0.15_25/0.25)] transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 mt-2"
+                className="mt-2 h-12 w-full rounded-md text-base"
               >
                 {loading ? (
                   <span className="flex items-center gap-2">
@@ -393,7 +393,7 @@ const ForgotPassword = () => {
         <Button
           variant="outline"
           onClick={() => navigate('/auth/login', { state: { from: { pathname: from } } })}
-          className="h-[52px] w-full rounded-2xl border-black/5 bg-white/50 text-base font-semibold text-foreground transition-all duration-300 hover:border-primary/30 hover:bg-white hover:text-primary hover:shadow-sm"
+          className="h-12 w-full rounded-md border-input bg-transparent text-base text-foreground hover:border-primary hover:text-primary"
         >
           {t('auth.forgot.backToLogin')}
         </Button>

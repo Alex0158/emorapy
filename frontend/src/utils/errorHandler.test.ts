@@ -40,7 +40,7 @@ describe('errorHandler', () => {
       expect(mockToastError).toHaveBeenCalledWith('網絡連接失敗，請檢查網絡連接');
       mockToastError.mockClear();
       handleApiError({ code: 'UNAUTHORIZED' });
-      expect(mockToastError).toHaveBeenCalledWith('登錄已過期，請重新登錄');
+      expect(mockToastError).toHaveBeenCalledWith('登入已過期，請重新登入');
       mockToastError.mockClear();
       handleApiError({ code: 'NOT_FOUND' });
       expect(mockToastError).toHaveBeenCalledWith('資源不存在');

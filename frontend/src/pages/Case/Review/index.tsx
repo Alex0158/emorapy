@@ -6,18 +6,15 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
 import { useMountedRef } from '@/hooks/useMountedRef';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowLeft, RefreshCw, Loader2, CheckCircle, AlertCircle, Info } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { getCase } from '@/services/api/case';
 import { getJudgmentByCaseId, generateJudgment } from '@/services/api/judgment';
 import type { Case } from '@/types/case';
 import type { Judgment } from '@/types/judgment';
-import MediatorAvatar from '@/components/business/MediatorAvatar';
 import SEO from '@/components/common/SEO';
 import { usePolling } from '@/hooks/usePolling';
 import { POLLING_INTERVAL } from '@/utils/constants';
@@ -225,30 +222,16 @@ const CaseReview = () => {
   return (
     <>
       <SEO title={t('review.title')} description={t('review.description')} />
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} className="mx-auto max-w-lg px-4 py-12 text-center" role="main" aria-label={t('review.pageLabel')}>
-        <MediatorAvatar size="large" animated />
-        <h2 className="mt-6 text-2xl font-bold text-foreground font-heading">{t('review.aiReviewing')}</h2>
-        <p className="mt-2 text-sm text-muted-foreground">{t('review.analyzingHint')}</p>
+      <main className="mx-auto max-w-2xl px-4 py-12 md:py-20" aria-label={t('review.pageLabel')}>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-primary">{t('review.caseTitle')}</p>
+        <h1 className="text-3xl font-semibold tracking-tight text-foreground font-heading md:text-4xl">{t('review.aiReviewing')}</h1>
+        <p className="mt-3 max-w-xl text-base leading-7 text-muted-foreground">{t('review.analyzingHint')}</p>
 
-        <div className="mt-8 rounded-xl border border-border bg-card p-6 space-y-6">
+        <div className="mt-9 flex items-start gap-4 border-y border-border py-6" role="status" aria-live="polite">
+          <Loader2 className="mt-0.5 size-5 shrink-0 animate-spin text-primary motion-reduce:animate-none" />
           <div>
-            <Progress value={isPolling ? 65 : 100} className="h-2" />
-            <p className="mt-3 text-sm text-muted-foreground">
-              {isPolling ? t('review.aiAnalyzing') : t('review.done')}
-            </p>
-          </div>
-
-          <div className="flex items-start gap-2 rounded-lg bg-primary-light/30 p-3 text-left">
-            <Info className="mt-0.5 size-4 shrink-0 text-primary" />
-            <div>
-              <p className="text-xs font-medium text-foreground">{t('review.etaTitle')}</p>
-              <p className="text-xs text-muted-foreground">{t('review.etaDesc')}</p>
-            </div>
-          </div>
-
-          <div className="text-left">
-            <span className="text-sm font-medium text-foreground">{t('review.caseTitle')}：</span>
-            <span className="text-sm text-muted-foreground">{case_.title}</span>
+            <p className="font-medium text-foreground">{isPolling ? t('review.aiAnalyzing') : t('review.done')}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{case_.title}</p>
           </div>
         </div>
 
@@ -258,7 +241,7 @@ const CaseReview = () => {
             {t('review.backToCase')}
           </Button>
         </div>
-      </motion.div>
+      </main>
     </>
   );
 };

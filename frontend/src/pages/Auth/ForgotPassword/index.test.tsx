@@ -88,6 +88,8 @@ async function advanceToStep2() {
 describe('ForgotPassword', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockResetPassword.mockReset();
+    mockConfirmResetPassword.mockReset();
   });
 
   afterAll(() => {
@@ -107,7 +109,7 @@ describe('ForgotPassword', () => {
 
   it('應有忘記密碼頁面 role 與 aria-label', () => {
     const { container } = renderPage();
-    expect(container.querySelector('[role="main"][aria-label="auth.forgot.pageLabel"]')).toBeInTheDocument();
+    expect(container.querySelector('[role="region"][aria-label="auth.forgot.pageLabel"]')).toBeInTheDocument();
   });
 
   it('Step 0 → 1: sendResetEmail 成功應轉到驗證步驟', async () => {
@@ -124,7 +126,7 @@ describe('ForgotPassword', () => {
     });
     fireEvent.click(screen.getByText('auth.forgot.sendResetEmail'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('發送失敗');
+      expect(mockToastError).toHaveBeenCalledWith('message.sendResetFail');
     });
     expect(screen.getByText('auth.forgot.sendResetEmail')).toBeInTheDocument();
   });
@@ -139,7 +141,7 @@ describe('ForgotPassword', () => {
     });
     fireEvent.click(screen.getByText('auth.forgot.sendResetEmail'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('暫時無法發送');
+      expect(mockToastError).toHaveBeenCalledWith('message.sendResetFail');
     });
     fireEvent.click(screen.getByText('auth.forgot.sendResetEmail'));
     await waitFor(() => {
@@ -157,7 +159,7 @@ describe('ForgotPassword', () => {
     });
     fireEvent.click(screen.getByText('auth.forgot.sendResetEmail'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('發送失敗');
+      expect(mockToastError).toHaveBeenCalledWith('message.sendResetFail');
     });
     const backBtn = screen.getByText('auth.forgot.backToLogin');
     expect(backBtn).toBeInTheDocument();
@@ -185,7 +187,7 @@ describe('ForgotPassword', () => {
     });
     fireEvent.click(screen.getByText('auth.forgot.sendResetEmail'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.sendResetFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
@@ -197,7 +199,7 @@ describe('ForgotPassword', () => {
     });
     fireEvent.click(screen.getByText('auth.forgot.sendResetEmail'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('此郵箱無法接收重置信件');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
@@ -209,7 +211,7 @@ describe('ForgotPassword', () => {
     });
     fireEvent.click(screen.getByText('auth.forgot.sendResetEmail'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.sendResetFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
@@ -367,7 +369,7 @@ describe('ForgotPassword', () => {
     });
     fireEvent.click(screen.getByText('auth.forgot.resetButton'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('重設失敗');
+      expect(mockToastError).toHaveBeenCalledWith('message.resetFail');
     });
   });
 
@@ -397,7 +399,7 @@ describe('ForgotPassword', () => {
     });
     fireEvent.click(screen.getByText('auth.forgot.resetButton'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.resetFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
@@ -412,7 +414,7 @@ describe('ForgotPassword', () => {
     });
     fireEvent.click(screen.getByText('auth.forgot.resetButton'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('驗證碼已過期');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
@@ -427,7 +429,7 @@ describe('ForgotPassword', () => {
     });
     fireEvent.click(screen.getByText('auth.forgot.resetButton'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.resetFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
@@ -463,7 +465,7 @@ describe('ForgotPassword', () => {
     });
     fireEvent.click(screen.getByText('auth.forgot.resetButton'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('網路暫時不可用');
+      expect(mockToastError).toHaveBeenCalledWith('message.resetFail');
     });
     fireEvent.click(screen.getByText('auth.forgot.resetButton'));
     await waitFor(() => {

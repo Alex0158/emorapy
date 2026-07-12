@@ -203,6 +203,14 @@ describe('InterviewChat', () => {
     expect(screen.getByTestId('interview-input')).toBeInTheDocument();
   });
 
+  it('critical safety alert 應持續顯示並暫停一般輸入', () => {
+    mockStoreState.currentSession = { id: 'test-session', status: 'in_progress' };
+    mockStoreState.safetyAlert = { message: '需要先確保安全', severity: 'critical' };
+    renderWithRouter();
+    expect(screen.getByTestId('safety-alert')).toHaveTextContent('需要先確保安全');
+    expect(screen.queryByTestId('interview-input')).not.toBeInTheDocument();
+  });
+
   it('session 為 processing 時應顯示處理中提示', () => {
     mockStoreState.currentSession = { id: 'test-session', status: 'processing' };
     renderWithRouter();

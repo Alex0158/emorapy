@@ -30,12 +30,6 @@ export default function ChatRoomEntrySection({
 }: ChatRoomEntrySectionProps) {
   return (
     <div className="chat-room-entry">
-      <div className="chat-room-entry__ambient">
-        <div className="chat-room-entry__orb chat-room-entry__orb--1" />
-        <div className="chat-room-entry__orb chat-room-entry__orb--2" />
-        <div className="chat-room-entry__orb chat-room-entry__orb--3" />
-        <div className="chat-room-entry__vignette" aria-hidden />
-      </div>
       <div className="chat-room-entry__panel">
         <header className="chat-room-entry__header">
           <h1 className="chat-room-entry__title">{t('chat.title')}</h1>
@@ -58,7 +52,12 @@ export default function ChatRoomEntrySection({
                 <SelectItem value="share_from_join_time">{t('chat.visibility.share_from_join_time')}</SelectItem>
               </SelectContent>
             </Select>
-            <Button size="lg" disabled={creatingRoom} onClick={onCreateRoom} className="chat-room-entry__cta">
+            <Button
+              size="lg"
+              disabled={creatingRoom}
+              onClick={onCreateRoom}
+              className="min-h-11 rounded-lg text-base font-medium shadow-none"
+            >
               {creatingRoom && <Loader2 className="size-4 animate-spin" />}{t('chat.createRoom')}
             </Button>
           </div>
@@ -74,7 +73,7 @@ export default function ChatRoomEntrySection({
                 value={inviteCodeInput}
                 onChange={(e) => onInviteCodeInputChange(e.target.value)}
                 placeholder={t('chat.inviteCodePlaceholder')}
-                className="chat-room-entry__invite-input"
+                className="h-auto rounded-lg border-border bg-background px-4 py-3 text-base hover:border-primary/30 focus-visible:border-primary"
                 autoComplete="off"
               />
             </div>

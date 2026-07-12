@@ -314,19 +314,17 @@ describe('QuickExperienceCreate', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/quick-experience/result/case-r1');
   });
 
-  it('第二步可自動生成被告草稿', async () => {
+  it('第二步不提供代寫，角色 B 可自行填寫或留空', async () => {
     renderPage();
 
     await moveToStepTwo();
-    vi.useFakeTimers();
-    fireEvent.click(screen.getByText('quickCreate.autoWrite'));
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(650);
-    });
-
-    expect(mockToast.success).toHaveBeenCalledWith('message.defendantDraftDone');
-    expect((screen.getByLabelText('defendant') as HTMLTextAreaElement).value).toBe('quickCreate.defendantDraftTemplate');
+    expect(screen.queryByText('quickCreate.autoWrite')).not.toBeInTheDocument();
+    const defendantInput = screen.getByLabelText('defendant') as HTMLTextAreaElement;
+    expect(defendantInput.value).toBe('');
+    fireEvent.change(defendantInput, { target: { value: validDefendant } });
+    expect(defendantInput.value).toBe(validDefendant);
+    fireEvent.click(screen.getByText('quickCreate.collaborativeAction'));
+    expect(mockNavigate).toHaveBeenCalledWith('/quick-experience/collaborative');
   });
 
   it('自動保存應寫入當前草稿', async () => {
@@ -417,14 +415,14 @@ describe('QuickExperienceCreate', () => {
     });
   });
 
-  it('createQuickCase 失敗時應優先顯示錯誤訊息本身，否則回退 submitFail', async () => {
+  it('createQuickCase 未知錯誤不應直出 raw message，統一回退 submitFail', async () => {
     renderPage();
     await moveToStepThree();
 
     mockCreateQuickCase.mockRejectedValueOnce(new Error('create failed'));
     fireEvent.click(screen.getByText('quickCreate.submitAndAnalyze'));
     await waitFor(() => {
-      expect(mockToast.error).toHaveBeenCalledWith('create failed');
+      expect(mockToast.error).toHaveBeenCalledWith('message.submitFail');
     });
 
     mockCreateQuickCase.mockRejectedValueOnce('unknown');
@@ -434,7 +432,7 @@ describe('QuickExperienceCreate', () => {
     });
   });
 
-  it('createQuickCase 失敗且 message 為空字串時應使用 submitFail（F10 邊界：空 message 視為無）', async () => {
+  it('createQuickCase SERVER_ERROR 應使用安全的通用 server error 文案', async () => {
     mockCreateQuickCase.mockRejectedValueOnce({ code: 'SERVER_ERROR', message: '' });
     renderPage();
     await moveToStepThree();
@@ -442,18 +440,18 @@ describe('QuickExperienceCreate', () => {
     fireEvent.click(screen.getByText('quickCreate.submitAndAnalyze'));
 
     await waitFor(() => {
-      expect(mockToast.error).toHaveBeenCalledWith('message.submitFail');
+      expect(mockToast.error).toHaveBeenCalledWith('common.serverError');
     });
     expect(mockNavigate).not.toHaveBeenCalledWith(expect.stringContaining('/quick-experience/result/'));
   });
 
-  it('createQuickCase FORBIDDEN 且無 message 時應使用 submitFail（F01 權限邊界 fallback）', async () => {
+  it('createQuickCase FORBIDDEN 應使用標準權限文案', async () => {
     mockCreateQuickCase.mockRejectedValueOnce({ code: 'FORBIDDEN' });
     renderPage();
     await moveToStepThree();
     fireEvent.click(screen.getByText('quickCreate.submitAndAnalyze'));
     await waitFor(() => {
-      expect(mockToast.error).toHaveBeenCalledWith('message.submitFail');
+      expect(mockToast.error).toHaveBeenCalledWith('common.forbidden');
     });
     expect(mockNavigate).not.toHaveBeenCalledWith(expect.stringContaining('/quick-experience/result/'));
   });
@@ -471,7 +469,7 @@ describe('QuickExperienceCreate', () => {
     const closeBtn = screen.getByLabelText('quickCreate.close');
     expect(closeBtn).toBeInTheDocument();
     fireEvent.click(closeBtn);
-    expect(mockNavigate).toHaveBeenCalledWith('/');
+    expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true });
   });
 
   it('createQuickCase 失敗後應仍可再次點擊提交，成功後應跳轉結果頁（F01 錯誤恢復：失敗不阻塞重試）', async () => {
@@ -483,7 +481,7 @@ describe('QuickExperienceCreate', () => {
 
     fireEvent.click(screen.getByText('quickCreate.submitAndAnalyze'));
     await waitFor(() => {
-      expect(mockToast.error).toHaveBeenCalledWith('網路錯誤');
+      expect(mockToast.error).toHaveBeenCalledWith('message.submitFail');
     });
 
     fireEvent.click(screen.getByText('quickCreate.submitAndAnalyze'));

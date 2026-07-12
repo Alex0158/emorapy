@@ -1,9 +1,10 @@
 /**
  * MyStory 頁面單元測試
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockNavigate = vi.fn();
 const mockToastError = vi.fn();
@@ -58,11 +59,13 @@ vi.mock('sonner', () => ({
     warning: vi.fn(),
   },
 }));
-vi.mock('@/components/business/Interview/RichnessRing', () => ({
-  default: ({ score }: { score: number }) => <div data-testid="richness-ring">score:{score}</div>,
-}));
 vi.mock('@/components/common/EmptyState', () => ({
-  EmptyState: ({ title, actionLabel, onAction }: any) => <div>{title}{actionLabel && <button onClick={onAction}>{actionLabel}</button>}</div>,
+  EmptyState: ({ title, actionLabel, onAction }: any) => (
+    <div>
+      {title}
+      {actionLabel && <button onClick={onAction}>{actionLabel}</button>}
+    </div>
+  ),
 }));
 
 import MyStory from './index';
@@ -78,6 +81,17 @@ function renderPage() {
 describe('MyStory', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockFetchProfile.mockReset();
+    mockFetchFeedbackHistory.mockReset();
+    mockDeleteAllData.mockReset();
+    mockStartSession.mockReset();
+    mockCheckResume.mockReset();
+    mockRetryFailed.mockReset();
+    mockFetchProfile.mockResolvedValue(undefined);
+    mockFetchFeedbackHistory.mockResolvedValue(undefined);
+    mockDeleteAllData.mockResolvedValue(undefined);
+    mockStartSession.mockResolvedValue({ id: 'test-session-id' });
+    mockRetryFailed.mockResolvedValue(undefined);
     mockPsychState = {
       profile: null,
       feedbackHistory: [],
@@ -126,19 +140,33 @@ describe('MyStory', () => {
     expect(screen.getByText('psychProfile.noStoryYet')).toBeInTheDocument();
   });
 
-  it('已授權時應顯示主頁面與豐富度', () => {
+  it('已授權時應顯示可修正的故事摘要，不顯示豐富度分數', () => {
     mockPsychState.profile = {
       consent_given: true,
       richness_score: 75,
       narratives: [
-        { domain: 'attachment', is_latest: true, completeness: 0.8, ai_summary: 'Summary' },
+        {
+          domain: 'attachment',
+          is_latest: true,
+          completeness: 0.8,
+          ai_summary: 'Summary',
+        },
       ],
       insights: [
-        { id: 'i1', domain: 'attachment', is_active: true, insight_type: 'trait', key: 'K', value: 'V', confidence: 0.9 },
+        {
+          id: 'i1',
+          domain: 'attachment',
+          is_active: true,
+          insight_type: 'trait',
+          key: 'K',
+          value: 'V',
+          confidence: 0.9,
+        },
       ],
     };
     renderPage();
-    expect(screen.getByTestId('richness-ring')).toBeInTheDocument();
+    expect(screen.queryByTestId('richness-ring')).not.toBeInTheDocument();
+    expect(screen.getByText('psychProfile.disclaimer')).toBeInTheDocument();
     expect(screen.getByText('psychProfile.myStoryTitle')).toBeInTheDocument();
     expect(screen.getByText('psychProfile.continueChat')).toBeInTheDocument();
   });
@@ -151,12 +179,17 @@ describe('MyStory', () => {
       insights: null,
     };
     expect(() => renderPage()).not.toThrow();
-    expect(screen.getByTestId('richness-ring')).toBeInTheDocument();
+    expect(screen.queryByTestId('richness-ring')).not.toBeInTheDocument();
     expect(screen.getByText('psychProfile.noDomainData')).toBeInTheDocument();
   });
 
   it('掛載時應呼叫 fetchProfile 和 fetchFeedbackHistory', () => {
-    mockPsychState.profile = { consent_given: true, richness_score: 0, narratives: [], insights: [] };
+    mockPsychState.profile = {
+      consent_given: true,
+      richness_score: 0,
+      narratives: [],
+      insights: [],
+    };
     renderPage();
     expect(mockFetchProfile).toHaveBeenCalled();
     expect(mockFetchFeedbackHistory).toHaveBeenCalled();
@@ -177,7 +210,11 @@ describe('MyStory', () => {
   });
 
   it('checkResume 有 failed session 時應顯示 failed alert', async () => {
-    mockCheckResume.mockResolvedValue({ has_pending: false, has_failed: true, failed_session_id: 'fs1' });
+    mockCheckResume.mockResolvedValue({
+      has_pending: false,
+      has_failed: true,
+      failed_session_id: 'fs1',
+    });
     mockPsychState.profile = {
       consent_given: true,
       richness_score: 0,
@@ -191,10 +228,17 @@ describe('MyStory', () => {
   });
 
   it('retryFailed 成功但組件已卸載時不應呼叫 message.info 或 navigate（useMountedRef 回歸：避免 F01-BUG-001 同類問題）', async () => {
-    mockCheckResume.mockResolvedValue({ has_pending: false, has_failed: true, failed_session_id: 'fs1' });
+    mockCheckResume.mockResolvedValue({
+      has_pending: false,
+      has_failed: true,
+      failed_session_id: 'fs1',
+    });
     let resolveRetry: (v: unknown) => void;
     mockRetryFailed.mockImplementation(
-      () => new Promise((resolve) => { resolveRetry = resolve; })
+      () =>
+        new Promise(resolve => {
+          resolveRetry = resolve;
+        })
     );
     mockPsychState.profile = {
       consent_given: true,
@@ -218,7 +262,11 @@ describe('MyStory', () => {
   });
 
   it('點擊重試按鈕應呼叫 retryFailed', async () => {
-    mockCheckResume.mockResolvedValue({ has_pending: false, has_failed: true, failed_session_id: 'fs1' });
+    mockCheckResume.mockResolvedValue({
+      has_pending: false,
+      has_failed: true,
+      failed_session_id: 'fs1',
+    });
     mockRetryFailed.mockResolvedValue(undefined);
     mockPsychState.profile = {
       consent_given: true,
@@ -237,7 +285,11 @@ describe('MyStory', () => {
   });
 
   it('重試失敗 session 成功後應導航到對應 result 頁（F06 跨頁回流一致性）', async () => {
-    mockCheckResume.mockResolvedValue({ has_pending: false, has_failed: true, failed_session_id: 'fs1' });
+    mockCheckResume.mockResolvedValue({
+      has_pending: false,
+      has_failed: true,
+      failed_session_id: 'fs1',
+    });
     mockRetryFailed.mockResolvedValue(undefined);
     mockPsychState.profile = {
       consent_given: true,
@@ -246,7 +298,9 @@ describe('MyStory', () => {
       insights: [],
     };
     renderPage();
-    const retryBtn = await screen.findByRole('button', { name: 'psychProfile.retryProcessing' });
+    const retryBtn = await screen.findByRole('button', {
+      name: 'psychProfile.retryProcessing',
+    });
     fireEvent.click(retryBtn);
     await waitFor(() => {
       expect(mockRetryFailed).toHaveBeenCalledWith('fs1');
@@ -258,7 +312,10 @@ describe('MyStory', () => {
   it('deleteAllData 成功但組件已卸載時不應呼叫 message.success 或 navigate（useMountedRef 回歸：避免 F01-BUG-001 同類問題）', async () => {
     let resolveDelete: (v: unknown) => void;
     mockDeleteAllData.mockImplementation(
-      () => new Promise((resolve) => { resolveDelete = resolve; })
+      () =>
+        new Promise(resolve => {
+          resolveDelete = resolve;
+        })
     );
     mockPsychState.profile = {
       consent_given: true,
@@ -305,7 +362,10 @@ describe('MyStory', () => {
     let resolveStart: (v: unknown) => void;
     mockCheckResume.mockResolvedValue({ has_pending: false });
     mockStartSession.mockImplementation(
-      () => new Promise((resolve) => { resolveStart = resolve; })
+      () =>
+        new Promise(resolve => {
+          resolveStart = resolve;
+        })
     );
     mockPsychState.profile = {
       consent_given: true,
@@ -325,9 +385,7 @@ describe('MyStory', () => {
   });
 
   it('繼續聊天 (有 pending session) 應導航到該 session', async () => {
-    mockCheckResume
-      .mockResolvedValueOnce({ has_pending: false })
-      .mockResolvedValueOnce({ has_pending: true, session_id: 'resume-sess' });
+    mockCheckResume.mockResolvedValueOnce({ has_pending: false }).mockResolvedValueOnce({ has_pending: true, session_id: 'resume-sess' });
     mockPsychState.profile = {
       consent_given: true,
       richness_score: 0.5,
@@ -342,13 +400,11 @@ describe('MyStory', () => {
   });
 
   it('繼續聊天 (有 failed session) 應導航到 result retry 頁且不再 startSession', async () => {
-    mockCheckResume
-      .mockResolvedValueOnce({ has_pending: false })
-      .mockResolvedValueOnce({
-        has_pending: false,
-        has_failed: true,
-        failed_session_id: 'failed-sess',
-      });
+    mockCheckResume.mockResolvedValueOnce({ has_pending: false }).mockResolvedValueOnce({
+      has_pending: false,
+      has_failed: true,
+      failed_session_id: 'failed-sess',
+    });
     mockPsychState.profile = {
       consent_given: true,
       richness_score: 0.5,
@@ -363,7 +419,7 @@ describe('MyStory', () => {
     });
   });
 
-  it('繼續聊天 startSession 失敗且有 message 應顯示該 message（F06 錯誤處理約定）', async () => {
+  it('繼續聊天 startSession 收到未分類 Error 時應顯示訪談 fallback（F06 錯誤處理約定）', async () => {
     mockCheckResume.mockResolvedValue({ has_pending: false });
     mockStartSession.mockRejectedValue(new Error('啟動訪談失敗'));
     mockPsychState.profile = {
@@ -375,11 +431,11 @@ describe('MyStory', () => {
     renderPage();
     fireEvent.click(screen.getByText('psychProfile.continueChat'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('啟動訪談失敗');
+      expect(mockToastError).toHaveBeenCalledWith('interview.startFail');
     });
   });
 
-  it('繼續聊天 startSession 失敗且無 message 應顯示 interview.startFail', async () => {
+  it('繼續聊天 startSession SERVER_ERROR 且無 message 時應顯示伺服器 catalog', async () => {
     mockCheckResume.mockResolvedValue({ has_pending: false });
     mockStartSession.mockRejectedValue({ code: 'SERVER_ERROR' });
     mockPsychState.profile = {
@@ -391,15 +447,13 @@ describe('MyStory', () => {
     renderPage();
     fireEvent.click(screen.getByText('psychProfile.continueChat'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('interview.startFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
   it('繼續聊天 startSession 失敗後應仍可再次點擊繼續聊天，成功後應導航（F06 錯誤恢復：失敗不阻塞重試）', async () => {
     mockCheckResume.mockResolvedValue({ has_pending: false });
-    mockStartSession
-      .mockRejectedValueOnce(new Error('網路錯誤'))
-      .mockResolvedValueOnce({ id: 'sess-1' });
+    mockStartSession.mockRejectedValueOnce(new Error('網路錯誤')).mockResolvedValueOnce({ id: 'sess-1' });
     mockPsychState.profile = {
       consent_given: true,
       richness_score: 0,
@@ -408,7 +462,7 @@ describe('MyStory', () => {
     };
     renderPage();
     fireEvent.click(screen.getByText('psychProfile.continueChat'));
-    await waitFor(() => expect(mockToastError).toHaveBeenCalledWith('網路錯誤'));
+    await waitFor(() => expect(mockToastError).toHaveBeenCalledWith('interview.startFail'));
     fireEvent.click(screen.getByText('psychProfile.continueChat'));
     await waitFor(() => {
       expect(mockStartSession).toHaveBeenCalledTimes(2);
@@ -416,7 +470,7 @@ describe('MyStory', () => {
     });
   });
 
-  it('繼續聊天 startSession 失敗且 message 為空字串時應使用 interview.startFail（F10 邊界）', async () => {
+  it('繼續聊天 startSession SERVER_ERROR 且 message 為空字串時應使用伺服器 catalog（F10 邊界）', async () => {
     mockCheckResume.mockResolvedValue({ has_pending: false });
     mockStartSession.mockRejectedValue({ code: 'SERVER_ERROR', message: '' });
     mockPsychState.profile = {
@@ -428,11 +482,11 @@ describe('MyStory', () => {
     renderPage();
     fireEvent.click(screen.getByText('psychProfile.continueChat'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('interview.startFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
-  it('繼續聊天 startSession FORBIDDEN 且無 message 時應使用 interview.startFail（F06 權限邊界 fallback）', async () => {
+  it('繼續聊天 startSession FORBIDDEN 且無 message 時應使用權限 catalog（F06 權限邊界）', async () => {
     mockCheckResume.mockResolvedValue({ has_pending: false });
     mockStartSession.mockRejectedValue({ code: 'FORBIDDEN' });
     mockPsychState.profile = {
@@ -444,12 +498,16 @@ describe('MyStory', () => {
     renderPage();
     fireEvent.click(screen.getByText('psychProfile.continueChat'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('interview.startFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
-  it('重試失敗 session 時 retryFailed 失敗且有 message 應顯示該 message', async () => {
-    mockCheckResume.mockResolvedValue({ has_pending: false, has_failed: true, failed_session_id: 'fs1' });
+  it('重試失敗 session 時 retryFailed 收到未分類 Error 應顯示重試 fallback', async () => {
+    mockCheckResume.mockResolvedValue({
+      has_pending: false,
+      has_failed: true,
+      failed_session_id: 'fs1',
+    });
     mockRetryFailed.mockRejectedValue(new Error('重試處理失敗'));
     mockPsychState.profile = {
       consent_given: true,
@@ -458,15 +516,21 @@ describe('MyStory', () => {
       insights: [],
     };
     renderPage();
-    const retryBtn = await screen.findByRole('button', { name: 'psychProfile.retryProcessing' });
+    const retryBtn = await screen.findByRole('button', {
+      name: 'psychProfile.retryProcessing',
+    });
     fireEvent.click(retryBtn);
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('重試處理失敗');
+      expect(mockToastError).toHaveBeenCalledWith('interview.retryFail');
     });
   });
 
   it('重試失敗 session 時 retryFailed 失敗且無 message 應顯示 interview.retryFail', async () => {
-    mockCheckResume.mockResolvedValue({ has_pending: false, has_failed: true, failed_session_id: 'fs1' });
+    mockCheckResume.mockResolvedValue({
+      has_pending: false,
+      has_failed: true,
+      failed_session_id: 'fs1',
+    });
     mockRetryFailed.mockRejectedValue({ code: 'UNKNOWN' });
     mockPsychState.profile = {
       consent_given: true,
@@ -475,15 +539,21 @@ describe('MyStory', () => {
       insights: [],
     };
     renderPage();
-    const retryBtn = await screen.findByRole('button', { name: 'psychProfile.retryProcessing' });
+    const retryBtn = await screen.findByRole('button', {
+      name: 'psychProfile.retryProcessing',
+    });
     fireEvent.click(retryBtn);
     await waitFor(() => {
       expect(mockToastError).toHaveBeenCalledWith('interview.retryFail');
     });
   });
 
-  it('重試失敗 session 時 retryFailed FORBIDDEN 且無 message 時應使用 interview.retryFail（F06 權限邊界 fallback）', async () => {
-    mockCheckResume.mockResolvedValue({ has_pending: false, has_failed: true, failed_session_id: 'fs1' });
+  it('重試失敗 session 時 retryFailed FORBIDDEN 且無 message 時應使用權限 catalog（F06 權限邊界）', async () => {
+    mockCheckResume.mockResolvedValue({
+      has_pending: false,
+      has_failed: true,
+      failed_session_id: 'fs1',
+    });
     mockRetryFailed.mockRejectedValue({ code: 'FORBIDDEN' });
     mockPsychState.profile = {
       consent_given: true,
@@ -492,15 +562,21 @@ describe('MyStory', () => {
       insights: [],
     };
     renderPage();
-    const retryBtn = await screen.findByRole('button', { name: 'psychProfile.retryProcessing' });
+    const retryBtn = await screen.findByRole('button', {
+      name: 'psychProfile.retryProcessing',
+    });
     fireEvent.click(retryBtn);
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('interview.retryFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
-  it('重試失敗 session 時 retryFailed 失敗且 message 為空字串時應使用 interview.retryFail（F10 邊界）', async () => {
-    mockCheckResume.mockResolvedValue({ has_pending: false, has_failed: true, failed_session_id: 'fs1' });
+  it('重試失敗 session 時 retryFailed SERVER_ERROR 且 message 為空字串時應使用伺服器 catalog（F10 邊界）', async () => {
+    mockCheckResume.mockResolvedValue({
+      has_pending: false,
+      has_failed: true,
+      failed_session_id: 'fs1',
+    });
     mockRetryFailed.mockRejectedValue({ code: 'SERVER_ERROR', message: '' });
     mockPsychState.profile = {
       consent_given: true,
@@ -509,18 +585,22 @@ describe('MyStory', () => {
       insights: [],
     };
     renderPage();
-    const retryBtn = await screen.findByRole('button', { name: 'psychProfile.retryProcessing' });
+    const retryBtn = await screen.findByRole('button', {
+      name: 'psychProfile.retryProcessing',
+    });
     fireEvent.click(retryBtn);
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('interview.retryFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
   it('重試失敗 session 時 retryFailed 失敗後應仍可再次點擊 retry，成功後應導回 result（F06 錯誤恢復：失敗不阻塞重試）', async () => {
-    mockCheckResume.mockResolvedValue({ has_pending: false, has_failed: true, failed_session_id: 'fs1' });
-    mockRetryFailed
-      .mockRejectedValueOnce(new Error('第一次重試失敗'))
-      .mockResolvedValueOnce(undefined);
+    mockCheckResume.mockResolvedValue({
+      has_pending: false,
+      has_failed: true,
+      failed_session_id: 'fs1',
+    });
+    mockRetryFailed.mockRejectedValueOnce(new Error('第一次重試失敗')).mockResolvedValueOnce(undefined);
     mockPsychState.profile = {
       consent_given: true,
       richness_score: 0,
@@ -528,9 +608,11 @@ describe('MyStory', () => {
       insights: [],
     };
     renderPage();
-    const retryBtn = await screen.findByRole('button', { name: 'psychProfile.retryProcessing' });
+    const retryBtn = await screen.findByRole('button', {
+      name: 'psychProfile.retryProcessing',
+    });
     fireEvent.click(retryBtn);
-    await waitFor(() => expect(mockToastError).toHaveBeenCalledWith('第一次重試失敗'));
+    await waitFor(() => expect(mockToastError).toHaveBeenCalledWith('interview.retryFail'));
     fireEvent.click(retryBtn);
     await waitFor(() => {
       expect(mockRetryFailed).toHaveBeenCalledTimes(2);
@@ -541,8 +623,17 @@ describe('MyStory', () => {
 
   it('重試失敗 session 時 retryFailed 快速連點只會送出一次請求（F06 重試節流）', async () => {
     let resolveRetry: (v: unknown) => void;
-    mockCheckResume.mockResolvedValue({ has_pending: false, has_failed: true, failed_session_id: 'fs1' });
-    mockRetryFailed.mockImplementation(() => new Promise((resolve) => { resolveRetry = resolve; }));
+    mockCheckResume.mockResolvedValue({
+      has_pending: false,
+      has_failed: true,
+      failed_session_id: 'fs1',
+    });
+    mockRetryFailed.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          resolveRetry = resolve;
+        })
+    );
     mockPsychState.profile = {
       consent_given: true,
       richness_score: 0,
@@ -550,7 +641,9 @@ describe('MyStory', () => {
       insights: [],
     };
     renderPage();
-    const retryBtn = await screen.findByRole('button', { name: 'psychProfile.retryProcessing' });
+    const retryBtn = await screen.findByRole('button', {
+      name: 'psychProfile.retryProcessing',
+    });
     fireEvent.click(retryBtn);
     fireEvent.click(retryBtn);
     fireEvent.click(retryBtn);
@@ -560,27 +653,8 @@ describe('MyStory', () => {
     resolveRetry!(undefined);
   });
 
-  it('刪除資料 deleteAllData 失敗且有 message 應顯示該 message', async () => {
+  it('刪除資料 deleteAllData 收到未分類 Error 時應顯示刪除 fallback', async () => {
     mockDeleteAllData.mockRejectedValue(new Error('刪除資料失敗'));
-    mockPsychState.profile = {
-      consent_given: true,
-      richness_score: 0,
-      narratives: [],
-      insights: [],
-    };
-    renderPage();
-    fireEvent.click(screen.getByText('psychProfile.deleteAllData'));
-    await waitFor(() => {
-      expect(screen.getByText('psychProfile.deleteConfirmTitle')).toBeInTheDocument();
-    });
-    fireEvent.click(screen.getByText('psychProfile.confirmDelete'));
-    await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('刪除資料失敗');
-    });
-  });
-
-  it('刪除資料 deleteAllData 失敗且無 message 應顯示 psychProfile.deleteFail', async () => {
-    mockDeleteAllData.mockRejectedValue({ code: 'SERVER_ERROR' });
     mockPsychState.profile = {
       consent_given: true,
       richness_score: 0,
@@ -598,10 +672,27 @@ describe('MyStory', () => {
     });
   });
 
+  it('刪除資料 deleteAllData SERVER_ERROR 且無 message 時應顯示伺服器 catalog', async () => {
+    mockDeleteAllData.mockRejectedValue({ code: 'SERVER_ERROR' });
+    mockPsychState.profile = {
+      consent_given: true,
+      richness_score: 0,
+      narratives: [],
+      insights: [],
+    };
+    renderPage();
+    fireEvent.click(screen.getByText('psychProfile.deleteAllData'));
+    await waitFor(() => {
+      expect(screen.getByText('psychProfile.deleteConfirmTitle')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('psychProfile.confirmDelete'));
+    await waitFor(() => {
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
+    });
+  });
+
   it('刪除資料 deleteAllData 失敗後應仍可再次點擊確認刪除，成功後應導航（F06 錯誤恢復：失敗不阻塞重試）', async () => {
-    mockDeleteAllData
-      .mockRejectedValueOnce(new Error('暫無法刪除'))
-      .mockResolvedValueOnce(undefined);
+    mockDeleteAllData.mockRejectedValueOnce(new Error('暫無法刪除')).mockResolvedValueOnce(undefined);
     mockPsychState.profile = {
       consent_given: true,
       richness_score: 0,
@@ -612,7 +703,7 @@ describe('MyStory', () => {
     fireEvent.click(screen.getByText('psychProfile.deleteAllData'));
     await waitFor(() => expect(screen.getByText('psychProfile.deleteConfirmTitle')).toBeInTheDocument());
     fireEvent.click(screen.getByText('psychProfile.confirmDelete'));
-    await waitFor(() => expect(mockToastError).toHaveBeenCalledWith('暫無法刪除'));
+    await waitFor(() => expect(mockToastError).toHaveBeenCalledWith('psychProfile.deleteFail'));
     await waitFor(() => expect(screen.getByRole('button', { name: 'psychProfile.confirmDelete' })).toBeEnabled());
     fireEvent.click(screen.getByRole('button', { name: 'psychProfile.confirmDelete' }));
     await waitFor(() => {
@@ -621,7 +712,7 @@ describe('MyStory', () => {
     });
   });
 
-  it('刪除資料 deleteAllData FORBIDDEN 且無 message 時應使用 psychProfile.deleteFail（F06 權限邊界 fallback）', async () => {
+  it('刪除資料 deleteAllData FORBIDDEN 且無 message 時應使用權限 catalog（F06 權限邊界）', async () => {
     mockDeleteAllData.mockRejectedValue({ code: 'FORBIDDEN' });
     mockPsychState.profile = {
       consent_given: true,
@@ -637,11 +728,11 @@ describe('MyStory', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'psychProfile.confirmDelete' })).toBeEnabled());
     fireEvent.click(screen.getByRole('button', { name: 'psychProfile.confirmDelete' }));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('psychProfile.deleteFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
-  it('刪除資料 deleteAllData 失敗且 message 為空字串時應使用 psychProfile.deleteFail（F10 邊界）', async () => {
+  it('刪除資料 deleteAllData SERVER_ERROR 且 message 為空字串時應使用伺服器 catalog（F10 邊界）', async () => {
     mockDeleteAllData.mockRejectedValue({ code: 'SERVER_ERROR', message: '' });
     mockPsychState.profile = {
       consent_given: true,
@@ -656,7 +747,7 @@ describe('MyStory', () => {
     });
     fireEvent.click(screen.getByText('psychProfile.confirmDelete'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('psychProfile.deleteFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
     });
   });
 });

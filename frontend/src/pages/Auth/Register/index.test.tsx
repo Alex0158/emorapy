@@ -104,7 +104,7 @@ describe('Register', () => {
 
   it('應有註冊頁面 role 與 aria-label', () => {
     const { container } = renderPage();
-    expect(container.querySelector('[role="main"][aria-label="auth.register.pageLabel"]')).toBeInTheDocument();
+    expect(container.querySelector('[role="region"][aria-label="auth.register.pageLabel"]')).toBeInTheDocument();
   });
 
   it('Step 0 → 1: sendCode 成功應轉到驗證步驟', async () => {
@@ -113,7 +113,7 @@ describe('Register', () => {
     expect(mockToastSuccess).toHaveBeenCalledWith('message.codeSent');
   });
 
-  it('Step 0: sendCode 失敗應顯示錯誤訊息', async () => {
+  it('Step 0: sendCode 非標準錯誤應顯示安全 fallback', async () => {
     mockSendVerificationCode.mockRejectedValue(new Error('發送失敗'));
     renderPage();
     fireEvent.change(screen.getByPlaceholderText('auth.register.emailPlaceholder'), {
@@ -121,7 +121,7 @@ describe('Register', () => {
     });
     fireEvent.click(screen.getByText('auth.register.sendCode'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('發送失敗');
+      expect(mockToastError).toHaveBeenCalledWith('message.sendCodeFail');
     });
     expect(screen.getByText('auth.register.sendCode')).toBeInTheDocument();
   });
@@ -136,7 +136,7 @@ describe('Register', () => {
     });
     fireEvent.click(screen.getByText('auth.register.sendCode'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('暫時無法發送');
+      expect(mockToastError).toHaveBeenCalledWith('message.sendCodeFail');
     });
     await waitFor(() => {
       expect(screen.getByText('auth.register.sendCode')).not.toBeDisabled();
@@ -157,7 +157,7 @@ describe('Register', () => {
     });
     fireEvent.click(screen.getByText('auth.register.sendCode'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('發送失敗');
+      expect(mockToastError).toHaveBeenCalledWith('message.sendCodeFail');
     });
     const loginBtn = screen.getByText('auth.register.loginNow');
     expect(loginBtn).toBeInTheDocument();
@@ -177,7 +177,7 @@ describe('Register', () => {
     });
   });
 
-  it('Step 0: sendCode 失敗且 message 為空字串時應使用 sendCodeFail（F10 邊界：空 message 視為無）', async () => {
+  it('Step 0: sendCode SERVER_ERROR 且 message 為空字串時應使用 serverError catalog（F10 邊界）', async () => {
     mockSendVerificationCode.mockRejectedValue({ code: 'SERVER_ERROR', message: '' });
     renderPage();
     fireEvent.change(screen.getByPlaceholderText('auth.register.emailPlaceholder'), {
@@ -185,11 +185,11 @@ describe('Register', () => {
     });
     fireEvent.click(screen.getByText('auth.register.sendCode'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.sendCodeFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
-  it('Step 0: sendCode FORBIDDEN 且無 message 時應使用 sendCodeFail（F09 權限邊界 fallback）', async () => {
+  it('Step 0: sendCode FORBIDDEN 且無 message 時應使用 forbidden catalog（F09 權限邊界）', async () => {
     mockSendVerificationCode.mockRejectedValue({ code: 'FORBIDDEN' });
     renderPage();
     fireEvent.change(screen.getByPlaceholderText('auth.register.emailPlaceholder'), {
@@ -197,7 +197,7 @@ describe('Register', () => {
     });
     fireEvent.click(screen.getByText('auth.register.sendCode'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.sendCodeFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
@@ -257,7 +257,7 @@ describe('Register', () => {
     });
   });
 
-  it('Step 1: verifyEmail 拋錯且 message 為空字串時應使用 verifyFail（F10 邊界：空 message 視為無）', async () => {
+  it('Step 1: verifyEmail SERVER_ERROR 且 message 為空字串時應使用 serverError catalog（F10 邊界）', async () => {
     mockVerifyEmail.mockRejectedValue({ code: 'SERVER_ERROR', message: '' });
     await advanceToStep1();
     for (let i = 0; i < 6; i++) {
@@ -267,11 +267,11 @@ describe('Register', () => {
     }
     fireEvent.click(screen.getByText('auth.register.verifyAndContinue'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.verifyFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
     });
   });
 
-  it('Step 1: verifyEmail FORBIDDEN 時若有 message 應顯示該 message（F09 權限邊界）', async () => {
+  it('Step 1: verifyEmail FORBIDDEN 時應使用 forbidden catalog（F09 權限邊界）', async () => {
     mockVerifyEmail.mockRejectedValue({ code: 'FORBIDDEN', message: '驗證碼已過期' });
     await advanceToStep1();
     for (let i = 0; i < 6; i++) {
@@ -281,11 +281,11 @@ describe('Register', () => {
     }
     fireEvent.click(screen.getByText('auth.register.verifyAndContinue'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('驗證碼已過期');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
-  it('Step 1: verifyEmail FORBIDDEN 且無 message 時應使用 verifyFail（F09 權限邊界 fallback）', async () => {
+  it('Step 1: verifyEmail FORBIDDEN 且無 message 時應使用 forbidden catalog（F09 權限邊界）', async () => {
     mockVerifyEmail.mockRejectedValue({ code: 'FORBIDDEN' });
     await advanceToStep1();
     for (let i = 0; i < 6; i++) {
@@ -295,7 +295,7 @@ describe('Register', () => {
     }
     fireEvent.click(screen.getByText('auth.register.verifyAndContinue'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.verifyFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 
@@ -311,7 +311,7 @@ describe('Register', () => {
     }
     fireEvent.click(screen.getByText('auth.register.verifyAndContinue'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('驗證服務暫時不可用');
+      expect(mockToastError).toHaveBeenCalledWith('message.verifyFail');
     });
     await waitFor(() => {
       expect(screen.getByText('auth.register.verifyAndContinue')).not.toBeDisabled();
@@ -546,7 +546,7 @@ describe('Register', () => {
     });
   });
 
-  it('Step 2: register 失敗應顯示錯誤', async () => {
+  it('Step 2: register 非標準錯誤應顯示安全 fallback', async () => {
     mockRegister.mockRejectedValue(new Error('註冊失敗'));
     await advanceToStep2();
     fireEvent.change(screen.getByPlaceholderText('auth.register.passwordPlaceholder'), {
@@ -557,7 +557,7 @@ describe('Register', () => {
     });
     fireEvent.click(screen.getByText('auth.register.finishRegister'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('註冊失敗');
+      expect(mockToastError).toHaveBeenCalledWith('message.registerFail');
     });
   });
 
@@ -636,7 +636,7 @@ describe('Register', () => {
     });
   });
 
-  it('Step 2: register FORBIDDEN 時若有 message 應顯示該 message（F09 權限邊界）', async () => {
+  it('Step 2: register FORBIDDEN 時應使用 forbidden catalog（F09 權限邊界）', async () => {
     mockRegister.mockRejectedValue({ code: 'FORBIDDEN', message: '此郵箱已被註冊' });
     await advanceToStep2();
     fireEvent.change(screen.getByPlaceholderText('auth.register.passwordPlaceholder'), {
@@ -647,12 +647,12 @@ describe('Register', () => {
     });
     fireEvent.click(screen.getByText('auth.register.finishRegister'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('此郵箱已被註冊');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
     expect(mockNavigate).not.toHaveBeenCalledWith('/profile/pairing');
   });
 
-  it('Step 2: register FORBIDDEN 且無 message 時應使用 registerFail（F09 權限邊界 fallback）', async () => {
+  it('Step 2: register FORBIDDEN 且無 message 時應使用 forbidden catalog（F09 權限邊界）', async () => {
     mockRegister.mockRejectedValue({ code: 'FORBIDDEN' });
     await advanceToStep2();
     fireEvent.change(screen.getByPlaceholderText('auth.register.passwordPlaceholder'), {
@@ -663,7 +663,7 @@ describe('Register', () => {
     });
     fireEvent.click(screen.getByText('auth.register.finishRegister'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.registerFail');
+      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
     });
   });
 

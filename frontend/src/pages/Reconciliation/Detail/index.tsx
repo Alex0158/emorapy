@@ -7,7 +7,6 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { motion } from 'framer-motion';
 import { useMountedRef } from '@/hooks/useMountedRef';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -146,55 +145,52 @@ const ReconciliationDetail = () => {
   return (
     <ProtectedRoute>
       <SEO title={t('reconDetail.pageTitle')} description={parsed.description.substring(0, 100)} />
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} className="mx-auto max-w-5xl px-4 py-8 md:px-6" role="main" aria-label={t('reconDetail.pageLabel')}>
+      <main className="mx-auto max-w-4xl px-4 py-8 md:px-6 md:py-12" aria-label={t('reconDetail.pageLabel')}>
         {/* Back */}
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="mb-6" aria-label={t('reconDetail.backAria')}>
           <ArrowLeft className="size-4" />{t('reconDetail.back')}
         </Button>
 
         {/* Plan Header */}
-        <div className="rounded-xl border border-border bg-card p-6 mb-6 space-y-5">
-          <div className="flex flex-wrap gap-2">
-            <Badge variant="secondary">{plan.intent}</Badge>
-            <Badge variant="outline">{plan.commitment?.recommended_mode === 'co' ? t('reconDetail.modeCo') : t('reconDetail.modeSolo')}</Badge>
-          </div>
+        <header className="mb-8 space-y-5">
+          <div className="flex flex-wrap gap-2"><Badge variant="outline">{plan.commitment?.recommended_mode === 'co' ? t('reconDetail.modeCo') : t('reconDetail.modeSolo')}</Badge></div>
           <div>
-            <h2 className="text-2xl font-bold text-foreground font-heading" id="plan-title">{parsed.title}</h2>
-            <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{parsed.description}</p>
+            <h1 className="text-3xl font-semibold tracking-tight text-foreground font-heading md:text-4xl" id="plan-title">{parsed.title}</h1>
+            <p className="mt-3 max-w-2xl text-base leading-7 text-muted-foreground">{parsed.description}</p>
           </div>
-          <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 pt-2 border-t border-border">
-            <div><dt className="text-xs font-medium text-muted-foreground">{t('reconDetail.fitReasonLabel')}</dt><dd className="mt-1 text-sm text-foreground">{plan.fit_reason || parsed.fit_reason}</dd></div>
-            <div><dt className="text-xs font-medium text-muted-foreground">{t('reconDetail.estimatedDurationLabel')}</dt><dd className="mt-1 text-sm text-foreground">{plan.estimated_duration != null ? t('reconDetail.durationDays').replace('{n}', String(plan.estimated_duration)) : t('reconDetail.durationTbd')}</dd></div>
-            <div><dt className="text-xs font-medium text-muted-foreground">{t('reconDetail.doNotUseWhenLabel')}</dt><dd className="mt-1 text-sm text-foreground">{(plan.do_not_use_when || parsed.do_not_use_when).join('、') || t('reconDetail.noRestrictions')}</dd></div>
-            <div><dt className="text-xs font-medium text-muted-foreground">{t('reconDetail.fallbackLabel')}</dt><dd className="mt-1 text-sm text-foreground">{plan.fallback_step || parsed.fallback_step}</dd></div>
+          <dl className="grid grid-cols-1 gap-5 border-y border-border py-5 sm:grid-cols-2">
+            <div><dt className="text-xs font-medium text-muted-foreground">{t('reconDetail.fitReasonLabel')}</dt><dd className="mt-1 text-sm leading-6 text-foreground">{plan.fit_reason || parsed.fit_reason}</dd></div>
+            <div><dt className="text-xs font-medium text-muted-foreground">{t('reconDetail.estimatedDurationLabel')}</dt><dd className="mt-1 text-sm leading-6 text-foreground">{plan.estimated_duration != null ? t('reconDetail.durationDays').replace('{n}', String(plan.estimated_duration)) : t('reconDetail.durationTbd')}</dd></div>
+            <div><dt className="text-xs font-medium text-muted-foreground">{t('reconDetail.doNotUseWhenLabel')}</dt><dd className="mt-1 text-sm leading-6 text-foreground">{(plan.do_not_use_when || parsed.do_not_use_when).join('、') || t('reconDetail.noRestrictions')}</dd></div>
+            <div><dt className="text-xs font-medium text-muted-foreground">{t('reconDetail.fallbackLabel')}</dt><dd className="mt-1 text-sm leading-6 text-foreground">{plan.fallback_step || parsed.fallback_step}</dd></div>
           </dl>
-        </div>
+        </header>
 
         {/* Steps */}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 mb-6">
-          <div className="rounded-xl border border-border bg-card p-5 space-y-3">
-            <h4 className="text-base font-semibold text-foreground">{t('reconDetail.firstStepTitle')}</h4>
+        <section className="mb-8 grid grid-cols-1 divide-y divide-border border-y border-border md:grid-cols-2 md:divide-x md:divide-y-0">
+          <div className="space-y-3 py-5 md:pr-6">
+            <h2 className="text-base font-semibold text-foreground">{t('reconDetail.firstStepTitle')}</h2>
             <p className="text-sm text-muted-foreground">{plan.first_step || parsed.first_step || parsed.steps[0]}</p>
             <p className="text-xs text-muted-foreground/70">{t('reconDetail.firstStepFallback')}{plan.fallback_step || parsed.fallback_step}</p>
           </div>
-          <div className="rounded-xl border border-border bg-card p-5 space-y-3">
-            <h4 className="text-base font-semibold text-foreground">{t('reconDetail.partnerNotReadyTitle')}</h4>
+          <div className="space-y-3 py-5 md:pl-6">
+            <h2 className="text-base font-semibold text-foreground">{t('reconDetail.partnerNotReadyTitle')}</h2>
             <p className="text-sm text-muted-foreground">{t('reconDetail.partnerNotReadyBody')}</p>
             <p className="text-xs text-muted-foreground/70">{t('reconDetail.pauseRuleHint')}{plan.pause_rule || parsed.pause_rule}</p>
           </div>
-        </div>
+        </section>
 
         {/* Commitment Status */}
-        <div className="rounded-xl border border-border bg-card p-6 space-y-5">
-          <h4 className="text-base font-semibold text-foreground">{t('reconDetail.commitmentTitle')}</h4>
+        <section className="space-y-5 border-t border-border pt-7">
+          <h2 className="text-base font-semibold text-foreground">{t('reconDetail.commitmentTitle')}</h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="rounded-lg bg-muted/50 p-4 space-y-2">
+            <div className="space-y-2 border-l-2 border-primary/40 pl-4">
               <span className="text-xs font-medium text-muted-foreground">{t('reconDetail.yourStatus')}</span>
               <Badge variant={currentStatus === 'committed' ? 'default' : 'secondary'} className={currentStatus === 'committed' ? 'bg-success/10 text-success' : ''}>
                 {commitmentLabelMap[currentStatus]?.() || currentStatus}
               </Badge>
             </div>
-            <div className="rounded-lg bg-muted/50 p-4 space-y-2">
+            <div className="space-y-2 border-l-2 border-border pl-4">
               <span className="text-xs font-medium text-muted-foreground">{t('reconDetail.partnerStatus')}</span>
               <Badge variant="secondary">
                 {commitmentLabelMap[partnerStatus]?.() || partnerStatus}
@@ -203,7 +199,7 @@ const ReconciliationDetail = () => {
           </div>
 
           {/* Journey Alert */}
-          <div className={`flex items-start gap-3 rounded-lg p-3 ${dualCommitted ? 'bg-success/5 border border-success/20' : 'bg-primary-light/30'}`}>
+          <div className={`flex items-start gap-3 border-y px-4 py-4 ${dualCommitted ? 'border-success/30 bg-success/5' : 'border-primary/20 bg-primary/5'}`}>
             <Info className="mt-0.5 size-4 shrink-0 text-primary" />
             <div>
               <p className="text-sm font-medium text-foreground">{journeyContext?.title || (dualCommitted ? t('reconDetail.dualCommittedTitle') : t('reconDetail.soloStartTitle'))}</p>
@@ -247,8 +243,8 @@ const ReconciliationDetail = () => {
             )}
             <Button variant="ghost" onClick={() => judgmentId && navigate(`/reconciliation/${judgmentId}`)}><Heart className="size-4" />{t('reconDetail.actionExploreOther')}</Button>
           </div>
-        </div>
-      </motion.div>
+        </section>
+      </main>
     </ProtectedRoute>
   );
 };

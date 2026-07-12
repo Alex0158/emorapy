@@ -38,22 +38,24 @@ function App() {
 
   useEffect(() => {
     logPageLoadTime();
+    checkAuth();
+  }, [checkAuth]);
+
+  useEffect(() => {
     initSEO({
       title: t('nav.logo'),
       description: t('home.description'),
       keywords: t('home.keywords'),
-      image: `${window.location.origin}/vite.svg`,
       url: window.location.origin,
     });
-    checkAuth();
-  }, [checkAuth, locale]);
+  }, [locale]);
 
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <NetworkStatus />
         <Suspense fallback={<Loading />}>
-          <RouterProvider key={locale} router={router} />
+          <RouterProvider router={router} />
         </Suspense>
         <BackToTop />
       </QueryClientProvider>

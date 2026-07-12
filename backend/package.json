@@ -1,6 +1,6 @@
 {
   "name": "emorapy-backend",
-  "version": "1.3.4",
+  "version": "1.4.0",
   "description": "Emorapy 後端服務",
   "main": "dist/index.js",
   "scripts": {

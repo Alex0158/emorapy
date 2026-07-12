@@ -290,4 +290,69 @@ describe('admin.service safety guards', () => {
       role: 'super_admin',
     });
   });
+
+  it('createAdminUser 弱密碼應直接拒絕且不得同步預設角色', async () => {
+    await expect(
+      adminService.createAdminUser({
+        email: 'new-admin@example.com',
+        password: 'short',
+        name: 'Admin',
+        roleKey: 'super_admin',
+        actorId: 'admin-actor',
+      })
+    ).rejects.toMatchObject({ code: 'WEAK_PASSWORD' });
+
+    expect(mockAdminRoleUpsert).not.toHaveBeenCalled();
+    expect(mockAdminRoleFindUnique).not.toHaveBeenCalled();
+    expect(mockAdminUserCreate).not.toHaveBeenCalled();
+  });
+
+  it('createAdminUser 合法建立時只查詢既有角色且不得同步預設角色', async () => {
+    const result = await adminService.createAdminUser({
+      email: 'NEW-ADMIN@example.com',
+      password: 'Password1234',
+      name: 'Admin',
+      roleKey: 'super_admin',
+      actorId: 'admin-actor',
+    });
+
+    expect(mockAdminRoleUpsert).not.toHaveBeenCalled();
+    expect(mockAdminRoleFindUnique).toHaveBeenCalledWith({ where: { key: 'super_admin' } });
+    expect(mockAdminUserCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          email: 'new-admin@example.com',
+          role_id: 'role-super-admin',
+        }),
+      })
+    );
+    expect(mockAuditLogCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          actor_id: 'admin-actor',
+          action: 'admin_user_create',
+        }),
+      })
+    );
+    expect(result).toEqual(expect.objectContaining({ id: 'admin-created' }));
+  });
+
+  it('createAdminUser 角色不存在時應 fail-closed 且不得建立或同步角色', async () => {
+    (mockAdminRoleFindUnique as any).mockResolvedValue(null);
+
+    await expect(
+      adminService.createAdminUser({
+        email: 'new-admin@example.com',
+        password: 'Password1234',
+        name: 'Admin',
+        roleKey: 'super_admin',
+        actorId: 'admin-actor',
+      })
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: expect.stringContaining('角色') });
+
+    expect(mockAdminRoleUpsert).not.toHaveBeenCalled();
+    expect(mockAdminRoleFindUnique).toHaveBeenCalledWith({ where: { key: 'super_admin' } });
+    expect(mockAdminUserCreate).not.toHaveBeenCalled();
+    expect(mockAuditLogCreate).not.toHaveBeenCalled();
+  });
 });

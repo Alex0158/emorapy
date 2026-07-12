@@ -249,7 +249,6 @@ class AdminService {
     roleKey: AdminRoleKey;
     actorId?: string;
   }) {
-    await this.ensureDefaultRoles();
     if (input.password.length < 10) {
       throw Errors.WEAK_PASSWORD('管理員密碼至少 10 碼');
     }

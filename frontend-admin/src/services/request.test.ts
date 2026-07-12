@@ -1,5 +1,5 @@
 import type { AxiosAdapter, AxiosResponse } from 'axios';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import request from './request';
 import { adminApi } from './api/admin';
 import { setLocale } from '@/utils/i18n';
@@ -9,7 +9,20 @@ const originalAdapter = request.defaults.adapter;
 afterEach(() => {
   request.defaults.adapter = originalAdapter;
   setLocale('zh-TW');
+  vi.unstubAllGlobals();
 });
+
+function createStorage(initial: Record<string, string> = {}): Storage {
+  const values = new Map(Object.entries(initial));
+  return {
+    get length() { return values.size; },
+    clear: () => values.clear(),
+    getItem: (key) => values.get(key) ?? null,
+    key: (index) => [...values.keys()][index] ?? null,
+    removeItem: (key) => values.delete(key),
+    setItem: (key, value) => values.set(key, value),
+  };
+}
 
 describe('admin request locale header', () => {
   it('sends the selected Admin locale to the backend', async () => {
@@ -167,5 +180,39 @@ describe('admin request locale header', () => {
     await expect(adminApi.getMe()).rejects.toThrow(
       'The admin identity response could not be read. Please try again later.'
     );
+  });
+
+  it('clears an expired admin session on 401 but preserves login credential failures', async () => {
+    const sessionStorage = createStorage({ admin_token: 'header.payload.signature' });
+    const localStorage = createStorage({ admin_token: 'legacy.header.signature' });
+    vi.stubGlobal('window', {
+      sessionStorage,
+      localStorage,
+      dispatchEvent: vi.fn(),
+    });
+
+    request.defaults.adapter = (async (config) => Promise.reject({
+      config,
+      response: {
+        status: 401,
+        data: { success: false, error: { code: 'UNAUTHORIZED' } },
+      },
+    })) satisfies AxiosAdapter;
+
+    await expect(request.get('/admin/me')).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+    expect(sessionStorage.getItem('admin_token')).toBeNull();
+    expect(localStorage.getItem('admin_token')).toBeNull();
+
+    sessionStorage.setItem('admin_token', 'header.payload.signature');
+    request.defaults.adapter = (async (config) => Promise.reject({
+      config,
+      response: {
+        status: 401,
+        data: { success: false, error: { code: 'INVALID_CREDENTIALS' } },
+      },
+    })) satisfies AxiosAdapter;
+
+    await expect(request.post('/admin/login')).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' });
+    expect(sessionStorage.getItem('admin_token')).toBe('header.payload.signature');
   });
 });

@@ -317,6 +317,7 @@ export interface AdminAIStreamEventItem {
 
 export interface AdminAIStreamDetailData {
   source: 'live' | 'archive';
+  sensitiveContentIncluded: boolean;
   session: {
     streamId: string;
     requestId: string;

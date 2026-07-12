@@ -1,272 +1,332 @@
-import { AlertCircle, CheckCircle2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
+import { AlertCircle, CheckCircle2, KeyRound, Loader2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import {
+	AdminPanel,
+	AdminRawDetails,
+	AdminStatusBadge,
+} from "@/components/common/AdminPage";
 import type {
-  AdminMediaProviderCatalogItem,
-  AdminMediaProviderTestResult,
-} from '@/types/admin';
-import { t } from '@/utils/i18n';
-import type { MediaProviderFormValues } from './types';
+	AdminMediaProviderCatalogItem,
+	AdminMediaProviderTestResult,
+} from "@/types/admin";
+import { t } from "@/utils/i18n";
+import type { MediaProviderFormValues } from "./types";
 
 interface MediaProviderSettingsCardProps {
-  formValues: MediaProviderFormValues;
-  onFormChange: (values: Partial<MediaProviderFormValues>) => void;
-  catalog: AdminMediaProviderCatalogItem[];
-  selectedProvider?: AdminMediaProviderCatalogItem;
-  selectedProviderKey: string;
-  testResult: AdminMediaProviderTestResult | null;
-  saveLoading: boolean;
-  testLoading: boolean;
-  onProviderChange: (providerKey: string) => void;
-  onSave: () => void | Promise<void>;
-  onTest: () => void | Promise<void>;
-  getConfigValue: (providerKey: string) => Record<string, unknown> | undefined;
+	formValues: MediaProviderFormValues;
+	onFormChange: (values: Partial<MediaProviderFormValues>) => void;
+	catalog: AdminMediaProviderCatalogItem[];
+	selectedProvider?: AdminMediaProviderCatalogItem;
+	selectedProviderKey: string;
+	configured: boolean;
+	configurationMasked: boolean;
+	testResult: AdminMediaProviderTestResult | null;
+	saveLoading: boolean;
+	testLoading: boolean;
+	onProviderChange: (providerKey: string) => void;
+	onSave: () => void | Promise<void>;
+	onTest: () => void | Promise<void>;
 }
 
-function renderCurrentProviderState(
-  provider: AdminMediaProviderCatalogItem,
-  getConfigValue: (providerKey: string) => Record<string, unknown> | undefined
+export default function MediaProviderSettingsCard(
+	props: MediaProviderSettingsCardProps,
 ) {
-  const isConfigured = Boolean(getConfigValue(provider.providerKey)?.apiKey);
-  return (
-    <div className="space-y-1 mb-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge variant={provider.providerType === 'image' ? 'default' : 'secondary'}>
-          {provider.providerType}
-        </Badge>
-        <span className="text-sm">{t('admin.settings.mediaProviders.defaultModel')}</span>
-        <code className="rounded bg-muted px-1.5 py-0.5 text-xs font-mono">
-          {provider.defaultModel || '-'}
-        </code>
-        <span className="text-sm">
-          {isConfigured
-            ? t('admin.settings.mediaProviders.configured')
-            : t('admin.settings.mediaProviders.notConfigured')}
-        </span>
-      </div>
-      <p className="text-sm text-muted-foreground">{provider.description || ''}</p>
-    </div>
-  );
-}
+	const {
+		formValues,
+		onFormChange,
+		catalog,
+		selectedProvider,
+		selectedProviderKey,
+		configured,
+		configurationMasked,
+		testResult,
+		saveLoading,
+		testLoading,
+		onProviderChange,
+		onSave,
+		onTest,
+	} = props;
+	return (
+		<AdminPanel
+			title={t("admin.settings.mediaProviders.title")}
+			description={t("admin.settings.mediaProviders.subtitle")}
+		>
+			<div className="space-y-6">
+				<div className="grid gap-4 lg:grid-cols-[minmax(16rem,0.7fr)_minmax(0,1.3fr)]">
+					<div className="space-y-2">
+						<Label htmlFor="media-provider-select">
+							{t("admin.settings.mediaProviders.provider")}
+						</Label>
+						<Select
+							value={selectedProviderKey}
+							onValueChange={onProviderChange}
+						>
+							<SelectTrigger id="media-provider-select">
+								<SelectValue
+									placeholder={t(
+										"admin.settings.mediaProviders.selectProvider",
+									)}
+								/>
+							</SelectTrigger>
+							<SelectContent>
+								{catalog.map((provider) => (
+									<SelectItem
+										key={provider.providerKey}
+										value={provider.providerKey}
+									>
+										{provider.displayName} · {provider.providerType}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+					</div>
+					{selectedProvider && (
+						<div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/25 p-3">
+							<Badge variant="outline">{selectedProvider.providerType}</Badge>
+							<code className="text-xs">
+								{selectedProvider.defaultModel || "—"}
+							</code>
+							<AdminStatusBadge
+								status={configured}
+								label={
+									configured
+										? t("admin.settings.mediaProviders.configured")
+										: t("admin.settings.mediaProviders.notConfigured")
+								}
+							/>
+							<p className="basis-full text-xs text-muted-foreground">
+								{selectedProvider.description}
+							</p>
+						</div>
+					)}
+				</div>
 
-export default function MediaProviderSettingsCard({
-  formValues,
-  onFormChange,
-  catalog,
-  selectedProvider,
-  selectedProviderKey,
-  testResult,
-  saveLoading,
-  testLoading,
-  onProviderChange,
-  onSave,
-  onTest,
-  getConfigValue,
-}: MediaProviderSettingsCardProps) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t('admin.settings.mediaProviders.title')}</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <p className="text-sm text-muted-foreground">
-          {t('admin.settings.mediaProviders.subtitle')}
-        </p>
+				{selectedProvider && (
+					<>
+						{configurationMasked && (
+							<div className="flex items-start gap-3 rounded-lg border border-warning/30 bg-warning/10 p-4">
+								<KeyRound className="mt-0.5 size-4 shrink-0 text-warning" />
+								<div>
+									<p className="text-sm font-medium">
+										{t("admin.settings.mediaProviders.secretStoredTitle")}
+									</p>
+									<p className="mt-1 text-xs text-muted-foreground">
+										{t("admin.settings.mediaProviders.secretStoredHint")}
+									</p>
+								</div>
+							</div>
+						)}
+						<div className="grid gap-4 md:grid-cols-2">
+							<div className="space-y-2">
+								<Label htmlFor="admin-media-provider-api-key">
+									{selectedProvider.secretLabel ||
+										t("admin.settings.mediaProviders.apiKey")}
+								</Label>
+								<Input
+									id="admin-media-provider-api-key"
+									type="password"
+									placeholder={
+										configured
+											? t(
+													"admin.settings.mediaProviders.rotateSecretPlaceholder",
+												)
+											: "sk-…"
+									}
+									autoComplete="new-password"
+									value={formValues.apiKey ?? ""}
+									onChange={(event) =>
+										onFormChange({ apiKey: event.target.value })
+									}
+								/>
+								<p className="text-xs text-muted-foreground">
+									{configured
+										? t("admin.settings.mediaProviders.rotateSecretHelp")
+										: t("admin.settings.mediaProviders.apiKeyHelp")}
+								</p>
+							</div>
+							<div className="space-y-2">
+								<Label htmlFor="admin-media-provider-base-url">
+									{t("admin.settings.mediaProviders.baseUrl")}
+								</Label>
+								<Input
+									id="admin-media-provider-base-url"
+									placeholder={selectedProvider.defaultBaseUrl || ""}
+									autoComplete="url"
+									value={formValues.baseUrl ?? ""}
+									onChange={(event) =>
+										onFormChange({ baseUrl: event.target.value })
+									}
+								/>
+							</div>
+							<div className="space-y-2">
+								<Label htmlFor="admin-media-provider-model">
+									{t("admin.settings.mediaProviders.model")}
+								</Label>
+								<Input
+									id="admin-media-provider-model"
+									placeholder={selectedProvider.defaultModel || ""}
+									autoComplete="off"
+									value={formValues.model ?? ""}
+									onChange={(event) =>
+										onFormChange({ model: event.target.value })
+									}
+								/>
+							</div>
+							<div className="space-y-2">
+								<Label htmlFor="admin-media-provider-timeout">
+									{t("admin.settings.mediaProviders.timeoutMs")}
+								</Label>
+								<Input
+									id="admin-media-provider-timeout"
+									type="number"
+									autoComplete="off"
+									min={500}
+									max={120000}
+									value={formValues.timeoutMs ?? ""}
+									onChange={(event) =>
+										onFormChange({
+											timeoutMs: Number(event.target.value) || undefined,
+										})
+									}
+								/>
+							</div>
+							{selectedProvider.providerType === "video" && (
+								<div className="space-y-2 md:col-span-2">
+									<Label htmlFor="admin-media-provider-source-image">
+										{t("admin.settings.mediaProviders.sourceImage")}
+									</Label>
+									<Input
+										id="admin-media-provider-source-image"
+										autoComplete="url"
+										value={formValues.sourceImageUrl ?? ""}
+										onChange={(event) =>
+											onFormChange({ sourceImageUrl: event.target.value })
+										}
+									/>
+								</div>
+							)}
+						</div>
 
-        <div className="space-y-2">
-          <Label>{t('admin.settings.mediaProviders.provider')}</Label>
-          <Select
-            value={selectedProviderKey}
-            onValueChange={onProviderChange}
-          >
-            <SelectTrigger aria-label={t('admin.settings.mediaProviders.provider')}>
-              <SelectValue placeholder={t('admin.settings.mediaProviders.selectProvider')} />
-            </SelectTrigger>
-            <SelectContent>
-              {catalog.map((provider) => (
-                <SelectItem key={provider.providerKey} value={provider.providerKey}>
-                  {provider.displayName} ({provider.providerType})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+						<div className="rounded-xl border bg-muted/20 p-4">
+							<p className="text-sm font-semibold">
+								{t("admin.settings.mediaProviders.testTitle")}
+							</p>
+							<p className="mt-1 text-xs text-muted-foreground">
+								{t("admin.settings.mediaProviders.testHint")}
+							</p>
+							<div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_9rem]">
+								<div className="space-y-2">
+									<Label htmlFor="admin-media-provider-prompt">
+										{t("admin.settings.mediaProviders.prompt")}
+									</Label>
+									<Textarea
+										id="admin-media-provider-prompt"
+										rows={3}
+										autoComplete="off"
+										value={formValues.prompt ?? ""}
+										onChange={(event) =>
+											onFormChange({ prompt: event.target.value })
+										}
+									/>
+								</div>
+								{selectedProvider.providerType === "image" ? (
+									<div className="space-y-2">
+										<Label htmlFor="admin-media-provider-count">
+											{t("admin.settings.mediaProviders.count")}
+										</Label>
+										<Input
+											id="admin-media-provider-count"
+											type="number"
+											autoComplete="off"
+											min={1}
+											max={20}
+											value={formValues.count ?? ""}
+											onChange={(event) =>
+												onFormChange({
+													count: Number(event.target.value) || undefined,
+												})
+											}
+										/>
+									</div>
+								) : (
+									<div className="space-y-2">
+										<Label htmlFor="admin-media-provider-duration">
+											{t("admin.settings.mediaProviders.duration")}
+										</Label>
+										<Input
+											id="admin-media-provider-duration"
+											type="number"
+											autoComplete="off"
+											min={1}
+											max={240}
+											value={formValues.durationSeconds ?? ""}
+											onChange={(event) =>
+												onFormChange({
+													durationSeconds:
+														Number(event.target.value) || undefined,
+												})
+											}
+										/>
+									</div>
+								)}
+							</div>
+						</div>
 
-        {selectedProvider && (
-          <>
-            {renderCurrentProviderState(selectedProvider, getConfigValue)}
+						<div className="flex flex-wrap gap-2">
+							<Button disabled={saveLoading} onClick={onSave}>
+								{saveLoading && <Loader2 className="size-4 animate-spin" />}
+								{t("admin.settings.mediaProviders.save")}
+							</Button>
+							<Button variant="outline" disabled={testLoading} onClick={onTest}>
+								{testLoading && <Loader2 className="size-4 animate-spin" />}
+								{t("admin.settings.mediaProviders.test")}
+							</Button>
+						</div>
 
-            <div className="space-y-2">
-              <Label htmlFor="admin-media-provider-api-key">
-                {selectedProvider.secretLabel ||
-                  t('admin.settings.mediaProviders.apiKey')}
-              </Label>
-              <Input
-                id="admin-media-provider-api-key"
-                type="password"
-                placeholder="sk-..."
-                autoComplete="off"
-                value={formValues.apiKey ?? ''}
-                onChange={(e) => onFormChange({ apiKey: e.target.value })}
-              />
-              <p className="text-xs text-muted-foreground">
-                {t('admin.settings.mediaProviders.apiKeyHelp')}
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="admin-media-provider-base-url">{t('admin.settings.mediaProviders.baseUrl')}</Label>
-              <Input
-                id="admin-media-provider-base-url"
-                placeholder={selectedProvider.defaultBaseUrl || ''}
-                autoComplete="url"
-                value={formValues.baseUrl ?? ''}
-                onChange={(e) => onFormChange({ baseUrl: e.target.value })}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="admin-media-provider-timeout">
-                {t('admin.settings.mediaProviders.timeoutMs')}
-              </Label>
-              <Input
-                id="admin-media-provider-timeout"
-                type="number"
-                min={500}
-                max={120000}
-                autoComplete="off"
-                value={formValues.timeoutMs ?? ''}
-                onChange={(e) => onFormChange({ timeoutMs: Number(e.target.value) || undefined })}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="admin-media-provider-model">{t('admin.settings.mediaProviders.model')}</Label>
-              <Input
-                id="admin-media-provider-model"
-                placeholder={selectedProvider.defaultModel || ''}
-                autoComplete="off"
-                value={formValues.model ?? ''}
-                onChange={(e) => onFormChange({ model: e.target.value })}
-              />
-            </div>
-
-            {selectedProvider.providerType === 'video' && (
-              <div className="space-y-2">
-                <Label htmlFor="admin-media-provider-source-image">{t('admin.settings.mediaProviders.sourceImage')}</Label>
-                <Input
-                  id="admin-media-provider-source-image"
-                  placeholder="https://your-domain.example/image.jpg"
-                  autoComplete="url"
-                  value={formValues.sourceImageUrl ?? ''}
-                  onChange={(e) => onFormChange({ sourceImageUrl: e.target.value })}
-                />
-                <p className="text-xs text-muted-foreground">
-                  {t('admin.settings.mediaProviders.sourceImageHelp')}
-                </p>
-              </div>
-            )}
-
-            {selectedProvider.providerType === 'image' ? (
-              <div className="space-y-2">
-                <Label htmlFor="admin-media-provider-count">{t('admin.settings.mediaProviders.count')}</Label>
-                <Input
-                  id="admin-media-provider-count"
-                  type="number"
-                  min={1}
-                  max={20}
-                  autoComplete="off"
-                  value={formValues.count ?? ''}
-                  onChange={(e) => onFormChange({ count: Number(e.target.value) || undefined })}
-                />
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <Label htmlFor="admin-media-provider-duration">{t('admin.settings.mediaProviders.duration')}</Label>
-                <Input
-                  id="admin-media-provider-duration"
-                  type="number"
-                  min={1}
-                  max={240}
-                  autoComplete="off"
-                  value={formValues.durationSeconds ?? ''}
-                  onChange={(e) => onFormChange({ durationSeconds: Number(e.target.value) || undefined })}
-                />
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label htmlFor="admin-media-provider-prompt">{t('admin.settings.mediaProviders.prompt')}</Label>
-              <Textarea
-                id="admin-media-provider-prompt"
-                rows={3}
-                autoComplete="off"
-                value={formValues.prompt ?? ''}
-                onChange={(e) => onFormChange({ prompt: e.target.value })}
-              />
-              <p className="text-xs text-muted-foreground">
-                {t('admin.settings.mediaProviders.promptHelp')}
-              </p>
-            </div>
-
-            <div className="flex gap-2">
-              <Button disabled={saveLoading} onClick={onSave}>
-                {saveLoading
-                  ? `${t('admin.settings.mediaProviders.save')}...`
-                  : t('admin.settings.mediaProviders.save')}
-              </Button>
-              <Button variant="outline" disabled={testLoading} onClick={onTest}>
-                {testLoading
-                  ? `${t('admin.settings.mediaProviders.test')}...`
-                  : t('admin.settings.mediaProviders.test')}
-              </Button>
-            </div>
-          </>
-        )}
-
-        {testResult && (
-          <div className="space-y-3">
-            <div
-              className={`flex items-start gap-2 rounded-md border p-3 text-sm ${
-                testResult.success
-                  ? 'border-green-500/50 bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400'
-                  : 'border-destructive/50 bg-destructive/10 text-destructive'
-              }`}
-            >
-              {testResult.success ? (
-                <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
-              ) : (
-                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-              )}
-              <div>
-                <p>{testResult.message}</p>
-                <p className="text-xs mt-1">
-                  {t('admin.settings.mediaProviders.latency')}: {testResult.latencyMs}ms
-                </p>
-              </div>
-            </div>
-            {testResult.detail !== undefined && (
-              <pre
-                className="rounded-md bg-muted p-3 text-xs max-h-[180px] overflow-auto"
-                translate="no"
-              >
-                {JSON.stringify(testResult.detail, null, 2)}
-              </pre>
-            )}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
+						{testResult && (
+							<div className="space-y-3">
+								<div
+									className={
+										testResult.success
+											? "flex items-start gap-3 rounded-lg border border-success/30 bg-success/10 p-4 text-sm"
+											: "flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm"
+									}
+								>
+									{testResult.success ? (
+										<CheckCircle2 className="mt-0.5 size-4 text-success" />
+									) : (
+										<AlertCircle className="mt-0.5 size-4 text-destructive" />
+									)}
+									<div>
+										<p className="font-medium">{testResult.message}</p>
+										<p className="mt-1 text-xs text-muted-foreground">
+											{t("admin.settings.mediaProviders.latency")}:{" "}
+											{testResult.latencyMs} ms
+										</p>
+									</div>
+								</div>
+								{testResult.detail !== undefined && (
+									<AdminRawDetails
+										value={testResult.detail}
+										summary={t("admin.common.advancedDetails")}
+									/>
+								)}
+							</div>
+						)}
+					</>
+				)}
+			</div>
+		</AdminPanel>
+	);
 }

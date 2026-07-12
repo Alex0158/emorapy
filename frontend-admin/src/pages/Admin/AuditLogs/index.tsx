@@ -1,175 +1,157 @@
-import { useQuery } from '@tanstack/react-query';
-import { AlertCircle, Loader2 } from 'lucide-react';
-import dayjs, { type Dayjs } from 'dayjs';
-import { useState } from 'react';
-import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { adminApi } from '@/services/api/admin';
-import type { AdminAuditLogItem } from '@/types/admin';
-import { t } from '@/utils/i18n';
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import dayjs from "dayjs";
+import { Download, Loader2, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { AdminPageHeader, AdminPanel } from "@/components/common/AdminPage";
+import { adminApi } from "@/services/api/admin";
+import type { AdminAuditLogItem } from "@/types/admin";
+import { t } from "@/utils/i18n";
+import AuditLogDetailSheet from "./AuditLogDetailSheet";
+import AuditLogFilters, { type AuditFilters } from "./AuditLogFilters";
+import AuditLogTimeline from "./AuditLogTimeline";
+
+const PAGE_SIZE = 25;
+const EMPTY_FILTERS: AuditFilters = {
+	entityType: "",
+	action: "",
+	from: "",
+	to: "",
+};
 
 export default function AdminAuditLogsPage() {
-  const [entityType, setEntityType] = useState('');
-  const [action, setAction] = useState('');
-  const [from, setFrom] = useState<Dayjs | null>(null);
-  const [to, setTo] = useState<Dayjs | null>(null);
-  const query = useQuery({
-    queryKey: [
-      'admin',
-      'audit-logs',
-      entityType,
-      action,
-      from?.toISOString(),
-      to?.toISOString(),
-    ],
-    queryFn: () =>
-      adminApi.listAuditLogs({
-        entityType: entityType || undefined,
-        action: action || undefined,
-        from: from?.toISOString(),
-        to: to?.toISOString(),
-        limit: 100,
-        offset: 0,
-      }),
-  });
+	const [draft, setDraft] = useState<AuditFilters>(EMPTY_FILTERS);
+	const [filters, setFilters] = useState<AuditFilters>(EMPTY_FILTERS);
+	const [offset, setOffset] = useState(0);
+	const [exporting, setExporting] = useState(false);
+	const [selectedLog, setSelectedLog] = useState<AdminAuditLogItem | null>(
+		null,
+	);
+	const query = useQuery({
+		queryKey: ["admin", "audit-logs", filters, offset],
+		queryFn: () =>
+			adminApi.listAuditLogs({
+				entityType: filters.entityType || undefined,
+				action: filters.action || undefined,
+				from: filters.from ? dayjs(filters.from).toISOString() : undefined,
+				to: filters.to ? dayjs(filters.to).toISOString() : undefined,
+				limit: PAGE_SIZE,
+				offset,
+			}),
+	});
+	const items = query.data?.items ?? [];
+	const total = query.data?.total ?? 0;
+	const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
+	const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-  const downloadCsv = async () => {
-    try {
-      const blob = await adminApi.downloadAuditLogsCsv({
-        entityType: entityType || undefined,
-        action: action || undefined,
-        from: from?.toISOString(),
-        to: to?.toISOString(),
-      });
-      const url = window.URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = `admin-audit-logs-${dayjs().format('YYYYMMDD-HHmmss')}.csv`;
-      anchor.click();
-      window.URL.revokeObjectURL(url);
-    } catch {
-      toast.error(t('admin.audit.exportFailed'));
-    }
-  };
+	const applyFilters = (event: React.FormEvent) => {
+		event.preventDefault();
+		if (draft.from && draft.to && dayjs(draft.from).isAfter(dayjs(draft.to))) {
+			toast.error(t("admin.audit.invalidRange"));
+			return;
+		}
+		setOffset(0);
+		setFilters(draft);
+	};
 
-  const items = query.data?.items || [];
+	const clearFilters = () => {
+		setDraft(EMPTY_FILTERS);
+		setFilters(EMPTY_FILTERS);
+		setOffset(0);
+	};
 
-  return (
-    <div className="space-y-6 w-full">
-      <div>
-        <h3 className="text-xl font-semibold">{t('admin.audit.heading')}</h3>
-        <p className="text-sm text-muted-foreground">{t('admin.audit.subtitle')}</p>
-      </div>
-      {query.error && (
-        <div className="flex items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
-          <AlertCircle className="size-4" />
-          {t('admin.audit.loadFailed')}
-        </div>
-      )}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-wrap gap-2">
-            <div className="space-y-1">
-              <Label htmlFor="admin-audit-entity-type">{t('admin.audit.entityType')}</Label>
-              <Input
-                id="admin-audit-entity-type"
-                className="w-48"
-                placeholder={t('admin.audit.entityType')}
-                value={entityType}
-                autoComplete="off"
-                onChange={(event) => setEntityType(event.target.value)}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="admin-audit-action">{t('admin.audit.action')}</Label>
-              <Input
-                id="admin-audit-action"
-                className="w-48"
-                placeholder={t('admin.audit.action')}
-                value={action}
-                autoComplete="off"
-                onChange={(event) => setAction(event.target.value)}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="admin-audit-from">{t('admin.audit.from')}</Label>
-              <Input
-                id="admin-audit-from"
-                className="w-48"
-                type="datetime-local"
-                placeholder={t('admin.audit.from')}
-                value={from ? from.format('YYYY-MM-DDTHH:mm') : ''}
-                autoComplete="off"
-                onChange={(event) =>
-                  setFrom(event.target.value ? dayjs(event.target.value) : null)
-                }
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="admin-audit-to">{t('admin.audit.to')}</Label>
-              <Input
-                id="admin-audit-to"
-                className="w-48"
-                type="datetime-local"
-                placeholder={t('admin.audit.to')}
-                value={to ? to.format('YYYY-MM-DDTHH:mm') : ''}
-                autoComplete="off"
-                onChange={(event) =>
-                  setTo(event.target.value ? dayjs(event.target.value) : null)
-                }
-              />
-            </div>
-            <Button variant="outline" onClick={downloadCsv}>
-              {t('admin.audit.exportCsv')}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardContent className="pt-6">
-          {query.isLoading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="size-6 animate-spin" />
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t('admin.audit.createdAt')}</TableHead>
-                  <TableHead>{t('admin.audit.actor')}</TableHead>
-                  <TableHead>{t('admin.audit.entityType')}</TableHead>
-                  <TableHead>{t('admin.audit.action')}</TableHead>
-                  <TableHead>{t('admin.audit.detail')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {items.map((row: AdminAuditLogItem) => (
-                  <TableRow key={row.id}>
-                    <TableCell>{row.created_at}</TableCell>
-                    <TableCell>{row.actor_id}</TableCell>
-                    <TableCell>{row.entity_type}</TableCell>
-                    <TableCell>{row.action}</TableCell>
-                    <TableCell>
-                      <pre className="m-0 text-xs">{JSON.stringify(row.detail)}</pre>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
+	const downloadCsv = async () => {
+		setExporting(true);
+		try {
+			const blob = await adminApi.downloadAuditLogsCsv({
+				entityType: filters.entityType || undefined,
+				action: filters.action || undefined,
+				from: filters.from ? dayjs(filters.from).toISOString() : undefined,
+				to: filters.to ? dayjs(filters.to).toISOString() : undefined,
+			});
+			const url = window.URL.createObjectURL(blob);
+			const anchor = document.createElement("a");
+			anchor.href = url;
+			anchor.download = `admin-audit-logs-${dayjs().format("YYYYMMDD-HHmmss")}.csv`;
+			anchor.click();
+			window.URL.revokeObjectURL(url);
+		} catch {
+			toast.error(t("admin.audit.exportFailed"));
+		} finally {
+			setExporting(false);
+		}
+	};
+
+	return (
+		<div className="space-y-6">
+			<AdminPageHeader
+				eyebrow={t("admin.nav.group.govern")}
+				title={t("admin.audit.heading")}
+				description={t("admin.audit.subtitle")}
+				updatedAt={query.dataUpdatedAt || undefined}
+				actions={
+					<>
+						<Button
+							variant="outline"
+							size="sm"
+							disabled={query.isFetching}
+							onClick={() => void query.refetch()}
+						>
+							<RefreshCw
+								className={query.isFetching ? "size-4 animate-spin" : "size-4"}
+							/>
+							{t("admin.common.refresh")}
+						</Button>
+						<Button size="sm" disabled={exporting} onClick={downloadCsv}>
+							{exporting ? (
+								<Loader2 className="size-4 animate-spin" />
+							) : (
+								<Download className="size-4" />
+							)}
+							{t("admin.audit.exportCsv")}
+						</Button>
+					</>
+				}
+			/>
+
+			<AdminPanel
+				title={t("admin.audit.filterTitle")}
+				description={t("admin.audit.filterHint")}
+			>
+				<AuditLogFilters
+					value={draft}
+					onChange={setDraft}
+					onSubmit={applyFilters}
+					onClear={clearFilters}
+				/>
+			</AdminPanel>
+
+			<AdminPanel
+				title={t("admin.audit.timelineTitle")}
+				description={t("admin.audit.timelineHint")}
+			>
+				<AuditLogTimeline
+					items={items}
+					total={total}
+					currentPage={currentPage}
+					totalPages={totalPages}
+					offset={offset}
+					pageSize={PAGE_SIZE}
+					loading={query.isLoading}
+					error={Boolean(query.error)}
+					onRetry={() => void query.refetch()}
+					onInspect={setSelectedLog}
+					onPreviousPage={() =>
+						setOffset((current) => Math.max(0, current - PAGE_SIZE))
+					}
+					onNextPage={() => setOffset((current) => current + PAGE_SIZE)}
+				/>
+			</AdminPanel>
+			<AuditLogDetailSheet
+				log={selectedLog}
+				onClose={() => setSelectedLog(null)}
+			/>
+		</div>
+	);
 }

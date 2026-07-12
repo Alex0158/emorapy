@@ -47,7 +47,8 @@ echo "[release-smoke] frontend=${FRONTEND_BASE_URL}"
 echo "[release-smoke] admin=${ADMIN_BASE_URL}"
 echo "[release-smoke] origin=${ORIGIN}"
 echo "[release-smoke] admin_origin=${ADMIN_ORIGIN}"
-echo "[release-smoke] admin_email=${ADMIN_EMAIL}"
+# ADMIN_EMAIL is a secret-derived production identifier; artifacts record presence only.
+echo "[release-smoke] admin_email=set"
 
 BACKEND_BASE_URL="$BACKEND_BASE_URL" \
 API_BASE_URL="$API_BASE_URL" \

@@ -85,9 +85,14 @@ const FORMAL_DOC_MISSING_PATH_ALLOWLIST = {
     { path: 'packages/domain', marker: '建立 `packages/domain`' },
   ],
 };
-const FORMAL_DOC_OPTIONAL_LOCAL_STATE_PATHS = new Set([
+// Formal docs may describe these intentionally untracked runtime/generated paths.
+// Keep the list explicit so CI and a developer machine validate the same truth.
+const FORMAL_DOC_OPTIONAL_UNTRACKED_PATHS = new Set([
   'backend/.env',
+  'backend/tmp',
   'mobile/.expo',
+  'mobile/android/app/.cxx',
+  'mobile/ios',
   'mobile/release.env.local',
 ]);
 
@@ -1354,7 +1359,7 @@ async function main() {
     const allowEntries = FORMAL_DOC_MISSING_PATH_ALLOWLIST[relativePath] || [];
     const allowMap = new Map(allowEntries.map((entry) => [entry.path, entry]));
     for (const repoPathRef of repoPathRefs) {
-      if (FORMAL_DOC_OPTIONAL_LOCAL_STATE_PATHS.has(repoPathRef)) {
+      if (FORMAL_DOC_OPTIONAL_UNTRACKED_PATHS.has(repoPathRef)) {
         continue;
       }
       const absPath = path.join(repoRoot, repoPathRef);

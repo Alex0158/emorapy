@@ -4,7 +4,7 @@
 **文檔類型**：問題治理
 **覆蓋範圍**：Web icon-only 關閉/清除按鈕、accessible name、keyboard/focus 驗收
 **取證代碼入口**：`frontend/src/pages/Case/Create/index.tsx`、`frontend/src/pages/Chat/Room/components/ChatMessageComposer.tsx`、`frontend/src/components/business/FileUpload/index.tsx`、`frontend/src/components/business/Interview/SafetyAlert/index.tsx`
-**最後核驗 Commit**：`e65a4b8`
+**最後核驗 Commit**：`c78765b`
 **最後核驗日期**：`2026-07-12`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 

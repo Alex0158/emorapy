@@ -4,7 +4,7 @@
 **文檔類型**：正式規格
 **覆蓋範圍**：Web / Admin Web 已實作能力、凍結基線、平台差異與對 App 的參照邊界
 **取證代碼入口**：`frontend/src/router/index.tsx`、`frontend/src/pages`、`frontend-admin/src/router.tsx`、`frontend-admin/src/pages`、`frontend-admin/src/services/api/admin.ts`、`backend/src/routes`、`scripts/start-dev.sh`、`scripts/check-web-admin-boundary.mjs`、`scripts/check-web-product-lines-contracts.mjs`、`scripts/check-web-a11y-contracts.mjs`
-**最後核驗 Commit**：`e65a4b8`
+**最後核驗 Commit**：`c78765b`
 **最後核驗日期**：`2026-07-12`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 

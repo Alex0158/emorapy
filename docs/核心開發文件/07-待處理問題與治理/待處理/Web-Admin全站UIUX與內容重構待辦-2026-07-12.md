@@ -4,7 +4,7 @@
 **文檔類型**：問題治理
 **覆蓋範圍**：Consumer Web 與 Admin Web 全站資訊層級、互動、內容、視覺系統、安全呈現與前端維護性重構
 **取證代碼入口**：`frontend/src/router/index.tsx`、`frontend/src/pages`、`frontend/src/components`、`frontend/src/index.css`、`frontend-admin/src/router.tsx`、`frontend-admin/src/pages`、`frontend-admin/src/components`、`frontend-admin/src/index.css`、`backend/src/utils/product-safety-policy.ts`、`backend/src/services/repair-eligibility.service.ts`
-**最後核驗 Commit**：`e65a4b8`
+**最後核驗 Commit**：`c78765b`
 **最後核驗日期**：`2026-07-12`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 

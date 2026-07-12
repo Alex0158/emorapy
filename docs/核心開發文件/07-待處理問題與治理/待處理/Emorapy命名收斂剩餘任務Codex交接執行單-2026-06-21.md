@@ -4,8 +4,8 @@
 **文檔類型**：問題治理
 **覆蓋範圍**：Emorapy 命名收斂尚未閉環、需使用者外部操作或 Codex repo 內 gated 執行的剩餘任務交接 spec
 **取證代碼入口**：`mobile/scripts/sync-release-github-secrets.mjs`、`mobile/scripts/check-release-github-secret-names.mjs`、`scripts/check-emorapy-naming-governance.mjs`、`scripts/check-docs-truth.mjs`、`scripts/check-docs-structure.mjs`、`.github/workflows/production-deploy-and-verify.yml`
-**最後核驗 Commit**：`f1973ce`
-**最後核驗日期**：`2026-06-21`
+**最後核驗 Commit**：`c78765b`
+**最後核驗日期**：`2026-07-12`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 **狀態**：T1 GitHub repo rename 已由 Codex CLI 執行為 `Alex0158/emorapy`，本地 `origin` 已更新，`EMORAPY_GITHUB_REPO=Alex0158/emorapy` 已設為 GitHub repo variable；2026-06-22 Codex 已把 Vercel projects rename 為 `emorapy` / `emorapy-admin`，新增並驗證 `https://emorapy.vercel.app`、`https://emorapy-admin.vercel.app` production project domains，且設置 GitHub repo variables `EMORAPY_MAIN_WEB_URL` / `EMORAPY_ADMIN_WEB_URL`；T1 backend domain migration 仍待 Railway alias / domain / release evidence / T1-L 本地 workspace 與檔名路徑命名收斂已納入 / T2 PRD ID 遷移已於 2026-06-21 gated 執行完成 / 待外部憑證與證據（T3 App release 命名相關 evidence）；T1 backend domain、T1-L、T3 未達成前，本交接單整體仍不得標為已處理/已閉環/已完成

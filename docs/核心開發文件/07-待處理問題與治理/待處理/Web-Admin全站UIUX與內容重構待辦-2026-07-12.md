@@ -4,11 +4,11 @@
 **文檔類型**：問題治理
 **覆蓋範圍**：Consumer Web 與 Admin Web 全站資訊層級、互動、內容、視覺系統、安全呈現與前端維護性重構
 **取證代碼入口**：`frontend/src/router/index.tsx`、`frontend/src/pages`、`frontend/src/components`、`frontend/src/index.css`、`frontend-admin/src/router.tsx`、`frontend-admin/src/pages`、`frontend-admin/src/components`、`frontend-admin/src/index.css`、`frontend-admin/src/types/admin.ts`、`backend/src/utils/product-safety-policy.ts`、`backend/src/services/repair-eligibility.service.ts`、`backend/src/services/cost-monitoring.service.ts`
-**最後核驗 Commit**：`b3f3716`
+**最後核驗 Commit**：`a685db3`
 **最後核驗日期**：`2026-07-13`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**狀態**：實作與代表性設計驗收已完成；真服務動態證據待補
+**狀態**：Production release 與 Quick/ledger 真服務證據已取得；多角色、安全 runtime、Admin mutation 與 UI 診斷細節待補
 **Owner**：Web Product / Frontend / Platform governance
 **優先級**：P0 安全與敘事完整性；P1 全站 UX、內容與視覺；P1 工程可維護性
 
@@ -116,16 +116,17 @@ Product Design 已基於 current Home、Quick 與 Collaborative 產生三個 144
 1. Consumer Web 30 routes 與 Admin Web 9 routes 依 Guided Reflection 重構資訊層級、內容、tokens、shell 與主要互動；刪除 starter asset、未使用的 Home simulation/demo、AI phase timeline、emoji/假 persona、慶祝 overlay、硬編陰影與重複 registration prompt。
 2. Quick 移除另一方自動代寫，補私密雙人交接與可清除草稿；正式 remote read path 補 blind response projection；judgment / reconciliation 以 active safety route 覆蓋 stored route，禁止舊 plan/detail/commit/resume 繞過 safety intent。
 3. Admin 已有 permission-aware navigation、session recovery/logout、first permitted route、responsive drawer、可鍵盤操作的 config selector、受控危險操作與較小 route/controller files。
-4. Consumer 全量單元／組件測試 `172 files / 1994 tests`、Admin `16 files / 49 tests`、Backend unit `161 suites / 2098 tests` 全數通過；Consumer / Admin / Backend builds、三端 lint、product-line、admin-boundary、a11y、AI positioning、docs truth 與 `git diff --check` 通過。
+4. Consumer 全量單元／組件測試 `179 files / 2009 tests`、Admin `16 files / 49 tests`、Backend unit `161 suites / 2098 tests` 全數通過；Consumer / Admin / Backend builds、三端 lint、product-line、admin-boundary、a11y、AI positioning、docs truth 與 `git diff --check` 通過。
 5. Product Design 同 viewport source/implementation combined QA、Consumer desktop/mobile、Admin desktop/mobile 與主互動 evidence 已寫入 `90-證據與盤點/設計驗收/design-qa.md`，該 scoped design QA 為 passed。
-6. Ship coverage matrix 為 `28 / 30（93%）`：24 / 24 code paths 與 4 / 6 user flows 已有自動化證據；剩餘兩組 credential-backed true-service E2E 由正式 release gate 與本待辦的動態證據邊界承接。
+6. pre-release Ship coverage matrix 為 `28 / 30（93%）`；其後 exact-main CI run `29246076104` 7/7 成功，Production run `29246324704` 五個核心 jobs成功，三端 version、quick/claim smoke、exact AI ledger/cost breakdown、DB parity/backfill、health與 release gate已閉環。
 
 仍需保持本文件在 `待處理/`：
 
-1. Quick Result 真 backend 完成態、Collaborative Role A → Role B 正式送出、Formal remote 雙身份 blind-before-submit、safety/crisis runtime policy 與 Admin destructive mutations 尚未在本輪以 credential-backed / DB-backed true-service E2E 重跑。
+1. Collaborative Role A → Role B 正式送出、Formal remote 雙身份 blind-before-submit、safety/crisis runtime policy 與 Admin destructive mutations 尚未在本輪以 credential-backed / DB-backed true-service E2E 重跑；Production quick/claim與 exact result ledger已由 release gate取證。
 2. 本輪 Admin 已登入工作台瀏覽器驗收使用 synthetic local API fixture，只能證明 UI state、permission navigation 與 responsive，不構成 staging / production service 證據。
-3. Admin costs API 已返回 `openai.ledger.status`、request/token/cost 與 product-flow breakdown，但 `frontend-admin/src/types/admin.ts` 尚未承接 ledger contract，`CostsPanel` 亦只顯示 generic OpenAI status/summary token；此 P2 不阻擋 ledger P1 release，但在 Admin UI 可診斷實際 request attribution 前不得宣稱成本治理頁完整。
-4. 上述動態證據與 Admin ledger breakdown 補齊並回寫後，才可把本文件移入 `已處理/`；不得以 unit test、static gate、fixture 或 screenshot 代替真服務結論。
+3. Production release gate已證明 exact ledger `succeeded/completed/tokens/cost` 與 Admin `quick_single` breakdown；但 `frontend-admin/src/types/admin.ts` 尚未承接完整 ledger contract，`CostsPanel` 亦只顯示 generic OpenAI status/summary token。此 P2 不阻擋已完成 release，但在 Admin UI 可診斷實際 request attribution 前不得宣稱成本治理頁完整。
+4. fresh Quick session 無 case 時，`GET /api/v1/cases/by-session` 的 expected 404 會留下 DevTools / monitoring noise；UI 可正常進入 empty state。後續契約應收斂為 HTTP 200 `{ success: true, data: { case: null } }`，並同步 controller、shared client、文件與測試；此項是 P2，不是 release blocker。
+5. 上述多角色動態證據、Admin ledger breakdown與 expected-empty API 語義補齊並回寫後，才可把本文件移入 `已處理/`；不得以 unit test、static gate、fixture 或 screenshot 代替真服務結論。
 
 ## 10. 驗證命令
 

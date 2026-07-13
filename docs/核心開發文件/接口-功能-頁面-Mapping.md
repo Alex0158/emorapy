@@ -4,12 +4,12 @@
 **文檔類型**：旗艦映射
 **覆蓋範圍**：API -> 功能 -> 頁面 -> 流程節點映射
 **取證代碼入口**：`backend/src/routes`、`frontend/src/router/index.tsx`、`frontend-admin/src/router.tsx`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`95fa8a9`
-**最後核驗日期**：`2026-07-12`
+**最後核驗 Commit**：`a685db3`
+**最後核驗日期**：`2026-07-13`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**文檔版本**：v1.18
-**最後更新**：2026-07-12
+**文檔版本**：v1.19
+**最後更新**：2026-07-13
 **目標**：把 API -> 功能 -> 頁面 -> 流程節點建立可回歸的單點追溯。
 
 ---
@@ -94,7 +94,7 @@
 | `POST /api/v1/chat/invites/:inviteCode/decline` | F07 | `/chat/room` | 拒絕邀請 | M | 已使用 |
 | `GET /api/v1/chat/rooms/:roomId/stream` | F07 | `/chat/room/:roomId` | SSE 事件流 | H | 已使用 |
 | `GET /api/v1/streams/chat_room/:roomId` | F07 | `/chat/room/:roomId` | Chat AI 草稿/完成/落庫主鏈路 | H | 已使用 |
-| `GET /api/v1/chat/rooms/:roomId/channels` | F07 | Web `/chat/room/:roomId`、App `chat/room` | actor 可見的 shared/private channel lanes（branch 已接線；Production 未發布） | H | 已使用 |
+| `GET /api/v1/chat/rooms/:roomId/channels` | F07 | Web `/chat/room/:roomId`、App `chat/room` | actor 可見的 shared/private channel lanes；Web/Backend Production `a685db36`，App code parity已接線但 native release evidence仍屬 M6 | H | 已使用 |
 | `GET /api/v1/chat/rooms/:roomId/context-preference` | F07 | Web `/chat/room/:roomId`、App `chat/room` | 讀取私人內容只限私下或可產生無原因程序控制的偏好 | H | 已使用 |
 | `PUT /api/v1/chat/rooms/:roomId/context-preference` | F07 | Web `/chat/room/:roomId`、App `chat/room` | 更新 private-context use preference | H | 已使用 |
 | `GET /api/v1/chat/channels/:channelId/messages` | F07 | Web `/chat/room/:roomId`、App `chat/room` | audience-aware channel history | H | 已使用 |

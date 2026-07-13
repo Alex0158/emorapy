@@ -6,10 +6,15 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 
 import {
+  assertRailwayRollbackObservation,
   assertSameReleaseIdentity,
   buildRailwayRollbackRequest,
+  buildRailwayRollbackTargetRequest,
+  extractRailwayActiveDeployment,
   extractRailwayRollbackDeployment,
+  extractRailwayRollbackTarget,
   extractRailwayCurrentDeployment,
+  extractRailwayServiceIdentity,
   extractVercelDeploymentIdentity,
   extractVersionIdentity,
   releaseIdentityNeedsRollback,
@@ -52,8 +57,22 @@ async function fetchJson(url, options = {}) {
     },
     signal: AbortSignal.timeout(15_000),
   });
-  if (!response.ok) throw new Error(`${new URL(url).origin} returned HTTP ${response.status}`);
-  return response.json();
+  const responseText = await response.text();
+  let payload;
+  try {
+    payload = JSON.parse(responseText);
+  } catch {
+    const detail = responseText.trim().slice(0, 2_000) || 'empty response';
+    throw new Error(
+      `${new URL(url).origin} returned HTTP ${response.status} with invalid JSON: ${detail}`,
+    );
+  }
+  if (!response.ok) {
+    throw new Error(
+      `${new URL(url).origin} returned HTTP ${response.status}: ${JSON.stringify(payload).slice(0, 2_000)}`,
+    );
+  }
+  return payload;
 }
 
 async function readVersion(baseUrl, pathname) {
@@ -123,7 +142,7 @@ async function requestVercelRollback(previous, appDirectory, projectId) {
   );
 }
 
-async function restoreRailwayCommitVariable(commitSha) {
+async function ensureRailwayProjectLink() {
   if (!railwayProjectId || !railwayEnvironment || !railwayService) {
     throw new Error('Railway rollback project, environment, or service identity is missing');
   }
@@ -144,6 +163,9 @@ async function restoreRailwayCommitVariable(commitSha) {
       timeout: 60_000,
     },
   );
+}
+
+async function restoreRailwayCommitVariable(commitSha) {
   await execFileAsync(
     'railway',
     [
@@ -164,7 +186,7 @@ async function restoreRailwayCommitVariable(commitSha) {
   );
 }
 
-async function readCurrentRailwayDeployment() {
+async function readRailwayStatus() {
   const { stdout } = await execFileAsync(
     'railway',
     ['status', '--json'],
@@ -174,14 +196,31 @@ async function readCurrentRailwayDeployment() {
       timeout: 60_000,
     },
   );
-  return extractRailwayCurrentDeployment(
-    JSON.parse(stdout),
+  return JSON.parse(stdout);
+}
+
+async function readActiveRailwayDeployment() {
+  return extractRailwayActiveDeployment(
+    await readRailwayStatus(),
     railwayEnvironment,
     railwayService,
   );
 }
 
-async function requestRailwayRollback(previous) {
+async function requestRailwayRollback(previous, expectedScope) {
+  const targetRequest = buildRailwayRollbackTargetRequest({
+    deploymentId: previous.railwayDeploymentId,
+    apiToken: railwayApiToken,
+    projectToken: railwayProjectToken,
+  });
+  const target = extractRailwayRollbackTarget(
+    await fetchJson(targetRequest.url, {
+      method: 'POST',
+      headers: targetRequest.headers,
+      body: JSON.stringify(targetRequest.body),
+    }),
+    expectedScope,
+  );
   const request = buildRailwayRollbackRequest({
     deploymentId: previous.railwayDeploymentId,
     apiToken: railwayApiToken,
@@ -192,7 +231,43 @@ async function requestRailwayRollback(previous) {
     headers: request.headers,
     body: JSON.stringify(request.body),
   });
-  return extractRailwayRollbackDeployment(payload);
+  return {
+    target,
+    result: extractRailwayRollbackDeployment(payload),
+  };
+}
+
+async function waitForBackendRollback({
+  baseUrl,
+  expectedCommitSha,
+  previousActiveDeploymentId,
+  expectedActiveDeploymentId = null,
+  requireDeploymentTransition,
+}) {
+  const deadline = Date.now() + timeoutSeconds * 1_000;
+  let lastError;
+  while (Date.now() < deadline) {
+    try {
+      const [version, railway] = await Promise.all([
+        readVersion(baseUrl, '/version'),
+        readActiveRailwayDeployment(),
+      ]);
+      return assertRailwayRollbackObservation({
+        version,
+        railway,
+        expectedCommitSha,
+        previousActiveDeploymentId,
+        expectedActiveDeploymentId,
+        requireDeploymentTransition,
+      });
+    } catch (error) {
+      lastError = error;
+      await sleep(pollSeconds * 1_000);
+    }
+  }
+  throw new Error(
+    `backend production did not restore before timeout: ${sanitize(lastError || 'unknown')}`,
+  );
 }
 
 const previousState = JSON.parse(await readFile(statePath, 'utf8'));
@@ -289,33 +364,27 @@ async function rollbackBackend(previous) {
   result.surfaces.backend = surface;
   await persistResult();
 
-  let variableRestorationError = null;
   try {
-    await restoreRailwayCommitVariable(previous.commitSha);
-    surface.variableRestoration = {
-      name: 'EMORAPY_COMMIT_SHA',
-      value: previous.commitSha,
-      status: 'restored',
-    };
-  } catch (error) {
-    variableRestorationError = error;
-    surface.variableRestoration = {
-      name: 'EMORAPY_COMMIT_SHA',
-      value: previous.commitSha,
-      status: 'failed',
-      error: sanitize(error),
-    };
-  }
-  await persistResult();
-
-  try {
+    await ensureRailwayProjectLink();
     let current = null;
     let currentRailway = null;
+    let railwayScope = null;
     try {
-      [current, currentRailway] = await Promise.all([
+      const [version, status] = await Promise.all([
         readVersion(previous.baseUrl, '/version'),
-        readCurrentRailwayDeployment(),
+        readRailwayStatus(),
       ]);
+      current = version;
+      currentRailway = extractRailwayCurrentDeployment(
+        status,
+        railwayEnvironment,
+        railwayService,
+      );
+      railwayScope = extractRailwayServiceIdentity(
+        status,
+        railwayEnvironment,
+        railwayService,
+      );
       surface.observedDeploymentId = current.deploymentId;
       surface.observedRailwayDeploymentId = currentRailway.id;
       surface.observedCommitSha = current.commitSha;
@@ -328,46 +397,44 @@ async function rollbackBackend(previous) {
       || current.commitSha !== previous.commitSha
       || currentRailway.id !== previous.railwayDeploymentId
       || (current.deploymentId && current.deploymentId !== previous.railwayDeploymentId);
-    let expectedRailwayDeploymentId = currentRailway?.id ?? previous.railwayDeploymentId;
     if (backendChanged) {
+      if (!currentRailway || !railwayScope) {
+        throw new Error('Railway rollback requires a verified current deployment and service scope');
+      }
       surface.action = 'rollback';
-      const rollbackDeployment = await requestRailwayRollback(previous);
-      surface.graphqlResult = rollbackDeployment;
-      surface.rollbackDeploymentId = rollbackDeployment.id;
-      expectedRailwayDeploymentId = rollbackDeployment.id;
+      const rollback = await requestRailwayRollback(previous, railwayScope);
+      surface.rollbackTarget = rollback.target;
+      surface.graphqlResult = rollback.result;
+      surface.variableRestoration = {
+        name: 'EMORAPY_COMMIT_SHA',
+        value: previous.commitSha,
+        status: 'delegated-to-railway-rollback',
+      };
     } else {
       surface.action = 'none';
+      await restoreRailwayCommitVariable(previous.commitSha);
+      surface.variableRestoration = {
+        name: 'EMORAPY_COMMIT_SHA',
+        value: previous.commitSha,
+        status: 'restored-without-redeploy',
+      };
     }
+    await persistResult();
 
-    const expectedVersion = {
-      commitSha: previous.commitSha,
-      deploymentId: previous.deploymentId ? expectedRailwayDeploymentId : null,
-    };
-    const restored = await waitForIdentity(
-      async () => {
-        const [version, railway] = await Promise.all([
-          readVersion(previous.baseUrl, '/version'),
-          readCurrentRailwayDeployment(),
-        ]);
-        if (railway.id !== expectedRailwayDeploymentId) {
-          throw new Error(
-            `Railway current deployment mismatch: expected ${expectedRailwayDeploymentId}, got ${railway.id}`,
-          );
-        }
-        if (railway.status !== 'SUCCESS') {
-          throw new Error(
-            `Railway rollback deployment ${railway.id} is not SUCCESS (status=${railway.status})`,
-          );
-        }
-        return version;
-      },
-      expectedVersion,
-      'backend production',
-    );
-    surface.restoredDeploymentId = restored.deploymentId;
-    surface.restoredRailwayDeploymentId = expectedRailwayDeploymentId;
-    surface.restoredCommitSha = restored.commitSha;
-    if (variableRestorationError) throw variableRestorationError;
+    const restored = await waitForBackendRollback({
+      baseUrl: previous.baseUrl,
+      expectedCommitSha: previous.commitSha,
+      previousActiveDeploymentId: currentRailway?.id ?? previous.railwayDeploymentId,
+      expectedActiveDeploymentId: backendChanged ? null : previous.railwayDeploymentId,
+      requireDeploymentTransition: backendChanged,
+    });
+    surface.restoredDeploymentId = restored.version.deploymentId;
+    surface.restoredRailwayDeploymentId = restored.railway.id;
+    surface.restoredCommitSha = restored.version.commitSha;
+    if (backendChanged) {
+      surface.rollbackDeploymentId = restored.railway.id;
+      surface.variableRestoration.status = 'restored-by-railway-rollback';
+    }
     surface.status = 'restored';
   } catch (error) {
     surface.status = 'failed';

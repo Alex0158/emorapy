@@ -1,13 +1,18 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import {
+  assertRailwayRollbackObservation,
   assertSameReleaseIdentity,
   assertVersionService,
   buildRailwayAutoDeployStatusRequest,
   buildRailwayRollbackRequest,
+  buildRailwayRollbackTargetRequest,
+  extractRailwayActiveDeployment,
   extractRailwayAutoDeployStatus,
   extractRailwayRollbackDeployment,
+  extractRailwayRollbackTarget,
   extractRailwayCurrentDeployment,
   extractRailwayServiceIdentity,
   extractVercelDeploymentIdentity,
@@ -123,6 +128,17 @@ test('extractRailwayCurrentDeployment accepts a failed latest attempt but reject
   );
 });
 
+test('extractRailwayActiveDeployment reads the running deployment without latest-history coupling', () => {
+  assert.deepEqual(extractRailwayActiveDeployment(
+    railwayStatusFixture({ latest: { id: 'railway-removed', status: 'REMOVED' } }),
+    'production',
+    'emorapy-api',
+  ), {
+    id: 'railway-active',
+    status: 'SUCCESS',
+  });
+});
+
 test('extractRailwayCurrentDeployment fails closed for missing or ambiguous active deployments', () => {
   assert.throws(
     () => extractRailwayCurrentDeployment(
@@ -214,7 +230,52 @@ test('extractVercelDeploymentIdentity normalizes deployment metadata', () => {
   );
 });
 
-test('buildRailwayRollbackRequest uses the official auth header for each token type', () => {
+test('Railway rollback target inspection requires eligibility and exact service scope', () => {
+  const request = buildRailwayRollbackTargetRequest({
+    deploymentId: 'railway-previous',
+    apiToken: 'account-token',
+  });
+  assert.deepEqual(request.body.variables, { id: 'railway-previous' });
+  assert.match(request.body.query, /deployment\(id: \$id\)/);
+  assert.match(request.body.query, /canRollback/);
+
+  const payload = {
+    data: {
+      deployment: {
+        id: 'railway-previous',
+        status: 'REMOVED',
+        canRollback: true,
+        projectId: 'project-1',
+        environmentId: 'environment-1',
+        serviceId: 'service-1',
+      },
+    },
+  };
+  assert.deepEqual(
+    extractRailwayRollbackTarget(payload, {
+      projectId: 'project-1',
+      environmentId: 'environment-1',
+      serviceId: 'service-1',
+    }),
+    payload.data.deployment,
+  );
+  assert.throws(
+    () => extractRailwayRollbackTarget({
+      data: { deployment: { ...payload.data.deployment, canRollback: false } },
+    }),
+    /cannot be rolled back/,
+  );
+  assert.throws(
+    () => extractRailwayRollbackTarget(payload, { serviceId: 'other-service' }),
+    /serviceId mismatch/,
+  );
+  assert.throws(
+    () => extractRailwayRollbackTarget({ errors: [{ message: 'forbidden' }] }),
+    /forbidden/,
+  );
+});
+
+test('buildRailwayRollbackRequest uses scalar mutation and official auth headers', () => {
   const account = buildRailwayRollbackRequest({
     deploymentId: 'railway-previous',
     apiToken: 'account-token',
@@ -222,7 +283,8 @@ test('buildRailwayRollbackRequest uses the official auth header for each token t
   });
   assert.equal(account.url, 'https://backboard.railway.com/graphql/v2');
   assert.deepEqual(account.body.variables, { id: 'railway-previous' });
-  assert.match(account.body.query, /deploymentRollback\(id: \$id\)\s*\{\s*id\s+status\s*\}/);
+  assert.match(account.body.query, /deploymentRollback\(id: \$id\)\s*\n\}/);
+  assert.doesNotMatch(account.body.query, /deploymentRollback\(id: \$id\)\s*\{/);
   assert.equal(account.headers.Authorization, 'Bearer account-token');
   assert.equal(account.headers['Project-Access-Token'], undefined);
 
@@ -234,21 +296,91 @@ test('buildRailwayRollbackRequest uses the official auth header for each token t
   assert.equal(project.headers['Project-Access-Token'], 'project-token');
 });
 
-test('extractRailwayRollbackDeployment requires the new rollback deployment identity', () => {
+test('extractRailwayRollbackDeployment requires scalar acceptance', () => {
   assert.deepEqual(
     extractRailwayRollbackDeployment({
-      data: { deploymentRollback: { id: 'railway-rollback-new', status: 'BUILDING' } },
+      data: { deploymentRollback: true },
     }),
-    { id: 'railway-rollback-new', status: 'BUILDING' },
+    { accepted: true },
   );
   assert.throws(
     () => extractRailwayRollbackDeployment({ errors: [{ message: 'not rollbackable' }] }),
     /not rollbackable/,
   );
   assert.throws(
-    () => extractRailwayRollbackDeployment({ data: { deploymentRollback: true } }),
-    /must be an object/,
+    () => extractRailwayRollbackDeployment({ data: { deploymentRollback: false } }),
+    /not accepted/,
   );
+});
+
+test('Railway rollback observation requires an exact healthy transition', () => {
+  const observation = {
+    version: {
+      commitSha: 'baseline-sha',
+      deploymentId: 'railway-restored',
+    },
+    railway: {
+      id: 'railway-restored',
+      status: 'SUCCESS',
+    },
+    expectedCommitSha: 'baseline-sha',
+    previousActiveDeploymentId: 'railway-new',
+    requireDeploymentTransition: true,
+  };
+  assert.deepEqual(assertRailwayRollbackObservation(observation), {
+    version: observation.version,
+    railway: observation.railway,
+  });
+  assert.throws(
+    () => assertRailwayRollbackObservation({
+      ...observation,
+      railway: { id: 'railway-new', status: 'SUCCESS' },
+    }),
+    /has not left/,
+  );
+  assert.throws(
+    () => assertRailwayRollbackObservation({
+      ...observation,
+      version: { commitSha: 'wrong-sha', deploymentId: 'railway-restored' },
+    }),
+    /commit mismatch/,
+  );
+  assert.throws(
+    () => assertRailwayRollbackObservation({
+      ...observation,
+      version: { commitSha: 'baseline-sha', deploymentId: 'other-deployment' },
+    }),
+    /deployment mismatch/,
+  );
+  assert.throws(
+    () => assertRailwayRollbackObservation({
+      ...observation,
+      railway: { id: 'railway-restored', status: 'CRASHED' },
+    }),
+    /not SUCCESS/,
+  );
+});
+
+test('production workflow keeps Vercel auth out of native curl arguments', async () => {
+  const workflow = await readFile(
+    new URL('../../.github/workflows/production-deploy-and-verify.yml', import.meta.url),
+    'utf8',
+  );
+  const verifierBlocks = workflow
+    .split('version_payload="$(')
+    .slice(1)
+    .map((fragment) => fragment.split('\n          )"')[0])
+    .filter((block) => block.includes('vercel curl /version.json'));
+
+  assert.equal(verifierBlocks.length, 2);
+  for (const block of verifierBlocks) {
+    assert.match(block, /vercel curl \/version\.json/);
+    assert.match(block, /-- --fail --silent --show-error/);
+    assert.doesNotMatch(block, /--token/);
+  }
+  assert.match(workflow, /VERCEL_TOKEN: \$\{\{ secrets\.VERCEL_TOKEN \}\}/);
+  assert.match(workflow, /service \/\/ \.data\.service \/\/ empty.*frontend"/);
+  assert.match(workflow, /service \/\/ \.data\.service \/\/ empty.*frontend-admin"/);
 });
 
 test('release identity comparison checks both deployment and commit', () => {

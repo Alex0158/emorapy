@@ -106,8 +106,8 @@ function round(value: number, fraction = 4): number {
 }
 
 function decimalToNumber(value: Prisma.Decimal | null): number | null {
-  if (value === null || value === undefined) return null;
-  const parsed = Number(typeof value === 'object' ? value.toString() : value);
+  if (value === null) return null;
+  const parsed = Number(value.toString());
   return Number.isFinite(parsed) ? parsed : null;
 }
 

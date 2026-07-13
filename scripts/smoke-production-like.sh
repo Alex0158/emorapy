@@ -2,6 +2,7 @@
 
 set -euo pipefail
 
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BACKEND_BASE_URL="${BACKEND_BASE_URL:-http://127.0.0.1:3001}"
 API_BASE_URL="${API_BASE_URL:-${BACKEND_BASE_URL}/api/v1}"
 FRONTEND_BASE_URL="${FRONTEND_BASE_URL:-http://127.0.0.1:4173}"
@@ -35,9 +36,9 @@ request_json() {
 
   local response=""
   if [ -n "${payload}" ]; then
-    response="$(curl -sS --max-time 20 -w '\n%{http_code}' -X "${method}" "${url}" -H "Content-Type: application/json" "$@" -d "${payload}" || true)"
+    response="$(curl -sS --max-time "${HTTP_MAX_TIME:-20}" -w '\n%{http_code}' -X "${method}" "${url}" -H "Content-Type: application/json" "$@" -d "${payload}" || true)"
   else
-    response="$(curl -sS --max-time 20 -w '\n%{http_code}' -X "${method}" "${url}" "$@" || true)"
+    response="$(curl -sS --max-time "${HTTP_MAX_TIME:-20}" -w '\n%{http_code}' -X "${method}" "${url}" "$@" || true)"
   fi
 
   HTTP_CODE="$(printf '%s' "${response}" | tail -n1)"
@@ -110,6 +111,8 @@ fi
 log "Quick session created: ${SESSION_ID}"
 
 log "3) Create quick case"
+# Exact case scope prevents false matches; the lookback only absorbs runner/backend/DB clock skew.
+LEDGER_SINCE_UTC="$(node -e 'process.stdout.write(new Date(Date.now() - 300000).toISOString())')"
 CASE_PAYLOAD='{
   "plaintiff_statement": "We need a production-like smoke check for quick case creation flow with enough details to pass minimum length validation.",
   "defendant_statement": "This statement is intentionally long enough for validation and ensures the smoke flow can continue to the case detail endpoint."
@@ -142,5 +145,49 @@ fi
 log "7) Admin me API"
 request_json "GET" "${API_BASE_URL}/admin/me" "" -H "Origin: ${ADMIN_ORIGIN}" -H "Authorization: Bearer ${ADMIN_TOKEN}"
 expect_status "200"
+
+if [ "${RUN_AI_LEDGER_RUNTIME_SMOKE:-false}" = "true" ]; then
+  if [ -z "${DATABASE_URL:-}" ]; then
+    fail "DATABASE_URL is required when RUN_AI_LEDGER_RUNTIME_SMOKE=true"
+  fi
+
+  log "8) Verify live AI request ledger persistence"
+  DATABASE_URL="$DATABASE_URL" \
+  EMORAPY_RELEASE_GATE="${EMORAPY_RELEASE_GATE:-1}" \
+  npm --prefix "$ROOT/backend" run ops:ai-ledger:runtime:check -- \
+    --scope-type=case_judgment \
+    --scope-id="$CASE_ID" \
+    --product-flow=quick_single \
+    --request-kind=judgment_draft \
+    --since="$LEDGER_SINCE_UTC"
+
+  log "9) Verify Admin costs ledger breakdown"
+  HTTP_MAX_TIME=35 request_json "GET" "${API_BASE_URL}/admin/reports/costs" "" \
+    -H "Origin: ${ADMIN_ORIGIN}" \
+    -H "Authorization: Bearer ${ADMIN_TOKEN}"
+  expect_status "200"
+  COST_REPORT_JSON="$HTTP_BODY" node -e '
+const payload = JSON.parse(process.env.COST_REPORT_JSON || "{}");
+const data = payload && typeof payload === "object" ? payload.data : null;
+const ledger = data?.openai?.ledger;
+const reasons = Array.isArray(data?.reasons) ? data.reasons : [];
+const quickFlow = Array.isArray(ledger?.productFlows)
+  ? ledger.productFlows.find((item) => item?.productFlow === "quick_single")
+  : null;
+if (ledger?.status !== "ok") {
+  console.error(`[smoke] FAIL: Admin costs ledger status=${ledger?.status || "(missing)"}`);
+  process.exit(1);
+}
+if (reasons.some((reason) => String(reason).startsWith("openai ledger:"))) {
+  console.error("[smoke] FAIL: Admin costs reports an AI ledger degradation");
+  process.exit(1);
+}
+if (!quickFlow || Number(quickFlow.requestCount24h || 0) < 1) {
+  console.error("[smoke] FAIL: Admin costs is missing quick_single ledger activity");
+  process.exit(1);
+}
+console.log("[smoke] Admin costs AI ledger breakdown verified");
+'
+fi
 
 log "PASS: production-like smoke checks completed"

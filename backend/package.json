@@ -49,6 +49,7 @@
     "ops:product-state:audit": "tsx scripts/audit-product-state-consistency.ts",
     "ops:product-state:audit:persist": "tsx scripts/audit-product-state-consistency.ts --persist",
     "ops:ai-pricing:check": "tsx scripts/check-ai-pricing-catalog.ts",
+    "ops:ai-ledger:runtime:check": "tsx scripts/verify-ai-request-ledger-runtime.ts",
     "ops:release-db:check": "tsx scripts/check-release-db-parity.ts",
     "ops:release-db:dry-run": "tsx scripts/check-release-db-parity.ts --dry-run --target=release --require-release-target",
     "ops:release-db:evidence": "tsx scripts/check-release-db-parity.ts --target=release --require-release-target --evidence-dir=../docs/核心開發文件/90-證據與盤點/環境與發版驗證",

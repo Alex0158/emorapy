@@ -13,7 +13,7 @@ export class AuthController {
       res.status(201).json({
         success: true,
         data: result,
-        message: '註冊成功，請查收驗證郵件',
+        message: '註冊成功',
       });
     } catch (error) {
       next(error);
@@ -42,13 +42,15 @@ export class AuthController {
    */
   async sendVerificationCode(req: Request, res: Response, next: NextFunction) {
     try {
-      await authService.sendVerificationCode(req.body.email, req.body.type, req.locale);
+      const delivery = await authService.sendVerificationCode(
+        req.body.email,
+        req.body.type,
+        req.locale
+      );
 
       res.json({
         success: true,
-        data: {
-          expires_in: 300, // 5分鐘
-        },
+        data: delivery,
         message: '驗證碼已發送',
       });
     } catch (error) {
@@ -64,14 +66,12 @@ export class AuthController {
       const result = await authService.verifyEmail(
         req.body.email,
         req.body.code,
-        req.body.type || 'register'
+        req.body.type || 'verify_email'
       );
 
       res.json({
         success: true,
-        data: {
-          verified: result,
-        },
+        data: result,
         message: '郵箱驗證成功',
       });
     } catch (error) {
@@ -86,12 +86,12 @@ export class AuthController {
     try {
       await authService.resetPassword(req.body.email, req.locale);
 
-      res.json({
+      res.status(202).json({
         success: true,
         data: {
           expires_in: 300,
         },
-        message: '重置密碼郵件已發送',
+        message: '若該帳戶存在，我們已開始處理密碼重置請求',
       });
     } catch (error) {
       next(error);

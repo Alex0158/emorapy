@@ -105,13 +105,21 @@ export class ChatStreamEntitlementService {
       if (!isActive) this.revokeParticipant(participantId);
       return isActive;
     } catch {
-      this.revokeParticipant(participantId);
+      // A transient database failure must close every currently authorized
+      // stream, but it must not poison future reconnects for the lifetime of
+      // this process. A confirmed inactive participant remains sticky via
+      // revokeParticipant until an explicit activation occurs.
+      this.disconnectParticipant(participantId);
       return false;
     }
   }
 
   revokeParticipant(participantId: string): void {
     this.revokedParticipants.add(participantId);
+    this.disconnectParticipant(participantId);
+  }
+
+  private disconnectParticipant(participantId: string): void {
     const listeners = this.listeners.get(participantId);
     if (!listeners) return;
     this.listeners.delete(participantId);

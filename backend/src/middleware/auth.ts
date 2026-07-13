@@ -36,11 +36,20 @@ export const authenticate = async (
     // 3. 檢查用戶是否存在且激活，並驗證 token_version
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
-      select: { id: true, email: true, is_active: true, token_version: true },
+      select: {
+        id: true,
+        email: true,
+        is_active: true,
+        email_verified: true,
+        token_version: true,
+      },
     });
     
     if (!user || !user.is_active) {
       throw Errors.UNAUTHORIZED('用戶不存在或未激活');
+    }
+    if (!user.email_verified) {
+      throw Errors.EMAIL_NOT_VERIFIED();
     }
 
     // 密碼變更後 token_version 會遞增，舊 Token 自動失效
@@ -76,11 +85,17 @@ export const optionalAuthenticate = async (
         const decoded = verifyToken(token);
         const user = await prisma.user.findUnique({
           where: { id: decoded.id },
-          select: { id: true, email: true, is_active: true, token_version: true },
+          select: {
+            id: true,
+            email: true,
+            is_active: true,
+            email_verified: true,
+            token_version: true,
+          },
         });
         
         const versionOk = (decoded.token_version ?? 0) === user?.token_version;
-        if (user && user.is_active && versionOk) {
+        if (user && user.is_active && user.email_verified && versionOk) {
           req.user = {
             id: user.id,
             email: user.email,

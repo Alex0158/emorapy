@@ -43,8 +43,19 @@ const AuthLayout = () => {
         </Select>
       </div>
 
-      <main className="mx-auto grid max-w-6xl gap-10 py-12 md:grid-cols-[minmax(0,0.9fr)_minmax(360px,0.75fr)] md:items-center md:py-20 lg:gap-20">
-        <section className="max-w-xl border-l border-primary pl-6 md:pl-10" aria-labelledby="auth-context-title">
+      <main className="mx-auto grid max-w-6xl gap-8 py-8 md:grid-cols-[minmax(0,0.9fr)_minmax(360px,0.75fr)] md:items-center md:gap-10 md:py-20 lg:gap-20">
+        <section className="order-1 flex items-start gap-3 border-l border-primary pl-4 text-sm leading-6 text-muted-foreground md:hidden">
+          <ShieldCheck className="mt-0.5 size-4 shrink-0 text-secondary" aria-hidden="true" />
+          <p>{t('auth.brand.safetyScope')}</p>
+        </section>
+
+        <section className="order-2 border-t border-border pt-8 md:border-l md:border-t-0 md:pl-10 md:pt-0">
+          <div className="mx-auto w-full max-w-[420px]">
+            <Outlet />
+          </div>
+        </section>
+
+        <section className="order-3 max-w-xl border-l border-primary pl-6 md:order-1 md:pl-10" aria-labelledby="auth-context-title">
           <p className="mb-5 text-xs font-semibold uppercase tracking-[0.18em] text-primary">
             {t('auth.brand.eyebrow')}
           </p>
@@ -54,15 +65,9 @@ const AuthLayout = () => {
           <p className="mt-6 max-w-md text-base leading-7 text-muted-foreground">
             {t('auth.brand.scopeDescription')}
           </p>
-          <div className="mt-8 flex max-w-md items-start gap-3 border-t border-border pt-5 text-sm leading-6 text-muted-foreground">
+          <div className="mt-8 hidden max-w-md items-start gap-3 border-t border-border pt-5 text-sm leading-6 text-muted-foreground md:flex">
             <ShieldCheck className="mt-0.5 size-4 shrink-0 text-secondary" aria-hidden="true" />
             <p>{t('auth.brand.safetyScope')}</p>
-          </div>
-        </section>
-
-        <section className="border-t border-border pt-8 md:border-l md:border-t-0 md:pl-10 md:pt-0">
-          <div className="mx-auto w-full max-w-[420px]">
-            <Outlet />
           </div>
         </section>
       </main>

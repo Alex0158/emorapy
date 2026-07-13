@@ -1,8 +1,18 @@
-export type VerificationType = 'register' | 'reset_password' | 'verify_email';
+export type VerificationType = 'register' | 'verify_email';
+export interface VerificationCodeDeliveryResult {
+    expires_in: number;
+    resend_after: number;
+}
 export interface RegisterDto {
     email: string;
     password: string;
+    registration_proof: string;
     nickname?: string;
+}
+export interface RegistrationVerificationResult {
+    verified: true;
+    registration_proof: string;
+    registration_proof_expires_in: number;
 }
 export interface LoginDto {
     email: string;

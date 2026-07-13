@@ -306,8 +306,8 @@ export const revokeContextAuthorizationSchema = {
 
 export const createChatAnalysisRequestSchema = {
   body: Joi.object({
-    selected_message_ids: Joi.array().items(uuid.required()).max(100).unique().required(),
-    selected_capsule_ids: Joi.array().items(uuid.required()).max(50).unique().required(),
+    selected_message_ids: Joi.array().items(uuid).max(100).unique().required(),
+    selected_capsule_ids: Joi.array().items(uuid).max(50).unique().required(),
   }),
 };
 

@@ -117,7 +117,10 @@ test.describe('Quick Experience 升格閉環', () => {
         return route.fulfill({
           status: 200,
           contentType: 'application/json',
-          body: JSON.stringify({ success: true }),
+          body: JSON.stringify({
+            success: true,
+            data: { expires_in: 300, resend_after: 60 },
+          }),
         });
       }
 
@@ -127,7 +130,11 @@ test.describe('Quick Experience 升格閉環', () => {
           contentType: 'application/json',
           body: JSON.stringify({
             success: true,
-            data: { verified: true },
+            data: {
+              verified: true,
+              registration_proof: `rp1_${'a'.repeat(43)}`,
+              registration_proof_expires_in: 600,
+            },
           }),
         });
       }

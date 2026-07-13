@@ -9,6 +9,7 @@ import Header from './Header';
 import Footer from './Footer';
 import BottomNav from './BottomNav';
 import ScrollToTop from '@/components/common/ScrollToTop';
+import BackToTop from '@/components/common/BackToTop';
 
 const AppLayout = () => {
   return (
@@ -22,6 +23,7 @@ const AppLayout = () => {
       {/* BottomNav 佔位：fixed 定位不影響文檔流，用 padding 預留空間避免 CLS */}
       <div className="h-[60px] md:hidden" aria-hidden="true" />
       <BottomNav />
+      <BackToTop />
     </div>
   );
 };

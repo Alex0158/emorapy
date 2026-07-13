@@ -28,6 +28,8 @@ const appReleaseBlockingMigrations = [
   '20260508150000_add_notification_action_metadata',
   '20260712210000_add_chat_context_domain_foundation',
   '20260713090000_add_context_authorization_active_unique',
+  '20260713130000_add_secure_email_challenges',
+  '20260713153000_normalize_user_emails',
 ] as const;
 
 function appliedMigration(migrationName: string): ReleaseMigrationRow {

@@ -153,6 +153,12 @@ export const registerSchema = {
     email: Joi.string().email().required(),
     password: passwordRule,
     nickname: Joi.string().min(2).max(50).optional(),
+    registration_proof: Joi.string()
+      .pattern(/^rp1_[A-Za-z0-9_-]{43}$/)
+      .required()
+      .messages({
+        'string.pattern.base': '註冊驗證格式無效',
+      }),
   }),
 };
 
@@ -166,7 +172,7 @@ export const loginSchema = {
 export const sendVerificationCodeSchema = {
   body: Joi.object({
     email: Joi.string().email().required(),
-    type: Joi.string().valid('register', 'reset_password', 'verify_email').required(),
+    type: Joi.string().valid('register', 'verify_email').required(),
   }),
 };
 
@@ -174,7 +180,7 @@ export const verifyEmailSchema = {
   body: Joi.object({
     email: Joi.string().email().required(),
     code: Joi.string().length(6).required(),
-    type: Joi.string().valid('register', 'reset_password', 'verify_email').default('verify_email'),
+    type: Joi.string().valid('register', 'verify_email').default('verify_email'),
   }),
 };
 

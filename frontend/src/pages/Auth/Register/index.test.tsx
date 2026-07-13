@@ -10,7 +10,7 @@ import { MemoryRouter } from 'react-router-dom';
 const mockRegister = vi.fn();
 const mockNavigate = vi.fn();
 const mockSendVerificationCode = vi.fn();
-const mockVerifyEmail = vi.fn();
+const mockVerifyRegistrationCode = vi.fn();
 const mockToastSuccess = vi.fn();
 const mockToastError = vi.fn();
 const mockToastWarning = vi.fn();
@@ -26,7 +26,7 @@ vi.mock('@/components/common/SEO', () => ({ default: () => null }));
 vi.mock('@/utils/i18n', () => ({ t: (key: string) => key }));
 vi.mock('@/services/api/auth', () => ({
   sendVerificationCode: (...args: unknown[]) => mockSendVerificationCode(...args),
-  verifyEmail: (...args: unknown[]) => mockVerifyEmail(...args),
+  verifyRegistrationCode: (...args: unknown[]) => mockVerifyRegistrationCode(...args),
 }));
 vi.mock('sonner', () => ({
   toast: {
@@ -48,6 +48,13 @@ vi.mock('framer-motion', () => ({
 
 import Register from './index';
 
+const registrationVerification = {
+  verified: true,
+  registration_proof: 'rp1_registration-proof',
+  registration_proof_expires_in: 600,
+};
+const verificationDelivery = { expires_in: 300, resend_after: 60 };
+
 function renderPage(initialEntry: string | { pathname: string; state?: unknown } = '/auth/register') {
   return render(
     <MemoryRouter initialEntries={[initialEntry]}>
@@ -57,7 +64,7 @@ function renderPage(initialEntry: string | { pathname: string; state?: unknown }
 }
 
 async function advanceToStep1() {
-  mockSendVerificationCode.mockResolvedValue(undefined);
+  mockSendVerificationCode.mockResolvedValue(verificationDelivery);
   renderPage();
   fireEvent.change(screen.getByPlaceholderText('auth.register.emailPlaceholder'), {
     target: { value: 'test@example.com' },
@@ -69,7 +76,7 @@ async function advanceToStep1() {
 }
 
 async function advanceToStep2() {
-  mockVerifyEmail.mockResolvedValue(true);
+  mockVerifyRegistrationCode.mockResolvedValue(registrationVerification);
   await advanceToStep1();
   for (let i = 0; i < 6; i++) {
     fireEvent.change(screen.getByLabelText(`auth.register.stepVerify ${i + 1}`), {
@@ -89,7 +96,8 @@ describe('Register', () => {
     vi.clearAllMocks();
     mockRegister.mockReset();
     mockSendVerificationCode.mockReset();
-    mockVerifyEmail.mockReset();
+    mockVerifyRegistrationCode.mockReset();
+    mockSendVerificationCode.mockResolvedValue(verificationDelivery);
   });
 
   it('Step 0: 應顯示歡迎標題與郵箱表單', () => {
@@ -102,6 +110,20 @@ describe('Register', () => {
     expect(screen.getByText('auth.register.sendCode')).toBeInTheDocument();
   });
 
+  it('應以可見 labels 與語意化 progress 呈現 proof-first 次序', () => {
+    renderPage();
+
+    expect(screen.getByLabelText('auth.register.email')).toHaveAttribute('id', 'register-email');
+    expect(screen.getByLabelText('auth.register.nickname')).toHaveAttribute('id', 'register-nickname');
+    const progress = screen.getByRole('list', { name: 'auth.register.progressLabel' });
+    expect(progress).toHaveTextContent('auth.register.stepEmail');
+    expect(progress).toHaveTextContent('auth.register.stepVerify');
+    expect(progress).toHaveTextContent('auth.register.stepPassword');
+    expect(progress.querySelector('[aria-current="step"]')).toHaveTextContent(
+      'auth.register.stepEmail'
+    );
+  });
+
   it('應有註冊頁面 role 與 aria-label', () => {
     const { container } = renderPage();
     expect(container.querySelector('[role="region"][aria-label="auth.register.pageLabel"]')).toBeInTheDocument();
@@ -111,6 +133,20 @@ describe('Register', () => {
     await advanceToStep1();
     expect(mockSendVerificationCode).toHaveBeenCalledWith('test@example.com', 'register');
     expect(mockToastSuccess).toHaveBeenCalledWith('message.codeSent');
+  });
+
+  it('Step 1: expiry 與 resend 狀態應使用服務端回傳契約', async () => {
+    mockSendVerificationCode.mockResolvedValue({ expires_in: 120, resend_after: 0 });
+    renderPage();
+    fireEvent.change(screen.getByPlaceholderText('auth.register.emailPlaceholder'), {
+      target: { value: 'test@example.com' },
+    });
+    fireEvent.click(screen.getByText('auth.register.sendCode'));
+
+    await waitFor(() => {
+      expect(screen.getByText(/auth\.register\.codeExpiry 2:00/)).toBeInTheDocument();
+    });
+    expect(screen.getByText('auth.register.resendCode')).not.toBeDisabled();
   });
 
   it('Step 0: sendCode 非標準錯誤應顯示安全 fallback', async () => {
@@ -129,7 +165,7 @@ describe('Register', () => {
   it('Step 0: sendCode 失敗後應仍可再次點擊發送，成功後應轉到驗證步驟（F09 錯誤恢復：失敗不阻塞重試）', async () => {
     mockSendVerificationCode
       .mockRejectedValueOnce(new Error('暫時無法發送'))
-      .mockResolvedValueOnce(undefined);
+      .mockResolvedValueOnce(verificationDelivery);
     renderPage();
     fireEvent.change(screen.getByPlaceholderText('auth.register.emailPlaceholder'), {
       target: { value: 'test@example.com' },
@@ -217,20 +253,32 @@ describe('Register', () => {
     await waitFor(() => {
       expect(mockSendVerificationCode).toHaveBeenCalledTimes(1);
     });
-    resolveSend!(undefined);
+    resolveSend!(verificationDelivery);
     await waitFor(() => {
       expect(screen.getByText('auth.register.codeSentTo')).toBeInTheDocument();
     });
   });
 
-  it('Step 1 → 2: verifyEmail 成功應轉到密碼步驟', async () => {
+  it('Step 1 → 2: 註冊驗證成功並取得 proof 後應轉到密碼步驟', async () => {
     await advanceToStep2();
-    expect(mockVerifyEmail).toHaveBeenCalledWith('test@example.com', '123456', 'register');
+    expect(mockVerifyRegistrationCode).toHaveBeenCalledWith('test@example.com', '123456');
     expect(mockToastSuccess).toHaveBeenCalledWith('message.verifySuccess');
+    expect(screen.getByLabelText('auth.register.setPassword')).toHaveAttribute(
+      'id',
+      'register-password'
+    );
+    expect(screen.getByLabelText('auth.register.confirmPassword')).toHaveAttribute(
+      'id',
+      'register-confirm-password'
+    );
+    expect(
+      screen.getByRole('list', { name: 'auth.register.progressLabel' })
+        .querySelector('[aria-current="step"]')
+    ).toHaveTextContent('auth.register.stepPassword');
   });
 
-  it('Step 1: verifyEmail 返回 false 應顯示錯誤', async () => {
-    mockVerifyEmail.mockResolvedValue(false);
+  it('Step 1: 驗證碼無效應顯示受控錯誤', async () => {
+    mockVerifyRegistrationCode.mockRejectedValue({ code: 'INVALID_CODE', message: 'invalid' });
     await advanceToStep1();
     for (let i = 0; i < 6; i++) {
       fireEvent.change(screen.getByLabelText(`auth.register.stepVerify ${i + 1}`), {
@@ -239,12 +287,12 @@ describe('Register', () => {
     }
     fireEvent.click(screen.getByText('auth.register.verifyAndContinue'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.codeError');
+      expect(mockToastError).toHaveBeenCalledWith('common.validationError');
     });
   });
 
-  it('Step 1: verifyEmail 拋錯且無 message 時應使用 verifyFail', async () => {
-    mockVerifyEmail.mockRejectedValue({ code: 'UNKNOWN' });
+  it('Step 1: 註冊驗證拋錯且無 message 時應使用 verifyFail', async () => {
+    mockVerifyRegistrationCode.mockRejectedValue({ code: 'UNKNOWN' });
     await advanceToStep1();
     for (let i = 0; i < 6; i++) {
       fireEvent.change(screen.getByLabelText(`auth.register.stepVerify ${i + 1}`), {
@@ -257,8 +305,8 @@ describe('Register', () => {
     });
   });
 
-  it('Step 1: verifyEmail SERVER_ERROR 且 message 為空字串時應使用 serverError catalog（F10 邊界）', async () => {
-    mockVerifyEmail.mockRejectedValue({ code: 'SERVER_ERROR', message: '' });
+  it('Step 1: 註冊驗證 SERVER_ERROR 且 message 為空字串時應使用 serverError catalog（F10 邊界）', async () => {
+    mockVerifyRegistrationCode.mockRejectedValue({ code: 'SERVER_ERROR', message: '' });
     await advanceToStep1();
     for (let i = 0; i < 6; i++) {
       fireEvent.change(screen.getByLabelText(`auth.register.stepVerify ${i + 1}`), {
@@ -271,8 +319,8 @@ describe('Register', () => {
     });
   });
 
-  it('Step 1: verifyEmail FORBIDDEN 時應使用 forbidden catalog（F09 權限邊界）', async () => {
-    mockVerifyEmail.mockRejectedValue({ code: 'FORBIDDEN', message: '驗證碼已過期' });
+  it('Step 1: 註冊驗證 FORBIDDEN 時應使用 forbidden catalog（F09 權限邊界）', async () => {
+    mockVerifyRegistrationCode.mockRejectedValue({ code: 'FORBIDDEN', message: '驗證碼已過期' });
     await advanceToStep1();
     for (let i = 0; i < 6; i++) {
       fireEvent.change(screen.getByLabelText(`auth.register.stepVerify ${i + 1}`), {
@@ -285,8 +333,8 @@ describe('Register', () => {
     });
   });
 
-  it('Step 1: verifyEmail FORBIDDEN 且無 message 時應使用 forbidden catalog（F09 權限邊界）', async () => {
-    mockVerifyEmail.mockRejectedValue({ code: 'FORBIDDEN' });
+  it('Step 1: 註冊驗證 FORBIDDEN 且無 message 時應使用 forbidden catalog（F09 權限邊界）', async () => {
+    mockVerifyRegistrationCode.mockRejectedValue({ code: 'FORBIDDEN' });
     await advanceToStep1();
     for (let i = 0; i < 6; i++) {
       fireEvent.change(screen.getByLabelText(`auth.register.stepVerify ${i + 1}`), {
@@ -299,10 +347,10 @@ describe('Register', () => {
     });
   });
 
-  it('Step 1: verifyEmail 失敗後應仍可再次點擊驗證，成功後應轉到密碼步驟（F09 錯誤恢復：失敗不阻塞重試）', async () => {
-    mockVerifyEmail
+  it('Step 1: 註冊驗證失敗後應仍可再次點擊驗證，成功後應轉到密碼步驟（F09 錯誤恢復：失敗不阻塞重試）', async () => {
+    mockVerifyRegistrationCode
       .mockRejectedValueOnce(new Error('驗證服務暫時不可用'))
-      .mockResolvedValueOnce(true);
+      .mockResolvedValueOnce(registrationVerification);
     await advanceToStep1();
     for (let i = 0; i < 6; i++) {
       fireEvent.change(screen.getByLabelText(`auth.register.stepVerify ${i + 1}`), {
@@ -318,14 +366,14 @@ describe('Register', () => {
     });
     fireEvent.click(screen.getByText('auth.register.verifyAndContinue'));
     await waitFor(() => {
-      expect(mockVerifyEmail).toHaveBeenCalledTimes(2);
+      expect(mockVerifyRegistrationCode).toHaveBeenCalledTimes(2);
       expect(mockToastSuccess).toHaveBeenCalledWith('message.verifySuccess');
     });
     expect(screen.getByPlaceholderText('auth.register.passwordPlaceholder')).toBeInTheDocument();
   });
 
-  it('Step 1: verifyEmail 失敗時應仍可點擊登入並導向 /auth/login（F09 錯誤恢復：失敗不阻塞導航出口）', async () => {
-    mockVerifyEmail.mockRejectedValue(new Error('驗證碼無效'));
+  it('Step 1: 註冊驗證失敗時應仍可點擊登入並導向 /auth/login（F09 錯誤恢復：失敗不阻塞導航出口）', async () => {
+    mockVerifyRegistrationCode.mockRejectedValue(new Error('驗證碼無效'));
     await advanceToStep1();
     for (let i = 0; i < 6; i++) {
       fireEvent.change(screen.getByLabelText(`auth.register.stepVerify ${i + 1}`), {
@@ -342,9 +390,18 @@ describe('Register', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/auth/login', { state: { from: { pathname: '/profile/pairing' } } });
   });
 
+  it('Step 1: 更改電子郵件應清除驗證狀態並返回郵箱步驟', async () => {
+    await advanceToStep1();
+
+    fireEvent.click(screen.getByText('auth.register.changeEmail'));
+
+    expect(screen.getByPlaceholderText('auth.register.emailPlaceholder')).toHaveValue('test@example.com');
+    expect(screen.queryByText('auth.register.codeSentTo')).not.toBeInTheDocument();
+  });
+
   it('register 成功但組件已卸載時不應呼叫 toast.success 或 navigate（useMountedRef 回歸：避免 F01-BUG-001 同類問題）', async () => {
-    mockSendVerificationCode.mockResolvedValue(undefined);
-    mockVerifyEmail.mockResolvedValue(true);
+    mockSendVerificationCode.mockResolvedValue(verificationDelivery);
+    mockVerifyRegistrationCode.mockResolvedValue(registrationVerification);
     let resolveRegister: () => void;
     mockRegister.mockImplementation(
       () => new Promise<void>((resolve) => { resolveRegister = resolve; })
@@ -374,7 +431,12 @@ describe('Register', () => {
     });
     fireEvent.click(screen.getByText('auth.register.finishRegister'));
     await waitFor(() => {
-      expect(mockRegister).toHaveBeenCalledWith('test@example.com', 'Password123', undefined);
+      expect(mockRegister).toHaveBeenCalledWith({
+        email: 'test@example.com',
+        password: 'Password123',
+        registration_proof: 'rp1_registration-proof',
+        nickname: undefined,
+      });
     });
     mockToastSuccess.mockClear();
     mockNavigate.mockClear();
@@ -386,8 +448,8 @@ describe('Register', () => {
   });
 
   it('register 失敗但組件已卸載時不應呼叫 toast.error（useMountedRef 回歸：避免卸載後誤提示）', async () => {
-    mockSendVerificationCode.mockResolvedValue(undefined);
-    mockVerifyEmail.mockResolvedValue(true);
+    mockSendVerificationCode.mockResolvedValue(verificationDelivery);
+    mockVerifyRegistrationCode.mockResolvedValue(registrationVerification);
     let rejectRegister: (reason?: unknown) => void;
     mockRegister.mockImplementation(
       () => new Promise((_, reject) => { rejectRegister = reject; })
@@ -438,10 +500,80 @@ describe('Register', () => {
     });
     fireEvent.click(screen.getByText('auth.register.finishRegister'));
     await waitFor(() => {
-      expect(mockRegister).toHaveBeenCalledWith('test@example.com', 'Password123', undefined);
+      expect(mockRegister).toHaveBeenCalledWith({
+        email: 'test@example.com',
+        password: 'Password123',
+        registration_proof: 'rp1_registration-proof',
+        nickname: undefined,
+      });
     });
     expect(mockToastSuccess).toHaveBeenCalledWith('message.registerSuccess');
     expect(mockNavigate).toHaveBeenCalledWith('/profile/pairing', { replace: true });
+  });
+
+  it.each(['REGISTRATION_PROOF_INVALID', 'REGISTRATION_PROOF_EXPIRED'])(
+    'Step 2: %s 應清除 proof 並返回可重新發送的驗證步驟',
+    async (code) => {
+      mockRegister.mockRejectedValue({ code, message: 'proof unavailable' });
+      await advanceToStep2();
+      fireEvent.change(screen.getByPlaceholderText('auth.register.passwordPlaceholder'), {
+        target: { value: 'Password123' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('auth.register.confirmPlaceholder'), {
+        target: { value: 'Password123' },
+      });
+
+      fireEvent.click(screen.getByText('auth.register.finishRegister'));
+
+      await waitFor(() => {
+        expect(screen.getByText('auth.register.verifyAndContinue')).toBeInTheDocument();
+      });
+      expect(screen.getByText('auth.register.resendCode')).not.toBeDisabled();
+      expect(mockToastError).toHaveBeenCalledWith('common.validationError');
+    },
+  );
+
+  it('Step 2: 更改電子郵件後必須重新驗證，並只提交新 proof', async () => {
+    mockRegister.mockResolvedValue(undefined);
+    await advanceToStep2();
+
+    fireEvent.click(screen.getByText('auth.register.changeEmail'));
+    const emailInput = screen.getByPlaceholderText('auth.register.emailPlaceholder');
+    fireEvent.change(emailInput, { target: { value: 'new@example.com' } });
+    fireEvent.click(screen.getByText('auth.register.sendCode'));
+    await waitFor(() => {
+      expect(screen.getByText('auth.register.codeSentTo')).toBeInTheDocument();
+    });
+
+    mockVerifyRegistrationCode.mockResolvedValue({
+      ...registrationVerification,
+      registration_proof: 'rp1_new-registration-proof',
+    });
+    for (let i = 0; i < 6; i++) {
+      fireEvent.change(screen.getByLabelText(`auth.register.stepVerify ${i + 1}`), {
+        target: { value: String(i + 1) },
+      });
+    }
+    fireEvent.click(screen.getByText('auth.register.verifyAndContinue'));
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('auth.register.passwordPlaceholder')).toBeInTheDocument();
+    });
+    fireEvent.change(screen.getByPlaceholderText('auth.register.passwordPlaceholder'), {
+      target: { value: 'Password123' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('auth.register.confirmPlaceholder'), {
+      target: { value: 'Password123' },
+    });
+    fireEvent.click(screen.getByText('auth.register.finishRegister'));
+
+    await waitFor(() => {
+      expect(mockRegister).toHaveBeenCalledWith({
+        email: 'new@example.com',
+        password: 'Password123',
+        registration_proof: 'rp1_new-registration-proof',
+        nickname: undefined,
+      });
+    });
   });
 
   it('Step 2: 有合法 from 時 register 成功應回跳到原頁（F01/F09 升格閉環）', async () => {
@@ -455,7 +587,7 @@ describe('Register', () => {
       expect(screen.getByText('auth.register.codeSentTo')).toBeInTheDocument();
     });
 
-    mockVerifyEmail.mockResolvedValue(true);
+    mockVerifyRegistrationCode.mockResolvedValue(registrationVerification);
     for (let i = 0; i < 6; i++) {
       fireEvent.change(screen.getByLabelText(`auth.register.stepVerify ${i + 1}`), {
         target: { value: String(i + 1) },
@@ -489,7 +621,7 @@ describe('Register', () => {
     await waitFor(() => {
       expect(screen.getByText('auth.register.codeSentTo')).toBeInTheDocument();
     });
-    mockVerifyEmail.mockResolvedValue(true);
+    mockVerifyRegistrationCode.mockResolvedValue(registrationVerification);
     for (let i = 0; i < 6; i++) {
       fireEvent.change(screen.getByLabelText(`auth.register.stepVerify ${i + 1}`), {
         target: { value: String(i + 1) },
@@ -522,7 +654,7 @@ describe('Register', () => {
       expect(screen.getByText('auth.register.codeSentTo')).toBeInTheDocument();
     });
 
-    mockVerifyEmail.mockResolvedValue(true);
+    mockVerifyRegistrationCode.mockResolvedValue(registrationVerification);
     for (let i = 0; i < 6; i++) {
       fireEvent.change(screen.getByLabelText(`auth.register.stepVerify ${i + 1}`), {
         target: { value: String(i + 1) },

@@ -77,6 +77,9 @@ const mockPrismaClient: any = {
   emailVerification: {
     deleteMany: jest.fn(),
   },
+  authChallenge: {
+    deleteMany: jest.fn(),
+  },
   user: {
     deleteMany: jest.fn(),
   },

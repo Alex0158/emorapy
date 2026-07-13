@@ -8,7 +8,6 @@ import { Suspense, useEffect, useState } from 'react';
 import { router } from './router';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import Loading from './components/common/Loading';
-import BackToTop from './components/common/BackToTop';
 import NetworkStatus from './components/common/NetworkStatus';
 import { logPageLoadTime } from './utils/performance';
 import { initSEO } from './utils/seo';
@@ -57,7 +56,6 @@ function App() {
         <Suspense fallback={<Loading />}>
           <RouterProvider router={router} />
         </Suspense>
-        <BackToTop />
       </QueryClientProvider>
     </ErrorBoundary>
   );

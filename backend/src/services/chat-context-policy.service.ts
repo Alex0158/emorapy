@@ -8,7 +8,6 @@ import {
   ContextTargetType,
   ContextUseDecision,
   Prisma,
-  PrivateContextUseMode,
 } from '@prisma/client';
 import prisma from '../config/database';
 import { getAIPromptVersion } from '../utils/ai-prompt-version';
@@ -19,7 +18,6 @@ import {
   buildVisibleChatMessageWhere,
   filterSharedContextMessages,
 } from './chat-message-audience-policy';
-import { mediationStrategyService, type MediationControls } from './mediation-strategy.service';
 
 type ContextMessage = {
   id: string;
@@ -51,7 +49,12 @@ export type SharedMediationContextBundle = {
   policyVersion: string;
   messages: ContextMessage[];
   capsules: SharedCapsule[];
-  controls: MediationControls | null;
+  /**
+   * Wave 0 containment: shared/formal AI cannot consume private-derived
+   * dynamic controls until per-owner compilation and all-participant consent
+   * are durable product contracts.
+   */
+  controls: null;
   sourceRefs: string[];
   authorizationRefs: string[];
 };
@@ -66,15 +69,10 @@ type PrivateSupportInput = {
 type SharedMediationInput = {
   roomId: string;
   maxMessages?: number;
-  includePrivateControls?: boolean;
 };
 
-type RoomWithParticipants = Prisma.ChatRoomGetPayload<{
-  include: { participants: true };
-}>;
-
 export type ProcessControlBundle = {
-  controls: MediationControls | null;
+  controls: null;
   policyVersion: string;
 };
 
@@ -138,115 +136,14 @@ export class ChatContextPolicyService {
     });
   }
 
-  private async resolveProcessControls(
-    room: RoomWithParticipants,
-    purpose: 'shared_mediation' | 'formal_analysis_delivery',
-    audience: 'room_participants' | 'analysis_participants',
-  ): Promise<MediationControls | null> {
-    const optedInParticipants = room.participants.filter(
-      participant =>
-        participant.participant_type === 'user' &&
-        participant.is_active &&
-        participant.left_at === null &&
-        participant.private_context_use_mode === PrivateContextUseMode.shared_process_controls &&
-        (participant.role_in_room === ChatRoleInRoom.roleA ||
-          participant.role_in_room === ChatRoleInRoom.roleB)
-    );
-    const optedInParticipantIds = optedInParticipants.map(participant => participant.id);
-    if (optedInParticipantIds.length === 0) return null;
-
-    const candidates = await prisma.chatMessage.findMany({
-      where: {
-        room_id: room.id,
-        message_type: ChatMessageType.user_text,
-        ai_context_eligible: true,
-        sender_participant_id: { in: optedInParticipantIds },
-        OR: [
-          {
-            channel: {
-              is: {
-                kind: ChatChannelKind.private,
-                owner_participant_id: { in: optedInParticipantIds },
-              },
-            },
-          },
-          {
-            channel_id: null,
-            visibility_scope: {
-              in: [ChatVisibilityScope.owner_only, ChatVisibilityScope.summary_only],
-            },
-          },
-        ],
-      },
-      select: {
-        id: true,
-        content: true,
-        sender_participant_id: true,
-        channel: { select: { owner_participant_id: true } },
-      },
-      orderBy: { created_at: 'desc' },
-      take: 40,
-    });
-    const privateMessages = candidates.filter(message => (
-      optedInParticipantIds.includes(message.sender_participant_id)
-      && (
-        message.channel?.owner_participant_id === message.sender_participant_id
-        || message.channel === null
-      )
-    ));
-    if (privateMessages.length === 0) return null;
-
-    // The durable receipt is the fail-closed gate before raw private text may
-    // cross the external model boundary. It intentionally contains IDs only.
-    await this.recordUse({
-      roomId: room.id,
-      purpose,
-      audience,
-      decision: ContextUseDecision.allowed,
-      reasonCode: 'private_process_controls_requested',
-      sourceRefs: privateMessages.map(message => message.id),
-      promptVersion: getAIPromptVersion('chat_mediation_strategy'),
-    });
-    const extraction = await mediationStrategyService.extractAggregatedControlsWithOutcome(
-      room.id,
-      optedInParticipants.map(participant => ({
-        participantId: participant.id,
-        messages: privateMessages
-          .filter(message => (
-            message.sender_participant_id === participant.id
-            && (
-              message.channel?.owner_participant_id === participant.id
-              || message.channel === null
-            )
-          ))
-          .map(message => message.content)
-          .reverse(),
-      })),
-    );
-    await this.recordUse({
-      roomId: room.id,
-      purpose,
-      audience,
-      decision: extraction.controls ? ContextUseDecision.allowed : ContextUseDecision.denied,
-      reasonCode: `private_process_controls_${extraction.outcome}`,
-      sourceRefs: privateMessages.map(message => message.id),
-      promptVersion: getAIPromptVersion('chat_mediation_strategy'),
-    });
-    return extraction.controls;
-  }
-
   async resolveFormalAnalysisDelivery(roomId: string): Promise<ProcessControlBundle> {
     const room = await prisma.chatRoom.findUnique({
       where: { id: roomId },
-      include: { participants: true },
+      select: { id: true },
     });
     if (!room) throw Errors.NOT_FOUND('聊天室不存在');
     return {
-      controls: await this.resolveProcessControls(
-        room,
-        ContextPurpose.formal_analysis_delivery,
-        ContextAudience.analysis_participants,
-      ),
+      controls: null,
       policyVersion: CHAT_CONTEXT_POLICY_VERSION,
     };
   }
@@ -433,13 +330,6 @@ export class ChatContextPolicyService {
       ];
     });
 
-    const controls = input.includePrivateControls === false
-      ? null
-      : await this.resolveProcessControls(
-          room,
-          ContextPurpose.shared_mediation,
-          ContextAudience.room_participants,
-        );
     await Promise.all(
       capsules.map(capsule =>
         this.recordUse({
@@ -464,7 +354,7 @@ export class ChatContextPolicyService {
       policyVersion: CHAT_CONTEXT_POLICY_VERSION,
       messages,
       capsules,
-      controls,
+      controls: null,
       sourceRefs: messages.map(message => message.id),
       authorizationRefs: capsules.flatMap(capsule => capsule.authorizationIds),
     };

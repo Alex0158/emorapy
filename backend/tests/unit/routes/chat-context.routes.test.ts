@@ -149,6 +149,27 @@ describe('chat-context.routes', () => {
     expect(response.body.data.approval.id).toBe('approval-1');
   });
 
+  it('accepts a message-only exact selection with an explicit empty capsule list', async () => {
+    const dependencies = createDependencies();
+    const app = createApp(dependencies);
+    const body = {
+      selected_message_ids: [MESSAGE_ID],
+      selected_capsule_ids: [],
+    };
+
+    const response = await request(app)
+      .post(`/chat/rooms/${ROOM_ID}/analysis-requests`)
+      .set('x-session-id', SESSION_ID)
+      .send(body);
+
+    expect(response.status).toBe(201);
+    expect(dependencies.analysisService.createRequest).toHaveBeenCalledWith(
+      ROOM_ID,
+      { userId: undefined, sessionId: SESSION_ID },
+      body
+    );
+  });
+
   it('exposes submit as a separate exact-consent transition', async () => {
     const dependencies = createDependencies();
     const app = createApp(dependencies);

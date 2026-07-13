@@ -170,5 +170,29 @@ describe('ChatEventsService', () => {
 
     expect(disconnected).toHaveBeenCalledTimes(1);
     expect(entitlements.getConnectionCount('participant-b2')).toBe(0);
+    const lateRegistration = jest.fn();
+    entitlements.watchParticipant('participant-b2', lateRegistration);
+    expect(lateRegistration).toHaveBeenCalledTimes(1);
+  });
+
+  it('transient durable validation error 應關閉當前 watcher，但不永久毒化後續連線', async () => {
+    const validateParticipant = jest.fn<(_participantId: string) => Promise<boolean>>()
+      .mockRejectedValueOnce(new Error('database timeout'))
+      .mockResolvedValueOnce(true);
+    const entitlements = new ChatStreamEntitlementService(validateParticipant);
+    const firstDisconnected = jest.fn();
+    entitlements.watchParticipant('participant-b2', firstDisconnected);
+
+    await expect(entitlements.revalidateParticipantNow('participant-b2')).resolves.toBe(false);
+
+    expect(firstDisconnected).toHaveBeenCalledTimes(1);
+    expect(entitlements.getConnectionCount('participant-b2')).toBe(0);
+
+    const secondDisconnected = jest.fn();
+    const stopSecond = entitlements.watchParticipant('participant-b2', secondDisconnected);
+    expect(secondDisconnected).not.toHaveBeenCalled();
+    await expect(entitlements.revalidateParticipantNow('participant-b2')).resolves.toBe(true);
+    expect(entitlements.getConnectionCount('participant-b2')).toBe(1);
+    stopSecond();
   });
 });

@@ -167,10 +167,35 @@ describe('middleware/auth', () => {
     it('驗證通過應設置 req.user 並 next()', async () => {
       const req = createReq({ headers: { authorization: 'Bearer ok' } });
       mockVerifyToken.mockReturnValue({ id: 'user-1', email: 'u@x.com', token_version: 0 });
-      mockFindUniqueUser.mockResolvedValue({ id: 'user-1', email: 'u@x.com', is_active: true, token_version: 0 } as never);
+      mockFindUniqueUser.mockResolvedValue({
+        id: 'user-1',
+        email: 'u@x.com',
+        is_active: true,
+        email_verified: true,
+        token_version: 0,
+      } as never);
       await authenticate(req, createRes(), next);
       expect(req.user).toEqual({ id: 'user-1', email: 'u@x.com' });
       expect(next).toHaveBeenCalledWith();
+    });
+
+    it('legacy 未驗證帳戶的 JWT 應 fail closed', async () => {
+      const req = createReq({ headers: { authorization: 'Bearer legacy' } });
+      mockVerifyToken.mockReturnValue({ id: 'user-1', email: 'u@x.com', token_version: 0 });
+      mockFindUniqueUser.mockResolvedValue({
+        id: 'user-1',
+        email: 'u@x.com',
+        is_active: true,
+        email_verified: false,
+        token_version: 0,
+      } as never);
+
+      await authenticate(req, createRes(), next);
+
+      expect(req.user).toBeUndefined();
+      expect(next).toHaveBeenCalledWith(expect.objectContaining({
+        code: 'EMAIL_NOT_VERIFIED',
+      }));
     });
   });
 
@@ -185,9 +210,32 @@ describe('middleware/auth', () => {
     it('有效 Token 且用戶存在應設置 req.user', async () => {
       const req = createReq({ headers: { authorization: 'Bearer ok' } });
       mockVerifyToken.mockReturnValue({ id: 'user-1', email: 'u@x.com', token_version: 0 });
-      mockFindUniqueUser.mockResolvedValue({ id: 'user-1', email: 'u@x.com', is_active: true, token_version: 0 } as never);
+      mockFindUniqueUser.mockResolvedValue({
+        id: 'user-1',
+        email: 'u@x.com',
+        is_active: true,
+        email_verified: true,
+        token_version: 0,
+      } as never);
       await optionalAuthenticate(req, createRes(), next);
       expect(req.user).toEqual({ id: 'user-1', email: 'u@x.com' });
+      expect(next).toHaveBeenCalledWith();
+    });
+
+    it('optional auth 不得將未驗證帳戶視為已登入', async () => {
+      const req = createReq({ headers: { authorization: 'Bearer legacy' } });
+      mockVerifyToken.mockReturnValue({ id: 'user-1', email: 'u@x.com', token_version: 0 });
+      mockFindUniqueUser.mockResolvedValue({
+        id: 'user-1',
+        email: 'u@x.com',
+        is_active: true,
+        email_verified: false,
+        token_version: 0,
+      } as never);
+
+      await optionalAuthenticate(req, createRes(), next);
+
+      expect(req.user).toBeUndefined();
       expect(next).toHaveBeenCalledWith();
     });
 

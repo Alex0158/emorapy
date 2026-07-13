@@ -187,6 +187,18 @@ enum VerificationType {
   verify_email
 }
 
+enum AuthChallengeDeliveryStatus {
+  pending
+  provider_accepted
+  failed
+  release_fixture_ready
+}
+
+enum AuthChallengeSource {
+  provider
+  release_fixture
+}
+
 enum ContentType {
   article
   case_sample
@@ -424,7 +436,8 @@ enum ContextUseDecision {
 // 模型定義
 model User {
   id                    String             @id @default(uuid())
-  email                 String             @unique
+  /// Current auth runtime writes lowercase/trimmed addresses; CITEXT preserves case-insensitive lookup and uniqueness if a rollback runtime writes original casing.
+  email                 String             @unique @db.Citext
   password_hash         String
   nickname              String?
   avatar_url            String?
@@ -1310,6 +1323,32 @@ model EmailVerification {
   @@index([code])
   @@index([expires_at])
   @@map("email_verifications")
+}
+
+model AuthChallenge {
+  id                            String                      @id @default(uuid())
+  email                         String                      @db.VarChar(255)
+  type                          VerificationType
+  code_digest                   String                      @db.VarChar(64)
+  source                        AuthChallengeSource         @default(provider)
+  delivery_status               AuthChallengeDeliveryStatus @default(pending)
+  attempt_count                 Int                         @default(0)
+  expires_at                    DateTime
+  provider_accepted_at          DateTime?
+  delivery_failed_at            DateTime?
+  provider_message_id_digest    String?                     @db.VarChar(64)
+  verified_at                   DateTime?
+  consumed_at                   DateTime?
+  invalidated_at                DateTime?
+  registration_proof_digest     String?                     @unique @db.VarChar(64)
+  registration_proof_expires_at DateTime?
+  created_at                    DateTime                    @default(now())
+  updated_at                    DateTime                    @updatedAt
+
+  @@index([email, type, created_at])
+  @@index([expires_at])
+  @@index([registration_proof_expires_at])
+  @@map("auth_challenges")
 }
 
 model ContentItem {

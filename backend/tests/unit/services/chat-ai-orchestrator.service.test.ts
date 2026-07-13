@@ -292,7 +292,6 @@ describe('ChatAIOrchestrator prompt 選擇', () => {
     expect(resolveSharedMediationMock).toHaveBeenCalledWith({
       roomId: 'room-shared-context',
       maxMessages: 30,
-      includePrivateControls: true,
     });
     expect(prisma.chatMessage.findMany).not.toHaveBeenCalled();
   });

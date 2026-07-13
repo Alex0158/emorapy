@@ -130,12 +130,35 @@ const contracts = [
         needles: [
           'testID="auth.screen"',
           'testID="auth.submit"',
+          'useAuthFlow',
+        ],
+      },
+      {
+        path: 'mobile/src/features/m1/useAuthFlow.ts',
+        label: 'Proof-first Auth and claim-session state machine',
+        needles: [
           'm1Api.auth.login',
+          'm1Api.auth.sendVerificationCode',
+          'm1Api.auth.verifyRegistrationCode',
+          'm1Api.auth.verifyEmail',
           'm1Api.auth.register',
           'm1Api.auth.claimSession',
           'tokenStorage.setToken',
           'pendingLandingStorage.consumePendingHref',
           'clearAppStorageWithPushCleanup',
+        ],
+      },
+      {
+        path: 'mobile/src/features/m1/RegistrationVerificationStep.tsx',
+        label: 'Proof-first registration and existing-email verification step',
+        needles: [
+          "root: 'auth.registration.verification'",
+          "codeInput: 'auth.registration.code.input'",
+          "complete: 'auth.registration.complete'",
+          "resend: 'auth.registration.resend'",
+          "back: 'auth.registration.back'",
+          "root: 'auth.login-verification.verification'",
+          "codeInput: 'auth.login-verification.code.input'",
         ],
       },
       {

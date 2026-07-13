@@ -63,6 +63,7 @@ function createApp() {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const sendJson = (res: any, body: unknown) => res.status(200).json(body);
 const send201 = (res: unknown, body: unknown) => (res as { status: (n: number) => { json: (b: unknown) => void } }).status(201).json(body);
+const send202 = (res: unknown, body: unknown) => (res as { status: (n: number) => { json: (b: unknown) => void } }).status(202).json(body);
 
 describe('auth.routes', () => {
   beforeEach(() => {
@@ -74,13 +75,13 @@ describe('auth.routes', () => {
       sendJson(res, { success: true, data: { user: {}, token: '' } })
     );
     mockSendVerificationCode.mockImplementation((_req: unknown, res: unknown) =>
-      sendJson(res, { success: true, data: { expires_in: 300 } })
+      sendJson(res, { success: true, data: { expires_in: 300, resend_after: 60 } })
     );
     mockVerifyEmail.mockImplementation((_req: unknown, res: unknown) =>
       sendJson(res, { success: true, data: { verified: true } })
     );
     mockResetPassword.mockImplementation((_req: unknown, res: unknown) =>
-      sendJson(res, { success: true, data: { expires_in: 300 } })
+      send202(res, { success: true, data: { expires_in: 300 } })
     );
     mockConfirmResetPassword.mockImplementation((_req: unknown, res: unknown) =>
       sendJson(res, { success: true, data: {} })
@@ -145,12 +146,13 @@ describe('auth.routes', () => {
     expect(mockSendVerificationCode).toHaveBeenCalled();
   });
 
-  it('sendVerificationCode 成功時應返回 data.expires_in（F09 邊界）', async () => {
+  it('sendVerificationCode 成功時應返回 expiry 與 resend cooldown（F09 邊界）', async () => {
     const app = createApp();
     const res = await request(app).post('/send-verification-code').send({ email: 'a@b.com' });
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.data).toHaveProperty('expires_in');
+    expect(res.body.data).toHaveProperty('resend_after');
   });
 
   it('POST /verify-email 應調用 verifyEmail 並返回 200', async () => {
@@ -168,17 +170,17 @@ describe('auth.routes', () => {
     expect(res.body.data).toHaveProperty('verified');
   });
 
-  it('POST /reset-password 應調用 resetPassword 並返回 200', async () => {
+  it('POST /reset-password 應調用 resetPassword 並返回 202', async () => {
     const app = createApp();
     const res = await request(app).post('/reset-password').send({ email: 'a@b.com' });
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(202);
     expect(mockResetPassword).toHaveBeenCalled();
   });
 
   it('resetPassword 成功時應返回 data.expires_in（F09 邊界）', async () => {
     const app = createApp();
     const res = await request(app).post('/reset-password').send({ email: 'a@b.com' });
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(202);
     expect(res.body.success).toBe(true);
     expect(res.body.data).toHaveProperty('expires_in');
   });

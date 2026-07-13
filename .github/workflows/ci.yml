@@ -31,7 +31,9 @@ jobs:
         timeout-minutes: 2
 
       - name: Check production release contracts
-        run: npm run ops:release:rollback:test
+        run: |
+          npm run ops:release:rollback:test
+          npm run ops:release:email-contract:test
         timeout-minutes: 2
 
   backend:
@@ -179,6 +181,34 @@ jobs:
         working-directory: backend
         run: npm run build:prod
 
+      - name: Start authenticated TLS SMTP sink
+        env:
+          SMTP_SINK_CERT_PATH: ${{ github.workspace }}/temp/ci-smtps-sink/cert.pem
+          SMTP_SINK_KEY_PATH: ${{ github.workspace }}/temp/ci-smtps-sink/key.pem
+        run: |
+          set -euo pipefail
+          mkdir -p temp/ci-smtps-sink
+          openssl req -x509 -newkey rsa:2048 -nodes \
+            -keyout "${SMTP_SINK_KEY_PATH}" \
+            -out "${SMTP_SINK_CERT_PATH}" \
+            -days 1 \
+            -subj '/CN=localhost' \
+            -addext 'subjectAltName=DNS:localhost,IP:127.0.0.1' \
+            -addext 'basicConstraints=critical,CA:TRUE' \
+            -addext 'keyUsage=critical,keyCertSign,digitalSignature,keyEncipherment' \
+            -addext 'extendedKeyUsage=serverAuth' \
+            >/dev/null 2>&1
+          node scripts/ci-smtps-sink.mjs > smtp-sink.log 2>&1 &
+          for i in {1..20}; do
+            if curl -sf "http://127.0.0.1:8025/health" >/dev/null; then
+              echo "Authenticated TLS SMTP sink ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          tail -n 100 smtp-sink.log || true
+          exit 1
+
       - name: Start backend (production-like)
         working-directory: backend
         env:
@@ -195,12 +225,23 @@ jobs:
           ALLOW_SIMPLE_LOCK: 'true'
           ENABLE_SCHEDULED_JOBS: 'false'
           METRICS_ENABLED: 'false'
+          EMAIL_DELIVERY_MODE: smtp
+          EMAIL_FROM: noreply@example.com
+          EMAIL_OTP_PEPPER: ci-production-like-email-otp-pepper-2026
+          EMAIL_TRANSPORT_VERIFY_TIMEOUT_MS: '5000'
+          SMTP_HOST: localhost
+          SMTP_PORT: '2465'
+          SMTP_USER: emorapy-ci
+          SMTP_PASS: emorapy-ci-password
+          SMTP_SECURE: 'true'
+          SMTP_REQUIRE_TLS: 'true'
+          NODE_EXTRA_CA_CERTS: ${{ github.workspace }}/temp/ci-smtps-sink/cert.pem
         run: npm run start > ../backend-prod-smoke.log 2>&1 &
 
       - name: Wait for backend ready
         run: |
           for i in {1..45}; do
-            if curl -sf "http://127.0.0.1:3001/health" >/dev/null; then
+            if curl -sf "http://127.0.0.1:3001/health/ready" >/dev/null; then
               echo "Backend ready"
               exit 0
             fi
@@ -256,6 +297,16 @@ jobs:
           ADMIN_PASSWORD: AdminPass1234
         run: bash scripts/smoke-production-like.sh
 
+      - name: Run email registration and claim smoke
+        env:
+          BACKEND_BASE_URL: http://127.0.0.1:3001
+          API_BASE_URL: http://127.0.0.1:3001/api/v1
+          ORIGIN: http://127.0.0.1:4173
+          DATABASE_URL: postgresql://emorapy:emorapy_dev_pass@127.0.0.1:5432/emorapy_smoke
+          SMTP_SINK_API_URL: http://127.0.0.1:8025
+          CLAIM_SMOKE_DISABLE_CREATED_USER: 'true'
+        run: bash scripts/smoke-claim-session-production-like.sh
+
       - name: Dump production-like logs on failure
         if: failure()
         run: |
@@ -263,6 +314,8 @@ jobs:
           tail -n 200 backend-prod-smoke.log || true
           echo "===== frontend-prod-smoke.log (tail 200) ====="
           tail -n 200 frontend-prod-smoke.log || true
+          echo "===== smtp-sink.log (tail 100) ====="
+          tail -n 100 smtp-sink.log || true
 
       - name: Upload production-like artifacts
         if: always()
@@ -272,6 +325,7 @@ jobs:
           path: |
             backend-prod-smoke.log
             frontend-prod-smoke.log
+            smtp-sink.log
           if-no-files-found: ignore
 
   frontend:

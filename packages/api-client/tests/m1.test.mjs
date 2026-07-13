@@ -124,7 +124,7 @@ describe('M1 API client', () => {
   it('logs in, registers, and claims session through auth API', async () => {
     const auth = {
       token: 'jwt',
-      user: { id: 'user_1', email: 'user@example.com', email_verified: false },
+      user: { id: 'user_1', email: 'user@example.com', email_verified: true },
     };
     const http = createMockHttp({
       'POST /auth/login': (data) => {
@@ -133,6 +133,7 @@ describe('M1 API client', () => {
       },
       'POST /auth/register': (data) => {
         assert.equal(data.nickname, 'Alex');
+        assert.equal(data.registration_proof, 'rp1_registration-proof');
         return ok(auth);
       },
       'POST /auth/claim-session': (data) => {
@@ -143,7 +144,12 @@ describe('M1 API client', () => {
     const client = createM1ApiClient(http);
 
     assert.equal((await client.auth.login({ email: 'user@example.com', password: 'Password123' })).token, 'jwt');
-    assert.equal((await client.auth.register({ email: 'user@example.com', password: 'Password123', nickname: 'Alex' })).user.id, 'user_1');
+    assert.equal((await client.auth.register({
+      email: 'user@example.com',
+      password: 'Password123',
+      registration_proof: 'rp1_registration-proof',
+      nickname: 'Alex',
+    })).user.id, 'user_1');
     assert.equal((await client.auth.claimSession('guest_1')).case_id, 'case_1');
   });
 
@@ -151,9 +157,17 @@ describe('M1 API client', () => {
     const http = createMockHttp({
       'POST /auth/send-verification-code': (data) => {
         assert.deepEqual(data, { email: 'user@example.com', type: 'register' });
-        return ok(null);
+        return ok({ expires_in: 300, resend_after: 60 });
       },
       'POST /auth/verify-email': (data) => {
+        if (data.type === 'register') {
+          assert.deepEqual(data, { email: 'user@example.com', code: '654321', type: 'register' });
+          return ok({
+            verified: true,
+            registration_proof: 'rp1_registration-proof',
+            registration_proof_expires_in: 600,
+          });
+        }
         assert.deepEqual(data, { email: 'user@example.com', code: '123456', type: 'verify_email' });
         return ok({ verified: true });
       },
@@ -172,7 +186,18 @@ describe('M1 API client', () => {
     });
     const client = createM1ApiClient(http);
 
-    await client.auth.sendVerificationCode('user@example.com', 'register');
+    assert.deepEqual(
+      await client.auth.sendVerificationCode('user@example.com', 'register'),
+      { expires_in: 300, resend_after: 60 }
+    );
+    assert.deepEqual(
+      await client.auth.verifyRegistrationCode('user@example.com', '654321'),
+      {
+        verified: true,
+        registration_proof: 'rp1_registration-proof',
+        registration_proof_expires_in: 600,
+      }
+    );
     assert.equal(await client.auth.verifyEmail('user@example.com', '123456'), true);
     await client.auth.resetPassword('user@example.com');
     await client.auth.confirmResetPassword('user@example.com', '123456', 'Password456');
@@ -201,8 +226,36 @@ describe('M1 API client', () => {
       (error) => error.code === 'VALIDATION_ERROR' && error.message === 'Invalid input'
     );
     await assert.rejects(
-      () => client.auth.register({ email: 'user@example.com', password: 'Password123' }),
+      () => client.auth.register({
+        email: 'user@example.com',
+        password: 'Password123',
+        registration_proof: 'rp1_registration-proof',
+      }),
       (error) => error.code === 'INVALID_AUTH_RESPONSE'
+    );
+  });
+
+  it('rejects registration verification responses without an opaque proof', async () => {
+    const http = createMockHttp({
+      'POST /auth/verify-email': () => ok({ verified: true }),
+    });
+    const client = createM1ApiClient(http);
+
+    await assert.rejects(
+      () => client.auth.verifyRegistrationCode('user@example.com', '123456'),
+      (error) => error.code === 'INVALID_REGISTRATION_VERIFICATION_RESPONSE'
+    );
+  });
+
+  it('rejects invalid verification delivery cooldown responses', async () => {
+    const http = createMockHttp({
+      'POST /auth/send-verification-code': () => ok({ expires_in: 300, resend_after: 301 }),
+    });
+    const client = createM1ApiClient(http);
+
+    await assert.rejects(
+      () => client.auth.sendVerificationCode('user@example.com', 'register'),
+      (error) => error.code === 'INVALID_VERIFICATION_CODE_DELIVERY_RESPONSE'
     );
   });
 });

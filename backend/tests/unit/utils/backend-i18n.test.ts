@@ -16,6 +16,14 @@ describe('backend i18n', () => {
     );
     expect(translateBackendMessage('en-US', '服務內部錯誤')).toBe('Internal service error');
     expect(translateBackendMessage('en-US', 'AI 重調失敗')).toBe('AI adjustment failed');
+    expect(translateBackendMessage('en-US', '註冊驗證格式無效')).toBe(
+      'Invalid registration verification format'
+    );
+    expect(translateBackendMessage('en-US', '註冊成功')).toBe('Registration successful');
+    expect(translateBackendMessage(
+      'en-US',
+      '若該帳戶存在，我們已開始處理密碼重置請求'
+    )).toBe('If the account exists, we have started processing the password reset request');
   });
 
   it('translates errorHandler special-case response messages to en-US', () => {

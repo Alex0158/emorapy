@@ -12,6 +12,17 @@ jest.mock('../../../src/config/logger', () => ({
 describe('config/env', () => {
   const origEnv = process.env;
 
+  function setValidProductionEmailEnv() {
+    process.env.EMAIL_DELIVERY_MODE = 'smtp';
+    process.env.EMAIL_FROM = 'noreply@example.com';
+    process.env.EMAIL_OTP_PEPPER = 'test-email-otp-pepper-at-least-32-characters';
+    process.env.SMTP_HOST = 'smtp.example.com';
+    process.env.SMTP_PORT = '587';
+    process.env.SMTP_USER = 'smtp-user';
+    process.env.SMTP_PASS = 'smtp-password';
+    process.env.SMTP_REQUIRE_TLS = 'true';
+  }
+
   beforeEach(() => {
     jest.clearAllMocks();
     process.env = { ...origEnv };
@@ -149,6 +160,7 @@ describe('config/env', () => {
     process.env.ADMIN_JWT_SECRET = 'AdminProdKey_1zX9vB6nM3kL8pQ2wS5eR7tY0uI4oP';
     process.env.METRICS_ENABLED = 'true';
     process.env.METRICS_TOKEN = 'metrics-token-for-tests';
+    setValidProductionEmailEnv();
     jest.resetModules();
     const mod = await import('../../../src/config/env');
     expect(mod.env.METRICS_ENABLED).toBe(true);

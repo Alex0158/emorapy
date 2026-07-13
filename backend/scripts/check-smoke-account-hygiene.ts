@@ -1,9 +1,11 @@
 import { PrismaClient } from '../src/types/prisma-client';
 import {
+  GENERATED_SMOKE_USER_EMAIL_PATTERNS,
   SMOKE_ADMIN_EMAILS_TO_DISABLE,
   SMOKE_USER_EMAILS_TO_DISABLE,
   type SmokeAccountCandidate,
   buildSmokeAccountHygieneReport,
+  collectSmokeAccountCandidates,
 } from '../src/utils/smoke-account-hygiene';
 
 try {
@@ -17,47 +19,6 @@ const prisma = new PrismaClient();
 
 const shouldDisable = process.env.SMOKE_ACCOUNT_HYGIENE_DISABLE === 'true';
 
-async function collectCandidates(): Promise<SmokeAccountCandidate[]> {
-  const [users, adminUsers] = await Promise.all([
-    prisma.user.findMany({
-      where: {
-        is_active: true,
-        deleted_at: null,
-        OR: [
-          { email: { startsWith: 'claim-smoke-', endsWith: '@example.com', mode: 'insensitive' } },
-          { email: { in: SMOKE_USER_EMAILS_TO_DISABLE, mode: 'insensitive' } },
-        ],
-      },
-      select: {
-        id: true,
-        email: true,
-        is_active: true,
-        created_at: true,
-      },
-      orderBy: { created_at: 'asc' },
-    }),
-    prisma.adminUser.findMany({
-      where: {
-        is_active: true,
-        deleted_at: null,
-        email: { in: SMOKE_ADMIN_EMAILS_TO_DISABLE, mode: 'insensitive' },
-      },
-      select: {
-        id: true,
-        email: true,
-        is_active: true,
-        created_at: true,
-      },
-      orderBy: { created_at: 'asc' },
-    }),
-  ]);
-
-  return [
-    ...users.map((user) => ({ ...user, kind: 'user' as const })),
-    ...adminUsers.map((adminUser) => ({ ...adminUser, kind: 'admin_user' as const })),
-  ];
-}
-
 async function disableFindings(candidates: SmokeAccountCandidate[]): Promise<{ disabledUsers: number; disabledAdmins: number }> {
   const userIds = candidates.filter((candidate) => candidate.kind === 'user').map((candidate) => candidate.id);
   const adminIds = candidates.filter((candidate) => candidate.kind === 'admin_user').map((candidate) => candidate.id);
@@ -69,7 +30,13 @@ async function disableFindings(candidates: SmokeAccountCandidate[]): Promise<{ d
             id: { in: userIds },
             is_active: true,
             OR: [
-              { email: { startsWith: 'claim-smoke-', endsWith: '@example.com', mode: 'insensitive' } },
+              ...GENERATED_SMOKE_USER_EMAIL_PATTERNS.map((rule) => ({
+                email: {
+                  startsWith: rule.prefix,
+                  endsWith: rule.suffix,
+                  mode: 'insensitive' as const,
+                },
+              })),
               { email: { in: SMOKE_USER_EMAILS_TO_DISABLE, mode: 'insensitive' } },
             ],
           },
@@ -95,12 +62,14 @@ async function disableFindings(candidates: SmokeAccountCandidate[]): Promise<{ d
 }
 
 async function main() {
-  const candidates = await collectCandidates();
+  const candidates = await collectSmokeAccountCandidates(prisma);
   const report = buildSmokeAccountHygieneReport(candidates);
 
   if (shouldDisable && !report.ok) {
     const disabled = await disableFindings(report.findings);
-    const postDisableReport = buildSmokeAccountHygieneReport(await collectCandidates());
+    const postDisableReport = buildSmokeAccountHygieneReport(
+      await collectSmokeAccountCandidates(prisma)
+    );
     console.log(JSON.stringify({ ...postDisableReport, disabled }, null, 2));
     process.exitCode = postDisableReport.ok ? 0 : 2;
     return;

@@ -62,6 +62,18 @@ export const Errors = {
   
   EMAIL_EXISTS: (message = '郵箱已存在') => 
     new AppError(409, 'EMAIL_EXISTS', message),
+
+  EMAIL_NOT_VERIFIED: (message = '請先完成郵箱驗證') =>
+    new AppError(403, 'EMAIL_NOT_VERIFIED', message),
+
+  EMAIL_DELIVERY_UNAVAILABLE: (message = '郵件服務暫時不可用，請稍後再試') =>
+    new AppError(503, 'EMAIL_DELIVERY_UNAVAILABLE', message),
+
+  REGISTRATION_PROOF_INVALID: (message = '註冊驗證已失效，請重新驗證郵箱') =>
+    new AppError(400, 'REGISTRATION_PROOF_INVALID', message),
+
+  REGISTRATION_PROOF_EXPIRED: (message = '註冊驗證已過期，請重新驗證郵箱') =>
+    new AppError(400, 'REGISTRATION_PROOF_EXPIRED', message),
   
   ALREADY_PAIRED: (message = '已經有配對關係') => 
     new AppError(409, 'ALREADY_PAIRED', message),

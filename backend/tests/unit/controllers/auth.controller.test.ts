@@ -65,7 +65,7 @@ describe('AuthController', () => {
       expect(res.json).toHaveBeenCalledWith({
         success: true,
         data: result,
-        message: '註冊成功，請查收驗證郵件',
+        message: '註冊成功',
       });
       expect(next).not.toHaveBeenCalled();
     });
@@ -109,8 +109,8 @@ describe('AuthController', () => {
   });
 
   describe('sendVerificationCode', () => {
-    it('成功應返回 expires_in 300', async () => {
-      mockSendVerificationCode.mockResolvedValue(undefined);
+    it('成功應返回 expires_in 300 與 resend_after 60', async () => {
+      mockSendVerificationCode.mockResolvedValue({ expires_in: 300, resend_after: 60 });
       req.body = { email: 'a@b.com', type: 'register' };
       req.locale = 'en-US';
 
@@ -119,7 +119,7 @@ describe('AuthController', () => {
       expect(mockSendVerificationCode).toHaveBeenCalledWith('a@b.com', 'register', 'en-US');
       expect(res.json).toHaveBeenCalledWith({
         success: true,
-        data: { expires_in: 300 },
+        data: { expires_in: 300, resend_after: 60 },
         message: '驗證碼已發送',
       });
     });
@@ -135,8 +135,8 @@ describe('AuthController', () => {
   });
 
   describe('verifyEmail', () => {
-    it('成功應返回 verified: true', async () => {
-      mockVerifyEmail.mockResolvedValue(true);
+    it('成功應返回服務層驗證結果', async () => {
+      mockVerifyEmail.mockResolvedValue({ verified: true });
       req.body = { email: 'a@b.com', code: '123456', type: 'verify_email' };
 
       await controller.verifyEmail(req as Request, res as Response, next);
@@ -149,13 +149,13 @@ describe('AuthController', () => {
       });
     });
 
-    it('無 type 時應傳入 register', async () => {
-      mockVerifyEmail.mockResolvedValue(true);
+    it('無 type 時應傳入 verify_email', async () => {
+      mockVerifyEmail.mockResolvedValue({ verified: true });
       req.body = { email: 'a@b.com', code: '123456' };
 
       await controller.verifyEmail(req as Request, res as Response, next);
 
-      expect(mockVerifyEmail).toHaveBeenCalledWith('a@b.com', '123456', 'register');
+      expect(mockVerifyEmail).toHaveBeenCalledWith('a@b.com', '123456', 'verify_email');
     });
 
     it('verifyEmail 拋錯時應 next(error)', async () => {
@@ -177,10 +177,11 @@ describe('AuthController', () => {
       await controller.resetPassword(req as Request, res as Response, next);
 
       expect(mockResetPassword).toHaveBeenCalledWith('a@b.com', 'en-US');
+      expect(res.status).toHaveBeenCalledWith(202);
       expect(res.json).toHaveBeenCalledWith({
         success: true,
         data: { expires_in: 300 },
-        message: '重置密碼郵件已發送',
+        message: '若該帳戶存在，我們已開始處理密碼重置請求',
       });
     });
 

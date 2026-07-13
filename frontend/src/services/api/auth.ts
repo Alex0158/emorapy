@@ -10,6 +10,8 @@ import type {
   ClaimSessionResponse,
   LoginDto,
   RegisterDto,
+  RegistrationVerificationResult,
+  VerificationCodeDeliveryResult,
   VerificationType,
 } from '@emorapy/contracts/auth';
 
@@ -37,8 +39,18 @@ export const login = async (data: LoginDto): Promise<AuthResponse> => {
 export const sendVerificationCode = async (
   email: string,
   type: VerificationType
-): Promise<void> => {
-  await sharedAuthApi.sendVerificationCode(email, type);
+): Promise<VerificationCodeDeliveryResult> => {
+  return sharedAuthApi.sendVerificationCode(email, type);
+};
+
+/**
+ * 驗證註冊驗證碼並取得一次性註冊 proof。
+ */
+export const verifyRegistrationCode = async (
+  email: string,
+  code: string
+): Promise<RegistrationVerificationResult> => {
+  return sharedAuthApi.verifyRegistrationCode(email, code);
 };
 
 /**
@@ -46,10 +58,9 @@ export const sendVerificationCode = async (
  */
 export const verifyEmail = async (
   email: string,
-  code: string,
-  type: VerificationType = 'verify_email'
+  code: string
 ): Promise<boolean> => {
-  return sharedAuthApi.verifyEmail(email, code, type);
+  return sharedAuthApi.verifyEmail(email, code);
 };
 
 /**
@@ -76,3 +87,5 @@ export const confirmResetPassword = async (
 export const claimSession = async (sessionId: string): Promise<ClaimSessionResponse> => {
   return sharedAuthApi.claimSession(sessionId);
 };
+
+export type { LoginDto, RegisterDto, RegistrationVerificationResult };

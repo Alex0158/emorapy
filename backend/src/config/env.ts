@@ -1,3 +1,5 @@
+import { resolveEmailDeliveryConfig, type EmailDeliveryConfig } from './email-delivery';
+
 // 加載環境變量
 // 優先級：系統環境變量 > .env 文件
 // 生產環境應使用系統環境變量（Railway、Vercel等平台提供）
@@ -37,6 +39,8 @@ interface EnvConfig {
   AI_COST_PRICING_JSON?: string;
   
   // 郵件配置
+  EMAIL_DELIVERY: EmailDeliveryConfig;
+  EMAIL_OTP_PEPPER?: string;
   SMTP_HOST?: string;
   SMTP_PORT?: number;
   SMTP_USER?: string;
@@ -160,6 +164,11 @@ function getEnvConfig(): EnvConfig {
   // 驗證環境變量格式
   validateEnvVars();
 
+  const emailDelivery = resolveEmailDeliveryConfig(process.env);
+  if (emailDelivery.errors.length > 0) {
+    throw new Error(`Email delivery configuration invalid: ${emailDelivery.errors.join(', ')}`);
+  }
+
   return {
     PORT: parseInt(process.env.PORT || '3000', 10),
     NODE_ENV: process.env.NODE_ENV || 'development',
@@ -182,6 +191,8 @@ function getEnvConfig(): EnvConfig {
     OPENAI_DAILY_LIMIT: parseInt(process.env.OPENAI_DAILY_LIMIT || '1000', 10),
     AI_COST_PRICING_JSON: process.env.AI_COST_PRICING_JSON,
     
+    EMAIL_DELIVERY: emailDelivery.config,
+    EMAIL_OTP_PEPPER: emailDelivery.config.otpPepper,
     SMTP_HOST: process.env.SMTP_HOST,
     SMTP_PORT: process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : undefined,
     SMTP_USER: process.env.SMTP_USER,

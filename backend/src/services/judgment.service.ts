@@ -27,7 +27,6 @@ import {
   getJudgmentMetricsPromptVersion,
   getStoredJudgmentPromptVersion,
 } from '../utils/ai-prompt-version';
-import { chatContextPolicyService } from './chat-context-policy.service';
 import { judgmentDeliveryRendererService } from './judgment-delivery-renderer.service';
 import {
   chatAnalysisEvidenceService,
@@ -274,7 +273,7 @@ export class JudgmentService {
             privateContentReadByDecisionCore: false,
             controlsApplied: false,
             policyVersion: null,
-            rendererVersion: 'judgment-delivery-renderer@v1.0',
+            rendererVersion: 'judgment-delivery-renderer@v2.0',
           },
         };
 
@@ -371,27 +370,9 @@ export class JudgmentService {
             responsibilityRatio: response.responsibilityRatio,
             emotionalAnalysis: response.emotionalAnalysis,
           };
-          let delivery = judgmentDeliveryRendererService.render(decisionCore, null, locale);
-          const sourceRoomId = case_.chat_to_case_links?.[0]?.room_id;
-          if (sourceRoomId) {
-            try {
-              const deliveryBundle = await chatContextPolicyService.resolveFormalAnalysisDelivery(
-                sourceRoomId,
-              );
-              delivery = judgmentDeliveryRendererService.render(
-                decisionCore,
-                deliveryBundle.controls,
-                locale,
-              );
-              governanceAudit.delivery.policyVersion = deliveryBundle.policyVersion;
-            } catch (error) {
-              logger.warn('Judgment delivery controls unavailable; using evidence-only core', {
-                caseId,
-                roomId: sourceRoomId,
-                error: error instanceof Error ? error.message : String(error),
-              });
-            }
-          }
+          // Universal Shared Renderer is intentionally context-free in Wave 0.
+          // The formal output cannot vary with any hidden/private-derived state.
+          const delivery = judgmentDeliveryRendererService.render(decisionCore);
           judgmentContent = delivery.content;
           responsibilityRatio = delivery.responsibilityRatio;
           summary = delivery.summary;

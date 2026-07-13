@@ -4,12 +4,12 @@
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：10-health-metrics
 **取證代碼入口**：`backend/src/app.ts`、`backend/src/routes`、`backend/src/services`、`frontend/src/services/api`、`frontend-admin/src/services/api`、`mobile/src/platform`
-**最後核驗 Commit**：`23e85ef`
-**最後核驗日期**：`2026-05-31`
+**最後核驗 Commit**：`8e93680`
+**最後核驗日期**：`2026-07-13`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**文檔版本**：v2.7
-**最後更新**：2026-05-31
+**文檔版本**：v2.8
+**最後更新**：2026-07-13
 **代碼基準**：`backend/src/routes/health.routes.ts`、`backend/src/routes/metrics.routes.ts`、`backend/src/routes/meta.routes.ts`、`backend/src/routes/app-telemetry.routes.ts`、`backend/src/config/env.ts`
 
 ---
@@ -29,8 +29,8 @@
 |---|---|---|---|---|
 | `GET /api/v1/version` | 無 | `service` `version` `commitSha` `commitShortSha` `timestamp` | 200 或 500 | 無 |
 | `GET /version` | 無 | `service` `version` `commitSha` `commitShortSha` `timestamp` | 200 或 500 | 無 |
-| `GET /health` | 無 | `status` `checks{database/environment/lock/aiStream/cron}` `responseTime` `version` `commitSha` `commitShortSha` | 200（healthy/degraded）或 500 | 無 |
-| `GET /health/ready` | 無 | `status=ready` | 503（not ready） | 無 |
+| `GET /health` | 無 | `status` `checks{database/environment/lock/aiStream/emailDelivery/cron}` `responseTime` `version` `commitSha` `commitShortSha` | 200（healthy/degraded）或 500 | 無 |
+| `GET /health/ready` | 無 | `status=ready`、`database.releaseMigrations=ready`、`emailDelivery{mode,status,verifiedAt,lastAcceptedAt?}` | 503（not ready） | 無 |
 | `GET /health/live` | 無 | `status=alive` | 通常固定 200 | 無 |
 | `GET /metrics` | header `X-Metrics-Token?`（prod） | Prometheus text body | 404（disabled）/403（forbidden）/500（unavailable） | 無 |
 | `POST /api/v1/telemetry/events` | body `events[1..20]`；單項含 `name`、`severity?`、`route?`、`request_id?`、`app_version?`、`platform?`、`build_number?`、`context?`；可帶 JWT、`X-Session-Id`、`X-Locale`、`X-Request-Id` | 202 `data.accepted_count` `data.persisted_count` `data.severities{info,warning,error}` | `VALIDATION_ERROR`、`RATE_LIMIT_EXCEEDED` | structured log；嘗試寫入最小化 `app_telemetry_events`，DB failure 不阻塞 ingest |
@@ -42,9 +42,10 @@
 - App release telemetry runtime evidence 依賴 `/version` 作目標後端版本核對：release audit 只應接受與被驗證 backend commit 對齊的 telemetry events / OTLP ingest 證據；若後續改動 backend telemetry、OTLP ingest 或 version runtime 路徑，既有 telemetry runtime evidence 必須刷新。單純 docs / evidence commit 不應讓已對齊的 runtime 證據失效。
 - `/health` 也會帶 `version / commitSha / commitShortSha`，用於部署探針在同一 payload 內比對服務健康與後端代碼版本；`/health` 的 HTTP 200 不代表完全 healthy，仍要看 `status` 與 `checks`。
 - `/health.checks.lock.message` 會揭示 `Lock backend: redis/simple-lock/...`；`/health.checks.aiStream.message` 會揭示 `AI Stream backend: redis/memory`。發布 gate 會要求 lock 與 AI Stream 都是 Redis-backed runtime。
+- Production startup 會先以 bounded `transporter.verify()` 驗證 SMTP transport；`verifiedAt` 只代表最後一次 startup transport verify，`lastAcceptedAt` 代表最後一次經 provider 接受的寄送。Health request 本身不寄信或重新探測 provider，但運行期 `transport_unavailable/not_configured` 寄送失敗會立即將 cached status 降為 `unavailable`，下次明確 provider accepted 才恢復 `ready`；單一 `recipient_rejected` 不會把全局 transport 誤判為失效。Production 必須是 `smtp/ready`；未配置或 transport unavailable 會阻止啟動／流量切入，並使運行期 `/health/ready` 回 503。
 - `/api/v1/version` 屬 API 命名空間兼容入口；root alias `/version` 雖保留了探針語義，但當前也承接版本面板的真實流量。
 - `/health` 即使 degraded 仍回 200，判斷健康要看 payload `status`，不能只看 HTTP code。
-- `/health/ready` 專用於就緒檢查；DB 不可用時 503。
+- `/health/ready` 專用於就緒檢查；required migration 未套用或 Production email transport 未達 ready 時返回 503。
 - `/health/live` 為進程存活探針，正常情況固定返回 `200 + {status:'alive'}`。
 - `app.ts` 將 `/health*`、`/version`、`/api/v1/version` 歸為 public status path，來源驗證與 CORS 走白名單豁免分支（`origin: false`）；因此監控探針不依賴瀏覽器 Origin。
 - `app.ts` 在 production 只對 `/api/v1/telemetry/events` 與 `/api/v1/telemetry/otlp/v1/traces` 允許無 `Origin` 的 App native runtime 請求通過 CORS 前置檢查；非白名單瀏覽器 `Origin` 仍必須返回 `CORS_ORIGIN_DENIED`，其他 API 無 `Origin` 也不得被這個例外放行。
@@ -70,6 +71,7 @@
 7. `POST /api/v1/telemetry/events` 匿名請求返回 202 並只回 accepted / persisted count 與 severity summary；invalid name 或超過 20 條 events 返回 `VALIDATION_ERROR`。
 8. `POST /api/v1/telemetry/otlp/v1/traces` 匿名請求返回 202 並只回 accepted / persisted count / severity summary / partial_success；超過 span 上限或非法 trace id 返回 `VALIDATION_ERROR`。
 9. App telemetry backend log 與 DB persistence 必須二次 redaction token/session/secret/password 類 key；DB persistence failure 只能降級為 `persisted_count=0`，不得阻塞 App 主流程。
+10. Production `/health/ready` 必須回 `emailDelivery.mode=smtp / status=ready / verifiedAt`；release gate 同時檢查 `/health.checks.emailDelivery=healthy`，不得只以 HTTP 200 判斷。
 
 ## 錯誤碼覆蓋矩陣（API -> code -> UI 行為）
 

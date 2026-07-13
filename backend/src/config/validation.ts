@@ -30,6 +30,10 @@ export function validateEnvConfig(): void {
     errors.push('OPENAI_API_KEY is required');
   }
 
+  if (env.NODE_ENV === 'production' && env.EMAIL_DELIVERY.mode !== 'smtp') {
+    errors.push('EMAIL_DELIVERY_MODE=smtp is required in production');
+  }
+
   // 驗證端口範圍
   if (env.PORT < 1 || env.PORT > 65535) {
     errors.push('PORT must be between 1 and 65535');

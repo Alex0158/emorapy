@@ -6,8 +6,6 @@ const mockPrisma = {
   contextUseAudit: { create: jest.fn() },
 };
 
-const mockExtractAggregatedControlsWithOutcome = jest.fn();
-
 jest.mock('@prisma/client', () => ({
   ChatChannelKind: { shared: 'shared', private: 'private' },
   ChatHistoryVisibilityMode: {
@@ -54,13 +52,6 @@ jest.mock('@prisma/client', () => ({
 jest.mock('../../../src/config/database', () => ({
   __esModule: true,
   default: mockPrisma,
-}));
-
-jest.mock('../../../src/services/mediation-strategy.service', () => ({
-  __esModule: true,
-  mediationStrategyService: {
-    extractAggregatedControlsWithOutcome: mockExtractAggregatedControlsWithOutcome,
-  },
 }));
 
 import { ChatContextPolicyService } from '../../../src/services/chat-context-policy.service';
@@ -153,92 +144,95 @@ describe('ChatContextPolicyService privacy firewall', () => {
     jest.clearAllMocks();
     mockPrisma.contextUseAudit.create.mockResolvedValue({ id: 'audit-1' });
     mockPrisma.contextCapsule.findMany.mockResolvedValue([]);
-    mockExtractAggregatedControlsWithOutcome.mockResolvedValue({
-      controls: {
-        pace: 'slower',
-        ask_permission_before_depth: true,
-        offer_pause: true,
-        question_style: 'gentle',
-        max_questions: 1,
-      },
-      outcome: 'emitted',
-    });
   });
 
-  it('shared mediation 只讀 opted-in 本人私訊，bundle 與 audit 不洩漏 private raw', async () => {
+  it('private controls on/off 的 shared mediation bundle byte-identical，且不查詢 private raw', async () => {
     mockPrisma.chatRoom.findUnique.mockResolvedValue(
       room([
         participant(PARTICIPANT_A, 'roleA', 'shared_process_controls'),
         participant(PARTICIPANT_B, 'roleB', 'private_only'),
       ])
     );
-    mockPrisma.chatMessage.findMany.mockResolvedValueOnce([sharedMessage()]).mockResolvedValueOnce([
-      {
-        id: 'private-a',
-        content: 'PRIVATE-A-RAW',
-        sender_participant_id: PARTICIPANT_A,
-        channel: { owner_participant_id: PARTICIPANT_A },
-      },
-      {
-        id: 'private-b',
-        content: 'PRIVATE-B-RAW',
-        sender_participant_id: PARTICIPANT_B,
-        channel: { owner_participant_id: PARTICIPANT_B },
-      },
-      {
-        id: 'private-cross-owner',
-        content: 'PRIVATE-CROSS-RAW',
-        sender_participant_id: PARTICIPANT_B,
-        channel: { owner_participant_id: PARTICIPANT_A },
-      },
-    ]);
+    mockPrisma.chatMessage.findMany.mockResolvedValue([sharedMessage()]);
 
-    const bundle = await new ChatContextPolicyService().resolveSharedMediation({
+    const service = new ChatContextPolicyService();
+    const optedInBundle = await service.resolveSharedMediation({
+      roomId: ROOM_ID,
+    });
+    mockPrisma.chatRoom.findUnique.mockResolvedValue(
+      room([
+        participant(PARTICIPANT_A, 'roleA', 'private_only'),
+        participant(PARTICIPANT_B, 'roleB', 'private_only'),
+      ])
+    );
+    const privateOnlyBundle = await service.resolveSharedMediation({
       roomId: ROOM_ID,
     });
 
-    expect(mockPrisma.chatMessage.findMany.mock.calls[1][0].where).toMatchObject({
-      room_id: ROOM_ID,
-      message_type: 'user_text',
-      ai_context_eligible: true,
-      sender_participant_id: { in: [PARTICIPANT_A] },
-    });
-    expect(mockExtractAggregatedControlsWithOutcome).toHaveBeenCalledWith(ROOM_ID, [
-      { participantId: PARTICIPANT_A, messages: ['PRIVATE-A-RAW'] },
-    ]);
-    expect(mockPrisma.contextUseAudit.create.mock.invocationCallOrder[0]).toBeLessThan(
-      mockExtractAggregatedControlsWithOutcome.mock.invocationCallOrder[0],
-    );
-    expect(mockPrisma.contextUseAudit.create).toHaveBeenCalledTimes(2);
-    expect(bundle.messages.map(message => message.id)).toEqual(['shared-message']);
-    expect(bundle.sourceRefs).toEqual(['shared-message']);
-    expect(JSON.stringify(bundle)).not.toMatch(/PRIVATE-|private-a|private-b|private-cross-owner/);
-    expect(JSON.stringify(mockPrisma.contextUseAudit.create.mock.calls)).not.toMatch(
-      /PRIVATE-[ABC]/
+    expect(optedInBundle).toEqual(privateOnlyBundle);
+    expect(optedInBundle.controls).toBeNull();
+    expect(optedInBundle.messages.map(message => message.id)).toEqual(['shared-message']);
+    expect(mockPrisma.chatMessage.findMany).toHaveBeenCalledTimes(2);
+    expect(JSON.stringify(mockPrisma.chatMessage.findMany.mock.calls)).not.toMatch(
+      /owner_only|summary_only|owned_channels|private_context_use_mode/
     );
   });
 
-  it('durable pre-disclosure audit failure prevents every private provider call', async () => {
-    mockPrisma.chatRoom.findUnique.mockResolvedValue(
-      room([participant(PARTICIPANT_A, 'roleA', 'shared_process_controls')])
-    );
-    mockPrisma.chatMessage.findMany
-      .mockResolvedValueOnce([sharedMessage()])
-      .mockResolvedValueOnce([{
-        id: 'private-a',
-        content: 'PRIVATE-A-RAW',
-        sender_participant_id: PARTICIPANT_A,
-        channel: { owner_participant_id: PARTICIPANT_A },
-      }]);
-    mockPrisma.contextUseAudit.create.mockRejectedValueOnce(new Error('audit unavailable'));
+  it('formal delivery resolver 即使 legacy opt-in 存在也只回傳 disabled controls', async () => {
+    mockPrisma.chatRoom.findUnique.mockResolvedValue({ id: ROOM_ID });
 
-    await expect(new ChatContextPolicyService().resolveSharedMediation({
+    const result = await new ChatContextPolicyService().resolveFormalAnalysisDelivery(ROOM_ID);
+
+    expect(result).toEqual({
+      controls: null,
+      policyVersion: CHAT_CONTEXT_POLICY_VERSION,
+    });
+    expect(mockPrisma.chatRoom.findUnique).toHaveBeenCalledWith({
+      where: { id: ROOM_ID },
+      select: { id: true },
+    });
+    expect(mockPrisma.chatMessage.findMany).not.toHaveBeenCalled();
+  });
+
+  it('Private Analyst 保留 owner-scoped private support context', async () => {
+    mockPrisma.chatParticipant.findFirst.mockResolvedValue({
+      ...participant(PARTICIPANT_A, 'roleA', 'private_only'),
+      room: { history_visibility_mode: 'share_full_history' },
+    });
+    mockPrisma.chatMessage.findMany.mockResolvedValue([{
+      id: 'private-owner-message',
+      content: 'OWNER-PRIVATE-CONTEXT',
+      message_type: 'user_text',
+      created_at: new Date('2026-07-12T12:30:00.000Z'),
+      visibility_scope: 'owner_only',
+      sender_participant: { role_in_room: 'roleA' },
+      channel: { kind: 'private' },
+    }]);
+
+    const result = await new ChatContextPolicyService().resolvePrivateSupport({
       roomId: ROOM_ID,
-    })).rejects.toThrow('audit unavailable');
+      privateChannelId: 'private-channel-a',
+      ownerParticipantId: PARTICIPANT_A,
+    });
 
-    expect(mockExtractAggregatedControlsWithOutcome).not.toHaveBeenCalled();
-    expect(JSON.stringify(mockPrisma.contextUseAudit.create.mock.calls)).not.toContain(
-      'PRIVATE-A-RAW'
+    expect(result.audience).toBe('private_owner');
+    expect(result.messages).toEqual([
+      expect.objectContaining({
+        id: 'private-owner-message',
+        content: 'OWNER-PRIVATE-CONTEXT',
+        audience: 'private_owner',
+      }),
+    ]);
+    expect(mockPrisma.chatParticipant.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: PARTICIPANT_A,
+          room_id: ROOM_ID,
+          owned_channels: {
+            some: { id: 'private-channel-a', kind: 'private' },
+          },
+        }),
+      }),
     );
   });
 
@@ -277,7 +271,6 @@ describe('ChatContextPolicyService privacy firewall', () => {
 
     const bundle = await new ChatContextPolicyService().resolveSharedMediation({
       roomId: ROOM_ID,
-      includePrivateControls: false,
     });
 
     expect(mockPrisma.contextCapsule.findMany.mock.calls[0][0].where).toMatchObject({

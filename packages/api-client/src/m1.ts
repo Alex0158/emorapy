@@ -3,6 +3,8 @@ import type {
   ClaimSessionResponse,
   LoginDto,
   RegisterDto,
+  RegistrationVerificationResult,
+  VerificationCodeDeliveryResult,
   VerificationType,
 } from '@emorapy/contracts/auth';
 import type { Case, QuickCaseDto } from '@emorapy/contracts/case';
@@ -122,19 +124,61 @@ export function createAuthApi(http: M1HttpClient) {
       return { case_id: data.case_id ?? null };
     },
 
-    async sendVerificationCode(email: string, type: VerificationType): Promise<void> {
-      await http.post<ApiResponseEnvelope<unknown>>('/auth/send-verification-code', { email, type });
+    async sendVerificationCode(
+      email: string,
+      type: VerificationType
+    ): Promise<VerificationCodeDeliveryResult> {
+      const response = await http.post<ApiResponseEnvelope<VerificationCodeDeliveryResult>>(
+        '/auth/send-verification-code',
+        { email, type }
+      );
+      const data = unwrapResponse(response, 'Invalid verification code delivery response from server');
+      if (
+        !data
+        || typeof data !== 'object'
+        || !Number.isFinite(data.expires_in)
+        || data.expires_in <= 0
+        || !Number.isFinite(data.resend_after)
+        || data.resend_after < 0
+        || data.resend_after > data.expires_in
+      ) {
+        throw toRequestError(
+          'INVALID_VERIFICATION_CODE_DELIVERY_RESPONSE',
+          'Invalid verification code delivery response from server'
+        );
+      }
+      return data;
     },
 
-    async verifyEmail(
+    async verifyRegistrationCode(
       email: string,
-      code: string,
-      type: VerificationType = 'verify_email'
-    ): Promise<boolean> {
+      code: string
+    ): Promise<RegistrationVerificationResult> {
+      const response = await http.post<ApiResponseEnvelope<RegistrationVerificationResult>>(
+        '/auth/verify-email',
+        { email, code, type: 'register' }
+      );
+      const data = unwrapResponse(response, 'Invalid registration verification response from server');
+      if (
+        data.verified !== true
+        || typeof data.registration_proof !== 'string'
+        || data.registration_proof.trim().length === 0
+        || !Number.isFinite(data.registration_proof_expires_in)
+        || data.registration_proof_expires_in <= 0
+      ) {
+        throw toRequestError(
+          'INVALID_REGISTRATION_VERIFICATION_RESPONSE',
+          'Invalid registration verification response from server'
+        );
+      }
+      return data;
+    },
+
+    async verifyEmail(email: string, code: string): Promise<boolean> {
       const response = await http.post<ApiResponseEnvelope<{ verified?: boolean }>>('/auth/verify-email', {
         email,
         code,
-        type,
+        type: 'verify_email',
       });
       const data = unwrapResponse(response, 'Invalid verify-email response from server');
       return data.verified ?? false;

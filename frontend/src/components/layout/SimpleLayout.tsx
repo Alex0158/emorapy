@@ -5,6 +5,7 @@
 import { Outlet } from 'react-router-dom';
 import ScrollToTop from '@/components/common/ScrollToTop';
 import BrandMark from '@/components/common/BrandMark';
+import BackToTop from '@/components/common/BackToTop';
 
 const SimpleLayout = () => {
   return (
@@ -18,6 +19,7 @@ const SimpleLayout = () => {
       <main className="flex-1">
         <Outlet />
       </main>
+      <BackToTop />
     </div>
   );
 };

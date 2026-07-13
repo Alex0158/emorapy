@@ -261,21 +261,39 @@ export const cleanupAbandonedInterviewSessions = createJob('0 * * * *', async ()
 export const cleanupExpiredVerifications = createJob('0 * * * *', async () => {
   await withCronRunLog('cleanup_expired_verifications', async () => {
     try {
-      const result = await prisma.emailVerification.deleteMany({
+      const now = new Date();
+      const retentionCutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      const [challengeResult, legacyResult] = await prisma.$transaction([
+        prisma.authChallenge.deleteMany({
+          where: {
+            updated_at: { lt: retentionCutoff },
+            OR: [
+              { consumed_at: { not: null } },
+              { invalidated_at: { not: null } },
+              { delivery_status: 'failed' },
+              { verified_at: null, expires_at: { lt: now } },
+              { registration_proof_expires_at: { lt: now } },
+            ],
+          },
+        }),
+        // Transitional cleanup only. New auth flows never create plaintext rows.
+        prisma.emailVerification.deleteMany({
         where: {
           OR: [
-            { expires_at: { lt: new Date() } },
-            { used: true, created_at: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
+              { expires_at: { lt: now } },
+              { used: true, created_at: { lt: retentionCutoff } },
           ],
         },
-      });
+        }),
+      ]);
+      const count = challengeResult.count + legacyResult.count;
       // 根據環境調整日誌級別
       if (env.NODE_ENV === 'development') {
-        logger.debug('Expired verifications cleaned up', { count: result.count });
+        logger.debug('Expired verifications cleaned up', { count });
       } else {
-        logger.info('Expired verifications cleaned up', { count: result.count });
+        logger.info('Expired verifications cleaned up', { count });
       }
-      return { affectedCount: result.count };
+      return { affectedCount: count };
     } catch (error) {
       logger.error('Failed to cleanup expired verifications', { error });
       throw error;

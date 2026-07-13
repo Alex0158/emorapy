@@ -21,6 +21,7 @@ import { useChatRoomMessageActions } from "./useChatRoomMessageActions";
 interface UseChatRoomMessageControllerInput {
 	room: ChatRoom | null;
 	activeRoomId: string | null;
+	activeChannelId: string | null;
 	messageInput: string;
 	visibilityScope: ChatVisibilityScope;
 	replyTo: ChatMessage | null;
@@ -42,6 +43,7 @@ interface UseChatRoomMessageControllerInput {
 export function useChatRoomMessageController({
 	room,
 	activeRoomId,
+	activeChannelId,
 	messageInput,
 	visibilityScope,
 	replyTo,
@@ -69,9 +71,9 @@ export function useChatRoomMessageController({
 		setState: setAIDraft,
 		resetState: resetAIDraft,
 	} = useAIStreamSubscription<AIStreamDraft | null>({
-		scopeType: "chat_room",
-		scopeId: activeRoomId,
-		enabled: Boolean(activeRoomId),
+		scopeType: visibilityScope === "owner_only" ? "chat_channel" : "chat_room",
+		scopeId: visibilityScope === "owner_only" ? activeChannelId : activeRoomId,
+		enabled: Boolean(visibilityScope === "owner_only" ? activeChannelId : activeRoomId),
 		initialState: null,
 		reduceReady: (_previous, ready) => {
 			const snapshots = Array.isArray(ready.snapshots) ? ready.snapshots : [];
@@ -129,6 +131,7 @@ export function useChatRoomMessageController({
 
 	const { sending, handleSendMessage } = useChatRoomMessageActions({
 		room,
+		channelId: activeChannelId,
 		messageInput,
 		visibilityScope,
 		replyTo,

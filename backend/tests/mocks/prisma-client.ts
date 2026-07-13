@@ -125,6 +125,11 @@ export const ChatVisibilityScope = {
   summary_only: 'summary_only',
 } as const;
 
+export const ChatChannelKind = {
+  shared: 'shared',
+  private: 'private',
+} as const;
+
 export const ChatInviteStatus = {
   pending: 'pending',
   accepted: 'accepted',
@@ -151,5 +156,6 @@ export const Prisma = {
   JsonNull: null,
   DbNull: null,
   AnyNull: null,
+  sql: (strings: TemplateStringsArray, ...values: unknown[]) => ({ strings, values }),
   PrismaClientKnownRequestError,
 };

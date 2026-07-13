@@ -4,8 +4,8 @@
 **文檔類型**：測試規範
 **覆蓋範圍**：長期測試規範、驗收口徑與回歸門檻：02-AI流式與Chat治理驗收基線
 **取證代碼入口**：`backend/src/services/ai-stream.service.ts`、`backend/src/services/chat-ai-orchestrator.service.ts`、`backend/src/services/chat.service.ts`、`backend/src/routes/chat.routes.ts`、`frontend/src/hooks/useAIStreamSubscription.ts`、`frontend/src/services/aiStream.ts`、`frontend/src/services/api/chat.ts`、`mobile/src/platform/sse/useAIStreamSubscription.ts`、`mobile/src/platform/sse/aiStream.ts`、`mobile/src/platform/lifecycle/native.ts`、`mobile/app/(public)/quick/result.tsx`、`mobile/app/(app)/profile/interview.tsx`、`mobile/app/(app)/chat/room.tsx`、`mobile/app/(app)/repair/index.tsx`、`packages/contracts/src/ai-stream.ts`、`packages/api-client/src/m3.ts`、`backend/tests`、`frontend/src/**/*.test.tsx`、`mobile/src/platform/sse/*.test.js`、`frontend/e2e/**/*.ts`、`e2e/**/*.ts`、`scripts`
-**最後核驗 Commit**：`23e85ef`
-**最後核驗日期**：`2026-05-31`
+**最後核驗 Commit**：`95fa8a9`
+**最後核驗日期**：`2026-07-12`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 本文件承接 AI 流式與 chat 治理的穩定驗收基線，取代歷史藍圖稿作為正式驗收裁決依據。
@@ -46,6 +46,21 @@
 3. 清理 / archive 流程具備正式治理入口
 4. App telemetry / Admin app-telemetry report 只可作 release 排障與 completion audit 輸入，不得替代 native crash runtime、Push provider delivery 或 physical device evidence
 
+### 2.4 Audience、私人上下文與秘密證據
+
+1. message list、reply target、domain event、AI stream delta/snapshot/replay、persisted message、archive 與 Admin report 必須使用同一 backend-owned audience policy；有 room access 不等於可讀另一 participant 的 private channel。
+2. Shared Mediator prompt 只能讀 shared channel、本人批准的 shared capsule 與 strict mediation controls；private text、reason、topic、diagnosis 或 source identity 不得進 shared prompt。
+3. `summary_only` 不可只用 visibility label 冒充摘要；正式共享摘要必須是與 private source 分離、本人可預覽編輯及批准 exact version 的 Context Capsule。
+4. Chat-to-Judgment 若包含 B material，必須由 B 本人批准 exact selection hash；caller boolean、A 方 toggle 或過期/舊版本 consent 不成立。
+5. Formal Judgment 的 evidence/fact/responsibility core 在 private context on/off 下必須取得相同 typed input；personalization 只能在不可修改 structured fields 的 delivery 階段發生。
+6. shared/joint Repair 不得接收 private profile、未批准 diagnostic context 或 legacy mixed-context Judgment；solo-private Repair 的 context 與 output 必須只屬本人。
+7. ProfileSnapshot 不得保存 raw narrative fallback；既有 snapshot 需有 read-only inventory、清理/保留決策及 migration evidence。
+8. Safety lane 可暫停或收窄 shared flow，但 shared notice 不得洩露觸發方、事件、診斷或責任暗示。
+
+### 2.5 Current branch 驗證狀態
+
+`codex/private-context-consent-boundary` release candidate 已有 audience policy、channel/event/stream、strict controls、capsule/authorization、exact participant approval、source preview、Decision Core/Renderer、persisted Judgment recovery、shared Repair containment 與 ProfileSnapshot no-raw 覆蓋；Backend / Web / Admin / App 全量 gates、exact-image build，以及 fresh PostgreSQL / Redis migration、backfill dry-run / apply、idempotency 與 legacy privacy audit 已通過。這仍只構成 release-candidate evidence；Production runtime DB artifact、credential-backed two-party canary、legacy data rights disposition、native lifecycle 與 exact main SHA release gate 尚須由正式流程取證。
+
 ## 3. 最低測試集
 
 後端：
@@ -53,7 +68,9 @@
 1. stream runtime 單元測試
 2. stream 持久化測試
 3. Redis 多實例整合驗證
-4. chat / judgment 相關單元與集成測試
+4. chat / judgment / repair 相關單元與集成測試
+5. A/B 雙向 private projection、reply/event/stream audience、capsule hash/revoke、server-verifiable participant approval、ProfileSnapshot no-raw 與 Decision Core input equality
+6. malicious echo fixture：private canary 不得出現在任何 shared prompt/output/replay/archive；strict strategy schema 越界時 fail closed
 
 前端：
 
@@ -61,12 +78,14 @@
 2. Chat Room 頁面測試
 3. `frontend/e2e/chat/*.e2e.ts` 的流式恢復與失敗矩陣回歸
 4. Admin 與 production release gate 需保留治理面驗證入口
+5. private/shared 兩個 conversation lane、獨立 draft、固定 audience label、capsule preview/approve/revoke、analysis exact-input review、waiting/refused/stale approval 與 consent receipt
 
 App：
 
 1. `mobile/src/platform/sse/useAIStreamSubscription.test.js` 與 `mobile/src/platform/sse/client.test.js` 覆蓋 event parse、`after_seq` replay、AppState background / foreground reconnect 與 terminal state
 2. Quick / Interview / Chat / Repair screen-level 測試或 smoke 必須覆蓋 hook 接線與恢復文案
 3. Push-driven return、真機 interruption 與 release build lifecycle 不得由 simulator / web export / dry-run runner 代替
+4. App Chat 必須與 Web 共用 channel/capsule/authorization contract，且 private channel background/reconnect replay 仍需由 owner audience gate 驗證
 
 ## 4. 發版前最低治理檢查
 
@@ -75,6 +94,7 @@ App：
 3. Chat 關鍵 E2E skip guard 綠燈：`npm run --workspace frontend test:e2e:critical-guard`
 4. `npm run ops:release:gate:evidence`、`npm run manual-regression:gate` 與相關治理腳本可運行
 5. 涉及 App AI stream、Chat、Interview、Quick 或 Repair 的變更，至少需跑 `npm --prefix mobile run platform:check` 與相關 App route / feature / release audit gate；若宣稱 release completion，必須另有 M6 external evidence
+6. `EMO-ADR-010` 相關變更在 malicious echo、DB migration/backfill audit、participant stream replay、Decision Core invariant、本地 fresh-environment gates，以及正式環境的 exact-SHA workflow、runtime DB artifact、release gate 與可執行 two-party canary 未通過前，不得宣稱 Production 發布完成；ProfileSnapshot inventory/資料權利處置若只能 read-only 取證，必須保留為獨立 P1，不能以發布動作默認清除或改寫 legacy data
 
 ## 5. 與證據的關係
 

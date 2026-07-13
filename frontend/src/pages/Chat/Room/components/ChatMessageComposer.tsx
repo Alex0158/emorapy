@@ -1,17 +1,16 @@
 /**
- * Chat message input and visibility selector
+ * Chat message input with a server-owned audience derived from the active lane.
  */
 
-import { X, Info, Loader2, Send } from 'lucide-react';
+import { X, Info, Loader2, Send, ShieldCheck, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { t } from '@/utils/i18n';
 import type { ChatMessage } from '@/types/chat';
+import type { ChatConversationLane } from '../hooks/useChatRoomUiState';
 
 interface ChatMessageComposerProps {
-  visibilityScope: 'all' | 'owner_only' | 'summary_only';
-  onVisibilityScopeChange: (value: 'all' | 'owner_only' | 'summary_only') => void;
+  lane: ChatConversationLane;
   messageInput: string;
   onMessageInputChange: (value: string) => void;
   replyTo: ChatMessage | null;
@@ -22,11 +21,16 @@ interface ChatMessageComposerProps {
 }
 
 export default function ChatMessageComposer({
-  visibilityScope, onVisibilityScopeChange, messageInput, onMessageInputChange,
+  lane, messageInput, onMessageInputChange,
   replyTo, onClearReply, disableSend, sending, onSend,
 }: ChatMessageComposerProps) {
+  const isPrivate = lane === 'private';
+  const AudienceIcon = isPrivate ? ShieldCheck : Users;
+  const audienceKey = isPrivate ? 'chat.lane.privateAudience' : 'chat.lane.sharedAudience';
+  const placeholderKey = isPrivate ? 'chat.lane.privatePlaceholder' : 'chat.lane.sharedPlaceholder';
+
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 rounded-xl border border-border bg-card p-3">
       {replyTo && (
         <div className="flex items-start gap-2 rounded-lg border border-primary/20 bg-primary-light/30 p-2">
           <Info className="size-4 shrink-0 mt-0.5 text-primary" />
@@ -40,7 +44,8 @@ export default function ChatMessageComposer({
 
       <div className="flex gap-2">
         <Input
-          aria-label={t('chat.messagePlaceholder')}
+          aria-label={t(placeholderKey)}
+          aria-describedby="chat-composer-audience"
           autoComplete="off"
           value={messageInput}
           maxLength={2000}
@@ -54,16 +59,9 @@ export default function ChatMessageComposer({
           {sending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
         </Button>
       </div>
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <span>{t('chat.visibility.label')}</span>
-        <Select disabled={disableSend} value={visibilityScope} onValueChange={(v: string) => onVisibilityScopeChange(v as 'all' | 'owner_only' | 'summary_only')}>
-          <SelectTrigger className="h-8 w-[180px] border-0 bg-transparent text-xs shadow-none" aria-label={t('chat.visibility.label')}><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t('chat.visibility.all')}</SelectItem>
-            <SelectItem value="summary_only">{t('chat.visibility.summary_only')}</SelectItem>
-            <SelectItem value="owner_only">{t('chat.visibility.owner_only')}</SelectItem>
-          </SelectContent>
-        </Select>
+      <div id="chat-composer-audience" className="flex items-center gap-2 text-xs leading-relaxed text-muted-foreground">
+        <AudienceIcon className="size-3.5 shrink-0" aria-hidden="true" />
+        <span>{t(audienceKey)}</span>
       </div>
     </div>
   );

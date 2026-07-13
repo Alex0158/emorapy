@@ -12,6 +12,7 @@ describe('version utils', () => {
     delete process.env.GITHUB_SHA;
     delete process.env.SOURCE_VERSION;
     delete process.env.COMMIT_SHA;
+    delete process.env.RAILWAY_DEPLOYMENT_ID;
   });
 
   afterAll(() => {
@@ -49,10 +50,19 @@ describe('version utils', () => {
     });
   });
 
+  it('Railway runtime 暴露 immutable deployment id 供 release 因果綁定', () => {
+    process.env.RAILWAY_DEPLOYMENT_ID = 'deployment-123';
+
+    expect(buildBackendVersionManifest()).toMatchObject({
+      deploymentId: 'deployment-123',
+    });
+  });
+
   it('缺少 commit env 時回傳 unknown，避免偽造 commit', () => {
     expect(buildBackendVersionManifest()).toMatchObject({
       commitSha: 'unknown',
       commitShortSha: 'unknown',
+      deploymentId: null,
     });
   });
 });

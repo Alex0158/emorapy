@@ -1587,14 +1587,90 @@ async function runM3(request, report, options) {
   });
   addStep(report, 'm3.message_a_followup', 'passed', { roomId: room.id });
 
+  const analysisMessagesResponse = await request(
+    `/chat/rooms/${encodeURIComponent(room.id)}/messages?limit=50`,
+    {
+      sessionId: actorA.session_id,
+      scope: 'm3',
+    },
+  );
+  const selectedMessageIds = (analysisMessagesResponse.data?.messages ?? [])
+    .filter((message) => message.message_type === 'user_text' && message.visibility_scope === 'all')
+    .map((message) => message.id);
+  if (selectedMessageIds.length < 2) {
+    throw new SmokeError('Exact analysis smoke did not find both parties shared messages.', {
+      roomId: room.id,
+      selectedMessageCount: selectedMessageIds.length,
+    });
+  }
+
+  const analysisRequestResponse = await request(
+    `/chat/rooms/${encodeURIComponent(room.id)}/analysis-requests`,
+    {
+      method: 'POST',
+      sessionId: actorA.session_id,
+      scope: 'm3',
+      body: {
+        selected_message_ids: selectedMessageIds,
+        selected_capsule_ids: [],
+      },
+    },
+  );
+  const analysisRequest = analysisRequestResponse.data?.analysis_request;
+  if (!analysisRequest?.id || !analysisRequest.selection_hash || !analysisRequest.policy_version) {
+    throw new SmokeError('Exact analysis request response was incomplete.', { roomId: room.id });
+  }
+  addStep(report, 'm3.analysis_request_create', 'passed', {
+    analysisRequestId: analysisRequest.id,
+    selectedMessageCount: selectedMessageIds.length,
+  });
+
+  const approvalBody = {
+    decision: 'approved',
+    policy_version: analysisRequest.policy_version,
+    selection_hash: analysisRequest.selection_hash,
+  };
+  await request(
+    `/chat/rooms/${encodeURIComponent(room.id)}/analysis-requests/${encodeURIComponent(analysisRequest.id)}/decision`,
+    {
+      method: 'POST',
+      sessionId: actorA.session_id,
+      scope: 'm3',
+      body: approvalBody,
+    },
+  );
+  await request(
+    `/chat/rooms/${encodeURIComponent(room.id)}/analysis-requests/${encodeURIComponent(analysisRequest.id)}/decision`,
+    {
+      method: 'POST',
+      token: partnerToken,
+      scope: 'm3',
+      body: approvalBody,
+    },
+  );
+  addStep(report, 'm3.analysis_request_exact_approvals', 'passed', {
+    analysisRequestId: analysisRequest.id,
+    approvals: 2,
+  });
+
+  await request(
+    `/chat/rooms/${encodeURIComponent(room.id)}/analysis-requests/${encodeURIComponent(analysisRequest.id)}/submit`,
+    {
+      method: 'POST',
+      sessionId: actorA.session_id,
+      scope: 'm3',
+    },
+  );
+  addStep(report, 'm3.analysis_request_submit', 'passed', {
+    analysisRequestId: analysisRequest.id,
+  });
+
   await request(`/chat/rooms/${encodeURIComponent(room.id)}/request-judgment`, {
     method: 'POST',
     sessionId: actorA.session_id,
     scope: 'm3',
     body: {
-      participant_consent: {
-        role_b_included_messages: true,
-      },
+      analysis_request_id: analysisRequest.id,
     },
   });
   addStep(report, 'm3.request_judgment', 'passed', { roomId: room.id });

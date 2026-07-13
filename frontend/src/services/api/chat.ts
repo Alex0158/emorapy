@@ -17,18 +17,27 @@ import {
 } from './chatApiUtils';
 import type {
   ChatInvite,
+  ChatChannel,
   ChatJudgmentResult,
   ChatJudgmentStatus,
   ChatMessage,
   ChatRoom,
   ChatHistoryVisibilityMode,
   ChatStreamEvent,
+  PrivateContextPreference,
+  PrivateContextUseMode,
+  ChatAnalysisParticipantApproval,
+  ChatAnalysisRequest,
+  ChatAnalysisRequestListItem,
+  ContextAuthorization,
+  ContextCapsule,
+  ContextCapsuleListItem,
 } from '@/types/chat';
 
 const sharedChatApi = createM3ApiClient(request).chat;
 
 export const createChatRoom = async (
-  historyVisibilityMode: ChatHistoryVisibilityMode = 'share_summary_only'
+  historyVisibilityMode: ChatHistoryVisibilityMode = 'share_from_join_time'
 ): Promise<ChatRoom> => {
   return sharedChatApi.createRoom(historyVisibilityMode) as Promise<ChatRoom>;
 };
@@ -59,6 +68,30 @@ export const listChatMessages = async (
   return sharedChatApi.listMessages(roomId, params ?? {}) as Promise<ListMessagesResponse>;
 };
 
+export const listChatChannels = async (roomId: string): Promise<ChatChannel[]> => {
+  return sharedChatApi.listChannels(roomId) as Promise<ChatChannel[]>;
+};
+
+export const listChatChannelMessages = async (
+  channelId: string,
+  params?: { cursor?: string; limit?: number }
+): Promise<ListMessagesResponse> => {
+  return sharedChatApi.listChannelMessages(channelId, params ?? {}) as Promise<ListMessagesResponse>;
+};
+
+export const getPrivateContextPreference = async (
+  roomId: string
+): Promise<PrivateContextPreference> => {
+  return sharedChatApi.getPrivateContextPreference(roomId) as Promise<PrivateContextPreference>;
+};
+
+export const updatePrivateContextPreference = async (
+  roomId: string,
+  mode: PrivateContextUseMode
+): Promise<PrivateContextPreference> => {
+  return sharedChatApi.updatePrivateContextPreference(roomId, { mode }) as Promise<PrivateContextPreference>;
+};
+
 export const sendChatMessage = async (
   roomId: string,
   payload: { content: string; visibility_scope?: 'all' | 'owner_only' | 'summary_only'; reply_to_message_id?: string }
@@ -66,11 +99,113 @@ export const sendChatMessage = async (
   return sharedChatApi.sendMessage(roomId, payload) as Promise<ChatMessage>;
 };
 
+export const sendChatChannelMessage = async (
+  channelId: string,
+  payload: { content: string; reply_to_message_id?: string }
+): Promise<ChatMessage> => {
+  return sharedChatApi.sendChannelMessage(channelId, payload) as Promise<ChatMessage>;
+};
+
 export const requestChatJudgment = async (
   roomId: string,
-  payload?: { included_message_ids?: string[] }
+  payload: { analysis_request_id: string }
 ): Promise<ChatJudgmentResult> => {
-  return sharedChatApi.requestJudgment(roomId, payload ?? {}) as Promise<ChatJudgmentResult>;
+  return sharedChatApi.requestJudgment(roomId, payload) as Promise<ChatJudgmentResult>;
+};
+
+export const createChatContextCapsule = async (
+  roomId: string,
+  payload: {
+    source_channel_id: string;
+    source_message_ids: string[];
+    summary: string;
+    expires_at?: string | null;
+  }
+): Promise<ContextCapsule> => {
+  return sharedChatApi.createContextCapsule(roomId, payload) as Promise<ContextCapsule>;
+};
+
+export const listChatContextCapsules = async (
+  roomId: string
+): Promise<ContextCapsuleListItem[]> => {
+  return sharedChatApi.listContextCapsules(roomId) as Promise<ContextCapsuleListItem[]>;
+};
+
+export const grantChatContextAuthorization = async (
+  roomId: string,
+  capsuleId: string,
+  payload: {
+    capsule_content_hash: string;
+    purpose: 'shared_mediation' | 'formal_analysis_evidence';
+    audience: 'room_participants' | 'analysis_participants';
+    target_type: 'chat_room';
+    target_id: string;
+    policy_version: string;
+    expires_at?: string | null;
+  }
+): Promise<ContextAuthorization> => {
+  return sharedChatApi.grantContextAuthorization(
+    roomId,
+    capsuleId,
+    payload,
+  ) as Promise<ContextAuthorization>;
+};
+
+export const revokeChatContextAuthorization = async (
+  roomId: string,
+  authorizationId: string
+): Promise<ContextAuthorization> => {
+  return sharedChatApi.revokeContextAuthorization(
+    roomId,
+    authorizationId,
+    { reason_code: 'user_revoked' },
+  ) as Promise<ContextAuthorization>;
+};
+
+export const createChatAnalysisRequest = async (
+  roomId: string,
+  selectedMessageIds: string[],
+  selectedCapsuleIds: string[] = []
+): Promise<ChatAnalysisRequest> => {
+  return sharedChatApi.createAnalysisRequest(roomId, {
+    selected_message_ids: selectedMessageIds,
+    selected_capsule_ids: selectedCapsuleIds,
+  }) as Promise<ChatAnalysisRequest>;
+};
+
+export const listChatAnalysisRequests = async (
+  roomId: string
+): Promise<ChatAnalysisRequestListItem[]> => {
+  return sharedChatApi.listAnalysisRequests(roomId) as Promise<ChatAnalysisRequestListItem[]>;
+};
+
+export const decideChatAnalysisRequest = async (
+  roomId: string,
+  request: ChatAnalysisRequest,
+  decision: 'approved' | 'declined'
+): Promise<ChatAnalysisParticipantApproval> => {
+  return sharedChatApi.decideAnalysisRequest(roomId, request.id, {
+    selection_hash: request.selection_hash,
+    policy_version: request.policy_version,
+    decision,
+  }) as Promise<ChatAnalysisParticipantApproval>;
+};
+
+export const submitChatAnalysisRequest = async (
+  roomId: string,
+  requestId: string
+): Promise<ChatAnalysisRequest> => {
+  return sharedChatApi.submitAnalysisRequest(roomId, requestId) as Promise<ChatAnalysisRequest>;
+};
+
+export const revokeChatAnalysisApproval = async (
+  roomId: string,
+  request: ChatAnalysisRequest
+): Promise<ChatAnalysisParticipantApproval> => {
+  return sharedChatApi.revokeAnalysisApproval(roomId, request.id, {
+    selection_hash: request.selection_hash,
+    policy_version: request.policy_version,
+  }) as Promise<ChatAnalysisParticipantApproval>;
 };
 
 export const getChatJudgmentStatus = async (roomId: string): Promise<ChatJudgmentStatus> => {
@@ -91,14 +226,14 @@ export interface ChatStreamCallbacks {
   onClose?: () => void;
 }
 
-export const connectChatStream = async (
-  roomId: string,
+const connectChatEventStream = async (
+  path: string,
   callbacks: ChatStreamCallbacks
 ): Promise<() => void> => {
   const controller = new AbortController();
   const token = readChatStreamToken();
   const sessionId = sessionStorage.get();
-  const response = await fetch(`${env.apiBaseURL}${chatRoomPath(roomId, '/stream')}`, {
+  const response = await fetch(`${env.apiBaseURL}${path}`, {
     method: 'GET',
     headers: buildChatStreamHeaders({ token, sessionId, locale: getLocale() }),
     signal: controller.signal,
@@ -148,3 +283,19 @@ export const connectChatStream = async (
   void run();
   return () => controller.abort();
 };
+
+export const connectChatStream = async (
+  roomId: string,
+  callbacks: ChatStreamCallbacks
+): Promise<() => void> => connectChatEventStream(
+  chatRoomPath(roomId, '/stream'),
+  callbacks
+);
+
+export const connectChatChannelStream = async (
+  channelId: string,
+  callbacks: ChatStreamCallbacks
+): Promise<() => void> => connectChatEventStream(
+  `/chat/channels/${encodeURIComponent(channelId)}/stream`,
+  callbacks
+);

@@ -1,4 +1,4 @@
-import type { BackendLocale } from '../i18n';
+import type { GenerateJudgmentOptions } from './judgment.service';
 
 /**
  * 判決服務介面（供 DI / 單測 mock 使用，見 docs/audit/di-design-20260206.md）
@@ -8,7 +8,7 @@ import type { BackendLocale } from '../i18n';
 export interface IJudgmentService {
   generateJudgment(
     caseId: string,
-    options?: { userId?: string; sessionId?: string; locale?: BackendLocale }
+    options?: GenerateJudgmentOptions
   ): Promise<unknown>;
 
   getJudgmentByCaseId(

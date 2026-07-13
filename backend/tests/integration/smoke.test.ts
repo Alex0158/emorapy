@@ -101,6 +101,46 @@ const mockPrismaClient: any = {
 jest.mock('@prisma/client', () => ({
   PrismaClient: jest.fn(() => mockPrismaClient),
   Prisma: { PrismaClientKnownRequestError: class extends Error { code: string; meta?: unknown; constructor(m: string, o: { code: string; meta?: unknown }) { super(m); this.code = o.code; this.meta = o.meta; } } },
+  ChatRoleInRoom: { roleA: 'roleA', roleB: 'roleB', aiMediator: 'aiMediator', system: 'system' },
+  ChatChannelKind: { shared: 'shared', private: 'private' },
+  ChatHistoryVisibilityMode: {
+    share_full_history: 'share_full_history',
+    share_summary_only: 'share_summary_only',
+    share_from_join_time: 'share_from_join_time',
+  },
+  ChatMessageType: {
+    user_text: 'user_text',
+    ai_reflection: 'ai_reflection',
+    ai_mediation: 'ai_mediation',
+    ai_summary: 'ai_summary',
+    system_event: 'system_event',
+    safety_notice: 'safety_notice',
+  },
+  ChatRoomStatus: {
+    solo_active: 'solo_active',
+    invite_pending: 'invite_pending',
+    invite_accepted: 'invite_accepted',
+    group_active: 'group_active',
+    judgment_requested: 'judgment_requested',
+    judgment_completed: 'judgment_completed',
+    judgment_failed: 'judgment_failed',
+    archived: 'archived',
+  },
+  ChatVisibilityScope: { all: 'all', owner_only: 'owner_only', summary_only: 'summary_only' },
+  PrivateContextUseMode: { private_only: 'private_only', shared_process_controls: 'shared_process_controls' },
+  ContextPurpose: {
+    private_support: 'private_support',
+    shared_mediation: 'shared_mediation',
+    formal_analysis_evidence: 'formal_analysis_evidence',
+    formal_analysis_delivery: 'formal_analysis_delivery',
+  },
+  ContextAudience: {
+    private_owner: 'private_owner',
+    room_participants: 'room_participants',
+    analysis_participants: 'analysis_participants',
+  },
+  ContextTargetType: { chat_room: 'chat_room', analysis_request: 'analysis_request' },
+  ContextUseDecision: { allowed: 'allowed', denied: 'denied' },
   NotificationChannel: { email: 'email', push: 'push' },
   NotificationStatus: { pending: 'pending', sent: 'sent', failed: 'failed', cancelled: 'cancelled' },
   RecoveryTaskStatus: {
@@ -159,6 +199,23 @@ describe('煙霧測試 (Smoke Test)', () => {
       const response = await request(app).get('/health/ready');
       expect([200, 503]).toContain(response.status);
       expect(response.body).toHaveProperty('status');
+      expect(response.body).toMatchObject({
+        success: true,
+        data: expect.objectContaining({ status: response.body.status }),
+      });
+    });
+
+    it('GET /version 應以 response formatter 的 data envelope 回傳 commit', async () => {
+      const response = await request(app).get('/version');
+      expect(response.status).toBe(200);
+      expect(response.body).toMatchObject({
+        success: true,
+        data: expect.objectContaining({
+          service: 'backend',
+          commitSha: expect.any(String),
+        }),
+      });
+      expect(response.body.data).toHaveProperty('deploymentId');
     });
 
     it('不存在的接口應返回404', async () => {

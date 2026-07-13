@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { setLocale, t } from '@/utils/i18n';
 import type { ChatMessage } from '@/types/chat';
 import {
-  buildChatJudgmentPayload,
   buildMessageAnchorHash,
   buildSendMessagePayload,
   getAnchorHandledKey,
@@ -187,7 +186,7 @@ describe('chatRoomUtils mutation helpers', () => {
     expect(getInviteHistoryVisibilityMode(null)).toBe('share_summary_only');
   });
 
-  it('應集中構造發送訊息與判決 payload', () => {
+  it('應集中構造發送訊息 payload', () => {
     expect(
       buildSendMessagePayload({
         content: 'hello',
@@ -199,11 +198,6 @@ describe('chatRoomUtils mutation helpers', () => {
       visibility_scope: 'owner_only',
       reply_to_message_id: 'reply-1',
     });
-    expect(buildChatJudgmentPayload(['msg-1', 'msg-2'])).toEqual({
-      included_message_ids: ['msg-1', 'msg-2'],
-    });
-    expect(buildChatJudgmentPayload([])).toBeUndefined();
-    expect(buildChatJudgmentPayload()).toBeUndefined();
   });
 });
 

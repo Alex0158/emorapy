@@ -1,26 +1,39 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { ChatMessage } from "@/types/chat";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ChatMessage, ChatVisibilityScope } from "@/types/chat";
 
-type ChatVisibilityScope = "all" | "owner_only" | "summary_only";
+export type ChatConversationLane = "private" | "shared";
+
+type LaneDrafts = Record<ChatConversationLane, string>;
+type LaneReplies = Record<ChatConversationLane, ChatMessage | null>;
+
+const EMPTY_DRAFTS: LaneDrafts = { private: "", shared: "" };
+const EMPTY_REPLIES: LaneReplies = { private: null, shared: null };
 
 interface UseChatRoomUiStateInput {
 	activeRoomId: string | null;
 }
 
 export function useChatRoomUiState({ activeRoomId }: UseChatRoomUiStateInput) {
-	const [messageInput, setMessageInput] = useState("");
-	const [visibilityScope, setVisibilityScope] = useState<ChatVisibilityScope>("all");
-	const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
-	const [previewVisible, setPreviewVisible] = useState(false);
-	const [selectedForJudgment, setSelectedForJudgment] = useState<string[]>([]);
+	const [activeLane, setActiveLane] = useState<ChatConversationLane>("private");
+	const [drafts, setDrafts] = useState<LaneDrafts>(EMPTY_DRAFTS);
+	const [replies, setReplies] = useState<LaneReplies>(EMPTY_REPLIES);
 	const previousActiveRoomIdRef = useRef(activeRoomId);
+	const messageInput = drafts[activeLane];
+	const replyTo = replies[activeLane];
+	const visibilityScope: ChatVisibilityScope = activeLane === "private" ? "owner_only" : "all";
+
+	const setMessageInput = useCallback((value: string) => {
+		setDrafts((current) => ({ ...current, [activeLane]: value }));
+	}, [activeLane]);
+
+	const setReplyTo = useCallback((message: ChatMessage | null) => {
+		setReplies((current) => ({ ...current, [activeLane]: message }));
+	}, [activeLane]);
 
 	const resetRoomUiState = useCallback(() => {
-		setMessageInput("");
-		setVisibilityScope("all");
-		setReplyTo(null);
-		setPreviewVisible(false);
-		setSelectedForJudgment([]);
+		setActiveLane("private");
+		setDrafts(EMPTY_DRAFTS);
+		setReplies(EMPTY_REPLIES);
 	}, []);
 
 	useEffect(() => {
@@ -29,27 +42,22 @@ export function useChatRoomUiState({ activeRoomId }: UseChatRoomUiStateInput) {
 		resetRoomUiState();
 	}, [activeRoomId, resetRoomUiState]);
 
-	const openJudgmentPreview = useCallback((includedMessageIds: string[]) => {
-		setSelectedForJudgment(includedMessageIds);
-		setPreviewVisible(true);
-	}, []);
-
-	const closeJudgmentPreview = useCallback(() => {
-		setPreviewVisible(false);
-	}, []);
-
-	return {
-		closeJudgmentPreview,
+	return useMemo(() => ({
+		activeLane,
 		messageInput,
-		openJudgmentPreview,
-		previewVisible,
 		replyTo,
 		resetRoomUiState,
-		selectedForJudgment,
+		setMessageInput,
+		setActiveLane,
+		setReplyTo,
+		visibilityScope,
+	}), [
+		activeLane,
+		messageInput,
+		replyTo,
+		resetRoomUiState,
 		setMessageInput,
 		setReplyTo,
-		setSelectedForJudgment,
-		setVisibilityScope,
 		visibilityScope,
-	};
+	]);
 }

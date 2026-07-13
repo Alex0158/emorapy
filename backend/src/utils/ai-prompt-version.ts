@@ -1,5 +1,7 @@
 export type AIPromptVersionKey =
   | 'chat_room_ai_response'
+  | 'chat_private_support_response'
+  | 'chat_mediation_strategy'
   | 'interview_ai_response'
   | 'judgment_emotional_analysis'
   | 'judgment_draft'
@@ -13,6 +15,8 @@ export const UNKNOWN_JUDGMENT_PROMPT_VERSION = 'judgment-prompt-version-unknown'
 
 export const AI_PROMPT_VERSIONS: Record<AIPromptVersionKey, string> = {
   chat_room_ai_response: 'chat-room-ai-response@v1.0',
+  chat_private_support_response: 'chat-private-support-response@v1.0',
+  chat_mediation_strategy: 'chat-mediation-strategy@v1.0',
   interview_ai_response: 'interview-ai-response@v1.0',
   judgment_emotional_analysis: 'judgment-emotional-analysis@v1.0',
   judgment_draft: `judgment-draft@${STORED_JUDGMENT_PROMPT_VERSION}`,

@@ -14,6 +14,10 @@ import { formatAIStreamDisplayError } from '@/src/platform/sse/streamErrorDispla
 import { tokenStorage } from '@/src/platform/storage/secureStore';
 import { ActionButton, FeatureRow, LinkButton, Panel, Screen, StatusPill } from '@/src/ui/components';
 import { palette, spacing, typography } from '@/src/ui/theme';
+import {
+  identityScopedQueryKey,
+  useIdentityQueryScope,
+} from '@/src/providers/identityQueryScope';
 
 type ReplanMode = ReplanTrackInput['mode'];
 type ReplanReason = ReplanTrackInput['reason'];
@@ -182,6 +186,9 @@ export default function RepairScreen() {
   useLocale();
   const params = useLocalSearchParams<{ judgmentId?: string | string[]; planId?: string | string[]; trackId?: string | string[] }>();
   const queryClient = useQueryClient();
+  const identityScope = useIdentityQueryScope();
+  const identityQueriesEnabled = identityScope.privateDataEnabled && !identityScope.transitioning;
+  const identityEpoch = identityScope.epoch;
   const [judgmentId, setJudgmentId] = useState(() => getFirstParam(params.judgmentId));
   const [planId, setPlanId] = useState(() => getFirstParam(params.planId));
   const [replanTrackId, setReplanTrackId] = useState(() => getFirstParam(params.trackId));
@@ -191,19 +198,22 @@ export default function RepairScreen() {
   const [latestBundle, setLatestBundle] = useState<ReconciliationPlanBundle | null>(null);
 
   const authQuery = useQuery({
-    queryKey: ['app', 'auth-token'],
+    queryKey: identityScopedQueryKey(identityEpoch, 'app', 'auth-token'),
     queryFn: () => tokenStorage.getToken(),
+    enabled: identityQueriesEnabled,
   });
   const isAuthenticated = Boolean(authQuery.data);
 
   const dashboardQuery = useQuery({
-    queryKey: ['m4', 'execution-dashboard'],
+    queryKey: identityScopedQueryKey(identityEpoch, 'm4', 'execution-dashboard'),
     queryFn: () => m4Api.execution.getDashboard(),
-    enabled: isAuthenticated,
+    enabled: identityQueriesEnabled && isAuthenticated,
   });
 
   const refreshRepair = async () => {
-    await queryClient.invalidateQueries({ queryKey: ['m4', 'execution-dashboard'] });
+    await queryClient.invalidateQueries({
+      queryKey: identityScopedQueryKey(identityEpoch, 'm4', 'execution-dashboard'),
+    });
   };
 
   const activeReplanTrackId = replanTrackId.trim();
@@ -222,7 +232,7 @@ export default function RepairScreen() {
     lifecycleStatus: replanLifecycleStatus,
   } = useAIStreamSubscription<ReplanStreamState>({
     scopeKey: activeReplanTrackId ? `repair_track:${activeReplanTrackId}` : null,
-    enabled: isAuthenticated && Boolean(activeReplanTrackId),
+    enabled: identityQueriesEnabled && isAuthenticated && Boolean(activeReplanTrackId),
     initialState: initialReplanStreamState,
     connect: connectReplanStream,
     normalizeError: normalizeM4Error,

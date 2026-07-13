@@ -1,11 +1,21 @@
 import { useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ChatHistoryVisibilityMode, ChatMessage, ChatVisibilityScope } from '@emorapy/api-client';
+import type {
+  ChatMessage,
+  ChatVisibilityScope,
+  PrivateContextUseMode,
+} from '@emorapy/api-client';
 import type { AIStreamEvent } from '@emorapy/contracts/ai-stream';
 
-import { connectChatAIStream, connectChatRoomStream, m3Api, normalizeM3Error } from '@/src/features/m3/api';
+import {
+  connectChatAIStream,
+  connectChatChannelStream,
+  connectChatRoomStream,
+  m3Api,
+  normalizeM3Error,
+} from '@/src/features/m3/api';
 import {
   getLatestActiveAIStreamSnapshot,
   type AIStreamCallbacks,
@@ -17,12 +27,14 @@ import { formatAIStreamDisplayError } from '@/src/platform/sse/streamErrorDispla
 import { sessionStorage, tokenStorage } from '@/src/platform/storage/secureStore';
 import { ActionButton, FeatureRow, LinkButton, Panel, Screen, StatusPill } from '@/src/ui/components';
 import { palette, spacing, typography } from '@/src/ui/theme';
-
-const visibilityOptions: Array<{ labelKey: string; value: ChatVisibilityScope; tone: 'teal' | 'blue' | 'amber' }> = [
-  { labelKey: 'chatRoom.visibility.all', value: 'all', tone: 'teal' },
-  { labelKey: 'chatRoom.visibility.ownerOnly', value: 'owner_only', tone: 'blue' },
-  { labelKey: 'chatRoom.visibility.summaryOnly', value: 'summary_only', tone: 'amber' },
-];
+import { ChatConversationLaneSelector } from '@/src/features/m3/ChatConversationLaneSelector';
+import { useChatConversationLane } from '@/src/features/m3/useChatConversationLane';
+import { ChatAnalysisConsentPanel } from '@/src/features/m3/ChatAnalysisConsentPanel';
+import { ChatContextCapsuleComposer } from '@/src/features/m3/ChatContextCapsuleComposer';
+import { ChatSharedContextManager } from '@/src/features/m3/ChatSharedContextManager';
+import { useChatAnalysisConsent } from '@/src/features/m3/useChatAnalysisConsent';
+import { chatQueryKeys } from '@/src/features/m3/chatQueryKeys';
+import { useIdentityQueryScope } from '@/src/providers/identityQueryScope';
 
 const roomStatusLabelKeys: Record<string, string> = {
   solo_active: 'chatRoom.roomStatus.soloActive',
@@ -33,12 +45,6 @@ const roomStatusLabelKeys: Record<string, string> = {
   judgment_completed: 'chatRoom.roomStatus.analysisCompleted',
   judgment_failed: 'chatRoom.roomStatus.analysisFailed',
   archived: 'chatRoom.roomStatus.archived',
-};
-
-const historyVisibilityLabelKeys: Record<ChatHistoryVisibilityMode, string> = {
-  share_full_history: 'chatRoom.history.full',
-  share_summary_only: 'chatRoom.history.summaryOnly',
-  share_from_join_time: 'chatRoom.history.fromJoin',
 };
 
 const messageVisibilityLabelKeys: Record<ChatVisibilityScope, string> = {
@@ -65,10 +71,6 @@ const chatAIStatusLabelKeys: Record<ChatAIStatus, string> = {
 function labelRoomStatus(status?: string | null): string {
   if (!status) return t('chatRoom.roomStatus.loading');
   return t(roomStatusLabelKeys[status] ?? 'chatRoom.roomStatus.updated');
-}
-
-function labelHistoryVisibility(mode?: ChatHistoryVisibilityMode | null): string {
-  return t(historyVisibilityLabelKeys[mode ?? 'share_summary_only']);
 }
 
 function labelMessageVisibility(scope?: ChatVisibilityScope | null): string {
@@ -142,11 +144,13 @@ export default function ChatRoomScreen() {
   const params = useLocalSearchParams<{ roomId?: string }>();
   const roomId = typeof params.roomId === 'string' ? params.roomId : null;
   const queryClient = useQueryClient();
+  const identityScope = useIdentityQueryScope();
+  const identityQueriesEnabled = identityScope.privateDataEnabled && !identityScope.transitioning;
+  const identityEpoch = identityScope.epoch;
   const [mounted, setMounted] = useState(false);
-  const [compose, setCompose] = useState('');
-  const [visibilityScope, setVisibilityScope] = useState<ChatVisibilityScope>('all');
+  const { activeLane, clearCompose, compose, setActiveLane, setCompose } = useChatConversationLane(roomId);
+  const initializedLaneRoomIdRef = useRef<string | null>(null);
   const [inviteCode, setInviteCode] = useState<string | null>(null);
-  const [roleBConsent, setRoleBConsent] = useState(false);
   const [streamStatus, setStreamStatus] = useState<'idle' | 'ready' | 'event' | 'failed'>('idle');
   const [streamError, setStreamError] = useState<string | null>(null);
 
@@ -155,7 +159,7 @@ export default function ChatRoomScreen() {
   }, []);
 
   const actorQuery = useQuery({
-    queryKey: ['m3', 'chat-actor'],
+    queryKey: chatQueryKeys.actor(identityEpoch),
     queryFn: async () => {
       const [token, sessionId] = await Promise.all([
         tokenStorage.getToken(),
@@ -166,26 +170,41 @@ export default function ChatRoomScreen() {
         isAuthenticated: Boolean(token),
       };
     },
-    enabled: mounted,
+    enabled: mounted && identityQueriesEnabled,
   });
   const hasActor = actorQuery.data?.hasActor === true;
 
   const roomQuery = useQuery({
-    queryKey: ['m3', 'chat-room', roomId],
+    queryKey: chatQueryKeys.room(identityEpoch, roomId),
     queryFn: () => m3Api.chat.getRoom(roomId as string),
-    enabled: mounted && hasActor && Boolean(roomId),
+    enabled: mounted && identityQueriesEnabled && hasActor && Boolean(roomId),
   });
 
   const messagesQuery = useQuery({
-    queryKey: ['m3', 'chat-messages', roomId],
+    queryKey: chatQueryKeys.messages(identityEpoch, roomId),
     queryFn: () => m3Api.chat.listMessages(roomId as string, { limit: 50 }),
-    enabled: mounted && hasActor && Boolean(roomId),
+    enabled: mounted && identityQueriesEnabled && hasActor && Boolean(roomId),
+  });
+
+  const channelsQuery = useQuery({
+    queryKey: chatQueryKeys.channels(identityEpoch, roomId),
+    queryFn: () => m3Api.chat.listChannels(roomId as string),
+    enabled: mounted && identityQueriesEnabled && hasActor && Boolean(roomId),
+  });
+  const privateChannel = channelsQuery.data?.find((channel) => channel.kind === 'private') ?? null;
+  const sharedChannel = channelsQuery.data?.find((channel) => channel.kind === 'shared') ?? null;
+  const activeChannel = activeLane === 'private' ? privateChannel : sharedChannel;
+
+  const contextPreferenceQuery = useQuery({
+    queryKey: chatQueryKeys.contextPreference(identityEpoch, roomId),
+    queryFn: () => m3Api.chat.getPrivateContextPreference(roomId as string),
+    enabled: mounted && identityQueriesEnabled && hasActor && Boolean(roomId),
   });
 
   const judgmentStatusQuery = useQuery({
-    queryKey: ['m3', 'chat-judgment-status', roomId],
+    queryKey: chatQueryKeys.judgmentStatus(identityEpoch, roomId),
     queryFn: () => m3Api.chat.getJudgmentStatus(roomId as string),
-    enabled: mounted && hasActor && Boolean(roomId),
+    enabled: mounted && identityQueriesEnabled && hasActor && Boolean(roomId),
   });
 
   useEffect(() => {
@@ -199,9 +218,9 @@ export default function ChatRoomScreen() {
         onReady: () => setStreamStatus('ready'),
         onEvent: () => {
           setStreamStatus('event');
-          void queryClient.invalidateQueries({ queryKey: ['m3', 'chat-room', roomId] });
-          void queryClient.invalidateQueries({ queryKey: ['m3', 'chat-messages', roomId] });
-          void queryClient.invalidateQueries({ queryKey: ['m3', 'chat-judgment-status', roomId] });
+          void queryClient.invalidateQueries({ queryKey: chatQueryKeys.room(identityEpoch, roomId) });
+          void queryClient.invalidateQueries({ queryKey: chatQueryKeys.messages(identityEpoch, roomId) });
+          void queryClient.invalidateQueries({ queryKey: chatQueryKeys.judgmentStatus(identityEpoch, roomId) });
         },
         onError: (error) => {
           if (!controller.signal.aborted) {
@@ -219,12 +238,37 @@ export default function ChatRoomScreen() {
     });
 
     return () => controller.abort();
-  }, [hasActor, mounted, queryClient, roomId, roomQuery.data?.id]);
+  }, [hasActor, identityEpoch, mounted, queryClient, roomId, roomQuery.data?.id]);
+
+  useEffect(() => {
+    if (!mounted || !hasActor || !roomId || !privateChannel?.id) return undefined;
+    const controller = new AbortController();
+    void connectChatChannelStream(
+      privateChannel.id,
+      {
+        onEvent: () => {
+          void queryClient.invalidateQueries({ queryKey: chatQueryKeys.messages(identityEpoch, roomId) });
+        },
+        onError: (error) => {
+          if (!controller.signal.aborted) setStreamError(normalizeM3Error(error).message);
+        },
+      },
+      { signal: controller.signal },
+    ).catch((error) => {
+      if (!controller.signal.aborted) setStreamError(normalizeM3Error(error).message);
+    });
+    return () => controller.abort();
+  }, [hasActor, identityEpoch, mounted, privateChannel?.id, queryClient, roomId]);
 
   const connectChatAI = useCallback((callbacks: AIStreamCallbacks, options: { afterSeq?: number; signal?: AbortSignal }) => {
-    if (!roomId) return Promise.resolve();
-    return connectChatAIStream(roomId, callbacks, options);
-  }, [roomId]);
+    if (!roomId || !activeChannel?.id) return Promise.resolve();
+    return connectChatAIStream(
+      activeLane === 'private' ? 'chat_channel' : 'chat_room',
+      activeLane === 'private' ? activeChannel.id : roomId,
+      callbacks,
+      options,
+    );
+  }, [activeChannel?.id, activeLane, roomId]);
 
   const {
     state: aiStreamState,
@@ -232,8 +276,10 @@ export default function ChatRoomScreen() {
     isRecovering: aiStreamRecovering,
     lifecycleStatus: aiStreamLifecycleStatus,
   } = useAIStreamSubscription<ChatAIStreamState>({
-    scopeKey: roomId ? `chat_room:${roomId}` : null,
-    enabled: mounted && hasActor && Boolean(roomId),
+    scopeKey: roomId && activeChannel?.id
+      ? `${activeLane === 'private' ? 'chat_channel' : 'chat_room'}:${activeLane === 'private' ? activeChannel.id : roomId}`
+      : null,
+    enabled: mounted && identityQueriesEnabled && hasActor && Boolean(roomId && activeChannel?.id),
     initialState: initialChatAIStreamState,
     connect: connectChatAI,
     normalizeError: normalizeM3Error,
@@ -256,9 +302,9 @@ export default function ChatRoomScreen() {
     shouldClearRecoveringOnEvent: (event) => event.eventType === 'stream.delta' || isTerminalAIStreamEvent(event),
     onEvent: (event) => {
       if (event.eventType === 'stream.persisted') {
-        void queryClient.invalidateQueries({ queryKey: ['m3', 'chat-room', roomId] });
-        void queryClient.invalidateQueries({ queryKey: ['m3', 'chat-messages', roomId] });
-        void queryClient.invalidateQueries({ queryKey: ['m3', 'chat-judgment-status', roomId] });
+        void queryClient.invalidateQueries({ queryKey: chatQueryKeys.room(identityEpoch, roomId) });
+        void queryClient.invalidateQueries({ queryKey: chatQueryKeys.messages(identityEpoch, roomId) });
+        void queryClient.invalidateQueries({ queryKey: chatQueryKeys.judgmentStatus(identityEpoch, roomId) });
       }
     },
     onConnectionError: (error) => {
@@ -270,67 +316,111 @@ export default function ChatRoomScreen() {
   });
 
   const sendMessageMutation = useMutation({
-    mutationFn: () => m3Api.chat.sendMessage(roomId as string, {
+    mutationFn: () => m3Api.chat.sendChannelMessage(activeChannel?.id as string, {
       content: compose.trim(),
-      visibility_scope: visibilityScope,
     }),
     onSuccess: async () => {
-      setCompose('');
-      await queryClient.invalidateQueries({ queryKey: ['m3', 'chat-messages', roomId] });
+      clearCompose();
+      await queryClient.invalidateQueries({ queryKey: chatQueryKeys.messages(identityEpoch, roomId) });
+    },
+  });
+
+  const contextPreferenceMutation = useMutation({
+    mutationFn: (mode: PrivateContextUseMode) => (
+      m3Api.chat.updatePrivateContextPreference(roomId as string, { mode })
+    ),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: chatQueryKeys.contextPreference(identityEpoch, roomId) });
     },
   });
 
   const createInviteMutation = useMutation({
     mutationFn: () => m3Api.chat.createInvite(roomId as string, {
-      history_visibility_mode: roomQuery.data?.history_visibility_mode ?? 'share_summary_only',
+      history_visibility_mode: 'share_from_join_time',
       expires_in_hours: 24,
     }),
     onSuccess: async (invite) => {
       setInviteCode(invite.invite_code ?? null);
-      await queryClient.invalidateQueries({ queryKey: ['m3', 'chat-room', roomId] });
-    },
-  });
-
-  const requestJudgmentMutation = useMutation({
-    mutationFn: () => {
-      const includedIds = includedMessages.map((message) => message.id);
-      return m3Api.chat.requestJudgment(roomId as string, {
-        included_message_ids: includedIds,
-        participant_consent: hasRoleBIncluded ? { role_b_included_messages: roleBConsent } : undefined,
-      });
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['m3', 'chat-room', roomId] });
-      await queryClient.invalidateQueries({ queryKey: ['m3', 'chat-judgment-status', roomId] });
+      await queryClient.invalidateQueries({ queryKey: chatQueryKeys.room(identityEpoch, roomId) });
     },
   });
 
   const leaveRoomMutation = useMutation({
     mutationFn: () => m3Api.chat.leaveRoom(roomId as string),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['m3', 'chat-room', roomId] });
+      await queryClient.invalidateQueries({ queryKey: chatQueryKeys.room(identityEpoch, roomId) });
     },
   });
 
   const messages = messagesQuery.data?.messages ?? [];
-  const includedMessages = useMemo(
-    () => messages.filter((message) => message.message_type === 'user_text' && message.visibility_scope === 'all'),
-    [messages]
+  const hasActiveRoleB = Boolean(roomQuery.data?.participants?.some(
+    (participant) => participant.role_in_room === 'roleB' && participant.is_active
+  ));
+  const hasSharedMessages = messages.some((message) => (
+    message.visibility_scope === 'all'
+    && message.message_type !== 'safety_notice'
+    && message.message_type !== 'system_event'
+  ));
+  const sharedAvailable = hasActiveRoleB || hasSharedMessages;
+  const laneMessages = useMemo(
+    () => messages.filter((message) => (
+      message.channel_id
+        ? message.channel_id === activeChannel?.id
+        : activeLane === 'shared'
+          ? message.visibility_scope === 'all'
+          : message.visibility_scope !== 'all'
+    )),
+    [activeChannel?.id, activeLane, messages]
   );
-  const hasRoleBIncluded = includedMessages.some((message) => message.sender_participant?.role_in_room === 'roleB');
+
+  useEffect(() => {
+    if (!roomId || !messagesQuery.isFetched || initializedLaneRoomIdRef.current === roomId) return;
+    initializedLaneRoomIdRef.current = roomId;
+    setActiveLane(hasSharedMessages ? 'shared' : 'private');
+  }, [hasSharedMessages, messagesQuery.isFetched, roomId, setActiveLane]);
+
+  useEffect(() => {
+    if (!sharedAvailable && activeLane === 'shared') setActiveLane('private');
+  }, [activeLane, setActiveLane, sharedAvailable]);
+
+  const viewerParticipantId = privateChannel?.owner_participant_id ?? null;
+  const viewerParticipant = roomQuery.data?.participants?.find(
+    (participant) => participant.id === viewerParticipantId && participant.is_active,
+  );
+  const canCreateAnalysisRequest = viewerParticipant?.role_in_room === 'roleA';
+  const analysisConsent = useChatAnalysisConsent({
+    canCreateAnalysisRequest,
+    enabled: mounted && identityQueriesEnabled && hasActor,
+    messages,
+    roomId,
+    sharedChannelId: sharedChannel?.id ?? null,
+    viewerParticipantId,
+  });
 
   const errorMessage = roomQuery.error
     ? normalizeM3Error(roomQuery.error).message
     : messagesQuery.error
       ? normalizeM3Error(messagesQuery.error).message
+      : channelsQuery.error
+        ? normalizeM3Error(channelsQuery.error).message
+          : contextPreferenceQuery.error
+          ? normalizeM3Error(contextPreferenceQuery.error).message
+          : analysisConsent.capsulesError
+            ? normalizeM3Error(analysisConsent.capsulesError).message
+          : analysisConsent.requestsError
+            ? normalizeM3Error(analysisConsent.requestsError).message
       : judgmentStatusQuery.error
         ? normalizeM3Error(judgmentStatusQuery.error).message
         : sendMessageMutation.error
           ? normalizeM3Error(sendMessageMutation.error).message
           : createInviteMutation.error
             ? normalizeM3Error(createInviteMutation.error).message
-            : requestJudgmentMutation.error
-              ? normalizeM3Error(requestJudgmentMutation.error).message
+            : analysisConsent.createMutation.error
+              ? normalizeM3Error(analysisConsent.createMutation.error).message
+            : analysisConsent.decideMutation.error
+              ? normalizeM3Error(analysisConsent.decideMutation.error).message
+            : analysisConsent.submitMutation.error
+              ? normalizeM3Error(analysisConsent.submitMutation.error).message
               : leaveRoomMutation.error
               ? normalizeM3Error(leaveRoomMutation.error).message
                 : (streamError ?? aiStreamState.error);
@@ -399,11 +489,6 @@ export default function ChatRoomScreen() {
       testID="chat.room.screen">
       <Panel title={t('chatRoom.roomStatusPanel')}>
         <StatusPill label={labelRoomStatus(roomQuery.data?.status)} tone="blue" />
-        <FeatureRow
-          title={t('chatRoom.historyVisibility')}
-          detail={labelHistoryVisibility(roomQuery.data?.history_visibility_mode)}
-          tone="amber"
-        />
         <FeatureRow title={t('chatRoom.messageSync')} detail={t(roomStreamStatusLabelKeys[streamStatus])} tone={streamStatus === 'failed' ? 'coral' : 'blue'} />
         <FeatureRow
           title={t('chatRoom.aiDraftStatus')}
@@ -423,9 +508,60 @@ export default function ChatRoomScreen() {
         </Panel>
       ) : null}
 
-      <Panel title={t('chatRoom.messagesPanel')}>
-        {messages.length ? (
-          messages.map((message) => {
+      <Panel title={t('chatRoom.lane.panel')}>
+        <ChatConversationLaneSelector
+          activeLane={activeLane}
+          sharedAvailable={sharedAvailable}
+          sharedReadOnly={!hasActiveRoleB && hasSharedMessages}
+          onLaneChange={setActiveLane}
+        />
+        {activeLane === 'private' ? (
+          <>
+            <FeatureRow
+              title={t('chatRoom.contextPreference.title')}
+              detail={t('chatRoom.contextPreference.detail')}
+              tone="blue"
+            />
+            <ActionButton
+              label={t('chatRoom.contextPreference.privateOnly')}
+              disabled={contextPreferenceQuery.data?.mode === 'private_only'}
+              loading={contextPreferenceMutation.isPending}
+              onPress={() => contextPreferenceMutation.mutate('private_only')}
+              selected={contextPreferenceQuery.data?.mode === 'private_only'}
+              testID="chat.room.context-preference.private-only"
+              tone="blue"
+              variant={contextPreferenceQuery.data?.mode === 'private_only' ? 'filled' : 'outline'}
+            />
+            <ActionButton
+              label={t('chatRoom.contextPreference.processControls')}
+              disabled={contextPreferenceQuery.data?.mode === 'shared_process_controls'}
+              loading={contextPreferenceMutation.isPending}
+              onPress={() => contextPreferenceMutation.mutate('shared_process_controls')}
+              selected={contextPreferenceQuery.data?.mode === 'shared_process_controls'}
+              testID="chat.room.context-preference.process-controls"
+              tone="teal"
+              variant={contextPreferenceQuery.data?.mode === 'shared_process_controls' ? 'filled' : 'outline'}
+            />
+            {contextPreferenceMutation.error ? (
+              <FeatureRow
+                title={t('chatRoom.contextPreference.saveError')}
+                detail={t('chatRoom.contextPreference.saveError.detail')}
+                tone="coral"
+              />
+            ) : null}
+          </>
+        ) : (
+          <FeatureRow
+            title={t('chatRoom.contextPreference.sharedBoundaryTitle')}
+            detail={t('chatRoom.contextPreference.sharedBoundaryDetail')}
+            tone="teal"
+          />
+        )}
+      </Panel>
+
+      <Panel title={activeLane === 'private' ? t('chatRoom.lane.private') : t('chatRoom.lane.shared')}>
+        {laneMessages.length ? (
+          laneMessages.map((message) => {
             const meta = getMessageMeta(message);
             return (
               <View key={message.id} style={styles.message}>
@@ -444,36 +580,47 @@ export default function ChatRoomScreen() {
             );
           })
         ) : (
-          <Text style={styles.emptyText}>{t('chatRoom.emptyMessages')}</Text>
+          <Text style={styles.emptyText}>{t(activeLane === 'private' ? 'chatRoom.lane.privateEmpty' : 'chatRoom.lane.sharedEmpty')}</Text>
         )}
       </Panel>
+
+      {activeLane === 'private' && privateChannel?.id ? (
+        <>
+          <ChatContextCapsuleComposer
+            messages={messages}
+            privateChannelId={privateChannel.id}
+            roomId={roomId}
+          />
+          {viewerParticipantId ? (
+            <ChatSharedContextManager
+              capsules={analysisConsent.allCapsules}
+              roomId={roomId}
+              viewerParticipantId={viewerParticipantId}
+            />
+          ) : null}
+        </>
+      ) : null}
 
       <Panel title={t('chatRoom.composePanel')}>
         <TextInput
           accessibilityLabel={t('chatRoom.compose.label')}
-          accessibilityHint={t('chatRoom.compose.hint')}
+          accessibilityHint={t(activeLane === 'private' ? 'chatRoom.lane.privateAudience' : 'chatRoom.lane.sharedAudience')}
           multiline
           onChangeText={setCompose}
-          placeholder={t('chatRoom.compose.placeholder')}
+          placeholder={t(activeLane === 'private' ? 'chatRoom.lane.privatePlaceholder' : 'chatRoom.lane.sharedPlaceholder')}
           placeholderTextColor={palette.muted}
           style={styles.textArea}
           testID="chat.room.compose.input"
           textAlignVertical="top"
           value={compose}
         />
-        <View style={styles.optionRow}>
-          {visibilityOptions.map((option) => (
-            <ActionButton
-              key={option.value}
-              label={t(option.labelKey)}
-              onPress={() => setVisibilityScope(option.value)}
-              tone={option.tone}
-              variant={visibilityScope === option.value ? 'filled' : 'outline'}
-            />
-          ))}
-        </View>
+        <FeatureRow
+          title={t('chatRoom.lane.audience')}
+          detail={t(activeLane === 'private' ? 'chatRoom.lane.privateAudience' : 'chatRoom.lane.sharedAudience')}
+          tone={activeLane === 'private' ? 'blue' : 'teal'}
+        />
         <ActionButton
-          disabled={compose.trim().length < 2 || sendMessageMutation.isPending}
+          disabled={!activeChannel?.id || compose.trim().length < 2 || sendMessageMutation.isPending || (activeLane === 'shared' && !hasActiveRoleB)}
           label={t('chatRoom.sendMessage')}
           loading={sendMessageMutation.isPending}
           onPress={() => sendMessageMutation.mutate()}
@@ -506,33 +653,38 @@ export default function ChatRoomScreen() {
         />
       </Panel>
 
-      <Panel title={t('chatRoom.analysisPanel')}>
-        <FeatureRow title={t('chatRoom.includedScope')} detail={t('chatRoom.includedScope.detail', { count: includedMessages.length })} tone="teal" />
-        {hasRoleBIncluded ? (
-          <ActionButton
-            label={roleBConsent ? t('chatRoom.roleBConsent.confirmed') : t('chatRoom.roleBConsent.pending')}
-            onPress={() => setRoleBConsent((value) => !value)}
-            testID="chat.room.role-b-consent"
-            tone={roleBConsent ? 'teal' : 'amber'}
-            variant={roleBConsent ? 'filled' : 'outline'}
-          />
-        ) : null}
-        <ActionButton
-          disabled={includedMessages.length === 0 || (hasRoleBIncluded && !roleBConsent)}
-          label={t('chatRoom.requestAnalysis')}
-          loading={requestJudgmentMutation.isPending}
-          onPress={() => requestJudgmentMutation.mutate()}
-          testID="chat.room.request-judgment"
-          tone="coral"
-        />
-        <FeatureRow
-          title={t('chatRoom.analysisStatus')}
-          detail={judgmentStatusQuery.data?.roomStatus || roomQuery.data?.status
-            ? labelRoomStatus(judgmentStatusQuery.data?.roomStatus ?? roomQuery.data?.status)
-            : t('chatRoom.analysisNotRequested')}
-          tone="coral"
-        />
-      </Panel>
+      <ChatAnalysisConsentPanel
+        activeRequest={analysisConsent.activeRequest}
+        allParticipantsApproved={analysisConsent.allParticipantsApproved}
+        analysisStatusLabel={judgmentStatusQuery.data?.roomStatus || roomQuery.data?.status
+          ? labelRoomStatus(judgmentStatusQuery.data?.roomStatus ?? roomQuery.data?.status)
+          : t('chatRoom.analysisNotRequested')}
+        approvalRecoveryPending={analysisConsent.approvalRecoveryPending}
+        approvedParticipantCount={analysisConsent.approvedParticipantCount}
+        canCreateAnalysisRequest={canCreateAnalysisRequest}
+        createPending={analysisConsent.createMutation.isPending}
+        decidePending={analysisConsent.decideMutation.isPending}
+        eligibleMessages={analysisConsent.eligibleMessages}
+        formalCapsules={analysisConsent.formalCapsules}
+        onCloseSelectionReview={analysisConsent.closeSelectionReview}
+        onCreateReviewedSelection={(selection) => analysisConsent.createMutation.mutate(selection)}
+        onDecision={analysisConsent.decideRequest}
+        onOpenSelectionReview={analysisConsent.openSelectionReview}
+        onRevokeApproval={analysisConsent.revokeApproval}
+        onSubmit={analysisConsent.submitRequest}
+        onToggleCapsule={analysisConsent.toggleCapsule}
+        onToggleMessage={analysisConsent.toggleMessage}
+        selectedCapsuleIds={analysisConsent.selectedCapsuleIds}
+        selectedMessageIds={analysisConsent.selectedMessageIds}
+        selectionReview={analysisConsent.selectionReview}
+        sourceSetComplete={analysisConsent.sourceSetComplete}
+        revokeError={Boolean(analysisConsent.revokeApprovalMutation.error)}
+        revokePending={analysisConsent.revokeApprovalMutation.isPending}
+        submitPending={analysisConsent.submitMutation.isPending}
+        viewerApproval={analysisConsent.viewerApproval}
+        viewerIsRequester={analysisConsent.viewerIsRequester}
+        workingRequestId={analysisConsent.workingRequestId}
+      />
 
       <View style={styles.actions}>
         <ActionButton
@@ -583,9 +735,6 @@ const styles = StyleSheet.create({
     color: palette.ink,
     minHeight: 108,
     padding: 0,
-  },
-  optionRow: {
-    gap: spacing.sm,
   },
   inviteCode: {
     ...typography.hero,

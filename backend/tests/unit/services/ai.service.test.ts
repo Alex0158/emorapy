@@ -342,7 +342,7 @@ describe('AIService (non-useMock)', () => {
       });
       expect(mockLogger.error).toHaveBeenCalledWith('OpenAI API error after retries', expect.objectContaining({
         error: 'network error',
-        prompt: expect.any(String),
+        promptChars: 2,
       }));
     });
 

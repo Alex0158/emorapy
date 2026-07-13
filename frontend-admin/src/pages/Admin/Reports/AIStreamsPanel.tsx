@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { adminApi } from "@/services/api/admin";
-import type { AdminAIStreamSessionListData } from "@/types/admin";
+import type {
+	AdminAIStreamDetailData,
+	AdminAIStreamSessionListData,
+} from "@/types/admin";
 import AIStreamDetailSheet from "./AIStreamDetailSheet";
 import AIStreamSessionsPanel from "./AIStreamSessionsPanel";
 import AIStreamsReportSummary from "./AIStreamsReportSummary";
@@ -18,9 +21,22 @@ export default function AIStreamsPanel() {
 	const [offset, setOffset] = useState(0);
 	const [selectedStreamId, setSelectedStreamId] = useState("");
 	const [showSensitiveText, setShowSensitiveText] = useState(false);
+	const [sensitiveDetail, setSensitiveDetail] = useState<
+		AdminAIStreamDetailData | undefined
+	>(undefined);
+	const [sensitiveLoading, setSensitiveLoading] = useState(false);
+	const [sensitiveError, setSensitiveError] = useState(false);
+	const sensitiveRequestSequenceRef = useRef(0);
 	const { hasPermission: canReadSensitive } = useAdminAccess(
 		SENSITIVE_REPORT_PERMISSION,
 	);
+	const clearSensitiveDetail = useCallback(() => {
+		sensitiveRequestSequenceRef.current += 1;
+		setSensitiveDetail(undefined);
+		setSensitiveLoading(false);
+		setSensitiveError(false);
+		setShowSensitiveText(false);
+	}, []);
 
 	const overviewQuery = useQuery({
 		queryKey: ["admin", "reports", "ai-streams", days],
@@ -59,14 +75,63 @@ export default function AIStreamsPanel() {
 			adminApi.getReportAIStreamDetail(selectedStreamId, {
 				source,
 				eventLimit: 100,
+				includeSensitive: false,
 			}),
 		enabled: Boolean(selectedStreamId),
 	});
+
+	useEffect(() => {
+		clearSensitiveDetail();
+	}, [clearSensitiveDetail, selectedStreamId, source]);
+	useEffect(() => {
+		if (!canReadSensitive) clearSensitiveDetail();
+	}, [canReadSensitive, clearSensitiveDetail]);
+	useEffect(
+		() => () => {
+			sensitiveRequestSequenceRef.current += 1;
+		},
+		[],
+	);
+
+	const revealSensitiveDetail = useCallback(async () => {
+		if (!selectedStreamId || !canReadSensitive || sensitiveLoading) return;
+		const targetStreamId = selectedStreamId;
+		const targetSource = source;
+		const requestSequence = sensitiveRequestSequenceRef.current + 1;
+		sensitiveRequestSequenceRef.current = requestSequence;
+		setSensitiveDetail(undefined);
+		setSensitiveError(false);
+		setSensitiveLoading(true);
+		setShowSensitiveText(false);
+		try {
+			const detail = await adminApi.getReportAIStreamDetail(targetStreamId, {
+				source: targetSource,
+				eventLimit: 100,
+				includeSensitive: true,
+			});
+			if (sensitiveRequestSequenceRef.current !== requestSequence) return;
+			if (!detail.sensitiveContentIncluded) {
+				setSensitiveError(true);
+				return;
+			}
+			setSensitiveDetail(detail);
+			setShowSensitiveText(true);
+		} catch {
+			if (sensitiveRequestSequenceRef.current === requestSequence) {
+				setSensitiveError(true);
+			}
+		} finally {
+			if (sensitiveRequestSequenceRef.current === requestSequence) {
+				setSensitiveLoading(false);
+			}
+		}
+	}, [canReadSensitive, selectedStreamId, sensitiveLoading, source]);
 
 	const sessions = sessionsQuery.data?.items ?? [];
 	const total = sessionsQuery.data?.total ?? 0;
 
 	const refreshAll = () => {
+		clearSensitiveDetail();
 		void overviewQuery.refetch();
 		void sessionsQuery.refetch();
 		if (selectedStreamId) void detailQuery.refetch();
@@ -83,15 +148,18 @@ export default function AIStreamsPanel() {
 				error={Boolean(overviewQuery.error)}
 				refreshing={overviewQuery.isFetching || sessionsQuery.isFetching}
 				onDaysChange={(value) => {
+					clearSensitiveDetail();
 					setDays(value);
 					setOffset(0);
 				}}
 				onSourceChange={(value) => {
+					clearSensitiveDetail();
 					setSource(value);
 					setOffset(0);
 					setSelectedStreamId("");
 				}}
 				onStatusChange={(value) => {
+					clearSensitiveDetail();
 					setStatus(value);
 					setOffset(0);
 				}}
@@ -108,8 +176,8 @@ export default function AIStreamsPanel() {
 				error={Boolean(sessionsQuery.error)}
 				onRetry={() => void sessionsQuery.refetch()}
 				onSelect={(streamId) => {
+					clearSensitiveDetail();
 					setSelectedStreamId(streamId);
-					setShowSensitiveText(false);
 				}}
 				onPrevious={() =>
 					setOffset((current) => Math.max(0, current - PAGE_SIZE))
@@ -119,19 +187,21 @@ export default function AIStreamsPanel() {
 
 			<AIStreamDetailSheet
 				streamId={selectedStreamId}
-				detail={detailQuery.data}
+				detail={showSensitiveText ? sensitiveDetail : detailQuery.data}
 				loading={detailQuery.isLoading}
 				error={Boolean(detailQuery.error)}
 				canReadSensitive={canReadSensitive}
 				showSensitiveText={showSensitiveText}
+				sensitiveLoading={sensitiveLoading}
+				sensitiveError={sensitiveError}
 				onClose={() => {
+					clearSensitiveDetail();
 					setSelectedStreamId("");
-					setShowSensitiveText(false);
 				}}
 				onRetry={() => void detailQuery.refetch()}
-				onToggleSensitiveText={() =>
-					setShowSensitiveText((current) => !current)
-				}
+				onRevealSensitive={() => void revealSensitiveDetail()}
+				onHideSensitive={clearSensitiveDetail}
+				onRetrySensitive={() => void revealSensitiveDetail()}
 			/>
 		</div>
 	);

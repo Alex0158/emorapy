@@ -28,6 +28,10 @@ import {
   StatusPill,
 } from '@/src/ui/components';
 import { palette, spacing, typography } from '@/src/ui/theme';
+import {
+  identityScopedQueryKey,
+  useIdentityQueryScope,
+} from '@/src/providers/identityQueryScope';
 
 const QUICK_RESULT_REFETCH_MS = 3500;
 
@@ -159,9 +163,15 @@ export default function QuickResultScreen() {
   const params = useLocalSearchParams();
   const caseId = readFirstParam(params.caseId as string | string[] | undefined);
   const [sessionWarningText, setSessionWarningText] = useState<string | null>(null);
+  const identityScope = useIdentityQueryScope();
+  const identityQueriesEnabled = identityScope.privateDataEnabled && !identityScope.transitioning;
 
   const resultQuery = useQuery({
-    queryKey: ['quick-result', caseId ?? 'session'],
+    queryKey: identityScopedQueryKey(
+      identityScope.epoch,
+      'quick-result',
+      caseId ?? 'session',
+    ),
     queryFn: async () => {
       try {
         const sessionId = await sessionStorage.getSessionId();
@@ -183,6 +193,7 @@ export default function QuickResultScreen() {
         throw error;
       }
     },
+    enabled: identityQueriesEnabled,
     refetchInterval: (query) => (
       shouldPollQuickResult((query.state.data ?? null) as Case | null)
         ? QUICK_RESULT_REFETCH_MS
@@ -211,7 +222,7 @@ export default function QuickResultScreen() {
     lastSeq,
   } = useAIStreamSubscription<QuickJudgmentStreamState>({
     scopeKey: streamCaseId ? `case_judgment:${streamCaseId}` : null,
-    enabled: shouldConnectStream,
+    enabled: identityQueriesEnabled && shouldConnectStream,
     initialState: initialQuickJudgmentStreamState,
     connect: connectQuickJudgment,
     normalizeError: normalizeM1Error,

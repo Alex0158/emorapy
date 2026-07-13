@@ -15,6 +15,10 @@ import { tokenStorage } from '@/src/platform/storage/secureStore';
 import { captureTelemetry } from '@/src/platform/telemetry/client';
 import { ActionButton, FeatureRow, LinkButton, Panel, Screen, StatusPill } from '@/src/ui/components';
 import { palette, spacing, typography } from '@/src/ui/theme';
+import {
+  identityScopedQueryKey,
+  useIdentityQueryScope,
+} from '@/src/providers/identityQueryScope';
 
 const feedStates: NotificationFeedState[] = ['unread', 'actionable', 'all', 'snoozed'];
 
@@ -92,29 +96,35 @@ export default function NotificationsScreen() {
   useLocale();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const identityScope = useIdentityQueryScope();
+  const identityQueriesEnabled = identityScope.privateDataEnabled && !identityScope.transitioning;
+  const identityEpoch = identityScope.epoch;
   const [feedState, setFeedState] = useState<NotificationFeedState>('unread');
   const [pushStatus, setPushStatus] = useState<string | null>(null);
 
   const authQuery = useQuery({
-    queryKey: ['app', 'auth-token'],
+    queryKey: identityScopedQueryKey(identityEpoch, 'app', 'auth-token'),
     queryFn: () => tokenStorage.getToken(),
+    enabled: identityQueriesEnabled,
   });
   const isAuthenticated = Boolean(authQuery.data);
 
   const notificationsQuery = useQuery({
-    queryKey: ['m5', 'notifications', feedState],
+    queryKey: identityScopedQueryKey(identityEpoch, 'm5', 'notifications', feedState),
     queryFn: () => m5Api.notifications.list({ state: feedState, limit: 20 }),
-    enabled: isAuthenticated,
+    enabled: identityQueriesEnabled && isAuthenticated,
   });
 
   const unreadQuery = useQuery({
-    queryKey: ['m5', 'notifications', 'unread-count'],
+    queryKey: identityScopedQueryKey(identityEpoch, 'm5', 'notifications', 'unread-count'),
     queryFn: () => m5Api.notifications.unreadCount(),
-    enabled: isAuthenticated,
+    enabled: identityQueriesEnabled && isAuthenticated,
   });
 
   const refreshNotifications = async () => {
-    await queryClient.invalidateQueries({ queryKey: ['m5', 'notifications'] });
+    await queryClient.invalidateQueries({
+      queryKey: identityScopedQueryKey(identityEpoch, 'm5', 'notifications'),
+    });
   };
 
   const markReadMutation = useMutation({

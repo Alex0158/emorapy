@@ -80,7 +80,7 @@ describe('M3 feature API adapter', () => {
       });
     });
 
-    await connectChatAIStream('room/a', { onReady, onEvent }, { afterSeq: 3 });
+    await connectChatAIStream('chat_room', 'room/a', { onReady, onEvent }, { afterSeq: 3 });
 
     expect(mockConnectAppSSE).toHaveBeenCalledWith(expect.objectContaining({
       afterSeq: 3,
@@ -88,6 +88,17 @@ describe('M3 feature API adapter', () => {
     }));
     expect(onReady).toHaveBeenCalledWith(expect.objectContaining({ scopeId: 'room/a' }));
     expect(onEvent).toHaveBeenCalledWith(expect.objectContaining({ deltaText: 'hello', seq: 4 }));
+  });
+
+  it('keeps private AI replay on the participant-scoped chat_channel path', async () => {
+    mockConnectAppSSE.mockResolvedValueOnce(undefined);
+
+    await connectChatAIStream('chat_channel', 'private/a', {}, { afterSeq: 7 });
+
+    expect(mockConnectAppSSE).toHaveBeenCalledWith(expect.objectContaining({
+      afterSeq: 7,
+      path: '/streams/chat_channel/private%2Fa',
+    }));
   });
 
   it('normalizes App API errors for chat screens', () => {

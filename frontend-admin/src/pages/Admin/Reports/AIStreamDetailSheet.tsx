@@ -1,4 +1,4 @@
-import { Eye, EyeOff } from "lucide-react";
+import { AlertCircle, Eye, EyeOff, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
 	Sheet,
@@ -32,9 +32,13 @@ interface AIStreamDetailSheetProps {
 	error: boolean;
 	canReadSensitive: boolean;
 	showSensitiveText: boolean;
+	sensitiveLoading: boolean;
+	sensitiveError: boolean;
 	onClose: () => void;
 	onRetry: () => void;
-	onToggleSensitiveText: () => void;
+	onRevealSensitive: () => void;
+	onHideSensitive: () => void;
+	onRetrySensitive: () => void;
 }
 
 export default function AIStreamDetailSheet({
@@ -44,12 +48,20 @@ export default function AIStreamDetailSheet({
 	error,
 	canReadSensitive,
 	showSensitiveText,
+	sensitiveLoading,
+	sensitiveError,
 	onClose,
 	onRetry,
-	onToggleSensitiveText,
+	onRevealSensitive,
+	onHideSensitive,
+	onRetrySensitive,
 }: AIStreamDetailSheetProps) {
-	const canRevealSensitive =
-		canReadSensitive && detail?.sensitiveContentIncluded === true;
+	const sensitiveContentVisible = Boolean(
+		showSensitiveText &&
+			canReadSensitive &&
+			detail?.sensitiveContentIncluded === true,
+	);
+	const canRequestSensitive = Boolean(canReadSensitive && detail);
 
 	return (
 		<Sheet
@@ -116,31 +128,77 @@ export default function AIStreamDetailSheet({
 									title={t("admin.reports.aiStreamsTextSnapshot")}
 									description={t("admin.reports.aiStreamsSensitiveHint")}
 									actions={
-										canRevealSensitive ? (
+										canRequestSensitive ? (
 											<Button
 												variant="outline"
 												size="sm"
-												onClick={onToggleSensitiveText}
+												onClick={
+													sensitiveContentVisible
+														? onHideSensitive
+														: onRevealSensitive
+												}
+												disabled={sensitiveLoading}
+												aria-busy={sensitiveLoading}
 											>
-												{showSensitiveText ? (
+												{sensitiveLoading ? (
+													<Loader2
+														className="size-4 animate-spin"
+														aria-hidden="true"
+													/>
+												) : sensitiveContentVisible ? (
 													<EyeOff className="size-4" />
 												) : (
 													<Eye className="size-4" />
 												)}
-												{showSensitiveText
-													? t("admin.reports.hideText")
-													: t("admin.reports.revealText")}
+												{sensitiveLoading
+													? t("common.loading")
+													: sensitiveContentVisible
+														? t("admin.reports.hideText")
+														: t("admin.reports.revealText")}
 											</Button>
 										) : undefined
 									}
 								>
-									{canRevealSensitive && showSensitiveText ? (
+									{sensitiveError && canRequestSensitive ? (
+										<div
+											className="flex min-h-28 flex-col items-center justify-center gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-center"
+											role="alert"
+										>
+											<AlertCircle
+												className="size-5 text-destructive"
+												aria-hidden="true"
+											/>
+											<p className="text-sm text-muted-foreground">
+												{t("admin.common.loadFailed")}
+											</p>
+											<Button
+												variant="outline"
+												size="sm"
+												onClick={onRetrySensitive}
+											>
+												<RefreshCw className="size-3.5" aria-hidden="true" />
+												{t("common.retry")}
+											</Button>
+										</div>
+									) : sensitiveLoading ? (
+										<div
+											className="flex min-h-28 items-center justify-center gap-2 rounded-lg border border-dashed text-sm text-muted-foreground"
+											role="status"
+											aria-live="polite"
+										>
+											<Loader2
+												className="size-4 animate-spin"
+												aria-hidden="true"
+											/>
+											{t("common.loading")}
+										</div>
+									) : sensitiveContentVisible ? (
 										<div className="max-h-80 overflow-auto whitespace-pre-wrap rounded-lg border bg-muted/30 p-4 text-sm leading-6">
 											{detail.session.text || t("common.noData")}
 										</div>
 									) : (
 										<div className="flex min-h-28 items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
-											{canRevealSensitive
+											{canRequestSensitive
 												? t("admin.reports.aiStreamsTextHidden")
 												: t("admin.reports.aiStreamsSensitiveForbidden")}
 										</div>
@@ -167,12 +225,14 @@ export default function AIStreamDetailSheet({
 														{humanizeAdminKey(event.eventType)}
 													</TableCell>
 													<TableCell>{humanizeAdminKey(event.phase)}</TableCell>
-													<TableCell>{formatAdminDateTime(event.createdAt)}</TableCell>
+													<TableCell>
+														{formatAdminDateTime(event.createdAt)}
+													</TableCell>
 												</TableRow>
 											))}
 										</TableBody>
 									</Table>
-									{canRevealSensitive ? (
+									{sensitiveContentVisible ? (
 										<div className="mt-3">
 											<AdminRawDetails
 												value={detail.events}
@@ -182,7 +242,9 @@ export default function AIStreamDetailSheet({
 										</div>
 									) : (
 										<p className="mt-3 text-xs text-muted-foreground">
-											{t("admin.reports.aiStreamsSensitiveForbidden")}
+											{canRequestSensitive
+												? t("admin.reports.aiStreamsTextHidden")
+												: t("admin.reports.aiStreamsSensitiveForbidden")}
 										</p>
 									)}
 								</AdminPanel>

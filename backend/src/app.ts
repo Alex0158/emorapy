@@ -33,6 +33,8 @@ import interviewRoutes from './routes/interview.routes';
 import psychProfileRoutes from './routes/psych-profile.routes';
 import adminRoutes from './routes/admin.routes';
 import chatRoutes from './routes/chat.routes';
+import chatChannelRoutes from './routes/chat-channel.routes';
+import chatContextRoutes from './routes/chat-context.routes';
 import aiStreamRoutes from './routes/ai-stream.routes';
 import metricsRoutes from './routes/metrics.routes';
 import metaRoutes from './routes/meta.routes';
@@ -143,7 +145,10 @@ app.use(cors((req, callback) => {
 app.use(localeMiddleware);
 
 function shouldCompressResponse(req: express.Request, res: express.Response): boolean {
-  if (req.path.startsWith('/api/v1/streams/') || /^\/api\/v1\/chat\/rooms\/[^/]+\/stream$/.test(req.path)) {
+  if (
+    req.path.startsWith('/api/v1/streams/')
+    || /^\/api\/v1\/chat\/(?:rooms|channels)\/[^/]+\/stream$/.test(req.path)
+  ) {
     return false;
   }
   const contentType = res.getHeader('Content-Type');
@@ -224,6 +229,8 @@ app.use('/api/v1', profileRoutes);
 app.use('/api/v1/interview', interviewRoutes);
 app.use('/api/v1/psych-profile', psychProfileRoutes);
 app.use('/api/v1/chat', chatRoutes);
+app.use('/api/v1/chat', chatChannelRoutes);
+app.use('/api/v1/chat', chatContextRoutes);
 app.use('/api/v1/streams', aiStreamRoutes);
 app.use('/api/v1/pairing', pairingRoutes);
 app.use('/api/v1/cases', caseRoutes);

@@ -109,7 +109,7 @@ npm run test:run --workspace frontend-admin -- src/assets/i18n/catalogParity.tes
 
 1. `frontend/src/pages/Chat/Room/components/ChatMessageList.tsx` 的 day divider 改用 `getLocale()`。
 2. `frontend/src/pages/Chat/Room/utils/chatMessageHelpers.ts` 的 day compare 改為接收 locale。
-3. `frontend/src/pages/Chat/Room/components/ChatJudgmentPanel.tsx` 的 join time / message time 改用 `getLocale()`。
+3. `frontend/src/pages/Chat/Room/components/ChatMessageItem.tsx` 的 message time 改用 `getLocale()`。
 4. `frontend/src/pages/Execution/CheckIn/index.tsx` 的 check-in history time 改用 `getLocale()`。
 
 本輪驗證：

@@ -26,6 +26,8 @@ const appReleaseBlockingMigrations = [
   '20260508143000_add_interview_collected_facts',
   '20260508143500_add_interview_turn_extracted_facts',
   '20260508150000_add_notification_action_metadata',
+  '20260712210000_add_chat_context_domain_foundation',
+  '20260713090000_add_context_authorization_active_unique',
 ] as const;
 
 function appliedMigration(migrationName: string): ReleaseMigrationRow {

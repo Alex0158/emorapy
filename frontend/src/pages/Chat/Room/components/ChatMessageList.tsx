@@ -41,6 +41,7 @@ interface ChatMessageListProps {
   onJumpBack: () => void;
   onDismissJumpBack: () => void;
   onJumpToLatest: () => void;
+  emptyMessageKey?: string;
 }
 
 export default function ChatMessageList({
@@ -49,11 +50,12 @@ export default function ChatMessageList({
   aiDraft, currentHrefWithoutHash, messageById, replyTo, highlightMessageId, disableSendMessage,
   setMessageAnchor, handleAnchorTarget, getRoleLabel, getVisibilityScopeLabel,
   setReplyTo, hasUnread, jumpBackState, onJumpBack, onDismissJumpBack, onJumpToLatest,
+  emptyMessageKey = 'chat.emptyMessages',
 }: ChatMessageListProps) {
   return (
     <div className="chat-room-page__messages" role="log" aria-label={t('chat.messagesLogAria')}>
       {messages.length === 0 ? (
-        <div className="chat-room-page__messages-empty"><span className="text-sm text-muted-foreground">{t('chat.emptyMessages')}</span></div>
+        <div className="chat-room-page__messages-empty"><span className="max-w-sm text-center text-sm leading-relaxed text-muted-foreground">{t(emptyMessageKey)}</span></div>
       ) : (
         <>
           <Virtuoso

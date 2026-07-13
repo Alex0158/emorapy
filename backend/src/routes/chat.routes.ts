@@ -5,7 +5,10 @@ import { validate } from '../middleware/validator';
 import { getAuthUserIdOptional, getSessionIdFromSources } from '../utils/request';
 import { chatService } from '../services/chat.service';
 import { Errors } from '../utils/errors';
-import { chatEventsService } from '../services/chat-events.service';
+import { chatEventsService, type ChatStreamEvent } from '../services/chat-events.service';
+import { isRoomWideChatMessage } from '../services/chat-message-audience-policy';
+import { chatActorAccessService } from '../services/chat-actor-access.service';
+import { ChatSseEntitlementHandshake } from './chat-sse-entitlement-handshake';
 import {
   acceptChatInviteSchema,
   chatRoomIdParamSchema,
@@ -172,35 +175,61 @@ router.get(
   optionalAuthenticate,
   validate(chatRoomIdParamSchema),
   async (req, res, next) => {
+    let heartbeat: NodeJS.Timeout | undefined;
+    let handshake: ChatSseEntitlementHandshake<ChatStreamEvent> | undefined;
     try {
       const actor = getActorFromRequest(req);
-      await chatService.getRoom(req.params.roomId, actor);
+      const context = await chatActorAccessService.resolveActiveHumanParticipant(
+        req.params.roomId,
+        actor,
+      );
 
-      const unsubscribe = chatEventsService.subscribe(req.params.roomId, (event) => {
-        if (res.writableEnded || res.destroyed) return;
-        res.write(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`);
+      handshake = await ChatSseEntitlementHandshake.prepare({
+        participantId: context.participant.id,
+        deliver: event => {
+          if (res.writableEnded || res.destroyed) return;
+          res.write(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`);
+        },
+        onRevoked: () => {
+          if (heartbeat) clearInterval(heartbeat);
+          if (res.headersSent && !res.writableEnded) res.end();
+        },
       });
+      const unsubscribe = chatEventsService.subscribe(
+        req.params.roomId,
+        event => handshake?.push(event),
+      );
+      handshake.bindSubscription(unsubscribe);
+      await handshake.confirmBeforeHeaders();
 
       res.setHeader('Content-Type', 'text/event-stream');
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Connection', 'keep-alive');
       res.flushHeaders?.();
 
-      res.write(`event: ready\ndata: ${JSON.stringify({ roomId: req.params.roomId })}\n\n`);
+      handshake.activateAndFlush(() => {
+        res.write(`event: ready\ndata: ${JSON.stringify({ roomId: req.params.roomId })}\n\n`);
+      });
 
-      const heartbeat = setInterval(() => {
+      heartbeat = setInterval(() => {
         if (res.writableEnded || res.destroyed) return;
         res.write('event: ping\ndata: {}\n\n');
       }, 15000);
 
       req.on('close', () => {
-        clearInterval(heartbeat);
-        unsubscribe();
+        if (heartbeat) clearInterval(heartbeat);
+        handshake?.dispose();
         if (!res.writableEnded) {
           res.end();
         }
       });
     } catch (error) {
+      if (heartbeat) clearInterval(heartbeat);
+      handshake?.dispose();
+      if (res.headersSent) {
+        if (!res.writableEnded) res.end();
+        return;
+      }
       next(error);
     }
   }
@@ -240,12 +269,8 @@ router.post(
       const actor = getActorFromRequest(req);
       const result = await chatService.requestJudgment(req.params.roomId, actor, {
         includedMessageIds: req.body?.included_message_ids,
+        analysisRequestId: req.body?.analysis_request_id,
         locale: req.locale,
-        participantConsent: req.body?.participant_consent
-          ? {
-              roleBIncludedMessages: req.body.participant_consent.role_b_included_messages,
-            }
-          : undefined,
       });
       chatEventsService.publish({
         type: 'room_status',
@@ -361,17 +386,19 @@ router.post(
         replyToMessageId: req.body.reply_to_message_id,
         locale: req.locale,
       });
-      chatEventsService.publish({
-        type: 'message',
-        roomId: req.params.roomId,
-        payload: {
-          messageId: message.id,
-          senderParticipantId: message.sender_participant_id,
-          messageType: message.message_type,
-          visibilityScope: message.visibility_scope,
-        },
-        at: new Date().toISOString(),
-      });
+      if (isRoomWideChatMessage(message.visibility_scope)) {
+        chatEventsService.publish({
+          type: 'message',
+          roomId: req.params.roomId,
+          payload: {
+            messageId: message.id,
+            senderParticipantId: message.sender_participant_id,
+            messageType: message.message_type,
+            visibilityScope: message.visibility_scope,
+          },
+          at: new Date().toISOString(),
+        });
+      }
       res.json({
         success: true,
         data: { message },

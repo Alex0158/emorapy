@@ -444,7 +444,7 @@ export class AIService {
 
       logger.error('OpenAI API error after retries', {
         error: e?.message,
-        prompt: prompt.substring(0, 100),
+        promptChars: String(prompt ?? '').length,
       });
       await aiRequestLedgerService.fail({
         requestId: ledger.requestId,
@@ -591,7 +591,10 @@ export class AIService {
         }, 5).catch((err: unknown) => { logger.warn('Failed to rollback AI daily quota', { error: err }); });
       }
 
-      logger.error('OpenAI API stream error after retries', { error: e?.message, prompt: prompt.substring(0, 100) });
+      logger.error('OpenAI API stream error after retries', {
+        error: e?.message,
+        promptChars: String(prompt ?? '').length,
+      });
       await aiRequestLedgerService.fail({
         requestId: ledger.requestId,
         provider: options.ledger?.provider || 'openai',

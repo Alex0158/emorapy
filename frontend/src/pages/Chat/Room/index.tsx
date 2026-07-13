@@ -3,15 +3,20 @@ import { useMountedRef } from '@/hooks/useMountedRef';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
-import type { ChatMessage, ChatRoom } from '@/types/chat';
+import type { ChatChannel, ChatMessage, ChatRoom } from '@/types/chat';
 import { useAuthStore } from '@/store/authStore';
 import { sessionStorage } from '@/utils/storage';
 import ChatRoomEntrySection from './components/ChatRoomEntrySection';
 import ChatRoomHeader from './components/ChatRoomHeader';
 import ChatRoomAlerts from './components/ChatRoomAlerts';
+import ChatConversationLaneTabs from './components/ChatConversationLaneTabs';
+import ChatContextBoundaryPanel from './components/ChatContextBoundaryPanel';
+import ChatCapsuleComposer from './components/ChatCapsuleComposer';
+import ChatSharedContextManager from './components/ChatSharedContextManager';
+import ChatAnalysisConsentPanel from './components/ChatAnalysisConsentPanel';
+import ChatAnalysisRequestDialog from './components/ChatAnalysisRequestDialog';
 import ChatMessageList from './components/ChatMessageList';
 import ChatMessageComposer from './components/ChatMessageComposer';
-import ChatJudgmentPanel from './components/ChatJudgmentPanel';
 import {
   buildMessageMap,
   getRoleLabel,
@@ -25,8 +30,12 @@ import { useChatRoomHistoryController } from './hooks/useChatRoomHistoryControll
 import { useChatRoomInviteActions } from './hooks/useChatRoomInviteActions';
 import { useChatRoomJudgmentController } from './hooks/useChatRoomJudgmentController';
 import { useChatRoomLiveUpdates } from './hooks/useChatRoomLiveUpdates';
+import { useChatLaneHistoryView } from './hooks/useChatLaneHistoryView';
 import { useChatRoomMessageController } from './hooks/useChatRoomMessageController';
 import { useChatRoomParticipantActions } from './hooks/useChatRoomParticipantActions';
+import { useChatPrivateChannelUpdates } from './hooks/useChatPrivateChannelUpdates';
+import { usePrivateContextPreference } from './hooks/usePrivateContextPreference';
+import { useChatAnalysisConsent } from './hooks/useChatAnalysisConsent';
 import { useChatRoomRouteLoader } from './hooks/useChatRoomRouteLoader';
 import { useChatRoomUiState } from './hooks/useChatRoomUiState';
 import './index.css';
@@ -41,14 +50,13 @@ const ChatRoomPage = () => {
 
   const [room, setRoom] = useState<ChatRoom | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [channels, setChannels] = useState<ChatChannel[]>([]);
   const [inviteCodeInput, setInviteCodeInput] = useState('');
   const [lastInviteCode, setLastInviteCode] = useState('');
-  const [visibilityMode, setVisibilityMode] = useState<'share_full_history' | 'share_summary_only' | 'share_from_join_time'>(
-    'share_summary_only'
-  );
   const [errorText, setErrorText] = useState('');
   const mountedRef = useMountedRef();
   const lastRoomStatusNoticeAtRef = useRef<string | null>(null);
+  const initializedLaneRoomIdRef = useRef<string | null>(null);
 
   const showChatActionFeedback = useCallback((feedback: { level: 'warning' | 'error'; message: string }) => {
     if (feedback.level === 'warning') {
@@ -97,22 +105,51 @@ const ChatRoomPage = () => {
 
   const activeRoomId = room?.id ?? null;
   const {
-    closeJudgmentPreview,
+    activeLane,
     messageInput,
-    openJudgmentPreview: showJudgmentPreview,
-    previewVisible,
     replyTo,
-    selectedForJudgment,
     setMessageInput,
+    setActiveLane,
     setReplyTo,
-    setSelectedForJudgment,
-    setVisibilityScope,
     visibilityScope,
   } = useChatRoomUiState({ activeRoomId });
+  const privateChannel = useMemo(
+    () => channels.find((channel) => channel.kind === 'private') ?? null,
+    [channels],
+  );
+  const sharedChannel = useMemo(
+    () => channels.find((channel) => channel.kind === 'shared') ?? null,
+    [channels],
+  );
+  const activeChannelId = activeLane === 'private'
+    ? privateChannel?.id ?? null
+    : sharedChannel?.id ?? null;
+  const contextPreference = usePrivateContextPreference(activeRoomId);
+  const laneHistory = useChatLaneHistoryView({
+    roomId: activeRoomId,
+    activeLane,
+    messages,
+    privateChannelId: privateChannel?.id ?? null,
+    sharedChannelId: sharedChannel?.id ?? null,
+  });
+  const laneMessages = laneHistory.activeMessages;
+  const hasSharedMessages = useMemo(
+    () => laneHistory.messagesByLane.shared.some((message) => (
+      message.message_type !== 'safety_notice'
+      && message.message_type !== 'system_event'
+    )),
+    [laneHistory.messagesByLane.shared],
+  );
 
   const history = useChatRoomHistoryController({
     room,
     messages,
+    activeLane,
+    activeMessages: laneMessages,
+    activeFirstItemIndex: laneHistory.activeFirstItemIndex,
+    activeMessageIndexById: laneHistory.activeMessageIndexById,
+    activeIsAtBottomRef: laneHistory.activeIsAtBottomRef,
+    activeRangeStartIndexRef: laneHistory.activeRangeStartIndexRef,
     setMessages,
     mountedRef,
     isRoomTargetActive,
@@ -133,12 +170,17 @@ const ChatRoomPage = () => {
     setHasMoreHistory: history.setHasMoreHistory,
     setErrorText,
     trimMessageCache: history.trimMessageCache,
-    isAtBottomRef: history.isAtBottomRef,
+    isAtBottomRef: laneHistory.activeIsAtBottomRef,
     pendingAnchorMessageIdRef: history.pendingAnchorMessageIdRef,
     loadingMoreHistoryRef: history.loadingMoreHistoryRef,
     historyCursorRef: history.historyCursorRef,
     hasMoreHistoryRef: history.hasMoreHistoryRef,
     showRoomStatusNotice,
+  });
+  useChatPrivateChannelUpdates({
+    roomId: activeRoomId,
+    privateChannelId: privateChannel?.id ?? null,
+    refreshRoomSafely,
   });
 
   const {
@@ -149,7 +191,6 @@ const ChatRoomPage = () => {
     handleAcceptInvite,
     handleDeclineInvite,
   } = useChatRoomEntryActions({
-    visibilityMode,
     inviteCodeInput,
     mountedRef,
     isEntryRouteActive,
@@ -187,14 +228,11 @@ const ChatRoomPage = () => {
   });
 
   const {
-    cancelJudgmentRequest,
     clearJudgmentPolling,
     handleRequestJudgment,
     hasSafetyInterruption,
     judging,
     latestSafetyNotice,
-    openJudgmentPreview,
-    previewInfo,
   } = useChatRoomJudgmentController({
     room,
     messages,
@@ -204,9 +242,6 @@ const ChatRoomPage = () => {
     refreshRoomSafely,
     setErrorText,
     showChatActionFeedback,
-    previewVisible,
-    showJudgmentPreview,
-    closeJudgmentPreview,
   });
 
   const {
@@ -217,6 +252,7 @@ const ChatRoomPage = () => {
   } = useChatRoomMessageController({
     room,
     activeRoomId,
+    activeChannelId,
     messageInput,
     visibilityScope,
     replyTo,
@@ -242,10 +278,10 @@ const ChatRoomPage = () => {
     isRoomTargetActive,
     setRoom,
     setMessages,
+    setChannels,
     setFirstItemIndex: history.setFirstItemIndex,
     setErrorText,
     setLastInviteCode,
-    setHasUnread: history.setHasUnread,
     setHighlightMessageId: history.setHighlightMessageId,
     setHistoryCursor: history.setHistoryCursor,
     setHasMoreHistory: history.setHasMoreHistory,
@@ -254,8 +290,6 @@ const ChatRoomPage = () => {
     messagesRef: history.messagesRef,
     historyCursorRef: history.historyCursorRef,
     hasMoreHistoryRef: history.hasMoreHistoryRef,
-    prevMessageCountRef: history.prevMessageCountRef,
-    isAtBottomRef: history.isAtBottomRef,
     clearRoomPolling,
     ensureRoomPolling,
     clearJudgmentPolling,
@@ -266,22 +300,6 @@ const ChatRoomPage = () => {
     resetHistoryNavigation: history.resetHistoryNavigation,
     scrollToBottom: history.scrollToBottom,
   });
-
-  useEffect(() => {
-    // 新訊息進來時：
-    // - 若使用者已在底部（或接近底部），自動捲到底
-    // - 否則標記 unread，提供「跳到最新」操作
-    if (!routeRoomId) return;
-    const nextCount = messages.length;
-    const prevCount = history.prevMessageCountRef.current;
-    history.prevMessageCountRef.current = nextCount;
-    if (nextCount === 0) return;
-    if (nextCount <= prevCount) return;
-
-    if (!history.isAtBottomRef.current) {
-      history.setHasUnread(true);
-    }
-  }, [messages, routeRoomId]);
 
   const sessionId = sessionStorage.get();
   const {
@@ -301,7 +319,47 @@ const ChatRoomPage = () => {
     creatingInvite,
     judging,
   });
-  const messageById = useMemo(() => buildMessageMap(messages), [messages]);
+  const myParticipantId = useMemo(() => {
+    const participantByUser = room?.participants?.find((participant) => (
+      participant.user_id === currentUserId
+      && participant.participant_type === 'user'
+      && participant.is_active
+    ));
+    if (participantByUser) return participantByUser.id;
+    if (!isOwner) return null;
+    return room?.participants?.find((participant) => (
+      participant.role_in_room === 'roleA'
+      && participant.participant_type === 'user'
+      && participant.is_active
+    ))?.id ?? null;
+  }, [currentUserId, isOwner, room?.participants]);
+  const getParticipantLabel = useCallback((participantId: string) => {
+    const participant = room?.participants?.find((candidate) => candidate.id === participantId);
+    return getRoleLabel(participant?.role_in_room);
+  }, [room?.participants]);
+  const analysisConsent = useChatAnalysisConsent({
+    roomId: activeRoomId,
+    messages,
+    sharedChannelId: sharedChannel?.id ?? null,
+    myParticipantId,
+    blocked: hasSafetyInterruption,
+    onStartAnalysis: handleRequestJudgment,
+  });
+  useEffect(() => {
+    if (!activeRoomId || loading) return;
+    if (initializedLaneRoomIdRef.current === activeRoomId) return;
+    initializedLaneRoomIdRef.current = activeRoomId;
+    setActiveLane(hasSharedMessages ? 'shared' : 'private');
+  }, [activeRoomId, hasSharedMessages, loading, setActiveLane]);
+
+  useEffect(() => {
+    if (activeRoomId && initializedLaneRoomIdRef.current !== activeRoomId) return;
+    if (!hasActiveRoleB && !hasSharedMessages && activeLane === 'shared') {
+      setActiveLane('private');
+    }
+  }, [activeLane, activeRoomId, hasActiveRoleB, hasSharedMessages, setActiveLane]);
+
+  const messageById = useMemo(() => buildMessageMap(laneMessages), [laneMessages]);
 
   const currentHrefWithoutHash = useMemo(() => {
     try {
@@ -317,8 +375,6 @@ const ChatRoomPage = () => {
     return (
       <ChatRoomEntrySection
         errorText={errorText}
-        visibilityMode={visibilityMode}
-        onVisibilityModeChange={setVisibilityMode}
         inviteCodeInput={inviteCodeInput}
         onInviteCodeInputChange={(v) => setInviteCodeInput(v)}
         creatingRoom={creatingRoom}
@@ -349,7 +405,12 @@ const ChatRoomPage = () => {
                 hasActiveRoleB={!!hasActiveRoleB}
                 getRoleLabel={getRoleLabel}
                 disableCreateInvite={disableCreateInvite}
-                disableRequestJudgment={disableRequestJudgment || hasSafetyInterruption}
+                disableRequestJudgment={
+                  disableRequestJudgment
+                  || hasSafetyInterruption
+                  || analysisConsent.hasOpenRequest
+                  || analysisConsent.loading
+                }
                 creatingInvite={creatingInvite}
                 judging={judging}
                 leavingRoom={leavingRoom}
@@ -357,7 +418,7 @@ const ChatRoomPage = () => {
                 canLeaveRoom={!!canLeaveRoom}
                 canKickB={!!canKickB}
                 onCreateInvite={handleCreateInvite}
-                onRequestJudgment={openJudgmentPreview}
+                onRequestJudgment={analysisConsent.openSelection}
                 onLeaveRoomAction={handleLeaveRoomAction}
                 onKickB={handleKickB}
                 onNavigateBack={() => navigate('/chat/room')}
@@ -370,72 +431,125 @@ const ChatRoomPage = () => {
                 roomId={routeRoomId}
                 onRetryLoad={handleRetryLoad}
               />
-              <ChatMessageList
-                messages={messages}
-                firstItemIndex={history.firstItemIndex}
-                virtuosoRef={history.virtuosoRef}
-                messagesContainerRef={history.messagesContainerRef}
-                onRangeChanged={(range) => { history.rangeStartIndexRef.current = range.startIndex; }}
-                onAtBottomChange={(atBottom) => {
-                  history.isAtBottomRef.current = atBottom;
-                  if (atBottom) history.setHasUnread(false);
-                }}
-                onStartReached={() => {
-                  if (history.pendingAnchorMessageId) return;
-                  if (!history.canLoadMoreHistory) return;
-                  if (history.loadingMoreHistory) return;
-                  void history.loadMoreHistory();
-                }}
-                canRequestMoreHistory={history.canRequestMoreHistory}
-                canLoadMoreHistory={history.canLoadMoreHistory}
-                loadingMoreHistory={history.loadingMoreHistory}
-                historyBlockedByCache={history.historyBlockedByCache}
-                onLoadMoreHistory={history.loadMoreHistory}
-                aiDraft={aiDraft}
-                currentHrefWithoutHash={currentHrefWithoutHash}
-                messageById={messageById}
-                replyTo={replyTo}
-                highlightMessageId={history.highlightMessageId}
-                disableSendMessage={disableSendMessage}
-                setMessageAnchor={history.setMessageAnchor}
-                handleAnchorTarget={history.handleAnchorTarget}
-                getRoleLabel={getRoleLabel}
-                getVisibilityScopeLabel={getVisibilityScopeLabel}
-                setReplyTo={setReplyTo}
-                hasUnread={history.hasUnread}
-                jumpBackState={history.jumpBackState}
-                onJumpBack={history.handleJumpBack}
-                onDismissJumpBack={() => history.setJumpBackState(null)}
-                onJumpToLatest={() => history.scrollToBottom('smooth')}
+              <ChatAnalysisConsentPanel
+                requests={analysisConsent.requests}
+                myParticipantId={myParticipantId}
+                workingRequestId={analysisConsent.workingRequestId}
+                loading={analysisConsent.loading}
+                error={analysisConsent.loadError}
+                getParticipantLabel={getParticipantLabel}
+                onRefresh={() => { void analysisConsent.refresh(true); }}
+                onDecision={(request, decision) => { void analysisConsent.decide(request, decision); }}
+                onRevokeApproval={(request) => { void analysisConsent.revokeApproval(request); }}
+                onSubmitAndStart={(request) => { void analysisConsent.submitAndStart(request); }}
               />
-              <ChatMessageComposer
-                visibilityScope={visibilityScope}
-                onVisibilityScopeChange={setVisibilityScope}
-                messageInput={messageInput}
-                onMessageInputChange={setMessageInput}
-                replyTo={replyTo}
-                onClearReply={() => setReplyTo(null)}
-                disableSend={disableSendMessage}
-                sending={sending}
-                onSend={handleSendMessage}
+              <ChatConversationLaneTabs
+                activeLane={activeLane}
+                sharedDisabled={!hasActiveRoleB && !hasSharedMessages}
+                sharedReadOnly={!hasActiveRoleB && hasSharedMessages}
+                onLaneChange={setActiveLane}
               />
+              <ChatContextBoundaryPanel
+                activeLane={activeLane}
+                mode={contextPreference.mode}
+                loading={contextPreference.loading}
+                saving={contextPreference.saving}
+                onModeChange={(mode) => { void contextPreference.updateMode(mode); }}
+              />
+              <section
+                id="chat-conversation-panel"
+                role="tabpanel"
+                aria-labelledby={`chat-lane-${activeLane}-tab`}
+                tabIndex={0}
+                className="rounded-2xl border border-border/70 bg-card/40 p-3 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <ChatMessageList
+                  key={activeLane}
+                  messages={laneMessages}
+                  firstItemIndex={laneHistory.activeFirstItemIndex}
+                  virtuosoRef={history.virtuosoRef}
+                  messagesContainerRef={history.messagesContainerRef}
+                  onRangeChanged={(range) => {
+                    laneHistory.handleRangeStartIndexChange(range.startIndex);
+                  }}
+                  onAtBottomChange={laneHistory.handleAtBottomChange}
+                  onStartReached={() => {
+                    if (history.pendingAnchorMessageId) return;
+                    if (!history.canLoadMoreHistory) return;
+                    if (history.loadingMoreHistory) return;
+                    void history.loadMoreHistory();
+                  }}
+                  canRequestMoreHistory={history.canRequestMoreHistory}
+                  canLoadMoreHistory={history.canLoadMoreHistory}
+                  loadingMoreHistory={history.loadingMoreHistory}
+                  historyBlockedByCache={history.historyBlockedByCache}
+                  onLoadMoreHistory={history.loadMoreHistory}
+                  aiDraft={aiDraft}
+                  currentHrefWithoutHash={currentHrefWithoutHash}
+                  messageById={messageById}
+                  replyTo={replyTo}
+                  highlightMessageId={history.highlightMessageId}
+                  disableSendMessage={disableSendMessage || !activeChannelId}
+                  setMessageAnchor={history.setMessageAnchor}
+                  handleAnchorTarget={history.handleAnchorTarget}
+                  getRoleLabel={getRoleLabel}
+                  getVisibilityScopeLabel={getVisibilityScopeLabel}
+                  setReplyTo={setReplyTo}
+                  hasUnread={laneHistory.hasUnread}
+                  jumpBackState={history.jumpBackState}
+                  onJumpBack={history.handleJumpBack}
+                  onDismissJumpBack={() => history.setJumpBackState(null)}
+                  onJumpToLatest={() => {
+                    laneHistory.clearActiveUnread();
+                    history.scrollToBottom('smooth');
+                  }}
+                  emptyMessageKey={activeLane === 'private' ? 'chat.lane.privateEmpty' : 'chat.lane.sharedEmpty'}
+                />
+                {activeLane === 'private' && activeRoomId && privateChannel && (
+                  <ChatCapsuleComposer
+                    roomId={activeRoomId}
+                    privateChannelId={privateChannel.id}
+                    messages={laneMessages}
+                    onSaved={() => { void analysisConsent.refresh(false); }}
+                  />
+                )}
+                {activeLane === 'private' && activeRoomId && (
+                  <ChatSharedContextManager
+                    capsules={analysisConsent.allCapsules}
+                    workingAuthorizationId={analysisConsent.workingAuthorizationId}
+                    onRevokeAuthorization={(authorizationId) => {
+                      void analysisConsent.revokeAuthorization(authorizationId);
+                    }}
+                  />
+                )}
+                <ChatMessageComposer
+                  lane={activeLane}
+                  messageInput={messageInput}
+                  onMessageInputChange={setMessageInput}
+                  replyTo={replyTo}
+                  onClearReply={() => setReplyTo(null)}
+                  disableSend={!activeChannelId || disableSendMessage || (activeLane === 'shared' && !hasActiveRoleB)}
+                  sending={sending}
+                  onSend={handleSendMessage}
+                />
+              </section>
             </div>
           </>
         )}
       </div>
 
-      <ChatJudgmentPanel
-        open={previewVisible}
-        previewInfo={previewInfo}
-        selectedForJudgment={selectedForJudgment}
-        onSelectedChange={setSelectedForJudgment}
-        judging={judging}
+      <ChatAnalysisRequestDialog
+        open={analysisConsent.selectionOpen}
+        messages={analysisConsent.eligibleMessages}
+        capsules={analysisConsent.capsules}
+        selectedMessageIds={analysisConsent.selectedMessageIds}
+        selectedCapsuleIds={analysisConsent.selectedCapsuleIds}
+        creating={analysisConsent.creating}
         getRoleLabel={getRoleLabel}
-        onCancel={() => {
-          closeJudgmentPreview();
-          cancelJudgmentRequest();
-        }}
-        onConfirm={handleRequestJudgment}
+        onSelectedMessageIdsChange={analysisConsent.setSelectedMessageIds}
+        onSelectedCapsuleIdsChange={analysisConsent.setSelectedCapsuleIds}
+        onClose={analysisConsent.closeSelection}
+        onCreate={() => { void analysisConsent.createAndApprove(); }}
       />
     </div>
   );

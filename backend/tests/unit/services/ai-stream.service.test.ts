@@ -1,7 +1,48 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { AIStreamService } from '../../../src/services/ai-stream.service';
+import type { AIStreamEvent } from '../../../src/types/ai-stream';
 
 describe('AIStreamService', () => {
+  it('roleB replay cutoff excludes every event and snapshot from streams created before join', async () => {
+    jest.useFakeTimers();
+    try {
+      const service = new AIStreamService({ enabled: false });
+      jest.setSystemTime(new Date('2026-07-12T19:00:00.000Z'));
+      const prejoin = await service.createStream(
+        'chat_room',
+        'room-cutoff',
+        '11111111-1111-4111-8111-111111111111',
+      );
+      await service.persisted(prejoin, { fullText: 'PREJOIN_SECRET' });
+
+      jest.setSystemTime(new Date('2026-07-12T21:00:00.000Z'));
+      const postjoin = await service.createStream(
+        'chat_room',
+        'room-cutoff',
+        '22222222-2222-4222-8222-222222222222',
+      );
+      await service.persisted(postjoin, { fullText: 'postjoin safe' });
+
+      const received: AIStreamEvent[] = [];
+      const unsubscribe = await service.subscribe(
+        'chat_room',
+        'room-cutoff',
+        event => received.push(event),
+        { notBefore: new Date('2026-07-12T20:00:00.000Z') },
+      );
+      const snapshots = await service.getSnapshots('chat_room', 'room-cutoff', {
+        notBefore: new Date('2026-07-12T20:00:00.000Z'),
+      });
+      unsubscribe();
+
+      expect(new Set(received.map(event => event.streamId))).toEqual(new Set([postjoin.streamId]));
+      expect(snapshots.map(snapshot => snapshot.streamId)).toEqual([postjoin.streamId]);
+      expect(JSON.stringify({ received, snapshots })).not.toContain('PREJOIN_SECRET');
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('應建立事件序列並更新快照文本與狀態', async () => {
     const service = new AIStreamService({ enabled: false });
     const handle = await service.createStream('chat_room', 'room-1', '11111111-1111-4111-8111-111111111111');

@@ -24,6 +24,7 @@ import {
 } from './ai-stream-runtime-helpers';
 
 type Listener = (event: AIStreamEvent) => void;
+type InternalAIStreamSnapshot = AIStreamSnapshot & { __createdAt?: string };
 
 export interface AIStreamHandle {
   streamId: string;
@@ -36,7 +37,7 @@ interface ScopeState {
   seq: number;
   events: AIStreamEvent[];
   listeners: Set<Listener>;
-  snapshots: Map<string, AIStreamSnapshot>;
+  snapshots: Map<string, InternalAIStreamSnapshot>;
 }
 
 interface StreamTimingState {
@@ -124,7 +125,7 @@ function mapDatabaseEventRecordToEvent(record: Record<string, unknown>): AIStrea
   };
 }
 
-function mapDatabaseSessionRecordToSnapshot(record: Record<string, unknown>): AIStreamSnapshot {
+function mapDatabaseSessionRecordToSnapshot(record: Record<string, unknown>): InternalAIStreamSnapshot {
   return {
     streamId: String(record.stream_id),
     requestId: String(record.request_id),
@@ -138,6 +139,9 @@ function mapDatabaseSessionRecordToSnapshot(record: Record<string, unknown>): AI
     metadata: record.metadata as Record<string, unknown> | undefined,
     error: record.error as AIStreamErrorPayload | undefined,
     updatedAt: new Date(record.updated_at as Date).toISOString(),
+    __createdAt: record.created_at
+      ? new Date(record.created_at as Date).toISOString()
+      : undefined,
   };
 }
 
@@ -280,8 +284,8 @@ export class AIStreamService {
   private buildSnapshot(
     handle: AIStreamHandle,
     event: AIStreamEvent,
-    previous?: AIStreamSnapshot
-  ): AIStreamSnapshot {
+    previous?: InternalAIStreamSnapshot
+  ): InternalAIStreamSnapshot {
     const nextStatus = this.deriveStatus(event.eventType, previous);
     const nextText =
       event.eventType === 'stream.delta'
@@ -301,10 +305,15 @@ export class AIStreamService {
       metadata: event.metadata ?? previous?.metadata,
       error: event.error ?? previous?.error,
       updatedAt: event.createdAt,
+      __createdAt: previous?.__createdAt
+        ?? (event.eventType === 'stream.created' ? event.createdAt : undefined),
     };
   }
 
-  private applyEventToLocalState(event: AIStreamEvent, notifyListeners: boolean): AIStreamSnapshot {
+  private applyEventToLocalState(
+    event: AIStreamEvent,
+    notifyListeners: boolean,
+  ): InternalAIStreamSnapshot {
     const state = this.getScopeState(event.scopeType, event.scopeId);
     const previous = state.snapshots.get(event.streamId);
     const snapshot = this.buildSnapshot(
@@ -360,7 +369,10 @@ export class AIStreamService {
     return state.seq;
   }
 
-  private async persistToRedis(event: AIStreamEvent, snapshot: AIStreamSnapshot): Promise<void> {
+  private async persistToRedis(
+    event: AIStreamEvent,
+    snapshot: InternalAIStreamSnapshot,
+  ): Promise<void> {
     if (!(await this.ensureRedisReady())) return;
 
     const prefix = buildRedisScopePrefix(event.scopeType, event.scopeId);
@@ -383,7 +395,10 @@ export class AIStreamService {
     }
   }
 
-  private buildSessionPersistencePayload(event: AIStreamEvent, snapshot: AIStreamSnapshot): Record<string, unknown> {
+  private buildSessionPersistencePayload(
+    event: AIStreamEvent,
+    snapshot: InternalAIStreamSnapshot,
+  ): Record<string, unknown> {
     const eventTime = new Date(event.createdAt);
     return {
       request_id: event.requestId,
@@ -407,7 +422,10 @@ export class AIStreamService {
     };
   }
 
-  private async persistEventToDatabase(event: AIStreamEvent, snapshot: AIStreamSnapshot): Promise<void> {
+  private async persistEventToDatabase(
+    event: AIStreamEvent,
+    snapshot: InternalAIStreamSnapshot,
+  ): Promise<void> {
     if (!this.enableDatabasePersistence) return;
 
     try {
@@ -494,7 +512,10 @@ export class AIStreamService {
     }
   }
 
-  private async readSnapshotsFromRedis(scopeType: AIStreamScopeType, scopeId: string): Promise<AIStreamSnapshot[]> {
+  private async readSnapshotsFromRedis(
+    scopeType: AIStreamScopeType,
+    scopeId: string,
+  ): Promise<InternalAIStreamSnapshot[]> {
     if (!(await this.ensureRedisReady())) return [];
     const prefix = buildRedisScopePrefix(scopeType, scopeId);
     try {
@@ -502,12 +523,12 @@ export class AIStreamService {
       return Object.values(raw)
         .map((value) => {
           try {
-            return JSON.parse(value) as AIStreamSnapshot;
+            return JSON.parse(value) as InternalAIStreamSnapshot;
           } catch {
             return null;
           }
         })
-        .filter((snapshot): snapshot is AIStreamSnapshot => Boolean(snapshot))
+        .filter((snapshot): snapshot is InternalAIStreamSnapshot => Boolean(snapshot))
         .sort(sortSnapshots);
     } catch (error) {
       logger.warn('AI Stream Redis snapshot read failed', {
@@ -545,7 +566,10 @@ export class AIStreamService {
     }
   }
 
-  private async readSnapshotsFromDatabase(scopeType: AIStreamScopeType, scopeId: string): Promise<AIStreamSnapshot[]> {
+  private async readSnapshotsFromDatabase(
+    scopeType: AIStreamScopeType,
+    scopeId: string,
+  ): Promise<InternalAIStreamSnapshot[]> {
     if (!this.enableDatabasePersistence) return [];
 
     try {
@@ -699,13 +723,23 @@ export class AIStreamService {
     scopeType: AIStreamScopeType,
     scopeId: string,
     listener: Listener,
-    options?: { afterSeq?: number }
+    options?: { afterSeq?: number; notBefore?: Date }
   ): Promise<() => void> {
     const state = this.getScopeState(scopeType, scopeId);
     const afterSeq = options?.afterSeq ?? 0;
+    const notBeforeMs = options?.notBefore?.getTime();
+    if (notBeforeMs !== undefined) {
+      // Load persisted stream start timestamps before replay. If a legacy
+      // snapshot has no start timestamp, the cutoff below fails closed.
+      await this.getSnapshots(scopeType, scopeId);
+    }
     const deliveredSeqs = new Set<number>();
     const scopedListener: Listener = (event) => {
       if (event.seq <= afterSeq || deliveredSeqs.has(event.seq)) return;
+      if (notBeforeMs !== undefined) {
+        const startedAt = state.snapshots.get(event.streamId)?.__createdAt;
+        if (!startedAt || Date.parse(startedAt) < notBeforeMs) return;
+      }
       deliveredSeqs.add(event.seq);
       listener(event);
     };
@@ -741,9 +775,25 @@ export class AIStreamService {
     };
   }
 
-  async getSnapshots(scopeType: AIStreamScopeType, scopeId: string): Promise<AIStreamSnapshot[]> {
+  async getSnapshots(
+    scopeType: AIStreamScopeType,
+    scopeId: string,
+    options?: { notBefore?: Date },
+  ): Promise<AIStreamSnapshot[]> {
+    const project = (snapshots: InternalAIStreamSnapshot[]): AIStreamSnapshot[] => snapshots
+      .filter(snapshot => {
+        if (!options?.notBefore) return true;
+        return Boolean(
+          snapshot.__createdAt
+          && Date.parse(snapshot.__createdAt) >= options.notBefore.getTime()
+        );
+      })
+      .map(snapshot => {
+        const { __createdAt: _createdAt, ...publicSnapshot } = snapshot;
+        return publicSnapshot;
+      });
     const localSnapshots = Array.from(this.getScopeState(scopeType, scopeId).snapshots.values()).sort(sortSnapshots);
-    if (localSnapshots.length > 0) return localSnapshots;
+    if (localSnapshots.length > 0) return project(localSnapshots);
 
     const redisSnapshots = await this.readSnapshotsFromRedis(scopeType, scopeId);
     if (redisSnapshots.length > 0) {
@@ -753,7 +803,7 @@ export class AIStreamService {
         state.seq = Math.max(state.seq, snapshot.lastSeq);
       });
     }
-    if (redisSnapshots.length > 0) return redisSnapshots;
+    if (redisSnapshots.length > 0) return project(redisSnapshots);
 
     const databaseSnapshots = await this.readSnapshotsFromDatabase(scopeType, scopeId);
     if (databaseSnapshots.length > 0) {
@@ -763,7 +813,7 @@ export class AIStreamService {
         state.seq = Math.max(state.seq, snapshot.lastSeq);
       });
     }
-    return databaseSnapshots;
+    return project(databaseSnapshots);
   }
 
   async dispose(): Promise<void> {

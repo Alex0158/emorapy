@@ -14,6 +14,8 @@ describe('ai-prompt-version', () => {
     expect(getAIPromptVersion('interview_ai_response')).toBe('interview-ai-response@v1.0');
     expect(getAIPromptVersion('repair_replan_generation')).toBe('repair-replan-generation@v1.0');
     expect(Object.keys(AI_PROMPT_VERSIONS).sort()).toEqual([
+      'chat_mediation_strategy',
+      'chat_private_support_response',
       'chat_room_ai_response',
       'interview_ai_response',
       'judgment_draft',

@@ -1,5 +1,6 @@
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
 import { ChatEventsService } from '../../../src/services/chat-events.service';
+import { ChatStreamEntitlementService } from '../../../src/services/chat-stream-entitlement.service';
 
 describe('ChatEventsService', () => {
   it('應能訂閱、發布與取消訂閱', () => {
@@ -52,5 +53,122 @@ describe('ChatEventsService', () => {
 
     expect(service.getListenerCount('room-a')).toBe(1);
     expect(service.getListenerCount('room-b')).toBe(2);
+  });
+
+  it('open stream 在 participant leave/revoke 後不再收到新 room/channel activity', () => {
+    const entitlements = new ChatStreamEntitlementService();
+    const service = new ChatEventsService(entitlements);
+    const roomEvents: string[] = [];
+    const privateEvents: string[] = [];
+    service.subscribeForParticipant('room-1', 'participant-b1', event => {
+      roomEvents.push(String(event.payload.value));
+    });
+    service.subscribeChannelForParticipant('private-b1', 'participant-b1', event => {
+      privateEvents.push(String(event.payload.value));
+    });
+
+    service.publish({
+      type: 'message',
+      roomId: 'room-1',
+      payload: { value: 'before-leave' },
+      at: new Date().toISOString(),
+    });
+    service.publishToChannel({
+      type: 'message',
+      roomId: 'room-1',
+      channelId: 'private-b1',
+      payload: { value: 'before-leave' },
+      at: new Date().toISOString(),
+    });
+
+    entitlements.revokeParticipant('participant-b1');
+
+    service.publish({
+      type: 'message',
+      roomId: 'room-1',
+      payload: { value: 'after-leave' },
+      at: new Date().toISOString(),
+    });
+    service.publishToChannel({
+      type: 'message',
+      roomId: 'room-1',
+      channelId: 'private-b1',
+      payload: { value: 'after-leave' },
+      at: new Date().toISOString(),
+    });
+
+    expect(roomEvents).toEqual(['before-leave']);
+    expect(privateEvents).toEqual(['before-leave']);
+    expect(service.getListenerCount('room-1')).toBe(0);
+    expect(service.getChannelListenerCount('private-b1')).toBe(0);
+  });
+
+  it('leave 與 stream registration 競態時應立即拒絕 late registration', () => {
+    const entitlements = new ChatStreamEntitlementService();
+    const service = new ChatEventsService(entitlements);
+    const received: string[] = [];
+    entitlements.revokeParticipant('participant-b1');
+
+    service.subscribeForParticipant('room-1', 'participant-b1', event => {
+      received.push(String(event.payload.value));
+    });
+    service.publish({
+      type: 'message',
+      roomId: 'room-1',
+      payload: { value: 'after-leave' },
+      at: new Date().toISOString(),
+    });
+
+    expect(received).toEqual([]);
+    expect(service.getListenerCount('room-1')).toBe(0);
+  });
+
+  it('ongoing stream 應以 durable participant 狀態定期重驗並在失效後斷線', async () => {
+    jest.useFakeTimers();
+    try {
+      let isActive = true;
+      const validateParticipant = jest.fn(async (_participantId: string) => isActive);
+      const entitlements = new ChatStreamEntitlementService(validateParticipant, 1_000);
+      const service = new ChatEventsService(entitlements);
+      const received: string[] = [];
+      const disconnected = jest.fn();
+      service.subscribeForParticipant('room-1', 'participant-b1', event => {
+        received.push(String(event.payload.value));
+      }, disconnected);
+
+      service.publish({
+        type: 'message',
+        roomId: 'room-1',
+        payload: { value: 'before-db-revoke' },
+        at: new Date().toISOString(),
+      });
+      isActive = false;
+      await jest.advanceTimersByTimeAsync(1_000);
+      service.publish({
+        type: 'message',
+        roomId: 'room-1',
+        payload: { value: 'after-db-revoke' },
+        at: new Date().toISOString(),
+      });
+
+      expect(validateParticipant).toHaveBeenCalledWith('participant-b1');
+      expect(disconnected).toHaveBeenCalledTimes(1);
+      expect(received).toEqual(['before-db-revoke']);
+      expect(service.getListenerCount('room-1')).toBe(0);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('replay 前的即時 durable revalidation 失敗應同步撤銷所有 watcher', async () => {
+    const validateParticipant = jest.fn(async () => false);
+    const entitlements = new ChatStreamEntitlementService(validateParticipant);
+    const disconnected = jest.fn();
+    entitlements.watchParticipant('participant-b2', disconnected);
+
+    await expect(entitlements.revalidateParticipantNow('participant-b2')).resolves.toBe(false);
+
+    expect(disconnected).toHaveBeenCalledTimes(1);
+    expect(entitlements.getConnectionCount('participant-b2')).toBe(0);
   });
 });

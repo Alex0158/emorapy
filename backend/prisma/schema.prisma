@@ -345,6 +345,82 @@ enum ChatInviteStatus {
   revoked
 }
 
+enum ChatChannelKind {
+  shared
+  private
+}
+
+enum PrivateContextUseMode {
+  private_only
+  shared_process_controls
+}
+
+enum ContextCapsuleStatus {
+  draft
+  approved
+  revoked
+  expired
+  discarded
+  legacy_review_required
+}
+
+enum ContextSensitivityClass {
+  standard
+  sensitive
+  highly_sensitive
+  safety_restricted
+}
+
+enum ContextPurpose {
+  private_support
+  shared_mediation
+  formal_analysis_evidence
+  formal_analysis_delivery
+  future_private_support
+  future_joint_support
+  solo_repair
+  joint_repair
+  safety_routing
+}
+
+enum ContextAudience {
+  private_owner
+  room_participants
+  analysis_participants
+  pairing_participants
+  safety_system
+}
+
+enum ContextTargetType {
+  user
+  chat_room
+  case
+  pairing
+  analysis_request
+  repair_track
+}
+
+enum ChatAnalysisRequestStatus {
+  draft
+  pending_approval
+  approved
+  submitted
+  processing
+  completed
+  cancelled
+  expired
+}
+
+enum ChatAnalysisApprovalDecision {
+  approved
+  declined
+}
+
+enum ContextUseDecision {
+  allowed
+  denied
+}
+
 // 模型定義
 model User {
   id                    String             @id @default(uuid())
@@ -933,15 +1009,19 @@ model ChatRoom {
   status                  ChatRoomStatus            @default(solo_active)
   owner_user_id           String?
   session_id              String?                   @db.VarChar(100)
-  history_visibility_mode ChatHistoryVisibilityMode @default(share_summary_only)
+  history_visibility_mode ChatHistoryVisibilityMode @default(share_from_join_time)
   created_at              DateTime                  @default(now())
   updated_at              DateTime                  @updatedAt
 
-  owner        User?             @relation("ChatRoomOwner", fields: [owner_user_id], references: [id], onDelete: SetNull)
-  participants ChatParticipant[]
-  messages     ChatMessage[]
-  invites      ChatInvite[]
-  case_links   ChatToCaseLink[]
+  owner              User?                 @relation("ChatRoomOwner", fields: [owner_user_id], references: [id], onDelete: SetNull)
+  participants       ChatParticipant[]
+  channels           ChatChannel[]
+  messages           ChatMessage[]
+  invites            ChatInvite[]
+  case_links         ChatToCaseLink[]
+  context_capsules   ContextCapsule[]
+  analysis_requests  ChatAnalysisRequest[]
+  context_use_audits ContextUseAudit[]
 
   @@index([owner_user_id])
   @@index([session_id])
@@ -950,30 +1030,41 @@ model ChatRoom {
 }
 
 model ChatParticipant {
-  id               String              @id @default(uuid())
-  room_id          String
-  participant_type ChatParticipantType @default(user)
-  user_id          String?
-  role_in_room     ChatRoleInRoom
-  joined_at        DateTime            @default(now())
-  left_at          DateTime?
-  is_active        Boolean             @default(true)
+  id                       String                @id @default(uuid())
+  room_id                  String
+  participant_type         ChatParticipantType   @default(user)
+  user_id                  String?
+  role_in_room             ChatRoleInRoom
+  joined_at                DateTime              @default(now())
+  left_at                  DateTime?
+  is_active                Boolean               @default(true)
+  private_context_use_mode PrivateContextUseMode @default(private_only)
 
-  room                 ChatRoom         @relation(fields: [room_id], references: [id], onDelete: Cascade)
-  user                 User?            @relation(fields: [user_id], references: [id], onDelete: SetNull)
-  sent_messages        ChatMessage[]
-  sent_invites         ChatInvite[]     @relation("ChatInviteSender")
-  triggered_case_links ChatToCaseLink[] @relation("ChatCaseTrigger")
+  room                           ChatRoom                          @relation(fields: [room_id], references: [id], onDelete: Cascade)
+  user                           User?                             @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  sent_messages                  ChatMessage[]
+  sent_invites                   ChatInvite[]                      @relation("ChatInviteSender")
+  triggered_case_links           ChatToCaseLink[]                  @relation("ChatCaseTrigger")
+  owned_channels                 ChatChannel[]                     @relation("ChatChannelOwner")
+  owned_context_capsules         ContextCapsule[]                  @relation("ContextCapsuleOwner")
+  context_authorizations         ContextAuthorization[]            @relation("ContextAuthorizationSubject")
+  requested_analysis_requests    ChatAnalysisRequest[]             @relation("ChatAnalysisRequestRequester")
+  analysis_participant_approvals ChatAnalysisParticipantApproval[] @relation("ChatAnalysisApprovalParticipant")
+  context_use_audits             ContextUseAudit[]                 @relation("ContextUseAuditActor")
 
   @@index([room_id, role_in_room])
   @@index([user_id])
   @@index([room_id, is_active])
+  /// PostgreSQL partial unique indexes enforce one active roleA, roleB, and aiMediator per room.
+  /// See 20260226230000 and 20260227081000; Prisma cannot model these predicates.
   @@map("chat_participants")
 }
 
 model ChatMessage {
   id                    String              @id @default(uuid())
   room_id               String
+  channel_id            String?
+  ai_context_eligible   Boolean             @default(false)
   sender_participant_id String
   reply_to_message_id   String?
   content               String
@@ -986,15 +1077,182 @@ model ChatMessage {
   created_at            DateTime            @default(now())
 
   room               ChatRoom        @relation(fields: [room_id], references: [id], onDelete: Cascade)
+  channel            ChatChannel?    @relation(fields: [channel_id], references: [id], onDelete: Restrict)
   sender_participant ChatParticipant @relation(fields: [sender_participant_id], references: [id], onDelete: Restrict)
   reply_to_message   ChatMessage?    @relation("ChatMessageReply", fields: [reply_to_message_id], references: [id], onDelete: SetNull)
   replies            ChatMessage[]   @relation("ChatMessageReply")
 
   @@index([room_id, created_at])
+  @@index([channel_id, created_at])
   @@index([sender_participant_id])
   @@index([room_id, visibility_scope])
   @@index([reply_to_message_id])
   @@map("chat_messages")
+}
+
+model ChatChannel {
+  id                   String          @id @default(uuid())
+  room_id              String
+  kind                 ChatChannelKind
+  owner_participant_id String?
+  created_at           DateTime        @default(now())
+  updated_at           DateTime        @updatedAt
+
+  room              ChatRoom         @relation(fields: [room_id], references: [id], onDelete: Cascade)
+  owner_participant ChatParticipant? @relation("ChatChannelOwner", fields: [owner_participant_id], references: [id], onDelete: Restrict)
+  messages          ChatMessage[]
+  source_capsules   ContextCapsule[] @relation("ContextCapsuleSourceChannel")
+
+  @@index([room_id, kind])
+  @@index([owner_participant_id])
+  @@map("chat_channels")
+}
+
+model ContextCapsule {
+  id                   String                  @id @default(uuid())
+  room_id              String
+  owner_participant_id String
+  source_channel_id    String
+  lineage_id           String                  @default(uuid())
+  version              Int                     @default(1)
+  summary              String
+  source_refs          Json
+  content_hash         String                  @db.VarChar(64)
+  policy_version       String                  @db.VarChar(50)
+  sensitivity_class    ContextSensitivityClass @default(sensitive)
+  status               ContextCapsuleStatus    @default(draft)
+  expires_at           DateTime?
+  revoked_at           DateTime?
+  created_at           DateTime                @default(now())
+
+  room               ChatRoom               @relation(fields: [room_id], references: [id], onDelete: Cascade)
+  owner_participant  ChatParticipant        @relation("ContextCapsuleOwner", fields: [owner_participant_id], references: [id], onDelete: Restrict)
+  source_channel     ChatChannel            @relation("ContextCapsuleSourceChannel", fields: [source_channel_id], references: [id], onDelete: Restrict)
+  authorizations     ContextAuthorization[]
+  context_use_audits ContextUseAudit[]
+
+  @@unique([lineage_id, version], map: "ux_context_capsules_lineage_version")
+  @@unique([id, content_hash, policy_version], map: "ux_context_capsules_id_hash_policy")
+  @@index([room_id, owner_participant_id, status])
+  @@index([source_channel_id])
+  @@index([content_hash])
+  @@index([expires_at])
+  @@map("context_capsules")
+}
+
+model ContextAuthorization {
+  id                     String            @id @default(uuid())
+  capsule_id             String
+  subject_participant_id String
+  purpose                ContextPurpose
+  audience               ContextAudience
+  target_type            ContextTargetType
+  target_id              String
+  capsule_content_hash   String            @db.VarChar(64)
+  policy_version         String            @db.VarChar(50)
+  granted_at             DateTime          @default(now())
+  expires_at             DateTime?
+  revoked_at             DateTime?
+  revocation_reason_code String?           @db.VarChar(100)
+
+  capsule             ContextCapsule    @relation(fields: [capsule_id, capsule_content_hash, policy_version], references: [id, content_hash, policy_version], onDelete: Cascade, onUpdate: Restrict)
+  subject_participant ChatParticipant   @relation("ContextAuthorizationSubject", fields: [subject_participant_id], references: [id], onDelete: Restrict)
+  context_use_audits  ContextUseAudit[]
+
+  @@index([capsule_id, purpose, audience])
+  @@index([subject_participant_id, granted_at])
+  @@index([target_type, target_id, purpose])
+  @@index([expires_at, revoked_at])
+  /// A PostgreSQL partial unique index makes an unrevoked exact grant idempotent across processes.
+  /// Identity: capsule, subject, purpose, audience, target type, and target ID. Prisma cannot model it.
+  @@map("context_authorizations")
+}
+
+model ChatAnalysisRequest {
+  id                          String                    @id @default(uuid())
+  room_id                     String
+  requested_by_participant_id String
+  status                      ChatAnalysisRequestStatus @default(draft)
+  selection_snapshot          Json
+  selection_hash              String                    @db.VarChar(64)
+  required_participant_ids    String[]                  @default([])
+  policy_version              String                    @db.VarChar(50)
+  expires_at                  DateTime
+  submitted_at                DateTime?
+  cancelled_at                DateTime?
+  created_at                  DateTime                  @default(now())
+  updated_at                  DateTime                  @updatedAt
+
+  room                     ChatRoom                          @relation(fields: [room_id], references: [id], onDelete: Cascade)
+  requested_by_participant ChatParticipant                   @relation("ChatAnalysisRequestRequester", fields: [requested_by_participant_id], references: [id], onDelete: Restrict)
+  participant_approvals    ChatAnalysisParticipantApproval[]
+  context_use_audits       ContextUseAudit[]
+
+  @@unique([id, selection_hash, policy_version], map: "ux_chat_analysis_requests_id_hash_policy")
+  @@index([room_id, status, created_at])
+  @@index([requested_by_participant_id, created_at], map: "idx_chat_analysis_requests_requester_created")
+  @@index([selection_hash])
+  @@index([expires_at])
+  @@map("chat_analysis_requests")
+}
+
+model ChatAnalysisParticipantApproval {
+  id                  String                       @id @default(uuid())
+  analysis_request_id String
+  participant_id      String
+  decision            ChatAnalysisApprovalDecision
+  selection_hash      String                       @db.VarChar(64)
+  policy_version      String                       @db.VarChar(50)
+  decision_at         DateTime                     @default(now())
+  expires_at          DateTime
+  revoked_at          DateTime?
+
+  analysis_request ChatAnalysisRequest @relation(fields: [analysis_request_id, selection_hash, policy_version], references: [id, selection_hash, policy_version], onDelete: Cascade, onUpdate: Restrict)
+  participant      ChatParticipant     @relation("ChatAnalysisApprovalParticipant", fields: [participant_id], references: [id], onDelete: Restrict)
+
+  @@unique([analysis_request_id, participant_id], map: "ux_chat_analysis_approvals_request_participant")
+  @@index([participant_id, decision, decision_at], map: "idx_chat_analysis_approvals_participant_decision")
+  @@index([selection_hash])
+  @@index([expires_at, revoked_at])
+  @@map("chat_analysis_participant_approvals")
+}
+
+model ContextUseAudit {
+  id                     String             @id @default(uuid())
+  room_id                String?
+  actor_participant_id   String?
+  analysis_request_id    String?
+  capsule_id             String?
+  authorization_id       String?
+  purpose                ContextPurpose
+  audience               ContextAudience
+  target_type            ContextTargetType
+  target_id              String
+  decision               ContextUseDecision
+  reason_code            String             @db.VarChar(100)
+  source_refs            Json
+  authorization_refs     Json
+  content_hashes         String[]           @default([])
+  policy_version         String             @db.VarChar(50)
+  prompt_version         String?            @db.VarChar(50)
+  request_correlation_id String?            @db.VarChar(100)
+  created_at             DateTime           @default(now())
+
+  room              ChatRoom?             @relation(fields: [room_id], references: [id], onDelete: SetNull)
+  actor_participant ChatParticipant?      @relation("ContextUseAuditActor", fields: [actor_participant_id], references: [id], onDelete: SetNull)
+  analysis_request  ChatAnalysisRequest?  @relation(fields: [analysis_request_id], references: [id], onDelete: SetNull)
+  capsule           ContextCapsule?       @relation(fields: [capsule_id], references: [id], onDelete: SetNull)
+  authorization     ContextAuthorization? @relation(fields: [authorization_id], references: [id], onDelete: SetNull)
+
+  @@index([room_id, created_at])
+  @@index([actor_participant_id, created_at])
+  @@index([analysis_request_id])
+  @@index([capsule_id])
+  @@index([authorization_id])
+  @@index([target_type, target_id, created_at])
+  @@index([purpose, audience, decision, created_at])
+  @@index([request_correlation_id])
+  @@map("context_use_audits")
 }
 
 model ChatInvite {

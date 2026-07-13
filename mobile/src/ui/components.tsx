@@ -93,6 +93,7 @@ interface ActionButtonProps {
   onPress: () => void;
   disabled?: boolean;
   loading?: boolean;
+  selected?: boolean;
   tone?: Tone;
   variant?: 'filled' | 'outline';
   accessibilityLabel?: string;
@@ -105,6 +106,7 @@ export function ActionButton({
   onPress,
   disabled = false,
   loading = false,
+  selected = false,
   tone = 'teal',
   variant = 'filled',
   accessibilityLabel,
@@ -122,7 +124,7 @@ export function ActionButton({
       accessibilityLabel={resolvedAccessibilityLabel}
       accessibilityHint={resolvedAccessibilityHint}
       accessibilityRole="button"
-      accessibilityState={{ disabled, busy: loading }}
+      accessibilityState={{ disabled, busy: loading, selected }}
       disabled={disabled || loading}
       onPress={onPress}
       testID={testID}

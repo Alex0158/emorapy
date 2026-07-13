@@ -12,7 +12,6 @@ import {
   CRISIS_SIGNAL_REGEX,
 } from './ai.service';
 import { isReconciliationPlanContent, type ReconciliationPlanContent } from '../types/ai.types';
-import { caseContextService } from './case-context.service';
 import { notificationService } from './notification.service';
 import {
   buildRepairJourneyContext,
@@ -26,7 +25,6 @@ import {
   getRepairJourneyAccessPolicyForJudgment,
   type RepairJourneyAccessPolicy,
 } from './repair-eligibility.service';
-import { isUserBoundProductCase } from '../utils/case-classifier';
 import type { BackendLocale } from '../i18n';
 
 export type ReconciliationIntent = 'repair' | 'cool_down' | 'graceful_exit' | 'safety_support';
@@ -773,30 +771,6 @@ export class ReconciliationService {
       );
     }
 
-    let personalizationContext: string | undefined;
-    let diagnosticContext: string | undefined;
-    const caseRecord = judgment.case;
-    if (isUserBoundProductCase(caseRecord)) {
-      try {
-        const caseCtx = await caseContextService.loadCaseContext(caseRecord.id);
-        if (caseCtx) {
-          personalizationContext = caseContextService.formatForReconciliationPlans(caseCtx) || undefined;
-        }
-      } catch (err) {
-        logger.warn('Failed to load case context for reconciliation', { judgmentId, error: err });
-      }
-
-      if (judgment.emotional_analysis && typeof judgment.emotional_analysis === 'object') {
-        try {
-          diagnosticContext = caseContextService.formatDiagnosticContext(
-            judgment.emotional_analysis as Record<string, unknown>,
-          ) || undefined;
-        } catch (err) {
-          logger.warn('Failed to format diagnostic context for reconciliation', { judgmentId, error: err });
-        }
-      }
-    }
-
     let safetyContext: string | undefined;
     if (repairJourneyAccess.judgmentRoute === 'crisis_support') {
       safetyContext = '本案件已標記為危機支持路由。禁止共同修復、責任施壓與伴侶召回，請優先提供個人安全與危機支持方案。';
@@ -839,9 +813,9 @@ export class ReconciliationService {
           defendant: judgment.defendant_ratio ?? 0,
         },
         judgment.summary || '',
-        personalizationContext,
+        undefined,
         safetyContext,
-        diagnosticContext,
+        undefined,
         options,
       );
     } catch (error) {

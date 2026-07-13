@@ -706,6 +706,7 @@ export const adminAIStreamDetailSchema = {
   query: Joi.object({
     eventLimit: Joi.number().integer().min(1).max(1000).optional(),
     source: Joi.string().valid('live', 'archive', 'all').optional(),
+    include_sensitive: Joi.boolean().optional(),
   }),
 };
 
@@ -950,8 +951,6 @@ export const sendChatMessageSchema = {
 export const requestChatJudgmentSchema = {
   body: Joi.object({
     included_message_ids: Joi.array().items(Joi.string().uuid()).min(1).optional(),
-    participant_consent: Joi.object({
-      role_b_included_messages: Joi.boolean().valid(true).optional(),
-    }).optional(),
-  }).optional(),
+    analysis_request_id: Joi.string().uuid().optional(),
+  }).oxor('included_message_ids', 'analysis_request_id').optional(),
 };

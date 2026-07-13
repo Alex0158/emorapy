@@ -75,6 +75,19 @@ const clinicalQualityServiceMock = {
   recordPostResponseMetrics: jest.fn(),
 };
 
+const profileSnapshotServiceMock = {
+  createSnapshot: jest.fn(),
+};
+
+const caseContextServiceMock = {
+  loadCaseContext: jest.fn(),
+};
+
+const chatAnalysisEvidenceServiceMock = {
+  claimCaseGeneration: jest.fn(),
+  markCompleted: jest.fn(),
+};
+
 jest.mock('../../../src/config/database', () => ({
   __esModule: true,
   default: prismaMock,
@@ -126,6 +139,21 @@ jest.mock('../../../src/services/rupture-repair.service', () => ({
 jest.mock('../../../src/services/clinical-quality.service', () => ({
   __esModule: true,
   clinicalQualityService: clinicalQualityServiceMock,
+}));
+
+jest.mock('../../../src/services/profile-snapshot.service', () => ({
+  __esModule: true,
+  profileSnapshotService: profileSnapshotServiceMock,
+}));
+
+jest.mock('../../../src/services/case-context.service', () => ({
+  __esModule: true,
+  caseContextService: caseContextServiceMock,
+}));
+
+jest.mock('../../../src/services/chat-analysis-evidence.service', () => ({
+  __esModule: true,
+  chatAnalysisEvidenceService: chatAnalysisEvidenceServiceMock,
 }));
 
 import { JudgmentService } from '../../../src/services/judgment.service';
@@ -180,6 +208,8 @@ describe('JudgmentService', () => {
       repairType: 'validation',
     });
     clinicalQualityServiceMock.recordPostResponseMetrics.mockResolvedValue(undefined);
+    chatAnalysisEvidenceServiceMock.claimCaseGeneration.mockResolvedValue(null);
+    chatAnalysisEvidenceServiceMock.markCompleted.mockResolvedValue(undefined);
   });
 
   describe('generateJudgment', () => {
@@ -204,6 +234,111 @@ describe('JudgmentService', () => {
       const service = new JudgmentService();
       await expect(service.generateJudgment('case-1', { sessionId: 's-fake' })).rejects.toMatchObject({ code: 'FORBIDDEN' });
     });
+
+    it('direct generate 對 chat-derived case 仍須通過 original exact approval gate', async () => {
+      prismaMock.judgment.findUnique.mockResolvedValueOnce(null);
+      prismaMock.case.findUnique.mockResolvedValueOnce(baseCase({
+        status: 'judgment_failed',
+        mode: 'remote',
+        session_id: null,
+        plaintiff_id: 'u1',
+        defendant_id: 'u2',
+        chat_to_case_links: [{
+          id: 'link-chat',
+          room_id: 'room-chat',
+          conversion_snapshot: {
+            roleB_messages: 1,
+            included_message_ids: ['message-b'],
+            analysis_request: {
+              id: 'request-original',
+              selection_hash: 'hash-original',
+              policy_version: 'policy-v1',
+              approval_ids: ['approval-a', 'approval-b'],
+              capsule_ids: [],
+              capsule_content_hashes: [],
+            },
+          },
+        }],
+      }));
+      chatAnalysisEvidenceServiceMock.claimCaseGeneration.mockRejectedValueOnce(
+        Object.assign(new Error('approval revoked'), { code: 'CONFLICT' }),
+      );
+
+      const service = new JudgmentService();
+      await expect(service.generateJudgment('case-1', { userId: 'u1' }))
+        .rejects.toMatchObject({ code: 'CONFLICT' });
+
+      expect(chatAnalysisEvidenceServiceMock.claimCaseGeneration).toHaveBeenCalledWith(
+        expect.objectContaining({
+          roomId: 'room-chat',
+          hasDefendantMaterial: true,
+        }),
+        { userId: 'u1', sessionId: undefined },
+      );
+      expect(aiServiceMock.generateJudgment).not.toHaveBeenCalled();
+    });
+
+    it.each(['completed', 'persisted'] as const)(
+      'persisted judgment survives AI stream %s finalization failure and completes its exact request',
+      async (streamMethod) => {
+        prismaMock.judgment.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+        prismaMock.case.findUnique.mockResolvedValueOnce(baseCase({
+          mode: 'remote',
+          session_id: null,
+          plaintiff_id: 'u1',
+          defendant_id: 'u2',
+          chat_to_case_links: [{
+            id: 'link-chat',
+            room_id: 'room-chat',
+            conversion_snapshot: {
+              analysis_request: {
+                id: 'request-original',
+                selection_hash: 'hash-original',
+                policy_version: 'policy-v1',
+                approval_ids: ['approval-a', 'approval-b'],
+                capsule_ids: [],
+                capsule_content_hashes: [],
+              },
+            },
+          }],
+        }));
+        chatAnalysisEvidenceServiceMock.claimCaseGeneration.mockResolvedValueOnce({
+          requestId: 'request-original',
+        } as never);
+        aiServiceMock.generateJudgment.mockResolvedValueOnce({
+          content: 'persisted result',
+          responsibilityRatio: { plaintiff: 55, defendant: 45 },
+          summary: 'persisted summary',
+        });
+        prismaMock.judgment.create.mockResolvedValueOnce({
+          id: 'judgment-persisted',
+          case_id: 'case-1',
+          judgment_content: 'persisted result',
+          summary: 'persisted summary',
+          plaintiff_ratio: 55,
+          defendant_ratio: 45,
+        });
+        aiStreamServiceMock[streamMethod].mockRejectedValueOnce(
+          new Error(`stream ${streamMethod} unavailable`),
+        );
+
+        const service = new JudgmentService();
+        const result = await service.generateJudgment('case-1', { userId: 'u1' });
+
+        expect(result).toMatchObject({ id: 'judgment-persisted' });
+        expect(chatAnalysisEvidenceServiceMock.markCompleted).toHaveBeenCalledWith(
+          'request-original',
+          prismaMock,
+        );
+        expect(loggerMock.warn).toHaveBeenCalledWith(
+          expect.stringContaining('persisted judgment'),
+          expect.objectContaining({
+            caseId: 'case-1',
+            judgmentId: 'judgment-persisted',
+          }),
+        );
+      },
+    );
 
     it('quick 模式可透過 quick_sessions 關聯生成判決並完成該 session', async () => {
       prismaMock.judgment.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
@@ -668,6 +803,36 @@ describe('JudgmentService', () => {
       );
     });
 
+    it('Judgment create 成功後的 case update P2002 不得被誤當成 judgment idempotency', async () => {
+      prismaMock.judgment.findUnique.mockResolvedValueOnce(null);
+      prismaMock.case.findUnique.mockResolvedValueOnce(baseCase());
+      aiServiceMock.generateJudgment.mockResolvedValueOnce({
+        content: 'ok',
+        responsibilityRatio: { plaintiff: 60, defendant: 40 },
+        summary: 'sum',
+      });
+      const txFindUnique = jest.fn().mockResolvedValueOnce(null);
+      const txCaseUpdate = jest.fn().mockRejectedValueOnce({
+        code: 'P2002',
+        meta: { target: ['unrelated_case_field'] },
+      });
+      prismaMock.$transaction.mockImplementationOnce(async (fn: any) => fn({
+        judgment: {
+          findUnique: txFindUnique,
+          create: jest.fn().mockResolvedValue({ id: 'j-created', case_id: 'case-1' }),
+        },
+        case: { update: txCaseUpdate },
+      }));
+
+      const service = new JudgmentService();
+      await expect(
+        service.generateJudgment('case-1', { sessionId: baseCase().session_id as string }),
+      ).rejects.toMatchObject({ code: 'P2002' });
+
+      expect(txFindUnique).toHaveBeenCalledTimes(1);
+      expect(chatAnalysisEvidenceServiceMock.markCompleted).not.toHaveBeenCalled();
+    });
+
     it('isResponsibilityRatio 無效格式應拋出 VALIDATION_ERROR', async () => {
       prismaMock.judgment.findUnique.mockResolvedValueOnce(null);
       prismaMock.case.findUnique.mockResolvedValueOnce(baseCase());
@@ -701,7 +866,7 @@ describe('JudgmentService', () => {
       );
     });
 
-    it('remote 模式應寫入 context_governance 審計（含 consent 治理結果）', async () => {
+    it('formal Analysis 應 fail closed 為 evidence-only 且不讀 private context 或建立 snapshot', async () => {
       prismaMock.judgment.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
       prismaMock.case.findUnique.mockResolvedValueOnce(
         baseCase({
@@ -711,8 +876,11 @@ describe('JudgmentService', () => {
           defendant_id: 'u2',
         })
       );
-      // 未返回任何 consent，觸發 consent missing 路徑
-      prismaMock.user.findMany.mockResolvedValueOnce([]);
+      // 即使 profile consent 存在，formal core 仍不可讀 private context。
+      prismaMock.user.findMany.mockResolvedValueOnce([
+        { id: 'u1', psych_consent_given: true },
+        { id: 'u2', psych_consent_given: true },
+      ]);
       aiServiceMock.generateJudgment.mockResolvedValueOnce({
         content: 'ok',
         responsibilityRatio: { plaintiff: 60, defendant: 40 },
@@ -741,19 +909,32 @@ describe('JudgmentService', () => {
             emotional_analysis: expect.objectContaining({
               context_governance: expect.objectContaining({
                 profileContext: expect.objectContaining({
-                  reason: expect.stringMatching(/plaintiff_consent_missing|no_eligible_profile_sources/),
+                  enabled: false,
+                  injected: false,
+                  reason: 'formal_evidence_only_containment',
                 }),
                 caseContext: expect.objectContaining({
-                  reason: expect.stringMatching(/plaintiff_consent_missing|case_context_not_available/),
+                  enabled: false,
+                  injected: false,
+                  reason: 'formal_evidence_only_containment',
                 }),
               }),
             }),
           }),
         })
       );
+      expect(prismaMock.user.findMany).not.toHaveBeenCalled();
+      expect(profileSnapshotServiceMock.createSnapshot).not.toHaveBeenCalled();
+      expect(caseContextServiceMock.loadCaseContext).not.toHaveBeenCalled();
+      expect(aiServiceMock.analyzeEmotionalDynamics.mock.calls[0][3]).toBeUndefined();
+      const generationOptions = aiServiceMock.generateJudgment.mock.calls[0][3];
+      expect(generationOptions).not.toHaveProperty('profileContext');
+      expect(generationOptions).not.toHaveProperty('emotionalAnalysisHint');
+      expect(generationOptions).not.toHaveProperty('responsibilityHint');
+      expect(generationOptions).not.toHaveProperty('summaryBrief');
     });
 
-    it('chat-to-case 產品流應覆蓋 quick mode 的 context skip 判斷', async () => {
+    it('chat-to-case 產品流亦應維持 formal evidence-only containment', async () => {
       prismaMock.judgment.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
       prismaMock.case.findUnique.mockResolvedValueOnce(
         baseCase({
@@ -791,10 +972,10 @@ describe('JudgmentService', () => {
             emotional_analysis: expect.objectContaining({
               context_governance: expect.objectContaining({
                 profileContext: expect.objectContaining({
-                  reason: 'plaintiff_consent_missing',
+                  reason: 'formal_evidence_only_containment',
                 }),
                 caseContext: expect.objectContaining({
-                  reason: 'plaintiff_consent_missing',
+                  reason: 'formal_evidence_only_containment',
                 }),
               }),
             }),

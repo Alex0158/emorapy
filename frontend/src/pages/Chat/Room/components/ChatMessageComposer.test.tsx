@@ -24,8 +24,7 @@ describe('ChatMessageComposer', () => {
 
     render(
       <ChatMessageComposer
-        visibilityScope="all"
-        onVisibilityScopeChange={vi.fn()}
+        lane="shared"
         messageInput=""
         onMessageInputChange={vi.fn()}
         replyTo={replyTo}

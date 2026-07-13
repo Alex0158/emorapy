@@ -2,6 +2,37 @@
  * ChatService 單元測試（權限、可見性、安全分流）
  */
 
+function humanParticipant<T extends Record<string, unknown>>(fixture: T) {
+  return {
+    participant_type: 'user',
+    left_at: null,
+    ...fixture,
+  };
+}
+
+function aiParticipant<T extends Record<string, unknown>>(fixture: T) {
+  return {
+    participant_type: 'ai',
+    left_at: null,
+    ...fixture,
+  };
+}
+
+const ANALYSIS_REQUEST_ID = '550e8400-e29b-41d4-a716-446655440020';
+
+function submittedAnalysisEvidence(overrides: Record<string, unknown> = {}) {
+  return {
+    requestId: ANALYSIS_REQUEST_ID,
+    selectionHash: 'selection-hash-v1',
+    policyVersion: 'chat-analysis-policy@v1',
+    requiredParticipantIds: ['p-a'],
+    approvalIds: ['approval-a'],
+    messages: [],
+    capsules: [],
+    ...overrides,
+  };
+}
+
 const prismaMock: any = {
   chatRoom: {
     findFirst: jest.fn(),
@@ -11,6 +42,7 @@ const prismaMock: any = {
   },
   chatMessage: {
     findMany: jest.fn(),
+    findFirst: jest.fn(),
     create: jest.fn(),
     count: jest.fn(),
   },
@@ -30,12 +62,18 @@ const prismaMock: any = {
   chatParticipant: {
     create: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn(),
     findFirst: jest.fn(),
     findUnique: jest.fn(),
     findMany: jest.fn(),
   },
+  chatChannel: {
+    createMany: jest.fn(),
+  },
+  $queryRaw: jest.fn(),
   case: {
     create: jest.fn(),
+    update: jest.fn(),
   },
   pairing: {
     findFirst: jest.fn(),
@@ -60,6 +98,45 @@ const aiServiceMock = {
 
 const judgmentServiceMock = {
   generateJudgment: jest.fn(),
+};
+
+const chatAIOrchestratorMock = {
+  onUserMessage: jest.fn(),
+};
+
+const privateAnalystOrchestratorMock = {
+  onUserMessage: jest.fn(),
+};
+
+const chatMetricsServiceMock = {
+  recordMessage: jest.fn().mockResolvedValue(undefined),
+  recordRateLimit: jest.fn().mockResolvedValue(undefined),
+  recordJudgmentSuccess: jest.fn().mockResolvedValue(undefined),
+  recordJudgmentFailed: jest.fn().mockResolvedValue(undefined),
+};
+
+const chatChannelServiceMock = {
+  getSharedChannel: jest.fn(),
+  getOrCreateWriteChannelForParticipant: jest.fn(),
+  resolveChannelForWrite: jest.fn(),
+};
+
+const chatAnalysisEvidenceServiceMock = {
+  resolveSubmitted: jest.fn(),
+  claimSubmittedForProcessing: jest.fn(),
+  claimSubmittedForProcessingInTransaction: jest.fn(),
+  claimCaseGeneration: jest.fn(),
+  claimCaseGenerationInTransaction: jest.fn(),
+  markCompleted: jest.fn(),
+};
+
+const chatAnalysisRequestServiceMock = {
+  cancelActiveForParticipantDeparture: jest.fn(),
+};
+
+const chatStreamEntitlementServiceMock = {
+  activateParticipant: jest.fn(),
+  revokeParticipant: jest.fn(),
 };
 
 const lockServiceMock = {
@@ -107,6 +184,41 @@ jest.mock('../../../src/services/judgment.service', () => ({
   judgmentService: judgmentServiceMock,
 }));
 
+jest.mock('../../../src/services/chat-ai-orchestrator.service', () => ({
+  __esModule: true,
+  chatAIOrchestrator: chatAIOrchestratorMock,
+}));
+
+jest.mock('../../../src/services/private-analyst-orchestrator.service', () => ({
+  __esModule: true,
+  privateAnalystOrchestrator: privateAnalystOrchestratorMock,
+}));
+
+jest.mock('../../../src/services/chat-metrics.service', () => ({
+  __esModule: true,
+  chatMetricsService: chatMetricsServiceMock,
+}));
+
+jest.mock('../../../src/services/chat-channel.service', () => ({
+  __esModule: true,
+  chatChannelService: chatChannelServiceMock,
+}));
+
+jest.mock('../../../src/services/chat-analysis-evidence.service', () => ({
+  __esModule: true,
+  chatAnalysisEvidenceService: chatAnalysisEvidenceServiceMock,
+}));
+
+jest.mock('../../../src/services/chat-analysis-request.service', () => ({
+  __esModule: true,
+  chatAnalysisRequestService: chatAnalysisRequestServiceMock,
+}));
+
+jest.mock('../../../src/services/chat-stream-entitlement.service', () => ({
+  __esModule: true,
+  chatStreamEntitlementService: chatStreamEntitlementServiceMock,
+}));
+
 jest.mock('../../../src/utils/lock', () => ({
   __esModule: true,
   lockService: lockServiceMock,
@@ -137,24 +249,76 @@ describe('ChatService', () => {
     service = new ChatService();
     lockServiceMock.withLock.mockImplementation(async (_key: string, fn: any) => fn());
     prismaMock.$transaction.mockImplementation(async (fn: any) => fn(prismaMock));
+    prismaMock.$queryRaw.mockResolvedValue([{ id: 'locked-participant' }]);
+    chatMetricsServiceMock.recordMessage.mockResolvedValue(undefined);
+    chatMetricsServiceMock.recordRateLimit.mockResolvedValue(undefined);
+    chatMetricsServiceMock.recordJudgmentSuccess.mockResolvedValue(undefined);
+    chatMetricsServiceMock.recordJudgmentFailed.mockResolvedValue(undefined);
     prismaMock.chatMessage.count.mockResolvedValue(0);
+    prismaMock.pairing.create.mockResolvedValue({ id: 'pair-default' });
     prismaMock.chatInvite.findFirst.mockResolvedValue(null);
     prismaMock.chatRoom.updateMany.mockResolvedValue({ count: 1 });
+    prismaMock.chatChannel.createMany.mockResolvedValue({ count: 2 });
+    chatChannelServiceMock.getSharedChannel.mockResolvedValue({
+      id: 'channel-shared',
+      kind: 'shared',
+      owner_participant_id: null,
+    });
+    chatChannelServiceMock.getOrCreateWriteChannelForParticipant.mockResolvedValue({
+      id: 'channel-shared',
+      kind: 'shared',
+      owner_participant_id: null,
+    });
+    chatChannelServiceMock.resolveChannelForWrite.mockResolvedValue({
+      room: { id: 'room-default' },
+      participant: humanParticipant({ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true }),
+      channel: { id: 'channel-shared', kind: 'shared', owner_participant_id: null },
+      visibilityScope: 'all',
+    });
+    chatAnalysisEvidenceServiceMock.claimSubmittedForProcessing.mockImplementation(
+      async (_roomId: string, _requestId: string, _actor: unknown, _hash: string) => (
+        chatAnalysisEvidenceServiceMock.resolveSubmitted.mock.results.at(-1)?.value
+        ?? submittedAnalysisEvidence()
+      ),
+    );
+    chatAnalysisEvidenceServiceMock.claimSubmittedForProcessingInTransaction.mockImplementation(
+      async () => (
+        chatAnalysisEvidenceServiceMock.resolveSubmitted.mock.results.at(-1)?.value
+        ?? submittedAnalysisEvidence()
+      ),
+    );
+    chatAnalysisEvidenceServiceMock.claimCaseGeneration.mockResolvedValue(null);
+    chatAnalysisEvidenceServiceMock.claimCaseGenerationInTransaction.mockResolvedValue(null);
+    chatAnalysisEvidenceServiceMock.markCompleted.mockResolvedValue(undefined);
+    chatAnalysisRequestServiceMock.cancelActiveForParticipantDeparture.mockResolvedValue(0);
+    prismaMock.chatParticipant.updateMany.mockResolvedValue({ count: 1 });
     prismaMock.chatParticipant.findFirst.mockResolvedValue(null);
+    prismaMock.chatParticipant.create.mockResolvedValue(humanParticipant({
+      id: 'p-b-created',
+      role_in_room: 'roleB',
+      user_id: 'u2',
+      is_active: true,
+    }));
+    prismaMock.chatParticipant.update.mockImplementation(async (args: any) => humanParticipant({
+      id: args.where.id,
+      role_in_room: 'roleB',
+      user_id: args.data.user_id,
+      is_active: args.data.is_active,
+    }));
     safetyAssessmentServiceMock.recordRouteAssessment.mockResolvedValue({ id: 'assessment-1' });
-    prismaMock.chatParticipant.findUnique.mockResolvedValue({
+    prismaMock.chatParticipant.findUnique.mockResolvedValue(humanParticipant({
       id: 'p-a',
       role_in_room: 'roleA',
       is_active: true,
-    });
+    }));
     prismaMock.chatParticipant.findMany.mockImplementation(async (args: any) => ([
-      {
+      humanParticipant({
         id: 'p-a',
         room_id: args?.where?.room_id ?? 'room-default',
         role_in_room: 'roleA',
         is_active: true,
         user_id: 'u1',
-      },
+      }),
     ]));
     prismaMock.chatRoom.findUnique.mockResolvedValue({
       status: 'solo_active',
@@ -170,7 +334,7 @@ describe('ChatService', () => {
       owner_user_id: 'u1',
       history_visibility_mode: 'share_summary_only',
       participants: [
-        { id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true },
+        humanParticipant({ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true }),
       ],
     });
     prismaMock.chatMessage.findMany.mockResolvedValueOnce([]);
@@ -185,7 +349,7 @@ describe('ChatService', () => {
     prismaMock.chatRoom.findFirst.mockResolvedValueOnce({
       id: 'room-1',
       owner_user_id: 'u1',
-      participants: [{ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true }],
+      participants: [humanParticipant({ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true })],
     });
     prismaMock.chatToCaseLink.findFirst.mockResolvedValueOnce({
       id: 'link-1',
@@ -229,8 +393,8 @@ describe('ChatService', () => {
       status: 'group_active',
       history_visibility_mode: 'share_from_join_time',
       participants: [
-        { id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true, joined_at: new Date('2026-02-25T09:00:00.000Z') },
-        { id: 'p-b', role_in_room: 'roleB', user_id: 'u2', is_active: true, joined_at: joinedAt },
+        humanParticipant({ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true, joined_at: new Date('2026-02-25T09:00:00.000Z') }),
+        humanParticipant({ id: 'p-b', role_in_room: 'roleB', user_id: 'u2', is_active: true, joined_at: joinedAt }),
       ],
     });
     prismaMock.chatMessage.findMany.mockResolvedValueOnce([]);
@@ -241,17 +405,228 @@ describe('ChatService', () => {
       expect.objectContaining({
         where: expect.objectContaining({
           room_id: 'room-1',
-          AND: expect.arrayContaining([
-            expect.objectContaining({
-              visibility_scope: { in: ['all', 'summary_only'] },
-            }),
-            expect.objectContaining({
+          OR: [
+            {
+              visibility_scope: 'all',
+              OR: [
+                { channel_id: null },
+                { channel: { is: { kind: 'shared' } } },
+              ],
               created_at: { gte: joinedAt },
-            }),
-          ]),
+            },
+            {
+              sender_participant_id: 'p-b',
+              visibility_scope: { in: ['owner_only', 'summary_only'] },
+              channel_id: null,
+            },
+            { channel: { is: { kind: 'private', owner_participant_id: 'p-b' } } },
+          ],
         }),
       })
     );
+  });
+
+  it('listMessages: roleA 也只能讀 shared 與自己發出的 private 訊息', async () => {
+    prismaMock.chatRoom.findFirst.mockResolvedValueOnce({
+      id: 'room-private-projection',
+      status: 'group_active',
+      history_visibility_mode: 'share_full_history',
+      participants: [
+        humanParticipant({ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true }),
+        humanParticipant({ id: 'p-b', role_in_room: 'roleB', user_id: 'u2', is_active: true }),
+      ],
+    });
+    prismaMock.chatMessage.findMany.mockResolvedValueOnce([]);
+
+    await service.listMessages('room-private-projection', { userId: 'u1' }, { limit: 20 });
+
+    expect(prismaMock.chatMessage.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          room_id: 'room-private-projection',
+          OR: [
+            {
+              visibility_scope: 'all',
+              OR: [
+                { channel_id: null },
+                { channel: { is: { kind: 'shared' } } },
+              ],
+            },
+            {
+              sender_participant_id: 'p-a',
+              visibility_scope: { in: ['owner_only', 'summary_only'] },
+              channel_id: null,
+            },
+            { channel: { is: { kind: 'private', owner_participant_id: 'p-a' } } },
+          ],
+        }),
+      }),
+    );
+  });
+
+  it('sendMessage: legacy summary_only 應 fail closed 且不落庫', async () => {
+    prismaMock.chatRoom.findFirst.mockResolvedValueOnce({
+      id: 'room-summary-blocked',
+      status: 'solo_active',
+      history_visibility_mode: 'share_summary_only',
+      participants: [
+        humanParticipant({ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true }),
+      ],
+    });
+
+    await expect(service.sendMessage('room-summary-blocked', { userId: 'u1' }, {
+      content: '不可假裝是摘要的原文',
+      visibilityScope: 'summary_only',
+    })).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+      details: {
+        reason_code: 'CHAT_SUMMARY_ONLY_UNAVAILABLE',
+        safe_visibility_scope: 'owner_only',
+      },
+    });
+
+    expect(prismaMock.chatMessage.create).not.toHaveBeenCalled();
+  });
+
+  it('sendMessage: shared write locks actor and roleB before message create', async () => {
+    const room = {
+      id: 'room-shared-locks',
+      status: 'group_active',
+      history_visibility_mode: 'share_full_history',
+      participants: [
+        humanParticipant({
+          id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true,
+        }),
+        humanParticipant({
+          id: 'p-b', role_in_room: 'roleB', user_id: 'u2', is_active: true,
+        }),
+      ],
+    };
+    prismaMock.chatRoom.findFirst.mockResolvedValueOnce(room);
+    prismaMock.chatMessage.create.mockResolvedValueOnce({
+      id: 'message-shared-locks',
+      room_id: room.id,
+      channel_id: 'channel-shared',
+      sender_participant_id: 'p-a',
+      content: 'shared content',
+      message_type: 'user_text',
+      visibility_scope: 'all',
+      sender_participant: room.participants[0],
+      channel: {
+        id: 'channel-shared',
+        kind: 'shared',
+        owner_participant_id: null,
+      },
+    });
+
+    await service.sendMessage(room.id, { userId: 'u1' }, {
+      content: 'shared content',
+      visibilityScope: 'all',
+    });
+
+    expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(2);
+    expect(prismaMock.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(
+      prismaMock.$queryRaw.mock.invocationCallOrder[1],
+    );
+    expect(prismaMock.$queryRaw.mock.invocationCallOrder[1]).toBeLessThan(
+      prismaMock.chatMessage.create.mock.invocationCallOrder[0],
+    );
+    expect(prismaMock.$transaction).toHaveBeenCalledWith(
+      expect.any(Function),
+      { isolationLevel: 'Serializable' },
+    );
+  });
+
+  it.each([
+    ['legacy', undefined],
+    ['channelized', 'channel-shared'],
+  ] as const)(
+    'sendMessage: %s shared send creates zero rows when roleB leave/kick wins the lock race',
+    async (_path, channelId) => {
+      const room = {
+        id: `room-${_path}-leave-first`,
+        status: 'group_active',
+        history_visibility_mode: 'share_full_history',
+        participants: [
+          humanParticipant({
+            id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true,
+          }),
+          humanParticipant({
+            id: 'p-b', role_in_room: 'roleB', user_id: 'u2', is_active: true,
+          }),
+        ],
+      };
+      prismaMock.chatRoom.findFirst.mockResolvedValueOnce(room);
+      prismaMock.$queryRaw
+        .mockResolvedValueOnce([{ id: 'p-a' }])
+        .mockResolvedValueOnce([]);
+      if (channelId) {
+        chatChannelServiceMock.resolveChannelForWrite.mockResolvedValueOnce({
+          room,
+          participant: room.participants[0],
+          channel: {
+            id: channelId,
+            kind: 'shared',
+            owner_participant_id: null,
+          },
+          visibilityScope: 'all',
+        });
+      }
+
+      await expect(service.sendMessage(room.id, { userId: 'u1' }, {
+        content: 'must not persist',
+        visibilityScope: 'all',
+        channelId,
+      })).rejects.toMatchObject({ code: 'CASE_NOT_EDITABLE' });
+
+      expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(2);
+      expect(prismaMock.chatMessage.findFirst).not.toHaveBeenCalled();
+      expect(prismaMock.chatMessage.create).not.toHaveBeenCalled();
+    },
+  );
+
+  it('sendMessage: reply target 必須對 actor 可見且不得由 private 擴大成 shared link', async () => {
+    prismaMock.chatRoom.findFirst.mockResolvedValueOnce({
+      id: 'room-hidden-reply',
+      status: 'group_active',
+      history_visibility_mode: 'share_full_history',
+      participants: [
+        humanParticipant({ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true }),
+        humanParticipant({ id: 'p-b', role_in_room: 'roleB', user_id: 'u2', is_active: true }),
+      ],
+    });
+    prismaMock.chatMessage.findFirst.mockResolvedValueOnce(null);
+
+    await expect(service.sendMessage('room-hidden-reply', { userId: 'u1' }, {
+      content: '嘗試引用隱藏訊息',
+      visibilityScope: 'all',
+      replyToMessageId: 'hidden-message-id',
+    })).rejects.toMatchObject({ code: 'NOT_FOUND' });
+
+    expect(prismaMock.chatMessage.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: 'hidden-message-id',
+        room_id: 'room-hidden-reply',
+        visibility_scope: 'all',
+        OR: [
+          {
+            visibility_scope: 'all',
+            OR: [
+              { channel_id: null },
+              { channel: { is: { kind: 'shared' } } },
+            ],
+          },
+          {
+            sender_participant_id: 'p-a',
+            visibility_scope: { in: ['owner_only', 'summary_only'] },
+            channel_id: null,
+          },
+          { channel: { is: { kind: 'private', owner_participant_id: 'p-a' } } },
+        ],
+      },
+      select: { id: true },
+    });
+    expect(prismaMock.chatMessage.create).not.toHaveBeenCalled();
   });
 
   it('requestJudgment: roleB 直接觸發應被拒絕', async () => {
@@ -261,9 +636,9 @@ describe('ChatService', () => {
       owner_user_id: 'u1',
       history_visibility_mode: 'share_summary_only',
       participants: [
-        { id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true },
-        { id: 'p-b', role_in_room: 'roleB', user_id: 'u2', is_active: true },
-        { id: 'p-ai', role_in_room: 'aiMediator', user_id: null, is_active: true },
+        humanParticipant({ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true }),
+        humanParticipant({ id: 'p-b', role_in_room: 'roleB', user_id: 'u2', is_active: true }),
+        aiParticipant({ id: 'p-ai', role_in_room: 'aiMediator', user_id: null, is_active: true }),
       ],
     });
 
@@ -282,7 +657,7 @@ describe('ChatService', () => {
       owner_user_id: 'u1',
       history_visibility_mode: 'share_summary_only',
       participants: [
-        { id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true },
+        humanParticipant({ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true }),
       ],
     });
     prismaMock.chatRoom.findUnique.mockResolvedValueOnce({
@@ -303,13 +678,13 @@ describe('ChatService', () => {
       session_id: null,
       history_visibility_mode: 'share_summary_only',
       participants: [
-        { id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true },
-        { id: 'p-ai', role_in_room: 'aiMediator', user_id: null, is_active: true },
+        humanParticipant({ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true }),
+        aiParticipant({ id: 'p-ai', role_in_room: 'aiMediator', user_id: null, is_active: true }),
       ],
     });
     prismaMock.chatParticipant.findMany.mockResolvedValueOnce([
-      { id: 'p-a', room_id: 'room-3', role_in_room: 'roleA', user_id: 'u1', is_active: true },
-      { id: 'p-ai', room_id: 'room-3', role_in_room: 'aiMediator', user_id: null, is_active: true },
+      humanParticipant({ id: 'p-a', room_id: 'room-3', role_in_room: 'roleA', user_id: 'u1', is_active: true }),
+      aiParticipant({ id: 'p-ai', room_id: 'room-3', role_in_room: 'aiMediator', user_id: null, is_active: true }),
     ]);
     prismaMock.chatMessage.findMany.mockResolvedValueOnce([
       {
@@ -621,13 +996,13 @@ describe('ChatService', () => {
       },
     });
     prismaMock.chatInvite.updateMany.mockResolvedValueOnce({ count: 1 });
-    prismaMock.chatParticipant.findFirst.mockResolvedValueOnce({
+    prismaMock.chatParticipant.findFirst.mockResolvedValueOnce(humanParticipant({
       id: 'p-roleb-existing',
       room_id: 'room-roleb-conflict',
       role_in_room: 'roleB',
       is_active: true,
       user_id: 'u-other',
-    });
+    }));
 
     await expect(service.acceptInvite('CAS001', { userId: 'u-b' })).rejects.toMatchObject({
       code: 'CONFLICT',
@@ -635,7 +1010,7 @@ describe('ChatService', () => {
     expect(prismaMock.chatParticipant.create).not.toHaveBeenCalled();
   });
 
-  it('acceptInvite: 交易內找到歷史 roleB 記錄時應復用而非新建', async () => {
+  it('acceptInvite: B1 私聊後離房時不得把歷史 participant/private owner 重綁給 B2', async () => {
     prismaMock.chatInvite.findFirst.mockResolvedValueOnce({
       id: 'inv-roleb-reuse',
       status: 'pending',
@@ -652,29 +1027,113 @@ describe('ChatService', () => {
     prismaMock.chatInvite.updateMany.mockResolvedValueOnce({ count: 1 });
     prismaMock.chatParticipant.findFirst
       .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({
-        id: 'p-roleb-old',
-        room_id: 'room-roleb-reuse',
-        role_in_room: 'roleB',
-        is_active: false,
-        user_id: null,
-      });
+      .mockResolvedValueOnce(null);
+    prismaMock.chatParticipant.create.mockResolvedValueOnce(humanParticipant({
+      id: 'p-roleb-b2',
+      room_id: 'room-roleb-reuse',
+      role_in_room: 'roleB',
+      is_active: true,
+      user_id: 'u-b2',
+    }));
     prismaMock.chatInvite.updateMany.mockResolvedValueOnce({ count: 0 });
     prismaMock.chatRoom.updateMany.mockResolvedValueOnce({ count: 1 });
     prismaMock.chatRoom.findUnique.mockResolvedValueOnce({
       id: 'room-roleb-reuse',
       status: 'group_active',
-      participants: [],
+      participants: [humanParticipant({
+        id: 'p-roleb-b2',
+        room_id: 'room-roleb-reuse',
+        role_in_room: 'roleB',
+        is_active: true,
+        user_id: 'u-b2',
+      })],
     });
 
-    const room = await service.acceptInvite('CAS002', { userId: 'u-b' });
+    const room = await service.acceptInvite('CAS002', { userId: 'u-b2' });
     expect(room.status).toBe('group_active');
-    expect(prismaMock.chatParticipant.update).toHaveBeenCalledWith(
+    expect(prismaMock.chatParticipant.findFirst).toHaveBeenNthCalledWith(
+      2,
       expect.objectContaining({
-        where: { id: 'p-roleb-old' },
-      })
+        where: expect.objectContaining({
+          room_id: 'room-roleb-reuse',
+          role_in_room: 'roleB',
+          user_id: 'u-b2',
+        }),
+      }),
     );
+    expect(prismaMock.chatParticipant.update).not.toHaveBeenCalled();
+    expect(prismaMock.chatParticipant.create).toHaveBeenCalledWith({
+      data: {
+        room_id: 'room-roleb-reuse',
+        participant_type: 'user',
+        user_id: 'u-b2',
+        role_in_room: 'roleB',
+      },
+    });
+    expect(prismaMock.chatChannel.createMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.arrayContaining([
+        expect.objectContaining({ owner_participant_id: 'p-roleb-b2', kind: 'private' }),
+      ]),
+    }));
+    expect(chatStreamEntitlementServiceMock.activateParticipant)
+      .toHaveBeenCalledWith('p-roleb-b2');
+    expect(chatStreamEntitlementServiceMock.activateParticipant)
+      .not.toHaveBeenCalledWith('p-roleb-b1');
+  });
+
+  it('acceptInvite: 同一 user rejoin 才可復用自己的歷史 participant/private channel', async () => {
+    prismaMock.chatInvite.findFirst.mockResolvedValueOnce({
+      id: 'inv-roleb-same-user',
+      status: 'pending',
+      expires_at: new Date(Date.now() + 60_000),
+      invited_user_id: null,
+      room_id: 'room-roleb-same-user',
+      room: {
+        id: 'room-roleb-same-user',
+        status: 'invite_pending',
+        owner_user_id: 'u-owner',
+        participants: [],
+      },
+    });
+    prismaMock.chatInvite.updateMany.mockResolvedValueOnce({ count: 1 });
+    prismaMock.chatParticipant.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(humanParticipant({
+        id: 'p-roleb-same-user',
+        room_id: 'room-roleb-same-user',
+        role_in_room: 'roleB',
+        is_active: false,
+        user_id: 'u-b',
+        left_at: new Date('2026-07-01T00:00:00.000Z'),
+      }));
+    prismaMock.chatInvite.updateMany.mockResolvedValueOnce({ count: 0 });
+    prismaMock.chatRoom.updateMany.mockResolvedValueOnce({ count: 1 });
+    prismaMock.chatRoom.findUnique.mockResolvedValueOnce({
+      id: 'room-roleb-same-user',
+      status: 'group_active',
+      participants: [humanParticipant({
+        id: 'p-roleb-same-user',
+        room_id: 'room-roleb-same-user',
+        role_in_room: 'roleB',
+        is_active: true,
+        user_id: 'u-b',
+      })],
+    });
+
+    await service.acceptInvite('CAS-SAME', { userId: 'u-b' });
+
+    expect(prismaMock.chatParticipant.update).toHaveBeenCalledWith({
+      where: { id: 'p-roleb-same-user' },
+      data: expect.objectContaining({
+        user_id: 'u-b',
+        is_active: true,
+        left_at: null,
+        joined_at: expect.any(Date),
+      }),
+    });
     expect(prismaMock.chatParticipant.create).not.toHaveBeenCalled();
+    expect(chatStreamEntitlementServiceMock.activateParticipant)
+      .toHaveBeenCalledWith('p-roleb-same-user');
   });
 
   it('acceptInvite: 命中資料庫唯一鍵衝突時應映射為 CONFLICT', async () => {
@@ -710,19 +1169,20 @@ describe('ChatService', () => {
       owner_user_id: 'u1',
       history_visibility_mode: 'share_summary_only',
       participants: [
-        { id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true },
+        humanParticipant({ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true }),
       ],
     });
     prismaMock.chatRoom.findUnique.mockResolvedValueOnce({
       status: 'judgment_completed',
       history_visibility_mode: 'share_summary_only',
     });
-    prismaMock.chatParticipant.findUnique.mockResolvedValueOnce({
+    prismaMock.chatParticipant.findUnique.mockResolvedValueOnce(humanParticipant({
       id: 'p-a',
       room_id: 'room-8',
       role_in_room: 'roleA',
       is_active: true,
-    });
+      user_id: 'u1',
+    }));
     prismaMock.chatToCaseLink.findFirst.mockResolvedValueOnce({
       id: 'link-8',
       room_id: 'room-8',
@@ -748,18 +1208,19 @@ describe('ChatService', () => {
       status: 'judgment_completed',
       owner_user_id: 'u1',
       history_visibility_mode: 'share_summary_only',
-      participants: [{ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true }],
+      participants: [humanParticipant({ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true })],
     });
     prismaMock.chatRoom.findUnique.mockResolvedValueOnce({
       status: 'judgment_completed',
       history_visibility_mode: 'share_summary_only',
     });
-    prismaMock.chatParticipant.findUnique.mockResolvedValueOnce({
+    prismaMock.chatParticipant.findUnique.mockResolvedValueOnce(humanParticipant({
       id: 'p-a',
       room_id: 'room-8b',
       role_in_room: 'roleA',
       is_active: true,
-    });
+      user_id: 'u1',
+    }));
     prismaMock.chatToCaseLink.findFirst.mockResolvedValueOnce({
       id: 'link-8b',
       room_id: 'room-8b',
@@ -789,8 +1250,8 @@ describe('ChatService', () => {
       session_id: null,
       history_visibility_mode: 'share_summary_only',
       participants: [
-        { id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true },
-        { id: 'p-ai', role_in_room: 'aiMediator', user_id: null, is_active: true },
+        humanParticipant({ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true }),
+        aiParticipant({ id: 'p-ai', role_in_room: 'aiMediator', user_id: null, is_active: true }),
       ],
     });
     prismaMock.chatToCaseLink.findFirst.mockResolvedValueOnce({
@@ -799,7 +1260,11 @@ describe('ChatService', () => {
       case_id: 'case-8c-old',
       created_at: new Date(Date.now() - 5_000),
       judgment: { id: 'judgment-8c-old' },
-      case: { id: 'case-8c-old', status: 'completed' },
+      case: {
+        id: 'case-8c-old',
+        status: 'completed',
+        judgment: { id: 'judgment-8c-old' },
+      },
     });
     prismaMock.chatMessage.count.mockResolvedValueOnce(1);
     prismaMock.chatMessage.findMany.mockResolvedValueOnce([
@@ -821,12 +1286,20 @@ describe('ChatService', () => {
     prismaMock.case.create.mockResolvedValueOnce({ id: 'case-8c-new' });
     prismaMock.chatToCaseLink.create.mockResolvedValueOnce({ id: 'link-8c-new' });
     judgmentServiceMock.generateJudgment.mockResolvedValueOnce({ id: 'judgment-8c-new' });
-    prismaMock.chatToCaseLink.update.mockResolvedValueOnce({ id: 'link-8c-new', judgment_id: 'judgment-8c-new' });
+    prismaMock.chatToCaseLink.update.mockResolvedValue({ id: 'link-8c-new', judgment_id: 'judgment-8c-new' });
 
     const result = await service.requestJudgment('room-8c', { userId: 'u1' });
 
     expect(result.caseId).toBe('case-8c-new');
     expect(prismaMock.case.create).toHaveBeenCalled();
+    expect(prismaMock.chatToCaseLink.update).toHaveBeenNthCalledWith(1, {
+      where: { id: 'link-8c' },
+      data: { judgment_id: 'judgment-8c-old' },
+    });
+    expect(prismaMock.chatToCaseLink.update).toHaveBeenNthCalledWith(2, {
+      where: { id: 'link-8c-new' },
+      data: { judgment_id: 'judgment-8c-new' },
+    });
   });
 
   it('requestJudgment: 單人登入房應復用 owner 既有 active/pending normal pairing', async () => {
@@ -837,24 +1310,25 @@ describe('ChatService', () => {
       session_id: null,
       history_visibility_mode: 'share_summary_only',
       participants: [
-        { id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true },
-        { id: 'p-ai', role_in_room: 'aiMediator', user_id: null, is_active: true },
+        humanParticipant({ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true }),
+        aiParticipant({ id: 'p-ai', role_in_room: 'aiMediator', user_id: null, is_active: true }),
       ],
     });
     prismaMock.chatRoom.findUnique.mockResolvedValueOnce({
       status: 'solo_active',
       history_visibility_mode: 'share_summary_only',
     });
-    prismaMock.chatParticipant.findUnique.mockResolvedValueOnce({
+    prismaMock.chatParticipant.findUnique.mockResolvedValueOnce(humanParticipant({
       id: 'p-a',
       room_id: 'room-solo-pairing-reuse',
       role_in_room: 'roleA',
       is_active: true,
-    });
+      user_id: 'u1',
+    }));
     prismaMock.chatToCaseLink.findFirst.mockResolvedValueOnce(null);
     prismaMock.chatParticipant.findMany.mockResolvedValueOnce([
-      { id: 'p-a', room_id: 'room-solo-pairing-reuse', role_in_room: 'roleA', user_id: 'u1', is_active: true },
-      { id: 'p-ai', room_id: 'room-solo-pairing-reuse', role_in_room: 'aiMediator', user_id: null, is_active: true },
+      humanParticipant({ id: 'p-a', room_id: 'room-solo-pairing-reuse', role_in_room: 'roleA', user_id: 'u1', is_active: true }),
+      aiParticipant({ id: 'p-ai', room_id: 'room-solo-pairing-reuse', role_in_room: 'aiMediator', user_id: null, is_active: true }),
     ]);
     prismaMock.chatMessage.findMany.mockResolvedValueOnce([
       { id: 'm-a', content: '我希望把這段聊天整理成判決建議', created_at: new Date(), sender_participant: { role_in_room: 'roleA' } },
@@ -901,24 +1375,25 @@ describe('ChatService', () => {
       session_id: null,
       history_visibility_mode: 'share_summary_only',
       participants: [
-        { id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true },
-        { id: 'p-ai', role_in_room: 'aiMediator', user_id: null, is_active: true },
+        humanParticipant({ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true }),
+        aiParticipant({ id: 'p-ai', role_in_room: 'aiMediator', user_id: null, is_active: true }),
       ],
     });
     prismaMock.chatRoom.findUnique.mockResolvedValueOnce({
       status: 'solo_active',
       history_visibility_mode: 'share_summary_only',
     });
-    prismaMock.chatParticipant.findUnique.mockResolvedValueOnce({
+    prismaMock.chatParticipant.findUnique.mockResolvedValueOnce(humanParticipant({
       id: 'p-a',
       room_id: 'room-solo-pairing-race',
       role_in_room: 'roleA',
       is_active: true,
-    });
+      user_id: 'u1',
+    }));
     prismaMock.chatToCaseLink.findFirst.mockResolvedValueOnce(null);
     prismaMock.chatParticipant.findMany.mockResolvedValueOnce([
-      { id: 'p-a', room_id: 'room-solo-pairing-race', role_in_room: 'roleA', user_id: 'u1', is_active: true },
-      { id: 'p-ai', room_id: 'room-solo-pairing-race', role_in_room: 'aiMediator', user_id: null, is_active: true },
+      humanParticipant({ id: 'p-a', room_id: 'room-solo-pairing-race', role_in_room: 'roleA', user_id: 'u1', is_active: true }),
+      aiParticipant({ id: 'p-ai', room_id: 'room-solo-pairing-race', role_in_room: 'aiMediator', user_id: null, is_active: true }),
     ]);
     prismaMock.chatMessage.findMany.mockResolvedValueOnce([
       { id: 'm-a', content: '我希望把這段聊天整理成判決建議', created_at: new Date(), sender_participant: { role_in_room: 'roleA' } },
@@ -950,26 +1425,29 @@ describe('ChatService', () => {
     );
   });
 
-  it('requestJudgment: judgment_failed 時應復用既有 case/link 重試，不重複建案', async () => {
+  it.each(['judgment_failed', 'judgment_requested'])(
+    'requestJudgment: %s crash/retry 應復用既有 case/link，不重複建案',
+    async (roomStatus) => {
     prismaMock.chatRoom.findFirst.mockResolvedValueOnce({
       id: 'room-retry',
-      status: 'judgment_failed',
+      status: roomStatus,
       owner_user_id: 'u1',
       history_visibility_mode: 'share_summary_only',
       participants: [
-        { id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true },
+        humanParticipant({ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true }),
       ],
     });
     prismaMock.chatRoom.findUnique.mockResolvedValueOnce({
-      status: 'judgment_failed',
+      status: roomStatus,
       history_visibility_mode: 'share_summary_only',
     });
-    prismaMock.chatParticipant.findUnique.mockResolvedValueOnce({
+    prismaMock.chatParticipant.findUnique.mockResolvedValueOnce(humanParticipant({
       id: 'p-a',
       room_id: 'room-retry',
       role_in_room: 'roleA',
       is_active: true,
-    });
+      user_id: 'u1',
+    }));
     prismaMock.chatToCaseLink.findFirst.mockResolvedValueOnce({
       id: 'link-retry',
       room_id: 'room-retry',
@@ -997,6 +1475,56 @@ describe('ChatService', () => {
       locale: undefined,
     });
     expect(prismaMock.case.create).not.toHaveBeenCalled();
+    },
+  );
+
+  it('requestJudgment: processing recovery raw integrity 失敗時應轉 judgment_failed 而非永久卡住', async () => {
+    prismaMock.chatRoom.findFirst.mockResolvedValueOnce({
+      id: 'room-recovery-tampered',
+      status: 'judgment_requested',
+      owner_user_id: 'u1',
+      history_visibility_mode: 'share_summary_only',
+      participants: [
+        humanParticipant({ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true }),
+      ],
+    });
+    prismaMock.chatRoom.findUnique.mockResolvedValueOnce({
+      status: 'judgment_requested',
+      history_visibility_mode: 'share_summary_only',
+    });
+    prismaMock.chatParticipant.findUnique.mockResolvedValueOnce(humanParticipant({
+      id: 'p-a',
+      room_id: 'room-recovery-tampered',
+      role_in_room: 'roleA',
+      is_active: true,
+      user_id: 'u1',
+    }));
+    prismaMock.chatToCaseLink.findFirst.mockResolvedValueOnce({
+      id: 'link-recovery-tampered',
+      room_id: 'room-recovery-tampered',
+      case_id: 'case-recovery-tampered',
+      created_at: new Date(Date.now() - 30_000),
+      judgment: null,
+      case: { id: 'case-recovery-tampered', status: 'submitted' },
+      conversion_snapshot: { included_message_ids: ['tampered-message'] },
+    });
+    chatAnalysisEvidenceServiceMock.claimCaseGenerationInTransaction.mockRejectedValueOnce(
+      Object.assign(new Error('Consumed Analysis message source 已變更'), { code: 'CONFLICT' }),
+    );
+
+    await expect(service.requestJudgment(
+      'room-recovery-tampered',
+      { userId: 'u1' },
+    )).rejects.toMatchObject({ code: 'CONFLICT' });
+
+    expect(prismaMock.chatRoom.updateMany).toHaveBeenLastCalledWith({
+      where: {
+        id: 'room-recovery-tampered',
+        status: 'judgment_requested',
+      },
+      data: { status: 'judgment_failed' },
+    });
+    expect(judgmentServiceMock.generateJudgment).not.toHaveBeenCalled();
   });
 
   it('requestJudgment: judgment_failed 但有新訊息時應走新建案流程', async () => {
@@ -1007,8 +1535,8 @@ describe('ChatService', () => {
       history_visibility_mode: 'share_summary_only',
       session_id: null,
       participants: [
-        { id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true },
-        { id: 'p-ai', role_in_room: 'aiMediator', user_id: null, is_active: true },
+        humanParticipant({ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true }),
+        aiParticipant({ id: 'p-ai', role_in_room: 'aiMediator', user_id: null, is_active: true }),
       ],
     });
     prismaMock.chatToCaseLink.findFirst.mockResolvedValueOnce({
@@ -1049,15 +1577,15 @@ describe('ChatService', () => {
       session_id: null,
       history_visibility_mode: 'share_summary_only',
       participants: [
-        { id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true },
-        { id: 'p-b', role_in_room: 'roleB', user_id: 'u2', is_active: true },
-        { id: 'p-ai', role_in_room: 'aiMediator', user_id: null, is_active: true },
+        humanParticipant({ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true }),
+        humanParticipant({ id: 'p-b', role_in_room: 'roleB', user_id: 'u2', is_active: true }),
+        aiParticipant({ id: 'p-ai', role_in_room: 'aiMediator', user_id: null, is_active: true }),
       ],
     });
     prismaMock.chatParticipant.findMany.mockResolvedValueOnce([
-      { id: 'p-a', room_id: 'room-6', role_in_room: 'roleA', user_id: 'u1', is_active: true },
-      { id: 'p-b', room_id: 'room-6', role_in_room: 'roleB', user_id: 'u2', is_active: true },
-      { id: 'p-ai', room_id: 'room-6', role_in_room: 'aiMediator', user_id: null, is_active: true },
+      humanParticipant({ id: 'p-a', room_id: 'room-6', role_in_room: 'roleA', user_id: 'u1', is_active: true }),
+      humanParticipant({ id: 'p-b', room_id: 'room-6', role_in_room: 'roleB', user_id: 'u2', is_active: true }),
+      aiParticipant({ id: 'p-ai', room_id: 'room-6', role_in_room: 'aiMediator', user_id: null, is_active: true }),
     ]);
     prismaMock.chatMessage.findMany.mockResolvedValueOnce([
       {
@@ -1079,6 +1607,7 @@ describe('ChatService', () => {
       detectedFlags: ['控制/暴力/威脅風險'],
     });
     aiServiceMock.detectCaseType.mockResolvedValueOnce('情感需求衝突');
+    prismaMock.case.update.mockRejectedValueOnce(new Error('case type update failed'));
     prismaMock.pairing.findFirst.mockResolvedValueOnce({
       id: 'pair-1',
       status: 'active',
@@ -1089,12 +1618,34 @@ describe('ChatService', () => {
     judgmentServiceMock.generateJudgment.mockResolvedValueOnce({ id: 'judgment-6' });
     prismaMock.chatToCaseLink.update.mockResolvedValueOnce({ id: 'link-6', judgment_id: 'judgment-6' });
     prismaMock.chatMessage.create.mockResolvedValue({ id: 'notice-6' });
+    chatAnalysisEvidenceServiceMock.claimSubmittedForProcessingInTransaction.mockResolvedValueOnce(submittedAnalysisEvidence({
+      requiredParticipantIds: ['p-a', 'p-b'],
+      approvalIds: ['approval-a', 'approval-b'],
+      messages: [
+        { id: 'm1', content: '昨天你對我大吼，我真的很害怕也很難過', senderParticipantId: 'p-a', senderRole: 'roleA', createdAt: new Date('2026-02-26T10:00:00.000Z') },
+        { id: 'm2', content: '我承認那天語氣很差，但我當時也很焦慮', senderParticipantId: 'p-b', senderRole: 'roleB', createdAt: new Date('2026-02-26T10:05:00.000Z') },
+      ],
+    }));
 
     const result = await service.requestJudgment('room-6', { userId: 'u1' }, {
-      participantConsent: { roleBIncludedMessages: true },
+      analysisRequestId: ANALYSIS_REQUEST_ID,
     });
 
     expect(result.caseId).toBe('case-6');
+    expect(prismaMock.case.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ type: '其他衝突' }),
+    }));
+    expect(prismaMock.case.update).toHaveBeenCalledWith({
+      where: { id: 'case-6' },
+      data: { type: '情感需求衝突' },
+    });
+    expect(prismaMock.chatToCaseLink.create.mock.invocationCallOrder[0]).toBeLessThan(
+      aiServiceMock.detectCaseType.mock.invocationCallOrder[0],
+    );
+    expect(judgmentServiceMock.generateJudgment).toHaveBeenCalledWith(
+      'case-6',
+      expect.objectContaining({ expectedChatAnalysisRequestId: ANALYSIS_REQUEST_ID }),
+    );
     expect(prismaMock.chatToCaseLink.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -1175,7 +1726,7 @@ describe('ChatService', () => {
     );
   });
 
-  it('requestJudgment: 納入 B 方訊息時必須先帶 B 方明示同意', async () => {
+  it('requestJudgment: legacy caller consent 無效，B 方內容缺 analysis request 應 fail closed', async () => {
     prismaMock.chatRoom.findFirst.mockResolvedValueOnce({
       id: 'room-b-consent',
       status: 'group_active',
@@ -1183,15 +1734,15 @@ describe('ChatService', () => {
       session_id: null,
       history_visibility_mode: 'share_summary_only',
       participants: [
-        { id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true },
-        { id: 'p-b', role_in_room: 'roleB', user_id: 'u2', is_active: true },
-        { id: 'p-ai', role_in_room: 'aiMediator', user_id: null, is_active: true },
+        humanParticipant({ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true }),
+        humanParticipant({ id: 'p-b', role_in_room: 'roleB', user_id: 'u2', is_active: true }),
+        aiParticipant({ id: 'p-ai', role_in_room: 'aiMediator', user_id: null, is_active: true }),
       ],
     });
     prismaMock.chatParticipant.findMany.mockResolvedValueOnce([
-      { id: 'p-a', room_id: 'room-b-consent', role_in_room: 'roleA', user_id: 'u1', is_active: true },
-      { id: 'p-b', room_id: 'room-b-consent', role_in_room: 'roleB', user_id: 'u2', is_active: true },
-      { id: 'p-ai', room_id: 'room-b-consent', role_in_room: 'aiMediator', user_id: null, is_active: true },
+      humanParticipant({ id: 'p-a', room_id: 'room-b-consent', role_in_room: 'roleA', user_id: 'u1', is_active: true }),
+      humanParticipant({ id: 'p-b', room_id: 'room-b-consent', role_in_room: 'roleB', user_id: 'u2', is_active: true }),
+      aiParticipant({ id: 'p-ai', room_id: 'room-b-consent', role_in_room: 'aiMediator', user_id: null, is_active: true }),
     ]);
     prismaMock.chatMessage.findMany.mockResolvedValueOnce([
       {
@@ -1208,11 +1759,383 @@ describe('ChatService', () => {
       },
     ]);
 
-    await expect(service.requestJudgment('room-b-consent', { userId: 'u1' })).rejects.toMatchObject({
+    await expect(service.requestJudgment(
+      'room-b-consent',
+      { userId: 'u1' },
+      { participantConsent: { roleBIncludedMessages: true } } as never,
+    )).rejects.toMatchObject({
       code: 'CASE_NOT_READY',
+      details: { reason_code: 'CHAT_ANALYSIS_APPROVAL_REQUIRED' },
     });
+    expect(chatAnalysisEvidenceServiceMock.resolveSubmitted).not.toHaveBeenCalled();
     expect(prismaMock.case.create).not.toHaveBeenCalled();
     expect(prismaMock.chatToCaseLink.create).not.toHaveBeenCalled();
+    expect(judgmentServiceMock.generateJudgment).not.toHaveBeenCalled();
+  });
+
+  it('requestJudgment: exact submitted bundle 可納入 B 方與 capsule 並記錄 approval refs', async () => {
+    const roomId = 'room-exact-analysis';
+    const messageAAt = new Date('2026-07-12T12:00:00.000Z');
+    const messageBAt = new Date('2026-07-12T12:01:00.000Z');
+    prismaMock.chatRoom.findFirst.mockResolvedValueOnce({
+      id: roomId,
+      status: 'group_active',
+      owner_user_id: 'u1',
+      session_id: null,
+      history_visibility_mode: 'share_full_history',
+      participants: [
+        humanParticipant({ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true }),
+        humanParticipant({ id: 'p-b', role_in_room: 'roleB', user_id: 'u2', is_active: true }),
+        aiParticipant({ id: 'p-ai', role_in_room: 'aiMediator', user_id: null, is_active: true }),
+      ],
+    });
+    prismaMock.chatRoom.findUnique.mockResolvedValueOnce({
+      status: 'group_active',
+      history_visibility_mode: 'share_full_history',
+    });
+    prismaMock.chatParticipant.findMany.mockResolvedValueOnce([
+      humanParticipant({ id: 'p-a', room_id: roomId, role_in_room: 'roleA', user_id: 'u1', is_active: true }),
+      humanParticipant({ id: 'p-b', room_id: roomId, role_in_room: 'roleB', user_id: 'u2', is_active: true }),
+      aiParticipant({ id: 'p-ai', room_id: roomId, role_in_room: 'aiMediator', user_id: null, is_active: true }),
+    ]);
+    prismaMock.chatToCaseLink.findFirst.mockResolvedValueOnce(null);
+    prismaMock.chatMessage.findMany.mockResolvedValueOnce([
+      {
+        id: 'm-exact-a',
+        content: 'A 方納入的共同內容',
+        created_at: messageAAt,
+        sender_participant: { role_in_room: 'roleA' },
+      },
+      {
+        id: 'm-exact-b',
+        content: 'B 方納入的共同內容',
+        created_at: messageBAt,
+        sender_participant: { role_in_room: 'roleB' },
+      },
+    ]);
+    chatAnalysisEvidenceServiceMock.claimSubmittedForProcessingInTransaction.mockResolvedValueOnce(submittedAnalysisEvidence({
+      requiredParticipantIds: ['p-a', 'p-b'],
+      approvalIds: ['approval-b', 'approval-a'],
+      messages: [
+        { id: 'm-exact-a', content: 'A 方納入的共同內容', senderParticipantId: 'p-a', senderRole: 'roleA', createdAt: messageAAt },
+        { id: 'm-exact-b', content: 'B 方納入的共同內容', senderParticipantId: 'p-b', senderRole: 'roleB', createdAt: messageBAt },
+      ],
+      capsules: [
+        {
+          id: 'capsule-b',
+          summary: 'B 方已批准的摘要',
+          ownerParticipantId: 'p-b',
+          ownerRole: 'roleB',
+          contentHash: 'capsule-hash-b',
+        },
+      ],
+    }));
+    safetyRoutingServiceMock.decideRoute.mockReturnValueOnce({
+      route: 'standard',
+      reasons: ['ok'],
+      detectedFlags: [],
+    });
+    let preparationCommitted = false;
+    prismaMock.$transaction.mockImplementation(async (callback: (tx: typeof prismaMock) => Promise<unknown>) => {
+      const result = await callback(prismaMock);
+      if (prismaMock.chatToCaseLink.create.mock.calls.length > 0) {
+        preparationCommitted = true;
+      }
+      return result;
+    });
+    aiServiceMock.detectCaseType.mockImplementationOnce(async () => {
+      expect(preparationCommitted).toBe(true);
+      return '其他衝突';
+    });
+    prismaMock.pairing.findFirst.mockResolvedValueOnce({ id: 'pair-exact', status: 'active' });
+    prismaMock.case.create.mockResolvedValueOnce({ id: 'case-exact' });
+    prismaMock.chatToCaseLink.create.mockResolvedValueOnce({ id: 'link-exact' });
+    judgmentServiceMock.generateJudgment.mockResolvedValueOnce({ id: 'judgment-exact' });
+    prismaMock.chatToCaseLink.update.mockResolvedValueOnce({
+      id: 'link-exact',
+      judgment_id: 'judgment-exact',
+    });
+
+    const result = await service.requestJudgment(roomId, { userId: 'u1' }, {
+      analysisRequestId: ANALYSIS_REQUEST_ID,
+    });
+
+    expect(result).toMatchObject({ caseId: 'case-exact', judgmentId: 'judgment-exact' });
+    expect(chatAnalysisEvidenceServiceMock.claimSubmittedForProcessingInTransaction).toHaveBeenCalledWith(
+      prismaMock,
+      roomId,
+      ANALYSIS_REQUEST_ID,
+      { userId: 'u1', sessionId: undefined },
+    );
+    expect(chatAnalysisEvidenceServiceMock.markCompleted).toHaveBeenCalledWith(
+      ANALYSIS_REQUEST_ID,
+      prismaMock,
+    );
+    expect(prismaMock.case.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        defendant_statement: expect.stringContaining('B 方已批准的摘要'),
+      }),
+    }));
+    expect(prismaMock.chatToCaseLink.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        conversion_snapshot: expect.objectContaining({
+          participant_consent: expect.objectContaining({
+            role_b_inclusion_consent_asserted: true,
+          }),
+          analysis_request: {
+            id: ANALYSIS_REQUEST_ID,
+            selection_hash: 'selection-hash-v1',
+            policy_version: 'chat-analysis-policy@v1',
+            approval_ids: ['approval-b', 'approval-a'],
+            capsule_ids: ['capsule-b'],
+            capsule_content_hashes: ['capsule-hash-b'],
+          },
+        }),
+      }),
+    }));
+  });
+
+  it('requestJudgment: exact bundle 生成失敗時應保留 processing 供 original recovery', async () => {
+    const roomId = 'room-exact-retry';
+    const messageAt = new Date('2026-07-12T13:00:00.000Z');
+    prismaMock.chatRoom.findFirst.mockResolvedValueOnce({
+      id: roomId,
+      status: 'solo_active',
+      owner_user_id: 'u1',
+      session_id: null,
+      history_visibility_mode: 'share_full_history',
+      participants: [
+        humanParticipant({ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true }),
+        aiParticipant({ id: 'p-ai', role_in_room: 'aiMediator', user_id: null, is_active: true }),
+      ],
+    });
+    prismaMock.chatRoom.findUnique.mockResolvedValueOnce({
+      status: 'solo_active',
+      history_visibility_mode: 'share_full_history',
+    });
+    prismaMock.chatParticipant.findMany.mockResolvedValueOnce([
+      humanParticipant({ id: 'p-a', room_id: roomId, role_in_room: 'roleA', user_id: 'u1', is_active: true }),
+      aiParticipant({ id: 'p-ai', room_id: roomId, role_in_room: 'aiMediator', user_id: null, is_active: true }),
+    ]);
+    prismaMock.chatToCaseLink.findFirst.mockResolvedValueOnce(null);
+    prismaMock.chatMessage.findMany.mockResolvedValueOnce([
+      {
+        id: 'm-exact-retry',
+        content: 'A 方納入的內容',
+        created_at: messageAt,
+        sender_participant: { role_in_room: 'roleA' },
+      },
+    ]);
+    chatAnalysisEvidenceServiceMock.claimSubmittedForProcessingInTransaction.mockResolvedValueOnce(submittedAnalysisEvidence({
+      messages: [
+        { id: 'm-exact-retry', content: 'A 方納入的內容', senderParticipantId: 'p-a', senderRole: 'roleA', createdAt: messageAt },
+      ],
+    }));
+    safetyRoutingServiceMock.decideRoute.mockReturnValueOnce({
+      route: 'standard',
+      reasons: ['ok'],
+      detectedFlags: [],
+    });
+    aiServiceMock.detectCaseType.mockResolvedValueOnce('其他衝突');
+    prismaMock.pairing.create.mockResolvedValueOnce({ id: 'pair-exact-retry' });
+    prismaMock.case.create.mockResolvedValueOnce({ id: 'case-exact-retry' });
+    prismaMock.chatToCaseLink.create.mockResolvedValueOnce({ id: 'link-exact-retry' });
+    judgmentServiceMock.generateJudgment.mockRejectedValueOnce(new Error('judgment provider failed'));
+    prismaMock.chatRoom.update.mockResolvedValue({ id: roomId, status: 'judgment_failed' });
+
+    await expect(service.requestJudgment(roomId, { userId: 'u1' }, {
+      analysisRequestId: ANALYSIS_REQUEST_ID,
+    })).rejects.toThrow('judgment provider failed');
+
+    expect(chatAnalysisEvidenceServiceMock.claimSubmittedForProcessingInTransaction).toHaveBeenCalledWith(
+      prismaMock,
+      roomId,
+      ANALYSIS_REQUEST_ID,
+      { userId: 'u1', sessionId: undefined },
+    );
+    expect(chatAnalysisEvidenceServiceMock.markCompleted).not.toHaveBeenCalled();
+  });
+
+  it('requestJudgment: Judgment 已持久化但 outer finalize 連續失敗時，下次請求應補鏈且不得重複建案', async () => {
+    const roomId = 'room-outer-finalize-recovery';
+    const caseId = 'case-outer-finalize-recovery';
+    const linkId = 'link-outer-finalize-recovery';
+    const judgmentId = 'judgment-outer-finalize-recovery';
+    const messageAt = new Date('2026-07-12T14:00:00.000Z');
+    const participant = humanParticipant({
+      id: 'p-a',
+      room_id: roomId,
+      role_in_room: 'roleA',
+      user_id: 'u1',
+      is_active: true,
+    });
+    const room = {
+      id: roomId,
+      status: 'solo_active',
+      owner_user_id: 'u1',
+      session_id: null,
+      history_visibility_mode: 'share_full_history',
+      participants: [participant],
+    };
+    prismaMock.chatRoom.findFirst
+      .mockResolvedValueOnce(room)
+      .mockResolvedValueOnce({ ...room, status: 'judgment_requested' });
+    prismaMock.chatRoom.findUnique
+      .mockResolvedValueOnce({
+        status: 'solo_active',
+        history_visibility_mode: 'share_full_history',
+      })
+      .mockResolvedValueOnce({
+        status: 'judgment_requested',
+        history_visibility_mode: 'share_full_history',
+      });
+    prismaMock.chatParticipant.findUnique.mockResolvedValue(participant);
+    prismaMock.chatParticipant.findMany.mockResolvedValue([participant]);
+    prismaMock.chatToCaseLink.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: linkId,
+        room_id: roomId,
+        case_id: caseId,
+        created_at: messageAt,
+        judgment: null,
+        conversion_snapshot: {
+          included_message_ids: ['m-outer-finalize'],
+          analysis_request: {
+            id: ANALYSIS_REQUEST_ID,
+            selection_hash: 'selection-hash-v1',
+            policy_version: 'chat-analysis-policy@v1',
+            approval_ids: ['approval-a'],
+            capsule_ids: [],
+            capsule_content_hashes: [],
+          },
+        },
+        case: {
+          id: caseId,
+          status: 'completed',
+          judgment: { id: judgmentId },
+        },
+      });
+    prismaMock.chatMessage.count.mockResolvedValueOnce(0);
+    prismaMock.chatMessage.findMany.mockResolvedValueOnce([{
+      id: 'm-outer-finalize',
+      content: 'A 方已批准的內容',
+      created_at: messageAt,
+      sender_participant: { role_in_room: 'roleA' },
+    }]);
+    chatAnalysisEvidenceServiceMock.claimSubmittedForProcessingInTransaction.mockResolvedValueOnce(
+      submittedAnalysisEvidence({
+        messages: [{
+          id: 'm-outer-finalize',
+          content: 'A 方已批准的內容',
+          senderParticipantId: participant.id,
+          senderRole: 'roleA',
+          createdAt: messageAt,
+        }],
+      }),
+    );
+    safetyRoutingServiceMock.decideRoute.mockReturnValue({
+      route: 'standard',
+      reasons: ['ok'],
+      detectedFlags: [],
+    });
+    aiServiceMock.detectCaseType.mockResolvedValue('其他衝突');
+    prismaMock.pairing.create.mockResolvedValue({ id: 'pair-outer-finalize' });
+    prismaMock.case.create.mockResolvedValue({ id: caseId });
+    prismaMock.chatToCaseLink.create.mockResolvedValue({ id: linkId });
+    judgmentServiceMock.generateJudgment.mockResolvedValue({ id: judgmentId });
+
+    let transactionCall = 0;
+    prismaMock.$transaction.mockImplementation(async (fn: any) => {
+      transactionCall += 1;
+      if (transactionCall === 2 || transactionCall === 3) {
+        throw new Error(`outer finalize unavailable ${transactionCall}`);
+      }
+      return fn(prismaMock);
+    });
+
+    await expect(service.requestJudgment(roomId, { userId: 'u1' }, {
+      analysisRequestId: ANALYSIS_REQUEST_ID,
+    })).rejects.toThrow('Judgment 已持久化，但 Chat 狀態尚未完成對齊');
+
+    expect(prismaMock.chatRoom.update).not.toHaveBeenCalledWith({
+      where: { id: roomId },
+      data: { status: 'judgment_failed' },
+    });
+    expect(chatMetricsServiceMock.recordJudgmentFailed).not.toHaveBeenCalled();
+
+    const recovered = await service.requestJudgment(roomId, { userId: 'u1' }, {
+      analysisRequestId: ANALYSIS_REQUEST_ID,
+    });
+
+    expect(recovered).toMatchObject({
+      roomId,
+      caseId,
+      linkId,
+      judgmentId,
+      status: 'judgment_completed',
+    });
+    expect(prismaMock.case.create).toHaveBeenCalledTimes(1);
+    expect(prismaMock.chatToCaseLink.create).toHaveBeenCalledTimes(1);
+    expect(judgmentServiceMock.generateJudgment).toHaveBeenCalledTimes(1);
+    expect(prismaMock.chatToCaseLink.update).toHaveBeenCalledTimes(1);
+    expect(prismaMock.chatToCaseLink.update).toHaveBeenCalledWith({
+      where: { id: linkId },
+      data: { judgment_id: judgmentId },
+    });
+    expect(chatAnalysisEvidenceServiceMock.markCompleted).toHaveBeenCalledWith(
+      ANALYSIS_REQUEST_ID,
+      prismaMock,
+    );
+  });
+
+  it('requestJudgment: preparation 建案失敗應 rollback 且不可先送任何 approved evidence 給 AI', async () => {
+    const roomId = 'room-prepare-rollback';
+    prismaMock.chatRoom.findFirst.mockResolvedValueOnce({
+      id: roomId,
+      status: 'solo_active',
+      owner_user_id: 'u1',
+      session_id: null,
+      history_visibility_mode: 'share_full_history',
+      participants: [
+        humanParticipant({ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true }),
+        aiParticipant({ id: 'p-ai', role_in_room: 'aiMediator', user_id: null, is_active: true }),
+      ],
+    });
+    prismaMock.chatParticipant.findMany.mockResolvedValueOnce([
+      humanParticipant({ id: 'p-a', room_id: roomId, role_in_room: 'roleA', user_id: 'u1', is_active: true }),
+      aiParticipant({ id: 'p-ai', room_id: roomId, role_in_room: 'aiMediator', user_id: null, is_active: true }),
+    ]);
+    prismaMock.chatMessage.findMany.mockResolvedValueOnce([{
+      id: 'm-prepare',
+      content: 'approved content must not leave before commit',
+      created_at: new Date('2026-07-12T13:00:00.000Z'),
+      sender_participant: { role_in_room: 'roleA' },
+    }]);
+    chatAnalysisEvidenceServiceMock.claimSubmittedForProcessingInTransaction.mockResolvedValueOnce(
+      submittedAnalysisEvidence({
+        messages: [{
+          id: 'm-prepare',
+          content: 'approved content must not leave before commit',
+          senderParticipantId: 'p-a',
+          senderRole: 'roleA',
+          createdAt: new Date('2026-07-12T13:00:00.000Z'),
+        }],
+      }),
+    );
+    safetyRoutingServiceMock.decideRoute.mockReturnValueOnce({
+      route: 'standard',
+      reasons: ['ok'],
+      detectedFlags: [],
+    });
+    prismaMock.case.create.mockRejectedValueOnce(new Error('case insert failed'));
+
+    await expect(service.requestJudgment(roomId, { userId: 'u1' }, {
+      analysisRequestId: ANALYSIS_REQUEST_ID,
+    })).rejects.toThrow('case insert failed');
+
+    expect(chatAnalysisEvidenceServiceMock.claimSubmittedForProcessingInTransaction).toHaveBeenCalled();
+    expect(aiServiceMock.detectCaseType).not.toHaveBeenCalled();
     expect(judgmentServiceMock.generateJudgment).not.toHaveBeenCalled();
   });
 
@@ -1224,13 +2147,13 @@ describe('ChatService', () => {
       session_id: null,
       history_visibility_mode: 'share_summary_only',
       participants: [
-        { id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true },
-        { id: 'p-ai', role_in_room: 'aiMediator', user_id: null, is_active: true },
+        humanParticipant({ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true }),
+        aiParticipant({ id: 'p-ai', role_in_room: 'aiMediator', user_id: null, is_active: true }),
       ],
     });
     prismaMock.chatParticipant.findMany.mockResolvedValueOnce([
-      { id: 'p-a', room_id: 'room-gap', role_in_room: 'roleA', user_id: 'u1', is_active: true },
-      { id: 'p-ai', room_id: 'room-gap', role_in_room: 'aiMediator', user_id: null, is_active: true },
+      humanParticipant({ id: 'p-a', room_id: 'room-gap', role_in_room: 'roleA', user_id: 'u1', is_active: true }),
+      aiParticipant({ id: 'p-ai', room_id: 'room-gap', role_in_room: 'aiMediator', user_id: null, is_active: true }),
     ]);
     prismaMock.chatMessage.findMany.mockResolvedValueOnce([
       {
@@ -1303,15 +2226,15 @@ describe('ChatService', () => {
       session_id: null,
       history_visibility_mode: 'share_summary_only',
       participants: [
-        { id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true },
-        { id: 'p-b', role_in_room: 'roleB', user_id: 'u2', is_active: true },
-        { id: 'p-ai', role_in_room: 'aiMediator', user_id: null, is_active: true },
+        humanParticipant({ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true }),
+        humanParticipant({ id: 'p-b', role_in_room: 'roleB', user_id: 'u2', is_active: true }),
+        aiParticipant({ id: 'p-ai', role_in_room: 'aiMediator', user_id: null, is_active: true }),
       ],
     });
     prismaMock.chatParticipant.findMany.mockResolvedValueOnce([
-      { id: 'p-a', room_id: 'room-en', role_in_room: 'roleA', user_id: 'u1', is_active: true },
-      { id: 'p-b', room_id: 'room-en', role_in_room: 'roleB', user_id: 'u2', is_active: true },
-      { id: 'p-ai', room_id: 'room-en', role_in_room: 'aiMediator', user_id: null, is_active: true },
+      humanParticipant({ id: 'p-a', room_id: 'room-en', role_in_room: 'roleA', user_id: 'u1', is_active: true }),
+      humanParticipant({ id: 'p-b', room_id: 'room-en', role_in_room: 'roleB', user_id: 'u2', is_active: true }),
+      aiParticipant({ id: 'p-ai', room_id: 'room-en', role_in_room: 'aiMediator', user_id: null, is_active: true }),
     ]);
     prismaMock.chatMessage.findMany.mockResolvedValueOnce([
       {
@@ -1343,10 +2266,18 @@ describe('ChatService', () => {
     prismaMock.chatToCaseLink.create.mockResolvedValueOnce({ id: 'link-en' });
     judgmentServiceMock.generateJudgment.mockResolvedValueOnce({ id: 'judgment-en' });
     prismaMock.chatToCaseLink.update.mockResolvedValueOnce({ id: 'link-en', judgment_id: 'judgment-en' });
+    chatAnalysisEvidenceServiceMock.claimSubmittedForProcessingInTransaction.mockResolvedValueOnce(submittedAnalysisEvidence({
+      requiredParticipantIds: ['p-a', 'p-b'],
+      approvalIds: ['approval-a', 'approval-b'],
+      messages: [
+        { id: 'm-en-1', content: 'English A', senderParticipantId: 'p-a', senderRole: 'roleA', createdAt: new Date('2026-02-27T09:00:00.000Z') },
+        { id: 'm-en-2', content: 'English B', senderParticipantId: 'p-b', senderRole: 'roleB', createdAt: new Date('2026-02-27T09:05:00.000Z') },
+      ],
+    }));
 
     await service.requestJudgment('room-en', { userId: 'u1' }, {
       locale: 'en-US',
-      participantConsent: { roleBIncludedMessages: true },
+      analysisRequestId: ANALYSIS_REQUEST_ID,
     });
 
     const createCallArg = prismaMock.chatToCaseLink.create.mock.calls[0][0];
@@ -1362,6 +2293,7 @@ describe('ChatService', () => {
       userId: 'u1',
       sessionId: undefined,
       locale: 'en-US',
+      expectedChatAnalysisRequestId: ANALYSIS_REQUEST_ID,
     });
     expect(prismaMock.case.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1386,19 +2318,20 @@ describe('ChatService', () => {
       owner_user_id: 'u1',
       history_visibility_mode: 'share_summary_only',
       participants: [
-        { id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true },
+        humanParticipant({ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true }),
       ],
     });
     prismaMock.chatRoom.findUnique.mockResolvedValueOnce({
       status: 'judgment_completed',
       history_visibility_mode: 'share_summary_only',
     });
-    prismaMock.chatParticipant.findUnique.mockResolvedValueOnce({
+    prismaMock.chatParticipant.findUnique.mockResolvedValueOnce(humanParticipant({
       id: 'p-a',
       room_id: 'room-7',
       role_in_room: 'roleA',
       is_active: true,
-    });
+      user_id: 'u1',
+    }));
     prismaMock.chatToCaseLink.findFirst.mockResolvedValueOnce({
       id: 'link-7',
       room_id: 'room-7',
@@ -1430,7 +2363,7 @@ describe('ChatService', () => {
       session_id: ownerSessionId,
       history_visibility_mode: 'share_summary_only',
       participants: [
-        { id: 'p-a', role_in_room: 'roleA', user_id: null, is_active: true },
+        humanParticipant({ id: 'p-a', role_in_room: 'roleA', user_id: null, is_active: true }),
       ],
     });
     prismaMock.chatInvite.updateMany.mockResolvedValueOnce({ count: 0 });
@@ -1486,8 +2419,8 @@ describe('ChatService', () => {
       owner_user_id: 'u1',
       history_visibility_mode: 'share_summary_only',
       participants: [
-        { id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true },
-        { id: 'p-b', role_in_room: 'roleB', user_id: 'u2', is_active: true },
+        humanParticipant({ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true }),
+        humanParticipant({ id: 'p-b', role_in_room: 'roleB', user_id: 'u2', is_active: true }),
       ],
     });
 
@@ -1505,7 +2438,7 @@ describe('ChatService', () => {
       owner_user_id: 'u1',
       history_visibility_mode: 'share_summary_only',
       participants: [
-        { id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true },
+        humanParticipant({ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true }),
       ],
     });
     prismaMock.chatInvite.updateMany.mockResolvedValueOnce({ count: 2 });
@@ -1539,7 +2472,7 @@ describe('ChatService', () => {
       owner_user_id: 'u1',
       history_visibility_mode: 'share_summary_only',
       participants: [
-        { id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true },
+        humanParticipant({ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true }),
       ],
     });
     prismaMock.chatInvite.findFirst.mockResolvedValueOnce({
@@ -1562,7 +2495,7 @@ describe('ChatService', () => {
       owner_user_id: 'u1',
       history_visibility_mode: 'share_summary_only',
       participants: [
-        { id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true },
+        humanParticipant({ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true }),
       ],
     });
     prismaMock.chatInvite.findFirst
@@ -1587,7 +2520,7 @@ describe('ChatService', () => {
       status: 'solo_active',
       owner_user_id: 'u1',
       history_visibility_mode: 'share_summary_only',
-      participants: [{ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true }],
+      participants: [humanParticipant({ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true })],
     });
     prismaMock.chatInvite.updateMany.mockResolvedValueOnce({ count: 0 });
     prismaMock.chatRoom.updateMany.mockResolvedValueOnce({ count: 0 });
@@ -1605,14 +2538,15 @@ describe('ChatService', () => {
       status: 'solo_active',
       owner_user_id: 'u1',
       history_visibility_mode: 'share_summary_only',
-      participants: [{ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true }],
+      participants: [humanParticipant({ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true })],
     });
-    prismaMock.chatParticipant.findFirst.mockResolvedValueOnce({
+    prismaMock.chatParticipant.findFirst.mockResolvedValueOnce(humanParticipant({
       id: 'p-b',
       room_id: 'room-tx-race',
       role_in_room: 'roleB',
       is_active: true,
-    });
+      user_id: 'u2',
+    }));
 
     await expect(
       service.createInvite('room-tx-race', { userId: 'u1' }, { expiresInHours: 12 })
@@ -1627,7 +2561,7 @@ describe('ChatService', () => {
       status: 'solo_active',
       owner_user_id: 'u1',
       history_visibility_mode: 'share_summary_only',
-      participants: [{ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true }],
+      participants: [humanParticipant({ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true })],
     });
     prismaMock.chatInvite.updateMany.mockResolvedValue({ count: 0 });
     prismaMock.chatRoom.updateMany.mockResolvedValue({ count: 1 });
@@ -1654,8 +2588,8 @@ describe('ChatService', () => {
       session_id: null,
       history_visibility_mode: 'share_summary_only',
       participants: [
-        { id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true },
-        { id: 'p-ai', role_in_room: 'aiMediator', user_id: null, is_active: true },
+        humanParticipant({ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true }),
+        aiParticipant({ id: 'p-ai', role_in_room: 'aiMediator', user_id: null, is_active: true }),
       ],
     };
     prismaMock.chatRoom.findFirst.mockResolvedValue(room);
@@ -1706,8 +2640,8 @@ describe('ChatService', () => {
       session_id: null,
       history_visibility_mode: 'share_summary_only',
       participants: [
-        { id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true },
-        { id: 'p-ai', role_in_room: 'aiMediator', user_id: null, is_active: true },
+        humanParticipant({ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true }),
+        aiParticipant({ id: 'p-ai', role_in_room: 'aiMediator', user_id: null, is_active: true }),
       ],
     };
 
@@ -1760,18 +2694,19 @@ describe('ChatService', () => {
       status: 'solo_active',
       owner_user_id: 'u1',
       history_visibility_mode: 'share_summary_only',
-      participants: [{ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true }],
+      participants: [humanParticipant({ id: 'p-a', role_in_room: 'roleA', user_id: 'u1', is_active: true })],
     });
     prismaMock.chatRoom.findUnique.mockResolvedValueOnce({
       status: 'judgment_completed',
       history_visibility_mode: 'share_summary_only',
     });
-    prismaMock.chatParticipant.findUnique.mockResolvedValueOnce({
+    prismaMock.chatParticipant.findUnique.mockResolvedValueOnce(humanParticipant({
       id: 'p-a',
       room_id: 'room-stale',
       role_in_room: 'roleA',
       is_active: true,
-    });
+      user_id: 'u1',
+    }));
     prismaMock.chatToCaseLink.findFirst.mockResolvedValueOnce({
       id: 'link-stale',
       room_id: 'room-stale',
@@ -1799,18 +2734,20 @@ describe('ChatService', () => {
       status: 'solo_active',
       owner_user_id: 'u1',
       history_visibility_mode: 'share_summary_only',
-      participants: [{ id: 'p-a-stale', role_in_room: 'roleA', user_id: 'u1', is_active: true }],
+      participants: [humanParticipant({ id: 'p-a-stale', role_in_room: 'roleA', user_id: 'u1', is_active: true })],
     });
     prismaMock.chatRoom.findUnique.mockResolvedValueOnce({
       status: 'solo_active',
       history_visibility_mode: 'share_summary_only',
     });
-    prismaMock.chatParticipant.findUnique.mockResolvedValueOnce({
+    prismaMock.chatParticipant.findUnique.mockResolvedValueOnce(humanParticipant({
       id: 'p-a-stale',
       room_id: 'room-participant-stale',
       role_in_room: 'roleA',
       is_active: false,
-    });
+      user_id: 'u1',
+      left_at: new Date('2026-07-12T00:00:00.000Z'),
+    }));
 
     await expect(service.requestJudgment('room-participant-stale', { userId: 'u1' })).rejects.toMatchObject({
       code: 'FORBIDDEN',
@@ -1824,18 +2761,19 @@ describe('ChatService', () => {
       status: 'solo_active',
       owner_user_id: 'u1',
       history_visibility_mode: 'share_summary_only',
-      participants: [{ id: 'p-a-mismatch', role_in_room: 'roleA', user_id: 'u1', is_active: true }],
+      participants: [humanParticipant({ id: 'p-a-mismatch', role_in_room: 'roleA', user_id: 'u1', is_active: true })],
     });
     prismaMock.chatRoom.findUnique.mockResolvedValueOnce({
       status: 'solo_active',
       history_visibility_mode: 'share_summary_only',
     });
-    prismaMock.chatParticipant.findUnique.mockResolvedValueOnce({
+    prismaMock.chatParticipant.findUnique.mockResolvedValueOnce(humanParticipant({
       id: 'p-a-mismatch',
       room_id: 'room-other',
       role_in_room: 'roleA',
       is_active: true,
-    });
+      user_id: 'u1',
+    }));
 
     await expect(service.requestJudgment('room-participant-room-mismatch', { userId: 'u1' })).rejects.toMatchObject({
       code: 'FORBIDDEN',
@@ -1849,18 +2787,19 @@ describe('ChatService', () => {
       status: 'solo_active',
       owner_user_id: 'u1',
       history_visibility_mode: 'share_summary_only',
-      participants: [{ id: 'p-a-no-active', role_in_room: 'roleA', user_id: 'u1', is_active: true }],
+      participants: [humanParticipant({ id: 'p-a-no-active', role_in_room: 'roleA', user_id: 'u1', is_active: true })],
     });
     prismaMock.chatRoom.findUnique.mockResolvedValueOnce({
       status: 'solo_active',
       history_visibility_mode: 'share_summary_only',
     });
-    prismaMock.chatParticipant.findUnique.mockResolvedValueOnce({
+    prismaMock.chatParticipant.findUnique.mockResolvedValueOnce(humanParticipant({
       id: 'p-a-no-active',
       room_id: 'room-no-active',
       role_in_room: 'roleA',
       is_active: true,
-    });
+      user_id: 'u1',
+    }));
     prismaMock.chatParticipant.findMany.mockResolvedValueOnce([]);
 
     await expect(service.requestJudgment('room-no-active', { userId: 'u1' })).rejects.toMatchObject({
@@ -1877,25 +2816,25 @@ describe('ChatService', () => {
       session_id: null,
       history_visibility_mode: 'share_summary_only',
       participants: [
-        { id: 'p-a-old', role_in_room: 'roleA', user_id: 'u1', is_active: true },
-        { id: 'p-ai-old', role_in_room: 'aiMediator', user_id: null, is_active: true },
+        humanParticipant({ id: 'p-a-old', role_in_room: 'roleA', user_id: 'u1', is_active: true }),
+        aiParticipant({ id: 'p-ai-old', role_in_room: 'aiMediator', user_id: null, is_active: true }),
       ],
     });
     prismaMock.chatRoom.findUnique.mockResolvedValueOnce({
       status: 'group_active',
       history_visibility_mode: 'share_summary_only',
     });
-    prismaMock.chatParticipant.findUnique.mockResolvedValueOnce({
+    prismaMock.chatParticipant.findUnique.mockResolvedValueOnce(humanParticipant({
       id: 'p-a-old',
       room_id: 'room-participants-refresh',
       role_in_room: 'roleA',
       is_active: true,
       user_id: 'u1',
-    });
+    }));
     prismaMock.chatParticipant.findMany.mockResolvedValueOnce([
-      { id: 'p-a-new', room_id: 'room-participants-refresh', role_in_room: 'roleA', is_active: true, user_id: 'u1' },
-      { id: 'p-b-new', room_id: 'room-participants-refresh', role_in_room: 'roleB', is_active: true, user_id: 'u2' },
-      { id: 'p-ai-new', room_id: 'room-participants-refresh', role_in_room: 'aiMediator', is_active: true, user_id: null },
+      humanParticipant({ id: 'p-a-new', room_id: 'room-participants-refresh', role_in_room: 'roleA', is_active: true, user_id: 'u1' }),
+      humanParticipant({ id: 'p-b-new', room_id: 'room-participants-refresh', role_in_room: 'roleB', is_active: true, user_id: 'u2' }),
+      aiParticipant({ id: 'p-ai-new', room_id: 'room-participants-refresh', role_in_room: 'aiMediator', is_active: true, user_id: null }),
     ]);
     prismaMock.chatToCaseLink.findFirst.mockResolvedValueOnce(null);
     prismaMock.chatMessage.findMany.mockResolvedValueOnce([
@@ -1930,9 +2869,17 @@ describe('ChatService', () => {
       id: 'link-participants-refresh',
       judgment_id: 'judgment-participants-refresh',
     });
+    chatAnalysisEvidenceServiceMock.claimSubmittedForProcessingInTransaction.mockResolvedValueOnce(submittedAnalysisEvidence({
+      requiredParticipantIds: ['p-a-new', 'p-b-new'],
+      approvalIds: ['approval-a', 'approval-b'],
+      messages: [
+        { id: 'm-a', content: '我希望好好解決', senderParticipantId: 'p-a-new', senderRole: 'roleA', createdAt: new Date('2026-02-26T13:00:00.000Z') },
+        { id: 'm-b', content: '我願意聽建議', senderParticipantId: 'p-b-new', senderRole: 'roleB', createdAt: new Date('2026-02-26T13:01:00.000Z') },
+      ],
+    }));
 
     const result = await service.requestJudgment('room-participants-refresh', { userId: 'u1' }, {
-      participantConsent: { roleBIncludedMessages: true },
+      analysisRequestId: ANALYSIS_REQUEST_ID,
     });
     expect(result.caseId).toBe('case-participants-refresh');
     expect(prismaMock.case.create).toHaveBeenCalledWith(
@@ -1952,28 +2899,63 @@ describe('ChatService', () => {
       session_id: null,
       history_visibility_mode: 'share_summary_only',
       participants: [
-        { id: 'p-a1', role_in_room: 'roleA', user_id: 'u1', is_active: true },
+        humanParticipant({ id: 'p-a1', role_in_room: 'roleA', user_id: 'u1', is_active: true }),
       ],
     });
     prismaMock.chatRoom.findUnique.mockResolvedValueOnce({
       status: 'group_active',
       history_visibility_mode: 'share_summary_only',
     });
-    prismaMock.chatParticipant.findUnique.mockResolvedValueOnce({
+    prismaMock.chatParticipant.findUnique.mockResolvedValueOnce(humanParticipant({
       id: 'p-a1',
       room_id: 'room-rolea-duplicate',
       role_in_room: 'roleA',
       is_active: true,
-    });
+      user_id: 'u1',
+    }));
     prismaMock.chatParticipant.findMany.mockResolvedValueOnce([
-      { id: 'p-a1', room_id: 'room-rolea-duplicate', role_in_room: 'roleA', is_active: true, user_id: 'u1' },
-      { id: 'p-a2', room_id: 'room-rolea-duplicate', role_in_room: 'roleA', is_active: true, user_id: 'u1' },
-      { id: 'p-ai', room_id: 'room-rolea-duplicate', role_in_room: 'aiMediator', is_active: true, user_id: null },
+      humanParticipant({ id: 'p-a1', room_id: 'room-rolea-duplicate', role_in_room: 'roleA', is_active: true, user_id: 'u1' }),
+      humanParticipant({ id: 'p-a2', room_id: 'room-rolea-duplicate', role_in_room: 'roleA', is_active: true, user_id: 'u1' }),
+      aiParticipant({ id: 'p-ai', room_id: 'room-rolea-duplicate', role_in_room: 'aiMediator', is_active: true, user_id: null }),
     ]);
 
     await expect(service.requestJudgment('room-rolea-duplicate', { userId: 'u1' })).rejects.toMatchObject({
       code: 'CONFLICT',
     });
     expect(prismaMock.case.create).not.toHaveBeenCalled();
+  });
+
+  it('leaveRoom: 同一 transaction 取消未開始的 exact approvals 並 teardown open streams', async () => {
+    const participantB = humanParticipant({
+      id: 'p-b-leaving',
+      room_id: 'room-leave',
+      role_in_room: 'roleB',
+      user_id: 'u-b',
+      is_active: true,
+    });
+    prismaMock.chatRoom.findFirst.mockResolvedValueOnce({
+      id: 'room-leave',
+      status: 'group_active',
+      owner_user_id: 'u-a',
+      participants: [participantB],
+    });
+    prismaMock.chatRoom.findUnique.mockResolvedValueOnce({
+      id: 'room-leave',
+      status: 'solo_active',
+      participants: [{ ...participantB, is_active: false, left_at: new Date() }],
+    });
+
+    const result = await service.leaveRoom('room-leave', { userId: 'u-b' });
+
+    expect(result).toMatchObject({ id: 'room-leave', status: 'solo_active' });
+    expect(chatAnalysisRequestServiceMock.cancelActiveForParticipantDeparture)
+      .toHaveBeenCalledWith(
+        prismaMock,
+        'room-leave',
+        'p-b-leaving',
+        expect.any(Date),
+      );
+    expect(chatStreamEntitlementServiceMock.revokeParticipant)
+      .toHaveBeenCalledWith('p-b-leaving');
   });
 });

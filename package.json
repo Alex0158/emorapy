@@ -1,14 +1,16 @@
 {
   "name": "emorapy-root",
   "private": true,
-  "version": "1.4.0",
+  "version": "1.5.0",
   "workspaces": [
     "frontend",
     "frontend-admin",
     "packages/*"
   ],
   "scripts": {
-    "contracts:build": "npm run build --workspace @emorapy/contracts",
+    "contracts:build": "npm run build --workspace @emorapy/contracts && npm run contracts:check-backend-types",
+    "contracts:check-backend-types": "node scripts/sync-backend-contract-types.mjs --check",
+    "contracts:sync-backend-types": "node scripts/sync-backend-contract-types.mjs",
     "api-client:build": "npm run build --workspace @emorapy/api-client",
     "vercel-build": "npm run contracts:build && npm run api-client:build && npm run build --workspace frontend-admin",
     "build": "npm run vercel-build",
@@ -37,6 +39,7 @@
     "manual-regression:mark": "node scripts/mark-manual-regression-result.mjs",
     "manual-regression:gate": "node scripts/run-manual-regression-gate.mjs",
     "ops:release:status": "bash scripts/ops-release-status.sh",
+    "ops:release:rollback:test": "node --test scripts/lib/production-release-state.test.mjs",
     "ops:release:smoke": "bash scripts/ops-release-smoke.sh",
     "ops:release:gate": "bash scripts/ops-release-gate.sh",
     "ops:release:gate:evidence": "bash scripts/ops-release-gate-evidence.sh",

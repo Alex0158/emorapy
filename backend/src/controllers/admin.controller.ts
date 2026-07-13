@@ -1326,10 +1326,14 @@ class AdminController {
       }
       const source = parseAIStreamSource(req);
       const eventLimit = Math.min(Math.max(Number(req.query.eventLimit ?? 200) || 200, 1), 1000);
-      const includeSensitive = hasAdminPermission(
-        req.admin?.permissions ?? [],
-        'reports:sensitive:read'
-      );
+      const includeSensitive = String(req.query.include_sensitive ?? 'false').toLowerCase() === 'true';
+      if (
+        includeSensitive
+        && !hasAdminPermission(req.admin?.permissions ?? [], 'reports:sensitive:read')
+      ) {
+        throw Errors.FORBIDDEN('缺少敏感報表讀取權限');
+      }
+      res.setHeader('Cache-Control', 'no-store');
       const data = await aiStreamService.getStreamPersistenceDetail(streamId, {
         source,
         eventLimit,
@@ -1338,14 +1342,17 @@ class AdminController {
       if (!data) {
         throw Errors.NOT_FOUND('AI Stream 不存在');
       }
-      if (includeSensitive) {
+      if (
+        includeSensitive
+        && (data as { sensitiveContentIncluded?: unknown }).sensitiveContentIncluded === true
+      ) {
         await adminService.writeAuditLog({
           actorId: req.admin?.id,
           actorType: 'admin',
           entityType: 'ai_stream',
           entityId: streamId,
           action: 'view_sensitive_content',
-          detail: { source, eventLimit },
+          detail: { source, eventLimit, includeSensitive: true },
         });
       }
       res.json({ success: true, data });

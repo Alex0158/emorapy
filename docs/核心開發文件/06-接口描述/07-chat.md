@@ -8,9 +8,9 @@
 **最後核驗日期**：`2026-07-13`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**文檔版本**：v3.1
+**文檔版本**：v3.2
 **最後更新**：2026-07-13
-**代碼基準**：Web/Backend Production containment `a685db36`；App code parity不等於 native release
+**代碼基準**：目前 Web/Backend Production exact SHA 為 `8e93680`（Production run `29249811661`）；其 containment 功能實作基準由 `a685db36` 引入，`8e93680` 僅再合併 docs truth。2026-07-13 local-unreleased candidate 另含 adaptation consent、capsule lifecycle/receipt、Safety Router 與 Web/App UI，不等於 Production 或 App native release
 
 ---
 
@@ -30,7 +30,7 @@
 4. room event / AI stream access 只驗 room，reply target 只驗同房，尚無 participant/channel audience。
 5. `participant_consent.role_b_included_messages` 是 caller assertion，不是 B 本人對 exact selection/version 的持久化 approval。
 
-`a685db36` 已新增並部署 shared/private `ChatChannel`、owner preference、Context Capsule、purpose-scoped authorization、channel-scoped event / AI stream、versioned Analysis request / participant approval 與 `analysis_request_id` handoff；caller boolean已從 request schema移除。Production migration/backfill、runtime DB artifact、release gate與 public canary已通過。live two-party E2E、App native、legacy lifecycle、cross-case memory、per-owner compiler與 Safety Router仍由 [Chat 私密上下文待辦](../07-待處理問題與治理/待處理/Chat私密上下文與共同調解隔離重構待辦-2026-07-12.md) 統一裁決。
+`a685db36` 已新增並部署 shared/private `ChatChannel`、owner preference、Context Capsule、purpose-scoped authorization、channel-scoped event / AI stream、versioned Analysis request / participant approval 與 `analysis_request_id` handoff；caller boolean已從 request schema移除。Production migration/backfill、runtime DB artifact、release gate與 public canary已通過。本地 branch 已再接入 per-owner compiler、雙層 adaptation consent、capsule revision/discard/re-authorize、低敏 usage receipt、Safety Router 及 Web/App trust/safety surface，但尚未合併、套用新 migration 或部署；下表這批新增列的「已使用」僅代表 local candidate 已被代碼消費，不是 Production evidence。live two-party E2E、App native、Safety 審核後恢復、legacy data rights 與 cross-case memory仍由 [Chat 私密上下文待辦](../07-待處理問題與治理/待處理/Chat私密上下文與共同調解隔離重構待辦-2026-07-12.md) 統一裁決。
 
 ## 接口契約（字段級）
 
@@ -38,6 +38,7 @@
 |---|---|---|---|---|---|
 | `POST /api/v1/chat/rooms` | `history_visibility_mode?` | `data.room.id` `status` | `SESSION_ID_REQUIRED` `INVALID_SESSION_ID` `SESSION_EXPIRED` | 建立 room + roleA + ai 參與者 | `/chat/room` |
 | `GET /api/v1/chat/rooms/:roomId` | `roomId(uuid)` | `data.room` | `FORBIDDEN` `INVALID_SESSION_ID` `SESSION_EXPIRED` | 無 | `/chat/room/:roomId` |
+| `GET /api/v1/chat/rooms/:roomId/safety-status` | `roomId(uuid)` | `data.status=open\|paused`；不含 owner/action/reason | `FORBIDDEN` `INVALID_SESSION_ID` `SESSION_EXPIRED` | 無 | Web / App local candidate |
 | `POST /api/v1/chat/rooms/:roomId/invites` | `expires_in_hours?` `history_visibility_mode?` | `data.invite.invite_code` | `FORBIDDEN` `CASE_NOT_EDITABLE` `CONFLICT` `INVALID_SESSION_ID` `SESSION_EXPIRED` | room `solo_active -> invite_pending` | 房間操作 |
 | `POST /api/v1/chat/invites/:inviteCode/accept` | `inviteCode` | `data.room.status=group_active` | `UNAUTHORIZED` `FORBIDDEN` `VALIDATION_ERROR` `INVALID_CODE` `CODE_EXPIRED` `CASE_NOT_EDITABLE` `CONFLICT` | B 方登入後加入，狀態更新 | 邀請碼進房 |
 | `POST /api/v1/chat/invites/:inviteCode/decline` | `inviteCode` | `data.invite.status=declined/revoked` | `UNAUTHORIZED` `FORBIDDEN` `INVALID_CODE` `CODE_EXPIRED` `CASE_NOT_EDITABLE` | 可能回退 `invite_pending -> solo_active` | 邀請碼流程 |
@@ -46,8 +47,9 @@
 | `GET /api/v1/chat/rooms/:roomId/messages` | `cursor?` `limit?<=100` | `data.messages[]` `data.nextCursor` | `FORBIDDEN` `VALIDATION_ERROR` `INVALID_SESSION_ID` `SESSION_EXPIRED` | 無 | 房間頁 |
 | `POST /api/v1/chat/rooms/:roomId/messages` | `content(1..4000)` `visibility_scope?` `reply_to_message_id?` | `data.message` | `FORBIDDEN` `CASE_NOT_EDITABLE` `RATE_LIMIT_EXCEEDED` `NOT_FOUND` `INVALID_SESSION_ID` `SESSION_EXPIRED` | 寫入 message，觸發 AI orchestrator | 房間頁 |
 | `GET /api/v1/chat/rooms/:roomId/channels` | 無 body | `data.channels[]`；只含 actor 可讀 shared / own private channel | `FORBIDDEN` `INVALID_SESSION_ID` `SESSION_EXPIRED` | 無 | Web / App lane selector |
-| `GET /api/v1/chat/rooms/:roomId/context-preference` | 無 body | `data.preference{participant_id,mode}` | `FORBIDDEN` `INVALID_SESSION_ID` `SESSION_EXPIRED` | 無 | Privacy boundary panel |
-| `PUT /api/v1/chat/rooms/:roomId/context-preference` | `mode=private_only|shared_process_controls` | `data.preference` | `FORBIDDEN` `VALIDATION_ERROR` | 只更新 actor 本人 preference | Web / App boundary panel |
+| `GET /api/v1/chat/rooms/:roomId/context-preference` | 無 body | `data.preference{participant_id,mode,mode_policy_version,mode_updated_at,adaptation_decision,adaptation_policy_version,adaptation_decided_at,room_adaptation}` | `FORBIDDEN` `INVALID_SESSION_ID` `SESSION_EXPIRED` | 無 | Web / App trust/boundary panel |
+| `PUT /api/v1/chat/rooms/:roomId/context-preference` | `mode=private_only|shared_process_controls`；選 shared mode 時交 `policy_version` | `data.preference` | `FORBIDDEN` `VALIDATION_ERROR` `CONFLICT` | 只更新 actor 本人 owner authorization；不代替其他 participant 接受 | Web / App boundary panel |
+| `PUT /api/v1/chat/rooms/:roomId/adaptation-consent` | `decision=accepted|declined` `policy_version` | `data.preference` | `FORBIDDEN` `VALIDATION_ERROR` `CONFLICT` | actor 只更新自己對共同房間動態調整模式的選擇 | Web / App local trust checkpoint |
 | `GET /api/v1/chat/channels/:channelId/messages` | `cursor?` `limit?<=100` | `data.messages[]` `data.nextCursor` | `FORBIDDEN` `VALIDATION_ERROR` | 按 channel audience 投影 | Web / App conversation lane |
 | `POST /api/v1/chat/channels/:channelId/messages` | `content(1..4000)` `reply_to_message_id?` | `data.message` | `FORBIDDEN` `CASE_NOT_EDITABLE` `RATE_LIMIT_EXCEEDED` `NOT_FOUND` | 寫入 channel；shared / private 分流 AI 與 event | Web / App composer |
 | `GET /api/v1/chat/channels/:channelId/stream`（SSE） | 無 body | `ready/ping/message`，帶 `channelId/channelKind` | `FORBIDDEN` `INVALID_SESSION_ID` `SESSION_EXPIRED` | channel-scoped domain events | Web / App conversation lane |
@@ -55,8 +57,10 @@
 | `GET /api/v1/chat/rooms/:roomId/context-capsules` | 無 body | `data.capsules[]` + actor-owned `authorizations[]` | `FORBIDDEN` `CONFLICT` | 只列 actor 本人 capsule | Web / App capsule UI |
 | `POST /api/v1/chat/rooms/:roomId/context-capsules` | `source_channel_id` `source_message_ids[]` `summary` `expires_at?` | `data.capsule` | `FORBIDDEN` `VALIDATION_ERROR` `CONFLICT` | 建 immutable draft/version 1 | Capsule composer |
 | `POST /api/v1/chat/rooms/:roomId/context-capsules/:capsuleId/revisions` | 同 create + exact capsule path | `data.capsule` | `FORBIDDEN` `CONFLICT` | 撤銷舊 authorization/request，建立下一版 | Capsule editor |
+| `POST /api/v1/chat/rooms/:roomId/context-capsules/:capsuleId/discard` | 無 body | `data.capsule.status=discarded` | `FORBIDDEN` `CONFLICT` | 保留 tombstone，停止該版未來使用並撤銷 active authorization/request | Web / App local lifecycle |
 | `POST /api/v1/chat/rooms/:roomId/context-capsules/:capsuleId/authorizations` | `capsule_content_hash` `purpose` `audience` `target_type` `target_id` `policy_version` `expires_at?` | `data.authorization` | `FORBIDDEN` `VALIDATION_ERROR` `CONFLICT` | purpose/audience/target exact grant | Capsule approval |
 | `POST /api/v1/chat/rooms/:roomId/context-authorizations/:authorizationId/revoke` | `reason_code=user_revoked` | `data.authorization` | `FORBIDDEN` `CONFLICT` | 停止後續使用；必要時取消未執行 request | Capsule settings |
+| `GET /api/v1/chat/rooms/:roomId/context-usage-receipts` | 無 body | `data.receipts[]`；僅低敏 category/scope/count/timestamp | `FORBIDDEN` `INVALID_SESSION_ID` `SESSION_EXPIRED` | 無；不回傳 raw source、owner identity、topic/reason/diagnosis | Web / App local receipt panel |
 | `GET /api/v1/chat/rooms/:roomId/analysis-requests` | 無 body | required participant 可見的 `analysis_requests[]`、approvals、sanitized `source_previews` | `FORBIDDEN` `CONFLICT` | 無 | Web / App exact review |
 | `POST /api/v1/chat/rooms/:roomId/analysis-requests` | `selected_message_ids[]` `selected_capsule_ids[]` | `data.analysis_request` | `FORBIDDEN` `VALIDATION_ERROR` `CONFLICT` | server 建 canonical snapshot/hash/required participants | Analysis request dialog |
 | `POST /api/v1/chat/rooms/:roomId/analysis-requests/:requestId/decision` | `selection_hash` `decision=approved|declined` `policy_version` | `data.approval` | `FORBIDDEN` `CONFLICT` | actor 只可替本人批准/拒絕 exact selection | Consent panel |
@@ -70,6 +74,8 @@
 ## 操作級規則（深水區）
 
 - `request-judgment` 去重機制：記憶體 in-flight map + 分布式 lock + 既有 link 冪等復用。
+- private safety route須先持久化 action-only Safety Router state，再呼叫外部 provider；shared message、owner Strategy Compiler、final shared mediation、Chat-to-Judgment與 Chat-linked joint Repair都必須以 ordered active roleA/roleB participant locks配合 `ReadCommitted` post-wait snapshot 重讀該 state。public judgment generate 與 Chat orchestrator 共用 formal provider claim。`pause_shared/crisis_support` 阻止 shared send及 formal analysis；`block_joint_repair/pause_shared/crisis_support` 阻止 joint Repair；unknown action與 DB read failure不得降級為 open。
+- 本地 Safety Router 目前是 monotonic containment，不會因後續 standard 訊息自動清除較強狀態。shared status 已排除離房 inactive owner；「審核後恢復／重開、重入後狀態裁決、appeal/audit」仍是 P1 後續；完成前不得將 Safety lifecycle 寫成已閉環。
 - `request-judgment` 超時契約：前端 `requestChatJudgment` 以 `180000ms`（`frontend/src/config/api.ts` 的 `API_CONFIG.chat.judgmentRequestTimeout`）作請求上限；後端對應 `AI_TIMEOUT.JUDGMENT_GENERATION=180000`，且單次 OpenAI 請求 `AI_TIMEOUT.OPENAI_REQUEST=90000`（`backend/src/utils/constants.ts`）。前端超時時不直接判定失敗，需回查 `judgment-status`。
 - `request-judgment` 成功載荷中的 `linkId` 是 chat->case 轉換鏈路主鍵；前端與運維排障需以 `roomId + linkId + caseId` 關聯查詢。
 - `ChatToCaseLink` 是識別 `chat_to_case` 產品流的最高優先級來源；後續 case list、notification、analytics、repair reminder 不得只用 `mode=collaborative` 或 `mode=quick` 推斷聊天室轉判決。
@@ -138,4 +144,4 @@
 
 ## 狀態標記
 
-- 相關接口已由 Backend、shared contracts、Web與 App code接線；Backend/Web已隨 exact `a685db36` Production workflow、runtime DB artifact、release gate與線上 canary成功，可標記為 Production已使用。App native release及整體 private-context governance不可由此狀態外推。
+- `a685db36` baseline 接口已由 Backend、shared contracts、Web與 App code接線，並有 Web/Backend Production workflow、runtime DB artifact、release gate與線上 canary證據。2026-07-13 新增的 adaptation consent、capsule discard/receipt、Safety status 與對應 Web/App UI 僅為 local-unreleased candidate；需在三個新 migration、exact-main CI、Production runtime 與雙身份驗證通過後才可升級發布狀態。App native release及整體 private-context governance不可由 code parity 外推。

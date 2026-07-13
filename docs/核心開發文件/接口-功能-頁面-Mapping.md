@@ -8,7 +8,7 @@
 **最後核驗日期**：`2026-07-13`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**文檔版本**：v1.19
+**文檔版本**：v1.20
 **最後更新**：2026-07-13
 **目標**：把 API -> 功能 -> 頁面 -> 流程節點建立可回歸的單點追溯。
 
@@ -19,6 +19,7 @@
 - API 主鍵為 `METHOD + PATH`。
 - 一條 API 可映射多個頁面（多場景），但每個場景需落到明確流程節點。
 - `狀態` 與 `全接口清單-主文檔` 保持一致（已使用/待承接/候選廢棄/已確認廢棄）。
+- Chat adaptation consent、capsule discard/receipt 與 Safety status 的「已使用」是 2026-07-13 local-unreleased candidate 代碼消費狀態；不代表 exact-main、Production migration/runtime 或 App native evidence已完成。
 - `EMO-PRD-*` 上游需求與 `EMO-RTM-*` 驗證矩陣不直接改寫本表 API 狀態；若新增或調整 API 才更新本表主表。
 - 前台「完成度」以 `功能特性清單.md` 的口徑為準（`已完成/跨功能依賴/待驗證`），不覆蓋 API 狀態欄。
 - `F01-F10` 為主功能；`F11-F14` 為平台輔助能力附錄（同時包含候選與已使用運維接口）。
@@ -89,22 +90,26 @@
 | `DELETE /api/v1/psych-profile` | F06 | `/profile/my-story` | 刪除心理資料 | M | 已使用 |
 | `POST /api/v1/chat/rooms` | F07 | `/chat/room` | 建房 | H | 已使用 |
 | `GET /api/v1/chat/rooms/:roomId` | F07 | `/chat/room/:roomId` | 房間讀取 | H | 已使用 |
+| `GET /api/v1/chat/rooms/:roomId/safety-status` | F07 | Web `/chat/room/:roomId`、App `chat/room` | local candidate 只向 active participant 回傳 shared `open/paused`；不回 owner/action/reason | H | 已使用 |
 | `POST /api/v1/chat/rooms/:roomId/invites` | F07 | `/chat/room/:roomId` | 建邀請碼（需 `canonical session_id` 匹配 owner session） | H | 已使用 |
 | `POST /api/v1/chat/invites/:inviteCode/accept` | F07 | `/chat/room` | 接受邀請（User only） | H | 已使用 |
 | `POST /api/v1/chat/invites/:inviteCode/decline` | F07 | `/chat/room` | 拒絕邀請 | M | 已使用 |
 | `GET /api/v1/chat/rooms/:roomId/stream` | F07 | `/chat/room/:roomId` | SSE 事件流 | H | 已使用 |
 | `GET /api/v1/streams/chat_room/:roomId` | F07 | `/chat/room/:roomId` | Chat AI 草稿/完成/落庫主鏈路 | H | 已使用 |
-| `GET /api/v1/chat/rooms/:roomId/channels` | F07 | Web `/chat/room/:roomId`、App `chat/room` | actor 可見的 shared/private channel lanes；Web/Backend Production `a685db36`，App code parity已接線但 native release evidence仍屬 M6 | H | 已使用 |
+| `GET /api/v1/chat/rooms/:roomId/channels` | F07 | Web `/chat/room/:roomId`、App `chat/room` | actor 可見的 shared/private channel lanes；Web/Backend containment 功能基準 `a685db36`，目前 exact Production `8e93680`，App code parity已接線但 native release evidence仍屬 M6 | H | 已使用 |
 | `GET /api/v1/chat/rooms/:roomId/context-preference` | F07 | Web `/chat/room/:roomId`、App `chat/room` | 讀取私人內容只限私下或可產生無原因程序控制的偏好 | H | 已使用 |
 | `PUT /api/v1/chat/rooms/:roomId/context-preference` | F07 | Web `/chat/room/:roomId`、App `chat/room` | 更新 private-context use preference | H | 已使用 |
+| `PUT /api/v1/chat/rooms/:roomId/adaptation-consent` | F07 | Web `/chat/room/:roomId`、App `chat/room` | local trust checkpoint；actor 只能接受／拒絕自己的 versioned room adaptation preference | H | 已使用 |
 | `GET /api/v1/chat/channels/:channelId/messages` | F07 | Web `/chat/room/:roomId`、App `chat/room` | audience-aware channel history | H | 已使用 |
 | `POST /api/v1/chat/channels/:channelId/messages` | F07 | Web `/chat/room/:roomId`、App `chat/room` | channel write + reply audience validation | H | 已使用 |
 | `GET /api/v1/chat/channels/:channelId/stream` | F07 | Web `/chat/room/:roomId`、App `chat/room` | participant-scoped domain SSE | H | 已使用 |
 | `GET /api/v1/chat/rooms/:roomId/context-capsules` | F07 | Web `/chat/room/:roomId`、App `chat/room` | 本人 capsule drafts/versions | H | 已使用 |
 | `POST /api/v1/chat/rooms/:roomId/context-capsules` | F07 | Web `/chat/room/:roomId`、App `chat/room` | 從私人來源建立可預覽、可編輯 capsule draft | H | 已使用 |
 | `POST /api/v1/chat/rooms/:roomId/context-capsules/:capsuleId/revisions` | F07 | Web `/chat/room/:roomId`、App `chat/room` | capsule immutable revision | H | 已使用 |
+| `POST /api/v1/chat/rooms/:roomId/context-capsules/:capsuleId/discard` | F07 | Web `/chat/room/:roomId`、App `chat/room` | local lifecycle；將該版轉為 audit tombstone 並停止未來使用 | H | 已使用 |
 | `POST /api/v1/chat/rooms/:roomId/context-capsules/:capsuleId/authorizations` | F07 | Web `/chat/room/:roomId`、App `chat/room` | exact hash/purpose/audience 授權 | H | 已使用 |
 | `POST /api/v1/chat/rooms/:roomId/context-authorizations/:authorizationId/revoke` | F07 | Web `/chat/room/:roomId`、App `chat/room` | 停止後續 AI 使用已授權 capsule | H | 已使用 |
+| `GET /api/v1/chat/rooms/:roomId/context-usage-receipts` | F07 | Web `/chat/room/:roomId`、App `chat/room` | local owner-facing 低敏 receipt；只顯示 category/scope/count/time，不顯示 raw source 或另一方私密原因 | H | 已使用 |
 | `GET /api/v1/chat/rooms/:roomId/analysis-requests` | F07/F04 | Web `/chat/room/:roomId`、App `chat/room` | exact source preview、批准狀態與 formal-analysis receipt | H | 已使用 |
 | `POST /api/v1/chat/rooms/:roomId/analysis-requests` | F07/F04 | Web `/chat/room/:roomId`、App `chat/room` | server-owned exact selection request | H | 已使用 |
 | `POST /api/v1/chat/rooms/:roomId/analysis-requests/:requestId/decision` | F07/F04 | Web `/chat/room/:roomId`、App `chat/room` | participant 本人批准／拒絕 exact selection | H | 已使用 |

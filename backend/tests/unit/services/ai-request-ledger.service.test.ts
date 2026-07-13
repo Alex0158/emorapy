@@ -20,7 +20,7 @@ jest.mock('../../../src/config/openai', () => ({
 jest.mock('../../../src/config/database', () => ({
   __esModule: true,
   default: {
-    aiRequestLedger: {
+    aIRequestLedger: {
       upsert: (...args: unknown[]) => mockUpsert(...args),
       update: (...args: unknown[]) => mockUpdate(...args),
     },

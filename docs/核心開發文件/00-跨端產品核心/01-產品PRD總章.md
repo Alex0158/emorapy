@@ -4,7 +4,7 @@
 **文檔類型**：跨端PRD
 **覆蓋範圍**：Emorapy 通用級產品意圖、需求編碼、四條主線、範圍邊界與平台分層規則
 **取證代碼入口**：`backend/src/routes`、`backend/prisma/schema.prisma`、`frontend/src/router/index.tsx`、`frontend-admin/src/router.tsx`、`mobile/app`、`mobile/src/platform`、`packages/contracts/src`、`packages/api-client/src`
-**最後核驗 Commit**：`88054d1`
+**最後核驗 Commit**：`1c1d7e1`
 **最後核驗日期**：`2026-07-13`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 

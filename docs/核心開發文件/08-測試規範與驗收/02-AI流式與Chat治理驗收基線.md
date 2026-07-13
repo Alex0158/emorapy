@@ -4,7 +4,7 @@
 **文檔類型**：測試規範
 **覆蓋範圍**：長期測試規範、驗收口徑與回歸門檻：02-AI流式與Chat治理驗收基線
 **取證代碼入口**：`backend/src/services/ai-stream.service.ts`、`backend/src/services/chat-ai-orchestrator.service.ts`、`backend/src/services/chat.service.ts`、`backend/src/routes/chat.routes.ts`、`frontend/src/hooks/useAIStreamSubscription.ts`、`frontend/src/services/aiStream.ts`、`frontend/src/services/api/chat.ts`、`mobile/src/platform/sse/useAIStreamSubscription.ts`、`mobile/src/platform/sse/aiStream.ts`、`mobile/src/platform/lifecycle/native.ts`、`mobile/app/(public)/quick/result.tsx`、`mobile/app/(app)/profile/interview.tsx`、`mobile/app/(app)/chat/room.tsx`、`mobile/app/(app)/repair/index.tsx`、`packages/contracts/src/ai-stream.ts`、`packages/api-client/src/m3.ts`、`backend/tests`、`frontend/src/**/*.test.tsx`、`mobile/src/platform/sse/*.test.js`、`frontend/e2e/**/*.ts`、`e2e/**/*.ts`、`scripts`
-**最後核驗 Commit**：`88054d1`
+**最後核驗 Commit**：`1c1d7e1`
 **最後核驗日期**：`2026-07-13`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 

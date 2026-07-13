@@ -4,7 +4,7 @@
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：07-chat
 **取證代碼入口**：`backend/src/app.ts`、`backend/src/routes/chat.routes.ts`、`backend/src/routes/ai-stream.routes.ts`、`backend/src/services/chat.service.ts`、`backend/src/services/judgment.service.ts`、`packages/contracts/src/chat.ts`、`packages/api-client/src/m3.ts`、`frontend/src/services/api/chat.ts`、`frontend/src/pages/Chat/Room`、`mobile/app/(app)/chat/room.tsx`
-**最後核驗 Commit**：`88054d1`
+**最後核驗 Commit**：`1c1d7e1`
 **最後核驗日期**：`2026-07-13`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 

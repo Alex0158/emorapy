@@ -19,6 +19,10 @@ import {
   chatContextReadService,
 } from '../services/chat-context-read.service';
 import {
+  ChatContextUsageReceiptService,
+  chatContextUsageReceiptService,
+} from '../services/chat-context-usage-receipt.service';
+import {
   chatAnalysisRequestParamsSchema,
   chatContextAuthorizationParamsSchema,
   chatContextCapsuleParamsSchema,
@@ -34,7 +38,11 @@ import { getChatActorFromRequest } from './chat-route-actor';
 
 type ContextCapsuleRuntime = Pick<
   ContextCapsuleService,
-  'createDraft' | 'reviseDraft' | 'grantAuthorization' | 'revokeAuthorization'
+  | 'createDraft'
+  | 'reviseDraft'
+  | 'discardCapsule'
+  | 'grantAuthorization'
+  | 'revokeAuthorization'
 >;
 
 type ChatAnalysisRuntime = Pick<
@@ -47,10 +55,16 @@ type ChatContextReadRuntime = Pick<
   'listOwnCapsules' | 'listAnalysisRequests'
 >;
 
+type ChatContextUsageReceiptRuntime = Pick<
+  ChatContextUsageReceiptService,
+  'listOwnerReceipts'
+>;
+
 export type ChatContextRouterDependencies = {
   capsuleService: ContextCapsuleRuntime;
   analysisService: ChatAnalysisRuntime;
   readService: ChatContextReadRuntime;
+  receiptService: ChatContextUsageReceiptRuntime;
 };
 
 export function createChatContextRouter(
@@ -58,6 +72,7 @@ export function createChatContextRouter(
     capsuleService: contextCapsuleService,
     analysisService: chatAnalysisRequestService,
     readService: chatContextReadService,
+    receiptService: chatContextUsageReceiptService,
   }
 ) {
   const router = Router();
@@ -74,6 +89,24 @@ export function createChatContextRouter(
           getChatActorFromRequest(req)
         );
         res.json({ success: true, data: { capsules } });
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
+  router.get(
+    '/rooms/:roomId/context-usage-receipts',
+    generalLimiter,
+    optionalAuthenticate,
+    validate(chatContextRoomParamsSchema),
+    async (req, res, next) => {
+      try {
+        const receipts = await dependencies.receiptService.listOwnerReceipts(
+          req.params.roomId,
+          getChatActorFromRequest(req)
+        );
+        res.json({ success: true, data: { receipts } });
       } catch (error) {
         next(error);
       }
@@ -131,6 +164,25 @@ export function createChatContextRouter(
           req.body as CreateContextCapsuleInput
         );
         res.status(201).json({ success: true, data: { capsule } });
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
+  router.post(
+    '/rooms/:roomId/context-capsules/:capsuleId/discard',
+    generalLimiter,
+    optionalAuthenticate,
+    validate(chatContextCapsuleParamsSchema),
+    async (req, res, next) => {
+      try {
+        const capsule = await dependencies.capsuleService.discardCapsule(
+          req.params.roomId,
+          req.params.capsuleId,
+          getChatActorFromRequest(req)
+        );
+        res.json({ success: true, data: { capsule } });
       } catch (error) {
         next(error);
       }

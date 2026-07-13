@@ -10,6 +10,9 @@ describe('ChatActorAccessService entitlement locks', () => {
     ['actor', (service: ChatActorAccessService, db: never) => (
       service.lockActiveParticipant(db, 'room-1', 'participant-a')
     ), ['participant-a', 'room-1']],
+    ['human-pair', (service: ChatActorAccessService, db: never) => (
+      service.lockActiveHumanParticipants(db, 'room-1')
+    ), ['room-1']],
     ['roleB', (service: ChatActorAccessService, db: never) => (
       service.lockActiveRoleB(db, 'room-1')
     ), ['room-1']],
@@ -33,19 +36,25 @@ describe('ChatActorAccessService entitlement locks', () => {
     if (_label === 'roleB') {
       expect(sql).toContain("role_in_room = 'roleB'");
     }
+    if (_label === 'human-pair') {
+      expect(sql).toContain("role_in_room IN ('roleA', 'roleB')");
+      expect(sql).toContain('ORDER BY id');
+    }
   });
 
-  it.each(['actor', 'roleB'] as const)(
+  it.each(['actor', 'human-pair', 'roleB'] as const)(
     '%s lock fails closed when leave/kick wins the row race',
     async kind => {
       const db = { $queryRaw: jest.fn().mockResolvedValue([]) };
       const service = new ChatActorAccessService();
       const operation = kind === 'actor'
         ? service.lockActiveParticipant(db as never, 'room-1', 'participant-a')
-        : service.lockActiveRoleB(db as never, 'room-1');
+        : kind === 'human-pair'
+          ? service.lockActiveHumanParticipants(db as never, 'room-1')
+          : service.lockActiveRoleB(db as never, 'room-1');
 
       await expect(operation).rejects.toMatchObject({
-        code: kind === 'actor' ? 'FORBIDDEN' : 'CASE_NOT_EDITABLE',
+        code: kind === 'roleB' ? 'CASE_NOT_EDITABLE' : 'FORBIDDEN',
       });
     },
   );

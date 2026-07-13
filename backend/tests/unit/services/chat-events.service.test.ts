@@ -55,6 +55,30 @@ describe('ChatEventsService', () => {
     expect(service.getListenerCount('room-b')).toBe(2);
   });
 
+  it('單一 listener 失敗不應令已完成的 mutation 回報失敗或阻斷其他 listener', async () => {
+    const service = new ChatEventsService();
+    const received: string[] = [];
+    service.subscribe('room-a', () => {
+      throw new Error('listener failed');
+    });
+    service.subscribe('room-a', async () => {
+      throw new Error('listener rejected');
+    });
+    service.subscribe('room-a', (event) => {
+      received.push(String(event.payload.value));
+    });
+
+    expect(() => service.publish({
+      type: 'message',
+      roomId: 'room-a',
+      payload: { value: 'delivered' },
+      at: new Date().toISOString(),
+    })).not.toThrow();
+    await Promise.resolve();
+
+    expect(received).toEqual(['delivered']);
+  });
+
   it('open stream 在 participant leave/revoke 後不再收到新 room/channel activity', () => {
     const entitlements = new ChatStreamEntitlementService();
     const service = new ChatEventsService(entitlements);

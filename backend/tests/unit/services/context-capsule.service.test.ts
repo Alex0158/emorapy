@@ -24,6 +24,7 @@ function createDbMock() {
     contextCapsule: {
       create: jest.fn(),
       findFirst: jest.fn(),
+      findUniqueOrThrow: jest.fn(),
       updateMany: jest.fn(),
     },
     contextAuthorization: {
@@ -58,12 +59,16 @@ function createActorAccessMock() {
 function createService() {
   const db = createDbMock();
   const actorAccess = createActorAccessMock();
+  const safetyRouter = {
+    assertFormalAnalysisAllowed: jest.fn().mockResolvedValue(undefined),
+  };
   const service = new ContextCapsuleService(
     db as unknown as PrismaClient,
     actorAccess as unknown as Pick<ChatActorAccessService, 'resolveActiveHumanParticipant'>,
-    () => NOW
+    () => NOW,
+    safetyRouter,
   );
-  return { db, actorAccess, service };
+  return { db, actorAccess, safetyRouter, service };
 }
 
 function capsuleRecord(overrides: Record<string, unknown> = {}) {
@@ -231,7 +236,7 @@ describe('ContextCapsuleService', () => {
   });
 
   it('binds an authorization to the exact canonical capsule hash and policy', async () => {
-    const { db, service } = createService();
+    const { db, safetyRouter, service } = createService();
     const capsule = capsuleRecord();
     db.contextCapsule.findFirst.mockResolvedValue(capsule);
     db.contextCapsule.updateMany.mockResolvedValue({ count: 1 });
@@ -266,7 +271,34 @@ describe('ContextCapsuleService', () => {
         }),
       })
     );
+    expect(safetyRouter.assertFormalAnalysisAllowed).toHaveBeenCalledWith(ROOM_ID, db);
     expect(authorization.id).toBe(AUTHORIZATION_ID);
+  });
+
+  it('blocks a new formal evidence grant while durable room safety is paused', async () => {
+    const { db, safetyRouter, service } = createService();
+    const capsule = capsuleRecord();
+    safetyRouter.assertFormalAnalysisAllowed.mockRejectedValueOnce(
+      Object.assign(new Error('共同梳理目前暫停'), { code: 'CASE_NOT_READY' }),
+    );
+
+    await expect(service.grantAuthorization(
+      ROOM_ID,
+      CAPSULE_ID,
+      { userId: 'user-a' },
+      {
+        capsule_content_hash: capsule.content_hash,
+        purpose: 'formal_analysis_evidence',
+        audience: 'analysis_participants',
+        target_type: 'chat_room',
+        target_id: ROOM_ID,
+        policy_version: CHAT_CONTEXT_POLICY_VERSION,
+      },
+    )).rejects.toMatchObject({ code: 'CASE_NOT_READY' });
+
+    expect(safetyRouter.assertFormalAnalysisAllowed).toHaveBeenCalledWith(ROOM_ID, db);
+    expect(db.contextCapsule.findFirst).not.toHaveBeenCalled();
+    expect(db.contextAuthorization.create).not.toHaveBeenCalled();
   });
 
   it.each(['P2002', 'P2034'])(
@@ -444,6 +476,111 @@ describe('ContextCapsuleService', () => {
       )
     ).rejects.toMatchObject({ code: 'FORBIDDEN' });
     expect(db.contextAuthorization.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('soft-discards an owner capsule and atomically revokes every active dependent use', async () => {
+    const { db, service } = createService();
+    const capsule = capsuleRecord({ status: 'approved' });
+    const discarded = { ...capsule, status: 'discarded', revoked_at: NOW };
+    db.contextCapsule.findFirst.mockResolvedValue(capsule);
+    db.contextCapsule.updateMany.mockResolvedValue({ count: 1 });
+    db.contextCapsule.findUniqueOrThrow.mockResolvedValue(discarded);
+    db.contextAuthorization.updateMany.mockResolvedValue({ count: 2 });
+    db.chatAnalysisRequest.findMany.mockResolvedValue([
+      {
+        id: REQUEST_ID,
+        selection_snapshot: { capsule_refs: [{ id: CAPSULE_ID }] },
+      },
+    ]);
+    db.chatAnalysisRequest.updateMany.mockResolvedValue({ count: 1 });
+    db.contextUseAudit.create.mockResolvedValue({ id: 'audit-discard' });
+
+    const result = await service.discardCapsule(
+      ROOM_ID,
+      CAPSULE_ID,
+      { userId: 'user-a' }
+    );
+
+    expect(db.contextCapsule.updateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        id: CAPSULE_ID,
+        room_id: ROOM_ID,
+        owner_participant_id: PARTICIPANT_ID,
+        status: { in: ['draft', 'approved'] },
+        expires_at: { gt: NOW },
+      }),
+      data: { status: 'discarded', revoked_at: NOW },
+    });
+    expect(db.contextAuthorization.updateMany).toHaveBeenCalledWith({
+      where: { capsule_id: CAPSULE_ID, revoked_at: null },
+      data: { revoked_at: NOW, revocation_reason_code: 'capsule_discarded' },
+    });
+    expect(db.chatAnalysisRequest.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: { in: [REQUEST_ID] } }),
+        data: { status: 'cancelled', cancelled_at: NOW },
+      })
+    );
+    const auditData = db.contextUseAudit.create.mock.calls[0][0].data;
+    expect(auditData).toMatchObject({
+      actor_participant_id: PARTICIPANT_ID,
+      capsule_id: CAPSULE_ID,
+      decision: 'denied',
+      reason_code: 'capsule_discarded',
+      source_refs: [],
+      authorization_refs: [],
+      content_hashes: [],
+    });
+    expect(JSON.stringify(auditData)).not.toMatch(/private source|safe summary/);
+    expect(result).toEqual(discarded);
+  });
+
+  it('keeps discard owner-only and does not reveal whether another owner capsule exists', async () => {
+    const { db, service } = createService();
+    db.contextCapsule.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.discardCapsule(ROOM_ID, CAPSULE_ID, { userId: 'user-a' })
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+
+    expect(db.contextCapsule.updateMany).not.toHaveBeenCalled();
+    expect(db.contextAuthorization.updateMany).not.toHaveBeenCalled();
+    expect(db.contextUseAudit.create).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['revoked', { status: 'revoked', revoked_at: NOW }],
+    ['expired', { expires_at: new Date('2026-07-12T19:59:59.000Z') }],
+  ])('fails closed when attempting to discard an inactive %s capsule', async (_label, state) => {
+    const { db, service } = createService();
+    db.contextCapsule.findFirst.mockResolvedValue(capsuleRecord(state));
+
+    await expect(
+      service.discardCapsule(ROOM_ID, CAPSULE_ID, { userId: 'user-a' })
+    ).rejects.toMatchObject({ code: 'CONFLICT' });
+
+    expect(db.contextCapsule.updateMany).not.toHaveBeenCalled();
+    expect(db.contextAuthorization.updateMany).not.toHaveBeenCalled();
+    expect(db.contextUseAudit.create).not.toHaveBeenCalled();
+  });
+
+  it('makes repeated discard idempotent while re-applying dependent-use containment', async () => {
+    const { db, service } = createService();
+    const discarded = capsuleRecord({ status: 'discarded', revoked_at: NOW });
+    db.contextCapsule.findFirst.mockResolvedValue(discarded);
+    db.contextAuthorization.updateMany.mockResolvedValue({ count: 0 });
+    db.chatAnalysisRequest.findMany.mockResolvedValue([]);
+
+    const result = await service.discardCapsule(
+      ROOM_ID,
+      CAPSULE_ID,
+      { userId: 'user-a' }
+    );
+
+    expect(result).toEqual(discarded);
+    expect(db.contextAuthorization.updateMany).toHaveBeenCalled();
+    expect(db.contextCapsule.updateMany).not.toHaveBeenCalled();
+    expect(db.contextUseAudit.create).not.toHaveBeenCalled();
   });
 
   it('revocation cancels every not-yet-processing request that references the capsule', async () => {

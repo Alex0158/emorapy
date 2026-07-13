@@ -15,6 +15,10 @@ const mockStreamFailed = jest.fn();
 const mockGenerateReplannedRepairPlan = jest.fn();
 const mockCreateNotification = jest.fn();
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockAssertJointRepairAllowed: any = jest.fn();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockObserveJointRepairAllowed: any = jest.fn();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockGetEffectiveRouteSnapshot: any = jest.fn();
 
 const basePlan = (overrides: Record<string, unknown> = {}) => ({
@@ -54,7 +58,7 @@ const basePlan = (overrides: Record<string, unknown> = {}) => ({
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const prismaMock: any = {
-  reconciliationPlan: { findUnique: jest.fn() },
+  reconciliationPlan: { findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
   executionRecord: { findFirst: jest.fn(), findMany: jest.fn(), create: jest.fn() },
   repairTrack: { findUnique: jest.fn(), update: jest.fn(), findMany: jest.fn() },
   repairCheckIn: { create: jest.fn() },
@@ -106,6 +110,12 @@ jest.mock('../../../src/services/safety-assessment.service', () => ({
     getEffectiveRouteSnapshot: (...args: unknown[]) => mockGetEffectiveRouteSnapshot(...args),
   },
 }));
+jest.mock('../../../src/services/chat-joint-repair-claim.service', () => ({
+  chatJointRepairClaimService: {
+    assertAllowed: (...args: unknown[]) => mockAssertJointRepairAllowed(...args),
+    observeAllowed: (...args: unknown[]) => mockObserveJointRepairAllowed(...args),
+  },
+}));
 
 import { ExecutionService } from '../../../src/services/execution.service';
 import { buildSafetyAssessmentSnapshotForRoute } from '../../../src/utils/product-safety-policy';
@@ -130,6 +140,11 @@ describe('ExecutionService', () => {
     mockStreamCompleted.mockResolvedValue(undefined as never);
     mockStreamPersisted.mockResolvedValue(undefined as never);
     mockStreamFailed.mockResolvedValue(undefined as never);
+    mockAssertJointRepairAllowed.mockResolvedValue(undefined as never);
+    mockObserveJointRepairAllowed.mockResolvedValue(true as never);
+    prismaMock.$transaction.mockImplementation(
+      async (callback: (tx: typeof prismaMock) => Promise<unknown>) => callback(prismaMock),
+    );
     prismaMock.repairTrack.update.mockResolvedValue({});
     mockGenerateReplannedRepairPlan.mockResolvedValue({
       title: '低壓調整版',
@@ -228,6 +243,66 @@ describe('ExecutionService', () => {
         last_stress: 'high',
       }),
     });
+  });
+
+  it('Chat-linked checkin 應在 stale solo 轉成 co 後先鎖再重讀並零寫入', async () => {
+    prismaMock.reconciliationPlan.findUnique.mockResolvedValue(basePlan({
+      repair_track: {
+        status: 'solo_active',
+        recommended_mode: 'solo',
+        participant_states: [{ user_id: 'u1', commitment_status: 'committed' }],
+        step_progresses: [],
+        checkins: [],
+      },
+      judgment: {
+        emotional_analysis: null,
+        judgment_content: '一般衝突判決',
+        case: {
+          id: 'case-1',
+          mode: 'remote',
+          session_id: null,
+          plaintiff_id: 'u1',
+          defendant_id: 'u2',
+          chat_to_case_links: [{ id: 'link-1', room_id: 'room-1' }],
+        },
+      },
+    }));
+    prismaMock.repairTrack.findUnique.mockResolvedValue({
+      id: 'track-1',
+      plan_id: 'plan-1',
+      status: 'co_active',
+      recommended_mode: 'co',
+      current_step_index: 0,
+      participant_states: [
+        { user_id: 'u1', commitment_status: 'committed' },
+        { user_id: 'u2', commitment_status: 'committed' },
+      ],
+      step_progresses: [{ step_index: 0, status: 'active' }],
+    });
+    mockObserveJointRepairAllowed.mockResolvedValueOnce(false as never);
+
+    await expect(service.checkin('u1', {
+      plan_id: 'plan-1',
+      step_result: 'done',
+    })).rejects.toMatchObject({ code: 'FORBIDDEN' });
+
+    expect(mockObserveJointRepairAllowed).toHaveBeenCalledWith(
+      prismaMock,
+      expect.objectContaining({
+        chat_to_case_links: [{ id: 'link-1', room_id: 'room-1' }],
+      }),
+    );
+    expect(mockObserveJointRepairAllowed.mock.invocationCallOrder[0]).toBeLessThan(
+      prismaMock.repairTrack.findUnique.mock.invocationCallOrder[0],
+    );
+    expect(prismaMock.$transaction).toHaveBeenCalledWith(
+      expect.any(Function),
+      { isolationLevel: 'ReadCommitted' },
+    );
+    expect(prismaMock.repairCheckIn.create).not.toHaveBeenCalled();
+    expect(prismaMock.repairStepProgress.update).not.toHaveBeenCalled();
+    expect(prismaMock.repairTrack.update).not.toHaveBeenCalled();
+    expect(prismaMock.executionRecord.create).not.toHaveBeenCalled();
   });
 
   it('getExecutionStatus 應返回當前步驟與脈搏摘要', async () => {
@@ -450,6 +525,63 @@ describe('ExecutionService', () => {
     expect(runReplanTaskSpy).not.toHaveBeenCalled();
   });
 
+  it('Chat-linked replan 應在 stale solo 轉成 co 後重新判斷並於 stream 前 fail closed', async () => {
+    const runReplanTaskSpy = jest
+      .spyOn(service as unknown as { runReplanTask: () => Promise<void> }, 'runReplanTask')
+      .mockImplementation(async () => undefined);
+    prismaMock.repairTrack.findUnique
+      .mockResolvedValueOnce({
+        id: 'track-1',
+        plan_id: 'plan-1',
+        intent: 'repair',
+        status: 'solo_active',
+        recommended_mode: 'solo',
+        participant_states: [
+          { user_id: 'u1', commitment_status: 'committed' },
+        ],
+        step_progresses: [],
+        plan: {
+          ...basePlan({
+            version_group_id: 'vg-1',
+            judgment: {
+              emotional_analysis: null,
+              judgment_content: '一般衝突判決',
+              case: {
+                id: 'case-1',
+                mode: 'remote',
+                session_id: null,
+                plaintiff_id: 'u1',
+                defendant_id: 'u2',
+                chat_to_case_links: [{ id: 'link-1', room_id: 'room-1' }],
+              },
+            },
+          }),
+          judgment_id: 'judgment-1',
+          version_group_id: 'vg-1',
+        },
+      })
+      .mockResolvedValueOnce({
+        id: 'track-1',
+        status: 'co_active',
+        recommended_mode: 'co',
+        participant_states: [
+          { commitment_status: 'committed' },
+          { commitment_status: 'committed' },
+        ],
+      });
+    mockObserveJointRepairAllowed.mockResolvedValueOnce(false as never);
+
+    await expect(service.replanTrack('u1', 'track-1', {
+      mode: 'lower_pressure',
+      reason: 'manual',
+    })).rejects.toMatchObject({ code: 'FORBIDDEN' });
+
+    expect(mockCreateStream).not.toHaveBeenCalled();
+    expect(prismaMock.repairTrack.update).not.toHaveBeenCalled();
+    expect(prismaMock.repairTrackEvent.create).not.toHaveBeenCalled();
+    expect(runReplanTaskSpy).not.toHaveBeenCalled();
+  });
+
   it('runReplanTask 應攔截接受後才升級的 safety state，且不得生成或通知共同方案', async () => {
     prismaMock.repairTrack.findUnique.mockResolvedValue({
       id: 'track-1',
@@ -502,7 +634,7 @@ describe('ExecutionService', () => {
     );
 
     expect(mockGenerateReplannedRepairPlan).not.toHaveBeenCalled();
-    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(2);
     expect(mockCreateNotification).not.toHaveBeenCalled();
     expect(prismaMock.repairTrack.update).toHaveBeenCalledWith({
       where: { id: 'track-1' },
@@ -513,6 +645,247 @@ describe('ExecutionService', () => {
       },
     });
     expect(mockStreamFailed).toHaveBeenCalled();
+  });
+
+  it('runReplanTask 應在 AI provider 前重新 claim Chat Safety，失敗時只回到 solo', async () => {
+    mockObserveJointRepairAllowed.mockResolvedValue(false as never);
+    prismaMock.repairTrack.findUnique.mockResolvedValue({
+      id: 'track-1',
+      status: 'co_active',
+      recommended_mode: 'co',
+      participant_states: [
+        { commitment_status: 'committed' },
+        { commitment_status: 'committed' },
+      ],
+    });
+
+    await (service as unknown as {
+      runReplanTask: (
+        trackId: string,
+        requestedBy: string,
+        dto: { mode: 'lower_pressure'; reason: 'manual' },
+        handle: { streamId: string; requestId: string; scopeType: 'repair_track'; scopeId: string },
+        fallback: {
+          status: 'co_active';
+          planId: string;
+          judgmentId: string;
+          versionGroupId: string;
+          caseRecord: { chat_to_case_links: Array<{ room_id: string }> };
+          jointRepair: true;
+        },
+        locale: 'zh-TW',
+      ) => Promise<void>;
+    }).runReplanTask(
+      'track-1',
+      'u1',
+      { mode: 'lower_pressure', reason: 'manual' },
+      { streamId: 'stream-1', requestId: 'request-1', scopeType: 'repair_track', scopeId: 'track-1' },
+      {
+        status: 'co_active',
+        planId: 'plan-1',
+        judgmentId: 'judgment-1',
+        versionGroupId: 'vg-1',
+        caseRecord: { chat_to_case_links: [{ room_id: 'room-1' }] },
+        jointRepair: true,
+      },
+      'zh-TW',
+    );
+
+    expect(mockObserveJointRepairAllowed).toHaveBeenCalledWith(
+      prismaMock,
+      { chat_to_case_links: [{ room_id: 'room-1' }] },
+    );
+    expect(mockGenerateReplannedRepairPlan).not.toHaveBeenCalled();
+    expect(mockCreateNotification).not.toHaveBeenCalled();
+    expect(prismaMock.repairTrack.update).toHaveBeenCalledWith({
+      where: { id: 'track-1' },
+      data: {
+        status: 'solo_active',
+        status_reason: 'replan_failed',
+        needs_replan: true,
+      },
+    });
+    expect(mockStreamFailed).toHaveBeenCalled();
+  });
+
+  it('runReplanTask 應在 provider 前與 shared plan persistence transaction 各自重新 claim', async () => {
+    const track = {
+      id: 'track-1',
+      plan_id: 'plan-1',
+      intent: 'repair',
+      status: 'replanning',
+      recommended_mode: 'co',
+      participant_states: [
+        { user_id: 'u1', commitment_status: 'committed' },
+        { user_id: 'u2', commitment_status: 'committed' },
+      ],
+      step_progresses: [{ step_index: 0, status: 'active' }],
+      checkins: [],
+      last_closeness: 'same',
+      last_stress: 'medium',
+      last_needs_help: false,
+      plan: {
+        ...basePlan({ version_group_id: 'vg-1', user2_selected: true }),
+        summary: '一般衝突',
+        version_group_id: 'vg-1',
+        time_cost: 'medium',
+        money_cost: 'none',
+        emotion_cost: 'medium',
+        skill_requirement: 'basic',
+      },
+    };
+    prismaMock.repairTrack.findUnique
+      .mockResolvedValueOnce(track)
+      .mockResolvedValueOnce(track)
+      .mockResolvedValueOnce(track)
+      .mockResolvedValueOnce({
+        ...track,
+        status: 'co_active',
+        recommended_mode: 'co',
+        status_reason: 'replan_ready',
+        partner_invited_at: null,
+      });
+    prismaMock.reconciliationPlan.create.mockResolvedValue({ id: 'plan-2' });
+    prismaMock.reconciliationPlan.update.mockResolvedValue({});
+    prismaMock.repairStepProgress.updateMany.mockResolvedValue({ count: 1 });
+    prismaMock.repairStepProgress.createMany.mockResolvedValue({ count: 1 });
+    prismaMock.repairTrack.update.mockResolvedValue({ id: 'track-1', status: 'co_active' });
+    prismaMock.repairTrackEvent.create.mockResolvedValue({});
+    mockStreamPersisted.mockRejectedValueOnce(new Error('stream unavailable') as never);
+    mockCreateNotification.mockRejectedValueOnce(new Error('notification unavailable') as never);
+
+    await (service as unknown as {
+      runReplanTask: (
+        trackId: string,
+        requestedBy: string,
+        dto: { mode: 'lower_pressure'; reason: 'manual' },
+        handle: { streamId: string; requestId: string; scopeType: 'repair_track'; scopeId: string },
+        fallback: {
+          status: 'co_active';
+          planId: string;
+          judgmentId: string;
+          versionGroupId: string;
+          caseRecord: { chat_to_case_links: Array<{ room_id: string }> };
+          jointRepair: true;
+        },
+        locale: 'zh-TW',
+      ) => Promise<void>;
+    }).runReplanTask(
+      'track-1',
+      'u1',
+      { mode: 'lower_pressure', reason: 'manual' },
+      { streamId: 'stream-1', requestId: 'request-1', scopeType: 'repair_track', scopeId: 'track-1' },
+      {
+        status: 'co_active',
+        planId: 'plan-1',
+        judgmentId: 'judgment-1',
+        versionGroupId: 'vg-1',
+        caseRecord: { chat_to_case_links: [{ room_id: 'room-1' }] },
+        jointRepair: true,
+      },
+      'zh-TW',
+    );
+
+    expect(mockObserveJointRepairAllowed).toHaveBeenCalledTimes(1);
+    expect(mockAssertJointRepairAllowed).toHaveBeenCalledTimes(1);
+    expect(mockObserveJointRepairAllowed.mock.invocationCallOrder[0]).toBeLessThan(
+      mockGenerateReplannedRepairPlan.mock.invocationCallOrder[0],
+    );
+    expect(mockAssertJointRepairAllowed.mock.invocationCallOrder[0]).toBeLessThan(
+      prismaMock.reconciliationPlan.create.mock.invocationCallOrder[0],
+    );
+    expect(prismaMock.reconciliationPlan.create).toHaveBeenCalled();
+    expect(mockStreamPersisted).toHaveBeenCalled();
+    expect(mockCreateNotification).toHaveBeenCalled();
+    expect(prismaMock.repairTrack.update).not.toHaveBeenCalledWith({
+      where: { id: 'track-1' },
+      data: expect.objectContaining({ status_reason: 'replan_failed' }),
+    });
+    expect(mockStreamFailed).not.toHaveBeenCalled();
+  });
+
+  it('runReplanTask 應在 joint provider 完成後再次 claim，Safety 勝出時不得持久化共同方案', async () => {
+    const track = {
+      id: 'track-1',
+      plan_id: 'plan-1',
+      intent: 'repair',
+      status: 'replanning',
+      recommended_mode: 'co',
+      participant_states: [
+        { user_id: 'u1', commitment_status: 'committed' },
+        { user_id: 'u2', commitment_status: 'committed' },
+      ],
+      step_progresses: [{ step_index: 0, status: 'active' }],
+      checkins: [],
+      last_closeness: 'same',
+      last_stress: 'medium',
+      last_needs_help: false,
+      plan: {
+        ...basePlan({ version_group_id: 'vg-1', user2_selected: true }),
+        summary: '一般衝突',
+        version_group_id: 'vg-1',
+        time_cost: 'medium',
+        money_cost: 'none',
+        emotion_cost: 'medium',
+        skill_requirement: 'basic',
+      },
+    };
+    prismaMock.repairTrack.findUnique
+      .mockResolvedValueOnce(track)
+      .mockResolvedValueOnce(track);
+    mockObserveJointRepairAllowed
+      .mockResolvedValueOnce(true as never)
+      .mockResolvedValueOnce(false as never);
+    mockAssertJointRepairAllowed.mockRejectedValueOnce(
+      Object.assign(new Error('共同修復目前不可用'), { code: 'FORBIDDEN' }) as never,
+    );
+
+    await (service as unknown as {
+      runReplanTask: (
+        trackId: string,
+        requestedBy: string,
+        dto: { mode: 'lower_pressure'; reason: 'manual' },
+        handle: { streamId: string; requestId: string; scopeType: 'repair_track'; scopeId: string },
+        fallback: {
+          status: 'co_active';
+          planId: string;
+          judgmentId: string;
+          versionGroupId: string;
+          caseRecord: { chat_to_case_links: Array<{ room_id: string }> };
+        },
+        locale: 'zh-TW',
+      ) => Promise<void>;
+    }).runReplanTask(
+      'track-1',
+      'u1',
+      { mode: 'lower_pressure', reason: 'manual' },
+      { streamId: 'stream-1', requestId: 'request-1', scopeType: 'repair_track', scopeId: 'track-1' },
+      {
+        status: 'co_active',
+        planId: 'plan-1',
+        judgmentId: 'judgment-1',
+        versionGroupId: 'vg-1',
+        caseRecord: { chat_to_case_links: [{ room_id: 'room-1' }] },
+      },
+      'zh-TW',
+    );
+
+    expect(mockGenerateReplannedRepairPlan).toHaveBeenCalledTimes(1);
+    expect(mockAssertJointRepairAllowed).toHaveBeenCalledTimes(1);
+    expect(mockAssertJointRepairAllowed.mock.invocationCallOrder[0]).toBeGreaterThan(
+      mockGenerateReplannedRepairPlan.mock.invocationCallOrder[0],
+    );
+    expect(prismaMock.reconciliationPlan.create).not.toHaveBeenCalled();
+    expect(mockCreateNotification).not.toHaveBeenCalled();
+    expect(prismaMock.repairTrack.update).toHaveBeenCalledWith({
+      where: { id: 'track-1' },
+      data: {
+        status: 'solo_active',
+        status_reason: 'replan_failed',
+        needs_replan: true,
+      },
+    });
+    expect(mockStreamFailed).toHaveBeenCalledTimes(1);
   });
 
   it('runReplanTask 在 force solo policy 下應生成 solo plan 並禁止 partner notification', async () => {
@@ -574,6 +947,7 @@ describe('ExecutionService', () => {
         createMany: jest.fn(),
       },
       repairTrack: {
+        findUnique: jest.fn(),
         update: jest.fn(),
       },
       repairTrackEvent: {
@@ -584,6 +958,7 @@ describe('ExecutionService', () => {
     tx.reconciliationPlan.update.mockResolvedValue({});
     tx.repairStepProgress.updateMany.mockResolvedValue({ count: 1 });
     tx.repairStepProgress.createMany.mockResolvedValue({ count: 1 });
+    tx.repairTrack.findUnique.mockResolvedValue(track);
     tx.repairTrack.update.mockImplementation(async ({ data }: { data: { status: string } }) => ({
       id: 'track-1',
       status: data.status,

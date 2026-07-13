@@ -131,6 +131,13 @@ jest.mock('@prisma/client', () => ({
   },
   ChatVisibilityScope: { all: 'all', owner_only: 'owner_only', summary_only: 'summary_only' },
   PrivateContextUseMode: { private_only: 'private_only', shared_process_controls: 'shared_process_controls' },
+  ChatSafetyRouterAction: {
+    continue: 'continue',
+    private_checkin: 'private_checkin',
+    pause_shared: 'pause_shared',
+    block_joint_repair: 'block_joint_repair',
+    crisis_support: 'crisis_support',
+  },
   ContextPurpose: {
     private_support: 'private_support',
     shared_mediation: 'shared_mediation',

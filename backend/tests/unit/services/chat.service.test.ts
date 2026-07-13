@@ -19,6 +19,11 @@ function aiParticipant<T extends Record<string, unknown>>(fixture: T) {
 }
 
 const ANALYSIS_REQUEST_ID = '550e8400-e29b-41d4-a716-446655440020';
+const SHARED_ADAPTATION_RESET = {
+  shared_adaptation_consent: 'not_set',
+  shared_adaptation_policy_version: null,
+  shared_adaptation_decided_at: null,
+};
 
 function submittedAnalysisEvidence(overrides: Record<string, unknown> = {}) {
   return {
@@ -69,6 +74,9 @@ const prismaMock: any = {
   },
   chatChannel: {
     createMany: jest.fn(),
+  },
+  chatSafetyRouterState: {
+    findMany: jest.fn(),
   },
   $queryRaw: jest.fn(),
   case: {
@@ -247,6 +255,18 @@ describe('ChatService', () => {
   beforeEach(() => {
     jest.resetAllMocks();
     service = new ChatService();
+    // Most cases model no membership change between the initial access check
+    // and the transaction-scoped revalidation. Reuse the latest same-room
+    // fixture for that second read; drift tests queue an explicit snapshot.
+    prismaMock.chatRoom.findFirst.mockImplementation(async (args: any) => {
+      const priorResults = prismaMock.chatRoom.findFirst.mock.results.slice(0, -1).reverse();
+      for (const result of priorResults) {
+        if (result.type !== 'return') continue;
+        const priorRoom = await result.value;
+        if (priorRoom?.id === args?.where?.id) return priorRoom;
+      }
+      return null;
+    });
     lockServiceMock.withLock.mockImplementation(async (_key: string, fn: any) => fn());
     prismaMock.$transaction.mockImplementation(async (fn: any) => fn(prismaMock));
     prismaMock.$queryRaw.mockResolvedValue([{ id: 'locked-participant' }]);
@@ -255,6 +275,7 @@ describe('ChatService', () => {
     chatMetricsServiceMock.recordJudgmentSuccess.mockResolvedValue(undefined);
     chatMetricsServiceMock.recordJudgmentFailed.mockResolvedValue(undefined);
     prismaMock.chatMessage.count.mockResolvedValue(0);
+    prismaMock.chatSafetyRouterState.findMany.mockResolvedValue([]);
     prismaMock.pairing.create.mockResolvedValue({ id: 'pair-default' });
     prismaMock.chatInvite.findFirst.mockResolvedValue(null);
     prismaMock.chatRoom.updateMany.mockResolvedValue({ count: 1 });
@@ -524,16 +545,19 @@ describe('ChatService', () => {
       visibilityScope: 'all',
     });
 
-    expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(2);
+    expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(3);
     expect(prismaMock.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(
       prismaMock.$queryRaw.mock.invocationCallOrder[1],
     );
     expect(prismaMock.$queryRaw.mock.invocationCallOrder[1]).toBeLessThan(
+      prismaMock.$queryRaw.mock.invocationCallOrder[2],
+    );
+    expect(prismaMock.$queryRaw.mock.invocationCallOrder[2]).toBeLessThan(
       prismaMock.chatMessage.create.mock.invocationCallOrder[0],
     );
     expect(prismaMock.$transaction).toHaveBeenCalledWith(
       expect.any(Function),
-      { isolationLevel: 'Serializable' },
+      { isolationLevel: 'ReadCommitted' },
     );
   });
 
@@ -559,6 +583,7 @@ describe('ChatService', () => {
       prismaMock.chatRoom.findFirst.mockResolvedValueOnce(room);
       prismaMock.$queryRaw
         .mockResolvedValueOnce([{ id: 'p-a' }])
+        .mockResolvedValueOnce([{ id: 'p-a' }])
         .mockResolvedValueOnce([]);
       if (channelId) {
         chatChannelServiceMock.resolveChannelForWrite.mockResolvedValueOnce({
@@ -579,7 +604,7 @@ describe('ChatService', () => {
         channelId,
       })).rejects.toMatchObject({ code: 'CASE_NOT_EDITABLE' });
 
-      expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(2);
+      expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(3);
       expect(prismaMock.chatMessage.findFirst).not.toHaveBeenCalled();
       expect(prismaMock.chatMessage.create).not.toHaveBeenCalled();
     },
@@ -1079,6 +1104,17 @@ describe('ChatService', () => {
       .toHaveBeenCalledWith('p-roleb-b2');
     expect(chatStreamEntitlementServiceMock.activateParticipant)
       .not.toHaveBeenCalledWith('p-roleb-b1');
+    expect(prismaMock.chatParticipant.updateMany).toHaveBeenCalledWith({
+      where: {
+        room_id: 'room-roleb-reuse',
+        id: { not: 'p-roleb-b2' },
+        participant_type: 'user',
+        role_in_room: { in: ['roleA', 'roleB'] },
+        is_active: true,
+        left_at: null,
+      },
+      data: SHARED_ADAPTATION_RESET,
+    });
   });
 
   it('acceptInvite: 同一 user rejoin 才可復用自己的歷史 participant/private channel', async () => {
@@ -1129,7 +1165,19 @@ describe('ChatService', () => {
         is_active: true,
         left_at: null,
         joined_at: expect.any(Date),
+        ...SHARED_ADAPTATION_RESET,
       }),
+    });
+    expect(prismaMock.chatParticipant.updateMany).toHaveBeenCalledWith({
+      where: {
+        room_id: 'room-roleb-same-user',
+        id: { not: 'p-roleb-same-user' },
+        participant_type: 'user',
+        role_in_room: { in: ['roleA', 'roleB'] },
+        is_active: true,
+        left_at: null,
+      },
+      data: SHARED_ADAPTATION_RESET,
     });
     expect(prismaMock.chatParticipant.create).not.toHaveBeenCalled();
     expect(chatStreamEntitlementServiceMock.activateParticipant)
@@ -1367,7 +1415,7 @@ describe('ChatService', () => {
     expect(prismaMock.pairing.create).not.toHaveBeenCalled();
   });
 
-  it('requestJudgment: 單人 live pairing 建立遇 P2002 時應復查並復用', async () => {
+  it('requestJudgment: 單人 live pairing 建立遇 P2002 時應整體重試並復用', async () => {
     prismaMock.chatRoom.findFirst.mockResolvedValueOnce({
       id: 'room-solo-pairing-race',
       status: 'solo_active',
@@ -1395,10 +1443,10 @@ describe('ChatService', () => {
       humanParticipant({ id: 'p-a', room_id: 'room-solo-pairing-race', role_in_room: 'roleA', user_id: 'u1', is_active: true }),
       aiParticipant({ id: 'p-ai', room_id: 'room-solo-pairing-race', role_in_room: 'aiMediator', user_id: null, is_active: true }),
     ]);
-    prismaMock.chatMessage.findMany.mockResolvedValueOnce([
+    prismaMock.chatMessage.findMany.mockResolvedValue([
       { id: 'm-a', content: '我希望把這段聊天整理成判決建議', created_at: new Date(), sender_participant: { role_in_room: 'roleA' } },
     ]);
-    safetyRoutingServiceMock.decideRoute.mockReturnValueOnce({
+    safetyRoutingServiceMock.decideRoute.mockReturnValue({
       route: 'standard',
       reasons: ['ok'],
       detectedFlags: [],
@@ -1418,6 +1466,7 @@ describe('ChatService', () => {
     const result = await service.requestJudgment('room-solo-pairing-race', { userId: 'u1' });
 
     expect(result.caseId).toBe('case-solo-race');
+    expect(prismaMock.pairing.create).toHaveBeenCalledTimes(1);
     expect(prismaMock.case.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ pairing_id: 'pair-solo-raced' }),
@@ -2836,6 +2885,18 @@ describe('ChatService', () => {
       humanParticipant({ id: 'p-b-new', room_id: 'room-participants-refresh', role_in_room: 'roleB', is_active: true, user_id: 'u2' }),
       aiParticipant({ id: 'p-ai-new', room_id: 'room-participants-refresh', role_in_room: 'aiMediator', is_active: true, user_id: null }),
     ]);
+    prismaMock.chatRoom.findFirst.mockResolvedValueOnce({
+      id: 'room-participants-refresh',
+      status: 'group_active',
+      owner_user_id: 'u1',
+      session_id: null,
+      history_visibility_mode: 'share_summary_only',
+      participants: [
+        humanParticipant({ id: 'p-a-new', role_in_room: 'roleA', user_id: 'u1', is_active: true }),
+        humanParticipant({ id: 'p-b-new', role_in_room: 'roleB', user_id: 'u2', is_active: true }),
+        aiParticipant({ id: 'p-ai-new', role_in_room: 'aiMediator', user_id: null, is_active: true }),
+      ],
+    });
     prismaMock.chatToCaseLink.findFirst.mockResolvedValueOnce(null);
     prismaMock.chatMessage.findMany.mockResolvedValueOnce([
       {
@@ -2933,12 +2994,15 @@ describe('ChatService', () => {
       user_id: 'u-b',
       is_active: true,
     });
-    prismaMock.chatRoom.findFirst.mockResolvedValueOnce({
+    const activeRoom = {
       id: 'room-leave',
       status: 'group_active',
       owner_user_id: 'u-a',
       participants: [participantB],
-    });
+    };
+    prismaMock.chatRoom.findFirst
+      .mockResolvedValueOnce(activeRoom)
+      .mockResolvedValueOnce(activeRoom);
     prismaMock.chatRoom.findUnique.mockResolvedValueOnce({
       id: 'room-leave',
       status: 'solo_active',
@@ -2948,6 +3012,19 @@ describe('ChatService', () => {
     const result = await service.leaveRoom('room-leave', { userId: 'u-b' });
 
     expect(result).toMatchObject({ id: 'room-leave', status: 'solo_active' });
+    expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(prismaMock.$queryRaw.mock.invocationCallOrder[0])
+      .toBeLessThan(prismaMock.chatParticipant.updateMany.mock.invocationCallOrder[0]);
+    expect(prismaMock.chatParticipant.updateMany).toHaveBeenNthCalledWith(2, {
+      where: {
+        room_id: 'room-leave',
+        participant_type: 'user',
+        role_in_room: { in: ['roleA', 'roleB'] },
+        is_active: true,
+        left_at: null,
+      },
+      data: SHARED_ADAPTATION_RESET,
+    });
     expect(chatAnalysisRequestServiceMock.cancelActiveForParticipantDeparture)
       .toHaveBeenCalledWith(
         prismaMock,
@@ -2957,5 +3034,99 @@ describe('ChatService', () => {
       );
     expect(chatStreamEntitlementServiceMock.revokeParticipant)
       .toHaveBeenCalledWith('p-b-leaving');
+  });
+
+  it('kickParticipantB: membership 變更應重設其餘 active humans 的 adaptation consent', async () => {
+    const participantA = humanParticipant({
+      id: 'p-a-kicking',
+      room_id: 'room-kick',
+      role_in_room: 'roleA',
+      user_id: 'u-a',
+      is_active: true,
+    });
+    const participantB = humanParticipant({
+      id: 'p-b-kicked',
+      room_id: 'room-kick',
+      role_in_room: 'roleB',
+      user_id: 'u-b',
+      is_active: true,
+    });
+    const activeRoom = {
+      id: 'room-kick',
+      status: 'group_active',
+      owner_user_id: 'u-a',
+      participants: [participantA, participantB],
+    };
+    prismaMock.chatRoom.findFirst
+      .mockResolvedValueOnce(activeRoom)
+      .mockResolvedValueOnce(activeRoom);
+    prismaMock.chatRoom.findUnique.mockResolvedValueOnce({
+      id: 'room-kick',
+      status: 'solo_active',
+      participants: [participantA, { ...participantB, is_active: false, left_at: new Date() }],
+    });
+
+    const result = await service.kickParticipantB('room-kick', { userId: 'u-a' });
+
+    expect(result).toMatchObject({ id: 'room-kick', status: 'solo_active' });
+    expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(prismaMock.$queryRaw.mock.invocationCallOrder[0])
+      .toBeLessThan(prismaMock.chatParticipant.updateMany.mock.invocationCallOrder[0]);
+    expect(prismaMock.chatParticipant.updateMany).toHaveBeenNthCalledWith(2, {
+      where: {
+        room_id: 'room-kick',
+        participant_type: 'user',
+        role_in_room: { in: ['roleA', 'roleB'] },
+        is_active: true,
+        left_at: null,
+      },
+      data: SHARED_ADAPTATION_RESET,
+    });
+    expect(chatAnalysisRequestServiceMock.cancelActiveForParticipantDeparture)
+      .toHaveBeenCalledWith(
+        prismaMock,
+        'room-kick',
+        'p-b-kicked',
+        expect.any(Date),
+      );
+    expect(chatStreamEntitlementServiceMock.revokeParticipant)
+      .toHaveBeenCalledWith('p-b-kicked');
+  });
+
+  it('kickParticipantB: 鎖內發起方權限已失效時不得寫入 membership', async () => {
+    const participantA = humanParticipant({
+      id: 'p-a-stale',
+      room_id: 'room-kick-stale',
+      role_in_room: 'roleA',
+      user_id: 'u-a',
+      is_active: true,
+    });
+    const participantB = humanParticipant({
+      id: 'p-b-stale',
+      room_id: 'room-kick-stale',
+      role_in_room: 'roleB',
+      user_id: 'u-b',
+      is_active: true,
+    });
+    prismaMock.chatRoom.findFirst
+      .mockResolvedValueOnce({
+        id: 'room-kick-stale',
+        status: 'group_active',
+        owner_user_id: 'u-a',
+        participants: [participantA, participantB],
+      })
+      .mockResolvedValueOnce({
+        id: 'room-kick-stale',
+        status: 'group_active',
+        owner_user_id: 'u-a',
+        participants: [{ ...participantA, is_active: false, left_at: new Date() }, participantB],
+      });
+
+    await expect(service.kickParticipantB('room-kick-stale', { userId: 'u-a' }))
+      .rejects.toMatchObject({ code: 'FORBIDDEN' });
+
+    expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(prismaMock.chatParticipant.updateMany).not.toHaveBeenCalled();
+    expect(chatStreamEntitlementServiceMock.revokeParticipant).not.toHaveBeenCalled();
   });
 });

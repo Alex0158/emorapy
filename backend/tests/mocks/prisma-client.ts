@@ -130,6 +130,60 @@ export const ChatChannelKind = {
   private: 'private',
 } as const;
 
+export const PrivateContextUseMode = {
+  private_only: 'private_only',
+  shared_process_controls: 'shared_process_controls',
+} as const;
+
+export const SharedAdaptationConsentDecision = {
+  not_set: 'not_set',
+  accepted: 'accepted',
+  declined: 'declined',
+} as const;
+
+export const ChatSafetyRouterAction = {
+  continue: 'continue',
+  private_checkin: 'private_checkin',
+  pause_shared: 'pause_shared',
+  block_joint_repair: 'block_joint_repair',
+  crisis_support: 'crisis_support',
+} as const;
+
+export const ContextPurpose = {
+  private_support: 'private_support',
+  shared_mediation: 'shared_mediation',
+  shared_mediation_adaptation: 'shared_mediation_adaptation',
+  formal_analysis_evidence: 'formal_analysis_evidence',
+  formal_analysis_delivery: 'formal_analysis_delivery',
+  future_private_support: 'future_private_support',
+  future_joint_support: 'future_joint_support',
+  solo_repair: 'solo_repair',
+  joint_repair: 'joint_repair',
+  safety_routing: 'safety_routing',
+} as const;
+
+export const ContextAudience = {
+  private_owner: 'private_owner',
+  room_participants: 'room_participants',
+  analysis_participants: 'analysis_participants',
+  pairing_participants: 'pairing_participants',
+  safety_system: 'safety_system',
+} as const;
+
+export const ContextTargetType = {
+  user: 'user',
+  chat_room: 'chat_room',
+  case: 'case',
+  pairing: 'pairing',
+  analysis_request: 'analysis_request',
+  repair_track: 'repair_track',
+} as const;
+
+export const ContextUseDecision = {
+  allowed: 'allowed',
+  denied: 'denied',
+} as const;
+
 export const ChatInviteStatus = {
   pending: 'pending',
   accepted: 'accepted',

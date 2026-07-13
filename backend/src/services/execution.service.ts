@@ -24,6 +24,10 @@ import { buildRuntimeAILedgerSourceTracking } from '../utils/ai-ledger-source';
 import { getAIPromptVersion } from '../utils/ai-prompt-version';
 import { buildAIStreamFailurePayload } from './ai-stream-failure-payload-utils';
 import type { BackendLocale } from '../i18n';
+import {
+  chatJointRepairClaimService,
+  type ChatLinkedRepairCase,
+} from './chat-joint-repair-claim.service';
 
 export interface CheckinDto {
   plan_id: string;
@@ -93,7 +97,7 @@ interface ExecutionJourneyPlan {
 }
 
 const REPAIR_CASE_INCLUDE = {
-  chat_to_case_links: { select: { id: true }, take: 1 },
+  chat_to_case_links: { select: { id: true, room_id: true }, take: 1 },
 } as const;
 
 function parsePlanContent(planContent: string) {
@@ -546,8 +550,12 @@ export class ExecutionService {
     };
   }
 
-  private async ensureLegacyCompletionRecord(planId: string, userId: string) {
-    const existingCompleted = await prisma.executionRecord.findFirst({
+  private async ensureLegacyCompletionRecord(
+    planId: string,
+    userId: string,
+    client: Pick<Prisma.TransactionClient, 'executionRecord'> = prisma,
+  ) {
+    const existingCompleted = await client.executionRecord.findFirst({
       where: {
         reconciliation_plan_id: planId,
         user_id: userId,
@@ -556,7 +564,7 @@ export class ExecutionService {
     });
     if (existingCompleted) return;
 
-    await prisma.executionRecord.create({
+    await client.executionRecord.create({
       data: {
         reconciliation_plan_id: planId,
         user_id: userId,
@@ -572,8 +580,9 @@ export class ExecutionService {
     eventType: string,
     userId?: string,
     payload?: Prisma.InputJsonValue,
+    client: Pick<Prisma.TransactionClient, 'repairTrackEvent'> = prisma,
   ) {
-    await prisma.repairTrackEvent.create({
+    await client.repairTrackEvent.create({
       data: {
         repair_track_id: repairTrackId,
         user_id: userId ?? null,
@@ -581,6 +590,50 @@ export class ExecutionService {
         ...(payload !== undefined ? { payload } : {}),
       },
     });
+  }
+
+  private isJointRepairTrack(track: {
+    status: string;
+    recommended_mode?: string | null;
+    participant_states?: Array<{ commitment_status: string }>;
+  }): boolean {
+    return track.status === 'co_active'
+      || track.recommended_mode === 'co'
+      || (track.participant_states?.filter(
+        state => state.commitment_status === 'committed',
+      ).length ?? 0) >= 2;
+  }
+
+  private async claimCurrentJointRepairState(
+    tx: Prisma.TransactionClient,
+    caseRecord: ChatLinkedRepairCase,
+    trackId: string,
+  ): Promise<boolean> {
+    // Lock first, then classify the current track. A stale solo snapshot must
+    // never let a concurrent solo->co transition bypass private Safety.
+    const chatJointRepairAllowed = await chatJointRepairClaimService.observeAllowed(
+      tx,
+      caseRecord,
+    );
+    const currentTrack = await tx.repairTrack.findUnique({
+      where: { id: trackId },
+      select: {
+        status: true,
+        recommended_mode: true,
+        participant_states: {
+          select: { commitment_status: true },
+        },
+      },
+    });
+    if (!currentTrack) {
+      throw Errors.NOT_FOUND('修復旅程不存在');
+    }
+
+    const jointRepair = this.isJointRepairTrack(currentTrack);
+    if (jointRepair && !chatJointRepairAllowed) {
+      throw Errors.FORBIDDEN('共同修復目前不可用，請先使用個人安全支持方向');
+    }
+    return jointRepair;
   }
 
   async assertTrackAccess(trackId: string, userId: string) {
@@ -626,6 +679,7 @@ export class ExecutionService {
       planId: string;
       judgmentId: string;
       versionGroupId: string;
+      caseRecord?: ChatLinkedRepairCase;
     },
     locale?: BackendLocale,
   ) {
@@ -644,31 +698,36 @@ export class ExecutionService {
           track_id: trackId,
         },
       });
-      await this.createTrackEvent(trackId, 'replan_started', requestedBy, {
-        mode: dto.mode,
-        reason: dto.reason,
-        stream_id: handle.streamId,
-      });
-
-      const track = await prisma.repairTrack.findUnique({
-        where: { id: trackId },
-        include: {
-          participant_states: true,
-          step_progresses: { orderBy: { step_index: 'asc' } },
-          checkins: { orderBy: { created_at: 'desc' }, take: 5 },
-          plan: {
-            include: {
-              judgment: {
-                include: { case: { include: REPAIR_CASE_INCLUDE } },
+      const providerClaim = await prisma.$transaction(async tx => {
+        const jointRepair = fallback.caseRecord
+          ? await this.claimCurrentJointRepairState(tx, fallback.caseRecord, trackId)
+          : false;
+        const currentTrack = await tx.repairTrack.findUnique({
+          where: { id: trackId },
+          include: {
+            participant_states: true,
+            step_progresses: { orderBy: { step_index: 'asc' } },
+            checkins: { orderBy: { created_at: 'desc' }, take: 5 },
+            plan: {
+              include: {
+                judgment: {
+                  include: { case: { include: REPAIR_CASE_INCLUDE } },
+                },
               },
             },
           },
-        },
-      });
-
-      if (!track) {
-        throw Errors.NOT_FOUND('修復旅程不存在');
-      }
+        });
+        if (!currentTrack) {
+          throw Errors.NOT_FOUND('修復旅程不存在');
+        }
+        await this.createTrackEvent(trackId, 'replan_started', requestedBy, {
+          mode: dto.mode,
+          reason: dto.reason,
+          stream_id: handle.streamId,
+        }, tx);
+        return { track: currentTrack, jointRepair };
+      }, { isolationLevel: 'ReadCommitted' });
+      const { track, jointRepair: providerJointRepair } = providerClaim;
 
       let repairJourneyAccess = await this.getRepairJourneyAccessForExecution(track.plan);
       if (
@@ -778,42 +837,78 @@ export class ExecutionService {
       }
       this.assertReplanIntentAllowed(track.intent, repairJourneyAccess);
 
-      const supersededAt = new Date();
-      const dualCommitted = track.participant_states.filter((state) => state.commitment_status === 'committed').length >= 2;
-      const nextMode = repairJourneyAccess.forceSoloRepair || dto.mode === 'solo_first'
-        ? 'solo'
-        : dualCommitted ? 'co' : 'solo';
-      const nextStatus = nextMode === 'co' ? 'co_active' : 'solo_active';
-      const requesterIsPlaintiff = track.plan.judgment.case.plaintiff_id === requestedBy;
-      const requesterIsDefendant = track.plan.judgment.case.defendant_id === requestedBy;
-
       const result = await prisma.$transaction(async (tx) => {
+        if (fallback.caseRecord) {
+          if (providerJointRepair) {
+            await chatJointRepairClaimService.assertAllowed(tx, fallback.caseRecord);
+          } else {
+            await this.claimCurrentJointRepairState(tx, fallback.caseRecord, trackId);
+          }
+        }
+        const currentTrack = await tx.repairTrack.findUnique({
+          where: { id: trackId },
+          include: {
+            participant_states: true,
+            step_progresses: { orderBy: { step_index: 'asc' } },
+            plan: {
+              include: {
+                judgment: {
+                  include: { case: { include: REPAIR_CASE_INCLUDE } },
+                },
+              },
+            },
+          },
+        });
+        if (!currentTrack) {
+          throw Errors.NOT_FOUND('修復旅程不存在');
+        }
+        const currentJointRepair = this.isJointRepairTrack(currentTrack);
+        if (fallback.caseRecord && currentJointRepair !== providerJointRepair) {
+          throw Errors.CONFLICT('修復旅程狀態已變更，請重新調整');
+        }
+
+        const supersededAt = new Date();
+        const dualCommitted = currentTrack.participant_states.filter(
+          state => state.commitment_status === 'committed',
+        ).length >= 2;
+        const nextMode = repairJourneyAccess.forceSoloRepair || dto.mode === 'solo_first'
+          ? 'solo'
+          : dualCommitted ? 'co' : 'solo';
+        const nextStatus = nextMode === 'co' ? 'co_active' : 'solo_active';
+        const requesterIsPlaintiff = currentTrack.plan.judgment.case.plaintiff_id
+          === requestedBy;
+        const requesterIsDefendant = currentTrack.plan.judgment.case.defendant_id
+          === requestedBy;
+        const versionGroupId = currentTrack.plan.version_group_id
+          || fallback.versionGroupId;
         const newPlan = await tx.reconciliationPlan.create({
           data: {
-            judgment_id: track.plan.judgment_id,
-            intent: track.intent,
-            version_group_id: fallback.versionGroupId,
+            judgment_id: currentTrack.plan.judgment_id,
+            intent: currentTrack.intent,
+            version_group_id: versionGroupId,
             plan_content: JSON.stringify(replanned),
             plan_type: replanned.plan_type,
-            difficulty_level: replanned.difficulty_level || track.plan.difficulty_level,
-            estimated_duration: replanned.estimated_duration || track.plan.estimated_duration,
+            difficulty_level: replanned.difficulty_level
+              || currentTrack.plan.difficulty_level,
+            estimated_duration: replanned.estimated_duration
+              || currentTrack.plan.estimated_duration,
             time_cost: replanned.time_cost,
             money_cost: replanned.money_cost,
             emotion_cost: replanned.emotion_cost,
             skill_requirement: replanned.skill_requirement,
             user1_selected: repairJourneyAccess.forceSoloRepair
               ? requesterIsPlaintiff
-              : track.plan.user1_selected,
+              : currentTrack.plan.user1_selected,
             user2_selected: repairJourneyAccess.forceSoloRepair
               ? requesterIsDefendant
-              : track.plan.user2_selected,
+              : currentTrack.plan.user2_selected,
           },
         });
 
         await tx.reconciliationPlan.update({
-          where: { id: track.plan_id },
+          where: { id: currentTrack.plan_id },
           data: {
-            version_group_id: fallback.versionGroupId,
+            version_group_id: versionGroupId,
             superseded_at: supersededAt,
             superseded_by_plan_id: newPlan.id,
           },
@@ -821,7 +916,7 @@ export class ExecutionService {
 
         await tx.repairStepProgress.updateMany({
           where: {
-            repair_track_id: track.id,
+            repair_track_id: currentTrack.id,
             status: { in: ['pending', 'active', 'partial', 'skipped'] },
           },
           data: {
@@ -829,11 +924,13 @@ export class ExecutionService {
           },
         });
 
-        const nextStepIndex = (track.step_progresses.at(-1)?.step_index ?? -1) + 1;
+        const nextStepIndex = (
+          currentTrack.step_progresses.at(-1)?.step_index ?? -1
+        ) + 1;
         const steps = replanned.steps.length > 0 ? replanned.steps : [replanned.first_step];
         await tx.repairStepProgress.createMany({
           data: steps.map((step, index) => ({
-            repair_track_id: track.id,
+            repair_track_id: currentTrack.id,
             step_index: nextStepIndex + index,
             step_title: buildRepairStepTitle(index, locale ?? 'zh-TW', 'replanned'),
             step_content: step,
@@ -844,7 +941,7 @@ export class ExecutionService {
         });
 
         const updatedTrack = await tx.repairTrack.update({
-          where: { id: track.id },
+          where: { id: currentTrack.id },
           data: {
             plan_id: newPlan.id,
             current_step_index: nextStepIndex,
@@ -859,13 +956,13 @@ export class ExecutionService {
 
         await tx.repairTrackEvent.create({
           data: {
-            repair_track_id: track.id,
+            repair_track_id: currentTrack.id,
             user_id: requestedBy,
             event_type: 'track_replanned',
             payload: {
               mode: dto.mode,
               reason: dto.reason,
-              previous_plan_id: track.plan_id,
+              previous_plan_id: currentTrack.plan_id,
               next_plan_id: newPlan.id,
             },
           },
@@ -875,95 +972,120 @@ export class ExecutionService {
           track_id: updatedTrack.id,
           plan_id: newPlan.id,
           status: updatedTrack.status,
-          judgment_id: track.plan.judgment_id,
+          judgment_id: currentTrack.plan.judgment_id,
+          can_notify_partner: nextStatus === 'co_active',
         };
-      });
+      }, { isolationLevel: 'ReadCommitted' });
 
       const summaryText = replanned.description || replanned.first_step || replanned.title;
-      await aiStreamService.completed(handle, {
-        actorRole: 'aiMediator',
-        fullText: summaryText,
-        metadata: {
-          task_type: 'repair_replan',
-          plan_id: result.plan_id,
-          judgment_id: result.judgment_id,
-          track_id: result.track_id,
-          mode: dto.mode,
-          reason: dto.reason,
-        },
-      });
-      await aiStreamService.persisted(handle, {
-        actorRole: 'aiMediator',
-        messageId: result.plan_id,
-        metadata: {
-          task_type: 'repair_replan',
-          plan_id: result.plan_id,
-          judgment_id: result.judgment_id,
-          track_id: result.track_id,
-          mode: dto.mode,
-          reason: dto.reason,
-        },
-      });
+      try {
+        await aiStreamService.completed(handle, {
+          actorRole: 'aiMediator',
+          fullText: summaryText,
+          metadata: {
+            task_type: 'repair_replan',
+            plan_id: result.plan_id,
+            judgment_id: result.judgment_id,
+            track_id: result.track_id,
+            mode: dto.mode,
+            reason: dto.reason,
+          },
+        });
+        await aiStreamService.persisted(handle, {
+          actorRole: 'aiMediator',
+          messageId: result.plan_id,
+          metadata: {
+            task_type: 'repair_replan',
+            plan_id: result.plan_id,
+            judgment_id: result.judgment_id,
+            track_id: result.track_id,
+            mode: dto.mode,
+            reason: dto.reason,
+          },
+        });
+      } catch (streamPublicationError) {
+        logger.warn('Repair track replan stream publication failed after persistence', {
+          trackId: result.track_id,
+          planId: result.plan_id,
+          error: streamPublicationError,
+        });
+      }
 
-      const refreshedTrack = await prisma.repairTrack.findUnique({
-        where: { id: result.track_id },
-        include: {
-          participant_states: true,
-          plan: {
-            include: {
-              judgment: {
-                include: { case: { include: REPAIR_CASE_INCLUDE } },
+      try {
+        const refreshedTrack = await prisma.repairTrack.findUnique({
+          where: { id: result.track_id },
+          include: {
+            participant_states: true,
+            plan: {
+              include: {
+                judgment: {
+                  include: { case: { include: REPAIR_CASE_INCLUDE } },
+                },
               },
             },
           },
-        },
-      });
-      const notificationAccess = refreshedTrack
-        ? await this.getRepairJourneyAccessForExecution(refreshedTrack.plan)
-        : repairJourneyAccess;
-      const canNotifyPartner = notificationAccess.allowedReconciliationIntents.includes(
-        track.intent as (typeof notificationAccess.allowedReconciliationIntents)[number],
-      ) && notificationAccess.canNotifyPartner && !notificationAccess.forceSoloRepair;
-      const partnerStates = canNotifyPartner
-        ? track.participant_states.filter(
-            (state) => state.user_id !== requestedBy && state.commitment_status === 'committed'
-          )
-        : [];
-      for (const partner of partnerStates) {
-        const partnerJourneyContext = refreshedTrack
-          ? await this.buildJourneyContextForExecution(
-              {
-                ...refreshedTrack.plan,
-                repair_track: {
-                  status: refreshedTrack.status,
-                  recommended_mode: refreshedTrack.recommended_mode,
-                  status_reason: refreshedTrack.status_reason,
-                  partner_invited_at: refreshedTrack.partner_invited_at,
-                  participant_states: refreshedTrack.participant_states,
-                },
-              },
-              partner.user_id,
-            )
+        });
+        const notificationAccess = refreshedTrack
+          ? await this.getRepairJourneyAccessForExecution(refreshedTrack.plan)
           : null;
-        await notificationService.createIfEnabled(partner.user_id, {
-          channel: 'email',
-          template_code: 'repair_journey_replan_ready',
-          action_key: 'continue_today_step',
-          dedup_key: `repair_replan_ready_${result.track_id}_${partner.user_id}_${result.plan_id}`,
-          priority: 'now',
-          group_key: `repair_track_${result.track_id}`,
-          payload: {
-            repair_track_id: result.track_id,
-            plan_id: result.plan_id,
-            judgment_id: result.judgment_id,
-            journey_status: result.status,
-            mode: dto.mode,
-            path: `/execution/${result.plan_id}/checkin`,
-            entity_type: 'repair_track',
-            entity_id: result.track_id,
-            cta_label: '查看調整後的版本',
-            journey_context: partnerJourneyContext as unknown as Prisma.InputJsonValue,
-          },
+        const canNotifyPartner = result.can_notify_partner
+          && refreshedTrack !== null
+          && notificationAccess !== null
+          && notificationAccess.allowedReconciliationIntents.includes(
+            refreshedTrack.intent as (
+              typeof notificationAccess.allowedReconciliationIntents
+            )[number],
+          )
+          && notificationAccess.canNotifyPartner
+          && !notificationAccess.forceSoloRepair;
+        const partnerStates = canNotifyPartner
+          ? refreshedTrack.participant_states.filter(
+              state => state.user_id !== requestedBy
+                && state.commitment_status === 'committed',
+            )
+          : [];
+        for (const partner of partnerStates) {
+          const partnerJourneyContext = refreshedTrack
+            ? await this.buildJourneyContextForExecution(
+                {
+                  ...refreshedTrack.plan,
+                  repair_track: {
+                    status: refreshedTrack.status,
+                    recommended_mode: refreshedTrack.recommended_mode,
+                    status_reason: refreshedTrack.status_reason,
+                    partner_invited_at: refreshedTrack.partner_invited_at,
+                    participant_states: refreshedTrack.participant_states,
+                  },
+                },
+                partner.user_id,
+              )
+            : null;
+          await notificationService.createIfEnabled(partner.user_id, {
+            channel: 'email',
+            template_code: 'repair_journey_replan_ready',
+            action_key: 'continue_today_step',
+            dedup_key: `repair_replan_ready_${result.track_id}_${partner.user_id}_${result.plan_id}`,
+            priority: 'now',
+            group_key: `repair_track_${result.track_id}`,
+            payload: {
+              repair_track_id: result.track_id,
+              plan_id: result.plan_id,
+              judgment_id: result.judgment_id,
+              journey_status: result.status,
+              mode: dto.mode,
+              path: `/execution/${result.plan_id}/checkin`,
+              entity_type: 'repair_track',
+              entity_id: result.track_id,
+              cta_label: '查看調整後的版本',
+              journey_context: partnerJourneyContext as unknown as Prisma.InputJsonValue,
+            },
+          });
+        }
+      } catch (notificationError) {
+        logger.warn('Repair track replan notification failed after persistence', {
+          trackId: result.track_id,
+          planId: result.plan_id,
+          error: notificationError,
         });
       }
     } catch (error) {
@@ -975,19 +1097,23 @@ export class ExecutionService {
         error,
       });
 
-      await prisma.repairTrack.update({
-        where: { id: trackId },
-        data: {
-          status: safeFallbackStatus,
-          status_reason: 'replan_failed',
-          needs_replan: true,
-        },
-      }).catch(() => undefined);
-
-      await this.createTrackEvent(trackId, 'replan_failed', requestedBy, {
-        mode: dto.mode,
-        reason: dto.reason,
-      }).catch(() => undefined);
+      await prisma.$transaction(async tx => {
+        const jointRepairAllowed = fallback.caseRecord
+          ? await chatJointRepairClaimService.observeAllowed(tx, fallback.caseRecord)
+          : true;
+        await tx.repairTrack.update({
+          where: { id: trackId },
+          data: {
+            status: jointRepairAllowed ? safeFallbackStatus : 'solo_active',
+            status_reason: 'replan_failed',
+            needs_replan: true,
+          },
+        });
+        await this.createTrackEvent(trackId, 'replan_failed', requestedBy, {
+          mode: dto.mode,
+          reason: dto.reason,
+        }, tx);
+      }, { isolationLevel: 'ReadCommitted' }).catch(() => undefined);
 
       await aiStreamService.failed(handle, buildAIStreamFailurePayload({
         code: 'REPLAN_FAILED',
@@ -1052,136 +1178,152 @@ export class ExecutionService {
 
     const safeNotes = this.sanitizeNotes(data.notes);
     const safePhotos = this.sanitizePhotos(data.photos);
-    const track = await prisma.repairTrack.findUnique({
-      where: { plan_id: data.plan_id },
-      include: {
-        step_progresses: {
-          orderBy: { step_index: 'asc' },
-        },
-      },
-    });
-
-    if (!track) {
-      throw Errors.NOT_FOUND('修復旅程不存在');
-    }
-
-    const currentStep = track.step_progresses.find((step) => step.step_index === track.current_step_index)
-      || track.step_progresses[0];
-    const stepIndex = currentStep?.step_index ?? 0;
-    const stepResult = data.step_result || 'done';
-    const closeness = data.closeness || 'same';
-    const stress = data.stress || 'medium';
-    const needsHelp = data.needs_help ?? false;
-
-    await prisma.repairCheckIn.create({
-      data: {
-        repair_track_id: track.id,
-        user_id: userId,
-        step_index: stepIndex,
-        result: stepResult,
-        closeness,
-        stress,
-        needs_help: needsHelp,
-        notes: safeNotes,
-        photos_urls: safePhotos,
-      },
-    });
-
-    const nextStep = track.step_progresses.find((step) => step.step_index === stepIndex + 1);
-    if (currentStep) {
-      await prisma.repairStepProgress.update({
-        where: {
-          repair_track_id_step_index: {
-            repair_track_id: track.id,
-            step_index: stepIndex,
+    const execution = await prisma.$transaction(async tx => {
+      const chatJointRepairAllowed = await chatJointRepairClaimService.observeAllowed(
+        tx,
+        caseRecord,
+      );
+      const track = await tx.repairTrack.findUnique({
+        where: { plan_id: data.plan_id },
+        include: {
+          participant_states: true,
+          step_progresses: {
+            orderBy: { step_index: 'asc' },
           },
         },
+      });
+
+      if (!track) {
+        throw Errors.NOT_FOUND('修復旅程不存在');
+      }
+      if (this.isJointRepairTrack(track) && !chatJointRepairAllowed) {
+        throw Errors.FORBIDDEN('共同修復目前不可用，請先使用個人安全支持方向');
+      }
+
+      const currentStep = track.step_progresses.find(
+        step => step.step_index === track.current_step_index,
+      ) || track.step_progresses[0];
+      const stepIndex = currentStep?.step_index ?? 0;
+      const stepResult = data.step_result || 'done';
+      const closeness = data.closeness || 'same';
+      const stress = data.stress || 'medium';
+      const needsHelp = data.needs_help ?? false;
+
+      await tx.repairCheckIn.create({
         data: {
-          status: stepResult === 'done' ? 'done' : stepResult,
-          completed_by: stepResult === 'done' ? userId : null,
-          completed_at: stepResult === 'done' ? new Date() : null,
+          repair_track_id: track.id,
+          user_id: userId,
+          step_index: stepIndex,
+          result: stepResult,
+          closeness,
+          stress,
+          needs_help: needsHelp,
+          notes: safeNotes,
+          photos_urls: safePhotos,
         },
       });
-    }
 
-    const shouldReplan = needsHelp || closeness === 'farther' || stress === 'high';
-    if (stepResult === 'done' && nextStep) {
-      await prisma.repairStepProgress.update({
-        where: {
-          repair_track_id_step_index: {
-            repair_track_id: track.id,
-            step_index: nextStep.step_index,
+      const nextStep = track.step_progresses.find(
+        step => step.step_index === stepIndex + 1,
+      );
+      if (currentStep) {
+        await tx.repairStepProgress.update({
+          where: {
+            repair_track_id_step_index: {
+              repair_track_id: track.id,
+              step_index: stepIndex,
+            },
           },
-        },
+          data: {
+            status: stepResult === 'done' ? 'done' : stepResult,
+            completed_by: stepResult === 'done' ? userId : null,
+            completed_at: stepResult === 'done' ? new Date() : null,
+          },
+        });
+      }
+
+      const shouldReplan = needsHelp || closeness === 'farther' || stress === 'high';
+      if (stepResult === 'done' && nextStep) {
+        await tx.repairStepProgress.update({
+          where: {
+            repair_track_id_step_index: {
+              repair_track_id: track.id,
+              step_index: nextStep.step_index,
+            },
+          },
+          data: { status: 'active' },
+        });
+      }
+
+      const completedTrack = stepResult === 'done' && !nextStep;
+      await tx.repairTrack.update({
+        where: { id: track.id },
         data: {
-          status: 'active',
+          current_step_index: stepResult === 'done' && nextStep
+            ? nextStep.step_index
+            : track.current_step_index,
+          status: completedTrack
+            ? 'completed'
+            : shouldReplan
+              ? 'replanning'
+              : track.status === 'co_active'
+                ? 'co_active'
+                : 'solo_active',
+          status_reason: completedTrack
+            ? 'all_steps_completed'
+            : shouldReplan
+              ? needsHelp
+                ? 'needs_help'
+                : closeness === 'farther'
+                  ? 'farther'
+                  : 'high_stress'
+              : stepResult === 'partial'
+                ? 'partial_progress'
+                : stepResult === 'skipped'
+                  ? 'step_skipped'
+                  : 'step_completed',
+          last_closeness: closeness,
+          last_stress: stress,
+          last_needs_help: needsHelp,
+          needs_replan: shouldReplan,
+          completed_at: completedTrack ? new Date() : null,
         },
       });
-    }
 
-    const completedTrack = stepResult === 'done' && !nextStep;
-    await prisma.repairTrack.update({
-      where: { id: track.id },
-      data: {
-        current_step_index: stepResult === 'done' && nextStep ? nextStep.step_index : track.current_step_index,
-        status: completedTrack
-          ? 'completed'
-          : shouldReplan
-            ? 'replanning'
-            : track.status === 'co_active'
-              ? 'co_active'
-              : 'solo_active',
-        status_reason: completedTrack
-          ? 'all_steps_completed'
-          : shouldReplan
-            ? needsHelp
-              ? 'needs_help'
-              : closeness === 'farther'
-                ? 'farther'
-                : 'high_stress'
-            : stepResult === 'partial'
-              ? 'partial_progress'
-              : stepResult === 'skipped'
-                ? 'step_skipped'
-                : 'step_completed',
-        last_closeness: closeness,
-        last_stress: stress,
-        last_needs_help: needsHelp,
-        needs_replan: shouldReplan,
-        completed_at: completedTrack ? new Date() : null,
-      },
-    });
+      const record = await tx.executionRecord.create({
+        data: {
+          reconciliation_plan_id: data.plan_id,
+          user_id: userId,
+          action: EXECUTION_ACTION.CHECKIN,
+          status: completedTrack ? EXECUTION_STATUS.COMPLETED : EXECUTION_STATUS.IN_PROGRESS,
+          notes: safeNotes,
+          photos_urls: safePhotos,
+        },
+      });
 
-    const execution = await prisma.executionRecord.create({
-      data: {
-        reconciliation_plan_id: data.plan_id,
-        user_id: userId,
-        action: EXECUTION_ACTION.CHECKIN,
-        status: completedTrack ? EXECUTION_STATUS.COMPLETED : EXECUTION_STATUS.IN_PROGRESS,
-        notes: safeNotes,
-        photos_urls: safePhotos,
-      },
-    });
-
-    if (completedTrack) {
-      await this.ensureLegacyCompletionRecord(data.plan_id, userId);
-    }
-    await this.createTrackEvent(track.id, shouldReplan ? 'step_requested_replan' : 'step_checked_in', userId, {
-      plan_id: data.plan_id,
-      step_result: stepResult,
-      closeness,
-      stress,
-      needs_help: needsHelp,
-    });
+      if (completedTrack) {
+        await this.ensureLegacyCompletionRecord(data.plan_id, userId, tx);
+      }
+      await this.createTrackEvent(
+        track.id,
+        shouldReplan ? 'step_requested_replan' : 'step_checked_in',
+        userId,
+        {
+          plan_id: data.plan_id,
+          step_result: stepResult,
+          closeness,
+          stress,
+          needs_help: needsHelp,
+        },
+        tx,
+      );
+      return record;
+    }, { isolationLevel: 'ReadCommitted' });
 
     logger.info('Execution checkin', {
       executionId: execution.id,
       userId,
       planId: data.plan_id,
-      stepResult,
-      closeness,
-      stress,
-      needsHelp,
     });
 
     return execution;
@@ -1223,6 +1365,10 @@ export class ExecutionService {
 
     const existingSnapshot = await this.getLatestRepairTrackSnapshot(trackId);
     if (existingSnapshot && ['created', 'queued', 'started', 'streaming', 'completed'].includes(existingSnapshot.status)) {
+      await prisma.$transaction(
+        tx => this.claimCurrentJointRepairState(tx, caseRecord, trackId),
+        { isolationLevel: 'ReadCommitted' },
+      );
       return {
         track_id: track.id,
         status: 'replanning',
@@ -1238,28 +1384,40 @@ export class ExecutionService {
       ? 'solo_active'
       : track.recommended_mode === 'co' ? 'co_active' : 'solo_active';
     const versionGroupId = track.plan.version_group_id || randomUUID();
+    await prisma.$transaction(
+      tx => this.claimCurrentJointRepairState(tx, caseRecord, trackId),
+      { isolationLevel: 'ReadCommitted' },
+    );
     const streamHandle = await aiStreamService.createStream('repair_track', track.id);
 
-    await prisma.repairTrack.update({
-      where: { id: track.id },
-      data: {
-        status: 'replanning',
-        status_reason: dto.reason,
-        needs_replan: true,
-      },
-    });
-    await this.createTrackEvent(track.id, 'replan_requested', userId, {
-      mode: dto.mode,
-      reason: dto.reason,
-      stream_id: streamHandle.streamId,
-      request_id: streamHandle.requestId,
-    });
+    await prisma.$transaction(async tx => {
+      await this.claimCurrentJointRepairState(
+        tx,
+        caseRecord,
+        trackId,
+      );
+      await tx.repairTrack.update({
+        where: { id: track.id },
+        data: {
+          status: 'replanning',
+          status_reason: dto.reason,
+          needs_replan: true,
+        },
+      });
+      await this.createTrackEvent(track.id, 'replan_requested', userId, {
+        mode: dto.mode,
+        reason: dto.reason,
+        stream_id: streamHandle.streamId,
+        request_id: streamHandle.requestId,
+      }, tx);
+    }, { isolationLevel: 'ReadCommitted' });
 
     void this.runReplanTask(track.id, userId, dto, streamHandle, {
       status: fallbackStatus,
       planId: track.plan_id,
       judgmentId: track.plan.judgment_id,
       versionGroupId,
+      caseRecord,
     }, locale);
 
     logger.info('Repair track replan accepted', {

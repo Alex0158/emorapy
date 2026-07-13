@@ -328,7 +328,15 @@ export class ChatService {
               user_id: resolvedActor.userId,
               is_active: true,
               left_at: null,
-              ...(existingRoleB.is_active ? {} : { joined_at: new Date() }),
+              ...(existingRoleB.is_active ? {} : {
+                joined_at: new Date(),
+                private_context_use_mode: 'private_only',
+                private_context_policy_version: null,
+                private_context_preference_updated_at: null,
+                shared_adaptation_consent: 'not_set',
+                shared_adaptation_policy_version: null,
+                shared_adaptation_decided_at: null,
+              }),
             },
           })
           : await tx.chatParticipant.create({
@@ -339,6 +347,25 @@ export class ChatService {
               role_in_room: 'roleB',
             },
           });
+
+        // A membership change invalidates prior room-wide adaptation consent.
+        // Owner-specific private preferences remain intact for participants who
+        // did not leave, but everyone must accept the new participant set.
+        await tx.chatParticipant.updateMany({
+          where: {
+            room_id: invite.room_id,
+            id: { not: roleBParticipant.id },
+            participant_type: 'user',
+            role_in_room: { in: ['roleA', 'roleB'] },
+            is_active: true,
+            left_at: null,
+          },
+          data: {
+            shared_adaptation_consent: 'not_set',
+            shared_adaptation_policy_version: null,
+            shared_adaptation_decided_at: null,
+          },
+        });
 
         await tx.chatChannel.createMany({
           data: [
@@ -577,35 +604,67 @@ export class ChatService {
       throw Errors.FORBIDDEN('只有 B 方成員可離開聊天室');
     }
     const leftAt = new Date();
-    const updatedRoom = await prisma.$transaction(async tx => {
+    const { updatedRoom, departedParticipantId } = await prisma.$transaction(async tx => {
+      await chatActorAccessService.lockActiveHumanParticipants(tx, room.id);
+      const lockedRoom = await chatActorAccessService.getAccessibleRoom(
+        room.id,
+        resolvedActor,
+        tx,
+      );
+      const lockedParticipant = chatActorAccessService.getCurrentParticipant(
+        lockedRoom,
+        resolvedActor,
+      );
+      if (!lockedParticipant || lockedParticipant.role_in_room !== 'roleB') {
+        throw Errors.FORBIDDEN('只有 B 方成員可離開聊天室');
+      }
+
       const departed = await tx.chatParticipant.updateMany({
-        where: { id: participant.id, room_id: room.id, is_active: true },
+        where: { id: lockedParticipant.id, room_id: room.id, is_active: true },
         data: { is_active: false, left_at: leftAt },
       });
       if (departed.count !== 1) throw Errors.CONFLICT('聊天室成員狀態已變更');
+      await tx.chatParticipant.updateMany({
+        where: {
+          room_id: room.id,
+          participant_type: 'user',
+          role_in_room: { in: ['roleA', 'roleB'] },
+          is_active: true,
+          left_at: null,
+        },
+        data: {
+          shared_adaptation_consent: 'not_set',
+          shared_adaptation_policy_version: null,
+          shared_adaptation_decided_at: null,
+        },
+      });
       await chatAnalysisRequestService.cancelActiveForParticipantDeparture(
         tx,
         room.id,
-        participant.id,
+        lockedParticipant.id,
         leftAt,
       );
       if (
-        room.status === ChatRoomStatus.group_active ||
-        room.status === ChatRoomStatus.invite_pending ||
-        room.status === ChatRoomStatus.solo_active
+        lockedRoom.status === ChatRoomStatus.group_active ||
+        lockedRoom.status === ChatRoomStatus.invite_pending ||
+        lockedRoom.status === ChatRoomStatus.solo_active
       ) {
         await tx.chatRoom.updateMany({
-          where: { id: room.id, status: room.status },
+          where: { id: room.id, status: lockedRoom.status },
           data: { status: ChatRoomStatus.solo_active },
         });
       }
-      return tx.chatRoom.findUnique({
+      const refreshedRoom = await tx.chatRoom.findUnique({
         where: { id: room.id },
         include: { participants: true },
       });
+      if (!refreshedRoom) throw Errors.NOT_FOUND('聊天室不存在');
+      return {
+        updatedRoom: refreshedRoom,
+        departedParticipantId: lockedParticipant.id,
+      };
     });
-    chatStreamEntitlementService.revokeParticipant(participant.id);
-    if (!updatedRoom) throw Errors.NOT_FOUND('聊天室不存在');
+    chatStreamEntitlementService.revokeParticipant(departedParticipantId);
     return updatedRoom;
   }
 
@@ -621,35 +680,73 @@ export class ChatService {
       throw Errors.NOT_FOUND('聊天室目前沒有 B 方可移除');
     }
     const leftAt = new Date();
-    const updatedRoom = await prisma.$transaction(async tx => {
+    const { updatedRoom, departedParticipantId } = await prisma.$transaction(async tx => {
+      await chatActorAccessService.lockActiveHumanParticipants(tx, room.id);
+      const lockedRoom = await chatActorAccessService.getAccessibleRoom(
+        room.id,
+        resolvedActor,
+        tx,
+      );
+      const lockedActorParticipant = chatActorAccessService.getCurrentParticipant(
+        lockedRoom,
+        resolvedActor,
+      );
+      if (!lockedActorParticipant || lockedActorParticipant.role_in_room !== 'roleA') {
+        throw Errors.FORBIDDEN('只有發起方可以移除 B 方');
+      }
+      const lockedParticipantB = lockedRoom.participants.find(
+        current => current.role_in_room === 'roleB' && current.is_active && current.left_at === null,
+      );
+      if (!lockedParticipantB) {
+        throw Errors.NOT_FOUND('聊天室目前沒有 B 方可移除');
+      }
+
       const departed = await tx.chatParticipant.updateMany({
-        where: { id: participantB.id, room_id: room.id, is_active: true },
+        where: { id: lockedParticipantB.id, room_id: room.id, is_active: true },
         data: { is_active: false, left_at: leftAt },
       });
       if (departed.count !== 1) throw Errors.CONFLICT('聊天室成員狀態已變更');
+      await tx.chatParticipant.updateMany({
+        where: {
+          room_id: room.id,
+          participant_type: 'user',
+          role_in_room: { in: ['roleA', 'roleB'] },
+          is_active: true,
+          left_at: null,
+        },
+        data: {
+          shared_adaptation_consent: 'not_set',
+          shared_adaptation_policy_version: null,
+          shared_adaptation_decided_at: null,
+        },
+      });
       await chatAnalysisRequestService.cancelActiveForParticipantDeparture(
         tx,
         room.id,
-        participantB.id,
+        lockedParticipantB.id,
         leftAt,
       );
       if (
-        room.status === ChatRoomStatus.group_active ||
-        room.status === ChatRoomStatus.invite_pending ||
-        room.status === ChatRoomStatus.solo_active
+        lockedRoom.status === ChatRoomStatus.group_active ||
+        lockedRoom.status === ChatRoomStatus.invite_pending ||
+        lockedRoom.status === ChatRoomStatus.solo_active
       ) {
         await tx.chatRoom.updateMany({
-          where: { id: room.id, status: room.status },
+          where: { id: room.id, status: lockedRoom.status },
           data: { status: ChatRoomStatus.solo_active },
         });
       }
-      return tx.chatRoom.findUnique({
+      const refreshedRoom = await tx.chatRoom.findUnique({
         where: { id: room.id },
         include: { participants: true },
       });
+      if (!refreshedRoom) throw Errors.NOT_FOUND('聊天室不存在');
+      return {
+        updatedRoom: refreshedRoom,
+        departedParticipantId: lockedParticipantB.id,
+      };
     });
-    chatStreamEntitlementService.revokeParticipant(participantB.id);
-    if (!updatedRoom) throw Errors.NOT_FOUND('聊天室不存在');
+    chatStreamEntitlementService.revokeParticipant(departedParticipantId);
     return updatedRoom;
   }
 }

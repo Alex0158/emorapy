@@ -17,6 +17,7 @@ function createDependencies() {
     capsuleService: {
       createDraft: jest.fn().mockResolvedValue({ id: CAPSULE_ID }),
       reviseDraft: jest.fn().mockResolvedValue({ id: CAPSULE_ID, version: 2 }),
+      discardCapsule: jest.fn().mockResolvedValue({ id: CAPSULE_ID, status: 'discarded' }),
       grantAuthorization: jest.fn().mockResolvedValue({ id: 'authorization-1' }),
       revokeAuthorization: jest
         .fn()
@@ -37,6 +38,27 @@ function createDependencies() {
           id: REQUEST_ID,
           participant_approvals: [{ id: 'approval-1' }],
           source_previews: { messages: [], capsules: [] },
+        },
+      ]),
+    },
+    receiptService: {
+      listOwnerReceipts: jest.fn().mockResolvedValue([
+        {
+          scope: 'actor',
+          purpose: 'private_support',
+          decision: 'denied',
+          category: 'capsule_lifecycle',
+          source_type_counts: {
+            chat_message: 0,
+            context_capsule: 0,
+            personal_memory: 0,
+            joint_memory: 0,
+            formal_evidence: 0,
+          },
+          authorization_count: 0,
+          policy_version: '2026-07-12.v1',
+          prompt_version: null,
+          created_at: '2026-07-13T12:00:00.000Z',
         },
       ]),
     },
@@ -103,6 +125,25 @@ describe('chat-context.routes', () => {
     });
   });
 
+  it('lists sanitized usage receipts through the active actor runtime', async () => {
+    const dependencies = createDependencies();
+    const app = createApp(dependencies);
+
+    const response = await request(app)
+      .get(`/chat/rooms/${ROOM_ID}/context-usage-receipts`)
+      .set('x-session-id', SESSION_ID);
+
+    expect(response.status).toBe(200);
+    expect(dependencies.receiptService.listOwnerReceipts).toHaveBeenCalledWith(ROOM_ID, {
+      userId: undefined,
+      sessionId: SESSION_ID,
+    });
+    expect(response.body.data.receipts[0]).toMatchObject({
+      scope: 'actor',
+      category: 'capsule_lifecycle',
+    });
+  });
+
   it('forwards capsule creation with the canonical session actor', async () => {
     const dependencies = createDependencies();
     const app = createApp(dependencies);
@@ -123,6 +164,27 @@ describe('chat-context.routes', () => {
       { userId: undefined, sessionId: SESSION_ID },
       body
     );
+  });
+
+  it('routes capsule discard as an owner-scoped soft lifecycle transition', async () => {
+    const dependencies = createDependencies();
+    const app = createApp(dependencies);
+
+    const response = await request(app)
+      .post(`/chat/rooms/${ROOM_ID}/context-capsules/${CAPSULE_ID}/discard`)
+      .set('x-session-id', SESSION_ID)
+      .send({});
+
+    expect(response.status).toBe(200);
+    expect(dependencies.capsuleService.discardCapsule).toHaveBeenCalledWith(
+      ROOM_ID,
+      CAPSULE_ID,
+      { userId: undefined, sessionId: SESSION_ID }
+    );
+    expect(response.body.data.capsule).toMatchObject({
+      id: CAPSULE_ID,
+      status: 'discarded',
+    });
   });
 
   it('routes exact analysis decisions without accepting a participant ID', async () => {

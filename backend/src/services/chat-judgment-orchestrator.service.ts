@@ -16,6 +16,7 @@ import { buildCaseSourceTracking } from '../utils/case-classifier';
 import { LOCK_TTL } from '../utils/constants';
 import { Errors } from '../utils/errors';
 import { lockService } from '../utils/lock';
+import { buildActiveNormalPairingWhere } from '../utils/pairing-invariant';
 import { getChatJudgmentRequestPolicy } from '../utils/product-safety-policy';
 import {
   chatActorAccessService,
@@ -27,7 +28,9 @@ import {
   type SubmittedAnalysisEvidenceBundle,
 } from './chat-analysis-evidence.service';
 import { chatChannelService } from './chat-channel.service';
+import { chatFormalAnalysisClaimService } from './chat-formal-analysis-claim.service';
 import { chatMetricsService } from './chat-metrics.service';
+import { chatSafetyRouterService } from './chat-safety-router.service';
 import {
   buildSharedContextMessageWhere,
 } from './chat-message-audience-policy';
@@ -90,6 +93,7 @@ type RecentChatToCaseLink = Prisma.ChatToCaseLinkGetPayload<{
 
 type BlockedSafetyContext = {
   assessment: ChatRouteSafetyAssessmentInput;
+  aiParticipantId?: string;
   noticeMessage?: string;
   detectedFlags: string[];
 };
@@ -104,6 +108,14 @@ class PersistedJudgmentFinalizationError extends Error {
     readonly finalizationError: unknown,
   ) {
     super('Judgment 已持久化，但 Chat 狀態尚未完成對齊');
+  }
+}
+
+class PairingUniqueRaceError extends Error {
+  readonly name = 'PairingUniqueRaceError';
+
+  constructor(readonly pairingError: unknown) {
+    super('Pairing uniqueness race aborted Chat judgment preparation');
   }
 }
 
@@ -219,9 +231,17 @@ export class ChatJudgmentOrchestrator {
     }
   }
 
+  private async claimFormalAnalysisProviderUseInTransaction(
+    tx: Prisma.TransactionClient,
+    roomId: string,
+  ): Promise<void> {
+    await chatFormalAnalysisClaimService.assertAllowedInTransaction(tx, roomId);
+  }
+
   private async ensurePairingForRoom(
     room: AccessibleChatRoom,
     roleBUserId?: string | null,
+    client?: Pick<Prisma.TransactionClient, 'pairing'>,
   ): Promise<string> {
     if (!room.owner_user_id) {
       if (!room.session_id) {
@@ -233,74 +253,108 @@ export class ChatJudgmentOrchestrator {
       return tempPairing.id;
     }
 
+    if (!client) {
+      throw Errors.INTERNAL_ERROR('正式 Chat 配對必須使用同一個 transaction client');
+    }
+
     if (!roleBUserId) {
-      const liveOwnerPairingWhere: Prisma.PairingWhereInput = {
-        pairing_type: PairingType.normal,
-        status: { in: [PairingStatus.pending, PairingStatus.active] },
-        OR: [
-          { user1_id: room.owner_user_id },
-          { user2_id: room.owner_user_id },
-        ],
-      };
-      const existingLiveOwnerPairing = await prisma.pairing.findFirst({
-        where: liveOwnerPairingWhere,
+      const existingLiveOwnerPairing = await client.pairing.findFirst({
+        where: buildActiveNormalPairingWhere(room.owner_user_id),
         orderBy: { created_at: 'desc' },
       });
       if (existingLiveOwnerPairing) return existingLiveOwnerPairing.id;
 
-      try {
-        const created = await prisma.pairing.create({
-          data: {
-            user1_id: room.owner_user_id,
-            user2_id: null,
-            invite_code: null,
-            status: PairingStatus.pending,
-            pairing_type: PairingType.normal,
-            expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000),
-            confirmed_at: null,
-          },
-        });
-        return created.id;
-      } catch (error) {
-        const known = error as Prisma.PrismaClientKnownRequestError | undefined;
-        if (known?.code === 'P2002') {
-          const racedPairing = await prisma.pairing.findFirst({
-            where: liveOwnerPairingWhere,
-            orderBy: { created_at: 'desc' },
-          });
-          if (racedPairing) return racedPairing.id;
-        }
-        throw error;
-      }
+      const created = await client.pairing.create({
+        data: {
+          user1_id: room.owner_user_id,
+          user2_id: null,
+          invite_code: null,
+          status: PairingStatus.pending,
+          pairing_type: PairingType.normal,
+          expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000),
+          confirmed_at: null,
+        },
+      });
+      return created.id;
     }
 
-    const existing = await prisma.pairing.findFirst({
+    const exactPairWhere: Prisma.PairingWhereInput = {
+      pairing_type: PairingType.normal,
+      OR: [
+        { user1_id: room.owner_user_id, user2_id: roleBUserId },
+        { user1_id: roleBUserId, user2_id: room.owner_user_id },
+      ],
+    };
+    const exactLivePairing = await client.pairing.findFirst({
       where: {
-        pairing_type: PairingType.normal,
-        OR: [
-          { user1_id: room.owner_user_id, user2_id: roleBUserId },
-          { user1_id: roleBUserId, user2_id: room.owner_user_id },
-        ],
+        ...exactPairWhere,
+        status: { in: [PairingStatus.pending, PairingStatus.active] },
       },
       orderBy: { created_at: 'desc' },
     });
-    if (existing) {
-      if (existing.status === PairingStatus.active || existing.status === PairingStatus.pending) {
-        return existing.id;
+    if (exactLivePairing) return exactLivePairing.id;
+
+    const ownerLivePairing = await client.pairing.findFirst({
+      where: buildActiveNormalPairingWhere(room.owner_user_id),
+      orderBy: { created_at: 'desc' },
+    });
+    if (ownerLivePairing) {
+      const isChatOwnerOnlyPending = ownerLivePairing.status === PairingStatus.pending
+        && ownerLivePairing.invite_code === null
+        && (
+          (ownerLivePairing.user1_id === room.owner_user_id
+            && ownerLivePairing.user2_id === null)
+          || (ownerLivePairing.user2_id === room.owner_user_id
+            && ownerLivePairing.user1_id === null)
+        );
+      if (!isChatOwnerOnlyPending) {
+        throw Errors.ALREADY_PAIRED('發起方已有其他配對關係');
       }
-      const reopened = await prisma.pairing.update({
-        where: { id: existing.id },
+
+      const upgraded = await client.pairing.update({
+        where: { id: ownerLivePairing.id },
         data: {
           status: PairingStatus.active,
-          user1_id: existing.user1_id ?? room.owner_user_id,
-          user2_id: roleBUserId,
+          ...(ownerLivePairing.user1_id === room.owner_user_id
+            ? { user2_id: roleBUserId }
+            : { user1_id: roleBUserId }),
           confirmed_at: new Date(),
+          cancelled_at: null,
+          expires_at: null,
+        },
+      });
+      return upgraded.id;
+    }
+
+    const roleBLivePairing = await client.pairing.findFirst({
+      where: buildActiveNormalPairingWhere(roleBUserId),
+      orderBy: { created_at: 'desc' },
+    });
+    if (roleBLivePairing) {
+      throw Errors.ALREADY_PAIRED('回應方已有其他配對關係');
+    }
+
+    const historicalPairing = await client.pairing.findFirst({
+      where: {
+        ...exactPairWhere,
+        status: { notIn: [PairingStatus.pending, PairingStatus.active] },
+      },
+      orderBy: { created_at: 'desc' },
+    });
+    if (historicalPairing) {
+      const reopened = await client.pairing.update({
+        where: { id: historicalPairing.id },
+        data: {
+          status: PairingStatus.active,
+          confirmed_at: new Date(),
+          cancelled_at: null,
+          expires_at: null,
         },
       });
       return reopened.id;
     }
 
-    const created = await prisma.pairing.create({
+    const created = await client.pairing.create({
       data: {
         user1_id: room.owner_user_id,
         user2_id: roleBUserId,
@@ -412,6 +466,7 @@ export class ChatJudgmentOrchestrator {
     let evidence: SubmittedAnalysisEvidenceBundle | null;
     try {
       evidence = await prisma.$transaction(async tx => {
+        await this.claimFormalAnalysisProviderUseInTransaction(tx, room.id);
         const claimed = await chatAnalysisEvidenceService.claimCaseGenerationInTransaction(
           tx,
           {
@@ -435,7 +490,7 @@ export class ChatJudgmentOrchestrator {
           throw Errors.CONFLICT('聊天室狀態已變更，請重試');
         }
         return claimed;
-      }, { isolationLevel: 'Serializable' });
+      }, { isolationLevel: 'ReadCommitted' });
     } catch (error) {
       await this.markJudgmentFailed(room.id, { onlyIfRequested: true });
       throw error;
@@ -492,6 +547,8 @@ export class ChatJudgmentOrchestrator {
     if (preCheckParticipant.role_in_room !== 'roleA') {
       throw Errors.FORBIDDEN('目前版本需由 A 方確認後發起梳理結果');
     }
+
+    await chatSafetyRouterService.assertFormalAnalysisAllowed(roomId);
 
     const inFlight = this.inFlightByRoom.get(roomId);
     if (inFlight) {
@@ -689,28 +746,36 @@ export class ChatJudgmentOrchestrator {
     actor: ChatActorContext;
     options?: RequestChatJudgmentOptions;
   }): Promise<RequestChatJudgmentResult> {
-    const { room, participant, participants, actor, options } = input;
-    const roleAParticipants = participants.filter(candidate => candidate.role_in_room === 'roleA');
-    const roleBParticipants = participants.filter(candidate => candidate.role_in_room === 'roleB');
-    const aiParticipants = participants.filter(
+    const { room, participants, actor, options } = input;
+    const preflightRoleAParticipants = participants.filter(
+      candidate => candidate.role_in_room === 'roleA',
+    );
+    const preflightRoleBParticipants = participants.filter(
+      candidate => candidate.role_in_room === 'roleB',
+    );
+    const preflightAiParticipants = participants.filter(
       candidate => candidate.role_in_room === 'aiMediator',
     );
     if (
-      roleAParticipants.length !== 1
-      || roleBParticipants.length > 1
-      || aiParticipants.length > 1
+      preflightRoleAParticipants.length !== 1
+      || preflightRoleBParticipants.length > 1
+      || preflightAiParticipants.length > 1
     ) {
       throw Errors.CONFLICT('聊天室參與者狀態異常，請刷新後重試');
     }
-    const roleAParticipant = roleAParticipants[0];
-    const roleBParticipant = roleBParticipants[0];
-    const aiParticipant = aiParticipants[0];
-    if (!roleAParticipant) {
+    const preflightRoleAParticipant = preflightRoleAParticipants[0];
+    const preflightRoleBParticipant = preflightRoleBParticipants[0];
+    if (!preflightRoleAParticipant) {
       throw Errors.CASE_NOT_READY('缺少發起方資訊，無法轉梳理結果');
     }
 
-    const mode = room.owner_user_id ? CaseMode.collaborative : CaseMode.quick;
-    const pairingId = await this.ensurePairingForRoom(room, roleBParticipant?.user_id ?? null);
+    // Anonymous quick rooms still have participant-scoped durable Safety, but
+    // their session/pairing aggregate is not yet transactionally coupled.
+    // Preserve that existing lifecycle here; user-owned Chat pairings are
+    // created only inside the formal preparation transaction below.
+    const quickPairingId = room.owner_user_id
+      ? null
+      : await this.ensurePairingForRoom(room, preflightRoleBParticipant?.user_id ?? null);
     const title = buildChatToCaseTitle(options?.locale, new Date());
     let caseId = '';
     let linkId = '';
@@ -718,7 +783,46 @@ export class ChatJudgmentOrchestrator {
     const blockedSafetyHolder: { current: BlockedSafetyContext | null } = { current: null };
 
     try {
-      const prepared = await prisma.$transaction(async tx => {
+      const prepare = () => prisma.$transaction(async tx => {
+        await this.claimFormalAnalysisProviderUseInTransaction(tx, room.id);
+        const lockedRoom = await chatActorAccessService.getAccessibleRoom(
+          room.id,
+          actor,
+          tx,
+        );
+        const lockedParticipant = chatActorAccessService.getCurrentParticipant(
+          lockedRoom,
+          actor,
+        );
+        if (!lockedParticipant || lockedParticipant.role_in_room !== 'roleA') {
+          throw Errors.FORBIDDEN('目前版本需由 A 方確認後發起梳理結果');
+        }
+        const lockedParticipants = lockedRoom.participants.filter(
+          candidate => candidate.is_active && candidate.left_at === null,
+        );
+        const roleAParticipants = lockedParticipants.filter(
+          candidate => candidate.role_in_room === 'roleA',
+        );
+        const roleBParticipants = lockedParticipants.filter(
+          candidate => candidate.role_in_room === 'roleB',
+        );
+        const aiParticipants = lockedParticipants.filter(
+          candidate => candidate.role_in_room === 'aiMediator',
+        );
+        if (
+          roleAParticipants.length !== 1
+          || roleBParticipants.length > 1
+          || aiParticipants.length > 1
+        ) {
+          throw Errors.CONFLICT('聊天室參與者狀態異常，請刷新後重試');
+        }
+        const roleAParticipant = roleAParticipants[0];
+        const roleBParticipant = roleBParticipants[0];
+        const aiParticipant = aiParticipants[0];
+        if (!roleAParticipant) {
+          throw Errors.CASE_NOT_READY('缺少發起方資訊，無法轉梳理結果');
+        }
+
         const claimedEvidence = options?.analysisRequestId
           ? await chatAnalysisEvidenceService.claimSubmittedForProcessingInTransaction(
               tx,
@@ -729,8 +833,8 @@ export class ChatJudgmentOrchestrator {
           : null;
         const visibilityFilteredWhere: Prisma.ChatMessageWhereInput = {
           ...buildSharedContextMessageWhere({
-            roomId: room.id,
-            historyVisibilityMode: room.history_visibility_mode,
+            roomId: lockedRoom.id,
+            historyVisibilityMode: lockedRoom.history_visibility_mode,
             roleBJoinedAt: roleBParticipant?.joined_at,
           }),
           message_type: 'user_text',
@@ -806,8 +910,9 @@ export class ChatJudgmentOrchestrator {
         const safetyNoticeMessage = requestPolicy.noticeMessage;
         if (!requestPolicy.canRequestChatJudgment) {
           blockedSafetyHolder.current = {
+            aiParticipantId: aiParticipant?.id,
             assessment: {
-              roomId: room.id,
+              roomId: lockedRoom.id,
               route: preRouteDecision.route,
               reasons: requestPolicy.reasons,
               detectedFlags: preRouteDecision.detectedFlags,
@@ -839,9 +944,26 @@ export class ChatJudgmentOrchestrator {
           );
         }
 
+        let pairingId = quickPairingId;
+        if (!pairingId) {
+          try {
+            pairingId = await this.ensurePairingForRoom(
+              lockedRoom,
+              roleBParticipant?.user_id ?? null,
+              tx,
+            );
+          } catch (error) {
+            const known = error as Prisma.PrismaClientKnownRequestError | undefined;
+            if (known?.code === 'P2002') {
+              throw new PairingUniqueRaceError(error);
+            }
+            throw error;
+          }
+        }
+
         const transition = await tx.chatRoom.updateMany({
           where: {
-            id: room.id,
+            id: lockedRoom.id,
             status: {
               in: [
                 ChatRoomStatus.solo_active,
@@ -858,6 +980,7 @@ export class ChatJudgmentOrchestrator {
           throw Errors.CONFLICT('聊天室狀態已變更，請重試');
         }
 
+        const mode = lockedRoom.owner_user_id ? CaseMode.collaborative : CaseMode.quick;
         const caseRecord = await tx.case.create({
           data: {
             pairing_id: pairingId,
@@ -869,16 +992,16 @@ export class ChatJudgmentOrchestrator {
             defendant_statement: defendantStatement,
             status: CaseStatus.submitted,
             mode,
-            session_id: mode === CaseMode.quick ? room.session_id : null,
+            session_id: mode === CaseMode.quick ? lockedRoom.session_id : null,
             ...buildCaseSourceTracking('chat_to_case'),
             submitted_at: new Date(),
           },
         });
         const link = await tx.chatToCaseLink.create({
           data: {
-            room_id: room.id,
+            room_id: lockedRoom.id,
             case_id: caseRecord.id,
-            triggered_by_participant_id: participant.id,
+            triggered_by_participant_id: lockedParticipant.id,
             conversion_snapshot: {
               source_message_range: {
                 first_message_id: firstMessage?.id ?? null,
@@ -908,8 +1031,8 @@ export class ChatJudgmentOrchestrator {
                     ),
                   }
                 : null,
-              room_status: room.status,
-              visibility_mode: room.history_visibility_mode,
+              room_status: lockedRoom.status,
+              visibility_mode: lockedRoom.history_visibility_mode,
               pre_route: preRouteDecision.route,
               pre_route_reasons: preRouteDecision.reasons,
               pre_route_flags: preRouteDecision.detectedFlags,
@@ -931,9 +1054,9 @@ export class ChatJudgmentOrchestrator {
                 filtered_visibility: true,
                 filtered_before_join:
                   Boolean(roleBParticipant?.joined_at)
-                  && (room.history_visibility_mode
+                  && (lockedRoom.history_visibility_mode
                     === ChatHistoryVisibilityMode.share_from_join_time
-                    || room.history_visibility_mode
+                    || lockedRoom.history_visibility_mode
                       === ChatHistoryVisibilityMode.share_summary_only),
               },
               conversion_version: 'v2-layered-2026-02',
@@ -959,8 +1082,25 @@ export class ChatJudgmentOrchestrator {
           plaintiffStatement,
           defendantStatement,
           safetyNoticeMessage,
+          roleBParticipant,
+          aiParticipant,
         };
-      }, { isolationLevel: 'Serializable' });
+      }, { isolationLevel: 'ReadCommitted' });
+
+      let prepared: Awaited<ReturnType<typeof prepare>>;
+      try {
+        prepared = await prepare();
+      } catch (error) {
+        if (!(error instanceof PairingUniqueRaceError)) throw error;
+        try {
+          prepared = await prepare();
+        } catch (retryError) {
+          if (retryError instanceof PairingUniqueRaceError) {
+            throw Errors.CONFLICT('配對狀態已變更，請重試共同梳理');
+          }
+          throw retryError;
+        }
+      }
 
       analysisEvidence = prepared.analysisEvidence;
       caseId = prepared.caseRecord.id;
@@ -968,7 +1108,7 @@ export class ChatJudgmentOrchestrator {
       if (prepared.requestPolicy.shouldCreateSafetyNotice) {
         await this.createSafetyNoticeBestEffort({
           roomId: room.id,
-          aiParticipantId: aiParticipant?.id,
+          aiParticipantId: prepared.aiParticipant?.id,
           noticeMessage: prepared.safetyNoticeMessage ?? undefined,
           detectedFlags: prepared.preRouteDecision.detectedFlags,
         });
@@ -1022,8 +1162,8 @@ export class ChatJudgmentOrchestrator {
         roleBMessageCount: prepared.roleBMessages.length,
         roleBMessagesIncluded: prepared.includesRoleBMessages,
         roleBConsentAsserted: prepared.roleBConsentAsserted,
-        roleBParticipantId: roleBParticipant?.id ?? null,
-        roleBUserId: roleBParticipant?.user_id ?? null,
+        roleBParticipantId: prepared.roleBParticipant?.id ?? null,
+        roleBUserId: prepared.roleBParticipant?.user_id ?? null,
         informationGaps: prepared.layerAnalysis.informationGaps,
         transformConfidence: prepared.layerAnalysis.confidence,
       });
@@ -1041,7 +1181,7 @@ export class ChatJudgmentOrchestrator {
         if (blockedSafetyContext) {
           await this.createSafetyNoticeBestEffort({
             roomId: room.id,
-            aiParticipantId: aiParticipant?.id,
+            aiParticipantId: blockedSafetyContext.aiParticipantId,
             noticeMessage: blockedSafetyContext.noticeMessage,
             detectedFlags: blockedSafetyContext.detectedFlags,
           });

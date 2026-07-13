@@ -6,7 +6,13 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 const mockGenerateReconciliationPlans = jest.fn();
 const mockIsReconciliationPlanContent = jest.fn();
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockCreateNotification: any = jest.fn();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockGetEffectiveRouteSnapshot: any = jest.fn();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockAssertJointRepairAllowed: any = jest.fn();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockIsJointRepairAllowed: any = jest.fn();
 
 const validPlanContent = {
   title: '方案標題',
@@ -47,9 +53,17 @@ const prismaMock: any = {
   repairParticipantState: {
     upsert: jest.fn(),
   },
+  repairStepProgress: {
+    createMany: jest.fn(),
+    updateMany: jest.fn(),
+  },
   repairTrackEvent: {
     create: jest.fn(),
   },
+  contextUseAudit: {
+    create: jest.fn(),
+  },
+  $queryRaw: jest.fn(),
   $transaction: jest.fn(),
 };
 
@@ -81,12 +95,18 @@ jest.mock('../../../src/services/case-context.service', () => ({
 }));
 jest.mock('../../../src/services/notification.service', () => ({
   notificationService: {
-    createIfEnabled: jest.fn(),
+    createIfEnabled: (...args: unknown[]) => mockCreateNotification(...args),
   },
 }));
 jest.mock('../../../src/services/safety-assessment.service', () => ({
   safetyAssessmentService: {
     getEffectiveRouteSnapshot: (...args: unknown[]) => mockGetEffectiveRouteSnapshot(...args),
+  },
+}));
+jest.mock('../../../src/services/chat-safety-router.service', () => ({
+  chatSafetyRouterService: {
+    assertJointRepairAllowed: (...args: unknown[]) => mockAssertJointRepairAllowed(...args),
+    isJointRepairAllowed: (...args: unknown[]) => mockIsJointRepairAllowed(...args),
   },
 }));
 
@@ -138,6 +158,10 @@ describe('ReconciliationService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     service = new ReconciliationService();
+    prismaMock.$queryRaw.mockResolvedValue([]);
+    prismaMock.$transaction.mockImplementation(
+      async (fn: (tx: typeof prismaMock) => unknown) => fn(prismaMock),
+    );
     mockIsReconciliationPlanContent.mockReturnValue(true);
     prismaMock.reconciliationPlan.count.mockResolvedValue(0);
     (caseContextService.loadCaseContext as any).mockResolvedValue(null);
@@ -153,6 +177,9 @@ describe('ReconciliationService', () => {
         }),
       };
     });
+    mockAssertJointRepairAllowed.mockResolvedValue(undefined);
+    mockIsJointRepairAllowed.mockResolvedValue(true);
+    mockCreateNotification.mockResolvedValue(undefined);
   });
 
   it('generatePlans 應返回帶 recommended_plan_id 的 bundle', async () => {
@@ -269,6 +296,62 @@ describe('ReconciliationService', () => {
     });
     expect(prismaMock.reconciliationPlan.findMany).not.toHaveBeenCalled();
     expect(mockGenerateReconciliationPlans).not.toHaveBeenCalled();
+  });
+
+  it('durable Chat Safety 應在 joint plan provider claim 前阻止 AI call', async () => {
+    prismaMock.judgment.findUnique.mockResolvedValue({
+      ...baseJudgment,
+      case: {
+        ...baseJudgment.case,
+        chat_to_case_links: [{ id: 'link-1', room_id: 'room-1' }],
+      },
+    });
+    prismaMock.reconciliationPlan.findMany.mockResolvedValue([]);
+    mockAssertJointRepairAllowed.mockRejectedValueOnce(
+      Object.assign(new Error('共同修復目前不可用'), { code: 'FORBIDDEN' }),
+    );
+
+    await expect(service.generatePlans('judge-1', {
+      intent: 'repair',
+      preferences: { invite_partner: true },
+    }, 'u1')).rejects.toMatchObject({ code: 'FORBIDDEN' });
+
+    expect(mockAssertJointRepairAllowed).toHaveBeenCalledWith('room-1', prismaMock);
+    expect(mockGenerateReconciliationPlans).not.toHaveBeenCalled();
+    expect(prismaMock.contextUseAudit.create).not.toHaveBeenCalled();
+    expect(prismaMock.reconciliationPlan.create).not.toHaveBeenCalled();
+  });
+
+  it('joint plan provider claim 應以 content-free durable audit 作為 ordering point', async () => {
+    await (service as unknown as {
+      claimChatJointRepairProviderUse(
+        caseRecord: { chat_to_case_links: Array<{ room_id: string }> },
+        caseId: string,
+      ): Promise<void>;
+    }).claimChatJointRepairProviderUse(
+      { chat_to_case_links: [{ room_id: 'room-1' }] },
+      'case-1',
+    );
+
+    expect(mockAssertJointRepairAllowed).toHaveBeenCalledWith('room-1', prismaMock);
+    expect(prismaMock.contextUseAudit.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        room_id: 'room-1',
+        purpose: 'joint_repair',
+        audience: 'room_participants',
+        target_type: 'case',
+        target_id: 'case-1',
+        decision: 'allowed',
+        reason_code: 'joint_repair_provider_claimed',
+        source_refs: [],
+        authorization_refs: [],
+        content_hashes: [],
+      }),
+    });
+    expect(prismaMock.$transaction).toHaveBeenCalledWith(
+      expect.any(Function),
+      { isolationLevel: 'ReadCommitted' },
+    );
   });
 
   it('active safety state 應阻止直接讀取或承諾既有 repair plan', async () => {
@@ -614,6 +697,134 @@ describe('ReconciliationService', () => {
     expect(result.commitment.current_user.commitment_status).toBe('viewed');
   });
 
+  it('block_joint_repair 仍允許本人更新狀態但不向 partner 發送共同修復通知', async () => {
+    const linkedJudgment = {
+      ...baseJudgment,
+      case: {
+        ...baseJudgment.case,
+        chat_to_case_links: [{ id: 'link-1', room_id: 'room-1' }],
+      },
+    };
+    const currentTrack = {
+      id: 'track-1',
+      status: 'partner_invited',
+      recommended_mode: 'solo',
+      partner_invited_at: new Date(),
+      participant_states: [
+        { user_id: 'u1', commitment_status: 'committed', viewed_at: new Date(), committed_at: new Date() },
+        { user_id: 'u2', commitment_status: 'not_viewed', viewed_at: null, committed_at: null },
+      ],
+      step_progresses: [],
+      checkins: [],
+    };
+    prismaMock.reconciliationPlan.findUnique
+      .mockResolvedValueOnce({
+        ...storedPlan,
+        judgment: linkedJudgment,
+        repair_track: currentTrack,
+      })
+      .mockResolvedValueOnce({
+        ...storedPlan,
+        judgment: linkedJudgment,
+        repair_track: {
+          ...currentTrack,
+          participant_states: [
+            currentTrack.participant_states[0],
+            { user_id: 'u2', commitment_status: 'viewed', viewed_at: new Date(), committed_at: null },
+          ],
+        },
+      });
+    prismaMock.repairParticipantState.upsert.mockResolvedValue({});
+    prismaMock.repairTrack.findUnique.mockResolvedValue(currentTrack);
+    prismaMock.repairTrack.update.mockResolvedValue(currentTrack);
+    mockIsJointRepairAllowed.mockResolvedValueOnce(false);
+
+    await expect(service.respondPlan('plan-1', 'u2', 'viewed')).resolves.toBeDefined();
+
+    expect(mockIsJointRepairAllowed).toHaveBeenCalledWith('room-1', prismaMock);
+    expect(prismaMock.repairParticipantState.upsert).toHaveBeenCalled();
+    expect(mockCreateNotification).not.toHaveBeenCalled();
+  });
+
+  it('Safety 在 stale second commit 前勝出時可保留個人承諾，但不得把 track 升為 co-active', async () => {
+    const linkedJudgment = {
+      ...baseJudgment,
+      case: {
+        ...baseJudgment.case,
+        chat_to_case_links: [{ id: 'link-1', room_id: 'room-1' }],
+      },
+    };
+    const staleTrack = {
+      id: 'track-1',
+      intent: 'repair',
+      status: 'draft',
+      recommended_mode: 'solo',
+      partner_invited_at: new Date(),
+      participant_states: [
+        { user_id: 'u1', commitment_status: 'not_viewed' },
+        { user_id: 'u2', commitment_status: 'not_viewed' },
+      ],
+      step_progresses: [],
+      checkins: [],
+    };
+    prismaMock.reconciliationPlan.findUnique
+      .mockResolvedValueOnce({
+        ...storedPlan,
+        judgment: linkedJudgment,
+        repair_track: staleTrack,
+      })
+      .mockResolvedValueOnce({
+        ...storedPlan,
+        user2_selected: true,
+        judgment: linkedJudgment,
+        repair_track: {
+          ...staleTrack,
+          status: 'draft',
+          participant_states: [
+            { user_id: 'u1', commitment_status: 'committed' },
+            { user_id: 'u2', commitment_status: 'committed' },
+          ],
+        },
+      });
+    prismaMock.reconciliationPlan.update.mockResolvedValue({});
+    prismaMock.repairParticipantState.upsert.mockResolvedValue({});
+    prismaMock.repairTrack.findUnique
+      .mockResolvedValueOnce(staleTrack)
+      .mockResolvedValueOnce({
+        ...staleTrack,
+        participant_states: [
+          { user_id: 'u1', commitment_status: 'committed' },
+          { user_id: 'u2', commitment_status: 'committed' },
+        ],
+      });
+    prismaMock.repairTrack.update.mockResolvedValue({
+      ...staleTrack,
+      status: 'draft',
+      participant_states: [],
+    });
+    mockIsJointRepairAllowed.mockResolvedValueOnce(false);
+
+    await expect(service.respondPlan('plan-1', 'u2', 'committed')).resolves.toBeDefined();
+
+    expect(mockAssertJointRepairAllowed).not.toHaveBeenCalled();
+    expect(mockIsJointRepairAllowed).toHaveBeenCalledWith('room-1', prismaMock);
+    expect(prismaMock.repairParticipantState.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({ commitment_status: 'committed' }),
+      }),
+    );
+    expect(prismaMock.repairTrack.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          recommended_mode: 'solo',
+          status: 'draft',
+          status_reason: 'solo_policy',
+        }),
+      }),
+    );
+    expect(mockCreateNotification).not.toHaveBeenCalled();
+  });
+
   it('安全支持方案應拒絕邀請伴侶加入修復旅程', async () => {
     prismaMock.reconciliationPlan.findUnique.mockResolvedValue({
       ...storedPlan,
@@ -668,5 +879,33 @@ describe('ReconciliationService', () => {
       code: 'FORBIDDEN',
     });
     expect(prismaMock.repairTrack.create).not.toHaveBeenCalled();
+  });
+
+  it('durable private safety state 應在共同邀請副作用前阻止 Chat-linked joint repair', async () => {
+    prismaMock.reconciliationPlan.findUnique.mockResolvedValue({
+      ...storedPlan,
+      judgment: {
+        ...baseJudgment,
+        case: {
+          ...baseJudgment.case,
+          chat_to_case_links: [{ id: 'link-1', room_id: 'room-1' }],
+        },
+      },
+    });
+    mockAssertJointRepairAllowed.mockRejectedValueOnce(
+      Object.assign(new Error('共同修復目前不可用'), { code: 'FORBIDDEN' }),
+    );
+
+    await expect(service.invitePartner('plan-1', 'u1')).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
+
+    expect(mockAssertJointRepairAllowed).toHaveBeenCalledWith('room-1', prismaMock);
+    expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(prismaMock.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(
+      mockAssertJointRepairAllowed.mock.invocationCallOrder[0],
+    );
+    expect(prismaMock.repairTrack.create).not.toHaveBeenCalled();
+    expect(prismaMock.repairParticipantState.upsert).not.toHaveBeenCalled();
   });
 });

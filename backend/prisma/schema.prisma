@@ -367,6 +367,20 @@ enum PrivateContextUseMode {
   shared_process_controls
 }
 
+enum SharedAdaptationConsentDecision {
+  not_set
+  accepted
+  declined
+}
+
+enum ChatSafetyRouterAction {
+  continue
+  private_checkin
+  pause_shared
+  block_joint_repair
+  crisis_support
+}
+
 enum ContextCapsuleStatus {
   draft
   approved
@@ -386,6 +400,7 @@ enum ContextSensitivityClass {
 enum ContextPurpose {
   private_support
   shared_mediation
+  shared_mediation_adaptation
   formal_analysis_evidence
   formal_analysis_delivery
   future_private_support
@@ -1026,15 +1041,16 @@ model ChatRoom {
   created_at              DateTime                  @default(now())
   updated_at              DateTime                  @updatedAt
 
-  owner              User?                 @relation("ChatRoomOwner", fields: [owner_user_id], references: [id], onDelete: SetNull)
-  participants       ChatParticipant[]
-  channels           ChatChannel[]
-  messages           ChatMessage[]
-  invites            ChatInvite[]
-  case_links         ChatToCaseLink[]
-  context_capsules   ContextCapsule[]
-  analysis_requests  ChatAnalysisRequest[]
-  context_use_audits ContextUseAudit[]
+  owner                User?                   @relation("ChatRoomOwner", fields: [owner_user_id], references: [id], onDelete: SetNull)
+  participants         ChatParticipant[]
+  channels             ChatChannel[]
+  messages             ChatMessage[]
+  invites              ChatInvite[]
+  case_links           ChatToCaseLink[]
+  context_capsules     ContextCapsule[]
+  analysis_requests    ChatAnalysisRequest[]
+  context_use_audits   ContextUseAudit[]
+  safety_router_states ChatSafetyRouterState[]
 
   @@index([owner_user_id])
   @@index([session_id])
@@ -1043,15 +1059,20 @@ model ChatRoom {
 }
 
 model ChatParticipant {
-  id                       String                @id @default(uuid())
-  room_id                  String
-  participant_type         ChatParticipantType   @default(user)
-  user_id                  String?
-  role_in_room             ChatRoleInRoom
-  joined_at                DateTime              @default(now())
-  left_at                  DateTime?
-  is_active                Boolean               @default(true)
-  private_context_use_mode PrivateContextUseMode @default(private_only)
+  id                                    String                          @id @default(uuid())
+  room_id                               String
+  participant_type                      ChatParticipantType             @default(user)
+  user_id                               String?
+  role_in_room                          ChatRoleInRoom
+  joined_at                             DateTime                        @default(now())
+  left_at                               DateTime?
+  is_active                             Boolean                         @default(true)
+  private_context_use_mode              PrivateContextUseMode           @default(private_only)
+  private_context_policy_version        String?                         @db.VarChar(50)
+  private_context_preference_updated_at DateTime?
+  shared_adaptation_consent             SharedAdaptationConsentDecision @default(not_set)
+  shared_adaptation_policy_version      String?                         @db.VarChar(50)
+  shared_adaptation_decided_at          DateTime?
 
   room                           ChatRoom                          @relation(fields: [room_id], references: [id], onDelete: Cascade)
   user                           User?                             @relation(fields: [user_id], references: [id], onDelete: SetNull)
@@ -1064,10 +1085,12 @@ model ChatParticipant {
   requested_analysis_requests    ChatAnalysisRequest[]             @relation("ChatAnalysisRequestRequester")
   analysis_participant_approvals ChatAnalysisParticipantApproval[] @relation("ChatAnalysisApprovalParticipant")
   context_use_audits             ContextUseAudit[]                 @relation("ContextUseAuditActor")
+  safety_router_states           ChatSafetyRouterState[]           @relation("ChatSafetyRouterOwner")
 
   @@index([room_id, role_in_room])
   @@index([user_id])
   @@index([room_id, is_active])
+  @@index([room_id, shared_adaptation_consent])
   /// PostgreSQL partial unique indexes enforce one active roleA, roleB, and aiMediator per room.
   /// See 20260226230000 and 20260227081000; Prisma cannot model these predicates.
   @@map("chat_participants")
@@ -1119,6 +1142,25 @@ model ChatChannel {
   @@index([room_id, kind])
   @@index([owner_participant_id])
   @@map("chat_channels")
+}
+
+model ChatSafetyRouterState {
+  id                   String                 @id @default(uuid())
+  room_id              String
+  owner_participant_id String
+  action               ChatSafetyRouterAction @default(continue)
+  policy_version       String                 @db.VarChar(50)
+  state_version        Int                    @default(1)
+  activated_at         DateTime               @default(now())
+  updated_at           DateTime               @updatedAt
+
+  room              ChatRoom        @relation(fields: [room_id], references: [id], onDelete: Cascade)
+  owner_participant ChatParticipant @relation("ChatSafetyRouterOwner", fields: [owner_participant_id], references: [id], onDelete: Restrict)
+
+  @@unique([room_id, owner_participant_id], map: "ux_chat_safety_router_room_owner")
+  @@index([room_id, action], map: "idx_chat_safety_router_room_action")
+  @@index([owner_participant_id])
+  @@map("chat_safety_router_states")
 }
 
 model ContextCapsule {

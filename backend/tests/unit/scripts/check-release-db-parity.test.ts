@@ -30,6 +30,9 @@ const appReleaseBlockingMigrations = [
   '20260713090000_add_context_authorization_active_unique',
   '20260713130000_add_secure_email_challenges',
   '20260713153000_normalize_user_emails',
+  '20260713190000_add_chat_adaptation_consent',
+  '20260713201500_add_chat_safety_router_state',
+  '20260713203000_allow_context_capsule_discard_tombstone',
 ] as const;
 
 function appliedMigration(migrationName: string): ReleaseMigrationRow {

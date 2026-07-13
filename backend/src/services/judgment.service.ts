@@ -32,6 +32,7 @@ import {
   chatAnalysisEvidenceService,
   type SubmittedAnalysisEvidenceBundle,
 } from './chat-analysis-evidence.service';
+import { chatFormalAnalysisClaimService } from './chat-formal-analysis-claim.service';
 
 export type GenerateJudgmentOptions = {
   userId?: string;
@@ -156,24 +157,13 @@ export class JudgmentService {
     let judgmentPersisted = false;
     let claimedAnalysisEvidence: SubmittedAnalysisEvidenceBundle | null = null;
     const locale = options?.locale ?? 'zh-TW';
-    const streamHandle = await aiStreamService.createStream('case_judgment', caseId);
 
     // 使用分布式鎖防止並發生成
     return await lockService.withLock(
       lockKey,
       async () => {
-        // 1. 檢查是否已有判決（雙重檢查）
-        const existing = await prisma.judgment.findUnique({
-          where: { case_id: caseId },
-        });
-
-        if (existing) {
-          logger.debug('Judgment already exists', { caseId, judgmentId: existing.id });
-          await this.publishJudgmentFinalizationBestEffort(streamHandle, caseId, existing);
-          return existing;
-        }
-
-        // 2. 獲取案件信息
+        // 1. 先獲取案件並完成 caller/session 授權。既有 Judgment 查詢、
+        // stream 建立與任何結果發布都必須位於這個授權邊界之後。
         const case_ = await prisma.case.findUnique({
           where: { id: caseId },
           include: {
@@ -201,6 +191,18 @@ export class JudgmentService {
           }
         }
 
+        // 2. 授權後才檢查是否已有判決（雙重檢查）
+        const existing = await prisma.judgment.findUnique({
+          where: { case_id: caseId },
+        });
+
+        if (existing) {
+          logger.debug('Judgment already exists', { caseId, judgmentId: existing.id });
+          const streamHandle = await aiStreamService.createStream('case_judgment', caseId);
+          await this.publishJudgmentFinalizationBestEffort(streamHandle, caseId, existing);
+          return existing;
+        }
+
         // 允許重試：submitted / judgment_failed / in_progress（用於崩潰恢復）
         const allowedStatuses: string[] = [CASE_STATUS.SUBMITTED, CASE_STATUS.JUDGMENT_FAILED, CASE_STATUS.IN_PROGRESS];
         if (!allowedStatuses.includes(case_.status)) {
@@ -209,6 +211,10 @@ export class JudgmentService {
 
         const sourceChatLink = case_.chat_to_case_links?.[0];
         if (sourceChatLink) {
+          // This service is the common provider boundary for Chat orchestration
+          // and the public judgment route. Claim before evidence lifecycle,
+          // stream, case status, or any external AI call can change.
+          await chatFormalAnalysisClaimService.claimProviderUse(sourceChatLink.room_id);
           claimedAnalysisEvidence = await chatAnalysisEvidenceService.claimCaseGeneration(
             {
               roomId: sourceChatLink.room_id,
@@ -228,6 +234,8 @@ export class JudgmentService {
             throw Errors.CONFLICT('請稍後再重試生成梳理結果');
           }
         }
+
+        const streamHandle = await aiStreamService.createStream('case_judgment', caseId);
 
         // 2.1 將狀態設為 in_progress（避免長時間停留在 submitted / judgment_failed）
         // 注意：如果服務在生成中崩潰，狀態可能停留 in_progress；允許再次調用進行恢復。

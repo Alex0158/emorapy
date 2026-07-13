@@ -88,6 +88,10 @@ const chatAnalysisEvidenceServiceMock = {
   markCompleted: jest.fn(),
 };
 
+const chatFormalAnalysisClaimServiceMock = {
+  claimProviderUse: jest.fn(),
+};
+
 jest.mock('../../../src/config/database', () => ({
   __esModule: true,
   default: prismaMock,
@@ -156,6 +160,10 @@ jest.mock('../../../src/services/chat-analysis-evidence.service', () => ({
   chatAnalysisEvidenceService: chatAnalysisEvidenceServiceMock,
 }));
 
+jest.mock('../../../src/services/chat-formal-analysis-claim.service', () => ({
+  chatFormalAnalysisClaimService: chatFormalAnalysisClaimServiceMock,
+}));
+
 import { JudgmentService } from '../../../src/services/judgment.service';
 
 const baseCase = (overrides: Record<string, unknown> = {}) => ({
@@ -210,10 +218,12 @@ describe('JudgmentService', () => {
     clinicalQualityServiceMock.recordPostResponseMetrics.mockResolvedValue(undefined);
     chatAnalysisEvidenceServiceMock.claimCaseGeneration.mockResolvedValue(null);
     chatAnalysisEvidenceServiceMock.markCompleted.mockResolvedValue(undefined);
+    chatFormalAnalysisClaimServiceMock.claimProviderUse.mockResolvedValue(undefined);
   });
 
   describe('generateJudgment', () => {
     it('已有判決時應直接返回 existing', async () => {
+      prismaMock.case.findUnique.mockResolvedValueOnce(baseCase());
       prismaMock.judgment.findUnique.mockResolvedValueOnce({ id: 'j-existing', case_id: 'case-1' });
       const service = new JudgmentService();
       const result = await service.generateJudgment('case-1', { sessionId: 'guest_1704067200000_abcdefghijklmnop' });
@@ -221,15 +231,54 @@ describe('JudgmentService', () => {
       expect(aiServiceMock.generateJudgment).not.toHaveBeenCalled();
     });
 
+    it('已有判決時，非當事人 user 不得查詢、建立 stream 或發布 existing 結果', async () => {
+      prismaMock.case.findUnique.mockResolvedValueOnce(baseCase({
+        mode: 'remote',
+        session_id: null,
+        plaintiff_id: 'u1',
+        defendant_id: 'u2',
+      }));
+      prismaMock.judgment.findUnique.mockResolvedValue({ id: 'j-existing', case_id: 'case-1' });
+
+      const service = new JudgmentService();
+      try {
+        await expect(service.generateJudgment('case-1', { userId: 'u3' }))
+          .rejects.toMatchObject({ code: 'FORBIDDEN' });
+
+        expect(prismaMock.judgment.findUnique).not.toHaveBeenCalled();
+        expect(aiStreamServiceMock.createStream).not.toHaveBeenCalled();
+        expect(aiStreamServiceMock.completed).not.toHaveBeenCalled();
+        expect(aiStreamServiceMock.persisted).not.toHaveBeenCalled();
+      } finally {
+        prismaMock.judgment.findUnique.mockReset();
+      }
+    });
+
+    it('已有判決時，不匹配 session 不得查詢、建立 stream 或發布 existing 結果', async () => {
+      prismaMock.case.findUnique.mockResolvedValueOnce(baseCase({ session_id: 'session-owner' }));
+      prismaMock.judgment.findUnique.mockResolvedValue({ id: 'j-existing', case_id: 'case-1' });
+
+      const service = new JudgmentService();
+      try {
+        await expect(service.generateJudgment('case-1', { sessionId: 'session-attacker' }))
+          .rejects.toMatchObject({ code: 'FORBIDDEN' });
+
+        expect(prismaMock.judgment.findUnique).not.toHaveBeenCalled();
+        expect(aiStreamServiceMock.createStream).not.toHaveBeenCalled();
+        expect(aiStreamServiceMock.completed).not.toHaveBeenCalled();
+        expect(aiStreamServiceMock.persisted).not.toHaveBeenCalled();
+      } finally {
+        prismaMock.judgment.findUnique.mockReset();
+      }
+    });
+
     it('案件不存在應拋出 NOT_FOUND', async () => {
-      prismaMock.judgment.findUnique.mockResolvedValueOnce(null);
       prismaMock.case.findUnique.mockResolvedValueOnce(null);
       const service = new JudgmentService();
       await expect(service.generateJudgment('missing', { sessionId: 's1' })).rejects.toMatchObject({ code: 'NOT_FOUND' });
     });
 
     it('quick 模式 session 不匹配應拋出 FORBIDDEN', async () => {
-      prismaMock.judgment.findUnique.mockResolvedValueOnce(null);
       prismaMock.case.findUnique.mockResolvedValueOnce(baseCase({ session_id: 's-real' }));
       const service = new JudgmentService();
       await expect(service.generateJudgment('case-1', { sessionId: 's-fake' })).rejects.toMatchObject({ code: 'FORBIDDEN' });
@@ -275,6 +324,37 @@ describe('JudgmentService', () => {
         }),
         { userId: 'u1', sessionId: undefined },
       );
+      expect(aiServiceMock.generateJudgment).not.toHaveBeenCalled();
+    });
+
+    it('direct generate 對 Chat-linked case 在 formal Safety blocked 時零 provider call', async () => {
+      prismaMock.judgment.findUnique.mockResolvedValueOnce(null);
+      prismaMock.case.findUnique.mockResolvedValueOnce(baseCase({
+        mode: 'remote',
+        session_id: null,
+        plaintiff_id: 'u1',
+        defendant_id: 'u2',
+        chat_to_case_links: [{
+          id: 'link-chat',
+          room_id: 'room-chat',
+          conversion_snapshot: null,
+        }],
+      }));
+      chatFormalAnalysisClaimServiceMock.claimProviderUse.mockRejectedValueOnce(
+        Object.assign(new Error('共同梳理目前暫停'), { code: 'CASE_NOT_READY' }),
+      );
+
+      const service = new JudgmentService();
+      await expect(service.generateJudgment('case-1', { userId: 'u1' }))
+        .rejects.toMatchObject({ code: 'CASE_NOT_READY' });
+
+      expect(chatFormalAnalysisClaimServiceMock.claimProviderUse).toHaveBeenCalledWith(
+        'room-chat',
+      );
+      expect(chatAnalysisEvidenceServiceMock.claimCaseGeneration).not.toHaveBeenCalled();
+      expect(aiStreamServiceMock.createStream).not.toHaveBeenCalled();
+      expect(prismaMock.case.update).not.toHaveBeenCalled();
+      expect(aiServiceMock.analyzeEmotionalDynamics).not.toHaveBeenCalled();
       expect(aiServiceMock.generateJudgment).not.toHaveBeenCalled();
     });
 
@@ -445,7 +525,6 @@ describe('JudgmentService', () => {
     });
 
     it('formal collaborative 且 session_id 為 null 時非當事人應被拒絕', async () => {
-      prismaMock.judgment.findUnique.mockResolvedValueOnce(null);
       prismaMock.case.findUnique.mockResolvedValueOnce(
         baseCase({
           mode: 'collaborative',
@@ -466,7 +545,6 @@ describe('JudgmentService', () => {
     });
 
     it('remote 模式非當事人應拋出 FORBIDDEN', async () => {
-      prismaMock.judgment.findUnique.mockResolvedValueOnce(null);
       prismaMock.case.findUnique.mockResolvedValueOnce(
         baseCase({ mode: 'remote', plaintiff_id: 'u1', defendant_id: 'u2', session_id: null })
       );

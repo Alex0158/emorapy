@@ -8,6 +8,7 @@ import { Errors } from '../utils/errors';
 import { chatEventsService, type ChatStreamEvent } from '../services/chat-events.service';
 import { isRoomWideChatMessage } from '../services/chat-message-audience-policy';
 import { chatActorAccessService } from '../services/chat-actor-access.service';
+import { chatSafetyRouterService } from '../services/chat-safety-router.service';
 import { ChatSseEntitlementHandshake } from './chat-sse-entitlement-handshake';
 import {
   acceptChatInviteSchema,
@@ -72,6 +73,28 @@ router.get(
       next(error);
     }
   }
+);
+
+router.get(
+  '/rooms/:roomId/safety-status',
+  generalLimiter,
+  optionalAuthenticate,
+  validate(chatRoomIdParamSchema),
+  async (req, res, next) => {
+    try {
+      const actor = getActorFromRequest(req);
+      const status = await chatSafetyRouterService.getSanitizedSharedStatus(
+        req.params.roomId,
+        actor,
+      );
+      res.json({
+        success: true,
+        data: status,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
 );
 
 router.post(

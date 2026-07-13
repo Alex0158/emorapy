@@ -126,6 +126,26 @@ export class ChatActorAccessService {
     }
   }
 
+  async lockActiveHumanParticipants(
+    db: ChatEntitlementLockDb,
+    roomId: string,
+  ): Promise<void> {
+    const rows = await db.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      SELECT id
+      FROM chat_participants
+      WHERE room_id = ${roomId}
+        AND participant_type = 'user'
+        AND role_in_room IN ('roleA', 'roleB')
+        AND is_active = true
+        AND left_at IS NULL
+      ORDER BY id
+      FOR UPDATE
+    `);
+    if (rows.length === 0) {
+      throw Errors.FORBIDDEN('聊天室參與者權限已失效');
+    }
+  }
+
   async lockActiveRoleB(
     db: ChatEntitlementLockDb,
     roomId: string,

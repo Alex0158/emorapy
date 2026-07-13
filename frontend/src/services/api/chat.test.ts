@@ -5,14 +5,18 @@ import {
   createChatInvite,
   createChatRoom,
   declineChatInvite,
+  discardChatContextCapsule,
   getChatJudgmentStatus,
   getChatRoom,
+  getChatRoomSafetyStatus,
   kickChatParticipantB,
   leaveChatRoom,
   listChatAnalysisRequests,
   listChatContextCapsules,
+  listChatContextUsageReceipts,
   listChatMessages,
   requestChatJudgment,
+  reviseChatContextCapsule,
   revokeChatAnalysisApproval,
   revokeChatContextAuthorization,
   sendChatMessage,
@@ -24,14 +28,18 @@ const mocks = vi.hoisted(() => ({
   createInvite: vi.fn(),
   createRoom: vi.fn(),
   declineInvite: vi.fn(),
+  discardContextCapsule: vi.fn(),
   getJudgmentStatus: vi.fn(),
   getRoom: vi.fn(),
+  getRoomSafetyStatus: vi.fn(),
   kickParticipantB: vi.fn(),
   leaveRoom: vi.fn(),
   listMessages: vi.fn(),
   listAnalysisRequests: vi.fn(),
   listContextCapsules: vi.fn(),
+  listContextUsageReceipts: vi.fn(),
   requestJudgment: vi.fn(),
+  reviseContextCapsule: vi.fn(),
   revokeAnalysisApproval: vi.fn(),
   revokeContextAuthorization: vi.fn(),
   sendMessage: vi.fn(),
@@ -41,14 +49,18 @@ const mocks = vi.hoisted(() => ({
       createInvite: mocks.createInvite,
       createRoom: mocks.createRoom,
       declineInvite: mocks.declineInvite,
+      discardContextCapsule: mocks.discardContextCapsule,
       getJudgmentStatus: mocks.getJudgmentStatus,
       getRoom: mocks.getRoom,
+      getRoomSafetyStatus: mocks.getRoomSafetyStatus,
       kickParticipantB: mocks.kickParticipantB,
       leaveRoom: mocks.leaveRoom,
       listMessages: mocks.listMessages,
       listAnalysisRequests: mocks.listAnalysisRequests,
       listContextCapsules: mocks.listContextCapsules,
+      listContextUsageReceipts: mocks.listContextUsageReceipts,
       requestJudgment: mocks.requestJudgment,
+      reviseContextCapsule: mocks.reviseContextCapsule,
       revokeAnalysisApproval: mocks.revokeAnalysisApproval,
       revokeContextAuthorization: mocks.revokeContextAuthorization,
       sendMessage: mocks.sendMessage,
@@ -79,14 +91,18 @@ describe('chat API', () => {
         createInvite: mocks.createInvite,
         createRoom: mocks.createRoom,
         declineInvite: mocks.declineInvite,
+        discardContextCapsule: mocks.discardContextCapsule,
         getJudgmentStatus: mocks.getJudgmentStatus,
         getRoom: mocks.getRoom,
+        getRoomSafetyStatus: mocks.getRoomSafetyStatus,
         kickParticipantB: mocks.kickParticipantB,
         leaveRoom: mocks.leaveRoom,
         listMessages: mocks.listMessages,
         listAnalysisRequests: mocks.listAnalysisRequests,
         listContextCapsules: mocks.listContextCapsules,
+        listContextUsageReceipts: mocks.listContextUsageReceipts,
         requestJudgment: mocks.requestJudgment,
+        reviseContextCapsule: mocks.reviseContextCapsule,
         revokeAnalysisApproval: mocks.revokeAnalysisApproval,
         revokeContextAuthorization: mocks.revokeContextAuthorization,
         sendMessage: mocks.sendMessage,
@@ -117,6 +133,13 @@ describe('chat API', () => {
     const result = await getChatRoom('r2');
     expect(mocks.getRoom).toHaveBeenCalledWith('r2');
     expect(result).toMatchObject({ id: 'r2' });
+  });
+
+  it('getChatRoomSafetyStatus 應只委派 sanitized shared M3 read model', async () => {
+    mocks.getRoomSafetyStatus.mockResolvedValueOnce({ status: 'paused' });
+    const result = await getChatRoomSafetyStatus('r2');
+    expect(mocks.getRoomSafetyStatus).toHaveBeenCalledWith('r2');
+    expect(result).toEqual({ status: 'paused' });
   });
 
   it('createChatInvite 應委派 shared M3 createInvite', async () => {
@@ -193,12 +216,31 @@ describe('chat API', () => {
 
   it('context/analysis read wrappers 應只委派 shared M3 read model', async () => {
     mocks.listContextCapsules.mockResolvedValueOnce([{ id: 'capsule-1' }]);
+    mocks.listContextUsageReceipts.mockResolvedValueOnce([{ category: 'adaptation_use' }]);
     mocks.listAnalysisRequests.mockResolvedValueOnce([{ id: 'analysis-1' }]);
 
     await expect(listChatContextCapsules('r1')).resolves.toEqual([{ id: 'capsule-1' }]);
+    await expect(listChatContextUsageReceipts('r1')).resolves.toEqual([{ category: 'adaptation_use' }]);
     await expect(listChatAnalysisRequests('r1')).resolves.toEqual([{ id: 'analysis-1' }]);
     expect(mocks.listContextCapsules).toHaveBeenCalledWith('r1');
+    expect(mocks.listContextUsageReceipts).toHaveBeenCalledWith('r1');
     expect(mocks.listAnalysisRequests).toHaveBeenCalledWith('r1');
+  });
+
+  it('capsule lifecycle wrappers 保留 exact room、capsule 與 revision payload', async () => {
+    const revision = {
+      source_channel_id: 'private-1',
+      source_message_ids: ['message-1'],
+      summary: 'Revised wording',
+    };
+    mocks.reviseContextCapsule.mockResolvedValueOnce({ id: 'capsule-2' });
+    mocks.discardContextCapsule.mockResolvedValueOnce({ id: 'capsule-1', status: 'discarded' });
+
+    await reviseChatContextCapsule('r1', 'capsule-1', revision);
+    await discardChatContextCapsule('r1', 'capsule-1');
+
+    expect(mocks.reviseContextCapsule).toHaveBeenCalledWith('r1', 'capsule-1', revision);
+    expect(mocks.discardContextCapsule).toHaveBeenCalledWith('r1', 'capsule-1');
   });
 
   it('context/analysis revoke wrappers 應帶固定 user_revoked 與 exact request envelope', async () => {

@@ -21,12 +21,17 @@ const mockGetRoom = jest.fn();
 const mockListMessages = jest.fn();
 const mockListChannels = jest.fn();
 const mockGetJudgmentStatus = jest.fn();
+const mockGetRoomSafetyStatus = jest.fn();
 const mockSendChannelMessage = jest.fn();
 const mockGetPrivateContextPreference = jest.fn();
 const mockUpdatePrivateContextPreference = jest.fn();
+const mockUpdateSharedAdaptationConsent = jest.fn();
 const mockCreateContextCapsule = jest.fn();
 const mockGrantContextAuthorization = jest.fn();
 const mockListContextCapsules = jest.fn();
+const mockReviseContextCapsule = jest.fn();
+const mockDiscardContextCapsule = jest.fn();
+const mockListContextUsageReceipts = jest.fn();
 const mockCreateAnalysisRequest = jest.fn();
 const mockListAnalysisRequests = jest.fn();
 const mockDecideAnalysisRequest = jest.fn();
@@ -78,20 +83,25 @@ jest.mock('@/src/features/m3/api', () => ({
       createRoom: mockCreateRoom,
       declineInvite: mockDeclineInvite,
       getJudgmentStatus: mockGetJudgmentStatus,
+      getRoomSafetyStatus: mockGetRoomSafetyStatus,
       getPrivateContextPreference: mockGetPrivateContextPreference,
       getRoom: mockGetRoom,
       leaveRoom: mockLeaveRoom,
       listChannels: mockListChannels,
       listContextCapsules: mockListContextCapsules,
+      listContextUsageReceipts: mockListContextUsageReceipts,
       listAnalysisRequests: mockListAnalysisRequests,
       listMessages: mockListMessages,
       requestJudgment: mockRequestJudgment,
       revokeAnalysisApproval: mockRevokeAnalysisApproval,
       revokeContextAuthorization: mockRevokeContextAuthorization,
+      reviseContextCapsule: mockReviseContextCapsule,
+      discardContextCapsule: mockDiscardContextCapsule,
       sendChannelMessage: mockSendChannelMessage,
       submitAnalysisRequest: mockSubmitAnalysisRequest,
       grantContextAuthorization: mockGrantContextAuthorization,
       updatePrivateContextPreference: mockUpdatePrivateContextPreference,
+      updateSharedAdaptationConsent: mockUpdateSharedAdaptationConsent,
     },
   },
 }));
@@ -208,7 +218,10 @@ function buildManagedCapsule() {
     lineage_id: 'lineage-1',
     version: 1,
     summary: '我願意分享的重點',
-    source_refs: [],
+    source_refs: [
+      { id: 'private-source-1', kind: 'chat_message', content_hash: 'd'.repeat(64) },
+      { id: 'private-source-2', kind: 'chat_message', content_hash: 'e'.repeat(64) },
+    ],
     content_hash: 'c'.repeat(64),
     policy_version: 'chat-context-v1',
     sensitivity_class: 'standard',
@@ -295,22 +308,66 @@ describe('M3 Chat screens', () => {
       },
     ]);
     mockGetJudgmentStatus.mockResolvedValue({ roomStatus: 'solo_active' });
+    mockGetRoomSafetyStatus.mockResolvedValue({ status: 'open' });
     mockSendChannelMessage.mockResolvedValue({ id: 'm2', channel_id: 'channel-private' });
     mockGetPrivateContextPreference.mockResolvedValue({
       participant_id: 'participant-a',
       mode: 'private_only',
+      mode_policy_version: '2026-07-13.adaptation-v1',
+      mode_updated_at: '2026-07-13T19:00:00.000Z',
+      adaptation_decision: 'declined',
+      adaptation_policy_version: '2026-07-13.adaptation-v1',
+      adaptation_decided_at: '2026-07-13T19:01:00.000Z',
+      room_adaptation: {
+        policy_version: '2026-07-13.adaptation-v1',
+        enabled: false,
+        active_participant_count: 1,
+        accepted_participant_count: 0,
+        owner_opt_in_count: 0,
+      },
     });
     mockUpdatePrivateContextPreference.mockResolvedValue({
       participant_id: 'participant-a',
       mode: 'shared_process_controls',
+      mode_policy_version: '2026-07-13.adaptation-v1',
+      mode_updated_at: '2026-07-13T19:05:00.000Z',
+      adaptation_decision: 'not_set',
+      adaptation_policy_version: null,
+      adaptation_decided_at: null,
+      room_adaptation: {
+        policy_version: '2026-07-13.adaptation-v1',
+        enabled: false,
+        active_participant_count: 1,
+        accepted_participant_count: 0,
+        owner_opt_in_count: 1,
+      },
+    });
+    mockUpdateSharedAdaptationConsent.mockResolvedValue({
+      participant_id: 'participant-a',
+      mode: 'shared_process_controls',
+      mode_policy_version: '2026-07-13.adaptation-v1',
+      mode_updated_at: '2026-07-13T19:05:00.000Z',
+      adaptation_decision: 'accepted',
+      adaptation_policy_version: '2026-07-13.adaptation-v1',
+      adaptation_decided_at: '2026-07-13T19:06:00.000Z',
+      room_adaptation: {
+        policy_version: '2026-07-13.adaptation-v1',
+        enabled: false,
+        active_participant_count: 1,
+        accepted_participant_count: 1,
+        owner_opt_in_count: 1,
+      },
     });
     mockListContextCapsules.mockResolvedValue([]);
+    mockListContextUsageReceipts.mockResolvedValue([]);
     mockCreateContextCapsule.mockResolvedValue({
       id: 'capsule-1',
       content_hash: 'c'.repeat(64),
       policy_version: 'chat-context-v1',
     });
     mockGrantContextAuthorization.mockResolvedValue({ id: 'grant-1' });
+    mockReviseContextCapsule.mockResolvedValue({ id: 'capsule-2', status: 'draft' });
+    mockDiscardContextCapsule.mockResolvedValue({ id: 'capsule-1', status: 'discarded' });
     mockListAnalysisRequests.mockResolvedValue([]);
     mockCreateAnalysisRequest.mockResolvedValue({
       id: 'analysis-1',
@@ -737,10 +794,10 @@ describe('M3 Chat screens', () => {
     const screen = renderWithQuery(React.createElement(ChatRoomScreen));
 
     fireEvent.press(await screen.findByTestId('chat.room.lane.private'));
-    expect(await screen.findByText('管理已分享的摘要')).toBeTruthy();
+    expect(await screen.findByText('管理可分享版本')).toBeTruthy();
     expect(screen.getByText(/已開始處理或已向雙方顯示的內容不能倒帶收回/)).toBeTruthy();
     const formalRevoke = screen.getByTestId(
-      'chat.room.capsule.revoke.formal_analysis_evidence.grant-formal',
+      'chat.room.capsule.revoke.formal_analysis_evidence.capsule-1',
     );
     expect(formalRevoke.props.accessibilityState).toEqual({
       busy: false,
@@ -748,6 +805,7 @@ describe('M3 Chat screens', () => {
       selected: false,
     });
     expect(formalRevoke.props.accessibilityHint).toMatch(/停止這個用途之後再使用/);
+    const receiptCallsBeforeRevoke = mockListContextUsageReceipts.mock.calls.length;
     fireEvent.press(formalRevoke);
 
     await waitFor(() => expect(mockRevokeContextAuthorization).toHaveBeenCalledWith(
@@ -755,6 +813,191 @@ describe('M3 Chat screens', () => {
       'grant-formal',
       { reason_code: 'user_revoked' },
     ));
+    await waitFor(() => {
+      expect(mockListContextUsageReceipts.mock.calls.length).toBeGreaterThan(
+        receiptCallsBeforeRevoke,
+      );
+    });
+  });
+
+  it('keeps draft sharing and formal-analysis permissions as separate explicit actions', async () => {
+    mockSearchParams = { roomId: 'room-1' };
+    mockGetSessionId.mockResolvedValue('guest-existing');
+    mockGetRoom.mockResolvedValue({
+      id: 'room-1',
+      status: 'solo_active',
+      history_visibility_mode: 'share_from_join_time',
+      participants: [{ id: 'participant-a', role_in_room: 'roleA', is_active: true }],
+    });
+    const draft = buildManagedCapsule();
+    draft.status = 'draft';
+    draft.authorizations = [];
+    mockListContextCapsules.mockResolvedValue([draft]);
+    const screen = renderWithQuery(React.createElement(ChatRoomScreen));
+
+    fireEvent.press(await screen.findByTestId('chat.room.lane.private'));
+    expect(await screen.findByText('尚未分享的草稿')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('chat.room.capsule.grant.shared_mediation.capsule-1'));
+
+    await waitFor(() => expect(mockGrantContextAuthorization).toHaveBeenCalledWith(
+      'room-1',
+      'capsule-1',
+      {
+        audience: 'room_participants',
+        capsule_content_hash: 'c'.repeat(64),
+        policy_version: 'chat-context-v1',
+        purpose: 'shared_mediation',
+        target_id: 'room-1',
+        target_type: 'chat_room',
+      },
+    ));
+
+    fireEvent.press(screen.getByTestId(
+      'chat.room.capsule.grant.formal_analysis_evidence.capsule-1',
+    ));
+    await waitFor(() => expect(mockGrantContextAuthorization).toHaveBeenLastCalledWith(
+      'room-1',
+      'capsule-1',
+      expect.objectContaining({
+        audience: 'analysis_participants',
+        purpose: 'formal_analysis_evidence',
+      }),
+    ));
+  });
+
+  it('re-authorizes a missing purpose without recreating the capsule', async () => {
+    mockSearchParams = { roomId: 'room-1' };
+    mockGetSessionId.mockResolvedValue('guest-existing');
+    mockGetRoom.mockResolvedValue({
+      id: 'room-1',
+      status: 'solo_active',
+      history_visibility_mode: 'share_from_join_time',
+      participants: [{ id: 'participant-a', role_in_room: 'roleA', is_active: true }],
+    });
+    const capsule = buildManagedCapsule();
+    capsule.authorizations[0].revoked_at = '2026-07-13T00:00:00.000Z';
+    mockListContextCapsules.mockResolvedValue([capsule]);
+    const screen = renderWithQuery(React.createElement(ChatRoomScreen));
+
+    fireEvent.press(await screen.findByTestId('chat.room.lane.private'));
+    expect(await screen.findByText('重新批准共同對話用途')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('chat.room.capsule.grant.shared_mediation.capsule-1'));
+
+    await waitFor(() => expect(mockGrantContextAuthorization).toHaveBeenCalledTimes(1));
+    expect(mockCreateContextCapsule).not.toHaveBeenCalled();
+  });
+
+  it('revises only from the exact fixed sources and returns the new version to draft', async () => {
+    mockSearchParams = { roomId: 'room-1' };
+    mockGetSessionId.mockResolvedValue('guest-existing');
+    mockGetRoom.mockResolvedValue({
+      id: 'room-1',
+      status: 'solo_active',
+      history_visibility_mode: 'share_from_join_time',
+      participants: [{ id: 'participant-a', role_in_room: 'roleA', is_active: true }],
+    });
+    mockListContextCapsules.mockResolvedValue([buildManagedCapsule()]);
+    const screen = renderWithQuery(React.createElement(ChatRoomScreen));
+
+    fireEvent.press(await screen.findByTestId('chat.room.lane.private'));
+    fireEvent.press(await screen.findByTestId('chat.room.capsule.revise.capsule-1'));
+    expect(screen.getByText(/不會自動加入新內容/)).toBeTruthy();
+    fireEvent.changeText(
+      screen.getByTestId('chat.room.capsule.revision-input.capsule-1'),
+      '我願意分享的新版本',
+    );
+    fireEvent.press(screen.getByTestId('chat.room.capsule.revise-save.capsule-1'));
+
+    await waitFor(() => expect(mockReviseContextCapsule).toHaveBeenCalledWith(
+      'room-1',
+      'capsule-1',
+      {
+        expires_at: '2099-01-01T00:00:00.000Z',
+        source_channel_id: 'channel-private',
+        source_message_ids: ['private-source-1', 'private-source-2'],
+        summary: '我願意分享的新版本',
+      },
+    ));
+    expect(mockGrantContextAuthorization).not.toHaveBeenCalled();
+  });
+
+  it('requires confirmation before discarding a current capsule', async () => {
+    mockSearchParams = { roomId: 'room-1' };
+    mockGetSessionId.mockResolvedValue('guest-existing');
+    mockGetRoom.mockResolvedValue({
+      id: 'room-1',
+      status: 'solo_active',
+      history_visibility_mode: 'share_from_join_time',
+      participants: [{ id: 'participant-a', role_in_room: 'roleA', is_active: true }],
+    });
+    mockListContextCapsules.mockResolvedValue([buildManagedCapsule()]);
+    const screen = renderWithQuery(React.createElement(ChatRoomScreen));
+
+    fireEvent.press(await screen.findByTestId('chat.room.lane.private'));
+    fireEvent.press(await screen.findByTestId('chat.room.capsule.discard.capsule-1'));
+    expect(mockDiscardContextCapsule).not.toHaveBeenCalled();
+    expect(screen.getByText('確定捨棄這個版本？')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('chat.room.capsule.discard-confirm.capsule-1'));
+
+    await waitFor(() => expect(mockDiscardContextCapsule).toHaveBeenCalledWith(
+      'room-1',
+      'capsule-1',
+    ));
+  });
+
+  it('offers no lifecycle actions for revoked, discarded, or expired capsules', async () => {
+    mockSearchParams = { roomId: 'room-1' };
+    mockGetSessionId.mockResolvedValue('guest-existing');
+    const revoked = { ...buildManagedCapsule(), id: 'capsule-revoked', status: 'revoked', revoked_at: '2026-07-13T00:00:00.000Z' };
+    const discarded = { ...buildManagedCapsule(), id: 'capsule-discarded', status: 'discarded' };
+    const expired = { ...buildManagedCapsule(), id: 'capsule-expired', expires_at: '2020-01-01T00:00:00.000Z' };
+    mockListContextCapsules.mockResolvedValue([revoked, discarded, expired]);
+    const screen = renderWithQuery(React.createElement(ChatRoomScreen));
+
+    fireEvent.press(await screen.findByTestId('chat.room.lane.private'));
+    await screen.findByText('這次使用了甚麼');
+    expect(screen.queryByText('管理可分享版本')).toBeNull();
+    expect(screen.queryByTestId('chat.room.capsule.discard.capsule-revoked')).toBeNull();
+    expect(screen.queryByTestId('chat.room.capsule.discard.capsule-discarded')).toBeNull();
+    expect(screen.queryByTestId('chat.room.capsule.discard.capsule-expired')).toBeNull();
+  });
+
+  it('renders identifier-free low-sensitivity context usage receipts', async () => {
+    mockSearchParams = { roomId: 'room-1' };
+    mockGetSessionId.mockResolvedValue('guest-existing');
+    mockListContextUsageReceipts.mockResolvedValue([{
+      scope: 'actor',
+      category: 'shared_mediation_use',
+      purpose: 'shared_mediation',
+      decision: 'allowed',
+      source_type_counts: {
+        chat_message: 0,
+        context_capsule: 2,
+        personal_memory: 0,
+        joint_memory: 0,
+        formal_evidence: 0,
+      },
+      authorization_count: 1,
+      policy_version: 'secret-policy-version',
+      prompt_version: 'secret-prompt-version',
+      created_at: '2026-07-13T12:30:00.000Z',
+      id: 'secret-audit-id',
+      reason_code: 'secret-trauma-reason',
+      owner: 'secret-owner',
+      topic: 'secret-topic',
+    }]);
+    const screen = renderWithQuery(React.createElement(ChatRoomScreen));
+
+    fireEvent.press(await screen.findByTestId('chat.room.lane.private'));
+    expect(await screen.findByText('這次使用了甚麼')).toBeTruthy();
+    expect(await screen.findByText('共同對話使用')).toBeTruthy();
+    expect(screen.getByText('可分享版本 2；授權 1 項')).toBeTruthy();
+    expect(screen.queryByText(/secret-audit-id/)).toBeNull();
+    expect(screen.queryByText(/secret-trauma-reason/)).toBeNull();
+    expect(screen.queryByText(/secret-owner/)).toBeNull();
+    expect(screen.queryByText(/secret-topic/)).toBeNull();
+    expect(screen.queryByText(/secret-policy-version/)).toBeNull();
+    expect(screen.queryByText(/secret-prompt-version/)).toBeNull();
   });
 
   it('keeps a created request visible as approval-pending when requester self-approval fails', async () => {
@@ -794,7 +1037,179 @@ describe('M3 Chat screens', () => {
     expect(screen.getByText('原有設定沒有改變。請檢查連線後再試一次。')).toBeTruthy();
   });
 
-  it('freezes capsule source ids when the composer opens', async () => {
+  it('requires a versioned trust choice before opening shared conversation', async () => {
+    mockSearchParams = { roomId: 'room-1' };
+    mockGetSessionId.mockResolvedValue('guest-existing');
+    mockGetRoom.mockResolvedValue({
+      id: 'room-1',
+      status: 'group_active',
+      history_visibility_mode: 'share_from_join_time',
+      participants: [
+        { id: 'participant-a', role_in_room: 'roleA', is_active: true },
+        { id: 'p-b', role_in_room: 'roleB', is_active: true },
+      ],
+    });
+    mockGetPrivateContextPreference.mockResolvedValue({
+      participant_id: 'participant-a',
+      mode: 'private_only',
+      mode_policy_version: '2026-07-13.adaptation-v1',
+      mode_updated_at: '2026-07-13T19:00:00.000Z',
+      adaptation_decision: 'not_set',
+      adaptation_policy_version: null,
+      adaptation_decided_at: null,
+      room_adaptation: {
+        policy_version: '2026-07-13.adaptation-v1',
+        enabled: false,
+        active_participant_count: 2,
+        accepted_participant_count: 0,
+        owner_opt_in_count: 0,
+      },
+    });
+
+    const screen = renderWithQuery(React.createElement(ChatRoomScreen));
+
+    expect(await screen.findByText('進入共同對話前，先確認使用邊界')).toBeTruthy();
+    expect(screen.getByTestId('chat.room.lane.shared').props.accessibilityState.disabled).toBe(true);
+    fireEvent.press(screen.getByTestId('chat.room.trust.declined'));
+
+    await waitFor(() => expect(mockUpdateSharedAdaptationConsent).toHaveBeenCalledWith(
+      'room-1',
+      {
+        decision: 'declined',
+        policy_version: '2026-07-13.adaptation-v1',
+      },
+    ));
+  });
+
+  it('fails closed when context governance cannot load while private support and retry remain available', async () => {
+    mockSearchParams = { roomId: 'room-1' };
+    mockGetSessionId.mockResolvedValue('guest-existing');
+    mockGetRoom.mockResolvedValue({
+      id: 'room-1',
+      status: 'group_active',
+      history_visibility_mode: 'share_from_join_time',
+      participants: [
+        { id: 'participant-a', role_in_room: 'roleA', is_active: true },
+        { id: 'p-b', role_in_room: 'roleB', is_active: true },
+      ],
+    });
+    mockGetPrivateContextPreference.mockRejectedValueOnce(new Error('network'));
+    const draft = buildManagedCapsule();
+    draft.status = 'draft';
+    draft.authorizations = [];
+    mockListContextCapsules.mockResolvedValue([draft]);
+
+    const screen = renderWithQuery(React.createElement(ChatRoomScreen));
+
+    expect(await screen.findByText('未能載入私人內容設定')).toBeTruthy();
+    fireEvent.press(await screen.findByTestId('chat.room.analysis.message.m1'));
+    expect(screen.getByTestId('chat.room.lane.shared').props.accessibilityState.disabled).toBe(true);
+    expect(screen.getByTestId('chat.room.analysis.review-open').props.accessibilityState.disabled).toBe(true);
+    expect((await screen.findByTestId(
+      'chat.room.capsule.grant.formal_analysis_evidence.capsule-1',
+    )).props.accessibilityState.disabled).toBe(true);
+    expect(screen.getByTestId('chat.room.compose.input').props.editable).toBe(true);
+
+    mockGetPrivateContextPreference.mockResolvedValueOnce({
+      participant_id: 'participant-a',
+      mode: 'private_only',
+      mode_policy_version: '2026-07-13.adaptation-v1',
+      mode_updated_at: '2026-07-13T19:00:00.000Z',
+      adaptation_decision: 'declined',
+      adaptation_policy_version: '2026-07-13.adaptation-v1',
+      adaptation_decided_at: '2026-07-13T19:01:00.000Z',
+      room_adaptation: {
+        policy_version: '2026-07-13.adaptation-v1',
+        enabled: false,
+        active_participant_count: 2,
+        accepted_participant_count: 0,
+        owner_opt_in_count: 0,
+      },
+    });
+    fireEvent.press(screen.getByTestId('chat.room.context-preference.retry'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('chat.room.lane.shared').props.accessibilityState.disabled).toBe(false);
+    });
+    expect(screen.getByTestId('chat.room.analysis.review-open').props.accessibilityState.disabled).toBe(false);
+    fireEvent.press(screen.getByTestId('chat.room.lane.private'));
+    expect(screen.getByTestId(
+      'chat.room.capsule.grant.formal_analysis_evidence.capsule-1',
+    ).props.accessibilityState.disabled).toBe(false);
+  });
+
+  it('keeps private support available while a sanitized safety pause blocks shared and formal actions', async () => {
+    mockSearchParams = { roomId: 'room-1' };
+    mockGetSessionId.mockResolvedValue('guest-existing');
+    mockGetRoom.mockResolvedValue({
+      id: 'room-1',
+      status: 'group_active',
+      history_visibility_mode: 'share_from_join_time',
+      participants: [
+        { id: 'participant-a', role_in_room: 'roleA', is_active: true },
+        { id: 'p-b', role_in_room: 'roleB', is_active: true },
+      ],
+    });
+    mockGetRoomSafetyStatus.mockResolvedValue({ status: 'paused' });
+    const capsule = buildManagedCapsule();
+    capsule.authorizations = capsule.authorizations.filter(
+      (authorization) => authorization.purpose === 'shared_mediation',
+    );
+    mockListContextCapsules.mockResolvedValue([capsule]);
+    const screen = renderWithQuery(React.createElement(ChatRoomScreen));
+
+    await waitFor(() => {
+      expect(screen.getAllByText('共同空間暫時停用').length).toBeGreaterThanOrEqual(2);
+    });
+    expect(screen.getByTestId('chat.room.compose.input').props.editable).toBe(false);
+    expect(screen.getByTestId('chat.room.compose.input').props.accessibilityState.disabled).toBe(true);
+    expect(screen.getByTestId('chat.room.send-message').props.accessibilityState.disabled).toBe(true);
+    expect(screen.getByTestId('chat.room.analysis.review-open').props.accessibilityState.disabled).toBe(true);
+
+    fireEvent.press(screen.getByTestId('chat.room.lane.private'));
+    expect(screen.getByTestId('chat.room.compose.input').props.editable).toBe(true);
+    expect(screen.getByTestId('chat.room.compose.input').props.accessibilityState.disabled).toBe(false);
+    expect(screen.getByTestId(
+      'chat.room.capsule.grant.formal_analysis_evidence.capsule-1',
+    ).props.accessibilityState.disabled).toBe(true);
+    fireEvent.changeText(screen.getByTestId('chat.room.compose.input'), '只留在我的私人空間');
+    fireEvent.press(screen.getByTestId('chat.room.send-message'));
+
+    await waitFor(() => expect(mockSendChannelMessage).toHaveBeenCalledWith(
+      'channel-private',
+      { content: '只留在我的私人空間' },
+    ));
+    expect(mockCreateAnalysisRequest).not.toHaveBeenCalled();
+  });
+
+  it('blocks formal handoff during a safety pause but preserves approval revocation', async () => {
+    mockSearchParams = { roomId: 'room-1' };
+    mockGetSessionId.mockResolvedValue('guest-existing');
+    mockGetRoom.mockResolvedValue({
+      id: 'room-1',
+      status: 'group_active',
+      history_visibility_mode: 'share_from_join_time',
+      participants: [
+        { id: 'participant-a', role_in_room: 'roleA', is_active: true },
+        { id: 'p-b', role_in_room: 'roleB', is_active: true },
+      ],
+    });
+    mockGetRoomSafetyStatus.mockResolvedValue({ status: 'paused' });
+    mockListAnalysisRequests.mockResolvedValue([buildAnalysisRequest('approved')]);
+    const screen = renderWithQuery(React.createElement(ChatRoomScreen));
+
+    expect((await screen.findByTestId('chat.room.analysis.submit')).props.accessibilityState.disabled)
+      .toBe(true);
+    expect(screen.getByTestId('chat.room.analysis.revoke-approval').props.accessibilityState.disabled)
+      .toBe(false);
+    fireEvent.press(screen.getByTestId('chat.room.analysis.revoke-approval'));
+
+    await waitFor(() => expect(mockRevokeAnalysisApproval).toHaveBeenCalled());
+    expect(mockSubmitAnalysisRequest).not.toHaveBeenCalled();
+    expect(mockRequestJudgment).not.toHaveBeenCalled();
+  });
+
+  it('freezes capsule source ids and saves only a draft when the composer opens', async () => {
     const queryClient = new QueryClient({
       defaultOptions: {
         mutations: { gcTime: Infinity, retry: false },
@@ -823,13 +1238,14 @@ describe('M3 Chat screens', () => {
 
     fireEvent.press(screen.getByTestId('chat.room.capsule.open'));
     screen.rerender(renderComposer(laterMessages));
-    fireEvent.press(screen.getByTestId('chat.room.capsule.approve'));
+    fireEvent.press(screen.getByTestId('chat.room.capsule.save-draft'));
 
     await waitFor(() => expect(mockCreateContextCapsule).toHaveBeenCalledWith('room-1', {
       source_channel_id: 'channel-private',
       source_message_ids: ['private-1', 'private-2'],
       summary: 'second',
     }));
+    expect(mockGrantContextAuthorization).not.toHaveBeenCalled();
   });
 
   it('sends private messages to the private channel and scopes private AI to chat_channel', async () => {
@@ -871,7 +1287,10 @@ describe('M3 Chat screens', () => {
     fireEvent.press(screen.getByTestId('chat.room.context-preference.process-controls'));
     await waitFor(() => expect(mockUpdatePrivateContextPreference).toHaveBeenCalledWith(
       'room-private',
-      { mode: 'shared_process_controls' },
+      {
+        mode: 'shared_process_controls',
+        policy_version: '2026-07-13.adaptation-v1',
+      },
     ));
     expect(mockGetPrivateContextPreference).toHaveBeenCalledWith('room-private');
   });
@@ -926,6 +1345,69 @@ describe('M3 Chat screens', () => {
 
     expect(await screen.findByText('沒有時間也要安全顯示')).toBeTruthy();
     expect(screen.getByText('訊息時間：時間待同步')).toBeTruthy();
+  });
+
+  it('refreshes adaptation consent after room membership events', async () => {
+    let roomStreamCallbacks;
+    let resolveContextPreference;
+    mockSearchParams = { roomId: 'room-1' };
+    mockGetSessionId.mockResolvedValue('guest-existing');
+    mockListMessages.mockResolvedValue({ messages: [], nextCursor: null });
+    mockConnectChatRoomStream.mockImplementation((_roomId, callbacks) => {
+      roomStreamCallbacks = callbacks;
+      return new Promise(() => undefined);
+    });
+    const screen = renderWithQuery(React.createElement(ChatRoomScreen));
+
+    await waitFor(() => {
+      expect(mockGetPrivateContextPreference).toHaveBeenCalledTimes(1);
+      expect(mockListContextUsageReceipts).toHaveBeenCalledTimes(1);
+      expect(mockGetRoomSafetyStatus).toHaveBeenCalledTimes(1);
+      expect(roomStreamCallbacks).toBeTruthy();
+    });
+    const refreshedContextPreference = {
+      participant_id: 'participant-a',
+      mode: 'private_only',
+      mode_policy_version: '2026-07-13.adaptation-v1',
+      mode_updated_at: '2026-07-13T19:00:00.000Z',
+      adaptation_decision: 'not_set',
+      adaptation_policy_version: null,
+      adaptation_decided_at: null,
+      room_adaptation: {
+        policy_version: '2026-07-13.adaptation-v1',
+        enabled: false,
+        active_participant_count: 2,
+        accepted_participant_count: 0,
+        owner_opt_in_count: 0,
+      },
+    };
+    mockGetRoom.mockResolvedValue({
+      id: 'room-1',
+      status: 'group_active',
+      history_visibility_mode: 'share_from_join_time',
+      participants: [
+        { id: 'participant-a', role_in_room: 'roleA', is_active: true },
+        { id: 'p-b', role_in_room: 'roleB', is_active: true },
+      ],
+    });
+    mockGetPrivateContextPreference.mockImplementationOnce(() => new Promise((resolve) => {
+      resolveContextPreference = resolve;
+    }));
+    mockGetRoomSafetyStatus.mockResolvedValue({ status: 'paused' });
+
+    act(() => {
+      roomStreamCallbacks.onEvent({ type: 'participant_joined' });
+    });
+
+    await waitFor(() => expect(mockGetPrivateContextPreference).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(mockListContextUsageReceipts).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(mockGetRoomSafetyStatus).toHaveBeenCalledTimes(2));
+    await waitFor(() => {
+      expect(screen.getByTestId('chat.room.lane.shared').props.accessibilityState.disabled).toBe(true);
+    });
+    await act(async () => resolveContextPreference(refreshedContextPreference));
+    expect(await screen.findByText('進入共同對話前，先確認使用邊界')).toBeTruthy();
+    expect(await screen.findByText('共同空間暫時停用')).toBeTruthy();
   });
 
   it('shows chat AI stream draft and refreshes room data when persisted', async () => {

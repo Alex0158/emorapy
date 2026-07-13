@@ -1,6 +1,6 @@
-import type { ChatChannel, ChatHistoryVisibilityMode, ChatInvite, ChatJudgmentResult, ChatJudgmentStatus, ChatMessage, ChatRoom, ChatVisibilityScope } from "@emorapy/contracts/chat";
+import type { ChatChannel, ChatHistoryVisibilityMode, ChatInvite, ChatJudgmentResult, ChatJudgmentStatus, ChatMessage, ChatRoom, ChatRoomSafetyStatus, ChatVisibilityScope } from "@emorapy/contracts/chat";
 import type { M1HttpClient } from "./m1.js";
-export type { ChatAnalysisApprovalDecision, ChatAnalysisParticipantApproval, ChatAnalysisRequest, ChatAnalysisRequestListItem, ChatAnalysisRequestStatus, ChatAnalysisSelectionSnapshot, ChatAnalysisSourcePreviews, ChatChannel, ChatChannelKind, ChatHistoryVisibilityMode, ChatInvite, ChatJudgmentResult, ChatJudgmentStatus, ChatMessage, ChatRoom, ChatStreamEvent, ChatVisibilityScope, PrivateContextPreference, PrivateContextUseMode, ContextAudience, ContextAuthorization, ContextAuthorizationRef, ContextCapsule, ContextCapsuleListItem, ContextCapsuleStatus, ContextPurpose, ContextSensitivityClass, ContextSourceKind, ContextSourceRef, ContextTargetType, ContextUseAudit, ContextUseDecision, CreateChatAnalysisRequestInput, CreateContextCapsuleInput, DecideChatAnalysisRequestInput, GrantContextAuthorizationInput, RevokeContextAuthorizationInput, UpdatePrivateContextPreferenceInput, } from "@emorapy/contracts/chat";
+export type { ChatAnalysisApprovalDecision, ChatAnalysisParticipantApproval, ChatAnalysisRequest, ChatAnalysisRequestListItem, ChatAnalysisRequestStatus, ChatAnalysisSelectionSnapshot, ChatAnalysisSourcePreviews, ChatChannel, ChatChannelKind, ChatHistoryVisibilityMode, ChatInvite, ChatJudgmentResult, ChatJudgmentStatus, ChatMessage, ChatRoom, ChatRoomSafetyState, ChatRoomSafetyStatus, ChatStreamEvent, ChatVisibilityScope, PrivateContextPreference, PrivateContextUseMode, ContextAudience, ContextAuthorization, ContextAuthorizationRef, ContextCapsule, ContextCapsuleListItem, ContextCapsuleStatus, ContextPurpose, ContextSensitivityClass, ContextSourceKind, ContextSourceRef, ContextTargetType, ContextUseAudit, ContextUseDecision, CreateChatAnalysisRequestInput, CreateContextCapsuleInput, DecideChatAnalysisRequestInput, GrantContextAuthorizationInput, RevokeContextAuthorizationInput, UpdatePrivateContextPreferenceInput, } from "@emorapy/contracts/chat";
 export declare const CHAT_JUDGMENT_REQUEST_TIMEOUT_MS = 180000;
 export interface ListChatMessagesResponse {
     messages: ChatMessage[];
@@ -40,6 +40,7 @@ export declare function normalizeListChatMessagesResponse(result: ListChatMessag
 export declare function createChatApi(http: M1HttpClient): {
     createRoom(historyVisibilityMode?: ChatHistoryVisibilityMode): Promise<ChatRoom>;
     getRoom(roomId: string): Promise<ChatRoom>;
+    getRoomSafetyStatus(roomId: string): Promise<ChatRoomSafetyStatus>;
     createInvite(roomId: string, input?: CreateChatInviteInput): Promise<ChatInvite>;
     acceptInvite(inviteCode: string): Promise<ChatRoom>;
     declineInvite(inviteCode: string): Promise<ChatInvite>;
@@ -54,9 +55,12 @@ export declare function createChatApi(http: M1HttpClient): {
     kickParticipantB(roomId: string): Promise<ChatRoom>;
     getPrivateContextPreference(roomId: string): Promise<import("@emorapy/contracts/chat").PrivateContextPreference>;
     updatePrivateContextPreference(roomId: string, input: import("@emorapy/contracts/chat").UpdatePrivateContextPreferenceInput): Promise<import("@emorapy/contracts/chat").PrivateContextPreference>;
+    updateSharedAdaptationConsent(roomId: string, input: import("@emorapy/contracts/chat").UpdateSharedAdaptationConsentInput): Promise<import("@emorapy/contracts/chat").PrivateContextPreference>;
     createContextCapsule(roomId: string, input: import("@emorapy/contracts/chat").CreateContextCapsuleInput): Promise<import("@emorapy/contracts/chat").ContextCapsule>;
     listContextCapsules(roomId: string): Promise<import("@emorapy/contracts/chat").ContextCapsuleListItem[]>;
     reviseContextCapsule(roomId: string, capsuleId: string, input: import("@emorapy/contracts/chat").CreateContextCapsuleInput): Promise<import("@emorapy/contracts/chat").ContextCapsule>;
+    discardContextCapsule(roomId: string, capsuleId: string): Promise<import("@emorapy/contracts/chat").ContextCapsule>;
+    listContextUsageReceipts(roomId: string): Promise<import("@emorapy/contracts/chat").ContextUsageReceipt[]>;
     grantContextAuthorization(roomId: string, capsuleId: string, input: import("@emorapy/contracts/chat").GrantContextAuthorizationInput): Promise<import("@emorapy/contracts/chat").ContextAuthorization>;
     revokeContextAuthorization(roomId: string, authorizationId: string, input: import("@emorapy/contracts/chat").RevokeContextAuthorizationInput): Promise<import("@emorapy/contracts/chat").ContextAuthorization>;
     createAnalysisRequest(roomId: string, input: import("@emorapy/contracts/chat").CreateChatAnalysisRequestInput): Promise<import("@emorapy/contracts/chat").ChatAnalysisRequest>;
@@ -72,6 +76,7 @@ export declare function createM3ApiClient(http: M1HttpClient): {
     chat: {
         createRoom(historyVisibilityMode?: ChatHistoryVisibilityMode): Promise<ChatRoom>;
         getRoom(roomId: string): Promise<ChatRoom>;
+        getRoomSafetyStatus(roomId: string): Promise<ChatRoomSafetyStatus>;
         createInvite(roomId: string, input?: CreateChatInviteInput): Promise<ChatInvite>;
         acceptInvite(inviteCode: string): Promise<ChatRoom>;
         declineInvite(inviteCode: string): Promise<ChatInvite>;
@@ -86,9 +91,12 @@ export declare function createM3ApiClient(http: M1HttpClient): {
         kickParticipantB(roomId: string): Promise<ChatRoom>;
         getPrivateContextPreference(roomId: string): Promise<import("@emorapy/contracts/chat").PrivateContextPreference>;
         updatePrivateContextPreference(roomId: string, input: import("@emorapy/contracts/chat").UpdatePrivateContextPreferenceInput): Promise<import("@emorapy/contracts/chat").PrivateContextPreference>;
+        updateSharedAdaptationConsent(roomId: string, input: import("@emorapy/contracts/chat").UpdateSharedAdaptationConsentInput): Promise<import("@emorapy/contracts/chat").PrivateContextPreference>;
         createContextCapsule(roomId: string, input: import("@emorapy/contracts/chat").CreateContextCapsuleInput): Promise<import("@emorapy/contracts/chat").ContextCapsule>;
         listContextCapsules(roomId: string): Promise<import("@emorapy/contracts/chat").ContextCapsuleListItem[]>;
         reviseContextCapsule(roomId: string, capsuleId: string, input: import("@emorapy/contracts/chat").CreateContextCapsuleInput): Promise<import("@emorapy/contracts/chat").ContextCapsule>;
+        discardContextCapsule(roomId: string, capsuleId: string): Promise<import("@emorapy/contracts/chat").ContextCapsule>;
+        listContextUsageReceipts(roomId: string): Promise<import("@emorapy/contracts/chat").ContextUsageReceipt[]>;
         grantContextAuthorization(roomId: string, capsuleId: string, input: import("@emorapy/contracts/chat").GrantContextAuthorizationInput): Promise<import("@emorapy/contracts/chat").ContextAuthorization>;
         revokeContextAuthorization(roomId: string, authorizationId: string, input: import("@emorapy/contracts/chat").RevokeContextAuthorizationInput): Promise<import("@emorapy/contracts/chat").ContextAuthorization>;
         createAnalysisRequest(roomId: string, input: import("@emorapy/contracts/chat").CreateChatAnalysisRequestInput): Promise<import("@emorapy/contracts/chat").ChatAnalysisRequest>;

@@ -12,7 +12,6 @@ import {
 import type { ChatMessage } from '@/types/chat';
 import {
   createChatContextCapsule,
-  grantChatContextAuthorization,
 } from '@/services/api/chat';
 import { t } from '@/utils/i18n';
 
@@ -37,7 +36,6 @@ export default function ChatCapsuleComposer({
   const [open, setOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [summary, setSummary] = useState('');
-  const [includeFormalAnalysis, setIncludeFormalAnalysis] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const openComposer = () => {
@@ -49,7 +47,6 @@ export default function ChatCapsuleComposer({
       ?? '';
     setSelectedIds(suggestedSources.map(message => message.id));
     setSummary(suggestedSummary.slice(0, 1000));
-    setIncludeFormalAnalysis(false);
     setOpen(true);
   };
 
@@ -58,37 +55,12 @@ export default function ChatCapsuleComposer({
     if (!normalizedSummary || selectedIds.length === 0 || saving) return;
     setSaving(true);
     try {
-      const capsule = await createChatContextCapsule(roomId, {
+      await createChatContextCapsule(roomId, {
         source_channel_id: privateChannelId,
         source_message_ids: selectedIds,
         summary: normalizedSummary,
       });
-      await grantChatContextAuthorization(roomId, capsule.id, {
-        capsule_content_hash: capsule.content_hash,
-        purpose: 'shared_mediation',
-        audience: 'room_participants',
-        target_type: 'chat_room',
-        target_id: roomId,
-        policy_version: capsule.policy_version,
-      });
-      if (includeFormalAnalysis) {
-        try {
-          await grantChatContextAuthorization(roomId, capsule.id, {
-            capsule_content_hash: capsule.content_hash,
-            purpose: 'formal_analysis_evidence',
-            audience: 'analysis_participants',
-            target_type: 'chat_room',
-            target_id: roomId,
-            policy_version: capsule.policy_version,
-          });
-        } catch {
-          toast.warning(t('chat.capsule.formalGrantFailed'));
-          setOpen(false);
-          onSaved?.();
-          return;
-        }
-      }
-      toast.success(t('chat.capsule.saved'));
+      toast.success(t('chat.capsule.draftSaved'));
       setOpen(false);
       onSaved?.();
     } catch {
@@ -149,20 +121,6 @@ export default function ChatCapsuleComposer({
               className="min-h-28 w-full resize-y rounded-lg border border-input bg-background px-3 py-2 text-sm font-normal leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           </label>
-          <label className="flex items-start gap-2 rounded-lg border border-border/70 p-3 text-sm">
-            <input
-              type="checkbox"
-              className="mt-1 accent-primary"
-              checked={includeFormalAnalysis}
-              onChange={(event) => setIncludeFormalAnalysis(event.target.checked)}
-            />
-            <span>
-              <span className="block font-medium text-foreground">{t('chat.capsule.formalOption')}</span>
-              <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">
-                {t('chat.capsule.formalOptionDescription')}
-              </span>
-            </span>
-          </label>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>
               {t('common.cancel')}
@@ -172,7 +130,7 @@ export default function ChatCapsuleComposer({
               disabled={saving || selectedIds.length === 0 || summary.trim().length === 0}
             >
               {saving && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
-              {t('chat.capsule.approve')}
+              {t('chat.capsule.saveDraft')}
             </Button>
           </DialogFooter>
         </DialogContent>

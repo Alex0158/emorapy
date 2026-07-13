@@ -305,6 +305,11 @@ const contracts = [
           'm3Api.chat.listChannels',
           'm3Api.chat.sendChannelMessage',
           'm3Api.chat.getJudgmentStatus',
+          'chatQueryKeys.contextPreference',
+          'chatQueryKeys.contextUsageReceipts',
+          'chatQueryKeys.safetyStatus',
+          'sharedSafety.blocked',
+          'sharedGovernanceBlocked',
         ],
       },
       {
@@ -317,6 +322,7 @@ const contracts = [
           'testID="chat.room.analysis.revoke-approval"',
           'testID="chat.room.analysis.submit"',
           "t('chatRoom.analysis.roleAStarts')",
+          'formalActionsBlocked',
         ],
       },
       {
@@ -333,13 +339,69 @@ const contracts = [
       },
       {
         path: 'mobile/src/features/m3/ChatSharedContextManager.tsx',
-        label: 'Chat purpose-scoped context authorization manager',
+        label: 'Chat Context Capsule lifecycle manager UI',
         needles: [
-          'm3Api.chat.revokeContextAuthorization',
-          "reason_code: 'user_revoked'",
+          'useChatContextCapsuleLifecycle',
+          'findActiveCapsuleAuthorization',
+          'getExactCapsuleSourceMessageIds',
           'shared_mediation',
           'formal_analysis_evidence',
-          'chat.room.capsule.revoke.',
+          "kind: 'revise'",
+          "kind: 'discard'",
+          'chat.room.capsule.discard-confirm.',
+          'formalActionsBlocked',
+        ],
+      },
+      {
+        path: 'mobile/src/features/m3/ChatContextCapsuleComposer.tsx',
+        label: 'Chat Context Capsule saved-draft composer',
+        needles: [
+          "kind: 'create'",
+          'chat.room.capsule.save-draft',
+        ],
+      },
+      {
+        path: 'mobile/src/features/m3/useChatContextCapsuleLifecycle.ts',
+        label: 'Chat Context Capsule lifecycle orchestration',
+        needles: [
+          'm3Api.chat.createContextCapsule',
+          'm3Api.chat.grantContextAuthorization',
+          'm3Api.chat.revokeContextAuthorization',
+          'm3Api.chat.reviseContextCapsule',
+          'm3Api.chat.discardContextCapsule',
+          "reason_code: 'user_revoked'",
+          'chatQueryKeys.contextUsageReceipts',
+        ],
+      },
+      {
+        path: 'mobile/src/features/m3/ChatContextUsageReceipts.tsx',
+        label: 'Chat low-sensitivity context usage receipts',
+        needles: [
+          'm3Api.chat.listContextUsageReceipts',
+          'receipt.category',
+          'receipt.purpose',
+          'receipt.decision',
+          'receipt.source_type_counts',
+          'receipt.authorization_count',
+          'receipt.created_at',
+        ],
+      },
+      {
+        path: 'mobile/src/features/m3/useChatRoomSafetyStatus.ts',
+        label: 'Chat sanitized shared safety-status query',
+        needles: [
+          'm3Api.chat.getRoomSafetyStatus',
+          'chatQueryKeys.safetyStatus',
+          "blocked: query.isError || status !== 'open'",
+        ],
+      },
+      {
+        path: 'mobile/src/features/m3/ChatSharedSafetyStatusNotice.tsx',
+        label: 'Chat generic shared safety pause notice',
+        needles: [
+          "state.status === 'paused'",
+          "t('chatRoom.safety.sharedPaused')",
+          "t('chatRoom.safety.statusUnavailable')",
         ],
       },
       {

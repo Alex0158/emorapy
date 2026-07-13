@@ -5,12 +5,14 @@ import type {
   ContextAuthorization,
   ContextCapsule,
   ContextCapsuleListItem,
+  ContextUsageReceipt,
   CreateChatAnalysisRequestInput,
   CreateContextCapsuleInput,
   DecideChatAnalysisRequestInput,
   GrantContextAuthorizationInput,
   PrivateContextPreference,
   RevokeContextAuthorizationInput,
+  UpdateSharedAdaptationConsentInput,
   UpdatePrivateContextPreferenceInput,
 } from "@emorapy/contracts/chat";
 import type { ApiResponseEnvelope } from "./apiResponse.js";
@@ -79,6 +81,24 @@ export function createChatContextApi(
       );
     },
 
+    async updateSharedAdaptationConsent(
+      roomId: string,
+      input: UpdateSharedAdaptationConsentInput,
+    ): Promise<PrivateContextPreference> {
+      const response = await http.put<
+        ApiResponseEnvelope<{ preference: PrivateContextPreference }>
+      >(roomPath(roomId, "/adaptation-consent"), input);
+      const data = unwrapResponse(
+        response,
+        "Invalid shared adaptation consent response",
+      );
+      return ensureValue(
+        data.preference,
+        "INVALID_CHAT_ADAPTATION_CONSENT_RESPONSE",
+        "Invalid shared adaptation consent response",
+      );
+    },
+
     async createContextCapsule(
       roomId: string,
       input: CreateContextCapsuleInput,
@@ -133,6 +153,45 @@ export function createChatContextApi(
         "INVALID_CONTEXT_CAPSULE_RESPONSE",
         "Invalid context capsule response",
       );
+    },
+
+    async discardContextCapsule(
+      roomId: string,
+      capsuleId: string,
+    ): Promise<ContextCapsule> {
+      const response = await http.post<
+        ApiResponseEnvelope<{ capsule: ContextCapsule }>
+      >(
+        roomPath(
+          roomId,
+          `/context-capsules/${encodeURIComponent(capsuleId)}/discard`,
+        ),
+      );
+      const data = unwrapResponse(response, "Invalid context capsule response");
+      return ensureValue(
+        data.capsule,
+        "INVALID_CONTEXT_CAPSULE_RESPONSE",
+        "Invalid context capsule response",
+      );
+    },
+
+    async listContextUsageReceipts(
+      roomId: string,
+    ): Promise<ContextUsageReceipt[]> {
+      const response = await http.get<
+        ApiResponseEnvelope<{ receipts: ContextUsageReceipt[] }>
+      >(roomPath(roomId, "/context-usage-receipts"));
+      const data = unwrapResponse(
+        response,
+        "Invalid context usage receipts response",
+      );
+      if (!Array.isArray(data.receipts)) {
+        invalidListResponse(
+          "INVALID_CONTEXT_USAGE_RECEIPTS_RESPONSE",
+          "Invalid context usage receipts response",
+        );
+      }
+      return data.receipts;
     },
 
     async grantContextAuthorization(

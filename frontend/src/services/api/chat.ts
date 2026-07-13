@@ -22,16 +22,19 @@ import type {
   ChatJudgmentStatus,
   ChatMessage,
   ChatRoom,
+  ChatRoomSafetyStatus,
   ChatHistoryVisibilityMode,
   ChatStreamEvent,
   PrivateContextPreference,
   PrivateContextUseMode,
+  SharedAdaptationConsentDecision,
   ChatAnalysisParticipantApproval,
   ChatAnalysisRequest,
   ChatAnalysisRequestListItem,
   ContextAuthorization,
   ContextCapsule,
   ContextCapsuleListItem,
+  ContextUsageReceipt,
 } from '@/types/chat';
 
 const sharedChatApi = createM3ApiClient(request).chat;
@@ -44,6 +47,12 @@ export const createChatRoom = async (
 
 export const getChatRoom = async (roomId: string): Promise<ChatRoom> => {
   return sharedChatApi.getRoom(roomId) as Promise<ChatRoom>;
+};
+
+export const getChatRoomSafetyStatus = async (
+  roomId: string,
+): Promise<ChatRoomSafetyStatus> => {
+  return sharedChatApi.getRoomSafetyStatus(roomId) as Promise<ChatRoomSafetyStatus>;
 };
 
 export const createChatInvite = async (
@@ -87,9 +96,24 @@ export const getPrivateContextPreference = async (
 
 export const updatePrivateContextPreference = async (
   roomId: string,
-  mode: PrivateContextUseMode
+  mode: PrivateContextUseMode,
+  policyVersion: string,
 ): Promise<PrivateContextPreference> => {
-  return sharedChatApi.updatePrivateContextPreference(roomId, { mode }) as Promise<PrivateContextPreference>;
+  return sharedChatApi.updatePrivateContextPreference(roomId, {
+    mode,
+    policy_version: policyVersion,
+  }) as Promise<PrivateContextPreference>;
+};
+
+export const updateSharedAdaptationConsent = async (
+  roomId: string,
+  decision: Exclude<SharedAdaptationConsentDecision, 'not_set'>,
+  policyVersion: string,
+): Promise<PrivateContextPreference> => {
+  return sharedChatApi.updateSharedAdaptationConsent(roomId, {
+    decision,
+    policy_version: policyVersion,
+  }) as Promise<PrivateContextPreference>;
 };
 
 export const sendChatMessage = async (
@@ -129,6 +153,36 @@ export const listChatContextCapsules = async (
   roomId: string
 ): Promise<ContextCapsuleListItem[]> => {
   return sharedChatApi.listContextCapsules(roomId) as Promise<ContextCapsuleListItem[]>;
+};
+
+export const reviseChatContextCapsule = async (
+  roomId: string,
+  capsuleId: string,
+  payload: {
+    source_channel_id: string;
+    source_message_ids: string[];
+    summary: string;
+    expires_at?: string | null;
+  },
+): Promise<ContextCapsule> => {
+  return sharedChatApi.reviseContextCapsule(
+    roomId,
+    capsuleId,
+    payload,
+  ) as Promise<ContextCapsule>;
+};
+
+export const discardChatContextCapsule = async (
+  roomId: string,
+  capsuleId: string,
+): Promise<ContextCapsule> => {
+  return sharedChatApi.discardContextCapsule(roomId, capsuleId) as Promise<ContextCapsule>;
+};
+
+export const listChatContextUsageReceipts = async (
+  roomId: string,
+): Promise<ContextUsageReceipt[]> => {
+  return sharedChatApi.listContextUsageReceipts(roomId) as Promise<ContextUsageReceipt[]>;
 };
 
 export const grantChatContextAuthorization = async (

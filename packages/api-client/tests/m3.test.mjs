@@ -179,6 +179,23 @@ describe("M3 Chat API client", () => {
     ]);
   });
 
+  it("reads only the sanitized room safety state", async () => {
+    const http = createHttpMock();
+    const m3 = createM3ApiClient(http);
+    http.enqueue(success({ status: "paused" }));
+
+    const result = await m3.chat.getRoomSafetyStatus("room/1");
+
+    assert.deepEqual(result, { status: "paused" });
+    assert.deepEqual(http.calls, [
+      {
+        method: "get",
+        url: "/chat/rooms/room%2F1/safety-status",
+        config: undefined,
+      },
+    ]);
+  });
+
   it("uses exact preference and capsule paths and request bodies", async () => {
     const http = createHttpMock();
     const m3 = createM3ApiClient(http);
@@ -210,8 +227,20 @@ describe("M3 Chat API client", () => {
         },
       }),
     );
+    http.enqueue(
+      success({
+        preference: {
+          participant_id: "participant-a",
+          mode: "shared_process_controls",
+          adaptation_decision: "accepted",
+        },
+      }),
+    );
     http.enqueue(success({ capsule: { id: "capsule-1", version: 1 } }));
     http.enqueue(success({ capsule: { id: "capsule-2", version: 2 } }));
+    http.enqueue(
+      success({ capsule: { id: "capsule-2", version: 2, status: "discarded" } }),
+    );
     http.enqueue(
       success({
         authorization: { id: "authorization-1", capsule_id: "capsule/1" },
@@ -231,6 +260,14 @@ describe("M3 Chat API client", () => {
       "room/1",
       {
         mode: "shared_process_controls",
+        policy_version: "2026-07-13.adaptation-v1",
+      },
+    );
+    const adaptationPreference = await m3.chat.updateSharedAdaptationConsent(
+      "room/1",
+      {
+        decision: "accepted",
+        policy_version: "2026-07-13.adaptation-v1",
       },
     );
     const capsule = await m3.chat.createContextCapsule("room/1", capsuleInput);
@@ -238,6 +275,10 @@ describe("M3 Chat API client", () => {
       "room/1",
       "capsule/1",
       capsuleInput,
+    );
+    const discarded = await m3.chat.discardContextCapsule(
+      "room/1",
+      "capsule/2",
     );
     const authorization = await m3.chat.grantContextAuthorization(
       "room/1",
@@ -252,8 +293,10 @@ describe("M3 Chat API client", () => {
 
     assert.equal(preference.mode, "private_only");
     assert.equal(updatedPreference.mode, "shared_process_controls");
+    assert.equal(adaptationPreference.adaptation_decision, "accepted");
     assert.equal(capsule.id, "capsule-1");
     assert.equal(revision.version, 2);
+    assert.equal(discarded.status, "discarded");
     assert.equal(authorization.id, "authorization-1");
     assert.ok(revoked.revoked_at);
     assert.deepEqual(http.calls, [
@@ -265,7 +308,19 @@ describe("M3 Chat API client", () => {
       {
         method: "put",
         url: "/chat/rooms/room%2F1/context-preference",
-        data: { mode: "shared_process_controls" },
+        data: {
+          mode: "shared_process_controls",
+          policy_version: "2026-07-13.adaptation-v1",
+        },
+        config: undefined,
+      },
+      {
+        method: "put",
+        url: "/chat/rooms/room%2F1/adaptation-consent",
+        data: {
+          decision: "accepted",
+          policy_version: "2026-07-13.adaptation-v1",
+        },
         config: undefined,
       },
       {
@@ -278,6 +333,12 @@ describe("M3 Chat API client", () => {
         method: "post",
         url: "/chat/rooms/room%2F1/context-capsules/capsule%2F1/revisions",
         data: capsuleInput,
+        config: undefined,
+      },
+      {
+        method: "post",
+        url: "/chat/rooms/room%2F1/context-capsules/capsule%2F2/discard",
+        data: undefined,
         config: undefined,
       },
       {
@@ -307,6 +368,18 @@ describe("M3 Chat API client", () => {
     );
     http.enqueue(
       success({
+        receipts: [
+          {
+            scope: "actor",
+            category: "capsule_lifecycle",
+            source_type_counts: { chat_message: 0, context_capsule: 0 },
+            authorization_count: 0,
+          },
+        ],
+      }),
+    );
+    http.enqueue(
+      success({
         analysis_requests: [
           {
             id: "request-1",
@@ -321,9 +394,11 @@ describe("M3 Chat API client", () => {
     );
 
     const capsules = await m3.chat.listContextCapsules("room/1");
+    const receipts = await m3.chat.listContextUsageReceipts("room/1");
     const analysisRequests = await m3.chat.listAnalysisRequests("room/1");
 
     assert.equal(capsules[0].authorizations[0].id, "authorization-1");
+    assert.equal(receipts[0].category, "capsule_lifecycle");
     assert.equal(
       analysisRequests[0].source_previews.capsules[0].summary,
       "approved summary",
@@ -332,6 +407,11 @@ describe("M3 Chat API client", () => {
       {
         method: "get",
         url: "/chat/rooms/room%2F1/context-capsules",
+        config: undefined,
+      },
+      {
+        method: "get",
+        url: "/chat/rooms/room%2F1/context-usage-receipts",
         config: undefined,
       },
       {

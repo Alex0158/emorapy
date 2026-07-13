@@ -24,6 +24,7 @@ interface ChatAnalysisConsentPanelProps {
   workingRequestId: string | null;
   loading: boolean;
   error: string;
+  formalActionsDisabled?: boolean;
   getParticipantLabel: (participantId: string) => string;
   onRefresh: () => void;
   onDecision: (request: ChatAnalysisRequestListItem, decision: 'approved' | 'declined') => void;
@@ -39,6 +40,7 @@ export default function ChatAnalysisConsentPanel({
   workingRequestId,
   loading,
   error,
+  formalActionsDisabled = false,
   getParticipantLabel,
   onRefresh,
   onDecision,
@@ -245,7 +247,7 @@ export default function ChatAnalysisConsentPanel({
                         <Button
                           type="button"
                           onClick={() => onDecision(request, 'approved')}
-                          disabled={working || !sourceSetComplete}
+                          disabled={working || !sourceSetComplete || formalActionsDisabled}
                         >
                           {working && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
                           {t('chat.analysis.approveExactSelection')}
@@ -256,7 +258,7 @@ export default function ChatAnalysisConsentPanel({
                       <Button
                         type="button"
                         onClick={() => onSubmitAndStart(request)}
-                        disabled={working}
+                        disabled={working || formalActionsDisabled}
                       >
                         {working ? (
                           <Loader2 className="size-4 animate-spin" aria-hidden="true" />

@@ -32,6 +32,7 @@ interface UseChatRoomLiveUpdatesInput {
 	historyCursorRef: { current: string | null };
 	hasMoreHistoryRef: { current: boolean };
 	showRoomStatusNotice: (event: ChatStreamEvent) => void;
+	onRoomRefreshRequested?: (roomId: string) => void;
 }
 
 export function useChatRoomLiveUpdates({
@@ -49,6 +50,7 @@ export function useChatRoomLiveUpdates({
 	historyCursorRef,
 	hasMoreHistoryRef,
 	showRoomStatusNotice,
+	onRoomRefreshRequested,
 }: UseChatRoomLiveUpdatesInput) {
 	const roomPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 	const roomStreamCleanupRef = useRef<(() => void) | null>(null);
@@ -119,6 +121,7 @@ export function useChatRoomLiveUpdates({
 
 	const refreshRoomSafely = useCallback(async (targetRoomId: string) => {
 		if (!isRoomTargetActive(targetRoomId)) return;
+		onRoomRefreshRequested?.(targetRoomId);
 		if (
 			roomRefreshInFlightRef.current &&
 			roomRefreshInFlightRoomIdRef.current === targetRoomId
@@ -151,7 +154,7 @@ export function useChatRoomLiveUpdates({
 		roomRefreshInFlightRoomIdRef.current = targetRoomId;
 		roomRefreshInFlightRef.current = promise;
 		return promise;
-	}, [isRoomTargetActive, loadRoomLatestMerge]);
+	}, [isRoomTargetActive, loadRoomLatestMerge, onRoomRefreshRequested]);
 
 	const ensureRoomPolling = useCallback((targetRoomId: string) => {
 		if (roomPollingRef.current) return;

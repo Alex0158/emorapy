@@ -5,6 +5,9 @@ export const chatQueryKeys = {
   room: (epoch: number, roomId: string | null) => (
     identityScopedQueryKey(epoch, 'm3', 'chat-room', roomId)
   ),
+  safetyStatus: (epoch: number, roomId: string | null) => (
+    identityScopedQueryKey(epoch, 'm3', 'chat-room-safety-status', roomId)
+  ),
   messages: (epoch: number, roomId: string | null) => (
     identityScopedQueryKey(epoch, 'm3', 'chat-messages', roomId)
   ),
@@ -16,6 +19,9 @@ export const chatQueryKeys = {
   ),
   contextCapsules: (epoch: number, roomId: string | null) => (
     identityScopedQueryKey(epoch, 'm3', 'chat-context-capsules', roomId)
+  ),
+  contextUsageReceipts: (epoch: number, roomId: string | null) => (
+    identityScopedQueryKey(epoch, 'm3', 'chat-context-usage-receipts', roomId)
   ),
   analysisRequests: (epoch: number, roomId: string | null) => (
     identityScopedQueryKey(epoch, 'm3', 'chat-analysis-requests', roomId)

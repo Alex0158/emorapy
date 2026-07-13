@@ -36,6 +36,11 @@ describe('Chat context controls keyboard behavior', () => {
         mode="private_only"
         loading={false}
         saving={false}
+        unavailable={false}
+        adaptationDecision="not_set"
+        roomAdaptation={null}
+        onRetry={vi.fn()}
+        onAdaptationDecisionChange={vi.fn()}
         onModeChange={onModeChange}
       />,
     );
@@ -50,5 +55,59 @@ describe('Chat context controls keyboard behavior', () => {
     await user.keyboard(' ');
 
     expect(onModeChange).toHaveBeenCalledWith('shared_process_controls');
+  });
+
+  it('shared adaptation 以獨立 radio decision 呈現，並顯示全員進度', async () => {
+    setLocale('en-US');
+    const onDecision = vi.fn();
+    render(
+      <ChatContextBoundaryPanel
+        activeLane="shared"
+        mode="shared_process_controls"
+        loading={false}
+        saving={false}
+        unavailable={false}
+        adaptationDecision="not_set"
+        roomAdaptation={{
+          policy_version: '2026-07-13.adaptation-v1',
+          enabled: false,
+          active_participant_count: 2,
+          accepted_participant_count: 1,
+          owner_opt_in_count: 1,
+        }}
+        onRetry={vi.fn()}
+        onAdaptationDecisionChange={onDecision}
+        onModeChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/Accepted by 1 of 2 participants/i)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('radio', {
+      name: /Accept anonymous process adjustments/i,
+    }));
+    expect(onDecision).toHaveBeenCalledWith('accepted');
+  });
+
+  it('載入設定失敗時不顯示可誤操作的 mode，並提供重試', async () => {
+    const onRetry = vi.fn();
+    render(
+      <ChatContextBoundaryPanel
+        activeLane="private"
+        mode="private_only"
+        loading={false}
+        saving={false}
+        unavailable
+        adaptationDecision="not_set"
+        roomAdaptation={null}
+        onRetry={onRetry}
+        onAdaptationDecisionChange={vi.fn()}
+        onModeChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole('radio')).not.toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('Private-context settings could not be loaded');
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
   });
 });

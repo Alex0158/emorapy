@@ -339,4 +339,34 @@ describe('useChatAnalysisConsent', () => {
 
     expect(mocks.revokeAuthorization).toHaveBeenCalledWith('room-1', 'grant-1');
   });
+
+  it('共同流程受阻時不可批准或開始，但仍可拒絕及撤回既有批准', async () => {
+    const request = buildRequest('approved');
+    mocks.listRequests.mockResolvedValue([request]);
+    const onStartAnalysis = vi.fn();
+    const { result } = renderHook(() => useChatAnalysisConsent({
+      roomId: 'room-1',
+      messages: [buildMessage()],
+      sharedChannelId: 'shared-channel',
+      myParticipantId: 'participant-a',
+      blocked: true,
+      onStartAnalysis,
+    }));
+
+    await waitFor(() => expect(result.current.requests).toHaveLength(1));
+    await act(async () => {
+      await result.current.decide(request, 'approved');
+      await result.current.submitAndStart(request);
+    });
+    expect(mocks.decide).not.toHaveBeenCalled();
+    expect(mocks.submit).not.toHaveBeenCalled();
+    expect(onStartAnalysis).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await result.current.decide(request, 'declined');
+      await result.current.revokeApproval(request);
+    });
+    expect(mocks.decide).toHaveBeenCalledWith('room-1', request, 'declined');
+    expect(mocks.revokeApproval).toHaveBeenCalledWith('room-1', request);
+  });
 });

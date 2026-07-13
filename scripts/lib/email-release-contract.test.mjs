@@ -80,6 +80,18 @@ test('CI email smoke uses authenticated implicit TLS and reads the delivered mes
   );
 });
 
+test('Admin E2E installs CITEXT before Prisma pushes the fresh schema', async () => {
+  const ci = await readRepoFile('.github/workflows/ci.yml');
+  const adminJobIndex = ci.indexOf('name: Admin E2E');
+  const citextIndex = ci.indexOf("CREATE EXTENSION IF NOT EXISTS citext", adminJobIndex);
+  const dbPushIndex = ci.indexOf('npx prisma db push --accept-data-loss', adminJobIndex);
+
+  assert.notEqual(adminJobIndex, -1);
+  assert.notEqual(citextIndex, -1);
+  assert.notEqual(dbPushIndex, -1);
+  assert.ok(citextIndex < dbPushIndex, 'CITEXT must exist before db push creates User.email');
+});
+
 test('email acceptance and logging contracts fail closed without exposing auth secrets', async () => {
   const [emailService, logger, redaction] = await Promise.all([
     readRepoFile('backend/src/services/email.service.ts'),

@@ -4,12 +4,12 @@
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：07-chat
 **取證代碼入口**：`backend/src/app.ts`、`backend/src/routes/chat.routes.ts`、`backend/src/routes/ai-stream.routes.ts`、`backend/src/services/chat.service.ts`、`backend/src/services/judgment.service.ts`、`packages/contracts/src/chat.ts`、`packages/api-client/src/m3.ts`、`frontend/src/services/api/chat.ts`、`frontend/src/pages/Chat/Room`、`mobile/app/(app)/chat/room.tsx`
-**最後核驗 Commit**：`95fa8a9`
-**最後核驗日期**：`2026-07-12`
+**最後核驗 Commit**：`88054d1`
+**最後核驗日期**：`2026-07-13`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 **文檔版本**：v3.0
-**最後更新**：2026-07-12
+**最後更新**：2026-07-13
 **代碼基準**：能力已進入 `main@30c21bb`；Production 狀態以 exact main SHA workflow 證據為準
 
 ---

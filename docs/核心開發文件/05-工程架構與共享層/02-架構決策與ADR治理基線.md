@@ -4,8 +4,8 @@
 **文檔類型**：正式規格
 **覆蓋範圍**：架構視圖、架構決策記錄、跨端工程變更 gate、schema migration 相容性與 ADR 缺口治理
 **取證代碼入口**：`package.json`、`frontend/tsconfig.app.json`、`frontend-admin/tsconfig.app.json`、`backend/tsconfig.json`、`backend/prisma/schema.prisma`、`backend/prisma/migrations`、`backend/scripts/check-release-db-parity.ts`、`mobile/tsconfig.json`、`packages/contracts/src`、`packages/api-client/src`、`backend/src/app.ts`、`backend/src/routes`、`mobile/app`、`mobile/src/platform`
-**最後核驗 Commit**：`95fa8a9`
-**最後核驗日期**：`2026-07-12`
+**最後核驗 Commit**：`88054d1`
+**最後核驗日期**：`2026-07-13`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 ## 1. 定位

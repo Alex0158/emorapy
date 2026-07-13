@@ -4,8 +4,8 @@
 **文檔類型**：正式規格
 **覆蓋範圍**：資料模型、Prisma schema、migration history、DB parity、向後/向前相容、棄用、backfill、release gate 與 Web / App / API / shared contract 協同治理
 **取證代碼入口**：`backend/prisma/schema.prisma`、`backend/prisma/migrations`、`backend/prisma/migrations/migration_lock.toml`、`backend/scripts/check-release-db-parity.ts`、`backend/tests/unit/scripts/check-release-db-parity.test.ts`、`backend/src/config/database.ts`、`scripts/ops-db-status.sh`、`scripts/ops-release-gate.sh`、`backend/package.json`、`packages/contracts/src`、`packages/api-client/src`、`frontend/src/router/index.tsx`、`frontend-admin/src/router.tsx`、`mobile/app`、`mobile/src/platform`
-**最後核驗 Commit**：`95fa8a9`
-**最後核驗日期**：`2026-07-12`
+**最後核驗 Commit**：`88054d1`
+**最後核驗日期**：`2026-07-13`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 ## 1. 定位

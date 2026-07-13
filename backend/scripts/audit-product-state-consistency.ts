@@ -200,97 +200,92 @@ async function collectAuditItems(stuckMinutes = DEFAULT_STUCK_MINUTES): Promise<
     updated_at: { lt: cutoff },
   } as const;
 
-  const [
-    stuckCasesCount,
-    stuckCases,
-    stuckChatRoomsCount,
-    stuckChatRooms,
-    incompleteChatLinksCount,
-    incompleteChatLinks,
-    stuckRepairTracksCount,
-    stuckRepairTracks,
-  ] = await Promise.all([
-    prisma.case.count({ where: stuckCasesWhere }),
-    prisma.case.findMany({
-      where: stuckCasesWhere,
-      select: {
-        id: true,
-        mode: true,
-        status: true,
-        session_id: true,
-        updated_at: true,
-        chat_to_case_links: { select: { id: true }, take: 1 },
+  // Release verification shares the production session-mode pool with the
+  // live backend. Keep this read-only audit serial to avoid a connection burst.
+  const stuckCasesCount = await prisma.case.count({ where: stuckCasesWhere });
+  const stuckCases = await prisma.case.findMany({
+    where: stuckCasesWhere,
+    select: {
+      id: true,
+      mode: true,
+      status: true,
+      session_id: true,
+      updated_at: true,
+      chat_to_case_links: { select: { id: true }, take: 1 },
+    },
+    take: 20,
+    orderBy: { updated_at: 'asc' },
+  });
+  const stuckChatRoomsCount = await prisma.chatRoom.count({ where: stuckChatRoomsWhere });
+  const stuckChatRooms = await prisma.chatRoom.findMany({
+    where: stuckChatRoomsWhere,
+    select: {
+      id: true,
+      status: true,
+      session_id: true,
+      updated_at: true,
+      case_links: {
+        select: {
+          id: true,
+          case_id: true,
+          judgment_id: true,
+        },
+        take: 5,
+        orderBy: { created_at: 'asc' },
       },
-      take: 20,
-      orderBy: { updated_at: 'asc' },
-    }),
-    prisma.chatRoom.count({ where: stuckChatRoomsWhere }),
-    prisma.chatRoom.findMany({
-      where: stuckChatRoomsWhere,
-      select: {
-        id: true,
-        status: true,
-        session_id: true,
-        updated_at: true,
-        case_links: {
-          select: {
-            id: true,
-            case_id: true,
-            judgment_id: true,
-          },
-          take: 5,
-          orderBy: { created_at: 'asc' },
+    },
+    take: 20,
+    orderBy: { updated_at: 'asc' },
+  });
+  const incompleteChatLinksCount = await prisma.chatToCaseLink.count({
+    where: incompleteChatLinksWhere,
+  });
+  const incompleteChatLinks = await prisma.chatToCaseLink.findMany({
+    where: incompleteChatLinksWhere,
+    select: {
+      id: true,
+      room_id: true,
+      case_id: true,
+      judgment_id: true,
+      created_at: true,
+      case: {
+        select: {
+          id: true,
+          mode: true,
+          status: true,
+          session_id: true,
         },
       },
-      take: 20,
-      orderBy: { updated_at: 'asc' },
-    }),
-    prisma.chatToCaseLink.count({ where: incompleteChatLinksWhere }),
-    prisma.chatToCaseLink.findMany({
-      where: incompleteChatLinksWhere,
-      select: {
-        id: true,
-        room_id: true,
-        case_id: true,
-        judgment_id: true,
-        created_at: true,
-        case: {
-          select: {
-            id: true,
-            mode: true,
-            status: true,
-            session_id: true,
-          },
-        },
-      },
-      take: 20,
-      orderBy: { created_at: 'asc' },
-    }),
-    prisma.repairTrack.count({ where: stuckRepairTracksWhere }),
-    prisma.repairTrack.findMany({
-      where: stuckRepairTracksWhere,
-      select: {
-        id: true,
-        plan_id: true,
-        status: true,
-        status_reason: true,
-        updated_at: true,
-        last_replan_at: true,
-        plan: {
-          select: {
-            judgment_id: true,
-            judgment: {
-              select: {
-                case_id: true,
-              },
+    },
+    take: 20,
+    orderBy: { created_at: 'asc' },
+  });
+  const stuckRepairTracksCount = await prisma.repairTrack.count({
+    where: stuckRepairTracksWhere,
+  });
+  const stuckRepairTracks = await prisma.repairTrack.findMany({
+    where: stuckRepairTracksWhere,
+    select: {
+      id: true,
+      plan_id: true,
+      status: true,
+      status_reason: true,
+      updated_at: true,
+      last_replan_at: true,
+      plan: {
+        select: {
+          judgment_id: true,
+          judgment: {
+            select: {
+              case_id: true,
             },
           },
         },
       },
-      take: 20,
-      orderBy: { updated_at: 'asc' },
-    }),
-  ]);
+    },
+    take: 20,
+    orderBy: { updated_at: 'asc' },
+  });
 
   const stuckRepairTrackIds = stuckRepairTracks.map((item) => item.id);
   const latestRepairTrackStreams = stuckRepairTrackIds.length > 0

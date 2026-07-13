@@ -54,7 +54,7 @@ export function assertVersionService(identity, expectedService, label) {
   }
 }
 
-export function extractRailwayCurrentDeployment(statusPayload, environmentName, serviceName) {
+function findRailwayServiceInstance(statusPayload, environmentName, serviceName) {
   const status = asObject(statusPayload, 'Railway status payload');
   const environments = status.environments?.edges;
   if (!Array.isArray(environments)) {
@@ -70,10 +70,7 @@ export function extractRailwayCurrentDeployment(statusPayload, environmentName, 
     for (const serviceEdge of serviceEdges) {
       const service = serviceEdge?.node;
       if (service?.serviceName !== serviceName) continue;
-      matches.push({
-        id: service.latestDeployment?.id,
-        status: service.latestDeployment?.status,
-      });
+      matches.push({ environment, service });
     }
   }
 
@@ -83,9 +80,148 @@ export function extractRailwayCurrentDeployment(statusPayload, environmentName, 
     );
   }
 
+  return { status, ...matches[0] };
+}
+
+export function extractRailwayServiceIdentity(statusPayload, environmentName, serviceName) {
+  const { status, environment, service } = findRailwayServiceInstance(
+    statusPayload,
+    environmentName,
+    serviceName,
+  );
+
   return {
-    id: requiredString(matches[0].id, 'Railway latest deployment id'),
-    status: requiredString(matches[0].status, 'Railway latest deployment status'),
+    projectId: requiredString(status.id, 'Railway project id'),
+    environmentId: requiredString(environment.id, 'Railway environment id'),
+    serviceId: requiredString(service.serviceId, 'Railway service id'),
+    sourceRepo: requiredString(service.source?.repo, 'Railway service source repo'),
+  };
+}
+
+export function extractRailwayCurrentDeployment(statusPayload, environmentName, serviceName) {
+  const { service } = findRailwayServiceInstance(statusPayload, environmentName, serviceName);
+  const latest = {
+    id: requiredString(service.latestDeployment?.id, 'Railway latest deployment id'),
+    status: requiredString(
+      service.latestDeployment?.status,
+      'Railway latest deployment status',
+    ),
+  };
+  if (!Array.isArray(service.activeDeployments)) {
+    throw new Error('Railway service instance has no activeDeployments array');
+  }
+  if (service.activeDeployments.length !== 1) {
+    throw new Error(
+      `Expected exactly one active Railway deployment; found ${service.activeDeployments.length}`,
+    );
+  }
+
+  const active = {
+    id: requiredString(service.activeDeployments[0]?.id, 'Railway active deployment id'),
+    status: requiredString(
+      service.activeDeployments[0]?.status,
+      'Railway active deployment status',
+    ),
+  };
+  if (active.status !== 'SUCCESS') {
+    throw new Error(
+      `Active Railway deployment ${active.id} is not SUCCESS (status=${active.status})`,
+    );
+  }
+
+  if (latest.id === active.id) {
+    if (latest.status !== 'SUCCESS') {
+      throw new Error(
+        `Railway latest/active deployment ${latest.id} is not SUCCESS (status=${latest.status})`,
+      );
+    }
+    return active;
+  }
+
+  const inProgressStatuses = new Set([
+    'BUILDING',
+    'DEPLOYING',
+    'INITIALIZING',
+    'PENDING',
+    'QUEUED',
+    'WAITING',
+  ]);
+  if (inProgressStatuses.has(latest.status)) {
+    throw new Error(
+      `Railway deployment ${latest.id} is still in progress (status=${latest.status}); rollback baseline is unsettled`,
+    );
+  }
+  if (latest.status !== 'FAILED') {
+    throw new Error(
+      `Railway latest deployment ${latest.id} is not the active deployment and has unsupported status ${latest.status}`,
+    );
+  }
+
+  return active;
+}
+
+export function buildRailwayAutoDeployStatusRequest({
+  projectId,
+  environmentId,
+  serviceId,
+  apiToken,
+  projectToken,
+}) {
+  const accountToken = typeof apiToken === 'string' ? apiToken.trim() : '';
+  const scopedToken = typeof projectToken === 'string' ? projectToken.trim() : '';
+  if (!accountToken && !scopedToken) {
+    throw new Error('Railway auto-deploy status requires RAILWAY_API_TOKEN or RAILWAY_TOKEN');
+  }
+
+  return {
+    url: RAILWAY_GRAPHQL_ENDPOINT,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(accountToken
+        ? { Authorization: `Bearer ${accountToken}` }
+        : { 'Project-Access-Token': scopedToken }),
+    },
+    body: {
+      query: `query serviceInstanceAutoDeployStatus(
+  $projectId: String!
+  $environmentId: String!
+  $serviceId: String!
+) {
+  serviceInstanceAutoDeployStatus(
+    projectId: $projectId
+    environmentId: $environmentId
+    serviceId: $serviceId
+  ) {
+    enabled
+    canEnable
+    reason
+  }
+}`,
+      variables: {
+        projectId: requiredString(projectId, 'Railway project id'),
+        environmentId: requiredString(environmentId, 'Railway environment id'),
+        serviceId: requiredString(serviceId, 'Railway service id'),
+      },
+    },
+  };
+}
+
+export function extractRailwayAutoDeployStatus(payload) {
+  const root = asObject(payload, 'Railway auto-deploy status payload');
+  if (Array.isArray(root.errors) && root.errors.length > 0) {
+    throw new Error(`Railway auto-deploy status failed: ${JSON.stringify(root.errors)}`);
+  }
+  const status = asObject(
+    root.data?.serviceInstanceAutoDeployStatus,
+    'Railway auto-deploy status result',
+  );
+  if (typeof status.enabled !== 'boolean' || typeof status.canEnable !== 'boolean') {
+    throw new Error('Railway auto-deploy status must include boolean enabled/canEnable fields');
+  }
+  return {
+    enabled: status.enabled,
+    canEnable: status.canEnable,
+    reason: typeof status.reason === 'string' ? status.reason : null,
   };
 }
 

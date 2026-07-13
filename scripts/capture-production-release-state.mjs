@@ -5,7 +5,10 @@ import path from 'node:path';
 
 import {
   assertVersionService,
+  buildRailwayAutoDeployStatusRequest,
+  extractRailwayAutoDeployStatus,
   extractRailwayCurrentDeployment,
+  extractRailwayServiceIdentity,
   extractVercelDeploymentIdentity,
   extractVersionIdentity,
   normalizeBaseUrl,
@@ -15,6 +18,9 @@ const outputPath = process.env.RELEASE_STATE_OUTPUT || 'temp/production-release-
 const railwayStatusPath = process.env.RAILWAY_STATUS_PATH;
 const railwayEnvironment = process.env.PRODUCTION_RAILWAY_ENVIRONMENT || 'production';
 const railwayService = process.env.PRODUCTION_RAILWAY_SERVICE;
+const railwayProjectId = process.env.RAILWAY_PROJECT_ID?.trim();
+const railwayApiToken = process.env.RAILWAY_API_TOKEN?.trim();
+const railwayProjectToken = process.env.RAILWAY_TOKEN?.trim();
 const backendBaseUrl = normalizeBaseUrl(process.env.BACKEND_BASE_URL, 'BACKEND_BASE_URL');
 const mainWebUrl = normalizeBaseUrl(process.env.MAIN_WEB_URL, 'MAIN_WEB_URL');
 const adminWebUrl = normalizeBaseUrl(process.env.ADMIN_WEB_URL, 'ADMIN_WEB_URL');
@@ -23,6 +29,7 @@ const vercelOrgId = process.env.VERCEL_ORG_ID?.trim();
 
 if (!railwayStatusPath) throw new Error('RAILWAY_STATUS_PATH is required');
 if (!railwayService) throw new Error('PRODUCTION_RAILWAY_SERVICE is required');
+if (!railwayProjectId) throw new Error('RAILWAY_PROJECT_ID is required');
 if (!vercelToken) throw new Error('VERCEL_TOKEN is required');
 if (!vercelOrgId) throw new Error('VERCEL_ORG_ID is required');
 
@@ -94,6 +101,40 @@ async function captureWebSurface(name, productionUrl, expectedService) {
 }
 
 const railwayStatus = JSON.parse(await readFile(railwayStatusPath, 'utf8'));
+const railwayTarget = extractRailwayServiceIdentity(
+  railwayStatus,
+  railwayEnvironment,
+  railwayService,
+);
+if (railwayTarget.projectId !== railwayProjectId) {
+  throw new Error(
+    `Railway status project ${railwayTarget.projectId} does not match configured project ${railwayProjectId}`,
+  );
+}
+const expectedSourceRepo = process.env.GITHUB_REPOSITORY?.trim();
+if (expectedSourceRepo && railwayTarget.sourceRepo !== expectedSourceRepo) {
+  throw new Error(
+    `Railway source repo ${railwayTarget.sourceRepo} does not match ${expectedSourceRepo}`,
+  );
+}
+const autoDeployRequest = buildRailwayAutoDeployStatusRequest({
+  ...railwayTarget,
+  apiToken: railwayApiToken,
+  projectToken: railwayProjectToken,
+});
+const railwayAutoDeploy = extractRailwayAutoDeployStatus(await fetchJson(
+  autoDeployRequest.url,
+  {
+    method: 'POST',
+    headers: autoDeployRequest.headers,
+    body: JSON.stringify(autoDeployRequest.body),
+  },
+));
+if (railwayAutoDeploy.enabled) {
+  throw new Error(
+    'Railway Production GitHub auto-deploy must be disabled before capturing a rollback baseline',
+  );
+}
 const railwayDeployment = extractRailwayCurrentDeployment(
   railwayStatus,
   railwayEnvironment,
@@ -128,6 +169,8 @@ const state = {
     commitSha: backendVersion.commitSha,
     deploymentId: backendVersion.deploymentId,
     railwayDeploymentId: railwayDeployment.id,
+    railwaySourceRepo: railwayTarget.sourceRepo,
+    railwayAutoDeployEnabled: railwayAutoDeploy.enabled,
   },
   web: { main, admin },
 };

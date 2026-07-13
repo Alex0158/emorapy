@@ -57,9 +57,9 @@
 7. ProfileSnapshot 不得保存 raw narrative fallback；既有 snapshot 需有 read-only inventory、清理/保留決策及 migration evidence。
 8. Safety lane 可暫停或收窄 shared flow，但 shared notice 不得洩露觸發方、事件、診斷或責任暗示。
 
-### 2.5 Current branch 驗證狀態
+### 2.5 Current main 驗證狀態
 
-`codex/private-context-consent-boundary` release candidate 已有 audience policy、channel/event/stream、strict controls、capsule/authorization、exact participant approval、source preview、Decision Core/Renderer、persisted Judgment recovery、shared Repair containment 與 ProfileSnapshot no-raw 覆蓋；Backend / Web / Admin / App 全量 gates、exact-image build，以及 fresh PostgreSQL / Redis migration、backfill dry-run / apply、idempotency 與 legacy privacy audit 已通過。這仍只構成 release-candidate evidence；Production runtime DB artifact、credential-backed two-party canary、legacy data rights disposition、native lifecycle 與 exact main SHA release gate 尚須由正式流程取證。
+`main@30c21bb` 已有 audience policy、channel/event/stream、strict controls、capsule/authorization、exact participant approval、source preview、Decision Core/Renderer、persisted Judgment recovery、shared Repair containment 與 ProfileSnapshot no-raw 覆蓋；Backend / Web / Admin / App 全量 gates、exact-image build，以及 fresh PostgreSQL / Redis migration、backfill dry-run / apply、idempotency 與 legacy privacy audit 已通過。Production runtime DB artifact、credential-backed two-party canary、legacy data rights disposition、native lifecycle 與 exact main SHA release gate 仍須各自由正式流程取證，不得由 source / local evidence 外推。
 
 ## 3. 最低測試集
 

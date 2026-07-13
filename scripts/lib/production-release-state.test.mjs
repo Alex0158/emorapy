@@ -4,9 +4,12 @@ import test from 'node:test';
 import {
   assertSameReleaseIdentity,
   assertVersionService,
+  buildRailwayAutoDeployStatusRequest,
   buildRailwayRollbackRequest,
+  extractRailwayAutoDeployStatus,
   extractRailwayRollbackDeployment,
   extractRailwayCurrentDeployment,
+  extractRailwayServiceIdentity,
   extractVercelDeploymentIdentity,
   extractVersionIdentity,
   releaseIdentityNeedsRollback,
@@ -41,19 +44,27 @@ test('extractVersionIdentity accepts nested and direct manifests', () => {
   );
 });
 
-test('extractRailwayCurrentDeployment requires one exact environment and service', () => {
-  const status = {
+function railwayStatusFixture({
+  latest = { id: 'railway-active', status: 'SUCCESS' },
+  active = [{ id: 'railway-active', status: 'SUCCESS' }],
+} = {}) {
+  return {
+    id: 'project-1',
     environments: {
       edges: [
         {
           node: {
+            id: 'environment-1',
             name: 'production',
             serviceInstances: {
               edges: [
                 {
                   node: {
+                    serviceId: 'service-1',
                     serviceName: 'emorapy-api',
-                    latestDeployment: { id: 'railway-previous', status: 'SUCCESS' },
+                    source: { repo: 'Alex0158/emorapy' },
+                    latestDeployment: latest,
+                    activeDeployments: active,
                   },
                 },
               ],
@@ -63,14 +74,126 @@ test('extractRailwayCurrentDeployment requires one exact environment and service
       ],
     },
   };
+}
+
+test('extractRailwayCurrentDeployment requires one exact active service deployment', () => {
+  const status = railwayStatusFixture();
 
   assert.deepEqual(extractRailwayCurrentDeployment(status, 'production', 'emorapy-api'), {
-    id: 'railway-previous',
+    id: 'railway-active',
     status: 'SUCCESS',
+  });
+  assert.deepEqual(extractRailwayServiceIdentity(status, 'production', 'emorapy-api'), {
+    projectId: 'project-1',
+    environmentId: 'environment-1',
+    serviceId: 'service-1',
+    sourceRepo: 'Alex0158/emorapy',
   });
   assert.throws(
     () => extractRailwayCurrentDeployment(status, 'production', 'missing'),
     /found 0/,
+  );
+});
+
+test('extractRailwayCurrentDeployment accepts a failed latest attempt but rejects unsettled state', () => {
+  assert.deepEqual(extractRailwayCurrentDeployment(
+    railwayStatusFixture({ latest: { id: 'railway-failed', status: 'FAILED' } }),
+    'production',
+    'emorapy-api',
+  ), {
+    id: 'railway-active',
+    status: 'SUCCESS',
+  });
+
+  assert.throws(
+    () => extractRailwayCurrentDeployment(
+      railwayStatusFixture({ latest: { id: 'railway-building', status: 'BUILDING' } }),
+      'production',
+      'emorapy-api',
+    ),
+    /still in progress.*unsettled/,
+  );
+  assert.throws(
+    () => extractRailwayCurrentDeployment(
+      railwayStatusFixture({ latest: { id: 'railway-success-not-active', status: 'SUCCESS' } }),
+      'production',
+      'emorapy-api',
+    ),
+    /unsupported status SUCCESS/,
+  );
+});
+
+test('extractRailwayCurrentDeployment fails closed for missing or ambiguous active deployments', () => {
+  assert.throws(
+    () => extractRailwayCurrentDeployment(
+      railwayStatusFixture({ active: [] }),
+      'production',
+      'emorapy-api',
+    ),
+    /exactly one active Railway deployment; found 0/,
+  );
+  assert.throws(
+    () => extractRailwayCurrentDeployment(
+      railwayStatusFixture({
+        active: [
+          { id: 'railway-active-a', status: 'SUCCESS' },
+          { id: 'railway-active-b', status: 'SUCCESS' },
+        ],
+      }),
+      'production',
+      'emorapy-api',
+    ),
+    /exactly one active Railway deployment; found 2/,
+  );
+  assert.throws(
+    () => extractRailwayCurrentDeployment(
+      railwayStatusFixture({ active: [{ id: 'railway-active', status: 'FAILED' }] }),
+      'production',
+      'emorapy-api',
+    ),
+    /Active Railway deployment.*not SUCCESS/,
+  );
+});
+
+test('Railway auto-deploy status request uses scoped auth and validates the response', () => {
+  const account = buildRailwayAutoDeployStatusRequest({
+    projectId: 'project-1',
+    environmentId: 'environment-1',
+    serviceId: 'service-1',
+    apiToken: 'account-token',
+    projectToken: 'project-token',
+  });
+  assert.equal(account.url, 'https://backboard.railway.com/graphql/v2');
+  assert.equal(account.headers.Authorization, 'Bearer account-token');
+  assert.equal(account.headers['Project-Access-Token'], undefined);
+  assert.deepEqual(account.body.variables, {
+    projectId: 'project-1',
+    environmentId: 'environment-1',
+    serviceId: 'service-1',
+  });
+  assert.match(account.body.query, /serviceInstanceAutoDeployStatus/);
+
+  const project = buildRailwayAutoDeployStatusRequest({
+    projectId: 'project-1',
+    environmentId: 'environment-1',
+    serviceId: 'service-1',
+    projectToken: 'project-token',
+  });
+  assert.equal(project.headers.Authorization, undefined);
+  assert.equal(project.headers['Project-Access-Token'], 'project-token');
+
+  assert.deepEqual(extractRailwayAutoDeployStatus({
+    data: {
+      serviceInstanceAutoDeployStatus: {
+        enabled: false,
+        canEnable: true,
+        reason: null,
+      },
+    },
+  }), { enabled: false, canEnable: true, reason: null });
+  assert.throws(
+    () => extractRailwayAutoDeployStatus({ errors: [{ message: 'forbidden' }] }),
+    /forbidden/,
   );
 });
 

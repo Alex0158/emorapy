@@ -4,8 +4,8 @@
 **文檔類型**：正式規格
 **覆蓋範圍**：架構視圖、架構決策記錄、跨端工程變更 gate、schema migration 相容性與 ADR 缺口治理
 **取證代碼入口**：`package.json`、`frontend/tsconfig.app.json`、`frontend-admin/tsconfig.app.json`、`backend/tsconfig.json`、`backend/prisma/schema.prisma`、`backend/prisma/migrations`、`backend/scripts/check-release-db-parity.ts`、`mobile/tsconfig.json`、`packages/contracts/src`、`packages/api-client/src`、`backend/src/app.ts`、`backend/src/routes`、`mobile/app`、`mobile/src/platform`
-**最後核驗 Commit**：`95fa8a9`
-**最後核驗日期**：`2026-07-12`
+**最後核驗 Commit**：`88054d1`
+**最後核驗日期**：`2026-07-13`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 ## 1. 定位
@@ -73,7 +73,7 @@ Emorapy 後續描述架構時，至少按以下層級表達。沒有圖時可以
 | EMO-ADR-007 | Accepted | 架構、共享層、API contract、DB schema、AI runtime、安全邊界或 App adapter 的變更必須觸發 ADR 或更新本文決策登記 | ADR governance gate 已建立；後續若 ADR 數量增長，應拆分為獨立 ADR 目錄 |
 | EMO-ADR-008 | Accepted | DB schema、migration history、shared contracts、API response 與 App storage schema 的破壞性或 contract-sensitive 變更必須按 expand / backfill / compatibility / contract 分階段治理 | `backend/prisma/schema.prisma`、`backend/prisma/migrations`、`backend/scripts/check-release-db-parity.ts`、`05/03` 與 `08/06` 共同承接；不得把 migration commit 視作 release DB parity |
 | EMO-ADR-009 | Accepted | 完整 App 版正式採用 Expo + React Native + TypeScript，iOS 優先、Android 兼容、單一 `mobile/` codebase；不採用 SwiftUI-only、Flutter 或 Capacitor 作主線 | `mobile/package.json` 已是 Expo / React Native；`20-App端/02-App完整版本工程PRD.md` 與 `20-App端/03-App完整版本開發Roadmap.md` 承接工程 PRD / Roadmap；影響 App、shared package、Web API client 下沉、測試與 release evidence |
-| EMO-ADR-010 | Accepted；Release candidate / Production evidence pending | 私密上下文採 `Private Analyst -> strict Mediation Controls -> Shared Mediator` 隔離；私人內容可改善共同流程但不得作秘密證據，只有本人批准的 versioned Context Capsule 可擴大 audience；正式梳理拆成 evidence-only Decision Core 與不可改結論的 Delivery Renderer | `codex/private-context-consent-boundary`（基於 `origin/main@95fa8a9`）已完成 channel、policy、capsule、exact approval、Web/App flow、Decision Core/Renderer、persisted Judgment recovery、shared Repair containment 與 release hardening；本地全量測試及 fresh DB migration/backfill/audit 已通過。是否已發布只由 exact main SHA 的 `Production Deploy and Verify`、release artifacts 與線上 canary 裁決；cross-case memory 及 legacy data lifecycle 仍由 [Chat 私密上下文待辦](../07-待處理問題與治理/待處理/Chat私密上下文與共同調解隔離重構待辦-2026-07-12.md) 追蹤 |
+| EMO-ADR-010 | Accepted；Production evidence 由正式 release gate 裁決 | 私密上下文採 `Private Analyst -> strict Mediation Controls -> Shared Mediator` 隔離；私人內容可改善共同流程但不得作秘密證據，只有本人批准的 versioned Context Capsule 可擴大 audience；正式梳理拆成 evidence-only Decision Core 與不可改結論的 Delivery Renderer | channel、policy、capsule、exact approval、Web/App flow、Decision Core/Renderer、persisted Judgment recovery、shared Repair containment 與 release hardening 已進入 `main@30c21bb`；本地全量測試及 fresh DB migration/backfill/audit 已通過。是否已發布只由 exact main SHA 的 `Production Deploy and Verify`、release artifacts 與線上 canary 裁決；cross-case memory 及 legacy data lifecycle 仍由 [Chat 私密上下文待辦](../07-待處理問題與治理/待處理/Chat私密上下文與共同調解隔離重構待辦-2026-07-12.md) 追蹤 |
 
 ## 5.1 App 技術路線排除選項
 

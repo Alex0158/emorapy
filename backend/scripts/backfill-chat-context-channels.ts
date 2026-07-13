@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import type { PrismaClient } from '../src/types/prisma-client';
+import { Prisma, type PrismaClient } from '../src/types/prisma-client';
 import {
   buildBackfillEvidenceHash,
   CHAT_CHANNEL_BACKFILL_POLICY_VERSION,
@@ -62,6 +62,11 @@ type MessageApplyResult = {
 
 const DEFAULT_BATCH_SIZE = 250;
 const MAX_BATCH_SIZE = 1_000;
+
+export const BACKFILL_TRANSACTION_OPTIONS = {
+  maxWait: 10_000,
+  timeout: 60_000,
+} as const;
 
 export const LEGACY_MESSAGE_BATCH_SQL = `
 SELECT
@@ -311,15 +316,18 @@ async function provisionChatChannels(
     batchHashes.push(createHash('sha256').update(evidence.sort().join('\u001e')).digest('hex'));
 
     if (options.apply && (missingShared.length > 0 || missingPrivate.length > 0)) {
-      const created = await prisma.$transaction(async (tx) => {
-        const shared = missingShared.length > 0
-          ? await tx.chatChannel.createMany({ data: missingShared, skipDuplicates: true })
-          : { count: 0 };
-        const privateChannels = missingPrivate.length > 0
-          ? await tx.chatChannel.createMany({ data: missingPrivate, skipDuplicates: true })
-          : { count: 0 };
-        return { shared: shared.count, private: privateChannels.count };
-      });
+      const created = await prisma.$transaction(
+        async (tx) => {
+          const shared = missingShared.length > 0
+            ? await tx.chatChannel.createMany({ data: missingShared, skipDuplicates: true })
+            : { count: 0 };
+          const privateChannels = missingPrivate.length > 0
+            ? await tx.chatChannel.createMany({ data: missingPrivate, skipDuplicates: true })
+            : { count: 0 };
+          return { shared: shared.count, private: privateChannels.count };
+        },
+        BACKFILL_TRANSACTION_OPTIONS,
+      );
       sharedChannelsCreated += created.shared;
       privateChannelsCreated += created.private;
     }
@@ -338,7 +346,7 @@ async function provisionChatChannels(
   };
 }
 
-async function applyMessageBatch(
+export async function applyMessageBatch(
   prisma: PrismaClient,
   decisions: ChatChannelBackfillDecision[],
 ): Promise<MessageApplyResult> {
@@ -347,104 +355,118 @@ async function applyMessageBatch(
     return { rowsUpdated: 0, channelResolutionFailures: 0, channelsCreatedDuringMessageBatch: 0 };
   }
 
-  return prisma.$transaction(async (tx) => {
-    const sharedRoomIds = [...new Set(
-      classified.filter((decision) => decision.target === 'shared').map((decision) => decision.roomId),
-    )];
-    const privateTargets = [...new Map(
-      classified
-        .filter((decision) => decision.target === 'private' && decision.privateOwnerParticipantId)
-        .map((decision) => [
-          `${decision.roomId}\u001f${decision.privateOwnerParticipantId}`,
-          {
-            roomId: decision.roomId,
-            ownerParticipantId: decision.privateOwnerParticipantId as string,
-          },
-        ]),
-    ).values()];
+  return prisma.$transaction(
+    async (tx) => {
+      const sharedRoomIds = [...new Set(
+        classified.filter((decision) => decision.target === 'shared').map((decision) => decision.roomId),
+      )];
+      const privateTargets = [...new Map(
+        classified
+          .filter((decision) => decision.target === 'private' && decision.privateOwnerParticipantId)
+          .map((decision) => [
+            `${decision.roomId}\u001f${decision.privateOwnerParticipantId}`,
+            {
+              roomId: decision.roomId,
+              ownerParticipantId: decision.privateOwnerParticipantId as string,
+            },
+          ]),
+      ).values()];
 
-    const sharedCreate = sharedRoomIds.map((roomId) => ({
-      id: randomUUID(),
-      room_id: roomId,
-      kind: 'shared' as const,
-    }));
-    const privateCreate = privateTargets.map((target) => ({
-      id: randomUUID(),
-      room_id: target.roomId,
-      kind: 'private' as const,
-      owner_participant_id: target.ownerParticipantId,
-    }));
+      const sharedCreate = sharedRoomIds.map((roomId) => ({
+        id: randomUUID(),
+        room_id: roomId,
+        kind: 'shared' as const,
+      }));
+      const privateCreate = privateTargets.map((target) => ({
+        id: randomUUID(),
+        room_id: target.roomId,
+        kind: 'private' as const,
+        owner_participant_id: target.ownerParticipantId,
+      }));
 
-    const sharedCreated = sharedCreate.length > 0
-      ? await tx.chatChannel.createMany({ data: sharedCreate, skipDuplicates: true })
-      : { count: 0 };
-    const privateCreated = privateCreate.length > 0
-      ? await tx.chatChannel.createMany({ data: privateCreate, skipDuplicates: true })
-      : { count: 0 };
+      const sharedCreated = sharedCreate.length > 0
+        ? await tx.chatChannel.createMany({ data: sharedCreate, skipDuplicates: true })
+        : { count: 0 };
+      const privateCreated = privateCreate.length > 0
+        ? await tx.chatChannel.createMany({ data: privateCreate, skipDuplicates: true })
+        : { count: 0 };
 
-    const roomIds = [...new Set(classified.map((decision) => decision.roomId))];
-    const channels = await tx.chatChannel.findMany({
-      where: { room_id: { in: roomIds } },
-      select: { id: true, room_id: true, kind: true, owner_participant_id: true },
-      orderBy: { id: 'asc' },
-    });
-    const sharedByRoom = new Map(
-      channels
-        .filter((channel) => channel.kind === 'shared')
-        .map((channel) => [channel.room_id, channel.id]),
-    );
-    const privateByOwner = new Map(
-      channels
-        .filter((channel) => channel.kind === 'private' && channel.owner_participant_id)
-        .map((channel) => [
-          `${channel.room_id}\u001f${channel.owner_participant_id}`,
-          channel.id,
-        ]),
-    );
+      const roomIds = [...new Set(classified.map((decision) => decision.roomId))];
+      const channels = await tx.chatChannel.findMany({
+        where: { room_id: { in: roomIds } },
+        select: { id: true, room_id: true, kind: true, owner_participant_id: true },
+        orderBy: { id: 'asc' },
+      });
+      const sharedByRoom = new Map(
+        channels
+          .filter((channel) => channel.kind === 'shared')
+          .map((channel) => [channel.room_id, channel.id]),
+      );
+      const privateByOwner = new Map(
+        channels
+          .filter((channel) => channel.kind === 'private' && channel.owner_participant_id)
+          .map((channel) => [
+            `${channel.room_id}\u001f${channel.owner_participant_id}`,
+            channel.id,
+          ]),
+      );
 
-    const messageTargets = new Map<string, {
-      channelId: string;
-      aiContextEligible: boolean;
-      messageIds: string[];
-    }>();
-    let channelResolutionFailures = 0;
-    for (const decision of classified) {
-      const channelId = decision.target === 'shared'
-        ? sharedByRoom.get(decision.roomId)
-        : privateByOwner.get(`${decision.roomId}\u001f${decision.privateOwnerParticipantId}`);
-      if (!channelId) {
-        channelResolutionFailures += 1;
-        continue;
+      const messageTargets = new Map<string, {
+        channelId: string;
+        aiContextEligible: boolean;
+        messageIds: string[];
+      }>();
+      let channelResolutionFailures = 0;
+      for (const decision of classified) {
+        const channelId = decision.target === 'shared'
+          ? sharedByRoom.get(decision.roomId)
+          : privateByOwner.get(`${decision.roomId}\u001f${decision.privateOwnerParticipantId}`);
+        if (!channelId) {
+          channelResolutionFailures += 1;
+          continue;
+        }
+        const aiContextEligible = decision.futureContextEligible;
+        const targetKey = `${channelId}\u001f${aiContextEligible ? 'eligible' : 'display-only'}`;
+        const target = messageTargets.get(targetKey) ?? {
+          channelId,
+          aiContextEligible,
+          messageIds: [],
+        };
+        target.messageIds.push(decision.messageId);
+        messageTargets.set(targetKey, target);
       }
-      const aiContextEligible = decision.futureContextEligible;
-      const targetKey = `${channelId}\u001f${aiContextEligible ? 'eligible' : 'display-only'}`;
-      const target = messageTargets.get(targetKey) ?? {
-        channelId,
-        aiContextEligible,
-        messageIds: [],
-      };
-      target.messageIds.push(decision.messageId);
-      messageTargets.set(targetKey, target);
-    }
 
-    let rowsUpdated = 0;
-    for (const target of messageTargets.values()) {
-      const result = await tx.chatMessage.updateMany({
-        where: { id: { in: target.messageIds }, channel_id: null },
-        data: {
+      const assignments = [...messageTargets.values()].flatMap((target) => (
+        target.messageIds.map((messageId) => ({
+          message_id: messageId,
           channel_id: target.channelId,
           ai_context_eligible: target.aiContextEligible,
-        },
-      });
-      rowsUpdated += result.count;
-    }
+        }))
+      ));
+      const rowsUpdated = assignments.length > 0
+        ? await tx.$executeRaw(Prisma.sql`
+            UPDATE "chat_messages" AS message
+            SET
+              "channel_id" = assignment.channel_id,
+              "ai_context_eligible" = assignment.ai_context_eligible
+            FROM jsonb_to_recordset(${JSON.stringify(assignments)}::jsonb) AS assignment(
+              message_id text,
+              channel_id text,
+              ai_context_eligible boolean
+            )
+            WHERE message.id = assignment.message_id
+              AND message.channel_id IS NULL
+          `)
+        : 0;
 
-    return {
-      rowsUpdated,
-      channelResolutionFailures,
-      channelsCreatedDuringMessageBatch: sharedCreated.count + privateCreated.count,
-    };
-  });
+      return {
+        rowsUpdated,
+        channelResolutionFailures,
+        channelsCreatedDuringMessageBatch: sharedCreated.count + privateCreated.count,
+      };
+    },
+    BACKFILL_TRANSACTION_OPTIONS,
+  );
 }
 
 async function readPrivateContextModeCounts(prisma: PrismaClient): Promise<Record<string, number>> {
@@ -507,7 +529,8 @@ export async function runChatChannelBackfill(
   const ok = decisionTotals.quarantine === 0
     && channelProvision.invariantDriftRows === 0
     && channelResolutionFailures === 0
-    && unknownPrivateContextModes === 0;
+    && unknownPrivateContextModes === 0
+    && (!options.apply || remainingUnclassifiedRows === 0);
 
   return {
     check: 'chat-context-channel-backfill',

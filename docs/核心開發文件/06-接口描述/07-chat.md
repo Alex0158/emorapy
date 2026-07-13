@@ -4,13 +4,13 @@
 **文檔類型**：接口詳規
 **覆蓋範圍**：接口字段契約、錯誤碼、守衛與頁面對接：07-chat
 **取證代碼入口**：`backend/src/app.ts`、`backend/src/routes/chat.routes.ts`、`backend/src/routes/ai-stream.routes.ts`、`backend/src/services/chat.service.ts`、`backend/src/services/judgment.service.ts`、`packages/contracts/src/chat.ts`、`packages/api-client/src/m3.ts`、`frontend/src/services/api/chat.ts`、`frontend/src/pages/Chat/Room`、`mobile/app/(app)/chat/room.tsx`
-**最後核驗 Commit**：`95fa8a9`
-**最後核驗日期**：`2026-07-12`
+**最後核驗 Commit**：`88054d1`
+**最後核驗日期**：`2026-07-13`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 **文檔版本**：v3.0
-**最後更新**：2026-07-12
-**代碼基準**：`codex/private-context-consent-boundary` release candidate（基於 `origin/main@95fa8a9`）；Production 狀態以 exact main SHA workflow 證據為準
+**最後更新**：2026-07-13
+**代碼基準**：能力已進入 `main@30c21bb`；Production 狀態以 exact main SHA workflow 證據為準
 
 ---
 
@@ -20,9 +20,9 @@
 - 高風險鏈路是 `request-judgment`：涉及房間狀態機、冪等與判決生成。
 - judgment 詳情的正式消費屬登入後鏈路；chat 僅承接到 judgment ready 與 handoff。
 
-## 歷史缺口與 current branch 邊界
+## 歷史缺口與 current main 邊界
 
-`origin/main@95fa8a9` 仍以 room-wide message/stream、`visibility_scope` 及 legacy handoff 為主；以下是 release candidate 修正前的歷史缺口，不用來推斷目前 Production 狀態：
+`origin/main@95fa8a9` 仍以 room-wide message/stream、`visibility_scope` 及 legacy handoff 為主；以下是 v1.5.0 修正前的歷史缺口，不用來推斷目前 Production 狀態：
 
 1. roleA list path 跳過 visibility filter，使 roleB `owner_only` 可能被 A 讀取；`owner_only` 尚不等於 sender-private。
 2. shared AI prompt 讀最近 30 則同房訊息時沒有 visibility filter，再以 `all` message 與 room-wide stream 輸出；private text 有 indirect disclosure 路徑。
@@ -30,7 +30,7 @@
 4. room event / AI stream access 只驗 room，reply target 只驗同房，尚無 participant/channel audience。
 5. `participant_consent.role_b_included_messages` 是 caller assertion，不是 B 本人對 exact selection/version 的持久化 approval。
 
-目前 `codex/private-context-consent-boundary` release candidate 已新增 shared/private `ChatChannel`、owner preference、Context Capsule、purpose-scoped authorization、channel-scoped event / AI stream、versioned Analysis request / participant approval 與 `analysis_request_id` handoff；caller boolean 已從 request schema 移除。Backend / Web / App 全量測試、乾淨 docs gate、exact-image build，以及 fresh PostgreSQL / Redis migration、backfill dry-run / apply 與 legacy privacy audit 已通過。這些仍是 release-candidate evidence；合併、exact main SHA CI、Production migration/runtime evidence、release gate 與 canary 由 [Chat 私密上下文待辦](../07-待處理問題與治理/待處理/Chat私密上下文與共同調解隔離重構待辦-2026-07-12.md) 阻擋錯誤的「已發布」宣稱。
+`main@30c21bb` 已新增 shared/private `ChatChannel`、owner preference、Context Capsule、purpose-scoped authorization、channel-scoped event / AI stream、versioned Analysis request / participant approval 與 `analysis_request_id` handoff；caller boolean 已從 request schema 移除。Backend / Web / App 全量測試、乾淨 docs gate、exact-image build，以及 fresh PostgreSQL / Redis migration、backfill dry-run / apply 與 legacy privacy audit 已通過。Production migration/runtime evidence、release gate 與 canary 由 [Chat 私密上下文待辦](../07-待處理問題與治理/待處理/Chat私密上下文與共同調解隔離重構待辦-2026-07-12.md) 統一裁決，避免把 source / CI evidence 錯寫為「已發布」。
 
 ## 接口契約（字段級）
 
@@ -138,4 +138,4 @@
 
 ## 狀態標記
 
-- release candidate 接口已由 Backend、shared contracts、Web 與 App 接線，並通過全量測試及本地 fresh DB migration/backfill/audit；只有 exact main SHA 的 Production workflow、runtime DB artifact、release gate 與線上 canary 均成功後，才可標記為 Production 已使用。
+- 相關接口已由 Backend、shared contracts、Web 與 App 接線並進入 `main@30c21bb`，亦通過全量測試及本地 fresh DB migration/backfill/audit；只有 exact main SHA 的 Production workflow、runtime DB artifact、release gate 與線上 canary 均成功後，才可標記為 Production 已使用。

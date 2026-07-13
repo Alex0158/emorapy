@@ -2,9 +2,10 @@
  * Chat message list with Virtuoso - virtualized scroll, history load, anchor, streaming
  */
 
+import { useMemo } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Virtuoso, type ListRange, type VirtuosoHandle } from 'react-virtuoso';
+import { Virtuoso, type Components, type ListRange, type VirtuosoHandle } from 'react-virtuoso';
 import { getLocale, t } from '@/utils/i18n';
 import type { ChatMessage } from '@/types/chat';
 import type { AIStreamDraft } from '@/utils/aiStreamState';
@@ -44,6 +45,48 @@ interface ChatMessageListProps {
   emptyMessageKey?: string;
 }
 
+interface ChatMessageListContext {
+  canRequestMoreHistory: boolean;
+  canLoadMoreHistory: boolean;
+  loadingMoreHistory: boolean;
+  historyBlockedByCache: boolean;
+  onLoadMoreHistory: () => void;
+  aiDraft: AIStreamDraft | null;
+}
+
+const ChatHistoryHeader = ({ context }: { context: ChatMessageListContext }) => (
+  context.canRequestMoreHistory ? (
+    <div className="chat-room-page__history-bar">
+      <div className="flex items-center gap-2 flex-wrap">
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={!context.canLoadMoreHistory || context.loadingMoreHistory}
+          onClick={context.onLoadMoreHistory}
+        >
+          {context.loadingMoreHistory && <Loader2 className="size-3 animate-spin" />}
+          {t('chat.loadMore')}
+        </Button>
+        {context.historyBlockedByCache && (
+          <span className="text-xs text-muted-foreground">{t('chat.historyCacheFullHint')}</span>
+        )}
+      </div>
+    </div>
+  ) : null
+);
+
+const ChatMessagesFooter = ({ context }: { context: ChatMessageListContext }) => (
+  <div style={{ padding: '0 12px' }}>
+    {context.aiDraft && <ChatStreamingBubble text={context.aiDraft.text} status={context.aiDraft.status} />}
+    <div style={{ height: 80 }} />
+  </div>
+);
+
+const chatMessageListComponents: Components<ChatMessage, ChatMessageListContext> = {
+  Header: ChatHistoryHeader,
+  Footer: ChatMessagesFooter,
+};
+
 export default function ChatMessageList({
   messages, firstItemIndex, virtuosoRef, messagesContainerRef, onRangeChanged, onAtBottomChange, onStartReached,
   canRequestMoreHistory, canLoadMoreHistory, loadingMoreHistory, historyBlockedByCache, onLoadMoreHistory,
@@ -52,6 +95,22 @@ export default function ChatMessageList({
   setReplyTo, hasUnread, jumpBackState, onJumpBack, onDismissJumpBack, onJumpToLatest,
   emptyMessageKey = 'chat.emptyMessages',
 }: ChatMessageListProps) {
+  const virtuosoContext = useMemo<ChatMessageListContext>(() => ({
+    canRequestMoreHistory,
+    canLoadMoreHistory,
+    loadingMoreHistory,
+    historyBlockedByCache,
+    onLoadMoreHistory,
+    aiDraft,
+  }), [
+    aiDraft,
+    canLoadMoreHistory,
+    canRequestMoreHistory,
+    historyBlockedByCache,
+    loadingMoreHistory,
+    onLoadMoreHistory,
+  ]);
+
   return (
     <div className="chat-room-page__messages" role="log" aria-label={t('chat.messagesLogAria')}>
       {messages.length === 0 ? (
@@ -70,24 +129,8 @@ export default function ChatMessageList({
             atBottomStateChange={onAtBottomChange}
             startReached={onStartReached}
             followOutput={(isAtBottom) => (isAtBottom ? 'auto' : false)}
-            components={{
-              Header: () => canRequestMoreHistory ? (
-                <div className="chat-room-page__history-bar">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Button variant="outline" size="sm" disabled={!canLoadMoreHistory || loadingMoreHistory} onClick={onLoadMoreHistory}>
-                      {loadingMoreHistory && <Loader2 className="size-3 animate-spin" />}{t('chat.loadMore')}
-                    </Button>
-                    {historyBlockedByCache && <span className="text-xs text-muted-foreground">{t('chat.historyCacheFullHint')}</span>}
-                  </div>
-                </div>
-              ) : null,
-              Footer: () => (
-                <div style={{ padding: '0 12px' }}>
-                  {aiDraft && <ChatStreamingBubble text={aiDraft.text} status={aiDraft.status} />}
-                  <div style={{ height: 80 }} />
-                </div>
-              ),
-            }}
+            components={chatMessageListComponents}
+            context={virtuosoContext}
             itemContent={(index, item) => {
               const list = messages;
               const msg = item as ChatMessage;

@@ -116,8 +116,9 @@ export function useChatRoomHistoryNavigation({
 		const targetRoomId = room?.id;
 		if (!targetRoomId) return;
 		if (!isRoomTargetActive(targetRoomId)) return;
-		if (!hasMoreHistory) return;
-		if (!historyCursor) return;
+		const cursor = historyCursorRef.current;
+		if (!hasMoreHistoryRef.current) return;
+		if (!cursor) return;
 		if (loadingMoreHistory) return;
 		if (loadMoreHistoryLockRef.current) return;
 
@@ -140,7 +141,7 @@ export function useChatRoomHistoryNavigation({
 
 		try {
 			const result = await listChatMessages(targetRoomId, {
-				cursor: historyCursor,
+				cursor,
 				limit: 50,
 			});
 			if (!mountedRef.current || !isRoomTargetActive(targetRoomId)) return;
@@ -175,9 +176,7 @@ export function useChatRoomHistoryNavigation({
 			loadMoreHistoryLockRef.current = false;
 		}
 	}, [
-		hasMoreHistory,
 		hasMoreHistoryRef,
-		historyCursor,
 		historyCursorRef,
 		isRoomTargetActive,
 		loadingMoreHistory,

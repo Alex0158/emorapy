@@ -18,7 +18,11 @@ vi.mock('react-virtuoso', async () => {
     firstItemIndex?: number;
     computeItemKey?: (index: number, item: unknown) => React.Key;
     itemContent?: (index: number, item: unknown) => React.ReactNode;
-    components?: { Header?: React.ComponentType; Footer?: React.ComponentType };
+    components?: {
+      Header?: React.ComponentType<{ context?: unknown }>;
+      Footer?: React.ComponentType<{ context?: unknown }>;
+    };
+    context?: unknown;
     rangeChanged?: (range: { startIndex: number; endIndex: number }) => void;
     atBottomStateChange?: (atBottom: boolean) => void;
     scrollerRef?: (node: HTMLElement | null) => void;
@@ -33,6 +37,7 @@ vi.mock('react-virtuoso', async () => {
       computeItemKey,
       itemContent,
       components,
+      context,
       rangeChanged,
       atBottomStateChange,
       scrollerRef,
@@ -65,7 +70,7 @@ vi.mock('react-virtuoso', async () => {
 
     return (
       <div className={className} style={style}>
-        {Header ? <Header /> : null}
+        {Header ? <Header context={context} /> : null}
         <div ref={scrollerDivRef} data-testid="virtuoso-scroller">
           <div data-testid="virtuoso-item-list">
             {data.map((item, i) => {
@@ -79,7 +84,7 @@ vi.mock('react-virtuoso', async () => {
             })}
           </div>
         </div>
-        {Footer ? <Footer /> : null}
+        {Footer ? <Footer context={context} /> : null}
       </div>
     );
   });
@@ -3559,9 +3564,67 @@ describe('ChatRoomPage', () => {
     expect(toast.error).not.toHaveBeenCalledWith('移除失敗');
   });
 
+  it('非相關 async rerender 不應替換載入更多按鈕或令 click handler 失效', async () => {
+    let resolvePreference!: (value: { mode: 'shared_process_controls' }) => void;
+    mockGetPrivateContextPreference.mockImplementation(() => new Promise((resolve) => {
+      resolvePreference = resolve;
+    }));
+    mockListChatMessages.mockImplementation((_roomId: string, params?: { cursor?: string }) => (
+      Promise.resolve(params?.cursor
+        ? { messages: [], nextCursor: null }
+        : {
+            messages: [
+              {
+                id: 'msg-1',
+                content: 'hello',
+                channel_id: 'room-1-private',
+                message_type: 'user_text',
+                visibility_scope: 'owner_only',
+                created_at: new Date().toISOString(),
+                sender_participant: { role_in_room: 'roleA' },
+              },
+            ],
+            nextCursor: 'cursor-1',
+          })
+    ));
+
+    render(
+      <MemoryRouter initialEntries={['/chat/room/room-1']}>
+        <Routes>
+          <Route path="/chat/room/:roomId" element={<ChatRoomPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByText('hello');
+    const loadMoreBtn = await screen.findByRole('button', { name: '載入更多' });
+    loadMoreBtn.focus();
+    expect(loadMoreBtn).toHaveFocus();
+
+    await act(async () => {
+      resolvePreference({ mode: 'shared_process_controls' });
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(screen.getByRole('radio', { name: /改善共同對話方式/ })).toBeChecked();
+    });
+
+    expect(loadMoreBtn.isConnected).toBe(true);
+    expect(screen.getByRole('button', { name: '載入更多' })).toBe(loadMoreBtn);
+    expect(loadMoreBtn).toHaveFocus();
+
+    fireEvent.click(loadMoreBtn);
+    await waitFor(() => {
+      expect(mockListChatMessages).toHaveBeenCalledWith('room-1', { cursor: 'cursor-1', limit: 50 });
+    });
+  });
+
   it('loadMoreHistory（listChatMessages 帶 cursor）FORBIDDEN 且無 message 時應使用 loadMoreFail（F07 權限邊界 fallback）', async () => {
-    mockListChatMessages
-      .mockResolvedValueOnce({
+    mockListChatMessages.mockImplementation((_roomId: string, params?: { cursor?: string }) => {
+      if (params?.cursor === 'cursor-1') {
+        return Promise.reject({ code: 'FORBIDDEN' });
+      }
+      return Promise.resolve({
         messages: [
           {
             id: 'msg-1',
@@ -3573,8 +3636,8 @@ describe('ChatRoomPage', () => {
           },
         ],
         nextCursor: 'cursor-1',
-      })
-      .mockRejectedValueOnce({ code: 'FORBIDDEN' });
+      });
+    });
 
     render(
       <MemoryRouter initialEntries={['/chat/room/room-1']}>
@@ -3588,6 +3651,7 @@ describe('ChatRoomPage', () => {
     await waitFor(() => expect(mockListChatMessages).toHaveBeenCalledWith('room-1', expect.objectContaining({ limit: 50 })));
 
     const loadMoreBtn = await screen.findByRole('button', { name: '載入更多' });
+    await waitFor(() => expect(loadMoreBtn).toBeEnabled());
     await act(async () => {
       fireEvent.click(loadMoreBtn);
     });
@@ -3598,8 +3662,11 @@ describe('ChatRoomPage', () => {
   });
 
   it('loadMoreHistory（listChatMessages 帶 cursor）失敗且 message 為空字串時應使用 loadMoreFail（F10 邊界）', async () => {
-    mockListChatMessages
-      .mockResolvedValueOnce({
+    mockListChatMessages.mockImplementation((_roomId: string, params?: { cursor?: string }) => {
+      if (params?.cursor === 'cursor-1') {
+        return Promise.reject({ code: 'SERVER_ERROR', message: '' });
+      }
+      return Promise.resolve({
         messages: [
           {
             id: 'msg-1',
@@ -3611,8 +3678,8 @@ describe('ChatRoomPage', () => {
           },
         ],
         nextCursor: 'cursor-1',
-      })
-      .mockRejectedValueOnce({ code: 'SERVER_ERROR', message: '' });
+      });
+    });
 
     render(
       <MemoryRouter initialEntries={['/chat/room/room-1']}>
@@ -3626,11 +3693,13 @@ describe('ChatRoomPage', () => {
     await waitFor(() => expect(mockListChatMessages).toHaveBeenCalledWith('room-1', expect.objectContaining({ limit: 50 })));
 
     const loadMoreBtn = await screen.findByRole('button', { name: '載入更多' });
+    await waitFor(() => expect(loadMoreBtn).toBeEnabled());
     await act(async () => {
       fireEvent.click(loadMoreBtn);
     });
 
     await waitFor(() => {
+      expect(mockListChatMessages).toHaveBeenCalledWith('room-1', { cursor: 'cursor-1', limit: 50 });
       expect(toast.error).toHaveBeenCalledWith('服務器錯誤，請稍後再試');
     });
   });
@@ -3693,6 +3762,7 @@ describe('ChatRoomPage', () => {
 
     await screen.findByText('room-a-new');
     const loadMoreBtn = await screen.findByRole('button', { name: '載入更多' });
+    await waitFor(() => expect(loadMoreBtn).toBeEnabled());
     await act(async () => {
       fireEvent.click(loadMoreBtn);
     });

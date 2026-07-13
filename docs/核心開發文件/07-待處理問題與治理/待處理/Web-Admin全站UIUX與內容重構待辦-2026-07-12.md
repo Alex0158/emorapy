@@ -3,9 +3,9 @@
 <!-- CORE_DOC_AUDIT_METADATA:START -->
 **文檔類型**：問題治理
 **覆蓋範圍**：Consumer Web 與 Admin Web 全站資訊層級、互動、內容、視覺系統、安全呈現與前端維護性重構
-**取證代碼入口**：`frontend/src/router/index.tsx`、`frontend/src/pages`、`frontend/src/components`、`frontend/src/index.css`、`frontend-admin/src/router.tsx`、`frontend-admin/src/pages`、`frontend-admin/src/components`、`frontend-admin/src/index.css`、`backend/src/utils/product-safety-policy.ts`、`backend/src/services/repair-eligibility.service.ts`
-**最後核驗 Commit**：`c78765b`
-**最後核驗日期**：`2026-07-12`
+**取證代碼入口**：`frontend/src/router/index.tsx`、`frontend/src/pages`、`frontend/src/components`、`frontend/src/index.css`、`frontend-admin/src/router.tsx`、`frontend-admin/src/pages`、`frontend-admin/src/components`、`frontend-admin/src/index.css`、`frontend-admin/src/types/admin.ts`、`backend/src/utils/product-safety-policy.ts`、`backend/src/services/repair-eligibility.service.ts`、`backend/src/services/cost-monitoring.service.ts`
+**最後核驗 Commit**：`b3f3716`
+**最後核驗日期**：`2026-07-13`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 **狀態**：實作與代表性設計驗收已完成；真服務動態證據待補
@@ -124,7 +124,8 @@ Product Design 已基於 current Home、Quick 與 Collaborative 產生三個 144
 
 1. Quick Result 真 backend 完成態、Collaborative Role A → Role B 正式送出、Formal remote 雙身份 blind-before-submit、safety/crisis runtime policy 與 Admin destructive mutations 尚未在本輪以 credential-backed / DB-backed true-service E2E 重跑。
 2. 本輪 Admin 已登入工作台瀏覽器驗收使用 synthetic local API fixture，只能證明 UI state、permission navigation 與 responsive，不構成 staging / production service 證據。
-3. 上述動態證據補齊並回寫後，才可把本文件移入 `已處理/`；不得以 unit test、static gate、fixture 或 screenshot 代替真服務結論。
+3. Admin costs API 已返回 `openai.ledger.status`、request/token/cost 與 product-flow breakdown，但 `frontend-admin/src/types/admin.ts` 尚未承接 ledger contract，`CostsPanel` 亦只顯示 generic OpenAI status/summary token；此 P2 不阻擋 ledger P1 release，但在 Admin UI 可診斷實際 request attribution 前不得宣稱成本治理頁完整。
+4. 上述動態證據與 Admin ledger breakdown 補齊並回寫後，才可把本文件移入 `已處理/`；不得以 unit test、static gate、fixture 或 screenshot 代替真服務結論。
 
 ## 10. 驗證命令
 

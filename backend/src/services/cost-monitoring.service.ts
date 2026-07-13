@@ -1,4 +1,5 @@
 import Redis from 'ioredis';
+import type { Prisma, PrismaClient } from '../types/prisma-client';
 import { getAIRequestLedgerProductFlow } from '../utils/ai-ledger-source';
 
 type DataStatus = 'ok' | 'partial' | 'unavailable';
@@ -81,27 +82,15 @@ export type AdminCostReport = {
   };
 };
 
-type AIRequestLedgerRow = {
-  product_flow: string | null;
-  status: string;
-  input_tokens: number | null;
-  output_tokens: number | null;
-  total_tokens: number | null;
-  cost_usd: number | string | { toString(): string } | null;
-  created_at: Date;
-};
-
-type CostMonitoringPrisma = {
-  aiRequestLedger: {
-    findMany(args: unknown): Promise<AIRequestLedgerRow[]>;
-  };
-};
+type CostMonitoringPrisma = Pick<PrismaClient, 'aIRequestLedger'>;
 
 let prismaLoader: (() => CostMonitoringPrisma) | null = null;
 
 function loadPrisma(): CostMonitoringPrisma {
   if (!prismaLoader) {
-    prismaLoader = () => require('../config/database').default as CostMonitoringPrisma;
+    prismaLoader = () => (
+      require('../config/database') as typeof import('../config/database')
+    ).default;
   }
   return prismaLoader();
 }
@@ -116,9 +105,9 @@ function round(value: number, fraction = 4): number {
   return Math.round(value * factor) / factor;
 }
 
-function decimalToNumber(value: AIRequestLedgerRow['cost_usd']): number | null {
-  if (value === null || value === undefined) return null;
-  const parsed = Number(typeof value === 'object' ? value.toString() : value);
+function decimalToNumber(value: Prisma.Decimal | null): number | null {
+  if (value === null) return null;
+  const parsed = Number(value.toString());
   return Number.isFinite(parsed) ? parsed : null;
 }
 
@@ -450,7 +439,7 @@ async function readAIRequestLedgerBreakdown(): Promise<AdminCostReport['openai']
   const since7d = new Date(now - 7 * 24 * 60 * 60 * 1000);
   const since24hMs = now - 24 * 60 * 60 * 1000;
 
-  const rows = await loadPrisma().aiRequestLedger.findMany({
+  const rows = await loadPrisma().aIRequestLedger.findMany({
     where: { created_at: { gte: since7d } },
     select: {
       product_flow: true,

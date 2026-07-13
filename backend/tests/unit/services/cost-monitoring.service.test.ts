@@ -20,7 +20,7 @@ jest.mock('ioredis', () => {
 jest.mock('../../../src/config/database', () => ({
   __esModule: true,
   default: {
-    aiRequestLedger: {
+    aIRequestLedger: {
       findMany: (...args: unknown[]) => aiRequestLedgerFindManyMock(...args),
     },
   },

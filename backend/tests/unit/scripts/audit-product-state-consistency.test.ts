@@ -393,4 +393,32 @@ describe('audit-product-state-consistency', () => {
       }),
     });
   });
+
+  it('release audit 頂層查詢保持串行，避免耗盡 production session pool', async () => {
+    let activeQueries = 0;
+    let maxActiveQueries = 0;
+    const trackedResult = <T>(value: T) => () => {
+      activeQueries += 1;
+      maxActiveQueries = Math.max(maxActiveQueries, activeQueries);
+      return new Promise<T>((resolve) => {
+        queueMicrotask(() => {
+          activeQueries -= 1;
+          resolve(value);
+        });
+      });
+    };
+
+    prismaMock.case.count.mockImplementation(trackedResult(0));
+    prismaMock.case.findMany.mockImplementation(trackedResult([]));
+    prismaMock.chatRoom.count.mockImplementation(trackedResult(0));
+    prismaMock.chatRoom.findMany.mockImplementation(trackedResult([]));
+    prismaMock.chatToCaseLink.count.mockImplementation(trackedResult(0));
+    prismaMock.chatToCaseLink.findMany.mockImplementation(trackedResult([]));
+    prismaMock.repairTrack.count.mockImplementation(trackedResult(0));
+    prismaMock.repairTrack.findMany.mockImplementation(trackedResult([]));
+
+    await runProductStateConsistencyAudit(30);
+
+    expect(maxActiveQueries).toBe(1);
+  });
 });

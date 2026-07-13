@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto';
 import logger from '../config/logger';
 import { env } from '../config/env';
 import { AI_CONFIG } from '../config/openai';
-import type { Prisma } from '../types/prisma-client';
+import type { Prisma, PrismaClient } from '../types/prisma-client';
 import { calculateAIRequestCost } from './ai-cost-pricing.service';
 
 type AIRequestLedgerStatus = 'started' | 'succeeded' | 'failed' | 'cancelled';
@@ -38,18 +38,15 @@ export interface AIRequestLedgerFinishInput extends TokenUsage {
   metadata?: Record<string, unknown> | null;
 }
 
-interface AIRequestLedgerPrisma {
-  aiRequestLedger: {
-    upsert(args: unknown): Promise<unknown>;
-    update(args: unknown): Promise<unknown>;
-  };
-}
+type AIRequestLedgerPrisma = Pick<PrismaClient, 'aIRequestLedger'>;
 
 let prismaLoader: (() => AIRequestLedgerPrisma) | null = null;
 
 function loadPrisma(): AIRequestLedgerPrisma {
   if (!prismaLoader) {
-    prismaLoader = () => require('../config/database').default as AIRequestLedgerPrisma;
+    prismaLoader = () => (
+      require('../config/database') as typeof import('../config/database')
+    ).default;
   }
   return prismaLoader();
 }
@@ -101,10 +98,10 @@ export class AIRequestLedgerService {
       status: 'started',
       metadata: sanitizeMetadata(input.metadata),
       started_at: startedAt,
-    };
+    } satisfies Prisma.AIRequestLedgerUncheckedCreateInput;
 
     try {
-      await loadPrisma().aiRequestLedger.upsert({
+      await loadPrisma().aIRequestLedger.upsert({
         where: { request_id: requestId },
         create: data,
         update: {
@@ -154,7 +151,7 @@ export class AIRequestLedgerService {
           }
         : baseMetadata;
 
-      await loadPrisma().aiRequestLedger.update({
+      await loadPrisma().aIRequestLedger.update({
         where: { request_id: input.requestId },
         data: {
           status: input.status,

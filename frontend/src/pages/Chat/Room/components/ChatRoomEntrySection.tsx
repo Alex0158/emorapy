@@ -6,14 +6,10 @@ import { AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { t } from '@/utils/i18n';
-import type { ChatHistoryVisibilityMode } from '@/types/chat';
 
 interface ChatRoomEntrySectionProps {
   errorText: string;
-  visibilityMode: ChatHistoryVisibilityMode;
-  onVisibilityModeChange: (value: ChatHistoryVisibilityMode) => void;
   inviteCodeInput: string;
   onInviteCodeInputChange: (value: string) => void;
   creatingRoom: boolean;
@@ -25,7 +21,7 @@ interface ChatRoomEntrySectionProps {
 }
 
 export default function ChatRoomEntrySection({
-  errorText, visibilityMode, onVisibilityModeChange, inviteCodeInput, onInviteCodeInputChange,
+  errorText, inviteCodeInput, onInviteCodeInputChange,
   creatingRoom, joiningInvite, decliningInvite, onCreateRoom, onAcceptInvite, onDeclineInvite,
 }: ChatRoomEntrySectionProps) {
   return (
@@ -43,15 +39,8 @@ export default function ChatRoomEntrySection({
         )}
         <section className="chat-room-entry__create" aria-labelledby="chat-create-heading">
           <h2 id="chat-create-heading" className="chat-room-entry__section-title">{t('chat.createRoom')}</h2>
+          <p className="mb-4 text-sm leading-relaxed text-muted-foreground">{t('chat.createRoomPrivateDetail')}</p>
           <div className="chat-room-entry__create-actions">
-            <Select value={visibilityMode} onValueChange={(v: string) => onVisibilityModeChange(v as ChatHistoryVisibilityMode)}>
-              <SelectTrigger className="chat-room-entry__visibility-select w-[220px]" aria-label={t('chat.visibility.label')}><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="share_full_history">{t('chat.visibility.share_full_history')}</SelectItem>
-                <SelectItem value="share_summary_only">{t('chat.visibility.share_summary_only')}</SelectItem>
-                <SelectItem value="share_from_join_time">{t('chat.visibility.share_from_join_time')}</SelectItem>
-              </SelectContent>
-            </Select>
             <Button
               size="lg"
               disabled={creatingRoom}

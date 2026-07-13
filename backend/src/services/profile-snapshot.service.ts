@@ -11,6 +11,11 @@ export class ProfileSnapshotService {
     const [narratives, insights, richnessScore] = await Promise.all([
       prisma.profileNarrative.findMany({
         where: { user_id: userId, is_latest: true },
+        select: {
+          domain: true,
+          ai_summary: true,
+          completeness: true,
+        },
       }),
       prisma.profileInsight.findMany({
         where: { user_id: userId, is_active: true },
@@ -19,11 +24,15 @@ export class ProfileSnapshotService {
     ]);
 
     const snapshotData: SnapshotData = {
-      narratives: narratives.map((n) => ({
-        domain: n.domain,
-        summary: n.ai_summary || n.raw_narrative.slice(0, 500),
-        completeness: n.completeness ?? 0,
-      })),
+      narratives: narratives.flatMap((n) => {
+        const summary = n.ai_summary?.trim();
+        if (!summary) return [];
+        return [{
+          domain: n.domain,
+          summary,
+          completeness: n.completeness ?? 0,
+        }];
+      }),
       insights: insights.map((i) => ({
         domain: i.domain,
         type: i.insight_type,

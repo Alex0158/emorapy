@@ -9,8 +9,12 @@ import {
   getChatRoom,
   kickChatParticipantB,
   leaveChatRoom,
+  listChatAnalysisRequests,
+  listChatContextCapsules,
   listChatMessages,
   requestChatJudgment,
+  revokeChatAnalysisApproval,
+  revokeChatContextAuthorization,
   sendChatMessage,
 } from './chat';
 import { setLocale } from '@/utils/i18n';
@@ -25,7 +29,11 @@ const mocks = vi.hoisted(() => ({
   kickParticipantB: vi.fn(),
   leaveRoom: vi.fn(),
   listMessages: vi.fn(),
+  listAnalysisRequests: vi.fn(),
+  listContextCapsules: vi.fn(),
   requestJudgment: vi.fn(),
+  revokeAnalysisApproval: vi.fn(),
+  revokeContextAuthorization: vi.fn(),
   sendMessage: vi.fn(),
   createM3ApiClient: vi.fn(() => ({
     chat: {
@@ -38,7 +46,11 @@ const mocks = vi.hoisted(() => ({
       kickParticipantB: mocks.kickParticipantB,
       leaveRoom: mocks.leaveRoom,
       listMessages: mocks.listMessages,
+      listAnalysisRequests: mocks.listAnalysisRequests,
+      listContextCapsules: mocks.listContextCapsules,
       requestJudgment: mocks.requestJudgment,
+      revokeAnalysisApproval: mocks.revokeAnalysisApproval,
+      revokeContextAuthorization: mocks.revokeContextAuthorization,
       sendMessage: mocks.sendMessage,
     },
   })),
@@ -72,16 +84,20 @@ describe('chat API', () => {
         kickParticipantB: mocks.kickParticipantB,
         leaveRoom: mocks.leaveRoom,
         listMessages: mocks.listMessages,
+        listAnalysisRequests: mocks.listAnalysisRequests,
+        listContextCapsules: mocks.listContextCapsules,
         requestJudgment: mocks.requestJudgment,
+        revokeAnalysisApproval: mocks.revokeAnalysisApproval,
+        revokeContextAuthorization: mocks.revokeContextAuthorization,
         sendMessage: mocks.sendMessage,
       },
     });
   });
 
-  it('createChatRoom 應委派 shared M3 chat client 並保留預設 history_visibility_mode', async () => {
+  it('createChatRoom 應委派 shared M3 chat client 並保留 join-time 預設 history_visibility_mode', async () => {
     mocks.createRoom.mockResolvedValueOnce({ id: 'r1' });
     const result = await createChatRoom();
-    expect(mocks.createRoom).toHaveBeenCalledWith('share_summary_only');
+    expect(mocks.createRoom).toHaveBeenCalledWith('share_from_join_time');
     expect(result).toMatchObject({ id: 'r1' });
   });
 
@@ -168,17 +184,45 @@ describe('chat API', () => {
     expect(result).toMatchObject({ id: 'm2' });
   });
 
-  it('requestChatJudgment 應委派 shared M3 requestJudgment', async () => {
+  it('requestChatJudgment 只以 exact analysis_request_id 委派 shared M3 requestJudgment', async () => {
     mocks.requestJudgment.mockResolvedValueOnce({ roomId: 'r1', caseId: 'c1', status: 'judgment_requested' });
-    const result = await requestChatJudgment('r1', { included_message_ids: ['m1', 'm2'] });
-    expect(mocks.requestJudgment).toHaveBeenCalledWith('r1', { included_message_ids: ['m1', 'm2'] });
+    const result = await requestChatJudgment('r1', { analysis_request_id: 'analysis-1' });
+    expect(mocks.requestJudgment).toHaveBeenCalledWith('r1', { analysis_request_id: 'analysis-1' });
     expect(result).toMatchObject({ roomId: 'r1', caseId: 'c1' });
   });
 
-  it('requestChatJudgment 未傳 payload 時應委派空物件，長超時由 shared M3 contract 保護', async () => {
-    mocks.requestJudgment.mockResolvedValueOnce({ roomId: 'r1', caseId: 'c1', status: 'judgment_requested' });
-    await requestChatJudgment('r1');
-    expect(mocks.requestJudgment).toHaveBeenCalledWith('r1', {});
+  it('context/analysis read wrappers 應只委派 shared M3 read model', async () => {
+    mocks.listContextCapsules.mockResolvedValueOnce([{ id: 'capsule-1' }]);
+    mocks.listAnalysisRequests.mockResolvedValueOnce([{ id: 'analysis-1' }]);
+
+    await expect(listChatContextCapsules('r1')).resolves.toEqual([{ id: 'capsule-1' }]);
+    await expect(listChatAnalysisRequests('r1')).resolves.toEqual([{ id: 'analysis-1' }]);
+    expect(mocks.listContextCapsules).toHaveBeenCalledWith('r1');
+    expect(mocks.listAnalysisRequests).toHaveBeenCalledWith('r1');
+  });
+
+  it('context/analysis revoke wrappers 應帶固定 user_revoked 與 exact request envelope', async () => {
+    mocks.revokeContextAuthorization.mockResolvedValueOnce({ id: 'grant-1' });
+    mocks.revokeAnalysisApproval.mockResolvedValueOnce({ id: 'approval-1' });
+    const request = {
+      id: 'analysis-1',
+      selection_hash: 'a'.repeat(64),
+      policy_version: 'context-policy-v1',
+    } as Parameters<typeof revokeChatAnalysisApproval>[1];
+
+    await revokeChatContextAuthorization('r1', 'grant-1');
+    await revokeChatAnalysisApproval('r1', request);
+
+    expect(mocks.revokeContextAuthorization).toHaveBeenCalledWith(
+      'r1',
+      'grant-1',
+      { reason_code: 'user_revoked' },
+    );
+    expect(mocks.revokeAnalysisApproval).toHaveBeenCalledWith(
+      'r1',
+      'analysis-1',
+      { selection_hash: 'a'.repeat(64), policy_version: 'context-policy-v1' },
+    );
   });
 
   it('getChatJudgmentStatus 應委派 shared M3 getJudgmentStatus', async () => {

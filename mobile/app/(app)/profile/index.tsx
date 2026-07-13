@@ -15,24 +15,32 @@ import {
   StatusPill,
 } from '@/src/ui/components';
 import { palette, spacing, typography } from '@/src/ui/theme';
+import {
+  identityScopedQueryKey,
+  useIdentityQueryScope,
+} from '@/src/providers/identityQueryScope';
 
 export default function ProfileScreen() {
   useLocale();
   const queryClient = useQueryClient();
+  const identityScope = useIdentityQueryScope();
+  const identityQueriesEnabled = identityScope.privateDataEnabled && !identityScope.transitioning;
+  const identityEpoch = identityScope.epoch;
   const authQuery = useQuery({
-    queryKey: ['app', 'auth-token'],
+    queryKey: identityScopedQueryKey(identityEpoch, 'app', 'auth-token'),
     queryFn: () => tokenStorage.getToken(),
+    enabled: identityQueriesEnabled,
   });
   const isAuthenticated = Boolean(authQuery.data);
   const psychQuery = useQuery({
-    queryKey: ['m2', 'psych-profile'],
+    queryKey: identityScopedQueryKey(identityEpoch, 'm2', 'psych-profile'),
     queryFn: () => m2Api.psychProfile.getProfile(),
-    enabled: isAuthenticated,
+    enabled: identityQueriesEnabled && isAuthenticated,
   });
   const resumeQuery = useQuery({
-    queryKey: ['m2', 'interview-resume'],
+    queryKey: identityScopedQueryKey(identityEpoch, 'm2', 'interview-resume'),
     queryFn: () => m2Api.interview.checkResume(),
-    enabled: isAuthenticated,
+    enabled: identityQueriesEnabled && isAuthenticated,
   });
   const pendingSessionId = resumeQuery.data?.has_pending ? resumeQuery.data.session_id : null;
   const failedSessionId = resumeQuery.data?.has_failed ? resumeQuery.data.failed_session_id : null;
@@ -41,7 +49,9 @@ export default function ProfileScreen() {
     mutationFn: async () => {
       if (!psychQuery.data?.consent_given) {
         await m2Api.psychProfile.giveConsent();
-        await queryClient.invalidateQueries({ queryKey: ['m2', 'psych-profile'] });
+        await queryClient.invalidateQueries({
+          queryKey: identityScopedQueryKey(identityEpoch, 'm2', 'psych-profile'),
+        });
       }
       return m2Api.interview.startSession('organic');
     },
@@ -52,7 +62,9 @@ export default function ProfileScreen() {
   const retryMutation = useMutation({
     mutationFn: () => m2Api.interview.retryFailed(failedSessionId as string),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['m2'] });
+      await queryClient.invalidateQueries({
+        queryKey: identityScopedQueryKey(identityEpoch, 'm2'),
+      });
       router.push('/profile/story' as Href);
     },
   });

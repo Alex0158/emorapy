@@ -31,9 +31,9 @@ RUN mkdir -p ../packages/contracts/types && \
 # 構建TypeScript（生產環境，不生成 sourcemap）
 RUN npx tsc --project tsconfig.prod.json
 
-# 清理 devDependencies（可選，減小鏡像大小）
-# 注意：保留 prisma 以便運行遷移
-RUN npm prune --production --no-save prisma @prisma/client
+# 清理 build-only devDependencies。Prisma CLI 與 tsx 是 production ops
+# runtime：Railway preDeploy 需要它們執行 migration/backfill/audit。
+RUN npm prune --omit=dev
 
 # 暴露端口
 EXPOSE 3000

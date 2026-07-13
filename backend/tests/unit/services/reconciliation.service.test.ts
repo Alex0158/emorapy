@@ -313,7 +313,7 @@ describe('ReconciliationService', () => {
     expect(prismaMock.repairTrack.update).not.toHaveBeenCalled();
   });
 
-  it('chat-to-case 產品流即使 mode=quick 也應載入修復方案個人化上下文', async () => {
+  it('shared Repair 不得載入 purpose-unknown case 或 diagnostic context', async () => {
     const chatToCaseJudgment = {
       ...baseJudgment,
       case: {
@@ -322,12 +322,13 @@ describe('ReconciliationService', () => {
         session_id: 'guest_1704067200000_abcdefghijklmnop',
         chat_to_case_links: [{ id: 'link-1' }],
       },
+      emotional_analysis: { private_canary: 'must-not-enter-shared-repair' },
     };
     prismaMock.judgment.findUnique.mockResolvedValue(chatToCaseJudgment);
     prismaMock.reconciliationPlan.findMany.mockResolvedValue([]);
     (caseContextService.loadCaseContext as any).mockResolvedValue({ userA: {}, userB: null, relationship: null });
     (caseContextService.formatForReconciliationPlans as any).mockReturnValue('chat-to-case personalization');
-    (caseContextService.formatDiagnosticContext as any).mockReturnValue(undefined);
+    (caseContextService.formatDiagnosticContext as any).mockReturnValue('private diagnostic canary');
     mockGenerateReconciliationPlans.mockResolvedValue([validPlanContent] as never);
     prismaMock.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) => {
       const tx = {
@@ -347,12 +348,14 @@ describe('ReconciliationService', () => {
 
     const result = await service.generatePlans('judge-1', { intent: 'repair' }, 'u1');
 
-    expect(caseContextService.loadCaseContext).toHaveBeenCalledWith('case-1');
+    expect(caseContextService.loadCaseContext).not.toHaveBeenCalled();
+    expect(caseContextService.formatForReconciliationPlans).not.toHaveBeenCalled();
+    expect(caseContextService.formatDiagnosticContext).not.toHaveBeenCalled();
     expect(mockGenerateReconciliationPlans).toHaveBeenCalledWith(
       '情感需求衝突',
       { plaintiff: 50, defendant: 50 },
       '摘要',
-      'chat-to-case personalization',
+      undefined,
       undefined,
       undefined,
       expect.objectContaining({ intent: 'repair' }),

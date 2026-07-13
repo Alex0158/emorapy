@@ -26,7 +26,7 @@ export interface ChatRoomStreamCallbacks {
 }
 
 export interface ChatAIStreamReadyEvent {
-  scopeType: 'chat_room';
+  scopeType: 'chat_room' | 'chat_channel';
   scopeId: string;
   snapshots?: AIStreamSnapshot[];
 }
@@ -38,13 +38,13 @@ export interface ChatAIStreamCallbacks {
   onClose?: () => void;
 }
 
-export async function connectChatRoomStream(
-  roomId: string,
+async function connectChatEventStream(
+  path: string,
   callbacks: ChatRoomStreamCallbacks,
   options: { signal?: AbortSignal } = {}
 ): Promise<void> {
   await connectAppSSE({
-    path: chatRoomPath(roomId, '/stream'),
+    path,
     signal: options.signal,
     onMessage: (message) => {
       if (!message.data) return;
@@ -69,12 +69,33 @@ export async function connectChatRoomStream(
   });
 }
 
-export async function connectChatAIStream(
+export async function connectChatRoomStream(
   roomId: string,
+  callbacks: ChatRoomStreamCallbacks,
+  options: { signal?: AbortSignal } = {}
+): Promise<void> {
+  await connectChatEventStream(chatRoomPath(roomId, '/stream'), callbacks, options);
+}
+
+export async function connectChatChannelStream(
+  channelId: string,
+  callbacks: ChatRoomStreamCallbacks,
+  options: { signal?: AbortSignal } = {}
+): Promise<void> {
+  await connectChatEventStream(
+    `/chat/channels/${encodeURIComponent(channelId)}/stream`,
+    callbacks,
+    options,
+  );
+}
+
+export async function connectChatAIStream(
+  scopeType: 'chat_room' | 'chat_channel',
+  scopeId: string,
   callbacks: ChatAIStreamCallbacks,
   options?: { afterSeq?: number; signal?: AbortSignal }
 ): Promise<void> {
-  await connectAIStream('chat_room', roomId, {
+  await connectAIStream(scopeType, scopeId, {
     onReady: (event) => callbacks.onReady?.(event as ChatAIStreamReadyEvent),
     onEvent: callbacks.onEvent,
     onError: callbacks.onError,

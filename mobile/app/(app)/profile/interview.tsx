@@ -17,6 +17,10 @@ import { formatAIStreamDisplayError } from '@/src/platform/sse/streamErrorDispla
 import { tokenStorage } from '@/src/platform/storage/secureStore';
 import { ActionButton, FeatureRow, LinkButton, Panel, Screen, StatusPill } from '@/src/ui/components';
 import { palette, spacing, typography } from '@/src/ui/theme';
+import {
+  identityScopedQueryKey,
+  useIdentityQueryScope,
+} from '@/src/providers/identityQueryScope';
 
 type StreamStatus = 'idle' | 'ready' | 'streaming' | 'persisted' | 'failed';
 
@@ -90,16 +94,20 @@ export default function InterviewScreen() {
   const params = useLocalSearchParams<{ sessionId?: string }>();
   const sessionId = typeof params.sessionId === 'string' ? params.sessionId : null;
   const [message, setMessage] = useState('');
+  const identityScope = useIdentityQueryScope();
+  const identityQueriesEnabled = identityScope.privateDataEnabled && !identityScope.transitioning;
+  const identityEpoch = identityScope.epoch;
   const authQuery = useQuery({
-    queryKey: ['app', 'auth-token'],
+    queryKey: identityScopedQueryKey(identityEpoch, 'app', 'auth-token'),
     queryFn: () => tokenStorage.getToken(),
+    enabled: identityQueriesEnabled,
   });
   const isAuthenticated = Boolean(authQuery.data);
 
   const sessionQuery = useQuery({
-    queryKey: ['m2', 'interview-session', sessionId],
+    queryKey: identityScopedQueryKey(identityEpoch, 'm2', 'interview-session', sessionId),
     queryFn: () => m2Api.interview.getSession(sessionId as string),
-    enabled: Boolean(sessionId && isAuthenticated),
+    enabled: identityQueriesEnabled && Boolean(sessionId && isAuthenticated),
   });
 
   const connectInterview = useCallback((callbacks: AIStreamCallbacks, options: { afterSeq?: number; signal?: AbortSignal }) => {
@@ -114,7 +122,7 @@ export default function InterviewScreen() {
     lifecycleStatus,
   } = useAIStreamSubscription<InterviewStreamState>({
     scopeKey: sessionId ? `interview_session:${sessionId}` : null,
-    enabled: Boolean(sessionId && isAuthenticated),
+    enabled: identityQueriesEnabled && Boolean(sessionId && isAuthenticated),
     initialState: initialInterviewStreamState,
     connect: connectInterview,
     normalizeError: normalizeM2Error,

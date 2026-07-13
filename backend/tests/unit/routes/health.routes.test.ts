@@ -4,6 +4,7 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import express from 'express';
 import request from 'supertest';
+import { RELEASE_BLOCKING_MIGRATIONS } from '../../../src/config/release-migrations';
 
 const mockPrismaQueryRaw = jest.fn();
 const mockLogger = {
@@ -221,12 +222,36 @@ describe('routes/health.routes', () => {
   });
 
   describe('GET /health/ready', () => {
-    it('DB 正常時應返回 200 ready', async () => {
-      (mockPrismaQueryRaw as unknown as jest.Mock).mockResolvedValue(undefined as never);
+    const appliedReleaseMigrations = RELEASE_BLOCKING_MIGRATIONS.map(migration_name => ({
+      migration_name,
+      finished_at: new Date('2026-07-12T00:00:00.000Z'),
+      rolled_back_at: null,
+    }));
+
+    it('DB 與 release migrations 正常時應返回 200 ready', async () => {
+      (mockPrismaQueryRaw as unknown as jest.Mock).mockResolvedValue(
+        appliedReleaseMigrations as never
+      );
       const app = createApp();
       const res = await request(app).get('/health/ready');
       expect(res.status).toBe(200);
-      expect(res.body).toEqual({ status: 'ready' });
+      expect(res.body).toEqual({
+        status: 'ready',
+        database: {
+          releaseMigrations: 'ready',
+          requiredMigrationCount: RELEASE_BLOCKING_MIGRATIONS.length,
+        },
+      });
+    });
+
+    it('缺少 required release migration 時應返回 503 not ready', async () => {
+      (mockPrismaQueryRaw as unknown as jest.Mock).mockResolvedValue(
+        appliedReleaseMigrations.slice(1) as never
+      );
+      const app = createApp();
+      const res = await request(app).get('/health/ready');
+      expect(res.status).toBe(503);
+      expect(res.body.status).toBe('not ready');
     });
 
     it('DB 失敗時應返回 503 not ready', async () => {

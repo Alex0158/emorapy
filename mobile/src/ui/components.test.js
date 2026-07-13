@@ -99,6 +99,7 @@ describe('shared App UI accessibility contracts', () => {
       React.createElement(ActionButton, {
         label: '提交',
         loading: true,
+        selected: true,
         onPress,
         accessibilityHint: '送出目前內容',
         testID: 'action.submit',
@@ -111,6 +112,7 @@ describe('shared App UI accessibility contracts', () => {
     expect(button.props.accessibilityState).toEqual(expect.objectContaining({
       disabled: true,
       busy: true,
+      selected: true,
     }));
     expect(button.props.accessibilityHint).toBe('送出目前內容');
     expect(style.minHeight).toBeGreaterThanOrEqual(48);

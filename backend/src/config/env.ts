@@ -260,19 +260,22 @@ function validateEnvVars(): void {
   const isDevelopment = process.env.NODE_ENV === 'development';
 
   // 動態導入 logger 以避免循環依賴（logger 依賴 env）
-  let logger: { warn: (msg: string) => void };
+  const fallbackLogger = isDevelopment
+    ? { warn: (message: string) => console.warn(message) }
+    : { warn: (_message: string) => {} };
+  let logger = fallbackLogger;
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires -- 動態導入避免循環依賴
-    logger = require('./logger').default;
-  } catch {
-    // 如果 logger 尚未初始化，使用 console（僅在極少數情況下）
-    // 只在開發環境使用 console，生產環境應確保 logger 可用
-    if (isDevelopment) {
-      logger = { warn: console.warn };
-    } else {
-      // 生產環境如果 logger 不可用，使用空函數（避免 console 輸出）
-      logger = { warn: () => {} };
+    const candidate = require('./logger').default as unknown;
+    if (
+      candidate
+      && typeof candidate === 'object'
+      && typeof (candidate as { warn?: unknown }).warn === 'function'
+    ) {
+      logger = candidate as { warn: (message: string) => void };
     }
+  } catch {
+    // logger 尚未初始化時沿用安全 fallback。
   }
 
   // 驗證DATABASE_URL格式

@@ -7,12 +7,11 @@ import {
 	createChatRoom,
 	declineChatInvite,
 } from "@/services/api/chat";
-import type { ChatHistoryVisibilityMode, ChatRoom } from "@/types/chat";
+import type { ChatRoom } from "@/types/chat";
 
 type EntryActionKind = "create" | "accept" | "decline";
 
 interface UseChatRoomEntryActionsInput {
-	visibilityMode: ChatHistoryVisibilityMode;
 	inviteCodeInput: string;
 	mountedRef: { current: boolean };
 	isEntryRouteActive: () => boolean;
@@ -24,7 +23,6 @@ interface UseChatRoomEntryActionsInput {
 }
 
 export function useChatRoomEntryActions({
-	visibilityMode,
 	inviteCodeInput,
 	mountedRef,
 	isEntryRouteActive,
@@ -61,7 +59,7 @@ export function useChatRoomEntryActions({
 		setCreatingRoom(true);
 		setErrorText("");
 		try {
-			const created = await createChatRoom(visibilityMode);
+			const created = await createChatRoom("share_from_join_time");
 			if (!shouldApplyEntryResult()) return;
 			setRoom(created);
 			setLastInviteCode("");
@@ -84,7 +82,6 @@ export function useChatRoomEntryActions({
 		setLastInviteCode,
 		setRoom,
 		shouldApplyEntryResult,
-		visibilityMode,
 	]);
 
 	const handleAcceptInvite = useCallback(async () => {

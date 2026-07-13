@@ -3,10 +3,12 @@
  */
 
 const generateTextStreamMock = jest.fn();
+const resolveSharedMediationMock = jest.fn();
 
 jest.mock('../../../src/config/database', () => {
   const mock = {
     chatParticipant: { findFirst: jest.fn(), count: jest.fn() },
+    chatChannel: { findFirst: jest.fn() },
     chatMessage: { findMany: jest.fn(), create: jest.fn() },
   };
   return { __esModule: true, default: mock };
@@ -15,6 +17,13 @@ jest.mock('../../../src/config/database', () => {
 jest.mock('../../../src/services/ai.service', () => ({
   __esModule: true,
   aiService: { generateTextStream: generateTextStreamMock },
+}));
+
+jest.mock('../../../src/services/chat-context-policy.service', () => ({
+  __esModule: true,
+  chatContextPolicyService: {
+    resolveSharedMediation: resolveSharedMediationMock,
+  },
 }));
 
 jest.mock('../../../src/services/safety-routing.service', () => ({
@@ -109,11 +118,29 @@ describe('ChatAIOrchestrator prompt 選擇', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    prisma.chatParticipant.findFirst.mockResolvedValue({ id: 'ai-1' });
-    prisma.chatParticipant.count.mockResolvedValue(0); // 無 roleB → 單方 support
-    prisma.chatMessage.findMany.mockResolvedValue([
-      { content: 'A: 你說我有問題嗎', sender_participant: { role_in_room: 'roleA' }, message_type: 'user_text' },
-    ]);
+    prisma.chatParticipant.findFirst.mockImplementation(async (args: { where?: { role_in_room?: string } }) => (
+      args?.where?.role_in_room === 'aiMediator' ? { id: 'ai-1' } : null
+    ));
+    prisma.chatChannel.findFirst.mockResolvedValue({ id: 'channel-shared-1' });
+    resolveSharedMediationMock.mockResolvedValue({
+      audience: 'room_participants',
+      purpose: 'shared_mediation',
+      policyVersion: 'chat-context-policy@v1',
+      messages: [
+        {
+          id: 'context-message-1',
+          content: 'A: 你說我有問題嗎',
+          messageType: 'user_text',
+          role: 'roleA',
+          audience: 'room_participants',
+          createdAt: new Date('2026-07-12T12:01:00.000Z'),
+        },
+      ],
+      capsules: [],
+      controls: null,
+      sourceRefs: ['context-message-1'],
+      authorizationRefs: [],
+    });
     prisma.chatMessage.create.mockResolvedValue({ id: 'msg-1' });
     generateTextStreamMock.mockResolvedValue('AI 回應');
     (chatMetricsService.recordAiTrigger as jest.Mock).mockResolvedValue(undefined);
@@ -126,6 +153,7 @@ describe('ChatAIOrchestrator prompt 選擇', () => {
       {
         roomId: 'room-validation-seeking',
         roomStatus: 'solo_active',
+        historyVisibilityMode: 'share_summary_only',
       },
       { id: 'p-a', role_in_room: 'roleA', is_active: true } as any,
       { id: 'm1', content: '你說我有問題嗎', visibility_scope: 'all' }
@@ -152,6 +180,7 @@ describe('ChatAIOrchestrator prompt 選擇', () => {
       {
         roomId: 'room-general-support',
         roomStatus: 'solo_active',
+        historyVisibilityMode: 'share_summary_only',
       },
       { id: 'p-a', role_in_room: 'roleA', is_active: true } as any,
       { id: 'm1', content: '他都不回我訊息，我好難過', visibility_scope: 'all' }
@@ -166,7 +195,11 @@ describe('ChatAIOrchestrator prompt 選擇', () => {
 
   it('應以 AI Stream 發送草稿事件，聊天室事件流只在落庫後發 message', async () => {
     const lockDone = new Promise<void>((r) => { lockState.resolve = r; });
-    prisma.chatParticipant.count.mockResolvedValue(1);
+    prisma.chatParticipant.findFirst.mockImplementation(async (args: { where?: { role_in_room?: string } }) => (
+      args?.where?.role_in_room === 'aiMediator'
+        ? { id: 'ai-1' }
+        : { joined_at: new Date('2026-07-12T12:00:00.000Z') }
+    ));
     prisma.chatMessage.create.mockResolvedValue({
       id: 'msg-1',
       sender_participant_id: 'ai-1',
@@ -185,6 +218,7 @@ describe('ChatAIOrchestrator prompt 選擇', () => {
       {
         roomId: 'room-1',
         roomStatus: 'group_active',
+        historyVisibilityMode: 'share_summary_only',
       },
       { id: 'p-a', role_in_room: 'roleA', is_active: true } as any,
       { id: 'm1', content: '請幫我協調', visibility_scope: 'all' }
@@ -215,6 +249,7 @@ describe('ChatAIOrchestrator prompt 選擇', () => {
       {
         roomId: 'room-stream-failed',
         roomStatus: 'solo_active',
+        historyVisibilityMode: 'share_summary_only',
         locale: 'en-US',
       },
       { id: 'p-a', role_in_room: 'roleA', is_active: true } as any,
@@ -232,5 +267,88 @@ describe('ChatAIOrchestrator prompt 選擇', () => {
       expect.objectContaining({ actorRole: 'aiMediator', phase: 'thinking' })
     );
     expect((aiStreamService.failed as jest.Mock).mock.calls[0][1].message).not.toBe('provider down');
+  });
+
+  it('room-wide AI prompt 只通過 typed shared mediation resolver 取得 context', async () => {
+    const joinedAt = new Date('2026-07-12T12:00:00.000Z');
+    prisma.chatParticipant.findFirst.mockImplementation(async (args: { where?: { role_in_room?: string } }) => (
+      args?.where?.role_in_room === 'aiMediator'
+        ? { id: 'ai-1' }
+        : { joined_at: joinedAt }
+    ));
+    const lockDone = new Promise<void>((resolve) => { lockState.resolve = resolve; });
+
+    chatAIOrchestrator.onUserMessage(
+      {
+        roomId: 'room-shared-context',
+        roomStatus: 'group_active',
+        historyVisibilityMode: 'share_from_join_time',
+      },
+      { id: 'p-a', role_in_room: 'roleA', is_active: true } as any,
+      { id: 'm-public', content: '共同內容', visibility_scope: 'all' },
+    );
+    await lockDone;
+
+    expect(resolveSharedMediationMock).toHaveBeenCalledWith({
+      roomId: 'room-shared-context',
+      maxMessages: 30,
+      includePrivateControls: true,
+    });
+    expect(prisma.chatMessage.findMany).not.toHaveBeenCalled();
+  });
+
+  it('private message 不會讀 context、建立 stream 或產生 room-wide AI reply', async () => {
+    await chatAIOrchestrator.onUserMessage(
+      {
+        roomId: 'room-private',
+        roomStatus: 'group_active',
+        historyVisibilityMode: 'share_full_history',
+      },
+      { id: 'p-a', role_in_room: 'roleA', is_active: true } as any,
+      { id: 'm-private', content: 'private canary', visibility_scope: 'owner_only' },
+    );
+
+    expect(resolveSharedMediationMock).not.toHaveBeenCalled();
+    expect(aiStreamService.createStream).not.toHaveBeenCalled();
+    expect(generateTextStreamMock).not.toHaveBeenCalled();
+  });
+
+  it('malicious echo provider 也收不到 private canary', async () => {
+    resolveSharedMediationMock.mockResolvedValueOnce({
+      audience: 'room_participants',
+      purpose: 'shared_mediation',
+      policyVersion: 'chat-context-policy@v1',
+      messages: [
+        {
+          id: 'm-shared',
+          content: '共同內容',
+          messageType: 'user_text',
+          role: 'roleA',
+          audience: 'room_participants',
+          createdAt: new Date('2026-07-12T12:01:00.000Z'),
+        },
+      ],
+      capsules: [],
+      controls: null,
+      sourceRefs: ['m-shared'],
+      authorizationRefs: [],
+    });
+    generateTextStreamMock.mockImplementationOnce(async (prompt: string) => prompt);
+    const lockDone = new Promise<void>((resolve) => { lockState.resolve = resolve; });
+
+    chatAIOrchestrator.onUserMessage(
+      {
+        roomId: 'room-malicious-echo',
+        roomStatus: 'solo_active',
+        historyVisibilityMode: 'share_full_history',
+      },
+      { id: 'p-a', role_in_room: 'roleA', is_active: true } as any,
+      { id: 'm-shared', content: '共同內容', visibility_scope: 'all' },
+    );
+    await lockDone;
+
+    const prompt = generateTextStreamMock.mock.calls[0][0] as string;
+    expect(prompt).toContain('共同內容');
+    expect(prompt).not.toContain('PRIVATE_CANARY_DO_NOT_ECHO');
   });
 });

@@ -70,8 +70,8 @@ export const Errors = {
     new AppError(409, 'CONFLICT', message),
   
   // 業務邏輯錯誤
-  CASE_NOT_READY: (message = '案件尚未準備好') => 
-    new AppError(422, 'CASE_NOT_READY', message),
+  CASE_NOT_READY: (message = '案件尚未準備好', details?: Record<string, any>) =>
+    new AppError(422, 'CASE_NOT_READY', message, details),
   
   JUDGMENT_EXISTS: (message = '判決已存在') => 
     new AppError(409, 'JUDGMENT_EXISTS', message),
@@ -135,4 +135,3 @@ export const Errors = {
   SESSION_COMPLETED: (message = '此訪談已結束，不可繼續') =>
     new AppError(409, 'SESSION_COMPLETED', message),
 };
-

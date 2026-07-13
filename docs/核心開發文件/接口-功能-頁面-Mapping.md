@@ -4,11 +4,11 @@
 **文檔類型**：旗艦映射
 **覆蓋範圍**：API -> 功能 -> 頁面 -> 流程節點映射
 **取證代碼入口**：`backend/src/routes`、`frontend/src/router/index.tsx`、`frontend-admin/src/router.tsx`、`frontend/src/services/api`、`frontend-admin/src/services/api`
-**最後核驗 Commit**：`c78765b`
+**最後核驗 Commit**：`95fa8a9`
 **最後核驗日期**：`2026-07-12`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**文檔版本**：v1.17
+**文檔版本**：v1.18
 **最後更新**：2026-07-12
 **目標**：把 API -> 功能 -> 頁面 -> 流程節點建立可回歸的單點追溯。
 
@@ -94,9 +94,25 @@
 | `POST /api/v1/chat/invites/:inviteCode/decline` | F07 | `/chat/room` | 拒絕邀請 | M | 已使用 |
 | `GET /api/v1/chat/rooms/:roomId/stream` | F07 | `/chat/room/:roomId` | SSE 事件流 | H | 已使用 |
 | `GET /api/v1/streams/chat_room/:roomId` | F07 | `/chat/room/:roomId` | Chat AI 草稿/完成/落庫主鏈路 | H | 已使用 |
+| `GET /api/v1/chat/rooms/:roomId/channels` | F07 | Web `/chat/room/:roomId`、App `chat/room` | actor 可見的 shared/private channel lanes（branch 已接線；Production 未發布） | H | 已使用 |
+| `GET /api/v1/chat/rooms/:roomId/context-preference` | F07 | Web `/chat/room/:roomId`、App `chat/room` | 讀取私人內容只限私下或可產生無原因程序控制的偏好 | H | 已使用 |
+| `PUT /api/v1/chat/rooms/:roomId/context-preference` | F07 | Web `/chat/room/:roomId`、App `chat/room` | 更新 private-context use preference | H | 已使用 |
+| `GET /api/v1/chat/channels/:channelId/messages` | F07 | Web `/chat/room/:roomId`、App `chat/room` | audience-aware channel history | H | 已使用 |
+| `POST /api/v1/chat/channels/:channelId/messages` | F07 | Web `/chat/room/:roomId`、App `chat/room` | channel write + reply audience validation | H | 已使用 |
+| `GET /api/v1/chat/channels/:channelId/stream` | F07 | Web `/chat/room/:roomId`、App `chat/room` | participant-scoped domain SSE | H | 已使用 |
+| `GET /api/v1/chat/rooms/:roomId/context-capsules` | F07 | Web `/chat/room/:roomId`、App `chat/room` | 本人 capsule drafts/versions | H | 已使用 |
+| `POST /api/v1/chat/rooms/:roomId/context-capsules` | F07 | Web `/chat/room/:roomId`、App `chat/room` | 從私人來源建立可預覽、可編輯 capsule draft | H | 已使用 |
+| `POST /api/v1/chat/rooms/:roomId/context-capsules/:capsuleId/revisions` | F07 | Web `/chat/room/:roomId`、App `chat/room` | capsule immutable revision | H | 已使用 |
+| `POST /api/v1/chat/rooms/:roomId/context-capsules/:capsuleId/authorizations` | F07 | Web `/chat/room/:roomId`、App `chat/room` | exact hash/purpose/audience 授權 | H | 已使用 |
+| `POST /api/v1/chat/rooms/:roomId/context-authorizations/:authorizationId/revoke` | F07 | Web `/chat/room/:roomId`、App `chat/room` | 停止後續 AI 使用已授權 capsule | H | 已使用 |
+| `GET /api/v1/chat/rooms/:roomId/analysis-requests` | F07/F04 | Web `/chat/room/:roomId`、App `chat/room` | exact source preview、批准狀態與 formal-analysis receipt | H | 已使用 |
+| `POST /api/v1/chat/rooms/:roomId/analysis-requests` | F07/F04 | Web `/chat/room/:roomId`、App `chat/room` | server-owned exact selection request | H | 已使用 |
+| `POST /api/v1/chat/rooms/:roomId/analysis-requests/:requestId/decision` | F07/F04 | Web `/chat/room/:roomId`、App `chat/room` | participant 本人批准／拒絕 exact selection | H | 已使用 |
+| `POST /api/v1/chat/rooms/:roomId/analysis-requests/:requestId/approval/revoke` | F07/F04 | Web `/chat/room/:roomId`、App `chat/room` | participant 本人撤回 exact approval | H | 已使用 |
+| `POST /api/v1/chat/rooms/:roomId/analysis-requests/:requestId/submit` | F07/F04 | Web `/chat/room/:roomId`、App `chat/room` | backend 重驗 selection/hash/active approvals 後提交 | H | 已使用 |
 | `GET /api/v1/chat/rooms/:roomId/messages` | F07 | `/chat/room/:roomId` | 歷史訊息 | M | 已使用 |
 | `POST /api/v1/chat/rooms/:roomId/messages` | F07 | `/chat/room/:roomId` | 發送訊息 | H | 已使用 |
-| `POST /api/v1/chat/rooms/:roomId/request-judgment` | F07 | `/chat/room/:roomId` | 聊天轉判決 request（前端請求窗口 `180000ms`；超時後改查 `judgment-status`；`included_message_ids` 僅允許 `user_text + visibility_scope=all`，越界返回 `NOT_FOUND`） | H | 已使用 |
+| `POST /api/v1/chat/rooms/:roomId/request-judgment` | F07 | Web `/chat/room/:roomId`、App `chat/room` | 以 submitted `analysis_request_id` 轉判決；任何 B material 必須有 B 本人 exact approval。legacy `included_message_ids` 只容許 roleA-only、`user_text + visibility_scope=all`，越界返回 `NOT_FOUND`；前端 `180000ms` 超時後改查 `judgment-status` | H | 已使用 |
 | `GET /api/v1/chat/rooms/:roomId/judgment-status` | F07/F04 | `/chat/room/:roomId`、`/judgment/:id`(承接) | 判決狀態與 handoff（未登入先導 auth 回跳） | M | 已使用 |
 | `POST /api/v1/chat/rooms/:roomId/leave` | F07 | `/chat/room/:roomId` | B 方離房 | M | 已使用 |
 | `POST /api/v1/chat/rooms/:roomId/kick-b` | F07 | `/chat/room/:roomId` | A 方踢人 | M | 已使用 |

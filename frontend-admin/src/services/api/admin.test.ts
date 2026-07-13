@@ -30,6 +30,61 @@ beforeEach(() => {
 });
 
 describe("adminApi critical mutations", () => {
+	it("keeps AI stream detail redacted unless sensitive content is explicitly requested", async () => {
+		const redacted = {
+			sensitiveContentIncluded: false,
+			session: {},
+			events: [],
+		};
+		const sensitive = {
+			sensitiveContentIncluded: true,
+			session: {},
+			events: [],
+		};
+		requestMock.get
+			.mockResolvedValueOnce({ data: { success: true, data: redacted } })
+			.mockResolvedValueOnce({ data: { success: true, data: sensitive } });
+
+		await expect(
+			adminApi.getReportAIStreamDetail("stream-1", {
+				source: "archive",
+				eventLimit: 100,
+			}),
+		).resolves.toBe(redacted);
+		await expect(
+			adminApi.getReportAIStreamDetail("stream-1", {
+				source: "archive",
+				eventLimit: 100,
+				includeSensitive: true,
+			}),
+		).resolves.toBe(sensitive);
+
+		expect(requestMock.get).toHaveBeenNthCalledWith(
+			1,
+			"/admin/reports/ai-streams/sessions/stream-1",
+			{
+				params: {
+					eventLimit: 100,
+					source: "archive",
+					include_sensitive: false,
+				},
+				headers: auth,
+			},
+		);
+		expect(requestMock.get).toHaveBeenNthCalledWith(
+			2,
+			"/admin/reports/ai-streams/sessions/stream-1",
+			{
+				params: {
+					eventLimit: 100,
+					source: "archive",
+					include_sensitive: true,
+				},
+				headers: auth,
+			},
+		);
+	});
+
 	it("rejects malformed login responses instead of persisting an unusable session", async () => {
 		requestMock.post.mockResolvedValueOnce({
 			data: { success: true, data: { token: "", admin: {} } },
@@ -99,7 +154,9 @@ describe("adminApi critical mutations", () => {
 			name: "New Admin",
 			roleKey: "support" as const,
 		};
-		await expect(adminApi.createAdminUser(createPayload)).resolves.toBe(created);
+		await expect(adminApi.createAdminUser(createPayload)).resolves.toBe(
+			created,
+		);
 		await expect(
 			adminApi.updateAdminUser("admin-2", { isActive: false }),
 		).resolves.toBe(updated);

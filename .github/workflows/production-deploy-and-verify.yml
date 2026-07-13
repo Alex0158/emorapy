@@ -23,6 +23,18 @@ on:
         required: false
         type: string
 
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  actions: read
+  contents: read
+
+env:
+  RAILWAY_CLI_VERSION: '5.26.0'
+  VERCEL_CLI_VERSION: '55.0.0'
+
 concurrency:
   group: production-deploy-and-verify
   cancel-in-progress: false
@@ -36,6 +48,59 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
+
+      - name: Require main branch production ref
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_REF}" != "refs/heads/main" ]; then
+            echo "Production deployment is restricted to refs/heads/main; got ${GITHUB_REF}." >&2
+            exit 1
+          fi
+          if [ "$(git rev-parse HEAD)" != "${GITHUB_SHA}" ]; then
+            echo "Checked-out commit does not match GITHUB_SHA." >&2
+            exit 1
+          fi
+          if [ "${{ inputs.run_release_gate }}" != "true" ]; then
+            echo "Production Deploy and Verify requires the release gate; use a documented emergency procedure for unverified operations." >&2
+            exit 1
+          fi
+          if [ "${{ inputs.deploy_web }}" != "true" ] || [ "${{ inputs.deploy_backend }}" != "true" ]; then
+            echo "Production Deploy and Verify requires both web and backend targets; use a documented emergency procedure for partial operations." >&2
+            exit 1
+          fi
+
+      - name: Require successful CI for exact production SHA
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          ci_runs="$(
+            gh api --method GET \
+              "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs" \
+              -f "head_sha=${GITHUB_SHA}" \
+              -f "branch=main" \
+              -f "event=push" \
+              -f "per_page=20"
+          )"
+          successful_run_id="$(
+            jq -r \
+              --arg sha "${GITHUB_SHA}" \
+              '[.workflow_runs[]
+                | select(
+                    .head_sha == $sha
+                    and .head_branch == "main"
+                    and .event == "push"
+                    and .status == "completed"
+                    and .conclusion == "success"
+                  )
+                | .id]
+               | first // empty' <<<"${ci_runs}"
+          )"
+          if [ -z "${successful_run_id}" ]; then
+            echo "Exact production SHA ${GITHUB_SHA} has no successful main push run for CI." >&2
+            exit 1
+          fi
+          echo "Verified successful CI run ${successful_run_id} for ${GITHUB_SHA}."
 
       - name: Setup Node
         uses: actions/setup-node@v5
@@ -60,10 +125,99 @@ jobs:
           npm --prefix backend run build
           npm --prefix backend run lint
 
+  capture-release-state:
+    name: Capture Production Rollback Baseline
+    needs: preflight
+    if: ${{ inputs.deploy_web && inputs.deploy_backend }}
+    runs-on: ubuntu-latest
+    environment: Production
+    outputs:
+      previous_railway_deployment_id: ${{ steps.state.outputs.previous_railway_deployment_id }}
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+      VERCEL_MAIN_PROJECT_ID: ${{ vars.VERCEL_MAIN_PROJECT_ID }}
+      VERCEL_ADMIN_PROJECT_ID: ${{ vars.VERCEL_ADMIN_PROJECT_ID }}
+      MAIN_WEB_URL: ${{ vars.EMORAPY_MAIN_WEB_URL || vars.PRODUCTION_MAIN_WEB_URL || 'https://emorapy.vercel.app' }}
+      ADMIN_WEB_URL: ${{ vars.EMORAPY_ADMIN_WEB_URL || vars.PRODUCTION_ADMIN_WEB_URL || 'https://emorapy-admin.vercel.app' }}
+      RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
+      LEGACY_RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      RAILWAY_PROJECT_ID: ${{ vars.PRODUCTION_RAILWAY_PROJECT_ID || secrets.PRODUCTION_RAILWAY_PROJECT_ID }}
+      PRODUCTION_RAILWAY_ENVIRONMENT: production
+      PRODUCTION_RAILWAY_SERVICE: ${{ vars.EMORAPY_RAILWAY_SERVICE_NAME || vars.PRODUCTION_RAILWAY_SERVICE || vars.RAILWAY_SERVICE_NAME || 'mother-bear-court' }}
+      BACKEND_BASE_URL: ${{ vars.EMORAPY_BACKEND_BASE_URL || secrets.EMORAPY_BACKEND_BASE_URL || vars.PRODUCTION_BACKEND_BASE_URL || secrets.PRODUCTION_BACKEND_BASE_URL }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+
+      - name: Install Railway CLI
+        run: npm install -g "@railway/cli@${RAILWAY_CLI_VERSION}"
+
+      - name: Validate rollback baseline credentials
+        run: |
+          set -euo pipefail
+          missing=0
+          if [ -z "${RAILWAY_API_TOKEN}" ] && [ -z "${LEGACY_RAILWAY_TOKEN}" ]; then
+            echo "Missing required secret: RAILWAY_API_TOKEN (or legacy RAILWAY_TOKEN)"
+            missing=1
+          fi
+          for key in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_MAIN_PROJECT_ID VERCEL_ADMIN_PROJECT_ID RAILWAY_PROJECT_ID PRODUCTION_RAILWAY_SERVICE BACKEND_BASE_URL MAIN_WEB_URL ADMIN_WEB_URL; do
+            if [ -z "${!key}" ]; then
+              echo "Missing required release baseline value: ${key}"
+              missing=1
+            fi
+          done
+          if [ "${missing}" -ne 0 ]; then
+            exit 1
+          fi
+
+      - name: Normalize Railway auth env
+        run: |
+          set -euo pipefail
+          if [ -n "${RAILWAY_API_TOKEN}" ]; then
+            echo "Using account/workspace Railway API token for baseline capture."
+          else
+            echo "Using project-scoped Railway token for baseline capture."
+            echo "RAILWAY_TOKEN=${LEGACY_RAILWAY_TOKEN}" >> "$GITHUB_ENV"
+          fi
+
+      - name: Capture exact production rollback baseline
+        id: state
+        env:
+          RAILWAY_STATUS_PATH: temp/production-release-state/railway-status.json
+          RELEASE_STATE_OUTPUT: temp/production-release-state/previous.json
+        run: |
+          set -euo pipefail
+          mkdir -p temp/production-release-state
+          railway link \
+            --project "${RAILWAY_PROJECT_ID}" \
+            --environment "${PRODUCTION_RAILWAY_ENVIRONMENT}" \
+            --service "${PRODUCTION_RAILWAY_SERVICE}"
+          railway status --json > "${RAILWAY_STATUS_PATH}"
+          node scripts/capture-production-release-state.mjs
+          previous_id="$(jq -er '.backend.railwayDeploymentId' "${RELEASE_STATE_OUTPUT}")"
+          printf 'previous_railway_deployment_id=%s\n' "${previous_id}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload production rollback baseline
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-release-previous-state-${{ github.run_id }}
+          path: temp/production-release-state/previous.json
+          if-no-files-found: error
+          retention-days: 30
+
   deploy-web:
     name: Deploy Vercel Production Web
-    needs: preflight
-    if: ${{ inputs.deploy_web }}
+    needs:
+      - preflight
+      - capture-release-state
+      - deploy-backend
+    if: ${{ always() && inputs.deploy_web && needs.preflight.result == 'success' && needs.capture-release-state.result == 'success' && needs.deploy-backend.result == 'success' }}
     runs-on: ubuntu-latest
     environment: Production
     env:
@@ -71,6 +225,8 @@ jobs:
       VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
       VERCEL_MAIN_PROJECT_ID: ${{ vars.VERCEL_MAIN_PROJECT_ID }}
       VERCEL_ADMIN_PROJECT_ID: ${{ vars.VERCEL_ADMIN_PROJECT_ID }}
+      MAIN_WEB_URL: ${{ vars.EMORAPY_MAIN_WEB_URL || vars.PRODUCTION_MAIN_WEB_URL || 'https://emorapy.vercel.app' }}
+      ADMIN_WEB_URL: ${{ vars.EMORAPY_ADMIN_WEB_URL || vars.PRODUCTION_ADMIN_WEB_URL || 'https://emorapy-admin.vercel.app' }}
     steps:
       - uses: actions/checkout@v5
 
@@ -85,7 +241,7 @@ jobs:
         run: npm ci
 
       - name: Install Vercel CLI
-        run: npm install -g vercel@latest
+        run: npm install -g "vercel@${VERCEL_CLI_VERSION}"
 
       - name: Validate Vercel deployment secrets
         run: |
@@ -117,7 +273,16 @@ jobs:
           rm -rf .vercel/output
           mkdir -p .vercel
           cp -R frontend/.vercel/output .vercel/output
-          vercel deploy --prebuilt --prod --token="${VERCEL_TOKEN}" --archive=tgz
+          deployment_url="$(vercel deploy --prebuilt --prod --skip-domain --token="${VERCEL_TOKEN}" --archive=tgz | tail -n 1)"
+          if [[ "${deployment_url}" != https://*.vercel.app ]]; then
+            echo "Unable to resolve staged main Vercel deployment URL." >&2
+            exit 1
+          fi
+          version_payload="$(vercel curl /version.json --deployment "${deployment_url}" --yes --token="${VERCEL_TOKEN}")"
+          test "$(jq -er '.commitSha // .data.commitSha // empty' <<<"${version_payload}")" = "${GITHUB_SHA}"
+          git fetch origin main --quiet
+          test "$(git rev-parse origin/main)" = "${GITHUB_SHA}"
+          vercel promote "${deployment_url}" --yes --token="${VERCEL_TOKEN}"
 
       - name: Deploy Admin web to Vercel production
         working-directory: frontend-admin
@@ -136,21 +301,33 @@ jobs:
           rm -rf .vercel/output
           mkdir -p .vercel
           cp -R frontend-admin/.vercel/output .vercel/output
-          vercel deploy --prebuilt --prod --token="${VERCEL_TOKEN}" --archive=tgz
+          deployment_url="$(vercel deploy --prebuilt --prod --skip-domain --token="${VERCEL_TOKEN}" --archive=tgz | tail -n 1)"
+          if [[ "${deployment_url}" != https://*.vercel.app ]]; then
+            echo "Unable to resolve staged Admin Vercel deployment URL." >&2
+            exit 1
+          fi
+          version_payload="$(vercel curl /version.json --deployment "${deployment_url}" --yes --token="${VERCEL_TOKEN}")"
+          test "$(jq -er '.commitSha // .data.commitSha // empty' <<<"${version_payload}")" = "${GITHUB_SHA}"
+          git fetch origin main --quiet
+          test "$(git rev-parse origin/main)" = "${GITHUB_SHA}"
+          vercel promote "${deployment_url}" --yes --token="${VERCEL_TOKEN}"
 
   deploy-backend:
     name: Deploy Railway Production Backend
-    needs: preflight
-    if: ${{ inputs.deploy_backend }}
+    needs:
+      - preflight
+      - capture-release-state
+    if: ${{ inputs.deploy_backend && needs.capture-release-state.result == 'success' }}
     runs-on: ubuntu-latest
     environment: Production
     env:
       RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
       LEGACY_RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-      RAILWAY_PROJECT_ID: ${{ vars.PRODUCTION_RAILWAY_PROJECT_ID || secrets.PRODUCTION_RAILWAY_PROJECT_ID || secrets.STAGING_RAILWAY_PROJECT_ID }}
+      RAILWAY_PROJECT_ID: ${{ vars.PRODUCTION_RAILWAY_PROJECT_ID || secrets.PRODUCTION_RAILWAY_PROJECT_ID }}
       PRODUCTION_RAILWAY_ENVIRONMENT: production
       PRODUCTION_RAILWAY_SERVICE: ${{ vars.EMORAPY_RAILWAY_SERVICE_NAME || vars.PRODUCTION_RAILWAY_SERVICE || vars.RAILWAY_SERVICE_NAME || 'mother-bear-court' }}
       DEPLOY_MESSAGE: ${{ inputs.deploy_message }}
+      BACKEND_BASE_URL: ${{ vars.EMORAPY_BACKEND_BASE_URL || secrets.EMORAPY_BACKEND_BASE_URL || vars.PRODUCTION_BACKEND_BASE_URL || secrets.PRODUCTION_BACKEND_BASE_URL }}
     steps:
       - uses: actions/checkout@v5
 
@@ -160,7 +337,7 @@ jobs:
           node-version: '24'
 
       - name: Install Railway CLI
-        run: npm install -g @railway/cli
+        run: npm install -g "@railway/cli@${RAILWAY_CLI_VERSION}"
 
       - name: Validate Railway deployment secrets
         run: |
@@ -169,7 +346,7 @@ jobs:
             echo "Missing required secret: RAILWAY_API_TOKEN (or legacy RAILWAY_TOKEN)"
             missing=1
           fi
-          for key in RAILWAY_PROJECT_ID PRODUCTION_RAILWAY_SERVICE; do
+          for key in RAILWAY_PROJECT_ID PRODUCTION_RAILWAY_SERVICE BACKEND_BASE_URL; do
             if [ -z "${!key}" ]; then
               echo "Missing required secret: ${key}"
               missing=1
@@ -184,29 +361,29 @@ jobs:
           if [ -n "${RAILWAY_API_TOKEN}" ]; then
             echo "Using RAILWAY_API_TOKEN for Railway CLI auth."
           elif [ -n "${LEGACY_RAILWAY_TOKEN}" ]; then
-            echo "RAILWAY_API_TOKEN=${LEGACY_RAILWAY_TOKEN}" >> "$GITHUB_ENV"
+            echo "Using project-scoped RAILWAY_TOKEN fallback for Railway CLI auth."
             echo "RAILWAY_TOKEN=${LEGACY_RAILWAY_TOKEN}" >> "$GITHUB_ENV"
           fi
 
-      - name: Probe Railway auth
+      - name: Link and probe Railway production target
         run: |
-          railway whoami
-          railway project list
-
-      - name: Capture previous production deployment
-        id: previous
-        run: |
-          previous_deployment_id="$(
-            railway status --json | jq -r \
-              --arg env_name "${PRODUCTION_RAILWAY_ENVIRONMENT}" \
-              --arg service_name "${PRODUCTION_RAILWAY_SERVICE}" \
-              '.environments.edges[]
+          set -euo pipefail
+          if [ -n "${RAILWAY_API_TOKEN}" ]; then
+            railway whoami
+            railway project list
+          fi
+          railway link \
+            --project "${RAILWAY_PROJECT_ID}" \
+            --environment "${PRODUCTION_RAILWAY_ENVIRONMENT}" \
+            --service "${PRODUCTION_RAILWAY_SERVICE}"
+          railway status --json | jq -e \
+            --arg env_name "${PRODUCTION_RAILWAY_ENVIRONMENT}" \
+            --arg service_name "${PRODUCTION_RAILWAY_SERVICE}" \
+            '[.environments.edges[]
               | select(.node.name==$env_name)
               | .node.serviceInstances.edges[]
-              | select(.node.serviceName==$service_name)
-              | (.node.latestDeployment.id // "")'
-          )"
-          echo "value=${previous_deployment_id}" >> "$GITHUB_OUTPUT"
+              | select(.node.serviceName==$service_name)]
+             | length == 1' >/dev/null
 
       - name: Resolve deploy message
         id: deploy_message
@@ -216,22 +393,144 @@ jobs:
           else
             message="github production deploy ${GITHUB_SHA}"
           fi
-          echo "value=${message}" >> "$GITHUB_OUTPUT"
+          if [[ "${message}" == *$'\n'* || "${message}" == *$'\r'* ]]; then
+            echo "Deployment message must be a single line." >&2
+            exit 1
+          fi
+          printf 'value=%s\n' "${message}" >> "$GITHUB_OUTPUT"
 
       - name: Stamp Railway production commit
         run: |
           railway variable set "EMORAPY_COMMIT_SHA=${GITHUB_SHA}" --skip-deploys -e "${PRODUCTION_RAILWAY_ENVIRONMENT}" -s "${PRODUCTION_RAILWAY_SERVICE}"
 
       - name: Trigger Railway production deploy
-        run: railway up --ci --detach -p "${RAILWAY_PROJECT_ID}" -e "${PRODUCTION_RAILWAY_ENVIRONMENT}" -s "${PRODUCTION_RAILWAY_SERVICE}" -m "${{ steps.deploy_message.outputs.value }}"
+        id: railway_deploy
+        env:
+          RAILWAY_DEPLOY_MESSAGE: ${{ steps.deploy_message.outputs.value }}
+        run: |
+          set -euo pipefail
+          mkdir -p temp/chat-context-release
+          git fetch origin main --quiet
+          test "$(git rev-parse origin/main)" = "${GITHUB_SHA}"
+          railway up --detach --json \
+            -p "${RAILWAY_PROJECT_ID}" \
+            -e "${PRODUCTION_RAILWAY_ENVIRONMENT}" \
+            -s "${PRODUCTION_RAILWAY_SERVICE}" \
+            -m "${RAILWAY_DEPLOY_MESSAGE}" \
+            > temp/chat-context-release/railway-up.json \
+            2> >(tee temp/chat-context-release/railway-up.stderr.log >&2)
+          deployment_id="$(jq -er '.deploymentId' temp/chat-context-release/railway-up.json)"
+          if ! [[ "${deployment_id}" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]]; then
+            echo "Unable to resolve exact Railway deployment id from railway up." >&2
+            exit 1
+          fi
+          printf 'value=%s\n' "${deployment_id}" >> "$GITHUB_OUTPUT"
 
       - name: Wait for Railway production deployment success
         env:
-          PREVIOUS_DEPLOYMENT_ID: ${{ steps.previous.outputs.value }}
+          PREVIOUS_DEPLOYMENT_ID: ${{ needs.capture-release-state.outputs.previous_railway_deployment_id }}
+          EXPECTED_DEPLOYMENT_ID: ${{ steps.railway_deploy.outputs.value }}
           RAILWAY_ENVIRONMENT_NAME: production
           RAILWAY_SERVICE_NAME: ${{ vars.EMORAPY_RAILWAY_SERVICE_NAME || vars.PRODUCTION_RAILWAY_SERVICE || vars.RAILWAY_SERVICE_NAME || 'mother-bear-court' }}
           DEPLOY_TIMEOUT_SECONDS: '1200'
         run: bash scripts/wait-railway-deploy.sh
+
+      - name: Capture exact Railway production deployment metadata
+        id: deployed
+        env:
+          EXPECTED_DEPLOYMENT_ID: ${{ steps.railway_deploy.outputs.value }}
+        run: |
+          set -euo pipefail
+          deployment="$(
+            railway deployment list \
+              --environment "${PRODUCTION_RAILWAY_ENVIRONMENT}" \
+              --service "${PRODUCTION_RAILWAY_SERVICE}" \
+              --limit 100 \
+              --json \
+              | jq -ec --arg id "${EXPECTED_DEPLOYMENT_ID}" \
+                  '[.[] | select(.id == $id)] | if length == 1 then .[0] else error("exact deployment not found") end'
+          )"
+          jq -e '.status == "SUCCESS"' <<<"${deployment}" >/dev/null
+          jq -e '.meta.imageDigest | strings | length > 0' <<<"${deployment}" >/dev/null
+          jq -e '(.meta.serviceManifest.build.builder | ascii_downcase) == "dockerfile"' <<<"${deployment}" >/dev/null
+          jq -e '
+            .meta.serviceManifest.build.dockerfilePath
+            | sub("^\\./"; "")
+            | ltrimstr("/")
+            | . == "Dockerfile" or . == "backend/Dockerfile"
+          ' <<<"${deployment}" >/dev/null
+          jq -e '.meta.serviceManifest.deploy.healthcheckPath == "/health/ready"' <<<"${deployment}" >/dev/null
+          jq -e '.meta.serviceManifest.deploy.healthcheckTimeout == 300' <<<"${deployment}" >/dev/null
+          jq -e '
+            .meta.serviceManifest.deploy.preDeployCommand
+            | if type == "array" then join(" ") else (. // "") end
+            | contains("ops:production:predeploy")
+          ' <<<"${deployment}" >/dev/null
+          jq '{
+            id,
+            status,
+            createdAt,
+            imageDigest: .meta.imageDigest,
+            serviceManifest: {
+              build: {
+                builder: .meta.serviceManifest.build.builder,
+                dockerfilePath: .meta.serviceManifest.build.dockerfilePath
+              },
+              deploy: {
+                preDeployCommand: .meta.serviceManifest.deploy.preDeployCommand,
+                healthcheckPath: .meta.serviceManifest.deploy.healthcheckPath,
+                healthcheckTimeout: .meta.serviceManifest.deploy.healthcheckTimeout
+              }
+            }
+          }' <<<"${deployment}" > temp/chat-context-release/railway-deployment.json
+          printf 'value=%s\n' "${EXPECTED_DEPLOYMENT_ID}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify exact backend and runtime database release
+        run: |
+          set -euo pipefail
+          mkdir -p temp/chat-context-release
+          version_payload="$(curl --fail --silent --show-error --retry 12 --retry-delay 5 --retry-all-errors --max-time 15 "${BACKEND_BASE_URL%/}/version")"
+          deployed_sha="$(jq -er '.data.commitSha // .commitSha // empty' <<<"${version_payload}")"
+          if [ "${deployed_sha}" != "${GITHUB_SHA}" ]; then
+            echo "Backend commit mismatch: expected ${GITHUB_SHA}, got ${deployed_sha}." >&2
+            exit 1
+          fi
+          deployed_id="$(jq -er '.data.deploymentId // .deploymentId // empty' <<<"${version_payload}")"
+          if [ "${deployed_id}" != "${{ steps.deployed.outputs.value }}" ]; then
+            echo "Backend deployment mismatch: expected ${{ steps.deployed.outputs.value }}, got ${deployed_id}." >&2
+            exit 1
+          fi
+
+          live_payload="$(curl --fail --silent --show-error --retry 12 --retry-delay 5 --retry-all-errors --max-time 15 "${BACKEND_BASE_URL%/}/health/live")"
+          jq -e '(.data.status // .status) == "alive"' <<<"${live_payload}" >/dev/null
+
+          ready_payload="$(curl --fail --silent --show-error --retry 12 --retry-delay 5 --retry-all-errors --max-time 15 "${BACKEND_BASE_URL%/}/health/ready")"
+          jq -e '(.data.status // .status) == "ready"' <<<"${ready_payload}" >/dev/null
+          jq -e '(.data.database.releaseMigrations // .database.releaseMigrations) == "ready"' <<<"${ready_payload}" >/dev/null
+          jq -n \
+            --arg commitSha "${GITHUB_SHA}" \
+            --arg railwayDeploymentId "${{ steps.deployed.outputs.value }}" \
+            --slurpfile railwayDeployment temp/chat-context-release/railway-deployment.json \
+            --argjson version "${version_payload}" \
+            --argjson readiness "${ready_payload}" \
+            '{
+              type: "chat-context-production-release",
+              commitSha: $commitSha,
+              railwayDeploymentId: $railwayDeploymentId,
+              preDeployContract: "railway-runtime-migrate-backfill-audit",
+              railwayDeployment: $railwayDeployment[0],
+              version: $version,
+              readiness: $readiness
+            }' > temp/chat-context-release/release-evidence.json
+
+      - name: Upload chat-context migration evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: chat-context-production-migration-${{ github.run_id }}
+          path: temp/chat-context-release/**
+          if-no-files-found: warn
+          retention-days: 30
 
   verify-release:
     name: Verify Production Release
@@ -239,7 +538,7 @@ jobs:
       - preflight
       - deploy-web
       - deploy-backend
-    if: ${{ always() && inputs.run_release_gate && needs.preflight.result == 'success' && (needs.deploy-web.result == 'success' || needs.deploy-web.result == 'skipped') && (needs.deploy-backend.result == 'success' || needs.deploy-backend.result == 'skipped') }}
+    if: ${{ always() && inputs.run_release_gate && needs.preflight.result == 'success' && needs.deploy-web.result == 'success' && needs.deploy-backend.result == 'success' }}
     runs-on: ubuntu-latest
     environment: Production
     env:
@@ -288,7 +587,10 @@ jobs:
           fi
 
       - name: Run release gate with evidence
-        run: npm run ops:release:gate:evidence
+        run: |
+          git fetch origin main --quiet
+          test "$(git rev-parse origin/main)" = "${GITHUB_SHA}"
+          npm run ops:release:gate:evidence
 
       - name: Upload release gate evidence
         if: always()
@@ -297,3 +599,82 @@ jobs:
           name: production-release-gate-evidence-${{ github.run_id }}
           path: temp/release-gate-evidence/**
           if-no-files-found: warn
+
+  rollback-partial-release:
+    name: Roll Back Partial Production Release
+    needs:
+      - preflight
+      - capture-release-state
+      - deploy-backend
+      - deploy-web
+      - verify-release
+    if: >-
+      ${{
+        always()
+        && needs.capture-release-state.result == 'success'
+        && (
+          needs.deploy-backend.result != 'success'
+          || needs.deploy-web.result != 'success'
+          || needs.verify-release.result != 'success'
+        )
+      }}
+    runs-on: ubuntu-latest
+    environment: Production
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+      VERCEL_MAIN_PROJECT_ID: ${{ vars.VERCEL_MAIN_PROJECT_ID }}
+      VERCEL_ADMIN_PROJECT_ID: ${{ vars.VERCEL_ADMIN_PROJECT_ID }}
+      RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
+      LEGACY_RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      RAILWAY_PROJECT_ID: ${{ vars.PRODUCTION_RAILWAY_PROJECT_ID || secrets.PRODUCTION_RAILWAY_PROJECT_ID }}
+      PRODUCTION_RAILWAY_ENVIRONMENT: production
+      PRODUCTION_RAILWAY_SERVICE: ${{ vars.EMORAPY_RAILWAY_SERVICE_NAME || vars.PRODUCTION_RAILWAY_SERVICE || vars.RAILWAY_SERVICE_NAME || 'mother-bear-court' }}
+      RELEASE_STATE_PATH: temp/production-release-state/previous.json
+      ROLLBACK_RESULT_PATH: temp/production-release-rollback/rollback-result.json
+      ROLLBACK_TIMEOUT_SECONDS: '300'
+      ROLLBACK_POLL_SECONDS: '5'
+      ROLLBACK_REASON: >-
+        backend=${{ needs.deploy-backend.result }},
+        web=${{ needs.deploy-web.result }},
+        verify=${{ needs.verify-release.result }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+
+      - name: Install release platform CLIs
+        run: npm install -g "vercel@${VERCEL_CLI_VERSION}" "@railway/cli@${RAILWAY_CLI_VERSION}"
+
+      - name: Normalize Railway rollback auth env
+        run: |
+          set -euo pipefail
+          if [ -n "${RAILWAY_API_TOKEN}" ]; then
+            echo "Using account/workspace Railway API token for rollback."
+          elif [ -n "${LEGACY_RAILWAY_TOKEN}" ]; then
+            echo "Using project-scoped Railway token for rollback."
+            echo "RAILWAY_TOKEN=${LEGACY_RAILWAY_TOKEN}" >> "$GITHUB_ENV"
+          else
+            echo "Railway rollback token is unavailable; rollback evidence will record the failure." >&2
+          fi
+
+      - name: Download production rollback baseline
+        uses: actions/download-artifact@v4
+        with:
+          name: production-release-previous-state-${{ github.run_id }}
+          path: temp/production-release-state
+
+      - name: Restore captured production release
+        run: node scripts/rollback-production-release.mjs
+
+      - name: Upload rollback evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-release-rollback-${{ github.run_id }}
+          path: temp/production-release-rollback/rollback-result.json
+          if-no-files-found: error
+          retention-days: 30

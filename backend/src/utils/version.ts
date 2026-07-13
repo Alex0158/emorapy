@@ -17,6 +17,10 @@ function resolveCommitSha(): string {
   return 'unknown';
 }
 
+function resolveRailwayDeploymentId(): string | null {
+  return process.env.RAILWAY_DEPLOYMENT_ID?.trim() || null;
+}
+
 export function buildBackendVersionManifest() {
   const commitSha = resolveCommitSha();
 
@@ -25,6 +29,7 @@ export function buildBackendVersionManifest() {
     version: packageJson.version || '1.0.0',
     commitSha,
     commitShortSha: commitSha === 'unknown' ? 'unknown' : commitSha.slice(0, 7),
+    deploymentId: resolveRailwayDeploymentId(),
     timestamp: new Date().toISOString(),
   };
 }

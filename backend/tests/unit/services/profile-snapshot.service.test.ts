@@ -41,6 +41,11 @@ describe('ProfileSnapshotService', () => {
 
       expect(prismaMock.profileNarrative.findMany).toHaveBeenCalledWith({
         where: { user_id: 'u1', is_latest: true },
+        select: {
+          domain: true,
+          ai_summary: true,
+          completeness: true,
+        },
       });
       expect(prismaMock.profileInsight.findMany).toHaveBeenCalledWith({
         where: { user_id: 'u1', is_active: true },
@@ -65,9 +70,10 @@ describe('ProfileSnapshotService', () => {
       expect(snapshotData.insights).toEqual([]);
     });
 
-    it('敘事 ai_summary 為 null 時應使用 raw_narrative 前 500 字（F06 邊界：防禦性 fallback）', async () => {
+    it('不得讀取或保存 raw_narrative fallback，只保留已有 AI summary', async () => {
       prismaMock.profileNarrative.findMany.mockResolvedValue([
         { domain: 'attachment', ai_summary: null, raw_narrative: 'x'.repeat(600), completeness: 0.5 },
+        { domain: 'family_origin', ai_summary: '  已批准的摘要  ', raw_narrative: 'private canary', completeness: 0.8 },
       ]);
       prismaMock.profileInsight.findMany.mockResolvedValue([]);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -78,8 +84,9 @@ describe('ProfileSnapshotService', () => {
 
       const upsertCall = prismaMock.profileSnapshot.upsert.mock.calls[0][0];
       const snapshotData = upsertCall.create.snapshot_data as { narratives: Array<{ summary: string }> };
-      expect(snapshotData.narratives[0].summary).toHaveLength(500);
-      expect(snapshotData.narratives[0].summary).toBe('x'.repeat(500));
+      expect(snapshotData.narratives).toEqual([{ domain: 'family_origin', summary: '已批准的摘要', completeness: 0.8 }]);
+      expect(JSON.stringify(snapshotData)).not.toContain('private canary');
+      expect(JSON.stringify(snapshotData)).not.toContain('x'.repeat(20));
     });
   });
 

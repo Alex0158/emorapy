@@ -217,9 +217,7 @@ export const adminApi = {
 		return (response.data as ApiResponse<{ jobs: AdminJobListItem[] }>).data;
 	},
 
-	async triggerJob(
-		jobKey: string,
-	): Promise<{
+	async triggerJob(jobKey: string): Promise<{
 		jobKey: string;
 		triggeredAt: string;
 		status: string;
@@ -413,12 +411,17 @@ export const adminApi = {
 		params?: {
 			eventLimit?: number;
 			source?: "live" | "archive" | "all";
+			includeSensitive?: boolean;
 		},
 	): Promise<AdminAIStreamDetailData> {
 		const response = await request.get<ApiResponse<AdminAIStreamDetailData>>(
 			`/admin/reports/ai-streams/sessions/${streamId}`,
 			{
-				params,
+				params: {
+					eventLimit: params?.eventLimit,
+					source: params?.source,
+					include_sensitive: params?.includeSensitive ?? false,
+				},
 				headers: getAdminAuthHeaders(),
 			},
 		);

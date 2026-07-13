@@ -1,6 +1,7 @@
 export type AIStreamScopeType =
   | 'interview_session'
   | 'chat_room'
+  | 'chat_channel'
   | 'case_judgment'
   | 'judgment_detail'
   | 'repair_track'

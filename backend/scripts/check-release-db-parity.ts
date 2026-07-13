@@ -1,6 +1,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { PrismaClient } from '../src/types/prisma-client';
+import {
+  RELEASE_BLOCKING_MIGRATIONS,
+  type ReleaseBlockingMigration,
+} from '../src/config/release-migrations';
+
+export { RELEASE_BLOCKING_MIGRATIONS } from '../src/config/release-migrations';
 
 const databaseUrlProvidedByProcess =
   typeof process.env.DATABASE_URL === 'string' && process.env.DATABASE_URL.trim().length > 0;
@@ -11,25 +17,6 @@ try {
 } catch {
   // dotenv is optional in some runtime environments.
 }
-
-export const RELEASE_BLOCKING_MIGRATIONS = [
-  '20260503224500_add_safety_metadata_columns',
-  '20260503235500_add_safety_assessment_models',
-  '20260504143000_add_ai_request_ledger',
-  '20260504164500_add_notification_cancelled_status',
-  '20260504173000_add_product_state_recovery_tasks',
-  '20260504182000_add_normal_pairing_uniqueness_trigger',
-  '20260504193000_add_case_source_tracking',
-  '20260508093000_add_push_device_tokens',
-  '20260508113000_add_push_receipt_tracking',
-  '20260508124000_add_app_telemetry_events',
-  '20260508133000_add_ai_stream_persistence',
-  '20260508143000_add_interview_collected_facts',
-  '20260508143500_add_interview_turn_extracted_facts',
-  '20260508150000_add_notification_action_metadata',
-] as const;
-
-export type ReleaseBlockingMigration = (typeof RELEASE_BLOCKING_MIGRATIONS)[number];
 
 export type ReleaseMigrationRow = {
   migration_name: string;

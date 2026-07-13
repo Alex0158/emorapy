@@ -6,8 +6,8 @@ import {
 	type Dispatch,
 	type SetStateAction,
 } from "react";
-import { getChatRoom, listChatMessages } from "@/services/api/chat";
-import type { ChatMessage, ChatRoom } from "@/types/chat";
+import { getChatRoom, listChatChannels, listChatMessages } from "@/services/api/chat";
+import type { ChatChannel, ChatMessage, ChatRoom } from "@/types/chat";
 import {
 	INITIAL_FIRST_ITEM_INDEX,
 	getInitialMessageWindow,
@@ -20,6 +20,7 @@ type InitialMessagesResponse = Awaited<ReturnType<typeof listChatMessages>>;
 type InitialRoomSnapshot = {
 	room: ChatRoom;
 	messages: InitialMessagesResponse;
+	channels: ChatChannel[];
 };
 
 interface UseChatRoomRouteLoaderInput {
@@ -29,10 +30,10 @@ interface UseChatRoomRouteLoaderInput {
 	isRoomTargetActive: (targetRoomId: string) => boolean;
 	setRoom: Dispatch<SetStateAction<ChatRoom | null>>;
 	setMessages: Dispatch<SetStateAction<ChatMessage[]>>;
+	setChannels: Dispatch<SetStateAction<ChatChannel[]>>;
 	setFirstItemIndex: Dispatch<SetStateAction<number>>;
 	setErrorText: (value: string) => void;
 	setLastInviteCode: (value: string) => void;
-	setHasUnread: (value: boolean) => void;
 	setHighlightMessageId: (value: string | null) => void;
 	setHistoryCursor: Dispatch<SetStateAction<string | null>>;
 	setHasMoreHistory: Dispatch<SetStateAction<boolean>>;
@@ -41,8 +42,6 @@ interface UseChatRoomRouteLoaderInput {
 	messagesRef: { current: ChatMessage[] };
 	historyCursorRef: { current: string | null };
 	hasMoreHistoryRef: { current: boolean };
-	prevMessageCountRef: { current: number };
-	isAtBottomRef: { current: boolean };
 	clearRoomPolling: () => void;
 	ensureRoomPolling: (targetRoomId: string) => void;
 	clearJudgmentPolling: () => void;
@@ -61,10 +60,10 @@ export function useChatRoomRouteLoader({
 	isRoomTargetActive,
 	setRoom,
 	setMessages,
+	setChannels,
 	setFirstItemIndex,
 	setErrorText,
 	setLastInviteCode,
-	setHasUnread,
 	setHighlightMessageId,
 	setHistoryCursor,
 	setHasMoreHistory,
@@ -73,8 +72,6 @@ export function useChatRoomRouteLoader({
 	messagesRef,
 	historyCursorRef,
 	hasMoreHistoryRef,
-	prevMessageCountRef,
-	isAtBottomRef,
 	clearRoomPolling,
 	ensureRoomPolling,
 	clearJudgmentPolling,
@@ -113,17 +110,20 @@ export function useChatRoomRouteLoader({
 	const applyInitialRoomSnapshot = useCallback(({
 		room: fetchedRoom,
 		messages: fetchedMessages,
+		channels: fetchedChannels,
 	}: InitialRoomSnapshot) => {
 		setRoom(fetchedRoom);
+		setChannels(fetchedChannels);
 		applyInitialMessageWindow(fetchedMessages);
-	}, [applyInitialMessageWindow, setRoom]);
+	}, [applyInitialMessageWindow, setChannels, setRoom]);
 
 	const fetchRoomInitial = useCallback(async (targetRoomId: string): Promise<InitialRoomSnapshot> => {
-		const [fetchedRoom, fetchedMessages] = await Promise.all([
+		const [fetchedRoom, fetchedMessages, fetchedChannels] = await Promise.all([
 			getChatRoom(targetRoomId),
 			listChatMessages(targetRoomId, { limit: 50 }),
+			listChatChannels(targetRoomId),
 		]);
-		return { room: fetchedRoom, messages: fetchedMessages };
+		return { room: fetchedRoom, messages: fetchedMessages, channels: fetchedChannels };
 	}, []);
 
 	const hasCurrentMessageAnchor = useCallback(() => {
@@ -143,10 +143,8 @@ export function useChatRoomRouteLoader({
 	}, [clearRoomPolling, ensureRoomPolling, hasCurrentMessageAnchor, scrollToBottom]);
 
 	const resetRouteRuntimeState = useCallback(() => {
-		prevMessageCountRef.current = 0;
-		isAtBottomRef.current = true;
 		setRoom(null);
-		setHasUnread(false);
+		setChannels([]);
 		setHighlightMessageId(null);
 		setLoadingMoreHistory(false);
 		resetHistoryNavigation();
@@ -156,25 +154,23 @@ export function useChatRoomRouteLoader({
 		resetAIDraft();
 	}, [
 		clearHighlightTimer,
-		isAtBottomRef,
-		prevMessageCountRef,
 		resetAIDraft,
 		resetHistoryNavigation,
 		setErrorText,
-		setHasUnread,
 		setHighlightMessageId,
 		setLastInviteCode,
 		setLoadingMoreHistory,
 		setRoom,
+		setChannels,
 	]);
 
 	const clearEntryRouteState = useCallback(() => {
 		setRoom(null);
 		setMessages([]);
+		setChannels([]);
 		setFirstItemIndex(INITIAL_FIRST_ITEM_INDEX);
 		setErrorText("");
 		setLastInviteCode("");
-		setHasUnread(false);
 		setHighlightMessageId(null);
 		setHistoryCursor(null);
 		setHasMoreHistory(true);
@@ -197,12 +193,12 @@ export function useChatRoomRouteLoader({
 		setErrorText,
 		setFirstItemIndex,
 		setHasMoreHistory,
-		setHasUnread,
 		setHighlightMessageId,
 		setHistoryCursor,
 		setLastInviteCode,
 		setLoadingMoreHistory,
 		setMessages,
+		setChannels,
 		setRoom,
 	]);
 
@@ -237,7 +233,6 @@ export function useChatRoomRouteLoader({
 		routeRoomId,
 		setErrorText,
 	]);
-
 	useEffect(() => {
 		let cancelled = false;
 		const init = async () => {
@@ -255,8 +250,12 @@ export function useChatRoomRouteLoader({
 			if (stateRoom) {
 				if (!cancelled && isRoomTargetActive(routeRoomId)) setRoom(stateRoom);
 				try {
-					const messagesResponse = await listChatMessages(routeRoomId, { limit: 50 });
+					const [messagesResponse, fetchedChannels] = await Promise.all([
+						listChatMessages(routeRoomId, { limit: 50 }),
+						listChatChannels(routeRoomId),
+					]);
 					if (!cancelled && isRoomTargetActive(routeRoomId)) {
+						setChannels(fetchedChannels);
 						applyInitialMessageWindow(messagesResponse);
 						completeInitialRoomLoad(routeRoomId);
 					}

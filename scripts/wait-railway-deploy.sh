@@ -5,6 +5,7 @@ set -euo pipefail
 RAILWAY_ENVIRONMENT_NAME="${RAILWAY_ENVIRONMENT_NAME:-production}"
 RAILWAY_SERVICE_NAME="${RAILWAY_SERVICE_NAME:-${EMORAPY_RAILWAY_SERVICE_NAME:-mother-bear-court}}"
 PREVIOUS_DEPLOYMENT_ID="${PREVIOUS_DEPLOYMENT_ID:-}"
+EXPECTED_DEPLOYMENT_ID="${EXPECTED_DEPLOYMENT_ID:-}"
 DEPLOY_TIMEOUT_SECONDS="${DEPLOY_TIMEOUT_SECONDS:-900}"
 DEPLOY_POLL_INTERVAL_SECONDS="${DEPLOY_POLL_INTERVAL_SECONDS:-5}"
 
@@ -30,6 +31,20 @@ read_latest_deployment() {
     '
 }
 
+read_expected_deployment() {
+  railway deployment list \
+    --environment "${RAILWAY_ENVIRONMENT_NAME}" \
+    --service "${RAILWAY_SERVICE_NAME}" \
+    --limit 100 \
+    --json \
+    | jq -r --arg deployment_id "${EXPECTED_DEPLOYMENT_ID}" '
+        .[]
+        | select(.id == $deployment_id)
+        | [(.id // ""), (.status // "UNKNOWN")]
+        | @tsv
+      '
+}
+
 if ! command -v railway >/dev/null 2>&1; then
   fail "railway CLI is required"
 fi
@@ -39,10 +54,18 @@ if ! command -v jq >/dev/null 2>&1; then
 fi
 
 deadline=$((SECONDS + DEPLOY_TIMEOUT_SECONDS))
+if [ -n "${EXPECTED_DEPLOYMENT_ID}" ] && [ "${EXPECTED_DEPLOYMENT_ID}" = "${PREVIOUS_DEPLOYMENT_ID}" ]; then
+  fail "expected deployment must differ from the previous deployment"
+fi
+
 observed_new_deployment=false
 
 while (( SECONDS < deadline )); do
-  latest="$(read_latest_deployment || true)"
+  if [ -n "${EXPECTED_DEPLOYMENT_ID}" ]; then
+    latest="$(read_expected_deployment || true)"
+  else
+    latest="$(read_latest_deployment || true)"
+  fi
   if [ -z "${latest}" ]; then
     sleep "${DEPLOY_POLL_INTERVAL_SECONDS}"
     continue
@@ -63,7 +86,10 @@ while (( SECONDS < deadline )); do
   fi
 
   observed_new_deployment=true
-  log "latest deployment ${latest_id} status=${latest_status}"
+  if [ -n "${EXPECTED_DEPLOYMENT_ID}" ] && [ "${latest_id}" != "${EXPECTED_DEPLOYMENT_ID}" ]; then
+    fail "resolved deployment ${latest_id} does not match expected ${EXPECTED_DEPLOYMENT_ID}"
+  fi
+  log "deployment ${latest_id} status=${latest_status}"
 
   case "${latest_status}" in
     SUCCESS)

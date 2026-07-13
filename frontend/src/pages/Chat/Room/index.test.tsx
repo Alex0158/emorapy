@@ -1,12 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import ChatRoomPage from './index';
 import { setLocale } from '@/utils/i18n';
 import { useAuthStore } from '@/store/authStore';
-import ProtectedRoute from '@/components/common/ProtectedRoute';
+
+const { mockVirtuosoScrollToIndex } = vi.hoisted(() => ({
+  mockVirtuosoScrollToIndex: vi.fn(),
+}));
 
 vi.mock('react-virtuoso', async () => {
   const React = await import('react');
@@ -41,7 +44,7 @@ vi.mock('react-virtuoso', async () => {
     const scrollerDivRef = React.useRef<HTMLDivElement | null>(null);
 
     React.useImperativeHandle(ref, () => ({
-      scrollToIndex: () => undefined,
+      scrollToIndex: mockVirtuosoScrollToIndex,
       scrollTo: () => undefined,
     }));
 
@@ -88,11 +91,21 @@ const mockCreateChatRoom = vi.fn();
 const mockAcceptChatInvite = vi.fn();
 const mockGetChatRoom = vi.fn();
 const mockListChatMessages = vi.fn();
+const mockListChatChannels = vi.fn();
 const mockSendChatMessage = vi.fn();
+const mockSendChatChannelMessage = vi.fn();
 const mockCreateChatInvite = vi.fn();
 const mockRequestChatJudgment = vi.fn();
 const mockGetChatJudgmentStatus = vi.fn();
 const mockConnectChatStream = vi.fn();
+const mockConnectChatChannelStream = vi.fn();
+const mockGetPrivateContextPreference = vi.fn();
+const mockUpdatePrivateContextPreference = vi.fn();
+const mockListChatContextCapsules = vi.fn();
+const mockListChatAnalysisRequests = vi.fn();
+const mockCreateChatAnalysisRequest = vi.fn();
+const mockDecideChatAnalysisRequest = vi.fn();
+const mockSubmitChatAnalysisRequest = vi.fn();
 const mockConnectAIStream = vi.fn();
 const mockDeclineChatInvite = vi.fn();
 const mockLeaveChatRoom = vi.fn();
@@ -103,11 +116,21 @@ vi.mock('@/services/api/chat', () => ({
   acceptChatInvite: (...args: unknown[]) => mockAcceptChatInvite(...args),
   getChatRoom: (...args: unknown[]) => mockGetChatRoom(...args),
   listChatMessages: (...args: unknown[]) => mockListChatMessages(...args),
+  listChatChannels: (...args: unknown[]) => mockListChatChannels(...args),
   sendChatMessage: (...args: unknown[]) => mockSendChatMessage(...args),
+  sendChatChannelMessage: (...args: unknown[]) => mockSendChatChannelMessage(...args),
   createChatInvite: (...args: unknown[]) => mockCreateChatInvite(...args),
   requestChatJudgment: (...args: unknown[]) => mockRequestChatJudgment(...args),
   getChatJudgmentStatus: (...args: unknown[]) => mockGetChatJudgmentStatus(...args),
   connectChatStream: (...args: unknown[]) => mockConnectChatStream(...args),
+  connectChatChannelStream: (...args: unknown[]) => mockConnectChatChannelStream(...args),
+  getPrivateContextPreference: (...args: unknown[]) => mockGetPrivateContextPreference(...args),
+  updatePrivateContextPreference: (...args: unknown[]) => mockUpdatePrivateContextPreference(...args),
+  listChatContextCapsules: (...args: unknown[]) => mockListChatContextCapsules(...args),
+  listChatAnalysisRequests: (...args: unknown[]) => mockListChatAnalysisRequests(...args),
+  createChatAnalysisRequest: (...args: unknown[]) => mockCreateChatAnalysisRequest(...args),
+  decideChatAnalysisRequest: (...args: unknown[]) => mockDecideChatAnalysisRequest(...args),
+  submitChatAnalysisRequest: (...args: unknown[]) => mockSubmitChatAnalysisRequest(...args),
   declineChatInvite: (...args: unknown[]) => mockDeclineChatInvite(...args),
   leaveChatRoom: (...args: unknown[]) => mockLeaveChatRoom(...args),
   kickChatParticipantB: (...args: unknown[]) => mockKickChatParticipantB(...args),
@@ -125,11 +148,6 @@ vi.mock('sonner', () => ({
     info: vi.fn(),
   },
 }));
-
-const LoginCapture = () => {
-  const location = useLocation();
-  return <div data-testid="login-from">{location.state?.from?.pathname ?? 'none'}</div>;
-};
 
 const RoomNavigationButton = ({ to }: { to: string }) => {
   const navigate = useNavigate();
@@ -189,6 +207,21 @@ const buildOwnerSoloRoom = (roomId = 'room-1') => ({
   participants: [],
 });
 
+const buildSentChannelMessage = (
+  channelId: string,
+  content: string,
+) => ({
+  id: `sent-${channelId}`,
+  room_id: channelId.replace(/-(private|shared)$/, ''),
+  channel_id: channelId,
+  sender_participant_id: 'room-1-p-role-a',
+  content,
+  message_type: 'user_text' as const,
+  visibility_scope: 'all' as const,
+  safety_flag: false,
+  created_at: new Date().toISOString(),
+});
+
 describe('ChatRoomPage', () => {
   afterEach(async () => {
     vi.useRealTimers();
@@ -198,16 +231,33 @@ describe('ChatRoomPage', () => {
     });
     useAuthStore.setState({ user: null, isAuthenticated: false, _hasHydrated: true } as any);
     localStorage.clear();
+    if (window.location.hash) {
+      window.history.replaceState(null, '', window.location.href.split('#')[0]);
+    }
   });
 
   beforeEach(() => {
     vi.restoreAllMocks();
     setLocale('zh-TW');
     vi.clearAllMocks();
+    mockListChatMessages.mockReset();
     localStorage.clear();
     useAuthStore.setState({ user: { id: 'u1' } as any, isAuthenticated: true, _hasHydrated: true } as any);
     mockConnectChatStream.mockResolvedValue(() => undefined);
+    mockConnectChatChannelStream.mockResolvedValue(() => undefined);
     mockConnectAIStream.mockResolvedValue(() => undefined);
+    mockGetPrivateContextPreference.mockResolvedValue({ mode: 'private_only' });
+    mockUpdatePrivateContextPreference.mockResolvedValue({ mode: 'private_only' });
+    mockListChatContextCapsules.mockResolvedValue([]);
+    mockListChatAnalysisRequests.mockResolvedValue([]);
+    mockSendChatChannelMessage.mockImplementation((
+      channelId: string,
+      payload: { content: string },
+    ) => Promise.resolve(buildSentChannelMessage(channelId, payload.content)));
+    mockListChatChannels.mockImplementation((roomId: string) => Promise.resolve([
+      { id: `${roomId}-private`, room_id: roomId, kind: 'private', owner_participant_id: `${roomId}-p-role-a` },
+      { id: `${roomId}-shared`, room_id: roomId, kind: 'shared' },
+    ]));
     mockGetChatRoom.mockResolvedValue({
       id: 'room-1',
       status: 'solo_active',
@@ -252,8 +302,6 @@ describe('ChatRoomPage', () => {
       </MemoryRouter>
     );
 
-    await user.tab();
-    expect(screen.getByRole('combobox')).toHaveFocus();
     await user.tab();
     expect(screen.getByRole('button', { name: '建立聊天室' })).toHaveFocus();
     await user.tab();
@@ -699,14 +747,19 @@ describe('ChatRoomPage', () => {
   });
 
   it('路由切換後應清理舊房間 composer reply/draft 與判決 preview 狀態（UI state 競態回歸）', async () => {
+    const user = userEvent.setup();
     mockGetChatRoom.mockImplementation((roomId: string) => Promise.resolve(buildOwnerSoloRoom(roomId)));
     mockListChatMessages.mockImplementation((roomId: string) => Promise.resolve({
       messages: [
         {
           id: `msg-${roomId}`,
+          room_id: roomId,
+          channel_id: `${roomId}-shared`,
+          sender_participant_id: `${roomId}-p-role-a`,
           content: `${roomId} message`,
           message_type: 'user_text',
           visibility_scope: 'all',
+          safety_flag: false,
           created_at: new Date().toISOString(),
           sender_participant: { role_in_room: 'roleA' },
         },
@@ -731,6 +784,8 @@ describe('ChatRoomPage', () => {
     );
 
     await screen.findByText(/聊天室：room-a/);
+    await user.click(screen.getByRole('tab', { name: /共同對話/ }));
+    await screen.findByText('room-a message');
     fireEvent.click(screen.getByRole('button', { name: '回覆' }));
     expect(screen.getByText('回覆訊息')).toBeInTheDocument();
     expect(screen.getAllByText('room-a message').length).toBeGreaterThan(1);
@@ -741,7 +796,7 @@ describe('ChatRoomPage', () => {
     expect(screen.getByDisplayValue('room-a draft')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '發起梳理' }));
-    await screen.findByText('轉梳理前確認');
+    await screen.findByText('確認今次梳理會使用的內容');
 
     fireEvent.click(screen.getByRole('button', { name: 'go room', hidden: true }));
     await screen.findByText(/聊天室：room-b/);
@@ -1242,11 +1297,16 @@ describe('ChatRoomPage', () => {
     });
   });
 
-  it('在房間頁可送出訊息', async () => {
-    mockSendChatMessage.mockResolvedValue({
+  it('在房間頁可透過目前 channel 送出訊息', async () => {
+    mockSendChatChannelMessage.mockResolvedValue({
       id: 'msg-1',
+      room_id: 'room-1',
+      channel_id: 'room-1-private',
+      sender_participant_id: 'room-1-p-role-a',
       content: 'hello',
       message_type: 'user_text',
+      visibility_scope: 'all',
+      safety_flag: false,
       created_at: new Date().toISOString(),
     });
     render(
@@ -1271,18 +1331,89 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(mockSendChatMessage).toHaveBeenCalledWith('room-1', expect.objectContaining({ content: 'hello' }));
+      expect(mockSendChatChannelMessage).toHaveBeenCalledWith(
+        'room-1-private',
+        expect.objectContaining({ content: 'hello' }),
+      );
     });
     expect(screen.getByText('hello')).toBeInTheDocument();
   });
 
-  it('切換房間後舊房間 sendChatMessage 未完成不應阻塞新房間發送或寫入舊訊息（message action 競態回歸）', async () => {
+  it('interleaved private/shared 訊息使用 lane index，reply anchor 只捲到目前 lane 的正確 row', async () => {
+    const user = userEvent.setup();
+    mockGetChatRoom.mockResolvedValue(buildOwnerRoomWithRoleB());
+    mockListChatMessages.mockResolvedValue({
+      messages: [
+        {
+          id: 'private-1', room_id: 'room-1', channel_id: 'room-1-private',
+          sender_participant_id: 'room-1-p-role-a', content: 'private-first',
+          message_type: 'user_text', visibility_scope: 'owner_only', safety_flag: false,
+          created_at: '2026-07-12T00:00:00.000Z',
+          sender_participant: { role_in_room: 'roleA', participant_type: 'user' },
+        },
+        {
+          id: 'shared-1', room_id: 'room-1', channel_id: 'room-1-shared',
+          sender_participant_id: 'room-1-p-role-a', content: 'shared-first',
+          message_type: 'user_text', visibility_scope: 'all', safety_flag: false,
+          created_at: '2026-07-12T00:00:01.000Z',
+          sender_participant: { role_in_room: 'roleA', participant_type: 'user' },
+        },
+        {
+          id: 'private-2', room_id: 'room-1', channel_id: 'room-1-private',
+          sender_participant_id: 'room-1-p-role-a', content: 'private-reply',
+          reply_to_message_id: 'private-1',
+          message_type: 'user_text', visibility_scope: 'owner_only', safety_flag: false,
+          created_at: '2026-07-12T00:00:02.000Z',
+          sender_participant: { role_in_room: 'roleA', participant_type: 'user' },
+        },
+        {
+          id: 'shared-2', room_id: 'room-1', channel_id: 'room-1-shared',
+          sender_participant_id: 'room-1-p-role-b', content: 'shared-second',
+          message_type: 'user_text', visibility_scope: 'all', safety_flag: false,
+          created_at: '2026-07-12T00:00:03.000Z',
+          sender_participant: { role_in_room: 'roleB', participant_type: 'user' },
+        },
+      ],
+      nextCursor: null,
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/chat/room/room-1']}>
+        <Routes>
+          <Route path="/chat/room/:roomId" element={<ChatRoomPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await screen.findByText('shared-first');
+    const privateLaneTab = screen.getByRole('tab', { name: /我與 AI/ });
+    await user.click(privateLaneTab);
+    expect(privateLaneTab).toHaveAttribute('aria-selected', 'true');
+    const privateFirst = await screen.findByText('private-first', {
+      selector: '.chat-room-page__message-content',
+    });
+    const privateFirstRow = privateFirst.closest('[data-index]');
+    expect(privateFirstRow).not.toBeNull();
+    expect(screen.queryByText('shared-first')).not.toBeInTheDocument();
+
+    const replyMessage = screen.getByText('private-reply').closest('.chat-room-page__message-item');
+    expect(replyMessage).not.toBeNull();
+    fireEvent.click(within(replyMessage as HTMLElement).getByRole('button', { name: /private-first/ }));
+
+    expect(mockVirtuosoScrollToIndex).toHaveBeenLastCalledWith({
+      index: Number(privateFirstRow?.getAttribute('data-index')),
+      align: 'center',
+      behavior: 'smooth',
+    });
+  });
+
+  it('切換房間後舊 channel send 未完成不應阻塞新房間發送或寫入舊訊息（message action 競態回歸）', async () => {
     const sendResolvers = new Map<string, (message: unknown) => void>();
     mockGetChatRoom.mockImplementation((roomId: string) => Promise.resolve(buildOwnerSoloRoom(roomId)));
     mockListChatMessages.mockResolvedValue({ messages: [], nextCursor: null });
-    mockSendChatMessage.mockImplementation(
-      (roomId: string) => new Promise((resolve) => {
-        sendResolvers.set(roomId, resolve);
+    mockSendChatChannelMessage.mockImplementation(
+      (channelId: string) => new Promise((resolve) => {
+        sendResolvers.set(channelId, resolve);
       })
     );
 
@@ -1310,8 +1441,8 @@ describe('ChatRoomPage', () => {
       fireEvent.click(screen.getByRole('button', { name: '送出' }));
     });
     await waitFor(() => {
-      expect(mockSendChatMessage).toHaveBeenCalledWith(
-        'room-a',
+      expect(mockSendChatChannelMessage).toHaveBeenCalledWith(
+        'room-a-private',
         expect.objectContaining({ content: 'room-a-pending' })
       );
     });
@@ -1326,18 +1457,22 @@ describe('ChatRoomPage', () => {
     });
 
     await waitFor(() => {
-      expect(mockSendChatMessage).toHaveBeenCalledWith(
-        'room-b',
+      expect(mockSendChatChannelMessage).toHaveBeenCalledWith(
+        'room-b-private',
         expect.objectContaining({ content: 'room-b-message' })
       );
     });
 
     await act(async () => {
-      sendResolvers.get('room-b')?.({
+      sendResolvers.get('room-b-private')?.({
         id: 'msg-room-b',
+        room_id: 'room-b',
+        channel_id: 'room-b-private',
+        sender_participant_id: 'room-b-p-role-a',
         content: 'room-b-message',
         message_type: 'user_text',
-        visibility_scope: 'all',
+        visibility_scope: 'owner_only',
+        safety_flag: false,
         created_at: new Date().toISOString(),
       });
       await Promise.resolve();
@@ -1345,11 +1480,15 @@ describe('ChatRoomPage', () => {
     expect(screen.getByText('room-b-message')).toBeInTheDocument();
 
     await act(async () => {
-      sendResolvers.get('room-a')?.({
+      sendResolvers.get('room-a-private')?.({
         id: 'msg-room-a-stale',
+        room_id: 'room-a',
+        channel_id: 'room-a-private',
+        sender_participant_id: 'room-a-p-role-a',
         content: 'room-a-stale',
         message_type: 'user_text',
-        visibility_scope: 'all',
+        visibility_scope: 'owner_only',
+        safety_flag: false,
         created_at: new Date().toISOString(),
       });
       await Promise.resolve();
@@ -1360,11 +1499,17 @@ describe('ChatRoomPage', () => {
   });
 
   it('發送訊息後 visibilityScope 為 all 時應顯示思考中（UX 優化）', async () => {
-    mockSendChatMessage.mockResolvedValue({
+    const user = userEvent.setup();
+    mockGetChatRoom.mockResolvedValue(buildOwnerRoomWithRoleB('room-1'));
+    mockSendChatChannelMessage.mockResolvedValue({
       id: 'msg-1',
+      room_id: 'room-1',
+      channel_id: 'room-1-shared',
+      sender_participant_id: 'room-1-p-role-a',
       content: 'hello',
       message_type: 'user_text',
       visibility_scope: 'all',
+      safety_flag: false,
       created_at: new Date().toISOString(),
       sender_participant: { role_in_room: 'roleA' },
     });
@@ -1379,6 +1524,7 @@ describe('ChatRoomPage', () => {
 
     await waitFor(() => expect(mockGetChatRoom).toHaveBeenCalledWith('room-1'));
     await screen.findByPlaceholderText('輸入訊息...');
+    await user.click(screen.getByRole('tab', { name: /共同對話/ }));
 
     await act(async () => {
       fireEvent.change(screen.getByPlaceholderText('輸入訊息...'), {
@@ -1393,16 +1539,22 @@ describe('ChatRoomPage', () => {
   });
 
   it('聊天室 AI draft 應由 AI Stream 驅動，收到 persisted 前保持氣泡，persisted 後交接為正式消息', async () => {
+    const user = userEvent.setup();
+    mockGetChatRoom.mockResolvedValue(buildOwnerRoomWithRoleB('room-1'));
     let aiStreamCallbacks: Record<string, ((payload: any) => void) | undefined> = {};
     mockConnectAIStream.mockImplementation(async (_scopeType, _scopeId, callbacks) => {
       aiStreamCallbacks = callbacks as Record<string, (payload: any) => void>;
       return () => undefined;
     });
-    mockSendChatMessage.mockResolvedValue({
+    mockSendChatChannelMessage.mockResolvedValue({
       id: 'msg-user-1',
+      room_id: 'room-1',
+      channel_id: 'room-1-shared',
+      sender_participant_id: 'room-1-p-role-a',
       content: 'hello',
       message_type: 'user_text',
       visibility_scope: 'all',
+      safety_flag: false,
       created_at: new Date().toISOString(),
       sender_participant: { role_in_room: 'roleA' },
     });
@@ -1440,6 +1592,7 @@ describe('ChatRoomPage', () => {
 
     await waitFor(() => expect(mockGetChatRoom).toHaveBeenCalledWith('room-1'));
     await screen.findByPlaceholderText('輸入訊息...');
+    await user.click(screen.getByRole('tab', { name: /共同對話/ }));
 
     await act(async () => {
       fireEvent.change(screen.getByPlaceholderText('輸入訊息...'), {
@@ -1507,14 +1660,18 @@ describe('ChatRoomPage', () => {
     expect(screen.queryByText('AI 正在回覆')).not.toBeInTheDocument();
   });
 
-  it('sendChatMessage 失敗後應仍可再次發送訊息，成功後應顯示訊息（F07 錯誤恢復：失敗不阻塞重試）', async () => {
-    mockSendChatMessage
+  it('sendChatChannelMessage 失敗後應仍可再次發送訊息，成功後應顯示訊息（F07 錯誤恢復：失敗不阻塞重試）', async () => {
+    mockSendChatChannelMessage
       .mockRejectedValueOnce(new Error('網路暫時不穩'))
       .mockResolvedValueOnce({
         id: 'msg-retry',
+        room_id: 'room-1',
+        channel_id: 'room-1-private',
+        sender_participant_id: 'room-1-p-role-a',
         content: '重試的訊息',
         message_type: 'user_text',
-        visibility_scope: 'all',
+        visibility_scope: 'owner_only',
+        safety_flag: false,
         created_at: new Date().toISOString(),
         sender_participant: { role_in_room: 'roleA' },
       });
@@ -1548,13 +1705,13 @@ describe('ChatRoomPage', () => {
       fireEvent.click(screen.getByRole('button', { name: '送出' }));
     });
     await waitFor(() => {
-      expect(mockSendChatMessage).toHaveBeenCalledTimes(2);
+      expect(mockSendChatChannelMessage).toHaveBeenCalledTimes(2);
       expect(screen.getByText('重試的訊息')).toBeInTheDocument();
     });
   });
 
-  it('sendChatMessage 失敗且有 raw message 應顯示本地化 fallback', async () => {
-    mockSendChatMessage.mockRejectedValue(new Error('訊息發送失敗：房間已封存'));
+  it('sendChatChannelMessage 失敗且有 raw message 應顯示本地化 fallback', async () => {
+    mockSendChatChannelMessage.mockRejectedValue(new Error('訊息發送失敗：房間已封存'));
     render(
       <MemoryRouter initialEntries={['/chat/room/room-1']}>
         <Routes>
@@ -1579,8 +1736,8 @@ describe('ChatRoomPage', () => {
     });
   });
 
-  it('sendChatMessage 失敗且無 message 時應顯示 sendFail 文案', async () => {
-    mockSendChatMessage.mockRejectedValue({ code: 'SERVER_ERROR' });
+  it('sendChatChannelMessage 失敗且無 message 時應顯示 sendFail 文案', async () => {
+    mockSendChatChannelMessage.mockRejectedValue({ code: 'SERVER_ERROR' });
     render(
       <MemoryRouter initialEntries={['/chat/room/room-1']}>
         <Routes>
@@ -1605,8 +1762,8 @@ describe('ChatRoomPage', () => {
     });
   });
 
-  it('sendChatMessage 失敗且 message 為空字串時應使用 sendFail（F10 邊界）', async () => {
-    mockSendChatMessage.mockRejectedValue({ code: 'ROOM_ARCHIVED', message: '' });
+  it('sendChatChannelMessage 失敗且 message 為空字串時應使用 sendFail（F10 邊界）', async () => {
+    mockSendChatChannelMessage.mockRejectedValue({ code: 'ROOM_ARCHIVED', message: '' });
     render(
       <MemoryRouter initialEntries={['/chat/room/room-1']}>
         <Routes>
@@ -1631,8 +1788,8 @@ describe('ChatRoomPage', () => {
     });
   });
 
-  it('sendChatMessage FORBIDDEN 且無 message 時應使用 chat.message.forbidden（F07 權限邊界：專用發言權限提示）', async () => {
-    mockSendChatMessage.mockRejectedValue({ code: 'FORBIDDEN' });
+  it('sendChatChannelMessage FORBIDDEN 且無 message 時應使用 chat.message.forbidden（F07 權限邊界：專用發言權限提示）', async () => {
+    mockSendChatChannelMessage.mockRejectedValue({ code: 'FORBIDDEN' });
     render(
       <MemoryRouter initialEntries={['/chat/room/room-1']}>
         <Routes>
@@ -2510,13 +2667,13 @@ describe('ChatRoomPage', () => {
       </MemoryRouter>
     );
 
-	    await waitFor(() => {
-	      expect(mockGetChatRoom).toHaveBeenCalledWith('room-1');
-	    });
-	    await screen.findByText('聊天室：room-1');
-	    expect(screen.getByRole('button', { name: '建立邀請' })).toBeDisabled();
-	    expect(screen.getByRole('button', { name: '發起梳理' })).toBeDisabled();
-	    expect(screen.getByRole('button', { name: '送出' })).toBeDisabled();
+    await waitFor(() => {
+      expect(mockGetChatRoom).toHaveBeenCalledWith('room-1');
+    });
+    await screen.findByText('聊天室：room-1');
+    expect(screen.getByRole('button', { name: '建立邀請' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '發起梳理' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '送出' })).toBeDisabled();
 
     await act(async () => {
       fireEvent.change(screen.getByPlaceholderText('輸入訊息...'), {
@@ -2524,7 +2681,7 @@ describe('ChatRoomPage', () => {
       });
       fireEvent.keyDown(screen.getByPlaceholderText('輸入訊息...'), { key: 'Enter', code: 'Enter' });
     });
-    expect(mockSendChatMessage).not.toHaveBeenCalled();
+    expect(mockSendChatChannelMessage).not.toHaveBeenCalled();
   });
 
   it('安全通知應取得焦點並阻斷 judgment handoff，但保留對話輸入', async () => {
@@ -2556,314 +2713,109 @@ describe('ChatRoomPage', () => {
     expect(screen.getByPlaceholderText('輸入訊息...')).toBeEnabled();
   });
 
-  it('未登入時 chat 發起梳理成功後應先被導向 login，並保留 judgment 回跳目標（F07 -> F04 handoff）', async () => {
-    useAuthStore.setState({ user: null, isAuthenticated: false, _hasHydrated: true } as any);
-    localStorage.setItem('emorapy_session_id', 'guest_owner_123');
-    mockGetChatRoom.mockResolvedValue({
-      id: 'room-1',
-      status: 'solo_active',
-      owner_user_id: null,
-      session_id: 'guest_owner_123',
-      history_visibility_mode: 'share_summary_only',
-      participants: [{ id: 'p-a', role_in_room: 'roleA', user_id: null, is_active: true }],
-    });
-    mockRequestChatJudgment.mockResolvedValue({
-      judgmentId: 'judgment-from-chat',
-      roomId: 'room-1',
-      status: 'judgment_requested',
-    });
-    mockListChatMessages.mockResolvedValueOnce({
-      messages: [
-        {
-          id: 'msg-1',
-          content: 'hello',
-          message_type: 'user_text',
-          visibility_scope: 'all',
-          created_at: new Date().toISOString(),
-          sender_participant: { role_in_room: 'roleA' },
-        },
-      ],
-      nextCursor: null,
-    });
-
-    render(
-      <MemoryRouter initialEntries={['/chat/room/room-1']}>
-        <Routes>
-          <Route path="/chat/room/:roomId" element={<ChatRoomPage />} />
-          <Route
-            path="/judgment/:id"
-            element={(
-              <ProtectedRoute>
-                <div>Judgment Detail</div>
-              </ProtectedRoute>
-            )}
-          />
-          <Route path="/auth/login" element={<LoginCapture />} />
-        </Routes>
-      </MemoryRouter>
-    );
-
-    await waitFor(() => expect(mockGetChatRoom).toHaveBeenCalledWith('room-1'));
-    await screen.findByText('聊天室：room-1');
-    fireEvent.click(screen.getByRole('button', { name: '發起梳理' }));
-    await screen.findByText('轉梳理前確認');
-    const dialog = await screen.findByRole('dialog');
-    const confirm = within(dialog).getByRole('button', { name: '確認' });
-
-    await act(async () => {
-      fireEvent.click(confirm);
-    });
-
-    await waitFor(() => {
-      expect(screen.getByTestId('login-from')).toHaveTextContent('/judgment/judgment-from-chat');
-    });
-  });
-
-  it('發起梳理時只應提交 user_text 訊息 id，不應把 AI 訊息帶進 included_message_ids（P04 回歸）', async () => {
-    mockRequestChatJudgment.mockResolvedValue({
-      judgmentId: 'judgment-user-only',
-      roomId: 'room-1',
-      status: 'judgment_requested',
-    });
+  it('發起梳理先建立 shared user_text exact selection 並由 requester 自行批准，不直接 request judgment', async () => {
+    mockGetChatRoom.mockResolvedValue(buildOwnerRoomWithRoleB());
     mockListChatMessages.mockResolvedValueOnce({
       messages: [
         {
           id: 'msg-user-1',
+          room_id: 'room-1',
+          channel_id: 'room-1-shared',
+          sender_participant_id: 'room-1-p-role-a',
           content: 'role-a-message',
           message_type: 'user_text',
           visibility_scope: 'all',
+          safety_flag: false,
           created_at: new Date().toISOString(),
-          sender_participant: { role_in_room: 'roleA' },
+          sender_participant: { role_in_room: 'roleA', participant_type: 'user' },
         },
         {
           id: 'msg-ai-1',
+          room_id: 'room-1',
+          channel_id: 'room-1-shared',
+          sender_participant_id: 'room-1-ai',
           content: 'ai-summary',
-          message_type: 'ai_text',
+          message_type: 'ai_mediation',
           visibility_scope: 'all',
+          safety_flag: false,
           created_at: new Date().toISOString(),
-          sender_participant: { role_in_room: 'aiMediator' },
+          sender_participant: { role_in_room: 'aiMediator', participant_type: 'ai' },
         },
         {
           id: 'msg-user-2',
+          room_id: 'room-1',
+          channel_id: 'room-1-shared',
+          sender_participant_id: 'room-1-p-role-b',
           content: 'role-b-message',
           message_type: 'user_text',
           visibility_scope: 'all',
+          safety_flag: false,
           created_at: new Date().toISOString(),
-          sender_participant: { role_in_room: 'roleB' },
+          sender_participant: { role_in_room: 'roleB', participant_type: 'user' },
         },
       ],
       nextCursor: null,
     });
+    const createdRequest = {
+      id: 'analysis-1',
+      room_id: 'room-1',
+      requested_by_participant_id: 'room-1-p-role-a',
+      status: 'pending_approval',
+      selection_snapshot: {
+        message_refs: [
+          { kind: 'chat_message', id: 'msg-user-1', content_hash: 'a'.repeat(64) },
+          { kind: 'chat_message', id: 'msg-user-2', content_hash: 'b'.repeat(64) },
+        ],
+        capsule_refs: [],
+      },
+      selection_hash: 'c'.repeat(64),
+      required_participant_ids: ['room-1-p-role-a', 'room-1-p-role-b'],
+      policy_version: 'context-policy-v1',
+      expires_at: '2099-01-01T00:00:00.000Z',
+      created_at: '2026-07-12T00:00:00.000Z',
+      updated_at: '2026-07-12T00:00:00.000Z',
+    };
+    mockCreateChatAnalysisRequest.mockResolvedValue(createdRequest);
+    mockDecideChatAnalysisRequest.mockResolvedValue({ id: 'approval-a' });
 
     render(
       <MemoryRouter initialEntries={['/chat/room/room-1']}>
         <Routes>
           <Route path="/chat/room/:roomId" element={<ChatRoomPage />} />
-          <Route path="/judgment/:judgmentId" element={<div>judgment page</div>} />
         </Routes>
       </MemoryRouter>
     );
 
     await waitFor(() => expect(mockGetChatRoom).toHaveBeenCalledWith('room-1'));
     await screen.findByText('聊天室：room-1');
-    fireEvent.click(screen.getByRole('button', { name: '發起梳理' }));
-    await screen.findByText('轉梳理前確認');
+    const requestButton = screen.getByRole('button', { name: '發起梳理' });
+    await waitFor(() => expect(requestButton).toBeEnabled());
+    fireEvent.click(requestButton);
+    await screen.findByText('確認今次梳理會使用的內容');
     const dialog = await screen.findByRole('dialog');
-    const confirm = within(dialog).getByRole('button', { name: '確認' });
+    expect(within(dialog).queryByText('ai-summary')).not.toBeInTheDocument();
+    const confirm = within(dialog).getByRole('button', { name: '建立清單並批准' });
+    expect(confirm).toBeDisabled();
+    fireEvent.click(within(dialog).getByRole('button', { name: '全選共同訊息' }));
+    expect(confirm).toBeEnabled();
 
     await act(async () => {
       fireEvent.click(confirm);
     });
 
     await waitFor(() => {
-      expect(mockRequestChatJudgment).toHaveBeenCalledWith('room-1', {
-        included_message_ids: ['msg-user-1', 'msg-user-2'],
-      });
+      expect(mockCreateChatAnalysisRequest).toHaveBeenCalledWith(
+        'room-1',
+        ['msg-user-1', 'msg-user-2'],
+        [],
+      );
+      expect(mockDecideChatAnalysisRequest).toHaveBeenCalledWith(
+        'room-1',
+        createdRequest,
+        'approved',
+      );
     });
-    expect(screen.queryByText('ai-summary')).not.toBeInTheDocument();
-  });
-
-  it('requestChatJudgment 成功但組件已卸載時不應呼叫 message.success 或 navigate（useMountedRef 回歸：避免 F01-BUG-001 同類問題）', async () => {
-    let resolveRequest: (v: { roomId: string; status: string }) => void;
-    mockRequestChatJudgment.mockImplementation(
-      () => new Promise((resolve) => { resolveRequest = resolve; })
-    );
-    mockListChatMessages.mockResolvedValueOnce({
-      messages: [
-        {
-          id: 'msg-1',
-          content: 'hello',
-          message_type: 'user_text',
-          visibility_scope: 'all',
-          created_at: new Date().toISOString(),
-          sender_participant: { role_in_room: 'roleA' },
-        },
-      ],
-      nextCursor: null,
-    });
-    const { unmount } = render(
-      <MemoryRouter initialEntries={['/chat/room/room-1']}>
-        <Routes>
-          <Route path="/chat/room/:roomId" element={<ChatRoomPage />} />
-        </Routes>
-      </MemoryRouter>
-    );
-    await waitFor(() => expect(mockGetChatRoom).toHaveBeenCalledWith('room-1'));
-    await screen.findByText('聊天室：room-1');
-    fireEvent.click(screen.getByRole('button', { name: '發起梳理' }));
-    await screen.findByText('轉梳理前確認');
-    const dialog = await screen.findByRole('dialog');
-    const confirm = within(dialog).getByRole('button', { name: '確認' });
-    fireEvent.click(confirm);
-    await waitFor(() => {
-      expect(mockRequestChatJudgment).toHaveBeenCalled();
-    });
-    unmount();
-    resolveRequest!({ roomId: 'room-1', status: 'judgment_requested' });
-    await Promise.resolve();
-    expect(toast.success).not.toHaveBeenCalled();
-  });
-
-  it('requestChatJudgment 失敗但組件已卸載時不應呼叫 message.error 或 warning（P1-04）', async () => {
-    let rejectRequest: (error?: unknown) => void;
-    mockRequestChatJudgment.mockImplementation(
-      () => new Promise((_, reject) => { rejectRequest = reject; })
-    );
-    mockListChatMessages.mockResolvedValueOnce({
-      messages: [
-        {
-          id: 'msg-1',
-          content: 'hello',
-          message_type: 'user_text',
-          visibility_scope: 'all',
-          created_at: new Date().toISOString(),
-          sender_participant: { role_in_room: 'roleA' },
-        },
-      ],
-      nextCursor: null,
-    });
-    const { unmount } = render(
-      <MemoryRouter initialEntries={['/chat/room/room-1']}>
-        <Routes>
-          <Route path="/chat/room/:roomId" element={<ChatRoomPage />} />
-        </Routes>
-      </MemoryRouter>
-    );
-    await waitFor(() => expect(mockGetChatRoom).toHaveBeenCalledWith('room-1'));
-    await screen.findByText('聊天室：room-1');
-    fireEvent.click(screen.getByRole('button', { name: '發起梳理' }));
-    await screen.findByText('轉梳理前確認');
-    const dialog = await screen.findByRole('dialog');
-    const confirm = within(dialog).getByRole('button', { name: '確認' });
-    fireEvent.click(confirm);
-    await waitFor(() => {
-      expect(mockRequestChatJudgment).toHaveBeenCalled();
-    });
-    unmount();
-    rejectRequest!(new Error('判決服務暫時不可用'));
-    await Promise.resolve();
-    expect(toast.error).not.toHaveBeenCalled();
-    expect(toast.warning).not.toHaveBeenCalled();
-  });
-
-  it('發起梳理快速連點只會送出一次請求', async () => {
-    mockRequestChatJudgment.mockResolvedValue({
-      roomId: 'room-1',
-      caseId: 'case-1',
-      status: 'judgment_requested',
-    });
-    mockListChatMessages.mockResolvedValueOnce({
-      messages: [
-        {
-          id: 'msg-1',
-          content: 'hello',
-          message_type: 'user_text',
-          visibility_scope: 'all',
-          created_at: new Date().toISOString(),
-          sender_participant: { role_in_room: 'roleA' },
-        },
-      ],
-      nextCursor: null,
-    });
-
-    render(
-      <MemoryRouter initialEntries={['/chat/room/room-1']}>
-        <Routes>
-          <Route path="/chat/room/:roomId" element={<ChatRoomPage />} />
-        </Routes>
-      </MemoryRouter>
-    );
-
-	    await waitFor(() => {
-	      expect(mockGetChatRoom).toHaveBeenCalledWith('room-1');
-	    });
-		    await screen.findByText('聊天室：room-1');
-
-		    const button = screen.getByRole('button', { name: '發起梳理' });
-		    await act(async () => {
-		      fireEvent.click(button);
-		      fireEvent.click(button);
-		    });
-
-	    await screen.findByText('轉梳理前確認');
-		    const dialog = await screen.findByRole('dialog');
-		    const confirm = within(dialog).getByRole('button', { name: '確認' });
-		    await act(async () => {
-		      fireEvent.click(confirm);
-		      fireEvent.click(confirm);
-		    });
-		    await waitFor(() => {
-		      expect(mockRequestChatJudgment).toHaveBeenCalledTimes(1);
-		    });
-		  });
-
-  it('requestChatJudgment 成功但尚無 judgmentId 時應保持 pending，避免再次發起梳理', async () => {
-    mockRequestChatJudgment.mockResolvedValue({
-      roomId: 'room-1',
-      caseId: 'case-1',
-      status: 'judgment_requested',
-    });
-    mockListChatMessages.mockResolvedValueOnce({
-      messages: [
-        {
-          id: 'msg-1',
-          content: 'hello',
-          message_type: 'user_text',
-          visibility_scope: 'all',
-          created_at: new Date().toISOString(),
-          sender_participant: { role_in_room: 'roleA' },
-        },
-      ],
-      nextCursor: null,
-    });
-
-    render(
-      <MemoryRouter initialEntries={['/chat/room/room-1']}>
-        <Routes>
-          <Route path="/chat/room/:roomId" element={<ChatRoomPage />} />
-        </Routes>
-      </MemoryRouter>
-    );
-
-    await waitFor(() => expect(mockGetChatRoom).toHaveBeenCalledWith('room-1'));
-    await screen.findByText('聊天室：room-1');
-    fireEvent.click(screen.getByRole('button', { name: '發起梳理' }));
-    await screen.findByText('轉梳理前確認');
-    const dialog = await screen.findByRole('dialog');
-    const confirm = within(dialog).getByRole('button', { name: '確認' });
-
-    await act(async () => {
-      fireEvent.click(confirm);
-    });
-
-    await waitFor(() => {
-      expect(mockRequestChatJudgment).toHaveBeenCalledTimes(1);
-      expect(toast.success).toHaveBeenCalledWith('已發起梳理，正在等待結果');
-    });
-
-    expect(screen.getByRole('button', { name: /發起梳理/ })).toBeDisabled();
-    fireEvent.click(screen.getByRole('button', { name: /發起梳理/ }));
-    expect(mockRequestChatJudgment).toHaveBeenCalledTimes(1);
+    expect(mockRequestChatJudgment).not.toHaveBeenCalled();
   });
 
   it('路由切換後舊房間判決 polling 結果不應導向舊判決（F07 polling 競態回歸）', async () => {
@@ -2948,211 +2900,6 @@ describe('ChatRoomPage', () => {
 
     expect(screen.queryByText('judgment page')).not.toBeInTheDocument();
     expect(screen.getByText(/聊天室：room-b/)).toBeInTheDocument();
-  });
-
-  it('requestChatJudgment 失敗後應仍可再次點擊確認發起梳理，成功後應導向判決頁（F07 錯誤恢復：失敗不阻塞重試）', async () => {
-    mockRequestChatJudgment
-      .mockRejectedValueOnce(new Error('服務暫時不可用'))
-      .mockResolvedValueOnce({ judgmentId: 'judgment-retry-1', roomId: 'room-1', status: 'judgment_requested' });
-    mockListChatMessages.mockResolvedValueOnce({
-      messages: [
-        {
-          id: 'msg-1',
-          content: 'hello',
-          message_type: 'user_text',
-          visibility_scope: 'all',
-          created_at: new Date().toISOString(),
-          sender_participant: { role_in_room: 'roleA' },
-        },
-      ],
-      nextCursor: null,
-    });
-
-    render(
-      <MemoryRouter initialEntries={['/chat/room/room-1']}>
-        <Routes>
-          <Route path="/chat/room/:roomId" element={<ChatRoomPage />} />
-          <Route path="/judgment/:judgmentId" element={<div>judgment page</div>} />
-        </Routes>
-      </MemoryRouter>
-    );
-
-    await waitFor(() => expect(mockGetChatRoom).toHaveBeenCalledWith('room-1'));
-    await screen.findByText('聊天室：room-1');
-    fireEvent.click(screen.getByRole('button', { name: '發起梳理' }));
-    await screen.findByText('轉梳理前確認');
-    let dialog = await screen.findByRole('dialog');
-    let confirm = within(dialog).getByRole('button', { name: '確認' });
-    fireEvent.click(confirm);
-    await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('發起梳理失敗');
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: '發起梳理' }));
-    await screen.findByText('轉梳理前確認');
-    dialog = await screen.findByRole('dialog');
-    confirm = within(dialog).getByRole('button', { name: '確認' });
-    fireEvent.click(confirm);
-    await waitFor(() => {
-      expect(mockRequestChatJudgment).toHaveBeenCalledTimes(2);
-      expect(toast.success).toHaveBeenCalled();
-    });
-  });
-
-  it('requestChatJudgment 失敗且有 raw message（非 CONFLICT/INVALID_SESSION）應顯示本地化 fallback', async () => {
-    mockRequestChatJudgment.mockRejectedValue(new Error('判決服務暫時不可用，請稍後再試'));
-    mockListChatMessages.mockResolvedValueOnce({
-      messages: [
-        {
-          id: 'msg-1',
-          content: 'hello',
-          message_type: 'user_text',
-          visibility_scope: 'all',
-          created_at: new Date().toISOString(),
-          sender_participant: { role_in_room: 'roleA' },
-        },
-      ],
-      nextCursor: null,
-    });
-
-    render(
-      <MemoryRouter initialEntries={['/chat/room/room-1']}>
-        <Routes>
-          <Route path="/chat/room/:roomId" element={<ChatRoomPage />} />
-        </Routes>
-      </MemoryRouter>
-    );
-
-    await waitFor(() => expect(mockGetChatRoom).toHaveBeenCalledWith('room-1'));
-    await screen.findByText('聊天室：room-1');
-    fireEvent.click(screen.getByRole('button', { name: '發起梳理' }));
-    await screen.findByText('轉梳理前確認');
-    const dialog = await screen.findByRole('dialog');
-    const confirm = within(dialog).getByRole('button', { name: '確認' });
-    await act(async () => {
-      fireEvent.click(confirm);
-    });
-
-    await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('發起梳理失敗');
-    });
-  });
-
-  it('requestChatJudgment 失敗且無 message 時應顯示 judgmentFail 文案', async () => {
-    mockRequestChatJudgment.mockRejectedValue({ code: 'SERVER_ERROR' });
-    mockListChatMessages.mockResolvedValueOnce({
-      messages: [
-        {
-          id: 'msg-1',
-          content: 'hello',
-          message_type: 'user_text',
-          visibility_scope: 'all',
-          created_at: new Date().toISOString(),
-          sender_participant: { role_in_room: 'roleA' },
-        },
-      ],
-      nextCursor: null,
-    });
-
-    render(
-      <MemoryRouter initialEntries={['/chat/room/room-1']}>
-        <Routes>
-          <Route path="/chat/room/:roomId" element={<ChatRoomPage />} />
-        </Routes>
-      </MemoryRouter>
-    );
-
-    await waitFor(() => expect(mockGetChatRoom).toHaveBeenCalledWith('room-1'));
-    await screen.findByText('聊天室：room-1');
-    fireEvent.click(screen.getByRole('button', { name: '發起梳理' }));
-    await screen.findByText('轉梳理前確認');
-    const dialog = await screen.findByRole('dialog');
-    const confirm = within(dialog).getByRole('button', { name: '確認' });
-    await act(async () => {
-      fireEvent.click(confirm);
-    });
-
-    await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('發起梳理失敗');
-    });
-  });
-
-  it('requestChatJudgment 失敗且 message 為空字串時應使用 judgmentFail（F10 邊界：空 message 視為無）', async () => {
-    mockRequestChatJudgment.mockRejectedValue({ code: 'AI_SERVICE_ERROR', message: '' });
-    mockListChatMessages.mockResolvedValueOnce({
-      messages: [
-        {
-          id: 'msg-1',
-          content: 'hello',
-          message_type: 'user_text',
-          visibility_scope: 'all',
-          created_at: new Date().toISOString(),
-          sender_participant: { role_in_room: 'roleA' },
-        },
-      ],
-      nextCursor: null,
-    });
-
-    render(
-      <MemoryRouter initialEntries={['/chat/room/room-1']}>
-        <Routes>
-          <Route path="/chat/room/:roomId" element={<ChatRoomPage />} />
-        </Routes>
-      </MemoryRouter>
-    );
-
-    await waitFor(() => expect(mockGetChatRoom).toHaveBeenCalledWith('room-1'));
-    await screen.findByText('聊天室：room-1');
-    fireEvent.click(screen.getByRole('button', { name: '發起梳理' }));
-    await screen.findByText('轉梳理前確認');
-    const dialog = await screen.findByRole('dialog');
-    const confirm = within(dialog).getByRole('button', { name: '確認' });
-    await act(async () => {
-      fireEvent.click(confirm);
-    });
-
-    await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('發起梳理失敗');
-    });
-  });
-
-  it('requestChatJudgment FORBIDDEN 且無 message 時應使用 judgmentFail（F07 權限邊界 fallback）', async () => {
-    mockRequestChatJudgment.mockRejectedValue({ code: 'FORBIDDEN' });
-    mockListChatMessages.mockResolvedValueOnce({
-      messages: [
-        {
-          id: 'msg-1',
-          content: 'hello',
-          message_type: 'user_text',
-          visibility_scope: 'all',
-          created_at: new Date().toISOString(),
-          sender_participant: { role_in_room: 'roleA' },
-        },
-      ],
-      nextCursor: null,
-    });
-
-    render(
-      <MemoryRouter initialEntries={['/chat/room/room-1']}>
-        <Routes>
-          <Route path="/chat/room/:roomId" element={<ChatRoomPage />} />
-        </Routes>
-      </MemoryRouter>
-    );
-
-    await waitFor(() => expect(mockGetChatRoom).toHaveBeenCalledWith('room-1'));
-    await screen.findByText('聊天室：room-1');
-    fireEvent.click(screen.getByRole('button', { name: '發起梳理' }));
-    await screen.findByText('轉梳理前確認');
-    const dialog = await screen.findByRole('dialog');
-    const confirm = within(dialog).getByRole('button', { name: '確認' });
-    await act(async () => {
-      fireEvent.click(confirm);
-    });
-
-    await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('發起梳理失敗');
-    });
   });
 
   it('leaveChatRoom 失敗且有 raw message 應顯示本地化 fallback', async () => {

@@ -23,10 +23,12 @@ import {
 	shouldShowHistoryCacheFullNotice,
 	type ChatAnchorOrigin,
 } from "../chatRoomUtils";
+import type { ChatConversationLane } from "./useChatRoomUiState";
 
 interface UseChatRoomHistoryNavigationInput {
 	room: ChatRoom | null;
 	messages: ChatMessage[];
+	activeLane: ChatConversationLane;
 	hasMoreHistory: boolean;
 	setHasMoreHistory: Dispatch<SetStateAction<boolean>>;
 	historyCursor: string | null;
@@ -40,8 +42,10 @@ interface UseChatRoomHistoryNavigationInput {
 	mountedRef: { current: boolean };
 	isRoomTargetActive: (targetRoomId: string) => boolean;
 	messagesRef: { current: ChatMessage[] };
-	firstItemIndexRef: { current: number };
-	messageIndexByIdRef: { current: Map<string, number> };
+	activeMessagesRef: { current: ChatMessage[] };
+	activeFirstItemIndexRef: { current: number };
+	messageCacheIndexByIdRef: { current: Map<string, number> };
+	activeMessageIndexByIdRef: { current: Map<string, number> };
 	rangeStartIndexRef: { current: number };
 	isAtBottomRef: { current: boolean };
 	historyCursorRef: { current: string | null };
@@ -60,6 +64,7 @@ interface UseChatRoomHistoryNavigationInput {
 export function useChatRoomHistoryNavigation({
 	room,
 	messages,
+	activeLane,
 	hasMoreHistory,
 	setHasMoreHistory,
 	historyCursor,
@@ -73,8 +78,10 @@ export function useChatRoomHistoryNavigation({
 	mountedRef,
 	isRoomTargetActive,
 	messagesRef,
-	firstItemIndexRef,
-	messageIndexByIdRef,
+	activeMessagesRef,
+	activeFirstItemIndexRef,
+	messageCacheIndexByIdRef,
+	activeMessageIndexByIdRef,
 	rangeStartIndexRef,
 	isAtBottomRef,
 	historyCursorRef,
@@ -100,6 +107,10 @@ export function useChatRoomHistoryNavigation({
 		setPendingAnchorMessageId(null);
 		setJumpBackState(null);
 	}, [setJumpBackState, setPendingAnchorMessageId]);
+
+	useEffect(() => {
+		resetHistoryNavigation();
+	}, [activeLane, resetHistoryNavigation]);
 
 	const loadMoreHistory = useCallback(async () => {
 		const targetRoomId = room?.id;
@@ -142,7 +153,7 @@ export function useChatRoomHistoryNavigation({
 			}
 			const uniqueNew = getUniqueHistoryMessages(
 				result.messages,
-				messageIndexByIdRef.current,
+				messageCacheIndexByIdRef.current,
 			);
 			if (uniqueNew.length > 0) {
 				setFirstItemIndex((prev) =>
@@ -171,7 +182,7 @@ export function useChatRoomHistoryNavigation({
 		isRoomTargetActive,
 		loadingMoreHistory,
 		mergeSortedMessages,
-		messageIndexByIdRef,
+		messageCacheIndexByIdRef,
 		messagesRef,
 		mountedRef,
 		pendingAnchorMessageId,
@@ -213,7 +224,7 @@ export function useChatRoomHistoryNavigation({
 		if (!isRoomTargetActive(targetRoomId)) return;
 		const key = getAnchorHandledKey(targetRoomId, targetId);
 		if (pendingAnchorHandledRef.current === key) {
-			if (messageIndexByIdRef.current.has(targetId)) {
+			if (activeMessageIndexByIdRef.current.has(targetId)) {
 				scrollToMessage(targetId);
 			}
 			return;
@@ -224,13 +235,13 @@ export function useChatRoomHistoryNavigation({
 		if (!anchorJumpOriginRef.current) {
 			anchorJumpOriginRef.current = getAnchorOrigin({
 				rangeStartIndex: rangeStartIndexRef.current,
-				firstItemIndex: firstItemIndexRef.current,
-				messages: messagesRef.current,
+				firstItemIndex: activeFirstItemIndexRef.current,
+				messages: activeMessagesRef.current,
 				isAtBottom: isAtBottomRef.current,
 			});
 		}
 
-		if (messageIndexByIdRef.current.has(targetId)) {
+		if (activeMessageIndexByIdRef.current.has(targetId)) {
 			const origin = anchorJumpOriginRef.current;
 			if (origin) {
 				setJumpBackState(origin);
@@ -242,11 +253,12 @@ export function useChatRoomHistoryNavigation({
 		}
 		setPendingAnchorMessageId(targetId);
 	}, [
-		firstItemIndexRef,
+		activeFirstItemIndexRef,
+		activeLane,
+		activeMessagesRef,
 		isAtBottomRef,
 		isRoomTargetActive,
-		messageIndexByIdRef,
-		messagesRef,
+		activeMessageIndexByIdRef,
 		rangeStartIndexRef,
 		room?.id,
 		scrollToMessage,
@@ -284,7 +296,7 @@ export function useChatRoomHistoryNavigation({
 		if (!isRoomTargetActive(targetRoomId)) return;
 		if (!pendingAnchorMessageId) return;
 		const resolution = getPendingAnchorResolution({
-			targetLoaded: messageIndexByIdRef.current.has(pendingAnchorMessageId),
+			targetLoaded: activeMessageIndexByIdRef.current.has(pendingAnchorMessageId),
 			hasMoreHistory,
 			loadingMoreHistory,
 			historyCursor,
@@ -322,7 +334,7 @@ export function useChatRoomHistoryNavigation({
 		isRoomTargetActive,
 		loadMoreHistory,
 		loadingMoreHistory,
-		messageIndexByIdRef,
+		activeMessageIndexByIdRef,
 		pendingAnchorMessageId,
 		room?.id,
 		scrollToMessage,
@@ -339,12 +351,12 @@ export function useChatRoomHistoryNavigation({
 			return;
 		}
 		if (origin.originMessageId) {
-			const idx = messageIndexByIdRef.current.get(origin.originMessageId);
+			const idx = activeMessageIndexByIdRef.current.get(origin.originMessageId);
 			if (idx !== undefined) {
 				scrollToMessageIndex(idx);
 			}
 		}
-	}, [jumpBackState, messageIndexByIdRef, scrollToBottom, scrollToMessageIndex, setJumpBackState]);
+	}, [activeMessageIndexByIdRef, jumpBackState, scrollToBottom, scrollToMessageIndex, setJumpBackState]);
 
 	const canRequestMoreHistory =
 		hasMoreHistory && Boolean(historyCursor) && messages.length > 0;

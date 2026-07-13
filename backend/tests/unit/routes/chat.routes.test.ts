@@ -4,6 +4,7 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import express from 'express';
 import request from 'supertest';
+import { Errors } from '../../../src/utils/errors';
 
 const mockCreateRoom = jest.fn();
 const mockGetRoom = jest.fn();
@@ -18,6 +19,7 @@ const mockKickParticipantB = jest.fn();
 const mockGetJudgmentStatus = jest.fn();
 const mockPublish = jest.fn();
 const mockSubscribe = jest.fn();
+const mockResolveActiveHumanParticipant = jest.fn();
 const mockGetAuthUserIdOptional = jest.fn();
 const mockGetSessionIdFromSources = jest.fn();
 
@@ -43,6 +45,21 @@ jest.mock('../../../src/services/chat-events.service', () => ({
       mockSubscribe();
       return () => {};
     },
+    subscribeForParticipant: (
+      _roomId: string,
+      _participantId: string,
+      _cb: (e: unknown) => void,
+    ) => {
+      mockSubscribe();
+      return () => {};
+    },
+  },
+}));
+jest.mock('../../../src/services/chat-actor-access.service', () => ({
+  chatActorAccessService: {
+    resolveActiveHumanParticipant: (...args: unknown[]) => (
+      mockResolveActiveHumanParticipant(...args)
+    ),
   },
 }));
 jest.mock('../../../src/utils/request', () => ({
@@ -51,9 +68,6 @@ jest.mock('../../../src/utils/request', () => ({
 }));
 jest.mock('../../../src/middleware/auth', () => ({
   optionalAuthenticate: (_req: unknown, _res: unknown, next: () => void) => next(),
-}));
-jest.mock('../../../src/middleware/validator', () => ({
-  validate: () => (_req: unknown, _res: unknown, next: () => void) => next(),
 }));
 jest.mock('../../../src/middleware/rateLimiter', () => ({
   generalLimiter: (_req: unknown, _res: unknown, next: () => void) => next(),
@@ -72,7 +86,13 @@ function createApp() {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     (err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
       const code = (err as { code?: string }).code;
-      const status = code === 'INVALID_SESSION_ID' ? 400 : code === 'FORBIDDEN' ? 403 : 500;
+      const status = code === 'INVALID_SESSION_ID' || code === 'VALIDATION_ERROR'
+        ? 400
+        : code === 'FORBIDDEN'
+          ? 403
+          : code === 'CASE_NOT_EDITABLE'
+            ? 422
+          : 500;
       res.status(status).json({ success: false, error: err.message, code });
     }
   );
@@ -115,6 +135,10 @@ describe('chat.routes', () => {
     mockLeaveRoom.mockResolvedValue({ id: roomId, status: 'group_active' } as never);
     mockKickParticipantB.mockResolvedValue({ id: roomId, participantKicked: true } as never);
     mockGetJudgmentStatus.mockResolvedValue({ roomStatus: 'group_active' } as never);
+    mockResolveActiveHumanParticipant.mockResolvedValue({
+      participant: { id: 'participant-a' },
+      room: { id: roomId },
+    } as never);
   });
 
   describe('錯誤傳遞', () => {
@@ -193,6 +217,21 @@ describe('chat.routes', () => {
       expect(res.body).toMatchObject({ success: false, error: 'send failed' });
     });
 
+    it('legacy POST shared message in solo/invite-pending fails closed with 422', async () => {
+      mockSendMessage.mockRejectedValueOnce(
+        Errors.CASE_NOT_EDITABLE('對方加入後才可發送共同訊息') as never,
+      );
+
+      const res = await request(createApp())
+        .post(`/chat/rooms/${roomId}/messages`)
+        .set('x-session-id', sessionId)
+        .send({ content: 'must remain private', visibility_scope: 'all' });
+
+      expect(res.status).toBe(422);
+      expect(res.body.code).toBe('CASE_NOT_EDITABLE');
+      expect(mockPublish).not.toHaveBeenCalled();
+    });
+
     it('requestJudgment 拋錯時應 next(error) 返回 500', async () => {
       mockRequestJudgment.mockRejectedValueOnce(new Error('request failed') as never);
       const app = createApp();
@@ -234,14 +273,16 @@ describe('chat.routes', () => {
       expect(res.body).toMatchObject({ success: false, error: 'status failed' });
     });
 
-    it('stream 端點 getRoom 拋錯時應 next(error) 返回 500（F07 SSE 錯誤傳遞）', async () => {
-      mockGetRoom.mockRejectedValueOnce(new Error('stream getRoom failed') as never);
+    it('stream 端點 access check 拋錯時應 next(error) 返回 500（F07 SSE 錯誤傳遞）', async () => {
+      mockResolveActiveHumanParticipant.mockRejectedValueOnce(
+        new Error('stream access failed') as never,
+      );
       const app = createApp();
       const res = await request(app)
         .get(`/chat/rooms/${roomId}/stream`)
         .set('x-session-id', sessionId);
       expect(res.status).toBe(500);
-      expect(res.body).toMatchObject({ success: false, error: 'stream getRoom failed' });
+      expect(res.body).toMatchObject({ success: false, error: 'stream access failed' });
     });
   });
 
@@ -355,12 +396,32 @@ describe('chat.routes', () => {
       expect(res.body.data.message).toHaveProperty('content');
     });
 
+    it('private message 不應發布 room-wide message event metadata', async () => {
+      mockSendMessage.mockResolvedValueOnce({
+        id: 'm-private',
+        content: 'private',
+        sender_participant_id: 'p-1',
+        message_type: 'user_text',
+        visibility_scope: 'owner_only',
+      } as never);
+      const app = createApp();
+
+      const res = await request(app)
+        .post(`/chat/rooms/${roomId}/messages`)
+        .set('x-session-id', sessionId)
+        .send({ content: 'private', visibility_scope: 'owner_only' });
+
+      expect(res.status).toBe(200);
+      expect(mockPublish).not.toHaveBeenCalled();
+    });
+
     it('requestJudgment 成功時應返回 data 含 status、caseId、judgmentId、linkId（F07 邊界）', async () => {
+      const analysisRequestId = '550e8400-e29b-41d4-a716-446655440001';
       const app = createApp();
       const res = await request(app)
         .post(`/chat/rooms/${roomId}/request-judgment`)
         .set('x-session-id', sessionId)
-        .send({ participant_consent: { role_b_included_messages: true } });
+        .send({ analysis_request_id: analysisRequestId });
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(res.body.data).toHaveProperty('status');
@@ -371,9 +432,37 @@ describe('chat.routes', () => {
         roomId,
         expect.any(Object),
         expect.objectContaining({
-          participantConsent: { roleBIncludedMessages: true },
+          analysisRequestId,
+          includedMessageIds: undefined,
         }),
       );
+    });
+
+    it('requestJudgment 應拒絕 legacy caller participant_consent', async () => {
+      const app = createApp();
+      const res = await request(app)
+        .post(`/chat/rooms/${roomId}/request-judgment`)
+        .set('x-session-id', sessionId)
+        .send({ participant_consent: { role_b_included_messages: true } });
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('VALIDATION_ERROR');
+      expect(mockRequestJudgment).not.toHaveBeenCalled();
+    });
+
+    it('requestJudgment 應拒絕同時傳入 message selection 與 analysis request', async () => {
+      const app = createApp();
+      const res = await request(app)
+        .post(`/chat/rooms/${roomId}/request-judgment`)
+        .set('x-session-id', sessionId)
+        .send({
+          included_message_ids: ['550e8400-e29b-41d4-a716-446655440002'],
+          analysis_request_id: '550e8400-e29b-41d4-a716-446655440001',
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('VALIDATION_ERROR');
+      expect(mockRequestJudgment).not.toHaveBeenCalled();
     });
 
     it('leaveRoom 成功時應返回 data.room（F07 邊界）', async () => {

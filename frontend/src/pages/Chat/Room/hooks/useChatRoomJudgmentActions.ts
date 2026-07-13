@@ -4,7 +4,6 @@ import { getChatJudgmentStatus, requestChatJudgment } from "@/services/api/chat"
 import { t } from "@/utils/i18n";
 import type { ChatRoom } from "@/types/chat";
 import {
-	buildChatJudgmentPayload,
 	getJudgmentPollingDecision,
 	getRoomMutationErrorFeedback,
 	isRoomActionBlocked,
@@ -148,10 +147,10 @@ export function useChatRoomJudgmentActions({
 		tryStartJudgmentPolling,
 	]);
 
-	const handleRequestJudgment = useCallback(async (includedIds?: string[]) => {
+	const handleRequestJudgment = useCallback(async (analysisRequestId: string) => {
 		const targetRoom = room;
 		const targetRoomId = targetRoom?.id;
-		if (!targetRoomId) return;
+		if (!targetRoomId || !analysisRequestId) return;
 		if (requestJudgmentInFlightRoomIdRef.current === targetRoomId) return;
 		if (isRoomActionBlocked(targetRoom.status)) return;
 
@@ -159,8 +158,9 @@ export function useChatRoomJudgmentActions({
 		requestJudgmentInFlightRoomIdRef.current = targetRoomId;
 		setJudgingRoomId(targetRoomId);
 		try {
-			const payload = buildChatJudgmentPayload(includedIds);
-			const result = await requestChatJudgment(targetRoomId, payload);
+			const result = await requestChatJudgment(targetRoomId, {
+				analysis_request_id: analysisRequestId,
+			});
 			if (!shouldApplyJudgmentResult(targetRoomId)) return;
 			setErrorText("");
 			toast.success(t("chat.message.judgmentRequested"));

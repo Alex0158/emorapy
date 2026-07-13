@@ -18,6 +18,7 @@ const mockGetSessionId = jest.fn();
 const mockSetSessionId = jest.fn();
 const mockClearSessionId = jest.fn();
 const mockSetToken = jest.fn();
+const mockClearToken = jest.fn();
 const mockConsumePendingHref = jest.fn();
 const mockClearAppStorageWithPushCleanup = jest.fn();
 const mockCaptureTelemetry = jest.fn();
@@ -77,6 +78,7 @@ jest.mock('@/src/platform/storage/secureStore', () => ({
     setSessionId: mockSetSessionId,
   },
   tokenStorage: {
+    clearToken: mockClearToken,
     setToken: mockSetToken,
   },
   pendingLandingStorage: {
@@ -100,6 +102,10 @@ const QuickResultScreen = QuickResultModule.default;
 const { describeStreamStatus, formatQuickResultStreamError, shouldPollQuickResult } = QuickResultModule;
 const AuthScreen = require('../app/(public)/auth/index').default;
 const { setLocale } = require('@/src/i18n');
+const {
+  getIdentityQueryScopeEpoch,
+  identityScopedQueryKey,
+} = require('../src/providers/identityQueryScope');
 
 const queryClients = [];
 
@@ -111,7 +117,9 @@ function renderWithQuery(ui) {
     },
   });
   queryClients.push(queryClient);
-  return render(React.createElement(QueryClientProvider, { client: queryClient }, ui));
+  const rendered = render(React.createElement(QueryClientProvider, { client: queryClient }, ui));
+  rendered.queryClient = queryClient;
+  return rendered;
 }
 
 describe('M1 Quick/Auth screens', () => {
@@ -122,6 +130,7 @@ describe('M1 Quick/Auth screens', () => {
     mockClearSessionId.mockResolvedValue(undefined);
     mockSetSessionId.mockResolvedValue(undefined);
     mockSetToken.mockResolvedValue(undefined);
+    mockClearToken.mockResolvedValue(undefined);
     mockConsumePendingHref.mockResolvedValue(null);
     mockClearAppStorageWithPushCleanup.mockResolvedValue(undefined);
     mockCreateQuickSession.mockResolvedValue({ session_id: 'guest-new' });
@@ -727,5 +736,50 @@ describe('M1 Quick/Auth screens', () => {
     expect(queryClient.getQueryData(['app', 'auth-token'])).toBeNull();
     expect(queryClient.getQueryData(['app', 'session-id'])).toBeNull();
     expect(await screen.findByText('這台裝置的登入狀態、快速整理和提醒通道已清理。')).toBeTruthy();
+  });
+
+  it('rotates identity and removes A private caches before installing B login', async () => {
+    const screen = renderWithQuery(React.createElement(AuthScreen));
+    const oldChatKey = identityScopedQueryKey(0, 'm3', 'chat-messages', 'room-1');
+    screen.queryClient.setQueryData(oldChatKey, {
+      messages: [{ content: 'account-a-private-message' }],
+    });
+    screen.queryClient.setQueryData(['m2', 'psych-profile'], {
+      narrative: 'account-a-private-profile',
+    });
+    screen.queryClient.setQueryData(['public-static', 'catalog'], 'keep-public');
+
+    fireEvent.changeText(screen.getByPlaceholderText('name@example.com'), 'account-b@example.com');
+    fireEvent.changeText(screen.getByPlaceholderText('至少 8 個字元'), 'password-123');
+    fireEvent.press(screen.getByText('登入並保存'));
+
+    await waitFor(() => expect(mockRouterReplace).toHaveBeenCalledWith('/case'));
+    expect(getIdentityQueryScopeEpoch(screen.queryClient)).toBe(1);
+    expect(screen.queryClient.getQueryData(oldChatKey)).toBeUndefined();
+    expect(screen.queryClient.getQueryData(['m2', 'psych-profile'])).toBeUndefined();
+    expect(screen.queryClient.getQueryData(['public-static', 'catalog'])).toBe('keep-public');
+    expect(JSON.stringify(screen.queryClient.getQueryCache().getAll().map((query) => query.state.data)))
+      .not.toContain('account-a-private');
+    expect(screen.queryClient.getQueryData(['app', 'auth-token'])).toBe('jwt-token');
+  });
+
+  it('fails closed and removes private caches when credential clearing fails', async () => {
+    mockClearAppStorageWithPushCleanup.mockRejectedValueOnce(new Error('secure-store-failed'));
+    const screen = renderWithQuery(React.createElement(AuthScreen));
+    const oldAnalysisKey = identityScopedQueryKey(0, 'm3', 'chat-analysis-requests', 'room-1');
+    screen.queryClient.setQueryData(oldAnalysisKey, [{ source: 'account-a-private-analysis' }]);
+    screen.queryClient.setQueryData(['public-static', 'catalog'], 'keep-public');
+
+    fireEvent.press(screen.getByText('清理本機會話'));
+
+    await waitFor(() => expect(mockClearAppStorageWithPushCleanup).toHaveBeenCalledTimes(1));
+    await waitFor(() => {
+      expect(screen.queryClient.getQueryData(oldAnalysisKey)).toBeUndefined();
+    });
+    expect(screen.queryClient.getQueryData(['public-static', 'catalog'])).toBe('keep-public');
+    expect(screen.queryClient.getQueryData(['app', 'auth-token'])).toBeNull();
+    expect(screen.queryClient.getQueryData(['app', 'session-id'])).toBeNull();
+    expect(screen.queryClient.getQueryData(['app', 'identity-query-scope']))
+      .toEqual(expect.objectContaining({ privateDataEnabled: false, transitioning: false }));
   });
 });

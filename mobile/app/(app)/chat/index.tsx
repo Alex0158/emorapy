@@ -42,7 +42,7 @@ export default function ChatScreen() {
   const createRoomMutation = useMutation({
     mutationFn: async () => {
       await ensureChatActor();
-      return m3Api.chat.createRoom('share_summary_only');
+      return m3Api.chat.createRoom('share_from_join_time');
     },
     onMutate: () => setFeedback(null),
     onSuccess: (room) => {

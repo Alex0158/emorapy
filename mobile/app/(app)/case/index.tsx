@@ -14,6 +14,10 @@ import { tokenStorage } from '@/src/platform/storage/secureStore';
 import { captureTelemetry } from '@/src/platform/telemetry/client';
 import { ActionButton, FeatureRow, LinkButton, Panel, Screen, StatusPill } from '@/src/ui/components';
 import { palette, spacing, typography } from '@/src/ui/theme';
+import {
+  identityScopedQueryKey,
+  useIdentityQueryScope,
+} from '@/src/providers/identityQueryScope';
 
 const evidenceUploadableStatuses = new Set(['draft', 'submitted', 'in_progress']);
 const MIN_FORMAL_CASE_STATEMENT_LENGTH = 30;
@@ -162,6 +166,9 @@ function SafetyToggle({
 export default function CaseScreen() {
   useLocale();
   const queryClient = useQueryClient();
+  const identityScope = useIdentityQueryScope();
+  const identityQueriesEnabled = identityScope.privateDataEnabled && !identityScope.transitioning;
+  const identityEpoch = identityScope.epoch;
   const [inviteCode, setInviteCode] = useState('');
   const [plaintiffStatement, setPlaintiffStatement] = useState('');
   const [defendantStatement, setDefendantStatement] = useState('');
@@ -170,25 +177,28 @@ export default function CaseScreen() {
   const [evidenceUploadNotice, setEvidenceUploadNotice] = useState<string | null>(null);
 
   const authQuery = useQuery({
-    queryKey: ['app', 'auth-token'],
+    queryKey: identityScopedQueryKey(identityEpoch, 'app', 'auth-token'),
     queryFn: () => tokenStorage.getToken(),
+    enabled: identityQueriesEnabled,
   });
   const isAuthenticated = Boolean(authQuery.data);
 
   const pairingQuery = useQuery({
-    queryKey: ['m4', 'pairing-status'],
+    queryKey: identityScopedQueryKey(identityEpoch, 'm4', 'pairing-status'),
     queryFn: () => m4Api.pairing.getStatus(),
-    enabled: isAuthenticated,
+    enabled: identityQueriesEnabled && isAuthenticated,
   });
 
   const casesQuery = useQuery({
-    queryKey: ['m4', 'case-list'],
+    queryKey: identityScopedQueryKey(identityEpoch, 'm4', 'case-list'),
     queryFn: () => m4Api.cases.list({ page_size: 10 }),
-    enabled: isAuthenticated,
+    enabled: identityQueriesEnabled && isAuthenticated,
   });
 
   const refreshM4 = async () => {
-    await queryClient.invalidateQueries({ queryKey: ['m4'] });
+    await queryClient.invalidateQueries({
+      queryKey: identityScopedQueryKey(identityEpoch, 'm4'),
+    });
   };
 
   const createPairingMutation = useMutation({

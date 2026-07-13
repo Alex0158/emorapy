@@ -9,6 +9,10 @@ import { clearAppStorageWithPushCleanup } from '@/src/features/m5/pushLifecycle'
 import { getPostAuthResumeHref } from '@/src/platform/linking/authGate';
 import { APP_AUTH_TOKEN_QUERY_KEY, APP_SESSION_ID_QUERY_KEY } from '@/src/providers/AuthSessionBootstrap';
 import {
+  beginIdentityQueryTransition,
+  completeIdentityQueryTransition,
+} from '@/src/providers/identityQueryScope';
+import {
   pendingLandingStorage,
   sessionStorage,
   tokenStorage,
@@ -70,47 +74,63 @@ export default function AuthScreen() {
               nickname: trimmedNickname || undefined,
             });
 
-      await tokenStorage.setToken(auth.token);
-      queryClient.setQueryData(APP_AUTH_TOKEN_QUERY_KEY, auth.token);
+      const identityEpoch = await beginIdentityQueryTransition(queryClient);
+      try {
+        await tokenStorage.setToken(auth.token);
+        queryClient.setQueryData(APP_AUTH_TOKEN_QUERY_KEY, auth.token);
 
-      const sessionId = await sessionStorage.getSessionId();
-      queryClient.setQueryData(APP_SESSION_ID_QUERY_KEY, sessionId);
-      if (sessionId) {
-        try {
-          const claim = await m1Api.auth.claimSession(sessionId);
-          setStatusText(
-            claim.case_id
-              ? t('auth.status.claimSaved')
-              : t('auth.status.noAnonymousCase')
-          );
-        } catch (error) {
-          const claimError = normalizeM1Error(error);
-          captureTelemetry({
-            name: 'app_auth_claim_session_failed',
-            severity: 'warning',
-            route: '/auth',
-            context: {
-              code: claimError.code,
-              hasSession: true,
-            },
-          });
-          if (CLEAR_SESSION_ON_CLAIM_ERROR_CODES.has(claimError.code)) {
-            await sessionStorage.clearSessionId();
-            queryClient.setQueryData(APP_SESSION_ID_QUERY_KEY, null);
-            setStatusText(t('auth.status.claimExpired'));
-          } else {
-            setStatusText(t('auth.status.claimFailed'));
+        const sessionId = await sessionStorage.getSessionId();
+        queryClient.setQueryData(APP_SESSION_ID_QUERY_KEY, sessionId);
+        if (sessionId) {
+          try {
+            const claim = await m1Api.auth.claimSession(sessionId);
+            setStatusText(
+              claim.case_id
+                ? t('auth.status.claimSaved')
+                : t('auth.status.noAnonymousCase')
+            );
+          } catch (error) {
+            const claimError = normalizeM1Error(error);
+            captureTelemetry({
+              name: 'app_auth_claim_session_failed',
+              severity: 'warning',
+              route: '/auth',
+              context: {
+                code: claimError.code,
+                hasSession: true,
+              },
+            });
+            if (CLEAR_SESSION_ON_CLAIM_ERROR_CODES.has(claimError.code)) {
+              await sessionStorage.clearSessionId();
+              queryClient.setQueryData(APP_SESSION_ID_QUERY_KEY, null);
+              setStatusText(t('auth.status.claimExpired'));
+            } else {
+              setStatusText(t('auth.status.claimFailed'));
+            }
           }
+        } else {
+          setStatusText(t('auth.status.loggedIn'));
         }
-      } else {
-        setStatusText(t('auth.status.loggedIn'));
+
+        const nextParam = Array.isArray(params.next) ? params.next[0] : params.next;
+        const pendingHref = await pendingLandingStorage.consumePendingHref();
+        const resumeHref = getPostAuthResumeHref(nextParam) ?? getPostAuthResumeHref(pendingHref);
+        completeIdentityQueryTransition(queryClient, identityEpoch, {
+          privateDataEnabled: true,
+        });
+        return { auth, resumeHref };
+      } catch (error) {
+        const cleanupResults = await Promise.allSettled([
+          tokenStorage.clearToken(),
+          sessionStorage.clearSessionId(),
+        ]);
+        queryClient.setQueryData(APP_AUTH_TOKEN_QUERY_KEY, null);
+        queryClient.setQueryData(APP_SESSION_ID_QUERY_KEY, null);
+        completeIdentityQueryTransition(queryClient, identityEpoch, {
+          privateDataEnabled: cleanupResults.every((result) => result.status === 'fulfilled'),
+        });
+        throw error;
       }
-
-      const nextParam = Array.isArray(params.next) ? params.next[0] : params.next;
-      const pendingHref = await pendingLandingStorage.consumePendingHref();
-      const resumeHref = getPostAuthResumeHref(nextParam) ?? getPostAuthResumeHref(pendingHref);
-
-      return { auth, resumeHref };
     },
     onMutate: () => {
       setFormError(null);
@@ -125,7 +145,20 @@ export default function AuthScreen() {
   });
 
   const clearMutation = useMutation({
-    mutationFn: clearAppStorageWithPushCleanup,
+    mutationFn: async () => {
+      const identityEpoch = await beginIdentityQueryTransition(queryClient);
+      let storageCleared = false;
+      try {
+        await clearAppStorageWithPushCleanup();
+        storageCleared = true;
+      } finally {
+        queryClient.setQueryData(APP_AUTH_TOKEN_QUERY_KEY, null);
+        queryClient.setQueryData(APP_SESSION_ID_QUERY_KEY, null);
+        completeIdentityQueryTransition(queryClient, identityEpoch, {
+          privateDataEnabled: storageCleared,
+        });
+      }
+    },
     onSuccess: () => {
       queryClient.setQueryData(APP_AUTH_TOKEN_QUERY_KEY, null);
       queryClient.setQueryData(APP_SESSION_ID_QUERY_KEY, null);

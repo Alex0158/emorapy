@@ -4,6 +4,7 @@ import {
 	useRef,
 	useState,
 	type Dispatch,
+	type MutableRefObject,
 	type SetStateAction,
 } from "react";
 import type { VirtuosoHandle } from "react-virtuoso";
@@ -17,10 +18,17 @@ import {
 	trimMessagesToCacheLimit,
 } from "../chatRoomUtils";
 import { useChatRoomHistoryNavigation } from "./useChatRoomHistoryNavigation";
+import type { ChatConversationLane } from "./useChatRoomUiState";
 
 interface UseChatRoomHistoryControllerInput {
 	room: ChatRoom | null;
 	messages: ChatMessage[];
+	activeLane: ChatConversationLane;
+	activeMessages: ChatMessage[];
+	activeFirstItemIndex: number;
+	activeMessageIndexById: Map<string, number>;
+	activeIsAtBottomRef: MutableRefObject<boolean>;
+	activeRangeStartIndexRef: MutableRefObject<number>;
 	setMessages: Dispatch<SetStateAction<ChatMessage[]>>;
 	mountedRef: { current: boolean };
 	isRoomTargetActive: (targetRoomId: string) => boolean;
@@ -29,6 +37,12 @@ interface UseChatRoomHistoryControllerInput {
 export function useChatRoomHistoryController({
 	room,
 	messages,
+	activeLane,
+	activeMessages,
+	activeFirstItemIndex,
+	activeMessageIndexById,
+	activeIsAtBottomRef,
+	activeRangeStartIndexRef,
 	setMessages,
 	mountedRef,
 	isRoomTargetActive,
@@ -36,7 +50,6 @@ export function useChatRoomHistoryController({
 	const [firstItemIndex, setFirstItemIndex] = useState(
 		INITIAL_FIRST_ITEM_INDEX,
 	);
-	const [hasUnread, setHasUnread] = useState(false);
 	const [highlightMessageId, setHighlightMessageId] = useState<string | null>(
 		null,
 	);
@@ -53,11 +66,12 @@ export function useChatRoomHistoryController({
 
 	const highlightTimeoutRef = useRef<number | null>(null);
 	const messagesContainerRef = useRef<HTMLElement | null>(null);
-	const isAtBottomRef = useRef(true);
-	const prevMessageCountRef = useRef(0);
 	const messagesRef = useRef<ChatMessage[]>([]);
+	const activeMessagesRef = useRef<ChatMessage[]>([]);
 	const firstItemIndexRef = useRef(firstItemIndex);
-	const messageIndexByIdRef = useRef<Map<string, number>>(new Map());
+	const activeFirstItemIndexRef = useRef(activeFirstItemIndex);
+	const messageCacheIndexByIdRef = useRef<Map<string, number>>(new Map());
+	const activeMessageIndexByIdRef = useRef<Map<string, number>>(new Map());
 	const loadingMoreHistoryRef = useRef(loadingMoreHistory);
 	const historyCursorRef = useRef<string | null>(historyCursor);
 	const hasMoreHistoryRef = useRef(hasMoreHistory);
@@ -65,7 +79,6 @@ export function useChatRoomHistoryController({
 		pendingAnchorMessageId,
 	);
 	const virtuosoRef = useRef<VirtuosoHandle | null>(null);
-	const rangeStartIndexRef = useRef(0);
 
 	useEffect(() => {
 		messagesRef.current = messages;
@@ -74,8 +87,14 @@ export function useChatRoomHistoryController({
 		messages.forEach((message, index) => {
 			indexMap.set(message.id, firstItemIndex + index);
 		});
-		messageIndexByIdRef.current = indexMap;
+		messageCacheIndexByIdRef.current = indexMap;
 	}, [firstItemIndex, messages]);
+
+	useEffect(() => {
+		activeMessagesRef.current = activeMessages;
+		activeFirstItemIndexRef.current = activeFirstItemIndex;
+		activeMessageIndexByIdRef.current = activeMessageIndexById;
+	}, [activeFirstItemIndex, activeMessageIndexById, activeMessages]);
 
 	useEffect(() => {
 		loadingMoreHistoryRef.current = loadingMoreHistory;
@@ -93,14 +112,19 @@ export function useChatRoomHistoryController({
 		highlightTimeoutRef.current = null;
 	}, []);
 
+	useEffect(() => {
+		clearHighlightTimer();
+		setHighlightMessageId(null);
+	}, [activeLane, clearHighlightTimer]);
+
 	const scrollToBottom = useCallback(
 		(behavior: "auto" | "smooth" = "smooth") => {
 			const api = virtuosoRef.current;
 			if (!api) return;
-			const list = messagesRef.current;
+			const list = activeMessagesRef.current;
 			if (!Array.isArray(list) || list.length === 0) return;
 			api.scrollToIndex({
-				index: firstItemIndexRef.current + list.length - 1,
+				index: activeFirstItemIndexRef.current + list.length - 1,
 				align: "end",
 				behavior,
 			});
@@ -110,7 +134,7 @@ export function useChatRoomHistoryController({
 
 	const scrollToMessage = useCallback(
 		(targetMessageId: string) => {
-			const absoluteIndex = messageIndexByIdRef.current.get(targetMessageId);
+			const absoluteIndex = activeMessageIndexByIdRef.current.get(targetMessageId);
 			if (absoluteIndex === undefined) {
 				toast.info(t("chat.message.referenceNotLoaded"));
 				return;
@@ -154,16 +178,17 @@ export function useChatRoomHistoryController({
 	const shouldTrimMessageCacheAfterSend = useCallback(
 		() =>
 			shouldAllowMessageCacheTrim({
-				isAtBottom: isAtBottomRef.current,
+				isAtBottom: activeIsAtBottomRef.current,
 				pendingAnchorMessageId: pendingAnchorMessageIdRef.current,
 				loadingMoreHistory: loadingMoreHistoryRef.current,
 			}),
-		[],
+		[activeIsAtBottomRef],
 	);
 
 	const historyNavigation = useChatRoomHistoryNavigation({
 		room,
 		messages,
+		activeLane,
 		hasMoreHistory,
 		setHasMoreHistory,
 		historyCursor,
@@ -177,10 +202,12 @@ export function useChatRoomHistoryController({
 		mountedRef,
 		isRoomTargetActive,
 		messagesRef,
-		firstItemIndexRef,
-		messageIndexByIdRef,
-		rangeStartIndexRef,
-		isAtBottomRef,
+		activeMessagesRef,
+		activeFirstItemIndexRef,
+		messageCacheIndexByIdRef,
+		activeMessageIndexByIdRef,
+		rangeStartIndexRef: activeRangeStartIndexRef,
+		isAtBottomRef: activeIsAtBottomRef,
 		historyCursorRef,
 		hasMoreHistoryRef,
 		setFirstItemIndex,
@@ -194,29 +221,22 @@ export function useChatRoomHistoryController({
 	return {
 		...historyNavigation,
 		clearHighlightTimer,
-		firstItemIndex,
 		firstItemIndexRef,
 		hasMoreHistory,
 		hasMoreHistoryRef,
-		hasUnread,
 		highlightMessageId,
 		historyCursor,
 		historyCursorRef,
-		isAtBottomRef,
 		jumpBackState,
 		loadingMoreHistory,
 		loadingMoreHistoryRef,
-		messageIndexByIdRef,
 		messagesContainerRef,
 		messagesRef,
 		pendingAnchorMessageId,
 		pendingAnchorMessageIdRef,
-		prevMessageCountRef,
-		rangeStartIndexRef,
 		scrollToBottom,
 		setFirstItemIndex,
 		setHasMoreHistory,
-		setHasUnread,
 		setHighlightMessageId,
 		setHistoryCursor,
 		setJumpBackState,

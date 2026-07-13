@@ -10,6 +10,7 @@ import { jobsStarted } from '../jobs/cleanup.job';
 import { lockService } from '../utils/lock';
 import { buildBackendVersionManifest } from '../utils/version';
 import { aiStreamService } from '../services/ai-stream.service';
+import { RELEASE_BLOCKING_MIGRATIONS } from '../config/release-migrations';
 
 const router = Router();
 
@@ -127,8 +128,29 @@ router.get('/health', async (req: Request, res: Response) => {
  */
 router.get('/health/ready', async (req: Request, res: Response) => {
   try {
-    await prisma.$queryRaw`SELECT 1`;
-    res.status(200).json({ status: 'ready' });
+    const migrationRows = await prisma.$queryRaw<Array<{
+      migration_name: string;
+      finished_at: Date | null;
+      rolled_back_at: Date | null;
+    }>>`
+      SELECT migration_name, finished_at, rolled_back_at
+      FROM _prisma_migrations
+    `;
+    const applied = new Set(
+      migrationRows
+        .filter(row => row.finished_at !== null && row.rolled_back_at === null)
+        .map(row => row.migration_name)
+    );
+    if (RELEASE_BLOCKING_MIGRATIONS.some(name => !applied.has(name))) {
+      throw new Error('Required release migrations are not applied');
+    }
+    res.status(200).json({
+      status: 'ready',
+      database: {
+        releaseMigrations: 'ready',
+        requiredMigrationCount: RELEASE_BLOCKING_MIGRATIONS.length,
+      },
+    });
   } catch (error) {
     logger.warn('Readiness check failed', { error: error instanceof Error ? error.message : error });
     res.status(503).json({ 

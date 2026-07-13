@@ -3,6 +3,7 @@
  */
 
 import {
+  adminAIStreamDetailSchema,
   adminJobStatsQuerySchema,
   adminUpsertConfigSchema,
   claimSessionSchema,
@@ -20,21 +21,29 @@ import {
 const validUUID = '550e8400-e29b-41d4-a716-446655440000';
 
 describe('Validation Schemas', () => {
+  describe('adminAIStreamDetailSchema', () => {
+    it('只接受明確 boolean include_sensitive query', () => {
+      expect(adminAIStreamDetailSchema.query!.validate({ include_sensitive: 'true' }).error)
+        .toBeUndefined();
+      expect(adminAIStreamDetailSchema.query!.validate({ include_sensitive: 'false' }).error)
+        .toBeUndefined();
+      expect(adminAIStreamDetailSchema.query!.validate({ include_sensitive: 'yes' }).error)
+        .toBeDefined();
+    });
+  });
+
   describe('requestChatJudgmentSchema', () => {
-    it('應接受 B 方訊息納入同意 assertion', () => {
+    it('應接受 exact analysis request reference', () => {
       const { error } = requestChatJudgmentSchema.body!.validate({
-        included_message_ids: [validUUID],
-        participant_consent: {
-          role_b_included_messages: true,
-        },
+        analysis_request_id: validUUID,
       });
       expect(error).toBeUndefined();
     });
 
-    it('應拒絕 false 的 B 方訊息納入同意 assertion', () => {
+    it('應拒絕 legacy caller consent assertion', () => {
       const { error } = requestChatJudgmentSchema.body!.validate({
         participant_consent: {
-          role_b_included_messages: false,
+          role_b_included_messages: true,
         },
       });
       expect(error).toBeDefined();

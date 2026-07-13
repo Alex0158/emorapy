@@ -13,6 +13,10 @@ import {
   StatusPill,
 } from '@/src/ui/components';
 import { palette, spacing, typography } from '@/src/ui/theme';
+import {
+  identityScopedQueryKey,
+  useIdentityQueryScope,
+} from '@/src/providers/identityQueryScope';
 
 function readFeedbackCardSummary(feedbackCard: string | null | undefined) {
   if (!feedbackCard) return t('profileStory.feedback.pending');
@@ -38,25 +42,31 @@ function labelFeedbackHistoryItem(index: number): string {
 export default function MyStoryScreen() {
   useLocale();
   const queryClient = useQueryClient();
+  const identityScope = useIdentityQueryScope();
+  const identityQueriesEnabled = identityScope.privateDataEnabled && !identityScope.transitioning;
+  const identityEpoch = identityScope.epoch;
   const authQuery = useQuery({
-    queryKey: ['app', 'auth-token'],
+    queryKey: identityScopedQueryKey(identityEpoch, 'app', 'auth-token'),
     queryFn: () => tokenStorage.getToken(),
+    enabled: identityQueriesEnabled,
   });
   const isAuthenticated = Boolean(authQuery.data);
   const psychQuery = useQuery({
-    queryKey: ['m2', 'psych-profile'],
+    queryKey: identityScopedQueryKey(identityEpoch, 'm2', 'psych-profile'),
     queryFn: () => m2Api.psychProfile.getProfile(),
-    enabled: isAuthenticated,
+    enabled: identityQueriesEnabled && isAuthenticated,
   });
   const historyQuery = useQuery({
-    queryKey: ['m2', 'psych-feedback-history'],
+    queryKey: identityScopedQueryKey(identityEpoch, 'm2', 'psych-feedback-history'),
     queryFn: () => m2Api.psychProfile.getFeedbackHistory(),
-    enabled: isAuthenticated && psychQuery.data?.consent_given === true,
+    enabled: identityQueriesEnabled && isAuthenticated && psychQuery.data?.consent_given === true,
   });
   const deleteMutation = useMutation({
     mutationFn: () => m2Api.psychProfile.deleteAllData(),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['m2'] });
+      await queryClient.invalidateQueries({
+        queryKey: identityScopedQueryKey(identityEpoch, 'm2'),
+      });
     },
   });
 

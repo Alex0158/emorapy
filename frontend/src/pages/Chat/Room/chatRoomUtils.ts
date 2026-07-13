@@ -292,12 +292,6 @@ export function buildSendMessagePayload({
 	};
 }
 
-export function buildChatJudgmentPayload(includedIds?: string[]) {
-	return includedIds && includedIds.length > 0
-		? { included_message_ids: includedIds }
-		: undefined;
-}
-
 export function shouldAllowMessageCacheTrim({
 	isAtBottom,
 	pendingAnchorMessageId,

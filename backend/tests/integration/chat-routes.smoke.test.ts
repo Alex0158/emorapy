@@ -2,6 +2,7 @@ import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 import request from 'supertest';
 import { Errors } from '../../src/utils/errors';
 import { chatEventsService } from '../../src/services/chat-events.service';
+import { chatStreamEntitlementService } from '../../src/services/chat-stream-entitlement.service';
 
 const chatServiceMock = {
   createRoom: jest.fn(),
@@ -11,8 +12,19 @@ const chatServiceMock = {
   declineInvite: jest.fn(),
   listMessages: jest.fn(),
   sendMessage: jest.fn(),
+  sendMessageToChannel: jest.fn(),
   requestJudgment: jest.fn(),
   getJudgmentStatus: jest.fn(),
+};
+
+const chatChannelServiceMock = {
+  listActorChannels: jest.fn(),
+  listMessages: jest.fn(),
+  resolveAccessibleChannel: jest.fn(),
+};
+
+const chatActorAccessServiceMock = {
+  resolveActiveHumanParticipant: jest.fn(),
 };
 
 jest.mock('../../src/services/chat.service', () => ({
@@ -20,11 +32,44 @@ jest.mock('../../src/services/chat.service', () => ({
   chatService: chatServiceMock,
 }));
 
+jest.mock('../../src/services/chat-channel.service', () => ({
+  __esModule: true,
+  chatChannelService: chatChannelServiceMock,
+}));
+
+jest.mock('../../src/services/chat-actor-access.service', () => ({
+  __esModule: true,
+  chatActorAccessService: chatActorAccessServiceMock,
+}));
+
+jest.mock('../../src/services/chat-metrics.service', () => ({
+  __esModule: true,
+  chatMetricsService: {
+    recordMessage: jest.fn(),
+    recordRateLimit: jest.fn(),
+    recordAiTrigger: jest.fn(),
+    recordSafetyHit: jest.fn(),
+    recordJudgmentSuccess: jest.fn(),
+    recordJudgmentFailed: jest.fn(),
+  },
+}));
+
+jest.mock('../../src/services/ops-metrics.service', () => ({
+  __esModule: true,
+  opsMetricsService: {
+    recordHttpStatus: jest.fn(async () => undefined),
+  },
+}));
+
 import app from '../../src/app';
 
 describe('Chat Routes Smoke', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (chatActorAccessServiceMock.resolveActiveHumanParticipant as any).mockResolvedValue({
+      participant: { id: 'participant-a' },
+      room: { id: 'room-stream' },
+    });
   });
 
   it('POST /api/v1/chat/rooms 應能回傳建立結果', async () => {
@@ -149,6 +194,24 @@ describe('Chat Routes Smoke', () => {
     expect(res.body.data.nextCursor).toBeTruthy();
   });
 
+  it('GET /api/v1/chat/rooms/:roomId/channels 應由 versioned Chat API mount 提供', async () => {
+    (chatChannelServiceMock.listActorChannels as any).mockResolvedValueOnce([
+      {
+        id: '660e8400-e29b-41d4-a716-446655440000',
+        room_id: '550e8400-e29b-41d4-a716-446655440000',
+        kind: 'shared',
+      },
+    ]);
+
+    const res = await request(app)
+      .get('/api/v1/chat/rooms/550e8400-e29b-41d4-a716-446655440000/channels')
+      .set('x-session-id', 'guest_1700000000000_abcdefghijklmnop');
+
+    expect(res.status).toBe(200);
+    expect(chatChannelServiceMock.listActorChannels).toHaveBeenCalled();
+    expect(res.body.data.channels[0].kind).toBe('shared');
+  });
+
   it('GET /api/v1/chat/rooms/:roomId/messages 無訊息時應返回 messages 空陣列與 nextCursor null（F07 邊界）', async () => {
     (chatServiceMock.listMessages as any).mockResolvedValueOnce({
       messages: [],
@@ -237,7 +300,9 @@ describe('Chat Routes Smoke', () => {
   });
 
   it('GET /api/v1/chat/rooms/:roomId/stream 訂閱超限時應回 429', async () => {
-    (chatServiceMock.getRoom as any).mockResolvedValueOnce({ id: 'room-stream' });
+    const entitlementSpy = jest
+      .spyOn(chatStreamEntitlementService, 'revalidateParticipantNow')
+      .mockResolvedValue(true);
     const subscribeSpy = jest
       .spyOn(chatEventsService, 'subscribe')
       .mockImplementationOnce(() => {
@@ -252,6 +317,7 @@ describe('Chat Routes Smoke', () => {
     expect(res.body.success).toBe(false);
     expect(res.body.error.code).toBe('RATE_LIMIT_EXCEEDED');
     subscribeSpy.mockRestore();
+    entitlementSpy.mockRestore();
   });
 
   it('POST /api/v1/chat/invites/:inviteCode/decline 發生 UNAUTHORIZED 應回 401', async () => {

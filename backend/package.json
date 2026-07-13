@@ -1,6 +1,6 @@
 {
   "name": "emorapy-backend",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Emorapy 後端服務",
   "main": "dist/index.js",
   "scripts": {
@@ -39,6 +39,10 @@
     "precheck:chat:active-roles-uniqueness": "tsx scripts/precheck-chat-active-roles-uniqueness.ts",
     "precheck:pairing:normal-uniqueness": "tsx scripts/precheck-pairing-normal-uniqueness.ts",
     "plan-fix:chat:active-roles-uniqueness": "tsx scripts/plan-fix-chat-active-roles-uniqueness.ts",
+    "ops:chat-context:backfill": "tsx scripts/backfill-chat-context-channels.ts",
+    "ops:chat-context:backfill:apply": "tsx scripts/backfill-chat-context-channels.ts --apply",
+    "ops:chat-context:legacy-audit": "tsx scripts/audit-private-context-legacy-data.ts",
+    "ops:production:predeploy": "prisma migrate deploy && npm run ops:chat-context:backfill -- --dry-run --target=production && npm run ops:chat-context:backfill -- --apply --target=production --confirm-production && npm run ops:chat-context:legacy-audit -- --target=production",
     "ops:alerts:check": "tsx scripts/check-alerts.ts",
     "ops:migration:report": "tsx scripts/report-prisma-migrations.ts",
     "ops:cost:snapshot": "tsx scripts/cost-snapshot.ts",
@@ -87,7 +91,9 @@
     "nodemailer": "^8.0.7",
     "openai": "^4.20.0",
     "prom-client": "^15.1.3",
+    "prisma": "^5.7.1",
     "sharp": "^0.33.5",
+    "tsx": "^4.20.5",
     "winston": "^3.11.0"
   },
   "devDependencies": {
@@ -104,11 +110,9 @@
     "@types/supertest": "^6.0.2",
     "jest": "^30.2.0",
     "prettier": "^3.1.0",
-    "prisma": "^5.7.1",
     "supertest": "^7.0.0",
     "ts-jest": "^29.4.9",
     "ts-node": "^10.9.2",
-    "tsx": "^4.20.5",
     "typescript": "^5.3.3"
   },
   "overrides": {

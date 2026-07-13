@@ -5,7 +5,7 @@ import {
 	type Dispatch,
 	type SetStateAction,
 } from "react";
-import { sendChatMessage } from "@/services/api/chat";
+import { sendChatChannelMessage } from "@/services/api/chat";
 import type { ChatMessage, ChatRoom, ChatVisibilityScope } from "@/types/chat";
 import {
 	buildSendMessagePayload,
@@ -16,6 +16,7 @@ import {
 
 interface UseChatRoomMessageActionsInput {
 	room: ChatRoom | null;
+	channelId: string | null;
 	messageInput: string;
 	visibilityScope: ChatVisibilityScope;
 	replyTo: ChatMessage | null;
@@ -36,6 +37,7 @@ interface UseChatRoomMessageActionsInput {
 
 export function useChatRoomMessageActions({
 	room,
+	channelId,
 	messageInput,
 	visibilityScope,
 	replyTo,
@@ -75,7 +77,7 @@ export function useChatRoomMessageActions({
 	const handleSendMessage = useCallback(async () => {
 		const targetRoomId = room?.id;
 		const targetRoomStatus = room?.status;
-		if (!targetRoomId) return;
+		if (!targetRoomId || !channelId) return;
 		if (sendingRoomIdsRef.current.has(targetRoomId)) return;
 		if (isRoomActionBlocked(targetRoomStatus)) return;
 		const content = messageInput.trim();
@@ -83,14 +85,15 @@ export function useChatRoomMessageActions({
 
 		markSending(targetRoomId);
 		try {
-			const sent = await sendChatMessage(
-				targetRoomId,
-				buildSendMessagePayload({
-					content,
-					visibilityScope,
-					replyToMessageId: replyTo?.id,
-				}),
-			);
+			const payload = buildSendMessagePayload({
+				content,
+				visibilityScope,
+				replyToMessageId: replyTo?.id,
+			});
+			const sent = await sendChatChannelMessage(channelId, {
+				content: payload.content,
+				reply_to_message_id: payload.reply_to_message_id,
+			});
 			if (!shouldApplySendResult(targetRoomId)) return;
 			setMessages((prev) => {
 				const next = [...prev, sent];
@@ -112,6 +115,7 @@ export function useChatRoomMessageActions({
 		}
 	}, [
 		clearSending,
+		channelId,
 		markSending,
 		messageInput,
 		replyTo?.id,

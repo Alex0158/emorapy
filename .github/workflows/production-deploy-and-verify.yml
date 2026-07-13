@@ -278,7 +278,13 @@ jobs:
             echo "Unable to resolve staged main Vercel deployment URL." >&2
             exit 1
           fi
-          version_payload="$(vercel curl /version.json --deployment "${deployment_url}" --yes --token="${VERCEL_TOKEN}")"
+          version_payload="$(
+            vercel curl /version.json \
+              --deployment "${deployment_url}" \
+              --yes \
+              -- --fail --silent --show-error
+          )"
+          test "$(jq -er '.service // .data.service // empty' <<<"${version_payload}")" = "frontend"
           test "$(jq -er '.commitSha // .data.commitSha // empty' <<<"${version_payload}")" = "${GITHUB_SHA}"
           git fetch origin main --quiet
           test "$(git rev-parse origin/main)" = "${GITHUB_SHA}"
@@ -306,7 +312,13 @@ jobs:
             echo "Unable to resolve staged Admin Vercel deployment URL." >&2
             exit 1
           fi
-          version_payload="$(vercel curl /version.json --deployment "${deployment_url}" --yes --token="${VERCEL_TOKEN}")"
+          version_payload="$(
+            vercel curl /version.json \
+              --deployment "${deployment_url}" \
+              --yes \
+              -- --fail --silent --show-error
+          )"
+          test "$(jq -er '.service // .data.service // empty' <<<"${version_payload}")" = "frontend-admin"
           test "$(jq -er '.commitSha // .data.commitSha // empty' <<<"${version_payload}")" = "${GITHUB_SHA}"
           git fetch origin main --quiet
           test "$(git rev-parse origin/main)" = "${GITHUB_SHA}"

@@ -107,27 +107,7 @@ export function extractRailwayCurrentDeployment(statusPayload, environmentName, 
       'Railway latest deployment status',
     ),
   };
-  if (!Array.isArray(service.activeDeployments)) {
-    throw new Error('Railway service instance has no activeDeployments array');
-  }
-  if (service.activeDeployments.length !== 1) {
-    throw new Error(
-      `Expected exactly one active Railway deployment; found ${service.activeDeployments.length}`,
-    );
-  }
-
-  const active = {
-    id: requiredString(service.activeDeployments[0]?.id, 'Railway active deployment id'),
-    status: requiredString(
-      service.activeDeployments[0]?.status,
-      'Railway active deployment status',
-    ),
-  };
-  if (active.status !== 'SUCCESS') {
-    throw new Error(
-      `Active Railway deployment ${active.id} is not SUCCESS (status=${active.status})`,
-    );
-  }
+  const active = extractRailwayActiveDeployment(statusPayload, environmentName, serviceName);
 
   if (latest.id === active.id) {
     if (latest.status !== 'SUCCESS') {
@@ -157,6 +137,32 @@ export function extractRailwayCurrentDeployment(statusPayload, environmentName, 
     );
   }
 
+  return active;
+}
+
+export function extractRailwayActiveDeployment(statusPayload, environmentName, serviceName) {
+  const { service } = findRailwayServiceInstance(statusPayload, environmentName, serviceName);
+  if (!Array.isArray(service.activeDeployments)) {
+    throw new Error('Railway service instance has no activeDeployments array');
+  }
+  if (service.activeDeployments.length !== 1) {
+    throw new Error(
+      `Expected exactly one active Railway deployment; found ${service.activeDeployments.length}`,
+    );
+  }
+
+  const active = {
+    id: requiredString(service.activeDeployments[0]?.id, 'Railway active deployment id'),
+    status: requiredString(
+      service.activeDeployments[0]?.status,
+      'Railway active deployment status',
+    ),
+  };
+  if (active.status !== 'SUCCESS') {
+    throw new Error(
+      `Active Railway deployment ${active.id} is not SUCCESS (status=${active.status})`,
+    );
+  }
   return active;
 }
 
@@ -270,30 +276,126 @@ export function releaseIdentityNeedsRollback(current, previous) {
   return current.commitSha !== previous.commitSha;
 }
 
-export function buildRailwayRollbackRequest({ deploymentId, apiToken, projectToken }) {
-  const id = requiredString(deploymentId, 'Railway rollback deployment id');
+export function assertRailwayRollbackObservation({
+  version,
+  railway,
+  expectedCommitSha,
+  previousActiveDeploymentId,
+  expectedActiveDeploymentId = null,
+  requireDeploymentTransition,
+}) {
+  const expectedCommit = requiredString(expectedCommitSha, 'Expected rollback commit SHA');
+  const previousDeployment = requiredString(
+    previousActiveDeploymentId,
+    'Previous active Railway deployment id',
+  );
+  const activeDeployment = requiredString(railway?.id, 'Active Railway deployment id');
+  if (requireDeploymentTransition && activeDeployment === previousDeployment) {
+    throw new Error(`Railway active deployment has not left ${previousDeployment}`);
+  }
+  if (expectedActiveDeploymentId && activeDeployment !== expectedActiveDeploymentId) {
+    throw new Error(
+      `Railway current deployment mismatch: expected ${expectedActiveDeploymentId}, got ${activeDeployment}`,
+    );
+  }
+  if (railway?.status !== 'SUCCESS') {
+    throw new Error(
+      `Railway rollback deployment ${activeDeployment} is not SUCCESS (status=${railway?.status || 'missing'})`,
+    );
+  }
+  if (version?.commitSha !== expectedCommit) {
+    throw new Error(
+      `backend production commit mismatch: expected ${expectedCommit}, got ${version?.commitSha || 'missing'}`,
+    );
+  }
+  if (version.deploymentId && version.deploymentId !== activeDeployment) {
+    throw new Error(
+      `backend production deployment mismatch: Railway=${activeDeployment}, endpoint=${version.deploymentId}`,
+    );
+  }
+  return { version, railway };
+}
+
+function buildRailwayAuthHeaders(apiToken, projectToken, action) {
   const accountToken = typeof apiToken === 'string' ? apiToken.trim() : '';
   const scopedToken = typeof projectToken === 'string' ? projectToken.trim() : '';
   if (!accountToken && !scopedToken) {
-    throw new Error('Railway rollback requires RAILWAY_API_TOKEN or RAILWAY_TOKEN');
+    throw new Error(`${action} requires RAILWAY_API_TOKEN or RAILWAY_TOKEN`);
   }
-
-  const headers = {
+  return {
     'Content-Type': 'application/json',
     ...(accountToken
       ? { Authorization: `Bearer ${accountToken}` }
       : { 'Project-Access-Token': scopedToken }),
   };
+}
+
+export function buildRailwayRollbackTargetRequest({ deploymentId, apiToken, projectToken }) {
+  const id = requiredString(deploymentId, 'Railway rollback target deployment id');
+  return {
+    url: RAILWAY_GRAPHQL_ENDPOINT,
+    headers: buildRailwayAuthHeaders(
+      apiToken,
+      projectToken,
+      'Railway rollback target inspection',
+    ),
+    body: {
+      query: `query deploymentRollbackTarget($id: String!) {
+  deployment(id: $id) {
+    id
+    status
+    canRollback
+    projectId
+    environmentId
+    serviceId
+  }
+}`,
+      variables: { id },
+    },
+  };
+}
+
+export function extractRailwayRollbackTarget(payload, expectedScope = {}) {
+  const root = asObject(payload, 'Railway rollback target payload');
+  if (Array.isArray(root.errors) && root.errors.length > 0) {
+    throw new Error(`Railway rollback target inspection failed: ${JSON.stringify(root.errors)}`);
+  }
+  const deployment = asObject(root.data?.deployment, 'Railway rollback target result');
+  const target = {
+    id: requiredString(deployment.id, 'Railway rollback target id'),
+    status: requiredString(deployment.status, 'Railway rollback target status'),
+    canRollback: deployment.canRollback,
+    projectId: requiredString(deployment.projectId, 'Railway rollback target project id'),
+    environmentId: requiredString(
+      deployment.environmentId,
+      'Railway rollback target environment id',
+    ),
+    serviceId: requiredString(deployment.serviceId, 'Railway rollback target service id'),
+  };
+  if (target.canRollback !== true) {
+    throw new Error(`Railway deployment ${target.id} cannot be rolled back`);
+  }
+
+  for (const field of ['projectId', 'environmentId', 'serviceId']) {
+    const expected = expectedScope[field];
+    if (typeof expected === 'string' && expected.trim() !== '' && target[field] !== expected.trim()) {
+      throw new Error(
+        `Railway rollback target ${field} mismatch: expected ${expected.trim()}, got ${target[field]}`,
+      );
+    }
+  }
+  return target;
+}
+
+export function buildRailwayRollbackRequest({ deploymentId, apiToken, projectToken }) {
+  const id = requiredString(deploymentId, 'Railway rollback deployment id');
 
   return {
     url: RAILWAY_GRAPHQL_ENDPOINT,
-    headers,
+    headers: buildRailwayAuthHeaders(apiToken, projectToken, 'Railway rollback'),
     body: {
       query: `mutation deploymentRollback($id: String!) {
-  deploymentRollback(id: $id) {
-    id
-    status
-  }
+  deploymentRollback(id: $id)
 }`,
       variables: { id },
     },
@@ -305,12 +407,8 @@ export function extractRailwayRollbackDeployment(payload) {
   if (Array.isArray(root.errors) && root.errors.length > 0) {
     throw new Error(`Railway deploymentRollback failed: ${JSON.stringify(root.errors)}`);
   }
-  const deployment = asObject(
-    root.data?.deploymentRollback,
-    'Railway deploymentRollback result',
-  );
-  return {
-    id: requiredString(deployment.id, 'Railway rollback deployment id'),
-    status: requiredString(deployment.status, 'Railway rollback deployment status'),
-  };
+  if (root.data?.deploymentRollback !== true) {
+    throw new Error('Railway deploymentRollback was not accepted');
+  }
+  return { accepted: true };
 }

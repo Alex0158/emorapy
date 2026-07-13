@@ -4,7 +4,7 @@
 **文檔類型**：測試規範
 **覆蓋範圍**：長期測試規範、驗收口徑與回歸門檻：02-AI流式與Chat治理驗收基線
 **取證代碼入口**：`backend/src/services/ai-stream.service.ts`、`backend/src/services/chat-ai-orchestrator.service.ts`、`backend/src/services/chat.service.ts`、`backend/src/routes/chat.routes.ts`、`frontend/src/hooks/useAIStreamSubscription.ts`、`frontend/src/services/aiStream.ts`、`frontend/src/services/api/chat.ts`、`mobile/src/platform/sse/useAIStreamSubscription.ts`、`mobile/src/platform/sse/aiStream.ts`、`mobile/src/platform/lifecycle/native.ts`、`mobile/app/(public)/quick/result.tsx`、`mobile/app/(app)/profile/interview.tsx`、`mobile/app/(app)/chat/room.tsx`、`mobile/app/(app)/repair/index.tsx`、`packages/contracts/src/ai-stream.ts`、`packages/api-client/src/m3.ts`、`backend/tests`、`frontend/src/**/*.test.tsx`、`mobile/src/platform/sse/*.test.js`、`frontend/e2e/**/*.ts`、`e2e/**/*.ts`、`scripts`
-**最後核驗 Commit**：`1c1d7e1`
+**最後核驗 Commit**：`a685db3`
 **最後核驗日期**：`2026-07-13`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
@@ -57,9 +57,9 @@
 7. ProfileSnapshot 不得保存 raw narrative fallback；既有 snapshot 需有 read-only inventory、清理/保留決策及 migration evidence。
 8. Safety lane 可暫停或收窄 shared flow，但 shared notice 不得洩露觸發方、事件、診斷或責任暗示。
 
-### 2.5 Current main 驗證狀態
+### 2.5 Current Production evidence 狀態
 
-`main@30c21bb` 已有 audience policy、channel/event/stream、strict controls、capsule/authorization、exact participant approval、source preview、Decision Core/Renderer、persisted Judgment recovery、shared Repair containment 與 ProfileSnapshot no-raw 覆蓋；Backend / Web / Admin / App 全量 gates、exact-image build，以及 fresh PostgreSQL / Redis migration、backfill dry-run / apply、idempotency 與 legacy privacy audit 已通過。Production runtime DB artifact、credential-backed two-party canary、legacy data rights disposition、native lifecycle 與 exact main SHA release gate 仍須各自由正式流程取證，不得由 source / local evidence 外推。
+`a685db36` 已有並部署 audience policy、channel/event/stream、strict controls、capsule/authorization、exact participant approval、source preview、Decision Core containment、persisted Judgment recovery、shared Repair containment與 ProfileSnapshot no-raw；Production runtime DB artifact、migration/backfill、exact-main release gate及 public canary已通過。credential-backed two-party canary、legacy data rights disposition、per-owner compiler、shared-output counterfactual、Safety Router、AI stream active-event revalidation與 App native lifecycle仍須各自取證，不得由 containment release外推。
 
 ## 3. 最低測試集
 
@@ -94,7 +94,7 @@ App：
 3. Chat 關鍵 E2E skip guard 綠燈：`npm run --workspace frontend test:e2e:critical-guard`
 4. `npm run ops:release:gate:evidence`、`npm run manual-regression:gate` 與相關治理腳本可運行
 5. 涉及 App AI stream、Chat、Interview、Quick 或 Repair 的變更，至少需跑 `npm --prefix mobile run platform:check` 與相關 App route / feature / release audit gate；若宣稱 release completion，必須另有 M6 external evidence
-6. `EMO-ADR-010` 相關變更在 malicious echo、DB migration/backfill audit、participant stream replay、Decision Core invariant、本地 fresh-environment gates，以及正式環境的 exact-SHA workflow、runtime DB artifact、release gate 與可執行 two-party canary 未通過前，不得宣稱 Production 發布完成；ProfileSnapshot inventory/資料權利處置若只能 read-only 取證，必須保留為獨立 P1，不能以發布動作默認清除或改寫 legacy data
+6. `a685db36` containment baseline已有 malicious echo、DB migration/backfill audit、participant stream、Decision Core focused tests、本地 fresh-environment gates及正式 exact-SHA workflow/runtime DB/release gate，可標記 Web/Backend Production已發布；在 two-party canary、shared-output counterfactual/side-channel、legacy lifecycle與 App native lifecycle未完成前，不得宣稱 `EMO-ADR-010`整體治理完成。ProfileSnapshot inventory/資料權利處置若只能 read-only取證，必須保留為獨立 P1，不能以發布動作默認清除或改寫 legacy data
 
 ## 5. 與證據的關係
 

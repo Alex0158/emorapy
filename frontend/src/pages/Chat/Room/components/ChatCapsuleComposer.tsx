@@ -144,6 +144,7 @@ export default function ChatCapsuleComposer({
             <textarea
               value={summary}
               maxLength={2000}
+              autoComplete="off"
               onChange={(event) => setSummary(event.target.value)}
               className="min-h-28 w-full resize-y rounded-lg border border-input bg-background px-3 py-2 text-sm font-normal leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />

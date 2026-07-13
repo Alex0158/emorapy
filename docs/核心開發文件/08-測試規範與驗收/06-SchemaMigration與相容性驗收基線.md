@@ -4,8 +4,8 @@
 **文檔類型**：測試規範
 **覆蓋範圍**：Prisma migration、DB parity、backfill、expand / contract、schema drift、release gate、API / shared contract 相容性與 App parity 驗收證據
 **取證代碼入口**：`backend/prisma/schema.prisma`、`backend/prisma/migrations`、`backend/scripts/check-release-db-parity.ts`、`backend/tests/unit/scripts/check-release-db-parity.test.ts`、`backend/src/config/database.ts`、`scripts/ops-db-status.sh`、`scripts/ops-release-gate.sh`、`backend/tests`、`packages/contracts/src`、`packages/api-client/src`、`frontend/src/**/*.test.tsx`、`frontend-admin/src`、`mobile/app`、`mobile/src/platform`
-**最後核驗 Commit**：`95fa8a9`
-**最後核驗日期**：`2026-07-12`
+**最後核驗 Commit**：`a685db3`
+**最後核驗日期**：`2026-07-13`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 ## 1. 定位
@@ -38,7 +38,7 @@
 | EMO-SCHEMA-T-006 | EMO-SCHEMA-006 | release-blocking migration 清單與 unit tests、待辦台賬、release gate 一致 | 部分覆蓋；unit tests 覆蓋 release-blocking catalog、migration 目錄存在性、App release-sensitive migration 入列與 missing / failed / rolled back 阻塞語義；release evidence writer 只輸出 target / provider / local classification / migration report，不輸出 `DATABASE_URL` 或 host |
 | EMO-SCHEMA-T-007 | EMO-SCHEMA-007 | production hotfix / manual DB patch 有 migration history reconciliation 或 drift resolution record | 待建立 |
 | EMO-SCHEMA-T-008 | EMO-SCHEMA-002 / EMO-SCHEMA-006 | App stream / telemetry / push / notification action / interview facts schema migration 必須在 local migration status、release-blocking 清單、App smoke 與 Parity 文件中同時可追溯 | 部分覆蓋；App release-sensitive migrations 已加入 release-blocking catalog，App smoke / Parity 與 release DB parity runner 可追溯對應 runtime 寫入與 non-local parity。raw console output、local DB evidence 或手寫 markdown 仍不可替代；後續 migration 變更需重跑 fresh evidence |
-| EMO-SCHEMA-T-009 | EMO-SCHEMA-002 / 003 / 006 | Chat context migration 必須驗證 expand-only DDL、channel uniqueness、active participant singleton、exact active authorization uniqueness、exact hash/policy FK、audit no-raw、legacy classification、dry-run default、bounded batch、production confirmation、row counts/orphans/idempotency 與 Web/App old/new contract parity | Branch 部分覆蓋：2026-02 migration contract 已驗證 active `roleA` / `roleB` / `aiMediator` singleton；新 authorization migration具 duplicate fail-closed preflight、bounded lock、partial unique與 catalog postcondition，legacy audit亦阻塞 participant／authorization duplicate groups。兩個 Chat context migrations已進 release-blocking catalog；目標 DB migrate/backfill、production-like dual-read、fresh DB parity 與 rollback/forward-fix evidence未完成 |
+| EMO-SCHEMA-T-009 | EMO-SCHEMA-002 / 003 / 006 | Chat context migration 必須驗證 expand-only DDL、channel uniqueness、active participant singleton、exact active authorization uniqueness、exact hash/policy FK、audit no-raw、legacy classification、dry-run default、bounded batch、production confirmation、row counts/orphans/idempotency 與 Web/App old/new contract parity | Production部分覆蓋：兩個 Chat context migrations已進 release-blocking catalog，`a685db36`已完成 target DB migrate/backfill、27 migrations無 pending、16/16 fresh parity、bounded forward-fix、row/orphan/quarantine/idempotency與 audit artifact。old-client compatibility、contract stage及完整 legacy lifecycle仍未完成；本次證據見 Chat主待辦 |
 
 ## 4. 發布驗收規則
 

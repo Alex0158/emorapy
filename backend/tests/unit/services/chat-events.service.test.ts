@@ -55,6 +55,30 @@ describe('ChatEventsService', () => {
     expect(service.getListenerCount('room-b')).toBe(2);
   });
 
+  it('單一 listener 失敗不應令已完成的 mutation 回報失敗或阻斷其他 listener', async () => {
+    const service = new ChatEventsService();
+    const received: string[] = [];
+    service.subscribe('room-a', () => {
+      throw new Error('listener failed');
+    });
+    service.subscribe('room-a', async () => {
+      throw new Error('listener rejected');
+    });
+    service.subscribe('room-a', (event) => {
+      received.push(String(event.payload.value));
+    });
+
+    expect(() => service.publish({
+      type: 'message',
+      roomId: 'room-a',
+      payload: { value: 'delivered' },
+      at: new Date().toISOString(),
+    })).not.toThrow();
+    await Promise.resolve();
+
+    expect(received).toEqual(['delivered']);
+  });
+
   it('open stream 在 participant leave/revoke 後不再收到新 room/channel activity', () => {
     const entitlements = new ChatStreamEntitlementService();
     const service = new ChatEventsService(entitlements);
@@ -170,5 +194,29 @@ describe('ChatEventsService', () => {
 
     expect(disconnected).toHaveBeenCalledTimes(1);
     expect(entitlements.getConnectionCount('participant-b2')).toBe(0);
+    const lateRegistration = jest.fn();
+    entitlements.watchParticipant('participant-b2', lateRegistration);
+    expect(lateRegistration).toHaveBeenCalledTimes(1);
+  });
+
+  it('transient durable validation error 應關閉當前 watcher，但不永久毒化後續連線', async () => {
+    const validateParticipant = jest.fn<(_participantId: string) => Promise<boolean>>()
+      .mockRejectedValueOnce(new Error('database timeout'))
+      .mockResolvedValueOnce(true);
+    const entitlements = new ChatStreamEntitlementService(validateParticipant);
+    const firstDisconnected = jest.fn();
+    entitlements.watchParticipant('participant-b2', firstDisconnected);
+
+    await expect(entitlements.revalidateParticipantNow('participant-b2')).resolves.toBe(false);
+
+    expect(firstDisconnected).toHaveBeenCalledTimes(1);
+    expect(entitlements.getConnectionCount('participant-b2')).toBe(0);
+
+    const secondDisconnected = jest.fn();
+    const stopSecond = entitlements.watchParticipant('participant-b2', secondDisconnected);
+    expect(secondDisconnected).not.toHaveBeenCalled();
+    await expect(entitlements.revalidateParticipantNow('participant-b2')).resolves.toBe(true);
+    expect(entitlements.getConnectionCount('participant-b2')).toBe(1);
+    stopSecond();
   });
 });

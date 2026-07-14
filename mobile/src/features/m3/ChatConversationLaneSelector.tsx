@@ -8,6 +8,7 @@ import type { ChatConversationLane } from './useChatConversationLane';
 interface ChatConversationLaneSelectorProps {
   activeLane: ChatConversationLane;
   sharedAvailable: boolean;
+  sharedBlockedByTrust?: boolean;
   sharedReadOnly: boolean;
   onLaneChange: (lane: ChatConversationLane) => void;
 }
@@ -15,6 +16,7 @@ interface ChatConversationLaneSelectorProps {
 export function ChatConversationLaneSelector({
   activeLane,
   sharedAvailable,
+  sharedBlockedByTrust = false,
   sharedReadOnly,
   onLaneChange,
 }: ChatConversationLaneSelectorProps) {
@@ -32,7 +34,7 @@ export function ChatConversationLaneSelector({
           variant={isPrivate ? 'filled' : 'outline'}
         />
         <ActionButton
-          disabled={!sharedAvailable}
+          disabled={!sharedAvailable || sharedBlockedByTrust}
           label={t('chatRoom.lane.shared')}
           onPress={() => onLaneChange('shared')}
           selected={!isPrivate}
@@ -48,6 +50,9 @@ export function ChatConversationLaneSelector({
       />
       {!sharedAvailable ? (
         <FeatureRow title={t('chatRoom.lane.shared')} detail={t('chatRoom.lane.sharedUnavailable')} tone="amber" />
+      ) : null}
+      {sharedAvailable && sharedBlockedByTrust ? (
+        <FeatureRow title={t('chatRoom.lane.shared')} detail={t('chatRoom.lane.sharedTrustRequired')} tone="amber" />
       ) : null}
       {sharedReadOnly ? (
         <FeatureRow title={t('chatRoom.lane.shared')} detail={t('chatRoom.lane.sharedReadOnly')} tone="amber" />

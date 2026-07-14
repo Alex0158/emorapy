@@ -23,7 +23,18 @@ log() {
 fail() {
   echo "[smoke] FAIL: $*" >&2
   if [ -n "${HTTP_BODY}" ]; then
-    echo "[smoke] Last response body: ${HTTP_BODY}" >&2
+    HTTP_BODY_INPUT="${HTTP_BODY}" node -e '
+const raw = process.env.HTTP_BODY_INPUT || "";
+try {
+  const payload = JSON.parse(raw);
+  const code = payload?.error?.code ?? payload?.code;
+  const summary = {};
+  if (typeof code === "string" && /^[A-Z0-9_-]{1,80}$/i.test(code)) summary.errorCode = code;
+  console.error(`[smoke] Last response summary: ${JSON.stringify(summary)}`);
+} catch {
+  console.error("[smoke] Last response was non-JSON; body omitted");
+}
+' >&2
   fi
   exit 1
 }

@@ -1,4 +1,5 @@
 import { Errors } from '../utils/errors';
+import logger from '../config/logger';
 import {
   ChatStreamEntitlementService,
   chatStreamEntitlementService,
@@ -14,7 +15,7 @@ export type ChatStreamEvent = {
   at: string;
 };
 
-type Listener = (event: ChatStreamEvent) => void;
+type Listener = (event: ChatStreamEvent) => void | Promise<void>;
 
 export class ChatEventsService {
   private roomListeners = new Map<string, Set<Listener>>();
@@ -107,18 +108,47 @@ export class ChatEventsService {
     return this.channelListeners.get(channelId)?.size ?? 0;
   }
 
+  private deliver(
+    listeners: Set<Listener>,
+    event: ChatStreamEvent,
+    scope: 'room' | 'channel',
+  ): void {
+    listeners.forEach((listener) => {
+      try {
+        const result = listener(event);
+        if (result && typeof result.then === 'function') {
+          void result.catch((error: unknown) => {
+            logger.warn('Chat event listener rejected', {
+              scope,
+              roomId: event.roomId,
+              channelId: event.channelId,
+              eventType: event.type,
+              errorName: error instanceof Error ? error.name : 'UnknownError',
+            });
+          });
+        }
+      } catch (error) {
+        logger.warn('Chat event listener failed', {
+          scope,
+          roomId: event.roomId,
+          channelId: event.channelId,
+          eventType: event.type,
+          errorName: error instanceof Error ? error.name : 'UnknownError',
+        });
+      }
+    });
+  }
+
   publish(event: ChatStreamEvent): void {
     const listeners = this.roomListeners.get(event.roomId);
     if (!listeners || listeners.size === 0) return;
-    listeners.forEach((listener) => {
-      listener(event);
-    });
+    this.deliver(listeners, event, 'room');
   }
 
   publishToChannel(event: ChatStreamEvent & { channelId: string }): void {
     const listeners = this.channelListeners.get(event.channelId);
     if (!listeners || listeners.size === 0) return;
-    listeners.forEach((listener) => listener(event));
+    this.deliver(listeners, event, 'channel');
   }
 }
 

@@ -71,6 +71,23 @@ describe('middleware/rateLimiter', () => {
     expect(res.status).toBe(200);
   });
 
+  it('大小寫與前後空白的同一 email 應共用驗證碼限流 bucket', async () => {
+    const app = express();
+    app.use(express.json());
+    app.use(verificationCodeLimiter);
+    app.post('/verify-canonical-email', (_req, res) => res.status(200).json({ ok: true }));
+
+    const first = await request(app)
+      .post('/verify-canonical-email')
+      .send({ email: '  Rate-Limit-Canonical@example.com  ' });
+    const second = await request(app)
+      .post('/verify-canonical-email')
+      .send({ email: 'rate-limit-canonical@EXAMPLE.COM' });
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(429);
+  });
+
   it('aiLimiter 應使用 user.id 或 ip 作為 key', async () => {
     expect(typeof aiLimiter).toBe('function');
     const app = express();

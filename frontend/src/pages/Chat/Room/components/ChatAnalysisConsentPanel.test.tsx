@@ -131,4 +131,26 @@ describe('ChatAnalysisConsentPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Revoke my approval' }));
     expect(onRevokeApproval).toHaveBeenCalledWith(request);
   });
+
+  it('共同流程暫停時禁用批准與開始，但保留拒絕入口', () => {
+    setLocale('en-US');
+    render(
+      <ChatAnalysisConsentPanel
+        requests={[request]}
+        myParticipantId="participant-b"
+        workingRequestId={null}
+        loading={false}
+        error=""
+        formalActionsDisabled
+        getParticipantLabel={(id) => id === 'participant-a' ? 'Side A' : 'Side B'}
+        onRefresh={vi.fn()}
+        onDecision={vi.fn()}
+        onRevokeApproval={vi.fn()}
+        onSubmitAndStart={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Approve this exact list' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Decline this list' })).toBeEnabled();
+  });
 });

@@ -3,7 +3,13 @@
  * AuthService 符合此介面；Controller 可選改為依賴 IAuthService 並在建構時注入。
  */
 
-export type VerificationType = 'register' | 'reset_password' | 'verify_email';
+import type {
+  EmailVerificationResult,
+  RegistrationVerificationResult,
+  VerificationCodeDeliveryResult,
+} from '../types/auth.types';
+
+export type VerificationType = 'register' | 'verify_email';
 export type AuthLocale = 'zh-TW' | 'en-US';
 
 export interface IAuthService {
@@ -11,13 +17,17 @@ export interface IAuthService {
 
   login(data: unknown): Promise<{ user: unknown; token: string; expires_in: number }>;
 
-  sendVerificationCode(email: string, type: VerificationType, locale?: AuthLocale): Promise<void>;
+  sendVerificationCode(
+    email: string,
+    type: VerificationType,
+    locale?: AuthLocale
+  ): Promise<VerificationCodeDeliveryResult>;
 
   verifyEmail(
     email: string,
     code: string,
     type?: VerificationType
-  ): Promise<boolean>;
+  ): Promise<RegistrationVerificationResult | EmailVerificationResult>;
 
   resetPassword(email: string, locale?: AuthLocale): Promise<void>;
 

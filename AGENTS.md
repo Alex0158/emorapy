@@ -60,22 +60,23 @@ npm run docs:check
 
 ## Tool Auth State
 
-Last verified: 2026-05-03.
+Platform authentication must be re-verified at execution time; dates below are evidence snapshots, not durable credentials.
 
 | Tool | Status | Notes |
 | --- | --- | --- |
 | Vercel CLI | Authenticated | `vercel whoami` works; production env pull and inspect work. |
 | GitHub CLI | Authenticated | `gh auth status` works for `Alex0158`; repo/workflow scopes available. |
 | Supabase CLI | Authenticated | `supabase projects list` works; production ref is `pfxrglsjgmpfyiwyxzou`, dev ref is `lbukyqztkkkztfrfltlh`. |
-| Railway CLI | Authenticated | `railway whoami`, `railway project list`, and `railway status --json` work. |
+| Railway CLI | Authenticated (2026-07-14) | CLI `5.26.1`; `railway whoami` and `railway status --json` work. |
+| Railway Local MCP | Configured for Codex (2026-07-14) | `codex mcp list` must show `railway` enabled. It uses local CLI auth and requires a new Codex session after install/update. |
 
-Railway browserless login flow, if auth expires:
+If Railway auth expires, use the normal local-browser flow first:
 
 ```bash
-railway login --browserless
+railway login
 ```
 
-Open `https://railway.com/activate` and enter the displayed code. After completion, verify with:
+Use `railway login --browserless` only on a genuinely headless machine; immediately relay the activation URL/code while the command is still running. After completion, verify with:
 
 ```bash
 railway whoami
@@ -84,12 +85,12 @@ railway status --json
 
 Do not leave a browserless login process running indefinitely. If activation is not completed, stop it and report that Railway CLI remains unauthenticated.
 
-Current Railway production state, last verified 2026-06-05:
+Current Railway production state, last verified 2026-07-14:
 
-1. Project: `ingenious-commitment`.
-2. Production backend domain: `https://mother-bear-court-production.up.railway.app` (legacy hostname until Emorapy domain migration).
+1. Project: `Emorapy`; Production service: `emorapy-api` (same existing project/service IDs, renamed in place; no resource recreation).
+2. Custom backend domain `https://api.emorapy.com` is `ACTIVE`; HTTPS `/version` works and `/health/ready` returns 200. `https://mother-bear-court-production.up.railway.app` remains the legacy compatibility/rollback hostname until the full URL-contract cutover and release gate pass.
 3. Formal production deploy entrypoint is GitHub Actions `Production Deploy and Verify`; local Vercel/Railway CLI is for status/debug/emergency use, not the routine release path.
-4. Railway CLI auth was expired during the 2026-06-05 check; use live backend `/version` as minimum evidence until CLI is reauthenticated.
+4. Railway CLI auth was restored on 2026-07-14. The official Railway Local MCP and `use-railway` skill are installed for Codex; prefer MCP for bounded platform reads and CLI for exact local-context output. Resolve project/environment/service before any mutation, and do not use either surface to bypass the production workflow.
 5. Use `npm run ops:release:gate` or the production workflow release-gate step for full release closure. The backend version endpoint exposes `commitSha`; if it is missing, `unknown`, or not aligned with local `HEAD`, treat the backend as not fully verified. `railway status --json` remains the source for Railway deployment/log state when CLI auth is available.
 
 ## Frontend Tech Stack (Migration Complete ✅ 2026-05-05)

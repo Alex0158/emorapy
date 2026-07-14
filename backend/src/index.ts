@@ -4,12 +4,14 @@ import logger from './config/logger';
 import prisma, { databaseReady } from './config/database';
 import { reconcileJobsRuntimeConfig, startJobs, stopJobs } from './jobs/cleanup.job';
 import { validateEnvConfig } from './config/validation';
+import { emailService } from './services/email.service';
 
 // 驗證環境變量
 validateEnvConfig();
 
 // 生產環境若缺少 DB 初始化或連接錯誤，應阻斷啟動
-Promise.resolve(databaseReady).then(() => {
+Promise.resolve(databaseReady).then(async () => {
+  await emailService.initialize();
   const server = app.listen(env.PORT, () => {
     logger.info(`服務器運行在端口 ${env.PORT}`, {
       env: env.NODE_ENV,
@@ -55,6 +57,8 @@ Promise.resolve(databaseReady).then(() => {
     process.exit(1);
   });
 }).catch(err => {
-  logger.error('服務啟動失敗：數據庫未就緒', { error: err });
+  logger.error('Service startup preflight failed', {
+    reason: err instanceof Error ? err.name : 'unknown',
+  });
   process.exit(1);
 });

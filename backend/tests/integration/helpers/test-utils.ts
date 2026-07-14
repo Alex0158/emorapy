@@ -5,6 +5,7 @@
  */
 
 import { PrismaClient } from '../../../node_modules/.prisma/client';
+import crypto from 'crypto';
 
 // 創建專用於測試的 Prisma 客戶端
 const testPrisma = new PrismaClient({
@@ -40,6 +41,47 @@ export function getPrismaClient(): PrismaClient {
 }
 
 /**
+ * 建立只供 DB-backed integration test 使用的 one-time registration proof。
+ * 測試仍走正式 register transaction；不建立 debug endpoint，也不保存 plaintext OTP/proof。
+ */
+export async function createTestRegistrationProof(emailInput: string): Promise<string> {
+  const email = emailInput.trim().toLowerCase();
+  if (!/^claim-smoke-[a-z0-9_-]+@example\.com$/.test(email)) {
+    throw new Error('integration registration proof requires claim-smoke synthetic email');
+  }
+  const now = new Date();
+  const proof = `rp1_${crypto.randomBytes(32).toString('base64url')}`;
+  const proofDigest = crypto.createHash('sha256').update(proof).digest('hex');
+
+  await testPrisma.$transaction(async (tx) => {
+    await tx.authChallenge.updateMany({
+      where: {
+        email,
+        type: 'register',
+        consumed_at: null,
+        invalidated_at: null,
+      },
+      data: { invalidated_at: now },
+    });
+    await tx.authChallenge.create({
+      data: {
+        id: `release-fixture-${crypto.randomUUID()}`,
+        email,
+        type: 'register',
+        code_digest: crypto.randomBytes(32).toString('hex'),
+        source: 'release_fixture',
+        delivery_status: 'release_fixture_ready',
+        expires_at: new Date(now.getTime() + 5 * 60 * 1000),
+        verified_at: now,
+        registration_proof_digest: proofDigest,
+        registration_proof_expires_at: new Date(now.getTime() + 10 * 60 * 1000),
+      },
+    });
+  });
+  return proof;
+}
+
+/**
  * 清理測試數據
  * 
  * 按照外鍵約束順序刪除數據
@@ -58,6 +100,7 @@ export async function cleanupTestData(): Promise<void> {
     await testPrisma.case.deleteMany({});
     await testPrisma.pairing.deleteMany({});
     await testPrisma.quickSession.deleteMany({});
+    await testPrisma.authChallenge.deleteMany({});
     await testPrisma.emailVerification.deleteMany({});
     await testPrisma.user.deleteMany({});
   } catch (error) {

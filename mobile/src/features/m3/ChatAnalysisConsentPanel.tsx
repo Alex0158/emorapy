@@ -8,7 +8,9 @@ import type {
 import { t } from '@/src/i18n';
 import { ActionButton, FeatureRow, Panel } from '@/src/ui/components';
 import { ChatAnalysisEvidenceSelector } from './ChatAnalysisEvidenceSelector';
+import { ChatSharedSafetyStatusNotice } from './ChatSharedSafetyStatusNotice';
 import type { ChatAnalysisSelectionReview } from './useChatAnalysisConsent';
+import type { ChatSharedSafetyViewState } from './useChatRoomSafetyStatus';
 
 type ChatAnalysisConsentPanelProps = {
   activeRequest: ChatAnalysisRequestListItem | null;
@@ -21,6 +23,7 @@ type ChatAnalysisConsentPanelProps = {
   decidePending: boolean;
   eligibleMessages: ChatMessage[];
   formalCapsules: ContextCapsuleListItem[];
+  formalActionsBlocked: boolean;
   onCloseSelectionReview: () => void;
   onCreateReviewedSelection: (selection: ChatAnalysisSelectionReview) => void;
   onDecision: (request: ChatAnalysisRequestListItem, decision: 'approved' | 'declined') => void;
@@ -31,6 +34,7 @@ type ChatAnalysisConsentPanelProps = {
   onToggleMessage: (messageId: string) => void;
   selectedCapsuleIds: string[];
   selectedMessageIds: string[];
+  sharedSafety: ChatSharedSafetyViewState;
   selectionReview: ChatAnalysisSelectionReview | null;
   sourceSetComplete: boolean;
   revokeError: boolean;
@@ -52,6 +56,7 @@ export function ChatAnalysisConsentPanel({
   decidePending,
   eligibleMessages,
   formalCapsules,
+  formalActionsBlocked,
   onCloseSelectionReview,
   onCreateReviewedSelection,
   onDecision,
@@ -62,6 +67,7 @@ export function ChatAnalysisConsentPanel({
   onToggleMessage,
   selectedCapsuleIds,
   selectedMessageIds,
+  sharedSafety,
   selectionReview,
   sourceSetComplete,
   revokeError,
@@ -74,6 +80,7 @@ export function ChatAnalysisConsentPanel({
   const requestActionPending = Boolean(workingRequestId);
   return (
     <Panel title={t('chatRoom.analysisPanel')}>
+      <ChatSharedSafetyStatusNotice state={sharedSafety} />
       {approvalRecoveryPending ? (
         <FeatureRow
           title={t('chatRoom.analysis.requestCreatedApprovalPending')}
@@ -127,7 +134,7 @@ export function ChatAnalysisConsentPanel({
           {sourceSetComplete && !viewerApproval && activeRequest.status === 'pending_approval' ? (
             <>
               <ActionButton
-                disabled={requestActionPending}
+                disabled={requestActionPending || formalActionsBlocked}
                 label={t('chatRoom.analysis.approveExact')}
                 loading={decidePending}
                 onPress={() => onDecision(activeRequest, 'approved')}
@@ -191,7 +198,7 @@ export function ChatAnalysisConsentPanel({
             && allParticipantsApproved
             && ['pending_approval', 'approved', 'submitted'].includes(activeRequest.status) ? (
               <ActionButton
-                disabled={requestActionPending}
+                disabled={requestActionPending || formalActionsBlocked}
                 label={activeRequest.status === 'submitted'
                   ? t('chatRoom.analysis.retryHandoff')
                   : t('chatRoom.analysis.submit')}
@@ -254,6 +261,7 @@ export function ChatAnalysisConsentPanel({
                   variant="outline"
                 />
                 <ActionButton
+                  disabled={formalActionsBlocked}
                   label={t('chatRoom.analysis.createAndApproveExact')}
                   loading={createPending}
                   onPress={() => onCreateReviewedSelection(selectionReview)}
@@ -277,7 +285,10 @@ export function ChatAnalysisConsentPanel({
                   tone="amber"
                 />
                 <ActionButton
-                  disabled={selectedMessageIds.length === 0 && selectedCapsuleIds.length === 0}
+                  disabled={
+                    formalActionsBlocked
+                    || (selectedMessageIds.length === 0 && selectedCapsuleIds.length === 0)
+                  }
                   label={t('chatRoom.analysis.reviewSelection')}
                   onPress={onOpenSelectionReview}
                   testID="chat.room.analysis.review-open"

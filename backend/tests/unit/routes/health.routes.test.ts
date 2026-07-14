@@ -46,6 +46,12 @@ jest.mock('../../../src/services/ai-stream.service', () => ({
     getBackendMode: () => mockGetAIStreamBackendMode(),
   },
 }));
+const mockGetEmailReadiness = jest.fn();
+jest.mock('../../../src/services/email.service', () => ({
+  emailService: {
+    getReadiness: () => mockGetEmailReadiness(),
+  },
+}));
 
 import healthRouter from '../../../src/routes/health.routes';
 
@@ -65,6 +71,7 @@ describe('routes/health.routes', () => {
     mockLogger.warn.mockClear();
     mockGetBackendStatus.mockReturnValue('redis');
     mockGetAIStreamBackendMode.mockReturnValue('redis');
+    mockGetEmailReadiness.mockReturnValue({ mode: 'disabled', status: 'disabled' });
     mockEnvRef.current = { NODE_ENV: 'test' };
     mockJobsStartedRef.current = true;
     process.env = { ...origEnv };
@@ -154,6 +161,7 @@ describe('routes/health.routes', () => {
 
     it('production 且 AI Stream backend 非 redis 時應標記 degraded', async () => {
       mockEnvRef.current = { NODE_ENV: 'production' };
+      mockGetEmailReadiness.mockReturnValue({ mode: 'smtp', status: 'ready', verifiedAt: '2026-07-13T00:00:00.000Z' });
       mockGetAIStreamBackendMode.mockReturnValueOnce('memory');
       const app = createApp();
       const res = await request(app).get('/health');
@@ -173,6 +181,19 @@ describe('routes/health.routes', () => {
       expect(res.body.checks.aiStream).toEqual({
         status: 'healthy',
         message: 'AI Stream backend: memory',
+      });
+    });
+
+    it('production email transport 未 ready 時應標記 degraded', async () => {
+      mockEnvRef.current = { NODE_ENV: 'production' };
+      mockGetEmailReadiness.mockReturnValue({ mode: 'smtp', status: 'unavailable' });
+      const app = createApp();
+      const res = await request(app).get('/health');
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('degraded');
+      expect(res.body.checks.emailDelivery).toEqual({
+        status: 'unhealthy',
+        message: 'Email delivery: unavailable',
       });
     });
 
@@ -211,6 +232,7 @@ describe('routes/health.routes', () => {
 
     it('非 development 且 healthy 且 responseTime > 1000 時應記錄 logger.warn (slow)', async () => {
       mockEnvRef.current = { NODE_ENV: 'production' };
+      mockGetEmailReadiness.mockReturnValue({ mode: 'smtp', status: 'ready', verifiedAt: '2026-07-13T00:00:00.000Z' });
       const dateNowSpy = jest.spyOn(Date, 'now').mockReturnValueOnce(0).mockReturnValue(1001);
       const app = createApp();
       await request(app).get('/health');
@@ -241,6 +263,68 @@ describe('routes/health.routes', () => {
           releaseMigrations: 'ready',
           requiredMigrationCount: RELEASE_BLOCKING_MIGRATIONS.length,
         },
+        emailDelivery: {
+          mode: 'disabled',
+          status: 'disabled',
+        },
+      });
+    });
+
+    it('production email transport 未 ready 時應返回 503', async () => {
+      mockEnvRef.current = { NODE_ENV: 'production' };
+      mockGetEmailReadiness.mockReturnValue({ mode: 'smtp', status: 'unavailable' });
+      (mockPrismaQueryRaw as unknown as jest.Mock).mockResolvedValue(appliedReleaseMigrations as never);
+      const app = createApp();
+      const res = await request(app).get('/health/ready');
+      expect(res.status).toBe(503);
+      expect(res.body.status).toBe('not ready');
+    });
+
+    it('production email 僅 status ready 但未有 startup verifiedAt 時應返回 503', async () => {
+      mockEnvRef.current = { NODE_ENV: 'production' };
+      mockGetEmailReadiness.mockReturnValue({ mode: 'smtp', status: 'ready' });
+      (mockPrismaQueryRaw as unknown as jest.Mock).mockResolvedValue(appliedReleaseMigrations as never);
+
+      const res = await request(createApp()).get('/health/ready');
+
+      expect(res.status).toBe(503);
+      expect(res.body.status).toBe('not ready');
+    });
+
+    it('production email runtime outage 後應返回 503，不得沿用 startup ready', async () => {
+      mockEnvRef.current = { NODE_ENV: 'production' };
+      mockGetEmailReadiness.mockReturnValue({
+        mode: 'smtp',
+        status: 'unavailable',
+        verifiedAt: '2026-07-13T00:00:00.000Z',
+        lastAcceptedAt: '2026-07-13T00:05:00.000Z',
+      });
+      (mockPrismaQueryRaw as unknown as jest.Mock).mockResolvedValue(appliedReleaseMigrations as never);
+
+      const res = await request(createApp()).get('/health/ready');
+
+      expect(res.status).toBe(503);
+      expect(res.body).toMatchObject({ status: 'not ready' });
+    });
+
+    it('ready payload 應區分 startup verifiedAt 與最後 provider acceptance', async () => {
+      mockEnvRef.current = { NODE_ENV: 'production' };
+      mockGetEmailReadiness.mockReturnValue({
+        mode: 'smtp',
+        status: 'ready',
+        verifiedAt: '2026-07-13T00:00:00.000Z',
+        lastAcceptedAt: '2026-07-13T00:05:00.000Z',
+      });
+      (mockPrismaQueryRaw as unknown as jest.Mock).mockResolvedValue(appliedReleaseMigrations as never);
+
+      const res = await request(createApp()).get('/health/ready');
+
+      expect(res.status).toBe(200);
+      expect(res.body.emailDelivery).toEqual({
+        mode: 'smtp',
+        status: 'ready',
+        verifiedAt: '2026-07-13T00:00:00.000Z',
+        lastAcceptedAt: '2026-07-13T00:05:00.000Z',
       });
     });
 

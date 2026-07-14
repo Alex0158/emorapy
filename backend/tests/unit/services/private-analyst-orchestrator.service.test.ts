@@ -4,6 +4,7 @@ const prismaMock = {
 };
 const generateTextStreamMock = jest.fn();
 const resolvePrivateSupportMock = jest.fn();
+const activateSafetyRouteMock = jest.fn();
 const decideRouteMock = jest.fn();
 const withLockMock = jest.fn();
 const createStreamMock = jest.fn();
@@ -29,6 +30,11 @@ jest.mock('../../../src/services/ai.service', () => ({
 jest.mock('../../../src/services/chat-context-policy.service', () => ({
   __esModule: true,
   chatContextPolicyService: { resolvePrivateSupport: resolvePrivateSupportMock },
+}));
+
+jest.mock('../../../src/services/chat-safety-router.service', () => ({
+  __esModule: true,
+  chatSafetyRouterService: { activateForRoute: activateSafetyRouteMock },
 }));
 
 jest.mock('../../../src/services/safety-routing.service', () => ({
@@ -124,6 +130,7 @@ describe('PrivateAnalystOrchestrator privacy/runtime contract', () => {
     jest.clearAllMocks();
     withLockMock.mockImplementation(async (_key: string, run: () => Promise<void>) => run());
     decideRouteMock.mockReturnValue({ route: 'standard', detectedFlags: [] });
+    activateSafetyRouteMock.mockResolvedValue({ action: 'continue' });
     resolvePrivateSupportMock.mockResolvedValue(ownerBundle());
     createStreamMock.mockResolvedValue({
       streamId: 'stream-private-1',
@@ -263,6 +270,15 @@ describe('PrivateAnalystOrchestrator privacy/runtime contract', () => {
       { id: 'owner-safety-message', content: '我現在可能不安全' },
     );
 
+    expect(activateSafetyRouteMock).toHaveBeenCalledWith({
+      roomId: ROOM_ID,
+      ownerParticipantId: OWNER_PARTICIPANT_ID,
+      route: 'safety_support',
+    });
+    expect(activateSafetyRouteMock.mock.invocationCallOrder[0]).toBeLessThan(
+      generateTextStreamMock.mock.invocationCallOrder[0] as number,
+    );
+
     expect(generateTextStreamMock.mock.calls[0]?.[1]).toMatchObject({
       temperature: 0.3,
       ledger: {
@@ -284,6 +300,16 @@ describe('PrivateAnalystOrchestrator privacy/runtime contract', () => {
     expect(persistedData).not.toHaveProperty('safety_detail');
     expect(publishToRoomMock).not.toHaveBeenCalled();
     expect(JSON.stringify(publishToChannelMock.mock.calls)).not.toContain(safetyReasonCanary);
+  });
+
+  it('does not call the external provider when durable safety activation fails', async () => {
+    activateSafetyRouteMock.mockRejectedValueOnce(new Error('safety state unavailable'));
+
+    await runPrivateAnalyst(new PrivateAnalystOrchestrator());
+
+    expect(generateTextStreamMock).not.toHaveBeenCalled();
+    expect(resolvePrivateSupportMock).not.toHaveBeenCalled();
+    expect(prismaMock.chatMessage.create).not.toHaveBeenCalled();
   });
 
   it('emits a sanitized failure payload without the provider raw error', async () => {

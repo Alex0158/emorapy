@@ -20,6 +20,7 @@ const mockGetJudgmentStatus = jest.fn();
 const mockPublish = jest.fn();
 const mockSubscribe = jest.fn();
 const mockResolveActiveHumanParticipant = jest.fn();
+const mockGetSanitizedSharedStatus = jest.fn();
 const mockGetAuthUserIdOptional = jest.fn();
 const mockGetSessionIdFromSources = jest.fn();
 
@@ -60,6 +61,11 @@ jest.mock('../../../src/services/chat-actor-access.service', () => ({
     resolveActiveHumanParticipant: (...args: unknown[]) => (
       mockResolveActiveHumanParticipant(...args)
     ),
+  },
+}));
+jest.mock('../../../src/services/chat-safety-router.service', () => ({
+  chatSafetyRouterService: {
+    getSanitizedSharedStatus: (...args: unknown[]) => mockGetSanitizedSharedStatus(...args),
   },
 }));
 jest.mock('../../../src/utils/request', () => ({
@@ -139,6 +145,7 @@ describe('chat.routes', () => {
       participant: { id: 'participant-a' },
       room: { id: roomId },
     } as never);
+    mockGetSanitizedSharedStatus.mockResolvedValue({ status: 'open' } as never);
   });
 
   describe('錯誤傳遞', () => {
@@ -344,6 +351,24 @@ describe('chat.routes', () => {
       expect(res.body.success).toBe(true);
       expect(res.body.data).toHaveProperty('room');
       expect(res.body.data.room).toHaveProperty('id');
+    });
+
+    it('safety status 只返回 sanitized open/paused 狀態', async () => {
+      mockGetSanitizedSharedStatus.mockResolvedValueOnce({ status: 'paused' } as never);
+
+      const res = await request(createApp())
+        .get(`/chat/rooms/${roomId}/safety-status`)
+        .set('x-session-id', sessionId);
+
+      expect(res.status).toBe(200);
+      expect(res.body.data).toEqual({ status: 'paused' });
+      expect(res.body.data).not.toHaveProperty('owner_participant_id');
+      expect(res.body.data).not.toHaveProperty('action');
+      expect(res.body.data).not.toHaveProperty('reason');
+      expect(mockGetSanitizedSharedStatus).toHaveBeenCalledWith(
+        roomId,
+        expect.objectContaining({ sessionId }),
+      );
     });
 
     it('createInvite 成功時應返回 data.invite（F07 邊界）', async () => {

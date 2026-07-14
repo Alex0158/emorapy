@@ -12,6 +12,7 @@ import { buildAIStreamFailurePayload } from './ai-stream-failure-payload-utils';
 import { chatEventsService } from './chat-events.service';
 import { chatMetricsService } from './chat-metrics.service';
 import { chatContextPolicyService } from './chat-context-policy.service';
+import { chatSafetyRouterService } from './chat-safety-router.service';
 import { safetyRoutingService } from './safety-routing.service';
 
 const PRIVATE_SUPPORT_PROMPT = `你是 Emorapy AI 助手，在只屬於當事人與 AI 的空間提供整理支持。你不是人類治療師，也不作心理診斷。
@@ -95,6 +96,13 @@ export class PrivateAnalystOrchestrator {
     const safetyRoute = safetyRoutingService.decideRoute({
       plaintiffStatement: message.content,
       defendantStatement: '',
+    });
+    // Persist the action-only safety state before any external model request.
+    // A persistence failure aborts this response instead of silently continuing.
+    await chatSafetyRouterService.activateForRoute({
+      roomId: context.roomId,
+      ownerParticipantId: context.ownerParticipantId,
+      route: safetyRoute.route,
     });
     const isSafety = safetyRoute.route === 'crisis_support' || safetyRoute.route === 'safety_support';
     const bundle = await chatContextPolicyService.resolvePrivateSupport({

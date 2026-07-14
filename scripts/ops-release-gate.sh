@@ -65,7 +65,40 @@ if (checks.aiStream?.status !== "healthy" || !/AI Stream backend:\s*redis\b/.tes
   fail(`must report Redis AI Stream backend, got status=${checks.aiStream?.status || "(missing)"} message=${aiStreamMessage || "(missing)"}`);
 }
 
-console.log(`[ok] ${label} Redis-backed runtime verified`);
+const emailMessage = typeof checks.emailDelivery?.message === "string" ? checks.emailDelivery.message : "";
+if (checks.emailDelivery?.status !== "healthy" || !/Email delivery:\s*ready\b/.test(emailMessage)) {
+  fail(`must report ready email delivery, got status=${checks.emailDelivery?.status || "(missing)"} message=${emailMessage || "(missing)"}`);
+}
+
+console.log(`[ok] ${label} Redis-backed runtime and email delivery readiness verified`);
+' "$label"
+}
+
+validate_release_readiness() {
+  local label="$1"
+  local url="$2"
+  local json
+
+  printf '%s: %s\n' "$label" "$url"
+  json="$(curl -fsS "$url")"
+  printf '%s\n' "$json"
+
+  READINESS_JSON="$json" node -e '
+const [label] = process.argv.slice(1);
+const payload = JSON.parse(process.env.READINESS_JSON || "{}");
+const data = payload && typeof payload === "object" && payload.data && typeof payload.data === "object"
+  ? payload.data
+  : payload;
+const delivery = data?.emailDelivery;
+if (data?.status !== "ready") {
+  console.error(`[error] ${label} must report status=ready`);
+  process.exit(1);
+}
+if (delivery?.mode !== "smtp" || delivery?.status !== "ready" || typeof delivery?.verifiedAt !== "string" || !delivery.verifiedAt) {
+  console.error(`[error] ${label} must report a startup-verified SMTP transport`);
+  process.exit(1);
+}
+console.log(`[ok] ${label} startup-verified SMTP transport confirmed`);
 ' "$label"
 }
 
@@ -201,7 +234,7 @@ node scripts/check-vercel-static-env.mjs "admin web" "$ADMIN_WEB_URL" "$EXPECTED
 
 print_section "Backend Health"
 fetch_required_json "backend /health/live" "${BACKEND_BASE_URL%/}/health/live"
-fetch_required_json "backend /health/ready" "${BACKEND_BASE_URL%/}/health/ready"
+validate_release_readiness "backend /health/ready" "${BACKEND_BASE_URL%/}/health/ready"
 validate_release_health "backend /health" "${BACKEND_BASE_URL%/}/health"
 
 print_section "Database Migration State"

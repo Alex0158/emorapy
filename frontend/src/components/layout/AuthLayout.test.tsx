@@ -54,6 +54,20 @@ describe('AuthLayout', () => {
     })).toBeInTheDocument();
   });
 
+  it('mobile reading order 應先提供 safety 與操作，再顯示長品牌敘事', () => {
+    render(
+      <MemoryRouter>
+        <AuthLayout />
+      </MemoryRouter>
+    );
+    const outlet = screen.getByTestId('outlet');
+    const heading = screen.getByRole('heading', {
+      name: 'auth.brand.taglineLine1 auth.brand.taglineLine2',
+    });
+
+    expect(outlet.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it('應顯示品牌 Logo 文字', () => {
     render(
       <MemoryRouter>

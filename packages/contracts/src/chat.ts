@@ -36,6 +36,8 @@ export type ChatChannelKind = "shared" | "private";
 
 export type PrivateContextUseMode = "private_only" | "shared_process_controls";
 
+export type SharedAdaptationConsentDecision = "not_set" | "accepted" | "declined";
+
 export type ContextCapsuleStatus =
   | "draft"
   | "approved"
@@ -53,6 +55,7 @@ export type ContextSensitivityClass =
 export type ContextPurpose =
   | "private_support"
   | "shared_mediation"
+  | "shared_mediation_adaptation"
   | "formal_analysis_evidence"
   | "formal_analysis_delivery"
   | "future_private_support"
@@ -247,6 +250,40 @@ export interface ContextUseAudit {
   created_at: string;
 }
 
+export type ContextUsageReceiptScope = "actor" | "room_aggregate";
+
+export type ContextUsageReceiptCategory =
+  | "capsule_lifecycle"
+  | "authorization"
+  | "analysis_request"
+  | "analysis_consent"
+  | "adaptation_consent"
+  | "private_support_use"
+  | "shared_mediation_use"
+  | "adaptation_use"
+  | "adaptation_readiness";
+
+export interface ContextUsageSourceTypeCounts {
+  chat_message: number;
+  context_capsule: number;
+  personal_memory: number;
+  joint_memory: number;
+  formal_evidence: number;
+}
+
+/** Owner-facing, identifier-free view of a durable context-use audit. */
+export interface ContextUsageReceipt {
+  scope: ContextUsageReceiptScope;
+  purpose: ContextPurpose;
+  decision: ContextUseDecision;
+  category: ContextUsageReceiptCategory;
+  source_type_counts: ContextUsageSourceTypeCounts;
+  authorization_count: number;
+  policy_version: string;
+  prompt_version?: string | null;
+  created_at: string;
+}
+
 export interface CreateContextCapsuleInput {
   source_channel_id: string;
   source_message_ids: string[];
@@ -297,15 +334,40 @@ export interface ChatParticipant {
   left_at?: string | null;
   is_active: boolean;
   private_context_use_mode: PrivateContextUseMode;
+  private_context_policy_version?: string | null;
+  private_context_preference_updated_at?: string | null;
+  shared_adaptation_consent: SharedAdaptationConsentDecision;
+  shared_adaptation_policy_version?: string | null;
+  shared_adaptation_decided_at?: string | null;
+}
+
+export interface RoomAdaptationStatus {
+  policy_version: string;
+  enabled: boolean;
+  active_participant_count: number;
+  accepted_participant_count: number;
+  owner_opt_in_count: number;
 }
 
 export interface PrivateContextPreference {
   participant_id: string;
   mode: PrivateContextUseMode;
+  mode_policy_version?: string | null;
+  mode_updated_at?: string | null;
+  adaptation_decision: SharedAdaptationConsentDecision;
+  adaptation_policy_version?: string | null;
+  adaptation_decided_at?: string | null;
+  room_adaptation: RoomAdaptationStatus;
 }
 
 export interface UpdatePrivateContextPreferenceInput {
   mode: PrivateContextUseMode;
+  policy_version: string;
+}
+
+export interface UpdateSharedAdaptationConsentInput {
+  decision: Exclude<SharedAdaptationConsentDecision, "not_set">;
+  policy_version: string;
 }
 
 export interface ChatRoom {
@@ -318,6 +380,13 @@ export interface ChatRoom {
   updated_at: string;
   participants: ChatParticipant[];
   channels?: ChatChannel[];
+}
+
+export type ChatRoomSafetyState = "open" | "paused";
+
+/** Sanitized room-wide safety state. It intentionally carries no source or reason. */
+export interface ChatRoomSafetyStatus {
+  status: ChatRoomSafetyState;
 }
 
 export interface ChatMessage {

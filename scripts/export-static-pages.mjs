@@ -786,8 +786,16 @@ function frontendMockResponse(url, method) {
       },
     });
   }
-  if (pathname === '/auth/send-verification-code' && method === 'POST') return success({});
-  if (pathname === '/auth/verify-email' && method === 'POST') return success({ verified: true });
+  if (pathname === '/auth/send-verification-code' && method === 'POST') {
+    return success({ expires_in: 300, resend_after: 60 });
+  }
+  if (pathname === '/auth/verify-email' && method === 'POST') {
+    return success({
+      verified: true,
+      registration_proof: `rp1_${'a'.repeat(43)}`,
+      registration_proof_expires_in: 600,
+    });
+  }
   if (pathname === '/auth/reset-password' && method === 'POST') return success({});
   if (pathname === '/auth/reset-password-confirm' && method === 'POST') return success({});
   if (pathname === '/auth/login' && method === 'POST') return success({ user: sampleUser, token: USER_TOKEN });

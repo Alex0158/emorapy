@@ -11,6 +11,7 @@ import { lockService } from '../utils/lock';
 import { buildBackendVersionManifest } from '../utils/version';
 import { aiStreamService } from '../services/ai-stream.service';
 import { RELEASE_BLOCKING_MIGRATIONS } from '../config/release-migrations';
+import { emailService } from '../services/email.service';
 
 const router = Router();
 
@@ -81,6 +82,16 @@ router.get('/health', async (req: Request, res: Response) => {
     };
     if (checks.aiStream.status !== 'healthy') degraded = true;
 
+    const emailReadiness = emailService.getReadiness();
+    const emailHealthy = (emailReadiness.status === 'ready'
+        && (env.NODE_ENV !== 'production' || Boolean(emailReadiness.verifiedAt)))
+      || (env.NODE_ENV !== 'production' && emailReadiness.status === 'disabled');
+    checks.emailDelivery = {
+      status: emailHealthy ? 'healthy' : 'unhealthy',
+      message: `Email delivery: ${emailReadiness.status}`,
+    };
+    if (!emailHealthy) degraded = true;
+
     const totalResponseTime = Date.now() - startTime;
 
     checks.cron = jobsStarted || env.NODE_ENV === 'test'
@@ -144,11 +155,24 @@ router.get('/health/ready', async (req: Request, res: Response) => {
     if (RELEASE_BLOCKING_MIGRATIONS.some(name => !applied.has(name))) {
       throw new Error('Required release migrations are not applied');
     }
+    const emailReadiness = emailService.getReadiness();
+    if (
+      env.NODE_ENV === 'production'
+      && (emailReadiness.status !== 'ready' || !emailReadiness.verifiedAt)
+    ) {
+      throw new Error('Email delivery transport is not ready');
+    }
     res.status(200).json({
       status: 'ready',
       database: {
         releaseMigrations: 'ready',
         requiredMigrationCount: RELEASE_BLOCKING_MIGRATIONS.length,
+      },
+      emailDelivery: {
+        mode: emailReadiness.mode,
+        status: emailReadiness.status,
+        verifiedAt: emailReadiness.verifiedAt,
+        lastAcceptedAt: emailReadiness.lastAcceptedAt,
       },
     });
   } catch (error) {

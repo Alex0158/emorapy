@@ -5,6 +5,7 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import type { User } from "@/services/api/auth";
+import type { RegisterDto } from "@emorapy/contracts/auth";
 import * as authApi from "@/services/api/auth";
 import { getProfile } from "@/services/api/user";
 import { registerRequestLogoutHandler } from "@/services/requestAuthBridge";
@@ -26,11 +27,7 @@ interface AuthState {
 		password: string,
 		rememberMe?: boolean,
 	) => Promise<void>;
-	register: (
-		email: string,
-		password: string,
-		nickname?: string,
-	) => Promise<void>;
+	register: (input: RegisterDto) => Promise<void>;
 	logout: () => void;
 	updateUser: (user: Partial<User>) => void;
 	checkAuth: () => Promise<void>;
@@ -86,14 +83,10 @@ export const useAuthStore = create<AuthState>()(
 				}
 			},
 
-			register: async (email: string, password: string, nickname?: string) => {
+			register: async (input: RegisterDto) => {
 				set({ isLoading: true });
 				try {
-					const response = await authApi.register({
-						email,
-						password,
-						nickname,
-					});
+					const response = await authApi.register(input);
 					safeSetItem(localStorage, "token", response.token);
 					safeRemoveItem(sessionStorage, "token");
 					set({

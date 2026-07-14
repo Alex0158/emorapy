@@ -30,10 +30,15 @@ import {
   chatActorAccessService,
   type ChatActorContext,
 } from './chat-actor-access.service';
+import {
+  ChatSafetyRouterService,
+  chatSafetyRouterService,
+} from './chat-safety-router.service';
 import { writeContextUseAudit } from './chat-context-audit.repository';
 
 type Clock = () => Date;
 type ActorAccess = Pick<ChatActorAccessService, 'resolveActiveHumanParticipant'>;
+type SafetyRouter = Pick<ChatSafetyRouterService, 'assertFormalAnalysisAllowed'>;
 
 type CapsuleDraftBuild = {
   sourceRefs: ContextSourceRef[];
@@ -77,7 +82,8 @@ export class ContextCapsuleService {
   constructor(
     private readonly db: PrismaClient = prisma,
     private readonly actorAccess: ActorAccess = chatActorAccessService,
-    private readonly clock: Clock = () => new Date()
+    private readonly clock: Clock = () => new Date(),
+    private readonly safetyRouter: SafetyRouter = chatSafetyRouterService,
   ) {}
 
   private async transaction<T>(
@@ -427,6 +433,9 @@ export class ContextCapsuleService {
           actor,
           tx
         );
+        if (input.purpose === 'formal_analysis_evidence') {
+          await this.safetyRouter.assertFormalAnalysisAllowed(roomId, tx);
+        }
         const capsule = await tx.contextCapsule.findFirst({
           where: {
             id: capsuleId,
@@ -568,6 +577,88 @@ export class ContextCapsuleService {
       }
       throw error;
     }
+  }
+
+  async discardCapsule(
+    roomId: string,
+    capsuleId: string,
+    actor: ChatActorContext
+  ) {
+    const now = this.clock();
+    return this.transaction(async tx => {
+      const { participant } = await this.actorAccess.resolveActiveHumanParticipant(
+        roomId,
+        actor,
+        tx
+      );
+      const capsule = await tx.contextCapsule.findFirst({
+        where: {
+          id: capsuleId,
+          room_id: roomId,
+          owner_participant_id: participant.id,
+        },
+      });
+      if (!capsule) {
+        throw Errors.FORBIDDEN('你不能捨棄此 Capsule');
+      }
+
+      if (capsule.status === 'discarded') {
+        await tx.contextAuthorization.updateMany({
+          where: { capsule_id: capsule.id, revoked_at: null },
+          data: { revoked_at: now, revocation_reason_code: 'capsule_discarded' },
+        });
+        await this.cancelRequestsUsingCapsule(tx, roomId, capsule.id, now);
+        return capsule;
+      }
+      if (
+        !['draft', 'approved'].includes(capsule.status) ||
+        capsule.revoked_at !== null ||
+        !capsule.expires_at ||
+        capsule.expires_at <= now
+      ) {
+        throw Errors.CONFLICT('Capsule 已失效，不能捨棄');
+      }
+
+      const discarded = await tx.contextCapsule.updateMany({
+        where: {
+          id: capsule.id,
+          room_id: roomId,
+          owner_participant_id: participant.id,
+          content_hash: capsule.content_hash,
+          policy_version: capsule.policy_version,
+          status: { in: ['draft', 'approved'] },
+          revoked_at: null,
+          expires_at: { gt: now },
+        },
+        data: { status: 'discarded', revoked_at: now },
+      });
+      if (discarded.count !== 1) {
+        throw Errors.CONFLICT('Capsule 狀態已變更，請重新載入');
+      }
+
+      await tx.contextAuthorization.updateMany({
+        where: { capsule_id: capsule.id, revoked_at: null },
+        data: { revoked_at: now, revocation_reason_code: 'capsule_discarded' },
+      });
+      await this.cancelRequestsUsingCapsule(tx, roomId, capsule.id, now);
+      const updated = await tx.contextCapsule.findUniqueOrThrow({
+        where: { id: capsule.id },
+      });
+      await writeContextUseAudit(tx, {
+        roomId,
+        actorParticipantId: participant.id,
+        capsuleId: capsule.id,
+        purpose: 'private_support',
+        audience: 'private_owner',
+        targetType: 'chat_room',
+        targetId: roomId,
+        decision: 'denied',
+        reasonCode: 'capsule_discarded',
+        sourceRefs: [],
+        contentHashes: [],
+      });
+      return updated;
+    });
   }
 
   async revokeAuthorization(

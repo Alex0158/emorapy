@@ -3,6 +3,7 @@ import { NextFunction, Request, Response } from 'express';
 import { env } from '../config/env';
 import { getSessionIdFromSources } from '../utils/request';
 import { translateBackendMessage } from '../i18n';
+import { getAuthEmailRateLimitSubject } from '../utils/auth-email';
 
 // 根據環境調整限流配置
 const isDevelopment = env.NODE_ENV === 'development';
@@ -79,7 +80,7 @@ export const verificationCodeLimiter = rateLimit({
   windowMs: 5 * 60 * 1000, // 5分鐘
   max: verificationLimitConfig.max,
   keyGenerator: (req: Request) => {
-    return (req.body?.email || req.ip) as string;
+    return `verification_${getAuthEmailRateLimitSubject(req.body?.email, req.ip ?? 'unknown')}`;
   },
   handler: createRateLimitHandler('驗證碼發送過於頻繁，請稍後再試'),
   validate: isProduction ? { trustProxy: false } : undefined,
@@ -93,8 +94,8 @@ export const verifyCodeLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15分鐘
   max: verifyCodeLimitConfig.max,
   keyGenerator: (req: Request) => {
-    const email = req.body?.email || '';
-    return `verify_${email}_${req.ip}`;
+    const subject = getAuthEmailRateLimitSubject(req.body?.email, 'missing-email');
+    return `verify_${subject}_${req.ip ?? 'unknown'}`;
   },
   handler: createRateLimitHandler('驗證碼嘗試過於頻繁，請15分鐘後再試'),
   validate: isProduction ? { trustProxy: false } : undefined,
@@ -107,7 +108,7 @@ export const resetPasswordLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: resetPasswordLimitConfig.max,
   keyGenerator: (req: Request) => {
-    return `reset_${req.body?.email || req.ip}`;
+    return `reset_${getAuthEmailRateLimitSubject(req.body?.email, req.ip ?? 'unknown')}`;
   },
   handler: createRateLimitHandler('重設密碼請求過於頻繁，請稍後再試'),
   validate: isProduction ? { trustProxy: false } : undefined,
@@ -120,8 +121,8 @@ export const resetConfirmLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: resetConfirmLimitConfig.max,
   keyGenerator: (req: Request) => {
-    const email = req.body?.email || '';
-    return `resetConfirm_${email}_${req.ip}`;
+    const subject = getAuthEmailRateLimitSubject(req.body?.email, 'missing-email');
+    return `resetConfirm_${subject}_${req.ip ?? 'unknown'}`;
   },
   handler: createRateLimitHandler('重設密碼嘗試過於頻繁，請15分鐘後再試'),
   validate: isProduction ? { trustProxy: false } : undefined,

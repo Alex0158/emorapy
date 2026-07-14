@@ -304,7 +304,7 @@ export function useChatAnalysisConsent({
     const targetRoomId = activeRoomIdRef.current;
     if (
       !targetRoomId
-      || blocked
+      || (blocked && decision === 'approved')
       || (decision === 'approved' && !hasExactAnalysisSourcePreviews(request))
     ) return;
     const actionSequence = acquireRequestAction(targetRoomId, request.id);
@@ -360,7 +360,6 @@ export function useChatAnalysisConsent({
     const targetRoomId = activeRoomIdRef.current;
     if (
       !targetRoomId
-      || blocked
       || !['pending_approval', 'approved', 'submitted'].includes(request.status)
       || getExactApproval(request, myParticipantId)?.decision !== 'approved'
     ) return;
@@ -378,11 +377,11 @@ export function useChatAnalysisConsent({
     } finally {
       releaseRequestAction(targetRoomId, request.id, actionSequence);
     }
-  }, [acquireRequestAction, blocked, myParticipantId, refresh, releaseRequestAction]);
+  }, [acquireRequestAction, myParticipantId, refresh, releaseRequestAction]);
 
   const revokeAuthorization = useCallback(async (authorizationId: string) => {
     const targetRoomId = activeRoomIdRef.current;
-    if (!targetRoomId || blocked || workingAuthorizationId) return;
+    if (!targetRoomId || workingAuthorizationId) return;
 
     setWorkingAuthorizationId(authorizationId);
     try {
@@ -398,7 +397,7 @@ export function useChatAnalysisConsent({
         setWorkingAuthorizationId(null);
       }
     }
-  }, [blocked, refresh, workingAuthorizationId]);
+  }, [refresh, workingAuthorizationId]);
 
   return {
     allCapsules: capsules,

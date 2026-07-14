@@ -12,6 +12,8 @@ CLAIM_TEST_EMAIL="${CLAIM_TEST_EMAIL:-claim-smoke-$(date +%s)@example.com}"
 CLAIM_TEST_PASSWORD="${CLAIM_TEST_PASSWORD:-Password123!}"
 CLAIM_TEST_NICKNAME="${CLAIM_TEST_NICKNAME:-Claim Smoke}"
 CLAIM_SMOKE_DISABLE_CREATED_USER="${CLAIM_SMOKE_DISABLE_CREATED_USER:-true}"
+SMTP_SINK_API_URL="${SMTP_SINK_API_URL:-}"
+EMORAPY_RELEASE_GATE="${EMORAPY_RELEASE_GATE:-0}"
 
 HTTP_BODY=""
 HTTP_CODE=""
@@ -24,7 +26,18 @@ log() {
 fail() {
   echo "[claim-smoke] FAIL: $*" >&2
   if [ -n "${HTTP_BODY}" ]; then
-    echo "[claim-smoke] Last response body: ${HTTP_BODY}" >&2
+    HTTP_BODY_INPUT="${HTTP_BODY}" node -e '
+const raw = process.env.HTTP_BODY_INPUT || "";
+try {
+  const payload = JSON.parse(raw);
+  const code = payload?.error?.code ?? payload?.code;
+  const summary = {};
+  if (typeof code === "string" && /^[A-Z0-9_-]{1,80}$/i.test(code)) summary.errorCode = code;
+  console.error(`[claim-smoke] Last response summary: ${JSON.stringify(summary)}`);
+} catch {
+  console.error("[claim-smoke] Last response was non-JSON; body omitted");
+}
+' >&2
   fi
   exit 1
 }
@@ -178,24 +191,6 @@ async function main() {
   const mode = process.env.QUERY_MODE;
   const email = process.env.TARGET_EMAIL;
 
-  if (mode === 'verification-code') {
-    const row = await prisma.emailVerification.findFirst({
-      where: {
-        email,
-        type: 'register',
-        used: false,
-      },
-      orderBy: { created_at: 'desc' },
-    });
-
-    if (!row) {
-      process.exit(2);
-    }
-
-    process.stdout.write(row.code);
-    return;
-  }
-
   if (mode === 'user-id') {
     const row = await prisma.user.findUnique({
       where: { email },
@@ -223,6 +218,36 @@ main()
   });
 NODE
   )
+}
+
+read_verification_code_from_sink() {
+  local recipient="$1"
+  local encoded_recipient
+  local message_json=""
+
+  encoded_recipient="$(node -e 'process.stdout.write(encodeURIComponent(process.argv[1]))' "$recipient")"
+  for _attempt in {1..30}; do
+    message_json="$(curl -fsS --max-time 5 "${SMTP_SINK_API_URL%/}/messages/latest?to=${encoded_recipient}" 2>/dev/null || true)"
+    if [ -n "$message_json" ]; then
+      MESSAGE_JSON="$message_json" node -e '
+const payload = JSON.parse(process.env.MESSAGE_JSON || "{}");
+if (typeof payload.verificationCode !== "string" || !/^\d{6}$/.test(payload.verificationCode)) process.exit(2);
+process.stdout.write(payload.verificationCode);
+' 2>/dev/null && return 0
+    fi
+    sleep 1
+  done
+  return 1
+}
+
+create_release_registration_proof() {
+  if [ "$EMORAPY_RELEASE_GATE" != "1" ]; then
+    return 1
+  fi
+  DATABASE_URL="$DATABASE_URL" \
+  EMORAPY_RELEASE_GATE=1 \
+  npm --prefix "$BACKEND_DIR" --silent run ops:auth-registration-proof:fixture -- \
+    --email="$CLAIM_TEST_EMAIL"
 }
 
 db_case_owner() {
@@ -271,7 +296,7 @@ NODE
 log "Backend base URL: ${BACKEND_BASE_URL}"
 log "API base URL: ${API_BASE_URL}"
 log "Origin header: ${ORIGIN}"
-log "Claim test email: ${CLAIM_TEST_EMAIL}"
+log "Claim test email: set"
 
 log "1) Create quick session"
 request_json "POST" "${API_BASE_URL}/sessions/quick" "{}" -H "Origin: ${ORIGIN}"
@@ -296,8 +321,29 @@ if [ -z "${CASE_ID}" ] || [ -z "${RETURNED_SESSION_ID}" ]; then
 fi
 log "Quick case created: ${CASE_ID}"
 
-log "3) Register user"
-REGISTER_PAYLOAD="{\"email\":\"${CLAIM_TEST_EMAIL}\",\"password\":\"${CLAIM_TEST_PASSWORD}\",\"nickname\":\"${CLAIM_TEST_NICKNAME}\"}"
+if [ -n "$SMTP_SINK_API_URL" ]; then
+  log "3) Send registration code through the CI SMTP sink"
+  SEND_CODE_PAYLOAD="{\"email\":\"${CLAIM_TEST_EMAIL}\",\"type\":\"register\"}"
+  request_json "POST" "${API_BASE_URL}/auth/send-verification-code" "${SEND_CODE_PAYLOAD}" -H "Origin: ${ORIGIN}"
+  expect_status "200"
+
+  log "4) Verify the delivered registration code"
+  VERIFICATION_CODE="$(read_verification_code_from_sink "$CLAIM_TEST_EMAIL")" || fail "Registration code was not delivered to the CI SMTP sink"
+  VERIFY_PAYLOAD="{\"email\":\"${CLAIM_TEST_EMAIL}\",\"code\":\"${VERIFICATION_CODE}\",\"type\":\"register\"}"
+  request_json "POST" "${API_BASE_URL}/auth/verify-email" "${VERIFY_PAYLOAD}" -H "Origin: ${ORIGIN}"
+  expect_status "200"
+  REGISTRATION_PROOF="$(json_read "${HTTP_BODY}" "data.registration_proof")"
+else
+  log "3) Create a release-gated registration proof fixture"
+  REGISTRATION_PROOF="$(create_release_registration_proof)" || fail "SMTP_SINK_API_URL or EMORAPY_RELEASE_GATE=1 fixture is required"
+fi
+
+if [ -z "$REGISTRATION_PROOF" ]; then
+  fail "Missing one-time registration proof"
+fi
+
+log "5) Register verified user"
+REGISTER_PAYLOAD="{\"email\":\"${CLAIM_TEST_EMAIL}\",\"password\":\"${CLAIM_TEST_PASSWORD}\",\"nickname\":\"${CLAIM_TEST_NICKNAME}\",\"registration_proof\":\"${REGISTRATION_PROOF}\"}"
 request_json "POST" "${API_BASE_URL}/auth/register" "${REGISTER_PAYLOAD}" -H "Origin: ${ORIGIN}"
 expect_status "201"
 REGISTER_TOKEN="$(json_read "${HTTP_BODY}" "data.token")"
@@ -307,7 +353,7 @@ if [ -z "${REGISTER_TOKEN}" ] || [ -z "${REGISTER_USER_ID}" ]; then
 fi
 log "Registered user id: ${REGISTER_USER_ID}"
 
-log "4) Claim session with register token"
+log "6) Claim session with register token"
 CLAIM_PAYLOAD="{\"session_id\":\"${RETURNED_SESSION_ID}\"}"
 request_json "POST" "${API_BASE_URL}/auth/claim-session" "${CLAIM_PAYLOAD}" -H "Origin: ${ORIGIN}" -H "Authorization: Bearer ${REGISTER_TOKEN}"
 expect_status "200"
@@ -315,18 +361,6 @@ CLAIMED_CASE_ID="$(json_read "${HTTP_BODY}" "data.case_id")"
 if [ "${CLAIMED_CASE_ID}" != "${CASE_ID}" ]; then
   fail "Claimed case id ${CLAIMED_CASE_ID} does not match created case id ${CASE_ID}"
 fi
-
-log "5) Read verification code from DB"
-VERIFICATION_CODE="$(db_query "verification-code" "${CLAIM_TEST_EMAIL}")"
-if [ -z "${VERIFICATION_CODE}" ]; then
-  fail "Missing verification code from DB"
-fi
-log "Verification code resolved from DB"
-
-log "6) Verify email"
-VERIFY_PAYLOAD="{\"email\":\"${CLAIM_TEST_EMAIL}\",\"code\":\"${VERIFICATION_CODE}\",\"type\":\"register\"}"
-request_json "POST" "${API_BASE_URL}/auth/verify-email" "${VERIFY_PAYLOAD}" -H "Origin: ${ORIGIN}"
-expect_status "200"
 
 log "7) Login with verified user"
 LOGIN_PAYLOAD="{\"email\":\"${CLAIM_TEST_EMAIL}\",\"password\":\"${CLAIM_TEST_PASSWORD}\"}"
@@ -379,4 +413,4 @@ log "Summary:"
 log "  session_id=${RETURNED_SESSION_ID}"
 log "  case_id=${CASE_ID}"
 log "  user_id=${REGISTER_USER_ID}"
-log "  email=${CLAIM_TEST_EMAIL}"
+log "  email=set"

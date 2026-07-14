@@ -96,11 +96,19 @@ describe('authStore', () => {
   it('register 成功應設 user、token 並存入 localStorage、清除 sessionStorage', async () => {
     sessionStorage.setItem('token', 'stale');
     mockRegister.mockResolvedValue({ user: mockUser, token: 't2' });
-    await useAuthStore.getState().register('u@example.com', 'pass', 'Nick');
+    const input = {
+      email: 'u@example.com',
+      password: 'pass',
+      registration_proof: 'rp1_registration-proof',
+      nickname: 'Nick',
+    };
+    await useAuthStore.getState().register(input);
+    expect(mockRegister).toHaveBeenCalledWith(input);
     expect(useAuthStore.getState().user).toEqual(mockUser);
     expect(useAuthStore.getState().token).toBe('t2');
     expect(localStorage.getItem('token')).toBe('t2');
     expect(sessionStorage.getItem('token')).toBeNull();
+    expect(localStorage.getItem('auth-storage')).not.toContain('rp1_registration-proof');
   });
 
   it('updateUser 有 currentUser 時應合併更新', () => {
@@ -173,7 +181,12 @@ describe('authStore', () => {
     mockSessionStorageValue = 'qs2';
     mockRegister.mockResolvedValue({ user: mockUser, token: 't2' });
     mockClaimSession.mockResolvedValue(undefined);
-    await useAuthStore.getState().register('u@example.com', 'pass', 'Nick');
+    await useAuthStore.getState().register({
+      email: 'u@example.com',
+      password: 'pass',
+      registration_proof: 'rp1_registration-proof',
+      nickname: 'Nick',
+    });
     expect(mockClaimSession).toHaveBeenCalledWith('qs2');
   });
 
@@ -196,7 +209,12 @@ describe('authStore', () => {
   it('register 成功但沒有 quickSessionId 時不應呼叫 claimSession', async () => {
     mockRegister.mockResolvedValue({ user: mockUser, token: 't4' });
 
-    await useAuthStore.getState().register('u@example.com', 'pass', 'Nick');
+    await useAuthStore.getState().register({
+      email: 'u@example.com',
+      password: 'pass',
+      registration_proof: 'rp1_registration-proof',
+      nickname: 'Nick',
+    });
 
     expect(useAuthStore.getState().isAuthenticated).toBe(true);
     expect(mockClaimSession).not.toHaveBeenCalled();
@@ -208,7 +226,12 @@ describe('authStore', () => {
     mockClaimSession.mockRejectedValue(new Error('claim failed on register'));
 
     await expect(
-      useAuthStore.getState().register('u@example.com', 'pass', 'Nick')
+      useAuthStore.getState().register({
+        email: 'u@example.com',
+        password: 'pass',
+        registration_proof: 'rp1_registration-proof',
+        nickname: 'Nick',
+      })
     ).resolves.toBeUndefined();
 
     expect(useAuthStore.getState().isAuthenticated).toBe(true);

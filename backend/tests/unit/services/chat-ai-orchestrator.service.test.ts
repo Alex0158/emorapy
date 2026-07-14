@@ -4,6 +4,7 @@
 
 const generateTextStreamMock = jest.fn();
 const resolveSharedMediationMock = jest.fn();
+const assertSharedMessagingAllowedMock = jest.fn();
 
 jest.mock('../../../src/config/database', () => {
   const mock = {
@@ -23,6 +24,13 @@ jest.mock('../../../src/services/chat-context-policy.service', () => ({
   __esModule: true,
   chatContextPolicyService: {
     resolveSharedMediation: resolveSharedMediationMock,
+  },
+}));
+
+jest.mock('../../../src/services/chat-safety-router.service', () => ({
+  __esModule: true,
+  chatSafetyRouterService: {
+    assertSharedMessagingAllowed: assertSharedMessagingAllowedMock,
   },
 }));
 
@@ -74,7 +82,11 @@ jest.mock('../../../src/config/logger', () => ({
   default: { warn: jest.fn(), error: jest.fn(), info: jest.fn() },
 }));
 
-import { chatAIOrchestrator, detectValidationSeeking } from '../../../src/services/chat-ai-orchestrator.service';
+import {
+  buildMediationControlInstructions,
+  chatAIOrchestrator,
+  detectValidationSeeking,
+} from '../../../src/services/chat-ai-orchestrator.service';
 import { chatEventsService } from '../../../src/services/chat-events.service';
 import { aiStreamService } from '../../../src/services/ai-stream.service';
 import { chatMetricsService } from '../../../src/services/chat-metrics.service';
@@ -118,6 +130,7 @@ describe('ChatAIOrchestrator prompt 選擇', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    assertSharedMessagingAllowedMock.mockResolvedValue(undefined);
     prisma.chatParticipant.findFirst.mockImplementation(async (args: { where?: { role_in_room?: string } }) => (
       args?.where?.role_in_room === 'aiMediator' ? { id: 'ai-1' } : null
     ));
@@ -292,9 +305,54 @@ describe('ChatAIOrchestrator prompt 選擇', () => {
     expect(resolveSharedMediationMock).toHaveBeenCalledWith({
       roomId: 'room-shared-context',
       maxMessages: 30,
-      includePrivateControls: true,
     });
     expect(prisma.chatMessage.findMany).not.toHaveBeenCalled();
+  });
+
+  it('durable safety pause 在 shared context/provider 之前 fail closed', async () => {
+    assertSharedMessagingAllowedMock.mockRejectedValueOnce(
+      Object.assign(new Error('shared paused'), { code: 'CASE_NOT_EDITABLE' }),
+    );
+    const lockDone = new Promise<void>((resolve) => { lockState.resolve = resolve; });
+
+    chatAIOrchestrator.onUserMessage(
+      {
+        roomId: 'room-paused',
+        roomStatus: 'group_active',
+        historyVisibilityMode: 'share_from_join_time',
+      },
+      { id: 'p-a', role_in_room: 'roleA', is_active: true } as any,
+      { id: 'm-public', content: '共同內容', visibility_scope: 'all' },
+    );
+    await lockDone;
+
+    expect(resolveSharedMediationMock).not.toHaveBeenCalled();
+    expect(aiStreamService.createStream).not.toHaveBeenCalled();
+    expect(generateTextStreamMock).not.toHaveBeenCalled();
+  });
+
+  it('private safety 在 context claim 期間啟動時不開 shared provider', async () => {
+    assertSharedMessagingAllowedMock
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(
+        Object.assign(new Error('shared paused'), { code: 'CASE_NOT_EDITABLE' }),
+      );
+    const lockDone = new Promise<void>((resolve) => { lockState.resolve = resolve; });
+
+    chatAIOrchestrator.onUserMessage(
+      {
+        roomId: 'room-paused-after-claim',
+        roomStatus: 'group_active',
+        historyVisibilityMode: 'share_from_join_time',
+      },
+      { id: 'p-a', role_in_room: 'roleA', is_active: true } as any,
+      { id: 'm-public', content: '共同內容', visibility_scope: 'all' },
+    );
+    await lockDone;
+
+    expect(resolveSharedMediationMock).toHaveBeenCalledTimes(1);
+    expect(aiStreamService.createStream).not.toHaveBeenCalled();
+    expect(generateTextStreamMock).not.toHaveBeenCalled();
   });
 
   it('private message 不會讀 context、建立 stream 或產生 room-wide AI reply', async () => {
@@ -350,5 +408,22 @@ describe('ChatAIOrchestrator prompt 選擇', () => {
     const prompt = generateTextStreamMock.mock.calls[0][0] as string;
     expect(prompt).toContain('共同內容');
     expect(prompt).not.toContain('PRIVATE_CANARY_DO_NOT_ECHO');
+  });
+});
+
+describe('buildMediationControlInstructions', () => {
+  it('只輸出 bounded process instructions，不帶 owner、來源或原因', () => {
+    const result = buildMediationControlInstructions({
+      pace: 'slower',
+      ask_permission_before_depth: true,
+      offer_pause: true,
+      question_style: 'gentle',
+      max_questions: 1,
+    });
+
+    expect(result).toContain('本輪最多提出 1 個問題');
+    expect(result).toContain('深入前先詢問雙方是否願意繼續');
+    expect(result).toContain('不得改變事實、可信度、責任');
+    expect(result).not.toMatch(/participant|owner|roleA|roleB|創傷|診斷/);
   });
 });

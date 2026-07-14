@@ -1,4 +1,4 @@
-import type { AuthResponse, ClaimSessionResponse, LoginDto, RegisterDto, VerificationType } from '@emorapy/contracts/auth';
+import type { AuthResponse, ClaimSessionResponse, LoginDto, RegisterDto, RegistrationVerificationResult, VerificationCodeDeliveryResult, VerificationType } from '@emorapy/contracts/auth';
 import type { Case, QuickCaseDto } from '@emorapy/contracts/case';
 import type { Session } from '@emorapy/contracts/session';
 export interface HttpResponse<T> {
@@ -34,8 +34,9 @@ export declare function createAuthApi(http: M1HttpClient): {
     login(input: LoginDto): Promise<AuthResponse>;
     register(input: RegisterDto): Promise<AuthResponse>;
     claimSession(sessionId: string): Promise<ClaimSessionResponse>;
-    sendVerificationCode(email: string, type: VerificationType): Promise<void>;
-    verifyEmail(email: string, code: string, type?: VerificationType): Promise<boolean>;
+    sendVerificationCode(email: string, type: VerificationType): Promise<VerificationCodeDeliveryResult>;
+    verifyRegistrationCode(email: string, code: string): Promise<RegistrationVerificationResult>;
+    verifyEmail(email: string, code: string): Promise<boolean>;
     resetPassword(email: string): Promise<void>;
     confirmResetPassword(email: string, code: string, newPassword: string): Promise<void>;
 };
@@ -50,8 +51,9 @@ export declare function createM1ApiClient(http: M1HttpClient): {
         login(input: LoginDto): Promise<AuthResponse>;
         register(input: RegisterDto): Promise<AuthResponse>;
         claimSession(sessionId: string): Promise<ClaimSessionResponse>;
-        sendVerificationCode(email: string, type: VerificationType): Promise<void>;
-        verifyEmail(email: string, code: string, type?: VerificationType): Promise<boolean>;
+        sendVerificationCode(email: string, type: VerificationType): Promise<VerificationCodeDeliveryResult>;
+        verifyRegistrationCode(email: string, code: string): Promise<RegistrationVerificationResult>;
+        verifyEmail(email: string, code: string): Promise<boolean>;
         resetPassword(email: string): Promise<void>;
         confirmResetPassword(email: string, code: string, newPassword: string): Promise<void>;
     };

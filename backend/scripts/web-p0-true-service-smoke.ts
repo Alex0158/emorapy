@@ -9,6 +9,11 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { PrismaClient } from '../src/types/prisma-client';
+import { redactLogInfo, redactSensitiveText } from '../src/utils/log-redaction';
+import {
+  buildSmokeAccountHygieneReport,
+  collectSmokeAccountCandidates,
+} from '../src/utils/smoke-account-hygiene';
 
 try {
   require('dotenv').config();
@@ -40,10 +45,12 @@ const runMutatingSmoke = process.env.RUN_WEB_P0_TRUE_SERVICE_SMOKE === 'true';
 const allowRemoteDb = process.env.WEB_P0_SMOKE_ALLOW_REMOTE_DB === 'true';
 const cleanupCreatedUsers = process.env.WEB_P0_SMOKE_DISABLE_CREATED_USERS !== 'false';
 const reportBaseDir = process.env.INIT_CWD || process.cwd();
+const smtpSinkApiUrl = (process.env.SMTP_SINK_API_URL || '').replace(/\/$/, '');
 
 const prisma = new PrismaClient();
 const steps: StepResult[] = [];
 const createdUserIds = new Set<string>();
+const createdUserEmails = new Set<string>();
 
 function fail(message: string): never {
   throw new Error(message);
@@ -55,6 +62,27 @@ function assert(condition: unknown, message: string): asserts condition {
 
 function isObject(value: unknown): value is JsonRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function cloneForRedaction(value: unknown): unknown {
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch {
+    return String(value);
+  }
+}
+
+export function safeErrorMessage(error: unknown): string {
+  return redactSensitiveText(error instanceof Error ? error.message : String(error));
+}
+
+export function formatSafeResponseForError(
+  result: Pick<RequestResult, 'body' | 'text'>
+): string {
+  const source = result.body === undefined ? result.text : result.body;
+  const redacted = redactLogInfo({ body: cloneForRedaction(source) }).body;
+  const serialized = typeof redacted === 'string' ? redacted : JSON.stringify(redacted);
+  return redactSensitiveText(serialized || '[empty response]').slice(0, 1000);
 }
 
 function readPath(value: unknown, dottedPath: string): unknown {
@@ -141,7 +169,7 @@ async function recordStep<T>(name: string, fn: () => Promise<T>): Promise<T> {
     steps.push({
       name,
       ok: false,
-      details: { error: error instanceof Error ? error.message : String(error) },
+      details: { error: safeErrorMessage(error) },
     });
     throw error;
   }
@@ -150,8 +178,52 @@ async function recordStep<T>(name: string, fn: () => Promise<T>): Promise<T> {
 function expectStatus(result: RequestResult, expected: number | number[], label: string): void {
   const allowed = Array.isArray(expected) ? expected : [expected];
   if (!allowed.includes(result.status)) {
-    fail(`${label}: expected HTTP ${allowed.join('/')}, got ${result.status}; body=${result.text.slice(0, 1000)}`);
+    fail(
+      `${label}: expected HTTP ${allowed.join('/')}, got ${result.status}; body=${formatSafeResponseForError(result)}`
+    );
   }
+}
+
+export type SmokeLifecycleDependencies = {
+  run: () => Promise<void>;
+  cleanup: () => Promise<void>;
+  verifyHygiene: () => Promise<void>;
+  writeReport: (status: 'passed' | 'failed', error?: unknown) => Promise<void>;
+};
+
+function appendLifecycleFailure(
+  current: Error | undefined,
+  phase: string,
+  error: unknown
+): Error {
+  const message = `${phase}: ${safeErrorMessage(error)}`;
+  return new Error(current ? `${current.message}; ${message}` : message);
+}
+
+export async function runSmokeLifecycle(
+  dependencies: SmokeLifecycleDependencies
+): Promise<void> {
+  let failure: Error | undefined;
+  const runPhase = async (phase: string, action: () => Promise<void>) => {
+    try {
+      await action();
+    } catch (error) {
+      failure = appendLifecycleFailure(failure, phase, error);
+    }
+  };
+
+  await runPhase('smoke execution', dependencies.run);
+  await runPhase('cleanup', dependencies.cleanup);
+  await runPhase('post-run hygiene', dependencies.verifyHygiene);
+
+  const status = failure ? 'failed' : 'passed';
+  try {
+    await dependencies.writeReport(status, failure);
+  } catch (error) {
+    failure = appendLifecycleFailure(failure, 'report write', error);
+  }
+
+  if (failure) throw failure;
 }
 
 function getDatabaseHost(databaseUrl: string): string {
@@ -177,6 +249,12 @@ export function validateSmokeSafetyEnv(envSource: NodeJS.ProcessEnv = process.en
   if (!envSource.WEB_P0_SMOKE_REPORT_PATH) {
     fail('WEB_P0_SMOKE_REPORT_PATH is required so the mutating smoke leaves a release evidence artifact');
   }
+  if (!envSource.SMTP_SINK_API_URL) {
+    fail('SMTP_SINK_API_URL is required; auth smoke must verify delivered OTP without reading the database');
+  }
+  if (envSource.WEB_P0_SMOKE_DISABLE_CREATED_USERS === 'false') {
+    fail('WEB_P0_SMOKE_DISABLE_CREATED_USERS=false is forbidden because cleanup is a pass condition');
+  }
   if (!isLocalDatabaseUrl(envSource.DATABASE_URL) && envSource.WEB_P0_SMOKE_ALLOW_REMOTE_DB !== 'true') {
     fail('WEB_P0_SMOKE_ALLOW_REMOTE_DB=true is required for non-local DATABASE_URL because this smoke creates production-like test data');
   }
@@ -186,52 +264,78 @@ function bearer(token: string): Record<string, string> {
   return { Authorization: `Bearer ${token}` };
 }
 
-async function registerVerifiedUser(prefix: string): Promise<{ email: string; token: string; userId: string }> {
+async function registerVerifiedUser(
+  prefix: string
+): Promise<{ email: string; token: string; userId: string }> {
   const email = `web-p0-${prefix}-${Date.now()}-${randomUUID().slice(0, 8)}@example.com`;
   const password = 'Password123!';
-  const res = await requestJson('/auth/register', {
-    method: 'POST',
-    body: JSON.stringify({ email, password, nickname: `Web P0 ${prefix}` }),
-  });
-  expectStatus(res, 201, `register ${prefix}`);
-  const token = requireString(readPath(res.body, 'data.token'), `register ${prefix} token`);
-  const userId = requireString(readPath(res.body, 'data.user.id'), `register ${prefix} user id`);
-  createdUserIds.add(userId);
+  createdUserEmails.add(email);
 
-  const verification = await waitForRegisterVerification(email);
-  assert(verification?.code, `Missing verification code for ${email}`);
+  const sendCodeRes = await requestJson('/auth/send-verification-code', {
+    method: 'POST',
+    body: JSON.stringify({ email, type: 'register' }),
+  });
+  expectStatus(sendCodeRes, 200, `send registration code ${prefix}`);
+
+  const verificationCode = await waitForDeliveredRegistrationCode(email);
 
   const verifyRes = await requestJson('/auth/verify-email', {
     method: 'POST',
-    body: JSON.stringify({ email, code: verification.code, type: 'register' }),
+    body: JSON.stringify({ email, code: verificationCode, type: 'register' }),
   });
   expectStatus(verifyRes, 200, `verify ${prefix}`);
+  const registrationProof = requireString(
+    readPath(verifyRes.body, 'data.registration_proof'),
+    `verify ${prefix} registration proof`
+  );
 
-  const loginRes = await requestJson('/auth/login', {
+  const registerRes = await requestJson('/auth/register', {
     method: 'POST',
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({
+      email,
+      password,
+      nickname: `Web P0 ${prefix}`,
+      registration_proof: registrationProof,
+    }),
   });
-  expectStatus(loginRes, 200, `login ${prefix}`);
+  expectStatus(registerRes, 201, `register ${prefix}`);
+  const token = requireString(readPath(registerRes.body, 'data.token'), `register ${prefix} token`);
+  const userId = requireString(
+    readPath(registerRes.body, 'data.user.id'),
+    `register ${prefix} user id`
+  );
+  createdUserIds.add(userId);
+
   return {
     email,
-    token: requireString(readPath(loginRes.body, 'data.token'), `login ${prefix} token`),
+    token,
     userId,
   };
 }
 
-async function waitForRegisterVerification(email: string) {
+async function waitForDeliveredRegistrationCode(email: string): Promise<string> {
   const attempts = Number(process.env.WEB_P0_SMOKE_VERIFICATION_POLL_TIMES || 20);
-  const intervalMs = Number(process.env.WEB_P0_SMOKE_VERIFICATION_POLL_INTERVAL_MS || 100);
+  const intervalMs = Number(process.env.WEB_P0_SMOKE_VERIFICATION_POLL_INTERVAL_MS || 250);
+  const messageUrl = `${smtpSinkApiUrl}/messages/latest?to=${encodeURIComponent(email)}`;
 
   for (let i = 0; i < attempts; i += 1) {
-    const verification = await prisma.emailVerification.findFirst({
-      where: { email, type: 'register', used: false },
-      orderBy: { created_at: 'desc' },
-    });
-    if (verification) return verification;
+    const response = await fetch(messageUrl, { signal: AbortSignal.timeout(5_000) }).catch(
+      () => null
+    );
+    if (response?.ok) {
+      const payload = (await response.json().catch(() => null)) as {
+        verificationCode?: unknown;
+      } | null;
+      if (
+        typeof payload?.verificationCode === 'string' &&
+        /^\d{6}$/.test(payload.verificationCode)
+      ) {
+        return payload.verificationCode;
+      }
+    }
     await sleep(intervalMs);
   }
-  return null;
+  fail('Registration OTP was not delivered to the configured SMTP sink');
 }
 
 async function pollCaseJudgment(caseId: string, headers: Record<string, string>, label: string): Promise<JsonRecord> {
@@ -252,20 +356,48 @@ async function pollCaseJudgment(caseId: string, headers: Record<string, string>,
 }
 
 async function cleanup(): Promise<void> {
-  if (!cleanupCreatedUsers || createdUserIds.size === 0) return;
+  if (!cleanupCreatedUsers) {
+    fail('Web P0 smoke user cleanup is disabled');
+  }
+  if (createdUserIds.size === 0 && createdUserEmails.size === 0) return;
+  const userIds = Array.from(createdUserIds);
+  const userEmails = Array.from(createdUserEmails);
   await prisma.user.updateMany({
     where: {
-      id: { in: Array.from(createdUserIds) },
       email: { startsWith: 'web-p0-', endsWith: '@example.com', mode: 'insensitive' },
+      OR: [
+        { id: { in: userIds } },
+        { email: { in: userEmails, mode: 'insensitive' } },
+      ],
     },
     data: { is_active: false },
-  }).catch((error) => {
-    console.warn('[web-p0-smoke] cleanup failed', error instanceof Error ? error.message : String(error));
   });
+
+  const remainingActiveUsers = await prisma.user.count({
+    where: {
+      is_active: true,
+      email: { startsWith: 'web-p0-', endsWith: '@example.com', mode: 'insensitive' },
+      OR: [
+        { id: { in: userIds } },
+        { email: { in: userEmails, mode: 'insensitive' } },
+      ],
+    },
+  });
+  assert(remainingActiveUsers === 0, 'Web P0 smoke user cleanup left active accounts');
+}
+
+async function verifyPostRunSmokeAccountHygiene(): Promise<void> {
+  const report = buildSmokeAccountHygieneReport(
+    await collectSmokeAccountCandidates(prisma)
+  );
+  assert(
+    report.ok,
+    `Post-run smoke-account hygiene found ${report.activeFindingCount} active synthetic account(s)`
+  );
 }
 
 async function writeReport(status: 'passed' | 'failed', error?: unknown): Promise<void> {
-  if (!reportPath) return;
+  if (!reportPath) fail('WEB_P0_SMOKE_REPORT_PATH is required before report write');
   const resolvedReportPath = path.isAbsolute(reportPath) ? reportPath : path.resolve(reportBaseDir, reportPath);
   const report = {
     smoke: 'web-p0-true-service',
@@ -276,9 +408,10 @@ async function writeReport(status: 'passed' | 'failed', error?: unknown): Promis
     origin,
     ai_mock: process.env.AI_MOCK === 'true',
     database_url_present: Boolean(process.env.DATABASE_URL),
+    smtp_sink_configured: Boolean(smtpSinkApiUrl),
     cleanup_created_users: cleanupCreatedUsers,
     steps,
-    error: error instanceof Error ? error.message : error ? String(error) : null,
+    error: error ? safeErrorMessage(error) : null,
   };
   await mkdir(path.dirname(resolvedReportPath), { recursive: true });
   await writeFile(resolvedReportPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
@@ -352,16 +485,15 @@ async function runSmoke(): Promise<void> {
       headers: bearer(userA.token),
       body: JSON.stringify({
         pairing_id: pairingId,
-        mode: 'collaborative',
+        mode: 'remote',
         title: 'Web P0 true-service formal case',
         plaintiff_statement:
           'Web P0 true-service formal smoke: I need a structured analysis because repeated schedule changes made me feel unimportant and anxious.',
-        defendant_statement:
-          'I want to acknowledge the impact, explain that work pressure was real, and find a calmer concrete way to repair the relationship.',
       }),
     });
     expectStatus(caseRes, 201, 'formal case create');
     const caseId = requireString(readPath(caseRes.body, 'data.case.id'), 'formal case id');
+    assert(readPath(caseRes.body, 'data.case.status') === 'draft', 'formal remote case was not created as a draft');
 
     const listRes = await requestJson('/cases?page=1&page_size=10&sort_by=created_at&sort_order=desc', {
       headers: bearer(userA.token),
@@ -384,6 +516,17 @@ async function runSmoke(): Promise<void> {
     const evidences = readPath(uploadRes.body, 'data.evidences');
     assert(Array.isArray(evidences) && evidences.length >= 1, 'formal evidence upload returned no evidences');
 
+    const responseRes = await requestJson(`/cases/${caseId}`, {
+      method: 'PUT',
+      headers: bearer(userB.token),
+      body: JSON.stringify({
+        defendant_statement:
+          'I want to acknowledge the impact, explain that work pressure was real, and find a calmer concrete way to repair the relationship.',
+      }),
+    });
+    expectStatus(responseRes, 200, 'formal counterparty response');
+    assert(readPath(responseRes.body, 'data.case.status') === 'submitted', 'formal remote case was not submitted after the counterparty response');
+
     const judgment = await pollCaseJudgment(caseId, bearer(userA.token), 'formal case');
     const judgmentId = requireString(judgment.id, 'formal judgment id');
     const judgmentDetailRes = await requestJson(`/judgments/${judgmentId}`, { headers: bearer(userA.token) });
@@ -391,44 +534,149 @@ async function runSmoke(): Promise<void> {
     return { pairingId, caseId, judgmentId };
   });
 
-  const chat = await recordStep('chat room/message/request analysis/judgment status', async () => {
-    const roomRes = await requestJson('/chat/rooms', {
-      method: 'POST',
-      headers: bearer(userA.token),
-      body: JSON.stringify({ history_visibility_mode: 'share_summary_only' }),
-    });
-    expectStatus(roomRes, 200, 'chat room create');
-    const roomId = requireString(readPath(roomRes.body, 'data.room.id'), 'chat room id');
+  const chat = await recordStep(
+    'chat invite/exact consent/request analysis/judgment status',
+    async () => {
+      const roomRes = await requestJson('/chat/rooms', {
+        method: 'POST',
+        headers: bearer(userA.token),
+        body: JSON.stringify({ history_visibility_mode: 'share_summary_only' }),
+      });
+      expectStatus(roomRes, 200, 'chat room create');
+      const roomId = requireString(readPath(roomRes.body, 'data.room.id'), 'chat room id');
 
-    const messageRes = await requestJson(`/chat/rooms/${roomId}/messages`, {
-      method: 'POST',
-      headers: bearer(userA.token),
-      body: JSON.stringify({
-        content:
-          'Web P0 true-service chat smoke: I want an analysis of a repeated communication rupture where I feel unseen but still want repair.',
-        visibility_scope: 'all',
-      }),
-    });
-    expectStatus(messageRes, 200, 'chat send message');
-    const messageId = requireString(readPath(messageRes.body, 'data.message.id'), 'chat message id');
+      const inviteRes = await requestJson(`/chat/rooms/${roomId}/invites`, {
+        method: 'POST',
+        headers: bearer(userA.token),
+        body: '{}',
+      });
+      expectStatus(inviteRes, 200, 'chat invite create');
+      const chatInviteCode = requireString(
+        readPath(inviteRes.body, 'data.invite.invite_code'),
+        'chat invite code'
+      );
 
-    const analysisRes = await requestJson(`/chat/rooms/${roomId}/request-judgment`, {
-      method: 'POST',
-      headers: bearer(userA.token),
-      body: JSON.stringify({ included_message_ids: [messageId] }),
-    });
-    expectStatus(analysisRes, 200, 'chat request analysis');
-    const caseId = requireString(readPath(analysisRes.body, 'data.caseId'), 'chat linked case id');
-    const judgmentId = requireString(readPath(analysisRes.body, 'data.judgmentId'), 'chat judgment id');
+      const acceptInviteRes = await requestJson(
+        `/chat/invites/${encodeURIComponent(chatInviteCode)}/accept`,
+        {
+          method: 'POST',
+          headers: bearer(userB.token),
+          body: '{}',
+        }
+      );
+      expectStatus(acceptInviteRes, 200, 'chat invite accept');
+      assert(
+        readPath(acceptInviteRes.body, 'data.room.status') === 'group_active',
+        'chat room did not become group_active'
+      );
 
-    const statusRes = await requestJson(`/chat/rooms/${roomId}/judgment-status`, { headers: bearer(userA.token) });
-    expectStatus(statusRes, 200, 'chat judgment status');
-    assert(readPath(statusRes.body, 'data.roomStatus') === 'judgment_completed', 'chat judgment status was not completed');
+      const messageRes = await requestJson(`/chat/rooms/${roomId}/messages`, {
+        method: 'POST',
+        headers: bearer(userA.token),
+        body: JSON.stringify({
+          content:
+            'Web P0 true-service chat smoke: I want an analysis of a repeated communication rupture where I feel unseen but still want repair.',
+          visibility_scope: 'all',
+        }),
+      });
+      expectStatus(messageRes, 200, 'chat send message');
+      const messageId = requireString(
+        readPath(messageRes.body, 'data.message.id'),
+        'chat message id'
+      );
 
-    const judgmentDetailRes = await requestJson(`/judgments/${judgmentId}`, { headers: bearer(userA.token) });
-    expectStatus(judgmentDetailRes, 200, 'chat judgment detail');
-    return { roomId, caseId, judgmentId };
-  });
+      const createAnalysisRes = await requestJson(`/chat/rooms/${roomId}/analysis-requests`, {
+        method: 'POST',
+        headers: bearer(userA.token),
+        body: JSON.stringify({
+          selected_message_ids: [messageId],
+          selected_capsule_ids: [],
+        }),
+      });
+      expectStatus(createAnalysisRes, 201, 'chat exact analysis request create');
+      const analysisRequestId = requireString(
+        readPath(createAnalysisRes.body, 'data.analysis_request.id'),
+        'chat exact analysis request id'
+      );
+      const selectionHash = requireString(
+        readPath(createAnalysisRes.body, 'data.analysis_request.selection_hash'),
+        'chat exact analysis selection hash'
+      );
+      const policyVersion = requireString(
+        readPath(createAnalysisRes.body, 'data.analysis_request.policy_version'),
+        'chat context policy version'
+      );
+      const approvalBody = JSON.stringify({
+        selection_hash: selectionHash,
+        policy_version: policyVersion,
+        decision: 'approved',
+      });
+
+      const approvalARes = await requestJson(
+        `/chat/rooms/${roomId}/analysis-requests/${analysisRequestId}/decision`,
+        {
+          method: 'POST',
+          headers: bearer(userA.token),
+          body: approvalBody,
+        }
+      );
+      expectStatus(approvalARes, 201, 'chat exact analysis approval A');
+
+      const approvalBRes = await requestJson(
+        `/chat/rooms/${roomId}/analysis-requests/${analysisRequestId}/decision`,
+        {
+          method: 'POST',
+          headers: bearer(userB.token),
+          body: approvalBody,
+        }
+      );
+      expectStatus(approvalBRes, 201, 'chat exact analysis approval B');
+
+      const submitAnalysisRes = await requestJson(
+        `/chat/rooms/${roomId}/analysis-requests/${analysisRequestId}/submit`,
+        {
+          method: 'POST',
+          headers: bearer(userA.token),
+          body: '{}',
+        }
+      );
+      expectStatus(submitAnalysisRes, 200, 'chat exact analysis request submit');
+      assert(
+        readPath(submitAnalysisRes.body, 'data.analysis_request.status') === 'submitted',
+        'chat exact analysis request was not submitted'
+      );
+
+      const analysisRes = await requestJson(`/chat/rooms/${roomId}/request-judgment`, {
+        method: 'POST',
+        headers: bearer(userA.token),
+        body: JSON.stringify({ analysis_request_id: analysisRequestId }),
+      });
+      expectStatus(analysisRes, 200, 'chat request analysis');
+      const caseId = requireString(
+        readPath(analysisRes.body, 'data.caseId'),
+        'chat linked case id'
+      );
+      const judgmentId = requireString(
+        readPath(analysisRes.body, 'data.judgmentId'),
+        'chat judgment id'
+      );
+
+      const statusRes = await requestJson(`/chat/rooms/${roomId}/judgment-status`, {
+        headers: bearer(userA.token),
+      });
+      expectStatus(statusRes, 200, 'chat judgment status');
+      assert(
+        readPath(statusRes.body, 'data.roomStatus') === 'judgment_completed',
+        'chat judgment status was not completed'
+      );
+
+      const judgmentDetailRes = await requestJson(`/judgments/${judgmentId}`, {
+        headers: bearer(userA.token),
+      });
+      expectStatus(judgmentDetailRes, 200, 'chat judgment detail');
+      return { roomId, caseId, judgmentId };
+    }
+  );
 
   await recordStep('db ownership and artifact sanity', async () => {
     const [quickCase, formalCase, chatLink] = await Promise.all([
@@ -447,22 +695,28 @@ async function runSmoke(): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  let status: 'passed' | 'failed' = 'failed';
-  let caught: unknown;
+  let passed = false;
   try {
-    await runSmoke();
-    status = 'passed';
-    console.log('[web-p0-smoke] PASS');
+    await runSmokeLifecycle({
+      run: runSmoke,
+      cleanup: () => recordStep('cleanup created smoke users', cleanup),
+      verifyHygiene: () =>
+        recordStep('post-run smoke-account hygiene', verifyPostRunSmokeAccountHygiene),
+      writeReport,
+    });
+    passed = true;
   } catch (error) {
-    caught = error;
-    console.error('[web-p0-smoke] FAIL:', error instanceof Error ? error.message : String(error));
+    console.error('[web-p0-smoke] FAIL:', safeErrorMessage(error));
     process.exitCode = 1;
   } finally {
-    await cleanup();
-    await writeReport(status, caught).catch((error) => {
-      console.warn('[web-p0-smoke] failed to write report', error instanceof Error ? error.message : String(error));
-    });
-    await prisma.$disconnect();
+    try {
+      await prisma.$disconnect();
+    } catch (error) {
+      console.error('[web-p0-smoke] disconnect failed:', safeErrorMessage(error));
+      process.exitCode = 1;
+      passed = false;
+    }
+    if (passed) console.log('[web-p0-smoke] PASS');
   }
 }
 

@@ -16,11 +16,50 @@ import {
   createCaseSchema,
   uuidParamSchema,
   uuidEvidenceParamSchema,
+  registerSchema,
+  sendVerificationCodeSchema,
+  verifyEmailSchema,
 } from '../../../src/utils/validation';
 
 const validUUID = '550e8400-e29b-41d4-a716-446655440000';
 
 describe('Validation Schemas', () => {
+  describe('secure auth schemas', () => {
+    const proof = `rp1_${'a'.repeat(43)}`;
+
+    it('register 必須攜帶格式正確的 one-time proof', () => {
+      expect(registerSchema.body!.validate({
+        email: 'user@example.com',
+        password: 'Password1',
+        registration_proof: proof,
+      }).error).toBeUndefined();
+      expect(registerSchema.body!.validate({
+        email: 'user@example.com',
+        password: 'Password1',
+      }).error).toBeDefined();
+      const invalidProofResult = registerSchema.body!.validate({
+        email: 'user@example.com',
+        password: 'Password1',
+        registration_proof: 'plaintext-code',
+      });
+      expect(invalidProofResult.error).toBeDefined();
+      expect(invalidProofResult.error?.message).toContain('註冊驗證格式無效');
+      expect(invalidProofResult.error?.message).not.toContain('plaintext-code');
+    });
+
+    it('通用驗證 endpoint 不接受 reset_password purpose', () => {
+      expect(sendVerificationCodeSchema.body!.validate({
+        email: 'user@example.com',
+        type: 'reset_password',
+      }).error).toBeDefined();
+      expect(verifyEmailSchema.body!.validate({
+        email: 'user@example.com',
+        code: '123456',
+        type: 'reset_password',
+      }).error).toBeDefined();
+    });
+  });
+
   describe('adminAIStreamDetailSchema', () => {
     it('只接受明確 boolean include_sensitive query', () => {
       expect(adminAIStreamDetailSchema.query!.validate({ include_sensitive: 'true' }).error)

@@ -10,6 +10,7 @@ import { isRoomWideChatMessage } from '../services/chat-message-audience-policy'
 import { chatService } from '../services/chat.service';
 import { getChatActorFromRequest } from './chat-route-actor';
 import { ChatSseEntitlementHandshake } from './chat-sse-entitlement-handshake';
+import { updateSharedAdaptationConsentSchema } from '../utils/chat-context-validation';
 
 const router = Router();
 
@@ -35,6 +36,7 @@ const sendChannelMessageSchema = {
 const updatePrivateContextPreferenceSchema = {
   body: Joi.object({
     mode: Joi.string().valid('private_only', 'shared_process_controls').required(),
+    policy_version: Joi.string().max(50).optional(),
   }),
 };
 
@@ -69,12 +71,7 @@ router.get(
       );
       res.json({
         success: true,
-        data: {
-          preference: {
-            participant_id: preference.participantId,
-            mode: preference.mode,
-          },
-        },
+        data: { preference },
       });
     } catch (error) {
       next(error);
@@ -94,16 +91,33 @@ router.put(
         req.params.roomId,
         getChatActorFromRequest(req),
         req.body.mode,
+        req.body.policy_version,
       );
       res.json({
         success: true,
-        data: {
-          preference: {
-            participant_id: preference.participantId,
-            mode: preference.mode,
-          },
-        },
+        data: { preference },
       });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+router.put(
+  '/rooms/:roomId/adaptation-consent',
+  generalLimiter,
+  optionalAuthenticate,
+  validate(roomIdParamsSchema),
+  validate(updateSharedAdaptationConsentSchema),
+  async (req, res, next) => {
+    try {
+      const preference = await chatContextPreferenceService.updateAdaptationConsent(
+        req.params.roomId,
+        getChatActorFromRequest(req),
+        req.body.decision,
+        req.body.policy_version,
+      );
+      res.json({ success: true, data: { preference } });
     } catch (error) {
       next(error);
     }

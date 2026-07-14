@@ -1,5 +1,6 @@
 import winston from 'winston';
 import { env } from './env';
+import { redactLogInfo } from '../utils/log-redaction';
 
 const isJestRuntime = process.env.NODE_ENV === 'test';
 const fileTransports = isJestRuntime
@@ -18,12 +19,15 @@ const fileTransports = isJestRuntime
       }),
     ];
 
+const redactSensitiveMetadata = () => winston.format((info) => redactLogInfo(info))();
+
 const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || (env.NODE_ENV === 'production' ? 'info' : 'debug'),
   format: winston.format.combine(
     winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
     winston.format.errors({ stack: true }),
     winston.format.splat(),
+    redactSensitiveMetadata(),
     winston.format.json()
   ),
   defaultMeta: {
@@ -41,9 +45,13 @@ logger.add(new winston.transports.Console({
         winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
         winston.format.errors({ stack: true }),
         winston.format.splat(),
+        redactSensitiveMetadata(),
         winston.format.json()
       )
     : winston.format.combine(
+        winston.format.errors({ stack: true }),
+        winston.format.splat(),
+        redactSensitiveMetadata(),
         winston.format.colorize(),
         winston.format.simple()
       ),

@@ -52,7 +52,7 @@
 2. Shared Mediator prompt 只能讀 shared channel、本人批准的 shared capsule 與 strict mediation controls；private text、reason、topic、diagnosis 或 source identity 不得進 shared prompt。
 3. `summary_only` 不可只用 visibility label 冒充摘要；正式共享摘要必須是與 private source 分離、本人可預覽編輯及批准 exact version 的 Context Capsule。
 4. Chat-to-Judgment 若包含 B material，必須由 B 本人批准 exact selection hash；caller boolean、A 方 toggle 或過期/舊版本 consent 不成立。
-5. Formal Judgment 的 evidence/fact/responsibility core 在 private context on/off 下必須取得相同 typed input；personalization 只能在不可修改 structured fields 的 delivery 階段發生。
+5. Formal Judgment 的 evidence/fact/responsibility core 在 private context on/off 下必須取得相同 typed input；雙方可見的 Universal Shared Renderer 不得接收 hidden/private personalization controls，同一 Decision Core 必須產生相同共同輸出。若未來新增個人化，只能落在 owner-only Personal Guidance 獨立 surface，不得改寫 structured fields、共同文案或 shared archive。
 6. shared/joint Repair 不得接收 private profile、未批准 diagnostic context 或 legacy mixed-context Judgment；solo-private Repair 的 context 與 output 必須只屬本人。
 7. ProfileSnapshot 不得保存 raw narrative fallback；既有 snapshot 需有 read-only inventory、清理/保留決策及 migration evidence。
 8. Safety lane 可暫停或收窄 shared flow，但 shared notice 不得洩露觸發方、事件、診斷或責任暗示。

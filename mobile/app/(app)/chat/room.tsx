@@ -31,8 +31,11 @@ import { ChatConversationLaneSelector } from '@/src/features/m3/ChatConversation
 import { useChatConversationLane } from '@/src/features/m3/useChatConversationLane';
 import { ChatAnalysisConsentPanel } from '@/src/features/m3/ChatAnalysisConsentPanel';
 import { ChatContextCapsuleComposer } from '@/src/features/m3/ChatContextCapsuleComposer';
+import { ChatContextUsageReceipts } from '@/src/features/m3/ChatContextUsageReceipts';
+import { ChatSharedSafetyStatusNotice } from '@/src/features/m3/ChatSharedSafetyStatusNotice';
 import { ChatSharedContextManager } from '@/src/features/m3/ChatSharedContextManager';
 import { useChatAnalysisConsent } from '@/src/features/m3/useChatAnalysisConsent';
+import { useChatRoomSafetyStatus } from '@/src/features/m3/useChatRoomSafetyStatus';
 import { chatQueryKeys } from '@/src/features/m3/chatQueryKeys';
 import { useIdentityQueryScope } from '@/src/providers/identityQueryScope';
 
@@ -200,6 +203,10 @@ export default function ChatRoomScreen() {
     queryFn: () => m3Api.chat.getPrivateContextPreference(roomId as string),
     enabled: mounted && identityQueriesEnabled && hasActor && Boolean(roomId),
   });
+  const sharedSafety = useChatRoomSafetyStatus({
+    enabled: mounted && identityQueriesEnabled && hasActor,
+    roomId,
+  });
 
   const judgmentStatusQuery = useQuery({
     queryKey: chatQueryKeys.judgmentStatus(identityEpoch, roomId),
@@ -220,6 +227,9 @@ export default function ChatRoomScreen() {
           setStreamStatus('event');
           void queryClient.invalidateQueries({ queryKey: chatQueryKeys.room(identityEpoch, roomId) });
           void queryClient.invalidateQueries({ queryKey: chatQueryKeys.messages(identityEpoch, roomId) });
+          void queryClient.invalidateQueries({ queryKey: chatQueryKeys.contextPreference(identityEpoch, roomId) });
+          void queryClient.invalidateQueries({ queryKey: chatQueryKeys.contextUsageReceipts(identityEpoch, roomId) });
+          void queryClient.invalidateQueries({ queryKey: chatQueryKeys.safetyStatus(identityEpoch, roomId) });
           void queryClient.invalidateQueries({ queryKey: chatQueryKeys.judgmentStatus(identityEpoch, roomId) });
         },
         onError: (error) => {
@@ -248,6 +258,8 @@ export default function ChatRoomScreen() {
       {
         onEvent: () => {
           void queryClient.invalidateQueries({ queryKey: chatQueryKeys.messages(identityEpoch, roomId) });
+          void queryClient.invalidateQueries({ queryKey: chatQueryKeys.contextUsageReceipts(identityEpoch, roomId) });
+          void queryClient.invalidateQueries({ queryKey: chatQueryKeys.safetyStatus(identityEpoch, roomId) });
         },
         onError: (error) => {
           if (!controller.signal.aborted) setStreamError(normalizeM3Error(error).message);
@@ -323,12 +335,36 @@ export default function ChatRoomScreen() {
       clearCompose();
       await queryClient.invalidateQueries({ queryKey: chatQueryKeys.messages(identityEpoch, roomId) });
     },
+    onSettled: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: chatQueryKeys.safetyStatus(identityEpoch, roomId),
+      });
+    },
   });
 
   const contextPreferenceMutation = useMutation({
-    mutationFn: (mode: PrivateContextUseMode) => (
-      m3Api.chat.updatePrivateContextPreference(roomId as string, { mode })
-    ),
+    mutationFn: (mode: PrivateContextUseMode) => {
+      const policyVersion = contextPreferenceQuery.data?.room_adaptation?.policy_version;
+      if (!policyVersion) throw new Error('Chat adaptation policy is unavailable');
+      return m3Api.chat.updatePrivateContextPreference(roomId as string, {
+        mode,
+        policy_version: policyVersion,
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: chatQueryKeys.contextPreference(identityEpoch, roomId) });
+    },
+  });
+
+  const adaptationConsentMutation = useMutation({
+    mutationFn: (decision: 'accepted' | 'declined') => {
+      const policyVersion = contextPreferenceQuery.data?.room_adaptation?.policy_version;
+      if (!policyVersion) throw new Error('Chat adaptation policy is unavailable');
+      return m3Api.chat.updateSharedAdaptationConsent(roomId as string, {
+        decision,
+        policy_version: policyVersion,
+      });
+    },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: chatQueryKeys.contextPreference(identityEpoch, roomId) });
     },
@@ -362,6 +398,27 @@ export default function ChatRoomScreen() {
     && message.message_type !== 'system_event'
   ));
   const sharedAvailable = hasActiveRoleB || hasSharedMessages;
+  const requiresSharedGovernance = (roomQuery.data?.participants?.filter(
+    (participant) => participant.is_active
+      && (participant.role_in_room === 'roleA' || participant.role_in_room === 'roleB'),
+  ).length ?? 0) >= 2;
+  const trustCheckpointRequired = (
+    requiresSharedGovernance
+    && contextPreferenceQuery.data?.adaptation_decision === 'not_set'
+  );
+  const contextGovernanceReady = Boolean(contextPreferenceQuery.data)
+    && !contextPreferenceQuery.isPending
+    && !contextPreferenceQuery.isError
+    && !contextPreferenceQuery.isFetching;
+  const sharedGovernanceBlocked = sharedAvailable && (
+    !contextGovernanceReady || trustCheckpointRequired
+  );
+  const mustExitSharedLane = sharedAvailable && (
+    !contextPreferenceQuery.data
+    || contextPreferenceQuery.isError
+    || trustCheckpointRequired
+  );
+  const formalActionsBlocked = sharedSafety.blocked || sharedGovernanceBlocked;
   const laneMessages = useMemo(
     () => messages.filter((message) => (
       message.channel_id
@@ -375,13 +432,26 @@ export default function ChatRoomScreen() {
 
   useEffect(() => {
     if (!roomId || !messagesQuery.isFetched || initializedLaneRoomIdRef.current === roomId) return;
+    if (sharedAvailable && !contextGovernanceReady) return;
     initializedLaneRoomIdRef.current = roomId;
-    setActiveLane(hasSharedMessages ? 'shared' : 'private');
-  }, [hasSharedMessages, messagesQuery.isFetched, roomId, setActiveLane]);
+    setActiveLane(hasSharedMessages && !sharedGovernanceBlocked ? 'shared' : 'private');
+  }, [
+    contextGovernanceReady,
+    hasSharedMessages,
+    messagesQuery.isFetched,
+    roomId,
+    setActiveLane,
+    sharedAvailable,
+    sharedGovernanceBlocked,
+  ]);
 
   useEffect(() => {
     if (!sharedAvailable && activeLane === 'shared') setActiveLane('private');
   }, [activeLane, setActiveLane, sharedAvailable]);
+
+  useEffect(() => {
+    if (mustExitSharedLane && activeLane === 'shared') setActiveLane('private');
+  }, [activeLane, mustExitSharedLane, setActiveLane]);
 
   const viewerParticipantId = privateChannel?.owner_participant_id ?? null;
   const viewerParticipant = roomQuery.data?.participants?.find(
@@ -508,13 +578,48 @@ export default function ChatRoomScreen() {
         </Panel>
       ) : null}
 
+      {trustCheckpointRequired ? (
+        <Panel title={t('chatRoom.trust.title')}>
+          <FeatureRow title={t('chatRoom.trust.shared.title')} detail={t('chatRoom.trust.shared.detail')} tone="teal" />
+          <FeatureRow title={t('chatRoom.trust.private.title')} detail={t('chatRoom.trust.private.detail')} tone="blue" />
+          <FeatureRow title={t('chatRoom.trust.formal.title')} detail={t('chatRoom.trust.formal.detail')} tone="amber" />
+          <FeatureRow title={t('chatRoom.trust.choice.title')} detail={t('chatRoom.trust.choice.detail')} tone="neutral" />
+          <ActionButton
+            label={t('chatRoom.trust.accept')}
+            loading={adaptationConsentMutation.isPending}
+            onPress={() => adaptationConsentMutation.mutate('accepted')}
+            testID="chat.room.trust.accepted"
+            tone="teal"
+          />
+          <ActionButton
+            label={t('chatRoom.trust.decline')}
+            disabled={adaptationConsentMutation.isPending}
+            onPress={() => adaptationConsentMutation.mutate('declined')}
+            testID="chat.room.trust.declined"
+            tone="neutral"
+            variant="outline"
+          />
+          {adaptationConsentMutation.error ? (
+            <FeatureRow
+              title={t('chatRoom.contextPreference.saveError')}
+              detail={t('chatRoom.contextPreference.saveError.detail')}
+              tone="coral"
+            />
+          ) : null}
+        </Panel>
+      ) : null}
+
       <Panel title={t('chatRoom.lane.panel')}>
         <ChatConversationLaneSelector
           activeLane={activeLane}
           sharedAvailable={sharedAvailable}
+          sharedBlockedByTrust={sharedGovernanceBlocked}
           sharedReadOnly={!hasActiveRoleB && hasSharedMessages}
           onLaneChange={setActiveLane}
         />
+        {activeLane === 'shared' ? (
+          <ChatSharedSafetyStatusNotice state={sharedSafety} />
+        ) : null}
         {activeLane === 'private' ? (
           <>
             <FeatureRow
@@ -522,26 +627,46 @@ export default function ChatRoomScreen() {
               detail={t('chatRoom.contextPreference.detail')}
               tone="blue"
             />
-            <ActionButton
-              label={t('chatRoom.contextPreference.privateOnly')}
-              disabled={contextPreferenceQuery.data?.mode === 'private_only'}
-              loading={contextPreferenceMutation.isPending}
-              onPress={() => contextPreferenceMutation.mutate('private_only')}
-              selected={contextPreferenceQuery.data?.mode === 'private_only'}
-              testID="chat.room.context-preference.private-only"
-              tone="blue"
-              variant={contextPreferenceQuery.data?.mode === 'private_only' ? 'filled' : 'outline'}
-            />
-            <ActionButton
-              label={t('chatRoom.contextPreference.processControls')}
-              disabled={contextPreferenceQuery.data?.mode === 'shared_process_controls'}
-              loading={contextPreferenceMutation.isPending}
-              onPress={() => contextPreferenceMutation.mutate('shared_process_controls')}
-              selected={contextPreferenceQuery.data?.mode === 'shared_process_controls'}
-              testID="chat.room.context-preference.process-controls"
-              tone="teal"
-              variant={contextPreferenceQuery.data?.mode === 'shared_process_controls' ? 'filled' : 'outline'}
-            />
+            {contextPreferenceQuery.isError ? (
+              <>
+                <FeatureRow
+                  title={t('chatRoom.contextPreference.loadError')}
+                  detail={t('chatRoom.contextPreference.loadError.detail')}
+                  tone="coral"
+                />
+                <ActionButton
+                  label={t('appError.retry')}
+                  loading={contextPreferenceQuery.isFetching}
+                  onPress={() => { void contextPreferenceQuery.refetch(); }}
+                  testID="chat.room.context-preference.retry"
+                  tone="blue"
+                  variant="outline"
+                />
+              </>
+            ) : contextPreferenceQuery.data ? (
+              <>
+                <ActionButton
+                  label={t('chatRoom.contextPreference.privateOnly')}
+                  disabled={contextPreferenceQuery.data.mode === 'private_only'}
+                  loading={contextPreferenceMutation.isPending}
+                  onPress={() => contextPreferenceMutation.mutate('private_only')}
+                  selected={contextPreferenceQuery.data.mode === 'private_only'}
+                  testID="chat.room.context-preference.private-only"
+                  tone="blue"
+                  variant={contextPreferenceQuery.data.mode === 'private_only' ? 'filled' : 'outline'}
+                />
+                <ActionButton
+                  label={t('chatRoom.contextPreference.processControls')}
+                  disabled={contextPreferenceQuery.data.mode === 'shared_process_controls'}
+                  loading={contextPreferenceMutation.isPending}
+                  onPress={() => contextPreferenceMutation.mutate('shared_process_controls')}
+                  selected={contextPreferenceQuery.data.mode === 'shared_process_controls'}
+                  testID="chat.room.context-preference.process-controls"
+                  tone="teal"
+                  variant={contextPreferenceQuery.data.mode === 'shared_process_controls' ? 'filled' : 'outline'}
+                />
+              </>
+            ) : null}
             {contextPreferenceMutation.error ? (
               <FeatureRow
                 title={t('chatRoom.contextPreference.saveError')}
@@ -551,11 +676,54 @@ export default function ChatRoomScreen() {
             ) : null}
           </>
         ) : (
-          <FeatureRow
-            title={t('chatRoom.contextPreference.sharedBoundaryTitle')}
-            detail={t('chatRoom.contextPreference.sharedBoundaryDetail')}
-            tone="teal"
-          />
+          <>
+            <FeatureRow
+              title={t('chatRoom.contextPreference.sharedBoundaryTitle')}
+              detail={t('chatRoom.contextPreference.sharedBoundaryDetail')}
+              tone="teal"
+            />
+            {(contextPreferenceQuery.data?.room_adaptation?.active_participant_count ?? 0) >= 2 ? (
+              <>
+                <FeatureRow
+                  title={contextPreferenceQuery.data?.room_adaptation?.enabled
+                    ? t('chatRoom.contextPreference.adaptationActive')
+                    : t('chatRoom.contextPreference.universalBaseline')}
+                  detail={t('chatRoom.contextPreference.adaptationProgress', {
+                    accepted: contextPreferenceQuery.data?.room_adaptation?.accepted_participant_count ?? 0,
+                    total: contextPreferenceQuery.data?.room_adaptation?.active_participant_count ?? 0,
+                  })}
+                  tone={contextPreferenceQuery.data?.room_adaptation?.enabled ? 'teal' : 'amber'}
+                />
+                <ActionButton
+                  label={t('chatRoom.contextPreference.acceptAdaptation')}
+                  disabled={contextPreferenceQuery.data?.adaptation_decision === 'accepted'}
+                  loading={adaptationConsentMutation.isPending}
+                  onPress={() => adaptationConsentMutation.mutate('accepted')}
+                  selected={contextPreferenceQuery.data?.adaptation_decision === 'accepted'}
+                  testID="chat.room.adaptation-consent.accepted"
+                  tone="teal"
+                  variant={contextPreferenceQuery.data?.adaptation_decision === 'accepted' ? 'filled' : 'outline'}
+                />
+                <ActionButton
+                  label={t('chatRoom.contextPreference.declineAdaptation')}
+                  disabled={contextPreferenceQuery.data?.adaptation_decision === 'declined'}
+                  loading={adaptationConsentMutation.isPending}
+                  onPress={() => adaptationConsentMutation.mutate('declined')}
+                  selected={contextPreferenceQuery.data?.adaptation_decision === 'declined'}
+                  testID="chat.room.adaptation-consent.declined"
+                  tone="neutral"
+                  variant={contextPreferenceQuery.data?.adaptation_decision === 'declined' ? 'filled' : 'outline'}
+                />
+                {adaptationConsentMutation.error ? (
+                  <FeatureRow
+                    title={t('chatRoom.contextPreference.saveError')}
+                    detail={t('chatRoom.contextPreference.saveError.detail')}
+                    tone="coral"
+                  />
+                ) : null}
+              </>
+            ) : null}
+          </>
         )}
       </Panel>
 
@@ -594,20 +762,45 @@ export default function ChatRoomScreen() {
           {viewerParticipantId ? (
             <ChatSharedContextManager
               capsules={analysisConsent.allCapsules}
+              formalActionsBlocked={formalActionsBlocked}
               roomId={roomId}
               viewerParticipantId={viewerParticipantId}
             />
           ) : null}
+          <ChatContextUsageReceipts
+            enabled={identityQueriesEnabled && hasActor}
+            roomId={roomId}
+          />
         </>
       ) : null}
 
       <Panel title={t('chatRoom.composePanel')}>
         <TextInput
           accessibilityLabel={t('chatRoom.compose.label')}
-          accessibilityHint={t(activeLane === 'private' ? 'chatRoom.lane.privateAudience' : 'chatRoom.lane.sharedAudience')}
+          accessibilityState={{
+            disabled: activeLane === 'shared' && (
+              sharedSafety.blocked || sharedGovernanceBlocked
+            ),
+          }}
+          accessibilityHint={t(activeLane === 'private'
+            ? 'chatRoom.lane.privateAudience'
+            : sharedGovernanceBlocked
+              ? 'chatRoom.lane.sharedTrustRequired'
+              : sharedSafety.blocked
+              ? 'chatRoom.safety.sharedComposerBlocked'
+              : 'chatRoom.lane.sharedAudience')}
+          editable={activeLane === 'private' || (
+            !sharedSafety.blocked && !sharedGovernanceBlocked
+          )}
           multiline
           onChangeText={setCompose}
-          placeholder={t(activeLane === 'private' ? 'chatRoom.lane.privatePlaceholder' : 'chatRoom.lane.sharedPlaceholder')}
+          placeholder={t(activeLane === 'private'
+            ? 'chatRoom.lane.privatePlaceholder'
+            : sharedGovernanceBlocked
+              ? 'chatRoom.lane.sharedTrustRequired'
+              : sharedSafety.blocked
+              ? 'chatRoom.safety.sharedComposerBlocked'
+              : 'chatRoom.lane.sharedPlaceholder')}
           placeholderTextColor={palette.muted}
           style={styles.textArea}
           testID="chat.room.compose.input"
@@ -620,7 +813,14 @@ export default function ChatRoomScreen() {
           tone={activeLane === 'private' ? 'blue' : 'teal'}
         />
         <ActionButton
-          disabled={!activeChannel?.id || compose.trim().length < 2 || sendMessageMutation.isPending || (activeLane === 'shared' && !hasActiveRoleB)}
+          disabled={
+            !activeChannel?.id
+            || compose.trim().length < 2
+            || sendMessageMutation.isPending
+            || (activeLane === 'shared' && (
+              !hasActiveRoleB || sharedSafety.blocked || sharedGovernanceBlocked
+            ))
+          }
           label={t('chatRoom.sendMessage')}
           loading={sendMessageMutation.isPending}
           onPress={() => sendMessageMutation.mutate()}
@@ -676,6 +876,8 @@ export default function ChatRoomScreen() {
         onToggleMessage={analysisConsent.toggleMessage}
         selectedCapsuleIds={analysisConsent.selectedCapsuleIds}
         selectedMessageIds={analysisConsent.selectedMessageIds}
+        sharedSafety={sharedSafety}
+        formalActionsBlocked={formalActionsBlocked}
         selectionReview={analysisConsent.selectionReview}
         sourceSetComplete={analysisConsent.sourceSetComplete}
         revokeError={Boolean(analysisConsent.revokeApprovalMutation.error)}

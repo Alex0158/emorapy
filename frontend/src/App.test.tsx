@@ -36,7 +36,6 @@ vi.mock("./components/common/ErrorBoundary", () => ({
 	default: ({ children }: { children: ReactNode }) => children,
 }));
 vi.mock("./components/common/Loading", () => ({ default: () => null }));
-vi.mock("./components/common/BackToTop", () => ({ default: () => null }));
 vi.mock("./components/common/NetworkStatus", () => ({ default: () => null }));
 vi.mock("./utils/performance", () => ({
 	logPageLoadTime: mockLogPageLoadTime,

@@ -11,12 +11,15 @@ import ChatRoomHeader from './components/ChatRoomHeader';
 import ChatRoomAlerts from './components/ChatRoomAlerts';
 import ChatConversationLaneTabs from './components/ChatConversationLaneTabs';
 import ChatContextBoundaryPanel from './components/ChatContextBoundaryPanel';
+import ChatTrustCheckpoint from './components/ChatTrustCheckpoint';
 import ChatCapsuleComposer from './components/ChatCapsuleComposer';
 import ChatSharedContextManager from './components/ChatSharedContextManager';
+import ChatContextUsageReceipts from './components/ChatContextUsageReceipts';
 import ChatAnalysisConsentPanel from './components/ChatAnalysisConsentPanel';
 import ChatAnalysisRequestDialog from './components/ChatAnalysisRequestDialog';
 import ChatMessageList from './components/ChatMessageList';
 import ChatMessageComposer from './components/ChatMessageComposer';
+import ChatSharedSafetyPauseNotice from './components/ChatSharedSafetyPauseNotice';
 import {
   buildMessageMap,
   getRoleLabel,
@@ -36,8 +39,11 @@ import { useChatRoomParticipantActions } from './hooks/useChatRoomParticipantAct
 import { useChatPrivateChannelUpdates } from './hooks/useChatPrivateChannelUpdates';
 import { usePrivateContextPreference } from './hooks/usePrivateContextPreference';
 import { useChatAnalysisConsent } from './hooks/useChatAnalysisConsent';
+import { useChatCapsuleLifecycle } from './hooks/useChatCapsuleLifecycle';
+import { useChatContextUsageReceipts } from './hooks/useChatContextUsageReceipts';
 import { useChatRoomRouteLoader } from './hooks/useChatRoomRouteLoader';
 import { useChatRoomUiState } from './hooks/useChatRoomUiState';
+import { useChatRoomSafetyStatus } from './hooks/useChatRoomSafetyStatus';
 import './index.css';
 
 const ChatRoomPage = () => {
@@ -57,6 +63,7 @@ const ChatRoomPage = () => {
   const mountedRef = useMountedRef();
   const lastRoomStatusNoticeAtRef = useRef<string | null>(null);
   const initializedLaneRoomIdRef = useRef<string | null>(null);
+  const contextPreferenceMembershipRef = useRef<string | null>(null);
 
   const showChatActionFeedback = useCallback((feedback: { level: 'warning' | 'error'; message: string }) => {
     if (feedback.level === 'warning') {
@@ -125,6 +132,43 @@ const ChatRoomPage = () => {
     ? privateChannel?.id ?? null
     : sharedChannel?.id ?? null;
   const contextPreference = usePrivateContextPreference(activeRoomId);
+  const safetyStatus = useChatRoomSafetyStatus(activeRoomId);
+  const refreshSafetyStatus = useCallback(() => {
+    void safetyStatus.refresh(false);
+  }, [safetyStatus.refresh]);
+  const activeHumanMembershipKey = useMemo(() => (
+    room?.participants
+      ?.filter((participant) => (
+        participant.is_active
+        && (participant.role_in_room === 'roleA' || participant.role_in_room === 'roleB')
+      ))
+      .map((participant) => `${participant.id}:${participant.joined_at}`)
+      .sort()
+      .join('|') ?? ''
+  ), [room?.participants]);
+  const activeHumanParticipantCount = useMemo(() => (
+    room?.participants?.filter((participant) => (
+      participant.is_active
+      && (participant.role_in_room === 'roleA' || participant.role_in_room === 'roleB')
+    )).length ?? 0
+  ), [room?.participants]);
+  const requiresSharedGovernance = activeHumanParticipantCount >= 2;
+  const sharedGovernanceBlocked = requiresSharedGovernance && (
+    !contextPreference.ready
+    || contextPreference.adaptationDecision === 'not_set'
+  );
+  useEffect(() => {
+    if (!activeRoomId) {
+      contextPreferenceMembershipRef.current = null;
+      return;
+    }
+    const signature = `${activeRoomId}::${activeHumanMembershipKey}`;
+    const previous = contextPreferenceMembershipRef.current;
+    contextPreferenceMembershipRef.current = signature;
+    if (previous?.startsWith(`${activeRoomId}::`) && previous !== signature) {
+      void contextPreference.refresh(false);
+    }
+  }, [activeHumanMembershipKey, activeRoomId, contextPreference.refresh]);
   const laneHistory = useChatLaneHistoryView({
     roomId: activeRoomId,
     activeLane,
@@ -176,6 +220,7 @@ const ChatRoomPage = () => {
     historyCursorRef: history.historyCursorRef,
     hasMoreHistoryRef: history.hasMoreHistoryRef,
     showRoomStatusNotice,
+    onRoomRefreshRequested: refreshSafetyStatus,
   });
   useChatPrivateChannelUpdates({
     roomId: activeRoomId,
@@ -342,22 +387,57 @@ const ChatRoomPage = () => {
     messages,
     sharedChannelId: sharedChannel?.id ?? null,
     myParticipantId,
-    blocked: hasSafetyInterruption,
+    blocked: hasSafetyInterruption || safetyStatus.blocked || sharedGovernanceBlocked,
     onStartAnalysis: handleRequestJudgment,
   });
+  const usageReceipts = useChatContextUsageReceipts(activeRoomId);
+  const refreshCapsuleContext = useCallback(async (showLoading = false) => {
+    await Promise.all([
+      analysisConsent.refresh(showLoading),
+      usageReceipts.refresh(showLoading),
+    ]);
+  }, [analysisConsent.refresh, usageReceipts.refresh]);
+  const capsuleLifecycle = useChatCapsuleLifecycle({
+    roomId: activeRoomId,
+    refresh: refreshCapsuleContext,
+  });
+  const trustCheckpointRequired = (
+    requiresSharedGovernance
+    && contextPreference.ready
+    && contextPreference.adaptationDecision === 'not_set'
+  );
   useEffect(() => {
     if (!activeRoomId || loading) return;
     if (initializedLaneRoomIdRef.current === activeRoomId) return;
+    if (requiresSharedGovernance && !contextPreference.ready) return;
     initializedLaneRoomIdRef.current = activeRoomId;
-    setActiveLane(hasSharedMessages ? 'shared' : 'private');
-  }, [activeRoomId, hasSharedMessages, loading, setActiveLane]);
+    setActiveLane(hasSharedMessages && !sharedGovernanceBlocked ? 'shared' : 'private');
+  }, [
+    activeRoomId,
+    contextPreference.ready,
+    hasSharedMessages,
+    loading,
+    requiresSharedGovernance,
+    setActiveLane,
+    sharedGovernanceBlocked,
+  ]);
 
   useEffect(() => {
     if (activeRoomId && initializedLaneRoomIdRef.current !== activeRoomId) return;
-    if (!hasActiveRoleB && !hasSharedMessages && activeLane === 'shared') {
+    if (
+      activeLane === 'shared'
+      && ((!hasActiveRoleB && !hasSharedMessages) || sharedGovernanceBlocked)
+    ) {
       setActiveLane('private');
     }
-  }, [activeLane, activeRoomId, hasActiveRoleB, hasSharedMessages, setActiveLane]);
+  }, [
+    activeLane,
+    activeRoomId,
+    hasActiveRoleB,
+    hasSharedMessages,
+    setActiveLane,
+    sharedGovernanceBlocked,
+  ]);
 
   const messageById = useMemo(() => buildMessageMap(laneMessages), [laneMessages]);
 
@@ -396,6 +476,13 @@ const ChatRoomPage = () => {
           </div>
         ) : (
           <>
+            <ChatTrustCheckpoint
+              open={trustCheckpointRequired}
+              saving={contextPreference.saving}
+              onDecision={(decision) => {
+                void contextPreference.updateAdaptationDecision(decision);
+              }}
+            />
             <div className="flex flex-col gap-3 w-full">
               <ChatRoomHeader
                 roomId={routeRoomId!}
@@ -408,6 +495,8 @@ const ChatRoomPage = () => {
                 disableRequestJudgment={
                   disableRequestJudgment
                   || hasSafetyInterruption
+                  || safetyStatus.blocked
+                  || sharedGovernanceBlocked
                   || analysisConsent.hasOpenRequest
                   || analysisConsent.loading
                 }
@@ -437,6 +526,9 @@ const ChatRoomPage = () => {
                 workingRequestId={analysisConsent.workingRequestId}
                 loading={analysisConsent.loading}
                 error={analysisConsent.loadError}
+                formalActionsDisabled={
+                  hasSafetyInterruption || safetyStatus.blocked || sharedGovernanceBlocked
+                }
                 getParticipantLabel={getParticipantLabel}
                 onRefresh={() => { void analysisConsent.refresh(true); }}
                 onDecision={(request, decision) => { void analysisConsent.decide(request, decision); }}
@@ -445,15 +537,24 @@ const ChatRoomPage = () => {
               />
               <ChatConversationLaneTabs
                 activeLane={activeLane}
-                sharedDisabled={!hasActiveRoleB && !hasSharedMessages}
+                sharedDisabled={
+                  (!hasActiveRoleB && !hasSharedMessages) || sharedGovernanceBlocked
+                }
                 sharedReadOnly={!hasActiveRoleB && hasSharedMessages}
                 onLaneChange={setActiveLane}
               />
               <ChatContextBoundaryPanel
                 activeLane={activeLane}
+                adaptationDecision={contextPreference.adaptationDecision}
                 mode={contextPreference.mode}
                 loading={contextPreference.loading}
+                roomAdaptation={contextPreference.roomAdaptation}
                 saving={contextPreference.saving}
+                unavailable={contextPreference.unavailable}
+                onRetry={() => { void contextPreference.refresh(true); }}
+                onAdaptationDecisionChange={(decision) => {
+                  void contextPreference.updateAdaptationDecision(decision);
+                }}
                 onModeChange={(mode) => { void contextPreference.updateMode(mode); }}
               />
               <section
@@ -463,6 +564,14 @@ const ChatRoomPage = () => {
                 tabIndex={0}
                 className="rounded-2xl border border-border/70 bg-card/40 p-3 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
+                {activeLane === 'shared' && safetyStatus.blocked && (
+                  <ChatSharedSafetyPauseNotice
+                    loading={safetyStatus.loading}
+                    onSwitchToPrivate={() => setActiveLane('private')}
+                    status={safetyStatus.status}
+                    unavailable={safetyStatus.unavailable}
+                  />
+                )}
                 <ChatMessageList
                   key={activeLane}
                   messages={laneMessages}
@@ -489,7 +598,13 @@ const ChatRoomPage = () => {
                   messageById={messageById}
                   replyTo={replyTo}
                   highlightMessageId={history.highlightMessageId}
-                  disableSendMessage={disableSendMessage || !activeChannelId}
+                  disableSendMessage={
+                    disableSendMessage
+                    || !activeChannelId
+                    || (activeLane === 'shared' && (
+                      safetyStatus.blocked || sharedGovernanceBlocked
+                    ))
+                  }
                   setMessageAnchor={history.setMessageAnchor}
                   handleAnchorTarget={history.handleAnchorTarget}
                   getRoleLabel={getRoleLabel}
@@ -510,16 +625,31 @@ const ChatRoomPage = () => {
                     roomId={activeRoomId}
                     privateChannelId={privateChannel.id}
                     messages={laneMessages}
-                    onSaved={() => { void analysisConsent.refresh(false); }}
+                    onSaved={() => { void refreshCapsuleContext(false); }}
                   />
                 )}
                 {activeLane === 'private' && activeRoomId && (
                   <ChatSharedContextManager
                     capsules={analysisConsent.allCapsules}
+                    formalActionsBlocked={
+                      hasSafetyInterruption || safetyStatus.blocked || sharedGovernanceBlocked
+                    }
+                    workingActionKey={capsuleLifecycle.workingActionKey}
                     workingAuthorizationId={analysisConsent.workingAuthorizationId}
+                    onDiscard={(capsule) => { void capsuleLifecycle.discard(capsule); }}
+                    onGrant={(capsule, purpose) => { void capsuleLifecycle.grant(capsule, purpose); }}
                     onRevokeAuthorization={(authorizationId) => {
                       void analysisConsent.revokeAuthorization(authorizationId);
                     }}
+                    onRevise={(capsule, summary) => { void capsuleLifecycle.revise(capsule, summary); }}
+                  />
+                )}
+                {activeLane === 'private' && activeRoomId && (
+                  <ChatContextUsageReceipts
+                    error={usageReceipts.error}
+                    loading={usageReceipts.loading}
+                    receipts={usageReceipts.receipts}
+                    onRefresh={() => { void usageReceipts.refresh(true); }}
                   />
                 )}
                 <ChatMessageComposer
@@ -528,7 +658,13 @@ const ChatRoomPage = () => {
                   onMessageInputChange={setMessageInput}
                   replyTo={replyTo}
                   onClearReply={() => setReplyTo(null)}
-                  disableSend={!activeChannelId || disableSendMessage || (activeLane === 'shared' && !hasActiveRoleB)}
+                  disableSend={
+                    !activeChannelId
+                    || disableSendMessage
+                    || (activeLane === 'shared' && (
+                      !hasActiveRoleB || safetyStatus.blocked || sharedGovernanceBlocked
+                    ))
+                  }
                   sending={sending}
                   onSend={handleSendMessage}
                 />

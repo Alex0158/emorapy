@@ -95,6 +95,7 @@ vi.mock('react-virtuoso', async () => {
 const mockCreateChatRoom = vi.fn();
 const mockAcceptChatInvite = vi.fn();
 const mockGetChatRoom = vi.fn();
+const mockGetChatRoomSafetyStatus = vi.fn();
 const mockListChatMessages = vi.fn();
 const mockListChatChannels = vi.fn();
 const mockSendChatMessage = vi.fn();
@@ -106,11 +107,19 @@ const mockConnectChatStream = vi.fn();
 const mockConnectChatChannelStream = vi.fn();
 const mockGetPrivateContextPreference = vi.fn();
 const mockUpdatePrivateContextPreference = vi.fn();
+const mockUpdateSharedAdaptationConsent = vi.fn();
 const mockListChatContextCapsules = vi.fn();
+const mockListChatContextUsageReceipts = vi.fn();
+const mockCreateChatContextCapsule = vi.fn();
+const mockGrantChatContextAuthorization = vi.fn();
+const mockRevokeChatContextAuthorization = vi.fn();
+const mockReviseChatContextCapsule = vi.fn();
+const mockDiscardChatContextCapsule = vi.fn();
 const mockListChatAnalysisRequests = vi.fn();
 const mockCreateChatAnalysisRequest = vi.fn();
 const mockDecideChatAnalysisRequest = vi.fn();
 const mockSubmitChatAnalysisRequest = vi.fn();
+const mockRevokeChatAnalysisApproval = vi.fn();
 const mockConnectAIStream = vi.fn();
 const mockDeclineChatInvite = vi.fn();
 const mockLeaveChatRoom = vi.fn();
@@ -120,6 +129,7 @@ vi.mock('@/services/api/chat', () => ({
   createChatRoom: (...args: unknown[]) => mockCreateChatRoom(...args),
   acceptChatInvite: (...args: unknown[]) => mockAcceptChatInvite(...args),
   getChatRoom: (...args: unknown[]) => mockGetChatRoom(...args),
+  getChatRoomSafetyStatus: (...args: unknown[]) => mockGetChatRoomSafetyStatus(...args),
   listChatMessages: (...args: unknown[]) => mockListChatMessages(...args),
   listChatChannels: (...args: unknown[]) => mockListChatChannels(...args),
   sendChatMessage: (...args: unknown[]) => mockSendChatMessage(...args),
@@ -131,11 +141,19 @@ vi.mock('@/services/api/chat', () => ({
   connectChatChannelStream: (...args: unknown[]) => mockConnectChatChannelStream(...args),
   getPrivateContextPreference: (...args: unknown[]) => mockGetPrivateContextPreference(...args),
   updatePrivateContextPreference: (...args: unknown[]) => mockUpdatePrivateContextPreference(...args),
+  updateSharedAdaptationConsent: (...args: unknown[]) => mockUpdateSharedAdaptationConsent(...args),
   listChatContextCapsules: (...args: unknown[]) => mockListChatContextCapsules(...args),
+  listChatContextUsageReceipts: (...args: unknown[]) => mockListChatContextUsageReceipts(...args),
+  createChatContextCapsule: (...args: unknown[]) => mockCreateChatContextCapsule(...args),
+  grantChatContextAuthorization: (...args: unknown[]) => mockGrantChatContextAuthorization(...args),
+  revokeChatContextAuthorization: (...args: unknown[]) => mockRevokeChatContextAuthorization(...args),
+  reviseChatContextCapsule: (...args: unknown[]) => mockReviseChatContextCapsule(...args),
+  discardChatContextCapsule: (...args: unknown[]) => mockDiscardChatContextCapsule(...args),
   listChatAnalysisRequests: (...args: unknown[]) => mockListChatAnalysisRequests(...args),
   createChatAnalysisRequest: (...args: unknown[]) => mockCreateChatAnalysisRequest(...args),
   decideChatAnalysisRequest: (...args: unknown[]) => mockDecideChatAnalysisRequest(...args),
   submitChatAnalysisRequest: (...args: unknown[]) => mockSubmitChatAnalysisRequest(...args),
+  revokeChatAnalysisApproval: (...args: unknown[]) => mockRevokeChatAnalysisApproval(...args),
   declineChatInvite: (...args: unknown[]) => mockDeclineChatInvite(...args),
   leaveChatRoom: (...args: unknown[]) => mockLeaveChatRoom(...args),
   kickChatParticipantB: (...args: unknown[]) => mockKickChatParticipantB(...args),
@@ -246,15 +264,41 @@ describe('ChatRoomPage', () => {
     setLocale('zh-TW');
     vi.clearAllMocks();
     mockListChatMessages.mockReset();
+    mockGetChatRoomSafetyStatus.mockReset();
     localStorage.clear();
     useAuthStore.setState({ user: { id: 'u1' } as any, isAuthenticated: true, _hasHydrated: true } as any);
     mockConnectChatStream.mockResolvedValue(() => undefined);
     mockConnectChatChannelStream.mockResolvedValue(() => undefined);
     mockConnectAIStream.mockResolvedValue(() => undefined);
-    mockGetPrivateContextPreference.mockResolvedValue({ mode: 'private_only' });
-    mockUpdatePrivateContextPreference.mockResolvedValue({ mode: 'private_only' });
+    const contextPreference = {
+      participant_id: 'room-1-p-role-a',
+      mode: 'private_only',
+      mode_policy_version: '2026-07-13.adaptation-v1',
+      mode_updated_at: '2026-07-13T19:00:00.000Z',
+      adaptation_decision: 'declined',
+      adaptation_policy_version: '2026-07-13.adaptation-v1',
+      adaptation_decided_at: '2026-07-13T19:01:00.000Z',
+      room_adaptation: {
+        policy_version: '2026-07-13.adaptation-v1',
+        enabled: false,
+        active_participant_count: 1,
+        accepted_participant_count: 0,
+        owner_opt_in_count: 0,
+      },
+    };
+    mockGetPrivateContextPreference.mockResolvedValue(contextPreference);
+    mockGetChatRoomSafetyStatus.mockResolvedValue({ status: 'open' });
+    mockUpdatePrivateContextPreference.mockResolvedValue(contextPreference);
+    mockUpdateSharedAdaptationConsent.mockResolvedValue(contextPreference);
     mockListChatContextCapsules.mockResolvedValue([]);
+    mockListChatContextUsageReceipts.mockResolvedValue([]);
+    mockCreateChatContextCapsule.mockResolvedValue({ id: 'capsule-draft' });
+    mockGrantChatContextAuthorization.mockResolvedValue({ id: 'authorization-1' });
+    mockRevokeChatContextAuthorization.mockResolvedValue({ id: 'authorization-1', revoked_at: new Date().toISOString() });
+    mockReviseChatContextCapsule.mockResolvedValue({ id: 'capsule-revision' });
+    mockDiscardChatContextCapsule.mockResolvedValue({ id: 'capsule-draft', status: 'discarded' });
     mockListChatAnalysisRequests.mockResolvedValue([]);
+    mockRevokeChatAnalysisApproval.mockResolvedValue({ id: 'approval-1', revoked_at: new Date().toISOString() });
     mockSendChatChannelMessage.mockImplementation((
       channelId: string,
       payload: { content: string },
@@ -2718,6 +2762,68 @@ describe('ChatRoomPage', () => {
     expect(screen.getByPlaceholderText('輸入訊息...')).toBeEnabled();
   });
 
+  it('sanitized safety pause 只鎖共同輸入與正式梳理，私人 lane 仍可使用', async () => {
+    const user = userEvent.setup();
+    mockGetChatRoom.mockResolvedValue(buildOwnerRoomWithRoleB());
+    mockGetChatRoomSafetyStatus.mockResolvedValue({ status: 'paused' });
+
+    render(
+      <MemoryRouter initialEntries={['/chat/room/room-1']}>
+        <Routes>
+          <Route path="/chat/room/:roomId" element={<ChatRoomPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await screen.findByText('聊天室：room-1');
+    await waitFor(() => expect(mockGetChatRoomSafetyStatus).toHaveBeenCalledWith('room-1'));
+    await user.click(screen.getByRole('tab', { name: /共同對話/ }));
+
+    expect(await screen.findByText('共同對話暫時停一停')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '發起梳理' })).toBeDisabled();
+    expect(screen.getByPlaceholderText('輸入訊息...')).toBeDisabled();
+
+    await user.click(screen.getByRole('button', { name: '前往「我與 AI」' }));
+    expect(screen.queryByText('共同對話暫時停一停')).not.toBeInTheDocument();
+    expect(screen.getByPlaceholderText('輸入訊息...')).toBeEnabled();
+  });
+
+  it('room SSE 活動後重新讀取 sanitized safety status', async () => {
+    const user = userEvent.setup();
+    const streamCallbacks: { onEvent?: (event: unknown) => void } = {};
+    mockConnectChatStream.mockImplementation(async (
+      _roomId: string,
+      callbacks: { onEvent?: (event: unknown) => void },
+    ) => {
+      Object.assign(streamCallbacks, callbacks);
+      return () => undefined;
+    });
+    mockGetChatRoom.mockResolvedValue(buildOwnerRoomWithRoleB());
+    mockGetChatRoomSafetyStatus
+      .mockResolvedValueOnce({ status: 'open' })
+      .mockResolvedValue({ status: 'paused' });
+
+    render(
+      <MemoryRouter initialEntries={['/chat/room/room-1']}>
+        <Routes>
+          <Route path="/chat/room/:roomId" element={<ChatRoomPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(mockGetChatRoomSafetyStatus).toHaveBeenCalledTimes(1));
+    await user.click(screen.getByRole('tab', { name: /共同對話/ }));
+    expect(screen.queryByText('共同對話暫時停一停')).not.toBeInTheDocument();
+
+    await act(async () => {
+      streamCallbacks.onEvent?.({ type: 'message', roomId: 'room-1' });
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(mockGetChatRoomSafetyStatus).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText('共同對話暫時停一停')).toBeInTheDocument();
+  });
+
   it('發起梳理先建立 shared user_text exact selection 並由 requester 自行批准，不直接 request judgment', async () => {
     mockGetChatRoom.mockResolvedValue(buildOwnerRoomWithRoleB());
     mockListChatMessages.mockResolvedValueOnce({
@@ -3617,6 +3723,85 @@ describe('ChatRoomPage', () => {
     await waitFor(() => {
       expect(mockListChatMessages).toHaveBeenCalledWith('room-1', { cursor: 'cursor-1', limit: 50 });
     });
+  });
+
+  it('雙方首次進入共同房間時先完成 trust checkpoint，再提交 versioned adaptation choice', async () => {
+    mockGetChatRoom.mockResolvedValue(buildOwnerRoomWithRoleB());
+    mockGetPrivateContextPreference.mockResolvedValue({
+      participant_id: 'room-1-p-role-a',
+      mode: 'private_only',
+      mode_policy_version: '2026-07-13.adaptation-v1',
+      mode_updated_at: '2026-07-13T19:00:00.000Z',
+      adaptation_decision: 'not_set',
+      adaptation_policy_version: null,
+      adaptation_decided_at: null,
+      room_adaptation: {
+        policy_version: '2026-07-13.adaptation-v1',
+        enabled: false,
+        active_participant_count: 2,
+        accepted_participant_count: 0,
+        owner_opt_in_count: 0,
+      },
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/chat/room/room-1']}>
+        <Routes>
+          <Route path="/chat/room/:roomId" element={<ChatRoomPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('heading', {
+      name: '進入共同對話前，先確認使用邊界',
+    })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('radio', { name: /只使用通用調解方式/ }));
+    fireEvent.click(screen.getByRole('button', { name: '確認並進入共同對話' }));
+
+    await waitFor(() => expect(mockUpdateSharedAdaptationConsent).toHaveBeenCalledWith(
+      'room-1',
+      'declined',
+      '2026-07-13.adaptation-v1',
+    ));
+  });
+
+  it('私人內容設定載入失敗時 fail-closed 共同與正式操作，但保留私人對話及重試', async () => {
+    mockGetChatRoom.mockResolvedValue(buildOwnerRoomWithRoleB());
+    mockGetPrivateContextPreference.mockRejectedValueOnce(new Error('network'));
+
+    render(
+      <MemoryRouter initialEntries={['/chat/room/room-1']}>
+        <Routes>
+          <Route path="/chat/room/:roomId" element={<ChatRoomPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('暫時無法載入私人內容設定');
+    expect(screen.getByRole('tab', { name: /共同對話/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '發起梳理' })).toBeDisabled();
+    expect(screen.getByLabelText('先寫下你真正想整理的感受或片段……')).toBeEnabled();
+
+    mockGetPrivateContextPreference.mockResolvedValueOnce({
+      participant_id: 'room-1-p-role-a',
+      mode: 'private_only',
+      mode_policy_version: '2026-07-13.adaptation-v1',
+      mode_updated_at: '2026-07-13T19:00:00.000Z',
+      adaptation_decision: 'declined',
+      adaptation_policy_version: '2026-07-13.adaptation-v1',
+      adaptation_decided_at: '2026-07-13T19:01:00.000Z',
+      room_adaptation: {
+        policy_version: '2026-07-13.adaptation-v1',
+        enabled: false,
+        active_participant_count: 2,
+        accepted_participant_count: 0,
+        owner_opt_in_count: 0,
+      },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '重試' }));
+
+    await waitFor(() => expect(screen.getByRole('tab', { name: /共同對話/ })).toBeEnabled());
+    expect(screen.getByRole('button', { name: '發起梳理' })).toBeEnabled();
   });
 
   it('loadMoreHistory（listChatMessages 帶 cursor）FORBIDDEN 且無 message 時應使用 loadMoreFail（F07 權限邊界 fallback）', async () => {

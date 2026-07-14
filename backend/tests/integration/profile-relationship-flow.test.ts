@@ -47,6 +47,7 @@ describe('Profile relationship integration flow', () => {
       id: 'user-a',
       email: 'a@example.com',
       is_active: true,
+      email_verified: true,
       token_version: 0,
     });
     mockPairingFindUnique.mockResolvedValue({

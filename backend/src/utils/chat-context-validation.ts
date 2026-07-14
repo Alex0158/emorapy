@@ -3,6 +3,7 @@ import Joi from 'joi';
 import { Errors } from './errors';
 
 export const CHAT_CONTEXT_POLICY_VERSION = '2026-07-12.v1';
+export const CHAT_ADAPTATION_POLICY_VERSION = '2026-07-13.adaptation-v1';
 export const CAPSULE_DEFAULT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 export const CAPSULE_MAX_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 export const ANALYSIS_REQUEST_TTL_MS = 24 * 60 * 60 * 1000;
@@ -13,6 +14,7 @@ const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 const CONTEXT_PURPOSES = [
   'private_support',
   'shared_mediation',
+  'shared_mediation_adaptation',
   'formal_analysis_evidence',
   'formal_analysis_delivery',
   'future_private_support',
@@ -44,6 +46,7 @@ const PURPOSE_AUDIENCE: Readonly<
 > = {
   private_support: 'private_owner',
   shared_mediation: 'room_participants',
+  shared_mediation_adaptation: 'room_participants',
   formal_analysis_evidence: 'analysis_participants',
   formal_analysis_delivery: 'analysis_participants',
   future_private_support: 'private_owner',
@@ -188,6 +191,12 @@ export function assertCurrentPolicyVersion(policyVersion: string): void {
   }
 }
 
+export function assertCurrentAdaptationPolicyVersion(policyVersion: string): void {
+  if (policyVersion !== CHAT_ADAPTATION_POLICY_VERSION) {
+    throw Errors.CONFLICT('共同對話調整政策已更新，請重新載入');
+  }
+}
+
 export function assertPurposeAudience(purpose: string, audience: string): void {
   if (!(purpose in PURPOSE_AUDIENCE)) {
     throw Errors.VALIDATION_ERROR('不支援的 context purpose');
@@ -306,8 +315,8 @@ export const revokeContextAuthorizationSchema = {
 
 export const createChatAnalysisRequestSchema = {
   body: Joi.object({
-    selected_message_ids: Joi.array().items(uuid.required()).max(100).unique().required(),
-    selected_capsule_ids: Joi.array().items(uuid.required()).max(50).unique().required(),
+    selected_message_ids: Joi.array().items(uuid).max(100).unique().required(),
+    selected_capsule_ids: Joi.array().items(uuid).max(50).unique().required(),
   }),
 };
 
@@ -322,6 +331,13 @@ export const decideChatAnalysisRequestSchema = {
 export const revokeChatAnalysisApprovalSchema = {
   body: Joi.object({
     selection_hash: sha256.required(),
+    policy_version: Joi.string().max(50).required(),
+  }),
+};
+
+export const updateSharedAdaptationConsentSchema = {
+  body: Joi.object({
+    decision: Joi.string().valid('accepted', 'declined').required(),
     policy_version: Joi.string().max(50).required(),
   }),
 };

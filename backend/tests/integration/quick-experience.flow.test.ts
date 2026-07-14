@@ -67,6 +67,7 @@ import {
   createMockFiles,
   getPrismaClient,
   createExpiredTestSession,
+  createTestRegistrationProof,
   randomString,
 } from './helpers/test-utils';
 import {
@@ -348,10 +349,16 @@ flowDescribe('快速體驗全流程集成測試', () => {
       const caseId = caseResult.data!.case.id;
       const sessionId = caseResult.data!.session_id;
 
-      const email = `claim-${randomString(8)}@example.com`;
+      const email = `claim-smoke-${randomString(8)}@example.com`;
+      const registrationProof = await createTestRegistrationProof(email);
       const registerRes = await request(app)
         .post('/api/v1/auth/register')
-        .send({ email, password: 'Password123!', nickname: 'ClaimUser' });
+        .send({
+          email,
+          password: 'Password123!',
+          nickname: 'ClaimUser',
+          registration_proof: registrationProof,
+        });
 
       expect(registerRes.status).toBe(httpStatus.CREATED);
       expect(registerRes.body?.data?.token).toBeTruthy();
@@ -383,10 +390,16 @@ flowDescribe('快速體驗全流程集成測試', () => {
       const sessionId = caseResult.data!.session_id;
 
       const registerUser = async (suffix: string) => {
-        const email = `claim-${suffix}-${randomString(6)}@example.com`;
+        const email = `claim-smoke-${suffix}-${randomString(6)}@example.com`;
+        const registrationProof = await createTestRegistrationProof(email);
         const res = await request(app)
           .post('/api/v1/auth/register')
-          .send({ email, password: 'Password123!', nickname: suffix });
+          .send({
+            email,
+            password: 'Password123!',
+            nickname: suffix,
+            registration_proof: registrationProof,
+          });
         expect(res.status).toBe(httpStatus.CREATED);
         return {
           token: res.body.data.token as string,

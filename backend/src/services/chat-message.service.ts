@@ -17,9 +17,12 @@ import {
 } from './chat-actor-access.service';
 import { chatAIOrchestrator } from './chat-ai-orchestrator.service';
 import { chatChannelService } from './chat-channel.service';
+import { chatEventsService } from './chat-events.service';
 import { chatMetricsService } from './chat-metrics.service';
+import { chatSafetyRouterService } from './chat-safety-router.service';
 import { buildVisibleChatMessageWhere } from './chat-message-audience-policy';
 import { privateAnalystOrchestrator } from './private-analyst-orchestrator.service';
+import { safetyRoutingService } from './safety-routing.service';
 
 export type ListChatMessagesInput = {
   cursor?: string;
@@ -43,6 +46,7 @@ type PersistedChatMessage = {
   participant: ChatParticipant;
   channel: ChatChannel;
   aiParticipant: ChatParticipant | null;
+  safetySharedStatusChanged: boolean;
 };
 
 /**
@@ -136,7 +140,6 @@ export class ChatMessageService {
           tx,
         );
         const { room, participant } = context;
-        await chatActorAccessService.lockActiveParticipant(tx, room.id, participant.id);
 
         if (
           room.status !== ChatRoomStatus.solo_active
@@ -173,10 +176,30 @@ export class ChatMessageService {
         const effectiveVisibilityScope = writeChannel.channel.kind === ChatChannelKind.shared
           ? ChatVisibilityScope.all
           : ChatVisibilityScope.owner_only;
+        let safetySharedStatusChanged = false;
         if (effectiveVisibilityScope === ChatVisibilityScope.all) {
-          // Keep roleB entitlement in the same Serializable transaction as the
-          // reply lookup and write. A concurrent leave/kick must linearize first.
+          // Every shared sender takes both human rows in one deterministic order.
+          // This gives either participant's private Safety activation a common
+          // lock and avoids the roleA->roleB / roleB->roleA deadlock pattern.
+          await chatActorAccessService.lockActiveHumanParticipants(tx, room.id);
+          await chatActorAccessService.lockActiveParticipant(tx, room.id, participant.id);
           await chatActorAccessService.lockActiveRoleB(tx, room.id);
+          await chatSafetyRouterService.assertSharedMessagingAllowed(room.id, tx);
+        } else {
+          await chatActorAccessService.lockActiveParticipant(tx, room.id, participant.id);
+          const safetyRoute = safetyRoutingService.decideRoute({
+            plaintiffStatement: input.content,
+            defendantStatement: '',
+          });
+          // Linearize the private signal and action-only safety state with the
+          // private write. A concurrent shared send can only observe the state
+          // before this transaction or after the durable activation.
+          const activation = await chatSafetyRouterService.activateForRouteWithClient({
+            roomId: room.id,
+            ownerParticipantId: participant.id,
+            route: safetyRoute.route,
+          }, tx);
+          safetySharedStatusChanged = activation.sharedStatusChanged;
         }
 
         this.checkRoomRateLimit(room.id);
@@ -224,8 +247,9 @@ export class ChatMessageService {
           participant,
           channel: writeChannel.channel,
           aiParticipant,
+          safetySharedStatusChanged,
         };
-      }, { isolationLevel: 'Serializable' });
+      }, { isolationLevel: 'ReadCommitted' });
     } catch (error) {
       if (isTransactionWriteConflict(error)) {
         throw Errors.CONFLICT('聊天室成員或訊息狀態已變更，請重試');
@@ -233,9 +257,24 @@ export class ChatMessageService {
       throw error;
     }
 
-    const { message, room, participant, channel, aiParticipant } = persisted;
+    const {
+      message,
+      room,
+      participant,
+      channel,
+      aiParticipant,
+      safetySharedStatusChanged,
+    } = persisted;
     chatMetricsService.recordMessage().catch(() => undefined);
     if (channel.kind === ChatChannelKind.private) {
+      if (safetySharedStatusChanged) {
+        chatEventsService.publish({
+          type: 'room_status',
+          roomId: room.id,
+          payload: { safetyStatusChanged: true },
+          at: new Date().toISOString(),
+        });
+      }
       void privateAnalystOrchestrator.onUserMessage(
         {
           roomId: room.id,

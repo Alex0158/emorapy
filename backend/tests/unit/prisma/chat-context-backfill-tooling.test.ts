@@ -150,12 +150,12 @@ describe('chat context release migration tooling contract', () => {
       '.data.deploymentId // .deploymentId // empty'
     );
     expect(productionWorkflowSource).toContain(
-      'temp/chat-context-release/railway-deployment.json'
+      'temp/production-release-evidence/railway-deployment.json'
     );
     expect(productionWorkflowSource.match(/git rev-parse origin\/main/g)).toHaveLength(4);
     expect(productionWorkflowSource).toContain('railway up --detach --json');
     expect(productionWorkflowSource).toContain(
-      `deployment_id="$(jq -er '.deploymentId' temp/chat-context-release/railway-up.json)"`
+      `deployment_id="$(jq -er '.deploymentId' temp/production-release-evidence/railway-up.json)"`
     );
     expect(productionWorkflowSource).not.toContain('Build Logs');
     expect(productionWorkflowSource).toContain(

@@ -1,6 +1,7 @@
 import {
   buildSmokeAccountHygieneReport,
   classifySmokeAccount,
+  collectSmokeAccountCandidates,
   type SmokeAccountCandidate,
 } from '../../../src/utils/smoke-account-hygiene';
 
@@ -23,6 +24,20 @@ describe('smoke-account-hygiene', () => {
       expect.objectContaining({
         email: 'claim-smoke-123@example.com',
         ruleId: 'claim-smoke-generated-user',
+      })
+    );
+  });
+
+  it('應標記 active Web P0 true-service smoke user', () => {
+    expect(
+      classifySmokeAccount({
+        ...baseCandidate,
+        email: 'WEB-P0-A-20260713@example.com',
+      })
+    ).toEqual(
+      expect.objectContaining({
+        email: 'web-p0-a-20260713@example.com',
+        ruleId: 'web-p0-generated-user',
       })
     );
   });
@@ -75,5 +90,27 @@ describe('smoke-account-hygiene', () => {
         expect.objectContaining({ kind: 'user', email: 'g1@gmail.com' }),
       ],
     });
+  });
+
+  it('共享 candidate collector 查詢 claim 與 web-p0 generated users', async () => {
+    const userFindMany = jest.fn().mockResolvedValue([]);
+    const adminFindMany = jest.fn().mockResolvedValue([]);
+
+    await collectSmokeAccountCandidates({
+      user: { findMany: userFindMany },
+      adminUser: { findMany: adminFindMany },
+    } as never);
+
+    const userWhere = userFindMany.mock.calls[0]?.[0]?.where;
+    expect(userWhere.OR).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          email: expect.objectContaining({ startsWith: 'claim-smoke-' }),
+        }),
+        expect.objectContaining({
+          email: expect.objectContaining({ startsWith: 'web-p0-' }),
+        }),
+      ])
+    );
   });
 });

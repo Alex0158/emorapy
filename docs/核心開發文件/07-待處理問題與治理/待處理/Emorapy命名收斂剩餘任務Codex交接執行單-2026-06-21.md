@@ -8,7 +8,7 @@
 **最後核驗日期**：`2026-07-12`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**狀態**：T1 GitHub repo rename 已由 Codex CLI 執行為 `Alex0158/emorapy`，本地 `origin` 已更新，`EMORAPY_GITHUB_REPO=Alex0158/emorapy` 已設為 GitHub repo variable；2026-06-22 Codex 已把 Vercel projects rename 為 `emorapy` / `emorapy-admin`，新增並驗證 `https://emorapy.vercel.app`、`https://emorapy-admin.vercel.app` production project domains，且設置 GitHub repo variables `EMORAPY_MAIN_WEB_URL` / `EMORAPY_ADMIN_WEB_URL`；T1 backend domain migration 仍待 Railway alias / domain / release evidence / T1-L 本地 workspace 與檔名路徑命名收斂已納入 / T2 PRD ID 遷移已於 2026-06-21 gated 執行完成 / 待外部憑證與證據（T3 App release 命名相關 evidence）；T1 backend domain、T1-L、T3 未達成前，本交接單整體仍不得標為已處理/已閉環/已完成
+**狀態**：T1 GitHub repo、Vercel projects 與 Railway project/service 已原地收斂為 Emorapy；Web custom domains 已 live，Railway `api.emorapy.com` 已配置並完成 DNS、仍待 TLS／release evidence；T1-L 本地 workspace 與檔名路徑命名收斂已納入 / T2 PRD ID 遷移已於 2026-06-21 gated 執行完成 / 待外部憑證與證據（T3 App release 命名相關 evidence）；T1 backend TLS／正式入口、T1-L、T3 未達成前，本交接單整體仍不得標為已處理/已閉環/已完成
 **Owner**：Product / Ops / Mobile / Docs（與 Codex 協作）
 **關聯核心文件**：`07-待處理問題與治理/待處理/Emorapy命名收斂與外部識別符遷移待辦-2026-06-20.md`、`07-待處理問題與治理/待處理/App外部ReleaseSignoff待辦-2026-05-16.md`、`03-管理端與平台治理/05-運維連接與調用Runbook.md`、`術語表.md`、`00-跨端產品核心/01-產品PRD總章.md`
 
@@ -55,9 +55,9 @@
 
 1. **先加 domain alias，不切主入口（使用者 / Codex）**：
    - Vercel：2026-06-22 Codex 已為 main/admin project 加入 `emorapy.vercel.app` / `emorapy-admin.vercel.app`，並以 `/version.json` 驗證可公開服務；legacy aliases 保留作兼容。
-   - Railway：仍待為 backend service 加 Emorapy domain。
+   - Railway：2026-07-14 已把既有 project/service 原地 rename 為 `Emorapy` / `emorapy-api`，並加入 `api.emorapy.com`；DNS 已配置，仍待 TLS 與 runtime evidence。
    - 驗證新 domain 可服務：`EMORAPY_MAIN_WEB_URL=https://emorapy.vercel.app EMORAPY_ADMIN_WEB_URL=https://emorapy-admin.vercel.app EMORAPY_BACKEND_BASE_URL=<new-backend> npm run ops:release:status`。
-2. **設 GitHub repo / environment variables（使用者 + Codex）**：設定 `EMORAPY_MAIN_WEB_URL`、`EMORAPY_ADMIN_WEB_URL`、`EMORAPY_BACKEND_BASE_URL`、`EMORAPY_RAILWAY_SERVICE_NAME`（若 Railway service 改名）、`EMORAPY_GITHUB_REPO`，使 workflow 與 release gate 走 Emorapy 入口。本步只設 variable，不改 secret 值；2026-06-21 Codex 已設 `EMORAPY_GITHUB_REPO=Alex0158/emorapy`；2026-06-22 Codex 已設 `EMORAPY_MAIN_WEB_URL=https://emorapy.vercel.app` 與 `EMORAPY_ADMIN_WEB_URL=https://emorapy-admin.vercel.app`。
+2. **設 GitHub repo / environment variables（使用者 + Codex）**：設定 `EMORAPY_MAIN_WEB_URL`、`EMORAPY_ADMIN_WEB_URL`、`EMORAPY_BACKEND_BASE_URL`、`EMORAPY_RAILWAY_SERVICE_NAME`（若 Railway service 改名）、`EMORAPY_GITHUB_REPO`，使 workflow 與 release gate 走 Emorapy 入口。本步只設 variable，不改 secret 值；2026-07-14 已新增 `EMORAPY_RAILWAY_SERVICE_NAME=emorapy-api`，舊 service variable 暫留 fallback；backend URL 仍等待 custom-domain TLS 後才切換。
 3. **GitHub repo rename（使用者或 Codex CLI）**：`Settings → General → Rename` 或 `gh api -X PATCH repos/<owner>/<old-repo> -f name=<new-repo>`。GitHub 自動對舊 slug 建立 redirect；Codex 執行前需先確認 `gh repo view` 顯示 `viewerPermission=ADMIN` 且新 slug 不存在。2026-06-21 Codex 已將 `Alex0158/mother-bear-court` 改名為 `Alex0158/emorapy`，repo id 保持不變。
 4. **更新本機 remote（Codex）**：`git remote set-url origin git@github.com:<owner>/<new-repo>.git`，再 `git remote -v` 確認。2026-06-21 Codex 已更新為 `git@github.com:Alex0158/emorapy.git`。
 5. **確認平台 integration（使用者 + Codex）**：Vercel / Railway 的 GitHub integration 綁定的是 repo id（rename 後通常自動跟隨）；確認最近一次 push 仍能觸發 Vercel / Railway deploy。
@@ -88,7 +88,7 @@ npm run docs:check
 2. GitHub repo variable 已設 `EMORAPY_GITHUB_REPO=Alex0158/emorapy`；App release GitHub secret helper 的 default fallback 已改為 `Alex0158/emorapy`，不再默認依賴舊 slug redirect。
 3. Vercel CLI 2026-06-21 舊觀測為：project list 仍顯示 main project `mother-bear-court`，production alias 仍是 `https://mother-bear-court.vercel.app`。該觀測已被 2026-06-22 更新 supersede，不再代表當前 Vercel project name / primary project-domain defaults。
    - 2026-06-22 更新：Codex 已透過 Vercel API rename projects 為 `emorapy` / `emorapy-admin`，並新增 project domains `https://emorapy.vercel.app` / `https://emorapy-admin.vercel.app`；兩者 `/version.json` 均公開可用。舊 aliases `https://mother-bear-court.vercel.app` / `https://frontend-admin-sigma-virid.vercel.app` 仍保留兼容。
-4. Railway CLI 已驗證登入；production service source repo 已顯示 `Alex0158/emorapy`，但 service name 仍是 `mother-bear-court`，service domain 仍是 `mother-bear-court-production.up.railway.app`，custom domains 為空。當前 Railway CLI `service` 子命令沒有 rename 操作；未取得正式 Emorapy backend domain 前，不得改 workflow/service fallback。
+4. 2026-07-14 透過 Railway Web 對同一 project/service IDs 原地 rename 為 `Emorapy` / `emorapy-api`，並加入 `api.emorapy.com`；legacy public hostname 保留且 `/health/live=200`。Namecheap CNAME／ownership TXT 已配置，custom domain 仍待 Railway TLS。Private DNS 仍是 internal-only legacy alias，沒有 project/service variable literal 引用，不以刪除重建處理。
 5. `npm run ops:release:status` 在 legacy URL 下仍可執行並回傳 Vercel Ready / Railway SUCCESS 狀態；由於 local branch commit 與 production commit 不同，該命令只證明現有 legacy production entry 仍可用，不代表本輪命名變更已部署到 production。
 
 ### 停止 / 回滾條件

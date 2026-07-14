@@ -7,19 +7,36 @@ import {
   ContextPurpose,
   ContextTargetType,
   ContextUseDecision,
-  Prisma,
   PrivateContextUseMode,
+  Prisma,
+  SharedAdaptationConsentDecision,
 } from '@prisma/client';
 import prisma from '../config/database';
 import { getAIPromptVersion } from '../utils/ai-prompt-version';
 import { Errors } from '../utils/errors';
-import { CHAT_CONTEXT_POLICY_VERSION } from '../utils/chat-context-validation';
+import {
+  CHAT_ADAPTATION_POLICY_VERSION,
+  CHAT_CONTEXT_POLICY_VERSION,
+  textSha256,
+} from '../utils/chat-context-validation';
 import {
   buildSharedContextMessageWhere,
   buildVisibleChatMessageWhere,
   filterSharedContextMessages,
 } from './chat-message-audience-policy';
-import { mediationStrategyService, type MediationControls } from './mediation-strategy.service';
+import { mergeMediationControls } from './mediation-control-merge.service';
+import {
+  mediationStrategyService,
+  type MediationControls,
+} from './mediation-strategy.service';
+import {
+  activeHumanParticipants,
+  adaptationParticipantSnapshotHash,
+  chatContextMediationClaimService,
+  exactSharedMediationCapsules,
+  type ResolvedAdaptationControls,
+  type SharedMediationCapsule as SharedCapsule,
+} from './chat-context-mediation-claim.service';
 
 type ContextMessage = {
   id: string;
@@ -28,13 +45,6 @@ type ContextMessage = {
   role: ChatRoleInRoom;
   audience: 'private_owner' | 'room_participants';
   createdAt: Date;
-};
-
-type SharedCapsule = {
-  id: string;
-  summary: string;
-  contentHash: string;
-  authorizationIds: string[];
 };
 
 export type PrivateSupportContextBundle = {
@@ -66,15 +76,10 @@ type PrivateSupportInput = {
 type SharedMediationInput = {
   roomId: string;
   maxMessages?: number;
-  includePrivateControls?: boolean;
 };
 
-type RoomWithParticipants = Prisma.ChatRoomGetPayload<{
-  include: { participants: true };
-}>;
-
 export type ProcessControlBundle = {
-  controls: MediationControls | null;
+  controls: null;
   policyVersion: string;
 };
 
@@ -116,8 +121,11 @@ function toContextMessage(message: {
 }
 
 export class ChatContextPolicyService {
-  private async recordUse(input: AuditInput): Promise<void> {
-    await prisma.contextUseAudit.create({
+  private async recordUse(
+    input: AuditInput,
+    client: Pick<Prisma.TransactionClient, 'contextUseAudit'> = prisma,
+  ): Promise<void> {
+    await client.contextUseAudit.create({
       data: {
         room_id: input.roomId,
         actor_participant_id: input.actorParticipantId ?? null,
@@ -138,115 +146,116 @@ export class ChatContextPolicyService {
     });
   }
 
-  private async resolveProcessControls(
-    room: RoomWithParticipants,
-    purpose: 'shared_mediation' | 'formal_analysis_delivery',
-    audience: 'room_participants' | 'analysis_participants',
-  ): Promise<MediationControls | null> {
-    const optedInParticipants = room.participants.filter(
-      participant =>
-        participant.participant_type === 'user' &&
-        participant.is_active &&
-        participant.left_at === null &&
-        participant.private_context_use_mode === PrivateContextUseMode.shared_process_controls &&
-        (participant.role_in_room === ChatRoleInRoom.roleA ||
-          participant.role_in_room === ChatRoleInRoom.roleB)
-    );
-    const optedInParticipantIds = optedInParticipants.map(participant => participant.id);
-    if (optedInParticipantIds.length === 0) return null;
+  private async resolveSharedAdaptationControls(
+    room: Prisma.ChatRoomGetPayload<{ include: { participants: true } }>,
+  ): Promise<ResolvedAdaptationControls | null> {
+    const activeParticipants = activeHumanParticipants(room.participants);
+    if (activeParticipants.length < 2) return null;
 
-    const candidates = await prisma.chatMessage.findMany({
-      where: {
-        room_id: room.id,
-        message_type: ChatMessageType.user_text,
-        ai_context_eligible: true,
-        sender_participant_id: { in: optedInParticipantIds },
-        OR: [
-          {
-            channel: {
-              is: {
-                kind: ChatChannelKind.private,
-                owner_participant_id: { in: optedInParticipantIds },
-              },
-            },
-          },
-          {
-            channel_id: null,
-            visibility_scope: {
-              in: [ChatVisibilityScope.owner_only, ChatVisibilityScope.summary_only],
-            },
-          },
-        ],
-      },
-      select: {
-        id: true,
-        content: true,
-        sender_participant_id: true,
-        channel: { select: { owner_participant_id: true } },
-      },
-      orderBy: { created_at: 'desc' },
-      take: 40,
-    });
-    const privateMessages = candidates.filter(message => (
-      optedInParticipantIds.includes(message.sender_participant_id)
-      && (
-        message.channel?.owner_participant_id === message.sender_participant_id
-        || message.channel === null
-      )
+    const participantSnapshotHash = adaptationParticipantSnapshotHash(room.participants);
+
+    const allAccepted = activeParticipants.every(participant => (
+      participant.shared_adaptation_consent === SharedAdaptationConsentDecision.accepted
+      && participant.shared_adaptation_policy_version === CHAT_ADAPTATION_POLICY_VERSION
+      && participant.shared_adaptation_decided_at !== null
     ));
-    if (privateMessages.length === 0) return null;
+    if (!allAccepted) {
+      await this.recordUse({
+        roomId: room.id,
+        purpose: ContextPurpose.shared_mediation_adaptation,
+        audience: ContextAudience.room_participants,
+        decision: ContextUseDecision.denied,
+        reasonCode: 'shared_adaptation_consent_incomplete',
+        sourceRefs: [],
+      });
+      return null;
+    }
 
-    // The durable receipt is the fail-closed gate before raw private text may
-    // cross the external model boundary. It intentionally contains IDs only.
-    await this.recordUse({
-      roomId: room.id,
-      purpose,
-      audience,
-      decision: ContextUseDecision.allowed,
-      reasonCode: 'private_process_controls_requested',
-      sourceRefs: privateMessages.map(message => message.id),
-      promptVersion: getAIPromptVersion('chat_mediation_strategy'),
-    });
-    const extraction = await mediationStrategyService.extractAggregatedControlsWithOutcome(
-      room.id,
-      optedInParticipants.map(participant => ({
-        participantId: participant.id,
-        messages: privateMessages
-          .filter(message => (
-            message.sender_participant_id === participant.id
-            && (
-              message.channel?.owner_participant_id === participant.id
-              || message.channel === null
-            )
-          ))
-          .map(message => message.content)
-          .reverse(),
-      })),
-    );
-    await this.recordUse({
-      roomId: room.id,
-      purpose,
-      audience,
-      decision: extraction.controls ? ContextUseDecision.allowed : ContextUseDecision.denied,
-      reasonCode: `private_process_controls_${extraction.outcome}`,
-      sourceRefs: privateMessages.map(message => message.id),
-      promptVersion: getAIPromptVersion('chat_mediation_strategy'),
-    });
-    return extraction.controls;
+    const optedInOwners = activeParticipants.filter(participant => (
+      participant.private_context_use_mode === PrivateContextUseMode.shared_process_controls
+      && participant.private_context_policy_version === CHAT_ADAPTATION_POLICY_VERSION
+      && participant.private_context_preference_updated_at !== null
+    ));
+    if (optedInOwners.length === 0) {
+      await this.recordUse({
+        roomId: room.id,
+        purpose: ContextPurpose.shared_mediation_adaptation,
+        audience: ContextAudience.room_participants,
+        decision: ContextUseDecision.denied,
+        reasonCode: 'private_adaptation_owner_opt_in_missing',
+        sourceRefs: [],
+      });
+      return null;
+    }
+
+    const ownerControls: MediationControls[] = [];
+    for (const owner of optedInOwners) {
+      const privateMessages = await prisma.chatMessage.findMany({
+        where: {
+          room_id: room.id,
+          sender_participant_id: owner.id,
+          message_type: ChatMessageType.user_text,
+          ai_context_eligible: true,
+          safety_flag: false,
+          channel: {
+            is: {
+              room_id: room.id,
+              kind: ChatChannelKind.private,
+              owner_participant_id: owner.id,
+            },
+          },
+        },
+        select: { id: true, content: true },
+        orderBy: { created_at: 'desc' },
+        take: 20,
+      });
+      if (privateMessages.length === 0) continue;
+
+      const chronologicalMessages = [...privateMessages].reverse();
+      const sourceRefs = chronologicalMessages.map(message => message.id);
+      const contentHashes = chronologicalMessages.map(message => textSha256(message.content));
+      const claimed = await chatContextMediationClaimService.claimOwnerStrategyCompilation({
+        roomId: room.id,
+        ownerParticipantId: owner.id,
+        participantSnapshotHash,
+        sourceRefs,
+        contentHashes,
+      });
+      if (!claimed) return null;
+      const extraction = await mediationStrategyService.extractOwnerControlsWithOutcome({
+        roomId: room.id,
+        ownerParticipantId: owner.id,
+        messages: chronologicalMessages.map(message => message.content),
+      });
+      await this.recordUse({
+        roomId: room.id,
+        actorParticipantId: owner.id,
+        purpose: ContextPurpose.shared_mediation_adaptation,
+        audience: ContextAudience.room_participants,
+        decision: extraction.controls
+          ? ContextUseDecision.allowed
+          : ContextUseDecision.denied,
+        reasonCode: `owner_strategy_compilation_${extraction.outcome}`,
+        sourceRefs,
+        contentHashes,
+        promptVersion: getAIPromptVersion('chat_mediation_strategy'),
+      });
+      if (extraction.controls) ownerControls.push(extraction.controls);
+    }
+
+    const controls = mergeMediationControls(ownerControls);
+    if (!controls) return null;
+    return { controls, participantSnapshotHash };
   }
 
   async resolveFormalAnalysisDelivery(roomId: string): Promise<ProcessControlBundle> {
     const room = await prisma.chatRoom.findUnique({
       where: { id: roomId },
-      include: { participants: true },
+      select: { id: true },
     });
     if (!room) throw Errors.NOT_FOUND('聊天室不存在');
     return {
-      controls: await this.resolveProcessControls(
-        room,
-        ContextPurpose.formal_analysis_delivery,
-        ContextAudience.analysis_participants,
-      ),
+      controls: null,
       policyVersion: CHAT_CONTEXT_POLICY_VERSION,
     };
   }
@@ -396,77 +405,23 @@ export class ChatContextPolicyService {
       },
       orderBy: { created_at: 'asc' },
     });
-    const capsules = approvedCapsules.flatMap(capsule => {
-      if (
-        capsule.status !== 'approved' ||
-        capsule.policy_version !== CHAT_CONTEXT_POLICY_VERSION ||
-        capsule.revoked_at !== null ||
-        !capsule.expires_at ||
-        capsule.expires_at.getTime() <= now.getTime()
-      ) {
-        return [];
-      }
-
-      const exactActiveAuthorizations = capsule.authorizations.filter(
-        authorization =>
-          authorization.subject_participant_id === capsule.owner_participant_id &&
-          authorization.purpose === ContextPurpose.shared_mediation &&
-          authorization.audience === ContextAudience.room_participants &&
-          authorization.target_type === ContextTargetType.chat_room &&
-          authorization.target_id === room.id &&
-          authorization.capsule_content_hash === capsule.content_hash &&
-          authorization.policy_version === capsule.policy_version &&
-          authorization.policy_version === CHAT_CONTEXT_POLICY_VERSION &&
-          authorization.revoked_at === null &&
-          authorization.expires_at !== null &&
-          authorization.expires_at.getTime() > now.getTime()
-      );
-      if (exactActiveAuthorizations.length === 0) return [];
-
-      return [
-        {
-          id: capsule.id,
-          summary: capsule.summary,
-          contentHash: capsule.content_hash,
-          authorizationIds: exactActiveAuthorizations.map(authorization => authorization.id),
-        },
-      ];
+    const preparedCapsules = exactSharedMediationCapsules(approvedCapsules, room.id, now);
+    const adaptation = await this.resolveSharedAdaptationControls(room);
+    const claimed = await chatContextMediationClaimService.claimSharedMediationUses({
+      roomId: room.id,
+      adaptation,
+      capsules: preparedCapsules,
     });
-
-    const controls = input.includePrivateControls === false
-      ? null
-      : await this.resolveProcessControls(
-          room,
-          ContextPurpose.shared_mediation,
-          ContextAudience.room_participants,
-        );
-    await Promise.all(
-      capsules.map(capsule =>
-        this.recordUse({
-          roomId: room.id,
-          capsuleId: capsule.id,
-          authorizationId: capsule.authorizationIds[0],
-          purpose: ContextPurpose.shared_mediation,
-          audience: ContextAudience.room_participants,
-          decision: ContextUseDecision.allowed,
-          reasonCode: 'approved_capsule_exact_authorization',
-          sourceRefs: [capsule.id],
-          authorizationRefs: capsule.authorizationIds,
-          contentHashes: [capsule.contentHash],
-          promptVersion: getAIPromptVersion('chat_room_ai_response'),
-        })
-      )
-    );
 
     return {
       audience: 'room_participants',
       purpose: 'shared_mediation',
       policyVersion: CHAT_CONTEXT_POLICY_VERSION,
       messages,
-      capsules,
-      controls,
+      capsules: claimed.capsules,
+      controls: claimed.controls,
       sourceRefs: messages.map(message => message.id),
-      authorizationRefs: capsules.flatMap(capsule => capsule.authorizationIds),
+      authorizationRefs: claimed.capsules.flatMap(capsule => capsule.authorizationIds),
     };
   }
 }

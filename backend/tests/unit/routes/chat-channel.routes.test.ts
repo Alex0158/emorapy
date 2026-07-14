@@ -8,6 +8,7 @@ const mockListMessages = jest.fn();
 const mockResolveAccessibleChannel = jest.fn();
 const mockGetContextPreference = jest.fn();
 const mockUpdateContextPreference = jest.fn();
+const mockUpdateAdaptationConsent = jest.fn();
 const mockSendMessageToChannel = jest.fn();
 const mockPublish = jest.fn();
 const mockPublishToChannel = jest.fn();
@@ -32,6 +33,7 @@ jest.mock('../../../src/services/chat-context-preference.service', () => ({
   chatContextPreferenceService: {
     get: (...args: unknown[]) => mockGetContextPreference(...args),
     update: (...args: unknown[]) => mockUpdateContextPreference(...args),
+    updateAdaptationConsent: (...args: unknown[]) => mockUpdateAdaptationConsent(...args),
   },
 }));
 jest.mock('../../../src/services/chat-events.service', () => ({
@@ -64,6 +66,26 @@ const roomId = '550e8400-e29b-41d4-a716-446655440000';
 const privateChannelId = '660e8400-e29b-41d4-a716-446655440000';
 const sharedChannelId = '770e8400-e29b-41d4-a716-446655440000';
 const sessionId = 'guest_1700000000000_abcdefghijklmnop';
+const adaptationPolicyVersion = '2026-07-13.adaptation-v1';
+
+function preference(mode: 'private_only' | 'shared_process_controls') {
+  return {
+    participant_id: 'participant-a',
+    mode,
+    mode_policy_version: adaptationPolicyVersion,
+    mode_updated_at: '2026-07-13T19:00:00.000Z',
+    adaptation_decision: 'not_set',
+    adaptation_policy_version: null,
+    adaptation_decided_at: null,
+    room_adaptation: {
+      policy_version: adaptationPolicyVersion,
+      enabled: false,
+      active_participant_count: 2,
+      accepted_participant_count: 0,
+      owner_opt_in_count: mode === 'shared_process_controls' ? 1 : 0,
+    },
+  };
+}
 
 function createApp() {
   const app = express();
@@ -96,13 +118,12 @@ describe('chat-channel.routes', () => {
     });
     mockListActorChannels.mockResolvedValue([] as never);
     mockListMessages.mockResolvedValue({ messages: [], nextCursor: null } as never);
-    mockGetContextPreference.mockResolvedValue({
-      participantId: 'participant-a',
-      mode: 'private_only',
-    } as never);
-    mockUpdateContextPreference.mockResolvedValue({
-      participantId: 'participant-a',
-      mode: 'shared_process_controls',
+    mockGetContextPreference.mockResolvedValue(preference('private_only') as never);
+    mockUpdateContextPreference.mockResolvedValue(preference('shared_process_controls') as never);
+    mockUpdateAdaptationConsent.mockResolvedValue({
+      ...preference('shared_process_controls'),
+      adaptation_decision: 'accepted',
+      adaptation_policy_version: adaptationPolicyVersion,
     } as never);
     mockSubscribeChannel.mockReturnValue(jest.fn());
     mockPrepareHandshake.mockResolvedValue({
@@ -145,10 +166,7 @@ describe('chat-channel.routes', () => {
     expect(response.body).toEqual({
       success: true,
       data: {
-        preference: {
-          participant_id: 'participant-a',
-          mode: 'private_only',
-        },
+        preference: preference('private_only'),
       },
     });
   });
@@ -157,18 +175,32 @@ describe('chat-channel.routes', () => {
     const response = await request(createApp())
       .put(`/chat/rooms/${roomId}/context-preference`)
       .set('x-session-id', sessionId)
-      .send({ mode: 'shared_process_controls' });
+      .send({ mode: 'shared_process_controls', policy_version: adaptationPolicyVersion });
 
     expect(response.status).toBe(200);
     expect(mockUpdateContextPreference).toHaveBeenCalledWith(
       roomId,
       { userId: undefined, sessionId },
       'shared_process_controls',
+      adaptationPolicyVersion,
     );
-    expect(response.body.data.preference).toEqual({
-      participant_id: 'participant-a',
-      mode: 'shared_process_controls',
-    });
+    expect(response.body.data.preference).toEqual(preference('shared_process_controls'));
+  });
+
+  it('PUT adaptation-consent delegates an exact current-policy decision', async () => {
+    const response = await request(createApp())
+      .put(`/chat/rooms/${roomId}/adaptation-consent`)
+      .set('x-session-id', sessionId)
+      .send({ decision: 'accepted', policy_version: adaptationPolicyVersion });
+
+    expect(response.status).toBe(200);
+    expect(mockUpdateAdaptationConsent).toHaveBeenCalledWith(
+      roomId,
+      { userId: undefined, sessionId },
+      'accepted',
+      adaptationPolicyVersion,
+    );
+    expect(response.body.data.preference.adaptation_decision).toBe('accepted');
   });
 
   it('PUT context-preference rejects unknown modes before service delegation', async () => {

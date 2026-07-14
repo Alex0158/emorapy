@@ -7,6 +7,7 @@ import {
   login,
   claimSession,
   sendVerificationCode,
+  verifyRegistrationCode,
   verifyEmail,
   resetPassword,
   confirmResetPassword,
@@ -20,6 +21,7 @@ const mocks = vi.hoisted(() => ({
   login: vi.fn(),
   claimSession: vi.fn(),
   sendVerificationCode: vi.fn(),
+  verifyRegistrationCode: vi.fn(),
   verifyEmail: vi.fn(),
   resetPassword: vi.fn(),
   confirmResetPassword: vi.fn(),
@@ -29,6 +31,7 @@ const mocks = vi.hoisted(() => ({
       login: mocks.login,
       claimSession: mocks.claimSession,
       sendVerificationCode: mocks.sendVerificationCode,
+      verifyRegistrationCode: mocks.verifyRegistrationCode,
       verifyEmail: mocks.verifyEmail,
       resetPassword: mocks.resetPassword,
       confirmResetPassword: mocks.confirmResetPassword,
@@ -65,6 +68,7 @@ describe('auth API', () => {
         login: mocks.login,
         claimSession: mocks.claimSession,
         sendVerificationCode: mocks.sendVerificationCode,
+        verifyRegistrationCode: mocks.verifyRegistrationCode,
         verifyEmail: mocks.verifyEmail,
         resetPassword: mocks.resetPassword,
         confirmResetPassword: mocks.confirmResetPassword,
@@ -75,7 +79,12 @@ describe('auth API', () => {
   describe('register', () => {
     it('應委派 shared M1 auth register 並返回 AuthResponse', async () => {
       mocks.register.mockResolvedValue(mockAuthResponse);
-      const dto: RegisterDto = { email: 'new@example.com', password: 'pass', nickname: 'New' };
+      const dto: RegisterDto = {
+        email: 'new@example.com',
+        password: 'pass',
+        registration_proof: 'rp1_registration-proof',
+        nickname: 'New',
+      };
       const result = await register(dto);
       expect(mocks.register).toHaveBeenCalledWith(dto);
       expect(result).toEqual(mockAuthResponse);
@@ -83,7 +92,11 @@ describe('auth API', () => {
 
     it('shared register 回應缺少 token 時應透傳錯誤', async () => {
       mocks.register.mockRejectedValue(new Error('Invalid auth response from server'));
-      await expect(register({ email: 'x@x.com', password: 'p' })).rejects.toThrow(
+      await expect(register({
+        email: 'x@x.com',
+        password: 'p',
+        registration_proof: 'rp1_registration-proof',
+      })).rejects.toThrow(
         'Invalid auth response from server',
       );
     });
@@ -126,31 +139,51 @@ describe('auth API', () => {
   });
 
   describe('sendVerificationCode', () => {
-    it('應委派 shared M1 auth sendVerificationCode 並傳 email 與 type', async () => {
-      mocks.sendVerificationCode.mockResolvedValue(undefined);
-      await sendVerificationCode('u@example.com', 'register');
+    it('應委派 shared M1 auth sendVerificationCode 並返回服務端倒數契約', async () => {
+      const delivery = { expires_in: 300, resend_after: 60 };
+      mocks.sendVerificationCode.mockResolvedValue(delivery);
+      await expect(sendVerificationCode('u@example.com', 'register')).resolves.toEqual(delivery);
       expect(mocks.sendVerificationCode).toHaveBeenCalledWith('u@example.com', 'register');
     });
 
-    it('支援 reset_password 與 verify_email type', async () => {
-      mocks.sendVerificationCode.mockResolvedValue(undefined);
-      await sendVerificationCode('u@example.com', 'reset_password');
-      expect(mocks.sendVerificationCode).toHaveBeenCalledWith('u@example.com', 'reset_password');
+    it('支援既有帳戶 verify_email type', async () => {
+      mocks.sendVerificationCode.mockResolvedValue({ expires_in: 300, resend_after: 60 });
+      await expect(sendVerificationCode('u@example.com', 'verify_email')).resolves.toEqual({
+        expires_in: 300,
+        resend_after: 60,
+      });
+      expect(mocks.sendVerificationCode).toHaveBeenCalledWith('u@example.com', 'verify_email');
+    });
+  });
+
+  describe('verifyRegistrationCode', () => {
+    it('應委派 shared M1 專用註冊驗證並返回一次性 proof', async () => {
+      const verification = {
+        verified: true as const,
+        registration_proof: 'rp1_registration-proof',
+        registration_proof_expires_in: 600,
+      };
+      mocks.verifyRegistrationCode.mockResolvedValue(verification);
+
+      const result = await verifyRegistrationCode('u@example.com', '123456');
+
+      expect(mocks.verifyRegistrationCode).toHaveBeenCalledWith('u@example.com', '123456');
+      expect(result).toEqual(verification);
     });
   });
 
   describe('verifyEmail', () => {
     it('應委派 shared M1 auth verifyEmail 並返回 verified', async () => {
       mocks.verifyEmail.mockResolvedValue(true);
-      const result = await verifyEmail('u@example.com', '123456', 'verify_email');
-      expect(mocks.verifyEmail).toHaveBeenCalledWith('u@example.com', '123456', 'verify_email');
+      const result = await verifyEmail('u@example.com', '123456');
+      expect(mocks.verifyEmail).toHaveBeenCalledWith('u@example.com', '123456');
       expect(result).toBe(true);
     });
 
     it('預設 type 為 verify_email', async () => {
       mocks.verifyEmail.mockResolvedValue(false);
       const result = await verifyEmail('u@example.com', '000000');
-      expect(mocks.verifyEmail).toHaveBeenCalledWith('u@example.com', '000000', 'verify_email');
+      expect(mocks.verifyEmail).toHaveBeenCalledWith('u@example.com', '000000');
       expect(result).toBe(false);
     });
 

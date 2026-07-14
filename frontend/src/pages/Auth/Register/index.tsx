@@ -6,7 +6,7 @@
  * 新增: 密碼強度指示器
  */
 
-import { Eye, EyeOff, Mail, User, Lock } from 'lucide-react';
+import { Check, Eye, EyeOff, Mail, User, Lock } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useMountedRef } from '@/hooks/useMountedRef';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -14,13 +14,18 @@ import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import SEO from '@/components/common/SEO';
-import { sendVerificationCode, verifyEmail } from '@/services/api/auth';
+import { sendVerificationCode, verifyRegistrationCode } from '@/services/api/auth';
 import { useAuthStore } from '@/store/authStore';
-import { getErrorMessage } from '@/utils/apiError';
+import { getErrorCode, getErrorMessage } from '@/utils/apiError';
 import { t } from '@/utils/i18n';
 
 const CODE_LENGTH = 6;
+const REGISTRATION_PROOF_ERRORS = new Set([
+  'REGISTRATION_PROOF_INVALID',
+  'REGISTRATION_PROOF_EXPIRED',
+]);
 
 interface LocationState {
   from?: { pathname: string };
@@ -58,7 +63,9 @@ const Register = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [verificationCode, setVerificationCode] = useState<string[]>(Array(CODE_LENGTH).fill(''));
+  const [registrationProof, setRegistrationProof] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(0);
+  const [resendCountdown, setResendCountdown] = useState(0);
   const [sendingCode, setSendingCode] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -67,6 +74,8 @@ const Register = () => {
   const codeInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const registerLockRef = useRef(false);
   const sendCodeLockRef = useRef(false);
+  const verifyCodeLockRef = useRef(false);
+  const verificationRequestRef = useRef(0);
 
   const VALID_REDIRECT_PREFIXES = [
     '/case', '/judgment', '/reconciliation', '/execution',
@@ -82,10 +91,19 @@ const Register = () => {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, []);
 
-  const startCountdown = useCallback(() => {
-    setCountdown(300);
+  const stopCountdown = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = null;
+    setCountdown(0);
+    setResendCountdown(0);
+  }, []);
+
+  const startCountdown = useCallback((expiresIn: number, resendAfter: number) => {
+    setCountdown(expiresIn);
+    setResendCountdown(resendAfter);
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
+      setResendCountdown((prev) => Math.max(0, prev - 1));
       setCountdown((prev) => {
         if (prev <= 1) { if (timerRef.current) clearInterval(timerRef.current); return 0; }
         return prev - 1;
@@ -99,15 +117,21 @@ const Register = () => {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setErrors({ email: t('auth.register.emailInvalid') }); return; }
     if (sendCodeLockRef.current) return;
     sendCodeLockRef.current = true;
+    const requestId = ++verificationRequestRef.current;
+    setVerifying(false);
+    setRegistrationProof(null);
+    setVerificationCode(Array(CODE_LENGTH).fill(''));
     setSendingCode(true);
     try {
-      await sendVerificationCode(email, 'register');
-      if (!mountedRef.current) return;
-      startCountdown();
+      const delivery = await sendVerificationCode(email, 'register');
+      if (!mountedRef.current || requestId !== verificationRequestRef.current) return;
+      startCountdown(delivery.expires_in, delivery.resend_after);
       toast.success(t('message.codeSent'));
       setCurrentStep(1);
     } catch (error: unknown) {
-      if (mountedRef.current) toast.error(getErrorMessage(error, 'message.sendCodeFail'));
+      if (mountedRef.current && requestId === verificationRequestRef.current) {
+        toast.error(getErrorMessage(error, 'message.sendCodeFail'));
+      }
     } finally {
       sendCodeLockRef.current = false;
       if (mountedRef.current) setSendingCode(false);
@@ -115,8 +139,23 @@ const Register = () => {
   };
 
   const handleResendCode = () => {
-    if (countdown > 0) { toast.warning(t('message.waitCountdown').replace('{count}', String(countdown))); return; }
-    handleSendCode();
+    if (resendCountdown > 0) {
+      toast.warning(t('message.waitCountdown').replace('{count}', String(resendCountdown)));
+      return;
+    }
+    if (sendingCode || verifying) return;
+    void handleSendCode();
+  };
+
+  const handleChangeEmail = () => {
+    if (registerLockRef.current) return;
+    verificationRequestRef.current += 1;
+    setVerifying(false);
+    setRegistrationProof(null);
+    setVerificationCode(Array(CODE_LENGTH).fill(''));
+    stopCountdown();
+    setErrors({});
+    setCurrentStep(0);
   };
 
   const handleCodeChange = (index: number, value: string) => {
@@ -146,15 +185,30 @@ const Register = () => {
   const handleVerifyCode = async () => {
     const code = verificationCode.join('');
     if (code.length !== CODE_LENGTH) { toast.error(t('message.codeFull')); return; }
+    if (verifyCodeLockRef.current) return;
+    verifyCodeLockRef.current = true;
+    const requestId = ++verificationRequestRef.current;
     setVerifying(true);
     try {
-      const verified = await verifyEmail(email, code, 'register');
-      if (!mountedRef.current) return;
-      if (verified) { toast.success(t('message.verifySuccess')); setCurrentStep(2); }
-      else { toast.error(t('message.codeError')); setVerificationCode(Array(CODE_LENGTH).fill('')); codeInputRefs.current[0]?.focus(); }
+      const result = await verifyRegistrationCode(email, code);
+      if (!mountedRef.current || requestId !== verificationRequestRef.current) return;
+      setRegistrationProof(result.registration_proof);
+      stopCountdown();
+      toast.success(t('message.verifySuccess'));
+      setCurrentStep(2);
     } catch (error: unknown) {
-      if (mountedRef.current) toast.error(getErrorMessage(error, 'message.verifyFail'));
-    } finally { if (mountedRef.current) setVerifying(false); }
+      if (mountedRef.current && requestId === verificationRequestRef.current) {
+        const errorCode = getErrorCode(error);
+        if (errorCode === 'INVALID_CODE' || errorCode === 'CODE_EXPIRED') {
+          setVerificationCode(Array(CODE_LENGTH).fill(''));
+          codeInputRefs.current[0]?.focus();
+        }
+        toast.error(getErrorMessage(error, 'message.verifyFail'));
+      }
+    } finally {
+      verifyCodeLockRef.current = false;
+      if (mountedRef.current && requestId === verificationRequestRef.current) setVerifying(false);
+    }
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -166,16 +220,36 @@ const Register = () => {
     if (!confirmPassword) newErrors.confirmPassword = t('auth.register.confirmRequired');
     else if (password !== confirmPassword) newErrors.confirmPassword = t('message.passwordMismatch');
     if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return; }
+    if (!registrationProof) {
+      setVerificationCode(Array(CODE_LENGTH).fill(''));
+      stopCountdown();
+      setCurrentStep(1);
+      toast.error(t('message.verifyFail'));
+      return;
+    }
 
     if (registerLockRef.current) return;
     registerLockRef.current = true;
     try {
-      await register(email, password, nickname || undefined);
+      await register({
+        email,
+        password,
+        registration_proof: registrationProof,
+        nickname: nickname || undefined,
+      });
       if (!mountedRef.current) return;
       toast.success(t('message.registerSuccess'));
       navigate(redirectTo, { replace: true });
     } catch (error: unknown) {
-      if (mountedRef.current) toast.error(getErrorMessage(error, 'message.registerFail'));
+      if (mountedRef.current) {
+        if (REGISTRATION_PROOF_ERRORS.has(getErrorCode(error))) {
+          setRegistrationProof(null);
+          setVerificationCode(Array(CODE_LENGTH).fill(''));
+          stopCountdown();
+          setCurrentStep(1);
+        }
+        toast.error(getErrorMessage(error, 'message.registerFail'));
+      }
     } finally { registerLockRef.current = false; }
   };
 
@@ -186,6 +260,11 @@ const Register = () => {
   };
 
   const passwordStrength = getPasswordStrength(password);
+  const stepLabels = [
+    t('auth.register.stepEmail'),
+    t('auth.register.stepVerify'),
+    t('auth.register.stepPassword'),
+  ];
 
   return (
     <>
@@ -209,22 +288,41 @@ const Register = () => {
         </div>
 
         {/* Step Indicator */}
-        <div className="mb-8 flex items-center gap-2">
-          {[0, 1, 2].map((step) => (
-            <div key={step} className="flex items-center gap-2 flex-1">
-              <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-colors ${
-                step <= currentStep ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
-              }`}>
-                {step + 1}
-              </div>
-              {step < 2 && (
-                <div className={`h-0.5 flex-1 rounded-full transition-colors ${
-                  step < currentStep ? 'bg-primary' : 'bg-muted'
-                }`} />
-              )}
-            </div>
-          ))}
-        </div>
+        <ol className="mb-8 flex items-start gap-2" aria-label={t('auth.register.progressLabel')}>
+          {[0, 1, 2].map((step) => {
+            const isCompleted = step < currentStep;
+            const isCurrent = step === currentStep;
+            return (
+              <li
+                key={step}
+                className="flex flex-1 items-start gap-2"
+                aria-current={isCurrent ? 'step' : undefined}
+              >
+                <div className="flex min-w-0 flex-col items-center gap-1.5 text-center">
+                  <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold transition-colors ${
+                    isCompleted
+                      ? 'border-secondary bg-secondary text-secondary-foreground'
+                      : isCurrent
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'border-border bg-background text-foreground'
+                  }`} aria-hidden="true">
+                    {isCompleted ? <Check className="size-3.5" /> : step + 1}
+                  </span>
+                  <span className={`text-[11px] leading-4 ${
+                    isCurrent ? 'font-semibold text-foreground' : 'text-muted-foreground'
+                  }`}>
+                    {stepLabels[step]}
+                  </span>
+                </div>
+                {step < 2 && (
+                  <div className={`mt-3.5 h-0.5 flex-1 rounded-full transition-colors ${
+                    isCompleted ? 'bg-secondary' : 'bg-muted'
+                  }`} aria-hidden="true" />
+                )}
+              </li>
+            );
+          })}
+        </ol>
 
         {/* Steps content */}
         <AnimatePresence mode="wait">
@@ -241,33 +339,46 @@ const Register = () => {
               noValidate
             >
               <div className="space-y-2">
+                <Label htmlFor="register-email">{t('auth.register.email')}</Label>
                 <div className="relative">
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                   <Input
+                    id="register-email"
                     type="email"
-                    aria-label={t('auth.register.email')}
                     placeholder={t('auth.register.emailPlaceholder')}
                     autoComplete="email"
                     value={email}
-                    onChange={(e) => { setEmail(e.target.value); setErrors({}); }}
+                    disabled={sendingCode}
+                    aria-invalid={Boolean(errors.email)}
+                    aria-describedby={errors.email ? 'register-email-error' : undefined}
+                    onChange={(e) => {
+                      verificationRequestRef.current += 1;
+                      setEmail(e.target.value);
+                      setRegistrationProof(null);
+                      setVerificationCode(Array(CODE_LENGTH).fill(''));
+                      setErrors({});
+                    }}
                     className="h-12 rounded-md border-input bg-transparent pl-11 text-base focus:border-primary focus:ring-2 focus:ring-primary/15"
                   />
                 </div>
-                {errors.email && <p className="text-sm text-destructive pl-1">{errors.email}</p>}
+                {errors.email && <p id="register-email-error" className="text-sm text-destructive pl-1">{errors.email}</p>}
               </div>
 
-              <div className="relative">
-                <User className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                <Input
-                  type="text"
-                  aria-label={t('auth.register.nickname')}
-                  autoComplete="nickname"
-                  placeholder={t('auth.register.nicknamePlaceholder')}
-                  maxLength={20}
-                  value={nickname}
-                  onChange={(e) => setNickname(e.target.value)}
-                  className="h-12 rounded-md border-input bg-transparent pl-11 text-base focus:border-primary focus:ring-2 focus:ring-primary/15"
-                />
+              <div className="space-y-2">
+                <Label htmlFor="register-nickname">{t('auth.register.nickname')}</Label>
+                <div className="relative">
+                  <User className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                  <Input
+                    id="register-nickname"
+                    type="text"
+                    autoComplete="nickname"
+                    placeholder={t('auth.register.nicknamePlaceholder')}
+                    maxLength={20}
+                    value={nickname}
+                    onChange={(e) => setNickname(e.target.value)}
+                    className="h-12 rounded-md border-input bg-transparent pl-11 text-base focus:border-primary focus:ring-2 focus:ring-primary/15"
+                  />
+                </div>
               </div>
 
               <Button
@@ -298,6 +409,14 @@ const Register = () => {
               <div className="text-center">
                 <p className="text-sm text-muted-foreground">{t('auth.register.codeSentTo')}</p>
                 <p className="mt-1 text-base font-semibold text-foreground">{email}</p>
+                <button
+                  type="button"
+                  onClick={handleChangeEmail}
+                  disabled={verifying || sendingCode}
+                  className="mt-1 min-h-11 px-2 text-sm font-medium text-primary transition-colors hover:text-primary-hover disabled:cursor-not-allowed disabled:text-muted-foreground"
+                >
+                  {t('auth.register.changeEmail')}
+                </button>
               </div>
 
               <div className="flex justify-between gap-2">
@@ -310,6 +429,7 @@ const Register = () => {
                     pattern="\d*"
                     maxLength={1}
                     value={value}
+                    disabled={verifying}
                     onChange={(e) => handleCodeChange(index, e.target.value)}
                     onKeyDown={(e) => handleCodeKeyDown(index, e)}
                     onPaste={handleCodePaste}
@@ -328,10 +448,12 @@ const Register = () => {
                 <button
                   type="button"
                   onClick={handleResendCode}
-                  disabled={countdown > 0}
+                  disabled={resendCountdown > 0 || sendingCode || verifying}
                   className="mt-2 min-h-11 px-2 text-sm font-medium text-primary transition-colors hover:text-primary-hover disabled:cursor-not-allowed disabled:text-muted-foreground"
                 >
-                  {t('auth.register.resendCode')}
+                  {resendCountdown > 0
+                    ? `${t('auth.register.resendCode')} · ${formatCountdown(resendCountdown)}`
+                    : t('auth.register.resendCode')}
                 </button>
               </div>
 
@@ -362,17 +484,32 @@ const Register = () => {
               className="space-y-5"
               noValidate
             >
+              <div className="flex items-center justify-between gap-3 rounded-md bg-muted/60 px-3 py-2 text-sm">
+                <span className="truncate text-muted-foreground">{email}</span>
+                <button
+                  type="button"
+                  onClick={handleChangeEmail}
+                  disabled={isLoading}
+                  className="min-h-11 shrink-0 px-2 font-medium text-primary transition-colors hover:text-primary-hover disabled:cursor-not-allowed disabled:text-muted-foreground"
+                >
+                  {t('auth.register.changeEmail')}
+                </button>
+              </div>
+
               {/* Password */}
               <div className="space-y-2">
+                <Label htmlFor="register-password">{t('auth.register.setPassword')}</Label>
                 <div className="relative">
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                   <Input
+                    id="register-password"
                     type={showPassword ? 'text' : 'password'}
-                    aria-label={t('auth.register.setPassword')}
                     placeholder={t('auth.register.passwordPlaceholder')}
                     maxLength={128}
                     autoComplete="new-password"
                     value={password}
+                    aria-invalid={Boolean(errors.password)}
+                    aria-describedby={errors.password ? 'register-password-error' : undefined}
                     onChange={(e) => { setPassword(e.target.value); setErrors((prev) => { const { password: _, ...rest } = prev; return rest; }); }}
                     className="h-12 rounded-md border-input bg-transparent pl-11 pr-11 text-base focus:border-primary focus:ring-2 focus:ring-primary/15"
                   />
@@ -385,7 +522,7 @@ const Register = () => {
                     {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                   </button>
                 </div>
-                {errors.password && <p className="text-sm text-destructive pl-1">{errors.password}</p>}
+                {errors.password && <p id="register-password-error" className="text-sm text-destructive pl-1">{errors.password}</p>}
                 {/* Password strength indicator */}
                 {password && (
                   <div className="space-y-1 pt-1">
@@ -404,19 +541,22 @@ const Register = () => {
 
               {/* Confirm Password */}
               <div className="space-y-2">
+                <Label htmlFor="register-confirm-password">{t('auth.register.confirmPassword')}</Label>
                 <div className="relative">
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                   <Input
+                    id="register-confirm-password"
                     type={showPassword ? 'text' : 'password'}
-                    aria-label={t('auth.register.confirmPassword')}
                     placeholder={t('auth.register.confirmPlaceholder')}
                     autoComplete="new-password"
                     value={confirmPassword}
+                    aria-invalid={Boolean(errors.confirmPassword)}
+                    aria-describedby={errors.confirmPassword ? 'register-confirm-password-error' : undefined}
                     onChange={(e) => { setConfirmPassword(e.target.value); setErrors((prev) => { const { confirmPassword: _, ...rest } = prev; return rest; }); }}
                     className="h-12 rounded-md border-input bg-transparent pl-11 text-base focus:border-primary focus:ring-2 focus:ring-primary/15"
                   />
                 </div>
-                {errors.confirmPassword && <p className="text-sm text-destructive pl-1">{errors.confirmPassword}</p>}
+                {errors.confirmPassword && <p id="register-confirm-password-error" className="text-sm text-destructive pl-1">{errors.confirmPassword}</p>}
               </div>
 
               <Button

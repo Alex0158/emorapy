@@ -13,6 +13,9 @@ const mockGetQuickCaseBySessionId = jest.fn();
 const mockConnectQuickJudgmentStream = jest.fn();
 const mockLogin = jest.fn();
 const mockRegister = jest.fn();
+const mockSendVerificationCode = jest.fn();
+const mockVerifyRegistrationCode = jest.fn();
+const mockVerifyEmail = jest.fn();
 const mockClaimSession = jest.fn();
 const mockGetSessionId = jest.fn();
 const mockSetSessionId = jest.fn();
@@ -62,6 +65,9 @@ jest.mock('@/src/features/m1/api', () => ({
     auth: {
       login: mockLogin,
       register: mockRegister,
+      sendVerificationCode: mockSendVerificationCode,
+      verifyRegistrationCode: mockVerifyRegistrationCode,
+      verifyEmail: mockVerifyEmail,
       claimSession: mockClaimSession,
     },
   },
@@ -147,6 +153,13 @@ describe('M1 Quick/Auth screens', () => {
     mockGetQuickCaseBySessionId.mockResolvedValue(null);
     mockLogin.mockResolvedValue({ token: 'jwt-token' });
     mockRegister.mockResolvedValue({ token: 'jwt-token' });
+    mockSendVerificationCode.mockResolvedValue({ expires_in: 300, resend_after: 60 });
+    mockVerifyRegistrationCode.mockResolvedValue({
+      verified: true,
+      registration_proof: 'rp1_registration-proof',
+      registration_proof_expires_in: 600,
+    });
+    mockVerifyEmail.mockResolvedValue(true);
     mockClaimSession.mockResolvedValue({ case_id: 'case-1' });
     mockLifecycleStatus = 'active';
     mockLifecycleListener = null;
@@ -625,7 +638,7 @@ describe('M1 Quick/Auth screens', () => {
     const screen = renderWithQuery(React.createElement(AuthScreen));
 
     fireEvent.changeText(screen.getByPlaceholderText('name@example.com'), 'user@example.com');
-    fireEvent.changeText(screen.getByPlaceholderText('至少 8 個字元'), 'password-123');
+    fireEvent.changeText(screen.getByTestId('auth.password.input'), 'password-123');
     fireEvent.press(screen.getByText('登入並保存'));
 
     await waitFor(() => expect(mockLogin).toHaveBeenCalledTimes(1));
@@ -647,17 +660,284 @@ describe('M1 Quick/Auth screens', () => {
     expect(screen.getByTestId('auth.submit').props.accessibilityState.disabled).toBe(true);
 
     fireEvent.changeText(screen.getByPlaceholderText('name@example.com'), 'bad-email');
-    fireEvent.changeText(screen.getByPlaceholderText('至少 8 個字元'), 'short');
+    fireEvent.changeText(screen.getByTestId('auth.password.input'), 'short');
 
     expect(screen.getByText('請確認電子郵件格式。')).toBeTruthy();
     expect(screen.getByText('還需要 3 個字元。')).toBeTruthy();
     expect(screen.getByTestId('auth.submit').props.accessibilityState.disabled).toBe(true);
 
     fireEvent.changeText(screen.getByPlaceholderText('name@example.com'), 'user@example.com');
-    fireEvent.changeText(screen.getByPlaceholderText('至少 8 個字元'), 'password-123');
+    fireEvent.changeText(screen.getByTestId('auth.password.input'), 'password-123');
 
     expect(screen.getByText('密碼長度符合要求。')).toBeTruthy();
     expect(screen.getByTestId('auth.submit').props.accessibilityState.disabled).toBe(false);
+  });
+
+  it('validates the complete backend password policy before sending a registration code', () => {
+    const screen = renderWithQuery(React.createElement(AuthScreen));
+
+    fireEvent.press(screen.getByTestId('auth.mode.register'));
+    fireEvent.changeText(screen.getByTestId('auth.email.input'), 'user@example.com');
+
+    fireEvent.changeText(screen.getByTestId('auth.password.input'), 'password');
+    expect(screen.getByText('這個密碼太常見，請改用較難猜的密碼。')).toBeTruthy();
+    expect(screen.getByTestId('auth.submit').props.accessibilityState.disabled).toBe(true);
+
+    fireEvent.changeText(screen.getByTestId('auth.password.input'), 'abcdefgh');
+    expect(screen.getByText('密碼必須包含至少一個數字。')).toBeTruthy();
+
+    fireEvent.changeText(screen.getByTestId('auth.password.input'), '123456789');
+    expect(screen.getByText('密碼必須包含至少一個英文字母。')).toBeTruthy();
+
+    fireEvent.changeText(screen.getByTestId('auth.password.input'), `${'a'.repeat(128)}1`);
+    expect(screen.getByText('密碼不能超過 128 個字元。')).toBeTruthy();
+
+    fireEvent.changeText(screen.getByTestId('auth.password.input'), 'password-123');
+    expect(screen.getByText('密碼符合註冊安全規則。')).toBeTruthy();
+    expect(screen.getByTestId('auth.submit').props.accessibilityState.disabled).toBe(false);
+    expect(mockSendVerificationCode).not.toHaveBeenCalled();
+  });
+
+  it('registers only after send-code and proof-first email verification', async () => {
+    const screen = renderWithQuery(React.createElement(AuthScreen));
+
+    fireEvent.press(screen.getByTestId('auth.mode.register'));
+    fireEvent.changeText(screen.getByTestId('auth.nickname.input'), '小晴');
+    fireEvent.changeText(screen.getByTestId('auth.email.input'), ' New.User@Example.com ');
+    fireEvent.changeText(screen.getByTestId('auth.password.input'), 'password-123');
+    fireEvent.press(screen.getByTestId('auth.submit'));
+
+    await waitFor(() => {
+      expect(mockSendVerificationCode).toHaveBeenCalledWith('new.user@example.com', 'register');
+    });
+    expect(mockRegister).not.toHaveBeenCalled();
+    expect(mockSetToken).not.toHaveBeenCalled();
+    expect(screen.getByTestId('auth.registration.verification')).toBeTruthy();
+
+    fireEvent.changeText(screen.getByTestId('auth.registration.code.input'), '12a3456');
+    expect(screen.getByTestId('auth.registration.code.input').props.value).toBe('123456');
+    fireEvent.press(screen.getByTestId('auth.registration.complete'));
+
+    await waitFor(() => expect(mockRegister).toHaveBeenCalledTimes(1));
+    expect(mockVerifyRegistrationCode).toHaveBeenCalledWith(
+      'new.user@example.com',
+      '123456'
+    );
+    expect(mockRegister).toHaveBeenCalledWith({
+      email: 'new.user@example.com',
+      password: 'password-123',
+      nickname: '小晴',
+      registration_proof: 'rp1_registration-proof',
+    });
+    expect(mockSetToken).toHaveBeenCalledWith('jwt-token');
+    expect(mockRouterReplace).toHaveBeenCalledWith('/case');
+  });
+
+  it('disables resend until the backend cooldown elapses', async () => {
+    const screen = renderWithQuery(React.createElement(AuthScreen));
+
+    fireEvent.press(screen.getByTestId('auth.mode.register'));
+    fireEvent.changeText(screen.getByTestId('auth.email.input'), 'cooldown@example.com');
+    fireEvent.changeText(screen.getByTestId('auth.password.input'), 'password-123');
+    fireEvent.press(screen.getByTestId('auth.submit'));
+
+    await waitFor(() => expect(mockSendVerificationCode).toHaveBeenCalledTimes(1));
+    expect(screen.getByText('60 秒後可重新寄送')).toBeTruthy();
+    expect(screen.getByTestId('auth.registration.resend').props.accessibilityState.disabled)
+      .toBe(true);
+
+    fireEvent.press(screen.getByTestId('auth.registration.resend'));
+    expect(mockSendVerificationCode).toHaveBeenCalledTimes(1);
+  });
+
+  it('clears an active resend countdown when the auth screen unmounts', async () => {
+    const setIntervalSpy = jest.spyOn(global, 'setInterval');
+    const clearIntervalSpy = jest.spyOn(global, 'clearInterval');
+
+    try {
+      const screen = renderWithQuery(React.createElement(AuthScreen));
+
+      fireEvent.press(screen.getByTestId('auth.mode.register'));
+      fireEvent.changeText(screen.getByTestId('auth.email.input'), 'timer@example.com');
+      fireEvent.changeText(screen.getByTestId('auth.password.input'), 'password-123');
+      fireEvent.press(screen.getByTestId('auth.submit'));
+
+      await waitFor(() => expect(screen.getByText('60 秒後可重新寄送')).toBeTruthy());
+      const countdownTimer = setIntervalSpy.mock.results.at(-1)?.value;
+      expect(countdownTimer).toBeDefined();
+
+      screen.unmount();
+
+      expect(clearIntervalSpy).toHaveBeenCalledWith(countdownTimer);
+    } finally {
+      setIntervalSpy.mockRestore();
+      clearIntervalSpy.mockRestore();
+    }
+  });
+
+  it('recovers an active unverified account, then retries login', async () => {
+    mockLogin
+      .mockRejectedValueOnce({ code: 'EMAIL_NOT_VERIFIED', message: 'raw backend message' })
+      .mockResolvedValueOnce({ token: 'jwt-token' });
+    const screen = renderWithQuery(React.createElement(AuthScreen));
+
+    fireEvent.changeText(screen.getByTestId('auth.email.input'), 'legacy@example.com');
+    fireEvent.changeText(screen.getByTestId('auth.password.input'), 'password-123');
+    fireEvent.press(screen.getByTestId('auth.submit'));
+
+    await waitFor(() => {
+      expect(mockSendVerificationCode).toHaveBeenCalledWith(
+        'legacy@example.com',
+        'verify_email'
+      );
+    });
+    expect(screen.getByTestId('auth.login-verification.verification')).toBeTruthy();
+    expect(screen.getByText('驗證成功後會自動重新登入。')).toBeTruthy();
+
+    fireEvent.changeText(screen.getByTestId('auth.login-verification.code.input'), '123456');
+    fireEvent.press(screen.getByTestId('auth.login-verification.complete'));
+
+    await waitFor(() => expect(mockLogin).toHaveBeenCalledTimes(2));
+    expect(mockVerifyEmail).toHaveBeenCalledWith('legacy@example.com', '123456');
+    expect(mockSetToken).toHaveBeenCalledWith('jwt-token');
+    expect(mockRouterReplace).toHaveBeenCalledWith('/case');
+  });
+
+  it('localizes a backend WEAK_PASSWORD response during registration', async () => {
+    mockRegister.mockRejectedValueOnce({
+      code: 'WEAK_PASSWORD',
+      message: 'raw backend message',
+    });
+    const screen = renderWithQuery(React.createElement(AuthScreen));
+
+    fireEvent.press(screen.getByTestId('auth.mode.register'));
+    fireEvent.changeText(screen.getByTestId('auth.email.input'), 'weak@example.com');
+    fireEvent.changeText(screen.getByTestId('auth.password.input'), 'password-123');
+    fireEvent.press(screen.getByTestId('auth.submit'));
+    await waitFor(() => expect(mockSendVerificationCode).toHaveBeenCalledTimes(1));
+    fireEvent.changeText(screen.getByTestId('auth.registration.code.input'), '123456');
+    fireEvent.press(screen.getByTestId('auth.registration.complete'));
+
+    expect(await screen.findByText(
+      '密碼未符合安全規則，請使用 8–128 個字元並包含字母與數字，避免常見密碼。'
+    )).toBeTruthy();
+  });
+
+  it('keeps a proof only in memory for a safe register retry', async () => {
+    mockRegister
+      .mockRejectedValueOnce({ code: 'NETWORK_ERROR', message: 'offline' })
+      .mockResolvedValueOnce({ token: 'jwt-token' });
+    const screen = renderWithQuery(React.createElement(AuthScreen));
+
+    fireEvent.press(screen.getByTestId('auth.mode.register'));
+    fireEvent.changeText(screen.getByTestId('auth.email.input'), 'retry@example.com');
+    fireEvent.changeText(screen.getByTestId('auth.password.input'), 'password-123');
+    fireEvent.press(screen.getByTestId('auth.submit'));
+    await waitFor(() => expect(mockSendVerificationCode).toHaveBeenCalledTimes(1));
+
+    fireEvent.changeText(screen.getByTestId('auth.registration.code.input'), '123456');
+    fireEvent.press(screen.getByTestId('auth.registration.complete'));
+    await waitFor(() => expect(mockRegister).toHaveBeenCalledTimes(1));
+    expect(mockVerifyRegistrationCode).toHaveBeenCalledTimes(1);
+    expect(mockSetToken).not.toHaveBeenCalled();
+
+    fireEvent.press(screen.getByTestId('auth.registration.complete'));
+    await waitFor(() => expect(mockRegister).toHaveBeenCalledTimes(2));
+    expect(mockVerifyRegistrationCode).toHaveBeenCalledTimes(1);
+    expect(mockSetToken).toHaveBeenCalledWith('jwt-token');
+    expect(JSON.stringify({
+      sessionStorage: mockSetSessionId.mock.calls,
+      telemetry: mockCaptureTelemetry.mock.calls,
+      tokenStorage: mockSetToken.mock.calls,
+    })).not.toContain('rp1_registration-proof');
+  });
+
+  it('clears the in-memory proof before resending a registration code', async () => {
+    mockSendVerificationCode.mockResolvedValue({ expires_in: 300, resend_after: 0 });
+    mockVerifyRegistrationCode
+      .mockResolvedValueOnce({
+        verified: true,
+        registration_proof: 'rp1_first-proof',
+        registration_proof_expires_in: 600,
+      })
+      .mockResolvedValueOnce({
+        verified: true,
+        registration_proof: 'rp1_second-proof',
+        registration_proof_expires_in: 600,
+      });
+    mockRegister
+      .mockRejectedValueOnce({ code: 'NETWORK_ERROR', message: 'offline' })
+      .mockResolvedValueOnce({ token: 'jwt-token' });
+    const screen = renderWithQuery(React.createElement(AuthScreen));
+
+    fireEvent.press(screen.getByTestId('auth.mode.register'));
+    fireEvent.changeText(screen.getByTestId('auth.email.input'), 'resend@example.com');
+    fireEvent.changeText(screen.getByTestId('auth.password.input'), 'password-123');
+    fireEvent.press(screen.getByTestId('auth.submit'));
+    await waitFor(() => expect(mockSendVerificationCode).toHaveBeenCalledTimes(1));
+    fireEvent.changeText(screen.getByTestId('auth.registration.code.input'), '123456');
+    fireEvent.press(screen.getByTestId('auth.registration.complete'));
+    await waitFor(() => expect(mockRegister).toHaveBeenCalledTimes(1));
+
+    fireEvent.press(screen.getByTestId('auth.registration.resend'));
+    await waitFor(() => expect(mockSendVerificationCode).toHaveBeenCalledTimes(2));
+    expect(screen.getByTestId('auth.registration.code.input').props.value).toBe('');
+    fireEvent.changeText(screen.getByTestId('auth.registration.code.input'), '654321');
+    fireEvent.press(screen.getByTestId('auth.registration.complete'));
+
+    await waitFor(() => expect(mockRegister).toHaveBeenCalledTimes(2));
+    expect(mockVerifyRegistrationCode).toHaveBeenCalledTimes(2);
+    expect(mockRegister).toHaveBeenLastCalledWith(expect.objectContaining({
+      registration_proof: 'rp1_second-proof',
+    }));
+  });
+
+  it('discards an expired registration proof and keeps the user in verification', async () => {
+    mockRegister.mockRejectedValueOnce({
+      code: 'REGISTRATION_PROOF_EXPIRED',
+      message: 'raw backend message',
+    });
+    const screen = renderWithQuery(React.createElement(AuthScreen));
+
+    fireEvent.press(screen.getByTestId('auth.mode.register'));
+    fireEvent.changeText(screen.getByTestId('auth.email.input'), 'expired@example.com');
+    fireEvent.changeText(screen.getByTestId('auth.password.input'), 'password-123');
+    fireEvent.press(screen.getByTestId('auth.submit'));
+    await waitFor(() => expect(mockSendVerificationCode).toHaveBeenCalledTimes(1));
+    fireEvent.changeText(screen.getByTestId('auth.registration.code.input'), '123456');
+    fireEvent.press(screen.getByTestId('auth.registration.complete'));
+
+    expect(await screen.findByText('這次註冊驗證已過期，請重新寄送驗證碼。')).toBeTruthy();
+    expect(screen.getByText('請重新寄送驗證碼，再完成註冊。')).toBeTruthy();
+    expect(screen.getByTestId('auth.registration.code.input').props.value).toBe('');
+    expect(screen.getByTestId('auth.registration.verification')).toBeTruthy();
+  });
+
+  it('clears registration verification when changing mode or going back to edit email', async () => {
+    const screen = renderWithQuery(React.createElement(AuthScreen));
+
+    fireEvent.press(screen.getByTestId('auth.mode.register'));
+    fireEvent.changeText(screen.getByTestId('auth.email.input'), 'first@example.com');
+    fireEvent.changeText(screen.getByTestId('auth.password.input'), 'password-123');
+    fireEvent.press(screen.getByTestId('auth.submit'));
+    await waitFor(() => expect(mockSendVerificationCode).toHaveBeenCalledTimes(1));
+    fireEvent.changeText(screen.getByTestId('auth.registration.code.input'), '123456');
+
+    fireEvent.press(screen.getByTestId('auth.mode.login'));
+    expect(screen.queryByTestId('auth.registration.verification')).toBeNull();
+    fireEvent.press(screen.getByTestId('auth.mode.register'));
+    fireEvent.changeText(screen.getByTestId('auth.email.input'), 'second@example.com');
+    fireEvent.press(screen.getByTestId('auth.submit'));
+    await waitFor(() => expect(mockSendVerificationCode).toHaveBeenCalledTimes(2));
+    expect(screen.getByTestId('auth.registration.code.input').props.value).toBe('');
+
+    fireEvent.press(screen.getByTestId('auth.registration.back'));
+    expect(screen.queryByTestId('auth.registration.verification')).toBeNull();
+    expect(screen.getByTestId('auth.email.input').props.value).toBe('second@example.com');
+    fireEvent.changeText(screen.getByTestId('auth.email.input'), 'third@example.com');
+    fireEvent.press(screen.getByTestId('auth.submit'));
+    await waitFor(() => expect(mockSendVerificationCode).toHaveBeenCalledTimes(3));
+    expect(mockSendVerificationCode).toHaveBeenLastCalledWith('third@example.com', 'register');
   });
 
   it('renders auth form and validation in the selected locale', () => {
@@ -669,7 +949,7 @@ describe('M1 Quick/Auth screens', () => {
     expect(screen.getByText('Log in and save')).toBeTruthy();
 
     fireEvent.changeText(screen.getByPlaceholderText('name@example.com'), 'bad-email');
-    fireEvent.changeText(screen.getByPlaceholderText('At least 8 characters'), 'short');
+    fireEvent.changeText(screen.getByTestId('auth.password.input'), 'short');
 
     expect(screen.getByText('Check the email format.')).toBeTruthy();
     expect(screen.getByText('3 more characters needed.')).toBeTruthy();
@@ -688,7 +968,7 @@ describe('M1 Quick/Auth screens', () => {
     const screen = renderWithQuery(React.createElement(AuthScreen));
 
     fireEvent.changeText(screen.getByPlaceholderText('name@example.com'), 'user@example.com');
-    fireEvent.changeText(screen.getByPlaceholderText('至少 8 個字元'), 'password-123');
+    fireEvent.changeText(screen.getByTestId('auth.password.input'), 'password-123');
     fireEvent.press(screen.getByText('登入並保存'));
 
     await waitFor(() => expect(mockRouterReplace).toHaveBeenCalledWith('/case'));
@@ -717,7 +997,7 @@ describe('M1 Quick/Auth screens', () => {
     const screen = renderWithQuery(React.createElement(AuthScreen));
 
     fireEvent.changeText(screen.getByPlaceholderText('name@example.com'), 'user@example.com');
-    fireEvent.changeText(screen.getByPlaceholderText('至少 8 個字元'), 'password-123');
+    fireEvent.changeText(screen.getByTestId('auth.password.input'), 'password-123');
     fireEvent.press(screen.getByText('登入並保存'));
 
     await waitFor(() => expect(mockLogin).toHaveBeenCalledTimes(1));
@@ -750,7 +1030,7 @@ describe('M1 Quick/Auth screens', () => {
     screen.queryClient.setQueryData(['public-static', 'catalog'], 'keep-public');
 
     fireEvent.changeText(screen.getByPlaceholderText('name@example.com'), 'account-b@example.com');
-    fireEvent.changeText(screen.getByPlaceholderText('至少 8 個字元'), 'password-123');
+    fireEvent.changeText(screen.getByTestId('auth.password.input'), 'password-123');
     fireEvent.press(screen.getByText('登入並保存'));
 
     await waitFor(() => expect(mockRouterReplace).toHaveBeenCalledWith('/case'));

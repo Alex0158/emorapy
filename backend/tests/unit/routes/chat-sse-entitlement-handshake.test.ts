@@ -121,4 +121,90 @@ describe('ChatSseEntitlementHandshake', () => {
     expect(validate).toHaveBeenCalledTimes(4);
     handshake.dispose();
   });
+
+  it('places snapshot-covered events before ready and newer events after it in one serial queue', async () => {
+    const validate = jest.fn().mockResolvedValue(true);
+    const entitlement = new ChatStreamEntitlementService(validate, 60_000);
+    const delivered: string[] = [];
+    const handshake = await ChatSseEntitlementHandshake.prepare<string>({
+      participantId: 'participant-a',
+      entitlementService: entitlement,
+      deliver: event => delivered.push(event),
+      onRevoked: jest.fn(),
+    });
+    handshake.push('snapshot-covered-event');
+    handshake.push('newer-event');
+    await handshake.confirmBeforeHeaders();
+
+    await handshake.activateWithInitialAndFlush(
+      'ready-with-snapshots',
+      event => event === 'snapshot-covered-event',
+    );
+
+    expect(delivered).toEqual([
+      'snapshot-covered-event',
+      'ready-with-snapshots',
+      'newer-event',
+    ]);
+    expect(validate).toHaveBeenCalledTimes(5);
+    handshake.dispose();
+  });
+
+  it('drops sensitive initial payload and closes when durable validation errors', async () => {
+    const validate = jest.fn()
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(true)
+      .mockRejectedValueOnce(new Error('database unavailable'));
+    const entitlement = new ChatStreamEntitlementService(validate, 60_000);
+    const delivered: string[] = [];
+    const onRevoked = jest.fn();
+    const unsubscribe = jest.fn();
+    const handshake = await ChatSseEntitlementHandshake.prepare<string>({
+      participantId: 'participant-a',
+      entitlementService: entitlement,
+      deliver: event => delivered.push(event),
+      onRevoked,
+    });
+    handshake.bindSubscription(unsubscribe);
+    await handshake.confirmBeforeHeaders();
+
+    await handshake.activateWithInitialAndFlush('PRIVATE-SNAPSHOT-CANARY');
+
+    expect(delivered).toEqual([]);
+    expect(handshake.isClosed()).toBe(true);
+    expect(unsubscribe).toHaveBeenCalledTimes(1);
+    expect(onRevoked).toHaveBeenCalledTimes(1);
+  });
+
+  it('releases its entitlement watcher when setup is aborted during durable validation', async () => {
+    let releaseValidation!: (active: boolean) => void;
+    let markValidationStarted!: () => void;
+    const validationStarted = new Promise<void>((resolve) => {
+      markValidationStarted = resolve;
+    });
+    const validate = jest.fn(() => {
+      markValidationStarted();
+      return new Promise<boolean>(resolve => {
+        releaseValidation = resolve;
+      });
+    });
+    const entitlement = new ChatStreamEntitlementService(validate, 60_000);
+    const controller = new AbortController();
+
+    const preparing = ChatSseEntitlementHandshake.prepare<string>({
+      participantId: 'participant-a',
+      entitlementService: entitlement,
+      deliver: jest.fn(),
+      onRevoked: jest.fn(),
+      signal: controller.signal,
+    });
+    await validationStarted;
+    expect(entitlement.getConnectionCount('participant-a')).toBe(1);
+
+    controller.abort();
+    expect(entitlement.getConnectionCount('participant-a')).toBe(0);
+    releaseValidation(true);
+
+    await expect(preparing).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  });
 });

@@ -38,12 +38,20 @@ REQUIRED_VARS=(
     "OPENAI_API_KEY"
 )
 
+if [ "${NODE_ENV:-development}" = "production" ]; then
+    REQUIRED_VARS+=(
+        "EMAIL_DELIVERY_MODE"
+        "EMAIL_FROM"
+        "EMAIL_OTP_PEPPER"
+        "SMTP_HOST"
+        "SMTP_PORT"
+        "SMTP_USER"
+        "SMTP_PASS"
+    )
+fi
+
 # 可選但建議的變量
 RECOMMENDED_VARS=(
-    "SMTP_HOST"
-    "SMTP_PORT"
-    "SMTP_USER"
-    "SMTP_PASS"
     "FRONTEND_URL"
     "ALLOWED_ORIGINS"
 )
@@ -56,13 +64,7 @@ for var in "${REQUIRED_VARS[@]}"; do
         echo -e "  ${RED}❌ ${var} - 未設置${NC}"
         MISSING_REQUIRED=1
     else
-        # 隱藏敏感信息
-        if [[ "$var" == *"SECRET"* ]] || [[ "$var" == *"KEY"* ]] || [[ "$var" == *"PASSWORD"* ]]; then
-            VALUE_PREVIEW="${!var:0:10}..."
-            echo -e "  ${GREEN}✅ ${var} - 已設置 (${VALUE_PREVIEW})${NC}"
-        else
-            echo -e "  ${GREEN}✅ ${var} - 已設置${NC}"
-        fi
+        echo -e "  ${GREEN}✅ ${var} - 已設置${NC}"
     fi
 done
 
@@ -76,12 +78,7 @@ for var in "${RECOMMENDED_VARS[@]}"; do
         echo -e "  ${YELLOW}⚠️  ${var} - 未設置（可選）${NC}"
         MISSING_RECOMMENDED=1
     else
-        if [[ "$var" == *"SECRET"* ]] || [[ "$var" == *"KEY"* ]] || [[ "$var" == *"PASSWORD"* ]]; then
-            VALUE_PREVIEW="${!var:0:10}..."
-            echo -e "  ${GREEN}✅ ${var} - 已設置 (${VALUE_PREVIEW})${NC}"
-        else
-            echo -e "  ${GREEN}✅ ${var} - 已設置${NC}"
-        fi
+        echo -e "  ${GREEN}✅ ${var} - 已設置${NC}"
     fi
 done
 
@@ -117,6 +114,30 @@ if [ -n "$OPENAI_API_KEY" ]; then
         echo -e "  ${GREEN}✅ OPENAI_API_KEY 格式正確${NC}"
     else
         echo -e "  ${YELLOW}⚠️  OPENAI_API_KEY 格式可能不正確（應以 sk- 開頭）${NC}"
+    fi
+fi
+
+# 驗證 Production 郵件交付契約（只顯示狀態，不輸出任何 secret/value）
+if [ "${NODE_ENV:-development}" = "production" ]; then
+    if [ "${EMAIL_DELIVERY_MODE:-}" != "smtp" ]; then
+        echo -e "  ${RED}❌ Production EMAIL_DELIVERY_MODE 必須為 smtp${NC}"
+        MISSING_REQUIRED=1
+    else
+        echo -e "  ${GREEN}✅ Production email delivery mode 為 smtp${NC}"
+    fi
+
+    if [ "${#EMAIL_OTP_PEPPER}" -lt 32 ]; then
+        echo -e "  ${RED}❌ EMAIL_OTP_PEPPER 長度必須至少 32 字符${NC}"
+        MISSING_REQUIRED=1
+    else
+        echo -e "  ${GREEN}✅ EMAIL_OTP_PEPPER 長度符合要求${NC}"
+    fi
+
+    if [ "${SMTP_SECURE:-false}" != "true" ] && [ "${SMTP_REQUIRE_TLS:-true}" != "true" ]; then
+        echo -e "  ${RED}❌ Production SMTP 必須啟用 SMTP_SECURE 或 SMTP_REQUIRE_TLS${NC}"
+        MISSING_REQUIRED=1
+    else
+        echo -e "  ${GREEN}✅ Production SMTP transport encryption 已要求${NC}"
     fi
 fi
 

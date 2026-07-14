@@ -41,13 +41,14 @@ vi.mock('sonner', () => ({
 
 vi.mock('@/services/api/auth', () => ({
   sendVerificationCode: vi.fn(),
+  verifyEmail: vi.fn(),
 }));
 
 import Login from './index';
 
 describe('Login', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   it('應顯示歡迎標題與副標題', () => {
@@ -375,7 +376,10 @@ describe('Login', () => {
   });
 
   it('EMAIL_NOT_VERIFIED 時應顯示 warning 並嘗試重發驗證碼', async () => {
-    const mockSendVerificationCode = vi.fn().mockResolvedValue(undefined);
+    const mockSendVerificationCode = vi.fn().mockResolvedValue({
+      expires_in: 300,
+      resend_after: 60,
+    });
     const authModule = await import('@/services/api/auth');
     (authModule.sendVerificationCode as ReturnType<typeof vi.fn>).mockImplementation(mockSendVerificationCode);
     mockLogin.mockRejectedValue({ code: 'EMAIL_NOT_VERIFIED', message: 'Email not verified' });
@@ -391,6 +395,38 @@ describe('Login', () => {
       expect(mockToastWarning).toHaveBeenCalledWith('message.emailNotVerified');
     });
     expect(mockSendVerificationCode).toHaveBeenCalledWith('test@example.com', 'verify_email');
+    expect(await screen.findByText('auth.login.verify.title')).toBeInTheDocument();
+  });
+
+  it('既有未驗證帳戶可輸入驗證碼並完成登入', async () => {
+    const authModule = await import('@/services/api/auth');
+    (authModule.sendVerificationCode as ReturnType<typeof vi.fn>).mockResolvedValue({
+      expires_in: 300,
+      resend_after: 60,
+    });
+    (authModule.verifyEmail as ReturnType<typeof vi.fn>).mockResolvedValue(true);
+    mockLogin
+      .mockRejectedValueOnce({ code: 'EMAIL_NOT_VERIFIED', message: 'Email not verified' })
+      .mockResolvedValueOnce(undefined);
+
+    render(
+      <MemoryRouter>
+        <Login />
+      </MemoryRouter>
+    );
+    fireEvent.change(screen.getByPlaceholderText('auth.login.email'), { target: { value: 'Legacy@Example.com' } });
+    fireEvent.change(screen.getByPlaceholderText('auth.login.password'), { target: { value: 'password123' } });
+    fireEvent.click(screen.getByText('auth.login.submit'));
+
+    const codeInput = await screen.findByPlaceholderText('auth.login.verify.codePlaceholder');
+    fireEvent.change(codeInput, { target: { value: '123456' } });
+    fireEvent.click(screen.getByText('auth.login.verify.submit'));
+
+    await waitFor(() => {
+      expect(authModule.verifyEmail).toHaveBeenCalledWith('Legacy@Example.com', '123456');
+      expect(mockLogin).toHaveBeenLastCalledWith('Legacy@Example.com', 'password123', false);
+      expect(mockNavigate).toHaveBeenCalledWith('/case/list', { replace: true });
+    });
   });
 
   it('EMAIL_NOT_VERIFIED 時若 sendVerificationCode 失敗且無 message 應顯示 resendVerifyFail', async () => {

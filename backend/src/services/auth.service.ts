@@ -1,39 +1,53 @@
 import prisma from '../config/database';
 import { hashPassword, comparePassword, validatePasswordStrength } from '../utils/password';
 import { generateToken } from '../utils/jwt';
-import { generateVerificationCode } from '../utils/session';
 import { Errors } from '../utils/errors';
 import logger from '../config/logger';
-import { emailService } from './email.service';
 import { buildClaimableSessionCaseWhere, isClaimableSessionCase } from '../utils/case-classifier';
 import { buildSessionBoundQuickPairingWhere } from '../utils/pairing-invariant';
 import type { BackendLocale } from '../i18n';
+import type {
+  LoginDto,
+  RegisterDto,
+  VerificationCodeDeliveryResult,
+} from '../types/auth.types';
+import {
+  authChallengeService,
+  getVerificationCodeDeliveryResult,
+  type AuthChallengeService,
+} from './auth-challenge.service';
+import { normalizeAuthEmail } from '../utils/auth-email';
+import type {
+  EmailVerificationResult,
+  RegistrationVerificationResult,
+} from '../types/auth.types';
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 分鐘
 
-export interface RegisterDto {
-  email: string;
-  password: string;
-  nickname?: string;
-}
-
-export interface LoginDto {
-  email: string;
-  password: string;
-}
-
 export class AuthService {
+  constructor(
+    private readonly challengeService: Pick<
+      AuthChallengeService,
+      | 'issue'
+      | 'verifyRegistrationCode'
+      | 'verifyExistingEmail'
+      | 'consumeRegistrationProof'
+      | 'verifyAndConsumeResetCode'
+    > = authChallengeService
+  ) {}
+
   /**
    * 用戶註冊
    */
-  async register(data: RegisterDto, locale: BackendLocale = 'zh-TW') {
-    if (!this.isValidEmail(data.email)) {
+  async register(data: RegisterDto, _locale: BackendLocale = 'zh-TW') {
+    const email = normalizeAuthEmail(data.email);
+    if (!this.isValidEmail(email)) {
       throw Errors.INVALID_EMAIL();
     }
 
     const existingUser = await prisma.user.findUnique({
-      where: { email: data.email },
+      where: { email },
     });
 
     if (existingUser) {
@@ -47,29 +61,28 @@ export class AuthService {
 
     const passwordHash = await hashPassword(data.password);
 
-    const user = await prisma.user.create({
-      data: {
-        email: data.email,
-        password_hash: passwordHash,
-        nickname: data.nickname,
-        email_verified: false,
-      },
-      select: {
-        id: true,
-        email: true,
-        nickname: true,
-        email_verified: true,
-        created_at: true,
-      },
-    });
-
-    this.sendVerificationCode(data.email, 'register', locale).catch(err => {
-      logger.error('Failed to send verification email', { email: data.email, error: err });
-    });
+    const user = await prisma.$transaction(async (tx) => {
+      await this.challengeService.consumeRegistrationProof(tx, email, data.registration_proof);
+      return tx.user.create({
+        data: {
+          email,
+          password_hash: passwordHash,
+          nickname: data.nickname,
+          email_verified: true,
+        },
+        select: {
+          id: true,
+          email: true,
+          nickname: true,
+          email_verified: true,
+          created_at: true,
+        },
+      });
+    }, { isolationLevel: 'Serializable' });
 
     const token = generateToken({ id: user.id, email: user.email, token_version: 0 });
 
-    logger.info('User registered', { userId: user.id, email: user.email });
+    logger.info('User registered', { userId: user.id });
 
     return { user, token };
   }
@@ -78,8 +91,9 @@ export class AuthService {
    * 用戶登錄（含帳號鎖定保護）
    */
   async login(data: LoginDto) {
+    const email = normalizeAuthEmail(data.email);
     const user = await prisma.user.findUnique({
-      where: { email: data.email },
+      where: { email },
     });
 
     if (!user) {
@@ -117,7 +131,6 @@ export class AuthService {
 
       if (updated.login_failed_attempts >= MAX_LOGIN_ATTEMPTS) {
         logger.warn('Account locked due to failed attempts', {
-          email: data.email,
           attempts: updated.login_failed_attempts,
         });
       }
@@ -129,7 +142,7 @@ export class AuthService {
       throw Errors.UNAUTHORIZED('帳號未激活');
     }
     if (!user.email_verified) {
-      throw Errors.UNAUTHORIZED('請先完成郵箱驗證');
+      throw Errors.EMAIL_NOT_VERIFIED();
     }
 
     // 登入成功：重置失敗計數和鎖定狀態
@@ -148,7 +161,7 @@ export class AuthService {
       token_version: user.token_version,
     });
 
-    logger.info('User logged in', { userId: user.id, email: user.email });
+    logger.info('User logged in', { userId: user.id });
 
     return {
       user: {
@@ -170,174 +183,70 @@ export class AuthService {
     email: string,
     type: 'register' | 'reset_password' | 'verify_email',
     locale: BackendLocale = 'zh-TW'
-  ): Promise<void> {
-    const recentCode = await prisma.emailVerification.findFirst({
-      where: {
-        email,
-        type,
-        created_at: {
-          gte: new Date(Date.now() - 5 * 60 * 1000),
-        },
-      },
-      orderBy: { created_at: 'desc' },
-    });
-
-    if (recentCode) {
-      throw Errors.RATE_LIMIT_EXCEEDED('請稍後再試');
+  ): Promise<VerificationCodeDeliveryResult> {
+    const normalizedEmail = normalizeAuthEmail(email);
+    if (type === 'reset_password') {
+      throw Errors.VALIDATION_ERROR('密碼重置驗證碼只能透過密碼重置流程申請');
+    }
+    if (type === 'register') {
+      const existingUser = await prisma.user.findUnique({
+        where: { email: normalizedEmail },
+        select: { id: true },
+      });
+      if (existingUser) throw Errors.EMAIL_EXISTS();
+    } else {
+      const user = await prisma.user.findUnique({
+        where: { email: normalizedEmail },
+        select: { id: true, email_verified: true, is_active: true },
+      });
+      if (!user || !user.is_active || user.email_verified) {
+        return getVerificationCodeDeliveryResult();
+      }
     }
 
-    const code = generateVerificationCode();
-
-    await prisma.emailVerification.create({
-      data: {
-        email,
-        code,
-        type,
-        expires_at: new Date(Date.now() + 5 * 60 * 1000),
-      },
-    });
-
-    await emailService.sendVerificationCode(email, code, type, locale);
-
-    logger.info('Verification code sent', { email, type });
+    return this.challengeService.issue(normalizedEmail, type, locale);
   }
 
   /**
    * 驗證郵件驗證碼（含失敗次數追蹤，超過 5 次自動作廢）
    */
-  async verifyEmail(email: string, code: string, type: 'register' | 'reset_password' | 'verify_email' = 'verify_email'): Promise<boolean> {
-    // 找到最新一筆未使用的驗證碼
-    const latestVerification = await prisma.emailVerification.findFirst({
-      where: { email, type, used: false },
-      orderBy: { created_at: 'desc' },
-    });
-
-    if (!latestVerification) {
-      throw Errors.INVALID_CODE();
+  async verifyEmail(
+    email: string,
+    code: string,
+    type: 'register' | 'reset_password' | 'verify_email' = 'verify_email'
+  ): Promise<RegistrationVerificationResult | EmailVerificationResult> {
+    if (type === 'reset_password') {
+      throw Errors.VALIDATION_ERROR('密碼重置驗證碼必須在確認重置時驗證');
     }
-
-    if (latestVerification.expires_at < new Date()) {
-      throw Errors.CODE_EXPIRED();
-    }
-
-    // 統計該驗證碼建立後的失敗嘗試次數（同 email+type 的錯誤紀錄）
-    const failedAttempts = await prisma.emailVerification.count({
-      where: {
-        email,
-        type,
-        used: true,
-        created_at: { gte: latestVerification.created_at },
-        code: { not: latestVerification.code },
-      },
-    });
-
-    if (failedAttempts >= 5) {
-      // 超過 5 次錯誤嘗試，作廢此驗證碼
-      await prisma.emailVerification.update({
-        where: { id: latestVerification.id },
-        data: { used: true },
-      });
-      logger.warn('Verification code invalidated due to too many failed attempts', { email, type });
-      throw Errors.INVALID_CODE();
-    }
-
-    // 驗證碼不匹配
-    if (latestVerification.code !== code) {
-      // 建立一筆「失敗嘗試」紀錄（復用 EmailVerification，標記為 used）
-      await prisma.emailVerification.create({
-        data: {
-          email,
-          code,
-          type,
-          expires_at: latestVerification.expires_at,
-          used: true,
-        },
-      });
-      throw Errors.INVALID_CODE();
-    }
-
-    // 驗證成功
-    await prisma.emailVerification.update({
-      where: { id: latestVerification.id },
-      data: { used: true },
-    });
-
-    await prisma.user.update({
-      where: { email },
-      data: { email_verified: true },
-    });
-
-    logger.info('Email verified', { email });
-
-    return true;
+    return type === 'register'
+      ? this.challengeService.verifyRegistrationCode(email, code)
+      : this.challengeService.verifyExistingEmail(email, code);
   }
 
   /**
    * 重置密碼（不洩漏用戶是否存在）
    */
   async resetPassword(email: string, locale: BackendLocale = 'zh-TW'): Promise<void> {
+    const normalizedEmail = normalizeAuthEmail(email);
     const user = await prisma.user.findUnique({
-      where: { email },
+      where: { email: normalizedEmail },
+      select: { id: true, is_active: true },
     });
 
-    if (!user) {
-      return;
-    }
+    if (!user?.is_active) return;
 
-    await this.sendVerificationCode(email, 'reset_password', locale);
+    try {
+      await this.challengeService.issue(normalizedEmail, 'reset_password', locale);
+    } catch {
+      logger.error('Password reset delivery was not accepted');
+    }
   }
 
   /**
    * 確認重置密碼（成功後使所有現有 Token 失效）
    */
   async confirmResetPassword(email: string, code: string, newPassword: string): Promise<void> {
-    const latestVerification = await prisma.emailVerification.findFirst({
-      where: { email, type: 'reset_password', used: false },
-      orderBy: { created_at: 'desc' },
-    });
-
-    if (!latestVerification) {
-      throw Errors.INVALID_CODE();
-    }
-
-    if (latestVerification.expires_at < new Date()) {
-      throw Errors.CODE_EXPIRED();
-    }
-
-    // 失敗次數追蹤
-    const failedAttempts = await prisma.emailVerification.count({
-      where: {
-        email,
-        type: 'reset_password',
-        used: true,
-        created_at: { gte: latestVerification.created_at },
-        code: { not: latestVerification.code },
-      },
-    });
-
-    if (failedAttempts >= 5) {
-      await prisma.emailVerification.update({
-        where: { id: latestVerification.id },
-        data: { used: true },
-      });
-      logger.warn('Reset code invalidated due to too many failed attempts', { email });
-      throw Errors.INVALID_CODE();
-    }
-
-    if (latestVerification.code !== code) {
-      await prisma.emailVerification.create({
-        data: {
-          email,
-          code,
-          type: 'reset_password',
-          expires_at: latestVerification.expires_at,
-          used: true,
-        },
-      });
-      throw Errors.INVALID_CODE();
-    }
-
-    const verification = latestVerification;
+    const normalizedEmail = normalizeAuthEmail(email);
 
     const passwordValidation = validatePasswordStrength(newPassword);
     if (!passwordValidation.valid) {
@@ -346,16 +255,15 @@ export class AuthService {
 
     const passwordHash = await hashPassword(newPassword);
 
-    await prisma.$transaction(async (tx) => {
-      const consumed = await tx.emailVerification.updateMany({
-        where: { id: verification.id, used: false },
-        data: { used: true },
-      });
-      if (consumed.count === 0) {
-        throw Errors.INVALID_CODE();
-      }
+    const verificationError = await prisma.$transaction(async (tx) => {
+      const challengeError = await this.challengeService.verifyAndConsumeResetCode(
+        tx,
+        normalizedEmail,
+        code
+      );
+      if (challengeError) return challengeError;
       await tx.user.update({
-        where: { email },
+        where: { email: normalizedEmail },
         data: {
           password_hash: passwordHash,
           token_version: { increment: 1 },
@@ -363,9 +271,12 @@ export class AuthService {
           locked_until: null,
         },
       });
+      return null;
     });
 
-    logger.info('Password reset (all sessions invalidated)', { email });
+    if (verificationError) throw verificationError;
+
+    logger.info('Password reset completed; existing sessions invalidated');
   }
 
   /**

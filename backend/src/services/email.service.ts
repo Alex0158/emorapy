@@ -1,7 +1,10 @@
 import nodemailer from 'nodemailer';
+import type SMTPTransport from 'nodemailer/lib/smtp-transport';
+import crypto from 'crypto';
 import { env } from '../config/env';
 import logger from '../config/logger';
 import type { BackendLocale } from '../i18n';
+import type { EmailDeliveryConfig } from '../config/email-delivery';
 
 type VerificationEmailType = 'register' | 'reset_password' | 'verify_email';
 
@@ -93,23 +96,175 @@ function localeFromUserLanguage(language: unknown): BackendLocale {
   return language === 'en' ? 'en-US' : 'zh-TW';
 }
 
+export type EmailDeliveryFailureReason = 'not_configured' | 'transport_unavailable' | 'recipient_rejected';
+
+export class EmailDeliveryError extends Error {
+  constructor(
+    public readonly reason: EmailDeliveryFailureReason,
+    public readonly providerCode?: string
+  ) {
+    super(`Email delivery failed: ${reason}`);
+    this.name = 'EmailDeliveryError';
+  }
+}
+
+export interface EmailDeliveryReceipt {
+  acceptedAt: Date;
+  providerMessageIdDigest?: string;
+}
+
+export interface EmailDeliveryReadiness {
+  mode: EmailDeliveryConfig['mode'];
+  status: 'disabled' | 'pending' | 'ready' | 'unavailable';
+  verifiedAt?: string;
+  lastAcceptedAt?: string;
+}
+
+type TransportFactory = (options: SMTPTransport.Options) => nodemailer.Transporter;
+
+function resolveProviderCode(error: unknown): string | undefined {
+  if (!error || typeof error !== 'object' || !('code' in error)) return undefined;
+  const value = String((error as { code?: unknown }).code ?? '');
+  return /^[A-Z0-9_-]{1,40}$/i.test(value) ? value : undefined;
+}
+
+function digestProviderMessageId(value: unknown): string | undefined {
+  if (typeof value !== 'string' || !value) return undefined;
+  return crypto.createHash('sha256').update(value).digest('hex').slice(0, 16);
+}
+
+function buildDeliveryReceipt(result: unknown): EmailDeliveryReceipt {
+  const candidate = result && typeof result === 'object'
+    ? result as { accepted?: unknown; rejected?: unknown; messageId?: unknown }
+    : {};
+  const rejected = Array.isArray(candidate.rejected) ? candidate.rejected : [];
+  const accepted = Array.isArray(candidate.accepted) ? candidate.accepted : [];
+  if (rejected.length > 0 || accepted.length === 0) {
+    throw new EmailDeliveryError('recipient_rejected');
+  }
+  return {
+    acceptedAt: new Date(),
+    providerMessageIdDigest: digestProviderMessageId(candidate.messageId),
+  };
+}
+
+function isRecipientRejection(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const candidate = error as {
+    code?: unknown;
+    command?: unknown;
+    rejected?: unknown;
+  };
+  if (Array.isArray(candidate.rejected) && candidate.rejected.length > 0) return true;
+  return String(candidate.code ?? '').toUpperCase() === 'EENVELOPE'
+    && String(candidate.command ?? '').toUpperCase() === 'RCPT TO';
+}
+
+function normalizeDeliveryError(error: unknown): EmailDeliveryError {
+  if (error instanceof EmailDeliveryError) return error;
+  return new EmailDeliveryError(
+    isRecipientRejection(error) ? 'recipient_rejected' : 'transport_unavailable',
+    resolveProviderCode(error)
+  );
+}
+
 export class EmailService {
   private transporter: nodemailer.Transporter | null = null;
+  private readiness: EmailDeliveryReadiness;
 
-  constructor() {
-    if (env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS) {
-      this.transporter = nodemailer.createTransport({
-        host: env.SMTP_HOST,
-        port: env.SMTP_PORT || 587,
-        secure: false,
-        auth: {
-          user: env.SMTP_USER,
-          pass: env.SMTP_PASS,
-        },
+  constructor(
+    private readonly config: EmailDeliveryConfig = env.EMAIL_DELIVERY,
+    transportFactory: TransportFactory = nodemailer.createTransport
+  ) {
+    this.readiness = {
+      mode: config.mode,
+      status: config.mode === 'disabled' ? 'disabled' : 'pending',
+    };
+
+    if (config.mode === 'smtp' && config.smtp) {
+      const auth = config.smtp.user && config.smtp.pass
+        ? { user: config.smtp.user, pass: config.smtp.pass }
+        : undefined;
+      this.transporter = transportFactory({
+        host: config.smtp.host,
+        port: config.smtp.port,
+        secure: config.smtp.secure,
+        requireTLS: config.smtp.requireTls,
+        auth,
+        connectionTimeout: config.transportVerifyTimeoutMs,
+        greetingTimeout: config.transportVerifyTimeoutMs,
+        socketTimeout: config.transportVerifyTimeoutMs,
       });
-    } else {
-      logger.warn('郵件服務未配置，將跳過郵件發送');
     }
+  }
+
+  private markDeliveryUnavailable(reason: EmailDeliveryFailureReason): void {
+    if (this.config.mode !== 'smtp' || reason === 'recipient_rejected') return;
+    this.readiness = {
+      ...this.readiness,
+      mode: 'smtp',
+      status: 'unavailable',
+    };
+  }
+
+  private markProviderAccepted(acceptedAt: Date): void {
+    if (this.config.mode !== 'smtp') return;
+    this.readiness = {
+      ...this.readiness,
+      mode: 'smtp',
+      status: 'ready',
+      lastAcceptedAt: acceptedAt.toISOString(),
+    };
+  }
+
+  async initialize(): Promise<void> {
+    if (this.config.mode === 'disabled') {
+      logger.info('Email delivery disabled', { deliveryMode: 'disabled' });
+      return;
+    }
+    if (!this.transporter) {
+      this.markDeliveryUnavailable('not_configured');
+      throw new EmailDeliveryError('not_configured');
+    }
+
+    let timeout: NodeJS.Timeout | undefined;
+    try {
+      await Promise.race([
+        this.transporter.verify(),
+        new Promise<never>((_resolve, reject) => {
+          timeout = setTimeout(
+            () => reject(new EmailDeliveryError('transport_unavailable', 'TIMEOUT')),
+            this.config.transportVerifyTimeoutMs
+          );
+        }),
+      ]);
+      const verifiedAt = new Date().toISOString();
+      this.readiness = {
+        ...this.readiness,
+        mode: this.config.mode,
+        status: 'ready',
+        verifiedAt,
+      };
+      logger.info('Email transport verified', { deliveryMode: this.config.mode });
+    } catch (error) {
+      const providerCode = error instanceof EmailDeliveryError
+        ? error.providerCode
+        : resolveProviderCode(error);
+      this.markDeliveryUnavailable('transport_unavailable');
+      logger.error('Email transport verification failed', {
+        deliveryMode: this.config.mode,
+        providerCode,
+      });
+      throw error instanceof EmailDeliveryError
+        ? error
+        : new EmailDeliveryError('transport_unavailable', providerCode);
+    } finally {
+      if (timeout) clearTimeout(timeout);
+    }
+  }
+
+  getReadiness(): EmailDeliveryReadiness {
+    return { ...this.readiness };
   }
 
   /**
@@ -124,10 +279,14 @@ export class EmailService {
     code: string,
     type: VerificationEmailType,
     locale: BackendLocale = 'zh-TW'
-  ): Promise<void> {
+  ): Promise<EmailDeliveryReceipt> {
     if (!this.transporter) {
-      logger.warn('郵件服務未配置，跳過發送', { email, code, type });
-      return;
+      this.markDeliveryUnavailable('not_configured');
+      logger.error('Verification email delivery unavailable', {
+        purpose: type,
+        reason: 'not_configured',
+      });
+      throw new EmailDeliveryError('not_configured');
     }
 
     email = this.sanitizeEmail(email);
@@ -136,13 +295,17 @@ export class EmailService {
     const verificationCopy = copy.verification[type];
     const text = verificationCopy.text(code);
 
-    const fromAddr = env.EMAIL_FROM || env.SMTP_USER;
+    const fromAddr = this.config.from;
     if (!fromAddr) {
-      logger.warn('未配置發件人地址（EMAIL_FROM 或 SMTP_USER），跳過發送', { email, type });
-      return;
+      this.markDeliveryUnavailable('not_configured');
+      logger.error('Verification email delivery unavailable', {
+        purpose: type,
+        reason: 'not_configured',
+      });
+      throw new EmailDeliveryError('not_configured');
     }
     try {
-      await this.transporter.sendMail({
+      const result = await this.transporter.sendMail({
         from: `"${copy.fromName}" <${fromAddr}>`,
         to: email,
         subject: verificationCopy.subject,
@@ -158,10 +321,56 @@ export class EmailService {
         `,
       });
 
-      logger.info('Verification email sent', { email, type });
+      const receipt = buildDeliveryReceipt(result);
+      this.markProviderAccepted(receipt.acceptedAt);
+      logger.info('Verification email accepted', { purpose: type });
+      return receipt;
     } catch (error) {
-      logger.error('Failed to send verification email', { email, type, error });
-      throw error;
+      const deliveryError = normalizeDeliveryError(error);
+      this.markDeliveryUnavailable(deliveryError.reason);
+      logger.error('Verification email delivery failed', {
+        purpose: type,
+        reason: deliveryError.reason,
+        providerCode: deliveryError.providerCode,
+      });
+      throw deliveryError;
+    }
+  }
+
+  async sendProviderCanary(recipient: string, releaseRef: string): Promise<EmailDeliveryReceipt> {
+    if (!this.transporter || !this.config.from) {
+      this.markDeliveryUnavailable('not_configured');
+      throw new EmailDeliveryError('not_configured');
+    }
+
+    const safeRecipient = this.sanitizeEmail(recipient);
+    const safeReleaseRef = releaseRef.replace(/[^a-zA-Z0-9._-]/g, '').slice(0, 80) || 'unknown';
+
+    try {
+      const result = await this.transporter.sendMail({
+        from: `"Emorapy" <${this.config.from}>`,
+        to: safeRecipient,
+        subject: `Emorapy email delivery canary ${safeReleaseRef}`,
+        text: `This is an explicit Emorapy provider-acceptance canary for release ${safeReleaseRef}.`,
+      });
+
+      const receipt = buildDeliveryReceipt(result);
+      this.markProviderAccepted(receipt.acceptedAt);
+      logger.info('Email provider canary accepted', {
+        purpose: 'provider_canary',
+        releaseRef: safeReleaseRef,
+      });
+      return receipt;
+    } catch (error) {
+      const deliveryError = normalizeDeliveryError(error);
+      this.markDeliveryUnavailable(deliveryError.reason);
+      logger.error('Email provider canary failed', {
+        purpose: 'provider_canary',
+        releaseRef: safeReleaseRef,
+        reason: deliveryError.reason,
+        providerCode: deliveryError.providerCode,
+      });
+      throw deliveryError;
     }
   }
 
@@ -170,23 +379,29 @@ export class EmailService {
    */
   async sendPairingNotification(userId1: string, userId2: string): Promise<void> {
     if (!this.transporter) {
-      logger.warn('郵件服務未配置，跳過配對通知', { userId1, userId2 });
+      this.markDeliveryUnavailable('not_configured');
+      logger.warn('Notification email skipped', { purpose: 'pairing', reason: 'not_configured' });
       return;
     }
 
+    let deliveryAttempted = false;
     try {
       const prisma = (await import('../config/database')).default;
       const users = await prisma.user.findMany({
         where: { id: { in: [userId1, userId2] } },
         select: { email: true, nickname: true, language: true },
       });
-      const fromAddr = env.EMAIL_FROM || env.SMTP_USER;
-      if (!fromAddr) return;
+      const fromAddr = this.config.from;
+      if (!fromAddr) {
+        this.markDeliveryUnavailable('not_configured');
+        return;
+      }
       for (const u of users) {
         if (!u.email) continue;
         const copy = EMAIL_COPY[localeFromUserLanguage(u.language)];
         const safeEmail = this.sanitizeEmail(u.email);
-        await this.transporter.sendMail({
+        deliveryAttempted = true;
+        const result = await this.transporter.sendMail({
           from: `"${copy.fromName}" <${fromAddr}>`,
           to: safeEmail,
           subject: copy.pairing.subject,
@@ -197,10 +412,18 @@ export class EmailService {
             </div>
           `,
         });
+        const receipt = buildDeliveryReceipt(result);
+        this.markProviderAccepted(receipt.acceptedAt);
+        deliveryAttempted = false;
       }
-      logger.info('Pairing notification sent', { userId1, userId2 });
+      logger.info('Notification email accepted', { purpose: 'pairing' });
     } catch (error) {
-      logger.error('Failed to send pairing notification', { userId1, userId2, error });
+      const deliveryError = normalizeDeliveryError(error);
+      if (deliveryAttempted) this.markDeliveryUnavailable(deliveryError.reason);
+      logger.error('Notification email delivery failed', {
+        purpose: 'pairing',
+        providerCode: deliveryError.providerCode,
+      });
     }
   }
 
@@ -209,10 +432,12 @@ export class EmailService {
    */
   async sendJudgmentNotification(userId: string, caseId: string): Promise<void> {
     if (!this.transporter) {
-      logger.warn('郵件服務未配置，跳過梳理結果通知', { userId, caseId });
+      this.markDeliveryUnavailable('not_configured');
+      logger.warn('Notification email skipped', { purpose: 'analysis_ready', reason: 'not_configured' });
       return;
     }
 
+    let deliveryAttempted = false;
     try {
       const prisma = (await import('../config/database')).default;
       const user = await prisma.user.findUnique({
@@ -220,11 +445,15 @@ export class EmailService {
         select: { email: true, nickname: true, language: true },
       });
       if (!user?.email) return;
-      const fromAddr = env.EMAIL_FROM || env.SMTP_USER;
-      if (!fromAddr) return;
+      const fromAddr = this.config.from;
+      if (!fromAddr) {
+        this.markDeliveryUnavailable('not_configured');
+        return;
+      }
       const copy = EMAIL_COPY[localeFromUserLanguage(user.language)];
       const safeEmail = this.sanitizeEmail(user.email);
-      await this.transporter.sendMail({
+      deliveryAttempted = true;
+      const result = await this.transporter.sendMail({
         from: `"${copy.fromName}" <${fromAddr}>`,
         to: safeEmail,
         subject: copy.analysisReady.subject,
@@ -235,9 +464,17 @@ export class EmailService {
           </div>
         `,
       });
-      logger.info('Analysis notification sent', { userId, caseId });
+      const receipt = buildDeliveryReceipt(result);
+      this.markProviderAccepted(receipt.acceptedAt);
+      deliveryAttempted = false;
+      logger.info('Notification email accepted', { purpose: 'analysis_ready' });
     } catch (error) {
-      logger.error('Failed to send analysis notification', { userId, caseId, error });
+      const deliveryError = normalizeDeliveryError(error);
+      if (deliveryAttempted) this.markDeliveryUnavailable(deliveryError.reason);
+      logger.error('Notification email delivery failed', {
+        purpose: 'analysis_ready',
+        providerCode: deliveryError.providerCode,
+      });
     }
   }
 }

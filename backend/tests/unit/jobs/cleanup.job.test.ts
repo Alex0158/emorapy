@@ -57,6 +57,8 @@ jest.mock('../../../src/services/app-telemetry.service', () => ({
 const mockEvidenceFindMany = jest.fn();
 const mockPairingDeleteMany = jest.fn();
 const mockEmailVerificationDeleteMany = jest.fn();
+const mockAuthChallengeDeleteMany = jest.fn();
+const mockTransaction = jest.fn();
 const mockCaseFindMany = jest.fn();
 const mockCaseUpdateMany = jest.fn();
 const mockNotificationFindMany = jest.fn();
@@ -64,9 +66,11 @@ const mockNotificationCreateMany = jest.fn();
 jest.mock('../../../src/config/database', () => ({
   __esModule: true,
   default: {
+    $transaction: (...args: unknown[]) => mockTransaction(...args),
     evidence: { findMany: (...args: unknown[]) => mockEvidenceFindMany(...args) },
     pairing: { deleteMany: (...args: unknown[]) => mockPairingDeleteMany(...args) },
     emailVerification: { deleteMany: (...args: unknown[]) => mockEmailVerificationDeleteMany(...args) },
+    authChallenge: { deleteMany: (...args: unknown[]) => mockAuthChallengeDeleteMany(...args) },
     case: {
       findMany: (...args: unknown[]) => mockCaseFindMany(...args),
       updateMany: (...args: unknown[]) => mockCaseUpdateMany(...args),
@@ -120,6 +124,8 @@ describe('cleanup.job', () => {
     (scheduleReturn as any).execute = mockExecute;
     (mockPairingDeleteMany as any).mockResolvedValue({ count: 0 });
     (mockEmailVerificationDeleteMany as any).mockResolvedValue({ count: 0 });
+    (mockAuthChallengeDeleteMany as any).mockResolvedValue({ count: 0 });
+    (mockTransaction as any).mockImplementation(async (operations: Array<Promise<unknown>>) => Promise.all(operations));
     (mockCaseFindMany as any).mockResolvedValue([]);
     (mockCaseUpdateMany as any).mockResolvedValue({ count: 0 });
     (mockNotificationFindMany as any).mockResolvedValue([]);
@@ -194,6 +200,7 @@ describe('cleanup.job', () => {
     beforeEach(() => {
       (mockPairingDeleteMany as any).mockResolvedValue({ count: 0 });
       (mockEmailVerificationDeleteMany as any).mockResolvedValue({ count: 0 });
+      (mockAuthChallengeDeleteMany as any).mockResolvedValue({ count: 0 });
       (mockCaseFindMany as any).mockResolvedValue([]);
       (mockCaseUpdateMany as any).mockResolvedValue({ count: 0 });
       (mockNotificationFindMany as any).mockResolvedValue([]);
@@ -276,12 +283,27 @@ describe('cleanup.job', () => {
 
     it('cleanupExpiredVerifications 依環境記錄 debug 或 info', async () => {
       (mockEmailVerificationDeleteMany as any).mockResolvedValue({ count: 2 });
+      (mockAuthChallengeDeleteMany as any).mockResolvedValue({ count: 3 });
       mockEnvRef.NODE_ENV = 'development';
       await scheduledCallbacks[4]();
-      expect(mockLogger.debug).toHaveBeenCalledWith('Expired verifications cleaned up', { count: 2 });
+      expect(mockLogger.debug).toHaveBeenCalledWith('Expired verifications cleaned up', { count: 5 });
+      expect(mockAuthChallengeDeleteMany).toHaveBeenCalledWith({
+        where: {
+          updated_at: { lt: expect.any(Date) },
+          OR: [
+            { consumed_at: { not: null } },
+            { invalidated_at: { not: null } },
+            { delivery_status: 'failed' },
+            { verified_at: null, expires_at: { lt: expect.any(Date) } },
+            { registration_proof_expires_at: { lt: expect.any(Date) } },
+          ],
+        },
+      });
       jest.clearAllMocks();
       mockEnvRef.NODE_ENV = 'production';
       (mockEmailVerificationDeleteMany as any).mockResolvedValue({ count: 1 });
+      (mockAuthChallengeDeleteMany as any).mockResolvedValue({ count: 0 });
+      (mockTransaction as any).mockImplementation(async (operations: Array<Promise<unknown>>) => Promise.all(operations));
       await scheduledCallbacks[4]();
       expect(mockLogger.info).toHaveBeenCalledWith('Expired verifications cleaned up', { count: 1 });
     });

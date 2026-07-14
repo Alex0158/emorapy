@@ -15,10 +15,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import SEO from '@/components/common/SEO';
-import { sendVerificationCode } from '@/services/api/auth';
+import { sendVerificationCode, verifyEmail } from '@/services/api/auth';
 import { useAuthStore } from '@/store/authStore';
 import { getErrorMessage } from '@/utils/apiError';
 import { t } from '@/utils/i18n';
+import { EmailVerificationRecovery } from './EmailVerificationRecovery';
 
 interface LocationState {
   from?: { pathname: string };
@@ -33,6 +34,11 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [verificationRecovery, setVerificationRecovery] = useState(false);
+  const [verificationCode, setVerificationCode] = useState('');
+  const [verificationError, setVerificationError] = useState<string | null>(null);
+  const [verificationBusy, setVerificationBusy] = useState(false);
+  const [resendAvailableAt, setResendAvailableAt] = useState(0);
   const mountedRef = useMountedRef();
   const loginLockRef = useRef(false);
 
@@ -87,7 +93,12 @@ const Login = () => {
       if (looksLikeEmailNotVerified) {
         toast.warning(t('message.emailNotVerified'));
         try {
-          await sendVerificationCode(email, 'verify_email');
+          const delivery = await sendVerificationCode(email, 'verify_email');
+          if (!mountedRef.current) return;
+          setVerificationCode('');
+          setVerificationError(null);
+          setResendAvailableAt(Date.now() + delivery.resend_after * 1_000);
+          setVerificationRecovery(true);
         } catch (sendErr: unknown) {
           if (!mountedRef.current) return;
           toast.error(getErrorMessage(sendErr, 'message.resendVerifyFail'));
@@ -97,6 +108,43 @@ const Login = () => {
       }
     } finally {
       loginLockRef.current = false;
+    }
+  };
+
+  const handleVerificationSubmit = async () => {
+    if (!/^\d{6}$/.test(verificationCode) || verificationBusy) return;
+    setVerificationBusy(true);
+    setVerificationError(null);
+    try {
+      const verified = await verifyEmail(email, verificationCode);
+      if (!verified) throw new Error('verification_failed');
+      await login(email, password, rememberMe);
+      if (!mountedRef.current) return;
+      toast.success(t('auth.login.verify.success'));
+      navigate(from, { replace: true });
+    } catch (error: unknown) {
+      if (!mountedRef.current) return;
+      setVerificationError(getErrorMessage(error, 'auth.login.verify.failed'));
+    } finally {
+      if (mountedRef.current) setVerificationBusy(false);
+    }
+  };
+
+  const handleVerificationResend = async () => {
+    if (verificationBusy || Date.now() < resendAvailableAt) return;
+    setVerificationBusy(true);
+    setVerificationError(null);
+    try {
+      const delivery = await sendVerificationCode(email, 'verify_email');
+      if (!mountedRef.current) return;
+      setVerificationCode('');
+      setResendAvailableAt(Date.now() + delivery.resend_after * 1_000);
+      toast.success(t('auth.login.verify.resent'));
+    } catch (error: unknown) {
+      if (!mountedRef.current) return;
+      setVerificationError(getErrorMessage(error, 'message.resendVerifyFail'));
+    } finally {
+      if (mountedRef.current) setVerificationBusy(false);
     }
   };
 
@@ -125,6 +173,27 @@ const Login = () => {
           </p>
         </div>
 
+        {verificationRecovery ? (
+          <EmailVerificationRecovery
+            busy={verificationBusy}
+            code={verificationCode}
+            email={email.trim().toLowerCase()}
+            error={verificationError}
+            onBack={() => {
+              setVerificationRecovery(false);
+              setVerificationCode('');
+              setVerificationError(null);
+            }}
+            onCodeChange={(code) => {
+              setVerificationCode(code);
+              setVerificationError(null);
+            }}
+            onResend={() => { void handleVerificationResend(); }}
+            onVerify={() => { void handleVerificationSubmit(); }}
+            resendAvailableAt={resendAvailableAt}
+          />
+        ) : (
+          <>
         {/* Form */}
         <form
           onSubmit={handleSubmit}
@@ -246,6 +315,8 @@ const Login = () => {
         >
           {t('auth.login.registerNow')}
         </Button>
+          </>
+        )}
       </motion.div>
     </>
   );

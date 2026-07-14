@@ -6,6 +6,7 @@ import type {
   ChatJudgmentStatus,
   ChatMessage,
   ChatRoom,
+  ChatRoomSafetyStatus,
   ChatVisibilityScope,
 } from "@emorapy/contracts/chat";
 
@@ -34,6 +35,8 @@ export type {
   ChatJudgmentStatus,
   ChatMessage,
   ChatRoom,
+  ChatRoomSafetyState,
+  ChatRoomSafetyStatus,
   ChatStreamEvent,
   ChatVisibilityScope,
   PrivateContextPreference,
@@ -197,6 +200,23 @@ export function createChatApi(http: M1HttpClient) {
         "INVALID_CHAT_ROOM_RESPONSE",
         "Invalid chat room response from server",
       );
+    },
+
+    async getRoomSafetyStatus(roomId: string): Promise<ChatRoomSafetyStatus> {
+      const response = await http.get<ApiResponseEnvelope<ChatRoomSafetyStatus>>(
+        chatRoomPath(roomId, "/safety-status"),
+      );
+      const data = unwrapResponse(
+        response,
+        "Invalid chat room safety status response from server",
+      );
+      if (data.status !== "open" && data.status !== "paused") {
+        throw toRequestError(
+          "INVALID_CHAT_ROOM_SAFETY_STATUS_RESPONSE",
+          "Invalid chat room safety status response from server",
+        );
+      }
+      return data;
     },
 
     async createInvite(

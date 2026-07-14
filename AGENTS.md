@@ -84,12 +84,12 @@ railway status --json
 
 Do not leave a browserless login process running indefinitely. If activation is not completed, stop it and report that Railway CLI remains unauthenticated.
 
-Current Railway production state, last verified 2026-06-05:
+Current Railway production state, last verified 2026-07-14:
 
-1. Project: `ingenious-commitment`.
-2. Production backend domain: `https://mother-bear-court-production.up.railway.app` (legacy hostname until Emorapy domain migration).
+1. Project: `Emorapy`; Production service: `emorapy-api` (same existing project/service IDs, renamed in place; no resource recreation).
+2. Custom backend domain `https://api.emorapy.com` is configured and awaiting Railway TLS verification. `https://mother-bear-court-production.up.railway.app` remains the verified legacy compatibility/rollback hostname until the custom domain and release gate pass.
 3. Formal production deploy entrypoint is GitHub Actions `Production Deploy and Verify`; local Vercel/Railway CLI is for status/debug/emergency use, not the routine release path.
-4. Railway CLI auth was expired during the 2026-06-05 check; use live backend `/version` as minimum evidence until CLI is reauthenticated.
+4. Railway CLI auth remained expired during the 2026-07-14 check; the authenticated Railway Web session was used for the in-place rename and custom-domain configuration. Use live backend `/version` as minimum evidence until CLI is reauthenticated.
 5. Use `npm run ops:release:gate` or the production workflow release-gate step for full release closure. The backend version endpoint exposes `commitSha`; if it is missing, `unknown`, or not aligned with local `HEAD`, treat the backend as not fully verified. `railway status --json` remains the source for Railway deployment/log state when CLI auth is available.
 
 ## Frontend Tech Stack (Migration Complete ✅ 2026-05-05)

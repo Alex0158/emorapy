@@ -8,7 +8,7 @@
 **最後核驗日期**：`2026-07-14`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**狀態**：處理中（Vercel 與 Web DNS 已預配置；Railway custom domain、SMTP、跨層 URL contract 與正式發布尚未完成）
+**狀態**：處理中（Web custom domains 已 live；Railway custom domain 正在 TLS 驗證，SMTP、跨層 URL contract 與正式發布尚未完成）
 **Owner**：Platform / Ops
 **優先級**：P0 Production release blocker
 **母任務**：[Emorapy命名收斂與外部識別符遷移待辦-2026-06-20.md](./Emorapy命名收斂與外部識別符遷移待辦-2026-06-20.md)
@@ -43,11 +43,12 @@
 
 1. Vercel main project 已加入 `emorapy.com`；`www.emorapy.com`、`emorapy.co.uk`、`www.emorapy.co.uk` 已配置為到 `https://emorapy.com` 的 `308` Domain Redirect。Admin project 已加入 `admin.emorapy.com`。Vercel project domains API 對五個 custom domains 均回報 `verified=true`。
 2. Namecheap BasicDNS 已把以下五條與 parking 衝突的 Web records 精準改為 Vercel 當次要求的 `A 76.76.21.21`：`.com` 的 `@`、`www`、`admin`，以及 `.co.uk` 的 `@`、`www`。未切 nameserver，未修改 DNSSEC、Mail Settings、既有 root MX 或 email-forwarding SPF。
-3. 修改後首次公開查詢已確認 `emorapy.com`、`www.emorapy.com`、`admin.emorapy.com` 解析為 `76.76.21.21`；`emorapy.co.uk` 與 `www.emorapy.co.uk` 的 Namecheap 權威 DNS 當時仍回傳舊 parking records，處於原 `30 min` TTL 的傳播窗口，不視為已完成。
-4. HTTPS 首輪 smoke：`https://emorapy.com` 回 `200`；`https://www.emorapy.com` 回 `308` 並指向 `https://emorapy.com/`。`admin.emorapy.com` 及兩個 `.co.uk` host 當時尚未完成 TLS／DNS 生效，仍須重試驗證。
-5. Railway CLI session 已失效；Chrome fallback 可到 Railway，但 GitHub OAuth 要求重新登入。因平台尚未回傳 `api.emorapy.com` 的 exact CNAME／ownership TXT，未在 Namecheap 猜測或新增 backend records。
-6. Resend 帳戶尚未登入；sender domain、SPF／DKIM／DMARC、Railway SMTP secrets 與三層 email canary 均未開始。下一個外部介入點是完成 GitHub／Railway 與 Resend authentication；任何 credentials 不寫入 repo 或 evidence。
-7. PR #12 exact head 已更新為 `0903d4f609c16f27559dd24df47b5c1edb4f90cd`，7 個 CI jobs 全綠；PR 仍為 draft、未合併，Production commit 仍是 `8e93680eb4f32c9b7f088a6518346e9738b6078a`。
+3. 公開解析後續已確認五個 Web hosts 全部生效；HTTPS smoke 為 `emorapy.com=200`、`admin.emorapy.com=200`，`www.emorapy.com`、`emorapy.co.uk`、`www.emorapy.co.uk` 均回 `308` 到 `https://emorapy.com/`。
+4. Railway project 已由隨機名 `ingenious-commitment` 原地 rename 為 `Emorapy`，Production service 已由 legacy `mother-bear-court` 原地 rename 為 `emorapy-api`；project/service IDs、active deployment、variables、deployment history、legacy public domain 與 rollback path 均保留，未刪除或重建資源。GitHub repo variable 已新增 `EMORAPY_RAILWAY_SERVICE_NAME=emorapy-api`，舊 `PRODUCTION_RAILWAY_SERVICE` 暫留 fallback。
+5. Railway 已為同一 Production service 加入 `api.emorapy.com:8080`；Namecheap 已按 dashboard 當次輸出加入 `api` CNAME 與 `_railway-verify.api` TXT，兩條記錄均已在 Namecheap 權威 DNS 可查。首次 HTTPS smoke 因 Railway certificate 尚未包含 `api.emorapy.com` 而失敗，故 backend custom domain 仍是 TLS verification pending，不切 Production URL variables。
+6. Service private DNS 仍為 legacy `mother-bear-court.railway.internal`：Railway UI 兩次接受新值但刷新後回復。已核對 project shared variables 與 service variables 沒有該 literal 引用；此 internal-only compatibility alias 不阻擋 public cutover，也不以刪除重建解決。
+7. Resend 帳戶尚未登入；sender domain、SPF／DKIM／DMARC、Railway SMTP secrets 與三層 email canary 均未開始。下一個外部介入點是完成 Resend authentication；任何 credentials 不寫入 repo 或 evidence。
+8. PR #12 exact head `921450311f2bf4f1c6432b0e36017af1d8abd8be` 的 7 個 CI jobs 全綠；PR 仍為 draft、未合併，Production commit 仍是 `8e93680eb4f32c9b7f088a6518346e9738b6078a`。
 
 ## 執行前已鎖定決策
 

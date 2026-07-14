@@ -31,18 +31,18 @@
 
 ## 目標契約
 
-1. Production 缺少完整 SMTP 設定時 backend 不得啟動；partial configuration 在所有環境一律視為錯誤。
+1. Production 缺少完整 Resend HTTPS API 設定時 backend 不得啟動；partial configuration 在所有環境一律視為錯誤。SMTP adapter 僅供允許 outbound SMTP 的環境使用。
 2. 驗證碼寄送不得 silent skip；provider 未接受時 API 不得宣稱「已發送」，且新建但未被 provider 接受的 challenge 必須立即作廢。
 3. 註冊正式流程固定為 `send OTP → verify OTP 取得短效 one-time registration proof → register 原子消耗 proof 並建立 email_verified=true User`；未驗證、proof 缺失／過期／重播、或跨 email 使用一律 fail closed，Web、App 與 direct API 不保留 legacy bypass。
 4. 密碼重置維持 user-enumeration 防護；不存在帳戶與已存在帳戶的公開 response 不得用來推斷帳戶是否存在。
 5. application log 不得保存 raw email、驗證碼、SMTP credential 或可從 provider error 反推出收件人的內容；只允許穩定 event、purpose、provider error code 與非敏感 internal ref。
-6. `/health/ready` 必須回傳 startup `transporter.verify()` 的 cached email transport readiness；每個 deploy 的零寄信 release gate 必須驗證 `mode=smtp / status=ready / verifiedAt`，不得在 health request 內即時連線 provider。運行期 `transport_unavailable/not_configured` 寄送失敗會把 cached status 降為 `unavailable` 並令 readiness 回 503，後續明確 provider accepted 才恢復；單一 recipient rejection 不降全局 transport，delivery metrics／alerts 仍須保留。
+6. `/health/ready` 必須回傳 cached email transport readiness；每個 Production deploy 必須驗證 `mode=resend_api / status=ready / verifiedAt`，不得在 health request 內即時連線 provider。Resend sending-only key 無保證可用的 non-mutating auth probe，所以 startup 只驗 adapter 配置，真 provider acceptance 由低頻 canary 證明。運行期 `transport_unavailable/not_configured` 寄送失敗會把 cached status 降為 `unavailable` 並令 readiness 回 503，後續明確 provider accepted 才恢復；單一 recipient rejection 不降全局 transport。
 7. CI production-like 必須使用本地 authenticated TLS SMTP sink 跑完整 send / receive / verify / register 鏈；每次 Production deploy 均必須執行一次低頻真 provider canary，只記 recipient 是否已配置、provider 是否接受及 release SHA，不作為 health probe 的副作用。現行 canary 由 GitHub runner 使用 Production Railway variables 寄送，不可將它單獨當成 deployed-process execution 證據。
-8. provider canary 的證據邊界是「SMTP provider 已接受」；與 exact deployed backend 的 `/version` 及 startup-verified `/health/ready` 合併時，可證明相同 release 配置通過啟動連線驗證，且相同 Production variables 通過 provider acceptance，但仍不冒充 exact deployed process 已寄送、inbox 最終送達、spam placement 或使用者已讀。要宣稱 inbox delivered 必須另有受控 mailbox 或 provider delivery webhook 證據。
+8. provider canary 的證據邊界是「Resend HTTPS API 已接受」；與 exact deployed backend 的 `/version` 及 initialized `/health/ready` 合併時，可證明相同 release 配置已載入，且相同 Production variables 通過 provider acceptance，但仍不冒充 exact deployed process 已寄送、inbox 最終送達、spam placement 或使用者已讀。要宣稱 inbox delivered 必須另有受控 mailbox 或 provider delivery webhook 證據。
 
 ## 實作邊界
 
-1. 沿用 provider-neutral SMTP；本輪不把產品綁死在 Resend，也不新增第二套 fallback transport。
+1. Production 明確使用 Resend HTTPS API；SMTP adapter 保留但不作 Railway fallback。Provider-specific boundary 集中在單一 transport adapter，避免業務 service 綁死 provider payload。
 2. 設定判斷集中為純函數，供 startup、EmailService、readiness、tests 與 canary 共用，避免每層自行解讀 env。
 3. verification mail 失敗以穩定 `EMAIL_DELIVERY_UNAVAILABLE`（HTTP 503）回傳；不得把 SMTP message 或 stack 暴露到 API。
 4. pairing / Analysis 通知屬非認證通知，可維持業務流程不因郵件失敗而回滾，但不得 silent skip 或洩漏敏感 metadata；失敗須留下低敏 operational event。

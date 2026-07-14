@@ -8,7 +8,7 @@
 **最後核驗日期**：`2026-07-14`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**狀態**：處理中（Web 與 Railway custom domains、SMTP provider canary 已完成；deployed runtime canary、跨層 URL contract 與正式發布尚未完成）
+**狀態**：處理中（Web 與 Railway custom domains、Resend provider canary 已完成；2026-07-14 首次正式發布因 Railway 阻擋 outbound SMTP 而安全回滾，正切換 Resend HTTPS API）
 **Owner**：Platform / Ops
 **優先級**：P0 Production release blocker
 **母任務**：[Emorapy命名收斂與外部識別符遷移待辦-2026-06-20.md](./Emorapy命名收斂與外部識別符遷移待辦-2026-06-20.md)
@@ -24,7 +24,13 @@
 | `admin.emorapy.com` | Vercel `emorapy-admin` project | Admin Web 正式入口 |
 | `api.emorapy.com` | Railway Production backend service | Backend API 正式入口 |
 | `emorapy.co.uk`、`www.emorapy.co.uk` | Vercel HTTPS redirect | 308 到 `https://emorapy.com`，不提供第二份 canonical 內容 |
-| `no-reply@emorapy.com` | Resend transactional SMTP（首發選定） | OTP／transactional sender；必須完成 SPF、DKIM、DMARC 與分層 canary |
+| `no-reply@emorapy.com` | Resend transactional HTTPS API | OTP／transactional sender；必須完成 SPF、DKIM、DMARC 與分層 canary |
+
+## 2026-07-14 首次正式發布失敗與修正決策
+
+1. `Production Deploy and Verify` run `29373051702` 的 exact-main preflight 與 rollback baseline 均通過；Railway deployment `c82496f5-19d6-4af1-ae73-5b5fd6e3502d` image build 成功，但 runtime SMTP verify 持續 `TIMEOUT`，`/health/ready` 在五分鐘內未轉 ready，因此 deployment fail closed。
+2. Workflow 已成功 rollback，Vercel deploy 被跳過；active backend 仍是 deployment `a6fad093-ff9b-45c5-b3c0-307c328fd92a` / commit `8e93680eb4f32c9b7f088a6518346e9738b6078a`，live／ready／health／version 均回 200，沒有前後端版本分裂。
+3. Railway 官方 contract 是 Free／Trial／Hobby 禁用 outbound SMTP，且即使 Pro 可用 SMTP，仍建議 transactional email 使用 HTTPS API。因此不以升級方案或放寬 readiness 繞過，改為明確的 `EMAIL_DELIVERY_MODE=resend_api` 與 `RESEND_API_KEY` contract；SMTP adapter 保留供支援 SMTP 的環境使用。
 
 ## 2026-07-14 已核驗現況
 
@@ -55,7 +61,7 @@
 1. **Release owner**：只有 `origin/main` 的 intended exact SHA 可進入 Production。本文變更先移植到 latest `origin/main`；PR #12 必須保持單一 consolidated candidate，不再分拆另一個繞過 SMTP gate 的 release path。
 2. **Redirect owner**：`www.emorapy.com`、`emorapy.co.uk` 與 `www.emorapy.co.uk` 使用 Vercel Domain Redirect，不作 main app serving alias；採 permanent `308` 並保留 path/query。
 3. **Backend compatibility**：Railway legacy hostname 在本任務不移除；只有當 Web、Admin、Mobile 及已發布 App build 全部完成遷移後，才能另開降級任務。
-4. **SMTP provider**：首發選用 Resend SMTP，原因是現有 backend 已使用 Nodemailer/SMTP contract，無需再建 provider-specific delivery adapter；先使用免費額度，超出後再以真實發送量升級。
+4. **Email provider transport**：Production 使用 Resend HTTPS API，避免 Railway plan 的 outbound SMTP 限制；Nodemailer/SMTP adapter 只保留作其他環境的可選 transport，不作 Production fallback。
 5. **Email identity**：Visible From 為 `no-reply@emorapy.com`；provider Return-Path 使用其驗證後的 `send.emorapy.com` 或當次 dashboard 指定值。`EMAIL_FROM` 只存 plain email address，display name 由代碼控制。Reply-To/support mailbox 不阻擋本次 OTP 發布，日後另作客服收件治理。
 6. **DNS change boundary**：本次不切 nameserver、不購買 PremiumDNS/SSL/Hosting、不同輪啟用 DNSSEC、不新增限制性 CAA，也不做 CDN 或 mailbox suite 遷移。
 
@@ -114,7 +120,7 @@
 
 1. 在 Resend 建立帳號，加入並驗證 `emorapy.com`；帳號登入、email verification、CAPTCHA 或付款由使用者介入，API key 只存 Railway secure variables。
 2. 在 Namecheap 加入 Resend 當次 dashboard 要求的最小 SPF/return-path、DKIM records，並以 `_dmarc.emorapy.com` `p=none` 起步；保留現有 root MX/TXT，不在同一 hostname 建立第二條 SPF。
-3. 在 Railway secure variables 設定 `EMAIL_DELIVERY_MODE=smtp`、`EMAIL_FROM`、`EMAIL_OTP_PEPPER`、`SMTP_HOST`、`SMTP_PORT`、`SMTP_USER`、`SMTP_PASS`、`SMTP_SECURE` 或 `SMTP_REQUIRE_TLS`、`EMAIL_CANARY_RECIPIENT`；只驗 key presence／masked value。
+3. 在 Railway secure variables 設定 `EMAIL_DELIVERY_MODE=resend_api`、`EMAIL_FROM`、`EMAIL_OTP_PEPPER`、`RESEND_API_KEY`、`EMAIL_CANARY_RECIPIENT`；只驗 key presence／masked value。既有 SMTP variables 暫留 sealed rollback evidence，但 API mode 不讀取、不 fallback。
 4. Email 驗收分成三層，不得互相替代：
    1. **Provider acceptance**：workflow runner 使用 Production Railway variables 寄送，provider 接受；這不證明 deployed process 執行或 inbox delivery。
    2. **Deployed runtime readiness**：Production runtime 啟動後 transport verify/readiness 通過，並無 console/mock fallback。

@@ -71,7 +71,7 @@
 7. `POST /api/v1/telemetry/events` 匿名請求返回 202 並只回 accepted / persisted count 與 severity summary；invalid name 或超過 20 條 events 返回 `VALIDATION_ERROR`。
 8. `POST /api/v1/telemetry/otlp/v1/traces` 匿名請求返回 202 並只回 accepted / persisted count / severity summary / partial_success；超過 span 上限或非法 trace id 返回 `VALIDATION_ERROR`。
 9. App telemetry backend log 與 DB persistence 必須二次 redaction token/session/secret/password 類 key；DB persistence failure 只能降級為 `persisted_count=0`，不得阻塞 App 主流程。
-10. Production `/health/ready` 必須回 `emailDelivery.mode=smtp / status=ready / verifiedAt`；release gate 同時檢查 `/health.checks.emailDelivery=healthy`，不得只以 HTTP 200 判斷。
+10. Production `/health/ready` 必須回 `emailDelivery.mode=resend_api / status=ready / verifiedAt`；release gate 同時檢查 `/health.checks.emailDelivery=healthy`，不得只以 HTTP 200 判斷。`verifiedAt` 代表 adapter 已初始化；provider acceptance 由獨立低頻 canary 證明。
 
 ## 錯誤碼覆蓋矩陣（API -> code -> UI 行為）
 

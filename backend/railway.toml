@@ -22,7 +22,8 @@ restartPolicyMaxRetries = 10
 # - OPENAI_API_KEY
 # - FRONTEND_URL
 # - ALLOWED_ORIGINS
-# - EMAIL_DELIVERY_MODE=smtp
+# - EMAIL_DELIVERY_MODE=resend_api
+# - RESEND_API_KEY=<sealed Railway variable>
 # - EMAIL_FROM
 # - EMAIL_OTP_PEPPER
 # - SMTP_HOST

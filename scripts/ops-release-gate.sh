@@ -94,11 +94,11 @@ if (data?.status !== "ready") {
   console.error(`[error] ${label} must report status=ready`);
   process.exit(1);
 }
-if (delivery?.mode !== "smtp" || delivery?.status !== "ready" || typeof delivery?.verifiedAt !== "string" || !delivery.verifiedAt) {
-  console.error(`[error] ${label} must report a startup-verified SMTP transport`);
+if (delivery?.mode !== "resend_api" || delivery?.status !== "ready" || typeof delivery?.verifiedAt !== "string" || !delivery.verifiedAt) {
+  console.error(`[error] ${label} must report an initialized Resend HTTPS API transport`);
   process.exit(1);
 }
-console.log(`[ok] ${label} startup-verified SMTP transport confirmed`);
+console.log(`[ok] ${label} initialized Resend HTTPS API transport confirmed`);
 ' "$label"
 }
 

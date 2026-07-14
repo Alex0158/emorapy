@@ -165,13 +165,13 @@ async function ensureRailwayProjectLink() {
   );
 }
 
-async function restoreRailwayCommitVariable(commitSha) {
+async function restoreRailwayVariable(name, value) {
   await execFileAsync(
     'railway',
     [
       'variable',
       'set',
-      `EMORAPY_COMMIT_SHA=${commitSha}`,
+      `${name}=${value}`,
       '--skip-deploys',
       '--environment',
       railwayEnvironment,
@@ -366,6 +366,14 @@ async function rollbackBackend(previous) {
 
   try {
     await ensureRailwayProjectLink();
+    if (!['smtp', 'resend_api'].includes(previous.emailDeliveryMode)) {
+      throw new Error('Rollback baseline email delivery mode is invalid');
+    }
+    await restoreRailwayVariable('EMAIL_DELIVERY_MODE', previous.emailDeliveryMode);
+    surface.emailDeliveryModeRestoration = {
+      value: previous.emailDeliveryMode,
+      status: 'restored-before-deployment-inspection',
+    };
     let current = null;
     let currentRailway = null;
     let railwayScope = null;
@@ -412,7 +420,7 @@ async function rollbackBackend(previous) {
       };
     } else {
       surface.action = 'none';
-      await restoreRailwayCommitVariable(previous.commitSha);
+      await restoreRailwayVariable('EMORAPY_COMMIT_SHA', previous.commitSha);
       surface.variableRestoration = {
         name: 'EMORAPY_COMMIT_SHA',
         value: previous.commitSha,

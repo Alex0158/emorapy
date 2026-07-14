@@ -30,8 +30,8 @@ export function validateEnvConfig(): void {
     errors.push('OPENAI_API_KEY is required');
   }
 
-  if (env.NODE_ENV === 'production' && env.EMAIL_DELIVERY.mode !== 'smtp') {
-    errors.push('EMAIL_DELIVERY_MODE=smtp is required in production');
+  if (env.NODE_ENV === 'production' && env.EMAIL_DELIVERY.mode === 'disabled') {
+    errors.push('EMAIL_DELIVERY_MODE=smtp or resend_api is required in production');
   }
 
   // 驗證端口範圍

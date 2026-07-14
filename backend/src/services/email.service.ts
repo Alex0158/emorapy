@@ -5,6 +5,10 @@ import { env } from '../config/env';
 import logger from '../config/logger';
 import type { BackendLocale } from '../i18n';
 import type { EmailDeliveryConfig } from '../config/email-delivery';
+import {
+  createResendApiTransport,
+  type EmailTransport,
+} from './resend-api-transport';
 
 type VerificationEmailType = 'register' | 'reset_password' | 'verify_email';
 
@@ -121,6 +125,7 @@ export interface EmailDeliveryReadiness {
 }
 
 type TransportFactory = (options: SMTPTransport.Options) => nodemailer.Transporter;
+type ResendTransportFactory = typeof createResendApiTransport;
 
 function resolveProviderCode(error: unknown): string | undefined {
   if (!error || typeof error !== 'object' || !('code' in error)) return undefined;
@@ -169,12 +174,13 @@ function normalizeDeliveryError(error: unknown): EmailDeliveryError {
 }
 
 export class EmailService {
-  private transporter: nodemailer.Transporter | null = null;
+  private transporter: EmailTransport | null = null;
   private readiness: EmailDeliveryReadiness;
 
   constructor(
     private readonly config: EmailDeliveryConfig = env.EMAIL_DELIVERY,
-    transportFactory: TransportFactory = nodemailer.createTransport
+    transportFactory: TransportFactory = nodemailer.createTransport,
+    resendTransportFactory: ResendTransportFactory = createResendApiTransport
   ) {
     this.readiness = {
       mode: config.mode,
@@ -194,24 +200,30 @@ export class EmailService {
         connectionTimeout: config.transportVerifyTimeoutMs,
         greetingTimeout: config.transportVerifyTimeoutMs,
         socketTimeout: config.transportVerifyTimeoutMs,
-      });
+      }) as unknown as EmailTransport;
+    } else if (config.mode === 'resend_api' && config.resendApi) {
+      this.transporter = resendTransportFactory(
+        config.resendApi.apiKey,
+        config.resendApi.baseUrl,
+        config.transportVerifyTimeoutMs
+      );
     }
   }
 
   private markDeliveryUnavailable(reason: EmailDeliveryFailureReason): void {
-    if (this.config.mode !== 'smtp' || reason === 'recipient_rejected') return;
+    if (this.config.mode === 'disabled' || reason === 'recipient_rejected') return;
     this.readiness = {
       ...this.readiness,
-      mode: 'smtp',
+      mode: this.config.mode,
       status: 'unavailable',
     };
   }
 
   private markProviderAccepted(acceptedAt: Date): void {
-    if (this.config.mode !== 'smtp') return;
+    if (this.config.mode === 'disabled') return;
     this.readiness = {
       ...this.readiness,
-      mode: 'smtp',
+      mode: this.config.mode,
       status: 'ready',
       lastAcceptedAt: acceptedAt.toISOString(),
     };

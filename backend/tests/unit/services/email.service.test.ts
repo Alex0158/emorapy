@@ -61,6 +61,10 @@ jest.mock('../../../src/config/database', () => ({
 }));
 
 import { EmailService } from '../../../src/services/email.service';
+import {
+  createResendApiTransport,
+  type EmailTransport,
+} from '../../../src/services/resend-api-transport';
 
 describe('EmailService', () => {
   let service: EmailService;
@@ -75,6 +79,32 @@ describe('EmailService', () => {
   });
 
   describe('sendVerificationCode', () => {
+    it('Resend API mode should use the HTTPS transport adapter', async () => {
+      const apiSendMail = jest.fn<EmailTransport['sendMail']>().mockResolvedValue({
+        accepted: ['a@b.com'],
+        rejected: [],
+        messageId: 'api-message-id',
+      });
+      const apiTransportFactory = jest.fn<typeof createResendApiTransport>(() => ({
+        verify: jest.fn<EmailTransport['verify']>().mockResolvedValue(true),
+        sendMail: apiSendMail,
+      }));
+      const svc = new EmailService({
+        mode: 'resend_api',
+        from: 'no-reply@emorapy.com',
+        otpPepper: 'test-email-otp-pepper-at-least-32-characters',
+        transportVerifyTimeoutMs: 1000,
+        resendApi: { apiKey: 're_secret', baseUrl: 'https://api.resend.com' },
+      }, undefined, apiTransportFactory);
+
+      await svc.initialize();
+      await svc.sendVerificationCode('a@b.com', '123456', 'register');
+
+      expect(apiTransportFactory).toHaveBeenCalledWith('re_secret', 'https://api.resend.com', 1000);
+      expect(apiSendMail).toHaveBeenCalledWith(expect.objectContaining({ to: 'a@b.com' }));
+      expect(svc.getReadiness()).toMatchObject({ mode: 'resend_api', status: 'ready' });
+    });
+
     it('未配置 SMTP 時不得靜默成功', async () => {
       mockEnvRef.SMTP_HOST = undefined;
       const svc = new EmailService();

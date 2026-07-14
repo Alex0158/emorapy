@@ -198,6 +198,17 @@ jobs:
             --environment "${PRODUCTION_RAILWAY_ENVIRONMENT}" \
             --service "${PRODUCTION_RAILWAY_SERVICE}"
           railway status --json > "${RAILWAY_STATUS_PATH}"
+          previous_email_delivery_mode="$(
+            railway variable list --json \
+              -e "${PRODUCTION_RAILWAY_ENVIRONMENT}" \
+              -s "${PRODUCTION_RAILWAY_SERVICE}" \
+              | jq -er '.EMAIL_DELIVERY_MODE'
+          )"
+          if [[ ! "${previous_email_delivery_mode}" =~ ^(smtp|resend_api)$ ]]; then
+            echo "Unsupported current Production email delivery mode." >&2
+            exit 1
+          fi
+          export PREVIOUS_EMAIL_DELIVERY_MODE="${previous_email_delivery_mode}"
           node scripts/capture-production-release-state.mjs
           previous_id="$(jq -er '.backend.railwayDeploymentId' "${RELEASE_STATE_OUTPUT}")"
           printf 'previous_railway_deployment_id=%s\n' "${previous_id}" >> "$GITHUB_OUTPUT"
@@ -423,7 +434,7 @@ jobs:
           set -euo pipefail
           mkdir -p temp/production-release-evidence
           variables="$(railway variable list --json -e "${PRODUCTION_RAILWAY_ENVIRONMENT}" -s "${PRODUCTION_RAILWAY_SERVICE}")"
-          required=(EMAIL_DELIVERY_MODE EMAIL_FROM EMAIL_OTP_PEPPER SMTP_HOST SMTP_PORT SMTP_USER SMTP_PASS)
+          required=(EMAIL_DELIVERY_MODE EMAIL_FROM EMAIL_OTP_PEPPER RESEND_API_KEY)
           missing=0
           for key in "${required[@]}"; do
             if ! jq -e --arg key "$key" '.[$key] | strings | length > 0' <<<"${variables}" >/dev/null; then
@@ -431,12 +442,8 @@ jobs:
               missing=1
             fi
           done
-          if ! jq -e '.EMAIL_DELIVERY_MODE == "smtp"' <<<"${variables}" >/dev/null; then
-            echo "Railway EMAIL_DELIVERY_MODE must be smtp." >&2
-            missing=1
-          fi
-          if ! jq -e '(.SMTP_SECURE == "true") or (.SMTP_REQUIRE_TLS == "true")' <<<"${variables}" >/dev/null; then
-            echo "Railway SMTP must enable SMTP_SECURE or SMTP_REQUIRE_TLS." >&2
+          if ! jq -e '(.EMAIL_DELIVERY_MODE == "smtp") or (.EMAIL_DELIVERY_MODE == "resend_api")' <<<"${variables}" >/dev/null; then
+            echo "Railway EMAIL_DELIVERY_MODE must be smtp or resend_api before cutover." >&2
             missing=1
           fi
           if ! jq -e '.EMAIL_CANARY_RECIPIENT | strings | length > 0' <<<"${variables}" >/dev/null; then
@@ -448,12 +455,12 @@ jobs:
           fi
           jq -n \
             '{
-              emailDeliveryMode: "smtp",
+              emailDeliveryMode: "resend_api",
               requiredVariablesPresent: true,
               transportEncryptionRequired: true,
               providerCanaryRequired: true,
               recipientConfigured: true,
-              acceptanceBoundary: "runner-side SMTP send using Production Railway variables; provider accepted; not deployed-process execution; not inbox delivery"
+              acceptanceBoundary: "runner-side Resend HTTPS API send using Production Railway variables; provider accepted; not deployed-process execution; not inbox delivery"
             }' > temp/production-release-evidence/email-config-evidence.json
 
       - name: Resolve deploy message
@@ -469,6 +476,10 @@ jobs:
             exit 1
           fi
           printf 'value=%s\n' "${message}" >> "$GITHUB_OUTPUT"
+
+      - name: Switch Railway Production email delivery to Resend HTTPS API
+        run: |
+          railway variable set "EMAIL_DELIVERY_MODE=resend_api" --skip-deploys -e "${PRODUCTION_RAILWAY_ENVIRONMENT}" -s "${PRODUCTION_RAILWAY_SERVICE}"
 
       - name: Stamp Railway production commit
         run: |
@@ -578,7 +589,7 @@ jobs:
           ready_payload="$(curl --fail --silent --show-error --retry 12 --retry-delay 5 --retry-all-errors --max-time 15 "${BACKEND_BASE_URL%/}/health/ready")"
           jq -e '(.data.status // .status) == "ready"' <<<"${ready_payload}" >/dev/null
           jq -e '(.data.database.releaseMigrations // .database.releaseMigrations) == "ready"' <<<"${ready_payload}" >/dev/null
-          jq -e '(.data.emailDelivery.mode // .emailDelivery.mode) == "smtp"' <<<"${ready_payload}" >/dev/null
+          jq -e '(.data.emailDelivery.mode // .emailDelivery.mode) == "resend_api"' <<<"${ready_payload}" >/dev/null
           jq -e '(.data.emailDelivery.status // .emailDelivery.status) == "ready"' <<<"${ready_payload}" >/dev/null
           jq -e '(.data.emailDelivery.verifiedAt // .emailDelivery.verifiedAt) | strings | length > 0' <<<"${ready_payload}" >/dev/null
           jq -e . <<<"${version_payload}" > temp/production-release-evidence/version.json

@@ -26,12 +26,16 @@ const mainWebUrl = normalizeBaseUrl(process.env.MAIN_WEB_URL, 'MAIN_WEB_URL');
 const adminWebUrl = normalizeBaseUrl(process.env.ADMIN_WEB_URL, 'ADMIN_WEB_URL');
 const vercelToken = process.env.VERCEL_TOKEN?.trim();
 const vercelOrgId = process.env.VERCEL_ORG_ID?.trim();
+const previousEmailDeliveryMode = process.env.PREVIOUS_EMAIL_DELIVERY_MODE?.trim();
 
 if (!railwayStatusPath) throw new Error('RAILWAY_STATUS_PATH is required');
 if (!railwayService) throw new Error('PRODUCTION_RAILWAY_SERVICE is required');
 if (!railwayProjectId) throw new Error('RAILWAY_PROJECT_ID is required');
 if (!vercelToken) throw new Error('VERCEL_TOKEN is required');
 if (!vercelOrgId) throw new Error('VERCEL_ORG_ID is required');
+if (!['smtp', 'resend_api'].includes(previousEmailDeliveryMode)) {
+  throw new Error('PREVIOUS_EMAIL_DELIVERY_MODE must be smtp or resend_api');
+}
 
 async function fetchJson(url, options = {}, attempts = 4) {
   let lastError;
@@ -171,6 +175,7 @@ const state = {
     railwayDeploymentId: railwayDeployment.id,
     railwaySourceRepo: railwayTarget.sourceRepo,
     railwayAutoDeployEnabled: railwayAutoDeploy.enabled,
+    emailDeliveryMode: previousEmailDeliveryMode,
   },
   web: { main, admin },
 };

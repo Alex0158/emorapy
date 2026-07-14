@@ -25,7 +25,38 @@ describe('resolveEmailDeliveryConfig', () => {
 
   it('rejects disabled delivery in production', () => {
     const result = resolveEmailDeliveryConfig({ NODE_ENV: 'production' });
-    expect(result.errors).toContain('EMAIL_DELIVERY_MODE must be "smtp" in production');
+    expect(result.errors).toContain('EMAIL_DELIVERY_MODE must be "smtp" or "resend_api" in production');
+  });
+
+  it('returns a normalized Resend HTTPS API config in production', () => {
+    const result = resolveEmailDeliveryConfig({
+      NODE_ENV: 'production',
+      EMAIL_DELIVERY_MODE: 'resend_api',
+      EMAIL_FROM: 'no-reply@emorapy.com',
+      EMAIL_OTP_PEPPER: 'test-email-otp-pepper-at-least-32-characters',
+      RESEND_API_KEY: 're_test',
+    });
+    expect(result.errors).toEqual([]);
+    expect(result.config).toMatchObject({
+      mode: 'resend_api',
+      from: 'no-reply@emorapy.com',
+      resendApi: {
+        apiKey: 're_test',
+        baseUrl: 'https://api.resend.com',
+      },
+    });
+  });
+
+  it('rejects an insecure Resend API base URL', () => {
+    const result = resolveEmailDeliveryConfig({
+      NODE_ENV: 'production',
+      EMAIL_DELIVERY_MODE: 'resend_api',
+      EMAIL_FROM: 'no-reply@emorapy.com',
+      EMAIL_OTP_PEPPER: 'test-email-otp-pepper-at-least-32-characters',
+      RESEND_API_KEY: 're_test',
+      RESEND_API_BASE_URL: 'http://api.resend.com',
+    });
+    expect(result.errors).toContain('RESEND_API_BASE_URL must be a valid HTTPS URL');
   });
 
   it.each(['SMTP_HOST', 'EMAIL_FROM', 'EMAIL_OTP_PEPPER', 'SMTP_USER', 'SMTP_PASS'])(

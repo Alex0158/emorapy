@@ -43,11 +43,12 @@ if [ "${NODE_ENV:-development}" = "production" ]; then
         "EMAIL_DELIVERY_MODE"
         "EMAIL_FROM"
         "EMAIL_OTP_PEPPER"
-        "SMTP_HOST"
-        "SMTP_PORT"
-        "SMTP_USER"
-        "SMTP_PASS"
     )
+    if [ "${EMAIL_DELIVERY_MODE:-}" = "resend_api" ]; then
+        REQUIRED_VARS+=("RESEND_API_KEY")
+    else
+        REQUIRED_VARS+=("SMTP_HOST" "SMTP_PORT" "SMTP_USER" "SMTP_PASS")
+    fi
 fi
 
 # 可選但建議的變量
@@ -119,11 +120,11 @@ fi
 
 # 驗證 Production 郵件交付契約（只顯示狀態，不輸出任何 secret/value）
 if [ "${NODE_ENV:-development}" = "production" ]; then
-    if [ "${EMAIL_DELIVERY_MODE:-}" != "smtp" ]; then
-        echo -e "  ${RED}❌ Production EMAIL_DELIVERY_MODE 必須為 smtp${NC}"
+    if [ "${EMAIL_DELIVERY_MODE:-}" != "smtp" ] && [ "${EMAIL_DELIVERY_MODE:-}" != "resend_api" ]; then
+        echo -e "  ${RED}❌ Production EMAIL_DELIVERY_MODE 必須為 smtp 或 resend_api${NC}"
         MISSING_REQUIRED=1
     else
-        echo -e "  ${GREEN}✅ Production email delivery mode 為 smtp${NC}"
+        echo -e "  ${GREEN}✅ Production email delivery mode 為 ${EMAIL_DELIVERY_MODE}${NC}"
     fi
 
     if [ "${#EMAIL_OTP_PEPPER}" -lt 32 ]; then
@@ -133,10 +134,10 @@ if [ "${NODE_ENV:-development}" = "production" ]; then
         echo -e "  ${GREEN}✅ EMAIL_OTP_PEPPER 長度符合要求${NC}"
     fi
 
-    if [ "${SMTP_SECURE:-false}" != "true" ] && [ "${SMTP_REQUIRE_TLS:-true}" != "true" ]; then
+    if [ "${EMAIL_DELIVERY_MODE:-}" = "smtp" ] && [ "${SMTP_SECURE:-false}" != "true" ] && [ "${SMTP_REQUIRE_TLS:-true}" != "true" ]; then
         echo -e "  ${RED}❌ Production SMTP 必須啟用 SMTP_SECURE 或 SMTP_REQUIRE_TLS${NC}"
         MISSING_REQUIRED=1
-    else
+    elif [ "${EMAIL_DELIVERY_MODE:-}" = "smtp" ]; then
         echo -e "  ${GREEN}✅ Production SMTP transport encryption 已要求${NC}"
     fi
 fi

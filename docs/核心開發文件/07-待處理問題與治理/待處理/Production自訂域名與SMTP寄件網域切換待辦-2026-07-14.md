@@ -4,11 +4,11 @@
 **文檔類型**：問題治理
 **覆蓋範圍**：Namecheap DNS、Vercel main/Admin custom domain、Railway backend custom domain、Web/Admin/Mobile Production URL／origin contract、SMTP sender-domain 與 release evidence
 **取證代碼入口**：`.github/workflows/production-deploy-and-verify.yml`、`scripts/ops-release-status.sh`、`scripts/ops-release-gate.sh`、`frontend/vercel.json`、`frontend-admin/vercel.json`、`frontend/src/config/env.ts`、`frontend-admin/src/config/env.ts`、`mobile/src/config/runtime.ts`、`mobile/eas.json`、`backend/src/config`、`backend/src/app.ts`、`backend/src/services/file.service.ts`
-**最後核驗 Commit**：`2825e54`
+**最後核驗 Commit**：`0903d4f`
 **最後核驗日期**：`2026-07-14`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**狀態**：待處理（域名已購買；DNS、平台 custom domain、SMTP 與 Production 切換尚未執行）
+**狀態**：處理中（Vercel 與 Web DNS 已預配置；Railway custom domain、SMTP、跨層 URL contract 與正式發布尚未完成）
 **Owner**：Platform / Ops
 **優先級**：P0 Production release blocker
 **母任務**：[Emorapy命名收斂與外部識別符遷移待辦-2026-06-20.md](./Emorapy命名收斂與外部識別符遷移待辦-2026-06-20.md)
@@ -38,6 +38,16 @@
 8. Draft PR [#12](https://github.com/Alex0158/emorapy/pull/12) 以 `origin/main=8e93680` 為 base，exact head `2825e54ce533d65cff6637a0711b3573c68c368f` 的 7 個 CI jobs 已通過；但尚未合併，因此其 SMTP fail-closed contract 不是當前 Production 行為。
 9. 本文原始工作分支 `codex/v1-5-release-backfill-hotfix` 與 `origin/main` 已分叉；治理變更已改為移植到以 `origin/main=8e93680` 為 base 的 PR #12，原始分支不作 release source。
 10. Mobile runtime 會從 `EXPO_PUBLIC_API_BASE_URL` 或 Expo extra 讀取 API base，但 `mobile/eas.json` Production profile 尚未宣告該值；新 API domain 不能只切 Web/Admin。
+
+## 2026-07-14 平台預配置執行證據
+
+1. Vercel main project 已加入 `emorapy.com`；`www.emorapy.com`、`emorapy.co.uk`、`www.emorapy.co.uk` 已配置為到 `https://emorapy.com` 的 `308` Domain Redirect。Admin project 已加入 `admin.emorapy.com`。Vercel project domains API 對五個 custom domains 均回報 `verified=true`。
+2. Namecheap BasicDNS 已把以下五條與 parking 衝突的 Web records 精準改為 Vercel 當次要求的 `A 76.76.21.21`：`.com` 的 `@`、`www`、`admin`，以及 `.co.uk` 的 `@`、`www`。未切 nameserver，未修改 DNSSEC、Mail Settings、既有 root MX 或 email-forwarding SPF。
+3. 修改後首次公開查詢已確認 `emorapy.com`、`www.emorapy.com`、`admin.emorapy.com` 解析為 `76.76.21.21`；`emorapy.co.uk` 與 `www.emorapy.co.uk` 的 Namecheap 權威 DNS 當時仍回傳舊 parking records，處於原 `30 min` TTL 的傳播窗口，不視為已完成。
+4. HTTPS 首輪 smoke：`https://emorapy.com` 回 `200`；`https://www.emorapy.com` 回 `308` 並指向 `https://emorapy.com/`。`admin.emorapy.com` 及兩個 `.co.uk` host 當時尚未完成 TLS／DNS 生效，仍須重試驗證。
+5. Railway CLI session 已失效；Chrome fallback 可到 Railway，但 GitHub OAuth 要求重新登入。因平台尚未回傳 `api.emorapy.com` 的 exact CNAME／ownership TXT，未在 Namecheap 猜測或新增 backend records。
+6. Resend 帳戶尚未登入；sender domain、SPF／DKIM／DMARC、Railway SMTP secrets 與三層 email canary 均未開始。下一個外部介入點是完成 GitHub／Railway 與 Resend authentication；任何 credentials 不寫入 repo 或 evidence。
+7. PR #12 exact head 已更新為 `0903d4f609c16f27559dd24df47b5c1edb4f90cd`，7 個 CI jobs 全綠；PR 仍為 draft、未合併，Production commit 仍是 `8e93680eb4f32c9b7f088a6518346e9738b6078a`。
 
 ## 執行前已鎖定決策
 

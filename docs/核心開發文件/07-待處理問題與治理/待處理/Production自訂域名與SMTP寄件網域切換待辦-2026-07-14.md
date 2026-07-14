@@ -8,7 +8,7 @@
 **最後核驗日期**：`2026-07-14`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**狀態**：處理中（Web 與 Railway custom domains 已 live；SMTP、跨層 URL contract 與正式發布尚未完成）
+**狀態**：處理中（Web 與 Railway custom domains、SMTP provider canary 已完成；deployed runtime canary、跨層 URL contract 與正式發布尚未完成）
 **Owner**：Platform / Ops
 **優先級**：P0 Production release blocker
 **母任務**：[Emorapy命名收斂與外部識別符遷移待辦-2026-06-20.md](./Emorapy命名收斂與外部識別符遷移待辦-2026-06-20.md)
@@ -47,7 +47,7 @@
 4. Railway project 已由隨機名 `ingenious-commitment` 原地 rename 為 `Emorapy`，Production service 已由 legacy `mother-bear-court` 原地 rename 為 `emorapy-api`；project/service IDs、active deployment、variables、deployment history、legacy public domain 與 rollback path 均保留，未刪除或重建資源。GitHub repo variable 已新增 `EMORAPY_RAILWAY_SERVICE_NAME=emorapy-api`，舊 `PRODUCTION_RAILWAY_SERVICE` 暫留 fallback。
 5. Railway 已為同一 Production service 加入 `api.emorapy.com:8080`；Namecheap 已按 dashboard 當次輸出加入 `api` CNAME 與 `_railway-verify.api` TXT，兩條記錄均已在 Namecheap 權威 DNS 可查。後續以 Railway CLI `5.26.1` 查得 custom domain `syncStatus=ACTIVE`，`https://api.emorapy.com/version` 回報 Production deployment `a6fad093-ff9b-45c5-b3c0-307c328fd92a` / commit `8e93680eb4f32c9b7f088a6518346e9738b6078a`，`/health/ready` 回 200。Domain/TLS/runtime 已可用，但跨層 Production URL variables 與正式發布仍未切換。
 6. Service private DNS 仍為 legacy `mother-bear-court.railway.internal`：Railway UI 兩次接受新值但刷新後回復。已核對 project shared variables 與 service variables 沒有該 literal 引用；此 internal-only compatibility alias 不阻擋 public cutover，也不以刪除重建解決。
-7. Resend 已以正確 Chrome profile 登入，`emorapy.com`（Ireland `eu-west-1`）已完成 SPF、DKIM 與 domain verification；Namecheap 公開 DNS 可查 `send` MX／SPF、DKIM 與 `_dmarc` `p=none`。Railway Production 已以 `--skip-deploys` 寫入 email／SMTP key inventory，secrets 為 sealed write-only 且未輸出或寫入 repo。Provider canary 尚未通過：兩把新建且 dashboard 可見的 `Sending access` API key（分別限制 `emorapy.com` 與 All domains）都被 Resend send API 回覆 `validation_error: API key is invalid`，SMTP 同樣回 `EAUTH`；已排除 DNS、domain verification、SMTP host/port/user、Nodemailer 與 Railway sealed mask，下一步需由 Resend 帳戶／key issuance 層處理，未解決前不得進入正式發布。
+7. Resend 已以正確 Chrome profile 登入，`emorapy.com`（Ireland `eu-west-1`）已完成 SPF、DKIM 與 domain verification；Namecheap 公開 DNS 可查 `send` MX／SPF、DKIM 與 `_dmarc` `p=none`。Railway Production 已以 `--skip-deploys` 寫入 email／SMTP key inventory，secrets 為 sealed write-only 且未輸出或寫入 repo。兩把新建且 dashboard 可見的 `Sending access` API key 曾在建立後最初約 25–35 分鐘被 Resend send API 回覆 `validation_error: API key is invalid`、SMTP 回 `EAUTH`，但 dashboard 沒有 pending 狀態；等待後重試，兩把 key 的 send API 均回 200，Railway 已存的第一把 key 亦通過 SMTP authentication 與 provider canary（1 accepted、0 rejected）。操作上把此視為 provider key activation delay：新 key 建立後先等待至少 30 分鐘再判定失效；目前毋須聯絡支援或輪替 Railway secret，下一個 gate 是包含 intended SHA 的 deployed runtime canary。
 8. PR #12 exact head `921450311f2bf4f1c6432b0e36017af1d8abd8be` 的 7 個 CI jobs 全綠；PR 仍為 draft、未合併，Production commit 仍是 `8e93680eb4f32c9b7f088a6518346e9738b6078a`。
 
 ## 執行前已鎖定決策

@@ -8,7 +8,7 @@
 **最後核驗日期**：`2026-07-14`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**狀態**：處理中（Web custom domains 已 live；Railway custom domain 正在 TLS 驗證，SMTP、跨層 URL contract 與正式發布尚未完成）
+**狀態**：處理中（Web 與 Railway custom domains 已 live；SMTP、跨層 URL contract 與正式發布尚未完成）
 **Owner**：Platform / Ops
 **優先級**：P0 Production release blocker
 **母任務**：[Emorapy命名收斂與外部識別符遷移待辦-2026-06-20.md](./Emorapy命名收斂與外部識別符遷移待辦-2026-06-20.md)
@@ -45,7 +45,7 @@
 2. Namecheap BasicDNS 已把以下五條與 parking 衝突的 Web records 精準改為 Vercel 當次要求的 `A 76.76.21.21`：`.com` 的 `@`、`www`、`admin`，以及 `.co.uk` 的 `@`、`www`。未切 nameserver，未修改 DNSSEC、Mail Settings、既有 root MX 或 email-forwarding SPF。
 3. 公開解析後續已確認五個 Web hosts 全部生效；HTTPS smoke 為 `emorapy.com=200`、`admin.emorapy.com=200`，`www.emorapy.com`、`emorapy.co.uk`、`www.emorapy.co.uk` 均回 `308` 到 `https://emorapy.com/`。
 4. Railway project 已由隨機名 `ingenious-commitment` 原地 rename 為 `Emorapy`，Production service 已由 legacy `mother-bear-court` 原地 rename 為 `emorapy-api`；project/service IDs、active deployment、variables、deployment history、legacy public domain 與 rollback path 均保留，未刪除或重建資源。GitHub repo variable 已新增 `EMORAPY_RAILWAY_SERVICE_NAME=emorapy-api`，舊 `PRODUCTION_RAILWAY_SERVICE` 暫留 fallback。
-5. Railway 已為同一 Production service 加入 `api.emorapy.com:8080`；Namecheap 已按 dashboard 當次輸出加入 `api` CNAME 與 `_railway-verify.api` TXT，兩條記錄均已在 Namecheap 權威 DNS 可查。首次 HTTPS smoke 因 Railway certificate 尚未包含 `api.emorapy.com` 而失敗，故 backend custom domain 仍是 TLS verification pending，不切 Production URL variables。
+5. Railway 已為同一 Production service 加入 `api.emorapy.com:8080`；Namecheap 已按 dashboard 當次輸出加入 `api` CNAME 與 `_railway-verify.api` TXT，兩條記錄均已在 Namecheap 權威 DNS 可查。後續以 Railway CLI `5.26.1` 查得 custom domain `syncStatus=ACTIVE`，`https://api.emorapy.com/version` 回報 Production deployment `a6fad093-ff9b-45c5-b3c0-307c328fd92a` / commit `8e93680eb4f32c9b7f088a6518346e9738b6078a`，`/health/ready` 回 200。Domain/TLS/runtime 已可用，但跨層 Production URL variables 與正式發布仍未切換。
 6. Service private DNS 仍為 legacy `mother-bear-court.railway.internal`：Railway UI 兩次接受新值但刷新後回復。已核對 project shared variables 與 service variables 沒有該 literal 引用；此 internal-only compatibility alias 不阻擋 public cutover，也不以刪除重建解決。
 7. Resend 帳戶尚未登入；sender domain、SPF／DKIM／DMARC、Railway SMTP secrets 與三層 email canary 均未開始。下一個外部介入點是完成 Resend authentication；任何 credentials 不寫入 repo 或 evidence。
 8. PR #12 exact head `921450311f2bf4f1c6432b0e36017af1d8abd8be` 的 7 個 CI jobs 全綠；PR 仍為 draft、未合併，Production commit 仍是 `8e93680eb4f32c9b7f088a6518346e9738b6078a`。

@@ -29,7 +29,7 @@
 ## 2026-07-14 已核驗現況
 
 1. `emorapy.com` 與 `emorapy.co.uk` 已在 Namecheap 完成購買，各 2 年；購買／付款細節不寫入 repo。
-2. 兩個 apex domain 仍解析到 Namecheap parking，`www` 仍指向 `parkingpage.namecheap.com`；尚未承接正式流量。兩個 root 同時存在 Namecheap email forwarding MX 與 `v=spf1 include:spf.efwd.registrar-servers.com ~all` TXT，不得在網頁 DNS 切換時誤刪。
+2. Web DNS 已完成切換；`emorapy.com` 的 Namecheap Email Forwarding 原本沒有任何 Email Redirect／Catch-All，既有 forwarding MX／SPF 只是未使用的預設值。SMTP 設定時已改為 Custom MX，移除未承接收件的 root forwarding records，改用 Resend 指定的 `send.emorapy.com` return-path MX／SPF；本輪不建立收件 mailbox，日後若需客服收件應另作 mailbox 治理。
 3. 當次 Vercel CLI account domain inventory 為 `0 Domains`；main/Admin 仍由 `https://emorapy.vercel.app` 與 `https://emorapy-admin.vercel.app` 提供服務。
 4. Railway Production backend custom domains 為空，正式流量仍由 `https://mother-bear-court-production.up.railway.app` 承接。
 5. 三個 live version endpoint 均回報 Production commit `8e93680eb4f32c9b7f088a6518346e9738b6078a`；PR #12 核驗基準為 `2825e54`，不得把 candidate 誤寫成 Production。
@@ -47,7 +47,7 @@
 4. Railway project 已由隨機名 `ingenious-commitment` 原地 rename 為 `Emorapy`，Production service 已由 legacy `mother-bear-court` 原地 rename 為 `emorapy-api`；project/service IDs、active deployment、variables、deployment history、legacy public domain 與 rollback path 均保留，未刪除或重建資源。GitHub repo variable 已新增 `EMORAPY_RAILWAY_SERVICE_NAME=emorapy-api`，舊 `PRODUCTION_RAILWAY_SERVICE` 暫留 fallback。
 5. Railway 已為同一 Production service 加入 `api.emorapy.com:8080`；Namecheap 已按 dashboard 當次輸出加入 `api` CNAME 與 `_railway-verify.api` TXT，兩條記錄均已在 Namecheap 權威 DNS 可查。後續以 Railway CLI `5.26.1` 查得 custom domain `syncStatus=ACTIVE`，`https://api.emorapy.com/version` 回報 Production deployment `a6fad093-ff9b-45c5-b3c0-307c328fd92a` / commit `8e93680eb4f32c9b7f088a6518346e9738b6078a`，`/health/ready` 回 200。Domain/TLS/runtime 已可用，但跨層 Production URL variables 與正式發布仍未切換。
 6. Service private DNS 仍為 legacy `mother-bear-court.railway.internal`：Railway UI 兩次接受新值但刷新後回復。已核對 project shared variables 與 service variables 沒有該 literal 引用；此 internal-only compatibility alias 不阻擋 public cutover，也不以刪除重建解決。
-7. Resend 帳戶尚未登入；sender domain、SPF／DKIM／DMARC、Railway SMTP secrets 與三層 email canary 均未開始。下一個外部介入點是完成 Resend authentication；任何 credentials 不寫入 repo 或 evidence。
+7. Resend 已以正確 Chrome profile 登入，`emorapy.com`（Ireland `eu-west-1`）已完成 SPF、DKIM 與 domain verification；Namecheap 公開 DNS 可查 `send` MX／SPF、DKIM 與 `_dmarc` `p=none`。Railway Production 已以 `--skip-deploys` 寫入 email／SMTP key inventory，secrets 為 sealed write-only 且未輸出或寫入 repo。Provider canary 尚未通過：兩把新建且 dashboard 可見的 `Sending access` API key（分別限制 `emorapy.com` 與 All domains）都被 Resend send API 回覆 `validation_error: API key is invalid`，SMTP 同樣回 `EAUTH`；已排除 DNS、domain verification、SMTP host/port/user、Nodemailer 與 Railway sealed mask，下一步需由 Resend 帳戶／key issuance 層處理，未解決前不得進入正式發布。
 8. PR #12 exact head `921450311f2bf4f1c6432b0e36017af1d8abd8be` 的 7 個 CI jobs 全綠；PR 仍為 draft、未合併，Production commit 仍是 `8e93680eb4f32c9b7f088a6518346e9738b6078a`。
 
 ## 執行前已鎖定決策

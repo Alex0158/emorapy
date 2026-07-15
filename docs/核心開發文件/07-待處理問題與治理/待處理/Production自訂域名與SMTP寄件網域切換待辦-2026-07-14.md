@@ -4,11 +4,11 @@
 **文檔類型**：問題治理
 **覆蓋範圍**：Namecheap DNS、Vercel main/Admin custom domain、Railway backend custom domain、Web/Admin/Mobile Production URL／origin contract、SMTP sender-domain 與 release evidence
 **取證代碼入口**：`.github/workflows/production-deploy-and-verify.yml`、`scripts/ops-release-status.sh`、`scripts/ops-release-gate.sh`、`frontend/vercel.json`、`frontend-admin/vercel.json`、`frontend/src/config/env.ts`、`frontend-admin/src/config/env.ts`、`mobile/src/config/runtime.ts`、`mobile/eas.json`、`backend/src/config`、`backend/src/app.ts`、`backend/src/services/file.service.ts`
-**最後核驗 Commit**：`f87aa9c`
-**最後核驗日期**：`2026-07-14`
+**最後核驗 Commit**：`f3bcabe`
+**最後核驗日期**：`2026-07-15`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**狀態**：處理中（Web 與 Railway custom domains、Resend provider canary 已完成；2026-07-14 首次正式發布因 Railway 阻擋 outbound SMTP 而安全回滾，正切換 Resend HTTPS API）
+**狀態**：處理中（custom domains、Resend HTTPS API 與 exact-main Production release 已完成；canonical URL／CORS／bundle 配置仍待本次正式 workflow 閉環，inbox header evidence 另待收件核驗）
 **Owner**：Platform / Ops
 **優先級**：P0 Production release blocker
 **母任務**：[Emorapy命名收斂與外部識別符遷移待辦-2026-06-20.md](./Emorapy命名收斂與外部識別符遷移待辦-2026-06-20.md)
@@ -32,17 +32,18 @@
 2. Workflow 已成功 rollback，Vercel deploy 被跳過；active backend 仍是 deployment `a6fad093-ff9b-45c5-b3c0-307c328fd92a` / commit `8e93680eb4f32c9b7f088a6518346e9738b6078a`，live／ready／health／version 均回 200，沒有前後端版本分裂。
 3. Railway 官方 contract 是 Free／Trial／Hobby 禁用 outbound SMTP，且即使 Pro 可用 SMTP，仍建議 transactional email 使用 HTTPS API。因此不以升級方案或放寬 readiness 繞過，改為明確的 `EMAIL_DELIVERY_MODE=resend_api` 與 `RESEND_API_KEY` contract；SMTP adapter 保留供支援 SMTP 的環境使用。
 
-## 2026-07-14 已核驗現況
+## 2026-07-15 已核驗現況
 
 1. `emorapy.com` 與 `emorapy.co.uk` 已在 Namecheap 完成購買，各 2 年；購買／付款細節不寫入 repo。
 2. Web DNS 已完成切換；`emorapy.com` 的 Namecheap Email Forwarding 原本沒有任何 Email Redirect／Catch-All，既有 forwarding MX／SPF 只是未使用的預設值。SMTP 設定時已改為 Custom MX，移除未承接收件的 root forwarding records，改用 Resend 指定的 `send.emorapy.com` return-path MX／SPF；本輪不建立收件 mailbox，日後若需客服收件應另作 mailbox 治理。
-3. 當次 Vercel CLI account domain inventory 為 `0 Domains`；main/Admin 仍由 `https://emorapy.vercel.app` 與 `https://emorapy-admin.vercel.app` 提供服務。
-4. Railway Production backend custom domains 為空，正式流量仍由 `https://mother-bear-court-production.up.railway.app` 承接。
-5. 三個 live version endpoint 均回報 Production commit `8e93680eb4f32c9b7f088a6518346e9738b6078a`；PR #12 核驗基準為 `2825e54`，不得把 candidate 誤寫成 Production。
-6. GitHub repo variables 已有 `EMORAPY_MAIN_WEB_URL=https://emorapy.vercel.app`、`EMORAPY_ADMIN_WEB_URL=https://emorapy-admin.vercel.app`；`PRODUCTION_BACKEND_BASE_URL` 仍是 legacy Railway hostname。
-7. Railway Production 當次 key inventory 未發現 `EMAIL_*` 或 `SMTP_*` variables；SMTP release gate 仍未滿足。
-8. Draft PR [#12](https://github.com/Alex0158/emorapy/pull/12) 以 `origin/main=8e93680` 為 base，exact head `2825e54ce533d65cff6637a0711b3573c68c368f` 的 7 個 CI jobs 已通過；但尚未合併，因此其 SMTP fail-closed contract 不是當前 Production 行為。
-9. 本文原始工作分支 `codex/v1-5-release-backfill-hotfix` 與 `origin/main` 已分叉；治理變更已改為移植到以 `origin/main=8e93680` 為 base 的 PR #12，原始分支不作 release source。
+3. `emorapy.com`、`www.emorapy.com`、`admin.emorapy.com`、`emorapy.co.uk` 與 `www.emorapy.co.uk` 已在 Vercel 生效；canonical／redirect HTTPS 行為可用，`.co.uk` redirect 以 308 保留 path/query。
+4. Railway Production backend custom domain `https://api.emorapy.com` 已 ACTIVE；Railway legacy hostname繼續作 compatibility／rollback。
+5. main/Admin/backend live version endpoint 均回報 Production commit `f3bcabe09b645e64fedc1d3570c721ee7d8bf6ee`；formal workflow run `29377070275` 成功，Railway active deployment `aea19595-2630-4b50-be91-b2496db96a4e` 為 SUCCESS。
+6. Production DB 為 32 個 Prisma migrations全數 up to date；release-blocking catalog 21/21 完成，product-state audit finding 0，active smoke accounts 0。
+7. Resend HTTPS API runtime readiness 與 provider canary 已通過；舊 API key 已撤銷，SPF／DKIM／DMARC 公開 DNS 可解析。受控 mailbox 的實際收件與 headers 仍需獨立 evidence，不以 provider acceptance 替代。
+8. 發現正式配置仍有 drift：GitHub release variables、Vercel production `VITE_API_BASE_URL`、Railway `FRONTEND_URL`／`ALLOWED_ORIGINS` 仍保留 legacy targets；因此 canonical main/Admin auth CORS preflight 為 403，live bundles 亦仍指向 Railway legacy hostname。formal workflow run 雖成功，但使用了舊 variables，屬 release gate blind spot；本次變更新增 exact target preflight、canonical CORS gate與 focused tests後才切配置並重發。
+9. 2026-07-15 已把 GitHub、Vercel 與 Railway URL/origin variables 寫入 canonical values並逐項 readback；Railway 使用 `--skip-deploys`，Vercel env 更新亦不自行部署，因此 live 仍保持 `f3bcabe` baseline、canonical CORS 仍為 403。只有本次 PR 合併並由 formal workflow 同時重發 Web/backend後才判定 cutover 生效。
+9. 本文原始工作分支 `codex/v1-5-release-backfill-hotfix` 與當時 `origin/main` 已分叉；治理變更其後經 PR #12 移植、合併並由 formal workflow 發布，原始分支不作 release source。
 10. Mobile runtime 會從 `EXPO_PUBLIC_API_BASE_URL` 或 Expo extra 讀取 API base，但 `mobile/eas.json` Production profile 尚未宣告該值；新 API domain 不能只切 Web/Admin。
 
 ## 2026-07-14 平台預配置執行證據
@@ -54,11 +55,11 @@
 5. Railway 已為同一 Production service 加入 `api.emorapy.com:8080`；Namecheap 已按 dashboard 當次輸出加入 `api` CNAME 與 `_railway-verify.api` TXT，兩條記錄均已在 Namecheap 權威 DNS 可查。後續以 Railway CLI `5.26.1` 查得 custom domain `syncStatus=ACTIVE`，`https://api.emorapy.com/version` 回報 Production deployment `a6fad093-ff9b-45c5-b3c0-307c328fd92a` / commit `8e93680eb4f32c9b7f088a6518346e9738b6078a`，`/health/ready` 回 200。Domain/TLS/runtime 已可用，但跨層 Production URL variables 與正式發布仍未切換。
 6. Service private DNS 仍為 legacy `mother-bear-court.railway.internal`：Railway UI 兩次接受新值但刷新後回復。已核對 project shared variables 與 service variables 沒有該 literal 引用；此 internal-only compatibility alias 不阻擋 public cutover，也不以刪除重建解決。
 7. Resend 已以正確 Chrome profile 登入，`emorapy.com`（Ireland `eu-west-1`）已完成 SPF、DKIM 與 domain verification；Namecheap 公開 DNS 可查 `send` MX／SPF、DKIM 與 `_dmarc` `p=none`。Railway Production 已以 `--skip-deploys` 寫入 email／SMTP key inventory，secrets 為 sealed write-only 且未輸出或寫入 repo。兩把新建且 dashboard 可見的 `Sending access` API key 曾在建立後最初約 25–35 分鐘被 Resend send API 回覆 `validation_error: API key is invalid`、SMTP 回 `EAUTH`，但 dashboard 沒有 pending 狀態；等待後重試，兩把 key 的 send API 均回 200，Railway 已存的第一把 key 亦通過 SMTP authentication 與 provider canary（1 accepted、0 rejected）。操作上把此視為 provider key activation delay：新 key 建立後先等待至少 30 分鐘再判定失效；目前毋須聯絡支援或輪替 Railway secret，下一個 gate 是包含 intended SHA 的 deployed runtime canary。
-8. PR #12 exact head `921450311f2bf4f1c6432b0e36017af1d8abd8be` 的 7 個 CI jobs 全綠；PR 仍為 draft、未合併，Production commit 仍是 `8e93680eb4f32c9b7f088a6518346e9738b6078a`。
+8. PR #12 的 private-context/safety/email contract 已合併；後續 exact-main Production 已前進至 `f3bcabe09b645e64fedc1d3570c721ee7d8bf6ee`，不再以原 PR head 作 runtime 判斷。
 
 ## 執行前已鎖定決策
 
-1. **Release owner**：只有 `origin/main` 的 intended exact SHA 可進入 Production。本文變更先移植到 latest `origin/main`；PR #12 必須保持單一 consolidated candidate，不再分拆另一個繞過 SMTP gate 的 release path。
+1. **Release owner**：只有 `origin/main` 的 intended exact SHA 可進入 Production；所有後續 canonical URL contract 變更維持單一 consolidated PR 與 formal workflow，不建立繞過 release gate 的第二路徑。
 2. **Redirect owner**：`www.emorapy.com`、`emorapy.co.uk` 與 `www.emorapy.co.uk` 使用 Vercel Domain Redirect，不作 main app serving alias；採 permanent `308` 並保留 path/query。
 3. **Backend compatibility**：Railway legacy hostname 在本任務不移除；只有當 Web、Admin、Mobile 及已發布 App build 全部完成遷移後，才能另開降級任務。
 4. **Email provider transport**：Production 使用 Resend HTTPS API，避免 Railway plan 的 outbound SMTP 限制；Nodemailer/SMTP adapter 只保留作其他環境的可選 transport，不作 Production fallback。
@@ -79,9 +80,9 @@
 
 ### Phase -1：Release source 與依賴收斂
 
-1. **已完成**：本文及相關索引已移植到以 latest `origin/main` 為 base 的 PR #12 worktree，沒有合併原始分叉工作分支的無關 commit。
-2. 以 PR #12 為唯一 private-context/safety/email release candidate，確認其 base 仍是 latest `main`、exact-head CI 全綠，並記錄合併後 intended SHA。
-3. 只有包含 SMTP fail-closed gate 與本任務必要 contract 的 intended SHA 可切正式流量；platform domain 可先預配置，但不得先改 Production URL variables。
+1. **已完成**：private-context/safety/email 變更已經單一 PR 合併並發布，沒有合併原始分叉工作分支的無關 commit。
+2. **本輪要求**：canonical URL／CORS／bundle contract 仍只由 latest `origin/main` 的 exact-head CI 與 formal workflow 發布，並記錄合併後 intended SHA。
+3. 只有同時包含 fail-closed email 與 canonical origin gates 的 intended SHA 可成為正式 release target。
 
 ### Phase 0：Baseline 與平台預配置
 
@@ -175,7 +176,7 @@ npm run docs:check
 只有以下全部成立，才可把本文件移入 `已處理/`：
 
 1. 六個 public hosts 的 DNS、TLS、canonical／redirect 行為符合目標拓撲。
-2. main/Admin/backend custom domains 回報同一個 intended exact-main commit，Railway deployment identity 一致；PR #12 的 SMTP fail-closed contract 已包含在該 SHA。
+2. main/Admin/backend custom domains 回報同一個 intended exact-main commit，Railway deployment identity 一致；email fail-closed 與 canonical origin contracts 均包含在該 SHA。
 3. GitHub/Vercel/Railway/EAS Production variables、Web/Admin/Mobile API base、backend origin/public file URL contract 已切到 custom domains；現有 legacy origins 仍在 compatibility allowlist。
 4. SMTP sender-domain verification、SPF／DKIM／DMARC、Production variables、provider acceptance、deployed runtime readiness 與 inbox delivery 全部通過。
 5. `Production Deploy and Verify`、完整 release gate、docs／naming gates 通過並保存非敏感 evidence。

@@ -753,18 +753,18 @@ function checkLegacyProductionHostnameCompatContract() {
     'scripts/ops-release-gate-evidence.sh',
   ];
   const emorapyDefaultComment =
-    'Emorapy Vercel project-domain defaults; legacy Vercel aliases remain available for compatibility.';
+    'Emorapy canonical production domains; Vercel project domains remain compatibility aliases.';
 
   for (const file of releaseHelperFiles) {
     requireOrderedIncludes(
       file,
       [
         emorapyDefaultComment,
-        'DEFAULT_MAIN_WEB_URL="https://emorapy.vercel.app"',
-        'DEFAULT_ADMIN_WEB_URL="https://emorapy-admin.vercel.app"',
+        'DEFAULT_MAIN_WEB_URL="https://emorapy.com"',
+        'DEFAULT_ADMIN_WEB_URL="https://admin.emorapy.com"',
         'EMORAPY_MAIN_WEB_URL',
       ],
-      `${file} must use Emorapy Vercel project-domain defaults with Emorapy override support`
+      `${file} must use Emorapy canonical production defaults with Emorapy override support`
     );
   }
 
@@ -773,14 +773,19 @@ function checkLegacyProductionHostnameCompatContract() {
     [
       'vars.EMORAPY_MAIN_WEB_URL',
       'vars.PRODUCTION_MAIN_WEB_URL',
-      "'https://emorapy.vercel.app'",
+      "'https://emorapy.com'",
     ],
-    'production workflow release gate main URL must prefer Emorapy variable before Emorapy Vercel project-domain default'
+    'production workflow release gate main URL must prefer Emorapy variable before the canonical domain default'
   );
   requireIncludes(
     readText('docs/核心開發文件/03-管理端與平台治理/05-運維連接與調用Runbook.md'),
-    '`https://emorapy.vercel.app` 與 `https://emorapy-admin.vercel.app` 是 Vercel production project-domain defaults',
+    '`https://emorapy.com` 與 `https://admin.emorapy.com` 是 canonical Production origins',
     'docs/核心開發文件/03-管理端與平台治理/05-運維連接與調用Runbook.md'
+  );
+  requireIncludes(
+    readText('mobile/eas.json'),
+    '"EXPO_PUBLIC_API_BASE_URL": "https://api.emorapy.com/api/v1"',
+    'mobile/eas.json'
   );
 }
 

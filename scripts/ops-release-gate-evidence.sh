@@ -4,9 +4,9 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-# Emorapy Vercel project-domain defaults; legacy Vercel aliases remain available for compatibility.
-DEFAULT_MAIN_WEB_URL="https://emorapy.vercel.app"
-DEFAULT_ADMIN_WEB_URL="https://emorapy-admin.vercel.app"
+# Emorapy canonical production domains; Vercel project domains remain compatibility aliases.
+DEFAULT_MAIN_WEB_URL="https://emorapy.com"
+DEFAULT_ADMIN_WEB_URL="https://admin.emorapy.com"
 EVIDENCE_ROOT="${RELEASE_GATE_EVIDENCE_DIR:-temp/release-gate-evidence}"
 RUN_ID="${RELEASE_GATE_EVIDENCE_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
 RUN_DIR="${EVIDENCE_ROOT%/}/${RUN_ID}"

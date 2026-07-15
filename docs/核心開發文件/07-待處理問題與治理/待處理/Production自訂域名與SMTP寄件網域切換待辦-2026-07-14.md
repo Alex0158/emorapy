@@ -4,13 +4,13 @@
 **文檔類型**：問題治理
 **覆蓋範圍**：Namecheap DNS、Vercel main/Admin custom domain、Railway backend custom domain、Web/Admin/Mobile Production URL／origin contract、SMTP sender-domain 與 release evidence
 **取證代碼入口**：`.github/workflows/production-deploy-and-verify.yml`、`scripts/ops-release-status.sh`、`scripts/ops-release-gate.sh`、`frontend/vercel.json`、`frontend-admin/vercel.json`、`frontend/src/config/env.ts`、`frontend-admin/src/config/env.ts`、`mobile/src/config/runtime.ts`、`mobile/eas.json`、`backend/src/config`、`backend/src/app.ts`、`backend/src/services/file.service.ts`
-**最後核驗 Commit**：`f3bcabe`
+**最後核驗 Commit**：`534217d`
 **最後核驗日期**：`2026-07-15`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**狀態**：處理中（custom domains、Resend HTTPS API 與 exact-main Production release 已完成；canonical URL／CORS／bundle 配置仍待本次正式 workflow 閉環，inbox header evidence 另待收件核驗）
+**狀態**：處理中（custom domains、canonical URL／CORS／bundle、Resend HTTPS API 與 exact-main Production release 已閉環；尚待受控 mailbox header evidence及重新產出的 Mobile Production artifact）
 **Owner**：Platform / Ops
-**優先級**：P0 Production release blocker
+**優先級**：P1 Production evidence closure（不阻擋已發布 Web/Admin/backend）
 **母任務**：[Emorapy命名收斂與外部識別符遷移待辦-2026-06-20.md](./Emorapy命名收斂與外部識別符遷移待辦-2026-06-20.md)
 
 ## 決策與目標拓撲
@@ -38,13 +38,13 @@
 2. Web DNS 已完成切換；`emorapy.com` 的 Namecheap Email Forwarding 原本沒有任何 Email Redirect／Catch-All，既有 forwarding MX／SPF 只是未使用的預設值。SMTP 設定時已改為 Custom MX，移除未承接收件的 root forwarding records，改用 Resend 指定的 `send.emorapy.com` return-path MX／SPF；本輪不建立收件 mailbox，日後若需客服收件應另作 mailbox 治理。
 3. `emorapy.com`、`www.emorapy.com`、`admin.emorapy.com`、`emorapy.co.uk` 與 `www.emorapy.co.uk` 已在 Vercel 生效；canonical／redirect HTTPS 行為可用，`.co.uk` redirect 以 308 保留 path/query。
 4. Railway Production backend custom domain `https://api.emorapy.com` 已 ACTIVE；Railway legacy hostname繼續作 compatibility／rollback。
-5. main/Admin/backend live version endpoint 均回報 Production commit `f3bcabe09b645e64fedc1d3570c721ee7d8bf6ee`；formal workflow run `29377070275` 成功，Railway active deployment `aea19595-2630-4b50-be91-b2496db96a4e` 為 SUCCESS。
+5. canonical URL contract 經 PR #15 合併；main push CI run `29380276179` 與 formal workflow run `29380381777` 均對 exact-main commit `534217d983a03c8db712515c709601663deef206` 成功。main/Admin/backend live version endpoint均回報該 commit，Railway active deployment `bc4b7d72-d21d-4018-9f43-a548e428ff3e` 為 SUCCESS。release-gate artifact id 為 `8329579427`，digest 為 `5c6d4610e732307bc59cafb7ce0d509052b9c194554dc18d40054887fc64c60d`。
 6. Production DB 為 32 個 Prisma migrations全數 up to date；release-blocking catalog 21/21 完成，product-state audit finding 0，active smoke accounts 0。
-7. Resend HTTPS API runtime readiness 與 provider canary 已通過；舊 API key 已撤銷，SPF／DKIM／DMARC 公開 DNS 可解析。受控 mailbox 的實際收件與 headers 仍需獨立 evidence，不以 provider acceptance 替代。
-8. 發現正式配置仍有 drift：GitHub release variables、Vercel production `VITE_API_BASE_URL`、Railway `FRONTEND_URL`／`ALLOWED_ORIGINS` 仍保留 legacy targets；因此 canonical main/Admin auth CORS preflight 為 403，live bundles 亦仍指向 Railway legacy hostname。formal workflow run 雖成功，但使用了舊 variables，屬 release gate blind spot；本次變更新增 exact target preflight、canonical CORS gate與 focused tests後才切配置並重發。
-9. 2026-07-15 已把 GitHub、Vercel 與 Railway URL/origin variables 寫入 canonical values並逐項 readback；Railway 使用 `--skip-deploys`，Vercel env 更新亦不自行部署，因此 live 仍保持 `f3bcabe` baseline、canonical CORS 仍為 403。只有本次 PR 合併並由 formal workflow 同時重發 Web/backend後才判定 cutover 生效。
-9. 本文原始工作分支 `codex/v1-5-release-backfill-hotfix` 與當時 `origin/main` 已分叉；治理變更其後經 PR #12 移植、合併並由 formal workflow 發布，原始分支不作 release source。
-10. Mobile runtime 會從 `EXPO_PUBLIC_API_BASE_URL` 或 Expo extra 讀取 API base，但 `mobile/eas.json` Production profile 尚未宣告該值；新 API domain 不能只切 Web/Admin。
+7. Resend HTTPS API runtime readiness 與 exact-release provider canary 已通過；舊 API key 已撤銷，SPF／DKIM／DMARC 公開 DNS 可解析。受控 mailbox 的實際收件與 headers 仍需獨立 evidence，不以 provider acceptance 替代。
+8. GitHub release variables、Vercel Production public env 與 Railway Production URL/origin variables 已切到 canonical values並逐項 readback；legacy Vercel/Railway origins 只保留作 compatibility／rollback，不再是正式 release default。
+9. canonical main/Admin auth CORS preflight 與兩個 legacy compatibility origins 均通過；main/Admin live bundle 均包含 `https://api.emorapy.com/api/v1`，且不含 legacy Railway hostname。workflow exact-target preflight、static bundle check 與 canonical origin gate 已把原先 blind spot 轉為 fail-closed contract。
+10. 本文原始工作分支 `codex/v1-5-release-backfill-hotfix` 與當時 `origin/main` 已分叉；治理變更其後經 PR #12 及 PR #15 移植、合併並由 formal workflow 發布，原始分支不作 release source。
+11. `mobile/eas.json` Production profile 已宣告 `EXPO_PUBLIC_API_BASE_URL=https://api.emorapy.com/api/v1`；但尚未重新產出並驗證 EAS Production artifact，也未取得新 artifact 的登入、upload、chat/SSE、telemetry、AppState reconnect 與真機 evidence，因此 Mobile 不得宣稱完成 cutover。
 
 ## 2026-07-14 平台預配置執行證據
 

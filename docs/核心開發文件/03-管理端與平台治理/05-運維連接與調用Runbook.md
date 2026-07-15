@@ -4,8 +4,8 @@
 **文檔類型**：正式規格
 **覆蓋範圍**：Vercel、Railway、Supabase/Postgres、Git/GitHub 與本機 `.env` 的固定連接、查詢與發布操作口徑
 **取證代碼入口**：`package.json`、`.github/workflows/production-deploy-and-verify.yml`、`scripts/rollback-production-release.mjs`、`scripts/lib/production-release-state.mjs`、`scripts/lib/production-release-state.test.mjs`、`scripts/ops-release-status.sh`、`scripts/ops-release-gate.sh`、`scripts/ops-release-gate-evidence.sh`、`scripts/ops-release-smoke.sh`、`scripts/smoke-production-like.sh`、`scripts/smoke-claim-session-production-like.sh`、`scripts/ops-db-status.sh`、`backend/package.json`、`backend/scripts/check-release-db-parity.ts`、`backend/scripts/check-ai-pricing-catalog.ts`、`backend/scripts/verify-ai-request-ledger-runtime.ts`、`backend/scripts/audit-product-state-consistency.ts`、`backend/scripts/check-smoke-account-hygiene.ts`、`backend/scripts/precheck-pairing-normal-uniqueness.ts`、`backend/.env.example`、`frontend/.env.example`、`frontend-admin/.env.example`、`backend/railway.toml`、`backend/prisma/schema.prisma`、`backend/prisma/migrations`、`backend/src/config/database.ts`、`backend/src/config/env.ts`、`backend/src/routes/health.routes.ts`、`backend/src/routes/admin.routes.ts`、`backend/src/controllers/admin.controller.ts`、`backend/src/services/ai-cost-pricing.service.ts`、`backend/src/services/ai-request-ledger.service.ts`、`backend/src/services/cost-monitoring.service.ts`、`backend/src/services/notification.service.ts`、`backend/src/services/product-state-recovery-task.service.ts`、`backend/src/utils/case-classifier.ts`、`backend/src/utils/pairing-invariant.ts`、`backend/src/utils/validation.ts`
-**最後核驗 Commit**：`b3f3716`
-**最後核驗日期**：`2026-07-14`
+**最後核驗 Commit**：`534217d`
+**最後核驗日期**：`2026-07-15`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
 本文件固定 agent 與開發者連接平台、查版本、查資料庫、部署 production 與判定發布狀態的方法。目標是讓日常運維不依賴臨場記憶，也不靠重複試錯。
@@ -304,7 +304,7 @@ Railway production 後端是否最新，必須以 deployment 狀態或後端 ver
 
 判斷目前承接流量的 Railway runtime 時，以精確 environment/service 下唯一 `activeDeployments` `SUCCESS` 為準，並與 backend `/version.deploymentId`（新版 runtime）交叉核對；`latestDeployment` 可能只是 failed 或尚未切流的部署嘗試，不能單獨當成 current。正式 workflow 另要求 GitHub Autodeploy disabled；若平台被重新開啟，先停止發布並恢復單一 deployment owner，不得讓 main push 與 workflow `railway up` 競態執行。
 
-`https://api.emorapy.com` 已於 2026-07-14 由 `railway domain list --service emorapy-api --environment production --json` 確認 `syncStatus=ACTIVE`，且 HTTPS `/version` 可讀、`/health/ready` 回 200。這只證明 domain/TLS/runtime 可用，不等於跨層 URL variables 與正式發布已切換。live backend URL 應由 production URL contract 或當次 release status 取得；以下 legacy Railway domain 只作 compatibility/rollback 候選入口：
+`https://api.emorapy.com` 已由 `railway domain list --service emorapy-api --environment production --json` 確認 `syncStatus=ACTIVE`；2026-07-15 formal workflow run `29380381777` 再以 exact-main `534217d983a03c8db712515c709601663deef206` 完成 canonical GitHub/Vercel/Railway variables、HTTPS version/health/readiness、Web/Admin static bundles、main/Admin CORS、DB parity與 release gate 閉環。live backend URL 應由 production URL contract 或當次 release status 取得；以下 legacy Railway domain 只作 compatibility/rollback 候選入口：
 
 ```text
 https://mother-bear-court-production.up.railway.app

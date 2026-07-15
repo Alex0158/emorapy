@@ -85,13 +85,13 @@ railway status --json
 
 Do not leave a browserless login process running indefinitely. If activation is not completed, stop it and report that Railway CLI remains unauthenticated.
 
-Current Railway production state, last verified 2026-07-14:
+Current Railway production state, last verified 2026-07-15:
 
 1. Project: `Emorapy`; Production service: `emorapy-api` (same existing project/service IDs, renamed in place; no resource recreation).
-2. Custom backend domain `https://api.emorapy.com` is `ACTIVE`; HTTPS `/version` works and `/health/ready` returns 200. `https://mother-bear-court-production.up.railway.app` remains the legacy compatibility/rollback hostname until the full URL-contract cutover and release gate pass.
+2. Custom backend domain `https://api.emorapy.com` is `ACTIVE`; the canonical URL/CORS/static-bundle contract and full release gate passed at exact-main `534217d983a03c8db712515c709601663deef206`. `https://mother-bear-court-production.up.railway.app` remains only as a Mobile/installed-build compatibility and rollback hostname until a separately evidenced sunset.
 3. Formal production deploy entrypoint is GitHub Actions `Production Deploy and Verify`; local Vercel/Railway CLI is for status/debug/emergency use, not the routine release path.
 4. Railway CLI auth was restored on 2026-07-14. The official Railway Local MCP and `use-railway` skill are installed for Codex; prefer MCP for bounded platform reads and CLI for exact local-context output. Resolve project/environment/service before any mutation, and do not use either surface to bypass the production workflow.
-5. Use `npm run ops:release:gate` or the production workflow release-gate step for full release closure. The backend version endpoint exposes `commitSha`; if it is missing, `unknown`, or not aligned with local `HEAD`, treat the backend as not fully verified. `railway status --json` remains the source for Railway deployment/log state when CLI auth is available.
+5. The last behavior-changing canonical cutover was verified by Production workflow run `29380381777`, Railway deployment `bc4b7d72-d21d-4018-9f43-a548e428ff3e`, and release-gate artifact `8329579427`. Continue to use `npm run ops:release:gate` or the production workflow release-gate step for every later release; if backend `commitSha` is missing, `unknown`, or not aligned with intended exact-main, treat the backend as not fully verified. `railway status --json` remains the source for Railway deployment/log state when CLI auth is available.
 
 ## Frontend Tech Stack (Migration Complete ✅ 2026-05-05)
 

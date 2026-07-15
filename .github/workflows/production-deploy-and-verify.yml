@@ -44,6 +44,11 @@ jobs:
     name: Release Preflight
     runs-on: ubuntu-latest
     environment: Production
+    env:
+      MAIN_WEB_URL: ${{ vars.EMORAPY_MAIN_WEB_URL || vars.PRODUCTION_MAIN_WEB_URL || 'https://emorapy.com' }}
+      ADMIN_WEB_URL: ${{ vars.EMORAPY_ADMIN_WEB_URL || vars.PRODUCTION_ADMIN_WEB_URL || 'https://admin.emorapy.com' }}
+      BACKEND_BASE_URL: ${{ vars.EMORAPY_BACKEND_BASE_URL || secrets.EMORAPY_BACKEND_BASE_URL || vars.PRODUCTION_BACKEND_BASE_URL || secrets.PRODUCTION_BACKEND_BASE_URL || 'https://api.emorapy.com' }}
+      PRODUCTION_RAILWAY_SERVICE: ${{ vars.EMORAPY_RAILWAY_SERVICE_NAME || vars.PRODUCTION_RAILWAY_SERVICE || vars.RAILWAY_SERVICE_NAME || 'emorapy-api' }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -68,6 +73,14 @@ jobs:
             echo "Production Deploy and Verify requires both web and backend targets; use a documented emergency procedure for partial operations." >&2
             exit 1
           fi
+
+      - name: Require canonical Production targets
+        run: |
+          set -euo pipefail
+          test "${MAIN_WEB_URL%/}" = "https://emorapy.com"
+          test "${ADMIN_WEB_URL%/}" = "https://admin.emorapy.com"
+          test "${BACKEND_BASE_URL%/}" = "https://api.emorapy.com"
+          test "${PRODUCTION_RAILWAY_SERVICE}" = "emorapy-api"
 
       - name: Require successful CI for exact production SHA
         env:
@@ -138,14 +151,14 @@ jobs:
       VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
       VERCEL_MAIN_PROJECT_ID: ${{ vars.VERCEL_MAIN_PROJECT_ID }}
       VERCEL_ADMIN_PROJECT_ID: ${{ vars.VERCEL_ADMIN_PROJECT_ID }}
-      MAIN_WEB_URL: ${{ vars.EMORAPY_MAIN_WEB_URL || vars.PRODUCTION_MAIN_WEB_URL || 'https://emorapy.vercel.app' }}
-      ADMIN_WEB_URL: ${{ vars.EMORAPY_ADMIN_WEB_URL || vars.PRODUCTION_ADMIN_WEB_URL || 'https://emorapy-admin.vercel.app' }}
+      MAIN_WEB_URL: ${{ vars.EMORAPY_MAIN_WEB_URL || vars.PRODUCTION_MAIN_WEB_URL || 'https://emorapy.com' }}
+      ADMIN_WEB_URL: ${{ vars.EMORAPY_ADMIN_WEB_URL || vars.PRODUCTION_ADMIN_WEB_URL || 'https://admin.emorapy.com' }}
       RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
       LEGACY_RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
       RAILWAY_PROJECT_ID: ${{ vars.PRODUCTION_RAILWAY_PROJECT_ID || secrets.PRODUCTION_RAILWAY_PROJECT_ID }}
       PRODUCTION_RAILWAY_ENVIRONMENT: production
-      PRODUCTION_RAILWAY_SERVICE: ${{ vars.EMORAPY_RAILWAY_SERVICE_NAME || vars.PRODUCTION_RAILWAY_SERVICE || vars.RAILWAY_SERVICE_NAME || 'mother-bear-court' }}
-      BACKEND_BASE_URL: ${{ vars.EMORAPY_BACKEND_BASE_URL || secrets.EMORAPY_BACKEND_BASE_URL || vars.PRODUCTION_BACKEND_BASE_URL || secrets.PRODUCTION_BACKEND_BASE_URL }}
+      PRODUCTION_RAILWAY_SERVICE: ${{ vars.EMORAPY_RAILWAY_SERVICE_NAME || vars.PRODUCTION_RAILWAY_SERVICE || vars.RAILWAY_SERVICE_NAME || 'emorapy-api' }}
+      BACKEND_BASE_URL: ${{ vars.EMORAPY_BACKEND_BASE_URL || secrets.EMORAPY_BACKEND_BASE_URL || vars.PRODUCTION_BACKEND_BASE_URL || secrets.PRODUCTION_BACKEND_BASE_URL || 'https://api.emorapy.com' }}
     steps:
       - uses: actions/checkout@v5
 
@@ -236,8 +249,8 @@ jobs:
       VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
       VERCEL_MAIN_PROJECT_ID: ${{ vars.VERCEL_MAIN_PROJECT_ID }}
       VERCEL_ADMIN_PROJECT_ID: ${{ vars.VERCEL_ADMIN_PROJECT_ID }}
-      MAIN_WEB_URL: ${{ vars.EMORAPY_MAIN_WEB_URL || vars.PRODUCTION_MAIN_WEB_URL || 'https://emorapy.vercel.app' }}
-      ADMIN_WEB_URL: ${{ vars.EMORAPY_ADMIN_WEB_URL || vars.PRODUCTION_ADMIN_WEB_URL || 'https://emorapy-admin.vercel.app' }}
+      MAIN_WEB_URL: ${{ vars.EMORAPY_MAIN_WEB_URL || vars.PRODUCTION_MAIN_WEB_URL || 'https://emorapy.com' }}
+      ADMIN_WEB_URL: ${{ vars.EMORAPY_ADMIN_WEB_URL || vars.PRODUCTION_ADMIN_WEB_URL || 'https://admin.emorapy.com' }}
     steps:
       - uses: actions/checkout@v5
 
@@ -348,9 +361,9 @@ jobs:
       LEGACY_RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
       RAILWAY_PROJECT_ID: ${{ vars.PRODUCTION_RAILWAY_PROJECT_ID || secrets.PRODUCTION_RAILWAY_PROJECT_ID }}
       PRODUCTION_RAILWAY_ENVIRONMENT: production
-      PRODUCTION_RAILWAY_SERVICE: ${{ vars.EMORAPY_RAILWAY_SERVICE_NAME || vars.PRODUCTION_RAILWAY_SERVICE || vars.RAILWAY_SERVICE_NAME || 'mother-bear-court' }}
+      PRODUCTION_RAILWAY_SERVICE: ${{ vars.EMORAPY_RAILWAY_SERVICE_NAME || vars.PRODUCTION_RAILWAY_SERVICE || vars.RAILWAY_SERVICE_NAME || 'emorapy-api' }}
       DEPLOY_MESSAGE: ${{ inputs.deploy_message }}
-      BACKEND_BASE_URL: ${{ vars.EMORAPY_BACKEND_BASE_URL || secrets.EMORAPY_BACKEND_BASE_URL || vars.PRODUCTION_BACKEND_BASE_URL || secrets.PRODUCTION_BACKEND_BASE_URL }}
+      BACKEND_BASE_URL: ${{ vars.EMORAPY_BACKEND_BASE_URL || secrets.EMORAPY_BACKEND_BASE_URL || vars.PRODUCTION_BACKEND_BASE_URL || secrets.PRODUCTION_BACKEND_BASE_URL || 'https://api.emorapy.com' }}
     steps:
       - uses: actions/checkout@v5
 
@@ -513,7 +526,7 @@ jobs:
           PREVIOUS_DEPLOYMENT_ID: ${{ needs.capture-release-state.outputs.previous_railway_deployment_id }}
           EXPECTED_DEPLOYMENT_ID: ${{ steps.railway_deploy.outputs.value }}
           RAILWAY_ENVIRONMENT_NAME: production
-          RAILWAY_SERVICE_NAME: ${{ vars.EMORAPY_RAILWAY_SERVICE_NAME || vars.PRODUCTION_RAILWAY_SERVICE || vars.RAILWAY_SERVICE_NAME || 'mother-bear-court' }}
+          RAILWAY_SERVICE_NAME: ${{ vars.EMORAPY_RAILWAY_SERVICE_NAME || vars.PRODUCTION_RAILWAY_SERVICE || vars.RAILWAY_SERVICE_NAME || 'emorapy-api' }}
           DEPLOY_TIMEOUT_SECONDS: '1200'
         run: bash scripts/wait-railway-deploy.sh
 
@@ -655,9 +668,9 @@ jobs:
     runs-on: ubuntu-latest
     environment: Production
     env:
-      BACKEND_BASE_URL: ${{ vars.EMORAPY_BACKEND_BASE_URL || secrets.EMORAPY_BACKEND_BASE_URL || vars.PRODUCTION_BACKEND_BASE_URL || secrets.PRODUCTION_BACKEND_BASE_URL }}
-      MAIN_WEB_URL: ${{ vars.EMORAPY_MAIN_WEB_URL || vars.PRODUCTION_MAIN_WEB_URL || 'https://emorapy.vercel.app' }}
-      ADMIN_WEB_URL: ${{ vars.EMORAPY_ADMIN_WEB_URL || vars.PRODUCTION_ADMIN_WEB_URL || 'https://emorapy-admin.vercel.app' }}
+      BACKEND_BASE_URL: ${{ vars.EMORAPY_BACKEND_BASE_URL || secrets.EMORAPY_BACKEND_BASE_URL || vars.PRODUCTION_BACKEND_BASE_URL || secrets.PRODUCTION_BACKEND_BASE_URL || 'https://api.emorapy.com' }}
+      MAIN_WEB_URL: ${{ vars.EMORAPY_MAIN_WEB_URL || vars.PRODUCTION_MAIN_WEB_URL || 'https://emorapy.com' }}
+      ADMIN_WEB_URL: ${{ vars.EMORAPY_ADMIN_WEB_URL || vars.PRODUCTION_ADMIN_WEB_URL || 'https://admin.emorapy.com' }}
       DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL || secrets.APP_RELEASE_DATABASE_URL }}
       REDIS_URL: ${{ secrets.PRODUCTION_REDIS_URL }}
       ADMIN_JWT_EXPIRES_IN: ${{ secrets.PRODUCTION_ADMIN_JWT_EXPIRES_IN }}
@@ -742,7 +755,7 @@ jobs:
       LEGACY_RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
       RAILWAY_PROJECT_ID: ${{ vars.PRODUCTION_RAILWAY_PROJECT_ID || secrets.PRODUCTION_RAILWAY_PROJECT_ID }}
       PRODUCTION_RAILWAY_ENVIRONMENT: production
-      PRODUCTION_RAILWAY_SERVICE: ${{ vars.EMORAPY_RAILWAY_SERVICE_NAME || vars.PRODUCTION_RAILWAY_SERVICE || vars.RAILWAY_SERVICE_NAME || 'mother-bear-court' }}
+      PRODUCTION_RAILWAY_SERVICE: ${{ vars.EMORAPY_RAILWAY_SERVICE_NAME || vars.PRODUCTION_RAILWAY_SERVICE || vars.RAILWAY_SERVICE_NAME || 'emorapy-api' }}
       RELEASE_STATE_PATH: temp/production-release-state/previous.json
       ROLLBACK_RESULT_PATH: temp/production-release-rollback/rollback-result.json
       ROLLBACK_TIMEOUT_SECONDS: '300'

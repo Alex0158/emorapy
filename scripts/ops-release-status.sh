@@ -4,13 +4,14 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-# Emorapy Vercel project-domain defaults; legacy Vercel aliases remain available for compatibility.
-DEFAULT_MAIN_WEB_URL="https://emorapy.vercel.app"
-DEFAULT_ADMIN_WEB_URL="https://emorapy-admin.vercel.app"
+# Emorapy canonical production domains; Vercel project domains remain compatibility aliases.
+DEFAULT_MAIN_WEB_URL="https://emorapy.com"
+DEFAULT_ADMIN_WEB_URL="https://admin.emorapy.com"
+DEFAULT_BACKEND_BASE_URL="https://api.emorapy.com"
 
 MAIN_WEB_URL="${MAIN_WEB_URL:-${EMORAPY_MAIN_WEB_URL:-$DEFAULT_MAIN_WEB_URL}}"
 ADMIN_WEB_URL="${ADMIN_WEB_URL:-${EMORAPY_ADMIN_WEB_URL:-$DEFAULT_ADMIN_WEB_URL}}"
-BACKEND_BASE_URL="${BACKEND_BASE_URL:-${EMORAPY_BACKEND_BASE_URL:-}}"
+BACKEND_BASE_URL="${BACKEND_BASE_URL:-${EMORAPY_BACKEND_BASE_URL:-$DEFAULT_BACKEND_BASE_URL}}"
 
 print_section() {
   printf '\n== %s ==\n' "$1"

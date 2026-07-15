@@ -41,6 +41,7 @@
     "ops:release:status": "bash scripts/ops-release-status.sh",
     "ops:release:rollback:test": "node --test scripts/lib/production-release-state.test.mjs",
     "ops:release:email-contract:test": "node --test scripts/lib/email-release-contract.test.mjs scripts/lib/email-message-code.test.mjs",
+    "ops:release:origin-contract:test": "node --test scripts/check-release-origin-contract.test.mjs",
     "ops:release:smoke": "bash scripts/ops-release-smoke.sh",
     "ops:release:gate": "bash scripts/ops-release-gate.sh",
     "ops:release:gate:evidence": "bash scripts/ops-release-gate-evidence.sh",

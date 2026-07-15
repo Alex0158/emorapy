@@ -34,6 +34,7 @@ jobs:
         run: |
           npm run ops:release:rollback:test
           npm run ops:release:email-contract:test
+          npm run ops:release:origin-contract:test
         timeout-minutes: 2
 
   backend:

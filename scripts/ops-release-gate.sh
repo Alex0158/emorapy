@@ -4,9 +4,9 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-# Emorapy Vercel project-domain defaults; legacy Vercel aliases remain available for compatibility.
-DEFAULT_MAIN_WEB_URL="https://emorapy.vercel.app"
-DEFAULT_ADMIN_WEB_URL="https://emorapy-admin.vercel.app"
+# Emorapy canonical production domains; Vercel project domains remain compatibility aliases.
+DEFAULT_MAIN_WEB_URL="https://emorapy.com"
+DEFAULT_ADMIN_WEB_URL="https://admin.emorapy.com"
 
 resolve_emorapy_aliases() {
   MAIN_WEB_URL="${MAIN_WEB_URL:-${EMORAPY_MAIN_WEB_URL:-$DEFAULT_MAIN_WEB_URL}}"
@@ -231,6 +231,9 @@ print_section "Vercel Static Env Gate"
 EXPECTED_API_BASE_URL="${EXPECTED_API_BASE_URL:-${BACKEND_BASE_URL%/}/api/v1}"
 node scripts/check-vercel-static-env.mjs "main web" "$MAIN_WEB_URL" "$EXPECTED_API_BASE_URL"
 node scripts/check-vercel-static-env.mjs "admin web" "$ADMIN_WEB_URL" "$EXPECTED_API_BASE_URL"
+
+print_section "Canonical Origin Gate"
+node scripts/check-release-origin-contract.mjs "$BACKEND_BASE_URL" "$MAIN_WEB_URL" "$ADMIN_WEB_URL"
 
 print_section "Backend Health"
 fetch_required_json "backend /health/live" "${BACKEND_BASE_URL%/}/health/live"

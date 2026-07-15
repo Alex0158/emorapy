@@ -52,9 +52,9 @@ npm run docs:check
 
 | Surface | Platform | Repo evidence | Status check |
 | --- | --- | --- | --- |
-| Main web | Vercel | `.github/workflows/production-deploy-and-verify.yml`, `frontend/vercel.json` | `https://emorapy.vercel.app/version.json` |
-| Admin web | Vercel | `.github/workflows/production-deploy-and-verify.yml`, `frontend-admin/vercel.json` | `https://emorapy-admin.vercel.app/version.json` |
-| Backend API | Railway | `.github/workflows/production-deploy-and-verify.yml`, `railway.json`, `backend/railway.toml` | `BACKEND_BASE_URL=<url> npm run ops:release:status` |
+| Main web | Vercel | `.github/workflows/production-deploy-and-verify.yml`, `frontend/vercel.json` | `https://emorapy.com/version.json` |
+| Admin web | Vercel | `.github/workflows/production-deploy-and-verify.yml`, `frontend-admin/vercel.json` | `https://admin.emorapy.com/version.json` |
+| Backend API | Railway | `.github/workflows/production-deploy-and-verify.yml`, `railway.json`, `backend/railway.toml` | `BACKEND_BASE_URL=https://api.emorapy.com npm run ops:release:status` |
 | Database | Supabase/Postgres via Prisma | `backend/prisma/schema.prisma`, `backend/prisma/migrations`, `supabase/migrations` | `DATABASE_URL=<url> npm run ops:db:status` |
 | CI/source | GitHub/Git | `.github/workflows`, `git` | `gh run view`, `git rev-parse HEAD origin/main` |
 

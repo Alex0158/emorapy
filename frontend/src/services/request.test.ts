@@ -557,6 +557,48 @@ describe('request', () => {
       history.pushState({}, '', '/');
     });
 
+    it('401 INVALID_CREDENTIALS 應使用憑證錯誤文案，不得誤報 session 過期', async () => {
+      history.pushState({}, '', '/auth/login');
+      await expect(
+        onError({
+          response: {
+            status: 401,
+            data: { error: { code: 'INVALID_CREDENTIALS', message: '郵箱或密碼錯誤' } },
+            config: { url: '/auth/login', headers: {}, params: {} },
+          },
+          config: {},
+          message: 'invalid credentials',
+        })
+      ).rejects.toMatchObject({
+        code: 'INVALID_CREDENTIALS',
+        message: 'common.invalidCredentials',
+      });
+      expect(mockToastError).toHaveBeenCalledTimes(1);
+      expect(mockToastError).toHaveBeenCalledWith('common.invalidCredentials');
+      history.pushState({}, '', '/');
+    });
+
+    it('401 EMAIL_NOT_VERIFIED 應交由 Login recovery 顯示，不重複發送 transport toast', async () => {
+      history.pushState({}, '', '/auth/login');
+      await expect(
+        onError({
+          response: {
+            status: 401,
+            data: { error: { code: 'EMAIL_NOT_VERIFIED', message: 'Email not verified' } },
+            config: { url: '/auth/login', headers: {}, params: {} },
+          },
+          config: {},
+          message: 'email not verified',
+        })
+      ).rejects.toMatchObject({
+        code: 'EMAIL_NOT_VERIFIED',
+        message: 'message.emailNotVerified',
+      });
+      expect(mockToastError).not.toHaveBeenCalled();
+      expect(mockTriggerRequestLogout).not.toHaveBeenCalled();
+      history.pushState({}, '', '/');
+    });
+
     it('401 admin API 應清理 admin token，且不清理前台 user token', async () => {
       localStorage.setItem('token', 'front-user-token');
       localStorage.setItem('admin_token', 'admin-token-local');

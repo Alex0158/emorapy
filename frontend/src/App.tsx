@@ -9,6 +9,7 @@ import { router } from './router';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import Loading from './components/common/Loading';
 import NetworkStatus from './components/common/NetworkStatus';
+import { Toaster } from './components/ui/sonner';
 import { logPageLoadTime } from './utils/performance';
 import { initSEO } from './utils/seo';
 import { useAuthStore } from './store/authStore';
@@ -53,6 +54,7 @@ function App() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <NetworkStatus />
+        <Toaster position="top-center" richColors closeButton />
         <Suspense fallback={<Loading />}>
           <RouterProvider router={router} />
         </Suspense>

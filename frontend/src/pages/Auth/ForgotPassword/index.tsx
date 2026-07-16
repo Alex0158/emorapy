@@ -14,6 +14,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import SEO from '@/components/common/SEO';
+import FormFeedback from '@/components/common/FormFeedback';
 import { confirmResetPassword, resetPassword } from '@/services/api/auth';
 import { getErrorMessage } from '@/utils/apiError';
 import { t } from '@/utils/i18n';
@@ -39,6 +40,7 @@ const ForgotPassword = () => {
   const [loading, setLoading] = useState(false);
   const [resetDone, setResetDone] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useMountedRef();
@@ -75,6 +77,7 @@ const ForgotPassword = () => {
 
   const handleSendResetEmail = async (e?: FormEvent) => {
     e?.preventDefault();
+    setFormError(null);
     if (!email) { setErrors({ email: t('auth.login.emailRequired') }); return; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setErrors({ email: t('auth.login.emailInvalid') }); return; }
     if (sendResetLockRef.current) return;
@@ -88,7 +91,7 @@ const ForgotPassword = () => {
       setCurrentStep(1);
     } catch (error: unknown) {
       if (!mountedRef.current) return;
-      toast.error(getErrorMessage(error, 'message.sendResetFail'));
+      setFormError(getErrorMessage(error, 'message.sendResetFail'));
     } finally {
       sendResetLockRef.current = false;
       if (mountedRef.current) setLoading(false);
@@ -105,6 +108,7 @@ const ForgotPassword = () => {
     const newCode = [...verificationCode];
     newCode[index] = value;
     setVerificationCode(newCode);
+    setFormError(null);
     if (value && index < CODE_LENGTH - 1) codeInputRefs.current[index + 1]?.focus();
   };
 
@@ -126,6 +130,7 @@ const ForgotPassword = () => {
 
   const handleResetPassword = async (e: FormEvent) => {
     e.preventDefault();
+    setFormError(null);
     const newErrors: Record<string, string> = {};
     if (!password) newErrors.password = t('auth.forgot.newPasswordRequired');
     else if (password.length < 8) newErrors.password = t('auth.register.passwordMin');
@@ -135,7 +140,7 @@ const ForgotPassword = () => {
     if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return; }
 
     const code = verificationCode.join('');
-    if (code.length !== CODE_LENGTH) { toast.error(t('message.codeFull')); return; }
+    if (code.length !== CODE_LENGTH) { setFormError(t('message.codeFull')); return; }
     if (resetLockRef.current) return;
     resetLockRef.current = true;
     setLoading(true);
@@ -149,7 +154,7 @@ const ForgotPassword = () => {
       }, 2000);
     } catch (error: unknown) {
       if (!mountedRef.current) return;
-      toast.error(getErrorMessage(error, 'message.resetFail'));
+      setFormError(getErrorMessage(error, 'message.resetFail'));
     } finally {
       resetLockRef.current = false;
       if (mountedRef.current) setLoading(false);
@@ -201,6 +206,12 @@ const ForgotPassword = () => {
           ))}
         </div>
 
+        {formError && (
+          <div className="mb-5">
+            <FormFeedback id="forgot-password-form-error" message={formError} />
+          </div>
+        )}
+
         <AnimatePresence mode="wait">
           {currentStep === 0 && (
             <motion.form
@@ -221,7 +232,11 @@ const ForgotPassword = () => {
                     placeholder={t('auth.forgot.emailPlaceholder')}
                     autoComplete="email"
                     value={email}
-                    onChange={(e) => { setEmail(e.target.value); setErrors({}); }}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      setErrors({});
+                      setFormError(null);
+                    }}
                     className="h-12 rounded-md border-input bg-transparent pl-11 text-base focus:border-primary focus:ring-2 focus:ring-primary/15"
                   />
                 </div>
@@ -321,7 +336,11 @@ const ForgotPassword = () => {
                     maxLength={128}
                     autoComplete="new-password"
                     value={password}
-                    onChange={(e) => { setPassword(e.target.value); setErrors((prev) => { const { password: _, ...rest } = prev; return rest; }); }}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      setErrors((prev) => { const { password: _, ...rest } = prev; return rest; });
+                      setFormError(null);
+                    }}
                     className="h-12 rounded-md border-input bg-transparent pl-11 pr-11 text-base focus:border-primary focus:ring-2 focus:ring-primary/15"
                   />
                   <button
@@ -345,7 +364,11 @@ const ForgotPassword = () => {
                     placeholder={t('auth.forgot.confirmNewPlaceholder')}
                     autoComplete="new-password"
                     value={confirmPassword}
-                    onChange={(e) => { setConfirmPassword(e.target.value); setErrors((prev) => { const { confirmPassword: _, ...rest } = prev; return rest; }); }}
+                    onChange={(e) => {
+                      setConfirmPassword(e.target.value);
+                      setErrors((prev) => { const { confirmPassword: _, ...rest } = prev; return rest; });
+                      setFormError(null);
+                    }}
                     className="h-12 rounded-md border-input bg-transparent pl-11 text-base focus:border-primary focus:ring-2 focus:ring-primary/15"
                   />
                 </div>

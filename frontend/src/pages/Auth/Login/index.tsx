@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import SEO from '@/components/common/SEO';
+import FormFeedback from '@/components/common/FormFeedback';
 import { sendVerificationCode, verifyEmail } from '@/services/api/auth';
 import { useAuthStore } from '@/store/authStore';
 import { getErrorMessage } from '@/utils/apiError';
@@ -34,6 +35,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [formError, setFormError] = useState<string | null>(null);
   const [verificationRecovery, setVerificationRecovery] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
   const [verificationError, setVerificationError] = useState<string | null>(null);
@@ -69,6 +71,7 @@ const Login = () => {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    setFormError(null);
     if (!validate()) return;
     if (loginLockRef.current) return;
     loginLockRef.current = true;
@@ -101,10 +104,10 @@ const Login = () => {
           setVerificationRecovery(true);
         } catch (sendErr: unknown) {
           if (!mountedRef.current) return;
-          toast.error(getErrorMessage(sendErr, 'message.resendVerifyFail'));
+          setFormError(getErrorMessage(sendErr, 'message.resendVerifyFail'));
         }
       } else {
-        toast.error(msgStr);
+        setFormError(msgStr);
       }
     } finally {
       loginLockRef.current = false;
@@ -199,6 +202,7 @@ const Login = () => {
           onSubmit={handleSubmit}
           className="space-y-5"
           aria-label={t('auth.login.formLabel')}
+          aria-describedby={formError ? 'login-form-error' : undefined}
           noValidate
         >
           {/* Email */}
@@ -214,7 +218,11 @@ const Login = () => {
                 placeholder={t('auth.login.email')}
                 autoComplete="email"
                 value={email}
-                onChange={(e) => { setEmail(e.target.value); setErrors((prev) => ({ ...prev, email: undefined })); }}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setErrors((prev) => ({ ...prev, email: undefined }));
+                  setFormError(null);
+                }}
                 className="h-12 rounded-md border-input bg-transparent pl-11 text-base placeholder:text-muted-foreground/60 focus:border-primary focus:ring-2 focus:ring-primary/15"
                 aria-invalid={!!errors.email}
                 aria-describedby={errors.email ? 'login-email-error' : undefined}
@@ -240,7 +248,11 @@ const Login = () => {
                 placeholder={t('auth.login.password')}
                 autoComplete="current-password"
                 value={password}
-                onChange={(e) => { setPassword(e.target.value); setErrors((prev) => ({ ...prev, password: undefined })); }}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setErrors((prev) => ({ ...prev, password: undefined }));
+                  setFormError(null);
+                }}
                 className="h-12 rounded-md border-input bg-transparent pl-11 pr-11 text-base placeholder:text-muted-foreground/60 focus:border-primary focus:ring-2 focus:ring-primary/15"
                 aria-invalid={!!errors.password}
                 aria-describedby={errors.password ? 'login-password-error' : undefined}
@@ -282,6 +294,8 @@ const Login = () => {
               {t('auth.login.forgotPassword')}
             </button>
           </div>
+
+          <FormFeedback id="login-form-error" message={formError} />
 
           {/* Submit */}
           <Button

@@ -177,8 +177,9 @@ describe('Login', () => {
       expect(mockLogin).toHaveBeenCalled();
     });
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.loginFail');
+      expect(screen.getByRole('alert')).toHaveTextContent('message.loginFail');
     });
+    expect(mockToastError).not.toHaveBeenCalled();
   });
 
   it('登入失敗後應仍可再次點擊登入，成功後應導航（F09 錯誤恢復：失敗不阻塞重試）', async () => {
@@ -194,7 +195,7 @@ describe('Login', () => {
     fireEvent.change(screen.getByPlaceholderText('auth.login.password'), { target: { value: 'password123' } });
     fireEvent.click(screen.getByText('auth.login.submit'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalled();
+      expect(screen.getByRole('alert')).toBeInTheDocument();
     });
     await waitFor(() => {
       expect(screen.getByText('auth.login.submit')).not.toBeDisabled();
@@ -218,7 +219,7 @@ describe('Login', () => {
     fireEvent.change(screen.getByPlaceholderText('auth.login.password'), { target: { value: 'wrong' } });
     fireEvent.click(screen.getByText('auth.login.submit'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.loginFail');
+      expect(screen.getByRole('alert')).toHaveTextContent('message.loginFail');
     });
     const registerBtn = screen.getByText('auth.login.registerNow');
     expect(registerBtn).toBeInTheDocument();
@@ -237,7 +238,7 @@ describe('Login', () => {
     fireEvent.change(screen.getByPlaceholderText('auth.login.password'), { target: { value: 'wrong' } });
     fireEvent.click(screen.getByText('auth.login.submit'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.loginFail');
+      expect(screen.getByRole('alert')).toHaveTextContent('message.loginFail');
     });
     const forgotBtn = screen.getByText('auth.login.forgotPassword');
     expect(forgotBtn).toBeInTheDocument();
@@ -256,7 +257,7 @@ describe('Login', () => {
     fireEvent.change(screen.getByPlaceholderText('auth.login.password'), { target: { value: 'p' } });
     fireEvent.click(screen.getByText('auth.login.submit'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('common.unauthorized');
+      expect(screen.getByRole('alert')).toHaveTextContent('common.unauthorized');
     });
   });
 
@@ -271,7 +272,7 @@ describe('Login', () => {
     fireEvent.change(screen.getByPlaceholderText('auth.login.password'), { target: { value: 'p' } });
     fireEvent.click(screen.getByText('auth.login.submit'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
+      expect(screen.getByRole('alert')).toHaveTextContent('common.serverError');
     });
   });
 
@@ -286,7 +287,7 @@ describe('Login', () => {
     fireEvent.change(screen.getByPlaceholderText('auth.login.password'), { target: { value: 'password123' } });
     fireEvent.click(screen.getByText('auth.login.submit'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
+      expect(screen.getByRole('alert')).toHaveTextContent('common.forbidden');
     });
   });
 
@@ -301,7 +302,7 @@ describe('Login', () => {
     fireEvent.change(screen.getByPlaceholderText('auth.login.password'), { target: { value: 'password123' } });
     fireEvent.click(screen.getByText('auth.login.submit'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
+      expect(screen.getByRole('alert')).toHaveTextContent('common.forbidden');
     });
   });
 
@@ -446,7 +447,7 @@ describe('Login', () => {
       expect(mockToastWarning).toHaveBeenCalledWith('message.emailNotVerified');
     });
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
+      expect(screen.getByRole('alert')).toHaveTextContent('common.serverError');
     });
   });
 
@@ -467,7 +468,7 @@ describe('Login', () => {
       expect(mockToastWarning).toHaveBeenCalledWith('message.emailNotVerified');
     });
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
+      expect(screen.getByRole('alert')).toHaveTextContent('common.serverError');
     });
   });
 
@@ -488,7 +489,7 @@ describe('Login', () => {
       expect(mockToastWarning).toHaveBeenCalledWith('message.emailNotVerified');
     });
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('common.rateLimit');
+      expect(screen.getByRole('alert')).toHaveTextContent('common.rateLimit');
     });
   });
 
@@ -506,7 +507,7 @@ describe('Login', () => {
     fireEvent.change(screen.getByPlaceholderText('auth.login.password'), { target: { value: 'password123' } });
     fireEvent.click(screen.getByText('auth.login.submit'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.resendVerifyFail');
+      expect(screen.getByRole('alert')).toHaveTextContent('message.resendVerifyFail');
     });
     const registerBtn = screen.getByText('auth.login.registerNow');
     expect(registerBtn).toBeInTheDocument();

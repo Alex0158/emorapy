@@ -128,13 +128,12 @@ export const copyToClipboard = async (text: string): Promise<boolean> => {
     document.body.appendChild(textArea);
     textArea.select();
     try {
-      document.execCommand('copy');
+      const copied = document.execCommand('copy');
       document.body.removeChild(textArea);
-      return true;
+      return copied;
     } catch {
       document.body.removeChild(textArea);
       return false;
     }
   }
 };
-

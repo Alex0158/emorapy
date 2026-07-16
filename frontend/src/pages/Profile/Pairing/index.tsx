@@ -30,6 +30,7 @@ import ConsentModal from '@/components/business/Interview/ConsentModal';
 import { usePsychProfileStore } from '@/store/psychProfileStore';
 import { useInterviewStore } from '@/store/interviewStore';
 import { getErrorMessage } from '@/utils/apiError';
+import { copyToClipboard } from '@/utils/helpers';
 import { getInterviewResumeNavigationPath } from '@/utils/interviewResume';
 import { t } from '@/utils/i18n';
 
@@ -168,8 +169,11 @@ const ProfilePairing = () => {
     finally { joinLockRef.current = false; setJoining(false); }
   };
 
-  const handleCopyCode = () => {
-    if (pairing?.invite_code) { navigator.clipboard.writeText(pairing.invite_code); toast.success(t('message.copyInviteSuccess')); }
+  const handleCopyCode = async () => {
+    if (!pairing?.invite_code) return;
+    const copied = await copyToClipboard(pairing.invite_code);
+    if (copied) toast.success(t('message.copyInviteSuccess'));
+    else toast.error(t('common.copyFail'));
   };
 
   const handleCancelPairing = async () => {

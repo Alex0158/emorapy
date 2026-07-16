@@ -79,7 +79,7 @@ function getHttpStatusMessageKey(code: string): string | null {
   return null;
 }
 
-function getCodeMessage(code: unknown): string | null {
+export function getApiErrorMessageForCode(code: unknown): string | null {
   if (typeof code !== 'string') return null;
   const normalized = code.trim();
   if (normalized.length === 0) return null;
@@ -114,7 +114,8 @@ export function getErrorMessage(error: unknown, fallbackKey?: string): string {
   if (nestedVisibleMessage) {
     return nestedVisibleMessage;
   }
-  const codeMessage = getCodeMessage(topLevel?.code) ?? getCodeMessage(nested?.code);
+  const codeMessage =
+    getApiErrorMessageForCode(topLevel?.code) ?? getApiErrorMessageForCode(nested?.code);
   if (codeMessage) {
     return codeMessage;
   }

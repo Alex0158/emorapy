@@ -37,6 +37,7 @@ import {
   shouldSuppressNotFoundToast,
 } from '@/services/requestPolicy';
 import { sessionStorage as quickSessionStorage } from '@/utils/storage';
+import { getApiErrorMessageForCode } from '@/utils/apiError';
 
 // 創建axios實例
 const request: AxiosInstance = axios.create({
@@ -121,6 +122,12 @@ function getHttpErrorFallbackMessage(
 ): string {
   if (isRecoverableSessionErrorCode(code)) {
     return t('error.session.expiredHint');
+  }
+  if (status === 401) {
+    const codeMessage = getApiErrorMessageForCode(code);
+    if (codeMessage) {
+      return codeMessage;
+    }
   }
   switch (status) {
     case 400:
@@ -306,6 +313,12 @@ request.interceptors.response.use(
                 toast.error(t('error.session.expiredHint'));
               }
             }
+            break;
+          }
+
+          // 未驗證信箱由 Login page 顯示 warning 並切入可恢復驗證流程；
+          // transport 不重複發送同一 failure toast，也不把它當作既有 session 失效。
+          if (code === 'EMAIL_NOT_VERIFIED') {
             break;
           }
 

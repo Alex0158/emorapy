@@ -188,5 +188,17 @@ describe('helpers', () => {
       expect(removeChild).toHaveBeenCalled();
       expect(result).toBe(false);
     });
+    it('降級 execCommand 回傳 false 時不得誤報成功', async () => {
+      vi.stubGlobal('navigator', { clipboard: { writeText: vi.fn().mockRejectedValue(new Error('denied')) } });
+      const removeChild = vi.fn();
+      vi.stubGlobal('document', {
+        createElement: () => ({ value: '', style: {}, select: vi.fn() }),
+        body: { appendChild: vi.fn(), removeChild },
+        execCommand: vi.fn().mockReturnValue(false),
+      });
+      const result = await copyToClipboard('x');
+      expect(removeChild).toHaveBeenCalled();
+      expect(result).toBe(false);
+    });
   });
 });

@@ -157,8 +157,9 @@ describe('Register', () => {
     });
     fireEvent.click(screen.getByText('auth.register.sendCode'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.sendCodeFail');
+      expect(screen.getByRole('alert')).toHaveTextContent('message.sendCodeFail');
     });
+    expect(mockToastError).not.toHaveBeenCalled();
     expect(screen.getByText('auth.register.sendCode')).toBeInTheDocument();
   });
 
@@ -172,7 +173,7 @@ describe('Register', () => {
     });
     fireEvent.click(screen.getByText('auth.register.sendCode'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.sendCodeFail');
+      expect(screen.getByRole('alert')).toHaveTextContent('message.sendCodeFail');
     });
     await waitFor(() => {
       expect(screen.getByText('auth.register.sendCode')).not.toBeDisabled();
@@ -193,7 +194,7 @@ describe('Register', () => {
     });
     fireEvent.click(screen.getByText('auth.register.sendCode'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.sendCodeFail');
+      expect(screen.getByRole('alert')).toHaveTextContent('message.sendCodeFail');
     });
     const loginBtn = screen.getByText('auth.register.loginNow');
     expect(loginBtn).toBeInTheDocument();
@@ -209,7 +210,7 @@ describe('Register', () => {
     });
     fireEvent.click(screen.getByText('auth.register.sendCode'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.sendCodeFail');
+      expect(screen.getByRole('alert')).toHaveTextContent('message.sendCodeFail');
     });
   });
 
@@ -221,7 +222,7 @@ describe('Register', () => {
     });
     fireEvent.click(screen.getByText('auth.register.sendCode'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
+      expect(screen.getByRole('alert')).toHaveTextContent('common.serverError');
     });
   });
 
@@ -233,7 +234,7 @@ describe('Register', () => {
     });
     fireEvent.click(screen.getByText('auth.register.sendCode'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
+      expect(screen.getByRole('alert')).toHaveTextContent('common.forbidden');
     });
   });
 
@@ -287,7 +288,7 @@ describe('Register', () => {
     }
     fireEvent.click(screen.getByText('auth.register.verifyAndContinue'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('common.validationError');
+      expect(screen.getByRole('alert')).toHaveTextContent('common.validationError');
     });
   });
 
@@ -301,7 +302,7 @@ describe('Register', () => {
     }
     fireEvent.click(screen.getByText('auth.register.verifyAndContinue'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.verifyFail');
+      expect(screen.getByRole('alert')).toHaveTextContent('message.verifyFail');
     });
   });
 
@@ -315,7 +316,7 @@ describe('Register', () => {
     }
     fireEvent.click(screen.getByText('auth.register.verifyAndContinue'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
+      expect(screen.getByRole('alert')).toHaveTextContent('common.serverError');
     });
   });
 
@@ -329,7 +330,7 @@ describe('Register', () => {
     }
     fireEvent.click(screen.getByText('auth.register.verifyAndContinue'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
+      expect(screen.getByRole('alert')).toHaveTextContent('common.forbidden');
     });
   });
 
@@ -343,7 +344,7 @@ describe('Register', () => {
     }
     fireEvent.click(screen.getByText('auth.register.verifyAndContinue'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
+      expect(screen.getByRole('alert')).toHaveTextContent('common.forbidden');
     });
   });
 
@@ -359,7 +360,7 @@ describe('Register', () => {
     }
     fireEvent.click(screen.getByText('auth.register.verifyAndContinue'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.verifyFail');
+      expect(screen.getByRole('alert')).toHaveTextContent('message.verifyFail');
     });
     await waitFor(() => {
       expect(screen.getByText('auth.register.verifyAndContinue')).not.toBeDisabled();
@@ -382,7 +383,7 @@ describe('Register', () => {
     }
     fireEvent.click(screen.getByText('auth.register.verifyAndContinue'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalled();
+      expect(screen.getByRole('alert')).toBeInTheDocument();
     });
     const loginBtn = screen.getByText('auth.register.loginNow');
     expect(loginBtn).toBeInTheDocument();
@@ -529,7 +530,7 @@ describe('Register', () => {
         expect(screen.getByText('auth.register.verifyAndContinue')).toBeInTheDocument();
       });
       expect(screen.getByText('auth.register.resendCode')).not.toBeDisabled();
-      expect(mockToastError).toHaveBeenCalledWith('common.validationError');
+      expect(screen.getByRole('alert')).toHaveTextContent('common.validationError');
     },
   );
 
@@ -689,7 +690,7 @@ describe('Register', () => {
     });
     fireEvent.click(screen.getByText('auth.register.finishRegister'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.registerFail');
+      expect(screen.getByRole('alert')).toHaveTextContent('message.registerFail');
     });
   });
 
@@ -706,7 +707,7 @@ describe('Register', () => {
     });
     fireEvent.click(screen.getByText('auth.register.finishRegister'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalled();
+      expect(screen.getByRole('alert')).toBeInTheDocument();
     });
     await waitFor(() => {
       expect(screen.getByText('auth.register.finishRegister')).not.toBeDisabled();
@@ -730,7 +731,7 @@ describe('Register', () => {
     });
     fireEvent.click(screen.getByText('auth.register.finishRegister'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalled();
+      expect(screen.getByRole('alert')).toBeInTheDocument();
     });
     const loginBtn = screen.getByText('auth.register.loginNow');
     expect(loginBtn).toBeInTheDocument();
@@ -749,7 +750,7 @@ describe('Register', () => {
     });
     fireEvent.click(screen.getByText('auth.register.finishRegister'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.registerFail');
+      expect(screen.getByRole('alert')).toHaveTextContent('message.registerFail');
     });
   });
 
@@ -764,7 +765,7 @@ describe('Register', () => {
     });
     fireEvent.click(screen.getByText('auth.register.finishRegister'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.registerFail');
+      expect(screen.getByRole('alert')).toHaveTextContent('message.registerFail');
     });
   });
 
@@ -779,7 +780,7 @@ describe('Register', () => {
     });
     fireEvent.click(screen.getByText('auth.register.finishRegister'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
+      expect(screen.getByRole('alert')).toHaveTextContent('common.forbidden');
     });
     expect(mockNavigate).not.toHaveBeenCalledWith('/profile/pairing');
   });
@@ -795,7 +796,7 @@ describe('Register', () => {
     });
     fireEvent.click(screen.getByText('auth.register.finishRegister'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
+      expect(screen.getByRole('alert')).toHaveTextContent('common.forbidden');
     });
   });
 

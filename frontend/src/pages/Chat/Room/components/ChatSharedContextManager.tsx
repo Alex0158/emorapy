@@ -127,6 +127,8 @@ export default function ChatSharedContextManager({
                 </label>
                 <textarea
                   id={`capsule-summary-${capsule.id}`}
+                  aria-label={t('chat.capsule.summaryLabel')}
+                  autoComplete="off"
                   value={editedSummary}
                   maxLength={2000}
                   onChange={(event) => setEditedSummary(event.target.value)}

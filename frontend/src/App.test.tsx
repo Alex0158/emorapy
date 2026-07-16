@@ -37,6 +37,9 @@ vi.mock("./components/common/ErrorBoundary", () => ({
 }));
 vi.mock("./components/common/Loading", () => ({ default: () => null }));
 vi.mock("./components/common/NetworkStatus", () => ({ default: () => null }));
+vi.mock("./components/ui/sonner", () => ({
+	Toaster: () => <div data-testid="feedback-toaster" />,
+}));
 vi.mock("./utils/performance", () => ({
 	logPageLoadTime: mockLogPageLoadTime,
 }));
@@ -69,6 +72,7 @@ describe("App locale lifecycle", () => {
 	it("切換語言時更新 SEO，但不重建 Router 或重跑 auth check", () => {
 		render(<App />);
 		expect(screen.getByTestId("router-provider")).toBeInTheDocument();
+		expect(screen.getByTestId("feedback-toaster")).toBeInTheDocument();
 		expect(routerLifecycle.mounts).toBe(1);
 		expect(mockCheckAuth).toHaveBeenCalledOnce();
 		expect(mockInitSEO).toHaveBeenCalledOnce();

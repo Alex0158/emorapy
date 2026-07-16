@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import SEO from '@/components/common/SEO';
+import FormFeedback from '@/components/common/FormFeedback';
 import { sendVerificationCode, verifyRegistrationCode } from '@/services/api/auth';
 import { useAuthStore } from '@/store/authStore';
 import { getErrorCode, getErrorMessage } from '@/utils/apiError';
@@ -69,6 +70,7 @@ const Register = () => {
   const [sendingCode, setSendingCode] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState<string | null>(null);
   const mountedRef = useMountedRef();
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const codeInputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -113,6 +115,7 @@ const Register = () => {
 
   const handleSendCode = async (e?: FormEvent) => {
     e?.preventDefault();
+    setFormError(null);
     if (!email) { setErrors({ email: t('auth.register.emailRequired') }); return; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setErrors({ email: t('auth.register.emailInvalid') }); return; }
     if (sendCodeLockRef.current) return;
@@ -130,7 +133,7 @@ const Register = () => {
       setCurrentStep(1);
     } catch (error: unknown) {
       if (mountedRef.current && requestId === verificationRequestRef.current) {
-        toast.error(getErrorMessage(error, 'message.sendCodeFail'));
+        setFormError(getErrorMessage(error, 'message.sendCodeFail'));
       }
     } finally {
       sendCodeLockRef.current = false;
@@ -155,6 +158,7 @@ const Register = () => {
     setVerificationCode(Array(CODE_LENGTH).fill(''));
     stopCountdown();
     setErrors({});
+    setFormError(null);
     setCurrentStep(0);
   };
 
@@ -163,6 +167,7 @@ const Register = () => {
     const newCode = [...verificationCode];
     newCode[index] = value;
     setVerificationCode(newCode);
+    setFormError(null);
     if (value && index < CODE_LENGTH - 1) codeInputRefs.current[index + 1]?.focus();
   };
 
@@ -184,11 +189,12 @@ const Register = () => {
 
   const handleVerifyCode = async () => {
     const code = verificationCode.join('');
-    if (code.length !== CODE_LENGTH) { toast.error(t('message.codeFull')); return; }
+    if (code.length !== CODE_LENGTH) { setFormError(t('message.codeFull')); return; }
     if (verifyCodeLockRef.current) return;
     verifyCodeLockRef.current = true;
     const requestId = ++verificationRequestRef.current;
     setVerifying(true);
+    setFormError(null);
     try {
       const result = await verifyRegistrationCode(email, code);
       if (!mountedRef.current || requestId !== verificationRequestRef.current) return;
@@ -203,7 +209,7 @@ const Register = () => {
           setVerificationCode(Array(CODE_LENGTH).fill(''));
           codeInputRefs.current[0]?.focus();
         }
-        toast.error(getErrorMessage(error, 'message.verifyFail'));
+        setFormError(getErrorMessage(error, 'message.verifyFail'));
       }
     } finally {
       verifyCodeLockRef.current = false;
@@ -213,6 +219,7 @@ const Register = () => {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    setFormError(null);
     const newErrors: Record<string, string> = {};
     if (!password) newErrors.password = t('auth.login.passwordRequired');
     else if (password.length < 8) newErrors.password = t('auth.register.passwordMin');
@@ -224,7 +231,7 @@ const Register = () => {
       setVerificationCode(Array(CODE_LENGTH).fill(''));
       stopCountdown();
       setCurrentStep(1);
-      toast.error(t('message.verifyFail'));
+      setFormError(t('message.verifyFail'));
       return;
     }
 
@@ -248,7 +255,7 @@ const Register = () => {
           stopCountdown();
           setCurrentStep(1);
         }
-        toast.error(getErrorMessage(error, 'message.registerFail'));
+        setFormError(getErrorMessage(error, 'message.registerFail'));
       }
     } finally { registerLockRef.current = false; }
   };
@@ -324,6 +331,12 @@ const Register = () => {
           })}
         </ol>
 
+        {formError && (
+          <div className="mb-5">
+            <FormFeedback id="register-form-error" message={formError} />
+          </div>
+        )}
+
         {/* Steps content */}
         <AnimatePresence mode="wait">
           {currentStep === 0 && (
@@ -357,6 +370,7 @@ const Register = () => {
                       setRegistrationProof(null);
                       setVerificationCode(Array(CODE_LENGTH).fill(''));
                       setErrors({});
+                      setFormError(null);
                     }}
                     className="h-12 rounded-md border-input bg-transparent pl-11 text-base focus:border-primary focus:ring-2 focus:ring-primary/15"
                   />
@@ -510,7 +524,11 @@ const Register = () => {
                     value={password}
                     aria-invalid={Boolean(errors.password)}
                     aria-describedby={errors.password ? 'register-password-error' : undefined}
-                    onChange={(e) => { setPassword(e.target.value); setErrors((prev) => { const { password: _, ...rest } = prev; return rest; }); }}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      setErrors((prev) => { const { password: _, ...rest } = prev; return rest; });
+                      setFormError(null);
+                    }}
                     className="h-12 rounded-md border-input bg-transparent pl-11 pr-11 text-base focus:border-primary focus:ring-2 focus:ring-primary/15"
                   />
                   <button
@@ -552,7 +570,11 @@ const Register = () => {
                     value={confirmPassword}
                     aria-invalid={Boolean(errors.confirmPassword)}
                     aria-describedby={errors.confirmPassword ? 'register-confirm-password-error' : undefined}
-                    onChange={(e) => { setConfirmPassword(e.target.value); setErrors((prev) => { const { confirmPassword: _, ...rest } = prev; return rest; }); }}
+                    onChange={(e) => {
+                      setConfirmPassword(e.target.value);
+                      setErrors((prev) => { const { confirmPassword: _, ...rest } = prev; return rest; });
+                      setFormError(null);
+                    }}
                     className="h-12 rounded-md border-input bg-transparent pl-11 text-base focus:border-primary focus:ring-2 focus:ring-primary/15"
                   />
                 </div>

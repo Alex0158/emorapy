@@ -37,6 +37,7 @@ export default function AdminLoginPage() {
 	const { loginMutation, logout } = useAdminSession();
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
+	const [loginError, setLoginError] = useState<string | null>(null);
 	const requestedPath = getRequestedPath(location.state);
 
 	if (adminMeQuery.data) {
@@ -53,6 +54,7 @@ export default function AdminLoginPage() {
 
 	const handleSubmit = async (event: React.FormEvent) => {
 		event.preventDefault();
+		setLoginError(null);
 		try {
 			const result = await loginMutation.mutateAsync({ email, password });
 			toast.success(t("admin.login.success"));
@@ -61,7 +63,9 @@ export default function AdminLoginPage() {
 				{ replace: true },
 			);
 		} catch {
-			toast.error(t("admin.login.failed"));
+			const message = t("admin.login.failed");
+			setLoginError(message);
+			toast.error(message);
 		}
 	};
 
@@ -172,7 +176,22 @@ export default function AdminLoginPage() {
 								{t("admin.shell.verifyingIdentity")}
 							</div>
 						) : (
-							<form onSubmit={handleSubmit} className="mt-8 space-y-5">
+							<form
+								onSubmit={handleSubmit}
+								className="mt-8 space-y-5"
+								aria-describedby={loginError ? "admin-login-error" : undefined}
+							>
+								{loginError && (
+									<div
+										id="admin-login-error"
+										role="alert"
+										aria-live="assertive"
+										className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
+									>
+										<AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+										<p>{loginError}</p>
+									</div>
+								)}
 								<div className="space-y-2">
 									<Label htmlFor="email">{t("admin.login.email")}</Label>
 									<Input
@@ -182,7 +201,10 @@ export default function AdminLoginPage() {
 										autoComplete="email"
 										required
 										value={email}
-										onChange={(event) => setEmail(event.target.value)}
+										onChange={(event) => {
+											setEmail(event.target.value);
+											setLoginError(null);
+										}}
 										className="h-11 bg-surface"
 									/>
 								</div>
@@ -194,7 +216,10 @@ export default function AdminLoginPage() {
 										autoComplete="current-password"
 										required
 										value={password}
-										onChange={(event) => setPassword(event.target.value)}
+										onChange={(event) => {
+											setPassword(event.target.value);
+											setLoginError(null);
+										}}
 										className="h-11 bg-surface"
 									/>
 								</div>

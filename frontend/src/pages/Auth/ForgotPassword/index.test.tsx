@@ -126,8 +126,9 @@ describe('ForgotPassword', () => {
     });
     fireEvent.click(screen.getByText('auth.forgot.sendResetEmail'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.sendResetFail');
+      expect(screen.getByRole('alert')).toHaveTextContent('message.sendResetFail');
     });
+    expect(mockToastError).not.toHaveBeenCalled();
     expect(screen.getByText('auth.forgot.sendResetEmail')).toBeInTheDocument();
   });
 
@@ -141,7 +142,7 @@ describe('ForgotPassword', () => {
     });
     fireEvent.click(screen.getByText('auth.forgot.sendResetEmail'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.sendResetFail');
+      expect(screen.getByRole('alert')).toHaveTextContent('message.sendResetFail');
     });
     fireEvent.click(screen.getByText('auth.forgot.sendResetEmail'));
     await waitFor(() => {
@@ -159,7 +160,7 @@ describe('ForgotPassword', () => {
     });
     fireEvent.click(screen.getByText('auth.forgot.sendResetEmail'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.sendResetFail');
+      expect(screen.getByRole('alert')).toHaveTextContent('message.sendResetFail');
     });
     const backBtn = screen.getByText('auth.forgot.backToLogin');
     expect(backBtn).toBeInTheDocument();
@@ -175,7 +176,7 @@ describe('ForgotPassword', () => {
     });
     fireEvent.click(screen.getByText('auth.forgot.sendResetEmail'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.sendResetFail');
+      expect(screen.getByRole('alert')).toHaveTextContent('message.sendResetFail');
     });
   });
 
@@ -187,7 +188,7 @@ describe('ForgotPassword', () => {
     });
     fireEvent.click(screen.getByText('auth.forgot.sendResetEmail'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
+      expect(screen.getByRole('alert')).toHaveTextContent('common.serverError');
     });
   });
 
@@ -199,7 +200,7 @@ describe('ForgotPassword', () => {
     });
     fireEvent.click(screen.getByText('auth.forgot.sendResetEmail'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
+      expect(screen.getByRole('alert')).toHaveTextContent('common.forbidden');
     });
   });
 
@@ -211,7 +212,7 @@ describe('ForgotPassword', () => {
     });
     fireEvent.click(screen.getByText('auth.forgot.sendResetEmail'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
+      expect(screen.getByRole('alert')).toHaveTextContent('common.forbidden');
     });
   });
 
@@ -369,7 +370,7 @@ describe('ForgotPassword', () => {
     });
     fireEvent.click(screen.getByText('auth.forgot.resetButton'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.resetFail');
+      expect(screen.getByRole('alert')).toHaveTextContent('message.resetFail');
     });
   });
 
@@ -384,7 +385,7 @@ describe('ForgotPassword', () => {
     });
     fireEvent.click(screen.getByText('auth.forgot.resetButton'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.resetFail');
+      expect(screen.getByRole('alert')).toHaveTextContent('message.resetFail');
     });
   });
 
@@ -399,7 +400,7 @@ describe('ForgotPassword', () => {
     });
     fireEvent.click(screen.getByText('auth.forgot.resetButton'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('common.serverError');
+      expect(screen.getByRole('alert')).toHaveTextContent('common.serverError');
     });
   });
 
@@ -414,7 +415,7 @@ describe('ForgotPassword', () => {
     });
     fireEvent.click(screen.getByText('auth.forgot.resetButton'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
+      expect(screen.getByRole('alert')).toHaveTextContent('common.forbidden');
     });
   });
 
@@ -429,7 +430,7 @@ describe('ForgotPassword', () => {
     });
     fireEvent.click(screen.getByText('auth.forgot.resetButton'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('common.forbidden');
+      expect(screen.getByRole('alert')).toHaveTextContent('common.forbidden');
     });
   });
 
@@ -444,7 +445,7 @@ describe('ForgotPassword', () => {
     });
     fireEvent.click(screen.getByText('auth.forgot.resetButton'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalled();
+      expect(screen.getByRole('alert')).toBeInTheDocument();
     });
     const backBtn = screen.getByText('auth.forgot.backToLogin');
     expect(backBtn).toBeInTheDocument();
@@ -465,7 +466,7 @@ describe('ForgotPassword', () => {
     });
     fireEvent.click(screen.getByText('auth.forgot.resetButton'));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('message.resetFail');
+      expect(screen.getByRole('alert')).toHaveTextContent('message.resetFail');
     });
     fireEvent.click(screen.getByText('auth.forgot.resetButton'));
     await waitFor(() => {

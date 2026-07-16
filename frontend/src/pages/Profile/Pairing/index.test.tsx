@@ -21,6 +21,7 @@ const mockUpsertRelationshipProfile = vi.fn();
 const mockToastError = vi.fn();
 const mockToastSuccess = vi.fn();
 const mockToastWarning = vi.fn();
+const mockCopyToClipboard = vi.fn();
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
   return { ...actual, useNavigate: () => mockNavigate };
@@ -68,6 +69,9 @@ vi.mock('@/components/common/ConfirmModal', () => ({
     ) : null,
 }));
 vi.mock('@/utils/i18n', () => ({ t: (key: string) => key }));
+vi.mock('@/utils/helpers', () => ({
+  copyToClipboard: (...args: unknown[]) => mockCopyToClipboard(...args),
+}));
 vi.mock('sonner', () => ({
   toast: {
     error: (...args: unknown[]) => mockToastError(...args),
@@ -104,6 +108,34 @@ describe('ProfilePairing', () => {
     mockCheckResume.mockResolvedValue({ has_pending: false });
     mockStartSession.mockResolvedValue({ id: 'test-session-id' });
     mockGiveConsent.mockResolvedValue(undefined);
+    mockCopyToClipboard.mockReset();
+    mockCopyToClipboard.mockResolvedValue(true);
+  });
+
+  it('複製邀請碼失敗時不得顯示成功訊息', async () => {
+    mockGetPairingStatus.mockResolvedValue({
+      id: 'pair-pending',
+      status: 'pending',
+      pairing_type: 'normal',
+      invite_code: 'INVITE1',
+      created_at: new Date().toISOString(),
+      user1: { id: 'u1', nickname: 'A' },
+    });
+    mockCopyToClipboard.mockResolvedValue(false);
+
+    render(
+      <MemoryRouter>
+        <ProfilePairing />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'pairing.copy' }));
+
+    await waitFor(() => {
+      expect(mockCopyToClipboard).toHaveBeenCalledWith('INVITE1');
+      expect(mockToastError).toHaveBeenCalledWith('common.copyFail');
+    });
+    expect(mockToastSuccess).not.toHaveBeenCalledWith('message.copyInviteSuccess');
   });
 
   it('應掛載且不崩潰', async () => {
